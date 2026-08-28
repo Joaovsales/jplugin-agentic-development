@@ -1,6 +1,6 @@
 ---
 name: security-scan
-description: OWASP-focused security audit on recently changed files. Use after code changes to check for vulnerabilities.
+description: "OWASP-focused security audit scoped to the files changed in this session, worked through an explicit per-category checklist (input validation, authn/authz, secrets, crypto, dependencies, error handling). Use before committing or deploying changed code. Triggers on: 'security scan', 'check for vulnerabilities', 'any security issues in what I changed', 'is this safe to ship', 'OWASP audit'."
 disable-model-invocation: false
 harness: universal
 ---
