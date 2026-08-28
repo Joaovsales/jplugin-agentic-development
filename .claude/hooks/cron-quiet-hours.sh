@@ -17,12 +17,29 @@
 #
 # Honors CRON_QUIET_OVERRIDE=1 to force noisy reporting (useful for on-call
 # triage when you WANT notifications even during an active session).
+#
+# Sentinel staleness: session-stop.sh is what removes the sentinel, so a
+# crashed/force-killed session (or a harness that never fires SessionStop)
+# leaves it behind forever. Left unchecked, that permanently suppresses cron
+# failure reporting -- exactly the silent-failure state Observability
+# Discipline exists to prevent. A sentinel older than SENTINEL_MAX_AGE is
+# treated as stale and ignored, so quiet mode self-heals without depending on
+# SessionStop having run.
 
 SENTINEL="${CLAUDE_SESSION_SENTINEL:-/tmp/claude-code-session-active}"
+SENTINEL_MAX_AGE="${CLAUDE_SESSION_SENTINEL_MAX_AGE:-86400}"  # 24h
+
+sentinel_is_stale() {
+  local mtime age
+  mtime=$(stat -c %Y "$SENTINEL" 2>/dev/null || stat -f %m "$SENTINEL" 2>/dev/null || echo 0)
+  age=$(( $(date +%s) - mtime ))
+  [ "$age" -gt "$SENTINEL_MAX_AGE" ]
+}
 
 cron_should_suppress() {
   [ "${CRON_QUIET_OVERRIDE:-0}" = "1" ] && return 1
-  [ -f "$SENTINEL" ]
+  [ -f "$SENTINEL" ] || return 1
+  ! sentinel_is_stale
 }
 
 # Failure-only reporting helper per the project's Observability Discipline.
