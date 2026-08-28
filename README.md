@@ -269,6 +269,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/start-qa` | Discover project config, restart app, launch browser, background smoke tests |
 | `/wrap-up-session` | Parallel code review → verify → merge worktree → sync learnings → run tests → push |
 | `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs |
+| `/eval` | Blinded A/B eval of a skill, prompt, or workflow change: sanitized worktrees, organic prompts, transcript-based grading |
 | `/sync` | Pull latest skills, hooks, agents from template repo into current project |
 | `/folder-context-optimization` | Sweep a folder for legacy/unused files, propose archival |
 

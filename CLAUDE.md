@@ -426,6 +426,7 @@ Rules:
 | `/start-qa` | Restart app + health check + browser with log monitoring |
 | `/wrap-up-session` | Learnings, tests, reviews, commit, push |
 | `/writing-skills` | Author new skills with proper structure |
+| `/eval` | Blinded A/B eval of a skill or prompt change before promoting it |
 | `/sync` | Pull latest skills, hooks, agents from template repo |
 | `/folder-context-optimization` | Sweep folder for legacy/unused files |
 | `/graphify` | Build a navigable code knowledge graph (clustered communities, HTML + JSON + report) |
