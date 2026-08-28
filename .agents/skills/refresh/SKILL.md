@@ -1,6 +1,6 @@
 ---
 name: refresh
-description: Context reset — snapshot working state to disk, then hand off to a fresh context that rebuilds from the checkpoint. Backstop for very long tasks when context fills.
+description: "Context reset for a session running out of room: snapshot working state to disk, then continue the work in a fresh context rebuilt from that snapshot. Distinct from /checkpoint, which saves progress and stops — reach for /refresh when the work continues but the context must be recycled. Triggers on: 'this conversation is getting too long', 'you are losing track', 'start clean and keep going', 'context is full', 'reset and continue', or when /build's architectural circuit breaker trips."
 disable-model-invocation: false
 ---
 

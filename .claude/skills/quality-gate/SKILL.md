@@ -1,6 +1,6 @@
 ---
 name: quality-gate
-description: "3-phase post-build quality review: structural quality (simplify), AI anti-patterns (deslop), APOSD design review. Run after all build tasks complete."
+description: "The post-build review gate: run when all tasks in tasks/todo.md are done, before wrap-up or commit. Three sequential phases — structural quality and reuse (simplify), AI anti-pattern cleanup (deslop), and APOSD design audit — emitting four-axis findings (severity, confidence, autofix_class, owner). Triggers on: 'review before I call it done', 'thorough review of what I just built', 'I finished the tasks, check the code', 'run the quality gate', 'post-build review'."
 argument-hint: "[--scope <path>]"
 ---
 
