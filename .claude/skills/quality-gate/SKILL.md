@@ -211,6 +211,14 @@ echo rather than a witness.
 
 ---
 
+## Task Reporting
+
+Findings that outlive this run belong on the task, not in the transcript. When
+the project tracks tasks externally, report them through `/task-registry`
+(comment on the task) rather than calling a provider directly. Findings that were
+auto-applied need no report; the ones that matter here are `owner: human` and
+`owner: release`.
+
 ## Output
 
 ```

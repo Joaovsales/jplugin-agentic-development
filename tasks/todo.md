@@ -181,3 +181,42 @@
   while the directory in this repo is `.claude/deployments/` — a pre-existing mismatch,
   left alone under the orphan rule rather than folded into this change. Lightpanda `0.3.7`
   is published upstream; the pin stays at `0.3.6`, the version AC-4 evidence was taken on.
+
+---
+
+## Plan: Provider-Agnostic Task Registry
+> Spec: specs/task-registry.md
+> Branch: feat/task-registry-provider-adapters off master @ 2022b10
+> Note: implementation lives under `.agents/skills/task-registry/scripts/` because
+> `tests/test-syncable-paths.sh` INVARIANT 2 requires every skill-named asset to sit
+> inside a syncable path — repo-root `scripts/` is not one.
+
+[x] TDD: `tests/test-task-registry.sh` model block — canonical kinds/statuses/priorities accepted, unknown value rejected by name, IDs never provider numbers -> `scripts/registry/model.py`
+[x] TDD: config block — ini config parsed from `docs/task-tracking.md`, pointer indirection from AGENTS.md/CLAUDE.md/.claude/project.md, selection precedence (explicit > github+gh auth > local; jira never implicit) -> `scripts/registry/config.py`
+[x] TDD: index block — compact row parse/render, `<!-- task-id: -->` identity, legacy checkbox-only rows, malformed row reported with file:line, byte-preserving rewrite -> `scripts/registry/index.py`
+[x] TDD: provider contract block run against all three adapters — capabilities declared, write gate refuses without `--apply`, dependency reported native vs inferred -> `scripts/registry/providers/base.py` + `__init__.py`
+[x] TDD: local adapter — fully offline create/update/close/comment/parent/dependency, detail files under the configured dir -> `scripts/registry/providers/local.py`
+[x] TDD: github adapter with a `gh` PATH mock — label→kind/priority mapping, every label preserved, open/closed→open/done, no status-label creation, no title-only matching, dry-run vs apply -> `scripts/registry/providers/github.py`
+[x] TDD: jira adapter against a stdlib fake HTTP server — auth, capability degradation, credential/Authorization redaction on failure, loud offline write failure -> `scripts/registry/providers/jira.py`
+[x] TDD: reconcile/frontier block — unlinked local, unlinked external, stale/completed/superseded specs, duplicate detection without title equality, idempotence, summary-first output, `show` progressive disclosure, partial-failure exit 1 -> `scripts/registry/reconcile.py`
+[x] TDD: migration block against an ascii_video_pipeline-shaped fixture — classification, ID generation, spec links, grouping (no issue per historical checkbox), operational work preserved, dry-run report, audit trail -> `scripts/registry/migrate.py`
+[x] TDD: CLI block — `reconcile|publish|pull|frontier|show|migrate`, exit codes 0/1/2, dry-run default -> `scripts/task-registry.py`
+[x] TDD: docs block — SKILL.md, configuration/migration/progressive-disclosure references, `docs/task-tracking.md` template, GitHub/Jira/local examples, offline+auth troubleshooting, kind guidance, index-not-source-of-truth statement
+[x] TDD: integration block — CLAUDE.md skills table + Task Tracking pointer, README, session-start banner, `/plan` `/build` `/verify` `/quality-gate` `/wrap-up-session` route through the registry and call no provider directly
+[x] TDD: parity — `tests/test-skill-parity.sh` green over byte-identical `.claude/skills/task-registry/`
+[x] Full validation: `bash tests/run.sh` green, security review of the new scripts, `/quality-gate`
+
+## Session Summary — 2026-08-29 [2022b10..HEAD]
+- Completed: 14 tasks (three-layer task registry, three adapters, CLI, migration, docs, integration)
+- Pending: 0
+- Evidence: `bash tests/run.sh` green — 23 test files; `tests/test-task-registry.sh` 202
+  assertions; `tests/test-doc-conventions.sh` 388; parity 66; invocation chain 30.
+  Mutation probes: title-matching restored -> 1 failure, write gate forced open -> 4,
+  redaction disabled -> 1; all restored green. ruff clean, flake8 clean at the repo's
+  existing line-length style. Migration dry-run against this repository: 60 rows,
+  46 completed-history, 14 active, 1 proposed group, nothing written.
+- Carry-forward: IDs minted from long TDD row titles are truncated at 80 chars and read
+  poorly (`provider-agnostic-task-registry.tdd-jira-adapter-against-a-stdlib-fake-http-serv`).
+  Migration is a proposal a human edits, so this is cosmetic — but a shorter minting
+  strategy (leading words plus a hash) would be an improvement.
+

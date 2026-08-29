@@ -400,6 +400,31 @@ Rules:
 
 ---
 
+## Task Tracking
+
+`tasks/todo.md` is an **index**, not the detailed source of truth. One row per
+task — status box, title, stable ID, provider link, one-line summary, optional
+dependency marker. Acceptance criteria, discussion, and evidence live in the
+external ticket or the linked spec, and are read one task at a time via
+`/task-registry show <task-id>`.
+
+Task tracking instructions: docs/task-tracking.md
+
+That file is the project's configuration contract: provider (`github`, `jira`, or
+`local`), repository/project identifier, label and status mappings, local detail
+directory, dependency strategy, whether external writes need approval, migration
+policy, and offline behaviour. It is optional — a project without one gets the
+local Markdown provider and works offline. Start from
+`.agents/skills/task-registry/templates/task-tracking.md`.
+
+**No skill talks to a tracker directly.** `/plan`, `/build`, `/verify`,
+`/quality-gate`, and `/wrap-up-session` reach GitHub or Jira for task state only
+through `/task-registry`, so a project can change tracker without editing a
+workflow skill. External task creation and status changes require explicit
+authorization unless the project's configuration enables them.
+
+---
+
 ## Skills — `.agents/skills/`
 
 | Skill | Purpose |
@@ -426,6 +451,7 @@ Rules:
 | `/start-qa` | Restart app + health check + browser with log monitoring |
 | `/wrap-up-session` | Learnings, tests, reviews, commit, push |
 | `/writing-skills` | Author new skills with proper structure |
+| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues, Jira, or a local Markdown store; reconcile stale plans; dependency-aware frontier |
 | `/sync` | Pull latest skills, hooks, agents from template repo |
 | `/folder-context-optimization` | Sweep folder for legacy/unused files |
 | `/graphify` | Build a navigable code knowledge graph (clustered communities, HTML + JSON + report) |

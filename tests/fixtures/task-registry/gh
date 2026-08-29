@@ -1,0 +1,72 @@
+#!/bin/bash
+# tests/fixtures/task-registry/gh — a stand-in for the GitHub CLI.
+#
+# The GitHub adapter shells out to `gh` with argv-style arguments. This mock is
+# put first on PATH so the adapter's real command construction is exercised: it
+# records every invocation to $GH_MOCK_LOG and answers reads from canned JSON in
+# $GH_MOCK_DIR. Writes are recorded, never performed.
+#
+# Knobs (env):
+#   GH_MOCK_DIR     directory holding issues.json / labels.json / issue-<n>.json
+#   GH_MOCK_LOG     file every invocation is appended to, one line per call
+#   GH_MOCK_UNAUTH  when set, `gh auth status` fails like a logged-out CLI
+#   GH_MOCK_FAIL    when set, every write subcommand exits 1 (partial-failure tests)
+set -u
+
+: "${GH_MOCK_DIR:=.}"
+: "${GH_MOCK_LOG:=/dev/null}"
+
+printf '%s\n' "$*" >> "$GH_MOCK_LOG"
+
+subcommand="${1:-}"
+action="${2:-}"
+
+case "$subcommand" in
+  auth)
+    if [ -n "${GH_MOCK_UNAUTH:-}" ]; then
+      echo "You are not logged into any GitHub hosts. Run gh auth login to authenticate." >&2
+      exit 1
+    fi
+    echo "github.com: Logged in as fixture-user"
+    exit 0
+    ;;
+  repo)
+    echo "fixture-owner/fixture-repo"
+    exit 0
+    ;;
+  label)
+    cat "$GH_MOCK_DIR/labels.json"
+    exit 0
+    ;;
+  issue)
+    case "$action" in
+      list)
+        cat "$GH_MOCK_DIR/issues.json"
+        exit 0
+        ;;
+      view)
+        number="${3:-}"
+        if [ -f "$GH_MOCK_DIR/issue-$number.json" ]; then
+          cat "$GH_MOCK_DIR/issue-$number.json"
+          exit 0
+        fi
+        echo "could not find issue #$number" >&2
+        exit 1
+        ;;
+      create)
+        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 422: Validation Failed" >&2; exit 1; }
+        number="$(( $(cat "$GH_MOCK_DIR/next-number" 2>/dev/null || echo 100) ))"
+        echo "$(( number + 1 ))" > "$GH_MOCK_DIR/next-number"
+        echo "https://github.com/fixture-owner/fixture-repo/issues/$number"
+        exit 0
+        ;;
+      edit|close|comment)
+        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 403: Resource not accessible" >&2; exit 1; }
+        exit 0
+        ;;
+    esac
+    ;;
+esac
+
+echo "gh mock: unhandled invocation: $*" >&2
+exit 1

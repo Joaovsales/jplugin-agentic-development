@@ -313,4 +313,62 @@ assert_files_identical .agents/skills/start-qa/SKILL.md .claude/skills/start-qa/
 reach_hits="$(grep -rl "agent-reach"   .agents .claude/skills .claude/agents .claude/hooks .claude/browsers   CLAUDE.md install.sh project-template 2>/dev/null | grep -v '.claude/worktrees' || true)"
 assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhere outside specs/"
 
+# --- task-registry: the tracker abstraction ----------------------------------
+# The capability is worth nothing if a workflow skill can still reach a tracker
+# directly: the point of the abstraction is that a project can change tracker
+# without editing a workflow skill. Four things are pinned — the skill is
+# registered where agents look for it, the configuration contract is
+# discoverable, the five workflow skills route through it, and nothing outside
+# the registry itself names a provider's task API.
+assert_file_contains "CLAUDE.md" '`/task-registry`' \
+  "task-registry: CLAUDE.md skills table lists the skill"
+assert_file_contains "CLAUDE.md" "## Task Tracking" \
+  "task-registry: CLAUDE.md defines the task-tracking section"
+assert_file_contains "CLAUDE.md" "Task tracking instructions: docs/task-tracking.md" \
+  "task-registry: CLAUDE.md carries the configuration pointer the loader looks for"
+assert_prose_contains "CLAUDE.md" "is an **index**, not the detailed source of truth" \
+  "task-registry: CLAUDE.md states that tasks/todo.md is an index"
+assert_file_contains ".claude/hooks/session-start.sh" "/task-registry" \
+  "task-registry: the session-start banner lists the skill"
+
+for tree in .agents .claude; do
+  f="$tree/skills/task-registry/SKILL.md"
+  assert_file_contains "$f" "Dry-run is the default" \
+    "task-registry: $f states the dry-run default"
+  assert_file_contains "$f" "A title is never an identity" \
+    "task-registry: $f states that a title is not an identity"
+  assert_prose_contains "$f" "never creates, renames, or removes a label" \
+    "task-registry: $f states the label-preservation rule"
+  assert_file_contains "$f" "Nothing unresolved is deleted" \
+    "task-registry: $f states the no-silent-deletion rule"
+  assert_file_contains "$f" "Jira is never selected implicitly" \
+    "task-registry: $f states that Jira is never implicit"
+  # The three companion documents the skill points at must exist, or the
+  # progressive-disclosure promise ("detail on demand") has nowhere to land.
+  for ref in configuration migration progressive-disclosure; do
+    assert_eq "present" \
+      "$([ -f "$tree/skills/task-registry/references/$ref.md" ] && echo present || echo missing)" \
+      "task-registry: $tree/skills/task-registry/references/$ref.md exists"
+  done
+  assert_eq "present" \
+    "$([ -f "$tree/skills/task-registry/templates/task-tracking.md" ] && echo present || echo missing)" \
+    "task-registry: $tree ships the docs/task-tracking.md template"
+done
+
+# The five workflow skills reach tracking only through the registry.
+for tree in .agents .claude; do
+  for skill in plan build verify quality-gate wrap-up-session; do
+    assert_file_contains "$tree/skills/$skill/SKILL.md" "/task-registry" \
+      "task-registry: $tree/$skill routes task state through the registry"
+  done
+done
+
+# Provider coupling guard. `gh pr` is fine — /wrap-up-session opens PRs, which is
+# not task state. `gh issue` and Jira REST paths are the coupling this
+# abstraction exists to remove, so they may appear only inside the registry.
+coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills .claude/skills 2>/dev/null \
+  | grep -v '/task-registry/' | grep -v '.claude/worktrees' || true)"
+assert_eq "" "$coupling_hits" \
+  "task-registry: no skill outside the registry calls a tracker's task API (offenders: ${coupling_hits:-none})"
+
 finish
