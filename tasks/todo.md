@@ -181,3 +181,96 @@
   while the directory in this repo is `.claude/deployments/` — a pre-existing mismatch,
   left alone under the orphan rule rather than folded into this change. Lightpanda `0.3.7`
   is published upstream; the pin stays at `0.3.6`, the version AC-4 evidence was taken on.
+
+---
+
+## Plan: Provider-Agnostic Task Registry
+> Spec: specs/task-registry.md
+> Branch: feat/task-registry-provider-adapters off master @ 2022b10
+> Note: implementation lives under `.agents/skills/task-registry/scripts/` because
+> `tests/test-syncable-paths.sh` INVARIANT 2 requires every skill-named asset to sit
+> inside a syncable path — repo-root `scripts/` is not one.
+
+[x] TDD: `tests/test-task-registry.sh` model block — canonical kinds/statuses/priorities accepted, unknown value rejected by name, IDs never provider numbers -> `scripts/registry/model.py`
+[x] TDD: config block — ini config parsed from `docs/task-tracking.md`, pointer indirection from AGENTS.md/CLAUDE.md/.claude/project.md, selection precedence (explicit > github+gh auth > local; jira never implicit) -> `scripts/registry/config.py`
+[x] TDD: index block — compact row parse/render, `<!-- task-id: -->` identity, legacy checkbox-only rows, malformed row reported with file:line, byte-preserving rewrite -> `scripts/registry/index.py`
+[x] TDD: provider contract block run against all three adapters — capabilities declared, write gate refuses without `--apply`, dependency reported native vs inferred -> `scripts/registry/providers/base.py` + `__init__.py`
+[x] TDD: local adapter — fully offline create/update/close/comment/parent/dependency, detail files under the configured dir -> `scripts/registry/providers/local.py`
+[x] TDD: github adapter with a `gh` PATH mock — label→kind/priority mapping, every label preserved, open/closed→open/done, no status-label creation, no title-only matching, dry-run vs apply -> `scripts/registry/providers/github.py`
+[x] TDD: jira adapter against a stdlib fake HTTP server — auth, capability degradation, credential/Authorization redaction on failure, loud offline write failure -> `scripts/registry/providers/jira.py`
+[x] TDD: reconcile/frontier block — unlinked local, unlinked external, stale/completed/superseded specs, duplicate detection without title equality, idempotence, summary-first output, `show` progressive disclosure, partial-failure exit 1 -> `scripts/registry/reconcile.py`
+[x] TDD: migration block against an ascii_video_pipeline-shaped fixture — classification, ID generation, spec links, grouping (no issue per historical checkbox), operational work preserved, dry-run report, audit trail -> `scripts/registry/migrate.py`
+[x] TDD: CLI block — `reconcile|publish|pull|frontier|show|migrate`, exit codes 0/1/2, dry-run default -> `scripts/task-registry.py`
+[x] TDD: docs block — SKILL.md, configuration/migration/progressive-disclosure references, `docs/task-tracking.md` template, GitHub/Jira/local examples, offline+auth troubleshooting, kind guidance, index-not-source-of-truth statement
+[x] TDD: integration block — CLAUDE.md skills table + Task Tracking pointer, README, session-start banner, `/plan` `/build` `/verify` `/quality-gate` `/wrap-up-session` route through the registry and call no provider directly
+[x] TDD: parity — `tests/test-skill-parity.sh` green over byte-identical `.claude/skills/task-registry/`
+[x] Full validation: `bash tests/run.sh` green, security review of the new scripts, `/quality-gate`
+
+## Session Summary — 2026-08-29 [2022b10..HEAD]
+- Completed: 14 tasks (three-layer task registry, three adapters, CLI, migration, docs, integration)
+- Pending: 0
+- Evidence: `bash tests/run.sh` green — 23 test files; `tests/test-task-registry.sh` 202
+  assertions; `tests/test-doc-conventions.sh` 388; parity 66; invocation chain 30.
+  Mutation probes: title-matching restored -> 1 failure, write gate forced open -> 4,
+  redaction disabled -> 1; all restored green. ruff clean, flake8 clean at the repo's
+  existing line-length style. Migration dry-run against this repository: 60 rows,
+  46 completed-history, 14 active, 1 proposed group, nothing written.
+- Carry-forward: IDs minted from long TDD row titles are truncated at 80 chars and read
+  poorly (`provider-agnostic-task-registry.tdd-jira-adapter-against-a-stdlib-fake-http-serv`).
+  Migration is a proposal a human edits, so this is cosmetic — but a shorter minting
+  strategy (leading words plus a hash) would be an improvement.
+
+
+---
+
+## Plan: Task Registry — Review Gate Remediation
+> Spec: specs/task-registry.md
+> Follows the `critic` and `security-reviewer` gates run against PR #76.
+> Scope: fix every finding, add a regression test per fix, replace the PR.
+
+[x] Security: strip `Authorization`/`Cookie` on cross-origin redirects — `_CredentialStrippingRedirectHandler` + a single built opener in `HttpTransport` -> `providers/jira.py`
+[x] Security: reject a reference id that could become a second `gh` flag, and pass `--` before every positional -> `index.py` `REF_ID_RE`, `providers/github.py` `_number`
+[x] Security: validate and percent-encode Jira issue keys before they become a request path -> `providers/jira.py` `_key`
+[x] Security: redact the Jira base URL (which can carry userinfo) everywhere it is printed; mask the whole Authorization value, not just the scheme word -> `providers/jira.py`, `redaction.py`
+[x] Security: a top-level handler that scrubs an unexpected traceback before printing it, and still exits 1 -> `task-registry.py`
+[x] Security: confine the config pointer, `index_path`, and `local_detail_dir` to the project root -> `config.py` `confine`
+[x] Security: `require_write_approval` is a floor — a repository file may raise it, only `TASK_REGISTRY_TRUSTED_CONFIG` lowers it -> `config.py`
+[x] Security: refuse Basic auth over plain http to a remote host; loopback and an env override remain -> `config.py` `require_secure_transport`
+[x] Correctness: a foreign vocabulary value defaults and reports instead of raising -> `model.py` `safe_task`
+[x] Correctness: the local provider merges an incoming record with what is on disk — no more deleted Summary/Acceptance Criteria/kind, and loose prose survives -> `providers/local.py`
+[x] Correctness: never overwrite a local `in_progress`/`blocked` from a provider that cannot express it -> `reconcile.py` `_reconciled_status`
+[x] Correctness: a declared config section layers over the shipped defaults instead of replacing them -> `config.py`
+[x] Correctness: migration rewrites `blocked-by:` prose to the id it minted, and reports what it could not resolve -> `migrate.py`
+[x] Correctness: `publish` reports rows it skipped for having no id, and never claims agreement while skipping -> `reconcile.py`
+[x] Correctness: minting is seeded with the ids already in the index, so it cannot collide -> `migrate.py`
+[x] Correctness: approval gates external writes only; the offline provider is not blocked by a message about a tracker -> `providers/base.py` `WriteGate.authorize`
+[x] Correctness: `allow_label_creation` actually creates the label through `gh label create`; AC-6 corrected -> `providers/github.py`, `specs/task-registry.md`
+[x] Correctness: `migrate --apply` exits 1 when rows could not be read -> `task-registry.py`
+[x] Correctness: a truncated provider read refuses to publish rather than duplicating -> `providers/github.py`, `providers/jira.py`, `reconcile.py`
+[x] Correctness: `_link_dependencies` sees the tasks published this run, and skips links already recorded -> `reconcile.py`
+[x] Correctness: `frontier` orders by dependency, reports cycles, and reports dependencies naming no task -> `reconcile.py` `_dependency_order`
+[x] Correctness: an unbalanced metadata marker never eats the body — the innermost pair is the one replaced -> `model.py`
+[x] Correctness: a title beginning with a dash is no longer trimmed -> `index.py`
+[x] Design: URL and reference-label classification moves behind the provider registry -> `providers/base.py`, `providers/__init__.py`
+[x] Design: row indentation is preserved on rewrite -> `index.py`, `reconcile.py`
+[x] Design: the closed-plan marker is configurable and its absence is reported -> `migrate.py`, `config.py`
+[x] Design: the spec lookback stops at its own heading block -> `migrate.py`
+[x] Design: dead `Registry.backlog_index()` removed; `_note`/`limitations` pulled up to the base provider -> `reconcile.py`, `providers/base.py`
+[x] Tests: the `gh` mock validates `--label` against `labels.json` and refuses a positional without `--`; the fake Jira site can redirect and echo auth
+[x] Tests: weak assertions replaced — `missing-id` counted rather than pattern-excluded, idempotence proves the first apply changed something
+[x] Tests: `tests/test-skill-parity.sh` skips git-ignored paths so build residue is not read as drift
+[x] Tests: section 12 — one regression block per defect, each verified to fail without its fix
+
+## Session Summary — 2026-08-29 [review remediation]
+- Completed: 32 fixes across 8 security findings, 22 critic findings, and 1 self-found defect.
+- Evidence: `bash tests/run.sh` green — 23 test files. `tests/test-task-registry.sh` grew
+  202 -> 277 assertions. flake8 clean at the repo's existing style, ruff clean.
+  24 mutation probes run: reverting each fix produces 1-7 failing assertions, so every
+  fix has a test that bites. Migration dry-run against this repository: 60 rows, nothing
+  written, exit 0.
+- Two defects were found while writing the regression tests rather than by either gate:
+  a malformed Jira base URL escaped as an unredacted `InvalidURL`, and pattern 1 of the
+  redactor masked the word `Basic` while leaving the payload beside it.
+- Carry-forward (unchanged): minted ids from long TDD row titles read poorly; a shorter
+  minting strategy would be an improvement, and migration output is a human-edited
+  proposal, so it stays cosmetic.

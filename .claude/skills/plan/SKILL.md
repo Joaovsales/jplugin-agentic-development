@@ -153,5 +153,22 @@ If yes:
 
 If no: note the divergence in the spec as a conscious decision and proceed.
 
-### 6. Hand Off to TDD
+### 6. Register the Tasks (after confirmation)
+
+Once the user has confirmed, offer to register the plan's tasks through
+`/task-registry` — never before, and never automatically:
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py reconcile
+```
+
+- Rows written in Step 3 carry only the compact fields (see `/task-registry`);
+  the spec stays the detailed source of truth and is linked, not copied.
+- `publish --apply` creates external tasks and needs explicit user authorization
+  unless the project's task-tracking configuration disables approval. **Planning
+  never creates an external issue implicitly.**
+- If the project has no tracker configured, this is a local no-op — the registry
+  falls back to local Markdown and the plan proceeds unchanged.
+
+### 7. Hand Off to TDD
 After confirmation, proceed with `/tdd` or begin the TDD loop directly.

@@ -270,6 +270,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/wrap-up-session` | Parallel code review → verify → merge worktree → sync learnings → run tests → push |
 | `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs |
 | `/sync` | Pull latest skills, hooks, agents from template repo into current project |
+| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues, Jira, or a local Markdown store |
 | `/folder-context-optimization` | Sweep a folder for legacy/unused files, propose archival |
 
 ---
