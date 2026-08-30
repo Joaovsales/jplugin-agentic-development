@@ -361,6 +361,8 @@ echo "  /auto-improve — Unattended discover→fix→PR loop (daily cloud runs)
 echo "  /tdd         — Manual TDD loop with user checkpoints"
 echo "  /debug       — Root cause analysis + bug-track store docs"
 echo "  /verify      — Evidence-based verification (--scope e2e|deployment)"
+echo "  /create-verification-skill — Generate a project-local verification recipe + feature map"
+echo "  /maintain-verification-skill — Reconcile --scope changed, or omit it for a full audit"
 echo "  /quality-gate — 3-phase post-build review: structural, anti-patterns, APOSD"
 echo "  /software-design-expert-review — APOSD design audit (GO/HOLD/STOP)"
 echo "  /software-design-expert-learn  — APOSD design tutorial (end-of-session)"

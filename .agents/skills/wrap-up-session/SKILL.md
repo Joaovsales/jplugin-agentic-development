@@ -101,6 +101,23 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
 
 ---
 
+## Step 3.3 — Changed Verification Map
+
+Classify the session diff, touched specs, and completed task entries. If any
+acceptance criterion or bug fix is user-facing:
+
+1. Invoke `/maintain-verification-skill --scope changed` with the session intent,
+   base-to-HEAD diff, touched specs, and completed task entries.
+2. If no project-local verification skill exists, skip maintenance, recommend
+   `/create-verification-skill`, and never generate or launch it automatically.
+3. Handle the maintainer outcome: `clean` and `changed` continue; `blocked` STOPS
+   wrap-up and reports the maintainer's evidence without committing.
+
+Internal-only sessions skip this step silently. This step runs before security,
+review, and tests so any verification-map edits are included in every gate.
+
+---
+
 ## Step 3.5 — Security Scan
 
 Run `/security-scan` on files changed this session (`git diff --name-only <base-branch>...HEAD`).
@@ -320,7 +337,9 @@ For every user-facing AC in specs touched this session:
 3. On `run`: invoke `/verify --scope e2e`, then re-check
 4. On `acknowledge`: record the gap as a knowledge-track document in `tasks/solutions/process/` (tags: `[e2e-gap]`)
 
-If no specs were touched: skip this gate silently.
+If no specs were touched, classify the session diff and task evidence so a
+user-facing bug fix still enters this gate. Skip silently only when the session
+is internal-only.
 
 ---
 

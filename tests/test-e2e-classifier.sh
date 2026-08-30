@@ -34,6 +34,24 @@ COMPAT=".claude/skills/verify/SKILL.md"
 
 for f in "$CANONICAL" "$COMPAT"; do
 
+  # --- 0. Project-local verification skill resolution ----------------------
+  assert_prose_contains "$f" 'exactly one project-local `verify-<app>` skill' \
+    "$f: exactly one local verification skill is selected"
+  assert_prose_contains "$f" 'more than one project-local `verify-<app>` skill' \
+    "$f: ambiguous local verification skills STOP for selection"
+  assert_prose_contains "$f" "do not choose one" \
+    "$f: ambiguity never guesses a target"
+  assert_prose_contains "$f" 'no project-local `verify-<app>` skill' \
+    "$f: absence preserves the generic backend fallback"
+  assert_prose_contains "$f" 'recommend `/create-verification-skill`' \
+    "$f: absent local skill yields an actionable recommendation"
+  assert_prose_contains "$f" "never create or launch it automatically" \
+    "$f: fallback never performs implicit generation or launch"
+  assert_prose_contains "$f" "declared surface and capability ceiling" \
+    "$f: local recipes declare their usable verification ceiling"
+  assert_prose_contains "$f" "must satisfy the classified AC" \
+    "$f: local recipes cannot bypass the AC classifier"
+
   # --- 1. Backend resolution order -------------------------------------------
   # Ordered, first match wins. A full-fidelity backend must outrank lightpanda,
   # or the cheap tier would win on machines that have a real browser available.

@@ -111,9 +111,37 @@ Unit tests prove functions work. E2E walkthroughs prove features work.
 ### Pre-Flight
 
 1. Read the active spec from `specs/` and extract **user-facing ACs**
-2. Verify the app is running locally (check dev server, start via `/start-qa` if not)
-3. Resolve a browser backend and classify every AC (below)
-4. Load authentication state as a real user would — cookie-based session, not injected tokens
+2. Classify every AC before selecting a driver or backend
+3. Resolve a project-local verification skill, then resolve its compatible
+   driver or the generic browser backend (below)
+4. Launch and diagnose the app using the selected local recipe, or `/start-qa`
+   when using the generic fallback
+5. Load authentication state as a real user would — cookie-based session, not injected tokens
+
+### Project-local verification skill resolution
+
+Discover `verify-*` entries in the canonical `.agents/skills/` tree; treat their
+byte-identical `.claude/skills/` copies as mirrors, not additional candidates.
+
+- With **exactly one project-local `verify-<app>` skill**, read it and use its
+  grounded Launch, Doctor, Drive, Evidence, Cleanup, and Helpers contract. Its
+  declared surface and capability ceiling must satisfy the classified AC. A
+  local recipe selects *how* to drive the app; it never relaxes the classifier.
+- With **more than one project-local `verify-<app>` skill**, STOP and ask which
+  application is in scope. List the candidates and do not choose one.
+- With **no project-local `verify-<app>` skill**, recommend
+  `/create-verification-skill`, then continue through the unchanged generic
+  backend resolution below. This is a recommendation only: never create or
+  launch it automatically.
+
+If the selected local skill's capability ceiling is below an AC's tier, use a
+compatible higher-fidelity backend when the recipe permits it; otherwise record
+`BLOCKED`. A DOM-only local driver cannot pass a VISUAL AC.
+
+For a non-browser surface, follow the local skill's Drive contract without
+requiring an MCP browser. For a browser surface, resolve the recipe's compatible
+driver first. When there is no local skill, use the generic order below exactly
+as before.
 
 ### Backend resolution
 
@@ -239,4 +267,5 @@ The log is **append-only**. Never overwrite prior walkthroughs — they form the
 
 - **Default mode required by**: `/build` (after each task and in Phase 4), `/debug` (Phase 3), `/wrap-up-session` (Step 6)
 - **`--scope e2e` invoked by**: `/build` Phase 4 (user-facing ACs), `/wrap-up-session` Step 6.3
+- **Project recipe maintained by**: `/maintain-verification-skill --scope changed`
 - **`--scope deployment` invoked by**: `/wrap-up-session` Step 8

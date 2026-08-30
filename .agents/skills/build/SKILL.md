@@ -176,6 +176,22 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 - Move to the next `[ ]` task immediately (no user prompt)
 - If a task is blocked by a previous failure, note it and skip to the next unblocked task
 
+## Phase 1.5 — Changed Verification Map
+
+After all tasks are `[x]`, classify the completed work. If ANY acceptance
+criterion is `user-facing`:
+
+1. Invoke `/maintain-verification-skill --scope changed` with the session intent,
+   base-to-HEAD diff, touched specs, and completed task entries. This idempotently
+   reconciles the project-local feature map on the active branch.
+2. If no project-local verification skill exists, skip maintenance, recommend
+   `/create-verification-skill`, and never generate or launch it automatically.
+3. Handle the maintainer outcome: `clean` and `changed` continue; `blocked` STOPS
+   the build and reports the maintainer's evidence.
+
+Internal-only changes skip changed-scope maintenance silently. This phase runs
+before the full suite and quality gate so any map edits receive both checks.
+
 ## Phase 2 — Full Suite Validation
 
 After all tasks are `[x]`:
@@ -210,7 +226,9 @@ previous_failures: []
 | `integration` | Integration test passes (real API/DB/service interaction) |
 | `user-facing` | E2E walkthrough via `/verify --scope e2e` — entry in `tasks/e2e-log.md` for current commit short-sha |
 
-If ANY AC is classified `user-facing`, invoke `/verify --scope e2e` before declaring Phase 4 complete.
+If ANY AC is classified `user-facing`:
+
+1. Invoke `/verify --scope e2e` before declaring Phase 4 complete.
 
 **For each round**:
 

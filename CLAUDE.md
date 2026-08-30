@@ -439,6 +439,8 @@ authorization unless the project's configuration enables them.
 | `/debug` | Root cause analysis, bug-track store documents, loop verification |
 | `/tdd` | Manual TDD loop with user checkpoints |
 | `/verify` | Evidence-based verification gate (`--scope deployment|e2e`) |
+| `/create-verification-skill` | Generate a grounded project-local `verify-<app>` recipe and feature map, with one live proof |
+| `/maintain-verification-skill` | Reconcile current user-facing changes with `--scope changed`; omit the option for a full audit |
 | `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
 | `/software-design-expert-review` | APOSD structural design gate — depth, leakage, error design; GO/HOLD/STOP verdict |
 | `/software-design-expert-learn` | APOSD design tutorial — end-of-session learning review based on Ousterhout |
