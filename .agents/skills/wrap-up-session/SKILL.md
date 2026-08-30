@@ -69,6 +69,17 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
 
 - Mark completed items `[x]`
 - Detect duplicate `## Plan:` headings, orphan unchecked tasks, stale plan blocks
+- Reconcile the index against the project's tracker — **read-only, summary only**:
+
+  ```bash
+  python3 .agents/skills/task-registry/scripts/task-registry.py reconcile
+  ```
+
+  Surface the summary block; do not paste per-task detail into the session
+  summary or the commit message. External writes (`publish --apply`) are a
+  separate, explicitly authorized step — wrap-up never creates or closes an
+  external task on its own. With no tracker configured this reconciles the local
+  index alone and still reports stale and superseded entries.
 - Append session summary with idempotency fingerprint (commit range short-SHAs)
 
 ```markdown

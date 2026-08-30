@@ -169,6 +169,10 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 - Change `[ ]` to `[x]` in `tasks/todo.md`
 - Log: `✓ [Test Name] — [one-line summary]`
 - **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the shared flush (`bash .claude/hooks/pre-compact.sh </dev/null`) — no prompt, no commit. This keeps on-disk state current at each semantic (task) boundary, so a context compaction or `/refresh` loses at most one task of work.
+- **Task status**: when the project tracks tasks externally, claim the task and
+  update its status through `/task-registry` (never by calling `gh` or Jira
+  directly). Status writes are gated the same way every other external write is —
+  dry-run unless `--apply` and the project's approval setting allow it.
 - Move to the next `[ ]` task immediately (no user prompt)
 - If a task is blocked by a previous failure, note it and skip to the next unblocked task
 

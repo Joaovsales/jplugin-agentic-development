@@ -1,0 +1,145 @@
+#!/bin/bash
+# tests/fixtures/task-registry/gh — a stand-in for the GitHub CLI.
+#
+# The GitHub adapter shells out to `gh` with argv-style arguments. This mock is
+# put first on PATH so the adapter's real command construction is exercised: it
+# records every invocation to $GH_MOCK_LOG and answers reads from canned JSON in
+# $GH_MOCK_DIR. Writes are recorded, never performed.
+#
+# It is deliberately strict where the real CLI is strict:
+#   * positionals are read after `--`, the way cobra parses them, so an adapter
+#     that forgets the separator is caught here rather than in production;
+#   * `--label` is rejected unless the label exists in labels.json, so a test
+#     cannot pass while the adapter invents vocabulary the repository lacks.
+#
+# Knobs (env):
+#   GH_MOCK_DIR     directory holding issues.json / labels.json / issue-<n>.json
+#   GH_MOCK_LOG     file every invocation is appended to, one line per call
+#   GH_MOCK_UNAUTH  when set, `gh auth status` fails like a logged-out CLI
+#   GH_MOCK_FAIL    when set, every write subcommand exits 1 (partial-failure tests)
+set -u
+
+: "${GH_MOCK_DIR:=.}"
+: "${GH_MOCK_LOG:=/dev/null}"
+
+printf '%s\n' "$*" >> "$GH_MOCK_LOG"
+
+subcommand="${1:-}"
+action="${2:-}"
+shift 2 2>/dev/null || true
+
+# Split the remainder the way cobra does: flags until `--`, positionals after.
+positionals=()
+labels=()
+seen_separator=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --)
+      seen_separator=1
+      shift
+      while [ "$#" -gt 0 ]; do positionals+=("$1"); shift; done
+      ;;
+    --label|--add-label)
+      labels+=("${2:-}")
+      shift 2
+      ;;
+    --*)
+      # Every flag this adapter passes takes a value except --json's siblings;
+      # peeking at the next argument keeps the mock indifferent to which.
+      if [ "${2:-}" = "" ] || [ "${2:0:2}" = "--" ]; then shift; else shift 2; fi
+      ;;
+    *)
+      positionals+=("$1")
+      shift
+      ;;
+  esac
+done
+
+label_exists() {
+  grep -q "\"$1\"" "$GH_MOCK_DIR/labels.json" 2>/dev/null
+}
+
+reject_unknown_labels() {
+  local label
+  for label in ${labels+"${labels[@]}"}; do
+    if ! label_exists "$label"; then
+      echo "could not add label: '$label' not found" >&2
+      exit 1
+    fi
+  done
+}
+
+case "$subcommand" in
+  auth)
+    if [ -n "${GH_MOCK_UNAUTH:-}" ]; then
+      echo "You are not logged into any GitHub hosts. Run gh auth login to authenticate." >&2
+      exit 1
+    fi
+    echo "github.com: Logged in as fixture-user"
+    exit 0
+    ;;
+  repo)
+    echo "fixture-owner/fixture-repo"
+    exit 0
+    ;;
+  label)
+    case "$action" in
+      list)
+        cat "$GH_MOCK_DIR/labels.json"
+        exit 0
+        ;;
+      create)
+        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 403: Resource not accessible" >&2; exit 1; }
+        name="${positionals[0]:-}"
+        [ -z "$name" ] && { echo "gh mock: label create needs a name" >&2; exit 1; }
+        label_exists "$name" && { echo "label already exists" >&2; exit 1; }
+        python3 - "$GH_MOCK_DIR/labels.json" "$name" <<'PY'
+import io, json, sys
+path, name = sys.argv[1], sys.argv[2]
+entries = json.loads(io.open(path, encoding="utf-8").read())
+entries.append({"name": name})
+io.open(path, "w", encoding="utf-8", newline="\n").write(json.dumps(entries))
+PY
+        echo "https://github.com/fixture-owner/fixture-repo/labels/$name"
+        exit 0
+        ;;
+    esac
+    ;;
+  issue)
+    case "$action" in
+      list)
+        cat "$GH_MOCK_DIR/issues.json"
+        exit 0
+        ;;
+      view)
+        number="${positionals[0]:-}"
+        if [ "$seen_separator" != "1" ]; then
+          echo "gh mock: issue view got a positional without a '--' separator" >&2
+          exit 1
+        fi
+        if [ -f "$GH_MOCK_DIR/issue-$number.json" ]; then
+          cat "$GH_MOCK_DIR/issue-$number.json"
+          exit 0
+        fi
+        echo "could not find issue #$number" >&2
+        exit 1
+        ;;
+      create)
+        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 422: Validation Failed" >&2; exit 1; }
+        reject_unknown_labels
+        number="$(( $(cat "$GH_MOCK_DIR/next-number" 2>/dev/null || echo 100) ))"
+        echo "$(( number + 1 ))" > "$GH_MOCK_DIR/next-number"
+        echo "https://github.com/fixture-owner/fixture-repo/issues/$number"
+        exit 0
+        ;;
+      edit|close|comment)
+        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 403: Resource not accessible" >&2; exit 1; }
+        reject_unknown_labels
+        exit 0
+        ;;
+    esac
+    ;;
+esac
+
+echo "gh mock: unhandled invocation: $subcommand $action ${positionals[*]:-}" >&2
+exit 1

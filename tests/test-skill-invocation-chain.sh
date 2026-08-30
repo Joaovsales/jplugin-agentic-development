@@ -80,6 +80,25 @@ for tree in $TREES; do
   done
 done
 
+# ── /wrap-up-session -> /task-registry reconcile ─────────────────────────────
+# Reconciliation is only reached because wrap-up runs it; nothing else in the
+# normal flow does. Sever this handoff and the index silently drifts from the
+# tracker again, which is the exact failure the registry was built to end.
+for tree in $TREES; do
+  f="$tree/skills/wrap-up-session/SKILL.md"
+  assert_file_contains "$f" "task-registry.py reconcile" \
+    "Chain: $tree/wrap-up-session reconciles the task index"
+done
+
+# ── /plan -> /task-registry, after approval and never before ────────────────
+for tree in $TREES; do
+  f="$tree/skills/plan/SKILL.md"
+  assert_file_contains "$f" "/task-registry" \
+    "Chain: $tree/plan registers tasks through the registry"
+  assert_file_contains "$f" "never creates an external issue implicitly" \
+    "Chain: $tree/plan states that planning creates no external issue on its own"
+done
+
 # ── /auto-improve -> TDD + PR, its two advertised guarantees ─────────────────
 for tree in $TREES; do
   f="$tree/skills/auto-improve/SKILL.md"

@@ -179,6 +179,11 @@ For each user-facing AC:
 
 ### Evidence Format
 
+When the project tracks tasks externally, attach the evidence link to the task
+through `/task-registry` (`show <task-id>` to confirm it landed). Never post to
+GitHub or Jira directly — the evidence field is part of the normalized task
+record, so it survives a change of tracker.
+
 Append to `tasks/e2e-log.md`:
 
 ```markdown
