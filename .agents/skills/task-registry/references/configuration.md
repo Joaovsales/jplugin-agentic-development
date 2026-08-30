@@ -111,7 +111,7 @@ silently leaving the status wrong.
 ```ini
 [tracker]
 provider = github
-repository = my-org/ascii-video-pipeline
+repository = my-org/project-name
 require_write_approval = true
 
 [labels.kind]
