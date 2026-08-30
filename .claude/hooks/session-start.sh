@@ -375,6 +375,7 @@ echo "  /refresh     — Context reset: snapshot to disk, rebuild clean context"
 echo "  /wrap-up-session — Close session: review, test, push"
 echo "  /writing-skills  — Author new skills"
 echo "  /task-registry — Sync todo.md with GitHub/Jira/local tasks; frontier"
+echo "  /eval        — Blinded A/B eval of a skill or prompt change"
 echo "  /sync        — Pull latest from template repo"
 
 echo ""

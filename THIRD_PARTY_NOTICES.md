@@ -13,6 +13,16 @@ Original source files:
 - [`pstack/skills/maintain-verification-skill/SKILL.md`](https://github.com/cursor/plugins/blob/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack/skills/maintain-verification-skill/SKILL.md)
 - [`pstack/skills/create-verification-skill/references/feature-map-example/`](https://github.com/cursor/plugins/tree/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack/skills/create-verification-skill/references/feature-map-example)
 
+## pstack eval playbook
+
+The adapted `eval` skill in this repository comes from the pstack plugin in
+[cursor/plugins](https://github.com/cursor/plugins), pinned at revision
+`68836ddaf5697224520f1847d90cdb90ca8babaa`.
+
+Original source file:
+
+- [`pstack/skills/poteto-mode/playbooks/eval.md`](https://github.com/cursor/plugins/blob/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack/skills/poteto-mode/playbooks/eval.md)
+
 The upstream pstack material is licensed as follows:
 
 > MIT License
