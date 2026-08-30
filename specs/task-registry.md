@@ -9,7 +9,7 @@
 
 ## Problem
 
-`ascii_video_pipeline` converged on a working pattern: a compact, issue-linked
+`local_project` converged on a working pattern: a compact, issue-linked
 `tasks/todo.md`; detail in GitHub Issues; specs under `specs/`; operational
 verification tracked as issues; stale plans reconciled separately. The pattern is
 currently hand-run and GitHub-shaped. Every other repository using this harness
