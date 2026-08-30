@@ -277,6 +277,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/start-qa` | Discover project config, restart app, launch browser, background smoke tests |
 | `/wrap-up-session` | Parallel code review → verify → merge worktree → sync learnings → run tests → push |
 | `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs |
+| `/eval` | Blinded A/B eval of a skill, prompt, or workflow change: sanitized worktrees, organic prompts, transcript-based grading |
 | `/sync` | Pull latest skills, hooks, agents from template repo into current project |
 | `/task-registry` | Sync `tasks/todo.md` with GitHub Issues, Jira, or a local Markdown store |
 | `/folder-context-optimization` | Sweep a folder for legacy/unused files, propose archival |
@@ -381,4 +382,4 @@ Effect is cosmetic noise only. Nothing in this repo emits it, and no change here
 - [shanraisshan/claude-code-best-practice](https://github.com/shanraisshan/claude-code-best-practice) — Command/agent/skill architecture
 - [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code) — Memory system, hook lifecycle, continuous learning
 - [obra/superpowers](https://github.com/obra/superpowers) — Iron laws, verification patterns, brainstorming workflow, systematic debugging
-- [cursor/plugins — pstack](https://github.com/cursor/plugins/tree/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack) — Lauren Tan's MIT-licensed verification-skill creator, maintainer, and feature-map pattern (adapted from revision `68836ddaf5697224520f1847d90cdb90ca8babaa`; see `THIRD_PARTY_NOTICES.md`)
+- [cursor/plugins — pstack](https://github.com/cursor/plugins/tree/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack) — Lauren Tan's MIT-licensed verification-skill creator, maintainer, feature-map pattern, and blinded eval playbook (adapted from revision `68836ddaf5697224520f1847d90cdb90ca8babaa`; see `THIRD_PARTY_NOTICES.md`)
