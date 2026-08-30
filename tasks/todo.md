@@ -274,3 +274,28 @@
 - Carry-forward (unchanged): minted ids from long TDD row titles read poorly; a shorter
   minting strategy would be an improvement, and migration output is a human-edited
   proposal, so it stays cosmetic.
+
+---
+
+## Plan: pstack Verification Skill Integration
+> Spec: specs/pstack-verification-skill-integration.md
+> Upstream: cursor/plugins pstack @ 68836ddaf5697224520f1847d90cdb90ca8babaa
+
+[x] TDD: `tests/test-verification-skill-integration.sh` rejects missing or invalid creator/maintainer frontmatter, required workflow sections, feature-map reference headings, unsafe process-name cleanup, and absent provenance -> add the focused red contract test, the full pstack MIT notice in `THIRD_PARTY_NOTICES.md`, and README source credit
+[x] TDD: creator contract assertions require instructions that generate canonical `.agents/skills/verify-<app>/` output mirrored byte-identically to `.claude/skills/`, grounded Launch/Doctor/Drive/Evidence/Cleanup/Helpers sections, a declared surface/capability ceiling, a 3-5 entry indexed map, and creation-time proof whose evidence survives cleanup -> adapt `create-verification-skill` and its reference assets from the pinned upstream revision
+[x] TDD: maintainer contract assertions require full mode's index/source/live coverage and exact `clean|changed|blocked` outcomes plus idempotent `--scope changed` reconciliation that consumes session intent/diff, edits only the verification skill on the active branch, skips internal-only changes, and never opens its own PR -> adapt `maintain-verification-skill`
+[x] TDD: `tests/test-e2e-classifier.sh` fails when project-local resolution, ambiguity STOP, absent-skill fallback, or capability-ceiling enforcement is removed -> integrate exactly-one `verify-*` discovery into `/verify --scope e2e` without weakening the Chrome/Playwright/Lightpanda fail-closed classifier
+[x] TDD: `tests/test-skill-invocation-chain.sh` fails unless both skill trees route user-facing changes from `/build` and `/wrap-up-session` through `/maintain-verification-skill --scope changed` before `/verify --scope e2e`, and the Stop hook remains free of maintenance invocation -> add the two idempotent lifecycle handoffs and backward-compatible no-skill recommendation
+[x] TDD: documentation/distribution assertions require both skills and the two-speed update mechanism in README, CLAUDE.md, and the session-start banner while existing install/sync paths remain sufficient -> update only those discoverability surfaces and preserve canonical/compat parity
+[x] TDD: `tests/test-upstream-drift.sh` uses temporary local Git repositories to cover schema validation, multiple registered sources, whole-repo and path-scoped clean/drift detection, unavailable refs/remotes, rewritten history, aggregate checking, silent success, and bounded failure evidence -> add `.github/upstreams.json` with the pinned pstack import, a stdlib-plus-Git `scripts/check-upstream-drift.py`, and a read-only weekly/manual `.github/workflows/check-upstream-drift.yml` that reports non-clean results without applying updates
+[x] TDD: mutation probes make each load-bearing contract fail, including a registry baseline/path mutation; `bash tests/test-skill-parity.sh` and `bash tests/run.sh` pass with recorded counts -> run focused mutations, full validation, `/quality-gate`, and acceptance-criterion evidence review
+
+Build evidence: 10/10 mutation probes rejected after tightening one false-green
+heading assertion. Wrap-up review resolved all 13 findings and strengthened the
+focused gates to 82 verification-integration assertions, 64 upstream-drift
+assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
+
+## Session Summary — [2026-08-29] [2022b10..HEAD]
+- Completed: 8 planned tasks
+- Pending: 0
+- Carry-forward: none; wrap-up review fixes completed 2026-08-30

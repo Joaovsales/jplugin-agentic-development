@@ -200,3 +200,23 @@
   and the walkthrough then ran container-to-container.
 - Learnings captured: `tasks/solutions/patterns/a-stubbed-web-api-is-more-dangerous-than-an-absent-one.md`,
   `tasks/solutions/patterns/a-null-probe-result-needs-a-control-run.md`
+
+### [2026-08-29] — Verification skill integration
+
+- Key changes: Adapted pstack's MIT-licensed verification-skill creator and
+  maintainer into both harness skill trees; integrated changed-scope maintenance
+  into `/build`, `/wrap-up-session`, and `/verify`; added complete provenance;
+  and added a general-purpose registry, checker, and weekly GitHub workflow for
+  detecting path-scoped upstream drift without mutating downstream content.
+- Verification: all 24 test files passed, including 64 verification-integration
+  assertions and 32 upstream-drift assertions; 10/10 load-bearing mutation probes
+  were rejected; the live registered upstream check exited cleanly.
+- Wrap-up review: three independently dispatched review lenses plus one inline
+  adversarial pass found 13 issues, all resolved. The fixes aligned candidate
+  discovery across maintenance and E2E, made the example a fully indexed
+  three-feature contract, closed false-green tests, and hardened the external Git
+  checker with ref validation, bounded resources and diagnostics, process-tree
+  timeout cleanup, safe workflow summary rendering, and an immutable
+  checkout-action pin.
+- Learnings captured: `tasks/solutions/patterns/markdown-heading-contracts-must-match-heading-levels-exactly.md`,
+  `tasks/solutions/patterns/count-candidates-before-validating-the-selected-target.md`

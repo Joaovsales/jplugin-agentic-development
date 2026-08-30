@@ -1,0 +1,31 @@
+name: check upstream drift
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check registered upstreams
+        shell: bash
+        run: |
+          set +e
+          python3 scripts/check-upstream-drift.py 2>upstream-drift-report.txt
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            {
+              echo '## Upstream drift check'
+              sed 's/^/    /' upstream-drift-report.txt
+            } >> "$GITHUB_STEP_SUMMARY"
+            cat upstream-drift-report.txt >&2
+            exit "$status"
+          fi

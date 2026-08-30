@@ -9,7 +9,7 @@ A reusable, project-agnostic configuration system that enforces **spec-driven, T
 | Layer | What it does |
 |-------|-------------|
 | **CLAUDE.md** | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate |
-| **Skills** (`.claude/skills/`) | 16 skills: `/brainstorm`, `/plan`, `/build`, `/tdd`, `/debug`, `/verify`, `/quality-gate`, `/receive-review`, `/learn`, `/checkpoint`, `/security-scan`, `/start-qa`, `/wrap-up-session`, `/writing-skills`, `/sync`, `/folder-context-optimization` |
+| **Skills** (`.claude/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
 | **Agents** (`.claude/agents/`) | 8 specialized subagents for planning, coding, review, debugging, security |
 | **Hooks** (`.claude/hooks/`) | Session start orientation + auto test runner on file save |
 | **Learning store** (`tasks/solutions/`) | Typed per-document learnings, grep-first retrieval, written via `/learn` |
@@ -245,6 +245,12 @@ flowchart TD
 
 **Internal calls**: /build delegates to sub-agents for TDD, invokes code-reviewer for 2-stage review, /debug on failures, /quality-gate after all tasks, and /verify before any completion claims.
 
+Project verification maps use a two-speed update path. `/build` and
+`/wrap-up-session` invoke `/maintain-verification-skill --scope changed` before
+E2E checks for user-facing session changes. Invoke
+`/maintain-verification-skill` without that option for a full audit of every
+mapped feature.
+
 **Standalone skills** (bottom): Can be invoked independently at any time.
 
 ---
@@ -261,6 +267,8 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/tdd` | Manual TDD loop with user checkpoints: failing test → code → pass → refactor → `[x]` |
 | `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
 | `/verify` | Evidence-based verification gate — no completion claims without fresh command output |
+| `/create-verification-skill` | Discover an app's real user surface, generate its `verify-<app>` recipe and feature map, then prove one feature live |
+| `/maintain-verification-skill` | Reconcile changed user behavior with `--scope changed`, or run a full audit of the complete feature map |
 | `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
 | `/receive-review` | Process code review feedback: technical evaluation, pushback protocol, no performative agreement |
 | `/learn` | Extracts session learnings into typed documents under `tasks/solutions/` |
@@ -337,7 +345,7 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │   ├── AGENTS.md                    ← Agent reference documentation
 │   ├── settings.json                ← Hook configuration
 │   ├── agents/                      ← 8 specialized subagents
-│   ├── skills/                      ← 16 skills, each with SKILL.md + optional reference docs
+│   ├── skills/                      ← skills, each with SKILL.md + optional reference docs
 │   └── hooks/
 │       ├── session-start.sh         ← Orientation + skill awareness
 │       └── auto-test-runner.sh
@@ -373,3 +381,4 @@ Effect is cosmetic noise only. Nothing in this repo emits it, and no change here
 - [shanraisshan/claude-code-best-practice](https://github.com/shanraisshan/claude-code-best-practice) — Command/agent/skill architecture
 - [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code) — Memory system, hook lifecycle, continuous learning
 - [obra/superpowers](https://github.com/obra/superpowers) — Iron laws, verification patterns, brainstorming workflow, systematic debugging
+- [cursor/plugins — pstack](https://github.com/cursor/plugins/tree/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack) — Lauren Tan's MIT-licensed verification-skill creator, maintainer, and feature-map pattern (adapted from revision `68836ddaf5697224520f1847d90cdb90ca8babaa`; see `THIRD_PARTY_NOTICES.md`)

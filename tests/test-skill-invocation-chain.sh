@@ -59,11 +59,74 @@ done
 # enforcement point is wrap-up-session, not /verify itself.
 for tree in $TREES; do
   f="$tree/skills/wrap-up-session/SKILL.md"
+  assert_file_contains "$f" "/maintain-verification-skill --scope changed" \
+    "Chain: $tree/wrap-up-session reconciles the feature map"
   assert_file_contains "$f" "/verify --scope e2e" \
     "Chain: $tree/wrap-up-session invokes /verify --scope e2e"
   assert_file_contains "$f" "tasks/e2e-log.md" \
     "Chain: $tree/wrap-up-session checks the e2e evidence log"
 done
+
+
+# ── user-facing build/wrap-up -> changed map -> e2e --------------------------
+# Maintenance must precede live verification so the walkthrough reads the map
+# produced for the current session, not yesterday's behavior.
+for tree in $TREES; do
+  for skill in build wrap-up-session; do
+    f="$tree/skills/$skill/SKILL.md"
+    maintain_line=$(grep -nF "/maintain-verification-skill --scope changed" "$f" | head -1 | cut -d: -f1)
+    verify_line=$(grep -niF 'invoke `/verify --scope e2e`' "$f" | head -1 | cut -d: -f1)
+    review_line=$(grep -nE '^## (Phase 3|Step 4) .*Quality Gate|^## Step 4 .*Code Review' "$f" | head -1 | cut -d: -f1)
+    full_test_line=$(grep -nE '^## Phase 2 .*Full Suite|^## Step 6 .*Run Tests' "$f" | head -1 | cut -d: -f1)
+    assert_file_contains "$f" "/maintain-verification-skill --scope changed" \
+      "Chain: $tree/$skill names changed-scope maintenance"
+    assert_file_matches "$f" '`blocked`.*STOP' \
+      "Chain: $tree/$skill stops when maintenance is blocked"
+    if [ -n "${maintain_line:-}" ] && [ -n "${verify_line:-}" ] && [ "$maintain_line" -lt "$verify_line" ]; then
+      assert_eq "before" "before" "Chain: $tree/$skill maintains before e2e"
+    else
+      assert_eq "maintenance before e2e" "${maintain_line:-missing} / ${verify_line:-missing}" \
+        "Chain: $tree/$skill maintains before e2e"
+    fi
+    if [ -n "${maintain_line:-}" ] && [ -n "${full_test_line:-}" ] && [ "$maintain_line" -lt "$full_test_line" ]; then
+      assert_eq "before" "before" "Chain: $tree/$skill maintains before full tests"
+    else
+      assert_eq "maintenance before full tests" "${maintain_line:-missing} / ${full_test_line:-missing}" \
+        "Chain: $tree/$skill maintains before full tests"
+    fi
+    if [ -n "${maintain_line:-}" ] && [ -n "${review_line:-}" ] && [ "$maintain_line" -lt "$review_line" ]; then
+      assert_eq "before" "before" "Chain: $tree/$skill maintains before review"
+    else
+      assert_eq "maintenance before review" "${maintain_line:-missing} / ${review_line:-missing}" \
+        "Chain: $tree/$skill maintains before review"
+    fi
+  done
+done
+
+# Stop is a shell cleanup/warning hook, not an agentic editing lifecycle.
+for hook in .claude/hooks/*stop*.sh; do
+  assert_file_not_matches "$hook" 'maintain-verification-skill|create-verification-skill' \
+    "Chain: $hook does not invoke verification-skill maintenance"
+done
+
+# ── discoverability and two-speed maintenance --------------------------------
+for doc in README.md CLAUDE.md; do
+  assert_file_contains "$doc" "/create-verification-skill" \
+    "Docs: $doc lists the verification-skill creator"
+  assert_file_contains "$doc" "/maintain-verification-skill" \
+    "Docs: $doc lists verification-skill maintenance"
+  assert_file_contains "$doc" "--scope changed" \
+    "Docs: $doc explains changed-scope maintenance"
+  assert_file_contains "$doc" "full audit" \
+    "Docs: $doc distinguishes full maintenance"
+done
+
+assert_file_contains .claude/hooks/session-start.sh "/create-verification-skill" \
+  "Banner: lists the verification-skill creator"
+assert_file_contains .claude/hooks/session-start.sh "/maintain-verification-skill" \
+  "Banner: lists verification-skill maintenance"
+assert_file_contains .claude/hooks/session-start.sh "--scope changed" \
+  "Banner: identifies incremental maintenance"
 
 # ── /auto-push and /yolo -> the phases they promise ──────────────────────────
 # Both advertise an autonomous pipeline in their own descriptions. If a stage
