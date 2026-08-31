@@ -261,21 +261,32 @@ Invoke with `/skill-name` in any Claude Code session:
 
 | Skill | What It Does |
 |-------|-------------|
+| `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
 | `/plan` | Interviews you, writes spec to `specs/`, creates TDD task plan in `tasks/todo.md` |
+| `/visual-plan` | Turn an existing text spec into a rich, self-contained HTML visual plan for review before implementation |
 | `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
+| `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
+| `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
+| `/auto-improve` | Unattended discover→fix loop: survey backlog/tech-debt/tests/perf/design, ship one high-value improvement as a PR. Built for daily cloud runs |
 | `/tdd` | Manual TDD loop with user checkpoints: failing test → code → pass → refactor → `[x]` |
 | `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
 | `/verify` | Evidence-based verification gate — no completion claims without fresh command output |
 | `/create-verification-skill` | Discover an app's real user surface, generate its `verify-<app>` recipe and feature map, then prove one feature live |
 | `/maintain-verification-skill` | Reconcile changed user behavior with `--scope changed`, or run a full audit of the complete feature map |
 | `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
+| `/software-design-expert-review` | APOSD structural design gate — depth, leakage, error design; GO/HOLD/STOP verdict |
+| `/software-design-expert-learn` | APOSD design tutorial — end-of-session learning review based on Ousterhout |
+| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content |
 | `/receive-review` | Process code review feedback: technical evaluation, pushback protocol, no performative agreement |
 | `/learn` | Extracts session learnings into typed documents under `tasks/solutions/` |
+| `/memory-maintain` | Sweep the typed learning store — resolve, merge, prune — every 5 sessions |
 | `/checkpoint` | Saves progress snapshot to `tasks/checkpoint.md` for handoff or pause |
+| `/refresh` | Context reset — snapshot state to disk, then rebuild from a clean context (backstop for long tasks) |
 | `/security-scan` | Audits changed files against OWASP top 10; blocks commit on HIGH/MEDIUM |
 | `/start-qa` | Discover project config, restart app, launch browser, background smoke tests |
 | `/wrap-up-session` | Parallel code review → verify → merge worktree → sync learnings → run tests → push |
+| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap for review |
 | `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs |
 | `/eval` | Blinded A/B eval of a skill, prompt, or workflow change: sanitized worktrees, organic prompts, transcript-based grading |
 | `/sync` | Pull latest skills, hooks, agents from template repo into current project |
@@ -316,7 +327,9 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 | `code-reviewer` | Post-implementation quality review (invoked proactively) |
 | `code-debugger` | Debugging failing tests and runtime errors |
 | `security-reviewer` | OWASP checks, auth flows, injection vectors |
+| `critic` | Adversarial quality gate for plans, code, and specs |
 | `context-document-optimizer` | Compress large docs for token efficiency |
+| `software-design-expert-review` | Read-only APOSD design audit — depth, leakage, error design (dispatched by `/quality-gate`) |
 
 ---
 

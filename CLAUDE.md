@@ -432,6 +432,7 @@ authorization unless the project's configuration enables them.
 | `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration before `/plan` |
 | `/plan` | Interview → spec → task breakdown in `tasks/todo.md` |
+| `/visual-plan` | Turn an existing text spec into a rich, self-contained HTML visual plan for review before implementation |
 | `/build` | Autonomous TDD orchestrator with sub-agent delegation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
@@ -444,6 +445,7 @@ authorization unless the project's configuration enables them.
 | `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
 | `/software-design-expert-review` | APOSD structural design gate — depth, leakage, error design; GO/HOLD/STOP verdict |
 | `/software-design-expert-learn` | APOSD design tutorial — end-of-session learning review based on Ousterhout |
+| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content |
 | `/receive-review` | Process code review feedback with pushback protocol |
 | `/learn` | Extract session learnings → typed documents in `tasks/solutions/` |
 | `/memory-maintain` | Sweep the typed learning store — resolve, merge, prune — every 5 sessions |
@@ -452,6 +454,7 @@ authorization unless the project's configuration enables them.
 | `/security-scan` | OWASP-focused audit on recently changed files |
 | `/start-qa` | Restart app + health check + browser with log monitoring |
 | `/wrap-up-session` | Learnings, tests, reviews, commit, push |
+| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap for review |
 | `/writing-skills` | Author new skills with proper structure |
 | `/task-registry` | Sync `tasks/todo.md` with GitHub Issues, Jira, or a local Markdown store; reconcile stale plans; dependency-aware frontier |
 | `/eval` | Blinded A/B eval of a skill or prompt change before promoting it |
