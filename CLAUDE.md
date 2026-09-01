@@ -458,4 +458,7 @@ authorization unless the project's configuration enables them.
 | `/eval` | Blinded A/B eval of a skill or prompt change before promoting it |
 | `/sync` | Pull latest skills, hooks, agents from template repo |
 | `/folder-context-optimization` | Sweep folder for legacy/unused files |
+| `/visual-plan` | Turn a text spec into a rich, self-contained HTML visual plan for review before implementation |
+| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap |
+| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content |
 | `/graphify` | Build a navigable code knowledge graph (clustered communities, HTML + JSON + report) |

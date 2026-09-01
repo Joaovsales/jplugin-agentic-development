@@ -72,7 +72,10 @@ class GitHubProvider(TrackerProvider):
 
     # ---------------------------------------------------------------- discovery
     def discover(self) -> ProviderStatus:
-        code, output = self._run(["gh", "auth", "status"], check=False)
+        try:
+            code, output = self._run(["gh", "auth", "status"], check=False)
+        except ProviderUnavailable as exc:
+            return ProviderStatus(False, str(exc))
         if code != 0:
             return ProviderStatus(
                 False,
@@ -80,10 +83,13 @@ class GitHubProvider(TrackerProvider):
                 f"({self.redact(output.strip().splitlines()[-1]) if output.strip() else 'no output'})",
             )
         if not self.repository:
-            code, output = self._run(
-                ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-                check=False,
-            )
+            try:
+                code, output = self._run(
+                    ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                    check=False,
+                )
+            except ProviderUnavailable as exc:
+                return ProviderStatus(False, str(exc))
             if code != 0:
                 return ProviderStatus(False, "no repository configured and `gh repo view` failed")
             self.repository = output.strip()
