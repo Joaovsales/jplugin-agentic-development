@@ -264,6 +264,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
 | `/plan` | Interviews you, writes spec to `specs/`, creates TDD task plan in `tasks/todo.md` |
 | `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
+| `/route` | Route an issue, ticket URL, `#123`, or next backlog item through a recorded workflow lane |
 | `/tdd` | Manual TDD loop with user checkpoints: failing test → code → pass → refactor → `[x]` |
 | `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
 | `/verify` | Evidence-based verification gate — no completion claims without fresh command output |

@@ -2,8 +2,8 @@
 title: A slow test is not a hung test
 date: 2026-08-11
 problem_type: pattern
-module: general
-tags: [migrated, pattern]
+module: test-harness
+tags: [tests, timeout, diagnostics]
 applies_when: Diagnosing a test suite that exceeds a tool timeout.
 date_source: git-log
 migrated_from: tasks/memory.md

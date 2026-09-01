@@ -1,7 +1,7 @@
 ---
 name: task-registry
 description: Synchronize the compact tasks/todo.md index with an external tracker (GitHub Issues, Jira) or a local Markdown store. Use when linking tasks to issues, reconciling stale plans against tickets, asking what work is unblocked, or migrating a repository whose todo.md has grown into a detailed backlog.
-argument-hint: "[reconcile|publish|pull|frontier|show <task-id>|migrate|doctor]"
+argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|migrate|doctor]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -27,7 +27,8 @@ every session; a `tasks/todo.md` that has absorbed nine closed plan blocks canno
 3. **The label vocabulary belongs to the project.** Ordinary sync never creates,
    renames, or removes a label. Every original label survives, `area/*` included.
 4. **Never copy a ticket body into the index.** Detail is revealed by
-   `show <task-id>` and nowhere else.
+   `show <task-reference>` and nowhere else; provider URLs and shorthand resolve
+   through the configured provider without requiring a local row.
 5. **Nothing unresolved is deleted.** Stale, superseded, and orphaned entries are
    classified and reported for a human to act on.
 6. **Degrade reads, refuse writes.** An unreachable provider still reconciles the

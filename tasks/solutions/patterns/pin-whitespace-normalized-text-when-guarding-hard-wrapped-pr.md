@@ -2,8 +2,8 @@
 title: Pin whitespace-normalized text when guarding hard-wrapped prose
 date: 2026-08-11
 problem_type: pattern
-module: general
-tags: [migrated, pattern]
+module: documentation-tests
+tags: [markdown, whitespace, regression-test]
 applies_when: "`tests/test-doc-conventions.sh`-style token greps over markdown."
 date_source: git-log
 migrated_from: tasks/memory.md
