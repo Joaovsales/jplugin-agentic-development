@@ -436,6 +436,7 @@ authorization unless the project's configuration enables them.
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
 | `/auto-improve` | Unattended discover→fix loop: survey backlog/tech-debt/tests/perf/design, ship one high-value improvement as a PR. Built for daily cloud runs |
+| `/route` | Route an issue, ticket, URL, `#123`, or next backlog item through a recorded workflow lane |
 | `/debug` | Root cause analysis, bug-track store documents, loop verification |
 | `/tdd` | Manual TDD loop with user checkpoints |
 | `/verify` | Evidence-based verification gate (`--scope deployment|e2e`) |

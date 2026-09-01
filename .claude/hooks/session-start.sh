@@ -200,6 +200,27 @@ if git rev-parse --is-inside-work-tree &>/dev/null; then
   UNCOMMITTED=$(git status --short 2>/dev/null | wc -l | tr -d ' ')
   echo ""
   echo "🌿  GIT  branch: $BRANCH | uncommitted changes: $UNCOMMITTED"
+
+  # Upstream staleness. A clone that is behind shows an incomplete picture of the
+  # repo, so every read the agent makes is silently wrong -- a session once
+  # re-specified a capability that had already merged, because nothing said the
+  # tree was 9 commits stale.
+  #
+  # Reports only what the LAST FETCH already recorded: no network call, so an
+  # offline session pays nothing and no timeout lands in the startup path. The
+  # /sync template-drift check below owns the (capped, cached) fetch.
+  #
+  # Silent when current, per Observability Discipline.
+  if UPSTREAM_REF=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null); then
+    BEHIND=$(git rev-list --count "HEAD..@{upstream}" 2>/dev/null || echo 0)
+    if [ "${BEHIND:-0}" -gt 0 ]; then
+      if [ "$BEHIND" -eq 1 ]; then COMMIT_WORD="commit"; else COMMIT_WORD="commits"; fi
+      echo ""
+      echo "⚠  BEHIND UPSTREAM — $BEHIND $COMMIT_WORD behind $UPSTREAM_REF."
+      echo "    Your view of this repo is incomplete. Run 'git pull' before planning,"
+      echo "    or you may re-specify work that has already merged."
+    fi
+  fi
 fi
 
 # ── Deployment Signal Nudge ──────────────────────────────────────────────────
@@ -358,6 +379,7 @@ echo "  /build       — Autonomous TDD execution with sub-agents"
 echo "  /auto-push   — /plan (approved) → /build → /wrap-up autonomously"
 echo "  /yolo        — Full-auto loop: /plan → /build → /wrap-up until backlog empty"
 echo "  /auto-improve — Unattended discover→fix→PR loop (daily cloud runs)"
+echo "  /route       — Route an issue, ticket URL, #123, or next backlog item"
 echo "  /tdd         — Manual TDD loop with user checkpoints"
 echo "  /debug       — Root cause analysis + bug-track store docs"
 echo "  /verify      — Evidence-based verification (--scope e2e|deployment)"

@@ -294,6 +294,9 @@ def task_from_metadata(
     meta = parse_metadata_block(body)
     task_id = meta.get("task-id") or fallback_id or slugify_id(title)
     summary = overrides.pop("summary", "") or _first_prose_line(body)
+    extra = dict(overrides.pop("extra", {}))
+    if not meta.get("task-id") and not fallback_id:
+        extra["registry_identity"] = "provisional-title-slug"
     return Task(
         id=task_id,
         title=title,
@@ -307,6 +310,7 @@ def task_from_metadata(
         evidence=meta.get("evidence", ()),
         external=external,
         summary=summary,
+        extra=extra,
         **overrides,
     )
 

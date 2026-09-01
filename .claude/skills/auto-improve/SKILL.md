@@ -95,17 +95,29 @@ Rank the candidate pool — either the ready backlog items alone (cheap path) or
 
 Pick **exactly one** item (respect `$ARGUMENTS` as a focus filter if given). If discovery ran, write the newly-found unpicked candidates to `tasks/backlog.md` so they persist for future runs. State the pick and the one-line rationale in your output.
 
+If the selected candidate was freshly discovered and has no task-registry
+reference, first add one canonical compact row with a stable `task-id` to
+`tasks/todo.md` using task-registry's `render_row` library seam. Then resolve that
+ID normally. Pass `include_kind=True` so the claim and registered task retain the
+same canonical kind. This local registration happens before routing; never invent a
+reference or pass an ad-hoc `Task` around the registry.
+
 If the top candidate's risk is high and coverage is thin → drop to the next safe one. If **nothing** is safely actionable → skip to Phase 5 in "findings-only" mode.
 
 ---
 
 ## Phase 3 — IMPLEMENT (TDD, delegated)
 
-Route the chosen item to the right existing skill — do not reinvent their logic:
-
-- **Bug / test failure / flaky** → `/debug` (root-cause prelude → reproduction → minimal fix).
-- **Refactor / design fix / perf** → `/tdd` (characterization test first if none exists, then the change).
-- **Small triaged backlog feature** → `/build` scoped to just that one task.
+Pass the chosen item's task-registry reference and a structured claim to
+`materialize_route` in `.agents/skills/route/scripts/route_issue.py`. After it
+returns, execute the materialized lane only through `/build` and its mandatory
+`finalize_route` row. Phase 4 owns the lane's verification and reviewer rows;
+Phase 5 owns its single `/wrap-up-session` row. Never execute those rows early or
+repeat them in both the lane and the outer phases.
+The shared engine owns lane policy; `/auto-improve` supplies the unattended channel
+grant and must not maintain a second routing table. This deliberately changes the
+old behavior: bugs, refactors, and small features no longer branch here, so exactly
+one lane decision is written for the repository.
 
 Follow TDD strictly: failing/characterization test → minimal change → refactor. Keep the diff minimal and on-topic (Minimal Impact rule).
 
@@ -114,12 +126,12 @@ Follow TDD strictly: failing/characterization test → minimal change → refact
 ## Phase 4 — VERIFY (no regressions)
 
 1. Run the **full** test suite. It must be green. If red and you cannot make it green safely in this run → `git reset` your change, revert to findings-only mode (Phase 5), and log why.
-2. Run `/quality-gate` on the changed files (structural quality → anti-patterns → APOSD).
-   Its Apply Gate runs normally — **no prompt added**. A `MUST-FIX` that is not
-   `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately if
-   you can, otherwise carry it into the PR body as an unresolved finding with its
-   `owner`. Never widen `autofix_class`, and never downgrade a finding, to get a
-   clean gate — this run is unattended, so nobody will catch it.
+2. Confirm `/build` completed its `/quality-gate`, then execute the materialized
+   lane's verification and reviewer rows exactly once. Its Apply Gate runs
+   normally — **no prompt added**. A `MUST-FIX` that is not `gated_auto` at
+   `confidence >= 75` is not auto-appliable: fix it deliberately if you can,
+   otherwise carry it into the PR body as an unresolved finding with its `owner`.
+   Never widen `autofix_class`, and never downgrade a finding, to get a clean gate.
 3. Confirm coverage on new/changed code ≥ 80%.
 
 No green suite → no PR. This is non-negotiable.
@@ -130,7 +142,8 @@ No green suite → no PR. This is non-negotiable.
 
 **Normal mode (a change was made):**
 1. Update the affected bug-track documents in `tasks/solutions/` and `tasks/backlog.md` to reflect what was fixed and what remains.
-2. Run `/wrap-up-session` (commit with a conventional message → push branch → open PR).
+2. Execute the materialized lane's `/wrap-up-session` row exactly once (commit with
+   a conventional message → push branch → open PR).
 3. PR body: what was changed, why it was the highest-value pick, the ranked runner-ups deferred to backlog, and the test/coverage evidence.
 
 **Findings-only mode (nothing safe to change):**

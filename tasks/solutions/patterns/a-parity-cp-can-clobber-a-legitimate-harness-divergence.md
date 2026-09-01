@@ -2,8 +2,8 @@
 title: A parity `cp` can clobber a legitimate harness divergence
 date: 2026-08-11
 problem_type: pattern
-module: general
-tags: [migrated, pattern]
+module: skill-parity
+tags: [agents, claude, parity, frontmatter]
 applies_when: Any time an edit to `.agents/**` is copied to the matching `.claude/**` path.
 date_source: git-log
 migrated_from: tasks/memory.md

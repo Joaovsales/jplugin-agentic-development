@@ -25,7 +25,7 @@ cd "$REPO"
 # the whole repo rather than a session's work, so items 2/3/6 have no subject. The
 # contract names that exception explicitly and still requires the empty markers, so
 # the rule stays stated rather than silently dropped.
-DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md"
+DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/route/SKILL.md"
 
 REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
 

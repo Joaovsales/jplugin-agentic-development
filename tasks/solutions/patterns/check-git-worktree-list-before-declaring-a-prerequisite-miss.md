@@ -2,8 +2,8 @@
 title: Check `git worktree list` before declaring a prerequisite missing
 date: 2026-08-11
 problem_type: pattern
-module: general
-tags: [migrated, pattern]
+module: git-worktrees
+tags: [git, worktree, prerequisite-discovery]
 applies_when: Multi-tier specs where an earlier tier may already be built.
 date_source: git-log
 migrated_from: tasks/memory.md

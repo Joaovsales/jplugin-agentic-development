@@ -41,6 +41,7 @@ STATUS_TO_BOX = {
 
 ROW_RE = re.compile(r"^(?P<indent>[ \t]*)(?P<bullet>[-*]\s+)?\[(?P<box>.?)\](?P<rest>.*)$")
 TASK_ID_RE = re.compile(r"<!--\s*task-id:\s*(?P<id>[^\s>]+?)\s*-->")
+TASK_KIND_RE = re.compile(r"<!--\s*task-kind:\s*(?P<kind>[^\s>]+?)\s*-->")
 LINK_RE = re.compile(
     r"\((?P<label>\[[^\]]+\])\((?P<url>[^)\s]+)\)\)"  # the ([#42](url)) shape we render
     r"|\[(?P<bare>[^\]]+)\]\((?P<bare_url>[^)\s]+)\)"  # a bare [#42](url) a human typed
@@ -120,6 +121,7 @@ class TaskIndex:
 
         rest = match.group("rest")
         task_id, rest = _extract_id(rest)
+        task_kind, rest = _extract_kind(rest)
         depends_on, rest = _extract_dependencies(rest)
         external, rest = _extract_link(rest)
         title, summary = _split_title_summary(rest)
@@ -133,6 +135,7 @@ class TaskIndex:
         task = Task(
             id=task_id or "",
             title=title,
+            kind=task_kind or "task",
             status=BOX_TO_STATUS[box],
             depends_on=depends_on,
             external=external,
@@ -180,6 +183,13 @@ def _extract_id(rest: str) -> Tuple[Optional[str], str]:
     return match.group("id"), (rest[: match.start()] + rest[match.end() :])
 
 
+def _extract_kind(rest: str) -> Tuple[Optional[str], str]:
+    match = TASK_KIND_RE.search(rest)
+    if not match:
+        return None, rest
+    return match.group("kind"), (rest[: match.start()] + rest[match.end() :])
+
+
 def _extract_dependencies(rest: str) -> Tuple[Tuple[str, ...], str]:
     match = DEPS_RE.search(rest)
     if not match:
@@ -215,12 +225,14 @@ def _split_title_summary(rest: str) -> Tuple[str, str]:
     return title, summary
 
 
-def render_row(task: Task, indent: str = "") -> str:
+def render_row(task: Task, indent: str = "", include_kind: bool = False) -> str:
     """Render the canonical compact row. This is the only row shape we emit."""
     box = STATUS_TO_BOX.get(task.status, " ")
     parts = [f"{indent}- [{box}] {task.title.strip()}"]
     if task.id:
         parts.append(f"<!-- task-id: {task.id} -->")
+    if include_kind:
+        parts.append(f"<!-- task-kind: {task.kind} -->")
     if task.summary:
         parts.append(f"— {_one_line(task.summary)}")
     if task.external is not None:

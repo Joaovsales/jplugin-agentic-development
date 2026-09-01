@@ -27,13 +27,27 @@ Sub-agent delegations follow the Model Routing table in `/build` (planner tier f
 
 Before interviewing, load available project context:
 
-1. **Check for `tasks/project-context.md`** — if exists, read it for broader project context (architecture, conventions, protection list)
-2. **Check for `tasks/backlog.md`** — if exists and an argument was provided:
+1. **Check this repository first — before any outward search.** Your own merged
+   work is the highest-priority prior art, and the one category `gh search code`
+   and package registries structurally cannot find.
+   - `git rev-list --count HEAD..@{upstream}` — if non-zero, **STOP and pull**. A
+     stale clone makes every subsequent read an incomplete picture, and a spec
+     written against it can re-specify a capability that already shipped.
+   - `gh pr list --state merged --limit 20` — scan titles for the capability you
+     are about to spec. A closed-but-superseded PR often names the merged one.
+   - Grep the tree for a skill, module, or script that already covers it. If one
+     exists, the plan is an extension of it or a justification for not extending.
+
+   Only once this comes back empty do the outward rungs apply (`gh search repos`,
+   `gh search code`, package registries).
+
+2. **Check for `tasks/project-context.md`** — if exists, read it for broader project context (architecture, conventions, protection list)
+3. **Check for `tasks/backlog.md`** — if exists and an argument was provided:
    - Match the argument against backlog item names
    - If match found: use the backlog item description as the starting point for the spec
    - Mark the item as `[~]` (in progress) in `tasks/backlog.md`
    - If no match: list available `[ ]` items and ask user to pick one
-3. **If no backlog exists**: proceed normally (interview from scratch)
+4. **If no backlog exists**: proceed normally (interview from scratch)
 
 ### 1. Interview the User
 Ask clarifying questions to fully understand the feature:

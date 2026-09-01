@@ -165,8 +165,8 @@ done
 # ── /auto-improve -> TDD + PR, its two advertised guarantees ─────────────────
 for tree in $TREES; do
   f="$tree/skills/auto-improve/SKILL.md"
-  assert_file_contains "$f" "/build" \
-    "Chain: $tree/auto-improve implements via /build"
+  assert_file_contains "$f" "route_issue.py" \
+    "Chain: $tree/auto-improve chooses its workflow through the shared route engine"
 done
 
 finish
