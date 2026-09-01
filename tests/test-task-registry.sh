@@ -1308,6 +1308,7 @@ provider = github
 require_write_approval = false
 EOF
 printf '```\n' >> "$F_FLOOR/docs/task-tracking.md"
+install_gh_mock "$F_FLOOR"
 floor_out="$(cd "$F_FLOOR" && pyreg <<'EOF'
 from registry.config import load_config
 plain = load_config(".", env={})
@@ -1323,7 +1324,8 @@ assert_contains "$floor_out" "ignored-flag=True" \
   "Config: the ignored relaxation is recorded so doctor can say so"
 assert_contains "$floor_out" "trusted=False" \
   "Config: an operator who trusts the repository can lower the floor"
-floor_doctor="$(run doctor --repo "$F_FLOOR" 2>&1)"
+floor_doctor="$(cd "$F_FLOOR" && PATH="$F_FLOOR/bin:$PATH" GH_MOCK_DIR="$F_FLOOR/ghdata" \
+  run doctor --repo "$F_FLOOR" 2>&1)"
 assert_contains "$floor_doctor" "approval is a floor" \
   "Doctor: the refused relaxation is visible to the user"
 
