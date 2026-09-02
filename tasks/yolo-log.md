@@ -59,3 +59,12 @@ promotion applied. 9 findings total. Reconciliation:
 Key correction this review caught: the original turnBudget implementation was a silent
 no-op. Frontmatter is now the enforcement path and was proven live. settings.json
 defaultModel fix (deepseek-v4-flash) was unaffected and remains verified.
+
+## CI Fix — 2026-09-02 18:10
+
+PR #87 initial `test` check failed: tests/test-agents.sh frontmatter linter rejects
+plain scalars opening with `{` (reserved-indicator) or containing `: `
+(colon-in-plain-scalar) — the unquoted `turnBudget: {"maxTurns": 80, ...}` line.
+Fix f590288: balanced single quotes (linter bypass + pi-subagents parser strips
+balanced quotes before JSON.parse — value unchanged). Local: 31/31 files,
+162/162 agent assertions. CI re-run 33667085984: SUCCESS.
