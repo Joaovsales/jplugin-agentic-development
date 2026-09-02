@@ -68,3 +68,13 @@ plain scalars opening with `{` (reserved-indicator) or containing `: `
 Fix f590288: balanced single quotes (linter bypass + pi-subagents parser strips
 balanced quotes before JSON.parse — value unchanged). Local: 31/31 files,
 162/162 agent assertions. CI re-run 33667085984: SUCCESS.
+
+## PR #87 follow-up — 2026-09-02 18:30 — routing doc capture
+
+User caught that the PR never edited the file that routes models: PI_SETUP.md
+(the template's canonical subagent-routing doc) still recommended
+`defaultModel: qwen/qwen3-coder-next` and had no turn-cap guidance. Updated:
+defaultModel → deepseek-v4-flash with incident rationale; turnBudget documented
+as agent-frontmatter-only (agentOverrides silently drops it); Ceiling paragraph
+updated (review pins now guard against scout-tier downgrade, not builder).
+Named builder overrides intentionally keep qwen. Suite: 31/31 files.

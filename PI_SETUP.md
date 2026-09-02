@@ -183,9 +183,24 @@ Disable the overlapping builtins so the fleet stays unambiguous: `worker` (≈ b
 
 Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, with `fallbackModels` for provider failures and hard caps against runaway fan-out):
 
+> **`defaultModel` is an enforcement surface, not a convenience.** It applies to *every*
+> agent without a model in frontmatter or an override. Point it at the cheapest routed
+> tier (`deepseek-v4-flash`), never the builder model: a 2026-09-02 incident saw an
+> autonomous `/build` spawn 22 backend-developer agents whose long turns re-read ~132k
+> context each time — 95% of a $25.45 burn was qwen cache-read tokens ($0.07/M) because
+> the blanket default silently made qwen the fallback for unscoped agents.
+>
+> **Turn caps go in agent `.md` frontmatter, NOT in `agentOverrides`.** The pi-subagents
+> override parser (`parseBuiltinOverrideEntry`) silently ignores a `turnBudget` key in
+> `agentOverrides` — the config parses clean and the cap never fires. Add it to each
+> builder agent file instead (e.g. `.agents/agents/backend-developer.md`):
+> `turnBudget: '{"maxTurns": 80, "graceTurns": 5}'` (balanced quotes; the parser strips
+> them before `JSON.parse`). Enforcement verified live: a `maxTurns: 2` test run fired
+> the budget wrap-up after 2 assistant turns.
+
 ```json
 "subagents": {
-  "defaultModel": "qwen/qwen3-coder-next",
+  "defaultModel": "deepseek/deepseek-v4-flash",
   "globalConcurrencyLimit": 6,
   "maxSubagentDepth": 2,
   "maxSubagentSpawnsPerSession": 30,
@@ -214,8 +229,8 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, wi
 **Ceiling cannot be expressed by omission on Pi — the four review roles stay pinned.** On Claude Code,
 omitting `model` means the sub-agent inherits the session model; that is the whole mechanism. On Pi,
 omitting an agent from `agentOverrides` falls through to `subagents.defaultModel` above — a *fixed*
-model (`qwen/qwen3-coder-next`), not the session model. Deleting these four entries would therefore
-**downgrade** every review to the builder model rather than lifting it: strictly worse than the
+model (`deepseek/deepseek-v4-flash`), not the session model. Deleting these four entries would therefore
+**downgrade** every review to the scout model rather than lifting it: strictly worse than the
 `z-ai/glm-4.7` pin, and it would destroy the different-model-family property that § *Tier rationale*
 below relies on to catch builder blind spots.
 
