@@ -38,3 +38,24 @@
   in memory; new sessions pick up the new config).
 - No settings.json backup was made pre-edit (prior .bak files exist from July); recoverable
   from this log + git history of investigation notes.
+
+## Wrap-Up Review Reconciliation — 2026-09-02 17:50
+
+Review: 4 dispatched passes (code-reviewer ×3, critic ×1) — `dispatched`; corroboration
+promotion applied. 9 findings total. Reconciliation:
+
+| # | Pass | Severity | Conf | Autofix | Owner | Action |
+|---|------|----------|------|---------|-------|--------|
+| 1 | P2 | MUST-FIX | 100 (verified in source) | manual | agent | FIXED — `turnBudget` in `agentOverrides` is silently ignored by pi-subagents override parser (parseBuiltinOverrideEntry has no turnBudget branch; agents.ts:897-1045). Moved caps to agent `.md` frontmatter (supported path, agents.ts:1999-2003 → preflight.ts:378) in `.agents/agents/{backend,frontend}-developer,code-debugger.md` + `~/.agents/agents/` copies; dead keys removed from settings.json. Runtime-verified: maxTurns:2 test run fired "Turn budget wrap-up ... after 2 assistant turns". |
+| 2 | P4 | MUST-FIX | 100 | gated_auto | agent | FIXED — todo.md C2 unchecked with DEFERRED annotation; session summary corrected. |
+| 3 | P4 | MUST-FIX | 75 | manual | human | CARRIED — PID 1771335 (Aug 31 pi session) holds pre-change settings; must not run subagent spawns or should be restarted. Cannot kill user's interactive session. |
+| 4 | P1 | SHOULD-FIX | 100 | gated_auto | agent | FIXED — spec now cites global ~/.pi/agent/AGENTS.md + PI_SETUP.md routing table. |
+| 5 | P2 | SHOULD-FIX | 100 | advisory | agent | FIXED — runtime verification performed (see #1). |
+| 6 | P3 | SHOULD-FIX | 100 | manual | agent | FIXED — same as #5. |
+| 7 | P4 | SHOULD-FIX | 50 | advisory | human | FIXED — backup created: settings.json.bak-20260902-wrapup. |
+| 8 | P1 | SHOULD-FIX | 50 | advisory | human | REPORTED — turnBudget absent on 6 expensive non-builder overrides; docs advise against hard caps on reviewers; documented trade-off. |
+| 9 | P3 | SHOULD-FIX | 100 | advisory | human | REPORTED — no automated settings.json drift guard; candidate follow-up. |
+
+Key correction this review caught: the original turnBudget implementation was a silent
+no-op. Frontmatter is now the enforcement path and was proven live. settings.json
+defaultModel fix (deepseek-v4-flash) was unaffected and remains verified.

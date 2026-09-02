@@ -11,12 +11,17 @@ The OpenRouter key has no credit limit (`limit: null`), so there was no tripwire
 
 ## Assumptions (conservative, no user interview per yolo override)
 1. Named builder overrides (backend-developer, frontend-developer, code-debugger) keep
-   qwen — the AGENTS.md routing table intends qwen as builder tier. Only the *blanket*
+   qwen — the subagent routing table in the global `~/.pi/agent/AGENTS.md` (mirrored in
+   `PI_SETUP.md` § Sub-Agent Routing) intends qwen as builder tier. Only the *blanket*
    default changes.
 2. Turn caps on builders are acceptable despite pi-subagents docs advising against hard
    caps on mutation-capable workers: `maxTurns` warns-then-graces (not instant kill),
    partial output is returned, and the observed failure mode (500+ turn runs) is exactly
    the unbounded case. Cap is set generously (80) to avoid truncating real slices.
+   NOTE: implemented via agent `.md` frontmatter (`turnBudget:`), NOT settings.json
+   `agentOverrides` — the override parser (pi-subagents agents.ts parseBuiltinOverrideEntry)
+   silently ignores `turnBudget` there; frontmatter is the supported enforcement path
+   (agents.ts:1999-2003).
 3. OpenRouter limit: monthly-resetting, $50 — current monthly usage is $33.48, so this
    gives ~$16.5 headroom this month and caps future months. User can raise/lower at
    openrouter.ai/keys.

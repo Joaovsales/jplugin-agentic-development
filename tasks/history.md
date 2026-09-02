@@ -239,3 +239,6 @@
   the user acknowledged the recorded gap before commit and push.
 - Learnings captured: `tasks/solutions/architecture/hard-gate-on-tasks-todo-md.md`,
   `tasks/solutions/patterns/consume-structured-records-before-rendering-human-summaries.md`
+
+## 2026-09-02 — qwen spend investigation + guardrails (yolo)
+Investigated a $26.53/24h OpenRouter burn: pi session logs traced it to 6,006 qwen3-coder-next requests from one autonomous /build in PROJECT-pix-receipt-tracker (22 backend-developer spawns; 95% cache-read at $0.07/M). Root cause: `subagents.defaultModel` blanket-enforced qwen on all unscoped agents. Applied: defaultModel → deepseek-v4-flash, 80-turn caps on builder agents, key-limit deferred (needs management key). Verified via live smoke spawn. Docs: tasks/solutions/patterns/cheap-per-token-is-not-cheap-per-task-cap-subagent-turns.md
