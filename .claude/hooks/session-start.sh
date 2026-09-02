@@ -194,6 +194,23 @@ else
   echo "📋  No tasks/todo.md found."
 fi
 
+# ── Wrap-Up Debt ─────────────────────────────────────────────────────────────
+# Written by the pre-push wrap-up gate, which warns rather than blocks and has
+# no way to file an issue itself: external task creation carries an approval
+# floor that a git hook cannot satisfy, and a hook must not do network I/O.
+# This is where the debt reaches a human who can authorize filing it.
+DEBT_FILE="tasks/wrap-up-debt.md"
+if [ -f "$DEBT_FILE" ]; then
+  DEBT_COUNT=$(grep -c '^## ' "$DEBT_FILE" 2>/dev/null || true)
+  if [ "${DEBT_COUNT:-0}" -gt 0 ]; then
+    echo ""
+    echo "⚠  WRAP-UP DEBT  ($DEBT_FILE) — $DEBT_COUNT push(es) with no /wrap-up-session"
+    echo "────────────────────────────────"
+    grep '^## ' "$DEBT_FILE" | head -5
+    echo "  File as issues: /task-registry publish --apply --approve"
+  fi
+fi
+
 # ── Git Status ───────────────────────────────────────────────────────────────
 if git rev-parse --is-inside-work-tree &>/dev/null; then
   BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
@@ -272,7 +289,7 @@ fi
 
 # ── Workflow Template Drift Check ────────────────────────────────────────────
 # Notifies if the coding-agent-workflow template has new commits affecting
-# syncable paths (.claude/skills, .claude/agents, .claude/hooks, .claude/browsers,
+# syncable paths (.agents/git-hooks, .claude/skills, .claude/agents, .claude/hooks, .claude/browsers,
 # settings.json).
 # Silent when in sync (observability discipline: loud only on actionable state).
 #
@@ -310,7 +327,7 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
 
     if timeout 5 git fetch workflow "$WORKFLOW_BRANCH" &>/dev/null; then
       DRIFT_COUNT=$(git diff --name-only "workflow/$WORKFLOW_BRANCH" -- \
-        .agents/skills .agents/agents .claude/skills .claude/agents .claude/hooks .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
+        .agents/skills .agents/agents .agents/git-hooks .claude/skills .claude/agents .claude/hooks .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
         | wc -l | tr -d ' ')
       printf '%s\n%s\n' "$DRIFT_COUNT" "$WORKFLOW_BRANCH" > "$WORKFLOW_CHECK_CACHE"
     fi
@@ -380,7 +397,6 @@ echo "  /auto-push   — /plan (approved) → /build → /wrap-up autonomously"
 echo "  /yolo        — Full-auto loop: /plan → /build → /wrap-up until backlog empty"
 echo "  /auto-improve — Unattended discover→fix→PR loop (daily cloud runs)"
 echo "  /route       — Route an issue, ticket URL, #123, or next backlog item"
-echo "  /tdd         — Manual TDD loop with user checkpoints"
 echo "  /debug       — Root cause analysis + bug-track store docs"
 echo "  /verify      — Evidence-based verification (--scope e2e|deployment)"
 echo "  /create-verification-skill — Generate a project-local verification recipe + feature map"
