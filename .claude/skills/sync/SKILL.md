@@ -96,7 +96,22 @@ CLAUDE.md             → Shared rules: workflow, principles, skills index (both
 .claude/hooks/        → Lifecycle hooks (Claude Code only)
 .claude/browsers/     → Browser adapter runbooks read by /verify --scope e2e
 .claude/settings.json → Hook configuration + env (Claude Code only — no SessionStart, see above)
+.agents/git-hooks/    → Git hooks (harness-agnostic; installed separately, see below)
 ```
+
+**`.agents/git-hooks/pre-push` needs an install step, not just a sync.** Syncing
+updates the file in the tree; git runs the copy under `--git-common-dir/hooks/`.
+`install.sh` writes the git *template* dir, which applies only to repositories
+created afterwards — so an already-cloned project keeps running whatever hook it
+had, or none. Refresh it explicitly after every sync:
+
+```bash
+cp .agents/git-hooks/pre-push "$(git rev-parse --git-common-dir)/hooks/pre-push"
+chmod +x "$(git rev-parse --git-common-dir)/hooks/pre-push"
+```
+
+Idempotent, and one copy covers every worktree since they share the common dir.
+Skipping it is how a gate ends up present in the tree and wired nowhere.
 
 **Never sync** (project-specific state):
 - `AGENTS.md` — Pi project-specific rules (Pi's equivalent of .claude/project.md)
@@ -246,12 +261,12 @@ Compare the syncable paths between the current project and the template source.
 # Show changed files in syncable paths only
 # Note: use two-dot diff (not three-dot) — template and project have unrelated histories,
 # so HEAD...workflow/$WORKFLOW_BRANCH fails with "no merge base"
-git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 Then show the full diff:
 ```bash
-git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 **If manual diff mode:**
@@ -295,6 +310,28 @@ For each applied file, briefly note what changed.
 2. Ask the user if they want to commit the sync:
    - Suggested message: `chore: sync workflow updates from coding-agent-workflow`
 3. Remind the user to review `CLAUDE.md` if it was updated — they may need to merge project-specific customizations back in
+
+### Step 6.4 — Retired Skill Removal
+
+A sync copies files in; it never deletes. A project that installed a skill the
+template has since retired keeps running the stale copy indefinitely, and the
+retired copy still carries whatever rule got it retired. `tdd` is the live
+example: it offered committing with a `/learn` run as a sanctioned substitute
+for `/wrap-up-session` — the only written authorization in the workflow to commit
+code without wrapping up,
+which is exactly what the pre-push wrap-up gate exists to catch.
+
+Remove retired skills from both trees when present:
+
+```bash
+for retired in tdd deslop simplify verify-e2e; do
+  rm -rf ".agents/skills/$retired" ".claude/skills/$retired"
+done
+```
+
+Their content was folded into surviving skills, not dropped: `tdd` → `/build`
+Phase 1 § *TDD Discipline*; `simplify` and `deslop` → `/quality-gate` Phase 1
+and Phase 2; `verify-e2e` → `/verify --scope e2e`. Report what was removed.
 
 ### Step 6.5 — Unmigrated Learning Store Check
 

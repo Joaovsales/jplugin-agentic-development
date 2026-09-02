@@ -14,7 +14,7 @@ Step back and ask what you're really trying to do. Explore the problem space bef
 ## The Hard Gate
 
 ```
-DO NOT invoke /plan, /build, /tdd, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it.
+DO NOT invoke /plan, /build, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it.
 ```
 
 ## The Process

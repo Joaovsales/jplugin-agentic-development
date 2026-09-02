@@ -238,3 +238,55 @@
 - Pending: 0 tasks
 - Carry-forward: formal user-surface E2E remains unavailable until a project-local
   verification skill exists; Mode B found no measurable hook lift in this harness.
+
+---
+
+## Plan: Wrap-Up Push Gate + `/tdd` Fold-and-Retire
+> Spec: specs/wrap-up-gate-and-tdd-fold.md
+> Two independent commits. A = gate, B = fold. A first: B's value depends on the
+> gate existing, not the reverse.
+
+### A — Wrap-Up Push Gate
+
+[x] TDD: fingerprint parser extracts `[start..end]` from `## Session Summary` lines, ignores malformed endpoints -> parse function in `.agents/git-hooks/pre-push`, reading `tasks/todo.md` via `git show <sha>:tasks/todo.md`
+[x] TDD: code-vs-docs classifier — `*.md`, `LICENSE*`, `.gitignore`, `tasks/**` are non-code -> path filter over `git diff-tree --no-commit-id --name-only -r`
+[x] TDD: uncovered code commit exits **0**, names its short-SHA on stderr -> coverage check via `git rev-list start..end` membership; never blocks
+[x] TDD: covered code commit exits 0 and prints nothing -> success path silent per Observability Discipline
+[x] TDD: the commit introducing a session-summary line is treated as covered -> wrap-up-commit exemption (spec Contract clause 2)
+[x] TDD: uncovered push writes one `tasks/wrap-up-debt.md` entry keyed on `<branch> <first>..<last>` -> ledger writer
+[x] TDD: re-pushing the same uncovered range updates the entry in place, never duplicates -> ledger key lookup before append
+[x] TDD: docs-only push passes silently and records nothing -> classifier short-circuit
+[x] TDD: repo with no `tasks/todo.md` at the pushed sha passes silently and records nothing -> absent-file guard
+[x] TDD: new-branch push (zero remote sha) resolves range from merge-base with default branch -> zero-sha branch
+[x] TDD: branch-deletion push (zero local sha) passes, records nothing -> zero-sha branch
+[x] TDD: merge commits are exempt from coverage -> `git rev-list --no-merges`
+[x] TDD: `SKIP_WRAPUP_GATE=1` bypasses the gate while `SKIP_PREPUSH=1` still bypasses the whole hook -> env guards, gate guard nested inside the existing one
+[x] TDD: malformed fingerprint is reported on stderr, neither widens coverage nor suppresses the warning -> parser rejects `[907ac6d..worktree]`-shaped endpoints
+[x] TDD: hook makes no network call and invokes no tracker command -> grep the hook for `gh`/`curl`/`task-registry` in the test
+[x] TDD: `session-start.sh` prints outstanding debt with the `/task-registry publish` invocation, silent when ledger empty or absent -> banner section beside the existing counts
+[x] TDD: `install.sh` run inside a repo installs the hook to `--git-common-dir/hooks/pre-push` -> new install step beside `install.sh:256-259`
+[x] TDD: `/sync` refreshes the pre-push hook in an already-cloned repo -> sync step + doc row
+[x] Delete `.claude/hooks/pre-push-guard.sh` (header already reads "safe to delete"; two pre-push scripts invite editing the dormant one)
+
+### B — Fold `/tdd` into `/build`, then retire
+
+[x] TDD: `build/SKILL.md` Phase 1 carries the Red Flags list, rationalization table, and When Stuck table -> move `tdd/SKILL.md:74-111` under Phase 1, keeping `(tdd)` as the label per the `simplify`/`deslop` precedent
+[x] TDD: `build/references/testing-anti-patterns.md` exists and Phase 1 links it -> `git mv` from `.agents/skills/tdd/`
+[x] TDD: no prose anywhere authorizes committing code without wrap-up -> confirm `tdd/SKILL.md:129-131` is destroyed, not relocated
+[x] TDD: `plan/SKILL.md` § 7 hands off to `/build` -> repoint `:188`
+[x] TDD: `project-template/tasks/todo.md` says "executed by `/build`" -> repoint `:4` (ships downstream)
+[x] TDD: `auto-push/SKILL.md:73`, `prd/SKILL.md:24`, `brainstorm/SKILL.md:17` no longer name `/tdd` -> repoint or drop
+[x] TDD: `README.md` has no `delegates to /tdd` diagram edge and no skills-table row -> remove `:215`, `:272`
+[x] TDD: `CLAUDE.md:441` and `session-start.sh:383` no longer register `/tdd` -> remove both rows
+[x] TDD: `tasks/solutions/architecture/tdd-enforcement.md` cites a line range that exists in `build/SKILL.md` -> repoint `:5`, `:16-17`
+[x] TDD: both `.agents/skills/tdd/` and `.claude/skills/tdd/` are gone and parity holds -> remove both, run `tests/test-skill-parity.sh`
+[x] TDD: `/sync` removes a stale `tdd/` from a downstream project -> retirement list entry
+[x] Full suite green -> `tests/run.sh`
+
+## Session Summary — 2026-09-02 [d0f54fc..bb071e8]
+- Completed: 31 tasks (A: wrap-up push gate, 18; B: /tdd fold-and-retire, 13)
+- Pending: 0
+- Carry-forward: force-push guard in .agents/git-hooks/pre-push is dead code —
+  git passes no push flags to a pre-push hook. Recorded open in
+  tasks/solutions/bugs/pre-push-force-guard-never-fires.md; needs a separate
+  change that infers non-fast-forward from the stdin ref list.

@@ -185,4 +185,4 @@ python3 .agents/skills/task-registry/scripts/task-registry.py reconcile
   falls back to local Markdown and the plan proceeds unchanged.
 
 ### 7. Hand Off to TDD
-After confirmation, proceed with `/tdd` or begin the TDD loop directly.
+After confirmation, proceed with `/build`, which executes the plan under the TDD discipline in its Phase 1.

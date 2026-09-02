@@ -256,7 +256,19 @@ mkdir -p "$GIT_TEMPLATE_DIR/hooks"
 # pre-push hook: typecheck + lint before every git push (harness-agnostic)
 cp "$REPO_DIR/.agents/git-hooks/pre-push" "$GIT_TEMPLATE_DIR/hooks/pre-push"
 chmod +x "$GIT_TEMPLATE_DIR/hooks/pre-push"
-ok "installed" "pre-push hook (typecheck + lint before every git push)"
+ok "installed" "pre-push hook (typecheck + lint + wrap-up gate)"
+
+# A git template applies only to repositories created *after* installation, so
+# every already-cloned repo — including this one — would never receive the hook.
+# That is how the previous pre-push guard ended up dormant: present in the tree,
+# wired nowhere. Install into the current repo too when there is one. Worktrees
+# share --git-common-dir, so one copy covers all of them.
+if CURRENT_GIT_DIR="$(git rev-parse --git-common-dir 2>/dev/null)"; then
+  mkdir -p "$CURRENT_GIT_DIR/hooks"
+  cp "$REPO_DIR/.agents/git-hooks/pre-push" "$CURRENT_GIT_DIR/hooks/pre-push"
+  chmod +x "$CURRENT_GIT_DIR/hooks/pre-push"
+  ok "installed" "pre-push hook → $CURRENT_GIT_DIR/hooks (existing repo)"
+fi
 
 # post-init hook: copies Claude project scaffold into newly init'd repos
 cat > "$GIT_TEMPLATE_DIR/hooks/post-init" <<'HOOK'
