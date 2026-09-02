@@ -2,7 +2,7 @@
 name: backend-developer
 description: When developing any backend feature or functionality
 color: orange
-turnBudget: {"maxTurns": 80, "graceTurns": 5}
+turnBudget: '{"maxTurns": 80, "graceTurns": 5}'
 ---
 
 ---

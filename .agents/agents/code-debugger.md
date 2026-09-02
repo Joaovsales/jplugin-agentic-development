@@ -2,7 +2,7 @@
 name: code-debugger
 description: When we're debugging code
 color: red
-turnBudget: {"maxTurns": 80, "graceTurns": 5}
+turnBudget: '{"maxTurns": 80, "graceTurns": 5}'
 ---
 
 ---
