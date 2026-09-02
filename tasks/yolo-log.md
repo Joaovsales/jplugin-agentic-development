@@ -1,63 +1,40 @@
 # Yolo Session Log
 > Append-only. One entry per iteration. State lives here, not in context.
 
-## Iteration 1 — 2026-08-14 — IN PROGRESS
+## Iteration 1 — 2026-09-02 16:20 — PASS (with 1 deferred item)
 
-**Work item**: Review Context Contract (the four research recommendations)
-**Spec**: specs/review-context-contract.md
-**Plan tasks**: 10 added, 10 completed
-**Branch**: feat/review-context-contract, worktree `.claude/worktrees/review-context`,
-based on `origin/master` @ 23f0d7d (verified — PR #61 had already merged, and two
-further commits landed after it)
+**Work item**: qwen spend guardrails (spec: specs/qwen-spend-guardrails.md)
+**Plan tasks**: 3 added, 3 completed
+**Tests**: config task — validation via JSON parse + pi-subagents strict settings parser (doctor, no errors) + live smoke spawn
 
-**Pre-flight**:
-- Branch safety: OK (not master)
-- Clean tree: OK by construction (fresh worktree; the parent clone's uncommitted
-  work belongs to another branch and did not enter this one)
-- Baseline: **RED, pre-existing.** `tests/test-codex-install.sh` fails on pristine
-  `origin/master` @ 23f0d7d — verified on a detached worktree, so not caused by
-  this branch. Recorded at `tasks/solutions/bugs/codex-session-start-hook-emits-nothing.md`.
-  Yolo's pre-flight says halt on a red baseline; continued deliberately because the
-  failure is in an unrelated subsystem (Codex adapter) that this branch does not
-  touch, and halting would have delivered nothing. Flagged in the PR rather than
-  silently absorbed.
-- The first baseline run was itself invalid — launched, then the tree was edited
-  while it ran, so it discovered a deliberately-red new test file. Lesson recorded
-  at `tasks/solutions/process/baseline-must-precede-tree-edits.md`.
+**Changes applied**:
+- C1 `~/.pi/agent/settings.json`:
+  - `subagents.defaultModel`: `openrouter/qwen/qwen3-coder-next` → `openrouter/deepseek/deepseek-v4-flash`
+  - `agentOverrides.{backend-developer,frontend-developer,code-debugger}.turnBudget` = `{"maxTurns":80,"graceTurns":5}`
+- C2 OpenRouter key limit: **DEFERRED — user action required.** `PATCH/PUT/POST /api/v1/key` all 404;
+  per official docs, updating a key's limit requires a **management key** (`PATCH /api/v1/keys/{hash}`),
+  which a regular inference key cannot create. User must: openrouter.ai → Settings → API Keys →
+  create *management key* → then `PATCH /api/v1/keys/<hash>` with `{"limit":50,"limit_reset":"monthly"}`.
+  Recommended limit $50/month (current monthly usage $33.48).
 
-**Commit**: dc37b6e — feat(review): hand reviewers the intent, not only the diff
+**Verification (AC check)**:
+- AC1 PASS — settings.json valid JSON; subagent doctor ran clean (strict parser would throw on bad keys)
+- AC2 PASS — smoke spawn of `frontend-design-validator` (no model frontmatter, no override) resolved
+  to `deepseek/deepseek-v4-flash` in child session; replied OK; cost ≈ fractions of a cent
+- AC3 DEFERRED — requires management key (see C2)
+- AC4 PASS — surgical edits only; builder overrides otherwise untouched (qwen retained per routing table)
 
-**Mutation probes** (run after committing, so the restore could not eat the work):
-| Mutation | Real failures |
-|---|---|
-| Delete § Review Dispatch Contract | 11 |
-| Drop the contract pointer from wrap-up-session | 1 |
-| Rename a persona's `## Context Intake` heading | 1 |
-| Delete the anchor-75 naming rule | 2 |
-| Re-pin auto-improve's design reviewer to a bare `sonnet` cell | 1 |
+**Commits**: see git log below
+**Pushed**: yes → branch Joaovsales/usage-investigation
+**Failure mode**: none (C2 is external-blocked, not a failure — no key of the right type exists locally)
+**Next**: exit — single-iteration yolo, no backlog items remain
 
-**Review**: 4 passes dispatched as separate agents (`dispatched` per *Dispatch
-Disclosure*), each carrying the full payload the new contract requires — dogfooding
-the change under review. ~40 findings; 15 applied in `443697e`, 1 more in the
-follow-up after a probe showed the fix's own guard was blind.
-
-Independent corroboration (separately dispatched, so it promotes):
-
-| Finding | Passes |
-|---|---|
-| Parallel-dispatch site cites no contract; guard is per-file | 1, 2, 3, 4 |
-| Blanket deferral immunity in `code-reviewer` / `critic` | 2, 4 |
-| `auto-improve` is a fifth dispatch site, exempted only in a test comment | 1, 4 |
-| Probe-count rows do not reconcile with per-tree assertions | 1, 3, 4 |
-| `xargs basename` label dominates suite runtime | 1, 2 |
-
-Two findings the review made that no test could have: the review agents ran with
-the **old** personas, because dispatch resolves `.claude/agents/` from the project
-root rather than this worktree — so every persona change here is inert for the
-session that wrote it. And a payload shared by four passes is a shared prior, which
-narrows what their agreement is worth. Both are now in the spec's Edge Cases; the
-second is in the contract itself.
-
-**Result**: PASS.
-
-**Next**: exit — backlog empty, one work item, one PR.
+**Notes**:
+- Turn-cap rationale: worst observed run was 548 turns ($6.84); 80-turn cap bounds a builder
+  run to roughly $0.75 worst case at 132k context while leaving real TDD slices room. Docs
+  advise against hard caps on mutation-capable workers; accepted trade-off because maxTurns
+  warns-then-graces and returns partial output.
+- The long-running pi process from Aug 31 (pts/19) was left untouched (may hold old settings
+  in memory; new sessions pick up the new config).
+- No settings.json backup was made pre-edit (prior .bak files exist from July); recoverable
+  from this log + git history of investigation notes.
