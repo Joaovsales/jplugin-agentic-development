@@ -438,7 +438,6 @@ authorization unless the project's configuration enables them.
 | `/auto-improve` | Unattended discover→fix loop: survey backlog/tech-debt/tests/perf/design, ship one high-value improvement as a PR. Built for daily cloud runs |
 | `/route` | Route an issue, ticket, URL, `#123`, or next backlog item through a recorded workflow lane |
 | `/debug` | Root cause analysis, bug-track store documents, loop verification |
-| `/tdd` | Manual TDD loop with user checkpoints |
 | `/verify` | Evidence-based verification gate (`--scope deployment|e2e`) |
 | `/create-verification-skill` | Generate a grounded project-local `verify-<app>` recipe and feature map, with one live proof |
 | `/maintain-verification-skill` | Reconcile current user-facing changes with `--scope changed`; omit the option for a full audit |

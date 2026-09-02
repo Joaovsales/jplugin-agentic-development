@@ -176,6 +176,52 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 - Move to the next `[ ]` task immediately (no user prompt)
 - If a task is blocked by a previous failure, note it and skip to the next unblocked task
 
+### TDD Discipline (tdd)
+
+Folded in from the retired `/tdd` skill, which held this doctrine while `/build`
+carried only the one-line instruction above — so the rule that actually stops
+tests-after drift lived in the skill nobody ran. Applies to the main context and
+to every delegated sub-agent.
+
+**Red flags — STOP and start over with a failing test:**
+
+- Code written before test
+- Test written after implementation
+- Test passes immediately without implementation
+- Can't explain why test failed
+- Tests added "later"
+- Rationalizing "just this once"
+- "I already manually tested it"
+- "Keep as reference" or "adapt existing code"
+
+**All of these mean: delete the code. Start over with TDD.**
+
+**Common rationalizations:**
+
+| Excuse | Reality |
+|--------|---------|
+| "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
+| "I'll test after" | Tests passing immediately prove nothing. |
+| "Need to explore first" | Fine. Throw away exploration, start with TDD. |
+| "Test hard = design unclear" | Listen to the test. Hard to test = hard to use. |
+| "TDD will slow me down" | TDD is faster than debugging. |
+| "Manual test faster" | Manual doesn't prove edge cases. |
+| "Existing code has no tests" | You're improving it. Add tests. |
+| "Just this once" | That's rationalization. |
+| "It's about spirit not ritual" | Tests-after ≠ TDD. You get coverage, lose proof. |
+| "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is debt. |
+
+**When stuck:**
+
+| Problem | Solution |
+|---------|----------|
+| Don't know how to test | Write the wished-for API. Write the assertion first. |
+| Test too complicated | Design too complicated. Simplify the interface. |
+| Must mock everything | Code too coupled. Use dependency injection. |
+| Test setup is huge | Extract helpers. Still complex? Simplify the design. |
+
+Mock and test-utility pitfalls: `references/testing-anti-patterns.md`.
+
 ## Phase 1.5 — Changed Verification Map
 
 After all tasks are `[x]`, classify the completed work. If ANY acceptance
