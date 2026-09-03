@@ -14,7 +14,7 @@ Review recently changed files for security vulnerabilities. Flag issues by sever
 ## Context Intake
 
 **Given to you** (per `CLAUDE.md` § *Review Dispatch Contract*): the diff or its
-path, the spec path plus acceptance criteria, the task entries closed this run, the
+path, every relevant spec's path plus its acceptance criteria, the task entries closed this run, the
 deferral list, and the scope boundary. Use the given base rather than guessing one —
 the commands below are the fallback for when no diff was passed. `deferrals: none`
 means nothing was deferred; a *missing* deferral line means you were not told — say

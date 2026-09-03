@@ -14,7 +14,8 @@
 src/        → application source
 tests/      → test suite
 tasks/      → todo, solutions/ learning store, history, concepts.md glossary (Claude workflow files)
-specs/      → feature specifications
+specs/      → feature specifications (living contracts: current behavior,
+            with implementation_paths frontmatter — see specs/README.md)
 ```
 
 ## Test Commands

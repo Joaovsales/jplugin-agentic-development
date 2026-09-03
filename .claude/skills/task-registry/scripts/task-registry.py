@@ -42,10 +42,14 @@ from registry.providers.base import (  # noqa: E402
     WriteGate,
     WriteNotAuthorized,
 )
+from registry.model import Task, TaskModelError  # noqa: E402
 from registry.reconcile import Registry  # noqa: E402
 from registry.redaction import Redactor, redactor_for  # noqa: E402
+from registry.upsert import derive_id, upsert_task  # noqa: E402
 
-COMMANDS = ("reconcile", "publish", "pull", "frontier", "show", "migrate", "doctor")
+COMMANDS = (
+    "reconcile", "publish", "pull", "frontier", "show", "migrate", "doctor", "upsert",
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,6 +79,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--verbose", action="store_true", help="print every finding")
     parser.add_argument("--report", help="also write the output to this file")
+    # `upsert` content. Structured rather than a free-form body file: every one of
+    # these round-trips through the local provider's metadata block and managed
+    # sections, so re-running the command replaces the record instead of
+    # accreting a second copy of it beside the first.
+    parser.add_argument("--title", help="task title (upsert)")
+    parser.add_argument("--kind", help="task kind (upsert), e.g. research")
+    parser.add_argument("--spec", help="spec path this task is about (upsert)")
+    parser.add_argument("--summary", default="", help="one-paragraph summary (upsert)")
+    parser.add_argument(
+        "--evidence", action="append", default=[],
+        help="evidence line (upsert); repeatable",
+    )
+    parser.add_argument(
+        "--criterion", action="append", default=[],
+        help="acceptance criterion (upsert); repeatable",
+    )
+    parser.add_argument(
+        "--label", action="append", default=[], help="label (upsert); repeatable"
+    )
+    parser.add_argument(
+        "--derive-id",
+        metavar="NAMESPACE",
+        help="derive the task id as NAMESPACE.<normalized --spec path> (upsert); "
+        "use instead of the positional id so two runs cannot normalize differently",
+    )
     return parser
 
 
@@ -107,6 +136,20 @@ def _run(argv, set_redactor) -> int:
     if args.command == "show" and not args.task_id:
         print("task-registry: `show` requires a task id", file=sys.stderr)
         return 2
+    if args.command == "upsert":
+        if bool(args.task_id) == bool(args.derive_id):
+            print(
+                "task-registry: `upsert` needs exactly one of a task id or "
+                "--derive-id NAMESPACE (with --spec)",
+                file=sys.stderr,
+            )
+            return 2
+        if args.derive_id and not args.spec:
+            print("task-registry: `--derive-id` requires --spec", file=sys.stderr)
+            return 2
+        if not args.title:
+            print("task-registry: `upsert` requires --title", file=sys.stderr)
+            return 2
 
     try:
         config = load_config(root)
@@ -156,6 +199,22 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
     command = args.command
     if command == "show":
         return registry.show(args.task_id)
+    if command == "upsert":
+        try:
+            task = Task(
+                id=args.task_id or derive_id(args.derive_id, args.spec),
+                title=args.title,
+                kind=args.kind or "task",
+                spec_path=args.spec,
+                summary=args.summary,
+                evidence=tuple(args.evidence),
+                acceptance_criteria=tuple(args.criterion),
+                labels=tuple(args.label),
+            )
+        except TaskModelError as exc:
+            return (f"task-registry: {exc}", 2)
+        lines, code = upsert_task(registry, task, apply_writes)
+        return ("\n".join(lines), code)
     if command == "doctor":
         return _doctor(registry), 0
     if command == "migrate":

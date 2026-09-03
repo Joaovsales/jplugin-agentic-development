@@ -1,3 +1,12 @@
+---
+implementation_paths:
+  - .agents/skills/task-registry/**
+  - .claude/skills/task-registry/**
+  - tests/test-task-registry.sh
+  - tests/fixtures/task-registry/**
+  - docs/task-tracking.md
+---
+
 # Spec: Provider-Agnostic Task Registry
 
 > Status: implemented on `feat/task-registry-provider-adapters`.
@@ -67,6 +76,7 @@ A CLI, `task-registry`, exposed through the `/task-registry` skill:
 | `frontier` | Dependency-aware ready/blocked list | none |
 | `show <task-id>` | Full detail for exactly one task | none |
 | `migrate` | Classify a legacy repo, propose IDs and grouping | none without `--apply` |
+| `upsert` | Create-or-update exactly one task, addressed by a stable ID (derivable from a path with `--derive-id`) | yes, gated |
 
 Summary first, always. Detail only via `show`. Full external bodies are **never**
 copied into `tasks/todo.md`.
@@ -116,53 +126,53 @@ copied into `tasks/todo.md`.
 
 ## Acceptance Criteria
 
-- [ ] AC-1 — `Task` model validates canonical kinds/statuses/priorities and rejects
+- AC-1 — `Task` model validates canonical kinds/statuses/priorities and rejects
       unknown values with a named error.
-- [ ] AC-2 — Stable IDs live in an HTML comment locally and a metadata block
+- AC-2 — Stable IDs live in an HTML comment locally and a metadata block
       externally; no provider issue number is used as identity.
-- [ ] AC-3 — Provider selection: explicit config wins; else GitHub when a GitHub
+- AC-3 — Provider selection: explicit config wins; else GitHub when a GitHub
       remote and authenticated `gh` both exist; else local. Jira is never implicit.
-- [ ] AC-4 — GitHub adapter maps `bug`→`bug`, `enhancement`→`feature`,
+- AC-4 — GitHub adapter maps `bug`→`bug`, `enhancement`→`feature`,
       `design-decision`→`decision`, `question`→ only when configured, `now`→`high`,
       `next`→`medium`, no queue label → unset priority.
-- [ ] AC-5 — Every original label, including every `area/*`, survives a round trip.
-- [ ] AC-6 — Ordinary sync never creates a label. `allow_label_creation = true`
+- AC-5 — Every original label, including every `area/*`, survives a round trip.
+- AC-6 — Ordinary sync never creates a label. `allow_label_creation = true`
       is the only switch that permits it, and creation still passes the write gate
       like any other external write.
-- [ ] AC-7 — GitHub open/closed maps to `open`/`done`; `in_progress`/`blocked` only
+- AC-7 — GitHub open/closed maps to `open`/`done`; `in_progress`/`blocked` only
       from configured project fields, native state, assignee, or configured labels.
-- [ ] AC-8 — Capabilities are declared per provider, and a dependency stored in
+- AC-8 — Capabilities are declared per provider, and a dependency stored in
       metadata is reported `inferred`, never `native`.
-- [ ] AC-9 — External writes require `--apply`; default is dry-run for every command.
-- [ ] AC-10 — Jira credentials and the `Authorization` header are redacted in all
+- AC-9 — External writes require `--apply`; default is dry-run for every command.
+- AC-10 — Jira credentials and the `Authorization` header are redacted in all
       output, including tracebacks and verbose mode.
-- [ ] AC-11 — Local provider works fully offline: create, update, close, comment,
+- AC-11 — Local provider works fully offline: create, update, close, comment,
       parent, dependency.
-- [ ] AC-12 — `reconcile` is idempotent: a second run reports no changes and writes
+- AC-12 — `reconcile` is idempotent: a second run reports no changes and writes
       nothing new.
-- [ ] AC-13 — Duplicate detection never uses title equality alone.
-- [ ] AC-14 — `tasks/todo.md` rows carry only checkbox, title, ID, link, one-line
+- AC-13 — Duplicate detection never uses title equality alone.
+- AC-14 — `tasks/todo.md` rows carry only checkbox, title, ID, link, one-line
       summary, optional dependency marker; no acceptance criteria, no issue body.
-- [ ] AC-15 — Legacy checkbox-only rows keep parsing; `migrate` is dry-run first and
+- AC-15 — Legacy checkbox-only rows keep parsing; `migrate` is dry-run first and
       leaves an audit trail.
-- [ ] AC-16 — Migration groups tightly coupled work and does not emit one external
+- AC-16 — Migration groups tightly coupled work and does not emit one external
       issue per historical `[x]` checkbox.
-- [ ] AC-17 — Unresolved work is never deleted; stale/superseded entries are
+- AC-17 — Unresolved work is never deleted; stale/superseded entries are
       classified and reported, not removed.
-- [ ] AC-18 — `frontier` orders by dependency and names the blocker for each blocked
+- AC-18 — `frontier` orders by dependency and names the blocker for each blocked
       task.
-- [ ] AC-19 — Malformed input is reported with file:line and a non-zero exit, never
+- AC-19 — Malformed input is reported with file:line and a non-zero exit, never
       swallowed.
-- [ ] AC-20 — Workflow skills (`/plan`, `/build`, `/verify`, `/quality-gate`,
+- AC-20 — Workflow skills (`/plan`, `/build`, `/verify`, `/quality-gate`,
       `/wrap-up-session`) reach tracking only through this capability — no direct
       `gh`/Jira calls for task state.
 
-## Files Likely Involved
+## Implementation Paths
 
 - `.agents/skills/task-registry/SKILL.md` — the skill (canonical), parity-copied.
 - `.agents/skills/task-registry/scripts/task-registry.py` — CLI entrypoint.
 - `.agents/skills/task-registry/scripts/registry/` — model, config, index,
-  reconcile, migrate, providers.
+  reconcile, migrate, upsert, providers.
 - `.agents/skills/task-registry/references/` — configuration, migration, and
   progressive-disclosure guides.
 - `.agents/skills/task-registry/templates/task-tracking.md` — the config template.

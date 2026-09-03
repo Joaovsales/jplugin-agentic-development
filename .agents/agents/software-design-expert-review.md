@@ -31,7 +31,7 @@ You care about:
 ## Context Intake
 
 **Given to you** (per `CLAUDE.md` § *Review Dispatch Contract*): the diff or its
-path, absolute file paths, the spec path plus acceptance criteria, the task entries
+path, absolute file paths, every relevant spec's path plus its acceptance criteria, the task entries
 closed this run, the deferral list, and the scope boundary. `deferrals: none` means
 nothing was deferred; a missing deferral line means you were not told.
 

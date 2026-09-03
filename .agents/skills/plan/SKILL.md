@@ -68,9 +68,21 @@ This step is not complete until both conditions hold:
 
 If you cannot write the file (permission error, directory missing), STOP and report the error — do not fall back to inline presentation.
 
+A spec is a **living contract**: it states what the code does now, not what it
+was once going to do. Write every section in the present tense, and declare the
+implementation surface in frontmatter so `/wrap-up-session` can find this spec
+again when that surface changes. Acceptance Criteria are ordinary bullets — a
+checkbox records an intention, and a spec records a fact.
+
 Spec template:
 
 ```markdown
+---
+implementation_paths:
+  - src/feature/**
+  - tests/test_feature.py
+---
+
 # Spec: [Feature Name]
 
 ## Behavior
@@ -87,14 +99,21 @@ Spec template:
 - [Edge case 2 and expected behavior]
 
 ## Acceptance Criteria
-- [ ] [Verifiable criterion 1]
-- [ ] [Verifiable criterion 2]
-- [ ] [Verifiable criterion 3]
+- [Verifiable criterion 1]
+- [Verifiable criterion 2]
+- [Verifiable criterion 3]
 
-## Files Likely Involved
-- `path/to/file.py` — [why]
-- `path/to/component.tsx` — [why]
+## Implementation Paths
+- `src/feature/**` — [what this code does for the feature]
+- `tests/test_feature.py` — [what it verifies]
 ```
+
+`implementation_paths` is the matching contract; the `## Implementation Paths`
+section explains each path's role to a human. Paths are repository-relative
+POSIX paths or globs — never absolute, never `..`. Only `*` and `?` (neither
+crosses `/`) and `**` (which does) are accepted. Declare the complete current
+surface, including tests and configuration whose changes can alter or verify the
+behavior, not merely the files this session touched.
 
 ### 3. Write the Plan (MUST persist to disk)
 

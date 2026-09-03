@@ -1,44 +1,44 @@
-# Checkpoint — 2026-08-29T18:14:39Z
+# Checkpoint — 2026-09-02T12:45:54Z
 
-> Auto-written by PreCompact hook (trigger: manual). Re-read on resume.
+> Auto-written by PreCompact hook (trigger: auto). Re-read on resume.
 
 ## Git
-- Branch: Joaovsales/pstack-create-verification-skill
+- Branch: Joaovsales/wrap-u
 
 ```
- M .agents/skills/build/SKILL.md
- M .agents/skills/verify/SKILL.md
+ M .agents/skills/brainstorm/SKILL.md
+ M .agents/skills/plan/SKILL.md
+ M .agents/skills/task-registry/SKILL.md
+ M .agents/skills/task-registry/scripts/task-registry.py
  M .agents/skills/wrap-up-session/SKILL.md
- M .claude/hooks/session-start.sh
- M .claude/skills/build/SKILL.md
- M .claude/skills/verify/SKILL.md
+ M .claude/skills/brainstorm/SKILL.md
+ M .claude/skills/plan/SKILL.md
+ M .claude/skills/task-registry/SKILL.md
+ M .claude/skills/task-registry/scripts/task-registry.py
  M .claude/skills/wrap-up-session/SKILL.md
  M CLAUDE.md
- M README.md
+ M project-template/CLAUDE.md
+ M specs/README.md
+ M specs/review-context-contract.md
+ M specs/task-registry.md
  M tasks/checkpoint.md
  M tasks/todo.md
- M tests/test-e2e-classifier.sh
- M tests/test-skill-invocation-chain.sh
-?? .agents/skills/create-verification-skill/
-?? .agents/skills/maintain-verification-skill/
-?? .claude/skills/create-verification-skill/
-?? .claude/skills/maintain-verification-skill/
-?? .github/upstreams.json
-?? .github/workflows/check-upstream-drift.yml
-?? THIRD_PARTY_NOTICES.md
-?? scripts/check-upstream-drift.py
-?? specs/pstack-verification-skill-integration.md
-?? tests/test-upstream-drift.sh
-?? tests/test-verification-skill-integration.sh
+?? .agents/skills/task-registry/scripts/registry/upsert.py
+?? .agents/skills/wrap-up-session/scripts/
+?? .claude/skills/task-registry/scripts/registry/upsert.py
+?? .claude/skills/wrap-up-session/scripts/
+?? .serena/
+?? specs/living-spec-reconciliation.md
+?? tests/test-living-spec-reconciliation.sh
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
 (none)
 
 ## Active Spec
-- specs/pstack-verification-skill-integration.md
+- specs/README.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`
-2. Grep `tasks/solutions/` frontmatter (problem_type, module, tags) for relevant learnings
+2. Read `tasks/memory.md` for project context
 3. Continue from the first `[~]` (or `[ ]`) item in `tasks/todo.md`

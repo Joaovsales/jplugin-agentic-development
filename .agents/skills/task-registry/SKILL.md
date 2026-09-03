@@ -46,6 +46,11 @@ python3 .agents/skills/task-registry/scripts/task-registry.py pull --apply
 python3 .agents/skills/task-registry/scripts/task-registry.py frontier
 python3 .agents/skills/task-registry/scripts/task-registry.py show recipe.morph-live-grid
 python3 .agents/skills/task-registry/scripts/task-registry.py migrate
+python3 .agents/skills/task-registry/scripts/task-registry.py upsert <task-id> --apply \
+  --title '...' --kind research --spec specs/x.md \
+  --summary '...' --evidence 'inspected: ...' --criterion '...'
+python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
+  --derive-id spec-reconciliation --spec specs/x.md --title '...' --kind research
 ```
 
 | Command | Reads | Local writes | External writes |
@@ -57,8 +62,40 @@ python3 .agents/skills/task-registry/scripts/task-registry.py migrate
 | `frontier` | index + provider | no | no |
 | `show` | one task | no | no |
 | `migrate` | index + backlog + specs | `--apply` only | never |
+| `upsert` | one task | `--apply` only | `--apply` (+ approval) |
 
 Exit codes: `0` success · `1` failure or partial failure · `2` usage error.
+
+### `upsert` — record one task, addressed by its ID
+
+`publish` mints provider tasks for rows a human already wrote into the index.
+`upsert` is for work a skill *discovers at runtime* — documentation debt, an
+unresolved behavioral question — where there is no row yet and no human in the
+loop to type one.
+
+It is **idempotent**: given an ID, exactly one task ends up existing with that
+content. A second run updates rather than appends, and a run against a task
+someone had closed **reopens** it, because the same question recurring is the
+same question, not a new one.
+
+That guarantee rests entirely on two runs minting the same ID, so when a task is
+*about* a repository path, pass `--derive-id NAMESPACE` with `--spec` instead of
+typing one. `is_valid_id` accepts both `ns.feature-c` and `ns.specs-feature-c-md`,
+so a caller who normalizes differently creates a second task rather than updating
+the first — silently, and only on the second run. Deriving the ID makes that
+mismatch unrepresentable. Supplying both an explicit and a derived ID, or
+neither, is a usage error rather than a silent default.
+
+Content is passed as structured fields (`--summary`, `--evidence`, `--criterion`,
+`--spec`, `--label`) rather than a Markdown body. Each round-trips through the
+local provider's metadata block or a managed section, so re-running replaces the
+record instead of accreting a second copy beside the first.
+
+Where the canonical body lands follows the project's **existing** write policy
+and never widens it: an external provider whose policy already permits unattended
+writes gets the task and the index links it; otherwise the local Markdown record
+stays canonical and the pending publication is reported. An unpublishable task is
+never dropped and never blocks the caller.
 
 ## The index row
 

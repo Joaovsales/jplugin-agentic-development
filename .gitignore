@@ -20,3 +20,6 @@ graphify-out/
 # Python bytecode from skill scripts
 __pycache__/
 *.pyc
+
+# Serena MCP server workspace cache
+.serena/

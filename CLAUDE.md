@@ -172,12 +172,19 @@ Every dispatch of `code-reviewer`, `critic`, `security-reviewer`, or
 | # | Item | Why the reviewer cannot supply it itself |
 |---|------|------------------------------------------|
 | 1 | The `<base>...HEAD` diff — inline when small, else truncated-plus-path per *Large-Artifact Handoff* | it can run `git diff`, but not know which base this session used |
-| 2 | The spec path **and** the AC list verbatim, with the checkbox state stripped | nothing in a diff names the spec it implements |
+| 2 | **Every spec relevant to this session** — each spec's path **and** the AC list verbatim, with the checkbox state stripped | nothing in a diff names the spec it implements |
 | 3 | The `tasks/todo.md` entries completed this run | separates "not implemented" from "next task, deliberately" |
 | 4 | The `[AMBIGUITY]` lines emitted this run | a decision already made and recorded reads as a defect |
 | 5 | The `TODO(shortcut):` markers touching changed files | same: a documented limit with an upgrade path is not a finding |
 | 6 | The boundary — review issues **introduced** by this session; pre-existing patterns are out of scope | today this is stated to the orchestrator and never to the agent |
 | 7 | The output format — four axes, `evidence` required at `75` or above | a persona drifts from the gate that consumes it |
+
+Item 2 is plural because a session is. One shared module can belong to several
+features, so a change routinely touches more than one spec — and a reviewer handed
+one of three measures the other two's changes against nothing but its own priors,
+then reports the difference as a defect. List **each spec** with its own criteria
+rather than merging them into a single list, or the reviewer cannot tell which
+contract an unmet criterion belongs to.
 
 **Items 2–5 must distinguish **empty** from **absent**.** Pass `deferrals: none`
 and `no spec — <reason>`, never a missing line. A reviewer that cannot tell

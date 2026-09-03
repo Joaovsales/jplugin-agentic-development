@@ -299,3 +299,33 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
 - Completed: 8 planned tasks
 - Pending: 0
 - Carry-forward: none; wrap-up review fixes completed 2026-08-30
+
+---
+
+## Plan: Living Spec Reconciliation During Wrap-Up
+> Spec: specs/living-spec-reconciliation.md
+> Branch: Joaovsales/wrap-u (Orca-managed worktree off master @ 907ac6d)
+> Baseline: `bash tests/run.sh` green — 26 test files
+
+[x] TDD: `tests/test-living-spec-reconciliation.sh` requires workflow-created specs to use valid `implementation_paths` frontmatter, factual `## Implementation Paths` prose, ordinary-bullet Acceptance Criteria, and one exact `> Spec: specs/<name>.md` plan association -> update `/plan`, `/brainstorm`, and `specs/README.md`
+[x] TDD: change-set fixtures cover committed, staged, unstaged, added, modified, copied, renamed, and deleted paths while retaining both rename endpoints -> add a stdlib-only wrap-up reconciliation helper that captures one immutable pre-reconciliation snapshot
+[x] TDD: path-matcher fixtures pin whole-path case-sensitive `*`, `?`, and `**` semantics and reject malformed frontmatter, absolute paths, traversal, and unsupported glob syntax with spec/value evidence -> implement metadata parsing, validation, and matching in the reconciliation helper
+[x] TDD: candidate-discovery fixtures always include the completed plan's exact spec association, prefer metadata over legacy `## Files Likely Involved`, retain rename/deletion reasons, support overlapping specs, and deduplicate without losing reasons -> implement deterministic ordered discovery
+[x] TDD: semantic reconciliation fixtures require exactly one `updated|unchanged|deferred` outcome per candidate for behavior change, unrelated shared-file change, and insufficient evidence without a keyword classifier -> add the evidence-reading and outcome protocol to `/wrap-up-session`
+[x] TDD: updated legacy-spec fixtures add accurate metadata, replace prospective path prose, convert AC checkboxes to bullets, remove stale/change-log language, and preserve unrelated accurate content while unchanged legacy specs remain byte-identical -> add the legacy migration contract to reconciliation
+[x] TDD: task-registry fixtures create, update, and reopen one `research` task keyed by `spec-reconciliation.<normalized-full-spec-path>` with required evidence, revision, criteria, and compact-index linkage -> add a provider-neutral idempotent reconciliation-task upsert
+[x] TDD: deferred-publication fixtures use the configured external provider only when its existing write policy permits, otherwise persist one canonical local Markdown record and report publication pending without duplicate canonical bodies -> integrate local fallback orchestration through `/task-registry`
+[x] TDD: invocation-order assertions place snapshot, task-register update, discovery, reconciliation, and deferral persistence before verification-map maintenance, security, review, and deterministic tests, with downstream failures blocking both code and spec commits -> integrate reconciliation into `/wrap-up-session`
+[x] TDD: review/PR assertions pass every relevant spec and stripped AC list through `CLAUDE.md`, `project-template/CLAUDE.md`, and wrap-up review payloads, and link every deferred task in the PR while retaining the introduced-this-session boundary -> generalize downstream context from one spec to many
+[x] TDD: summary/parity assertions cover zero-candidate and all-unchanged success, bounded candidate/updated/unchanged/deferred counts and paths, and byte-identical canonical/compatibility skill trees -> finish reporting, mirror `.agents/skills/**` changes to `.claude/skills/**`, and run the full suite
+
+## Session Summary — 2026-09-02 [907ac6d..working-tree]
+- Completed: 11 tasks (all of the Living Spec Reconciliation plan)
+- Pending: 0
+- Carry-forward: one `owner: human` design question from the adversarial critic —
+  whether an `unchanged` reconciliation outcome should require evidence beyond
+  naming the spec it compared. Answered in part (the report now lists candidate
+  and unchanged paths, per the AC); the residual is a contract change to
+  `specs/living-spec-reconciliation.md` and needs a human decision.
+- Not committed: wrap-up stopped at the Step 7 commit gate on that finding.
+- [ ] Define finding resolution per owner, and remove the owner carve-out from every gate <!-- task-id: review-gate.define-finding-resolution --> — The word "unresolved" is load-bearing in four commit gates and defined nowhere, so each gate re-derives it and two deri… ([review-gate.define-finding-resolution](tasks/details/review-gate.define-finding-resolution.md))
