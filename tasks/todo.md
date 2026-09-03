@@ -324,7 +324,7 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
 [x] TDD: review/PR assertions pass every relevant spec and stripped AC list through `CLAUDE.md`, `project-template/CLAUDE.md`, and wrap-up review payloads, and link every deferred task in the PR while retaining the introduced-this-session boundary -> generalize downstream context from one spec to many
 [x] TDD: summary/parity assertions cover zero-candidate and all-unchanged success, bounded candidate/updated/unchanged/deferred counts and paths, and byte-identical canonical/compatibility skill trees -> finish reporting, mirror `.agents/skills/**` changes to `.claude/skills/**`, and run the full suite
 
-## Session Summary — 2026-09-02 [907ac6d..working-tree]
+## Session Summary — 2026-09-02 [907ac6d..c000b04]
 - Completed: 11 tasks (all of the Living Spec Reconciliation plan)
 - Pending: 0
 - Carry-forward: one `owner: human` design question from the adversarial critic —
