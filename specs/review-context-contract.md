@@ -1,3 +1,25 @@
+---
+implementation_paths:
+  - CLAUDE.md
+  - .agents/skills/wrap-up-session/SKILL.md
+  - .claude/skills/wrap-up-session/SKILL.md
+  - .agents/skills/quality-gate/SKILL.md
+  - .claude/skills/quality-gate/SKILL.md
+  - .agents/skills/auto-improve/SKILL.md
+  - .claude/skills/auto-improve/SKILL.md
+  - .agents/skills/software-design-expert-review/SKILL.md
+  - .claude/skills/software-design-expert-review/SKILL.md
+  - .agents/agents/code-reviewer.md
+  - .agents/agents/critic.md
+  - .agents/agents/security-reviewer.md
+  - .agents/agents/software-design-expert-review.md
+  - .claude/agents/code-reviewer.md
+  - .claude/agents/critic.md
+  - .claude/agents/security-reviewer.md
+  - .claude/agents/software-design-expert-review.md
+  - tests/test-review-context.sh
+---
+
 # Spec: Review Context Contract
 
 > Reviewer sub-agents receive scope and code. They do not receive intent. This
@@ -58,7 +80,7 @@ The contract, in full:
 | Item | Why the reviewer cannot supply it | Absent-vs-empty |
 |------|-----------------------------------|-----------------|
 | Diff for `<base>..HEAD` — by path when > 500 lines, per *Large-Artifact Handoff* | it can derive this, but not which base | — |
-| Spec path **and** the AC list verbatim | nothing in the diff names the spec | `no spec — <reason>` |
+| **Every spec relevant to the session** — each spec's path **and** its own AC list verbatim | nothing in the diff names the spec, and one session can touch several | `no spec — <reason>` |
 | The `tasks/todo.md` entries completed this run | tells apart "not implemented" from "next task" | — |
 | `[AMBIGUITY]` lines emitted this run | a documented decision reads as a defect | `deferrals: none` |
 | `TODO(shortcut):` markers touching changed files | same | `deferrals: none` |
@@ -289,3 +311,17 @@ each is a guard that existed and did not bite. The bold-and-capitalised alias, t
 substring collision between `Out of scope` and `Never out of scope`, the entirely
 unpinned `Given to you`, and a per-file citation needle standing in for a per-site
 AC — four different ways to report success while measuring nothing.
+
+## Implementation Paths
+
+- `CLAUDE.md` — the canonical Review Dispatch Contract, its seven items, and the
+  empty-versus-absent rule.
+- `.agents/skills/wrap-up-session/SKILL.md` — the Review Payload assembled for
+  the four review passes, and the Dispatch Disclosure that decides what their
+  agreement is worth.
+- `.agents/skills/quality-gate/SKILL.md` — the Phase 3 design-review dispatch.
+- `.agents/skills/auto-improve/SKILL.md` — the repo-survey dispatch, the one
+  documented exception to items 2, 3 and 6.
+- `tests/test-review-context.sh` — pins each payload item individually, so a
+  table emptied of its rows fails rather than passing on the heading alone.
+- `.claude/skills/**` — byte-identical compatibility mirrors.

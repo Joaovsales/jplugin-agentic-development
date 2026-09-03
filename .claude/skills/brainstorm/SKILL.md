@@ -99,6 +99,34 @@ Once the user approves a direction, write a formal spec to `specs/<feature-name>
 - Testing approach
 - Acceptance criteria
 
+Use the same living-contract format `/plan` writes, so a brainstormed spec is
+maintained by `/wrap-up-session` on equal terms with a planned one. A design spec
+that skips the metadata is invisible to reconciliation and goes stale first —
+precisely because exploratory work moves the most:
+
+```markdown
+---
+implementation_paths:
+  - src/feature/**
+  - tests/test_feature.py
+---
+
+# Spec: [Feature Name]
+
+[Architecture, components, data flow, error handling, testing approach]
+
+## Acceptance Criteria
+- [Verifiable criterion 1]
+- [Verifiable criterion 2]
+
+## Implementation Paths
+- `src/feature/**` — [what this code does for the feature]
+- `tests/test_feature.py` — [what it verifies]
+```
+
+Acceptance Criteria are ordinary bullets, and every section states current
+behavior in the present tense. Full path rules live in `/plan` § *Write the Spec*.
+
 ### Step 7 — Self-Review the Spec
 Before presenting to the user, check the spec for:
 - Placeholders or "TBD" items (remove or resolve them)

@@ -13,7 +13,7 @@ color: orange
 ## Context Intake
 
 **Given to you** (per `CLAUDE.md` § *Review Dispatch Contract*): the diff or its
-path, the spec path plus its acceptance criteria verbatim, the task entries closed
+path, every relevant spec's path plus its acceptance criteria verbatim, the task entries closed
 this run, the deferral list (`[AMBIGUITY]` decisions and `TODO(shortcut):`
 markers), and the scope boundary. `deferrals: none` means nothing was deferred; a
 *missing* deferral line means you were not told — say so in your output rather than

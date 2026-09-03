@@ -201,7 +201,7 @@ Apply Gate — but it may never report a promoted confidence.
 Dispatch the `software-design-expert-review` skill (invokes the `software-design-expert-review` agent at Ceiling tier — pass no `model`, so it inherits the session model) instead of running inline Phase 3. The agent is read-only — it reports findings only. Apply findings in the main context after the agent returns per the Apply Gate. Run tests after applying fixes. Because this path is a separate dispatch, record it as `dispatched`.
 
 The dispatch carries the full payload in `CLAUDE.md` § *Review Dispatch Contract* —
-diff, spec path plus its acceptance criteria verbatim (or `no spec — <reason>`), the closed
+diff, every relevant spec's path plus its acceptance criteria verbatim (or `no spec — <reason>`), the closed
 `tasks/todo.md` entries, the `[AMBIGUITY]` batch and `TODO(shortcut):` markers (or
 `deferrals: none`), the introduced-only boundary, and the four-axis format. A design
 reviewer told only *what* changed reports structural debt the spec deliberately
