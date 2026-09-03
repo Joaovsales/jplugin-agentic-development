@@ -1,7 +1,7 @@
 # Tasks
 
 > Single source of truth for the current session's plan.
-> Written by `/plan`, executed by `/tdd`, closed by `/wrap-up-session`.
+> Written by `/plan`, executed by `/build`, closed by `/wrap-up-session`.
 
 ## How to use
 - `[ ]` — pending

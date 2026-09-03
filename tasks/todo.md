@@ -1,9 +1,14 @@
-# Task Plan
+# Yolo iteration 1 — qwen spend guardrails
 
-> Spec: specs/compound-engineering-adoption.md — M3 (typed learning store, full migration) + M3-MIG (standalone migration script)
-> Branch: worktree-m3-typed-learning-store (worktree off master)
-> Scope: Acceptance Criteria Tier 3.1 + Tier 3.2. Tier 3.3 (M4 concepts glossary) is OUT of scope.
-> Note: spec file itself lives on the main clone (untracked); it is the contract, referenced read-only.
+- [x] TDD: spec written (specs/qwen-spend-guardrails.md) — config task, no test suite; validation = JSON parse + doctor + API GET
+- [x] C1 — settings.json defaultModel + builder turnBudget caps
+- [ ] C2 — OpenRouter key limit PATCH + GET verify — **DEFERRED: requires a management key only the user can create (inference-key PATCH → 404). Pending user action.**
+- [x] verify — subagent doctor + AC checks + yolo log entry
+
+## Session Summary — 2026-09-02 d6b0bbe (wrap-up adds review fixes; sha updated at commit)
+- Completed: 2 tasks (C1 settings + frontmatter turn caps, verification) — C2 reopened after review caught the premature [x]
+- Pending: 1 (OpenRouter key limit — needs user-created management key)
+- Carry-forward: verify AC3 after user sets key limit
 
 ---
 
@@ -327,5 +332,7 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
   naming the spec it compared. Answered in part (the report now lists candidate
   and unchanged paths, per the AC); the residual is a contract change to
   `specs/living-spec-reconciliation.md` and needs a human decision.
-- Not committed: wrap-up stopped at the Step 7 commit gate on that finding.
+- Resolution: put to the user at the Step 7 gate and approved — the current
+  contract stands. Shipped as c000b04, PR #88. The gate defect the finding
+  exposed is filed as `review-gate.define-finding-resolution`.
 - [ ] Define finding resolution per owner, and remove the owner carve-out from every gate <!-- task-id: review-gate.define-finding-resolution --> — The word "unresolved" is load-bearing in four commit gates and defined nowhere, so each gate re-derives it and two deri… ([review-gate.define-finding-resolution](tasks/details/review-gate.define-finding-resolution.md))

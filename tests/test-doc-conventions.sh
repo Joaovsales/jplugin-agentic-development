@@ -371,4 +371,45 @@ coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills .claude/skills 2
 assert_eq "" "$coupling_hits" \
   "task-registry: no skill outside the registry calls a tracker's task API (offenders: ${coupling_hits:-none})"
 
+# --- issue lane routing is registered and reused -----------------------------
+assert_file_contains "CLAUDE.md" '`/route`' \
+  "route: CLAUDE.md skills table lists the issue router"
+assert_file_contains ".claude/hooks/session-start.sh" "/route" \
+  "route: the session-start banner lists the issue router"
+assert_file_contains "README.md" '`/route`' \
+  "route: README lists the issue router"
+for tree in .agents .claude; do
+  route_skill="$tree/skills/auto-improve/SKILL.md"
+  assert_file_contains "$route_skill" "route_issue.py" \
+    "route: $tree/auto-improve delegates lane policy to the shared engine"
+  assert_file_not_matches "$route_skill" "Bug / test failure / flaky" \
+    "route: $tree/auto-improve no longer carries its own bug routing row"
+  assert_file_not_matches "$route_skill" "Refactor / design fix / perf" \
+    "route: $tree/auto-improve no longer carries its own refactor routing row"
+  assert_file_not_matches "$route_skill" "Small triaged backlog feature" \
+    "route: $tree/auto-improve no longer carries its own feature routing row"
+done
+
+# --- /plan's reuse gate must look INWARD before outward ----------------------
+# The Research & Reuse rule enumerates `gh search repos`, `gh search code`, Exa,
+# and package registries -- every rung points at EXTERNAL prior art. Nothing said
+# "check what this repository already merged", so a session read three sibling
+# skills that were present in a 9-commit-stale tree, concluded no overlap existed,
+# and planned a feature that duplicated a capability merged hours earlier.
+#
+# Your own merged work is the highest-priority prior art AND the one category an
+# outward search structurally cannot find. It goes first.
+for tree in .agents .claude; do
+  P="$tree/skills/plan/SKILL.md"
+  assert_prose_contains "$P" 'Check this repository first' \
+    "PlanReuse($tree): pre-flight opens with the inward check"
+  assert_prose_contains "$P" 'HEAD..@{upstream}' \
+    "PlanReuse($tree): stale-clone check is named as a command"
+  assert_prose_contains "$P" 'gh pr list --state merged' \
+    "PlanReuse($tree): recently merged PRs are consulted"
+  assert_prose_contains "$P" 'before any outward search' \
+    "PlanReuse($tree): inward-before-outward ordering is stated"
+done
+
+
 finish

@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import urllib.parse
 from typing import Dict, List, Optional, Sequence
 
 from ..model import ExternalRef, Task, task_from_metadata, upsert_metadata_block
@@ -34,7 +35,7 @@ from .base import (
     preserve_labels,
 )
 
-ISSUE_FIELDS = "number,title,body,labels,state,url,createdAt,updatedAt,assignees"
+ISSUE_FIELDS = "number,title,body,labels,state,url,createdAt,updatedAt,assignees,closedByPullRequestsReferences"
 #: `gh` paginates internally up to this many issues. Reaching it exactly is
 #: indistinguishable from "there were more", so it is treated as truncation.
 LIST_LIMIT = 500
@@ -71,7 +72,10 @@ class GitHubProvider(TrackerProvider):
 
     # ---------------------------------------------------------------- discovery
     def discover(self) -> ProviderStatus:
-        code, output = self._run(["gh", "auth", "status"], check=False)
+        try:
+            code, output = self._run(["gh", "auth", "status"], check=False)
+        except ProviderUnavailable as exc:
+            return ProviderStatus(False, str(exc))
         if code != 0:
             return ProviderStatus(
                 False,
@@ -79,10 +83,13 @@ class GitHubProvider(TrackerProvider):
                 f"({self.redact(output.strip().splitlines()[-1]) if output.strip() else 'no output'})",
             )
         if not self.repository:
-            code, output = self._run(
-                ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-                check=False,
-            )
+            try:
+                code, output = self._run(
+                    ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                    check=False,
+                )
+            except ProviderUnavailable as exc:
+                return ProviderStatus(False, str(exc))
             if code != 0:
                 return ProviderStatus(False, "no repository configured and `gh repo view` failed")
             self.repository = output.strip()
@@ -120,14 +127,25 @@ class GitHubProvider(TrackerProvider):
             return None
         candidate = raw.strip()
         if candidate.startswith("http"):
-            number = candidate.rstrip("/").rsplit("/", 1)[-1]
-            return ExternalRef("github", number, candidate) if number.isdigit() else None
+            return self._url_reference(candidate)
         number = candidate.lstrip("#")
         if not number.isdigit():
             return None
         return ExternalRef(
             "github", number, f"https://github.com/{self._repo()}/issues/{number}"
         )
+
+    def _url_reference(self, candidate: str) -> Optional[ExternalRef]:
+        parsed = urllib.parse.urlsplit(candidate)
+        parts = [part for part in parsed.path.split("/") if part]
+        expected_repo = self._repo().lower().split("/")
+        if parsed.hostname != "github.com" or len(parts) != 4 or parts[2] != "issues":
+            raise ProviderError(f"github: {candidate!r} is not a canonical GitHub issue URL")
+        if [part.lower() for part in parts[:2]] != expected_repo:
+            raise ProviderError(
+                f"github: issue URL belongs to {'/'.join(parts[:2])}, not {self._repo()}"
+            )
+        return ExternalRef("github", parts[3], candidate) if parts[3].isdigit() else None
 
     # ------------------------------------------------------------------- writes
     def create_task(self, task: Task) -> Task:
@@ -231,7 +249,19 @@ class GitHubProvider(TrackerProvider):
             area=self._area_for(labels),
             created_at=issue.get("createdAt"),
             updated_at=issue.get("updatedAt"),
+            extra=self._linked_pr_state(issue),
         )
+
+    @staticmethod
+    def _linked_pr_state(issue: Dict) -> Dict[str, str]:
+        if "closedByPullRequestsReferences" not in issue:
+            return {}
+        references = issue.get("closedByPullRequestsReferences") or []
+        unresolved = any(
+            str(reference.get("state", "")).upper() not in ("MERGED", "CLOSED")
+            for reference in references
+        )
+        return {"unresolved_linked_pr": "true" if unresolved else "false"}
 
     def _kind_for(self, labels: Sequence[str]) -> str:
         for label in labels:

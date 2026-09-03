@@ -70,7 +70,6 @@ If you find yourself about to ask the user a second question after they approved
 |---|---|
 | User wants the plan reviewed but the build to ship without supervision | Truly autonomous mode — even spec auto-confirmed → `/yolo` |
 | Touching production-relevant code where the plan matters | Quick prototype on a throwaway branch → `/yolo` |
-| Spec interview is needed (real questions to ask the user) | Manual TDD with user checkpoints between tasks → `/tdd` |
 | Single feature, single PR | Multi-feature loop through a backlog → `/yolo` |
 
 ---

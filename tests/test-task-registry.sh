@@ -259,7 +259,7 @@ EOF
 cp "$F_INDEX/tasks/todo.md" "$F_INDEX/todo.before"
 
 index_out="$(cd "$F_INDEX" && pyreg <<'EOF'
-from registry.index import load_index, render_row
+from registry.index import TaskIndex, load_index, render_row
 from registry.model import ExternalRef, Task
 
 index = load_index("tasks/todo.md", "tasks/todo.md")
@@ -284,6 +284,10 @@ rendered = render_row(
     )
 )
 print("rendered=" + rendered)
+kind_row = render_row(Task(id="bug.routing", title="Preserve kind", kind="bug"), include_kind=True)
+kind_task = TaskIndex("tasks/todo.md", kind_row + "\n").rows[0].task
+print("kind-row=" + kind_row)
+print("kind-roundtrip=" + kind_task.kind)
 EOF
 )"
 
@@ -301,6 +305,10 @@ assert_contains "$index_out" "tasks/todo.md:11 — unknown status box '[?]'" \
 assert_contains "$index_out" \
   "rendered=- [ ] Morph live grid recipe <!-- task-id: recipe.morph-live-grid --> — ship the live grid morph ([#42](https://github.com/o/r/issues/42)) (blocked-by: recipe.color-lut)" \
   "Index: the canonical row carries box, title, id, summary, link, dependency — and nothing else"
+assert_contains "$index_out" "kind-row=- [ ] Preserve kind <!-- task-id: bug.routing --> <!-- task-kind: bug -->" \
+  "Index: candidate registration can opt into a canonical task-kind marker"
+assert_contains "$index_out" "kind-roundtrip=bug" \
+  "Index: an opted-in task kind survives the compact-row round trip"
 assert_files_identical "$F_INDEX/tasks/todo.md" "$F_INDEX/todo.before" \
   "Index: parsing never writes to the file it read"
 
@@ -499,6 +507,42 @@ assert_contains "$contract_out" "approval-gate-refused=github: refusing to creat
   "Contract: --apply alone does not satisfy require_write_approval"
 assert_contains "$contract_out" "approved-gate=open" \
   "Contract: --apply plus --approve opens the gate"
+
+github_reference_out="$(pyreg <<'EOF'
+from registry.config import Config
+from registry.providers.base import ProviderError
+from registry.providers.github import GitHubProvider
+
+provider = GitHubProvider(Config(root=".", repository="owner/repo"))
+print("own=" + provider.resolve_reference("https://github.com/owner/repo/issues/42").id)
+try:
+    provider.resolve_reference("https://github.com/other/repo/issues/42")
+    print("foreign=accepted")
+except ProviderError as exc:
+    print("foreign=" + str(exc))
+clean = provider._to_task({
+    "number": 1, "title": "clean", "state": "OPEN", "url": "",
+    "closedByPullRequestsReferences": [],
+})
+open_pr = provider._to_task({
+    "number": 2, "title": "open pr", "state": "OPEN", "url": "",
+    "closedByPullRequestsReferences": [{"state": "OPEN"}],
+})
+print("clean-pr=" + clean.extra.get("unresolved_linked_pr", "unknown"))
+print("open-pr=" + open_pr.extra.get("unresolved_linked_pr", "unknown"))
+print("identity=" + clean.extra.get("registry_identity", "stable"))
+EOF
+)"
+assert_contains "$github_reference_out" "own=42" \
+  "GitHub: canonical URLs for the configured repository resolve"
+assert_contains "$github_reference_out" "foreign=github: issue URL belongs to other/repo, not owner/repo" \
+  "GitHub: a foreign repository URL is refused instead of retargeted"
+assert_contains "$github_reference_out" "clean-pr=false" \
+  "GitHub: an empty closing-PR set explicitly attests no unresolved PR"
+assert_contains "$github_reference_out" "open-pr=true" \
+  "GitHub: an open closing PR is reported as unresolved"
+assert_contains "$github_reference_out" "identity=provisional-title-slug" \
+  "GitHub: an unmanaged issue exposes its provisional identity"
 
 # =============================================================================
 # 6. Local provider — the full lifecycle, entirely offline
@@ -915,7 +959,7 @@ assert_contains "$show_out" "external: local:recipe.color-lut" "Show: the extern
 missing_show="$(run show no-such-task --repo "$F_REC" 2>&1)"
 missing_code=$?
 assert_eq "1" "$missing_code" "Show: an unknown id exits non-zero"
-assert_contains "$missing_show" "no task with id 'no-such-task'" "Show: the failure names the id"
+assert_contains "$missing_show" "no task with reference 'no-such-task'" "Show: the failure names the reference"
 
 front_out="$(run frontier --repo "$F_REC" 2>&1)"
 assert_contains "$front_out" "blocked:" "Frontier: blocked work is a section of its own"
@@ -1264,6 +1308,7 @@ provider = github
 require_write_approval = false
 EOF
 printf '```\n' >> "$F_FLOOR/docs/task-tracking.md"
+install_gh_mock "$F_FLOOR"
 floor_out="$(cd "$F_FLOOR" && pyreg <<'EOF'
 from registry.config import load_config
 plain = load_config(".", env={})
@@ -1279,7 +1324,8 @@ assert_contains "$floor_out" "ignored-flag=True" \
   "Config: the ignored relaxation is recorded so doctor can say so"
 assert_contains "$floor_out" "trusted=False" \
   "Config: an operator who trusts the repository can lower the floor"
-floor_doctor="$(run doctor --repo "$F_FLOOR" 2>&1)"
+floor_doctor="$(cd "$F_FLOOR" && PATH="$F_FLOOR/bin:$PATH" GH_MOCK_DIR="$F_FLOOR/ghdata" \
+  run doctor --repo "$F_FLOOR" 2>&1)"
 assert_contains "$floor_doctor" "approval is a floor" \
   "Doctor: the refused relaxation is visible to the user"
 

@@ -124,6 +124,10 @@ class Report:
         return lines
 
 
+class TaskLookupError(ValueError):
+    """A requested task reference did not resolve to one normalized record."""
+
+
 class Registry:
     """Orchestrates the local index, the specs, and one provider."""
 
@@ -153,6 +157,36 @@ class Registry:
         except (ProviderError, ProviderUnavailable) as exc:
             report.failures.append(str(exc))
             return []
+
+    def resolve_task(self, task_ref: str) -> Task:
+        """Return one provider-neutral record without a caller rebuilding it."""
+        report = Report("resolve", self.provider.name, selection_reason=self.selection_reason)
+        return self._resolve_task(task_ref, report)
+
+    def _resolve_task(self, task_ref: str, report: Report) -> Task:
+        index = self.local_index()
+        row = index.by_id(task_ref)
+        external_tasks = self.external_tasks(report)
+        report.limitations.extend(self.provider.limitations)
+        external = _matching_task(external_tasks, task_ref, row)
+        if external is None and (report.provider_status is None or report.provider_status.available):
+            external = self._resolve_direct(task_ref, report)
+        task = _combine_task(row, external)
+        if task is None:
+            raise TaskLookupError(f"no task with reference {task_ref!r} locally or in the provider")
+        status_by_id = {item.task.id: item.task.status for item in index.rows if item.task.id}
+        status_by_id.update({item.id: item.status for item in external_tasks if item.id})
+        return _annotate_resolution(task, status_by_id, report)
+
+    def _resolve_direct(self, task_ref: str, report: Report) -> Optional[Task]:
+        reference = self.provider.resolve_reference(task_ref)
+        if reference is None:
+            return None
+        try:
+            return self.provider.get_task(reference)
+        except (ProviderError, ProviderUnavailable) as exc:
+            report.failures.append(str(exc))
+            return None
 
     # -------------------------------------------------------------- reconcile
     def reconcile(self, apply: bool = False) -> Report:
@@ -550,21 +584,12 @@ class Registry:
         """The only command that prints a full task. Detail on demand, never before."""
         report = Report("show", self.provider.name, selection_reason=self.selection_reason)
         index = self.local_index()
-        row = index.by_id(task_id)
-        external = None
-        if row is not None and row.task.external is not None:
-            try:
-                external = self.provider.get_task(row.task.external)
-            except (ProviderError, ProviderUnavailable) as exc:
-                report.failures.append(str(exc))
-        if external is None:
-            for task in self.external_tasks(report):
-                if task.id == task_id:
-                    external = task
-                    break
-        if row is None and external is None:
-            return (f"task-registry show: no task with id '{task_id}' locally or in the provider", 1)
-        return ("\n".join(_render_detail(task_id, row, external, report)), report.exit_code)
+        try:
+            task = self._resolve_task(task_id, report)
+        except TaskLookupError:
+            return (f"task-registry show: no task with reference '{task_id}' locally or in the provider", 1)
+        row = index.by_id(task.id) or index.by_id(task_id)
+        return ("\n".join(_render_detail(task.id, row, task, report)), report.exit_code)
 
 
 def _render_detail(task_id: str, row: Optional[IndexRow], external: Optional[Task], report: Report):
@@ -653,6 +678,52 @@ def _merge(rows: Sequence[IndexRow], external: Sequence[Task]) -> List[Task]:
             merged[key] = task
             order.append(key)
     return [merged[key] for key in order]
+
+
+def _matching_task(tasks: Sequence[Task], task_ref: str, row: Optional[IndexRow]) -> Optional[Task]:
+    wanted_ref = row.task.external if row is not None else None
+    for task in tasks:
+        if task.id == task_ref:
+            return task
+        if task.external and task.external.id == task_ref.lstrip("#"):
+            return task
+        if task.external and wanted_ref and task.external == wanted_ref:
+            return task
+    return None
+
+
+def _combine_task(row: Optional[IndexRow], external: Optional[Task]) -> Optional[Task]:
+    if external is None:
+        return row.task if row is not None else None
+    if row is None:
+        return external
+    extra = dict(external.extra)
+    extra.pop("registry_identity", None)
+    return external.with_(
+        id=row.task.id,
+        depends_on=row.task.depends_on or external.depends_on,
+        extra=extra,
+    )
+
+
+def _annotate_resolution(task: Task, status_by_id: Dict[str, str], report: Report) -> Task:
+    extra = dict(task.extra)
+    if report.provider == "local":
+        extra["unresolved_linked_pr"] = "false"
+    unknown = [dependency for dependency in task.depends_on if dependency not in status_by_id]
+    if unknown:
+        extra["unknown_dependencies"] = ", ".join(unknown)
+    blocking = [
+        dependency
+        for dependency in task.depends_on
+        if status_by_id.get(dependency) not in TERMINAL_STATUSES
+        and dependency in status_by_id
+    ]
+    if blocking:
+        extra["blocking_dependencies"] = ", ".join(blocking)
+    if report.failures or report.limitations or (report.provider_status and not report.provider_status.available):
+        extra["registry_partial"] = "true"
+    return task.with_(extra=extra)
 
 
 _PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2, None: 3}

@@ -443,8 +443,8 @@ authorization unless the project's configuration enables them.
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
 | `/auto-improve` | Unattended discover→fix loop: survey backlog/tech-debt/tests/perf/design, ship one high-value improvement as a PR. Built for daily cloud runs |
+| `/route` | Route an issue, ticket, URL, `#123`, or next backlog item through a recorded workflow lane |
 | `/debug` | Root cause analysis, bug-track store documents, loop verification |
-| `/tdd` | Manual TDD loop with user checkpoints |
 | `/verify` | Evidence-based verification gate (`--scope deployment|e2e`) |
 | `/create-verification-skill` | Generate a grounded project-local `verify-<app>` recipe and feature map, with one live proof |
 | `/maintain-verification-skill` | Reconcile current user-facing changes with `--scope changed`; omit the option for a full audit |
@@ -464,4 +464,7 @@ authorization unless the project's configuration enables them.
 | `/eval` | Blinded A/B eval of a skill or prompt change before promoting it |
 | `/sync` | Pull latest skills, hooks, agents from template repo |
 | `/folder-context-optimization` | Sweep folder for legacy/unused files |
+| `/visual-plan` | Turn a text spec into a rich, self-contained HTML visual plan for review before implementation |
+| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap |
+| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content |
 | `/graphify` | Build a navigable code knowledge graph (clustered communities, HTML + JSON + report) |

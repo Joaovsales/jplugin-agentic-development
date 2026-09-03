@@ -2,6 +2,7 @@
 name: frontend-developer
 description: Use this agent for writing any frontend code
 color: blue
+turnBudget: '{"maxTurns": 80, "graceTurns": 5}'
 ---
 
 ---

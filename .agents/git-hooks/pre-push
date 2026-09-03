@@ -34,4 +34,145 @@ if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
   done
 fi
 
+# ── Wrap-up coverage gate — warns and records, never blocks ──────────────────
+# Every code-producing session converges on a push, so this is the one place a
+# missing /wrap-up-session is observable regardless of which skill ran, or none.
+#
+# Evidence is /wrap-up-session Step 2's fingerprint in tasks/todo.md:
+#   ## Session Summary — [YYYY-MM-DD] [a1b2c3f..d4e5f6a]
+#
+# The gate does no network I/O and reaches no tracker: it runs on every push,
+# including offline and in CI, and external task creation needs an approval
+# floor no hook can satisfy. It records debt locally; the session-start banner
+# surfaces it to a human who can file it.
+#
+# Kill switch: SKIP_WRAPUP_GATE=1 git push
+LEDGER="tasks/wrap-up-debt.md"
+
+# Non-doc file in this commit? Documentation-only commits need no wrap-up.
+touches_code() {
+  _files=$(git diff-tree --no-commit-id --name-only -r "$1" 2>/dev/null) || return 1
+  [ -n "$_files" ] || return 1
+  while IFS= read -r _f; do
+    [ -n "$_f" ] || continue
+    # Literal alternatives, not a variable: `case` parses `|` before expanding,
+    # so a pattern list held in a variable collapses into one literal pattern
+    # and silently classifies every file as code.
+    case "$_f" in
+      *.md|LICENSE|LICENSE.*|.gitignore|tasks/*) continue ;;
+      *) return 0 ;;
+    esac
+  done <<EOF
+$_files
+EOF
+  return 1
+}
+
+# The wrap-up commit records a range ending before itself, so it can never be
+# inside its own fingerprint. Recognise it by the line it adds.
+introduces_summary() {
+  git diff-tree -p --no-commit-id -r "$1" -- tasks/todo.md 2>/dev/null \
+    | grep -q '^+## Session Summary'
+}
+
+resolve_base() {
+  for _b in master main develop; do
+    if git show-ref --verify --quiet "refs/heads/$_b"; then
+      git merge-base "$_b" "$1" 2>/dev/null && return 0
+    fi
+  done
+  return 1
+}
+
+wrapup_gate() {
+  _local_ref="$1"; _local_sha="$2"; _remote_sha="$3"
+
+  case "$_local_sha" in *[!0]*) ;; *) return 0 ;; esac   # branch deletion
+
+  case "$_remote_sha" in
+    *[!0]*) _range="$_remote_sha..$_local_sha" ;;
+    *) _base=$(resolve_base "$_local_sha") || return 0
+       _range="$_base..$_local_sha" ;;
+  esac
+
+  # A repo without tasks/todo.md does not use this workflow. Stay silent.
+  _todo=$(git show "$_local_sha:tasks/todo.md" 2>/dev/null) || return 0
+
+  _code=""
+  for _c in $(git rev-list --no-merges "$_range" 2>/dev/null); do
+    touches_code "$_c" || continue
+    introduces_summary "$_c" && continue
+    _code="$_code $_c"
+  done
+  [ -n "$_code" ] || return 0
+
+  # Fingerprints. An endpoint that is not a real commit is named, never trusted:
+  # silently ignoring it would let a typo widen coverage to everything.
+  _covered=""
+  for _fp in $(printf '%s\n' "$_todo" \
+                 | grep -oE '^## Session Summary.*\[[^]]*\]' \
+                 | grep -oE '\[[^]]*\]'); do
+    _fp=${_fp#[}; _fp=${_fp%]}
+    _start=${_fp%%..*}; _end=${_fp##*..}
+    # Endpoints must be bare hex before they reach git. tasks/todo.md is
+    # attacker-controllable in any repo you clone, and an endpoint beginning
+    # with `-` would otherwise arrive at git as an option rather than a rev.
+    # Validate at the trust boundary, not after.
+    if [ "$_start" = "$_fp" ] || [ -z "$_start" ] || [ -z "$_end" ] \
+       || ! printf '%s' "$_start" | grep -qE '^[0-9a-fA-F]{4,40}$' \
+       || ! printf '%s' "$_end" | grep -qE '^[0-9a-fA-F]{4,40}$' \
+       || ! git rev-parse --verify --quiet "$_start^{commit}" >/dev/null \
+       || ! git rev-parse --verify --quiet "$_end^{commit}" >/dev/null; then
+      echo "[pre-push] wrap-up gate: unparseable session fingerprint [$_fp] — ignored for coverage" >&2
+      continue
+    fi
+    _covered="$_covered $(git rev-parse "$_start") $(git rev-list "$_start..$_end" 2>/dev/null)"
+  done
+
+  _uncovered=""
+  for _c in $_code; do
+    case " $_covered " in *" $_c "*) continue ;; esac
+    _uncovered="$_uncovered $(git rev-parse --short "$_c")"
+  done
+  [ -n "$_uncovered" ] || return 0
+
+  _uncovered=${_uncovered# }
+  _branch=${_local_ref#refs/heads/}
+  _first=${_uncovered##* }; _last=${_uncovered%% *}   # rev-list is newest-first
+
+  echo "[pre-push] WRAP-UP GAP: pushing code commits no /wrap-up-session covers:" >&2
+  echo "             $_uncovered" >&2
+  echo "           Recorded in $LEDGER. Close it by running /wrap-up-session." >&2
+  echo "           Intentional? SKIP_WRAPUP_GATE=1 git push" >&2
+
+  _key="## $_branch $_first..$_last"
+  if [ ! -f "$LEDGER" ]; then
+    mkdir -p "$(dirname "$LEDGER")"
+    {
+      echo "# Wrap-Up Debt"
+      echo
+      echo "> Recorded by the pre-push wrap-up gate: pushes carrying code commits that"
+      echo "> no \`/wrap-up-session\` run covers. File them as issues with"
+      echo "> \`/task-registry publish --apply --approve\`, then delete the entry."
+    } > "$LEDGER"
+  fi
+  # Idempotent: one entry per range, however many times it is re-pushed.
+  # Without this the ledger grows an entry per `git push` and becomes noise.
+  if ! grep -qF "$_key" "$LEDGER"; then
+    {
+      echo
+      echo "$_key"
+      echo "- Recorded: $(date +%Y-%m-%d)"
+      echo "- Uncovered commits: $(printf '%s' "$_uncovered" | wc -w | tr -d ' ')"
+    } >> "$LEDGER"
+  fi
+}
+
+if [ "${SKIP_WRAPUP_GATE:-0}" != "1" ]; then
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -n "${local_sha:-}" ] || continue
+    wrapup_gate "$local_ref" "$local_sha" "$remote_sha"
+  done
+fi
+
 exit 0

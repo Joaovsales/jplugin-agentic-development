@@ -124,6 +124,7 @@ class Config:
     allow_label_creation: bool = False
     offline_reads: str = "degrade"
     migration_policy: str = "manual"
+    autonomy_label: Optional[str] = "auto-mode-allowed"
     kind_labels: Mapping[str, str] = field(default_factory=lambda: dict(DEFAULT_KIND_LABELS))
     priority_labels: Mapping[str, str] = field(
         default_factory=lambda: dict(DEFAULT_PRIORITY_LABELS)
@@ -297,6 +298,7 @@ def load_config(root: str, env: Optional[Mapping[str, str]] = None) -> Config:
         allow_label_creation=_as_bool(tracker.get("allow_label_creation"), False),
         offline_reads=(tracker.get("offline_reads") or "degrade").strip().lower(),
         migration_policy=(tracker.get("migration_policy") or "manual").strip(),
+        autonomy_label=_autonomy_label(tracker.get("autonomy_label")),
         kind_labels=section("labels.kind", DEFAULT_KIND_LABELS),
         priority_labels=section("labels.priority", DEFAULT_PRIORITY_LABELS),
         status_sources=section("status", {}),
@@ -306,6 +308,14 @@ def load_config(root: str, env: Optional[Mapping[str, str]] = None) -> Config:
         approval_relaxation_ignored=not configured_approval and not trusted,
         **jira,
     )
+
+
+def _autonomy_label(value: Optional[str]) -> Optional[str]:
+    """Configured label that grants unattended autonomy, or None when disabled."""
+    if value is None:
+        return "auto-mode-allowed"
+    label = value.strip()
+    return None if not label or label.lower() == "none" else label
 
 
 def _run(command, cwd: str, timeout: int = 15) -> Tuple[int, str]:

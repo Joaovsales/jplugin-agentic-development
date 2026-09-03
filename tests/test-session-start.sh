@@ -263,4 +263,55 @@ rm -rf "$shimG"
 cd "$REPO"
 rm -rf "$tmpG"
 
+# --- UPSTREAM STALENESS: the banner must say when the clone is behind ---------
+# A clone that is behind its upstream shows an incomplete picture of the repo,
+# and every read the agent makes is silently wrong. This was diagnosed after a
+# session planned a feature against a tree 9 commits stale, re-specifying a
+# capability that had already merged. The banner reported "branch: master |
+# uncommitted changes: 9" and said nothing about the divergence.
+#
+# The check must not fetch: it reports what git already knows from the last
+# fetch. The /sync drift check owns the (capped, cached) network call; making
+# this one hit the network too would put a timeout in every session start.
+tmpU=$(mktemp -d)
+git init -q --bare "$tmpU/origin.git"
+git clone -q "$tmpU/origin.git" "$tmpU/work" 2>/dev/null
+git -C "$tmpU/work" config user.name fixture
+git -C "$tmpU/work" config user.email fixture@example.test
+printf 'one\n' > "$tmpU/work/f.txt"
+git -C "$tmpU/work" add f.txt && git -C "$tmpU/work" commit -qm one
+printf 'two\n' > "$tmpU/work/f.txt"
+git -C "$tmpU/work" commit -qam two
+git -C "$tmpU/work" push -q origin HEAD 2>/dev/null
+git -C "$tmpU/work" branch --set-upstream-to=origin/master &>/dev/null \
+  || git -C "$tmpU/work" branch --set-upstream-to=origin/main &>/dev/null
+
+# current clone -> silent about divergence (Observability Discipline)
+cd "$tmpU/work"
+out_current=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+cd "$REPO"
+assert_contains "$out_current" "SKILLS AVAILABLE" "upstream: banner still prints when current"
+assert_not_contains "$out_current" "BEHIND UPSTREAM" "upstream: silent when the clone is current"
+
+# behind by one -> loud, with the count
+git -C "$tmpU/work" reset -q --hard HEAD~1
+cd "$tmpU/work"
+out_behind=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+cd "$REPO"
+assert_contains "$out_behind" "BEHIND UPSTREAM" "upstream: reports a stale clone"
+assert_contains "$out_behind" "1 commit" "upstream: names how many commits behind"
+assert_contains "$out_behind" "git pull" "upstream: names the remedy"
+
+# no upstream configured -> silent, not an error
+git -C "$tmpU/work" branch --unset-upstream &>/dev/null
+cd "$tmpU/work"
+out_noup=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+noup_rc=$?
+cd "$REPO"
+assert_eq "0" "$noup_rc" "upstream: no configured upstream is not an error"
+assert_not_contains "$out_noup" "BEHIND UPSTREAM" "upstream: silent with no upstream configured"
+
+rm -rf "$tmpU"
+
+
 finish

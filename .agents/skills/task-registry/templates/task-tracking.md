@@ -49,6 +49,10 @@ offline_reads = degrade
 ; legacy plans handled: manual | grouped | per-spec | none.
 migration_policy = manual
 
+; Label that grants unattended autonomy to scheduled routing. Defaults to
+; auto-mode-allowed. Set to `none` to disable autonomous routing for this project.
+autonomy_label = auto-mode-allowed
+
 ; The heading that marks a plan block finished, so its still-open rows are
 ; classified `stale` rather than `active` during migration. Defaults to this
 ; harness's own convention.

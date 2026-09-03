@@ -220,3 +220,25 @@
   checkout-action pin.
 - Learnings captured: `tasks/solutions/patterns/markdown-heading-contracts-must-match-heading-levels-exactly.md`,
   `tasks/solutions/patterns/count-candidates-before-validating-the-selected-target.md`
+
+### [2026-09-01] — Issue lane routing
+
+- Key changes: Added a shared issue-routing policy engine, `/route` skill, three
+  materialized lane playbooks, `UserPromptSubmit` hook, task-registry autonomy
+  configuration, structured task resolution, exhaustive monotonicity tests, real-issue
+  fixtures, runtime scope demotion, and `/auto-improve` delegation.
+- Verification: all 29 test files passed; route triggerability fired 3/3 organic
+  prompts. The blinded suppression comparison found no measurable hook advantage and
+  retained that negative result in `tasks/eval-results/issue-lane-routing.md`.
+- Review: the independent APOSD pass found six design findings across two rounds; all
+  were remediated. One critic attempt hit its usage ceiling, but its retry and the other
+  dispatched consistency, defensive, and coverage lenses completed independently. They
+  exposed unsafe lifecycle, identity, and transaction edges; the fixes made diff/reviewer
+  transitions monotonic, non-following, and recoverable.
+- Formal user-surface E2E remained unavailable without a project verification skill;
+  the user acknowledged the recorded gap before commit and push.
+- Learnings captured: `tasks/solutions/architecture/hard-gate-on-tasks-todo-md.md`,
+  `tasks/solutions/patterns/consume-structured-records-before-rendering-human-summaries.md`
+
+## 2026-09-02 — qwen spend investigation + guardrails (yolo)
+Investigated a $26.53/24h OpenRouter burn: pi session logs traced it to 6,006 qwen3-coder-next requests from one autonomous /build in PROJECT-pix-receipt-tracker (22 backend-developer spawns; 95% cache-read at $0.07/M). Root cause: `subagents.defaultModel` blanket-enforced qwen on all unscoped agents. Applied: defaultModel → deepseek-v4-flash, 80-turn caps on builder agents, key-limit deferred (needs management key). Verified via live smoke spawn. Docs: tasks/solutions/patterns/cheap-per-token-is-not-cheap-per-task-cap-subagent-turns.md

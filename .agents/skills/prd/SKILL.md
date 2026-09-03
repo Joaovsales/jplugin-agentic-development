@@ -21,7 +21,7 @@ Entry point for greenfield projects. Interviews the user, produces a structured 
 ## The Hard Gate
 
 ```
-DO NOT invoke /plan, /build, /tdd, or write any code until the PRD is approved
+DO NOT invoke /plan, /build, or write any code until the PRD is approved
 and the backlog is generated.
 ```
 
