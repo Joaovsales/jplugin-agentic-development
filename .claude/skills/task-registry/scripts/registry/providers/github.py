@@ -35,7 +35,18 @@ from .base import (
     preserve_labels,
 )
 
-ISSUE_FIELDS = "number,title,body,labels,state,url,createdAt,updatedAt,assignees,closedByPullRequestsReferences"
+REQUIRED_ISSUE_FIELDS = (
+    "number", "title", "body", "labels", "state", "url",
+    "createdAt", "updatedAt", "assignees",
+)
+#: Fields a recent `gh` exposes and an older one does not.
+#: `closedByPullRequestsReferences` arrived in gh 2.73.0, and `gh` validates
+#: `--json` names client-side — so asking an older one for it fails the whole
+#: query rather than omitting the field. Absent it, `_linked_pr_state` already
+#: reports linked-PR state as unknown, which routing reads as a downgrade. That
+#: is the correct degradation; dying is not.
+OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences",)
+UNKNOWN_FIELD_RE = re.compile(r'Unknown JSON field: "([^"]+)"')
 #: `gh` paginates internally up to this many issues. Reaching it exactly is
 #: indistinguishable from "there were more", so it is treated as truncation.
 LIST_LIMIT = 500
@@ -69,6 +80,7 @@ class GitHubProvider(TrackerProvider):
         self.repository = config.repository
         self.redact = redactor_for(config)
         self._known_labels: Optional[Sequence[str]] = None
+        self._unsupported_fields: set = set()
 
     # ---------------------------------------------------------------- discovery
     def discover(self) -> ProviderStatus:
@@ -97,13 +109,13 @@ class GitHubProvider(TrackerProvider):
 
     # -------------------------------------------------------------------- reads
     def list_tasks(self) -> List[Task]:
-        payload = self._json(
-            [
+        payload = self._issue_json(
+            lambda fields: [
                 "gh", "issue", "list",
                 "--repo", self._repo(),
                 "--state", "all",
                 "--limit", str(LIST_LIMIT),
-                "--json", ISSUE_FIELDS,
+                "--json", fields,
             ]
         )
         if len(payload) >= LIST_LIMIT:
@@ -116,9 +128,9 @@ class GitHubProvider(TrackerProvider):
         return [self._to_task(issue) for issue in payload]
 
     def get_task(self, ref: ExternalRef) -> Task:
-        payload = self._json(
-            ["gh", "issue", "view", "--repo", self._repo(), "--json", ISSUE_FIELDS,
-             "--", self._number(ref)]
+        payload = self._issue_json(
+            lambda fields: ["gh", "issue", "view", "--repo", self._repo(), "--json", fields,
+                            "--", self._number(ref)]
         )
         return self._to_task(payload)
 
@@ -440,6 +452,32 @@ class GitHubProvider(TrackerProvider):
                 f"{self.redact(output.strip()) or 'no output'}"
             )
         return completed.returncode, output
+
+    def _issue_fields(self) -> str:
+        optional = [f for f in OPTIONAL_ISSUE_FIELDS if f not in self._unsupported_fields]
+        return ",".join(list(REQUIRED_ISSUE_FIELDS) + optional)
+
+    def _issue_json(self, build):
+        """Read issues, degrading once if this `gh` predates an optional field.
+
+        `build(fields)` returns the argv for the read. A required field that `gh`
+        rejects is still a hard failure: dropping it would hand the caller a task
+        with a silently missing identity, which is worse than the refusal.
+        """
+        try:
+            return self._json(build(self._issue_fields()))
+        except ProviderError as exc:
+            match = UNKNOWN_FIELD_RE.search(str(exc))
+            field = match.group(1) if match else ""
+            if field not in OPTIONAL_ISSUE_FIELDS or field in self._unsupported_fields:
+                raise
+            self._unsupported_fields.add(field)
+            self._note(
+                f"this gh does not support the `{field}` issue field, so linked pull "
+                "request state is unknown for every issue this run; upgrade to gh 2.73.0 "
+                "or newer to restore it"
+            )
+            return self._json(build(self._issue_fields()))
 
     def _json(self, command: Sequence[str]):
         _, output = self._run(command)
