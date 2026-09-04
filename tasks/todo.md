@@ -336,3 +336,20 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
   contract stands. Shipped as c000b04, PR #88. The gate defect the finding
   exposed is filed as `review-gate.define-finding-resolution`.
 - [ ] Define finding resolution per owner, and remove the owner carve-out from every gate <!-- task-id: review-gate.define-finding-resolution --> — The word "unresolved" is load-bearing in four commit gates and defined nowhere, so each gate re-derives it and two deri… ([review-gate.define-finding-resolution](tasks/details/review-gate.define-finding-resolution.md))
+
+## Session Summary — 2026-09-04 [c3809a1..HEAD]
+- Completed: issue #95 via `/debug`; corrected five documentation surfaces and added regression coverage.
+- Pending: 0 tasks for issue #95.
+- Carry-forward: none; the route radius prediction miss remains recorded in `tasks/route-decision.md`.
+
+<!-- route-lane:begin -->
+## Routed lane — gated-at-plan-and-pre-push
+
+[x] prelude: /debug
+[x] /plan — skip: user explicitly directed the bug through `/debug` without a separate plan
+[x] /build — skip: direct `/debug` fix used its reproduction, fix, and full-suite loop
+[x] route radius tripwire: finalized; declared-path overflow recorded and user authorized wrap-up
+[x] /verify (evidence: link-check) — 439 doc assertions, 79 parity assertions, doctor and stale-claim scan passed
+[x] reviewers: code-reviewer — completed independently; all findings resolved
+[x] /wrap-up-session — user authorized the pre-push gate; all gates passed
+<!-- route-lane:end -->

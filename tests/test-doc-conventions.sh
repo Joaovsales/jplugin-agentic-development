@@ -328,6 +328,18 @@ assert_file_contains "CLAUDE.md" "Task tracking instructions: docs/task-tracking
   "task-registry: CLAUDE.md carries the configuration pointer the loader looks for"
 assert_prose_contains "CLAUDE.md" "is an **index**, not the detailed source of truth" \
   "task-registry: CLAUDE.md states that tasks/todo.md is an index"
+assert_not_contains "$(flatten CLAUDE.md)" \
+  "a project without one gets the local Markdown provider and works offline" \
+  "task-registry: absent configuration does not erase GitHub auto-selection"
+assert_prose_contains "CLAUDE.md" \
+  "without one, provider selection still prefers GitHub when a GitHub remote and an authenticated \`gh\` both exist, then falls back to local Markdown" \
+  "task-registry: CLAUDE.md pins GitHub-before-local auto-selection"
+wrap_up_gate_spec="$(flatten specs/wrap-up-gate-and-tdd-fold.md)"
+assert_not_contains "$wrap_up_gate_spec" \
+  "no \`docs/task-tracking.md\`, so the registry resolves to the offline local provider regardless" \
+  "task-registry: wrap-up spec does not claim absent configuration forces local"
+assert_contains "$wrap_up_gate_spec" "hook never invokes \`/task-registry\`" \
+  "task-registry: wrap-up spec gives the real reason the hook cannot reach a tracker"
 assert_file_contains ".claude/hooks/session-start.sh" "/task-registry" \
   "task-registry: the session-start banner lists the skill"
 
@@ -343,6 +355,13 @@ for tree in .agents .claude; do
     "task-registry: $f states the no-silent-deletion rule"
   assert_file_contains "$f" "Jira is never selected implicitly" \
     "task-registry: $f states that Jira is never implicit"
+  template="$tree/skills/task-registry/templates/task-tracking.md"
+  assert_file_contains "$template" \
+    "selection still prefers GitHub when a GitHub remote and an authenticated \`gh\`" \
+    "task-registry: $template pins GitHub auto-selection"
+  assert_file_contains "$template" \
+    "both exist, then falls back to local Markdown" \
+    "task-registry: $template pins the local fallback"
   # The three companion documents the skill points at must exist, or the
   # progressive-disclosure promise ("detail on demand") has nowhere to land.
   for ref in configuration migration progressive-disclosure; do
@@ -353,6 +372,9 @@ for tree in .agents .claude; do
   assert_eq "present" \
     "$([ -f "$tree/skills/task-registry/templates/task-tracking.md" ] && echo present || echo missing)" \
     "task-registry: $tree ships the docs/task-tracking.md template"
+  assert_prose_contains "$tree/skills/task-registry/references/configuration.md" \
+    "nothing — configuration defaults apply; provider auto-selection still follows the table below" \
+    "task-registry: $tree configuration guide separates discovery from provider selection"
 done
 
 # The five workflow skills reach tracking only through the registry.

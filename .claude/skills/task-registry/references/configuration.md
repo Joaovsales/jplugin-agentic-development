@@ -15,7 +15,8 @@ The registry looks for its configuration in this order:
    wins. Project-owned files come first because `CLAUDE.md` is template-managed
    and `/sync` overwrites it;
 2. `docs/task-tracking.md`;
-3. nothing — defaults apply, and the local provider is used.
+3. nothing — configuration defaults apply; provider auto-selection still follows
+   the table below.
 
 Every path the configuration names — the pointer target, the index, the detail
 directory — must resolve inside the project root. One that escapes is refused,
