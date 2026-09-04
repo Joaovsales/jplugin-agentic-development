@@ -544,6 +544,58 @@ assert_contains "$github_reference_out" "open-pr=true" \
 assert_contains "$github_reference_out" "identity=provisional-title-slug" \
   "GitHub: an unmanaged issue exposes its provisional identity"
 
+# A `gh` older than the release that added an optional issue field rejects the
+# whole query client-side, so asking for it unconditionally turns every read into
+# a hard failure. The field is optional to us; the run must degrade, not die.
+github_old_gh_out="$(pyreg <<'EOF'
+from registry.config import Config
+from registry.providers.base import ProviderError
+from registry.providers.github import GitHubProvider
+
+class OldGh(GitHubProvider):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.attempts = []
+
+    def _run(self, command, check=True):
+        fields = command[command.index("--json") + 1]
+        self.attempts.append(fields)
+        if "closedByPullRequestsReferences" in fields:
+            raise ProviderError(
+                "github: `gh issue list` exited 1 — Unknown JSON field: "
+                '"closedByPullRequestsReferences"'
+            )
+        return 0, '[{"number": 7, "title": "old gh", "state": "OPEN", "url": "", "labels": []}]'
+
+provider = OldGh(Config(root=".", repository="owner/repo"))
+tasks = provider.list_tasks()
+print("count=%d" % len(tasks))
+print("linked=" + tasks[0].extra.get("unresolved_linked_pr", "unset"))
+print("attempts=%d" % len(provider.attempts))
+print("degraded=" + ("yes" if any("closedByPullRequestsReferences" in n for n in provider.limitations) else "no"))
+
+strict = OldGh(Config(root=".", repository="owner/repo"))
+strict.__class__._run = lambda self, command, check=True: (_ for _ in ()).throw(
+    ProviderError('github: `gh issue list` exited 1 — Unknown JSON field: "title"')
+)
+try:
+    strict.list_tasks()
+    print("required=dropped")
+except ProviderError:
+    print("required=refused")
+EOF
+)"
+assert_contains "$github_old_gh_out" "count=1" \
+  "GitHub: an unsupported optional field degrades the read instead of failing it"
+assert_contains "$github_old_gh_out" "linked=unset" \
+  "GitHub: a degraded read reports linked-PR state as unknown, never as clean"
+assert_contains "$github_old_gh_out" "attempts=2" \
+  "GitHub: the field is dropped and the read retried exactly once"
+assert_contains "$github_old_gh_out" "degraded=yes" \
+  "GitHub: the dropped field is recorded as a limitation, not silently swallowed"
+assert_contains "$github_old_gh_out" "required=refused" \
+  "GitHub: an unknown *required* field still fails — only optional ones are dropped"
+
 # =============================================================================
 # 6. Local provider — the full lifecycle, entirely offline
 # =============================================================================
