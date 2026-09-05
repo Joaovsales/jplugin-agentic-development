@@ -60,9 +60,16 @@ paths_after_dashdash() {
 
 # --- source 1: the § Syncable Paths doc block --------------------------------
 # Lines inside the fence have the shape `path   → description`.
+# The terminator must match `parse_syncable_roots` in sync-retire.py, which
+# stops at a heading of ANY depth. `##+` rather than `#{2,6}`: mawk does not
+# support interval expressions, so the bounded form silently never matches.
+# When only this one stopped at `^## `, a
+# `### Subsection` inside the block left the script silently scanning fewer
+# roots while this test still saw them all -- the two readers disagreeing is
+# worse than either rule, because the drift test stays green through it.
 extract_doc_block() {
   awk '/^## Syncable Paths/ { inblock = 1; next }
-       inblock && /^## / { exit }
+       inblock && /^##+ / { exit }
        inblock && /→/ { print $1 }' "$1" | normalise
 }
 

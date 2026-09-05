@@ -70,7 +70,7 @@ rm -rf "$tmpS"
 # counted as a flagged document.
 tmpZ=$(mktemp -d)
 cd "$tmpZ"
-mkdir -p tasks/solutions/patterns
+mkdir -p tasks/solutions/patterns tasks/solutions/bugs
 printf '`needs_review: true` is documentation, not a flag\n' > tasks/solutions/README.md
 cat > tasks/solutions/patterns/clean-doc.md <<'EOF'
 ---
@@ -83,12 +83,32 @@ applies_when: testing the zero-flag store path
 ---
 Body.
 EOF
+# A *document* that quotes the flag in its prose. Scoping the search to category
+# directories excludes the store README but not this, and a store of documents
+# about this system will inevitably quote its markers — one in the real store
+# does, which made the banner report a flag that no document carried.
+cat > tasks/solutions/bugs/quotes-the-flag.md <<'EOF'
+---
+title: Quotes the flag in prose
+date: 2026-08-13
+problem_type: bug
+module: tests
+tags: [fixture]
+symptoms: none, this is a fixture
+root_cause: none
+resolution: none
+---
+This document explains that `needs_review: true` in frontmatter marks a document
+for review. The mention is prose, not a flag:
+
+    needs_review: true
+EOF
 out_zero=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
 ec_zero=$?
 assert_eq "0" "$ec_zero" "M3: zero-flag store does not abort the hook"
 assert_contains "$out_zero" "SKILLS AVAILABLE" "M3: zero-flag store still prints the full banner"
-assert_contains "$out_zero" "1 documents, 0 needs_review" \
-  "M3: zero-flag store counts 0 needs_review (README mention not counted)"
+assert_contains "$out_zero" "2 documents, 0 needs_review" \
+  "M3: neither the README nor a document quoting the flag is counted as flagged"
 assert_not_contains "$out_zero" "Partially migrated" \
   "M3: fully-migrated store gets no partial-migration warning"
 cd "$REPO"

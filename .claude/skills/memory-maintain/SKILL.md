@@ -23,7 +23,7 @@ cheap light pass every session, and the heavy consolidation only every 5.
 ### Light pass — every session (cheap, continuous decay)
 
 Runs on **every** invocation (session start + wrap-up). Bounded work only:
-- Count documents and `needs_review` flags (`grep -rl 'needs_review: true' tasks/solutions/*/` — category dirs only, so the README's literal mention of the flag is not counted).
+- Count documents and `needs_review` flags (`grep -rlE '^needs_review: true' tasks/solutions/*/`). Anchored to column 0 because the flag is a frontmatter field: scoping to category dirs excludes the store README, but not a document that quotes the flag in its own prose.
 - Check `tasks/concepts.md` for a `> Sweep: pending` marker line (cheap grep).
   If present, run **Phase 0** now — the bootstrap sweep fires on the first
   invocation that sees the marker, never waiting for the heavy-pass gate.

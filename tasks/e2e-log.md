@@ -155,3 +155,52 @@ Corrected by addendum rather than by editing the line above: the log is the audi
 and an entry silently rewritten to look as though it always pointed at the right commit
 is worth less than one that shows what moved. Nothing about the run itself changed — same
 fixture, same `lightpanda/browser:0.3.6` image, same observed values.
+
+---
+
+## 2026-09-05 — Deterministic retirement in `/sync`
+
+Spec: `specs/sync-deterministic-retirement.md`
+Branch: `Joaovsales/sync-is-non-deterministic-retired-vs-project-spe`
+Commit: recorded at commit time (see the `test(sync)` commit adding §21)
+Harness: `tests/test-sync-retirement.sh` §21, run under `bash tests/run.sh`
+
+### Why a walkthrough was needed
+
+Sections 1–20 all invoke the script as `python3 "$RETIRE"` — the copy on disk in
+this repo. `SKILL.md` Steps 3 and 6.4 do not. They pipe the script **out of the
+template ref** into `python3 -`, so a downstream `/sync` runs whatever the
+template ships, read from stdin, against the project. No assertion covered that
+form, so a script that worked from a file and failed from stdin would have passed
+the entire suite.
+
+### What was exercised, verbatim from the skill
+
+A fixture project with the template as a `workflow` remote (as Step 1 leaves it),
+the template carrying its own copy of `sync-retire.py`, and a real retirement in
+the template's history (`.agents/skills/legacy/` shipped, then removed).
+
+1. **Step 3 dry run** — `git show workflow/main:.agents/skills/sync/scripts/sync-retire.py | python3 - --from-ref workflow/main`
+   → exit 0; reported `retire: .agents/skills/legacy/SKILL.md`; reported
+   `dry-run (no changes written)`; **deleted nothing**. Reading the program from
+   stdin does not imply `--apply`.
+2. **Step 6.4 apply** — same pipeline with `--apply`
+   → exit 0; `.agents/skills/legacy/SKILL.md` deleted; `.agents/skills/ours/SKILL.md`
+   (project-specific, no provenance) untouched; `.claude/sync-keep.candidate` written
+   for the human to promote.
+
+### The `set -o pipefail` claim, tested rather than trusted
+
+`SKILL.md` warns that without `pipefail` a failed `git show` feeds `python3 -` an
+empty program which exits 0, silently skipping the retirement gate. That warning
+is now verified rather than asserted:
+
+- without `pipefail`, `git show` on a non-existent path → **exit 0, no output at all**
+- with `pipefail`, the same pipeline → **exit 128**, git's failure reaching the caller
+
+The warning is accurate and the guard is load-bearing.
+
+Result: PASS — both user-facing acceptance criteria ("a file retired upstream is
+removed without a human classifying it" and "a project-only path is reported
+before deletion, never deleted silently") verified through the invocation a real
+`/sync` executes, not a test-only one.

@@ -81,6 +81,12 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
   external task on its own. With no tracker configured this reconciles the local
   index alone and still reports stale and superseded entries.
 - Append session summary with idempotency fingerprint (commit range short-SHAs)
+  - **Resolve both endpoints to real short SHAs.** The pre-push wrap-up gate
+    validates them as bare hex, so `HEAD` — the obvious thing to write in this
+    step, since Step 7 has not committed yet — is rejected, and every commit in
+    the push is recorded as uncovered debt. Write the base and the last existing
+    commit; the bookkeeping commit that lands this summary touches only
+    `tasks/`, which the gate does not count as code.
 
 ```markdown
 ## Session Summary — [YYYY-MM-DD] [a1b2c3f..d4e5f6a]
