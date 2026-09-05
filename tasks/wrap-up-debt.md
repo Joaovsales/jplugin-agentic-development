@@ -7,3 +7,7 @@
 ## Joaovsales/wrap-u 11ced0e..5912f21
 - Recorded: 2026-09-03
 - Uncovered commits: 2
+
+## fix/task-registry-gh-optional-fields 5c5fa9a..5c5fa9a
+- Recorded: 2026-09-04
+- Uncovered commits: 1

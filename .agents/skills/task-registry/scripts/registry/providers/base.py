@@ -196,6 +196,35 @@ class TrackerProvider(abc.ABC):
     def add_dependency(self, task: Task, depends_on: Task) -> LinkResult:
         ...
 
+    # -- vocabulary ----------------------------------------------------------
+    def known_labels(self) -> Optional[Sequence[str]]:
+        """The tracker's label vocabulary, or None when it cannot be enumerated.
+
+        Not abstract: most trackers cannot answer this, and forcing every adapter
+        to implement a refusal is how you end up with three subtly different
+        refusals. None is the honest default and callers must treat it as "not
+        checked" rather than "nothing missing" — the difference between a quiet
+        pass and a real one.
+        """
+        return None
+
+    def linked_pr_exclusion_available(self) -> Optional[bool]:
+        """Can this tracker say whether an issue has an open linked pull request?
+
+        Three states, because two would hide the one that matters:
+
+        * ``None`` -- the tracker has no linked-pull-request concept at all, so a
+          routine's in-flight exclusion simply does not apply. The honest default.
+        * ``True``  -- it has the concept and answered this run.
+        * ``False`` -- it has the concept and could **not** answer this run.
+
+        ``False`` is a degradation, not an absence, and a caller must refuse rather
+        than proceed: an unanswered exclusion reads as "nothing is in flight", which
+        is indistinguishable from a clean backlog and re-picks every issue already
+        under review.
+        """
+        return None
+
     # -- shared helpers ------------------------------------------------------
     def describe(self) -> str:
         return f"{self.name} ({self.capabilities.render()})"

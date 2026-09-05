@@ -43,13 +43,17 @@ REQUIRED_ISSUE_FIELDS = (
 #: `closedByPullRequestsReferences` arrived in gh 2.73.0, and `gh` validates
 #: `--json` names client-side — so asking an older one for it fails the whole
 #: query rather than omitting the field. Absent it, `_linked_pr_state` already
-#: reports linked-PR state as unknown, which routing reads as a downgrade. That
-#: is the correct degradation; dying is not.
+#: reports linked-PR state as unknown, and `linked_pr_exclusion_available()`
+#: turns that into a loud refusal in `select` rather than a silent clean read.
+#: That is the correct degradation; dying is not.
 OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences",)
 UNKNOWN_FIELD_RE = re.compile(r'Unknown JSON field: "([^"]+)"')
 #: `gh` paginates internally up to this many issues. Reaching it exactly is
 #: indistinguishable from "there were more", so it is treated as truncation.
 LIST_LIMIT = 500
+#: Same reasoning for the label vocabulary. It backs a pass/fail gate now, so a
+#: silently truncated read would report existing labels as missing.
+LABEL_LIST_LIMIT = 1000
 #: GitHub issue references are numbers. Enforced before a reference reaches argv,
 #: so a crafted index row cannot smuggle a second flag into a `gh` invocation.
 REF_RE = re.compile(r"^[0-9]+$")
@@ -341,7 +345,7 @@ class GitHubProvider(TrackerProvider):
         ordinary sync.
         """
         desired = preserve_labels(task.labels, self._mapped_labels(task))
-        known = self._repo_labels()
+        known = self.known_labels()
         if known is None:
             return tuple(task.labels)
         writable = []
@@ -392,18 +396,40 @@ class GitHubProvider(TrackerProvider):
             implied.append(f"area/{task.area}")
         return tuple(implied)
 
-    def _repo_labels(self) -> Optional[Sequence[str]]:
+    def known_labels(self) -> Optional[Sequence[str]]:
+        """GitHub can enumerate its vocabulary, so the selector check is real here.
+
+        GitHub always has a label vocabulary, so this never returns None. A listing
+        that FAILS raises instead: "gh could not answer" and "this tracker has no
+        labels" are different facts, and collapsing them into None let an expired
+        token report the same clean exit as a genuine pass.
+        """
         if self._known_labels is not None:
             return self._known_labels
         try:
             payload = self._json(
-                ["gh", "label", "list", "--repo", self._repo(), "--limit", "200", "--json", "name"]
+                [
+                    "gh", "label", "list", "--repo", self._repo(),
+                    "--limit", str(LABEL_LIST_LIMIT), "--json", "name",
+                ]
             )
         except ProviderError as exc:
             self._note(f"could not list labels ({exc}); existing labels preserved, none added")
-            return None
+            raise
+        if len(payload) >= LABEL_LIST_LIMIT:
+            # Reaching the cap exactly is indistinguishable from "there were more",
+            # and a partial vocabulary makes the selector check report labels as
+            # missing that exist -- a loud halt on a label the operator can see.
+            raise ProviderError(
+                f"github: label listing hit its {LABEL_LIST_LIMIT}-label cap, so the "
+                "vocabulary is partial and the selector check would be wrong"
+            )
         self._known_labels = tuple(entry["name"] for entry in payload)
         return self._known_labels
+
+    def linked_pr_exclusion_available(self) -> Optional[bool]:
+        """False once `gh` has proved too old to answer -- see OPTIONAL_ISSUE_FIELDS."""
+        return "closedByPullRequestsReferences" not in self._unsupported_fields
 
     # ------------------------------------------------------------- gh plumbing
     def _number(self, ref: ExternalRef) -> str:

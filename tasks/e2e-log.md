@@ -155,3 +155,51 @@ Corrected by addendum rather than by editing the line above: the log is the audi
 and an entry silently rewritten to look as though it always pointed at the right commit
 is worth less than one that shows what moved. Nothing about the run itself changed — same
 fixture, same `lightpanda/browser:0.3.6` image, same observed values.
+
+---
+
+## Integration Proof — category routines spine — 2026-09-05 (branch `analysis/simplify-routing`, uncommitted)
+
+Spec: specs/category-routines.md (AC3, AC5, AC12; composition of spine steps 1-3)
+Base: c3809a1
+
+**Not a formal E2E walkthrough.** This repository still has no project-local
+`verify-<app>` skill and no browser-backed user surface, so `/verify --scope e2e`
+cannot produce one — the same condition recorded in
+`tasks/solutions/process/issue-lane-routing-e2e-gap.md` on 2026-09-01. This entry
+is integration evidence against the `gh` mock and is labelled as such.
+
+### What ran
+
+The adversarial review pass found that no test exercised the routine spine as a
+**composition** — only the parser, the selector function, the vocabulary, and the
+prose, never steps 1-3 together. With the `claim` subcommand now shipped, they
+compose:
+
+```
+step 1  task-registry select --routine fix
+          candidate:     77 — Crash on cold start
+          matched label: bug
+step 2  task-registry claim 77 --routine fix --apply --approve
+          claim: wrote in-progress to 77 for routine fix
+          gh call: --add-label in-progress
+step 3  routine_branch.py format fix 77 "Crash on cold start"
+          routine/fix/77-crash-on-cold-start
+step 5  routine_branch.py parse routine/fix/77-crash-on-cold-start
+          fix 77   (exit 0)
+```
+
+The branch is the only channel carrying routine+issue into wrap-up, and it
+round-trips: what step 3 wrote, step 5 read back.
+
+### Residual gap, stated rather than closed
+
+No routine has run under a real host. `build` is deferred (#97/#98) and
+`/auto-improve` does not execute the spine — it neither calls `select` nor creates
+a `routine/` branch. So AC6, AC7 and AC9 (draft-only-for-plan, `Closes #N`
+linkage, and the step ledger in the PR body) are verified as **documentation
+contracts**, not as observed artifacts. Closing that needs a routine host, which
+is #98's subject.
+
+Result: PASS for the composition above; the host-level gap is recorded, not
+claimed as covered.

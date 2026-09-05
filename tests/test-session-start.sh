@@ -94,6 +94,39 @@ assert_not_contains "$out_zero" "Partially migrated" \
 cd "$REPO"
 rm -rf "$tmpZ"
 
+# --- Recurrence of the same defect one directory deeper ----------------------
+# Narrowing the glob to skip the store README fixed the symptom, not the cause:
+# an UNANCHORED grep counts every *mention* of the flag, and a category document
+# may mention it too. The store now contains exactly such a document -- the bug
+# report about this counter -- which quotes `needs_review: true` in its prose and
+# was therefore counted as flagged. The flag is frontmatter, so the match must be
+# anchored to the start of a line.
+tmpM=$(mktemp -d)
+cd "$tmpM"
+mkdir -p tasks/solutions/bugs
+printf 'store\n' > tasks/solutions/README.md
+cat > tasks/solutions/bugs/mentions-the-flag.md <<'EOF'
+---
+title: A document that discusses the flag without carrying it
+date: 2026-09-05
+problem_type: bug
+module: tests
+tags: [fixture]
+symptoms: none
+root_cause: none
+resolution: none
+---
+The counter matched every document containing `needs_review: true` in prose,
+including this sentence and the line below.
+
+    REVIEW_COUNT=$(grep -rl 'needs_review: true' tasks/solutions/*/ | wc -l)
+EOF
+out_mention=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+assert_contains "$out_mention" "1 documents, 0 needs_review" \
+  "M3: a document that MENTIONS the flag in prose is not counted as flagged"
+cd "$REPO"
+rm -rf "$tmpM"
+
 # --- M3: unmigrated-store branch — old files present, no tasks/solutions/ ---
 tmpU=$(mktemp -d)
 cd "$tmpU"

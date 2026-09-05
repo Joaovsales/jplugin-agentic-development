@@ -80,6 +80,13 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
   separate, explicitly authorized step — wrap-up never creates or closes an
   external task on its own. With no tracker configured this reconciles the local
   index alone and still reports stale and superseded entries.
+- **On a `routine/` branch**: write the routine's executed step list into
+  `tasks/todo.md`, one row per mandatory step. A step that could not run **keeps
+  its row**, carrying `skip: <reason>` — retained, never deleted. Silent omission
+  is the one thing that is never allowed here, because a deleted row reads as a
+  routine that never had that gate, and an absent gate leaves no trace in the
+  diff a reviewer reads. The same list goes in the PR body (Step 7). Step lists
+  are in `.agents/skills/wrap-up-session/references/routines.md` § *Step ledger*.
 - Append session summary with idempotency fingerprint (commit range short-SHAs)
 
 ```markdown
@@ -536,11 +543,65 @@ is internal-only.
 2. Commit with type prefix: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 3. Append optional trailers: `Constraint:`, `Rejected:`, `Not-tested:`, `Confidence:`
 4. Push: `git push -u origin <branch>`
-5. Open the PR, or re-sync its description if one already exists — see *PR Description Sync*
+5. Open or re-sync the pull request — see *The Pull Request* below. That section is the only description of PR creation in this skill, and Step 7.5 reaches the same one.
 
 **Do not push if**: any test is failing, uncommitted changes unreviewed, MUST-FIX skipped.
 
-### PR Description Sync
+### The Pull Request
+
+The single description of PR creation in this skill. Step 7 above and Step 7.5
+below both reach *here* rather than restating it — this action is irreversible
+and outward-facing, and it now carries a conditional (`--draft`) that would
+eventually be true in one copy and false in the other.
+
+#### What the branch tells you
+
+A routine encodes the routine name and the issue number in the branch, under a
+reserved namespace, because this step runs in a context that never saw the issue:
+
+```bash
+python3 .agents/skills/wrap-up-session/scripts/routine_branch.py parse "$(git branch --show-current)"
+```
+
+Exit 0 prints `<routine> <issue>`. **Exit 3** means the branch is **outside the
+`routine/` namespace** — no routine, no issue, and wrap-up behaves exactly as it
+does today. That is the ordinary case and not an error; the convention is opt-in
+by shape, so no existing workflow changes behavior.
+
+Treat only 3 that way. Any other non-zero code is the script failing to run, and
+reading that as "not a routine branch" is how a routine silently ships a PR with
+no `Closes #N` and no `--draft`. The full contract, including
+each routine's mandatory step list, is
+`.agents/skills/wrap-up-session/references/routines.md`.
+
+#### Draft, and issue linkage
+
+| Branch | Flags | Body carries |
+|---|---|---|
+| `routine/plan/<n>-<slug>` | `--draft` | `Refs #N` |
+| any other `routine/<name>/<n>-<slug>` | none | `Closes #N` |
+| outside `routine/` | none | whatever the session warrants |
+
+`--draft` is passed **when and only when the routine is `plan`**. A plan is a
+proposal, so it opens as a draft; every other routine ends at a ready PR because
+human review *is* the gate that the deleted policy lattice tried to compute.
+
+The body carries the linkage and the tracker closes the issue **on merge**. No
+step here closes an issue itself: that keeps the provider coupling guard intact
+so Jira keeps working, removes "PR created but close failed" as a failure mode,
+and stops an abandoned PR from leaving a closed issue with no fix. `plan` uses
+`Refs #N` rather than `Closes #N` precisely so a merged plan leaves the issue
+open for the routine that builds it.
+
+**If the branch is a routine branch but the issue is missing or closed**: report
+it loudly, non-zero, naming the issue — and **open the PR anyway**. A bad link
+must not discard the session's work.
+
+The routine's executed **step list** goes in the body, the same list Step 2 wrote
+to `tasks/todo.md` — every mandatory step, and every skipped one retained with
+`skip: <reason>`. See § *Step ledger* in the contract for each routine's list.
+
+#### Creating and re-syncing
 
 `gh pr create` writes the description once, from the branch as it stood at that
 moment. Every later commit can falsify it — a follow-up session, a review fix, a
@@ -592,7 +653,9 @@ If NOT in a git worktree: skip. Otherwise check which flow this repo uses.
 **If the work goes through a pull request (default when `origin` exists):**
 
 1. Confirm Step 7 pushed the branch: `git status -sb` shows no `ahead`
-2. Open the PR (`gh pr create`) or confirm one is already open
+2. Open the PR by the procedure in *The Pull Request* (Step 7), or confirm one is
+   already open. Do not restate it here — the draft flag and the issue linkage
+   have exactly one definition
 3. **Stop here. Do not merge locally and do not delete the branch** — an open PR
    whose source branch is gone is a dead PR, and a local merge to `main` bypasses
    the review the PR exists to get
@@ -647,6 +710,7 @@ Session wrapped up.
 - Security Scan: [PASS / N issues addressed]
 - Tests: [PASS — suite name] or [FAIL] or [SKIPPED — no suite]
 - E2E coverage: [N user-facing ACs verified / NONE / GAP — N acknowledged]
+- Routine: [<name> #N — S steps, K skipped / none — not a routine branch]
 - Pushed: [yes / no — reason]
 - PR: [#N opened / #N description re-synced — what changed / #N already accurate / none]
 - Deployments: [results or SKIPPED / NONE]

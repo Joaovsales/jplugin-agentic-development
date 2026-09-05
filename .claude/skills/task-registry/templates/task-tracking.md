@@ -49,10 +49,6 @@ offline_reads = degrade
 ; legacy plans handled: manual | grouped | per-spec | none.
 migration_policy = manual
 
-; Label that grants unattended autonomy to scheduled routing. Defaults to
-; auto-mode-allowed. Set to `none` to disable autonomous routing for this project.
-autonomy_label = auto-mode-allowed
-
 ; The heading that marks a plan block finished, so its still-open rows are
 ; classified `stale` rather than `active` during migration. Defaults to this
 ; harness's own convention.
@@ -66,6 +62,12 @@ closed_plan_marker = Session Summary
 bug = bug
 enhancement = feature
 design-decision = decision
+; Do NOT map a label to `task` here. This section is read in BOTH directions:
+; the GitHub provider reverse-looks-up kind -> first matching label to decide
+; what to stamp on an issue it publishes, and `task` is the default kind. A
+; `tech-debt = task` entry therefore labels every published task `tech-debt`.
+; The routine precedence chain does not need these entries -- selection reads
+; [routines.selectors] below, never this map.
 ; `question` is ambiguous between decision and research, so it maps only if you
 ; say which one you mean:
 ; question = research
@@ -75,6 +77,38 @@ design-decision = decision
 [labels.priority]
 now = high
 next = medium
+
+; ---------------------------------------------------------------------------
+; Scheduled routines. A routine selects issues by ONE label axis, runs a named
+; step list, and ends at a pull request a human reviews. See
+; .agents/skills/wrap-up-session/references/routines.md for the full contract.
+[routines]
+; Written before a routine creates its branch; an issue already carrying it is
+; skipped as in-flight. Disjoint selectors stop two DIFFERENT routines claiming
+; one issue — only this stops two runs of the SAME routine overlapping.
+claim_label = in-progress
+
+; First match wins, so an issue with two kind labels resolves deterministically.
+; These are provider LABEL names (the left-hand keys of [labels.kind] above),
+; not canonical kinds. Every label ranked here must be selected by exactly one
+; routine below, and every label a routine selects must be ranked here — the two
+; sets are checked against each other and a mismatch is refused.
+kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
+
+; Routine -> the labels it selects. Declared entries REPLACE this default rather
+; than layering over it, so renaming your vocabulary does not leave the English
+; defaults behind as a shadow selector set.
+;
+; `now`/`next` are deliberately absent: priority orders candidates WITHIN a
+; routine's pool and never selects a routine. Selecting on both axes gave two
+; routines a claim on the same issue in a third of all cases.
+;
+; `build` is also absent — it is deferred, and a selector for a routine nobody
+; runs would let a deferred capability fail a live check.
+[routines.selectors]
+plan = design-decision
+fix = bug, tech-debt
+improve = enhancement, documentation
 
 ; ---------------------------------------------------------------------------
 ; Where `in_progress` and `blocked` come from. They are NEVER inferred from

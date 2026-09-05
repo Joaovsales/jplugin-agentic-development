@@ -153,7 +153,12 @@ if [ -d "tasks/solutions" ]; then
   # Category docs only (the store README mentions the flag as documentation),
   # and `|| true` because grep exits 1 on zero matches — under `set -eo
   # pipefail` that would kill the whole banner.
-  REVIEW_COUNT=$(grep -rl 'needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
+  # Anchored to line start: the flag is frontmatter, so only a line that BEGINS
+  # with it counts. An unanchored match counted every document that merely
+  # mentions the flag -- including the bug report about this counter, which
+  # quotes it in prose. Narrowing the glob to skip the store README fixed that
+  # symptom one directory up; anchoring fixes the cause.
+  REVIEW_COUNT=$(grep -rl '^needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
   echo ""
   echo "📚  LEARNING STORE  tasks/solutions — ${DOC_COUNT:-0} documents, ${REVIEW_COUNT:-0} needs_review (grep frontmatter to retrieve)"
   if [ "$UNMIGRATED" = "1" ]; then
@@ -396,7 +401,6 @@ echo "  /build       — Autonomous TDD execution with sub-agents"
 echo "  /auto-push   — /plan (approved) → /build → /wrap-up autonomously"
 echo "  /yolo        — Full-auto loop: /plan → /build → /wrap-up until backlog empty"
 echo "  /auto-improve — Unattended discover→fix→PR loop (daily cloud runs)"
-echo "  /route       — Route an issue, ticket URL, #123, or next backlog item"
 echo "  /debug       — Root cause analysis + bug-track store docs"
 echo "  /verify      — Evidence-based verification (--scope e2e|deployment)"
 echo "  /create-verification-skill — Generate a project-local verification recipe + feature map"

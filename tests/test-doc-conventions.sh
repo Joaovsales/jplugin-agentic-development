@@ -206,8 +206,10 @@ done
 # the step exists, and that Step 7 no longer says "create if none exists" without
 # handling the update case, which is the wording the gap lived in.
 for f in .claude/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/SKILL.md; do
-  assert_file_contains "$f" "PR Description Sync" \
-    "PRSync: $f carries the PR Description Sync step"
+  # The sync step lives inside the one canonical PR section that
+  # specs/category-routines.md AC7 converged Step 7 and Step 7.5 onto.
+  assert_file_contains "$f" "Creating and re-syncing" \
+    "PRSync: $f carries the PR description sync step"
   assert_contains "$(flatten "$f")" "Correct, do not erase" \
     "PRSync: $f forbids silently deleting a superseded claim"
   assert_file_contains "$f" "- PR: [" \
@@ -310,7 +312,7 @@ assert_files_identical .agents/skills/start-qa/SKILL.md .claude/skills/start-qa/
 # spec argued its way out of. specs/ is exempt: that is where the decision and
 # its reversal path are written down. tests/ is exempt for the obvious reason
 # that this assertion names the token itself.
-reach_hits="$(grep -rl "agent-reach"   .agents .claude/skills .claude/agents .claude/hooks .claude/browsers   CLAUDE.md install.sh project-template 2>/dev/null | grep -v '.claude/worktrees' || true)"
+reach_hits="$(grep -rl "agent-reach"   .agents .claude/skills .claude/agents .claude/hooks .claude/browsers   CLAUDE.md install.sh project-template 2>/dev/null | grep -vF '.claude/worktrees' || true)"
 assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhere outside specs/"
 
 # --- task-registry: the tracker abstraction ----------------------------------
@@ -367,27 +369,60 @@ done
 # not task state. `gh issue` and Jira REST paths are the coupling this
 # abstraction exists to remove, so they may appear only inside the registry.
 coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills .claude/skills 2>/dev/null \
-  | grep -v '/task-registry/' | grep -v '.claude/worktrees' || true)"
+  | grep -v '/task-registry/' | grep -vF '.claude/worktrees' || true)"
 assert_eq "" "$coupling_hits" \
   "task-registry: no skill outside the registry calls a tracker's task API (offenders: ${coupling_hits:-none})"
 
-# --- issue lane routing is registered and reused -----------------------------
-assert_file_contains "CLAUDE.md" '`/route`' \
-  "route: CLAUDE.md skills table lists the issue router"
-assert_file_contains ".claude/hooks/session-start.sh" "/route" \
-  "route: the session-start banner lists the issue router"
-assert_file_contains "README.md" '`/route`' \
-  "route: README lists the issue router"
+# --- /route is gone, and nothing in the shipping surface still names it ------
+# specs/category-routines.md AC1/AC2. The issue router computed how much autonomy
+# an issue permitted by running a model's description of the work through a policy
+# lattice -- 923 LOC of policy plus 728 of tests, which produced three unattended
+# halts in one week, two of them from routing preconditions rather than from the
+# work itself. A schedule already answers the autonomy question, so routines
+# replaced it (.agents/skills/wrap-up-session/references/routines.md).
+#
+# SCOPE. "References /route" is asserted over the SHIPPING SURFACE -- the trees
+# /sync and install.sh actually copy, plus the root docs and the test suite. Three
+# categories are deliberately outside it, and the exclusion is the point rather
+# than an escape hatch:
+#   * tasks/history.md and tasks/eval-results/ are append-only records of what
+#     happened. Editing them to erase a deleted skill falsifies the log.
+#   * tasks/solutions/ is exempted by AC1 itself; AC13 reconciles the two
+#     documents that CITE deleted paths, which is citation hygiene, not erasure.
+#   * specs/ records the design. specs/category-routines.md must name what it
+#     removed to be readable at all.
+assert_eq "absent" "$([ -e ".agents/skills/route" ] && echo present || echo absent)" \
+  "AC1: .agents/skills/route/ is deleted"
+assert_eq "absent" "$([ -e ".claude/skills/route" ] && echo present || echo absent)" \
+  "AC1: .claude/skills/route/ is deleted"
+
+# Only this file is excluded, and only because it holds the pattern itself. Every
+# other absence-asserting test builds the retired token at runtime instead of
+# earning an entry here -- see tasks/solutions/patterns/construct-retired-paths-
+# at-runtime-to-keep-literal-sweeps-strict.md. An allowlist rots: three
+# exceptions accumulated in a single session before that pattern was applied, and
+# a sweep that excludes its own quarry decays into documentation.
+ROUTE_SWEEP_SELF_REFERENTIAL='^tests/test-doc-conventions\.sh$'
+route_refs="$(grep -rlE '/route\b|route_issue|materialize_route|finalize_route' \
+  .agents .claude CLAUDE.md README.md AGENTS.md PI_SETUP.md install.sh tests scripts \
+  2>/dev/null | grep -vF '.claude/worktrees' \
+  | grep -vE "$ROUTE_SWEEP_SELF_REFERENTIAL" || true)"
+assert_eq "" "$route_refs" \
+  "AC1: nothing in the shipping surface references the deleted router (offenders: ${route_refs:-none})"
+
+assert_eq "absent" "$([ -e ".claude/hooks/user-prompt-route.sh" ] && echo present || echo absent)" \
+  "AC2: the UserPromptSubmit routing hook is deleted"
+assert_file_not_matches ".claude/settings.json" "user-prompt-route" \
+  "AC2: settings.json no longer registers the routing hook"
+assert_file_not_matches ".claude/hooks/session-start.sh" "/route" \
+  "AC2: the session-start banner no longer advertises the router"
+
+# The routines that replaced it must be reachable from the skill that implements
+# the branch convention, in both trees.
 for tree in .agents .claude; do
-  route_skill="$tree/skills/auto-improve/SKILL.md"
-  assert_file_contains "$route_skill" "route_issue.py" \
-    "route: $tree/auto-improve delegates lane policy to the shared engine"
-  assert_file_not_matches "$route_skill" "Bug / test failure / flaky" \
-    "route: $tree/auto-improve no longer carries its own bug routing row"
-  assert_file_not_matches "$route_skill" "Refactor / design fix / perf" \
-    "route: $tree/auto-improve no longer carries its own refactor routing row"
-  assert_file_not_matches "$route_skill" "Small triaged backlog feature" \
-    "route: $tree/auto-improve no longer carries its own feature routing row"
+  assert_eq "present" \
+    "$([ -f "$tree/skills/wrap-up-session/references/routines.md" ] && echo present || echo missing)" \
+    "AC1: $tree ships the routine contract that replaced the router"
 done
 
 # --- /plan's reuse gate must look INWARD before outward ----------------------

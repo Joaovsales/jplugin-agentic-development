@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from .index import IndexRow, Problem, TaskIndex, load_index, render_row
-from .model import TERMINAL_STATUSES, Task
+from .model import TERMINAL_STATUSES, Task, by_priority
 from .providers.base import ProviderError, ProviderStatus, ProviderUnavailable, TrackerProvider
 
 SUPERSEDED_RE = re.compile(r"^>\s*Superseded by:\s*(?P<by>.+)$", re.MULTILINE | re.IGNORECASE)
@@ -726,11 +726,7 @@ def _annotate_resolution(task: Task, status_by_id: Dict[str, str], report: Repor
     return task.with_(extra=extra)
 
 
-_PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2, None: 3}
-
-
-def _by_priority(task: Task) -> Tuple[int, str]:
-    return (_PRIORITY_ORDER.get(task.priority, 3), task.id)
+_by_priority = by_priority
 
 
 def _dependency_order(tasks: Sequence[Task]) -> Tuple[List[Task], List[List[str]]]:

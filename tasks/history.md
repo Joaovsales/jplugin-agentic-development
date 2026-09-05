@@ -240,5 +240,32 @@
 - Learnings captured: `tasks/solutions/architecture/hard-gate-on-tasks-todo-md.md`,
   `tasks/solutions/patterns/consume-structured-records-before-rendering-human-summaries.md`
 
-## 2026-09-02 — qwen spend investigation + guardrails (yolo)
+### [2026-09-02] — qwen spend investigation + guardrails (yolo)
 Investigated a $26.53/24h OpenRouter burn: pi session logs traced it to 6,006 qwen3-coder-next requests from one autonomous /build in PROJECT-pix-receipt-tracker (22 backend-developer spawns; 95% cache-read at $0.07/M). Root cause: `subagents.defaultModel` blanket-enforced qwen on all unscoped agents. Applied: defaultModel → deepseek-v4-flash, 80-turn caps on builder agents, key-limit deferred (needs management key). Verified via live smoke spawn. Docs: tasks/solutions/patterns/cheap-per-token-is-not-cheap-per-task-cap-subagent-turns.md
+
+### [2026-09-05] — category routines replace the /route lattice (build)
+Executed `specs/category-routines.md` (revision 4): deleted the issue-routing policy
+engine shipped on 2026-09-01 — 923 LOC of lattice plus 728 LOC of tests, the
+`UserPromptSubmit` hook, three lane playbooks and the radius tripwire — and replaced it
+with four scheduled routines selecting on one label axis.
+- Key changes: `routine_branch.py` (parse + format, round-trip tested); the routine
+  contract at `.agents/skills/wrap-up-session/references/routines.md`; `registry/
+  routines.py` plus `task-registry select` and `selectors` commands; `[routines]` and
+  `[routines.selectors]` configuration; wrap-up's two PR procedures converged into one;
+  `/auto-improve` Phases 3-5 rewired to name their reviewer set directly.
+- Verification: 35 test files / 2,734 assertions green (was 32 / ~2,000 at baseline).
+  Six new test files. AC12 and the branch convention additionally proven live against
+  the `gh` mock and the CLI, not only through the suite.
+- Review: the dispatched APOSD pass returned HOLD with three MUST-FIX. The most serious
+  was a live regression this session introduced and the suite did not catch — widening
+  `DEFAULT_KIND_LABELS` for the precedence chain made the GitHub provider stamp
+  `tech-debt` on every published task, which is the `fix` routine's own selector. Root
+  cause was a false premise in the spec (it assumed selection reads `[labels.kind]`; the
+  implementation had correctly given selection its own section). Reverted with a
+  regression guard. All ten findings resolved.
+- Deferred: the `build` routine (#98, blocked on #97). Its selector deliberately ships
+  absent so a deferred capability cannot fail a live gate; the branch parser is general
+  over routine names, so `routine/build/...` already round-trips.
+- Learnings captured: `tasks/solutions/architecture/a-bidirectional-map-cannot-be-widened-for-one-direction.md`,
+  `tasks/solutions/patterns/validate-in-the-loader-not-in-one-optional-command.md`,
+  `tasks/solutions/patterns/shape-validation-cannot-catch-a-membership-error.md`

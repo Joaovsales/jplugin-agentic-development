@@ -336,3 +336,48 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
   contract stands. Shipped as c000b04, PR #88. The gate defect the finding
   exposed is filed as `review-gate.define-finding-resolution`.
 - [ ] Define finding resolution per owner, and remove the owner carve-out from every gate <!-- task-id: review-gate.define-finding-resolution --> — The word "unresolved" is load-bearing in four commit gates and defined nowhere, so each gate re-derives it and two deri… ([review-gate.define-finding-resolution](tasks/details/review-gate.define-finding-resolution.md))
+- [ ] task-registry: provider-selection docs claim "no config = local + offline"; a GitHub remote actually selects github <!-- task-id: task-registry.provider-selection-docs-drift --> — Two documents state that a project without docs/task-tracking.md resolves to the offline local provider. The real order… ([#95](https://github.com/Joaovsales/jplugin-agentic-development/issues/95))
+
+---
+
+## Plan: Category Routines (specs/category-routines.md)
+
+Detail lives in the spec (revision 3, internally reconciled). These rows are the
+index.
+
+- [x] Routine branch parser + formatter <!-- task-id: routines.branch-parser --> — TDD `tests/test-routine-branch.sh`: `parse_routine_branch` yields `(routine, issue)` for the four namespaced forms and `None` for `fix/2024-refactor`, `feature/2024-refactor`, `routine/fix/no-number`, `routine/fix/90`, `master`, `routine//90-x`; `format_routine_branch` round-trips every contract name -> `.agents/skills/wrap-up-session/scripts/routine_branch.py` + `.claude` parity copy (AC3, AC4, AC5)
+- [x] Routine contract document <!-- task-id: routines.contract-doc --> — TDD `tests/test-routines-contract.sh` asserts four routines (three active, `build` marked deferred naming #97/#98), kind selectors, precedence chain, branch convention, and each active routine's mandatory step list with its non-skippable gates -> `.agents/skills/wrap-up-session/references/routines.md` + parity copy (AC8)
+- [x] Selector vocabulary + claim label from configuration <!-- task-id: routines.selector-config --> — TDD: configured selector label absent upstream exits non-zero naming it; `tech-debt`/`documentation` resolve; claim label defaults to `in-progress` and an already-claimed issue is skipped -> extend the kind vocabulary and add a precedence + claim reader to task-registry config; update `templates/task-tracking.md` (AC12, concurrency, folded selector-vocabulary gap) (blocked-by: routines.contract-doc)
+- [x] Wrap-up PR procedure convergence <!-- task-id: routines.wrap-up-pr --> — TDD `tests/test-routine-wrapup.sh`: PR creation described in exactly one place, Step 7 and Step 7.5 both reach it, `--draft` iff routine is `plan`, body carries `Closes #N` (`Refs #N` for `plan`), branch outside `routine/` keeps today's behavior -> `.agents/skills/wrap-up-session/SKILL.md` + parity copy (AC6, AC7) (blocked-by: routines.branch-parser)
+- [x] Step ledger in todo.md and PR body <!-- task-id: routines.step-ledger --> — TDD: an executed step list with skipped rows and `skip: <reason>` appears in both sinks; silent omission fails the test -> wrap-up PR procedure + contract doc (AC9) (blocked-by: routines.wrap-up-pr)
+- [x] Delete /route and its assertions <!-- task-id: routines.route-deletion --> — TDD: replace the three `/route` presence assertions in `tests/test-doc-conventions.sh`, drop `skills/route/SKILL.md` from `DISPATCH_SITE_FILES` in `tests/test-review-context.sh`, replace the `route_issue.py` assertion in `tests/test-skill-invocation-chain.sh`; coupling guard passes unmodified -> delete both route skill trees, `user-prompt-route.sh`, its `UserPromptSubmit` entry, the session-start banner line, `tests/test-route-{decision,hook,skill}.sh`, `specs/issue-lane-routing.md` (AC1, AC2, AC11)
+- [x] Rewire /auto-improve Phases 3, 4, 5 <!-- task-id: routines.auto-improve-rewire --> — TDD: no phase names a routing engine or "materialized lane"; Phase 4 names its reviewer set directly and carries all seven Review Dispatch Contract items; one PR per run preserved -> `.agents/skills/auto-improve/SKILL.md` + parity copy (AC10) (blocked-by: routines.route-deletion)
+- [x] Reconcile two learning-store documents <!-- task-id: routines.learning-reconcile --> — cite the routine contract instead of deleted paths -> `tasks/solutions/architecture/hard-gate-on-tasks-todo-md.md`, `tasks/solutions/patterns/consume-structured-records-before-rendering-human-summaries.md` (AC13) (blocked-by: routines.route-deletion)
+- [x] Skill tables + full suite <!-- task-id: routines.tables-and-suite --> — no `/route` row in the `CLAUDE.md` or `README.md` skill tables; `bash tests/run.sh` green (AC14) (blocked-by: routines.auto-improve-rewire)
+
+## Session Summary — 2026-09-05 c3809a1..HEAD (sha range closes at commit)
+- Completed: 9 tasks — the whole Category Routines plan except the deferred `build` routine
+- Pending: 1 in this plan (`routines.build-routine`, tracked as #98, blocked on #97)
+- Branch: `analysis/simplify-routing`, outside the `routine/` namespace — so no routine
+  step ledger applies to this session, per the contract's opt-in-by-shape rule
+- Carry-forward: `build` needs #97's `blockedBy` provider capability first.
+- Wrap-up review (4 dispatched passes) found 6 MUST-FIX, all fixed: the linked-PR
+  exclusion failed *open* on a degraded `gh`; the claim label escaped the upstream
+  vocabulary check; `known_labels()` conflated "unsupported" with "failed"; a
+  backtick in `test-routine-step-ledger.sh` ran `tasks/todo.md` as a command
+  instead of matching it; the AC12 vocabulary check lived only in `selectors`,
+  which nothing invokes; and the claim label was read but never written.
+- Shipped in response: `task-registry claim`, the contract's missing write. Both
+  spec claims found unsound are now corrected in specs/category-routines.md, which
+  was also migrated to `implementation_paths` frontmatter (Step 3.2).
+- Skipped, deliberately (3 SHOULD-FIX, all needing a routine host that does not yet
+  exist): `/auto-improve` does not run the routine spine; `select` emits prose with
+  no machine-readable form; no assertion pins that categorization lives only in the
+  contract. All three belong with #98.
+
+## Deferred — tracked externally, not part of this build
+
+Not executed by `/build`. Listed so the frontier shows the real dependency graph.
+
+- [ ] task-registry: github provider reports native_hierarchy/native_dependencies false, but gh now exposes parent, subIssues, blockedBy and blocking <!-- task-id: task-registry.github-native-hierarchy-and-dependencies --> — The github provider hardcodes native_hierarchy=False and native_dependencies=False, so link_parent and add_dependency d… ([#97](https://github.com/Joaovsales/jplugin-agentic-development/issues/97))
+- [ ] routines: implement the `build` routine (deferred from the first category-routines PR) <!-- task-id: routines.build-routine --> — specs/category-routines.md defines four routines. Three (plan, fix, improve) ship in the first PR. `build` is deferred… ([#98](https://github.com/Joaovsales/jplugin-agentic-development/issues/98)) (blocked-by: task-registry.github-native-hierarchy-and-dependencies)
