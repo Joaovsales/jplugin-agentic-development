@@ -1,44 +1,52 @@
-# Checkpoint — 2026-09-02T12:45:54Z
+# Checkpoint — 2026-09-05T12:12:23Z
 
 > Auto-written by PreCompact hook (trigger: auto). Re-read on resume.
 
 ## Git
-- Branch: Joaovsales/wrap-u
+- Branch: Joaovsales/sync-is-non-deterministic-retired-vs-project-spe
 
 ```
- M .agents/skills/brainstorm/SKILL.md
- M .agents/skills/plan/SKILL.md
- M .agents/skills/task-registry/SKILL.md
- M .agents/skills/task-registry/scripts/task-registry.py
- M .agents/skills/wrap-up-session/SKILL.md
- M .claude/skills/brainstorm/SKILL.md
- M .claude/skills/plan/SKILL.md
- M .claude/skills/task-registry/SKILL.md
- M .claude/skills/task-registry/scripts/task-registry.py
- M .claude/skills/wrap-up-session/SKILL.md
- M CLAUDE.md
- M project-template/CLAUDE.md
- M specs/README.md
- M specs/review-context-contract.md
- M specs/task-registry.md
- M tasks/checkpoint.md
- M tasks/todo.md
-?? .agents/skills/task-registry/scripts/registry/upsert.py
-?? .agents/skills/wrap-up-session/scripts/
-?? .claude/skills/task-registry/scripts/registry/upsert.py
-?? .claude/skills/wrap-up-session/scripts/
-?? .serena/
-?? specs/living-spec-reconciliation.md
-?? tests/test-living-spec-reconciliation.sh
+M  .agents/skills/sync/SKILL.md
+AM .agents/skills/sync/scripts/sync-retire.py
+M  .claude/skills/sync/SKILL.md
+A  .claude/skills/sync/scripts/sync-retire.py
+A  specs/sync-deterministic-retirement.md
+M  tasks/checkpoint.md
+A  tasks/details/glob-matcher-redos.md
+A  tasks/details/glob-matcher-shared-module.md
+A  tasks/details/sync.bootstrap-skips-legacy-retirements.md
+A  tasks/details/sync.candidate-emits-per-file-patterns.md
+A  tasks/details/sync.emptied-root-blocks-retirement.md
+A  tasks/details/sync.retire-blast-radius-cap.md
+A  tasks/details/sync.retired-root-orphans.md
+A  tasks/details/sync.retirement-lands-after-commit.md
+A  tasks/details/sync.stale-root-blocks-retirement.md
+A  tasks/details/sync.syncable-paths-single-source.md
+M  tasks/history.md
+A  tasks/route-decision.md
+A  tasks/solutions/architecture/current-state-cannot-distinguish-removed-from-never-present.md
+A  tasks/solutions/process/an-assertion-can-pass-because-a-different-guard-fired.md
+A  tasks/solutions/process/scoping-a-guard-per-item-can-silently-weaken-it.md
+A  tasks/solutions/security/running-git-in-an-untrusted-checkout-executes-its-config.md
+A  tasks/solutions/tooling/mawk-has-no-interval-expressions.md
+M  tasks/todo.md
+A  tests/test-sync-retirement.sh
+M  tests/test-syncable-paths.sh
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
-(none)
+[ ] prelude: skip: not needed for this kind
+[ ] /plan (auto-confirm: no; wait for approval)
+[ ] /build (runs /quality-gate on completion)
+[ ] route radius tripwire: finalize_route before verification or push
+[ ] /verify (evidence: tests)
+[ ] /wrap-up-session (wait at pre-push gate)
 
 ## Active Spec
-- specs/README.md
+- specs/sync-deterministic-retirement.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`
-2. Read `tasks/memory.md` for project context
+2. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for the
+   areas this task touches — never bulk-load the store
 3. Continue from the first `[~]` (or `[ ]`) item in `tasks/todo.md`

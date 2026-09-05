@@ -336,3 +336,63 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
   contract stands. Shipped as c000b04, PR #88. The gate defect the finding
   exposed is filed as `review-gate.define-finding-resolution`.
 - [ ] Define finding resolution per owner, and remove the owner carve-out from every gate <!-- task-id: review-gate.define-finding-resolution --> — The word "unresolved" is load-bearing in four commit gates and defined nowhere, so each gate re-derives it and two deri… ([review-gate.define-finding-resolution](tasks/details/review-gate.define-finding-resolution.md))
+- [x] /sync is non-deterministic: retired-vs-project-specific is re-judged every run <!-- task-id: sync.deterministic-retirement --> — record the keep/retire decision as data (`.claude/sync-keep`) so `/sync` is reproducible instead of re-judged per run ([#89](https://github.com/Joaovsales/jplugin-agentic-development/issues/89))
+- [ ] Collapse the seven-region syncable-path enumeration into script-owned data <!-- task-id: sync.syncable-paths-single-source --> — the list is retyped in seven regions across three files; deterministic retirement made it machine-read for the first time ([sync.syncable-paths-single-source](tasks/details/sync.syncable-paths-single-source.md))
+- [ ] Extract the shared path-glob matcher out of spec-reconcile.py <!-- task-id: glob-matcher-shared-module --> — two scripts implement the same three-token whole-path glob semantics; they agree today, which is the dangerous state ([glob-matcher-shared-module](tasks/details/glob-matcher-shared-module.md))
+- [ ] A syncable root retired upstream leaves permanent orphans <!-- task-id: sync.retired-root-orphans --> — retirement works within declared roots; removing a whole root from the doc block leaves the project's copy forever ([sync.retired-root-orphans](tasks/details/sync.retired-root-orphans.md))
+- [ ] Bound the retirement blast radius before --apply deletes <!-- task-id: sync.retire-blast-radius-cap --> — the plan is printed but nothing acts on it; a cap bounds defects that inflate the set ([sync.retire-blast-radius-cap](tasks/details/sync.retire-blast-radius-cap.md))
+- [ ] A root retired upstream turns a valid sync-keep into a hard failure <!-- task-id: sync.stale-root-blocks-retirement --> — a pattern naming a root the template dropped exits 1 and blocks every unrelated retirement ([sync.stale-root-blocks-retirement](tasks/details/sync.stale-root-blocks-retirement.md))
+- [ ] Adjacent unbounded quantifiers make the glob matcher hang <!-- task-id: glob-matcher-redos --> — `**`/`*?` runs compile to catastrophic backtracking; fix belongs with the shared-matcher extraction ([glob-matcher-redos](tasks/details/glob-matcher-redos.md))
+- [ ] Step 6.4 deletes after Step 6 already asked the user to commit <!-- task-id: sync.retirement-lands-after-commit --> — pre-existing ordering, amplified now the deletion set is computed rather than four fixed paths ([sync.retirement-lands-after-commit](tasks/details/sync.retirement-lands-after-commit.md))
+- [x] Bootstrap projects never remove the four legacy retired skills <!-- task-id: sync.bootstrap-skips-legacy-retirements --> — the only mechanism that deleted tdd/deslop/simplify/verify-e2e is gone; the one case the new design is strictly weaker ([sync.bootstrap-skips-legacy-retirements](tasks/details/sync.bootstrap-skips-legacy-retirements.md))
+- [x] A root legitimately emptied upstream disables the whole retirement pass <!-- task-id: sync.emptied-root-blocks-retirement --> — assert_roots_present conflates a wrong source with a root emptied upstream ([sync.emptied-root-blocks-retirement](tasks/details/sync.emptied-root-blocks-retirement.md))
+- [ ] The bootstrap candidate protects a generated skill file-by-file <!-- task-id: sync.candidate-emits-per-file-patterns --> — one exact rule per file, so anything added to a project-local skill is a fresh retire candidate ([sync.candidate-emits-per-file-patterns](tasks/details/sync.candidate-emits-per-file-patterns.md))
+
+<!-- route-lane:begin -->
+## Routed lane — gated-at-plan-and-pre-push
+
+[ ] prelude: skip: not needed for this kind
+[ ] /plan (auto-confirm: no; wait for approval)
+[ ] /build (runs /quality-gate on completion)
+[ ] route radius tripwire: finalize_route before verification or push
+[ ] /verify (evidence: tests)
+[x] reviewers: code-reviewer, security-reviewer — round 2 on the fixed diff: 1 MUST-FIX + 1 HIGH reproduced and fixed, 5 more applied, 4 filed; 191 assertions
+[ ] /wrap-up-session (wait at pre-push gate)
+<!-- route-lane:end -->
+
+---
+
+## Plan: Deterministic Retirement in /sync
+> Spec: specs/sync-deterministic-retirement.md
+> Task: sync.deterministic-retirement (#89) — routed gated-at-plan-and-pre-push
+> Branch: Joaovsales/sync-is-non-deterministic-retired-vs-project-spe (worktree off master @ c3809a1)
+> Baseline: `bash tests/run.sh` green before Task 1
+
+[x] TDD: `tests/test-sync-retirement.sh` covers pattern parsing and validation — blank lines and `#` comments ignored; empty, absolute, `..`-traversing, backslash-separated, `[ab]`-globbed, and outside-every-syncable-root patterns each fail non-zero naming the offending pattern and its line, deleting nothing -> `.agents/skills/sync/scripts/sync-retire.py`: argparse CLI, `.claude/sync-keep` reader, pattern validator, `_pattern_to_regex`/`match_path` with `TODO(shortcut):` naming the spec-reconcile.py duplication
+[x] TDD: syncable roots are parsed from the `## Syncable Paths` doc block — a fixture SKILL.md with an added root changes what is scanned, file roots (`CLAUDE.md`, `.claude/settings.json`) are excluded from retirement, a root absent from the project is empty rather than an error, and a root absent from the template is an error -> doc-block parser + root resolution
+[x] TDD: `--from-ref` and `--from-dir` yield identical retirement sets for the same template content; supplying both or neither is a usage error (exit 2) -> template inventory via `git ls-tree -r --name-only` and via directory walk
+[x] TDD: retirement set is project − template − allowlist; the default run lists every retire path in full (no truncation) and deletes nothing -> plan computation + report rendering
+[x] TDD: `--apply` deletes exactly the retirement set, prunes emptied directories, prints the same full list before deleting, and leaves non-retired paths untouched -> apply step
+[x] TDD: a path matched by `sync-keep` survives and is reported `kept: <path> (matched <pattern>)`; an empty `sync-keep` is distinct from an absent one and permits deletion -> allowlist wiring
+[x] TDD: absent `.claude/sync-keep` retires nothing, reports `bootstrap: required` with every project-only path as a candidate, and under `--apply` writes `.claude/sync-keep.candidate` and never `.claude/sync-keep` -> bootstrap mode
+      ↳ **amended on the user's call**: "retires nothing" left every bootstrap project keeping retired skills forever. Bootstrap now retires files that are byte-identical to something the template's history shows it shipped at that path, and holds everything else — customised, uncommitted, or same-name-different-file — as a candidate. Kept as an amendment rather than a rewrite: the original scope is what the earlier commits implement.
+[x] TDD: two `--apply` runs against an unchanged template leave a byte-identical tree and the second reports zero retirements -> idempotency assertions over a tree hash
+[x] TDD: two project branches with different project-only sets converge to the same harness path set against one template ref -> branch-independence fixture
+[x] TDD: `.claude/sync-keep` appears in the § Syncable Paths never-sync list, the retirement pass is documented in the procedure, and it applies for options 1 and 2 but not 3 or 4 -> edit `.agents/skills/sync/SKILL.md`
+[x] TDD: `tests/test-skill-parity.sh`, `tests/test-syncable-paths.sh`, `tests/test-skill-references.sh` and full `bash tests/run.sh` green -> byte-identical mirror of `.agents/skills/sync/**` into `.claude/skills/sync/**`
+[x] Follow-ups filed as registry tasks + GitHub issues: (a) collapse the seven-region syncable-path enumeration into script-owned data; (b) extract the shared `match_path` glob matcher out of spec-reconcile.py -> `/task-registry upsert --apply` for each, then publish
+
+## Session Summary — 2026-09-05 [c3809a1..HEAD]
+- Completed: deterministic retirement in `/sync` — all 12 planned tasks, plus two
+  behaviour changes the user requested mid-session (bootstrap provenance; empty
+  roots skipped rather than fatal).
+- Review: 6 dispatched reviewers across two rounds this session. Round 2 found
+  4 MUST-FIX (2 corroborated by both contexts) — all reproduced, fixed, and
+  mutation-probed. 11 fixes total, every one pinned by an assertion that goes
+  red when the fix is reverted.
+- The load-bearing correction: bootstrap deleted on **path identity**, so a file
+  the project authored at a colliding path — or a synced file it had edited, or
+  one with uncommitted changes — was destroyed. Provenance is now content:
+  the working-tree hash must match a blob the template actually shipped there.
+- Tests: 33/33 files, 2911 → 315 assertions in the retirement suite alone.
+- Pending: nothing carried forward from this plan.

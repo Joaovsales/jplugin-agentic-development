@@ -242,3 +242,60 @@
 
 ## 2026-09-02 — qwen spend investigation + guardrails (yolo)
 Investigated a $26.53/24h OpenRouter burn: pi session logs traced it to 6,006 qwen3-coder-next requests from one autonomous /build in PROJECT-pix-receipt-tracker (22 backend-developer spawns; 95% cache-read at $0.07/M). Root cause: `subagents.defaultModel` blanket-enforced qwen on all unscoped agents. Applied: defaultModel → deepseek-v4-flash, 80-turn caps on builder agents, key-limit deferred (needs management key). Verified via live smoke spawn. Docs: tasks/solutions/patterns/cheap-per-token-is-not-cheap-per-task-cap-subagent-turns.md
+
+## 2026-09-04 — deterministic retirement in /sync (routed: gated-at-plan-and-pre-push)
+Replaced `/sync`'s per-run model judgement of "retired upstream vs project-specific"
+with set arithmetic over a recorded `.claude/sync-keep` allowlist:
+`retire = project paths under syncable roots − template paths under the same roots
+− paths matching a sync-keep pattern`. New stdlib-only `sync-retire.py` (mirrored
+byte-identically into `.claude/skills/`), 103 lines of rewritten `/sync` procedure,
+a spec, and a 230-assertion behavioural suite.
+- Verification: 33/33 test files, 2828 assertions, 0 failures; ruff and py_compile
+  clean; both skill trees byte-identical.
+- Review: three rounds, six dispatched reviewers. Round 1 (APOSD) returned HOLD.
+  Round 2 (code + security) returned FAIL on a reproduced command-execution defect:
+  an untrusted `--from-dir` template's `core.fsmonitor` ran during the pre-approval
+  dry run. Round 3 (consistency, defensive, coverage, adversarial critic) returned
+  REVISE and found the round-2 fixes incomplete — `_as_pattern` still let a newline
+  escape its own comment, and three of the new assertions survived mutation.
+- Every MUST-FIX was reproduced before being fixed and pinned by a mutation probe.
+  Four probes exposed assertions that certified nothing; all four were rewritten.
+- Ten follow-ups filed; two were then fixed in-session on the user's call. The
+  regression (bootstrap projects keeping retired skills forever) and the fragility
+  (one upstream file deletion disabling retirement everywhere) shared a root cause:
+  the script only ever consulted the template's *current* state. Both were closed by
+  reading the template's git history for provenance, and by scoping an empty root to
+  itself while still refusing a source missing several roots.
+- Learnings captured: `tasks/solutions/security/running-git-in-an-untrusted-checkout-executes-its-config.md`,
+  `tasks/solutions/process/an-assertion-can-pass-because-a-different-guard-fired.md`,
+  `tasks/solutions/tooling/mawk-has-no-interval-expressions.md`
+
+### Round 2 review (2026-09-05)
+
+Re-dispatched `code-reviewer` and `critic` against the fix batch. Both independently
+found the record-loss survivor and the depth probe — separately dispatched contexts,
+so that agreement counts.
+
+- **The one that mattered**: bootstrap retired on *path identity*. A file the project
+  wrote itself at a path the template once used (`.claude/hooks/pre-commit.sh` is a
+  name both reach for), a synced file the project later edited, and a file with
+  uncommitted changes were all deleted as "template content". Provenance is now the
+  working-tree hash against every blob the template held at that path. Hashing the
+  working tree rather than the index is what saves the uncommitted case, which
+  `git checkout` could never restore.
+- The precondition reordering closed one call site of the record-loss class, not the
+  class: `write_candidate` could still fail after `apply_plan` for any reason other
+  than "already exists". Folded into `_deletion_outcome` as a fourth category.
+- The shallow probe was wrong in both directions in turn — repository-scoped (broke
+  `--from-ref` for CI's `--depth 1` projects), then commit-count (caught only depth 1,
+  so a `--depth 5` clone produced a different retirement set from the same SHA). Now
+  detects a graft boundary, which is depth- and mode-independent.
+- Four of my own assertions certified nothing and were rewritten: a probe aimed at an
+  unreachable branch, a fixture appending after the block terminator, a symlink test
+  whose target existed, and a `Traceback` check that `main` had always caught.
+- Process: dispatching write-capable reviewers against the live worktree raced my own
+  test runs. Use `isolation: "worktree"` next time.
+- Learnings: `architecture/path-membership-is-not-proof-of-provenance.md`,
+  `architecture/a-repository-level-flag-does-not-describe-one-revision.md`,
+  `process/a-precondition-that-fires-after-the-act-reports-nothing.md`,
+  `tooling/pkill-f-matches-the-shell-that-runs-it.md`
