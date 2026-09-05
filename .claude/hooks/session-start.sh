@@ -153,7 +153,11 @@ if [ -d "tasks/solutions" ]; then
   # Category docs only (the store README mentions the flag as documentation),
   # and `|| true` because grep exits 1 on zero matches — under `set -eo
   # pipefail` that would kill the whole banner.
-  REVIEW_COUNT=$(grep -rl 'needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
+  # Anchored: the flag is a frontmatter field, so it only counts at column 0.
+  # Scoping to category dirs excluded the store README but not a *document* that
+  # quotes the flag in its prose -- and one does, the bug doc about this very
+  # count. Matching the structure instead of the location is what makes it right.
+  REVIEW_COUNT=$(grep -rlE '^needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
   echo ""
   echo "📚  LEARNING STORE  tasks/solutions — ${DOC_COUNT:-0} documents, ${REVIEW_COUNT:-0} needs_review (grep frontmatter to retrieve)"
   if [ "$UNMIGRATED" = "1" ]; then

@@ -40,6 +40,34 @@ The `tasks/solutions/*/` glob only descends into category directories
 Regression test: tests/test-session-start.sh:62-88 (zero-flag fixture with a
 README that mentions the flag literally).
 
+## Recurrence — 2026-09-05: the same defect, one level up
+
+The second half of the resolution above was **incomplete**, and this document is
+what proved it. Scoping the glob to `tasks/solutions/*/` excluded the store
+README, but not a *document* that quotes the flag in its own prose — and this
+document does, twice (lines 28 and 35 above). So the session-start banner
+reported `1 needs_review` while zero documents carried the flag, permanently.
+
+Found by running `/memory-maintain`, whose Phase 1 opened this file expecting a
+flagged document and found none.
+
+The corrected fix anchors to the frontmatter field rather than narrowing the
+search location:
+
+```bash
+REVIEW_COUNT=$(grep -rlE '^needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
+```
+
+`.claude/hooks/session-start.sh:156`, and the same pattern in
+`/memory-maintain`'s light pass (both skill copies).
+
+**The generalisable error**: the first fix restricted *where* to look when the
+defect was *what* to match. A store of documents about a system will inevitably
+quote that system's own markers, so any grep over prose must match structure
+(column-0 frontmatter) rather than rely on no document ever mentioning the
+string. Same shape as
+[[scoping-a-guard-per-item-can-silently-weaken-it]].
+
 ## Prevention
 
 In any `set -eo pipefail` script, treat every counting/filtering grep as a
