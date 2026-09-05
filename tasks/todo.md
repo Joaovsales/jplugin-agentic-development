@@ -382,7 +382,7 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
 [x] TDD: `tests/test-skill-parity.sh`, `tests/test-syncable-paths.sh`, `tests/test-skill-references.sh` and full `bash tests/run.sh` green -> byte-identical mirror of `.agents/skills/sync/**` into `.claude/skills/sync/**`
 [x] Follow-ups filed as registry tasks + GitHub issues: (a) collapse the seven-region syncable-path enumeration into script-owned data; (b) extract the shared `match_path` glob matcher out of spec-reconcile.py -> `/task-registry upsert --apply` for each, then publish
 
-## Session Summary — 2026-09-05 [c3809a1..HEAD]
+## Session Summary — 2026-09-05 [c3809a1..101cdfc]
 - Completed: deterministic retirement in `/sync` — all 12 planned tasks, plus two
   behaviour changes the user requested mid-session (bootstrap provenance; empty
   roots skipped rather than fatal).
