@@ -304,8 +304,15 @@ def _history_is_truncated(where: str, revision: str) -> bool:
     `--depth 5` clone silently produced a *different* retirement set from the
     same commit SHA — the non-determinism this whole feature exists to remove.
     """
-    for commit in _git(where, "rev-list", "--max-parents=0", revision).split():
-        if re.search(r"^parent ", _git(where, "cat-file", "commit", commit), re.M):
+    for commit in _git(
+        where, "rev-list", "--max-parents=0", "--end-of-options", revision
+    ).split():
+        # Headers only. `cat-file commit` emits headers, a blank line, then the
+        # free-text message -- so a commit message containing a line that begins
+        # `parent ` was read as a graft, and one such message upstream would
+        # report `provenance: unavailable` for every downstream project forever.
+        header = _git(where, "cat-file", "commit", commit).split("\n\n", 1)[0]
+        if re.search(r"^parent ", header, re.M):
             return True
     return False
 
@@ -336,24 +343,39 @@ def template_history_blobs(
 
     `--raw` carries the pre- and post-image blob of every change, so one walk
     yields the full content history without re-reading a tree per commit.
+
+    `-z` is load-bearing, not a parsing convenience. Without it git C-quotes
+    paths holding non-ASCII bytes, and whether it does is decided by
+    `core.quotePath` — read from the repository being inspected, which in
+    `--from-dir` mode is the untrusted template checkout. This map is keyed on
+    those strings while the project side uses raw bytes, so one line in someone
+    else's `.git/config` moved a file between "held for a human" and "deleted",
+    and made the two source modes disagree for identical content.
     """
     stream = _git(
-        where, "log", "--pretty=format:", "--raw", "--no-abbrev",
-        "--diff-filter=AMRD", revision, "--", *roots,
+        where, "log", "--pretty=format:", "--raw", "--no-abbrev", "-z",
+        "--diff-filter=AMRD", "--end-of-options", revision, "--", *roots,
     )
     blobs: Dict[str, Set[str]] = {}
-    for line in stream.splitlines():
-        if not line.startswith(":"):
+    fields = stream.split("\0")
+    index = 0
+    while index < len(fields):
+        record = fields[index]
+        if not record.startswith(":"):
+            index += 1
             continue
-        fields = line.split("\t")
-        columns = fields[0].split()
-        if len(columns) < 5 or len(fields) < 2:
+        columns = record.split()
+        if len(columns) < 5:
+            index += 1
             continue
-        # A rename names both the old and the new path; the blob belongs to each.
-        for path in fields[1:]:
+        # A rename or copy names both the old path and the new one, and the
+        # blob belongs to each; everything else names one.
+        wanted = 2 if columns[4][:1] in ("R", "C") else 1
+        for path in (p for p in fields[index + 1 : index + 1 + wanted] if p):
             for sha in columns[2:4]:
                 if sha and set(sha) != {"0"}:
                     blobs.setdefault(path, set()).add(sha)
+        index += 1 + wanted
     return blobs
 
 
@@ -406,12 +428,18 @@ def project_paths(repo: str, roots: Sequence[str]) -> List[str]:
     to delete. It also keeps the two template modes agreeing — a walk would see
     build residue such as `__pycache__` that `git ls-tree` can never report.
 
-    `isfile` also excludes broken symlinks, symlinks to directories, and
-    submodule gitlinks, so none of those is ever retired. That is the safe
+    `isfile` excludes broken symlinks, symlinks to directories, and submodule
+    gitlinks *at the leaf*, so none of those is ever retired. That is the safe
     direction — the tool leaves them rather than guessing whether `os.remove` is
     the right verb — but it does mean a retired-upstream symlink of those shapes
     needs manual removal. A tracked symlink to a *file* is retired normally, and
     removes the link, never its target.
+
+    It says nothing about the **directories above** the leaf: `isfile` follows
+    every component, so a symlinked directory inside a syncable root resolves
+    this path somewhere else entirely. `_confined_target` is what refuses that,
+    at the deletion itself — this filter is not a containment check and must not
+    be read as one.
 
     Filtered to what is actually on disk, because `ls-files` reports the *index*.
     A path this script deleted on an earlier run stays in the index until the
@@ -428,7 +456,10 @@ def project_paths(repo: str, roots: Sequence[str]) -> List[str]:
 
 
 def template_paths_from_ref(repo: str, ref: str, roots: Sequence[str]) -> List[str]:
-    stream = _git(repo, "ls-tree", "-r", "--name-only", "-z", ref, "--", *roots)
+    stream = _git(
+        repo, "ls-tree", "-r", "--name-only", "-z", "--end-of-options", ref,
+        "--", *roots,
+    )
     return sorted(p for p in stream.split("\0") if p)
 
 
@@ -467,7 +498,11 @@ def read_template_doc(repo: str, ref: Optional[str], directory: Optional[str]) -
         if not os.path.isfile(path):
             raise RetireError(f"template checkout has no {SKILL_DOC}: {directory}")
         return _read_text(path)
-    return _git(repo, "show", f"{ref}:{SKILL_DOC}")
+    # --end-of-options at the sink: `main` rejects a ref starting with `-`, but
+    # that guard is 400 lines away and the tests already import this module and
+    # call in directly, so it is one refactor from being bypassed. Without it
+    # `git show "--output=...:path"` is read as an option.
+    return _git(repo, "show", "--end-of-options", f"{ref}:{SKILL_DOC}")
 
 
 def usable_roots(
@@ -627,6 +662,19 @@ def compute_plan(repo: str, ref: Optional[str], directory: Optional[str]) -> Pla
     )
 
 
+def _field(path: str) -> str:
+    """A path, rendered so it can only ever occupy one line of the report.
+
+    The report is the sole record of what a file-deleting tool destroyed, and
+    SKILL.md tells the operator to read it in full. A path containing a newline
+    would otherwise emit lines indistinguishable from real ones — a file can be
+    named so that the run claims to have kept what it deleted. `repr` also
+    escapes carriage returns, which repaint a terminal line, and surrogates
+    from `errors="surrogateescape"`, which would raise on print.
+    """
+    return path if path.isprintable() else repr(path)
+
+
 def render(plan: Plan) -> str:
     """Render what this run proposes, printed before anything is written.
 
@@ -651,28 +699,52 @@ def render(plan: Plan) -> str:
                 f"is retired"
             )
         for path in plan.retire:
-            lines.append(f"  retire: {path} (was template content, retired upstream)")
+            lines.append(f"  retire: {_field(path)} (was template content, retired upstream)")
         for path in plan.candidates:
-            lines.append(f"  candidate: {path}")
+            lines.append(f"  candidate: {_field(path)}")
         lines.append(
             f"  next:   re-run with --apply to write {CANDIDATE_FILE}, review it, "
             f"then rename it to {KEEP_FILE}"
         )
         return "\n".join(lines)
     for path in plan.retire:
-        lines.append(f"  retire: {path}")
+        lines.append(f"  retire: {_field(path)}")
     if not plan.retire:
         lines.append("  retire: (none)")
     for path, pattern in plan.kept:
-        lines.append(f"  kept:   {path} (matched {pattern})")
+        lines.append(f"  kept:   {_field(path)} (matched {_field(pattern)})")
     for pattern in plan.dormant:
         lines.append(
-            f"  dormant: {pattern} — under a skipped root; it protects again "
+            f"  dormant: {_field(pattern)} — under a skipped root; it protects again "
             f"when the template restores that root. Keep it"
         )
     for pattern in plan.unmatched:
-        lines.append(f"  unmatched: {pattern} — matched nothing this run")
+        lines.append(f"  unmatched: {_field(pattern)} — matched nothing this run")
     return "\n".join(lines)
+
+
+def _confined_target(repo_real: str, relative: str) -> Optional[str]:
+    """The path to delete, or None when a directory on the way is a symlink.
+
+    `project_paths` reads the *index* and confirms the leaf with
+    `os.path.isfile`, which follows every component. So a symlinked directory
+    inside a syncable root — a developer sharing a skill tree across worktrees
+    is enough, no hostile template required — makes `os.remove` delete a file
+    somewhere else entirely. That file was never in this repository, so
+    `git restore` cannot bring it back, which is the whole loss this tool is
+    built to avoid.
+
+    The leaf itself needs no check: `os.remove` never follows a final symlink,
+    so a symlinked *file* costs only the link.
+    """
+    parent = os.path.dirname(relative)
+    declared = os.path.normpath(os.path.join(repo_real, parent))
+    resolved = os.path.realpath(os.path.join(repo_real, parent))
+    if resolved != declared:
+        return None
+    if os.path.commonpath([repo_real, resolved]) != repo_real:
+        return None
+    return os.path.join(resolved, os.path.basename(relative))
 
 
 def apply_plan(
@@ -693,9 +765,18 @@ def apply_plan(
     removed: List[str] = []
     failed: List[Tuple[str, str]] = []
     pruned_failed: List[Tuple[str, str]] = []
+    repo_real = os.path.realpath(repo)
     for relative in plan.retire:
+        target = _confined_target(repo_real, relative)
+        if target is None:
+            failed.append((
+                relative,
+                "a directory on this path is a symlink, so it resolves outside "
+                "the repository — refusing to delete",
+            ))
+            continue
         try:
-            os.remove(os.path.join(repo, relative))
+            os.remove(target)
         except OSError as exc:
             failed.append((relative, str(exc)))
             continue
@@ -789,7 +870,20 @@ def write_candidate(repo: str, plan: Plan) -> str:
         "",
     ]
     lines.extend(_as_pattern(path) for path in plan.candidates)
-    with open(path, "w", encoding="utf-8") as handle:
+    # O_EXCL|O_NOFOLLOW subsumes the lexists precondition and closes the window
+    # between it and this write, which the bootstrap path widens by deleting in
+    # between. A same-uid process cannot land a symlink here and be followed.
+    try:
+        descriptor = os.open(
+            path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644
+        )
+    except FileExistsError:
+        raise RetireError(
+            f"{CANDIDATE_FILE} already exists — review it and rename it to "
+            f"{KEEP_FILE}, or delete it to regenerate. Refusing to overwrite a "
+            f"file this tool asked a human to edit"
+        )
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
     return path
 
@@ -902,12 +996,12 @@ def _deletion_outcome(
     # The docstring promises a partial run "reports every file it removed", and a
     # count is not that: the operator would have to subtract FAILED lines from an
     # earlier render they may no longer have.
-    lines.extend(f"  deleted: {path}" for path in removed)
-    lines.extend(f"  FAILED: {path} — {reason}" for path, reason in failed)
+    lines.extend(f"  deleted: {_field(path)}" for path in removed)
+    lines.extend(f"  FAILED: {_field(path)} — {reason}" for path, reason in failed)
     # A directory left behind is reported separately: the files under it are
     # gone either way, so this must not read as a deletion that did not happen.
-    lines.extend(f"  UNPRUNED: {path} — {reason}" for path, reason in pruned_failed)
-    lines.extend(f"  FAILED: cannot write {path} — {reason}" for path, reason in unwritten)
+    lines.extend(f"  UNPRUNED: {_field(path)} — {reason}" for path, reason in pruned_failed)
+    lines.extend(f"  FAILED: cannot write {_field(path)} — {reason}" for path, reason in unwritten)
     return "\n".join(lines), 1
 
 

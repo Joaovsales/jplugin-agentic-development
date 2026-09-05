@@ -203,7 +203,30 @@ global config.
   through it, so the run still lists every path it removed and exits non-zero.
 - **A dangling symlink at the candidate path** — refused. `os.path.exists`
   reports False for one while `open(path, "w")` follows it and creates the
-  target, so the check is `lexists`.
+  target, so the precondition is `lexists` and the write itself is
+  `O_EXCL | O_NOFOLLOW`, which closes the window between the two.
+- **A symlinked directory inside a syncable root** — the deletion is refused and
+  reported. The project inventory confirms the leaf with `os.path.isfile`, which
+  follows every component, so without a containment check `os.remove` reaches
+  files outside the repository — files git never had, and so cannot restore.
+  Needs no hostile template: a symlinked skill tree between worktrees is enough.
+- **A path containing a newline or control character** — escaped in every report
+  line. The report is the only record of what was destroyed and the operator is
+  told to read it in full, so a filename must not be able to emit a line that
+  reads like a real entry. A file can otherwise be named so the run claims to
+  have kept what it deleted.
+- **The template's `core.quotePath`** — cannot change the retirement set. The
+  history walk uses `-z`, which suppresses git's C-quoting entirely rather than
+  pinning the knob that controls it; otherwise one line in an untrusted
+  checkout's config moves a non-ASCII path between "candidate" and "deleted",
+  and the two source modes disagree for identical content.
+- **A commit message containing a line beginning `parent `** — not a shallow
+  graft. The truncation probe reads the commit object's header block only;
+  reading the whole object let one upstream commit message disable retirement
+  for every downstream project.
+- **A ref that looks like a git option** — refused at the sink. Every revision
+  slot passes `--end-of-options`, rather than relying on the CLI-level check in
+  `main`, which callers importing this module never reach.
 - **Shallow *project*, complete template ref** — provenance is available. Depth
   is measured on the revision being read, not on the repository holding it, so a
   project that is itself a `--depth 1` checkout (the CI default) still retires.

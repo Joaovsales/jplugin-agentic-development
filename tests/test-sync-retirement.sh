@@ -1863,4 +1863,165 @@ assert_eq "absent" "$([ -e "$VICTIM41" ] && echo created || echo absent)" \
 assert_contains "$RUN_OUTPUT" "sync-keep.candidate already exists" \
   "the refusal names the path it will not write"
 
+# ==================================== 23. security review regressions (round 3)
+#
+# Every case below was found by a dispatched security review of the finished
+# tool and reproduced before being fixed. They share a theme the earlier rounds
+# missed: the deletion set and the *record* of the deletion are both attacker-
+# influenceable surfaces, and neither had been tested as one.
+
+printf '\n-- 23. security regressions --\n'
+
+# --- 23.1 a symlinked directory component must not send os.remove outside ---
+#
+# `project_paths` reads the index and confirms the leaf with `os.path.isfile`,
+# which follows every component. A symlinked *directory* inside a syncable root
+# therefore aimed the delete anywhere on the filesystem — at files that were
+# never in this repository, so `git restore` could not bring them back. It needs
+# no hostile template: a developer sharing a skill tree across worktrees is enough.
+
+P42="$FIXTURE_ROOT/p42"; T42="$FIXTURE_ROOT/t42"
+OUTSIDE42="$FIXTURE_ROOT/outside42/nested"
+make_project "$P42"; make_template "$T42"
+mkdir -p "$P42/.agents/skills/sub"
+_f "$P42/.agents/skills/sub/victim.sh" "tracked here first"
+commit_all "$P42"
+# Now the tracked path resolves through a symlink to somewhere else entirely.
+mkdir -p "$OUTSIDE42"
+_f "$OUTSIDE42/victim.sh" "precious file, never in the repository"
+rm -rf "$P42/.agents/skills/sub"
+ln -s "$OUTSIDE42" "$P42/.agents/skills/sub"
+write_keep "$P42" ".agents/skills/nothing-at-all/**"
+
+run_retire --repo "$P42" --from-dir "$T42" --apply
+assert_eq "present" "$([ -f "$OUTSIDE42/victim.sh" ] && echo present || echo gone)" \
+  "a file outside the repository is never deleted through a symlinked directory"
+assert_eq "1" "$RUN_STATUS" "and the refusal is a non-zero outcome"
+assert_contains "$RUN_OUTPUT" "resolves outside the repository" \
+  "the report says why it refused, naming the mechanism"
+assert_not_contains "$RUN_OUTPUT" "deleted: .agents/skills/sub/victim.sh" \
+  "and never claims to have deleted it"
+
+# --- 23.2 a filename cannot forge a line in the record ----------------------
+#
+# The report is the only record of what a file-deleting tool destroyed, and
+# SKILL.md tells the operator to read it in full and never abbreviate it. A path
+# containing a newline emitted lines indistinguishable from real ones: the run
+# below claimed to have *kept* a file it was deleting.
+
+P43="$FIXTURE_ROOT/p43"; T43="$FIXTURE_ROOT/t43"
+make_project "$P43"; make_template "$T43"
+FORGED43=$'.claude/hooks/a.md\n  kept:   audit.sh (matched keepall)'
+_f "$P43/$FORGED43" "the payload is in the name, not the content"
+_f "$P43/.claude/hooks/audit.sh" "a real file the forged line lies about"
+commit_all "$P43"
+write_keep "$P43" ".claude/hooks/nothing-at-all/**"
+
+run_retire --repo "$P43" --from-dir "$T43"
+# The payload text still appears — inside the escaped path, on the retire line,
+# which is the point. What must not exist is a *line* that reads as a kept entry.
+assert_eq "0" "$(printf '%s\n' "$RUN_OUTPUT" | grep -c '^  kept:' || true)" \
+  "a newline in a filename cannot inject a kept: line into the record"
+assert_contains "$RUN_OUTPUT" "\\n  kept:" \
+  "the newline is escaped into the path field rather than ending the line"
+assert_eq "0" \
+  "$(printf '%s\n' "$RUN_OUTPUT" | tail -n +2 | grep -cv '^  ' || true)" \
+  "every report line still starts as a report line"
+assert_contains "$RUN_OUTPUT" "retire: .claude/hooks/audit.sh" \
+  "and the file the forgery lied about is correctly listed for retirement"
+
+# --- 23.3 the template's git config must not steer the deletion set --------
+#
+# `git log --raw` C-quotes non-ASCII paths, and `core.quotePath` decides whether
+# it does — read from the repository being inspected, which in --from-dir mode
+# is the untrusted template checkout. One line in someone else's .git/config
+# moved a file between "held for a human" and "deleted".
+
+P44="$FIXTURE_ROOT/p44"; T44="$FIXTURE_ROOT/t44"
+make_project "$P44"
+git init -q --initial-branch=main "$T44"
+git -C "$T44" config user.name fixture
+git -C "$T44" config user.email fixture@example.test
+make_template "$T44"
+_f "$T44/.claude/hooks/café.sh" "shipped once, retired later"
+commit_all "$T44"
+git -C "$T44" rm -q ".claude/hooks/café.sh"
+commit_all "$T44"
+_f "$P44/.claude/hooks/café.sh" "shipped once, retired later"
+commit_all "$P44"
+rm -f "$P44/.claude/sync-keep"
+
+git -C "$T44" config core.quotePath true
+run_retire --repo "$P44" --from-dir "$T44"
+QUOTED44="$(printf '%s\n' "$RUN_OUTPUT" | grep -c 'retire:' || true)"
+git -C "$T44" config core.quotePath false
+run_retire --repo "$P44" --from-dir "$T44"
+UNQUOTED44="$(printf '%s\n' "$RUN_OUTPUT" | grep -c 'retire:' || true)"
+assert_eq "$QUOTED44" "$UNQUOTED44" \
+  "the template's core.quotePath does not change what gets retired"
+assert_eq "1" "$QUOTED44" \
+  "and the non-ASCII path is retired in both, rather than neither (non-vacuity)"
+
+# --- 23.4 a commit message is not a commit header --------------------------
+#
+# `cat-file commit` emits headers, a blank line, then free text. Grepping the
+# whole object for `^parent ` read a *message* line as a shallow graft, so one
+# upstream commit message could report `provenance: unavailable` — and so retire
+# nothing — for every downstream project, forever.
+
+P45="$FIXTURE_ROOT/p45"; T45="$FIXTURE_ROOT/t45"
+make_project "$P45"
+git init -q --initial-branch=main "$T45"
+git -C "$T45" config user.name fixture
+git -C "$T45" config user.email fixture@example.test
+make_template "$T45"
+_f "$T45/.agents/skills/legacy/SKILL.md" "shipped once, retired later"
+git -C "$T45" add -A
+git -C "$T45" commit -q -m "$(printf 'init\n\nparent 0000000000000000000000000000000000000000 was dropped\n')"
+git -C "$T45" rm -q -r .agents/skills/legacy
+commit_all "$T45"
+_f "$P45/.agents/skills/legacy/SKILL.md" "shipped once, retired later"
+commit_all "$P45"
+rm -f "$P45/.claude/sync-keep"
+
+run_retire --repo "$P45" --from-dir "$T45"
+assert_not_contains "$RUN_OUTPUT" "provenance: unavailable" \
+  "a root commit whose message contains a 'parent ' line is not a graft"
+assert_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md" \
+  "so provenance still resolves and the retired path is still retired"
+
+# --- 23.5 option interpretation is refused at the sink, not only in main ----
+#
+# `main` rejects a --from-ref beginning with `-`, but the tests already import
+# this module and call in directly, so that guard is one refactor from being
+# bypassed. Without --end-of-options, `git show "--output=...:path"` is read as
+# an option and git attempts the write.
+
+# `git show --output=FILE` writes to FILE. The ref is interpolated as
+# f"{ref}:{SKILL_DOC}", so the real target is `<ref-payload>:.agents/skills/
+# sync/SKILL.md` -- create those directories, or git fails for the wrong reason
+# and the test passes against the unfixed code.
+INJECT45="$FIXTURE_ROOT/inj"
+mkdir -p "$INJECT45:.agents/skills/sync"
+rm -f "$INJECT45:.agents/skills/sync/SKILL.md"
+
+INJECT_OUT="$(python3 - "$RETIRE" "$P45" "$INJECT45" <<'PYX' 2>&1 || true
+import importlib.util, sys
+script, repo, victim = sys.argv[1], sys.argv[2], sys.argv[3]
+spec = importlib.util.spec_from_file_location("sr", script)
+module = importlib.util.module_from_spec(spec)
+sys.modules["sr"] = module
+spec.loader.exec_module(module)
+try:
+    module.read_template_doc(repo, f"--output={victim}", None)
+except Exception as exc:
+    print(type(exc).__name__)
+PYX
+)"
+assert_eq "absent" \
+  "$([ -e "$INJECT45:.agents/skills/sync/SKILL.md" ] && echo created || echo absent)" \
+  "a ref that looks like an option never becomes one at the git show sink"
+assert_contains "$INJECT_OUT" "RetireError" \
+  "it is refused as a bad revision, through the module's own error type"
+
 finish
