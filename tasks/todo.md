@@ -344,6 +344,7 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
 - [ ] A root retired upstream turns a valid sync-keep into a hard failure <!-- task-id: sync.stale-root-blocks-retirement --> — a pattern naming a root the template dropped exits 1 and blocks every unrelated retirement ([sync.stale-root-blocks-retirement](tasks/details/sync.stale-root-blocks-retirement.md))
 - [ ] Adjacent unbounded quantifiers make the glob matcher hang <!-- task-id: glob-matcher-redos --> — `**`/`*?` runs compile to catastrophic backtracking; fix belongs with the shared-matcher extraction ([glob-matcher-redos](tasks/details/glob-matcher-redos.md))
 - [ ] Step 6.4 deletes after Step 6 already asked the user to commit <!-- task-id: sync.retirement-lands-after-commit --> — pre-existing ordering, amplified now the deletion set is computed rather than four fixed paths ([sync.retirement-lands-after-commit](tasks/details/sync.retirement-lands-after-commit.md))
+- [ ] Finalizing reviewers regenerates the lane block and discards its completion state <!-- task-id: route.finalize-discards-lane-completion --> — a demotion re-renders the checklist from the playbook template, so every `[x]` reverts to `[ ]` at exactly the moment the record matters most ([route.finalize-discards-lane-completion](tasks/details/route.finalize-discards-lane-completion.md))
 - [x] Bootstrap projects never remove the four legacy retired skills <!-- task-id: sync.bootstrap-skips-legacy-retirements --> — the only mechanism that deleted tdd/deslop/simplify/verify-e2e is gone; the one case the new design is strictly weaker ([sync.bootstrap-skips-legacy-retirements](tasks/details/sync.bootstrap-skips-legacy-retirements.md))
 - [x] A root legitimately emptied upstream disables the whole retirement pass <!-- task-id: sync.emptied-root-blocks-retirement --> — assert_roots_present conflates a wrong source with a root emptied upstream ([sync.emptied-root-blocks-retirement](tasks/details/sync.emptied-root-blocks-retirement.md))
 - [ ] The bootstrap candidate protects a generated skill file-by-file <!-- task-id: sync.candidate-emits-per-file-patterns --> — one exact rule per file, so anything added to a project-local skill is a fresh retire candidate ([sync.candidate-emits-per-file-patterns](tasks/details/sync.candidate-emits-per-file-patterns.md))
@@ -360,10 +361,10 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
 [x] prelude: skip: not needed for this kind
 [x] /plan (auto-confirm: no) — spec + 12-task plan approved before any code
 [x] /build — 12/12 tasks, /quality-gate run on completion
-[x] route radius tripwire: finalize_route ran and recorded overflow (4 paths outside declared scope: the spec, checkpoint and two task details) — status: failed, carried in tasks/route-decision.md rather than cleared
-[x] /verify (evidence: tests) — 33/33 files, 2927 assertions; e2e walkthrough recorded in tasks/e2e-log.md
-[x] reviewers: code-reviewer, security-reviewer, critic — three rounds; round 3 security returned FAIL on a reproduced arbitrary-delete and a forgeable report, both fixed. finalize_reviewers not yet run
-[x] /wrap-up-session — user authorized the pre-push gate; pushed, PR #104 opened
+[x] route radius tripwire: finalize_route ran; recorded overflow — 4 paths outside declared scope (the spec, checkpoint, two task details). status: failed
+[x] /verify (evidence: tests) — 33/33 files, 2937 assertions; e2e walkthrough in tasks/e2e-log.md
+[x] reviewers: code-reviewer, security-reviewer — finalize_reviewers run: both completed, 0 unresolved, independently dispatched. Demoted on the tripwire, which had already failed (`critic` was also dispatched but is not in the decision's reviewer list, so it cannot be recorded there)
+[x] /wrap-up-session — user authorized the pre-push gate; pushed, PR #104 open, CI green
 <!-- route-lane:end -->
 
 ---

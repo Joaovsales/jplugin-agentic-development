@@ -27,6 +27,10 @@
     {
       "reason": "actual diff exceeded the declared scope",
       "signal": "runtime_tripwire"
+    },
+    {
+      "reason": "runtime tripwire did not pass before reviewer finalization",
+      "signal": "runtime-tripwire"
     }
   ],
   "human_verification": {
@@ -34,10 +38,13 @@
     "needed": false
   },
   "ignored_directives": [],
-  "independently_dispatched_reviews": false,
+  "independently_dispatched_reviews": true,
   "lane": "gated-at-plan-and-pre-push",
   "prelude": "skip: not needed for this kind",
-  "review_outcomes": {},
+  "review_outcomes": {
+    "code-reviewer": "completed",
+    "security-reviewer": "completed"
+  },
   "reviewers": [
     "code-reviewer",
     "security-reviewer"
