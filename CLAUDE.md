@@ -420,8 +420,9 @@ Task tracking instructions: docs/task-tracking.md
 That file is the project's configuration contract: provider (`github`, `jira`, or
 `local`), repository/project identifier, label and status mappings, local detail
 directory, dependency strategy, whether external writes need approval, migration
-policy, and offline behaviour. It is optional — a project without one gets the
-local Markdown provider and works offline. Start from
+policy, and offline behaviour. It is optional — without one, provider selection
+still prefers GitHub when a GitHub remote and an authenticated `gh` both exist,
+then falls back to local Markdown. Start from
 `.agents/skills/task-registry/templates/task-tracking.md`.
 
 **No skill talks to a tracker directly.** `/plan`, `/build`, `/verify`,

@@ -348,16 +348,22 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
 - [x] A root legitimately emptied upstream disables the whole retirement pass <!-- task-id: sync.emptied-root-blocks-retirement --> — assert_roots_present conflates a wrong source with a root emptied upstream ([sync.emptied-root-blocks-retirement](tasks/details/sync.emptied-root-blocks-retirement.md))
 - [ ] The bootstrap candidate protects a generated skill file-by-file <!-- task-id: sync.candidate-emits-per-file-patterns --> — one exact rule per file, so anything added to a project-local skill is a fresh retire candidate ([sync.candidate-emits-per-file-patterns](tasks/details/sync.candidate-emits-per-file-patterns.md))
 
+
+## Session Summary — 2026-09-04 [c3809a1..HEAD]
+- Completed: issue #95 via `/debug`; corrected five documentation surfaces and added regression coverage.
+- Pending: 0 tasks for issue #95.
+- Carry-forward: none; the route radius prediction miss (declared scope overflowed, reviewer finalization ran before the runtime tripwire passed) was recorded in `tasks/route-decision.md`, which now carries the sync-retirement lane — see PR #96 for that record.
+
 <!-- route-lane:begin -->
 ## Routed lane — gated-at-plan-and-pre-push
 
-[ ] prelude: skip: not needed for this kind
-[ ] /plan (auto-confirm: no; wait for approval)
-[ ] /build (runs /quality-gate on completion)
-[ ] route radius tripwire: finalize_route before verification or push
-[ ] /verify (evidence: tests)
-[x] reviewers: code-reviewer, security-reviewer — round 2 on the fixed diff: 1 MUST-FIX + 1 HIGH reproduced and fixed, 5 more applied, 4 filed; 191 assertions
-[ ] /wrap-up-session (wait at pre-push gate)
+[x] prelude: skip: not needed for this kind
+[x] /plan (auto-confirm: no) — spec + 12-task plan approved before any code
+[x] /build — 12/12 tasks, /quality-gate run on completion
+[x] route radius tripwire: finalize_route ran and recorded overflow (4 paths outside declared scope: the spec, checkpoint and two task details) — status: failed, carried in tasks/route-decision.md rather than cleared
+[x] /verify (evidence: tests) — 33/33 files, 2927 assertions; e2e walkthrough recorded in tasks/e2e-log.md
+[x] reviewers: code-reviewer, security-reviewer, critic — three rounds; round 3 security returned FAIL on a reproduced arbitrary-delete and a forgeable report, both fixed. finalize_reviewers not yet run
+[x] /wrap-up-session — user authorized the pre-push gate; pushed, PR #104 opened
 <!-- route-lane:end -->
 
 ---

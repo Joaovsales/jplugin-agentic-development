@@ -243,7 +243,17 @@
 ## 2026-09-02 — qwen spend investigation + guardrails (yolo)
 Investigated a $26.53/24h OpenRouter burn: pi session logs traced it to 6,006 qwen3-coder-next requests from one autonomous /build in PROJECT-pix-receipt-tracker (22 backend-developer spawns; 95% cache-read at $0.07/M). Root cause: `subagents.defaultModel` blanket-enforced qwen on all unscoped agents. Applied: defaultModel → deepseek-v4-flash, 80-turn caps on builder agents, key-limit deferred (needs management key). Verified via live smoke spawn. Docs: tasks/solutions/patterns/cheap-per-token-is-not-cheap-per-task-cap-subagent-turns.md
 
-## 2026-09-04 — deterministic retirement in /sync (routed: gated-at-plan-and-pre-push)
+### [2026-09-04] — Provider documentation drift
+
+- Key changes: Corrected task-registry provider precedence in `CLAUDE.md` and both
+  shipped configuration templates, replaced the wrap-up hook's false local-provider
+  rationale with its actual no-registry-call boundary, and added focused regression
+  assertions.
+- Verification: `tests/test-doc-conventions.sh` passed 439 assertions after
+  review-driven coverage fixes; all 32 test files passed in the debug suite.
+- Learnings captured: `tasks/solutions/bugs/task-registry-provider-selection-docs-drift.md`
+
+### [2026-09-04] — Deterministic retirement in /sync (routed: gated-at-plan-and-pre-push)
 Replaced `/sync`'s per-run model judgement of "retired upstream vs project-specific"
 with set arithmetic over a recorded `.claude/sync-keep` allowlist:
 `retire = project paths under syncable roots − template paths under the same roots
