@@ -425,6 +425,15 @@ still prefers GitHub when a GitHub remote and an authenticated `gh` both exist,
 then falls back to local Markdown. Start from
 `.agents/skills/task-registry/templates/task-tracking.md`.
 
+It is optional, but **its absence is not the same as choosing `local`.** With no
+configuration the provider is resolved in order: an explicit `provider =` wins;
+otherwise **GitHub**, whenever a GitHub remote and an authenticated `gh` both
+exist; otherwise local Markdown. A repository with a GitHub remote therefore
+tracks against GitHub by default — reachable, not offline — and external writes
+still require approval. Jira is never selected implicitly, because reachable
+credentials are not consent to write to a company tracker. Run
+`/task-registry doctor` to see which provider resolved and why.
+
 **No skill talks to a tracker directly.** `/plan`, `/build`, `/verify`,
 `/quality-gate`, and `/wrap-up-session` reach GitHub or Jira for task state only
 through `/task-registry`, so a project can change tracker without editing a
@@ -444,7 +453,6 @@ authorization unless the project's configuration enables them.
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
 | `/auto-improve` | Unattended discover→fix loop: survey backlog/tech-debt/tests/perf/design, ship one high-value improvement as a PR. Built for daily cloud runs |
-| `/route` | Route an issue, ticket, URL, `#123`, or next backlog item through a recorded workflow lane |
 | `/debug` | Root cause analysis, bug-track store documents, loop verification |
 | `/verify` | Evidence-based verification gate (`--scope deployment|e2e`) |
 | `/create-verification-skill` | Generate a grounded project-local `verify-<app>` recipe and feature map, with one live proof |

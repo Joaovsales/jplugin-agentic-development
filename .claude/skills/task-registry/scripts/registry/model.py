@@ -30,6 +30,16 @@ STATUSES: Tuple[str, ...] = ("open", "in_progress", "blocked", "done", "cancelle
 
 PRIORITIES: Tuple[str, ...] = ("high", "medium", "low")
 
+#: How this project ranks priority. `None` is explicit and last: "no queue label"
+#: is a distinct state from "low", and `.get(..., 3)` alone would not say so.
+PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2, None: 3}
+
+
+def by_priority(task) -> Tuple[int, str]:
+    """Sort key: priority rank, then id. One definition, two callers."""
+    return (PRIORITY_ORDER.get(task.priority, 3), task.id)
+
+
 #: Statuses that mean "no longer on the frontier".
 TERMINAL_STATUSES: Tuple[str, ...] = ("done", "cancelled")
 

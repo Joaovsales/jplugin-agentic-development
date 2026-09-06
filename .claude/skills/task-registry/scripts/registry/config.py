@@ -24,7 +24,7 @@ import re
 import subprocess
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Dict, Mapping, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 CONFIG_DEFAULT_PATH = "docs/task-tracking.md"
 #: Searched in order, first hit wins. Project-owned files come first: `.claude/
@@ -54,8 +54,49 @@ DEFAULT_KIND_LABELS: Mapping[str, str] = {
     "enhancement": "feature",
     "design-decision": "decision",
 }
+#: Deliberately NOT extended with the routine precedence labels. This map is
+#: bidirectional: the GitHub provider reverse-looks-up `kind -> first label` to
+#: decide what to stamp on a published issue (`_mapped_labels`). Adding
+#: `tech-debt: task` therefore labelled EVERY published task `tech-debt` -- which
+#: is the `fix` routine's own selector, so the registry would have been feeding
+#: issues to a routine by writing them. Routine selection never reads this map;
+#: it reads DEFAULT_SELECTORS and DEFAULT_KIND_PRECEDENCE below.
 
 DEFAULT_PRIORITY_LABELS: Mapping[str, str] = {"now": "high", "next": "medium"}
+
+#: Routine -> the provider label names it selects. One label axis, disjoint sets:
+#: `now`/`next` are the PRIORITY axis and order candidates *within* a pool, so
+#: they never appear here. Selecting on both axes gave two routines a claim on
+#: one issue in a third of all cases, which is what made selection partial.
+#:
+#: `build` is deliberately absent. It is deferred behind the `blockedBy` provider
+#: capability (#97) and the routine itself (#98), and a selector shipped for a
+#: routine nobody runs would let a deferred capability fail a live gate.
+DEFAULT_SELECTORS: Mapping[str, Tuple[str, ...]] = {
+    "plan": ("design-decision",),
+    "fix": ("bug", "tech-debt"),
+    "improve": ("enhancement", "documentation"),
+}
+
+#: First match wins. This orders the LABEL keys of `[labels.kind]`, not canonical
+#: kinds: `tech-debt` and `documentation` both normalize to `task`, so a chain
+#: over kinds could not tell them apart and could not rank them.
+DEFAULT_KIND_PRECEDENCE: Tuple[str, ...] = (
+    "bug",
+    "design-decision",
+    "tech-debt",
+    "enhancement",
+    "documentation",
+)
+
+#: Written before a routine branches, and skipped when already present.
+DEFAULT_CLAIM_LABEL = "in-progress"
+#: The routine names the contract defines. `build` is deferred (#97/#98) but is a
+#: contract routine, so configuring selectors for it is legal.
+#: Kept in step with `references/routines.md` by tests/test-routine-selectors.sh --
+#: `routine_branch.format_routine_branch` refuses anything outside this set, and
+#: without the check here a project learns that at spine step 3, mid-run.
+CONTRACT_ROUTINES = ("plan", "fix", "improve", "build")
 
 #: Jira's own vocabulary, read the same way: provider-facing names mapped into
 #: the normalized model, never the other way round as a rename.
@@ -124,7 +165,17 @@ class Config:
     allow_label_creation: bool = False
     offline_reads: str = "degrade"
     migration_policy: str = "manual"
-    autonomy_label: Optional[str] = "auto-mode-allowed"
+    #: Label a routine writes before it starts, and skips when it is already
+    #: present. Disjoint selectors stop two *different* routines claiming one
+    #: issue; only this stops two runs of the same routine overlapping.
+    claim_label: str = DEFAULT_CLAIM_LABEL
+    #: Provider label names in first-match-wins order, and the routine each is
+    #: selected by. Read here rather than hardcoded in a skill: the halt that
+    #: motivated this design was a label that had never been created.
+    kind_precedence: Sequence[str] = DEFAULT_KIND_PRECEDENCE
+    routine_selectors: Mapping[str, Sequence[str]] = field(
+        default_factory=lambda: dict(DEFAULT_SELECTORS)
+    )
     kind_labels: Mapping[str, str] = field(default_factory=lambda: dict(DEFAULT_KIND_LABELS))
     priority_labels: Mapping[str, str] = field(
         default_factory=lambda: dict(DEFAULT_PRIORITY_LABELS)
@@ -236,7 +287,11 @@ def _parse_ini(text: str, source: str) -> configparser.ConfigParser:
     return parser
 
 
-def load_config(root: str, env: Optional[Mapping[str, str]] = None) -> Config:
+def load_config(
+    root: str,
+    env: Optional[Mapping[str, str]] = None,
+    validate_routines: bool = True,
+) -> Config:
     """Load configuration, or return defaults when the project has none.
 
     An absent configuration is not an error — that is the whole point of the
@@ -256,6 +311,7 @@ def load_config(root: str, env: Optional[Mapping[str, str]] = None) -> Config:
         parser = _parse_ini(handle.read(), os.path.relpath(config_path, root))
 
     tracker = parser["tracker"] if parser.has_section("tracker") else {}
+    routines = parser["routines"] if parser.has_section("routines") else {}
     provider = (tracker.get("provider") or "").strip().lower() or None
     if provider is not None and provider not in PROVIDERS:
         raise ConfigError(
@@ -283,7 +339,7 @@ def load_config(root: str, env: Optional[Mapping[str, str]] = None) -> Config:
     trusted = _as_bool(env.get(TRUSTED_CONFIG_ENV), False)
     require_approval = configured_approval or not trusted
 
-    return Config(
+    config = Config(
         root=root,
         provider=provider,
         repository=(tracker.get("repository") or "").strip(),
@@ -298,7 +354,9 @@ def load_config(root: str, env: Optional[Mapping[str, str]] = None) -> Config:
         allow_label_creation=_as_bool(tracker.get("allow_label_creation"), False),
         offline_reads=(tracker.get("offline_reads") or "degrade").strip().lower(),
         migration_policy=(tracker.get("migration_policy") or "manual").strip(),
-        autonomy_label=_autonomy_label(tracker.get("autonomy_label")),
+        claim_label=_claim_label(routines.get("claim_label")),
+        kind_precedence=_label_list(routines.get("kind_precedence")) or DEFAULT_KIND_PRECEDENCE,
+        routine_selectors=_selectors(parser),
         kind_labels=section("labels.kind", DEFAULT_KIND_LABELS),
         priority_labels=section("labels.priority", DEFAULT_PRIORITY_LABELS),
         status_sources=section("status", {}),
@@ -308,14 +366,137 @@ def load_config(root: str, env: Optional[Mapping[str, str]] = None) -> Config:
         approval_relaxation_ignored=not configured_approval and not trusted,
         **jira,
     )
+    # Validated here rather than in the one command that reports selectors: a
+    # contested label makes selection depend on dict insertion order, and a gate
+    # that only fires when a human types `selectors` does not protect the
+    # unattended runs that are the whole point. Every command inherits it.
+    # `doctor` is the one caller that passes False: it is the command a user runs
+    # BECAUSE configuration is broken, so refusing to load would make the
+    # diagnostic unreachable exactly when it is needed. It reports the fault
+    # instead. Every other command still inherits the guarantee.
+    if validate_routines:
+        validate_selectors(config)
+    return config
 
 
-def _autonomy_label(value: Optional[str]) -> Optional[str]:
-    """Configured label that grants unattended autonomy, or None when disabled."""
-    if value is None:
-        return "auto-mode-allowed"
-    label = value.strip()
-    return None if not label or label.lower() == "none" else label
+def _claim_label(value: Optional[str]) -> str:
+    """The configured claim label, never empty.
+
+    `" "` is truthy, so stripping AFTER an `or` fallback yielded `""` -- and an
+    empty claim label silently disables the only thing that stops two runs of one
+    routine overlapping. Strip first, then fall back, so the guard cannot be
+    turned off by whitespace nobody can see in a diff.
+    """
+    return (value or "").strip() or DEFAULT_CLAIM_LABEL
+
+
+def _label_list(value: Optional[str]) -> Tuple[str, ...]:
+    """A comma- or newline-separated label list, in the order it was written."""
+    return tuple(item.strip() for item in re.split(r"[,\n]", value or "") if item.strip())
+
+
+def _selectors(parser: configparser.ConfigParser) -> Dict[str, Tuple[str, ...]]:
+    """Routine -> the provider labels it selects.
+
+    Declared entries REPLACE the shipped map rather than layering over it, unlike
+    `[labels.kind]`. A project renaming its vocabulary would otherwise keep the
+    English defaults as a shadow selector set, and `fix` would claim both `bug`
+    and `defeito` — two routines' worth of issues under one name, with the
+    duplicate invisible in the configuration file.
+    """
+    if not parser.has_section("routines.selectors"):
+        return dict(DEFAULT_SELECTORS)
+    declared = {
+        routine.strip(): _label_list(labels)
+        for routine, labels in parser.items("routines.selectors")
+    }
+    return {routine: labels for routine, labels in declared.items() if labels}
+
+
+
+def validate_selectors(config) -> None:
+    """Refuse a configuration that cannot describe a total, unambiguous selection.
+
+    Three failures, each silent if unchecked and each fatal to the one property
+    that makes routines cheap: exactly one routine claims any given issue.
+    """
+    ranked = list(config.kind_precedence)
+    claimed_by = _routines_by_label(config)
+    _refuse_unknown_routines(config)
+    _refuse_duplicate_ranks(ranked)
+    _refuse_contested_labels(claimed_by)
+    _refuse_divergent_label_sets(ranked, claimed_by)
+
+
+def _refuse_unknown_routines(config) -> None:
+    """A routine nobody can branch for is a configuration error, not a feature.
+
+    `format_routine_branch` refuses a name outside the contract, so a project that
+    invents one gets a clean load, a working `select`, and a crash at spine step 3
+    -- after the claim label is already written. Refusing here moves that failure
+    to load time, where it names the mistake instead of aborting a live run.
+    """
+    unknown = sorted(set(config.routine_selectors) - set(CONTRACT_ROUTINES))
+    if unknown:
+        raise ConfigError(
+            "routines: [routines.selectors] declares "
+            f"{', '.join(repr(name) for name in unknown)}, which the routine contract "
+            f"does not define. Known routines: {', '.join(CONTRACT_ROUTINES)}. Adding "
+            "one is a deliberate edit to the contract, not a configuration key."
+        )
+
+
+def _routines_by_label(config) -> Dict[str, List[str]]:
+    """Inverts the selector map, keeping every claimant so contests stay visible."""
+    claimed_by: Dict[str, List[str]] = {}
+    for routine, labels in config.routine_selectors.items():
+        for label in labels:
+            claimed_by.setdefault(label, []).append(routine)
+    return claimed_by
+
+
+def _refuse_duplicate_ranks(ranked: Sequence[str]) -> None:
+    """A label ranked twice has two precedences, and the lower one is unreachable."""
+    duplicates = sorted({label for label in ranked if ranked.count(label) > 1})
+    if duplicates:
+        raise ConfigError(
+            f"routines: kind_precedence ranks these labels more than once — {', '.join(duplicates)}"
+        )
+
+
+def _refuse_contested_labels(claimed_by: Mapping[str, List[str]]) -> None:
+    """Two routines on one label makes selection depend on dict ordering."""
+    contested = sorted(label for label, routines in claimed_by.items() if len(routines) > 1)
+    if not contested:
+        return
+    detail = "; ".join(
+        f"{label} -> {', '.join(sorted(claimed_by[label]))}" for label in contested
+    )
+    raise ConfigError(f"routines: more than one routine selects the same label — {detail}")
+
+
+def _refuse_divergent_label_sets(
+    ranked: Sequence[str], claimed_by: Mapping[str, List[str]]
+) -> None:
+    """The chain's domain and the selector union must be the same set.
+
+    When they drift apart, issues fall into the gap: a label nobody ranks can
+    never win precedence, and a label nobody selects ranks ahead of labels that
+    would have matched.
+    """
+    unranked = sorted(set(claimed_by) - set(ranked))
+    unselected = sorted(set(ranked) - set(claimed_by))
+    if not (unranked or unselected):
+        return
+    parts = []
+    if unranked:
+        parts.append(f"selected but not ranked: {', '.join(unranked)}")
+    if unselected:
+        parts.append(f"ranked but selected by no routine: {', '.join(unselected)}")
+    raise ConfigError(
+        "routines: kind_precedence and [routines.selectors] describe different "
+        f"label sets — {'; '.join(parts)}"
+    )
 
 
 def _run(command, cwd: str, timeout: int = 15) -> Tuple[int, str]:

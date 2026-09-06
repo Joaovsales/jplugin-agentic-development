@@ -77,6 +77,9 @@ A CLI, `task-registry`, exposed through the `/task-registry` skill:
 | `show <task-id>` | Full detail for exactly one task | none |
 | `migrate` | Classify a legacy repo, propose IDs and grouping | none without `--apply` |
 | `upsert` | Create-or-update exactly one task, addressed by a stable ID (derivable from a path with `--derive-id`) | yes, gated |
+| `selectors` | Report the routine selector vocabulary and check it against the tracker | none |
+| `select --routine R` | The next issue routine `R` may claim, after asserting the vocabulary, the claim label, and the linked-PR capability all exist | none |
+| `claim <ref> --routine R` | Write the claim label onto one issue — the routine spine's only write | yes, gated |
 
 Summary first, always. Detail only via `show`. Full external bodies are **never**
 copied into `tasks/todo.md`.

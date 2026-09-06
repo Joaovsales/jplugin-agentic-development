@@ -1,7 +1,7 @@
 ---
 name: task-registry
 description: Synchronize the compact tasks/todo.md index with an external tracker (GitHub Issues, Jira) or a local Markdown store. Use when linking tasks to issues, reconciling stale plans against tickets, asking what work is unblocked, or migrating a repository whose todo.md has grown into a detailed backlog.
-argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|migrate|doctor]"
+argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|migrate|doctor|selectors|select|claim]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -64,6 +64,9 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
 | `show` | one task | no | no |
 | `migrate` | index + backlog + specs | `--apply` only | never |
 | `upsert` | one task | `--apply` only | `--apply` (+ approval) |
+| `selectors` | config + provider labels | no | no |
+| `select` | provider | no | no |
+| `claim` | one task | no | `--apply` (+ approval) |
 
 Exit codes: `0` success · `1` failure or partial failure · `2` usage error.
 

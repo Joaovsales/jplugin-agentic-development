@@ -130,7 +130,7 @@ assert_file_contains PI_SETUP.md "single source of concrete model IDs" \
 # by naming a different one, which is how `model: opus` and `model: haiku`
 # mutations stayed green here.
 for tree in .agents .claude; do
-  for skill in quality-gate software-design-expert-review wrap-up-session build plan auto-improve route; do
+  for skill in quality-gate software-design-expert-review wrap-up-session build plan auto-improve; do
     assert_file_not_matches "$tree/skills/$skill/SKILL.md" 'model: .?(sonnet|opus|haiku)' \
       "ModelTier: $tree $skill pins no Ceiling role to an alias"
   done

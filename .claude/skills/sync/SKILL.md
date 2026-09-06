@@ -531,7 +531,9 @@ cannot vouch for.
 
 Retired content was folded into surviving skills, not dropped: `tdd` → `/build`
 Phase 1 § *TDD Discipline*; `simplify` and `deslop` → `/quality-gate` Phase 1
-and Phase 2; `verify-e2e` → `/verify --scope e2e`.
+and Phase 2; `verify-e2e` → `/verify --scope e2e`; `route` → the routine contract
+at `.agents/skills/wrap-up-session/references/routines.md`, plus
+`task-registry select`/`claim` and `/wrap-up-session` § *The Pull Request*.
 
 ### Step 6.5 — Unmigrated Learning Store Check
 

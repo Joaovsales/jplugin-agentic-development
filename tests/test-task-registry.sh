@@ -380,6 +380,11 @@ EOF
 )"
 assert_contains "$noconf_out" "source=None" "Config: an absent configuration is not an error"
 assert_contains "$noconf_out" "provider=None" "Config: no provider is asserted without configuration"
+# Unchanged by the routine work, deliberately. Routine selection reads
+# [routines.selectors], never this map, and this map is bidirectional: the GitHub
+# provider reverse-looks-up kind -> label to decide what to stamp on a published
+# issue. Adding `tech-debt = task` here labelled every published task `tech-debt`
+# (specs/category-routines.md AC12, and the guard in test-routine-selectors.sh).
 assert_contains "$noconf_out" "bug->bug,design-decision->decision,enhancement->feature" \
   "Config: the shipped default mapping matches the repository's existing label vocabulary"
 assert_contains "$noconf_out" "question-default=None" \

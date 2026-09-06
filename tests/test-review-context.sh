@@ -18,14 +18,14 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-# The three skill FILES that dispatch a reviewer. They hold four sites between
-# them -- wrap-up-session carries two (Step 4 and Parallel Code Review), which is
+# The four skill FILES that dispatch a reviewer. A file can hold more than one
+# site -- wrap-up-session carries two (Step 4 and Parallel Code Review), which is
 # why the second one gets its own needle below rather than riding on the file.
-# auto-improve is absent by exception, not by oversight: its discovery scan surveys
-# the whole repo rather than a session's work, so items 2/3/6 have no subject. The
-# contract names that exception explicitly and still requires the empty markers, so
-# the rule stays stated rather than silently dropped.
-DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/route/SKILL.md"
+# auto-improve IS a dispatch site and carries the payload like any other. Its
+# discovery scan is an exception to the *subject* of items 2/3/6 -- a repo survey
+# has no session to describe -- never to stating them, which is why the
+# `deferrals: none` and `no spec --` needles below still apply to it.
+DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/auto-improve/SKILL.md"
 
 REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
 
@@ -117,7 +117,7 @@ for tree in .agents .claude; do
     assert_file_contains "$f" 'no spec —' \
       "ReviewContext: $f passes an explicit marker when there is no spec"
   done
-  # wrap-up-session holds two of the four sites, and a per-file needle is satisfied
+  # wrap-up-session holds two sites, and a per-file needle is satisfied
   # by either. Pin the second one -- the parallel-dispatch path -- separately: it is
   # the only path the skill says "licenses confidence promotion", so a payload that
   # silently stops reaching it degrades exactly the run that promotes on it.

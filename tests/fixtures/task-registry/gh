@@ -30,6 +30,7 @@ shift 2 2>/dev/null || true
 
 # Split the remainder the way cobra does: flags until `--`, positionals after.
 positionals=()
+json_fields=""
 labels=()
 seen_separator=0
 while [ "$#" -gt 0 ]; do
@@ -41,6 +42,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --label|--add-label)
       labels+=("${2:-}")
+      shift 2
+      ;;
+    --json)
+      json_fields="${2:-}"
       shift 2
       ;;
     --*)
@@ -108,6 +113,20 @@ PY
   issue)
     case "$action" in
       list)
+        # Real `gh` validates --json names client-side and fails the WHOLE query on
+        # an unknown one, rather than omitting the field. `unknown-fields` (one name
+        # per line) makes a too-old gh reproducible.
+        if [ -f "$GH_MOCK_DIR/unknown-fields" ]; then
+          while IFS= read -r unknown; do
+            [ -n "$unknown" ] || continue
+            case ",$json_fields," in
+              *",$unknown,"*)
+                echo "Unknown JSON field: \"$unknown\"" >&2
+                exit 1
+                ;;
+            esac
+          done < "$GH_MOCK_DIR/unknown-fields"
+        fi
         cat "$GH_MOCK_DIR/issues.json"
         exit 0
         ;;

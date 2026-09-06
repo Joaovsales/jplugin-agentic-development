@@ -50,3 +50,13 @@ could not have avoided it.
 Related: the decision's `reviewers` list is fixed at route time, and
 `_validate_review_state` requires outcomes to name it exactly — so a reviewer
 dispatched later (`critic`, here) cannot be recorded in the decision at all.
+
+
+---
+
+## Resolved by deletion — 2026-09-06
+
+`finalize_route` no longer exists. `specs/category-routines.md` removed `/route`
+entirely, so the demotion path that re-rendered the lane checklist and reverted
+every `[x]` cannot run. Closed as obsolete rather than fixed, and kept rather
+than deleted so the branch that raised it can see what happened to it.

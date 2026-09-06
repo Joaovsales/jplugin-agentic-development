@@ -108,31 +108,70 @@ If the top candidate's risk is high and coverage is thin → drop to the next sa
 
 ## Phase 3 — IMPLEMENT (TDD, delegated)
 
-Pass the chosen item's task-registry reference and a structured claim to
-`materialize_route` in `.agents/skills/route/scripts/route_issue.py`. After it
-returns, execute the materialized lane only through `/build` and its mandatory
-`finalize_route` row. Phase 4 owns the lane's verification and reviewer rows;
-Phase 5 owns its single `/wrap-up-session` row. Never execute those rows early or
-repeat them in both the lane and the outer phases.
-The shared engine owns lane policy; `/auto-improve` supplies the unattended channel
-grant and must not maintain a second routing table. This deliberately changes the
-old behavior: bugs, refactors, and small features no longer branch here, so exactly
-one lane decision is written for the repository.
+Implement the chosen item through `/build`, passing its task-registry reference
+and the spec or backlog entry that describes it. There is no autonomy computation
+and no lane to select: this skill runs on a schedule, and a schedule has already
+chosen its routine. Asking a model to re-derive whether the work is autonomous
+adds a guess where there was a fact.
 
 Follow TDD strictly: failing/characterization test → minimal change → refactor. Keep the diff minimal and on-topic (Minimal Impact rule).
+
+**Write the step list before you start.** Phases 3, 4 and 5 below are this run's
+mandatory steps, and each one gets a row in `tasks/todo.md`. A step that could not
+run keeps its row carrying `skip: <reason>` — retained, never deleted. This is the
+gate ledger from `.agents/skills/wrap-up-session/references/routines.md`
+§ *Step ledger*, and it is the whole reason an unattended run can be trusted:
+human PR review is a real backstop for bad code and no backstop at all for a gate
+that never ran, because an absent gate leaves no trace in the diff.
 
 ---
 
 ## Phase 4 — VERIFY (no regressions)
 
 1. Run the **full** test suite. It must be green. If red and you cannot make it green safely in this run → `git reset` your change, revert to findings-only mode (Phase 5), and log why.
-2. Confirm `/build` completed its `/quality-gate`, then execute the materialized
-   lane's verification and reviewer rows exactly once. Its Apply Gate runs
-   normally — **no prompt added**. A `MUST-FIX` that is not `gated_auto` at
-   `confidence >= 75` is not auto-appliable: fix it deliberately if you can,
-   otherwise carry it into the PR body as an unresolved finding with its `owner`.
-   Never widen `autofix_class`, and never downgrade a finding, to get a clean gate.
-3. Confirm coverage on new/changed code ≥ 80%.
+2. Confirm `/build` completed its `/quality-gate` (structural, AI anti-patterns,
+   APOSD design). If it did not, run it now. This row is non-skippable.
+3. **Dispatch the reviewers.** This phase owns the only independent review an
+   unattended run gets, so the set is named here rather than referenced from
+   somewhere else — a reviewer set that lives behind a pointer is a reviewer set
+   that disappears when the pointer breaks. Dispatch in parallel, in one message:
+
+   | Reviewer | Lens | Tier |
+   |---|---|---|
+   | `code-reviewer` | codebase consistency | *ceiling* |
+   | `code-reviewer` | defensive-code audit | *ceiling* |
+   | `code-reviewer` | test coverage | *ceiling* |
+   | `critic` | adversarial | *ceiling*, planner floor |
+
+   *ceiling* means pass **no** `model` at all, so each inherits the session model
+   (`CLAUDE.md` § *Model Routing*). An override here caps the highest-stakes
+   review for exactly the users who chose a stronger session.
+
+   Every dispatch carries all seven **Review Dispatch Contract** items
+   (`CLAUDE.md`). Items 2–5 must distinguish *empty* from *absent* — pass the
+   empty form, never a missing line, or the reviewer assumes nobody told it and
+   re-flags everything:
+
+   1. the `<base>...HEAD` **diff** — inline when small, else truncated-plus-path
+   2. every relevant spec path **and** its **acceptance criteria** verbatim, with
+      checkbox state stripped — or `no spec — <reason>` when the pick had none
+   3. the `tasks/todo.md` rows completed this run
+   4. the `[AMBIGUITY]` lines emitted this run — or `deferrals: none`
+   5. the `TODO(shortcut):` markers touching changed files — or `deferrals: none`
+   6. the boundary: review issues **introduced** by this run; pre-existing
+      patterns are out of scope
+   7. the output format: four axes, with `evidence` required at `confidence` 75
+      or above
+
+   Share intent, withhold conclusions: pass the spec and the constraints, never
+   your account of why the code is correct and never another reviewer's findings.
+
+4. Apply findings under the normal Apply Gate — **no prompt added**. A `MUST-FIX`
+   that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it
+   deliberately if you can, otherwise carry it into the PR body as an unresolved
+   finding with its `owner`. Never widen `autofix_class`, and never downgrade a
+   finding, to get a clean gate.
+5. Confirm coverage on new/changed code ≥ 80%.
 
 No green suite → no PR. This is non-negotiable.
 
@@ -142,9 +181,21 @@ No green suite → no PR. This is non-negotiable.
 
 **Normal mode (a change was made):**
 1. Update the affected bug-track documents in `tasks/solutions/` and `tasks/backlog.md` to reflect what was fixed and what remains.
-2. Execute the materialized lane's `/wrap-up-session` row exactly once (commit with
-   a conventional message → push branch → open PR).
-3. PR body: what was changed, why it was the highest-value pick, the ranked runner-ups deferred to backlog, and the test/coverage evidence.
+2. Run `/wrap-up-session` **exactly once** — commit with a conventional message,
+   push the branch, open the PR. Once, not once per phase: this skill's Iron Law
+   is one PR per run, and a second wrap-up is how a run grows a second one.
+   **Phase 4 already owns this run's review**, so wrap-up's Step 4 is satisfied:
+   pass its findings forward and do not re-dispatch the four passes. Running them
+   twice on one diff doubles the ceiling-tier cost of a nightly run, and the
+   second round's agreement with the first is not independent corroboration —
+   same diff, same payload, so promoting on it would count an echo as a witness
+   (`CLAUDE.md` § *Independence Accounting*). Exactly one site dispatches, and for
+   `/auto-improve` that site is Phase 4.
+3. PR body: what was changed, why it was the highest-value pick, the ranked
+   runner-ups deferred to backlog, the test/coverage evidence, and **this run's
+   step list** — every row from Phase 3, including any carrying `skip: <reason>`.
+   The reviewer reading the PR is the only person who can notice a gate that did
+   not run, and they can only notice it if the row is there.
 
 **Findings-only mode (nothing safe to change):**
 1. Commit the enriched `backlog.md` / new bug-track documents in `tasks/solutions/` with newly discovered issues (each with enough context to be fixed cold in a later run).
