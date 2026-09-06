@@ -5,8 +5,9 @@
 > `Task tracking instructions: <path>` to `AGENTS.md`, `CLAUDE.md`, or
 > `.claude/project.md`.
 >
-> Read by `/task-registry`. Everything is optional — a project with no
-> configuration at all gets the local Markdown provider and works offline.
+> Read by `/task-registry`. Everything is optional — without configuration,
+> selection still prefers GitHub when a GitHub remote and an authenticated `gh`
+> both exist, then falls back to local Markdown.
 
 ```ini
 [tracker]

@@ -70,9 +70,9 @@ Two constraints, both verified, forbid the hook from reaching a tracker:
    self-authorizing an outward-facing write on every push, which is what the
    floor exists to prevent — and `CLAUDE.md` § *Task Tracking* states external
    creation requires explicit authorization.
-2. **A hook must not do network I/O.** It runs on every push, including offline
-   and in CI. This repository has no `docs/task-tracking.md`, so the registry
-   resolves to the offline local provider regardless.
+2. **The hook never invokes `/task-registry`.** It runs on every push, including
+   offline and in CI, but its path only detects and records wrap-up debt. With no
+   registry invocation, it cannot reach any provider.
 
 So the hook does the part that must be immediate and offline (detect, warn,
 record), and the part needing judgement and authorization (file the issue)

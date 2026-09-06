@@ -323,8 +323,14 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 ## Acceptance Criteria
 
 - AC1 — `.agents/skills/route/` and `.claude/skills/route/` do not exist, and
-      no file outside `tasks/solutions/` references `/route`, `route_issue`, or
-      `materialize_route`.
+      nothing in the **shipping surface** (`.agents`, `.claude`, `CLAUDE.md`,
+      `README.md`, `AGENTS.md`, `PI_SETUP.md`, `install.sh`, `tests`, `scripts`)
+      references `/route`, `route_issue`, `materialize_route`, or
+      `finalize_route`. `tasks/` is project working state rather than shipped
+      surface, so a register row or detail file recording historical routing work
+      is out of scope — narrowing this from the original "any file outside
+      `tasks/solutions/`", which would have made the task register unmergeable
+      with any branch that touched it.
 - AC2 — `user-prompt-route.sh` is deleted, its `UserPromptSubmit` entry is gone
       from `.claude/settings.json`, and the `/route` banner line in
       `.claude/hooks/session-start.sh` is gone.

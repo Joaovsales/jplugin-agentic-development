@@ -88,6 +88,12 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
   diff a reviewer reads. The same list goes in the PR body (Step 7). Step lists
   are in `.agents/skills/wrap-up-session/references/routines.md` § *Step ledger*.
 - Append session summary with idempotency fingerprint (commit range short-SHAs)
+  - **Resolve both endpoints to real short SHAs.** The pre-push wrap-up gate
+    validates them as bare hex, so `HEAD` — the obvious thing to write in this
+    step, since Step 7 has not committed yet — is rejected, and every commit in
+    the push is recorded as uncovered debt. Write the base and the last existing
+    commit; the bookkeeping commit that lands this summary touches only
+    `tasks/`, which the gate does not count as code.
 
 ```markdown
 ## Session Summary — [YYYY-MM-DD] [a1b2c3f..d4e5f6a]
