@@ -259,8 +259,9 @@ EOF
 cp "$F_INDEX/tasks/todo.md" "$F_INDEX/todo.before"
 
 index_out="$(cd "$F_INDEX" && pyreg <<'EOF'
-from registry.index import TaskIndex, load_index, render_row
+from registry.index import MAX_LOGICAL_ROW_CHARS, TaskIndex, load_index, render_row
 from registry.model import ExternalRef, Task
+from registry.providers.github import _seed_body
 
 index = load_index("tasks/todo.md", "tasks/todo.md")
 print("rows=" + str(len(index.rows)))
@@ -288,6 +289,67 @@ kind_row = render_row(Task(id="bug.routing", title="Preserve kind", kind="bug"),
 kind_task = TaskIndex("tasks/todo.md", kind_row + "\n").rows[0].task
 print("kind-row=" + kind_row)
 print("kind-roundtrip=" + kind_task.kind)
+
+legacy_multiline = TaskIndex(
+    "tasks/todo.md",
+    """[ ] TDD: `agent chat attachment starts recovery in the active owned thread` -> extend the composer and <!-- task-id: chat.recovery -->
+    authenticated route using the existing protocol; record the file turn,
+
+    restore state on reload.
+- [ ] A later task <!-- task-id: later.task --> — remains separate
+## A later section
+    section prose is not task detail
+""",
+)
+print("multiline-rows=" + str(len(legacy_multiline.rows)))
+print("multiline-next=" + legacy_multiline.rows[1].task.title)
+legacy_multiline = legacy_multiline.rows[0].task
+print("multiline-title=" + legacy_multiline.title)
+print("multiline-body=" + _seed_body(legacy_multiline).replace("\n", "|"))
+detail_dash = TaskIndex(
+    "tasks/todo.md",
+    "[ ] TDD: `recover active thread` -> extend composer <!-- task-id: recovery.dash -->\n"
+    "    preserve reloads — including attachments\n",
+).rows[0].task
+print("detail-dash=" + detail_dash.title + "|" + detail_dash.summary)
+multiline_index = TaskIndex(
+    "tasks/todo.md", "[ ] Ship recovery -> preserve state <!-- task-id: recovery.span -->\n    across reloads\n\n    after reconnect\n"
+)
+multiline_index.replace_row(1, "- [ ] Ship recovery <!-- task-id: recovery.span --> — preserve state across reloads")
+print("multiline-rewrite=" + multiline_index.render().replace("\n", "|"))
+generic_arrow = TaskIndex(
+    "tasks/todo.md", "[ ] Ship recovery and -> preserve reload state <!-- task-id: recovery.ship -->\n"
+).rows[0].task
+print("generic-arrow=" + generic_arrow.title + "|" + generic_arrow.summary)
+tight_arrow = TaskIndex(
+    "tasks/todo.md", "[ ] TDD: `tight recovery`->preserve state <!-- task-id: recovery.tight -->\n"
+).rows[0].task
+print("tight-arrow=" + tight_arrow.title + "|" + tight_arrow.summary)
+for label, canonical_text in (
+    ("canonical-spaced", "[ ] Document transition <!-- task-id: docs.spaced --> — explain pending -> active behavior\n"),
+    ("canonical-tight", "[ ] Document syntax <!-- task-id: docs.tight --> — explain a->b notation\n"),
+):
+    canonical = TaskIndex("tasks/todo.md", canonical_text).rows[0].task
+    print(label + "=" + canonical.title + "|" + canonical.summary)
+exact_rest = " Exact -> detail <!-- task-id: exact.limit -->"
+oversized_detail = "x" * (MAX_LOGICAL_ROW_CHARS - len(exact_rest))
+oversized = TaskIndex("tasks/todo.md", "[ ]" + exact_rest + "\n    " + oversized_detail + "\n")
+print("oversized=" + "|".join(problem.message for problem in oversized.problems))
+exact_detail = "x" * (MAX_LOGICAL_ROW_CHARS - len(exact_rest) - 1)
+exact = TaskIndex("tasks/todo.md", "[ ]" + exact_rest + "\n    " + exact_detail + "\n")
+print("exact-limit-rows=" + str(len(exact.rows)))
+unbalanced_detail = TaskIndex(
+    "tasks/todo.md",
+    "[ ] Valid identity -> initial detail <!-- task-id: comment.balance -->\n"
+    "    continuation <!-- unfinished\n",
+)
+print("unbalanced-detail=" + "|".join(problem.message for problem in unbalanced_detail.problems))
+for label, malformed_comment in (
+    ("stray-close", "[ ] Stray close -> detail -->\n"),
+    ("nested-open", "[ ] Nested -> detail <!-- outer <!-- inner -->\n"),
+):
+    malformed = TaskIndex("tasks/todo.md", malformed_comment)
+    print(label + "=" + "|".join(problem.message for problem in malformed.problems))
 EOF
 )"
 
@@ -309,6 +371,41 @@ assert_contains "$index_out" "kind-row=- [ ] Preserve kind <!-- task-id: bug.rou
   "Index: candidate registration can opt into a canonical task-kind marker"
 assert_contains "$index_out" "kind-roundtrip=bug" \
   "Index: an opted-in task kind survives the compact-row round trip"
+assert_contains "$index_out" \
+  "multiline-title=agent chat attachment starts recovery in the active owned thread" \
+  "Index: a legacy TDD row derives its title from the quoted deliverable"
+assert_contains "$index_out" \
+  "multiline-body=extend the composer and authenticated route using the existing protocol; record the file turn, restore state on reload." \
+  "Index: a legacy row carries its complete implementation clause into the provider body"
+assert_contains "$index_out" \
+  "detail-dash=recover active thread|extend composer preserve reloads — including attachments" \
+  "Index: punctuation in continuation detail cannot override header title derivation"
+assert_contains "$index_out" "multiline-rows=2" \
+  "Index: continuation capture stops before the next task and section"
+assert_contains "$index_out" "multiline-next=A later task" \
+  "Index: a task after legacy continuation detail remains independently parseable"
+multiline_rewrite="$(printf '%s\n' "$index_out" | sed -n 's/^multiline-rewrite=//p')"
+assert_eq "- [ ] Ship recovery <!-- task-id: recovery.span --> — preserve state across reloads|" \
+  "$multiline_rewrite" \
+  "Index: replacing a logical row consumes its original continuation span"
+assert_contains "$index_out" "generic-arrow=Ship recovery|preserve reload state" \
+  "Index: a non-TDD legacy arrow row separates detail and drops a dangling conjunction"
+assert_contains "$index_out" "tight-arrow=tight recovery|preserve state" \
+  "Index: a tight legacy arrow cannot bypass title and body derivation"
+assert_contains "$index_out" "canonical-spaced=Document transition|explain pending -> active behavior" \
+  "Index: a spaced arrow inside a canonical summary remains body text"
+assert_contains "$index_out" "canonical-tight=Document syntax|explain a->b notation" \
+  "Index: a tight arrow inside a canonical summary remains body text"
+assert_contains "$index_out" "oversized=logical task row exceeds the 60000-character publish limit" \
+  "Index: provider-bound logical rows have an explicit non-truncating size limit"
+assert_contains "$index_out" "exact-limit-rows=1" \
+  "Index: the 60000-character logical-row boundary remains publishable"
+assert_contains "$index_out" "unbalanced-detail=unbalanced HTML comment in logical task row" \
+  "Index: a valid ID cannot hide an unfinished comment in continuation detail"
+assert_contains "$index_out" "stray-close=unbalanced HTML comment in logical task row" \
+  "Index: a stray HTML comment close marker is refused"
+assert_contains "$index_out" "nested-open=unbalanced HTML comment in logical task row" \
+  "Index: nested HTML comment open markers are refused"
 assert_files_identical "$F_INDEX/tasks/todo.md" "$F_INDEX/todo.before" \
   "Index: parsing never writes to the file it read"
 
@@ -793,6 +890,55 @@ assert_not_contains "$todo_after_local" "8-bit sources load" \
 # =============================================================================
 # 7. GitHub provider — label vocabulary, status, identity, gated writes
 # =============================================================================
+F_GH_LEGACY="$(new_fixture)"
+write_github_config "$F_GH_LEGACY"
+install_gh_mock "$F_GH_LEGACY"
+: > "$F_GH_LEGACY/gh.log"
+cat > "$F_GH_LEGACY/tasks/todo.md" <<'EOF'
+[ ] TDD: `recover active thread` -> extend composer — preserve attachments <!-- task-id: recovery.legacy -->
+    across reloads
+EOF
+gh_legacy_code=0
+gh_legacy="$(cd "$F_GH_LEGACY" && PATH="$F_GH_LEGACY/bin:$PATH" \
+  GH_MOCK_DIR="$F_GH_LEGACY/ghdata" GH_MOCK_LOG="$F_GH_LEGACY/gh.log" \
+  run publish --repo "$F_GH_LEGACY" --apply --approve 2>&1)" || gh_legacy_code=$?
+assert_eq "0" "$gh_legacy_code" \
+  "GitHub: a valid multi-line legacy row publishes through the real CLI"
+gh_legacy_log="$(cat "$F_GH_LEGACY/gh.log")"
+assert_contains "$gh_legacy_log" \
+  "issue create --repo fixture-owner/fixture-repo --title recover active thread --body extend composer — preserve attachments across reloads" \
+  "GitHub: legacy publication sends the derived title and complete body to gh"
+assert_file_contains "$F_GH_LEGACY/tasks/todo.md" \
+  "- [ ] recover active thread <!-- task-id: recovery.legacy --> — extend composer — preserve attachments across reloads ([#100](https://github.com/fixture-owner/fixture-repo/issues/100))" \
+  "GitHub: successful publication rewrites the complete logical row with its issue link"
+
+F_GH_REFUSE="$(new_fixture)"
+write_github_config "$F_GH_REFUSE"
+install_gh_mock "$F_GH_REFUSE"
+: > "$F_GH_REFUSE/gh.log"
+printf '[ ] Valid sibling -> must not publish <!-- task-id: valid.sibling -->\n[ ] TDD: `` -> <!-- task-id: malformed.legacy -->\n[ ] and -> implement recovery <!-- task-id: malformed.generic -->\n[ ] Ship -> first -> second — extra detail <!-- task-id: malformed.ambiguous -->\n[ ] Broken metadata -> detail <!-- task-id: malformed.comment\n' \
+  > "$F_GH_REFUSE/tasks/todo.md"
+gh_refuse_code=0
+gh_refuse="$(cd "$F_GH_REFUSE" && PATH="$F_GH_REFUSE/bin:$PATH" \
+  GH_MOCK_DIR="$F_GH_REFUSE/ghdata" GH_MOCK_LOG="$F_GH_REFUSE/gh.log" \
+  run publish --repo "$F_GH_REFUSE" --apply --approve 2>&1)" || gh_refuse_code=$?
+assert_eq "1" "$gh_refuse_code" \
+  "GitHub: publish refuses a stable-id legacy row with no clean title or body"
+assert_contains "$gh_refuse" "cannot publish legacy TDD row" \
+  "GitHub: an unpublishable legacy row gets an actionable finding"
+assert_contains "$gh_refuse" "cannot publish legacy row: expected a clean title" \
+  "GitHub: clean-title validation applies to non-TDD legacy rows"
+assert_contains "$gh_refuse" "expected a quoted test name and detail after '->'" \
+  "GitHub: a TDD row with no quoted title or arrow detail is refused"
+assert_contains "$gh_refuse" "multiple '->' delimiters" \
+  "GitHub: ambiguous implementation delimiters are refused"
+assert_contains "$gh_refuse" "unbalanced HTML comment in logical task row" \
+  "GitHub: unbalanced task identity metadata is refused"
+assert_not_contains "$(cat "$F_GH_REFUSE/gh.log")X" "issue create" \
+  "GitHub: one malformed row makes the whole publish batch fail before external writes"
+assert_eq "" "$(cat "$F_GH_REFUSE/gh.log")" \
+  "GitHub: malformed local input is refused before any provider read"
+
 F_GH="$(new_fixture)"
 write_index "$F_GH"
 write_github_config "$F_GH"
@@ -1180,6 +1326,7 @@ cat > "$F_MIG/tasks/todo.md" <<'EOF'
 > Spec: specs/pending/morph-recipes.md
 
 - [ ] Morph live grid recipe — ship the live grid morph
+    through the existing renderer
 - [ ] Colour LUT loader — palette mapping for 8-bit sources
 - [!] Verify nightly render deploy — smoke the rollout after each release
 - [ ] Decide dither strategy — pick one before the next recipe lands
@@ -1202,12 +1349,15 @@ printf '# Still motion\n\nshipped\n' > "$F_MIG/specs/completed/still-motion.md"
 printf '# Orphaned plan\n\nnothing points here\n' > "$F_MIG/specs/pending/orphaned-plan.md"
 
 mig_before="$(cd "$F_MIG" && find . -type f | sort)"
+todo_before_mig="$(cat "$F_MIG/tasks/todo.md")"
 mig_dry="$(run migrate --repo "$F_MIG" 2>&1)"
 mig_dry_code=$?
 mig_after_dry="$(cd "$F_MIG" && find . -type f | sort)"
 assert_eq "0" "$mig_dry_code" "Migrate: the dry run exits 0"
 assert_contains "$mig_dry" "DRY RUN (nothing written)" "Migrate: dry-run is the default and says so"
 assert_eq "$mig_before" "$mig_after_dry" "Migrate: the dry run writes nothing"
+assert_eq "$todo_before_mig" "$(cat "$F_MIG/tasks/todo.md")" \
+  "Migrate: dry-run preserves every physical continuation line byte-for-byte"
 assert_contains "$mig_dry" "completed (history, no external task): 3" \
   "Migrate: the three ticked rows are classified as history"
 assert_contains "$mig_dry" "stale (open in a closed plan): 1" \
@@ -1235,6 +1385,8 @@ assert_contains "$mig_apply" "minted" "Migrate: --apply reports how many ids it 
 assert_file_contains "$F_MIG/tasks/todo.md" \
   "- [ ] Morph live grid recipe <!-- task-id: recipe-morphs.morph-live-grid-recipe --> — ship the live grid morph" \
   "Migrate: the id is inserted after the title, leaving the rest of the row untouched"
+assert_file_contains "$F_MIG/tasks/todo.md" "    through the existing renderer" \
+  "Migrate: applying ids preserves indented legacy continuation detail"
 assert_file_contains "$F_MIG/tasks/todo.md" "[x] TDD: living texture flow -> impl" \
   "Migrate: completed history rows are left exactly as they were"
 completed_ids="$(grep -c 'TDD: living texture flow -> impl <!-- task-id' "$F_MIG/tasks/todo.md" || true)"
@@ -1941,5 +2093,12 @@ assert_contains "$crash_out" "credentials masked" \
   "CLI: an unexpected failure says the trace was scrubbed"
 assert_not_contains "$crash_out" "ZmFrZTpsZWFrZWR0b2tlbnZhbHVl" \
   "CLI: an Authorization header in a traceback never reaches the terminal"
+
+assert_file_contains "$SKILL/templates/task-tracking.md" "## Naming conventions" \
+  "Template: projects get a stub for provider-facing title and label conventions"
+assert_file_contains "$SKILL/templates/task-tracking.md" "Never publish raw plan text" \
+  "Template: legacy implementation clauses are documented as provider body content"
+assert_not_contains "$(cat "$SKILL/templates/task-tracking.md")" '<PLAN-ID> —' \
+  "Template: the recommended title separator cannot collide with row summary serialization"
 
 finish

@@ -212,7 +212,7 @@ def apply_migration(config, plan: MigrationPlan) -> List[str]:
         row = next((candidate for candidate in index.rows if candidate.line == entry.line), None)
         if row is None:  # pragma: no cover - index re-read is identical
             continue
-        index.replace_row(row.line, _insert_id(row.raw, entry.task_id))
+        index.replace_line(row.line, _insert_id(row.raw, entry.task_id))
         written += 1
     rewritten = _rewrite_dependencies(index, plan)
     if written or rewritten:
@@ -277,7 +277,7 @@ def _rewrite_dependencies(index: TaskIndex, plan: MigrationPlan) -> int:
                 r"(?<=[:,\s])" + re.escape(old) + r"(?=\s*[,)\]])", new, updated
             )
         if updated != raw:
-            index.replace_row(row.line, updated)
+            index.replace_line(row.line, updated)
             rewritten += 1
     return rewritten
 

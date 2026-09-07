@@ -42,6 +42,7 @@ STATUS_TO_BOX = {
 ROW_RE = re.compile(r"^(?P<indent>[ \t]*)(?P<bullet>[-*]\s+)?\[(?P<box>.?)\](?P<rest>.*)$")
 TASK_ID_RE = re.compile(r"<!--\s*task-id:\s*(?P<id>[^\s>]+?)\s*-->")
 TASK_KIND_RE = re.compile(r"<!--\s*task-kind:\s*(?P<kind>[^\s>]+?)\s*-->")
+COMMENT_MARKER_RE = re.compile(r"<!--|-->")
 LINK_RE = re.compile(
     r"\((?P<label>\[[^\]]+\])\((?P<url>[^)\s]+)\)\)"  # the ([#42](url)) shape we render
     r"|\[(?P<bare>[^\]]+)\]\((?P<bare_url>[^)\s]+)\)"  # a bare [#42](url) a human typed
@@ -50,6 +51,12 @@ DEPS_RE = re.compile(
     r"[(\[]\s*(?:blocked-by|depends-on|deps)\s*:\s*(?P<ids>[^)\]]+)[)\]]", re.IGNORECASE
 )
 SUMMARY_SPLIT = re.compile(r"\s+[—–]\s+")
+LEGACY_TDD_RE = re.compile(
+    r"^TDD:\s*`(?P<title>[^`]+)`\s*->\s*(?P<summary>.+)$", re.IGNORECASE
+)
+ARROW_SPLIT = re.compile(r"(?<!-)->")
+TRAILING_CONJUNCTION = re.compile(r"(?:^|\s+)(?:and|or|then)$", re.IGNORECASE)
+MAX_LOGICAL_ROW_CHARS = 60_000
 #: A reference id ends up as a positional argument to `gh` and as a path segment
 #: in a Jira URL. Anything outside this set is a malformed row, reported like any
 #: other (AC-19) rather than forwarded to a subprocess or an HTTP client.
@@ -73,6 +80,7 @@ class Problem:
 class IndexRow:
     task: Task
     line: int  # 1-based, matching what an editor and a Problem report
+    end_line: int  # inclusive physical span owned by this logical row
     raw: str
     legacy: bool  # no stable ID present in the source row
     indent: str = ""  # leading whitespace, so a rewrite preserves nesting
@@ -86,6 +94,7 @@ class TaskIndex:
         self.relative_path = relative_path or path
         self._lines = text.splitlines()
         self._trailing_newline = text.endswith("\n") if text else True
+        self._replacements: dict[int, str] = {}
         self.rows: List[IndexRow] = []
         self.problems: List[Problem] = []
         self._parse()
@@ -97,15 +106,25 @@ class TaskIndex:
             match = ROW_RE.match(line)
             if not match:
                 continue
+            detail, end_line = _continuation_lines(
+                self._lines, number - 1, len(match.group("indent") or "")
+            )
             try:
-                row = self._parse_row(match, number, line)
+                row = self._parse_row(match, number, end_line, line, detail)
             except TaskModelError as exc:
                 self.problems.append(Problem(self.relative_path, number, str(exc), line))
                 continue
             if row is not None:
                 self.rows.append(row)
 
-    def _parse_row(self, match: "re.Match[str]", number: int, line: str) -> Optional[IndexRow]:
+    def _parse_row(
+        self,
+        match: "re.Match[str]",
+        number: int,
+        end_line: int,
+        line: str,
+        detail: Sequence[str],
+    ) -> Optional[IndexRow]:
         box = match.group("box")
         if box not in BOX_TO_STATUS:
             self.problems.append(
@@ -120,11 +139,36 @@ class TaskIndex:
             return None
 
         rest = match.group("rest")
+        if _has_unbalanced_comment((rest, *detail)):
+            self.problems.append(
+                Problem(
+                    self.relative_path,
+                    number,
+                    "unbalanced HTML comment in logical task row",
+                    line,
+                )
+            )
+            return None
+        if len(rest) + sum(len(item) + 1 for item in detail) > MAX_LOGICAL_ROW_CHARS:
+            self.problems.append(
+                Problem(
+                    self.relative_path,
+                    number,
+                    f"logical task row exceeds the {MAX_LOGICAL_ROW_CHARS}-character publish limit",
+                    line,
+                )
+            )
+            return None
         task_id, rest = _extract_id(rest)
         task_kind, rest = _extract_kind(rest)
         depends_on, rest = _extract_dependencies(rest)
         external, rest = _extract_link(rest)
-        title, summary = _split_title_summary(rest)
+        title, summary, publish_error = _split_title_summary(rest)
+        summary = " ".join(part for part in (summary, *detail) if part)
+
+        if publish_error:
+            self.problems.append(Problem(self.relative_path, number, publish_error, line))
+            return None
 
         if not title:
             self.problems.append(
@@ -145,6 +189,7 @@ class TaskIndex:
         return IndexRow(
             task=task,
             line=number,
+            end_line=end_line,
             raw=line,
             legacy=not task_id,
             indent=match.group("indent") or "",
@@ -153,17 +198,26 @@ class TaskIndex:
     # ---------------------------------------------------------------- writing
 
     def replace_row(self, line: int, new_text: str) -> None:
+        self._replacements[line] = new_text
+
+    def replace_line(self, line: int, new_text: str) -> None:
         self._lines[line - 1] = new_text
 
     def row_text(self, line: int) -> str:
         """The current text of a line, including edits made this run."""
-        return self._lines[line - 1]
+        return self._replacements.get(line, self._lines[line - 1])
 
     def append_row(self, task: Task) -> None:
         self._lines.append(render_row(task))
 
     def render(self) -> str:
-        text = "\n".join(self._lines)
+        row_ends = {row.line: row.end_line for row in self.rows}
+        rendered = []
+        line = 1
+        while line <= len(self._lines):
+            rendered.append(self._replacements.get(line, self._lines[line - 1]))
+            line = row_ends.get(line, line) + 1 if line in self._replacements else line + 1
+        text = "\n".join(rendered)
         return text + "\n" if self._trailing_newline and text else text
 
     def save(self) -> None:
@@ -214,15 +268,78 @@ def _extract_link(rest: str) -> Tuple[Optional[ExternalRef], str]:
     return ref, (rest[: match.start()] + rest[match.end() :])
 
 
-def _split_title_summary(rest: str) -> Tuple[str, str]:
+def _continuation_lines(
+    lines: Sequence[str], row_index: int, indent: int
+) -> Tuple[List[str], int]:
+    detail = []
+    end_line = row_index + 1
+    for candidate_index in range(row_index + 1, len(lines)):
+        line = lines[candidate_index]
+        leading = len(line) - len(line.lstrip(" \t"))
+        if not line.strip():
+            continue
+        if ROW_RE.match(line) or leading <= indent:
+            break
+        detail.append(line.strip())
+        end_line = candidate_index + 1
+    return detail, end_line
+
+
+def _has_unbalanced_comment(parts: Sequence[str]) -> bool:
+    opened = False
+    for marker in COMMENT_MARKER_RE.findall("\n".join(parts)):
+        if marker == "<!--":
+            if opened:
+                return True
+            opened = True
+        elif not opened:
+            return True
+        else:
+            opened = False
+    return opened
+
+
+def _split_title_summary(rest: str) -> Tuple[str, str, Optional[str]]:
     cleaned = re.sub(r"\s{2,}", " ", rest).strip()
-    parts = SUMMARY_SPLIT.split(cleaned, maxsplit=1)
-    # Only whitespace is stripped: ROW_RE already consumed the bullet, so
-    # stripping dashes here would silently rewrite a legitimate title such as
-    # "-fno-strict-aliasing crashes the build".
-    title = parts[0].strip()
-    summary = parts[1].strip() if len(parts) > 1 else ""
-    return title, summary
+    arrows = list(ARROW_SPLIT.finditer(cleaned))
+    tdd = LEGACY_TDD_RE.match(cleaned)
+    if tdd and len(arrows) == 1:
+        title = tdd.group("title").strip()
+        summary = tdd.group("summary").strip()
+        return title, summary, _legacy_publish_error(cleaned, title, summary)
+    canonical = _canonical_summary(cleaned, arrows)
+    if canonical is not None:
+        return canonical[0], canonical[1], None
+    if len(arrows) > 1:
+        return cleaned, "", "cannot publish legacy row: multiple '->' delimiters are ambiguous"
+    if arrows:
+        return _split_legacy_arrow(cleaned, arrows[0])
+    return cleaned, "", None
+
+
+def _canonical_summary(
+    cleaned: str, arrows: Sequence["re.Match[str]"]
+) -> Optional[Tuple[str, str]]:
+    separator = SUMMARY_SPLIT.search(cleaned)
+    if separator is None or (arrows and arrows[0].start() < separator.start()):
+        return None
+    return cleaned[: separator.start()].strip(), cleaned[separator.end() :].strip()
+
+
+def _split_legacy_arrow(
+    cleaned: str, arrow: "re.Match[str]"
+) -> Tuple[str, str, Optional[str]]:
+    title = TRAILING_CONJUNCTION.sub("", cleaned[: arrow.start()].strip()).strip()
+    summary = cleaned[arrow.end() :].strip()
+    return title or cleaned, summary, _legacy_publish_error(cleaned, title, summary)
+
+
+def _legacy_publish_error(cleaned: str, title: str, summary: str) -> Optional[str]:
+    if cleaned.lower().startswith("tdd:") and (not title or not summary or "``" in title):
+        return "cannot publish legacy TDD row: expected a quoted test name and detail after '->'"
+    if not title or not summary:
+        return "cannot publish legacy row: expected a clean title and detail around '->'"
+    return None
 
 
 def render_row(task: Task, indent: str = "", include_kind: bool = False) -> str:

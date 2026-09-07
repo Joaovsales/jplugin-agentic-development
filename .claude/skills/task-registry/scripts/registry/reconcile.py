@@ -410,6 +410,8 @@ class Registry:
         report.applied = apply
         index = self.local_index()
         report.problems.extend(index.problems)
+        if index.problems:
+            return report
         external = self.external_tasks(report)
         if apply and report.provider_status is not None and not report.provider_status.available:
             # Degrading a *read* to local-only is a service. Degrading a write is
