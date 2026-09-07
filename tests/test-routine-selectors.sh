@@ -468,6 +468,17 @@ printf '{"number":42,"title":"Crash","body":"","labels":[{"name":"bug"}]}\n' \
 claim_dry="$(run_claim "$F_CLAIM" 42 --routine fix)"; claim_dry_code=$?
 assert_eq "1" "$claim_dry_code" "claim: dry-run is the default — a write needs --apply"
 assert_not_contains "$claim_dry" "wrote in-progress" "claim: a dry run writes nothing"
+# AC10, the half stdout cannot prove. "Writes nothing" is a claim about the
+# TRACKER, and the two assertions above only read this process's own output — an
+# implementation that printed nothing and wrote anyway passes both. gh.log is the
+# tracker-side evidence, and it is the same log the apply path asserts against
+# below, so the two directions are pinned with one mechanism.
+assert_file_not_matches "$F_CLAIM/gh.log" "add-label" \
+  "AC10: a dry run reaches the tracker with no label write at all"
+# "...and says so": the refusal has to name the flag that would proceed, or the
+# operator learns only that something was refused.
+assert_contains "$claim_dry" "--apply" \
+  "AC10: the dry-run refusal names --apply as the way to proceed"
 
 # Claiming across routines is how two routines land on one issue.
 claim_wrong="$(run_claim "$F_CLAIM" 42 --routine plan --apply --approve)"; claim_wrong_code=$?
