@@ -119,8 +119,15 @@ copied into `tasks/todo.md`.
 - **External task edited by a human** → `pull` updates only the registry-owned
   metadata block and the local row; body, comments, labels, and hierarchy survive.
 - **Row without an ID** → parsed, reported, never silently rewritten.
-- **Malformed row** (unbalanced comment, empty title, unknown status char) → reported
-  on stderr with the file:line, counted in the exit summary, never dropped silently.
+- **Legacy multi-line row** → an indented continuation belongs to the preceding
+  task. For ``TDD: `name` -> detail``, the quoted name becomes the provider title
+  and the complete implementation clause becomes its body; migration preserves
+  the physical continuation until the logical row is deliberately rewritten.
+- **Malformed or unsafe-to-publish row** (unbalanced comment, empty title,
+  unknown status char, ambiguous `->` split, or a logical row over 60,000
+  characters) → reported on stderr with the file:line, counted in the exit
+  summary, never truncated or dropped; publication refuses the entire local
+  batch before reading from or writing to the provider.
 - **A GitHub label the mapping does not know** → preserved verbatim, and the task
   still gets a kind (`task` by default).
 - **`in_progress` / `blocked`** → never inferred from GitHub's open/closed state.
@@ -158,16 +165,17 @@ copied into `tasks/todo.md`.
 - AC-13 — Duplicate detection never uses title equality alone.
 - AC-14 — `tasks/todo.md` rows carry only checkbox, title, ID, link, one-line
       summary, optional dependency marker; no acceptance criteria, no issue body.
-- AC-15 — Legacy checkbox-only rows keep parsing; `migrate` is dry-run first and
-      leaves an audit trail.
+- AC-15 — Legacy checkbox-only rows keep parsing; indented continuation detail
+      remains part of the same logical row, and `migrate` is dry-run first,
+      preserves that detail, and leaves an audit trail.
 - AC-16 — Migration groups tightly coupled work and does not emit one external
       issue per historical `[x]` checkbox.
 - AC-17 — Unresolved work is never deleted; stale/superseded entries are
       classified and reported, not removed.
 - AC-18 — `frontier` orders by dependency and names the blocker for each blocked
       task.
-- AC-19 — Malformed input is reported with file:line and a non-zero exit, never
-      swallowed.
+- AC-19 — Malformed or unsafe-to-publish input is reported with file:line and a
+      non-zero exit before any provider write, never swallowed or truncated.
 - AC-20 — Workflow skills (`/plan`, `/build`, `/verify`, `/quality-gate`,
       `/wrap-up-session`) reach tracking only through this capability — no direct
       `gh`/Jira calls for task state.
