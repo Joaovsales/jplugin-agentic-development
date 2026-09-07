@@ -82,6 +82,12 @@ except ConfigError as exc:
 for routine in sorted(config.routine_skills):
     print(f"chain {routine}: {' -> '.join(config.routine_skills[routine])}")
 print("routines:", ",".join(sorted(config.routine_skills)))
+# Whether the project DECLARED the section, not merely whether the resulting
+# chains happen to match. A project whose chains equal the shipped defaults --
+# this repository's do -- is otherwise indistinguishable from one that declared
+# nothing, so every assertion about the file being read would pass with the
+# section deleted.
+print("declared:", config.routine_skills_declared)
 PY
 }
 
@@ -96,6 +102,8 @@ defaults="$(load_report "$bare")"
 
 assert_contains "$defaults" "routines: build,fix,improve,plan" \
   "default: all four contract routines ship a chain, including deferred build"
+assert_contains "$defaults" "declared: False" \
+  "default: an unconfigured project is recorded as having declared nothing"
 assert_contains "$defaults" "chain plan: /plan -> /wrap-up-session" \
   "AC12: plan's default chain is references/routines.md step 4 + the spine's step 5"
 assert_contains "$defaults" "chain fix: /debug -> /build -> /quality-gate -> /wrap-up-session" \
@@ -330,5 +338,86 @@ assert_contains "$invented_out" "REFUSED:" \
   "AC12: a routine outside CONTRACT_ROUTINES is still refused"
 assert_contains "$invented_refusal" "triage" \
   "AC12: the refusal names the invented routine"
+
+# ============================================================================
+# 7. AC7/AC12 — THIS project's configuration, and why it lives where it does
+# ============================================================================
+# Everything above tests the engine against fixtures. This section tests the
+# repository itself: a configuration contract nobody dogfoods is a contract
+# nobody has run.
+#
+# The placement is the substance of #82. `CLAUDE.md` is template-managed and
+# `/sync` overwrites it wholesale, while `docs/` is in no syncable root — so a
+# pointer in `CLAUDE.md` would ship to every adopter naming a file the template
+# can never deliver, permanently in the "declared but missing" state the loader
+# now refuses. The declaration therefore lives in `.claude/project.md`, which
+# `/sync` never touches, next to a target that ships with the project.
+printf '\n-- this project is configured, and the configuration is where /sync cannot reach --\n'
+
+assert_eq "present" "$([ -f docs/task-tracking.md ] && echo present || echo missing)" \
+  "AC7: this project ships its own docs/task-tracking.md"
+
+# The pointer, and the file it names. A declaration whose target is missing is
+# refused loudly (#82) — so asserting the target exists is asserting the project
+# is in the "configured" state rather than the "broken" one.
+assert_file_matches ".claude/project.md" "^Task tracking instructions: " \
+  "AC7: .claude/project.md carries the declaration"
+project_pointer="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' .claude/project.md \
+  | sed -E 's/^[^:]*:[[:space:]]*//' | head -1)"
+assert_eq "docs/task-tracking.md" "$project_pointer" \
+  "AC7: the declaration names this project's configuration file"
+assert_eq "present" "$([ -f "$project_pointer" ] && echo present || echo missing)" \
+  "AC7: the declared target exists — the project is configured, not broken"
+
+# CLAUDE.md documents the convention and emits no live pointer of its own.
+claude_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' CLAUDE.md || true)"
+assert_eq "" "$claude_pointers" \
+  "AC7: CLAUDE.md emits no bare parseable pointer — it ships to every adopter"
+
+# Neither the declaration nor its target may sit under a syncable root, or the
+# next /sync destroys the project's configuration. The root list is read from
+# the same doc block /sync itself parses rather than restated here, so this
+# cannot pass against a stale copy of the list.
+sync_roots="$(awk '/^## Syncable Paths/ { inblock = 1; next }
+                   inblock && /^##+ / { exit }
+                   inblock && /→/ { print $1 }' .agents/skills/sync/SKILL.md \
+              | sed 's|/$||' | grep -v '^$' | sort -u)"
+assert_not_contains "$sync_roots" "docs" \
+  "AC7: docs/ is not a syncable root — the configuration survives /sync"
+assert_not_contains "$sync_roots" ".claude/project.md" \
+  "AC7: .claude/project.md is not a syncable root — the declaration survives /sync"
+
+# `doctor` is what a human runs to ask "am I configured?". It must name the file,
+# not report `none`. Pinned against the local provider so the answer does not
+# depend on the network or on `gh` being authenticated.
+doctor_out="$(PYTHONDONTWRITEBYTECODE=1 "$PY" \
+  "$SCRIPTS/task-registry.py" doctor --repo "$REPO" --provider local 2>&1)"
+assert_contains "$doctor_out" "configuration:  docs/task-tracking.md" \
+  "AC7: doctor reports this project's configured path"
+assert_not_contains "$doctor_out" "configuration:  none" \
+  "AC7: doctor no longer reports this project as unconfigured"
+
+# AC12 live: this project reconfigures its routines by editing that one file and
+# no code -- and because it DECLARES [routines.skills], the on-disk skill check
+# runs against this repository for real rather than only against fixtures.
+project_chains="$(load_report "$REPO")"
+assert_not_contains "$project_chains" "REFUSED:" \
+  "AC4 live: every skill this project's chains name is installed in this repository"
+assert_contains "$project_chains" "routines: build,fix,improve,plan" \
+  "AC9 live: this project declares a chain for every routine it selects with"
+assert_contains "$project_chains" "chain fix: /debug -> /build -> /quality-gate -> /wrap-up-session" \
+  "AC12 live: the fix chain is read from docs/task-tracking.md"
+assert_contains "$project_chains" "declared: True" \
+  "AC8/AC12 live: the chains come from the file, not from the shipped defaults"
+
+# The template an adopter starts from must document the section, or the layer
+# exists only for projects that read the source.
+for tree in .agents .claude; do
+  assert_file_contains "$tree/skills/task-registry/templates/task-tracking.md" "[routines.skills]" \
+    "AC12: $tree template documents the [routines.skills] section"
+  assert_file_contains "$tree/skills/task-registry/templates/task-tracking.md" "/wrap-up-session" \
+    "AC5: $tree template shows chains ending at the review gate"
+done
+
 
 finish

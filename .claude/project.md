@@ -52,6 +52,17 @@ shown below — not active in this template):
 > Examples: tech-stack conventions, architectural constraints, domain glossary,
 > external service credentials policy.
 
+### Task Tracking
+
+Task tracking instructions: docs/task-tracking.md
+
+The declaration lives here rather than in `CLAUDE.md` on purpose. `CLAUDE.md` is
+template-managed and `/sync` overwrites it wholesale, while `docs/` is outside
+every syncable root — so a pointer there would ship to every downstream project
+naming a file the template can never deliver, which the loader now refuses
+outright (#82). `.claude/project.md` is never synced, so the pointer and its
+target stay together. Pi reads the same line from `AGENTS.md`.
+
 ### Code Economy
 
 A **generation-time** gate that runs *before* you write code — the preventive

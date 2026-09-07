@@ -91,7 +91,8 @@ DEFAULT_KIND_PRECEDENCE: Tuple[str, ...] = (
 )
 
 #: What each routine RUNS, once selection has told it which issue to run on.
-#: Transcribed from `references/routines.md` -- step 4 of each routine plus the
+#: Transcribed from `.agents/skills/wrap-up-session/references/routines.md` --
+#: step 4 of each routine plus the
 #: shared spine's step 5, which is why every chain ends at `/wrap-up-session`.
 #: That document is the routine contract; a chain invented here instead would be
 #: a second, unversioned answer to a question it already answers.
