@@ -101,11 +101,37 @@ assert_contains "$spine" "routine_branch.py format" \
 assert_contains "$spine" "/wrap-up-session" "Contract: the spine reaches /wrap-up-session"
 assert_contains "$spine" "non-skippable" "Contract: the spine marks its non-skippable gates"
 
-# ANTI-DUPLICATION GUARD. /wrap-up-session belongs to the spine; a routine
-# section restating it is the drift this restructure removed.
+# ANTI-DUPLICATION GUARD. /wrap-up-session belongs to a spine; a routine
+# section restating it is the drift this restructure removed. There are two
+# spines now -- consumer and producer (specs/sweep-routines.md AC1) -- so exactly
+# two rows, and neither inside a per-routine section.
 wrapup_rows="$(grep -cE '^\| [0-9a-c]+ \| .?/wrap-up-session' "$CANON" || true)"
-assert_eq "1" "$wrapup_rows" \
-  "Contract: /wrap-up-session appears as exactly one step row, in the spine"
+assert_eq "2" "$wrapup_rows" \
+  "Contract: /wrap-up-session appears as exactly two step rows, one per spine"
+for routine in plan fix improve janitor architect; do
+  section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
+  assert_not_contains "$section" "/wrap-up-session" \
+    "Contract: $routine's own section does not restate /wrap-up-session"
+done
+
+# --- producers: the second spine ---------------------------------------------
+for routine in janitor architect; do
+  assert_file_matches "$CANON" "^\| \`$routine\` \|" \
+    "Contract: producer \`$routine\` has a row in the routine table"
+  assert_file_matches "$CANON" "^### .$routine. — steps" \
+    "Contract: $routine has a step section of its own"
+done
+assert_file_matches "$CANON" '^### (The )?[Pp]roducer spine' \
+  "Contract: the producer spine is stated once"
+producer_spine="$(awk '/^### (The )?[Pp]roducer spine/{f=1;next} f&&/^### /{exit} f' "$CANON")"
+assert_contains "$producer_spine" "task-registry doctor" \
+  "Contract: producer step 1 is task-registry doctor, not select"
+assert_not_contains "$producer_spine" "task-registry select" \
+  "Contract: a producer never selects an issue"
+assert_contains "$producer_spine" "/sweep --routine" \
+  "Contract: producer step 3 is /sweep"
+assert_contains "$producer_spine" "non-skippable" \
+  "Contract: the producer spine marks its gates non-skippable"
 
 for routine in plan fix improve; do
   assert_file_matches "$CANON" "^### .$routine. — steps" \
@@ -154,8 +180,8 @@ assert_file_not_matches "$CANON" "gh issue" \
 for doc in \
   tasks/solutions/architecture/hard-gate-on-tasks-todo-md.md \
   tasks/solutions/patterns/consume-structured-records-before-rendering-human-summaries.md; do
-  # Built at runtime, not written literally -- see the note in
-  # test-auto-improve-rewire.sh and the pattern document it cites.
+  # Built at runtime, not written literally -- see
+  # tasks/solutions/patterns/construct-retired-paths-at-runtime-to-keep-literal-sweeps-strict.md
   assert_file_not_matches "$doc" "skills/rou""te/|rou""te_issue" \
     "AC13: $doc cites no deleted path"
 done

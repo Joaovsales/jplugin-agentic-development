@@ -368,3 +368,22 @@ a file that never shipped and cannot (`docs/` is not syncable).
 - Key changes: task-registry now parses and rewrites complete multi-line logical rows, derives clean legacy titles, rejects malformed or oversized provider-bound rows, and ships naming-convention guidance.
 - Key changes: issue #107 recorded the redundant routed `/plan` gate; after the session rebased, merged PR #105 had deleted `/route` and defined the `fix` routine as `/debug` directly into `/build`/TDD, so #107 was closed as superseded.
 - Learnings captured: [task-registry publish lost legacy row detail](solutions/bugs/task-registry-publish-lost-legacy-row-detail.md) and [logical text records must own their rewrite span](solutions/patterns/logical-text-records-must-own-their-rewrite-span.md).
+
+### 2026-09-07 — Sweep routines shipped
+- Key changes: `/sweep` producer routine (`--routine janitor|architect`) with two
+  lens references; `janitor` and `architect` added to the routine contract as
+  producers (`PRODUCER_ROUTINES`, refused by `select`/`claim`, run-stamp branches);
+  `Task.reproduction`/`proposed_fix` carried through all three providers with
+  five ordered body sections; `/debug` takes an issue ref and has an unattended
+  `blocked:` exit; `/software-design-expert-review --scope tree` and the
+  verification-skill source-wave fallback; six project-agnostic routine prompts
+  under `wrap-up-session/references/routine-prompts/`; `/auto-improve` retired and
+  every reference repointed; `task-registry` configuration gains an "Unattended
+  routines" section. 13/13 plan tasks, 37 test files green.
+- Quality gate (Phase 3 dispatched) applied three changes: a `_section` helper in
+  the local provider, section-authoritative reproduction/proposed-fix with a
+  hand-edit regression test, and a corrected `--derive-id` usage line.
+- Learnings captured:
+  `tasks/solutions/bugs/grep-end-of-options-before-exclude-dir-drops-the-exclusions.md`,
+  `tasks/solutions/bugs/test-suite-hangs-when-stdin-is-an-open-pipe.md`,
+  `tasks/solutions/architecture/managed-section-is-the-field-home-and-the-metadata-block-a-projection.md`

@@ -1,10 +1,15 @@
 # The routine contract
 
-> Defined by `specs/category-routines.md`. Read by `/wrap-up-session`, which
-> parses the branch convention below and opens the terminal pull request.
+> Defined by `specs/category-routines.md` and, for the producers,
+> `specs/sweep-routines.md`. Read by `/wrap-up-session`, which parses the branch
+> convention below and opens the terminal pull request.
 
-A **routine** is a scheduled category of work. It selects issues by a single
-label axis, runs a named step list, and ends at a pull request a human reviews.
+A **routine** is a scheduled category of work. A **consumer** routine selects
+issues by a single label axis, runs a named step list, and ends at a pull
+request a human reviews. A **producer** routine selects nothing: it reads the
+open backlog so it does not duplicate, runs an extensive verification engine,
+files every verified finding as an issue through `/task-registry`, and ends at a
+docs-only pull request carrying the session record.
 
 Where a routine *lives* is out of scope: an Orca prompt, a Docker job, a Claude
 skill, a shell script — any host works, because this document is the whole
@@ -26,7 +31,7 @@ Autonomy is therefore a property of the routine, not of the issue. `plan`
 produces a **draft** PR because a plan is a proposal; the others produce a ready
 PR because human review *is* the gate.
 
-## The four routines
+## The routines
 
 | Routine | Selects on kind label | Terminal artifact | Issue linkage | Status |
 |---|---|---|---|---|
@@ -34,6 +39,13 @@ PR because human review *is* the gate.
 | `fix` | `bug`, `tech-debt` | ready PR | `Closes #N` | active |
 | `improve` | `enhancement`, `documentation` | ready PR | `Closes #N` | active |
 | `build` | any kind, **and** a merged linked plan, **and** no open blockers | ready PR | `Closes #N` | **deferred — see below** |
+| `janitor` | — (producer; **files** `bug`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
+| `architect` | — (producer; **files** `task` + `tech-debt`, or `design-decision`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
+
+`plan`, `fix`, `improve` and `build` are consumers. `janitor` and `architect`
+are producers — see *Producers* below. Consumers run on the **Builder** tier,
+producers on the **Planner** tier; cadence is the operator's call, typically
+daily for consumers and weekly for producers.
 
 ### `build` is deferred and must not be scheduled
 
@@ -197,8 +209,8 @@ ledger exists to prevent, reproduced in the document that prevents it.
 Step 5 is non-skippable for every routine without exception: it is the review
 gate whose omission shipped #93 green.
 
-Each routine below gives **only** its step 4 and any gate the spine does not
-already carry.
+Each consumer routine below gives **only** its step 4 and any gate the spine
+does not already carry.
 
 ### `plan` — steps
 
@@ -221,7 +233,7 @@ Selector: `bug`, `tech-debt`. Terminal artifact: a ready PR whose body carries
 
 | # | Step | Gate |
 |---|---|---|
-| 4a | `/debug` — root cause before code, for a `bug`; for `tech-debt`, read the item's evidence | — |
+| 4a | `/debug #N` — root cause before code, for a `bug`: it reads the issue's reproduction and proposed fix through `task-registry show`; for `tech-debt`, the proposed fix and evidence are read the same way | — |
 | 4b | `/build` — TDD against the issue's acceptance criteria | **non-skippable** — no fix ships without a failing test that now passes |
 | 4c | `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside `/build` Phase 3; the row records where it ran) | **non-skippable** |
 
@@ -243,6 +255,60 @@ except that step 4a reads the merged linked spec instead of writing one, and
 selection additionally requires `blockedBy` to be empty — the capability #97
 tracks.
 
+## Producers
+
+Producers never edit product code. `janitor` may carry verification-map
+corrections its full pass proved, and both carry the session record under
+`tasks/sweeps/`; nothing else reaches the diff. Its output is issues — one
+`task-registry upsert --apply` per verified finding, ID derived from the
+finding's file and title so a later run **updates** the same task rather than
+minting a second one — and a docs-only PR whose body carries `Refs #N` for
+every issue in the record's *Filed* section. Never `Closes`: nothing was fixed.
+
+The branch number is a **run stamp** (`YYYYMMDD`), not an issue. The formatter
+and parser treat it as any other positive integer; `/wrap-up-session` does not
+look it up. `CONTRACT_ROUTINES` in `routine_branch.py` carries both names so the
+branch formats, and `PRODUCER_ROUTINES` in the registry's `config.py` carries
+them so `task-registry select` and `task-registry claim` refuse a producer with
+exit 2 — it files issues, it does not select them — and a `[routines.selectors]`
+key naming one is refused at load like any unknown routine.
+
+### Producer spine
+
+Stated once, like the consumer spine, and for the same reason.
+
+| # | Step | Gate |
+|---|---|---|
+| 1 | `task-registry doctor` — records the destination policy the findings will take (local canonical, external issue, or publication pending). `janitor` additionally requires exactly one project-local `verify-<app>` skill: missing → loud non-zero naming `/create-verification-skill`, no branch, no PR | — |
+| 2 | Create the branch: `routine_branch.py format <name> <YYYYMMDD> sweep`. A branch that already exists is a second run the same day: loud non-zero, no second branch | — |
+| 3 | `/sweep --routine <name>` — read the backlog, run the engine, verify, file, write the session record | **non-skippable** — the sweep is the routine's entire artifact |
+| 4 | `/wrap-up-session` — review passes, tests, and the pull request | **non-skippable** |
+
+A clean sweep still writes the record and still opens the PR: the record is the
+only place "every mapped feature was driven and nothing failed" is stated.
+
+### `janitor` — steps
+
+Lens: bugs. Engine: the full test suite plus `/maintain-verification-skill`'s
+full pass, whose live pass drives every mapped feature under `/verify --scope
+e2e` rules. Files as `bug`. Terminal artifact: a ready, docs-only PR whose body
+carries `Refs #N` per filed issue and this step list.
+
+| # | Step | Gate |
+|---|---|---|
+| 3 | `/sweep --routine janitor` — the bar to file is a reproduction **executed this run** (command, observed, expected) at confidence `75` or above; a failing or flaky test is filed with the test command as its reproduction | **non-skippable** |
+
+### `architect` — steps
+
+Lens: design. Engine: `/software-design-expert-review --scope tree` — the APOSD
+red flags over the whole tree, not a diff. Files as `task` + `tech-debt`, or
+`design-decision` when the proposed fix is a choice between designs. Terminal
+artifact: as `janitor`.
+
+| # | Step | Gate |
+|---|---|---|
+| 3 | `/sweep --routine architect` — the bar to file is an `evidence` line quoting the motivating code with `file:line` at confidence `75` or above; `NITPICK` is never filed | **non-skippable** |
+
 ## Edge cases
 
 | Situation | Behavior |
@@ -255,3 +321,7 @@ tracks.
 | `gh` predates `closedByPullRequestsReferences` (< 2.73.0) | Asserted **once at routine start**, loudly. Every routine depends on the field; degrading per-routine gave two different answers to one missing capability. |
 | No candidate found | Exit silently and successfully. A routine with nothing to do is not a failure. |
 | A mandatory step could not run | Its row stays in `tasks/todo.md` and the PR body with `skip: <reason>`. |
+| `janitor` with no `verify-<app>` skill | Stops at doctor, loud non-zero, names `/create-verification-skill`. No branch, no PR. |
+| Producer branch already exists today | Loud non-zero, no second branch. |
+| Producer sweep verified nothing | Record written with `Filed: none`, PR opened, title suffixed `— clean`. |
+| A producer's local write fails | STOP — findings must not be lost. Pending *publication* never stops a run; a failed *record* does. |

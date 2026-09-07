@@ -40,6 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from registry.config import (  # noqa: E402
     ConfigError,
     ConfigPointerError,
+    PRODUCER_ROUTINES,
     load_config,
     select_provider,
 )
@@ -108,6 +109,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--title", help="task title (upsert)")
     parser.add_argument("--kind", help="task kind (upsert), e.g. research")
     parser.add_argument("--spec", help="spec path this task is about (upsert)")
+    parser.add_argument(
+        "--source",
+        help="repository path this task is about, recorded as `source:` (upsert); "
+        "a sweep finding names its primary file here, not under --spec",
+    )
     parser.add_argument("--summary", default="", help="one-paragraph summary (upsert)")
     parser.add_argument(
         "--evidence", action="append", default=[],
@@ -118,13 +124,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="acceptance criterion (upsert); repeatable",
     )
     parser.add_argument(
+        "--reproduction", action="append", default=[],
+        help="reproduction step (upsert); repeatable, in order",
+    )
+    parser.add_argument(
+        "--proposed-fix", action="append", default=[],
+        help="proposed fix step (upsert); repeatable, in order",
+    )
+    parser.add_argument(
         "--label", action="append", default=[], help="label (upsert); repeatable"
     )
     parser.add_argument(
         "--derive-id",
         metavar="NAMESPACE",
-        help="derive the task id as NAMESPACE.<normalized --spec path> (upsert); "
-        "use instead of the positional id so two runs cannot normalize differently",
+        help="derive the task id as NAMESPACE.<normalized --source or --spec path> "
+        "(upsert); use instead of the positional id so two runs cannot normalize "
+        "differently",
+    )
+    parser.add_argument(
+        "--fold-title",
+        action="store_true",
+        help="also fold --title into the derived id (upsert); a sweep files several "
+        "findings against one file and needs the title to keep them apart",
     )
     return parser
 
@@ -162,12 +183,18 @@ def _run(argv, set_redactor) -> int:
         if bool(args.task_id) == bool(args.derive_id):
             print(
                 "task-registry: `upsert` needs exactly one of a task id or "
-                "--derive-id NAMESPACE (with --spec)",
+                "--derive-id NAMESPACE (with --source or --spec)",
                 file=sys.stderr,
             )
             return 2
-        if args.derive_id and not args.spec:
-            print("task-registry: `--derive-id` requires --spec", file=sys.stderr)
+        if args.derive_id and not (args.source or args.spec):
+            print("task-registry: `--derive-id` requires --source or --spec", file=sys.stderr)
+            return 2
+        if args.derive_id and args.source and args.spec:
+            print("task-registry: `--derive-id` folds one path; pass --source or --spec, not both", file=sys.stderr)
+            return 2
+        if args.fold_title and not args.derive_id:
+            print("task-registry: `--fold-title` requires --derive-id", file=sys.stderr)
             return 2
         if not args.title:
             print("task-registry: `upsert` requires --title", file=sys.stderr)
@@ -222,6 +249,12 @@ def _run(argv, set_redactor) -> int:
     return code
 
 
+def _derived_id(args) -> str:
+    """`--derive-id` folds the primary path and, on request, the title."""
+    path = args.source or args.spec
+    return derive_id(args.derive_id, path, args.title if args.fold_title else "")
+
+
 def _dispatch(args, config, registry: Registry, apply_writes: bool):
     command = args.command
     if command == "show":
@@ -229,13 +262,16 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
     if command == "upsert":
         try:
             task = Task(
-                id=args.task_id or derive_id(args.derive_id, args.spec),
+                id=args.task_id or _derived_id(args),
                 title=args.title,
                 kind=args.kind or "task",
                 spec_path=args.spec,
+                source_path=args.source,
                 summary=args.summary,
                 evidence=tuple(args.evidence),
                 acceptance_criteria=tuple(args.criterion),
+                reproduction=tuple(args.reproduction),
+                proposed_fix=tuple(args.proposed_fix),
                 labels=tuple(args.label),
             )
         except TaskModelError as exc:
@@ -340,6 +376,8 @@ def _select(registry: Registry, routine):
     config = registry.config
     if not routine:
         return "task-registry: `select` requires --routine <name>", 2
+    if routine in PRODUCER_ROUTINES:
+        return _producer_refusal(routine, "select"), 2
     if routine not in config.routine_selectors:
         known = ", ".join(sorted(config.routine_selectors)) or "none configured"
         return (
@@ -406,6 +444,8 @@ def _claim(registry: Registry, routine, task_ref, apply_writes: bool):
     config = registry.config
     if not routine:
         return "task-registry: `claim` requires --routine <name>", 2
+    if routine in PRODUCER_ROUTINES:
+        return _producer_refusal(routine, "claim"), 2
     if routine not in config.routine_selectors:
         known = ", ".join(sorted(config.routine_selectors)) or "none configured"
         return (
@@ -437,6 +477,19 @@ def _claim(registry: Registry, routine, task_ref, apply_writes: bool):
 
     registry.provider.update_task(task.with_(labels=tuple(task.labels) + (config.claim_label,)))
     return f"claim: wrote {config.claim_label} to {task_ref} for routine {routine}", 0
+
+
+def _producer_refusal(routine: str, command: str) -> str:
+    """A producer is not unknown — it is the wrong direction.
+
+    Saying "unknown routine" would send the operator to add a selector for it,
+    which load-time validation then refuses. Name the real mistake instead.
+    """
+    return (
+        f"task-registry: {routine!r} is a producer routine — it files issues, it does "
+        f"not select them. `{command}` takes a consumer routine; run "
+        "`task-registry selectors` for the configured ones."
+    )
 
 
 def _selector_vocabulary(config) -> list:

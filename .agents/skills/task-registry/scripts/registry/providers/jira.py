@@ -26,7 +26,7 @@ import urllib.request
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..config import ConfigError, require_secure_transport
-from ..model import ExternalRef, Task, task_from_metadata, upsert_metadata_block
+from ..model import ExternalRef, Task, section, task_from_metadata, upsert_metadata_block
 from ..redaction import redactor_for
 from .base import (
     Capabilities,
@@ -428,10 +428,11 @@ def _seed_body(task: Task) -> str:
     parts: List[str] = []
     if task.summary:
         parts += [task.summary.strip(), ""]
-    if task.acceptance_criteria:
-        parts.append("Acceptance criteria:")
-        parts += [f"* {item}" for item in task.acceptance_criteria]
-        parts.append("")
+    # Wiki markup: `#` numbers and `*` bullets, same order as GitHub, no gap.
+    parts += section("Reproduction:", [f"# {step}" for step in task.reproduction], gap=False)
+    parts += section("Proposed fix:", [f"* {step}" for step in task.proposed_fix], gap=False)
+    parts += section("Acceptance criteria:", [f"* {item}" for item in task.acceptance_criteria], gap=False)
+    parts += section("Evidence:", [f"* {item}" for item in task.evidence], gap=False)
     if task.spec_path:
         parts += [f"Spec: {task.spec_path}", ""]
     return "\n".join(parts)

@@ -582,11 +582,19 @@ each routine's mandatory step list, is
 
 #### Draft, and issue linkage
 
-| Branch | Flags | Body carries |
-|---|---|---|
-| `routine/plan/<n>-<slug>` | `--draft` | `Refs #N` |
-| any other `routine/<name>/<n>-<slug>` | none | `Closes #N` |
-| outside `routine/` | none | whatever the session warrants |
+| Branch | Flags | Title | Body carries |
+|---|---|---|---|
+| `routine/plan/<n>-<slug>` | `--draft` | conventional | `Refs #N` |
+| `routine/janitor/<YYYYMMDD>-sweep` | none | `chore(sweep): janitor <YYYY-MM-DD>` (`— clean` suffix when nothing was filed) | step ledger, the record path `tasks/sweeps/<YYYY-MM-DD>-janitor.md`, and `Refs #N` for **every** issue in the record's *Filed* section — never `Closes` |
+| `routine/architect/<YYYYMMDD>-sweep` | none | `chore(sweep): architect <YYYY-MM-DD>`, same suffix rule | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-architect.md` |
+| any other `routine/<name>/<n>-<slug>` | none | conventional | `Closes #N` |
+| outside `routine/` | none | conventional | whatever the session warrants |
+
+A producer branch's number is a **run stamp** (`YYYYMMDD`), not an issue. It is
+never looked up as one, so the "issue is missing or closed" report below does
+not apply to it; the issues a producer PR references are the ones the session
+record's *Filed* section lists, read from that file. When the record says
+`Filed: none`, the body carries no `Refs` line and says so.
 
 `--draft` is passed **when and only when the routine is `plan`**. A plan is a
 proposal, so it opens as a draft; every other routine ends at a ready PR because

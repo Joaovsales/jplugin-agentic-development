@@ -1,7 +1,7 @@
 ---
 name: debug
 description: Systematically investigate, diagnose, and fix bugs using root cause analysis. Use when debugging errors, test failures, runtime issues, or when the user reports a bug. Integrates with the typed learning store (tasks/solutions/).
-argument-hint: "[bug description or error message]"
+argument-hint: "[bug description | error message | #N | task-id]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -33,13 +33,47 @@ Symptom fixes are failure. Single-hypothesis tunnel vision is failure.
      starting a duplicate investigation
 
 2. **Identify the bug**:
-   - If `$ARGUMENTS` provided: use as the bug description
+   - If `$ARGUMENTS` is an **issue reference** — `#N` or a registry task ID — read
+     it through `task-registry show <ref>` (never a tracker CLI). The body a
+     `/sweep` filed carries a *Reproduction*, a *Proposed fix*, acceptance
+     criteria, and evidence; § *Issue intake* below says what each becomes.
+   - Otherwise, if `$ARGUMENTS` provided: use as the bug description
    - If no arguments: ask the user to describe the bug, provide error output, or point to the failing test
+
+### Issue intake
+
+An issue filed by `/sweep` (see `specs/sweep-routines.md`) was written so a
+cheaper model can work it cold, and this skill is where that pays off:
+
+| Issue section | Becomes |
+|---|---|
+| *Reproduction* (numbered steps; last line `observed: … / expected: …`) | the reproduction step of Phase 1 — run it verbatim before anything else |
+| *Proposed fix* | **candidate one** in the Phase 0.5 prelude — a hypothesis to be confirmed by disconfirming evidence, never assumed correct because a sweep wrote it |
+| *Acceptance Criteria* | the pass condition for Phase 3, and the `[ ] TDD:` tasks Phase 4 writes |
+| *Evidence* (four-axis tag, `file:line`, `discovered:` stamp) | the prior for the prelude's ranking; a `75` names what it turns on and the prelude reads that first |
+
+A `tech-debt` task read this way has no reproduction: its proposed fix and
+evidence enter the prelude the same way, and Phase 1 writes the failing test
+from the acceptance criteria instead.
+
+**Unattended intake.** On a `routine/` branch there is no user to ask. If the
+issue's reproduction does not reproduce — the command runs, the observed output
+matches the expected one — emit exactly:
+
+```
+blocked: reproduction failed — <command>
+```
+
+exit **non-zero**, and open no PR. Do not fall back to guessing a different
+reproduction and do not prompt. The claim label stays on the issue; releasing it
+needs a registry write that does not exist yet.
 
 ## Phase 0.5 — Root-Cause Prelude (MANDATORY before any Edit)
 
 Before touching a single file, post this block to the user and wait for confirmation
-OR explicitly pick a branch and name the disconfirming evidence. This exists because
+OR explicitly pick a branch and name the disconfirming evidence. On a `routine/`
+branch there is no user: record the block in the turn output, pick a branch, and
+proceed. This exists because
 the #1 debugging failure mode is committing to hypothesis #1 and editing the wrong
 component (see the WhatsApp UserMenu/Banner and dual-SIM sagas in memory).
 
@@ -71,7 +105,8 @@ Picked: #<N> because [disconfirming evidence for others is stronger than for thi
 
 - **Do not skip this block** even for "obvious" bugs. Obvious bugs are where wrong-component detours happen.
 - **Do not collapse to 1 candidate** until disconfirming checks have been run on the other two. Listing one candidate = speculation.
-- **If reproduction is `NO`**: STOP and ask the user for a screenshot, log excerpt, or exact repro steps. Do not proceed to Phase 1.
+- **If reproduction is `NO`**: STOP and ask the user for a screenshot, log excerpt, or exact repro steps. Do not proceed to Phase 1. On a `routine/` branch there is no user: emit `blocked: reproduction failed — <command>` and exit non-zero instead (§ *Issue intake*).
+- **If the bug came from an issue**: its *Proposed fix* is candidate #1, and the other two candidates must be genuinely different components, not paraphrases of it. A sweep's proposal is the strongest prior on the list, not a verdict.
 - **If the user redirects** ("look at X instead", "that's not the bug"): re-run this prelude with their new information. Do not continue with the old hypothesis.
 
 Only after the prelude passes do you delegate to Phase 1.
@@ -116,7 +151,7 @@ Return:
 - Recommended fix approach
 ```
 
-**If the agent cannot reproduce**: ask the user for more context (logs, steps, environment). Do not guess.
+**If the agent cannot reproduce**: ask the user for more context (logs, steps, environment). Do not guess. Unattended (a `routine/` branch), there is nobody to ask: emit `blocked: reproduction failed — <command>`, exit non-zero, no PR.
 
 ## Phase 2 — Fix
 
@@ -187,6 +222,23 @@ Create or update a bug-track document using the
 for this bug already exists (found in Pre-Flight), update it in place — never
 create a sibling. Create `tasks/solutions/bugs/` if absent.
 
+### Write the build tasks (issue intake only)
+
+When the bug came in as an issue that carries a *Proposed fix* and acceptance
+criteria, this phase also writes the plan `/build` will execute — one row per
+criterion, in the standard shape, under a heading naming the issue:
+
+```
+## Fix: #N — <title>
+
+- [ ] TDD: <test that pins criterion 1> -> <the proposed-fix step that satisfies it>
+- [ ] TDD: <test that pins criterion 2> -> <step>
+```
+
+The proposed fix is decomposed as the prelude confirmed it, not as the issue
+wrote it: where Phase 1 disproved a step, the row states the step that replaced
+it. The `fix` routine's next step is `/build`, which reads exactly these rows.
+
 ### Capture Lesson
 
 If this bug reveals a reusable pattern beyond the fix itself, write a
@@ -248,7 +300,7 @@ Ready for /wrap-up-session or continued work.
 
 ## Error Handling
 
-- **Cannot reproduce**: Ask user for more context. Do not proceed without reproduction.
+- **Cannot reproduce**: Ask user for more context. Do not proceed without reproduction. Unattended, `blocked: reproduction failed — <command>` and a non-zero exit — never a prompt, never a PR.
 - **Fix introduces new failures**: Revert and try alternative approach. Max 3 alternative approaches before escalating.
 - **Loop timeout (5 iterations)**: Escalate to user with full context of what was tried.
 - **Multiple root causes**: Fix one at a time. Each gets its own bug document and loop verification cycle.

@@ -391,6 +391,39 @@ for routine in plan fix improve build; do
 done
 
 # ============================================================================
+# 5a. Producers — specs/sweep-routines.md AC2
+# ============================================================================
+# `janitor` and `architect` FILE issues; they never select one. They are contract
+# members (so their branches format and parse) but not selectors: `select` and
+# `claim` refuse them with a distinct message, and a [routines.selectors] key
+# naming one is refused at load like any routine outside the contract.
+producers="$(pyreg <<'PY'
+from registry.config import CONTRACT_ROUTINES, PRODUCER_ROUTINES, DEFAULT_SELECTORS
+print("producers:", ",".join(PRODUCER_ROUTINES))
+print("in-contract:", all(name in CONTRACT_ROUTINES for name in PRODUCER_ROUTINES))
+print("selectable:", ",".join(sorted(set(PRODUCER_ROUTINES) & set(DEFAULT_SELECTORS))) or "none")
+PY
+)"
+assert_contains "$producers" "producers: janitor,architect" \
+  "AC2: config.PRODUCER_ROUTINES names both producers"
+assert_contains "$producers" "in-contract: True" \
+  "AC2: every producer is also a contract routine"
+assert_contains "$producers" "selectable: none" \
+  "AC2: no producer ships a selector"
+
+F_PRODUCER="$(new_fixture)"
+write_config "$F_PRODUCER" <<'EOF'
+[routines.selectors]
+fix = bug
+janitor = tech-debt
+EOF
+write_labels "$F_PRODUCER" bug tech-debt in-progress
+producer_out="$(run_selectors "$F_PRODUCER")"; producer_code=$?
+assert_eq "1" "$producer_code" "AC2: a selector naming a producer is refused at load"
+assert_contains "$producer_out" "janitor" "AC2: the refusal names the producer"
+assert_contains "$producer_out" "producer" "AC2: the refusal says WHY — it is a producer"
+
+# ============================================================================
 # 5b. The three-state seams, and the diagnostic that must survive a broken config
 # ============================================================================
 
@@ -463,6 +496,12 @@ cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
 EOF
 printf '{"number":42,"title":"Crash","body":"","labels":[{"name":"bug"}]}\n' \
   > "$F_CLAIM/ghdata/issue-42.json"
+
+prod_claim_out="$(run_claim "$F_CLAIM" 42 --routine architect --apply --approve)"; prod_claim_code=$?
+assert_eq "2" "$prod_claim_code" "AC2: claim --routine architect exits 2"
+assert_contains "$prod_claim_out" "producer" "AC2: claim's refusal names 'producer'"
+assert_not_contains "$(cat "$F_CLAIM/gh.log" 2>/dev/null || echo "no-writes")" "in-progress" \
+  "AC2: a refused producer claim writes nothing"
 
 # Dry-run is the default for every write in this CLI, and claim is a write.
 claim_dry="$(run_claim "$F_CLAIM" 42 --routine fix)"; claim_dry_code=$?
@@ -537,6 +576,15 @@ assert_contains "$old_out" "closedByPullRequestsReferences" \
 bad_out="$(run_select "$F_SEL" --routine nonesuch)"; bad_code=$?
 assert_eq "2" "$bad_code" "select: an unknown routine name exits non-zero"
 assert_contains "$bad_out" "nonesuch" "select: the refusal names the unknown routine"
+
+# A producer is not unknown -- it is the wrong direction. The message must say so,
+# or an operator scheduling `select --routine janitor` reads "unknown" and adds a
+# selector for it, which the load-time refusal above then rejects.
+prod_sel_out="$(run_select "$F_SEL" --routine janitor)"; prod_sel_code=$?
+assert_eq "2" "$prod_sel_code" "AC2: select --routine janitor exits 2"
+assert_contains "$prod_sel_out" "producer" "AC2: select's refusal names 'producer'"
+assert_not_contains "$prod_sel_out" "unknown routine" \
+  "AC2: select does not call a producer unknown"
 
 # ============================================================================
 # 7. The template documents what it ships

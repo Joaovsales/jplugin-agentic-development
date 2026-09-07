@@ -3,7 +3,7 @@
 How to dispatch sub-agents so a failure surfaces as a **degraded result you can act on** instead of
 a phase that sits dead until a human notices.
 
-Applies to every skill that dispatches sub-agents: `/build`, `/auto-improve`, `/yolo`,
+Applies to every skill that dispatches sub-agents: `/build`, `/yolo`,
 `/auto-push`, `/quality-gate`, `/debug`.
 
 ---

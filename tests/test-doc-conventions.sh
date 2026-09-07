@@ -193,8 +193,7 @@ done
 # unappliable. In an unattended loop that must reach the existing FAIL/STOP
 # path, never a user prompt.
 for f in .claude/skills/yolo/SKILL.md .agents/skills/yolo/SKILL.md \
-         .claude/skills/auto-push/SKILL.md .agents/skills/auto-push/SKILL.md \
-         .claude/skills/auto-improve/SKILL.md .agents/skills/auto-improve/SKILL.md; do
+         .claude/skills/auto-push/SKILL.md .agents/skills/auto-push/SKILL.md; do
   assert_file_contains "$f" "gated_auto" \
     "M2: $f states how a non-gated_auto MUST-FIX is routed"
 done

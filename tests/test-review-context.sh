@@ -18,14 +18,14 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-# The four skill FILES that dispatch a reviewer. A file can hold more than one
+# The three skill FILES that dispatch a reviewer. A file can hold more than one
 # site -- wrap-up-session carries two (Step 4 and Parallel Code Review), which is
 # why the second one gets its own needle below rather than riding on the file.
-# auto-improve IS a dispatch site and carries the payload like any other. Its
-# discovery scan is an exception to the *subject* of items 2/3/6 -- a repo survey
-# has no session to describe -- never to stating them, which is why the
-# `deferrals: none` and `no spec --` needles below still apply to it.
-DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/auto-improve/SKILL.md"
+# `/sweep` is NOT a dispatch site: it runs its engine inline and reaches a
+# reviewer only through `/software-design-expert-review --scope tree`, whose
+# repo survey is an exception to the *subject* of items 2/3/6 -- a repo survey
+# has no session to describe -- never to stating them.
+DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md"
 
 REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
 

@@ -82,7 +82,11 @@ Run this pass when no scope argument is supplied.
    Each independently explains the user-visible behavior from source, cites
    entry points, reports likely drift or none, and returns one concise live
    recipe. Subagents never drive the app or edit files. If independent dispatch
-   is unavailable, return `blocked` and state the lost coverage.
+   is unavailable, run the wave **inline**, one feature at a time, in this
+   context — and state the lost corroboration in the report: every drift call
+   then has a single witness, so none is promoted on agreement (`CLAUDE.md`
+   § *Independence Accounting*). `blocked` is reserved for source that cannot
+   be read, not for a wave that could not be parallelised.
 3. **Reconcile.** Require a returned summary for every feature. Spot-check cited
    drift and inspect recent user-facing source churn for missing mapped features.
    Merge recipes into as few app states as practical without dropping entry points.
@@ -100,13 +104,20 @@ Run this pass when no scope argument is supplied.
    product code.
 7. **Ship or stop.** For `changed`, re-read all edits and create at most one PR
    containing proven verification corrections. For `clean` or `blocked`, create
-   no PR. Keep run notes in scratch storage, never in the commit.
+   no PR. Keep run notes in scratch storage, never in the commit. **When invoked
+   from `/sweep`**, defer this step to the caller: leave proven corrections
+   staged on the sweep branch, open no PR, and return the product regressions
+   and coverage gaps as the sweep's candidates — the sweep owns the PR and the
+   session record is its run notes.
 
 ## Integration
 
 - Called with `--scope changed` by `/build` and `/wrap-up-session` before their
   E2E verification gate for user-facing session changes.
 - Called directly or by approved scheduling for a complete audit.
+- Called with no scope by `/sweep --routine janitor`, which files each verified
+  regression as a `bug` through `/task-registry` and carries any proven map
+  correction on its own branch.
 - Maintains output from `/create-verification-skill`; live driving follows the
   selected project skill and `/verify --scope e2e` capability rules.
 
