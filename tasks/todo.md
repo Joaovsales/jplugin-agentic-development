@@ -20,7 +20,7 @@
 - [x] TDD: AC9 GREEN -> delete `.agents/skills/auto-improve` + `.claude/skills/auto-improve` + `tests/test-auto-improve-rewire.sh`; repoint CLAUDE.md (skills table + repo-survey exception -> `/sweep --routine architect`), README.md, session-start.sh, build SKILL.md, subagent-resilience.md; update loops in test-doc-conventions.sh, test-model-tiers.sh, test-review-context.sh, test-skill-invocation-chain.sh, test-routines-contract.sh
 - [x] TDD: AC10 GREEN -> `task-registry/references/configuration.md` "Unattended routines" section
 - [x] TDD: AC11 -> copy every edited/new file byte-identical into `.claude/`; `tests/test-skill-parity.sh` + `bash tests/run.sh` fully green; record output
-- [ ] Wrap-up: `/wrap-up-session` — commit `feat(routines): add janitor and architect sweep routines, retire /auto-improve`, push, open PR against master
+- [x] Wrap-up: `/wrap-up-session` — commit `feat(routines): add janitor and architect sweep routines, retire /auto-improve`, push, open PR against master
 
 ---
 
@@ -488,3 +488,10 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
 - Pending: 0 tasks from this session; issue #107 was closed as superseded by PR #105.
 - Carry-forward: pre-existing task-registry reconciliation findings remain outside
   this session's scope.
+
+## Session Summary — 2026-09-07 [d1b4b14..db07dcd]
+- Completed: 13/13 plan tasks for specs/sweep-routines.md plus the wrap-up row;
+  rebased onto #110 before push (register conflicts only)
+- Pending: 0 active; 2 deferred externally (#97, #98) unchanged
+- Carry-forward: `/plan` has no issue-reference intake (prompts hand it
+  `task-registry show` output by hand); follow-up scope call for a human
