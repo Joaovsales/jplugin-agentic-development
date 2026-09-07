@@ -449,7 +449,7 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
 - [ ] task-registry: github provider reports native_hierarchy/native_dependencies false, but gh now exposes parent, subIssues, blockedBy and blocking <!-- task-id: task-registry.github-native-hierarchy-and-dependencies --> — The github provider hardcodes native_hierarchy=False and native_dependencies=False, so link_parent and add_dependency d… ([#97](https://github.com/Joaovsales/jplugin-agentic-development/issues/97))
 - [ ] routines: implement the `build` routine (deferred from the first category-routines PR) <!-- task-id: routines.build-routine --> — specs/category-routines.md defines four routines. Three (plan, fix, improve) ship in the first PR. `build` is deferred… ([#98](https://github.com/Joaovsales/jplugin-agentic-development/issues/98)) (blocked-by: task-registry.github-native-hierarchy-and-dependencies)
 
-## Session Summary — 2026-09-06 fb41c7a..HEAD (sha range closes at commit)
+## Session Summary — 2026-09-06 [fb41c7a..18ac574]
 - Completed: 0 planned tasks — `/debug 82` session, no todo plan; fix shipped on
   branch `Joaovsales/task-tracking-config-a-pointer-to-a-missing-file`
 - Pending: 0 active; 2 deferred externally (#97, #98) unchanged
