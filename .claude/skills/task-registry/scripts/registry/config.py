@@ -683,7 +683,7 @@ def _refuse_absent_chain_skills(config) -> None:
         return
     missing = sorted(
         {
-            f"{routine}: {skill}"
+            f"{routine}: {skill!r}"
             for routine, chain in config.routine_skills.items()
             for skill in chain
             if not _skill_on_disk(config.root, skill)
@@ -698,8 +698,21 @@ def _refuse_absent_chain_skills(config) -> None:
 
 
 def _skill_on_disk(root: str, skill: str) -> bool:
-    """Is `/name` an installed skill in either skills tree?"""
+    """Is `/name` an installed skill in either skills tree?
+
+    A skill reference is a directory NAME, never a path, so anything carrying a
+    separator or a `..` segment is refused before it reaches the filesystem. The
+    name arrives from a file in the repository — the same untrusted input class
+    the task-tracking pointer is confined for — and without this the probe reads
+    `os.path.isfile("<root>/.agents/skills/../../../etc/SKILL.md")`, an existence
+    oracle for arbitrary paths that answers False for the wrong reason.
+
+    Rejecting the shape rather than confining the result keeps the rule legible:
+    there is no legitimate chain step this refuses.
+    """
     name = skill.lstrip("/")
+    if not name or "/" in name or "\\" in name or name in (".", ".."):
+        return False
     return any(
         os.path.isfile(os.path.join(root, skill_root, name, "SKILL.md"))
         for skill_root in SKILL_ROOTS

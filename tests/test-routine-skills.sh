@@ -211,6 +211,62 @@ INI
 assert_contains "$(load_report "$claude_only")" "chain plan: /plan -> /wrap-up-session" \
   "AC4: a skill present only in .claude/skills/ satisfies the on-disk check"
 
+# A skill reference is a directory NAME, not a path. The name comes from a file
+# in the repository — the same untrusted input class the task-tracking pointer is
+# confined for — and without a shape check the probe reads
+# `<root>/.agents/skills/../../../etc/SKILL.md`: an existence oracle for
+# arbitrary paths that answers False for the wrong reason.
+#
+# Asserting the refusal alone proves nothing: a hostile step is refused anyway
+# because nothing exists where it points, so the assertion holds with the shape
+# check deleted. Each case below therefore CREATES the file the unguarded probe
+# would find — `<root>/.agents/skills/<hostile>/SKILL.md` after the OS resolves
+# it — so refusing and traversing give different answers, and only the guard
+# produces this one.
+printf '\n-- AC4: a chain step may not be a path --\n'
+for hostile in "/../../etc" "/../wrap-up-session" "/.." "/nested/name"; do
+  trav="$(new_fixture plan wrap-up-session)"
+  # The literal, unnormalized path config.py probes. Creating it is what makes
+  # the assertion below falsifiable.
+  bait="$trav/.agents/skills/${hostile#/}/SKILL.md"
+  mkdir -p "$(dirname "$bait")"
+  printf -- '---\nname: bait\n---\n' > "$bait"
+  [ -f "$bait" ] || { printf 'FIXTURE BROKEN: no bait at %s\n' "$bait"; exit 1; }
+  write_config "$trav" "design-decision" <<INI
+[routines.selectors]
+plan = design-decision
+
+[routines.skills]
+plan = /plan, $hostile, /wrap-up-session
+INI
+  assert_contains "$(refusal_of "$trav")" "not installed" \
+    "AC4: a chain step is refused for its SHAPE, though the path it names exists ($hostile)"
+done
+
+# The refusal echoes repository text, so it is repr-escaped — an ANSI escape in a
+# skill name must not reach a terminal or an agent's context raw. Same rule the
+# pointer refusal adopted for the same reason.
+#
+# The ESC must be a REAL 0x1b byte: writing the four characters `\x1b` into the
+# file makes the needle match whether or not repr is applied, and the assertion
+# cannot fail. Built with printf for that reason.
+esc="$(new_fixture plan wrap-up-session)"
+{ printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n'
+  printf '\n[routines]\nkind_precedence = design-decision\n'
+  printf '\n[routines.selectors]\nplan = design-decision\n'
+  printf '\n[routines.skills]\nplan = /plan, /boom\033[31mred, /wrap-up-session\n'
+  printf '```\n'
+} > "$esc/docs/task-tracking.md"
+# Confirm the fixture really carries the control byte, or the assertion below is
+# testing the escaping of a string that never needed escaping.
+assert_eq "1" "$(grep -c "$(printf '\033')" "$esc/docs/task-tracking.md")" \
+  "AC4 fixture: the skill name carries a real ESC byte, not the literal text \\x1b"
+esc_refusal="$(refusal_of "$esc")"
+assert_contains "$esc_refusal" '\x1b' \
+  "AC4: the refusal escapes control characters in a skill name rather than emitting them"
+assert_not_contains "$esc_refusal" "$(printf '\033')" \
+  "AC4: no raw ESC byte reaches the refusal output"
+
 # ============================================================================
 # 3. AC5 — every chain ends at /wrap-up-session
 # ============================================================================
@@ -368,6 +424,17 @@ assert_eq "docs/task-tracking.md" "$project_pointer" \
   "AC7: the declaration names this project's configuration file"
 assert_eq "present" "$([ -f "$project_pointer" ] && echo present || echo missing)" \
   "AC7: the declared target exists — the project is configured, not broken"
+
+# Pi does not read `.claude/project.md` and Claude Code does not read `AGENTS.md`,
+# so one pointer configures one harness. Shipping only the Claude Code copy left
+# this project silently loading defaults on Pi, with the routine chains and the
+# claim label unconfigured and nothing saying so.
+assert_file_matches "AGENTS.md" "^Task tracking instructions: " \
+  "AC7: AGENTS.md carries the declaration too — Pi reads no other project file"
+agents_pointer="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' AGENTS.md \
+  | sed -E 's/^[^:]*:[[:space:]]*//' | head -1)"
+assert_eq "$project_pointer" "$agents_pointer" \
+  "AC7: both harnesses are pointed at the SAME configuration file"
 
 # CLAUDE.md documents the convention and emits no live pointer of its own.
 claude_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' CLAUDE.md || true)"
