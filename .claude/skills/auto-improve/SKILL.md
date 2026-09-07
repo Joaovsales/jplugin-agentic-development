@@ -191,6 +191,10 @@ No green suite → no PR. This is non-negotiable.
    same diff, same payload, so promoting on it would count an echo as a witness
    (`CLAUDE.md` § *Independence Accounting*). Exactly one site dispatches, and for
    `/auto-improve` that site is Phase 4.
+   Declare this run **unattended** so wrap-up's Step 8.5 assertion runs. A daily
+   cloud run is unattended by definition, but the branch is an ordinary feature
+   branch and says nothing about who is watching — so a run that ends at one of
+   wrap-up's six no-PR exits at 03:00 reports to nobody unless the caller says so.
 3. PR body: what was changed, why it was the highest-value pick, the ranked
    runner-ups deferred to backlog, the test/coverage evidence, and **this run's
    step list** — every row from Phase 3, including any carrying `skip: <reason>`.

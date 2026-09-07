@@ -119,9 +119,30 @@ for tree in .agents .claude; do
   assert_prose_contains "$f" "says nothing when the pull request exists" \
     "AC11: $tree keeps the success path silent (failure-only reporting)"
 
+  # `gh pr view` exits non-zero for "no such PR" AND for "could not ask". Reading
+  # the second as the first reports a missing PR that may well exist — a false
+  # alarm on every night gh is unhappy, which is how a nightly check gets muted.
+  assert_contains "$terminal" "could not ask" \
+    "AC11: $tree tells a failed gh apart from an absent pull request"
+
+  # The scope test is the parser, not the prefix: `routine/plna/90-x` matches
+  # `routine/` and belongs to no routine.
+  assert_contains "$terminal" "routine_branch.py" \
+    "AC11: $tree decides 'is this a routine branch' with the parser that owns the format"
+
   # --- the contract document is reachable from the skill that implements it ---
   assert_file_contains "$f" "references/routines.md" \
     "AC7: $tree/wrap-up-session cites the routine contract"
+done
+
+# The other half of the scope rule: an unattended run on an ORDINARY branch is
+# invisible to the parser, so the caller has to say so. A skill that invokes
+# wrap-up unattended and never declares it silently opts out of the assertion.
+for caller in yolo auto-improve auto-push; do
+  for tree in .agents .claude; do
+    assert_file_contains "$REPO/$tree/skills/$caller/SKILL.md" "Step 8.5" \
+      "AC11: $tree/$caller declares its wrap-up run unattended"
+  done
 done
 
 assert_files_identical \

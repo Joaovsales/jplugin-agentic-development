@@ -712,10 +712,26 @@ If no `## Deployment Targets` section: scan `tasks/deployments/*.md` for signal 
 Runs last, and **runs even when an earlier gate stopped the run** — the exits
 this exists to make loud are exactly the ones that end wrap-up early.
 
-**Scope: unattended runs only.** A run is unattended when the branch is a
-`routine/` branch (the routine spine's step 5) or when wrap-up was invoked from
-`/yolo`, `/auto-improve`, or `/auto-push`. An **interactive** run is exempt: a
-human is watching the transcript, which is the thing this step substitutes for.
+**Scope: unattended runs only.** An **interactive** run is exempt: a human is
+watching the transcript, which is the thing this step substitutes for. A run is
+unattended when either holds:
+
+```bash
+# 1. The branch is a routine branch. Exit 0 means yes; exit 3 means no.
+#    `routine/` is a prefix, but only the parser knows which names under it are
+#    real -- `routine/plna/90-x` is nobody's branch, and matching the prefix
+#    would read it as a routine run.
+python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
+  parse "$(git branch --show-current)"
+```
+
+2. The caller declared it. `/yolo`, `/auto-improve`, and `/auto-push` each carry a
+   **Step 8.5 — unattended** row in the override table they pass to this skill.
+   Their branches are ordinary feature branches, so nothing about the branch name
+   says a human stopped watching; only the caller knows, so only the caller can
+   say.
+
+Then:
 
 ```bash
 gh pr view "$(git branch --show-current)" --json number,url -q .url
@@ -725,6 +741,13 @@ gh pr view "$(git branch --show-current)" --json number,url -q .url
 |---|---|
 | A pull request exists | **say nothing** beyond the `PR:` line of the Done report |
 | No pull request | report loudly, name which exit produced no PR, and **exit non-zero** |
+| `gh` itself failed — not installed, not authenticated, no network | report loudly as **UNKNOWN**, quote `gh`'s stderr, and **exit non-zero** |
+
+The third row is the one an assertion usually forgets. `gh pr view` exits
+non-zero both for "no such pull request" and for "could not ask", and collapsing
+them reports a missing PR that may well exist — a false alarm every night `gh`
+is unhappy, which is how a nightly check gets muted. Distinguish them by the
+stderr `gh` prints, and never let "could not ask" render as "no PR".
 
 It **says nothing when the pull request exists**. A terminal check that prints on
 every green run is one readers learn to skip, and then the loud case is no longer
