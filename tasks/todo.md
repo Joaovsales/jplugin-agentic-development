@@ -1,3 +1,7 @@
+# Active issue
+
+- [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))
+
 # Yolo iteration 1 — qwen spend guardrails
 
 - [x] TDD: spec written (specs/qwen-spend-guardrails.md) — config task, no test suite; validation = JSON parse + doctor + API GET
@@ -454,3 +458,11 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
   branch `Joaovsales/task-tracking-config-a-pointer-to-a-missing-file`
 - Pending: 0 active; 2 deferred externally (#97, #98) unchanged
 - Carry-forward: none from this session
+- [x] route/debug: bug lanes should enter TDD directly after root-cause confirmation <!-- task-id: route.debug-bug-lane-plan-gate --> — resolved by PR #105: `/route` was deleted and the `fix` routine now runs `/debug` directly into `/build`/TDD ([#107](https://github.com/Joaovsales/jplugin-agentic-development/issues/107))
+
+## Session Summary — 2026-09-07 [bbef230..7aedccb]
+- Completed: 1 bug fix — issue #90 preserves complete legacy-row detail and clean
+  provider titles through publication and canonical rewrite.
+- Pending: 0 tasks from this session; issue #107 was closed as superseded by PR #105.
+- Carry-forward: pre-existing task-registry reconciliation findings remain outside
+  this session's scope.

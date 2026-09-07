@@ -26,3 +26,6 @@ is unchanged, which is the point — the pattern survives its first consumer.
 Use the CLI summary for humans and semantic inspection; use the structured operation
 for policy. This keeps provider selection and failure degradation inside the module
 that owns them.
+
+When one structured record spans multiple physical lines, the same losslessness
+rule extends to replacement: [Logical text records must own their rewrite span](logical-text-records-must-own-their-rewrite-span.md).
