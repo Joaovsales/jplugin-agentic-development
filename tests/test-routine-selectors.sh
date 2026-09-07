@@ -671,6 +671,116 @@ assert_eq "1" "$wf_missing_code" \
 assert_contains "$wf_missing_out" "4242" \
   "AC2: the refusal names the reference that did not resolve"
 
+# The reference an issue is WRITTEN as, everywhere else in this repo, is `#11`.
+# `workflow` compared the raw argument against `external.id`, which holds the
+# bare number, so the form every human and every markdown link uses refused an
+# issue that exists. `resolve_reference` has always known how to parse it.
+wf_hash_out="$(run_workflow "$F_SEL" '#11')"; wf_hash_code=$?
+assert_eq "0" "$wf_hash_code" \
+  "workflow: the '#11' form resolves — the same issue as the bare 11"
+assert_eq "$wf_fix_out" "$wf_hash_out" \
+  "workflow: '#11' and '11' are the same issue, so they get the same answer"
+
+# -- outcome 5b: a CLOSED issue is not a live one ----------------------------
+# A closed issue keeps its kind label, so every selector still matches it and
+# the report reads as a runnable routine. An unattended caller acting on that
+# starts work on something already finished.
+F_WF_CLOSED="$(new_fixture)"
+write_config "$F_WF_CLOSED" <<'EOF'
+EOF
+write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation tech-debt now next in-progress
+cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
+[{"number":31,"title":"Long since fixed","state":"CLOSED","url":"https://github.com/o/r/issues/31",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_closed_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_closed_code=$?
+assert_eq "1" "$wf_closed_code" \
+  "workflow: a closed issue exits non-zero — there is no routine to start"
+assert_not_contains "$wf_closed_out" "chain:" \
+  "workflow: a closed issue is not handed a skill chain to run"
+assert_contains "$wf_closed_out" "31" \
+  "workflow: the closed-issue refusal names the issue"
+
+# The same issue REOPENED must route. Without this pair the assertion above
+# passes for an implementation that refuses every issue in this fixture.
+cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
+[{"number":31,"title":"Long since fixed","state":"OPEN","url":"https://github.com/o/r/issues/31",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_reopened_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_reopened_code=$?
+assert_eq "0" "$wf_reopened_code" \
+  "workflow: the SAME issue reopened routes — the guard reads state, not the fixture"
+assert_contains "$wf_reopened_out" "chain:" \
+  "workflow: the reopened issue is handed its chain"
+
+# -- an outage is not a misconfiguration -------------------------------------
+# Both used to exit 2, the code a nightly wrapper pages a human on. A tracker
+# that did not answer needs a retry, and no file edit would fix it.
+F_WF_OUTAGE="$(new_fixture)"
+write_config "$F_WF_OUTAGE" <<'EOF'
+EOF
+rm -f "$F_WF_OUTAGE/ghdata/labels.json"   # `gh label list` now fails like an outage
+cat > "$F_WF_OUTAGE/ghdata/issues.json" <<'EOF'
+[{"number":32,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/32",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_outage_out="$(run_workflow "$F_WF_OUTAGE" 32)"; wf_outage_code=$?
+assert_eq "1" "$wf_outage_code" \
+  "workflow: a tracker that did not answer exits 1, NOT the 2 a wrapper pages on"
+assert_contains "$wf_outage_out" "COULD NOT RUN" \
+  "workflow: the outage says the check could not run, not that it passed"
+
+# -- a truncated read must not be reported as 'no such task' -----------------
+# The scan fallback reads the whole backlog, and `gh issue list` silently caps
+# at its page limit. A miss past the cut is indistinguishable from an absent
+# task, so the pool being partial has to be refused rather than searched.
+F_WF_TRUNC="$(new_fixture)"
+write_config "$F_WF_TRUNC" <<'EOF'
+EOF
+write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation tech-debt now next in-progress
+"$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'TRUNC_PY'
+import io, json, sys
+issues = [
+    {"number": n, "title": "Filler %d" % n, "state": "OPEN",
+     "url": "https://github.com/o/r/issues/%d" % n,
+     "labels": [{"name": "bug"}], "assignees": [],
+     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
+     "body": "", "closedByPullRequestsReferences": []}
+    for n in range(1, 501)
+]
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
+TRUNC_PY
+# A local-style id, so the provider cannot resolve it and the scan runs.
+wf_trunc_out="$(run_workflow "$F_WF_TRUNC" T-9)"; wf_trunc_code=$?
+assert_eq "1" "$wf_trunc_code" \
+  "workflow: a truncated backlog read exits non-zero rather than guessing"
+assert_contains "$wf_trunc_out" "truncated" \
+  "workflow: the refusal says the pool was partial — not that the task is absent"
+assert_not_contains "$wf_trunc_out" "no backlog task carries that id" \
+  "workflow: a partial read is NOT reported as a confirmed absence"
+
+# Under the page limit the same scan answers normally, so the assertion above
+# is pinned on truncation rather than on the id being unresolvable.
+"$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'SHORT_PY'
+import io, json, sys
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps([
+    {"number": 1, "title": "Filler", "state": "OPEN",
+     "url": "https://github.com/o/r/issues/1",
+     "labels": [{"name": "bug"}], "assignees": [],
+     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
+     "body": "", "closedByPullRequestsReferences": []}]))
+SHORT_PY
+wf_short_out="$(run_workflow "$F_WF_TRUNC" T-9)"; wf_short_code=$?
+assert_eq "1" "$wf_short_code" "workflow: an id nothing carries still exits 1"
+assert_contains "$wf_short_out" "no backlog task carries that id" \
+  "workflow: an untruncated miss IS a confirmed absence, and says so"
+
 # -- outcome 6: config fault, exit 2 -----------------------------------------
 # Distinct from exit 1 on purpose: a wrapper retries a missing issue and pages a
 # human for a broken configuration. Sharing a code makes both the wrong response.
