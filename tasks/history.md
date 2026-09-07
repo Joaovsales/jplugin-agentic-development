@@ -364,6 +364,10 @@ a file that never shipped and cannot (`docs/` is not syncable).
   documented as refused).
 - Learnings captured: `tasks/solutions/bugs/task-tracking-pointer-to-a-missing-file-was-indistinguishable-from-no-pointer.md`,
   `tasks/solutions/patterns/a-declared-intent-with-a-broken-target-is-not-an-absent-one.md`
+### [2026-09-07] — Legacy row publishing
+- Key changes: task-registry now parses and rewrites complete multi-line logical rows, derives clean legacy titles, rejects malformed or oversized provider-bound rows, and ships naming-convention guidance.
+- Key changes: issue #107 recorded the redundant routed `/plan` gate; after the session rebased, merged PR #105 had deleted `/route` and defined the `fix` routine as `/debug` directly into `/build`/TDD, so #107 was closed as superseded.
+- Learnings captured: [task-registry publish lost legacy row detail](solutions/bugs/task-registry-publish-lost-legacy-row-detail.md) and [logical text records must own their rewrite span](solutions/patterns/logical-text-records-must-own-their-rewrite-span.md).
 
 ### [2026-09-07] — Phase A of the task-registry shrink: the `workflow` command (40f6b5e..15a6c29, base bbef230)
 

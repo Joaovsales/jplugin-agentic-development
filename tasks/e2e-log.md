@@ -285,6 +285,74 @@ now says so rather than claiming otherwise.
 
 ---
 
+## E2E Walkthrough — task-registry legacy-row publication — 2026-09-06 51afded
+
+Spec: no spec — the user explicitly waived the redundant `/plan` gate for bug #90
+Commit: working tree based on `51afded886851c6e2c9b49bf64a6c8967a94b7fe`
+Browser: not applicable — non-browser CLI integration
+Harness: `tests/test-task-registry.sh`, invoking the real task-registry CLI against
+an isolated repository and fake `gh` process boundary
+
+### AC-1: A multi-line legacy row preserves its detail in the provider body
+
+Tier: CLI-FUNCTIONAL
+Journey: parse a migrated-shaped TDD row, invoke publication rendering, and inspect
+the body passed across the provider boundary.
+Steps executed:
+  ✓ Parsed the quoted deliverable as the title.
+  ✓ Collapsed the arrow clause and indented continuations into the body summary.
+  ✓ Kept the following task and section outside the logical row.
+  ✓ Replaced the complete logical span without duplicating continuation text.
+Negative: a malformed TDD row exits non-zero and never invokes `gh issue create` ✓
+Result: PASS
+
+### AC-2: Legacy titles exclude implementation guidance
+
+Tier: CLI-FUNCTIONAL
+Journey: parse both quoted TDD and ordinary arrow rows through the public index
+model used by `publish`.
+Steps executed:
+  ✓ Preferred the backtick-quoted TDD deliverable.
+  ✓ Split ordinary legacy titles at `->`.
+  ✓ Removed a dangling conjunction before the arrow.
+Negative: an empty quoted name is reported as unpublishable ✓
+Result: PASS
+
+### AC-3: The shipped configuration template documents naming conventions
+
+Tier: CLI-FUNCTIONAL
+Journey: validate both canonical and compatibility skill trees through the
+repository's documentation and parity checks.
+Steps executed:
+  ✓ Found the `## Naming conventions` stub.
+  ✓ Found the rule that raw `->` plan text belongs in the issue body.
+  ✓ Confirmed both skill trees are byte-identical.
+Negative: parity detects a one-tree-only template change ✓
+Result: PASS
+
+---
+
+## E2E Addendum — task-registry legacy publication boundary — 2026-09-07 7aedccb
+
+Spec: `specs/task-registry.md` (AC-14, AC-15, AC-19)
+Commit: `7aedccb`
+Browser: not applicable — non-browser CLI integration
+Harness: `tests/test-task-registry.sh`, real `task-registry publish --apply`
+against the fake-`gh` process boundary
+
+This addendum extends the preceding walkthrough after living-spec reconciliation
+and adversarial review. A valid multi-line legacy row containing both `->` and an
+em dash was published through the CLI. The captured `gh issue create` invocation
+carried the exact derived title (`recover active thread`) and complete body
+(`extend composer — preserve attachments across reloads`), and the local index
+was rewritten as one canonical linked row with no orphaned continuation.
+
+Negative journeys also crossed the CLI boundary: an ambiguous multiple-arrow row,
+an empty quoted TDD row, and unbalanced HTML comments made the entire mixed batch
+exit non-zero before any provider read or write. Exact 60,000-character input was
+accepted; 60,001 was refused without truncation.
+
+Result: PASS
 ## Integration Proof — `task-registry workflow` six outcomes (AC1, AC2, AC13) — 2026-09-07 (branch `feat/workflow-routing-phase-a`)
 
 `specs/workflow-routing.md` AC2 requires all six outcomes to be distinguishable

@@ -177,3 +177,16 @@ export JIRA_PROJECT=REG          # optional; `project =` above wins
 ```
 
 GitHub uses whatever `gh auth status` reports. No token is read from this file.
+
+## Naming conventions
+
+Adapt these examples to the repository's existing issue corpus:
+
+- Title: `<PLAN-ID>: <lowercase deliverable phrase>`; use a work-type prefix
+  such as `E2E:` or `Unit tests:` when verification is the deliverable, and a
+  plain sentence when there is no parent plan.
+- Never publish raw plan text. The `->` implementation clause belongs in the
+  issue body, not its title.
+- Labels: choose exactly one `area/*`, one priority tier, and one kind when the
+  repository maps those vocabularies. Keep verification-work labels consistent
+  with the repository's established convention.
