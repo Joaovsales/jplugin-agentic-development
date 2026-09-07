@@ -111,6 +111,32 @@ plan = design-decision
 fix = bug, tech-debt
 improve = enhancement, documentation
 
+; Routine -> the ordered skills it runs, once selection has told it WHICH issue.
+; Like [routines.selectors] and unlike [labels.kind], declared entries REPLACE
+; the shipped map wholesale rather than merging per key: a project that reorders
+; one chain and silently inherits three others cannot see, in its own file, which
+; chains it actually chose. So if you declare this section, declare a chain for
+; every routine you select with — a routine left with a selector and no chain is
+; refused, naming it.
+;
+; Three rules, all checked at load rather than at step 4 with the claim label
+; already written:
+;   * every skill named must exist in .agents/skills/ or .claude/skills/
+;   * every chain must END at /wrap-up-session — it is the review gate, and a
+;     chain that runs it anywhere but last can still ship work after it
+;   * the routine names are the contract's four; inventing one is a deliberate
+;     edit to CONTRACT_ROUTINES, not a configuration key
+;
+; Defaults shown, transcribed from the routine contract at
+; .agents/skills/wrap-up-session/references/routines.md. `plan` omits /build
+; and /quality-gate on purpose: it produces a spec and no implementation, so
+; requiring them would write a `skip:` row on every single run.
+[routines.skills]
+plan = /plan, /wrap-up-session
+fix = /debug, /build, /quality-gate, /wrap-up-session
+improve = /plan, /build, /quality-gate, /wrap-up-session
+build = /build, /quality-gate, /wrap-up-session
+
 ; ---------------------------------------------------------------------------
 ; Where `in_progress` and `blocked` come from. They are NEVER inferred from
 ; GitHub's open/closed state, because GitHub does not have them. Supported

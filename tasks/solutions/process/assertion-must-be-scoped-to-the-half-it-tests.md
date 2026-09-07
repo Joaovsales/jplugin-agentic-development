@@ -56,3 +56,30 @@ A passing assertion is not evidence until a mutation that should break it does.
   Those are the ones whose inputs also appear in the output.
 
 Related: [[baseline-must-precede-tree-edits]]
+
+## Second occurrence — 2026-09-07, `tests/test-routine-skills.sh`
+
+Same rule, a sharper variant: the needle appeared in the **success** output as
+well as the failure output, so the assertion could not fail rather than merely
+matching the wrong section.
+
+Three assertions checked that a chain naming an uninstalled skill is refused
+*naming the skill* (`specs/workflow-routing.md` AC4):
+
+```sh
+assert_contains "$ghost_out" "/summon-the-kraken" "the refusal names the missing skill"
+```
+
+`$ghost_out` is the whole load report. With the validator deleted the config
+loads and prints `chain plan: /plan -> /summon-the-kraken -> /wrap-up-session` —
+which contains the needle. Removing the gate failed only 1 of the 3 assertions.
+
+Fixed with a refusal-only channel, which also fails safely on an empty
+extraction because `assert_contains` cannot match a non-empty needle in an empty
+haystack:
+
+```sh
+refusal_of() { load_report "$1" | grep '^REFUSED:' || true; }
+```
+
+All 3 now go red when the gate is removed.

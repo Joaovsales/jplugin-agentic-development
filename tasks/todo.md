@@ -466,3 +466,50 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
 - Pending: 0 tasks from this session; issue #107 was closed as superseded by PR #105.
 - Carry-forward: pre-existing task-registry reconciliation findings remain outside
   this session's scope.
+
+---
+
+## Plan: Phase A — the `workflow` command (specs/workflow-routing.md)
+
+> Spec: `specs/workflow-routing.md` (R2, R3, R6). Handover: `tasks/handover-workflow-routing.md` — **read it first.**
+> **Gate: satisfied.** #82 merged as PR #109 (`bbef230`, 2026-09-07). This branch is off `master` at that commit.
+> Phase B (Cut 1) and Phase C (Cut 2) are deliberately **not** rows here — one phase per `/build`, one PR per phase, because the spec's rollback story requires each cut to be a single revertable commit. Their rows live in the handover, §§ 7–8.
+
+- [x] TDD: `tests/test-routine-skills.sh` — a config with no `[routines.skills]` yields the shipped default chain for each of `plan`/`fix`/`improve`/`build`; a chain naming a skill absent from disk is refused naming the skill (AC4); a chain whose last element is not `/wrap-up-session` is refused (AC5); an override supplying one chain replaces all of them rather than merging per key (AC8); a routine carrying a selector but no chain is refused naming the routine (AC9) -> `registry/config.py`: `DEFAULT_ROUTINE_SKILLS` beside `DEFAULT_KIND_PRECEDENCE`, a `routine_skills` field on `Config`, its reader, and three validators beside the existing selector validators <!-- task-id: routines.skill-chains -->
+- [x] TDD: `tests/test-routine-selectors.sh` gains a `workflow` block asserting all six outcomes of spec § 3 are distinguishable in **both** stdout and exit code — routine found, resolves to deferred `build`, no kind label, claim label present (names the claimant), unknown reference (exit 1), config or upstream-label fault (exit 2); `workflow` takes exactly one required argument (AC13) -> `task-registry.py`: `workflow` subcommand + `_workflow()` over the existing `select_routine()` (`routines.py:49`), which today collapses five of these into one `None` (AC1, AC2) <!-- task-id: routines.workflow-command --> (blocked-by: routines.skill-chains)
+- [x] TDD: `select --routine <name>` orders candidates by `(priority rank: now < next < unset, then ascending issue number)`; a shuffled provider response yields the same head; two runs on an unchanged backlog return the same issue (AC3) -> `registry/model.py` `by_priority` — today it tie-breaks on `task.id`, a title-derived slug (`model.py:305`, `fallback_id=""` at `github.py:262`), **not** the issue number; change the key and amend spec § *Ordering* + AC3 in the same commit. Both callers (`routines.py:105`, `reconcile.py`) change together <!-- task-id: routines.total-order --> <!-- see handover § 5 -->
+- [x] TDD: `doctor` reports this project's configured path rather than `configuration: none`; `.claude/project.md` carries the declaration and `/sync`'s syncable-paths block does not cover it; `CLAUDE.md` emits no bare parseable pointer (AC7's project half, AC12) -> create `docs/task-tracking.md` from `.agents/skills/task-registry/templates/task-tracking.md` with a `[routines.skills]` section, and declare it in `.claude/project.md`. **The engine half — declared-but-missing refused loudly — belongs to #82's worktree. If that agent already did this half, drop this task and say so** <!-- task-id: routines.project-config --> (blocked-by: routines.skill-chains)
+- [x] TDD: `tests/test-routine-wrapup.sh` — a **scheduled** run whose branch has no PR at completion reports it loudly and exits non-zero; an unattended run producing no PR is never silent (AC11). Do not assert that every session ends in a PR: `/wrap-up-session` has six documented no-PR exits and the spec restates R4 as "attempts a PR, and says so loudly when it fails" -> `.agents/skills/wrap-up-session/SKILL.md` terminal assertion (`gh pr view` on the branch) + parity copy <!-- task-id: routines.pr-assertion --> (blocked-by: routines.workflow-command)
+- [x] TDD: assertions pinning the two ACs that are **already shipped** — AC6 (a workflow label absent upstream is refused naming it, `task-registry.py:436` `_selector_upstream_check`) and AC10 (`claim` without `--apply` writes nothing and says so; idempotent; refuses an issue claimed by another routine). Verify, do not reimplement. Every new assertion in this plan must be falsifiable by mutation — break it, watch it go red, restore -> no new implementation <!-- task-id: routines.pin-shipped-acs --> (blocked-by: routines.workflow-command)
+- [x] TDD: `tests/test-skill-parity.sh` green (AC15); `bash tests/run.sh` fully green -> byte-identical copies of every edited `.agents/skills/**` file into `.claude/skills/**` <!-- task-id: routines.parity-suite --> (blocked-by: routines.pr-assertion)
+
+## Session Summary — 2026-09-07 [40f6b5e..15a6c29] Phase A complete (specs/workflow-routing.md), base bbef230
+- Completed: 7 of 7 Phase A rows. Branch `feat/workflow-routing-phase-a` off `bbef230`.
+- Gate: #82 merged as PR #109 before any Phase A work began, per the handover's Step 0.
+- Delivered: `task-registry workflow <ref>` (R2, the only real gap), `[routines.skills]`
+  configuration layer, issue-number tie-break, this project's `docs/task-tracking.md`,
+  and wrap-up Step 8.5.
+- Phase A owns AC1-AC13 and AC15; all have falsifiable assertions. AC14 and AC16
+  belong to Phase B/C.
+- Suite: 37 files green. Every new gate verified falsifiable by mutation; four
+  assertions that could not fail were found and narrowed rather than kept.
+- Next: Phase B (Cut 1) — rows in `tasks/handover-workflow-routing.md` § 7. Do not
+  start it on this branch; one phase per `/build`, one PR per phase.
+
+## Session Summary — 2026-09-07 [15a6c29..31edf29] Phase A review fixes
+- Applied the four dispatched review passes: 7 MUST-FIX and 16 SHOULD-FIX, none skipped.
+- `workflow` rewritten to resolve through `provider.resolve_reference` +
+  `get_task`. That one change closed four defects: `workflow '#11'` refusing a
+  live issue, the 500-issue page-limit blind spot, a closed issue routed as
+  runnable, and a tracker outage exiting on the code a scheduler pages on.
+- Two previously-green assertion sets were reproduced as vacuous and rebuilt: the
+  AC4 traversal guard (the bait file now exists, so refusing and traversing
+  diverge) and the wrap-up early-exit routing (derived from Step 8.5's own table).
+- `AGENTS.md` had no task-tracking pointer while `.claude/project.md` claimed it
+  did — this repository was loading defaults on Pi. Both halves now pinned.
+- Suite: 39 files green. Every new guard mutation-tested red-then-restored.
+- Carry-forward: four `owner: human` findings recorded in
+  `tasks/handover-workflow-routing.md` § 11, led by AC2 being unsatisfiable as
+  worded against spec § 3's own table.
+- Next: Phase B (Cut 1), handover § 7 — which now carries what Phase A changed
+  for it, including an eleventh `Registry` caller Cut 2's table does not list.

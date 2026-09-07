@@ -1,7 +1,7 @@
 ---
 name: task-registry
 description: Synchronize the compact tasks/todo.md index with an external tracker (GitHub Issues, Jira) or a local Markdown store. Use when linking tasks to issues, reconciling stale plans against tickets, asking what work is unblocked, or migrating a repository whose todo.md has grown into a detailed backlog.
-argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|migrate|doctor|selectors|select|claim]"
+argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|migrate|doctor|selectors|select|claim|workflow <task-reference>]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -67,8 +67,28 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
 | `selectors` | config + provider labels | no | no |
 | `select` | provider | no | no |
 | `claim` | one task | no | `--apply` (+ approval) |
+| `workflow` | one task | no | no |
 
 Exit codes: `0` success · `1` failure or partial failure · `2` usage error.
+
+`workflow` splits the second code differently, because its caller is a scheduler
+rather than a person: `2` is reserved for a fault a human must edit a file to
+clear — a usage error, a contradictory `[routines]` block, or a selector label
+the tracker does not have. Everything else that yields no routine to start —
+an unknown reference, a closed issue, a tracker that did not answer — exits `1`.
+A nightly wrapper pages on `2` and does not on `1`.
+
+### `workflow` — which routine owns one issue
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py workflow '#42'
+```
+
+Answers the question `select` answers in bulk, for one issue a human names:
+which routine's selector matches it, which skill chain that routine runs, and
+whether anything makes it unrunnable right now. `select_routine` collapses five
+distinct situations into a bare `None`; this command gives each its own sentence,
+so "nobody owns it" and "somebody already claimed it" stop looking alike.
 
 ### `upsert` — record one task, addressed by its ID
 

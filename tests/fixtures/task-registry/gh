@@ -140,6 +140,23 @@ PY
           cat "$GH_MOCK_DIR/issue-$number.json"
           exit 0
         fi
+        # One issue is visible through both reads upstream, so a fixture that
+        # declared it in issues.json has declared it for `view` too. Without this
+        # the mock answers "no such issue" for an issue the same mock lists.
+        if python3 - "$GH_MOCK_DIR/issues.json" "$number" <<'VIEW_PY'; then
+import io, json, sys
+try:
+    entries = json.loads(io.open(sys.argv[1], encoding="utf-8").read())
+except (IOError, ValueError):
+    sys.exit(1)
+for entry in entries:
+    if str(entry.get("number")) == sys.argv[2]:
+        sys.stdout.write(json.dumps(entry))
+        sys.exit(0)
+sys.exit(1)
+VIEW_PY
+          exit 0
+        fi
         echo "could not find issue #$number" >&2
         exit 1
         ;;

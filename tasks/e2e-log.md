@@ -353,3 +353,85 @@ exit non-zero before any provider read or write. Exact 60,000-character input wa
 accepted; 60,001 was refused without truncation.
 
 Result: PASS
+## Integration Proof — `task-registry workflow` six outcomes (AC1, AC2, AC13) — 2026-09-07 (branch `feat/workflow-routing-phase-a`)
+
+`specs/workflow-routing.md` AC2 requires all six outcomes to be distinguishable
+in **both** stdout and exit code. That is a user-facing CLI contract — a nightly
+wrapper branches on the code, a human reads the text — so the unit assertions in
+`tests/test-routine-selectors.sh` are not sufficient evidence on their own.
+
+### Fixture
+
+A throwaway project root with the repository's own `tests/fixtures/task-registry/gh`
+mock on `PATH`, five open issues, and a `docs/task-tracking.md` declaring
+`build = question` — `build` ships no selector by default, so the deferred-routine
+outcome is only reachable through configuration.
+
+### What ran, verbatim
+
+| Outcome | Command | stdout (key line) | exit |
+|---|---|---|---|
+| routine owns it | `workflow 11` | `routine:  fix` / `chain:    /debug -> /build -> /quality-gate -> /wrap-up-session` | 0 |
+| deferred routine | `workflow 20` | `status:   deferred — build is deferred behind the blockedBy provider capability (#97) and the routine itself (#98) — not runnable yet` | 0 |
+| no kind label | `workflow 15` | `routine:  none — the issue carries no kind label a routine selects` | 0 |
+| already claimed | `workflow 12` | `status:   IN FLIGHT — it carries in-progress, so routine fix already holds it. Do not claim it again.` | 0 |
+| unknown reference | `workflow 4242` | `task-registry: no open task matches '4242' — …` | **1** |
+| upstream label fault | `workflow 11`, tracker missing `question` | `upstream check: FAILED — these configured routine labels do not exist in github: question` | **2** |
+| config fault | `workflow 11`, two routines claiming `bug` | `task-registry: routines: more than one routine selects the same label — bug -> fix, improve` | **2** |
+| AC13 — no argument | `workflow` | ``task-registry: `workflow` requires the issue it should look up`` | **2** |
+
+The 1-versus-2 split is the point and was checked as a control in the same run:
+with the configuration repaired, `workflow 4242` returns to exit 1. A wrapper
+retries a missing issue and pages a human for a broken tool; sharing one non-zero
+code makes both responses wrong.
+
+### Correction made during this walkthrough
+
+The first attempt reported `exit=0` for all three exit-2 cases. That was the
+harness, not the implementation: `out="$(run ...)"; echo "$out"; echo "$?"` reads
+the exit status of the intervening `echo`. Re-run capturing `code=$?` on the line
+immediately after the assignment. Recorded because the same mistake would make any
+future exit-code walkthrough report a false pass.
+
+### AC7 — `doctor` on this repository
+
+```
+provider:       local
+selected because: --provider local
+configuration:  docs/task-tracking.md
+```
+
+Run with `--provider local` so the result does not depend on the network or on
+`gh` being authenticated. Before this session the line read
+`none (defaults + local fallback)`.
+
+---
+
+## `workflow` — the four outcomes the review found (2026-09-07, follow-up)
+
+Same fixture shape as the walkthrough above, re-run after the review fixes. Four
+rows of that table were wrong or missing; this section supersedes them rather
+than editing them, because the earlier reading is what the PR description and the
+handover were written against.
+
+| Outcome | Command | stdout (key line) | exit |
+|---|---|---|---|
+| the `#` form | `workflow '#11'` | `routine:  fix` — byte-identical to `workflow 11` | 0 |
+| closed issue | `workflow 12` | `task-registry: 12 is done — no routine starts on a closed task. Reopen it upstream if the work is not actually done.` | **1** |
+| unknown reference | `workflow 999` | `task-registry: no task matches '999' in github — github: `gh issue view` exited 1 — could not find issue #999` | **1** |
+| tracker unreachable | `workflow 11`, `gh label list` failing | `upstream check: COULD NOT RUN — github has a label vocabulary but did not answer: …` / `Nothing to edit — the tracker did not answer. Retry.` | **1** |
+
+The last row is the correction that matters to a scheduler. It used to exit 2 —
+the code the skill now tells a nightly wrapper to page on — for a condition no
+file edit can clear.
+
+### What changed underneath
+
+`workflow '#11'` failed before this run, though `#11` is the form every markdown
+link and every human uses: the command compared the raw argument against
+`external.id`, which holds the bare number. It now resolves the argument through
+`provider.resolve_reference` and reads the single issue, which also removes the
+500-issue page-limit blind spot the backlog scan had.
+
+Verified in the same run that the closed-issue guard reads state rather than the
+fixture: flipping #12 back to `OPEN` returns exit 0 with its chain printed.
