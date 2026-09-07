@@ -239,9 +239,58 @@ plan = design-decision
 [routines.skills]
 plan = /plan, $hostile, /wrap-up-session
 INI
-  assert_contains "$(refusal_of "$trav")" "not installed" \
+  trav_refusal="$(refusal_of "$trav")"
+  assert_contains "$trav_refusal" "not skill" \
     "AC4: a chain step is refused for its SHAPE, though the path it names exists ($hostile)"
+  # "not installed" would send the reader to check their install for a step no
+  # install could ever satisfy.
+  assert_not_contains "$trav_refusal" "not installed" \
+    "AC4: the refusal names the shape, not a missing installation ($hostile)"
 done
+
+# A step that IS a name and simply is not installed keeps the other message, so
+# the pair above is pinned on the shape rule rather than on any refusal at all.
+absent="$(new_fixture plan wrap-up-session)"
+write_config "$absent" "design-decision" <<'INI'
+[routines.selectors]
+plan = design-decision
+
+[routines.skills]
+plan = /plan, /never-installed, /wrap-up-session
+INI
+assert_contains "$(refusal_of "$absent")" "not installed" \
+  "AC4: a well-formed step that is absent from disk is refused for BEING absent"
+
+# An empty chain is a declaration, not an absence. Dropping the key made
+# `plan =` indistinguishable from a project that never mentioned plan.
+empty_chain="$(new_fixture plan wrap-up-session)"
+write_config "$empty_chain" "design-decision" <<'INI'
+[routines.selectors]
+plan = design-decision
+
+[routines.skills]
+plan =
+INI
+empty_refusal="$(refusal_of "$empty_chain")"
+assert_contains "$empty_refusal" "plan is empty" \
+  "AC5: a declared-but-empty chain is refused by name, not silently dropped"
+
+# A step that renders as an installed skill without being one. `/build` here
+# carries a Cyrillic 'е'; a reviewer reading the file cannot see the difference.
+homoglyph="$(new_fixture plan wrap-up-session)"
+write_config "$homoglyph" "design-decision" <<INI
+[routines.selectors]
+plan = design-decision
+
+[routines.skills]
+plan = /plan, /build, /wrap-up-session
+INI
+# Written through sed because a literal in this file is invisible to a reader.
+sed -i 's|/build|/buil\xd0\xb5|' "$homoglyph/docs/task-tracking.md"
+assert_file_not_matches "$homoglyph/docs/task-tracking.md" '/build,' \
+  "Fixture: the ASCII /build really was replaced — otherwise the next assertion is vacuous"
+assert_contains "$(refusal_of "$homoglyph")" "not skill" \
+  "AC4: a non-ASCII step is refused for its shape — it is not the name it renders as"
 
 # The refusal echoes repository text, so it is repr-escaped — an ANSI escape in a
 # skill name must not reach a terminal or an agent's context raw. Same rule the
@@ -394,6 +443,25 @@ assert_contains "$invented_out" "REFUSED:" \
   "AC12: a routine outside CONTRACT_ROUTINES is still refused"
 assert_contains "$invented_refusal" "triage" \
   "AC12: the refusal names the invented routine"
+
+# The case above declares `triage` in BOTH sections, so the selectors arm of the
+# check fires and the skills arm never runs. A chain-only invention is the arm
+# that had no coverage — and it is the reachable one, since a project can add a
+# chain without a selector.
+skills_only="$(new_fixture plan wrap-up-session)"
+write_config "$skills_only" "design-decision" <<'INI'
+[routines.selectors]
+plan = design-decision
+
+[routines.skills]
+plan = /plan, /wrap-up-session
+triage = /plan, /wrap-up-session
+INI
+skills_only_refusal="$(refusal_of "$skills_only")"
+assert_contains "$skills_only_refusal" "[routines.skills]" \
+  "AC12: an invented routine declared ONLY as a chain is refused by the skills arm"
+assert_contains "$skills_only_refusal" "triage" \
+  "AC12: the chain-only refusal names the invented routine"
 
 # ============================================================================
 # 7. AC7/AC12 — THIS project's configuration, and why it lives where it does

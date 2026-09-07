@@ -534,11 +534,14 @@ def _routine_skills(parser: configparser.ConfigParser) -> Optional[Dict[str, Tup
     """
     if not parser.has_section("routines.skills"):
         return None
-    declared = {
+    # Empty chains are KEPT. `plan =` is a project saying "plan runs nothing",
+    # which `_refuse_unterminated_chains` refuses by name; dropping the key made
+    # it indistinguishable from a routine never mentioned, and left that
+    # validator's "is empty" branch unreachable.
+    return {
         routine.strip(): _skill_chain(steps)
         for routine, steps in parser.items("routines.skills")
     }
-    return {routine: chain for routine, chain in declared.items() if chain}
 
 
 def _skill_chain(value: Optional[str]) -> Tuple[str, ...]:
@@ -547,8 +550,7 @@ def _skill_chain(value: Optional[str]) -> Tuple[str, ...]:
     Both spellings reach here from real configuration files, and normalizing on
     read means the terminal-step check compares one form instead of guessing.
     """
-    steps = (step.strip() for step in re.split(r"[,\n]", value or ""))
-    return tuple("/" + step.lstrip("/") for step in steps if step)
+    return tuple("/" + step.lstrip("/") for step in _label_list(value))
 
 
 def validate_selectors(config) -> None:
@@ -681,6 +683,24 @@ def _refuse_absent_chain_skills(config) -> None:
     """
     if not config.routine_skills_declared:
         return
+    # A step refused for its SHAPE is reported separately. Both end the load, but
+    # "not installed" sends a reader to check their install for a step that would
+    # be refused on any machine, however many skills they add.
+    malformed = sorted(
+        {
+            f"{routine}: {skill!r}"
+            for routine, chain in config.routine_skills.items()
+            for skill in chain
+            if not _skill_name(skill)
+        }
+    )
+    if malformed:
+        raise ConfigError(
+            "routines: [routines.skills] names chain steps that are not skill "
+            f"names — {'; '.join(malformed)}. A step is a directory name such as "
+            "`/build`; a path separator or a `..` segment is refused whether or "
+            "not it resolves."
+        )
     missing = sorted(
         {
             f"{routine}: {skill!r}"
@@ -710,13 +730,29 @@ def _skill_on_disk(root: str, skill: str) -> bool:
     Rejecting the shape rather than confining the result keeps the rule legible:
     there is no legitimate chain step this refuses.
     """
-    name = skill.lstrip("/")
-    if not name or "/" in name or "\\" in name or name in (".", ".."):
+    name = _skill_name(skill)
+    if not name:
         return False
     return any(
         os.path.isfile(os.path.join(root, skill_root, name, "SKILL.md"))
         for skill_root in SKILL_ROOTS
     )
+
+
+def _skill_name(skill: str) -> str:
+    """The directory name `/name` refers to, or "" when it is not a name at all.
+
+    Non-ASCII is refused alongside the separators: a name that renders as `/build`
+    through a homoglyph or a bidi override is a different directory from the one a
+    reviewer reads in the file, and a chain step is short enough that no
+    legitimate one needs the range.
+    """
+    name = skill.lstrip("/")
+    if not name or "/" in name or "\\" in name or name in (".", ".."):
+        return ""
+    if not all(ord(character) < 128 for character in name):
+        return ""
+    return name
 
 
 def _refuse_divergent_label_sets(
