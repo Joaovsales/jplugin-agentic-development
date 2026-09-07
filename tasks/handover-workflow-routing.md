@@ -4,6 +4,13 @@
 > Written 2026-09-06 on `analysis/simplify-routing` so a fresh session can pick the
 > work up with no prior context. The spec is the contract; this file is the
 > sequence, the gates, and the mistakes already paid for.
+>
+> **Status, 2026-09-07: Phase A is built and pushed on
+> `feat/workflow-routing-phase-a`.** The #82 gate below is satisfied — PR #109
+> merged as `bbef230`. Phase B is the next session's work; § 7 now carries what
+> Phase A learned that changes it. Do not re-read §§ 2, 4, 5 as instructions —
+> they are kept as the record of what was decided and why, and § 6's traps still
+> apply to every phase.
 
 ---
 
@@ -27,7 +34,11 @@ has leaked back in — stop and re-read § *The key correction* in the spec.**
 
 ---
 
-## 2. Gate — do not start until #82 has merged
+## 2. Gate — do not start until #82 has merged ✅ SATISFIED
+
+> **Cleared 2026-09-07.** PR #109 merged; `master` carries `bbef230`. Phase A
+> branched from it. Nothing below is still a gate; it is kept because the reason
+> for the sequencing still governs Phases B and C.
 
 Another agent is finishing **#82** in a separate worktree. As of this writing
 there is no open PR for it (`gh pr list` → empty).
@@ -66,8 +77,8 @@ agent has already done A4's half, drop A4 and say so — do not redo it.
 ## 3. Sequence — three phases, three PRs
 
 ```
-Phase A — the workflow command (R2)        ← needs #82.  THIS SESSION.
-Phase B — Cut 1, the two dead modules      ← needs nothing.
+Phase A — the workflow command (R2)        ← DONE. feat/workflow-routing-phase-a
+Phase B — Cut 1, the two dead modules      ← NEXT. needs nothing but a merged A.
 Phase C — Cut 2, the todo.md sync engine   ← needs Cut 1 only for revertability.
              └─→ #97 ─→ #98
 ```
@@ -86,7 +97,7 @@ config work first means Cut 1 edits them once, already in final shape.
 
 ---
 
-## 4. Phase A — this session's scope
+## 4. Phase A — scope, as built ✅
 
 Rows are already in `tasks/todo.md` under `## Plan: Phase A`. Spec ACs in
 parentheses.
@@ -215,6 +226,27 @@ Append these rows to `tasks/todo.md` when Phase A has merged.
 
 Cut 1 is a revert of one commit. Keep it that way — no interleaved changes.
 
+### What Phase A changed for Cut 1
+
+- **`templates/task-tracking.md` and `references/configuration.md` are already in
+  final shape for the `[routines.*]` half.** Phase A added `[routines.skills]` to
+  both. Cut 1's edit to them is now purely the `[jira.*]` removal, which is what
+  § 3 predicted when it put the feature before the cleanup. Do not re-derive the
+  routines sections; delete the Jira ones around them.
+- **The Jira sweep has one more surface than the row above lists.** Phase A's
+  `docs/task-tracking.md` and the two harness declarations (`.claude/project.md`,
+  `AGENTS.md`) name a provider. They say `github`, so they need no edit — but
+  `tests/test-routine-skills.sh` now asserts both declarations resolve to the same
+  file, and a Cut 1 that moves either one breaks that pair rather than one
+  assertion.
+- **`tests/fixtures/task-registry/fake-jira.py` retires with `jira.py`.** It is
+  not in the row above and it is the only other file whose whole reason to exist
+  is the Jira provider.
+- **AC3's wording now scopes the issue-number rung to providers that number their
+  tasks.** Deleting Jira removes one of the two schemes that motivated the `id`
+  fallback in `_external_number`; the fallback still earns its place for the local
+  provider, so do not simplify it away with the Jira adapter.
+
 ---
 
 ## 8. Phase C — Cut 2, the todo.md sync engine (1,273 LOC)
@@ -250,6 +282,37 @@ dormant. Amend it in the Cut 2 commit, not after.
 Ships as one commit so `git revert` restores the modules and their callers
 together.
 
+### What Phase A changed for Cut 2 — one new caller, and a class to keep
+
+**`workflow` is an eleventh caller and it is not in the table above.** Phase A
+added it, and it takes a `Registry` (`task-registry.py` imports `Registry` from
+`registry.reconcile`). So does `select`, and so does `claim`. Regenerating the
+caller list per trap 1 will find them; the point of naming them here is that the
+table above was written before they existed and reads as complete.
+
+**`Registry` itself must survive Cut 2, or move.** It is a three-line holder —
+`config`, `provider`, `selection_reason` — with the reconcile methods hung off
+it. Every command that survives the cut (`doctor`, `show`, `selectors`, `select`,
+`claim`, `workflow`) uses only those three attributes and none of the methods.
+Two honest options, and the choice is a design decision rather than a mechanical
+one:
+
+1. Move the three-attribute class into a module the cut does not touch, and let
+   `reconcile.py` go whole. Smallest surviving surface, largest diff.
+2. Keep `reconcile.py` as the holder and delete only the sync methods. Smaller
+   diff, but the file keeps a name that no longer describes it, and AC16's LOC
+   target is measured against the whole scripts tree.
+
+Option 1 is the one the spec's framing points at — the cut is about deleting the
+sync engine, not about relocating the registry — but it is worth stating rather
+than assuming, because it changes what "one revertable commit" contains.
+
+**Two things Cut 2 must not take with it.** `provider.list_tasks()` is used by
+`select` and by `workflow`'s scan fallback, and `provider.result_truncated` is
+read by both as a refusal condition. They live on the provider, not in
+`reconcile.py`, but `reconcile.py:422` is the other reader and deleting the file
+is the moment someone notices the flag and assumes it was only for sync.
+
 ---
 
 ## 9. Downstream, after Cut 2
@@ -277,10 +340,71 @@ Closed during this analysis: **#94** (obsolete — `route_issue.py` and the
 
 ---
 
-## 10. Definition of done for Phase A
+## 10. Definition of done for Phase A ✅
 
-- Every AC1–AC16 row that Phase A owns has a falsifiable assertion.
-- `bash tests/run.sh` green.
-- `.agents/` and `.claude/` trees byte-identical (AC15).
-- Spec § *Ordering* and AC3 amended per § 5 above.
-- One PR, `Closes #82` **not** used — #82 belongs to the other worktree.
+- Every AC1–AC16 row that Phase A owns has a falsifiable assertion. ✅ — each new
+  guard was mutation-tested: the guard was deleted, the suite went red, the guard
+  was restored. Two rounds of assertions were rewritten because they did *not*
+  go red; see § 11.
+- `bash tests/run.sh` green. ✅ — 39 files.
+- `.agents/` and `.claude/` trees byte-identical (AC15). ✅
+- Spec § *Ordering* and AC3 amended per § 5 above. ✅ — § *Ordering* was already
+  correct on `analysis/simplify-routing`; AC3 needed the code change plus a
+  scoping clause added during review (see § 11).
+- One PR, `Closes #82` **not** used — #82 belongs to the other worktree. ✅
+
+---
+
+## 11. Phase A postscript — what the review changed, and what a human still owns
+
+### Assertions that passed for the wrong reason
+
+Twice this session an assertion was green against a *broken* implementation. Both
+are now mutation-tested, and both are worth reading before writing Phase B's:
+
+- **The AC4 traversal guard.** Four assertions checked that a path-shaped chain
+  step (`/../wrap-up-session`) is refused. Every one passed with the guard
+  deleted, because the hostile step was refused anyway — nothing existed where it
+  pointed. The fixture now *creates* the file the unguarded probe would find, so
+  refusing and traversing give different answers.
+- **The `[routines.skills]` config assertions.** They compared a project chain
+  against the shipped default and the two were equal, so deleting the whole
+  config section left them green. Pinned on `routine_skills_declared` instead.
+
+The general shape: **an assertion is only a test if some reachable state makes it
+fail.** Deleting the implementation and re-running is the cheapest way to find
+out, and it caught things four dispatched review passes had to argue about.
+
+### Owner: human — surfaced, deliberately not applied
+
+Four findings are recorded here rather than fixed, because fixing them means
+deciding something the spec does not say:
+
+1. **AC2 is unsatisfiable as worded.** It requires all six § 3 outcomes to be
+   distinguishable in output **and** exit code, and § 3's own table assigns exit
+   `0` to four of the six. The implementation distinguishes all six in output and
+   maps them onto three exit codes; that is the most any implementation can do
+   against this table. Either AC2 or the table has to move.
+2. **The exit-code contract has no row for an outage or a closed issue.** Phase A
+   routes both to exit 1 and says so in the skill, on the reasoning that a
+   scheduler must not page for either. That reasoning is stated, not specified.
+   A third non-zero code for "retry" is the obvious alternative and would make
+   AC2's count wrong in a new way.
+3. **AC13 says no command takes more than one required argument, and `claim`
+   takes two** (`<task-id>` and `--routine`). `--routine` is an option by
+   argparse's reckoning and required by the command's, so whether this is met
+   depends on which reading AC13 intends.
+4. **`docs/task-tracking.md` restates the shipped defaults exactly.** Nothing
+   pins them, so a load failure that silently falls back to defaults produces
+   byte-identical behaviour and no test fails. `require_write_approval = true` was
+   deliberately *not* lowered, which is the one line that would have made the
+   difference visible. Changing this project's tracker configuration to prove the
+   file is read is a project decision, not a review fix.
+
+### Carry-forward into Phase B
+
+- `tests/fixtures/task-registry/gh` now answers `issue view` from `issues.json`
+  when no per-issue file exists. Fixtures that relied on `view` failing for an
+  issue the same mock *lists* will behave differently.
+- Every `SKILL.md` line number in §§ 7 and 8 predates Phase A and has moved.
+  Trap 1 already says regenerate; this is the concrete reason.

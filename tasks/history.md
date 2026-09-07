@@ -364,3 +364,56 @@ a file that never shipped and cannot (`docs/` is not syncable).
   documented as refused).
 - Learnings captured: `tasks/solutions/bugs/task-tracking-pointer-to-a-missing-file-was-indistinguishable-from-no-pointer.md`,
   `tasks/solutions/patterns/a-declared-intent-with-a-broken-target-is-not-an-absent-one.md`
+
+### [2026-09-07] — Phase A of the task-registry shrink: the `workflow` command (40f6b5e..15a6c29, base bbef230)
+
+- Built `tasks/handover-workflow-routing.md` § 4 (Phase A, 7 rows) against
+  `specs/workflow-routing.md`. Branch `feat/workflow-routing-phase-a` off
+  `master` at `bbef230`.
+- **Gate honoured first.** The handover's Step 0 requires #82 merged before any
+  Phase A work, because both edit `CLAUDE.md`. #82 was still open as PR #109
+  (green, mergeable); it was merged on the user's explicit authorization, then
+  this branch was cut from the updated `master`. The spec + handover commit
+  existed only locally on `analysis/simplify-routing` (whose remote was deleted
+  when #105 squash-merged) and was cherry-picked across.
+- Delivered: R2's `task-registry workflow <ref>` — the only real gap the spec
+  found — plus the `[routines.skills]` configuration layer, an issue-number
+  tie-break for selection, this repository's own `docs/task-tracking.md`, and
+  `/wrap-up-session` Step 8.5.
+- Two handover claims checked and corrected: A4 was **not** already done by #82's
+  agent (#109 shipped the `CLAUDE.md` half only), and the spec's § *Ordering* /
+  AC3 amendment the handover asks for in § 5 was **already present** in the
+  committed spec, so A3 needed only the code change.
+- Two `[AMBIGUITY]` decisions recorded: shipped default chains follow
+  `references/routines.md` rather than the spec's illustrative ini block (they
+  disagree on whether `plan` runs `/build`), and AC4's on-disk skill check is
+  scoped to project-*declared* chains, since checking shipped defaults would make
+  `load_config` raise in every existing fixture.
+- **Four assertions were found to be unfalsifiable by mutation probing and
+  narrowed** — none by reading. Captured as
+  `tasks/solutions/process/a-config-equal-to-its-defaults-cannot-prove-it-was-read.md`,
+  `tasks/solutions/process/a-stable-sort-hides-a-missing-final-tie-break.md`, and a
+  second occurrence appended to
+  `tasks/solutions/process/assertion-must-be-scoped-to-the-half-it-tests.md`.
+- Phase A owns AC1–AC13 and AC15; AC14/AC16 belong to Phases B and C. 37/37 test
+  files green.
+
+## 2026-09-07 — Phase A review reconciliation [15a6c29..31edf29]
+
+- Four review passes were dispatched separately (`code-reviewer`, defensive audit,
+  test coverage, adversarial critic), so their agreement promoted confidence by
+  one anchor where two independently found the same defect. Two findings promoted
+  that way: the missing `result_truncated` guard and the closed-issue routing.
+- **The highest-value finding came from mutation probing, not from reading.** Pass
+  3 claimed the AC4 traversal assertions could not fail; deleting the shape guard
+  and watching all 52 assertions stay green confirmed it. The same probe found the
+  wrap-up early-exit routing was prose with a prose-matching test.
+- Two claims in dispatched output were checked before acting rather than taken at
+  face value, and both held: `AGENTS.md` genuinely had no pointer, and
+  `get_task` genuinely exists on all four providers.
+- Four findings were surfaced under `owner: human` rather than applied, all
+  turning on what the spec means rather than what the code does. They are written
+  up in the handover's new § 11 so Phase B does not rediscover them.
+- The exit-code decision worth remembering: an outage and a misconfiguration both
+  used to exit 2. They are now 1 and 2, because the question a scheduler asks is
+  not "did it fail" but "should I wake someone".
