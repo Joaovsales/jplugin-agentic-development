@@ -405,6 +405,43 @@ assert_eq "0" "$local_code" \
 assert_contains "$local_out" "NOT RUN" \
   "AC12: an unenumerable vocabulary reports NOT RUN — it never reports a pass"
 
+# `workflow` on the local provider. Every assertion above runs against GitHub,
+# and the two providers reach the answer differently: local resolves an id to a
+# detail file and reads it, while an id that resolves to nothing falls through
+# to the backlog scan. Both branches, and the provider-independent terminal
+# guard, went untested.
+mkdir -p "$F_LOCAL/tasks/details"
+write_local_task() {
+  local dir="$1" id="$2" status="$3"
+  { printf '# %s\n\n' "$id"
+    printf '<!-- task-registry:begin -->\n'
+    printf '<!-- Managed by /task-registry. Edit the fields, not the markers. -->\n'
+    printf 'task-id: %s\nkind: task\n' "$id"
+    printf '<!-- task-registry:end -->\n\n'
+    printf -- '- status: %s\n- labels: bug\n' "$status"
+  } > "$dir/tasks/details/$id.md"
+}
+write_local_task "$F_LOCAL" "fix-the-crash" "open"
+wf_local_out="$( cd "$F_LOCAL" && PATH="$F_LOCAL/bin:$PATH" \
+  "$PY" "$CLI" workflow fix-the-crash --repo "$F_LOCAL" 2>&1 )"; wf_local_code=$?
+assert_eq "0" "$wf_local_code" "workflow: a local task routes — not every provider is GitHub"
+assert_contains "$wf_local_out" "routine:  fix" \
+  "workflow: the local task's bug label selects the fix routine"
+assert_contains "$wf_local_out" "chain:" "workflow: a local task is handed its chain too"
+
+# The terminal guard is provider-independent, so it must hold here as well.
+write_local_task "$F_LOCAL" "already-done" "done"
+wf_local_done="$( cd "$F_LOCAL" && PATH="$F_LOCAL/bin:$PATH" \
+  "$PY" "$CLI" workflow already-done --repo "$F_LOCAL" 2>&1 )"; wf_local_done_code=$?
+assert_eq "1" "$wf_local_done_code" "workflow: a closed LOCAL task exits 1, same as a closed issue"
+assert_not_contains "$wf_local_done" "chain:" "workflow: no chain for a closed local task"
+
+wf_local_absent="$( cd "$F_LOCAL" && PATH="$F_LOCAL/bin:$PATH" \
+  "$PY" "$CLI" workflow no-such-task --repo "$F_LOCAL" 2>&1 )"; wf_local_absent_code=$?
+assert_eq "1" "$wf_local_absent_code" "workflow: an id no local task carries exits 1"
+assert_contains "$wf_local_absent" "no-such-task" \
+  "workflow: the local refusal names the id that did not resolve"
+
 # `doctor` is the command you run BECAUSE configuration is broken. Hoisting
 # validate_selectors into load_config must not make the diagnostic unreachable.
 F_BROKEN="$(new_fixture)"
@@ -657,9 +694,13 @@ assert_not_contains "$wf_untriaged_out" "chain:" \
 wf_claimed_out="$(run_workflow "$F_SEL" 12)"; wf_claimed_code=$?
 assert_eq "0" "$wf_claimed_code" \
   "AC2: an in-flight issue is a real answer and exits 0"
-assert_contains "$wf_claimed_out" "in-progress" \
+# Scoped to the `status:` line. `fix` and `in-progress` both appear elsewhere in
+# a routed report — in `routine:` and in the chain — so an unscoped needle stays
+# green with the whole status line deleted, which is the line under test.
+wf_claimed_status="$(printf '%s\n' "$wf_claimed_out" | grep '^status:' || true)"
+assert_contains "$wf_claimed_status" "in-progress" \
   "AC2: the in-flight outcome names the claim label it found"
-assert_contains "$wf_claimed_out" "fix" \
+assert_contains "$wf_claimed_status" "fix" \
   "AC2: the in-flight outcome names the CLAIMANT — which routine holds it"
 assert_not_contains "$wf_claimed_out" "no kind label" \
   "AC2: a claimed issue is not reported as untriaged — #12 carries bug"
@@ -827,6 +868,21 @@ assert_contains "$wf_noarg_out" "workflow" \
 wf_help="$( "$PY" "$CLI" --help 2>&1 )"
 assert_contains "$wf_help" "workflow" \
   "AC13: workflow is a documented command, not an undocumented back door"
+
+# `--help` is not where an agent finds a command; the skill is. A command in one
+# and not the other is a command nothing reaches.
+for tree in .agents .claude; do
+  wf_skill="$REPO/$tree/skills/task-registry/SKILL.md"
+  assert_file_matches "$wf_skill" '^argument-hint:.*workflow' \
+    "AC13: $tree/task-registry offers workflow in its argument-hint"
+  assert_file_matches "$wf_skill" '^\| `workflow` \|' \
+    "AC13: $tree/task-registry lists workflow in the command table"
+  # The legend says `2` is a usage error, and workflow also exits 2 for a config
+  # or upstream-label fault. Stating one and meaning both is how a wrapper learns
+  # to page on the wrong thing.
+  assert_file_contains "$wf_skill" "A nightly wrapper pages on" \
+    "AC2: $tree/task-registry says which exit code a scheduler should page on"
+done
 
 
 # ============================================================================

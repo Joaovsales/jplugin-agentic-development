@@ -318,7 +318,7 @@ reported `ok`.
 
 - **AC1** `task-registry workflow <ref>` prints the routine and its skill chain
 - **AC2** All six outcomes in § 3 are distinguishable in output **and** exit code
-- **AC3** `select --routine <name>` orders candidates by `(priority rank, ascending issue number)`; two runs on an unchanged backlog return the same issue
+- **AC3** `select --routine <name>` orders candidates by `(priority rank, ascending issue number, id)`; two runs on an unchanged backlog return the same issue. The issue-number rung applies where the provider numbers its tasks — GitHub. Jira's `PROJ-14` and a local slug are not numbers, and ordering two id schemes against each other would be a guess, so they fall to the `id` rung. Determinism holds on every provider; ascending-by-number does not
 - **AC4** Load refuses a chain naming a skill absent from disk, naming the skill
 - **AC5** Load refuses a chain whose last element is not `/wrap-up-session`
 - **AC6** A workflow label absent upstream is refused, naming the label
