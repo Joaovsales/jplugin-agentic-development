@@ -21,7 +21,13 @@ Session wrapped up (no changes).
 - No code changes detected this session.
 - Skipped: code review, tests, commit, push.
 ```
-Then **STOP**.
+Then **run Step 8.5 and STOP**.
+
+**Every STOP in this skill routes through Step 8.5 first.** That step asserts an
+unattended run produced a pull request, and the exits it exists to catch are
+exactly the ones that end wrap-up early — so a STOP that jumps straight to the
+end skips the check on precisely the runs that need it. This applies to all six
+no-PR exits Step 8.5 enumerates; each one names the route again below.
 
 **If changes exist**: proceed normally.
 
@@ -259,7 +265,7 @@ keeping the work locally and reporting the pending publication loses neither.
 
 If the local record itself cannot be written, **STOP wrap-up: the documentation
 debt would otherwise be lost** — which is the one thing this step exists to
-prevent.
+prevent. Run Step 8.5 before ending.
 
 The **PR description** lists every deferred reconciliation task, so a reviewer
 sees that the affected spec was deliberately left alone rather than missed.
@@ -299,7 +305,8 @@ acceptance criterion or bug fix is user-facing:
 2. If no project-local verification skill exists, skip maintenance, recommend
    `/create-verification-skill`, and never generate or launch it automatically.
 3. Handle the maintainer outcome: `clean` and `changed` continue; `blocked` STOPS
-   wrap-up and reports the maintainer's evidence without committing.
+   wrap-up and reports the maintainer's evidence without committing. Run Step 8.5
+   before ending.
 
 Internal-only sessions skip this step silently. This step runs before security,
 review, and tests so any verification-map edits are included in every gate.
@@ -479,7 +486,7 @@ Overriding rules:
 - **Do not downgrade a finding to clear the gate.** Reclassifying a `MUST-FIX` as
   `NITPICK`, or dropping a `confidence` to make it reportable rather than
   fixable, defeats the entire mechanism. If it must be resolved and cannot be,
-  STOP.
+  STOP — via Step 8.5.
 
 ### 5.2 — Review Reconciliation Table
 
@@ -513,7 +520,7 @@ Discover test commands from `package.json`, `Makefile`, `pyproject.toml`, or `TE
 
 Run in order: lint/typecheck, unit, integration, e2e.
 
-If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report and do not push.
+If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report, do not push, and end through Step 8.5.
 
 ---
 
@@ -540,8 +547,8 @@ is internal-only.
 | Review Status | Action |
 |---------------|--------|
 | All MUST-FIX resolved AND ≤3 SHOULD-FIX skipped | Proceed |
-| Any MUST-FIX unresolved — skipped, or held back by the Apply Gate and not fixed deliberately | STOP — ask user for explicit approval |
-| More than 3 SHOULD-FIX skipped | STOP — present skipped items, ask for approval |
+| Any MUST-FIX unresolved — skipped, or held back by the Apply Gate and not fixed deliberately | STOP — ask user for explicit approval, then Step 8.5 |
+| More than 3 SHOULD-FIX skipped | STOP — present skipped items, ask for approval, then Step 8.5 |
 
 ### Commit & Push
 
@@ -736,7 +743,7 @@ legitimate outcome:
 | Unresolved MUST-FIX | Step 5 |
 | The push gate refused | Step 7 |
 | The local record could not be written | Step 3.2 |
-| A `blocked` maintainer outcome | Step 3.2 |
+| A `blocked` maintainer outcome | Step 3.3 |
 
 None is removed here. The failure this closes is narrower and worse: an
 unattended run that reaches one of them at 03:00, produces nothing, and reports

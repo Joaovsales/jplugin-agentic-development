@@ -101,6 +101,19 @@ for tree in .agents .claude; do
   assert_prose_contains "$f" "runs even when an earlier gate stopped the run" \
     "AC11: $tree runs the assertion on the early-exit paths too"
 
+  # ...and the claim above is prose. A reader following this skill top to bottom
+  # hits "STOP" and stops, so the step is reachable only if each early exit says
+  # so where the exit is written. The exits are read from Step 8.5's own table,
+  # so a new exit added there is checked without editing this test.
+  for exit_step in $(printf '%s\n' "$terminal" \
+      | sed -nE 's/^\|[^|]*\|[[:space:]]*Step ([0-9.]+)[[:space:]]*\|.*/\1/p' \
+      | sort -u); do
+    section="$(awk -v want="## Step $exit_step " \
+      'index($0, want) == 1 { f = 1; next } f && /^## / { exit } f' "$f")"
+    assert_contains "$section" "Step 8.5" \
+      "AC11: $tree's Step $exit_step exit routes to Step 8.5 rather than just stopping"
+  done
+
   # Silence on success. A terminal check that prints on every green run trains
   # readers to ignore it, which is how the loud case stops being loud.
   assert_prose_contains "$f" "says nothing when the pull request exists" \
