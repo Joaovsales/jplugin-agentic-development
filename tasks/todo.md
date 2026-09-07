@@ -469,4 +469,17 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
 - [x] TDD: `doctor` reports this project's configured path rather than `configuration: none`; `.claude/project.md` carries the declaration and `/sync`'s syncable-paths block does not cover it; `CLAUDE.md` emits no bare parseable pointer (AC7's project half, AC12) -> create `docs/task-tracking.md` from `.agents/skills/task-registry/templates/task-tracking.md` with a `[routines.skills]` section, and declare it in `.claude/project.md`. **The engine half — declared-but-missing refused loudly — belongs to #82's worktree. If that agent already did this half, drop this task and say so** <!-- task-id: routines.project-config --> (blocked-by: routines.skill-chains)
 - [x] TDD: `tests/test-routine-wrapup.sh` — a **scheduled** run whose branch has no PR at completion reports it loudly and exits non-zero; an unattended run producing no PR is never silent (AC11). Do not assert that every session ends in a PR: `/wrap-up-session` has six documented no-PR exits and the spec restates R4 as "attempts a PR, and says so loudly when it fails" -> `.agents/skills/wrap-up-session/SKILL.md` terminal assertion (`gh pr view` on the branch) + parity copy <!-- task-id: routines.pr-assertion --> (blocked-by: routines.workflow-command)
 - [x] TDD: assertions pinning the two ACs that are **already shipped** — AC6 (a workflow label absent upstream is refused naming it, `task-registry.py:436` `_selector_upstream_check`) and AC10 (`claim` without `--apply` writes nothing and says so; idempotent; refuses an issue claimed by another routine). Verify, do not reimplement. Every new assertion in this plan must be falsifiable by mutation — break it, watch it go red, restore -> no new implementation <!-- task-id: routines.pin-shipped-acs --> (blocked-by: routines.workflow-command)
-- [ ] TDD: `tests/test-skill-parity.sh` green (AC15); `bash tests/run.sh` fully green -> byte-identical copies of every edited `.agents/skills/**` file into `.claude/skills/**` <!-- task-id: routines.parity-suite --> (blocked-by: routines.pr-assertion)
+- [x] TDD: `tests/test-skill-parity.sh` green (AC15); `bash tests/run.sh` fully green -> byte-identical copies of every edited `.agents/skills/**` file into `.claude/skills/**` <!-- task-id: routines.parity-suite --> (blocked-by: routines.pr-assertion)
+
+## Session Summary — Phase A complete (specs/workflow-routing.md)
+- Completed: 7 of 7 Phase A rows. Branch `feat/workflow-routing-phase-a` off `bbef230`.
+- Gate: #82 merged as PR #109 before any Phase A work began, per the handover's Step 0.
+- Delivered: `task-registry workflow <ref>` (R2, the only real gap), `[routines.skills]`
+  configuration layer, issue-number tie-break, this project's `docs/task-tracking.md`,
+  and wrap-up Step 8.5.
+- Phase A owns AC1-AC13 and AC15; all have falsifiable assertions. AC14 and AC16
+  belong to Phase B/C.
+- Suite: 37 files green. Every new gate verified falsifiable by mutation; four
+  assertions that could not fail were found and narrowed rather than kept.
+- Next: Phase B (Cut 1) — rows in `tasks/handover-workflow-routing.md` § 7. Do not
+  start it on this branch; one phase per `/build`, one PR per phase.
