@@ -69,6 +69,43 @@ for tree in .agents .claude; do
   assert_prose_contains "$f" "open the PR anyway" \
     "Edge: $tree opens the PR even when the issue link is bad"
 
+  # --- AC11: an unattended run that produces no PR is never SILENT -----------
+  # R4 as written ("every session ends in a PR") is false today and this does not
+  # make it true: wrap-up has six documented no-PR exits — no changes, tests
+  # failing after 2 fix attempts, unresolved MUST-FIX, the push gate, an
+  # unwritable local record, and a `blocked` maintainer outcome. Each is a
+  # legitimate outcome and none is removed here.
+  #
+  # What changes is the FAILURE MODE the spec actually names: a 03:00 run that
+  # ends having produced nothing, and says so to nobody. So the assertion is
+  # about loudness and exit code, not about forcing a PR into existence.
+  assert_file_matches "$f" '^## Step 8.5' \
+    "AC11: $tree/wrap-up-session has a terminal PR assertion step"
+
+  terminal="$(awk '/^## Step 8.5/{f=1;next} f&&/^## /{exit} f' "$f")"
+
+  assert_contains "$terminal" "gh pr view" \
+    "AC11: $tree checks for the PR with gh pr view on the branch"
+  # The exact ACTION, not the bare phrase: "non-zero" also appears in the
+  # closing paragraph, so a needle that loose stays green with the action row
+  # gutted — which is the one line that makes the run fail.
+  assert_contains "$terminal" "and **exit non-zero**" \
+    "AC11: $tree's no-PR row exits non-zero rather than merely reporting"
+  assert_prose_contains "$f" "does not make every session end in a pull request" \
+    "AC11: $tree does NOT claim R4 is now true — the six no-PR exits survive"
+  assert_contains "$terminal" "interactive" \
+    "AC11: $tree scopes the assertion — an interactive run has a human watching"
+
+  # The assertion is worthless if it only runs on the happy path: the exits it
+  # exists to make loud are exactly the ones that stop wrap-up early.
+  assert_prose_contains "$f" "runs even when an earlier gate stopped the run" \
+    "AC11: $tree runs the assertion on the early-exit paths too"
+
+  # Silence on success. A terminal check that prints on every green run trains
+  # readers to ignore it, which is how the loud case stops being loud.
+  assert_prose_contains "$f" "says nothing when the pull request exists" \
+    "AC11: $tree keeps the success path silent (failure-only reporting)"
+
   # --- the contract document is reachable from the skill that implements it ---
   assert_file_contains "$f" "references/routines.md" \
     "AC7: $tree/wrap-up-session cites the routine contract"

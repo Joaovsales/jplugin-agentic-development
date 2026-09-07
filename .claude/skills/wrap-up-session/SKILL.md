@@ -700,6 +700,52 @@ If no `## Deployment Targets` section: scan `tasks/deployments/*.md` for signal 
 
 ---
 
+## Step 8.5 — Terminal PR Assertion (unattended runs)
+
+Runs last, and **runs even when an earlier gate stopped the run** — the exits
+this exists to make loud are exactly the ones that end wrap-up early.
+
+**Scope: unattended runs only.** A run is unattended when the branch is a
+`routine/` branch (the routine spine's step 5) or when wrap-up was invoked from
+`/yolo`, `/auto-improve`, or `/auto-push`. An **interactive** run is exempt: a
+human is watching the transcript, which is the thing this step substitutes for.
+
+```bash
+gh pr view "$(git branch --show-current)" --json number,url -q .url
+```
+
+| Result | Action |
+|---|---|
+| A pull request exists | **say nothing** beyond the `PR:` line of the Done report |
+| No pull request | report loudly, name which exit produced no PR, and **exit non-zero** |
+
+It **says nothing when the pull request exists**. A terminal check that prints on
+every green run is one readers learn to skip, and then the loud case is no longer
+loud.
+
+### What this does and does not assert
+
+This **does not make every session end in a pull request**, and must not be read
+as claiming so. Wrap-up has six documented no-PR exits, every one of them a
+legitimate outcome:
+
+| Exit | Where |
+|---|---|
+| No changes detected | Step 0 |
+| Tests still failing after 2 fix attempts | Step 6 |
+| Unresolved MUST-FIX | Step 5 |
+| The push gate refused | Step 7 |
+| The local record could not be written | Step 3.2 |
+| A `blocked` maintainer outcome | Step 3.2 |
+
+None is removed here. The failure this closes is narrower and worse: an
+unattended run that reaches one of them at 03:00, produces nothing, and reports
+that to nobody — indistinguishable, the next morning, from a run that worked. The
+assertion converts *silence* into a named reason and a non-zero exit; it does not
+convert a legitimate stop into a PR.
+
+---
+
 ## Done
 
 ```
@@ -720,6 +766,7 @@ Session wrapped up.
 - Pushed: [yes / no — reason]
 - PR: [#N opened / #N description re-synced — what changed / #N already accurate / none]
 - Deployments: [results or SKIPPED / NONE]
+- Unattended PR assertion: [PASS / FAILED — no PR, reason / N/A — interactive]
 ```
 
 ## Claude Code Enhancements
