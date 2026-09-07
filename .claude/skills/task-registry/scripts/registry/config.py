@@ -126,6 +126,15 @@ DEFAULT_CLAIM_LABEL = "in-progress"
 #: without the check here a project learns that at spine step 3, mid-run.
 CONTRACT_ROUTINES = ("plan", "fix", "improve", "build")
 
+#: Contract routines that are specified but not runnable yet. `workflow` reports
+#: one as an answer rather than a failure: "this routine owns your issue and is
+#: deferred" is a different fact from "no routine owns it", and a caller that
+#: cannot tell them apart re-triages an issue that is already correctly labelled.
+DEFERRED_ROUTINES: Mapping[str, str] = {
+    "build": "deferred behind the blockedBy provider capability (#97) and the "
+             "routine itself (#98) — not runnable yet",
+}
+
 #: Jira's own vocabulary, read the same way: provider-facing names mapped into
 #: the normalized model, never the other way round as a rename.
 DEFAULT_JIRA_ISSUE_TYPES: Mapping[str, str] = {

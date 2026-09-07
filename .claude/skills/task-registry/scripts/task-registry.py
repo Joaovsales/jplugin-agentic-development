@@ -10,6 +10,7 @@
     task-registry doctor                which provider is selected, and why
     task-registry selectors             routine selector vocabulary, checked upstream
     task-registry select --routine R    the next issue routine R may claim
+    task-registry workflow <ref>        which routine owns one issue, and what it runs
     task-registry claim <ref> --routine R  write the claim label onto one issue
 
 Dry-run is the default for every command. `--apply` is the only way anything is
@@ -38,6 +39,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from registry.config import (  # noqa: E402
+    DEFERRED_ROUTINES,
     ConfigError,
     ConfigPointerError,
     load_config,
@@ -56,6 +58,7 @@ from registry.reconcile import Registry  # noqa: E402
 from registry.routines import (  # noqa: E402
     matched_label,
     missing_routine_labels,
+    routine_for_label,
     select_candidates,
     select_routine,
     unclassified,
@@ -65,7 +68,7 @@ from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
     "reconcile", "publish", "pull", "frontier", "show", "migrate", "doctor", "upsert",
-    "selectors", "select", "claim",
+    "selectors", "select", "claim", "workflow",
 )
 
 
@@ -77,7 +80,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("command", choices=COMMANDS)
     parser.add_argument(
-        "task_id", nargs="?", help="task id, required by `show`; issue ref for `claim`"
+        "task_id", nargs="?",
+        help="task id, required by `show`; issue ref for `claim` and `workflow`"
     )
     parser.add_argument("--repo", default=".", help="project root (default: cwd)")
     parser.add_argument(
@@ -179,7 +183,11 @@ def _run(argv, set_redactor) -> int:
     except ConfigError as exc:
         if args.command != "doctor":
             print(f"task-registry: {exc}", file=sys.stderr)
-            return 1
+            # `workflow` separates "the thing you named is absent" (1) from "this
+            # tool is misconfigured" (2) so an unattended caller can retry the
+            # first and page a human for the second. Every other command predates
+            # that split and keeps its single failure code.
+            return 2 if args.command == "workflow" else 1
         config_fault = exc
         config = load_config(root, strict=False)
     set_redactor(redactor_for(config))
@@ -250,6 +258,8 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _select(registry, args.routine)
     if command == "claim":
         return _claim(registry, args.routine, args.task_id, apply_writes)
+    if command == "workflow":
+        return _workflow(registry, args.task_id)
     if command == "migrate":
         plan = plan_migration(config)
         # Applying does not make malformed rows readable: the same rows are still
@@ -437,6 +447,72 @@ def _claim(registry: Registry, routine, task_ref, apply_writes: bool):
 
     registry.provider.update_task(task.with_(labels=tuple(task.labels) + (config.claim_label,)))
     return f"claim: wrote {config.claim_label} to {task_ref} for routine {routine}", 0
+
+
+def _workflow(registry: Registry, task_ref):
+    """Which routine owns one issue, and what that routine runs — requirement R2.
+
+    `select_routine` has always known the answer; it is wired only as a filter,
+    and it returns a bare `None` for five different situations: no kind label, a
+    label no routine selects, an issue already claimed, a routine that exists,
+    and a routine that is deferred. A human reading `None` guesses between them
+    and an unattended caller cannot branch at all, so each gets its own sentence
+    and its own exit code here.
+
+    Exit 1 means the reference does not exist; exit 2 means this tool is
+    misconfigured. A nightly wrapper retries the first and pages for the second,
+    which is why they must not share a code.
+    """
+    config = registry.config
+    if not task_ref:
+        return "task-registry: `workflow` requires the issue it should look up", 2
+
+    # Checked BEFORE the lookup. A selector label the tracker never created makes
+    # every routine match nothing, so "no routine owns this issue" would be
+    # returned for an issue that is labelled perfectly well.
+    verdict, upstream_code = _selector_upstream_check(registry)
+    if upstream_code:
+        return verdict, 2
+
+    tasks = registry.provider.list_tasks()
+    matches = [
+        task for task in tasks
+        if task.id == task_ref or (task.external and task.external.id == str(task_ref))
+    ]
+    if not matches:
+        return (
+            f"task-registry: no open task matches {task_ref!r} — `workflow` reads the "
+            "open backlog, so a closed or non-existent issue lands here alike"
+        ), 1
+    return "\n".join(_workflow_report(matches[0], config)), 0
+
+
+def _workflow_report(task, config) -> list:
+    """The six-outcome answer for one issue, as lines a human reads top to bottom."""
+    reference = task.external.id if task.external else task.id
+    lines = [f"issue:    {reference}  {task.title}"]
+
+    # `matched_label` reads precedence and ignores the claim label, so a claimed
+    # issue still reports which routine holds it. Asking `select_routine` here
+    # would fold that back into the `None` this command exists to take apart.
+    matched = matched_label(task, config)
+    routine = routine_for_label(matched, config) if matched else None
+    if routine is None:
+        lines.append("routine:  none — the issue carries no kind label a routine selects")
+        lines.append(f"triage:   label it one of: {', '.join(config.kind_precedence)}")
+        return lines
+
+    lines.append(f"routine:  {routine}")
+    lines.append(f"matched:  {matched}")
+    lines.append(f"chain:    {' -> '.join(config.routine_skills.get(routine, ()))}")
+    if config.claim_label in task.labels:
+        lines.append(
+            f"status:   IN FLIGHT — it carries {config.claim_label}, so routine "
+            f"{routine} already holds it. Do not claim it again."
+        )
+    if routine in DEFERRED_ROUTINES:
+        lines.append(f"status:   deferred — {routine} is {DEFERRED_ROUTINES[routine]}")
+    return lines
 
 
 def _selector_vocabulary(config) -> list:

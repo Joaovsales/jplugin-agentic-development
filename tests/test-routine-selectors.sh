@@ -566,4 +566,146 @@ for tree in .agents .claude; do
     "AC12: $tree template maps no label to \`task\` — that stamps every published task"
 done
 
+# ============================================================================
+# 7. `workflow <ref>` — R2, the manual half of the contract
+# ============================================================================
+# `select` answers "what should this routine do next"; nothing answered "I am
+# looking at issue N, what runs?" `select_routine` has always known, but it is
+# wired only as a FILTER and returns a bare None for five distinct situations —
+# no kind label, an unknown label, a claimed issue, a routine that exists, and a
+# routine that is deferred. Collapsed into one None they are indistinguishable,
+# and a nightly wrapper cannot tell "nothing to do" from "this tool is broken".
+#
+# So both channels are pinned for every outcome: the words a human reads AND the
+# exit code a wrapper branches on. Exit 1 is "what you asked about does not
+# exist"; exit 2 is "this tool is misconfigured".
+
+run_workflow() {
+  local d="$1"; shift
+  ( cd "$d" && PATH="$d/bin:$PATH" GH_MOCK_DIR="$d/ghdata" GH_MOCK_LOG="$d/gh.log" \
+      "$PY" "$CLI" workflow "$@" --repo "$d" 2>&1 )
+}
+
+# -- outcome 1: a routine owns it --------------------------------------------
+wf_fix_out="$(run_workflow "$F_SEL" 11)"; wf_fix_code=$?
+assert_eq "0" "$wf_fix_code" "workflow: an issue a routine owns exits 0"
+assert_contains "$wf_fix_out" "routine:" "workflow: the routine is labelled in the output"
+assert_contains "$wf_fix_out" "fix" "workflow: #11 (bug) resolves to the fix routine"
+assert_contains "$wf_fix_out" "/debug -> /build -> /quality-gate -> /wrap-up-session" \
+  "AC1: the skill chain is printed, not just the routine name"
+assert_contains "$wf_fix_out" "bug" "workflow: the label that won precedence is named"
+
+wf_plan_out="$(run_workflow "$F_SEL" 14)"; wf_plan_code=$?
+assert_eq "0" "$wf_plan_code" "workflow: a design-decision issue exits 0"
+assert_contains "$wf_plan_out" "plan" "workflow: #14 resolves to the plan routine"
+assert_contains "$wf_plan_out" "/plan -> /wrap-up-session" \
+  "AC1: plan's chain is its own, not a shared default"
+
+# -- outcome 2: resolves to the deferred `build` routine ----------------------
+# Reachable only by configuration: `build` ships no selector, because a selector
+# for a routine nobody runs would let a deferred capability fail a live gate.
+F_BUILD="$(new_fixture)"
+write_config "$F_BUILD" <<'EOF'
+[routines]
+kind_precedence = bug, design-decision, enhancement, documentation, tech-debt, question
+[routines.selectors]
+fix = bug, tech-debt
+plan = design-decision
+improve = enhancement, documentation
+build = question
+EOF
+write_labels "$F_BUILD" bug design-decision enhancement documentation tech-debt question in-progress
+cat > "$F_BUILD/ghdata/issues.json" <<'EOF'
+[{"number":20,"title":"Ship the thing","state":"OPEN","url":"https://github.com/o/r/issues/20",
+  "labels":[{"name":"question"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_build_out="$(run_workflow "$F_BUILD" 20)"; wf_build_code=$?
+assert_eq "0" "$wf_build_code" \
+  "AC2: a deferred routine is an ANSWER, not a failure — it exits 0"
+assert_contains "$wf_build_out" "/build -> /quality-gate -> /wrap-up-session" \
+  "AC2: the deferred routine's chain is still printed"
+assert_contains "$wf_build_out" "deferred" \
+  "AC2: the output says build is deferred rather than presenting it as runnable"
+assert_contains "$wf_build_out" "#98" \
+  "AC2: the deferral names the issue tracking it, so the reader can check the status"
+
+# -- outcome 3: no kind label ------------------------------------------------
+wf_untriaged_out="$(run_workflow "$F_SEL" 15)"; wf_untriaged_code=$?
+assert_eq "0" "$wf_untriaged_code" \
+  "AC2: an untriaged issue is a real answer — 'nobody owns it' exits 0"
+assert_contains "$wf_untriaged_out" "no kind label" \
+  "AC2: the untriaged outcome says WHY no routine matched"
+assert_contains "$wf_untriaged_out" "design-decision" \
+  "AC2: the untriaged outcome names the labels that WOULD route it"
+assert_not_contains "$wf_untriaged_out" "chain:" \
+  "AC2: an untriaged issue prints no chain — the five Nones stay distinct"
+
+# -- outcome 4: already claimed ----------------------------------------------
+wf_claimed_out="$(run_workflow "$F_SEL" 12)"; wf_claimed_code=$?
+assert_eq "0" "$wf_claimed_code" \
+  "AC2: an in-flight issue is a real answer and exits 0"
+assert_contains "$wf_claimed_out" "in-progress" \
+  "AC2: the in-flight outcome names the claim label it found"
+assert_contains "$wf_claimed_out" "fix" \
+  "AC2: the in-flight outcome names the CLAIMANT — which routine holds it"
+assert_not_contains "$wf_claimed_out" "no kind label" \
+  "AC2: a claimed issue is not reported as untriaged — #12 carries bug"
+
+# -- outcome 5: unknown reference, exit 1 ------------------------------------
+wf_missing_out="$(run_workflow "$F_SEL" 4242)"; wf_missing_code=$?
+assert_eq "1" "$wf_missing_code" \
+  "AC2: an issue that does not exist exits 1 — 'what you asked about is absent'"
+assert_contains "$wf_missing_out" "4242" \
+  "AC2: the refusal names the reference that did not resolve"
+
+# -- outcome 6: config fault, exit 2 -----------------------------------------
+# Distinct from exit 1 on purpose: a wrapper retries a missing issue and pages a
+# human for a broken configuration. Sharing a code makes both the wrong response.
+F_WF_BADCFG="$(new_fixture)"
+write_config "$F_WF_BADCFG" <<'EOF'
+[routines]
+kind_precedence = bug
+[routines.selectors]
+fix = bug
+improve = bug
+EOF
+write_labels "$F_WF_BADCFG" bug in-progress
+wf_badcfg_out="$(run_workflow "$F_WF_BADCFG" 11)"; wf_badcfg_code=$?
+assert_eq "2" "$wf_badcfg_code" \
+  "AC2: a misconfigured tool exits 2, NOT 1 — it is not an absent issue"
+assert_contains "$wf_badcfg_out" "bug" \
+  "AC2: the configuration refusal names the contested label"
+
+# -- outcome 6b: upstream label fault, exit 2 --------------------------------
+# A selector label the tracker never created makes every routine find nothing
+# and exit 0. That silent halt is the one this check exists to make loud.
+F_WF_GAP="$(new_fixture)"
+write_config "$F_WF_GAP" <<'EOF'
+EOF
+write_labels "$F_WF_GAP" bug design-decision enhancement documentation now next in-progress
+cat > "$F_WF_GAP/ghdata/issues.json" <<'EOF'
+[{"number":30,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/30",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_gap_out="$(run_workflow "$F_WF_GAP" 30)"; wf_gap_code=$?
+assert_eq "2" "$wf_gap_code" \
+  "AC2/AC6: a selector label missing upstream is a misconfiguration — exit 2"
+assert_contains "$wf_gap_out" "tech-debt" \
+  "AC2/AC6: the refusal names the label the tracker does not have"
+
+# -- AC13: exactly one required argument -------------------------------------
+wf_noarg_out="$(run_workflow "$F_SEL")"; wf_noarg_code=$?
+assert_eq "2" "$wf_noarg_code" "AC13: workflow with no reference is a usage error"
+assert_contains "$wf_noarg_out" "workflow" \
+  "AC13: the usage error names the command that needs the argument"
+
+wf_help="$( "$PY" "$CLI" --help 2>&1 )"
+assert_contains "$wf_help" "workflow" \
+  "AC13: workflow is a documented command, not an undocumented back door"
+
+
 finish
