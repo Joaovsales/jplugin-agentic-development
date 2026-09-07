@@ -708,4 +708,96 @@ assert_contains "$wf_help" "workflow" \
   "AC13: workflow is a documented command, not an undocumented back door"
 
 
+# ============================================================================
+# 8. AC3 — R3 needs a TOTAL order, and issue number is the only intrinsic one
+# ============================================================================
+# Precedence selects the ROUTINE; it cannot order candidates within one, because
+# they all carry the same label. Without a tie-break a scheduled run picks
+# whatever `gh issue list` happened to return that night.
+#
+# `by_priority` did tie-break, on `task.id` — which for a GitHub issue is a
+# TITLE-DERIVED SLUG: `_to_task` passes `fallback_id=""`, so `task_from_metadata`
+# falls through to `slugify_id(title)`. That is deterministic but not intrinsic:
+# editing one issue's title reshuffles the whole backlog. The three fixtures
+# below are built so slug order and number order DISAGREE, which is what makes
+# these assertions able to fail.
+
+# The extra label is built BEFORE the printf rather than with `${3:+...}`: the
+# replacement text contains a `}` of its own, which closes the expansion early
+# and emits `{"name":"bug"}}` — malformed JSON the provider rejects.
+order_issue() {  # <number> <title> [extra-label]
+  local extra=""
+  if [ -n "${3:-}" ]; then extra=",{\"name\":\"$3\"}"; fi
+  printf '{"number":%s,"title":"%s","state":"OPEN","url":"https://github.com/o/r/issues/%s","labels":[{"name":"bug"}%s],"assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"","closedByPullRequestsReferences":[]}' \
+    "$1" "$2" "$1" "$extra"
+}
+
+new_order_fixture() {  # writes issues from stdin-ordered args
+  local d; d="$(new_fixture)"
+  write_config "$d" <<'EOF'
+EOF
+  write_labels "$d" bug enhancement design-decision tech-debt documentation now next in-progress
+  printf '%s' "$1" > "$d/ghdata/issues.json"
+  printf '%s' "$d"
+}
+
+# Slug order is apple(41) < mango(42) < zebra(40); number order is 40 < 41 < 42.
+# A head of 40 can only come from the number.
+F_ORDER="$(new_order_fixture "[$(order_issue 40 'Zebra fails'),$(order_issue 41 'Apple fails'),$(order_issue 42 'Mango fails')]")"
+order_out="$(run_select "$F_ORDER" --routine fix)"; order_code=$?
+assert_eq "0" "$order_code" "AC3: an ordered pool selects successfully"
+assert_contains "$order_out" "candidate:     40 —" \
+  "AC3: equal priority ties break on ASCENDING ISSUE NUMBER, not the title slug"
+assert_not_contains "$order_out" "candidate:     41 —" \
+  "AC3: the alphabetically-first title does not win — that was the slug behaviour"
+
+# Same three issues, provider returning them in a different order. A total order
+# is a property of the key, not of the read.
+F_SHUFFLED="$(new_order_fixture "[$(order_issue 42 'Mango fails'),$(order_issue 40 'Zebra fails'),$(order_issue 41 'Apple fails')]")"
+shuffled_out="$(run_select "$F_SHUFFLED" --routine fix)"
+assert_contains "$shuffled_out" "candidate:     40 —" \
+  "AC3: a shuffled provider response yields the same head"
+
+# Two runs on an unchanged backlog return the same issue.
+rerun_out="$(run_select "$F_ORDER" --routine fix)"
+assert_eq "$(printf '%s' "$order_out" | grep '^candidate:')" \
+          "$(printf '%s' "$rerun_out" | grep '^candidate:')" \
+  "AC3: two runs on an unchanged backlog return the same issue"
+
+# The property the slug tie-break did NOT have: renaming an issue must not
+# reorder the backlog. Identical numbers, one title changed.
+F_RETITLED="$(new_order_fixture "[$(order_issue 40 'Zebra fails'),$(order_issue 41 'Aardvark fails'),$(order_issue 42 'Mango fails')]")"
+retitled_out="$(run_select "$F_RETITLED" --routine fix)"
+assert_contains "$retitled_out" "candidate:     40 —" \
+  "AC3: editing an issue title does not reshuffle the queue"
+
+# Rank still dominates the number: `now` on the HIGHEST number still wins.
+F_RANKED="$(new_order_fixture "[$(order_issue 40 'Zebra fails'),$(order_issue 41 'Apple fails'),$(order_issue 42 'Mango fails' now)]")"
+ranked_out="$(run_select "$F_RANKED" --routine fix)"
+assert_contains "$ranked_out" "candidate:     42 —" \
+  "AC3: priority rank outranks the number — now (#42) beats unset (#40)"
+
+# A task with no numeric external id sorts last rather than crashing the sort.
+# The local provider has no issue numbers at all, so this is its whole world.
+mixed_head="$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" - <<'PYEOF'
+from registry.model import ExternalRef, Task, by_priority
+
+# Ids chosen so ALPHABETICAL order (aaa, mmm, zzz) is the exact reverse of the
+# intended one. Sorting by id alone — the behaviour being replaced — cannot
+# produce the expected line.
+# Input order is mmm, zzz, aaa — deliberately NOT the expected output order.
+# `sorted` is stable, so leaving the two unnumbered tasks in input order would
+# also print the expected line if the final `task.id` tie-break were dropped.
+tasks = [
+    Task(id="mmm", title="Mmm", external=ExternalRef("github", "not-a-number", "u")),
+    Task(id="zzz", title="Zzz", external=ExternalRef("github", "7", "u")),
+    Task(id="aaa", title="Aaa", external=None),
+]
+print(",".join(task.id for task in sorted(tasks, key=by_priority)))
+PYEOF
+)"
+assert_eq "zzz,aaa,mmm" "$mixed_head" \
+  "AC3: an unnumbered task sorts after every numbered one, by id — no crash, no ambiguity"
+
+
 finish
