@@ -408,6 +408,129 @@ unkprov_code=$?
 assert_eq "1" "$unkprov_code" "Config: an unknown provider exits non-zero"
 assert_contains "$unkprov_out" "unknown provider 'trello'" "Config: the failure names the bad provider"
 
+# Three pointer states, and only the first is silent (#82). "No pointer" is an
+# unconfigured project and defaults silently. "Pointer -> existing file" loads
+# it. "Pointer -> missing file" is a CONFIGURED project, broken: folding it into
+# the first state made every consumer run on defaults while its own project
+# instructions claimed otherwise, and nothing said so.
+F_NOPTR="$(new_fixture)"
+write_index "$F_NOPTR"
+noptr_out="$(run doctor --repo "$F_NOPTR" 2>&1)"
+noptr_code=$?
+assert_eq "0" "$noptr_code" "Pointer states: no pointer — defaults, exit 0"
+assert_contains "$noptr_out" "configuration:  none (defaults + local fallback)" \
+  "Pointer states: no pointer — reported as none"
+assert_not_contains "$noptr_out" "BROKEN" \
+  "Pointer states: no pointer — no new noise on the common path"
+
+F_PTROK="$(new_fixture)"
+write_index "$F_PTROK"
+printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$F_PTROK/docs/tracking.md"
+printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTROK/CLAUDE.md"
+ptrok_out="$(run doctor --repo "$F_PTROK" 2>&1)"
+ptrok_code=$?
+assert_eq "0" "$ptrok_code" "Pointer states: pointer to an existing file — exit 0"
+assert_contains "$ptrok_out" "configuration:  docs/tracking.md" \
+  "Pointer states: pointer to an existing file — that file is loaded"
+
+F_PTRMISS="$(new_fixture)"
+write_index "$F_PTRMISS"
+printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTRMISS/CLAUDE.md"
+ptrmiss_doctor="$(run doctor --repo "$F_PTRMISS" 2>&1)"
+ptrmiss_code=$?
+assert_eq "1" "$ptrmiss_code" "Pointer states: pointer to a missing file — doctor exits non-zero"
+assert_contains "$ptrmiss_doctor" "configuration:  BROKEN" \
+  "Pointer states: pointer to a missing file — doctor reports BROKEN, not none"
+assert_contains "$ptrmiss_doctor" "CLAUDE.md declares" \
+  "Pointer states: the fault names where the pointer was declared"
+assert_contains "$ptrmiss_doctor" "'docs/tracking.md' does not exist" \
+  "Pointer states: the fault names the declared path"
+assert_contains "$ptrmiss_doctor" "templates/task-tracking.md" \
+  "Pointer states: the fault says how to fix it"
+assert_contains "$ptrmiss_doctor" "Every command except this one refuses to run until it is fixed." \
+  "Pointer states: doctor says the fault blocks every other command"
+assert_contains "$ptrmiss_doctor" "provider:" \
+  "Pointer states: the rest of the diagnosis still renders"
+assert_not_contains "$ptrmiss_doctor" "MISCONFIGURED" \
+  "Pointer states: the fault sits on the configuration line, not the routines line"
+assert_eq "different" "$([ "$noptr_out" = "$ptrmiss_doctor" ] && echo same || echo different)" \
+  "Pointer states: a broken declaration is distinguishable from no declaration"
+ptrmiss_rec="$(run reconcile --repo "$F_PTRMISS" 2>&1)"
+ptrmiss_rec_code=$?
+assert_eq "1" "$ptrmiss_rec_code" \
+  "Pointer states: every command except doctor refuses to run on a broken pointer"
+assert_contains "$ptrmiss_rec" "task-registry: CLAUDE.md declares" \
+  "Pointer states: the refusal carries the same fault text"
+
+# First pointer wins, broken or not: a dangling project-owned pointer is not
+# rescued by a valid template-managed one further down the search order. The
+# most authoritative declaration is the one that is wrong, and that is what the
+# user must hear.
+F_PTRPREC="$(new_fixture)"
+write_index "$F_PTRPREC"
+mkdir -p "$F_PTRPREC/.claude"
+printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$F_PTRPREC/docs/tracking.md"
+printf 'Task tracking instructions: docs/missing.md\n' > "$F_PTRPREC/.claude/project.md"
+printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTRPREC/CLAUDE.md"
+ptrprec_out="$(run reconcile --repo "$F_PTRPREC" 2>&1)"
+ptrprec_code=$?
+assert_eq "1" "$ptrprec_code" \
+  "Pointer states: a broken project-owned pointer is not rescued by a later valid one"
+assert_contains "$ptrprec_out" ".claude/project.md declares" \
+  "Pointer states: the refusal names the project-owned file, not the template one"
+
+# The refusal is the only place repository text reaches a terminal or an agent's
+# context unparsed, so the declared path is echoed escaped (repr), the way
+# `confine` already renders an escaping pointer — an ESC byte the regex admits
+# must not pass through raw. And a target that exists but is a directory is
+# named as such: "does not exist — create it" would send the user to create
+# something that is already there.
+F_PTRDIR="$(new_fixture)"
+write_index "$F_PTRDIR"
+printf 'Task tracking instructions: docs\n' > "$F_PTRDIR/CLAUDE.md"
+ptrdir_out="$(run doctor --repo "$F_PTRDIR" 2>&1)"
+assert_contains "$ptrdir_out" "'docs' exists but is not a file" \
+  "Pointer states: a pointer to a directory is not reported as missing"
+assert_not_contains "$ptrdir_out" "does not exist" \
+  "Pointer states: a directory target never gets the create-it advice"
+F_PTRESC="$(new_fixture)"
+write_index "$F_PTRESC"
+printf 'Task tracking instructions: \033[31mdocs/x.md\n' > "$F_PTRESC/CLAUDE.md"
+ptresc_out="$(run doctor --repo "$F_PTRESC" 2>&1)"
+assert_contains "$ptresc_out" "'\\x1b[31mdocs/x.md' does not exist" \
+  "Pointer states: the declared path is echoed escaped, never raw"
+assert_eq "0" "$(printf '%s' "$ptresc_out" | grep -c $'\033' || true)" \
+  "Pointer states: no raw ESC byte reaches the output"
+
+# A refusal is only earned by a genuine declaration. The regex admits any
+# non-space run after the colon, so a prose mention that ends its sentence —
+# `...: docs/tracking.md.` — must name `docs/tracking.md`, not `docs/tracking.md.`;
+# otherwise a project that worked yesterday refuses today over a full stop.
+F_PTRPROSE="$(new_fixture)"
+write_index "$F_PTRPROSE"
+mkdir -p "$F_PTRPROSE/.claude"
+printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$F_PTRPROSE/docs/tracking.md"
+printf 'See the Task tracking instructions: docs/tracking.md. It is optional.\n' > "$F_PTRPROSE/.claude/project.md"
+ptrprose_out="$(run doctor --repo "$F_PTRPROSE" 2>&1)"
+ptrprose_code=$?
+assert_eq "0" "$ptrprose_code" \
+  "Pointer states: sentence punctuation after the path is not part of the path"
+assert_contains "$ptrprose_out" "configuration:  docs/tracking.md" \
+  "Pointer states: the prose mention resolves to the file it names"
+
+# A run that is nothing but punctuation (`Task tracking instructions: ...`) is a
+# sentence fragment, not a path — it must read as "no pointer", not as a
+# pointer to a file called `...`.
+F_PTRDOTS="$(new_fixture)"
+write_index "$F_PTRDOTS"
+printf 'Task tracking instructions: ...\n' > "$F_PTRDOTS/CLAUDE.md"
+ptrdots_out="$(run doctor --repo "$F_PTRDOTS" 2>&1)"
+ptrdots_code=$?
+assert_eq "0" "$ptrdots_code" \
+  "Pointer states: a punctuation-only pointer is no pointer — exit 0"
+assert_contains "$ptrdots_out" "configuration:  none (defaults + local fallback)" \
+  "Pointer states: a punctuation-only pointer falls back to defaults"
+
 # =============================================================================
 # 4. Provider selection precedence
 # =============================================================================
@@ -1343,16 +1466,26 @@ assert_contains "$cfg_reg" "transport https://jira.example.com = allowed" \
 assert_contains "$cfg_reg" "transport-optout=True" \
   "Config: an operator can override the transport floor from the environment"
 
-# A pointer that escapes the repository must not be followed.
+# A pointer that escapes the repository must not be followed — and must not be
+# silently skipped either. It is a declared intent with a broken target, the
+# same shape as a missing file (#82), and the configuration guide already
+# documents escapes as refused. The declared string is echoed, never opened.
 F_ESC="$(new_fixture)"
 printf 'Task tracking instructions: ../../../etc/passwd\n' > "$F_ESC/AGENTS.md"
 esc_out="$(cd "$F_ESC" && pyreg <<'EOF'
-from registry.config import find_config_path
-print("resolved=" + str(find_config_path(".")))
+from registry.config import ConfigError, find_config_path
+try:
+    print("resolved=" + str(find_config_path(".")))
+except ConfigError as exc:
+    print("refused=" + str(exc))
 EOF
 )"
-assert_contains "$esc_out" "resolved=None" \
-  "Config: a pointer resolving outside the project root is not followed"
+assert_contains "$esc_out" "refused=" \
+  "Config: a pointer resolving outside the project root is refused, not silently skipped"
+assert_contains "$esc_out" "AGENTS.md" \
+  "Config: the refusal names the file that declared the escaping pointer"
+assert_contains "$esc_out" "outside the project root" \
+  "Config: the refusal says why"
 
 # Approval is a floor: a repository file may add it, never remove it.
 F_FLOOR="$(new_fixture)"

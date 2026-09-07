@@ -89,7 +89,9 @@ copied into `tasks/todo.md`.
 - `docs/task-tracking.md` — the project configuration contract (an ```ini fenced
   block parsed with `configparser`). Discovered directly, or through a
   `Task tracking instructions: <path>` pointer in `AGENTS.md`, `CLAUDE.md`, or
-  `.claude/project.md`.
+  `.claude/project.md`. A pointer whose target is missing is refused, naming
+  the declaring file and the path (#82) — only "no pointer, no default file"
+  is silent.
 - `tasks/todo.md` — the compact local index.
 - `tasks/backlog.md`, `specs/`, `specs/pending/`, `specs/completed/` — reconciled inputs.
 - Environment: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT`.

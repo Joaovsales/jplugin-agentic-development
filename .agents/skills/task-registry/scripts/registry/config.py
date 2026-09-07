@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 CONFIG_DEFAULT_PATH = "docs/task-tracking.md"
+CONFIG_TEMPLATE_PATH = ".agents/skills/task-registry/templates/task-tracking.md"
 #: Searched in order, first hit wins. Project-owned files come first: `.claude/
 #: project.md` and `AGENTS.md` are written by the team, while `CLAUDE.md` is
 #: template-managed and overwritten by `/sync` — a pointer there is the least
@@ -120,6 +121,15 @@ DEFAULT_JIRA_PRIORITIES: Mapping[str, str] = {
 
 class ConfigError(Exception):
     """The configuration exists but cannot be read as configuration."""
+
+
+class ConfigPointerError(ConfigError):
+    """A project-instruction pointer names a configuration file that cannot be used.
+
+    Missing target or a target outside the project root. Kept distinct from a
+    malformed file because `doctor` reports it on the `configuration:` line —
+    there is no loaded file for a routines fault to belong to.
+    """
 
 
 class Secret:
@@ -250,25 +260,59 @@ def _as_bool(value: str, default: bool) -> bool:
 
 
 def find_config_path(root: str) -> Optional[str]:
-    """Resolve the configuration document, following a project-instruction pointer."""
+    """Resolve the configuration document, following a project-instruction pointer.
+
+    Three states, and only the first is silent:
+
+      * no pointer anywhere — the default path when present, else None;
+      * a pointer whose target exists — that file;
+      * a pointer whose target is missing or escapes the root — ConfigPointerError.
+
+    The third is a declared intent with a broken target. Folding it into the
+    first made a project run on defaults while its own instructions said it was
+    configured, and nothing said so (#82). The first pointer found wins, broken
+    or not: a dangling `.claude/project.md` pointer is not rescued by a valid
+    `CLAUDE.md` one, because the most authoritative declaration is the wrong one.
+    """
     for pointer_file in POINTER_FILES:
-        absolute = os.path.join(root, pointer_file)
-        if not os.path.isfile(absolute):
+        declared = _declared_pointer(root, pointer_file)
+        if declared is None:
             continue
-        with open(absolute, "r", encoding="utf-8-sig") as handle:
-            match = POINTER_RE.search(handle.read())
-        if match:
-            # The pointer is read out of a repository file, so it is untrusted
-            # input: `Task tracking instructions: ../../etc/shadow` would
-            # otherwise be opened and echoed back in a parse error.
-            try:
-                candidate = confine(root, match.group(1), "task tracking pointer")
-            except ConfigError:
-                continue
-            if os.path.isfile(candidate):
-                return candidate
+        # The pointer is read out of a repository file, so it is untrusted
+        # input: `Task tracking instructions: ../../etc/shadow` is echoed back
+        # in the refusal, never opened.
+        try:
+            candidate = confine(root, declared, "task tracking pointer")
+        except ConfigError as exc:
+            raise ConfigPointerError(f"{pointer_file}: {exc}") from exc
+        if not os.path.isfile(candidate):
+            # ``!r`` matches ``confine``: the pointer is repository text, so it is
+            # echoed escaped, never raw, to a terminal or an agent's context.
+            state = "exists but is not a file" if os.path.exists(candidate) else "does not exist"
+            raise ConfigPointerError(
+                f"{pointer_file} declares `Task tracking instructions: {declared!r}`, "
+                f"but {declared!r} {state} — create it from {CONFIG_TEMPLATE_PATH}, "
+                "or remove the pointer"
+            )
+        return candidate
     default = os.path.join(root, CONFIG_DEFAULT_PATH)
     return default if os.path.isfile(default) else None
+
+
+def _declared_pointer(root: str, pointer_file: str) -> Optional[str]:
+    """The path a project-instruction file points at, or None if it has no pointer."""
+    absolute = os.path.join(root, pointer_file)
+    if not os.path.isfile(absolute):
+        return None
+    with open(absolute, "r", encoding="utf-8-sig") as handle:
+        match = POINTER_RE.search(handle.read())
+    if not match:
+        return None
+    # A prose mention can end the sentence the pointer sits in: `...: docs/
+    # task-tracking.md.` names `docs/task-tracking.md`, and reading the period
+    # as part of the path would turn a working project into a refusal.
+    declared = match.group(1).rstrip(".,;:!?)")
+    return declared or None
 
 
 def _parse_ini(text: str, source: str) -> configparser.ConfigParser:
@@ -276,7 +320,7 @@ def _parse_ini(text: str, source: str) -> configparser.ConfigParser:
     if not match:
         raise ConfigError(
             f"{source}: no ```ini configuration block found "
-            "(see .agents/skills/task-registry/templates/task-tracking.md)"
+            f"(see {CONFIG_TEMPLATE_PATH})"
         )
     parser = configparser.ConfigParser()
     parser.optionxform = str  # labels are case-sensitive provider vocabulary
@@ -290,12 +334,22 @@ def _parse_ini(text: str, source: str) -> configparser.ConfigParser:
 def load_config(
     root: str,
     env: Optional[Mapping[str, str]] = None,
-    validate_routines: bool = True,
+    strict: bool = True,
 ) -> Config:
     """Load configuration, or return defaults when the project has none.
 
     An absent configuration is not an error — that is the whole point of the
-    local fallback. A *malformed* one is.
+    local fallback. A *malformed* one is, and so is a *declared* one whose file
+    cannot be used: a pointer with no target is a configured project, broken,
+    not an unconfigured one.
+
+    `strict=False` is for `doctor` alone. It is the command a user runs BECAUSE
+    configuration is broken, so refusing to load would make the diagnostic
+    unreachable exactly when it is needed. Non-strict loading covers exactly two
+    faults — a broken pointer (defaults are returned) and routine validation
+    (skipped); the caller reports the fault it already caught. A target that
+    exists but cannot be parsed still raises, strict or not. Every other command
+    inherits the guarantees.
     """
     env = env if env is not None else os.environ
     jira = dict(
@@ -303,7 +357,12 @@ def load_config(
         jira_email=env.get("JIRA_EMAIL", ""),
         jira_token=Secret(env.get("JIRA_API_TOKEN", "")),
     )
-    config_path = find_config_path(root)
+    try:
+        config_path = find_config_path(root)
+    except ConfigPointerError:
+        if strict:
+            raise
+        config_path = None
     if config_path is None:
         return Config(root=root, **jira)
 
@@ -370,11 +429,7 @@ def load_config(
     # contested label makes selection depend on dict insertion order, and a gate
     # that only fires when a human types `selectors` does not protect the
     # unattended runs that are the whole point. Every command inherits it.
-    # `doctor` is the one caller that passes False: it is the command a user runs
-    # BECAUSE configuration is broken, so refusing to load would make the
-    # diagnostic unreachable exactly when it is needed. It reports the fault
-    # instead. Every other command still inherits the guarantee.
-    if validate_routines:
+    if strict:
         validate_selectors(config)
     return config
 

@@ -26,3 +26,10 @@ session proceeded to commit and push.
 Run `/create-verification-skill` to define a project-owned verification surface,
 then replay the route hook, materialization, runtime tripwire, and reviewer
 finalization through that surface and record the walkthrough in `tasks/e2e-log.md`.
+
+**Correction — 2026-09-06.** The `/route` skill this gap was recorded against no
+longer exists: fb41c7a (#105) replaced it with the four category routines in
+`.agents/skills/wrap-up-session/references/routines.md`, selected by label rather
+than by a route hook. The gap itself still stands — the repository has no
+project-local verification skill — but the replay target is now the routine
+spine (select → claim → branch → routine step → review → PR), not the retired hook.

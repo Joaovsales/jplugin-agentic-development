@@ -326,8 +326,24 @@ assert_file_contains "CLAUDE.md" '`/task-registry`' \
   "task-registry: CLAUDE.md skills table lists the skill"
 assert_file_contains "CLAUDE.md" "## Task Tracking" \
   "task-registry: CLAUDE.md defines the task-tracking section"
-assert_file_contains "CLAUDE.md" "Task tracking instructions: docs/task-tracking.md" \
-  "task-registry: CLAUDE.md carries the configuration pointer the loader looks for"
+# The convention is documented, but CLAUDE.md must not itself emit a live
+# pointer. It is template-managed and ships to every consumer, while `docs/` is
+# outside every syncable root — so a bare `Task tracking instructions: <file>`
+# here is a pointer whose target the template can never deliver, and the loader
+# refuses a pointer with no target (#82). The loader's POINTER_RE stops at a
+# backtick or `<` but does not require one, so a backticked concrete path still
+# matches: only the `<path>` placeholder is inert. Any live pointer that does
+# appear must resolve to a file this repository ships.
+assert_file_contains "CLAUDE.md" '`Task tracking instructions: <path>`' \
+  "task-registry: CLAUDE.md documents the pointer convention"
+assert_file_contains "CLAUDE.md" "templates/task-tracking.md" \
+  "task-registry: CLAUDE.md names the template a project starts its configuration from"
+claude_md_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' CLAUDE.md \
+  | sed -E 's/^[^:]*:[[:space:]]*//' || true)"
+for target in $claude_md_pointers; do
+  assert_eq "present" "$([ -f "$target" ] && echo present || echo missing)" \
+    "task-registry: live pointer in CLAUDE.md resolves to a shipped file ($target)"
+done
 assert_prose_contains "CLAUDE.md" "is an **index**, not the detailed source of truth" \
   "task-registry: CLAUDE.md states that tasks/todo.md is an index"
 assert_not_contains "$(flatten CLAUDE.md)" \
