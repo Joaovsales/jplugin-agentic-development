@@ -124,7 +124,8 @@ write to a company tracker.
 
 The configuration document is `docs/task-tracking.md`, or wherever a
 `Task tracking instructions: <path>` line in `AGENTS.md`, `CLAUDE.md`, or
-`.claude/project.md` points. Copy `templates/task-tracking.md` to start one.
+`.claude/project.md` points. Copy `templates/task-tracking.md` to start one. A
+pointer whose target is missing is refused, naming the path — never defaulted.
 Full field reference, provider examples, and troubleshooting:
 `references/configuration.md`.
 

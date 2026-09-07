@@ -335,3 +335,32 @@ so that agreement counts.
   `architecture/a-repository-level-flag-does-not-describe-one-revision.md`,
   `process/a-precondition-that-fires-after-the-act-reports-nothing.md`,
   `tooling/pkill-f-matches-the-shell-that-runs-it.md`
+
+### [2026-09-06] — A task-tracking pointer to a missing file is no longer silent (#82)
+`/debug 82`. `find_config_path()` fell through `os.path.isfile` to the default
+path whenever a `Task tracking instructions:` pointer named a file that did not
+exist, and its `except ConfigError: continue` did the same for a pointer that
+escaped the project root — so "declared and broken" and "never declared" printed
+the same `doctor` line and ran on the same defaults. The template's own
+`CLAUDE.md` was the live instance: a bare pointer to `docs/task-tracking.md`,
+a file that never shipped and cannot (`docs/` is not syncable).
+- Root-Cause Prelude ranked three candidates; the regex (#2) was disconfirmed by
+  running `POINTER_RE` over `CLAUDE.md`, and the doctor renderer (#3) by the
+  absence of any declared-path field in `Config` for it to have dropped.
+- Fix: a `ConfigPointerError` raised from the loader, naming the declaring file,
+  the declared path, and the template to start from; `load_config(strict=)`
+  replaces `validate_routines`, and `doctor` alone loads non-strict so it can
+  render `configuration:  BROKEN — …` and exit 1 while every other command
+  refuses in the preamble. `CLAUDE.md` now carries the convention as prose with
+  a `<path>` placeholder — the issue's proposed backtick-wrap was tested and
+  found insufficient, since `POINTER_RE` stops at a backtick without needing one.
+- Tests: a three-state block (no pointer / pointer resolves / pointer missing,
+  plus precedence and escape) written RED first; the doc-conventions guard now
+  asserts the convention is documented and that any live pointer in `CLAUDE.md`
+  resolves to a shipped file. 36/36 test files green.
+- Two decisions recorded as `[AMBIGUITY]`: refuse rather than warn-and-run
+  (spec AC7 in the issue's comment, and the malformed-config precedent), and
+  make the escaping pointer loud too (same defect, same function, already
+  documented as refused).
+- Learnings captured: `tasks/solutions/bugs/task-tracking-pointer-to-a-missing-file-was-indistinguishable-from-no-pointer.md`,
+  `tasks/solutions/patterns/a-declared-intent-with-a-broken-target-is-not-an-absent-one.md`

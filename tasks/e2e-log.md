@@ -249,3 +249,36 @@ is #98's subject.
 
 Result: PASS for the composition above; the host-level gap is recorded, not
 claimed as covered.
+
+## Integration Proof — task-tracking pointer states (#82) — 2026-09-06 (branch `Joaovsales/task-tracking-config-a-pointer-to-a-missing-file`, uncommitted)
+
+Spec: `specs/task-registry.md` (one-line note under configuration discovery).
+The surface is the CLI alone — `task-registry doctor` and the refusal preamble of
+every other command — so the walkthrough is six throwaway projects run through
+the real script, not a browser session.
+
+### What ran
+
+| project | pointer | `doctor` configuration line | `doctor` exit |
+|---|---|---|---|
+| none | no pointer, no default file | `none (defaults + local fallback)` | 0 |
+| ok | `CLAUDE.md` → existing `docs/tracking.md` | `docs/tracking.md` | 0 |
+| missing | `CLAUDE.md` → absent `docs/tracking.md` | `BROKEN — CLAUDE.md declares \`Task tracking instructions: 'docs/tracking.md'\`, but 'docs/tracking.md' does not exist — create it from .agents/skills/task-registry/templates/task-tracking.md, or remove the pointer` | 1 |
+| dir | `CLAUDE.md` → `docs` (a directory) | `BROKEN — … 'docs' exists but is not a file — …` | 1 |
+| prose | `.claude/project.md` sentence ending `docs/tracking.md.` with the file present | `docs/tracking.md` | 0 |
+| escape | `AGENTS.md` → `../../etc/passwd` | `BROKEN — AGENTS.md: task tracking pointer '../../etc/passwd' resolves outside the project root — refusing to use it` | 1 |
+
+Every BROKEN diagnosis is followed by `Every command except this one refuses to
+run until it is fixed.`, and `reconcile` on the *missing* project exits 1 with the
+same sentence on stderr, prefixed `task-registry:`. This repository itself
+reports `none`, exit 0 — `CLAUDE.md` no longer carries a live pointer.
+
+### Result
+
+PASS. AC1 (distinguishable, names path and declaring file), AC2 (no pointer stays
+silent), AC3 (template `CLAUDE.md` emits no parseable pointer) observed directly;
+AC4–AC6 are the test suite (`tests/test-task-registry.sh` "Pointer states",
+`tests/test-doc-conventions.sh`, `bash tests/run.sh` 36/36). Residual gap, stated:
+a pointer to a file that exists but has no ` ```ini ` block still tracebacks under
+`doctor` — pre-existing on `master`, unchanged here, and the non-strict docstring
+now says so rather than claiming otherwise.

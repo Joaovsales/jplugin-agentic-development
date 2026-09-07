@@ -18,6 +18,13 @@ The registry looks for its configuration in this order:
 3. nothing — configuration defaults apply; provider auto-selection still follows
    the table below.
 
+A pointer is a declaration. One whose target is missing or outside the project
+root is refused, naming the declaring file and the path it named — it is never
+read as "no configuration", because a project that says it is configured and is
+running on defaults is the failure nobody notices. Only step 3, no pointer and no
+default file, is silent. `doctor` still runs on a broken pointer and reports it
+on its `configuration:` line; every other command exits non-zero.
+
 Every path the configuration names — the pointer target, the index, the detail
 directory — must resolve inside the project root. One that escapes is refused,
 because the configuration arrives as a file in the repository and a file in the

@@ -2,8 +2,8 @@
 
 > Copy this file to `docs/task-tracking.md` in your project and edit the block
 > below. Discovery finds it there automatically; to keep it elsewhere, add a line
-> `Task tracking instructions: <path>` to `AGENTS.md`, `CLAUDE.md`, or
-> `.claude/project.md`.
+> `Task tracking instructions: <path>` to `.claude/project.md` (Claude Code) or
+> `AGENTS.md` (Pi) — never to `CLAUDE.md`, which `/sync` overwrites.
 >
 > Read by `/task-registry`. Everything is optional — without configuration,
 > selection still prefers GitHub when a GitHub remote and an authenticated `gh`

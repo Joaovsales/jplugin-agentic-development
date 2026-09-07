@@ -60,6 +60,11 @@ REVIEW_COUNT=$(grep -rlE '^needs_review: true' tasks/solutions/*/ 2>/dev/null | 
 
 `.claude/hooks/session-start.sh:156`, and the same pattern in
 `/memory-maintain`'s light pass (both skill copies).
+Regression test: `tests/test-session-start.sh` — a fixture document that
+mentions the flag in prose must count as zero flagged.
+
+_[merged duplicate section 2026-09-06: a second "Recurrence — 2026-09-05"
+section restated this one; its regression-test line is folded in above.]_
 
 **The generalisable error**: the first fix restricted *where* to look when the
 defect was *what* to match. A store of documents about a system will inevitably
@@ -74,31 +79,3 @@ In any `set -eo pipefail` script, treat every counting/filtering grep as a
 command that is *expected* to fail: `grep ... || true` inside pipelines, or
 `grep -c` with an explicit exit check. Test the zero-match path — it is the
 path that never shows up during development because fixtures always match.
-
-## Recurrence — 2026-09-05
-
-The glob fix was a symptom fix. Scoping to `tasks/solutions/*/` excluded the store
-README, but the real defect is that an **unanchored** grep counts every *mention*
-of the flag, and a category document may mention it too.
-
-This document is that document. Its prose and its code block both quote
-`needs_review: true`, so the counter reported one flagged document when the store
-had none — the session-start banner misreported store health, and
-`/memory-maintain`'s light pass inherited the same number from the same pattern.
-
-The flag is frontmatter, so the match belongs at the start of a line:
-
-```bash
-REVIEW_COUNT=$(grep -rl '^needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
-```
-
-Fixed in `.claude/hooks/session-start.sh:156` and in both copies of
-`skills/memory-maintain/SKILL.md`. Regression test:
-`tests/test-session-start.sh` — a fixture document that mentions the flag in prose
-must count as zero flagged.
-
-**The general lesson**, which the original entry missed: when a grep asks "which
-files *are* X", excluding the one known false positive fixes that instance and
-leaves the class open. Anchor or otherwise constrain the pattern to the structural
-position the value actually occupies. A store of documents *about* the codebase
-will always eventually contain a document about the pattern you are grepping for.

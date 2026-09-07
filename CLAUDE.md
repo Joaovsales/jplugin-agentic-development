@@ -415,15 +415,21 @@ dependency marker. Acceptance criteria, discussion, and evidence live in the
 external ticket or the linked spec, and are read one task at a time via
 `/task-registry show <task-id>`.
 
-Task tracking instructions: docs/task-tracking.md
-
-That file is the project's configuration contract: provider (`github`, `jira`, or
-`local`), repository/project identifier, label and status mappings, local detail
+The project's configuration contract is `docs/task-tracking.md`, or wherever a
+`Task tracking instructions: <path>` line in `.claude/project.md` (or `AGENTS.md`
+for Pi) points. That file declares: provider (`github`, `jira`, or `local`),
+repository/project identifier, label and status mappings, local detail
 directory, dependency strategy, whether external writes need approval, migration
 policy, and offline behaviour. It is optional — without one, provider selection
 still prefers GitHub when a GitHub remote and an authenticated `gh` both exist,
 then falls back to local Markdown. Start from
 `.agents/skills/task-registry/templates/task-tracking.md`.
+
+A pointer whose target is missing is refused, naming the path and the file that
+declared it — a declared configuration that cannot be read is broken, not absent.
+Put the pointer in `.claude/project.md` or `AGENTS.md`, never in this file: it is
+template-managed and `docs/` is outside every syncable root, so a live pointer
+here would ship to every project with a target the template can never deliver.
 
 It is optional, but **its absence is not the same as choosing `local`.** With no
 configuration the provider is resolved in order: an explicit `provider =` wins;

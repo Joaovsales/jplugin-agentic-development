@@ -26,6 +26,7 @@ import argparse
 import os
 import sys
 import traceback
+from typing import Optional
 
 # Set before the package is imported, and deliberately: this package lives inside
 # a *skills tree*, where `.agents/skills/` and `.claude/skills/` are pinned
@@ -36,7 +37,12 @@ sys.dont_write_bytecode = True
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from registry.config import ConfigError, load_config, select_provider  # noqa: E402
+from registry.config import (  # noqa: E402
+    ConfigError,
+    ConfigPointerError,
+    load_config,
+    select_provider,
+)
 from registry.migrate import apply_migration, plan_migration  # noqa: E402
 from registry.providers import build_provider  # noqa: E402
 from registry.providers.base import (  # noqa: E402
@@ -167,15 +173,15 @@ def _run(argv, set_redactor) -> int:
             print("task-registry: `upsert` requires --title", file=sys.stderr)
             return 2
 
-    routine_fault = None
+    config_fault = None
     try:
         config = load_config(root)
     except ConfigError as exc:
         if args.command != "doctor":
             print(f"task-registry: {exc}", file=sys.stderr)
             return 1
-        routine_fault = str(exc)
-        config = load_config(root, validate_routines=False)
+        config_fault = exc
+        config = load_config(root, strict=False)
     set_redactor(redactor_for(config))
 
     selection = select_provider(config)
@@ -198,7 +204,7 @@ def _run(argv, set_redactor) -> int:
 
     registry = Registry(config, provider, selection_reason=reason)
     try:
-        args.routine_fault = routine_fault
+        args.config_fault = config_fault
         output, code = _dispatch(args, config, registry, apply_writes)
     except WriteNotAuthorized as exc:
         print(f"task-registry: {exc}", file=sys.stderr)
@@ -237,7 +243,7 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         lines, code = upsert_task(registry, task, apply_writes)
         return ("\n".join(lines), code)
     if command == "doctor":
-        return _doctor(registry, args.routine_fault), (1 if args.routine_fault else 0)
+        return _doctor(registry, args.config_fault), (1 if args.config_fault else 0)
     if command == "selectors":
         return _selectors(registry)
     if command == "select":
@@ -267,14 +273,21 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
     return report.render(verbose=args.verbose), report.exit_code
 
 
-def _doctor(registry: Registry, routine_fault=None) -> str:
-    """Answer 'which tracker am I talking to, and why' without touching anything."""
+def _doctor(registry: Registry, fault: Optional[ConfigError] = None) -> str:
+    """Answer 'which tracker am I talking to, and why' without touching anything.
+
+    `fault` is whatever strict loading refused. A pointer fault belongs on the
+    `configuration:` line — no file loaded, so "none" would be a lie (#82); any
+    other fault is a loaded file whose [routines] block is inconsistent.
+    """
     status = registry.provider.discover()
     config = registry.config
+    pointer_fault = fault if isinstance(fault, ConfigPointerError) else None
+    routine_fault = None if pointer_fault else fault
     lines = [
         f"provider:       {registry.provider.name}",
         f"selected because: {registry.selection_reason}",
-        f"configuration:  {config.source_path or 'none (defaults + local fallback)'}",
+        f"configuration:  {_configuration_line(config, pointer_fault)}",
         f"index:          {config.index_path}",
         f"capabilities:   {registry.provider.capabilities.render()}",
         f"reachable:      {'yes' if status.available else 'no'} — {status.detail}",
@@ -288,13 +301,18 @@ def _doctor(registry: Registry, routine_fault=None) -> str:
         f"offline reads:  {config.offline_reads}",
     ]
     if routine_fault:
-        lines.append(
-            f"routines:       MISCONFIGURED — {routine_fault}\n"
-            "  Every command except this one refuses to run until it is fixed."
-        )
+        lines.append(f"routines:       MISCONFIGURED — {routine_fault}")
     else:
         lines.append(f"routines:       {' > '.join(config.kind_precedence)}")
+    if fault:
+        lines.append("  Every command except this one refuses to run until it is fixed.")
     return "\n".join(lines)
+
+
+def _configuration_line(config, pointer_fault) -> str:
+    if pointer_fault:
+        return f"BROKEN — {pointer_fault}"
+    return config.source_path or "none (defaults + local fallback)"
 
 
 def _selectors(registry: Registry):
