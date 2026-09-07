@@ -61,7 +61,8 @@ template-managed and `/sync` overwrites it wholesale, while `docs/` is outside
 every syncable root — so a pointer there would ship to every downstream project
 naming a file the template can never deliver, which the loader now refuses
 outright (#82). `.claude/project.md` is never synced, so the pointer and its
-target stay together. Pi reads the same line from `AGENTS.md`.
+target stay together. Pi reads its own copy from `AGENTS.md` — neither harness
+reads the other's project file, so the declaration is duplicated on purpose.
 
 ### Code Economy
 
