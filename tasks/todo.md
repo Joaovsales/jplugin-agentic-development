@@ -471,7 +471,7 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
 - [x] TDD: assertions pinning the two ACs that are **already shipped** — AC6 (a workflow label absent upstream is refused naming it, `task-registry.py:436` `_selector_upstream_check`) and AC10 (`claim` without `--apply` writes nothing and says so; idempotent; refuses an issue claimed by another routine). Verify, do not reimplement. Every new assertion in this plan must be falsifiable by mutation — break it, watch it go red, restore -> no new implementation <!-- task-id: routines.pin-shipped-acs --> (blocked-by: routines.workflow-command)
 - [x] TDD: `tests/test-skill-parity.sh` green (AC15); `bash tests/run.sh` fully green -> byte-identical copies of every edited `.agents/skills/**` file into `.claude/skills/**` <!-- task-id: routines.parity-suite --> (blocked-by: routines.pr-assertion)
 
-## Session Summary — 2026-09-07 [40f6b5e..15a6c29, base bbef230] Phase A complete (specs/workflow-routing.md)
+## Session Summary — 2026-09-07 [40f6b5e..15a6c29] Phase A complete (specs/workflow-routing.md), base bbef230
 - Completed: 7 of 7 Phase A rows. Branch `feat/workflow-routing-phase-a` off `bbef230`.
 - Gate: #82 merged as PR #109 before any Phase A work began, per the handover's Step 0.
 - Delivered: `task-registry workflow <ref>` (R2, the only real gap), `[routines.skills]`

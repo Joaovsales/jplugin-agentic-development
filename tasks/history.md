@@ -417,3 +417,10 @@ a file that never shipped and cannot (`docs/` is not syncable).
 - The exit-code decision worth remembering: an outage and a misconfiguration both
   used to exit 2. They are now 1 and 2, because the question a scheduler asks is
   not "did it fail" but "should I wake someone".
+- The pre-push wrap-up gate recorded 12 uncovered commits, and it was right. The
+  earlier session summary's fingerprint read `[40f6b5e..15a6c29, base bbef230]`;
+  the gate parses the bracket contents as `<sha>..<sha>` and validates both
+  endpoints as bare hex, so the annotation made the whole entry unparseable and
+  the run it recorded counted as no coverage at all. The base now sits outside
+  the brackets. A fingerprint is a machine-read field — annotate around it, never
+  inside it.
