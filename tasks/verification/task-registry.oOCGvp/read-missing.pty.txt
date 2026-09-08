@@ -1,0 +1,4 @@
+Script started on 2026-09-08 16:11:36-03:00 [COMMAND="python3 /home/joaosouto/orca/workspaces/jplugin-agentic-development/create-verification/.agents/skills/task-registry/scripts/task-registry.py show verify.absent --repo /tmp/verify-task-registry.DRsYev/project --provider local " <not executed on terminal>]
+task-registry show: no task with reference 'verify.absent' locally or in the provider
+
+Script done on 2026-09-08 16:11:36-03:00 [COMMAND_EXIT_CODE="1"]

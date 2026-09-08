@@ -528,3 +528,9 @@ back vacuous and was repaired.
   `tasks/solutions/bugs/grep-end-of-options-before-exclude-dir-drops-the-exclusions.md`,
   `tasks/solutions/bugs/test-suite-hangs-when-stdin-is-an-open-pipe.md`,
   `tasks/solutions/architecture/managed-section-is-the-field-home-and-the-metadata-block-a-projection.md`
+
+### [2026-09-08] — Task registry verification
+- Added a project-local verify-task-registry skill and three feature maps, mirrored in both skill trees.
+- Exercised actual local CLI writes and read-back through isolated PTYs; retained command/output/exit evidence after owned-runtime cleanup.
+- Coverage excludes GitHub, installation, and complete agent routines; derived source/spec entry points passed after correcting an unsupported source read-back expectation during wrap-up.
+- Learnings captured: updated [stdin ownership](solutions/bugs/test-suite-hangs-when-stdin-is-an-open-pipe.md).

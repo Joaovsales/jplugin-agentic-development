@@ -555,3 +555,99 @@ mock with `provider = github`, `--apply --approve`, and the same malformed row.
    it failed with an unterminated quote. The derived id
    (`wrap-up-debt.feat-o-brien-abc1234-def5678`) round-trips through
    `is_valid_id`, and agrees with `slugify_id` on all five probed headings.
+
+## 2026-09-08 — verify-task-registry creation
+
+Surface: real task-registry CLI, Python + util-linux script PTYs, local provider.
+Source revision and dirty state: `tasks/verification/task-registry.8jm2nf/identity.txt`.
+Executed the Bash blocks extracted directly from the generated SKILL.md in order:
+Launch → Doctor → record-task → read-task → routines → Cleanup.
+No product implementation changed; this is generated verification documentation.
+
+Evidence directory: `tasks/verification/task-registry.8jm2nf/` (retained after cleanup).
+Every drive has `<name>.command.txt`, `<name>.pty.txt`, and `<name>.exit.txt`.
+
+| Feature / entry point | Commands, in order | Result |
+|---|---|---|
+| Doctor | doctor | PASS: local, reachable, docs/task-tracking.md, tasks/details; identity records isolated --repo, SHA and CLI hash |
+| record-preview/create/update | preview, create, reopen, update, updated | PASS: no preview file; title, summary, criterion read back; update preserved one record |
+| read-id/path/missing | read-id, read-path, read-missing | PASS: both references show saved summary; missing exits 1 naming verify.absent |
+| routine-selectors/select/workflow | selectors, select, workflow | PASS for local vocabulary/selection: bug → fix → /debug /build /quality-gate /wrap-up-session; upstream label check explicitly NOT RUN |
+| routine-claim preview/apply | claim-preview, before-claim, claim, claimed, select-after | PASS for observed behavior: preview refuses with exit 1 and no mutation; apply persists in-progress; subsequent selection has no candidate |
+| record-derived source/spec | not executed | NOT RUN |
+| GitHub, installation, agent invocation, complete scheduled routine | no live driver in this skill | BLOCKED when required by a criterion; no coverage claim |
+
+Cleanup: PASS, only owned `/tmp/verify-task-registry.*` runtime removed; no background
+processes or ports created. `cleanup.txt` names the removed directory;
+`survival.txt` records surviving doctor/create/reopen evidence. All expected command
+exits are 0 except read-missing and claim-preview (expected 1).
+
+Draft iterations also retained under `tasks/verification/`: Doctor first rejected
+an unfenced configuration, then exposed relative config/default detail paths;
+a later run exposed the local claim-preview refusal. Each iteration's EXIT trap
+removed its runtime. Final replay exited 0 using the corrected written instructions.
+
+Generated-document validation: skill parity 88 assertions, skill references 158,
+syncable paths 10, doc conventions 458 — all passed (714 total). Exact four-H2
+feature structure and complete directory byte parity passed. A separate cold-read
+review reported no findings; it did not execute the walkthrough. No full product
+suite claim is made for this documentation-only addition.
+
+## E2E Walkthrough — verify-task-registry wrap-up — 2026-09-08 2bde026
+
+Scope: generated skill's local CLI contract (non-browser functional behavior).
+Driver: the only canonical verify-* candidate, verify-task-registry; compatibility
+mirror checked byte-identical. Fresh replay extracted the Bash blocks directly
+from SKILL.md and the three feature files, in their documented order.
+
+Evidence: `tasks/verification/task-registry.oOCGvp/`. Sequence: doctor → preview →
+create → reopen → update → updated → read-id → read-path → read-missing → selectors
+→ select → workflow → claim-preview → before-claim → claim → claimed → select-after
+→ cleanup → survival check. All 17 drive exit files agree with expected results
+(0, except missing-reference and local claim-preview refusal, both 1).
+Doctor identified local provider, explicit isolated repo, config and data root.
+Read-back confirmed title/summary/criterion, then updated content, then the
+in-progress label and candidate exclusion. Owned runtime was removed and the
+named evidence survived. Derived source/spec, external tracker, installation and
+full agent workflow entry points remain unverified; none are required to prove
+the requested generated skill's minimum local walkthrough.
+
+Spec reconciliation: 1 candidate, unchanged — specs/compound-engineering-adoption.md
+matched its legacy .claude/skills/** pattern; the new recipe preserves the existing
+skill/parity conventions and changes none of that spec's mechanisms. No spec edit.
+Changed-map maintenance: clean — one target, valid contract and matching mirror;
+no product CLI source path or visible CLI behavior changed in this session.
+Security scan: PASS — explicit local provider and owned scratch root; shell args
+quoted with Bash %q; no new dependencies, auth endpoints, SQL, HTML, cryptography,
+or credential handling. Evidence contains local paths and test task text, no secrets.
+Raw PTY transcripts retain original CRLF bytes and command trailing spaces; source
+Markdown whitespace is checked separately to preserve the original evidence.
+
+### Final review correction and replay — 2026-09-08 2bde026
+
+Four separately dispatched wrap-up passes: consistency, defensive/security,
+coverage, adversarial critic. One SHOULD-FIX / confidence 100 / manual / agent:
+record-task.md required `show` to return task.source_path, but the CLI renderer
+only exposes the derived ID/title and the index row location. Fixed deliberately
+in both mirrors: exact derived source/spec recipes assert only available output
+and document the source-field read-back limit. No product code changed.
+
+Final replay: `tasks/verification/task-registry.vp2BH0/`, 21 command/output/exit
+triples. Repeated all preceding feature sequences and added `derived`,
+`derived-read`, `derived-spec`, `derived-spec-read` after the one-record update
+check. PASS: verify.readme-md / Source follow-up, verify.specs-check-md /
+Spec follow-up / specs/check.md. All prior read/selection/claim checks still
+passed with these two unclassified tasks present. Exit status 0, expected negative
+commands 1, cleanup succeeded, evidence survived. Derived source/spec entry points
+are now verified; earlier NOT RUN entries above describe the earlier runs only.
+
+Full suite before the recipe correction: `bash tests/run.sh </dev/null` — all 38
+test files passed. Follow-up documentation checks and final review recorded below.
+
+Follow-up checks: parity 88, references 158, frontmatter 256, syncable paths 10,
+doc conventions 458, learning schema 31 assertions passed (1,001 total).
+Critic recheck: ACCEPT, finding resolved, no introduced findings. Final mirror
+bytes, 21 expected command exits and all recorded runtime removals checked.
+Review independence: four passes dispatched; no confidence promotion needed.
+Review totals: 0 MUST-FIX, 1 SHOULD-FIX fixed deliberately, 0 unresolved/skipped.
+No configured deployment targets; interactive non-routine branch.

@@ -47,3 +47,13 @@ If a suite run shows no progress for minutes with no failure printed, check
 `ps` for a `cat` under `session-start.sh` before assuming a slow test. Any new
 test that copies and runs a hook should pipe an explicit payload or `</dev/null`
 into it rather than relying on the caller's stdin.
+
+## Related PTY recipe observation — 2026-09-08
+
+While generating verify-task-registry, this session observed util-linux `script`
+consume subsequent recipe lines when the parent Bash program itself came from
+stdin. Redirecting the noninteractive CLI driver's stdin with `</dev/null>` kept
+those lines with the parent shell. The persisted recipe uses that boundary in
+`.agents/skills/verify-task-registry/SKILL.md:65`; the successful walkthrough is in
+`tasks/e2e-log.md`. Both cases require explicit ownership of stdin, though the
+failure symptoms differ (blocking hook versus consumed script input).

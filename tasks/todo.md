@@ -695,3 +695,8 @@ reverse.
 - Deferred, reported not applied: `backlog_path` and `dependency_strategy` are
   orphaned config knobs, but were already orphaned before this cut — out of scope
   under the orphan rule. `spec_dir` *was* orphaned by this cut and was removed.
+
+## Session Summary — 2026-09-08 [2bde026..2bde026]
+- Completed: create-verification-skill invocation — mirrored verify-task-registry, three feature maps, live local CLI walkthrough and durable evidence.
+- Pending: no remaining work for the requested skill creation; GitHub, installation, and full agent routines remain outside verified coverage; derived source/spec entry points passed during wrap-up.
+- Carry-forward: use /maintain-verification-skill --scope changed after changes to mapped CLI behavior.
