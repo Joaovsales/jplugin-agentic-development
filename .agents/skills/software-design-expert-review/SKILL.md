@@ -21,7 +21,14 @@ Run a focused structural review based on *A Philosophy of Software Design* by Jo
 /skill:software-design-expert-review              # Review all changed files in current branch
 /skill:software-design-expert-review --file path  # Scope to one file
 /skill:software-design-expert-review --scope auth # Scope to functional area (grep + diff)
+/skill:software-design-expert-review --scope tree # Every source file, not a diff (the `architect` sweep)
 ```
+
+`--scope tree` reviews the codebase as it stands rather than a change: every
+source file, excluding tests and vendored paths, batched by directory. It is
+what `/sweep --routine architect` runs; there the boundary item is
+`no diff — tree review`, every finding is a candidate for a `tech-debt` task,
+and the reviewer is told so.
 
 ---
 
@@ -29,7 +36,11 @@ Run a focused structural review based on *A Philosophy of Software Design* by Jo
 
 1. Determine changed files:
    - If `--file` provided: use that file only.
-   - If `--scope` provided: `git diff --name-only <base>..HEAD | grep -i <scope>`.
+   - If `--scope tree`: `git ls-files` minus test paths (`test`, `tests`, `spec`,
+     `__tests__`, `*_test.*`, `*.test.*`) and vendored paths (`vendor`,
+     `node_modules`, `third_party`, anything gitignored), grouped by directory
+     into batches.
+   - If any other `--scope` provided: `git diff --name-only <base>..HEAD | grep -i <scope>`.
    - Default: `git diff --name-only <base>..HEAD`.
 2. For each file, capture approximate size and nature (new / modified / deleted).
 3. Note any new file with **no public interface tests** — flag as `SHOULD-FIX` immediately.
@@ -58,6 +69,16 @@ of independence here (Phase 3), so an inherited opinion inflates corroboration.
 Do **not** ask the agent for the old single-axis `[MUST-FIX]`-only format. The
 persona emits four axes; an instruction to strip them here silently discards the
 `confidence` this gate needs, and every finding then degrades to anchor `50`.
+
+### Inline fallback
+
+When dispatch is unavailable — a routine prompt with no sub-agent capability, or
+a harness that cannot spawn the reviewer — run the review **inline** in this
+context over the same batches, with the same seven items in hand. Report it as
+`single batch — no promotion available` in the *Review independence* line: one
+context reading every batch is one witness, so Phase 3 promotes nothing on
+agreement. Findings are still emitted and still gated exactly as dispatched
+ones are.
 
 ### Agent Failure Handling
 - If the agent errors or returns unparseable output: log the failure, label review status `degraded`, and proceed to Phase 3 with a warning.

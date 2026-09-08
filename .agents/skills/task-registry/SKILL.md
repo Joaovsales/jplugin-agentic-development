@@ -92,15 +92,18 @@ someone had closed **reopens** it, because the same question recurring is the
 same question, not a new one.
 
 That guarantee rests entirely on two runs minting the same ID, so when a task is
-*about* a repository path, pass `--derive-id NAMESPACE` with `--spec` instead of
-typing one. `is_valid_id` accepts both `ns.feature-c` and `ns.specs-feature-c-md`,
+*about* a repository path, pass `--derive-id NAMESPACE` with `--spec` (or
+`--source`, for a task about a source file rather than a spec) instead of typing
+one. Add `--fold-title` when several tasks share one path — a sweep files more
+than one finding per file — so the short title keeps them apart. `is_valid_id` accepts both `ns.feature-c` and `ns.specs-feature-c-md`,
 so a caller who normalizes differently creates a second task rather than updating
 the first — silently, and only on the second run. Deriving the ID makes that
 mismatch unrepresentable. Supplying both an explicit and a derived ID, or
 neither, is a usage error rather than a silent default.
 
 Content is passed as structured fields (`--summary`, `--evidence`, `--criterion`,
-`--spec`, `--label`) rather than a Markdown body. Each round-trips through the
+`--reproduction`, `--proposed-fix`, `--spec`, `--source`, `--label`) rather than
+a Markdown body. Each round-trips through the
 local provider's metadata block or a managed section, so re-running replaces the
 record instead of accreting a second copy beside the first.
 

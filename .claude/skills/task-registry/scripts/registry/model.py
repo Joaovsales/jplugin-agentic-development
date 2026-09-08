@@ -79,6 +79,18 @@ DEFAULT_STATUS = "open"
 
 METADATA_BEGIN = "<!-- task-registry:begin -->"
 METADATA_END = "<!-- task-registry:end -->"
+#: Metadata keys that repeat, one entry per line, mapped to the `Task` field
+#: they carry. Render, parse, and `task_from_metadata` all read this mapping, so
+#: a field added here round-trips without touching three functions. Only
+#: `depends-on` stays comma-joined: its entries are task IDs, which cannot hold
+#: a comma. An evidence entry is a verbatim source line and a reproduction step
+#: is prose, and both have commas in them. A block written before evidence went
+#: line-per-entry reads back as one entry and is normalized on the next write.
+LINE_PER_ENTRY_KEYS = {
+    "evidence": "evidence",
+    "reproduction": "reproduction",
+    "proposed-fix": "proposed_fix",
+}
 
 _ID_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 
@@ -175,6 +187,11 @@ class Task:
     updated_at: Optional[str] = None
     acceptance_criteria: Tuple[str, ...] = ()
     evidence: Tuple[str, ...] = ()
+    #: The hand-off a sweep leaves for a later `/debug #N`: how to see the defect
+    #: and what the author would do about it. One entry per line; the metadata
+    #: block writes each on its own line so a comma inside a step survives.
+    reproduction: Tuple[str, ...] = ()
+    proposed_fix: Tuple[str, ...] = ()
     #: Provider payload the normalized model has no field for. Carried so a
     #: round trip through this model is lossless even for fields it never reads.
     extra: Mapping[str, str] = field(default_factory=dict)
@@ -188,7 +205,13 @@ class Task:
         object.__setattr__(self, "labels", tuple(self.labels))
         object.__setattr__(self, "depends_on", tuple(self.depends_on))
         object.__setattr__(self, "acceptance_criteria", tuple(self.acceptance_criteria))
-        object.__setattr__(self, "evidence", tuple(self.evidence))
+        for key, attr in LINE_PER_ENTRY_KEYS.items():
+            entries = tuple(getattr(self, attr))
+            # The metadata block is line-oriented: a newline inside an entry
+            # would end it early and turn its tail into a `key: value` line.
+            if any("\n" in entry for entry in entries):
+                raise TaskModelError(f"a {key} entry must be a single line")
+            object.__setattr__(self, attr, entries)
 
     def with_(self, **changes) -> "Task":
         return replace(self, **changes)
@@ -219,8 +242,8 @@ def render_metadata_block(task: Task) -> str:
         lines.append(f"spec: {task.spec_path}")
     if task.source_path:
         lines.append(f"source: {task.source_path}")
-    if task.evidence:
-        lines.append(f"evidence: {', '.join(task.evidence)}")
+    for key, attr in LINE_PER_ENTRY_KEYS.items():
+        lines += [f"{key}: {entry}" for entry in getattr(task, attr)]
     lines.append(METADATA_END)
     return "\n".join(lines)
 
@@ -239,8 +262,11 @@ def parse_metadata_block(body: str) -> dict:
         key, _, value = line.partition(":")
         key = key.strip().lower()
         value = value.strip()
-        if key in ("depends-on", "evidence"):
+        if key == "depends-on":
             fields[key] = tuple(v.strip() for v in value.split(",") if v.strip())
+        elif key in LINE_PER_ENTRY_KEYS:
+            if value:  # a blank entry is not a step
+                fields[key] = fields.get(key, ()) + (value,)
         elif value:
             fields[key] = value
     return fields
@@ -348,10 +374,10 @@ def task_from_metadata(
         depends_on=meta.get("depends-on", ()),
         spec_path=meta.get("spec"),
         source_path=meta.get("source"),
-        evidence=meta.get("evidence", ()),
         external=external,
         summary=summary,
         extra=extra,
+        **{attr: meta.get(key, ()) for key, attr in LINE_PER_ENTRY_KEYS.items()},
         **overrides,
     )
 
@@ -361,5 +387,18 @@ def _first_prose_line(body: str) -> str:
         stripped = line.strip()
         if not stripped or stripped.startswith(("<!--", "#", "|", "-", "*")):
             continue
+        if re.match(r"\d+\.\s", stripped):  # a numbered reproduction step
+            continue
         return stripped[:160]
     return ""
+
+
+def section(heading: str, items: Sequence[str], gap: bool = True) -> list:
+    """A body section: heading, items, trailing blank; nothing when empty.
+
+    `gap` puts a blank line between heading and items, which Markdown wants
+    and Jira wiki markup does not.
+    """
+    if not items:
+        return []
+    return [heading, "", *items, ""] if gap else [heading, *items, ""]

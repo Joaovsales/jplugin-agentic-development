@@ -159,6 +159,38 @@ local_detail_dir = tasks/details
 
 ---
 
+## Unattended routines
+
+The routines in `.agents/skills/wrap-up-session/references/routines.md` run with nobody
+watching, so everything a human would answer at a prompt has to be settled in
+configuration first. `task-registry doctor` checks the provider, its
+reachability, and the label policy at a routine's first step and fails loudly
+before a branch exists; the routine checks the rest itself. The checklist:
+
+- **Both write switches**, for a producer (`janitor`, `architect`) to publish the
+  issues it files: `require_write_approval = false` in this file **and**
+  `TASK_REGISTRY_TRUSTED_CONFIG=1` exported in the routine's environment. The
+  file alone is ignored (see *Troubleshooting* below), because a repository must
+  not be able to switch off a safety gate for everyone who clones it. With either
+  missing, a sweep still runs and files local records marked *publication
+  pending*; its PR body names the switch to flip.
+- **An authenticated `gh`** in the routine's environment — the GitHub provider is
+  `gh`-only, and `gh auth status` must succeed with a token that reads and
+  writes issues.
+- **Mapped labels pre-existing** in the tracker: every `[labels]` value and every
+  `[routines.selectors]` value, plus the priority labels `now` and `next` that
+  a sweep files with and the `in-progress` claim label. A label the tracker
+  lacks is reported and the issue is written without it, unless
+  `allow_label_creation = true`.
+- **`janitor` only: an app that launches** in the routine's environment, because
+  the sweep drives every mapped feature live through the project's `verify-<app>`
+  skill. Missing prerequisites become coverage gaps in the session record, not
+  findings.
+- **`doctor` run once by hand** in the target environment before scheduling,
+  so the first unattended run is not the first time the configuration is read.
+
+---
+
 ## Troubleshooting
 
 **`provider: local` on a repository that has GitHub issues.**

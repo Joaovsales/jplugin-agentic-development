@@ -63,8 +63,12 @@ def resolve_destination(provider_name: str, gate, reachable: bool) -> str:
     return EXTERNAL if permitted else LOCAL_PENDING
 
 
-def derive_id(namespace: str, path: str) -> str:
+def derive_id(namespace: str, path: str, title: str = "") -> str:
     """Mint the stable ID for a task *about* a repository path.
+
+    `title` is folded in only when given: a sweep files several findings against
+    one file and needs the short title to tell them apart, while a spec
+    reconciliation task is one-per-spec and keeps the two-part ID it always had.
 
     Idempotence depends entirely on two runs producing the same ID, and a rule
     that lives only in prose is a rule each caller re-derives by hand. Both
@@ -75,7 +79,7 @@ def derive_id(namespace: str, path: str) -> str:
     Exposing the derivation makes the mismatch unrepresentable rather than
     merely discouraged.
     """
-    return slugify_id(namespace, path)
+    return slugify_id(namespace, path, title)
 
 
 def _local_provider(config, gate):
@@ -102,6 +106,7 @@ def _existing(provider, task_id: str) -> Optional[Task]:
 #: human moved to `in_progress` would silently return to `open` on every wrap-up,
 #: and an `external` address dropped here makes the next `update_task` fail
 #: because the record no longer knows where it lives.
+#: `evidence` is neither: it accretes, see `_accreted`.
 CARRIED_FROM_EXISTING = ("created_at", "external", "priority", "depends_on", "parent", "area")
 
 
@@ -115,9 +120,18 @@ def _merge(existing: Optional[Task], incoming: Task) -> Tuple[Task, str]:
     if existing is None:
         return incoming, "created"
     carried = {name: getattr(existing, name) for name in CARRIED_FROM_EXISTING}
+    carried["evidence"] = _accreted(existing.evidence, incoming.evidence)
     if existing.status in TERMINAL:
         return incoming.with_(status="open", **carried), "reopened"
     return incoming.with_(status=existing.status, **carried), "updated"
+
+
+def _accreted(existing: tuple, incoming: tuple) -> tuple:
+    """Evidence accretes across runs: each sighting is a witness, not a
+    replacement. Order is kept and an entry seen before is not repeated."""
+    seen = list(existing)
+    seen += [entry for entry in incoming if entry not in seen]
+    return tuple(seen)
 
 
 def _persist(target, task: Task, existing: Optional[Task]) -> Task:

@@ -40,7 +40,7 @@ Pairs with `/wrap-up-session` Step 7.5, which merges and removes it.
 
 **Enter a worktree if ANY of these hold:**
 
-- Invoked from `/yolo`, `/auto-improve`, or `/auto-push` — unattended, so nobody
+- Invoked from `/yolo`, `/auto-push`, or an unattended routine run — nobody
   is watching to notice a stray checkout
 - Another agent session is active in this clone
 - The plan regenerates committed fixtures or snapshots

@@ -126,7 +126,7 @@ commits, so the range it records necessarily ends before itself.
 - **No `tasks/todo.md` at `<local-sha>`** → pass silently, record nothing. The
   repo does not use this workflow; the gate must not spam unrelated projects.
 - **Documentation-only push** → pass. `*.md`, `LICENSE*`, `.gitignore`, and
-  `tasks/**` are non-code. `/auto-improve` findings-only mode depends on this.
+  `tasks/**` are non-code. `/sweep`'s record-only commit depends on this.
 - **New branch** (`<remote-sha>` all zeros) → range is `merge-base(HEAD, default-branch)..<local-sha>`.
 - **Branch deletion** (`<local-sha>` all zeros) → pass, record nothing.
 - **Merge commits** → exempt; they introduce no new authored code.
@@ -263,8 +263,9 @@ citation orphans a learning document.
   as new code commits.
 - **`/create-verification-skill`** writing project-local skill scripts without
   build or wrap-up — accepted.
-- **`/auto-improve` findings-only mode** committing a docs-only PR outside
-  wrap-up — permitted by A's documentation-only exemption.
+- **A producer sweep's record-only commit** (`/sweep`, formerly `/auto-improve`
+  findings-only mode) pushed outside wrap-up — permitted by A's documentation-only
+  exemption.
 - **Restoring a supervised-TDD rung.** `/tdd` is retired, not replaced. If
   per-task checkpoints are ever wanted again, that is a `/build` flag, not a
   revived skill.

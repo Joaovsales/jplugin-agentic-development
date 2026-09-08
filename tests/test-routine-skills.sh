@@ -413,15 +413,15 @@ assert_contains "$(load_report "$chain_only")" "chain build: /build -> /quality-
 # 6. AC12 — reconfiguring an EXISTING routine is one file and no code
 # ============================================================================
 printf '\n-- AC12: reconfigure without code --\n'
-recfg="$(new_fixture debug build quality-gate wrap-up-session auto-improve)"
+recfg="$(new_fixture debug build quality-gate wrap-up-session brainstorm)"
 write_config "$recfg" "bug, tech-debt" <<'INI'
 [routines.selectors]
 fix = bug, tech-debt
 
 [routines.skills]
-fix = /auto-improve, /build, /wrap-up-session
+fix = /brainstorm, /build, /wrap-up-session
 INI
-assert_contains "$(load_report "$recfg")" "chain fix: /auto-improve -> /build -> /wrap-up-session" \
+assert_contains "$(load_report "$recfg")" "chain fix: /brainstorm -> /build -> /wrap-up-session" \
   "AC12: an existing routine's chain changes by editing one file and no code"
 
 # Inventing a routine name stays a deliberate contract edit — AC12 is scoped to

@@ -509,3 +509,22 @@ back vacuous and was repaired.
   `tasks/solutions/architecture/a-read-and-the-write-that-feeds-it-are-one-unit.md`,
   `tasks/solutions/patterns/inspection-and-action-need-two-loaders-not-one.md`,
   `tasks/solutions/process/assertion-must-be-scoped-to-the-half-it-tests.md` (third occurrence)
+
+### [2026-09-07] — Sweep routines shipped
+- Key changes: `/sweep` producer routine (`--routine janitor|architect`) with two
+  lens references; `janitor` and `architect` added to the routine contract as
+  producers (`PRODUCER_ROUTINES`, refused by `select`/`claim`, run-stamp branches);
+  `Task.reproduction`/`proposed_fix` carried through all three providers with
+  five ordered body sections; `/debug` takes an issue ref and has an unattended
+  `blocked:` exit; `/software-design-expert-review --scope tree` and the
+  verification-skill source-wave fallback; six project-agnostic routine prompts
+  under `wrap-up-session/references/routine-prompts/`; `/auto-improve` retired and
+  every reference repointed; `task-registry` configuration gains an "Unattended
+  routines" section. 13/13 plan tasks, 37 test files green.
+- Quality gate (Phase 3 dispatched) applied three changes: a `_section` helper in
+  the local provider, section-authoritative reproduction/proposed-fix with a
+  hand-edit regression test, and a corrected `--derive-id` usage line.
+- Learnings captured:
+  `tasks/solutions/bugs/grep-end-of-options-before-exclude-dir-drops-the-exclusions.md`,
+  `tasks/solutions/bugs/test-suite-hangs-when-stdin-is-an-open-pipe.md`,
+  `tasks/solutions/architecture/managed-section-is-the-field-home-and-the-metadata-block-a-projection.md`

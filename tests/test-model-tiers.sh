@@ -130,7 +130,7 @@ assert_file_contains PI_SETUP.md "single source of concrete model IDs" \
 # by naming a different one, which is how `model: opus` and `model: haiku`
 # mutations stayed green here.
 for tree in .agents .claude; do
-  for skill in quality-gate software-design-expert-review wrap-up-session build plan auto-improve; do
+  for skill in quality-gate software-design-expert-review wrap-up-session build plan sweep; do
     assert_file_not_matches "$tree/skills/$skill/SKILL.md" 'model: .?(sonnet|opus|haiku)' \
       "ModelTier: $tree $skill pins no Ceiling role to an alias"
   done
@@ -138,8 +138,8 @@ done
 
 # --- 8b. A table cell pins just as hard as frontmatter -----------------------
 # `model: <alias>` was the whole needle above, so a routing table written as
-# `| Design review | sonnet | ... |` walked past it untouched. That is exactly how
-# auto-improve kept the design reviewer pinned to `sonnet` through all of #61 --
+# `| Design review | sonnet | ... |` walked past it untouched. That is exactly how the
+# retired unattended runner kept the design reviewer pinned to `sonnet` through #61 --
 # the guard existed, matched the wrong syntax, and reported green.
 #
 # Matches a table row whose FIRST cell names a review charter and whose later cells

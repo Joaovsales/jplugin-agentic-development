@@ -135,7 +135,11 @@ DEFAULT_CLAIM_LABEL = "in-progress"
 #: Kept in step with `references/routines.md` by tests/test-routine-selectors.sh --
 #: `routine_branch.format_routine_branch` refuses anything outside this set, and
 #: without the check here a project learns that at spine step 3, mid-run.
-CONTRACT_ROUTINES = ("plan", "fix", "improve", "build")
+CONTRACT_ROUTINES = ("plan", "fix", "improve", "build", "janitor", "architect")
+#: The contract routines that FILE issues rather than select one
+#: (specs/sweep-routines.md). They branch and round-trip like any other routine,
+#: but `select` and `claim` refuse them and a selector naming one is a config error.
+PRODUCER_ROUTINES = ("janitor", "architect")
 
 #: Contract routines that are specified but not runnable yet. `workflow` reports
 #: one as an answer rather than a failure: "this routine owns your issue and is
@@ -503,6 +507,14 @@ def _refuse_unknown_routines(config) -> None:
     -- after the claim label is already written. Refusing here moves that failure
     to load time, where it names the mistake instead of aborting a live run.
     """
+    producers = sorted(set(config.routine_selectors) & set(PRODUCER_ROUTINES))
+    if producers:
+        raise ConfigError(
+            "routines: [routines.selectors] declares "
+            f"{', '.join(repr(name) for name in producers)}, which is a producer "
+            "routine — it files issues, it does not select them. Producers take no "
+            "selector; remove the key."
+        )
     for section, declared in (
         ("[routines.selectors]", config.routine_selectors),
         ("[routines.skills]", config.routine_skills),

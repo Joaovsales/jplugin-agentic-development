@@ -158,11 +158,18 @@ def _render_detail(task_id: str, row: Optional[IndexRow], external: Optional[Tas
         lines.append(f"  index row: {row.task.source_path}")
     if task.summary:
         lines.append(f"  summary:  {task.summary}")
+    if task.reproduction:
+        lines.append("  reproduction:")
+        lines += [f"    {n}. {step}" for n, step in enumerate(task.reproduction, 1)]
+    if task.proposed_fix:
+        lines.append("  proposed fix:")
+        lines += [f"    - {step}" for step in task.proposed_fix]
     if task.acceptance_criteria:
         lines.append("  acceptance criteria:")
         lines += [f"    - {item}" for item in task.acceptance_criteria]
     if task.evidence:
-        lines.append(f"  evidence: {', '.join(task.evidence)}")
+        lines.append("  evidence:")
+        lines += [f"    - {item}" for item in task.evidence]
     if report.limitations:
         lines.append("  degraded:")
         lines += [f"    - {item}" for item in report.limitations]

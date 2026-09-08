@@ -162,16 +162,4 @@ for tree in $TREES; do
     "Chain: $tree/plan states that planning creates no external issue on its own"
 done
 
-# ── /auto-improve -> TDD + PR, its two advertised guarantees ─────────────────
-for tree in $TREES; do
-  f="$tree/skills/auto-improve/SKILL.md"
-  # The shared routing engine is gone (specs/category-routines.md AC1/AC10). What
-  # /auto-improve must still do is name its own reviewer set: Phase 4's ONLY
-  # reviewer dispatch used to be a reference into that engine, so deleting it
-  # without a replacement would silently remove independent review from the daily
-  # unattended runner -- pipeline #93 verbatim, in the highest-risk consumer.
-  assert_file_contains "$f" "code-reviewer" \
-    "Chain: $tree/auto-improve names its reviewer set directly, not via a routing engine"
-done
-
 finish

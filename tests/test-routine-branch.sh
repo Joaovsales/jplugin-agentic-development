@@ -168,6 +168,31 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("Fix", done.stderr)
 
 
+class ProducerTests(unittest.TestCase):
+    """specs/sweep-routines.md AC2: the two producer routines are contract members.
+
+    A producer's branch number is a RUN STAMP (YYYYMMDD), not an issue: producers
+    file issues, they do not select one. The formatter treats it as any other
+    positive integer, so `format janitor 20260907 sweep` must round-trip through
+    the same parser wrap-up uses.
+    """
+
+    def test_both_producers_are_contract_routines(self):
+        for name in ("janitor", "architect"):
+            with self.subTest(routine=name):
+                self.assertIn(name, CONTRACT_ROUTINES)
+
+    def test_run_stamp_round_trips(self):
+        self.assertEqual(fmt("janitor", 20260907, "sweep"), "routine/janitor/20260907-sweep")
+        self.assertEqual(parse("routine/janitor/20260907-sweep"), ("janitor", 20260907))
+        self.assertEqual(parse(fmt("architect", 20260907, "sweep")), ("architect", 20260907))
+
+    def test_docstring_names_the_run_stamp(self):
+        # The number's meaning differs by routine; the module is where a reader
+        # of the formatter learns that, not the contract document.
+        self.assertIn("run stamp", (routine_branch.__doc__ or "").lower())
+
+
 class ContractAgreementTests(unittest.TestCase):
     """The module's routine list and the contract document must not drift.
 

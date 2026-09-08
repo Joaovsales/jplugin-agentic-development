@@ -23,8 +23,8 @@ agents rather than watched by people: roughly 9x faster and 16x lighter than
 headless Chrome on the same pages.
 
 This workflow uses it for exactly one job: **executing DOM-functional acceptance
-criteria in unattended runs where no desktop Chrome exists** — `/auto-improve`,
-`/yolo`, cloud containers, CI. It is the third tier in `/verify --scope e2e`'s
+criteria in unattended runs where no desktop Chrome exists** — `/yolo`,
+unattended routine runs, cloud containers, CI. It is the third tier in `/verify --scope e2e`'s
 resolution order, behind Chrome MCP and Playwright MCP.
 
 ---

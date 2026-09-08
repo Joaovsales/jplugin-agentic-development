@@ -23,6 +23,12 @@ The parser is general over the routine name on purpose, so the deferred `build`
 routine (specs/category-routines.md, issue #98) round-trips today and arrives
 later as a contract change rather than a regex change.
 
+The number is an issue for a consumer routine and a **run stamp** (`YYYYMMDD`)
+for a producer -- `janitor` and `architect` (specs/sweep-routines.md) file
+issues rather than select one, so `routine/janitor/20260907-sweep` names the run,
+not an issue. The formatter and parser do not care which: both are positive
+integers, and the contract decides what wrap-up does with the value.
+
 Standard library only, so it runs wherever `/wrap-up-session` does.
 """
 
@@ -45,7 +51,7 @@ ROUTINE_BRANCH_RE = re.compile(r"^routine/([a-z][a-z-]*)/(\d+)-.")
 #: that no scheduler owns, and that wrap-up reads as "not plan" — so a plan
 #: proposal opens as a READY pull request. Shape cannot catch a typo; a list can.
 #: Callers adding a routine pass `known=` rather than editing this.
-CONTRACT_ROUTINES: Tuple[str, ...] = ("plan", "fix", "improve", "build")
+CONTRACT_ROUTINES: Tuple[str, ...] = ("plan", "fix", "improve", "build", "janitor", "architect")
 
 #: Git imposes no practical branch-length limit, but tooling and terminals do.
 #: Truncating here keeps the formatter total over any title a tracker can hold.

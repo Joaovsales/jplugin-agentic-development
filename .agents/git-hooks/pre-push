@@ -153,7 +153,8 @@ wrapup_gate() {
       echo
       echo "> Recorded by the pre-push wrap-up gate: pushes carrying code commits that"
       echo "> no \`/wrap-up-session\` run covers. File them as issues with"
-      echo "> \`/task-registry publish --apply --approve\`, then delete the entry."
+      echo "> \`/task-registry upsert <id> --title <heading> --apply --approve\` (the"
+      echo "> session-start banner prints the exact command), then delete the entry."
     } > "$LEDGER"
   fi
   # Idempotent: one entry per range, however many times it is re-pushed.

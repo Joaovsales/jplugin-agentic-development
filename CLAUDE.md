@@ -196,9 +196,9 @@ Keep items 2–5 bounded the way item 1 is. A 250-line spec pasted verbatim into
 parallel dispatches costs four times what it reads; truncate-plus-path applies to
 any of them that outgrows the diff it explains.
 
-**A repo-survey dispatch has no session to describe.** `/auto-improve`'s discovery
-scan reviews the whole tree rather than a change, so items 2, 3 and 6 have no
-subject. It passes `no spec — repo survey, nothing built this run` and
+**A repo-survey dispatch has no session to describe.** `/sweep --routine architect`
+reviews the whole tree through `/software-design-expert-review --scope tree`
+rather than a change, so items 2, 3 and 6 have no subject. It passes `no spec — repo survey, nothing built this run` and
 `deferrals: none`, and carries items 1, 4, 5 and 7 unchanged. This is the one
 exception, and it is an exception to the *subject* of the items, never to stating
 them.
@@ -460,7 +460,7 @@ authorization unless the project's configuration enables them.
 | `/build` | Autonomous TDD orchestrator with sub-agent delegation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
-| `/auto-improve` | Unattended discover→fix loop: survey backlog/tech-debt/tests/perf/design, ship one high-value improvement as a PR. Built for daily cloud runs |
+| `/sweep` | Producer routine (`--routine janitor` or `--routine architect`): read the backlog, run one engine over the whole tree, file verified findings as issues, commit a session record |
 | `/debug` | Root cause analysis, bug-track store documents, loop verification |
 | `/verify` | Evidence-based verification gate (`--scope deployment|e2e`) |
 | `/create-verification-skill` | Generate a grounded project-local `verify-<app>` recipe and feature map, with one live proof |

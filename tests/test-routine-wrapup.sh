@@ -138,7 +138,9 @@ done
 # The other half of the scope rule: an unattended run on an ORDINARY branch is
 # invisible to the parser, so the caller has to say so. A skill that invokes
 # wrap-up unattended and never declares it silently opts out of the assertion.
-for caller in yolo auto-improve auto-push; do
+# `/sweep` is not listed: its producers run on a `routine/<name>/<stamp>-sweep`
+# branch, which the parser rule above already reads as unattended.
+for caller in yolo auto-push; do
   for tree in .agents .claude; do
     assert_file_contains "$REPO/$tree/skills/$caller/SKILL.md" "Step 8.5" \
       "AC11: $tree/$caller declares its wrap-up run unattended"

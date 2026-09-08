@@ -2,6 +2,28 @@
 
 - [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))
 
+# Plan: sweep routines — `janitor` and `architect` producers, cheap-model consumers
+> Spec: specs/sweep-routines.md (supersedes specs/auto-improve-findings-to-registry.md, deleted)
+> Branch: Joaovsales/routine-issue-creation-fix (worktree)
+> Why: nothing in the routine contract produces issues; `/auto-improve` conflates discover+fix and sinks findings to backlog.md (downstream PR #407: 15 findings, 0 issues)
+
+- [x] TDD: `tests/test-sweep-routines.sh` RED — static assertions for AC1, AC3, AC5, AC6, AC7, AC8, AC9, AC10 across both trees (sourcing `tests/lib.sh`); confirm it fails today
+- [x] TDD: `tests/test-routine-branch.sh` + `tests/test-routine-selectors.sh` + `tests/test-routines-contract.sh` extended RED — producers in `CONTRACT_ROUTINES`, run-stamp round-trip, `PRODUCER_ROUTINES`, `select`/`claim` exit 2 naming "producer", selector for a producer refused at load, producer rows/spine/sections in routines.md (AC2 + AC1 shape)
+- [x] TDD: AC2 GREEN -> `routine_branch.py` `CONTRACT_ROUTINES += ("janitor","architect")`, docstring on run stamp; `config.py` `PRODUCER_ROUTINES`, load-time refusal; `task-registry.py` `_select`/`_claim` producer refusal
+- [x] TDD: AC1 GREEN -> `references/routines.md`: producer table rows, "Producer spine" section, `### \`janitor\` — steps` / `### \`architect\` — steps`, "never edit product code", `fix` 4a row -> `/debug #N`
+- [x] TDD: `tests/test-sweep-handoff.sh` RED (Python) -> AC4 GREEN: `model.Task.reproduction`/`proposed_fix`, metadata block round-trip, `upsert --reproduction`/`--proposed-fix`, github + jira `_seed_body` five sections in order (summary, Reproduction, Proposed fix, Acceptance Criteria, Evidence), local provider managed sections, `show` renders both; confirm `--derive-id` folds the title (extend if it only folds `--spec`)
+- [x] TDD: AC3 GREEN -> write `.agents/skills/sweep/SKILL.md` (7 steps, Filing, Session record, edge cases) + `references/lens-janitor.md` + `references/lens-architect.md`
+- [x] TDD: AC5 GREEN -> `.agents/skills/debug/SKILL.md`: issue-ref intake via `task-registry show`, candidate-one rule, unattended `blocked:` non-zero path replacing "ask the user" on routine branches, final phase writes `[ ] TDD:` tasks from the issue
+- [x] TDD: AC6 GREEN -> `maintain-verification-skill/SKILL.md` inline source-wave fallback + sweep-owned shipping bullet; `software-design-expert-review/SKILL.md` `--scope tree` + inline fallback
+- [x] TDD: AC7 GREEN -> `wrap-up-session/SKILL.md` linkage table producer row, `chore(sweep): <routine> <date>` title, `Refs` per filed issue read from the record
+- [x] TDD: AC8 GREEN -> `references/routine-prompts/{README,janitor,architect,fix,improve,plan}.md` (<25 lines each, project-agnostic, one skill each; README: tiers, cadence, environment checklist)
+- [x] TDD: AC9 GREEN -> delete `.agents/skills/auto-improve` + `.claude/skills/auto-improve` + `tests/test-auto-improve-rewire.sh`; repoint CLAUDE.md (skills table + repo-survey exception -> `/sweep --routine architect`), README.md, session-start.sh, build SKILL.md, subagent-resilience.md; update loops in test-doc-conventions.sh, test-model-tiers.sh, test-review-context.sh, test-skill-invocation-chain.sh, test-routines-contract.sh
+- [x] TDD: AC10 GREEN -> `task-registry/references/configuration.md` "Unattended routines" section
+- [x] TDD: AC11 -> copy every edited/new file byte-identical into `.claude/`; `tests/test-skill-parity.sh` + `bash tests/run.sh` fully green; record output
+- [x] Wrap-up: `/wrap-up-session` — commit `feat(routines): add janitor and architect sweep routines, retire /auto-improve`, push, open PR against master
+
+---
+
 # Yolo iteration 1 — qwen spend guardrails
 
 - [x] TDD: spec written (specs/qwen-spend-guardrails.md) — config task, no test suite; validation = JSON parse + doctor + API GET
@@ -466,6 +488,13 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
 - Pending: 0 tasks from this session; issue #107 was closed as superseded by PR #105.
 - Carry-forward: pre-existing task-registry reconciliation findings remain outside
   this session's scope.
+
+## Session Summary — 2026-09-07 [d1b4b14..db07dcd]
+- Completed: 13/13 plan tasks for specs/sweep-routines.md plus the wrap-up row;
+  rebased onto #110 before push (register conflicts only)
+- Pending: 0 active; 2 deferred externally (#97, #98) unchanged
+- Carry-forward: `/plan` has no issue-reference intake (prompts hand it
+  `task-registry show` output by hand); follow-up scope call for a human
 
 ---
 

@@ -22,6 +22,7 @@ from ..model import (
     Task,
     parse_metadata_block,
     render_metadata_block,
+    section,
 )
 from .base import Capabilities, LinkResult, ProviderError, ProviderStatus, TrackerProvider
 
@@ -142,11 +143,9 @@ class LocalMarkdownProvider(TrackerProvider):
             head += [preamble.strip(), ""]
         if task.summary:
             head += ["## Summary", "", task.summary.strip(), ""]
-        if task.acceptance_criteria:
-            head.append("## Acceptance Criteria")
-            head.append("")
-            head += [f"- [ ] {item}" for item in task.acceptance_criteria]
-            head.append("")
+        head += section("## Reproduction", [f"{n}. {s}" for n, s in enumerate(task.reproduction, 1)])
+        head += section("## Proposed fix", [f"- {step}" for step in task.proposed_fix])
+        head += section("## Acceptance Criteria", [f"- [ ] {item}" for item in task.acceptance_criteria])
         if preserved:
             head.append(preserved.strip())
             head.append("")
@@ -178,6 +177,8 @@ class LocalMarkdownProvider(TrackerProvider):
             spec_path=meta.get("spec"),
             source_path=meta.get("source"),
             evidence=meta.get("evidence", ()),
+            reproduction=_steps(text, "Reproduction"),
+            proposed_fix=_steps(text, "Proposed fix"),
             summary=_section_body(text, "Summary"),
             acceptance_criteria=_criteria(text),
             updated_at=fields.get("updated"),
@@ -205,7 +206,10 @@ def _read_text(path: str) -> str:
         return handle.read()
 
 
-MANAGED_SECTIONS = {"summary", "acceptance criteria"}
+#: Each managed section is its field's one home in this file. The metadata
+#: block repeats reproduction and proposed-fix, but only as a projection
+#: rewritten from the section on every write; a hand edit to the section wins.
+MANAGED_SECTIONS = {"summary", "reproduction", "proposed fix", "acceptance criteria"}
 
 
 def _merged_with_existing(task: Task, existing: str) -> Task:
@@ -226,6 +230,10 @@ def _merged_with_existing(task: Task, existing: str) -> Task:
         changes["summary"] = _section_body(existing, "Summary")
     if not task.acceptance_criteria:
         changes["acceptance_criteria"] = _criteria(existing)
+    if not task.reproduction:
+        changes["reproduction"] = _steps(existing, "Reproduction")
+    if not task.proposed_fix:
+        changes["proposed_fix"] = _steps(existing, "Proposed fix")
     if task.kind == "task" and meta.get("kind"):
         changes["kind"] = meta["kind"]
     for name, key in (("parent", "parent"), ("spec_path", "spec"), ("source_path", "source")):
@@ -289,10 +297,25 @@ def _section_body(text: str, name: str) -> str:
     return "\n".join(body).strip()
 
 
+def _list_items(text: str, section_name: str, marker: str) -> tuple:
+    """The items of a managed section whose lines start with `marker`.
+
+    Matching and stripping both run on the stripped line, so an indented item
+    loses its marker like a flush one instead of keeping it and gaining a
+    second on the next write.
+    """
+    items = []
+    for line in _section_body(text, section_name).splitlines():
+        stripped = line.strip()
+        if re.match(marker, stripped):
+            items.append(re.sub(marker, "", stripped).strip())
+    return tuple(items)
+
+
+def _steps(text: str, section_name: str) -> tuple:
+    """Numbered or dashed steps of a managed section, markers stripped."""
+    return _list_items(text, section_name, r"^(?:\d+\.|-)\s+")
+
+
 def _criteria(text: str) -> tuple:
-    body = _section_body(text, "Acceptance Criteria")
-    return tuple(
-        re.sub(r"^-\s*\[.\]\s*", "", line).strip()
-        for line in body.splitlines()
-        if line.strip().startswith("- [")
-    )
+    return _list_items(text, "Acceptance Criteria", r"^-\s*\[.\]\s*")

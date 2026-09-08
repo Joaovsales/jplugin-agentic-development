@@ -128,7 +128,7 @@ The override section:
 [routines.skills]
 plan    = /plan, /build, /wrap-up-session
 fix     = /debug, /build, /wrap-up-session
-improve = /auto-improve, /build, /quality-gate, /wrap-up-session
+improve = /brainstorm, /build, /quality-gate, /wrap-up-session
 ```
 
 `[routines.skills]` **replaces wholesale**, matching the documented precedent of

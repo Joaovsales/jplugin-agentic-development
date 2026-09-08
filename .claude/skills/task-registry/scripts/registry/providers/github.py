@@ -23,7 +23,7 @@ import subprocess
 import urllib.parse
 from typing import Dict, List, Optional, Sequence
 
-from ..model import ExternalRef, Task, task_from_metadata, upsert_metadata_block
+from ..model import ExternalRef, Task, section, task_from_metadata, upsert_metadata_block
 from ..redaction import redactor_for
 from .base import (
     Capabilities,
@@ -518,15 +518,19 @@ class GitHubProvider(TrackerProvider):
 
 
 def _seed_body(task: Task) -> str:
-    """The initial body for a brand-new issue: summary, criteria, spec link."""
+    """The initial body for a brand-new issue.
+
+    Sections in the order a reader works through them: what is wrong, how to
+    see it, what to do, how to know it is done, and what the filer saw. Empty
+    sections are omitted rather than rendered as bare headings.
+    """
     parts: List[str] = []
     if task.summary:
         parts += [task.summary.strip(), ""]
-    if task.acceptance_criteria:
-        parts.append("## Acceptance Criteria")
-        parts.append("")
-        parts += [f"- [ ] {item}" for item in task.acceptance_criteria]
-        parts.append("")
+    parts += section("## Reproduction", [f"{n}. {s}" for n, s in enumerate(task.reproduction, 1)])
+    parts += section("## Proposed fix", [f"- {step}" for step in task.proposed_fix])
+    parts += section("## Acceptance Criteria", [f"- [ ] {item}" for item in task.acceptance_criteria])
+    parts += section("## Evidence", [f"- {item}" for item in task.evidence])
     if task.spec_path:
         parts += [f"Spec: `{task.spec_path}`", ""]
     return "\n".join(parts)
