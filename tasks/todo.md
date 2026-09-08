@@ -696,3 +696,8 @@ reverse.
   orphaned config knobs, but were already orphaned before this cut — out of scope
   under the orphan rule. `spec_dir` *was* orphaned by this cut and was removed.
 - [ ] Preserve published issue references across local-pending upserts <!-- task-id: task-registry-local-pending-upsert-shadows-published-reference --> — When an approval-gated upsert falls back to the local provider for a task already linked to GitHub, the local provider… ([#117](https://github.com/Joaovsales/jplugin-agentic-development/issues/117))
+
+## Session Summary — 2026-09-08 [2bde026..2bde026]
+- Completed: create-verification-skill invocation — mirrored verify-task-registry, three feature maps, live local CLI walkthrough and durable evidence.
+- Pending: no remaining work for the requested skill creation; GitHub, installation, and full agent routines remain outside verified coverage; derived source/spec entry points passed during wrap-up.
+- Carry-forward: use /maintain-verification-skill --scope changed after changes to mapped CLI behavior.
