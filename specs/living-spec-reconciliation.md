@@ -201,7 +201,7 @@ continues to cover only issues introduced by the session.
 Uncertain behavioral effect is documentation debt, not a wrap-up blocker. For
 each deferred spec, wrap-up uses `/task-registry` to create or update one
 provider-neutral `research` task before proceeding. Workflow code never calls
-GitHub or Jira directly.
+the tracker directly.
 
 The stable task ID is derived from the complete repository-relative spec path:
 `spec-reconciliation.<normalized-spec-path>`. This gives each spec at most one

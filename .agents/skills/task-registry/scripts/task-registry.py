@@ -6,7 +6,6 @@
     task-registry pull      [--apply]   refresh local rows from provider state
     task-registry frontier              dependency-aware ready/blocked list
     task-registry show <task-id>        full detail for exactly one task
-    task-registry migrate   [--apply]   classify a pre-registry repository
     task-registry doctor                which provider is selected, and why
     task-registry selectors             routine selector vocabulary, checked upstream
     task-registry select --routine R    the next issue routine R may claim
@@ -45,7 +44,6 @@ from registry.config import (  # noqa: E402
     load_config,
     select_provider,
 )
-from registry.migrate import apply_migration, plan_migration  # noqa: E402
 from registry.providers import build_provider  # noqa: E402
 from registry.providers.base import (  # noqa: E402
     ProviderError,
@@ -67,7 +65,7 @@ from registry.redaction import Redactor, redactor_for  # noqa: E402
 from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
-    "reconcile", "publish", "pull", "frontier", "show", "migrate", "doctor", "upsert",
+    "reconcile", "publish", "pull", "frontier", "show", "doctor", "upsert",
     "selectors", "select", "claim", "workflow",
 )
 
@@ -98,7 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="satisfy require_write_approval for this run (external writes only)",
     )
     parser.add_argument(
-        "--provider", help="override the selected provider (github|jira|local)"
+        "--provider", help="override the selected provider (github|local)"
     )
     parser.add_argument(
         "--routine", help="routine name, required by `select`"
@@ -142,7 +140,7 @@ def main(argv=None) -> int:
         raise
     except Exception:  # noqa: BLE001 - deliberate, see below
         # An unexpected traceback is still output, and this tool's output can
-        # carry a Jira token or an Authorization header picked up along the way.
+        # carry an Authorization header picked up along the way.
         # Crashing raw would print it, so the trace is scrubbed first. The
         # failure stays loud and still exits non-zero.
         print(redact(traceback.format_exc()), file=sys.stderr)
@@ -260,17 +258,6 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _claim(registry, args.routine, args.task_id, apply_writes)
     if command == "workflow":
         return _workflow(registry, args.task_id)
-    if command == "migrate":
-        plan = plan_migration(config)
-        # Applying does not make malformed rows readable: the same rows are still
-        # unparsed afterwards, so both branches report the same failure.
-        exit_code = 1 if plan.problems else 0
-        if apply_writes:
-            actions = apply_migration(config, plan)
-            rendered = plan.render() + "\n\n" + "\n".join(f"  {a}" for a in actions)
-            return rendered, exit_code
-        return plan.render(), exit_code
-
     runner = {
         "reconcile": registry.reconcile,
         "publish": registry.publish,

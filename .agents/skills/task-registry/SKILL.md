@@ -1,7 +1,7 @@
 ---
 name: task-registry
-description: Synchronize the compact tasks/todo.md index with an external tracker (GitHub Issues, Jira) or a local Markdown store. Use when linking tasks to issues, reconciling stale plans against tickets, asking what work is unblocked, or migrating a repository whose todo.md has grown into a detailed backlog.
-argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|migrate|doctor|selectors|select|claim|workflow <task-reference>]"
+description: Synchronize the compact tasks/todo.md index with an external tracker (GitHub Issues) or a local Markdown store. Use when linking tasks to issues, reconciling stale plans against tickets, or asking what work is unblocked.
+argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -46,7 +46,6 @@ python3 .agents/skills/task-registry/scripts/task-registry.py publish --apply --
 python3 .agents/skills/task-registry/scripts/task-registry.py pull --apply
 python3 .agents/skills/task-registry/scripts/task-registry.py frontier
 python3 .agents/skills/task-registry/scripts/task-registry.py show recipe.morph-live-grid
-python3 .agents/skills/task-registry/scripts/task-registry.py migrate
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert <task-id> --apply \
   --title '...' --kind research --spec specs/x.md \
   --summary '...' --evidence 'inspected: ...' --criterion '...'
@@ -62,7 +61,6 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
 | `pull` | provider | `--apply` only | never |
 | `frontier` | index + provider | no | no |
 | `show` | one task | no | no |
-| `migrate` | index + backlog + specs | `--apply` only | never |
 | `upsert` | one task | `--apply` only | `--apply` (+ approval) |
 | `selectors` | config + provider labels | no | no |
 | `select` | provider | no | no |
@@ -139,8 +137,9 @@ Provider selection, in order:
 2. GitHub, when a GitHub remote **and** an authenticated `gh` both exist;
 3. local Markdown.
 
-**Jira is never selected implicitly** — reachable credentials are not consent to
-write to a company tracker.
+**No tracker is ever selected implicitly beyond those three rungs** — reachable
+credentials are not consent to write to a company tracker. A tracker is added by
+declaring `provider =`, never by being detectable.
 
 The configuration document is `docs/task-tracking.md`, or wherever a
 `Task tracking instructions: <path>` line in `AGENTS.md`, `CLAUDE.md`, or
@@ -167,7 +166,7 @@ blocker, and evidence, and it disappears when the only vocabulary available is
 
 ## Workflow integration
 
-No workflow skill talks to GitHub or Jira about task state. They go through here.
+No workflow skill talks to a tracker about task state. They go through here.
 
 | Skill | Point of contact |
 |-------|------------------|
@@ -188,11 +187,26 @@ the project configuration turns approval off.
 
 ## Migrating an existing repository
 
-`migrate` classifies every row as `active`, `stale`, `completed`, or `superseded`;
-mints stable IDs for the first two only; groups tightly coupled work so a closed
-plan block with nine ticked rows does not become nine issues; and writes an audit
-trail to `tasks/task-registry-migration.md`. Dry-run first, always. Procedure and
-worked example: `references/migration.md`.
+A repository that predates the registry is converted **once**, by a one-shot
+script outside this skill:
+
+```bash
+python3 <template-clone>/scripts/migrate-task-registry.py --repo .            # dry run — read the report first
+python3 <template-clone>/scripts/migrate-task-registry.py --repo . --apply    # mint ids, write the audit trail
+```
+
+It classifies every row as `active`, `stale`, `completed`, or `superseded`; mints
+stable IDs for the unresolved ones; groups tightly coupled work so a closed plan
+block with nine ticked rows does not become nine issues; and writes an audit trail
+to `tasks/task-registry-migration.md`. Dry-run first, always.
+
+It lives in the template repository's `scripts/` rather than here because a
+conversion every project runs once should not be carried in the skill forever,
+and because `.agents/skills/` is a syncable root that `/sync` overwrites
+wholesale. That is also why the path above is written against a template clone:
+`/sync` copies skills, not `scripts/`, so the file is not in your project. It
+reads no configuration — pass `--index`, `--backlog`, `--spec-dir`, or
+`--closed-plan-marker` if this project moved them.
 
 ## Troubleshooting
 
@@ -203,12 +217,11 @@ worked example: `references/migration.md`.
 | `refusing to publish` | unreachable provider + `--apply` | restore connectivity; nothing was written |
 | `refusing to ... external writes need approval` | project requires review | re-run with `--approve` after reading the dry run |
 | `label 'x' does not exist ... written without it` | mapped label absent upstream | create it in the tracker yourself, or set `allow_label_creation` |
-| `no closing transition available` | Jira workflow has no Done transition | close in Jira, or add the transition |
-| `missing-id` on every row | pre-registry index | `migrate`, then `migrate --apply` |
+| `missing-id` on every row | pre-registry index | `python3 <template-clone>/scripts/migrate-task-registry.py --repo .`, then the same with `--apply` |
 
 ## Notes
 
-- Python 3.8+, standard library only. No GitHub or Jira SDK.
+- Python 3.8+, standard library only. No tracker SDK.
 - GitHub goes through the `gh` CLI, reusing the auth the harness already assumes.
 - Credentials are redacted at the boundary — see `references/configuration.md`
   § Credentials.

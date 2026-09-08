@@ -77,9 +77,9 @@ agent has already done A4's half, drop A4 and say so — do not redo it.
 ## 3. Sequence — three phases, three PRs
 
 ```
-Phase A — the workflow command (R2)        ← DONE. feat/workflow-routing-phase-a
-Phase B — Cut 1, the two dead modules      ← NEXT. needs nothing but a merged A.
-Phase C — Cut 2, the todo.md sync engine   ← needs Cut 1 only for revertability.
+Phase A — the workflow command (R2)        ← DONE. merged as PR #111 (f6bb43c)
+Phase B — Cut 1, the two dead modules      ← DONE. feat/workflow-routing-phase-b (9b686fe)
+Phase C — Cut 2, the todo.md sync engine   ← NEXT. needs Cut 1 only for revertability.
              └─→ #97 ─→ #98
 ```
 
@@ -216,15 +216,16 @@ describes code that does not exist.
 
 ---
 
-## 7. Phase B — Cut 1, the two dead modules (874 LOC)
+## 7. Phase B — Cut 1, the two dead modules ✅ (991 LOC removed)
 
-Append these rows to `tasks/todo.md` when Phase A has merged.
+Built as `9b686fe`. Rows are in `tasks/todo.md` under `## Plan: Phase B`.
 
 - [ ] TDD: `grep -rn "jira" .agents .claude CLAUDE.md README.md tests/ specs/` returns no live reference; provider vocabulary is `github` or `local` everywhere it is named -> delete `registry/providers/jira.py` (437) and retire its documentation surface: `CLAUDE.md` (Task Tracking § provider list), `references/configuration.md`, `templates/task-tracking.md` (`[jira.issuetype]`, `[jira.priority]`)
 - [ ] TDD: `task-registry migrate` is gone and exits non-zero as an unknown command; `missing-id` has a named remedy that resolves to a shipped file; `tests/test-task-registry.sh`'s 12 `migrate` references retire with it -> delete `registry/migrate.py` (437), delete `references/migration.md`, update `SKILL.md:186`, `references/progressive-disclosure.md:48`, `references/configuration.md:252`, and ship the one-shot replacement under `scripts/`
 - [ ] TDD: `cloc --include-lang=Python .agents/skills/task-registry/scripts/` reports 4,090 (AC16); `tests/test-skill-parity.sh` green; `bash tests/run.sh` green -> parity copies + full suite
 
-Cut 1 is a revert of one commit. Keep it that way — no interleaved changes.
+Cut 1 is a revert of one commit. **Verified** — `git revert --no-commit 9b686fe`
+restores both modules and all 54 files together.
 
 ### What Phase A changed for Cut 1
 
@@ -281,6 +282,46 @@ dormant. Amend it in the Cut 2 commit, not after.
 
 Ships as one commit so `git revert` restores the modules and their callers
 together.
+
+### What Phase B changed for Cut 2
+
+- **`missing-id` dies with `reconcile.py`.** It is emitted from exactly one place,
+  `reconcile._report_identity_gaps`, so Cut 2 removes the diagnostic entirely.
+  Cut 1 repointed its message at the one-shot; Cut 2 must then re-check the three
+  documents that describe the remedy (`SKILL.md` § Migrating an existing
+  repository, `references/configuration.md`, `references/progressive-disclosure.md`).
+  The *migration* still stands for a pre-registry repository — it is the
+  `missing-id` **report** that disappears, and progressive-disclosure.md's step 2
+  is written around that report.
+- **`scripts/migrate-task-registry.py` must still run after Cut 2.** It vendors
+  its own row parser precisely so deleting `index.py` cannot break it, and
+  `tests/test-task-registry.sh` § 10 asserts it imports nothing from the skill.
+  If that assertion goes red during Cut 2, the fix is in the script, never in the
+  assertion.
+- **`specs/task-registry.md` is partly reconciled already.** Cut 1 removed its
+  Jira and `migrate` rows. Cut 2 still owns **AC-18 (`frontier`)** and the
+  `publish`/`pull`/`frontier` rows in its command table — and the file is a living
+  spec, so `/wrap-up-session` reconciles it actively rather than dormantly.
+- **The CLI sweep loop now reads `for command in reconcile publish pull frontier
+  doctor`** (`tests/test-task-registry.sh`, § 11). Cut 2 trims it to `doctor`.
+- **Two provider-validation paths, not one.** `config.PROVIDERS` gates a
+  `provider =` line in a config file; `PROVIDER_CLASSES` gates the `--provider`
+  flag. An assertion aimed at one proves nothing about the other — a Cut 1
+  assertion passed against a deliberately broken `PROVIDERS` for exactly this
+  reason before it was caught. Mutation-test both.
+- **A skill document may not name a path outside a syncable root.**
+  `tests/test-syncable-paths.sh` fails a `SKILL.md` that names `scripts/…`,
+  because `/sync` copies skills and not `scripts/`, so the path cannot resolve
+  downstream. The established shape is the `<template-clone>/scripts/…` prefix
+  that `sync/SKILL.md` already uses. This bit Cut 1 and will bite anything that
+  points a skill at repository tooling.
+- **`Config.project` has no reader anywhere in the tree** and predates this work,
+  so the orphan rule left it in place — but Cut 1 stopped documenting it in
+  `templates/task-tracking.md`, since it was Jira's project key. If Cut 2 wants it
+  gone, that is a deliberate call, not a cleanup.
+- **Line numbers in § 8 have moved again.** `tests/test-task-registry.sh` lost
+  ~375 lines net. Trap 1 already says regenerate; this is the second concrete
+  reason.
 
 ### What Phase A changed for Cut 2 — one new caller, and a class to keep
 

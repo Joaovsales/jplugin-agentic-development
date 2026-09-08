@@ -395,7 +395,7 @@ done
 # ============================================================================
 
 # A provider that cannot enumerate its vocabulary is "not checked", never "nothing
-# missing" -- and NOT RUN is the branch every local/Jira project takes.
+# missing" -- and NOT RUN is the branch every local-provider project takes.
 F_LOCAL="$(new_fixture)"
 { printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n```\n'; } \
   > "$F_LOCAL/docs/task-tracking.md"

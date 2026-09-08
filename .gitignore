@@ -24,3 +24,4 @@ __pycache__/
 # Serena MCP server workspace cache
 .serena/
 tasks/tmp/
+tasks/*-review-*.diff

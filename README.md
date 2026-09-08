@@ -288,7 +288,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content |
 | `/eval` | Blinded A/B eval of a skill, prompt, or workflow change: sanitized worktrees, organic prompts, transcript-based grading |
 | `/sync` | Pull latest skills, hooks, agents from template repo into current project |
-| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues, Jira, or a local Markdown store |
+| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues or a local Markdown store |
 | `/folder-context-optimization` | Sweep a folder for legacy/unused files, propose archival |
 
 ---

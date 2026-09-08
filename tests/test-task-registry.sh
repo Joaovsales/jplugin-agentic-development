@@ -11,8 +11,6 @@
 #   * every provider is run through the SAME contract block, so a fourth adapter
 #     inherits the checks instead of re-deriving them
 #   * GitHub runs against a `gh` mock first on PATH — real argv construction
-#   * Jira runs against a real HTTP server on a real socket — real auth headers,
-#     real error bodies, real redaction
 #   * everything else runs through the CLI, which is what skills actually call
 #
 # Zero external dependencies beyond git + python3. Every scenario builds a
@@ -37,12 +35,8 @@ else
 fi
 
 TMP_DIRS=()
-JIRA_PIDS=()
 cleanup() {
-  local pid d
-  for pid in "${JIRA_PIDS[@]:-}"; do
-    [ -n "$pid" ] && kill "$pid" 2>/dev/null
-  done
+  local d
   for d in "${TMP_DIRS[@]:-}"; do
     [ -n "$d" ] && rm -rf "$d"
   done
@@ -152,26 +146,6 @@ git_init_github_remote() {
   git -C "$1" config user.email "test@example.com"
   git -C "$1" config user.name "Test"
   git -C "$1" remote add origin https://github.com/fixture-owner/fixture-repo.git
-}
-
-free_port() {
-  "$PY" -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()'
-}
-
-start_fake_jira() {
-  local port="$1"; shift
-  "$PY" "$FIXTURES/fake-jira.py" "$port" "$@" &
-  JIRA_PIDS+=("$!")
-  local attempt=0
-  while [ "$attempt" -lt 50 ]; do
-    if "$PY" -c "import socket,sys; s=socket.socket(); sys.exit(0 if s.connect_ex(('127.0.0.1',$port))==0 else 1)"; then
-      return 0
-    fi
-    attempt=$((attempt + 1))
-    "$PY" -c 'import time; time.sleep(0.1)'
-  done
-  printf '  FAIL fake jira did not start on port %s\n' "$port"
-  return 1
 }
 
 # =============================================================================
@@ -421,7 +395,7 @@ cat > "$F_CONF/config/tracking.md" <<'EOF'
 
 ```ini
 [tracker]
-provider = jira
+provider = local
 project = REG
 local_detail_dir = tasks/details
 require_write_approval = true
@@ -455,7 +429,7 @@ EOF
 )"
 assert_contains "$conf_out" "source=config/tracking.md" \
   "Config: the AGENTS.md pointer redirects discovery away from the default path"
-assert_contains "$conf_out" "provider=jira" "Config: explicit provider is read"
+assert_contains "$conf_out" "provider=local" "Config: explicit provider is read"
 assert_contains "$conf_out" "project=REG" "Config: project identifier is read"
 assert_contains "$conf_out" "approval=True" "Config: require_write_approval is read"
 assert_contains "$conf_out" "kind-question=research" \
@@ -504,6 +478,28 @@ unkprov_out="$(run reconcile --repo "$F_UNKPROV" 2>&1)"
 unkprov_code=$?
 assert_eq "1" "$unkprov_code" "Config: an unknown provider exits non-zero"
 assert_contains "$unkprov_out" "unknown provider 'trello'" "Config: the failure names the bad provider"
+
+# A retired provider is the likeliest real encounter with Cut 1: a downstream
+# project whose checked-in config still says `provider = jira`. It must be
+# refused by the same path as a name that never existed, and the refusal must
+# enumerate what actually ships — this pins `config.PROVIDERS`, which the
+# `--provider` override path does not reach.
+F_RETPROV="$(new_fixture)"
+write_index "$F_RETPROV"
+printf '# T\n\n```ini\n[tracker]\nprovider = jira\n```\n' > "$F_RETPROV/docs/task-tracking.md"
+retprov_out="$(run doctor --repo "$F_RETPROV" 2>&1)"
+retprov_code=$?
+# Exit 1, not 2: a config fault raised out of `load_config` reaches the CLI's
+# unexpected-failure handler rather than the configuration branch. That is
+# pre-existing behaviour for every malformed config (the `trello` case above
+# exits 1 too), so it is pinned as-is rather than changed inside a deletion.
+assert_eq "1" "$retprov_code" "Config: a config declaring a retired provider exits non-zero"
+assert_contains "$retprov_out" "retired provider 'jira'" \
+  "Config: a retired provider is called retired, not unknown — it was valid one sync ago"
+assert_contains "$retprov_out" "Set \`provider = github\` or" \
+  "Config: the refusal tells the operator what to change it to"
+assert_contains "$retprov_out" "expected one of: github, local" \
+  "Config: the refusal enumerates the providers that ship, and jira is not among them"
 
 # Three pointer states, and only the first is silent (#82). "No pointer" is an
 # unconfigured project and defaults silently. "Pointer -> existing file" loads
@@ -639,11 +635,19 @@ assert_contains "$sel_local" "provider:       local" \
 assert_contains "$sel_local" "no configuration and no usable GitHub remote" \
   "Selection: the fallback states its reason"
 
-# Jira credentials in the environment must NOT make Jira implicit.
-sel_jira_env="$(JIRA_BASE_URL=https://example.atlassian.net JIRA_EMAIL=a@b.c \
-  JIRA_API_TOKEN=zzz JIRA_PROJECT=REG run doctor --repo "$F_SEL" 2>&1)"
-assert_contains "$sel_jira_env" "provider:       local" \
-  "Selection: Jira is never selected implicitly, even with full credentials present"
+# A retired provider is refused by name, and the refusal lists what survives.
+# Silently falling back would route a project that asked for a tracker we no
+# longer ship into the local store without saying so.
+sel_retired="$(run doctor --repo "$F_SEL" --provider jira 2>&1)"
+sel_retired_code=$?
+assert_eq "2" "$sel_retired_code" \
+  "Selection: an override naming a retired provider exits 2 (misconfiguration)"
+assert_contains "$sel_retired" "unknown provider" \
+  "Selection: the refusal says the provider is unknown"
+assert_contains "$sel_retired" "github" \
+  "Selection: the refusal lists the providers that do exist"
+assert_not_contains "$sel_retired" "jira, local" \
+  "Selection: jira is gone from the available-provider list, not just from the dict"
 
 F_SEL_GH="$(new_fixture)"
 write_index "$F_SEL_GH"
@@ -712,9 +716,9 @@ gate_ok.authorize("create issue", "github")
 print("approved-gate=open")
 EOF
 )"
-assert_contains "$contract_out" "providers=github,jira,local" \
-  "Contract: three providers are registered by name"
-for provider in github jira local; do
+assert_contains "$contract_out" "providers=github,local" \
+  "Contract: two providers are registered by name"
+for provider in github local; do
   assert_contains "$contract_out" "$provider-interface-complete=True" \
     "Contract: $provider implements all ten interface operations"
   assert_contains "$contract_out" "$provider-capabilities-declared=True" \
@@ -1051,127 +1055,6 @@ assert_not_contains "$(cat "$F_GH/gh-unauth2.log")X" "issue create" \
   "GitHub: no create call is attempted while unauthenticated"
 
 # =============================================================================
-# 8. Jira provider — auth, mapping, redaction, degradation, offline writes
-# =============================================================================
-JIRA_PORT="$(free_port)"
-start_fake_jira "$JIRA_PORT"
-JIRA_BASE="http://127.0.0.1:$JIRA_PORT"
-GOOD_TOKEN="fixture-jira-token-abcdef123456"
-
-F_JIRA="$(new_fixture)"
-write_index "$F_JIRA"
-cat > "$F_JIRA/docs/task-tracking.md" <<'EOF'
-# Task tracking
-
-```ini
-[tracker]
-provider = jira
-project = REG
-require_write_approval = false
-```
-EOF
-
-jira_env() {
-  export JIRA_BASE_URL="$1" JIRA_EMAIL="fixture@example.com" JIRA_API_TOKEN="$2" JIRA_PROJECT=REG
-}
-
-jira_doctor="$(jira_env "$JIRA_BASE" "$GOOD_TOKEN"; run doctor --repo "$F_JIRA" 2>&1)"
-assert_contains "$jira_doctor" "provider:       jira" "Jira: explicit configuration selects jira"
-assert_contains "$jira_doctor" "reachable:      yes" "Jira: a reachable site with valid auth reports reachable"
-
-jira_norm="$(cd "$F_JIRA" && jira_env "$JIRA_BASE" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate(apply=True, require_approval=False))
-tasks = {task.id: task for task in provider.list_tasks()}
-for task_id in sorted(tasks):
-    task = tasks[task_id]
-    print(f"{task_id}|kind={task.kind}|status={task.status}|priority={task.priority}"
-          f"|labels={','.join(task.labels)}|ref={task.external.id}")
-print("deps=" + ",".join(tasks["recipe.morph-live-grid"].depends_on))
-a, b = tasks["recipe.morph-live-grid"], tasks["recipe.color-lut"]
-print("dep-native=" + str(provider.add_dependency(a, b).native))
-print("parent-native=" + str(provider.link_parent(a, b).native))
-EOF
-)"
-assert_contains "$jira_norm" "recipe.morph-live-grid|kind=feature|status=in_progress|priority=high|labels=area/render,now|ref=REG-1" \
-  "Jira: Story->feature, In Progress->in_progress, High->high, labels preserved"
-assert_contains "$jira_norm" "recipe.color-lut|kind=bug|status=done|priority=medium|labels=area/color|ref=REG-2" \
-  "Jira: Bug->bug, done category->done"
-assert_contains "$jira_norm" "deps=recipe.color-lut" \
-  "Jira: dependencies round-trip through the description metadata block"
-assert_contains "$jira_norm" "dep-native=True" \
-  "Jira: a site that accepts issue links reports the dependency as native"
-assert_contains "$jira_norm" "parent-native=True" \
-  "Jira: a site that accepts a parent field reports the hierarchy as native"
-
-# capability degradation on a site that refuses both link types
-JIRA_PORT2="$(free_port)"
-start_fake_jira "$JIRA_PORT2" --reject-links
-jira_degraded="$(cd "$F_JIRA" && jira_env "http://127.0.0.1:$JIRA_PORT2" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate(apply=True, require_approval=False))
-tasks = {task.id: task for task in provider.list_tasks()}
-a, b = tasks["recipe.morph-live-grid"], tasks["recipe.color-lut"]
-dep = provider.add_dependency(a, b)
-parent = provider.link_parent(a, b)
-print("dep-native=" + str(dep.native))
-print("dep-render=" + dep.render())
-print("parent-native=" + str(parent.native))
-print("limitations=" + " || ".join(provider.limitations))
-EOF
-)"
-assert_contains "$jira_degraded" "dep-native=False" \
-  "Jira: a refused link degrades to metadata instead of pretending it is native"
-assert_contains "$jira_degraded" "inferred (stored in task metadata)" \
-  "Jira: the degraded link renders as inferred, never as native"
-assert_contains "$jira_degraded" "parent-native=False" \
-  "Jira: a refused parent field degrades the same way"
-assert_contains "$jira_degraded" "limitations=" \
-  "Jira: the degradation is recorded as a limitation for the report"
-
-# credential redaction: the fake site echoes the Authorization header back
-jira_redact="$(cd "$F_JIRA" && jira_env "$JIRA_BASE" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import ProviderError, WriteGate
-
-config = load_config(".")
-config = type(config)(**{**{f.name: getattr(config, f.name) for f in config.__dataclass_fields__.values()},
-                         "jira_token": type(config.jira_token)("wrong-token-9999")})
-provider = build_provider("jira", config, WriteGate())
-try:
-    provider.list_tasks()
-    print("no-error")
-except ProviderError as exc:
-    print("error=" + str(exc).replace("\n", " "))
-EOF
-)"
-assert_contains "$jira_redact" "HTTP 401" "Jira: a rejected credential surfaces the HTTP status"
-assert_contains "$jira_redact" "REDACTED" "Jira: the echoed Authorization header is masked"
-assert_not_contains "$jira_redact" "wrong-token-9999" \
-  "Jira: the credential itself never reaches the error text"
-jira_doctor_bad="$(jira_env "$JIRA_BASE" "$GOOD_TOKEN-invalid"; run doctor --repo "$F_JIRA" 2>&1)"
-assert_not_contains "$jira_doctor_bad" "$GOOD_TOKEN" \
-  "Jira: no CLI output path prints the token"
-assert_contains "$jira_doctor_bad" "authentication rejected" \
-  "Jira: a rejected credential is reported as an authentication failure"
-
-# offline: nothing listening on that port
-JIRA_DEAD_PORT="$(free_port)"
-jira_offline="$(jira_env "http://127.0.0.1:$JIRA_DEAD_PORT" "$GOOD_TOKEN"
-  run publish --repo "$F_JIRA" --apply --approve 2>&1)"
-jira_offline_code=$?
-assert_eq "1" "$jira_offline_code" "Jira: an external write with no connectivity exits non-zero"
-assert_contains "$jira_offline" "refusing to publish" "Jira: the offline write refuses explicitly"
-assert_contains "$jira_offline" "cannot reach" "Jira: the refusal names the unreachable site"
-
-# =============================================================================
 # 9. Reconcile, frontier, and progressive disclosure
 # =============================================================================
 F_REC="$(new_fixture)"
@@ -1304,7 +1187,59 @@ assert_eq "0" "$blocked_entries" \
 
 # =============================================================================
 # 10. Migration — an ascii_video_pipeline-shaped repository
+#
+# The migration moved out of the skill in Cut 1 (specs/workflow-routing.md) and
+# is now `scripts/migrate-task-registry.py`. These assertions are deliberately
+# the same ones the subcommand had: a remedy that is documented but never
+# exercised is not a remedy, and the one-shot has to keep behaving identically
+# for the projects the retired command was the only answer for.
 # =============================================================================
+MIGRATE="$REPO/scripts/migrate-task-registry.py"
+
+# The subcommand is gone, and it fails as an unknown command rather than as a
+# broken import — a project that scripted it learns that from the CLI.
+mig_retired="$(run migrate --repo "$REPO" 2>&1)"
+mig_retired_code=$?
+assert_eq "2" "$mig_retired_code" "Migrate: the retired subcommand exits 2 as unknown"
+assert_contains "$mig_retired" "invalid choice: 'migrate'" \
+  "Migrate: argparse refuses `migrate` by name"
+
+# The Cut 2 precondition: `registry/index.py` and `registry/reconcile.py` are
+# deleted one phase from now, so a one-shot that imported them would break the
+# moment Cut 2 lands.
+#
+# Two guards, because neither alone is enough. The static one uses POSIX
+# [[:space:]] rather than \s -- \s is a GNU extension that degrades to a literal
+# 's' under BSD grep, which would make this pass by matching nothing, on exactly
+# the runners least likely to be watched. The dynamic one is the real proof: a
+# lazy importlib call inside a function body evades any import-line grep.
+mig_import_lines="$(grep -cE "^[[:space:]]*(from|import)[[:space:]]" "$MIGRATE")"
+assert_ne_zero() { [ "$1" -gt 0 ]; }
+if assert_ne_zero "$mig_import_lines"; then
+  _TESTS=$((_TESTS + 1)); printf '  ok   %s\n' \
+    "Migrate: the import-line pattern matches this grep (found $mig_import_lines lines)"
+else
+  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1)); printf '  FAIL %s\n' \
+    "Migrate: the import-line pattern matched nothing -- the guard below is vacuous here"
+fi
+mig_imports="$(grep -nE "^[[:space:]]*(from|import)[[:space:]]" "$MIGRATE" | grep -E "registry|skills" || true)"
+assert_eq "" "$mig_imports" \
+  "Migrate: the one-shot imports nothing from the skill (offenders: ${mig_imports:-none})"
+
+# Execution beats inspection: run it against a tree with both Cut 2 casualties
+# actually deleted. This is the assertion the todo row's wording claims.
+F_CUT2="$(new_fixture)"
+mkdir -p "$F_CUT2/skillcopy"
+cp -R "$SCRIPTS/." "$F_CUT2/skillcopy/"
+rm -f "$F_CUT2/skillcopy/registry/index.py" "$F_CUT2/skillcopy/registry/reconcile.py" \
+      "$F_CUT2/skillcopy/registry/upsert.py"
+printf '# Plan\n\n- [ ] Survives the cut\n' > "$F_CUT2/tasks/todo.md"
+cut2_out="$(PYTHONPATH="$F_CUT2/skillcopy" "$PY" "$MIGRATE" --repo "$F_CUT2" 2>&1)"
+cut2_code=$?
+assert_eq "0" "$cut2_code" \
+  "Migrate: the one-shot still runs with index.py, reconcile.py and upsert.py deleted"
+assert_contains "$cut2_out" "rows scanned:        1" \
+  "Migrate: and still parses rows without the module it used to import them from"
 F_MIG="$(new_fixture)"
 mkdir -p "$F_MIG/specs/pending" "$F_MIG/specs/completed"
 cat > "$F_MIG/tasks/todo.md" <<'EOF'
@@ -1350,7 +1285,7 @@ printf '# Orphaned plan\n\nnothing points here\n' > "$F_MIG/specs/pending/orphan
 
 mig_before="$(cd "$F_MIG" && find . -type f | sort)"
 todo_before_mig="$(cat "$F_MIG/tasks/todo.md")"
-mig_dry="$(run migrate --repo "$F_MIG" 2>&1)"
+mig_dry="$("$PY" "$MIGRATE" --repo "$F_MIG" 2>&1)"
 mig_dry_code=$?
 mig_after_dry="$(cd "$F_MIG" && find . -type f | sort)"
 assert_eq "0" "$mig_dry_code" "Migrate: the dry run exits 0"
@@ -1378,7 +1313,7 @@ assert_contains "$mig_dry" "Nothing here is deleted." "Migrate: the report state
 assert_contains "$mig_dry" "kind is inferred from row wording" \
   "Migrate: the heuristic declares itself as a heuristic"
 
-mig_apply="$(run migrate --repo "$F_MIG" --apply 2>&1)"
+mig_apply="$("$PY" "$MIGRATE" --repo "$F_MIG" --apply 2>&1)"
 mig_apply_code=$?
 assert_eq "0" "$mig_apply_code" "Migrate: --apply exits 0"
 assert_contains "$mig_apply" "minted" "Migrate: --apply reports how many ids it minted"
@@ -1398,11 +1333,128 @@ assert_file_contains "$F_MIG/tasks/task-registry-migration.md" "living texture f
 assert_file_contains "$F_MIG/tasks/task-registry-migration.md" "## Proposed grouping" \
   "Migrate: the audit records the proposed grouping"
 
+# A BOM on the first physical row is the classic vendored-parser divergence:
+# under plain utf-8 it prefixes line 1, the row regex misses, and the row is
+# lost without ever being reported. The live index reads utf-8-sig, so the two
+# must agree on the same bytes.
+F_BOM="$(new_fixture)"
+printf '\xef\xbb\xbf- [ ] First row\n- [ ] Second row\n' > "$F_BOM/tasks/todo.md"
+bom_out="$("$PY" "$MIGRATE" --repo "$F_BOM" 2>&1)"
+assert_contains "$bom_out" "rows scanned:        2" \
+  "Migrate: a BOM on the first row does not hide it from the one-shot"
+bom_live="$(cd "$F_BOM" && pyreg <<'EOF'
+from registry.index import load_index
+print("live-rows=" + str(len(load_index("tasks/todo.md", "tasks/todo.md").rows)))
+EOF
+)"
+assert_contains "$bom_live" "live-rows=2" \
+  "Migrate: and the live index agrees on the same bytes"
+
+# The row shape CLAUDE.md prescribes. Splitting it on '->' alone leaves an
+# unbalanced backtick in the title, mints a 'tdd-' prefixed id, and breaks every
+# blocked-by that names the row by wording. --apply mints ids once, so a wrong
+# title is written to a human's file permanently.
+F_TDD="$(new_fixture)"
+printf '# Plan\n\n## Plan: Recovery\n\n- [ ] TDD: `recover active thread` -> impl detail\n- [ ] TDD: `resume` -> more (blocked-by: recover active thread)\n' \
+  > "$F_TDD/tasks/todo.md"
+tdd_out="$("$PY" "$MIGRATE" --repo "$F_TDD" 2>&1)"
+assert_contains "$tdd_out" "recovery.recover-active-thread" \
+  "Migrate: a backticked TDD row mints an id from the test name, with no tdd- prefix"
+assert_not_contains "$tdd_out" "recovery.tdd-recover-active-thread" \
+  "Migrate: the 'TDD:' literal never becomes part of the identity"
+assert_contains "$tdd_out" "recover active thread -> recovery.recover-active-thread" \
+  "Migrate: a blocked-by naming a TDD row by its wording resolves to the minted id"
+assert_not_contains "$tdd_out" 'TDD: `recover active thread$' \
+  "Migrate: the title carries no unbalanced backtick"
+
+# The vendored superseded marker must not be wider than reconcile's, or the two
+# tools disagree about the same repository.
+F_SUP="$(new_fixture)"
+printf '# Plan\n\n## Plan: Effects\n> Spec: specs/loose.md\n\n- [ ] Row under a loosely-worded spec\n' \
+  > "$F_SUP/tasks/todo.md"
+printf '# Loose\n\nSuperseded by the stage pipeline (see notes)\n' > "$F_SUP/specs/loose.md"
+sup_out="$("$PY" "$MIGRATE" --repo "$F_SUP" 2>&1)"
+assert_contains "$sup_out" "superseded:          0" \
+  "Migrate: prose mentioning supersession is not a marker -- same rule as reconcile"
+
 id_count_first="$(grep -c 'task-id:' "$F_MIG/tasks/todo.md")"
-run migrate --repo "$F_MIG" --apply >/dev/null 2>&1
+"$PY" "$MIGRATE" --repo "$F_MIG" --apply >/dev/null 2>&1
 id_count_second="$(grep -c 'task-id:' "$F_MIG/tasks/todo.md")"
 assert_eq "$id_count_first" "$id_count_second" \
   "Migrate: re-running --apply mints no duplicate ids"
+
+# --- the one-shot's own surface, which section 10's inherited assertions miss -
+# A wrong path is a usage error (2); unreadable rows are a content failure (1).
+# The sibling CLI splits these deliberately so an unattended caller can retry the
+# first and page a human for the second.
+F_NOIDX="$(new_fixture)"
+rm -f "$F_NOIDX/tasks/todo.md"
+noidx_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+noidx_code=$?
+assert_eq "2" "$noidx_code" "Migrate: a missing index is a usage error, exit 2"
+assert_contains "$noidx_out" "no index at tasks/todo.md" \
+  "Migrate: the failure names the path it looked for"
+
+badrow_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+printf '# Plan\n\n- [ ] Fine row\n- [?] Bad box\n' > "$F_NOIDX/tasks/todo.md"
+badrow_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+badrow_code=$?
+assert_eq "1" "$badrow_code" "Migrate: an unreadable row is a content failure, exit 1"
+assert_contains "$badrow_out" "unknown status box '[?]' (expected one of:" \
+  "Migrate: the malformed-row report says which characters are accepted"
+
+# --repo declares a root, and --apply rewrites files. A path escaping that root
+# is refused rather than silently written, matching the confinement the retired
+# subcommand inherited from Config.path().
+F_ESCM="$(new_fixture)"
+printf '# Plan\n\n- [ ] Row\n' > "$F_ESCM/tasks/todo.md"
+mkdir -p "$F_ESCM/../escape-probe" 2>/dev/null || true
+esc_out="$("$PY" "$MIGRATE" --repo "$F_ESCM" --index ../escape-probe/todo.md --apply 2>&1)"
+esc_code=$?
+assert_eq "2" "$esc_code" "Migrate: a path escaping --repo is refused, exit 2"
+assert_contains "$esc_out" "resolves outside" \
+  "Migrate: the refusal says the path left the declared root"
+rm -rf "$F_ESCM/../escape-probe"
+
+# The path flags are the port's own invention; nothing else exercises them.
+F_FLAGS="$(new_fixture)"
+mkdir -p "$F_FLAGS/plans"
+printf '# Plan\n\n## Plan: Alt\n\n- [ ] Row in an alternate index\n' \
+  > "$F_FLAGS/plans/work.md"
+flags_out="$("$PY" "$MIGRATE" --repo "$F_FLAGS" --index plans/work.md 2>&1)"
+flags_code=$?
+assert_eq "0" "$flags_code" "Migrate: --index reads an index outside the default path"
+assert_contains "$flags_out" "alt.row-in-an-alternate-index" \
+  "Migrate: rows from the alternate index are the ones classified"
+assert_contains "$flags_out" "rows scanned:        1" \
+  "Migrate: and the default tasks/todo.md is not read instead"
+
+# Deliberately NOT asserted: that --spec-dir changes which specs a row links to.
+# `SPEC_REFERENCE_RE` hardcodes `specs?/`, so a row can only ever cite a spec
+# under `specs/` no matter where --spec-dir points -- the directory governs the
+# superseded scan alone. That mismatch is carried verbatim from the retired
+# subcommand, where `config.spec_dir` had the same relationship to the same
+# regex, so it is pre-existing rather than introduced by the port. Recorded here
+# so the next reader does not mistake the gap for coverage.
+
+# An unreadable spec changes how its rows are classified, so it must reach the
+# exit code rather than only a stderr warning an unattended run never reads.
+F_BADSPEC="$(new_fixture)"
+printf '# Plan\n\n## Plan: Thing\n> Spec: specs/locked.md\n\n- [ ] Row\n' > "$F_BADSPEC/tasks/todo.md"
+printf '# Locked\n\n> Superseded by: specs/other.md\n' > "$F_BADSPEC/specs/locked.md"
+chmod 000 "$F_BADSPEC/specs/locked.md"
+badspec_out="$("$PY" "$MIGRATE" --repo "$F_BADSPEC" 2>&1)"
+badspec_code=$?
+chmod 644 "$F_BADSPEC/specs/locked.md"
+if [ "$badspec_code" = "0" ]; then
+  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
+  printf '  FAIL %s\n' "Migrate: an unreadable spec must not report success (exit was 0)"
+else
+  _TESTS=$((_TESTS + 1))
+  printf '  ok   %s\n' "Migrate: an unreadable spec fails the run rather than misclassifying silently"
+fi
+assert_contains "$badspec_out" "cannot read" \
+  "Migrate: the unreadable spec is named in the report, not just on stderr"
 
 post_mig_recon="$(run reconcile --repo "$F_MIG" 2>&1)"
 post_mig_code=$?
@@ -1438,7 +1490,7 @@ run reconcile --repo "$F_CLI" --report "$F_CLI/report.txt" >/dev/null 2>&1
 assert_file_contains "$F_CLI/report.txt" "task-registry reconcile" \
   "CLI: --report writes the same output to a file"
 
-for command in reconcile publish pull frontier doctor migrate; do
+for command in reconcile publish pull frontier doctor; do
   out="$(run "$command" --repo "$F_CLI" 2>&1)"
   code=$?
   assert_eq "0" "$code" "CLI: '$command' runs clean on a well-formed repository"
@@ -1517,7 +1569,7 @@ text = "\n".join([
     "- [ ] -fno-strict-aliasing crashes the build <!-- task-id: bug.aliasing --> — a compiler flag",
     "  - [ ] Nested child row <!-- task-id: bug.aliasing.child --> — indented on purpose",
     "- [ ] Crafted ref ([--body-file=/etc/passwd](https://github.com/o/r/issues/1)) <!-- task-id: evil.one -->",
-    "- [ ] Jira linked ([REG-4](https://jira.example.com/browse/REG-4)) <!-- task-id: jira.one -->",
+    "- [ ] Foreign tracker ([REG-4](https://tracker.example.com/browse/REG-4)) <!-- task-id: foreign.one -->",
 ])
 index = TaskIndex("tasks/todo.md", text, "tasks/todo.md")
 by_id = {row.task.id: row for row in index.rows}
@@ -1527,9 +1579,9 @@ child = by_id["bug.aliasing.child"]
 print("rerendered-indent=[" + render_row(child.task, child.indent)[:2] + "]")
 print("crafted-parsed=" + str("evil.one" in by_id))
 print("crafted-problem=" + str(any("body-file" in p.message for p in index.problems)))
-print("jira-provider=" + by_id["jira.one"].task.external.provider)
-label = render_row(Task(id="j", title="J", external=ExternalRef("jira", "REG-4", "u")))
-print("jira-label-plain=" + str("[REG-4]" in label and "#REG-4" not in label))
+print("foreign-provider=" + by_id["foreign.one"].task.external.provider)
+label = render_row(Task(id="j", title="J", external=ExternalRef("local", "REG-4", "u")))
+print("foreign-label-plain=" + str("[REG-4]" in label and "#REG-4" not in label))
 gh_label = render_row(Task(id="g", title="G", external=ExternalRef("github", "42", "u")))
 print("github-label-hashed=" + str("[#42]" in gh_label))
 EOF
@@ -1543,10 +1595,10 @@ assert_contains "$index_reg" "crafted-parsed=False" \
   "Index: a reference id shaped like a CLI flag is not turned into a task"
 assert_contains "$index_reg" "crafted-problem=True" \
   "Index: the rejected reference is reported as malformed input, not dropped"
-assert_contains "$index_reg" "jira-provider=jira" \
-  "Index: a browse URL is classified by the provider that owns it"
-assert_contains "$index_reg" "jira-label-plain=True" \
-  "Index: a Jira reference renders as its own key, not as #key"
+assert_contains "$index_reg" "foreign-provider=local" \
+  "Index: a URL no shipped provider owns falls back to local, never to a guess"
+assert_contains "$index_reg" "foreign-label-plain=True" \
+  "Index: a non-GitHub reference renders as its own key, not as #key"
 assert_contains "$index_reg" "github-label-hashed=True" \
   "Index: a GitHub reference still renders as #number"
 
@@ -1570,7 +1622,8 @@ printf 'Task tracking instructions: docs/template-managed.md\n' > "$F_CFG/CLAUDE
 cp "$F_CFG/docs/task-tracking.md" "$F_CFG/docs/template-managed.md"
 
 cfg_reg="$(cd "$F_CFG" && pyreg <<'EOF'
-from registry.config import Config, ConfigError, load_config, require_secure_transport
+from registry.config import Config, ConfigError, load_config
+from registry.redaction import redactor_for
 
 config = load_config(".")
 print("source=" + str(config.source_path))
@@ -1587,15 +1640,26 @@ try:
 except ConfigError as exc:
     print("escape-refused=" + str(exc))
 
-for url in ("http://jira.example.com", "http://127.0.0.1:8080", "https://jira.example.com"):
-    try:
-        require_secure_transport(url, {})
-        print(f"transport {url} = allowed")
-    except ConfigError:
-        print(f"transport {url} = refused")
-print("transport-optout=" + str(
-    require_secure_transport("http://jira.example.com",
-                             {"TASK_REGISTRY_ALLOW_INSECURE_TRANSPORT": "1"}) is None))
+# A retired provider must leave no half-configuration behind: a `jira_*` field
+# surviving on Config is a credential slot nothing fills and nothing redacts.
+print("jira-attrs=" + str(sorted(a for a in dir(Config(root=".")) if "jira" in a.lower())))
+# Dropping the configured-secret list must not cost the generic scrubbing. The
+# masker keeps its own patterns, so an Authorization header and the password half
+# of URL userinfo are still masked with no secret registered at all.
+#
+# Scope, stated rather than implied: pattern 3 requires a scheme, so userinfo in
+# text that names the host WITHOUT `https://` is not matched. That is precisely
+# the case the deleted `_url_credentials` existed for. Nothing leaks today, since
+# no shipped provider keeps a URL credential in config -- but the gap is real and
+# is asserted below as a known gap rather than left for someone to discover.
+redactor = redactor_for(Config(root="."))
+print("mask-auth=" + redactor.scrub("Authorization: Basic ZmFrZTp0b2tlbg=="))
+print("mask-userinfo=" + redactor.scrub("https://user:sup3rsecretvalue@site.example/x"))
+print("leaks-userinfo=" + str("sup3rsecretvalue" in redactor.scrub(
+    "https://user:sup3rsecretvalue@site.example/x")))
+print("no-scheme-gap=" + str("sup3rsecretvalue" in redactor.scrub(
+    "cannot reach user:sup3rsecretvalue@site.example")))
+
 EOF
 )"
 assert_contains "$cfg_reg" "source=docs/project-owned.md" \
@@ -1609,14 +1673,37 @@ assert_contains "$cfg_reg" "default-decision=decision" \
   "Config: 'design-decision' still maps after a section is declared"
 assert_contains "$cfg_reg" "escape-refused=" \
   "Config: a configured path outside the project root is refused"
-assert_contains "$cfg_reg" "transport http://jira.example.com = refused" \
-  "Config: credentials are never sent over plain http to a remote host"
-assert_contains "$cfg_reg" "transport http://127.0.0.1:8080 = allowed" \
-  "Config: loopback http is allowed — there is no wire to sniff"
-assert_contains "$cfg_reg" "transport https://jira.example.com = allowed" \
-  "Config: https is allowed"
-assert_contains "$cfg_reg" "transport-optout=True" \
-  "Config: an operator can override the transport floor from the environment"
+assert_contains "$cfg_reg" "jira-attrs=[]" \
+  "Config: a retired provider leaves no credential field behind on Config"
+assert_contains "$cfg_reg" "mask-auth=Authorization: ***REDACTED***" \
+  "Redaction: an Authorization header is masked with no configured secret"
+assert_contains "$cfg_reg" "mask-userinfo=https://user:***REDACTED***@site.example/x" \
+  "Redaction: the password is masked and the username is preserved"
+assert_contains "$cfg_reg" "leaks-userinfo=False" \
+  "Redaction: the with-scheme userinfo pattern still masks the password half"
+assert_contains "$cfg_reg" "no-scheme-gap=True" \
+  "Redaction: userinfo without a scheme is a KNOWN gap — a provider carrying a URL credential must register it through redactor_for, not rely on the patterns"
+
+# The configured-secret path has no production caller since Cut 1 (redactor_for
+# returns Redactor([])), and the assertions that exercised it lived in the Jira
+# block this cut deleted. The seam is kept deliberately, so it is tested
+# deliberately -- an untested seam is not a seam, and the next provider to carry
+# a credential inherits this mechanism.
+redactor_unit="$(pyreg <<'EOF'
+from registry.redaction import Redactor
+print("registered=" + Redactor(["sup3rsecretvalue"]).scrub("saw sup3rsecretvalue here"))
+print("short-filtered=" + Redactor(["ab"]).scrub("saw ab here"))
+merged = Redactor(["alpha-secret"])
+merged.adopt(Redactor(["beta-secret"]))
+print("adopted=" + merged.scrub("alpha-secret and beta-secret"))
+EOF
+)"
+assert_contains "$redactor_unit" "registered=saw ***REDACTED*** here" \
+  "Redaction: a registered secret is masked wherever it appears"
+assert_contains "$redactor_unit" "short-filtered=saw ab here" \
+  "Redaction: a secret under four characters is not registered -- it would mask prose"
+assert_contains "$redactor_unit" "adopted=***REDACTED*** and ***REDACTED***" \
+  "Redaction: adopt() merges both sets, so a late-loaded credential is still masked"
 
 # A pointer that escapes the repository must not be followed — and must not be
 # silently skipped either. It is a declared intent with a broken target, the
@@ -1820,83 +1907,6 @@ assert_contains "$trunc_out" "exit=1" \
 assert_contains "$trunc_out" "refusal=refusing to publish" \
   "Publish: the refusal explains that an unseen task could be created twice"
 
-# --- jira: key validation, redaction, credential-stripping redirects ---------
-jira_reg="$(cd "$F_JIRA" && jira_env "$JIRA_BASE" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.model import ExternalRef
-from registry.providers import build_provider
-from registry.providers.base import ProviderError, ProviderUnavailable, WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate(apply=True, require_approval=False))
-try:
-    provider.get_task(ExternalRef("jira", "../../secure/admin", ""))
-    print("crafted-key=accepted")
-except ProviderError as exc:
-    print("crafted-key-refused=" + str(exc))
-EOF
-)"
-assert_contains "$jira_reg" "is not an issue key (expected PROJ-123)" \
-  "Jira: a reference that is not an issue key never becomes a request path"
-
-leak_out="$(cd "$F_JIRA" && pyreg <<'EOF'
-from registry.config import Config, Secret
-from registry.providers.jira import JiraProvider
-from registry.providers.base import ProviderUnavailable
-
-config = Config(
-    root=".",
-    provider="jira",
-    project="REG",
-    jira_base_url="https://user:sup3rsecretvalue@jira.example.invalid",
-    jira_email="fixture@example.com",
-    jira_token=Secret("fixture-jira-token-abcdef123456"),
-)
-provider = JiraProvider(config)
-try:
-    provider._call("GET", "/rest/api/2/myself")
-    print("reached=yes")
-except ProviderUnavailable as exc:
-    print("unreachable=" + str(exc))
-EOF
-)"
-assert_contains "$leak_out" "unreachable=jira: cannot reach" \
-  "Jira: an unreachable site is reported, not swallowed"
-assert_not_contains "$leak_out" "sup3rsecretvalue" \
-  "Jira: a credential embedded in the base URL is redacted out of the error"
-
-ECHO_PORT="$(free_port)"
-"$PY" "$FIXTURES/fake-jira.py" "$ECHO_PORT" --echo-auth >/dev/null 2>&1 &
-JIRA_PIDS+=("$!")
-REDIRECT_PORT="$(free_port)"
-"$PY" "$FIXTURES/fake-jira.py" "$REDIRECT_PORT" \
-  --redirect-to "http://127.0.0.1:$ECHO_PORT/rest/api/2/myself" >/dev/null 2>&1 &
-JIRA_PIDS+=("$!")
-"$PY" - "$ECHO_PORT" "$REDIRECT_PORT" <<'EOF'
-import sys, time, urllib.request
-for port in sys.argv[1:]:
-    for _ in range(80):
-        try:
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/ping", timeout=1).read()
-            break
-        except Exception as exc:
-            if "Connection refused" not in str(exc):
-                break
-            time.sleep(0.05)
-EOF
-redirect_out="$(cd "$F_JIRA" && jira_env "http://127.0.0.1:$REDIRECT_PORT" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate())
-status, body = provider._call("GET", "/rest/api/2/myself")
-print("status=" + str(status))
-print("body=" + body)
-EOF
-)"
-assert_contains "$redirect_out" '"received_authorization": ""' \
-  "Jira: credentials are stripped when a redirect crosses to another origin"
-
 # --- reconcile: status floor, skipped rows, frontier order ------------------
 F_DRIFT="$(new_fixture)"
 cat > "$F_DRIFT/tasks/todo.md" <<'EOF'
@@ -1968,7 +1978,8 @@ assert_contains "$drift_out" "row=- [~]" \
   "Reconcile: the in-flight row on disk is not rewritten back to open"
 assert_contains "$drift_out" "skipped=True" \
   "Publish: a row with no stable id is reported as skipped, never silently passed over"
-assert_contains "$drift_out" "skip-message=" "Publish: the skip names the row and the remedy"
+assert_contains "$drift_out" "migrate-task-registry.py --apply" \
+  "Publish: the skip names the remedy the reader must actually run"
 
 F_FRONT="$(new_fixture)"
 cat > "$F_FRONT/tasks/todo.md" <<'EOF'
@@ -2017,14 +2028,14 @@ cat > "$F_MIG2/tasks/todo.md" <<'EOF'
 - [ ] Waits on the other one (blocked-by: Beta work)
 EOF
 printf '# Alpha\n' > "$F_MIG2/specs/alpha.md"
-mig2_dry="$(run migrate --repo "$F_MIG2" 2>&1)"
+mig2_dry="$("$PY" "$MIGRATE" --repo "$F_MIG2" 2>&1)"
 assert_contains "$mig2_dry" "beta.beta-work" "Migrate: a second plan block mints under its own group"
 mig2_ids="$(printf '%s\n' "$mig2_dry" | grep -o 'alpha\.shared-title[^ ]*' | sort -u | tr '\n' ' ')"
 assert_contains "$mig2_ids" "alpha.shared-title-2" \
   "Migrate: a minted id never collides with an id already in the index"
 assert_contains "$mig2_dry" "Dependency references to rewrite" \
   "Migrate: a dependency written as prose is resolved to the minted id"
-run migrate --repo "$F_MIG2" --apply >/dev/null 2>&1
+"$PY" "$MIGRATE" --repo "$F_MIG2" --apply >/dev/null 2>&1
 assert_file_contains "$F_MIG2/tasks/todo.md" "blocked-by: beta.beta-work" \
   "Migrate: --apply rewrites the dependency to the id it minted"
 mig2_after="$(run frontier --repo "$F_MIG2" 2>&1)"
@@ -2055,12 +2066,17 @@ provider = local
 closed_plan_marker = Retrospective
 EOF
 printf '```\n' >> "$F_MARK/docs/task-tracking.md"
-mark_out="$(run migrate --repo "$F_MARK" 2>&1)"
+mark_out="$("$PY" "$MIGRATE" --repo "$F_MARK" --closed-plan-marker Retrospective 2>&1)"
 assert_contains "$mark_out" "stale (open in a closed plan): 1" \
   "Migrate: a project's own closed-plan heading is honoured"
+# ... and without the flag the same repository reads that block as still open,
+# which is what makes the assertion above about the flag rather than the fixture.
+mark_default="$("$PY" "$MIGRATE" --repo "$F_MARK" 2>&1)"
+assert_contains "$mark_default" "stale (open in a closed plan): 0" \
+  "Migrate: the default marker does not silently match a project's own heading"
 F_NOMARK="$(new_fixture)"
 printf '# Task Plan\n\n## Plan: Ongoing\n\n- [ ] Still open\n' > "$F_NOMARK/tasks/todo.md"
-nomark_out="$(run migrate --repo "$F_NOMARK" 2>&1)"
+nomark_out="$("$PY" "$MIGRATE" --repo "$F_NOMARK" 2>&1)"
 assert_contains "$nomark_out" "no 'Session Summary' heading found" \
   "Migrate: an index with no closed-plan marker says so instead of guessing"
 
@@ -2068,9 +2084,9 @@ assert_contains "$nomark_out" "no 'Session Summary' heading found" \
 F_CRASH="$(new_fixture)"
 printf '# Plan\n\n- [ ]\n' > "$F_CRASH/tasks/todo.md"
 crash_code=0
-run migrate --repo "$F_CRASH" --apply >/dev/null 2>&1 || crash_code=$?
+"$PY" "$MIGRATE" --repo "$F_CRASH" --apply >/dev/null 2>&1 || crash_code=$?
 assert_eq "1" "$crash_code" \
-  "CLI: migrate --apply still exits non-zero when rows could not be read"
+  "Migrate: --apply still exits non-zero when rows could not be read"
 
 crash_out="$("$PY" - "$CLI" <<'EOF' 2>&1
 import importlib.util, sys
@@ -2093,6 +2109,46 @@ assert_contains "$crash_out" "credentials masked" \
   "CLI: an unexpected failure says the trace was scrubbed"
 assert_not_contains "$crash_out" "ZmFrZTpsZWFrZWR0b2tlbnZhbHVl" \
   "CLI: an Authorization header in a traceback never reaches the terminal"
+
+# The degraded-link branch is shared provider code, not Jira code: GitHub returns
+# native=False from BOTH link operations, so `LinkResult.render()`'s "inferred"
+# arm is the one every real GitHub link takes. Its only assertions lived in the
+# Jira block Cut 1 deleted, and the surviving link assertions are the local
+# provider's, which are both native=True. Restored here against the gh mock.
+gh_links="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-links.log" pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import ExternalRef, Task
+from registry.providers import build_provider
+from registry.providers.base import WriteGate
+
+BASE = "https://github.com/fixture-owner/fixture-repo/issues"
+provider = build_provider("github", load_config("."), WriteGate(apply=True, require_approval=False))
+# Both ends must be real issues: linking writes through update_task, which
+# refuses a task with no issue reference.
+child = Task(id="recipe.morph-live-grid", title="Morph live grid recipe",
+             external=ExternalRef("github", "42", f"{BASE}/42"))
+parent = Task(id="recipe.color-lut", title="Colour LUT loader",
+              external=ExternalRef("github", "43", f"{BASE}/43"))
+parent_link = provider.link_parent(child, parent)
+dep_link = provider.add_dependency(child, parent)
+print("parent-native=" + str(parent_link.native))
+print("dep-native=" + str(dep_link.native))
+print("parent-render=" + parent_link.render())
+print("dep-render=" + dep_link.render())
+print("limitations=" + "|".join(provider.limitations))
+EOF
+)"
+assert_contains "$gh_links" "parent-native=False" \
+  "GitHub: hierarchy is declared non-native rather than silently claimed"
+assert_contains "$gh_links" "dep-native=False" \
+  "GitHub: dependencies are declared non-native rather than silently claimed"
+assert_contains "$gh_links" "inferred (stored in task metadata)" \
+  "GitHub: a degraded link renders as inferred, naming where the relationship went"
+assert_contains "$gh_links" "parent-render=parent: recipe.morph-live-grid -> recipe.color-lut" \
+  "GitHub: the rendered link names both ends of the relationship"
+assert_contains "$gh_links" "expose no parent link through gh" \
+  "GitHub: the limitation is surfaced, not swallowed"
 
 assert_file_contains "$SKILL/templates/task-tracking.md" "## Naming conventions" \
   "Template: projects get a stub for provider-facing title and label conventions"

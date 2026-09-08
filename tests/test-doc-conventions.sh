@@ -371,8 +371,8 @@ for tree in .agents .claude; do
     "task-registry: $f states the label-preservation rule"
   assert_file_contains "$f" "Nothing unresolved is deleted" \
     "task-registry: $f states the no-silent-deletion rule"
-  assert_file_contains "$f" "Jira is never selected implicitly" \
-    "task-registry: $f states that Jira is never implicit"
+  assert_prose_contains "$f" "No tracker is ever selected implicitly" \
+    "task-registry: $f states that no tracker is selected implicitly"
   template="$tree/skills/task-registry/templates/task-tracking.md"
   assert_file_contains "$template" \
     "selection still prefers GitHub when a GitHub remote and an authenticated \`gh\`" \
@@ -380,12 +380,24 @@ for tree in .agents .claude; do
   assert_file_contains "$template" \
     "both exist, then falls back to local Markdown" \
     "task-registry: $template pins the local fallback"
-  # The three companion documents the skill points at must exist, or the
+  # The two companion documents the skill points at must exist, or the
   # progressive-disclosure promise ("detail on demand") has nowhere to land.
-  for ref in configuration migration progressive-disclosure; do
+  for ref in configuration progressive-disclosure; do
     assert_eq "present" \
       "$([ -f "$tree/skills/task-registry/references/$ref.md" ] && echo present || echo missing)" \
       "task-registry: $tree/skills/task-registry/references/$ref.md exists"
+  done
+  # AC14's absence half (specs/workflow-routing.md). Cut 1 retired these; nothing
+  # else asserts they stay retired. On a template repo the realistic way one
+  # returns is a /sync or a merge restoring a path, which every presence-shaped
+  # assertion above is blind to by construction.
+  for retired in \
+      scripts/registry/providers/jira.py \
+      scripts/registry/migrate.py \
+      references/migration.md; do
+    assert_eq "absent" \
+      "$([ -e "$tree/skills/task-registry/$retired" ] && echo present || echo absent)" \
+      "task-registry: $tree/skills/task-registry/$retired stays retired (AC14)"
   done
   assert_eq "present" \
     "$([ -f "$tree/skills/task-registry/templates/task-tracking.md" ] && echo present || echo missing)" \
@@ -403,9 +415,15 @@ for tree in .agents .claude; do
   done
 done
 
+assert_eq "absent" \
+  "$([ -e "tests/fixtures/task-registry/fake-jira.py" ] && echo present || echo absent)" \
+  "task-registry: the Jira fixture retires with the adapter it served (AC14)"
+
 # Provider coupling guard. `gh pr` is fine — /wrap-up-session opens PRs, which is
-# not task state. `gh issue` and Jira REST paths are the coupling this
+# not task state. `gh issue` and any tracker REST path are the coupling this
 # abstraction exists to remove, so they may appear only inside the registry.
+# `/rest/api/` stays in the pattern after the Jira adapter's removal: it guards
+# the next HTTP tracker somebody is tempted to call from a skill directly.
 coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills .claude/skills 2>/dev/null \
   | grep -v '/task-registry/' | grep -vF '.claude/worktrees' || true)"
 assert_eq "" "$coupling_hits" \

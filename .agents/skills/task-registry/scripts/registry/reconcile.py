@@ -213,7 +213,8 @@ class Registry:
                     "missing-id",
                     "",
                     f"{self.config.index_path}:{row.line} '{_short(row.task.title)}' has no "
-                    "stable task-id — run `task-registry migrate --apply` to mint one",
+                    "stable task-id — run the template repo's "
+                    "`scripts/migrate-task-registry.py --apply` to mint one",
                 )
 
     def _report_link_gaps(
@@ -444,7 +445,8 @@ class Registry:
                     "skipped-no-id",
                     "",
                     f"{self.config.index_path}:{row.line} '{_short(task.title)}' has no "
-                    "stable task-id — not published; run `task-registry migrate --apply` first",
+                    "stable task-id — not published; run the template repo's "
+                    "`scripts/migrate-task-registry.py --apply` first",
                 )
                 continue
             if self._match_external(task, by_id, by_ref) is not None:
