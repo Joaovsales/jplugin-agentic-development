@@ -494,8 +494,10 @@ retprov_code=$?
 # pre-existing behaviour for every malformed config (the `trello` case above
 # exits 1 too), so it is pinned as-is rather than changed inside a deletion.
 assert_eq "1" "$retprov_code" "Config: a config declaring a retired provider exits non-zero"
-assert_contains "$retprov_out" "unknown provider 'jira'" \
-  "Config: a retired provider is refused by name, not silently downgraded"
+assert_contains "$retprov_out" "retired provider 'jira'" \
+  "Config: a retired provider is called retired, not unknown — it was valid one sync ago"
+assert_contains "$retprov_out" "Set \`provider = github\` or" \
+  "Config: the refusal tells the operator what to change it to"
 assert_contains "$retprov_out" "expected one of: github, local" \
   "Config: the refusal enumerates the providers that ship, and jira is not among them"
 
@@ -1204,10 +1206,40 @@ assert_contains "$mig_retired" "invalid choice: 'migrate'" \
 
 # The Cut 2 precondition: `registry/index.py` and `registry/reconcile.py` are
 # deleted one phase from now, so a one-shot that imported them would break the
-# moment Cut 2 lands. Nothing under the skill may appear in its imports.
-mig_imports="$(grep -nE "^\s*(from|import)\s" "$MIGRATE" | grep -E "registry|skills" || true)"
+# moment Cut 2 lands.
+#
+# Two guards, because neither alone is enough. The static one uses POSIX
+# [[:space:]] rather than \s -- \s is a GNU extension that degrades to a literal
+# 's' under BSD grep, which would make this pass by matching nothing, on exactly
+# the runners least likely to be watched. The dynamic one is the real proof: a
+# lazy importlib call inside a function body evades any import-line grep.
+mig_import_lines="$(grep -cE "^[[:space:]]*(from|import)[[:space:]]" "$MIGRATE")"
+assert_ne_zero() { [ "$1" -gt 0 ]; }
+if assert_ne_zero "$mig_import_lines"; then
+  _TESTS=$((_TESTS + 1)); printf '  ok   %s\n' \
+    "Migrate: the import-line pattern matches this grep (found $mig_import_lines lines)"
+else
+  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1)); printf '  FAIL %s\n' \
+    "Migrate: the import-line pattern matched nothing -- the guard below is vacuous here"
+fi
+mig_imports="$(grep -nE "^[[:space:]]*(from|import)[[:space:]]" "$MIGRATE" | grep -E "registry|skills" || true)"
 assert_eq "" "$mig_imports" \
   "Migrate: the one-shot imports nothing from the skill (offenders: ${mig_imports:-none})"
+
+# Execution beats inspection: run it against a tree with both Cut 2 casualties
+# actually deleted. This is the assertion the todo row's wording claims.
+F_CUT2="$(new_fixture)"
+mkdir -p "$F_CUT2/skillcopy"
+cp -R "$SCRIPTS/." "$F_CUT2/skillcopy/"
+rm -f "$F_CUT2/skillcopy/registry/index.py" "$F_CUT2/skillcopy/registry/reconcile.py" \
+      "$F_CUT2/skillcopy/registry/upsert.py"
+printf '# Plan\n\n- [ ] Survives the cut\n' > "$F_CUT2/tasks/todo.md"
+cut2_out="$(PYTHONPATH="$F_CUT2/skillcopy" "$PY" "$MIGRATE" --repo "$F_CUT2" 2>&1)"
+cut2_code=$?
+assert_eq "0" "$cut2_code" \
+  "Migrate: the one-shot still runs with index.py, reconcile.py and upsert.py deleted"
+assert_contains "$cut2_out" "rows scanned:        1" \
+  "Migrate: and still parses rows without the module it used to import them from"
 F_MIG="$(new_fixture)"
 mkdir -p "$F_MIG/specs/pending" "$F_MIG/specs/completed"
 cat > "$F_MIG/tasks/todo.md" <<'EOF'
@@ -1301,11 +1333,128 @@ assert_file_contains "$F_MIG/tasks/task-registry-migration.md" "living texture f
 assert_file_contains "$F_MIG/tasks/task-registry-migration.md" "## Proposed grouping" \
   "Migrate: the audit records the proposed grouping"
 
+# A BOM on the first physical row is the classic vendored-parser divergence:
+# under plain utf-8 it prefixes line 1, the row regex misses, and the row is
+# lost without ever being reported. The live index reads utf-8-sig, so the two
+# must agree on the same bytes.
+F_BOM="$(new_fixture)"
+printf '\xef\xbb\xbf- [ ] First row\n- [ ] Second row\n' > "$F_BOM/tasks/todo.md"
+bom_out="$("$PY" "$MIGRATE" --repo "$F_BOM" 2>&1)"
+assert_contains "$bom_out" "rows scanned:        2" \
+  "Migrate: a BOM on the first row does not hide it from the one-shot"
+bom_live="$(cd "$F_BOM" && pyreg <<'EOF'
+from registry.index import load_index
+print("live-rows=" + str(len(load_index("tasks/todo.md", "tasks/todo.md").rows)))
+EOF
+)"
+assert_contains "$bom_live" "live-rows=2" \
+  "Migrate: and the live index agrees on the same bytes"
+
+# The row shape CLAUDE.md prescribes. Splitting it on '->' alone leaves an
+# unbalanced backtick in the title, mints a 'tdd-' prefixed id, and breaks every
+# blocked-by that names the row by wording. --apply mints ids once, so a wrong
+# title is written to a human's file permanently.
+F_TDD="$(new_fixture)"
+printf '# Plan\n\n## Plan: Recovery\n\n- [ ] TDD: `recover active thread` -> impl detail\n- [ ] TDD: `resume` -> more (blocked-by: recover active thread)\n' \
+  > "$F_TDD/tasks/todo.md"
+tdd_out="$("$PY" "$MIGRATE" --repo "$F_TDD" 2>&1)"
+assert_contains "$tdd_out" "recovery.recover-active-thread" \
+  "Migrate: a backticked TDD row mints an id from the test name, with no tdd- prefix"
+assert_not_contains "$tdd_out" "recovery.tdd-recover-active-thread" \
+  "Migrate: the 'TDD:' literal never becomes part of the identity"
+assert_contains "$tdd_out" "recover active thread -> recovery.recover-active-thread" \
+  "Migrate: a blocked-by naming a TDD row by its wording resolves to the minted id"
+assert_not_contains "$tdd_out" 'TDD: `recover active thread$' \
+  "Migrate: the title carries no unbalanced backtick"
+
+# The vendored superseded marker must not be wider than reconcile's, or the two
+# tools disagree about the same repository.
+F_SUP="$(new_fixture)"
+printf '# Plan\n\n## Plan: Effects\n> Spec: specs/loose.md\n\n- [ ] Row under a loosely-worded spec\n' \
+  > "$F_SUP/tasks/todo.md"
+printf '# Loose\n\nSuperseded by the stage pipeline (see notes)\n' > "$F_SUP/specs/loose.md"
+sup_out="$("$PY" "$MIGRATE" --repo "$F_SUP" 2>&1)"
+assert_contains "$sup_out" "superseded:          0" \
+  "Migrate: prose mentioning supersession is not a marker -- same rule as reconcile"
+
 id_count_first="$(grep -c 'task-id:' "$F_MIG/tasks/todo.md")"
 "$PY" "$MIGRATE" --repo "$F_MIG" --apply >/dev/null 2>&1
 id_count_second="$(grep -c 'task-id:' "$F_MIG/tasks/todo.md")"
 assert_eq "$id_count_first" "$id_count_second" \
   "Migrate: re-running --apply mints no duplicate ids"
+
+# --- the one-shot's own surface, which section 10's inherited assertions miss -
+# A wrong path is a usage error (2); unreadable rows are a content failure (1).
+# The sibling CLI splits these deliberately so an unattended caller can retry the
+# first and page a human for the second.
+F_NOIDX="$(new_fixture)"
+rm -f "$F_NOIDX/tasks/todo.md"
+noidx_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+noidx_code=$?
+assert_eq "2" "$noidx_code" "Migrate: a missing index is a usage error, exit 2"
+assert_contains "$noidx_out" "no index at tasks/todo.md" \
+  "Migrate: the failure names the path it looked for"
+
+badrow_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+printf '# Plan\n\n- [ ] Fine row\n- [?] Bad box\n' > "$F_NOIDX/tasks/todo.md"
+badrow_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+badrow_code=$?
+assert_eq "1" "$badrow_code" "Migrate: an unreadable row is a content failure, exit 1"
+assert_contains "$badrow_out" "unknown status box '[?]' (expected one of:" \
+  "Migrate: the malformed-row report says which characters are accepted"
+
+# --repo declares a root, and --apply rewrites files. A path escaping that root
+# is refused rather than silently written, matching the confinement the retired
+# subcommand inherited from Config.path().
+F_ESCM="$(new_fixture)"
+printf '# Plan\n\n- [ ] Row\n' > "$F_ESCM/tasks/todo.md"
+mkdir -p "$F_ESCM/../escape-probe" 2>/dev/null || true
+esc_out="$("$PY" "$MIGRATE" --repo "$F_ESCM" --index ../escape-probe/todo.md --apply 2>&1)"
+esc_code=$?
+assert_eq "2" "$esc_code" "Migrate: a path escaping --repo is refused, exit 2"
+assert_contains "$esc_out" "resolves outside" \
+  "Migrate: the refusal says the path left the declared root"
+rm -rf "$F_ESCM/../escape-probe"
+
+# The path flags are the port's own invention; nothing else exercises them.
+F_FLAGS="$(new_fixture)"
+mkdir -p "$F_FLAGS/plans"
+printf '# Plan\n\n## Plan: Alt\n\n- [ ] Row in an alternate index\n' \
+  > "$F_FLAGS/plans/work.md"
+flags_out="$("$PY" "$MIGRATE" --repo "$F_FLAGS" --index plans/work.md 2>&1)"
+flags_code=$?
+assert_eq "0" "$flags_code" "Migrate: --index reads an index outside the default path"
+assert_contains "$flags_out" "alt.row-in-an-alternate-index" \
+  "Migrate: rows from the alternate index are the ones classified"
+assert_contains "$flags_out" "rows scanned:        1" \
+  "Migrate: and the default tasks/todo.md is not read instead"
+
+# Deliberately NOT asserted: that --spec-dir changes which specs a row links to.
+# `SPEC_REFERENCE_RE` hardcodes `specs?/`, so a row can only ever cite a spec
+# under `specs/` no matter where --spec-dir points -- the directory governs the
+# superseded scan alone. That mismatch is carried verbatim from the retired
+# subcommand, where `config.spec_dir` had the same relationship to the same
+# regex, so it is pre-existing rather than introduced by the port. Recorded here
+# so the next reader does not mistake the gap for coverage.
+
+# An unreadable spec changes how its rows are classified, so it must reach the
+# exit code rather than only a stderr warning an unattended run never reads.
+F_BADSPEC="$(new_fixture)"
+printf '# Plan\n\n## Plan: Thing\n> Spec: specs/locked.md\n\n- [ ] Row\n' > "$F_BADSPEC/tasks/todo.md"
+printf '# Locked\n\n> Superseded by: specs/other.md\n' > "$F_BADSPEC/specs/locked.md"
+chmod 000 "$F_BADSPEC/specs/locked.md"
+badspec_out="$("$PY" "$MIGRATE" --repo "$F_BADSPEC" 2>&1)"
+badspec_code=$?
+chmod 644 "$F_BADSPEC/specs/locked.md"
+if [ "$badspec_code" = "0" ]; then
+  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
+  printf '  FAIL %s\n' "Migrate: an unreadable spec must not report success (exit was 0)"
+else
+  _TESTS=$((_TESTS + 1))
+  printf '  ok   %s\n' "Migrate: an unreadable spec fails the run rather than misclassifying silently"
+fi
+assert_contains "$badspec_out" "cannot read" \
+  "Migrate: the unreadable spec is named in the report, not just on stderr"
 
 post_mig_recon="$(run reconcile --repo "$F_MIG" 2>&1)"
 post_mig_code=$?
@@ -1495,13 +1644,21 @@ except ConfigError as exc:
 # surviving on Config is a credential slot nothing fills and nothing redacts.
 print("jira-attrs=" + str(sorted(a for a in dir(Config(root=".")) if "jira" in a.lower())))
 # Dropping the configured-secret list must not cost the generic scrubbing. The
-# masker keeps its own patterns, so an Authorization header and userinfo in a
-# URL are still masked with no secret registered at all.
+# masker keeps its own patterns, so an Authorization header and the password half
+# of URL userinfo are still masked with no secret registered at all.
+#
+# Scope, stated rather than implied: pattern 3 requires a scheme, so userinfo in
+# text that names the host WITHOUT `https://` is not matched. That is precisely
+# the case the deleted `_url_credentials` existed for. Nothing leaks today, since
+# no shipped provider keeps a URL credential in config -- but the gap is real and
+# is asserted below as a known gap rather than left for someone to discover.
 redactor = redactor_for(Config(root="."))
 print("mask-auth=" + redactor.scrub("Authorization: Basic ZmFrZTp0b2tlbg=="))
 print("mask-userinfo=" + redactor.scrub("https://user:sup3rsecretvalue@site.example/x"))
 print("leaks-userinfo=" + str("sup3rsecretvalue" in redactor.scrub(
     "https://user:sup3rsecretvalue@site.example/x")))
+print("no-scheme-gap=" + str("sup3rsecretvalue" in redactor.scrub(
+    "cannot reach user:sup3rsecretvalue@site.example")))
 
 EOF
 )"
@@ -1520,8 +1677,33 @@ assert_contains "$cfg_reg" "jira-attrs=[]" \
   "Config: a retired provider leaves no credential field behind on Config"
 assert_contains "$cfg_reg" "mask-auth=Authorization: ***REDACTED***" \
   "Redaction: an Authorization header is masked with no configured secret"
+assert_contains "$cfg_reg" "mask-userinfo=https://user:***REDACTED***@site.example/x" \
+  "Redaction: the password is masked and the username is preserved"
 assert_contains "$cfg_reg" "leaks-userinfo=False" \
-  "Redaction: userinfo in a URL is masked by pattern, not by a registered secret"
+  "Redaction: the with-scheme userinfo pattern still masks the password half"
+assert_contains "$cfg_reg" "no-scheme-gap=True" \
+  "Redaction: userinfo without a scheme is a KNOWN gap — a provider carrying a URL credential must register it through redactor_for, not rely on the patterns"
+
+# The configured-secret path has no production caller since Cut 1 (redactor_for
+# returns Redactor([])), and the assertions that exercised it lived in the Jira
+# block this cut deleted. The seam is kept deliberately, so it is tested
+# deliberately -- an untested seam is not a seam, and the next provider to carry
+# a credential inherits this mechanism.
+redactor_unit="$(pyreg <<'EOF'
+from registry.redaction import Redactor
+print("registered=" + Redactor(["sup3rsecretvalue"]).scrub("saw sup3rsecretvalue here"))
+print("short-filtered=" + Redactor(["ab"]).scrub("saw ab here"))
+merged = Redactor(["alpha-secret"])
+merged.adopt(Redactor(["beta-secret"]))
+print("adopted=" + merged.scrub("alpha-secret and beta-secret"))
+EOF
+)"
+assert_contains "$redactor_unit" "registered=saw ***REDACTED*** here" \
+  "Redaction: a registered secret is masked wherever it appears"
+assert_contains "$redactor_unit" "short-filtered=saw ab here" \
+  "Redaction: a secret under four characters is not registered -- it would mask prose"
+assert_contains "$redactor_unit" "adopted=***REDACTED*** and ***REDACTED***" \
+  "Redaction: adopt() merges both sets, so a late-loaded credential is still masked"
 
 # A pointer that escapes the repository must not be followed — and must not be
 # silently skipped either. It is a declared intent with a broken target, the
@@ -1796,7 +1978,8 @@ assert_contains "$drift_out" "row=- [~]" \
   "Reconcile: the in-flight row on disk is not rewritten back to open"
 assert_contains "$drift_out" "skipped=True" \
   "Publish: a row with no stable id is reported as skipped, never silently passed over"
-assert_contains "$drift_out" "skip-message=" "Publish: the skip names the row and the remedy"
+assert_contains "$drift_out" "migrate-task-registry.py --apply" \
+  "Publish: the skip names the remedy the reader must actually run"
 
 F_FRONT="$(new_fixture)"
 cat > "$F_FRONT/tasks/todo.md" <<'EOF'
@@ -1926,6 +2109,46 @@ assert_contains "$crash_out" "credentials masked" \
   "CLI: an unexpected failure says the trace was scrubbed"
 assert_not_contains "$crash_out" "ZmFrZTpsZWFrZWR0b2tlbnZhbHVl" \
   "CLI: an Authorization header in a traceback never reaches the terminal"
+
+# The degraded-link branch is shared provider code, not Jira code: GitHub returns
+# native=False from BOTH link operations, so `LinkResult.render()`'s "inferred"
+# arm is the one every real GitHub link takes. Its only assertions lived in the
+# Jira block Cut 1 deleted, and the surviving link assertions are the local
+# provider's, which are both native=True. Restored here against the gh mock.
+gh_links="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-links.log" pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import ExternalRef, Task
+from registry.providers import build_provider
+from registry.providers.base import WriteGate
+
+BASE = "https://github.com/fixture-owner/fixture-repo/issues"
+provider = build_provider("github", load_config("."), WriteGate(apply=True, require_approval=False))
+# Both ends must be real issues: linking writes through update_task, which
+# refuses a task with no issue reference.
+child = Task(id="recipe.morph-live-grid", title="Morph live grid recipe",
+             external=ExternalRef("github", "42", f"{BASE}/42"))
+parent = Task(id="recipe.color-lut", title="Colour LUT loader",
+              external=ExternalRef("github", "43", f"{BASE}/43"))
+parent_link = provider.link_parent(child, parent)
+dep_link = provider.add_dependency(child, parent)
+print("parent-native=" + str(parent_link.native))
+print("dep-native=" + str(dep_link.native))
+print("parent-render=" + parent_link.render())
+print("dep-render=" + dep_link.render())
+print("limitations=" + "|".join(provider.limitations))
+EOF
+)"
+assert_contains "$gh_links" "parent-native=False" \
+  "GitHub: hierarchy is declared non-native rather than silently claimed"
+assert_contains "$gh_links" "dep-native=False" \
+  "GitHub: dependencies are declared non-native rather than silently claimed"
+assert_contains "$gh_links" "inferred (stored in task metadata)" \
+  "GitHub: a degraded link renders as inferred, naming where the relationship went"
+assert_contains "$gh_links" "parent-render=parent: recipe.morph-live-grid -> recipe.color-lut" \
+  "GitHub: the rendered link names both ends of the relationship"
+assert_contains "$gh_links" "expose no parent link through gh" \
+  "GitHub: the limitation is surfaced, not swallowed"
 
 assert_file_contains "$SKILL/templates/task-tracking.md" "## Naming conventions" \
   "Template: projects get a stub for provider-facing title and label conventions"

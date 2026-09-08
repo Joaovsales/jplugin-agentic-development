@@ -38,6 +38,18 @@ _FENCE_RE = re.compile(r"```(?:ini|cfg|conf|toml)\s*\n(.*?)```", re.DOTALL)
 
 PROVIDERS = ("github", "local")
 
+#: Values that used to be valid here. A downstream project carries its
+#: `docs/task-tracking.md` outside every syncable root, so `/sync` deletes the
+#: adapter and leaves the declaration behind — and "unknown provider" would tell
+#: that operator their config was always wrong rather than that it was valid one
+#: sync ago. Naming the retirement is the difference between a puzzle and an
+#: instruction.
+RETIRED_PROVIDERS = {
+    "jira": "retired in Cut 1 of specs/workflow-routing.md — the adapter was "
+            "never run against a real Jira. Set `provider = github` or "
+            "`provider = local`.",
+}
+
 #: Operator-held escape hatch. It lives in the environment rather than in the
 #: configuration file on purpose: a checked-in file is content, and content must
 #: not be able to lower a safety floor for everyone who clones the repository.
@@ -134,6 +146,7 @@ DEFERRED_ROUTINES: Mapping[str, str] = {
              "routine itself (#98) — not runnable yet",
 }
 
+
 class ConfigError(Exception):
     """The configuration exists but cannot be read as configuration."""
 
@@ -160,8 +173,6 @@ class Config:
     spec_dir: str = "specs"
     local_detail_dir: str = "tasks/details"
     dependency_strategy: str = "auto"
-    #: Heading that marks a plan block finished, so its open rows read as stale.
-    closed_plan_marker: str = "Session Summary"
     require_write_approval: bool = True
     allow_label_creation: bool = False
     offline_reads: str = "degrade"
@@ -337,9 +348,12 @@ def load_config(
     routines = parser["routines"] if parser.has_section("routines") else {}
     provider = (tracker.get("provider") or "").strip().lower() or None
     if provider is not None and provider not in PROVIDERS:
+        retired = RETIRED_PROVIDERS.get(provider)
+        detail = f" — {retired}" if retired else ""
         raise ConfigError(
-            f"{os.path.relpath(config_path, root)}: unknown provider {provider!r} "
-            f"(expected one of: {', '.join(PROVIDERS)})"
+            f"{os.path.relpath(config_path, root)}: "
+            f"{'retired' if retired else 'unknown'} provider {provider!r} "
+            f"(expected one of: {', '.join(PROVIDERS)}){detail}"
         )
 
     def section(name: str, defaults: Mapping[str, str]) -> Dict[str, str]:
@@ -373,7 +387,6 @@ def load_config(
         spec_dir=(tracker.get("spec_dir") or "specs").strip(),
         local_detail_dir=(tracker.get("local_detail_dir") or "tasks/details").strip(),
         dependency_strategy=(tracker.get("dependency_strategy") or "auto").strip().lower(),
-        closed_plan_marker=(tracker.get("closed_plan_marker") or "Session Summary").strip(),
         require_write_approval=require_approval,
         allow_label_creation=_as_bool(tracker.get("allow_label_creation"), False),
         offline_reads=(tracker.get("offline_reads") or "degrade").strip().lower(),

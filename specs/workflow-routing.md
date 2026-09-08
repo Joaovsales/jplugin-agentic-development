@@ -31,6 +31,10 @@ never the bloat.
 | Migration engine — `migrate.py` | 437 | 8.9% |
 | Speculative provider — `jira.py` | 437 | 8.9% |
 
+> Percentages above are of the **v1** 4,924-LOC tree, kept as the diagnosis
+> that motivated the cuts. § *Honest accounting* explains why that denominator
+> no longer describes the tree and states the measured deltas instead.
+
 v1's own numbers convict it: it deleted 2,571 LOC and added ~380, landing at
 **2,733**. Deleting the dead subsystems and changing nothing else lands at
 **2,479**. v1 produced *more* code than doing less.
@@ -293,20 +297,29 @@ true across a moving baseline, which an absolute cannot.
 
 | Path | Deleted from the scripts tree | Measured |
 |---|---|---|
-| Cut 1 | 991 (`wc -l`) / 829 (non-blank, non-comment) | 5,539 -> 4,548 against `f6bb43c` |
-| Cut 2 | ~1,273 | not yet built |
+| Cut 1 | 977 (`wc -l`) | 5,539 -> 4,562 against `f6bb43c` |
+| Cut 2 | 1,395 (`wc -l`) | `reconcile.py` 797 + `index.py` 394 + `upsert.py` 204, measured on this branch |
 
 Cut 1 deletes more than the 874 the two modules weigh, because removing the Jira
 adapter orphaned its configuration: `DEFAULT_JIRA_*`, five `Config` fields, the
 `Secret` wrapper, the insecure-transport floor, and `_url_credentials`.
 
 **437 of those lines are relocated, not removed.** `migrate.py`'s logic now lives
-in `scripts/migrate-task-registry.py` (689 LOC — the port, plus the row parser it
-had been importing from `index.py`, which Cut 2 deletes). The scripts-tree figure
-is what AC16 measures and what the skill's readers carry; the repository as a
-whole is ~300 LOC lighter, not 991. Both numbers are true of different things,
-and quoting only the first would be the kind of accounting this section is named
+in `scripts/migrate-task-registry.py` (765 LOC — the port, plus the row parser it
+had been importing from `index.py`, which Cut 2 deletes, plus the confinement and
+encoding handling it had been getting from `Config` and `index.py`). The
+scripts-tree figure is what AC16 measures and what the skill's readers carry.
+Netting the relocation back in, plus `references/migration.md` (165), the
+*shipped* surface is 377 lines lighter, not 977 — and 193 more come off the test
+fixtures, which ship to nobody. Both numbers are true of different things, and
+quoting only the first would be the kind of accounting this section is named
 against.
+
+**The honest summary is that this cut is a correctness and distribution win, not
+a size win.** Deleting a provider nobody ever ran, and moving a one-shot out of a
+tree `/sync` overwrites, are both worth doing on their own terms. The LOC delta
+is real but small once the relocation is netted out, and no decision here should
+rest on it.
 
 `cloc` is not installed in this environment; the non-blank, non-comment count
 above is the stand-in, computed the same way for both sides of the comparison.
@@ -335,7 +348,7 @@ reported `ok`.
 
 - **AC1** `task-registry workflow <ref>` prints the routine and its skill chain
 - **AC2** All six outcomes in § 3 are distinguishable in output **and** exit code
-- **AC3** `select --routine <name>` orders candidates by `(priority rank, ascending issue number, id)`; two runs on an unchanged backlog return the same issue. The issue-number rung applies where the provider numbers its tasks — GitHub. Jira's `PROJ-14` and a local slug are not numbers, and ordering two id schemes against each other would be a guess, so they fall to the `id` rung. Determinism holds on every provider; ascending-by-number does not
+- **AC3** `select --routine <name>` orders candidates by `(priority rank, ascending issue number, id)`; two runs on an unchanged backlog return the same issue. The issue-number rung applies where the provider numbers its tasks — GitHub. A local slug is not a number, so it falls to the `id` rung; the fallback stays because a tracker added later may number its tasks differently again, and ordering two id schemes against each other would be a guess. Determinism holds on every provider; ascending-by-number does not
 - **AC4** Load refuses a chain naming a skill absent from disk, naming the skill
 - **AC5** Load refuses a chain whose last element is not `/wrap-up-session`
 - **AC6** A workflow label absent upstream is refused, naming the label
@@ -350,10 +363,12 @@ reported `ok`.
 - **AC15** `.agents/` and `.claude/` trees are byte-identical
 - **AC16** Cut 1 removes `jira.py` and `migrate.py` and everything they orphan
   from `.agents/skills/task-registry/scripts/`, a measured 991-line reduction
-  against `f6bb43c` (5,539 -> 4,548 by `wc -l`); Cut 2 removes a further ~1,273.
-  Stated as a delta against the branch base rather than as an absolute, because
-  Phase A moved the baseline the v1 absolutes were derived from — see
-  § *Honest accounting*
+  against `f6bb43c` (5,539 -> 4,562 by `wc -l`); Cut 2 removes a further 1,395,
+  measured on this branch. Both stated as deltas against a named commit rather than
+  as absolutes, because Phase A moved the baseline the v1 absolutes were derived
+  from — see § *Honest accounting*. AC14 is met when no **live** reference
+  remains: a documented retirement note and a test asserting a name's absence are
+  records of the deletion, not references to the deleted thing
 
 AC12 and AC13 replace v1's "under 500 LOC" — a criterion that measured volume
 while complexity relocated into unchecked data.

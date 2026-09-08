@@ -160,8 +160,12 @@ copied into `tasks/todo.md`.
       metadata is reported `inferred`, never `native`.
 - AC-9 — External writes require `--apply`; default is dry-run for every command.
 - AC-10 — The `Authorization` header and any `Bearer`/`Basic` payload,
-      `api_token`/`password`/`secret` assignment, or `user:pass@` URL userinfo are
-      redacted in all output, including tracebacks and verbose mode. Redaction is
+      `api_token`/`password`/`secret` assignment, or the password half of
+      `user:pass@` userinfo in a URL **written with its scheme** are redacted in
+      all output, including tracebacks and verbose mode. The username is
+      preserved, and userinfo appearing without a scheme is not matched — no
+      shipped provider carries a URL credential, so nothing hits those gaps
+      today, and a provider that adds one registers it through `redactor_for`. Redaction is
       by pattern and does not depend on a credential being registered — since
       Cut 1 no shipped provider keeps one in the configuration.
 - AC-11 — Local provider works fully offline: create, update, close, comment,

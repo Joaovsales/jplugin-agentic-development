@@ -435,3 +435,68 @@ link and every human uses: the command compared the raw argument against
 
 Verified in the same run that the closed-issue guard reads state rather than the
 fixture: flipping #12 back to `OPEN` returns exit 0 with its chain printed.
+
+## 2026-09-07 — Cut 1 (9b686fe): the migration remedy, end to end
+
+Cut 1 has **two** user-facing behaviour changes, not one. AC14/15/16 are
+repo-structure criteria with no user surface, but the cut also retires a
+`provider =` value a downstream project may have checked in — which the review
+correctly flagged as user-facing, and which this log originally denied while the
+session's own test file described it as "the likeliest real encounter with
+Cut 1". Both are walked through below.
+
+### A. `task-registry migrate` -> `scripts/migrate-task-registry.py`
+
+Driven against a throwaway repo, not a fixture stub — real files, real writes:
+
+1. **Dry run is the default and writes nothing.** A repo with a closed plan
+   block, an open row inside it, a superseded spec, and a `blocked-by:` written
+   as prose. Output reported `DRY RUN (nothing written)`, classified 1 stale /
+   1 completed / 2 superseded, and `find . -type f` was byte-identical after.
+
+2. **`--apply` mints ids in place.** Ids landed after the title and before the
+   em-dash summary; the completed history row got none; indented continuation
+   detail survived byte-for-byte.
+
+3. **A prose dependency resolves to the id it minted.**
+   `(blocked-by: Colour LUT pass)` became
+   `(blocked-by: morph-recipes-specs-morph-md.colour-lut-pass)`.
+
+4. **An unresolvable dependency is reported, not dropped.**
+   `blocked-by: something nobody wrote` came back under "Unresolved
+   dependencies (reported, nothing dropped)" and was left as written.
+
+5. **The audit trail is written** to `tasks/task-registry-migration.md`,
+   listing completed rows too.
+
+6. **Unreadable rows exit non-zero.** A row with a status box and no title
+   returns 1 from `--apply`, so a partial migration is never reported as a
+   complete one.
+
+Also confirmed the retired subcommand fails honestly: `task-registry migrate`
+exits 2 with `invalid choice: 'migrate'` rather than an import error.
+
+### B. A downstream project whose config still says `provider = jira`
+
+Driven against a throwaway repo carrying `provider = jira` in
+`docs/task-tracking.md` — the state every downstream consumer of this template
+is in the moment they `/sync` Cut 1, because `docs/` sits outside every syncable
+root and keeps the declaration after the adapter is deleted.
+
+7. **The failure is loud, not silent.** `doctor` refuses rather than quietly
+   falling back to the local store, so a project cannot keep running against a
+   tracker it thinks is configured.
+
+8. **The message says retired, and says what to do.** Not "unknown provider",
+   which would tell an operator their config was always wrong:
+
+   ```
+   docs/task-tracking.md: retired provider 'jira' (expected one of: github, local)
+     — retired in Cut 1 of specs/workflow-routing.md — the adapter was never run
+     against a real Jira. Set `provider = github` or `provider = local`.
+   ```
+
+Not covered, and recorded as a gap rather than claimed: there is no sync-time
+detection for this, the way `/sync` Step 6.5 detects an unmigrated learning
+store. A project learns at first use rather than at sync. Carried in the wrap-up
+report as owner: human.

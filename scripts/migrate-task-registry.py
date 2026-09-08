@@ -65,6 +65,10 @@ BOX_TO_STATUS = {
     "-": "cancelled",
 }
 
+#: The distinct characters a human may type, for the diagnostic. `""` and the
+#: upper-case aliases are accepted but are not worth suggesting.
+_BOX_VOCABULARY = (" ", "~", "!", "x", "-")
+
 ROW_RE = re.compile(r"^(?P<indent>[ \t]*)(?P<bullet>[-*]\s+)?\[(?P<box>.?)\](?P<rest>.*)$")
 TASK_ID_RE = re.compile(r"<!--\s*task-id:\s*(?P<id>[^\s>]+?)\s*-->")
 DEPS_RE = re.compile(
@@ -76,9 +80,20 @@ LINK_RE = re.compile(
 )
 SUMMARY_SPLIT = re.compile(r"\s+[—–]\s+")
 ARROW_SPLIT = re.compile(r"(?<!-)->")
+#: `- [ ] TDD: `name` -> detail` is the row shape CLAUDE.md prescribes and the
+#: live index parses with this exact pattern. Splitting it on `->` alone leaves a
+#: dangling backtick in the title and mints ids prefixed `tdd-`, so it must be
+#: matched before the generic split.
+LEGACY_TDD_RE = re.compile(
+    r"^TDD:\s*`(?P<title>[^`]+)`\s*->\s*(?P<summary>.+)$", re.IGNORECASE
+)
 PLAN_HEADING_RE = re.compile(r"^##+\s+(?P<title>.+?)\s*$")
 SPEC_REFERENCE_RE = re.compile(r"(?P<path>specs?/[A-Za-z0-9._/-]+\.md)")
-SUPERSEDED_RE = re.compile(r"^>?\s*superseded\s+by[:\s]+(?P<by>.+?)\s*$", re.IGNORECASE | re.MULTILINE)
+#: Copied verbatim from `registry/reconcile.py`. A wider marker here would make
+#: this tool and `reconcile` disagree about the same repository — this one
+#: classifying a row `superseded` and dropping it from the proposal while
+#: `reconcile` still treats its spec as live.
+SUPERSEDED_RE = re.compile(r"^>\s*Superseded by:\s*(?P<by>.+)$", re.MULTILINE | re.IGNORECASE)
 
 #: The heading that marks a plan block as finished. "Session Summary" is this
 #: harness's convention, not a universal one, so a project that closes its plans
@@ -146,7 +161,8 @@ class Index:
             box = match.group("box")
             if box not in BOX_TO_STATUS:
                 self.problems.append(
-                    f"{self.relative_path}:{number} — unknown status box '[{box}]'"
+                    f"{self.relative_path}:{number} — unknown status box '[{box}]' "
+                    f"(expected one of: {', '.join(repr(k) for k in _BOX_VOCABULARY)})"
                 )
                 continue
             rest = match.group("rest")
@@ -202,16 +218,31 @@ def _extract_dependencies(rest: str) -> Tuple[Tuple[str, ...], str]:
 
 
 def _title_of(rest: str) -> str:
-    """The row's title: everything before the em-dash summary or the `->` detail."""
+    """The row's title: everything before the em-dash summary or the `->` detail.
+
+    The TDD branch is matched first and matched whole. It is the format this
+    harness's own plans are written in, and the generic `->` split mangles it:
+    `TDD: \u0060recover active thread\u0060 -> impl` would yield the title
+    ``TDD: \u0060recover active thread`` — an unbalanced backtick that then mints
+    the id `…tdd-recover-active-thread` and breaks every `blocked-by:` naming
+    that row by its wording. `--apply` writes ids once, so this has to be right
+    the first time.
+    """
     cleaned = re.sub(r"\s{2,}", " ", rest).strip()
     cleaned = re.sub(r"^[-*]\s+", "", cleaned)
+    tdd = LEGACY_TDD_RE.match(cleaned)
+    if tdd and len(ARROW_SPLIT.findall(cleaned)) == 1:
+        return tdd.group("title").strip()
     head = SUMMARY_SPLIT.split(cleaned, 1)[0]
     head = ARROW_SPLIT.split(head, 1)[0]
     return head.strip().strip("`").strip()
 
 
 def load_index(path: str, relative_path: str) -> Index:
-    with open(path, "r", encoding="utf-8") as handle:
+    # utf-8-sig, matching `registry/index.py`. Under plain utf-8 a BOM prefixes
+    # line 1, `ROW_RE`'s `^[ \t]*` fails, and the first row vanishes without
+    # reaching `problems` — invisible, not reported, and still exit 0.
+    with open(path, "r", encoding="utf-8-sig") as handle:
         return Index(path, handle.read(), relative_path)
 
 
@@ -223,8 +254,12 @@ def write_text(path: str, text: str) -> None:
         handle.write(text)
 
 
-def scan_superseded_specs(root: str, spec_dir: str) -> set:
-    """Specs that declare themselves superseded. Their rows are not live backlog."""
+def scan_superseded_specs(root: str, spec_dir: str, problems: List[str]) -> set:
+    """Specs that declare themselves superseded. Their rows are not live backlog.
+
+    Appends to `problems` rather than only warning: an unreadable spec changes
+    how its rows are classified, and that has to reach the exit code.
+    """
     superseded = set()
     spec_root = os.path.join(root, spec_dir)
     if not os.path.isdir(spec_root):
@@ -236,10 +271,20 @@ def scan_superseded_specs(root: str, spec_dir: str) -> set:
             absolute = os.path.join(directory, filename)
             relative = os.path.relpath(absolute, root).replace(os.sep, "/")
             try:
-                with open(absolute, "r", encoding="utf-8") as handle:
+                # errors="replace", matching `reconcile._safe_read`: this is a
+                # marker scan, so one stray byte in an unrelated spec must not
+                # abort a migration before it prints anything.
+                with open(absolute, "r", encoding="utf-8-sig", errors="replace") as handle:
                     text = handle.read()
             except OSError as exc:
-                print(f"warning: cannot read {relative}: {exc}", file=sys.stderr)
+                # Reported, not just warned. An unreadable spec silently
+                # downgrades its rows from `superseded` to `active`, and a
+                # warning on stderr with exit 0 tells an unattended run that a
+                # known-wrong classification succeeded.
+                problems.append(
+                    f"{relative} — cannot read, so its rows are classified as if it "
+                    f"declared nothing: {exc}"
+                )
                 continue
             if SUPERSEDED_RE.search(text):
                 superseded.add(relative)
@@ -347,6 +392,29 @@ class MigrationPlan:
         return "\n".join(lines)
 
 
+class PathEscape(Exception):
+    """A supplied path resolves outside the declared root."""
+
+
+def confine(root: str, relative: str, what: str) -> str:
+    """Absolute path for `relative` under `root`, or refuse if it escapes.
+
+    Vendored from `registry/config.py`, which the retired subcommand reached
+    through `Config.path()`. The trust model did change — these paths come from
+    `argv` rather than from a checked-in file — but this is the process that
+    rewrites a user's index and creates parent directories to do it, and the
+    module docstring promises `--apply` "only ever writes locally". Dropping the
+    guard while keeping the promise is the combination worth avoiding.
+    """
+    resolved = os.path.realpath(os.path.join(root, relative))
+    anchor = os.path.realpath(root)
+    if resolved != anchor and not resolved.startswith(anchor + os.sep):
+        raise PathEscape(
+            f"{what} {relative!r} resolves outside {root!r} — refusing to use it"
+        )
+    return resolved
+
+
 @dataclass(frozen=True)
 class Paths:
     root: str
@@ -356,7 +424,7 @@ class Paths:
     closed_plan_marker: str
 
     def path(self, relative: str) -> str:
-        return os.path.join(self.root, relative)
+        return confine(self.root, relative, "path")
 
 
 def plan_migration(paths: Paths) -> MigrationPlan:
@@ -374,7 +442,7 @@ def plan_migration(paths: Paths) -> MigrationPlan:
             "as closed — every open row is classified active; pass --closed-plan-marker if "
             "this project closes plans differently"
         )
-    superseded_specs = scan_superseded_specs(paths.root, paths.spec_dir)
+    superseded_specs = scan_superseded_specs(paths.root, paths.spec_dir, plan.problems)
     # Seeded with the ids already in the index: minting `recipe.morph` a second
     # time would hand two different rows the same identity, which is the one
     # thing an identity must never do.
@@ -666,13 +734,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         spec_dir=args.spec_dir,
         closed_plan_marker=args.closed_plan_marker,
     )
-    index_file = paths.path(paths.index_path)
+    try:
+        index_file = paths.path(paths.index_path)
+    except PathEscape as exc:
+        print(f"migrate-task-registry: {exc}", file=sys.stderr)
+        return 2
     if not os.path.isfile(index_file):
         print(f"migrate-task-registry: no index at {paths.index_path} "
               f"(looked in {paths.root})", file=sys.stderr)
-        return 1
+        return 2
 
-    plan = plan_migration(paths)
+    try:
+        plan = plan_migration(paths)
+    except PathEscape as exc:
+        print(f"migrate-task-registry: {exc}", file=sys.stderr)
+        return 2
     if args.apply:
         for action in apply_migration(paths, plan):
             print(action)

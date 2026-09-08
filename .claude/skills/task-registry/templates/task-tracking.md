@@ -47,11 +47,6 @@ offline_reads = degrade
 ; legacy plans handled: manual | grouped | per-spec | none.
 migration_policy = manual
 
-; The heading that marks a plan block finished, so its still-open rows are
-; classified `stale` rather than `active` during migration. Defaults to this
-; harness's own convention.
-closed_plan_marker = Session Summary
-
 ; ---------------------------------------------------------------------------
 ; Label -> kind. Provider vocabulary on the left, canonical kind on the right.
 ; This is a READING of the project's labels. It never renames or replaces one.

@@ -428,3 +428,31 @@ a file that never shipped and cannot (`docs/` is not syncable).
   the run it recorded counted as no coverage at all. The base now sits outside
   the brackets. A fingerprint is a machine-read field — annotate around it, never
   inside it.
+
+## 2026-09-07 — Phase B / Cut 1: retire the Jira adapter and the migration engine
+
+Branch `feat/workflow-routing-phase-b` off `f6bb43c` (Phase A, PR #111). Two
+commits: `9b686fe` (the whole cut, one revertable unit) and `5cc470b` (handover).
+
+Deleted `providers/jira.py` (437) and `registry/migrate.py` (437), plus the
+configuration the Jira adapter orphaned — `DEFAULT_JIRA_*`, five `Config` fields,
+`Secret`, the insecure-transport floor and its env hatch, and redaction's
+`_url_credentials`. 991 lines off the scripts tree (5,539 -> 4,548).
+
+`migrate` became `scripts/migrate-task-registry.py`, a self-contained one-shot
+that imports nothing from the skill — Cut 2 deletes the `index.py` and
+`reconcile.py` it used to read through, so a replacement importing them would
+break one phase later. Test section 10 was repointed at it rather than deleted.
+
+Three things the session turned up that were not in the plan:
+
+- The Jira surface was 17 files, not the 3 the handover listed (trap 1 again).
+- `--provider jira` assertions pinned `PROVIDER_CLASSES` and never reached
+  `config.PROVIDERS`; caught by mutation, fixed with a config-file assertion.
+- `tests/test-syncable-paths.sh` refused a `SKILL.md` naming `scripts/…`, because
+  `/sync` does not copy `scripts/`. Fixed with the `<template-clone>/` prefix.
+
+AC16 was restated as a measured delta: its 4,090 absolute came from a baseline
+Phase A had already moved, and `cloc` is not installed here.
+
+Suite: 37 files green. Trees byte-identical. Revert verified by running it.
