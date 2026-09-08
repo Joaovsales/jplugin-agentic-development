@@ -11,8 +11,9 @@ Selection precedence (spec AC-3):
   2. GitHub, when a GitHub remote and an authenticated `gh` both exist
   3. local Markdown
 
-Jira is never selected implicitly. Being reachable is not consent to write to a
-company tracker.
+No tracker is ever selected implicitly beyond the two rungs above. Reachable
+credentials are not consent to write to a company tracker, which is why a third
+tracker is added by declaring `provider =`, never by being detectable.
 """
 
 from __future__ import annotations
@@ -22,7 +23,6 @@ import io
 import os
 import re
 import subprocess
-import urllib.parse
 from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -36,15 +36,13 @@ POINTER_FILES = (".claude/project.md", "AGENTS.md", "CLAUDE.md")
 POINTER_RE = re.compile(r"Task tracking instructions:\s*([^\s`<>]+)", re.IGNORECASE)
 _FENCE_RE = re.compile(r"```(?:ini|cfg|conf|toml)\s*\n(.*?)```", re.DOTALL)
 
-PROVIDERS = ("github", "jira", "local")
+PROVIDERS = ("github", "local")
 
-#: Operator-held escape hatches. Both live in the environment rather than in the
+#: Operator-held escape hatch. It lives in the environment rather than in the
 #: configuration file on purpose: a checked-in file is content, and content must
 #: not be able to lower a safety floor for everyone who clones the repository.
 TRUSTED_CONFIG_ENV = "TASK_REGISTRY_TRUSTED_CONFIG"
-INSECURE_TRANSPORT_ENV = "TASK_REGISTRY_ALLOW_INSECURE_TRANSPORT"
 
-_LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1", "[::1]")
 
 #: GitHub label vocabulary this harness already ships, mapped read-only. The
 #: mapping is a *reading* of provider-facing vocabulary; it never renames or
@@ -136,26 +134,6 @@ DEFERRED_ROUTINES: Mapping[str, str] = {
              "routine itself (#98) — not runnable yet",
 }
 
-#: Jira's own vocabulary, read the same way: provider-facing names mapped into
-#: the normalized model, never the other way round as a rename.
-DEFAULT_JIRA_ISSUE_TYPES: Mapping[str, str] = {
-    "Bug": "bug",
-    "Story": "feature",
-    "Task": "task",
-    "Sub-task": "task",
-    "Epic": "epic",
-    "Spike": "research",
-}
-
-DEFAULT_JIRA_PRIORITIES: Mapping[str, str] = {
-    "Highest": "high",
-    "High": "high",
-    "Medium": "medium",
-    "Low": "low",
-    "Lowest": "low",
-}
-
-
 class ConfigError(Exception):
     """The configuration exists but cannot be read as configuration."""
 
@@ -167,30 +145,6 @@ class ConfigPointerError(ConfigError):
     malformed file because `doctor` reports it on the `configuration:` line —
     there is no loaded file for a routines fault to belong to.
     """
-
-
-class Secret:
-    """A credential that refuses to render itself.
-
-    Redaction is a property of the value, not a discipline asked of every call
-    site that might interpolate it into a message.
-    """
-
-    __slots__ = ("_value",)
-
-    def __init__(self, value: str = "") -> None:
-        self._value = value or ""
-
-    def reveal(self) -> str:
-        return self._value
-
-    def __bool__(self) -> bool:
-        return bool(self._value)
-
-    def __repr__(self) -> str:  # pragma: no cover - trivial
-        return "Secret(***)"
-
-    __str__ = __repr__
 
 
 @dataclass(frozen=True)
@@ -238,16 +192,7 @@ class Config:
         default_factory=lambda: dict(DEFAULT_PRIORITY_LABELS)
     )
     status_sources: Mapping[str, str] = field(default_factory=dict)
-    jira_issue_types: Mapping[str, str] = field(
-        default_factory=lambda: dict(DEFAULT_JIRA_ISSUE_TYPES)
-    )
-    jira_priorities: Mapping[str, str] = field(
-        default_factory=lambda: dict(DEFAULT_JIRA_PRIORITIES)
-    )
     source_path: Optional[str] = None
-    jira_base_url: str = ""
-    jira_email: str = ""
-    jira_token: Secret = field(default_factory=Secret)
     #: True when the configuration asked to drop the approval requirement and the
     #: operator had not opted in. Surfaced by `doctor` so the refusal is visible.
     approval_relaxation_ignored: bool = False
@@ -275,29 +220,6 @@ def confine(root: str, relative: str, what: str) -> str:
             f"{what} {relative!r} resolves outside the project root — refusing to use it"
         )
     return resolved
-
-
-def is_secure_transport(base_url: str) -> bool:
-    """HTTPS, or plain HTTP to loopback where there is no network to sniff."""
-    parsed = urllib.parse.urlsplit(base_url)
-    if parsed.scheme == "https":
-        return True
-    return parsed.scheme == "http" and parsed.hostname in _LOOPBACK_HOSTS
-
-
-def require_secure_transport(base_url: str, env: Mapping[str, str]) -> None:
-    """Refuse to send credentials in the clear.
-
-    Basic auth over http puts the token on the wire in every request. The opt-out
-    is an environment variable rather than a config key for the reason in
-    :data:`TRUSTED_CONFIG_ENV`.
-    """
-    if is_secure_transport(base_url) or _as_bool(env.get(INSECURE_TRANSPORT_ENV), False):
-        return
-    raise ConfigError(
-        "jira: refusing to send credentials over an insecure transport — "
-        f"set an https:// base URL, or export {INSECURE_TRANSPORT_ENV}=1 to override"
-    )
 
 
 def _as_bool(value: str, default: bool) -> bool:
@@ -399,11 +321,6 @@ def load_config(
     inherits the guarantees.
     """
     env = env if env is not None else os.environ
-    jira = dict(
-        jira_base_url=env.get("JIRA_BASE_URL", "").rstrip("/"),
-        jira_email=env.get("JIRA_EMAIL", ""),
-        jira_token=Secret(env.get("JIRA_API_TOKEN", "")),
-    )
     try:
         config_path = find_config_path(root)
     except ConfigPointerError:
@@ -411,7 +328,7 @@ def load_config(
             raise
         config_path = None
     if config_path is None:
-        return Config(root=root, **jira)
+        return Config(root=root)
 
     with open(config_path, "r", encoding="utf-8-sig") as handle:
         parser = _parse_ini(handle.read(), os.path.relpath(config_path, root))
@@ -450,7 +367,7 @@ def load_config(
         root=root,
         provider=provider,
         repository=(tracker.get("repository") or "").strip(),
-        project=(tracker.get("project") or env.get("JIRA_PROJECT", "")).strip(),
+        project=(tracker.get("project") or "").strip(),
         index_path=(tracker.get("index") or "tasks/todo.md").strip(),
         backlog_path=(tracker.get("backlog") or "tasks/backlog.md").strip(),
         spec_dir=(tracker.get("spec_dir") or "specs").strip(),
@@ -469,11 +386,8 @@ def load_config(
         kind_labels=section("labels.kind", DEFAULT_KIND_LABELS),
         priority_labels=section("labels.priority", DEFAULT_PRIORITY_LABELS),
         status_sources=section("status", {}),
-        jira_issue_types=section("jira.issuetype", DEFAULT_JIRA_ISSUE_TYPES),
-        jira_priorities=section("jira.priority", DEFAULT_JIRA_PRIORITIES),
         source_path=os.path.relpath(config_path, root),
         approval_relaxation_ignored=not configured_approval and not trusted,
-        **jira,
     )
     # Validated here rather than in the one command that reports selectors: a
     # contested label makes selection depend on dict insertion order, and a gate

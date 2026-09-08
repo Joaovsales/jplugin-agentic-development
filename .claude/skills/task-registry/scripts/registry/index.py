@@ -57,9 +57,10 @@ LEGACY_TDD_RE = re.compile(
 ARROW_SPLIT = re.compile(r"(?<!-)->")
 TRAILING_CONJUNCTION = re.compile(r"(?:^|\s+)(?:and|or|then)$", re.IGNORECASE)
 MAX_LOGICAL_ROW_CHARS = 60_000
-#: A reference id ends up as a positional argument to `gh` and as a path segment
-#: in a Jira URL. Anything outside this set is a malformed row, reported like any
-#: other (AC-19) rather than forwarded to a subprocess or an HTTP client.
+#: A reference id ends up as a positional argument to `gh`, and as a path segment
+#: in any tracker URL built from it. Anything outside this set is a malformed row,
+#: reported like any other (AC-19) rather than forwarded to a subprocess or an
+#: HTTP client.
 REF_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 
 

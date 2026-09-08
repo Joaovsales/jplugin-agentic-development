@@ -54,7 +54,7 @@ for tree in .agents .claude; do
     "AC6: $tree states plan's body carries Refs #N instead"
 
   # Closure happens on merge. A `gh issue close` here would break the provider
-  # coupling guard and take Jira with it.
+  # coupling guard with it.
   assert_file_not_matches "$f" "gh issue" \
     "AC6: $tree/wrap-up-session never closes an issue itself"
 

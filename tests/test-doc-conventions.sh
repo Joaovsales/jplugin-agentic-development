@@ -371,8 +371,8 @@ for tree in .agents .claude; do
     "task-registry: $f states the label-preservation rule"
   assert_file_contains "$f" "Nothing unresolved is deleted" \
     "task-registry: $f states the no-silent-deletion rule"
-  assert_file_contains "$f" "Jira is never selected implicitly" \
-    "task-registry: $f states that Jira is never implicit"
+  assert_prose_contains "$f" "No tracker is ever selected implicitly" \
+    "task-registry: $f states that no tracker is selected implicitly"
   template="$tree/skills/task-registry/templates/task-tracking.md"
   assert_file_contains "$template" \
     "selection still prefers GitHub when a GitHub remote and an authenticated \`gh\`" \
@@ -382,7 +382,7 @@ for tree in .agents .claude; do
     "task-registry: $template pins the local fallback"
   # The three companion documents the skill points at must exist, or the
   # progressive-disclosure promise ("detail on demand") has nowhere to land.
-  for ref in configuration migration progressive-disclosure; do
+  for ref in configuration progressive-disclosure; do
     assert_eq "present" \
       "$([ -f "$tree/skills/task-registry/references/$ref.md" ] && echo present || echo missing)" \
       "task-registry: $tree/skills/task-registry/references/$ref.md exists"
@@ -404,8 +404,10 @@ for tree in .agents .claude; do
 done
 
 # Provider coupling guard. `gh pr` is fine — /wrap-up-session opens PRs, which is
-# not task state. `gh issue` and Jira REST paths are the coupling this
+# not task state. `gh issue` and any tracker REST path are the coupling this
 # abstraction exists to remove, so they may appear only inside the registry.
+# `/rest/api/` stays in the pattern after the Jira adapter's removal: it guards
+# the next HTTP tracker somebody is tempted to call from a skill directly.
 coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills .claude/skills 2>/dev/null \
   | grep -v '/task-registry/' | grep -vF '.claude/worktrees' || true)"
 assert_eq "" "$coupling_hits" \

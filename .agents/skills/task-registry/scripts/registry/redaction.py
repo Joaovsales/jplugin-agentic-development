@@ -10,7 +10,6 @@ literal secret value the configuration knows about.
 from __future__ import annotations
 
 import re
-import urllib.parse
 from typing import Iterable, Sequence
 
 MASK = "***REDACTED***"
@@ -62,24 +61,12 @@ class Redactor:
 
 
 def redactor_for(config) -> Redactor:
-    """Build a redactor from whatever credentials this project's config holds."""
-    secrets = []
-    token = getattr(config, "jira_token", None)
-    if token is not None and getattr(token, "reveal", None):
-        secrets.append(token.reveal())
-    secrets += _url_credentials(getattr(config, "jira_base_url", ""))
-    return Redactor(secrets)
+    """Build a redactor from whatever credentials this project's config holds.
 
-
-def _url_credentials(url: str) -> Sequence[str]:
-    """Userinfo embedded in a configured URL.
-
-    A base URL of `https://user:token@site` puts a live credential into every
-    message that names the site — including error text where it appears without
-    the scheme, which no generic pattern can recognise. Naming it as a known
-    secret is the only reliable way to mask it.
+    No shipped provider keeps a credential in the configuration — `gh` holds
+    GitHub's and the local store has none — so the list is empty today. The seam
+    stays because :class:`Redactor`'s pattern scrubbing is not the whole job: a
+    credential the config *names* cannot be recognised generically, and the next
+    provider that carries one registers it here rather than at every call site.
     """
-    if "@" not in (url or ""):
-        return ()
-    parsed = urllib.parse.urlsplit(url)
-    return tuple(part for part in (parsed.password, parsed.username) if part)
+    return Redactor([])

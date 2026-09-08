@@ -286,13 +286,30 @@ authorization for external status changes.
 
 ## Honest accounting
 
-| Path | Deleted | End state | Reduction |
-|---|---|---|---|
-| Cut 1 | 874 | 4,090 | 18% |
-| Cut 1 + Cut 2 | 2,147 | 2,817 | **43%** |
+The v1 table stated absolute end-state figures against a 4,924-LOC baseline.
+Phase A then *added* to the tree, so those absolutes described a tree that no
+longer existed before Cut 1 began. Measured deltas replace them: a delta stays
+true across a moving baseline, which an absolute cannot.
 
-Both figures exclude the ~40 LOC the `workflow` command adds and any test
-deletions. `cloc` on the scripts directory is the measurement (AC15).
+| Path | Deleted from the scripts tree | Measured |
+|---|---|---|
+| Cut 1 | 991 (`wc -l`) / 829 (non-blank, non-comment) | 5,539 -> 4,548 against `f6bb43c` |
+| Cut 2 | ~1,273 | not yet built |
+
+Cut 1 deletes more than the 874 the two modules weigh, because removing the Jira
+adapter orphaned its configuration: `DEFAULT_JIRA_*`, five `Config` fields, the
+`Secret` wrapper, the insecure-transport floor, and `_url_credentials`.
+
+**437 of those lines are relocated, not removed.** `migrate.py`'s logic now lives
+in `scripts/migrate-task-registry.py` (689 LOC — the port, plus the row parser it
+had been importing from `index.py`, which Cut 2 deletes). The scripts-tree figure
+is what AC16 measures and what the skill's readers carry; the repository as a
+whole is ~300 LOC lighter, not 991. Both numbers are true of different things,
+and quoting only the first would be the kind of accounting this section is named
+against.
+
+`cloc` is not installed in this environment; the non-blank, non-comment count
+above is the stand-in, computed the same way for both sides of the comparison.
 
 **Rollback.** Cut 1 is a revert of one commit. Cut 2 is not: it repoints
 ten callers across two skill trees, `CLAUDE.md`, and two specs. It ships as a
@@ -331,7 +348,12 @@ reported `ok`.
 - **AC13** No command takes more than one required argument
 - **AC14** `jira.py`, `migrate.py`, `frontier`, `publish`, `pull` are absent, and no test, skill, hook, `CLAUDE.md`, `README.md`, or **`specs/`** references them
 - **AC15** `.agents/` and `.claude/` trees are byte-identical
-- **AC16** `cloc --include-lang=Python .agents/skills/task-registry/scripts/` reports 4,090 after Cut 1 and 2,817 after Cut 2
+- **AC16** Cut 1 removes `jira.py` and `migrate.py` and everything they orphan
+  from `.agents/skills/task-registry/scripts/`, a measured 991-line reduction
+  against `f6bb43c` (5,539 -> 4,548 by `wc -l`); Cut 2 removes a further ~1,273.
+  Stated as a delta against the branch base rather than as an absolute, because
+  Phase A moved the baseline the v1 absolutes were derived from — see
+  § *Honest accounting*
 
 AC12 and AC13 replace v1's "under 500 LOC" — a criterion that measured volume
 while complexity relocated into unchecked data.

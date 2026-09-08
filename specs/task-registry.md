@@ -29,8 +29,8 @@ Two failure modes this generalizes away:
 1. **`tasks/todo.md` as the detailed source of truth.** It grows without bound,
    every agent loads all of it every session, and completed plan blocks are never
    reconciled — this repository's own `tasks/todo.md` is 200+ lines of closed plans.
-2. **Provider coupling.** A workflow skill that shells out to `gh` cannot run on a
-   Jira project or offline, and each skill that does so re-implements identity,
+2. **Provider coupling.** A workflow skill that shells out to `gh` cannot run on
+   another tracker or offline, and each skill that does so re-implements identity,
    label, and status handling slightly differently.
 
 ## Behavior
@@ -50,15 +50,20 @@ Identity lives in two places and nowhere else:
 - external: a delimited metadata block in the task body
 
 Tasks without IDs keep working: they parse, they appear in `reconcile` output as
-`id: (none)`, and only `migrate --apply` writes IDs — idempotently.
+`id: (none)`, and only the one-shot `scripts/migrate-task-registry.py --apply` writes
+IDs — idempotently.
 
 ### Layer 2 — provider adapters
 
 A narrow `TrackerProvider` interface (discover, list, get, create, update, close,
 comment, link_parent, add_dependency, resolve_reference) plus an explicit
 `Capabilities` record (native_hierarchy, native_dependencies, comments, labels,
-offline, atomic_updates). Three adapters ship: `github` (via the `gh` CLI),
-`jira` (stdlib HTTP), `local` (Markdown files).
+offline, atomic_updates). Two adapters ship: `github` (via the `gh` CLI) and
+`local` (Markdown files). A `jira` adapter shipped originally and was retired in
+Cut 1 of `specs/workflow-routing.md`: it was never run against a real Jira, so it
+was speculative surface rather than a supported provider. The interface it was
+written against is unchanged, which is the point — a third adapter is an addition,
+not a rewrite.
 
 Where a provider lacks a capability, the registry **degrades visibly**: a dependency
 a provider cannot express natively is stored in the metadata block and reported as
@@ -75,7 +80,6 @@ A CLI, `task-registry`, exposed through the `/task-registry` skill:
 | `pull` | Refresh local rows from external state | none (local only) |
 | `frontier` | Dependency-aware ready/blocked list | none |
 | `show <task-id>` | Full detail for exactly one task | none |
-| `migrate` | Classify a legacy repo, propose IDs and grouping | none without `--apply` |
 | `upsert` | Create-or-update exactly one task, addressed by a stable ID (derivable from a path with `--derive-id`) | yes, gated |
 | `selectors` | Report the routine selector vocabulary and check it against the tracker | none |
 | `select --routine R` | The next issue routine `R` may claim, after asserting the vocabulary, the claim label, and the linked-PR capability all exist | none |
@@ -94,7 +98,6 @@ copied into `tasks/todo.md`.
   is silent.
 - `tasks/todo.md` — the compact local index.
 - `tasks/backlog.md`, `specs/`, `specs/pending/`, `specs/completed/` — reconciled inputs.
-- Environment: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT`.
 - `gh` CLI for the GitHub provider.
 
 ## Outputs
@@ -110,7 +113,7 @@ copied into `tasks/todo.md`.
 
 ## Edge Cases
 
-- **No configuration, no `gh`, no remote** → local provider, exit 0. Never Jira.
+- **No configuration, no `gh`, no remote** → local provider, exit 0.
 - **Configured `github`, `gh` missing or unauthenticated** → reads degrade (local
   index still reconciles, provider reported unreachable); `publish --apply` fails
   loudly, non-zero, naming the reason.
@@ -143,7 +146,7 @@ copied into `tasks/todo.md`.
 - AC-2 — Stable IDs live in an HTML comment locally and a metadata block
       externally; no provider issue number is used as identity.
 - AC-3 — Provider selection: explicit config wins; else GitHub when a GitHub
-      remote and authenticated `gh` both exist; else local. Jira is never implicit.
+      remote and authenticated `gh` both exist; else local. No tracker is implicit.
 - AC-4 — GitHub adapter maps `bug`→`bug`, `enhancement`→`feature`,
       `design-decision`→`decision`, `question`→ only when configured, `now`→`high`,
       `next`→`medium`, no queue label → unset priority.
@@ -156,8 +159,11 @@ copied into `tasks/todo.md`.
 - AC-8 — Capabilities are declared per provider, and a dependency stored in
       metadata is reported `inferred`, never `native`.
 - AC-9 — External writes require `--apply`; default is dry-run for every command.
-- AC-10 — Jira credentials and the `Authorization` header are redacted in all
-      output, including tracebacks and verbose mode.
+- AC-10 — The `Authorization` header and any `Bearer`/`Basic` payload,
+      `api_token`/`password`/`secret` assignment, or `user:pass@` URL userinfo are
+      redacted in all output, including tracebacks and verbose mode. Redaction is
+      by pattern and does not depend on a credential being registered — since
+      Cut 1 no shipped provider keeps one in the configuration.
 - AC-11 — Local provider works fully offline: create, update, close, comment,
       parent, dependency.
 - AC-12 — `reconcile` is idempotent: a second run reports no changes and writes
@@ -166,8 +172,11 @@ copied into `tasks/todo.md`.
 - AC-14 — `tasks/todo.md` rows carry only checkbox, title, ID, link, one-line
       summary, optional dependency marker; no acceptance criteria, no issue body.
 - AC-15 — Legacy checkbox-only rows keep parsing; indented continuation detail
-      remains part of the same logical row, and `migrate` is dry-run first,
-      preserves that detail, and leaves an audit trail.
+      remains part of the same logical row, and the migration is dry-run first,
+      preserves that detail, and leaves an audit trail. Since Cut 1 of
+      `specs/workflow-routing.md` the migration is the one-shot `scripts/migrate-task-registry.py`
+      rather than a subcommand; the behaviour above is unchanged and is still
+      pinned by `tests/test-task-registry.sh` § 10.
 - AC-16 — Migration groups tightly coupled work and does not emit one external
       issue per historical `[x]` checkbox.
 - AC-17 — Unresolved work is never deleted; stale/superseded entries are
@@ -178,15 +187,17 @@ copied into `tasks/todo.md`.
       non-zero exit before any provider write, never swallowed or truncated.
 - AC-20 — Workflow skills (`/plan`, `/build`, `/verify`, `/quality-gate`,
       `/wrap-up-session`) reach tracking only through this capability — no direct
-      `gh`/Jira calls for task state.
+      `gh` or tracker-API calls for task state.
 
 ## Implementation Paths
 
 - `.agents/skills/task-registry/SKILL.md` — the skill (canonical), parity-copied.
 - `.agents/skills/task-registry/scripts/task-registry.py` — CLI entrypoint.
 - `.agents/skills/task-registry/scripts/registry/` — model, config, index,
-  reconcile, migrate, upsert, providers.
-- `.agents/skills/task-registry/references/` — configuration, migration, and
+  reconcile, upsert, providers.
+- `scripts/migrate-task-registry.py` — one-shot migration for a pre-registry
+  repository, outside the skill because `/sync` overwrites skills wholesale.
+- `.agents/skills/task-registry/references/` — configuration and
   progressive-disclosure guides.
 - `.agents/skills/task-registry/templates/task-tracking.md` — the config template.
 - `tests/test-task-registry.sh`, `tests/fixtures/task-registry/` — contract tests.

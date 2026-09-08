@@ -45,8 +45,10 @@ long summary. In order:
 
 1. `frontier` instead of `reconcile` — it answers "what can I do now", which is
    usually the actual question.
-2. Fix one category at a time. `missing-id` is almost always first: run `migrate`,
-   and most of the other categories collapse because identity starts working.
+2. Fix one category at a time. `missing-id` is almost always first: run
+   `python3 <template-clone>/scripts/migrate-task-registry.py --repo . --apply` (a one-shot in
+   the template repository, not in this project), and most of the other
+   categories collapse because identity starts working.
 3. `stale-spec` and `superseded-spec` accumulate and never resolve themselves —
    they are a human decision, and the registry will keep reporting them until
    somebody makes it.

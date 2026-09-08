@@ -144,7 +144,7 @@ assert_prose_contains "$CANON" "/task-registry" \
 # --- the contract must not reintroduce provider coupling ---------------------
 # Closure happens on merge via `Closes #N`, so no routine needs `gh issue close`.
 # That is what keeps tests/test-doc-conventions.sh's coupling guard intact and
-# keeps Jira working.
+# keeps every provider working.
 assert_file_not_matches "$CANON" "gh issue" \
   "Contract: no routine calls gh issue directly"
 

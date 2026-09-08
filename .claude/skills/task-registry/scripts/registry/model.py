@@ -1,6 +1,6 @@
 """Provider-neutral task record.
 
-This module knows nothing about GitHub, Jira, or Markdown. Everything a provider
+This module knows nothing about GitHub or Markdown. Everything a provider
 adapter needs in order to round-trip a task without losing information is here:
 the canonical vocabulary, the record itself, and the identity block that carries
 the stable ID across the boundary.
@@ -61,7 +61,7 @@ def _external_number(task) -> float:
 
     Infinity rather than a sentinel like -1: an unnumbered task sorts AFTER every
     numbered one, so adopting the registry in a repository with existing local
-    rows does not push them all ahead of the real backlog. Non-numeric ids (Jira's
+    rows does not push them all ahead of the real backlog. Non-numeric ids (a local
     `PROJ-14`, a local slug) take the same branch — comparing them to integers
     would raise, and inventing an ordering over two different id schemes would be
     a guess dressed as a rule.

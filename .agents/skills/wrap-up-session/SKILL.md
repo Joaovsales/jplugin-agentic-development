@@ -220,7 +220,7 @@ reviewer needs to see.
 
 An uncertain behavioral effect is **documentation debt, not a wrap-up blocker**.
 For each `deferred` candidate, record one durable task through `/task-registry`
-before continuing — workflow code never calls GitHub or Jira itself:
+before continuing — workflow code never calls the tracker itself:
 
 ```bash
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
@@ -601,7 +601,8 @@ human review *is* the gate that the deleted policy lattice tried to compute.
 
 The body carries the linkage and the tracker closes the issue **on merge**. No
 step here closes an issue itself: that keeps the provider coupling guard intact
-so Jira keeps working, removes "PR created but close failed" as a failure mode,
+so every tracker keeps working, removes "PR created but close failed" as a
+failure mode,
 and stops an abandoned PR from leaving a closed issue with no fix. `plan` uses
 `Refs #N` rather than `Closes #N` precisely so a merged plan leaves the issue
 open for the routine that builds it.

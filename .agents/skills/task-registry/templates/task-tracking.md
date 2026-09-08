@@ -11,16 +11,13 @@
 
 ```ini
 [tracker]
-; github | jira | local. Omit the key entirely to auto-select:
+; github | local. Omit the key entirely to auto-select:
 ; GitHub when a GitHub remote and an authenticated `gh` both exist, else local.
-; Jira is never selected implicitly.
+; No tracker is ever selected implicitly beyond those two.
 provider = github
 
 ; GitHub: owner/name. Omitted means "ask gh for the current repo".
 repository = my-org/my-repo
-
-; Jira: the project key. May also come from JIRA_PROJECT.
-; project = REG
 
 ; Paths. Defaults shown.
 index = tasks/todo.md
@@ -140,43 +137,20 @@ build = /build, /quality-gate, /wrap-up-session
 ; ---------------------------------------------------------------------------
 ; Where `in_progress` and `blocked` come from. They are NEVER inferred from
 ; GitHub's open/closed state, because GitHub does not have them. Supported
-; sources: `label:<name>`, `assignee`, and (Jira) the native workflow state.
+; sources: `label:<name>` and `assignee`.
 ; A `field:<name>` source names a GitHub Projects field this adapter cannot read
 ; through gh; it is reported as a limitation rather than silently ignored.
 [status]
 ; in_progress = label:in-progress
 ; blocked = label:blocked
 
-; ---------------------------------------------------------------------------
-; Jira vocabulary. Defaults shown; override only what your site differs on.
-[jira.issuetype]
-Bug = bug
-Story = feature
-Task = task
-Sub-task = task
-Epic = epic
-Spike = research
-
-[jira.priority]
-Highest = high
-High = high
-Medium = medium
-Low = low
-Lowest = low
 ```
 
 ## Credentials
 
-Never in this file. The Jira provider reads them from the environment:
-
-```bash
-export JIRA_BASE_URL=https://your-site.atlassian.net
-export JIRA_EMAIL=you@example.com
-export JIRA_API_TOKEN=...        # https://id.atlassian.com/manage/api-tokens
-export JIRA_PROJECT=REG          # optional; `project =` above wins
-```
-
-GitHub uses whatever `gh auth status` reports. No token is read from this file.
+Never in this file, and no shipped provider needs one here. GitHub uses whatever
+`gh auth status` reports; the local Markdown store has no credential at all. A
+tracker added later reads its own from the environment, never from this file.
 
 ## Naming conventions
 

@@ -513,3 +513,39 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
   worded against spec § 3's own table.
 - Next: Phase B (Cut 1), handover § 7 — which now carries what Phase A changed
   for it, including an eleventh `Registry` caller Cut 2's table does not list.
+
+## Plan: Phase B — Cut 1, the two dead modules (`specs/workflow-routing.md`, handover § 7)
+
+> Base `f6bb43c` (Phase A, PR #111 merged). Branch `feat/workflow-routing-phase-b`.
+> **Ships as one commit** — the spec's rollback story requires Cut 1 to be a single
+> `git revert`. No interleaved changes.
+> Caller lists below were regenerated with grep on this branch (trap 1); the handover's
+> § 7 row named three doc files and the live surface is seventeen.
+
+- [x] TDD: `tests/test-task-registry.sh` — `--provider jira` is refused naming the available providers; `PROVIDERS` is `("github","local")`; a Jira-shaped URL classifies as `local` via `FALLBACK_PROVIDER` rather than a Jira adapter; sections 4/5/8 and the `:1823` regression block retire with their subject -> delete `registry/providers/jira.py` (437) and `tests/fixtures/task-registry/fake-jira.py`; drop `JiraProvider` from `providers/__init__.py` (`PROVIDER_CLASSES`, import, `__all__`) <!-- task-id: cut1.jira-module -->
+- [x] TDD: `load_config` on a `[jira.issuetype]`/`[jira.priority]` section leaves no `jira_*` attribute on `Config`; `JIRA_BASE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN` are not read; `redactor_for` still scrubs a generic `token=...` via `_PATTERNS` with no configured secret -> `registry/config.py`: remove `DEFAULT_JIRA_ISSUE_TYPES`, `DEFAULT_JIRA_PRIORITIES`, the five `jira_*` `Config` fields, their readers (`:402`, `:453`, `:472`), `Secret`, `is_secure_transport`, `INSECURE_TRANSPORT_ENV` and the insecure-transport guard; `registry/redaction.py`: `redactor_for` keeps its two callers (`github.py:85`, `task-registry.py:193`) and returns `Redactor([])`, `_url_credentials` retires with the only config field that fed it; `registry/__init__.py` drops `Secret` <!-- task-id: cut1.jira-config --> (blocked-by: cut1.jira-module)
+- [x] TDD: `grep -rni jira` over `CLAUDE.md README.md .agents .claude tests specs` returns only Phase-B provenance lines; `tests/test-doc-conventions.sh:374`'s "Jira is never selected implicitly" assertion retires with the sentence it pins -> provider vocabulary becomes `github`/`local` in `CLAUDE.md:420,439,444,478`, `README.md:291`, `task-registry/SKILL.md` (frontmatter `description`, `:142`, `:206`, `:211`), `references/configuration.md`, `templates/task-tracking.md` (`[jira.issuetype]`, `[jira.priority]`), `.claude/hooks/session-start.sh:418`, and the four boundary-prose sites that name Jira as the tracker workflow code must not call directly (`wrap-up-session/SKILL.md:223,604`, `verify/SKILL.md:212`, `build/SKILL.md:173`, `wrap-up-session/references/routines.md:158`) — the boundary argument survives, the dead provider name does not <!-- task-id: cut1.jira-docs --> (blocked-by: cut1.jira-config)
+- [x] TDD: `task-registry migrate` exits non-zero as an unknown command; `scripts/migrate-task-registry.py` mints stable ids on the same ascii_video_pipeline-shaped fixture section 10 uses, imports nothing from the skill, and still runs with `registry/index.py` and `registry/reconcile.py` absent (the Cut 2 precondition); `reconcile`'s `missing-id` text names a path that exists on disk -> delete `registry/migrate.py` (437), its `migrate` subcommand in `task-registry.py`, `references/migration.md`, and the `apply_migration`/`plan_migration` exports in `registry/__init__.py`; ship the self-contained one-shot under `scripts/` (precedent: `scripts/migrate-learning-store.py`) vendoring the slice it needs — index row parse/replace, `slugify_id`, `TERMINAL_STATUSES`, `_scan_specs`; **repoint section 10's assertions at the one-shot rather than deleting them**, so the remedy keeps a falsifiable test <!-- task-id: cut1.migrate-oneshot --> (blocked-by: cut1.jira-docs)
+- [x] TDD: `SKILL.md:207` and `references/progressive-disclosure.md:48` name the one-shot's real path, not `migrate`; `references/configuration.md:258`'s `missing-id` remedy resolves to a shipped file; no `references/migration.md` link dangles in `tests/test-skill-references.sh` -> the `migrate` documentation surface, repointed rather than dropped (trap 6: never delete it silently) <!-- task-id: cut1.migrate-docs --> (blocked-by: cut1.migrate-oneshot)
+- [x] TDD: `tests/test-skill-parity.sh` green — `.agents/` and `.claude/` byte-identical (AC15); `bash tests/run.sh </dev/null` fully green; AC16 recorded as a **measured delta** against this branch's base rather than the spec's stale absolute (see the ambiguity below) -> parity copies of every edited `.agents/skills/**` file; amend spec § *Honest accounting* + AC16 in this same commit so the spec never states a number the tree contradicts <!-- task-id: cut1.parity-suite --> (blocked-by: cut1.migrate-docs)
+
+## Session Summary — 2026-09-07 [f6bb43c..HEAD] Phase B / Cut 1 complete (specs/workflow-routing.md)
+- Completed: 6 of 6 Phase B rows. Branch `feat/workflow-routing-phase-b` off `f6bb43c` (PR #111).
+- Deleted: `providers/jira.py` (437), `registry/migrate.py` (437),
+  `references/migration.md`, `tests/fixtures/task-registry/fake-jira.py`, and the
+  configuration the Jira adapter orphaned — `DEFAULT_JIRA_*`, five `Config`
+  fields, `Secret`, `is_secure_transport`/`INSECURE_TRANSPORT_ENV`,
+  `_url_credentials`. 991 lines off the scripts tree (5,539 -> 4,548).
+- Shipped: `scripts/migrate-task-registry.py`, a self-contained one-shot (689 LOC)
+  replacing `task-registry migrate`. It imports nothing from the skill — pinned by
+  an assertion — because Cut 2 deletes the `index.py` and `reconcile.py` it used
+  to read through. Test section 10 was repointed at it rather than deleted, so the
+  `missing-id` remedy keeps a falsifiable test instead of only a mention.
+- The Jira sweep ran to 17 files, not the 3 the handover listed (trap 1 again).
+- Every new guard mutation-tested red-then-restored. One assertion set was found
+  vacuous mid-run (`--provider jira` pinned `PROVIDER_CLASSES`, never
+  `config.PROVIDERS`) and a config-file assertion was added to cover the path a
+  downstream project actually hits.
+- Suite: 37 files green. `.agents`/`.claude` byte-identical (AC15).
+- Next: Phase C (Cut 2), handover § 8. Regenerate the caller list — `workflow`,
+  `select` and `claim` are callers the § 8 table predates.
