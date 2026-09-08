@@ -101,7 +101,7 @@
 [x] TDD: `tests/test-review-context.sh` fails on master because `CLAUDE.md` has no § Review Dispatch Contract -> add the section with the 7-item payload table and the absent-vs-empty rule
 [x] TDD: same test asserts the intent-shared / conclusions-withheld split names Independence Accounting as the reason -> add the split to the new section
 [x] TDD: test asserts a finding at `75` must name its dependency and that an unnamed one reads as `50` -> extend `CLAUDE.md` § Finding Model
-[x] TDD: test asserts the verification path (read dependency -> promote to 100 with evidence, drop, or hold and say what stopped it) and that verification-promotion is NOT agreement-promotion -> extend § Finding Model
+[x] TDD: test asserts the verification path (read dependency, then promote to 100 with evidence, drop, or hold and say what stopped it) and that verification-promotion is NOT agreement-promotion -> extend § Finding Model
 [x] TDD: test asserts all four dispatch sites (wrap-up Step 4 + Parallel Code Review, quality-gate Phase 3, software-design-expert-review Phase 2) cite the contract by section name, in BOTH trees -> edit 3 skills canonical-first, then byte-identical copy
 [x] TDD: test asserts each dispatch site states the absent-vs-empty rule for spec and deferrals -> add the payload lines at each site
 [x] TDD: test asserts all 8 reviewer persona files (4 personas x 2 trees) carry a `## Context Intake` section naming given / fetch-yourself / out-of-scope -> add the section; `tests/test-agents.sh` must stay green (frontmatter untouched)
@@ -666,3 +666,4 @@ reverse.
 - Deferred, reported not applied: `backlog_path` and `dependency_strategy` are
   orphaned config knobs, but were already orphaned before this cut — out of scope
   under the orphan rule. `spec_dir` *was* orphaned by this cut and was removed.
+- [ ] /memory-maintain heavy pass never fires — history.md entries drifted from the format its gate counts <!-- task-id: memory-maintain.heavy-pass-gate-stale-count --> — The heavy pass (Phases 1-4) is gated on counting session entries in tasks/history.md with '^### \[\d{4}-\d{2}-\d{2}'. T… ([#115](https://github.com/Joaovsales/jplugin-agentic-development/issues/115))
