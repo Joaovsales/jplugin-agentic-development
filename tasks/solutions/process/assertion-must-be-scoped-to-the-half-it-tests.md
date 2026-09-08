@@ -1,8 +1,8 @@
 ---
 title: An assertion against a whole payload passes on the wrong half
-date: 2026-09-02
+date: 2026-09-08
 problem_type: process
-module: tests/test-living-spec-reconciliation.sh, .agents/skills/wrap-up-session/scripts/spec-reconcile.py
+module: tests/test-living-spec-reconciliation.sh, tests/test-routine-skills.sh, tests/test-task-registry.sh
 tags: [testing, vacuous-assertion, mutation-probe, json-payload]
 applies_when: asserting a substring against a command's full output when that output has more than one section
 ---
@@ -83,3 +83,43 @@ refusal_of() { load_report "$1" | grep '^REFUSED:' || true; }
 ```
 
 All 3 now go red when the gate is removed.
+
+## Third occurrence — 2026-09-08, `tests/test-task-registry.sh`
+
+The sharpest variant yet: the needle was a **section header**, and the section's
+own contents contained it.
+
+Cut 2 added a `degraded:` block to `show`'s output so a provider-degraded read
+cannot read as a complete one. The assertion:
+
+```sh
+assert_contains "$gh_degraded" "degraded" "show reports the degradation"
+```
+
+The limitation rendered inside that block reads *"reads degraded to local-only"*.
+So deleting the `degraded:` header — the entire feature under test — left the
+needle matching the payload it was meant to introduce. Mutation-probed: 0 new
+failures.
+
+Fixed by extracting the block before asserting, and moving the needle to text
+that only appears inside it:
+
+```sh
+degraded_block="$(printf '%s\n' "$gh_degraded" | sed -n '/^  degraded:$/,/^  [a-z]*:$/p')"
+assert_contains "$degraded_block" "reads degraded to local-only"
+```
+— `tests/test-task-registry.sh:1924`
+
+Red under the same mutation after the fix.
+
+## The generalization, after three occurrences
+
+Each time the needle was a word the feature **names itself with**. Section
+headers, status labels, and command names are the worst possible needles for
+exactly this reason: the vocabulary that identifies a feature is the vocabulary
+its own payload repeats.
+
+Rule of thumb: if the needle appears in the *name* of the thing being tested,
+it will appear somewhere the test does not intend. Scope the haystack first, then
+pick a needle from the section's **content**, not its label.
+

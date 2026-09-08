@@ -143,14 +143,14 @@ for tree in $TREES; do
   done
 done
 
-# ── /wrap-up-session -> /task-registry reconcile ─────────────────────────────
-# Reconciliation is only reached because wrap-up runs it; nothing else in the
-# normal flow does. Sever this handoff and the index silently drifts from the
-# tracker again, which is the exact failure the registry was built to end.
+# ── /wrap-up-session -> /task-registry upsert ────────────────────────────────
+# Work the session deferred is recorded only because wrap-up records it; nothing
+# else in the normal flow does. Sever this handoff and an uncertain behavioral
+# question leaves with the session instead of becoming a task.
 for tree in $TREES; do
   f="$tree/skills/wrap-up-session/SKILL.md"
-  assert_file_contains "$f" "task-registry.py reconcile" \
-    "Chain: $tree/wrap-up-session reconciles the task index"
+  assert_file_contains "$f" "task-registry.py upsert" \
+    "Chain: $tree/wrap-up-session records deferred work as a task"
 done
 
 # ── /plan -> /task-registry, after approval and never before ────────────────

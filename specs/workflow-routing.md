@@ -214,28 +214,55 @@ unsupported. This spec proposes the former: `scripts/migrate-learning-store.py`
 already sets the precedent for a conversion that lives outside the skill it
 serves.
 
-### Cut 2 — the todo.md sync engine (1,273 LOC)
+### Cut 2 — the todo.md sync engine (591 LOC, measured)
 
-`reconcile.py` 793 + `index.py` 276 + `upsert.py` 204, and with them the
-`publish`, `pull`, and `frontier` commands and the dependency solver
-(`_dependency_order`, `_cycles` — a topological sort with cycle detection over a
-15-issue backlog).
+`reconcile.py` 797 goes whole, and with it the `reconcile`, `publish`, `pull` and
+`frontier` commands and the dependency solver (`_dependency_order`, `_cycles` — a
+topological sort with cycle detection over a 15-issue backlog). Its surviving
+half — resolving one reference and rendering one task — moves to `detail.py`
+(199).
+
+**Two modules the v1 plan listed here do not go, and the reason is the same in
+both cases: a survivor reads through them.**
+
+* **`index.py` (402) stays.** `show` resolves a reference against the local index
+  before the provider, so deleting the row parser would mean deleting `show` —
+  which `CLAUDE.md` § *Task Tracking* names as the way a task is read. Only the
+  three helpers nothing but the sync engine called retire (`collect_problems`,
+  `row_text`, `replace_line`).
+* **`upsert.py` (204) stays whole, including its index write.** `_published_ref`
+  reads the link row that `_sync_index` writes, and that row is the *only* memory
+  of a GitHub publication: `providers/local.py:86,93` overwrites `external` with
+  its own local ref, so the local store cannot remember one. Deleting the write
+  while keeping the read would re-open the duplicate-issue bug the read exists to
+  prevent — the failure mode `tasks/solutions/process/ship-the-write-half-or-neither.md`
+  records. The row `upsert` maintains is a link record, not a tracker mirror; the
+  mirror that dies is the whole-backlog bidirectional sync.
 
 Callers to repoint — the survey that produced this list is mechanical, because
 two hand-surveys each missed entries:
 
-| Caller | Command |
-|---|---|
-| `plan/SKILL.md:195` | `reconcile` |
-| `plan/SKILL.md:200` | `publish --apply` |
-| `wrap-up-session/SKILL.md:75` | `reconcile` |
-| `wrap-up-session/SKILL.md:79` | `publish --apply` |
-| `wrap-up-session/SKILL.md:220` | `upsert --apply` |
-| `CLAUDE.md:472` | `frontier` (skills table) |
-| `session-start.sh:214,418` | `publish`, `frontier` (banner text) |
-| `specs/task-registry.md:76,165` | **AC-18 is a shipped acceptance criterion for `frontier`** |
-| `tests/test-task-registry.sh:1166` | `reconcile publish pull frontier doctor migrate` |
-| `tests/test-routine-selectors.sh:419` | `frontier` |
+| Caller | Command | Repointed to |
+|---|---|---|
+| `plan/SKILL.md` | `reconcile`, `publish --apply` | `upsert --apply` |
+| `wrap-up-session/SKILL.md` | `reconcile`, `publish --apply` | `show`, `upsert --apply` |
+| `task-registry/SKILL.md` | 18 refs: frontmatter `argument-hint`, the command table, the invocation block, the skill-contact table, troubleshooting | the surviving command set |
+| `references/progressive-disclosure.md` | 4 refs — the file is written around `reconcile` | the index row as the summary |
+| `CLAUDE.md` | `frontier` (skills table) | `select`/`claim` |
+| `session-start.sh:214,418` | `publish`, `frontier` (banner text) | `upsert`, `claim` |
+| `specs/task-registry.md` | **AC-18 is a shipped acceptance criterion for `frontier`**; AC-12 pins `reconcile` idempotency; command table; 6 edge cases | AC-18 retired in place with its reason; AC-12 repointed to `upsert` |
+| `specs/wrap-up-gate-and-tdd-fold.md:99,173` | **a shipped AC requiring the debt banner to name `/task-registry publish`**, pinned live by `tests/test-pre-push-gate.sh:227` | `/task-registry upsert` |
+| `tests/test-task-registry.sh` | ~200 assertions across §§ 7, 9, 11, 12 | retired with the behavior, or repointed where it survives |
+| `tests/test-routine-selectors.sh:457` | `frontier` (the doctor-exemption sweep) | `selectors` |
+| `tests/test-skill-invocation-chain.sh:146,152` | asserts `/wrap-up-session` chains to `reconcile` | the chain assertion retires with the command |
+| `registry/__init__.py:7,25` | exports `Registry`, `Report` from `reconcile` | `detail` |
+
+**The v1 table above this one listed ten callers and every line number in it had
+moved.** It also missed four surfaces outright — `progressive-disclosure.md`, the
+two test files, and the `wrap-up-gate-and-tdd-fold.md` AC, which is the one that
+would have shipped a banner naming a command that no longer exists. Trap 1 says
+regenerate the list with grep rather than trusting the table; this is the third
+time that has paid.
 
 `specs/task-registry.md` matters most: `/wrap-up-session` now reconciles living
 specs before the review and commit gates (`b157369`), so a spec still asserting
@@ -298,7 +325,7 @@ true across a moving baseline, which an absolute cannot.
 | Path | Deleted from the scripts tree | Measured |
 |---|---|---|
 | Cut 1 | 977 (`wc -l`) | 5,539 -> 4,562 against `f6bb43c` |
-| Cut 2 | 1,395 (`wc -l`) | `reconcile.py` 797 + `index.py` 394 + `upsert.py` 204, measured on this branch |
+| Cut 2 | 591 (`wc -l`) | 4,562 -> 3,971 against `6c5fe6f` |
 
 Cut 1 deletes more than the 874 the two modules weigh, because removing the Jira
 adapter orphaned its configuration: `DEFAULT_JIRA_*`, five `Config` fields, the
@@ -306,14 +333,22 @@ adapter orphaned its configuration: `DEFAULT_JIRA_*`, five `Config` fields, the
 
 **437 of those lines are relocated, not removed.** `migrate.py`'s logic now lives
 in `scripts/migrate-task-registry.py` (765 LOC — the port, plus the row parser it
-had been importing from `index.py`, which Cut 2 deletes, plus the confinement and
-encoding handling it had been getting from `Config` and `index.py`). The
+had been importing from `index.py`, plus the confinement and encoding handling it
+had been getting from `Config` and `index.py`). The
 scripts-tree figure is what AC16 measures and what the skill's readers carry.
 Netting the relocation back in, plus `references/migration.md` (165), the
 *shipped* surface is 377 lines lighter, not 977 — and 193 more come off the test
 fixtures, which ship to nobody. Both numbers are true of different things, and
 quoting only the first would be the kind of accounting this section is named
 against.
+
+**Cut 2 came in at 591, not the 1,395 projected here.** The projection assumed
+`index.py` and `upsert.py` went with `reconcile.py`. Both turned out to have a
+reader that survives the cut — `show` for the first, `upsert`'s own published-ref
+memory for the second — so deleting them would have meant deleting capability
+rather than deleting a mirror. `reconcile.py` went whole as planned; 199 of its
+lines came back as `detail.py`. The projection is left in place above rather than
+rewritten, because a plan that missed by half is worth a reader seeing.
 
 **The honest summary is that this cut is a correctness and distribution win, not
 a size win.** Deleting a provider nobody ever ran, and moving a one-shot out of a
@@ -359,12 +394,14 @@ reported `ok`.
 - **AC11** A **scheduled** run whose branch has no PR at completion reports it loudly and exits non-zero
 - **AC12** A project changes an **existing contract routine's** chain by editing one file (`docs/task-tracking.md`) and no code; adding a new routine remains a deliberate `CONTRACT_ROUTINES` edit
 - **AC13** No command takes more than one required argument
-- **AC14** `jira.py`, `migrate.py`, `frontier`, `publish`, `pull` are absent, and no test, skill, hook, `CLAUDE.md`, `README.md`, or **`specs/`** references them
+- **AC14** `jira.py`, `migrate.py`, `reconcile.py`, and the `reconcile`, `frontier`, `publish` and `pull` commands are absent, and no test, skill, hook, `CLAUDE.md`, `README.md`, or **`specs/`** references them as live commands
 - **AC15** `.agents/` and `.claude/` trees are byte-identical
 - **AC16** Cut 1 removes `jira.py` and `migrate.py` and everything they orphan
   from `.agents/skills/task-registry/scripts/`, a measured 991-line reduction
-  against `f6bb43c` (5,539 -> 4,562 by `wc -l`); Cut 2 removes a further 1,395,
-  measured on this branch. Both stated as deltas against a named commit rather than
+  against `f6bb43c` (5,539 -> 4,562 by `wc -l`); Cut 2 removes a further 591,
+  measured against `6c5fe6f` (4,562 -> 3,971 by `wc -l`) — see § *Honest
+  accounting* for why that is less than half the projection. Both stated as
+  deltas against a named commit rather than
   as absolutes, because Phase A moved the baseline the v1 absolutes were derived
   from — see § *Honest accounting*. AC14 is met when no **live** reference
   remains: a documented retirement note and a test asserting a name's absence are

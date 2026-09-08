@@ -1,7 +1,7 @@
 ---
 name: task-registry
-description: Synchronize the compact tasks/todo.md index with an external tracker (GitHub Issues) or a local Markdown store. Use when linking tasks to issues, reconciling stale plans against tickets, or asking what work is unblocked.
-argument-hint: "[reconcile|publish|pull|frontier|show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>]"
+description: Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine.
+argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|upsert <task-id>]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -31,8 +31,9 @@ every session; a `tasks/todo.md` that has absorbed nine closed plan blocks canno
    through the configured provider without requiring a local row.
 5. **Nothing unresolved is deleted.** Stale, superseded, and orphaned entries are
    classified and reported for a human to act on.
-6. **Degrade reads, refuse writes.** An unreachable provider still reconciles the
-   local half and says so. An external write against it fails loudly, non-zero.
+6. **Degrade reads, report the gap.** An unreachable provider still records the
+   task locally and says outright that publication is pending. What it never does
+   is go quiet about the half that did not happen.
 
 ## Commands
 
@@ -40,11 +41,6 @@ All commands take `--repo <path>` (default: cwd) and print a bounded summary.
 
 ```bash
 python3 .agents/skills/task-registry/scripts/task-registry.py doctor
-python3 .agents/skills/task-registry/scripts/task-registry.py reconcile
-python3 .agents/skills/task-registry/scripts/task-registry.py reconcile --apply
-python3 .agents/skills/task-registry/scripts/task-registry.py publish --apply --approve
-python3 .agents/skills/task-registry/scripts/task-registry.py pull --apply
-python3 .agents/skills/task-registry/scripts/task-registry.py frontier
 python3 .agents/skills/task-registry/scripts/task-registry.py show recipe.morph-live-grid
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert <task-id> --apply \
   --title '...' --kind research --spec specs/x.md \
@@ -56,10 +52,6 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
 | Command | Reads | Local writes | External writes |
 |---------|-------|--------------|-----------------|
 | `doctor` | provider | no | no |
-| `reconcile` | index + specs + provider | `--apply` only | never |
-| `publish` | index + provider | link-back on success | `--apply` (+ approval) |
-| `pull` | provider | `--apply` only | never |
-| `frontier` | index + provider | no | no |
 | `show` | one task | no | no |
 | `upsert` | one task | `--apply` only | `--apply` (+ approval) |
 | `selectors` | config + provider labels | no | no |
@@ -90,10 +82,9 @@ so "nobody owns it" and "somebody already claimed it" stop looking alike.
 
 ### `upsert` — record one task, addressed by its ID
 
-`publish` mints provider tasks for rows a human already wrote into the index.
-`upsert` is for work a skill *discovers at runtime* — documentation debt, an
-unresolved behavioral question — where there is no row yet and no human in the
-loop to type one.
+`upsert` is the one command that creates a task. It is for work a skill
+*discovers at runtime* — documentation debt, an unresolved behavioral question —
+where there is no row yet and no human in the loop to type one.
 
 It is **idempotent**: given an ID, exactly one task ends up existing with that
 content. A second run updates rather than appends, and a run against a task
@@ -127,7 +118,7 @@ never dropped and never blocks the caller.
 
 Status boxes: `[ ]` open · `[~]` in progress · `[!]` blocked · `[x]` done ·
 `[-]` cancelled. A plain `[ ] do the thing` row from before this capability
-existed still parses — it is reported as missing an ID, never rewritten silently.
+existed still parses — it is never rewritten silently.
 
 ## Configuration
 
@@ -170,19 +161,19 @@ No workflow skill talks to a tracker about task state. They go through here.
 
 | Skill | Point of contact |
 |-------|------------------|
-| `/plan` | after the plan is approved, offer to link or create tasks (`publish`) |
+| `/plan` | after the plan is approved, offer to record tasks (`upsert`) |
 | `/build` | claim a task and update status at task boundaries |
 | `/verify` | attach evidence links to the task |
 | `/quality-gate` | report findings against the task |
-| `/wrap-up-session` | `reconcile` before the commit; report drift |
+| `/wrap-up-session` | record deferred work (`upsert`) before the commit |
 
 External task creation and status changes require explicit authorization unless
 the project configuration turns approval off.
 
 ## Progressive disclosure
 
-`reconcile` prints counts, then at most 20 lines per category, then a pointer to
-`show`. Rules, and what to do when a summary is still too long:
+The index row is the summary; the body is one `show <task-reference>` away and
+never arrives unasked. Rules, and what to do when a summary is still too long:
 `references/progressive-disclosure.md`.
 
 ## Migrating an existing repository
@@ -213,11 +204,11 @@ reads no configuration — pass `--index`, `--backlog`, `--spec-dir`, or
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `provider: local` on a GitHub repo | `gh` not authenticated | `gh auth login`, then `doctor` |
-| `reads degraded to local-only` | provider unreachable | expected offline; the local half still reconciled |
-| `refusing to publish` | unreachable provider + `--apply` | restore connectivity; nothing was written |
+| `reads degraded to local-only` | provider unreachable | expected offline; the local record is canonical |
+| `external publication pending` | unreachable provider + `--apply` | restore connectivity, then re-run `upsert`; nothing was lost |
 | `refusing to ... external writes need approval` | project requires review | re-run with `--approve` after reading the dry run |
 | `label 'x' does not exist ... written without it` | mapped label absent upstream | create it in the tracker yourself, or set `allow_label_creation` |
-| `missing-id` on every row | pre-registry index | `python3 <template-clone>/scripts/migrate-task-registry.py --repo .`, then the same with `--apply` |
+| rows carry no `task-id` | pre-registry index | `python3 <template-clone>/scripts/migrate-task-registry.py --repo .`, then the same with `--apply` |
 
 ## Notes
 

@@ -75,17 +75,16 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
 
 - Mark completed items `[x]`
 - Detect duplicate `## Plan:` headings, orphan unchecked tasks, stale plan blocks
-- Reconcile the index against the project's tracker — **read-only, summary only**:
+- Read one task's full record only when a decision turns on it — **summary only**
+  otherwise:
 
   ```bash
-  python3 .agents/skills/task-registry/scripts/task-registry.py reconcile
+  python3 .agents/skills/task-registry/scripts/task-registry.py show <task-reference>
   ```
 
-  Surface the summary block; do not paste per-task detail into the session
-  summary or the commit message. External writes (`publish --apply`) are a
-  separate, explicitly authorized step — wrap-up never creates or closes an
-  external task on its own. With no tracker configured this reconciles the local
-  index alone and still reports stale and superseded entries.
+  Do not paste per-task detail into the session summary or the commit message.
+  External writes (`upsert --apply`) are a separate, explicitly authorized step —
+  wrap-up never creates or closes an external task on its own.
 - **On a `routine/` branch**: write the routine's executed step list into
   `tasks/todo.md`, one row per mandatory step. A step that could not run **keeps
   its row**, carrying `skip: <reason>` — retained, never deleted. Silent omission

@@ -22,7 +22,6 @@ repository = my-org/my-repo
 ; Paths. Defaults shown.
 index = tasks/todo.md
 backlog = tasks/backlog.md
-spec_dir = specs
 local_detail_dir = tasks/details
 
 ; native | metadata | auto. `auto` uses the provider's native links when it has

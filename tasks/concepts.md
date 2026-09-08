@@ -23,6 +23,7 @@
 - **circuit breaker** — the `/build`/`/yolo` failure escalation: repeated task failures trigger the `/refresh` backstop, then planner-tier review, then a loop stop — never a silent retry spiral.
 - **claim label** — the tracker label (`in-progress` by default) a routine writes before branching; its *presence* is what stops two runs of the same routine picking one issue, so a claim label the tracker never created fails silently.
 - **contract routine** — one of the four names `CONTRACT_ROUTINES` allows (`plan`, `fix`, `improve`, `build`). Adding one is a deliberate edit to the contract, never a configuration key; reconfiguring an existing one is configuration.
+- **cut** — one phase of a staged deletion, sized so it ships as a single revertable commit. Cuts are ordered so each one's survivors still compile against the next; the boundary is what a `git revert` must restore, not what a module diagram suggests.
 - **deferred routine** — a contract routine specified but not runnable yet (`build`, behind #97/#98). It carries a skill chain so `workflow` can report it as deferred rather than as unknown — a different fact, and one that should not send a correctly labelled issue back to triage.
 - **dispatch disclosure** — the required line in review output stating whether passes ran as separately dispatched agents or inline, naming the corroboration lost when inline.
 - **downstream** — a project that installed this template via `install.sh` and receives updates through `/sync`; this repo is the upstream template.
@@ -33,4 +34,5 @@
 - **selector** — the set of provider labels a routine claims issues by, in `[routines.selectors]`. Disjoint across routines, so exactly one routine owns any issue.
 - **shortcut** — a deliberate minimal implementation marked `TODO(shortcut):` with its limitation and upgrade path stated.
 - **skill chain** — the ordered skills a routine runs once selection has chosen its issue, in `[routines.skills]`. Transcribed from the routine contract's step 4 plus the shared spine's step 5, which is why every chain ends at `/wrap-up-session`.
+- **syncable root** — a directory `/sync` overwrites wholesale in a downstream project (`.agents/skills/`, `.claude/skills/`, and the other roots `sync/SKILL.md` lists). Project-local content placed under one is destroyed on the next sync, and a `SKILL.md` may not name a path outside them.
 - **track** — one of the store's two document kinds, selected by `problem_type`: bug track (`symptoms`/`root_cause`/`resolution`) or knowledge track (`applies_when`).
