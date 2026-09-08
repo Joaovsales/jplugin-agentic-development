@@ -225,7 +225,7 @@ closes the issue when the PR merges. This dissolves four problems at once:
   Unexercised until `build` lands (#98), but the state it depends on is produced
   correctly from the first change — a later `build` needs no migration.
 - No skill needs `gh issue close`, so the provider-coupling guard at
-  `tests/test-doc-conventions.sh:369` stays intact and Jira keeps working.
+  `tests/test-doc-conventions.sh:369` stays intact and every provider keeps working.
 - "PR created but close failed" stops existing as a failure mode.
 - An abandoned PR no longer leaves a closed issue with no fix.
 
@@ -359,7 +359,7 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 - AC10 — `/auto-improve` Phases 3, 4, and 5 name no routing engine and no
       "materialized lane"; Phase 4 names its reviewer set directly and carries the
       seven Review Dispatch Contract items; the skill still ships one PR per run.
-- AC11 — No skill outside `/task-registry` calls `gh issue` or a Jira REST
+- AC11 — No skill outside `/task-registry` calls `gh issue` or a tracker REST
       path; `tests/test-doc-conventions.sh`'s coupling guard passes unmodified.
 - AC12 — Selector labels and the precedence order are read from the project's
       task-tracking configuration; the shipped default vocabulary covers every label

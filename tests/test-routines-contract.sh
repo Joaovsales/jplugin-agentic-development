@@ -170,7 +170,7 @@ assert_prose_contains "$CANON" "/task-registry" \
 # --- the contract must not reintroduce provider coupling ---------------------
 # Closure happens on merge via `Closes #N`, so no routine needs `gh issue close`.
 # That is what keeps tests/test-doc-conventions.sh's coupling guard intact and
-# keeps Jira working.
+# keeps every provider working.
 assert_file_not_matches "$CANON" "gh issue" \
   "Contract: no routine calls gh issue directly"
 
@@ -193,5 +193,35 @@ assert_file_contains \
   "tasks/solutions/patterns/consume-structured-records-before-rendering-human-summaries.md" \
   "registry/routines.py" \
   "AC13: the structured-records learning cites a live consumer of the seam"
+
+# --- the deferral is stated twice, so the two statements are pinned together --
+# This document's Status column and config's DEFERRED_ROUTINES both say which
+# routines are not runnable. `workflow` reports the second; a reader trusts the
+# first. When `build` ships, whoever edits one and not the other leaves the
+# command telling every caller that a live routine is deferred, and nothing
+# anywhere errors.
+contract_deferred="$(sed -nE 's/^\| `([a-z-]+)` \|.*\|[^|]*deferred[^|]*\|[[:space:]]*$/\1/p' \
+  "$CANON" | sort -u | tr '\n' ' ' | sed 's/ $//')"
+assert_eq "build" "$contract_deferred" \
+  "Contract: the Status column marks exactly one routine deferred"
+
+config_deferred="$(PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -c '
+from registry.config import DEFERRED_ROUTINES
+print(" ".join(sorted(DEFERRED_ROUTINES)))')"
+assert_eq "$contract_deferred" "$config_deferred" \
+  "Contract: config's DEFERRED_ROUTINES agrees with the document readers trust"
+
+# The reason, too. The refusal names the issues tracking the deferral, and a
+# stale number sends a reader to check the wrong ticket.
+for issue in 97 98; do
+  assert_file_contains "$CANON" "#$issue" \
+    "Contract: the deferral section cites #$issue"
+  assert_contains "$(PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -c '
+from registry.config import DEFERRED_ROUTINES
+print(" ".join(DEFERRED_ROUTINES.values()))')" "#$issue" \
+    "Contract: the deferral message workflow prints cites #$issue too"
+done
 
 finish

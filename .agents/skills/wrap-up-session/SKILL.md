@@ -21,7 +21,13 @@ Session wrapped up (no changes).
 - No code changes detected this session.
 - Skipped: code review, tests, commit, push.
 ```
-Then **STOP**.
+Then **run Step 8.5 and STOP**.
+
+**Every STOP in this skill routes through Step 8.5 first.** That step asserts an
+unattended run produced a pull request, and the exits it exists to catch are
+exactly the ones that end wrap-up early — so a STOP that jumps straight to the
+end skips the check on precisely the runs that need it. This applies to all six
+no-PR exits Step 8.5 enumerates; each one names the route again below.
 
 **If changes exist**: proceed normally.
 
@@ -69,17 +75,16 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
 
 - Mark completed items `[x]`
 - Detect duplicate `## Plan:` headings, orphan unchecked tasks, stale plan blocks
-- Reconcile the index against the project's tracker — **read-only, summary only**:
+- Read one task's full record only when a decision turns on it — **summary only**
+  otherwise:
 
   ```bash
-  python3 .agents/skills/task-registry/scripts/task-registry.py reconcile
+  python3 .agents/skills/task-registry/scripts/task-registry.py show <task-reference>
   ```
 
-  Surface the summary block; do not paste per-task detail into the session
-  summary or the commit message. External writes (`publish --apply`) are a
-  separate, explicitly authorized step — wrap-up never creates or closes an
-  external task on its own. With no tracker configured this reconciles the local
-  index alone and still reports stale and superseded entries.
+  Do not paste per-task detail into the session summary or the commit message.
+  External writes (`upsert --apply`) are a separate, explicitly authorized step —
+  wrap-up never creates or closes an external task on its own.
 - **On a `routine/` branch**: write the routine's executed step list into
   `tasks/todo.md`, one row per mandatory step. A step that could not run **keeps
   its row**, carrying `skip: <reason>` — retained, never deleted. Silent omission
@@ -214,7 +219,7 @@ reviewer needs to see.
 
 An uncertain behavioral effect is **documentation debt, not a wrap-up blocker**.
 For each `deferred` candidate, record one durable task through `/task-registry`
-before continuing — workflow code never calls GitHub or Jira itself:
+before continuing — workflow code never calls the tracker itself:
 
 ```bash
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
@@ -259,7 +264,7 @@ keeping the work locally and reporting the pending publication loses neither.
 
 If the local record itself cannot be written, **STOP wrap-up: the documentation
 debt would otherwise be lost** — which is the one thing this step exists to
-prevent.
+prevent. Run Step 8.5 before ending.
 
 The **PR description** lists every deferred reconciliation task, so a reviewer
 sees that the affected spec was deliberately left alone rather than missed.
@@ -299,7 +304,8 @@ acceptance criterion or bug fix is user-facing:
 2. If no project-local verification skill exists, skip maintenance, recommend
    `/create-verification-skill`, and never generate or launch it automatically.
 3. Handle the maintainer outcome: `clean` and `changed` continue; `blocked` STOPS
-   wrap-up and reports the maintainer's evidence without committing.
+   wrap-up and reports the maintainer's evidence without committing. Run Step 8.5
+   before ending.
 
 Internal-only sessions skip this step silently. This step runs before security,
 review, and tests so any verification-map edits are included in every gate.
@@ -479,7 +485,7 @@ Overriding rules:
 - **Do not downgrade a finding to clear the gate.** Reclassifying a `MUST-FIX` as
   `NITPICK`, or dropping a `confidence` to make it reportable rather than
   fixable, defeats the entire mechanism. If it must be resolved and cannot be,
-  STOP.
+  STOP — via Step 8.5.
 
 ### 5.2 — Review Reconciliation Table
 
@@ -513,7 +519,7 @@ Discover test commands from `package.json`, `Makefile`, `pyproject.toml`, or `TE
 
 Run in order: lint/typecheck, unit, integration, e2e.
 
-If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report and do not push.
+If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report, do not push, and end through Step 8.5.
 
 ---
 
@@ -540,8 +546,8 @@ is internal-only.
 | Review Status | Action |
 |---------------|--------|
 | All MUST-FIX resolved AND ≤3 SHOULD-FIX skipped | Proceed |
-| Any MUST-FIX unresolved — skipped, or held back by the Apply Gate and not fixed deliberately | STOP — ask user for explicit approval |
-| More than 3 SHOULD-FIX skipped | STOP — present skipped items, ask for approval |
+| Any MUST-FIX unresolved — skipped, or held back by the Apply Gate and not fixed deliberately | STOP — ask user for explicit approval, then Step 8.5 |
+| More than 3 SHOULD-FIX skipped | STOP — present skipped items, ask for approval, then Step 8.5 |
 
 ### Commit & Push
 
@@ -602,7 +608,8 @@ human review *is* the gate that the deleted policy lattice tried to compute.
 
 The body carries the linkage and the tracker closes the issue **on merge**. No
 step here closes an issue itself: that keeps the provider coupling guard intact
-so Jira keeps working, removes "PR created but close failed" as a failure mode,
+so every tracker keeps working, removes "PR created but close failed" as a
+failure mode,
 and stops an abandoned PR from leaving a closed issue with no fix. `plan` uses
 `Refs #N` rather than `Closes #N` precisely so a merged plan leaves the issue
 open for the routine that builds it.
@@ -708,6 +715,75 @@ If no `## Deployment Targets` section: scan `tasks/deployments/*.md` for signal 
 
 ---
 
+## Step 8.5 — Terminal PR Assertion (unattended runs)
+
+Runs last, and **runs even when an earlier gate stopped the run** — the exits
+this exists to make loud are exactly the ones that end wrap-up early.
+
+**Scope: unattended runs only.** An **interactive** run is exempt: a human is
+watching the transcript, which is the thing this step substitutes for. A run is
+unattended when either holds:
+
+```bash
+# 1. The branch is a routine branch. Exit 0 means yes; exit 3 means no.
+#    `routine/` is a prefix, but only the parser knows which names under it are
+#    real -- `routine/plna/90-x` is nobody's branch, and matching the prefix
+#    would read it as a routine run.
+python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
+  parse "$(git branch --show-current)"
+```
+
+2. The caller declared it. `/yolo` and `/auto-push` each carry a
+   **Step 8.5 — unattended** row in the override table they pass to this skill.
+   Their branches are ordinary feature branches, so nothing about the branch name
+   says a human stopped watching; only the caller knows, so only the caller can
+   say.
+
+Then:
+
+```bash
+gh pr view "$(git branch --show-current)" --json number,url -q .url
+```
+
+| Result | Action |
+|---|---|
+| A pull request exists | **say nothing** beyond the `PR:` line of the Done report |
+| No pull request | report loudly, name which exit produced no PR, and **exit non-zero** |
+| `gh` itself failed — not installed, not authenticated, no network | report loudly as **UNKNOWN**, quote `gh`'s stderr, and **exit non-zero** |
+
+The third row is the one an assertion usually forgets. `gh pr view` exits
+non-zero both for "no such pull request" and for "could not ask", and collapsing
+them reports a missing PR that may well exist — a false alarm every night `gh`
+is unhappy, which is how a nightly check gets muted. Distinguish them by the
+stderr `gh` prints, and never let "could not ask" render as "no PR".
+
+It **says nothing when the pull request exists**. A terminal check that prints on
+every green run is one readers learn to skip, and then the loud case is no longer
+loud.
+
+### What this does and does not assert
+
+This **does not make every session end in a pull request**, and must not be read
+as claiming so. Wrap-up has six documented no-PR exits, every one of them a
+legitimate outcome:
+
+| Exit | Where |
+|---|---|
+| No changes detected | Step 0 |
+| Tests still failing after 2 fix attempts | Step 6 |
+| Unresolved MUST-FIX | Step 5 |
+| The push gate refused | Step 7 |
+| The local record could not be written | Step 3.2 |
+| A `blocked` maintainer outcome | Step 3.3 |
+
+None is removed here. The failure this closes is narrower and worse: an
+unattended run that reaches one of them at 03:00, produces nothing, and reports
+that to nobody — indistinguishable, the next morning, from a run that worked. The
+assertion converts *silence* into a named reason and a non-zero exit; it does not
+convert a legitimate stop into a PR.
+
+---
+
 ## Done
 
 ```
@@ -728,6 +804,7 @@ Session wrapped up.
 - Pushed: [yes / no — reason]
 - PR: [#N opened / #N description re-synced — what changed / #N already accurate / none]
 - Deployments: [results or SKIPPED / NONE]
+- Unattended PR assertion: [PASS / FAILED — no PR, reason / N/A — interactive]
 ```
 
 ## Claude Code Enhancements

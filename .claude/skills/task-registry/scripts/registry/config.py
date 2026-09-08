@@ -11,8 +11,9 @@ Selection precedence (spec AC-3):
   2. GitHub, when a GitHub remote and an authenticated `gh` both exist
   3. local Markdown
 
-Jira is never selected implicitly. Being reachable is not consent to write to a
-company tracker.
+No tracker is ever selected implicitly beyond the two rungs above. Reachable
+credentials are not consent to write to a company tracker, which is why a third
+tracker is added by declaring `provider =`, never by being detectable.
 """
 
 from __future__ import annotations
@@ -22,7 +23,6 @@ import io
 import os
 import re
 import subprocess
-import urllib.parse
 from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -36,15 +36,25 @@ POINTER_FILES = (".claude/project.md", "AGENTS.md", "CLAUDE.md")
 POINTER_RE = re.compile(r"Task tracking instructions:\s*([^\s`<>]+)", re.IGNORECASE)
 _FENCE_RE = re.compile(r"```(?:ini|cfg|conf|toml)\s*\n(.*?)```", re.DOTALL)
 
-PROVIDERS = ("github", "jira", "local")
+PROVIDERS = ("github", "local")
 
-#: Operator-held escape hatches. Both live in the environment rather than in the
+#: Values that used to be valid here. A downstream project carries its
+#: `docs/task-tracking.md` outside every syncable root, so `/sync` deletes the
+#: adapter and leaves the declaration behind — and "unknown provider" would tell
+#: that operator their config was always wrong rather than that it was valid one
+#: sync ago. Naming the retirement is the difference between a puzzle and an
+#: instruction.
+RETIRED_PROVIDERS = {
+    "jira": "retired in Cut 1 of specs/workflow-routing.md — the adapter was "
+            "never run against a real Jira. Set `provider = github` or "
+            "`provider = local`.",
+}
+
+#: Operator-held escape hatch. It lives in the environment rather than in the
 #: configuration file on purpose: a checked-in file is content, and content must
 #: not be able to lower a safety floor for everyone who clones the repository.
 TRUSTED_CONFIG_ENV = "TASK_REGISTRY_TRUSTED_CONFIG"
-INSECURE_TRANSPORT_ENV = "TASK_REGISTRY_ALLOW_INSECURE_TRANSPORT"
 
-_LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1", "[::1]")
 
 #: GitHub label vocabulary this harness already ships, mapped read-only. The
 #: mapping is a *reading* of provider-facing vocabulary; it never renames or
@@ -90,6 +100,34 @@ DEFAULT_KIND_PRECEDENCE: Tuple[str, ...] = (
     "documentation",
 )
 
+#: What each routine RUNS, once selection has told it which issue to run on.
+#: Transcribed from `.agents/skills/wrap-up-session/references/routines.md` --
+#: step 4 of each routine plus the
+#: shared spine's step 5, which is why every chain ends at `/wrap-up-session`.
+#: That document is the routine contract; a chain invented here instead would be
+#: a second, unversioned answer to a question it already answers.
+#:
+#: `plan` deliberately omits `/build` and `/quality-gate`: it produces a spec and
+#: no implementation, so requiring them would write a `skip:` row on every run.
+#: `build` is listed though it is deferred (#97/#98) -- `workflow` must be able to
+#: say "this routine exists and is deferred", which it cannot do for a routine it
+#: has no chain for.
+DEFAULT_ROUTINE_SKILLS: Mapping[str, Tuple[str, ...]] = {
+    "plan": ("/plan", "/wrap-up-session"),
+    "fix": ("/debug", "/build", "/quality-gate", "/wrap-up-session"),
+    "improve": ("/plan", "/build", "/quality-gate", "/wrap-up-session"),
+    "build": ("/build", "/quality-gate", "/wrap-up-session"),
+}
+
+#: The step every chain must end on. `/wrap-up-session` is the review gate whose
+#: omission shipped #93 green, and `references/routines.md` marks it
+#: "non-skippable for every routine without exception".
+TERMINAL_ROUTINE_SKILL = "/wrap-up-session"
+
+#: Where a chain's skills are looked for. Both trees are pinned byte-identical by
+#: tests/test-skill-parity.sh, and a project may carry only the Claude Code copy.
+SKILL_ROOTS = (".agents/skills", ".claude/skills")
+
 #: Written before a routine branches, and skipped when already present.
 DEFAULT_CLAIM_LABEL = "in-progress"
 #: The routine names the contract defines. `build` is deferred (#97/#98) but is a
@@ -103,23 +141,13 @@ CONTRACT_ROUTINES = ("plan", "fix", "improve", "build", "janitor", "architect")
 #: but `select` and `claim` refuse them and a selector naming one is a config error.
 PRODUCER_ROUTINES = ("janitor", "architect")
 
-#: Jira's own vocabulary, read the same way: provider-facing names mapped into
-#: the normalized model, never the other way round as a rename.
-DEFAULT_JIRA_ISSUE_TYPES: Mapping[str, str] = {
-    "Bug": "bug",
-    "Story": "feature",
-    "Task": "task",
-    "Sub-task": "task",
-    "Epic": "epic",
-    "Spike": "research",
-}
-
-DEFAULT_JIRA_PRIORITIES: Mapping[str, str] = {
-    "Highest": "high",
-    "High": "high",
-    "Medium": "medium",
-    "Low": "low",
-    "Lowest": "low",
+#: Contract routines that are specified but not runnable yet. `workflow` reports
+#: one as an answer rather than a failure: "this routine owns your issue and is
+#: deferred" is a different fact from "no routine owns it", and a caller that
+#: cannot tell them apart re-triages an issue that is already correctly labelled.
+DEFERRED_ROUTINES: Mapping[str, str] = {
+    "build": "deferred behind the blockedBy provider capability (#97) and the "
+             "routine itself (#98) — not runnable yet",
 }
 
 
@@ -136,30 +164,6 @@ class ConfigPointerError(ConfigError):
     """
 
 
-class Secret:
-    """A credential that refuses to render itself.
-
-    Redaction is a property of the value, not a discipline asked of every call
-    site that might interpolate it into a message.
-    """
-
-    __slots__ = ("_value",)
-
-    def __init__(self, value: str = "") -> None:
-        self._value = value or ""
-
-    def reveal(self) -> str:
-        return self._value
-
-    def __bool__(self) -> bool:
-        return bool(self._value)
-
-    def __repr__(self) -> str:  # pragma: no cover - trivial
-        return "Secret(***)"
-
-    __str__ = __repr__
-
-
 @dataclass(frozen=True)
 class Config:
     """Everything the registry needs to know about this project's tracking."""
@@ -170,11 +174,8 @@ class Config:
     project: str = ""
     index_path: str = "tasks/todo.md"
     backlog_path: str = "tasks/backlog.md"
-    spec_dir: str = "specs"
     local_detail_dir: str = "tasks/details"
     dependency_strategy: str = "auto"
-    #: Heading that marks a plan block finished, so its open rows read as stale.
-    closed_plan_marker: str = "Session Summary"
     require_write_approval: bool = True
     allow_label_creation: bool = False
     offline_reads: str = "degrade"
@@ -187,6 +188,16 @@ class Config:
     #: selected by. Read here rather than hardcoded in a skill: the halt that
     #: motivated this design was a label that had never been created.
     kind_precedence: Sequence[str] = DEFAULT_KIND_PRECEDENCE
+    routine_skills: Mapping[str, Sequence[str]] = field(
+        default_factory=lambda: dict(DEFAULT_ROUTINE_SKILLS)
+    )
+    #: Whether `[routines.skills]` was written by the project. The on-disk skill
+    #: check reads it: a project is answerable for the chain it declared, while a
+    #: shipped default names skills from this template and is pinned by
+    #: tests/test-routine-skills.sh instead. Without the distinction, a checkout
+    #: carrying the registry but not the rest of the harness could load no
+    #: configuration at all.
+    routine_skills_declared: bool = False
     routine_selectors: Mapping[str, Sequence[str]] = field(
         default_factory=lambda: dict(DEFAULT_SELECTORS)
     )
@@ -195,16 +206,7 @@ class Config:
         default_factory=lambda: dict(DEFAULT_PRIORITY_LABELS)
     )
     status_sources: Mapping[str, str] = field(default_factory=dict)
-    jira_issue_types: Mapping[str, str] = field(
-        default_factory=lambda: dict(DEFAULT_JIRA_ISSUE_TYPES)
-    )
-    jira_priorities: Mapping[str, str] = field(
-        default_factory=lambda: dict(DEFAULT_JIRA_PRIORITIES)
-    )
     source_path: Optional[str] = None
-    jira_base_url: str = ""
-    jira_email: str = ""
-    jira_token: Secret = field(default_factory=Secret)
     #: True when the configuration asked to drop the approval requirement and the
     #: operator had not opted in. Surfaced by `doctor` so the refusal is visible.
     approval_relaxation_ignored: bool = False
@@ -232,29 +234,6 @@ def confine(root: str, relative: str, what: str) -> str:
             f"{what} {relative!r} resolves outside the project root — refusing to use it"
         )
     return resolved
-
-
-def is_secure_transport(base_url: str) -> bool:
-    """HTTPS, or plain HTTP to loopback where there is no network to sniff."""
-    parsed = urllib.parse.urlsplit(base_url)
-    if parsed.scheme == "https":
-        return True
-    return parsed.scheme == "http" and parsed.hostname in _LOOPBACK_HOSTS
-
-
-def require_secure_transport(base_url: str, env: Mapping[str, str]) -> None:
-    """Refuse to send credentials in the clear.
-
-    Basic auth over http puts the token on the wire in every request. The opt-out
-    is an environment variable rather than a config key for the reason in
-    :data:`TRUSTED_CONFIG_ENV`.
-    """
-    if is_secure_transport(base_url) or _as_bool(env.get(INSECURE_TRANSPORT_ENV), False):
-        return
-    raise ConfigError(
-        "jira: refusing to send credentials over an insecure transport — "
-        f"set an https:// base URL, or export {INSECURE_TRANSPORT_ENV}=1 to override"
-    )
 
 
 def _as_bool(value: str, default: bool) -> bool:
@@ -356,11 +335,6 @@ def load_config(
     inherits the guarantees.
     """
     env = env if env is not None else os.environ
-    jira = dict(
-        jira_base_url=env.get("JIRA_BASE_URL", "").rstrip("/"),
-        jira_email=env.get("JIRA_EMAIL", ""),
-        jira_token=Secret(env.get("JIRA_API_TOKEN", "")),
-    )
     try:
         config_path = find_config_path(root)
     except ConfigPointerError:
@@ -368,7 +342,7 @@ def load_config(
             raise
         config_path = None
     if config_path is None:
-        return Config(root=root, **jira)
+        return Config(root=root)
 
     with open(config_path, "r", encoding="utf-8-sig") as handle:
         parser = _parse_ini(handle.read(), os.path.relpath(config_path, root))
@@ -377,9 +351,12 @@ def load_config(
     routines = parser["routines"] if parser.has_section("routines") else {}
     provider = (tracker.get("provider") or "").strip().lower() or None
     if provider is not None and provider not in PROVIDERS:
+        retired = RETIRED_PROVIDERS.get(provider)
+        detail = f" — {retired}" if retired else ""
         raise ConfigError(
-            f"{os.path.relpath(config_path, root)}: unknown provider {provider!r} "
-            f"(expected one of: {', '.join(PROVIDERS)})"
+            f"{os.path.relpath(config_path, root)}: "
+            f"{'retired' if retired else 'unknown'} provider {provider!r} "
+            f"(expected one of: {', '.join(PROVIDERS)}){detail}"
         )
 
     def section(name: str, defaults: Mapping[str, str]) -> Dict[str, str]:
@@ -402,32 +379,30 @@ def load_config(
     trusted = _as_bool(env.get(TRUSTED_CONFIG_ENV), False)
     require_approval = configured_approval or not trusted
 
+    declared_skills = _routine_skills(parser)
     config = Config(
         root=root,
         provider=provider,
         repository=(tracker.get("repository") or "").strip(),
-        project=(tracker.get("project") or env.get("JIRA_PROJECT", "")).strip(),
+        project=(tracker.get("project") or "").strip(),
         index_path=(tracker.get("index") or "tasks/todo.md").strip(),
         backlog_path=(tracker.get("backlog") or "tasks/backlog.md").strip(),
-        spec_dir=(tracker.get("spec_dir") or "specs").strip(),
         local_detail_dir=(tracker.get("local_detail_dir") or "tasks/details").strip(),
         dependency_strategy=(tracker.get("dependency_strategy") or "auto").strip().lower(),
-        closed_plan_marker=(tracker.get("closed_plan_marker") or "Session Summary").strip(),
         require_write_approval=require_approval,
         allow_label_creation=_as_bool(tracker.get("allow_label_creation"), False),
         offline_reads=(tracker.get("offline_reads") or "degrade").strip().lower(),
         migration_policy=(tracker.get("migration_policy") or "manual").strip(),
         claim_label=_claim_label(routines.get("claim_label")),
         kind_precedence=_label_list(routines.get("kind_precedence")) or DEFAULT_KIND_PRECEDENCE,
+        routine_skills=declared_skills if declared_skills is not None else dict(DEFAULT_ROUTINE_SKILLS),
+        routine_skills_declared=declared_skills is not None,
         routine_selectors=_selectors(parser),
         kind_labels=section("labels.kind", DEFAULT_KIND_LABELS),
         priority_labels=section("labels.priority", DEFAULT_PRIORITY_LABELS),
         status_sources=section("status", {}),
-        jira_issue_types=section("jira.issuetype", DEFAULT_JIRA_ISSUE_TYPES),
-        jira_priorities=section("jira.priority", DEFAULT_JIRA_PRIORITIES),
         source_path=os.path.relpath(config_path, root),
         approval_relaxation_ignored=not configured_approval and not trusted,
-        **jira,
     )
     # Validated here rather than in the one command that reports selectors: a
     # contested label makes selection depend on dict insertion order, and a gate
@@ -473,6 +448,40 @@ def _selectors(parser: configparser.ConfigParser) -> Dict[str, Tuple[str, ...]]:
 
 
 
+def _routine_skills(parser: configparser.ConfigParser) -> Optional[Dict[str, Tuple[str, ...]]]:
+    """Routine -> the ordered skills it runs, or None when the project declared none.
+
+    Replaces wholesale like `[routines.selectors]`, not per key like
+    `[labels.kind]`: a project that reorders one chain and inherits three others
+    cannot see, in its own configuration file, which chains it actually chose.
+    That is safe only because `_refuse_selector_without_chain` refuses a routine
+    left with a selector and no chain, so the two rules ship together.
+
+    None is a third state, distinct from an empty section: "the project said
+    nothing" is what licenses the shipped defaults, and "the project declared
+    chains" is what makes it answerable for their skills existing on disk.
+    """
+    if not parser.has_section("routines.skills"):
+        return None
+    # Empty chains are KEPT. `plan =` is a project saying "plan runs nothing",
+    # which `_refuse_unterminated_chains` refuses by name; dropping the key made
+    # it indistinguishable from a routine never mentioned, and left that
+    # validator's "is empty" branch unreachable.
+    return {
+        routine.strip(): _skill_chain(steps)
+        for routine, steps in parser.items("routines.skills")
+    }
+
+
+def _skill_chain(value: Optional[str]) -> Tuple[str, ...]:
+    """A comma- or newline-separated skill chain, each step normalized to `/name`.
+
+    Both spellings reach here from real configuration files, and normalizing on
+    read means the terminal-step check compares one form instead of guessing.
+    """
+    return tuple("/" + step.lstrip("/") for step in _label_list(value))
+
+
 def validate_selectors(config) -> None:
     """Refuse a configuration that cannot describe a total, unambiguous selection.
 
@@ -485,6 +494,9 @@ def validate_selectors(config) -> None:
     _refuse_duplicate_ranks(ranked)
     _refuse_contested_labels(claimed_by)
     _refuse_divergent_label_sets(ranked, claimed_by)
+    _refuse_selector_without_chain(config)
+    _refuse_unterminated_chains(config)
+    _refuse_absent_chain_skills(config)
 
 
 def _refuse_unknown_routines(config) -> None:
@@ -503,14 +515,18 @@ def _refuse_unknown_routines(config) -> None:
             "routine — it files issues, it does not select them. Producers take no "
             "selector; remove the key."
         )
-    unknown = sorted(set(config.routine_selectors) - set(CONTRACT_ROUTINES))
-    if unknown:
-        raise ConfigError(
-            "routines: [routines.selectors] declares "
-            f"{', '.join(repr(name) for name in unknown)}, which the routine contract "
-            f"does not define. Known routines: {', '.join(CONTRACT_ROUTINES)}. Adding "
-            "one is a deliberate edit to the contract, not a configuration key."
-        )
+    for section, declared in (
+        ("[routines.selectors]", config.routine_selectors),
+        ("[routines.skills]", config.routine_skills),
+    ):
+        unknown = sorted(set(declared) - set(CONTRACT_ROUTINES))
+        if unknown:
+            raise ConfigError(
+                f"routines: {section} declares "
+                f"{', '.join(repr(name) for name in unknown)}, which the routine contract "
+                f"does not define. Known routines: {', '.join(CONTRACT_ROUTINES)}. Adding "
+                "one is a deliberate edit to the contract, not a configuration key."
+            )
 
 
 def _routines_by_label(config) -> Dict[str, List[str]]:
@@ -540,6 +556,140 @@ def _refuse_contested_labels(claimed_by: Mapping[str, List[str]]) -> None:
         f"{label} -> {', '.join(sorted(claimed_by[label]))}" for label in contested
     )
     raise ConfigError(f"routines: more than one routine selects the same label — {detail}")
+
+
+def _refuse_selector_without_chain(config) -> None:
+    """A routine that selects issues but runs nothing is a silently dead routine.
+
+    This is the rule that makes wholesale replacement of `[routines.skills]` safe.
+    A project overriding one chain supplies all of them, and the one it forgets
+    would otherwise keep selecting and claiming issues -- writing the claim label
+    onto an issue no chain will ever act on.
+    """
+    orphaned = sorted(set(config.routine_selectors) - set(config.routine_skills))
+    if not orphaned:
+        return
+    raise ConfigError(
+        "routines: these routines select issues but have no skill chain — "
+        f"{', '.join(orphaned)}. [routines.skills] replaces the shipped map "
+        "wholesale rather than merging per key, so a project that declares it "
+        "must declare a chain for every routine it selects with."
+    )
+
+
+def _refuse_unterminated_chains(config) -> None:
+    """Every chain ends at the review gate, or the routine can ship unreviewed.
+
+    `references/routines.md` marks step 5 non-skippable for every routine without
+    exception. Checking only for PRESENCE would accept a chain that runs the gate
+    and then three more steps after it, which is the same omission wearing a
+    different shape.
+    """
+    unterminated = sorted(
+        routine
+        for routine, chain in config.routine_skills.items()
+        if not chain or chain[-1] != TERMINAL_ROUTINE_SKILL
+    )
+    if not unterminated:
+        return
+    detail = "; ".join(
+        f"{routine} ends at {config.routine_skills[routine][-1]}"
+        if config.routine_skills[routine]
+        else f"{routine} is empty"
+        for routine in unterminated
+    )
+    raise ConfigError(
+        f"routines: every skill chain must end at {TERMINAL_ROUTINE_SKILL} — {detail}. "
+        "It is the review gate, and a chain that runs it anywhere but last can "
+        "still ship work after it."
+    )
+
+
+def _refuse_absent_chain_skills(config) -> None:
+    """A declared chain naming a skill nobody installed fails at step 4, mid-run.
+
+    By then the claim label is written and the branch exists, so the routine has
+    already taken the issue out of every other routine's reach before discovering
+    it cannot do the work. Refusing at load moves that to the one moment where
+    the answer is a configuration edit rather than a cleanup.
+
+    Only *declared* chains are checked. A shipped default names skills from this
+    template, where tests/test-routine-skills.sh pins their presence; checking it
+    here instead would refuse every command in a checkout that installed the
+    registry without the rest of the harness.
+    """
+    if not config.routine_skills_declared:
+        return
+    # A step refused for its SHAPE is reported separately. Both end the load, but
+    # "not installed" sends a reader to check their install for a step that would
+    # be refused on any machine, however many skills they add.
+    malformed = sorted(
+        {
+            f"{routine}: {skill!r}"
+            for routine, chain in config.routine_skills.items()
+            for skill in chain
+            if not _skill_name(skill)
+        }
+    )
+    if malformed:
+        raise ConfigError(
+            "routines: [routines.skills] names chain steps that are not skill "
+            f"names — {'; '.join(malformed)}. A step is a directory name such as "
+            "`/build`; a path separator or a `..` segment is refused whether or "
+            "not it resolves."
+        )
+    missing = sorted(
+        {
+            f"{routine}: {skill!r}"
+            for routine, chain in config.routine_skills.items()
+            for skill in chain
+            if not _skill_on_disk(config.root, skill)
+        }
+    )
+    if not missing:
+        return
+    raise ConfigError(
+        "routines: [routines.skills] names skills that are not installed — "
+        f"{'; '.join(missing)}. Looked in {' and '.join(SKILL_ROOTS)}."
+    )
+
+
+def _skill_on_disk(root: str, skill: str) -> bool:
+    """Is `/name` an installed skill in either skills tree?
+
+    A skill reference is a directory NAME, never a path, so anything carrying a
+    separator or a `..` segment is refused before it reaches the filesystem. The
+    name arrives from a file in the repository — the same untrusted input class
+    the task-tracking pointer is confined for — and without this the probe reads
+    `os.path.isfile("<root>/.agents/skills/../../../etc/SKILL.md")`, an existence
+    oracle for arbitrary paths that answers False for the wrong reason.
+
+    Rejecting the shape rather than confining the result keeps the rule legible:
+    there is no legitimate chain step this refuses.
+    """
+    name = _skill_name(skill)
+    if not name:
+        return False
+    return any(
+        os.path.isfile(os.path.join(root, skill_root, name, "SKILL.md"))
+        for skill_root in SKILL_ROOTS
+    )
+
+
+def _skill_name(skill: str) -> str:
+    """The directory name `/name` refers to, or "" when it is not a name at all.
+
+    Non-ASCII is refused alongside the separators: a name that renders as `/build`
+    through a homoglyph or a bidi override is a different directory from the one a
+    reviewer reads in the file, and a chain step is short enough that no
+    legitimate one needs the range.
+    """
+    name = skill.lstrip("/")
+    if not name or "/" in name or "\\" in name or name in (".", ".."):
+        return ""
+    if not all(ord(character) < 128 for character in name):
+        return ""
+    return name
 
 
 def _refuse_divergent_label_sets(

@@ -59,9 +59,9 @@ sweep. Then:
 
 ### 2. Read the backlog
 
-Refresh the index from the provider through `/task-registry` (a read:
-`task-registry pull` without `--apply`, or `show` per row) and load every **open**
-task's title, summary, and evidence. This is the **dedupe set**: a candidate whose
+Read the backlog through `/task-registry`: `task-registry show <id>` for each
+open row of `tasks/todo.md` (there is no bulk read — the index is the list, the
+ticket is the detail) and load every **open** task's title, summary, and evidence. This is the **dedupe set**: a candidate whose
 `file:line` already appears in an open task's summary or evidence updates *that*
 task at step 5 instead of minting a new one.
 
@@ -113,8 +113,8 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
   registry's `slugify_id` seam. The same file and title on a later run addresses
   the same task — updated, evidence appended, reopened if closed — never a second
   issue. Evidence accretes across runs (each sighting is kept, duplicates
-  dropped); reproduction, proposed fix, and criteria are replaced. On GitHub and
-  Jira the prose sections are seeded once at creation and never rewritten, so a
+  dropped); reproduction, proposed fix, and criteria are replaced. On GitHub
+  the prose sections are seeded once at creation and never rewritten, so a
   later run's evidence reaches the issue through the metadata block only. A candidate already in the dedupe set (step 2) is filed against *that*
   task's ID instead.
 - **Kind and labels.** `janitor` → `--kind bug`. `architect` → `--kind task

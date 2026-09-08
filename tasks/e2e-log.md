@@ -353,3 +353,205 @@ exit non-zero before any provider read or write. Exact 60,000-character input wa
 accepted; 60,001 was refused without truncation.
 
 Result: PASS
+## Integration Proof — `task-registry workflow` six outcomes (AC1, AC2, AC13) — 2026-09-07 (branch `feat/workflow-routing-phase-a`)
+
+`specs/workflow-routing.md` AC2 requires all six outcomes to be distinguishable
+in **both** stdout and exit code. That is a user-facing CLI contract — a nightly
+wrapper branches on the code, a human reads the text — so the unit assertions in
+`tests/test-routine-selectors.sh` are not sufficient evidence on their own.
+
+### Fixture
+
+A throwaway project root with the repository's own `tests/fixtures/task-registry/gh`
+mock on `PATH`, five open issues, and a `docs/task-tracking.md` declaring
+`build = question` — `build` ships no selector by default, so the deferred-routine
+outcome is only reachable through configuration.
+
+### What ran, verbatim
+
+| Outcome | Command | stdout (key line) | exit |
+|---|---|---|---|
+| routine owns it | `workflow 11` | `routine:  fix` / `chain:    /debug -> /build -> /quality-gate -> /wrap-up-session` | 0 |
+| deferred routine | `workflow 20` | `status:   deferred — build is deferred behind the blockedBy provider capability (#97) and the routine itself (#98) — not runnable yet` | 0 |
+| no kind label | `workflow 15` | `routine:  none — the issue carries no kind label a routine selects` | 0 |
+| already claimed | `workflow 12` | `status:   IN FLIGHT — it carries in-progress, so routine fix already holds it. Do not claim it again.` | 0 |
+| unknown reference | `workflow 4242` | `task-registry: no open task matches '4242' — …` | **1** |
+| upstream label fault | `workflow 11`, tracker missing `question` | `upstream check: FAILED — these configured routine labels do not exist in github: question` | **2** |
+| config fault | `workflow 11`, two routines claiming `bug` | `task-registry: routines: more than one routine selects the same label — bug -> fix, improve` | **2** |
+| AC13 — no argument | `workflow` | ``task-registry: `workflow` requires the issue it should look up`` | **2** |
+
+The 1-versus-2 split is the point and was checked as a control in the same run:
+with the configuration repaired, `workflow 4242` returns to exit 1. A wrapper
+retries a missing issue and pages a human for a broken tool; sharing one non-zero
+code makes both responses wrong.
+
+### Correction made during this walkthrough
+
+The first attempt reported `exit=0` for all three exit-2 cases. That was the
+harness, not the implementation: `out="$(run ...)"; echo "$out"; echo "$?"` reads
+the exit status of the intervening `echo`. Re-run capturing `code=$?` on the line
+immediately after the assignment. Recorded because the same mistake would make any
+future exit-code walkthrough report a false pass.
+
+### AC7 — `doctor` on this repository
+
+```
+provider:       local
+selected because: --provider local
+configuration:  docs/task-tracking.md
+```
+
+Run with `--provider local` so the result does not depend on the network or on
+`gh` being authenticated. Before this session the line read
+`none (defaults + local fallback)`.
+
+---
+
+## `workflow` — the four outcomes the review found (2026-09-07, follow-up)
+
+Same fixture shape as the walkthrough above, re-run after the review fixes. Four
+rows of that table were wrong or missing; this section supersedes them rather
+than editing them, because the earlier reading is what the PR description and the
+handover were written against.
+
+| Outcome | Command | stdout (key line) | exit |
+|---|---|---|---|
+| the `#` form | `workflow '#11'` | `routine:  fix` — byte-identical to `workflow 11` | 0 |
+| closed issue | `workflow 12` | `task-registry: 12 is done — no routine starts on a closed task. Reopen it upstream if the work is not actually done.` | **1** |
+| unknown reference | `workflow 999` | `task-registry: no task matches '999' in github — github: `gh issue view` exited 1 — could not find issue #999` | **1** |
+| tracker unreachable | `workflow 11`, `gh label list` failing | `upstream check: COULD NOT RUN — github has a label vocabulary but did not answer: …` / `Nothing to edit — the tracker did not answer. Retry.` | **1** |
+
+The last row is the correction that matters to a scheduler. It used to exit 2 —
+the code the skill now tells a nightly wrapper to page on — for a condition no
+file edit can clear.
+
+### What changed underneath
+
+`workflow '#11'` failed before this run, though `#11` is the form every markdown
+link and every human uses: the command compared the raw argument against
+`external.id`, which holds the bare number. It now resolves the argument through
+`provider.resolve_reference` and reads the single issue, which also removes the
+500-issue page-limit blind spot the backlog scan had.
+
+Verified in the same run that the closed-issue guard reads state rather than the
+fixture: flipping #12 back to `OPEN` returns exit 0 with its chain printed.
+
+## 2026-09-07 — Cut 1 (9b686fe): the migration remedy, end to end
+
+Cut 1 has **two** user-facing behaviour changes, not one. AC14/15/16 are
+repo-structure criteria with no user surface, but the cut also retires a
+`provider =` value a downstream project may have checked in — which the review
+correctly flagged as user-facing, and which this log originally denied while the
+session's own test file described it as "the likeliest real encounter with
+Cut 1". Both are walked through below.
+
+### A. `task-registry migrate` -> `scripts/migrate-task-registry.py`
+
+Driven against a throwaway repo, not a fixture stub — real files, real writes:
+
+1. **Dry run is the default and writes nothing.** A repo with a closed plan
+   block, an open row inside it, a superseded spec, and a `blocked-by:` written
+   as prose. Output reported `DRY RUN (nothing written)`, classified 1 stale /
+   1 completed / 2 superseded, and `find . -type f` was byte-identical after.
+
+2. **`--apply` mints ids in place.** Ids landed after the title and before the
+   em-dash summary; the completed history row got none; indented continuation
+   detail survived byte-for-byte.
+
+3. **A prose dependency resolves to the id it minted.**
+   `(blocked-by: Colour LUT pass)` became
+   `(blocked-by: morph-recipes-specs-morph-md.colour-lut-pass)`.
+
+4. **An unresolvable dependency is reported, not dropped.**
+   `blocked-by: something nobody wrote` came back under "Unresolved
+   dependencies (reported, nothing dropped)" and was left as written.
+
+5. **The audit trail is written** to `tasks/task-registry-migration.md`,
+   listing completed rows too.
+
+6. **Unreadable rows exit non-zero.** A row with a status box and no title
+   returns 1 from `--apply`, so a partial migration is never reported as a
+   complete one.
+
+Also confirmed the retired subcommand fails honestly: `task-registry migrate`
+exits 2 with `invalid choice: 'migrate'` rather than an import error.
+
+### B. A downstream project whose config still says `provider = jira`
+
+Driven against a throwaway repo carrying `provider = jira` in
+`docs/task-tracking.md` — the state every downstream consumer of this template
+is in the moment they `/sync` Cut 1, because `docs/` sits outside every syncable
+root and keeps the declaration after the adapter is deleted.
+
+7. **The failure is loud, not silent.** `doctor` refuses rather than quietly
+   falling back to the local store, so a project cannot keep running against a
+   tracker it thinks is configured.
+
+8. **The message says retired, and says what to do.** Not "unknown provider",
+   which would tell an operator their config was always wrong:
+
+   ```
+   docs/task-tracking.md: retired provider 'jira' (expected one of: github, local)
+     — retired in Cut 1 of specs/workflow-routing.md — the adapter was never run
+     against a real Jira. Set `provider = github` or `provider = local`.
+   ```
+
+Not covered, and recorded as a gap rather than claimed: there is no sync-time
+detection for this, the way `/sync` Step 6.5 detects an unmigrated learning
+store. A project learns at first use rather than at sync. Carried in the wrap-up
+report as owner: human.
+
+---
+
+## Cut 2 — the todo.md sync engine (specs/workflow-routing.md) — @ 6c5fe6f+staged
+
+Cut 2's own ACs (AC14/15/16) are structural and checked by `grep`/`wc -l`, not
+by walkthrough. Two **behaviors** changed for someone actually running the CLI,
+though, and both were driven end to end rather than asserted only in-suite.
+
+### A. A malformed row in `tasks/todo.md` — read still works, writes refuse
+
+Driven against a throwaway repo whose index carries one unparseable row
+(`- [?] Bad ...`) beside a good one.
+
+1. **`show` still answers, and names the damage.** It writes nothing, so it has
+   no reason to refuse — and refusing would deny every task over one bad row,
+   with no other command able to diagnose the file (`doctor` never reads the
+   index):
+
+   ```
+   task: ok.one
+     title:    Good row
+     ...
+     degraded:
+       - unreadable index row -- tasks/todo.md:4 — unknown status box '[?]'
+         (expected one of: ' ', '~', '!', 'x', '-')
+   exit=0
+   ```
+
+2. **`upsert --apply` refuses, with file:line.** Exit 1, and `grep -c` confirms
+   no second row was appended for the id.
+
+3. **The dry run refuses identically.** Previously it returned a preview
+   (`index row would be synced`) for a run that `--apply` would refuse — the
+   preview described a different run than the one it was authorizing.
+
+### B. The same, on the GitHub path — no provider call at all
+
+The defect all four review passes found. Driven against the repo's own `gh`
+mock with `provider = github`, `--apply --approve`, and the same malformed row.
+
+4. **Zero provider calls before the refusal.** `gh.log` is 0 bytes. Before the
+   fix the same run left `issue create --repo fixture-owner/fixture-repo ...` in
+   that log and *then* printed a failure — an issue existing upstream with
+   nothing in the repository pointing at it, reported to the operator as a
+   failure. That is AC-19's "before any provider write", and it now holds on the
+   only path that writes.
+
+### C. The wrap-up debt banner emits a command that survives being pasted
+
+5. Driven with a ledger heading `feat/o'brien abc1234..def5678` — git permits
+   `'` in a branch name. The emitted line now passes `bash -n`; before the fix
+   it failed with an unterminated quote. The derived id
+   (`wrap-up-debt.feat-o-brien-abc1234-def5678`) round-trips through
+   `is_valid_id`, and agrees with `slugify_id` on all five probed headings.

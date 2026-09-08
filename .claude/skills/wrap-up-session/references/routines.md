@@ -167,7 +167,7 @@ four problems at once:
   Closing on PR creation broke it, and `build`'s silence was indistinguishable
   from "nothing to do".
 - No skill outside `/task-registry` needs a tracker's task API, so the provider
-  coupling guard stays intact and Jira keeps working.
+  coupling guard stays intact and every tracker keeps working.
 - "PR created but close failed" stops existing as a failure mode.
 - An abandoned PR no longer leaves a closed issue with no fix.
 

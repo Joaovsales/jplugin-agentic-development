@@ -369,7 +369,148 @@ a file that never shipped and cannot (`docs/` is not syncable).
 - Key changes: issue #107 recorded the redundant routed `/plan` gate; after the session rebased, merged PR #105 had deleted `/route` and defined the `fix` routine as `/debug` directly into `/build`/TDD, so #107 was closed as superseded.
 - Learnings captured: [task-registry publish lost legacy row detail](solutions/bugs/task-registry-publish-lost-legacy-row-detail.md) and [logical text records must own their rewrite span](solutions/patterns/logical-text-records-must-own-their-rewrite-span.md).
 
-### 2026-09-07 — Sweep routines shipped
+### [2026-09-07] — Phase A of the task-registry shrink: the `workflow` command (40f6b5e..15a6c29, base bbef230)
+
+- Built `tasks/handover-workflow-routing.md` § 4 (Phase A, 7 rows) against
+  `specs/workflow-routing.md`. Branch `feat/workflow-routing-phase-a` off
+  `master` at `bbef230`.
+- **Gate honoured first.** The handover's Step 0 requires #82 merged before any
+  Phase A work, because both edit `CLAUDE.md`. #82 was still open as PR #109
+  (green, mergeable); it was merged on the user's explicit authorization, then
+  this branch was cut from the updated `master`. The spec + handover commit
+  existed only locally on `analysis/simplify-routing` (whose remote was deleted
+  when #105 squash-merged) and was cherry-picked across.
+- Delivered: R2's `task-registry workflow <ref>` — the only real gap the spec
+  found — plus the `[routines.skills]` configuration layer, an issue-number
+  tie-break for selection, this repository's own `docs/task-tracking.md`, and
+  `/wrap-up-session` Step 8.5.
+- Two handover claims checked and corrected: A4 was **not** already done by #82's
+  agent (#109 shipped the `CLAUDE.md` half only), and the spec's § *Ordering* /
+  AC3 amendment the handover asks for in § 5 was **already present** in the
+  committed spec, so A3 needed only the code change.
+- Two `[AMBIGUITY]` decisions recorded: shipped default chains follow
+  `references/routines.md` rather than the spec's illustrative ini block (they
+  disagree on whether `plan` runs `/build`), and AC4's on-disk skill check is
+  scoped to project-*declared* chains, since checking shipped defaults would make
+  `load_config` raise in every existing fixture.
+- **Four assertions were found to be unfalsifiable by mutation probing and
+  narrowed** — none by reading. Captured as
+  `tasks/solutions/process/a-config-equal-to-its-defaults-cannot-prove-it-was-read.md`,
+  `tasks/solutions/process/a-stable-sort-hides-a-missing-final-tie-break.md`, and a
+  second occurrence appended to
+  `tasks/solutions/process/assertion-must-be-scoped-to-the-half-it-tests.md`.
+- Phase A owns AC1–AC13 and AC15; AC14/AC16 belong to Phases B and C. 37/37 test
+  files green.
+
+## 2026-09-07 — Phase A review reconciliation [15a6c29..31edf29]
+
+- Four review passes were dispatched separately (`code-reviewer`, defensive audit,
+  test coverage, adversarial critic), so their agreement promoted confidence by
+  one anchor where two independently found the same defect. Two findings promoted
+  that way: the missing `result_truncated` guard and the closed-issue routing.
+- **The highest-value finding came from mutation probing, not from reading.** Pass
+  3 claimed the AC4 traversal assertions could not fail; deleting the shape guard
+  and watching all 52 assertions stay green confirmed it. The same probe found the
+  wrap-up early-exit routing was prose with a prose-matching test.
+- Two claims in dispatched output were checked before acting rather than taken at
+  face value, and both held: `AGENTS.md` genuinely had no pointer, and
+  `get_task` genuinely exists on all four providers.
+- Four findings were surfaced under `owner: human` rather than applied, all
+  turning on what the spec means rather than what the code does. They are written
+  up in the handover's new § 11 so Phase B does not rediscover them.
+- The exit-code decision worth remembering: an outage and a misconfiguration both
+  used to exit 2. They are now 1 and 2, because the question a scheduler asks is
+  not "did it fail" but "should I wake someone".
+- The pre-push wrap-up gate recorded 12 uncovered commits, and it was right. The
+  earlier session summary's fingerprint read `[40f6b5e..15a6c29, base bbef230]`;
+  the gate parses the bracket contents as `<sha>..<sha>` and validates both
+  endpoints as bare hex, so the annotation made the whole entry unparseable and
+  the run it recorded counted as no coverage at all. The base now sits outside
+  the brackets. A fingerprint is a machine-read field — annotate around it, never
+  inside it.
+
+## 2026-09-07 — Phase B / Cut 1: retire the Jira adapter and the migration engine
+
+Branch `feat/workflow-routing-phase-b` off `f6bb43c` (Phase A, PR #111). Two
+commits: `9b686fe` (the whole cut, one revertable unit) and `5cc470b` (handover).
+
+Deleted `providers/jira.py` (437) and `registry/migrate.py` (437), plus the
+configuration the Jira adapter orphaned — `DEFAULT_JIRA_*`, five `Config` fields,
+`Secret`, the insecure-transport floor and its env hatch, and redaction's
+`_url_credentials`. 991 lines off the scripts tree (5,539 -> 4,548).
+
+`migrate` became `scripts/migrate-task-registry.py`, a self-contained one-shot
+that imports nothing from the skill — Cut 2 deletes the `index.py` and
+`reconcile.py` it used to read through, so a replacement importing them would
+break one phase later. Test section 10 was repointed at it rather than deleted.
+
+Three things the session turned up that were not in the plan:
+
+- The Jira surface was 17 files, not the 3 the handover listed (trap 1 again).
+- `--provider jira` assertions pinned `PROVIDER_CLASSES` and never reached
+  `config.PROVIDERS`; caught by mutation, fixed with a config-file assertion.
+- `tests/test-syncable-paths.sh` refused a `SKILL.md` naming `scripts/…`, because
+  `/sync` does not copy `scripts/`. Fixed with the `<template-clone>/` prefix.
+
+AC16 was restated as a measured delta: its 4,090 absolute came from a baseline
+Phase A had already moved, and `cloc` is not installed here.
+
+Suite: 37 files green. Trees byte-identical. Revert verified by running it.
+
+## 2026-09-08 — Phase C / Cut 2: delete the `tasks/todo.md` sync engine
+
+Branch `feat/workflow-routing-phase-c` off `6c5fe6f` (`master` was held by
+another worktree, so the branch came from `origin/master`).
+
+Deleted `registry/reconcile.py` (797) — `reconcile`, `publish`, `pull`,
+`frontier`, `_dependency_order`, `_cycles` — and extracted its surviving read
+half into `registry/detail.py` (199): `Registry`, `show`, `_render_detail`,
+`_matching_task`, `_combine_task`. `COMMANDS` lost four entries; the CLI gained a
+terminal `AssertionError` guard so a missing dispatch is loud.
+
+Two modules the plan had slated for deletion survived, and both for the same
+reason — a surviving reader:
+
+- `index.py` — `show` resolves against the local index, so `Registry` reads
+  through it. Three genuinely dead members went (`collect_problems`, `row_text`,
+  `replace_line`); `write_text` was deleted by mistake and restored, because the
+  external-reference count had excluded `save()`'s internal call.
+- `upsert.py` — `_published_ref` reads the link row `_sync_index` writes, and
+  `providers/local.py:86,93` overwrites `external` with a local ref, so that row
+  is the only memory of a GitHub publication. Deleting the write would have
+  reintroduced duplicate-issue minting.
+
+Cut 2 therefore measured **608 LOC** (4,562 -> 3,954 against `6c5fe6f`), not the
+projected 1,395. The projection was left in `specs/workflow-routing.md` with the
+miss recorded beside it rather than rewritten.
+
+Trap 1 paid a third time: the spec's 10-row caller table had every line number
+moved and missed four surfaces, including a shipped, checked AC in
+`specs/wrap-up-gate-and-tdd-fold.md:173` pinned live by
+`tests/test-pre-push-gate.sh:227` — a banner naming a deleted command would have
+shipped green.
+
+APOSD Phase 3 returned HOLD. Its MUST-FIX ("AC-19 lost its implementation") was
+partly misattributed — the duplicate-append reproduces on base `6c5fe6f` too, so
+that bug is pre-existing and what this session removed was the reporting that
+surfaced it. Fixed at the load seam: `IndexUnreadable` + `load_index_strict`
+(`index.py:369,373`), which closes the pre-existing path as well. Also applied:
+the debt banner now derives its filing id instead of asking for one, three inert
+`_annotate_resolution` keys deleted, `limitations` rendered under `degraded:`.
+
+Deferred to Cut 3, reported not applied: split the three-field `Registry` context
+out of `detail.py` so the write modules stop importing the read module; drop the
+unconsumed `Report` from `__init__.__all__`.
+
+Suite: 37 files, 3317 assertions, green. 12 mutation probes; one assertion came
+back vacuous and was repaired.
+
+- Learnings captured: `tasks/solutions/process/regenerate-a-caller-list-never-inherit-one.md`,
+  `tasks/solutions/architecture/a-read-and-the-write-that-feeds-it-are-one-unit.md`,
+  `tasks/solutions/patterns/inspection-and-action-need-two-loaders-not-one.md`,
+  `tasks/solutions/process/assertion-must-be-scoped-to-the-half-it-tests.md` (third occurrence)
+
+### [2026-09-07] — Sweep routines shipped
 - Key changes: `/sweep` producer routine (`--routine janitor|architect`) with two
   lens references; `janitor` and `architect` added to the routine contract as
   producers (`PRODUCER_ROUTINES`, refused by `select`/`claim`, run-stamp branches);

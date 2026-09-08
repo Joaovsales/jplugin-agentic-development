@@ -192,14 +192,15 @@ Once the user has confirmed, offer to register the plan's tasks through
 `/task-registry` — never before, and never automatically:
 
 ```bash
-python3 .agents/skills/task-registry/scripts/task-registry.py reconcile
+python3 .agents/skills/task-registry/scripts/task-registry.py upsert <task-id> \
+  --title '...' --spec specs/<feature>.md --apply
 ```
 
 - Rows written in Step 3 carry only the compact fields (see `/task-registry`);
   the spec stays the detailed source of truth and is linked, not copied.
-- `publish --apply` creates external tasks and needs explicit user authorization
-  unless the project's task-tracking configuration disables approval. **Planning
-  never creates an external issue implicitly.**
+- `upsert --apply` creates a task and needs explicit user authorization before it
+  reaches an external tracker, unless the project's task-tracking configuration
+  disables approval. **Planning never creates an external issue implicitly.**
 - If the project has no tracker configured, this is a local no-op — the registry
   falls back to local Markdown and the plan proceeds unchanged.
 

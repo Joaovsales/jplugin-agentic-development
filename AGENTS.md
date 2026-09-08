@@ -11,6 +11,15 @@
 > Add project-specific rules for Pi here.
 > Examples: tech-stack conventions, architectural constraints, domain glossary, service URLs.
 
+### Task Tracking
+
+Task tracking instructions: docs/task-tracking.md
+
+The Claude Code copy of this declaration is in `.claude/project.md`. Both harnesses
+need their own, because neither reads the other's project file — and the pointer
+cannot live in `CLAUDE.md`, which `/sync` overwrites wholesale with a template that
+cannot ship a `docs/` target (#82).
+
 ### Code Economy
 
 A **generation-time** gate that runs *before* you write code — the preventive

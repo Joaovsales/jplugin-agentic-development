@@ -57,9 +57,10 @@ LEGACY_TDD_RE = re.compile(
 ARROW_SPLIT = re.compile(r"(?<!-)->")
 TRAILING_CONJUNCTION = re.compile(r"(?:^|\s+)(?:and|or|then)$", re.IGNORECASE)
 MAX_LOGICAL_ROW_CHARS = 60_000
-#: A reference id ends up as a positional argument to `gh` and as a path segment
-#: in a Jira URL. Anything outside this set is a malformed row, reported like any
-#: other (AC-19) rather than forwarded to a subprocess or an HTTP client.
+#: A reference id ends up as a positional argument to `gh`, and as a path segment
+#: in any tracker URL built from it. Anything outside this set is a malformed row,
+#: reported like any other (AC-19) rather than forwarded to a subprocess or an
+#: HTTP client.
 REF_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 
 
@@ -199,13 +200,6 @@ class TaskIndex:
 
     def replace_row(self, line: int, new_text: str) -> None:
         self._replacements[line] = new_text
-
-    def replace_line(self, line: int, new_text: str) -> None:
-        self._lines[line - 1] = new_text
-
-    def row_text(self, line: int) -> str:
-        """The current text of a line, including edits made this run."""
-        return self._replacements.get(line, self._lines[line - 1])
 
     def append_row(self, task: Task) -> None:
         self._lines.append(render_row(task))
@@ -372,6 +366,35 @@ def load_index(path: str, relative_path: Optional[str] = None) -> TaskIndex:
         return TaskIndex(path, handle.read(), relative_path)
 
 
+class IndexUnreadable(ValueError):
+    """The index carries rows that could not be parsed, so it cannot be acted on."""
+
+
+def load_index_strict(path: str, relative_path: Optional[str] = None) -> TaskIndex:
+    """Load an index a caller intends to *act* on, refusing a half-parsed one.
+
+    :func:`load_index` stays permissive because inspecting a malformed index is
+    how a reader learns what to fix -- `show` reads through it and reports the
+    unparsed rows under `degraded:` rather than denying every task over one bad
+    row. Anything that *acts* must refuse instead: a row that failed to parse is
+    absent from `by_id`, so proceeding turns an update into an append and mints a
+    second row carrying the same id -- silently, and only on the second run.
+
+    Callers that write must load through here *before* touching a provider, not
+    at the point they happen to need the index. `upsert` reaches a tracker before
+    either of its own index reads, so a strict load left at those reads would
+    refuse only after the issue already existed upstream, with nothing pointing at
+    it (specs/task-registry.md AC-19).
+    """
+    index = load_index(path, relative_path)
+    if index.problems:
+        raise IndexUnreadable(
+            "refusing to act on a malformed index — fix these rows first:\n"
+            + "\n".join(f"  {problem.render()}" for problem in index.problems)
+        )
+    return index
+
+
 def write_text(path: str, text: str) -> None:
     """Write UTF-8, creating parents. Explicit encoding at every IO boundary."""
     parent = os.path.dirname(os.path.abspath(path))
@@ -384,10 +407,3 @@ def write_text(path: str, text: str) -> None:
 def read_text(path: str) -> str:
     with open(path, "r", encoding="utf-8-sig") as handle:
         return handle.read()
-
-
-def collect_problems(indexes: Sequence[TaskIndex]) -> List[Problem]:
-    problems: List[Problem] = []
-    for index in indexes:
-        problems.extend(index.problems)
-    return problems

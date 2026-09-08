@@ -3,7 +3,7 @@
 #
 # specs/sweep-routines.md AC4. `/sweep` hands a finding to a later `/debug #N`
 # through the tracker, so the record must carry a reproduction and a proposed
-# fix that survive every provider round-trip — GitHub and Jira seed them as body
+# fix that survive every provider round-trip — GitHub seeds them as body
 # sections, the metadata block carries them back, the local provider stores them,
 # and `show` renders them. The ID is derived from namespace + primary file +
 # short title so a second sweep updates the same issue instead of filing twice.
@@ -27,8 +27,8 @@ import sys, unittest
 from registry.model import (Task, TaskModelError, render_metadata_block, parse_metadata_block,
                             task_from_metadata, _first_prose_line)
 from registry.upsert import derive_id, _merge
-from registry.providers import github, jira, local
-from registry import reconcile
+from registry.providers import github, local
+from registry import detail
 
 REPRO = ("run `make check` on a clean tree, twice", "observed: exit 1 / expected: exit 0")
 FIX = ("pin the fixture ordering in tests/lib.sh", "drop the sleep")
@@ -135,14 +135,6 @@ class SeedBodyTests(unittest.TestCase):
             self.assertNotIn(heading, body)
         self.assertIn("## Acceptance Criteria", body)
 
-    def test_jira_renders_five_sections_in_order(self):
-        body = jira._seed_body(sample())
-        ok, pos = ordered(body, "Export rows", "Reproduction:", "Proposed fix:",
-                          "Acceptance criteria:", "Evidence:", "Spec:")
-        self.assertTrue(ok, (pos, body))
-        self.assertIn("# run `make check` on a clean tree, twice", body)
-        self.assertIn("* pin the fixture ordering in tests/lib.sh", body)
-
 class DeriveIdTests(unittest.TestCase):
     def test_title_fold_is_opt_in_so_existing_ids_are_stable(self):
         self.assertEqual(derive_id("spec-reconciliation", "specs/feature-c.md"),
@@ -154,7 +146,7 @@ class DeriveIdTests(unittest.TestCase):
 
 class ShowTests(unittest.TestCase):
     def test_detail_renders_both(self):
-        lines = reconcile._render_detail("sweep.x", None, sample(), reconcile.Report("show", "local"))
+        lines = detail._render_detail("sweep.x", None, sample(), detail.Report("show", "local"))
         text = "\n".join(lines)
         self.assertIn("reproduction:", text)
         self.assertIn("observed: exit 1 / expected: exit 0", text)
@@ -163,7 +155,7 @@ class ShowTests(unittest.TestCase):
 
     def test_detail_renders_evidence_one_witness_per_line(self):
         task = sample(evidence=("sorted(x, key=f) (a.py:1)", "discovered: sweep @ abc"))
-        text = "\n".join(reconcile._render_detail("sweep.x", None, task, reconcile.Report("show", "local")))
+        text = "\n".join(detail._render_detail("sweep.x", None, task, detail.Report("show", "local")))
         self.assertIn("  evidence:\n    - sorted(x, key=f) (a.py:1)\n    - discovered: sweep @ abc", text)
 
 runner = unittest.TextTestRunner(verbosity=0, stream=sys.stdout)
@@ -172,7 +164,7 @@ print(f"PYRESULT ran={result.testsRun} failed={len(result.failures) + len(result
 PY
 )"; py_rc=$?
 assert_eq "0" "$py_rc" "AC4 python: model, metadata block, seed bodies, derive_id, show ($(printf '%s' "$py_out" | tail -20))"
-assert_contains "$py_out" "PYRESULT ran=16 failed=0" "AC4 python: all 16 cases ran green"
+assert_contains "$py_out" "PYRESULT ran=15 failed=0" "AC4 python: all 15 cases ran green"
 
 # ---------------------------------------------------------------- 2. through the CLI
 P="$(mktemp -d)"; TMP_DIRS+=("$P")
@@ -287,7 +279,7 @@ assert_eq "absent" "$([ -f "$P/tasks/details/x.y.md" ] && echo present || echo a
 # The parity copy carries the same engine.
 assert_files_identical "$CLI" "$REPO/.claude/skills/task-registry/scripts/task-registry.py" \
   "parity: task-registry.py is mirrored"
-for f in model.py upsert.py reconcile.py providers/github.py providers/jira.py providers/local.py; do
+for f in model.py upsert.py detail.py providers/github.py providers/local.py; do
   assert_files_identical "$SCRIPTS/registry/$f" "$REPO/.claude/skills/task-registry/scripts/registry/$f" \
     "parity: registry/$f is mirrored"
 done

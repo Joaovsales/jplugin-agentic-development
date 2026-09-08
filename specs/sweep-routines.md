@@ -15,7 +15,6 @@ implementation_paths:
   - .agents/skills/task-registry/scripts/registry/config.py
   - .agents/skills/task-registry/scripts/registry/model.py
   - .agents/skills/task-registry/scripts/registry/providers/github.py
-  - .agents/skills/task-registry/scripts/registry/providers/jira.py
   - .agents/skills/task-registry/scripts/registry/providers/local.py
   - .agents/skills/task-registry/scripts/task-registry.py
   - .agents/skills/task-registry/references/configuration.md
@@ -104,10 +103,10 @@ Seven steps. Steps 3 and 4 differ per lens and live in
 
 1. **Doctor.** Spine step 1 again (idempotent), plus clean tree and recorded
    `HEAD` sha. Write the step ledger rows into `tasks/todo.md`.
-2. **Read the backlog.** Refresh the index from the provider through
-   `/task-registry` (a read) and load every open task's title, summary, and
-   evidence. This is the dedupe set. No `gh issue list`, no Jira call — the
-   coupling guard in `tests/test-doc-conventions.sh` applies to this skill.
+2. **Read the backlog.** Read it through `/task-registry` (`show` per open
+   index row — there is no bulk read) and load every open task's title, summary,
+   and evidence. This is the dedupe set. No `gh issue list`, no direct tracker
+   call — the coupling guard in `tests/test-doc-conventions.sh` applies to this skill.
 3. **Run the engine** (lens file). Everything the engine runs is recorded with
    its command and exit status. No sub-agents are dispatched; the run states, per
    *Independence Accounting*, that every finding has a single witness.
@@ -165,7 +164,7 @@ round-tripped through the metadata block so a re-run replaces them rather than
 accreting; evidence alone accretes, each run's sightings appended and
 duplicates dropped. Every metadata entry is one line — a newline inside one is
 refused, since it would end the entry and read its tail as a new key. The
-seeded provider body (GitHub and Jira) is written once at creation and never
+seeded provider body (GitHub) is written once at creation and never
 rewritten, so a later run reaches the issue through the metadata block only.
 It renders, in order:
 summary, `## Reproduction` (numbered), `## Proposed fix`,
@@ -243,9 +242,14 @@ Both trees deleted, `tests/test-auto-improve-rewire.sh` deleted, and every
 reference outside `tasks/` and `specs/` history repointed: `CLAUDE.md` skills
 table and the repo-survey exception in *Review Dispatch Contract* (now `/sweep
 --routine architect`), `README.md`, `session-start.sh`, `/build` and
-`subagent-resilience.md`, and the test loops in `test-doc-conventions.sh`,
-`test-model-tiers.sh`, `test-review-context.sh`, `test-skill-invocation-chain.sh`,
-`test-routines-contract.sh`. Downstream `/sync` retires the directory from the
+`subagent-resilience.md`, the `/wrap-up-session` Step 8.5 caller list, and the
+test loops in `test-doc-conventions.sh`, `test-model-tiers.sh`,
+`test-review-context.sh`, `test-skill-invocation-chain.sh`,
+`test-routines-contract.sh`, `test-routine-wrapup.sh` (`/sweep` runs on a
+routine branch, so the parser rule covers it and it needs no declaration) and the
+`test-routine-skills.sh` reconfiguration fixture. The reference list was
+regenerated with `git grep` against the merged tree after master's Phase A and
+Cuts 1–2 landed, not inherited from the plan. Downstream `/sync` retires the directory from the
 template's history record; no allowlist entry is needed.
 
 ## Inputs / Outputs
@@ -290,7 +294,7 @@ template's history record; no allowlist entry is needed.
   `chore(sweep):`, the single-witness statement, and that no sub-agent is
   dispatched.
 - AC4 — `Task` has `reproduction` and `proposed_fix`; `upsert` accepts both
-  flags; GitHub and Jira seeded bodies render the five sections in order; the
+  flags; the GitHub seeded body renders the five sections in order; the
   local provider and the metadata block round-trip both fields; `show` renders
   them. Pinned by a Python test in `tests/test-sweep-handoff.sh`.
 - AC5 — `/debug` documents issue-reference intake via `task-registry show`, the

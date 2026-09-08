@@ -20,12 +20,10 @@ from .base import (
     preserve_labels,
 )
 from .github import GitHubProvider
-from .jira import JiraProvider
 from .local import LocalMarkdownProvider
 
 PROVIDER_CLASSES: Dict[str, Type[TrackerProvider]] = {
     "github": GitHubProvider,
-    "jira": JiraProvider,
     "local": LocalMarkdownProvider,
 }
 
@@ -63,7 +61,6 @@ def build_provider(name: str, config, gate: Optional[WriteGate] = None) -> Track
 __all__ = [
     "Capabilities",
     "GitHubProvider",
-    "JiraProvider",
     "LinkResult",
     "LocalMarkdownProvider",
     "PROVIDER_CLASSES",

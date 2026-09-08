@@ -25,7 +25,7 @@ only its indented continuation lines into the summary
 rewrites replace that span, while migration uses the explicit physical-line edit
 operation so minting an ID does not delete continuation prose
 (`.agents/skills/task-registry/scripts/registry/index.py:200-221` and
-`.agents/skills/task-registry/scripts/registry/migrate.py:205-220`).
+`scripts/migrate-task-registry.py`, which was `.agents/skills/task-registry/scripts/registry/migrate.py:205-220` until Cut 1 retired it).
 
 GitHub rendering was disconfirmed: it emits a non-empty body whenever summary or
 criteria exist. Migration was also disconfirmed as the lossy stage: it preserved

@@ -495,3 +495,203 @@ Not executed by `/build`. Listed so the frontier shows the real dependency graph
 - Pending: 0 active; 2 deferred externally (#97, #98) unchanged
 - Carry-forward: `/plan` has no issue-reference intake (prompts hand it
   `task-registry show` output by hand); follow-up scope call for a human
+
+---
+
+## Plan: Phase A — the `workflow` command (specs/workflow-routing.md)
+
+> Spec: `specs/workflow-routing.md` (R2, R3, R6). Handover: `tasks/handover-workflow-routing.md` — **read it first.**
+> **Gate: satisfied.** #82 merged as PR #109 (`bbef230`, 2026-09-07). This branch is off `master` at that commit.
+> Phase B (Cut 1) and Phase C (Cut 2) are deliberately **not** rows here — one phase per `/build`, one PR per phase, because the spec's rollback story requires each cut to be a single revertable commit. Their rows live in the handover, §§ 7–8.
+
+- [x] TDD: `tests/test-routine-skills.sh` — a config with no `[routines.skills]` yields the shipped default chain for each of `plan`/`fix`/`improve`/`build`; a chain naming a skill absent from disk is refused naming the skill (AC4); a chain whose last element is not `/wrap-up-session` is refused (AC5); an override supplying one chain replaces all of them rather than merging per key (AC8); a routine carrying a selector but no chain is refused naming the routine (AC9) -> `registry/config.py`: `DEFAULT_ROUTINE_SKILLS` beside `DEFAULT_KIND_PRECEDENCE`, a `routine_skills` field on `Config`, its reader, and three validators beside the existing selector validators <!-- task-id: routines.skill-chains -->
+- [x] TDD: `tests/test-routine-selectors.sh` gains a `workflow` block asserting all six outcomes of spec § 3 are distinguishable in **both** stdout and exit code — routine found, resolves to deferred `build`, no kind label, claim label present (names the claimant), unknown reference (exit 1), config or upstream-label fault (exit 2); `workflow` takes exactly one required argument (AC13) -> `task-registry.py`: `workflow` subcommand + `_workflow()` over the existing `select_routine()` (`routines.py:49`), which today collapses five of these into one `None` (AC1, AC2) <!-- task-id: routines.workflow-command --> (blocked-by: routines.skill-chains)
+- [x] TDD: `select --routine <name>` orders candidates by `(priority rank: now < next < unset, then ascending issue number)`; a shuffled provider response yields the same head; two runs on an unchanged backlog return the same issue (AC3) -> `registry/model.py` `by_priority` — today it tie-breaks on `task.id`, a title-derived slug (`model.py:305`, `fallback_id=""` at `github.py:262`), **not** the issue number; change the key and amend spec § *Ordering* + AC3 in the same commit. Both callers (`routines.py:105`, `reconcile.py`) change together <!-- task-id: routines.total-order --> <!-- see handover § 5 -->
+- [x] TDD: `doctor` reports this project's configured path rather than `configuration: none`; `.claude/project.md` carries the declaration and `/sync`'s syncable-paths block does not cover it; `CLAUDE.md` emits no bare parseable pointer (AC7's project half, AC12) -> create `docs/task-tracking.md` from `.agents/skills/task-registry/templates/task-tracking.md` with a `[routines.skills]` section, and declare it in `.claude/project.md`. **The engine half — declared-but-missing refused loudly — belongs to #82's worktree. If that agent already did this half, drop this task and say so** <!-- task-id: routines.project-config --> (blocked-by: routines.skill-chains)
+- [x] TDD: `tests/test-routine-wrapup.sh` — a **scheduled** run whose branch has no PR at completion reports it loudly and exits non-zero; an unattended run producing no PR is never silent (AC11). Do not assert that every session ends in a PR: `/wrap-up-session` has six documented no-PR exits and the spec restates R4 as "attempts a PR, and says so loudly when it fails" -> `.agents/skills/wrap-up-session/SKILL.md` terminal assertion (`gh pr view` on the branch) + parity copy <!-- task-id: routines.pr-assertion --> (blocked-by: routines.workflow-command)
+- [x] TDD: assertions pinning the two ACs that are **already shipped** — AC6 (a workflow label absent upstream is refused naming it, `task-registry.py:436` `_selector_upstream_check`) and AC10 (`claim` without `--apply` writes nothing and says so; idempotent; refuses an issue claimed by another routine). Verify, do not reimplement. Every new assertion in this plan must be falsifiable by mutation — break it, watch it go red, restore -> no new implementation <!-- task-id: routines.pin-shipped-acs --> (blocked-by: routines.workflow-command)
+- [x] TDD: `tests/test-skill-parity.sh` green (AC15); `bash tests/run.sh` fully green -> byte-identical copies of every edited `.agents/skills/**` file into `.claude/skills/**` <!-- task-id: routines.parity-suite --> (blocked-by: routines.pr-assertion)
+
+## Session Summary — 2026-09-07 [40f6b5e..15a6c29] Phase A complete (specs/workflow-routing.md), base bbef230
+- Completed: 7 of 7 Phase A rows. Branch `feat/workflow-routing-phase-a` off `bbef230`.
+- Gate: #82 merged as PR #109 before any Phase A work began, per the handover's Step 0.
+- Delivered: `task-registry workflow <ref>` (R2, the only real gap), `[routines.skills]`
+  configuration layer, issue-number tie-break, this project's `docs/task-tracking.md`,
+  and wrap-up Step 8.5.
+- Phase A owns AC1-AC13 and AC15; all have falsifiable assertions. AC14 and AC16
+  belong to Phase B/C.
+- Suite: 37 files green. Every new gate verified falsifiable by mutation; four
+  assertions that could not fail were found and narrowed rather than kept.
+- Next: Phase B (Cut 1) — rows in `tasks/handover-workflow-routing.md` § 7. Do not
+  start it on this branch; one phase per `/build`, one PR per phase.
+
+## Session Summary — 2026-09-07 [15a6c29..31edf29] Phase A review fixes
+- Applied the four dispatched review passes: 7 MUST-FIX and 16 SHOULD-FIX, none skipped.
+- `workflow` rewritten to resolve through `provider.resolve_reference` +
+  `get_task`. That one change closed four defects: `workflow '#11'` refusing a
+  live issue, the 500-issue page-limit blind spot, a closed issue routed as
+  runnable, and a tracker outage exiting on the code a scheduler pages on.
+- Two previously-green assertion sets were reproduced as vacuous and rebuilt: the
+  AC4 traversal guard (the bait file now exists, so refusing and traversing
+  diverge) and the wrap-up early-exit routing (derived from Step 8.5's own table).
+- `AGENTS.md` had no task-tracking pointer while `.claude/project.md` claimed it
+  did — this repository was loading defaults on Pi. Both halves now pinned.
+- Suite: 39 files green. Every new guard mutation-tested red-then-restored.
+- Carry-forward: four `owner: human` findings recorded in
+  `tasks/handover-workflow-routing.md` § 11, led by AC2 being unsatisfiable as
+  worded against spec § 3's own table.
+- Next: Phase B (Cut 1), handover § 7 — which now carries what Phase A changed
+  for it, including an eleventh `Registry` caller Cut 2's table does not list.
+
+## Plan: Phase B — Cut 1, the two dead modules (`specs/workflow-routing.md`, handover § 7)
+
+> Base `f6bb43c` (Phase A, PR #111 merged). Branch `feat/workflow-routing-phase-b`.
+> **Ships as one commit** — the spec's rollback story requires Cut 1 to be a single
+> `git revert`. No interleaved changes.
+> Caller lists below were regenerated with grep on this branch (trap 1); the handover's
+> § 7 row named three doc files and the live surface is seventeen.
+
+- [x] TDD: `tests/test-task-registry.sh` — `--provider jira` is refused naming the available providers; `PROVIDERS` is `("github","local")`; a Jira-shaped URL classifies as `local` via `FALLBACK_PROVIDER` rather than a Jira adapter; sections 4/5/8 and the `:1823` regression block retire with their subject -> delete `registry/providers/jira.py` (437) and `tests/fixtures/task-registry/fake-jira.py`; drop `JiraProvider` from `providers/__init__.py` (`PROVIDER_CLASSES`, import, `__all__`) <!-- task-id: cut1.jira-module -->
+- [x] TDD: `load_config` on a `[jira.issuetype]`/`[jira.priority]` section leaves no `jira_*` attribute on `Config`; `JIRA_BASE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN` are not read; `redactor_for` still scrubs a generic `token=...` via `_PATTERNS` with no configured secret -> `registry/config.py`: remove `DEFAULT_JIRA_ISSUE_TYPES`, `DEFAULT_JIRA_PRIORITIES`, the five `jira_*` `Config` fields, their readers (`:402`, `:453`, `:472`), `Secret`, `is_secure_transport`, `INSECURE_TRANSPORT_ENV` and the insecure-transport guard; `registry/redaction.py`: `redactor_for` keeps its two callers (`github.py:85`, `task-registry.py:193`) and returns `Redactor([])`, `_url_credentials` retires with the only config field that fed it; `registry/__init__.py` drops `Secret` <!-- task-id: cut1.jira-config --> (blocked-by: cut1.jira-module)
+- [x] TDD: `grep -rni jira` over `CLAUDE.md README.md .agents .claude tests specs` returns only Phase-B provenance lines; `tests/test-doc-conventions.sh:374`'s "Jira is never selected implicitly" assertion retires with the sentence it pins -> provider vocabulary becomes `github`/`local` in `CLAUDE.md:420,439,444,478`, `README.md:291`, `task-registry/SKILL.md` (frontmatter `description`, `:142`, `:206`, `:211`), `references/configuration.md`, `templates/task-tracking.md` (`[jira.issuetype]`, `[jira.priority]`), `.claude/hooks/session-start.sh:418`, and the four boundary-prose sites that name Jira as the tracker workflow code must not call directly (`wrap-up-session/SKILL.md:223,604`, `verify/SKILL.md:212`, `build/SKILL.md:173`, `wrap-up-session/references/routines.md:158`) — the boundary argument survives, the dead provider name does not <!-- task-id: cut1.jira-docs --> (blocked-by: cut1.jira-config)
+- [x] TDD: `task-registry migrate` exits non-zero as an unknown command; `scripts/migrate-task-registry.py` mints stable ids on the same ascii_video_pipeline-shaped fixture section 10 uses, imports nothing from the skill, and still runs with `registry/index.py` and `registry/reconcile.py` absent (the Cut 2 precondition); `reconcile`'s `missing-id` text names a path that exists on disk -> delete `registry/migrate.py` (437), its `migrate` subcommand in `task-registry.py`, `references/migration.md`, and the `apply_migration`/`plan_migration` exports in `registry/__init__.py`; ship the self-contained one-shot under `scripts/` (precedent: `scripts/migrate-learning-store.py`) vendoring the slice it needs — index row parse/replace, `slugify_id`, `TERMINAL_STATUSES`, `_scan_specs`; **repoint section 10's assertions at the one-shot rather than deleting them**, so the remedy keeps a falsifiable test <!-- task-id: cut1.migrate-oneshot --> (blocked-by: cut1.jira-docs)
+- [x] TDD: `SKILL.md:207` and `references/progressive-disclosure.md:48` name the one-shot's real path, not `migrate`; `references/configuration.md:258`'s `missing-id` remedy resolves to a shipped file; no `references/migration.md` link dangles in `tests/test-skill-references.sh` -> the `migrate` documentation surface, repointed rather than dropped (trap 6: never delete it silently) <!-- task-id: cut1.migrate-docs --> (blocked-by: cut1.migrate-oneshot)
+- [x] TDD: `tests/test-skill-parity.sh` green — `.agents/` and `.claude/` byte-identical (AC15); `bash tests/run.sh </dev/null` fully green; AC16 recorded as a **measured delta** against this branch's base rather than the spec's stale absolute (see the ambiguity below) -> parity copies of every edited `.agents/skills/**` file; amend spec § *Honest accounting* + AC16 in this same commit so the spec never states a number the tree contradicts <!-- task-id: cut1.parity-suite --> (blocked-by: cut1.migrate-docs)
+
+## Session Summary — 2026-09-07 [f6bb43c..HEAD] Phase B / Cut 1 complete (specs/workflow-routing.md)
+- Completed: 6 of 6 Phase B rows. Branch `feat/workflow-routing-phase-b` off `f6bb43c` (PR #111).
+- Deleted: `providers/jira.py` (437), `registry/migrate.py` (437),
+  `references/migration.md`, `tests/fixtures/task-registry/fake-jira.py`, and the
+  configuration the Jira adapter orphaned — `DEFAULT_JIRA_*`, five `Config`
+  fields, `Secret`, `is_secure_transport`/`INSECURE_TRANSPORT_ENV`,
+  `_url_credentials`. 991 lines off the scripts tree (5,539 -> 4,548).
+- Shipped: `scripts/migrate-task-registry.py`, a self-contained one-shot (689 LOC)
+  replacing `task-registry migrate`. It imports nothing from the skill — pinned by
+  an assertion — because Cut 2 deletes the `index.py` and `reconcile.py` it used
+  to read through. Test section 10 was repointed at it rather than deleted, so the
+  `missing-id` remedy keeps a falsifiable test instead of only a mention.
+- The Jira sweep ran to 17 files, not the 3 the handover listed (trap 1 again).
+- Every new guard mutation-tested red-then-restored. One assertion set was found
+  vacuous mid-run (`--provider jira` pinned `PROVIDER_CLASSES`, never
+  `config.PROVIDERS`) and a config-file assertion was added to cover the path a
+  downstream project actually hits.
+- Suite: 37 files green. `.agents`/`.claude` byte-identical (AC15).
+- Next: Phase C (Cut 2), handover § 8. Regenerate the caller list — `workflow`,
+  `select` and `claim` are callers the § 8 table predates.
+
+## Plan: Phase C — Cut 2, the todo.md sync engine (specs/workflow-routing.md)
+
+> Branch `feat/workflow-routing-phase-c` off `6c5fe6f` (Phase B / PR #113).
+> Ships as **one commit**: the spec's rollback story requires the module deletions
+> and their caller repoints to revert together.
+> Caller list below was **regenerated by grep** (trap 1), not taken from handover § 8.
+
+- [x] TDD: `show` survives with its local half — `task-registry show <id>` renders an index-row-only task (no external ref) and a provider-only task, on both providers; `grep -n 'from .index\|from .reconcile' registry/*.py task-registry.py` names only the new home -> rehome the surviving read surface (`Registry` + `show` + `_render_detail` + the `index.py` row **parser**) into a module Cut 2 does not delete; `reconcile.py`, `index.py`, `upsert.py` then go whole. See decision **D1** below <!-- task-id: cut2.rehome-show -->
+- [x] TDD: `for c in reconcile publish pull frontier; do` each exits non-zero as an unknown command; `registry/__init__.py` exports no `Registry`/`Report` from a deleted module; `python3 task-registry.py --help` lists only the surviving commands -> delete `registry/reconcile.py` (797), `registry/index.py` (394), the `publish`/`pull`/`frontier` dispatch entries in `task-registry.py:262-269`, and `_dependency_order`/`_cycles` <!-- task-id: cut2.delete-modules --> (blocked-by: cut2.rehome-show)
+- [x] TDD: the wrap-up debt ledger's remedy resolves to a command that exists — `session-start.sh` banner + `tests/test-pre-push-gate.sh:227` + `specs/wrap-up-gate-and-tdd-fold.md:173` (a **shipped AC**) agree with the shipped CLI; `wrap-up-session/SKILL.md:226`'s deferred-work recorder still runs -> resolve decision **D2** below on `upsert.py`, then repoint every surface in this same commit <!-- task-id: cut2.debt-remedy --> (blocked-by: cut2.rehome-show)
+- [x] TDD: `grep -rn` over `.agents .claude tests specs CLAUDE.md README.md docs` finds no live `reconcile`/`publish`/`pull`/`frontier` task-registry invocation (AC14) -> repoint the regenerated caller list: `plan/SKILL.md:195,200`, `wrap-up-session/SKILL.md:81,85`, `task-registry/SKILL.md` (18 refs incl. frontmatter `argument-hint:4`, the command table `:59-64`, `:43-52`, `:173,177,184,217`), `references/progressive-disclosure.md` (4 refs), `CLAUDE.md:480`, `session-start.sh:214,418` <!-- task-id: cut2.repoint-callers --> (blocked-by: cut2.delete-modules)
+- [x] TDD: no living spec asserts a deleted command — `/wrap-up-session`'s spec reconciliation (`b157369`) fires **actively** on these, so they are amended in the cut commit, not after -> `specs/task-registry.md`: **AC-18 (`frontier`)** at `:188`, the command table `:78-83`, and `:52,118,122,129,138,173,190,201`; `specs/workflow-routing.md`: AC14/AC16 + § *Honest accounting* per D1's measured delta; `specs/wrap-up-gate-and-tdd-fold.md:99,173` per D2 <!-- task-id: cut2.spec-amendments --> (blocked-by: cut2.repoint-callers)
+- [x] TDD: every retired assertion is retired **with the behavior it pinned**, never silenced — `tests/test-task-registry.sh` § 9 (reconcile/frontier/progressive-disclosure, `:1058-1205`), the publish blocks (`:908-1052`, `:1814`, `:1895-1969`), the CLI sweep `:1493` (trims to `doctor`), `:2002,2041` frontier; `tests/test-routine-selectors.sh:456`; `tests/test-skill-invocation-chain.sh:146,152` (wrap-up→`reconcile` chain); `tests/test-pre-push-gate.sh:227` -> retire or repoint each; **`scripts/migrate-task-registry.py` must still run** — § 10's "imports nothing from the skill" assertion going red means the fix is in the script, never in the assertion <!-- task-id: cut2.test-retirement --> (blocked-by: cut2.spec-amendments)
+- [x] TDD: `tests/test-skill-parity.sh` green (AC15); `tests/test-syncable-paths.sh` green (no `SKILL.md` names a `scripts/…` path — use the `<template-clone>/scripts/…` prefix); `bash tests/run.sh </dev/null` fully green against the 37-file / 3362-assertion baseline -> parity copies of every edited `.agents/skills/**` file into `.claude/skills/**`; record AC16 as a measured delta against `6c5fe6f` <!-- task-id: cut2.parity-suite --> (blocked-by: cut2.test-retirement)
+
+### Decisions this plan needs before it builds
+
+**D1 — `show` keeps a local half, so `index.py` cannot go whole.**
+Handover § 8 states every surviving command "uses only those three attributes and
+none of the methods." Regenerated evidence says otherwise: `show` is a `Registry`
+method (`reconcile.py:587`) that calls `self.local_index()` (`:141` → `index.py`),
+`_resolve_task`, and `_render_detail`. `index.py`'s write half is only **71 LOC**;
+its read/parse half is **~320**.
+- (a) **Recommended** — rehome `Registry` + `show` + the row parser into a module
+  the cut does not touch, then delete all three files whole. Keeps the cut boundary
+  at module ownership, which is what "one revertable commit" is built on.
+- (b) Keep `reconcile.py`/`index.py` as files, delete only the sync methods.
+  Smaller diff; both files keep names that no longer describe them.
+- (c) Make `show` provider-only and delete `index.py` whole. Only option that hits
+  AC16's literal 1,395, but drops detail for a row never published.
+Independent corroboration for keeping the parser: the spec's own #90 row calls
+`_split_title_summary` (`index.py:127`) a function that "runs on every row parse"
+and marks #90 **not affected** by this work — which only holds if the parser survives.
+**Consequence either way:** AC16's "a further 1,395" becomes ~**1,075**. AC16 already
+prefers measured deltas over absolutes, so this is an amendment, not a miss.
+
+**D2 — deleting `upsert` leaves the repo with no task-creation command.**
+Cut 2 as specced deletes `upsert.py` (204). But `upsert` is not a todo.md *mirror* —
+it is runtime task creation, and two surfaces depend on it existing:
+- `specs/wrap-up-gate-and-tdd-fold.md:173` is a **shipped, checked AC** requiring
+  `session-start.sh` to print the filing invocation, pinned by
+  `tests/test-pre-push-gate.sh:227`.
+- `wrap-up-session/SKILL.md:226` records deferred spec-reconciliation work with it.
+- (a) **Recommended** — keep `upsert`, delete only its index-sync side effect
+  (`from .index import load_index, render_row`, `_sync_index`). The mirror dies; the
+  create-one-task capability stays.
+- (b) Delete it and repoint both surfaces at `gh issue create` — but that puts a
+  tracker call in a hook banner and in wrap-up prose, crossing the "workflow code
+  never calls the tracker itself" boundary `SKILL.md:222` states.
+- (c) Delete it and retire the debt-ledger remedy, amending the other spec's AC.
+
+## Session Summary — 2026-09-08 [6c5fe6f..314f007] Phase C / Cut 2 complete (specs/workflow-routing.md)
+- Completed: 7 of 7 Phase C rows. Branch `feat/workflow-routing-phase-c` off `6c5fe6f` (PR #113).
+- Deleted: `registry/reconcile.py` (797) and with it the `reconcile`, `publish`,
+  `pull` and `frontier` commands and the local `_dependency_order`/`_cycles`
+  topological solver. 591 lines off the scripts tree (4,562 -> 3,971).
+- Added: `registry/detail.py` (199) — reconcile.py's surviving half, so `show`
+  keeps working after the module it lived in went away.
+- **Cut 2 came in at 591, not the projected 1,395**, and that is the session's
+  main finding. `index.py` and `upsert.py` were both slated for deletion; both
+  have a reader that survives the cut. `show` resolves against the local index,
+  and `upsert._published_ref` reads the link row `_sync_index` writes — the only
+  memory of a GitHub publication, because `providers/local.py:86,93` overwrites
+  `external` with its own local ref. Deleting the write while keeping the read
+  would have re-opened the duplicate-issue bug the read exists to prevent.
+- Trap 1 paid a third time: the spec's caller table listed 10 callers, every line
+  number had moved, and it missed four surfaces — including a **shipped AC** in
+  `specs/wrap-up-gate-and-tdd-fold.md:173` (pinned live by
+  `tests/test-pre-push-gate.sh:227`) requiring the debt banner to name a command
+  Cut 2 deletes. The banner now names `upsert`.
+- Resolved during the APOSD gate (was recorded here as an accepted consequence):
+  `index.py`'s `problems` list briefly had no reader once `reconcile` was gone, so
+  a malformed row reached no CLI surface. `load_index_strict` + `IndexUnreadable`
+  (`index.py:369,373`) restored it — every command that resolves by id or rewrites
+  a row now refuses and renders the failing rows, while `doctor` keeps the
+  permissive `load_index`. This also closes a duplicate-append that reproduces on
+  base `6c5fe6f`, i.e. pre-dates the cut.
+- Suite: 37 files green, 3340 assertions total; 318 in the registry suite (was 307 — ~200
+  retired with their commands, the survivors repointed rather than deleted).
+- Every new guard mutation-probed red-then-restored. One probe came back green:
+  `assert_contains "$gh_degraded" "degraded"` matched the limitation's own text
+  ("reads degraded to local-only") with the `degraded:` header deleted. Rescoped to
+  the block and re-probed red (`tests/test-task-registry.sh:1924`).
+- Next: `/wrap-up-session`. Downstream re-scoping (#97, #93, #98) per handover § 9.
+
+### Review round — 4 dispatched passes (2026-09-08)
+
+All four passes independently found the same defect: `upsert --apply` reached the
+provider **before** the strict index load, so on the GitHub path a malformed
+`tasks/todo.md` let the issue be created and only then refused — an orphaned
+upstream issue, reported to the operator as a failure. AC-19 says "before any
+provider write"; it was not delivered on the only path that writes. Fixed by
+hoisting one `load_index_strict` above `provider.discover()`, which also makes
+the dry run refuse identically.
+
+Pass 4 found a second one nobody else did: `tests/test-task-registry.sh:1690`
+still invoked the deleted `frontier`, so argparse exited 2, the suite has no
+`set -e`, and `assert_not_contains` passed on the error text. A green assertion
+proving nothing — the exact failure closed task 6 claims to have prevented.
+
+Pass 3 mutation-proved two more surfaces had lost their only guard when the
+`publish` assertions were retired: the legacy-row publish diagnostics, and
+`Report.exit_code` / the `failures:` render / `offline_reads = fail`.
+
+Corrected while fixing: `show` was made permissive again. It writes nothing, so
+refusing there denied every task over one unrelated bad row — and left no command
+able to diagnose the file, because `doctor` never reads the index. The
+`load_index_strict` docstring had justified the permissive variant by naming a
+reader that did not exist. The code now matches the comment rather than the
+reverse.
+
+- Suite: 37 files, 3340 assertions, green. 9 mutation probes this round, all red
+  then restored.
+- Deferred, reported not applied: `backlog_path` and `dependency_strategy` are
+  orphaned config knobs, but were already orphaned before this cut — out of scope
+  under the orphan rule. `spec_dir` *was* orphaned by this cut and was removed.

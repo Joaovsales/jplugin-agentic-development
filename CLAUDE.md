@@ -417,7 +417,7 @@ external ticket or the linked spec, and are read one task at a time via
 
 The project's configuration contract is `docs/task-tracking.md`, or wherever a
 `Task tracking instructions: <path>` line in `.claude/project.md` (or `AGENTS.md`
-for Pi) points. That file declares: provider (`github`, `jira`, or `local`),
+for Pi) points. That file declares: provider (`github` or `local`),
 repository/project identifier, label and status mappings, local detail
 directory, dependency strategy, whether external writes need approval, migration
 policy, and offline behaviour. It is optional — without one, provider selection
@@ -436,12 +436,14 @@ configuration the provider is resolved in order: an explicit `provider =` wins;
 otherwise **GitHub**, whenever a GitHub remote and an authenticated `gh` both
 exist; otherwise local Markdown. A repository with a GitHub remote therefore
 tracks against GitHub by default — reachable, not offline — and external writes
-still require approval. Jira is never selected implicitly, because reachable
-credentials are not consent to write to a company tracker. Run
+still require approval. No tracker is ever selected implicitly beyond those
+two rungs, because reachable credentials are not consent to write to a company
+tracker — a third tracker is added by declaring `provider =`, never by being
+detectable. Run
 `/task-registry doctor` to see which provider resolved and why.
 
 **No skill talks to a tracker directly.** `/plan`, `/build`, `/verify`,
-`/quality-gate`, and `/wrap-up-session` reach GitHub or Jira for task state only
+`/quality-gate`, and `/wrap-up-session` reach the tracker for task state only
 through `/task-registry`, so a project can change tracker without editing a
 workflow skill. External task creation and status changes require explicit
 authorization unless the project's configuration enables them.
@@ -475,7 +477,7 @@ authorization unless the project's configuration enables them.
 | `/start-qa` | Restart app + health check + browser with log monitoring |
 | `/wrap-up-session` | Learnings, tests, reviews, commit, push |
 | `/writing-skills` | Author new skills with proper structure |
-| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues, Jira, or a local Markdown store; reconcile stale plans; dependency-aware frontier |
+| `/task-registry` | Resolve one task against GitHub Issues or a local Markdown store; routine selection and claiming |
 | `/eval` | Blinded A/B eval of a skill or prompt change before promoting it |
 | `/sync` | Pull latest skills, hooks, agents from template repo |
 | `/folder-context-optimization` | Sweep folder for legacy/unused files |

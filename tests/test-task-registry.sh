@@ -11,8 +11,6 @@
 #   * every provider is run through the SAME contract block, so a fourth adapter
 #     inherits the checks instead of re-deriving them
 #   * GitHub runs against a `gh` mock first on PATH — real argv construction
-#   * Jira runs against a real HTTP server on a real socket — real auth headers,
-#     real error bodies, real redaction
 #   * everything else runs through the CLI, which is what skills actually call
 #
 # Zero external dependencies beyond git + python3. Every scenario builds a
@@ -37,12 +35,8 @@ else
 fi
 
 TMP_DIRS=()
-JIRA_PIDS=()
 cleanup() {
-  local pid d
-  for pid in "${JIRA_PIDS[@]:-}"; do
-    [ -n "$pid" ] && kill "$pid" 2>/dev/null
-  done
+  local d
   for d in "${TMP_DIRS[@]:-}"; do
     [ -n "$d" ] && rm -rf "$d"
   done
@@ -152,26 +146,6 @@ git_init_github_remote() {
   git -C "$1" config user.email "test@example.com"
   git -C "$1" config user.name "Test"
   git -C "$1" remote add origin https://github.com/fixture-owner/fixture-repo.git
-}
-
-free_port() {
-  "$PY" -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()'
-}
-
-start_fake_jira() {
-  local port="$1"; shift
-  "$PY" "$FIXTURES/fake-jira.py" "$port" "$@" &
-  JIRA_PIDS+=("$!")
-  local attempt=0
-  while [ "$attempt" -lt 50 ]; do
-    if "$PY" -c "import socket,sys; s=socket.socket(); sys.exit(0 if s.connect_ex(('127.0.0.1',$port))==0 else 1)"; then
-      return 0
-    fi
-    attempt=$((attempt + 1))
-    "$PY" -c 'import time; time.sleep(0.1)'
-  done
-  printf '  FAIL fake jira did not start on port %s\n' "$port"
-  return 1
 }
 
 # =============================================================================
@@ -350,6 +324,17 @@ for label, malformed_comment in (
 ):
     malformed = TaskIndex("tasks/todo.md", malformed_comment)
     print(label + "=" + "|".join(problem.message for problem in malformed.problems))
+# The legacy-row publish diagnostics. Their only guards went with `publish`, but
+# the messages did not: via load_index_strict they now refuse `upsert`, so they
+# are load-bearing on a path `publish` never touched.
+for label, legacy_text in (
+    ("legacy-tdd-no-detail", "[ ] TDD: `some test` ->\n"),
+    ("legacy-tdd-unquoted", "[ ] TDD: `` -> detail\n"),
+    ("legacy-no-title", "[ ]  -> detail only\n"),
+    ("legacy-two-arrows", "[ ] One -> two -> three\n"),
+):
+    legacy = TaskIndex("tasks/todo.md", legacy_text)
+    print(label + "=" + "|".join(problem.message for problem in legacy.problems))
 EOF
 )"
 
@@ -406,6 +391,14 @@ assert_contains "$index_out" "stray-close=unbalanced HTML comment in logical tas
   "Index: a stray HTML comment close marker is refused"
 assert_contains "$index_out" "nested-open=unbalanced HTML comment in logical task row" \
   "Index: nested HTML comment open markers are refused"
+assert_contains "$index_out" "legacy-tdd-no-detail=cannot publish legacy TDD row" \
+  "Index: a TDD row with no detail after '->' is reported, not parsed"
+assert_contains "$index_out" "legacy-tdd-unquoted=cannot publish legacy TDD row" \
+  "Index: a TDD row with an empty quoted test name is reported"
+assert_contains "$index_out" "legacy-no-title=cannot publish legacy row: expected a clean title" \
+  "Index: an arrow row with no title is reported"
+assert_contains "$index_out" "legacy-two-arrows=cannot publish legacy row: multiple '->' delimiters are ambiguous" \
+  "Index: two '->' delimiters are ambiguous rather than silently split on the first"
 assert_files_identical "$F_INDEX/tasks/todo.md" "$F_INDEX/todo.before" \
   "Index: parsing never writes to the file it read"
 
@@ -421,7 +414,7 @@ cat > "$F_CONF/config/tracking.md" <<'EOF'
 
 ```ini
 [tracker]
-provider = jira
+provider = local
 project = REG
 local_detail_dir = tasks/details
 require_write_approval = true
@@ -455,7 +448,7 @@ EOF
 )"
 assert_contains "$conf_out" "source=config/tracking.md" \
   "Config: the AGENTS.md pointer redirects discovery away from the default path"
-assert_contains "$conf_out" "provider=jira" "Config: explicit provider is read"
+assert_contains "$conf_out" "provider=local" "Config: explicit provider is read"
 assert_contains "$conf_out" "project=REG" "Config: project identifier is read"
 assert_contains "$conf_out" "approval=True" "Config: require_write_approval is read"
 assert_contains "$conf_out" "kind-question=research" \
@@ -491,7 +484,7 @@ assert_contains "$noconf_out" "question-default=None" \
 F_BADCONF="$(new_fixture)"
 write_index "$F_BADCONF"
 printf '# Tracking\n\nno fenced block here\n' > "$F_BADCONF/docs/task-tracking.md"
-badconf_out="$(run reconcile --repo "$F_BADCONF" 2>&1)"
+badconf_out="$(run selectors --repo "$F_BADCONF" 2>&1)"
 badconf_code=$?
 assert_eq "1" "$badconf_code" "Config: a configuration file with no ini block exits non-zero"
 assert_contains "$badconf_out" "no \`\`\`ini configuration block found" \
@@ -500,10 +493,32 @@ assert_contains "$badconf_out" "no \`\`\`ini configuration block found" \
 F_UNKPROV="$(new_fixture)"
 write_index "$F_UNKPROV"
 printf '# T\n\n```ini\n[tracker]\nprovider = trello\n```\n' > "$F_UNKPROV/docs/task-tracking.md"
-unkprov_out="$(run reconcile --repo "$F_UNKPROV" 2>&1)"
+unkprov_out="$(run selectors --repo "$F_UNKPROV" 2>&1)"
 unkprov_code=$?
 assert_eq "1" "$unkprov_code" "Config: an unknown provider exits non-zero"
 assert_contains "$unkprov_out" "unknown provider 'trello'" "Config: the failure names the bad provider"
+
+# A retired provider is the likeliest real encounter with Cut 1: a downstream
+# project whose checked-in config still says `provider = jira`. It must be
+# refused by the same path as a name that never existed, and the refusal must
+# enumerate what actually ships — this pins `config.PROVIDERS`, which the
+# `--provider` override path does not reach.
+F_RETPROV="$(new_fixture)"
+write_index "$F_RETPROV"
+printf '# T\n\n```ini\n[tracker]\nprovider = jira\n```\n' > "$F_RETPROV/docs/task-tracking.md"
+retprov_out="$(run doctor --repo "$F_RETPROV" 2>&1)"
+retprov_code=$?
+# Exit 1, not 2: a config fault raised out of `load_config` reaches the CLI's
+# unexpected-failure handler rather than the configuration branch. That is
+# pre-existing behaviour for every malformed config (the `trello` case above
+# exits 1 too), so it is pinned as-is rather than changed inside a deletion.
+assert_eq "1" "$retprov_code" "Config: a config declaring a retired provider exits non-zero"
+assert_contains "$retprov_out" "retired provider 'jira'" \
+  "Config: a retired provider is called retired, not unknown — it was valid one sync ago"
+assert_contains "$retprov_out" "Set \`provider = github\` or" \
+  "Config: the refusal tells the operator what to change it to"
+assert_contains "$retprov_out" "expected one of: github, local" \
+  "Config: the refusal enumerates the providers that ship, and jira is not among them"
 
 # Three pointer states, and only the first is silent (#82). "No pointer" is an
 # unconfigured project and defaults silently. "Pointer -> existing file" loads
@@ -552,7 +567,7 @@ assert_not_contains "$ptrmiss_doctor" "MISCONFIGURED" \
   "Pointer states: the fault sits on the configuration line, not the routines line"
 assert_eq "different" "$([ "$noptr_out" = "$ptrmiss_doctor" ] && echo same || echo different)" \
   "Pointer states: a broken declaration is distinguishable from no declaration"
-ptrmiss_rec="$(run reconcile --repo "$F_PTRMISS" 2>&1)"
+ptrmiss_rec="$(run selectors --repo "$F_PTRMISS" 2>&1)"
 ptrmiss_rec_code=$?
 assert_eq "1" "$ptrmiss_rec_code" \
   "Pointer states: every command except doctor refuses to run on a broken pointer"
@@ -569,7 +584,7 @@ mkdir -p "$F_PTRPREC/.claude"
 printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$F_PTRPREC/docs/tracking.md"
 printf 'Task tracking instructions: docs/missing.md\n' > "$F_PTRPREC/.claude/project.md"
 printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTRPREC/CLAUDE.md"
-ptrprec_out="$(run reconcile --repo "$F_PTRPREC" 2>&1)"
+ptrprec_out="$(run selectors --repo "$F_PTRPREC" 2>&1)"
 ptrprec_code=$?
 assert_eq "1" "$ptrprec_code" \
   "Pointer states: a broken project-owned pointer is not rescued by a later valid one"
@@ -639,11 +654,19 @@ assert_contains "$sel_local" "provider:       local" \
 assert_contains "$sel_local" "no configuration and no usable GitHub remote" \
   "Selection: the fallback states its reason"
 
-# Jira credentials in the environment must NOT make Jira implicit.
-sel_jira_env="$(JIRA_BASE_URL=https://example.atlassian.net JIRA_EMAIL=a@b.c \
-  JIRA_API_TOKEN=zzz JIRA_PROJECT=REG run doctor --repo "$F_SEL" 2>&1)"
-assert_contains "$sel_jira_env" "provider:       local" \
-  "Selection: Jira is never selected implicitly, even with full credentials present"
+# A retired provider is refused by name, and the refusal lists what survives.
+# Silently falling back would route a project that asked for a tracker we no
+# longer ship into the local store without saying so.
+sel_retired="$(run doctor --repo "$F_SEL" --provider jira 2>&1)"
+sel_retired_code=$?
+assert_eq "2" "$sel_retired_code" \
+  "Selection: an override naming a retired provider exits 2 (misconfiguration)"
+assert_contains "$sel_retired" "unknown provider" \
+  "Selection: the refusal says the provider is unknown"
+assert_contains "$sel_retired" "github" \
+  "Selection: the refusal lists the providers that do exist"
+assert_not_contains "$sel_retired" "jira, local" \
+  "Selection: jira is gone from the available-provider list, not just from the dict"
 
 F_SEL_GH="$(new_fixture)"
 write_index "$F_SEL_GH"
@@ -712,9 +735,9 @@ gate_ok.authorize("create issue", "github")
 print("approved-gate=open")
 EOF
 )"
-assert_contains "$contract_out" "providers=github,jira,local" \
-  "Contract: three providers are registered by name"
-for provider in github jira local; do
+assert_contains "$contract_out" "providers=github,local" \
+  "Contract: two providers are registered by name"
+for provider in github local; do
   assert_contains "$contract_out" "$provider-interface-complete=True" \
     "Contract: $provider implements all ten interface operations"
   assert_contains "$contract_out" "$provider-capabilities-declared=True" \
@@ -890,55 +913,6 @@ assert_not_contains "$todo_after_local" "8-bit sources load" \
 # =============================================================================
 # 7. GitHub provider — label vocabulary, status, identity, gated writes
 # =============================================================================
-F_GH_LEGACY="$(new_fixture)"
-write_github_config "$F_GH_LEGACY"
-install_gh_mock "$F_GH_LEGACY"
-: > "$F_GH_LEGACY/gh.log"
-cat > "$F_GH_LEGACY/tasks/todo.md" <<'EOF'
-[ ] TDD: `recover active thread` -> extend composer — preserve attachments <!-- task-id: recovery.legacy -->
-    across reloads
-EOF
-gh_legacy_code=0
-gh_legacy="$(cd "$F_GH_LEGACY" && PATH="$F_GH_LEGACY/bin:$PATH" \
-  GH_MOCK_DIR="$F_GH_LEGACY/ghdata" GH_MOCK_LOG="$F_GH_LEGACY/gh.log" \
-  run publish --repo "$F_GH_LEGACY" --apply --approve 2>&1)" || gh_legacy_code=$?
-assert_eq "0" "$gh_legacy_code" \
-  "GitHub: a valid multi-line legacy row publishes through the real CLI"
-gh_legacy_log="$(cat "$F_GH_LEGACY/gh.log")"
-assert_contains "$gh_legacy_log" \
-  "issue create --repo fixture-owner/fixture-repo --title recover active thread --body extend composer — preserve attachments across reloads" \
-  "GitHub: legacy publication sends the derived title and complete body to gh"
-assert_file_contains "$F_GH_LEGACY/tasks/todo.md" \
-  "- [ ] recover active thread <!-- task-id: recovery.legacy --> — extend composer — preserve attachments across reloads ([#100](https://github.com/fixture-owner/fixture-repo/issues/100))" \
-  "GitHub: successful publication rewrites the complete logical row with its issue link"
-
-F_GH_REFUSE="$(new_fixture)"
-write_github_config "$F_GH_REFUSE"
-install_gh_mock "$F_GH_REFUSE"
-: > "$F_GH_REFUSE/gh.log"
-printf '[ ] Valid sibling -> must not publish <!-- task-id: valid.sibling -->\n[ ] TDD: `` -> <!-- task-id: malformed.legacy -->\n[ ] and -> implement recovery <!-- task-id: malformed.generic -->\n[ ] Ship -> first -> second — extra detail <!-- task-id: malformed.ambiguous -->\n[ ] Broken metadata -> detail <!-- task-id: malformed.comment\n' \
-  > "$F_GH_REFUSE/tasks/todo.md"
-gh_refuse_code=0
-gh_refuse="$(cd "$F_GH_REFUSE" && PATH="$F_GH_REFUSE/bin:$PATH" \
-  GH_MOCK_DIR="$F_GH_REFUSE/ghdata" GH_MOCK_LOG="$F_GH_REFUSE/gh.log" \
-  run publish --repo "$F_GH_REFUSE" --apply --approve 2>&1)" || gh_refuse_code=$?
-assert_eq "1" "$gh_refuse_code" \
-  "GitHub: publish refuses a stable-id legacy row with no clean title or body"
-assert_contains "$gh_refuse" "cannot publish legacy TDD row" \
-  "GitHub: an unpublishable legacy row gets an actionable finding"
-assert_contains "$gh_refuse" "cannot publish legacy row: expected a clean title" \
-  "GitHub: clean-title validation applies to non-TDD legacy rows"
-assert_contains "$gh_refuse" "expected a quoted test name and detail after '->'" \
-  "GitHub: a TDD row with no quoted title or arrow detail is refused"
-assert_contains "$gh_refuse" "multiple '->' delimiters" \
-  "GitHub: ambiguous implementation delimiters are refused"
-assert_contains "$gh_refuse" "unbalanced HTML comment in logical task row" \
-  "GitHub: unbalanced task identity metadata is refused"
-assert_not_contains "$(cat "$F_GH_REFUSE/gh.log")X" "issue create" \
-  "GitHub: one malformed row makes the whole publish batch fail before external writes"
-assert_eq "" "$(cat "$F_GH_REFUSE/gh.log")" \
-  "GitHub: malformed local input is refused before any provider read"
-
 F_GH="$(new_fixture)"
 write_index "$F_GH"
 write_github_config "$F_GH"
@@ -973,338 +947,82 @@ assert_contains "$gh_norm" "render.dither-strategy|kind=decision|status=open|pri
 assert_contains "$gh_norm" "ids-not-numbers=True" \
   "GitHub: identity comes from the body metadata, never from the issue number"
 
-gh_recon="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
-  GH_MOCK_LOG="$F_GH/gh-recon.log" run reconcile --repo "$F_GH" 2>&1)"
-gh_recon_code=$?
-assert_eq "0" "$gh_recon_code" "GitHub: a read-only reconcile exits 0"
-assert_contains "$gh_recon" "local.dither-note: 'Decide on dither strategy' exists only locally" \
-  "GitHub: a row sharing a title with an issue is NOT matched to it"
-assert_contains "$gh_recon" "possible-duplicate" \
-  "GitHub: the title collision is surfaced as advisory, not resolved silently"
-assert_contains "$gh_recon" "a matching title is not identity" \
-  "GitHub: the advisory says outright that a title is not identity"
-assert_contains "$gh_recon" "ops.verify-deploy: 'Verify nightly render deploy' exists only locally" \
-  "GitHub: an unlinked local row is reported as publishable"
-assert_contains "$gh_recon" "status-drift" \
-  "GitHub: a configured in_progress label produces status drift against an open local row"
-assert_contains "$gh_recon" "no native dependency links" \
-  "GitHub: the missing dependency capability is stated, never emulated"
-assert_not_contains "$gh_recon" "Ship the live grid morph." \
-  "GitHub: reconcile output never reproduces an issue body"
-
-gh_pub_dry="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
-  GH_MOCK_LOG="$F_GH/gh-dry.log" run publish --repo "$F_GH" 2>&1)"
-assert_contains "$gh_pub_dry" "mode: dry-run" "GitHub: publish defaults to dry-run"
-assert_contains "$gh_pub_dry" "would-create" "GitHub: dry-run names what it would create"
-assert_not_contains "$(cat "$F_GH/gh-dry.log")X" "issue create" \
-  "GitHub: dry-run issues no create call to gh"
-
-cp "$F_GH/tasks/todo.md" "$F_GH/todo.before-publish"
-gh_pub="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
-  GH_MOCK_LOG="$F_GH/gh-apply.log" run publish --repo "$F_GH" --apply --approve 2>&1)"
-gh_pub_code=$?
-gh_apply_log="$(cat "$F_GH/gh-apply.log")"
-assert_eq "0" "$gh_pub_code" "GitHub: publish --apply exits 0 when every write succeeds"
-assert_contains "$gh_apply_log" "issue create --repo fixture-owner/fixture-repo" \
-  "GitHub: publish --apply calls gh issue create"
-assert_contains "$gh_apply_log" "task-id: ops.verify-deploy" \
-  "GitHub: the created issue body carries the stable id in the metadata block"
-assert_not_contains "$gh_apply_log" "label create" \
-  "GitHub: an ordinary sync never creates a label"
-assert_not_contains "$gh_apply_log" "--add-label status" \
-  "GitHub: no status label is invented"
-assert_file_contains "$F_GH/tasks/todo.md" "([#100](https://github.com/fixture-owner/fixture-repo/issues/100))" \
-  "GitHub: the new issue link is written back into the index row"
-assert_file_contains "$F_GH/tasks/todo.md" "<!-- task-id: ops.verify-deploy -->" \
-  "GitHub: the published row keeps its stable id"
-published_index="$(cat "$F_GH/tasks/todo.md")"
-assert_not_contains "$published_index" "smoke the rollout — smoke the rollout" \
-  "GitHub: the rewritten row is not duplicated"
-
-# partial failure: two rows to publish, every write rejected
-F_GHFAIL="$(new_fixture)"
-write_index "$F_GHFAIL"
-write_github_config "$F_GHFAIL"
-install_gh_mock "$F_GHFAIL"
-ghfail_out="$(cd "$F_GHFAIL" && PATH="$F_GHFAIL/bin:$PATH" GH_MOCK_DIR="$F_GHFAIL/ghdata" \
-  GH_MOCK_LOG="$F_GHFAIL/gh.log" GH_MOCK_FAIL=1 run publish --repo "$F_GHFAIL" --apply --approve 2>&1)"
-ghfail_code=$?
-assert_eq "1" "$ghfail_code" "GitHub: a failed write exits non-zero"
-assert_contains "$ghfail_out" "Failures:" "GitHub: failures are reported in their own section"
-assert_contains "$ghfail_out" "ops.verify-deploy:" "GitHub: the failure names the task that failed"
-assert_contains "$ghfail_out" "422" "GitHub: the failure carries the provider's own error"
-
-# unauthenticated gh: reads degrade, writes refuse
-gh_unauth_read="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
-  GH_MOCK_LOG="$F_GH/gh-unauth.log" GH_MOCK_UNAUTH=1 run reconcile --repo "$F_GH" 2>&1)"
-gh_unauth_read_code=$?
-assert_eq "0" "$gh_unauth_read_code" "GitHub: an offline read degrades rather than failing the run"
-assert_contains "$gh_unauth_read" "reads degraded to local-only" \
-  "GitHub: the degraded read says so out loud"
+# The write gate itself survives the sync engine: `upsert` is now the command
+# that reaches a provider, so it is where "unreachable means refuse, never
+# half-write" is pinned.
 gh_unauth_write="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
-  GH_MOCK_LOG="$F_GH/gh-unauth2.log" GH_MOCK_UNAUTH=1 run publish --repo "$F_GH" --apply --approve 2>&1)"
+  GH_MOCK_LOG="$F_GH/gh-unauth2.log" GH_MOCK_UNAUTH=1 \
+  run upsert ops.unreachable --repo "$F_GH" --title 'Written while offline' --apply --approve 2>&1)"
 gh_unauth_write_code=$?
-assert_eq "1" "$gh_unauth_write_code" "GitHub: an external write against an unreachable provider fails loudly"
-assert_contains "$gh_unauth_write" "refusing to publish" \
-  "GitHub: the refusal is explicit, not a silent no-op"
+# `upsert` degrades where `publish` refused, and that difference is deliberate:
+# the local record is the point of the command, so an unreachable tracker must
+# not lose it. What it may never do is go quiet about the half that did not
+# happen.
+assert_eq "0" "$gh_unauth_write_code" \
+  "GitHub: an unreachable provider does not lose the local record"
+assert_contains "$gh_unauth_write" "local-pending" \
+  "GitHub: the record is marked as not yet published"
+assert_contains "$gh_unauth_write" "external publication pending" \
+  "GitHub: the unpublished half is reported, never silently dropped"
 assert_not_contains "$(cat "$F_GH/gh-unauth2.log")X" "issue create" \
   "GitHub: no create call is attempted while unauthenticated"
 
-# =============================================================================
-# 8. Jira provider — auth, mapping, redaction, degradation, offline writes
-# =============================================================================
-JIRA_PORT="$(free_port)"
-start_fake_jira "$JIRA_PORT"
-JIRA_BASE="http://127.0.0.1:$JIRA_PORT"
-GOOD_TOKEN="fixture-jira-token-abcdef123456"
-
-F_JIRA="$(new_fixture)"
-write_index "$F_JIRA"
-cat > "$F_JIRA/docs/task-tracking.md" <<'EOF'
-# Task tracking
-
-```ini
-[tracker]
-provider = jira
-project = REG
-require_write_approval = false
-```
-EOF
-
-jira_env() {
-  export JIRA_BASE_URL="$1" JIRA_EMAIL="fixture@example.com" JIRA_API_TOKEN="$2" JIRA_PROJECT=REG
-}
-
-jira_doctor="$(jira_env "$JIRA_BASE" "$GOOD_TOKEN"; run doctor --repo "$F_JIRA" 2>&1)"
-assert_contains "$jira_doctor" "provider:       jira" "Jira: explicit configuration selects jira"
-assert_contains "$jira_doctor" "reachable:      yes" "Jira: a reachable site with valid auth reports reachable"
-
-jira_norm="$(cd "$F_JIRA" && jira_env "$JIRA_BASE" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate(apply=True, require_approval=False))
-tasks = {task.id: task for task in provider.list_tasks()}
-for task_id in sorted(tasks):
-    task = tasks[task_id]
-    print(f"{task_id}|kind={task.kind}|status={task.status}|priority={task.priority}"
-          f"|labels={','.join(task.labels)}|ref={task.external.id}")
-print("deps=" + ",".join(tasks["recipe.morph-live-grid"].depends_on))
-a, b = tasks["recipe.morph-live-grid"], tasks["recipe.color-lut"]
-print("dep-native=" + str(provider.add_dependency(a, b).native))
-print("parent-native=" + str(provider.link_parent(a, b).native))
-EOF
-)"
-assert_contains "$jira_norm" "recipe.morph-live-grid|kind=feature|status=in_progress|priority=high|labels=area/render,now|ref=REG-1" \
-  "Jira: Story->feature, In Progress->in_progress, High->high, labels preserved"
-assert_contains "$jira_norm" "recipe.color-lut|kind=bug|status=done|priority=medium|labels=area/color|ref=REG-2" \
-  "Jira: Bug->bug, done category->done"
-assert_contains "$jira_norm" "deps=recipe.color-lut" \
-  "Jira: dependencies round-trip through the description metadata block"
-assert_contains "$jira_norm" "dep-native=True" \
-  "Jira: a site that accepts issue links reports the dependency as native"
-assert_contains "$jira_norm" "parent-native=True" \
-  "Jira: a site that accepts a parent field reports the hierarchy as native"
-
-# capability degradation on a site that refuses both link types
-JIRA_PORT2="$(free_port)"
-start_fake_jira "$JIRA_PORT2" --reject-links
-jira_degraded="$(cd "$F_JIRA" && jira_env "http://127.0.0.1:$JIRA_PORT2" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate(apply=True, require_approval=False))
-tasks = {task.id: task for task in provider.list_tasks()}
-a, b = tasks["recipe.morph-live-grid"], tasks["recipe.color-lut"]
-dep = provider.add_dependency(a, b)
-parent = provider.link_parent(a, b)
-print("dep-native=" + str(dep.native))
-print("dep-render=" + dep.render())
-print("parent-native=" + str(parent.native))
-print("limitations=" + " || ".join(provider.limitations))
-EOF
-)"
-assert_contains "$jira_degraded" "dep-native=False" \
-  "Jira: a refused link degrades to metadata instead of pretending it is native"
-assert_contains "$jira_degraded" "inferred (stored in task metadata)" \
-  "Jira: the degraded link renders as inferred, never as native"
-assert_contains "$jira_degraded" "parent-native=False" \
-  "Jira: a refused parent field degrades the same way"
-assert_contains "$jira_degraded" "limitations=" \
-  "Jira: the degradation is recorded as a limitation for the report"
-
-# credential redaction: the fake site echoes the Authorization header back
-jira_redact="$(cd "$F_JIRA" && jira_env "$JIRA_BASE" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import ProviderError, WriteGate
-
-config = load_config(".")
-config = type(config)(**{**{f.name: getattr(config, f.name) for f in config.__dataclass_fields__.values()},
-                         "jira_token": type(config.jira_token)("wrong-token-9999")})
-provider = build_provider("jira", config, WriteGate())
-try:
-    provider.list_tasks()
-    print("no-error")
-except ProviderError as exc:
-    print("error=" + str(exc).replace("\n", " "))
-EOF
-)"
-assert_contains "$jira_redact" "HTTP 401" "Jira: a rejected credential surfaces the HTTP status"
-assert_contains "$jira_redact" "REDACTED" "Jira: the echoed Authorization header is masked"
-assert_not_contains "$jira_redact" "wrong-token-9999" \
-  "Jira: the credential itself never reaches the error text"
-jira_doctor_bad="$(jira_env "$JIRA_BASE" "$GOOD_TOKEN-invalid"; run doctor --repo "$F_JIRA" 2>&1)"
-assert_not_contains "$jira_doctor_bad" "$GOOD_TOKEN" \
-  "Jira: no CLI output path prints the token"
-assert_contains "$jira_doctor_bad" "authentication rejected" \
-  "Jira: a rejected credential is reported as an authentication failure"
-
-# offline: nothing listening on that port
-JIRA_DEAD_PORT="$(free_port)"
-jira_offline="$(jira_env "http://127.0.0.1:$JIRA_DEAD_PORT" "$GOOD_TOKEN"
-  run publish --repo "$F_JIRA" --apply --approve 2>&1)"
-jira_offline_code=$?
-assert_eq "1" "$jira_offline_code" "Jira: an external write with no connectivity exits non-zero"
-assert_contains "$jira_offline" "refusing to publish" "Jira: the offline write refuses explicitly"
-assert_contains "$jira_offline" "cannot reach" "Jira: the refusal names the unreachable site"
-
-# =============================================================================
-# 9. Reconcile, frontier, and progressive disclosure
-# =============================================================================
-F_REC="$(new_fixture)"
-mkdir -p "$F_REC/tasks/details" "$F_REC/specs/pending" "$F_REC/specs/completed"
-cat > "$F_REC/tasks/todo.md" <<'EOF'
-# Task Plan
-
-> Specs in flight: specs/completed/shipped-thing.md
-
-- [ ] Morph live grid recipe <!-- task-id: recipe.morph-live-grid --> — ship the live grid morph (blocked-by: recipe.new-only)
-- [ ] Post-LUT polish <!-- task-id: recipe.polish --> — cleanup pass (blocked-by: recipe.color-lut)
-- [ ] Colour LUT loader <!-- task-id: recipe.color-lut --> — palette mapping
-- [ ] Colour LUT loader again <!-- task-id: recipe.color-lut --> — a second row claiming the same id
-- [ ] Vanished work <!-- task-id: recipe.gone --> — points at a task file nobody has ([recipe.gone](tasks/details/recipe.gone.md))
-EOF
-cat > "$F_REC/tasks/details/recipe.color-lut.md" <<'EOF'
-# Colour LUT loader
-
-<!-- task-registry:begin -->
-task-id: recipe.color-lut
-kind: bug
-<!-- task-registry:end -->
-
-- status: done
-- priority: high
-
-## Summary
-
-palette mapping
-
-## Acceptance Criteria
-
-- [ ] eight-bit sources load without a colour shift
-- [ ] the regression fixture stays green
-EOF
-cat > "$F_REC/tasks/details/recipe.new-only.md" <<'EOF'
-# Provider-only task
-
-<!-- task-registry:begin -->
-task-id: recipe.new-only
-kind: feature
-<!-- task-registry:end -->
-
-- status: open
-EOF
-printf '# Orphan\n\nnothing references this\n' > "$F_REC/specs/pending/orphan.md"
-printf '# Shipped\n\ndone work\n' > "$F_REC/specs/completed/shipped-thing.md"
-printf '# Old approach\n\n> Superseded by: specs/pending/orphan.md\n' > "$F_REC/specs/pending/old-approach.md"
-
-rec_out="$(run reconcile --repo "$F_REC" 2>&1)"
-rec_code=$?
-assert_eq "0" "$rec_code" "Reconcile: a read-only run exits 0"
-assert_eq "task-registry reconcile — provider: local" "$(printf '%s\n' "$rec_out" | head -1)" \
-  "Reconcile: the first line names the command and the provider"
-summary_line="$(printf '%s\n' "$rec_out" | grep -n '^Summary:$' | cut -d: -f1)"
-first_detail_line="$(printf '%s\n' "$rec_out" | grep -n '^[a-z-]*:$' | grep -v 'Summary' | head -1 | cut -d: -f1)"
-assert_eq "before" "$([ "${summary_line:-99}" -lt "${first_detail_line:-0}" ] && echo before || echo after)" \
-  "Reconcile: the summary is printed before any per-task detail"
-assert_contains "$rec_out" "status-drift: 2" \
-  "Reconcile: drift is counted per row — both rows claiming the done id are reported"
-assert_contains "$rec_out" "recipe.color-lut: local 'open' vs provider 'done'" \
-  "Reconcile: the drift line names both sides"
-assert_contains "$rec_out" "duplicate-id" "Reconcile: two rows claiming one id are reported"
-assert_contains "$rec_out" "appears on 2 rows" "Reconcile: the duplicate names how many rows claim the id"
-assert_contains "$rec_out" "orphaned-link" "Reconcile: a link the provider cannot resolve is reported"
-assert_contains "$rec_out" "left untouched for a human to resolve" \
-  "Reconcile: an orphaned link is never auto-removed"
-assert_contains "$rec_out" "unlinked-external" "Reconcile: a provider task with no local row is reported"
-assert_contains "$rec_out" "stale-spec" "Reconcile: an unreferenced pending spec is reported"
-assert_contains "$rec_out" "specs/pending/orphan.md is pending with no task referencing it" \
-  "Reconcile: the stale spec is named"
-assert_contains "$rec_out" "classify it, do not delete it" \
-  "Reconcile: the stale-spec finding refuses deletion as a remedy"
-assert_contains "$rec_out" "superseded-spec" "Reconcile: a spec declaring itself superseded is reported"
-assert_contains "$rec_out" "completed-spec" \
-  "Reconcile: a completed spec still referenced by the index is reported"
-assert_not_contains "$rec_out" "eight-bit sources load without a colour shift" \
-  "Reconcile: acceptance criteria never appear in the summary output"
-assert_contains "$rec_out" "Run \`task-registry show <task-id>\` for the full detail" \
-  "Reconcile: detail is offered on demand, not printed"
-
-# idempotence — note the *first* apply must change something, otherwise a
-# reconcile that silently did nothing at all would satisfy the comparison below.
-cp "$F_REC/tasks/todo.md" "$F_REC/todo.before-first"
-rec_first="$(run reconcile --repo "$F_REC" --apply 2>&1)"
-assert_not_contains "$rec_first" "updated 0 local row(s)" \
-  "Reconcile: the first --apply actually rewrites rows"
-assert_files_differ "$F_REC/tasks/todo.md" "$F_REC/todo.before-first" \
-  "Reconcile: the first --apply changes the index on disk"
-cp "$F_REC/tasks/todo.md" "$F_REC/todo.after-first"
-rec_second="$(run reconcile --repo "$F_REC" --apply 2>&1)"
-assert_files_identical "$F_REC/tasks/todo.md" "$F_REC/todo.after-first" \
-  "Reconcile: a second --apply changes nothing on disk"
-assert_contains "$rec_second" "updated 0 local row(s)" \
-  "Reconcile: the second run reports that it changed nothing"
-assert_file_contains "$F_REC/tasks/todo.md" "recipe.gone" \
-  "Reconcile: --apply never deletes the row whose link it could not resolve"
-assert_eq "yes" "$([ -f "$F_REC/specs/pending/orphan.md" ] && echo yes || echo no)" \
-  "Reconcile: --apply never deletes a stale spec"
-applied_index="$(cat "$F_REC/tasks/todo.md")"
-assert_not_contains "$applied_index" "eight-bit sources load" \
-  "Reconcile: --apply never copies acceptance criteria into the index"
-
-show_out="$(run show recipe.color-lut --repo "$F_REC" 2>&1)"
-show_code=$?
-assert_eq "0" "$show_code" "Show: a known task exits 0"
-assert_contains "$show_out" "kind:     bug" "Show: the full record includes the kind"
-assert_contains "$show_out" "eight-bit sources load without a colour shift" \
-  "Show: acceptance criteria are revealed here, and only here"
-assert_contains "$show_out" "external: local:recipe.color-lut" "Show: the external reference is named"
-missing_show="$(run show no-such-task --repo "$F_REC" 2>&1)"
-missing_code=$?
-assert_eq "1" "$missing_code" "Show: an unknown id exits non-zero"
-assert_contains "$missing_show" "no task with reference 'no-such-task'" "Show: the failure names the reference"
-
-front_out="$(run frontier --repo "$F_REC" 2>&1)"
-assert_contains "$front_out" "blocked:" "Frontier: blocked work is a section of its own"
-assert_contains "$front_out" "recipe.morph-live-grid: 'Morph live grid recipe' waits on recipe.new-only" \
-  "Frontier: a task blocked by open work names its blocker"
-assert_contains "$front_out" "ready:" "Frontier: ready work is listed"
-assert_contains "$front_out" "recipe.polish" "Frontier: a task whose only blocker is done is ready"
-front_blocked_block="$(printf '%s\n' "$front_out" | sed -n '/^blocked:/,/^$/p')"
-assert_not_contains "$front_blocked_block" "recipe.polish" \
-  "Frontier: a satisfied dependency does not keep a task blocked"
-# Match the entry, not a mention: recipe.new-only is legitimately named as the
-# blocker on another line of this same block.
-blocked_entries="$(printf '%s\n' "$front_blocked_block" | grep -c '^  recipe\.new-only:')"
-assert_eq "0" "$blocked_entries" \
-  "Frontier: a task with no dependencies is never listed as blocked"
 
 # =============================================================================
 # 10. Migration — an ascii_video_pipeline-shaped repository
+#
+# The migration moved out of the skill in Cut 1 (specs/workflow-routing.md) and
+# is now `scripts/migrate-task-registry.py`. These assertions are deliberately
+# the same ones the subcommand had: a remedy that is documented but never
+# exercised is not a remedy, and the one-shot has to keep behaving identically
+# for the projects the retired command was the only answer for.
 # =============================================================================
+MIGRATE="$REPO/scripts/migrate-task-registry.py"
+
+# The subcommand is gone, and it fails as an unknown command rather than as a
+# broken import — a project that scripted it learns that from the CLI.
+mig_retired="$(run migrate --repo "$REPO" 2>&1)"
+mig_retired_code=$?
+assert_eq "2" "$mig_retired_code" "Migrate: the retired subcommand exits 2 as unknown"
+assert_contains "$mig_retired" "invalid choice: 'migrate'" \
+  "Migrate: argparse refuses `migrate` by name"
+
+# The Cut 2 precondition: `registry/index.py` and `registry/reconcile.py` are
+# deleted one phase from now, so a one-shot that imported them would break the
+# moment Cut 2 lands.
+#
+# Two guards, because neither alone is enough. The static one uses POSIX
+# [[:space:]] rather than \s -- \s is a GNU extension that degrades to a literal
+# 's' under BSD grep, which would make this pass by matching nothing, on exactly
+# the runners least likely to be watched. The dynamic one is the real proof: a
+# lazy importlib call inside a function body evades any import-line grep.
+mig_import_lines="$(grep -cE "^[[:space:]]*(from|import)[[:space:]]" "$MIGRATE")"
+assert_ne_zero() { [ "$1" -gt 0 ]; }
+if assert_ne_zero "$mig_import_lines"; then
+  _TESTS=$((_TESTS + 1)); printf '  ok   %s\n' \
+    "Migrate: the import-line pattern matches this grep (found $mig_import_lines lines)"
+else
+  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1)); printf '  FAIL %s\n' \
+    "Migrate: the import-line pattern matched nothing -- the guard below is vacuous here"
+fi
+mig_imports="$(grep -nE "^[[:space:]]*(from|import)[[:space:]]" "$MIGRATE" | grep -E "registry|skills" || true)"
+assert_eq "" "$mig_imports" \
+  "Migrate: the one-shot imports nothing from the skill (offenders: ${mig_imports:-none})"
+
+# Execution beats inspection: run it against a tree with both Cut 2 casualties
+# actually deleted. This is the assertion the todo row's wording claims.
+F_CUT2="$(new_fixture)"
+mkdir -p "$F_CUT2/skillcopy"
+cp -R "$SCRIPTS/." "$F_CUT2/skillcopy/"
+rm -f "$F_CUT2/skillcopy/registry/index.py" "$F_CUT2/skillcopy/registry/reconcile.py" \
+      "$F_CUT2/skillcopy/registry/upsert.py"
+printf '# Plan\n\n- [ ] Survives the cut\n' > "$F_CUT2/tasks/todo.md"
+cut2_out="$(PYTHONPATH="$F_CUT2/skillcopy" "$PY" "$MIGRATE" --repo "$F_CUT2" 2>&1)"
+cut2_code=$?
+assert_eq "0" "$cut2_code" \
+  "Migrate: the one-shot still runs with index.py, reconcile.py and upsert.py deleted"
+assert_contains "$cut2_out" "rows scanned:        1" \
+  "Migrate: and still parses rows without the module it used to import them from"
 F_MIG="$(new_fixture)"
 mkdir -p "$F_MIG/specs/pending" "$F_MIG/specs/completed"
 cat > "$F_MIG/tasks/todo.md" <<'EOF'
@@ -1350,7 +1068,7 @@ printf '# Orphaned plan\n\nnothing points here\n' > "$F_MIG/specs/pending/orphan
 
 mig_before="$(cd "$F_MIG" && find . -type f | sort)"
 todo_before_mig="$(cat "$F_MIG/tasks/todo.md")"
-mig_dry="$(run migrate --repo "$F_MIG" 2>&1)"
+mig_dry="$("$PY" "$MIGRATE" --repo "$F_MIG" 2>&1)"
 mig_dry_code=$?
 mig_after_dry="$(cd "$F_MIG" && find . -type f | sort)"
 assert_eq "0" "$mig_dry_code" "Migrate: the dry run exits 0"
@@ -1378,7 +1096,7 @@ assert_contains "$mig_dry" "Nothing here is deleted." "Migrate: the report state
 assert_contains "$mig_dry" "kind is inferred from row wording" \
   "Migrate: the heuristic declares itself as a heuristic"
 
-mig_apply="$(run migrate --repo "$F_MIG" --apply 2>&1)"
+mig_apply="$("$PY" "$MIGRATE" --repo "$F_MIG" --apply 2>&1)"
 mig_apply_code=$?
 assert_eq "0" "$mig_apply_code" "Migrate: --apply exits 0"
 assert_contains "$mig_apply" "minted" "Migrate: --apply reports how many ids it minted"
@@ -1398,17 +1116,148 @@ assert_file_contains "$F_MIG/tasks/task-registry-migration.md" "living texture f
 assert_file_contains "$F_MIG/tasks/task-registry-migration.md" "## Proposed grouping" \
   "Migrate: the audit records the proposed grouping"
 
+# A BOM on the first physical row is the classic vendored-parser divergence:
+# under plain utf-8 it prefixes line 1, the row regex misses, and the row is
+# lost without ever being reported. The live index reads utf-8-sig, so the two
+# must agree on the same bytes.
+F_BOM="$(new_fixture)"
+printf '\xef\xbb\xbf- [ ] First row\n- [ ] Second row\n' > "$F_BOM/tasks/todo.md"
+bom_out="$("$PY" "$MIGRATE" --repo "$F_BOM" 2>&1)"
+assert_contains "$bom_out" "rows scanned:        2" \
+  "Migrate: a BOM on the first row does not hide it from the one-shot"
+bom_live="$(cd "$F_BOM" && pyreg <<'EOF'
+from registry.index import load_index
+print("live-rows=" + str(len(load_index("tasks/todo.md", "tasks/todo.md").rows)))
+EOF
+)"
+assert_contains "$bom_live" "live-rows=2" \
+  "Migrate: and the live index agrees on the same bytes"
+
+# The row shape CLAUDE.md prescribes. Splitting it on '->' alone leaves an
+# unbalanced backtick in the title, mints a 'tdd-' prefixed id, and breaks every
+# blocked-by that names the row by wording. --apply mints ids once, so a wrong
+# title is written to a human's file permanently.
+F_TDD="$(new_fixture)"
+printf '# Plan\n\n## Plan: Recovery\n\n- [ ] TDD: `recover active thread` -> impl detail\n- [ ] TDD: `resume` -> more (blocked-by: recover active thread)\n' \
+  > "$F_TDD/tasks/todo.md"
+tdd_out="$("$PY" "$MIGRATE" --repo "$F_TDD" 2>&1)"
+assert_contains "$tdd_out" "recovery.recover-active-thread" \
+  "Migrate: a backticked TDD row mints an id from the test name, with no tdd- prefix"
+assert_not_contains "$tdd_out" "recovery.tdd-recover-active-thread" \
+  "Migrate: the 'TDD:' literal never becomes part of the identity"
+assert_contains "$tdd_out" "recover active thread -> recovery.recover-active-thread" \
+  "Migrate: a blocked-by naming a TDD row by its wording resolves to the minted id"
+assert_not_contains "$tdd_out" 'TDD: `recover active thread$' \
+  "Migrate: the title carries no unbalanced backtick"
+
+# The vendored superseded marker must not be wider than reconcile's, or the two
+# tools disagree about the same repository.
+F_SUP="$(new_fixture)"
+printf '# Plan\n\n## Plan: Effects\n> Spec: specs/loose.md\n\n- [ ] Row under a loosely-worded spec\n' \
+  > "$F_SUP/tasks/todo.md"
+printf '# Loose\n\nSuperseded by the stage pipeline (see notes)\n' > "$F_SUP/specs/loose.md"
+sup_out="$("$PY" "$MIGRATE" --repo "$F_SUP" 2>&1)"
+assert_contains "$sup_out" "superseded:          0" \
+  "Migrate: prose mentioning supersession is not a marker -- same rule as reconcile"
+
 id_count_first="$(grep -c 'task-id:' "$F_MIG/tasks/todo.md")"
-run migrate --repo "$F_MIG" --apply >/dev/null 2>&1
+"$PY" "$MIGRATE" --repo "$F_MIG" --apply >/dev/null 2>&1
 id_count_second="$(grep -c 'task-id:' "$F_MIG/tasks/todo.md")"
 assert_eq "$id_count_first" "$id_count_second" \
   "Migrate: re-running --apply mints no duplicate ids"
 
-post_mig_recon="$(run reconcile --repo "$F_MIG" 2>&1)"
-post_mig_code=$?
-assert_eq "0" "$post_mig_code" "Migrate: the migrated index reconciles cleanly"
-assert_eq "0" "$(printf '%s\n' "$post_mig_recon" | grep -c '^  missing-id:')" \
+# --- the one-shot's own surface, which section 10's inherited assertions miss -
+# A wrong path is a usage error (2); unreadable rows are a content failure (1).
+# The sibling CLI splits these deliberately so an unattended caller can retry the
+# first and page a human for the second.
+F_NOIDX="$(new_fixture)"
+rm -f "$F_NOIDX/tasks/todo.md"
+noidx_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+noidx_code=$?
+assert_eq "2" "$noidx_code" "Migrate: a missing index is a usage error, exit 2"
+assert_contains "$noidx_out" "no index at tasks/todo.md" \
+  "Migrate: the failure names the path it looked for"
+
+badrow_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+printf '# Plan\n\n- [ ] Fine row\n- [?] Bad box\n' > "$F_NOIDX/tasks/todo.md"
+badrow_out="$("$PY" "$MIGRATE" --repo "$F_NOIDX" 2>&1)"
+badrow_code=$?
+assert_eq "1" "$badrow_code" "Migrate: an unreadable row is a content failure, exit 1"
+assert_contains "$badrow_out" "unknown status box '[?]' (expected one of:" \
+  "Migrate: the malformed-row report says which characters are accepted"
+
+# --repo declares a root, and --apply rewrites files. A path escaping that root
+# is refused rather than silently written, matching the confinement the retired
+# subcommand inherited from Config.path().
+F_ESCM="$(new_fixture)"
+printf '# Plan\n\n- [ ] Row\n' > "$F_ESCM/tasks/todo.md"
+mkdir -p "$F_ESCM/../escape-probe" 2>/dev/null || true
+esc_out="$("$PY" "$MIGRATE" --repo "$F_ESCM" --index ../escape-probe/todo.md --apply 2>&1)"
+esc_code=$?
+assert_eq "2" "$esc_code" "Migrate: a path escaping --repo is refused, exit 2"
+assert_contains "$esc_out" "resolves outside" \
+  "Migrate: the refusal says the path left the declared root"
+rm -rf "$F_ESCM/../escape-probe"
+
+# The path flags are the port's own invention; nothing else exercises them.
+F_FLAGS="$(new_fixture)"
+mkdir -p "$F_FLAGS/plans"
+printf '# Plan\n\n## Plan: Alt\n\n- [ ] Row in an alternate index\n' \
+  > "$F_FLAGS/plans/work.md"
+flags_out="$("$PY" "$MIGRATE" --repo "$F_FLAGS" --index plans/work.md 2>&1)"
+flags_code=$?
+assert_eq "0" "$flags_code" "Migrate: --index reads an index outside the default path"
+assert_contains "$flags_out" "alt.row-in-an-alternate-index" \
+  "Migrate: rows from the alternate index are the ones classified"
+assert_contains "$flags_out" "rows scanned:        1" \
+  "Migrate: and the default tasks/todo.md is not read instead"
+
+# Deliberately NOT asserted: that --spec-dir changes which specs a row links to.
+# `SPEC_REFERENCE_RE` hardcodes `specs?/`, so a row can only ever cite a spec
+# under `specs/` no matter where --spec-dir points -- the directory governs the
+# superseded scan alone. That mismatch is carried verbatim from the retired
+# subcommand, where `config.spec_dir` had the same relationship to the same
+# regex, so it is pre-existing rather than introduced by the port. Recorded here
+# so the next reader does not mistake the gap for coverage.
+
+# An unreadable spec changes how its rows are classified, so it must reach the
+# exit code rather than only a stderr warning an unattended run never reads.
+F_BADSPEC="$(new_fixture)"
+printf '# Plan\n\n## Plan: Thing\n> Spec: specs/locked.md\n\n- [ ] Row\n' > "$F_BADSPEC/tasks/todo.md"
+printf '# Locked\n\n> Superseded by: specs/other.md\n' > "$F_BADSPEC/specs/locked.md"
+chmod 000 "$F_BADSPEC/specs/locked.md"
+badspec_out="$("$PY" "$MIGRATE" --repo "$F_BADSPEC" 2>&1)"
+badspec_code=$?
+chmod 644 "$F_BADSPEC/specs/locked.md"
+if [ "$badspec_code" = "0" ]; then
+  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
+  printf '  FAIL %s\n' "Migrate: an unreadable spec must not report success (exit was 0)"
+else
+  _TESTS=$((_TESTS + 1))
+  printf '  ok   %s\n' "Migrate: an unreadable spec fails the run rather than misclassifying silently"
+fi
+assert_contains "$badspec_out" "cannot read" \
+  "Migrate: the unreadable spec is named in the report, not just on stderr"
+
+# `missing-id` was a reconcile diagnostic and died with it, so the migration's
+# outcome is now read off the index itself: every active row carries a stable id
+# and the file still parses clean.
+post_mig="$(cd "$F_MIG" && pyreg <<'EOF'
+from registry.index import load_index
+
+index = load_index("tasks/todo.md", "tasks/todo.md")
+active = [row for row in index.rows if row.task.status not in ("done", "dropped")]
+print("active=" + str(len(active)))
+print("without-id=" + str(len([row for row in active if not row.task.id])))
+print("problems=" + str(len(index.problems)))
+EOF
+)"
+assert_not_contains "$post_mig" "active=0" \
+  "Migrate: the fixture actually has active rows to check"
+assert_contains "$post_mig" "without-id=0" \
   "Migrate: active rows no longer report as missing an id"
+assert_contains "$post_mig" "problems=0" \
+  "Migrate: the migrated index parses without a malformed row"
 
 # =============================================================================
 # 11. CLI surface — exit codes, dry-run precedence, report file
@@ -1426,31 +1275,25 @@ no_id_code=$?
 assert_eq "2" "$no_id_code" "CLI: 'show' without a task id is a usage error"
 assert_contains "$no_id_out" "requires a task id" "CLI: the usage error says what is missing"
 
-no_dir_out="$(run reconcile --repo "$F_CLI/nope" 2>&1)"
+no_dir_out="$(run selectors --repo "$F_CLI/nope" 2>&1)"
 no_dir_code=$?
 assert_eq "2" "$no_dir_code" "CLI: a missing project root is a usage error"
 assert_contains "$no_dir_out" "no such directory" "CLI: the usage error names the missing path"
 
-dry_wins="$(run publish --repo "$F_CLI" --apply --dry-run 2>&1)"
-assert_contains "$dry_wins" "mode: dry-run" "CLI: --dry-run overrides --apply"
+# `--dry-run` beating `--apply` is decided in main() for every gated command,
+# so `upsert` pins it for all of them.
+dry_wins="$(run upsert cli.dry --repo "$F_CLI" --title 'Dry run wins' --apply --dry-run 2>&1)"
+assert_contains "$dry_wins" "would create" "CLI: --dry-run overrides --apply"
 
-run reconcile --repo "$F_CLI" --report "$F_CLI/report.txt" >/dev/null 2>&1
-assert_file_contains "$F_CLI/report.txt" "task-registry reconcile" \
+run selectors --repo "$F_CLI" --report "$F_CLI/report.txt" >/dev/null 2>&1
+assert_file_contains "$F_CLI/report.txt" "selectors:" \
   "CLI: --report writes the same output to a file"
 
-for command in reconcile publish pull frontier doctor migrate; do
+for command in doctor selectors; do
   out="$(run "$command" --repo "$F_CLI" 2>&1)"
   code=$?
   assert_eq "0" "$code" "CLI: '$command' runs clean on a well-formed repository"
 done
-
-malformed_repo="$(new_fixture)"
-printf '# Plan\n\n- [ ]\n' > "$malformed_repo/tasks/todo.md"
-malformed_out="$(run reconcile --repo "$malformed_repo" 2>&1)"
-malformed_code=$?
-assert_eq "1" "$malformed_code" "CLI: malformed input exits non-zero rather than passing quietly"
-assert_contains "$malformed_out" "Malformed input (reported, nothing dropped)" \
-  "CLI: malformed rows get their own reported section"
 
 # =============================================================================
 # 12. Regressions — one block per defect found in review
@@ -1517,7 +1360,7 @@ text = "\n".join([
     "- [ ] -fno-strict-aliasing crashes the build <!-- task-id: bug.aliasing --> — a compiler flag",
     "  - [ ] Nested child row <!-- task-id: bug.aliasing.child --> — indented on purpose",
     "- [ ] Crafted ref ([--body-file=/etc/passwd](https://github.com/o/r/issues/1)) <!-- task-id: evil.one -->",
-    "- [ ] Jira linked ([REG-4](https://jira.example.com/browse/REG-4)) <!-- task-id: jira.one -->",
+    "- [ ] Foreign tracker ([REG-4](https://tracker.example.com/browse/REG-4)) <!-- task-id: foreign.one -->",
 ])
 index = TaskIndex("tasks/todo.md", text, "tasks/todo.md")
 by_id = {row.task.id: row for row in index.rows}
@@ -1527,9 +1370,9 @@ child = by_id["bug.aliasing.child"]
 print("rerendered-indent=[" + render_row(child.task, child.indent)[:2] + "]")
 print("crafted-parsed=" + str("evil.one" in by_id))
 print("crafted-problem=" + str(any("body-file" in p.message for p in index.problems)))
-print("jira-provider=" + by_id["jira.one"].task.external.provider)
-label = render_row(Task(id="j", title="J", external=ExternalRef("jira", "REG-4", "u")))
-print("jira-label-plain=" + str("[REG-4]" in label and "#REG-4" not in label))
+print("foreign-provider=" + by_id["foreign.one"].task.external.provider)
+label = render_row(Task(id="j", title="J", external=ExternalRef("local", "REG-4", "u")))
+print("foreign-label-plain=" + str("[REG-4]" in label and "#REG-4" not in label))
 gh_label = render_row(Task(id="g", title="G", external=ExternalRef("github", "42", "u")))
 print("github-label-hashed=" + str("[#42]" in gh_label))
 EOF
@@ -1543,10 +1386,10 @@ assert_contains "$index_reg" "crafted-parsed=False" \
   "Index: a reference id shaped like a CLI flag is not turned into a task"
 assert_contains "$index_reg" "crafted-problem=True" \
   "Index: the rejected reference is reported as malformed input, not dropped"
-assert_contains "$index_reg" "jira-provider=jira" \
-  "Index: a browse URL is classified by the provider that owns it"
-assert_contains "$index_reg" "jira-label-plain=True" \
-  "Index: a Jira reference renders as its own key, not as #key"
+assert_contains "$index_reg" "foreign-provider=local" \
+  "Index: a URL no shipped provider owns falls back to local, never to a guess"
+assert_contains "$index_reg" "foreign-label-plain=True" \
+  "Index: a non-GitHub reference renders as its own key, not as #key"
 assert_contains "$index_reg" "github-label-hashed=True" \
   "Index: a GitHub reference still renders as #number"
 
@@ -1570,7 +1413,8 @@ printf 'Task tracking instructions: docs/template-managed.md\n' > "$F_CFG/CLAUDE
 cp "$F_CFG/docs/task-tracking.md" "$F_CFG/docs/template-managed.md"
 
 cfg_reg="$(cd "$F_CFG" && pyreg <<'EOF'
-from registry.config import Config, ConfigError, load_config, require_secure_transport
+from registry.config import Config, ConfigError, load_config
+from registry.redaction import redactor_for
 
 config = load_config(".")
 print("source=" + str(config.source_path))
@@ -1587,15 +1431,26 @@ try:
 except ConfigError as exc:
     print("escape-refused=" + str(exc))
 
-for url in ("http://jira.example.com", "http://127.0.0.1:8080", "https://jira.example.com"):
-    try:
-        require_secure_transport(url, {})
-        print(f"transport {url} = allowed")
-    except ConfigError:
-        print(f"transport {url} = refused")
-print("transport-optout=" + str(
-    require_secure_transport("http://jira.example.com",
-                             {"TASK_REGISTRY_ALLOW_INSECURE_TRANSPORT": "1"}) is None))
+# A retired provider must leave no half-configuration behind: a `jira_*` field
+# surviving on Config is a credential slot nothing fills and nothing redacts.
+print("jira-attrs=" + str(sorted(a for a in dir(Config(root=".")) if "jira" in a.lower())))
+# Dropping the configured-secret list must not cost the generic scrubbing. The
+# masker keeps its own patterns, so an Authorization header and the password half
+# of URL userinfo are still masked with no secret registered at all.
+#
+# Scope, stated rather than implied: pattern 3 requires a scheme, so userinfo in
+# text that names the host WITHOUT `https://` is not matched. That is precisely
+# the case the deleted `_url_credentials` existed for. Nothing leaks today, since
+# no shipped provider keeps a URL credential in config -- but the gap is real and
+# is asserted below as a known gap rather than left for someone to discover.
+redactor = redactor_for(Config(root="."))
+print("mask-auth=" + redactor.scrub("Authorization: Basic ZmFrZTp0b2tlbg=="))
+print("mask-userinfo=" + redactor.scrub("https://user:sup3rsecretvalue@site.example/x"))
+print("leaks-userinfo=" + str("sup3rsecretvalue" in redactor.scrub(
+    "https://user:sup3rsecretvalue@site.example/x")))
+print("no-scheme-gap=" + str("sup3rsecretvalue" in redactor.scrub(
+    "cannot reach user:sup3rsecretvalue@site.example")))
+
 EOF
 )"
 assert_contains "$cfg_reg" "source=docs/project-owned.md" \
@@ -1609,14 +1464,37 @@ assert_contains "$cfg_reg" "default-decision=decision" \
   "Config: 'design-decision' still maps after a section is declared"
 assert_contains "$cfg_reg" "escape-refused=" \
   "Config: a configured path outside the project root is refused"
-assert_contains "$cfg_reg" "transport http://jira.example.com = refused" \
-  "Config: credentials are never sent over plain http to a remote host"
-assert_contains "$cfg_reg" "transport http://127.0.0.1:8080 = allowed" \
-  "Config: loopback http is allowed — there is no wire to sniff"
-assert_contains "$cfg_reg" "transport https://jira.example.com = allowed" \
-  "Config: https is allowed"
-assert_contains "$cfg_reg" "transport-optout=True" \
-  "Config: an operator can override the transport floor from the environment"
+assert_contains "$cfg_reg" "jira-attrs=[]" \
+  "Config: a retired provider leaves no credential field behind on Config"
+assert_contains "$cfg_reg" "mask-auth=Authorization: ***REDACTED***" \
+  "Redaction: an Authorization header is masked with no configured secret"
+assert_contains "$cfg_reg" "mask-userinfo=https://user:***REDACTED***@site.example/x" \
+  "Redaction: the password is masked and the username is preserved"
+assert_contains "$cfg_reg" "leaks-userinfo=False" \
+  "Redaction: the with-scheme userinfo pattern still masks the password half"
+assert_contains "$cfg_reg" "no-scheme-gap=True" \
+  "Redaction: userinfo without a scheme is a KNOWN gap — a provider carrying a URL credential must register it through redactor_for, not rely on the patterns"
+
+# The configured-secret path has no production caller since Cut 1 (redactor_for
+# returns Redactor([])), and the assertions that exercised it lived in the Jira
+# block this cut deleted. The seam is kept deliberately, so it is tested
+# deliberately -- an untested seam is not a seam, and the next provider to carry
+# a credential inherits this mechanism.
+redactor_unit="$(pyreg <<'EOF'
+from registry.redaction import Redactor
+print("registered=" + Redactor(["sup3rsecretvalue"]).scrub("saw sup3rsecretvalue here"))
+print("short-filtered=" + Redactor(["ab"]).scrub("saw ab here"))
+merged = Redactor(["alpha-secret"])
+merged.adopt(Redactor(["beta-secret"]))
+print("adopted=" + merged.scrub("alpha-secret and beta-secret"))
+EOF
+)"
+assert_contains "$redactor_unit" "registered=saw ***REDACTED*** here" \
+  "Redaction: a registered secret is masked wherever it appears"
+assert_contains "$redactor_unit" "short-filtered=saw ab here" \
+  "Redaction: a secret under four characters is not registered -- it would mask prose"
+assert_contains "$redactor_unit" "adopted=***REDACTED*** and ***REDACTED***" \
+  "Redaction: adopt() merges both sets, so a late-loaded credential is still masked"
 
 # A pointer that escapes the repository must not be followed — and must not be
 # silently skipped either. It is a declared intent with a broken target, the
@@ -1724,11 +1602,11 @@ cat > "$F_OFFLINE/docs/task-tracking.md" <<'EOF'
 provider = local
 EOF
 printf '```\n' >> "$F_OFFLINE/docs/task-tracking.md"
-offline_pub="$(run publish --repo "$F_OFFLINE" --apply 2>&1)"
+offline_pub="$(run upsert offline.record --repo "$F_OFFLINE" --title 'Recorded offline' --apply 2>&1)"
 offline_code=$?
 assert_eq "0" "$offline_code" \
-  "Local: --apply alone publishes offline — approval gates external writes only"
-assert_contains "$offline_pub" "created" "Local: the offline publish actually created tasks"
+  "Local: --apply alone writes offline — approval gates external writes only"
+assert_contains "$offline_pub" "created" "Local: the offline write actually created the task"
 
 # --- github: argv hardening, label creation, truncation ----------------------
 gh_reg="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
@@ -1801,205 +1679,6 @@ assert_contains "$(cat "$F_LBL/gh.log")" "label create" \
 assert_file_contains "$F_LBL/lbldata/labels.json" "area/render" \
   "GitHub: the created label is really added to the repository vocabulary"
 
-trunc_out="$(cd "$F_GH" && pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import WriteGate
-from registry.reconcile import Registry
-
-config = load_config(".")
-provider = build_provider("local", config, WriteGate(apply=True))
-provider.result_truncated = True
-report = Registry(config, provider).publish(apply=True)
-print("exit=" + str(report.exit_code))
-print("refusal=" + "; ".join(report.failures))
-EOF
-)"
-assert_contains "$trunc_out" "exit=1" \
-  "Publish: a truncated provider read makes the run fail rather than duplicate"
-assert_contains "$trunc_out" "refusal=refusing to publish" \
-  "Publish: the refusal explains that an unseen task could be created twice"
-
-# --- jira: key validation, redaction, credential-stripping redirects ---------
-jira_reg="$(cd "$F_JIRA" && jira_env "$JIRA_BASE" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.model import ExternalRef
-from registry.providers import build_provider
-from registry.providers.base import ProviderError, ProviderUnavailable, WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate(apply=True, require_approval=False))
-try:
-    provider.get_task(ExternalRef("jira", "../../secure/admin", ""))
-    print("crafted-key=accepted")
-except ProviderError as exc:
-    print("crafted-key-refused=" + str(exc))
-EOF
-)"
-assert_contains "$jira_reg" "is not an issue key (expected PROJ-123)" \
-  "Jira: a reference that is not an issue key never becomes a request path"
-
-leak_out="$(cd "$F_JIRA" && pyreg <<'EOF'
-from registry.config import Config, Secret
-from registry.providers.jira import JiraProvider
-from registry.providers.base import ProviderUnavailable
-
-config = Config(
-    root=".",
-    provider="jira",
-    project="REG",
-    jira_base_url="https://user:sup3rsecretvalue@jira.example.invalid",
-    jira_email="fixture@example.com",
-    jira_token=Secret("fixture-jira-token-abcdef123456"),
-)
-provider = JiraProvider(config)
-try:
-    provider._call("GET", "/rest/api/2/myself")
-    print("reached=yes")
-except ProviderUnavailable as exc:
-    print("unreachable=" + str(exc))
-EOF
-)"
-assert_contains "$leak_out" "unreachable=jira: cannot reach" \
-  "Jira: an unreachable site is reported, not swallowed"
-assert_not_contains "$leak_out" "sup3rsecretvalue" \
-  "Jira: a credential embedded in the base URL is redacted out of the error"
-
-ECHO_PORT="$(free_port)"
-"$PY" "$FIXTURES/fake-jira.py" "$ECHO_PORT" --echo-auth >/dev/null 2>&1 &
-JIRA_PIDS+=("$!")
-REDIRECT_PORT="$(free_port)"
-"$PY" "$FIXTURES/fake-jira.py" "$REDIRECT_PORT" \
-  --redirect-to "http://127.0.0.1:$ECHO_PORT/rest/api/2/myself" >/dev/null 2>&1 &
-JIRA_PIDS+=("$!")
-"$PY" - "$ECHO_PORT" "$REDIRECT_PORT" <<'EOF'
-import sys, time, urllib.request
-for port in sys.argv[1:]:
-    for _ in range(80):
-        try:
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/ping", timeout=1).read()
-            break
-        except Exception as exc:
-            if "Connection refused" not in str(exc):
-                break
-            time.sleep(0.05)
-EOF
-redirect_out="$(cd "$F_JIRA" && jira_env "http://127.0.0.1:$REDIRECT_PORT" "$GOOD_TOKEN"; pyreg <<'EOF'
-from registry.config import load_config
-from registry.providers import build_provider
-from registry.providers.base import WriteGate
-
-provider = build_provider("jira", load_config("."), WriteGate())
-status, body = provider._call("GET", "/rest/api/2/myself")
-print("status=" + str(status))
-print("body=" + body)
-EOF
-)"
-assert_contains "$redirect_out" '"received_authorization": ""' \
-  "Jira: credentials are stripped when a redirect crosses to another origin"
-
-# --- reconcile: status floor, skipped rows, frontier order ------------------
-F_DRIFT="$(new_fixture)"
-cat > "$F_DRIFT/tasks/todo.md" <<'EOF'
-# Plan
-
-- [~] Morph live grid recipe <!-- task-id: recipe.morph-live-grid --> — in flight ([#41](https://github.com/o/r/issues/41))
-- [ ] No identity here — a row from before the registry existed
-EOF
-drift_out="$(cd "$F_DRIFT" && pyreg <<'EOF'
-from registry.config import load_config
-from registry.model import ExternalRef, Task
-from registry.providers.base import Capabilities, ProviderStatus, TrackerProvider, WriteGate
-from registry.reconcile import Registry
-
-
-class OpenClosedOnly(TrackerProvider):
-    """A tracker with GitHub's vocabulary: it can only say open or done."""
-
-    name = "stub"
-    capabilities = Capabilities(comments=True, labels=True)
-
-    def discover(self):
-        return ProviderStatus(True, "stub")
-
-    def list_tasks(self):
-        return [Task(id="recipe.morph-live-grid", title="Morph live grid recipe",
-                     status="open", external=ExternalRef("github", "41", ""))]
-
-    def get_task(self, ref):
-        return self.list_tasks()[0]
-
-    def resolve_reference(self, raw):
-        return None
-
-    def create_task(self, task):
-        return task
-
-    def update_task(self, task):
-        return task
-
-    def close_task(self, task, resolution="done"):
-        return task
-
-    def comment(self, task, body):
-        return None
-
-    def link_parent(self, child, parent):
-        raise NotImplementedError
-
-    def add_dependency(self, task, depends_on):
-        raise NotImplementedError
-
-
-config = load_config(".")
-registry = Registry(config, OpenClosedOnly(config, WriteGate(apply=True)))
-report = registry.reconcile(apply=True)
-print("kept=" + str(any(f.category == "status-kept-local" for f in report.findings)))
-print("row=" + open("tasks/todo.md", encoding="utf-8").read().splitlines()[2][:8])
-
-publish_report = registry.publish(apply=False)
-print("skipped=" + str(any(f.category == "skipped-no-id" for f in publish_report.findings)))
-print("skip-message=" + "".join(
-    f.message for f in publish_report.findings if f.category == "skipped-no-id"))
-EOF
-)"
-assert_contains "$drift_out" "kept=True" \
-  "Reconcile: a local in_progress is kept when the provider cannot express it"
-assert_contains "$drift_out" "row=- [~]" \
-  "Reconcile: the in-flight row on disk is not rewritten back to open"
-assert_contains "$drift_out" "skipped=True" \
-  "Publish: a row with no stable id is reported as skipped, never silently passed over"
-assert_contains "$drift_out" "skip-message=" "Publish: the skip names the row and the remedy"
-
-F_FRONT="$(new_fixture)"
-cat > "$F_FRONT/tasks/todo.md" <<'EOF'
-# Plan
-
-- [ ] Downstream work <!-- task-id: dep.downstream --> — high priority (blocked-by: dep.upstream)
-- [ ] Upstream work <!-- task-id: dep.upstream --> — low priority
-- [ ] Cycle one <!-- task-id: cyc.one --> — a (blocked-by: cyc.two)
-- [ ] Cycle two <!-- task-id: cyc.two --> — b (blocked-by: cyc.one)
-- [ ] Dangling <!-- task-id: dep.dangling --> — c (blocked-by: nothing.here)
-EOF
-cat > "$F_FRONT/docs/task-tracking.md" <<'EOF'
-# Tracking
-
-```ini
-[tracker]
-provider = local
-EOF
-printf '```\n' >> "$F_FRONT/docs/task-tracking.md"
-front_out="$(run frontier --repo "$F_FRONT" --verbose 2>&1)"
-front_code=$?
-assert_eq "1" "$front_code" "Frontier: a dependency cycle makes the run fail"
-assert_contains "$front_out" "dependency cycle" "Frontier: the cycle is named as a cycle"
-assert_contains "$front_out" "cyc.one -> cyc.two -> cyc.one" \
-  "Frontier: the cycle report names every task in it"
-assert_contains "$front_out" "unknown-dependency" \
-  "Frontier: a dependency naming no task is reported, not read as satisfied"
-front_order="$(printf '%s\n' "$front_out" | grep -n '^  dep\.' | head -2)"
-assert_contains "$front_order" "dep.upstream" \
-  "Frontier: the task others wait on is listed before the task that waits"
-
 # --- migrate: id collisions, block-bounded specs, dependency rewrites --------
 F_MIG2="$(new_fixture)"
 cat > "$F_MIG2/tasks/todo.md" <<'EOF'
@@ -2017,19 +1696,33 @@ cat > "$F_MIG2/tasks/todo.md" <<'EOF'
 - [ ] Waits on the other one (blocked-by: Beta work)
 EOF
 printf '# Alpha\n' > "$F_MIG2/specs/alpha.md"
-mig2_dry="$(run migrate --repo "$F_MIG2" 2>&1)"
+mig2_dry="$("$PY" "$MIGRATE" --repo "$F_MIG2" 2>&1)"
 assert_contains "$mig2_dry" "beta.beta-work" "Migrate: a second plan block mints under its own group"
 mig2_ids="$(printf '%s\n' "$mig2_dry" | grep -o 'alpha\.shared-title[^ ]*' | sort -u | tr '\n' ' ')"
 assert_contains "$mig2_ids" "alpha.shared-title-2" \
   "Migrate: a minted id never collides with an id already in the index"
 assert_contains "$mig2_dry" "Dependency references to rewrite" \
   "Migrate: a dependency written as prose is resolved to the minted id"
-run migrate --repo "$F_MIG2" --apply >/dev/null 2>&1
+"$PY" "$MIGRATE" --repo "$F_MIG2" --apply >/dev/null 2>&1
 assert_file_contains "$F_MIG2/tasks/todo.md" "blocked-by: beta.beta-work" \
   "Migrate: --apply rewrites the dependency to the id it minted"
-mig2_after="$(run frontier --repo "$F_MIG2" 2>&1)"
-assert_not_contains "$mig2_after" "unknown-dependency" \
-  "Migrate: after --apply the rewritten dependency resolves"
+# `frontier` used to answer this by resolving the dependency graph; it went with
+# the sync engine. The property it pinned -- that the rewritten `blocked-by`
+# names a task that actually exists -- is checked directly against the index,
+# which is where the answer lived all along.
+mig2_after="$(pyreg <<PYEOF
+from registry.index import load_index
+index = load_index("$F_MIG2/tasks/todo.md", "tasks/todo.md")
+ids = {row.task.id for row in index.rows}
+blockers = {b for row in index.rows for b in row.task.depends_on}
+print("dangling=" + ",".join(sorted(blockers - ids)) if blockers - ids else "dangling=none")
+print("blockers=" + ",".join(sorted(blockers)))
+PYEOF
+)"
+assert_contains "$mig2_after" "dangling=none" \
+  "Migrate: after --apply the rewritten dependency resolves to a task in the index"
+assert_contains "$mig2_after" "blockers=beta.beta-work" \
+  "Migrate: the rewritten dependency is the minted id, not the original prose"
 mig2_spec="$(printf '%s\n' "$mig2_dry" | grep 'beta.beta-work')"
 assert_not_contains "$mig2_spec" "specs/alpha.md" \
   "Migrate: a spec lookback never crosses into the previous plan block"
@@ -2055,12 +1748,17 @@ provider = local
 closed_plan_marker = Retrospective
 EOF
 printf '```\n' >> "$F_MARK/docs/task-tracking.md"
-mark_out="$(run migrate --repo "$F_MARK" 2>&1)"
+mark_out="$("$PY" "$MIGRATE" --repo "$F_MARK" --closed-plan-marker Retrospective 2>&1)"
 assert_contains "$mark_out" "stale (open in a closed plan): 1" \
   "Migrate: a project's own closed-plan heading is honoured"
+# ... and without the flag the same repository reads that block as still open,
+# which is what makes the assertion above about the flag rather than the fixture.
+mark_default="$("$PY" "$MIGRATE" --repo "$F_MARK" 2>&1)"
+assert_contains "$mark_default" "stale (open in a closed plan): 0" \
+  "Migrate: the default marker does not silently match a project's own heading"
 F_NOMARK="$(new_fixture)"
 printf '# Task Plan\n\n## Plan: Ongoing\n\n- [ ] Still open\n' > "$F_NOMARK/tasks/todo.md"
-nomark_out="$(run migrate --repo "$F_NOMARK" 2>&1)"
+nomark_out="$("$PY" "$MIGRATE" --repo "$F_NOMARK" 2>&1)"
 assert_contains "$nomark_out" "no 'Session Summary' heading found" \
   "Migrate: an index with no closed-plan marker says so instead of guessing"
 
@@ -2068,9 +1766,9 @@ assert_contains "$nomark_out" "no 'Session Summary' heading found" \
 F_CRASH="$(new_fixture)"
 printf '# Plan\n\n- [ ]\n' > "$F_CRASH/tasks/todo.md"
 crash_code=0
-run migrate --repo "$F_CRASH" --apply >/dev/null 2>&1 || crash_code=$?
+"$PY" "$MIGRATE" --repo "$F_CRASH" --apply >/dev/null 2>&1 || crash_code=$?
 assert_eq "1" "$crash_code" \
-  "CLI: migrate --apply still exits non-zero when rows could not be read"
+  "Migrate: --apply still exits non-zero when rows could not be read"
 
 crash_out="$("$PY" - "$CLI" <<'EOF' 2>&1
 import importlib.util, sys
@@ -2094,11 +1792,224 @@ assert_contains "$crash_out" "credentials masked" \
 assert_not_contains "$crash_out" "ZmFrZTpsZWFrZWR0b2tlbnZhbHVl" \
   "CLI: an Authorization header in a traceback never reaches the terminal"
 
+# The degraded-link branch is shared provider code, not Jira code: GitHub returns
+# native=False from BOTH link operations, so `LinkResult.render()`'s "inferred"
+# arm is the one every real GitHub link takes. Its only assertions lived in the
+# Jira block Cut 1 deleted, and the surviving link assertions are the local
+# provider's, which are both native=True. Restored here against the gh mock.
+gh_links="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-links.log" pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import ExternalRef, Task
+from registry.providers import build_provider
+from registry.providers.base import WriteGate
+
+BASE = "https://github.com/fixture-owner/fixture-repo/issues"
+provider = build_provider("github", load_config("."), WriteGate(apply=True, require_approval=False))
+# Both ends must be real issues: linking writes through update_task, which
+# refuses a task with no issue reference.
+child = Task(id="recipe.morph-live-grid", title="Morph live grid recipe",
+             external=ExternalRef("github", "42", f"{BASE}/42"))
+parent = Task(id="recipe.color-lut", title="Colour LUT loader",
+              external=ExternalRef("github", "43", f"{BASE}/43"))
+parent_link = provider.link_parent(child, parent)
+dep_link = provider.add_dependency(child, parent)
+print("parent-native=" + str(parent_link.native))
+print("dep-native=" + str(dep_link.native))
+print("parent-render=" + parent_link.render())
+print("dep-render=" + dep_link.render())
+print("limitations=" + "|".join(provider.limitations))
+EOF
+)"
+assert_contains "$gh_links" "parent-native=False" \
+  "GitHub: hierarchy is declared non-native rather than silently claimed"
+assert_contains "$gh_links" "dep-native=False" \
+  "GitHub: dependencies are declared non-native rather than silently claimed"
+assert_contains "$gh_links" "inferred (stored in task metadata)" \
+  "GitHub: a degraded link renders as inferred, naming where the relationship went"
+assert_contains "$gh_links" "parent-render=parent: recipe.morph-live-grid -> recipe.color-lut" \
+  "GitHub: the rendered link names both ends of the relationship"
+assert_contains "$gh_links" "expose no parent link through gh" \
+  "GitHub: the limitation is surfaced, not swallowed"
+
 assert_file_contains "$SKILL/templates/task-tracking.md" "## Naming conventions" \
   "Template: projects get a stub for provider-facing title and label conventions"
 assert_file_contains "$SKILL/templates/task-tracking.md" "Never publish raw plan text" \
   "Template: legacy implementation clauses are documented as provider body content"
 assert_not_contains "$(cat "$SKILL/templates/task-tracking.md")" '<PLAN-ID> —' \
   "Template: the recommended title separator cannot collide with row summary serialization"
+
+# =============================================================================
+# 13. Cut 2 — the sync engine is gone; progressive disclosure survives it
+# =============================================================================
+# `show` was the one surviving command implemented as a `Registry` *method*, so
+# it could not stay where it was. These assertions pin the boundary the cut
+# creates: the sync modules are absent, their commands are unknown, and reading
+# one task still works from the module that inherited it.
+
+nonzero() { [ "$1" -ne 0 ] && echo nonzero || echo zero; }
+
+assert_eq "absent" "$([ -f "$SCRIPTS/registry/reconcile.py" ] && echo present || echo absent)" \
+  "Cut 2: registry/reconcile.py is deleted"
+assert_eq "" "$(grep -rln 'from \.reconcile\|registry\.reconcile' "$SCRIPTS" || true)" \
+  "Cut 2: no module still imports the deleted sync engine"
+# `index.py` outlives the cut on purpose. Two survivors read through it -- `show`
+# for the row behind a reference, and `upsert` for the external ref the local
+# store cannot remember -- so deleting it would mean deleting them. What retires
+# is the part only the sync engine called.
+for retired in collect_problems row_text replace_line; do
+  assert_eq "" "$(grep -n "def $retired" "$SCRIPTS/registry/index.py" || true)" \
+    "Cut 2: index.py no longer carries the sync-only helper $retired"
+done
+# `_published_ref` reads the link row that `_sync_index` writes. Deleting the
+# write while keeping the read would re-open the duplicate-issue bug the read
+# exists to prevent, so the pair is pinned together rather than one at a time.
+assert_file_contains "$SCRIPTS/registry/upsert.py" "def _published_ref" \
+  "Cut 2: upsert still remembers where a task was published"
+assert_file_contains "$SCRIPTS/registry/upsert.py" "def _sync_index" \
+  "Cut 2: upsert still writes the row that memory is read from"
+
+# Progressive disclosure survives the module it used to live in. Two shapes,
+# because they take different paths through the resolver: a task the local index
+# knows and the provider does not, and a task the provider knows.
+F_SHOW="$(new_fixture)"
+mkdir -p "$F_SHOW/tasks/details"
+cat > "$F_SHOW/tasks/todo.md" <<'EOF'
+# Task Plan
+
+- [ ] Index-only row <!-- task-id: show.index-only --> — never published anywhere
+- [ ] Colour LUT loader <!-- task-id: show.color-lut --> — palette mapping
+EOF
+cat > "$F_SHOW/tasks/details/show.color-lut.md" <<'EOF'
+# Colour LUT loader
+
+<!-- task-registry:begin -->
+task-id: show.color-lut
+kind: bug
+<!-- task-registry:end -->
+
+- status: done
+- priority: high
+
+## Summary
+
+palette mapping
+
+## Acceptance Criteria
+
+- [ ] eight-bit sources load without a colour shift
+EOF
+
+for gone in reconcile publish pull frontier; do
+  gone_out="$(run "$gone" --repo "$F_SHOW" 2>&1)"; gone_code=$?
+  assert_eq "nonzero" "$(nonzero "$gone_code")" "Cut 2: \`$gone\` is not a command any more"
+  assert_contains "$gone_out" "invalid choice" "Cut 2: \`$gone\` is rejected by name"
+done
+
+show_prov="$(run show show.color-lut --repo "$F_SHOW" 2>&1)"; show_prov_code=$?
+assert_eq "0" "$show_prov_code" "Show: a provider-backed task exits 0"
+assert_contains "$show_prov" "kind:     bug" "Show: the full record includes the kind"
+assert_contains "$show_prov" "eight-bit sources load without a colour shift" \
+  "Show: acceptance criteria are disclosed on demand"
+assert_contains "$show_prov" "external: local:show.color-lut" \
+  "Show: the external reference is named"
+
+show_local="$(run show show.index-only --repo "$F_SHOW" 2>&1)"; show_local_code=$?
+assert_eq "0" "$show_local_code" "Show: a row the provider has never seen still resolves"
+assert_contains "$show_local" "never published anywhere" \
+  "Show: the local index row supplies the detail when the provider has none"
+assert_contains "$show_local" "index row: tasks/todo.md" \
+  "Show: the row's source file is named"
+
+show_miss="$(run show no-such-task --repo "$F_SHOW" 2>&1)"; show_miss_code=$?
+assert_eq "1" "$show_miss_code" "Show: an unknown reference exits 1"
+assert_contains "$show_miss" "no task with reference 'no-such-task'" \
+  "Show: the failure names the reference"
+
+# A row that fails to parse is invisible to `by_id`, so a command that acts on
+# the index would update nothing and append a second row carrying the same id.
+# `reconcile` used to report the malformed row; it is gone, so the refusal lives
+# at the seam every *acting* command crosses. AC-19 of specs/task-registry.md
+# scopes this to acting: `show` writes nothing, so it reports the broken row and
+# still answers -- refusing there would deny every task over one bad row, and
+# leave no command able to diagnose the file.
+F_BAD="$(new_fixture)"
+printf '# Plan\n\n- [ ] Broken row <!-- task-id: dup.target\n- [ ] Fine row <!-- task-id: ok.other --> — parses\n' > "$F_BAD/tasks/todo.md"
+printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$F_BAD/docs/task-tracking.md"
+
+bad_show="$(run show ok.other --repo "$F_BAD" 2>&1)"; bad_show_code=$?
+assert_eq "0" "$bad_show_code" \
+  "Malformed index: show still answers for a row that parses"
+bad_show_degraded="$(printf '%s\n' "$bad_show" | sed -n '/^  degraded:$/,/^  [a-z]*:$/p')"
+assert_contains "$bad_show_degraded" "tasks/todo.md:3" \
+  "Malformed index: show names the broken row with file:line, in the degraded block"
+assert_contains "$bad_show_degraded" "unbalanced HTML comment" \
+  "Malformed index: show names the fault, not just the line"
+
+bad_up="$(run upsert dup.target --repo "$F_BAD" --title 'Broken row' --apply 2>&1)"; bad_up_code=$?
+assert_eq "1" "$bad_up_code" "Malformed index: upsert refuses before any provider write"
+assert_contains "$bad_up" "tasks/todo.md:3" "Malformed index: upsert's refusal carries file:line"
+assert_eq "1" "$(grep -c 'dup.target' "$F_BAD/tasks/todo.md")" \
+  "Malformed index: no second row is appended for a row that failed to parse"
+
+# The dry run must refuse identically, or the preview describes a different run
+# than `--apply` performs -- which is the divergence resolve_destination argues against.
+bad_dry="$(run upsert dup.target --repo "$F_BAD" --title 'Broken row' 2>&1)"; bad_dry_code=$?
+assert_eq "1" "$bad_dry_code" "Malformed index: the dry run refuses too, not only --apply"
+
+# The ordering AC-19 actually states, on the only path that writes to a provider.
+# The local fixture above cannot catch this: it refuses via `_published_ref`,
+# which the external path skips.
+F_BADGH="$(new_fixture)"
+install_gh_mock "$F_BADGH"; write_github_config "$F_BADGH"; git_init_github_remote "$F_BADGH"
+printf '# Plan\n\n- [ ] Broken row <!-- task-id: dup.target\n' > "$F_BADGH/tasks/todo.md"
+bad_gh="$(cd "$F_BADGH" && PATH="$F_BADGH/bin:$PATH" GH_MOCK_DIR="$F_BADGH/ghdata" \
+  GH_MOCK_LOG="$F_BADGH/gh-bad.log" \
+  run upsert brand.new --repo "$F_BADGH" --title 'Brand new' --apply --approve 2>&1)"; bad_gh_code=$?
+assert_eq "1" "$bad_gh_code" "Malformed index: upsert refuses on the GitHub path too"
+assert_eq "" "$(cat "$F_BADGH/gh-bad.log" 2>/dev/null)" \
+  "Malformed index: no provider call is made at all before the refusal (AC-19 ordering)"
+
+# `offline_reads = fail` is the other half of the same policy: degrade is the
+# default, but a project that would rather have no answer than a partial one says
+# so, and then an unreachable provider is a failure -- non-zero exit, a
+# `failures:` section, and the reason named. Nothing pinned Report.exit_code or
+# the failures render once `publish`'s failure path went with the sync engine.
+F_FAIL="$(new_fixture)"
+install_gh_mock "$F_FAIL"; git_init_github_remote "$F_FAIL"
+cat > "$F_FAIL/docs/task-tracking.md" <<'EOF'
+# T
+
+```ini
+[tracker]
+provider = github
+repository = fixture-owner/fixture-repo
+offline_reads = fail
+```
+EOF
+printf '# Plan\n\n- [ ] Local only <!-- task-id: fail.local --> — never published\n' > "$F_FAIL/tasks/todo.md"
+fail_show="$(cd "$F_FAIL" && PATH="$F_FAIL/bin:$PATH" GH_MOCK_DIR="$F_FAIL/ghdata" \
+  GH_MOCK_LOG="$F_FAIL/gh-fail.log" GH_MOCK_UNAUTH=1 \
+  run show fail.local --repo "$F_FAIL" 2>&1)"; fail_show_code=$?
+assert_eq "1" "$fail_show_code" \
+  "offline_reads=fail: an unreachable provider makes show exit non-zero"
+fail_block="$(printf '%s\n' "$fail_show" | sed -n '/^  failures:$/,/^  [a-z]*:$/p')"
+assert_contains "$fail_block" "provider unreachable" \
+  "offline_reads=fail: the reason is named under failures:, not degraded:"
+assert_not_contains "$fail_show" "  degraded:" \
+  "offline_reads=fail: an unreachable read is a failure, never a mere degradation"
+
+# A `show` that could not reach the provider answered from the local half alone.
+# Printing that record with no marker is the silent partial answer the Report
+# docstring says cannot happen.
+gh_degraded="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-degraded.log" GH_MOCK_UNAUTH=1 \
+  run show ops.verify-deploy --repo "$F_GH" 2>&1)"
+# Scope the needle to the section header, not the word: the limitation's own text
+# is "reads degraded to local-only", so a bare "degraded" matches even when the
+# section is never rendered.
+degraded_block="$(printf '%s\n' "$gh_degraded" | sed -n '/^  degraded:$/,/^  [a-z]*:$/p')"
+assert_contains "$degraded_block" "reads degraded to local-only" \
+  "Show: an answer assembled without the provider says so rather than reading as complete"
 
 finish

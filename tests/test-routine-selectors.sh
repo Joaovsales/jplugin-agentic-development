@@ -428,7 +428,7 @@ assert_contains "$producer_out" "producer" "AC2: the refusal says WHY — it is 
 # ============================================================================
 
 # A provider that cannot enumerate its vocabulary is "not checked", never "nothing
-# missing" -- and NOT RUN is the branch every local/Jira project takes.
+# missing" -- and NOT RUN is the branch every local-provider project takes.
 F_LOCAL="$(new_fixture)"
 { printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n```\n'; } \
   > "$F_LOCAL/docs/task-tracking.md"
@@ -437,6 +437,43 @@ assert_eq "0" "$local_code" \
   "AC12: a provider that cannot enumerate labels does not fail the check"
 assert_contains "$local_out" "NOT RUN" \
   "AC12: an unenumerable vocabulary reports NOT RUN — it never reports a pass"
+
+# `workflow` on the local provider. Every assertion above runs against GitHub,
+# and the two providers reach the answer differently: local resolves an id to a
+# detail file and reads it, while an id that resolves to nothing falls through
+# to the backlog scan. Both branches, and the provider-independent terminal
+# guard, went untested.
+mkdir -p "$F_LOCAL/tasks/details"
+write_local_task() {
+  local dir="$1" id="$2" status="$3"
+  { printf '# %s\n\n' "$id"
+    printf '<!-- task-registry:begin -->\n'
+    printf '<!-- Managed by /task-registry. Edit the fields, not the markers. -->\n'
+    printf 'task-id: %s\nkind: task\n' "$id"
+    printf '<!-- task-registry:end -->\n\n'
+    printf -- '- status: %s\n- labels: bug\n' "$status"
+  } > "$dir/tasks/details/$id.md"
+}
+write_local_task "$F_LOCAL" "fix-the-crash" "open"
+wf_local_out="$( cd "$F_LOCAL" && PATH="$F_LOCAL/bin:$PATH" \
+  "$PY" "$CLI" workflow fix-the-crash --repo "$F_LOCAL" 2>&1 )"; wf_local_code=$?
+assert_eq "0" "$wf_local_code" "workflow: a local task routes — not every provider is GitHub"
+assert_contains "$wf_local_out" "routine:  fix" \
+  "workflow: the local task's bug label selects the fix routine"
+assert_contains "$wf_local_out" "chain:" "workflow: a local task is handed its chain too"
+
+# The terminal guard is provider-independent, so it must hold here as well.
+write_local_task "$F_LOCAL" "already-done" "done"
+wf_local_done="$( cd "$F_LOCAL" && PATH="$F_LOCAL/bin:$PATH" \
+  "$PY" "$CLI" workflow already-done --repo "$F_LOCAL" 2>&1 )"; wf_local_done_code=$?
+assert_eq "1" "$wf_local_done_code" "workflow: a closed LOCAL task exits 1, same as a closed issue"
+assert_not_contains "$wf_local_done" "chain:" "workflow: no chain for a closed local task"
+
+wf_local_absent="$( cd "$F_LOCAL" && PATH="$F_LOCAL/bin:$PATH" \
+  "$PY" "$CLI" workflow no-such-task --repo "$F_LOCAL" 2>&1 )"; wf_local_absent_code=$?
+assert_eq "1" "$wf_local_absent_code" "workflow: an id no local task carries exits 1"
+assert_contains "$wf_local_absent" "no-such-task" \
+  "workflow: the local refusal names the id that did not resolve"
 
 # `doctor` is the command you run BECAUSE configuration is broken. Hoisting
 # validate_selectors into load_config must not make the diagnostic unreachable.
@@ -449,7 +486,7 @@ assert_eq "1" "$broken_code" "doctor: a misconfigured [routines] block is report
 assert_contains "$broken_doctor" "MISCONFIGURED" "doctor: the fault is named, not swallowed"
 assert_contains "$broken_doctor" "provider:" \
   "doctor: the rest of the diagnosis still renders — it is reachable when it matters"
-broken_frontier="$( cd "$F_BROKEN" && "$PY" "$CLI" frontier --repo "$F_BROKEN" >/dev/null 2>&1 )"
+broken_other="$( cd "$F_BROKEN" && "$PY" "$CLI" selectors --repo "$F_BROKEN" >/dev/null 2>&1 )"
 assert_eq "1" "$?" "doctor is the ONLY exemption — every other command still refuses"
 
 # `" "` is truthy, so a claim label stripped after an `or` fallback yields "" --
@@ -507,6 +544,17 @@ assert_not_contains "$(cat "$F_CLAIM/gh.log" 2>/dev/null || echo "no-writes")" "
 claim_dry="$(run_claim "$F_CLAIM" 42 --routine fix)"; claim_dry_code=$?
 assert_eq "1" "$claim_dry_code" "claim: dry-run is the default — a write needs --apply"
 assert_not_contains "$claim_dry" "wrote in-progress" "claim: a dry run writes nothing"
+# AC10, the half stdout cannot prove. "Writes nothing" is a claim about the
+# TRACKER, and the two assertions above only read this process's own output — an
+# implementation that printed nothing and wrote anyway passes both. gh.log is the
+# tracker-side evidence, and it is the same log the apply path asserts against
+# below, so the two directions are pinned with one mechanism.
+assert_file_not_matches "$F_CLAIM/gh.log" "add-label" \
+  "AC10: a dry run reaches the tracker with no label write at all"
+# "...and says so": the refusal has to name the flag that would proceed, or the
+# operator learns only that something was refused.
+assert_contains "$claim_dry" "--apply" \
+  "AC10: the dry-run refusal names --apply as the way to proceed"
 
 # Claiming across routines is how two routines land on one issue.
 claim_wrong="$(run_claim "$F_CLAIM" 42 --routine plan --apply --approve)"; claim_wrong_code=$?
@@ -613,5 +661,368 @@ for tree in .agents .claude; do
   assert_not_contains "$kind_block" "= task" \
     "AC12: $tree template maps no label to \`task\` — that stamps every published task"
 done
+
+# ============================================================================
+# 7. `workflow <ref>` — R2, the manual half of the contract
+# ============================================================================
+# `select` answers "what should this routine do next"; nothing answered "I am
+# looking at issue N, what runs?" `select_routine` has always known, but it is
+# wired only as a FILTER and returns a bare None for five distinct situations —
+# no kind label, an unknown label, a claimed issue, a routine that exists, and a
+# routine that is deferred. Collapsed into one None they are indistinguishable,
+# and a nightly wrapper cannot tell "nothing to do" from "this tool is broken".
+#
+# So both channels are pinned for every outcome: the words a human reads AND the
+# exit code a wrapper branches on. Exit 1 is "what you asked about does not
+# exist"; exit 2 is "this tool is misconfigured".
+
+run_workflow() {
+  local d="$1"; shift
+  ( cd "$d" && PATH="$d/bin:$PATH" GH_MOCK_DIR="$d/ghdata" GH_MOCK_LOG="$d/gh.log" \
+      "$PY" "$CLI" workflow "$@" --repo "$d" 2>&1 )
+}
+
+# -- outcome 1: a routine owns it --------------------------------------------
+wf_fix_out="$(run_workflow "$F_SEL" 11)"; wf_fix_code=$?
+assert_eq "0" "$wf_fix_code" "workflow: an issue a routine owns exits 0"
+assert_contains "$wf_fix_out" "routine:" "workflow: the routine is labelled in the output"
+assert_contains "$wf_fix_out" "fix" "workflow: #11 (bug) resolves to the fix routine"
+assert_contains "$wf_fix_out" "/debug -> /build -> /quality-gate -> /wrap-up-session" \
+  "AC1: the skill chain is printed, not just the routine name"
+assert_contains "$wf_fix_out" "bug" "workflow: the label that won precedence is named"
+
+wf_plan_out="$(run_workflow "$F_SEL" 14)"; wf_plan_code=$?
+assert_eq "0" "$wf_plan_code" "workflow: a design-decision issue exits 0"
+assert_contains "$wf_plan_out" "plan" "workflow: #14 resolves to the plan routine"
+assert_contains "$wf_plan_out" "/plan -> /wrap-up-session" \
+  "AC1: plan's chain is its own, not a shared default"
+
+# -- outcome 2: resolves to the deferred `build` routine ----------------------
+# Reachable only by configuration: `build` ships no selector, because a selector
+# for a routine nobody runs would let a deferred capability fail a live gate.
+F_BUILD="$(new_fixture)"
+write_config "$F_BUILD" <<'EOF'
+[routines]
+kind_precedence = bug, design-decision, enhancement, documentation, tech-debt, question
+[routines.selectors]
+fix = bug, tech-debt
+plan = design-decision
+improve = enhancement, documentation
+build = question
+EOF
+write_labels "$F_BUILD" bug design-decision enhancement documentation tech-debt question in-progress
+cat > "$F_BUILD/ghdata/issues.json" <<'EOF'
+[{"number":20,"title":"Ship the thing","state":"OPEN","url":"https://github.com/o/r/issues/20",
+  "labels":[{"name":"question"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_build_out="$(run_workflow "$F_BUILD" 20)"; wf_build_code=$?
+assert_eq "0" "$wf_build_code" \
+  "AC2: a deferred routine is an ANSWER, not a failure — it exits 0"
+assert_contains "$wf_build_out" "/build -> /quality-gate -> /wrap-up-session" \
+  "AC2: the deferred routine's chain is still printed"
+assert_contains "$wf_build_out" "deferred" \
+  "AC2: the output says build is deferred rather than presenting it as runnable"
+assert_contains "$wf_build_out" "#98" \
+  "AC2: the deferral names the issue tracking it, so the reader can check the status"
+
+# -- outcome 3: no kind label ------------------------------------------------
+wf_untriaged_out="$(run_workflow "$F_SEL" 15)"; wf_untriaged_code=$?
+assert_eq "0" "$wf_untriaged_code" \
+  "AC2: an untriaged issue is a real answer — 'nobody owns it' exits 0"
+assert_contains "$wf_untriaged_out" "no kind label" \
+  "AC2: the untriaged outcome says WHY no routine matched"
+assert_contains "$wf_untriaged_out" "design-decision" \
+  "AC2: the untriaged outcome names the labels that WOULD route it"
+assert_not_contains "$wf_untriaged_out" "chain:" \
+  "AC2: an untriaged issue prints no chain — the five Nones stay distinct"
+
+# -- outcome 4: already claimed ----------------------------------------------
+wf_claimed_out="$(run_workflow "$F_SEL" 12)"; wf_claimed_code=$?
+assert_eq "0" "$wf_claimed_code" \
+  "AC2: an in-flight issue is a real answer and exits 0"
+# Scoped to the `status:` line. `fix` and `in-progress` both appear elsewhere in
+# a routed report — in `routine:` and in the chain — so an unscoped needle stays
+# green with the whole status line deleted, which is the line under test.
+wf_claimed_status="$(printf '%s\n' "$wf_claimed_out" | grep '^status:' || true)"
+assert_contains "$wf_claimed_status" "in-progress" \
+  "AC2: the in-flight outcome names the claim label it found"
+assert_contains "$wf_claimed_status" "fix" \
+  "AC2: the in-flight outcome names the CLAIMANT — which routine holds it"
+assert_not_contains "$wf_claimed_out" "no kind label" \
+  "AC2: a claimed issue is not reported as untriaged — #12 carries bug"
+
+# -- outcome 5: unknown reference, exit 1 ------------------------------------
+wf_missing_out="$(run_workflow "$F_SEL" 4242)"; wf_missing_code=$?
+assert_eq "1" "$wf_missing_code" \
+  "AC2: an issue that does not exist exits 1 — 'what you asked about is absent'"
+assert_contains "$wf_missing_out" "4242" \
+  "AC2: the refusal names the reference that did not resolve"
+
+# The reference an issue is WRITTEN as, everywhere else in this repo, is `#11`.
+# `workflow` compared the raw argument against `external.id`, which holds the
+# bare number, so the form every human and every markdown link uses refused an
+# issue that exists. `resolve_reference` has always known how to parse it.
+wf_hash_out="$(run_workflow "$F_SEL" '#11')"; wf_hash_code=$?
+assert_eq "0" "$wf_hash_code" \
+  "workflow: the '#11' form resolves — the same issue as the bare 11"
+assert_eq "$wf_fix_out" "$wf_hash_out" \
+  "workflow: '#11' and '11' are the same issue, so they get the same answer"
+
+# -- outcome 5b: a CLOSED issue is not a live one ----------------------------
+# A closed issue keeps its kind label, so every selector still matches it and
+# the report reads as a runnable routine. An unattended caller acting on that
+# starts work on something already finished.
+F_WF_CLOSED="$(new_fixture)"
+write_config "$F_WF_CLOSED" <<'EOF'
+EOF
+write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation tech-debt now next in-progress
+cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
+[{"number":31,"title":"Long since fixed","state":"CLOSED","url":"https://github.com/o/r/issues/31",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_closed_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_closed_code=$?
+assert_eq "1" "$wf_closed_code" \
+  "workflow: a closed issue exits non-zero — there is no routine to start"
+assert_not_contains "$wf_closed_out" "chain:" \
+  "workflow: a closed issue is not handed a skill chain to run"
+assert_contains "$wf_closed_out" "31" \
+  "workflow: the closed-issue refusal names the issue"
+
+# The same issue REOPENED must route. Without this pair the assertion above
+# passes for an implementation that refuses every issue in this fixture.
+cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
+[{"number":31,"title":"Long since fixed","state":"OPEN","url":"https://github.com/o/r/issues/31",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_reopened_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_reopened_code=$?
+assert_eq "0" "$wf_reopened_code" \
+  "workflow: the SAME issue reopened routes — the guard reads state, not the fixture"
+assert_contains "$wf_reopened_out" "chain:" \
+  "workflow: the reopened issue is handed its chain"
+
+# -- an outage is not a misconfiguration -------------------------------------
+# Both used to exit 2, the code a nightly wrapper pages a human on. A tracker
+# that did not answer needs a retry, and no file edit would fix it.
+F_WF_OUTAGE="$(new_fixture)"
+write_config "$F_WF_OUTAGE" <<'EOF'
+EOF
+rm -f "$F_WF_OUTAGE/ghdata/labels.json"   # `gh label list` now fails like an outage
+cat > "$F_WF_OUTAGE/ghdata/issues.json" <<'EOF'
+[{"number":32,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/32",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_outage_out="$(run_workflow "$F_WF_OUTAGE" 32)"; wf_outage_code=$?
+assert_eq "1" "$wf_outage_code" \
+  "workflow: a tracker that did not answer exits 1, NOT the 2 a wrapper pages on"
+assert_contains "$wf_outage_out" "COULD NOT RUN" \
+  "workflow: the outage says the check could not run, not that it passed"
+
+# -- a truncated read must not be reported as 'no such task' -----------------
+# The scan fallback reads the whole backlog, and `gh issue list` silently caps
+# at its page limit. A miss past the cut is indistinguishable from an absent
+# task, so the pool being partial has to be refused rather than searched.
+F_WF_TRUNC="$(new_fixture)"
+write_config "$F_WF_TRUNC" <<'EOF'
+EOF
+write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation tech-debt now next in-progress
+"$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'TRUNC_PY'
+import io, json, sys
+issues = [
+    {"number": n, "title": "Filler %d" % n, "state": "OPEN",
+     "url": "https://github.com/o/r/issues/%d" % n,
+     "labels": [{"name": "bug"}], "assignees": [],
+     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
+     "body": "", "closedByPullRequestsReferences": []}
+    for n in range(1, 501)
+]
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
+TRUNC_PY
+# A local-style id, so the provider cannot resolve it and the scan runs.
+wf_trunc_out="$(run_workflow "$F_WF_TRUNC" T-9)"; wf_trunc_code=$?
+assert_eq "1" "$wf_trunc_code" \
+  "workflow: a truncated backlog read exits non-zero rather than guessing"
+assert_contains "$wf_trunc_out" "truncated" \
+  "workflow: the refusal says the pool was partial — not that the task is absent"
+assert_not_contains "$wf_trunc_out" "no backlog task carries that id" \
+  "workflow: a partial read is NOT reported as a confirmed absence"
+
+# Under the page limit the same scan answers normally, so the assertion above
+# is pinned on truncation rather than on the id being unresolvable.
+"$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'SHORT_PY'
+import io, json, sys
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps([
+    {"number": 1, "title": "Filler", "state": "OPEN",
+     "url": "https://github.com/o/r/issues/1",
+     "labels": [{"name": "bug"}], "assignees": [],
+     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
+     "body": "", "closedByPullRequestsReferences": []}]))
+SHORT_PY
+wf_short_out="$(run_workflow "$F_WF_TRUNC" T-9)"; wf_short_code=$?
+assert_eq "1" "$wf_short_code" "workflow: an id nothing carries still exits 1"
+assert_contains "$wf_short_out" "no backlog task carries that id" \
+  "workflow: an untruncated miss IS a confirmed absence, and says so"
+
+# -- outcome 6: config fault, exit 2 -----------------------------------------
+# Distinct from exit 1 on purpose: a wrapper retries a missing issue and pages a
+# human for a broken configuration. Sharing a code makes both the wrong response.
+F_WF_BADCFG="$(new_fixture)"
+write_config "$F_WF_BADCFG" <<'EOF'
+[routines]
+kind_precedence = bug
+[routines.selectors]
+fix = bug
+improve = bug
+EOF
+write_labels "$F_WF_BADCFG" bug in-progress
+wf_badcfg_out="$(run_workflow "$F_WF_BADCFG" 11)"; wf_badcfg_code=$?
+assert_eq "2" "$wf_badcfg_code" \
+  "AC2: a misconfigured tool exits 2, NOT 1 — it is not an absent issue"
+assert_contains "$wf_badcfg_out" "bug" \
+  "AC2: the configuration refusal names the contested label"
+
+# -- outcome 6b: upstream label fault, exit 2 --------------------------------
+# A selector label the tracker never created makes every routine find nothing
+# and exit 0. That silent halt is the one this check exists to make loud.
+F_WF_GAP="$(new_fixture)"
+write_config "$F_WF_GAP" <<'EOF'
+EOF
+write_labels "$F_WF_GAP" bug design-decision enhancement documentation now next in-progress
+cat > "$F_WF_GAP/ghdata/issues.json" <<'EOF'
+[{"number":30,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/30",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}]
+EOF
+wf_gap_out="$(run_workflow "$F_WF_GAP" 30)"; wf_gap_code=$?
+assert_eq "2" "$wf_gap_code" \
+  "AC2/AC6: a selector label missing upstream is a misconfiguration — exit 2"
+assert_contains "$wf_gap_out" "tech-debt" \
+  "AC2/AC6: the refusal names the label the tracker does not have"
+
+# -- AC13: exactly one required argument -------------------------------------
+wf_noarg_out="$(run_workflow "$F_SEL")"; wf_noarg_code=$?
+assert_eq "2" "$wf_noarg_code" "AC13: workflow with no reference is a usage error"
+assert_contains "$wf_noarg_out" "workflow" \
+  "AC13: the usage error names the command that needs the argument"
+
+wf_help="$( "$PY" "$CLI" --help 2>&1 )"
+assert_contains "$wf_help" "workflow" \
+  "AC13: workflow is a documented command, not an undocumented back door"
+
+# `--help` is not where an agent finds a command; the skill is. A command in one
+# and not the other is a command nothing reaches.
+for tree in .agents .claude; do
+  wf_skill="$REPO/$tree/skills/task-registry/SKILL.md"
+  assert_file_matches "$wf_skill" '^argument-hint:.*workflow' \
+    "AC13: $tree/task-registry offers workflow in its argument-hint"
+  assert_file_matches "$wf_skill" '^\| `workflow` \|' \
+    "AC13: $tree/task-registry lists workflow in the command table"
+  # The legend says `2` is a usage error, and workflow also exits 2 for a config
+  # or upstream-label fault. Stating one and meaning both is how a wrapper learns
+  # to page on the wrong thing.
+  assert_file_contains "$wf_skill" "A nightly wrapper pages on" \
+    "AC2: $tree/task-registry says which exit code a scheduler should page on"
+done
+
+
+# ============================================================================
+# 8. AC3 — R3 needs a TOTAL order, and issue number is the only intrinsic one
+# ============================================================================
+# Precedence selects the ROUTINE; it cannot order candidates within one, because
+# they all carry the same label. Without a tie-break a scheduled run picks
+# whatever `gh issue list` happened to return that night.
+#
+# `by_priority` did tie-break, on `task.id` — which for a GitHub issue is a
+# TITLE-DERIVED SLUG: `_to_task` passes `fallback_id=""`, so `task_from_metadata`
+# falls through to `slugify_id(title)`. That is deterministic but not intrinsic:
+# editing one issue's title reshuffles the whole backlog. The three fixtures
+# below are built so slug order and number order DISAGREE, which is what makes
+# these assertions able to fail.
+
+# The extra label is built BEFORE the printf rather than with `${3:+...}`: the
+# replacement text contains a `}` of its own, which closes the expansion early
+# and emits `{"name":"bug"}}` — malformed JSON the provider rejects.
+order_issue() {  # <number> <title> [extra-label]
+  local extra=""
+  if [ -n "${3:-}" ]; then extra=",{\"name\":\"$3\"}"; fi
+  printf '{"number":%s,"title":"%s","state":"OPEN","url":"https://github.com/o/r/issues/%s","labels":[{"name":"bug"}%s],"assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"","closedByPullRequestsReferences":[]}' \
+    "$1" "$2" "$1" "$extra"
+}
+
+new_order_fixture() {  # writes issues from stdin-ordered args
+  local d; d="$(new_fixture)"
+  write_config "$d" <<'EOF'
+EOF
+  write_labels "$d" bug enhancement design-decision tech-debt documentation now next in-progress
+  printf '%s' "$1" > "$d/ghdata/issues.json"
+  printf '%s' "$d"
+}
+
+# Slug order is apple(41) < mango(42) < zebra(40); number order is 40 < 41 < 42.
+# A head of 40 can only come from the number.
+F_ORDER="$(new_order_fixture "[$(order_issue 40 'Zebra fails'),$(order_issue 41 'Apple fails'),$(order_issue 42 'Mango fails')]")"
+order_out="$(run_select "$F_ORDER" --routine fix)"; order_code=$?
+assert_eq "0" "$order_code" "AC3: an ordered pool selects successfully"
+assert_contains "$order_out" "candidate:     40 —" \
+  "AC3: equal priority ties break on ASCENDING ISSUE NUMBER, not the title slug"
+assert_not_contains "$order_out" "candidate:     41 —" \
+  "AC3: the alphabetically-first title does not win — that was the slug behaviour"
+
+# Same three issues, provider returning them in a different order. A total order
+# is a property of the key, not of the read.
+F_SHUFFLED="$(new_order_fixture "[$(order_issue 42 'Mango fails'),$(order_issue 40 'Zebra fails'),$(order_issue 41 'Apple fails')]")"
+shuffled_out="$(run_select "$F_SHUFFLED" --routine fix)"
+assert_contains "$shuffled_out" "candidate:     40 —" \
+  "AC3: a shuffled provider response yields the same head"
+
+# Two runs on an unchanged backlog return the same issue.
+rerun_out="$(run_select "$F_ORDER" --routine fix)"
+assert_eq "$(printf '%s' "$order_out" | grep '^candidate:')" \
+          "$(printf '%s' "$rerun_out" | grep '^candidate:')" \
+  "AC3: two runs on an unchanged backlog return the same issue"
+
+# The property the slug tie-break did NOT have: renaming an issue must not
+# reorder the backlog. Identical numbers, one title changed.
+F_RETITLED="$(new_order_fixture "[$(order_issue 40 'Zebra fails'),$(order_issue 41 'Aardvark fails'),$(order_issue 42 'Mango fails')]")"
+retitled_out="$(run_select "$F_RETITLED" --routine fix)"
+assert_contains "$retitled_out" "candidate:     40 —" \
+  "AC3: editing an issue title does not reshuffle the queue"
+
+# Rank still dominates the number: `now` on the HIGHEST number still wins.
+F_RANKED="$(new_order_fixture "[$(order_issue 40 'Zebra fails'),$(order_issue 41 'Apple fails'),$(order_issue 42 'Mango fails' now)]")"
+ranked_out="$(run_select "$F_RANKED" --routine fix)"
+assert_contains "$ranked_out" "candidate:     42 —" \
+  "AC3: priority rank outranks the number — now (#42) beats unset (#40)"
+
+# A task with no numeric external id sorts last rather than crashing the sort.
+# The local provider has no issue numbers at all, so this is its whole world.
+mixed_head="$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" - <<'PYEOF'
+from registry.model import ExternalRef, Task, by_priority
+
+# Ids chosen so ALPHABETICAL order (aaa, mmm, zzz) is the exact reverse of the
+# intended one. Sorting by id alone — the behaviour being replaced — cannot
+# produce the expected line.
+# Input order is mmm, zzz, aaa — deliberately NOT the expected output order.
+# `sorted` is stable, so leaving the two unnumbered tasks in input order would
+# also print the expected line if the final `task.id` tie-break were dropped.
+tasks = [
+    Task(id="mmm", title="Mmm", external=ExternalRef("github", "not-a-number", "u")),
+    Task(id="zzz", title="Zzz", external=ExternalRef("github", "7", "u")),
+    Task(id="aaa", title="Aaa", external=None),
+]
+print(",".join(task.id for task in sorted(tasks, key=by_priority)))
+PYEOF
+)"
+assert_eq "zzz,aaa,mmm" "$mixed_head" \
+  "AC3: an unnumbered task sorts after every numbered one, by id — no crash, no ambiguity"
+
 
 finish

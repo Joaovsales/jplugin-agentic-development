@@ -96,7 +96,7 @@ happens where a human already is: the session-start banner.
     existing entry rather than appending a duplicate.
 - **Session start** — `session-start.sh` reads the ledger and prints an
   outstanding-debt line beside the existing learning-store and task counts, with
-  the `/task-registry publish` invocation needed to file it.
+  the `/task-registry upsert` invocation needed to file it.
 
 Exit `0` on the failure path is a deliberate departure from Observability
 Discipline's "exit non-zero", recorded here because a reviewer will otherwise
@@ -126,7 +126,7 @@ commits, so the range it records necessarily ends before itself.
 - **No `tasks/todo.md` at `<local-sha>`** → pass silently, record nothing. The
   repo does not use this workflow; the gate must not spam unrelated projects.
 - **Documentation-only push** → pass. `*.md`, `LICENSE*`, `.gitignore`, and
-  `tasks/**` are non-code. `/auto-improve` findings-only mode depends on this.
+  `tasks/**` are non-code. `/sweep`'s record-only commit depends on this.
 - **New branch** (`<remote-sha>` all zeros) → range is `merge-base(HEAD, default-branch)..<local-sha>`.
 - **Branch deletion** (`<local-sha>` all zeros) → pass, record nothing.
 - **Merge commits** → exempt; they introduce no new authored code.
@@ -170,7 +170,7 @@ deprecated `pre-push-guard.sh`: a gate that exists and never fires.
 - [ ] `SKIP_WRAPUP_GATE=1` bypasses the gate; the existing `SKIP_PREPUSH=1` still bypasses the whole hook.
 - [ ] A malformed fingerprint is reported on stderr and neither widens coverage nor suppresses the warning.
 - [ ] The hook performs no network calls and invokes no tracker command.
-- [ ] `session-start.sh` prints outstanding wrap-up debt with the `/task-registry publish` invocation, and prints nothing when the ledger is empty or absent.
+- [ ] `session-start.sh` prints outstanding wrap-up debt with the `/task-registry upsert` invocation, and prints nothing when the ledger is empty or absent.
 - [ ] `install.sh` installs the hook into the current repository's `--git-common-dir/hooks` when run inside one, not only into the git template dir.
 - [ ] `/sync` installs or refreshes the hook in an already-cloned downstream repository.
 
@@ -263,8 +263,9 @@ citation orphans a learning document.
   as new code commits.
 - **`/create-verification-skill`** writing project-local skill scripts without
   build or wrap-up — accepted.
-- **`/auto-improve` findings-only mode** committing a docs-only PR outside
-  wrap-up — permitted by A's documentation-only exemption.
+- **A producer sweep's record-only commit** (`/sweep`, formerly `/auto-improve`
+  findings-only mode) pushed outside wrap-up — permitted by A's documentation-only
+  exemption.
 - **Restoring a supervised-TDD rung.** `/tdd` is retired, not replaced. If
   per-task checkpoints are ever wanted again, that is a `/build` flag, not a
   revived skill.

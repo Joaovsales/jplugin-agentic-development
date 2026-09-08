@@ -54,7 +54,7 @@ for tree in .agents .claude; do
     "AC6: $tree states plan's body carries Refs #N instead"
 
   # Closure happens on merge. A `gh issue close` here would break the provider
-  # coupling guard and take Jira with it.
+  # coupling guard with it.
   assert_file_not_matches "$f" "gh issue" \
     "AC6: $tree/wrap-up-session never closes an issue itself"
 
@@ -69,9 +69,82 @@ for tree in .agents .claude; do
   assert_prose_contains "$f" "open the PR anyway" \
     "Edge: $tree opens the PR even when the issue link is bad"
 
+  # --- AC11: an unattended run that produces no PR is never SILENT -----------
+  # R4 as written ("every session ends in a PR") is false today and this does not
+  # make it true: wrap-up has six documented no-PR exits — no changes, tests
+  # failing after 2 fix attempts, unresolved MUST-FIX, the push gate, an
+  # unwritable local record, and a `blocked` maintainer outcome. Each is a
+  # legitimate outcome and none is removed here.
+  #
+  # What changes is the FAILURE MODE the spec actually names: a 03:00 run that
+  # ends having produced nothing, and says so to nobody. So the assertion is
+  # about loudness and exit code, not about forcing a PR into existence.
+  assert_file_matches "$f" '^## Step 8.5' \
+    "AC11: $tree/wrap-up-session has a terminal PR assertion step"
+
+  terminal="$(awk '/^## Step 8.5/{f=1;next} f&&/^## /{exit} f' "$f")"
+
+  assert_contains "$terminal" "gh pr view" \
+    "AC11: $tree checks for the PR with gh pr view on the branch"
+  # The exact ACTION, not the bare phrase: "non-zero" also appears in the
+  # closing paragraph, so a needle that loose stays green with the action row
+  # gutted — which is the one line that makes the run fail.
+  assert_contains "$terminal" "and **exit non-zero**" \
+    "AC11: $tree's no-PR row exits non-zero rather than merely reporting"
+  assert_prose_contains "$f" "does not make every session end in a pull request" \
+    "AC11: $tree does NOT claim R4 is now true — the six no-PR exits survive"
+  assert_contains "$terminal" "interactive" \
+    "AC11: $tree scopes the assertion — an interactive run has a human watching"
+
+  # The assertion is worthless if it only runs on the happy path: the exits it
+  # exists to make loud are exactly the ones that stop wrap-up early.
+  assert_prose_contains "$f" "runs even when an earlier gate stopped the run" \
+    "AC11: $tree runs the assertion on the early-exit paths too"
+
+  # ...and the claim above is prose. A reader following this skill top to bottom
+  # hits "STOP" and stops, so the step is reachable only if each early exit says
+  # so where the exit is written. The exits are read from Step 8.5's own table,
+  # so a new exit added there is checked without editing this test.
+  for exit_step in $(printf '%s\n' "$terminal" \
+      | sed -nE 's/^\|[^|]*\|[[:space:]]*Step ([0-9.]+)[[:space:]]*\|.*/\1/p' \
+      | sort -u); do
+    section="$(awk -v want="## Step $exit_step " \
+      'index($0, want) == 1 { f = 1; next } f && /^## / { exit } f' "$f")"
+    assert_contains "$section" "Step 8.5" \
+      "AC11: $tree's Step $exit_step exit routes to Step 8.5 rather than just stopping"
+  done
+
+  # Silence on success. A terminal check that prints on every green run trains
+  # readers to ignore it, which is how the loud case stops being loud.
+  assert_prose_contains "$f" "says nothing when the pull request exists" \
+    "AC11: $tree keeps the success path silent (failure-only reporting)"
+
+  # `gh pr view` exits non-zero for "no such PR" AND for "could not ask". Reading
+  # the second as the first reports a missing PR that may well exist — a false
+  # alarm on every night gh is unhappy, which is how a nightly check gets muted.
+  assert_contains "$terminal" "could not ask" \
+    "AC11: $tree tells a failed gh apart from an absent pull request"
+
+  # The scope test is the parser, not the prefix: `routine/plna/90-x` matches
+  # `routine/` and belongs to no routine.
+  assert_contains "$terminal" "routine_branch.py" \
+    "AC11: $tree decides 'is this a routine branch' with the parser that owns the format"
+
   # --- the contract document is reachable from the skill that implements it ---
   assert_file_contains "$f" "references/routines.md" \
     "AC7: $tree/wrap-up-session cites the routine contract"
+done
+
+# The other half of the scope rule: an unattended run on an ORDINARY branch is
+# invisible to the parser, so the caller has to say so. A skill that invokes
+# wrap-up unattended and never declares it silently opts out of the assertion.
+# `/sweep` is not listed: its producers run on a `routine/<name>/<stamp>-sweep`
+# branch, which the parser rule above already reads as unattended.
+for caller in yolo auto-push; do
+  for tree in .agents .claude; do
+    assert_file_contains "$REPO/$tree/skills/$caller/SKILL.md" "Step 8.5" \
+      "AC11: $tree/$caller declares its wrap-up run unattended"
+  done
 done
 
 assert_files_identical \

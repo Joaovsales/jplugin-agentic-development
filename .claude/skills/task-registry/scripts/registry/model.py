@@ -1,6 +1,6 @@
 """Provider-neutral task record.
 
-This module knows nothing about GitHub, Jira, or Markdown. Everything a provider
+This module knows nothing about GitHub or Markdown. Everything a provider
 adapter needs in order to round-trip a task without losing information is here:
 the canonical vocabulary, the record itself, and the identity block that carries
 the stable ID across the boundary.
@@ -12,6 +12,7 @@ being renumbered, migrated between providers, or closed and reopened.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field, replace
 from typing import Iterable, Mapping, Optional, Sequence, Tuple
@@ -35,9 +36,39 @@ PRIORITIES: Tuple[str, ...] = ("high", "medium", "low")
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2, None: 3}
 
 
-def by_priority(task) -> Tuple[int, str]:
-    """Sort key: priority rank, then id. One definition, two callers."""
-    return (PRIORITY_ORDER.get(task.priority, 3), task.id)
+def by_priority(task) -> Tuple[int, float, str]:
+    """Sort key: priority rank, then ascending issue number, then id.
+
+    A scheduled routine needs a TOTAL order. Precedence picks the routine, not
+    the candidate — every issue in a routine's pool carries the same label — so
+    without a tie-break the nightly run claims whatever the provider happened to
+    list first.
+
+    The tie-break used to be `task.id` alone, which is deterministic but not
+    intrinsic: for a GitHub issue that id is a title-derived slug (`_to_task`
+    passes `fallback_id=""`, so `task_from_metadata` falls through to
+    `slugify_id`). Renaming one issue reordered the whole backlog. The issue
+    number is intrinsic, stable, and needs no tracker field.
+
+    `task.id` stays as the final tie-break so the order is total even among tasks
+    the provider never numbered — the local provider numbers none of them.
+    """
+    return (PRIORITY_ORDER.get(task.priority, 3), _external_number(task), task.id)
+
+
+def _external_number(task) -> float:
+    """The provider's issue number, or infinity for a task that has none.
+
+    Infinity rather than a sentinel like -1: an unnumbered task sorts AFTER every
+    numbered one, so adopting the registry in a repository with existing local
+    rows does not push them all ahead of the real backlog. A non-numeric id — a
+    local slug today, whatever a later tracker mints — takes the same branch:
+    comparing it to an integer would raise, and inventing an ordering across two
+    id schemes would be
+    a guess dressed as a rule.
+    """
+    reference = task.external.id if task.external else ""
+    return int(reference) if str(reference).isdigit() else math.inf
 
 
 #: Statuses that mean "no longer on the frontier".

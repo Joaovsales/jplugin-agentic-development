@@ -130,6 +130,7 @@ Invoke `/wrap-up-session` with these overrides:
 | Step 5.1 — Apply Gate | Run normally, **no prompt added**. A `MUST-FIX` that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately inside the wrap-up loop if you can, otherwise STOP and report it as unresolved. Never widen `autofix_class`, and never downgrade a finding, to reach the push. |
 | Step 7 — Push | Run normally. Push to the feature branch. |
 | Step 8 — Deployment verification | Run normally if configured. |
+| Step 8.5 — Terminal PR assertion | **This run is unattended.** Declare it, so the assertion runs: the branch is an ordinary feature branch, and nothing in its name tells wrap-up a human stopped watching. |
 
 Everything else runs as `/wrap-up-session` defines it: code review (4 parallel passes), security scan, tests, learnings capture.
 

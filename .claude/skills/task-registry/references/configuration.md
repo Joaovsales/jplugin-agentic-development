@@ -38,9 +38,10 @@ Then it selects a provider:
 | 2 | GitHub remote **and** `gh auth status` exits 0 | `github` |
 | 3 | anything else | `local` |
 
-**Jira is never reached by inference.** Credentials in the environment do not
-select it; only `provider = jira` does. A tracker that other teams depend on is
-not something a tool should start writing to because it could.
+**No tracker beyond rows 2 and 3 is reached by inference.** Credentials in the
+environment do not select one; only an explicit `provider =` does. A tracker
+that other teams depend on is not something a tool should start writing to
+because it could.
 
 `doctor` prints the selection and the reason:
 
@@ -138,60 +139,6 @@ in_progress = assignee
 
 ---
 
-## Jira
-
-Optional, explicit, and stdlib-only: `urllib` behind a one-method transport, no
-SDK. REST **v2** endpoints are used deliberately — v3 takes descriptions as
-Atlassian Document Format, and the identity block has to survive byte-for-byte.
-
-### Setup
-
-```ini
-[tracker]
-provider = jira
-project = REG
-require_write_approval = true
-```
-
-```bash
-export JIRA_BASE_URL=https://your-site.atlassian.net
-export JIRA_EMAIL=you@example.com
-export JIRA_API_TOKEN=...
-```
-
-### Vocabulary
-
-Issue types and priorities map through `[jira.issuetype]` and `[jira.priority]`.
-Status comes from the native workflow state — Jira genuinely has one, so nothing
-is inferred:
-
-| Jira status category | Normalized |
-|---------------------|-----------|
-| To Do / new | `open` |
-| In Progress / indeterminate | `in_progress` |
-| Done | `done` (or `cancelled` for "Won't Do") |
-| a status named Blocked / On Hold | `blocked` |
-
-### Capabilities and degradation
-
-Hierarchy (`parent`) and dependencies (`Blocks` issue links) are declared native,
-because a standard Jira site has both. A team-managed project, a missing link
-type, or a permissions gap all present as a *refused* link rather than an absent
-feature — so the adapter attempts the link, and on refusal stores the
-relationship in the metadata block and reports it as `inferred`, with the HTTP
-status that caused the fallback. It never reports a fallback as native.
-
-### Credentials
-
-- `JIRA_API_TOKEN` is held in a `Secret` wrapper whose `repr` is `Secret(***)`,
-  so it cannot leak through an f-string or a traceback frame.
-- Every provider message passes through a redactor that masks the known token,
-  any `Authorization:` header, any `Bearer`/`Basic` payload, and `user:pass@` in
-  a URL.
-- Nothing writes a credential to a report file or a log line.
-
----
-
 ## Local Markdown
 
 The offline default. Canonical task detail lives in one file per task under
@@ -229,7 +176,7 @@ before a branch exists; the routine checks the rest itself. The checklist:
   pending*; its PR body names the switch to flip.
 - **An authenticated `gh`** in the routine's environment — the GitHub provider is
   `gh`-only, and `gh auth status` must succeed with a token that reads and
-  writes issues. Jira needs `JIRA_EMAIL` and `JIRA_API_TOKEN` the same way.
+  writes issues.
 - **Mapped labels pre-existing** in the tracker: every `[labels]` value and every
   `[routines.selectors]` value, plus the priority labels `now` and `next` that
   a sweep files with and the `in-progress` claim label. A label the tracker
@@ -271,22 +218,8 @@ so when it has ignored a relaxation.
 Create the label in the tracker yourself, or set `allow_label_creation = true`.
 The issue was still written, just without that label.
 
-**`jira: refusing to send credentials over an insecure transport`**
-The Jira base URL is `http://` to a remote host, which would put the Basic
-credentials on the wire in clear text. Use `https://`, or export
-`TASK_REGISTRY_ALLOW_INSECURE_TRANSPORT=1` if you genuinely mean it. Loopback
-`http://` is allowed without the override.
-
-**`jira: authentication rejected (HTTP 401)`**
-Token expired or wrong account. Tokens are per-user at
-`id.atlassian.com/manage/api-tokens`. The token never appears in the message —
-that is by design, not a truncation.
-
-**`jira: no closing transition available for REG-1 (offered: ...)`**
-The workflow has no transition into a Done category from the issue's current
-state. Close it in Jira, or add the transition. The registry will not force a
-status field behind the workflow's back.
-
 **`missing-id` on every row.**
-The index predates the registry. Run `migrate`, read the report, then
-`migrate --apply`. See `migration.md`.
+The index predates the registry. Run `python3 <template-clone>/scripts/migrate-task-registry.py --repo .`,
+read the report, then re-run it with `--apply`. The script is a one-shot in the
+template repository rather than in this project; see SKILL.md § Migrating an
+existing repository.

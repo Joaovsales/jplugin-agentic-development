@@ -210,8 +210,30 @@ if [ -f "$DEBT_FILE" ]; then
     echo ""
     echo "⚠  WRAP-UP DEBT  ($DEBT_FILE) — $DEBT_COUNT push(es) with no /wrap-up-session"
     echo "────────────────────────────────"
-    grep '^## ' "$DEBT_FILE" | head -5
-    echo "  File as issues: /task-registry publish --apply --approve"
+    # Print the id rather than asking for one. `upsert` is idempotent only if two
+    # runs mint the same id, and a hand-typed one is exactly how they stop doing
+    # that -- silently, and only on the second run. The heading is already stable
+    # (`<branch> <first-sha>..<last-sha>`), so slugifying it derives the id.
+    grep '^## ' "$DEBT_FILE" | head -5 | while IFS= read -r entry; do
+      heading="${entry#\#\# }"
+      # Must agree with registry.model.slugify_id: lowercase, collapse every run
+      # of non-alphanumerics to one dash, strip *all* leading/trailing dashes,
+      # fall back to "task" when nothing survives. Two normalizers that disagree
+      # mint two ids for one entry, which is the idempotence this block exists to
+      # protect. Reimplemented rather than called because a session-start hook
+      # must not depend on the skill's scripts being installed; the agreement is
+      # pinned by tests/test-pre-push-gate.sh.
+      # `tr -cs` and BRE `*` are POSIX -- `\+` would be a GNU-only extension and
+      # would silently leave the slug unchanged on BSD sed.
+      slug=$(printf '%s' "$heading" | tr '[:upper:]' '[:lower:]' \
+        | tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//')
+      [ -n "$slug" ] || slug=task
+      # The heading is repo-controlled text going into a single-quoted argument,
+      # and git permits `'` in a branch name.
+      heading_q=$(printf '%s' "$heading" | sed "s/'/'\\\\''/g")
+      echo "  $heading"
+      echo "    /task-registry upsert 'wrap-up-debt.$slug' --title '$heading_q' --apply --approve"
+    done
   fi
 fi
 
@@ -415,7 +437,7 @@ echo "  /checkpoint  — Snapshot progress for handoff"
 echo "  /refresh     — Context reset: snapshot to disk, rebuild clean context"
 echo "  /wrap-up-session — Close session: review, test, push"
 echo "  /writing-skills  — Author new skills"
-echo "  /task-registry — Sync todo.md with GitHub/Jira/local tasks; frontier"
+echo "  /task-registry — Resolve a task against GitHub/local tracking; claim"
 echo "  /eval        — Blinded A/B eval of a skill or prompt change"
 echo "  /sync        — Pull latest from template repo"
 

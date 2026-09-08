@@ -2,7 +2,7 @@
 
 Narrow on purpose. Ten operations and one capability record is everything the
 reconciler is allowed to know about a tracker; anything wider leaks GitHub's or
-Jira's shape into the core and makes the next provider a rewrite.
+one tracker's shape into the core and makes the next provider a rewrite.
 
 Capability degradation is explicit rather than emulated. A provider that cannot
 express a dependency natively says so, the dependency is preserved in the task's

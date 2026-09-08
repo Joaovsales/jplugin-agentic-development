@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 """task-registry — provider-agnostic task tracking for this harness.
 
-    task-registry reconcile [--apply]   compare the local index against the provider
-    task-registry publish   [--apply]   create/update provider tasks for local rows
-    task-registry pull      [--apply]   refresh local rows from provider state
-    task-registry frontier              dependency-aware ready/blocked list
     task-registry show <task-id>        full detail for exactly one task
-    task-registry migrate   [--apply]   classify a pre-registry repository
     task-registry doctor                which provider is selected, and why
     task-registry selectors             routine selector vocabulary, checked upstream
     task-registry select --routine R    the next issue routine R may claim
+    task-registry workflow <ref>        which routine owns one issue, and what it runs
     task-registry claim <ref> --routine R  write the claim label onto one issue
 
 Dry-run is the default for every command. `--apply` is the only way anything is
@@ -38,13 +34,13 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from registry.config import (  # noqa: E402
+    DEFERRED_ROUTINES,
     ConfigError,
     ConfigPointerError,
     PRODUCER_ROUTINES,
     load_config,
     select_provider,
 )
-from registry.migrate import apply_migration, plan_migration  # noqa: E402
 from registry.providers import build_provider  # noqa: E402
 from registry.providers.base import (  # noqa: E402
     ProviderError,
@@ -53,10 +49,12 @@ from registry.providers.base import (  # noqa: E402
     WriteNotAuthorized,
 )
 from registry.model import Task, TaskModelError  # noqa: E402
-from registry.reconcile import Registry  # noqa: E402
+from registry.detail import Registry  # noqa: E402
+from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
     matched_label,
     missing_routine_labels,
+    routine_for_label,
     select_candidates,
     select_routine,
     unclassified,
@@ -65,8 +63,7 @@ from registry.redaction import Redactor, redactor_for  # noqa: E402
 from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
-    "reconcile", "publish", "pull", "frontier", "show", "migrate", "doctor", "upsert",
-    "selectors", "select", "claim",
+    "show", "doctor", "upsert", "selectors", "select", "claim", "workflow",
 )
 
 
@@ -78,7 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("command", choices=COMMANDS)
     parser.add_argument(
-        "task_id", nargs="?", help="task id, required by `show`; issue ref for `claim`"
+        "task_id", nargs="?",
+        help="task id, required by `show`; issue ref for `claim` and `workflow`"
     )
     parser.add_argument("--repo", default=".", help="project root (default: cwd)")
     parser.add_argument(
@@ -95,7 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="satisfy require_write_approval for this run (external writes only)",
     )
     parser.add_argument(
-        "--provider", help="override the selected provider (github|jira|local)"
+        "--provider", help="override the selected provider (github|local)"
     )
     parser.add_argument(
         "--routine", help="routine name, required by `select`"
@@ -159,7 +157,7 @@ def main(argv=None) -> int:
         raise
     except Exception:  # noqa: BLE001 - deliberate, see below
         # An unexpected traceback is still output, and this tool's output can
-        # carry a Jira token or an Authorization header picked up along the way.
+        # carry an Authorization header picked up along the way.
         # Crashing raw would print it, so the trace is scrubbed first. The
         # failure stays loud and still exits non-zero.
         print(redact(traceback.format_exc()), file=sys.stderr)
@@ -206,7 +204,11 @@ def _run(argv, set_redactor) -> int:
     except ConfigError as exc:
         if args.command != "doctor":
             print(f"task-registry: {exc}", file=sys.stderr)
-            return 1
+            # `workflow` separates "the thing you named is absent" (1) from "this
+            # tool is misconfigured" (2) so an unattended caller can retry the
+            # first and page a human for the second. Every other command predates
+            # that split and keeps its single failure code.
+            return 2 if args.command == "workflow" else 1
         config_fault = exc
         config = load_config(root, strict=False)
     set_redactor(redactor_for(config))
@@ -240,6 +242,9 @@ def _run(argv, set_redactor) -> int:
         print(f"task-registry: {exc}", file=sys.stderr)
         return 1
     except ConfigError as exc:
+        print(f"task-registry: {exc}", file=sys.stderr)
+        return 1
+    except IndexUnreadable as exc:
         print(f"task-registry: {exc}", file=sys.stderr)
         return 1
 
@@ -286,27 +291,12 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _select(registry, args.routine)
     if command == "claim":
         return _claim(registry, args.routine, args.task_id, apply_writes)
-    if command == "migrate":
-        plan = plan_migration(config)
-        # Applying does not make malformed rows readable: the same rows are still
-        # unparsed afterwards, so both branches report the same failure.
-        exit_code = 1 if plan.problems else 0
-        if apply_writes:
-            actions = apply_migration(config, plan)
-            rendered = plan.render() + "\n\n" + "\n".join(f"  {a}" for a in actions)
-            return rendered, exit_code
-        return plan.render(), exit_code
-
-    runner = {
-        "reconcile": registry.reconcile,
-        "publish": registry.publish,
-        "pull": registry.pull,
-    }.get(command)
-    if runner is not None:
-        report = runner(apply_writes)
-    else:
-        report = registry.frontier()
-    return report.render(verbose=args.verbose), report.exit_code
+    if command == "workflow":
+        return _workflow(registry, args.task_id)
+    # argparse's `choices` already refuses anything outside COMMANDS, so this is
+    # unreachable from the CLI. It exists so that adding a command to COMMANDS
+    # and forgetting to dispatch it fails by name instead of unpacking None.
+    raise AssertionError(f"no dispatch for command {command!r}")
 
 
 def _doctor(registry: Registry, fault: Optional[ConfigError] = None) -> str:
@@ -492,6 +482,137 @@ def _producer_refusal(routine: str, command: str) -> str:
     )
 
 
+def _workflow(registry: Registry, task_ref):
+    """Which routine owns one issue, and what that routine runs — requirement R2.
+
+    `select_routine` has always known the answer; it is wired only as a filter,
+    and it returns a bare `None` for five different situations: no kind label, a
+    label no routine selects, an issue already claimed, a routine that exists,
+    and a routine that is deferred. A human reading `None` guesses between them
+    and an unattended caller cannot branch at all, so each gets its own sentence
+    and its own exit code here.
+
+    Exit 2 means a human must edit a file before this command can work at all.
+    Exit 1 means the command ran and there is no routine to start for this
+    reference — wrong reference, closed issue, or a tracker that did not answer.
+    A nightly wrapper pages for the first and does not for the second, which is
+    why they must not share a code. Distinguishing the exit-1 cases from each
+    other is left to the text, because § 3 of specs/workflow-routing.md defines
+    only these two non-zero codes.
+    """
+    config = registry.config
+    if not task_ref:
+        return "task-registry: `workflow` requires the issue it should look up", 2
+
+    # Checked BEFORE the lookup. A selector label the tracker never created makes
+    # every routine match nothing, so "no routine owns this issue" would be
+    # returned for an issue that is labelled perfectly well.
+    verdict, _upstream_code, fault = _upstream_verdict(registry)
+    if fault == UPSTREAM_MISCONFIGURED:
+        return verdict, 2
+    if fault == UPSTREAM_UNAVAILABLE:
+        # An outage is not a misconfiguration. Editing a file will not fix it and
+        # the next run probably succeeds, so it must not reach the exit code a
+        # wrapper pages on.
+        return verdict + "\n  Nothing to edit — the tracker did not answer. Retry.", 1
+
+    task, refusal = _workflow_task(registry, task_ref)
+    if refusal is not None:
+        return refusal
+    if task.is_terminal:
+        # A closed issue reads as perfectly routable -- it still carries its kind
+        # label -- so without this the command would hand an unattended caller a
+        # routine and an exit 0 for work that is already finished.
+        return (
+            f"task-registry: {task_ref} is {task.status} — no routine starts on a "
+            "closed task. Reopen it upstream if the work is not actually done."
+        ), 1
+    return "\n".join(_workflow_report(task, config)), 0
+
+
+def _workflow_task(registry: Registry, task_ref):
+    """(task, refusal) — one task by reference, by the cheapest read that works.
+
+    A single-issue lookup is both cheaper than the backlog scan this used to do
+    and immune to its truncation defect: `list_tasks` silently caps at
+    `LIST_LIMIT`, so an issue past the cut was reported as non-existent.
+    """
+    reference = registry.provider.resolve_reference(str(task_ref))
+    if reference is None:
+        return _workflow_task_by_scan(registry, task_ref)
+    try:
+        return registry.provider.get_task(reference), None
+    except ProviderUnavailable as exc:
+        return None, (
+            f"task-registry: {registry.provider.name} did not answer for {task_ref} "
+            f"— {exc}. Nothing to edit; retry.", 1
+        )
+    except ProviderError as exc:
+        return None, (
+            f"task-registry: no task matches {task_ref!r} in "
+            f"{registry.provider.name} — {exc}", 1
+        )
+
+
+def _workflow_task_by_scan(registry: Registry, task_ref):
+    """(task, refusal) — the fallback for a reference the provider cannot parse.
+
+    A local `tasks/todo.md` id is not an external reference, so it has no
+    single-issue read and the whole backlog must be searched for it.
+    """
+    tasks = registry.provider.list_tasks()
+    if registry.provider.result_truncated:
+        # The pool is partial, so "no task matches" would be indistinguishable
+        # from "it was past the cut" -- the same refusal `select` makes.
+        return None, (
+            f"task-registry: refusing to answer for {task_ref!r} — "
+            f"{registry.provider.name} returned a truncated read, so a miss here "
+            "cannot be told apart from an issue past the page limit", 1
+        )
+    for task in tasks:
+        if task.id == task_ref:
+            return task, None
+    return None, (
+        f"task-registry: no task matches {task_ref!r} — {registry.provider.name} "
+        "could not read it as a reference and no backlog task carries that id", 1
+    )
+
+
+def _workflow_report(task, config) -> list:
+    """The six-outcome answer for one issue, as lines a human reads top to bottom."""
+    reference = task.external.id if task.external else task.id
+    lines = [f"issue:    {reference}  {task.title}"]
+
+    # `matched_label` reads precedence and ignores the claim label, so a claimed
+    # issue still reports which routine holds it. Asking `select_routine` here
+    # would fold that back into the `None` this command exists to take apart.
+    matched = matched_label(task, config)
+    routine = routine_for_label(matched, config) if matched else None
+    if routine is None:
+        lines.append("routine:  none — the issue carries no kind label a routine selects")
+        lines.append(f"triage:   label it one of: {', '.join(config.kind_precedence)}")
+        return lines
+
+    lines.append(f"routine:  {routine}")
+    lines.append(f"matched:  {matched}")
+    lines.append(f"chain:    {' -> '.join(config.routine_skills.get(routine, ()))}")
+    # One `status:` key, however many things are true of the issue. A claimed
+    # issue whose routine is also deferred used to emit the key twice, and a
+    # reader taking the first match got a different answer from one taking the
+    # last.
+    states = []
+    if config.claim_label in task.labels:
+        states.append(
+            f"IN FLIGHT — it carries {config.claim_label}, so routine {routine} "
+            "already holds it. Do not claim it again."
+        )
+    if routine in DEFERRED_ROUTINES:
+        states.append(f"deferred — {routine} is {DEFERRED_ROUTINES[routine]}")
+    if states:
+        lines.append(f"status:   {'; '.join(states)}")
+    return lines
+
+
 def _selector_vocabulary(config) -> list:
     """The configured routine vocabulary, as the operator wrote it."""
     lines = [
@@ -504,8 +625,23 @@ def _selector_vocabulary(config) -> list:
     return lines
 
 
-def _selector_upstream_check(registry: Registry):
-    """Does the tracker actually have every label a routine selects on?"""
+#: Why an upstream check did not pass. The exit code alone cannot carry this: a
+#: tracker that could not be reached and a tracker missing a configured label both
+#: fail, but the first is transient and the second needs a human to edit a file.
+#: `workflow` maps them to different exit codes, so it needs the distinction.
+UPSTREAM_OK = "ok"
+UPSTREAM_UNAVAILABLE = "unavailable"
+UPSTREAM_MISCONFIGURED = "misconfigured"
+
+
+def _upstream_verdict(registry: Registry):
+    """(verdict, exit code, fault kind) — does the tracker have every selector label?
+
+    The fault kind exists because `_selector_upstream_check` returns 1 for two
+    different situations, and the comment below has always said they must not be
+    confused. Until `workflow` needed to choose between paging and retrying,
+    nothing acted on the difference, so one code was enough.
+    """
     try:
         known = registry.provider.known_labels()
     except (ProviderError, ProviderUnavailable) as exc:
@@ -514,24 +650,36 @@ def _selector_upstream_check(registry: Registry):
         return (
             f"upstream check: COULD NOT RUN — {registry.provider.name} has a label "
             f"vocabulary but did not answer: {exc}"
-        ), 1
+        ), 1, UPSTREAM_UNAVAILABLE
     if known is None:
         # Not a pass. The check did not run, and saying so is the floor.
         return (
             f"upstream check: NOT RUN — {registry.provider.name} cannot enumerate "
             "its label vocabulary"
-        ), 0
+        ), 0, UPSTREAM_OK
 
     missing = missing_routine_labels(registry.config, known)
     if not missing:
-        return f"upstream check: every selector label exists in {registry.provider.name}", 0
+        return (
+            f"upstream check: every selector label exists in {registry.provider.name}"
+        ), 0, UPSTREAM_OK
 
     return (
         "upstream check: FAILED — these configured routine labels do not exist in "
         f"{registry.provider.name}: {', '.join(missing)}\n"
         "  A routine selecting on a label the tracker does not have finds nothing "
         "and exits 0. That is the halt this check exists to make loud."
-    ), 1
+    ), 1, UPSTREAM_MISCONFIGURED
+
+
+def _selector_upstream_check(registry: Registry):
+    """Does the tracker actually have every label a routine selects on?
+
+    The two-value form every pre-existing caller uses. The fault kind is dropped
+    here rather than at the call sites so their exit codes are unchanged.
+    """
+    verdict, code, _ = _upstream_verdict(registry)
+    return verdict, code
 
 
 def _write_report(path: str, text: str) -> None:
