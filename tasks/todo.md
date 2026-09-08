@@ -10,14 +10,14 @@
 - [x] TDD: `tests/test-sweep-routines.sh` RED — static assertions for AC1, AC3, AC5, AC6, AC7, AC8, AC9, AC10 across both trees (sourcing `tests/lib.sh`); confirm it fails today
 - [x] TDD: `tests/test-routine-branch.sh` + `tests/test-routine-selectors.sh` + `tests/test-routines-contract.sh` extended RED — producers in `CONTRACT_ROUTINES`, run-stamp round-trip, `PRODUCER_ROUTINES`, `select`/`claim` exit 2 naming "producer", selector for a producer refused at load, producer rows/spine/sections in routines.md (AC2 + AC1 shape)
 - [x] TDD: AC2 GREEN -> `routine_branch.py` `CONTRACT_ROUTINES += ("janitor","architect")`, docstring on run stamp; `config.py` `PRODUCER_ROUTINES`, load-time refusal; `task-registry.py` `_select`/`_claim` producer refusal
-- [x] TDD: AC1 GREEN -> `references/routines.md`: producer table rows, "Producer spine" section, `### \`janitor\` — steps` / `### \`architect\` — steps`, "never edit product code", `fix` 4a row -> `/debug #N`
+- [x] TDD: AC1 GREEN -> `references/routines.md`: producer table rows, "Producer spine" section, `### \`janitor\` — steps` / `### \`architect\` — steps`, "never edit product code", `fix` 4a row → `/debug #N`
 - [x] TDD: `tests/test-sweep-handoff.sh` RED (Python) -> AC4 GREEN: `model.Task.reproduction`/`proposed_fix`, metadata block round-trip, `upsert --reproduction`/`--proposed-fix`, github + jira `_seed_body` five sections in order (summary, Reproduction, Proposed fix, Acceptance Criteria, Evidence), local provider managed sections, `show` renders both; confirm `--derive-id` folds the title (extend if it only folds `--spec`)
 - [x] TDD: AC3 GREEN -> write `.agents/skills/sweep/SKILL.md` (7 steps, Filing, Session record, edge cases) + `references/lens-janitor.md` + `references/lens-architect.md`
 - [x] TDD: AC5 GREEN -> `.agents/skills/debug/SKILL.md`: issue-ref intake via `task-registry show`, candidate-one rule, unattended `blocked:` non-zero path replacing "ask the user" on routine branches, final phase writes `[ ] TDD:` tasks from the issue
 - [x] TDD: AC6 GREEN -> `maintain-verification-skill/SKILL.md` inline source-wave fallback + sweep-owned shipping bullet; `software-design-expert-review/SKILL.md` `--scope tree` + inline fallback
 - [x] TDD: AC7 GREEN -> `wrap-up-session/SKILL.md` linkage table producer row, `chore(sweep): <routine> <date>` title, `Refs` per filed issue read from the record
 - [x] TDD: AC8 GREEN -> `references/routine-prompts/{README,janitor,architect,fix,improve,plan}.md` (<25 lines each, project-agnostic, one skill each; README: tiers, cadence, environment checklist)
-- [x] TDD: AC9 GREEN -> delete `.agents/skills/auto-improve` + `.claude/skills/auto-improve` + `tests/test-auto-improve-rewire.sh`; repoint CLAUDE.md (skills table + repo-survey exception -> `/sweep --routine architect`), README.md, session-start.sh, build SKILL.md, subagent-resilience.md; update loops in test-doc-conventions.sh, test-model-tiers.sh, test-review-context.sh, test-skill-invocation-chain.sh, test-routines-contract.sh
+- [x] TDD: AC9 GREEN -> delete `.agents/skills/auto-improve` + `.claude/skills/auto-improve` + `tests/test-auto-improve-rewire.sh`; repoint CLAUDE.md (skills table + repo-survey exception → `/sweep --routine architect`), README.md, session-start.sh, build SKILL.md, subagent-resilience.md; update loops in test-doc-conventions.sh, test-model-tiers.sh, test-review-context.sh, test-skill-invocation-chain.sh, test-routines-contract.sh
 - [x] TDD: AC10 GREEN -> `task-registry/references/configuration.md` "Unattended routines" section
 - [x] TDD: AC11 -> copy every edited/new file byte-identical into `.claude/`; `tests/test-skill-parity.sh` + `bash tests/run.sh` fully green; record output
 - [x] Wrap-up: `/wrap-up-session` — commit `feat(routines): add janitor and architect sweep routines, retire /auto-improve`, push, open PR against master
@@ -123,7 +123,7 @@
 [x] TDD: `tests/test-review-context.sh` fails on master because `CLAUDE.md` has no § Review Dispatch Contract -> add the section with the 7-item payload table and the absent-vs-empty rule
 [x] TDD: same test asserts the intent-shared / conclusions-withheld split names Independence Accounting as the reason -> add the split to the new section
 [x] TDD: test asserts a finding at `75` must name its dependency and that an unnamed one reads as `50` -> extend `CLAUDE.md` § Finding Model
-[x] TDD: test asserts the verification path (read dependency -> promote to 100 with evidence, drop, or hold and say what stopped it) and that verification-promotion is NOT agreement-promotion -> extend § Finding Model
+[x] TDD: test asserts the verification path (read dependency → promote to 100 with evidence, drop, or hold and say what stopped it) and that verification-promotion is NOT agreement-promotion -> extend § Finding Model
 [x] TDD: test asserts all four dispatch sites (wrap-up Step 4 + Parallel Code Review, quality-gate Phase 3, software-design-expert-review Phase 2) cite the contract by section name, in BOTH trees -> edit 3 skills canonical-first, then byte-identical copy
 [x] TDD: test asserts each dispatch site states the absent-vs-empty rule for spec and deferrals -> add the payload lines at each site
 [x] TDD: test asserts all 8 reviewer persona files (4 personas x 2 trees) carry a `## Context Intake` section naming given / fetch-yourself / out-of-scope -> add the section; `tests/test-agents.sh` must stay green (frontmatter untouched)
@@ -695,3 +695,4 @@ reverse.
 - Deferred, reported not applied: `backlog_path` and `dependency_strategy` are
   orphaned config knobs, but were already orphaned before this cut — out of scope
   under the orphan rule. `spec_dir` *was* orphaned by this cut and was removed.
+- [ ] Preserve published issue references across local-pending upserts <!-- task-id: task-registry-local-pending-upsert-shadows-published-reference --> — When an approval-gated upsert falls back to the local provider for a task already linked to GitHub, the local provider… ([#117](https://github.com/Joaovsales/jplugin-agentic-development/issues/117))
