@@ -1,0 +1,14 @@
+Script started on 2026-09-08 16:07:05-03:00 [COMMAND="python3 /home/joaosouto/orca/workspaces/jplugin-agentic-development/create-verification/.agents/skills/task-registry/scripts/task-registry.py show verify.sample --repo /tmp/verify-task-registry.iZA96x/project --provider local " <not executed on terminal>]
+task: verify.sample
+  title:    Verification task updated
+  kind:     bug
+  status:   open
+  priority: unset
+  labels:   bug
+  external: local:verify.sample tasks/details/verify.sample.md
+  index row: tasks/todo.md:1
+  summary:  Updated through the CLI
+  acceptance criteria:
+    - Read back the saved task
+
+Script done on 2026-09-08 16:07:05-03:00 [COMMAND_EXIT_CODE="0"]
