@@ -7,10 +7,11 @@ same reason `scripts/migrate-learning-store.py` does: a conversion every project
 runs once should not be carried in the skill forever, and `.agents/skills/` is a
 syncable root that `/sync` overwrites wholesale.
 
-**Self-contained on purpose.** It imports nothing from the skill. Cut 2 deletes
-`registry/index.py` and `registry/reconcile.py`, which the retired module read
-its index and specs through, so a one-shot that imported them would break one
-phase after it shipped. The row parser below is a deliberately narrower vendored
+**Self-contained on purpose.** It imports nothing from the skill. Cut 2 deleted
+`registry/reconcile.py`, which the retired module read its index and specs
+through, so a one-shot that imported it would have broken one phase after it
+shipped. (`registry/index.py` survived the cut, because `show` reads through it —
+but the independence is kept deliberately, not by accident of what stayed.) The row parser below is a deliberately narrower vendored
 copy: this tool needs a line, a status box, an id, a title, and `blocked-by:`,
 and none of the link, kind, or reference handling the live index does.
 
@@ -89,10 +90,10 @@ LEGACY_TDD_RE = re.compile(
 )
 PLAN_HEADING_RE = re.compile(r"^##+\s+(?P<title>.+?)\s*$")
 SPEC_REFERENCE_RE = re.compile(r"(?P<path>specs?/[A-Za-z0-9._/-]+\.md)")
-#: Copied verbatim from `registry/reconcile.py`. A wider marker here would make
-#: this tool and `reconcile` disagree about the same repository — this one
-#: classifying a row `superseded` and dropping it from the proposal while
-#: `reconcile` still treats its spec as live.
+#: Was copied verbatim from `registry/reconcile.py`, which Cut 2 deleted; this is
+#: now the only copy in the repository. Kept narrow anyway: a wider marker would
+#: classify a row `superseded` and drop it from the proposal on evidence no other
+#: reader of these specs would accept.
 SUPERSEDED_RE = re.compile(r"^>\s*Superseded by:\s*(?P<by>.+)$", re.MULTILINE | re.IGNORECASE)
 
 #: The heading that marks a plan block as finished. "Session Summary" is this

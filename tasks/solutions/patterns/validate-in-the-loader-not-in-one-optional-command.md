@@ -41,3 +41,8 @@ else. "It has a test" is not the same as "it runs": the test calls it directly.
 
 Related: [[hard-gate-on-tasks-todo-md]] is the same failure one
 level up — a gate that exists in prose but not in the register nobody can skip.
+
+[[inspection-and-action-need-two-loaders-not-one]] is the refinement: where a
+diagnostic reads the same source, the loader needs a strict *sibling* rather than
+a single strictness — the permissive read is what lets `doctor` report the
+breakage the strict one refuses to act on.

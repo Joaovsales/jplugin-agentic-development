@@ -96,7 +96,7 @@ happens where a human already is: the session-start banner.
     existing entry rather than appending a duplicate.
 - **Session start** — `session-start.sh` reads the ledger and prints an
   outstanding-debt line beside the existing learning-store and task counts, with
-  the `/task-registry publish` invocation needed to file it.
+  the `/task-registry upsert` invocation needed to file it.
 
 Exit `0` on the failure path is a deliberate departure from Observability
 Discipline's "exit non-zero", recorded here because a reviewer will otherwise
@@ -170,7 +170,7 @@ deprecated `pre-push-guard.sh`: a gate that exists and never fires.
 - [ ] `SKIP_WRAPUP_GATE=1` bypasses the gate; the existing `SKIP_PREPUSH=1` still bypasses the whole hook.
 - [ ] A malformed fingerprint is reported on stderr and neither widens coverage nor suppresses the warning.
 - [ ] The hook performs no network calls and invokes no tracker command.
-- [ ] `session-start.sh` prints outstanding wrap-up debt with the `/task-registry publish` invocation, and prints nothing when the ledger is empty or absent.
+- [ ] `session-start.sh` prints outstanding wrap-up debt with the `/task-registry upsert` invocation, and prints nothing when the ledger is empty or absent.
 - [ ] `install.sh` installs the hook into the current repository's `--git-common-dir/hooks` when run inside one, not only into the git template dir.
 - [ ] `/sync` installs or refreshes the hook in an already-cloned downstream repository.
 

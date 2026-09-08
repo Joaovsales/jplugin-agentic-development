@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
-from .index import load_index, render_row
+from .index import load_index_strict, render_row
 from .model import Task, is_valid_id, slugify_id
 from .providers.base import ProviderError, ProviderUnavailable
 
@@ -145,13 +145,13 @@ def _published_ref(config, task_id: str):
 
     The index is the only place that remembers, so it is where we look.
     """
-    row = load_index(config.path(config.index_path), config.index_path).by_id(task_id)
+    row = load_index_strict(config.path(config.index_path), config.index_path).by_id(task_id)
     return None if row is None else row.task.external
 
 
 def _sync_index(config, task: Task) -> str:
     """Add or refresh the one compact row that points at this task."""
-    index = load_index(config.path(config.index_path), config.index_path)
+    index = load_index_strict(config.path(config.index_path), config.index_path)
     row = index.by_id(task.id)
     if row is None:
         index.append_row(task)
@@ -170,6 +170,12 @@ def upsert_task(registry, task: Task, apply: bool) -> Tuple[List[str], int]:
 
     config, provider = registry.config, registry.provider
     gate = provider.gate
+    # Before the provider is touched at all. AC-19 requires the refusal to precede
+    # *any* provider write, and the two index reads below are both incidental: one
+    # is skipped on the external path, the other runs after `_persist`. Loading
+    # here is what makes the guarantee unconditional -- and makes the dry run
+    # refuse identically, so the preview describes the run `--apply` performs.
+    load_index_strict(config.path(config.index_path), config.index_path)
     try:
         status = provider.discover()
         destination = resolve_destination(provider.name, gate, status.available)

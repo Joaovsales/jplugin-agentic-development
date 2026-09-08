@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """task-registry — provider-agnostic task tracking for this harness.
 
-    task-registry reconcile [--apply]   compare the local index against the provider
-    task-registry publish   [--apply]   create/update provider tasks for local rows
-    task-registry pull      [--apply]   refresh local rows from provider state
-    task-registry frontier              dependency-aware ready/blocked list
     task-registry show <task-id>        full detail for exactly one task
     task-registry doctor                which provider is selected, and why
     task-registry selectors             routine selector vocabulary, checked upstream
@@ -52,7 +48,8 @@ from registry.providers.base import (  # noqa: E402
     WriteNotAuthorized,
 )
 from registry.model import Task, TaskModelError  # noqa: E402
-from registry.reconcile import Registry  # noqa: E402
+from registry.detail import Registry  # noqa: E402
+from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
     matched_label,
     missing_routine_labels,
@@ -65,8 +62,7 @@ from registry.redaction import Redactor, redactor_for  # noqa: E402
 from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
-    "reconcile", "publish", "pull", "frontier", "show", "doctor", "upsert",
-    "selectors", "select", "claim", "workflow",
+    "show", "doctor", "upsert", "selectors", "select", "claim", "workflow",
 )
 
 
@@ -221,6 +217,9 @@ def _run(argv, set_redactor) -> int:
     except ConfigError as exc:
         print(f"task-registry: {exc}", file=sys.stderr)
         return 1
+    except IndexUnreadable as exc:
+        print(f"task-registry: {exc}", file=sys.stderr)
+        return 1
 
     print(output)
     if args.report:
@@ -258,16 +257,10 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _claim(registry, args.routine, args.task_id, apply_writes)
     if command == "workflow":
         return _workflow(registry, args.task_id)
-    runner = {
-        "reconcile": registry.reconcile,
-        "publish": registry.publish,
-        "pull": registry.pull,
-    }.get(command)
-    if runner is not None:
-        report = runner(apply_writes)
-    else:
-        report = registry.frontier()
-    return report.render(verbose=args.verbose), report.exit_code
+    # argparse's `choices` already refuses anything outside COMMANDS, so this is
+    # unreachable from the CLI. It exists so that adding a command to COMMANDS
+    # and forgetting to dispatch it fails by name instead of unpacking None.
+    raise AssertionError(f"no dispatch for command {command!r}")
 
 
 def _doctor(registry: Registry, fault: Optional[ConfigError] = None) -> str:

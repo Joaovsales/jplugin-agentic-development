@@ -453,7 +453,7 @@ assert_eq "1" "$broken_code" "doctor: a misconfigured [routines] block is report
 assert_contains "$broken_doctor" "MISCONFIGURED" "doctor: the fault is named, not swallowed"
 assert_contains "$broken_doctor" "provider:" \
   "doctor: the rest of the diagnosis still renders — it is reachable when it matters"
-broken_frontier="$( cd "$F_BROKEN" && "$PY" "$CLI" frontier --repo "$F_BROKEN" >/dev/null 2>&1 )"
+broken_other="$( cd "$F_BROKEN" && "$PY" "$CLI" selectors --repo "$F_BROKEN" >/dev/null 2>&1 )"
 assert_eq "1" "$?" "doctor is the ONLY exemption — every other command still refuses"
 
 # `" "` is truthy, so a claim label stripped after an `or` fallback yields "" --

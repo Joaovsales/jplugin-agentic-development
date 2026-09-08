@@ -190,7 +190,7 @@ assert_contains "$OUT" "$CODE" "Malformed: does not widen — code commit still 
 
 # ── The hook reaches no tracker and no network ───────────────────────────────
 # Behavioural, not a source grep: the ledger header legitimately *documents* the
-# `/task-registry publish` command as guidance text, and grepping source cannot
+# `/task-registry upsert` command as guidance text, and grepping source cannot
 # tell a mention from an invocation. Shim the binaries and prove none are run.
 D="$(new_repo nonetwork)"
 BASE="$(sha "$D")"
@@ -224,7 +224,49 @@ printf '# Wrap-Up Debt\n\n## master abc1234..def5678\n- Recorded: 2026-09-02\n' 
 BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh 2>/dev/null )"
 assert_contains "$BAN_OUT" "WRAP-UP DEBT" "Banner: reports outstanding debt"
 assert_contains "$BAN_OUT" "master abc1234..def5678" "Banner: names the range"
-assert_contains "$BAN_OUT" "/task-registry publish" "Banner: names how to file it"
+assert_contains "$BAN_OUT" "/task-registry upsert" "Banner: names how to file it"
+# A hand-typed id is how two runs mint different ids and `upsert` stops being
+# idempotent. The banner must hand over a derived one, not a placeholder.
+assert_contains "$BAN_OUT" "wrap-up-debt.master-abc1234-def5678" \
+  "Banner: the filing id is derived from the entry, not left to be typed"
+assert_not_contains "$BAN_OUT" "<id>" \
+  "Banner: no placeholder id survives into the printed invocation"
+
+# The banner reimplements registry.model.slugify_id in shell, because a
+# session-start hook must not depend on the skill's scripts being installed. Two
+# normalizers that disagree mint two ids for one debt entry -- silently, and only
+# on the second run -- so the agreement is pinned rather than trusted. A branch
+# name may contain `'`, so the emitted line must also survive being pasted.
+SLUGGY="$REPO/.agents/skills/task-registry/scripts"
+if [ -d "$SLUGGY" ]; then
+  for heading in "master abc1234..def5678" "feat/o'brien 111..222" "---weird---" "FEAT/Caps 1..2" "!!!"; do
+    bash_slug=$(printf '%s' "$heading" | tr '[:upper:]' '[:lower:]' \
+      | tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//')
+    [ -n "$bash_slug" ] || bash_slug=task
+    py_slug=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" python3 -c \
+      'import sys; from registry.model import slugify_id; print(slugify_id(sys.argv[1]))' "$heading")
+    assert_eq "$py_slug" "$bash_slug" \
+      "Banner slug agrees with slugify_id for: $heading"
+    valid=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" python3 -c \
+      'import sys; from registry.model import is_valid_id; print(is_valid_id("wrap-up-debt." + sys.argv[1]))' "$bash_slug")
+    assert_eq "True" "$valid" \
+      "Banner slug yields an id upsert accepts for: $heading"
+  done
+fi
+
+# A heading carrying a single quote must not break the command the banner prints.
+QD="$(mktemp -d)"; mkdir -p "$QD/tasks"
+cp "$REPO/.claude/hooks/session-start.sh" "$QD/session-start.sh"
+printf "# Wrap-Up Debt\n\n## feat/o'brien abc1234..def5678\n- Recorded: 2026-09-08\n" \
+  > "$QD/tasks/wrap-up-debt.md"
+Q_OUT="$( cd "$QD" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
+printf '%s\n' "$Q_OUT" | grep '/task-registry upsert' | sed 's/^ *//' > "$QD/emitted.sh"
+if bash -n "$QD/emitted.sh" 2>/dev/null; then q_parses=yes; else q_parses=no; fi
+assert_eq "yes" "$q_parses" \
+  "Banner: a branch name containing a quote still yields a parseable command"
+assert_contains "$Q_OUT" "wrap-up-debt.feat-o-brien-abc1234-def5678" \
+  "Banner: the quote is normalized out of the id, not left to break it"
+rm -rf "$QD"
 
 # ── Deployment: the gate must actually reach existing repos ──────────────────
 # A git template dir applies only to repos created afterwards, which is exactly

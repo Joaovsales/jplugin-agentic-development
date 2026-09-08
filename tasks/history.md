@@ -456,3 +456,56 @@ AC16 was restated as a measured delta: its 4,090 absolute came from a baseline
 Phase A had already moved, and `cloc` is not installed here.
 
 Suite: 37 files green. Trees byte-identical. Revert verified by running it.
+
+## 2026-09-08 — Phase C / Cut 2: delete the `tasks/todo.md` sync engine
+
+Branch `feat/workflow-routing-phase-c` off `6c5fe6f` (`master` was held by
+another worktree, so the branch came from `origin/master`).
+
+Deleted `registry/reconcile.py` (797) — `reconcile`, `publish`, `pull`,
+`frontier`, `_dependency_order`, `_cycles` — and extracted its surviving read
+half into `registry/detail.py` (199): `Registry`, `show`, `_render_detail`,
+`_matching_task`, `_combine_task`. `COMMANDS` lost four entries; the CLI gained a
+terminal `AssertionError` guard so a missing dispatch is loud.
+
+Two modules the plan had slated for deletion survived, and both for the same
+reason — a surviving reader:
+
+- `index.py` — `show` resolves against the local index, so `Registry` reads
+  through it. Three genuinely dead members went (`collect_problems`, `row_text`,
+  `replace_line`); `write_text` was deleted by mistake and restored, because the
+  external-reference count had excluded `save()`'s internal call.
+- `upsert.py` — `_published_ref` reads the link row `_sync_index` writes, and
+  `providers/local.py:86,93` overwrites `external` with a local ref, so that row
+  is the only memory of a GitHub publication. Deleting the write would have
+  reintroduced duplicate-issue minting.
+
+Cut 2 therefore measured **608 LOC** (4,562 -> 3,954 against `6c5fe6f`), not the
+projected 1,395. The projection was left in `specs/workflow-routing.md` with the
+miss recorded beside it rather than rewritten.
+
+Trap 1 paid a third time: the spec's 10-row caller table had every line number
+moved and missed four surfaces, including a shipped, checked AC in
+`specs/wrap-up-gate-and-tdd-fold.md:173` pinned live by
+`tests/test-pre-push-gate.sh:227` — a banner naming a deleted command would have
+shipped green.
+
+APOSD Phase 3 returned HOLD. Its MUST-FIX ("AC-19 lost its implementation") was
+partly misattributed — the duplicate-append reproduces on base `6c5fe6f` too, so
+that bug is pre-existing and what this session removed was the reporting that
+surfaced it. Fixed at the load seam: `IndexUnreadable` + `load_index_strict`
+(`index.py:369,373`), which closes the pre-existing path as well. Also applied:
+the debt banner now derives its filing id instead of asking for one, three inert
+`_annotate_resolution` keys deleted, `limitations` rendered under `degraded:`.
+
+Deferred to Cut 3, reported not applied: split the three-field `Registry` context
+out of `detail.py` so the write modules stop importing the read module; drop the
+unconsumed `Report` from `__init__.__all__`.
+
+Suite: 37 files, 3317 assertions, green. 12 mutation probes; one assertion came
+back vacuous and was repaired.
+
+- Learnings captured: `tasks/solutions/process/regenerate-a-caller-list-never-inherit-one.md`,
+  `tasks/solutions/architecture/a-read-and-the-write-that-feeds-it-are-one-unit.md`,
+  `tasks/solutions/patterns/inspection-and-action-need-two-loaders-not-one.md`,
+  `tasks/solutions/process/assertion-must-be-scoped-to-the-half-it-tests.md` (third occurrence)

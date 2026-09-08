@@ -170,7 +170,6 @@ class Config:
     project: str = ""
     index_path: str = "tasks/todo.md"
     backlog_path: str = "tasks/backlog.md"
-    spec_dir: str = "specs"
     local_detail_dir: str = "tasks/details"
     dependency_strategy: str = "auto"
     require_write_approval: bool = True
@@ -384,7 +383,6 @@ def load_config(
         project=(tracker.get("project") or "").strip(),
         index_path=(tracker.get("index") or "tasks/todo.md").strip(),
         backlog_path=(tracker.get("backlog") or "tasks/backlog.md").strip(),
-        spec_dir=(tracker.get("spec_dir") or "specs").strip(),
         local_detail_dir=(tracker.get("local_detail_dir") or "tasks/details").strip(),
         dependency_strategy=(tracker.get("dependency_strategy") or "auto").strip().lower(),
         require_write_approval=require_approval,

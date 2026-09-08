@@ -477,7 +477,7 @@ authorization unless the project's configuration enables them.
 | `/start-qa` | Restart app + health check + browser with log monitoring |
 | `/wrap-up-session` | Learnings, tests, reviews, commit, push |
 | `/writing-skills` | Author new skills with proper structure |
-| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues or a local Markdown store; reconcile stale plans; dependency-aware frontier |
+| `/task-registry` | Resolve one task against GitHub Issues or a local Markdown store; routine selection and claiming |
 | `/eval` | Blinded A/B eval of a skill or prompt change before promoting it |
 | `/sync` | Pull latest skills, hooks, agents from template repo |
 | `/folder-context-optimization` | Sweep folder for legacy/unused files |

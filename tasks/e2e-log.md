@@ -500,3 +500,58 @@ Not covered, and recorded as a gap rather than claimed: there is no sync-time
 detection for this, the way `/sync` Step 6.5 detects an unmigrated learning
 store. A project learns at first use rather than at sync. Carried in the wrap-up
 report as owner: human.
+
+---
+
+## Cut 2 — the todo.md sync engine (specs/workflow-routing.md) — @ 6c5fe6f+staged
+
+Cut 2's own ACs (AC14/15/16) are structural and checked by `grep`/`wc -l`, not
+by walkthrough. Two **behaviors** changed for someone actually running the CLI,
+though, and both were driven end to end rather than asserted only in-suite.
+
+### A. A malformed row in `tasks/todo.md` — read still works, writes refuse
+
+Driven against a throwaway repo whose index carries one unparseable row
+(`- [?] Bad ...`) beside a good one.
+
+1. **`show` still answers, and names the damage.** It writes nothing, so it has
+   no reason to refuse — and refusing would deny every task over one bad row,
+   with no other command able to diagnose the file (`doctor` never reads the
+   index):
+
+   ```
+   task: ok.one
+     title:    Good row
+     ...
+     degraded:
+       - unreadable index row -- tasks/todo.md:4 — unknown status box '[?]'
+         (expected one of: ' ', '~', '!', 'x', '-')
+   exit=0
+   ```
+
+2. **`upsert --apply` refuses, with file:line.** Exit 1, and `grep -c` confirms
+   no second row was appended for the id.
+
+3. **The dry run refuses identically.** Previously it returned a preview
+   (`index row would be synced`) for a run that `--apply` would refuse — the
+   preview described a different run than the one it was authorizing.
+
+### B. The same, on the GitHub path — no provider call at all
+
+The defect all four review passes found. Driven against the repo's own `gh`
+mock with `provider = github`, `--apply --approve`, and the same malformed row.
+
+4. **Zero provider calls before the refusal.** `gh.log` is 0 bytes. Before the
+   fix the same run left `issue create --repo fixture-owner/fixture-repo ...` in
+   that log and *then* printed a failure — an issue existing upstream with
+   nothing in the repository pointing at it, reported to the operator as a
+   failure. That is AC-19's "before any provider write", and it now holds on the
+   only path that writes.
+
+### C. The wrap-up debt banner emits a command that survives being pasted
+
+5. Driven with a ledger heading `feat/o'brien abc1234..def5678` — git permits
+   `'` in a branch name. The emitted line now passes `bash -n`; before the fix
+   it failed with an unterminated quote. The derived id
+   (`wrap-up-debt.feat-o-brien-abc1234-def5678`) round-trips through
+   `is_valid_id`, and agrees with `slugify_id` on all five probed headings.
