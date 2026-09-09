@@ -725,3 +725,14 @@ specs/context-memory-management.md, specs/memory-maintain-history-count.md,
 specs/pstack-verification-skill-integration.md, specs/separate-project-config.md,
 specs/sweep-routines.md. The legacy context-memory spec's old store vocabulary
 predates this fix; its cadence contract is unaffected. No deferred reconciliation.
+
+
+### Committed verification identity — 2026-09-09 ca8142d
+
+Spec: specs/memory-maintain-history-count.md
+Commit: ca8142d85b6182d935ab1a14ddd8749a74f39ec0
+The committed hook's SHA-256 matches the source exercised in all nine scenarios
+above (5bf409d75c0c2125c2b31187b9371b0b8b77286fb356aaf678e66403c803e0ae).
+All five AC results and review findings above apply to this source commit.
+Final full suite: 38 files / 3,589 assertions, exit 0, zero failures.
+This follow-up changes only the verification identity and wrap-up fingerprint.

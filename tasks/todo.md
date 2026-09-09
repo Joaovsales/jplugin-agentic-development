@@ -710,3 +710,17 @@ reverse.
 - Completed: create-verification-skill invocation — mirrored verify-task-registry, three feature maps, live local CLI walkthrough and durable evidence.
 - Pending: no remaining work for the requested skill creation; GitHub, installation, and full agent routines remain outside verified coverage; derived source/spec entry points passed during wrap-up.
 - Carry-forward: use /maintain-verification-skill --scope changed after changes to mapped CLI behavior.
+
+
+## Session Summary — 2026-09-09 [9017248..ca8142d]
+- Completed: all four memory-maintenance history-count tasks. Hook and mirrored
+  skill recognize canonical and alternate history headings; added boundary and
+  pattern-parity regressions.
+- Verification: 38 files / 3,589 assertions pass with the inherited
+  TASK_REGISTRY_TRUSTED_CONFIG override cleared for tests. Nine live-hook cases,
+  four mutation probes, five dispatched review passes; zero findings.
+- Pending: none for this fix. Catch-up and duplicate-sweep prevention remain
+  outside the approved heading-recognition scope.
+- Carry-forward: specs/memory-maintain-history-count.md; diagnosis in
+  tasks/solutions/bugs/memory-maintain-history-heading-drift.md;
+  walkthrough in tasks/e2e-log.md.
