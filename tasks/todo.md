@@ -1,5 +1,14 @@
 # Active issue
 
+## Plan: Memory maintenance history counting
+> Spec: specs/memory-maintain-history-count.md
+> Approved 2026-09-09; all four tasks completed and independently reviewed.
+
+- [x] TDD: alternate and mixed history fixtures in tests/test-session-start.sh fail on the original hook -> recognize both existing session heading formats in the hook counter.
+- [x] TDD: missing/empty history, four/six sessions, unrelated headings, and malformed dates -> preserve the positive-multiple-of-five boundary without false counts.
+- [x] TDD: memory-maintain counting contract and skill parity -> align both skill copies with the hook while preserving force, light-pass, and glossary behavior.
+- [x] TDD: relevant tests and full suite -> review the change, record hook walkthrough evidence in tasks/e2e-log.md, and update the bug document with verified results.
+
 - [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))
 
 # Plan: sweep routines — `janitor` and `architect` producers, cheap-model consumers
