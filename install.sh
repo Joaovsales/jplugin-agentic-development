@@ -5,10 +5,12 @@
 #   1. Copies skills and agents into ~/.claude/ (global Claude Code config)
 #   2. Copies .agents/ into ~/.agents/ (harness-neutral skills)
 #   3. Installs a global SessionStart hook that orients Claude in any project
-#   4. Sets up a git template dir so `git init` auto-installs a post-init hook
+#   4. Sets up a git template dir so new repos receive the pre-push hook
 #   5. Configures Pi (~/.pi/agent/settings.json) if installed
 #   6. Wires graphify into this project if the CLI is present (optional)
-#   7. Prints a `newproject` shell function to add to your .bashrc / .zshrc
+#   7. Installs project-template/ + a global `git scaffold` alias that copies it
+#      into any repo (git has no post-init hook, so bootstrap is explicit)
+#   8. Prints a `newproject` shell function to add to your .bashrc / .zshrc
 #
 # Usage:
 #   git clone <this-repo> ~/coding-agent-workflow
@@ -270,61 +272,39 @@ if CURRENT_GIT_DIR="$(git rev-parse --git-common-dir 2>/dev/null)"; then
   ok "installed" "pre-push hook → $CURRENT_GIT_DIR/hooks (existing repo)"
 fi
 
-# post-init hook: copies Claude project scaffold into newly init'd repos
-cat > "$GIT_TEMPLATE_DIR/hooks/post-init" <<'HOOK'
-#!/usr/bin/env bash
-# Auto-installed by coding-agent-workflow/install.sh
-# Copies minimal Claude project scaffold after every `git init`.
-# Safe: only runs if the files don't already exist.
-
-PROJECT_TEMPLATE="$HOME/coding-agent-workflow/project-template"
-
-if [ ! -d "$PROJECT_TEMPLATE" ]; then
-  exit 0  # template not found — skip silently
-fi
-
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-
-copy_if_missing() {
-  local src="$PROJECT_TEMPLATE/$1"
-  local dst="$REPO_ROOT/$1"
-  if [ -f "$src" ] && [ ! -f "$dst" ]; then
-    mkdir -p "$(dirname "$dst")"
-    cp "$src" "$dst"
-    echo "  [claude] created $1"
-  fi
-}
-
-copy_if_missing "CLAUDE.md"
-copy_if_missing "AGENTS.md"
-copy_if_missing ".ignore"
-copy_if_missing "tasks/todo.md"
-copy_if_missing "tasks/solutions/README.md"
-copy_if_missing "tasks/history.md"
-copy_if_missing "tasks/concepts.md"
-
-if [ ! -d "$REPO_ROOT/specs" ]; then
-  mkdir -p "$REPO_ROOT/specs"
-  echo "  [claude] created specs/"
-fi
-HOOK
-chmod +x "$GIT_TEMPLATE_DIR/hooks/post-init"
-
 git config --global init.templateDir "$GIT_TEMPLATE_DIR"
 ok "set" "git config --global init.templateDir $GIT_TEMPLATE_DIR"
-ok "installed" "post-init hook (runs on every git init)"
 
-# ── 9. Print newproject shell function ───────────────────────────────────────
+# ── 9. Project scaffold → ~/.agents/project-template + `git scaffold` ────────
+# Git has no post-init hook: a template dir only seeds .git/, it never runs
+# anything on `git init`. The hooks/post-init this step used to write was copied
+# into every new repo and executed nowhere. Bootstrap is now an explicit,
+# supported entry point — a global git alias — backed by a template copy that
+# lives next to the script, so it resolves whatever path this checkout sits at.
+step "Installing project scaffold → ~/.agents/project-template + git scaffold"
+[ -d "$REPO_DIR/project-template" ] \
+  || { echo "install.sh: project-template/ missing from $REPO_DIR — refusing to remove the installed copy" >&2; exit 1; }
+rm -f "$GIT_TEMPLATE_DIR/hooks/post-init"   # dead hook left by earlier installs
+rm -rf "$HOME/.agents/project-template"     # installer-owned copy; replaced wholesale
+cp -r "$REPO_DIR/project-template" "$HOME/.agents/project-template"
+mkdir -p "$HOME/.agents/bin"
+cp "$REPO_DIR/scripts/scaffold-project.sh" "$HOME/.agents/bin/scaffold-project.sh"
+chmod +x "$HOME/.agents/bin/scaffold-project.sh"
+git config --global alias.scaffold '!bash "$HOME/.agents/bin/scaffold-project.sh"'
+ok "copied" "~/.agents/project-template ($(find "$REPO_DIR/project-template" -type f | wc -l | tr -d ' ') files)"
+ok "set" "git alias: git scaffold → ~/.agents/bin/scaffold-project.sh"
+
+# ── 10. Print newproject shell function ───────────────────────────────────────
 step "Shell function — add this to your ~/.bashrc or ~/.zshrc"
 cat <<'SHELLCONFIG'
 
 # ── Claude Workflow: new project bootstrapper ─────────────────────────────────
 newproject() {
   local name="${1:?Usage: newproject <project-name>}"
-  mkdir -p "$name" && cd "$name"
-  git init                        # triggers post-init hook → copies Claude scaffold
+  mkdir -p "$name" && cd "$name" || return 1
+  git init -q && git scaffold || return 1   # explicit bootstrap: git has no post-init hook
   echo "# $name" > README.md
-  git add . && git commit -m "chore: init project with Claude workflow scaffold"
+  git add . && git commit -q -m "chore: init project with coding-agent scaffold" || return 1
   echo ""
   echo "Project '$name' ready. Open with: claude"
 }
@@ -337,7 +317,9 @@ echo -e "${BOLD}Done.${RESET}"
 echo ""
 echo "  Reload your shell:  source ~/.bashrc  (or ~/.zshrc)"
 echo "  Start a new project: newproject my-app"
-echo "  Or in an existing repo: copy project-template/ files in manually."
+echo "  Or in an existing repo: git scaffold   (adds missing files, never overwrites)"
+echo "  Pasted newproject before this version? Replace it — the old one relied on a"
+echo "  post-init hook git never runs, so it committed unscaffolded repos."
 echo ""
 echo "  Claude will now orient itself at session start in every project"
 echo "  (learning-store counts, active tasks, git branch) via the global SessionStart hook."

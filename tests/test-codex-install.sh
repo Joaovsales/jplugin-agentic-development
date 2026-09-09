@@ -13,14 +13,14 @@ assert_file_contains "$INSTALL" ".agents/skills/." \
   "installer: installs canonical skills additively"
 assert_file_contains "$INSTALL" "Review installed hooks with /hooks" \
   "installer: tells users to review hook registrations"
-assert_file_contains "$REPO/install.sh" 'copy_if_missing "AGENTS.md"' \
-  "git scaffold: copies neutral AGENTS.md"
 assert_file_contains "$REPO/project-template/AGENTS.md" "Project-Specific Rules" \
   "project template: carries a neutral rules section"
 assert_file_contains "$REPO/README.md" "bash scripts/install-codex.sh" \
   "README: documents the Codex adapter command"
 assert_file_contains "$REPO/README.md" "project-template/AGENTS.md" \
   "README: documents the neutral project seed"
+assert_file_contains "$REPO/README.md" "scripts/scaffold-project.sh" \
+  "README: Codex users scaffold through the checkout script, not an alias the adapter never installs"
 
 BOX="$(mktemp -d)"
 HOME_DIR="$BOX/home"
@@ -65,6 +65,14 @@ assert_eq "present" "$([ -f "$CODEX_HOME/hooks/coding-agent-workflow-session-sta
   "install: SessionStart adapter is installed"
 assert_contains "$(cat "$BOX/install.log")" "Review installed hooks with /hooks" \
   "install: hook trust remains an explicit user action"
+
+# The Codex adapter registers no git alias, so the README sends Codex users to the
+# checkout script itself. Prove that path delivers the neutral seed.
+git init -q "$PROJECT"
+( cd "$PROJECT" && HOME="$HOME_DIR" bash "$REPO/scripts/scaffold-project.sh" ) > "$BOX/scaffold.log" 2>&1
+assert_eq "0" "$?" "scaffold from checkout: exits 0 without install.sh having run"
+assert_files_identical "$REPO/project-template/AGENTS.md" "$PROJECT/AGENTS.md" \
+  "scaffold from checkout: neutral AGENTS.md seed lands in the project"
 
 if python3 - "$CODEX_HOME" "$REPO" <<'PY'
 import json

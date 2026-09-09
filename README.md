@@ -35,10 +35,11 @@ command is idempotent. Review the hook commands with Codex's `/hooks` command
 before enabling them.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
-For an existing project, copy `project-template/AGENTS.md` alongside the
-existing project scaffold files. New `git init` repositories receive the
-neutral `AGENTS.md` seed automatically after the regular installer has set up
-the git template directory.
+For an existing project, run `bash ~/coding-agent-workflow/scripts/scaffold-project.sh`
+from inside the repository: it adds the neutral `project-template/AGENTS.md`
+seed and the rest of the scaffold without touching files already present. The
+Codex adapter registers no git alias; `git scaffold` and `newproject` come from
+`install.sh` (below), which you can run as well.
 
 Update all installed workflow artifacts with:
 
@@ -52,7 +53,7 @@ bash scripts/install-codex.sh
 
 ## Using This as Your Default for Every Project
 
-Run `install.sh` once. It sets up three layers of enforcement that activate automatically for every future project.
+Run `install.sh` once. It sets up three layers of enforcement: layers 1 and 3 activate automatically for every future project, and layer 2 is the one explicit `git scaffold` step that `newproject` runs for you.
 
 ### Step 1 — Clone and install
 
@@ -101,9 +102,9 @@ The **SessionStart hook** runs automatically at the start of every Claude Code s
 - Pending and in-progress tasks from `tasks/todo.md`
 - Current git branch and uncommitted change count
 
-### Layer 2 — Git template directory (`~/.git-templates/`)
+### Layer 2 — Project scaffold (`git scaffold`)
 
-Sets `git config --global init.templateDir ~/.git-templates`. Every time you run `git init`, a `post-init` hook fires and copies this scaffold into the new repo (only if files don't already exist):
+Copies `project-template/` to `~/.agents/project-template/` and registers a global git alias, `git scaffold`, that copies it into the current repository. Git has no post-init hook, so bootstrap is an explicit command rather than a side effect of `git init`. It only ever **adds** files — anything already present is kept byte-for-byte, so it is safe to re-run in any repo:
 
 ```
 tasks/todo.md            ← active task plan
@@ -113,21 +114,24 @@ tasks/concepts.md        ← concept glossary (swept once by /memory-maintain, t
 specs/                   ← feature specification directory
 CLAUDE.md               ← Claude project-specific overrides
 AGENTS.md               ← harness-neutral project-specific overrides
+.gitignore, .gitattributes, .ignore
 ```
+
+The installer also sets `git config --global init.templateDir ~/.git-templates` so new repositories receive the pre-push hook.
 
 ### Layer 3 — `newproject` shell function
 
 ```bash
 newproject() {
   local name="${1:?Usage: newproject <project-name>}"
-  mkdir -p "$name" && cd "$name"
-  git init                        # triggers post-init hook → copies agent scaffold
+  mkdir -p "$name" && cd "$name" || return 1
+  git init -q && git scaffold || return 1   # explicit bootstrap: git has no post-init hook
   echo "# $name" > README.md
-  git add . && git commit -m "chore: init project with coding-agent scaffold"
+  git add . && git commit -q -m "chore: init project with coding-agent scaffold" || return 1
 }
 ```
 
-Wraps `git init` (which triggers layer 2) and makes an initial commit. One command from zero to a scaffolded project that can be opened with Claude, Codex, Pi, or another supported harness.
+Wraps `git init` plus `git scaffold` (layer 2) and makes an initial commit. One command from zero to a scaffolded project that can be opened with Claude, Codex, Pi, or another supported harness.
 
 ### Optional — graphify code graph
 
@@ -158,21 +162,19 @@ git pull
 bash install.sh
 ```
 
+If you pasted `newproject` into your shell rc before `git scaffold` existed, replace it with the function the installer prints: the old one relied on a post-init hook git never runs, so it committed unscaffolded repos.
+
 ---
 
 ## Adding to an Existing Project
 
-No need to use `newproject`. Just copy the scaffold files manually:
+No need to use `newproject`. From inside the repository:
 
 ```bash
-cp ~/coding-agent-workflow/project-template/tasks/todo.md tasks/
-cp -r ~/coding-agent-workflow/project-template/tasks/solutions tasks/
-cp ~/coding-agent-workflow/project-template/tasks/history.md tasks/
-cp ~/coding-agent-workflow/project-template/tasks/concepts.md tasks/
-cp ~/coding-agent-workflow/project-template/CLAUDE.md .
-cp ~/coding-agent-workflow/project-template/AGENTS.md .
-mkdir -p specs
+git scaffold
 ```
+
+It adds every missing scaffold file and leaves existing ones untouched, so a project that already has its own `CLAUDE.md` or `.gitignore` keeps them. Nothing is overwritten; to replace a file deliberately, delete it first and run `git scaffold` again.
 
 Then edit `CLAUDE.md` to fill in your project's stack and test commands.
 
