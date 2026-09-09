@@ -707,3 +707,8 @@ reverse.
 - Completed: create-verification-skill invocation — mirrored verify-task-registry, three feature maps, live local CLI walkthrough and durable evidence.
 - Pending: no remaining work for the requested skill creation; GitHub, installation, and full agent routines remain outside verified coverage; derived source/spec entry points passed during wrap-up.
 - Carry-forward: use /maintain-verification-skill --scope changed after changes to mapped CLI behavior.
+
+## Session Summary — 2026-09-09 [9017248..3ed5bcb]
+- Completed: 5 tasks (#99, #100, #101, #102, #103 — Git bootstrap via `git scaffold`, bounded verifier waves)
+- Pending: 0 tasks from this plan
+- Carry-forward: `tests/test-task-registry.sh` "Doctor: the refused relaxation is visible to the user" fails on untouched `master` too — pre-existing, not addressed here
