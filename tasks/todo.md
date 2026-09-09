@@ -1,3 +1,11 @@
+# Fix: #117 — Preserve published issue references across local-pending upserts
+> Spec: specs/preserve-published-issue-references.md
+
+- [x] TDD: regression test for local-pending fallback preserving a GitHub reference -> exercise the approval-gated local write and assert the compact index keeps the original issue link
+- [x] TDD: regression test for approved publication after fallback -> assert the second upsert updates the original issue and does not create a duplicate
+- [x] TDD: local provider preserves incoming external references -> keep the local detail location separate from a previously published tracker address
+- [x] Verification: run the focused task-registry tests and full test suite -> confirm all acceptance criteria and parity checks
+
 # Active issue
 
 - [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))

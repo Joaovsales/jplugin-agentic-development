@@ -89,13 +89,15 @@ def _local_provider(config, gate):
     return LocalMarkdownProvider(config, gate)
 
 
-def _existing(provider, task_id: str) -> Optional[Task]:
+def _existing(provider, task_id: str, reference=None) -> Optional[Task]:
     """The task this ID already names, or None if it does not exist yet.
 
     A provider that *fails to answer* is not the same as one answering "no", so
     the error propagates. Reading a listing failure as absence is precisely how
     a re-run creates the duplicate this command exists to prevent.
     """
+    if reference is not None and reference.provider == provider.name:
+        return provider.get_task(reference)
     return next((t for t in provider.list_tasks() if t.id == task_id), None)
 
 
@@ -194,12 +196,14 @@ def upsert_task(registry, task: Task, apply: bool) -> Tuple[List[str], int]:
         status = provider.discover()
         destination = resolve_destination(provider.name, gate, status.available)
         target = provider if destination == EXTERNAL else _local_provider(config, gate)
-        existing = _existing(target, task.id)
+        published = _published_ref(config, task.id)
+        lookup = published if destination == EXTERNAL else None
+        existing = _existing(target, task.id, lookup)
     except (ProviderError, ProviderUnavailable) as exc:
         return ([f"upsert: cannot establish whether {task.id} already exists: {exc}"], 1)
     merged, action = _merge(existing, task)
-    if destination != EXTERNAL and merged.external is None:
-        merged = merged.with_(external=_published_ref(config, task.id))
+    if published is not None and published.provider == provider.name:
+        merged = merged.with_(external=published)
 
     if not apply:
         # The applied line reports what happened ("created"); the preview reports

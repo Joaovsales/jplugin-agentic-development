@@ -7,6 +7,7 @@ owned scratch repository per run; all mutations stay there. No auth is needed.
 - [Record a task](record-task.md): preview, create, update, derive identity.
 - [Read task detail](read-task.md): stable ID, local path, and missing record.
 - [Choose routine work](routines.md): selectors, selection, workflow, claim.
+- [Preserve external references](external-reference-fallback.md): approval-gated local fallback and later publication.
 
 Use `drive` from the skill to retain action, output, and exit status. Seed only via
 `upsert`; confirm persistence through `show`. Artifact names must be unique within

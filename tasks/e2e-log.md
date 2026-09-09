@@ -651,3 +651,30 @@ bytes, 21 expected command exits and all recorded runtime removals checked.
 Review independence: four passes dispatched; no confidence promotion needed.
 Review totals: 0 MUST-FIX, 1 SHOULD-FIX fixed deliberately, 0 unresolved/skipped.
 No configured deployment targets; interactive non-routine branch.
+
+## E2E Walkthrough — issue 117 task-registry CLI — 2026-09-09
+
+Spec: specs/preserve-published-issue-references.md
+Commit: working tree based on `9017248f0311b5980a4a1cdf075c1aea6aec45d2`
+Driver: `verify-task-registry` local CLI recipe through isolated PTYs
+Evidence: `tasks/verification/task-registry.117.Unyt8S/`
+
+### AC-1: A local-pending update of a GitHub-linked task keeps the original GitHub issue reference in the compact index.
+
+Tier: non-browser functional
+Journey: The grounded local-provider walkthrough passed Doctor, preview, create, update, read-back, derived records, routine selection, and cleanup. The approval-gated GitHub fallback was exercised by the focused regression with a fake external provider.
+Result: BLOCKED for live external-provider E2E — the local verification driver cannot authenticate to or mutate GitHub. Supplemental regression PASS: the index retained `github:42` and never rendered the local detail path.
+
+### AC-2: A later approved upsert updates the original issue instead of creating a second issue.
+
+Tier: non-browser functional
+Journey: The approved second upsert was exercised by the focused regression after the local-pending write.
+Result: BLOCKED for live external-provider E2E — the local verification driver cannot prove GitHub update/create behavior. Supplemental regression PASS: the preserved reference was fetched, one update occurred, and zero creates occurred.
+
+### AC-3: Regression tests cover approval-gated fallback followed by approved publication.
+
+Tier: non-browser functional
+Evidence: `env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/test-task-registry.sh` — 326 assertions passed; full suite — all 38 test files passed.
+Result: PASS
+
+Cleanup: PASS — owned verification runtime removed; evidence survived at `tasks/verification/task-registry.117.Unyt8S/`.

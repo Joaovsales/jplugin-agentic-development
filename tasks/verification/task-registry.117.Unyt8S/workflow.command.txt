@@ -1,0 +1,1 @@
+python3 /home/joaosouto/orca/workspaces/jplugin-agentic-development/preserve-published-issue-references-across-local/.agents/skills/task-registry/scripts/task-registry.py workflow verify.sample --repo /tmp/verify-task-registry.117.QE8PdD/project --provider local

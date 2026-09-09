@@ -1,0 +1,14 @@
+9017248f0311b5980a4a1cdf075c1aea6aec45d2
+ M .agents/skills/task-registry/scripts/registry/providers/local.py
+ M .agents/skills/task-registry/scripts/registry/upsert.py
+ M .claude/skills/task-registry/scripts/registry/providers/local.py
+ M .claude/skills/task-registry/scripts/registry/upsert.py
+ M tasks/todo.md
+ M tests/test-task-registry.sh
+?? specs/preserve-published-issue-references.md
+?? tasks/solutions/bugs/preserve-published-refs-when-local-pending-upserts-fall-back.md
+?? tasks/verification/task-registry.117.Unyt8S/
+91b299f9100dfb2630c5e48e795af3ab8857bff970a9dec0ec25c8e25fffa9a3  /home/joaosouto/orca/workspaces/jplugin-agentic-development/preserve-published-issue-references-across-local/.agents/skills/task-registry/scripts/task-registry.py
+source=/home/joaosouto/orca/workspaces/jplugin-agentic-development/preserve-published-issue-references-across-local
+repo=/tmp/verify-task-registry.117.QE8PdD/project
+auth=none; provider=local; port=none

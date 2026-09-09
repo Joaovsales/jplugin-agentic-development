@@ -84,14 +84,14 @@ class LocalMarkdownProvider(TrackerProvider):
         if os.path.isfile(path):
             return self.update_task(task)
         self._write(path, self._render(task))
-        return task.with_(external=ExternalRef("local", task.id, self._relative(path)))
+        return task.with_(external=_written_reference(task, self._relative(path)))
 
     def update_task(self, task: Task) -> Task:
         self.gate.authorize(f"update local task {task.id}", self.name, external=False)
         path = self._path_for(task.id)
         existing = _read_text(path) if os.path.isfile(path) else ""
         self._write(path, self._render(task, existing))
-        return task.with_(external=ExternalRef("local", task.id, self._relative(path)))
+        return task.with_(external=_written_reference(task, self._relative(path)))
 
     def close_task(self, task: Task, resolution: str = "done") -> Task:
         return self.update_task(task.with_(status=resolution))
@@ -204,6 +204,11 @@ class LocalMarkdownProvider(TrackerProvider):
 def _read_text(path: str) -> str:
     with open(path, "r", encoding="utf-8-sig") as handle:
         return handle.read()
+
+
+def _written_reference(task: Task, relative_path: str) -> ExternalRef:
+    """Keep a published address when local storage is only a pending fallback."""
+    return task.external or ExternalRef("local", task.id, relative_path)
 
 
 #: Each managed section is its field's one home in this file. The metadata

@@ -112,6 +112,9 @@ copied into `tasks/todo.md`.
 - **Configured `github`, `gh` missing or unauthenticated** → reads degrade (the
   local record stays canonical, provider reported unreachable); `upsert --apply`
   keeps the local record and reports the publication as pending, never silently.
+- **Configured external provider requires approval for an already-linked task** →
+  the local-pending detail write preserves the index's external reference, and a
+  later approved `upsert` resolves that reference before metadata-based matching.
 - **Two tasks with the same title** → not a duplicate. Duplicate detection requires
   matching stable ID or matching external reference.
 - **External task edited by a human** → a registry write touches only the
@@ -200,6 +203,10 @@ copied into `tasks/todo.md`.
 - AC-20 — Workflow skills (`/plan`, `/build`, `/verify`, `/quality-gate`,
       `/wrap-up-session`) reach tracking only through this capability — no direct
       `gh` or tracker-API calls for task state.
+- AC-21 — An approval-gated local-pending upsert preserves an existing external
+      reference in the compact index, and a later approved upsert updates that
+      reference instead of creating a duplicate when provider metadata does not
+      identify the task.
 
 ## Implementation Paths
 
