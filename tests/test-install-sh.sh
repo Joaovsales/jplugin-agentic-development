@@ -51,9 +51,9 @@ assert_contains "$src" 'git scaffold' \
   "install.sh: newproject and existing-repo guidance call git scaffold"
 assert_eq "present" "$([ -x scripts/scaffold-project.sh ] && echo present || echo missing)" \
   "scripts/scaffold-project.sh: exists and is executable"
-assert_not_contains "$(cat scripts/scaffold-project.sh)" '$HOME/coding-agent-workflow' \
+assert_file_not_matches scripts/scaffold-project.sh '\$HOME/coding-agent-workflow' \
   "scaffold-project.sh: resolves the template relative to itself, not a clone path"
-assert_eq "0" "$(grep -c 'post-init. hook fires' README.md || true)" \
+assert_file_not_matches README.md 'post-init.? hook (fires|runs|triggers)' \
   "README: no longer advertises a post-init hook firing on git init"
 assert_file_contains README.md 'git scaffold' \
   "README: advertises git scaffold for new and existing repos"
@@ -171,6 +171,18 @@ assert_contains "$(HOME="$h" git config --global --get alias.scaffold)" "scaffol
   "spaced checkout: git scaffold alias registered globally"
 assert_not_contains "$(cat "$box/out.log")" "runs on every git init" \
   "spaced checkout: installer no longer claims a hook runs on git init"
+assert_eq "missing" "$(exists "$h/.git-templates/hooks/post-init")" \
+  "spaced checkout: no dead post-init hook is written into the template dir"
+
+# Re-install over an earlier install: the installer-owned copy is replaced wholesale
+# and a dead hook left by an earlier version is removed (the upgrade path).
+touch "$h/.agents/project-template/STALE.md" "$h/.git-templates/hooks/post-init"
+( cd "$box" && HOME="$h" bash "$box/src with spaces/install.sh" ) > "$box/out2.log" 2>&1 < /dev/null
+assert_eq "0" "$?" "re-install: succeeds over an existing install"
+assert_eq "missing" "$(exists "$h/.agents/project-template/STALE.md")" \
+  "re-install: stale file in the installed template is gone"
+assert_eq "missing" "$(exists "$h/.git-templates/hooks/post-init")" \
+  "re-install: dead post-init hook from an earlier version is removed"
 
 # A fresh repo whose path also contains spaces; bootstrap through the alias only.
 repo="$box/new repo"
@@ -178,31 +190,53 @@ git init -q "$repo"
 ( cd "$repo" && HOME="$h" git scaffold ) > "$box/scaffold.log" 2>&1
 assert_eq "0" "$?" "git scaffold: exits 0 in a fresh repo"
 inventory="$(cd "$REPO/project-template" && find . -type f | sed 's|^\./||' | sort)"
-for rel in $inventory; do
+count="$(printf '%s\n' "$inventory" | wc -l | tr -d ' ')"
+while IFS= read -r rel; do
   assert_files_identical "$REPO/project-template/$rel" "$repo/$rel" \
     "git scaffold: $rel matches the checked-in template"
-done
+done <<< "$inventory"
+assert_contains "$(cat "$box/scaffold.log")" "scaffold: $count created, 0 kept" \
+  "git scaffold: summary line counts every template file as created"
 assert_eq "$inventory" "$(cd "$repo" && find . -type f -not -path './.git/*' | sed 's|^\./||' | sort)" \
   "git scaffold: generated output equals the template inventory exactly"
 assert_eq "present" "$([ -d "$repo/specs" ] && echo present || echo missing)" \
   "git scaffold: creates specs/"
 
+# From a subdirectory the scaffold still lands at the repository root.
+nested="$box/nested"
+git init -q "$nested"
+mkdir -p "$nested/deep/er"
+( cd "$nested/deep/er" && HOME="$h" git scaffold ) > /dev/null 2>&1
+assert_eq "0" "$?" "git scaffold from a subdirectory: exits 0"
+assert_eq "present" "$(exists "$nested/CLAUDE.md")" \
+  "git scaffold from a subdirectory: files land at the repo root"
+assert_eq "missing" "$(exists "$nested/deep/er/CLAUDE.md")" \
+  "git scaffold from a subdirectory: nothing is written into the cwd"
+
 # ── Case 7: existing files are preserved byte-for-byte; re-runs are no-ops ────
 repo2="$box/existing"
 git init -q "$repo2"
 printf '# mine, do not touch\n' > "$repo2/CLAUDE.md"
+ln -s /nonexistent/target "$repo2/.ignore"     # dangling symlink: still the user's file
+mkdir "$repo2/AGENTS.md"                        # a directory where the template has a file
 ( cd "$repo2" && HOME="$h" git scaffold ) > "$box/scaffold2.log" 2>&1
 assert_eq "0" "$?" "git scaffold: exits 0 when files already exist"
+assert_eq "present" "$([ -L "$repo2/.ignore" ] && echo present || echo missing)" \
+  "git scaffold: a dangling symlink at a template path is kept, not written through"
+assert_eq "present" "$([ -d "$repo2/AGENTS.md" ] && echo present || echo missing)" \
+  "git scaffold: a directory at a template path is kept"
 assert_eq "# mine, do not touch" "$(cat "$repo2/CLAUDE.md")" \
   "git scaffold: existing CLAUDE.md is byte-identical after bootstrap"
-assert_eq "present" "$(exists "$repo2/AGENTS.md")" \
-  "git scaffold: missing files are still added around the preserved one"
+assert_eq "present" "$(exists "$repo2/tasks/todo.md")" \
+  "git scaffold: missing files are still added around the preserved ones"
 assert_contains "$(cat "$box/scaffold2.log")" "kept" \
   "git scaffold: reports preserved files"
 before="$(cd "$repo2" && find . -type f -not -path './.git/*' -exec md5sum {} + | sort)"
-( cd "$repo2" && HOME="$h" git scaffold ) > /dev/null 2>&1
+( cd "$repo2" && HOME="$h" git scaffold ) > "$box/scaffold3.log" 2>&1
 after="$(cd "$repo2" && find . -type f -not -path './.git/*' -exec md5sum {} + | sort)"
 assert_eq "$before" "$after" "git scaffold: second run changes nothing"
+assert_contains "$(cat "$box/scaffold3.log")" "scaffold: 0 created, $count kept" \
+  "git scaffold: second run reports every template file as kept"
 
 # ── Case 8: failures are loud ─────────────────────────────────────────────────
 plain="$box/not a repo"
@@ -211,6 +245,17 @@ mkdir -p "$plain"
 assert_eq "1" "$?" "scaffold outside a git repo: exits non-zero"
 assert_contains "$(cat "$box/norepo.log")" "git init" \
   "scaffold outside a git repo: tells the user what to do"
+
+rm -rf "$h/.agents/project-template"
+mkdir -p "$h/.agents/project-template"
+empty="$box/empty template"
+git init -q "$empty"
+( cd "$empty" && HOME="$h" git scaffold ) > "$box/empty.log" 2>&1
+assert_eq "1" "$?" "git scaffold with an empty template: exits non-zero"
+assert_contains "$(cat "$box/empty.log")" "holds no files" \
+  "git scaffold with an empty template: says the template is empty"
+assert_eq "missing" "$(exists "$empty/specs")" \
+  "git scaffold with an empty template: writes nothing"
 
 rm -rf "$h/.agents/project-template"
 repo3="$box/orphan"
@@ -228,10 +273,8 @@ rm -rf "$box"
 # ── Case 9: the printed newproject function does what the docs say ───────────
 # Eval the function exactly as install.sh printed it, so the documented path is
 # the tested path. Only the global alias installed above is available to it.
-box="$(mktemp -d)"
+box="$(run_install "")"
 h="$box/home"
-mkdir -p "$h"
-( cd "$box" && HOME="$h" bash "$INSTALL" ) > "$box/out.log" 2>&1 < /dev/null
 fn="$(sed -n '/^newproject() {/,/^}/p' "$box/out.log")"
 assert_contains "$fn" "git scaffold" "newproject: printed function bootstraps via git scaffold"
 (
@@ -249,6 +292,21 @@ assert_contains "$(cd "$box/my app" && HOME="$h" git log --oneline -1)" "scaffol
   "newproject: initial commit made"
 assert_contains "$(cd "$box/my app" && HOME="$h" git ls-files)" "CLAUDE.md" \
   "newproject: scaffold is part of the initial commit"
+
+# When bootstrap fails, newproject stops before committing a bare README.
+rm -rf "$h/.agents/project-template"
+(
+  cd "$box" || exit 1
+  export HOME="$h"
+  export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+  eval "$fn"
+  newproject "broken app" > "$box/broken.log" 2>&1
+)
+assert_eq "1" "$?" "newproject: fails loudly when git scaffold fails"
+assert_contains "$(cat "$box/broken.log")" "install.sh" \
+  "newproject: failure names the fix"
+assert_eq "missing" "$(cd "$box/broken app" && HOME="$h" git rev-parse --verify -q HEAD >/dev/null 2>&1 && echo present || echo missing)" \
+  "newproject: no commit is made when bootstrap fails"
 rm -rf "$box"
 
 finish

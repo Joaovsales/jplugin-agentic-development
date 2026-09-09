@@ -17,15 +17,15 @@ fail() { printf 'scaffold: %s\n' "$1" >&2; exit 1; }
 [ -d "$TEMPLATE_DIR" ] \
   || fail "project template not found at $(cd "$SCRIPT_DIR/.." && pwd)/project-template — re-run install.sh from the coding-agent-workflow checkout"
 TEMPLATE_DIR="$(cd "$TEMPLATE_DIR" && pwd)"
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
-  || fail "not inside a git repository — run 'git init' first, then 'git scaffold'"
+REPO_ROOT="$(git rev-parse --show-toplevel)" \
+  || fail "needs a git work tree — run 'git init' first, then 'git scaffold'"
 
 created=0
 kept=0
 while IFS= read -r -d '' src; do
   rel="${src#"$TEMPLATE_DIR"/}"
   dst="$REPO_ROOT/$rel"
-  if [ -e "$dst" ]; then
+  if [ -e "$dst" ] || [ -L "$dst" ]; then   # -L: a dangling symlink is still the user's file
     kept=$((kept + 1))
     printf '  kept    %s\n' "$rel"
   else

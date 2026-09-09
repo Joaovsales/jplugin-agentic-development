@@ -282,6 +282,8 @@ ok "set" "git config --global init.templateDir $GIT_TEMPLATE_DIR"
 # supported entry point — a global git alias — backed by a template copy that
 # lives next to the script, so it resolves whatever path this checkout sits at.
 step "Installing project scaffold → ~/.agents/project-template + git scaffold"
+[ -d "$REPO_DIR/project-template" ] \
+  || { echo "install.sh: project-template/ missing from $REPO_DIR — refusing to remove the installed copy" >&2; exit 1; }
 rm -f "$GIT_TEMPLATE_DIR/hooks/post-init"   # dead hook left by earlier installs
 rm -rf "$HOME/.agents/project-template"     # installer-owned copy; replaced wholesale
 cp -r "$REPO_DIR/project-template" "$HOME/.agents/project-template"
@@ -316,6 +318,8 @@ echo ""
 echo "  Reload your shell:  source ~/.bashrc  (or ~/.zshrc)"
 echo "  Start a new project: newproject my-app"
 echo "  Or in an existing repo: git scaffold   (adds missing files, never overwrites)"
+echo "  Pasted newproject before this version? Replace it — the old one relied on a"
+echo "  post-init hook git never runs, so it committed unscaffolded repos."
 echo ""
 echo "  Claude will now orient itself at session start in every project"
 echo "  (learning-store counts, active tasks, git branch) via the global SessionStart hook."

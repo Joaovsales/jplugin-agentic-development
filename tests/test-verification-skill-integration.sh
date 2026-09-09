@@ -38,8 +38,16 @@ done
 
 # #103 — a full audit with more features than worker slots runs in bounded
 # waves; it is not blocked, and no feature loses its one independent review.
-assert_prose_contains "$MAINTAINER" "bounded batches" \
+assert_prose_contains "$MAINTAINER" "bounded batches sized to those slots" \
   "maintainer: source wave runs in bounded batches sized to worker slots"
+assert_prose_contains "$MAINTAINER" "no reviewer sees another's findings" \
+  "maintainer: batching never shares findings between reviewers"
+assert_prose_contains "$MAINTAINER" "never handed a second feature" \
+  "maintainer: a slot is reused only with a fresh context"
+assert_prose_contains "$MAINTAINER" "every feature whose review was not independent" \
+  "maintainer: the report discloses each non-independent review"
+assert_prose_contains "$MAINTAINER" "could not be parallelised or had to be batched" \
+  "maintainer: a batched wave is never reported as blocked"
 assert_prose_contains "$MAINTAINER" "exactly one independent read-only review" \
   "maintainer: every feature keeps exactly one independent review"
 assert_prose_contains "$MAINTAINER" "summary for every feature" \

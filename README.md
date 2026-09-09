@@ -35,10 +35,11 @@ command is idempotent. Review the hook commands with Codex's `/hooks` command
 before enabling them.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
-For an existing project, run `git scaffold` (it adds the neutral
-`project-template/AGENTS.md` seed and the rest of the scaffold without touching
-files already present). New projects receive it from `newproject`, which runs
-`git scaffold` right after `git init`.
+For an existing project, run `bash ~/coding-agent-workflow/scripts/scaffold-project.sh`
+from inside the repository: it adds the neutral `project-template/AGENTS.md`
+seed and the rest of the scaffold without touching files already present. The
+Codex adapter registers no git alias; `git scaffold` and `newproject` come from
+`install.sh` (below), which you can run as well.
 
 Update all installed workflow artifacts with:
 
@@ -52,7 +53,7 @@ bash scripts/install-codex.sh
 
 ## Using This as Your Default for Every Project
 
-Run `install.sh` once. It sets up three layers of enforcement that activate automatically for every future project.
+Run `install.sh` once. It sets up three layers of enforcement: layers 1 and 3 activate automatically for every future project, and layer 2 is the one explicit `git scaffold` step that `newproject` runs for you.
 
 ### Step 1 — Clone and install
 
@@ -160,6 +161,8 @@ cd ~/coding-agent-workflow
 git pull
 bash install.sh
 ```
+
+If you pasted `newproject` into your shell rc before `git scaffold` existed, replace it with the function the installer prints: the old one relied on a post-init hook git never runs, so it committed unscaffolded repos.
 
 ---
 

@@ -83,9 +83,12 @@ Run this pass when no scope argument is supplied.
    to those slots — nine features on three slots is three waves of three, not
    a blocked audit. Batching changes the schedule, never the contract: every
    feature receives exactly one independent read-only review, and no reviewer
-   sees another's findings. Each independently explains the user-visible
-   behavior from source, cites entry points, reports likely drift or none, and
-   returns one concise live recipe. Subagents never drive the app or edit
+   sees another's findings. A slot is reused only with a fresh context: a
+   subagent that has returned its summary is never handed a second feature,
+   and a harness that can only carry one persistent worker across waves is
+   producing non-independent reviews, which step 3 names. Each independently
+   explains the user-visible behavior from source, cites entry points, reports
+   likely drift or none, and returns one concise live recipe. Subagents never drive the app or edit
    files. If independent dispatch is unavailable, run the wave **inline**, one
    feature at a time, in this context — and state the lost corroboration in
    the report: every drift call then has a single witness, so none is promoted
