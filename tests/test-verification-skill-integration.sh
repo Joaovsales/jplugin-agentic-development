@@ -99,7 +99,7 @@ assert_file_contains "$MAINTAINER" "count candidates before validating their con
   "maintainer: counts every verify-* candidate before target validation"
 assert_file_contains "$MAINTAINER" 'candidate set as `/verify --scope e2e`' \
   "maintainer: shares verify's ambiguity boundary"
-assert_file_contains "$MAINTAINER" "one read-only subagent per feature" \
+assert_prose_contains "$MAINTAINER" "exactly one independent read-only review" \
   "maintainer: full mode has independent source coverage"
 assert_file_contains "$MAINTAINER" "Exercise every feature" \
   "maintainer: full mode drives every feature"

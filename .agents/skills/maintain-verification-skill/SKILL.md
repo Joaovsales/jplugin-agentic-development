@@ -78,18 +78,37 @@ Run this pass when no scope argument is supplied.
 
 1. **Index hygiene.** Compare `features/README.md` with sibling feature files.
    Correct missing, extra, duplicate, and dead entries.
-2. **Source wave.** Dispatch one read-only subagent per feature concurrently.
-   Each independently explains the user-visible behavior from source, cites
-   entry points, reports likely drift or none, and returns one concise live
-   recipe. Subagents never drive the app or edit files. If independent dispatch
-   is unavailable, run the wave **inline**, one feature at a time, in this
-   context — and state the lost corroboration in the report: every drift call
-   then has a single witness, so none is promoted on agreement (`CLAUDE.md`
-   § *Independence Accounting*). `blocked` is reserved for source that cannot
-   be read, not for a wave that could not be parallelised.
-3. **Reconcile.** Require a returned summary for every feature. Spot-check cited
-   drift and inspect recent user-facing source churn for missing mapped features.
-   Merge recipes into as few app states as practical without dropping entry points.
+2. **Source wave.** Give every feature exactly one independent read-only
+   review from source, dispatched as read-only subagents in **bounded waves**
+   sized to the worker slots actually available: nine features on three worker
+   slots is three waves of three, not a blocked audit. Concurrency is a
+   throughput setting; the invariants are per feature and hold at any width.
+   - One feature, one reviewer. A feature is never split across reviewers and
+     never reviewed twice to pad the count; a reviewer takes one feature per
+     wave. Each reviewer independently explains the user-visible behavior from
+     source, cites entry points, reports likely drift or none, and returns one
+     concise live recipe. Subagents never drive the app or edit files.
+   - Keep a wave ledger as coverage accounting: every feature ID with its wave
+     number and whether its summary came back. A wave closes only when every
+     feature in it has a complete summary; a feature whose reviewer stalled or
+     returned nothing is re-dispatched, not marked reviewed.
+   - Waves do not cost independence. A reviewer in the second wave knows
+     nothing of the first, and the coordinator's spot-check in the next step
+     stays the second witness for every feature, so a nine-feature audit on
+     three slots reports the same corroboration as one on nine.
+   - If independent dispatch is unavailable for a feature — no slots at all,
+     or a reviewer that failed and could not be re-dispatched — review it
+     **inline**, one feature at a time, in this context, and state the lost
+     corroboration in the report: name each feature reviewed inline, because
+     every drift call on it then has a single witness and none is promoted on
+     agreement (`CLAUDE.md` § *Independence Accounting*). `blocked` is reserved
+     for source that cannot be read, not for a wave that could not be fully
+     parallelised.
+3. **Reconcile.** Require a complete summary for every feature in the ledger
+   before reading any of them; a gap here is a source-wave gap to close, never
+   a feature to carry as covered. Spot-check cited drift and inspect recent
+   user-facing source churn for missing mapped features. Merge recipes into as
+   few app states as practical without dropping entry points.
 4. **Live pass.** The coordinator launches and doctors the target through its
    own verification skill. Exercise every feature at least once. Doctor each
    fresh session, doctor again after surprising failures, and reset a wedged UI

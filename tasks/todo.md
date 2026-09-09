@@ -1,5 +1,9 @@
 # Active issue
 
+- [x] Allow full verifier maintenance to use bounded independent review waves <!-- task-id: verification.bounded-source-waves --> <!-- task-kind: operational --> — Source wave dispatches one read-only reviewer per feature in waves sized to available slots; complete per-feature summaries; disclose lost independence. ([#103](https://github.com/Joaovsales/jplugin-agentic-development/issues/103))
+  - [x] TDD: `tests/test-verifier-source-waves.sh` RED -> both trees assert bounded waves, exactly one review per feature, per-feature summary accounting, disclosure, nine-feature/three-slot example; janitor lens names waves
+  - [x] TDD: GREEN -> rewrite Full pass step 2 (Source wave) + step 3 summary accounting in `maintain-verification-skill/SKILL.md`; update `sweep/references/lens-janitor.md` step 2
+  - [x] TDD: mirror byte-identical into `.claude/skills/`; `bash tests/run.sh </dev/null` green
 - [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))
 
 # Plan: sweep routines — `janitor` and `architect` producers, cheap-model consumers
