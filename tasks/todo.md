@@ -1,5 +1,11 @@
 # Active issue
 
+- [x] Unblock comprehensive verification audits and Git project bootstrap <!-- task-id: verification.full-audit-unblock --> <!-- task-kind: operational --> — Umbrella for #100–#103; bootstrap fixed via `git scaffold`, waves bounded. ([#99](https://github.com/Joaovsales/jplugin-agentic-development/issues/99))
+- [x] Replace the unsupported Git post-init bootstrap trigger <!-- task-id: bug.git-post-init-bootstrap --> <!-- task-kind: bug --> — Git has no post-init hook; explicit `git scaffold` alias, loud failure, `newproject` tested as printed. ([#100](https://github.com/Joaovsales/jplugin-agentic-development/issues/100))
+- [x] Remove the bootstrap helper's hardcoded HOME checkout path <!-- task-id: bug.bootstrap-template-path --> <!-- task-kind: bug --> — Template installed to `~/.agents/project-template`, resolved relative to the script; spaced/non-default checkout covered. ([#101](https://github.com/Joaovsales/jplugin-agentic-development/issues/101))
+- [x] Make automatic and manual project bootstrap complete and preservation-safe <!-- task-id: bug.bootstrap-template-completeness --> <!-- task-kind: bug --> — Full inventory copied, existing files byte-identical, README `cp` block replaced. ([#102](https://github.com/Joaovsales/jplugin-agentic-development/issues/102))
+- [x] Allow full verifier maintenance to use bounded independent review waves <!-- task-id: verification.bounded-source-waves --> <!-- task-kind: operational --> — Source wave batched to worker slots, one independent review per feature, per-feature summary accounting. ([#103](https://github.com/Joaovsales/jplugin-agentic-development/issues/103))
+
 - [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))
 
 # Plan: sweep routines — `janitor` and `architect` producers, cheap-model consumers

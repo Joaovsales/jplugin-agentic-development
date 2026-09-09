@@ -13,8 +13,10 @@ assert_file_contains "$INSTALL" ".agents/skills/." \
   "installer: installs canonical skills additively"
 assert_file_contains "$INSTALL" "Review installed hooks with /hooks" \
   "installer: tells users to review hook registrations"
-assert_file_contains "$REPO/install.sh" 'copy_if_missing "AGENTS.md"' \
-  "git scaffold: copies neutral AGENTS.md"
+assert_eq "present" "$([ -e "$REPO/project-template/AGENTS.md" ] && echo present || echo missing)" \
+  "git scaffold: template inventory carries the neutral AGENTS.md"
+assert_file_contains "$REPO/install.sh" 'alias.scaffold' \
+  "git scaffold: installer registers the alias that copies the inventory"
 assert_file_contains "$REPO/project-template/AGENTS.md" "Project-Specific Rules" \
   "project template: carries a neutral rules section"
 assert_file_contains "$REPO/README.md" "bash scripts/install-codex.sh" \
