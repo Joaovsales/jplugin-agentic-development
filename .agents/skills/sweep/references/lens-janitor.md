@@ -11,10 +11,12 @@ reproduction this run actually executed.
    on one run and passes on a rerun is a candidate too — flakiness is a bug in the
    test, and it is filed as one with both runs' output.
 2. **Verifier full pass.** Invoke `/maintain-verification-skill` with **no**
-   `--scope` option — the full source-and-live audit. Its source wave runs inline
-   when dispatch is unavailable, one feature at a time; its live pass drives every
-   mapped feature under the `/verify --scope e2e` rules. When invoked from
-   `/sweep` its ship-or-stop step defers to the caller: the sweep owns the PR, so
+   `--scope` option — the full source-and-live audit. Its source wave gives each
+   feature one read-only reviewer in waves bounded by the worker slots available,
+   and runs inline only where dispatch is unavailable, naming those features;
+   its live pass drives every mapped feature under the `/verify --scope e2e`
+   rules. When invoked from `/sweep` its ship-or-stop step defers to the caller:
+   the sweep owns the PR, so
    verification map corrections it proved are carried on the sweep branch and
    nothing else is committed by the engine.
 3. **Product regressions** the full pass reports are candidates. Features the

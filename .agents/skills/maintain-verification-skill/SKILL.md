@@ -82,8 +82,9 @@ Run this pass when no scope argument is supplied.
    outnumber the available worker slots, run the wave in bounded batches sized
    to those slots — nine features on three slots is three waves of three, not
    a blocked audit. Batching changes the schedule, never the contract: every
-   feature receives exactly one independent read-only review, and no reviewer
-   sees another's findings. A slot is reused only with a fresh context: a
+   feature receives exactly one independent read-only review, no feature is
+   split across reviewers, and no reviewer sees another's findings. A slot is
+   reused only with a fresh context: a
    subagent that has returned its summary is never handed a second feature,
    and a harness that can only carry one persistent worker across waves is
    producing non-independent reviews, which step 3 names. Each independently
