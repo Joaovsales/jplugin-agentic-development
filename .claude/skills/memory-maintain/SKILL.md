@@ -39,8 +39,16 @@ not swallow the one sweep that install exists to trigger.**
 
 ### Heavy pass — every 5 sessions (gated)
 
-Count session entries in `tasks/history.md` (lines matching `^### \[\d{4}-\d{2}-\d{2}`):
-- Run the full sweep below (Phases 1–4) if the count is a multiple of 5
+Count session entries in `tasks/history.md`, accepting both `### [YYYY-MM-DD]`
+and `## YYYY-MM-DD` headings. Keep writing the canonical `/learn` format;
+existing history can contain either. Use the same pattern as the session-start hook:
+
+```bash
+grep -Ec '^(### \[[0-9]{4}-[0-9]{2}-[0-9]{2}\]|## [0-9]{4}-[0-9]{2}-[0-9]{2})([[:space:]]|$)' tasks/history.md
+```
+
+Missing history means zero sessions; grep exit 1 means zero matches.
+- Run the full sweep below (Phases 1–4) if the count is a positive multiple of 5
   (5, 10, 15, …) OR --force flag passed
 - If neither condition met: skip the heavy pass (the light pass above still ran)
 

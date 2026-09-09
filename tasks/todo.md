@@ -8,6 +8,21 @@
 
 # Active issue
 
+- [x] Unblock comprehensive verification audits and Git project bootstrap <!-- task-id: verification.full-audit-unblock --> <!-- task-kind: operational --> — Umbrella for #100–#103; bootstrap fixed via `git scaffold`, waves bounded. AC1 reinterpreted (git has no post-init hook, so `newproject` is the one-command path); AC5's `verify-coding-agent-workflow` audit lives outside this repo — re-run it there with the `git init` entry point remapped to `git scaffold`. ([#99](https://github.com/Joaovsales/jplugin-agentic-development/issues/99))
+- [x] Replace the unsupported Git post-init bootstrap trigger <!-- task-id: bug.git-post-init-bootstrap --> <!-- task-kind: bug --> — Git has no post-init hook; explicit `git scaffold` alias, loud failure, `newproject` tested as printed. ([#100](https://github.com/Joaovsales/jplugin-agentic-development/issues/100))
+- [x] Remove the bootstrap helper's hardcoded HOME checkout path <!-- task-id: bug.bootstrap-template-path --> <!-- task-kind: bug --> — Template installed to `~/.agents/project-template`, resolved relative to the script; spaced/non-default checkout covered. ([#101](https://github.com/Joaovsales/jplugin-agentic-development/issues/101))
+- [x] Make automatic and manual project bootstrap complete and preservation-safe <!-- task-id: bug.bootstrap-template-completeness --> <!-- task-kind: bug --> — Full inventory copied, existing files byte-identical, README `cp` block replaced. ([#102](https://github.com/Joaovsales/jplugin-agentic-development/issues/102))
+- [x] Allow full verifier maintenance to use bounded independent review waves <!-- task-id: verification.bounded-source-waves --> <!-- task-kind: operational --> — Source wave batched to worker slots, one independent review per feature, per-feature summary accounting. ([#103](https://github.com/Joaovsales/jplugin-agentic-development/issues/103))
+
+## Plan: Memory maintenance history counting
+> Spec: specs/memory-maintain-history-count.md
+> Approved 2026-09-09; all four tasks completed and independently reviewed.
+
+- [x] TDD: alternate and mixed history fixtures in tests/test-session-start.sh fail on the original hook -> recognize both existing session heading formats in the hook counter.
+- [x] TDD: missing/empty history, four/six sessions, unrelated headings, and malformed dates -> preserve the positive-multiple-of-five boundary without false counts.
+- [x] TDD: memory-maintain counting contract and skill parity -> align both skill copies with the hook while preserving force, light-pass, and glossary behavior.
+- [x] TDD: relevant tests and full suite -> review the change, record hook walkthrough evidence in tasks/e2e-log.md, and update the bug document with verified results.
+
 - [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))
 
 # Plan: sweep routines — `janitor` and `architect` producers, cheap-model consumers
@@ -709,3 +724,21 @@ reverse.
 - Completed: create-verification-skill invocation — mirrored verify-task-registry, three feature maps, live local CLI walkthrough and durable evidence.
 - Pending: no remaining work for the requested skill creation; GitHub, installation, and full agent routines remain outside verified coverage; derived source/spec entry points passed during wrap-up.
 - Carry-forward: use /maintain-verification-skill --scope changed after changes to mapped CLI behavior.
+
+## Session Summary — 2026-09-09 [9017248..3ed5bcb]
+- Completed: 5 tasks (#99, #100, #101, #102, #103 — Git bootstrap via `git scaffold`, bounded verifier waves)
+- Pending: 0 tasks from this plan
+- Carry-forward: `tests/test-task-registry.sh` "Doctor: the refused relaxation is visible to the user" fails on untouched `master` too — pre-existing, not addressed here
+
+## Session Summary — 2026-09-09 [9017248..ca8142d]
+- Completed: all four memory-maintenance history-count tasks. Hook and mirrored
+  skill recognize canonical and alternate history headings; added boundary and
+  pattern-parity regressions.
+- Verification: 38 files / 3,589 assertions pass with the inherited
+  TASK_REGISTRY_TRUSTED_CONFIG override cleared for tests. Nine live-hook cases,
+  four mutation probes, five dispatched review passes; zero findings.
+- Pending: none for this fix. Catch-up and duplicate-sweep prevention remain
+  outside the approved heading-recognition scope.
+- Carry-forward: specs/memory-maintain-history-count.md; diagnosis in
+  tasks/solutions/bugs/memory-maintain-history-heading-drift.md;
+  walkthrough in tasks/e2e-log.md.

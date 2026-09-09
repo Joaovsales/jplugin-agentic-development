@@ -543,3 +543,30 @@ back vacuous and was repaired.
 - Completed: 4 issue 117 plan tasks, including implementation, regression coverage, specification updates, verification mapping, and evidence capture.
 - Pending: none.
 - Carry-forward: live GitHub publication E2E remains blocked because the local verifier has no external-provider driver; the mocked-provider regression covers the approved-reference update path.
+
+### [2026-09-09] — Maintenance heading count
+
+- Key changes: memory maintenance and its startup reminder count canonical and
+  alternate session headings; added mixed-history, boundary, and pattern-parity
+  regressions. Preserved the positive-multiple-of-five cadence.
+- Verification: 38 test files / 3,589 assertions passed; nine isolated live-hook
+  scenarios, four mutation probes, and five dispatched review passes completed.
+- Learnings captured: [History heading drift](solutions/bugs/memory-maintain-history-heading-drift.md).
+
+### [2026-09-09] — Git bootstrap fixed, verifier waves bounded (#99–#103)
+- Root cause via `/debug`: Git has no `post-init` hook, so the installer's
+  template-dir hook was copied into every new repo and never executed; the
+  helper behind it also hardcoded `$HOME/coding-agent-workflow` with a silent
+  exit and omitted three template files. Reproduced at Level 1 in an isolated HOME.
+- Replaced with an explicit entry point: `scripts/scaffold-project.sh`,
+  installed under `~/.agents/bin` beside a copy of `project-template/` and
+  registered as the global `git scaffold` alias; `newproject` calls it after
+  `git init`. README Layer 2 and the existing-project instructions rewritten
+  (overwriting `cp` block gone).
+- `maintain-verification-skill` full pass: source wave batched to worker slots
+  with one independent review per feature and per-feature summary accounting.
+- Tests: install test evaluates `newproject` as printed, installs through a
+  symlinked spaced path, diffs output against the template inventory.
+  37/38 files green; `test-task-registry.sh` "approval is a floor" doctor
+  assertion fails identically on the untouched HEAD (pre-existing).
+- Learnings captured: `tasks/solutions/bugs/git-post-init-hook-never-fires.md`

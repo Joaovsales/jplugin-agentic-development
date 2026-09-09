@@ -678,3 +678,87 @@ Evidence: `env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/test-task-registry.sh`
 Result: PASS
 
 Cleanup: PASS — owned verification runtime removed; evidence survived at `tasks/verification/task-registry.117.Unyt8S/`.
+
+## E2E Walkthrough — Memory maintenance history counting — 2026-09-09 9017248
+
+Spec: specs/memory-maintain-history-count.md
+Source: uncommitted implementation on base 9017248f0311b5980a4a1cdf075c1aea6aec45d2.
+Hook SHA-256: 5bf409d75c0c2125c2b31187b9371b0b8b77286fb356aaf678e66403c803e0ae.
+Driver: Bash lifecycle hook, invoked from a Python driver in a real PTY.
+Each scenario creates an owned temporary project containing only its history;
+executes the absolute repository `.claude/hooks/session-start.sh` with stdin
+`{"source":"startup"}`, `CCW_SESSION_GUARD=0`, and a fixture-local
+`CLAUDE_SESSION_SENTINEL`; captures stdout/stderr and exit status; and requires
+`SKILLS AVAILABLE` to prove that a missing reminder was not an aborted banner.
+This is a lifecycle-hook integration walkthrough, not an agent-triggering test.
+
+### AC1 — Canonical history
+
+Five `### [2026-09-09] — session` entries: exit 0, full banner, reminder at 5.
+Negative: four entries produce no reminder. PASS.
+
+### AC2 — Alternate and mixed history
+
+Five `## 2026-09-09 — session` entries and four canonical plus one alternate
+entry: each exits 0, full banner, reminder at 5. Before implementation both
+new regression assertions failed. Ten separate same-date alternate entries
+produce a reminder at 10. PASS.
+
+### AC3 — Boundaries and invalid headings
+
+Four/six canonical entries, empty/missing history, and four canonical entries
+plus `## 2026-09-09suffix — invalid`: exit 0, full banner, no reminder in every
+case. Regression suite additionally checks eight malformed/unrelated headings,
+individually added to four valid sessions. PASS.
+
+### AC4 — Counting contract
+
+`bash tests/test-memory-maintain-doc.sh`: 15 assertions passed, including
+hook/skill pattern agreement and byte-identical mirrors. The complete current
+history counts 22 before appending this session, versus 19 with the old pattern.
+PASS (contract test plus live grep).
+
+### AC5 — Preserved behavior and regression suite
+
+Source diff confines the skill change to heading recognition and makes its
+existing positive-five gate explicit. `--force`, light-pass work, and glossary
+bootstrap branches are preserved by inspection; no forced store sweep was run.
+`env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh </dev/null`:
+38 files, 3,589 assertions passed. The unset applies only to the test process:
+the inherited trusted-config override caused a pre-existing Doctor test failure.
+`bash -n` and `git diff --check` pass. PASS.
+
+Cleanup: owned runtime removed; stdout/stderr for all nine live scenarios and
+source identity retained in `/tmp/memory-maintain-walkthrough/`. The observations
+above are the durable record. Isolated mutation probes each went red: missing
+alternate format (3 failures), missing date boundary (2), zero allowed (1), and
+modulo bypassed (10). No mutation touched the working implementation.
+
+Review: quality-gate structural/anti-pattern passes inline; APOSD dispatched,
+GO. Four wrap-up passes separately dispatched: consistency, defensive/security,
+test coverage, adversarial critic. All report zero findings; no confidence
+promotion used. Reported, not applied: none. Security checklist: fixed regex and
+quoted file inputs; no history text is evaluated as code, no new authentication,
+secret, disclosure, cryptographic, dependency, or network surface.
+
+Verification-map maintenance: clean / not applicable; the only local recipe,
+verify-task-registry, declares the Python task-registry CLI. This change alters
+its surrounding agent lifecycle hook, with no changed CLI feature entry point.
+
+Spec reconciliation: six candidates, all unchanged after comparison with the
+scoped heading-count diff: specs/compound-engineering-adoption.md,
+specs/context-memory-management.md, specs/memory-maintain-history-count.md,
+specs/pstack-verification-skill-integration.md, specs/separate-project-config.md,
+specs/sweep-routines.md. The legacy context-memory spec's old store vocabulary
+predates this fix; its cadence contract is unaffected. No deferred reconciliation.
+
+
+### Committed verification identity — 2026-09-09 ca8142d
+
+Spec: specs/memory-maintain-history-count.md
+Commit: ca8142d85b6182d935ab1a14ddd8749a74f39ec0
+The committed hook's SHA-256 matches the source exercised in all nine scenarios
+above (5bf409d75c0c2125c2b31187b9371b0b8b77286fb356aaf678e66403c803e0ae).
+All five AC results and review findings above apply to this source commit.
+Final full suite: 38 files / 3,589 assertions, exit 0, zero failures.
+This follow-up changes only the verification identity and wrap-up fingerprint.

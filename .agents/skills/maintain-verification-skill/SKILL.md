@@ -78,16 +78,28 @@ Run this pass when no scope argument is supplied.
 
 1. **Index hygiene.** Compare `features/README.md` with sibling feature files.
    Correct missing, extra, duplicate, and dead entries.
-2. **Source wave.** Dispatch one read-only subagent per feature concurrently.
-   Each independently explains the user-visible behavior from source, cites
-   entry points, reports likely drift or none, and returns one concise live
-   recipe. Subagents never drive the app or edit files. If independent dispatch
-   is unavailable, run the wave **inline**, one feature at a time, in this
-   context — and state the lost corroboration in the report: every drift call
-   then has a single witness, so none is promoted on agreement (`CLAUDE.md`
-   § *Independence Accounting*). `blocked` is reserved for source that cannot
-   be read, not for a wave that could not be parallelised.
-3. **Reconcile.** Require a returned summary for every feature. Spot-check cited
+2. **Source wave.** Dispatch one read-only subagent per feature. When features
+   outnumber the available worker slots, run the wave in bounded batches sized
+   to those slots — nine features on three slots is three waves of three, not
+   a blocked audit. Batching changes the schedule, never the contract: every
+   feature receives exactly one independent read-only review, no feature is
+   split across reviewers, and no reviewer sees another's findings. A slot is
+   reused only with a fresh context: a
+   subagent that has returned its summary is never handed a second feature,
+   and a harness that can only carry one persistent worker across waves is
+   producing non-independent reviews, which step 3 names. Each independently
+   explains the user-visible behavior from source, cites entry points, reports
+   likely drift or none, and returns one concise live recipe. Subagents never drive the app or edit
+   files. If independent dispatch is unavailable, run the wave **inline**, one
+   feature at a time, in this context — and state the lost corroboration in
+   the report: every drift call then has a single witness, so none is promoted
+   on agreement (`CLAUDE.md` § *Independence Accounting*). `blocked` is
+   reserved for source that cannot be read, not for a wave that could not be
+   parallelised or had to be batched.
+3. **Reconcile.** Require a returned summary for every feature; a batch that
+   returned fewer summaries than features it was given is incomplete, so
+   re-dispatch the missing ones before reconciling. Name in the report every
+   feature whose review was not independent. Spot-check cited
    drift and inspect recent user-facing source churn for missing mapped features.
    Merge recipes into as few app states as practical without dropping entry points.
 4. **Live pass.** The coordinator launches and doctors the target through its
