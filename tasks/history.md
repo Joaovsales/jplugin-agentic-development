@@ -535,6 +535,16 @@ back vacuous and was repaired.
 - Coverage excludes GitHub, installation, and complete agent routines; derived source/spec entry points passed after correcting an unsupported source read-back expectation during wrap-up.
 - Learnings captured: updated [stdin ownership](solutions/bugs/test-suite-hangs-when-stdin-is-an-open-pipe.md).
 
+
+### [2026-09-09] — Maintenance heading count
+
+- Key changes: memory maintenance and its startup reminder count canonical and
+  alternate session headings; added mixed-history, boundary, and pattern-parity
+  regressions. Preserved the positive-multiple-of-five cadence.
+- Verification: 38 test files / 3,589 assertions passed; nine isolated live-hook
+  scenarios, four mutation probes, and five dispatched review passes completed.
+- Learnings captured: [History heading drift](solutions/bugs/memory-maintain-history-heading-drift.md).
+
 ### [2026-09-09] — Git bootstrap fixed, verifier waves bounded (#99–#103)
 - Root cause via `/debug`: Git has no `post-init` hook, so the installer's
   template-dir hook was copied into every new repo and never executed; the

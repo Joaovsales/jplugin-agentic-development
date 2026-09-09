@@ -177,7 +177,7 @@ fi
 # The /memory-maintain skill is also called every session start via CLAUDE.md
 # step 4 — the skill self-gates, so this nudge is a belt-and-suspenders signal.
 if [ -f "tasks/history.md" ]; then
-  SESSION_COUNT=$(grep -c '^### \[[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}' tasks/history.md 2>/dev/null || true)
+  SESSION_COUNT=$(grep -Ec '^(### \[[0-9]{4}-[0-9]{2}-[0-9]{2}\]|## [0-9]{4}-[0-9]{2}-[0-9]{2})([[:space:]]|$)' tasks/history.md 2>/dev/null || true)
   if [ "${SESSION_COUNT:-0}" -gt 0 ] && [ $(( SESSION_COUNT % 5 )) -eq 0 ]; then
     echo ""
     echo "🔧  MEMORY MAINTENANCE DUE ($SESSION_COUNT sessions) — /memory-maintain will run at session start."
