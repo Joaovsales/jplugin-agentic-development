@@ -4,6 +4,16 @@
   - [x] TDD: `tests/test-verifier-source-waves.sh` RED -> both trees assert bounded waves, exactly one review per feature, per-feature summary accounting, disclosure, nine-feature/three-slot example; janitor lens names waves
   - [x] TDD: GREEN -> rewrite Full pass step 2 (Source wave) + step 3 summary accounting in `maintain-verification-skill/SKILL.md`; update `sweep/references/lens-janitor.md` step 2
   - [x] TDD: mirror byte-identical into `.claude/skills/`; `bash tests/run.sh </dev/null` green
+
+## Plan: Memory maintenance history counting
+> Spec: specs/memory-maintain-history-count.md
+> Approved 2026-09-09; all four tasks completed and independently reviewed.
+
+- [x] TDD: alternate and mixed history fixtures in tests/test-session-start.sh fail on the original hook -> recognize both existing session heading formats in the hook counter.
+- [x] TDD: missing/empty history, four/six sessions, unrelated headings, and malformed dates -> preserve the positive-multiple-of-five boundary without false counts.
+- [x] TDD: memory-maintain counting contract and skill parity -> align both skill copies with the hook while preserving force, light-pass, and glossary behavior.
+- [x] TDD: relevant tests and full suite -> review the change, record hook walkthrough evidence in tasks/e2e-log.md, and update the bug document with verified results.
+
 - [x] task-registry publish: a legacy prose row becomes an issue with a truncated title and an empty body <!-- task-id: task-registry-publish-a-legacy-prose-row-becomes-an-issue-with-a-truncated-title-and-an-empty-body --> <!-- task-kind: bug --> — Preserve legacy multi-line plan detail, derive a clean title, and refuse unpublishable rows. ([#90](https://github.com/Joaovsales/jplugin-agentic-development/issues/90))
 
 # Plan: sweep routines — `janitor` and `architect` producers, cheap-model consumers
@@ -705,3 +715,17 @@ reverse.
 - Completed: create-verification-skill invocation — mirrored verify-task-registry, three feature maps, live local CLI walkthrough and durable evidence.
 - Pending: no remaining work for the requested skill creation; GitHub, installation, and full agent routines remain outside verified coverage; derived source/spec entry points passed during wrap-up.
 - Carry-forward: use /maintain-verification-skill --scope changed after changes to mapped CLI behavior.
+
+
+## Session Summary — 2026-09-09 [9017248..ca8142d]
+- Completed: all four memory-maintenance history-count tasks. Hook and mirrored
+  skill recognize canonical and alternate history headings; added boundary and
+  pattern-parity regressions.
+- Verification: 38 files / 3,589 assertions pass with the inherited
+  TASK_REGISTRY_TRUSTED_CONFIG override cleared for tests. Nine live-hook cases,
+  four mutation probes, five dispatched review passes; zero findings.
+- Pending: none for this fix. Catch-up and duplicate-sweep prevention remain
+  outside the approved heading-recognition scope.
+- Carry-forward: specs/memory-maintain-history-count.md; diagnosis in
+  tasks/solutions/bugs/memory-maintain-history-heading-drift.md;
+  walkthrough in tasks/e2e-log.md.
