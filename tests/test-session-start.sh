@@ -182,20 +182,68 @@ assert_contains "$out_none" "No learning store yet" \
 cd "$REPO"
 rm -rf "$tmpN"
 
-# --- M3: maintenance nudge fires on a multiple of 5 history entries ---------
+# --- Maintenance counts both session heading formats found in history ------
+assert_maintenance_notice() {
+  local expected="$1" label="$2" output status
+  output=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 \
+    CLAUDE_SESSION_SENTINEL="$PWD/session-active" bash "$HOOK" 2>&1)
+  status=$?
+  assert_eq "0" "$status" "$label: hook succeeds"
+  assert_contains "$output" "SKILLS AVAILABLE" "$label: full banner runs"
+  if [ -n "$expected" ]; then
+    assert_contains "$output" "MEMORY MAINTENANCE DUE ($expected sessions)" "$label: reminder counts sessions"
+  else
+    assert_not_contains "$output" "MEMORY MAINTENANCE DUE" "$label: no reminder"
+  fi
+}
+
 tmpM=$(mktemp -d)
 cd "$tmpM"
 mkdir -p tasks/solutions/patterns
 for d in 01 02 03 04 05; do
   printf '### [2026-08-%s] — session %s\n- Key changes: x\n\n' "$d" "$d" >> tasks/history.md
 done
-out_five=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
-assert_contains "$out_five" "MEMORY MAINTENANCE DUE (5 sessions)" \
-  "M3: nudge fires at 5 bracketed-date history entries"
+assert_maintenance_notice 5 "five canonical entries"
 printf '### [2026-08-06] — session 06\n- Key changes: x\n\n' >> tasks/history.md
-out_six=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
-assert_not_contains "$out_six" "MEMORY MAINTENANCE DUE" \
-  "M3: nudge stays silent off the multiple of 5"
+assert_maintenance_notice '' "six canonical entries"
+
+for format in alternate mixed; do
+  : > tasks/history.md
+  for d in 01 02 03 04 05; do
+    if [ "$format" = mixed ] && [ "$d" != 05 ]; then
+      printf '### [2026-08-%s] — session\n' "$d" >> tasks/history.md
+    else
+      printf '## 2026-08-%s — session\n' "$d" >> tasks/history.md
+    fi
+  done
+  assert_maintenance_notice 5 "five $format entries"
+done
+
+head -n 4 tasks/history.md > four-sessions.md
+cp four-sessions.md tasks/history.md
+assert_maintenance_notice '' "four sessions"
+for heading in \
+  '### Round 2 review (2026-08-05)' \
+  'A prose date: 2026-08-05' \
+  '#### [2026-08-05] — nested heading' \
+  '### [2026-08-05 — missing bracket' \
+  '### [2026-08-05]suffix — missing separator' \
+  '## 2026-08-05suffix — missing separator' \
+  '## 2026-8-05 — short month' \
+  '### [2026-08-5] — short day'; do
+  cp four-sessions.md tasks/history.md
+  printf '%s\n' "$heading" >> tasks/history.md
+  assert_maintenance_notice '' "four sessions plus $heading"
+done
+
+: > tasks/history.md
+assert_maintenance_notice '' "empty history"
+rm tasks/history.md
+assert_maintenance_notice '' "missing history"
+for ((session=0; session<10; session++)); do
+  printf '## 2026-08-05 — session %s\n' "$session" >> tasks/history.md
+done
+assert_maintenance_notice 10 "ten sessions on the same date"
 cd "$REPO"
 rm -rf "$tmpM"
 
