@@ -1,0 +1,4 @@
+Script started on 2026-09-09 10:47:27-03:00 [COMMAND="python3 /home/joaosouto/orca/workspaces/jplugin-agentic-development/preserve-published-issue-references-across-local/.agents/skills/task-registry/scripts/task-registry.py upsert verify.sample --apply --title Verification\ task --kind bug --label bug --summary Created\ through\ the\ CLI --criterion Read\ back\ the\ saved\ task --repo /tmp/verify-task-registry.117.QE8PdD/project --provider local " <not executed on terminal>]
+upsert: created verify.sample (local); row added
+
+Script done on 2026-09-09 10:47:27-03:00 [COMMAND_EXIT_CODE="0"]

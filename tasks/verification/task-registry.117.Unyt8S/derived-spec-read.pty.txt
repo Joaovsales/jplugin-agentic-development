@@ -1,0 +1,11 @@
+Script started on 2026-09-09 10:47:27-03:00 [COMMAND="python3 /home/joaosouto/orca/workspaces/jplugin-agentic-development/preserve-published-issue-references-across-local/.agents/skills/task-registry/scripts/task-registry.py show verify.specs-check-md --repo /tmp/verify-task-registry.117.QE8PdD/project --provider local " <not executed on terminal>]
+task: verify.specs-check-md
+  title:    Spec follow-up
+  kind:     task
+  status:   open
+  priority: unset
+  spec:     specs/check.md
+  external: local:verify.specs-check-md tasks/details/verify.specs-check-md.md
+  index row: tasks/todo.md:3
+
+Script done on 2026-09-09 10:47:27-03:00 [COMMAND_EXIT_CODE="0"]

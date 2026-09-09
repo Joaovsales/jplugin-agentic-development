@@ -1,3 +1,11 @@
+# Fix: #117 — Preserve published issue references across local-pending upserts
+> Spec: specs/preserve-published-issue-references.md
+
+- [x] TDD: regression test for local-pending fallback preserving a GitHub reference -> exercise the approval-gated local write and assert the compact index keeps the original issue link
+- [x] TDD: regression test for approved publication after fallback -> assert the second upsert updates the original issue and does not create a duplicate
+- [x] TDD: local provider preserves incoming external references -> keep the local detail location separate from a previously published tracker address
+- [x] Verification: run the focused task-registry tests and full test suite -> confirm all acceptance criteria and parity checks
+
 # Active issue
 
 - [x] Unblock comprehensive verification audits and Git project bootstrap <!-- task-id: verification.full-audit-unblock --> <!-- task-kind: operational --> — Umbrella for #100–#103; bootstrap fixed via `git scaffold`, waves bounded. AC1 reinterpreted (git has no post-init hook, so `newproject` is the one-command path); AC5's `verify-coding-agent-workflow` audit lives outside this repo — re-run it there with the `git init` entry point remapped to `git scaffold`. ([#99](https://github.com/Joaovsales/jplugin-agentic-development/issues/99))

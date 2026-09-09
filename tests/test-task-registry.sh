@@ -967,6 +967,84 @@ assert_contains "$gh_unauth_write" "external publication pending" \
 assert_not_contains "$(cat "$F_GH/gh-unauth2.log")X" "issue create" \
   "GitHub: no create call is attempted while unauthenticated"
 
+# A local-pending write must not replace a previously published tracker address.
+# The fake external provider deliberately cannot find the task by stable ID: the
+# second run can succeed only if upsert consults the preserved index reference.
+F_PUBLISHED_REF="$(new_fixture)"
+write_index "$F_PUBLISHED_REF"
+sed -i 's|— ship the live grid morph (blocked-by: recipe.color-lut)|— ship the live grid morph ([#42](https://github.com/fixture-owner/fixture-repo/issues/42)) (blocked-by: recipe.color-lut)|' "$F_PUBLISHED_REF/tasks/todo.md"
+published_ref_out="$(cd "$F_PUBLISHED_REF" && pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import Task
+from registry.providers.base import ProviderStatus, WriteGate
+from registry.upsert import upsert_task
+
+class FakeGithub:
+    name = "github"
+
+    def __init__(self, config):
+        self.config = config
+        self.gate = WriteGate(apply=True, require_approval=True, approved=False)
+        self.fetched = []
+        self.created = []
+        self.updated = []
+
+    def discover(self):
+        return ProviderStatus(True, "fake GitHub")
+
+    def list_tasks(self):
+        return []
+
+    def get_task(self, reference):
+        self.fetched.append(reference)
+        return Task(id="remote-title-derived-id", title="Published task", external=reference)
+
+    def create_task(self, task):
+        self.created.append(task)
+        return task
+
+    def update_task(self, task):
+        self.updated.append(task)
+        return task
+
+config = load_config(".")
+provider = FakeGithub(config)
+registry = type("Registry", (), {"config": config, "provider": provider})()
+task = Task(id="recipe.morph-live-grid", title="Morph live grid recipe")
+
+first_lines, first_code = upsert_task(registry, task, apply=True)
+provider.gate.approved = True
+second_lines, second_code = upsert_task(registry, task, apply=True)
+index = open("tasks/todo.md", encoding="utf-8").read()
+print("first-code=" + str(first_code))
+print("first-output=" + " | ".join(first_lines))
+print("second-code=" + str(second_code))
+print("second-output=" + " | ".join(second_lines))
+print("fetched=" + ",".join(ref.display() for ref in provider.fetched))
+print("created=" + str(len(provider.created)))
+print("updated=" + str(len(provider.updated)))
+print("updated-ref=" + provider.updated[0].external.display())
+print("index-has-github=" + str("([#42](https://github.com/fixture-owner/fixture-repo/issues/42))" in index))
+print("index-has-local=" + str("tasks/details/recipe.morph-live-grid.md" in index))
+EOF
+)"
+assert_contains "$published_ref_out" "first-code=0" \
+  "Upsert reference preservation: approval-gated fallback succeeds"
+assert_contains "$published_ref_out" "local-pending" \
+  "Upsert reference preservation: first run uses the local-pending destination"
+assert_contains "$published_ref_out" "index-has-github=True" \
+  "Upsert reference preservation: fallback keeps the original GitHub link"
+assert_contains "$published_ref_out" "index-has-local=False" \
+  "Upsert reference preservation: fallback does not replace the issue link with a local path"
+assert_contains "$published_ref_out" "fetched=github:42" \
+  "Upsert reference preservation: approved run consults the preserved issue reference"
+assert_contains "$published_ref_out" "created=0" \
+  "Upsert reference preservation: approved run does not create a duplicate"
+assert_contains "$published_ref_out" "updated=1" \
+  "Upsert reference preservation: approved run updates the original task"
+assert_contains "$published_ref_out" "updated-ref=github:42" \
+  "Upsert reference preservation: the original issue remains the update address"
+
 
 # =============================================================================
 # 10. Migration — an ascii_video_pipeline-shaped repository

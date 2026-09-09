@@ -1,0 +1,8 @@
+Script started on 2026-09-09 10:47:27-03:00 [COMMAND="python3 /home/joaosouto/orca/workspaces/jplugin-agentic-development/preserve-published-issue-references-across-local/.agents/skills/task-registry/scripts/task-registry.py select --routine fix --repo /tmp/verify-task-registry.117.QE8PdD/project --provider local " <not executed on terminal>]
+unclassified:  2 open issue(s) carry no kind label
+candidate:     verify.sample — Verification task updated
+matched label: bug
+claim label:   in-progress — write it with `task-registry claim verify.sample --routine fix --apply --approve` before branching
+remaining:     0 other candidate(s) in this pool
+
+Script done on 2026-09-09 10:47:27-03:00 [COMMAND_EXIT_CODE="0"]

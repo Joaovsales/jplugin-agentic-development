@@ -283,7 +283,7 @@ assert_contains "$fn" "git scaffold" "newproject: printed function bootstraps vi
   export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
   eval "$fn"
   newproject "my app" > "$box/newproject.log" 2>&1
-) 
+)
 assert_eq "0" "$?" "newproject: succeeds"
 assert_eq "present" "$(exists "$box/my app/AGENTS.md")" "newproject: AGENTS.md scaffolded"
 assert_eq "present" "$(exists "$box/my app/tasks/todo.md")" "newproject: tasks/todo.md scaffolded"

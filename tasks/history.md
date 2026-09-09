@@ -535,6 +535,14 @@ back vacuous and was repaired.
 - Coverage excludes GitHub, installation, and complete agent routines; derived source/spec entry points passed after correcting an unsupported source read-back expectation during wrap-up.
 - Learnings captured: updated [stdin ownership](solutions/bugs/test-suite-hangs-when-stdin-is-an-open-pipe.md).
 
+### [2026-09-09] — Published reference fallback
+- Key changes: preserved published external references through local-pending upserts; made approved publication resolve the preserved reference before provider metadata matching; added regression coverage, specification, and E2E evidence.
+- Learnings captured: [local-pending upserts must preserve published references](solutions/bugs/preserve-published-refs-when-local-pending-upserts-fall-back.md).
+
+## Session Summary — 2026-09-09 [ba11f75..9017248]
+- Completed: 4 issue 117 plan tasks, including implementation, regression coverage, specification updates, verification mapping, and evidence capture.
+- Pending: none.
+- Carry-forward: live GitHub publication E2E remains blocked because the local verifier has no external-provider driver; the mocked-provider regression covers the approved-reference update path.
 
 ### [2026-09-09] — Maintenance heading count
 
