@@ -889,6 +889,10 @@ skills). Files owned by this change: test-bulk-read-gate 192, test-settings-json
 10, test-model-tiers 98, test-agents 170, test-codex-install 25,
 test-skill-parity 89, test-doc-conventions 488 — all green.
 
+### Post-review suite — merged with origin/master @ 7707342
+
+`bash tests/run.sh` → 33/40 files green. The 7 red files are pre-existing and match the bf58555 baseline counts recorded under AC9 above: test-install-sh 1/97 (Windows dangling-symlink case; the 3 new Pi-copy assertions are green), test-routine-selectors 54/174, test-routine-skills 2/64, test-skill-invocation-chain 4/72, test-sync-retirement 47/329, test-task-registry 37/326, test-verification-skill-integration 2/90.
+
 ### Live firing — 2026-09-11, session resumed after hook registration
 
 First whole-file `Read` of `CLAUDE.md` (522 lines) in the resumed session was denied by the project-level hook with:

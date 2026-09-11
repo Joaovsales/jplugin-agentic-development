@@ -772,3 +772,14 @@ reverse.
 [x] TDD: tests/test-skill-invocation-chain.sh or doc-conventions RED — plan/build/debug/sweep contain "Bulk-Read Handoff"; build delegation contract says bulk-reader answer, never a file over threshold -> edit the four canonical skills, copy byte-identical to .claude/skills/, test-skill-parity green (AC7)
 [x] Verification: live measurement — same question about one >350-line file in this repo via direct read and via bulk-reader on haiku; record parent-context tokens for each and delegated latency in tasks/e2e-log.md; confirm the gate fired live (note: hook changes need a session restart) (AC8)
 [x] Verification: bash tests/run.sh — 33/40 files green; the 7 red files fail with identical counts on a clean bf58555 checkout (pre-existing, modules untouched; table in tasks/e2e-log.md § AC9); /quality-gate applied F1,F4–F12, reported F2/F3 (AC9)
+
+## Session Summary — 2026-09-11 [422b43b..2fda97e]
+- Completed: 10 Bulk-Read Gate plan tasks (spec, hook + shim, settings, bulk-reader
+  persona, Codex renderer/installer, Pi mirror + install step, docs, four skills,
+  live measurement, suite verification) plus the wrap-up review's grammar fix
+  (every command list's final pipe stage; redirects; lines delivered).
+- Pending: none in this plan. Reported for a human: context-document-optimizer's
+  tier differs per harness; Scout-tier membership hard-coded in the renderer;
+  error-path semantics differ (exit 1 vs Pi block); no chunked-read measurement.
+- Carry-forward: merge PR, then restart sessions so the project-level PreToolUse
+  hook loads; the Pi mirror still awaits its live run (TODO(shortcut) in the test).

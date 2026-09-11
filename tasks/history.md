@@ -585,8 +585,9 @@ back vacuous and was repaired.
   deepseek-v4-flash); Codex renderer emits Scout `model` from the tier table,
   installer merges the hook once; Bulk-Read Handoff documented in CLAUDE.md,
   PI_SETUP.md, README and four skills.
-- Verification: 192-case hook matrix plus 7 owned test files green; suite
-  33/40 files — the 7 red files fail with identical counts on a clean
+- Verification: 304-case hook matrix (grown from 192 by the wrap-up review,
+  which found and fixed a `;`/`&&`/`2>&1` bypass) plus 8 owned test files
+  green; post-merge suite 33/40 files — the 7 red files fail with identical counts on a clean
   `bf58555` checkout (pre-existing, `tasks/e2e-log.md` § AC9). Live
   measurement: direct Read ≈8,400 parent tokens vs ≈200 via `bulk-reader`
   (24.2 s); the gate fired live on the resumed session's first `Read`.
