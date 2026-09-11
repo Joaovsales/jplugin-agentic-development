@@ -763,6 +763,30 @@ All five AC results and review findings above apply to this source commit.
 Final full suite: 38 files / 3,589 assertions, exit 0, zero failures.
 This follow-up changes only the verification identity and wrap-up fingerprint.
 
+## E2E Walkthrough — /system-design-planning worked example — 2026-09-11
+
+Spec: specs/system-design-planning.md
+Source: uncommitted implementation on base bf58555 (branch master).
+Driver: the skill run once, in the main context, against its own Step 8 TODO(shortcut) (a --depends-on flag for task-registry upsert). Outputs: specs/upsert-depends-on.md, specs/upsert-depends-on.plan.html.
+
+### AC: reads issue references only through task-registry.py show — EXERCISED
+`python3 .agents/skills/task-registry/scripts/task-registry.py show 97` read the adjacent issue (title, labels, evidence) with no tracker CLI call.
+
+### AC: spec section order constraints → system design → component contracts → data models → build order — EXERCISED
+specs/upsert-depends-on.md headings appear in that order (## Constraints, ## System design, ## Component contracts, ## Data models, ## Build order, ## Decisions, ## Acceptance Criteria, ## Implementation Paths).
+
+### AC: renders through visual-render.py to specs/<feature>.plan.html and prints the path before asking for review — EXERCISED
+Render command exited 0; page 47,136 bytes; section ids in order problem constraints system-design contracts data-models build-order decisions; `✓ Visual written:` printed, then the gate text.
+
+### AC: nothing filed and nothing built before "approved"; approval attaches to the rendered document — EXERCISED
+Gate printed with both paths; no upsert invoked (tasks/details/ unchanged, no issue created); D2 left open for the reviewer.
+
+### Step 5 adversarial pass — EXERCISED
+critic dispatched under the Review Dispatch Contract (no diff — design review, deferrals: none). Verdict HOLD: 0 MUST-FIX, 9 SHOULD-FIX, 5 NITPICK, all at confidence 100; every finding folded into the spec (line-citation drift, LOCAL_PENDING capability source, pre-config validation placement, sequential filing under D2, replacement disclosure, parity per slice, clearing out of scope).
+
+### AC: off-ramp `Skipping system-design-planning:` — NOT EXERCISED (the change met the bar).
+### AC: appends `[ ] TDD:` rows under `### Slice` headings and files one task per slice — NOT EXERCISED (waits for approval; Step 8).
+
 ---
 
 ## Bulk-Read Gate — direct read vs bulk-reader measurement — 2026-09-11 bf58555

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>upsert --depends-on — Architecture Review</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+  --border: #30363d; --text: #c9d1d9; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-2: #3fb950; --warn: #f85149;
+  --warn-bg: rgba(248,81,73,0.12); --code-bg: #1e1e1e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4); --radius: 10px;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --surface-2: #eaeef2;
+  --border: #d0d7de; --text: #1f2328; --text-secondary: #57606a;
+  --accent: #0969da; --accent-2: #1a7f37; --warn: #cf222e;
+  --warn-bg: rgba(207,34,46,0.08); --code-bg: #f6f8fa;
+  --shadow: 0 4px 20px rgba(31,35,40,0.08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.65; font-size: 16px;
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+@media (min-width: 1100px) { .container { max-width: 920px; } }
+
+/* Hero */
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 0.5rem; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+.hero .takeaway {
+  font-size: 1.15rem; line-height: 1.5; padding: 1rem 1.2rem;
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 1.2rem 0;
+}
+.hero .meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
+  color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;
+}
+.hero .meta span strong { color: var(--text); margin-right: 0.25rem; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); margin-bottom: 0.25rem; }
+.card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); line-height: 1.1; }
+.card .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+/* Sections */
+section { margin: 2.5rem 0; scroll-margin-top: 1.5rem; }
+section > h2 {
+  font-size: 1.45rem; margin: 0 0 1rem; padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--accent); display: flex; gap: 0.5rem; align-items: baseline;
+}
+section h3 { font-size: 1.1rem; margin: 1.4rem 0 0.5rem; }
+section p { margin: 0.7rem 0; }
+section ul { padding-left: 1.4rem; margin: 0.5rem 0; }
+section li { margin: 0.3rem 0; }
+
+/* Sidebar nav */
+.nav-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  padding: 1.5rem 0.8rem; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transform: translateX(0); transition: transform 0.25s; z-index: 100;
+}
+.nav-sidebar.hidden { transform: translateX(-100%); }
+.nav-sidebar h3 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); margin: 1rem 0.5rem 0.4rem;
+}
+.nav-sidebar a {
+  display: block; padding: 0.4rem 0.6rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; line-height: 1.35;
+}
+.nav-sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.nav-sidebar a.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+.layout { display: flex; }
+.layout main { flex: 1; margin-left: 240px; min-width: 0; }
+@media (max-width: 900px) {
+  .nav-sidebar { transform: translateX(-100%); }
+  .nav-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .layout main { margin-left: 0; }
+}
+
+/* Toolbar buttons (theme, nav toggle) */
+.toolbar { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; z-index: 200; }
+.toolbar button, .nav-toggle {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.toolbar button:hover, .nav-toggle:hover { background: var(--surface-2); }
+.nav-toggle { position: fixed; top: 1rem; left: 1rem; z-index: 200; }
+
+/* Code */
+pre {
+  margin: 0.5rem 0; padding: 1rem 1.1rem; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow-x: auto; font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace;
+  font-size: 0.85rem; line-height: 1.55;
+}
+code { font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace; font-size: 0.9em; }
+p code, li code {
+  padding: 0.1rem 0.35rem; background: var(--surface-2);
+  border-radius: 4px; font-size: 0.85em;
+}
+.code-block { margin: 1rem 0; }
+.code-block .caption {
+  font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-block .caption .lang { font-family: monospace; font-size: 0.75rem;
+  padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-2); }
+
+/* Collapsible */
+details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.6rem 1rem; margin: 0.8rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; }
+details[open] { padding-bottom: 1rem; }
+
+/* References footer */
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+.refs a {
+  display: block; padding: 0.8rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.9rem;
+}
+.refs a:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Reflection */
+.reflection {
+  background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(63,185,80,0.10));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.3rem 1.5rem; margin: 2rem 0;
+}
+.reflection h3 { margin-top: 0; color: var(--accent); }
+
+footer {
+  margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.85rem; text-align: center;
+}
+
+/* Slides mode */
+body.mode-slides { overflow: hidden; }
+body.mode-slides .layout main { margin-left: 0; }
+body.mode-slides .nav-sidebar, body.mode-slides .nav-toggle { display: none; }
+body.mode-slides .container { max-width: none; padding: 0; }
+body.mode-slides .slide {
+  width: 100vw; height: 100vh; padding: 4rem 6rem; display: none;
+  flex-direction: column; justify-content: center;
+}
+body.mode-slides .slide.active { display: flex; }
+body.mode-slides .slide h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+body.mode-slides .slide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); border: none; }
+body.mode-slides .slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem; color: var(--text-secondary);
+  font-size: 0.85rem; font-family: monospace;
+}
+</style>
+<style>
+.diff-add { color: var(--accent-2); }
+.diff-del { color: var(--warn); }
+.diff-ctx { color: var(--text-secondary); }
+
+.tabset { margin: 1rem 0; }
+.tab-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.tab-btn {
+  background: none; cursor: pointer; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.4rem 0.9rem; color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.tab-btn.active { color: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  colorDiffBlocks();
+  buildKeychangeTabs();
+});
+
+function colorDiffBlocks() {
+  document.querySelectorAll('pre code.lang-diff').forEach(function (block) {
+    var lines = block.textContent.split('\n');
+    block.textContent = '';
+    lines.forEach(function (line, i) {
+      var span = document.createElement('span');
+      if (line.startsWith('+')) {
+        span.className = 'diff-add';
+      } else if (line.startsWith('-')) {
+        span.className = 'diff-del';
+      } else {
+        span.className = 'diff-ctx';
+      }
+      span.textContent = line;
+      block.appendChild(span);
+      if (i < lines.length - 1) {
+        block.appendChild(document.createTextNode('\n'));
+      }
+    });
+  });
+}
+
+function buildKeychangeTabs() {
+  var sections = Array.from(document.querySelectorAll('main section[id]'));
+  var i = 0;
+  while (i < sections.length) {
+    if (!sections[i].id.startsWith('keychange-')) {
+      i += 1;
+      continue;
+    }
+    var group = [];
+    while (i < sections.length && sections[i].id.startsWith('keychange-')) {
+      group.push(sections[i]);
+      i += 1;
+    }
+    wrapGroupInTabset(group);
+  }
+}
+
+function wrapGroupInTabset(group) {
+  var tabset = document.createElement('div');
+  tabset.className = 'tabset';
+  var tabBtns = document.createElement('div');
+  tabBtns.className = 'tab-btns';
+  tabset.appendChild(tabBtns);
+
+  group[0].parentNode.insertBefore(tabset, group[0]);
+
+  group.forEach(function (section, idx) {
+    var heading = section.querySelector('h2');
+    var label = heading ? heading.textContent.trim() : section.id;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+    btn.textContent = label;
+    tabBtns.appendChild(btn);
+
+    section.classList.add('tab-panel');
+    if (idx === 0) {
+      section.classList.add('active');
+    }
+    tabset.appendChild(section);
+
+    btn.addEventListener('click', function () {
+      tabBtns.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      tabset.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      section.classList.add('active');
+    });
+  });
+}
+</script>
+</head>
+<body class="mode-report" data-theme="dark">
+<div class="toolbar"><button onclick="toggleTheme()" aria-label="Toggle theme">🌓 Theme</button></div><button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+<div class="layout">
+<nav class="nav-sidebar" id="navSidebar"><h3>Contents</h3><a href="#problem">Slice order is prose today; nothing reads it</a><a href="#constraints">Constraints — which correct designs are wrong here</a><a href="#system-design">System design — nothing new owns anything</a><a href="#contracts">Component contracts — can the caller ignore a case it must handle</a><a href="#data-models">Data models — one field, three projections, no migration</a><a href="#build-order">Build order — merge rule, then the flag, then its consumers</a><a href="#decisions">Decisions — expensive to change later</a><a href="#reflection">Reflect</a><a href="#references">References</a></nav>
+<main><div class="container"><header class="hero"><h1>upsert --depends-on — Architecture Review</h1><p class="subtitle">coding-agent-workflow · prompt: retire the TODO(shortcut) in /system-design-planning Step 8 · 2026-09-11 · critic pass applied</p><p class="takeaway">One flag on `task-registry.py upsert` lets a filer record that a slice waits on another; the three places a dependency already renders need no change. The one question for you is D2: refuse a dependency that names no existing row — which makes Step 8 file slices one after another — or accept it and report it.</p><div class="meta"><span><strong>Origin:</strong>prompt — TODO(shortcut) at .agents/skills/system-design-planning/SKILL.md § Step 8</span><span><strong>Spec:</strong>specs/upsert-depends-on.md</span><span><strong>Critic:</strong>dispatched · 0 MUST-FIX · 9 SHOULD-FIX and 5 NITPICK folded in</span><span><strong>Adjacent:</strong>#97 native GitHub blockedBy · #98 build routine — not folded in</span><span><strong>Status:</strong>awaiting review</span></div></header><div class="cards"><div class="card"><div class="label">Components touched</div><div class="value">2 code · 3 docs</div><div class="hint">task-registry.py, registry/upsert.py · two SKILL.md, one test pin, one new fixture</div></div><div class="card"><div class="label">Contracts</div><div class="value">1 new · 1 changed</div><div class="hint">CLI flag --depends-on · upsert_task(owned=)</div></div><div class="card"><div class="label">Entities</div><div class="value">0 new · 1 changed</div><div class="hint">who sets Task.depends_on</div></div><div class="card"><div class="label">Build slices</div><div class="value">3</div><div class="hint">merge rule → CLI → consumers, each parity-green</div></div><div class="card"><div class="label">Open decisions</div><div class="value">1 of 9</div><div class="hint">D2 — refuse or report a dangling id</div></div></div><section id="problem"><h2>Slice order is prose today; nothing reads it</h2><p><code>/system-design-planning</code> files one task per build slice, but <code>upsert</code> cannot record that slice 3 waits on slice 2, so the order lives in a prose <code>After:</code> line. This change adds one flag, <code>--depends-on</code>, that lands in the three places a dependency already renders.</p>
+
+<p><strong>No consumer reads <code>blocked-by</code> today</strong> — <code>/build</code> does not, and the <code>build</code> routine that will is deferred to #98 — so every guarantee here is a <em>forward guarantee</em> for that consumer, not a present-day protection.</p>
+
+<p>Out of scope: GitHub&#x27;s native <code>blockedBy</code> link (#97), a dependency solver (retired as <code>specs/task-registry.md</code> AC-18), <code>select --routine build</code> (#98), and clearing a dependency (D8).</p>
+
+<p><strong>Current state</strong> — every path below was read; nothing here is UNVERIFIED.</p>
+
+<pre><code class="lang-text"> skill (SKILL.md)         task-registry.py           registry/upsert.py          providers/*              index.py
+   │ upsert --title … ──►  build_parser :70-148       upsert_task :182           create_task/update_task  render_row :339
+   │ (no dependency flag)  Task(...) :269-281 ──────► _merge :115-128 ─────────► metadata block           (blocked-by: …) :352
+   │                       no depends_on passed       CARRIED_FROM_EXISTING :112  model.py:239 depends-on  parsed by DEPS_RE :51
+   │                                                  depends_on is carried from  local.py:176 reads it
+   │                                                  the existing record, so    github.py:338 writes it
+   │                                                  the CLI could never set it
+
+ add_dependency (base.py:196, local.py:115, github.py:242): implemented, no caller anywhere.
+</code></pre></section>
+<section id="constraints"><h2>Constraints — which correct designs are wrong here</h2><p>An <code>inferred</code> row is a question for you, not a fact. Two rows are inferred; D2 in <em>Decisions</em> carries the open one.</p>
+
+<pre><code class="lang-text">Constraint                          Value                                                    Source                            Detected by
+──────────────────────────────────  ───────────────────────────────────────────────────────  ────────────────────────────────  ──────────────────────────────────────────
+Idempotence                         same command twice → identical record and row; second    upsert.py:1-17; _merge :128       test-sweep-handoff.sh:222 pins `updated`;
+                                    run says `updated`, never a second row                   returns `updated`                 NEW assertion counts rows after two runs
+Write policy never widened          no new provider write or read; rides create/update        upsert.py:36-63                   dry run prints `would …`, no gh call
+                                    under the same --apply gate                              resolve_destination               (test-task-registry.sh:950-957 pattern)
+Preview equals apply                the dry run refuses exactly what --apply refuses,        upsert.py:189-197 (index loaded   dry run and apply with the same dangling
+                                    including a missing dependency row                       before any provider access)       id both exit 2, same message
+Degrade visibly                     configured provider native_dependencies=False → applied  specs/task-registry.md AC-8       NEW assertions: local, github-pending,
+                                    output says &quot;stored as metadata&quot;, never native           github.py:68-75                   github-applied fixtures (D9)
+Index row shape unchanged           row ends `(blocked-by: a, b)` as render_row emits and    index.py:51, :352-353             test-task-registry.sh:353 keeps passing
+                                    DEPS_RE parses today
+Every dependency is a valid id      passes is_valid_id (model.py:148); never the task itself  inferred                          exit 2 naming the value, BEFORE config
+                                                                                                                               is loaded (D3)
+Every dependency names an index row is the id of a row already in tasks/todo.md              inferred — REVIEWER (D2)          exit 2 before any provider call, message
+                                                                                                                               names the id and both remedies
+No silent replacement               flag replaces a non-empty, different set → preview and   CLAUDE.md § No Silent Failures;   NEW assertion: re-file over a hand-typed
+                                    applied lines show `blocked-by: &lt;old&gt; → &lt;new&gt;`           hand-typed blocker todo.md:467    row, read the arrow
+Legacy rows keep parsing            `(blocked-by: Beta work)` still loads; validation is a   test-task-registry.sh:1774-1785   that test keeps passing
+                                    CLI concern, not a model one
+Both trees identical after          each slice copies its files to .claude/skills/**         test-skill-parity.sh:40           parity green after slice 1, 2, 3 separately
+every slice
+Rollback                            removing the flag leaves every record readable — all     model.py:265, local.py:176,       no migration step exists to undo
+                                    three consumers already parse depends-on                index.py:241-247
+</code></pre></section>
+<section id="system-design"><h2>System design — nothing new owns anything</h2><p><strong>Ownership.</strong> The change moves one fact — <em>who sets <code>depends_on</code></em> — from &quot;the existing record&quot; to &quot;the caller, when the caller says so&quot;.</p>
+
+<pre><code class="lang-text">Component                    Owns (source of truth for)                                        Reads
+───────────────────────────  ────────────────────────────────────────────────────────────────  ──────────────────────────────
+task-registry.py (CLI)       argument shape; exit-2 usage errors for invalid or self ids, in   args only — no config, no
+                             the pre-configuration block :180-199; the `owned` field set       provider
+registry/upsert.py           merge semantics (replace vs carry); existence check of            the index (only place that
+                             referenced ids; replacement disclosure; destination;             knows every local id —
+                             capability disclosure                                            _published_ref :152-165);
+                                                                                              provider.capabilities, .name
+registry/model.py Task       the depends_on field, tuple-normalised, projected into the        —
+                             metadata block
+providers/local, github      where the body lands; both already read/write depends-on         Task.depends_on
+registry/index.py            the compact row incl. (blocked-by: …)                             Task.depends_on
+registry/detail.py show      the `blocked-by:` line a human or a future consumer reads         row + provider record
+</code></pre>
+
+<p><strong>Interaction.</strong> Every arrow is synchronous and in one process; the github provider shells out to <code>gh</code>. NEW marks what this change adds.</p>
+
+<pre><code class="lang-text"> caller               task-registry.py             registry/upsert.py                provider / index
+   │ (1) upsert        │                             │                                 │
+   │  --depends-on a ─►│ (2) validate ids      NEW   │                                 │
+   │                   │     pre-config block :180   │                                 │
+   │                   │ load_config, select_provider (unchanged; may run gh auth status :216)
+   │                   │ Task(depends_on=(a,))       │                                 │
+   │                   │ owned={depends_on} ────────►│ (3) load_index_strict           │
+   │                   │                       NEW   │     every dep id in index? NEW  │
+   │                   │                             │ (4) provider.discover ─────────►│ gh / fs
+   │                   │                             │ (5) _merge(existing, incoming,  │
+   │                   │                             │            owned)          NEW  │
+   │                   │                             │ (6) _persist ──────────────────►│ create_task / update_task
+   │                   │                             │ (7) _sync_index ───────────────►│ render_row → (blocked-by: a)
+   │ ◄─ report lines ──│◄────────────────────────────│ + &quot;old → new&quot; when replaced NEW │
+   │                   │                             │ + &quot;stored as metadata&quot; when the │
+   │                   │                             │   CONFIGURED provider is not    │
+   │                   │                             │   native_dependencies      NEW  │
+</code></pre>
+
+<pre><code class="lang-text">Arrow   Mode                            On failure                                                        On duplicate run
+──────  ──────────────────────────────  ────────────────────────────────────────────────────────────────  ──────────────────────────────
+(2)     sync, in-process, pre-config    exit 2; no config read, no gh auth status, nothing written        same answer
+(3)     sync, local file                missing id → exit 2 before any provider call, dry run and apply   same answer
+(4)–(6) sync, gh subprocess             ProviderError → `could not persist`, exit 1, index untouched       _existing finds the record →
+                                        (upsert.py:214-219). Pre-existing in-doubt case: gh creates the    `updated`; _merge replaces
+                                        issue but its URL cannot be parsed (github.py:180-184)            depends_on because it is owned
+(7)     sync, local file                as today                                                          row refreshed in place
+</code></pre>
+
+<p><strong>Failure unit.</strong> One process; a failure at any arrow stops the run. The single partial state is pre-existing: provider record and index row are two writes with no transaction (<code>upsert.py:212-221</code>), repaired by <code>_sync_index</code> on the next run — D6.</p></section>
+<section id="contracts"><h2>Component contracts — can the caller ignore a case it must handle</h2><h3>task-registry.py <code>upsert --depends-on</code></h3>
+
+<pre><code class="lang-text">upsert (&lt;task-id&gt; | --derive-id NS (--spec P | --source P) [--fold-title]) --title T
+       [--depends-on ID]...        # repeatable, order kept, duplicates dropped
+</code></pre>
+
+<ul>
+<li><strong>Inputs</strong>: each <code>ID</code> passes <code>is_valid_id</code>; <code>ID</code> ≠ the task&#x27;s own id (positional, or <code>_derived_id(args)</code>, which needs only <code>args</code>)</li>
+<li><strong>Placement</strong>: validated in the pre-configuration usage block (<code>task-registry.py:180-199</code>), so an invalid value never reaches <code>load_config</code> or <code>select_provider</code> — the latter shells out to <code>gh auth status</code> on a repo with a GitHub remote and no <code>provider =</code> line (<code>config.py:748, :765</code>)</li>
+<li><strong>Outcomes</strong>: exit 2 <code>--depends-on &lt;value&gt; is not a valid task id</code> · exit 2 <code>&lt;id&gt; cannot depend on itself</code> · otherwise the record carries <code>depends_on</code> and <code>owned</code> contains <code>depends_on</code></li>
+<li><strong>Raises</strong>: nothing new</li>
+<li><strong>Idempotency</strong>: the flag is part of the command; re-running the same command is a no-op update</li>
+<li><strong>Versioning</strong>: additive; every existing invocation (<code>/plan:195</code>, <code>/sweep:97</code>, <code>/wrap-up-session:225</code>) is unchanged and keeps carrying <code>depends_on</code> from disk</li>
+</ul>
+
+<h3>registry/upsert.py</h3>
+
+<pre><code class="lang-python">def upsert_task(registry, task: Task, apply: bool, *, owned: FrozenSet[str] = frozenset()) -&gt; Tuple[List[str], int]: ...
+def _merge(existing: Optional[Task], incoming: Task, owned: FrozenSet[str] = frozenset()) -&gt; Tuple[Task, str]: ...
+</code></pre>
+
+<p>(<code>typing</code> names, matching the module&#x27;s style and its <code>Python 3.8+</code> header at <code>task-registry.py:16</code>.)</p>
+
+<ul>
+<li><strong>Inputs</strong>: <code>owned</code> names fields the caller set explicitly — the CLI passes <code>{&quot;depends_on&quot;}</code> when the flag appears, empty otherwise</li>
+<li><strong>Existence check</strong>: after the existing <code>load_index_strict</code> (<code>:189-197</code>) and before <code>provider.discover</code>: every id must satisfy <code>index.by_id(...) is not None</code>; otherwise exit 2 with <code>upsert: &lt;id&gt; depends on &lt;dep&gt;, which is not a row in tasks/todo.md — upsert the blocker first, or type its row by hand</code>. Identical in dry run and apply</li>
+<li><strong>Preview line</strong>: <code>upsert: would &lt;create|update|reopen&gt; &lt;id&gt; (&lt;destination&gt;); index row would be synced; blocked-by: a, b</code>; when a non-empty existing set differs: <code>blocked-by: &lt;old&gt; → &lt;new&gt;</code></li>
+<li><strong>Applied lines</strong>: the existing line plus the same <code>blocked-by:</code> form; plus, when <code>registry.provider.capabilities.native_dependencies</code> is false, one line composed here, not taken from <code>add_dependency</code>: <code>upsert: dependency stored as depends-on: metadata — &lt;provider name&gt; has no native issue dependency</code>. The <strong>configured</strong> provider is consulted for every destination including <code>local-pending</code> (D9). On the local provider the line is absent</li>
+<li><strong>Merge rule</strong>: <code>carried = {f for f in CARRIED_FROM_EXISTING if f not in owned}</code> — a field in <code>owned</code> is replaced by the incoming value; everything else keeps today&#x27;s behaviour exactly</li>
+<li><strong>Idempotency</strong>: unchanged — two runs, one record</li>
+<li><strong>Versioning</strong>: keyword-only parameter with a default; the three existing callers keep working: <code>test-task-registry.sh:980-1015</code>, <code>test-sweep-handoff.sh:29</code>, <code>test-living-spec-reconciliation.sh:1090</code></li>
+</ul>
+
+<h3>Providers, index, show</h3>
+
+<p>No contract change. <code>render_metadata_block</code> (<code>model.py:239-240</code>), <code>local.py:176</code>, <code>github.py:338</code>, <code>render_row</code> (<code>index.py:352-353</code>) and <code>show</code> (<code>detail.py:151-152</code>) already handle a non-empty <code>depends_on</code>. <code>add_dependency</code> stays as it is — it links after the fact; <code>upsert</code> writes the whole record.</p></section>
+<section id="data-models"><h2>Data models — one field, three projections, no migration</h2><h3>Task.depends_on</h3>
+
+<pre><code class="lang-text">Field        Type              Invariant                              Enforced by
+───────────  ────────────────  ─────────────────────────────────────  ──────────────────────────────────────────────
+depends_on   Tuple[str, ...]   order as given; no duplicates          CLI: tuple(dict.fromkeys(values)) — local.py:116 idiom
+each entry   task id           passes is_valid_id; not the own id     CLI validation, exit 2, pre-config
+each entry   task id           names a row in the index at write time upsert_task existence check, exit 2 (D2)
+</code></pre>
+
+<p>Three projections, all pre-existing, all written from the same field:</p>
+
+<pre><code class="lang-text">index row     - [ ] Slice 2/3 — … &lt;!-- task-id: design.x --&gt; — … ([#12](url)) (blocked-by: design.w)
+local detail  depends-on: design.w       (inside &lt;!-- task-registry:begin/end --&gt;)
+github body   depends-on: design.w       (same block, model.py:239)
+</code></pre>
+
+<p><strong>Illegal states</strong></p>
+
+<ul>
+<li>task depends on itself — CLI refusal, pre-configuration</li>
+<li>dependency that no row names, <em>written through this flag</em> — <code>upsert_task</code> refusal before any provider call. Not unrepresentable in general: a hand-typed row can name anything, and a predecessor re-filed under a new title mints a new id and leaves the old row standing (D7)</li>
+<li>the same id twice — <code>dict.fromkeys</code> at the CLI</li>
+<li>flag value silently overwritten by the record on disk — <code>owned</code> removes <code>depends_on</code> from the carried set for that run</li>
+<li>existing blocker silently dropped by the flag — the <code>&lt;old&gt; → &lt;new&gt;</code> disclosure on preview and applied lines</li>
+</ul>
+
+<p><strong>Transitions — depends_on across runs.</strong> <code>depends_on</code> is not a status and never changes <code>Task.status</code>; <code>[!] blocked</code> stays human-set (<code>specs/task-registry.md</code> AC-7).</p>
+
+<pre><code class="lang-text">Existing record   Flag on this run   Result                                   Reported
+────────────────  ─────────────────  ───────────────────────────────────────  ──────────────────────
+none              absent             ()                                       —
+none              a, b               (a, b)                                   blocked-by: a, b
+(a,)              absent             (a,)  — carried, today&#x27;s behaviour       —
+(a,)              b                  (b,)  — replaced (D1)                    blocked-by: a → b
+(a,)              a, b               (a, b)                                   blocked-by: a → a, b
+(a,)              clear              not expressible — out of scope (D8)      —
+</code></pre>
+
+<p><strong>Migration and compatibility.</strong> None. No stored shape changes; rows and bodies without a dependency read as before, rows that already carry <code>(blocked-by: …)</code> by hand read as before.</p></section>
+<section id="build-order"><h2>Build order — merge rule, then the flag, then its consumers</h2><pre><code class="lang-text">#  Slice                                    Delivers                                                        Depends  Contract exposed         Size
+─  ───────────────────────────────────────  ──────────────────────────────────────────────────────────────  ───────  ───────────────────────  ────
+1  Ownership-aware merge                    upsert_task(..., owned=) and _merge(..., owned); default        —        Python signature above   S
+                                            preserves every current caller; .claude/ copy synced
+2  CLI flag, validation, existence check,   --depends-on; exit-2 refusals in the pre-config block; preview  1        CLI shape above          M
+   disclosures                              and applied lines; replacement arrow; capability disclosure;
+                                            NEW authenticated-gh `upsert --apply` fixture (mock already
+                                            answers issue create/edit, fixtures/task-registry/gh:163-175);
+                                            .claude/ copy synced
+3  Consumers and docs                       /system-design-planning Step 8 rewritten to FILE SEQUENTIALLY:  2        —                        S
+                                            per slice dry-run, apply, capture the id from the applied
+                                            `upsert: created &lt;id&gt;` line, pass it as --depends-on to the
+                                            next slice; After: and TODO(shortcut) removed; /task-registry
+                                            SKILL.md documents the flag and its two refusals;
+                                            doc-conventions pin moves; .claude/ copies synced
+</code></pre>
+
+<p>Slice 1 first because slice 2 cannot set the field without it, and it is a pure-function change that leaves the suite green alone once its <code>.claude/</code> copy is synced. The largest unknown — refuse or report a dangling id (D2) — sits in slice 2 and is settled by this review, not by a spike.</p>
+
+<p><strong>Slice criteria</strong> — each one a test can pin.</p>
+
+<ul>
+<li>Slice 1: a bare re-upsert of a record carrying <code>(a,)</code> still yields <code>(a,)</code>; <code>owned={&quot;depends_on&quot;}</code> with incoming <code>(b,)</code> yields <code>(b,)</code>; the three existing call sites run unchanged; parity green</li>
+<li>Slice 2: <code>--depends-on &#x27;Beta work&#x27;</code> exits 2 naming the value with no config read; <code>--depends-on &lt;own id&gt;</code> exits 2; <code>--depends-on ghost.id</code> exits 2 naming it in dry run and apply, no provider call; a valid run renders <code>(blocked-by: a)</code> on the row, <code>depends-on: a</code> in the local detail block, <code>blocked-by: a</code> in <code>show</code>; the preview line contains <code>blocked-by: a</code>; re-filing over a row carrying <code>(blocked-by: x)</code> prints <code>blocked-by: x → a</code>; local fixture: no metadata line; github-pending fixture (test-task-registry.sh:955) and the new github-applied fixture: <code>stored as depends-on: metadata — github has no native issue dependency</code>; the same command twice leaves one row; parity green</li>
+<li>Slice 3: the planning skill contains <code>--depends-on</code>, the sequential filing rule, and no <code>TODO(shortcut)</code>; the registry skill lists <code>--depends-on</code>; both trees byte-identical</li>
+</ul></section>
+<section id="decisions"><h2>Decisions — expensive to change later</h2><pre><code class="lang-text">#   Decision                                     Options                       Recommended                                       Wrong when
+──  ───────────────────────────────────────────  ────────────────────────────  ────────────────────────────────────────────────  ──────────────────────────────────────────
+D1  Flag given on an existing record             replace / union               replace, DISCLOSED — caller owns what it passes;  several independent filers add blockers
+                                                                               `&lt;old&gt; → &lt;new&gt;` keeps a hand-typed blocker from   to one task; then union
+                                                                               vanishing silently
+D2  --depends-on names an id with no row         refuse in dry run and apply   refuse in both — preview fidelity is a stated     indexes diverge across machines; or the
+    OPEN — needs the reviewer                    / accept and report /         property of upsert (:189-197); a dangling         blocker is a GitHub issue never upserted
+                                                 refuse on apply only          blocker would make a future consumer skip the     here (#97, #98 today) — refusal names both
+                                                                               task forever. Consequence: Step 8 files           remedies; provider lookup is the upgrade
+                                                                               SEQUENTIALLY (slice 3), since slice n&#x27;s row       path (D7)
+                                                                               exists only after slice n−1 is applied (:221)
+D3  Where ids are validated                      pre-config CLI block /        pre-config CLI block — the model also parses     the model is only ever built from the CLI
+                                                 beside Task(...) /            hand-typed rows and legacy prose blockers
+                                                 Task.__post_init__            (test-task-registry:1774); _dispatch runs after
+                                                                               select_provider, which may call gh auth status
+D4  Flag name                                    --depends-on / --blocked-by   --depends-on — matches the metadata key and the   never — DEPS_RE reads both spellings
+                                                                               model field
+D5  Native GitHub link                           now / after #97               after #97 — disclosure reads native_dependencies  #97 is abandoned; then the metadata form
+                                                                               from the configured provider, so the line         is permanent and the line stays
+                                                                               vanishes with no change here
+D6  Record and index row are two writes          leave / make atomic           leave — pre-existing, self-repairing next run,    a consumer trusts the index alone for
+    (upsert.py:212-221)                                                        outside this change under the orphan rule         dependency state
+D7  Blocker that exists only in the tracker      refuse with remedies /        refuse with remedies now; an _existing-style       the tracker is the primary index for a
+                                                 provider lookup rung          provider lookup is the upgrade path once #97       project; then the lookup rung comes first
+                                                                               makes the link native — TODO(shortcut) in slice 2
+D8  Clearing a dependency through the flag       --no-depends-on /             out of scope — flag absent → carried; an empty     a consumer starts acting on blocked-by;
+                                                 out of scope                  incoming tuple is refilled by the local provider  then clearing must be a command
+                                                                               from the file (local.py:247-248), so clearing
+                                                                               needs a provider change. By hand until then
+D9  Which capabilities drive the disclosure      configured provider /         configured provider — the record is pending       the project has no tracker; then provider
+    under local-pending                          write target                  publication to it; the pending line at :222-227   and target coincide
+                                                                               already names it
+</code></pre>
+
+<p><strong>Open</strong> — needs the reviewer:</p>
+
+<ul>
+<li><strong>D2</strong>: refuse a dependency that names no existing row, or accept it and report it? Refusal protects the future consumer from a task it would skip forever and keeps preview equal to apply, at the price of filing slices one after another. Acceptance lets a filer record a blocker before the blocker is filed. The recommendation is refusal, because the rendered document — this page — is where all slices are reviewed at once.</li>
+</ul>
+
+<p>Review-card questions that do not apply: D3 (no amounts or timestamps on this path) and D4 (no tenant- or owner-scoped entity).</p></section><section id="reflection"><div class="reflection"><h3>Reflect</h3><p>Reply with findings as [constraints|system-design|contracts|data-models|build-order] &lt;finding&gt; — &lt;evidence&gt;, or approved. D2 is the one question this document needs answered.</p></div></section><section id="references"><h2>📚 References</h2><div class="refs"><a href="upsert-depends-on.md" target="_blank" rel="noopener">Spec (the contract /build holds)</a><a href="../.agents/skills/system-design-planning/references/review-card.md" target="_blank" rel="noopener">Review card</a><a href="task-registry.md" target="_blank" rel="noopener">Provider-agnostic task registry spec (AC-7, AC-8, AC-18)</a><a href="https://github.com/Joaovsales/jplugin-agentic-development/issues/97" target="_blank" rel="noopener">#97 — native GitHub hierarchy and dependencies</a></div></section><footer>Generated 2026-09-11 12:47 — html-presentation skill</footer></div></main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const saved = localStorage.getItem('html-presentation-theme');
+  if (saved) document.body.dataset.theme = saved;
+  else if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) {
+    document.body.dataset.theme = 'light';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  window.toggleTheme = function () {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = next;
+    localStorage.setItem('html-presentation-theme', next);
+  };
+  window.toggleNav = function () {
+    document.querySelector('.nav-sidebar').classList.toggle('open');
+  };
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav-sidebar a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Active section on scroll
+  const sections = document.querySelectorAll('main section[id]');
+  const links = new Map();
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    links.set(a.getAttribute('href').slice(1), a);
+  });
+  if (sections.length && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove('active'));
+          const link = links.get(entry.target.id);
+          if (link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => io.observe(s));
+  }
+
+  // Slides keyboard nav
+  if (document.body.classList.contains('mode-slides')) {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let idx = 0;
+    const counter = document.querySelector('.slide-counter');
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    }
+    show(0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+    });
+  }
+})();
+</script>
+</body>
+</html>

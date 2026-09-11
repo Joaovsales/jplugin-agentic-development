@@ -91,6 +91,12 @@ progress and drift further before finding out. Merge `main` in frequently.
 
 Process every `[ ]` task in `tasks/todo.md` without pausing for user confirmation between tasks.
 
+A `[ ]` row whose indented children are `[ ] TDD:` rows is a **slice header**
+(written by `/system-design-planning`): the registry's row for that slice, not
+a task of its own. Claim it through `/task-registry` when its first child
+starts, mark it `[x]` when its last child passes, and never dispatch a coder
+against it.
+
 ### Parallel Dispatch Assessment
 
 Before processing tasks sequentially, assess if any can run in parallel.

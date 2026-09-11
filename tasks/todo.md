@@ -743,6 +743,21 @@ reverse.
   tasks/solutions/bugs/memory-maintain-history-heading-drift.md;
   walkthrough in tasks/e2e-log.md.
 
+## Plan: /system-design-planning — upstream architecture review skill
+> Spec: specs/system-design-planning.md
+> Requested 2026-09-11; skill authored for human review of the SKILL.md itself (the plan gate was the review of the delivered skill, not a pre-approval)
+
+[x] Author `.agents/skills/system-design-planning/SKILL.md` -> iron law, when-to-use bar, 9-step process (intake via task-registry show, read-only recon, spec in fixed order, self-review, conditional critic, render, human gate, upsert per slice, /build handoff)
+[x] Author `references/review-card.md`, `templates/architecture-spec-template.md`, `templates/content-model.json` -> review card in dependency order; spec skeleton; renderable content model
+[x] Copy to `.claude/skills/system-design-planning/` -> byte-identical parity
+[x] Register in `CLAUDE.md` (table + Spec First bullet), `README.md`, `.claude/hooks/session-start.sh`
+[x] Pin the contract in `tests/test-doc-conventions.sh` (tokens, section order, iron law, registration, live render of the template) and `tests/test-skill-invocation-chain.sh` (task-registry, visual-render.py, /build handoffs)
+
+## Session Summary — 2026-09-11 [bf58555..HEAD]
+- Completed: 5 tasks — the /system-design-planning skill (SKILL.md, review card, spec template, content model), its spec, registration in CLAUDE.md/README/session-start, static pins in test-doc-conventions and test-skill-invocation-chain, byte-identical .claude copy. Plus: one worked example run of the skill against its own TODO(shortcut) → specs/upsert-depends-on.md + .plan.html (dispatched critic: 0 MUST-FIX, 9 SHOULD-FIX, 5 NITPICK, all folded in); tests/test-tdd-retirement.sh now excludes .claude/worktrees.
+- Pending: filing the three upsert-depends-on slices waits for the reviewer's "approved" on the rendered document (D2 open: refuse or report a dangling dependency id).
+- Carry-forward: /system-design-planning Step 8 keeps its TODO(shortcut) until specs/upsert-depends-on.md is built; 31 stale worktrees removed, the live bulk-read-gate worktree kept.
+
 ## Plan: Bulk-Read Gate — mechanical scout-tier routing (haiku / luna / deepseek-flash)
 > Spec: specs/bulk-read-gate.md
 > Source: Spotify "Portal cut my Claude Code token usage by 90%" (2026-09). Enforcement, not prose: a pre-tool hook denies whole-file reads over 350 lines and points at a cheap bulk-reader.
