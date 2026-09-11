@@ -46,3 +46,5 @@ and the pre-existing breakage would have been easy to write off as self-inflicte
 
 Related: `../bugs/codex-session-start-hook-emits-nothing.md` — the real failure this
 nearly masked.
+
+Related: proving a red file pre-existing from inside a worktree — [worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout](../tooling/worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout.md).

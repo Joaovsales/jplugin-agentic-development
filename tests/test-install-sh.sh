@@ -80,6 +80,7 @@ run_install() {
   sandbox="$(mktemp -d)"
   home="$sandbox/home"
   mkdir -p "$home/.claude/skills/$USER_SKILL"
+  [ -z "${PRESEED_PI_AGENT:-}" ] || mkdir -p "$home/.pi/agent"
   printf 'name: %s\n' "$USER_SKILL" > "$home/.claude/skills/$USER_SKILL/SKILL.md"
   # Empty confirm means a closed stdin (true EOF), not a blank line.
   local stdin=/dev/null
@@ -308,5 +309,15 @@ assert_contains "$(cat "$box/broken.log")" "install.sh" \
 assert_eq "missing" "$(cd "$box/broken app" && HOME="$h" git rev-parse --verify -q HEAD >/dev/null 2>&1 && echo present || echo missing)" \
   "newproject: no commit is made when bootstrap fails"
 rm -rf "$box"
+
+# ── Case 10: the Pi bulk-read gate extension is copied only when ~/.pi/agent exists ─
+assert_eq "missing" "$(exists "$h/.pi")" \
+  "default run: no ~/.pi is created when Pi is not installed"
+box10="$(PRESEED_PI_AGENT=1 run_install "")"
+assert_files_identical "$REPO/pi/extensions/bulk-read-gate.ts" \
+  "$box10/home/.pi/agent/extensions/bulk-read-gate.ts" \
+  "pi gate: install.sh copies the extension when ~/.pi/agent exists"
+assert_contains "$(cat "$box10/out.log")" "bulk-read-gate.ts" \
+  "pi gate: install.sh reports the copy"
 
 finish

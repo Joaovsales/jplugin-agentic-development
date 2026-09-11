@@ -31,6 +31,10 @@ Symptom fixes are failure. Single-hypothesis tunnel vision is failure.
    - Check if the current bug matches a known root cause — apply the known fix first
    - If a matching bug document exists, reference and update it rather than
      starting a duplicate investigation
+   - **Bulk reads follow the Bulk-Read Handoff** (`CLAUDE.md` § Model Routing →
+     *Bulk-Read Handoff*): when a file the investigation needs is over the gate's
+     line threshold, ask `bulk-reader` for the facts — callers, the
+     failing path's line range — and read only that range yourself
 
 2. **Identify the bug**:
    - If `$ARGUMENTS` is an **issue reference** — `#N` or a registry task ID — read

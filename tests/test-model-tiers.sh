@@ -23,7 +23,7 @@ CEILING_AGENTS="code-reviewer security-reviewer software-design-expert-review cr
 # model-agnostic by contract, so copying over a Claude-only `model:` line drops it
 # silently. Parity tests cannot catch it -- the `cp` is what made the two files
 # identical. Pin the line itself.
-PINNED_AGENTS="context-document-optimizer:sonnet"
+PINNED_AGENTS="context-document-optimizer:sonnet bulk-reader:haiku"
 
 # --- 1. Ceiling agents carry no model pin in the Claude Code tree -------------
 # assert_file_not_matches covers both failure modes this used to hand-roll: a
@@ -58,7 +58,7 @@ done
 # The [ -f ] guard is kept deliberately: `scout-unused` names no real file, so
 # this loop skips absent personas rather than failing on them — unlike section 1,
 # where every named agent must exist.
-for agent in backend-developer frontend-developer code-debugger scout-unused; do
+for agent in backend-developer frontend-developer code-debugger bulk-reader scout-unused; do
   f=".claude/agents/$agent.md"
   [ -f "$f" ] || continue
   assert_file_matches "$f" '^model:' \
@@ -116,7 +116,7 @@ assert_file_matches CLAUDE.md '^\| .critic. \| .?ceiling \(planner floor\)' \
 # PI_SETUP.md owns them. Three copies of a release-sensitive fact is three
 # chances to go stale, and the tables are the copies nobody updates.
 for f in CLAUDE.md .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md; do
-  for vendor in 'moonshotai/' 'qwen/' 'z-ai/' 'deepseek/' 'anthropic/claude'; do
+  for vendor in 'moonshotai/' 'qwen/' 'z-ai/' 'deepseek/' 'anthropic/claude' 'gpt-5'; do
     assert_file_not_matches "$f" "$vendor" "ModelTier: $f has no hardcoded $vendor ID"
   done
   assert_file_contains "$f" 'PI_SETUP.md` § Sub-Agent Routing' \

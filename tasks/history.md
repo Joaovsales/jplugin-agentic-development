@@ -570,3 +570,24 @@ back vacuous and was repaired.
   37/38 files green; `test-task-registry.sh` "approval is a floor" doctor
   assertion fails identically on the untouched HEAD (pre-existing).
 - Learnings captured: `tasks/solutions/bugs/git-post-init-hook-never-fires.md`
+
+### [2026-09-11] — Bulk-read gate shipped
+
+- Key changes: mechanical `PreToolUse` gate (`.claude/hooks/bulk-read-gate.py`
+  + `bulk-read-gate.sh` shim) denying whole-file reads over 350 lines on
+  Claude Code and Codex, with a Pi `tool_call` mirror; new Scout-tier
+  `bulk-reader` persona (haiku / gpt-5.6-luna via PI_SETUP.md's Codex column /
+  deepseek-v4-flash); Codex renderer emits Scout `model` from the tier table,
+  installer merges the hook once; Bulk-Read Handoff documented in CLAUDE.md,
+  PI_SETUP.md, README and four skills.
+- Verification: 192-case hook matrix plus 7 owned test files green; suite
+  33/40 files — the 7 red files fail with identical counts on a clean
+  `bf58555` checkout (pre-existing, `tasks/e2e-log.md` § AC9). Live
+  measurement: direct Read ≈8,400 parent tokens vs ≈200 via `bulk-reader`
+  (24.2 s); the gate fired live on the resumed session's first `Read`.
+  `/quality-gate` HOLD → 10 findings applied, 2 reported (tier membership
+  hard-coded in the renderer; `context-document-optimizer` tier differs per
+  harness).
+- Learnings captured:
+  [admit-a-cross-harness-hook-by-input-shape-not-tool-name](solutions/patterns/admit-a-cross-harness-hook-by-input-shape-not-tool-name.md),
+  [worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout](solutions/tooling/worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout.md).

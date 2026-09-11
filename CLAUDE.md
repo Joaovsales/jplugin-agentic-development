@@ -331,6 +331,7 @@ Canonical persona definitions live in `.agents/agents/` (model-agnostic — neve
 | `security-reviewer` | *ceiling* | OWASP checks, auth flows, injection vectors |
 | `critic` | *ceiling (planner floor)* | Adversarial quality gate for plans, code, specs |
 | `context-document-optimizer` | `sonnet` | Compress large docs for token efficiency |
+| `bulk-reader` | `haiku` | Answer a question about a file too large to read directly — Scout tier, dispatched when the bulk-read gate denies a whole-file read |
 | `software-design-expert-review` | *ceiling* | Read-only APOSD design audit — depth, leakage, error design (dispatched by `/quality-gate`) |
 
 **Rule**: One focused task per subagent. Resolve each agent's model through the
@@ -343,7 +344,7 @@ agents so they inherit the session model; on Pi, never pass per-call model param
 
 ## Model Routing
 
-Canonical tiers. Concrete provider model IDs are deliberately **not** repeated here — `PI_SETUP.md` § Sub-Agent Routing is their single source, so a model release updates one file instead of three:
+Canonical tiers. Concrete provider model IDs are deliberately **not** repeated here — `PI_SETUP.md` § Sub-Agent Routing is their single source, so a model release updates one file instead of three. Codex Scout-tier IDs live in the same section, in its Codex column:
 
 | Tier | Used for | Claude Code |
 |------|----------|-------------|
@@ -351,7 +352,7 @@ Canonical tiers. Concrete provider model IDs are deliberately **not** repeated h
 | Planner | `/plan`, architecture, oracle, circuit breaker | `opus` |
 | Builder | `/build` coding, debugging (attempts 1–2) | `sonnet` |
 | Reviewer | doc compression, debugging (attempts 3–4 — see the floor below) | `sonnet` |
-| Scout | search, recon, context building | `haiku` |
+| Scout | search, recon, context building, bulk reads (`bulk-reader`) | `haiku` |
 
 **`Ceiling` means: omit the model override entirely so the sub-agent inherits the
 session model.** It is not a model name and must never be written as one. If the
@@ -404,6 +405,41 @@ Rules:
   builder-tier model, not the session model — so omission on Pi *downgrades*
   rather than inherits. Ceiling-by-omission is a Claude Code property; see
   `PI_SETUP.md` § Sub-Agent Routing for the Pi equivalent.
+
+### Bulk-Read Handoff
+
+Routing decides which model a *dispatched* agent runs on. Nothing above decides
+what the main thread or a builder does when it opens a 2,000-line file: it reads
+the whole file into the most expensive context in the session. So the Scout tier
+also owns **bulk reads**, and the rule is enforced mechanically rather than by
+prose.
+
+A pre-tool gate denies any single read that would put more than
+`BULK_READ_MIN_LINES` lines (default **350**) of one file into the calling
+model's context — a whole-file `Read`, a ranged `Read` whose `limit` is that
+large, or a shell command whose final pipe stage prints the file — every `;`, `&&` or
+newline-separated list is checked, and stdout redirected to a file is not a read — (`cat`,
+`type`, `Get-Content` without `-TotalCount` or `-Tail`, `head -n N`,
+`sed -n 'A,Bp'`). The deny names the file, its line count, the threshold, and
+the two allowed alternatives:
+
+1. **Dispatch `bulk-reader` with a question.** It answers in structured
+   bullets, quoting `file:line` anchors on request. Its summaries are not edit
+   anchors, it never proposes edits, and it never reasons about architecture
+   or correctness. A builder receives a bulk-reader answer as context, never a
+   file over the threshold.
+2. **Read only the range an edit needs** — `offset`/`limit` under the
+   threshold, or `sed -n 'A,Bp'` with the same bound.
+
+The gate never rewrites a call; the model chooses the alternative. It fires
+inside sub-agents too, so `bulk-reader`, `Explore`, and every other persona
+chunk their reads. `BULK_READ_GATE=off` disables it for one session.
+
+| Harness | Enforcement surface | Scout model |
+|---------|---------------------|-------------|
+| Claude Code | `PreToolUse` hook on `Read`, `Bash`, `PowerShell` — `.claude/hooks/bulk-read-gate.py`, registered project-level in `.claude/settings.json` (never user-level, or it fires twice) | `haiku`, pinned in `.claude/agents/bulk-reader.md` |
+| Codex | the same script, installed by `scripts/install-codex.sh` and registered once under `PreToolUse` in `~/.codex/hooks.json` | Scout-tier `model` in the rendered TOML; the ID lives in `PI_SETUP.md` § Sub-Agent Routing, Codex column |
+| Pi | `pi/extensions/bulk-read-gate.ts` on `tool_call` (`read`, `bash`), returning `{ block, reason }` | `subagents.agentOverrides` — `PI_SETUP.md` § Sub-Agent Routing |
 
 ---
 

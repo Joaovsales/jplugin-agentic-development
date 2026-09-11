@@ -742,3 +742,18 @@ reverse.
 - Carry-forward: specs/memory-maintain-history-count.md; diagnosis in
   tasks/solutions/bugs/memory-maintain-history-heading-drift.md;
   walkthrough in tasks/e2e-log.md.
+
+## Plan: Bulk-Read Gate — mechanical scout-tier routing (haiku / luna / deepseek-flash)
+> Spec: specs/bulk-read-gate.md
+> Source: Spotify "Portal cut my Claude Code token usage by 90%" (2026-09). Enforcement, not prose: a pre-tool hook denies whole-file reads over 350 lines and points at a cheap bulk-reader.
+
+[x] TDD: tests/test-bulk-read-gate.sh RED — 400- and 100-line fixtures in a temp dir; JSON stdin matrix for Read whole/ranged-50/ranged-400/small/missing, Bash cat/cat|grep/sed 1,50p/sed 1,400p/head -n 400, PowerShell Get-Content with and without -TotalCount, BULK_READ_GATE=off, BULK_READ_MIN_LINES=500, malformed stdin -> assert exit codes, deny JSON shape, reason contains "bulk-reader" and the line count (AC1)
+[x] TDD: AC1 GREEN -> .claude/hooks/bulk-read-gate.py: stdin JSON, line count without loading content into the model, Read offset/limit rule, final-pipeline-stage shell patterns via shlex (posix=False on Windows), binary/dir/missing allow, permission error exit 1 stderr, env parsing with loud failure
+[x] TDD: settings test asserts PreToolUse matchers Read|Bash|PowerShell run the hook -> register project-level in .claude/settings.json; confirm Stop/PreCompact untouched (AC2)
+[x] TDD: tests/test-agents.sh + tests/test-model-tiers.sh RED for bulk-reader (PINNED_AGENTS += bulk-reader:haiku; section-3 loop names it) -> write .agents/agents/bulk-reader.md (question in, bullets out, file:line anchors on request, chunked reads under threshold, no edits, no architecture reasoning) and .claude/agents/bulk-reader.md with model: haiku (AC3)
+[x] TDD: tests/test-codex-install.sh RED — bulk-reader.toml and context-document-optimizer.toml contain model = "gpt-5.6-luna", planner.toml has no model key, hooks.json has exactly one PreToolUse entry after two installs -> render-codex.py SCOUT_TIER_AGENTS map + install-codex.sh copies hook and extends the events tuple (AC4)
+[x] TDD: static test for pi/extensions/bulk-read-gate.ts (exists, tool_call, block/reason, threshold const, env names, read range rule, shell patterns) and install.sh copy step -> write the extension, add install.sh step 6b, add bulk-reader to PI_SETUP.md agentOverrides on deepseek/deepseek-v4-flash thinking off; TODO(shortcut) naming the live Pi run (AC5)
+[x] TDD: tests/test-doc-conventions.sh RED — CLAUDE.md bulk-reader agent row, "Bulk-Read Handoff" subsection, no concrete provider ID; PI_SETUP.md Codex column; README Codex hook review line -> write the docs (AC6)
+[x] TDD: tests/test-skill-invocation-chain.sh or doc-conventions RED — plan/build/debug/sweep contain "Bulk-Read Handoff"; build delegation contract says bulk-reader answer, never a file over threshold -> edit the four canonical skills, copy byte-identical to .claude/skills/, test-skill-parity green (AC7)
+[x] Verification: live measurement — same question about one >350-line file in this repo via direct read and via bulk-reader on haiku; record parent-context tokens for each and delegated latency in tasks/e2e-log.md; confirm the gate fired live (note: hook changes need a session restart) (AC8)
+[x] Verification: bash tests/run.sh — 33/40 files green; the 7 red files fail with identical counts on a clean bf58555 checkout (pre-existing, modules untouched; table in tasks/e2e-log.md § AC9); /quality-gate applied F1,F4–F12, reported F2/F3 (AC9)

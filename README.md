@@ -32,7 +32,10 @@ The adapter installs skills in `~/.agents/skills/`, renders shared rules into
 `~/.codex/agents/*.toml`, and merges optional lifecycle hooks into
 `~/.codex/hooks.json`. Existing personal content is preserved and rerunning the
 command is idempotent. Review the hook commands with Codex's `/hooks` command
-before enabling them.
+before enabling them. The list includes the `PreToolUse` bulk-read gate
+(`coding-agent-workflow-bulk-read-gate.py`), which denies whole-file reads over
+350 lines and points at the `bulk-reader` agent instead — see `CLAUDE.md`
+§ Model Routing → *Bulk-Read Handoff*.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
 For an existing project, run `bash ~/coding-agent-workflow/scripts/scaffold-project.sh`

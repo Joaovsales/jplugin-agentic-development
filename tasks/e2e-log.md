@@ -762,3 +762,113 @@ above (5bf409d75c0c2125c2b31187b9371b0b8b77286fb356aaf678e66403c803e0ae).
 All five AC results and review findings above apply to this source commit.
 Final full suite: 38 files / 3,589 assertions, exit 0, zero failures.
 This follow-up changes only the verification identity and wrap-up fingerprint.
+
+---
+
+## Bulk-Read Gate — direct read vs bulk-reader measurement — 2026-09-11 bf58555
+
+Spec: specs/bulk-read-gate.md (AC8)
+Commit: bf58555 (worktree `worktree-bulk-read-gate`, changes uncommitted at measurement time)
+
+**AC8** — the same question about one file over 350 lines, answered once by direct read
+and once through a Scout-tier reader. No percentage target; the number is the deliverable.
+
+File: `CLAUDE.md` in the worktree — 522 lines, 29,872 bytes.
+
+Question (identical for both paths): list every agent in the `## Agents` table with its
+Model column and `CLAUDE.md:line`; quote the line under `### Bulk-Read Handoff` that states
+the default threshold, with its line number.
+
+### Path 1 — direct read into the parent context
+
+`Read` of the whole file (no offset/limit). The tool result is the file with `cat -n`
+line prefixes: 33,526 characters.
+
+| Measure | Value |
+|---|---|
+| Parent-context tokens | ~8,400 (33,526 chars / 4 chars per token, estimate) |
+| Latency | one tool call, sub-second |
+| Answer | correct (rows at lines 325–335; threshold line at 418) |
+
+### Path 2 — bulk-reader on haiku
+
+Dispatched a `general-purpose` agent with `model: haiku` carrying the `bulk-reader`
+persona text verbatim, because the `bulk-reader` agent type was written this session and
+the harness registers agent types at session start. Same model, same instructions.
+
+| Measure | Value |
+|---|---|
+| Parent-context tokens | ~190 (the returned bullets, 13 lines, ~750 chars) |
+| Delegated wall-clock latency | 26.9 s (agent-reported duration_ms 26943) |
+| Reader tool calls | 5 (grep, then ranged reads under 350 lines) |
+| Reader-side tokens (haiku) | 68,578 |
+| Answer | correct — all 11 rows with matching line numbers; threshold quoted at `CLAUDE.md:418` |
+
+Parent-context reduction for this file: ~8,400 → ~190 tokens. Cost moves to the reader's
+own context on the cheap model and to 27 seconds of wall-clock.
+
+### Path 2b — the registered `bulk-reader` agent type
+
+The harness picked up `.claude/agents/bulk-reader.md` mid-session, so the same question
+was re-run through the real persona (`subagent_type: bulk-reader`, `model: haiku`) with
+only the absolute path and the question in the prompt.
+
+| Measure | Value |
+|---|---|
+| Parent-context tokens | ~200 (13 bullets plus one quoted line, ~800 chars) |
+| Delegated wall-clock latency | 24.2 s (agent-reported duration_ms 24158) |
+| Reader tool calls | 5 |
+| Reader-side tokens (haiku) | 65,139 |
+| Answer | correct — 11 rows at `CLAUDE.md:325`–`335`, threshold quoted at `CLAUDE.md:418` |
+
+The persona-only dispatch matched the stand-in's result, so the persona text carries the
+chunked-read and anchor rules on its own without extra prompt scaffolding.
+
+### Finding — the reader needs an absolute path in a worktree session
+
+The first dispatch was given `CLAUDE.md` plus a "working directory" line. It read the
+shared checkout's copy (line numbers off by one, "no `### Bulk-Read Handoff` section")
+and returned a confidently wrong answer in 20.2 s. The second dispatch passed the
+absolute worktree path and instructed the reader to use it in every call; it was correct.
+A dispatch prompt in a worktree session must carry absolute paths.
+
+### Gate firing live — pending session restart
+
+The hook was registered in `.claude/settings.json` this session; Claude Code loads hook
+registrations at session start, and this session also runs in a worktree, so the gate did
+not fire on the Path 1 read above. Its behaviour is pinned by the JSON matrix in
+`tests/test-bulk-read-gate.sh` (192 assertions, green, including a run through the
+`bulk-read-gate.sh` shim that `.claude/settings.json` registers). Live firing is recorded
+on the first session started after this change lands.
+
+### AC9 — full suite after /quality-gate (same session)
+
+`bash tests/run.sh` → `RESULT: 7/40 test files FAILED`, 33 files green (2,789
+assertions passed in green files; 147/1,139 failed inside the 7 red files).
+The same seven files were re-run on a clean detached checkout of `bf58555`
+(no working-tree changes) and failed with **identical counts**, so none of them
+is a regression from this change:
+
+| File | worktree | clean bf58555 | module |
+|------|----------|---------------|--------|
+| test-install-sh | 1/94 | 1/94 | git scaffold dangling-symlink case (Windows) |
+| test-routine-selectors | 54/174 | 54/174 | task-registry routines |
+| test-routine-skills | 2/64 | 2/64 | task-registry routines |
+| test-skill-invocation-chain | 4/62 | 4/62 | build/wrap-up ↔ maintain-verification chain |
+| test-sync-retirement | 47/329 | 47/329 | sync |
+| test-task-registry | 37/326 | 37/326 | task-registry |
+| test-verification-skill-integration | 2/90 | 2/90 | bundled license text |
+
+None of those modules is touched by the bulk-read-gate diff (`git diff --stat
+HEAD`: 29 files, none under task-registry, sync, routines, or verification
+skills). Files owned by this change: test-bulk-read-gate 192, test-settings-json
+10, test-model-tiers 98, test-agents 170, test-codex-install 25,
+test-skill-parity 89, test-doc-conventions 488 — all green.
+
+### Live firing — 2026-09-11, session resumed after hook registration
+
+First whole-file `Read` of `CLAUDE.md` (522 lines) in the resumed session was denied by the project-level hook with:
+
+    CLAUDE.md has 522 lines; the bulk-read gate denies reads over 350 lines (BULK_READ_MIN_LINES). Either dispatch the `bulk-reader` agent with a question about this file, or read only the range you need for an edit (Read with offset/limit under 350, or `sed -n 'A,Bp'`).
+
+The four wrap-up review agents were dispatched under the same gate and told to read in ranges.

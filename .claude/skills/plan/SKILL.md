@@ -19,6 +19,7 @@ Sub-agent delegations follow the Model Routing table in `/build` (planner tier f
   **planner floor**: pass the planner alias if the session model is below planner tier.
   See `CLAUDE.md` § Model Routing.
 - **Pi** — no per-call model params; routing resolves from `subagents.agentOverrides` (requires the `pi-subagents` extension). Use `scout` for codebase exploration.
+- **Exploration reads follow the Bulk-Read Handoff** (`CLAUDE.md` § Model Routing → *Bulk-Read Handoff*): a file over the gate's line threshold is a question for `bulk-reader`, never a direct read into the planning context. Grep first, then read only the ranges the spec needs.
 - The planning phase requires the strongest reasoning model for architecture decisions
 
 ## Steps

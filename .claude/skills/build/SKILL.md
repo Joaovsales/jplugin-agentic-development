@@ -134,6 +134,7 @@ Choose the agent or approach based on task type:
 - The relevant spec section from `specs/`
 - Paths to related source files
 - Instruction: "Follow TDD — write failing test first, then minimal implementation, then refactor"
+- Context for any file over the bulk-read threshold as a **bulk-reader answer**, never the file itself — per `CLAUDE.md` § Model Routing → *Bulk-Read Handoff*, ask `bulk-reader` the question the builder needs answered and pass the bullets; the builder reads only the ranges it edits, and the gate denies anything larger inside its own context too
 
 **Role-based context injection from `tasks/project-context.md`** (if it exists):
 

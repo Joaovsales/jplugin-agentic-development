@@ -166,7 +166,7 @@ pi install npm:pi-subagents
 
 ### Agents: workflow personas + builtin gap-fillers
 
-The workflow's own agents live in `.agents/agents/` (canonical, model-agnostic) and are auto-discovered per project: `planner`, `backend-developer`, `frontend-developer`, `code-reviewer`, `code-debugger`, `security-reviewer`, `critic`, `frontend-design-validator`, `context-document-optimizer`, `software-design-expert-review`.
+The workflow's own agents live in `.agents/agents/` (canonical, model-agnostic) and are auto-discovered per project: `planner`, `backend-developer`, `frontend-developer`, `code-reviewer`, `code-debugger`, `security-reviewer`, `critic`, `frontend-design-validator`, `context-document-optimizer`, `software-design-expert-review`, `bulk-reader`.
 
 The extension's builtins fill roles the workflow does not define — keep these enabled:
 
@@ -217,6 +217,7 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, wi
     "scout":              { "model": "deepseek/deepseek-v4-flash", "thinking": "off" },
     "context-builder":    { "model": "deepseek/deepseek-v4-flash" },
     "context-document-optimizer": { "model": "deepseek/deepseek-v4-flash" },
+    "bulk-reader":        { "model": "deepseek/deepseek-v4-flash", "thinking": "off" },
     "researcher":         { "model": "deepseek/deepseek-v4-flash" },
     "worker":   { "disabled": true },
     "reviewer": { "disabled": true },
@@ -242,13 +243,33 @@ Dispatch is natural language ("Have backend-developer implement this task") or t
 
 ### Tier rationale
 
-| Tier | Model | $/M in | Why |
-|------|-------|--------|-----|
-| Plan / oracle / circuit breaker | `moonshotai/kimi-k3` | $0.60 | 1M context, strong reasoning, thinking levels low/high/max |
-| Build / debug | `qwen/qwen3-coder-next` | $0.11 | Purpose-built for coding agents, cheapest of the strong coder tier |
-| Review / escalation | `z-ai/glm-4.7` | $0.40 | Flagship reasoning + programming; different model family than the builder — catches builder blind spots |
-| Ceiling (highest-stakes review) | *inherit* | session | Correctness, security, design, and adversarial review run at whatever the session pays for — pinning them caps them |
-| Scout / context / docs | `deepseek/deepseek-v4-flash` | $0.14 | 1M context, very cheap, fast |
+| Tier | Pi model | Codex | $/M in (Pi) | Why |
+|------|----------|-------|-------------|-----|
+| Plan / oracle / circuit breaker | `moonshotai/kimi-k3` | *inherit* | $0.60 | 1M context, strong reasoning, thinking levels low/high/max |
+| Build / debug | `qwen/qwen3-coder-next` | *inherit* | $0.11 | Purpose-built for coding agents, cheapest of the strong coder tier |
+| Review / escalation | `z-ai/glm-4.7` | *inherit* | $0.40 | Flagship reasoning + programming; different model family than the builder — catches builder blind spots |
+| Ceiling (highest-stakes review) | *inherit* | *inherit* | session | Correctness, security, design, and adversarial review run at whatever the session pays for — pinning them caps them |
+| Scout / context / docs / bulk reads | `deepseek/deepseek-v4-flash` (thinking off) | `gpt-5.6-luna` | $0.14 | 1M context, very cheap, fast |
+
+**Codex column.** Codex pins only the Scout tier: `scripts/render-codex.py` writes
+`model = "gpt-5.6-luna"` into the rendered TOML for `bulk-reader` and
+`context-document-optimizer` and omits `model` for every other agent, which on
+Codex inherits the parent session — Ceiling by omission, as on Claude Code. This
+table is the single source of that ID too: `scripts/install-codex.sh` reads the
+Codex column of the Scout row at install time and passes it to the renderer, so a
+model release still updates only this file.
+
+### Bulk-read gate on Pi
+
+`pi/extensions/bulk-read-gate.ts` mirrors the Claude Code / Codex hook
+(`.claude/hooks/bulk-read-gate.py`): it subscribes to `tool_call`, and blocks a
+`read` or `bash` call that would deliver more than `BULK_READ_MIN_LINES` lines
+(default 350) of one file, naming `bulk-reader` and the ranged read
+as the alternatives. `install.sh` copies it into `~/.pi/agent/extensions/` when
+`~/.pi/agent` exists; `BULK_READ_GATE=off` disables it for one session. The
+`bulk-reader` override above keeps the reader on the scout model with thinking
+off — it reads and reports, it does not reason. See `CLAUDE.md` § Model Routing
+→ *Bulk-Read Handoff*.
 
 Budget alternative for the build tier: `z-ai/glm-4.7-flash` ($0.06/M in) if cost pressure beats quality headroom.
 

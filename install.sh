@@ -199,6 +199,19 @@ if [ -f "$PI_SETTINGS" ]; then
   fi
 fi
 
+# ── 6b. Pi bulk-read gate extension ──────────────────────────────────────────
+# Mirrors .claude/hooks/bulk-read-gate.py (specs/bulk-read-gate.md). Claude Code
+# registers that hook in the repo's own .claude/settings.json, never here — a
+# user-level registration would make it fire twice per call. Pi has no settings-
+# level hook at all: the extension subscribes to tool_call itself once it sits in
+# the extensions directory, so a copy is the whole install.
+if [ -d "$HOME/.pi/agent" ]; then
+  step "Installing Pi bulk-read gate extension"
+  mkdir -p "$HOME/.pi/agent/extensions"
+  cp "$REPO_DIR/pi/extensions/bulk-read-gate.ts" "$HOME/.pi/agent/extensions/bulk-read-gate.ts"
+  ok "copied" "~/.pi/agent/extensions/bulk-read-gate.ts"
+fi
+
 # ── 7. Wire graphify into this project (optional) ────────────────────────────
 # graphify is a per-machine CLI with per-project state (./graphify-out/graph.json),
 # so it has to be wired per repo. Entirely optional — never block the install.

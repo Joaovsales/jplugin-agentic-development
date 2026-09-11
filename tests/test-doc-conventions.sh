@@ -502,4 +502,43 @@ for tree in .agents .claude; do
 done
 
 
+# --- Bulk-Read Gate: routing docs, per-harness surfaces, skill handoffs -------
+# Spec: specs/bulk-read-gate.md AC6 and AC7. The gate is enforcement, but the
+# docs are how a model learns what the deny means and which alternative to take;
+# a hook whose alternatives are documented nowhere is a wall, not a handoff.
+assert_file_contains CLAUDE.md '| `bulk-reader` | `haiku` |' \
+  "BulkRead: CLAUDE.md Agents table routes bulk-reader to haiku"
+assert_file_contains CLAUDE.md "### Bulk-Read Handoff" \
+  "BulkRead: CLAUDE.md has the Bulk-Read Handoff subsection under Model Routing"
+for token in "BULK_READ_MIN_LINES" "350" 'Dispatch `bulk-reader` with a question' \
+             "Read only the range an edit needs" "BULK_READ_GATE=off" \
+             ".claude/hooks/bulk-read-gate.py" "pi/extensions/bulk-read-gate.ts" \
+             "scripts/install-codex.sh"; do
+  assert_prose_contains CLAUDE.md "$token" "BulkRead: CLAUDE.md handoff states '$token'"
+done
+assert_prose_contains CLAUDE.md "Codex Scout-tier IDs live in the same section" \
+  "BulkRead: CLAUDE.md routes Codex Scout-tier IDs to PI_SETUP.md"
+assert_file_contains PI_SETUP.md "| Codex |" \
+  "BulkRead: PI_SETUP.md tier table has a Codex column"
+# The ID itself is release-sensitive and never pinned: the Scout row's Codex
+# column must carry a backticked model, and install-codex.sh reads it from there.
+assert_file_matches PI_SETUP.md '^\| Scout [^|]*\|[^|]*\| *`[^`|]+` *\|' \
+  "BulkRead: PI_SETUP.md Scout row carries a backticked Codex model ID"
+assert_file_matches PI_SETUP.md '"bulk-reader": *[{][^}]*"thinking": *"off"' \
+  "BulkRead: PI_SETUP.md pins bulk-reader in agentOverrides with thinking off"
+assert_file_not_matches scripts/render-codex.py 'gpt-5' \
+  "BulkRead: render-codex.py repeats no concrete Codex model ID"
+assert_file_contains scripts/install-codex.sh 'PI_SETUP.md' \
+  "BulkRead: install-codex.sh reads the Codex Scout-tier ID from PI_SETUP.md"
+assert_file_contains README.md "coding-agent-workflow-bulk-read-gate.py" \
+  "BulkRead: README Codex Setup names the gate in the /hooks review step"
+for tree in .agents .claude; do
+  for skill in plan build debug sweep; do
+    assert_file_contains "$tree/skills/$skill/SKILL.md" "Bulk-Read Handoff" \
+      "BulkRead: $tree/$skill routes bulk reads through the handoff"
+  done
+  assert_file_contains "$tree/skills/build/SKILL.md" "bulk-reader answer" \
+    "BulkRead: $tree/build's delegation contract hands builders a bulk-reader answer, not the file"
+done
+
 finish
