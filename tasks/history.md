@@ -570,3 +570,9 @@ back vacuous and was repaired.
   37/38 files green; `test-task-registry.sh` "approval is a floor" doctor
   assertion fails identically on the untouched HEAD (pre-existing).
 - Learnings captured: `tasks/solutions/bugs/git-post-init-hook-never-fires.md`
+
+### [2026-09-11] — system-design-planning skill
+
+- Key changes: new `/system-design-planning` skill (upstream architecture review → HTML approval gate → one issue per slice → /build), its spec, registration, static pins; worked example run producing specs/upsert-depends-on.md with a dispatched critic pass; tests/test-tdd-retirement.sh excludes .claude/worktrees; 31 stale worktrees removed.
+- Learnings captured: tasks/solutions/bugs/recursive-grep-over-dot-claude-hits-stale-worktree-checkouts.md, tasks/solutions/tooling/claude-code-bash-tool-collapses-backslash-escapes.md, tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md
+

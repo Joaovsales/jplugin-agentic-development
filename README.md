@@ -244,6 +244,8 @@ flowchart TD
 
 **Core workflow** (top row): brainstorm → plan → build → security-scan → wrap-up-session
 
+**Alternate entry**: `/system-design-planning` replaces brainstorm → plan when the change crosses a component boundary, changes a persisted data model, or changes an external contract
+
 **Internal calls**: /build delegates to sub-agents for TDD, invokes code-reviewer for 2-stage review, /debug on failures, /quality-gate after all tasks, and /verify before any completion claims.
 
 Project verification maps use a two-speed update path. `/build` and
@@ -264,6 +266,7 @@ Invoke with `/skill-name` in any Claude Code session:
 |-------|-------------|
 | `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
+| `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
 | `/plan` | Interviews you, writes spec to `specs/`, creates TDD task plan in `tasks/todo.md` |
 | `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |

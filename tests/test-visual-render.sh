@@ -180,4 +180,20 @@ python3 "$REPO_ROOT/.claude/skills/html-presentation/scripts/generate-presentati
   --input "$FIXTURE" -o "$TMP/base_only.html" >"$TMP/base-only.log" 2>&1
 assert_file_contains "$TMP/base_only.html" "</head>" "base generator still emits </head> (splice contract)"
 
+# --- Group F: system-design-planning content-model template renders ---
+# The skill's Step 6 renders templates/content-model.json through this script;
+# a template the renderer rejects is a skill whose Step 6 cannot run. The
+# generator appends its own reflection/references sections after the authored
+# ones, so those are filtered out and the whole remaining list is compared —
+# an eighth authored section would fail this, where a head -7 would not.
+SDP_MODEL="$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json"
+SDP_OUT="$TMP/sdp-out.html"
+python3 "$RENDER_SCRIPT" --input "$SDP_MODEL" -o "$SDP_OUT" >"$TMP/sdp-render.log" 2>&1
+SDP_STATUS=$?
+[ "$SDP_STATUS" -eq 0 ] || cat "$TMP/sdp-render.log"
+assert_eq "0" "$SDP_STATUS" "(system-design-planning) content-model.json renders exit 0"
+SDP_IDS="$(grep -o 'section id="[a-z-]*"' "$SDP_OUT" | sed 's/section id="//; s/"//' | grep -vE '^(reflection|references|code-blocks)$' | paste -sd ' ' -)"
+assert_eq "problem constraints system-design contracts data-models build-order decisions" "$SDP_IDS" \
+  "(system-design-planning) rendered sections are the seven authored ones, in order"
+
 finish

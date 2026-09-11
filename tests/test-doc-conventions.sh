@@ -5,6 +5,9 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
+# One flattening pipeline for every whole-file order check below.
+flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
+
 # --- M3: retired store — the old monolith files have no live references ------
 # INVERTED from the pre-M3 assertion that /build and /checkpoint reference
 # tasks/memory.md. The store is now tasks/solutions/ + tasks/history.md; only
@@ -80,6 +83,90 @@ for f in .claude/skills/visual-plan/SKILL.md .agents/skills/visual-plan/SKILL.md
 done
 
 
+# --- system-design-planning: documentation contract present in both tree copies ---
+# The skill replaces /brainstorm -> /plan for boundary-crossing changes, so the
+# pins are the handoffs that make it interchangeable with /plan downstream: the
+# fixed section order of the spec it writes, the registry-only intake and filing,
+# the shared renderer, the approval gate wording, and the plan block /build reads.
+for f in .claude/skills/system-design-planning/SKILL.md .agents/skills/system-design-planning/SKILL.md; do
+  for token in "name: system-design-planning" "argument-hint:" \
+               "disable-model-invocation: false" \
+               "Skipping system-design-planning:" \
+               "task-registry.py show" "task-registry.py upsert" "--derive-id design" \
+               ".agents/skills/visual-recap/scripts/visual-render.py" ".plan.html" \
+               "references/review-card.md" "templates/architecture-spec-template.md" \
+               "templates/content-model.json" \
+               "[ ] TDD:" "### Slice" "TODO(shortcut)" "UNVERIFIED" \
+               "--apply --approve" "> Visual: specs/<feature>.plan.html"; do
+    assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
+  done
+  # The four elements plus the build order, in the order the spec table lists them.
+  # Pinned by ORDER, not by count: a reflow that swaps constraints below data
+  # models silently changes what the reviewer reads first.
+  flat_sdp="$(flatten "$f")"
+  pos_c=$(printf '%s' "$flat_sdp" | grep -bo '| Constraints |' | head -1 | cut -d: -f1)
+  pos_s=$(printf '%s' "$flat_sdp" | grep -bo '| System design |' | head -1 | cut -d: -f1)
+  pos_k=$(printf '%s' "$flat_sdp" | grep -bo '| Component contracts |' | head -1 | cut -d: -f1)
+  pos_d=$(printf '%s' "$flat_sdp" | grep -bo '| Data models |' | head -1 | cut -d: -f1)
+  pos_b=$(printf '%s' "$flat_sdp" | grep -bo '| Build order |' | head -1 | cut -d: -f1)
+  if [ -n "${pos_c:-}" ] && [ -n "${pos_s:-}" ] && [ -n "${pos_k:-}" ] && [ -n "${pos_d:-}" ] && [ -n "${pos_b:-}" ] \
+     && [ "$pos_c" -lt "$pos_s" ] && [ "$pos_s" -lt "$pos_k" ] && [ "$pos_k" -lt "$pos_d" ] && [ "$pos_d" -lt "$pos_b" ]; then
+    assert_eq "ordered" "ordered" "system-design-planning: $f lists the elements in dependency order"
+  else
+    assert_eq "constraints < system design < contracts < data models < build order" \
+      "${pos_c:-missing} ${pos_s:-missing} ${pos_k:-missing} ${pos_d:-missing} ${pos_b:-missing}" \
+      "system-design-planning: $f lists the elements in dependency order"
+  fi
+  # The gate: approval attaches to the rendered document, and filing waits for it.
+  assert_contains "$flat_sdp" "NOTHING IS FILED AND NOTHING IS BUILT UNTIL A HUMAN HAS APPROVED" \
+    "system-design-planning: $f carries the approval iron law"
+  assert_file_contains "$f" "after approval only" \
+    "system-design-planning: $f files slices only after approval"
+  # The path is printed before the gate asks, so the reviewer opens the file
+  # the approval attaches to. Pinned by ORDER: the line must precede Step 7.
+  pos_v=$(printf '%s' "$flat_sdp" | grep -bo '✓ Visual written:' | head -1 | cut -d: -f1)
+  pos_g=$(printf '%s' "$flat_sdp" | grep -bo '### 7. Human review gate' | head -1 | cut -d: -f1)
+  if [ -n "${pos_v:-}" ] && [ -n "${pos_g:-}" ] && [ "$pos_v" -lt "$pos_g" ]; then
+    assert_eq "ordered" "ordered" "system-design-planning: $f prints the render path before the gate"
+  else
+    assert_eq "visual written < review gate" "${pos_v:-missing} ${pos_g:-missing}" \
+      "system-design-planning: $f prints the render path before the gate"
+  fi
+  # Every intake form the skill accepts is in the hint, so a caller sees them.
+  assert_file_contains "$f" 'argument-hint: "[#issue | task-id | feature idea or problem statement]"' \
+    "system-design-planning: $f advertises every intake form"
+  # Tracker access is registry-only (CLAUDE.md § Task Tracking); a direct gh
+  # call is the regression this pin exists to catch.
+  assert_file_not_matches "$f" '\bgh (issue|api|pr)\b' \
+    "system-design-planning: $f never calls gh directly"
+done
+
+# The spec template is the section order every design inherits; the review
+# card is the 25 dependency-ordered questions the self-review walks. Both are
+# pinned by the smallest falsifiable unit — heading order and question ids —
+# never by prose.
+tmpl=.agents/skills/system-design-planning/templates/architecture-spec-template.md
+assert_eq "Problem Constraints System design Component contracts Data models Build order Decisions Acceptance Criteria Implementation Paths" \
+  "$(grep '^## ' "$tmpl" | tr -d '\r' | sed 's/^## //' | paste -sd ' ' -)" \
+  "system-design-planning: spec template carries the nine sections in order"
+card=.agents/skills/system-design-planning/references/review-card.md
+assert_eq "C1 C2 C3 C4 C5 S1 S2 S3 S4 S5 K1 K2 K3 K4 K5 D1 D2 D3 D4 D5 B1 B2 B3 B4 B5" \
+  "$(grep -oE '^\| [CSKDB][1-5] ' "$card" | tr -d '| ' | paste -sd ' ' -)" \
+  "system-design-planning: review card carries the 25 questions in dependency order"
+# The plan block nests TDD rows under a registry row; /build must know not to
+# build that row, or the first design plan dispatches a coder against a title.
+for tree in .claude .agents; do
+  assert_file_contains "$tree/skills/build/SKILL.md" "slice header" \
+    "system-design-planning: $tree/build names the slice header row it must not build"
+done
+# Registration in the three listings a new skill must appear in.
+assert_file_contains "CLAUDE.md" "\`/system-design-planning\`" \
+  "system-design-planning: CLAUDE.md skills table lists it"
+assert_file_contains "README.md" "\`/system-design-planning\`" \
+  "system-design-planning: README skills table lists it"
+assert_file_contains ".claude/hooks/session-start.sh" "/system-design-planning" \
+  "system-design-planning: session-start banner lists it"
+
 # --- Banned construct: load-time shell pre-resolution in skill bodies ---
 # A SKILL.md line of the form  !`cmd`  runs cmd when the SKILL LOADS and inlines
 # its stdout. It is banned outright here for two reasons that cannot be guarded
@@ -113,7 +200,6 @@ INNER_EOF
 # contexts" never matches "dispatched contexts". Without it the guard passes in a
 # worktree whose files were authored with LF and fails on a fresh clone of the same
 # commit -- which is exactly what it did.
-flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
 
 assert_file_contains "CLAUDE.md" "### Independence Accounting" \
   "M1: CLAUDE.md has an Independence Accounting subsection"

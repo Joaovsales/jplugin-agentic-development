@@ -45,6 +45,25 @@ for tree in $TREES; do
     "Chain: $tree/quality-gate dispatches software-design-expert-review"
 done
 
+# ── /system-design-planning -> task-registry, visual-render.py, /build ────────
+# The supervised architecture entry point. It is interchangeable with /plan
+# downstream only while these three handoffs stay written: intake and filing go
+# through the registry (never a tracker CLI), the review document renders through
+# the shared post-processor, and the approved plan lands where /build reads it.
+for tree in $TREES; do
+  f="$tree/skills/system-design-planning/SKILL.md"
+  assert_file_contains "$f" "task-registry.py show" \
+    "Chain: $tree/system-design-planning reads issues through task-registry"
+  assert_file_contains "$f" "task-registry.py upsert" \
+    "Chain: $tree/system-design-planning files slices through task-registry"
+  assert_file_contains "$f" ".agents/skills/visual-recap/scripts/visual-render.py" \
+    "Chain: $tree/system-design-planning renders through visual-render.py"
+  assert_file_contains "$f" "### 9. Hand off" \
+    "Chain: $tree/system-design-planning hands off to /build"
+  assert_file_contains "$f" "tasks/todo.md" \
+    "Chain: $tree/system-design-planning writes the plan /build reads"
+done
+
 # ── /wrap-up-session -> /learn ───────────────────────────────────────────────
 # The learning store's only automatic writer. If this handoff is lost, the store
 # silently stops accreting and nothing fails.
