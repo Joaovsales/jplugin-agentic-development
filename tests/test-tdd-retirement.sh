@@ -37,7 +37,9 @@ done
 # tdd/SKILL.md:129 was the repo's only written authorization to commit code
 # without wrap-up ("Run /wrap-up-session **or at minimum** ... Commit"). The
 # whole wrap-up gate is pointless if this survives anywhere.
-hits="$(grep -rn "or at minimum" --include='*.md' \
+# .claude/worktrees/ holds other checkouts (git-excluded, frozen at older
+# commits), not this tree, so it is skipped.
+hits="$(grep -rn "or at minimum" --exclude-dir=worktrees --include='*.md' \
         .agents .claude CLAUDE.md README.md project-template 2>/dev/null || true)"
 assert_eq "" "$hits" "Retire: no 'or at minimum' commit escape hatch anywhere"
 
