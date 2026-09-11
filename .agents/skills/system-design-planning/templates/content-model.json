@@ -1,0 +1,66 @@
+{
+  "title": "<Feature Name> — Architecture Review",
+  "subtitle": "<repository> · <#N or prompt> · <YYYY-MM-DD>",
+  "takeaway": "<One sentence: what changes for whom, and the one decision the reviewer most needs to weigh.>",
+  "meta": {
+    "Origin": "<#N | task-id | prompt>",
+    "Spec": "specs/<feature>.md",
+    "Status": "awaiting review"
+  },
+  "summary_cards": [
+    { "label": "Components touched", "value": "<n>", "hint": "<names>" },
+    { "label": "Contracts", "value": "<new> new · <changed> changed", "hint": "<boundary names>" },
+    { "label": "Entities", "value": "<new> new · <changed> changed", "hint": "<entity names>" },
+    { "label": "Build slices", "value": "<n>", "hint": "riskiest first" },
+    { "label": "Open decisions", "value": "<n>", "hint": "need the reviewer" }
+  ],
+  "sections": [
+    {
+      "id": "problem",
+      "title": "<What changes, for whom>",
+      "icon": "",
+      "body_md": "<At most three sentences: who is affected, what changes for them, what is out of scope.>\n\n**Current state** — every path below was read; anything not read is marked UNVERIFIED.\n\n```text\n<current-state ASCII sketch with file:line labels>\n```"
+    },
+    {
+      "id": "constraints",
+      "title": "Constraints — which correct designs are wrong here",
+      "icon": "",
+      "body_md": "An `inferred` row is a question for you, not a fact.\n\n```text\nConstraint                 Value                      Source    Detected by\n─────────────────────────  ─────────────────────────  ────────  ──────────────────────────\n<latency at boundary>      <p99 ≤ N ms>               issue     <perf test>\n<consistency, consumer X>  <read-your-writes>         inferred  <integration test>\n<compatibility>            <v1 consumers keep working> user      <contract test, v1 payloads>\n<rollout / rollback>       <flag-gated; rollback=off>  inferred  <runbook step>\n```"
+    },
+    {
+      "id": "system-design",
+      "title": "System design — who owns what, and what fails together",
+      "icon": "",
+      "body_md": "**Ownership.** One source of truth per fact; a cache is a reader.\n\n```text\nComponent     Owns                     Reads\n───────────   ──────────────────────   ─────────\n<ComponentA>  <fact 1, fact 2>         <fact 3>\n<ComponentB>  <fact 3>                 <fact 1>\n```\n\n**Interaction.** Every arrow is sync or async and states its behaviour on timeout. NEW marks what this change adds.\n\n```text\n caller                      ComponentA                  ComponentB\n   │  (1) sync request  ───►  │                            │\n   │                          │  (2) async event  ──────►  │  NEW\n   │  ◄──── (3) outcome ───   │                            │\n   │                          │  ◄── (4) ack / retry ────  │\n```\n\n```text\nArrow  Mode   On timeout                                   On duplicate\n─────  ─────  ───────────────────────────────────────────  ─────────────────────────\n(1)    sync   caller gets Unknown; retries with same key   idempotent by key\n(2)    async  outbox row stays pending; relay retries      consumer de-dupes by id\n```\n\n**Failure unit.** <What else stops when this stops — one sentence per component.>"
+    },
+    {
+      "id": "contracts",
+      "title": "Component contracts — can the caller ignore a case it must handle",
+      "icon": "",
+      "body_md": "### <ComponentA>.<operation>\n\n```python\ndef operation(request: Request, *, idempotency_key: str) -> Done | Rejected | Unknown: ...\n```\n\n- **Outcomes**: `Done(ref)` · `Rejected(reason)` · `Unknown()` — the caller handles all three\n- **Raises**: only programmer errors and infrastructure faults\n- **Idempotency**: same key within <N> h returns the original outcome\n- **Versioning**: <n/a — internal | envelope carries schema_version; v1 parser retained>"
+    },
+    {
+      "id": "data-models",
+      "title": "Data models — which combinations are nonsense, and does the type forbid them",
+      "icon": "",
+      "body_md": "### <Entity>\n\n```text\nField      Type                       Invariant                 Enforced by\n─────────  ─────────────────────────  ────────────────────────  ─────────────────────────\n<amount>   Money(Decimal, Currency)   currency present, 2 dp    frozen dataclass, check\n<status>   Enum                       one of the states below   enum column\n```\n\n**Illegal states**\n\n- <status = paid with provider_ref = null> — made unrepresentable by <union type per status / check constraint>\n\n**Transitions — `<status>`**\n\n```text\nFrom       To                 Trigger\n─────────  ─────────────────  ──────────────────────\npending    done               outcome Done\npending    rejected           outcome Rejected\npending    unknown            outcome Unknown\nunknown    done | rejected    reconciliation job\n```\n\n**Migration and compatibility.** <Forward, reverse, and what old rows mean to new code.>"
+    },
+    {
+      "id": "build-order",
+      "title": "Build order — each slice ships alone, riskiest unknown first",
+      "icon": "",
+      "body_md": "```text\n#  Slice                      Delivers                         Depends  Contract exposed        Size\n─  ─────────────────────────  ───────────────────────────────  ───────  ──────────────────────  ────\n1  <spike / riskiest slice>   <what is known at the end>       —        none / stub             S\n2  <data model + migration>   <entities and transitions>       1        repository interface    M\n3  <contract + component>     <ComponentA.operation>           2        signature above         M\n4  <consumer wiring>          <caller handles the outcome>     3        —                       S\n```\n\n**Slice criteria** — each one a test can pin.\n\n- Slice 1: <criterion>\n- Slice 2: <criterion>; <criterion>\n- Slice 3: <criterion>; <criterion>\n- Slice 4: <criterion>"
+    },
+    {
+      "id": "decisions",
+      "title": "Decisions — expensive to change later",
+      "icon": "",
+      "body_md": "```text\nDecision                     Options   Recommended  Wrong when\n───────────────────────────  ────────  ───────────  ────────────────────────────────────────\n<wire format for the event>  A / B     A            B is right if consumers are outside repo\n```\n\n**Open** — needs the reviewer:\n\n- <question, and what each answer would change>"
+    }
+  ],
+  "references": [
+    { "title": "Spec (the contract /build holds)", "url": "<feature>.md" },
+    { "title": "Review card", "url": "../.agents/skills/system-design-planning/references/review-card.md" }
+  ],
+  "reflection": "Reply with findings as [constraints|system-design|contracts|data-models|build-order] <finding> — <evidence>, or approved."
+}

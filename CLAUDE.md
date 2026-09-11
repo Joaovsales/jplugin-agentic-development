@@ -32,11 +32,12 @@ Run `/prd` to produce:
 For every non-trivial feature, create a formal spec before writing code:
 - Create `specs/[feature-name].md`: Behavior / Inputs / Outputs / Edge Cases / Acceptance Criteria
 - Use `/plan` to run this interactively
+- Use `/system-design-planning` instead when the change crosses a component boundary, changes a persisted data model, or changes an external contract — it writes the spec as an architecture review a human approves from the rendered HTML, then files one issue per build slice
 
 ### 2. Plan Before Code (Hard Gate)
 - Write a step-by-step plan to `tasks/todo.md` before touching source code
 - Each task format: `[ ] TDD: [Test Name] -> [Impl Detail]`
-- Ask user: "Does this plan meet your requirements? Confirm with 'y' to begin."
+- Ask user: "Does this plan meet your requirements? Confirm with 'y' to begin." (`/system-design-planning` gates on the word **approved** against its rendered document instead — see its Iron Law)
 - Do not proceed without user confirmation
 
 ### 3. Build (Autonomous Execution)
@@ -456,6 +457,7 @@ authorization unless the project's configuration enables them.
 |-------|---------|
 | `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration before `/plan` |
+| `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
 | `/plan` | Interview → spec → task breakdown in `tasks/todo.md` |
 | `/build` | Autonomous TDD orchestrator with sub-agent delegation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
