@@ -787,3 +787,192 @@ critic dispatched under the Review Dispatch Contract (no diff — design review,
 ### AC: off-ramp `Skipping system-design-planning:` — NOT EXERCISED (the change met the bar).
 ### AC: appends `[ ] TDD:` rows under `### Slice` headings and files one task per slice — NOT EXERCISED (waits for approval; Step 8).
 
+---
+
+## Bulk-Read Gate — direct read vs bulk-reader measurement — 2026-09-11 bf58555
+
+Spec: specs/bulk-read-gate.md (AC8)
+Commit: bf58555 (worktree `worktree-bulk-read-gate`, changes uncommitted at measurement time)
+
+**AC8** — the same question about one file over 350 lines, answered once by direct read
+and once through a Scout-tier reader. No percentage target; the number is the deliverable.
+
+File: `CLAUDE.md` in the worktree — 522 lines, 29,872 bytes.
+
+Question (identical for both paths): list every agent in the `## Agents` table with its
+Model column and `CLAUDE.md:line`; quote the line under `### Bulk-Read Handoff` that states
+the default threshold, with its line number.
+
+### Path 1 — direct read into the parent context
+
+`Read` of the whole file (no offset/limit). The tool result is the file with `cat -n`
+line prefixes: 33,526 characters.
+
+| Measure | Value |
+|---|---|
+| Parent-context tokens | ~8,400 (33,526 chars / 4 chars per token, estimate) |
+| Latency | one tool call, sub-second |
+| Answer | correct (rows at lines 325–335; threshold line at 418) |
+
+### Path 2 — bulk-reader on haiku
+
+Dispatched a `general-purpose` agent with `model: haiku` carrying the `bulk-reader`
+persona text verbatim, because the `bulk-reader` agent type was written this session and
+the harness registers agent types at session start. Same model, same instructions.
+
+| Measure | Value |
+|---|---|
+| Parent-context tokens | ~190 (the returned bullets, 13 lines, ~750 chars) |
+| Delegated wall-clock latency | 26.9 s (agent-reported duration_ms 26943) |
+| Reader tool calls | 5 (grep, then ranged reads under 350 lines) |
+| Reader-side tokens (haiku) | 68,578 |
+| Answer | correct — all 11 rows with matching line numbers; threshold quoted at `CLAUDE.md:418` |
+
+Parent-context reduction for this file: ~8,400 → ~190 tokens. Cost moves to the reader's
+own context on the cheap model and to 27 seconds of wall-clock.
+
+### Path 2b — the registered `bulk-reader` agent type
+
+The harness picked up `.claude/agents/bulk-reader.md` mid-session, so the same question
+was re-run through the real persona (`subagent_type: bulk-reader`, `model: haiku`) with
+only the absolute path and the question in the prompt.
+
+| Measure | Value |
+|---|---|
+| Parent-context tokens | ~200 (13 bullets plus one quoted line, ~800 chars) |
+| Delegated wall-clock latency | 24.2 s (agent-reported duration_ms 24158) |
+| Reader tool calls | 5 |
+| Reader-side tokens (haiku) | 65,139 |
+| Answer | correct — 11 rows at `CLAUDE.md:325`–`335`, threshold quoted at `CLAUDE.md:418` |
+
+The persona-only dispatch matched the stand-in's result, so the persona text carries the
+chunked-read and anchor rules on its own without extra prompt scaffolding.
+
+### Finding — the reader needs an absolute path in a worktree session
+
+The first dispatch was given `CLAUDE.md` plus a "working directory" line. It read the
+shared checkout's copy (line numbers off by one, "no `### Bulk-Read Handoff` section")
+and returned a confidently wrong answer in 20.2 s. The second dispatch passed the
+absolute worktree path and instructed the reader to use it in every call; it was correct.
+A dispatch prompt in a worktree session must carry absolute paths.
+
+### Gate firing live — pending session restart
+
+The hook was registered in `.claude/settings.json` this session; Claude Code loads hook
+registrations at session start, and this session also runs in a worktree, so the gate did
+not fire on the Path 1 read above. Its behaviour is pinned by the JSON matrix in
+`tests/test-bulk-read-gate.sh` (192 assertions, green, including a run through the
+`bulk-read-gate.sh` shim that `.claude/settings.json` registers). Live firing is recorded
+on the first session started after this change lands.
+
+### AC9 — full suite after /quality-gate (same session)
+
+`bash tests/run.sh` → `RESULT: 7/40 test files FAILED`, 33 files green (2,789
+assertions passed in green files; 147/1,139 failed inside the 7 red files).
+The same seven files were re-run on a clean detached checkout of `bf58555`
+(no working-tree changes) and failed with **identical counts**, so none of them
+is a regression from this change:
+
+| File | worktree | clean bf58555 | module |
+|------|----------|---------------|--------|
+| test-install-sh | 1/94 | 1/94 | git scaffold dangling-symlink case (Windows) |
+| test-routine-selectors | 54/174 | 54/174 | task-registry routines |
+| test-routine-skills | 2/64 | 2/64 | task-registry routines |
+| test-skill-invocation-chain | 4/62 | 4/62 | build/wrap-up ↔ maintain-verification chain |
+| test-sync-retirement | 47/329 | 47/329 | sync |
+| test-task-registry | 37/326 | 37/326 | task-registry |
+| test-verification-skill-integration | 2/90 | 2/90 | bundled license text |
+
+None of those modules is touched by the bulk-read-gate diff (`git diff --stat
+HEAD`: 29 files, none under task-registry, sync, routines, or verification
+skills). Files owned by this change: test-bulk-read-gate 192, test-settings-json
+10, test-model-tiers 98, test-agents 170, test-codex-install 25,
+test-skill-parity 89, test-doc-conventions 488 — all green.
+
+### Post-review suite — merged with origin/master @ 7707342
+
+`bash tests/run.sh` → 33/40 files green. The 7 red files are pre-existing and match the bf58555 baseline counts recorded under AC9 above: test-install-sh 1/97 (Windows dangling-symlink case; the 3 new Pi-copy assertions are green), test-routine-selectors 54/174, test-routine-skills 2/64, test-skill-invocation-chain 4/72, test-sync-retirement 47/329, test-task-registry 37/326, test-verification-skill-integration 2/90.
+
+### Live firing — 2026-09-11, session resumed after hook registration
+
+First whole-file `Read` of `CLAUDE.md` (522 lines) in the resumed session was denied by the project-level hook with:
+
+    CLAUDE.md has 522 lines; the bulk-read gate denies reads over 350 lines (BULK_READ_MIN_LINES). Either dispatch the `bulk-reader` agent with a question about this file, or read only the range you need for an edit (Read with offset/limit under 350, or `sed -n 'A,Bp'`).
+
+The four wrap-up review agents were dispatched under the same gate and told to read in ranges.
+
+## Bulk-read component understanding — 2026-09-12 — PR #128
+
+Source: session delta from `5015f3d`; approved handoff revision in
+`specs/bulk-read-gate.md` AC7 and AC10–11.
+
+### Contract and gate walkthrough
+
+- `bash tests/test-doc-conventions.sh`: RED with 13/562 failing assertions
+  before handoff changes; GREEN with 562 passing afterward. Covers source-map
+  fields, dependency inspection before editing, component ownership, and no
+  cumulative context cap in both skill trees. Static instructions are not
+  evidence that a model followed them.
+- `bash tests/test-bulk-read-gate.sh`: two successive bounded Read requests
+  (lines 1–300 and 301–400) are allowed while the whole 400-line read is denied.
+  Deny-message checks were RED with 23 failures before the Python/Pi wording
+  changed; GREEN afterward, 333 assertions. Pi remains static-only, not live
+  Pi runtime evidence.
+- `env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh`: exit 0, all 40 files,
+  4,194 assertions passed. The scoped unset addresses known test contamination
+  tracked in #131 without changing application trust policy. Windows failures
+  and Windows CI are tracked in #129 and #130.
+- Independent code review and dispatched APOSD/security review: no actionable
+  introduced findings in the core changes. Runtime diff is denial wording only;
+  input parsing, enforcement, dependencies, and approval behavior are unchanged.
+
+### Reconciliation
+
+Updated `specs/bulk-read-gate.md`. Unchanged after inspection:
+`compound-engineering-adoption`, `context-memory-management`,
+`living-spec-reconciliation`, `pstack-verification-skill-integration`,
+`review-context-contract`, `separate-project-config`, `sweep-routines`,
+`system-design-planning`, `upsert-depends-on`, `workflow-insights-improvements`,
+and `workflow-routing` (all under `specs/`). No reconciliation deferrals.
+
+Verification-map outcome: **clean** — `verify-task-registry`'s CLI behavior is
+unchanged; agent workflow triggering is outside its declared proof ceiling.
+
+### Coding evaluation
+
+Frozen protocol: `tasks/eval-results/bulk-read-context/protocol.md`. Results are
+recorded alongside the protocol; the historical AC8 inventory measurement above
+is retrieval-only and cannot establish coding quality or total token savings.
+
+Final coding evidence: `tasks/eval-results/bulk-read-context/README.md`,
+`metrics.json`, and `judgment.json`. Ten retained implementations each passed
+14/14 held-out checks; the coordinator independently re-executed all ten.
+Six natural-routing runs used zero scouts. Four requested-delegation runs
+produced three actual scouts; one prior-policy run skipped the explicit request.
+Natural mean list-price-equivalent costs: prior $0.4812, revised $0.3856,
+direct $0.3482. Requested-delegation means: prior $0.5628, revised $1.0784,
+with unequal uptake. Accumulated/cache tokens and role-specific usage are
+reported separately in the metrics; no consistent end-to-end saving is claimed.
+
+Blinded grading: natural prior 7/7, revised 7/7, direct 8/7 out of 10; requested
+prior 6/9 (the 9 skipped delegation), revised 7/8. The rubric was not changed to
+penalize missing delegation retroactively. Source-map factual errors and partial
+direct caller inspection remain explicit limits, despite passing implementations.
+Coordinator inspection agrees with the judge's factual conclusions.
+
+Adversarial evidence review verified raw transcript hashes, authoritative model
+usage, costs, and source hashes. Its two narrative findings are resolved: the
+isolated-parent scope violation and revised-map inaccuracies are disclosed.
+No hidden-check exposure was observed in retained runs; eight invalidated setup
+attempts and incomplete overhead accounting remain documented. Review conclusion:
+accept corrected evidence claims, no remaining correction in that review scope.
+
+Final full-suite rerun: exit 0, all 40 files / 4,194 assertions. Syntax and
+`git diff --check` pass. This is Linux evidence; Windows and live Pi remain the
+explicitly tracked/documented limits above.
+
+Publication preparation: source/evidence commit `8bf7c2d`. Retained unified-diff
+files contain required single-space context lines. A reviewed, folder-local
+`.gitattributes` rule disables only blank-at-eol checking for those serialized
+patches; source-file whitespace checks remain active. `git diff 5015f3d --check`
+passes with exact patches preserved.

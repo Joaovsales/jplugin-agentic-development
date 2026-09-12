@@ -19,6 +19,9 @@
 
 ## Project vocabulary
 
+- **bulk-read gate** — the `PreToolUse` / `tool_call` hook that denies any single read putting more than `BULK_READ_MIN_LINES` (350) lines of one file into a model's context; it closes the expensive door and never rewrites the call. One Python script on Claude Code and Codex, a TypeScript mirror on Pi.
+- **bulk-read handoff** — the rule the gate enforces: over the threshold, either dispatch `bulk-reader` with a question or read only the range an edit needs. Named in `CLAUDE.md` § Model Routing and one line each in `/plan`, `/build`, `/debug`, `/sweep`.
+- **bulk-reader** — the Scout-tier persona that answers one question about a large file in bullets (`file:line` anchors on request); it never edits and never reasons about architecture, so its answer is context for a builder, not an edit anchor.
 - **canonical tree** — `.agents/`, the source of truth for skills and agent personas; `.claude/` holds the byte-identical copy. Edits land canonical-first, then are copied.
 - **circuit breaker** — the `/build`/`/yolo` failure escalation: repeated task failures trigger the `/refresh` backstop, then planner-tier review, then a loop stop — never a silent retry spiral.
 - **claim label** — the tracker label (`in-progress` by default) a routine writes before branching; its *presence* is what stops two runs of the same routine picking one issue, so a claim label the tracker never created fails silently.

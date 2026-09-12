@@ -1,0 +1,89 @@
+[
+  {
+    "run": "cedar-api",
+    "reason": "all shared-parent runs invalidated after cedar-tools scout read held-out checker; rerun in isolated parents",
+    "raw_sha256": "7c581c20b78635f41e0766098efa8965029168a3041d8b58a56d02dea83dded8",
+    "completed": false,
+    "reported_list_price_usd": null,
+    "billing_model_usage": null,
+    "cost_limitation": "Interrupted before final usage/cost summary; total run cost unavailable from captured stream."
+  },
+  {
+    "run": "birch-api",
+    "reason": "superseded anchor wording",
+    "raw_sha256": "3fd1c750be352e1b4915a5c4da8669073161b5d149ea5a82bfb65dc7013655ed",
+    "completed": false,
+    "reported_list_price_usd": null,
+    "billing_model_usage": null,
+    "cost_limitation": "Interrupted before final usage/cost summary; total run cost unavailable from captured stream."
+  },
+  {
+    "run": "birch-worker",
+    "reason": "all shared-parent runs invalidated after cedar-tools scout read held-out checker; rerun in isolated parents",
+    "raw_sha256": "cbb570e862925b11cc3b64c83013c226cfb0a3bef862ca2f94a500d66534e6cc",
+    "completed": false,
+    "reported_list_price_usd": null,
+    "billing_model_usage": null,
+    "cost_limitation": "Interrupted before final usage/cost summary; total run cost unavailable from captured stream."
+  },
+  {
+    "run": "maple-api",
+    "reason": "all shared-parent runs invalidated after cedar-tools scout read held-out checker; rerun in isolated parents",
+    "raw_sha256": "85af5446588399285af2f553c01d86f3555c187cde5465cc69c34e6b8651c309",
+    "completed": false,
+    "reported_list_price_usd": null,
+    "billing_model_usage": null,
+    "cost_limitation": "Interrupted before final usage/cost summary; total run cost unavailable from captured stream."
+  },
+  {
+    "run": "birch-tools",
+    "reason": "superseded anchor wording",
+    "raw_sha256": "2846abbbdd2328b8b374e999a7d4f511b3a3d7259e99be44221bb0009bb0fb12",
+    "completed": false,
+    "reported_list_price_usd": null,
+    "billing_model_usage": null,
+    "cost_limitation": "Interrupted before final usage/cost summary; total run cost unavailable from captured stream."
+  },
+  {
+    "run": "birch-service",
+    "reason": "all shared-parent runs invalidated after cedar-tools scout read held-out checker; rerun in isolated parents",
+    "raw_sha256": "99ece009201c4551e82af9c7a31d519d490391e39780afe89deaee249ab8910c",
+    "completed": false,
+    "reported_list_price_usd": null,
+    "billing_model_usage": null,
+    "cost_limitation": "Interrupted before final usage/cost summary; total run cost unavailable from captured stream."
+  },
+  {
+    "run": "maple-tools",
+    "reason": "all shared-parent runs invalidated after cedar-tools scout read held-out checker; rerun in isolated parents",
+    "raw_sha256": "8096ef756657bfe828f3814bf3f9dea904936956aa3e88f9b2266c8eddf73059",
+    "completed": true,
+    "reported_list_price_usd": 0.31183920000000004,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 32,
+        "outputTokens": 6668,
+        "cacheReadInputTokens": 419076,
+        "cacheCreationInputTokens": 42228,
+        "webSearchRequests": 0,
+        "costUSD": 0.31183920000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 3037,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "cost_limitation": null
+  },
+  {
+    "run": "cedar-tools",
+    "reason": "all shared-parent runs invalidated after cedar-tools scout read held-out checker; rerun in isolated parents",
+    "raw_sha256": "bca3a9d859e5030560f3ea31a3847e577deef5b408fceccc0e2def4ece707f75",
+    "completed": false,
+    "reported_list_price_usd": null,
+    "billing_model_usage": null,
+    "cost_limitation": "Interrupted before final usage/cost summary; total run cost unavailable from captured stream."
+  }
+]

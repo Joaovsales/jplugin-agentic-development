@@ -30,6 +30,11 @@ Accounting*, every finding this run files has a **single witness**, so no
 confidence anchor is promoted on agreement. Verification-promotion (reading one
 more line) is still available and is how a `75` becomes a `100`.
 
+The **Bulk-Read Handoff** (`CLAUDE.md` § Model Routing) still binds: the gate
+denies whole-file reads over its line threshold inline too, so a sweep greps
+first and reads in ranges under it (`sed -n 'A,Bp'`, `offset`/`limit`). It does
+not dispatch `bulk-reader`, because it dispatches nothing.
+
 Tracker access is only ever through `/task-registry`. This skill never calls a
 tracker CLI or REST API for task state — the coupling guard in
 `tests/test-doc-conventions.sh` applies to it.

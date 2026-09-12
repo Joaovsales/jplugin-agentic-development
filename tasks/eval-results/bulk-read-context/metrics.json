@@ -1,0 +1,1848 @@
+{
+  "R1": {
+    "scenario": "natural-routing",
+    "arm": "prior",
+    "actual_models": [
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 101.464,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.34844340000000007,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 42,
+        "outputTokens": 9061,
+        "cacheReadInputTokens": 626787,
+        "cacheCreationInputTokens": 33098,
+        "webSearchRequests": 0,
+        "costUSD": 0.34844340000000007,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 3335,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 40,
+        "cache_creation_input_tokens": 33098,
+        "cache_read_input_tokens": 621699,
+        "output_tokens": 130
+      }
+    },
+    "parent_tool_result_characters": 33460,
+    "reader_tool_result_characters": 0,
+    "scout_dispatches": 0,
+    "gate_denials": 0,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "5549d1aa4988977e30158640c3b1abcd74f98440adf7dec0e3166bf7df2b9492",
+    "before_first_edit": [
+      {
+        "event": 3,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-linden/source/registry -type f | head -100",
+          "description": "List registry source files"
+        }
+      },
+      {
+        "event": 10,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-linden/source/registry/*.py /tmp/task-records-linden/source/registry/providers/*.py",
+          "description": "Line counts for registry files"
+        }
+      },
+      {
+        "event": 18,
+        "tool": "Grep",
+        "input": {
+          "pattern": "metadata|block",
+          "path": "/tmp/task-records-linden/source/registry/model.py",
+          "output_mode": "content",
+          "-n": true
+        }
+      },
+      {
+        "event": 22,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-linden/source/registry/model.py",
+          "limit": 350
+        }
+      },
+      {
+        "event": 31,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-linden/source/registry/model.py",
+          "offset": 350,
+          "limit": 54
+        }
+      },
+      {
+        "event": 55,
+        "tool": "Grep",
+        "input": {
+          "pattern": "parse_metadata_block|_metadata_bounds|METADATA_BEGIN|METADATA_END",
+          "output_mode": "files_with_matches"
+        }
+      },
+      {
+        "event": 58,
+        "tool": "Grep",
+        "input": {
+          "pattern": "parse_metadata_block|METADATA_BEGIN|METADATA_END|metadata_bounds",
+          "path": "/tmp/task-records-linden/source/registry/providers/local.py",
+          "-n": true,
+          "output_mode": "content"
+        }
+      },
+      {
+        "event": 64,
+        "tool": "Grep",
+        "input": {
+          "pattern": "METADATA|parse_metadata|task_from_metadata|metadata_block",
+          "path": "/tmp/task-records-linden/source/registry/providers/github.py",
+          "-n": true,
+          "output_mode": "content"
+        }
+      },
+      {
+        "event": 67,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-linden/source/registry/providers/local.py",
+          "offset": 140,
+          "limit": 150
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 42,
+        "cache_creation_input_tokens": 33098,
+        "cache_read_input_tokens": 626787,
+        "output_tokens": 9061,
+        "accumulated_tokens_including_cache": 668988,
+        "list_price_equivalent_usd": 0.34844340000000007
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "R2": {
+    "scenario": "natural-routing",
+    "arm": "revised",
+    "actual_models": [
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 139.261,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.3988744,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 46,
+        "outputTokens": 10783,
+        "cacheReadInputTokens": 725162,
+        "cacheCreationInputTokens": 36480,
+        "webSearchRequests": 0,
+        "costUSD": 0.3988744,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 5224,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 44,
+        "cache_creation_input_tokens": 36480,
+        "cache_read_input_tokens": 720074,
+        "output_tokens": 94
+      }
+    },
+    "parent_tool_result_characters": 35418,
+    "reader_tool_result_characters": 0,
+    "scout_dispatches": 0,
+    "gate_denials": 1,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "971d857dd4ffab9f216fd5aedad5e8159f62cf7e84a6fad8235ae213111c6eb8",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-elm/source/registry -type f | head -200",
+          "description": "List registry source files"
+        }
+      },
+      {
+        "event": 9,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-elm/source/registry/*.py /tmp/task-records-elm/source/registry/providers/*.py",
+          "description": "Count lines in registry files"
+        }
+      },
+      {
+        "event": 17,
+        "tool": "Grep",
+        "input": {
+          "pattern": "metadata|block|parent|dependenc",
+          "path": "/tmp/task-records-elm/source/registry",
+          "output_mode": "files_with_matches"
+        }
+      },
+      {
+        "event": 20,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-elm/source/registry/model.py"
+        }
+      },
+      {
+        "event": 26,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-elm/source/registry/model.py",
+          "offset": 1,
+          "limit": 350
+        }
+      },
+      {
+        "event": 47,
+        "tool": "Grep",
+        "input": {
+          "pattern": "parse_metadata_block|_metadata_bounds|METADATA_BEGIN|METADATA_END",
+          "path": "/tmp/task-records-elm/source",
+          "output_mode": "content",
+          "-n": true
+        }
+      },
+      {
+        "event": 52,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"metadata\\|model\\.\" /tmp/task-records-elm/source/registry/providers/github.py | head -50",
+          "description": "Check github provider's metadata usage"
+        }
+      },
+      {
+        "event": 60,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-elm/source/registry/model.py",
+          "offset": 350,
+          "limit": 54
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 46,
+        "cache_creation_input_tokens": 36480,
+        "cache_read_input_tokens": 725162,
+        "output_tokens": 10783,
+        "accumulated_tokens_including_cache": 772471,
+        "list_price_equivalent_usd": 0.3988744
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "R3": {
+    "scenario": "natural-routing",
+    "arm": "direct",
+    "actual_models": [
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 161.822,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.4258132,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 36,
+        "outputTokens": 13663,
+        "cacheReadInputTokens": 592836,
+        "cacheCreationInputTokens": 42636,
+        "webSearchRequests": 0,
+        "costUSD": 0.4258132,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 8851,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 42636,
+        "cache_read_input_tokens": 587748,
+        "output_tokens": 107
+      }
+    },
+    "parent_tool_result_characters": 47685,
+    "reader_tool_result_characters": 0,
+    "scout_dispatches": 0,
+    "gate_denials": 0,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "405332ca52c864348438803b3d0bcfa8b142ff3f12f6a6de5b0946bc9832d7e4",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-oak/source/registry -type f | head -200"
+        }
+      },
+      {
+        "event": 8,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-oak/source/registry/*.py /tmp/task-records-oak/source/registry/providers/*.py"
+        }
+      },
+      {
+        "event": 11,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-oak/source/registry/model.py"
+        }
+      },
+      {
+        "event": 35,
+        "tool": "Grep",
+        "input": {
+          "pattern": "parse_metadata_block|_metadata_bounds|upsert_metadata_block|task_from_metadata",
+          "path": "/tmp/task-records-oak/source",
+          "output_mode": "files_with_matches"
+        }
+      },
+      {
+        "event": 38,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"parse_metadata_block\\|_metadata_bounds\\|upsert_metadata_block\\|task_from_metadata\" /tmp/task-records-oak/source/registry/providers/github.py /tmp/task-records-oak/source/registry/providers/local.py"
+        }
+      },
+      {
+        "event": 44,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-oak/source/registry/providers/local.py"
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 36,
+        "cache_creation_input_tokens": 42636,
+        "cache_read_input_tokens": 592836,
+        "output_tokens": 13663,
+        "accumulated_tokens_including_cache": 649171,
+        "list_price_equivalent_usd": 0.4258132
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "R4": {
+    "scenario": "natural-routing",
+    "arm": "direct",
+    "actual_models": [
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 86.377,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.27058560000000004,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 34,
+        "outputTokens": 6654,
+        "cacheReadInputTokens": 459908,
+        "cacheCreationInputTokens": 27999,
+        "webSearchRequests": 0,
+        "costUSD": 0.27058560000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 2242,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 32,
+        "cache_creation_input_tokens": 27999,
+        "cache_read_input_tokens": 454820,
+        "output_tokens": 99
+      }
+    },
+    "parent_tool_result_characters": 27107,
+    "reader_tool_result_characters": 0,
+    "scout_dispatches": 0,
+    "gate_denials": 0,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "84456f3c0144f00172017634a3a76c3fbd4f88742f0ea4150cf41732e17c25d4",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-ash/source/registry -type f | head -200",
+          "description": "List registry files"
+        }
+      },
+      {
+        "event": 7,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-ash/source/registry/*.py /tmp/task-records-ash/source/registry/providers/*.py",
+          "description": "Line counts of registry files"
+        }
+      },
+      {
+        "event": 11,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-ash/source/registry/model.py"
+        }
+      },
+      {
+        "event": 24,
+        "tool": "Grep",
+        "input": {
+          "pattern": "parse_metadata_block|_metadata_bounds|upsert_metadata_block",
+          "output_mode": "content",
+          "-n": true
+        }
+      },
+      {
+        "event": 28,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-ash/source/registry/providers/local.py",
+          "offset": 130,
+          "limit": 110
+        }
+      },
+      {
+        "event": 32,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-ash/source -iname \"*test*\" -type f | grep -v node_modules",
+          "description": "Find test files"
+        }
+      },
+      {
+        "event": 35,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-ash/source -maxdepth 2 -type d; echo ---; find /tmp/task-records-ash/source -maxdepth 1 -type f",
+          "description": "Show repo structure"
+        }
+      },
+      {
+        "event": 39,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-ash/source/README.md"
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 34,
+        "cache_creation_input_tokens": 27999,
+        "cache_read_input_tokens": 459908,
+        "output_tokens": 6654,
+        "accumulated_tokens_including_cache": 494595,
+        "list_price_equivalent_usd": 0.27058560000000004
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "R5": {
+    "scenario": "natural-routing",
+    "arm": "revised",
+    "actual_models": [
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 107.327,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.3722318,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 48,
+        "outputTokens": 9157,
+        "cacheReadInputTokens": 723249,
+        "cacheCreationInputTokens": 33979,
+        "webSearchRequests": 0,
+        "costUSD": 0.3722318,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 3183,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 46,
+        "cache_creation_input_tokens": 33979,
+        "cache_read_input_tokens": 718161,
+        "output_tokens": 125
+      }
+    },
+    "parent_tool_result_characters": 32770,
+    "reader_tool_result_characters": 0,
+    "scout_dispatches": 0,
+    "gate_denials": 0,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "08de1a028a71b32c897882d0327135ec6f1e7ee22e0fff97223317e3446b57b0",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-willow/source/registry -type f | head -100",
+          "description": "List registry source files"
+        }
+      },
+      {
+        "event": 9,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-willow/source/registry/*.py /tmp/task-records-willow/source/registry/providers/*.py",
+          "description": "Count lines in registry files"
+        }
+      },
+      {
+        "event": 14,
+        "tool": "Grep",
+        "input": {
+          "pattern": "metadata|block|parse",
+          "path": "/tmp/task-records-willow/source/registry/model.py",
+          "output_mode": "content",
+          "-n": true
+        }
+      },
+      {
+        "event": 18,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-willow/source/registry/model.py",
+          "offset": 1,
+          "limit": 340
+        }
+      },
+      {
+        "event": 31,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-willow/source/registry/model.py",
+          "offset": 340,
+          "limit": 64
+        }
+      },
+      {
+        "event": 37,
+        "tool": "Grep",
+        "input": {
+          "pattern": "parse_metadata_block|task_from_metadata|_metadata_bounds",
+          "path": "/tmp/task-records-willow/source/registry",
+          "output_mode": "content",
+          "-n": true
+        }
+      },
+      {
+        "event": 42,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-willow/source -iname \"*test*\" -type d; find /tmp/task-records-willow/source -iname \"*test*\" -type f | head -50",
+          "description": "Find test directories/files"
+        }
+      },
+      {
+        "event": 47,
+        "tool": "Bash",
+        "input": {
+          "command": "ls -la /tmp/task-records-willow/source/",
+          "description": "List root directory"
+        }
+      },
+      {
+        "event": 52,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-willow/source/README.md"
+        }
+      },
+      {
+        "event": 57,
+        "tool": "Bash",
+        "input": {
+          "command": "cat /tmp/task-records-willow/source/.gitignore",
+          "description": "Show gitignore"
+        }
+      },
+      {
+        "event": 63,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-willow/source/registry/providers/local.py",
+          "offset": 140,
+          "limit": 100
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 48,
+        "cache_creation_input_tokens": 33979,
+        "cache_read_input_tokens": 723249,
+        "output_tokens": 9157,
+        "accumulated_tokens_including_cache": 766433,
+        "list_price_equivalent_usd": 0.3722318
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "R6": {
+    "scenario": "natural-routing",
+    "arm": "prior",
+    "actual_models": [
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 199.012,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.6140164,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 56,
+        "outputTokens": 14717,
+        "cacheReadInputTokens": 1235692,
+        "cacheCreationInputTokens": 54899,
+        "webSearchRequests": 0,
+        "costUSD": 0.6140164,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 8576,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 54,
+        "cache_creation_input_tokens": 54899,
+        "cache_read_input_tokens": 1230604,
+        "output_tokens": 249
+      }
+    },
+    "parent_tool_result_characters": 76812,
+    "reader_tool_result_characters": 0,
+    "scout_dispatches": 0,
+    "gate_denials": 1,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "0ee9089e1e8fa2caf375e8dee2fa89647df8d17e88188103fe08751eff8dd3f5",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-beech/source/registry -type f | head -200",
+          "description": "List registry files"
+        }
+      },
+      {
+        "event": 9,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-beech/source/registry/*.py /tmp/task-records-beech/source/registry/providers/*.py",
+          "description": "Count lines in registry files"
+        }
+      },
+      {
+        "event": 17,
+        "tool": "Grep",
+        "input": {
+          "pattern": "metadata|parent|dependenc",
+          "path": "/tmp/task-records-beech/source/registry",
+          "output_mode": "files_with_matches"
+        }
+      },
+      {
+        "event": 22,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-beech/source/registry/detail.py"
+        }
+      },
+      {
+        "event": 26,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-beech/source/registry/providers/base.py"
+        }
+      },
+      {
+        "event": 30,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-beech/source/registry/upsert.py"
+        }
+      },
+      {
+        "event": 38,
+        "tool": "Grep",
+        "input": {
+          "pattern": "metadata block|metadata_block|parse_metadata|MetadataBlock",
+          "path": "/tmp/task-records-beech/source/registry",
+          "output_mode": "content",
+          "-n": true
+        }
+      },
+      {
+        "event": 42,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-beech/source/registry/model.py"
+        }
+      },
+      {
+        "event": 50,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-beech/source/registry/model.py",
+          "offset": 180,
+          "limit": 224
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 56,
+        "cache_creation_input_tokens": 54899,
+        "cache_read_input_tokens": 1235692,
+        "output_tokens": 14717,
+        "accumulated_tokens_including_cache": 1305364,
+        "list_price_equivalent_usd": 0.6140164
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "H1": {
+    "scenario": "requested-handoff",
+    "arm": "prior",
+    "actual_models": [
+      "claude-haiku-4-5-20251001",
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 272.296,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.8049907500000001,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 9566,
+        "outputTokens": 11601,
+        "cacheReadInputTokens": 1413725,
+        "cacheCreationInputTokens": 72604,
+        "webSearchRequests": 0,
+        "costUSD": 0.7006079999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 2305,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 186,
+        "outputTokens": 8562,
+        "cacheReadInputTokens": 403030,
+        "cacheCreationInputTokens": 16867,
+        "webSearchRequests": 0,
+        "costUSD": 0.10438275,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 1504,
+        "canonicalModel": "claude-haiku-4-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 50,
+        "cache_creation_input_tokens": 67474,
+        "cache_read_input_tokens": 1368362,
+        "output_tokens": 160
+      },
+      "reader": {
+        "input_tokens": 186,
+        "cache_creation_input_tokens": 16867,
+        "cache_read_input_tokens": 403030,
+        "output_tokens": 41
+      }
+    },
+    "parent_tool_result_characters": 93083,
+    "reader_tool_result_characters": 28441,
+    "scout_dispatches": 1,
+    "gate_denials": 1,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "4e22b3915c338dcf9ae6604d8e6c182f2f061d33a5eb97f5ae5570bc5a50896a",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-spruce/source/registry -type f | head -200",
+          "description": "List files in registry directory"
+        }
+      },
+      {
+        "event": 9,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-spruce/source/registry/*.py /tmp/task-records-spruce/source/registry/providers/*.py",
+          "description": "Count lines in registry files"
+        }
+      },
+      {
+        "event": 17,
+        "tool": "Grep",
+        "input": {
+          "pattern": "metadata|parent|depends_on|dependency",
+          "path": "/tmp/task-records-spruce/source/registry/detail.py",
+          "output_mode": "content",
+          "-n": true
+        }
+      },
+      {
+        "event": 21,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/detail.py"
+        }
+      },
+      {
+        "event": 25,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/upsert.py"
+        }
+      },
+      {
+        "event": 29,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/routines.py"
+        }
+      },
+      {
+        "event": 33,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/providers/base.py"
+        }
+      },
+      {
+        "event": 37,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/providers/__init__.py"
+        }
+      },
+      {
+        "event": 41,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/providers/local.py"
+        }
+      },
+      {
+        "event": 45,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/__init__.py"
+        }
+      },
+      {
+        "event": 49,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/redaction.py"
+        }
+      },
+      {
+        "event": 58,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"METADATA_BEGIN\\|METADATA_END\\|parse_metadata_block\\|render_metadata_block\" /tmp/task-records-spruce/source/registry/*.py /tmp/task-records-spruce/source/registry/providers/*.py",
+          "description": "Find metadata block usage across codebase"
+        }
+      },
+      {
+        "event": 66,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"metadata\\|_metadata\\|upsert_metadata\\|find_metadata\\|from \\.\\.model\\|from \\.model\" /tmp/task-records-spruce/source/registry/providers/github.py",
+          "description": "Search github.py for metadata usage"
+        }
+      },
+      {
+        "event": 72,
+        "tool": "Bash",
+        "input": {
+          "command": "python3 -c \"\nimport subprocess\n\" ; echo done",
+          "description": "noop"
+        }
+      },
+      {
+        "event": 84,
+        "tool": "Agent",
+        "input": {
+          "description": "Map metadata block parsing flow",
+          "prompt": "In the repo /tmp/task-records-spruce/source, read registry/model.py (404 lines) in full, and registry/providers/github.py (536 lines) sections relevant to metadata handling.\n\nI need a precise map of the metadata-block parsing/writing flow, because there's a bug: when task text (e.g. a GitHub issue body, or a task description quoted in some doc) contains an *unfinished* example metadata block (one with METADATA_BEGIN `<!-- task-registry:begin -->` but no matching METADATA_END `<!-- task-registry:end -->`, or a trailing unfinished block after a real complete one) BEFORE or AFTER the real complete block, the parser can pick up fields from the wrong (incomplete/example) block instead of the real, complete one. This can invent a bogus parent or dependency, and can interfere with task identity (task-id field).\n\nPlease answer with structured bullets, quoting file:line anchors, covering:\n\n1. The exact definitions of `METADATA_BEGIN` and `METADATA_END` in model.py, and the full source of `parse_metadata_block(body)` \u2014 quote it verbatim with line numbers. Explain exactly how it locates the block currently (does it use the FIRST occurrence of METADATA_BEGIN and the first following METADATA_END? What happens if there are multiple `<!-- task-registry:begin -->` markers, or a begin with no matching end?).\n\n2. The full source of `render_metadata_block(task)` (the writer) \u2014 quote it verbatim with line numbers. What fields does it emit and in what format (task-id, kind, parent, depends-on, spec, source, evidence, etc.)? Does it always emit a complete begin...end pair?\n\n3. The full source of whatever function locates the block's *position* for rewriting purposes (looks like there's a helper around model.py:306-314 that finds start/end positions, possibly called `_find_metadata_block` or similar) \u2014 quote it verbatim. Does IT correctly skip incomplete/nested begin markers, or does it have the same bug as parse_metadata_block, or does it behave differently (which would itself indicate a reader/writer disagreement)?\n\n4. The full source of `upsert_metadata_block(body, task)` and `task_from_metadata(...)` (used by github.py) \u2014 quote verbatim with line numbers. How does upsert_metadata_block use the position-finding helper vs parse_metadata_block? Do reader and writer agree on which block is \"the\" block when there are multiple candidate begin/end marker pairs in body text (e.g. one incomplete, one complete)?\n\n5. Every call site of `parse_metadata_block`, `render_metadata_block`, `upsert_metadata_block`, `task_from_metadata`, `METADATA_BEGIN`, `METADATA_END` across the whole registry/ directory (both in model.py itself and in providers/local.py, providers/github.py, and anywhere else) \u2014 file:line for each, with 1-line description of how each call site uses the result (e.g. \"local.py:156 parses metadata read from disk to build a Task\").\n\n6. In github.py, quote the surrounding context (roughly 20 lines before/after) of the `task_from_metadata` call at github.py:256 and the `upsert_metadata_block` call at github.py:338, so I can see exactly what body text is passed in (issue body from GitHub API, human-editable) and how the resulting Task fields (especially `id`, `parent`, `depends_on`) are used afterward.\n\n7. Any existing tests for parse_metadata_block / render_metadata_block / upsert_metadata_block / task_from_metadata \u2014 search the whole repo for a tests/ directory or test_*.py files, list every test function name that touches metadata parsing, and quote any test that constructs a body string with more than one `<!-- task-registry:begin -->`/`<!-- task-registry:end -->` occurrence (multiple blocks, or an unfinished block).\n\nDo not propose any fix or edit. Do not reason about correctness or architecture \u2014 just report facts with file:line anchors so I can implement the fix myself.",
+          "subagent_type": "bulk-reader",
+          "run_in_background": false
+        }
+      },
+      {
+        "event": 259,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-spruce/source/registry/model.py",
+          "offset": 220,
+          "limit": 100
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 9566,
+        "cache_creation_input_tokens": 72604,
+        "cache_read_input_tokens": 1413725,
+        "output_tokens": 11601,
+        "accumulated_tokens_including_cache": 1507496,
+        "list_price_equivalent_usd": 0.7006079999999998
+      },
+      "reader": {
+        "actual_model": "claude-haiku-4-5-20251001",
+        "input_tokens": 186,
+        "cache_creation_input_tokens": 16867,
+        "cache_read_input_tokens": 403030,
+        "output_tokens": 8562,
+        "accumulated_tokens_including_cache": 428645,
+        "list_price_equivalent_usd": 0.10438275
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "H2": {
+    "scenario": "requested-handoff",
+    "arm": "revised",
+    "actual_models": [
+      "claude-haiku-4-5-20251001",
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 347.084,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.8566782000000001,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 9606,
+        "outputTokens": 15581,
+        "cacheReadInputTokens": 1415474,
+        "cacheCreationInputTokens": 66049,
+        "webSearchRequests": 0,
+        "costUSD": 0.7146178000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 6101,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 226,
+        "outputTokens": 13295,
+        "cacheReadInputTokens": 519169,
+        "cacheCreationInputTokens": 18754,
+        "webSearchRequests": 0,
+        "costUSD": 0.14206040000000003,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 1617,
+        "canonicalModel": "claude-haiku-4-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 60,
+        "cache_creation_input_tokens": 60919,
+        "cache_read_input_tokens": 1386457,
+        "output_tokens": 243
+      },
+      "reader": {
+        "input_tokens": 226,
+        "cache_creation_input_tokens": 18754,
+        "cache_read_input_tokens": 519169,
+        "output_tokens": 56
+      }
+    },
+    "parent_tool_result_characters": 67061,
+    "reader_tool_result_characters": 36814,
+    "scout_dispatches": 1,
+    "gate_denials": 0,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "f309fbbc5a01e9c0d01816c08041e93e8fa263e4630933f0eede8d7b590fbe7a",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-pine/source/registry -type f | head -100",
+          "description": "List files in registry directory"
+        }
+      },
+      {
+        "event": 9,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-pine/source/registry/*.py /tmp/task-records-pine/source/registry/providers/*.py",
+          "description": "Count lines in registry python files"
+        }
+      },
+      {
+        "event": 15,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -rln \"metadata\" /tmp/task-records-pine/source/registry --include=*.py",
+          "description": "Find files mentioning metadata"
+        }
+      },
+      {
+        "event": 24,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"metadata\\|block\\|parse\" /tmp/task-records-pine/source/registry/providers/base.py | head -50",
+          "description": "Search base.py for metadata parsing references"
+        }
+      },
+      {
+        "event": 30,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-pine/source/registry/providers/base.py"
+        }
+      },
+      {
+        "event": 34,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"^def \\|^class \\|^    def \" /tmp/task-records-pine/source/registry/model.py",
+          "description": "List top-level defs/classes in model.py"
+        }
+      },
+      {
+        "event": 39,
+        "tool": "Bash",
+        "input": {
+          "command": "cat /tmp/task-records-pine/source/.claude/agents/bulk-reader.md 2>/dev/null | head -50",
+          "description": "Check bulk-reader agent config"
+        }
+      },
+      {
+        "event": 44,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"metadata\\|parse_metadata_block\\|task_from_metadata\\|render_metadata_block\\|upsert_metadata_block\\|_metadata_bounds\" /tmp/task-records-pine/source/registry/providers/github.py /tmp/task-records-pine/source/registry/providers/local.py /tmp/task-records-pine/source/registry/detail.py /tmp/task-records-pine/source/registry/upsert.py /tmp/task-records-pine/source/registry/index.py /tmp/task-records-pine/source/registry/config.py /tmp/task-records-pine/source/registry/routines.py",
+          "description": "Grep for metadata usage across registry files"
+        }
+      },
+      {
+        "event": 50,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-pine/source -iname \"*test*\" -path \"*registry*\"",
+          "description": "Find registry test files"
+        }
+      },
+      {
+        "event": 55,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-pine/source -iname \"*test*\" ",
+          "description": "Find test files anywhere in repo"
+        }
+      },
+      {
+        "event": 60,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-pine/source -maxdepth 2 -not -path \"*/.git*\"",
+          "description": "List top-level repo structure"
+        }
+      },
+      {
+        "event": 65,
+        "tool": "Bash",
+        "input": {
+          "command": "true",
+          "description": "noop"
+        }
+      },
+      {
+        "event": 75,
+        "tool": "Agent",
+        "input": {
+          "description": "Map metadata parsing flow",
+          "subagent_type": "bulk-reader",
+          "run_in_background": false,
+          "prompt": "In /tmp/task-records-pine/source/registry/model.py, map the full metadata-block parsing and writing flow. Specifically read and report on these functions (find their exact line ranges via grep first, they start around these lines):\n- render_metadata_block (~228)\n- parse_metadata_block (~251)\n- upsert_metadata_block (~275)\n- _metadata_bounds (~298)\n- task_from_metadata (~350)\n- safe_task (~318)\n- Task and ExternalRef dataclasses (~153-227), especially __post_init__ and any identity/parent/dependency fields\n\nFor each function, give the full verbatim source (with file:line anchors) and answer:\n1. How does `_metadata_bounds` locate the metadata block within a body of text? Does it find the first block, the last block, or every block matching some pattern? What defines a \"complete\" vs \"incomplete\"/unfinished block (e.g. does it require a closing fence/marker, or just an opening one)?\n2. How does `parse_metadata_block` use `_metadata_bounds`? If there are multiple metadata-like blocks in the text (e.g., one embedded in a quoted example earlier in the text, and one real one later, or vice versa), which one wins, and why (walk through the regex/logic)?\n3. How does `upsert_metadata_block` (the writer) decide which block in the text is \"the\" authoritative block to replace/update? Does it use the same bounds-finding logic as the reader (`_metadata_bounds`) or different logic? Quote both and note any divergence.\n4. What fields does `task_from_metadata` extract (parent, depends-on/dependency, id, status, external references, etc.), and how are comma-containing values and multi-value fields (e.g. repeated evidence/reproduction/proposed-fix entries) handled \u2014 are they parsed as lists, and how are commas within a single value distinguished from list separators?\n5. Does anything in this file define what counts as an \"unfinished\" or incomplete metadata block (e.g. missing a required field, missing a closing delimiter) versus a complete one?\n\nThen, in /tmp/task-records-pine/source/registry/providers/github.py, find and quote (with anchors) the two call sites: task_from_metadata usage (around line 256) and upsert_metadata_block usage (around line 338), including ~15 lines of surrounding context for each, especially what text/body is passed in (issue body, comments, etc.) and whether that text could plausibly contain a quoted/unfinished example block before the real one (e.g., is it built from an issue template, or from concatenating a task description that itself might contain example metadata text).\n\nAlso in /tmp/task-records-pine/source/registry/providers/local.py, quote (with anchors) the two call sites around lines 132, 156, 232, and the _is_generated_head_line / _rewrite-ish logic around lines 214-290, with ~10 lines of context each, and describe how metadata block text is embedded within a larger markdown file with other human-written prose (evidence/reproduction/proposed-fix sections, headings) \u2014 specifically whether local task files can contain more than one thing that looks like a metadata block (e.g. a trailing example or template block after the real one).\n\nReport exhaustively with anchors; do not omit any of the five metadata functions' full bodies."
+        }
+      },
+      {
+        "event": 290,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-pine/source/registry/model.py",
+          "offset": 228,
+          "limit": 90
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 9606,
+        "cache_creation_input_tokens": 66049,
+        "cache_read_input_tokens": 1415474,
+        "output_tokens": 15581,
+        "accumulated_tokens_including_cache": 1506710,
+        "list_price_equivalent_usd": 0.7146178000000001
+      },
+      "reader": {
+        "actual_model": "claude-haiku-4-5-20251001",
+        "input_tokens": 226,
+        "cache_creation_input_tokens": 18754,
+        "cache_read_input_tokens": 519169,
+        "output_tokens": 13295,
+        "accumulated_tokens_including_cache": 551444,
+        "list_price_equivalent_usd": 0.14206040000000003
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "H3": {
+    "scenario": "requested-handoff",
+    "arm": "revised",
+    "actual_models": [
+      "claude-haiku-4-5-20251001",
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 409.752,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 1.3000218500000007,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 9616,
+        "outputTokens": 23093,
+        "cacheReadInputTokens": 2678008,
+        "cacheCreationInputTokens": 89554,
+        "webSearchRequests": 0,
+        "costUSD": 1.1362846000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 9452,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 306,
+        "outputTokens": 11288,
+        "cacheReadInputTokens": 757875,
+        "cacheCreationInputTokens": 24963,
+        "webSearchRequests": 0,
+        "costUSD": 0.16373725,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 3966,
+        "canonicalModel": "claude-haiku-4-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 80,
+        "cache_creation_input_tokens": 84424,
+        "cache_read_input_tokens": 2633003,
+        "output_tokens": 282
+      },
+      "reader": {
+        "input_tokens": 306,
+        "cache_creation_input_tokens": 24963,
+        "cache_read_input_tokens": 757875,
+        "output_tokens": 62
+      }
+    },
+    "parent_tool_result_characters": 105530,
+    "reader_tool_result_characters": 40126,
+    "scout_dispatches": 1,
+    "gate_denials": 0,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "51de087ac91478505fefdb34f3d3427ef3897228864d042f8107efb5d9f0e073",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-fir/source -type f -not -path \"*/.git/*\" | sort",
+          "description": "List all files in repo excluding .git"
+        }
+      },
+      {
+        "event": 10,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-fir/source/registry/*.py /tmp/task-records-fir/source/registry/providers/*.py",
+          "description": "Count lines in registry python files"
+        }
+      },
+      {
+        "event": 15,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l README.md registry/model.py",
+          "description": "Check README and model.py line counts"
+        }
+      },
+      {
+        "event": 20,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/README.md"
+        }
+      },
+      {
+        "event": 25,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l registry/__init__.py registry/redaction.py registry/routines.py registry/detail.py registry/upsert.py registry/providers/__init__.py registry/providers/base.py registry/providers/local.py",
+          "description": "Line counts for smaller files under threshold"
+        }
+      },
+      {
+        "event": 31,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/__init__.py"
+        }
+      },
+      {
+        "event": 35,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/redaction.py"
+        }
+      },
+      {
+        "event": 39,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/routines.py"
+        }
+      },
+      {
+        "event": 43,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/detail.py"
+        }
+      },
+      {
+        "event": 45,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/upsert.py"
+        }
+      },
+      {
+        "event": 51,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/providers/__init__.py"
+        }
+      },
+      {
+        "event": 55,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/providers/base.py"
+        }
+      },
+      {
+        "event": 57,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/providers/local.py"
+        }
+      },
+      {
+        "event": 63,
+        "tool": "Bash",
+        "input": {
+          "command": "true",
+          "description": "noop placeholder"
+        }
+      },
+      {
+        "event": 71,
+        "tool": "Bash",
+        "input": {
+          "command": "true",
+          "description": "noop"
+        }
+      },
+      {
+        "event": 76,
+        "tool": "Bash",
+        "input": {
+          "command": "true",
+          "description": "noop"
+        }
+      },
+      {
+        "event": 87,
+        "tool": "Agent",
+        "input": {
+          "description": "Map metadata block parsing flow",
+          "subagent_type": "bulk-reader",
+          "run_in_background": false,
+          "prompt": "Repo: /tmp/task-records-fir/source (a provider-neutral task registry, Python stdlib only).\n\nI'm investigating a bug in the shared metadata-block reader used to parse task records embedded in Markdown (in HTML-comment-delimited blocks, likely something like `<!-- task-registry:begin -->` ... `<!-- task-registry:end -->`, using constants METADATA_BEGIN/METADATA_END defined in registry/model.py). The bug: task descriptions/issue bodies can quote an *earlier, unfinished* example metadata block (e.g. in a bug report showing \"here's what an incomplete block looks like\") BEFORE the actual, complete, real metadata block later in the same text. The parser (and/or the writer) may pick fields from the wrong (quoted/incomplete) block instead of the real complete one, which can invent a bogus `parent` or `depends-on` field, or otherwise corrupt task identity. There's also a case of a trailing *unfinished* example block appearing *after* the real block, which must not interfere either.\n\nPlease read (in bounded chunks, respecting the 350-line read gate) and report on:\n\n1. registry/model.py: the exact definitions of `METADATA_BEGIN`, `METADATA_END`, `parse_metadata_block`, `render_metadata_block`, `section`, and any related helpers (e.g. how it finds the block boundaries \u2014 regex vs string search, first-match vs last-match, whether it validates the block is \"complete\", how depends-on/parent/evidence lists are parsed, whether commas inside prose values are handled). Give exact file:line ranges and the literal logic (loop/regex) used to locate the block.\n2. registry/providers/local.py: how `parse_metadata_block` and `render_metadata_block` are called (I already know this file: `_read`, `_render`, `_merged_with_existing`, `_unmanaged_regions` around lines 128-280). Note anything relevant about multiple blocks in one file (in `_unmanaged_regions`, note the `in_metadata` state machine at lines ~266-280 - does it handle multiple METADATA_BEGIN/END pairs, or nested/repeated markers, correctly?).\n3. registry/providers/github.py: search for any usage of `parse_metadata_block`, `render_metadata_block`, `METADATA_BEGIN`, `METADATA_END`, or manual metadata-block extraction from GitHub issue/PR body text. GitHub issue bodies are untrusted user text that could contain quoted examples of the block syntax. Report exact file:line and logic for how it finds \"the\" block in an issue body (first occurrence? last occurrence? only complete blocks?).\n4. registry/index.py and registry/config.py: search (grep first) for `parse_metadata_block`, `render_metadata_block`, `METADATA_BEGIN`, `METADATA_END` \u2014 report any hits with file:line and surrounding logic. If no hits, just say so.\n5. Any existing tests (search the whole repo for test files, e.g. `test_*.py` or `*_test.py` or a `tests/` directory) that cover `parse_metadata_block` \u2014 report file:line of relevant test functions and what scenarios they currently cover (especially multiple blocks, incomplete blocks, quoted examples).\n\nFor each function/consumer, tell me:\n- Exact source anchors (file:line)\n- What \"complete block\" vs \"incomplete block\" means in the current code (is there any validation at all, or does it just find first BEGIN...END pair naively?)\n- Whether the writer (render_metadata_block / _render in local.py) and reader (parse_metadata_block) agree on which block is authoritative when multiple candidate blocks exist in one text\n- Any unresolved questions/ambiguities you could not settle by reading\n\nThis is a research/mapping task only \u2014 do not propose a fix or edit any files. Just give me the structured map with source anchors."
+        }
+      },
+      {
+        "event": 316,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/model.py",
+          "offset": 1,
+          "limit": 100
+        }
+      },
+      {
+        "event": 321,
+        "tool": "Read",
+        "input": {
+          "file_path": "/tmp/task-records-fir/source/registry/model.py",
+          "offset": 200,
+          "limit": 130
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 9616,
+        "cache_creation_input_tokens": 89554,
+        "cache_read_input_tokens": 2678008,
+        "output_tokens": 23093,
+        "accumulated_tokens_including_cache": 2800271,
+        "list_price_equivalent_usd": 1.1362846000000002
+      },
+      "reader": {
+        "actual_model": "claude-haiku-4-5-20251001",
+        "input_tokens": 306,
+        "cache_creation_input_tokens": 24963,
+        "cache_read_input_tokens": 757875,
+        "output_tokens": 11288,
+        "accumulated_tokens_including_cache": 794432,
+        "list_price_equivalent_usd": 0.16373725
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  },
+  "H4": {
+    "scenario": "requested-handoff",
+    "arm": "prior",
+    "actual_models": [
+      "claude-sonnet-5"
+    ],
+    "execution": {
+      "exit_code": 0,
+      "seconds": 133.539,
+      "command": [
+        "claude",
+        "-p",
+        "--model",
+        "sonnet",
+        "--effort",
+        "medium",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--forward-subagent-text",
+        "--include-hook-events",
+        "--setting-sources",
+        "project",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        "Read",
+        "Edit",
+        "Write",
+        "Bash",
+        "Glob",
+        "Grep",
+        "Agent",
+        "--max-budget-usd",
+        "4"
+      ]
+    },
+    "result_subtype": "success",
+    "total_cost_usd": 0.3205728,
+    "billing_model_usage": {
+      "claude-sonnet-5": {
+        "inputTokens": 44,
+        "outputTokens": 7908,
+        "cacheReadInputTokens": 577819,
+        "cacheCreationInputTokens": 33384,
+        "webSearchRequests": 0,
+        "costUSD": 0.3205728,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 2949,
+        "canonicalModel": "claude-sonnet-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "partial_stream_usage_by_actor_not_complete": {
+      "implementer": {
+        "input_tokens": 42,
+        "cache_creation_input_tokens": 28254,
+        "cache_read_input_tokens": 577819,
+        "output_tokens": 96
+      }
+    },
+    "parent_tool_result_characters": 22823,
+    "reader_tool_result_characters": 0,
+    "scout_dispatches": 0,
+    "gate_denials": 0,
+    "behavior_passed": 14,
+    "behavior_total": 14,
+    "raw_transcript_sha256": "85b9fc2e4f0635e4eb69f981c4d9aba1347fd5e3f71899d7f749de24497fb4ce",
+    "before_first_edit": [
+      {
+        "event": 4,
+        "tool": "Bash",
+        "input": {
+          "command": "find /tmp/task-records-cypress/source -type f -not -path '*/.git/*' | sort"
+        }
+      },
+      {
+        "event": 10,
+        "tool": "Bash",
+        "input": {
+          "command": "wc -l /tmp/task-records-cypress/source/registry/*.py /tmp/task-records-cypress/source/registry/providers/*.py"
+        }
+      },
+      {
+        "event": 16,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"def \\|class \" /tmp/task-records-cypress/source/registry/model.py | head -80"
+        }
+      },
+      {
+        "event": 22,
+        "tool": "Bash",
+        "input": {
+          "command": "echo \"---model.py 220-330---\" && sed -n '220,330p' registry/model.py"
+        }
+      },
+      {
+        "event": 31,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"METADATA_BEGIN\\|METADATA_END\\|LINE_PER_ENTRY_KEYS\" /tmp/task-records-cypress/source/registry/model.py | head -20"
+        }
+      },
+      {
+        "event": 51,
+        "tool": "Grep",
+        "input": {
+          "pattern": "parse_metadata_block|_metadata_bounds|upsert_metadata_block|task_from_metadata",
+          "output_mode": "files_with_matches"
+        }
+      },
+      {
+        "event": 55,
+        "tool": "Bash",
+        "input": {
+          "command": "grep -n \"parse_metadata_block\\|task_from_metadata\\|_metadata_bounds\\|upsert_metadata_block\" /tmp/task-records-cypress/source/registry/providers/github.py /tmp/task-records-cypress/source/registry/providers/local.py"
+        }
+      },
+      {
+        "event": 64,
+        "tool": "Bash",
+        "input": {
+          "command": "sed -n '240,270p' /tmp/task-records-cypress/source/registry/providers/github.py; echo ---; sed -n '325,345p' /tmp/task-records-cypress/source/registry/providers/github.py"
+        }
+      },
+      {
+        "event": 70,
+        "tool": "Bash",
+        "input": {
+          "command": "sed -n '345,404p' /tmp/task-records-cypress/source/registry/model.py"
+        }
+      },
+      {
+        "event": 76,
+        "tool": "Bash",
+        "input": {
+          "command": "sed -n '140,170p' /tmp/task-records-cypress/source/registry/providers/local.py; echo ---; sed -n '220,240p' /tmp/task-records-cypress/source/registry/providers/local.py"
+        }
+      },
+      {
+        "event": 84,
+        "tool": "Bash",
+        "input": {
+          "command": "sed -n '75,100p' /tmp/task-records-cypress/source/registry/model.py"
+        }
+      }
+    ],
+    "authoritative_usage_by_role": {
+      "implementer": {
+        "actual_model": "claude-sonnet-5",
+        "input_tokens": 44,
+        "cache_creation_input_tokens": 33384,
+        "cache_read_input_tokens": 577819,
+        "output_tokens": 7908,
+        "accumulated_tokens_including_cache": 619155,
+        "list_price_equivalent_usd": 0.3205728
+      }
+    },
+    "accounting_note": "Roles allocated from authoritative modelUsage because observed implementer and reader model IDs are distinct. Model totals include harness overhead. Partial stream counters are not totals."
+  }
+}

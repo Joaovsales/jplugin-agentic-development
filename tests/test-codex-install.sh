@@ -63,6 +63,7 @@ assert_eq "present" "$([ -f "$CODEX_HOME/agents/personal-agent.toml" ] && echo p
   "install: unrelated personal agent is preserved"
 assert_eq "present" "$([ -f "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py" ] && echo present || echo missing)" \
   "install: SessionStart adapter is installed"
+assert_files_identical "$REPO/.claude/hooks/bulk-read-gate.py" "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py" "install: bulk-read gate is installed byte-identical to the Claude Code hook"
 assert_contains "$(cat "$BOX/install.log")" "Review installed hooks with /hooks" \
   "install: hook trust remains an explicit user action"
 
@@ -89,10 +90,30 @@ for path in agents:
     data = tomllib.loads(path.read_text())
     if path.stem != "personal-agent":
         assert {"name", "description", "developer_instructions"} <= data.keys(), path
+# Scout tier is the only tier Codex pins (specs/bulk-read-gate.md AC4). Every other
+# agent omits `model`, which on Codex inherits the parent session — Ceiling semantics.
+# The expected ID is read from PI_SETUP.md's tier table (Scout row, Codex column),
+# never repeated here: that table is the single source of concrete model IDs.
+tier_table = (repo / "PI_SETUP.md").read_text(encoding="utf-8").splitlines()
+scout_rows = [line for line in tier_table if line.startswith("| Scout ")]
+headers = [line for line in tier_table if line.startswith("| Tier ") and "| Codex |" in line]
+assert len(scout_rows) == 1 and len(headers) == 1, (scout_rows, headers)
+codex_column = [cell.strip() for cell in headers[0].split("|")].index("Codex")
+scout_model = scout_rows[0].split("|")[codex_column].strip().strip("`")
+assert scout_model and " " not in scout_model, scout_model
+scout_tier = {"bulk-reader", "context-document-optimizer"}
+for path in agents:
+    if path.stem == "personal-agent":
+        continue
+    data = tomllib.loads(path.read_text())
+    if path.stem in scout_tier:
+        assert data.get("model") == scout_model, (path.stem, data.get("model"), scout_model)
+    else:
+        assert "model" not in data, (path.stem, data.get("model"))
 hooks = json.loads((codex_home / "hooks.json").read_text())
 assert hooks["userSetting"] is True
 assert any("echo existing" in h.get("command", "") for g in hooks["hooks"]["SessionStart"] for h in g["hooks"])
-for event in ("SessionStart", "PreCompact", "SessionEnd"):
+for event in ("SessionStart", "PreCompact", "SessionEnd", "PreToolUse"):
     commands = [h["command"] for g in hooks["hooks"][event] for h in g["hooks"]]
     adapter_commands = [command for command in commands if "coding-agent-workflow" in command]
     assert len(adapter_commands) == 1, (event, commands)
@@ -150,6 +171,24 @@ if python3 "$RENDERER" --agents "$BAD" "$BOX/bad-output" > "$BOX/bad.log" 2>&1; 
 else
   assert_contains "$(cat "$BOX/bad.log")" "broken.md" \
     "renderer: malformed input identifies the source file"
+fi
+
+# Argument errors are loud: a binding without `=`, a --merge-hooks with nothing to
+# merge, and a Scout-tier agent rendered with no --scout-model all refuse.
+if python3 "$RENDERER" --merge-hooks "$BOX/neg-hooks.json" "no-equals" > "$BOX/neg1.log" 2>&1; then
+  assert_eq "failure" "success" "renderer: hook binding without = is rejected"
+else
+  assert_contains "$(cat "$BOX/neg1.log")" "no-equals" "renderer: bad binding error names the pair"
+fi
+if python3 "$RENDERER" --merge-hooks "$BOX/neg-hooks.json" > "$BOX/neg2.log" 2>&1; then
+  assert_eq "failure" "success" "renderer: --merge-hooks with no binding is rejected"
+else
+  assert_contains "$(cat "$BOX/neg2.log")" "EVENT=COMMAND" "renderer: empty --merge-hooks names the expected shape"
+fi
+if python3 "$RENDERER" --agents "$REPO/.agents/agents" "$BOX/no-scout" > "$BOX/neg3.log" 2>&1; then
+  assert_eq "failure" "success" "renderer: Scout-tier agent without --scout-model is rejected"
+else
+  assert_contains "$(cat "$BOX/neg3.log")" "bulk-reader" "renderer: missing Scout model names the agent"
 fi
 
 rm -rf "$BOX"

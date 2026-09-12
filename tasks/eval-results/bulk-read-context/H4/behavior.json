@@ -1,0 +1,58 @@
+[
+  {
+    "name": "stray fields excluded",
+    "passed": true
+  },
+  {
+    "name": "stray dependencies excluded",
+    "passed": true
+  },
+  {
+    "name": "real identity selected",
+    "passed": true
+  },
+  {
+    "name": "no complete block is empty",
+    "passed": true
+  },
+  {
+    "name": "end-only is empty",
+    "passed": true
+  },
+  {
+    "name": "latest complete selected",
+    "passed": true
+  },
+  {
+    "name": "repeated evidence preserved",
+    "passed": true
+  },
+  {
+    "name": "reproduction commas preserved",
+    "passed": true
+  },
+  {
+    "name": "proposed-fix commas preserved",
+    "passed": true
+  },
+  {
+    "name": "neutral consumer state preserved",
+    "passed": true
+  },
+  {
+    "name": "local consumer state preserved",
+    "passed": true
+  },
+  {
+    "name": "github consumer state preserved",
+    "passed": true
+  },
+  {
+    "name": "writer preserves surrounding text and read identity",
+    "passed": true
+  },
+  {
+    "name": "normal roundtrip",
+    "passed": true
+  }
+]

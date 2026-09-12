@@ -1,0 +1,28 @@
+diff --git a/registry/model.py b/registry/model.py
+index 3ab01b8..74dd726 100644
+--- a/registry/model.py
++++ b/registry/model.py
+@@ -249,11 +249,20 @@ def render_metadata_block(task: Task) -> str:
+ 
+ 
+ def parse_metadata_block(body: str) -> dict:
+-    """Read the identity block back. Returns {} when absent."""
++    """Read the identity block back. Returns {} when absent.
++
++    Uses the same `_metadata_bounds` the writer uses to locate the block, so a
++    stray or unfinished example quoted elsewhere in the body — before or after
++    the real block — cannot be mistaken for it. A body with no complete,
++    well-formed pair has no metadata as far as this function is concerned.
++    """
+     if not body or METADATA_BEGIN not in body:
+         return {}
+-    after = body.split(METADATA_BEGIN, 1)[1]
+-    inner = after.split(METADATA_END, 1)[0] if METADATA_END in after else after
++    bounds = _metadata_bounds(body)
++    if bounds is None:
++        return {}
++    start, end = bounds
++    inner = body[start + len(METADATA_BEGIN) : end - len(METADATA_END)]
+     fields: dict = {}
+     for line in inner.splitlines():
+         line = line.strip()

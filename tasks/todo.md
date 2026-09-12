@@ -758,3 +758,49 @@ reverse.
 - Pending: filing the three upsert-depends-on slices waits for the reviewer's "approved" on the rendered document (D2 open: refuse or report a dangling dependency id).
 - Carry-forward: /system-design-planning Step 8 keeps its TODO(shortcut) until specs/upsert-depends-on.md is built; 31 stale worktrees removed, the live bulk-read-gate worktree kept.
 
+## Plan: Bulk-Read Gate — mechanical scout-tier routing (haiku / luna / deepseek-flash)
+> Spec: specs/bulk-read-gate.md
+> Source: Spotify "Portal cut my Claude Code token usage by 90%" (2026-09). Enforcement, not prose: a pre-tool hook denies whole-file reads over 350 lines and points at a cheap bulk-reader.
+
+[x] TDD: tests/test-bulk-read-gate.sh RED — 400- and 100-line fixtures in a temp dir; JSON stdin matrix for Read whole/ranged-50/ranged-400/small/missing, Bash cat/cat|grep/sed 1,50p/sed 1,400p/head -n 400, PowerShell Get-Content with and without -TotalCount, BULK_READ_GATE=off, BULK_READ_MIN_LINES=500, malformed stdin -> assert exit codes, deny JSON shape, reason contains "bulk-reader" and the line count (AC1)
+[x] TDD: AC1 GREEN -> .claude/hooks/bulk-read-gate.py: stdin JSON, line count without loading content into the model, Read offset/limit rule, final-pipeline-stage shell patterns via shlex (posix=False on Windows), binary/dir/missing allow, permission error exit 1 stderr, env parsing with loud failure
+[x] TDD: settings test asserts PreToolUse matchers Read|Bash|PowerShell run the hook -> register project-level in .claude/settings.json; confirm Stop/PreCompact untouched (AC2)
+[x] TDD: tests/test-agents.sh + tests/test-model-tiers.sh RED for bulk-reader (PINNED_AGENTS += bulk-reader:haiku; section-3 loop names it) -> write .agents/agents/bulk-reader.md (question in, bullets out, file:line anchors on request, chunked reads under threshold, no edits, no architecture reasoning) and .claude/agents/bulk-reader.md with model: haiku (AC3)
+[x] TDD: tests/test-codex-install.sh RED — bulk-reader.toml and context-document-optimizer.toml contain model = "gpt-5.6-luna", planner.toml has no model key, hooks.json has exactly one PreToolUse entry after two installs -> render-codex.py SCOUT_TIER_AGENTS map + install-codex.sh copies hook and extends the events tuple (AC4)
+[x] TDD: static test for pi/extensions/bulk-read-gate.ts (exists, tool_call, block/reason, threshold const, env names, read range rule, shell patterns) and install.sh copy step -> write the extension, add install.sh step 6b, add bulk-reader to PI_SETUP.md agentOverrides on deepseek/deepseek-v4-flash thinking off; TODO(shortcut) naming the live Pi run (AC5)
+[x] TDD: tests/test-doc-conventions.sh RED — CLAUDE.md bulk-reader agent row, "Bulk-Read Handoff" subsection, no concrete provider ID; PI_SETUP.md Codex column; README Codex hook review line -> write the docs (AC6)
+[x] TDD: tests/test-skill-invocation-chain.sh or doc-conventions RED — plan/build/debug/sweep contain "Bulk-Read Handoff"; build delegation contract says bulk-reader answer, never a file over threshold -> edit the four canonical skills, copy byte-identical to .claude/skills/, test-skill-parity green (AC7)
+[x] Verification: live measurement — same question about one >350-line file in this repo via direct read and via bulk-reader on haiku; record parent-context tokens for each and delegated latency in tasks/e2e-log.md; confirm the gate fired live (note: hook changes need a session restart) (AC8)
+[x] Verification: bash tests/run.sh — 33/40 files green; the 7 red files fail with identical counts on a clean bf58555 checkout (pre-existing, modules untouched; table in tasks/e2e-log.md § AC9); /quality-gate applied F1,F4–F12, reported F2/F3 (AC9)
+
+## Session Summary — 2026-09-11 [422b43b..2fda97e]
+- Completed: 10 Bulk-Read Gate plan tasks (spec, hook + shim, settings, bulk-reader
+  persona, Codex renderer/installer, Pi mirror + install step, docs, four skills,
+  live measurement, suite verification) plus the wrap-up review's grammar fix
+  (every command list's final pipe stage; redirects; lines delivered).
+- Pending: none in this plan. Reported for a human: context-document-optimizer's
+  tier differs per harness; Scout-tier membership hard-coded in the renderer;
+  error-path semantics differ (exit 1 vs Pi block); no chunked-read measurement.
+- Carry-forward: merge PR, then restart sessions so the project-level PreToolUse
+  hook loads; the Pi mirror still awaits its live run (TODO(shortcut) in the test).
+- [ ] Investigate and fix the seven Windows test-suite failures recorded in PR #128 <!-- task-id: test-reliability.tests-run-sh.investigate-and-fix-the-seven-windows-test-suite-failures-recorded-in-pr-128 --> — Track the pre-existing Windows Git Bash / Microsoft Store Python failures documented in PR #128. Base bf58555 had the s… ([#129](https://github.com/Joaovsales/jplugin-agentic-development/issues/129))
+- [ ] Add Windows Git Bash and native Python CI alongside Linux <!-- task-id: test-reliability.github-workflows-tests-yml.add-windows-git-bash-and-native-python-ci-alongside-linux --> — Add repeatable Windows CI alongside existing Ubuntu coverage. Coordinate with the PR #128 seven-failure investigation.… ([#130](https://github.com/Joaovsales/jplugin-agentic-development/issues/130))
+- [ ] Isolate Doctor test from inherited TASK_REGISTRY_TRUSTED_CONFIG <!-- task-id: test-reliability.tests-test-task-registry-sh.isolate-doctor-test-from-inherited-task-registry-trusted-config --> — The Doctor approval-floor assertion inherits the caller trust flag. With TASK_REGISTRY_TRUSTED_CONFIG=1 the application… ([#131](https://github.com/Joaovsales/jplugin-agentic-development/issues/131))
+
+## Plan: Bulk-read context preservation and measured validation
+> Spec: specs/bulk-read-gate.md
+> Approved by user 2026-09-12: update handoff, rerun evaluations, validate and update PR #128. Existing issues #129–#131 remain deferred.
+
+- [x] TDD: context-handoff contract assertions fail -> require source-backed dependency understanding and expandable component reads in the spec, persona, shared rules, and mirrored skills.
+- [x] TDD: gate permits successive bounded component reads -> preserve per-call enforcement without a cumulative context cap.
+- [x] Evaluation: predeclare blinded coding rubric and token accounting -> run repeated matched variants, grade retained transcripts and behavior, report all outcomes and limits.
+- [x] Validation: full suite, skill parity, independent quality/security reviews -> record evidence, commit, push, and update PR #128 with measured results.
+- [ ] Align metadata reader with writer when task bodies contain stray or incomplete markers <!-- task-id: bug.agents-skills-task-registry-scripts-registry-model-py.align-metadata-reader-with-writer-when-task-bodies-contain-stray-or-incomplete-markers --> — The bulk-read coding evaluation independently reproduced an existing parser defect: parse_metadata_block selects the fi… ([#132](https://github.com/Joaovsales/jplugin-agentic-development/issues/132))
+
+## Session Summary — 2026-09-12 [5015f3d..8bf7c2d]
+- Completed: source-map/component-reading contract and gate-message revision; ten blinded coding runs; independent code/design/security/evidence reviews; full Linux suite 40 files / 4,194 assertions.
+- Findings: observed behavior passed, but map inaccuracies, partial direct inspection, and mixed total cost prevent general savings/context guarantees.
+- Pending at snapshot: publish the reviewed commits and updated PR description, then confirm CI.
+- Carry-forward: #129–#132 remain deferred; Windows and live Pi coverage limits are explicit.
+
+Publication: reviewed commits pushed and PR #128 title/body updated with measured limits; final remote CI confirmation follows publication.

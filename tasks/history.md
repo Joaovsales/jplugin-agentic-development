@@ -576,3 +576,31 @@ back vacuous and was repaired.
 - Key changes: new `/system-design-planning` skill (upstream architecture review → HTML approval gate → one issue per slice → /build), its spec, registration, static pins; worked example run producing specs/upsert-depends-on.md with a dispatched critic pass; tests/test-tdd-retirement.sh excludes .claude/worktrees; 31 stale worktrees removed.
 - Learnings captured: tasks/solutions/bugs/recursive-grep-over-dot-claude-hits-stale-worktree-checkouts.md, tasks/solutions/tooling/claude-code-bash-tool-collapses-backslash-escapes.md, tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md
 
+### [2026-09-11] — Bulk-read gate shipped
+
+- Key changes: mechanical `PreToolUse` gate (`.claude/hooks/bulk-read-gate.py`
+  + `bulk-read-gate.sh` shim) denying whole-file reads over 350 lines on
+  Claude Code and Codex, with a Pi `tool_call` mirror; new Scout-tier
+  `bulk-reader` persona (haiku / gpt-5.6-luna via PI_SETUP.md's Codex column /
+  deepseek-v4-flash); Codex renderer emits Scout `model` from the tier table,
+  installer merges the hook once; Bulk-Read Handoff documented in CLAUDE.md,
+  PI_SETUP.md, README and four skills.
+- Verification: 304-case hook matrix (grown from 192 by the wrap-up review,
+  which found and fixed a `;`/`&&`/`2>&1` bypass) plus 8 owned test files
+  green; post-merge suite 33/40 files — the 7 red files fail with identical counts on a clean
+  `bf58555` checkout (pre-existing, `tasks/e2e-log.md` § AC9). Live
+  measurement: direct Read ≈8,400 parent tokens vs ≈200 via `bulk-reader`
+  (24.2 s); the gate fired live on the resumed session's first `Read`.
+  `/quality-gate` HOLD → 10 findings applied, 2 reported (tier membership
+  hard-coded in the renderer; `context-document-optimizer` tier differs per
+  harness).
+- Learnings captured:
+  [admit-a-cross-harness-hook-by-input-shape-not-tool-name](solutions/patterns/admit-a-cross-harness-hook-by-input-shape-not-tool-name.md),
+  [worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout](solutions/tooling/worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout.md).
+
+### [2026-09-12] — Bulk-read context validation
+- Revised PR #128 handoffs to require anchored source maps, coverage/unknowns, direct dependency inspection, and bounded whole-component reading. Updated Python/Pi deny wording and mirrored skills.
+- Ten retained blinded coding runs passed 14 held-out checks each. Mixed cost, partial direct caller inspection, and inaccurate scout maps prevent general token-saving or context-preservation claims. Full Linux suite: 40 files / 4,194 assertions.
+- Independent code, design/security, and evidence reviews completed; evidence narrative findings corrected. Report: tasks/eval-results/bulk-read-context/README.md.
+- Recorded Windows failures #129, Windows CI #130, Doctor environment leak #131, and independently reproduced fixture parser defect #132 for later work. Candidate parser fixes remain isolated artifacts.
+- Learnings captured: updated tasks/solutions/architecture/subagents-for-research.md; created tasks/solutions/bugs/metadata-reader-writer-pairing.md.

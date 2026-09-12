@@ -15,6 +15,13 @@ BEGIN = "<!-- coding-agent-workflow:begin -->"
 END = "<!-- coding-agent-workflow:end -->"
 MANAGED = "# coding-agent-workflow:managed"
 
+# Scout tier is the only tier Codex pins (specs/bulk-read-gate.md). Every other
+# agent omits `model`, which on Codex inherits the parent session — the Ceiling
+# semantics CLAUDE.md § Model Routing describes. The concrete ID is not written
+# here: PI_SETUP.md § Sub-Agent Routing owns it, and install-codex.sh reads it
+# from that table and passes it in as --scout-model.
+SCOUT_TIER_AGENTS = frozenset({"bulk-reader", "context-document-optimizer"})
+
 
 def fail(message: str) -> NoReturn:
     raise SystemExit(f"render-codex: {message}")
@@ -111,7 +118,7 @@ def render_global(source: Path, destination: Path) -> None:
     write_text(destination, result)
 
 
-def render_agents(source_dir: Path, destination_dir: Path) -> None:
+def render_agents(source_dir: Path, destination_dir: Path, scout_model: Optional[str]) -> None:
     destination_dir.mkdir(parents=True, exist_ok=True)
     for source in sorted(source_dir.glob("*.md")):
         if source.name == "README.md":
@@ -121,16 +128,33 @@ def render_agents(source_dir: Path, destination_dir: Path) -> None:
         if destination.exists() and MANAGED not in destination.read_text(encoding="utf-8"):
             print(f"kept personal agent: {destination}")
             continue
+        model_line = ""
+        if source.stem in SCOUT_TIER_AGENTS:
+            if not scout_model:
+                fail(f"{source.name} is Scout tier but no --scout-model was given")
+            model_line = f"model = {json.dumps(scout_model)}\n"
         content = (
             f"{MANAGED}\n"
             f"name = {json.dumps(name, ensure_ascii=False)}\n"
             f"description = {json.dumps(description, ensure_ascii=False)}\n"
+            f"{model_line}"
             f"developer_instructions = {json.dumps(instructions, ensure_ascii=False)}\n"
         )
         write_text(destination, content)
 
 
-def merge_hooks(destination: Path, commands: list[str]) -> None:
+def parse_hook_bindings(pairs: list[str]) -> list[tuple[str, str]]:
+    """EVENT=COMMAND pairs, so the binding travels with the argument."""
+    bindings: list[tuple[str, str]] = []
+    for pair in pairs:
+        event, separator, command = pair.partition("=")
+        if not separator or not event or not command:
+            fail(f"hook binding must be EVENT=COMMAND, got {pair!r}")
+        bindings.append((event, command))
+    return bindings
+
+
+def merge_hooks(destination: Path, bindings: list[tuple[str, str]]) -> None:
     if destination.exists():
         try:
             data = json.loads(destination.read_text(encoding="utf-8"))
@@ -143,8 +167,7 @@ def merge_hooks(destination: Path, commands: list[str]) -> None:
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         fail(f"{destination}: hooks must be an object")
-    events = ("SessionStart", "PreCompact", "SessionEnd")
-    for event, command in zip(events, commands):
+    for event, command in bindings:
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):
             fail(f"{destination}: {event} must be an array")
@@ -166,10 +189,16 @@ def main() -> None:
     parser.add_argument("--global", dest="global_args", nargs=2, metavar=("SOURCE", "DEST"))
     parser.add_argument("--agents", dest="agents_args", nargs=2, metavar=("SOURCE", "DEST"))
     parser.add_argument(
+        "--scout-model",
+        dest="scout_model",
+        metavar="MODEL_ID",
+        help="Codex model pinned on Scout-tier agents (read from PI_SETUP.md by install-codex.sh)",
+    )
+    parser.add_argument(
         "--merge-hooks",
         dest="hooks_args",
-        nargs=4,
-        metavar=("DEST", "SESSION_START", "PRE_COMPACT", "SESSION_END"),
+        nargs="+",
+        metavar=("DEST", "EVENT=COMMAND"),
     )
     args = parser.parse_args()
     selected = [args.global_args, args.agents_args, args.hooks_args]
@@ -178,9 +207,11 @@ def main() -> None:
     if args.global_args:
         render_global(Path(args.global_args[0]), Path(args.global_args[1]))
     elif args.agents_args:
-        render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]))
+        render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]), args.scout_model)
     else:
-        merge_hooks(Path(args.hooks_args[0]), args.hooks_args[1:])
+        if len(args.hooks_args) < 2:
+            parser.error("--merge-hooks needs DEST and at least one EVENT=COMMAND")
+        merge_hooks(Path(args.hooks_args[0]), parse_hook_bindings(args.hooks_args[1:]))
 
 
 if __name__ == "__main__":

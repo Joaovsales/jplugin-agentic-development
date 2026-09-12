@@ -1,0 +1,9 @@
+{
+  "repository": "Joaovsales/jplugin-agentic-development",
+  "revision": "5015f3d71e6724d34acfcb1c6dc2b64df1e18071",
+  "source_directory": ".agents/skills/task-registry/scripts/registry",
+  "candidate_directory": "registry",
+  "source_line_count": 3443,
+  "source_files_unchanged_from_repository": true,
+  "snapshot_file_sha256": "snapshots.json"
+}

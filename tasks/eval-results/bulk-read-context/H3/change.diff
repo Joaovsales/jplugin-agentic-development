@@ -1,0 +1,99 @@
+diff --git a/registry/model.py b/registry/model.py
+index 3ab01b8..af1804f 100644
+--- a/registry/model.py
++++ b/registry/model.py
+@@ -249,11 +249,22 @@ def render_metadata_block(task: Task) -> str:
+ 
+ 
+ def parse_metadata_block(body: str) -> dict:
+-    """Read the identity block back. Returns {} when absent."""
++    """Read the identity block back. Returns {} when absent or incomplete.
++
++    Uses the same bounds as :func:`upsert_metadata_block` so the reader and the
++    writer agree on which block is authoritative. A body may quote a stray or
++    unfinished block — an example in prose, an interrupted earlier write — and
++    naively pairing the first BEGIN with the first END would then span from
++    that stray marker into the real block, or past a trailing unfinished one,
++    and pick up fields that belong to neither.
++    """
+     if not body or METADATA_BEGIN not in body:
+         return {}
+-    after = body.split(METADATA_BEGIN, 1)[1]
+-    inner = after.split(METADATA_END, 1)[0] if METADATA_END in after else after
++    bounds = metadata_bounds(body)
++    if bounds is None:
++        return {}
++    start, end = bounds
++    inner = body[start + len(METADATA_BEGIN) : end - len(METADATA_END)]
+     fields: dict = {}
+     for line in inner.splitlines():
+         line = line.strip()
+@@ -287,7 +298,7 @@ def upsert_metadata_block(body: str, task: Task) -> str:
+     """
+     block = render_metadata_block(task)
+     body = body or ""
+-    bounds = _metadata_bounds(body)
++    bounds = metadata_bounds(body)
+     if bounds is not None:
+         start, end = bounds
+         return f"{body[:start]}{block}{body[end:]}"
+@@ -295,7 +306,7 @@ def upsert_metadata_block(body: str, task: Task) -> str:
+     return f"{body.rstrip()}{separator}{block}\n" if body.strip() else f"{block}\n"
+ 
+ 
+-def _metadata_bounds(body: str) -> Optional[Tuple[int, int]]:
++def metadata_bounds(body: str) -> Optional[Tuple[int, int]]:
+     """Span of the innermost well-formed BEGIN..END pair, or None if there is none.
+ 
+     Searching from the last BEGIN backwards is what makes a stray marker harmless:
+diff --git a/registry/providers/local.py b/registry/providers/local.py
+index 2fa9839..605168d 100644
+--- a/registry/providers/local.py
++++ b/registry/providers/local.py
+@@ -16,10 +16,9 @@ import tempfile
+ from typing import List, Optional, Tuple
+ 
+ from ..model import (
+-    METADATA_BEGIN,
+-    METADATA_END,
+     ExternalRef,
+     Task,
++    metadata_bounds,
+     parse_metadata_block,
+     render_metadata_block,
+     section,
+@@ -257,26 +256,30 @@ def _unmanaged_regions(text: str) -> Tuple[str, str]:
+     Both are returned so a rewrite can put them back. Prose written above the
+     first `##` heading used to be dropped on the floor, because only headed
+     sections were collected.
++
++    The managed metadata block's own span is found the same way the writer
++    finds it (`metadata_bounds`), not by toggling on every stray marker line.
++    A quoted or unfinished example elsewhere in the file is then ordinary text
++    to this function — it is preserved, not swallowed as if it were the block.
+     """
+     if not text:
+         return "", ""
++    bounds = metadata_bounds(text)
++    if bounds is not None:
++        start, end = bounds
++        text = text[:start] + text[end:]
+     preamble: List[str] = []
+     kept: List[str] = []
+     keeping = None
+-    in_metadata = False
+     for line in text.splitlines():
+-        if METADATA_BEGIN in line:
+-            in_metadata = True
+         match = SECTION_RE.match(line)
+         if match:
+             keeping = match.group("name").strip().lower() not in MANAGED_SECTIONS
+         if keeping is None:
+-            if not in_metadata and not _is_generated_head_line(line):
++            if not _is_generated_head_line(line):
+                 preamble.append(line)
+         elif keeping:
+             kept.append(line)
+-        if METADATA_END in line:
+-            in_metadata = False
+     return "\n".join(preamble).strip(), "\n".join(kept)

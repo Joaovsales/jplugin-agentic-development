@@ -46,6 +46,17 @@ fi
 [ -d "$REPO_DIR/.agents/skills" ] || die "missing canonical skills: $REPO_DIR/.agents/skills"
 [ -d "$REPO_DIR/.agents/agents" ] || die "missing canonical agents: $REPO_DIR/.agents/agents"
 
+# PI_SETUP.md § Sub-Agent Routing is the single source of concrete model IDs.
+# The Codex Scout-tier ID is the Codex column of the Scout row in its tier
+# table; read it there rather than repeating it in code, so a model release
+# still updates one file. An unreadable row is a broken install, not a silent
+# unpinned agent.
+CODEX_SCOUT_MODEL="$(awk -F'|' '
+  /^\| Tier \|/ && !column { for (i = 1; i <= NF; i++) if ($i ~ /^ *Codex *$/) column = i }
+  column && /^\| Scout / { gsub(/[` ]/, "", $column); print $column; exit }
+' "$REPO_DIR/PI_SETUP.md")"
+[ -n "$CODEX_SCOUT_MODEL" ] || die "cannot read the Codex Scout-tier model from PI_SETUP.md (Scout row, Codex column)"
+
 mkdir -p "$AGENTS_HOME/skills" "$CODEX_HOME/agents" "$CODEX_HOME/hooks"
 cp -r "$REPO_DIR/.agents/skills/." "$AGENTS_HOME/skills/"
 printf 'installed canonical skills in %s\n' "$AGENTS_HOME/skills"
@@ -55,8 +66,8 @@ printf 'installed canonical skills in %s\n' "$AGENTS_HOME/skills"
 printf 'rendered shared workflow rules in %s\n' "$CODEX_HOME/AGENTS.md"
 
 "$PYTHON_BIN" "$RENDERER" --agents \
-  "$REPO_DIR/.agents/agents" "$CODEX_HOME/agents"
-printf 'rendered canonical agents in %s\n' "$CODEX_HOME/agents"
+  "$REPO_DIR/.agents/agents" "$CODEX_HOME/agents" --scout-model "$CODEX_SCOUT_MODEL"
+printf 'rendered canonical agents in %s (Scout tier: %s)\n' "$CODEX_HOME/agents" "$CODEX_SCOUT_MODEL"
 
 cp "$REPO_DIR/.claude/hooks/session-start.sh" \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-start.sh"
@@ -66,7 +77,11 @@ cp "$REPO_DIR/.claude/hooks/session-stop.sh" \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-end.sh"
 cp "$REPO_DIR/codex/hooks/session_start.py" \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py"
+# The bulk-read gate is shared byte-identical with Claude Code (specs/bulk-read-gate.md).
+cp "$REPO_DIR/.claude/hooks/bulk-read-gate.py" \
+  "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py"
 chmod +x \
+  "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py" \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-start.sh" \
   "$CODEX_HOME/hooks/coding-agent-workflow-pre-compact.sh" \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-end.sh" \
@@ -78,8 +93,15 @@ printf -v compact_hook 'bash %q' \
   "$CODEX_HOME/hooks/coding-agent-workflow-pre-compact.sh"
 printf -v end_hook 'bash %q' \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-end.sh"
+printf -v gate_hook '%q %q' "$PYTHON_BIN" \
+  "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py"
+# EVENT=COMMAND pairs: the binding travels with the argument, so no positional
+# order has to be kept in step between this script and the renderer.
 "$PYTHON_BIN" "$RENDERER" --merge-hooks "$CODEX_HOME/hooks.json" \
-  "$start_hook" "$compact_hook" "$end_hook"
+  "SessionStart=$start_hook" \
+  "PreCompact=$compact_hook" \
+  "SessionEnd=$end_hook" \
+  "PreToolUse=$gate_hook"
 
 printf 'merged lifecycle hooks in %s\n' "$CODEX_HOME/hooks.json"
 printf 'Review installed hooks with /hooks before enabling them.\n'

@@ -140,6 +140,7 @@ Choose the agent or approach based on task type:
 - The relevant spec section from `specs/`
 - Paths to related source files
 - Instruction: "Follow TDD — write failing test first, then minimal implementation, then refactor"
+- A **bulk-reader answer** as a source map for large-file exploration, with absolute checkout paths, facts/anchors, dependencies, coverage, and unknowns — per `CLAUDE.md` § Model Routing → *Bulk-Read Handoff*. The builder inspects the implementation, contracts, callers, state/error paths, and tests before editing, including files it will not edit; it names unresolved dependencies and expands bounded reads until they are resolved or reports the blocker. Successive reads may cover the entire relevant component. Assign coherent responsibilities, not chunks determined by file length.
 
 **Role-based context injection from `tasks/project-context.md`** (if it exists):
 
