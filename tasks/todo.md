@@ -796,3 +796,9 @@ reverse.
 - [x] Evaluation: predeclare blinded coding rubric and token accounting -> run repeated matched variants, grade retained transcripts and behavior, report all outcomes and limits.
 - [ ] Validation: full suite, skill parity, independent quality/security reviews -> record evidence, commit, push, and update PR #128 with measured results.
 - [ ] Align metadata reader with writer when task bodies contain stray or incomplete markers <!-- task-id: bug.agents-skills-task-registry-scripts-registry-model-py.align-metadata-reader-with-writer-when-task-bodies-contain-stray-or-incomplete-markers --> — The bulk-read coding evaluation independently reproduced an existing parser defect: parse_metadata_block selects the fi… ([#132](https://github.com/Joaovsales/jplugin-agentic-development/issues/132))
+
+## Session Summary — 2026-09-12 [5015f3d..8bf7c2d]
+- Completed: source-map/component-reading contract and gate-message revision; ten blinded coding runs; independent code/design/security/evidence reviews; full Linux suite 40 files / 4,194 assertions.
+- Findings: observed behavior passed, but map inaccuracies, partial direct inspection, and mixed total cost prevent general savings/context guarantees.
+- Pending at snapshot: publish the reviewed commits and updated PR description, then confirm CI.
+- Carry-forward: #129–#132 remain deferred; Windows and live Pi coverage limits are explicit.

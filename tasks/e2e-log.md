@@ -970,3 +970,9 @@ accept corrected evidence claims, no remaining correction in that review scope.
 Final full-suite rerun: exit 0, all 40 files / 4,194 assertions. Syntax and
 `git diff --check` pass. This is Linux evidence; Windows and live Pi remain the
 explicitly tracked/documented limits above.
+
+Publication preparation: source/evidence commit `8bf7c2d`. Retained unified-diff
+files contain required single-space context lines. A reviewed, folder-local
+`.gitattributes` rule disables only blank-at-eol checking for those serialized
+patches; source-file whitespace checks remain active. `git diff 5015f3d --check`
+passes with exact patches preserved.
