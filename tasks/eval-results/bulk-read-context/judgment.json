@@ -1,0 +1,415 @@
+{
+  "rubric": "rubric.md (unchanged; five criteria scored 0\u20132)",
+  "method": "Single blinded judge; one scoring pass across all ten; comparisons only within request scenarios. Full transcript results, not truncated index previews, determine source access. Successful bounded Read or sed results count as direct inspection. Symbol matches alone do not establish adapter normalization contracts. Candidate test artifacts and actual execution results are separate from held-out behavior checks.",
+  "results": [
+    {
+      "label": "H1",
+      "scenario": "handoff",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 0,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 6,
+      "evidence_event_ids": [
+        41,
+        44,
+        84,
+        110,
+        134,
+        240,
+        250,
+        259,
+        262,
+        269,
+        331,
+        342
+      ],
+      "evidence_artifacts": [
+        "H1/transcript.jsonl",
+        "H1/change.diff",
+        "H1/behavior.json",
+        "H1/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Direct local read and model 220\u2013319 precede edit 269; GitHub consumer is scout-only. Reader handoff 250 misattributes _seed_body to model.py:520\u2013536 (actual github.py in result 240), moves return None inside the bounds loop and duplicates summary in purported source. Central parser-only fix. Ten executed tests cover malformed input and shared factory, but not adapter/provider-state preservation.",
+      "requested_delegation_compliance": "complied: actual bulk-reader Agent call and reader transcript precede implementation"
+    },
+    {
+      "label": "H2",
+      "scenario": "handoff",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 1,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 7,
+      "evidence_event_ids": [
+        75,
+        95,
+        97,
+        123,
+        150,
+        239,
+        290,
+        293,
+        296,
+        343,
+        363
+      ],
+      "evidence_artifacts": [
+        "H2/transcript.jsonl",
+        "H2/change.diff",
+        "H2/behavior.json",
+        "H2/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Before edit 296 the implementer directly reads parser/writer/bounds (290/293); adapter contracts remain reader-only. Handoff 239 has grounded function excerpts and explicit unknowns, but overstates inspected ranges and adds unsupported intentional-asymmetry rationale; this is lossy reporting rather than a wrong-file source quotation. Central parser-only fix; seven regression tests exercise parser/writer, without provider-state checks.",
+      "requested_delegation_compliance": "complied: actual bulk-reader Agent call and reader transcript precede implementation"
+    },
+    {
+      "label": "H3",
+      "scenario": "handoff",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 1,
+        "scope_coherence": 2,
+        "validation": 2
+      },
+      "total": 8,
+      "evidence_event_ids": [
+        57,
+        87,
+        129,
+        151,
+        264,
+        275,
+        311,
+        321,
+        324,
+        368,
+        393,
+        440,
+        448,
+        485,
+        488,
+        511,
+        516,
+        527
+      ],
+      "evidence_artifacts": [
+        "H3/transcript.jsonl",
+        "H3/change.diff",
+        "H3/behavior.json",
+        "H3/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Direct local and parser/writer/bounds inspection precede edit 368; GitHub consumer remains scout-only. Handoff 311 anchors the main flow and lists unknowns, but its local replaces-both summary overgeneralizes code that retains foreign sections. Shared bounds reuse plus local unmanaged-region correction addresses surrounding-text preservation; the sibling patch is relevant rather than gratuitous duplication. Executed malformed-block tests and local read/update test preserve human notes and assert updated provider status. No GitHub adapter or external-reference assertion.",
+      "requested_delegation_compliance": "complied: actual bulk-reader Agent call and reader transcript precede implementation"
+    },
+    {
+      "label": "H4",
+      "scenario": "handoff",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 2,
+        "handoff_integrity": 2,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 9,
+      "evidence_event_ids": [
+        22,
+        25,
+        64,
+        67,
+        70,
+        73,
+        76,
+        79,
+        90,
+        119,
+        127,
+        133
+      ],
+      "evidence_artifacts": [
+        "H4/transcript.jsonl",
+        "H4/change.diff",
+        "H4/behavior.json",
+        "H4/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Successful direct source excerpts expose parser/writer/bounds, GitHub normalization and write calls, shared Task factory, and local raw-text parse/identity and merge calls before edit 90. This establishes relevant consumer flow without requiring whole files; the local excerpt stops before status/external assignments, a coverage limitation. Grounded direct exploration earns handoff credit despite no requested reader dispatch. Central fix; eight executed parser/writer tests omit adapter-state validation.",
+      "requested_delegation_compliance": "not complied: no Agent dispatch or reader transcript; scored separately from rubric"
+    },
+    {
+      "label": "R1",
+      "scenario": "repair",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 1,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 7,
+      "evidence_event_ids": [
+        22,
+        25,
+        31,
+        34,
+        64,
+        67,
+        70,
+        77,
+        102,
+        107,
+        119,
+        124
+      ],
+      "evidence_artifacts": [
+        "R1/transcript.jsonl",
+        "R1/change.diff",
+        "R1/behavior.json",
+        "R1/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Parser, writer/bounds and local consumer directly read before edit 77. GitHub evidence is matching call/import lines only, not its normalization contract. Accurate but incomplete exploration. Central shared fix; nine executed parser/writer tests, with pre-fix failures demonstrated, omit adapter/provider-state assertions.",
+      "requested_delegation_compliance": "not requested; no reader dispatch observed"
+    },
+    {
+      "label": "R2",
+      "scenario": "repair",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 1,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 7,
+      "evidence_event_ids": [
+        20,
+        23,
+        26,
+        29,
+        52,
+        60,
+        63,
+        80,
+        87,
+        90,
+        142,
+        149,
+        151,
+        156
+      ],
+      "evidence_artifacts": [
+        "R2/transcript.jsonl",
+        "R2/change.diff",
+        "R2/behavior.json",
+        "R2/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Denied whole-file read is followed by successful model excerpts before edit 80; local consumer read occurs afterward and GitHub remains grep-only. Accurate partial exploration. Central shared fix. Nine executed tests include shared factory and local merge kind retention, but no preservation assertions for provider-owned status/external references; the failed LocalProvider import smoke command is followed by a successful package import.",
+      "requested_delegation_compliance": "not requested; no reader dispatch observed"
+    },
+    {
+      "label": "R3",
+      "scenario": "repair",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 2,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 8,
+      "evidence_event_ids": [
+        11,
+        12,
+        38,
+        44,
+        45,
+        86,
+        107,
+        108,
+        127,
+        131,
+        135,
+        138
+      ],
+      "evidence_artifacts": [
+        "R3/transcript.jsonl",
+        "R3/change.diff",
+        "R3/behavior.json",
+        "R3/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Successful complete model and local reads precede edit 86; GitHub 230\u2013349 is directly inspected only afterward (107/108), so pre-edit understanding is partial. Eventual direct source coverage of both adapters and central contract supports full grounded-exploration credit. Central fix; eight executed parser/factory/writer tests and demonstrated pre-fix failures, but no adapter/provider-state assertions.",
+      "requested_delegation_compliance": "not requested; no reader dispatch observed"
+    },
+    {
+      "label": "R4",
+      "scenario": "repair",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 1,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 7,
+      "evidence_event_ids": [
+        11,
+        12,
+        24,
+        28,
+        29,
+        47,
+        54,
+        57,
+        60,
+        64,
+        68
+      ],
+      "evidence_artifacts": [
+        "R4/transcript.jsonl",
+        "R4/change.diff",
+        "R4/behavior.json",
+        "R4/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Successful model and local excerpts before edit 47; GitHub is checked via call-name grep after editing. Grounded but incomplete consumer coverage. Central fix; seven executable parser/factory tests and a manual factory check, without adapter/provider-state assertions.",
+      "requested_delegation_compliance": "not requested; no reader dispatch observed"
+    },
+    {
+      "label": "R5",
+      "scenario": "repair",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 1,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 7,
+      "evidence_event_ids": [
+        18,
+        21,
+        31,
+        34,
+        37,
+        63,
+        66,
+        68,
+        111,
+        117,
+        125,
+        128
+      ],
+      "evidence_artifacts": [
+        "R5/transcript.jsonl",
+        "R5/change.diff",
+        "R5/behavior.json",
+        "R5/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Successful model and local source excerpts precede edit 68; GitHub is represented only by symbol matches, not its consumer body. Grounded incomplete exploration. Central fix. Seven executed parser/factory/writer tests preserve prose and repeated entries, without adapter/provider-state checks.",
+      "requested_delegation_compliance": "not requested; no reader dispatch observed"
+    },
+    {
+      "label": "R6",
+      "scenario": "repair",
+      "scores": {
+        "behavior": 2,
+        "source_understanding": 1,
+        "handoff_integrity": 1,
+        "scope_coherence": 2,
+        "validation": 1
+      },
+      "total": 7,
+      "evidence_event_ids": [
+        42,
+        45,
+        50,
+        53,
+        91,
+        102,
+        105,
+        113,
+        116,
+        145,
+        184,
+        189,
+        202,
+        218
+      ],
+      "evidence_artifacts": [
+        "R6/transcript.jsonl",
+        "R6/change.diff",
+        "R6/behavior.json",
+        "R6/candidate-checks/"
+      ],
+      "held_out": {
+        "passed": 14,
+        "total": 14
+      },
+      "rationale": "Denied whole-file read is followed by a successful model 180\u2013403 excerpt before edit 91; local consumer inspected afterward, GitHub only through symbol matches. Grounded partial exploration. Central fix. Eight executed parser/factory/writer tests and pre-fix failures demonstrate regression coverage, without adapter/provider-state assertions.",
+      "requested_delegation_compliance": "not requested; no reader dispatch observed"
+    }
+  ],
+  "scenario_observations": {
+    "repair": [
+      "All R1\u2013R6 pass 14/14 held-out checks with the same central bounds-based correction.",
+      "No repair output directly inspected both adapters before first edit. R3 eventually reads both adapters directly; others leave GitHub at symbol-level evidence.",
+      "All add runnable malformed-block regression coverage. None assert preservation of provider-owned status and external references through both real adapters.",
+      "Scores: R3 8; R1/R2/R4/R5/R6 7. These are process/coverage differences, not a held-out behavior distinction."
+    ],
+    "handoff": [
+      "All H1\u2013H4 pass 14/14 held-out checks.",
+      "H1\u2013H3 actually dispatch bulk-reader before implementation; H4 does direct exploration and misses the explicit delegation instruction. Its absence alone is not penalized under handoff integrity.",
+      "H1 contains a wrong-file source anchor and corrupted verbatim code; H2/H3 supply useful anchored mapping with overgeneralized commentary.",
+      "H3 additionally corrects the local prose-preservation path with shared bounds and executes a local provider update/state check.",
+      "Scores: H4 9; H3 8; H2 7; H1 6. H4 has a separate explicit-request compliance failure despite its rubric score."
+    ]
+  },
+  "uncertainty": [
+    "Handoff integrity distinguishes source-evidence corruption (H1=0) from lossy interpretation/coverage summaries atop actual matching source excerpts (H2/H3=1). Unsupported intent claims are not accepted as source evidence.",
+    "Validation 2 for H3 credits concrete malformed-block and local sibling update/status preservation checks. It does not imply that both adapter status/external-reference combinations were tested; none demonstrates that full matrix. Other shared-factory-only tests or kind-retention checks score 1.",
+    "H4 local direct excerpt ends at kind assignment, so provider-state assignment inspection is incomplete, but the relevant local input-to-shared-parser and identity/merge contract is directly visible. Source-understanding 2 does not require whole adapter files.",
+    "Held-out behavior checks bound the behavior claim to their 14 cases. Passing them is not exhaustive proof. No identities, metrics, variant mappings, or parent workspace contents were consulted."
+  ]
+}

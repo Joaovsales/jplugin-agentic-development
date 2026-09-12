@@ -900,3 +900,73 @@ First whole-file `Read` of `CLAUDE.md` (522 lines) in the resumed session was de
     CLAUDE.md has 522 lines; the bulk-read gate denies reads over 350 lines (BULK_READ_MIN_LINES). Either dispatch the `bulk-reader` agent with a question about this file, or read only the range you need for an edit (Read with offset/limit under 350, or `sed -n 'A,Bp'`).
 
 The four wrap-up review agents were dispatched under the same gate and told to read in ranges.
+
+## Bulk-read component understanding — 2026-09-12 — PR #128
+
+Source: session delta from `5015f3d`; approved handoff revision in
+`specs/bulk-read-gate.md` AC7 and AC10–11.
+
+### Contract and gate walkthrough
+
+- `bash tests/test-doc-conventions.sh`: RED with 13/562 failing assertions
+  before handoff changes; GREEN with 562 passing afterward. Covers source-map
+  fields, dependency inspection before editing, component ownership, and no
+  cumulative context cap in both skill trees. Static instructions are not
+  evidence that a model followed them.
+- `bash tests/test-bulk-read-gate.sh`: two successive bounded Read requests
+  (lines 1–300 and 301–400) are allowed while the whole 400-line read is denied.
+  Deny-message checks were RED with 23 failures before the Python/Pi wording
+  changed; GREEN afterward, 333 assertions. Pi remains static-only, not live
+  Pi runtime evidence.
+- `env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh`: exit 0, all 40 files,
+  4,194 assertions passed. The scoped unset addresses known test contamination
+  tracked in #131 without changing application trust policy. Windows failures
+  and Windows CI are tracked in #129 and #130.
+- Independent code review and dispatched APOSD/security review: no actionable
+  introduced findings in the core changes. Runtime diff is denial wording only;
+  input parsing, enforcement, dependencies, and approval behavior are unchanged.
+
+### Reconciliation
+
+Updated `specs/bulk-read-gate.md`. Unchanged after inspection:
+`compound-engineering-adoption`, `context-memory-management`,
+`living-spec-reconciliation`, `pstack-verification-skill-integration`,
+`review-context-contract`, `separate-project-config`, `sweep-routines`,
+`system-design-planning`, `upsert-depends-on`, `workflow-insights-improvements`,
+and `workflow-routing` (all under `specs/`). No reconciliation deferrals.
+
+Verification-map outcome: **clean** — `verify-task-registry`'s CLI behavior is
+unchanged; agent workflow triggering is outside its declared proof ceiling.
+
+### Coding evaluation
+
+Frozen protocol: `tasks/eval-results/bulk-read-context/protocol.md`. Results are
+recorded alongside the protocol; the historical AC8 inventory measurement above
+is retrieval-only and cannot establish coding quality or total token savings.
+
+Final coding evidence: `tasks/eval-results/bulk-read-context/README.md`,
+`metrics.json`, and `judgment.json`. Ten retained implementations each passed
+14/14 held-out checks; the coordinator independently re-executed all ten.
+Six natural-routing runs used zero scouts. Four requested-delegation runs
+produced three actual scouts; one prior-policy run skipped the explicit request.
+Natural mean list-price-equivalent costs: prior $0.4812, revised $0.3856,
+direct $0.3482. Requested-delegation means: prior $0.5628, revised $1.0784,
+with unequal uptake. Accumulated/cache tokens and role-specific usage are
+reported separately in the metrics; no consistent end-to-end saving is claimed.
+
+Blinded grading: natural prior 7/7, revised 7/7, direct 8/7 out of 10; requested
+prior 6/9 (the 9 skipped delegation), revised 7/8. The rubric was not changed to
+penalize missing delegation retroactively. Source-map factual errors and partial
+direct caller inspection remain explicit limits, despite passing implementations.
+Coordinator inspection agrees with the judge's factual conclusions.
+
+Adversarial evidence review verified raw transcript hashes, authoritative model
+usage, costs, and source hashes. Its two narrative findings are resolved: the
+isolated-parent scope violation and revised-map inaccuracies are disclosed.
+No hidden-check exposure was observed in retained runs; eight invalidated setup
+attempts and incomplete overhead accounting remain documented. Review conclusion:
+accept corrected evidence claims, no remaining correction in that review scope.
+
+Final full-suite rerun: exit 0, all 40 files / 4,194 assertions. Syntax and
+`git diff --check` pass. This is Linux evidence; Windows and live Pi remain the
+explicitly tracked/documented limits above.

@@ -1,0 +1,31 @@
+diff --git a/registry/model.py b/registry/model.py
+index 3ab01b8..70a4bae 100644
+--- a/registry/model.py
++++ b/registry/model.py
+@@ -249,11 +249,22 @@ def render_metadata_block(task: Task) -> str:
+ 
+ 
+ def parse_metadata_block(body: str) -> dict:
+-    """Read the identity block back. Returns {} when absent."""
+-    if not body or METADATA_BEGIN not in body:
++    """Read the identity block back. Returns {} when absent.
++
++    Uses the same innermost-well-formed-pair search as :func:`_metadata_bounds`
++    so a reader and the writer never disagree about which block is authoritative.
++    A stray BEGIN quoted in prose — with no matching END anywhere, or paired with
++    an END that belongs to a different block — is not a block at all: it is
++    prose that happens to contain the marker, and is read as no metadata rather
++    than contributing fields (an invented parent, a fake task-id) to the result.
++    """
++    if not body:
++        return {}
++    bounds = _metadata_bounds(body)
++    if bounds is None:
+         return {}
+-    after = body.split(METADATA_BEGIN, 1)[1]
+-    inner = after.split(METADATA_END, 1)[0] if METADATA_END in after else after
++    start, end = bounds
++    inner = body[start + len(METADATA_BEGIN) : end - len(METADATA_END)]
+     fields: dict = {}
+     for line in inner.splitlines():
+         line = line.strip()

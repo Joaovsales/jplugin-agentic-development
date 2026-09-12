@@ -425,12 +425,21 @@ newline-separated list is checked, and stdout redirected to a file is not a read
 the two allowed alternatives:
 
 1. **Dispatch `bulk-reader` with a question.** It answers in structured
-   bullets, quoting `file:line` anchors on request. Its summaries are not edit
-   anchors, it never proposes edits, and it never reasons about architecture
-   or correctness. A builder receives a bulk-reader answer as context, never a
-   file over the threshold.
-2. **Read only the range an edit needs** — `offset`/`limit` under the
-   threshold, or `sed -n 'A,Bp'` with the same bound.
+   bullets with `file:line` anchors, relevant symbol ranges, callers, dependencies,
+   related tests, inspected scope, and unresolved questions. Use absolute paths
+   for the intended checkout. Summaries are navigation aids, not edit anchors
+   or correctness evidence; the reader never proposes edits or judges correctness.
+2. **Read the ranges needed to understand and edit the component** —
+   `offset`/`limit` under the threshold, or `sed -n 'A,Bp'` with the same bound.
+
+Before editing, the implementing agent inspects the affected implementation,
+contracts, callers, state and error paths, and tests, including files it will not
+edit. State the behavior and dependencies with source anchors and resolve
+correctness-relevant unknowns by expanding reads or factual exploration; if one
+remains unresolved, report the blocker instead of editing on assumptions.
+The threshold limits each read, not cumulative context: successive bounded reads
+may cover the entire relevant component. Assign work by coherent responsibilities,
+not file length. The hook enforces read size; it cannot prove comprehension.
 
 The gate never rewrites a call; the model chooses the alternative. It fires
 inside sub-agents too, so `bulk-reader`, `Explore`, and every other persona

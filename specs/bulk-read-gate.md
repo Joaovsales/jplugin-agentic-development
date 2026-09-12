@@ -25,6 +25,7 @@ implementation_paths:
   - tests/test-agents.sh
   - tests/test-doc-conventions.sh
   - tasks/e2e-log.md
+  - tasks/eval-results/bulk-read-context/**
 ---
 
 # Spec: Bulk-Read Gate — mechanical scout-tier routing for large file reads
@@ -50,16 +51,18 @@ per harness: `haiku` on Claude Code, `gpt-5.6-luna` on Codex, and
 put more than `BULK_READ_MIN_LINES` lines (default 350) of one file into the
 calling model's context, the call is denied with a reason that names the file,
 its line count, the threshold, and the two allowed alternatives: dispatch
-`bulk-reader` with a question, or read only the range needed for an edit. The
-gate never rewrites the call and never reads the file content itself; it only
+`bulk-reader` with a question, or read bounded ranges needed to understand and
+edit the component. The gate never rewrites the call and never reads the file content itself; it only
 counts lines.
 
 **The bulk-reader.** A canonical persona, `.agents/agents/bulk-reader.md`, takes
-a question plus one or more paths and answers in structured bullets. It quotes
-verbatim lines with `file:line` anchors when asked, states plainly that its
-summaries are not edit anchors, never proposes edits, and never reasons about
-architecture or correctness. It reads files in ranges no larger than the
-threshold, so the gate never blocks it. It is Scout tier on every harness.
+a question plus one or more paths and returns a source map: facts with
+`file:line` anchors, relevant symbol ranges, callers, dependencies, related tests,
+coverage boundaries, and unresolved questions. It distinguishes observed facts
+from unknowns; an unsearched path is not evidence that no dependency exists.
+Summaries are navigation aids, not edit anchors or correctness evidence. The
+reader never proposes edits or judges architecture or correctness. It reads files
+in ranges no larger than the threshold, so the gate never blocks it. It is Scout tier on every harness.
 
 **Routing.** The Scout tier gains the `bulk-reader` row. Claude Code pins
 `model: haiku` in `.claude/agents/bulk-reader.md`. Codex pins
@@ -74,7 +77,21 @@ source of concrete IDs and gains a Codex column.
 pointing exploration and context-gathering at `bulk-reader` instead of direct
 reads, referencing CLAUDE.md § Model Routing →
 *Bulk-Read Handoff*. The `/build` delegation contract states that a builder
-receives a bulk-reader answer, never a file over the threshold, as context.
+receives a bulk-reader answer as a source map, then inspects the source needed
+to reason about the change, including files it will not edit. Before editing,
+the implementing agent identifies the affected behavior, contracts, callers,
+state and error paths, and tests, citing the inspected source and naming any
+unresolved dependency. It expands reading or delegates factual exploration
+until correctness-relevant unknowns are resolved; otherwise it reports the
+blocker rather than edits on assumptions.
+
+**Scope of understanding.** The threshold limits each tool read, not cumulative
+context or the size of a component. Successive bounded reads may cover an entire
+relevant component. Reading is organized by behavior and dependencies, not
+arbitrary line windows; dispatch boundaries follow coherent responsibilities,
+not file length. The hook enforces read size only. Source comprehension is a
+workflow requirement evaluated through source inspection and resulting behavior,
+not something the line-count hook can prove.
 
 ## Inputs
 
@@ -211,15 +228,35 @@ the input. Pi gates by its two fixed tool names.
    Codex Setup names the new hook in the `/hooks` review step.
 7. `/plan`, `/build`, `/debug`, and `/sweep` each contain the phrase
    `Bulk-Read Handoff`; `/build`'s delegation contract says builders receive a
-   bulk-reader answer, not a file over the threshold.
+   bulk-reader answer as a source map and requires direct inspection of relevant
+   implementations, contracts, callers, state/error paths, and tests before edits.
+   Reads may expand to the entire relevant component in bounded calls; neither
+   reading nor task ownership is restricted to edited lines or file length.
    `tests/test-skill-parity.sh` and `tests/test-doc-conventions.sh` are green.
 8. One live measurement is recorded in `tasks/e2e-log.md`: the same question
    about one file over 350 lines in this repo, answered once by direct read and
-   once through `bulk-reader`, with the tokens each path put into the parent
-   context and the wall-clock latency of the delegated path. No percentage
-   target; the number is the deliverable.
-9. `bash tests/run.sh` passes, with no regression in files this change did not
-   touch.
+   once through `bulk-reader`, with parent-context exposure and the wall-clock
+   latency of the delegated path. Character-based token estimates are labelled
+   estimates; they are not model usage or total cost. No percentage target.
+9. `env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh` passes on Linux,
+   with no regression in files this change did not touch. The environment unset
+   isolates the known Doctor fixture leak tracked in #131; Windows failures and
+   Windows CI are tracked separately in #129 and #130.
+10. Repeated blinded coding evaluations use the same organic task and starting
+    source per arm, with a rubric recorded before dispatch. Compare the former
+    handoff, revised handoff, and a direct-source workflow where available.
+    Grade implementation behavior, dependency inspection before edits, regressions,
+    and unresolved assumptions from transcripts and independent checks. Record
+    parent and scout token use separately, total usage, cache accounting, latency,
+    model identity, repetitions, and every failed or incomplete run. Estimated
+    context size must not be called measured model tokens. Promote a savings
+    claim only if measured cost falls against the named baseline without losing
+    required behavior or dependency coverage; otherwise report the result as
+    inconclusive or a trade-off. Retrieval-only AC8 is not coding-quality evidence.
+11. The gate tests demonstrate successive bounded reads spanning a component
+    remain allowed; there is no cumulative read budget. Persona and mirrored
+    skill tests pin source maps, coverage/unknown reporting, direct inspection,
+    and responsibility-based delegation.
 
 ## Non-goals
 

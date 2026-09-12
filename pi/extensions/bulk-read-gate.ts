@@ -4,7 +4,7 @@
  * Blocks any single read that would put more than BULK_READ_MIN_LINES lines
  * (default 350) of one file into the calling model's context, and names the
  * two allowed alternatives: dispatch `bulk-reader` with a question, or read
- * only the range an edit needs. It never rewrites the call and never reads
+ * the ranges needed to understand and edit the component. It never rewrites the call and never reads
  * content into the model — it counts newlines.
  *
  * Installed by install.sh into ~/.pi/agent/extensions/. Set BULK_READ_GATE=off
@@ -95,7 +95,7 @@ function denyReason(path: string, lines: number, limit: number): string {
   return (
     `${path} has ${lines} lines; the bulk-read gate denies reads over ${limit} lines ` +
     `(${THRESHOLD_ENV}). Either dispatch the \`bulk-reader\` agent with a ` +
-    `question about this file, or read only the range you need for an edit ` +
+    `question about this file, or read the ranges you need to understand and edit the component ` +
     `(read with offset/limit of at most ${limit} lines, or \`sed -n 'A,Bp'\`).`
   );
 }

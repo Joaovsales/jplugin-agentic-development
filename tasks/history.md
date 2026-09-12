@@ -597,3 +597,10 @@ back vacuous and was repaired.
 - Learnings captured:
   [admit-a-cross-harness-hook-by-input-shape-not-tool-name](solutions/patterns/admit-a-cross-harness-hook-by-input-shape-not-tool-name.md),
   [worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout](solutions/tooling/worktree-sessions-refuse-compound-bash-and-sub-agents-read-the-shared-checkout.md).
+
+### [2026-09-12] — Bulk-read context validation
+- Revised PR #128 handoffs to require anchored source maps, coverage/unknowns, direct dependency inspection, and bounded whole-component reading. Updated Python/Pi deny wording and mirrored skills.
+- Ten retained blinded coding runs passed 14 held-out checks each. Mixed cost, partial direct caller inspection, and inaccurate scout maps prevent general token-saving or context-preservation claims. Full Linux suite: 40 files / 4,194 assertions.
+- Independent code, design/security, and evidence reviews completed; evidence narrative findings corrected. Report: tasks/eval-results/bulk-read-context/README.md.
+- Recorded Windows failures #129, Windows CI #130, Doctor environment leak #131, and independently reproduced fixture parser defect #132 for later work. Candidate parser fixes remain isolated artifacts.
+- Learnings captured: updated tasks/solutions/architecture/subagents-for-research.md; created tasks/solutions/bugs/metadata-reader-writer-pairing.md.

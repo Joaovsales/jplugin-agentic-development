@@ -783,3 +783,16 @@ reverse.
   error-path semantics differ (exit 1 vs Pi block); no chunked-read measurement.
 - Carry-forward: merge PR, then restart sessions so the project-level PreToolUse
   hook loads; the Pi mirror still awaits its live run (TODO(shortcut) in the test).
+- [ ] Investigate and fix the seven Windows test-suite failures recorded in PR #128 <!-- task-id: test-reliability.tests-run-sh.investigate-and-fix-the-seven-windows-test-suite-failures-recorded-in-pr-128 --> — Track the pre-existing Windows Git Bash / Microsoft Store Python failures documented in PR #128. Base bf58555 had the s… ([#129](https://github.com/Joaovsales/jplugin-agentic-development/issues/129))
+- [ ] Add Windows Git Bash and native Python CI alongside Linux <!-- task-id: test-reliability.github-workflows-tests-yml.add-windows-git-bash-and-native-python-ci-alongside-linux --> — Add repeatable Windows CI alongside existing Ubuntu coverage. Coordinate with the PR #128 seven-failure investigation.… ([#130](https://github.com/Joaovsales/jplugin-agentic-development/issues/130))
+- [ ] Isolate Doctor test from inherited TASK_REGISTRY_TRUSTED_CONFIG <!-- task-id: test-reliability.tests-test-task-registry-sh.isolate-doctor-test-from-inherited-task-registry-trusted-config --> — The Doctor approval-floor assertion inherits the caller trust flag. With TASK_REGISTRY_TRUSTED_CONFIG=1 the application… ([#131](https://github.com/Joaovsales/jplugin-agentic-development/issues/131))
+
+## Plan: Bulk-read context preservation and measured validation
+> Spec: specs/bulk-read-gate.md
+> Approved by user 2026-09-12: update handoff, rerun evaluations, validate and update PR #128. Existing issues #129–#131 remain deferred.
+
+- [x] TDD: context-handoff contract assertions fail -> require source-backed dependency understanding and expandable component reads in the spec, persona, shared rules, and mirrored skills.
+- [x] TDD: gate permits successive bounded component reads -> preserve per-call enforcement without a cumulative context cap.
+- [x] Evaluation: predeclare blinded coding rubric and token accounting -> run repeated matched variants, grade retained transcripts and behavior, report all outcomes and limits.
+- [ ] Validation: full suite, skill parity, independent quality/security reviews -> record evidence, commit, push, and update PR #128 with measured results.
+- [ ] Align metadata reader with writer when task bodies contain stray or incomplete markers <!-- task-id: bug.agents-skills-task-registry-scripts-registry-model-py.align-metadata-reader-with-writer-when-task-bodies-contain-stray-or-incomplete-markers --> — The bulk-read coding evaluation independently reproduced an existing parser defect: parse_metadata_block selects the fi… ([#132](https://github.com/Joaovsales/jplugin-agentic-development/issues/132))

@@ -597,13 +597,34 @@ assert_file_contains CLAUDE.md '| `bulk-reader` | `haiku` |' \
 assert_file_contains CLAUDE.md "### Bulk-Read Handoff" \
   "BulkRead: CLAUDE.md has the Bulk-Read Handoff subsection under Model Routing"
 for token in "BULK_READ_MIN_LINES" "350" 'Dispatch `bulk-reader` with a question' \
-             "Read only the range an edit needs" "BULK_READ_GATE=off" \
+             "Read the ranges needed to understand and edit the component" "BULK_READ_GATE=off" \
              ".claude/hooks/bulk-read-gate.py" "pi/extensions/bulk-read-gate.ts" \
              "scripts/install-codex.sh"; do
   assert_prose_contains CLAUDE.md "$token" "BulkRead: CLAUDE.md handoff states '$token'"
 done
 assert_prose_contains CLAUDE.md "Codex Scout-tier IDs live in the same section" \
   "BulkRead: CLAUDE.md routes Codex Scout-tier IDs to PI_SETUP.md"
+assert_prose_contains CLAUDE.md "not cumulative context" \
+  "BulkRead: per-call size never caps component understanding"
+assert_prose_contains CLAUDE.md "Before editing" \
+  "BulkRead: source inspection precedes edits"
+assert_prose_contains CLAUDE.md "contracts, callers, state and error paths, and tests" \
+  "BulkRead: understanding includes dependencies outside edited lines"
+assert_prose_contains CLAUDE.md "coherent responsibilities, not file length" \
+  "BulkRead: delegation preserves component ownership"
+for tree in .agents .claude; do
+  reader="$tree/agents/bulk-reader.md"
+  assert_prose_contains "$reader" "Coverage and unknowns" \
+    "BulkRead: $tree reader names search boundaries and unknowns"
+  assert_prose_contains "$reader" "file:line" \
+    "BulkRead: $tree source map carries anchors"
+  assert_prose_contains "$reader" "callers, dependencies, and related tests" \
+    "BulkRead: $tree source map covers dependencies"
+  assert_prose_contains "$tree/skills/build/SKILL.md" "before editing" \
+    "BulkRead: $tree builder inspects source before editing"
+  assert_file_not_matches "$tree/skills/build/SKILL.md" 'reads only the ranges it edits' \
+    "BulkRead: $tree builder is not confined to edited lines"
+done
 assert_file_contains PI_SETUP.md "| Codex |" \
   "BulkRead: PI_SETUP.md tier table has a Codex column"
 # The ID itself is release-sensitive and never pinned: the Scout row's Codex

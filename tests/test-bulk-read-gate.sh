@@ -3,7 +3,7 @@
 # Spec: specs/bulk-read-gate.md. The gate denies a read that would put more
 # than BULK_READ_MIN_LINES lines (default 350) of one file into the calling
 # model's context, and points at the two allowed alternatives: dispatch
-# `bulk-reader` with a question, or read only the range an edit needs. It never
+# `bulk-reader` with a question, or read the ranges needed to understand and edit the component. It never
 # rewrites the call and never reads the content itself — it counts lines.
 #
 # Every case feeds the hook the JSON a harness would (`tool_name` +
@@ -62,6 +62,7 @@ expect_deny() {
   printf '%s' "$OUT" | "$PY" -c 'import json, sys; json.load(sys.stdin)' >/dev/null 2>&1
   assert_eq "0" "$?" "Gate: $1 deny payload is one valid JSON object"
   assert_contains "$OUT" 'bulk-reader' "Gate: $1 reason names the bulk-reader alternative"
+  assert_contains "$OUT" 'understand and edit' "Gate: $1 allows reads for understanding"
   assert_contains "$OUT" "$2 lines" "Gate: $1 reason states the line count ($2)"
   assert_contains "$OUT" "${BULK_READ_MIN_LINES:-350}" "Gate: $1 reason states the threshold"
   assert_eq "" "$ERR" "Gate: $1 writes nothing to stderr"
@@ -86,6 +87,9 @@ expect_error() {
 run_hook "$(read_json "$BIG")";                              expect_deny  "Read whole 400-line file" 400
 run_hook "$(read_json "$BIG" ', "offset": 1, "limit": 50')"; expect_allow "Read ranged limit 50"
 run_hook "$(read_json "$BIG" ', "offset": 1, "limit": 400')"; expect_deny "Read ranged limit 400" 400
+# Understanding may span the entire component; only each call is bounded.
+run_hook "$(read_json "$BIG" ', "offset": 1, "limit": 300')"; expect_allow "component first 300 lines"
+run_hook "$(read_json "$BIG" ', "offset": 301, "limit": 100')"; expect_allow "component remainder after 300 lines"
 run_hook "$(read_json "$SMALL")";                            expect_allow "Read whole 100-line file"
 run_hook "$(read_json "$MISSING")";                          expect_allow "Read missing path"
 run_hook "$(read_json "$BINARY")";                           expect_allow "Read binary file"
@@ -206,6 +210,7 @@ assert_file_contains "$PI_EXT" "finalStages" "PiGate: every command list's final
 assert_file_contains "$PI_EXT" "stripRedirects" "PiGate: redirections are neither separators nor paths"
 assert_file_contains "$PI_EXT" "deliveredLines" "PiGate: ranges are judged by lines delivered"
 assert_file_contains "$PI_EXT" "bulk-reader" "PiGate: deny reason names the bulk-reader alternative"
+assert_file_contains "$PI_EXT" "understand and edit" "PiGate: deny allows reads for understanding"
 # install.sh's copy step is exercised for real in tests/test-install-sh.sh (Case 10).
 
 finish
