@@ -179,7 +179,8 @@ before a branch exists; the routine checks the rest itself. The checklist:
   writes issues.
 - **Mapped labels pre-existing** in the tracker: every `[labels]` value and every
   `[routines.selectors]` value, plus the priority labels `now` and `next` that
-  a sweep files with and the `in-progress` claim label. A label the tracker
+  a sweep files with, the `in-progress` claim label, and the configured
+  `needs-investigation` escalation label. A label the tracker
   lacks is reported and the issue is written without it, unless
   `allow_label_creation = true`.
 - **`janitor` only: an app that launches** in the routine's environment, because
@@ -188,6 +189,13 @@ before a branch exists; the routine checks the rest itself. The checklist:
   findings.
 - **`doctor` run once by hand** in the target environment before scheduling,
   so the first unattended run is not the first time the configuration is read.
+
+Deploy selector and claim exclusions before enabling escalation writers. Create
+the configured escalation label as a separate, explicitly authorized tracker
+operation, then run `task-registry selectors` to verify the vocabulary. Ordinary
+sync never creates this policy label. During rollback, disable writers first and
+keep the exclusions in place until humans have cleared every retained hold; do
+not remove labels, comments, or related task records automatically.
 
 ---
 

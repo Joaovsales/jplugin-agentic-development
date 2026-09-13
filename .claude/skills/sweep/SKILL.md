@@ -65,6 +65,10 @@ ticket is the detail) and load every **open** task's title, summary, and evidenc
 `file:line` already appears in an open task's summary or evidence updates *that*
 task at step 5 instead of minting a new one.
 
+An open task carrying the configured escalation label remains in this dedupe set,
+but is human-owned: record its existing reference in the sweep record and do not
+update, reopen, relabel, or create an eligible replacement for the same finding.
+
 ### 3. Run the engine — lens file
 
 `references/lens-janitor.md` or `references/lens-architect.md` § *Engine*.
@@ -177,6 +181,7 @@ stamp, not an issue, and is not looked up as one.
 | Situation | Behavior |
 |---|---|
 | Same finding, later run | Derived ID matches → task updated or reopened, evidence appended. No second issue. |
+| Same finding, escalated task | Keep its reference in the record; do not mutate it or file a replacement. Only human re-triage clears the hold. |
 | Same defect, new wording | `file:line` already in an open task → that task is updated. |
 | `janitor` with no `verify-<app>` skill | Stops at step 1, loud non-zero, names `/create-verification-skill`. No PR; the empty routine branch is left for the operator. |
 | App will not launch here | Every unreachable feature is a coverage gap with its prerequisite. Not a finding. |

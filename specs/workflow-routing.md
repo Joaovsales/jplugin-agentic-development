@@ -80,6 +80,12 @@ without one says so loudly.** A scheduled run gets a terminal assertion — `gh 
 view` on the branch, non-zero and loud if absent — because the failure mode this
 prevents is a 03:00 run that ends silently having produced nothing.
 
+The fix routine has one earlier loud terminal: an inconclusive or practically
+blocked investigation invokes `task-registry escalate`, applies the configured
+`needs-investigation` hold, retains the run report, and exits non-zero. That path
+does not enter wrap-up or create a PR-ledger row; reproduced and progressable
+work continues through `/build` and normal wrap-up.
+
 ## The key correction: the file survives, the sync machinery does not
 
 The user's decision is that `tasks/todo.md` is **not a mirror of the tracker**.

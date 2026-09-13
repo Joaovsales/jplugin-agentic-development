@@ -4,14 +4,19 @@ implementation_paths:
   - .claude/skills/wrap-up-session/**
   - .agents/skills/task-registry/**
   - .claude/skills/task-registry/**
-  - .agents/skills/auto-improve/SKILL.md
-  - .claude/skills/auto-improve/SKILL.md
+  - .agents/skills/debug/SKILL.md
+  - .claude/skills/debug/SKILL.md
+  - .agents/skills/build/SKILL.md
+  - .claude/skills/build/SKILL.md
+  - .agents/skills/verify/SKILL.md
+  - .claude/skills/verify/SKILL.md
   - tests/test-routine-branch.sh
   - tests/test-routines-contract.sh
   - tests/test-routine-selectors.sh
   - tests/test-routine-wrapup.sh
   - tests/test-routine-step-ledger.sh
-  - tests/test-auto-improve-rewire.sh
+  - tests/test-routine-escalation-handoff.sh
+  - tests/test-task-escalation.sh
 ---
 
 # Spec — Category Routines
@@ -319,6 +324,9 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 - **A mandatory step could not run** — its row stays in `tasks/todo.md` and the PR
   body with `skip: <reason>`. Silent omission is the one thing that is never
   allowed.
+- **A fix investigation is inconclusive or practically blocked** — `/debug`
+  invokes `task-registry escalate` exactly once, applies `needs-investigation`,
+  retains the report, and exits non-zero without a PR or PR-ledger row.
 
 ## Acceptance Criteria
 

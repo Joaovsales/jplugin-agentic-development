@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escalate, hold, and unblock</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+  --border: #30363d; --text: #c9d1d9; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-2: #3fb950; --warn: #f85149;
+  --warn-bg: rgba(248,81,73,0.12); --code-bg: #1e1e1e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4); --radius: 10px;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --surface-2: #eaeef2;
+  --border: #d0d7de; --text: #1f2328; --text-secondary: #57606a;
+  --accent: #0969da; --accent-2: #1a7f37; --warn: #cf222e;
+  --warn-bg: rgba(207,34,46,0.08); --code-bg: #f6f8fa;
+  --shadow: 0 4px 20px rgba(31,35,40,0.08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.65; font-size: 16px;
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+@media (min-width: 1100px) { .container { max-width: 920px; } }
+
+/* Hero */
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 0.5rem; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+.hero .takeaway {
+  font-size: 1.15rem; line-height: 1.5; padding: 1rem 1.2rem;
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 1.2rem 0;
+}
+.hero .meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
+  color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;
+}
+.hero .meta span strong { color: var(--text); margin-right: 0.25rem; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); margin-bottom: 0.25rem; }
+.card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); line-height: 1.1; }
+.card .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+/* Sections */
+section { margin: 2.5rem 0; scroll-margin-top: 1.5rem; }
+section > h2 {
+  font-size: 1.45rem; margin: 0 0 1rem; padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--accent); display: flex; gap: 0.5rem; align-items: baseline;
+}
+section h3 { font-size: 1.1rem; margin: 1.4rem 0 0.5rem; }
+section p { margin: 0.7rem 0; }
+section ul { padding-left: 1.4rem; margin: 0.5rem 0; }
+section li { margin: 0.3rem 0; }
+
+/* Sidebar nav */
+.nav-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  padding: 1.5rem 0.8rem; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transform: translateX(0); transition: transform 0.25s; z-index: 100;
+}
+.nav-sidebar.hidden { transform: translateX(-100%); }
+.nav-sidebar h3 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); margin: 1rem 0.5rem 0.4rem;
+}
+.nav-sidebar a {
+  display: block; padding: 0.4rem 0.6rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; line-height: 1.35;
+}
+.nav-sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.nav-sidebar a.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+.layout { display: flex; }
+.layout main { flex: 1; margin-left: 240px; min-width: 0; }
+@media (max-width: 900px) {
+  .nav-sidebar { transform: translateX(-100%); }
+  .nav-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .layout main { margin-left: 0; }
+}
+
+/* Toolbar buttons (theme, nav toggle) */
+.toolbar { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; z-index: 200; }
+.toolbar button, .nav-toggle {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.toolbar button:hover, .nav-toggle:hover { background: var(--surface-2); }
+.nav-toggle { position: fixed; top: 1rem; left: 1rem; z-index: 200; }
+
+/* Code */
+pre {
+  margin: 0.5rem 0; padding: 1rem 1.1rem; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow-x: auto; font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace;
+  font-size: 0.85rem; line-height: 1.55;
+}
+code { font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace; font-size: 0.9em; }
+p code, li code {
+  padding: 0.1rem 0.35rem; background: var(--surface-2);
+  border-radius: 4px; font-size: 0.85em;
+}
+.code-block { margin: 1rem 0; }
+.code-block .caption {
+  font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-block .caption .lang { font-family: monospace; font-size: 0.75rem;
+  padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-2); }
+
+/* Collapsible */
+details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.6rem 1rem; margin: 0.8rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; }
+details[open] { padding-bottom: 1rem; }
+
+/* References footer */
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+.refs a {
+  display: block; padding: 0.8rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.9rem;
+}
+.refs a:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Reflection */
+.reflection {
+  background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(63,185,80,0.10));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.3rem 1.5rem; margin: 2rem 0;
+}
+.reflection h3 { margin-top: 0; color: var(--accent); }
+
+footer {
+  margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.85rem; text-align: center;
+}
+
+/* Slides mode */
+body.mode-slides { overflow: hidden; }
+body.mode-slides .layout main { margin-left: 0; }
+body.mode-slides .nav-sidebar, body.mode-slides .nav-toggle { display: none; }
+body.mode-slides .container { max-width: none; padding: 0; }
+body.mode-slides .slide {
+  width: 100vw; height: 100vh; padding: 4rem 6rem; display: none;
+  flex-direction: column; justify-content: center;
+}
+body.mode-slides .slide.active { display: flex; }
+body.mode-slides .slide h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+body.mode-slides .slide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); border: none; }
+body.mode-slides .slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem; color: var(--text-secondary);
+  font-size: 0.85rem; font-family: monospace;
+}
+</style>
+<style>
+.diff-add { color: var(--accent-2); }
+.diff-del { color: var(--warn); }
+.diff-ctx { color: var(--text-secondary); }
+
+.tabset { margin: 1rem 0; }
+.tab-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.tab-btn {
+  background: none; cursor: pointer; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.4rem 0.9rem; color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.tab-btn.active { color: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  colorDiffBlocks();
+  buildKeychangeTabs();
+});
+
+function colorDiffBlocks() {
+  document.querySelectorAll('pre code.lang-diff').forEach(function (block) {
+    var lines = block.textContent.split('\n');
+    block.textContent = '';
+    lines.forEach(function (line, i) {
+      var span = document.createElement('span');
+      if (line.startsWith('+')) {
+        span.className = 'diff-add';
+      } else if (line.startsWith('-')) {
+        span.className = 'diff-del';
+      } else {
+        span.className = 'diff-ctx';
+      }
+      span.textContent = line;
+      block.appendChild(span);
+      if (i < lines.length - 1) {
+        block.appendChild(document.createTextNode('\n'));
+      }
+    });
+  });
+}
+
+function buildKeychangeTabs() {
+  var sections = Array.from(document.querySelectorAll('main section[id]'));
+  var i = 0;
+  while (i < sections.length) {
+    if (!sections[i].id.startsWith('keychange-')) {
+      i += 1;
+      continue;
+    }
+    var group = [];
+    while (i < sections.length && sections[i].id.startsWith('keychange-')) {
+      group.push(sections[i]);
+      i += 1;
+    }
+    wrapGroupInTabset(group);
+  }
+}
+
+function wrapGroupInTabset(group) {
+  var tabset = document.createElement('div');
+  tabset.className = 'tabset';
+  var tabBtns = document.createElement('div');
+  tabBtns.className = 'tab-btns';
+  tabset.appendChild(tabBtns);
+
+  group[0].parentNode.insertBefore(tabset, group[0]);
+
+  group.forEach(function (section, idx) {
+    var heading = section.querySelector('h2');
+    var label = heading ? heading.textContent.trim() : section.id;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+    btn.textContent = label;
+    tabBtns.appendChild(btn);
+
+    section.classList.add('tab-panel');
+    if (idx === 0) {
+      section.classList.add('active');
+    }
+    tabset.appendChild(section);
+
+    btn.addEventListener('click', function () {
+      tabBtns.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      tabset.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      section.classList.add('active');
+    });
+  });
+}
+</script>
+</head>
+<body class="mode-report" data-theme="dark">
+<div class="toolbar"><button onclick="toggleTheme()" aria-label="Toggle theme">🌓 Theme</button></div><button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+<div class="layout">
+<nav class="nav-sidebar" id="navSidebar"><h3>Contents</h3><a href="#problem">Problem</a><a href="#constraints">Constraints</a><a href="#system-design">System design</a><a href="#component-contracts">Component contracts</a><a href="#data-models">Data models</a><a href="#build-order">Build order</a><a href="#decisions">Decisions</a><a href="#acceptance-criteria">Acceptance Criteria</a><a href="#implementation-paths">Implementation Paths</a><a href="#reflection">Reflect</a><a href="#references">References</a></nav>
+<main><div class="container"><header class="hero"><h1>Escalate, hold, and unblock</h1><p class="subtitle">Issue #126 · Routine architecture review · 11 September 2026</p><p class="takeaway">Reproduced and fixable: continue. Investigation blocked: escalate the parent, prevent reselection, and file a concrete blocker when useful.</p><div class="meta"><span><strong>Origin:</strong>#126 + user review</span><span><strong>Spec:</strong>routine-reproduction-report.md</span><span><strong>Status:</strong>Awaiting human review</span><span><strong>Critic:</strong>ACCEPT after 2 revision safeguards; 0 declined</span></div></header><div class="cards"><div class="card"><div class="label">Components touched</div><div class="value">5</div><div class="hint">Routine, selector, escalation, provider, upsert</div></div><div class="card"><div class="label">New contracts</div><div class="value">3</div><div class="hint">Escalate CLI, label-only mutation, structured upsert result</div></div><div class="card"><div class="label">Persisted hold</div><div class="value">1 label</div><div class="hint">needs-investigation, independent of claim</div></div><div class="card"><div class="label">Build slices</div><div class="value">4</div><div class="hint">Hold → blocker result → escalation → routines</div></div><div class="card"><div class="label">Review decisions</div><div class="value">11</div><div class="hint">User direction, operational details and review safeguards</div></div></div><section id="problem"><h2>Problem</h2><p>An unattended fix routine needs different outcomes for a reproduced defect, an inconclusive reproduction, and an investigation blocked by an unavailable test or environment. Reproduced defects follow the normal fix pipeline; unresolved investigations receive an explicit escalation on the originating task that prevents automatic reselection. A proven, independently actionable blocker can receive its own linked task, while the original issue stays open for human investigation.</p>
+
+<p>User-review interpretation: “when it can be reproduced” is answered by the normal path below; the requested escalation applies when the investigation cannot proceed, including after a successful reproduction if verification cannot run.</p></section>
+<section id="constraints"><h2>Constraints</h2><pre><code class="lang-text">Constraint: Positive path
+Value: A reproduced defect continues through root-cause analysis, failing regression
+  test, implementation, verification and fix PR when those steps can run
+Source: existing routine contract; user question
+Detected by: Positive-path scenario
+
+Constraint: Escalation
+Value: Unresolved investigation is visibly flagged on its originating task, with
+  timestamp, command, observation, evidence and disposition
+Source: issue; user
+Detected by: Label readback and exact comment assertions
+
+Constraint: Reselection
+Value: Every consumer routine excludes an escalated issue even when its claim label
+  is absent
+Source: user
+Detected by: select, claim and workflow tests across all configured routines
+
+Constraint: Terminal safety
+Value: Escalation exits non-zero, creates no fix PR, and never closes the
+  originating issue
+Source: issue; user
+Detected by: Failure-path scenario and provider call trace
+
+Constraint: Blocker filing
+Value: Only concrete, actionable blockers become separate tasks; the parent
+  references their actual publication outcome
+Source: user; inferred D3
+Detected by: Filing threshold, linkage, pending/failure and duplicate tests
+
+Constraint: Human resumption
+Value: No timeout, blocker closure, routine or producer removes the escalation flag;
+  a human explicitly re-triages and removes the hold
+Source: inferred D1
+Detected by: Resumption and producer-preservation regressions
+
+Constraint: Write authority
+Value: All external mutations pass existing WriteGate; dry-run writes nothing and
+  never silently opts into approval
+Source: existing user workflow
+Detected by: Denied-policy and dry-run tests
+
+Constraint: Persistence
+Value: Label is the exclusion source of truth; comment is history; blocker task owns
+  the actionable work
+Source: inferred D2
+Detected by: Partial-write outcomes and unchanged unrelated fields
+
+Constraint: Bounded attempts
+Value: One attempt per write stage; no blind retry after an ambiguous comment or
+  task creation
+Source: inferred D4
+Detected by: Failure-injection call counts
+
+Constraint: Evidence
+Value: Retained run artifact or explicit evidence-unavailable reason; no invented
+  accessible transcript URL
+Source: prior review; inferred D5
+Detected by: Artifact-unavailable scenario
+
+Constraint: Compatibility
+Value: Existing CLI commands keep their contracts; new config defaults require an
+  explicit rollout preflight
+Source: inferred D6
+Detected by: Legacy CLI tests and label-provisioning checks
+</code></pre>
+
+<p>No design can guarantee a remote comment or label during a tracker outage. The existing claim is retained as a second exclusion; the result must state whether an authoritative hold is confirmed. An invocation with neither a confirmed claim nor escalation label reports that automatic exclusion is unconfirmed and requires operator intervention; it never claims the issue is safely queued for human review.</p></section>
+<section id="system-design"><h2>System design</h2><h3>Current state and ownership</h3>
+
+<p>Read paths below are under <code>.agents/skills/</code> unless stated otherwise.</p>
+
+<pre><code class="lang-text">fix prompt (wrap-up-session/references/routine-prompts/fix.md:12-17)
+  -- sync --&gt; /debug (debug/SKILL.md:59,108,154,303)
+  -- reproduced --&gt; /build --&gt; verification --&gt; /wrap-up-session --&gt; PR
+  -- inconclusive --&gt; blocked output, non-zero, no PR; claim retained
+
+registry/routines.py:49-64 excludes claim label only at label-selection seam
+task-registry.py:456 returns early when an issue is already claimed
+task-registry.py:581-614 reports claimed work as IN FLIGHT
+providers/base.py:188 exposes comment; no label-only mutation operation
+providers/github.py:191-210 update_task also rewrites the issue body
+registry/upsert.py:183 exposes idempotent task filing with local-pending fallback
+</code></pre>
+
+<p>Registry file names above are relative to <code>task-registry/scripts/</code>. The original issue was read through <code>show</code> and its web page because the normalized CLI output omitted the free-form Required fix section.</p>
+
+<pre><code class="lang-text">Component: /debug and fix routine
+Owns: Reproduction verdict, blocker diagnosis, evidence and terminal decision
+Reads: Original issue, command results
+
+Component: NEW escalation operation
+Owns: Validation; hold → optional blocker → comment ordering; truthful stage results
+Reads: Fresh parent task, write policy, structured request
+
+Component: Routine selection/config
+Owns: Configured escalation label and exclusion on every entry path
+Reads: Provider labels
+
+Component: Provider adapters
+Owns: Label-only mutation, comments, identity and durable acknowledgements
+Reads: Exact task reference, payload
+
+Component: Existing upsert engine
+Owns: Stable-ID blocker filing and publication outcome
+Reads: Proven blocker fields, existing task/index
+
+Component: Originating task
+Owns: Escalation label and investigation history
+Reads: Related blocker references
+
+Component: Blocker task
+Owns: Work needed to remove the practical obstacle
+Reads: Parent reference, evidence, acceptance criterion
+</code></pre>
+
+<h3>Behavior and interaction</h3>
+
+<pre><code class="lang-text">Observation: Defect reproduced; investigation and verification available
+Routine action: Continue normal fix pipeline; PR only after verification passes
+Separate blocker task: No escalation task just because the defect exists
+
+Observation: Reproduction runs but does not establish the symptom or named
+  acceptance
+Routine action: Escalate as inconclusive; hold parent; stop
+Separate blocker task: Only if a specific inadequacy is demonstrated and has a
+  concrete remedy
+
+Observation: Reproduction cannot run because test/environment is broken
+Routine action: Escalate as execution-blocked; retain reproduction verdict as
+  unverified
+Separate blocker task: Yes when a repairable prerequisite is identified
+
+Observation: Defect reproduced, but a necessary later test cannot run
+Routine action: Escalate as verification-blocked; preserve “reproduced” evidence
+Separate blocker task: Yes when the verification obstacle is independently
+  actionable
+
+Observation: Credentials, access, missing context, or transient timeout with no
+  established remedy
+Routine action: Escalate for human investigation; stop
+Separate blocker task: No speculative engineering ticket
+</code></pre>
+
+<pre><code class="lang-text">/debug
+  (1) sync: retain evidence and classify outcome
+  (2) sync: NEW task-registry escalate &lt;parent&gt; &lt;request&gt;
+       (3) sync: authoritative parent read and write-policy validation
+       (4) sync: add escalation label, read it back; retain existing claim
+       (5) sync: optional proven blocker upsert; capture structured outcome
+       (6) sync: post parent comment including hold and blocker outcome
+  (7) sync: persist stage results in run artifact; terminate non-zero
+</code></pre>
+
+<pre><code class="lang-text">Arrow: 1
+Timeout/failure behavior: Use a verifiable retained harness artifact, or explicit
+  evidence-unavailable reason
+Duplicate behavior: Keep this run&#x27;s artifact
+
+Arrow: 2–3
+Timeout/failure behavior: No remote mutation on usage, identity or policy failure;
+  caller still stops
+Duplicate behavior: Read-only
+
+Arrow: 4
+Timeout/failure behavior: Attempt bounded readback after ambiguous label
+  acknowledgement; do not file blocker without confirmed hold; still attempt an
+  honest parent comment if authorized
+Duplicate behavior: Additive set operation; same label is a no-op
+
+Arrow: 5
+Timeout/failure behavior: Failure/pending publication is included in the parent
+  comment; never discard the parent escalation
+Duplicate behavior: Stable blocker ID; no blind retry after unknown external
+  creation
+
+Arrow: 6
+Timeout/failure behavior: Comment failure is delivery-unknown after dispatch; hold
+  and blocker are retained
+Duplicate behavior: Append-only, non-idempotent; one attempt
+
+Arrow: 7
+Timeout/failure behavior: No build/wrap-up/PR after escalation, even if earlier
+  stages crash
+Duplicate behavior: No task-state release
+</code></pre>
+
+<p>GitHub calls have a 60-second per-subprocess limit (<code>providers/github.py:457-473</code>); this is not a total-duration promise. The sequential writes are not atomic. Safety is monotonic: the hold lands first and is never compensated away because a later step failed. Each stage reports its own result; “held” does not mean “comment delivered” or “blocker published.”</p>
+
+<h3>Failure unit and callers</h3>
+
+<p>Only this investigation stops. Other unrelated candidates remain available. The short fix prompt and all four /debug stop sites route to one canonical escalation procedure. Its no-PR terminal path explicitly overrides the generic mandatory wrap-up and PR-ledger rules (<code>wrap-up-session/references/routines.md:176-210,231-238</code>); downstream skips remain in the local ledger. The short prompt stays under 25 lines.</p>
+
+<p>When the defect has already been reproduced, later verification failures use the same escalation procedure only when a practical obstacle prevents further safe progress. A regression failure showing the implementation is wrong remains part of the normal debugging loop; it is not relabeled as an environment blocker to evade verification.</p>
+
+<p>Later failure owners are explicit: <code>build/SKILL.md:241,264-294</code> receives blocked verification, <code>verify/SKILL.md:194-197,243-251</code> reports it to the caller, and <code>/wrap-up-session</code> receives pre-PR verification results. On a fix-routine branch these callers invoke the canonical escalation procedure with the originating issue, last confirmed reproduction verdict and actual failing verification command. Add scoped handoffs to their mirrored SKILL.md files. <code>/verify</code> returns evidence and a blocked outcome; its caller files exactly once, avoiding double escalation. Ordinary interactive sessions and post-push deployment monitoring retain their existing contracts.</p></section>
+<section id="component-contracts"><h2>Component contracts</h2><h3>NEW CLI and request</h3>
+
+<pre><code class="lang-text">python3 .agents/skills/task-registry/scripts/task-registry.py escalate &lt;parent-ref&gt;
+  --reason &lt;inconclusive|execution-blocked|verification-blocked&gt;
+  --reproduction-state &lt;reproduced|not-reproduced|unverified&gt;
+  --run-at &lt;timezone-aware ISO-8601 timestamp&gt;
+  --repro-command &lt;exact attempted command&gt;
+  --observed &lt;actual result and remaining verification gap&gt;
+  (--evidence &lt;reference&gt; [--evidence &lt;reference&gt;] | --evidence-unavailable &lt;reason&gt;)
+  [--blocker-file &lt;JSON request path&gt;]
+  [--apply] [--approve] [--dry-run] [--repo &lt;root&gt;]
+</code></pre>
+
+<p>The earlier draft&#x27;s <code>reproduction-failed</code> name was never shipped; <code>escalate</code> reflects the broader user-requested outcome. <code>--repro-command</code> avoids collision with the existing positional command. The reporter never executes it. Required fields are nonblank; timestamp normalizes to UTC seconds with Z; exactly one evidence alternative is mandatory. Execution-blocked requires unverified reproduction; verification-blocked requires reproduced; inconclusive accepts not-reproduced or unverified. “Reproduced and verified” is not an escalation request.</p>
+
+<p>Reject the shared <code>--report</code> option before dispatch for this command only. Its common epilogue writes outside the operation (<code>task-registry.py:102,252-253,689</code>). Default/explicit dry-run previews hold, optional blocker and comment, performs zero writes and exits 0. Applied escalation always exits 1, even when every stage succeeds; usage errors exit 2. The caller always terminates non-zero and opens no PR, independently of the CLI&#x27;s result.</p>
+
+<p>All untrusted report strings are inside a fenced JSON object encoded with <code>json.dumps(..., ensure_ascii=True, indent=2)</code>, replacing literal less-than characters with JSON escape <code>\u003c</code>. Static prose states escalation, no verified fix, and human resumption requirements. This prevents multiline input from becoming fields in the local reader (<code>providers/local.py:108,159-161</code>) while JSON decoding recovers exact command text. No secrets or evidence files are uploaded automatically; necessary redaction is disclosed.</p>
+
+<pre><code class="lang-python">def escalate_task(registry: Registry, request: EscalationRequest, apply: bool) -&gt; Tuple[str, int]: ...
+</code></pre>
+
+<p>NEW <code>registry/escalation.py</code> owns this operation and its validated frozen request. Resolve exact provider reference, or stable index ID with recorded reference; require provider/repository agreement and a fresh owning-provider read. Exact-ID listing fallback is allowed only with complete successful results, followed by a direct read. Missing, ambiguous, truncated, mismatched or degraded reads refuse writes. Do not use the read-oriented local fallback in <code>Registry.resolve_task</code> as proof of a successful external read.</p>
+
+<p>An already-closed parent is not reopened: refuse the escalation and file no blocker. A concurrent human closure is never overwritten. Comments describe the observed open state, not a promise about a later snapshot.</p>
+
+<h3>NEW label-only provider seam</h3>
+
+<pre><code class="lang-python">def add_labels(self, task: Task, labels: Sequence[str]) -&gt; None: ...
+</code></pre>
+
+<p>GitHub adds only named labels to the exact issue through argv; it sends no body/title/state replacement. Local updates only the canonical header labels field and preserves unrelated bytes. It does not reuse GitHub <code>update_task</code>, which rewrites the issue body. Both retain existing labels, validate requested labels, honor WriteGate, and treat repeated additions as idempotent. Missing label/capability is a loud failure, never the existing best-effort “written without it” behavior. Success requires a fresh readback showing the escalation label; a label write returning None is not sufficient proof.</p>
+
+<p>No remove-label operation is introduced. The operator can re-triage in the tracker and remove both escalation and stale claim labels after recording a corrected reproduction, new evidence or repaired prerequisite. This is a human action, not something child closure or a routine performs.</p>
+
+<h3>Selection and configuration</h3>
+
+<p>NEW <code>[routines] escalation_label = needs-investigation</code>, with that shipped default. It is nonblank and distinct from the claim label, all routine selector/kind-precedence labels and configured status/priority/kind mapping labels; comparison follows the provider&#x27;s case-insensitive label semantics where applicable. Validate in the loader, not only in doctor.</p>
+
+<p><code>select_routine</code> excludes escalation before ordinary kind matching. <code>select_candidates</code> inherits that exclusion. <code>claim</code> checks escalation before its already-claimed success return and refuses even when invoked explicitly. <code>workflow</code> checks escalation before kind matching or deferred-routine reporting: even an unclassified, already-claimed or deferred-build task reports ESCALATED / human investigation required and returns 1, without a runnable chain. All routine hosts use these seams, including future build. Existing claim bypasses of unrelated linked-PR/truncation checks are outside this change; the new escalation check uses a fresh exact-target read rather than the stale selection snapshot.</p>
+
+<p>Producers keep escalated tasks in their deduplication set but neither update/reopen them nor create eligible replacement tasks for the same finding. They record the existing held reference in their sweep record and leave human-owned investigation intact. Upsert also preserves existing labels defensively so a separately authorized direct update cannot accidentally erase the hold; the producer guard is explicit in <code>sweep/SKILL.md</code>, whose current dedup/read and filing sites are at lines 60-66,111-119,179-180.</p>
+
+<p>On providers with a label vocabulary, selector preflight requires the configured escalation label to exist and be readable; otherwise no consumer starts. Local labels have no external provisioning step. NEW label creation is an explicit rollout action; ordinary sync does not create it. A read-only provider vocabulary check in this planning revision confirmed that <code>needs-investigation</code> does not yet exist in this repository; D6 is a real rollout prerequisite. Runtime escalation still attempts the explanatory comment if label application fails, accurately stating whether the old claim supplies a confirmed fallback hold.</p>
+
+<h3>Conditional blocker creation</h3>
+
+<p>The operation accepts at most one independently actionable blocker per escalation; additional unproven symptoms remain observations. The optional file is a JSON object with <code>version: 1</code>, <code>source</code> (repository-relative path), <code>title</code>, <code>summary</code>, <code>handling</code> (routine or human), <code>reproduction</code> (nonempty list of single-line steps), <code>proposed_fix</code> (nonempty list), and <code>criteria</code> (nonempty list). This is a new input envelope, not a persisted Task schema.</p>
+
+<p>Blocker schema v1 deliberately accepts plain single-line descriptive fields. Every string (including title and summary) must be nonblank, have no line-boundary character recognized by Python str.splitlines (including Unicode separators), contain neither task-registry metadata sentinel, and not begin with a Markdown heading or a field-shaped line matching <code>^(?:-\s<em>)?(?:status|priority|labels|area|updated|created)\s</em>:</code>. Validate case-insensitively after trimming. This catches the valid single-line proposed-fix value <code>status: done</code>, which the writer would otherwise turn into a real <code>- status: done</code> field. Reject those shapes instead of silently rewriting them; raw command/output remains in the parent&#x27;s safe JSON report and retained artifact. Version, field-name, source containment and enum validation are also mandatory. Safe representable prose can describe the remedy while pointing to the exact command in the artifact. This bounded v1 format avoids changing the entire existing Markdown parser (D10).</p>
+
+<p>Validate the optional blocker independently of the parent request. An unreadable file or invalid blocker produces blocker-failed with the exact field/reason, zero blocker writes, and still proceeds with the valid parent&#x27;s hold and comment. Only invalid required parent fields prevent the entire request from dispatching. Read/render/read tests must demonstrate that all accepted blocker fields preserve task identity, labels, status and criteria on local and local-pending paths, and the hazardous shapes above are refused before blocker persistence.</p>
+
+<p>Filing requires an observed concrete obstacle, evidence from this run, a separate remediation and a measurable unblock criterion. Example: test launch fails because the committed runner references a missing fixture; unblock criterion is that the named test starts and reaches its assertions. “Tests cannot run” alone, a single unexplained timeout or lack of credentials is not enough. The agent owns this evidence judgment; field validation alone cannot establish that a blocker is real.</p>
+
+<p>Derive identity through existing <code>derive_id(&quot;routine-blocker&quot;, source, title)</code>, omitting run timestamp and parent number so one shared blocker is not cloned for every parent. Reuse an existing matching task/reference when known, freeze the source/title identity after first filing, and preserve all unrelated labels including escalation and claims. If that known blocker is already escalated or terminal, reuse its reference without updating, reopening or cloning it; the parent comment requests human review of its recurrence. A new routine-handled blocker must be a proven defect: use kind bug with its configured kind-label mapping and validate that it has a runnable consumer. A new human-handled prerequisite uses kind operational plus the escalation label. An existing blocker keeps its established kind/routing labels; this report never reclassifies it to make it eligible.</p>
+
+<p>Automatic blocker reopening is explicitly outside this change (D11). Existing upsert&#x27;s <code>_merge</code> reports reopened at <code>registry/upsert.py:127</code>, but GitHub <code>update_task</code> sends only issue edit at <code>providers/github.py:201</code>, so that legacy report is not authoritative state. The escalation-specific upsert result path refuses terminal/held updates at its own fresh existing-task lookup immediately before persistence, returning the existing reference with a human-review outcome; the legacy wrapper retains its existing behavior for other callers. Read back any blocker that was written before describing it as open or independently selectable. If it is now closed/held, report human review required; do not reopen, create another task or retry. This is a read-snapshot guarantee, not cancellation of a concurrent human edit.</p>
+
+<p>Include a canonical originating-parent reference in accumulated blocker evidence and its summary. The parent comment includes the actual blocker ref, or the stable local task ID with “publication pending,” or the filing failure/unknown outcome. No native dependency is claimed: <code>upsert</code> has no dependency flag. Resolving the blocker does not clear the parent hold.</p>
+
+<p>Reuse the existing upsert implementation and its write policy rather than create a second filing engine. Its current return is human-oriented lines plus exit code (<code>registry/upsert.py:183</code>), so expose a structured internal outcome and retain the existing public wrapper and CLI formatting:</p>
+
+<pre><code class="lang-python">def upsert_task_result(registry: Registry, task: Task, apply: bool) -&gt; UpsertResult: ...
+def upsert_task(registry, task: Task, apply: bool) -&gt; Tuple[List[str], int]: ...
+</code></pre>
+
+<p>NEW UpsertResult carries disposition (preview, external, local, local-pending, existing-held, existing-terminal, failed, unknown), the persisted or reused Task/reference when confirmed, authoritative readback state, stage detail and legacy lines/code. The structured helper defaults to preserving held/terminal tasks; its compatible legacy wrapper opts into the old merge behavior through an internal policy argument, not a new CLI flag. A provider creation exception is conservatively unknown; an external success followed by index failure retains the confirmed external ref and separately reports index failure. The escalation caller never parses prose or treats a preserved historical external ref in a local-pending result as proof this run published.</p>
+
+<p>Blocker failure never prevents the parent comment attempt. Comment fields include exact stage outcomes. No recursive blocker filing and no automatic replay after an ambiguous create.</p></section>
+<section id="data-models"><h2>Data models</h2><pre><code class="lang-text">Entity: Parent escalation
+Invariant: Existing label is authoritative; issue remains open; prior claim retained
+Enforcement: Dedicated additive label operation and selection exclusion
+
+Entity: EscalationRequest
+Invariant: Valid reason/reproduction pair, UTC time, command/observation and
+  evidence alternative
+Enforcement: Frozen validated request; no caller-supplied fixed disposition
+
+Entity: Blocker request
+Invariant: Optional, versioned v1; one concrete remediation with criterion and safe
+  source
+Enforcement: Schema checks plus evidence threshold in /debug
+
+Entity: Blocker Task
+Invariant: Stable identity; original parent in accumulated evidence; existing labels
+  retained
+Enforcement: Existing registry ID derivation and upsert merge
+
+Entity: Hold outcome
+Invariant: confirmed / claim-only / unconfirmed
+Enforcement: Fresh authoritative read, never inferred from a requested write
+
+Entity: Comment delivery
+Invariant: not-sent / recorded / unknown
+Enforcement: Provider acknowledgement vs dispatch failure
+
+Entity: Blocker publication
+Invariant: none / preview / external / local / local-pending / existing-held /
+  existing-terminal / failed / unknown
+Enforcement: Structured upsert result, not exit-code or link guessing
+
+Entity: Run artifact
+Invariant: Timestamp, host/run identity, evidence, intended and actual stage
+  outcomes
+Enforcement: NEW exclusive per-run document under tasks/routine-runs/
+</code></pre>
+
+<h3>Transitions and illegal states</h3>
+
+<pre><code class="lang-text">State: Investigation
+From → To: investigating → fixing
+Trigger: Defect reproduced; progress remains possible
+
+State: Investigation
+From → To: investigating/fixing → escalated
+Trigger: Inconclusive or practical execution/verification obstacle
+
+State: Investigation
+From → To: fixing → verified → fix PR
+Trigger: Regression plus required verification pass
+
+State: Escalation label
+From → To: absent → present
+Trigger: Authorized label add confirmed by readback
+
+State: Escalation label
+From → To: present → present
+Trigger: Repeat escalation, blocker closure, producer rediscovery
+
+State: Escalation label
+From → To: present → absent
+Trigger: Explicit human re-triage only
+
+State: Claim
+From → To: present → present
+Trigger: Escalation, including partial failure
+
+State: Claim
+From → To: present → absent
+Trigger: Human releases stale claim before deliberate resumption
+
+State: Hold result
+From → To: pending → confirmed / claim-only / unconfirmed
+Trigger: Label attempt and readback
+
+State: Comment result
+From → To: pending → not-sent / recorded / unknown
+Trigger: Preflight failure, acknowledgement or post-dispatch exception
+
+State: Blocker result
+From → To: pending → external / local / local-pending / existing-held /
+  existing-terminal / failed / unknown
+Trigger: Upsert stages
+
+State: Applied escalation
+From → To: any stage outcome → terminated non-zero
+Trigger: No automatic continuation or replay
+
+State: Parent status
+From → To: open → open
+Trigger: Escalation never closes/reopens it
+
+State: Blocker status
+From → To: absent → open; open/in_progress/blocked → same; done/cancelled → same
+Trigger: Create/update eligible task or reuse held/terminal reference without
+  mutation
+</code></pre>
+
+<p>Illegal combinations: “escalated but selectable” is prevented at selection and explicit claim/workflow seams; “comment failed therefore hold released” has no removal operation; “test did not run therefore defect fixed” has no success escalation disposition. A held parent is not made selectable by a repaired or closed blocker. Reporting strings cannot set parsed local fields because they are losslessly encoded. Blocker publication cannot be called confirmed merely because an old external link survived a local-pending write.</p>
+
+<p>A read/write race with another run is not a new global lock guarantee: a worker that selected earlier must recheck at claim, and a routine entering debug rechecks the hold before work. A human bypass or an already-running worker is not cancelled by a label; the guarantee covers subsequent routine selection/entry.</p>
+
+<h3>Artifacts, migration and rollback</h3>
+
+<p>The routine retains <code>tasks/routine-runs/&lt;UTC timestamp&gt;-&lt;unique run id&gt;.md</code> or an already verifiable harness artifact. If neither survives, use evidence-unavailable with the actual reason and attempt the parent notification anyway. No PR publishes this file automatically.</p>
+
+<p>No new Task status enum or database is introduced. Labels are persisted policy state; comments are historical records; the optional JSON file is a v1 request. Deploy exclusion/read support before enabling escalation writers. Provision the configured label before enabling the new consumer preflight, with explicit operator authorization under normal label policy; verify it exists. Mirror every skill change.</p>
+
+<p>Rollback disables escalation writers but retains exclusion support and the persisted labels until humans clear the holds. Rolling readers back to code that ignores escalation is unsafe unless every held parent still has the old claim exclusion; verify that before rollback. Do not automatically delete comments, blockers or run artifacts.</p></section>
+<section id="build-order"><h2>Build order</h2><pre><code class="lang-text">#: 1
+Slice: Persist and enforce investigation holds
+Delivers: Config/default validation, label-only adapter operation, readback,
+  select/claim/workflow exclusion, rollout guidance
+Depends on: none
+Contract: add_labels and escalation_label
+Size: M
+
+#: 2
+Slice: Expose honest blocker filing outcomes
+Delivers: Structured upsert result behind unchanged public wrapper; label
+  preservation and partial-index-failure detail
+Depends on: 1
+Contract: UpsertResult
+Size: M
+
+#: 3
+Slice: Record escalation with optional blocker
+Delivers: Validated escalate CLI, safe payload, ordered writes and all failure
+  branches
+Depends on: 1, 2
+Contract: escalate CLI + request v1
+Size: M
+
+#: 4
+Slice: Wire and verify both routine outcomes
+Delivers: Canonical stop procedure, positive path, later verification blocker, short
+  prompt, ledger exceptions and real isolated scenarios
+Depends on: 3
+Contract: Routine behavior
+Size: M
+</code></pre>
+
+<p>Each slice leaves existing tests green and mirrors its skill files. Slice 1 covers the largest safety unknown first: a visible hold must actually exclude a task without rewriting its issue body.</p>
+
+<ul>
+<li>Slice 1: AC3, AC4, AC8, AC11 and AC13; explicit claim, missing label, label-only mutation and human resumption tests.</li>
+<li>Slice 2: AC6, AC7 and AC12; preserve existing CLI outputs/exit codes, unknown creation and confirmed external write followed by index failure.</li>
+<li>Slice 3: AC2, AC5–AC10 and AC12; public CLI against local and fake-GitHub adapters, no writes in dry-run, no reporter-output overwrite, safe multiline payload.</li>
+<li>Slice 4: AC1, AC2, AC9 and AC14; actual isolated skill execution plus static coverage of every stop/entry caller. A shell script imitating the desired behavior is not evidence that the agent skill follows it.</li>
+</ul></section>
+<section id="decisions"><h2>Decisions</h2><pre><code class="lang-text">ID: D1
+Status and choice: User-directed: explicit escalation and exclusion; inferred
+  resumption policy
+Recommended behavior: needs-investigation plus retained claim; human clears both
+  after re-triage
+Trade-off / when wrong: Automatic resumption would need a separate proof and
+  scheduling contract
+
+ID: D2
+Status and choice: Inferred: partial-write ordering
+Recommended behavior: Confirm hold → attempt blocker → post parent comment; never
+  compensate hold away
+Trade-off / when wrong: Requires per-stage results because these stores cannot form
+  one transaction
+
+ID: D3
+Status and choice: User-directed: practical blocker tasks; inferred filing threshold
+Recommended behavior: File only concrete remediable obstacles; one blocker per
+  attempt; stable shared identity
+Trade-off / when wrong: A reproducible symptom without independent remedy belongs in
+  the parent investigation
+
+ID: D4
+Status and choice: Retained: bounded retry policy
+Recommended behavior: No blind comment/create retry; additive label operation may be
+  reconciled by one readback
+Trade-off / when wrong: Guaranteed delivery during outages needs a separate
+  queue/reconciliation system
+
+ID: D5
+Status and choice: Retained: evidence access
+Recommended behavior: Retained artifact or explicit unavailable reason
+Trade-off / when wrong: Operator must supply a shared URL when host artifacts cannot
+  be retrieved
+
+ID: D6
+Status and choice: NEW rollout decision
+Recommended behavior: Provision configured label before activating consumer
+  preflight; deploy exclusions first
+Trade-off / when wrong: Requires coordinated rollout; ordinary sync must not
+  silently create labels
+
+ID: D7
+Status and choice: Prior critic safeguards retained
+Recommended behavior: Safe JSON report; reject --report for escalate before dispatch
+Trade-off / when wrong: Directly copyable raw multiline commands need a real
+  local-parser boundary first
+
+ID: D8
+Status and choice: Retained: applied escalation exit
+Recommended behavior: Always non-zero; stage fields distinguish successful
+  notification from failure
+Trade-off / when wrong: Integrations wanting notification-only exit 0 must adapt to
+  stage results
+
+ID: D9
+Status and choice: NEW blocker routing decision
+Recommended behavior: Independently repairable blocker receives normal routing;
+  human-only blocker is held; original parent stays held
+Trade-off / when wrong: Avoids recursive attempts at inaccessible credentials or
+  human-only work
+
+ID: D10
+Status and choice: Revision critic: blocker serialization (MUST-FIX, confidence 100,
+  manual)
+Recommended behavior: Plain single-line v1 blocker fields; reject
+  metadata/heading/field-shaped input, preserve exact raw evidence in safe parent
+  report
+Trade-off / when wrong: Rich arbitrary Markdown blocker content needs a separately
+  designed parser/encoding change
+
+ID: D11
+Status and choice: Revision critic: closed blocker recurrence (MUST-FIX, confidence
+  100, manual)
+Recommended behavior: Reuse closed/held reference and request human review; do not
+  auto-reopen or duplicate
+Trade-off / when wrong: Automatic recurrence handling needs a real gated reopen
+  operation and state readback
+</code></pre>
+
+<p>Self-review: constraints have sources and checks; every cross-boundary stage has failure and duplicate semantics; all new status values have transitions. The review card&#x27;s atomic-dual-write ideal is not met literally: D2 explicitly uses a monotonic hold with visible partial results and no rollback, because issue labels, comments and blocker creation have no shared transaction. Money/tenant models are n/a; provider/repository identity is checked. Human review approves these choices; no issue has been filed and no implementation has begun.</p>
+
+<p>Prior critic history: the first report-only draft exposed unsafe local Markdown interpretation and shared --report file writes. Both proposed safeguards remain. Revision review identified two further MUST-FIX / confidence 100 / manual / agent findings, addressed as proposals in D10/D11: blocker fields bypassing parent-comment encoding (<code>providers/local.py:147,161</code>) and the unimplemented GitHub reopening operation (<code>registry/upsert.py:127,149</code>, <code>providers/github.py:201</code>). Two incorporated, zero declined; no implementation applied. The focused follow-up accepted the revised design with no remaining findings in that scope; this is design acceptance, not implementation verification.</p>
+
+<p>Planning validation: all nine sections, contract signatures, fourteen acceptance criteria and eleven decision rows are present in the HTML; relative links and self-contained assets pass checks. In-memory probes against the existing local parser preserve exact parent-report inputs and Task fields, reject eight hazardous blocker strings, and round-trip three accepted blocker records without changing task identity/status/labels/criteria. These validate the proposed formats only; actual routine behavior and all implementation ACs remain to be built and verified.</p></section>
+<section id="acceptance-criteria"><h2>Acceptance Criteria</h2><ul>
+<li>AC1: A reproduced defect with usable investigation and verification proceeds through the normal fix pipeline; no escalation or blocker is created merely because the bug reproduces.</li>
+<li>AC2: An inconclusive reproduction or practical execution/verification blocker escalates the original issue with timestamp, command, observed result, evidence or explicit unavailable reason, and an accurate reproduced/not-reproduced/unverified verdict.</li>
+<li>AC3: The escalation label excludes the parent from every consumer routine even without the claim label; explicit claim refuses it and workflow reports human escalation rather than a runnable chain.</li>
+<li>AC4: Escalation retains the original claim and issue state; only its designated label and comment are added, with no issue-body/title/criteria replacement or loss of unrelated labels.</li>
+<li>AC5: Hold application is read back before optional blocker filing; failures retain existing holds, still attempt authorized parent notification, and report confirmed, claim-only or unconfirmed exclusion honestly.</li>
+<li>AC6: A proven independently actionable obstacle creates or updates one stable eligible blocker with evidence, reproduction, remedy, unblock criteria and parent reference; existing closed/held blockers are referenced for human review without mutation or duplication; speculative failures create none.</li>
+<li>AC7: The parent comment names the blocker&#x27;s confirmed reference, local-pending identity, failed or unknown outcome; upsert preserves claim/escalation labels and does not duplicate a known blocker on ordinary replay.</li>
+<li>AC8: Neither blocker closure nor producer rediscovery clears a parent escalation; only explicit human re-triage and removal of escalation/stale claim permit later routine selection.</li>
+<li>AC9: Every escalation terminates non-zero and creates no fix PR, including unavailable CLI, denied writes, provider failure, missing artifact and later verification blockers.</li>
+<li>AC10: Dry-run makes zero writes; escalation rejects --report before dispatch; parent report input is safely encoded, unsafe blocker fields are refused before blocker persistence without preventing valid parent escalation, and accepted content round-trips without changing parsed identity/status/labels/criteria.</li>
+<li>AC11: Missing or conflicting escalation-label configuration prevents consumer startup with actionable diagnostics; label creation is an explicit rollout operation and no unknown label is silently dropped.</li>
+<li>AC12: Comment/creation exceptions are reported as unknown after dispatch without automatic retry; a successful external blocker write followed by index failure preserves the known reference and reports the separate failure.</li>
+<li>AC13: Rollout installs exclusions before writers and rollback retains holds/read support; legacy commands retain their contracts and canonical/Claude copies remain identical.</li>
+<li>AC14: Retained isolated skill runs cover reproduced-and-fixable, inconclusive, test-cannot-start and reproduced-but-verification-blocked cases, proving subsequent selection skips escalated parents and independent actionable blockers remain eligible.</li>
+</ul></section>
+<section id="implementation-paths"><h2>Implementation Paths</h2><ul>
+<li>NEW <code>.agents/skills/task-registry/scripts/registry/escalation.py</code> — validated request, hold/blocker/comment coordination, stage output; mirror under <code>.claude/skills/</code>.</li>
+<li><code>.agents/skills/task-registry/scripts/task-registry.py</code> — escalate flags/dispatch, explicit claim/workflow handling and preflight diagnostics.</li>
+<li><code>.agents/skills/task-registry/scripts/registry/config.py</code>, <code>routines.py</code> — configured escalation exclusion and loader validation.</li>
+<li><code>.agents/skills/task-registry/scripts/registry/providers/base.py</code>, <code>github.py</code>, <code>local.py</code> — narrow additive label seam, with local-only header update and no GitHub body replacement.</li>
+<li><code>.agents/skills/task-registry/scripts/registry/upsert.py</code> — structured result behind compatible wrapper, preserve labels and report partial publication accurately.</li>
+<li><code>.agents/skills/task-registry/SKILL.md</code>, <code>references/configuration.md</code>, <code>templates/task-tracking.md</code>, <code>docs/task-tracking.md</code> — escalation/hold/blocker policy and staged label provisioning.</li>
+<li><code>.agents/skills/debug/SKILL.md</code>, <code>.agents/skills/wrap-up-session/references/routines.md</code>, <code>routine-prompts/fix.md</code> — canonical escalation, positive continuation and all entry/stop paths; mirror every skill edit.</li>
+<li><code>.agents/skills/build/SKILL.md</code>, <code>.agents/skills/verify/SKILL.md</code>, <code>.agents/skills/wrap-up-session/SKILL.md</code> and mirrors — pass practical pre-PR verification blockers to the single canonical escalation owner on fix-routine branches.</li>
+<li><code>.agents/skills/sweep/SKILL.md</code> and its mirror — retain held tasks in deduplication, skip their mutation and forbid eligible replacement clones; no expansion of producer coverage-gap filing policy.</li>
+<li><code>specs/sweep-routines.md</code>, <code>specs/category-routines.md</code>, <code>specs/workflow-routing.md</code> — reconcile existing exclusion, consumer and workflow contracts during implementation.</li>
+<li><code>tests/test-task-registry.sh</code>, <code>tests/test-routine-selectors.sh</code>, <code>tests/test-routine-skills.sh</code>, <code>tests/test-routines-contract.sh</code>, <code>tests/test-sweep-handoff.sh</code>, <code>tests/test-sweep-routines.sh</code>, <code>tests/fixtures/task-registry/</code> — behavior and failure regressions.</li>
+<li>NEW <code>tasks/routine-runs/</code>, existing <code>tasks/e2e-log.md</code> — retained implementation-time evidence; no records from a pretend routine execution during planning.</li>
+</ul></section><section id="reflection"><div class="reflection"><h3>Reflect</h3><p>Reply with findings as [constraints|system-design|contracts|data-models|build-order] &lt;finding&gt; — &lt;evidence&gt;, or approved.</p></div></section><section id="references"><h2>📚 References</h2><div class="refs"><a href="routine-reproduction-report.md" target="_blank" rel="noopener">Architecture spec</a><a href="https://github.com/Joaovsales/jplugin-agentic-development/issues/126" target="_blank" rel="noopener">Original issue #126</a><a href="../.agents/skills/system-design-planning/references/review-card.md" target="_blank" rel="noopener">Review card</a></div></section><footer>Generated 2026-09-11 18:07 — html-presentation skill</footer></div></main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const saved = localStorage.getItem('html-presentation-theme');
+  if (saved) document.body.dataset.theme = saved;
+  else if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) {
+    document.body.dataset.theme = 'light';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  window.toggleTheme = function () {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = next;
+    localStorage.setItem('html-presentation-theme', next);
+  };
+  window.toggleNav = function () {
+    document.querySelector('.nav-sidebar').classList.toggle('open');
+  };
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav-sidebar a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Active section on scroll
+  const sections = document.querySelectorAll('main section[id]');
+  const links = new Map();
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    links.set(a.getAttribute('href').slice(1), a);
+  });
+  if (sections.length && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove('active'));
+          const link = links.get(entry.target.id);
+          if (link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => io.observe(s));
+  }
+
+  // Slides keyboard nav
+  if (document.body.classList.contains('mode-slides')) {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let idx = 0;
+    const counter = document.querySelector('.slide-counter');
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    }
+    show(0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+    });
+  }
+})();
+</script>
+</body>
+</html>

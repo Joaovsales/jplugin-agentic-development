@@ -25,8 +25,10 @@ from __future__ import annotations
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from .model import by_priority
+from .providers.base import has_label
 
 __all__ = [
+    "is_escalated",
     "routine_for_label",
     "select_routine",
     "select_candidates",
@@ -36,6 +38,11 @@ __all__ = [
 ]
 
 
+
+
+def is_escalated(labels: Iterable[str], config) -> bool:
+    """Whether `labels` contain the configured human-investigation hold."""
+    return has_label(labels, config.escalation_label)
 
 
 def routine_for_label(label: str, config) -> Optional[str]:
@@ -57,7 +64,9 @@ def select_routine(labels: Iterable[str], config) -> Optional[str]:
     issue is not a candidate, however it is labelled.
     """
     present = set(labels or ())
-    if config.claim_label in present:
+    if is_escalated(present, config):
+        return None
+    if has_label(present, config.claim_label):
         return None
     for label in config.kind_precedence:
         if label in present:
@@ -74,7 +83,6 @@ def missing_routine_labels(config, known_labels: Sequence[str]) -> Sequence[str]
     caller branches on None before it has a vocabulary to check; the type is what
     stops the next caller from reading "could not check" as "nothing missing".
     """
-    known = set(known_labels)
     needed = {label for labels in config.routine_selectors.values() for label in labels}
     #: The claim label belongs here, not just the selectors. It is the only guard
     #: against two runs of one routine picking the same issue, and `select_routine`
@@ -82,7 +90,9 @@ def missing_routine_labels(config, known_labels: Sequence[str]) -> Sequence[str]
     #: written, silently dropped, and never read back. That failure looks exactly
     #: like a clean backlog, which is what this check exists to make impossible.
     needed.add(config.claim_label)
-    return tuple(sorted(label for label in needed if label not in known))
+    needed.add(config.escalation_label)
+    known_folded = {label.casefold() for label in known_labels}
+    return tuple(sorted(label for label in needed if label.casefold() not in known_folded))
 
 
 def select_candidates(tasks: Iterable, config, routine: str) -> Sequence:
@@ -122,5 +132,9 @@ def unclassified(tasks: Iterable, config) -> Sequence:
     """
     ranked = set(config.kind_precedence)
     return tuple(
-        task for task in tasks if not task.is_terminal and not (set(task.labels) & ranked)
+        task
+        for task in tasks
+        if not task.is_terminal
+        and not is_escalated(task.labels, config)
+        and not (set(task.labels) & ranked)
     )

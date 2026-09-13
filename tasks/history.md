@@ -576,3 +576,15 @@ back vacuous and was repaired.
 - Key changes: new `/system-design-planning` skill (upstream architecture review → HTML approval gate → one issue per slice → /build), its spec, registration, static pins; worked example run producing specs/upsert-depends-on.md with a dispatched critic pass; tests/test-tdd-retirement.sh excludes .claude/worktrees; 31 stale worktrees removed.
 - Learnings captured: tasks/solutions/bugs/recursive-grep-over-dot-claude-hits-stale-worktree-checkouts.md, tasks/solutions/tooling/claude-code-bash-tool-collapses-backslash-escapes.md, tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md
 
+### [2026-09-12] — Routine investigation escalation
+
+- Key changes: added a monotonic `needs-investigation` hold, additive provider
+  labeling, structured blocker upserts, the validated `task-registry escalate`
+  command, routine handoffs, rollout guidance, and a grounded CLI verification
+  recipe. Four isolated debug-skill runs cover normal continuation,
+  inconclusive reproduction, execution blocking, and post-fix verification
+  blocking.
+- Verification: 42 test files and 3,965 reported assertions passed; canonical
+  and Claude skill trees match; retained PTY and skill-run evidence is recorded
+  in `tasks/e2e-log.md` and `tasks/verification/`.
+- Learnings captured: [retain blocker outcome in escalation artifact](solutions/bugs/retain-blocker-outcome-in-escalation-artifact.md).

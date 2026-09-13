@@ -138,8 +138,8 @@ for tree in $TREES; do
     "AC5: $tree/debug reads an issue reference through task-registry show"
   assert_prose_contains "$f" "candidate one" \
     "AC5: $tree/debug enters the proposed fix as candidate one"
-  assert_file_contains "$f" "blocked: reproduction failed" \
-    "AC5: $tree/debug emits the unattended blocked line"
+  assert_file_contains "$f" "task-registry.py escalate" \
+    "AC5: $tree/debug invokes the unattended escalation owner"
   assert_prose_contains "$f" "non-zero" \
     "AC5: $tree/debug exits non-zero when blocked"
   assert_file_contains "$f" "[ ] TDD:" \

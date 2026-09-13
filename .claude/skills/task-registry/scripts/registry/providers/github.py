@@ -32,6 +32,8 @@ from .base import (
     ProviderStatus,
     ProviderUnavailable,
     TrackerProvider,
+    add_unique_labels,
+    has_label,
     preserve_labels,
 )
 
@@ -205,10 +207,32 @@ class GitHubProvider(TrackerProvider):
         if task.title.strip() and task.title.strip() != (current.get("title") or "").strip():
             command += ["--title", task.title]
         for label in self._writable_labels(task):
-            if label not in existing_labels:
+            if not has_label(existing_labels, label):
                 command += ["--add-label", label]
         self._run(command + ["--", number])
         return task
+
+    def add_labels(self, task: Task, labels: Sequence[str]) -> None:
+        if task.external is None:
+            raise ProviderError(f"github: cannot label {task.id} — it has no issue reference")
+        requested = tuple(label.strip() for label in labels)
+        if not requested or any(not label for label in requested):
+            raise ProviderError("github: additive labels must be nonblank")
+        self.gate.authorize(f"add labels to issue #{task.external.id}", self.name)
+        known = {label.casefold(): label for label in self.known_labels() or ()}
+        missing = [label for label in requested if label.casefold() not in known]
+        if missing:
+            raise ProviderError("github: cannot add unknown label(s): " + ", ".join(missing))
+        present = {label.casefold() for label in task.labels}
+        additions = list(add_unique_labels(
+            (), (known[label.casefold()] for label in requested if label.casefold() not in present)
+        ))
+        if not additions:
+            return
+        command = ["gh", "issue", "edit", "--repo", self._repo()]
+        for label in additions:
+            command += ["--add-label", label]
+        self._run(command + ["--", self._number(task.external)])
 
     def close_task(self, task: Task, resolution: str = "done") -> Task:
         if task.external is None:
@@ -348,10 +372,11 @@ class GitHubProvider(TrackerProvider):
         known = self.known_labels()
         if known is None:
             return tuple(task.labels)
+        canonical = {label.casefold(): label for label in known}
         writable = []
         for label in desired:
-            if label in known:
-                writable.append(label)
+            if has_label(known, label):
+                writable.append(canonical[label.casefold()])
             elif self.config.allow_label_creation and self._create_label(label):
                 writable.append(label)
             else:
@@ -359,7 +384,7 @@ class GitHubProvider(TrackerProvider):
                     f"label {label!r} does not exist in {self._repo()} and "
                     "allow_label_creation is off — issue written without it"
                 )
-        return tuple(writable)
+        return tuple(add_unique_labels((), writable))
 
     def _create_label(self, label: str) -> bool:
         """Add one label to the repository vocabulary. Only ever reached via config.

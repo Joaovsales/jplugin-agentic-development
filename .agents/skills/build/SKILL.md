@@ -239,7 +239,9 @@ criterion is `user-facing`:
 2. If no project-local verification skill exists, skip maintenance, recommend
    `/create-verification-skill`, and never generate or launch it automatically.
 3. Handle the maintainer outcome: `clean` and `changed` continue; `blocked` STOPS
-   the build and reports the maintainer's evidence.
+   the build and reports the maintainer's evidence. On a `routine/fix/` branch,
+   return the exact blocked evidence to `/debug`'s § *Canonical unattended
+   escalation owner*; that owner invokes the registry once.
 
 Internal-only changes skip changed-scope maintenance silently. This phase runs
 before the full suite and quality gate so any map edits receive both checks.
@@ -252,6 +254,13 @@ After all tasks are `[x]`:
 2. Run linter / type checker if configured
 3. Confirm all tests pass and no errors
 4. If anything fails: fix with `code-debugger`, then re-run
+
+A failing assertion is a regression and stays in this repair loop. If the test
+cannot start because of a practical obstacle (missing service, credential,
+runtime, or fixture) after reproduction was confirmed on a `routine/fix/`
+branch, return the exact command and evidence to `/debug`'s canonical owner as
+`verification-blocked` with `reproduction-state=reproduced`; do not treat the
+environment as broken product code.
 
 ## Phase 3 — Quality Gate
 
@@ -294,6 +303,11 @@ If ANY AC is classified `user-facing`:
    - **Same failures as last round** → HALT with circular-fix message, escalate to user
    - **Different failures** → record in `previous_failures`, add tasks, loop to Phase 1
 6. **After round 3 with remaining `❌`**: HALT with full status report, escalate to user
+
+On a `routine/fix/` branch, a verification tool or environment that cannot run
+is a practical obstacle: return its command, evidence, and the already-confirmed
+reproduction verdict to `/debug`'s canonical owner as `verification-blocked`.
+An AC that ran and failed remains in the normal loop above.
 
 ## Phase 4.5 — Ambiguity Batch Review
 

@@ -19,11 +19,14 @@ project already set.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import Enum
 from typing import List, Optional, Tuple
 
 from .index import load_index_strict, render_row
 from .model import Task, is_valid_id, slugify_id
-from .providers.base import ProviderError, ProviderUnavailable
+from .providers.base import ProviderError, ProviderUnavailable, preserve_labels
+from .routines import is_escalated
 
 #: Where a task's canonical body lives once this command has run.
 EXTERNAL = "external"
@@ -31,6 +34,42 @@ LOCAL = "local"
 LOCAL_PENDING = "local-pending"
 
 TERMINAL = ("done", "cancelled")
+
+
+class UpsertDisposition(str, Enum):
+    """Stable machine outcomes returned to escalation callers."""
+
+    PREVIEW = "preview"
+    EXTERNAL = EXTERNAL
+    LOCAL = LOCAL
+    LOCAL_PENDING = LOCAL_PENDING
+    EXISTING_HELD = "existing-held"
+    EXISTING_TERMINAL = "existing-terminal"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass(frozen=True)
+class UpsertResult:
+    """Machine-readable persistence outcome with compatible legacy rendering."""
+
+    disposition: UpsertDisposition
+    task: Optional[Task] = None
+    readback: Optional[Task] = None
+    detail: str = ""
+    lines: Tuple[str, ...] = ()
+    code: int = 0
+
+    def reference_summary(self) -> str:
+        """Render the confirmed destination without exposing outcome branching."""
+        if self.task is None:
+            return "unconfirmed"
+        if self.disposition is UpsertDisposition.LOCAL_PENDING:
+            return f"{self.task.id} (publication pending)"
+        return self.task.external.display() if self.task.external else self.task.id
 
 
 def resolve_destination(provider_name: str, gate, reachable: bool) -> str:
@@ -123,6 +162,7 @@ def _merge(existing: Optional[Task], incoming: Task) -> Tuple[Task, str]:
         return incoming, "created"
     carried = {name: getattr(existing, name) for name in CARRIED_FROM_EXISTING}
     carried["evidence"] = _accreted(existing.evidence, incoming.evidence)
+    carried["labels"] = tuple(preserve_labels(existing.labels, incoming.labels))
     if existing.status in TERMINAL:
         return incoming.with_(status="open", **carried), "reopened"
     return incoming.with_(status=existing.status, **carried), "updated"
@@ -134,6 +174,18 @@ def _accreted(existing: tuple, incoming: tuple) -> tuple:
     seen = list(existing)
     seen += [entry for entry in incoming if entry not in seen]
     return tuple(seen)
+
+
+def _merge_blocker(existing: Optional[Task], incoming: Task) -> Tuple[Task, str]:
+    """Merge fresh evidence while freezing an existing blocker's identity/routing."""
+    merged, action = _merge(existing, incoming)
+    if existing is None:
+        return merged, action
+    return merged.with_(
+        title=existing.title,
+        source_path=existing.source_path,
+        kind=existing.kind,
+    ), action
 
 
 def _persist(target, task: Task, existing: Optional[Task]) -> Task:
@@ -179,10 +231,21 @@ def _sync_index(config, task: Task) -> str:
     return outcome
 
 
+def upsert_task_result(registry, task: Task, apply: bool) -> UpsertResult:
+    """Persist for escalation callers, preserving human-owned existing tasks."""
+    return _upsert_task_result(registry, task, apply, preserve_existing=True)
+
+
 def upsert_task(registry, task: Task, apply: bool) -> Tuple[List[str], int]:
-    """Make exactly one task exist with this content. Returns (lines, exit code)."""
+    """Compatible human-oriented wrapper, including legacy reopen behavior."""
+    result = _upsert_task_result(registry, task, apply, preserve_existing=False)
+    return list(result.lines), result.code
+
+
+def _upsert_task_result(registry, task: Task, apply: bool, preserve_existing: bool) -> UpsertResult:
     if not is_valid_id(task.id):
-        return ([f"upsert: {task.id!r} is not a valid task id"], 2)
+        line = f"upsert: {task.id!r} is not a valid task id"
+        return UpsertResult(UpsertDisposition.FAILED, detail=line, lines=(line,), code=2)
 
     config, provider = registry.config, registry.provider
     gate = provider.gate
@@ -200,8 +263,14 @@ def upsert_task(registry, task: Task, apply: bool) -> Tuple[List[str], int]:
         lookup = published if destination == EXTERNAL else None
         existing = _existing(target, task.id, lookup)
     except (ProviderError, ProviderUnavailable) as exc:
-        return ([f"upsert: cannot establish whether {task.id} already exists: {exc}"], 1)
-    merged, action = _merge(existing, task)
+        line = f"upsert: cannot establish whether {task.id} already exists: {exc}"
+        return UpsertResult(UpsertDisposition.FAILED, detail=str(exc), lines=(line,), code=1)
+
+    preserved = _preserved_result(existing, config) if preserve_existing else None
+    if preserved is not None:
+        return preserved
+    merge = _merge_blocker if preserve_existing else _merge
+    merged, action = merge(existing, task)
     if published is not None and published.provider == provider.name:
         merged = merged.with_(external=published)
 
@@ -209,14 +278,35 @@ def upsert_task(registry, task: Task, apply: bool) -> Tuple[List[str], int]:
         # The applied line reports what happened ("created"); the preview reports
         # what would happen, and reads as a typo in the past tense.
         intent = {"created": "create", "updated": "update", "reopened": "reopen"}[action]
-        return ([f"upsert: would {intent} {merged.id} ({destination}); index row would be synced"], 0)
+        line = f"upsert: would {intent} {merged.id} ({destination}); index row would be synced"
+        return UpsertResult(UpsertDisposition.PREVIEW, task=merged, detail=line, lines=(line,))
+
+    if preserve_existing:
+        try:
+            existing = _existing(target, task.id, lookup)
+        except (ProviderError, ProviderUnavailable) as exc:
+            line = f"upsert: cannot refresh {task.id} before persistence: {exc}"
+            return UpsertResult(UpsertDisposition.FAILED, detail=str(exc), lines=(line,), code=1)
+        preserved = _preserved_result(existing, config)
+        if preserved is not None:
+            return preserved
+        merged, action = _merge_blocker(existing, task)
+        if published is not None and published.provider == provider.name:
+            merged = merged.with_(external=published)
 
     try:
         written = _persist(target, merged, existing)
     except (ProviderError, ProviderUnavailable) as exc:
         # The record is the whole point of the command, so failing to write it is
         # a failure of the command — never a warning attached to a success.
-        return ([f"upsert: could not persist {merged.id}: {exc}"], 1)
+        return _persist_failure(merged, destination, existing, exc)
+    except Exception as exc:
+        if not preserve_existing:
+            raise
+        return _persist_failure(merged, destination, existing, exc)
+
+    if preserve_existing:
+        return _structured_success(config, target, destination, action, written)
 
     lines = [f"upsert: {action} {written.id} ({destination}); {_sync_index(config, written)}"]
     if destination == LOCAL_PENDING:
@@ -225,4 +315,50 @@ def upsert_task(registry, task: Task, apply: bool) -> Tuple[List[str], int]:
             f"{'is unreachable' if not status.available else 'requires approval'}; "
             "the local record is canonical until it is published"
         )
-    return (lines, 0)
+    return UpsertResult(UpsertDisposition(destination), task=written, readback=written, lines=tuple(lines))
+
+
+def _preserved_result(existing: Optional[Task], config) -> Optional[UpsertResult]:
+    if existing is None:
+        return None
+    if existing.status in TERMINAL:
+        disposition = UpsertDisposition.EXISTING_TERMINAL
+    elif is_escalated(existing.labels, config):
+        disposition = UpsertDisposition.EXISTING_HELD
+    else:
+        return None
+    detail = f"upsert: preserved {existing.id} ({disposition}); human review required"
+    return UpsertResult(disposition, task=existing, readback=existing, detail=detail, lines=(detail,))
+
+
+def _persist_failure(task, destination, existing, exc: Exception) -> UpsertResult:
+    unknown = destination == EXTERNAL and existing is None
+    disposition = UpsertDisposition.UNKNOWN if unknown else UpsertDisposition.FAILED
+    line = f"upsert: could not persist {task.id}: {exc}"
+    return UpsertResult(disposition, task=task, detail=str(exc), lines=(line,), code=1)
+
+
+def _structured_success(config, target, destination, action, written) -> UpsertResult:
+    try:
+        readback = _existing(target, written.id, written.external)
+    except (ProviderError, ProviderUnavailable) as exc:
+        line = f"upsert: {action} {written.id} ({destination}); authoritative readback failed: {exc}"
+        return UpsertResult(UpsertDisposition(destination), task=written, detail=str(exc), lines=(line,), code=1)
+    if readback is None:
+        detail = "authoritative readback did not find the persisted task"
+        line = f"upsert: {action} {written.id} ({destination}); {detail}"
+        return UpsertResult(UpsertDisposition(destination), task=written, detail=detail, lines=(line,), code=1)
+    authoritative = readback
+    if destination == LOCAL_PENDING and written.external is not None:
+        authoritative = readback.with_(external=written.external)
+    preserved = _preserved_result(readback, config)
+    disposition = preserved.disposition if preserved else UpsertDisposition(destination)
+    try:
+        index_outcome = _sync_index(config, authoritative)
+    except Exception as exc:
+        line = f"upsert: {action} {written.id} ({destination}); index sync failed: {exc}"
+        return UpsertResult(disposition, task=written, readback=authoritative, detail=str(exc), lines=(line,), code=1)
+    lines = [f"upsert: {action} {written.id} ({destination}); {index_outcome}"]
+    if destination == LOCAL_PENDING:
+        lines.append("upsert: external publication pending; the local record is canonical")
+    return UpsertResult(disposition, task=written, readback=authoritative, lines=tuple(lines))

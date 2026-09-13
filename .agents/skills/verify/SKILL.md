@@ -240,6 +240,13 @@ The log is **append-only**. Never overwrite prior walkthroughs — they form the
 
 ### Failure Handling
 
+For a practical obstacle, return a **structured blocked outcome** containing the
+exact failing command or walkthrough step, retained evidence (or why none is
+available), and whether reproduction was already confirmed. The caller owns the
+policy response. `/verify` must not invoke `task-registry escalate`; this avoids
+two reports for one failure. A completed check that finds a defect is a failed
+verification and returns through the existing debug/build repair loop.
+
 - **Step fails**: STOP, report exact step + evidence, hand back to `/build` or `/debug`
 - **MCP browser unavailable**: STOP. Do not fall back to curl or unit tests.
 - **VISUAL AC, only a DOM-tier backend**: record `BLOCKED`, continue with the

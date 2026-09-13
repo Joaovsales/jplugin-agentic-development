@@ -130,6 +130,7 @@ SKILL_ROOTS = (".agents/skills", ".claude/skills")
 
 #: Written before a routine branches, and skipped when already present.
 DEFAULT_CLAIM_LABEL = "in-progress"
+DEFAULT_ESCALATION_LABEL = "needs-investigation"
 #: The routine names the contract defines. `build` is deferred (#97/#98) but is a
 #: contract routine, so configuring selectors for it is legal.
 #: Kept in step with `references/routines.md` by tests/test-routine-selectors.sh --
@@ -184,6 +185,8 @@ class Config:
     #: present. Disjoint selectors stop two *different* routines claiming one
     #: issue; only this stops two runs of the same routine overlapping.
     claim_label: str = DEFAULT_CLAIM_LABEL
+    #: Human-owned investigation hold, removed only by explicit re-triage.
+    escalation_label: str = DEFAULT_ESCALATION_LABEL
     #: Provider label names in first-match-wins order, and the routine each is
     #: selected by. Read here rather than hardcoded in a skill: the halt that
     #: motivated this design was a label that had never been created.
@@ -394,6 +397,7 @@ def load_config(
         offline_reads=(tracker.get("offline_reads") or "degrade").strip().lower(),
         migration_policy=(tracker.get("migration_policy") or "manual").strip(),
         claim_label=_claim_label(routines.get("claim_label")),
+        escalation_label=_escalation_label(routines.get("escalation_label")),
         kind_precedence=_label_list(routines.get("kind_precedence")) or DEFAULT_KIND_PRECEDENCE,
         routine_skills=declared_skills if declared_skills is not None else dict(DEFAULT_ROUTINE_SKILLS),
         routine_skills_declared=declared_skills is not None,
@@ -422,6 +426,16 @@ def _claim_label(value: Optional[str]) -> str:
     turned off by whitespace nobody can see in a diff.
     """
     return (value or "").strip() or DEFAULT_CLAIM_LABEL
+
+
+def _escalation_label(value: Optional[str]) -> str:
+    """The explicit investigation hold, with blank declarations refused."""
+    if value is None:
+        return DEFAULT_ESCALATION_LABEL
+    label = value.strip()
+    if not label:
+        raise ConfigError("routines: escalation_label must not be blank")
+    return label
 
 
 def _label_list(value: Optional[str]) -> Tuple[str, ...]:
@@ -493,10 +507,30 @@ def validate_selectors(config) -> None:
     _refuse_unknown_routines(config)
     _refuse_duplicate_ranks(ranked)
     _refuse_contested_labels(claimed_by)
+    _refuse_escalation_conflict(config)
     _refuse_divergent_label_sets(ranked, claimed_by)
     _refuse_selector_without_chain(config)
     _refuse_unterminated_chains(config)
     _refuse_absent_chain_skills(config)
+
+
+def _refuse_escalation_conflict(config) -> None:
+    """Keep the hold distinct from every configured routing/status label."""
+    conflicts = [config.claim_label, *config.kind_precedence]
+    conflicts.extend(label for labels in config.routine_selectors.values() for label in labels)
+    conflicts.extend(config.kind_labels)
+    conflicts.extend(config.priority_labels)
+    conflicts.extend(
+        source.split(":", 1)[1]
+        for source in config.status_sources.values()
+        if source.lower().startswith("label:") and ":" in source
+    )
+    wanted = config.escalation_label.casefold()
+    if any(label.casefold() == wanted for label in conflicts):
+        raise ConfigError(
+            "routines: escalation_label must be distinct from claim, selector, "
+            "kind, priority, and status labels (comparison is case-insensitive)"
+        )
 
 
 def _refuse_unknown_routines(config) -> None:

@@ -56,17 +56,27 @@ A `tech-debt` task read this way has no reproduction: its proposed fix and
 evidence enter the prelude the same way, and Phase 1 writes the failing test
 from the acceptance criteria instead.
 
-**Unattended intake.** On a `routine/` branch there is no user to ask. If the
-issue's reproduction does not reproduce — the command runs, the observed output
-matches the expected one — emit exactly:
+### Canonical unattended escalation owner
 
-```
-blocked: reproduction failed — <command>
+On a `routine/fix/` branch, this skill owns investigation escalation. When the
+reproduction is inconclusive, cannot start for a practical environment reason,
+or later verification cannot safely run, invoke this command exactly once:
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py escalate "#N" \
+  --reason <inconclusive|execution-blocked|verification-blocked> \
+  --reproduction-state <not-reproduced|unverified|reproduced> \
+  --run-at <timezone-aware-timestamp> --repro-command '<exact command>' \
+  --observed '<observed result and remaining gap>' \
+  --evidence <retained-run-artifact> --apply --approve
 ```
 
-exit **non-zero**, and open no PR. Do not fall back to guessing a different
-reproduction and do not prompt. The claim label stays on the issue; releasing it
-needs a registry write that does not exist yet.
+Use `--evidence-unavailable '<reason>'` only when no artifact survives. Pass a
+validated blocker v1 file only when the obstacle is independently actionable.
+The command records the hold, readback, optional blocker, parent report, and
+exclusive run artifact. Preserve its non-zero result and open no PR. A
+reproduction that fails as expected and leaves a practical path forward is not
+an escalation: record `Reproduction confirmed` and continue to Phase 2.
 
 ## Phase 0.5 — Root-Cause Prelude (MANDATORY before any Edit)
 
@@ -105,7 +115,7 @@ Picked: #<N> because [disconfirming evidence for others is stronger than for thi
 
 - **Do not skip this block** even for "obvious" bugs. Obvious bugs are where wrong-component detours happen.
 - **Do not collapse to 1 candidate** until disconfirming checks have been run on the other two. Listing one candidate = speculation.
-- **If reproduction is `NO`**: STOP and ask the user for a screenshot, log excerpt, or exact repro steps. Do not proceed to Phase 1. On a `routine/` branch there is no user: emit `blocked: reproduction failed — <command>` and exit non-zero instead (§ *Issue intake*).
+- **If reproduction is `NO`**: STOP and ask the user for a screenshot, log excerpt, or exact repro steps. Do not proceed to Phase 1. On a `routine/fix/` branch there is no user: invoke § *Canonical unattended escalation owner* and preserve its non-zero result.
 - **If the bug came from an issue**: its *Proposed fix* is candidate #1, and the other two candidates must be genuinely different components, not paraphrases of it. A sweep's proposal is the strongest prior on the list, not a verdict.
 - **If the user redirects** ("look at X instead", "that's not the bug"): re-run this prelude with their new information. Do not continue with the old hypothesis.
 
@@ -151,7 +161,7 @@ Return:
 - Recommended fix approach
 ```
 
-**If the agent cannot reproduce**: ask the user for more context (logs, steps, environment). Do not guess. Unattended (a `routine/` branch), there is nobody to ask: emit `blocked: reproduction failed — <command>`, exit non-zero, no PR.
+**If the agent cannot reproduce**: ask the user for more context (logs, steps, environment). Do not guess. Unattended on a `routine/fix/` branch, invoke § *Canonical unattended escalation owner*; no PR.
 
 ## Phase 2 — Fix
 
@@ -300,7 +310,7 @@ Ready for /wrap-up-session or continued work.
 
 ## Error Handling
 
-- **Cannot reproduce**: Ask user for more context. Do not proceed without reproduction. Unattended, `blocked: reproduction failed — <command>` and a non-zero exit — never a prompt, never a PR.
+- **Cannot reproduce**: Ask user for more context. Do not proceed without reproduction. On a `routine/fix/` branch, invoke § *Canonical unattended escalation owner* — never a prompt, never a PR.
 - **Fix introduces new failures**: Revert and try alternative approach. Max 3 alternative approaches before escalating.
 - **Loop timeout (5 iterations)**: Escalate to user with full context of what was tried.
 - **Multiple root causes**: Fix one at a time. Each gets its own bug document and loop verification cycle.

@@ -26,6 +26,7 @@ require_write_approval = false
 ; rather than a code edit.
 [routines]
 claim_label = in-progress
+escalation_label = needs-investigation
 kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
 
 [routines.selectors]
