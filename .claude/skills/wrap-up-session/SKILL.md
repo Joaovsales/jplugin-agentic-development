@@ -11,6 +11,13 @@ Close out the session by syncing learnings, updating registers, running code rev
 
 ## Step 0 — Pre-Flight Check
 
+If a `routine/fix/` caller supplies a completed investigation escalation result,
+preserve that non-zero terminal result and STOP: open no PR, write no PR ledger,
+and do not repeat the registry command. Do not run Step 8.5; the escalation is
+already the retained, loud no-PR result. This exception applies only to the fix
+routine's investigation path. Interactive wrap-up and deployment verification
+keep their existing contracts.
+
 1. Run `git diff --name-only` and `git diff --name-only --cached` to check for uncommitted changes
 2. Run `git log --oneline <base-branch>...HEAD` to check for commits on this branch
 
@@ -23,7 +30,8 @@ Session wrapped up (no changes).
 ```
 Then **run Step 8.5 and STOP**.
 
-**Every STOP in this skill routes through Step 8.5 first.** That step asserts an
+Except for the completed fix-routine investigation escalation above, **every
+STOP in this skill routes through Step 8.5 first.** That step asserts an
 unattended run produced a pull request, and the exits it exists to catch are
 exactly the ones that end wrap-up early — so a STOP that jumps straight to the
 end skips the check on precisely the runs that need it. This applies to all six
@@ -532,6 +540,12 @@ For every user-facing AC in specs touched this session:
    > "AC [ID] is user-facing but has no e2e walkthrough. Run /verify --scope e2e now, or acknowledge the gap? (run/acknowledge)"
 3. On `run`: invoke `/verify --scope e2e`, then re-check
 4. On `acknowledge`: record the gap as a knowledge-track document in `tasks/solutions/process/` (tags: `[e2e-gap]`)
+
+On a `routine/fix/` branch, if `/verify --scope e2e` returns a structured blocked
+outcome, return its exact command, evidence, and reproduction state to `/debug`'s
+§ *Canonical unattended escalation owner*. That owner invokes the registry once;
+the escalation is terminal for this run, so do not offer acknowledgement or
+continue to the PR assertion.
 
 If no specs were touched, classify the session diff and task evidence so a
 user-facing bug fix still enters this gate. Skip silently only when the session

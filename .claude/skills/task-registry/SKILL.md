@@ -1,7 +1,7 @@
 ---
 name: task-registry
 description: Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine.
-argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|upsert <task-id>]"
+argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|upsert <task-id>|escalate <task-reference>]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -34,6 +34,9 @@ every session; a `tasks/todo.md` that has absorbed nine closed plan blocks canno
 6. **Degrade reads, report the gap.** An unreachable provider still records the
    task locally and says outright that publication is pending. What it never does
    is go quiet about the half that did not happen.
+7. **Investigation holds are human-owned.** The configured `escalation_label`
+   excludes every consumer before routing or claiming. Only human re-triage
+   removes it; routines retain any existing claim.
 
 ## Commands
 
@@ -47,6 +50,10 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert <task-id> -
   --summary '...' --evidence 'inspected: ...' --criterion '...'
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
   --derive-id spec-reconciliation --spec specs/x.md --title '...' --kind research
+python3 .agents/skills/task-registry/scripts/task-registry.py escalate '#42' \
+  --reason execution-blocked --reproduction-state unverified \
+  --run-at 2026-09-12T15:00:00Z --repro-command 'make test' \
+  --observed 'runner cannot load its fixture' --evidence tasks/routine-runs/run.md
 ```
 
 | Command | Reads | Local writes | External writes |
@@ -58,6 +65,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
 | `select` | provider | no | no |
 | `claim` | one task | no | `--apply` (+ approval) |
 | `workflow` | one task | no | no |
+| `escalate` | parent + optional blocker | run artifact with `--apply` | hold, optional blocker, comment (`--apply` + approval) |
 
 Exit codes: `0` success · `1` failure or partial failure · `2` usage error.
 
@@ -67,6 +75,15 @@ clear — a usage error, a contradictory `[routines]` block, or a selector label
 the tracker does not have. Everything else that yields no routine to start —
 an unknown reference, a closed issue, a tracker that did not answer — exits `1`.
 A nightly wrapper pages on `2` and does not on `1`.
+
+### `escalate` — hand unresolved investigation back to a human
+
+`escalate` accepts only inconclusive, execution-blocked, or verification-blocked
+outcomes. It adds the configured hold, confirms it by fresh readback, optionally
+files one validated blocker, and posts a safe JSON report to the parent in that
+order. Dry-run previews all stages without writes. An applied run always exits 1
+to stop the fix pipeline and retains its stage record under `tasks/routine-runs/`.
+Do not pass secrets: evidence files are referenced, never uploaded automatically.
 
 ### `workflow` — which routine owns one issue
 
@@ -141,6 +158,11 @@ The configuration document is `docs/task-tracking.md`, or wherever a
 pointer whose target is missing is refused, naming the path — never defaulted.
 Full field reference, provider examples, and troubleshooting:
 `references/configuration.md`.
+
+Deploy the selector and claim exclusions before enabling escalation writers.
+Create the configured escalation label through an explicitly authorized tracker
+operation, then verify it with `selectors`. Rollback disables writers while
+retaining exclusions and existing holds until humans clear them.
 
 ## Task kinds
 

@@ -787,3 +787,135 @@ critic dispatched under the Review Dispatch Contract (no diff — design review,
 ### AC: off-ramp `Skipping system-design-planning:` — NOT EXERCISED (the change met the bar).
 ### AC: appends `[ ] TDD:` rows under `### Slice` headings and files one task per slice — NOT EXERCISED (waits for approval; Step 8).
 
+## E2E Walkthrough — fix routine reproduction outcomes — 2026-09-12
+
+Spec: `specs/routine-reproduction-report.md`
+Driver: `bash tests/test-routine-reproduction-e2e.sh`
+Surface: canonical `task-registry.py` CLI against four isolated local-provider repositories.
+Result: 20 assertions passed, exit 0. No GitHub write was attempted.
+
+### AC1 — reproduced and fixable continues — PASS
+
+Created a local bug through `upsert --apply`, then invoked `workflow` and
+`select --routine fix`. Both exited 0, resolved the fix path, returned the parent,
+and created no escalation artifact.
+
+### AC2/AC9 — inconclusive reproduction escalates — PASS
+
+Invoked `escalate` with `reason=inconclusive`, `reproduction-state=not-reproduced`,
+the exact reproduction command, observation, timestamp, and an explicit reason
+that evidence was unavailable. It confirmed the hold, retained exactly one run
+artifact, and exited 1. A subsequent real selector invocation omitted the parent.
+
+### AC2/AC14 — test cannot start — PASS
+
+Invoked `escalate` with `reason=execution-blocked`, `reproduction-state=unverified`,
+and a validated blocker v1 JSON file. It held the parent, created the actionable
+local blocker, retained the run, and exited 1. Subsequent selection returned the
+blocker and did not return its held parent.
+
+### AC2/AC14 — reproduced, then verification blocked — PASS
+
+Invoked `escalate` with `reason=verification-blocked` and
+`reproduction-state=reproduced`. It confirmed the hold, retained exactly one
+artifact, and exited 1. A subsequent selector invocation returned no parent.
+
+## E2E Walkthrough — task-registry investigation escalation — 2026-09-12 7707342
+
+Spec: `specs/routine-reproduction-report.md`
+Commit: `7707342fae1644e8070ed866410ad7e07ad7bed1` plus the reviewed working-tree diff
+Driver: `verify-task-registry` / util-linux `script -e`, local provider
+Source SHA-256: `ca52c7e38e683bf3bd4505188b1be1ed6352ab2bba138a13c8dcd5a02c746afb`
+Evidence: `tasks/verification/task-registry.mrdadZ/`
+
+### CLI escalation entry point — PASS
+
+Doctor identified the isolated repository, local provider, configuration, and
+reachable store. `upsert --apply` created `verify.sample` through the public CLI
+and `show` read it back. An escalation preview exited 0, created no hold, and a
+second `show` still reported only the original `bug` label.
+
+The applied inconclusive escalation exited 1 as required, reported
+`hold: confirmed`, and produced one exclusive routine-run artifact in the owned
+repository. Public `show` then reported `bug, needs-investigation`; a separate
+`select --routine fix` returned `candidate: none`. Cleanup removed the owned
+runtime, and every command, PTY transcript, exit status, identity record, and
+cleanup proof survived in the evidence directory.
+
+Verification-map maintenance outcome: **changed** — added the missing
+`escalate-investigation` feature recipe to both byte-identical verification-skill
+trees. A second source/map pass was idempotent. This direct CLI run does not claim
+the agent-invoked workflow coverage required by AC14; those executions are
+recorded separately below.
+
+## E2E Walkthrough — isolated debug-skill outcomes — 2026-09-12 7707342
+
+Spec: `specs/routine-reproduction-report.md`
+Surface: actual `.agents/skills/debug/SKILL.md` procedure in four isolated
+`routine/fix/` repositories; no shared product state and no GitHub writes.
+Evidence: `tasks/verification/skill-runs/`
+
+### AC1/AC14 — reproduced and fixable — PASS
+
+`reproduced-and-fixable.md` records the exact focused test at exit 1 before the
+fix and exit 0 after it. The actual debug prelude selected the root cause using
+disconfirming checks, applied the minimal fix, and ran the full 42-file suite.
+The parent retained only `bug`, remained selectable by `fix`, and produced zero
+escalation artifacts. No commit or push occurred.
+
+### AC2/AC9/AC14 — inconclusive reproduction — PASS
+
+`inconclusive.md` records a runnable reproduction at exit 0 that did not exhibit
+the report. The actual debug procedure rejected an unsupported proposed fix and
+invoked its canonical owner exactly once with `inconclusive/not-reproduced`.
+Escalation exited 1, retained claim and unrelated labels, added the hold, wrote
+one comment and artifact, opened no PR, and left the parent unselectable.
+
+### AC2/AC6/AC9/AC14 — test cannot start — PASS
+
+`execution-blocked.md` records exit 66 before assertions because a named runtime
+fixture was absent. The actual debug procedure isolated that practical blocker,
+filed one validated stable bug blocker, and escalated exactly once with
+`execution-blocked/unverified`. The parent became held and unselectable; the
+independently actionable blocker remained open and was returned by the next
+`fix` selection. One comment and artifact remained, with no commit or PR.
+
+This run also exposed a duplicate artifact field that omitted the otherwise
+correct blocker outcome. The implementation now passes the structured result to
+artifact rendering, and `test-task-escalation.sh` pins
+`"blocker_disposition": "local"` in the retained artifact.
+
+### AC2/AC9/AC14 — reproduced, then verification blocked — PASS
+
+`verification-blocked.md` records the initial focused reproduction at exit 1,
+the post-fix focused test at exit 0, and the required pre-PR verification at
+exit 78 before startup because its external credential was unavailable. The
+documented verify/build handoff returned structured evidence to debug's single
+owner. Exactly one `verification-blocked/reproduced` escalation exited 1; the
+parent became held and unselectable, one comment and artifact remained, and no
+blocker, commit, push, or PR was created.
+
+## E2E Follow-up — final execution-blocked tree — 2026-09-12 7707342
+
+Spec: `specs/routine-reproduction-report.md`
+Evidence: `tasks/verification/skill-runs/execution-blocked.md`
+Surface: actual `.agents/skills/debug/SKILL.md` procedure in a fresh isolated
+`routine/fix/` repository against the corrected working tree.
+
+The reproduction exited 66 before its assertion because the named runtime
+fixture was absent. The canonical owner invoked one
+`execution-blocked/unverified` escalation, which exited 1, confirmed the parent
+hold, created one stable selectable bug blocker, wrote one comment and one
+artifact, and opened no commit or PR. Decoding the retained artifact confirmed
+`blocker_disposition=local`, canonical
+`parent_ref=verification-execution-blocked-final.parent`, and ordered
+hold/blocker/comment outcomes. Result: **PASS**.
+
+## Committed verification identity — routine reproduction report — 2026-09-12
+
+Spec: `specs/routine-reproduction-report.md`
+Commit: `d880f45`
+
+The committed source is the reviewed tree exercised by the CLI and isolated
+`/debug` walkthroughs above. Final verification passed all 42 test files and
+3,965 reported assertions. This follow-up records only the commit identity.

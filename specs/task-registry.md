@@ -3,6 +3,8 @@ implementation_paths:
   - .agents/skills/task-registry/**
   - .claude/skills/task-registry/**
   - tests/test-task-registry.sh
+  - tests/test-task-escalation.sh
+  - tests/test-routine-selectors.sh
   - tests/fixtures/task-registry/**
   - docs/task-tracking.md
 ---
@@ -55,7 +57,7 @@ one-shot `scripts/migrate-task-registry.py --apply` writes IDs — idempotently.
 ### Layer 2 — provider adapters
 
 A narrow `TrackerProvider` interface (discover, list, get, create, update, close,
-comment, link_parent, add_dependency, resolve_reference) plus an explicit
+comment, add_labels, link_parent, add_dependency, resolve_reference) plus an explicit
 `Capabilities` record (native_hierarchy, native_dependencies, comments, labels,
 offline, atomic_updates). Two adapters ship: `github` (via the `gh` CLI) and
 `local` (Markdown files). A `jira` adapter shipped originally and was retired in
@@ -78,7 +80,9 @@ A CLI, `task-registry`, exposed through the `/task-registry` skill:
 | `upsert` | Create-or-update exactly one task, addressed by a stable ID (derivable from a path with `--derive-id`) | yes, gated |
 | `selectors` | Report the routine selector vocabulary and check it against the tracker | none |
 | `select --routine R` | The next issue routine `R` may claim, after asserting the vocabulary, the claim label, and the linked-PR capability all exist | none |
+| `workflow <ref>` | Report the consumer routine and skill chain for one authoritative task, or its held/deferred/unclassified state | none |
 | `claim <ref> --routine R` | Write the claim label onto one issue — the routine spine's only write | yes, gated |
+| `escalate <ref>` | Add and read back the investigation hold, optionally upsert one actionable blocker, report the parent, retain an artifact, and terminate non-zero | yes, gated |
 
 Summary first, always. Detail only via `show`. Full external bodies are **never**
 copied into `tasks/todo.md`.
@@ -103,6 +107,8 @@ copied into `tasks/todo.md`.
   `--apply`.
 - Local provider: `<local_detail_dir>/<task-id>.md` canonical task files.
 - External provider: issues created/updated only under `--apply`.
+- `tasks/routine-runs/`: one exclusive retained report for each applied
+  investigation escalation, including partial outcomes.
 - `tasks/task-registry-migration.md`: the migration audit trail.
 - Exit codes: `0` success, `1` failure or partial failure, `2` usage error.
 
@@ -134,6 +140,13 @@ copied into `tasks/todo.md`.
 - **A provider write that fails** → the local record survives, the failure is
   named, exit code 1. The command never reports success for a write that did not
   land.
+- **An issue carries the configured escalation label** → every consumer selector
+  omits it, explicit claim refuses it, and workflow reports human investigation
+  instead of a runnable chain. Only explicit human re-triage removes the hold.
+- **An investigation cannot safely finish** → `escalate` validates its reason,
+  reproduction state, timestamp and evidence before writing; it adds only the
+  hold and comment to the parent, reads the hold back before blocker filing, and
+  always exits non-zero after an applied attempt.
 - **Credentials in an error path** → redacted before any output or log line.
 
 ## Acceptance Criteria
@@ -207,6 +220,12 @@ copied into `tasks/todo.md`.
       reference in the compact index, and a later approved upsert updates that
       reference instead of creating a duplicate when provider metadata does not
       identify the task.
+- AC-22 — Investigation escalation is monotonic and provider-neutral: the
+      configured hold excludes the parent from selection/claim/workflow after
+      authoritative readback; parent title/body and unrelated labels survive;
+      optional blockers use stable upsert identity and honest structured
+      outcomes; dry-run writes nothing; every applied attempt retains a report
+      and exits non-zero.
 
 ## Implementation Paths
 
@@ -219,5 +238,7 @@ copied into `tasks/todo.md`.
 - `.agents/skills/task-registry/references/` — configuration and
   progressive-disclosure guides.
 - `.agents/skills/task-registry/templates/task-tracking.md` — the config template.
-- `tests/test-task-registry.sh`, `tests/fixtures/task-registry/` — contract tests.
+- `tests/test-task-registry.sh`, `tests/test-task-escalation.sh`,
+  `tests/test-routine-selectors.sh`, `tests/fixtures/task-registry/` — contract
+  and escalation tests.
 - `CLAUDE.md`, `README.md`, `.claude/hooks/session-start.sh` — registration.

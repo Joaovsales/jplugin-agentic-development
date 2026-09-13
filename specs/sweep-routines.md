@@ -12,16 +12,11 @@ implementation_paths:
   - .agents/skills/wrap-up-session/references/routine-prompts/plan.md
   - .agents/skills/wrap-up-session/scripts/routine_branch.py
   - .agents/skills/wrap-up-session/SKILL.md
-  - .agents/skills/task-registry/scripts/registry/config.py
-  - .agents/skills/task-registry/scripts/registry/model.py
-  - .agents/skills/task-registry/scripts/registry/providers/github.py
-  - .agents/skills/task-registry/scripts/registry/providers/local.py
-  - .agents/skills/task-registry/scripts/task-registry.py
-  - .agents/skills/task-registry/references/configuration.md
+  - .agents/skills/task-registry/**
+  - .claude/skills/task-registry/**
   - .agents/skills/debug/SKILL.md
   - .agents/skills/maintain-verification-skill/SKILL.md
   - .agents/skills/software-design-expert-review/SKILL.md
-  - .agents/skills/auto-improve/ (deleted)
   - CLAUDE.md
   - README.md
   - .claude/hooks/session-start.sh
@@ -30,7 +25,8 @@ implementation_paths:
   - tests/test-routine-branch.sh
   - tests/test-routine-selectors.sh
   - tests/test-routines-contract.sh
-  - tests/test-auto-improve-rewire.sh (deleted)
+  - tests/test-routine-escalation-handoff.sh
+  - tests/test-task-escalation.sh
 ---
 
 # Sweep routines: `janitor` and `architect`
@@ -204,8 +200,9 @@ issue.
   reads `task-registry show`, runs the issue's *Reproduction* as the reproduction
   step, and enters the *Proposed fix* into the root-cause prelude as **candidate
   one**, to be confirmed rather than assumed. On a `routine/` branch, "cannot
-  reproduce" emits `blocked: reproduction failed — <command>`, exits non-zero,
-  and opens no PR; it never asks the user. When the issue carries a proposed fix
+  reproduce" invokes the single `task-registry escalate` owner, adds the
+  configured `needs-investigation` hold after authoritative readback, exits
+  non-zero, and opens no PR; it never asks the user. When the issue carries a proposed fix
   and criteria, `/debug`'s final phase writes the `[ ] TDD:` tasks for `/build`
   from them.
 - The `fix` routine's step 4a row becomes `/debug #N`; for `tech-debt` it reads
@@ -271,7 +268,7 @@ template's history record; no allowlist entry is needed.
 | Publication pending | Run continues; record and PR body name both switches. |
 | Local write fails | STOP; findings must not be lost. |
 | Second run same day | Branch already exists → loud non-zero, no second branch. |
-| Consumer cannot reproduce | `blocked`, non-zero, no PR. The claim label stays — releasing it needs a registry write that does not exist yet and is filed as follow-up, not built here. |
+| Consumer cannot reproduce | `needs-investigation`, retained report, non-zero, no PR. Held parents remain in producer dedupe and selector exclusion until human re-triage. |
 | Nothing verified | Record with `Filed: none`, PR opened, title suffixed `— clean`. |
 | Two sweeps file the same file:line | Second updates the first's task; kinds differ only if the first was closed. |
 
@@ -298,9 +295,9 @@ template's history record; no allowlist entry is needed.
   local provider and the metadata block round-trip both fields; `show` renders
   them. Pinned by a Python test in `tests/test-sweep-handoff.sh`.
 - AC5 — `/debug` documents issue-reference intake via `task-registry show`, the
-  candidate-one rule, the unattended `blocked:` path with non-zero exit and no
-  user prompt, and writing `[ ] TDD:` tasks from the issue; `routines.md` `fix`
-  step 4a reads `/debug #N`.
+  candidate-one rule, the unattended registry escalation path with non-zero exit
+  and no user prompt, and writing `[ ] TDD:` tasks from the issue; `routines.md`
+  `fix` step 4a reads `/debug #N`.
 - AC6 — `/maintain-verification-skill` states the inline source-wave fallback
   and sweep-owned shipping; `/software-design-expert-review` documents
   `--scope tree` and an inline fallback.

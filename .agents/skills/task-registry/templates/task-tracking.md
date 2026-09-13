@@ -80,6 +80,10 @@ next = medium
 ; one issue — only this stops two runs of the SAME routine overlapping.
 claim_label = in-progress
 
+; Human investigation hold. Every consumer excludes issues carrying this label,
+; even when the claim label is absent. Humans remove it only after re-triage.
+escalation_label = needs-investigation
+
 ; First match wins, so an issue with two kind labels resolves deterministically.
 ; These are provider LABEL names (the left-hand keys of [labels.kind] above),
 ; not canonical kinds. Every label ranked here must be selected by exactly one

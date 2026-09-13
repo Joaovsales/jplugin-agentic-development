@@ -1,0 +1,1 @@
+python3 /home/joaosouto/orca/workspaces/jplugin-agentic-development/routines-update-the-task-when-reproduction-does/.agents/skills/task-registry/scripts/task-registry.py doctor --repo /tmp/verify-task-registry.wYrVJ1/project --provider local 

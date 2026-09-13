@@ -206,8 +206,10 @@ ledger exists to prevent, reproduced in the document that prevents it.
 | 4 | **The routine-specific work.** See each routine below | — |
 | 5 | `/wrap-up-session` — review passes, tests, and the pull request | **non-skippable** |
 
-Step 5 is non-skippable for every routine without exception: it is the review
-gate whose omission shipped #93 green.
+Step 5 is non-skippable for every progressable routine run: it is the review
+gate whose omission shipped #93 green. The one terminal before it is a fix
+routine investigation escalation. `/debug` owns that registry call exactly once;
+the retained non-zero result opens no PR and creates no PR-ledger row.
 
 Each consumer routine below gives **only** its step 4 and any gate the spine
 does not already carry.
@@ -233,7 +235,7 @@ Selector: `bug`, `tech-debt`. Terminal artifact: a ready PR whose body carries
 
 | # | Step | Gate |
 |---|---|---|
-| 4a | `/debug #N` — root cause before code, for a `bug`: it reads the issue's reproduction and proposed fix through `task-registry show`; for `tech-debt`, the proposed fix and evidence are read the same way | — |
+| 4a | `/debug #N` — root cause before code; reproduced and progressable work continues, while an inconclusive or practically blocked investigation is held and reported by the canonical escalation owner | — |
 | 4b | `/build` — TDD against the issue's acceptance criteria | **non-skippable** — no fix ships without a failing test that now passes |
 | 4c | `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside `/build` Phase 3; the row records where it ran) | **non-skippable** |
 

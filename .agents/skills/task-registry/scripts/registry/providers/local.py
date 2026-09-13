@@ -13,7 +13,7 @@ import datetime
 import os
 import re
 import tempfile
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from ..model import (
     METADATA_BEGIN,
@@ -24,10 +24,24 @@ from ..model import (
     render_metadata_block,
     section,
 )
-from .base import Capabilities, LinkResult, ProviderError, ProviderStatus, TrackerProvider
+from .base import (
+    Capabilities,
+    LinkResult,
+    ProviderError,
+    ProviderStatus,
+    TrackerProvider,
+    add_unique_labels,
+)
 
 FIELD_RE = re.compile(r"^-\s*(?P<key>status|priority|labels|area|updated|created)\s*:\s*(?P<value>.*)$")
 SECTION_RE = re.compile(r"^##\s+(?P<name>.+?)\s*$")
+
+
+def _validated_labels(labels: Sequence[str]) -> Tuple[str, ...]:
+    requested = tuple(label.strip() for label in labels)
+    if not requested or any(not label for label in requested):
+        raise ProviderError("local: additive labels must be nonblank")
+    return requested
 
 
 class LocalMarkdownProvider(TrackerProvider):
@@ -92,6 +106,29 @@ class LocalMarkdownProvider(TrackerProvider):
         existing = _read_text(path) if os.path.isfile(path) else ""
         self._write(path, self._render(task, existing))
         return task.with_(external=_written_reference(task, self._relative(path)))
+
+    def add_labels(self, task: Task, labels: Sequence[str]) -> None:
+        requested = _validated_labels(labels)
+        self.gate.authorize(f"add labels to local task {task.id}", self.name, external=False)
+        path = self._path_for(task.id)
+        if not os.path.isfile(path):
+            raise ProviderError(f"local: no task file for {task.id} at {self._relative(path)}")
+        text = _read_text(path)
+        current = self._read(path).labels
+        merged = tuple(add_unique_labels(current, requested))
+        if merged == current:
+            return
+        replacement = f"- labels: {', '.join(merged)}"
+        if re.search(r"(?m)^- labels:.*$", text):
+            updated = re.sub(r"(?m)^- labels:.*$", replacement, text, count=1)
+        else:
+            updated = re.sub(
+                r"(?m)^- status:.*$",
+                lambda match: match.group(0) + "\n" + replacement,
+                text,
+                count=1,
+            )
+        self._write(path, updated)
 
     def close_task(self, task: Task, resolution: str = "done") -> Task:
         return self.update_task(task.with_(status=resolution))

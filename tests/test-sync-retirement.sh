@@ -1629,7 +1629,7 @@ assert_contains "$RUN_OUTPUT" "retire: .agents/skills/gone/SKILL.md" \
 assert_contains "$RUN_OUTPUT" "dormant: .claude/hooks/local.sh" \
   "the pattern is reported as dormant, not as one that matched nothing"
 assert_not_contains "$RUN_OUTPUT" "unmatched: .claude/hooks/local.sh" \
-  "because `unmatched` reads as an invitation to delete the only protection"
+  "because unmatched reads as an invitation to delete the only protection"
 
 run_retire --repo "$P35" --from-dir "$T35" --apply
 assert_eq "present" "$([ -f "$P35/.claude/hooks/local.sh" ] && echo present || echo gone)" \

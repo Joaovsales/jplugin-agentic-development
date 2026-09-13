@@ -977,7 +977,7 @@ published_ref_out="$(cd "$F_PUBLISHED_REF" && pyreg <<'EOF'
 from registry.config import load_config
 from registry.model import Task
 from registry.providers.base import ProviderStatus, WriteGate
-from registry.upsert import upsert_task
+from registry.upsert import upsert_task, upsert_task_result
 
 class FakeGithub:
     name = "github"
@@ -1012,12 +1012,15 @@ provider = FakeGithub(config)
 registry = type("Registry", (), {"config": config, "provider": provider})()
 task = Task(id="recipe.morph-live-grid", title="Morph live grid recipe")
 
-first_lines, first_code = upsert_task(registry, task, apply=True)
+first_result = upsert_task_result(registry, task, apply=True)
+first_lines, first_code = first_result.lines, first_result.code
 provider.gate.approved = True
 second_lines, second_code = upsert_task(registry, task, apply=True)
 index = open("tasks/todo.md", encoding="utf-8").read()
 print("first-code=" + str(first_code))
 print("first-output=" + " | ".join(first_lines))
+print("first-result-ref=" + first_result.reference_summary())
+print("first-readback-ref=" + first_result.readback.external.display())
 print("second-code=" + str(second_code))
 print("second-output=" + " | ".join(second_lines))
 print("fetched=" + ",".join(ref.display() for ref in provider.fetched))
@@ -1032,6 +1035,10 @@ assert_contains "$published_ref_out" "first-code=0" \
   "Upsert reference preservation: approval-gated fallback succeeds"
 assert_contains "$published_ref_out" "local-pending" \
   "Upsert reference preservation: first run uses the local-pending destination"
+assert_contains "$published_ref_out" "first-result-ref=recipe.morph-live-grid (publication pending)" \
+  "AC7: structured fallback truthfully identifies pending publication"
+assert_contains "$published_ref_out" "first-readback-ref=github:42" \
+  "AC7: structured fallback retains the published reference after local readback"
 assert_contains "$published_ref_out" "index-has-github=True" \
   "Upsert reference preservation: fallback keeps the original GitHub link"
 assert_contains "$published_ref_out" "index-has-local=False" \
@@ -1063,7 +1070,7 @@ mig_retired="$(run migrate --repo "$REPO" 2>&1)"
 mig_retired_code=$?
 assert_eq "2" "$mig_retired_code" "Migrate: the retired subcommand exits 2 as unknown"
 assert_contains "$mig_retired" "invalid choice: 'migrate'" \
-  "Migrate: argparse refuses `migrate` by name"
+  "Migrate: argparse refuses migrate by name"
 
 # The Cut 2 precondition: `registry/index.py` and `registry/reconcile.py` are
 # deleted one phase from now, so a one-shot that imported them would break the
@@ -1622,7 +1629,7 @@ assert_contains "$floor_out" "ignored-flag=True" \
   "Config: the ignored relaxation is recorded so doctor can say so"
 assert_contains "$floor_out" "trusted=False" \
   "Config: an operator who trusts the repository can lower the floor"
-floor_doctor="$(cd "$F_FLOOR" && PATH="$F_FLOOR/bin:$PATH" GH_MOCK_DIR="$F_FLOOR/ghdata" \
+floor_doctor="$(cd "$F_FLOOR" && TASK_REGISTRY_TRUSTED_CONFIG=0 PATH="$F_FLOOR/bin:$PATH" GH_MOCK_DIR="$F_FLOOR/ghdata" \
   run doctor --repo "$F_FLOOR" 2>&1)"
 assert_contains "$floor_doctor" "approval is a floor" \
   "Doctor: the refused relaxation is visible to the user"
@@ -2089,5 +2096,173 @@ gh_degraded="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
 degraded_block="$(printf '%s\n' "$gh_degraded" | sed -n '/^  degraded:$/,/^  [a-z]*:$/p')"
 assert_contains "$degraded_block" "reads degraded to local-only" \
   "Show: an answer assembled without the provider says so rather than reading as complete"
+
+label_only="$($PY - "$SCRIPTS" <<'PY'
+import pathlib, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+from registry.config import Config
+from registry.model import ExternalRef, Task
+from registry.providers.base import ProviderError, WriteGate
+from registry.providers.github import GitHubProvider
+from registry.providers.local import LocalMarkdownProvider
+
+root = tempfile.mkdtemp()
+config = Config(root=root)
+local = LocalMarkdownProvider(config, WriteGate(apply=True))
+task = local.create_task(Task(id="held.one", title="Original", labels=("bug",), summary="Keep me"))
+path = pathlib.Path(root, "tasks/details/held.one.md")
+with path.open("a", encoding="utf-8") as handle:
+    handle.write("\n## Human notes\n\nbyte-for-byte marker\n")
+before = path.read_text(encoding="utf-8")
+local.add_labels(task, ("needs-investigation", "bug"))
+local.add_labels(local.get_task(task.external), ("Needs-Investigation",))
+after = path.read_text(encoding="utf-8")
+print("local-labels:", local.get_task(task.external).labels)
+print("local-preserved:", before.replace("- labels: bug", "- labels: bug, needs-investigation") == after)
+print("local-case-deduped:", local.get_task(task.external).labels == ("bug", "needs-investigation"))
+
+class RecordingGitHub(GitHubProvider):
+    def __init__(self):
+        super().__init__(Config(root=".", repository="o/r"), WriteGate(apply=True, require_approval=False))
+        self.commands = []
+    def _json(self, command):
+        return [{"name": "bug"}, {"name": "needs-investigation"}]
+    def _run(self, command, check=True):
+        self.commands.append(command)
+        return 0, ""
+
+github = RecordingGitHub()
+external = Task(id="held.two", title="Do not replace", labels=("bug",),
+                external=ExternalRef("github", "42", "https://github.com/o/r/issues/42"))
+github.add_labels(external, ("needs-investigation",))
+command = github.commands[-1]
+print("github-add:", "--add-label" in command and "needs-investigation" in command)
+print("github-no-body:", "--body" not in command and "--title" not in command)
+case_labels = github._writable_labels(
+    external.with_(kind="bug", labels=("Bug", "Needs-Investigation"))
+)
+print("github-canonical-case:", case_labels == ("bug", "needs-investigation"))
+try:
+    github.add_labels(external, ("missing-label",))
+except ProviderError as exc:
+    print("github-missing:", "missing-label" in str(exc))
+PY
+)"
+assert_contains "$label_only" "local-labels: ('bug', 'needs-investigation')" \
+  "AC4: local additive labeling retains unrelated labels"
+assert_contains "$label_only" "local-preserved: True" \
+  "AC4: local additive labeling changes only the canonical labels header"
+assert_contains "$label_only" "local-case-deduped: True" \
+  "AC4: local label identity is case-insensitive and never duplicates the hold"
+assert_contains "$label_only" "github-add: True" \
+  "AC4: GitHub additive labeling targets only the requested label"
+assert_contains "$label_only" "github-no-body: True" \
+  "AC4: GitHub additive labeling sends no title or body replacement"
+assert_contains "$label_only" "github-canonical-case: True" \
+  "AC4: GitHub resolves case-insensitive labels to provider-canonical spelling"
+assert_contains "$label_only" "github-missing: True" \
+  "AC11: GitHub refuses an unknown hold label instead of silently dropping it"
+
+structured_upsert="$($PY - "$SCRIPTS" <<'PY'
+import pathlib, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+import registry.upsert as upsert
+from registry.config import Config
+from registry.model import ExternalRef, Task
+from registry.providers.base import ProviderStatus, WriteGate
+
+class FakeProvider:
+    name = "github"
+    def __init__(self, existing=None, explode=False):
+        self.gate = WriteGate(apply=True, require_approval=False)
+        self.tasks = [] if existing is None else [existing]
+        self.explode = explode
+        self.creates = 0
+        self.updates = 0
+    def discover(self):
+        return ProviderStatus(True, "fixture")
+    def list_tasks(self):
+        return list(self.tasks)
+    def get_task(self, reference):
+        return self.tasks[0]
+    def create_task(self, task):
+        self.creates += 1
+        if self.explode:
+            raise RuntimeError("delivery acknowledgement lost")
+        written = task.with_(external=ExternalRef("github", "91", "https://github.com/o/r/issues/91"))
+        self.tasks = [written]
+        return written
+    def update_task(self, task):
+        self.updates += 1
+        self.tasks = [task]
+        return task
+
+def registry_for(provider):
+    root = tempfile.mkdtemp()
+    pathlib.Path(root, "tasks").mkdir()
+    pathlib.Path(root, "tasks/todo.md").write_text("# Tasks\n", encoding="utf-8")
+    config = Config(root=root, provider="github", repository="o/r")
+    return type("Registry", (), {"config": config, "provider": provider})()
+
+incoming = Task(id="routine-blocker.src-test-py.launch", title="Launch blocker",
+                labels=("bug",), evidence=("new",))
+held = incoming.with_(labels=("bug", "area/test", "needs-investigation"), evidence=("old",),
+                      external=ExternalRef("github", "80", "u"))
+held_provider = FakeProvider(held)
+held_result = upsert.upsert_task_result(registry_for(held_provider), incoming, apply=True)
+print("held:", held_result.disposition, held_result.task.external.id,
+      held_provider.creates, held_provider.updates, held_result.task.labels)
+
+terminal = held.with_(status="done", labels=("bug", "area/test"))
+terminal_provider = FakeProvider(terminal)
+terminal_result = upsert.upsert_task_result(registry_for(terminal_provider), incoming, apply=True)
+print("terminal:", terminal_result.disposition, terminal_result.task.status,
+      terminal_provider.creates, terminal_provider.updates)
+
+class LateHoldProvider(FakeProvider):
+    def __init__(self, normal, held_task):
+        super().__init__(normal)
+        self.held_task = held_task
+        self.reads = 0
+    def list_tasks(self):
+        self.reads += 1
+        return [self.held_task if self.reads > 1 else self.tasks[0]]
+
+late_provider = LateHoldProvider(incoming.with_(external=held.external), held)
+late_result = upsert.upsert_task_result(registry_for(late_provider), incoming, apply=True)
+print("late-held:", late_result.disposition, late_provider.reads, late_provider.updates)
+
+unknown_provider = FakeProvider(explode=True)
+unknown_result = upsert.upsert_task_result(registry_for(unknown_provider), incoming, apply=True)
+print("unknown:", unknown_result.disposition, unknown_result.code, unknown_provider.creates)
+
+published_provider = FakeProvider()
+published_registry = registry_for(published_provider)
+original_sync = upsert._sync_index
+upsert._sync_index = lambda config, task: (_ for _ in ()).throw(OSError("index disk full"))
+try:
+    published_result = upsert.upsert_task_result(published_registry, incoming, apply=True)
+finally:
+    upsert._sync_index = original_sync
+print("published:", published_result.disposition, published_result.code,
+      published_result.task.external.id, published_result.readback.external.id,
+      "index disk full" in published_result.detail)
+
+merged, _ = upsert._merge(held, incoming)
+print("labels-preserved:", merged.labels)
+PY
+)"
+assert_contains "$structured_upsert" "held: existing-held 80 0 0 ('bug', 'area/test', 'needs-investigation')" \
+  "AC6: a held blocker is reused without mutation or duplication"
+assert_contains "$structured_upsert" "terminal: existing-terminal done 0 0" \
+  "AC6: a terminal blocker is reused without reopening"
+assert_contains "$structured_upsert" "late-held: existing-held 2 0" \
+  "AC6: the immediate pre-write lookup honors a concurrent human hold"
+assert_contains "$structured_upsert" "unknown: unknown 1 1" \
+  "AC12: an ambiguous create failure is unknown and is attempted once"
+assert_contains "$structured_upsert" "published: external 1 91 91 True" \
+  "AC12: confirmed external publication survives a separate index failure"
+assert_contains "$structured_upsert" "labels-preserved: ('bug', 'area/test', 'needs-investigation')" \
+  "AC7: ordinary merging preserves all established labels"
 
 finish

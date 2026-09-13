@@ -50,7 +50,7 @@ write_labels() {
   local first=1
   { printf '['
     local name
-    for name in "$@"; do
+    for name in needs-investigation "$@"; do
       [ "$first" -eq 1 ] || printf ','
       first=0
       printf '{"name":"%s"}' "$name"
@@ -93,6 +93,7 @@ print("selector-union:", ",".join(selected))
 print("domains-equal:", sorted(DEFAULT_KIND_PRECEDENCE) == selected)
 print("routines:", ",".join(sorted(DEFAULT_SELECTORS)))
 print("claim:", config.claim_label)
+print("escalation:", config.escalation_label)
 print("kinds-mapping-to-task:", ",".join(sorted(
     label for label, kind in DEFAULT_KIND_LABELS.items() if kind == "task")) or "none")
 PY
@@ -113,6 +114,8 @@ assert_not_contains "$defaults" "routines: build" \
   "AC12: build ships no selector, so it cannot fail this gate"
 assert_contains "$defaults" "claim: in-progress" \
   "Concurrency: the claim label defaults to in-progress"
+assert_contains "$defaults" "escalation: needs-investigation" \
+  "AC11: the investigation hold ships with a nonblank default label"
 
 # REGRESSION GUARD. [labels.kind] is bidirectional: the GitHub provider reverse-
 # looks-up kind -> first matching label to decide what to stamp on a published
@@ -140,6 +143,8 @@ cases = {
     "priority-only": ("now", "next"),
     "no-kind": ("area/render",),
     "claimed": ("bug", "in-progress"),
+    "claimed-case": ("bug", "In-Progress"),
+    "escalated": ("bug", "needs-investigation"),
     "empty": (),
 }
 for name, labels in cases.items():
@@ -162,6 +167,10 @@ assert_contains "$picks" "no-kind=None" \
 assert_contains "$picks" "empty=None" "An unlabelled issue is not selected"
 assert_contains "$picks" "claimed=None" \
   "Concurrency: an issue already carrying the claim label is skipped as in-flight"
+assert_contains "$picks" "claimed-case=None" \
+  "Concurrency: claim-label identity follows provider case-insensitive semantics"
+assert_contains "$picks" "escalated=None" \
+  "AC3: an escalation label excludes an issue without relying on a claim label"
 
 # ============================================================================
 # 3. Configuration overrides the shipped vocabulary
@@ -509,6 +518,41 @@ assert_contains "$claim_blank" "'in-progress'" \
 assert_not_contains "$claim_blank" "''" \
   "AC12: no blank claim label survives, which would disable the overlap guard"
 
+escalation_config="$($PY - "$SCRIPTS" <<'PY'
+import pathlib, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+from registry.config import ConfigError, load_config
+
+cases = {
+    "blank": "[routines]\nescalation_label =   ",
+    "claim": "[routines]\nescalation_label = in-progress",
+    "selector": "[routines]\nescalation_label = BUG",
+    "kind": "[routines]\nescalation_label = custom\n[labels.kind]\nCUSTOM = bug",
+    "priority": "[routines]\nescalation_label = custom\n[labels.priority]\nCUSTOM = high",
+    "status": "[routines]\nescalation_label = custom\n[status]\nblocked = label:CUSTOM",
+}
+for name, line in cases.items():
+    root = tempfile.mkdtemp()
+    pathlib.Path(root, "docs").mkdir()
+    pathlib.Path(root, "docs/task-tracking.md").write_text(
+        "# T\n\n```ini\n[tracker]\nprovider = local\n" + line + "\n```\n",
+        encoding="utf-8",
+    )
+    try:
+        load_config(root)
+    except ConfigError as exc:
+        print(name + ":", exc)
+    else:
+        print(name + ": ACCEPTED")
+PY
+)"
+assert_contains "$escalation_config" "blank:" "AC11: blank escalation label is refused"
+assert_contains "$escalation_config" "claim:" "AC11: escalation and claim labels must differ"
+assert_contains "$escalation_config" "selector:" \
+  "AC11: escalation conflicts use the provider's case-insensitive label semantics"
+assert_not_contains "$escalation_config" "ACCEPTED" \
+  "AC11: every unsafe escalation-label configuration fails during load"
+
 # ============================================================================
 # 6. `claim` — the spine's step 2, and the contract's only write
 # ============================================================================
@@ -579,12 +623,72 @@ cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
   "closedByPullRequestsReferences":[]}
 ]
 EOF
+printf '{"number":42,"title":"Crash","body":"","labels":[{"name":"bug"},{"name":"in-progress"}]}' \
+  > "$F_CLAIM/ghdata/issue-42.json"
 claim_again="$(run_claim "$F_CLAIM" 42 --routine fix --apply --approve)"; again_code=$?
 assert_eq "0" "$again_code" "claim: re-claiming an already-claimed issue is not an error"
 assert_contains "$claim_again" "already carries" "claim: idempotent, and says so"
 
 claim_missing="$(run_claim "$F_CLAIM" 999 --routine fix --apply --approve)"; missing_code=$?
 assert_eq "1" "$missing_code" "claim: an unknown issue exits non-zero"
+
+F_HELD="$(new_fixture)"
+write_config "$F_HELD" <<'EOF'
+EOF
+write_labels "$F_HELD" bug enhancement design-decision tech-debt documentation in-progress
+cat > "$F_HELD/ghdata/issues.json" <<'EOF'
+[
+ {"number":51,"title":"Needs investigation","state":"OPEN","url":"https://github.com/o/r/issues/51",
+  "labels":[{"name":"bug"},{"name":"needs-investigation"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]},
+ {"number":52,"title":"Claimed then held","state":"OPEN","url":"https://github.com/o/r/issues/52",
+  "labels":[{"name":"bug"},{"name":"in-progress"},{"name":"needs-investigation"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]},
+ {"number":53,"title":"Held after selection","state":"OPEN","url":"https://github.com/o/r/issues/53",
+  "labels":[{"name":"bug"}],"assignees":[],
+  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
+  "closedByPullRequestsReferences":[]}
+]
+EOF
+for number in 51 52 53; do
+  printf '{"number":%s,"title":"Held","body":"","labels":[{"name":"bug"},{"name":"needs-investigation"}]}' "$number" \
+    > "$F_HELD/ghdata/issue-$number.json"
+done
+held_claim="$(run_claim "$F_HELD" 51 --routine fix --apply --approve)"; held_claim_code=$?
+assert_eq "1" "$held_claim_code" "AC3: explicit claim refuses an escalated task"
+assert_contains "$held_claim" "human investigation" \
+  "AC3: claim explains that a human must re-triage the held issue"
+held_claimed="$(run_claim "$F_HELD" 52 --routine fix --apply --approve)"; held_claimed_code=$?
+assert_eq "1" "$held_claimed_code" \
+  "AC3: escalation is checked before already-claimed idempotence"
+assert_file_not_matches "$F_HELD/gh.log" "add-label" \
+  "AC4: refusing held claims makes no tracker mutation"
+fresh_hold="$(run_claim "$F_HELD" 53 --routine fix --apply --approve)"; fresh_hold_code=$?
+assert_eq "1" "$fresh_hold_code" \
+  "AC3: claim's exact-target read sees a hold added after the selection snapshot"
+assert_contains "$fresh_hold" "human investigation" \
+  "AC3: the authoritative readback prevents stale selection from bypassing the hold"
+printf '{"number":53,"title":"Re-triaged","body":"","labels":[{"name":"bug"}]}' \
+  > "$F_HELD/ghdata/issue-53.json"
+resumed_claim="$(run_claim "$F_HELD" 53 --routine fix --apply --approve)"; resumed_claim_code=$?
+assert_eq "0" "$resumed_claim_code" \
+  "AC8: explicit human removal of hold and stale claim permits later claiming"
+
+F_NO_HOLD_LABEL="$(new_fixture)"
+write_config "$F_NO_HOLD_LABEL" <<'EOF'
+EOF
+write_labels "$F_NO_HOLD_LABEL" bug enhancement design-decision tech-debt documentation in-progress
+$PY - "$F_NO_HOLD_LABEL/ghdata/labels.json" <<'PY'
+import json, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+path.write_text(json.dumps([x for x in json.loads(path.read_text()) if x["name"] != "needs-investigation"]))
+PY
+missing_hold="$(run_selectors "$F_NO_HOLD_LABEL")"; missing_hold_code=$?
+assert_eq "1" "$missing_hold_code" "AC11: missing escalation label stops consumers"
+assert_contains "$missing_hold" "needs-investigation" \
+  "AC11: the rollout prerequisite names the missing escalation label"
 
 # `select` IS routine start. A vocabulary gap must halt it, not quietly under-select:
 # the missing label makes the pool empty, and an empty pool is a normal day.
@@ -645,6 +749,8 @@ for tree in .agents .claude; do
     "AC12: $tree template documents the [routines.selectors] section"
   assert_file_contains "$tmpl" "claim_label" \
     "AC12: $tree template documents the claim label"
+  assert_file_contains "$tmpl" "escalation_label" \
+    "AC13: $tree template documents the investigation hold label"
   assert_file_contains "$tmpl" "kind_precedence" \
     "AC12: $tree template documents the precedence order"
   # The chain's labels must appear under [routines.selectors] -- and must NOT
@@ -752,6 +858,14 @@ assert_contains "$wf_claimed_status" "fix" \
   "AC2: the in-flight outcome names the CLAIMANT — which routine holds it"
 assert_not_contains "$wf_claimed_out" "no kind label" \
   "AC2: a claimed issue is not reported as untriaged — #12 carries bug"
+
+wf_held_out="$(run_workflow "$F_HELD" 51)"; wf_held_code=$?
+assert_eq "1" "$wf_held_code" "AC3: workflow gives no runnable chain for an escalation"
+assert_contains "$wf_held_out" "ESCALATED" "AC3: workflow names the held state"
+assert_contains "$wf_held_out" "human investigation" \
+  "AC8: workflow requires explicit human re-triage to resume"
+assert_not_contains "$wf_held_out" "chain:" \
+  "AC3: workflow never prints a runnable chain for a held issue"
 
 # -- outcome 5: unknown reference, exit 1 ------------------------------------
 wf_missing_out="$(run_workflow "$F_SEL" 4242)"; wf_missing_code=$?

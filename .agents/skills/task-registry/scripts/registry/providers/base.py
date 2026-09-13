@@ -180,6 +180,10 @@ class TrackerProvider(abc.ABC):
     def update_task(self, task: Task) -> Task:
         ...
 
+    def add_labels(self, task: Task, labels: Sequence[str]) -> None:
+        """Add labels without replacing any other task field."""
+        raise ProviderError(f"{self.name}: additive label updates are not supported")
+
     @abc.abstractmethod
     def close_task(self, task: Task, resolution: str = "done") -> Task:
         ...
@@ -240,4 +244,21 @@ def preserve_labels(existing: Iterable[str], additions: Iterable[str] = ()) -> S
     for label in list(existing) + list(additions):
         if label and label not in ordered:
             ordered.append(label)
+    return tuple(ordered)
+
+
+def has_label(labels: Iterable[str], wanted: str) -> bool:
+    """Match provider label identity without depending on letter case."""
+    folded = wanted.casefold()
+    return any(label.casefold() == folded for label in labels)
+
+
+def add_unique_labels(existing: Iterable[str], additions: Iterable[str]) -> Sequence[str]:
+    """Append labels once under the case-insensitive provider identity rule."""
+    ordered = list(existing)
+    known = {label.casefold() for label in ordered}
+    for label in additions:
+        if label and label.casefold() not in known:
+            ordered.append(label)
+            known.add(label.casefold())
     return tuple(ordered)

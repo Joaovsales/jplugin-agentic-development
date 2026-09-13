@@ -1,0 +1,63 @@
+7707342fae1644e8070ed866410ad7e07ad7bed1
+ M .agents/skills/build/SKILL.md
+ M .agents/skills/debug/SKILL.md
+ M .agents/skills/sweep/SKILL.md
+ M .agents/skills/task-registry/SKILL.md
+ M .agents/skills/task-registry/references/configuration.md
+ M .agents/skills/task-registry/scripts/registry/config.py
+ M .agents/skills/task-registry/scripts/registry/providers/base.py
+ M .agents/skills/task-registry/scripts/registry/providers/github.py
+ M .agents/skills/task-registry/scripts/registry/providers/local.py
+ M .agents/skills/task-registry/scripts/registry/routines.py
+ M .agents/skills/task-registry/scripts/registry/upsert.py
+ M .agents/skills/task-registry/scripts/task-registry.py
+ M .agents/skills/task-registry/templates/task-tracking.md
+ M .agents/skills/verify-task-registry/features/README.md
+ M .agents/skills/verify/SKILL.md
+ M .agents/skills/wrap-up-session/SKILL.md
+ M .agents/skills/wrap-up-session/references/routine-prompts/fix.md
+ M .agents/skills/wrap-up-session/references/routines.md
+ M .claude/skills/build/SKILL.md
+ M .claude/skills/debug/SKILL.md
+ M .claude/skills/sweep/SKILL.md
+ M .claude/skills/task-registry/SKILL.md
+ M .claude/skills/task-registry/references/configuration.md
+ M .claude/skills/task-registry/scripts/registry/config.py
+ M .claude/skills/task-registry/scripts/registry/providers/base.py
+ M .claude/skills/task-registry/scripts/registry/providers/github.py
+ M .claude/skills/task-registry/scripts/registry/providers/local.py
+ M .claude/skills/task-registry/scripts/registry/routines.py
+ M .claude/skills/task-registry/scripts/registry/upsert.py
+ M .claude/skills/task-registry/scripts/task-registry.py
+ M .claude/skills/task-registry/templates/task-tracking.md
+ M .claude/skills/verify-task-registry/features/README.md
+ M .claude/skills/verify/SKILL.md
+ M .claude/skills/wrap-up-session/SKILL.md
+ M .claude/skills/wrap-up-session/references/routine-prompts/fix.md
+ M .claude/skills/wrap-up-session/references/routines.md
+ M AGENTS.md
+ M docs/task-tracking.md
+ M specs/category-routines.md
+ M specs/sweep-routines.md
+ M specs/workflow-routing.md
+ M tasks/checkpoint.md
+ M tasks/e2e-log.md
+ M tasks/todo.md
+ M tests/test-routine-selectors.sh
+ M tests/test-sweep-routines.sh
+ M tests/test-sync-retirement.sh
+ M tests/test-task-registry.sh
+?? .agents/skills/task-registry/scripts/registry/escalation.py
+?? .agents/skills/verify-task-registry/features/escalate-investigation.md
+?? .claude/skills/task-registry/scripts/registry/escalation.py
+?? .claude/skills/verify-task-registry/features/escalate-investigation.md
+?? specs/routine-reproduction-report.md
+?? specs/routine-reproduction-report.plan.html
+?? tasks/verification/task-registry.mrdadZ/
+?? tests/test-routine-escalation-handoff.sh
+?? tests/test-routine-reproduction-e2e.sh
+?? tests/test-task-escalation.sh
+ca52c7e38e683bf3bd4505188b1be1ed6352ab2bba138a13c8dcd5a02c746afb  /home/joaosouto/orca/workspaces/jplugin-agentic-development/routines-update-the-task-when-reproduction-does/.agents/skills/task-registry/scripts/task-registry.py
+source=/home/joaosouto/orca/workspaces/jplugin-agentic-development/routines-update-the-task-when-reproduction-does
+repo=/tmp/verify-task-registry.wYrVJ1/project
+auth=none; provider=local; port=none

@@ -1,3 +1,23 @@
+# Plan: routine reproduction report — escalate, hold, and unblock
+> Spec: specs/routine-reproduction-report.md
+> Approved by direct `/build` request on 2026-09-12.
+
+- [x] TDD: investigation hold configuration and selector enforcement -> add escalation-label config/default validation, additive label provider operation, authoritative readback, select/claim/workflow exclusion, and rollout guidance; mirror skill files (AC3, AC4, AC8, AC11, AC13)
+- [x] TDD: structured blocker upsert outcomes -> expose `UpsertResult` behind the compatible public wrapper, preserve labels and terminal/held blockers, and distinguish unknown creation from confirmed external publication followed by index failure (AC6, AC7, AC12)
+- [x] TDD: escalation command and ordered reporting -> add the validated `escalate` CLI/request v1, safe payload parsing, hold/readback/blocker/comment coordination, dry-run behavior, retained run artifact, and every partial-failure result (AC2, AC5–AC10, AC12)
+- [x] TDD: routine integration and retained execution evidence -> update every debug/build/verify/wrap-up/sweep entry and stop path, run isolated reproduced/fixable and escalation scenarios, preserve canonical/Claude parity, and record e2e evidence (AC1, AC2, AC9, AC13, AC14)
+
+## Session Summary — 2026-09-12 [ba11f75..7707342]
+- Completed: 4 routine reproduction-report tasks, including implementation,
+  deterministic regressions, verification-map maintenance, and retained CLI and
+  debug-skill execution evidence.
+- Pending: none for this plan.
+- Carry-forward: live GitHub delivery remains outside the local verifier's
+  capability ceiling; provider failure behavior is covered by deterministic
+  adapter integration tests.
+
+---
+
 # Fix: #117 — Preserve published issue references across local-pending upserts
 > Spec: specs/preserve-published-issue-references.md
 
@@ -757,4 +777,3 @@ reverse.
 - Completed: 5 tasks — the /system-design-planning skill (SKILL.md, review card, spec template, content model), its spec, registration in CLAUDE.md/README/session-start, static pins in test-doc-conventions and test-skill-invocation-chain, byte-identical .claude copy. Plus: one worked example run of the skill against its own TODO(shortcut) → specs/upsert-depends-on.md + .plan.html (dispatched critic: 0 MUST-FIX, 9 SHOULD-FIX, 5 NITPICK, all folded in); tests/test-tdd-retirement.sh now excludes .claude/worktrees.
 - Pending: filing the three upsert-depends-on slices waits for the reviewer's "approved" on the rendered document (D2 open: refuse or report a dangling dependency id).
 - Carry-forward: /system-design-planning Step 8 keeps its TODO(shortcut) until specs/upsert-depends-on.md is built; 31 stale worktrees removed, the live bulk-read-gate worktree kept.
-

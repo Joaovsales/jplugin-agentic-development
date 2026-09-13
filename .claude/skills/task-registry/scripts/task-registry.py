@@ -7,6 +7,7 @@
     task-registry select --routine R    the next issue routine R may claim
     task-registry workflow <ref>        which routine owns one issue, and what it runs
     task-registry claim <ref> --routine R  write the claim label onto one issue
+    task-registry escalate <ref> ...    hold an unresolved investigation and report it
 
 Dry-run is the default for every command. `--apply` is the only way anything is
 written, and external writes additionally honour `require_write_approval`.
@@ -47,11 +48,15 @@ from registry.providers.base import (  # noqa: E402
     ProviderUnavailable,
     WriteGate,
     WriteNotAuthorized,
+    add_unique_labels,
+    has_label,
 )
 from registry.model import Task, TaskModelError  # noqa: E402
 from registry.detail import Registry  # noqa: E402
+from registry.escalation import EscalationError, EscalationRequest, escalate_task  # noqa: E402
 from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
+    is_escalated,
     matched_label,
     missing_routine_labels,
     routine_for_label,
@@ -63,7 +68,7 @@ from registry.redaction import Redactor, redactor_for  # noqa: E402
 from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
-    "show", "doctor", "upsert", "selectors", "select", "claim", "workflow",
+    "show", "doctor", "upsert", "selectors", "select", "claim", "workflow", "escalate",
 )
 
 
@@ -100,6 +105,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--verbose", action="store_true", help="print every finding")
     parser.add_argument("--report", help="also write the output to this file")
+    parser.add_argument("--reason", help="escalation reason")
+    parser.add_argument("--reproduction-state", help="escalation reproduction verdict")
+    parser.add_argument("--run-at", help="timezone-aware escalation timestamp")
+    parser.add_argument("--repro-command", help="exact attempted reproduction command")
+    parser.add_argument("--observed", help="observed result and remaining gap")
+    parser.add_argument("--evidence-unavailable", help="why no evidence reference survives")
+    parser.add_argument("--blocker-file", help="optional blocker request v1 JSON file")
     # `upsert` content. Structured rather than a free-form body file: every one of
     # these round-trips through the local provider's metadata block and managed
     # sections, so re-running the command replaces the record instead of
@@ -152,7 +164,7 @@ def main(argv=None) -> int:
     """Entry point. Every escape from here is redacted before it is printed."""
     redact = Redactor()
     try:
-        return _run(argv, redact.adopt)
+        return _run(argv, redact)
     except SystemExit:
         raise
     except Exception:  # noqa: BLE001 - deliberate, see below
@@ -168,7 +180,7 @@ def main(argv=None) -> int:
         return 1
 
 
-def _run(argv, set_redactor) -> int:
+def _run(argv, redact) -> int:
     args = build_parser().parse_args(argv)
     root = os.path.abspath(args.repo)
     if not os.path.isdir(root):
@@ -197,6 +209,19 @@ def _run(argv, set_redactor) -> int:
         if not args.title:
             print("task-registry: `upsert` requires --title", file=sys.stderr)
             return 2
+    if args.command == "escalate":
+        if args.report:
+            print("task-registry: `escalate` does not accept --report", file=sys.stderr)
+            return 2
+        try:
+            args.escalation_request = EscalationRequest(
+                args.task_id, args.reason, args.reproduction_state, args.run_at,
+                args.repro_command, args.observed, tuple(args.evidence),
+                args.evidence_unavailable, args.blocker_file,
+            )
+        except EscalationError as exc:
+            print(f"task-registry: {exc}", file=sys.stderr)
+            return 2
 
     config_fault = None
     try:
@@ -211,7 +236,7 @@ def _run(argv, set_redactor) -> int:
             return 2 if args.command == "workflow" else 1
         config_fault = exc
         config = load_config(root, strict=False)
-    set_redactor(redactor_for(config))
+    redact.adopt(redactor_for(config))
 
     selection = select_provider(config)
     provider_name = args.provider or selection.provider
@@ -248,6 +273,7 @@ def _run(argv, set_redactor) -> int:
         print(f"task-registry: {exc}", file=sys.stderr)
         return 1
 
+    output = redact(output)
     print(output)
     if args.report:
         _write_report(args.report, output)
@@ -293,6 +319,8 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _claim(registry, args.routine, args.task_id, apply_writes)
     if command == "workflow":
         return _workflow(registry, args.task_id)
+    if command == "escalate":
+        return escalate_task(registry, args.escalation_request, apply_writes)
     # argparse's `choices` already refuses anything outside COMMANDS, so this is
     # unreachable from the CLI. It exists so that adding a command to COMMANDS
     # and forgetting to dispatch it fails by name instead of unpacking None.
@@ -444,16 +472,22 @@ def _claim(registry: Registry, routine, task_ref, apply_writes: bool):
     if not task_ref:
         return "task-registry: `claim` requires the issue this routine is claiming", 2
 
-    tasks = registry.provider.list_tasks()
-    matches = [
-        task for task in tasks
-        if task.id == task_ref or (task.external and task.external.id == str(task_ref))
-    ]
-    if not matches:
-        return f"task-registry: no open task matches {task_ref!r}", 1
-    task = matches[0]
+    verdict, code = _selector_upstream_check(registry)
+    if code:
+        return verdict, code
 
-    if config.claim_label in task.labels:
+    task, refusal = _workflow_task(registry, task_ref)
+    if refusal is not None:
+        return refusal
+
+    if is_escalated(task.labels, config):
+        return (
+            f"task-registry: refusing to claim {task_ref} — it carries "
+            f"{config.escalation_label} and requires human investigation. A human "
+            "must re-triage it and explicitly remove the hold before routine work resumes."
+        ), 1
+
+    if has_label(task.labels, config.claim_label):
         return f"claim: {task_ref} already carries {config.claim_label} — nothing to do", 0
 
     actual = select_routine(task.labels, config)
@@ -465,7 +499,8 @@ def _claim(registry: Registry, routine, task_ref, apply_writes: bool):
             "issue, which is the collision the claim label exists to prevent."
         ), 1
 
-    registry.provider.update_task(task.with_(labels=tuple(task.labels) + (config.claim_label,)))
+    labels = tuple(add_unique_labels(task.labels, (config.claim_label,)))
+    registry.provider.update_task(task.with_(labels=labels))
     return f"claim: wrote {config.claim_label} to {task_ref} for routine {routine}", 0
 
 
@@ -526,6 +561,12 @@ def _workflow(registry: Registry, task_ref):
         return (
             f"task-registry: {task_ref} is {task.status} — no routine starts on a "
             "closed task. Reopen it upstream if the work is not actually done."
+        ), 1
+    if is_escalated(task.labels, config):
+        return (
+            f"issue:    {task.external.id if task.external else task.id}  {task.title}\n"
+            f"status:   ESCALATED — it carries {config.escalation_label}; human "
+            "investigation and explicit re-triage are required before any routine resumes."
         ), 1
     return "\n".join(_workflow_report(task, config)), 0
 
@@ -601,7 +642,7 @@ def _workflow_report(task, config) -> list:
     # reader taking the first match got a different answer from one taking the
     # last.
     states = []
-    if config.claim_label in task.labels:
+    if has_label(task.labels, config.claim_label):
         states.append(
             f"IN FLIGHT — it carries {config.claim_label}, so routine {routine} "
             "already holds it. Do not claim it again."
@@ -617,6 +658,7 @@ def _selector_vocabulary(config) -> list:
     """The configured routine vocabulary, as the operator wrote it."""
     lines = [
         f"claim label:    {config.claim_label}",
+        f"escalation:     {config.escalation_label}",
         f"precedence:     {' > '.join(config.kind_precedence)}",
         "selectors:",
     ]
