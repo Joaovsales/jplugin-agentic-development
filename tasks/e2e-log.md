@@ -910,3 +910,12 @@ artifact, and opened no commit or PR. Decoding the retained artifact confirmed
 `blocker_disposition=local`, canonical
 `parent_ref=verification-execution-blocked-final.parent`, and ordered
 hold/blocker/comment outcomes. Result: **PASS**.
+
+## Committed verification identity — routine reproduction report — 2026-09-12
+
+Spec: `specs/routine-reproduction-report.md`
+Commit: `d880f45`
+
+The committed source is the reviewed tree exercised by the CLI and isolated
+`/debug` walkthroughs above. Final verification passed all 42 test files and
+3,965 reported assertions. This follow-up records only the commit identity.
