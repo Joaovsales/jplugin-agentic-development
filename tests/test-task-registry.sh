@@ -690,6 +690,50 @@ assert_contains "$sel_gh_unauth" "provider:       local" \
 assert_contains "$sel_gh_unauth" "gh is unavailable or unauthenticated" \
   "Selection: the unauthenticated fallback names the cause"
 
+# #124 — a provider selected from the remote must also READ and WRITE through
+# it. `doctor` learned the repository via `gh repo view`; `select`, `claim` and
+# `workflow` reached `_repo()` without that step and refused on the same
+# checkout `doctor` had just called reachable.
+#
+# No configuration file means the DEFAULT claim and escalation labels, so the
+# fixture vocabulary must carry them or the (correct) upstream label check halts
+# before the repository resolution under test is ever exercised.
+cat > "$F_SEL_GH/ghdata/labels.json" <<'EOF'
+[{"name":"bug"},{"name":"enhancement"},{"name":"design-decision"},{"name":"question"},
+ {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},
+ {"name":"area/render"},{"name":"area/color"},
+ {"name":"in-progress"},{"name":"needs-investigation"}]
+EOF
+sel_gh_select="$(
+  export PATH="$F_SEL_GH/bin:$PATH" GH_MOCK_DIR="$F_SEL_GH/ghdata" GH_MOCK_LOG="$F_SEL_GH/gh.log"
+  : > "$GH_MOCK_LOG"
+  run select --routine fix --repo "$F_SEL_GH" 2>&1
+)"
+sel_gh_select_code=$?
+assert_eq "0" "$sel_gh_select_code" \
+  "Selection (#124): select on a remote-resolved github provider exits 0 without a repository line"
+assert_not_contains "$sel_gh_select" "no repository configured" \
+  "Selection (#124): select does not refuse on the repository doctor already resolved"
+# `select` prints the upstream verdict only when it fails, so a passing check is
+# proved from the mock's call log: the label listing named the discovered repo.
+assert_contains "$(cat "$F_SEL_GH/gh.log")" "label list --repo fixture-owner/fixture-repo" \
+  "Selection (#124): the upstream label check ran against the discovered repository"
+assert_contains "$sel_gh_select" "candidate:" \
+  "Selection (#124): select reached the candidate pool"
+sel_gh_repo_views="$(grep -c '^repo view' "$F_SEL_GH/gh.log")"
+assert_eq "1" "$sel_gh_repo_views" \
+  "Selection (#124): the repository is discovered once per run, not once per gh call"
+
+sel_gh_workflow="$(
+  export PATH="$F_SEL_GH/bin:$PATH" GH_MOCK_DIR="$F_SEL_GH/ghdata" GH_MOCK_LOG="$F_SEL_GH/gh.log"
+  run workflow '#42' --repo "$F_SEL_GH" 2>&1
+)"
+sel_gh_workflow_code=$?
+assert_eq "0" "$sel_gh_workflow_code" \
+  "Selection (#124): workflow on a remote-resolved github provider exits 0"
+assert_not_contains "$sel_gh_workflow" "no repository configured" \
+  "Selection (#124): workflow does not refuse on the repository doctor already resolved"
+
 # =============================================================================
 # 5. Provider contract — every adapter, same checks
 # =============================================================================
