@@ -100,17 +100,12 @@ class GitHubProvider(TrackerProvider):
                 "gh is unavailable or unauthenticated — run `gh auth login` "
                 f"({self.redact(output.strip().splitlines()[-1]) if output.strip() else 'no output'})",
             )
-        if not self.repository:
-            try:
-                code, output = self._run(
-                    ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-                    check=False,
-                )
-            except ProviderUnavailable as exc:
-                return ProviderStatus(False, str(exc))
-            if code != 0:
-                return ProviderStatus(False, "no repository configured and `gh repo view` failed")
-            self.repository = output.strip()
+        try:
+            self._repo()
+        except ProviderUnavailable as exc:
+            return ProviderStatus(False, str(exc))
+        except ProviderError:
+            return ProviderStatus(False, "no repository configured and `gh repo view` failed")
         return ProviderStatus(True, f"gh authenticated for {self.repository}")
 
     # -------------------------------------------------------------------- reads
@@ -472,11 +467,27 @@ class GitHubProvider(TrackerProvider):
         return number
 
     def _repo(self) -> str:
-        if not self.repository:
+        """The `owner/name` every gh call targets, discovered from the remote on demand.
+
+        Provider selection already chose GitHub because the checkout has a remote,
+        so a missing `repository =` line is the ordinary case, not a fault. The
+        lookup lives here rather than in `discover()` alone so that `select`,
+        `claim` and `workflow` — which never run `discover()` — resolve the same
+        repository `doctor` reports reachable (#124).
+        """
+        if self.repository:
+            return self.repository
+        code, output = self._run(
+            ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+            check=False,
+        )
+        if code != 0 or not output.strip():
             raise ProviderError(
                 "github: no repository configured — set `repository = owner/name` in the "
-                "task-tracking configuration, or run inside a repo with a GitHub remote"
+                "task-tracking configuration, or run inside a repo with a GitHub remote "
+                f"(`gh repo view` answered: {self.redact(output.strip()) or 'no output'})"
             )
+        self.repository = output.strip()
         return self.repository
 
     def _run(self, command: Sequence[str], check: bool = True):
