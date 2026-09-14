@@ -694,6 +694,16 @@ assert_contains "$sel_gh_unauth" "gh is unavailable or unauthenticated" \
 # it. `doctor` learned the repository via `gh repo view`; `select`, `claim` and
 # `workflow` reached `_repo()` without that step and refused on the same
 # checkout `doctor` had just called reachable.
+#
+# No configuration file means the DEFAULT claim and escalation labels, so the
+# fixture vocabulary must carry them or the (correct) upstream label check halts
+# before the repository resolution under test is ever exercised.
+cat > "$F_SEL_GH/ghdata/labels.json" <<'EOF'
+[{"name":"bug"},{"name":"enhancement"},{"name":"design-decision"},{"name":"question"},
+ {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},
+ {"name":"area/render"},{"name":"area/color"},
+ {"name":"in-progress"},{"name":"needs-investigation"}]
+EOF
 sel_gh_select="$(
   export PATH="$F_SEL_GH/bin:$PATH" GH_MOCK_DIR="$F_SEL_GH/ghdata" GH_MOCK_LOG="$F_SEL_GH/gh.log"
   : > "$GH_MOCK_LOG"
