@@ -714,7 +714,9 @@ assert_eq "0" "$sel_gh_select_code" \
   "Selection (#124): select on a remote-resolved github provider exits 0 without a repository line"
 assert_not_contains "$sel_gh_select" "no repository configured" \
   "Selection (#124): select does not refuse on the repository doctor already resolved"
-assert_contains "$sel_gh_select" "upstream check: every selector label exists in github" \
+# `select` prints the upstream verdict only when it fails, so a passing check is
+# proved from the mock's call log: the label listing named the discovered repo.
+assert_contains "$(cat "$F_SEL_GH/gh.log")" "label list --repo fixture-owner/fixture-repo" \
   "Selection (#124): the upstream label check ran against the discovered repository"
 assert_contains "$sel_gh_select" "candidate:" \
   "Selection (#124): select reached the candidate pool"
