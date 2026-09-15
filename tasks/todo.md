@@ -3,6 +3,20 @@
 
 - [x] TDD: regression block in tests/test-task-registry.sh § 12 -> parse_metadata_block reads the span metadata_bounds returns; local _unmanaged_regions takes the same span; metadata_block_state names stray, competing, and damaged bodies, providers note them, writers refuse a damaged or competing one; byte-identical .claude copy
 
+## Session Summary — 2026-09-15 [07e1ac0]
+- Completed: 1 task — #132 metadata parser reads the span the writer owns
+  (three locators unified on `metadata_spans` / `metadata_bounds`; five block
+  states noted by both providers, damaged and competing bodies refused as
+  rewrite targets; 50 new regression assertions; bug and pattern docs).
+- Pending: none for this fix.
+- Carry-forward: the configured `in-progress` label does not exist in the
+  GitHub repo, so `/task-registry claim` cannot mark issues; 44 registry
+  assertions and 8 suite files fail on this Windows host identically on clean
+  master (#129, gh mock unreachable from Python; upstream-drift timing
+  assertion at one-second clock granularity); pre-existing availability
+  advisory — `_to_task` in `providers/github.py` lets a hostile `kind:` raise
+  `TaskModelError` uncaught, fix shape is routing through `safe_task`.
+
 ---
 
 # Plan: routine reproduction report — escalate, hold, and unblock
