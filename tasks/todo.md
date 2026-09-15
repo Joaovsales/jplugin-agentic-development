@@ -1,3 +1,10 @@
+# Fix: #132 — Align metadata reader with writer when task bodies contain stray or incomplete markers
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/132 (no spec — issue-driven bug fix)
+
+- [x] TDD: regression block in tests/test-task-registry.sh § 12 -> parse_metadata_block reads the span metadata_bounds returns; local _unmanaged_regions takes the same span; metadata_block_state names stray, competing, and damaged bodies, providers note them, writers refuse a damaged or competing one; byte-identical .claude copy
+
+---
+
 # Plan: routine reproduction report — escalate, hold, and unblock
 > Spec: specs/routine-reproduction-report.md
 > Approved by direct `/build` request on 2026-09-12.
