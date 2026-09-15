@@ -199,7 +199,8 @@ for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
                "## Allowlist" "CLAUDE.local.md — " "installed:" "graphify — " \
                "'.claude/skills/*/SKILL.md'" "headRefOid" "--untracked-files=no" \
                "is-shallow-repository" "detached" ".claude/tidy-allowlist" \
-               "unshipped, provenance unknown"; do
+               "unshipped, provenance unknown" "routine/tidy/<YYYYMMDD>-sweep" \
+               "routine-prompts/tidy.md"; do
     assert_file_contains "$f" "$token" "tidy: $f contains '$token'"
   done
   flat_tidy="$(flatten "$f")"
