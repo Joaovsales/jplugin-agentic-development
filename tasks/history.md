@@ -604,3 +604,28 @@ back vacuous and was repaired.
 - Learnings captured: tasks/solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md
   (new); tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md
   (2026-09-15 comparison added).
+
+### [2026-09-15] — #132 metadata parser reads the writer's span
+
+- Key changes: `parse_metadata_block` now reads exactly the BEGIN..END pair
+  `_metadata_bounds` selects for `upsert_metadata_block`, so a marker quoted in
+  prose or a write interrupted before END no longer injects a phantom `parent`
+  or `depends-on` into local and GitHub task reads. Review passes then found a
+  third locator in the local provider's prose scan (now on `metadata_bounds`
+  too) and two silent corners of "no complete pair reads as empty"; a new
+  `metadata_block_state` names stray, competing and damaged bodies, both
+  providers note them, and writers refuse to rewrite over a damaged or
+  competing one. Regression block in
+  `tests/test-task-registry.sh` § 12 covers the parser, writer/parser agreement
+  with one, two and both-sided marker layouts, `task_from_metadata`, local reads
+  and rewrites, and the block-state contract on both providers.
+- Verification: registry suite 44/370 failing on the branch and the identical
+  44/348 on clean origin/master (known Windows gh-mock and symlink failures,
+  tracked in #129); full suite 8/42 files failing with the same set on master;
+  canonical and Claude copies byte-identical. Four review passes and a security
+  scan dispatched as separate agents.
+- Learnings captured: [metadata parser read a different span than the writer owned](solutions/bugs/metadata-parser-read-a-different-span-than-the-writer-owned.md),
+  [reader and writer must share one span locator](solutions/patterns/reader-and-writer-must-share-one-span-locator.md).
+- Memory maintenance: heavy pass ran (25th session entry) — 80 documents, no
+  schema violations, no `needs_review` flags, no stale documents, 8 tag-overlap
+  pairs inspected and kept separate, glossary unchanged.
