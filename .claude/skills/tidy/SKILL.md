@@ -41,8 +41,13 @@ an issue and fixes it. `/tidy` is deliberately
   onto whatever branch it was given and **opens no pull request**; the host
   routine's `/wrap-up-session` opens it. Review *is* the gate.
 
-Registering `tidy` as a routine — branch vocabulary in wrap-up's parser table, a
-routine prompt, cadence — is the host's work and is out of scope here.
+`tidy` is registered as a producer-shaped routine on the branch
+`routine/tidy/<YYYYMMDD>-sweep` (formatted by `routine_branch.py format tidy
+<YYYYMMDD> sweep`) in `.agents/skills/wrap-up-session/references/routines.md`
+§ *`tidy` — steps*; the scheduler prompt is
+`.agents/skills/wrap-up-session/references/routine-prompts/tidy.md` beside it. The host runs `task-registry doctor`, creates that branch, runs this
+skill, then `/wrap-up-session`. Cadence and the `TASK_REGISTRY_TRUSTED_CONFIG=1`
+environment are the scheduler's, not this file's.
 
 ## Modes
 

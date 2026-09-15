@@ -629,3 +629,15 @@ back vacuous and was repaired.
 - Memory maintenance: heavy pass ran (25th session entry) — 80 documents, no
   schema violations, no `needs_review` flags, no stale documents, 8 tag-overlap
   pairs inspected and kept separate, glossary unchanged.
+
+### [2026-09-15] — tidy registered as a producer routine
+
+- Key changes: `tidy` joins `CONTRACT_ROUTINES` (branch formatter) and
+  `PRODUCER_ROUTINES` (registry refuses `select`/`claim`); routines.md gains the
+  `tidy` row, a `### tidy — steps` section and the Tier 0 edge row; wrap-up's
+  linkage table gains `routine/tidy/<YYYYMMDD>-sweep` → `chore(tidy): <date>`;
+  `references/routine-prompts/tidy.md` is the scheduler prompt, routed in the
+  README with a `gh`-read checklist bullet; tidy SKILL.md now points at its host;
+  glossary counts updated. Same-day follow-on to #138.
+- Verification: affected files run in the worktree — routine-branch 21, routines-contract 71, sweep-routines 160, skill-parity 97, skill-frontmatter 272, skill-references 190, syncable-paths 10, doc-conventions 676, all green; routine-selectors 60/200, routine-skills 2/64 and skill-invocation-chain 4/72 fail with exactly the assertion names a clean detached worktree at 4637138 fails (the Windows gh-stub, cp1252 and grep-ordering set) — zero regressions, and every new tidy assertion passes. Full suite deferred to CI (#136).
+- Learnings captured: none new (the conventions from #138 applied unchanged).

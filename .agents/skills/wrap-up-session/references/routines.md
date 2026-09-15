@@ -41,9 +41,10 @@ PR because human review *is* the gate.
 | `build` | any kind, **and** a merged linked plan, **and** no open blockers | ready PR | `Closes #N` | **deferred — see below** |
 | `janitor` | — (producer; **files** `bug`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
 | `architect` | — (producer; **files** `task` + `tech-debt`, or `design-decision`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
+| `tidy` | — (producer; **files** `documentation`, or `task` + `tech-debt`; commits Tier 0 repairs) | ready PR carrying the session record and the Tier 0 repair commits | `Refs #N` per filed issue | active |
 
-`plan`, `fix`, `improve` and `build` are consumers. `janitor` and `architect`
-are producers — see *Producers* below. Consumers run on the **Builder** tier,
+`plan`, `fix`, `improve` and `build` are consumers. `janitor`, `architect` and
+`tidy` are producers — see *Producers* below. Consumers run on the **Builder** tier,
 producers on the **Planner** tier; cadence is the operator's call, typically
 daily for consumers and weekly for producers.
 
@@ -260,8 +261,9 @@ tracks.
 ## Producers
 
 Producers never edit product code. `janitor` may carry verification-map
-corrections its full pass proved, and both carry the session record under
-`tasks/sweeps/`; nothing else reaches the diff. Its output is issues — one
+corrections its full pass proved, `tidy` carries its Tier 0 repairs to the
+harness surfaces (specs/tidy-skill.md), and all three carry the session record
+under `tasks/sweeps/`; nothing else reaches the diff. Its output is issues — one
 `task-registry upsert --apply` per verified finding, ID derived from the
 finding's file and title so a later run **updates** the same task rather than
 minting a second one — and a docs-only PR whose body carries `Refs #N` for
@@ -283,7 +285,7 @@ Stated once, like the consumer spine, and for the same reason.
 |---|---|---|
 | 1 | `task-registry doctor` — records the destination policy the findings will take (local canonical, external issue, or publication pending). `janitor` additionally requires exactly one project-local `verify-<app>` skill: missing → loud non-zero naming `/create-verification-skill`, no branch, no PR | — |
 | 2 | Create the branch: `routine_branch.py format <name> <YYYYMMDD> sweep`. A branch that already exists is a second run the same day: loud non-zero, no second branch | — |
-| 3 | `/sweep --routine <name>` — read the backlog, run the engine, verify, file, write the session record | **non-skippable** — the sweep is the routine's entire artifact |
+| 3 | `/sweep --routine <name>` (`/tidy` for the `tidy` routine) — read the backlog, run the engine, verify, file, write the session record | **non-skippable** — the sweep is the routine's entire artifact |
 | 4 | `/wrap-up-session` — review passes, tests, and the pull request | **non-skippable** |
 
 A clean sweep still writes the record and still opens the PR: the record is the
@@ -311,6 +313,25 @@ artifact: as `janitor`.
 |---|---|---|
 | 3 | `/sweep --routine architect` — the bar to file is an `evidence` line quoting the motivating code with `file:line` at confidence `75` or above; `NITPICK` is never filed | **non-skippable** |
 
+### `tidy` — steps
+
+Lens: harness hygiene. Engine: the eight `/tidy` checks — `suite`, `inventory`,
+`retired`, `installed`, `refs`, `worktrees`, `strays`, `registers`
+(specs/tidy-skill.md) — over the harness surfaces, never product code. Files
+documentation drift as `documentation` and structural drift as `task` +
+`tech-debt`, each carrying `discovered: tidy`. Unlike the other producers its
+diff carries more than the record: every Tier 0 repair — a stray deleted, a
+table row or banner line added, a moved reference repaired — is its own commit
+on the routine branch. Terminal artifact: a ready PR titled
+`chore(tidy): <YYYY-MM-DD>` whose body carries `Refs #N` per filed issue, the
+Tier 0 commits by check name, and this step list. No `verify-<app>` skill is
+required; step 1 is `task-registry doctor` alone, and in a fresh checkout the
+`installed` and `worktrees` checks report *skipped* with a note, never clean.
+
+| # | Step | Gate |
+|---|---|---|
+| 3 | `/tidy` — the bar to repair is Tier 0 (the correct text is fully determined by the tree); the bar to file is a finding the report names with its surface and remedy; `--report` never commits | **non-skippable** |
+
 ## Edge cases
 
 | Situation | Behavior |
@@ -326,4 +347,5 @@ artifact: as `janitor`.
 | `janitor` with no `verify-<app>` skill | Stops at doctor, loud non-zero, names `/create-verification-skill`. No branch, no PR. |
 | Producer branch already exists today | Loud non-zero, no second branch. |
 | Producer sweep verified nothing | Record written with `Filed: none`, PR opened, title suffixed `— clean`. |
+| `tidy` repaired Tier 0 findings and filed nothing | Record written with `Filed: none`, PR opened **without** the `— clean` suffix — the diff is not empty. |
 | A producer's local write fails | STOP — findings must not be lost. Pending *publication* never stops a run; a failed *record* does. |

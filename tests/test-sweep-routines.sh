@@ -174,6 +174,14 @@ for tree in $TREES; do
   w="$tree/skills/wrap-up-session/SKILL.md"
   assert_file_matches "$w" '^\| `routine/(janitor|architect|\(janitor\|architect\))/' \
     "AC7: $tree/wrap-up-session linkage table has a producer row"
+  assert_file_matches "$w" '^\| `routine/tidy/<YYYYMMDD>-sweep` \|' \
+    "AC7: $tree/wrap-up-session linkage table has the tidy row"
+  assert_file_contains "$w" "chore(tidy):" \
+    "AC7: $tree/wrap-up-session states the tidy PR title format"
+  assert_file_matches "$w" '^\| `routine/tidy/<YYYYMMDD>-sweep` \|' \
+    "AC7: $tree/wrap-up-session linkage table has the tidy row"
+  assert_file_contains "$w" "chore(tidy):" \
+    "AC7: $tree/wrap-up-session states the tidy PR title format"
   assert_file_contains "$w" "chore(sweep):" \
     "AC7: $tree/wrap-up-session states the producer PR title format"
   assert_prose_contains "$w" "run stamp" \
@@ -181,10 +189,10 @@ for tree in $TREES; do
 done
 
 # ============================================================================
-# AC8 — five routine prompts, each short and project-agnostic
+# AC8 — six routine prompts, each short and project-agnostic
 # ============================================================================
-declare -A PROMPT_SKILL=([janitor]="/sweep" [architect]="/sweep" [fix]="/debug" [improve]="/plan" [plan]="/plan")
-for name in janitor architect fix improve plan; do
+declare -A PROMPT_SKILL=([janitor]="/sweep" [architect]="/sweep" [tidy]="/tidy" [fix]="/debug" [improve]="/plan" [plan]="/plan")
+for name in janitor architect tidy fix improve plan; do
   p="$PROMPTS/$name.md"
   assert_eq "present" "$([ -f "$p" ] && echo present || echo missing)" \
     "AC8: routine prompt $name.md exists"
@@ -215,6 +223,10 @@ assert_file_contains "$readme" "allow_label_creation" \
   "AC8: the README checklist covers pre-existing labels"
 assert_file_contains "$readme" "verify-<app>" \
   "AC8: the README checklist covers janitor's app launch prerequisite"
+assert_file_matches "$readme" '^\| `tidy` \| producer \| `tidy.md` \| `/tidy` \|' \
+  "AC8: the README table routes tidy to its prompt and skill"
+assert_file_matches "$readme" '^\| `tidy` \| producer \| `tidy.md` \| `/tidy` \|' \
+  "AC8: the README table routes tidy to its prompt and skill"
 
 # ============================================================================
 # AC9 — the retired skill is gone from everything outside tasks/ and specs/
