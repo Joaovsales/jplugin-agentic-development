@@ -272,6 +272,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
 | `/sweep` | Producer routine (`--routine janitor` or `--routine architect`): read the backlog, run one engine over the whole tree, file verified findings as issues |
+| `/tidy` | Harness hygiene sweep: skills tables, session banner, retired skills, installed copies, backticked paths, worktrees, strays, task registers — Tier 0 fixed and committed one concern per commit, Tier 1 printed as commands, Tier 2 filed through `/task-registry` |
 | `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
 | `/verify` | Evidence-based verification gate — no completion claims without fresh command output |
 | `/create-verification-skill` | Discover an app's real user surface, generate its `verify-<app>` recipe and feature map, then prove one feature live |

@@ -588,3 +588,19 @@ back vacuous and was repaired.
   and Claude skill trees match; retained PTY and skill-run evidence is recorded
   in `tasks/e2e-log.md` and `tasks/verification/`.
 - Learnings captured: [retain blocker outcome in escalation artifact](solutions/bugs/retain-blocker-outcome-in-escalation-artifact.md).
+
+### [2026-09-15] — /tidy skill
+
+- Key changes: new `/tidy` harness-hygiene skill — eight read-only checks
+  (inventory, refs, strays, registers, worktrees, retired, installed, suite),
+  three risk tiers, Tier 0 repairs committed on a host-supplied branch, Tier 1/2
+  filed through `/task-registry upsert --derive-id tidy`, one record per run in
+  `tasks/sweeps/`; registered in CLAUDE.md, README and session-start; pinned in
+  tests/test-doc-conventions.sh over both tree copies. Built in the shared clone
+  on a branch whose PR had already merged, so the work moved to `feat/tidy-skill`
+  in its own worktree at wrap-up. Suite duration on Windows filed as #136.
+- Verification: bash tests/run.sh over the worktree at d6c5e5b + this change: 42 files, 35 pass, 7 fail (install-sh 1/94, routine-selectors 60/196, routine-skills 2/64, sync-retirement 47/329, task-escalation 1/62, task-registry 44/348, verification-skill-integration 2/90 — 157 assertions). Every failing file re-run in a clean detached worktree at d6c5e5b fails the same count with identical assertion names (gh resolved through PATHEXT, mktemp path forms, chmod on Windows): zero regressions. skill-invocation-chain and upstream-drift, failing at e7ab8fa, pass at this base. Guards: doc-conventions 670, parity 96, references 186, frontmatter 272, syncable-paths 10. The full run was killed at file 35 after 38 minutes and the remaining 8 files were run separately (#136). `/tidy --report` run by hand against a clean detached
+  worktree at the base commit (tasks/e2e-log.md).
+- Learnings captured: tasks/solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md
+  (new); tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md
+  (2026-09-15 comparison added).
