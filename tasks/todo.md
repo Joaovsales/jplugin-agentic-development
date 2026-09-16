@@ -3,6 +3,26 @@
 
 - [x] TDD: regression block in tests/test-task-registry.sh § 12 -> parse_metadata_block reads the span metadata_bounds returns; local _unmanaged_regions takes the same span; metadata_block_state names stray, competing, and damaged bodies, providers note them, writers refuse a damaged or competing one; byte-identical .claude copy
 
+## Session Summary — 2026-09-16 [80e265c..e96a9e3]
+- Completed: the scheduled `tidy` routine's first run — 8 checks inline, record at
+  `tasks/sweeps/2026-09-16-tidy.md`, 3 findings filed, 1 record commit.
+- Pending: the 3 filed tasks are **publication pending** — `gh` is not installed in
+  the routine container, so provider `github` is unreachable and the local records
+  under `tasks/details/` are canonical until published.
+- Carry-forward: **the routine cannot repair anything in this environment.** The
+  container runs as uid 0, so the 11 permission-contract assertions in
+  test-sync-retirement.sh and test-task-registry.sh can never pass, the suite is
+  permanently red, and Law 3 withholds every Tier 0 fix — including the one this
+  sweep found (`verify-task-registry` missing from all three inventory surfaces).
+  Fixing the uid-0 guard is what unblocks every future run. Two further gaps are
+  environmental: the checkout is shallow (`retired` inconclusive) and `install.sh`
+  has never run here (`installed` inconclusive). Also note the configured tracker
+  repo (`Joaovsales/jplugin-agentic-development`) is outside the routine session's
+  GitHub scope, so publication would fail even with `gh` present.
+- Tests: `bash tests/run.sh` → 2/42 files fail (11 assertions), **pre-existing and
+  unrelated to this diff** — the session changed only `tasks/*.md`. Cause proven:
+  a `chmod 000` file is readable by root (rc=0) and denied to `nobody` (rc=1).
+
 ## Session Summary — 2026-09-15 [07e1ac0]
 - Completed: 1 task — #132 metadata parser reads the span the writer owns
   (three locators unified on `metadata_spans` / `metadata_bounds`; five block
