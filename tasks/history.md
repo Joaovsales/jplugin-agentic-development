@@ -642,6 +642,31 @@ back vacuous and was repaired.
 - Verification: affected files run in the worktree — routine-branch 21, routines-contract 71, sweep-routines 160, skill-parity 97, skill-frontmatter 272, skill-references 190, syncable-paths 10, doc-conventions 676, all green; routine-selectors 60/200, routine-skills 2/64 and skill-invocation-chain 4/72 fail with exactly the assertion names a clean detached worktree at 4637138 fails (the Windows gh-stub, cp1252 and grep-ordering set) — zero regressions, and every new tidy assertion passes. Full suite deferred to CI (#136).
 - Learnings captured: none new (the conventions from #138 applied unchanged).
 
+### [2026-09-16] — #123 per-issue closing keyword
+
+- Key changes: `/debug` on issue #123 in a worktree off master. Wrap-up's
+  *Draft, and issue linkage* now states the multi-issue form `Closes #A, closes #B`
+  and names the failing comma-list form; new
+  `.agents/skills/wrap-up-session/scripts/pr_linkage.py check` lists every
+  reference a closing keyword does not reach (exit 3) and *Creating and
+  re-syncing* runs it on the draft before create and on the fetched body during
+  every re-sync, stale or not; the Done report's
+  `PR:` line gains a `linkage repaired` alternative. Mirrored to `.claude/`.
+  Tests: new `tests/test-pr-linkage.sh` (14) and three multi-issue pins per tree
+  in `tests/test-routine-wrapup.sh`.
+- Evidence: PR #121's `closingIssuesReferences=[99]` for a five-issue comma list;
+  #100–#103 closed by hand six minutes after merge. The issue's second symptom
+  (image-video-generation-pipeline PR #141, single `Closes #91`, linked but not
+  closed) differs only in the merger — `app/github-actions` versus a human on the
+  control PR #140 — and is recorded open, not fixed.
+- Verification: full Windows suite 35/43 files green; the 8 failing files fail
+  with identical assertion names on a clean export of origin/master (the #129
+  set), so zero regressions.
+- Learnings captured: `tasks/solutions/bugs/closing-keyword-binds-to-one-issue-reference.md`
+  (fixed), `tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md`
+  (open); `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`
+  updated with the worktree-session baseline recipe.
+
 ### [2026-09-16] — /go front door
 
 - Key changes: new `/go <goal>` skill — lane table (seven lanes), precedence
