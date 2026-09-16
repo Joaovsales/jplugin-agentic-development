@@ -641,3 +641,26 @@ back vacuous and was repaired.
   glossary counts updated. Same-day follow-on to #138.
 - Verification: affected files run in the worktree — routine-branch 21, routines-contract 71, sweep-routines 160, skill-parity 97, skill-frontmatter 272, skill-references 190, syncable-paths 10, doc-conventions 676, all green; routine-selectors 60/200, routine-skills 2/64 and skill-invocation-chain 4/72 fail with exactly the assertion names a clean detached worktree at 4637138 fails (the Windows gh-stub, cp1252 and grep-ordering set) — zero regressions, and every new tidy assertion passes. Full suite deferred to CI (#136).
 - Learnings captured: none new (the conventions from #138 applied unchanged).
+
+### [2026-09-16] — /go front door
+
+- Key changes: new `/go <goal>` skill — lane table (seven lanes), precedence
+  rule, `[ROUTE]` line, one Iron Law — with five frontmatter-less playbooks under
+  `lanes/`; registry consulted first for `#N`; chains resolved against either
+  skill root. `tests/test-go-lanes.sh` (187 assertions) pins the file set, skill
+  resolution, `fix` == `DEFAULT_ROUTINE_SKILLS["fix"]`, table-row chain ==
+  playbook tokens, gate-before-`/build`, and no routine host naming `/go`.
+  CLAUDE.md/README `/go` rows and the entry-point sentence; banner leads and
+  closes on `/go`. `flatten`/`first_pos` moved into `tests/lib.sh`.
+  `grade-skill-loads.sh` anchor fixed (inline tool schema false positive).
+- Verification: three live `/go` runs (investigate, untriaged `#135` exit-2
+  refusal, refactor stopping at `/plan`'s gate) and the Mode A eval (0/8 fired,
+  0 misrouted — recorded, lane table unchanged) in `tasks/e2e-log.md`; full
+  suite 8/43 files failing, all in the Windows gh-mock baseline with identical
+  counts, zero regressions; design review dispatched — HOLD cleared by applying
+  the MUST-FIX and five SHOULD-FIX. Four review passes and a security scan
+  dispatched as separate agents at wrap-up.
+- Learnings captured: [eval grader anchor matched the inline tool schema](solutions/bugs/eval-grader-anchor-matched-the-inline-tool-schema.md),
+  [pin a twice-declared contract equal by test](solutions/patterns/pin-a-twice-declared-contract-equal-by-test.md),
+  [skill description does not route organic prompts](solutions/process/skill-description-does-not-route-organic-prompts.md).
+- Glossary: `lane`, `lane block` added.
