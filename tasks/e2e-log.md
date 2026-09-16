@@ -937,3 +937,120 @@ AGENTS.md has no skills table at e7ab8fa; the report's inventory row says "skipp
 
 ### AC-15: suite — EXERCISED
 Clean worktree at e7ab8fa: 8/39 files RED, 148 of 3789 assertions (all environment-only on this Windows host, see `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`). Changed tree: identical 8 files and 148 assertions, zero new failing assertion names, 3903 total.
+## E2E Walkthrough — /go front door — 2026-09-16 (uncommitted on d6c5e5b, branch routing)
+
+Spec: specs/go-front-door.md (AC6)
+Driver: the skill loaded through the Skill tool in the main context and followed step by step. Each entry quotes the `[ROUTE]` line verbatim and names where the chain stopped.
+
+### AC6(a) — `/go how does task-registry choose a provider` — PASS
+
+```
+[ROUTE] lane=investigate | chain=inline evidence gathering; /checkpoint only if asked | reason: the goal asks how something works and requests no code; no issue reference, so the lane table decides.
+```
+
+Lane block appended to `tasks/todo.md` as five plain numbered lines under `## Lane: investigate — how does task-registry choose a provider`; `grep -c '^\s*\[ \]' tasks/todo.md` was unchanged by the block (the three pending rows are this build's own plan). Step 3 kept its line with `— skip: answered from source`. Reply cited `registry/config.py:795-805` (`select_provider`: explicit `provider =`, then GitHub remote plus authenticated `gh`, then local with two distinct reasons). `git diff --stat` excluding `tasks/todo.md` showed no source change from the lane.
+
+### AC6(b) — `/go #135` (open issue labelled `bug`) — PASS on the exit-2 edge case; routine path shown on a local fixture
+
+Live, in this repository, `task-registry workflow '#135'` exited 2:
+
+```
+upstream check: FAILED — these configured routine labels do not exist in github: design-decision, in-progress, needs-investigation, tech-debt
+  A routine selecting on a label the tracker does not have finds nothing and exits 0. That is the halt this check exists to make loud.
+exit=2
+```
+
+`/go` therefore refused the whole request, printed that message verbatim, and named the configuration file: `docs/task-tracking.md`, the target of the `Task tracking instructions:` line in `.claude/project.md`. No `[ROUTE]` line was emitted and no lane block was written — the spec's edge-case table row "workflow exits 2" is the behaviour exercised, not the routine path or the untriaged path, because the tracker is misconfigured against its own `[routines]` block (four selector labels absent on GitHub) and creating labels is an external write outside this build's authority.
+
+Supplementary, deterministic: a throwaway local-provider fixture (`provider = local`, one task upserted with `--label bug`) run through the same command:
+
+```
+issue:    cache-survives-logout  Cache entry survives logout
+routine:  fix
+matched:  bug
+chain:    /debug -> /build -> /quality-gate -> /wrap-up-session
+exit=0
+```
+
+which yields the registry-routed line
+
+```
+[ROUTE] lane=fix | chain=/debug, /build, /quality-gate, /wrap-up-session | reason: registry routine fix owns the issue (matched label bug); chain is the registry's verbatim.
+```
+
+and proceeds straight into `/debug`: its issue intake read the task through `task-registry show cache-survives-logout` (exit 0, labels `bug`, summary present) and its Phase 0.5 prelude stops at `Reproduction confirmed: NO` — the first skill's own gate, not one of `/go`'s.
+
+### AC6(c) — `/go rename _label_list to _csv_list` — PASS
+
+Run in a detached worktree of HEAD so the rename's plan artifacts stay out of this tree.
+
+```
+[ROUTE] lane=refactor | chain=inline before-proof, /plan, /build, /quality-gate, /wrap-up-session | reason: "rename X to Y" is a structural change with no behaviour change requested and no defect cue.
+```
+
+Lane block appended (five plain numbered lines). Step 1 before-proof: three callers at `config.py:401,458,496`; characterization run `None -> ()`, `'' -> ()`, `' bug , tech-debt ,, ' -> ('bug', 'tech-debt')`, `'a' -> ('a',)`; no test names the helper directly. Step 2 `/plan`: wrote `specs/rename-label-list-to-csv-list.md` and one `[ ] TDD:` row, then asked "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll begin the TDD loop." The walkthrough stopped there. Worktree `git status`: only `tasks/todo.md`, the new spec, and the copied `go` skill — no code touched.
+
+## Triggerability eval — /go Mode A — 2026-09-16 (d7b6cf0 merged with origin/master as 30fc533)
+
+Spec: specs/go-front-door.md (AC7). Mode A per `.agents/skills/eval/SKILL.md`: one organic prompt per confusable boundary, N = 2, each candidate a blind `general-purpose` sub-agent on the Builder tier in its own worktree cut from d7b6cf0 (the `go` skill committed and listed in every candidate's available-skills block — verified by grepping its description in all eight transcripts). Every prompt carried the no-push clause and a tool-call budget. Rubric, fixed before dispatch and withheld from candidates: FIRED = a `Skill` tool-use block loading `go`; secondary read = the lane in the `[ROUTE]` line versus the expected lane.
+
+| Boundary | Prompt (abridged) | Expected lane | r1 | r2 | Tools used (r1 / r2) |
+|---|---|---|---|---|---|
+| fix-vs-perf | `test-routine-selectors.sh` now takes 4+ minutes and ends `3/61 FAILED` on AC12; something in the last registry commits did this | fix | NONE | NONE | Bash×29 Read×6 Grep×6 / Bash×19 Write×2 Read×2 |
+| refactor-vs-feature | rename `_label_list` to `_csv_list`, behaviour must not change, both trees identical | refactor | NONE | NONE | Bash×17 Read×3 ToolSearch×1 Monitor×1 / Bash×4 Read×1 |
+| investigate-vs-fix | `workflow '#135'` exits 2 with the upstream-label message; is the command wrong or the repo misconfigured? don't change anything | investigate | NONE | NONE | Bash×11 Read×1 / Grep×4 Bash×3 Read×1 |
+| babysit | what is outstanding on PR #128; get it as close to merge-ready as you can, locally only | babysit | NONE | NONE | Bash×25 Read×2 / Bash×22 Read×3 |
+
+Grader output (`grade-skill-loads.sh <transcripts> go`):
+
+```
+-> go: 0/8 FIRED, 0 MISROUTED, 8 NONE
+```
+
+No candidate emitted a `[ROUTE]` line, and no candidate loaded *any* skill: zero `Skill` tool-use blocks across all eight transcripts. Every candidate did the work by hand — the two rename candidates completed the rename in both trees; the two exit-2 candidates diagnosed the missing labels on the configured repository correctly and changed nothing; the two PR candidates found no review threads and green CI, then merged `origin/master` into a local branch; the two slowdown candidates traced the symptom to `_repo()` in d6c5e5b escaping the `gh` mock on Windows.
+
+**Cue decision: no change to the lane table.** AC7 says a miss is a cue defect, but the cues live inside the skill and are consulted only after it loads. Nothing loaded — not `go`, not `/debug`, not `/plan` — so the miss is at description routing, which the spec already names as not the mechanism (the 2026-08-28 audit in `tests/test-skill-invocation-chain.sh`'s header). With zero loads of any skill there is no signal a description rewrite could target, and the explicit command is proven by AC6 above. Recorded as data for the pre-mortem's "nobody types /go" risk; the mitigations are the banner and CLAUDE.md, not the description.
+
+**Grader defect found and fixed.** The first grading pass died with "holds a Skill block this parser cannot read — transcript format changed" on every transcript. The anchor was a bare `"name":"Skill"`, and transcripts now carry the tool schema inline as `{"name":"Skill","description":...}`, so eight clean transcripts produced zero measurements. `grade-skill-loads.sh` now anchors on `"type":"tool_use"` within the same object; `tests/test-eval-skill.sh` models the drift fixture as a tool-use block and adds the inline-schema fixture that must grade NONE.
+
+## Suite + quality gate — /go front door — 2026-09-16 51721fd (branch routing)
+
+Spec: specs/go-front-door.md (AC8). `bash tests/run.sh` run once in the main clone after the quality-gate commit, nothing edited while it ran; full output at the session scratchpad `final.log` (5918 lines).
+
+```
+RESULT: 8/43 test files FAILED
+exit=1
+```
+
+Failing files, each compared with the clean baseline taken from a detached worktree at d6c5e5b (master before this branch) on the same Windows machine:
+
+| File | Baseline (d6c5e5b) | This run (51721fd) | Verdict |
+|---|---|---|---|
+| test-install-sh.sh | 1/94 | 1/94 | pre-existing |
+| test-routine-selectors.sh | 60/196 | 60/200 | pre-existing (master added 4 passing assertions) |
+| test-routine-skills.sh | 2/64 | 2/64 | pre-existing |
+| test-skill-invocation-chain.sh | 4/72 | 4/72 | pre-existing |
+| test-sync-retirement.sh | 47/329 | 47/329 | pre-existing |
+| test-task-escalation.sh | 1/62 | 1/62 | pre-existing |
+| test-task-registry.sh | 44/348 | 44/398 | pre-existing (master added 50 passing assertions) |
+| test-upstream-drift.sh | 1/64 | 64 passed | fixed upstream by the merged master commits |
+| test-verification-skill-integration.sh | 2/90 | 2/90 | pre-existing |
+
+Every failing file is in the baseline set with the same failure count; no file failed that passed on the baseline. All eight are the known Windows `gh`-mock class (`tasks/solutions/` — PATHEXT resolves the real `gh.exe` ahead of the mock, so mocked registry assertions fail locally regardless of the code under test). Verdict for AC8: **green modulo the pre-existing Windows set — zero regressions**; Linux CI is the authority for those eight.
+
+Files this build owns, from the same run:
+
+```
+=== tests/test-go-lanes.sh ===              -> 187 assertions passed
+=== tests/test-doc-conventions.sh ===       -> 693 assertions passed
+=== tests/test-eval-skill.sh ===            -> 47 assertions passed
+=== tests/test-skill-parity.sh ===          -> 103 assertions passed
+=== tests/test-skill-frontmatter.sh ===     -> 280 assertions passed
+=== tests/test-session-start.sh ===         -> 95 assertions passed
+```
+
+`/quality-gate` ran on the changed files before this suite: Phases 1–2 inline (nothing applied), Phase 3 dispatched to `software-design-expert-review` with the seven-item contract, verdict HOLD on one MUST-FIX (chain resolution checked only `.agents/skills/`). Applied in 51721fd: either-root resolution, comma-separated `chain=` for registry routes, `task-registry doctor` for the exit-2 config file, the skip marker named as the one post-write edit, the Chain column pinned equal to each playbook by test. Reported, not applied: the grader regex's key-order assumption (manual), the lane-block accumulation in `tasks/todo.md` that neither `/wrap-up-session` nor `/tidy` folds (advisory, human), and the spec's exact-text banner allowlist (spec decision).
+
+**Wrap-up re-run — 2026-09-16, after the four dispatched review passes.** The review fixes (see the `fix(go)` wrap-up commit) changed the pinned counts: `tests/test-go-lanes.sh` 187 → 206, `tests/test-eval-skill.sh` 47 → 49, `tests/test-doc-conventions.sh` 693 → 694; `test-skill-parity` 103, `test-skill-references` 192, `test-skill-frontmatter` 280 and `test-solutions-schema` 31 unchanged and green. The doc-conventions count floats by one with the `tasks/` tree (a loop over files), so it is a floor, not an exact pin.
+
+Full suite at the wrap-up head: `RESULT: 9/43 test files FAILED`, exit 1 — the eight Windows gh-mock files with the same per-file counts as above, plus `test-upstream-drift.sh` 1/64 on its wall-clock assertion ("helper cannot outlive the checker deadline": elapsed 2 s against a `-lt 2` bound, one-second granularity around a Windows process spawn). That file was 1/64 on the d6c5e5b baseline too, passed once at 51721fd, and fails alone with no other tests running; the branch changes no file it reads and no `lib.sh` helper it calls. Zero regressions; Linux CI on the PR is the authority.

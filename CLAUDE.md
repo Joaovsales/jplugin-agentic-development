@@ -22,6 +22,8 @@
 
 ## Workflow: PRD → Plan → Build → Wrap Up
 
+Interactive work starts with `/go <goal>`: it picks the lane, prints a `[ROUTE]` line, and runs the steps below through the skills that own them.
+
 ### 0. PRD (Greenfield Projects Only)
 Run `/prd` to produce:
 - `specs/prd-<name>.md` — Product Requirements Document
@@ -455,6 +457,7 @@ authorization unless the project's configuration enables them.
 
 | Skill | Purpose |
 |-------|---------|
+| `/go` | Natural-language front door: match the goal to a lane, print `[ROUTE]`, record the steps, run the skills the lane names |
 | `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration before `/plan` |
 | `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |

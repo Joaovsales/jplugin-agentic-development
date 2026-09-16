@@ -30,6 +30,8 @@
 - **downstream** — a project that installed this template via `install.sh` and receives updates through `/sync`; this repo is the upstream template.
 - **harness** — an agent runtime the workflow supports (Claude Code, Pi); `harness: universal` prose must run identically on both.
 - **heavy pass** — `/memory-maintain`'s every-5-sessions consolidation (Phases 1–4); contrast **light pass**, the bounded per-session work.
+- **lane** — one of `/go`'s seven routes (`investigate`, `fix`, `refactor`, `perf`, `babysit`, `feature`, `none`): a playbook of numbered steps, the skill chain those steps invoke, and a terminal artifact. Chosen from the goal text; an issue reference defers to the registry's routine instead.
+- **lane block** — the `## Lane: <lane> — <goal>` record `/go` appends to `tasks/todo.md`: plain numbered steps, never checkbox rows, so `/build` does not dispatch it as a task; a skipped step keeps its line with ` — skip: <reason>` appended.
 - **needs_review** — frontmatter flag marking a store document with inferred or missing required fields; resolved by `/memory-maintain` Phase 1.
 - **parity** — the byte-identical requirement between the canonical tree and its `.claude/` copy, enforced by `tests/test-skill-parity.sh`.
 - **producer routine** — a routine (`janitor`, `architect` through `/sweep`; `tidy` through its own skill) that reads the backlog, runs one engine over the whole tree, and files verified findings as issues; it never edits product code (`tidy` commits Tier 0 repairs to harness surfaces only). Listed in `PRODUCER_ROUTINES` and refused by `select`/`claim`.

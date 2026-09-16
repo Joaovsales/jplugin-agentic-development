@@ -5,8 +5,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-# One flattening pipeline for every whole-file order check below.
-flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
+# `flatten` and `first_pos` for the whole-file order checks below come from lib.sh.
 
 # --- M3: retired store — the old monolith files have no live references ------
 # INVERTED from the pre-M3 assertion that /build and /checkpoint reference
@@ -699,6 +698,27 @@ for tree in .agents .claude; do
   assert_prose_contains "$P" 'before any outward search' \
     "PlanReuse($tree): inward-before-outward ordering is stated"
 done
+
+# --- /go is the interactive entry point, and the three listings say so -------
+# specs/go-front-door.md AC4/AC5. The pre-mortem's top risk is "nobody types
+# /go": the mitigation is that the workflow section names it before step 1, the
+# two skills tables carry it, and the session banner opens and closes on it.
+# Pinned by token and by ORDER (the sentence must precede "### 1. Spec First"),
+# never by the sentence's wording beyond the command it names.
+assert_prose_contains "CLAUDE.md" 'Interactive work starts with `/go <goal>`' \
+  "go: CLAUDE.md § Workflow names /go as the interactive entry point"
+flat_claude="$(flatten CLAUDE.md)"
+assert_precedes "$flat_claude" '## Workflow: PRD' 'Interactive work starts with `/go <goal>`' \
+  "go: the /go sentence sits inside § Workflow, not earlier in the file"
+assert_precedes "$flat_claude" 'Interactive work starts with `/go <goal>`' '### 1. Spec First' \
+  "go: CLAUDE.md names /go before Workflow step 1"
+assert_file_matches "CLAUDE.md" '^\| `/go` \|' \
+  "go: CLAUDE.md skills table lists /go"
+assert_file_matches "README.md" '^\| `/go` \|' \
+  "go: README skills table lists /go"
+assert_file_contains ".claude/hooks/session-start.sh" \
+  'Ready. Use /go <goal> to start, or continue from tasks/todo.md.' \
+  "go: the session-start banner closes on /go"
 
 
 finish
