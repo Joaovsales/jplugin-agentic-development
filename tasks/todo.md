@@ -835,3 +835,25 @@ reverse.
 - Pending: the cloud routine's first run waits for this PR to merge — a run against master before that fails at spine step 2 because `routine_branch.py format tidy` refuses a name outside CONTRACT_ROUTINES.
 - Carry-forward: the cloud routine API exposes no environment-variable field, so `TASK_REGISTRY_TRUSTED_CONFIG=1` is stated in the scheduler prompt itself; if the cloud `gh` is unauthenticated the first run files everything as *publication pending* and the PR body names both switches. Label gap from the earlier summary still stands (`tech-debt`, `design-decision` absent from the tracker).
 - Tests: affected files run in the worktree — routine-branch 21, routines-contract 71, sweep-routines 160, skill-parity 97, skill-frontmatter 272, skill-references 190, syncable-paths 10, doc-conventions 676, all green; routine-selectors 60/200, routine-skills 2/64 and skill-invocation-chain 4/72 fail with exactly the assertion names a clean detached worktree at 4637138 fails (the Windows gh-stub, cp1252 and grep-ordering set) — zero regressions, and every new tidy assertion passes. Full suite deferred to CI (#136).
+
+## Tidy: 2026-09-16
+
+> Record: `tasks/sweeps/2026-09-16-tidy.md`, swept at `80e265c` on
+> `routine/tidy/20260916-sweep`. Outcome: **findings**. Tier 0 applied: **0** —
+> withheld under Law 3, the suite is red. Tier 2 filed: **3**, all publication
+> pending (provider `github` unreachable, `gh` not installed).
+
+- [x] `suite` — RED, 2/42 files (11 assertions); cause established as uid 0
+- [x] `inventory` — 3 findings; AGENTS.md surface skipped (absent)
+- [x] `retired` — inconclusive (shallow clone)
+- [x] `installed` — inconclusive (`install.sh` never run on this host)
+- [x] `refs` — clean (17 expected-to-be-created, recorded as Unverified)
+- [x] `worktrees` — inconclusive / report-only (no `gh`); nothing removable
+- [x] `strays` — clean (no untracked or ignored files)
+- [x] `registers` — 2 findings (16 closed plan blocks; checkpoint 6 days stale)
+
+Filed this sweep:
+
+- [ ] Permission-contract assertions cannot pass when the suite runs as uid 0 <!-- task-id: tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0 --> — Eleven assertions across two test files encode "the OS refuses this write/read"; uid 0 holds CAP_DAC_OVERRIDE, so they… ([tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0](tasks/details/tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0.md))
+- [ ] verify-task-registry is absent from every skills inventory surface <!-- task-id: tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface --> — The skill ships in both trees but appears in no skills table and not in the session-start banner, so it is invisible to… ([tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface](tasks/details/tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface.md))
+- [ ] Sixteen closed plan blocks are still in the todo index <!-- task-id: tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index --> — tasks/todo.md is specified as an index but carries 16 fully-checked plan blocks older than the last two session summari… ([tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index](tasks/details/tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index.md))
