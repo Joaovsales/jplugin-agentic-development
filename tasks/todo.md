@@ -2,7 +2,7 @@
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/123 (no spec — issue-driven bug fix via /debug)
 
 - [x] TDD: multi-issue pins in tests/test-routine-wrapup.sh + tests/test-pr-linkage.sh -> wrap-up states `Closes #A, closes #B` and the failing form; `scripts/pr_linkage.py check` runs on the draft before create and on the fetched body during every re-sync (exit 3 lists orphaned refs); Done report `PR:` line gains `linkage repaired`; byte-identical .claude copy
-- [ ] Follow-up (not this fix): post-merge closure check for PRs merged by the GitHub Actions app — see tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md; belongs in the downstream merge automation via /task-registry
+- [x] Follow-up filed as [#146](https://github.com/Joaovsales/jplugin-agentic-development/issues/146) (row in the index below): post-merge closure check for PRs merged by the GitHub Actions app — evidence in tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md
 
 ## Session Summary — 2026-09-16 [a1d7c84..HEAD]
 - Completed: 1 task (#123 root-cause fix, tests, two bug documents)
@@ -895,3 +895,4 @@ Filed this sweep:
 - [ ] Permission-contract assertions cannot pass when the suite runs as uid 0 <!-- task-id: tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0 --> — Eleven assertions across two test files encode "the OS refuses this write/read"; uid 0 holds CAP_DAC_OVERRIDE, so they… ([#141](https://github.com/Joaovsales/jplugin-agentic-development/issues/141))
 - [ ] verify-task-registry is absent from every skills inventory surface <!-- task-id: tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface --> — The skill ships in both trees but appears in no skills table and not in the session-start banner, so it is invisible to… ([#142](https://github.com/Joaovsales/jplugin-agentic-development/issues/142))
 - [ ] Sixteen closed plan blocks are still in the todo index <!-- task-id: tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index --> — tasks/todo.md is specified as an index but carries 16 fully-checked plan blocks older than the last two session summari… ([#143](https://github.com/Joaovsales/jplugin-agentic-development/issues/143))
+- [ ] Verify issue closure after a PR merged by the GitHub Actions app <!-- task-id: issue-linkage.agents-skills-wrap-up-session-references-routines-md --> — A PR whose body carried a single, correctly linked Closes #N merged into the default branch and the issue stayed open.… ([#146](https://github.com/Joaovsales/jplugin-agentic-development/issues/146))

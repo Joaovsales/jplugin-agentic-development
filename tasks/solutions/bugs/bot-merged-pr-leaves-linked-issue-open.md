@@ -9,7 +9,7 @@ root_cause: Not proven. The only discriminator against the control (PR #140, sam
 resolution: Open. A post-merge closure check belongs in whatever performs the merge; this repository's wrap-up runs before merge and cannot observe it
 ---
 
-**Status**: open
+**Status**: open — tracked as issue #146 (filed 2026-09-16 through `/task-registry upsert`)
 **Regression test**: none yet — the fix is downstream of this repository
 
 ## Evidence
