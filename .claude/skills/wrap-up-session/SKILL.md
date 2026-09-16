@@ -607,6 +607,7 @@ each routine's mandatory step list, is
 | `routine/plan/<n>-<slug>` | `--draft` | conventional | `Refs #N` |
 | `routine/janitor/<YYYYMMDD>-sweep` | none | `chore(sweep): janitor <YYYY-MM-DD>` (`— clean` suffix when nothing was filed) | step ledger, the record path `tasks/sweeps/<YYYY-MM-DD>-janitor.md`, and `Refs #N` for **every** issue in the record's *Filed* section — never `Closes` |
 | `routine/architect/<YYYYMMDD>-sweep` | none | `chore(sweep): architect <YYYY-MM-DD>`, same suffix rule | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-architect.md` |
+| `routine/tidy/<YYYYMMDD>-sweep` | none | `chore(tidy): <YYYY-MM-DD>` (`— clean` suffix only when nothing was filed **and** no Tier 0 repair was committed) | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-tidy.md` and the Tier 0 repair commits listed by check name |
 | any other `routine/<name>/<n>-<slug>` | none | conventional | `Closes #N` |
 | outside `routine/` | none | conventional | whatever the session warrants |
 

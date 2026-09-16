@@ -167,6 +167,119 @@ assert_file_contains "README.md" "\`/system-design-planning\`" \
 assert_file_contains ".claude/hooks/session-start.sh" "/system-design-planning" \
   "system-design-planning: session-start banner lists it"
 
+# --- tidy: harness-hygiene contract present in both tree copies ---
+# specs/tidy-skill.md. /tidy is neither a producer nor a consumer under the
+# routine contract: it fixes Tier 0 tree content in place, prints Tier 1
+# remedies as commands, and files Tier 2 through the registry. The pins are the
+# laws that keep it from doing more than that -- clean tree, red suite first, a
+# retired set computed from history, the operator's machine untouched, no
+# worktree removed without forge evidence -- plus the filing block the consumer
+# routines' selectors depend on. Pinned by the smallest falsifiable unit: a
+# frontmatter key, a table row, a flag, a section heading order.
+for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
+  for token in "name: tidy" 'argument-hint: "[--report] [--check <name>[,<name>]]"' \
+               "disable-model-invocation: false" "harness: universal" \
+               "neither a producer nor a consumer" \
+               "Tier 0" "Tier 1" "Tier 2" \
+               "git log --diff-filter=D" \
+               "bash install.sh" "--prune-skills" \
+               "never executed by the skill" "Never delete unmerged work" "forge evidence" \
+               "squash-merge" "git branch --merged" \
+               "task-registry.py upsert" "--derive-id tidy --source" "--fold-title" \
+               "--label documentation" "--label tech-debt" "discovered: tidy" \
+               "publication pending" "is not a destination" \
+               "require_write_approval = false" "TASK_REGISTRY_TRUSTED_CONFIG=1" \
+               "external issue is the record" \
+               "git status --porcelain" \
+               "Clean tree or stop" "Red suite first" "One concern per commit" \
+               "Never on the default branch" \
+               "tasks/sweeps/<YYYY-MM-DD>-tidy.md" "opens no pull request" \
+               "/tidy --report" "/tidy --check" \
+               "no commits, no \`upsert --apply\`" "never folded into" \
+               "## Allowlist" "CLAUDE.local.md — " "installed:" "graphify — " \
+               "'.claude/skills/*/SKILL.md'" "headRefOid" "--untracked-files=no" \
+               "is-shallow-repository" "detached" ".claude/tidy-allowlist" \
+               "unshipped, provenance unknown" "routine/tidy/<YYYYMMDD>-sweep" \
+               "routine-prompts/tidy.md"; do
+    assert_file_contains "$f" "$token" "tidy: $f contains '$token'"
+  done
+  flat_tidy="$(flatten "$f")"
+  # AC-2: eight checks, each a table row naming the surfaces it reads, and a
+  # surface the host repository lacks is skipped rather than reported.
+  for check in suite inventory retired installed refs worktrees strays registers; do
+    assert_file_matches "$f" "^\| \`$check\` \|" \
+      "tidy: $f defines the \`$check\` check as a table row"
+  done
+  assert_file_matches "$f" '^\| `inventory` \| .*SKILLS AVAILABLE' \
+    "tidy: $f inventory reads the session-start banner"
+  assert_file_matches "$f" '^\| `registers` \| `tasks/todo.md`, `tasks/checkpoint.md` \|' \
+    "tidy: $f registers reads the two task registers"
+  assert_contains "$flat_tidy" "skipped with a note" \
+    "tidy: $f skips a missing surface instead of reporting it"
+  # AC-4: history is exempt from the retired sweep.
+  assert_contains "$flat_tidy" "every file outside \`tasks/\` and \`specs/\`" \
+    "tidy: $f exempts tasks/ and specs/ from the retired check"
+  # AC-5: the machine is the operator's -- the prohibition names its objects.
+  assert_contains "$flat_tidy" "**never modifies** \`~/.claude/\` or \`~/.agents/\`" \
+    "tidy: $f never modifies the installed copies"
+  # AC-7: the label mapping, not the two labels' presence.
+  assert_contains "$flat_tidy" "Documentation drift → \`--label documentation\`" \
+    "tidy: $f maps documentation drift to the documentation label"
+  assert_contains "$flat_tidy" "→ \`--label tech-debt\` (selected by \`fix\`)" \
+    "tidy: $f maps structural drift to the tech-debt label"
+  # AC-8: the write-policy table and its one excluded destination.
+  assert_contains "$flat_tidy" "local record is canonical" \
+    "tidy: $f states the local-canonical row of the write policy"
+  assert_contains "$flat_tidy" "\`tasks/backlog.md\` is not a destination" \
+    "tidy: $f refuses backlog.md as a destination"
+  # AC-9: tracker access is registry-only. The repo-wide coupling guard below
+  # covers this too; the explicit pin names the skill when it regresses.
+  assert_file_not_matches "$f" "gh issue|/rest/api/" \
+    "tidy: $f never calls a tracker's task API"
+  assert_file_not_matches "$f" "gh pr (create|merge)" \
+    "tidy: $f opens no pull request itself"
+  # AC-10: the default branch is named, not implied.
+  assert_contains "$flat_tidy" "\`master\`/\`main\`" \
+    "tidy: $f names the default branches it refuses to commit on"
+  # AC-11: the six session-record sections in /sweep's order. Pinned by ORDER:
+  # a consumer routine reads *Filed* by position in the record, not by search.
+  pos_sc=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Scope\*\*' | head -1 | cut -d: -f1)
+  pos_cg=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Coverage gaps\*\*' | head -1 | cut -d: -f1)
+  pos_fi=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Filed\*\*' | head -1 | cut -d: -f1)
+  pos_un=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Unverified\*\*' | head -1 | cut -d: -f1)
+  pos_in=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Independence\*\*' | head -1 | cut -d: -f1)
+  pos_sl=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Step ledger\*\*' | head -1 | cut -d: -f1)
+  if [ -n "${pos_sc:-}" ] && [ -n "${pos_cg:-}" ] && [ -n "${pos_fi:-}" ] && [ -n "${pos_un:-}" ] \
+     && [ -n "${pos_in:-}" ] && [ -n "${pos_sl:-}" ] \
+     && [ "$pos_sc" -lt "$pos_cg" ] && [ "$pos_cg" -lt "$pos_fi" ] && [ "$pos_fi" -lt "$pos_un" ] \
+     && [ "$pos_un" -lt "$pos_in" ] && [ "$pos_in" -lt "$pos_sl" ]; then
+    assert_eq "ordered" "ordered" "tidy: $f lists the six record sections in /sweep's order"
+  else
+    assert_eq "scope < coverage gaps < filed < unverified < independence < step ledger" \
+      "${pos_sc:-missing} ${pos_cg:-missing} ${pos_fi:-missing} ${pos_un:-missing} ${pos_in:-missing} ${pos_sl:-missing}" \
+      "tidy: $f lists the six record sections in /sweep's order"
+  fi
+  # Law 8: every allowlist entry carries a reason. An entry is a non-blank line
+  # inside the fence under the Allowlist heading; a bare path is not an entry.
+  bare_entries="$(awk '
+    /^## Allowlist/ { on = 1; next }
+    on && /^## /     { on = 0 }
+    on && /^```/     { fence = !fence; next }
+    on && fence && NF && !/ — / { bad++ }
+    END { print bad + 0 }
+  ' "$f")"
+  assert_eq "0" "$bare_entries" "tidy: $f allowlist entries all carry a reason"
+done
+# Registration in the three listings a new skill must appear in. AGENTS.md
+# carries no skills table at this baseline, so it is not a listing here -- the
+# same rule the skill's own `inventory` check applies to a missing surface.
+assert_file_matches "CLAUDE.md" '^\| `/tidy`' \
+  "tidy: CLAUDE.md skills table lists it"
+assert_file_matches "README.md" '^\| `/tidy`' \
+  "tidy: README skills table lists it"
+assert_file_contains ".claude/hooks/session-start.sh" "/tidy" \
+  "tidy: session-start banner lists it"
+
 # --- Banned construct: load-time shell pre-resolution in skill bodies ---
 # A SKILL.md line of the form  !`cmd`  runs cmd when the SKILL LOADS and inlines
 # its stdout. It is banned outright here for two reasons that cannot be guarded

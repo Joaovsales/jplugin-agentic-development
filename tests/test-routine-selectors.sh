@@ -413,8 +413,8 @@ print("in-contract:", all(name in CONTRACT_ROUTINES for name in PRODUCER_ROUTINE
 print("selectable:", ",".join(sorted(set(PRODUCER_ROUTINES) & set(DEFAULT_SELECTORS))) or "none")
 PY
 )"
-assert_contains "$producers" "producers: janitor,architect" \
-  "AC2: config.PRODUCER_ROUTINES names both producers"
+assert_contains "$producers" "producers: janitor,architect,tidy" \
+  "AC2: config.PRODUCER_ROUTINES names all three producers"
 assert_contains "$producers" "in-contract: True" \
   "AC2: every producer is also a contract routine"
 assert_contains "$producers" "selectable: none" \
@@ -732,6 +732,12 @@ assert_contains "$bad_out" "nonesuch" "select: the refusal names the unknown rou
 # A producer is not unknown -- it is the wrong direction. The message must say so,
 # or an operator scheduling `select --routine janitor` reads "unknown" and adds a
 # selector for it, which the load-time refusal above then rejects.
+tidy_sel_out="$(run_select "$F_SEL" --routine tidy)"; tidy_sel_code=$?
+assert_eq "2" "$tidy_sel_code" "AC2: select --routine tidy exits 2 -- tidy files, it does not select"
+assert_contains "$tidy_sel_out" "producer" "AC2: the tidy refusal names 'producer'"
+tidy_sel_out="$(run_select "$F_SEL" --routine tidy)"; tidy_sel_code=$?
+assert_eq "2" "$tidy_sel_code" "AC2: select --routine tidy exits 2 -- tidy files, it does not select"
+assert_contains "$tidy_sel_out" "producer" "AC2: the tidy refusal names 'producer'"
 prod_sel_out="$(run_select "$F_SEL" --routine janitor)"; prod_sel_code=$?
 assert_eq "2" "$prod_sel_code" "AC2: select --routine janitor exits 2"
 assert_contains "$prod_sel_out" "producer" "AC2: select's refusal names 'producer'"

@@ -1479,6 +1479,278 @@ assert_contains "$model_reg" "safe-notes=2" "Model: each defaulted field is repo
 assert_contains "$model_reg" "safe-note-names-source=True" \
   "Model: the report names the record the bad value came from"
 
+# --- model: the parser reads the span the writer owns (#132) -----------------
+# `upsert_metadata_block` rewrites the last complete innermost BEGIN..END pair so
+# a stray or interrupted marker never eats human prose. The parser used to split
+# on the FIRST BEGIN instead, and kept everything after it when END was missing,
+# so a quoted marker or a half-written block injected a phantom parent or
+# dependency into every local and GitHub read. The assertions tagged (#132)
+# failed before the fix; the rest guard the shared span locator and the block
+# state contract the fix introduced.
+model_parse="$(pyreg <<'EOF'
+import pathlib, tempfile
+from registry.config import Config
+from registry.model import (
+    METADATA_BEGIN, METADATA_END, ExternalRef, Task, TaskModelError, metadata_block_state,
+    parse_metadata_block, render_metadata_block, upsert_metadata_block, task_from_metadata,
+)
+from registry.providers.base import ProviderError, WriteGate
+from registry.providers.local import LocalMarkdownProvider
+
+real = Task(
+    id="real.task", title="Real task", kind="bug",
+    evidence=("model.py:255, first BEGIN", "model.py:298, innermost pair"),
+    reproduction=("run it, twice",),
+    proposed_fix=("reuse the bounds",),
+)
+block = render_metadata_block(real)
+
+# 1. A stray BEGIN before the real block carries fields the real block lacks.
+leading = METADATA_BEGIN + "\nparent: phantom\ndepends-on: ghost\n\n" + block
+meta = parse_metadata_block(leading)
+print("leading-parent=" + str(meta.get("parent")))
+print("leading-deps=" + repr(meta.get("depends-on", ())))
+print("leading-id=" + str(meta.get("task-id")))
+
+# 2. An incomplete BEGIN after the real block.
+trailing = block + "\n\nQuoted: " + METADATA_BEGIN + "\nparent: phantom\n"
+meta = parse_metadata_block(trailing)
+print("trailing-parent=" + str(meta.get("parent")))
+print("trailing-id=" + str(meta.get("task-id")))
+
+# 3. An unfinished-only body has no block at all.
+print("unfinished=" + repr(parse_metadata_block(METADATA_BEGIN + "\nparent: phantom\nstatus: done\n")))
+print("empty=" + repr(parse_metadata_block("")))
+print("none=" + repr(parse_metadata_block(None)))
+
+# 4. Repeated entries keep their order and their commas.
+meta = parse_metadata_block(leading)
+print("evidence=" + " | ".join(meta["evidence"]))
+print("reproduction=" + " | ".join(meta["reproduction"]))
+print("proposed-fix=" + " | ".join(meta["proposed-fix"]))
+
+# 5. Parser and writer agree on which pair is authoritative.
+rewritten = upsert_metadata_block(leading, real.with_(kind="feature"))
+meta = parse_metadata_block(rewritten)
+print("agree-kind=" + meta["kind"])
+print("agree-parent=" + str(meta.get("parent")))
+print("agree-ends=" + str(rewritten.count(METADATA_END)))
+
+# 5b. Two complete pairs: the reader takes the last, like the writer would — but
+# which block is the record is now a guess, so the writer refuses instead.
+stale = render_metadata_block(Task(id="stale.id", title="Stale", parent="phantom"))
+two = stale + "\n\nProse between two blocks.\n\n" + block
+meta = parse_metadata_block(two)
+print("two-id=" + str(meta.get("task-id")))
+print("two-parent=" + str(meta.get("parent")))
+try:
+    upsert_metadata_block(two, real.with_(kind="feature"))
+    print("two-write=proceeded")
+except TaskModelError as exc:
+    print("two-write=refused: " + str(exc))
+
+# 5c. Stray markers on both sides of the real block, read and rewritten.
+both = METADATA_BEGIN + "\nparent: phantom\n\n" + block + "\n\nQuoted: " + METADATA_BEGIN + "\nparent: phantom2\n"
+meta = parse_metadata_block(both)
+print("both-id=" + str(meta.get("task-id")) + " both-parent=" + str(meta.get("parent")))
+both_rewritten = upsert_metadata_block(both, real.with_(kind="feature"))
+meta = parse_metadata_block(both_rewritten)
+print("both-rewritten=" + meta["kind"] + "/" + str(meta.get("parent")) + "/" + str(both_rewritten.count(METADATA_END)))
+
+# 5d. A complete pair a human quoted AFTER the real block wins on read, by the
+# shared rule. Pinned as intended; the read is noted and the write refused (8b, 11).
+quoted = block + "\n\nThe registry owns the text between " + METADATA_BEGIN + " and " + METADATA_END + " only.\n"
+print("quoted-after=" + repr(parse_metadata_block(quoted)))
+
+# 6. The GitHub read path keeps identity, status and the external reference.
+ref = ExternalRef("github", "7", "https://github.com/o/r/issues/7")
+task = task_from_metadata(title="Issue title", body=leading, external=ref,
+                          status="in_progress", fallback_id="")
+print("gh-id=" + task.id)
+print("gh-parent=" + str(task.parent))
+print("gh-deps=" + repr(task.depends_on))
+print("gh-status=" + task.status)
+print("gh-ref=" + task.external.id)
+
+# 7. The local read path: a human quotes the marker above the managed block.
+root = tempfile.mkdtemp()
+local = LocalMarkdownProvider(Config(root=root), WriteGate(apply=True))
+created = local.create_task(real.with_(status="blocked"))
+path = pathlib.Path(root, "tasks/details/real.task.md")
+original = path.read_text(encoding="utf-8")
+path.write_text("Quoted marker: " + METADATA_BEGIN + "\nparent: phantom\ndepends-on: ghost\n\n" + original, encoding="utf-8")
+read = local.get_task(created.external)
+print("local-id=" + read.id)
+print("local-parent=" + str(read.parent))
+print("local-deps=" + repr(read.depends_on))
+print("local-status=" + read.status)
+print("local-ref=" + read.external.id)
+print("local-stray-noted=" + str(any("real.task.md" in n and "outside the managed block" in n for n in local.limitations)))
+
+# 8. The local write path: a rewrite next to the quoted marker keeps the prose.
+path.write_text("Quoted marker: " + METADATA_BEGIN + "\nparent: phantom\n\n"
+                "A paragraph a human wrote that must survive.\n\n" + original, encoding="utf-8")
+local.update_task(local.get_task(created.external).with_(status="done"))
+after = path.read_text(encoding="utf-8")
+print("write-prose-kept=" + str("A paragraph a human wrote that must survive." in after))
+print("write-quote-kept=" + str("Quoted marker: " + METADATA_BEGIN in after))
+print("write-status=" + local.get_task(created.external).status)
+print("write-parent=" + str(local.get_task(created.external).parent))
+print("write-ends=" + str(after.count(METADATA_END)))
+
+# 8b. A complete pair quoted after the real block: read noted, rewrite refused, file intact.
+local.create_task(Task(id="quoted.task", title="Quoted", kind="bug", parent="epic.one"))
+quoted_path = pathlib.Path(root, "tasks/details/quoted.task.md")
+quoted_text = quoted_path.read_text(encoding="utf-8") + "\nThe registry owns the text between " + METADATA_BEGIN + " and " + METADATA_END + " only.\n"
+quoted_path.write_text(quoted_text, encoding="utf-8")
+quoted_read = local.get_task(ExternalRef("local", "quoted.task", "tasks/details/quoted.task.md"))
+print("quoted-local-noted=" + str(any("quoted.task.md" in n and "several complete" in n for n in local.limitations)))
+try:
+    local.update_task(quoted_read.with_(status="done"))
+    print("quoted-local-write=proceeded")
+except ProviderError as exc:
+    print("quoted-local-write=refused")
+print("quoted-local-unchanged=" + str(quoted_path.read_text(encoding="utf-8") == quoted_text))
+
+# 9. Block states: markers with no complete pair are damaged — empty on read, refused on write.
+damaged = METADATA_BEGIN + "\ntask-id: real.task\nkind: bug\nparent: epic.one\n"
+print("states=" + ",".join(metadata_block_state(b) for b in ("plain prose", block, leading, damaged, METADATA_END + "\nonly", two, quoted)))
+try:
+    upsert_metadata_block(damaged, real)
+    print("damaged-write=proceeded")
+except TaskModelError as exc:
+    print("damaged-write=refused: " + str(exc))
+
+# 10. The local provider: a hand-broken END is reported on read and refused on write.
+local.create_task(Task(id="broken.task", title="Broken", kind="bug", parent="epic.one"))
+broken_path = pathlib.Path(root, "tasks/details/broken.task.md")
+broken_text = broken_path.read_text(encoding="utf-8").replace(METADATA_END + "\n", "")
+broken_path.write_text(broken_text, encoding="utf-8")
+broken = local.get_task(ExternalRef("local", "broken.task", "tasks/details/broken.task.md"))
+print("broken-read-id=" + broken.id)
+print("broken-noted=" + str(any("broken.task.md" in n and "no complete block" in n for n in local.limitations)))
+try:
+    local.update_task(broken.with_(status="done"))
+    print("broken-write=proceeded")
+except ProviderError as exc:
+    print("broken-write=refused: " + str(exc))
+print("broken-file-unchanged=" + str(broken_path.read_text(encoding="utf-8") == broken_text))
+
+# 11. The GitHub read path reports damaged and stray bodies instead of staying silent.
+from registry.providers.github import GitHubProvider
+gh = GitHubProvider(Config(root=root, repository="o/r"), WriteGate(apply=False))
+def issue(number, body):
+    return {"number": number, "title": "Issue " + str(number), "body": body, "state": "OPEN",
+            "labels": [], "url": "https://github.com/o/r/issues/" + str(number)}
+gh_damaged = gh._to_task(issue(9, damaged))
+print("gh-damaged-identity=" + gh_damaged.extra.get("registry_identity", "none"))
+print("gh-damaged-noted=" + str(any("#9" in n and "no complete block" in n for n in gh.limitations)))
+gh_quoted = gh._to_task(issue(10, quoted))
+print("gh-quoted-identity=" + gh_quoted.extra.get("registry_identity", "none"))
+print("gh-quoted-noted=" + str(any("#10" in n and "several complete" in n for n in gh.limitations)))
+gh_clean = gh._to_task(issue(11, block))
+print("gh-clean-silent=" + str(not any("#11" in n for n in gh.limitations)))
+EOF
+)"
+assert_contains "$model_parse" "leading-parent=None" \
+  "Model: a stray BEGIN before the real block does not inject a phantom parent (#132)"
+assert_contains "$model_parse" "leading-deps=()" \
+  "Model: a stray BEGIN before the real block does not inject a phantom dependency (#132)"
+assert_contains "$model_parse" "leading-id=real.task" \
+  "Model: the identity read comes from the writer-owned block"
+assert_contains "$model_parse" "trailing-parent=None" \
+  "Model: the parser skips a trailing BEGIN that never closes, like the writer"
+assert_contains "$model_parse" "trailing-id=real.task" \
+  "Model: a trailing BEGIN that never closes does not change the identity read"
+assert_contains "$model_parse" "unfinished={}" \
+  "Model: a body with no complete BEGIN..END pair yields empty metadata (#132)"
+assert_contains "$model_parse" "empty={}" "Model: an empty body yields empty metadata"
+assert_contains "$model_parse" "none={}" "Model: a None body yields empty metadata"
+assert_contains "$model_parse" "evidence=model.py:255, first BEGIN | model.py:298, innermost pair" \
+  "Model: repeated evidence entries keep order and commas"
+assert_contains "$model_parse" "reproduction=run it, twice" \
+  "Model: a reproduction entry keeps its comma"
+assert_contains "$model_parse" "proposed-fix=reuse the bounds" \
+  "Model: a proposed-fix entry survives the read"
+assert_contains "$model_parse" "agree-kind=feature" \
+  "Model: the parser reads back the pair the writer rewrote"
+assert_contains "$model_parse" "agree-parent=None" \
+  "Model: a rewrite next to a stray marker does not adopt its phantom parent"
+assert_contains "$model_parse" "agree-ends=1" \
+  "Model: a rewrite next to a stray marker still leaves exactly one END"
+assert_contains "$model_parse" "two-id=real.task" \
+  "Model: with two complete pairs the parser reads the last one, like the writer (#132)"
+assert_contains "$model_parse" "two-parent=None" \
+  "Model: with two complete pairs the first pair's parent is not read (#132)"
+assert_contains "$model_parse" "two-write=refused: several complete metadata blocks" \
+  "Model: the writer refuses to rewrite when two complete pairs compete"
+assert_contains "$model_parse" "both-id=real.task both-parent=None" \
+  "Model: stray markers on both sides of the real block read as the real block (#132)"
+assert_contains "$model_parse" "both-rewritten=feature/None/1" \
+  "Model: the rewrite of a both-sided body is what the parser reads back, one END"
+assert_contains "$model_parse" "quoted-after={}" \
+  "Model: a complete pair quoted after the real block is the one read — intended, noted by providers, refused by writers"
+assert_contains "$model_parse" "gh-id=real.task" \
+  "Model: a GitHub read with a stray marker keeps the real identity (#132)"
+assert_contains "$model_parse" "gh-parent=None" \
+  "Model: a GitHub read with a stray marker does not gain a phantom parent (#132)"
+assert_contains "$model_parse" "gh-deps=()" \
+  "Model: a GitHub read with a stray marker does not gain a phantom dependency (#132)"
+assert_contains "$model_parse" "gh-status=in_progress" \
+  "Model: a GitHub read with a stray marker keeps the provider status"
+assert_contains "$model_parse" "gh-ref=7" \
+  "Model: a GitHub read with a stray marker keeps the external reference"
+assert_contains "$model_parse" "local-id=real.task" \
+  "Local: a quoted marker above the managed block keeps the real identity (#132)"
+assert_contains "$model_parse" "local-parent=None" \
+  "Local: a quoted marker above the managed block does not inject a phantom parent"
+assert_contains "$model_parse" "local-deps=()" \
+  "Local: a quoted marker above the managed block does not gain a phantom dependency (#132)"
+assert_contains "$model_parse" "local-status=blocked" \
+  "Local: a quoted marker above the managed block keeps the status"
+assert_contains "$model_parse" "local-ref=real.task" \
+  "Local: a quoted marker above the managed block keeps the external reference"
+assert_contains "$model_parse" "local-stray-noted=True" \
+  "Local: a stray marker is reported as a limitation naming the file"
+assert_contains "$model_parse" "write-prose-kept=True" \
+  "Local: a rewrite next to a quoted marker keeps the human paragraph (#132)"
+assert_contains "$model_parse" "write-quote-kept=True" \
+  "Local: a rewrite next to a quoted marker keeps the quoted line itself"
+assert_contains "$model_parse" "write-status=done" \
+  "Local: the rewrite next to a quoted marker still applies the status change"
+assert_contains "$model_parse" "write-parent=None" \
+  "Local: the rewrite does not adopt the quoted marker's phantom parent"
+assert_contains "$model_parse" "write-ends=1" \
+  "Local: the rewrite leaves exactly one managed block"
+assert_contains "$model_parse" "quoted-local-noted=True" \
+  "Local: a complete pair quoted after the block is reported as competing on read"
+assert_contains "$model_parse" "quoted-local-write=refused" \
+  "Local: a rewrite over competing complete pairs is refused"
+assert_contains "$model_parse" "quoted-local-unchanged=True" \
+  "Local: the refused rewrite leaves the file with competing pairs byte-identical"
+assert_contains "$model_parse" "states=absent,intact,stray-markers,damaged,damaged,competing-blocks,competing-blocks" \
+  "Model: block state names absent, intact, stray-markers, damaged and competing-blocks bodies"
+assert_contains "$model_parse" "damaged-write=refused: metadata markers are present" \
+  "Model: the writer refuses to rewrite over a damaged block"
+assert_contains "$model_parse" "broken-read-id=broken.task" \
+  "Local: a hand-broken END still reads, identity from the filename"
+assert_contains "$model_parse" "broken-noted=True" \
+  "Local: a hand-broken END is reported as a limitation on read"
+assert_contains "$model_parse" "broken.task.md: metadata markers are present but form no complete" \
+  "Local: a rewrite over a hand-broken END is refused, naming the file"
+assert_contains "$model_parse" "broken-file-unchanged=True" \
+  "Local: the refused rewrite leaves the damaged file byte-identical"
+assert_contains "$model_parse" "gh-damaged-identity=provisional-title-slug" \
+  "GitHub: a damaged block reads as a provisional identity"
+assert_contains "$model_parse" "gh-damaged-noted=True" \
+  "GitHub: a damaged block is reported as a limitation naming the issue"
+assert_contains "$model_parse" "gh-quoted-identity=provisional-title-slug" \
+  "GitHub: a complete pair quoted after the block reads as provisional, by the shared rule"
+assert_contains "$model_parse" "gh-quoted-noted=True" \
+  "GitHub: competing complete pairs are reported as a limitation naming the issue"
+assert_contains "$model_parse" "gh-clean-silent=True" \
+  "GitHub: an intact block produces no limitation"
+
 # --- index: titles, references, indentation, provider classification ---------
 index_reg="$(pyreg <<'EOF'
 from registry.index import TaskIndex, render_row

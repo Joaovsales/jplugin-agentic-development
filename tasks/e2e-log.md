@@ -920,6 +920,23 @@ The committed source is the reviewed tree exercised by the CLI and isolated
 `/debug` walkthroughs above. Final verification passed all 42 test files and
 3,965 reported assertions. This follow-up records only the commit identity.
 
+## E2E Walkthrough — /tidy --report evidence run — 2026-09-14 e7ab8fa
+
+Driver: the skill's `--report` mode executed by hand in the main context against the tree at e7ab8fa (HEAD tree objects, because the shared working tree was dirty with another session's files and a real run STOPs under Law 1); machine-side surfaces (`~/.claude/`, `~/.agents/`, `git worktree list`, `gh pr list`) read live. Output: the session's `tidy-report-e7ab8fa.md`, delivered to the user and kept out of the tree per AC-14.
+
+### AC-14: the report lists the six live rows of the spec's Problem table — EXERCISED
+inventory 9 findings (`/graphify` row without a directory; `verify-task-registry` without a CLAUDE.md/README row; banner lacking 6 skills; AGENTS.md skipped, no skills table); retired clean (set = 4 names from `git log --diff-filter=D`, 0 live references outside `tasks/` `specs/`); installed findings (920-line `~/.claude/CLAUDE.md` drift, 7 shipped skills missing, installed banner advertising 2 retired skills); refs clean (518 tokens, 0 repository paths resolving nowhere); worktrees 21 local branches with merged PRs, 0 removable worktrees; strays 2 files under `.claude/worktrees/`; registers 36 archivable plan blocks and a stale checkpoint.
+
+### AC-2: a missing surface is skipped with a note, not a finding — EXERCISED
+AGENTS.md has no skills table at e7ab8fa; the report's inventory row says "skipped, no skills table" and counts no finding for it.
+
+### AC-5 / AC-6: machine-side remedies printed, never run — EXERCISED
+`bash install.sh` / `bash install.sh --prune-skills` and 21 `git branch -D <branch>` lines printed under Tier 1; nothing under `~/.claude/` or `~/.agents/` modified; the one live worktree kept because its branch has no merged PR.
+
+### AC-7 / AC-8: Tier 2 filing — NOT EXERCISED (`--report` files nothing; the dedupe read and the `upsert` call are described in the report as the candidate it would file).
+
+### AC-15: suite — EXERCISED
+Clean worktree at e7ab8fa: 8/39 files RED, 148 of 3789 assertions (all environment-only on this Windows host, see `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`). Changed tree: identical 8 files and 148 assertions, zero new failing assertion names, 3903 total.
 ## E2E Walkthrough — /go front door — 2026-09-16 (uncommitted on d6c5e5b, branch routing)
 
 Spec: specs/go-front-door.md (AC6)

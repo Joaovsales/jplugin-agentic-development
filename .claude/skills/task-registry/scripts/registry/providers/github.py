@@ -23,7 +23,16 @@ import subprocess
 import urllib.parse
 from typing import Dict, List, Optional, Sequence
 
-from ..model import ExternalRef, Task, section, task_from_metadata, upsert_metadata_block
+from ..model import (
+    BLOCK_STATE_NOTES,
+    ExternalRef,
+    Task,
+    TaskModelError,
+    metadata_block_state,
+    section,
+    task_from_metadata,
+    upsert_metadata_block,
+)
 from ..redaction import redactor_for
 from .base import (
     Capabilities,
@@ -272,6 +281,7 @@ class GitHubProvider(TrackerProvider):
         status = self._status_for(state, labels, issue)
         number = str(issue.get("number", ""))
         ref = ExternalRef("github", number, issue.get("url", ""))
+        self._note_block_state(number, issue.get("body") or "")
         return task_from_metadata(
             title=issue.get("title", "") or f"issue #{number}",
             body=issue.get("body", "") or "",
@@ -286,6 +296,11 @@ class GitHubProvider(TrackerProvider):
             updated_at=issue.get("updatedAt"),
             extra=self._linked_pr_state(issue),
         )
+
+    def _note_block_state(self, number: str, body: str) -> None:
+        note = BLOCK_STATE_NOTES.get(metadata_block_state(body))
+        if note:
+            self._note(f"issue #{number}: {note}")
 
     @staticmethod
     def _linked_pr_state(issue: Dict) -> Dict[str, str]:
@@ -354,7 +369,10 @@ class GitHubProvider(TrackerProvider):
     def _body_for(self, task: Task, existing: str) -> str:
         """Only the metadata block is ours. Everything a human wrote survives."""
         base = existing if existing.strip() else _seed_body(task)
-        return upsert_metadata_block(base, task)
+        try:
+            return upsert_metadata_block(base, task)
+        except TaskModelError as exc:
+            raise ProviderError(f"github: issue body for {task.id}: {exc}") from exc
 
     def _writable_labels(self, task: Task) -> Sequence[str]:
         """Labels we may pass to gh: every existing one, plus mapped ones that exist.

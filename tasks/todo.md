@@ -1,3 +1,51 @@
+# Fix: #132 — Align metadata reader with writer when task bodies contain stray or incomplete markers
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/132 (no spec — issue-driven bug fix)
+
+- [x] TDD: regression block in tests/test-task-registry.sh § 12 -> parse_metadata_block reads the span metadata_bounds returns; local _unmanaged_regions takes the same span; metadata_block_state names stray, competing, and damaged bodies, providers note them, writers refuse a damaged or competing one; byte-identical .claude copy
+
+## Session Summary — 2026-09-16 [80e265c..e96a9e3]
+- Completed: the scheduled `tidy` routine's first run — 8 checks inline, record at
+  `tasks/sweeps/2026-09-16-tidy.md`, 3 findings filed, 1 record commit.
+- Pending: the 3 filed tasks are **publication pending** — `gh` is not installed in
+  the routine container, so provider `github` is unreachable and the local records
+  under `tasks/details/` are canonical until published.
+- Carry-forward: **the routine cannot repair anything in this environment.** The
+  container runs as uid 0, so the 11 permission-contract assertions in
+  test-sync-retirement.sh and test-task-registry.sh can never pass, the suite is
+  permanently red, and Law 3 withholds every Tier 0 fix — including the one this
+  sweep found (`verify-task-registry` missing from all three inventory surfaces).
+  Fixing the uid-0 guard is what unblocks every future run. Two further gaps are
+  environmental: the checkout is shallow (`retired` inconclusive) and `install.sh`
+  has never run here (`installed` inconclusive). The configured tracker repo
+  (`Joaovsales/jplugin-agentic-development`) turns out to be the *same* repository
+  as the scoped `coding-agent-workflow` under a rename — PR #140 opened against the
+  scoped name landed there — so installing `gh` is the only thing standing between
+  these filings and publication.
+- Tests: `bash tests/run.sh` → 2/42 files fail locally (11 assertions),
+  **pre-existing and unrelated to this diff** — the session changed only
+  `tasks/*.md`. Cause proven: a `chmod 000` file is readable by root (rc=0) and
+  denied to `nobody` (rc=1). **CI on PR #140 ran the identical command on a
+  non-root runner and passed in 52s**, so the repository is sound and the routine
+  host is the defect. Preferred remedy is therefore to run the container as
+  non-root rather than to add `geteuid()` guards, which would trade away coverage
+  CI still has.
+
+## Session Summary — 2026-09-15 [07e1ac0]
+- Completed: 1 task — #132 metadata parser reads the span the writer owns
+  (three locators unified on `metadata_spans` / `metadata_bounds`; five block
+  states noted by both providers, damaged and competing bodies refused as
+  rewrite targets; 50 new regression assertions; bug and pattern docs).
+- Pending: none for this fix.
+- Carry-forward: the configured `in-progress` label does not exist in the
+  GitHub repo, so `/task-registry claim` cannot mark issues; 44 registry
+  assertions and 8 suite files fail on this Windows host identically on clean
+  master (#129, gh mock unreachable from Python; upstream-drift timing
+  assertion at one-second clock granularity); pre-existing availability
+  advisory — `_to_task` in `providers/github.py` lets a hostile `kind:` raise
+  `TaskModelError` uncaught, fix shape is routing through `safe_task`.
+
+---
+
 # Plan: routine reproduction report — escalate, hold, and unblock
 > Spec: specs/routine-reproduction-report.md
 > Approved by direct `/build` request on 2026-09-12.
@@ -778,6 +826,64 @@ reverse.
 - Pending: filing the three upsert-depends-on slices waits for the reviewer's "approved" on the rendered document (D2 open: refuse or report a dangling dependency id).
 - Carry-forward: /system-design-planning Step 8 keeps its TODO(shortcut) until specs/upsert-depends-on.md is built; 31 stale worktrees removed, the live bulk-read-gate worktree kept.
 
+## Plan: /tidy — harness hygiene skill
+> Spec: specs/tidy-skill.md
+> Branch: feat/tidy-skill off origin/master d6c5e5b — built in the shared clone on feat/system-design-planning (whose PR #125 had already merged), moved to its own worktree at wrap-up
+> Base: e7ab8fa. Skill only; the host routine (branch vocabulary, prompt, cadence) is out of scope.
+
+[x] TDD: tests/test-doc-conventions.sh RED — `/tidy` pin block over both tree copies: frontmatter tokens, eight check rows, "skipped with a note", neither-producer-nor-consumer + three tiers, `git log --diff-filter=D` + tasks/ specs/ exemption, `bash install.sh` + `--prune-skills` + never modifies, squash-merge + `git branch --merged`, filing block (`--derive-id tidy`, `--fold-title`, documentation/tech-debt labels, `discovered: tidy`), write-policy table + backlog not a destination, no tracker task API, Laws 1/3/9/10, `tasks/sweeps/` + six sections in order + opens no PR, `--report` and `--check`, allowlist entries carry a reason; registration in CLAUDE.md, README.md, session-start.sh (AC-2..AC-12)
+[x] TDD: GREEN -> write .agents/skills/tidy/SKILL.md — position in the routine contract, eight checks with surfaces, risk tiers, filing block, laws, inputs, outputs, edge cases, seed allowlist (AC-1..AC-11, AC-13: no script, no asset reference)
+[x] TDD: GREEN -> register `/tidy` in CLAUDE.md skills table, README.md skills table, .claude/hooks/session-start.sh SKILLS AVAILABLE; AGENTS.md carries no skills table at baseline, so that surface is skipped per the skill's own rule (AC-12)
+[x] TDD: copy byte-identical to .claude/skills/tidy/SKILL.md; test-skill-parity, test-skill-frontmatter, test-skill-references, test-syncable-paths green (AC-1, AC-13)
+[x] Verification: `/tidy --report` executed by hand against a clean detached worktree at the base commit; report captured to the build's evidence (not committed) and checked against the six live Problem-table rows (AC-14)
+[x] Verification: bash tests/run.sh — not fully green, but no regression: the changed tree fails the same 8 files / 148 assertions as a clean detached worktree at e7ab8fa (install-sh, routine-selectors, routine-skills, skill-invocation-chain, sync-retirement, task-registry, verification-skill-integration, upstream-drift), zero new failing assertion names; total assertions 3789 → 3903 (doc-conventions 521 → 620) (AC-15)
+
+## Session Summary — 2026-09-15 [d6c5e5b..HEAD]
+- Completed: 6 tasks — the /tidy skill (SKILL.md + byte-identical .claude copy), its spec, registration in CLAUDE.md/README/session-start, the static pin block in tests/test-doc-conventions.sh (670 assertions in that file), the AC-14 `--report` evidence run, the AC-15 no-regression check. Wrap-up: four dispatched review passes → 3 MUST-FIX fixed (retired set over both trees; inventory tiers by repository kind; Law 10 resolves origin/HEAD and STOPs on detached HEAD), the remaining applicable findings applied (pass 1: 4, pass 2: 10, pass 3: 8, pass 4: 3), AC-12/AC-15 spec wording and the descendant-allowlist home reported to the human. Suite duration on Windows filed as #136.
+- Pending: none for this plan. The branch was moved out of the shared clone into its own worktree; the other session's stash@{0} in the main checkout still carries the pre-review copies of these files together with its own specs/bulk-read-gate.md — that stash is theirs to drop.
+- Carry-forward: docs/task-tracking.md declares `tech-debt` and `design-decision` in kind_precedence, but the tracker carries only bug/enhancement/documentation/question, so the `fix` and `plan` selectors have nothing to select until the labels exist (surfaced while filing #136).
+- Tests: bash tests/run.sh over the worktree at d6c5e5b + this change: 42 files, 35 pass, 7 fail (install-sh 1/94, routine-selectors 60/196, routine-skills 2/64, sync-retirement 47/329, task-escalation 1/62, task-registry 44/348, verification-skill-integration 2/90 — 157 assertions). Every failing file re-run in a clean detached worktree at d6c5e5b fails the same count with identical assertion names (gh resolved through PATHEXT, mktemp path forms, chmod on Windows): zero regressions. skill-invocation-chain and upstream-drift, failing at e7ab8fa, pass at this base. Guards: doc-conventions 670, parity 96, references 186, frontmatter 272, syncable-paths 10. The full run was killed at file 35 after 38 minutes and the remaining 8 files were run separately (#136).
+
+## Plan: register `tidy` as a producer routine
+> Spec: specs/tidy-skill.md § Out of scope (the host routine) — this is that host work
+> Branch: feat/tidy-routine off origin/master 4637138 (#138 merged), own worktree
+> Requested 2026-09-15 after #138 merged: "set the skill as a routine and run the routine for the first time"
+
+[x] TDD: tests/test-routine-branch.sh RED -> `tidy` in CONTRACT_ROUTINES; `routine/tidy/20260915-sweep` round-trips
+[x] TDD: tests/test-routines-contract.sh RED -> routines.md has a `tidy` table row and a `### tidy — steps` section that does not restate /wrap-up-session
+[x] TDD: tests/test-routine-selectors.sh -> PRODUCER_ROUTINES names janitor,architect,tidy; `select --routine tidy` exits 2 naming "producer"
+[x] TDD: tests/test-sweep-routines.sh -> wrap-up linkage table has the `routine/tidy/<YYYYMMDD>-sweep` row and `chore(tidy):` title; routine-prompts/tidy.md exists (<25 lines, names /tidy, says sub-agent, no repo name, parity copy); README routes tidy
+[x] TDD: tests/test-doc-conventions.sh -> tidy SKILL.md names its branch and prompt file
+[x] GREEN -> routine_branch.py + registry config.py vocabularies; routines.md (row, producers paragraph, spine step 3, tidy section, edge row); wrap-up parser row; routine-prompts/tidy.md + README row and checklist bullet; tidy SKILL.md host paragraph; tasks/concepts.md counts; byte-identical .claude copies
+[ ] Cloud routine: update the existing `tidy` routine (trig_0156hDQVc2Qp5MuUx6j7ttxF) with routine-prompts/tidy.md, Planner-tier model, weekly cron; enable and run once after this PR merges; verify the run opened `chore(tidy): <date>` from `routine/tidy/<YYYYMMDD>-sweep` with the record under tasks/sweeps/
+
+## Session Summary — 2026-09-15 [4637138..HEAD]
+- Completed: 6 of 7 tasks — `tidy` is a contract producer routine (branch vocabulary, registry refusal, step ledger, wrap-up linkage row, scheduler prompt, README routing, glossary). Filed #136 (Windows suite duration) earlier this session; #138 merged.
+- Pending: the cloud routine's first run waits for this PR to merge — a run against master before that fails at spine step 2 because `routine_branch.py format tidy` refuses a name outside CONTRACT_ROUTINES.
+- Carry-forward: the cloud routine API exposes no environment-variable field, so `TASK_REGISTRY_TRUSTED_CONFIG=1` is stated in the scheduler prompt itself; if the cloud `gh` is unauthenticated the first run files everything as *publication pending* and the PR body names both switches. Label gap from the earlier summary still stands (`tech-debt`, `design-decision` absent from the tracker).
+- Tests: affected files run in the worktree — routine-branch 21, routines-contract 71, sweep-routines 160, skill-parity 97, skill-frontmatter 272, skill-references 190, syncable-paths 10, doc-conventions 676, all green; routine-selectors 60/200, routine-skills 2/64 and skill-invocation-chain 4/72 fail with exactly the assertion names a clean detached worktree at 4637138 fails (the Windows gh-stub, cp1252 and grep-ordering set) — zero regressions, and every new tidy assertion passes. Full suite deferred to CI (#136).
+
+## Tidy: 2026-09-16
+
+> Record: `tasks/sweeps/2026-09-16-tidy.md`, swept at `80e265c` on
+> `routine/tidy/20260916-sweep`. Outcome: **findings**. Tier 0 applied: **0** —
+> withheld under Law 3, the suite is red. Tier 2 filed: **3**, all publication
+> pending (provider `github` unreachable, `gh` not installed).
+
+- [x] `suite` — RED, 2/42 files (11 assertions); cause established as uid 0
+- [x] `inventory` — 3 findings; AGENTS.md surface skipped (absent)
+- [x] `retired` — inconclusive (shallow clone)
+- [x] `installed` — inconclusive (`install.sh` never run on this host)
+- [x] `refs` — clean (17 expected-to-be-created, recorded as Unverified)
+- [x] `worktrees` — inconclusive / report-only (no `gh`); nothing removable
+- [x] `strays` — clean (no untracked or ignored files)
+- [x] `registers` — 2 findings (16 closed plan blocks; checkpoint 6 days stale)
+
+Filed this sweep:
+
+- [ ] Permission-contract assertions cannot pass when the suite runs as uid 0 <!-- task-id: tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0 --> — Eleven assertions across two test files encode "the OS refuses this write/read"; uid 0 holds CAP_DAC_OVERRIDE, so they… ([#141](https://github.com/Joaovsales/jplugin-agentic-development/issues/141))
+- [ ] verify-task-registry is absent from every skills inventory surface <!-- task-id: tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface --> — The skill ships in both trees but appears in no skills table and not in the session-start banner, so it is invisible to… ([#142](https://github.com/Joaovsales/jplugin-agentic-development/issues/142))
+- [ ] Sixteen closed plan blocks are still in the todo index <!-- task-id: tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index --> — tasks/todo.md is specified as an index but carries 16 fully-checked plan blocks older than the last two session summari… ([#143](https://github.com/Joaovsales/jplugin-agentic-development/issues/143))
 ## Plan: /go — natural-language front door over lane playbooks
 > Spec: specs/go-front-door.md
 > Approved by direct `build specs/go-front-door.md` request on 2026-09-16 (spec is v2, design-reviewed; the plan gate is the spec itself).

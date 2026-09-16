@@ -178,7 +178,7 @@ class ProducerTests(unittest.TestCase):
     """
 
     def test_both_producers_are_contract_routines(self):
-        for name in ("janitor", "architect"):
+        for name in ("janitor", "architect", "tidy"):
             with self.subTest(routine=name):
                 self.assertIn(name, CONTRACT_ROUTINES)
 
@@ -186,6 +186,10 @@ class ProducerTests(unittest.TestCase):
         self.assertEqual(fmt("janitor", 20260907, "sweep"), "routine/janitor/20260907-sweep")
         self.assertEqual(parse("routine/janitor/20260907-sweep"), ("janitor", 20260907))
         self.assertEqual(parse(fmt("architect", 20260907, "sweep")), ("architect", 20260907))
+        self.assertEqual(fmt("tidy", 20260915, "sweep"), "routine/tidy/20260915-sweep")
+        self.assertEqual(parse("routine/tidy/20260915-sweep"), ("tidy", 20260915))
+        self.assertEqual(fmt("tidy", 20260915, "sweep"), "routine/tidy/20260915-sweep")
+        self.assertEqual(parse("routine/tidy/20260915-sweep"), ("tidy", 20260915))
 
     def test_docstring_names_the_run_stamp(self):
         # The number's meaning differs by routine; the module is where a reader

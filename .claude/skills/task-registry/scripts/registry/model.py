@@ -249,11 +249,19 @@ def render_metadata_block(task: Task) -> str:
 
 
 def parse_metadata_block(body: str) -> dict:
-    """Read the identity block back. Returns {} when absent."""
-    if not body or METADATA_BEGIN not in body:
+    """Read the identity block back. Returns {} when no complete block exists.
+
+    The span read is exactly the one :func:`upsert_metadata_block` rewrites
+    (:func:`metadata_bounds`). Splitting on the first BEGIN instead let a
+    marker quoted in prose, or a write interrupted before END, feed its lines
+    into the record: a phantom `parent:` or `depends-on:` no writer produced,
+    which every local and GitHub read then reported as fact (#132).
+    """
+    bounds = metadata_bounds(body or "")
+    if bounds is None:
         return {}
-    after = body.split(METADATA_BEGIN, 1)[1]
-    inner = after.split(METADATA_END, 1)[0] if METADATA_END in after else after
+    start, end = bounds
+    inner = body[start + len(METADATA_BEGIN) : end - len(METADATA_END)]
     fields: dict = {}
     for line in inner.splitlines():
         line = line.strip()
@@ -287,7 +295,10 @@ def upsert_metadata_block(body: str, task: Task) -> str:
     """
     block = render_metadata_block(task)
     body = body or ""
-    bounds = _metadata_bounds(body)
+    refusal = REFUSED_BLOCK_STATES.get(metadata_block_state(body))
+    if refusal:
+        raise TaskModelError(refusal)
+    bounds = metadata_bounds(body)
     if bounds is not None:
         start, end = bounds
         return f"{body[:start]}{block}{body[end:]}"
@@ -295,24 +306,92 @@ def upsert_metadata_block(body: str, task: Task) -> str:
     return f"{body.rstrip()}{separator}{block}\n" if body.strip() else f"{block}\n"
 
 
-def _metadata_bounds(body: str) -> Optional[Tuple[int, int]]:
-    """Span of the innermost well-formed BEGIN..END pair, or None if there is none.
+def metadata_spans(body: str) -> Tuple[Tuple[int, int], ...]:
+    """Every well-formed BEGIN..END pair in the body, in order of appearance.
 
-    Searching from the last BEGIN backwards is what makes a stray marker harmless:
-    the pair chosen is the one with no other BEGIN inside it, which is the block
-    this tool actually wrote, and everything before it stays untouched.
+    A pair is well-formed when no other BEGIN lies between its markers. This is
+    the one answer to "which text is ours?" — the parser, the writer, and the
+    local provider's prose scan all take it from here, so a stray marker is
+    handled the same way in every direction (#132).
     """
-    starts = []
+    body = body or ""
+    spans = []
     position = body.find(METADATA_BEGIN)
     while position != -1:
-        starts.append(position)
-        position = body.find(METADATA_BEGIN, position + len(METADATA_BEGIN))
-    for start in reversed(starts):
-        inner = start + len(METADATA_BEGIN)
+        inner = position + len(METADATA_BEGIN)
         end = body.find(METADATA_END, inner)
         if end != -1 and METADATA_BEGIN not in body[inner:end]:
-            return start, end + len(METADATA_END)
-    return None
+            spans.append((position, end + len(METADATA_END)))
+        position = body.find(METADATA_BEGIN, inner)
+    return tuple(spans)
+
+
+def metadata_bounds(body: str) -> Optional[Tuple[int, int]]:
+    """Span of the last well-formed pair, or None if there is none.
+
+    The last pair is the one this tool wrote when a marker quoted in prose
+    precedes it, and everything before it stays untouched. When several complete
+    pairs exist the choice is a rule, not a fact — :func:`metadata_block_state`
+    names that case so readers report it and writers refuse it.
+    """
+    spans = metadata_spans(body)
+    return spans[-1] if spans else None
+
+
+def metadata_block_state(body: str) -> str:
+    """Classify a body's markers: absent, intact, stray-markers, competing-blocks, damaged.
+
+    `stray-markers`: a lone marker lies outside the one complete pair — a human
+    quoted the format — so that pair is read and rewritten and the quote stays.
+    `competing-blocks`: several complete pairs exist; the last is read, by the
+    shared rule, but which one is the record is now a guess, so writers refuse
+    until one remains. `damaged`: a marker is present but no complete pair — a
+    written block someone broke, whose fields are unreadable, so a rewrite would
+    replace the record with blanks. Absent is the only recoverable state;
+    readers report every state but absent and intact (#132).
+    """
+    body = body or ""
+    spans = metadata_spans(body)
+    if not spans:
+        has_marker = METADATA_BEGIN in body or METADATA_END in body
+        return "damaged" if has_marker else "absent"
+    if len(spans) > 1:
+        return "competing-blocks"
+    (start, end), = spans
+    outside = body[:start] + body[end:]
+    if METADATA_BEGIN in outside or METADATA_END in outside:
+        return "stray-markers"
+    return "intact"
+
+
+#: Why a writer refuses a body, by state. Read by `upsert_metadata_block` and by
+#: the local provider's `update_task`, so the two refuse on the same facts.
+REFUSED_BLOCK_STATES = {
+    "damaged": (
+        "metadata markers are present but form no complete BEGIN..END pair; "
+        "repair the markers before rewriting, or the block's fields are lost"
+    ),
+    "competing-blocks": (
+        "several complete metadata blocks are present; remove the copies before "
+        "rewriting, or the wrong one is rewritten"
+    ),
+}
+
+#: What a reader reports about a body, by state. Silent for absent and intact.
+BLOCK_STATE_NOTES = {
+    "damaged": (
+        "metadata markers present but no complete block; "
+        "identity fields ignored until the markers are repaired"
+    ),
+    "stray-markers": (
+        "metadata markers outside the managed block; "
+        "the last complete pair is read as the registry's"
+    ),
+    "competing-blocks": (
+        "several complete metadata blocks; the last is read and rewrites are "
+        "refused until one remains"
+    ),
+}
 
 
 def safe_task(source: str, **fields) -> Tuple[Task, Tuple[str, ...]]:

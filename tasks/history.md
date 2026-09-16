@@ -588,3 +588,56 @@ back vacuous and was repaired.
   and Claude skill trees match; retained PTY and skill-run evidence is recorded
   in `tasks/e2e-log.md` and `tasks/verification/`.
 - Learnings captured: [retain blocker outcome in escalation artifact](solutions/bugs/retain-blocker-outcome-in-escalation-artifact.md).
+
+### [2026-09-15] — /tidy skill
+
+- Key changes: new `/tidy` harness-hygiene skill — eight read-only checks
+  (inventory, refs, strays, registers, worktrees, retired, installed, suite),
+  three risk tiers, Tier 0 repairs committed on a host-supplied branch, Tier 1/2
+  filed through `/task-registry upsert --derive-id tidy`, one record per run in
+  `tasks/sweeps/`; registered in CLAUDE.md, README and session-start; pinned in
+  tests/test-doc-conventions.sh over both tree copies. Built in the shared clone
+  on a branch whose PR had already merged, so the work moved to `feat/tidy-skill`
+  in its own worktree at wrap-up. Suite duration on Windows filed as #136.
+- Verification: bash tests/run.sh over the worktree at d6c5e5b + this change: 42 files, 35 pass, 7 fail (install-sh 1/94, routine-selectors 60/196, routine-skills 2/64, sync-retirement 47/329, task-escalation 1/62, task-registry 44/348, verification-skill-integration 2/90 — 157 assertions). Every failing file re-run in a clean detached worktree at d6c5e5b fails the same count with identical assertion names (gh resolved through PATHEXT, mktemp path forms, chmod on Windows): zero regressions. skill-invocation-chain and upstream-drift, failing at e7ab8fa, pass at this base. Guards: doc-conventions 670, parity 96, references 186, frontmatter 272, syncable-paths 10. The full run was killed at file 35 after 38 minutes and the remaining 8 files were run separately (#136). `/tidy --report` run by hand against a clean detached
+  worktree at the base commit (tasks/e2e-log.md).
+- Learnings captured: tasks/solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md
+  (new); tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md
+  (2026-09-15 comparison added).
+
+### [2026-09-15] — #132 metadata parser reads the writer's span
+
+- Key changes: `parse_metadata_block` now reads exactly the BEGIN..END pair
+  `_metadata_bounds` selects for `upsert_metadata_block`, so a marker quoted in
+  prose or a write interrupted before END no longer injects a phantom `parent`
+  or `depends-on` into local and GitHub task reads. Review passes then found a
+  third locator in the local provider's prose scan (now on `metadata_bounds`
+  too) and two silent corners of "no complete pair reads as empty"; a new
+  `metadata_block_state` names stray, competing and damaged bodies, both
+  providers note them, and writers refuse to rewrite over a damaged or
+  competing one. Regression block in
+  `tests/test-task-registry.sh` § 12 covers the parser, writer/parser agreement
+  with one, two and both-sided marker layouts, `task_from_metadata`, local reads
+  and rewrites, and the block-state contract on both providers.
+- Verification: registry suite 44/370 failing on the branch and the identical
+  44/348 on clean origin/master (known Windows gh-mock and symlink failures,
+  tracked in #129); full suite 8/42 files failing with the same set on master;
+  canonical and Claude copies byte-identical. Four review passes and a security
+  scan dispatched as separate agents.
+- Learnings captured: [metadata parser read a different span than the writer owned](solutions/bugs/metadata-parser-read-a-different-span-than-the-writer-owned.md),
+  [reader and writer must share one span locator](solutions/patterns/reader-and-writer-must-share-one-span-locator.md).
+- Memory maintenance: heavy pass ran (25th session entry) — 80 documents, no
+  schema violations, no `needs_review` flags, no stale documents, 8 tag-overlap
+  pairs inspected and kept separate, glossary unchanged.
+
+### [2026-09-15] — tidy registered as a producer routine
+
+- Key changes: `tidy` joins `CONTRACT_ROUTINES` (branch formatter) and
+  `PRODUCER_ROUTINES` (registry refuses `select`/`claim`); routines.md gains the
+  `tidy` row, a `### tidy — steps` section and the Tier 0 edge row; wrap-up's
+  linkage table gains `routine/tidy/<YYYYMMDD>-sweep` → `chore(tidy): <date>`;
+  `references/routine-prompts/tidy.md` is the scheduler prompt, routed in the
+  README with a `gh`-read checklist bullet; tidy SKILL.md now points at its host;
+  glossary counts updated. Same-day follow-on to #138.
+- Verification: affected files run in the worktree — routine-branch 21, routines-contract 71, sweep-routines 160, skill-parity 97, skill-frontmatter 272, skill-references 190, syncable-paths 10, doc-conventions 676, all green; routine-selectors 60/200, routine-skills 2/64 and skill-invocation-chain 4/72 fail with exactly the assertion names a clean detached worktree at 4637138 fails (the Windows gh-stub, cp1252 and grep-ordering set) — zero regressions, and every new tidy assertion passes. Full suite deferred to CI (#136).
+- Learnings captured: none new (the conventions from #138 applied unchanged).

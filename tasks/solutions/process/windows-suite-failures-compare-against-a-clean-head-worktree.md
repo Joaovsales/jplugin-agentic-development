@@ -1,6 +1,6 @@
 ---
 title: On a Windows checkout, compare a failing test file against a throwaway HEAD worktree before debugging it
-date: 2026-09-11
+date: 2026-09-15
 problem_type: process
 module: tests/run.sh on Windows (Git Bash, Microsoft Store python3)
 tags: [testing, windows, baseline, worktree, environment-failures]
@@ -28,7 +28,10 @@ This session observed a stable set of environment-only failures on Windows
 | test-routine-skills | 2/64 | `doctor` prints `docs\task-tracking.md` with a backslash; a homoglyph refusal turns on console encoding |
 | test-verification-skill-integration | 2/90 | bundled-license byte comparison |
 | test-install-sh | 1/94 | dangling-symlink handling |
-| test-upstream-drift | 0–1 | timing flake in the process-deadline assertion |
+| test-task-escalation | 1/62 | artifact-confinement failure not reported — `chmod` does not confine on Windows (seen at d6c5e5b, 2026-09-15) |
+| test-upstream-drift | 0–1 | the process-deadline assertion wants a hanging helper killed in under 2 s wall-clock (`tests/test-upstream-drift.sh:137-141`); on 2026-09-15 it measured exactly 2 s even when the file ran alone, so it is process-spawn latency, not load |
+
+The same set, with identical counts, reproduced on 2026-09-15 at a clean worktree of e7ab8fa (8 files, 148 of 3789 assertions) during the `/tidy` build; the `gh`-stub rows are explained by Python resolving `gh` through PATHEXT to the real `gh.exe` instead of the extensionless bash mock.
 
 None of these names a file the session touched. Without the HEAD comparison,
 each is an hour of false debugging; with it, each is a one-line report.

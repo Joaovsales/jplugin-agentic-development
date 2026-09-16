@@ -16,10 +16,12 @@ import tempfile
 from typing import List, Optional, Sequence, Tuple
 
 from ..model import (
-    METADATA_BEGIN,
-    METADATA_END,
+    BLOCK_STATE_NOTES,
+    REFUSED_BLOCK_STATES,
     ExternalRef,
     Task,
+    metadata_block_state,
+    metadata_spans,
     parse_metadata_block,
     render_metadata_block,
     section,
@@ -104,6 +106,9 @@ class LocalMarkdownProvider(TrackerProvider):
         self.gate.authorize(f"update local task {task.id}", self.name, external=False)
         path = self._path_for(task.id)
         existing = _read_text(path) if os.path.isfile(path) else ""
+        refusal = REFUSED_BLOCK_STATES.get(metadata_block_state(existing))
+        if refusal:
+            raise ProviderError(f"local: {self._relative(path)}: {refusal}")
         self._write(path, self._render(task, existing))
         return task.with_(external=_written_reference(task, self._relative(path)))
 
@@ -190,6 +195,7 @@ class LocalMarkdownProvider(TrackerProvider):
 
     def _read(self, path: str) -> Task:
         text = _read_text(path)
+        self._note_block_state(self._relative(path), text)
         meta = parse_metadata_block(text)
         fields = {}
         for line in text.splitlines():
@@ -221,6 +227,11 @@ class LocalMarkdownProvider(TrackerProvider):
             updated_at=fields.get("updated"),
             external=ExternalRef("local", task_id, self._relative(path)),
         )
+
+    def _note_block_state(self, where: str, text: str) -> None:
+        note = BLOCK_STATE_NOTES.get(metadata_block_state(text))
+        if note:
+            self._note(f"{where}: {note}")
 
     def _write(self, path: str, text: str) -> None:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -300,10 +311,16 @@ def _unmanaged_regions(text: str) -> Tuple[str, str]:
     preamble: List[str] = []
     kept: List[str] = []
     keeping = None
-    in_metadata = False
-    for line in text.splitlines():
-        if METADATA_BEGIN in line:
-            in_metadata = True
+    # Metadata is every complete BEGIN..END span, located the way the writer
+    # locates them. Flipping a flag on any line containing BEGIN swallowed every
+    # line from a quoted marker to the real END (#132); a line is metadata when
+    # it overlaps a span, so a marker mid-line counts at both ends.
+    spans = metadata_spans(text)
+    offset = 0
+    for raw in text.splitlines(keepends=True):
+        line = raw.rstrip("\r\n")
+        in_metadata = any(offset < end and offset + len(raw) > start for start, end in spans)
+        offset += len(raw)
         match = SECTION_RE.match(line)
         if match:
             keeping = match.group("name").strip().lower() not in MANAGED_SECTIONS
@@ -312,8 +329,6 @@ def _unmanaged_regions(text: str) -> Tuple[str, str]:
                 preamble.append(line)
         elif keeping:
             kept.append(line)
-        if METADATA_END in line:
-            in_metadata = False
     return "\n".join(preamble).strip(), "\n".join(kept)
 
 
