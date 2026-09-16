@@ -1,3 +1,14 @@
+# Fix: #123 — A single `Closes #A, #B` list only closes the first issue
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/123 (no spec — issue-driven bug fix via /debug)
+
+- [x] TDD: multi-issue pins in tests/test-routine-wrapup.sh + tests/test-pr-linkage.sh -> wrap-up states `Closes #A, closes #B` and the failing form; `scripts/pr_linkage.py check` runs on the draft before create and on the fetched body during every re-sync (exit 3 lists orphaned refs); Done report `PR:` line gains `linkage repaired`; byte-identical .claude copy
+- [ ] Follow-up (not this fix): post-merge closure check for PRs merged by the GitHub Actions app — see tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md; belongs in the downstream merge automation via /task-registry
+
+## Session Summary — 2026-09-16 [a1d7c84..HEAD]
+- Completed: 1 task (#123 root-cause fix, tests, two bug documents)
+- Pending: 1 follow-up recorded above; the tidy cloud-routine item below is another session's
+- Carry-forward: the second #123 symptom (bot-merged PR leaves linked issue open) needs a registry-owned post-merge check downstream
+
 # Fix: #132 — Align metadata reader with writer when task bodies contain stray or incomplete markers
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/132 (no spec — issue-driven bug fix)
 
