@@ -53,6 +53,32 @@ for tree in .agents .claude; do
   assert_prose_contains "$f" "Refs #N" \
     "AC6: $tree states plan's body carries Refs #N instead"
 
+  # --- AC6: a multi-issue list must repeat the keyword per issue -------------
+  # GitHub binds a closing keyword to the ONE reference that immediately
+  # follows it (issue #123, verified via PR #121's closingIssuesReferences).
+  # `Closes #A, #B` silently links only #A; the working form repeats the
+  # keyword: `Closes #A, closes #B`.
+  assert_prose_contains "$f" "Closes #A, closes #B" \
+    "#123: $tree states the working multi-issue form repeats the keyword per issue"
+  assert_prose_contains "$f" "links only the first" \
+    "#123: $tree names the failing multi-issue form and what it silently drops"
+
+  # Both PR paths must run the check on the body they are about to trust: the
+  # create path on its draft, and the re-sync path on the fetched body even when
+  # nothing else looks stale -- an already-open PR whose only defect is the
+  # linkage otherwise takes the "already accurate" path and is never checked.
+  sync_section="$(awk '/^#### Creating and re-syncing/{f=1;next} f&&/^### Push Failure Handling/{exit} f' "$f")"
+  create_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*No PR for this branch\*\*/{f=1} f&&/^\*\*A PR already exists\*\*/{exit} f')"
+  resync_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*A PR already exists\*\*/{f=1} f&&/^\*\*Correct, do not erase\.\*\*/{exit} f')"
+  assert_contains "$create_path" "pr_linkage.py" \
+    "#123: $tree runs the linkage check on the draft before gh pr create"
+  assert_contains "$resync_path" "pr_linkage.py" \
+    "#123: $tree runs the linkage check on an already-open PR's body"
+  assert_contains "$resync_path" "whether or not anything else looks stale" \
+    "#123: $tree runs the re-sync check unconditionally, not only on a write"
+  assert_prose_contains "$f" "linkage repaired" \
+    "#123: $tree reports a repaired linkage on the Done report's PR line"
+
   # Closure happens on merge. A `gh issue close` here would break the provider
   # coupling guard with it.
   assert_file_not_matches "$f" "gh issue" \

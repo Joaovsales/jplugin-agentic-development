@@ -33,6 +33,20 @@ This session observed a stable set of environment-only failures on Windows
 
 The same set, with identical counts, reproduced on 2026-09-15 at a clean worktree of e7ab8fa (8 files, 148 of 3789 assertions) during the `/tidy` build; the `gh`-stub rows are explained by Python resolving `gh` through PATHEXT to the real `gh.exe` instead of the extensionless bash mock.
 
+Reproduced again on 2026-09-16 against a clean export of `origin/master` at
+3eeac10 during the #123 fix: the same eight files, with routine-selectors now
+60/200 and task-registry 44/398 as master grew tests, and identical assertion
+names on both trees.
+
+**Inside a worktree-isolated session** the Bash guard refuses
+`git worktree add`, shell variables, `awk`, and `git archive | tar`, so the
+detached-worktree recipe above cannot run. The equivalent that passes:
+`git archive --format=tar -o <scratch>/base.tar origin/master` as one plain
+command, then a scratch Python script that extracts it with `tarfile`, runs the
+suspect test files on both trees **sequentially** (concurrent runs fake
+failures), and diffs the `  FAIL ` lines. Nothing to `git worktree remove`
+afterwards.
+
 None of these names a file the session touched. Without the HEAD comparison,
 each is an hour of false debugging; with it, each is a one-line report.
 

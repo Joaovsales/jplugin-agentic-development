@@ -611,6 +611,14 @@ each routine's mandatory step list, is
 | any other `routine/<name>/<n>-<slug>` | none | conventional | `Closes #N` |
 | outside `routine/` | none | conventional | whatever the session warrants |
 
+When a PR resolves several issues, the body repeats the keyword per issue —
+`Closes #A, closes #B` — rather than trailing the rest after a single keyword.
+GitHub binds a closing keyword to the one reference that immediately follows
+it: `Closes #A, #B` links only the first reference and leaves the rest as
+plain mentions, so they stay open after merge with nothing reporting it. The
+linkage check in § *Creating and re-syncing* catches the failing form before
+the body is written.
+
 A producer branch's number is a **run stamp** (`YYYYMMDD`), not an issue. It is
 never looked up as one, so the "issue is missing or closed" report below does
 not apply to it; the issues a producer PR references are the ones the session
@@ -645,11 +653,28 @@ resolved deferral — and nothing re-reads it. The body is what reviewers act on
 a stale one is not cosmetic: a PR whose notes still list a defect as "deferred" is
 asking for review of work that no longer exists.
 
-**No PR for this branch** → create it.
+Both paths below run the **linkage check** on the body they are about to trust.
+It prints every reference that no closing keyword reaches, one per line, and
+exits 3; exit 0 prints nothing. Any other exit — 2 is a usage error, 1 a crash
+— is the script failing, not a clean body. A listed reference is a claim to
+rewrite: repeat the keyword before it, and report `linkage repaired` on the
+`PR:` line of the Done report below.
+
+**No PR for this branch** → draft the body to a file, run the check on the
+draft, repair what it lists, then create the PR from that file:
+
+```bash
+python3 .agents/skills/wrap-up-session/scripts/pr_linkage.py check --body-file <draft>
+```
 
 **A PR already exists** → reconcile the body against the branch before reporting done:
 
-1. Read it: `gh pr view <n> --json body -q .body`. List every factual claim —
+1. Read it: `gh pr view <n> --json body -q .body`, and run the check on what
+   comes back **whether or not anything else looks stale** — an open PR whose
+   only defect is a keyword that reaches one reference is exactly the case
+   this catches, and it would otherwise take the "already accurate" path:
+   `gh pr view <n> --json body -q .body | python3 .agents/skills/wrap-up-session/scripts/pr_linkage.py check`.
+   Then list every factual claim —
    counts (files changed, tests, assertions) and every item marked deferred,
    known-gap, unresolved, or not-yet-done.
 2. Check each against the branch now. `git log <sha-when-body-was-written>..HEAD`
@@ -817,7 +842,7 @@ Session wrapped up.
 - E2E coverage: [N user-facing ACs verified / NONE / GAP — N acknowledged]
 - Routine: [<name> #N — S steps, K skipped / none — not a routine branch]
 - Pushed: [yes / no — reason]
-- PR: [#N opened / #N description re-synced — what changed / #N already accurate / none]
+- PR: [#N opened / #N description re-synced — what changed / #N already accurate / #N linkage repaired — <refs> / none]
 - Deployments: [results or SKIPPED / NONE]
 - Unattended PR assertion: [PASS / FAILED — no PR, reason / N/A — interactive]
 ```
