@@ -124,6 +124,17 @@ assert_files_differ() {
   fi
 }
 
+# flatten <file>
+# One line of whitespace-collapsed text for whole-file ORDER checks. `tr -d '\r'`
+# first: files are checked out with CRLF on Windows, and a needle that straddles
+# a wrapped line never matches "word\r word" otherwise.
+flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
+
+# first_pos <flattened-text> <literal>
+# Byte offset of the first occurrence, or empty when absent. Pairs with flatten
+# for "A must precede B" pins; compare two offsets with -lt.
+first_pos() { printf '%s' "$1" | grep -bo -- "$2" | head -1 | cut -d: -f1; }
+
 # finish — report and exit non-zero if any assertion failed.
 finish() {
   if [ "$_FAILS" -gt 0 ]; then

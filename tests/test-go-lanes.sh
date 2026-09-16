@@ -18,10 +18,6 @@ cd "$REPO"
 TREES=".agents .claude"
 LANES="investigate fix refactor perf babysit"
 
-# One flattening pipeline for every whole-file order check below. CRLF-safe:
-# these files are checked out with CRLF on Windows.
-flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
-
 # Every `/skill` token in a file, first appearance first, one per line. A slash
 # preceded by a path character (`tasks/todo.md`, `.agents/skills/go`) is a path
 # segment, not a skill, and is excluded by the leading class.
@@ -31,10 +27,6 @@ skill_tokens() {
     | sed 's/^[^/]*//' \
     | awk '!seen[$0]++'
 }
-
-# Byte offset of the first occurrence of a literal in a flattened file, or
-# empty when absent. Used for the "gate before /build" order pins.
-first_pos() { printf '%s' "$1" | grep -bo -- "$2" | head -1 | cut -d: -f1; }
 
 # --- AC1: the skill and its contract ------------------------------------------
 for tree in $TREES; do
@@ -126,6 +118,24 @@ for tree in $TREES; do
     "GoLanes: $f skill tokens, first appearance order, equal the registry's fix chain"
 done
 
+# --- AC1/AC2: the lane table's Chain column agrees with each playbook ----------
+# The chain is declared twice by design — the table row an agent reads first,
+# and the playbook whose steps it runs — so the two must be pinned equal or a
+# step added to one silently drifts from the other. Same extractor on both
+# sides; the row's other columns carry no `/skill` tokens.
+for tree in $TREES; do
+  skill_md="$tree/skills/go/SKILL.md"
+  [ -f "$skill_md" ] || continue
+  for lane in $LANES; do
+    playbook="$tree/skills/go/lanes/$lane.md"
+    [ -f "$playbook" ] || continue
+    row_tokens="$(grep -E "^\| \`$lane\` \|" "$skill_md" | skill_tokens /dev/stdin | paste -sd' ' -)"
+    play_tokens="$(skill_tokens "$playbook" | paste -sd' ' -)"
+    assert_eq "$play_tokens" "$row_tokens" \
+      "GoLanes: $skill_md \`$lane\` row chain equals $playbook's skill tokens"
+  done
+done
+
 # --- AC3: investigate ends with an answer, never a wrap-up ---------------------
 for tree in $TREES; do
   assert_file_not_matches "$tree/skills/go/lanes/investigate.md" '/wrap-up-session' \
@@ -174,11 +184,11 @@ host_hits="$(grep -rnE '(^|[^A-Za-z0-9_/.-])/go([^A-Za-z0-9_/-]|$)' \
 assert_eq "" "$host_hits" \
   "GoLanes: no routine host or hook invokes /go (offenders: ${host_hits:-none})"
 
-# --- AC5: the banner leads with /go and closes on it ---------------------------
+# --- AC5: the banner leads with /go ---------------------------------------------
+# The closing line is pinned by tests/test-doc-conventions.sh, which AC5 names;
+# it is only an allowlist entry here, not a second pin.
 first_skill_row="$(grep -E '^echo "  /' .claude/hooks/session-start.sh | head -1)"
 assert_contains "$first_skill_row" "/go <goal>" \
   "GoLanes: session-start banner lists /go first in the skills block"
-assert_file_contains .claude/hooks/session-start.sh "$BANNER_CLOSE" \
-  "GoLanes: session-start banner closes on /go"
 
 finish

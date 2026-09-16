@@ -46,10 +46,10 @@ python3 .agents/skills/task-registry/scripts/task-registry.py workflow '#N'
 
 | Result | Route |
 |---|---|
-| exit 0, `routine:` names a routine | `lane=<routine>`, `chain=` the registry's `chain:` line verbatim. Proceed into that chain's first skill. |
+| exit 0, `routine:` names a routine | `lane=<routine>`, `chain=` the registry's chain — its skills, in its order, comma-separated as the `[ROUTE]` format requires. Proceed into that chain's first skill. |
 | exit 0, `routine:  none` (no kind label) | Untriaged. Match the rest of the goal text against the lane table; quote the registry's `routine:` line in `reason:`. |
 | exit 1 | Unknown reference, closed issue, or the tracker did not answer. Say so, match the rest of the goal text, quote the reference in `reason:`. |
-| exit 2 | Misconfigured tracker. Refuse the whole request: print the registry's message verbatim and name the configuration file — the target of the `Task tracking instructions:` line in `.claude/project.md` (Claude Code) or `AGENTS.md` (Pi). A misconfigured tracker is never routed around. |
+| exit 2 | Misconfigured tracker. Refuse the whole request: print the registry's message verbatim and name the configuration file (`task-registry doctor` reports which one resolved). A misconfigured tracker is never routed around. |
 
 **Otherwise read the lane table** and pick exactly one lane.
 
@@ -74,10 +74,12 @@ lane downgrade. A read-only goal that names an open bug issue still runs
 candidate, so nothing is lost.
 
 **Resolve the chain before writing anything.** Every skill a playbook step
-names must exist at `.agents/skills/<name>/SKILL.md`. A step naming a skill
-that is not on disk refuses the lane, naming the playbook and the skill, before
-the lane block is written — a missing step is found before work starts, not at
-the step.
+names must exist as `<name>/SKILL.md` under `.agents/skills/` or
+`.claude/skills/` — the same two roots the registry resolves chains against,
+because a downstream project may carry only the Claude Code copy. A step
+naming a skill that is in neither refuses the lane, naming the playbook and
+the skill, before the lane block is written — a missing step is found before
+work starts, not at the step.
 
 **Emit the route**, on its own line, before any other action:
 
@@ -105,10 +107,11 @@ Plain numbered lines. Never checkbox rows: `/build` executes every `[ ]` row
 it finds in that file and the session banner counts them, so a checkbox lane
 row would be dispatched as a task. The block is a record of what `/go` chose,
 not a task list. A step the agent decides not to run keeps its line with
-` — skip: <reason>` appended; it is never deleted. `/go` never edits a block
-after writing it, and a second `/go` appends a second block and leaves the
-first exactly as written — its unfinished steps are the record of where that
-lane stopped.
+` — skip: <reason>` appended; it is never deleted. That append is the one
+edit `/go` makes to a block after writing it — it never reorders, deletes, or
+rewrites a line — and a second `/go` appends a second block and leaves the
+first as written; its unfinished steps are the record of where that lane
+stopped.
 
 `feature` and `none` have no playbook. Their block is the chain from the table
 row, one skill per numbered line, so the route is still on disk.
@@ -130,10 +133,11 @@ evidence the playbook's *Reply* section names.
 
 A playbook under `lanes/` is free markdown named for its lane: a heading, an
 ownership sentence, numbered steps, and a *Reply* section. No frontmatter. The
-chain is whatever skills the steps invoke, in order; nothing declares it a
-second time. The `fix` playbook is pinned by `tests/test-go-lanes.sh` to equal
-the registry's `fix` chain, so the two routers cannot drift on the one lane
-they share.
+chain is whatever skills the steps invoke, in order. The lane table's *Chain*
+column restates it for the reader choosing a lane, and
+`tests/test-go-lanes.sh` pins the two equal so a step added to one cannot
+drift from the other. The same test pins the `fix` playbook to the registry's
+`fix` chain, so the two routers cannot drift on the one lane they share.
 
 `TODO(shortcut):` lanes are not project-configurable. There is no
 `[lanes.skills]` section beside `[routines.skills]` — the registry validates

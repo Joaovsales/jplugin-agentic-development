@@ -14,4 +14,4 @@ no code.
 
 The claim, the verdict, and every quoted line with its `file:line`. If a live
 run was traced, the command and its output. No diff: this lane never edits a
-file, and a goal that turns out to need one is re-routed by a new `/go`.
+file, and a goal that turns out to need one goes back through the front door.
