@@ -816,3 +816,22 @@ reverse.
 - Pending: none for this plan. The branch was moved out of the shared clone into its own worktree; the other session's stash@{0} in the main checkout still carries the pre-review copies of these files together with its own specs/bulk-read-gate.md — that stash is theirs to drop.
 - Carry-forward: docs/task-tracking.md declares `tech-debt` and `design-decision` in kind_precedence, but the tracker carries only bug/enhancement/documentation/question, so the `fix` and `plan` selectors have nothing to select until the labels exist (surfaced while filing #136).
 - Tests: bash tests/run.sh over the worktree at d6c5e5b + this change: 42 files, 35 pass, 7 fail (install-sh 1/94, routine-selectors 60/196, routine-skills 2/64, sync-retirement 47/329, task-escalation 1/62, task-registry 44/348, verification-skill-integration 2/90 — 157 assertions). Every failing file re-run in a clean detached worktree at d6c5e5b fails the same count with identical assertion names (gh resolved through PATHEXT, mktemp path forms, chmod on Windows): zero regressions. skill-invocation-chain and upstream-drift, failing at e7ab8fa, pass at this base. Guards: doc-conventions 670, parity 96, references 186, frontmatter 272, syncable-paths 10. The full run was killed at file 35 after 38 minutes and the remaining 8 files were run separately (#136).
+
+## Plan: register `tidy` as a producer routine
+> Spec: specs/tidy-skill.md § Out of scope (the host routine) — this is that host work
+> Branch: feat/tidy-routine off origin/master 4637138 (#138 merged), own worktree
+> Requested 2026-09-15 after #138 merged: "set the skill as a routine and run the routine for the first time"
+
+[x] TDD: tests/test-routine-branch.sh RED -> `tidy` in CONTRACT_ROUTINES; `routine/tidy/20260915-sweep` round-trips
+[x] TDD: tests/test-routines-contract.sh RED -> routines.md has a `tidy` table row and a `### tidy — steps` section that does not restate /wrap-up-session
+[x] TDD: tests/test-routine-selectors.sh -> PRODUCER_ROUTINES names janitor,architect,tidy; `select --routine tidy` exits 2 naming "producer"
+[x] TDD: tests/test-sweep-routines.sh -> wrap-up linkage table has the `routine/tidy/<YYYYMMDD>-sweep` row and `chore(tidy):` title; routine-prompts/tidy.md exists (<25 lines, names /tidy, says sub-agent, no repo name, parity copy); README routes tidy
+[x] TDD: tests/test-doc-conventions.sh -> tidy SKILL.md names its branch and prompt file
+[x] GREEN -> routine_branch.py + registry config.py vocabularies; routines.md (row, producers paragraph, spine step 3, tidy section, edge row); wrap-up parser row; routine-prompts/tidy.md + README row and checklist bullet; tidy SKILL.md host paragraph; tasks/concepts.md counts; byte-identical .claude copies
+[ ] Cloud routine: update the existing `tidy` routine (trig_0156hDQVc2Qp5MuUx6j7ttxF) with routine-prompts/tidy.md, Planner-tier model, weekly cron; enable and run once after this PR merges; verify the run opened `chore(tidy): <date>` from `routine/tidy/<YYYYMMDD>-sweep` with the record under tasks/sweeps/
+
+## Session Summary — 2026-09-15 [4637138..HEAD]
+- Completed: 6 of 7 tasks — `tidy` is a contract producer routine (branch vocabulary, registry refusal, step ledger, wrap-up linkage row, scheduler prompt, README routing, glossary). Filed #136 (Windows suite duration) earlier this session; #138 merged.
+- Pending: the cloud routine's first run waits for this PR to merge — a run against master before that fails at spine step 2 because `routine_branch.py format tidy` refuses a name outside CONTRACT_ROUTINES.
+- Carry-forward: the cloud routine API exposes no environment-variable field, so `TASK_REGISTRY_TRUSTED_CONFIG=1` is stated in the scheduler prompt itself; if the cloud `gh` is unauthenticated the first run files everything as *publication pending* and the PR body names both switches. Label gap from the earlier summary still stands (`tech-debt`, `design-decision` absent from the tracker).
+- Tests: affected files run in the worktree — routine-branch 21, routines-contract 71, sweep-routines 160, skill-parity 97, skill-frontmatter 272, skill-references 190, syncable-paths 10, doc-conventions 676, all green; routine-selectors 60/200, routine-skills 2/64 and skill-invocation-chain 4/72 fail with exactly the assertion names a clean detached worktree at 4637138 fails (the Windows gh-stub, cp1252 and grep-ordering set) — zero regressions, and every new tidy assertion passes. Full suite deferred to CI (#136).
