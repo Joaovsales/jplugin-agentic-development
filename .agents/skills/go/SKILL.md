@@ -32,6 +32,13 @@ NOTHING HAPPENS BEFORE THE [ROUTE] LINE, AND /go ITSELF NEVER ASKS THE HUMAN A Q
 The line makes a misroute visible in the transcript the moment it happens, not
 after the work. Questions belong to the chain skills, which already own them.
 
+Matching is how the line is computed, not an action the law forbids: the
+registry lookup and the chain resolution in step 1 each read one fact and
+change nothing. Everything else — reading the code, writing the lane block,
+invoking a skill — waits for the line. A refusal (exit 2, or a chain naming a
+skill that is not on disk) is printed in place of the line: the request was
+not routed, so there is no route to print.
+
 ## The Process
 
 ### 1. Match
@@ -55,7 +62,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py workflow '#N'
 
 | Lane | Cues in the goal | Playbook | Chain | Ends with |
 |---|---|---|---|---|
-| `investigate` | how does X work, why was Y built this way, is Z safe, compare A and B, no code requested | `lanes/investigate.md` | inline evidence gathering; `/checkpoint` only if the human asks to keep it | a cited answer, no diff |
+| `investigate` | a question that wants an answer, not a change: how does X work, why was Y built this way, is Z safe, compare A and B | `lanes/investigate.md` | inline evidence gathering; `/checkpoint` only if the human asks to keep it | a cited answer, no diff |
 | `fix` | broken, fails, wrong output, regression, error text pasted | `lanes/fix.md` | `/debug`, `/build`, `/quality-gate`, `/wrap-up-session` | PR |
 | `refactor` | rename, extract, inline, dedupe, move, "no behaviour change" | `lanes/refactor.md` | inline before-proof, `/plan`, `/build`, `/quality-gate`, `/wrap-up-session` | PR whose body quotes the before and after proof |
 | `perf` | slow, latency, memory, "takes N seconds", a profile attached | `lanes/perf.md` | inline baseline measurement, `/debug` for the cause, `/build`, `/quality-gate`, `/wrap-up-session` | PR whose body quotes baseline and after numbers |
@@ -63,15 +70,18 @@ python3 .agents/skills/task-registry/scripts/task-registry.py workflow '#N'
 | `feature` | add, change, support, new behaviour | none — direct route | `/brainstorm`, `/plan`, or `/system-design-planning`, chosen by CLAUDE.md § *Spec First*'s own criteria; that skill hands to `/build`, `/quality-gate`, `/wrap-up-session` itself | PR |
 | `none` | no lane matches, or the goal is large or unclear ("rework the whole registry", "make it better") | none — direct route | `/brainstorm` | whatever `/brainstorm` produces |
 
-**Precedence when two lanes match.** `fix` outranks `perf`, `perf` outranks
-`refactor`, and anything with a defect cue outranks `feature`. `reason:` names
-the tie it broke.
+**Precedence when two lanes match.** `investigate` is decided first, by what
+the human wants back: a goal that asks a question and no change is
+`investigate` even when it pastes error text, and a goal that asks for the
+error to go away is `fix`. Among the change lanes, `fix` outranks `perf`,
+`perf` outranks `refactor`, and anything with a defect cue outranks `feature`.
+`reason:` names the tie it broke.
 
-**Constraints travel.** "Don't change any code yet", "repro first", "no code
-requested" go into the first chain skill's problem statement, never into a
-lane downgrade. A read-only goal that names an open bug issue still runs
-`lane=fix`: `/debug`'s prelude is read-only until the human confirms a
-candidate, so nothing is lost.
+**Constraints travel.** On a goal that asks for a change, "don't change any
+code yet" and "repro first" go into the first chain skill's problem statement,
+never into a lane downgrade. A read-only goal that names an open bug issue
+still runs `lane=fix`: `/debug`'s prelude is read-only until the human
+confirms a candidate, so nothing is lost.
 
 **Resolve the chain before writing anything.** Every skill a playbook step
 names must exist as `<name>/SKILL.md` under `.agents/skills/` or

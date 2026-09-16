@@ -57,6 +57,12 @@ for tree in $TREES; do
   # The registry wins wherever its fact exists.
   assert_file_contains "$f" "task-registry.py workflow" \
     "GoLanes: $f consults the registry for an issue reference"
+  # The router's two safety edges: a misconfigured tracker is refused, never
+  # routed around, and chains resolve against either skill root.
+  assert_prose_contains "$f" "never routed around" \
+    "GoLanes: $f refuses a misconfigured tracker"
+  assert_prose_contains "$f" 'under `.agents/skills/` or `.claude/skills/`' \
+    "GoLanes: $f resolves chains against either skill root"
 done
 
 # --- AC2: five playbooks, free markdown, no frontmatter ------------------------
@@ -102,14 +108,16 @@ done
 # restating it here, so a chain edit in config.py fails this test instead of
 # drifting past it. `-B` keeps the probe from writing __pycache__ into the
 # canonical tree, which tests/test-skill-parity.sh would report as drift.
+probe_err="$(mktemp)"
 expected_fix="$(PYTHONDONTWRITEBYTECODE=1 python3 -B -c '
 import sys
 sys.path.insert(0, ".agents/skills/task-registry/scripts")
 from registry.config import DEFAULT_ROUTINE_SKILLS
 print(" ".join(DEFAULT_ROUTINE_SKILLS["fix"]))
-' 2>/dev/null || true)"
+' 2>"$probe_err" || true)"
+probe_err_text="$(tail -1 "$probe_err" | tr -d '\r')"; rm -f "$probe_err"
 assert_eq "yes" "$([ -n "$expected_fix" ] && echo yes || echo no)" \
-  "GoLanes: DEFAULT_ROUTINE_SKILLS[\"fix\"] read from config.py"
+  "GoLanes: DEFAULT_ROUTINE_SKILLS[\"fix\"] read from config.py (${probe_err_text:-no stderr})"
 for tree in $TREES; do
   f="$tree/skills/go/lanes/fix.md"
   [ -f "$f" ] || continue
@@ -142,27 +150,23 @@ for tree in $TREES; do
     "GoLanes: $tree investigate.md never names /wrap-up-session"
 done
 
-# --- AC3: refactor and babysit reach a human gate before /build ----------------
+# --- AC3: refactor, perf and babysit reach a human gate before /build ----------
 # /plan asks "Confirm with 'y'"; /debug's prelude stops before any edit. Nothing
-# else in either chain asks, so one of them must come first.
+# else in these chains asks, so one of them must come first. (fix is pinned
+# transitively: its chain equals the registry's, which opens with /debug.)
 for tree in $TREES; do
-  for lane in refactor babysit; do
+  for lane in refactor perf babysit; do
     f="$tree/skills/go/lanes/$lane.md"
     [ -f "$f" ] || continue
     flat="$(flatten "$f")"
-    pos_build="$(first_pos "$flat" '/build')"
+    # The earlier of the two gates is the one that must precede /build.
+    gate='/plan'
     pos_plan="$(first_pos "$flat" '/plan')"
     pos_debug="$(first_pos "$flat" '/debug')"
-    gate=""
-    for p in $pos_plan $pos_debug; do
-      [ -z "$gate" ] || [ "$p" -lt "$gate" ] && gate="$p"
-    done
-    if [ -n "$pos_build" ] && [ -n "$gate" ] && [ "$gate" -lt "$pos_build" ]; then
-      assert_eq "ordered" "ordered" "GoLanes: $f names /plan or /debug before /build"
-    else
-      assert_eq "gate < /build" "gate=${gate:-missing} build=${pos_build:-missing}" \
-        "GoLanes: $f names /plan or /debug before /build"
+    if [ -n "$pos_debug" ] && { [ -z "$pos_plan" ] || [ "$pos_debug" -lt "$pos_plan" ]; }; then
+      gate='/debug'
     fi
+    assert_precedes "$flat" "$gate" '/build' "GoLanes: $f names /plan or /debug before /build"
   done
 done
 
@@ -174,12 +178,25 @@ done
 # added later is still a host, so it is swept too.
 BANNER_ROW='/go <goal>   — Natural-language front door: pick a lane, print [ROUTE], run its skills'
 BANNER_CLOSE='Ready. Use /go <goal> to start, or continue from tasks/todo.md.'
-host_hits="$(grep -rnE '(^|[^A-Za-z0-9_/.-])/go([^A-Za-z0-9_/-]|$)' \
-    .agents/skills/sweep .agents/skills/tidy .agents/skills/yolo .agents/skills/auto-push \
-    .agents/skills/wrap-up-session/references \
-    .claude/skills/sweep .claude/skills/tidy .claude/skills/yolo .claude/skills/auto-push \
-    .claude/skills/wrap-up-session/references \
-    .claude/hooks 2>/dev/null \
+GO_INVOCATION='(^|[^A-Za-z0-9_/.-])/go([^A-Za-z0-9_/-]|$)'
+HOST_ROOTS=".agents/skills/sweep .agents/skills/tidy .agents/skills/yolo .agents/skills/auto-push
+  .agents/skills/wrap-up-session/references
+  .claude/skills/sweep .claude/skills/tidy .claude/skills/yolo .claude/skills/auto-push
+  .claude/skills/wrap-up-session/references
+  .claude/hooks"
+# A negative sweep passes on nothing if a root moved or the regex is dead, so
+# every root is asserted present and the banner is the positive control: the
+# unfiltered sweep must hit both allowlisted lines before they are filtered out.
+for root in $HOST_ROOTS; do
+  assert_eq "present" "$([ -d "$root" ] && echo present || echo missing)" \
+    "GoLanes: host sweep root $root exists"
+done
+banner_hits="$(grep -nE "$GO_INVOCATION" .claude/hooks/session-start.sh || true)"
+assert_contains "$banner_hits" "$BANNER_ROW" \
+  "GoLanes: host sweep regex matches the banner row (positive control)"
+assert_contains "$banner_hits" "$BANNER_CLOSE" \
+  "GoLanes: host sweep regex matches the banner closing line (positive control)"
+host_hits="$(grep -rnE "$GO_INVOCATION" $HOST_ROOTS \
   | grep -vF "$BANNER_ROW" | grep -vF "$BANNER_CLOSE" || true)"
 assert_eq "" "$host_hits" \
   "GoLanes: no routine host or hook invokes /go (offenders: ${host_hits:-none})"

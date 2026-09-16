@@ -66,7 +66,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # A genuine load: the tool-use shape observed in real transcripts.
-printf '%s\n' '{"type":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"debug"}}]}' \
+printf '%s\n' '{"type":"assistant","content":[{"type":"tool_use","id":"toolu_01x","name":"Skill","input":{"skill":"debug"}}]}' \
   > "$TMP/agent-aaa.jsonl"
 
 # The false positive this grader exists to refuse: the candidate talks about the
@@ -124,6 +124,15 @@ printf '%s\n' '{"tools":[{"name":"Skill","description":"Invoke a skill.","schema
 out="$(bash "$GRADER_REL" "$SCHEMA" debug 2>&1)"; rc=$?
 assert_eq "0" "$rc" "grader: the inline tool schema is not an unreadable block"
 assert_contains "$out" "NONE       agent-eee" "grader: the inline tool schema grades as no load"
+
+# A real tool-use block serialised name-before-type escapes the extractor. The
+# drift guard must still catch it: an error, never a silent NONE.
+REORDERED="$TMP/reordered"; mkdir -p "$REORDERED"
+printf '%s\n' '{"content":[{"name":"Skill","type":"tool_use","input":{"skill":"debug"}}]}' \
+  > "$REORDERED/agent-fff.jsonl"
+err="$(bash "$GRADER_REL" "$REORDERED" debug 2>&1)"; rc=$?
+assert_eq "2" "$rc" "grader: a name-before-type Skill block is an error, not NONE"
+assert_contains "$err" "transcript format changed" "grader: reordered keys are reported as drift"
 
 assert_eq "" "$(bash -n "$GRADER_REL" 2>&1)" "grader: parses under bash -n"
 

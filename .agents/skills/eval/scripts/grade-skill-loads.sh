@@ -39,6 +39,12 @@ WANT="${2:-}"
 # measurements (2026-09-16). `[^{}]*` keeps the match inside one object.
 BLOCK='"type":[[:space:]]*"tool_use"[^{}]*"name":[[:space:]]*"Skill"'
 
+# The drift guard must not share the extractor's key-order assumption, or a
+# tool-use object serialised name-before-type would grade NONE in silence. It
+# also anchors on `"input":{`, which the inline schema never carries (its key is
+# `input_schema`), so the schema stays ordinary content for the guard too.
+DRIFT='"name":[[:space:]]*"Skill"[^{}]*"input":[[:space:]]*\{'
+
 loads_in() {
   grep -oE "$BLOCK,[[:space:]]*\"input\":\{[[:space:]]*\"skill\":[[:space:]]*\"[^\"]+\"" "$1" 2>/dev/null \
     | sed 's/.*"skill":[[:space:]]*"//; s/"$//' | sort -u | paste -sd, - || true
@@ -55,7 +61,7 @@ for f in "$DIR"/agent-*.jsonl; do
   # A transcript that holds a Skill block the extractor could not read means the
   # transcript format moved. Reporting "NONE" there would be a false negative,
   # which is the exact error this script exists to prevent.
-  if [ -z "$got" ] && grep -qE "$BLOCK" "$f"; then
+  if [ -z "$got" ] && grep -qE "$BLOCK|$DRIFT" "$f"; then
     die "$id holds a Skill block this parser cannot read — transcript format changed"
   fi
 

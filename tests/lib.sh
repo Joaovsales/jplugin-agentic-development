@@ -131,9 +131,22 @@ assert_files_differ() {
 flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
 
 # first_pos <flattened-text> <literal>
-# Byte offset of the first occurrence, or empty when absent. Pairs with flatten
-# for "A must precede B" pins; compare two offsets with -lt.
-first_pos() { printf '%s' "$1" | grep -bo -- "$2" | head -1 | cut -d: -f1; }
+# Byte offset of the first occurrence, or empty when absent. `-F`: the needle is
+# a literal, so `[ROUTE]` or `**Scope**` is matched as written, not as a regex.
+first_pos() { printf '%s' "$1" | grep -boF -- "$2" | head -1 | cut -d: -f1; }
+
+# assert_precedes <flattened-text> <needle-a> <needle-b> <message>
+# A must appear before B in the flattened text. A missing needle fails with
+# `missing` in place of its offset, so the failure names which side is absent.
+assert_precedes() {
+  local pos_a pos_b
+  pos_a="$(first_pos "$1" "$2")"; pos_b="$(first_pos "$1" "$3")"
+  if [ -n "$pos_a" ] && [ -n "$pos_b" ] && [ "$pos_a" -lt "$pos_b" ]; then
+    assert_eq "ordered" "ordered" "$4"
+  else
+    assert_eq "ordered" "${pos_a:-missing} < ${pos_b:-missing}" "$4"
+  fi
+}
 
 # finish — report and exit non-zero if any assertion failed.
 finish() {

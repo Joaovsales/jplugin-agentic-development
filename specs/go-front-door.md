@@ -119,7 +119,7 @@ opens on the first of those.
 
 | Lane | Cues in the goal | Playbook | Chain | Ends with |
 |---|---|---|---|---|
-| `investigate` | how does X work, why was Y built this way, is Z safe, compare A and B, no code requested | `lanes/investigate.md` | inline evidence gathering; `/checkpoint` only if the human asks to keep it | a cited answer, no diff |
+| `investigate` | a question that wants an answer, not a change: how does X work, why was Y built this way, is Z safe, compare A and B | `lanes/investigate.md` | inline evidence gathering; `/checkpoint` only if the human asks to keep it | a cited answer, no diff |
 | `fix` | broken, fails, wrong output, regression, error text pasted | `lanes/fix.md` | `/debug`, `/build`, `/quality-gate`, `/wrap-up-session` | PR |
 | `refactor` | rename, extract, inline, dedupe, move, "no behaviour change" | `lanes/refactor.md` | inline before-proof (tests green, or a recorded characterization run), `/plan`, `/build`, `/quality-gate`, `/wrap-up-session` | PR whose body quotes the before and after proof |
 | `perf` | slow, latency, memory, "takes N seconds", a profile attached | `lanes/perf.md` | inline baseline measurement, `/debug` for the cause, `/build`, `/quality-gate`, `/wrap-up-session` | PR whose body quotes baseline and after numbers |
@@ -140,9 +140,12 @@ row carries the route and the `[ROUTE]` line is still emitted. `none` is the
 harness's existing answer to "we do not yet know what this is", and `/go` does
 not invent a second one.
 
-**Precedence when two lanes match.** `fix` outranks `perf`, `perf` outranks
-`refactor`, and anything with a defect cue outranks `feature`. The `reason:`
-names the tie it broke.
+**Precedence when two lanes match.** `investigate` is decided first, by what
+the human wants back: a goal that asks a question and no change is
+`investigate` even when it pastes error text, and a goal that asks for the
+error to go away is `fix`. Among the change lanes, `fix` outranks `perf`,
+`perf` outranks `refactor`, and anything with a defect cue outranks `feature`.
+The `reason:` names the tie it broke.
 
 ### Playbooks are free markdown
 
@@ -216,8 +219,9 @@ exists.
   Plain numbered lines, never checkbox rows. The session banner counts
   `^\s*\[ \]` and `^\s*\[~\]`, and `/build` executes every `[ ]` row; a lane
   block matches neither, by design. `/wrap-up-session` folds the block into
-  `tasks/history.md` with the rest of the file as it does today. `/go` never
-  edits a block after writing it.
+  `tasks/history.md` with the rest of the file as it does today. The
+  ` — skip: <reason>` append is the one edit `/go` makes to a block after
+  writing it; it never reorders, deletes, or rewrites a line.
 - The chain's own artifacts (specs, `[ ] TDD:` rows, PRs, debug documents)
   unchanged and owned by the skills that write them.
 - The closing reply described in *Behavior* step 4.

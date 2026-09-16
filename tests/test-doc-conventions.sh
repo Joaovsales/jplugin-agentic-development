@@ -708,14 +708,10 @@ done
 assert_prose_contains "CLAUDE.md" 'Interactive work starts with `/go <goal>`' \
   "go: CLAUDE.md § Workflow names /go as the interactive entry point"
 flat_claude="$(flatten CLAUDE.md)"
-pos_go=$(first_pos "$flat_claude" 'Interactive work starts with `/go <goal>`')
-pos_spec=$(first_pos "$flat_claude" '### 1. Spec First')
-if [ -n "${pos_go:-}" ] && [ -n "${pos_spec:-}" ] && [ "$pos_go" -lt "$pos_spec" ]; then
-  assert_eq "ordered" "ordered" "go: CLAUDE.md names /go before Workflow step 1"
-else
-  assert_eq "entry point < step 1" "${pos_go:-missing} ${pos_spec:-missing}" \
-    "go: CLAUDE.md names /go before Workflow step 1"
-fi
+assert_precedes "$flat_claude" '## Workflow: PRD' 'Interactive work starts with `/go <goal>`' \
+  "go: the /go sentence sits inside § Workflow, not earlier in the file"
+assert_precedes "$flat_claude" 'Interactive work starts with `/go <goal>`' '### 1. Spec First' \
+  "go: CLAUDE.md names /go before Workflow step 1"
 assert_file_matches "CLAUDE.md" '^\| `/go` \|' \
   "go: CLAUDE.md skills table lists /go"
 assert_file_matches "README.md" '^\| `/go` \|' \
