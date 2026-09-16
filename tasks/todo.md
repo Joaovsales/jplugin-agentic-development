@@ -893,7 +893,7 @@ Filed this sweep:
 [x] TDD: test-doc-conventions.sh pins the CLAUDE.md entry-point sentence + `/go` row, the README `/go` row, and the banner closing line -> edit CLAUDE.md § Workflow, CLAUDE.md skills table, README.md skills table, session-start.sh (banner lists /go first; closing line "Use /go <goal> to start, or continue from tasks/todo.md.") (AC4, AC5)
 [x] Live proof: run `/go` three times (investigate; issue-referenced; refactor) and record each `[ROUTE]` line, the lane block shape, and where the chain stopped in tasks/e2e-log.md (AC6)
 [x] Eval: /eval mode A triggerability on four boundary prompts (fix-vs-perf, refactor-vs-feature, investigate-vs-fix, babysit), N=2, result table in tasks/e2e-log.md; a miss is a cue defect fixed in the lane table (AC7)
-[ ] Verify: `bash tests/run.sh` fully green with output recorded; `/quality-gate` on all changed files (AC8)
+[x] Verify: `bash tests/run.sh` fully green with output recorded; `/quality-gate` on all changed files (AC8)
 
 ## Lane: investigate — how does task-registry choose a provider
 1. Restate the question as a falsifiable claim and name the files it turns on
