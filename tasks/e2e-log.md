@@ -1054,3 +1054,43 @@ Files this build owns, from the same run:
 **Wrap-up re-run — 2026-09-16, after the four dispatched review passes.** The review fixes (see the `fix(go)` wrap-up commit) changed the pinned counts: `tests/test-go-lanes.sh` 187 → 206, `tests/test-eval-skill.sh` 47 → 49, `tests/test-doc-conventions.sh` 693 → 694; `test-skill-parity` 103, `test-skill-references` 192, `test-skill-frontmatter` 280 and `test-solutions-schema` 31 unchanged and green. The doc-conventions count floats by one with the `tasks/` tree (a loop over files), so it is a floor, not an exact pin.
 
 Full suite at the wrap-up head: `RESULT: 9/43 test files FAILED`, exit 1 — the eight Windows gh-mock files with the same per-file counts as above, plus `test-upstream-drift.sh` 1/64 on its wall-clock assertion ("helper cannot outlive the checker deadline": elapsed 2 s against a `-lt 2` bound, one-second granularity around a Windows process spawn). That file was 1/64 on the d6c5e5b baseline too, passed once at 51721fd, and fails alone with no other tests running; the branch changes no file it reads and no `lib.sh` helper it calls. Zero regressions; Linux CI on the PR is the authority.
+
+## E2E Walkthrough — lane catalogue — 2026-09-16 (uncommitted on 6640873, branch routing)
+
+Spec: specs/lane-catalogue.md. The user-facing surface is the new `task-registry lanes` command (AC4); everything else is module and test behaviour pinned by `tests/test-lane-catalogue.sh` (289 assertions). Run live in the `routing` worktree on Windows, `python3 -B`.
+
+### AC4 — `task-registry lanes` — PASS
+
+Exit 0; twelve rows, alphabetical, each with `lane:`, `chain:`, `ends:`; `selects:` on consumers, `cues:` on interactive lanes, `status: deferred — …` on `build`. No provider was selected (no `gh` call, no tracker line). First rows:
+
+```
+lane:    architect (producer)
+  chain:   /sweep -> /wrap-up-session
+  ends:    ready, docs-only PR carrying the session record
+lane:    babysit (interactive)
+  cues:    PR URL or number plus get it green, address the comments, anything outstanding, CI red
+  chain:   /receive-review -> /debug -> /plan -> /build -> /wrap-up-session
+  ends:    PR merge-ready, or a named blocker
+lane:    build (consumer)
+  chain:   /build -> /quality-gate -> /wrap-up-session
+  ends:    ready PR
+  status:  deferred — deferred behind the blockedBy provider capability (#97) and the routine itself (#98) — not runnable yet
+```
+
+### AC4 — `task-registry lanes fix` — PASS
+
+Exit 0; the block, then the four numbered steps verbatim from `lanes/fix.md` (step 1 `` `/debug <ref>` ``), then `## Reply`. No `note:` line — this repository does not override the chain.
+
+### AC4 — `task-registry lanes nope` — PASS
+
+Exit 2: `task-registry: no lane named 'nope'; known lanes: architect, babysit, build, fix, improve, investigate, janitor, none, perf, plan, refactor, tidy`. One message, raised by `LaneCatalogue.lane()` and printed by the CLI.
+
+### AC4 — `task-registry lanes investigate` — PASS
+
+Exit 0 on this repository. The broken-configuration, override, missing-skill, producer-key and github-without-repository cases are fixture projects in `tests/test-lane-catalogue.sh`, not repeated here.
+
+### AC9 — suite against the baseline — PASS
+
+Baseline: `bash tests/run.sh` in a detached worktree at 6640873 (the untouched `routing` head): `8/44 test files FAILED`. This tree before the design-review fixes: `8/45 test files FAILED` — the same eight files, and a per-file diff of failing assertion names is empty. After the design-review fixes the four suites the CLI change touches were re-run and diffed again: `test-task-registry.sh` 44/398, `test-task-escalation.sh` 1/62, `test-routine-selectors.sh` 60/200, `test-skill-invocation-chain.sh` 4/72 — identical names. All eight are the known Windows `gh`-mock class. Files this build owns: `test-lane-catalogue.sh` 289 passed, `test-go-lanes.sh` 91, `test-routines-contract.sh` 95, `test-sweep-routines.sh` 161, `test-routine-branch.sh` 21, `test-doc-conventions.sh` 708, `test-skill-parity.sh` 112.
+
+Design review: `software-design-expert-review` dispatched once with the seven-item contract on the implemented module, verdict GO with five SHOULD-FIX and six NITPICK findings; all agent-owned findings applied (producer keys refused under `[routines.skills]`, ghost lanes refused, wrapped steps refused, `## Reply` required, `_lanes` takes one load outcome, `doctor` run end to end against a broken catalogue, `TERMINAL_SKILL` alias and `Lane.path` removed, `NoReturn` on the refuser). The one human-owned advisory (is the catalogue project-extensible?) is left open in the PR description. Not dispatched: the quality-gate's Phase 1–2 reviewers — the corroboration they would have added is not claimed.

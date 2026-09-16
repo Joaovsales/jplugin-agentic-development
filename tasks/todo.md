@@ -908,6 +908,17 @@ Filed this sweep:
 [x] Eval: /eval mode A triggerability on four boundary prompts (fix-vs-perf, refactor-vs-feature, investigate-vs-fix, babysit), N=2, result table in tasks/e2e-log.md; a miss is a cue defect fixed in the lane table (AC7)
 [x] Verify: `bash tests/run.sh` fully green with output recorded; `/quality-gate` on all changed files (AC8)
 
+## Plan: lane catalogue — one definition per lane, read by both routers
+> Spec: specs/lane-catalogue.md
+> Approved by direct "do the lane class unification in this PR" request on 2026-09-16 during review of PR #147; design reviewed by software-design-expert-review before code.
+
+[x] TDD: tests/test-lane-catalogue.sh RED — shipped catalogue views (routines, producers, deferred, selectors, chains, interactive, names) equal the spec table; eight load refusals on temp fixture directories each name the file -> `registry/lanes.py` (frontmatter + step grammar, Lane, LaneCatalogue, load_catalogue) and the twelve lane files under `.agents/skills/task-registry/lanes/` (AC1, AC2, AC3)
+[x] TDD: test-routine-skills.sh, test-routine-selectors.sh (literal-in-config.py pin repointed at the catalogue), test-routines-contract.sh deferred pins, test-task-registry.sh, test-sweep-routines.sh all green with config.py's five constants bound to the catalogue and holding no lane literal -> config.py edit (AC1, AC5)
+[x] TDD: `lanes` table with effective chain; `lanes <name>` steps + Reply; unknown name exit 2 listing lanes; chain skill absent from both roots exit 2 naming it; `[routines.skills]` override prints `note:`; misconfigured tracker exit 2 -> `lanes` command in task-registry.py; SKILL.md command table row and section (AC4)
+[x] TDD: test-routines-contract.sh pins the routine table equal to the catalogue and reads each routine's step rows from its lane file; per-routine sections carry no step rows; test-sweep-routines.sh section pins repointed -> routines.md per-routine sections shrink to the lane pointer plus rationale (AC6)
+[x] TDD: test-go-lanes.sh rewritten — SKILL.md names `task-registry lanes` and `workflow`, no lane table, no `go/lanes/`; interactive code-changing lanes gate before /build; investigate never names /wrap-up-session; host sweep and banner pins unchanged -> rewrite `.agents/skills/go/SKILL.md`, delete `go/lanes/`, README row, concepts.md entries, go-front-door.md supersession note, template `[routines.skills]` comment (AC7, AC8)
+[x] Verify: byte-identical `.claude` copies (test-skill-parity.sh); `bash tests/run.sh` against the recorded baseline; `/quality-gate` on all changed files (AC9)
+
 ## Lane: investigate — how does task-registry choose a provider
 1. Restate the question as a falsifiable claim and name the files it turns on
 2. Read those files; quote the lines that answer it

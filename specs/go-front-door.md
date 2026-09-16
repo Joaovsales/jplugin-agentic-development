@@ -21,6 +21,14 @@ implementation_paths:
 > Brainstormed 2026-09-15 on the `routing` branch. Option A of three; the sticky
 > hook-based mode (Option C) is recorded below as the upgrade path, not built.
 >
+> **v3, 2026-09-16 — superseded in part by `specs/lane-catalogue.md`.** The five
+> playbooks under `.agents/skills/go/lanes/`, the lane table in `SKILL.md`, the
+> `feature` lane and the *No `[lanes.skills]`* decision below are replaced by the
+> lane catalogue: twelve lane files under `.agents/skills/task-registry/lanes/`,
+> one per lane, read by both routers, printed by `task-registry lanes`. `feature`
+> is folded into `improve`; `none` becomes a file. AC2 and AC3 below are
+> superseded by that spec's AC3 and AC7; the rest stand.
+>
 > **v2, 2026-09-16.** v1 wrapped the lanes in a protocol pstack does not have:
 > a per-lane `start`/`propose` authority with its own `y` gate, playbook
 > frontmatter declaring a `chain` the steps already named, a persistence state
@@ -166,7 +174,9 @@ exists.
   types `/go`. Authority is gone. `/go` behaves like pstack: read the goal, pick
   the lane, start. Irreversible actions are still guarded, by the skills that
   perform them.
-- **No `[lanes.skills]` configuration section.** The brainstorm recommended one
+- **No `[lanes.skills]` configuration section** *(superseded — see v3 note and
+  `specs/lane-catalogue.md`; the objections below are attributes of routines, not of
+  the lane as a class)*. The brainstorm recommended one
   so lanes would be project-configurable beside `[routines.skills]`. Reading the
   parser changed that: `[routines.skills]` is validated against
   `CONTRACT_ROUTINES`, every chain must terminate at `/wrap-up-session`, and the
