@@ -21,9 +21,14 @@
   as the scoped `coding-agent-workflow` under a rename — PR #140 opened against the
   scoped name landed there — so installing `gh` is the only thing standing between
   these filings and publication.
-- Tests: `bash tests/run.sh` → 2/42 files fail (11 assertions), **pre-existing and
-  unrelated to this diff** — the session changed only `tasks/*.md`. Cause proven:
-  a `chmod 000` file is readable by root (rc=0) and denied to `nobody` (rc=1).
+- Tests: `bash tests/run.sh` → 2/42 files fail locally (11 assertions),
+  **pre-existing and unrelated to this diff** — the session changed only
+  `tasks/*.md`. Cause proven: a `chmod 000` file is readable by root (rc=0) and
+  denied to `nobody` (rc=1). **CI on PR #140 ran the identical command on a
+  non-root runner and passed in 52s**, so the repository is sound and the routine
+  host is the defect. Preferred remedy is therefore to run the container as
+  non-root rather than to add `geteuid()` guards, which would trade away coverage
+  CI still has.
 
 ## Session Summary — 2026-09-15 [07e1ac0]
 - Completed: 1 task — #132 metadata parser reads the span the writer owns
