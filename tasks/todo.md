@@ -16,9 +16,11 @@
   sweep found (`verify-task-registry` missing from all three inventory surfaces).
   Fixing the uid-0 guard is what unblocks every future run. Two further gaps are
   environmental: the checkout is shallow (`retired` inconclusive) and `install.sh`
-  has never run here (`installed` inconclusive). Also note the configured tracker
-  repo (`Joaovsales/jplugin-agentic-development`) is outside the routine session's
-  GitHub scope, so publication would fail even with `gh` present.
+  has never run here (`installed` inconclusive). The configured tracker repo
+  (`Joaovsales/jplugin-agentic-development`) turns out to be the *same* repository
+  as the scoped `coding-agent-workflow` under a rename — PR #140 opened against the
+  scoped name landed there — so installing `gh` is the only thing standing between
+  these filings and publication.
 - Tests: `bash tests/run.sh` → 2/42 files fail (11 assertions), **pre-existing and
   unrelated to this diff** — the session changed only `tasks/*.md`. Cause proven:
   a `chmod 000` file is readable by root (rc=0) and denied to `nobody` (rc=1).
