@@ -919,3 +919,56 @@ Commit: `d880f45`
 The committed source is the reviewed tree exercised by the CLI and isolated
 `/debug` walkthroughs above. Final verification passed all 42 test files and
 3,965 reported assertions. This follow-up records only the commit identity.
+
+## E2E Walkthrough — /go front door — 2026-09-16 (uncommitted on d6c5e5b, branch routing)
+
+Spec: specs/go-front-door.md (AC6)
+Driver: the skill loaded through the Skill tool in the main context and followed step by step. Each entry quotes the `[ROUTE]` line verbatim and names where the chain stopped.
+
+### AC6(a) — `/go how does task-registry choose a provider` — PASS
+
+```
+[ROUTE] lane=investigate | chain=inline evidence gathering; /checkpoint only if asked | reason: the goal asks how something works and requests no code; no issue reference, so the lane table decides.
+```
+
+Lane block appended to `tasks/todo.md` as five plain numbered lines under `## Lane: investigate — how does task-registry choose a provider`; `grep -c '^\s*\[ \]' tasks/todo.md` was unchanged by the block (the three pending rows are this build's own plan). Step 3 kept its line with `— skip: answered from source`. Reply cited `registry/config.py:795-805` (`select_provider`: explicit `provider =`, then GitHub remote plus authenticated `gh`, then local with two distinct reasons). `git diff --stat` excluding `tasks/todo.md` showed no source change from the lane.
+
+### AC6(b) — `/go #135` (open issue labelled `bug`) — PASS on the exit-2 edge case; routine path shown on a local fixture
+
+Live, in this repository, `task-registry workflow '#135'` exited 2:
+
+```
+upstream check: FAILED — these configured routine labels do not exist in github: design-decision, in-progress, needs-investigation, tech-debt
+  A routine selecting on a label the tracker does not have finds nothing and exits 0. That is the halt this check exists to make loud.
+exit=2
+```
+
+`/go` therefore refused the whole request, printed that message verbatim, and named the configuration file: `docs/task-tracking.md`, the target of the `Task tracking instructions:` line in `.claude/project.md`. No `[ROUTE]` line was emitted and no lane block was written — the spec's edge-case table row "workflow exits 2" is the behaviour exercised, not the routine path or the untriaged path, because the tracker is misconfigured against its own `[routines]` block (four selector labels absent on GitHub) and creating labels is an external write outside this build's authority.
+
+Supplementary, deterministic: a throwaway local-provider fixture (`provider = local`, one task upserted with `--label bug`) run through the same command:
+
+```
+issue:    cache-survives-logout  Cache entry survives logout
+routine:  fix
+matched:  bug
+chain:    /debug -> /build -> /quality-gate -> /wrap-up-session
+exit=0
+```
+
+which yields the registry-routed line
+
+```
+[ROUTE] lane=fix | chain=/debug, /build, /quality-gate, /wrap-up-session | reason: registry routine fix owns the issue (matched label bug); chain is the registry's verbatim.
+```
+
+and proceeds straight into `/debug`: its issue intake read the task through `task-registry show cache-survives-logout` (exit 0, labels `bug`, summary present) and its Phase 0.5 prelude stops at `Reproduction confirmed: NO` — the first skill's own gate, not one of `/go`'s.
+
+### AC6(c) — `/go rename _label_list to _csv_list` — PASS
+
+Run in a detached worktree of HEAD so the rename's plan artifacts stay out of this tree.
+
+```
+[ROUTE] lane=refactor | chain=inline before-proof, /plan, /build, /quality-gate, /wrap-up-session | reason: "rename X to Y" is a structural change with no behaviour change requested and no defect cue.
+```
+
+Lane block appended (five plain numbered lines). Step 1 before-proof: three callers at `config.py:401,458,496`; characterization run `None -> ()`, `'' -> ()`, `' bug , tech-debt ,, ' -> ('bug', 'tech-debt')`, `'a' -> ('a',)`; no test names the helper directly. Step 2 `/plan`: wrote `specs/rename-label-list-to-csv-list.md` and one `[ ] TDD:` row, then asked "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll begin the TDD loop." The walkthrough stopped there. Worktree `git status`: only `tasks/todo.md`, the new spec, and the copied `go` skill — no code touched.

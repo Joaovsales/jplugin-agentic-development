@@ -264,6 +264,7 @@ Invoke with `/skill-name` in any Claude Code session:
 
 | Skill | What It Does |
 |-------|-------------|
+| `/go` | Natural-language front door: match the goal to a lane (investigate, fix, refactor, perf, babysit, feature), print `[ROUTE]`, record the steps, run the skills the lane names |
 | `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
 | `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |

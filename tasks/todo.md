@@ -777,3 +777,21 @@ reverse.
 - Completed: 5 tasks — the /system-design-planning skill (SKILL.md, review card, spec template, content model), its spec, registration in CLAUDE.md/README/session-start, static pins in test-doc-conventions and test-skill-invocation-chain, byte-identical .claude copy. Plus: one worked example run of the skill against its own TODO(shortcut) → specs/upsert-depends-on.md + .plan.html (dispatched critic: 0 MUST-FIX, 9 SHOULD-FIX, 5 NITPICK, all folded in); tests/test-tdd-retirement.sh now excludes .claude/worktrees.
 - Pending: filing the three upsert-depends-on slices waits for the reviewer's "approved" on the rendered document (D2 open: refuse or report a dangling dependency id).
 - Carry-forward: /system-design-planning Step 8 keeps its TODO(shortcut) until specs/upsert-depends-on.md is built; 31 stale worktrees removed, the live bulk-read-gate worktree kept.
+
+## Plan: /go — natural-language front door over lane playbooks
+> Spec: specs/go-front-door.md
+> Approved by direct `build specs/go-front-door.md` request on 2026-09-16 (spec is v2, design-reviewed; the plan gate is the spec itself).
+
+[x] TDD: test-go-lanes.sh pins the skill, five playbooks, no frontmatter, and skill resolution in both trees -> author `.agents/skills/go/SKILL.md` (lane table, precedence, `[ROUTE]` format, one Iron Law) and `lanes/{investigate,fix,refactor,perf,babysit}.md`; mirror to `.claude/skills/go/` (AC1, AC2)
+[x] TDD: test-go-lanes.sh pins fix chain == DEFAULT_ROUTINE_SKILLS["fix"], investigate never names /wrap-up-session, refactor/babysit name /plan or /debug before /build, no routine host or hook invokes /go -> playbook step wording that satisfies each pin (AC3)
+[x] TDD: test-doc-conventions.sh pins the CLAUDE.md entry-point sentence + `/go` row, the README `/go` row, and the banner closing line -> edit CLAUDE.md § Workflow, CLAUDE.md skills table, README.md skills table, session-start.sh (banner lists /go first; closing line "Use /go <goal> to start, or continue from tasks/todo.md.") (AC4, AC5)
+[x] Live proof: run `/go` three times (investigate; issue-referenced; refactor) and record each `[ROUTE]` line, the lane block shape, and where the chain stopped in tasks/e2e-log.md (AC6)
+[ ] Eval: /eval mode A triggerability on four boundary prompts (fix-vs-perf, refactor-vs-feature, investigate-vs-fix, babysit), N=2, result table in tasks/e2e-log.md; a miss is a cue defect fixed in the lane table (AC7)
+[ ] Verify: `bash tests/run.sh` fully green with output recorded; `/quality-gate` on all changed files (AC8)
+
+## Lane: investigate — how does task-registry choose a provider
+1. Restate the question as a falsifiable claim and name the files it turns on
+2. Read those files; quote the lines that answer it
+3. Trace one live run if the code alone is inconclusive — skip: answered from source (config.py:795-805 is a single function)
+4. Reply with the cited answer
+5. `/checkpoint` only if the human asks to keep the answer
