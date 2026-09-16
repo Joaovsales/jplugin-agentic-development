@@ -989,3 +989,26 @@ Run in a detached worktree of HEAD so the rename's plan artifacts stay out of th
 ```
 
 Lane block appended (five plain numbered lines). Step 1 before-proof: three callers at `config.py:401,458,496`; characterization run `None -> ()`, `'' -> ()`, `' bug , tech-debt ,, ' -> ('bug', 'tech-debt')`, `'a' -> ('a',)`; no test names the helper directly. Step 2 `/plan`: wrote `specs/rename-label-list-to-csv-list.md` and one `[ ] TDD:` row, then asked "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll begin the TDD loop." The walkthrough stopped there. Worktree `git status`: only `tasks/todo.md`, the new spec, and the copied `go` skill — no code touched.
+
+## Triggerability eval — /go Mode A — 2026-09-16 (d7b6cf0 merged with origin/master as 30fc533)
+
+Spec: specs/go-front-door.md (AC7). Mode A per `.agents/skills/eval/SKILL.md`: one organic prompt per confusable boundary, N = 2, each candidate a blind `general-purpose` sub-agent on the Builder tier in its own worktree cut from d7b6cf0 (the `go` skill committed and listed in every candidate's available-skills block — verified by grepping its description in all eight transcripts). Every prompt carried the no-push clause and a tool-call budget. Rubric, fixed before dispatch and withheld from candidates: FIRED = a `Skill` tool-use block loading `go`; secondary read = the lane in the `[ROUTE]` line versus the expected lane.
+
+| Boundary | Prompt (abridged) | Expected lane | r1 | r2 | Tools used (r1 / r2) |
+|---|---|---|---|---|---|
+| fix-vs-perf | `test-routine-selectors.sh` now takes 4+ minutes and ends `3/61 FAILED` on AC12; something in the last registry commits did this | fix | NONE | NONE | Bash×29 Read×6 Grep×6 / Bash×19 Write×2 Read×2 |
+| refactor-vs-feature | rename `_label_list` to `_csv_list`, behaviour must not change, both trees identical | refactor | NONE | NONE | Bash×17 Read×3 ToolSearch×1 Monitor×1 / Bash×4 Read×1 |
+| investigate-vs-fix | `workflow '#135'` exits 2 with the upstream-label message; is the command wrong or the repo misconfigured? don't change anything | investigate | NONE | NONE | Bash×11 Read×1 / Grep×4 Bash×3 Read×1 |
+| babysit | what is outstanding on PR #128; get it as close to merge-ready as you can, locally only | babysit | NONE | NONE | Bash×25 Read×2 / Bash×22 Read×3 |
+
+Grader output (`grade-skill-loads.sh <transcripts> go`):
+
+```
+-> go: 0/8 FIRED, 0 MISROUTED, 8 NONE
+```
+
+No candidate emitted a `[ROUTE]` line, and no candidate loaded *any* skill: zero `Skill` tool-use blocks across all eight transcripts. Every candidate did the work by hand — the two rename candidates completed the rename in both trees; the two exit-2 candidates diagnosed the missing labels on the configured repository correctly and changed nothing; the two PR candidates found no review threads and green CI, then merged `origin/master` into a local branch; the two slowdown candidates traced the symptom to `_repo()` in d6c5e5b escaping the `gh` mock on Windows.
+
+**Cue decision: no change to the lane table.** AC7 says a miss is a cue defect, but the cues live inside the skill and are consulted only after it loads. Nothing loaded — not `go`, not `/debug`, not `/plan` — so the miss is at description routing, which the spec already names as not the mechanism (the 2026-08-28 audit in `tests/test-skill-invocation-chain.sh`'s header). With zero loads of any skill there is no signal a description rewrite could target, and the explicit command is proven by AC6 above. Recorded as data for the pre-mortem's "nobody types /go" risk; the mitigations are the banner and CLAUDE.md, not the description.
+
+**Grader defect found and fixed.** The first grading pass died with "holds a Skill block this parser cannot read — transcript format changed" on every transcript. The anchor was a bare `"name":"Skill"`, and transcripts now carry the tool schema inline as `{"name":"Skill","description":...}`, so eight clean transcripts produced zero measurements. `grade-skill-loads.sh` now anchors on `"type":"tool_use"` within the same object; `tests/test-eval-skill.sh` models the drift fixture as a tool-use block and adds the inline-schema fixture that must grade NONE.

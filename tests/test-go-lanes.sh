@@ -160,12 +160,14 @@ done
 # The routine contract chooses the chain from the label; there is no prompt to
 # match. The two session-start banner lines are the only allowed mentions,
 # matched by their exact text so a third line cannot hide behind them.
+# `tidy` joined the producer routines after the spec listed its roots; a host
+# added later is still a host, so it is swept too.
 BANNER_ROW='/go <goal>   — Natural-language front door: pick a lane, print [ROUTE], run its skills'
 BANNER_CLOSE='Ready. Use /go <goal> to start, or continue from tasks/todo.md.'
 host_hits="$(grep -rnE '(^|[^A-Za-z0-9_/.-])/go([^A-Za-z0-9_/-]|$)' \
-    .agents/skills/sweep .agents/skills/yolo .agents/skills/auto-push \
+    .agents/skills/sweep .agents/skills/tidy .agents/skills/yolo .agents/skills/auto-push \
     .agents/skills/wrap-up-session/references \
-    .claude/skills/sweep .claude/skills/yolo .claude/skills/auto-push \
+    .claude/skills/sweep .claude/skills/tidy .claude/skills/yolo .claude/skills/auto-push \
     .claude/skills/wrap-up-session/references \
     .claude/hooks 2>/dev/null \
   | grep -vF "$BANNER_ROW" | grep -vF "$BANNER_CLOSE" || true)"

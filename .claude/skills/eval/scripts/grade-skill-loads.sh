@@ -27,10 +27,17 @@ DIR="${1:-}"
 WANT="${2:-}"
 
 # Grounded in the observed transcript shape:
-#   "name":"Skill","input":{"skill":"plan","args":"..."}
+#   "type":"tool_use","id":"toolu_...","name":"Skill","input":{"skill":"plan","args":"..."}
 # A load is counted only from a real tool-use block. Anything looser matches a
 # candidate's own console output and inflates every result.
-BLOCK='"name":[[:space:]]*"Skill"'
+#
+# The anchor requires `"type":"tool_use"` earlier in the same JSON object.
+# Transcripts now carry the tool *schema* inline (`{"name":"Skill",
+# "description":"Invoke a skill..."}`), and a bare `"name":"Skill"` matched
+# that on every candidate, so a run in which nobody loaded anything died as
+# "format changed" instead of grading NONE — eight clean transcripts, zero
+# measurements (2026-09-16). `[^{}]*` keeps the match inside one object.
+BLOCK='"type":[[:space:]]*"tool_use"[^{}]*"name":[[:space:]]*"Skill"'
 
 loads_in() {
   grep -oE "$BLOCK,[[:space:]]*\"input\":\{[[:space:]]*\"skill\":[[:space:]]*\"[^\"]+\"" "$1" 2>/dev/null \
