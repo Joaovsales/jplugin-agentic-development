@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 def main() -> int:
-    hook = Path(__file__).with_name("coding-agent-workflow-session-start.sh")
+    hook = Path(__file__).with_name("jplugin-agentic-development-session-start.sh")
     # The shell hook's double-invocation guard is a Claude Code workaround: that
     # harness registers the hook twice (globally and per-project), so the second
     # firing has to exit silently. Codex registers it exactly once, so here the

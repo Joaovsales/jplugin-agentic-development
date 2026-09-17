@@ -1,6 +1,6 @@
 ---
 name: tidy
-description: Harness hygiene sweep for a coding-agent-workflow repository — the template, its mirror, and any project that vendored the harness through /sync. Eight checks over the surfaces that duplicate by design (skills tables, the session banner, retired skills, installed copies under ~/.claude and ~/.agents, backticked paths, worktrees, stray files, the task registers). Mechanical drift is fixed and committed one concern per commit, machine-side remedies are printed as commands and never run, larger drift is filed through /task-registry. Use by hand after a retirement or rename, or from a scheduled routine; --report sweeps without writing anything.
+description: Harness hygiene sweep for a jplugin-agentic-development repository — the template, its mirror, and any project that vendored the harness through /sync. Eight checks over the surfaces that duplicate by design (skills tables, the session banner, retired skills, installed copies under ~/.claude and ~/.agents, backticked paths, worktrees, stray files, the task registers). Mechanical drift is fixed and committed one concern per commit, machine-side remedies are printed as commands and never run, larger drift is filed through /task-registry. Use by hand after a retirement or rename, or from a scheduled routine; --report sweeps without writing anything.
 argument-hint: "[--report] [--check <name>[,<name>]]"
 disable-model-invocation: false
 harness: universal
@@ -89,7 +89,7 @@ repository — a downstream project has no `README.md` skills table, no `AGENTS.
 table — is **skipped with a note** in the report, never a finding. One skill serves the
 template and its descendants, with one difference. A descendant is any checkout
 whose `origin` is not the template repository
-(`github.com/Joaovsales/coding-agent-workflow`). There `CLAUDE.md` is
+(`github.com/Joaovsales/jplugin-agentic-development`). There `CLAUDE.md` is
 template-managed and overwritten by `/sync`, so `inventory` treats it as
 read-only (report, never edit), and the descendant's own allowlist entries live
 in `.claude/tidy-allowlist` — one `path — reason` per line, same format — read

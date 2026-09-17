@@ -1,4 +1,4 @@
-# Coding Agent Workflow
+# jplugin for agentic development
 
 A reusable, project-agnostic configuration system that enforces **spec-driven, TDD-first development** across all your projects — with persistent memory, specialized agents, and a structured session lifecycle. Works with Claude Code, Codex, Pi, Cursor, and other AI coding tools.
 
@@ -22,8 +22,8 @@ Codex uses the same canonical `.agents/` sources through the explicit adapter
 From the workflow repository, install the shared user-level configuration:
 
 ```bash
-git clone <this-repo-url> ~/coding-agent-workflow
-cd ~/coding-agent-workflow
+git clone <this-repo-url> ~/jplugin-agentic-development
+cd ~/jplugin-agentic-development
 bash scripts/install-codex.sh
 ```
 
@@ -35,7 +35,7 @@ command is idempotent. Review the hook commands with Codex's `/hooks` command
 before enabling them.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
-For an existing project, run `bash ~/coding-agent-workflow/scripts/scaffold-project.sh`
+For an existing project, run `bash ~/jplugin-agentic-development/scripts/scaffold-project.sh`
 from inside the repository: it adds the neutral `project-template/AGENTS.md`
 seed and the rest of the scaffold without touching files already present. The
 Codex adapter registers no git alias; `git scaffold` and `newproject` come from
@@ -44,7 +44,7 @@ Codex adapter registers no git alias; `git scaffold` and `newproject` come from
 Update all installed workflow artifacts with:
 
 ```bash
-cd ~/coding-agent-workflow
+cd ~/jplugin-agentic-development
 git pull
 bash scripts/install-codex.sh
 ```
@@ -58,8 +58,8 @@ Run `install.sh` once. It sets up three layers of enforcement: layers 1 and 3 ac
 ### Step 1 — Clone and install
 
 ```bash
-git clone <this-repo-url> ~/coding-agent-workflow
-cd ~/coding-agent-workflow
+git clone <this-repo-url> ~/jplugin-agentic-development
+cd ~/jplugin-agentic-development
 bash install.sh
 ```
 
@@ -157,9 +157,17 @@ graphify hook install       # re-index on commit/checkout
 Re-running `install.sh` is safe — it overwrites `~/.claude/` with the latest version:
 
 ```bash
-cd ~/coding-agent-workflow
+cd ~/jplugin-agentic-development
 git pull
 bash install.sh
+```
+
+The repository was renamed from its original slug. A clone made before the rename still
+works through GitHub's redirect, but point it at the current name once so the redirect is
+not load-bearing:
+
+```bash
+git remote set-url origin https://github.com/Joaovsales/jplugin-agentic-development.git
 ```
 
 If you pasted `newproject` into your shell rc before `git scaffold` existed, replace it with the function the installer prints: the old one relied on a post-init hook git never runs, so it committed unscaffolded repos.

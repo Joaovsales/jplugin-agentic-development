@@ -1,8 +1,8 @@
-name: Sync coding-agent-workflow (reusable)
+name: Sync jplugin-agentic-development (reusable)
 
 # Reusable workflow: called by downstream project repos to vendor the
 # template-managed workflow files (skills, agents, hooks, CLAUDE.md) from the
-# public coding-agent-workflow repo, opening a PR with any changes.
+# public jplugin-agentic-development repo, opening a PR with any changes.
 #
 # Managed (overwritten/added, never deleted): CLAUDE.md, .agents/skills/,
 #   .claude/skills/, .claude/agents/, .claude/hooks/, .claude/settings.json
@@ -12,7 +12,7 @@ on:
   workflow_call:
     inputs:
       template_ref:
-        description: "Ref of coding-agent-workflow to sync from"
+        description: "Ref of jplugin-agentic-development to sync from"
         type: string
         default: "master"
       auto_merge:
@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           rm -rf .tpl-sync
           git clone --depth 1 --branch "${{ inputs.template_ref }}" \
-            https://github.com/Joaovsales/coding-agent-workflow .tpl-sync
+            https://github.com/Joaovsales/jplugin-agentic-development .tpl-sync
           echo "sha=$(git -C .tpl-sync rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Apply managed paths (non-destructive; preserve project files)
@@ -68,14 +68,14 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: chore/sync-coding-agent-workflow
+          branch: chore/sync-jplugin-agentic-development
           base: ${{ github.event.repository.default_branch }}
           delete-branch: true
-          commit-message: "chore(workflow): sync coding-agent-workflow@${{ steps.fetch.outputs.sha }}"
-          title: "chore: sync coding-agent-workflow template"
+          commit-message: "chore(workflow): sync jplugin-agentic-development@${{ steps.fetch.outputs.sha }}"
+          title: "chore: sync jplugin-agentic-development template"
           body: |
             Automated sync of the template-managed workflow files from
-            [coding-agent-workflow@${{ inputs.template_ref }}](https://github.com/Joaovsales/coding-agent-workflow/tree/${{ inputs.template_ref }})
+            [jplugin-agentic-development@${{ inputs.template_ref }}](https://github.com/Joaovsales/jplugin-agentic-development/tree/${{ inputs.template_ref }})
             (`${{ steps.fetch.outputs.sha }}`).
 
             **Managed (overwritten/added):** `CLAUDE.md`, `.agents/skills/`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`

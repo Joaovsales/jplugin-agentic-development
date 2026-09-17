@@ -130,7 +130,7 @@ fi
 
 echo ""
 echo "$DIVIDER"
-echo "  SESSION START — Coding Agent Workflow"
+echo "  SESSION START — jplugin for agentic development"
 echo "$DIVIDER"
 
 # ── Learning Store ───────────────────────────────────────────────────────────
@@ -314,7 +314,7 @@ if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
 fi
 
 # ── Workflow Template Drift Check ────────────────────────────────────────────
-# Notifies if the coding-agent-workflow template has new commits affecting
+# Notifies if the jplugin-agentic-development template has new commits affecting
 # syncable paths (.agents/git-hooks, .claude/skills, .claude/agents, .claude/hooks, .claude/browsers,
 # settings.json).
 # Silent when in sync (observability discipline: loud only on actionable state).

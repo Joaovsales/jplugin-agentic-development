@@ -13,8 +13,8 @@
 #   8. Prints a `newproject` shell function to add to your .bashrc / .zshrc
 #
 # Usage:
-#   git clone <this-repo> ~/coding-agent-workflow
-#   cd ~/coding-agent-workflow && bash install.sh [--prune-skills]
+#   git clone <this-repo> ~/jplugin-agentic-development
+#   cd ~/jplugin-agentic-development && bash install.sh [--prune-skills]
 #
 # Skill installation is additive: nothing already in ~/.claude/skills/ is deleted
 # unless you pass --prune-skills, which lists every non-template entry and waits

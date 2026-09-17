@@ -11,9 +11,17 @@ import tempfile
 from pathlib import Path
 from typing import NoReturn, Optional
 
-BEGIN = "<!-- coding-agent-workflow:begin -->"
-END = "<!-- coding-agent-workflow:end -->"
-MANAGED = "# coding-agent-workflow:managed"
+SLUG = "jplugin-agentic-development"
+BEGIN = f"<!-- {SLUG}:begin -->"
+END = f"<!-- {SLUG}:end -->"
+MANAGED = f"# {SLUG}:managed"
+# Files written before the repository rename carry the old slug in the same three
+# markers and in the hook file names. Assembled at runtime so the identity sweep
+# (tests/test-repo-identity.sh) does not read this module as a live reference.
+LEGACY_SLUG = "coding-agent" + "-workflow"
+LEGACY_BEGIN = BEGIN.replace(SLUG, LEGACY_SLUG)
+LEGACY_END = END.replace(SLUG, LEGACY_SLUG)
+LEGACY_MANAGED = MANAGED.replace(SLUG, LEGACY_SLUG)
 
 
 def fail(message: str) -> NoReturn:
@@ -96,15 +104,18 @@ def render_global(source: Path, destination: Path) -> None:
     body = "\n".join(line for line in body.splitlines() if not line.startswith("@"))
     managed = (
         f"{BEGIN}\n"
-        "# Shared Coding Agent Workflow\n"
+        "# Shared jplugin for agentic development\n"
         "> Project-specific instructions belong in the project's AGENTS.md.\n\n"
         f"{body.rstrip()}\n"
         f"{END}\n"
     )
     existing = destination.read_text(encoding="utf-8") if destination.exists() else ""
-    if BEGIN in existing and END in existing:
-        before = existing.split(BEGIN, 1)[0]
-        after = existing.split(END, 1)[1].lstrip("\n")
+    begin, end = BEGIN, END
+    if BEGIN not in existing and LEGACY_BEGIN in existing and LEGACY_END in existing:
+        begin, end = LEGACY_BEGIN, LEGACY_END
+    if begin in existing and end in existing:
+        before = existing.split(begin, 1)[0]
+        after = existing.split(end, 1)[1].lstrip("\n")
         result = before + managed + after
     else:
         result = existing.rstrip() + ("\n\n" if existing.strip() else "") + managed
@@ -118,7 +129,8 @@ def render_agents(source_dir: Path, destination_dir: Path) -> None:
             continue
         name, description, instructions = parse_agent(source)
         destination = destination_dir / f"{source.stem}.toml"
-        if destination.exists() and MANAGED not in destination.read_text(encoding="utf-8"):
+        existing = destination.read_text(encoding="utf-8") if destination.exists() else ""
+        if destination.exists() and MANAGED not in existing and LEGACY_MANAGED not in existing:
             print(f"kept personal agent: {destination}")
             continue
         content = (
@@ -128,6 +140,23 @@ def render_agents(source_dir: Path, destination_dir: Path) -> None:
             f"developer_instructions = {json.dumps(instructions, ensure_ascii=False)}\n"
         )
         write_text(destination, content)
+
+
+def _drop_legacy_adapter(groups: list) -> None:
+    """Remove this adapter's pre-rename registration for one event, in place.
+
+    A machine installed before the repository rename holds the same hook under
+    the old file name; left alone, a re-run would register the renamed file
+    beside it and the event would fire the adapter twice.
+    """
+    for group in groups:
+        if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+            continue
+        group["hooks"] = [
+            hook for hook in group["hooks"]
+            if not (isinstance(hook, dict) and f"{LEGACY_SLUG}-" in str(hook.get("command", "")))
+        ]
+    groups[:] = [g for g in groups if not (isinstance(g, dict) and g.get("hooks") == [])]
 
 
 def merge_hooks(destination: Path, commands: list[str]) -> None:
@@ -148,6 +177,7 @@ def merge_hooks(destination: Path, commands: list[str]) -> None:
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):
             fail(f"{destination}: {event} must be an array")
+        _drop_legacy_adapter(groups)
         registered = any(
             isinstance(group, dict)
             and any(

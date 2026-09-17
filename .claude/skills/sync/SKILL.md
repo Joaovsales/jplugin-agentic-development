@@ -1,12 +1,12 @@
 ---
 name: sync
-description: Pull latest skills, hooks, agents, and config from the coding-agent-workflow template repo.
+description: Pull latest skills, hooks, agents, and config from the jplugin-agentic-development template repo.
 harness: universal
 ---
 
 # /sync — Sync Workflow Updates from Template Repo
 
-Pull the latest skills, hooks, agents, and config from the `coding-agent-workflow` template repo into the current project.
+Pull the latest skills, hooks, agents, and config from the `jplugin-agentic-development` template repo into the current project.
 
 ## Layered Configuration Model
 
@@ -43,7 +43,7 @@ Pi reads `CLAUDE.md` (shared rules) + `AGENTS.md` (project-specific additions). 
 
 ## Source Repo
 
-- **GitHub**: `Joaovsales/coding-agent-workflow`
+- **GitHub**: `Joaovsales/jplugin-agentic-development`
 - **Remote name convention**: `workflow`
 
 ## Automatic Drift Notification
@@ -64,7 +64,7 @@ not, install this hook.
 **Enable on a fresh project:**
 
 ```bash
-git remote add workflow https://github.com/Joaovsales/coding-agent-workflow.git
+git remote add workflow https://github.com/Joaovsales/jplugin-agentic-development.git
 ```
 
 Once the remote exists, the hook takes over automatically. Fetch is capped at a
@@ -149,14 +149,14 @@ git remote get-url workflow 2>/dev/null
 
 | Option | Action |
 |--------|--------|
-| **Add git remote** | `git remote add workflow https://github.com/Joaovsales/coding-agent-workflow.git` |
+| **Add git remote** | `git remote add workflow https://github.com/Joaovsales/jplugin-agentic-development.git` |
 | **Manual diff** | Skip git, do a file-by-file comparison using a local clone in `/tmp` |
 
 If user chooses manual diff, clone to a **fresh private directory** and remember it:
 
 ```bash
 WORKFLOW_CLONE="$(mktemp -d)"
-git clone --filter=blob:none https://github.com/Joaovsales/coding-agent-workflow.git "$WORKFLOW_CLONE"
+git clone --filter=blob:none https://github.com/Joaovsales/jplugin-agentic-development.git "$WORKFLOW_CLONE"
 ```
 
 `--filter=blob:none`, not `--depth 1`: Step 6.4 asks the template what it *used
@@ -165,7 +165,7 @@ every retired skill looks project-specific and is kept forever. The filter keeps
 the clone cheap (commits and trees only; file contents are fetched on demand)
 while leaving that question answerable.
 
-Do not reuse a fixed path such as `/tmp/coding-agent-workflow`, and do not trust
+Do not reuse a fixed path such as `/tmp/jplugin-agentic-development`, and do not trust
 one that already exists. Step 6.4 points a **file-deleting** tool at this
 directory and reads the syncable-root list out of it, so anything that can
 pre-create that path chooses what gets deleted.
@@ -374,7 +374,7 @@ For each applied file, briefly note what changed.
 
 1. Run `git diff --stat` to confirm what was updated
 2. Ask the user if they want to commit the sync:
-   - Suggested message: `chore: sync workflow updates from coding-agent-workflow`
+   - Suggested message: `chore: sync workflow updates from jplugin-agentic-development`
 3. Remind the user to review `CLAUDE.md` if it was updated — they may need to merge project-specific customizations back in
 
 ### Step 6.4 — Retired Path Removal
@@ -552,7 +552,7 @@ If any hit **and** `tasks/solutions/` does not exist:
 
 > ⚠ This project still uses the retired monolithic learning store. The synced
 > skills read `tasks/solutions/` instead. Run the converter from your
-> coding-agent-workflow clone —
+> jplugin-agentic-development clone —
 > `python3 <template-clone>/scripts/migrate-learning-store.py --repo .`
 > (dry-run by default; `--apply` to convert; originals are archived, never
 > deleted). Where `python3` is not on PATH (Windows, notably), substitute

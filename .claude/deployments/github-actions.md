@@ -65,7 +65,7 @@ Run `/setup-deployment` after editing `check_contexts` to re-validate the runboo
 
 ## Dashboard URL
 
-The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `CLAUDE.md` § Deployment Targets. For GitHub Actions, use `<owner>/<repo>` (e.g. `joaovsales/coding-agent-workflow`). The resulting URL opens the Actions tab for the repo.
+The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `CLAUDE.md` § Deployment Targets. For GitHub Actions, use `<owner>/<repo>` (e.g. `joaovsales/jplugin-agentic-development`). The resulting URL opens the Actions tab for the repo.
 
 ## Manual troubleshooting
 

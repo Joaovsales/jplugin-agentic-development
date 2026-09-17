@@ -45,13 +45,13 @@ assert_contains "$src" 'scripts/scaffold-project.sh' \
   "install.sh: installs the checked-in scaffold script"
 assert_contains "$src" 'alias.scaffold' \
   "install.sh: registers the git scaffold alias"
-assert_not_contains "$src" 'coding-agent-workflow/project-template' \
+assert_not_contains "$src" 'jplugin-agentic-development/project-template' \
   "install.sh: no hardcoded clone path for the template"
 assert_contains "$src" 'git scaffold' \
   "install.sh: newproject and existing-repo guidance call git scaffold"
 assert_eq "present" "$([ -x scripts/scaffold-project.sh ] && echo present || echo missing)" \
   "scripts/scaffold-project.sh: exists and is executable"
-assert_file_not_matches scripts/scaffold-project.sh '\$HOME/coding-agent-workflow' \
+assert_file_not_matches scripts/scaffold-project.sh '\$HOME/jplugin-agentic-development' \
   "scaffold-project.sh: resolves the template relative to itself, not a clone path"
 assert_file_not_matches README.md 'post-init.? hook (fires|runs|triggers)' \
   "README: no longer advertises a post-init hook firing on git init"
@@ -156,7 +156,7 @@ rm -rf "$box"
 
 # ── Case 6: scaffold works from a checkout path with spaces, anywhere on disk ─
 # Install via a symlinked checkout whose path contains spaces, with an isolated
-# HOME. Nothing may depend on the clone living at ~/coding-agent-workflow.
+# HOME. Nothing may depend on the clone living at ~/jplugin-agentic-development.
 box="$(mktemp -d)"
 h="$box/home"
 mkdir -p "$h"
