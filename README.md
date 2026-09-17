@@ -353,7 +353,6 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 | Hook | Trigger | What It Does |
 |------|---------|-------------|
 | `session-start.sh` | Session start | Prints memory, active tasks, lessons, git status, available skills catalog |
-| `auto-test-runner.sh` | After every Bash tool use | Runs tests on changed files; creates task entries on failure |
 
 ---
 
@@ -376,15 +375,13 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │   ├── agents/                      ← 8 specialized subagents
 │   ├── skills/                      ← skills, each with SKILL.md + optional reference docs
 │   └── hooks/
-│       ├── session-start.sh         ← Orientation + skill awareness
-│       └── auto-test-runner.sh
+│       └── session-start.sh         ← Orientation + skill awareness
 ├── tasks/
 │   ├── todo.md                      ← Active task plan
 │   ├── history.md                   ← Session narrative log
 │   ├── concepts.md                  ← Concept glossary (project vocabulary)
 │   └── solutions/                   ← Typed learning store (written via /learn)
-├── specs/                           ← Feature specifications
-└── tests.md                         ← Project-specific test configuration
+└── specs/                           ← Feature specifications
 ```
 
 ---

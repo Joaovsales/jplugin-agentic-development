@@ -148,7 +148,7 @@ This section documents the `## Deployment Targets` section that lives in a proje
 
 ### Location
 
-The `## Deployment Targets` section lives in **`.claude/project.md`** (project-specific config, committed). It used to live in `CLAUDE.md`; legacy projects may still have it there — `/sync` offers automatic migration and the tooling falls back to `CLAUDE.md` with a deprecation warning when the section is not yet migrated.
+The `## Deployment Targets` section lives in **`.claude/project.md`** (project-specific config, committed).
 
 The section heading must be **exactly** `## Deployment Targets` with no trailing text. `/verify-deployment` and the session-start hook match this header with the regex `^## Deployment Targets[[:space:]]*$`, so any extra text (e.g. `## Deployment Targets (placeholder)`) intentionally disables verification — this is how the template repo documents the schema without activating it.
 

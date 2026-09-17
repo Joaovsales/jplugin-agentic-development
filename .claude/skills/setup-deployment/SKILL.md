@@ -9,7 +9,7 @@ harness: claude
 
 # /setup-deployment — Deployment Verification Bootstrap
 
-Configure `/verify-deployment` for this project. Scans the project for deployment signal files, confirms detected services with the user, prompts for the per-service routing details, and writes the `## Deployment Targets` section into `.claude/project.md`. (Legacy location: `CLAUDE.md`. Projects synced before the project-config split keep their existing section there until `/sync` migrates it.)
+Configure `/verify-deployment` for this project. Scans the project for deployment signal files, confirms detected services with the user, prompts for the per-service routing details, and writes the `## Deployment Targets` section into `.claude/project.md`.
 
 This skill is idempotent. Re-running it offers to update existing routing rather than duplicating it.
 
@@ -114,14 +114,13 @@ error and re-run /setup-deployment. Do NOT manually add the Deployment Targets
 section to CLAUDE.md — it will be wiped on the next /sync.
 ```
 
-Once `.claude/project.md` exists, look for an existing `## Deployment Targets` section in it. (Also check `CLAUDE.md` for a legacy section; if one is found there, instruct the user to run `/sync` first, which will auto-migrate the legacy section into `.claude/project.md` before /setup-deployment proceeds.)
+Once `.claude/project.md` exists, look for an existing `## Deployment Targets` section in it.
 
 | Existing state | Action |
 |---|---|
 | Section absent in project.md | Append a new section at the end of `.claude/project.md` |
 | Section present, no overlapping services | Add the new rows to the existing table; preserve existing rows |
 | Section present, same service appears | Ask: `<service> is already configured for branch <X>. Replace with the new branch <Y>? (y/n)` — replace on yes, skip on no |
-| Legacy section present in CLAUDE.md | Abort: `Legacy Deployment Targets section found in CLAUDE.md. Run /sync first to migrate it to .claude/project.md, then re-run /setup-deployment.` |
 
 **Format of the inserted section:**
 

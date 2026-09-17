@@ -11,7 +11,7 @@ harness: claude
 
 Wait for the deployment service(s) configured in `.claude/project.md` § Deployment Targets to finish building the current commit. On failure, fetch logs, delegate the fix to `code-debugger`, push the fix as a new commit, and loop. Maximum 3 fix iterations per service before escalation.
 
-**Note**: The routing table moved from `CLAUDE.md` to `.claude/project.md` so `/sync` can overwrite the template-managed `CLAUDE.md` without wiping deployment config. This skill falls back to `CLAUDE.md` when the section is still in the legacy location and emits a one-time deprecation warning prompting the user to run `/sync` to auto-migrate.
+**Note**: The routing table lives in `.claude/project.md`, not `CLAUDE.md`, so `/sync` can overwrite the template-managed `CLAUDE.md` without wiping deployment config. `CLAUDE.md` is never read for it.
 
 This skill is **service-agnostic by construction**. No specific deployment service is named anywhere in this file. All service-specific behavior comes from runbook files in `.claude/deployments/<service>.md`. Adding a new service is a drop-in change to that directory.
 
@@ -35,18 +35,9 @@ Exit. Do not proceed.
 
 Look for a section header line that matches **exactly** `^## Deployment Targets[[:space:]]*$` — the heading must be `## Deployment Targets` with no trailing text. Headings like `## Deployment Targets (placeholder — run /setup-deployment to populate)` are intentionally not matched, so the template repo can document the schema without activating verification.
 
-**Search order (primary, then legacy fallback):**
+**Location:** `.claude/project.md` — read the file if it exists and grep for the exact header regex above. `CLAUDE.md` is template-managed and is not searched.
 
-1. **`.claude/project.md`** (primary location) — read the file if it exists and grep for the exact header regex above
-2. **`CLAUDE.md`** (legacy fallback) — only if step 1 did not find a matching section. If the section IS found here, emit the deprecation warning below **once per invocation** and proceed using the CLAUDE.md section:
-
-   ```
-   ⚠ Deprecation: ## Deployment Targets found in CLAUDE.md. Run /sync to migrate
-     to .claude/project.md — CLAUDE.md is template-managed and its project-specific
-     content will be wiped the next time /sync overwrites it.
-   ```
-
-**If the section is missing from BOTH files:**
+**If the section is missing:**
 
 - For each runbook in `.claude/deployments/*.md` (excluding `README.md`), parse its frontmatter and read `detect_files`
 - Check the project root for any matching signal file

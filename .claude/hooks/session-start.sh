@@ -267,14 +267,10 @@ if git rev-parse --is-inside-work-tree &>/dev/null; then
 fi
 
 # ── Deployment Signal Nudge ──────────────────────────────────────────────────
-# If neither .claude/project.md nor CLAUDE.md has a "## Deployment Targets"
-# section AND any known deployment signal file exists at the project root,
-# print a one-line nudge. Non-blocking. Suppressed by creating
-# .claude/deploy-nudge-dismissed.
-#
-# Lookup order: .claude/project.md (primary) → CLAUDE.md (legacy fallback).
-# If the section is found in the legacy CLAUDE.md location, print a
-# deprecation hint prompting the user to run /sync to migrate.
+# If .claude/project.md has no "## Deployment Targets" section AND any known
+# deployment signal file exists at the project root, print a one-line nudge.
+# Non-blocking. Suppressed by creating .claude/deploy-nudge-dismissed.
+# CLAUDE.md is template-managed and is never read for the section.
 if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
   # Match ONLY a literal "## Deployment Targets" heading line — not headings with
   # extra text like "## Deployment Targets (placeholder — run /setup-deployment)".
@@ -282,22 +278,10 @@ if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
   TARGETS_REGEX='^## Deployment Targets[[:space:]]*$'
 
   TARGETS_IN_PROJECT=0
-  TARGETS_IN_CLAUDE=0
   [ -f ".claude/project.md" ] && grep -qE "$TARGETS_REGEX" .claude/project.md 2>/dev/null && TARGETS_IN_PROJECT=1
-  [ -f "CLAUDE.md" ] && grep -qE "$TARGETS_REGEX" CLAUDE.md 2>/dev/null && TARGETS_IN_CLAUDE=1
 
-  # Legacy migration reminder: section in CLAUDE.md means the project hasn't
-  # migrated yet. Still functional (thanks to fallback reads), but flag it.
-  if [ "$TARGETS_IN_PROJECT" = "0" ] && [ "$TARGETS_IN_CLAUDE" = "1" ]; then
-    echo ""
-    echo "⚠  Deployment Targets still in CLAUDE.md (legacy location)."
-    echo "   Run /sync to auto-migrate to .claude/project.md — CLAUDE.md is"
-    echo "   template-managed and its project-specific content will be wiped"
-    echo "   the next time /sync overwrites it."
-  fi
-
-  # Nudge: signal files present but section absent from BOTH locations
-  if [ "$TARGETS_IN_PROJECT" = "0" ] && [ "$TARGETS_IN_CLAUDE" = "0" ]; then
+  # Nudge: signal files present but the section is absent
+  if [ "$TARGETS_IN_PROJECT" = "0" ]; then
     DEPLOY_SIGNAL=""
     for signal in railway.json railway.toml .railway vercel.json .vercel .vercelignore netlify.toml fly.toml render.yaml; do
       if [ -e "$signal" ]; then

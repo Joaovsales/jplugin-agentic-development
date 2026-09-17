@@ -62,7 +62,7 @@ This scope is **service-agnostic** — all service-specific behavior comes from 
 ### Pre-Flight
 
 1. Run `git status --porcelain`. If any output: STOP — uncommitted changes must be resolved first.
-2. Locate the routing table: look for `^## Deployment Targets[[:space:]]*$` in `.claude/project.md` (primary, Claude Code only), then `CLAUDE.md` (legacy fallback with deprecation warning).
+2. Locate the routing table: look for `^## Deployment Targets[[:space:]]*$` in `.claude/project.md` (Claude Code only). `CLAUDE.md` is template-managed and is not searched.
 3. Resolve: `git rev-parse HEAD` (current SHA), `git rev-parse --abbrev-ref HEAD` (branch), confirm remote exists.
 4. Filter: keep only target rows whose `Triggers on branch` matches the current branch. If empty: skip silently.
 
