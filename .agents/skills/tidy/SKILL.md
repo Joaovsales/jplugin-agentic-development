@@ -100,7 +100,7 @@ in addition to the seed list at the end of this file.
 | `suite` | the project's test runner, discovered the way `/wrap-up-session` Step 6 does (`package.json`, `Makefile`, `pyproject.toml`, `TESTING.md`; in this repository, `tests/run.sh`) | a red suite. Ordered first; nothing is fixed on a red baseline. No runner → **inconclusive** |
 | `inventory` | `.agents/skills/` ∪ `.claude/skills/` (the canonical tree plus the allowlisted Claude-only extras) ↔ the skills tables in `CLAUDE.md`, `README.md`, `AGENTS.md` (table rows whose first cell is a backticked `/<name>`) ↔ the `SKILLS AVAILABLE` block of `.claude/hooks/session-start.sh` | a skill present in one surface and absent from another, **in either direction**. A directory with no row is Tier 0 in the template repository — the row is determined by its `description` — and Tier 1 in a descendant, where `CLAUDE.md` is `/sync`-managed. A row naming a skill in neither tree is skipped when the *Allowlist* names it (`graphify` is registered on purpose), otherwise Tier 1: it may be a global-only skill the surface's prose still relies on, so the remedy (remove the row, or vendor the skill) is printed, not applied |
 | `retired` | `git log --diff-filter=D --name-only --format= -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md'` — the retired set is *computed from history* over both trees, never typed — against every file outside `tasks/` and `specs/` | a retired skill still named **as live**: a banner line, a table row, a `/build` delegation, a hook that branches on it, an install or sync copy list. `tasks/` and `specs/` are history and exempt |
-| `installed` | `~/.claude/CLAUDE.md`, `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/hooks/session-start.sh`, `~/.agents/` against what `install.sh` would write from `HEAD` | a stale, missing, or retired installed copy. No `~/.claude/` on this machine → **inconclusive** with the note |
+| `installed` | `~/.claude/CLAUDE.md`, `~/.claude/agents/`, `~/.claude/hooks/session-start.sh`, `~/.agents/` against what `install.sh` would write from `HEAD`; `~/.claude/plugins/installed_plugins.json` for the `jplugin@jplugin-agentic-development` record; `~/.claude/skills/` for pre-plugin copies of template names | a stale, missing, or retired installed copy. No `~/.claude/` on this machine → **inconclusive** with the note |
 | `refs` | paths in backticks in `CLAUDE.md`, `README.md`, `AGENTS.md`, `PI_SETUP.md`, `.claude/project.md`, and every `SKILL.md` | a path that resolves nowhere after trying the literal path, `~` expansion, and a basename search over `git ls-files`, minus the *Allowlist*. Placeholders (`<name>`) and globs are not paths |
 | `worktrees` | `git worktree list --porcelain`, `git branch`, `gh pr list --state merged --limit 200 --json headRefName,headRefOid` | a worktree or local branch whose branch is **provably** merged — its name is in the forge's merged set **and** that PR's `headRefOid` is the local tip or reachable from it (`git merge-base --is-ancestor`); a name match with a different tip is *Unverified* (the name was reused). A merged set whose size equals the `--limit` is truncated: unmatched entries are *inconclusive*, not unmerged. Without forge access every worktree is report-only, because a squash-merge leaves no ancestry and is invisible to `git branch --merged` |
 | `strays` | `git status --porcelain --untracked-files=all --ignored`; a direct listing of `.claude/worktrees/` (its ignore rule is machine-local, written by the runtime into `.git/info/exclude`, so `status` may or may not show those files) | transient droppings only: `*.log`, `*.tmp`, `*.orig`, `*.rej`, `*.bak`, `*.swp`, `*.pyc`, `__pycache__`, `nul`, `hookout.txt`, `hookerr.txt`. Any other untracked file is WIP and is context, not a finding |
@@ -119,14 +119,16 @@ Per-check notes, where the table is not enough:
   never clean — truncated history is an unread surface. An empty set in a full
   clone (fresh repository) reports clean with the note `no retirements in history`.
 - **`installed`.** Compare content, not timestamps: `diff` the file, `diff -r` the
-  directory. `install.sh` copies both trees, so `.claude/skills/README.md` and the
-  parity extras *are* shipped. An installed skill directory the template does not
-  ship has three outcomes, never two: retired (in the `retired` set → finding),
-  the operator's own (`installed:<name>` in the *Allowlist* → skipped), or
-  neither → finding reported as `unshipped, provenance unknown`, so an unknown
-  directory can never pass as clean. The remedy is always the existing tool — `bash install.sh`,
-  plus `bash install.sh --prune-skills` for entries the template no longer ships —
-  printed, never run. The skill **never modifies** `~/.claude/` or `~/.agents/`
+  directory. Skills reach Claude Code through the plugin, so the check reads
+  `~/.claude/plugins/installed_plugins.json` for the `jplugin@jplugin-agentic-development`
+  record (absent → finding) and treats every entry under `~/.claude/skills/` whose
+  name the template ships now or once shipped as a pre-plugin copy (→ finding: it
+  shadows the plugin's skill). Any other installed skill directory has two outcomes:
+  the operator's own (`installed:<name>` in the *Allowlist* → skipped) or
+  `unshipped, provenance unknown` (→ finding), so an unknown directory can never
+  pass as clean. The remedy is always the existing tool — `bash install.sh`, which
+  registers the plugin and offers the pre-plugin copies for deletion behind one
+  `y/N` — printed, never run. The skill **never modifies** `~/.claude/` or `~/.agents/`
   itself (Law 7).
 - **`refs`.** A token that fails literally, carries a directory component, and
   whose basename resolves to exactly one tracked file is a Tier 0 repair — the
@@ -161,7 +163,7 @@ Every finding lands in exactly one tier, and the tier decides what the pass may 
   reference, a directory path whose basename resolves to exactly one file.
 - **Tier 1 — needs judgment, or touches the operator's machine.** Reported with
   the exact remedy command, **never executed by the skill**: `git worktree remove
-  <path>`, `bash install.sh --prune-skills`, a reference whose basename resolves to
+  <path>`, `bash install.sh` (answering `y` to the pre-plugin list), a reference whose basename resolves to
   two files, a closed plan block to archive into `tasks/history.md`.
 - **Tier 2 — larger than a tidy pass.** Filed through `/task-registry` (§ *Filing*)
   for a consumer routine: a doc section describing retired behaviour, a hook that

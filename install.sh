@@ -2,23 +2,28 @@
 # install.sh — One-time setup to enforce Claude workflow across all projects.
 #
 # What this does:
-#   1. Copies skills and agents into ~/.claude/ (global Claude Code config)
-#   2. Copies .agents/ into ~/.agents/ (harness-neutral skills)
-#   3. Installs a global SessionStart hook that orients Claude in any project
-#   4. Sets up a git template dir so new repos receive the pre-push hook
-#   5. Configures Pi (~/.pi/agent/settings.json) if installed
-#   6. Wires graphify into this project if the CLI is present (optional)
-#   7. Installs project-template/ + a global `git scaffold` alias that copies it
+#   1. Copies CLAUDE.md into ~/.claude/ (global Claude Code config)
+#   2. Registers this checkout as a Claude Code plugin marketplace and installs
+#      the `jplugin` plugin at user scope; offers to delete the pre-plugin skill
+#      copies from ~/.claude/skills/ (one y/N; nothing is deleted on N or EOF)
+#   3. Copies .agents/ into ~/.agents/ (harness-neutral skills, read by Pi and Codex)
+#   4. Copies agents into ~/.claude/agents/
+#   5. Installs a global SessionStart hook that orients Claude in any project
+#   6. Configures Pi (~/.pi/agent/settings.json) if installed
+#   7. Wires graphify into this project if the CLI is present (optional)
+#   8. Sets up a git template dir so new repos receive the pre-push hook
+#   9. Installs project-template/ + a global `git scaffold` alias that copies it
 #      into any repo (git has no post-init hook, so bootstrap is explicit)
-#   8. Prints a `newproject` shell function to add to your .bashrc / .zshrc
+#  10. Prints a `newproject` shell function to add to your .bashrc / .zshrc
 #
 # Usage:
 #   git clone <this-repo> ~/jplugin-agentic-development
-#   cd ~/jplugin-agentic-development && bash install.sh [--prune-skills]
+#   cd ~/jplugin-agentic-development && bash install.sh
 #
-# Skill installation is additive: nothing already in ~/.claude/skills/ is deleted
-# unless you pass --prune-skills, which lists every non-template entry and waits
-# for a typed confirmation first.
+# Skill delivery is the plugin, not a copy: nothing is ever written into
+# ~/.claude/skills/. The only deletion this script can perform is of entries
+# there whose name the template ships now or once shipped, and only after you
+# answer y to a list of them. Anything else in ~/.claude/skills/ is never touched.
 
 set -euo pipefail
 
@@ -34,59 +39,136 @@ step() { echo -e "\n${BOLD}▶ $1${RESET}"; }
 ok()   { echo -e "  ${GREEN}✓${RESET} $2"; }
 
 usage() {
-  echo "Usage: bash install.sh [--prune-skills]"
+  echo "Usage: bash install.sh"
   echo ""
-  echo "  --prune-skills  Offer to delete entries in ~/.claude/skills/ that this"
-  echo "                  template no longer ships. Lists them and requires a typed"
-  echo "                  confirmation. Without this flag nothing is ever deleted."
   echo "  -h, --help      Show this message."
+  echo ""
+  echo "  Pre-plugin copies under ~/.claude/skills/ are listed during the run and"
+  echo "  deleted only after a typed y. There is no flag for it any more."
 }
 
-PRUNE_SKILLS=0
 for arg in "$@"; do
   case "$arg" in
-    --prune-skills) PRUNE_SKILLS=1 ;;
     -h|--help)      usage; exit 0 ;;
     *)              echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
   esac
 done
 
-# Entries in ~/.claude/skills/ that this template does not ship — the user's own
-# skills, plus template skills retired since their last install. One per line;
-# empty output means the two trees agree.
-extra_global_skills() {
-  local entry name
-  for entry in "$CLAUDE_HOME/skills"/*; do
-    [ -e "$entry" ] || continue
-    name="$(basename "$entry")"
-    [ -e "$REPO_DIR/.claude/skills/$name" ] || printf '%s\n' "$name"
-  done
+MARKETPLACE_NAME="jplugin-agentic-development"
+PLUGIN_ID="jplugin@$MARKETPLACE_NAME"
+PLUGIN_OUTCOME=""   # Installed | Already | Skipped
+LEGACY_OUTCOME=""   # Clean | Kept(n) | Removed(n)
+
+# install_claude_plugin REPO_DIR — sets PLUGIN_OUTCOME.
+# Registers the checkout as a directory marketplace and installs the plugin at
+# user scope. Both writes are idempotent, so a crash between them is recovered by
+# the next run. A CLI exit code other than 0 aborts the script (set -e) with the
+# CLI's own output — never silently continues.
+install_claude_plugin() {
+  local repo_dir="$1"
+  PLUGIN_OUTCOME="Already"
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "  NOTE: claude CLI not found on PATH — plugin registration skipped."
+    echo "  Install Claude Code, then re-run install.sh, or run by hand:"
+    echo "    claude plugin marketplace add \"$repo_dir\""
+    echo "    claude plugin install $PLUGIN_ID --scope user"
+    PLUGIN_OUTCOME="Skipped"
+    return 0
+  fi
+  if claude plugin marketplace list 2>/dev/null \
+       | grep -qE "(^|[[:space:]])$MARKETPLACE_NAME([[:space:]]|\$)"; then
+    ok "already" "marketplace $MARKETPLACE_NAME already registered"
+  else
+    claude plugin marketplace add "$repo_dir" \
+      || { echo "  ERROR: 'claude plugin marketplace add' failed — see output above" >&2; exit 1; }
+    ok "registered" "directory marketplace $MARKETPLACE_NAME → $repo_dir"
+    PLUGIN_OUTCOME="Installed"
+  fi
+  if grep -qF "\"$PLUGIN_ID\"" "$CLAUDE_HOME/plugins/installed_plugins.json" 2>/dev/null; then
+    ok "already" "$PLUGIN_ID already installed"
+  else
+    claude plugin install "$PLUGIN_ID" --scope user \
+      || { echo "  ERROR: 'claude plugin install $PLUGIN_ID' failed — see output above" >&2; exit 1; }
+    ok "installed" "$PLUGIN_ID (user scope)"
+    PLUGIN_OUTCOME="Installed"
+  fi
+  # One marketplace per name (verified 2026-09-17): a project whose
+  # .claude/settings.json declares the github source under this name replaces
+  # this directory registration when opened. The installed record keeps its
+  # installPath, so skills keep loading from this checkout until `plugin update`.
+  echo "  (opening a project that declares the github marketplace replaces this directory"
+  echo "   registration; re-run install.sh to point it back at the checkout)"
 }
 
-# Delete those entries — but only after listing them and reading back the literal
-# word "delete". EOF or any other answer aborts, leaving everything in place.
-prune_extra_skills() {
-  local extras reply=""
-  extras="$(extra_global_skills)"
-  if [ -z "$extras" ]; then
-    ok "nothing to prune" "~/.claude/skills/ holds no non-template entries"
+# retired_template_skill_names REPO_DIR — skill names the template once shipped
+# and later deleted, computed from history over both trees the way /tidy does.
+# A shallow clone cannot answer, and says so rather than guessing.
+retired_template_skill_names() {
+  git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  if [ "$(git -C "$1" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+    echo "  NOTE: shallow clone — retired template names are unknown; only current names are candidates" >&2
     return 0
   fi
+  git -C "$1" log --diff-filter=D --name-only --format= \
+      -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md' 2>/dev/null \
+    | awk -F/ 'NF >= 3 { print $(NF-1) }' | sort -u
+}
+
+# legacy_skill_candidates REPO_DIR — entries under ~/.claude/skills/ whose name
+# the template ships now or once shipped. Everything else there is the user's
+# own and is never a candidate (lesson #52: the old "not in the template"
+# predicate is exactly the protected set).
+legacy_skill_candidates() {
+  local repo_dir="$1" known entry name
+  known="$(ls "$repo_dir/.agents/skills" 2>/dev/null; retired_template_skill_names "$repo_dir")"
+  for entry in "$CLAUDE_HOME/skills"/*/; do
+    [ -d "$entry" ] || continue
+    name="$(basename "$entry")"
+    if printf '%s\n' "$known" | grep -qxF -- "$name"; then
+      printf '%s\n' "$name"
+    fi
+  done
+  return 0
+}
+
+# remove_legacy_skill_copies REPO_DIR — sets LEGACY_OUTCOME.
+# Lists the candidates and asks once. y deletes them; N, EOF or a
+# non-interactive run deletes nothing and prints the manual command.
+remove_legacy_skill_copies() {
+  local candidates count reply=""
+  candidates="$(legacy_skill_candidates "$1")"
+  if [ -z "$candidates" ]; then
+    ok "clean" "~/.claude/skills/ holds no pre-plugin template copies"
+    LEGACY_OUTCOME="Clean"
+    return 0
+  fi
+  count="$(printf '%s\n' "$candidates" | wc -l | tr -d ' ')"
   echo ""
-  echo "  --prune-skills will PERMANENTLY DELETE these non-template entries from"
-  echo "  $CLAUDE_HOME/skills/ :"
-  printf '%s\n' "$extras" | sed 's/^/    - /'
-  echo ""
-  printf '  Type "delete" to confirm (anything else aborts): '
+  echo "  ~/.claude/skills/ still holds $count pre-plugin copies of template skills:"
+  printf '%s\n' "$candidates" | sed 's/^/    - /'
+  echo "  While they exist, /<name> runs the stale copy instead of the plugin's skill."
+  printf '  Delete them? [y/N] '
   read -r reply || reply=""
-  if [ "$reply" != "delete" ]; then
-    echo "  Aborted — nothing deleted."
+  if [ "$reply" != "y" ] && [ "$reply" != "Y" ]; then
+    echo "  Kept. Remove them later with:"
+    echo "    (cd \"$CLAUDE_HOME/skills\" && rm -rf $(printf '%s ' $candidates))"
+    LEGACY_OUTCOME="Kept($count)"
     return 0
   fi
-  printf '%s\n' "$extras" | while IFS= read -r name; do
+  printf '%s\n' "$candidates" | while IFS= read -r name; do
     [ -n "$name" ] && rm -rf "$CLAUDE_HOME/skills/$name"
   done
-  ok "pruned" "$(printf '%s\n' "$extras" | wc -l | tr -d ' ') non-template entries deleted"
+  ok "removed" "$count pre-plugin copies deleted"
+  LEGACY_OUTCOME="Removed($count)"
+}
+
+# report_skills_source — the derived machine state (spec § Data models).
+report_skills_source() {
+  case "$PLUGIN_OUTCOME/$LEGACY_OUTCOME" in
+    Skipped/*)           echo "  skills source: legacy-copy (plugin not registered)" ;;
+    */Clean|*/Removed*)  echo "  skills source: plugin" ;;
+    *)                   echo "  skills source: both (plugin installed; pre-plugin copies kept)" ;;
+  esac
 }
 
 # ── 1. Global CLAUDE.md ───────────────────────────────────────────────────────
@@ -95,27 +177,18 @@ mkdir -p "$CLAUDE_HOME"
 cp "$REPO_DIR/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md"
 ok "copied" "~/.claude/CLAUDE.md"
 
-# ── 2. Global skills (backwards-compat copy) ─────────────────────────────────
-# Copy INTO the directory (note the trailing /.) instead of replacing it. This
-# step used to run `rm -rf "$CLAUDE_HOME/skills"` first, which silently destroyed
-# every skill the user kept there that the template does not ship — personal
-# skills, and template skills retired since their last install. Overwriting the
-# template entries while leaving everything else alone is the safe default;
-# removing retired entries is opt-in via --prune-skills.
-step "Installing global skills → ~/.claude/skills/"
-mkdir -p "$CLAUDE_HOME/skills"
-cp -r "$REPO_DIR/.claude/skills/." "$CLAUDE_HOME/skills/"
-ok "copied" "$(find "$REPO_DIR/.claude/skills" -name 'SKILL.md' | wc -l | tr -d ' ') skills (backwards-compat)"
-
-EXTRA_SKILLS="$(extra_global_skills)"
-if [ -n "$EXTRA_SKILLS" ]; then
-  echo "  kept $(printf '%s\n' "$EXTRA_SKILLS" | wc -l | tr -d ' ') non-template entries: $(printf '%s\n' "$EXTRA_SKILLS" | tr '\n' ' ')"
-  echo "  (re-run with --prune-skills to review and delete them)"
+# ── 2. Claude Code plugin ─────────────────────────────────────────────────────
+# Skills reach Claude Code through the jplugin plugin, whose manifest points at
+# .agents/skills/. Nothing is copied into ~/.claude/skills/ any more; the
+# pre-plugin copies an earlier install left there are offered for removal, and
+# only when the plugin actually got registered — a machine without the CLI keeps
+# them, because they are all it has.
+step "Registering the jplugin plugin"
+install_claude_plugin "$REPO_DIR"
+if [ "$PLUGIN_OUTCOME" != "Skipped" ]; then
+  remove_legacy_skill_copies "$REPO_DIR"
 fi
-
-if [ "$PRUNE_SKILLS" -eq 1 ]; then
-  prune_extra_skills
-fi
+report_skills_source
 
 # ── 3. Shared workflow → ~/.agents/ ──────────────────────────────────────────
 step "Installing shared workflow → ~/.agents/"
@@ -179,8 +252,8 @@ fi
 # ~/.claude/settings.json. Claude Code's settings schema is strict and has no such
 # field (verified against the CLI's own schema: it exposes `skillOverrides` and
 # `disableBundledSkills`, but no skill-path array), so writing one makes the CLI
-# report `Unrecognized field: skills`. It is also unnecessary — Claude Code reads
-# ~/.claude/skills/ natively, which step 2 populates. Pi is a separate schema and
+# report `Unrecognized field: skills`. It is also unnecessary — Claude Code loads
+# the skills through the plugin step 2 registers. Pi is a separate schema and
 # is still configured below.
 
 # ── 6. Configure Pi if installed ─────────────────────────────────────────────

@@ -182,7 +182,7 @@ for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
                "neither a producer nor a consumer" \
                "Tier 0" "Tier 1" "Tier 2" \
                "git log --diff-filter=D" \
-               "bash install.sh" "--prune-skills" \
+               "bash install.sh" "installed_plugins.json" \
                "never executed by the skill" "Never delete unmerged work" "forge evidence" \
                "squash-merge" "git branch --merged" \
                "task-registry.py upsert" "--derive-id tidy --source" "--fold-title" \

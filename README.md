@@ -85,17 +85,20 @@ That's it. Claude is fully oriented from the first message.
 
 ### Layer 1 — Global Claude config (`~/.claude/`)
 
-Copies your skills, agents, and CLAUDE.md into `~/.claude/`. Claude Code reads this directory for **every session in every project** — no per-project setup needed.
+Copies CLAUDE.md and the agents into `~/.claude/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed.
 
 ```
 ~/.claude/
 ├── CLAUDE.md          ← global rules (applies everywhere)
-├── skills/            ← all skills available in every project
 ├── agents/            ← all agents available in every project
 ├── hooks/
 │   └── session-start.sh
+├── plugins/           ← Claude Code's own records: the jplugin-agentic-development
+│                        marketplace (this checkout) and the installed jplugin plugin
 └── settings.json      ← registers the SessionStart hook globally
 ```
+
+Skills are **not** copied into `~/.claude/skills/` any more: the plugin manifest (`.claude-plugin/plugin.json`) points Claude Code at `.agents/skills/` in the checkout, so every skill is invoked as `/jplugin:<name>` (bare `/<name>` also resolves while no other skill claims the name). If an earlier install left copies in `~/.claude/skills/`, the installer lists them and deletes them only after you answer `y`; anything there the template never shipped is never touched. Without the `claude` CLI on `PATH` the plugin step prints a note and skips.
 
 The **SessionStart hook** runs automatically at the start of every Claude Code session. It prints:
 - Learning-store counts from `tasks/solutions/` (documents + needs_review)
