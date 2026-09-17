@@ -666,3 +666,39 @@ back vacuous and was repaired.
   (fixed), `tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md`
   (open); `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`
   updated with the worktree-session baseline recipe.
+
+## 2026-09-17 — Scheduled `tidy` routine, second run
+
+- Ran the eight `/tidy` checks inline at `2608d0a` in a dedicated worktree on
+  `routine/tidy/20260917-sweep`. Record: `tasks/sweeps/2026-09-17-tidy.md`.
+- Outcome **findings**, Tier 0 applied **0**. Law 3 withheld the single Tier 0
+  repair the sweep found — `verify-task-registry` is still absent from the
+  `CLAUDE.md` table, the `README.md` table and the session-start banner (#142).
+  That is two consecutive runs finding the same drift and being forbidden to fix
+  it: uid 0 in the container on 2026-09-16, 8 reproducible Windows test failures
+  today.
+- **Filed nothing new**, which was the substantive decision of the run. The two
+  candidates that looked structural were already specified work: #151's
+  acceptance criteria name `~/.claude/skills/tdd` for the installer's
+  retired-copy removal, and #150 moves `setup-deployment`/`verify-deployment`
+  into `.agents/skills/` — which is why those two correctly have no skills-table
+  row today. Updated #129, #142 and #143 with today's evidence instead; each
+  derived ID was dry-run to `would update` first.
+- The `installed` check ran against a real install for the first time (2026-09-16
+  could only report *inconclusive*): `~/.claude/CLAUDE.md` is 73 lines stale and
+  still lists `/auto-improve` and `/tdd` as live, five retired skills remain
+  installed, and eight shipped skills are missing. Reported as a Tier 1 remedy,
+  never applied — Law 7 reserves the operator's machine.
+- `worktrees` reached the forge for the first time and proved 3 worktrees and 22
+  local branches merged by `headRefOid` ancestry, with no name-reuse ambiguity.
+  All live in the main checkout, which the scheduler puts out of bounds, so all
+  25 removals are printed commands.
+- Nearly filed a defect against intended behaviour: new evidence reaches an
+  issue's managed metadata block but not its rendered `## Evidence` prose.
+  Reading `registry/providers/github.py:369` settled it — *"Only the metadata
+  block is ours. Everything a human wrote survives."* Recorded as an observation
+  below the bar rather than a finding.
+- Learnings captured:
+  `tasks/solutions/process/background-suite-runs-orphan-children-and-share-one-log.md`
+  — stopping a background suite task leaves the `run.sh` child alive, and a
+  relaunch sharing its log path makes the file *shrink*, destroying the evidence.

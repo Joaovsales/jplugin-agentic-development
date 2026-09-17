@@ -916,3 +916,28 @@ Filed this sweep:
 - [x] Tier 2 filings — 0 new; #129, #142 and #143 updated
 - [x] Tier 0 repairs — 0 applied, withheld under Law 3
 - [x] Session record written and committed
+
+## Session Summary — 2026-09-17 [2608d0a..be1bfe8]
+- Completed: the scheduled `tidy` routine's second run — 8 checks inline, record at
+  `tasks/sweeps/2026-09-17-tidy.md`, 1 record commit, 1 learning document.
+- Pending: **0 new tasks filed.** Every finding deduped onto an open issue; #129,
+  #142 and #143 were updated with today's evidence instead. Five Tier 1 remedies
+  are printed in the record and none was run — the stale global install (Law 7),
+  25 provably-merged worktrees/branches and 2 stray files in the main checkout
+  (out of bounds for this routine), and a stale checkpoint.
+- Carry-forward: **the routine still cannot repair anything here.** Law 3 withheld
+  the one Tier 0 repair found (`verify-task-registry` absent from all three
+  inventory surfaces, #142) for the second consecutive run — uid 0 blocked it in
+  the container on 2026-09-16, and 8 reproducible Windows test failures block it
+  now. Fixing #129 is what unblocks every future run on this host.
+- Tests: `bash tests/run.sh </dev/null` run **solo** → `RESULT: 9/43 test files
+  FAILED`, exit 1. Eight reproduce when re-run individually and are pre-existing
+  and unrelated to this diff, which touches only `tasks/*.md`; seven match the set
+  #129 tracks, and the eighth (`tests/test-task-escalation.sh` 1/62) has a quoted
+  root cause — `ln -s` yields a real directory on this host (`MSYS` unset), so the
+  fixture at line 134 cannot build the escaping path its assertion needs.
+  `tests/test-upstream-drift.sh` failed in-suite but passes 64/64 solo: load noise,
+  not a regression. Two earlier suite attempts were discarded — the first omitted
+  `</dev/null` and hung, and stopping it left a live child that shared the second
+  run's log path, so the log shrank as both truncated over each other. Captured as
+  `tasks/solutions/process/background-suite-runs-orphan-children-and-share-one-log.md`.
