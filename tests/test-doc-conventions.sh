@@ -51,7 +51,7 @@ assert_file_contains ".claude/hooks/session-start.sh" "/refresh" "Task6: session
 # --- Task 9 (P5): Large-Artifact Handoff convention + references ---
 assert_file_contains ".claude/project.md" "Large-Artifact Handoff" "Task9: project.md defines the convention"
 assert_file_contains ".claude/project.md" "truncate with a" "Task9: project.md states truncate-with-pointer"
-for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md .claude/skills/verify-deployment/SKILL.md; do
+for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md .agents/skills/verify-deployment/SKILL.md; do
   assert_file_contains "$f" "Large-Artifact Handoff" "Task9: $f references the convention"
 done
 

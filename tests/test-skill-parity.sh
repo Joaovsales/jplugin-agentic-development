@@ -11,9 +11,10 @@ cd "$REPO"
 CANONICAL=".agents/skills"
 COMPAT=".claude/skills"
 
-# Entries allowed to exist only in .claude/skills (Claude Code-specific tooling
-# or human-facing notes). Everything else must be byte-identical across trees.
-ALLOWLIST="README.md setup-deployment verify-deployment"
+# Entries allowed to exist only in .claude/skills (human-facing notes). Every
+# skill, including the Claude-only ones (`harness: claude`), is canonical in
+# .agents/skills/ and must be byte-identical across trees.
+ALLOWLIST="README.md"
 
 # Git-ignored files are build residue, not skill content: a __pycache__ written
 # by running one tree's scripts is not drift the author can fix by copying. They

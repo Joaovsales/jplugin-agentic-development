@@ -13,7 +13,7 @@ Skills are the building blocks of the workflow. A well-written skill makes the a
 
 ## Skill File Structure
 
-Every skill lives in `.agents/skills/<skill-name>/SKILL.md` (canonical, harness-neutral). Claude Code also keeps a backwards-compat copy in `.claude/skills/` — when writing a new skill, create it in `.agents/skills/` and copy to `.claude/skills/`:
+Every skill lives in `.agents/skills/<skill-name>/SKILL.md` — the one canonical tree. Pi and Codex read it from `~/.agents/skills/`; Claude Code loads the same tree through the `jplugin` plugin manifest (`.claude-plugin/plugin.json`), so a new skill needs no second copy. A skill that only makes sense on one harness declares it in frontmatter (`harness: claude`) instead of living in a harness-specific directory:
 
 ```
 .agents/skills/
