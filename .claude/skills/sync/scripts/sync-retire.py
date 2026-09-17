@@ -29,14 +29,14 @@ import os
 import re
 import subprocess
 import sys
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple
 
 KEEP_FILE = ".claude/sync-keep"
 CANDIDATE_FILE = ".claude/sync-keep.candidate"
 SKILL_DOC = ".agents/skills/sync/SKILL.md"
 # The plugin that replaces the `.claude/skills/` copies. A project that has not
-# enabled it still runs those copies, so `require_project_plugin` refuses to
-# delete them; the declaration lives in the project's own settings file.
+# enabled it still runs those copies, so `missing_plugin_declaration` keeps them
+# out of the plan; the declaration lives in the project's own settings file.
 PLUGIN_ID = "jplugin@jplugin-agentic-development"
 SETTINGS_FILE = ".claude/settings.json"
 # Right-hand column prefix that marks a doc-block root as retired.
@@ -624,22 +624,76 @@ def split_by_allowlist(
     return retire, kept, [pattern for pattern in patterns if pattern not in used]
 
 
+class Template(NamedTuple):
+    """Where the template is read from: a ref fetched into the project, or a
+    directory. Exactly one of `ref` and `directory` is set."""
+    repo: str
+    ref: Optional[str]
+    directory: Optional[str]
+
+
 def compute_plan(repo: str, ref: Optional[str], directory: Optional[str]) -> Plan:
     """Resolve both inventories and reduce them to what this run would delete."""
+    template = Template(repo, ref, directory)
     source = ref or directory or ""
     live, retired = parse_syncable_roots(read_template_doc(repo, ref, directory), source)
     # Patterns may reach a retired root: downstream sync-keep files already name
     # `.claude/skills/verify-<app>/**`, and the root changing status must not
     # turn every one of them into a usage error.
     patterns = read_keep_patterns(repo, [*live, *retired])
-    plan = _live_plan(repo, (ref, directory), live, patterns)
-    plan.retired_roots = list(retired)
-    if not retired:
-        return plan
-    history, plan.retired_reason = template_history_paths(repo, ref, directory, retired)
-    if history is not None:
-        _merge_retired(plan, repo, retired_root_candidates(repo, retired, history), patterns)
-    return plan
+    plan = _live_plan(template, live, patterns)
+    outcome = retired_root_plan(template, retired, patterns)
+    return dataclasses.replace(
+        plan,
+        retire=[*plan.retire, *outcome.retire],
+        kept=[*plan.kept, *outcome.kept],
+        unmatched=[pattern for pattern in plan.unmatched if pattern not in outcome.used],
+        retired_roots=list(retired),
+        retired_reason=outcome.reason,
+    )
+
+
+@dataclasses.dataclass
+class RetiredRoots:
+    """What the retired roots contribute to a plan.
+
+    Paths to retire, paths a pattern saved (with the pattern), the patterns
+    that did the saving — or, when nothing under a retired root could be
+    examined, the one reason why. `reason` and the lists are exclusive.
+    """
+    retire: List[str] = dataclasses.field(default_factory=list)
+    kept: List[Tuple[str, str]] = dataclasses.field(default_factory=list)
+    used: Set[str] = dataclasses.field(default_factory=set)
+    reason: str = ""
+
+
+def retired_root_plan(
+    template: Template, retired_roots: Sequence[str], patterns: Optional[List[str]]
+) -> RetiredRoots:
+    """The retired-root slice of the plan, computed once, folded in by the caller.
+
+    A retired root is one the template stopped checking out, so its current
+    inventory says nothing: everything the project holds there is project-only
+    by the live rule, and that would retire a project's own skill. History is
+    the only proof that applies. The plugin declaration is what keeps a project
+    that still runs those copies from losing them — carried as the reason in
+    the report rather than raised, because `/sync` Step 3 previews this plan
+    before Step 5 has written the declaration, and a refusal there would drop
+    the live-root list from the summary the user approves.
+    """
+    if not retired_roots:
+        return RetiredRoots()
+    history, reason = template_history_paths(*template, retired_roots)
+    if history is None:
+        return RetiredRoots(reason=reason)
+    proven = retired_root_candidates(template.repo, retired_roots, history)
+    reason = missing_plugin_declaration(proven, template.repo)
+    if reason:
+        return RetiredRoots(reason=reason)
+    if patterns is None:
+        return RetiredRoots(retire=proven)
+    retire, kept, _ = split_by_allowlist(proven, patterns)
+    return RetiredRoots(retire=retire, kept=kept, used={pattern for _, pattern in kept})
 
 
 def retired_root_candidates(
@@ -660,25 +714,23 @@ def retired_root_candidates(
     return [path for path in present if blobs.get(path) in history.get(path, set())]
 
 
-def require_project_plugin(retire: Sequence[str], repo: str) -> None:
-    """Refuse to retire retired-root copies from a project without the plugin.
+def missing_plugin_declaration(retire: Sequence[str], repo: str) -> str:
+    """Why the retired-root copies stay, or "" when the project enables the plugin.
 
     `retire` is the retired-root retirement set. Those copies are what a
     project runs until it enables the plugin that replaces them; deleting them
-    first would leave it with no skills at all, at exit 0. `/sync` Step 5
-    writes the declaration into the project's own `.claude/settings.json`,
-    which is therefore the file this reads.
+    first would leave it with no skills at all. `/sync` Step 5 writes the
+    declaration into the project's own `.claude/settings.json`, which is
+    therefore the file this reads. Nothing to retire needs no declaration, so
+    a project without copies is never asked for one.
     """
-    if not retire:
-        return
-    if _enabled_plugins(repo).get(PLUGIN_ID) is True:
-        return
-    raise RetireError(
-        f"{SETTINGS_FILE} does not enable {PLUGIN_ID} under enabledPlugins — "
-        f"refusing to retire {len(retire)} file(s) under a retired root, because "
-        f"without the plugin those copies are the only skills this project has. "
-        f"/sync Step 5 writes the declaration when it checks out {SETTINGS_FILE}; "
-        f"apply that step first, then re-run"
+    if not retire or _enabled_plugins(repo).get(PLUGIN_ID) is True:
+        return ""
+    return (
+        f"{SETTINGS_FILE} does not enable {PLUGIN_ID} under enabledPlugins, so "
+        f"{len(retire)} file(s) under a retired root stay — without the plugin they "
+        f"are the only skills this project has. /sync Step 5 writes the declaration "
+        f"when it checks out {SETTINGS_FILE}"
     )
 
 
@@ -687,8 +739,8 @@ def _enabled_plugins(repo: str) -> Dict[str, object]:
 
     Absent is a legitimate state — a project that never synced settings — and
     reads as "nothing enabled". Present but unparseable is not: read the same
-    way it would refuse a retirement the operator believes they enabled, with
-    no hint why, so it is reported on the tool's own channel instead.
+    way it would hold back a retirement the operator believes they enabled,
+    with no hint why, so it is reported on the tool's own channel instead.
     """
     path = os.path.join(repo, SETTINGS_FILE)
     if not os.path.lexists(path):
@@ -701,32 +753,9 @@ def _enabled_plugins(repo: str) -> Dict[str, object]:
     return enabled if isinstance(enabled, dict) else {}
 
 
-def _merge_retired(
-    plan: Plan, repo: str, proven: Sequence[str], patterns: Optional[List[str]]
-) -> None:
-    """Fold the history-proven retired-root copies into the plan, guard first.
-
-    `sync-keep` still applies under a retired root, so a project that chose to
-    keep one copy keeps it; the guard then sees only what would actually go.
-    """
-    retire = list(proven)
-    if patterns is not None:
-        _, kept, _ = split_by_allowlist(project_paths(repo, plan.retired_roots), patterns)
-        protected = {path for path, _ in kept}
-        used = {pattern for _, pattern in kept}
-        retire = [path for path in proven if path not in protected]
-        plan.kept.extend(kept)
-        plan.unmatched = [pattern for pattern in plan.unmatched if pattern not in used]
-    require_project_plugin(retire, repo)
-    plan.retire.extend(retire)
-
-
-def _live_plan(
-    repo: str, where: Tuple[Optional[str], Optional[str]], roots: Sequence[str],
-    patterns: Optional[List[str]],
-) -> Plan:
+def _live_plan(template: Template, roots: Sequence[str], patterns: Optional[List[str]]) -> Plan:
     """The retirement plan for the live roots — the ones `/sync` checks out."""
-    ref, directory = where
+    repo, ref, directory = template
     source = ref or directory or ""
     template = (
         template_paths_from_dir(directory, roots)
@@ -819,10 +848,7 @@ def render(plan: Plan) -> str:
             f"never checked out, never counted"
         )
     if plan.retired_reason:
-        lines.append(
-            f"  retired root history: unavailable ({plan.retired_reason}) — "
-            f"nothing under a retired root is retired this run"
-        )
+        lines.append(f"  retired roots: nothing retired this run — {plan.retired_reason}")
     if plan.bootstrap:
         lines.append(f"  bootstrap: required (no {KEEP_FILE})")
         if plan.provenance_reason:

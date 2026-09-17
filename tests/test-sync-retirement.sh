@@ -2033,8 +2033,8 @@ assert_contains "$INJECT_OUT" "RetireError" \
 # its right-hand column, so /sync can still delete the copies earlier syncs left
 # downstream -- and only those. Three properties are pinned: the parser splits
 # the two kinds of root, a retired root never counts toward the one-empty-root
-# budget, and nothing under it is retired unless the project's own settings
-# enable the plugin that replaces the copies.
+# budget, and nothing under it enters the plan unless the project's own
+# settings enable the plugin that replaces the copies.
 
 printf '\n-- 24. retired roots: history-matched, never counted, plugin-guarded --\n'
 
@@ -2085,6 +2085,7 @@ make_project "$P50"; make_retired_template "$T50"
 _f "$P50/.claude/skills/plan/SKILL.md"         "plan skill"
 _f "$P50/.claude/skills/verify-myapp/SKILL.md" "this project's own verification recipe"
 _f "$P50/.agents/skills/mine/SKILL.md"         "project specific"
+_f "$P50/.agents/skills/stale/SKILL.md"        "project-only under a live root, no keep pattern"
 commit_all "$P50"
 write_keep "$P50" ".agents/skills/mine/**"
 
@@ -2107,20 +2108,23 @@ assert_not_contains "$(printf '%s\n' "$PARSED" | grep '^live=')" ".claude/skills
 
 # --- 24.2 the project guard ---------------------------------------------------
 # `{}` is what make_project writes: a project that never accepted the plugin.
-# Deleting its .claude/skills/ copies would leave it with no skills at all.
+# Deleting its .claude/skills/ copies would leave it with no skills at all. The
+# guard is a plan state, not a refusal: /sync Step 3 previews this plan before
+# Step 5 has written the declaration, so a refusal would exit 1 on every
+# downstream project's first sync and drop the live-root list from the summary.
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "1" "$RUN_STATUS" \
-  "24.2: settings without enabledPlugins refuse the retired-root retirement"
+assert_eq "0" "$RUN_STATUS" \
+  "24.2: settings without enabledPlugins still produce a plan -- Step 3 previews before Step 5 writes them"
 assert_contains "$RUN_OUTPUT" ".claude/settings.json" \
-  "24.2: the refusal names the file that must enable the plugin"
+  "24.2: the report names the file that must enable the plugin"
 assert_contains "$RUN_OUTPUT" "$JPLUGIN_ID" \
   "24.2: ... and the plugin id it must enable"
 assert_contains "$RUN_OUTPUT" "Step 5" \
   "24.2: ... and the /sync step that writes it"
-# Two leading spaces and a trailing one: the error line itself is prefixed
-# `sync-retire:`, which a bare `retire:` would match.
-assert_not_contains "$RUN_OUTPUT" "  retire: " \
-  "24.2: no plan is printed when the guard refuses -- it fires before the plan is returned"
+assert_not_contains "$RUN_OUTPUT" "retire: .claude/skills/" \
+  "24.2: nothing under the retired root enters the plan without the declaration"
+assert_contains "$RUN_OUTPUT" "retire: .agents/skills/stale/SKILL.md" \
+  "24.2: live-root retirement is unaffected, so the preview the user approves is complete"
 
 _f "$P50/.claude/settings.json" "{ not json"
 run_retire --repo "$P50" --from-dir "$T50"

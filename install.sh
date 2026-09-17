@@ -64,6 +64,32 @@ LEGACY_OUTCOME=""   # Clean | Kept(n) | Removed(n)
 # user scope. Both writes are idempotent, so a crash between them is recovered by
 # the next run. A CLI exit code other than 0 aborts the script (set -e) with the
 # CLI's own output — never silently continues.
+# register_marketplace REPO_DIR — idempotent; PLUGIN_OUTCOME=Installed when it wrote.
+register_marketplace() {
+  local repo_dir="$1"
+  if claude plugin marketplace list 2>/dev/null \
+       | grep -qE "(^|[[:space:]])$MARKETPLACE_NAME([[:space:]]|\$)"; then
+    ok "already" "marketplace $MARKETPLACE_NAME already registered"
+    return 0
+  fi
+  claude plugin marketplace add "$repo_dir" \
+    || { echo "  ERROR: 'claude plugin marketplace add' failed — see output above" >&2; exit 1; }
+  ok "registered" "directory marketplace $MARKETPLACE_NAME → $repo_dir"
+  PLUGIN_OUTCOME="Installed"
+}
+
+# install_plugin_user_scope — idempotent; PLUGIN_OUTCOME=Installed when it wrote.
+install_plugin_user_scope() {
+  if grep -qF "\"$PLUGIN_ID\"" "$CLAUDE_HOME/plugins/installed_plugins.json" 2>/dev/null; then
+    ok "already" "$PLUGIN_ID already installed"
+    return 0
+  fi
+  claude plugin install "$PLUGIN_ID" --scope user \
+    || { echo "  ERROR: 'claude plugin install $PLUGIN_ID' failed — see output above" >&2; exit 1; }
+  ok "installed" "$PLUGIN_ID (user scope)"
+  PLUGIN_OUTCOME="Installed"
+}
+
 install_claude_plugin() {
   local repo_dir="$1"
   PLUGIN_OUTCOME="Already"
@@ -75,23 +101,8 @@ install_claude_plugin() {
     PLUGIN_OUTCOME="Skipped"
     return 0
   fi
-  if claude plugin marketplace list 2>/dev/null \
-       | grep -qE "(^|[[:space:]])$MARKETPLACE_NAME([[:space:]]|\$)"; then
-    ok "already" "marketplace $MARKETPLACE_NAME already registered"
-  else
-    claude plugin marketplace add "$repo_dir" \
-      || { echo "  ERROR: 'claude plugin marketplace add' failed — see output above" >&2; exit 1; }
-    ok "registered" "directory marketplace $MARKETPLACE_NAME → $repo_dir"
-    PLUGIN_OUTCOME="Installed"
-  fi
-  if grep -qF "\"$PLUGIN_ID\"" "$CLAUDE_HOME/plugins/installed_plugins.json" 2>/dev/null; then
-    ok "already" "$PLUGIN_ID already installed"
-  else
-    claude plugin install "$PLUGIN_ID" --scope user \
-      || { echo "  ERROR: 'claude plugin install $PLUGIN_ID' failed — see output above" >&2; exit 1; }
-    ok "installed" "$PLUGIN_ID (user scope)"
-    PLUGIN_OUTCOME="Installed"
-  fi
+  register_marketplace "$repo_dir"
+  install_plugin_user_scope
   # One marketplace per name (verified 2026-09-17): a project whose
   # .claude/settings.json declares the github source under this name replaces
   # this directory registration when opened. The installed record keeps its
@@ -162,12 +173,15 @@ remove_legacy_skill_copies() {
   LEGACY_OUTCOME="Removed($count)"
 }
 
-# report_skills_source — the derived machine state (spec § Data models).
+# report_skills_source PLUGIN_OUTCOME LEGACY_OUTCOME — the derived machine state
+# (spec § Data models). Every pair the two steps can produce is named; anything
+# else is a bug in this script and is reported as one, never guessed at.
 report_skills_source() {
-  case "$PLUGIN_OUTCOME/$LEGACY_OUTCOME" in
-    Skipped/*)           echo "  skills source: legacy-copy (plugin not registered)" ;;
+  case "$1/$2" in
+    Skipped/)            echo "  skills source: legacy-copy (plugin not registered)" ;;
     */Clean|*/Removed*)  echo "  skills source: plugin" ;;
-    *)                   echo "  skills source: both (plugin installed; pre-plugin copies kept)" ;;
+    */Kept*)             echo "  skills source: both (plugin installed; pre-plugin copies kept)" ;;
+    *)                   echo "  ERROR: unrecognised install outcome '$1/$2'" >&2; return 1 ;;
   esac
 }
 
@@ -188,7 +202,7 @@ install_claude_plugin "$REPO_DIR"
 if [ "$PLUGIN_OUTCOME" != "Skipped" ]; then
   remove_legacy_skill_copies "$REPO_DIR"
 fi
-report_skills_source
+report_skills_source "$PLUGIN_OUTCOME" "$LEGACY_OUTCOME"
 
 # ── 3. Shared workflow → ~/.agents/ ──────────────────────────────────────────
 step "Installing shared workflow → ~/.agents/"

@@ -294,22 +294,30 @@ it — the `hooks` and `env` blocks and any project-specific keys stay as they a
 Same commit, same skills: the scripts this step checked out and the skills Claude
 Code loads through the plugin come from one ref.
 
+The declaration itself is read from the template's copy, never restated here,
+so the template's `.claude/settings.json` stays its single source; this step
+owns only the `ref`.
+
 ```bash
-python3 - "$(git rev-parse "workflow/$WORKFLOW_BRANCH")" <<'PY'
+python3 - "$(git rev-parse "workflow/$WORKFLOW_BRANCH")" \
+          "$(git show "workflow/$WORKFLOW_BRANCH:.claude/settings.json")" <<'PY'
 import json, sys
+ref, template = sys.argv[1], json.loads(sys.argv[2])
 path = ".claude/settings.json"
 settings = json.load(open(path, encoding="utf-8"))
-market = settings.setdefault("extraKnownMarketplaces", {}).setdefault("jplugin-agentic-development", {})
-market["source"] = {"source": "github", "repo": "Joaovsales/jplugin-agentic-development", "ref": sys.argv[1]}
-settings.setdefault("enabledPlugins", {})["jplugin@jplugin-agentic-development"] = True
+for key in ("extraKnownMarketplaces", "enabledPlugins"):
+    settings.setdefault(key, {}).update(template.get(key, {}))
+for name in template.get("extraKnownMarketplaces", {}):
+    settings["extraKnownMarketplaces"][name].setdefault("source", {})["ref"] = ref
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(settings, handle, indent=2)
     handle.write("\n")
 PY
 ```
 
-In manual-diff mode pass `$(git -C "$WORKFLOW_CLONE" rev-parse HEAD)` instead.
-Run it on every sync: `ref` moves with the template, which is the point.
+In manual-diff mode pass `$(git -C "$WORKFLOW_CLONE" rev-parse HEAD)` and
+`$(cat "$WORKFLOW_CLONE/.claude/settings.json")` instead. Run it on every
+sync: `ref` moves with the template, which is the point.
 
 ### Step 6 — Post-Sync
 
@@ -346,13 +354,15 @@ Step 5 no longer copies anything there, and the copies earlier syncs left behind
 are retired here — but only a file whose bytes match something the template once
 shipped at that path. A project-local skill under that root
 (`/create-verification-skill` mirrors `verify-<app>` there) is never a candidate,
-with or without a `sync-keep` entry. The script refuses the whole run when the
-project's `.claude/settings.json` does not enable
+with or without a `sync-keep` entry. Nothing under the retired root enters the
+plan while the project's `.claude/settings.json` does not enable
 `jplugin@jplugin-agentic-development`: until it does, those copies are the only
-skills the project has. The refusal names the file and Step 5 — apply the
-settings write there first, then re-run. A retired root never counts toward the
-one-empty-root budget, so the template having nothing under it is the expected
-state, not the "incomplete source" refusal.
+skills the project has. The report says so in one `retired roots:` line naming
+the file and Step 5. In the Step 3 preview that is the expected state — Step 5
+has not run yet — and the live-root list is unaffected; here it means the
+settings write was skipped, so run it and re-run. A retired root never counts
+toward the one-empty-root budget, so the template having nothing under it is
+the expected state, not the "incomplete source" refusal.
 
 Apply it. This is the same command Step 3 already ran as a dry run, plus
 `--apply`:
@@ -414,7 +424,6 @@ responses, so read the message rather than the code:
 | `1` + `sync-keep line N:` | the allowlist has an unusable pattern | fix that line; nothing was deleted |
 | `1` + `candidate already exists` | a previous bootstrap run left `.claude/sync-keep.candidate` | review and promote it, or delete it; nothing was deleted |
 | `1` + `refusing to retire a root` | the template source is wrong, or a declared root is genuinely empty upstream | check the ref before anything else |
-| `1` + `does not enable` | the project's `.claude/settings.json` has no `enabledPlugins` entry for the plugin the retired `.claude/skills/` copies are replaced by | run Step 5's settings write, then re-run; nothing was deleted |
 | `1` + `FAILED:`/`UNPRUNED:` | deletion ran and part of it did not land | the `deleted:` lines are the record; re-run after fixing permissions |
 
 Only the last one has deleted anything. **Do not treat a non-zero exit as

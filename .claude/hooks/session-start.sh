@@ -363,7 +363,7 @@ fi
 JPLUGIN_ID="jplugin@jplugin-agentic-development"
 INSTALLED_PLUGINS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json"
 if [ -f ".claude/settings.json" ] \
-   && tr -d '[:space:]' < .claude/settings.json | grep -q "\"$JPLUGIN_ID\":true" \
+   && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true" \
    && ! grep -qF "\"$JPLUGIN_ID\"" "$INSTALLED_PLUGINS" 2>/dev/null; then
   echo ""
   echo "🔌  PLUGIN NOT INSTALLED — .claude/settings.json enables $JPLUGIN_ID, but $INSTALLED_PLUGINS has no record of it"
