@@ -89,21 +89,23 @@ These are the files/directories managed by the workflow template.
 
 > **This block is machine-parsed** — by `scripts/sync-retire.py`, which reads it
 > for the roots it scans, and by `tests/test-syncable-paths.sh`, which pins the
-> other six copies of this list against it. Both parsers split each line on the
+> other hand copies of this list against it. Both parsers split each line on the
 > arrow glyph, so keep the two-column shape, and keep the trailing slash on
 > every directory: an entry without one is read as a file and excluded from
 > retirement. Do not use that glyph in prose anywhere between this heading and
 > the next one — the parsers are fence-unaware and would read the line as a root.
+> A right-hand column that begins `RETIRED` marks a root the script scans for
+> retirement but `/sync` never checks out; keep the marker first on that line.
 
 ```
 CLAUDE.md             → Shared rules: workflow, principles, skills index (both harnesses)
 .agents/skills/       → Canonical skills (harness-neutral)
 .agents/agents/       → Canonical sub-agent personas (harness-neutral, discovered by pi-subagents)
-.claude/skills/       → Claude Code backwards-compat copy of .agents/skills/
+.claude/skills/       → RETIRED — the jplugin plugin reads .agents/skills/; kept so /sync retires downstream copies
 .claude/agents/       → Subagent definitions (Claude Code only)
 .claude/hooks/        → Lifecycle hooks (Claude Code only)
 .claude/browsers/     → Browser adapter runbooks read by /verify --scope e2e
-.claude/settings.json → Hook configuration + env (Claude Code only — no SessionStart, see above)
+.claude/settings.json → Hook configuration + env + plugin declaration (Claude Code only — no SessionStart, see above)
 .agents/git-hooks/    → Git hooks (harness-agnostic; installed separately, see below)
 ```
 
@@ -290,12 +292,12 @@ Compare the syncable paths between the current project and the template source.
 # Show changed files in syncable paths only
 # Note: use two-dot diff (not three-dot) — template and project have unrelated histories,
 # so HEAD...workflow/$WORKFLOW_BRANCH fails with "no merge base"
-git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 Then show the full diff:
 ```bash
-git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 **If manual diff mode:**
@@ -370,6 +372,34 @@ Copy files from the source to the project, overwriting existing files.
 
 For each applied file, briefly note what changed.
 
+**Pin the plugin declaration to this sync.** The template's `.claude/settings.json`
+declares the `jplugin-agentic-development` marketplace under
+`extraKnownMarketplaces` and enables `jplugin@jplugin-agentic-development` under
+`enabledPlugins`, with no `ref`: the template itself floats. Each project is
+pinned to the commit it just synced. Step 5 writes the checked-out sha as
+`"ref"` into the project's `extraKnownMarketplaces` entry and merges those two
+keys into the project's existing `.claude/settings.json` rather than overwriting
+it — the `hooks` and `env` blocks and any project-specific keys stay as they are.
+Same commit, same skills: the scripts this step checked out and the skills Claude
+Code loads through the plugin come from one ref.
+
+```bash
+python3 - "$(git rev-parse "workflow/$WORKFLOW_BRANCH")" <<'PY'
+import json, sys
+path = ".claude/settings.json"
+settings = json.load(open(path, encoding="utf-8"))
+market = settings.setdefault("extraKnownMarketplaces", {}).setdefault("jplugin-agentic-development", {})
+market["source"] = {"source": "github", "repo": "Joaovsales/jplugin-agentic-development", "ref": sys.argv[1]}
+settings.setdefault("enabledPlugins", {})["jplugin@jplugin-agentic-development"] = True
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(settings, handle, indent=2)
+    handle.write("\n")
+PY
+```
+
+In manual-diff mode pass `$(git -C "$WORKFLOW_CLONE" rev-parse HEAD)` instead.
+Run it on every sync: `ref` moves with the template, which is the point.
+
 ### Step 6 — Post-Sync
 
 1. Run `git diff --stat` to confirm what was updated
@@ -398,6 +428,20 @@ retirement set is set arithmetic over that file:
     retire = project paths under syncable roots
            - template paths under the same roots
            - paths matching a sync-keep pattern
+
+**A `RETIRED` root is scanned, never checked out.** `.claude/skills/` is marked
+`RETIRED` in § Syncable Paths: the plugin reads `.agents/skills/` directly, so
+Step 5 no longer copies anything there, and the copies earlier syncs left behind
+are retired here — but only a file whose bytes match something the template once
+shipped at that path. A project-local skill under that root
+(`/create-verification-skill` mirrors `verify-<app>` there) is never a candidate,
+with or without a `sync-keep` entry. The script refuses the whole run when the
+project's `.claude/settings.json` does not enable
+`jplugin@jplugin-agentic-development`: until it does, those copies are the only
+skills the project has. The refusal names the file and Step 5 — apply the
+settings write there first, then re-run. A retired root never counts toward the
+one-empty-root budget, so the template having nothing under it is the expected
+state, not the "incomplete source" refusal.
 
 Apply it. This is the same command Step 3 already ran as a dry run, plus
 `--apply`:
@@ -459,6 +503,7 @@ responses, so read the message rather than the code:
 | `1` + `sync-keep line N:` | the allowlist has an unusable pattern | fix that line; nothing was deleted |
 | `1` + `candidate already exists` | a previous bootstrap run left `.claude/sync-keep.candidate` | review and promote it, or delete it; nothing was deleted |
 | `1` + `refusing to retire a root` | the template source is wrong, or a declared root is genuinely empty upstream | check the ref before anything else |
+| `1` + `does not enable` | the project's `.claude/settings.json` has no `enabledPlugins` entry for the plugin the retired `.claude/skills/` copies are replaced by | run Step 5's settings write, then re-run; nothing was deleted |
 | `1` + `FAILED:`/`UNPRUNED:` | deletion ran and part of it did not land | the `deleted:` lines are the record; re-run after fixing permissions |
 
 Only the last one has deleted anything. **Do not treat a non-zero exit as

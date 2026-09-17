@@ -414,5 +414,37 @@ assert_not_contains "$out_noup" "BEHIND UPSTREAM" "upstream: silent with no upst
 
 rm -rf "$tmpU"
 
+# --- plugin declared but not installed: one line, only on that state --------
+# specs/claude-plugin-manifest.md § /sync: a synced project enables
+# jplugin@jplugin-agentic-development in .claude/settings.json. A user who
+# declined the marketplace prompt has no jplugin: skills in that project and
+# nothing else says so. Silent when installed, and when nothing is declared.
+tmpP=$(mktemp -d)
+mkdir -p "$tmpP/proj/.claude" "$tmpP/home/.claude/plugins"
+printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}\n' > "$tmpP/proj/.claude/settings.json"
+cd "$tmpP/proj"
+run_plugin_probe() {
+  printf '{"source":"startup"}' \
+    | HOME="$tmpP/home" CLAUDE_CONFIG_DIR="$tmpP/home/.claude" CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null
+}
+out_missing=$(run_plugin_probe)
+assert_contains "$out_missing" "PLUGIN NOT INSTALLED" \
+  "Plugin: enabled in settings but absent from installed_plugins.json prints the line"
+assert_contains "$out_missing" "jplugin@jplugin-agentic-development" \
+  "Plugin: the line names the plugin id"
+assert_eq "1" "$(printf '%s\n' "$out_missing" | grep -c 'PLUGIN NOT INSTALLED')" \
+  "Plugin: exactly one headline"
+printf '{"version": 2, "plugins": {"jplugin@jplugin-agentic-development": [{"scope": "user"}]}}\n' \
+  > "$tmpP/home/.claude/plugins/installed_plugins.json"
+out_installed=$(run_plugin_probe)
+assert_not_contains "$out_installed" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent once installed_plugins.json records the plugin"
+printf '{}\n' > "$tmpP/proj/.claude/settings.json"
+rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
+out_undeclared=$(run_plugin_probe)
+assert_not_contains "$out_undeclared" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when the project declares no plugin"
+cd "$REPO"
+rm -rf "$tmpP"
 
 finish

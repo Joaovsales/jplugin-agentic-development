@@ -700,5 +700,28 @@ for tree in .agents .claude; do
     "PlanReuse($tree): inward-before-outward ordering is stated"
 done
 
+# --- sync: the plugin declaration and the retired root -----------------------
+# specs/claude-plugin-manifest.md § /sync. Step 5 pins each project to the
+# template ref it checked out and merges the two plugin keys into the project's
+# settings.json instead of overwriting it; Step 6.4 refuses to retire the
+# .claude/skills/ copies of a project that has not enabled the plugin they are
+# replaced by. Pinned by the smallest falsifiable unit: the marker, the two
+# keys, the ref, the guard's own wording.
+for f in .agents/skills/sync/SKILL.md .claude/skills/sync/SKILL.md; do
+  for token in "RETIRED —" "extraKnownMarketplaces" "enabledPlugins" '"ref"' \
+               "jplugin@jplugin-agentic-development" "rather than overwriting" \
+               "does not enable" "Step 5 writes"; do
+    assert_file_contains "$f" "$token" "sync: $f contains '$token'"
+  done
+  assert_file_matches "$f" '^\.claude/skills/ +→ RETIRED — ' \
+    "sync: $f marks .claude/skills/ RETIRED in the doc block's right-hand column"
+done
+# session-start.sh: one line when the project enables the plugin and the
+# machine has no record of installing it -- the only signal a user who declined
+# the marketplace prompt ever gets.
+for token in "enabledPlugins" "installed_plugins.json" "PLUGIN NOT INSTALLED"; do
+  assert_file_contains .claude/hooks/session-start.sh "$token" \
+    "session-start: names '$token' for the enabled-but-uninstalled line"
+done
 
 finish

@@ -1,24 +1,28 @@
 #!/bin/bash
 # tests/test-syncable-paths.sh — the syncable-path set is enumerated by hand in
-# seven places; this pins them equal, and pins skill assets inside them.
+# four places; this pins them equal, and pins skill assets inside them.
 #
 # WHY THIS EXISTS
 #
 # `/sync` decides what a downstream project receives from this template. That
 # decision is not stored anywhere as data — it is retyped as a list of path
-# arguments in seven regions across three files:
+# arguments in four regions across two files:
 #
 #   1-3. .agents/skills/sync/SKILL.md   § Syncable Paths doc block,
 #                                       the `git diff --stat` command,
 #                                       the full `git diff` command
-#   4-6. .claude/skills/sync/SKILL.md   (byte-identical parity copy of 1-3)
-#     7. .claude/hooks/session-start.sh the template-drift check
+#     4. .claude/hooks/session-start.sh the template-drift check
 #
-# Seven hand-maintained copies of one list drift, and had already: the
+# Hand-maintained copies of one list drift, and had already: the
 # session-start.sh drift check omitted `.agents/agents`, so a project whose
 # agent personas changed upstream was never told to run `/sync`. Nobody noticed
-# because nothing compared the lists. A convention asking people to update seven
-# regions is not a mechanism; this test is.
+# because nothing compared the lists. A convention asking people to update
+# several regions is not a mechanism; this test is.
+#
+# A doc-block row whose right-hand column begins `RETIRED` is a root `/sync`
+# scans for retirement but never checks out (specs/claude-plugin-manifest.md
+# § Syncable Paths block). It is pinned present in the block and absent from
+# every checkout list, and the CI mirror is pinned to have stopped copying it.
 #
 # INVARIANT 2 — assets a skill names must live where /sync ships them.
 #
@@ -70,7 +74,16 @@ paths_after_dashdash() {
 extract_doc_block() {
   awk '/^## Syncable Paths/ { inblock = 1; next }
        inblock && /^##+ / { exit }
-       inblock && /→/ { print $1 }' "$1" | normalise
+       inblock && /→/ && !/→ *RETIRED/ { print $1 }' "$1" | normalise
+}
+
+# The rows the block marks RETIRED: scanned by sync-retire.py, checked out by
+# nothing. Kept out of EXPECTED so the checkout lists below are pinned to
+# exclude them.
+extract_retired_rows() {
+  awk '/^## Syncable Paths/ { inblock = 1; next }
+       inblock && /^##+ / { exit }
+       inblock && /→ *RETIRED/ { print $1 }' "$1" | normalise
 }
 
 # --- sources 2-3: the two git diff commands ----------------------------------
@@ -86,8 +99,8 @@ extract_drift_check() {
 }
 
 SYNC_CANON=".agents/skills/sync/SKILL.md"
-SYNC_COPY=".claude/skills/sync/SKILL.md"
 HOOK=".claude/hooks/session-start.sh"
+WORKFLOW=".github/workflows/sync-template.yml"
 
 EXPECTED="$(extract_doc_block "$SYNC_CANON")"
 
@@ -103,15 +116,22 @@ assert_eq "$EXPECTED" "$(extract_diff_command "$SYNC_CANON" 1)" \
 assert_eq "$EXPECTED" "$(extract_diff_command "$SYNC_CANON" 2)" \
   "canonical /sync: full 'git diff' arg list matches the doc block"
 
-assert_eq "$EXPECTED" "$(extract_doc_block "$SYNC_COPY")" \
-  "compat-copy /sync: doc block matches the canonical doc block"
-assert_eq "$EXPECTED" "$(extract_diff_command "$SYNC_COPY" 1)" \
-  "compat-copy /sync: 'git diff --stat' arg list matches the doc block"
-assert_eq "$EXPECTED" "$(extract_diff_command "$SYNC_COPY" 2)" \
-  "compat-copy /sync: full 'git diff' arg list matches the doc block"
-
 assert_eq "$EXPECTED" "$(extract_drift_check "$HOOK")" \
   "session-start.sh: drift check covers the same set /sync applies"
+
+# --- the RETIRED root: in the block, out of every checkout list ---------------
+assert_eq ".claude/skills" "$(extract_retired_rows "$SYNC_CANON")" \
+  "doc block: exactly one RETIRED row, .claude/skills (scanned for retirement, never checked out)"
+assert_not_contains "$EXPECTED" ".claude/skills" \
+  "doc block: the RETIRED row is not in the checkout set the lists above are pinned to"
+assert_file_not_matches "$WORKFLOW" 'mirror "\.claude/skills"' \
+  "sync-template.yml: the CI mirror no longer copies .claude/skills"
+assert_file_matches "$WORKFLOW" '^# Retired .*\.claude/skills/' \
+  "sync-template.yml: the header names .claude/skills/ as retired"
+assert_file_matches "$WORKFLOW" 'Retired .*`\.claude/skills/`' \
+  "sync-template.yml: the PR body names .claude/skills/ as retired"
+assert_file_matches "$WORKFLOW" '^ *mirror "\.agents/skills"' \
+  "sync-template.yml: the canonical tree is still mirrored (non-vacuity)"
 
 # --- invariant 2: skill assets resolve inside a syncable path ---------------
 is_syncable() {
@@ -133,8 +153,11 @@ is_glob() { case "$1" in *"*"*|*"?"*) return 0 ;; *) return 1 ;; esac; }
 # process spawns, not the matching, dominated the runtime (70s -> ~2s on
 # Windows). `-H` keeps the filename attached so the single stream stays
 # attributable.
+# The canonical tree only: `.claude/skills/` is a RETIRED root, so an asset a
+# copy there resolves relative to itself lands outside every syncable path by
+# definition, and the copy is byte-identical to the canonical skill anyway.
 scan_all_asset_tokens() {
-  find .agents/skills .claude/skills -name '*.md' -not -path '*/.claude/worktrees/*' \
+  find .agents/skills -name '*.md' -not -path '*/.claude/worktrees/*' \
     -exec grep -oHE '\.agents/skills/[A-Za-z0-9_./-]+|(^|[^./A-Za-z0-9_-])(references|scripts|assets|templates)/[A-Za-z0-9_.*?/-]+' {} + \
     | sed 's|:[^./A-Za-z]|:|' | sed 's/[.,;:)`]*$//' | sort -u
 }

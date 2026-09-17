@@ -315,8 +315,9 @@ fi
 
 # ── Workflow Template Drift Check ────────────────────────────────────────────
 # Notifies if the jplugin-agentic-development template has new commits affecting
-# syncable paths (.agents/git-hooks, .claude/skills, .claude/agents, .claude/hooks, .claude/browsers,
-# settings.json).
+# syncable paths (.agents/skills, .agents/agents, .agents/git-hooks, .claude/agents,
+# .claude/hooks, .claude/browsers, settings.json, CLAUDE.md). `.claude/skills` is
+# a RETIRED root: never checked out, so never drift.
 # Silent when in sync (observability discipline: loud only on actionable state).
 #
 # Preconditions:
@@ -353,7 +354,7 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
 
     if timeout 5 git fetch workflow "$WORKFLOW_BRANCH" &>/dev/null; then
       DRIFT_COUNT=$(git diff --name-only "workflow/$WORKFLOW_BRANCH" -- \
-        .agents/skills .agents/agents .agents/git-hooks .claude/skills .claude/agents .claude/hooks .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
+        .agents/skills .agents/agents .agents/git-hooks .claude/agents .claude/hooks .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
         | wc -l | tr -d ' ')
       printf '%s\n%s\n' "$DRIFT_COUNT" "$WORKFLOW_BRANCH" > "$WORKFLOW_CHECK_CACHE"
     fi
@@ -368,6 +369,21 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
     echo "🔄  TEMPLATE DRIFT — $DRIFT_COUNT file(s) differ from workflow/$WORKFLOW_BRANCH"
     echo "    Run /sync to review and apply updates (or 'touch .claude/sync-check-dismissed' to silence)."
   fi
+fi
+
+# ── Plugin Declaration Check ─────────────────────────────────────────────────
+# /sync writes the jplugin plugin declaration into the project's
+# .claude/settings.json (enabledPlugins). Claude Code offers the marketplace on
+# first open; a user who declined has no jplugin: skills in this project and
+# nothing else says so. Silent when installed and when nothing is declared.
+JPLUGIN_ID="jplugin@jplugin-agentic-development"
+INSTALLED_PLUGINS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json"
+if [ -f ".claude/settings.json" ] \
+   && tr -d '[:space:]' < .claude/settings.json | grep -q "\"$JPLUGIN_ID\":true" \
+   && ! grep -qF "\"$JPLUGIN_ID\"" "$INSTALLED_PLUGINS" 2>/dev/null; then
+  echo ""
+  echo "🔌  PLUGIN NOT INSTALLED — .claude/settings.json enables $JPLUGIN_ID, but $INSTALLED_PLUGINS has no record of it"
+  echo "    Accept the marketplace prompt Claude Code shows for this project, or run 'bash install.sh' from the template checkout."
 fi
 
 # ── Code Graph Staleness Check ───────────────────────────────────────────────

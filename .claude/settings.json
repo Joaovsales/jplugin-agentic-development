@@ -1,4 +1,15 @@
 {
+  "extraKnownMarketplaces": {
+    "jplugin-agentic-development": {
+      "source": {
+        "source": "github",
+        "repo": "Joaovsales/jplugin-agentic-development"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "jplugin@jplugin-agentic-development": true
+  },
   "hooks": {
     "Stop": [
       {
