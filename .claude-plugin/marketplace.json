@@ -1,0 +1,14 @@
+{
+  "name": "jplugin-agentic-development",
+  "owner": {
+    "name": "jplugin-agentic-development maintainers"
+  },
+  "description": "Skills for the spec -> plan -> TDD build -> review -> wrap-up coding-agent workflow, published from the repository itself.",
+  "plugins": [
+    {
+      "name": "jplugin",
+      "source": "./",
+      "description": "Spec -> plan -> TDD build -> review -> wrap-up workflow skills for coding agents; the plugin is this repository."
+    }
+  ]
+}
