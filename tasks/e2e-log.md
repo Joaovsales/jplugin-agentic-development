@@ -1065,32 +1065,81 @@ decisively, on the bare slash. The bare-slash miss is the finding that changes t
 bundled skill, whose contract contradicts this template's (`/verify` here runs the suite and
 records e2e evidence). Slice 6 stays gated; § Decisions is reopened in the spec with the options.
 
-## Spike S4 — a fresh clone is offered the plugin from `.claude/settings.json` — 2026-09-17 729ec6d
+## Spike S4 — a fresh clone is offered the plugin from `.claude/settings.json` — 2026-09-17 cf82395
 
 Spec: specs/claude-plugin-manifest.md (§ Build order slice 1, spike question S4; AC 3, AC 11)
-Commit: 729ec6d (worktree-plugin-manifest)
-Claude Code: 2.1.227
+Commit: cf82395 (worktree-plugin-manifest)
+Claude Code: 2.1.274 (the run started on 2.1.227; the CLI auto-updated between the first and
+second interactive open, and every measurement below is from 2.1.274)
 
-**Setup.** `git clone` of the branch at 729ec6d into a scratch directory (`core.longpaths=true`
-— one task-detail filename exceeds the Windows default), opened with an empty
-`CLAUDE_CONFIG_DIR` holding only credentials. Origin `master` carries no `.claude-plugin/` yet
-(nothing is pushed), so the clone's declaration keeps the marketplace name and points its
-`source` at this branch through a `git` source with a local `url` and `ref` 729ec6d…; the
-mechanism under test — settings-driven registration, install and `ref` pinning — does not
-depend on the transport. The github source itself can only be exercised after push.
+**Setup.** `git clone` of the branch into `.claude/worktrees/s4-clone` (`core.longpaths=true` —
+one task-detail filename exceeds the Windows default). Origin `master` carries no
+`.claude-plugin/` yet (nothing is pushed), so the clone's declaration keeps the marketplace
+name and points its `source` at this branch: `{"source": "git", "url":
+"file:///C:/Users/Joao.Souto/coding-agent-workflow/.claude/worktrees/plugin-manifest", "ref":
+"worktree-plugin-manifest"}`, with `enabledPlugins["jplugin@jplugin-agentic-development"]:
+true`. The mechanism under test — settings-driven registration, install and `ref` pinning —
+does not depend on the transport; the github source itself can only be exercised after push.
+Measured against the user's real `~/.claude` (the isolated-config variant of this spike proved
+nothing: a one-turn print session exits before the marketplace clone finishes, so it recorded
+"nothing registered" for a reason that was timing, not behaviour). Evidence is the
+`--debug` log Claude Code writes to `~/.claude/debug/<session>.txt`, the two plugin registries,
+and `claude plugin` CLI output.
 
-**Print mode (`claude -p`, one turn):** completes normally, and nothing is registered or
-installed — `plugins/known_marketplaces.json` is absent and `installed_plugins.json` stays
-`{"plugins": {}}`. Headless runs (CI, `-p`) therefore never acquire the plugin from the
-declaration; `session-start.sh`'s "PLUGIN NOT INSTALLED" line and `install.sh` are the paths
-that cover them.
+**Marketplace registration — automatic, headless too.** `installPluginsForHeadless` runs in
+`-p` mode and reconciles every declared marketplace (`[reconcile] 1 marketplace(s):
+jplugin-agentic-development(install)` → `git clone succeeded` → `Added marketplace source` →
+`installPluginsForHeadless: installed marketplace jplugin-agentic-development`). Three source
+constraints fell out of the failed attempts before that line appeared:
 
-**Interactive first open:** the marketplace prompt is interactive and needs keystrokes this
-session cannot send (a scripted `winpty` attempt landed in first-run onboarding instead). A copy
-of the clone is at `.claude/worktrees/s4-clone` with a terminal tab open in it; run `claude`
-there, answer the marketplace prompt, then check
-`~/.claude/plugins/installed_plugins.json` for `jplugin@jplugin-agentic-development` and
-whether its record carries `ref` 729ec6d….
+| declaration | result |
+|-------------|--------|
+| `url` as a plain local path (`C:/Users/…/plugin-manifest`) | refused — only `https`, `http`, `ssh`, scp-like and `file://` URLs are accepted; the first interactive open showed no marketplace prompt because of this, not because prompts do not exist |
+| `ref` = commit sha (`729ec6d…`) | `git clone --branch <sha>` → "Remote branch … not found"; **`ref` must be a branch or tag** |
+| `url` = `file:///C:/…`, `ref` = branch | registered; `known_marketplaces.json` holds `source.ref: "worktree-plugin-manifest"`, checkout at `~/.claude/plugins/marketplaces/jplugin-agentic-development` on that branch at cf82395 |
 
-**Verdict: PARTIAL.** Headless behaviour recorded (no install); interactive offer and the `ref`
-record pending the run above.
+**Plugin install — not automatic, no prompt.** After the marketplace was registered, headless
+logs `Plugin not available for MCP: jplugin@jplugin-agentic-development - error type:
+plugin-cache-miss` and `installed_plugins.json` is unchanged; the binary's own strings confirm
+headless only ever "installed marketplace", never a plugin. Two interactive opens of the clone
+(user at the keyboard, trust and external-`CLAUDE.md` dialogs answered) produced **no install
+prompt**; `/jplugin:verify` reported `No commands match`, while the completion list still showed
+the un-namespaced `/build`, `/quality-gate`, `/sync`, `/tidy` from the clone's `.claude/skills/`.
+The offer in 2.1.274 is a diagnostic, not a prompt — the `plugin-not-installed` status text,
+surfaced through `/plugin`, reads:
+
+```
+Plugin "<id>" is enabled in project settings but isn't installed — run `claude plugin install <id> --scope project`
+```
+
+**Install record and what loads.** `claude plugin install jplugin@jplugin-agentic-development
+--scope project` from the clone: `✔ Successfully installed plugin (scope: project)`. The record:
+
+```json
+"jplugin@jplugin-agentic-development": [{
+  "scope": "project",
+  "installPath": "C:\\Users\\Joao.Souto\\.claude\\plugins\\cache\\jplugin-agentic-development\\jplugin\\1.0.0",
+  "version": "1.0.0",
+  "gitCommitSha": "cf823950003550e91d440fe2c823555c7911a6f7",
+  "projectPath": "C:\\Users\\Joao.Souto\\coding-agent-workflow\\.claude\\worktrees\\s4-clone"
+}]
+```
+
+The install record carries no `ref`; it carries the **commit the declared branch resolved to**
+(`gitCommitSha` = cf82395, the branch tip), and the marketplace record carries the `ref`. A
+following `claude -p --debug` in the clone logs `Loaded 35 skills from plugin jplugin custom
+path: …\cache\jplugin-agentic-development\jplugin\1.0.0\.agents\skills` and
+`getSkills returning: 80 skill dir commands, 36 plugin skills, 40 bundled skills`; `claude
+plugin details` lists the same 35 names. Side effect worth knowing: the project-scope install
+rewrote the clone's `.claude/settings.json` (keys reordered, content unchanged).
+
+**Verdict: FAIL on AC 3 as worded, with the mechanism recorded.** "Offered on first open" is
+false for 2.1.274 — the marketplace is registered silently and the plugin needs one explicit
+`claude plugin install … --scope project` (or `/plugin`) per machine, after which the declared
+`ref` is what loads. The `ref` `/sync` Step 5 writes today — the checked-out sha — cannot be
+cloned at all, so the pinning-model row of § Decisions is reopened with the three shapes that
+do work (branch, tag, omitted) before slice 6 proceeds. Cleanup: `claude plugin uninstall
+jplugin@jplugin-agentic-development --scope project` from the clone and `claude plugin
+marketplace remove jplugin-agentic-development`; a stray
+`~/.claude/plugins/marketplaces/temp_git_*..clone` directory is left over from the refused
+`C:/` attempt.
