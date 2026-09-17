@@ -893,6 +893,26 @@ reverse.
 Filed this sweep:
 
 - [ ] Permission-contract assertions cannot pass when the suite runs as uid 0 <!-- task-id: tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0 --> — Eleven assertions across two test files encode "the OS refuses this write/read"; uid 0 holds CAP_DAC_OVERRIDE, so they… ([#141](https://github.com/Joaovsales/jplugin-agentic-development/issues/141))
-- [ ] verify-task-registry is absent from every skills inventory surface <!-- task-id: tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface --> — The skill ships in both trees but appears in no skills table and not in the session-start banner, so it is invisible to… ([#142](https://github.com/Joaovsales/jplugin-agentic-development/issues/142))
-- [ ] Sixteen closed plan blocks are still in the todo index <!-- task-id: tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index --> — tasks/todo.md is specified as an index but carries 16 fully-checked plan blocks older than the last two session summari… ([#143](https://github.com/Joaovsales/jplugin-agentic-development/issues/143))
+- [ ] `verify-task-registry` is absent from every skills inventory surface <!-- task-id: tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface --> — The skill ships in both trees but appears in no skills table and not in the session-start banner, so it is invisible to… ([#142](https://github.com/Joaovsales/jplugin-agentic-development/issues/142))
+- [ ] Sixteen closed plan blocks are still in the todo index <!-- task-id: tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index --> — tasks/todo.md is specified as an index but carries fully-checked plan blocks older than the last two session summaries,… ([#143](https://github.com/Joaovsales/jplugin-agentic-development/issues/143))
 - [ ] Verify issue closure after a PR merged by the GitHub Actions app <!-- task-id: issue-linkage.agents-skills-wrap-up-session-references-routines-md --> — A PR whose body carried a single, correctly linked Closes #N merged into the default branch and the issue stayed open.… ([#146](https://github.com/Joaovsales/jplugin-agentic-development/issues/146))
+- [ ] Investigate and fix the seven Windows test-suite failures recorded in PR #128 <!-- task-id: test-reliability.tests-run-sh.investigate-and-fix-the-seven-windows-test-suite-failures-recorded-in-pr-128 --> — Track the pre-existing Windows Git Bash / Microsoft Store Python failures documented in PR #128. Base bf58555 had the s… ([#129](https://github.com/Joaovsales/jplugin-agentic-development/issues/129))
+
+## Tidy: 2026-09-17
+
+> Record: `tasks/sweeps/2026-09-17-tidy.md`, swept at `2608d0a` on
+> `routine/tidy/20260917-sweep`. Outcome: **findings**. Tier 0 applied: **0** —
+> withheld under Law 3, the suite is red. Tier 2 filed: **0 new**; 3 existing
+> tasks updated with today's evidence (#129, #142, #143).
+
+- [x] `suite` — RED, 9/43 files; 8 reproduce solo, `test-upstream-drift` refuted as load noise
+- [x] `inventory` — 1 finding (`verify-task-registry`); AGENTS.md surface skipped (no table)
+- [x] `retired` — clean (7 names computed from history, none named as live)
+- [x] `installed` — findings: 5 retired copies present, 8 shipped skills missing, `CLAUDE.md` 73 lines stale
+- [x] `refs` — clean (61 unresolved, all recorded as Unverified)
+- [x] `worktrees` — 25 provably-merged entries; report-only (main checkout out of bounds)
+- [x] `strays` — clean here; 2 droppings in the main checkout, reported
+- [x] `registers` — 2 findings (11 closed plan blocks; checkpoint 8 days stale)
+- [x] Tier 2 filings — 0 new; #129, #142 and #143 updated
+- [x] Tier 0 repairs — 0 applied, withheld under Law 3
+- [x] Session record written and committed
