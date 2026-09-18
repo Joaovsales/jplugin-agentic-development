@@ -4,6 +4,11 @@
 - [x] TDD: multi-issue pins in tests/test-routine-wrapup.sh + tests/test-pr-linkage.sh -> wrap-up states `Closes #A, closes #B` and the failing form; `scripts/pr_linkage.py check` runs on the draft before create and on the fetched body during every re-sync (exit 3 lists orphaned refs); Done report `PR:` line gains `linkage repaired`; byte-identical .claude copy
 - [x] Follow-up filed as [#146](https://github.com/Joaovsales/jplugin-agentic-development/issues/146) (row in the index below): post-merge closure check for PRs merged by the GitHub Actions app — evidence in tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md
 
+## Session Summary — 2026-09-18 [2608d0a..35adb24]
+- Completed: 48 tasks — specs/claude-plugin-manifest.md slices 1–7 plus 5b (version pinning) and 5c (verify → verify-evidence); slice 6 deleted `.claude/skills/` and the parity test
+- Pending: 0 in this plan; two human-owned MUST-FIX review findings hold the push (CI-synced projects keep a frozen `.claude/skills/`; AC3 github-source re-run after merge)
+- Carry-forward: decide the CI retired-root question (spec § Decisions, OPEN row), then push `worktree-plugin-manifest` and open the PR closing #148–#154; remove the S4 scratch marketplace/cache and the `s4-clone*` worktrees
+
 ## Session Summary — 2026-09-16 [a1d7c84..HEAD]
 - Completed: 1 task (#123 root-cause fix, tests, two bug documents)
 - Pending: 1 follow-up recorded above; the tidy cloud-routine item below is another session's
