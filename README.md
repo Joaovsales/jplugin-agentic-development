@@ -165,6 +165,13 @@ git pull
 bash install.sh
 ```
 
+**Releasing skills to synced projects.** Claude Code pins each project's copy of the plugin
+to `version` in `.claude-plugin/plugin.json` and refreshes it only when that value changes, so
+bump `version` in the same commit as any skill change every synced project should pick up.
+`/sync` merges the marketplace declaration into the project; Claude Code caches the new
+release on the project's next open. A marketplace `ref` is never written — it would have to
+be a branch or tag, and the version is the pin.
+
 The repository was renamed from its original slug. A clone made before the rename still
 works through GitHub's redirect, but point it at the current name once so the redirect is
 not load-bearing:

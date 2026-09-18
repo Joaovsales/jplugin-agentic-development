@@ -357,17 +357,24 @@ fi
 
 # ── Plugin Declaration Check ─────────────────────────────────────────────────
 # /sync writes the jplugin plugin declaration into the project's
-# .claude/settings.json (enabledPlugins). Claude Code offers the marketplace on
-# first open; a user who declined has no jplugin: skills in this project and
-# nothing else says so. Silent when installed and when nothing is declared.
+# .claude/settings.json (enabledPlugins). Claude Code caches the plugin when the
+# folder is trusted and records that only in the versioned cache directory;
+# install.sh's user-scope install is recorded in installed_plugins.json instead
+# (Spike S4, specs/claude-plugin-manifest.md). A user whose trust dialog ran
+# before the declaration existed has no jplugin: skills in this project and
+# nothing else says so. Silent when either record exists and when nothing is
+# declared.
 JPLUGIN_ID="jplugin@jplugin-agentic-development"
-INSTALLED_PLUGINS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json"
+PLUGINS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins"
+INSTALLED_PLUGINS="$PLUGINS_DIR/installed_plugins.json"
+PLUGIN_CACHE="$PLUGINS_DIR/cache/jplugin-agentic-development/jplugin"
 if [ -f ".claude/settings.json" ] \
    && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true" \
-   && ! grep -qF "\"$JPLUGIN_ID\"" "$INSTALLED_PLUGINS" 2>/dev/null; then
+   && ! grep -qF "\"$JPLUGIN_ID\"" "$INSTALLED_PLUGINS" 2>/dev/null \
+   && [ ! -d "$PLUGIN_CACHE" ]; then
   echo ""
-  echo "🔌  PLUGIN NOT INSTALLED — .claude/settings.json enables $JPLUGIN_ID, but $INSTALLED_PLUGINS has no record of it"
-  echo "    Accept the marketplace prompt Claude Code shows for this project, or run 'bash install.sh' from the template checkout."
+  echo "🔌  PLUGIN NOT INSTALLED — .claude/settings.json enables $JPLUGIN_ID, but neither $INSTALLED_PLUGINS nor $PLUGIN_CACHE records it"
+  echo "    Run '/plugin' and install it for this project, or run 'bash install.sh' from the template checkout."
 fi
 
 # ── Code Graph Staleness Check ───────────────────────────────────────────────

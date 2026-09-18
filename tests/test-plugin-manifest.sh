@@ -91,9 +91,10 @@ assert_eq "semver" "$(printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+
   "plugin.json: version is semver"
 
 # --- 6. the template's own settings.json declares the marketplace and plugin --
-# Synced to every project by /sync and the CI mirror, so a fresh clone is
-# offered the plugin on first open. No `ref` here: the template itself floats;
-# /sync Step 5 writes the checked-out sha into each project's copy.
+# Synced to every project by /sync and the CI mirror, so a fresh clone installs
+# the plugin when its folder is trusted (Spike S4). No `ref` anywhere: a
+# marketplace ref must be a branch or tag, a sha does not clone, and the
+# plugin's `version` is what pins a project's copy.
 SETTINGS=".claude/settings.json"
 MARKET="extraKnownMarketplaces.jplugin-agentic-development.source"
 assert_eq "github" "$(json_get "$SETTINGS" "$MARKET.source")" \
@@ -101,12 +102,25 @@ assert_eq "github" "$(json_get "$SETTINGS" "$MARKET.source")" \
 assert_eq "Joaovsales/jplugin-agentic-development" "$(json_get "$SETTINGS" "$MARKET.repo")" \
   "settings.json: ... of this repository"
 assert_eq "<missing>" "$(json_get "$SETTINGS" "$MARKET.ref")" \
-  "settings.json: the template copy carries no ref (it floats; /sync pins each project's copy)"
+  "settings.json: no ref (the source floats; plugin.json version pins)"
 assert_eq "true" "$(json_get "$SETTINGS" "enabledPlugins.jplugin@jplugin-agentic-development")" \
   "settings.json: the plugin is enabled under its install id"
 for kept in hooks.Stop hooks.PreCompact env.CLAUDE_CODE_AUTO_COMPACT_WINDOW; do
   assert_not_contains "$(json_get "$SETTINGS" "$kept")" "<missing>" \
     "settings.json: the existing $kept block survives the declaration"
 done
+
+# --- 7. pinning is by version, never by ref (spec § Decisions, S4) ----------
+# `git clone --branch <sha>` fails, so a /sync that wrote the checked-out sha as
+# `ref` left every downstream project with a marketplace that never registers.
+# Claude Code pins a plugin by its manifest version and refreshes only when it
+# changes; the runbook has to say so or nobody bumps it.
+SYNC_SKILL=".agents/skills/sync/SKILL.md"
+assert_not_contains "$(cat "$SYNC_SKILL")" '["ref"]' \
+  "sync Step 5: writes no ref into the project's marketplace source"
+assert_file_contains "$SYNC_SKILL" '`version` pins' \
+  "sync Step 5: names plugin.json version as the pin"
+assert_file_contains README.md 'bump `version`' \
+  "README § Keeping It Up to Date: tells the maintainer to bump version on release"
 
 finish

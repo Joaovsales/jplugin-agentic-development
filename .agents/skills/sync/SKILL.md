@@ -283,41 +283,38 @@ Copy files from the source to the project, overwriting existing files.
 
 For each applied file, briefly note what changed.
 
-**Pin the plugin declaration to this sync.** The template's `.claude/settings.json`
+**Merge the plugin declaration.** The template's `.claude/settings.json`
 declares the `jplugin-agentic-development` marketplace under
 `extraKnownMarketplaces` and enables `jplugin@jplugin-agentic-development` under
-`enabledPlugins`, with no `ref`: the template itself floats. Each project is
-pinned to the commit it just synced. Step 5 writes the checked-out sha as
-`"ref"` into the project's `extraKnownMarketplaces` entry and merges those two
-keys into the project's existing `.claude/settings.json` rather than overwriting
-it — the `hooks` and `env` blocks and any project-specific keys stay as they are.
-Same commit, same skills: the scripts this step checked out and the skills Claude
-Code loads through the plugin come from one ref.
+`enabledPlugins`. Step 5 merges those two keys into the project's existing
+`.claude/settings.json` rather than overwriting it — the `hooks` and `env`
+blocks and any project-specific keys stay as they are. It writes no `ref`: a
+marketplace `ref` must be a branch or tag (a commit sha does not clone), so the
+source floats on the template's default branch and the plugin's `version` in
+`.claude-plugin/plugin.json` is the pin — `version` pins what Claude Code caches
+for the project, and it refreshes that copy only when the template bumps it.
+Same release, same skills: the scripts this step checked out and the skills the
+plugin loads come from the same release once the project syncs after a bump.
 
 The declaration itself is read from the template's copy, never restated here,
-so the template's `.claude/settings.json` stays its single source; this step
-owns only the `ref`.
+so the template's `.claude/settings.json` stays its single source.
 
 ```bash
-python3 - "$(git rev-parse "workflow/$WORKFLOW_BRANCH")" \
-          "$(git show "workflow/$WORKFLOW_BRANCH:.claude/settings.json")" <<'PY'
+python3 - "$(git show "workflow/$WORKFLOW_BRANCH:.claude/settings.json")" <<'PY'
 import json, sys
-ref, template = sys.argv[1], json.loads(sys.argv[2])
+template = json.loads(sys.argv[1])
 path = ".claude/settings.json"
 settings = json.load(open(path, encoding="utf-8"))
 for key in ("extraKnownMarketplaces", "enabledPlugins"):
     settings.setdefault(key, {}).update(template.get(key, {}))
-for name in template.get("extraKnownMarketplaces", {}):
-    settings["extraKnownMarketplaces"][name].setdefault("source", {})["ref"] = ref
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(settings, handle, indent=2)
     handle.write("\n")
 PY
 ```
 
-In manual-diff mode pass `$(git -C "$WORKFLOW_CLONE" rev-parse HEAD)` and
-`$(cat "$WORKFLOW_CLONE/.claude/settings.json")` instead. Run it on every
-sync: `ref` moves with the template, which is the point.
+In manual-diff mode pass `$(cat "$WORKFLOW_CLONE/.claude/settings.json")` instead.
+Run it on every sync so a renamed marketplace or plugin id lands in the project.
 
 ### Step 6 — Post-Sync
 

@@ -439,6 +439,16 @@ printf '{"version": 2, "plugins": {"jplugin@jplugin-agentic-development": [{"sco
 out_installed=$(run_plugin_probe)
 assert_not_contains "$out_installed" "PLUGIN NOT INSTALLED" \
   "Plugin: silent once installed_plugins.json records the plugin"
+# A settings-driven install (Claude Code caching the plugin when the folder is
+# trusted) writes no installed_plugins.json record at all -- only the versioned
+# cache directory exists. Spike S4 measured it; without this branch every
+# synced project warns while the plugin works.
+rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
+mkdir -p "$tmpP/home/.claude/plugins/cache/jplugin-agentic-development/jplugin/1.0.0"
+out_cached=$(run_plugin_probe)
+assert_not_contains "$out_cached" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when only the versioned cache directory records the install"
+rm -rf "$tmpP/home/.claude/plugins/cache"
 printf '{}\n' > "$tmpP/proj/.claude/settings.json"
 rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
 out_undeclared=$(run_plugin_probe)

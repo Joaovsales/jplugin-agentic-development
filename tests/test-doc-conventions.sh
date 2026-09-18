@@ -701,25 +701,26 @@ for tree in .agents .claude; do
 done
 
 # --- sync: the plugin declaration and the retired root -----------------------
-# specs/claude-plugin-manifest.md § /sync. Step 5 pins each project to the
-# template ref it checked out and merges the two plugin keys into the project's
-# settings.json instead of overwriting it; Step 6.4 refuses to retire the
-# .claude/skills/ copies of a project that has not enabled the plugin they are
-# replaced by. Pinned by the smallest falsifiable unit: the marker, the two
-# keys, the ref, the guard's own wording.
+# specs/claude-plugin-manifest.md § /sync. Step 5 merges the two plugin keys
+# into the project's settings.json instead of overwriting it and writes no
+# `ref` (a sha does not clone; plugin.json version pins — Spike S4); Step 6.4
+# keeps the .claude/skills/ copies of a project that has not enabled the plugin
+# out of the plan. Pinned by the smallest falsifiable unit: the marker, the two
+# keys, the no-ref sentence, the guard's own wording.
 for f in .agents/skills/sync/SKILL.md .claude/skills/sync/SKILL.md; do
-  for token in "RETIRED —" "extraKnownMarketplaces" "enabledPlugins" '"ref"' \
+  for token in "RETIRED —" "extraKnownMarketplaces" "enabledPlugins" "writes no \`ref\`" \
                "jplugin@jplugin-agentic-development" "rather than overwriting" \
-               "does not enable" "Step 5 writes"; do
+               "does not enable" "\`version\` pins"; do
     assert_file_contains "$f" "$token" "sync: $f contains '$token'"
   done
   assert_file_matches "$f" '^\.claude/skills/ +→ RETIRED — ' \
     "sync: $f marks .claude/skills/ RETIRED in the doc block's right-hand column"
 done
 # session-start.sh: one line when the project enables the plugin and the
-# machine has no record of installing it -- the only signal a user who declined
-# the marketplace prompt ever gets.
-for token in "enabledPlugins" "installed_plugins.json" "PLUGIN NOT INSTALLED"; do
+# machine has no record of installing it. A settings-driven install is recorded
+# only by the versioned cache directory (Spike S4), install.sh's user-scope
+# install by installed_plugins.json; the hook has to accept either.
+for token in "enabledPlugins" "installed_plugins.json" "cache/jplugin-agentic-development/jplugin" "PLUGIN NOT INSTALLED"; do
   assert_file_contains .claude/hooks/session-start.sh "$token" \
     "session-start: names '$token' for the enabled-but-uninstalled line"
 done
