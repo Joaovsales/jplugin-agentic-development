@@ -8,7 +8,7 @@ set -u
 . "$(dirname "$0")/lib.sh"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RENDER_SCRIPT="$REPO_ROOT/.claude/skills/visual-recap/scripts/visual-render.py"
+RENDER_SCRIPT="$REPO_ROOT/.agents/skills/visual-recap/scripts/visual-render.py"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -163,20 +163,16 @@ assert_not_contains "$(cat "$RECAP_OUT")" "src/PHANTOM_NOT_IN_DIFF.py" \
   "(AC3/AC7) renderer invents no entries not in the diff"
 
 # (AC6) checksum guard: the base generator is untouched by post-processor renders.
-GEN_CLAUDE="$REPO_ROOT/.claude/skills/html-presentation/scripts/generate-presentation.py"
 GEN_AGENTS="$REPO_ROOT/.agents/skills/html-presentation/scripts/generate-presentation.py"
-CKSUM_CLAUDE_BEFORE="$(cksum "$GEN_CLAUDE")"
 CKSUM_AGENTS_BEFORE="$(cksum "$GEN_AGENTS")"
 
 python3 "$RENDER_SCRIPT" --input "$FIXTURE" -o "$TMP/cksum-guard-out.html" >"$TMP/cksum-render.log" 2>&1
 
-CKSUM_CLAUDE_AFTER="$(cksum "$GEN_CLAUDE")"
 CKSUM_AGENTS_AFTER="$(cksum "$GEN_AGENTS")"
-assert_eq "$CKSUM_CLAUDE_BEFORE" "$CKSUM_CLAUDE_AFTER" "(AC6) .claude generate-presentation.py untouched by render"
 assert_eq "$CKSUM_AGENTS_BEFORE" "$CKSUM_AGENTS_AFTER" "(AC6) .agents generate-presentation.py untouched by render"
 
 # Regression: pin the base generator's </head> contract that the splice relies on.
-python3 "$REPO_ROOT/.claude/skills/html-presentation/scripts/generate-presentation.py" \
+python3 "$REPO_ROOT/.agents/skills/html-presentation/scripts/generate-presentation.py" \
   --input "$FIXTURE" -o "$TMP/base_only.html" >"$TMP/base-only.log" 2>&1
 assert_file_contains "$TMP/base_only.html" "</head>" "base generator still emits </head> (splice contract)"
 

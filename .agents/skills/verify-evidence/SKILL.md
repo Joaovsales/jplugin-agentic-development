@@ -120,8 +120,8 @@ Unit tests prove functions work. E2E walkthroughs prove features work.
 
 ### Project-local verification skill resolution
 
-Discover `verify-*` entries in the canonical `.agents/skills/` tree; treat their
-byte-identical `.claude/skills/` copies as mirrors, not additional candidates.
+Discover `verify-*` entries in the canonical `.agents/skills/` tree; a project-local
+copy left under `.claude/skills/` from before the plugin is a mirror, not a candidate.
 
 - With **exactly one project-local `verify-<app>` skill**, read it and use its
   grounded Launch, Doctor, Drive, Evidence, Cleanup, and Helpers contract. Its

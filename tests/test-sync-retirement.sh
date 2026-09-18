@@ -699,12 +699,12 @@ assert_not_contains "$FEATURE_PATHS" "stale-on-feature" \
 # safe: .claude/sync-keep is never synced, so a template update cannot
 # overwrite a project's record of its own intent.
 #
-# Asserted against BOTH trees. .claude/skills/ is the copy Claude Code actually
-# reads, so a canonical-only edit ships the feature to no one.
+# Asserted against the canonical tree, which Claude Code loads through the
+# jplugin plugin and Pi and Codex read directly.
 
 printf '\n-- 10. SKILL.md documents the retirement pass --\n'
 
-for tree in .agents .claude; do
+for tree in .agents; do
   MD="$tree/skills/sync/SKILL.md"
 
   assert_file_contains "$MD" "sync-keep" \

@@ -26,10 +26,9 @@ import traceback
 from typing import Optional
 
 # Set before the package is imported, and deliberately: this package lives inside
-# a *skills tree*, where `.agents/skills/` and `.claude/skills/` are pinned
-# byte-identical by tests/test-skill-parity.sh. Bytecode written next to the
-# source would appear in one tree and not the other and fail that guard, and
-# would litter every downstream checkout besides.
+# a *skills tree* that /sync checks out wholesale into every downstream
+# project. Bytecode written next to the source would litter every one of
+# those checkouts and show up as an untracked change on the next sync.
 sys.dont_write_bytecode = True
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

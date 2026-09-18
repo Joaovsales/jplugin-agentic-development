@@ -21,7 +21,7 @@ cd "$REPO"
 
 CONTRACT=".agents/skills/wrap-up-session/references/routines.md"
 
-for tree in .agents .claude; do
+for tree in .agents; do
   skill="$tree/skills/wrap-up-session/SKILL.md"
 
   # --- sink 1: tasks/todo.md -------------------------------------------------
@@ -72,10 +72,5 @@ for f in "$CONTRACT" ".agents/skills/wrap-up-session/SKILL.md"; do
   assert_file_contains "$f" 'skip: <reason>' \
     "AC9: $f uses the single literal marker skip: <reason>"
 done
-
-assert_files_identical \
-  ".agents/skills/wrap-up-session/references/routines.md" \
-  ".claude/skills/wrap-up-session/references/routines.md" \
-  "Parity: the contract is byte-identical across trees"
 
 finish

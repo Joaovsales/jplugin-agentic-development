@@ -28,7 +28,7 @@ cd "$(dirname "$0")/.."
 # is the byte-identical copy Claude Code actually reads, so a chain present in
 # only one of them is a real defect: the harness in use might be reading the
 # copy that lost the handoff.
-TREES=".agents .claude"
+TREES=".agents"
 
 # ── /build -> /quality-gate ───────────────────────────────────────────────────
 # The post-build review gate. /build is the only caller in the normal flow.

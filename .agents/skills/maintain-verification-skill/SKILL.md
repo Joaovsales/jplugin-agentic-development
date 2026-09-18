@@ -36,8 +36,7 @@ count candidates before validating their contents. This must use the same
 candidate set as `/verify-evidence --scope e2e`.
 
 - Exactly one candidate: require its `SKILL.md` to have Launch, Doctor, Drive,
-  Evidence, and Cleanup instructions plus `features/README.md`, then use it and
-  require a byte-identical mirror under the `.claude/skills/` compatibility tree.
+  Evidence, and Cleanup instructions plus `features/README.md`, then use it.
 - Several candidates: stop and ask which application is in scope; never guess.
 - None in changed scope: return `clean` with evidence that no project-local
   target exists and one recommendation to run `/create-verification-skill`.
@@ -62,8 +61,8 @@ Run this pass only for `/maintain-verification-skill --scope changed`.
 4. Reconcile only affected or missing entries. Preserve the four required H2
    sections and the feature index; do not drive unrelated features or regenerate
    the whole map.
-5. Mirror the `verify-<app>` files byte-identically under `.claude/skills/` and
-   leave edits on the active branch for the caller's normal review and commit.
+5. Leave the `verify-<app>` edits on the active branch for the caller's normal
+   review and commit.
    This mode does not open a separate PR.
 6. Re-read the same session evidence and map. If a second pass would change
    anything, reconcile again before returning; the result must be idempotent.

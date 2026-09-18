@@ -9,7 +9,7 @@ A reusable, project-agnostic configuration system that enforces **spec-driven, T
 | Layer | What it does |
 |-------|-------------|
 | **CLAUDE.md** | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate |
-| **Skills** (`.claude/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
+| **Skills** (`.agents/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
 | **Agents** (`.claude/agents/`) | 8 specialized subagents for planning, coding, review, debugging, security |
 | **Hooks** (`.claude/hooks/`) | Session start orientation + auto test runner on file save |
 | **Learning store** (`tasks/solutions/`) | Typed per-document learnings, grep-first retrieval, written via `/learn` |

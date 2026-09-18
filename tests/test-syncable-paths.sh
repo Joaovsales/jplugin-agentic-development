@@ -191,7 +191,7 @@ assert_eq "yes" "$([ "$checked" -gt 0 ] && echo yes || echo no)" \
 # The regression this test was written for: four skills execute this script, so
 # it has to ship. Mode is read from the git index, not the filesystem — Windows
 # checkouts do not carry the executable bit and would fail for unrelated reasons.
-for tree in .agents .claude; do
+for tree in .agents; do
   f="$tree/skills/build/scripts/bootstrap-worktree.sh"
   assert_eq "100755" "$(git ls-files -s "$f" | awk '{print $1}')" \
     "$f is tracked executable in the git index"

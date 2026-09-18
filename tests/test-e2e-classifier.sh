@@ -16,9 +16,8 @@
 # "refuse to guess" to "guess and pass" — silently, with every test still green,
 # because nothing else in the suite reads it.
 #
-# So this test pins the sentence verbatim rather than paraphrasing it, and pins
-# it in BOTH skill trees. A rule that holds in the canonical copy and not in the
-# one Claude Code actually loads protects nobody.
+# So this test pins the sentence verbatim rather than paraphrasing it, in the
+# canonical skill tree that Claude Code actually loads.
 #
 # SCOPE BOUNDARY — this is a prose contract, so these are static assertions:
 # they prove the rule is WRITTEN, not that an agent OBEYS it. Behavioural
@@ -30,9 +29,8 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 CANONICAL=".agents/skills/verify-evidence/SKILL.md"
-COMPAT=".claude/skills/verify-evidence/SKILL.md"
 
-for f in "$CANONICAL" "$COMPAT"; do
+for f in "$CANONICAL"; do
 
   # --- 0. Project-local verification skill resolution ----------------------
   assert_prose_contains "$f" 'exactly one project-local `verify-<app>` skill' \
@@ -116,12 +114,5 @@ for f in "$CANONICAL" "$COMPAT"; do
     "$f: the BLOCKED example records its tier"
 
 done
-
-# --- 7. Both trees agree ------------------------------------------------------
-# The canonical/compat split is only safe while the two are identical; a rule
-# present in one and not the other is worse than absent from both, because it
-# reads as covered.
-assert_files_identical "$CANONICAL" "$COMPAT" \
-  "verify/SKILL.md is byte-identical across both trees"
 
 finish

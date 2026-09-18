@@ -70,11 +70,11 @@ assert_file_contains CLAUDE.md "| Ceiling |" \
   "ModelTier: CLAUDE.md Model Routing has a Ceiling row"
 assert_file_contains CLAUDE.md "omit the model override" \
   "ModelTier: CLAUDE.md defines ceiling as omitting the override"
-for f in .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md; do
+for f in .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "Ceiling-tier agents take no \`model\` at all" \
     "ModelTier: $f states the ceiling dispatch rule"
 done
-for f in .agents/skills/plan/SKILL.md .claude/skills/plan/SKILL.md; do
+for f in .agents/skills/plan/SKILL.md; do
   assert_file_contains "$f" "ceiling" \
     "ModelTier: $f defers to the ceiling tier"
 done
@@ -82,7 +82,7 @@ done
 # --- 5. Ceiling roles are not pinned in any routing table -------------------
 # A table row that gives a ceiling agent a concrete Claude Code model reintroduces
 # the cap in documentation even when the agent file is clean.
-for f in CLAUDE.md .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md; do
+for f in CLAUDE.md .agents/skills/build/SKILL.md; do
   for agent in $CEILING_AGENTS; do
     if grep -E "^\|.*\`$agent\`" "$f" | grep -qE '`(sonnet|haiku|opus)`'; then
       _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
@@ -115,7 +115,7 @@ assert_file_matches CLAUDE.md '^\| .critic. \| .?ceiling \(planner floor\)' \
 # --- 7. No concrete provider model IDs in the routing docs -------------------
 # PI_SETUP.md owns them. Three copies of a release-sensitive fact is three
 # chances to go stale, and the tables are the copies nobody updates.
-for f in CLAUDE.md .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md; do
+for f in CLAUDE.md .agents/skills/build/SKILL.md; do
   for vendor in 'moonshotai/' 'qwen/' 'z-ai/' 'deepseek/' 'anthropic/claude'; do
     assert_file_not_matches "$f" "$vendor" "ModelTier: $f has no hardcoded $vendor ID"
   done
@@ -129,7 +129,7 @@ assert_file_contains PI_SETUP.md "single source of concrete model IDs" \
 # Any alias, not just sonnet. An alias-specific needle is trivially walked around
 # by naming a different one, which is how `model: opus` and `model: haiku`
 # mutations stayed green here.
-for tree in .agents .claude; do
+for tree in .agents; do
   for skill in quality-gate software-design-expert-review wrap-up-session build plan sweep; do
     assert_file_not_matches "$tree/skills/$skill/SKILL.md" 'model: .?(sonnet|opus|haiku)' \
       "ModelTier: $tree $skill pins no Ceiling role to an alias"
@@ -155,16 +155,16 @@ done
 # per-file loop this replaces spawned three processes per skill and cost ~35s of
 # suite time on Windows, and a glob that matched nothing would have reported zero
 # assertions as a pass.
-for tree in .agents .claude; do
+for tree in .agents; do
   hits="$(grep -rlE '^\|[^|]*([Rr]eview|[Aa]dversarial|[Cc]ritic|[Aa]udit)[^|]*\|.*([Ss]onnet|[Oo]pus|[Hh]aiku)' \
     "$tree/skills" 2>/dev/null || true)"
   assert_eq "" "$hits" "ModelTier: no review role pinned in a table cell under $tree/skills"
 done
 
-# --- 9. No concrete provider ID anywhere in either skill tree ----------------
+# --- 9. No concrete provider ID anywhere in the skill tree ------------------
 # Section 7 names the two routing tables; this sweeps every skill, because a
 # hardcoded ID goes stale in a prose paragraph exactly as fast as in a table.
-for tree in .agents .claude; do
+for tree in .agents; do
   hits="$(grep -rlE 'moonshotai/|qwen/|z-ai/|deepseek/|anthropic/claude' "$tree/skills" 2>/dev/null || true)"
   assert_eq "" "$hits" "ModelTier: no concrete provider model ID under $tree/skills"
 done
@@ -173,7 +173,7 @@ done
 # The floor lived only in CLAUDE.md while three skills instructed plain ceiling
 # unconditionally — documented and simultaneously negated. Pin it at the sites
 # that actually dispatch, or the rule is not shipped.
-for tree in .agents .claude; do
+for tree in .agents; do
   for skill in build plan wrap-up-session; do
     assert_prose_contains "$tree/skills/$skill/SKILL.md" "planner floor" \
       "ModelTier: $tree $skill states critic's planner floor at its dispatch"
@@ -202,7 +202,7 @@ assert_prose_contains CLAUDE.md "falls through to \`subagents.defaultModel\`" \
 # needs a mechanical guard. Both the resolution and the rule forbidding a
 # collapsed rung are pinned, because the row alone reads as an arbitrary choice
 # and gets "simplified" back.
-for f in .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md; do
+for f in .agents/skills/build/SKILL.md; do
   assert_file_matches "$f" '^\| Debugger \(attempts 3-4.*ceiling \(builder floor\)' \
     "ModelTier: $f routes debugger attempts 3-4 to ceiling (builder floor)"
   assert_prose_contains "$f" "must never resolve to the same model" \

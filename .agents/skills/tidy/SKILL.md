@@ -98,8 +98,8 @@ in addition to the seed list at the end of this file.
 | Check | Reads | Finds |
 |-------|-------|-------|
 | `suite` | the project's test runner, discovered the way `/wrap-up-session` Step 6 does (`package.json`, `Makefile`, `pyproject.toml`, `TESTING.md`; in this repository, `tests/run.sh`) | a red suite. Ordered first; nothing is fixed on a red baseline. No runner → **inconclusive** |
-| `inventory` | `.agents/skills/` ∪ `.claude/skills/` (the canonical tree plus the allowlisted Claude-only extras) ↔ the skills tables in `CLAUDE.md`, `README.md`, `AGENTS.md` (table rows whose first cell is a backticked `/<name>`) ↔ the `SKILLS AVAILABLE` block of `.claude/hooks/session-start.sh` | a skill present in one surface and absent from another, **in either direction**. A directory with no row is Tier 0 in the template repository — the row is determined by its `description` — and Tier 1 in a descendant, where `CLAUDE.md` is `/sync`-managed. A row naming a skill in neither tree is skipped when the *Allowlist* names it (`graphify` is registered on purpose), otherwise Tier 1: it may be a global-only skill the surface's prose still relies on, so the remedy (remove the row, or vendor the skill) is printed, not applied |
-| `retired` | `git log --diff-filter=D --name-only --format= -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md'` — the retired set is *computed from history* over both trees, never typed — against every file outside `tasks/` and `specs/` | a retired skill still named **as live**: a banner line, a table row, a `/build` delegation, a hook that branches on it, an install or sync copy list. `tasks/` and `specs/` are history and exempt |
+| `inventory` | `.agents/skills/` (the canonical tree; Claude Code loads it through the `jplugin` plugin) ↔ the skills tables in `CLAUDE.md`, `README.md`, `AGENTS.md` (table rows whose first cell is a backticked `/<name>`) ↔ the `SKILLS AVAILABLE` block of `.claude/hooks/session-start.sh` | a skill present in one surface and absent from another, **in either direction**. A directory with no row is Tier 0 in the template repository — the row is determined by its `description` — and Tier 1 in a descendant, where `CLAUDE.md` is `/sync`-managed. A row naming a skill in neither tree is skipped when the *Allowlist* names it (`graphify` is registered on purpose), otherwise Tier 1: it may be a global-only skill the surface's prose still relies on, so the remedy (remove the row, or vendor the skill) is printed, not applied |
+| `retired` | `git log --diff-filter=D --name-only --format= -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md'` — the retired set is *computed from history* over the canonical tree and the retired `.claude/skills/` copy, never typed — against every file outside `tasks/` and `specs/` | a retired skill still named **as live**: a banner line, a table row, a `/build` delegation, a hook that branches on it, an install or sync copy list. `tasks/` and `specs/` are history and exempt |
 | `installed` | `~/.claude/CLAUDE.md`, `~/.claude/agents/`, `~/.claude/hooks/session-start.sh`, `~/.agents/` against what `install.sh` would write from `HEAD`; `~/.claude/plugins/installed_plugins.json` for the `jplugin@jplugin-agentic-development` record; `~/.claude/skills/` for pre-plugin copies of template names | a stale, missing, or retired installed copy. No `~/.claude/` on this machine → **inconclusive** with the note |
 | `refs` | paths in backticks in `CLAUDE.md`, `README.md`, `AGENTS.md`, `PI_SETUP.md`, `.claude/project.md`, and every `SKILL.md` | a path that resolves nowhere after trying the literal path, `~` expansion, and a basename search over `git ls-files`, minus the *Allowlist*. Placeholders (`<name>`) and globs are not paths |
 | `worktrees` | `git worktree list --porcelain`, `git branch`, `gh pr list --state merged --limit 200 --json headRefName,headRefOid` | a worktree or local branch whose branch is **provably** merged — its name is in the forge's merged set **and** that PR's `headRefOid` is the local tip or reachable from it (`git merge-base --is-ancestor`); a name match with a different tip is *Unverified* (the name was reused). A merged set whose size equals the `--limit` is truncated: unmatched entries are *inconclusive*, not unmerged. Without forge access every worktree is report-only, because a squash-merge leaves no ancestry and is invisible to `git branch --merged` |
@@ -108,10 +108,10 @@ in addition to the seed list at the end of this file.
 
 Per-check notes, where the table is not enough:
 
-- **`retired`.** The set is the union over both trees, because a skill retired
-  before the canonical tree existed lived only under `.claude/skills/` (`deslop`,
-  `simplify`, `verify-e2e` here). A name whose directory exists again at `HEAD`
-  in either tree, or that is a parity-allowlisted Claude-only extra, was re-added, not
+- **`retired`.** The set is the union over the canonical tree and the retired
+  `.claude/skills/` copy, because a skill retired before the canonical tree existed
+  lived only under `.claude/skills/` (`deslop`, `simplify`, `verify-e2e` here).
+  A name whose directory exists again at `HEAD` under `.agents/skills/` was re-added, not
   retired: drop it from the set. A test that asserts the retirement, or a `/sync`
   step that removes the skill downstream, names it without treating it as live —
   not a finding. `git rev-parse --is-shallow-repository` → `true` makes `retired`
@@ -133,9 +133,7 @@ Per-check notes, where the table is not enough:
 - **`refs`.** A token that fails literally, carries a directory component, and
   whose basename resolves to exactly one tracked file is a Tier 0 repair — the
   file moved. A bare filename that resolves by basename is *resolved* (the
-  table's basename search), not a finding. Two files → Tier 1 with both paths in the report — except that a
-  canonical path and its byte-identical copy under `.claude/skills/` are one
-  file, not two, or every skill asset would read as ambiguous. None → Tier 1: the
+  table's basename search), not a finding. Two files → Tier 1 with both paths in the report. None → Tier 1: the
   reference may describe something the project is expected to create. A path
   under the operator's home that is absent here is *Unverified* (outside the
   repository), not a finding.
@@ -243,7 +241,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --apply \
 8. **Allowlist entries carry a reason** — `path — reason`, kept in this skill's
    own *Allowlist* section. A bare path is not an entry. An installed-only skill
    directory is allowlisted by name as `installed:<name>`, never as a spelled-out
-   home path — the reference guard reads `.claude/skills/<name>` as a repository
+   home path — the reference guard reads `.agents/skills/<name>` as a repository
    path that must exist. Entries here ship with the template; a descendant's own
    entries live in `.claude/tidy-allowlist` — directly under `.claude/`, outside
    every syncable root, the same reasoning as `.claude/sync-keep` — because

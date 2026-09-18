@@ -105,7 +105,7 @@ assert_prose_contains CLAUDE.md 'promotes on *witnesses*' \
 # a site updated canonically but not copied ships the old prompt to Claude Code
 # while the test reads the fixed one. Parity tests catch a diff, not a stale pair
 # that was never re-copied -- so both are named here.
-for tree in .agents .claude; do
+for tree in .agents; do
   for site in $DISPATCH_SITE_FILES; do
     f="$tree/$site"
     # Prose, not literal: the citation is a sentence and wraps. A wrap-fragile

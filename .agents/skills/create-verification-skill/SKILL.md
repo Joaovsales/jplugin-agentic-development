@@ -39,11 +39,11 @@ Read the repository before asking questions. Establish:
 If the checkout cannot build or launch as-is, fix that separately or report the
 exact blocker. Do not generate instructions against a broken baseline.
 
-## 2. Generate and mirror the skill
+## 2. Generate the skill
 
-Write `verify-<app>/SKILL.md` in the canonical `.agents/skills/` tree, then
-mirror that complete directory into the compatibility `.claude/skills/` tree.
-Confirm all generated files are byte-identical across the two trees. Use valid universal frontmatter with
+Write `verify-<app>/SKILL.md` in the canonical `.agents/skills/` tree; Claude
+Code loads it from there through the `jplugin` plugin, so no copy is needed.
+Use valid universal frontmatter with
 `name: verify-<app>`, a grounded description, `disable-model-invocation: false`,
 and `harness: universal`.
 

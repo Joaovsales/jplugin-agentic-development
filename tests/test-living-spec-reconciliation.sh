@@ -32,7 +32,6 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 CANON=".agents/skills"
-COMPAT=".claude/skills"
 
 # Extract the body of the FIRST `## Acceptance Criteria` section, stopping at the
 # next H2 or at a fence terminator. Anchoring on the heading rather than grepping
@@ -59,7 +58,7 @@ printf '\n--- 1. Workflow-created specs are living contracts ------------------\
 # that surface changes -- it is discoverable only by the legacy prose fallback,
 # which is exactly the debt this feature retires. So the templates that CREATE
 # specs must emit the metadata, or every new spec is born legacy.
-for tree in "$CANON" "$COMPAT"; do
+for tree in "$CANON"; do
   for skill in plan brainstorm; do
     f="$tree/$skill/SKILL.md"
     assert_file_matches "$f" '^implementation_paths:' \
@@ -561,8 +560,7 @@ assert_contains "$SEM" '"spec": "specs/unresolvable.md"' \
 # pinned is that the protocol exists, names exactly three outcomes, and says
 # which evidence must be read before one is assigned.
 WU="$CANON/wrap-up-session/SKILL.md"
-WUC="$COMPAT/wrap-up-session/SKILL.md"
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'exactly one outcome' \
     "wrap-up ($f): every candidate receives exactly one outcome"
   assert_prose_contains "$f" '`updated`' "wrap-up ($f): the updated outcome is defined"
@@ -595,7 +593,7 @@ printf '\n--- 6. Legacy migration rides on behavioral change, never on format -\
 # with the list emptied, and each step is separately forgettable: a migration that
 # adds frontmatter but leaves `## Files Likely Involved` in place ships a spec with
 # two contradictory path lists and no rule saying which one wins.
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'add valid `implementation_paths` frontmatter' \
     "migration ($f): step 1 adds the metadata"
   assert_prose_contains "$f" 'replace `## Files Likely Involved` with `## Implementation Paths`' \
@@ -616,12 +614,6 @@ for f in "$WU" "$WUC"; do
     "migration ($f): the reason migration is lazy is stated, not just the rule"
 done
 
-# The two skill trees must agree byte-for-byte. A contract that holds only in the
-# canonical tree is one Claude Code never reads.
-assert_files_identical "$WU" "$WUC" "wrap-up SKILL.md is byte-identical across skill trees"
-assert_files_identical "$CANON/wrap-up-session/scripts/spec-reconcile.py" \
-                       "$COMPAT/wrap-up-session/scripts/spec-reconcile.py" \
-                       "spec-reconcile.py is byte-identical across skill trees"
 
 printf '\n--- 7. Deferred work becomes one idempotent, provider-neutral task ---\n'
 
@@ -826,7 +818,7 @@ assert_eq "2" "$NEITHER_RC" "derive-id: supplying neither is a usage error, not 
 # And the skill must say so, because the failure this prevents is a judgement
 # call made at 3am by an unattended run: pausing for approval would hang the
 # pipeline, and publishing without it would breach the project's write policy.
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'does not pause or fail' \
     "deferred ($f): an unpublishable task never blocks wrap-up"
   assert_prose_contains "$f" 'publication is pending' \
@@ -851,7 +843,7 @@ printf '\n--- 9. Placement: after the register, before every downstream gate ---
 # checked. So the step's position is asserted against the actual heading
 # sequence, not merely its presence.
 step_order() { grep -n '^## Step ' "$1" | sed 's/:.*Step /:/' | sed 's/ .*//'; }
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   ORDER="$(step_order "$f")"
   assert_contains "$ORDER" ":3.2" "placement ($f): a Step 3.2 exists"
   LINE_REG="$(grep -n '^## Step 2 ' "$f" | cut -d: -f1)"
@@ -895,7 +887,7 @@ assert_prose_contains CLAUDE.md 'Every spec relevant to this session' \
   "contract: item 2 carries every relevant spec, not a single one"
 assert_prose_contains CLAUDE.md 'each spec' \
   "contract: acceptance criteria are per-spec, so a reviewer can tell them apart"
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'Every spec relevant to this session' \
     "payload ($f): the review payload assembles every relevant spec"
   assert_prose_contains "$f" 'reconciled this session' \
@@ -907,14 +899,14 @@ for f in "$WU" "$WUC"; do
 done
 
 # Deferred tasks reach the PR body, where reviewers actually look.
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'deliberately left alone rather than missed' \
     "PR ($f): a deferred spec is explained, not silently absent"
 done
 
 printf '\n--- 11. Reporting stays bounded; the new verb is documented ----------\n'
 
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   # Counts on all four outcomes. Reporting only what changed would make
   # "examined and still accurate" indistinguishable from "never looked".
   assert_prose_contains "$f" 'candidates, 2 updated, 2 unchanged, 1 deferred' \
@@ -938,8 +930,7 @@ done
 # The registry gained a verb. An undocumented command is one no skill will use,
 # and the command table is what a reader consults before the source.
 RS="$CANON/task-registry/SKILL.md"
-RSC="$COMPAT/task-registry/SKILL.md"
-for f in "$RS" "$RSC"; do
+for f in "$RS"; do
   assert_file_contains "$f" "task-registry.py upsert" \
     "registry ($f): upsert appears in the command examples"
   assert_prose_contains "$f" '| `upsert` |' \
@@ -948,19 +939,13 @@ for f in "$RS" "$RSC"; do
     "registry ($f): the property that makes upsert safe to re-run is stated"
 done
 
-# The helper must be reachable from where the skill says it is, in both trees.
-for tree in "$CANON" "$COMPAT"; do
+# The helper must be reachable from where the skill says it is.
+for tree in "$CANON"; do
   assert_eq "present" "$([ -f "$tree/wrap-up-session/scripts/spec-reconcile.py" ] && echo present || echo absent)" \
     "distribution ($tree): the discovery helper ships inside the skill directory"
   assert_eq "present" "$([ -f "$tree/task-registry/scripts/registry/upsert.py" ] && echo present || echo absent)" \
     "distribution ($tree): the upsert module ships inside the skill directory"
 done
-assert_files_identical "$CANON/task-registry/scripts/registry/upsert.py" \
-                       "$COMPAT/task-registry/scripts/registry/upsert.py" \
-                       "upsert.py is byte-identical across skill trees"
-assert_files_identical "$CANON/task-registry/scripts/task-registry.py" \
-                       "$COMPAT/task-registry/scripts/task-registry.py" \
-                       "task-registry.py is byte-identical across skill trees"
 
 # This feature's own spec must obey the format it introduces. A spec that
 # exempts itself is the clearest possible signal the format is optional.

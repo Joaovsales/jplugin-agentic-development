@@ -55,10 +55,9 @@ Box rules, arrows and em-dashes — the common case, not an edge one.
 └──────────────┘
 MD_EOF
 
-# Both mirror copies run: test-skill-parity.sh enforces byte-identity, but it
-# exempts its ALLOWLIST from comparison entirely, so an allowlist slip would
-# silence parity here while this loop still catches the drift.
-for TREE in ".agents" ".claude"; do
+# The canonical tree is the only copy: Claude Code loads it through the jplugin
+# plugin, so this run is what catches a drift in generate-presentation.py's output.
+for TREE in ".agents"; do
   OUT="$TMP/stdin-$TREE.html"
   run_stdin "$REPO_ROOT/$TREE/skills/html-presentation/scripts/generate-presentation.py" "$MD" "$OUT"
   assert_eq "0" "$RC" "($TREE) stdin path exits 0 under a non-UTF-8 default encoding"

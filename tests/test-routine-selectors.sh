@@ -747,7 +747,7 @@ assert_not_contains "$prod_sel_out" "unknown routine" \
 # ============================================================================
 # 7. The template documents what it ships
 # ============================================================================
-for tree in .agents .claude; do
+for tree in .agents; do
   tmpl="$tree/skills/task-registry/templates/task-tracking.md"
   assert_file_contains "$tmpl" "[routines]" \
     "AC12: $tree template documents the [routines] section"
@@ -1039,7 +1039,7 @@ assert_contains "$wf_help" "workflow" \
 
 # `--help` is not where an agent finds a command; the skill is. A command in one
 # and not the other is a command nothing reaches.
-for tree in .agents .claude; do
+for tree in .agents; do
   wf_skill="$REPO/$tree/skills/task-registry/SKILL.md"
   assert_file_matches "$wf_skill" '^argument-hint:.*workflow' \
     "AC13: $tree/task-registry offers workflow in its argument-hint"

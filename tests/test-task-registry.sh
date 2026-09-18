@@ -56,8 +56,9 @@ run() { "$PY" "$CLI" "$@"; }
 
 # Run a snippet against the package, the way another Python caller would.
 # PYTHONDONTWRITEBYTECODE mirrors the CLI's own `sys.dont_write_bytecode`: a
-# __pycache__ inside the canonical skills tree breaks tests/test-skill-parity.sh,
-# so no entry point to this package may leave one behind.
+# __pycache__ inside the canonical skills tree corrupts the byte-identical
+# copy other tooling relies on, so no entry point to this package may leave
+# one behind.
 pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -; }
 
 # --- shared fixture content --------------------------------------------------

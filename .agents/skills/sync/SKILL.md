@@ -252,7 +252,7 @@ Summarize the changes in a clear table:
 ```
 | File                          | Status   | Summary                    |
 |-------------------------------|----------|----------------------------|
-| .claude/skills/sync/SKILL.md  | NEW      | New sync skill              |
+| .agents/skills/sync/SKILL.md  | NEW      | New sync skill              |
 | .claude/agents/planner.md     | MODIFIED | Updated planning prompts    |
 | CLAUDE.md                     | MODIFIED | Added new workflow section  |
 ```
@@ -404,7 +404,7 @@ error, but usually a stale entry that has stopped protecting what it names.
 
 **Project-local content under a syncable root belongs in `sync-keep`.** Other
 skills write there — `/create-verification-skill` generates a `verify-<app>`
-skill into `.agents/skills/` and mirrors it into `.claude/skills/` — and nothing
+skill into `.agents/skills/` — and nothing
 registers those paths automatically. Once a project has promoted its candidate,
 anything generated afterwards is a retire candidate on the next sync. It is
 always reported before deletion, so nothing is lost silently, but the operator

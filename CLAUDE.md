@@ -301,7 +301,6 @@ Before marking any task complete, confirm:
 ```
 .agents/skills/            → Canonical skills (harness-neutral)
 .agents/agents/            → Sub-agent personas (canonical; .claude/agents/ = Claude Code copy)
-.claude/skills/            → Byte-identical backwards-compat copy (+ allowlisted Claude-only extras)
 .claude/hooks/             → Lifecycle automation scripts (Claude Code only)
 specs/                     → Feature specifications
 tasks/todo.md              → Active task plan
@@ -452,6 +451,8 @@ authorization unless the project's configuration enables them.
 ---
 
 ## Skills — `.agents/skills/`
+
+On Claude Code the skills are installed as the `jplugin` plugin, so a `/name` in this file is typed `/jplugin:name` and appears to the Skill tool as `jplugin:name`; Pi and Codex invoke `/name` directly.
 
 | Skill | Purpose |
 |-------|---------|

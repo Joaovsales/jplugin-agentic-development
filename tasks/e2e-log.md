@@ -1202,3 +1202,23 @@ follow from the whole spike and are decided in § Decisions (2026-09-18):
 Cleanup: the marketplace, cache and `s4-clone`/`s4-clone2`/`s4-clone3` are scratch; remove
 with `claude plugin marketplace remove jplugin-agentic-development` and `rm -rf` of the three
 clone directories and `~/.claude/plugins/cache/jplugin-agentic-development`.
+
+## Spike S2 — follow-up: bare `/verify-evidence` routes to the plugin — 2026-09-18 eb5fdbd
+
+Spec: specs/claude-plugin-manifest.md (§ Decisions, `/verify` after the copy is deleted; AC 2)
+Commit: eb5fdbd (worktree-plugin-manifest) — the rename
+Claude Code: 2.1.277
+
+**Setup.** Scratch worktree `.claude/worktrees/jplugin-routing` detached at eb5fdbd with
+`.claude/skills/` deleted, plugin loaded with `--plugin-dir`, the user's real config (its
+`~/.claude/skills/verify` legacy copy is a different name and cannot shadow the probe), one
+print-mode session, `MSYS_NO_PATHCONV=1`, prompt `/verify-evidence`.
+
+**Result.** The transcript's first user turn is
+`<command-message>jplugin:verify-evidence</command-message>
+<command-name>/jplugin:verify-evidence</command-name>` — the harness routed the bare slash to
+the plugin skill. The S2 FAIL was the name collision with Claude Code's bundled `verify`, and
+the rename removes it; `/quality-gate` and `/task-registry` were already FIRED in S2.
+
+**Verdict: PASS** for the slice 6 gate (AC 2). The organic-prompt weakness of the verify
+description (S2 control 1/2) is unchanged by the rename and stays a separate `/eval` item.

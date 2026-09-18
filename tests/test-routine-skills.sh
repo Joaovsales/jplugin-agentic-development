@@ -189,27 +189,6 @@ present_out="$(load_report "$present")"
 assert_contains "$present_out" "chain plan: /plan -> /summon-the-kraken -> /wrap-up-session" \
   "AC4 control: the identical chain loads once the skill exists on disk"
 
-# `.claude/skills/` satisfies the check too — the two trees are pinned
-# byte-identical, and a project that carries only the Claude Code copy is
-# correctly configured, not broken.
-printf '\n-- AC4: .claude/skills counts as on disk --\n'
-claude_only="$(mktemp -d "${TMPDIR:-/tmp}/routine-skills.XXXXXX")"
-TMP_DIRS+=("$claude_only")
-mkdir -p "$claude_only/tasks" "$claude_only/docs"
-printf '[ ] placeholder\n' > "$claude_only/tasks/todo.md"
-for name in plan wrap-up-session; do
-  mkdir -p "$claude_only/.claude/skills/$name"
-  printf -- '---\nname: %s\n---\n' "$name" > "$claude_only/.claude/skills/$name/SKILL.md"
-done
-write_config "$claude_only" "design-decision" <<'INI'
-[routines.selectors]
-plan = design-decision
-
-[routines.skills]
-plan = /plan, /wrap-up-session
-INI
-assert_contains "$(load_report "$claude_only")" "chain plan: /plan -> /wrap-up-session" \
-  "AC4: a skill present only in .claude/skills/ satisfies the on-disk check"
 
 # A skill reference is a directory NAME, not a path. The name comes from a file
 # in the repository — the same untrusted input class the task-tracking pointer is
@@ -547,7 +526,7 @@ assert_contains "$project_chains" "declared: True" \
 
 # The template an adopter starts from must document the section, or the layer
 # exists only for projects that read the source.
-for tree in .agents .claude; do
+for tree in .agents; do
   assert_file_contains "$tree/skills/task-registry/templates/task-tracking.md" "[routines.skills]" \
     "AC12: $tree template documents the [routines.skills] section"
   assert_file_contains "$tree/skills/task-registry/templates/task-tracking.md" "/wrap-up-session" \
