@@ -189,6 +189,30 @@ present_out="$(load_report "$present")"
 assert_contains "$present_out" "chain plan: /plan -> /summon-the-kraken -> /wrap-up-session" \
   "AC4 control: the identical chain loads once the skill exists on disk"
 
+# The Claude Code copy is retired (specs/claude-plugin-manifest.md): a skill that
+# exists only under .claude/skills/ is a pre-plugin leftover, not an installation,
+# so the loader looks in the canonical tree alone and says so.
+printf '\n-- AC4: .claude/skills alone is not on disk --\n'
+claude_only="$(mktemp -d "${TMPDIR:-/tmp}/routine-skills.XXXXXX")"
+TMP_DIRS+=("$claude_only")
+mkdir -p "$claude_only/tasks" "$claude_only/docs" "$claude_only/.agents/skills"
+printf '[ ] placeholder\n' > "$claude_only/tasks/todo.md"
+for name in plan wrap-up-session; do
+  mkdir -p "$claude_only/.claude/skills/$name"
+  printf -- '---\nname: %s\n---\n' "$name" > "$claude_only/.claude/skills/$name/SKILL.md"
+done
+write_config "$claude_only" "design-decision" <<'INI'
+[routines.selectors]
+plan = design-decision
+
+[routines.skills]
+plan = /plan, /wrap-up-session
+INI
+assert_contains "$(load_report "$claude_only")" "REFUSED:" \
+  "AC4: a skill present only in .claude/skills/ no longer satisfies the on-disk check"
+assert_contains "$(refusal_of "$claude_only")" "Looked in .agents/skills" \
+  "AC4: the refusal names the one tree it searched"
+
 
 # A skill reference is a directory NAME, not a path. The name comes from a file
 # in the repository — the same untrusted input class the task-tracking pointer is

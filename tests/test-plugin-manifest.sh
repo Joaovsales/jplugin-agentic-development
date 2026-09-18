@@ -135,8 +135,8 @@ assert_eq "no" "$([ -e .agents/skills/verify ] && echo yes || echo no)" \
 assert_file_contains .agents/skills/verify-evidence/SKILL.md "name: verify-evidence" \
   "rename: verify-evidence/SKILL.md carries its own name in the frontmatter"
 BARE_VERIFY='(^|[^A-Za-z0-9_/-])/verify([^A-Za-z0-9_-]|$)'
-assert_eq "" "$(git grep -l -E "$BARE_VERIFY" -- .agents .claude/hooks .claude/browsers CLAUDE.md README.md tests ':!tests/test-plugin-manifest.sh' 2>/dev/null | paste -sd' ' -)" \
-  "rename: no bare /verify reference survives in the skills, hooks, browser runbooks, CLAUDE.md, README or tests"
+assert_eq "" "$(git grep -l -E "$BARE_VERIFY" -- . ':!tasks' ':!specs' ':!tests/test-plugin-manifest.sh' 2>/dev/null | paste -sd' ' -)" \
+  "rename: no bare /verify reference survives in any tracked file outside tasks/ and specs/"
 
 # --- 9. one tree, one namespace sentence (spec § Decisions, AC 1, AC 9) -----
 # The byte-identical `.claude/skills/` copy is gone: Claude Code loads

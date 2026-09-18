@@ -40,7 +40,8 @@ cat > "$CODEX_HOME/hooks.json" <<JSON
   "hooks": {
     "SessionStart": [
       {"hooks": [{"type": "command", "command": "echo existing"}]},
-      {"hooks": [{"type": "command", "command": "python3 $CODEX_HOME/hooks/$LEGACY_SLUG-session-start.py"}]}
+      {"hooks": [{"type": "command", "command": "python3 $CODEX_HOME/hooks/$LEGACY_SLUG-session-start.py"}]},
+      {"hooks": [{"type": "command", "command": "bash $HOME_DIR/$LEGACY_SLUG-notes/hook.sh"}]}
     ],
     "PreCompact": [
       {"hooks": [{"type": "command", "command": "bash $CODEX_HOME/hooks/$LEGACY_SLUG-pre-compact.sh"}]}
@@ -110,7 +111,10 @@ for event in ("SessionStart", "PreCompact", "SessionEnd"):
     assert len(adapter_commands) == 1, (event, commands)
     # A re-run on a machine installed before the rename replaces the old-slug
     # registration for the same event instead of leaving two adapters firing.
-    assert not [command for command in commands if legacy_slug in command], (event, commands)
+    legacy_files = (f"{legacy_slug}-session-start.py", f"{legacy_slug}-pre-compact.sh", f"{legacy_slug}-session-end.sh")
+    assert not [command for command in commands if any(command.endswith(name) for name in legacy_files)], (event, commands)
+# A user hook whose path merely contains the old slug is not this adapter's and survives.
+assert any(f"{legacy_slug}-notes/hook.sh" in h.get("command", "") for g in hooks["hooks"]["SessionStart"] for h in g["hooks"])
 PY
 then
   :

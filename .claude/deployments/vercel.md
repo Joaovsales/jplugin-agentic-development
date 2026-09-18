@@ -58,4 +58,4 @@ For the GitHub Checks path to work, the Vercel → GitHub integration must be en
 
 ## Dashboard URL
 
-The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `CLAUDE.md` § Deployment Targets. For Vercel, `{project_id}` should be `<team-or-username>/<project-name>` (e.g. `acme/marketing-site`) so the resulting URL points at the project page.
+The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `.claude/project.md` § Deployment Targets. For Vercel, `{project_id}` should be `<team-or-username>/<project-name>` (e.g. `acme/marketing-site`) so the resulting URL points at the project page.

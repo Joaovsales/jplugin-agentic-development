@@ -286,7 +286,7 @@ Clean up `tasks/deploy-state.json` only on `ALL_GREEN` or `SKIPPED` — leaving 
 - **No check runs returned within the first 30 seconds** (the service hasn't picked up the push yet): keep polling at the normal cadence. Don't escalate this as a failure — the service may be slow to register.
 - **Runbook references a CLI that isn't installed**: `auth_check_command` exits non-zero (command not found = exit 127), which triggers the AUTH_FAILED path. Report includes "command not found — install the CLI or switch to github-checks".
 - **`.claude/deployments/` directory missing entirely**: there are no runbooks to validate against. Skip verification with: `No runbooks found in .claude/deployments/. Run /setup-deployment to populate.`
-- **`.claude/project.md` `Deployment Targets` section references a runbook file that doesn't exist** (or the same in the legacy `CLAUDE.md` location during fallback): skip that target with `<service>: runbook file not found at <path>`. Continue with other targets.
+- **`.claude/project.md` `Deployment Targets` section references a runbook file that doesn't exist**: skip that target with `<service>: runbook file not found at <path>`. Continue with other targets.
 - **Code-debugger applies a fix that breaks local tests**: per the debugger's own protocol, it should report failure rather than commit. If a diff exists but tests fail, do NOT commit — skip directly to D.6 (count as failed iteration).
 
 ---

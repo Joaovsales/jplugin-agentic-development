@@ -647,7 +647,13 @@ def compute_plan(repo: str, ref: Optional[str], directory: Optional[str]) -> Pla
         plan,
         retire=[*plan.retire, *outcome.retire],
         kept=[*plan.kept, *outcome.kept],
-        unmatched=[pattern for pattern in plan.unmatched if pattern not in outcome.used],
+        # A pattern reaching a retired root may protect a project-local file that
+        # history cannot see (`.claude/skills/verify-<app>/**`); "matched nothing"
+        # would tell the operator it is about to stop protecting it.
+        unmatched=[
+            pattern for pattern in plan.unmatched
+            if pattern not in outcome.used and not _reaches_a_root(pattern, retired)
+        ],
         retired_roots=list(retired),
         retired_reason=outcome.reason,
     )
@@ -738,9 +744,10 @@ def _enabled_plugins(repo: str) -> Dict[str, object]:
     """The project's `enabledPlugins` map; empty when the file is absent.
 
     Absent is a legitimate state — a project that never synced settings — and
-    reads as "nothing enabled". Present but unparseable is not: read the same
-    way it would hold back a retirement the operator believes they enabled,
-    with no hint why, so it is reported on the tool's own channel instead.
+    reads as "nothing enabled". Present but unparseable, or parseable into a
+    shape Claude Code cannot read (a top-level list, a string under the key), is
+    not: read as {} it would hold back a retirement the operator believes they
+    enabled, with no hint why, so it is reported on the tool's own channel.
     """
     path = os.path.join(repo, SETTINGS_FILE)
     if not os.path.lexists(path):
@@ -749,8 +756,14 @@ def _enabled_plugins(repo: str) -> Dict[str, object]:
         settings = json.loads(_read_text(path))
     except ValueError as exc:
         raise RetireError(f"cannot parse {SETTINGS_FILE}: {exc}")
-    enabled = settings.get("enabledPlugins") if isinstance(settings, dict) else None
-    return enabled if isinstance(enabled, dict) else {}
+    if not isinstance(settings, dict):
+        raise RetireError(f"{SETTINGS_FILE}: expected a JSON object, got {type(settings).__name__}")
+    enabled = settings.get("enabledPlugins", {})
+    if not isinstance(enabled, dict):
+        raise RetireError(
+            f"{SETTINGS_FILE}: enabledPlugins must be a JSON object, got {type(enabled).__name__}"
+        )
+    return enabled
 
 
 def _live_plan(template: Template, roots: Sequence[str], patterns: Optional[List[str]]) -> Plan:

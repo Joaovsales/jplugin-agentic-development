@@ -6,7 +6,7 @@
 
 This directory is read by:
 
-- **`/verify-deployment`** — loads the runbook for each row in `CLAUDE.md` § Deployment Targets, validates frontmatter against this contract, then drives the wait/log/fix loop.
+- **`/verify-deployment`** — loads the runbook for each row in `.claude/project.md` § Deployment Targets, validates frontmatter against this contract, then drives the wait/log/fix loop.
 - **`/setup-deployment`** — scans every runbook's `detect_files` to figure out which services this project uses, then writes the routing table into `CLAUDE.md`.
 - **`.claude/hooks/session-start.sh`** — uses `detect_files` to print a one-line nudge when signal files exist but no Deployment Targets section is configured.
 
@@ -129,7 +129,7 @@ When the agent gives up after 3 iterations, check the dashboard for:
 4. **Write the `auth_check_command`** to exit 0 only when credentials are present (e.g. `railway whoami`, `vercel whoami`, `flyctl auth whoami`). This runs before polling so we fail fast.
 5. **Add 2–4 `common_failure_patterns`** for the most frequent build failures you've personally hit on this service. These compound across teams that `/sync` from this template — better hints lead to faster fix loops.
 6. **Write a `## Manual troubleshooting` body** with the things the agent can't auto-diagnose: env var issues, quota limits, dashboard-only settings.
-7. **Test the runbook** by adding a row to your project's `CLAUDE.md` § Deployment Targets that points at it, then run `/verify-deployment` after a known-good push.
+7. **Test the runbook** by adding a row to your project's `.claude/project.md` § Deployment Targets that points at it, then run `/verify-deployment` after a known-good push.
 8. **Open a PR back to the template** — once your runbook works for your project, others using `/sync` will benefit.
 
 ---

@@ -53,4 +53,4 @@ For the GitHub Checks path to work, the Railway → GitHub integration must be e
 
 ## Dashboard URL
 
-The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `CLAUDE.md` § Deployment Targets. Example: if the table row says `my-api-prod`, the escalation message will link to `https://railway.app/project/my-api-prod`.
+The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `.claude/project.md` § Deployment Targets. Example: if the table row says `my-api-prod`, the escalation message will link to `https://railway.app/project/my-api-prod`.

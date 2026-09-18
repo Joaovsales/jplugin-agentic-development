@@ -11,7 +11,7 @@ A reusable, project-agnostic configuration system that enforces **spec-driven, T
 | **CLAUDE.md** | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate |
 | **Skills** (`.agents/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
 | **Agents** (`.claude/agents/`) | 8 specialized subagents for planning, coding, review, debugging, security |
-| **Hooks** (`.claude/hooks/`) | Session start orientation + auto test runner on file save |
+| **Hooks** (`.claude/hooks/`) | Session start orientation |
 | **Learning store** (`tasks/solutions/`) | Typed per-document learnings, grep-first retrieval, written via `/learn` |
 
 Codex uses the same canonical `.agents/` sources through the explicit adapter
@@ -99,6 +99,8 @@ Copies CLAUDE.md and the agents into `~/.claude/`, and registers this checkout a
 ```
 
 Skills are **not** copied into `~/.claude/skills/` any more: the plugin manifest (`.claude-plugin/plugin.json`) points Claude Code at `.agents/skills/` in the checkout, so every skill is invoked as `/jplugin:<name>` (bare `/<name>` also resolves while no other skill claims the name). If an earlier install left copies in `~/.claude/skills/`, the installer lists them and deletes them only after you answer `y`; anything there the template never shipped is never touched. Without the `claude` CLI on `PATH` the plugin step prints a note and skips.
+
+**Requires Claude Code 2.1.227 or newer** (plugin `skills` paths). **Developing skills in the checkout:** run `claude --plugin-dir <checkout>` — the checkout's own `.claude/settings.json` declares the github marketplace, which replaces the directory registration `install.sh` made, so a plain session loads the cached release, not your edits.
 
 The **SessionStart hook** runs automatically at the start of every Claude Code session. It prints:
 - Learning-store counts from `tasks/solutions/` (documents + needs_review)
@@ -376,11 +378,15 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │       ├── history.md
 │       ├── concepts.md
 │       └── solutions/
+├── .agents/
+│   └── skills/                      ← canonical skills, each with SKILL.md + optional reference docs
+├── .claude-plugin/
+│   ├── plugin.json                  ← the jplugin manifest (skills: ./.agents/skills)
+│   └── marketplace.json             ← the marketplace entry Claude Code installs from
 ├── .claude/
 │   ├── AGENTS.md                    ← Agent reference documentation
 │   ├── settings.json                ← Hook configuration
 │   ├── agents/                      ← 8 specialized subagents
-│   ├── skills/                      ← skills, each with SKILL.md + optional reference docs
 │   └── hooks/
 │       └── session-start.sh         ← Orientation + skill awareness
 ├── tasks/

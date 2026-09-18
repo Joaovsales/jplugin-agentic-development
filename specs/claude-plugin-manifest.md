@@ -119,9 +119,13 @@ delivery path.
 | Minimum Claude Code version | 2.1.227 (the version the manifest is proven on); the skills path is written `./.agents/skills`, never `.`, which needed 2.1.221 | inferred | README prerequisite line; live proof |
 | Rollback | template: `git revert`; machine: `claude plugin uninstall jplugin@jplugin-agentic-development` and `claude plugin marketplace remove jplugin-agentic-development`, then the previous `install.sh`; downstream: `/sync` against the previous template ref checks `.claude/skills/` back out and restores the previous `settings.json` | inferred | README § Keeping It Up to Date runbook step |
 
-Consistency is per project, not per machine: within one project every clone
-installs the same plugin `version` because `settings.json` is committed and the
-manifest pins it. Two projects may run different releases, as they do today.
+Consistency is per project, not per machine, with one window: within one project
+every clone caches the same plugin `version` because `settings.json` is committed
+and the manifest pins it, but the cached skill bodies come from the template's
+default branch at that version while the scripts they call by project path come
+from the project's last `/sync`. Between a `version` bump and the next `/sync` the
+two can diverge; `/sync` closes the window. Two projects may run different
+releases, as they do today.
 
 ## System design
 
@@ -155,7 +159,7 @@ manifest pins it. Two projects may run different releases, as they do today.
     │                    │                        │                              │     scan ./.agents/skills   │  NEW
  teammate (fresh clone) Claude Code session       ~/.claude/plugins
     │ (6) open project ► │ reads .claude/settings.json: extraKnownMarketplaces + enabledPlugins    NEW
-    │                    │ (7) offers marketplace install; on yes: github source @ ref ─► cache/  NEW
+    │                    │ (7) offers marketplace install; on yes: github source, version pin ─► cache/  NEW
  downstream project     /sync                    sync-retire.py                 template ref
     │ (8) /sync ───────►  │ (9) checkout .agents/skills, settings.json (ref R) ◄─────────────────── │
     │                    │ (10) roots ◄─────────── │ ◄── Syncable Paths block ─── │
@@ -251,7 +255,7 @@ checkout until `claude plugin update`. In-place development uses
 {
   "extraKnownMarketplaces": {
     "jplugin-agentic-development": {
-      "source": { "source": "github", "repo": "Joaovsales/jplugin-agentic-development", "ref": "<sha /sync checked out>" }
+      "source": { "source": "github", "repo": "Joaovsales/jplugin-agentic-development" }
     }
   },
   "enabledPlugins": { "jplugin@jplugin-agentic-development": true }
@@ -444,7 +448,7 @@ both `/plan` and `/jplugin:plan` resolve there — noisy, not broken.
 | 2 | Repository identity | every old-name literal replaced; hook ids renamed with `install-codex.sh` idempotency; README remote step; `tests/test-repo-identity.sh` | 1 | identity contract | M |
 | 3 | Canonical extras | `setup-deployment` and `verify-deployment` move to `.agents/skills/` with `harness: claude`; parity allowlist shrinks to `README.md`; `writing-skills` no longer instructs the copy | 1 | — | S |
 | 4 | Installer | `install_claude_plugin`, `remove_legacy_skill_copies` (current ∪ retired names, one `y/N`); step 2 and `--prune-skills` removed; `/tidy` `installed` check reads `installed_plugins.json` and the legacy list | 2 | the two `install.sh` functions | M |
-| 5 | Sync contract | `.claude/settings.json` plugin declaration in the template; Syncable Paths `RETIRED` row; `sync-retire.py` retired roots + project guard; `/sync` Step 5 writes `ref`; `sync-template.yml` mirror list and PR body; `session-start.sh` drift list and enabled-but-uninstalled line; `test-syncable-paths.sh` to six copies | 2 | `require_project_plugin`, settings declaration | L |
+| 5 | Sync contract | `.claude/settings.json` plugin declaration in the template; Syncable Paths `RETIRED` row; `sync-retire.py` retired roots + project guard; `/sync` Step 5 merges the declaration (no `ref` — slice 5b); `sync-template.yml` mirror list and PR body; `session-start.sh` drift list and enabled-but-uninstalled line; `test-syncable-paths.sh` to six copies | 2 | `require_project_plugin`, settings declaration | L |
 | 6 | Remove the copy | delete `.claude/skills/`, `tests/test-skill-parity.sh`; rewrite the 25 two-tree tests to loop over `.agents/skills/` only; `CLAUDE.md` Key Directories + namespace sentence; `README.md`, `.agents/agents/README.md`, `tasks/concepts.md`, `/tidy` inventory; `task-registry` `SKILL_ROOTS` comment and `templates/task-tracking.md:119`; project-local-skill prose in `create-verification-skill`, `maintain-verification-skill`, `verify`; `test-skill-references.sh` premise | 3, 4, 5; **S2 PASS** | — | L |
 | 7 | Retire legacy shims | `/sync` Steps 2.5 and 2.6 deleted; `session-start.sh` `CLAUDE.md` fallback and deprecation hint deleted; `.claude/deployments/README.md:151` sentence; `verify/SKILL.md:65`; `auto-test-runner.sh`/`.ps1` and `tests.md` deleted with their README rows; `/tidy --report` shows the seven retired names nowhere as live | 6 | — | M |
 
@@ -472,6 +476,7 @@ both `/plan` and `/jplugin:plan` resolve there — noisy, not broken.
 | Retirement of downstream copies | explicit `RETIRED` root scanned against history / ship a sentinel file to keep the root non-empty / never retire | `RETIRED` root — the skipped-root behaviour at `sync-retire.py:615,624` makes an empty live root inert, and a sentinel contradicts "no longer exists" | a project needs `.claude/skills/` retired without adopting the plugin — that project edits its allowlist by hand |
 | Missing plugin declaration at retirement | `RetireError` at exit 1 / plan state reported at exit 0 | plan state — decided 2026-09-17 at `/quality-gate`: `/sync` Step 3 previews retirement before Step 5 writes the declaration, so a refusal exited 1 on every downstream project's first sync and dropped the live-root list from the summary the user approves; the retired-root copies stay out of the plan either way, so nothing is deletable without the declaration |
 | `/verify` after the copy is deleted — **decided 2026-09-18: A, renamed `verify-evidence`** | A) rename the skill B) keep a project-level `.claude/skills/verify/` shim forwarding to `jplugin:verify` C) accept the bundled `/verify` | A — Claude Code's bundled `verify` wins a bare `/verify` once no un-namespaced copy exists (S2), and its contract contradicts this skill's; `verify-evidence` fits the `verify-deployment` / `verify-e2e` / `verify-<app>` family and collides with nothing in 2.1.277; the old name retires through history like any other, so `install.sh` and `/sync` delete the stale copies | a later Claude Code release bundles `verify-evidence` — re-check the bundled names on every upgrade |
+| CI-synced projects and the retired root — **OPEN, owner: maintainer** | A) `sync-template.yml` clones the template with full history and runs `sync-retire.py --apply` on `.claude/skills/` after mirroring (its own "never deletes" rule gains one history-matched exception) B) state that a CI-synced project needs one manual `/sync` to drop the copies C) keep mirroring `.claude/skills/` for CI consumers only | the workflow stopped mirroring the root but never deletes, so a CI-synced project keeps a frozen `.claude/skills/` whose bare `/name` shadows the plugin forever | A restores the pre-branch property (CI kept the copies current) at the cost of a deletion in an auto-merged PR; B is honest but leaves the shadow until a human acts |
 | Legacy `/sync` migrations (Steps 2.5, 2.6) and the `CLAUDE.md` fallback | delete / keep | delete — they serve projects synced before two earlier renames; the reviewer owns every downstream project and asked for compatibility no longer needed to go | a downstream project still has `## Deployment Targets` in `CLAUDE.md`: its verification silently stops until the section is moved by hand — `/tidy` in that project reports it |
 | Scope of the identity rename | prose and user-facing paths only / also internal identifiers (`workflow` remote, `WORKFLOW_BRANCH`) | prose, paths and hook ids; the remote name and variables stay — they name a role, not the repository | the remote name is ever shown to users as the repository's name |
 | Lifetime of the `RETIRED` row — **open** | drop after one release / keep indefinitely | drop once every known downstream project has synced past slice 6; it costs nothing meanwhile because a retired root is outside the empty-root budget | never — a stale row is documentation of a deletion nobody can see |
@@ -480,7 +485,7 @@ both `/plan` and `/jplugin:plan` resolve there — noisy, not broken.
 
 - Claude Code loads every skill under `.agents/skills/` as `jplugin:<name>` from the plugin manifest; the template's `.claude/skills/` no longer exists.
 - Bare `/name` references in prose route to `jplugin:<name>` on Claude Code, proven by a triggerability eval with no un-namespaced copy present, before the copy is deleted.
-- Every synced project's `.claude/settings.json` declares the marketplace (github source, no `ref`) and enables `jplugin@jplugin-agentic-development`, so a fresh clone installs and loads the plugin when the folder is trusted; `plugin.json` `version` pins what is installed. *(S4 PASS 2026-09-18 on 2.1.277 after a clean-trust re-run; the 2.1.274 FAIL above it was a contaminated trust dialog.)*
+- Every synced project's `.claude/settings.json` declares the marketplace (github source, no `ref`) and enables `jplugin@jplugin-agentic-development`, so a fresh clone installs and loads the plugin when the folder is trusted; `plugin.json` `version` pins what is installed. *(S4 PASS 2026-09-18 on 2.1.277 after a clean-trust re-run; the 2.1.274 FAIL above it was a contaminated trust dialog.)* Post-merge follow-up: S4 could only exercise a `git` + `file://` source with a branch `ref` (the shipped `github` shape is unreachable until `.claude-plugin/` is on master); re-run it on a fresh clone against the shipped declaration after merge and append the entry.
 - The old repository name appears in no tracked file outside `tasks/` and `specs/`; hook ids carry the new name and `install-codex.sh` replaces the old ids on re-run.
 - `install.sh` registers the checkout as a directory marketplace and installs the plugin at user scope; it no longer copies skills to `~/.claude/skills/`; it lists current-or-retired template names there and deletes them after one `y`; it never deletes a name the template never carried; `--prune-skills` is gone.
 - `install.sh` step 3 and `scripts/install-codex.sh` still deliver `~/.agents/skills/` unchanged, so Pi and Codex behave as before.
@@ -498,7 +503,7 @@ both `/plan` and `/jplugin:plan` resolve there — noisy, not broken.
 - `.claude/hooks/session-start.sh` — drift list, enabled-but-uninstalled line, `CLAUDE.md` fallback removed, banner name
 - `.claude/deployments/README.md` — legacy location sentence removed
 - `.agents/skills/setup-deployment/**`, `.agents/skills/verify-deployment/**` — Claude-only skills moved into the canonical tree
-- `.agents/skills/sync/SKILL.md`, `.agents/skills/sync/scripts/sync-retire.py` — `RETIRED` row, retired-root candidates, project guard, `ref` write in Step 5, Steps 2.5 and 2.6 removed, repository name
+- `.agents/skills/sync/SKILL.md`, `.agents/skills/sync/scripts/sync-retire.py` — `RETIRED` row, retired-root candidates, project guard, declaration merge in Step 5 (no `ref`, slice 5b), Steps 2.5 and 2.6 removed, repository name
 - `.agents/skills/tidy/SKILL.md`, `.agents/skills/writing-skills/SKILL.md` — inventory, installed check and authoring instructions for the one-tree layout; `--prune-skills` references removed
 - `.agents/skills/create-verification-skill/SKILL.md`, `.agents/skills/maintain-verification-skill/SKILL.md`, `.agents/skills/verify-evidence/SKILL.md` — project-local skill wording; "primary" removed
 - `.agents/skills/task-registry/scripts/registry/config.py`, `.agents/skills/task-registry/scripts/task-registry.py`, `.agents/skills/task-registry/templates/task-tracking.md` — `SKILL_ROOTS` comment and prose that cite the parity test

@@ -181,7 +181,7 @@ for f in .agents/skills/tidy/SKILL.md; do
                "disable-model-invocation: false" "harness: universal" \
                "neither a producer nor a consumer" \
                "Tier 0" "Tier 1" "Tier 2" \
-               "git log --diff-filter=D" \
+               "git log --no-renames --diff-filter=D" \
                "bash install.sh" "installed_plugins.json" \
                "never executed by the skill" "Never delete unmerged work" "forge evidence" \
                "squash-merge" "git branch --merged" \
@@ -707,7 +707,7 @@ done
 for f in .agents/skills/sync/SKILL.md; do
   for token in "RETIRED —" "extraKnownMarketplaces" "enabledPlugins" "writes no \`ref\`" \
                "jplugin@jplugin-agentic-development" "rather than overwriting" \
-               "does not enable" "\`version\` pins"; do
+               "does not enable" "\`version\` pins" "never in \`<selected-files>\`"; do
     assert_file_contains "$f" "$token" "sync: $f contains '$token'"
   done
   assert_file_matches "$f" '^\.claude/skills/ +→ RETIRED — ' \
@@ -731,7 +731,7 @@ done
 # reference, so nothing can route a user to a step that no longer exists.
 # The literals are assembled at runtime so this block is not itself a hit.
 shim_hits() { git grep -l -e "$1" -- . ':!tasks' ':!specs' 2>/dev/null | paste -sd' ' - || true; }
-for needle in "commands.""legacy" "Step 2.""5" "Step 2.""6" "auto-test-""runner" "TARGETS_IN_""CLAUDE"; do
+for needle in "commands.""legacy" "Step 2.""5" "Step 2.""6" "auto-test-""runner" "auto test ""runner" "TARGETS_IN_""CLAUDE"; do
   hits="$(shim_hits "$needle")"
   assert_eq "" "$hits" \
     "Shims: no tracked file outside tasks/ and specs/ names '$needle' (hits: ${hits:-none})"
@@ -747,8 +747,14 @@ for f in .agents/skills/verify-deployment/SKILL.md \
          .agents/skills/setup-deployment/SKILL.md \
          .claude/deployments/README.md .claude/hooks/session-start.sh; do
   assert_file_not_matches "$f" \
-    '[Ll]egacy (fallback|location|section|projects|Deployment Targets)|auto-migrat|Deprecation' \
+    '[Ll]egacy (fallback|location|section|projects|Deployment Targets|`CLAUDE\.md`)|auto-migrat|Deprecation' \
     "Shims: $f no longer reads or migrates a CLAUDE.md Deployment Targets section"
+done
+for f in .claude/deployments/README.md .claude/deployments/github-actions.md \
+         .claude/deployments/railway.md .claude/deployments/vercel.md \
+         .agents/skills/verify-deployment/SKILL.md .agents/skills/setup-deployment/SKILL.md; do
+  assert_file_not_matches "$f" 'CLAUDE\.md` § Deployment Targets|CLAUDE\.md § Deployment Targets' \
+    "Shims: $f points at .claude/project.md, not CLAUDE.md, for the Deployment Targets table"
 done
 assert_file_contains .claude/hooks/session-start.sh 'grep -qE "$TARGETS_REGEX" .claude/project.md' \
   "Shims: session-start reads .claude/project.md for the section (non-vacuity)"

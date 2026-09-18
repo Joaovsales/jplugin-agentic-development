@@ -2133,6 +2133,21 @@ assert_contains "$RUN_OUTPUT" "cannot parse .claude/settings.json" \
   "24.3: the error names the file"
 assert_not_contains "$RUN_OUTPUT" "Traceback" "24.3: ... through RetireError"
 
+# --- 24.3b a shape Claude Code cannot read is a refusal too; absent and false hold back ---
+_f "$P50/.claude/settings.json" '{"enabledPlugins": []}'
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "1" "$RUN_STATUS" "24.3b: enabledPlugins that is not an object is refused, not read as empty"
+assert_contains "$RUN_OUTPUT" "enabledPlugins" "24.3b: the error names the key"
+_f "$P50/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": false}}'
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.3b: a project that set the plugin to false still gets a plan"
+assert_contains "$RUN_OUTPUT" "does not enable" "24.3b: ... held back with the same reason"
+assert_not_contains "$RUN_OUTPUT" "retire: .claude/skills/" "24.3b: ... and nothing under the retired root enters it"
+rm -f "$P50/.claude/settings.json"
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.3b: a project with no settings file at all still gets a plan"
+assert_contains "$RUN_OUTPUT" "does not enable" "24.3b: ... held back the same way"
+
 # --- 24.4 with the plugin enabled, history decides ----------------------------
 _f "$P50/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}'
 run_retire --repo "$P50" --from-dir "$T50"
@@ -2151,7 +2166,7 @@ assert_not_contains "$RUN_OUTPUT" "verify-myapp" \
   "24.4: a project-local skill under the retired root is listed under nothing"
 
 # --- 24.5 sync-keep still reaches a retired root -----------------------------
-# /create-verification-skill mirrors into .claude/skills/, and downstream
+# /create-verification-skill used to mirror into .claude/skills/, and downstream
 # sync-keep files already name paths there. A pattern under a retired root must
 # stay a valid pattern, or every such project's allowlist becomes a usage error.
 write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/build/**"
@@ -2161,6 +2176,16 @@ assert_contains "$RUN_OUTPUT" "kept:   .claude/skills/build/SKILL.md" \
   "24.5: and it protects the copy it names"
 assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
   "24.5: without protecting its neighbour"
+
+# --- 24.5b ... and a pattern guarding a project-local file there is not stale ---
+# History cannot see verify-myapp, so nothing matches the pattern; reporting it as
+# `unmatched` would tell the operator it is about to stop protecting something.
+write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/verify-myapp/**"
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.5b: a sync-keep pattern for a project-local skill under the retired root is valid"
+assert_not_contains "$RUN_OUTPUT" "unmatched: .claude/skills/verify-myapp" \
+  "24.5b: it is not reported as matching nothing"
+write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/build/**"
 
 # --- 24.6 --apply deletes only the history-matched, unprotected copies -------
 run_retire --repo "$P50" --from-dir "$T50" --apply

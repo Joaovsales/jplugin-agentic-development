@@ -371,10 +371,28 @@ PLUGIN_CACHE="$PLUGINS_DIR/cache/jplugin-agentic-development/jplugin"
 if [ -f ".claude/settings.json" ] \
    && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true" \
    && ! grep -qF "\"$JPLUGIN_ID\"" "$INSTALLED_PLUGINS" 2>/dev/null \
-   && [ ! -d "$PLUGIN_CACHE" ]; then
+   && [ -z "$(ls -A "$PLUGIN_CACHE" 2>/dev/null)" ]; then
   echo ""
-  echo "🔌  PLUGIN NOT INSTALLED — .claude/settings.json enables $JPLUGIN_ID, but neither $INSTALLED_PLUGINS nor $PLUGIN_CACHE records it"
+  echo "🔌  PLUGIN NOT INSTALLED — .claude/settings.json enables $JPLUGIN_ID, but neither $INSTALLED_PLUGINS nor a version under $PLUGIN_CACHE/ records it"
   echo "    Run '/plugin' and install it for this project, or run 'bash install.sh' from the template checkout."
+fi
+
+# Pre-plugin copies under ~/.claude/skills/ shadow the plugin's skills for bare
+# /<name> calls in every project, and only install.sh (run from the template
+# checkout) offers to delete them. Names are matched against this project's
+# .agents/skills/, so a user's own skills are never named.
+LEGACY_SKILLS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
+if [ -d .agents/skills ] && [ -d "$LEGACY_SKILLS_DIR" ]; then
+  STALE_COPIES=""
+  for skill_dir in .agents/skills/*/; do
+    skill_name="$(basename "$skill_dir")"
+    if [ -d "$LEGACY_SKILLS_DIR/$skill_name" ]; then STALE_COPIES="$STALE_COPIES $skill_name"; fi
+  done
+  if [ -n "$STALE_COPIES" ]; then
+    echo ""
+    echo "🪞  STALE SKILL COPIES — $LEGACY_SKILLS_DIR holds pre-plugin copies of:$STALE_COPIES"
+    echo "    Bare /<name> runs the copy, not the plugin's skill. Run 'bash install.sh' from the template checkout (it offers to delete them) or remove them by hand."
+  fi
 fi
 
 # ── Code Graph Staleness Check ───────────────────────────────────────────────
@@ -432,7 +450,7 @@ echo "  /yolo        — Full-auto loop: /plan → /build → /wrap-up until bac
 echo "  /sweep       — Producer routine (--routine janitor|architect): file verified findings as issues"
 echo "  /tidy        — Harness hygiene: eight checks; Tier 0 fixed, Tier 1 printed, Tier 2 filed"
 echo "  /debug       — Root cause analysis + bug-track store docs"
-echo "  /verify-evidence      — Evidence-based verification (--scope e2e|deployment)"
+echo "  /verify-evidence — Evidence-based verification (--scope e2e|deployment)"
 echo "  /create-verification-skill — Generate a project-local verification recipe + feature map"
 echo "  /maintain-verification-skill — Reconcile --scope changed, or omit it for a full audit"
 echo "  /quality-gate — 3-phase post-build review: structural, anti-patterns, APOSD"

@@ -7,6 +7,7 @@ import argparse
 import ast
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import NoReturn, Optional
@@ -22,6 +23,9 @@ LEGACY_SLUG = "coding-agent" + "-workflow"
 LEGACY_BEGIN = BEGIN.replace(SLUG, LEGACY_SLUG)
 LEGACY_END = END.replace(SLUG, LEGACY_SLUG)
 LEGACY_MANAGED = MANAGED.replace(SLUG, LEGACY_SLUG)
+LEGACY_HOOK_FILES = tuple(
+    f"{LEGACY_SLUG}-{name}" for name in ("session-start.py", "pre-compact.sh", "session-end.sh")
+)
 
 
 def fail(message: str) -> NoReturn:
@@ -142,6 +146,18 @@ def render_agents(source_dir: Path, destination_dir: Path) -> None:
         write_text(destination, content)
 
 
+def _is_legacy_adapter(hook: object) -> bool:
+    """Only this adapter's three pre-rename hook files — matched as whole path
+    components, so a user hook whose path merely contains the old slug survives.
+    """
+    if not isinstance(hook, dict):
+        return False
+    command = str(hook.get("command", ""))
+    return any(
+        re.search(rf"(^|[\\/\s]){re.escape(name)}(\s|$)", command) for name in LEGACY_HOOK_FILES
+    )
+
+
 def _drop_legacy_adapter(groups: list) -> None:
     """Remove this adapter's pre-rename registration for one event, in place.
 
@@ -152,10 +168,13 @@ def _drop_legacy_adapter(groups: list) -> None:
     for group in groups:
         if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
             continue
-        group["hooks"] = [
-            hook for hook in group["hooks"]
-            if not (isinstance(hook, dict) and f"{LEGACY_SLUG}-" in str(hook.get("command", "")))
-        ]
+        kept = []
+        for hook in group["hooks"]:
+            if _is_legacy_adapter(hook):
+                print(f"replaced legacy hook: {hook.get('command')}")
+            else:
+                kept.append(hook)
+        group["hooks"] = kept
     groups[:] = [g for g in groups if not (isinstance(g, dict) and g.get("hooks") == [])]
 
 

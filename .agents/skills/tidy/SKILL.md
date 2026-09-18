@@ -9,7 +9,7 @@ harness: universal
 # /tidy — Harness hygiene
 
 A harness repository rots in ways an ordinary codebase does not. Its content is
-**duplicated by design** — a canonical skill tree, a byte-identical compat tree, a
+**duplicated by design** — a canonical skill tree, a
 skills table in more than one document, a session-start banner, and copies
 installed into `~/.claude/` and `~/.agents/` — and every retirement, rename, or
 addition has to land in all of them. The test suite pins some of those copies;
@@ -20,7 +20,7 @@ different session. Spec: `specs/tidy-skill.md`.
 `/tidy` is a self-contained, agent-driven sweep over those surfaces. It uses
 `git`, `grep`, `gh pr list`, and the tools the harness already ships — `install.sh`,
 the test suite, `/task-registry` — and adds no script of its own. Guards the suite
-already provides (tree parity, syncable-path copies, agent tables, frontmatter,
+already provides (syncable-path copies, agent tables, frontmatter,
 asset references) are **delegated, not duplicated**: the sweep runs the suite and
 reads its failures.
 
@@ -99,7 +99,7 @@ in addition to the seed list at the end of this file.
 |-------|-------|-------|
 | `suite` | the project's test runner, discovered the way `/wrap-up-session` Step 6 does (`package.json`, `Makefile`, `pyproject.toml`, `TESTING.md`; in this repository, `tests/run.sh`) | a red suite. Ordered first; nothing is fixed on a red baseline. No runner → **inconclusive** |
 | `inventory` | `.agents/skills/` (the canonical tree; Claude Code loads it through the `jplugin` plugin) ↔ the skills tables in `CLAUDE.md`, `README.md`, `AGENTS.md` (table rows whose first cell is a backticked `/<name>`) ↔ the `SKILLS AVAILABLE` block of `.claude/hooks/session-start.sh` | a skill present in one surface and absent from another, **in either direction**. A directory with no row is Tier 0 in the template repository — the row is determined by its `description` — and Tier 1 in a descendant, where `CLAUDE.md` is `/sync`-managed. A row naming a skill in neither tree is skipped when the *Allowlist* names it (`graphify` is registered on purpose), otherwise Tier 1: it may be a global-only skill the surface's prose still relies on, so the remedy (remove the row, or vendor the skill) is printed, not applied |
-| `retired` | `git log --diff-filter=D --name-only --format= -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md'` — the retired set is *computed from history* over the canonical tree and the retired `.claude/skills/` copy, never typed — against every file outside `tasks/` and `specs/` | a retired skill still named **as live**: a banner line, a table row, a `/build` delegation, a hook that branches on it, an install or sync copy list. `tasks/` and `specs/` are history and exempt |
+| `retired` | `git log --no-renames --diff-filter=D --name-only --format= -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md'` — the retired set is *computed from history* over the canonical tree and the retired `.claude/skills/` copy, never typed — against every file outside `tasks/` and `specs/` | a retired skill still named **as live**: a banner line, a table row, a `/build` delegation, a hook that branches on it, an install or sync copy list. `tasks/` and `specs/` are history and exempt |
 | `installed` | `~/.claude/CLAUDE.md`, `~/.claude/agents/`, `~/.claude/hooks/session-start.sh`, `~/.agents/` against what `install.sh` would write from `HEAD`; `~/.claude/plugins/installed_plugins.json` for the `jplugin@jplugin-agentic-development` record; `~/.claude/skills/` for pre-plugin copies of template names | a stale, missing, or retired installed copy. No `~/.claude/` on this machine → **inconclusive** with the note |
 | `refs` | paths in backticks in `CLAUDE.md`, `README.md`, `AGENTS.md`, `PI_SETUP.md`, `.claude/project.md`, and every `SKILL.md` | a path that resolves nowhere after trying the literal path, `~` expansion, and a basename search over `git ls-files`, minus the *Allowlist*. Placeholders (`<name>`) and globs are not paths |
 | `worktrees` | `git worktree list --porcelain`, `git branch`, `gh pr list --state merged --limit 200 --json headRefName,headRefOid` | a worktree or local branch whose branch is **provably** merged — its name is in the forge's merged set **and** that PR's `headRefOid` is the local tip or reachable from it (`git merge-base --is-ancestor`); a name match with a different tip is *Unverified* (the name was reused). A merged set whose size equals the `--limit` is truncated: unmatched entries are *inconclusive*, not unmerged. Without forge access every worktree is report-only, because a squash-merge leaves no ancestry and is invisible to `git branch --merged` |
@@ -121,7 +121,9 @@ Per-check notes, where the table is not enough:
 - **`installed`.** Compare content, not timestamps: `diff` the file, `diff -r` the
   directory. Skills reach Claude Code through the plugin, so the check reads
   `~/.claude/plugins/installed_plugins.json` for the `jplugin@jplugin-agentic-development`
-  record (absent → finding) and treats every entry under `~/.claude/skills/` whose
+  record or, failing that, a version directory under
+  `~/.claude/plugins/cache/jplugin-agentic-development/jplugin/` — a settings-driven
+  install writes only the cache (Spike S4); neither → finding — and treats every entry under `~/.claude/skills/` whose
   name the template ships now or once shipped as a pre-plugin copy (→ finding: it
   shadows the plugin's skill). Any other installed skill directory has two outcomes:
   the operator's own (`installed:<name>` in the *Allowlist* → skipped) or
@@ -311,7 +313,6 @@ request**; the host's `/wrap-up-session` does.
 | `gh` absent or unauthenticated | `worktrees` report-only; `installed` and `inventory` unaffected |
 | no `~/.claude/` on this machine | `installed` inconclusive with the note; not a finding |
 | downstream project without `README.md`/`AGENTS.md` skills tables | those `inventory` surfaces skipped with a note |
-| a skill's description differs between `.agents/` and `.claude/` | not `/tidy`'s finding — the parity test's; reported as a suite failure |
 | a reference's basename matches two files | Tier 1, both paths in the report |
 | a spec or learning names a retired skill | not a finding — history is exempt (`retired` scope) |
 | a test asserts a skill's retirement | not a finding — it names the skill without treating it as live |
@@ -339,6 +340,6 @@ tasks/backlog.md — /prd artifact, absent in projects that never ran /prd
 docs/task-tracking.md — optional registry configuration; absence selects a provider
 ~/.pi/agent/models.json — Pi's model registry; lives in the operator's home, never in the repo
 graphify — an external per-machine CLI (README § Optional — graphify), registered in CLAUDE.md on purpose (#48); not a tree skill
-installed:aws-saml2aws-auth — the operator's own skill under ~/.claude/skills; install.sh is additive by design
-installed:prior-year-evidence — the operator's own skill under ~/.claude/skills; install.sh is additive by design
+installed:aws-saml2aws-auth — the operator's own skill under ~/.claude/skills; never a template name, so never a removal candidate
+installed:prior-year-evidence — the operator's own skill under ~/.claude/skills; never a template name, so never a removal candidate
 ```

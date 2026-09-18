@@ -93,6 +93,8 @@ make_claude_stub() {
 #!/usr/bin/env bash
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 printf '%s\n' "$*" >> "$here/claude.log"
+# CLAUDE_STUB_FAIL=install makes `plugin install` fail the way a real CLI error would.
+if [ "${CLAUDE_STUB_FAIL:-}" = "install" ] && [ "${1:-} ${2:-}" = "plugin install" ]; then echo "stub: install failed" >&2; exit 7; fi
 case "$*" in
   "plugin marketplace add "*)
     touch "$here/marketplace-known"; echo "Successfully added marketplace: jplugin-agentic-development" ;;
@@ -129,7 +131,7 @@ run_install() {
     printf '%s\n' "$confirm" > "$stdin"
   fi
   # Run from inside the sandbox: install.sh's optional graphify step writes to CWD.
-  ( cd "$sandbox" && HOME="$home" PATH="$sandbox/bin:$SAFE_PATH" bash "$INSTALL" "$@" ) \
+  ( cd "$sandbox" && HOME="$home" CLAUDE_CONFIG_DIR="$home/.claude" PATH="$sandbox/bin:$SAFE_PATH" bash "$INSTALL" "$@" ) \
     > "$sandbox/out.log" 2>&1 < "$stdin"
   echo "exit=$?" >> "$sandbox/out.log"
   printf '%s\n' "$sandbox"
@@ -139,7 +141,7 @@ run_install() {
 rerun_install() {
   local stdin=/dev/null
   if [ -n "$2" ]; then stdin="$1/stdin2.txt"; printf '%s\n' "$2" > "$stdin"; fi
-  ( cd "$1" && HOME="$1/home" PATH="$1/bin:$SAFE_PATH" bash "$INSTALL" ) \
+  ( cd "$1" && HOME="$1/home" CLAUDE_CONFIG_DIR="$1/home/.claude" PATH="$1/bin:$SAFE_PATH" bash "$INSTALL" ) \
     > "$1/$3" 2>&1 < "$stdin"
   echo "exit=$?" >> "$1/$3"
 }
@@ -197,6 +199,25 @@ assert_contains "$(cat "$box/out2.log")" "already" \
   "second run: reports the marketplace and plugin as already present"
 rm -rf "$box"
 
+# ── Case 1b: no `claude`, copies present — kept, not even listed, state reported ─
+box="$(run_install "")"; h="$box/home"
+mkdir -p "$h/.claude/skills/plan" "$h/.claude/skills/tdd"; touch "$h/.claude/skills/plan/SKILL.md" "$h/.claude/skills/tdd/SKILL.md"
+rerun_install "$box" "" nocli.log
+assert_contains "$(cat "$box/nocli.log")" "skills source: legacy-copy" \
+  "no claude, copies present: the derived state is legacy-copy"
+assert_not_contains "$(cat "$box/nocli.log")" "Delete them?" \
+  "no claude, copies present: the removal prompt is not offered — the copies are all this machine has"
+assert_eq "present" "$(exists "$h/.claude/skills/plan")" "no claude, copies present: current template name kept"
+assert_eq "present" "$(exists "$h/.claude/skills/tdd")" "no claude, copies present: retired template name kept"
+rm -rf "$box"
+
+# ── Case 2b: the CLI failing aborts the run loudly and touches no skill copy ──
+box="$(CLAUDE_STUB_FAIL=install run_install "" --with-claude)"; h="$box/home"
+assert_contains "$(cat "$box/out.log")" "exit=1" "cli failure: install.sh exits 1"
+assert_contains "$(cat "$box/out.log")" "ERROR: 'claude plugin install" "cli failure: the ERROR line names the failed command"
+assert_eq "present" "$(exists "$h/.claude/skills/$USER_SKILL/SKILL.md")" "cli failure: user's own skill untouched"
+rm -rf "$box"
+
 # ── Case 3: legacy ~/.claude/skills/ copies — listed, deleted only on y ──────
 # Three entries: a name the template never carried, a current template skill and
 # a skill retired in template history. Only the last two are candidates (#52).
@@ -224,7 +245,14 @@ for answer in "" "N"; do
 done
 
 box="$(run_install "" --with-claude)"; h="$box/home"; plant_legacy "$h"
+# A retired template skill copied into ~/.agents/skills/ by an earlier install
+# stays beside its replacement for Pi and Codex: named, never deleted.
+mkdir -p "$h/.agents/skills/tdd"; touch "$h/.agents/skills/tdd/SKILL.md"
 rerun_install "$box" "y" legacy.log
+assert_contains "$(cat "$box/legacy.log")" "retired template skills: tdd" \
+  "~/.agents/skills/: a retired template skill left there is named"
+assert_eq "present" "$(exists "$h/.agents/skills/tdd")" \
+  "~/.agents/skills/: ... and never deleted"
 assert_eq "missing" "$(exists "$h/.claude/skills/plan")" \
   "legacy copies (answered y): current template name deleted"
 assert_eq "missing" "$(exists "$h/.claude/skills/tdd")" \
@@ -237,6 +265,19 @@ assert_contains "$(cat "$box/legacy.log")" "skills source: plugin" \
   "legacy copies (answered y): state reported as plugin"
 rm -rf "$box"
 
+# ── Case 3b: a shallow checkout cannot name retired skills, and says so ───────
+box="$(run_install "" --with-claude)"; h="$box/home"; plant_legacy "$h"
+git clone -q --depth 1 "file://$REPO" "$box/shallow" 2>/dev/null
+( cd "$box" && HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" PATH="$box/bin:$SAFE_PATH" bash "$box/shallow/install.sh" ) \
+  > "$box/shallow.log" 2>&1 < /dev/null
+assert_contains "$(cat "$box/shallow.log")" "shallow clone" \
+  "shallow checkout: the NOTE says retired names are unknown"
+assert_contains "$(cat "$box/shallow.log")" "    - plan" \
+  "shallow checkout: current template names are still candidates"
+assert_not_contains "$(cat "$box/shallow.log")" "    - tdd" \
+  "shallow checkout: a retired name is not guessed"
+rm -rf "$box"
+
 # ── Case 4: the removed flag is a usage error, not a silent no-op ─────────────
 box="$(run_install "" --prune-skills)"
 assert_contains "$(cat "$box/out.log")" "exit=1" \
@@ -247,7 +288,7 @@ rm -rf "$box"
 
 # ── Case 5: unknown flags are rejected, not ignored ──────────────────────────
 box="$(mktemp -d)"
-( cd "$box" && HOME="$box/home" PATH="$SAFE_PATH" bash "$INSTALL" --bogus ) > "$box/out.log" 2>&1 < /dev/null
+( cd "$box" && HOME="$box/home" CLAUDE_CONFIG_DIR="$box/home/.claude" PATH="$SAFE_PATH" bash "$INSTALL" --bogus ) > "$box/out.log" 2>&1 < /dev/null
 assert_eq "1" "$?" "unknown flag: exits non-zero instead of installing"
 rm -rf "$box"
 
@@ -258,7 +299,7 @@ box="$(mktemp -d)"
 h="$box/home"
 mkdir -p "$h"
 ln -s "$REPO" "$box/src with spaces"
-( cd "$box" && HOME="$h" PATH="$SAFE_PATH" bash "$box/src with spaces/install.sh" ) > "$box/out.log" 2>&1 < /dev/null
+( cd "$box" && HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" PATH="$SAFE_PATH" bash "$box/src with spaces/install.sh" ) > "$box/out.log" 2>&1 < /dev/null
 assert_eq "0" "$?" "spaced checkout: install.sh succeeds"
 assert_eq "present" "$(exists "$h/.agents/project-template/.gitattributes")" \
   "spaced checkout: template copied to ~/.agents/project-template (dotfiles included)"

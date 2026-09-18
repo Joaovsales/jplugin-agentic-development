@@ -448,7 +448,32 @@ mkdir -p "$tmpP/home/.claude/plugins/cache/jplugin-agentic-development/jplugin/1
 out_cached=$(run_plugin_probe)
 assert_not_contains "$out_cached" "PLUGIN NOT INSTALLED" \
   "Plugin: silent when only the versioned cache directory records the install"
+# An empty plugin directory (interrupted fetch, uninstall) records nothing.
+rm -rf "$tmpP/home/.claude/plugins/cache/jplugin-agentic-development/jplugin/1.0.0"
+out_empty_cache=$(run_plugin_probe)
+assert_contains "$out_empty_cache" "PLUGIN NOT INSTALLED" \
+  "Plugin: a cache directory with no version under it does not count as installed"
 rm -rf "$tmpP/home/.claude/plugins/cache"
+# A project that set the plugin to false has declined it: no line.
+printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": false}}\n' > "$tmpP/proj/.claude/settings.json"
+out_disabled=$(run_plugin_probe)
+assert_not_contains "$out_disabled" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when the project disables the plugin"
+# Pre-plugin copies under ~/.claude/skills/ that shadow a skill this project
+# carries are named; the user's own skills there are not.
+mkdir -p "$tmpP/proj/.agents/skills/plan" "$tmpP/home/.claude/skills/plan" "$tmpP/home/.claude/skills/my-own"
+out_stale=$(run_plugin_probe)
+assert_contains "$out_stale" "STALE SKILL COPIES" \
+  "Stale copies: a template skill copied under ~/.claude/skills/ prints the line"
+assert_contains "$out_stale" " plan" \
+  "Stale copies: the line names the shadowed skill"
+assert_not_contains "$out_stale" "my-own" \
+  "Stale copies: the user's own skill is not named"
+rm -rf "$tmpP/home/.claude/skills/plan"
+out_no_stale=$(run_plugin_probe)
+assert_not_contains "$out_no_stale" "STALE SKILL COPIES" \
+  "Stale copies: silent once the copy is gone"
+rm -rf "$tmpP/proj/.agents" "$tmpP/home/.claude/skills"
 printf '{}\n' > "$tmpP/proj/.claude/settings.json"
 rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
 out_undeclared=$(run_plugin_probe)

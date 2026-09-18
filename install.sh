@@ -28,7 +28,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLAUDE_HOME="$HOME/.claude"
+CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 GIT_TEMPLATE_DIR="$HOME/.git-templates"
 
 GREEN='\033[0;32m'
@@ -108,19 +108,23 @@ install_claude_plugin() {
   # this directory registration when opened. The installed record keeps its
   # installPath, so skills keep loading from this checkout until `plugin update`.
   echo "  (opening a project that declares the github marketplace replaces this directory"
-  echo "   registration; re-run install.sh to point it back at the checkout)"
+  echo "   registration — re-running install.sh does not undo that; to point it back at the checkout run:"
+  echo "     claude plugin marketplace remove $MARKETPLACE_NAME && claude plugin marketplace add \"$repo_dir\")"
 }
 
 # retired_template_skill_names REPO_DIR — skill names the template once shipped
 # and later deleted, computed from history over both trees the way /tidy does.
 # A shallow clone cannot answer, and says so rather than guessing.
 retired_template_skill_names() {
-  git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  if ! git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "  NOTE: not a git checkout — retired template names are unknown; only current names are candidates" >&2
+    return 0
+  fi
   if [ "$(git -C "$1" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
     echo "  NOTE: shallow clone — retired template names are unknown; only current names are candidates" >&2
     return 0
   fi
-  git -C "$1" log --diff-filter=D --name-only --format= \
+  git -C "$1" log --no-renames --diff-filter=D --name-only --format= \
       -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md' 2>/dev/null \
     | awk -F/ 'NF >= 3 { print $(NF-1) }' | sort -u
 }
@@ -209,6 +213,16 @@ step "Installing shared workflow → ~/.agents/"
 mkdir -p "$HOME/.agents"
 cp -r "$REPO_DIR/.agents/"* "$HOME/.agents/"
 ok "copied" "~/.agents/ ($(find "$HOME/.agents/skills" -name 'SKILL.md' | wc -l | tr -d ' ') skills)"
+# The copy is additive, so a skill the template retired (or renamed) stays
+# beside its replacement for Pi and Codex. Named, never deleted: ~/.agents/ may
+# hold the user's own skills too.
+stale_agents="$(retired_template_skill_names "$REPO_DIR" 2>/dev/null | while IFS= read -r name; do
+  if [ -n "$name" ] && [ -d "$HOME/.agents/skills/$name" ] && [ ! -d "$REPO_DIR/.agents/skills/$name" ]; then echo "$name"; fi
+done; true)"
+if [ -n "$stale_agents" ]; then
+  echo "  NOTE: ~/.agents/skills/ still holds retired template skills: $(printf '%s ' $stale_agents)"
+  echo "        Pi and Codex list them beside their replacements; remove with: (cd \"$HOME/.agents/skills\" && rm -rf $(printf '%s ' $stale_agents))"
+fi
 
 # ── 4. Global agents ─────────────────────────────────────────────────────────
 step "Installing global agents → ~/.claude/agents/"

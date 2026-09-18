@@ -288,13 +288,17 @@ declares the `jplugin-agentic-development` marketplace under
 `extraKnownMarketplaces` and enables `jplugin@jplugin-agentic-development` under
 `enabledPlugins`. Step 5 merges those two keys into the project's existing
 `.claude/settings.json` rather than overwriting it — the `hooks` and `env`
-blocks and any project-specific keys stay as they are. It writes no `ref`: a
+blocks and any project-specific keys stay as they are. `.claude/settings.json`
+is never in `<selected-files>`: the merge below is its only write path, so the
+checkout above cannot replace the project's file. It writes no `ref`: a
 marketplace `ref` must be a branch or tag (a commit sha does not clone), so the
 source floats on the template's default branch and the plugin's `version` in
 `.claude-plugin/plugin.json` is the pin — `version` pins what Claude Code caches
 for the project, and it refreshes that copy only when the template bumps it.
-Same release, same skills: the scripts this step checked out and the skills the
-plugin loads come from the same release once the project syncs after a bump.
+Skill bodies and the scripts they call can diverge between a `version` bump and
+the project's next sync: Claude Code refreshes the cached skills on the project's
+next open, while the scripts they invoke by project path stay at the last `/sync`.
+Sync promptly after a bump — `/sync` is what closes that window.
 
 The declaration itself is read from the template's copy, never restated here,
 so the template's `.claude/settings.json` stays its single source.
@@ -308,13 +312,15 @@ settings = json.load(open(path, encoding="utf-8"))
 for key in ("extraKnownMarketplaces", "enabledPlugins"):
     settings.setdefault(key, {}).update(template.get(key, {}))
 with open(path, "w", encoding="utf-8") as handle:
-    json.dump(settings, handle, indent=2)
+    json.dump(settings, handle, indent=2, ensure_ascii=False)
     handle.write("\n")
 PY
 ```
 
 In manual-diff mode pass `$(cat "$WORKFLOW_CLONE/.claude/settings.json")` instead.
 Run it on every sync so a renamed marketplace or plugin id lands in the project.
+The merge never deletes: after a rename, remove the old marketplace and plugin
+keys by hand, or every synced project keeps enabling an id that no longer resolves.
 
 ### Step 6 — Post-Sync
 
@@ -350,7 +356,7 @@ retirement set is set arithmetic over that file:
 Step 5 no longer copies anything there, and the copies earlier syncs left behind
 are retired here — but only a file whose bytes match something the template once
 shipped at that path. A project-local skill under that root
-(`/create-verification-skill` mirrors `verify-<app>` there) is never a candidate,
+(a `verify-<app>` skill an earlier `/create-verification-skill` mirrored there) is never a candidate,
 with or without a `sync-keep` entry. Nothing under the retired root enters the
 plan while the project's `.claude/settings.json` does not enable
 `jplugin@jplugin-agentic-development`: until it does, those copies are the only
@@ -359,7 +365,9 @@ the file and Step 5. In the Step 3 preview that is the expected state — Step 5
 has not run yet — and the live-root list is unaffected; here it means the
 settings write was skipped, so run it and re-run. A retired root never counts
 toward the one-empty-root budget, so the template having nothing under it is
-the expected state, not the "incomplete source" refusal.
+the expected state, not the "incomplete source" refusal. The running session
+cached its plugins at startup, so once the copies are gone the skills return on
+the next session start, not in this one.
 
 Apply it. This is the same command Step 3 already ran as a dry run, plus
 `--apply`:

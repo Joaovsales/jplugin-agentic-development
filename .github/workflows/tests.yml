@@ -18,5 +18,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # install.sh computes retired template skill names from history, and
+          # tests/test-install-sh.sh asserts on them; a depth-1 checkout has none.
+          fetch-depth: 0
       - name: Run test suite
         run: bash tests/run.sh
