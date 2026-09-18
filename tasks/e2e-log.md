@@ -1143,3 +1143,62 @@ jplugin@jplugin-agentic-development --scope project` from the clone and `claude 
 marketplace remove jplugin-agentic-development`; a stray
 `~/.claude/plugins/marketplaces/temp_git_*..clone` directory is left over from the refused
 `C:/` attempt.
+
+## Spike S4 — follow-up: clean first open on 2.1.277 — 2026-09-18 66f45e3
+
+Spec: specs/claude-plugin-manifest.md (§ Build order slice 1, spike question S4; AC 3)
+Commit: 66f45e3 (worktree-plugin-manifest)
+Claude Code: 2.1.277 (auto-updated overnight from 2.1.274)
+
+**Why a re-run.** The FAIL above was contaminated: the trust dialog was accepted during the
+very first open, when the declaration still carried the refused `C:/` url, and the docs say
+project plugins are set up "once they trust the project folder, with no separate prompt".
+A second look at the 2.1.274 evidence also showed the versioned cache directory was left
+over from the manual `claude plugin install`, so "skills visible" could not be attributed.
+
+**Setup.** `claude plugin marketplace remove jplugin-agentic-development`, the leftover
+`~/.claude/plugins/cache/jplugin-agentic-development/` deleted, and a third clone at a path
+Claude Code had never seen (`.claude/worktrees/s4-clone3`, no project entry in
+`~/.claude.json`), declaration `{"source": "git", "url": "file:///C:/…/plugin-manifest",
+"ref": "worktree-plugin-manifest"}` plus `enabledPlugins` — same shape as before. Opened
+by the user with `claude --debug`; both dialogs accepted; `/jplugin:` typed.
+
+**Debug log (`~/.claude/debug/d40f0f15-….txt`), in order:**
+
+```
+Skipping orphaned enabledPlugins entry jplugin@jplugin-agentic-development: marketplace not registered
+clearPluginCache: invalidating loadAllPlugins cache (post-trust: re-discover project @skills-dir plugins)
+Installing 1 marketplace(s) in background
+[reconcile] 1 marketplace(s): jplugin-agentic-development(install)
+Marketplace checkout probe: no readable HEAD, cloning
+Added marketplace source: jplugin-agentic-development
+Loading plugin jplugin from source: "./"
+Using manifest version for jplugin@jplugin-agentic-development: 1.0.0
+Copying source directory ./ for plugin jplugin@jplugin-agentic-development
+Successfully cached plugin jplugin@jplugin-agentic-development at C:\Users\…\plugins\cache\jplugin-agentic-development\jplugin\1.0.0
+Loaded 35 skills from plugin jplugin custom path: …\cache\jplugin-agentic-development\jplugin\1.0.0\.agents\skills
+```
+
+The completion list showed `/jplugin:prd`, `/jplugin:sync`, `/jplugin:tidy` within ten
+seconds of accepting trust, with no plugin prompt. `known_marketplaces.json` gained the
+marketplace with `source.ref: "worktree-plugin-manifest"`; **`installed_plugins.json` gained
+nothing** — a settings-driven install is recorded only by the versioned cache directory,
+keyed by `plugin.json` `version` (1.0.0). A headless `claude -p` in the same clone before
+the cache existed reported `plugin-cache-miss`: print mode registers the marketplace but
+never copies the plugin, exactly as measured on 2.1.274.
+
+**Verdict: PASS on AC 3** — a fresh clone installs and loads the plugin on first open once
+the folder is trusted, and the declared `ref` is the branch that gets cloned. Two corrections
+follow from the whole spike and are decided in § Decisions (2026-09-18):
+
+1. **Pinning is by `version`, not by `ref`.** A commit sha as `ref` does not clone (`git
+   clone --branch <sha>`), and the docs pin a plugin by its manifest `version` ("users only
+   receive updates when it changes") — the model Addy Osmani's `agent-skills` uses: github
+   source, no `ref`, `version` bumped per release. `/sync` Step 5 stops writing `ref`.
+2. **`session-start.sh`'s "PLUGIN NOT INSTALLED" line reads `installed_plugins.json`,
+   which a settings-driven install never touches**, so every downstream project would see the
+   warning while the plugin works. The check must also accept the versioned cache directory.
+
+Cleanup: the marketplace, cache and `s4-clone`/`s4-clone2`/`s4-clone3` are scratch; remove
+with `claude plugin marketplace remove jplugin-agentic-development` and `rm -rf` of the three
+clone directories and `~/.claude/plugins/cache/jplugin-agentic-development`.
