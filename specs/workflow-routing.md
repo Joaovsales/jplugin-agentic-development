@@ -2,9 +2,7 @@
 status: draft
 implementation_paths:
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - .agents/skills/wrap-up-session/**
-  - .claude/skills/wrap-up-session/**
   - docs/task-tracking.md
   - CLAUDE.md
   - tests/test-task-registry.sh
@@ -123,7 +121,7 @@ Three changes. No new skill, no new vocabulary, no new config format.
 | Default | `.agents/skills/task-registry/scripts/registry/config.py`, beside `DEFAULT_KIND_PRECEDENCE` | yes | every adopter has working chains on install |
 | Override | `docs/task-tracking.md` | no | this project's configured case |
 
-Verified: `.agents/skills/` and `.claude/skills/` are both syncable roots, and
+Verified: `.agents/skills/` is a syncable root, and
 `docs/` appears in neither the roots block nor any retirement scan. So the
 default layer reaches adopters and the override layer survives `/sync`. Under
 AC14 the default lands in two byte-identical copies.
@@ -379,7 +377,7 @@ modules and their callers together.
 | `test-routine-selectors.sh` | 569 | extend for `workflow`; **also invokes `frontier` at `:419`** |
 | `test-routine-branch.sh` / `-contract` / `-step-ledger` / `-wrapup` | 528 | unaffected — `routines.md` survives |
 | `test-syncable-paths.sh` | — | in blast radius if the config vocabulary changes; it pins six copies of the roots list |
-| `test-doc-conventions.sh`, `test-skill-references.sh`, `test-skill-parity.sh`, `test-skill-invocation-chain.sh` | — | assertions naming deleted paths must be updated |
+| `test-doc-conventions.sh`, `test-skill-references.sh`, `test-skill-invocation-chain.sh` | — | assertions naming deleted paths must be updated |
 
 Every new assertion must be falsifiable by mutation. PR #105 shipped four that
 could not fail and one test that ran `tasks/todo.md` as a shell command and

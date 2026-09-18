@@ -8,7 +8,7 @@ Incorporate high-value patterns from the Superpowers workflow into our coding-ag
 - Current coding-agent-workflow structure
 
 ## Outputs
-- New skills: `/verify`, `/brainstorm`, `/receive-review`, `/writing-skills`
+- New skills: `/verify-evidence`, `/brainstorm`, `/receive-review`, `/writing-skills`
 - Enhanced skills: `/build`, `/debug`, `/tdd`, `/wrap-up-session`
 - New reference documents in skill directories
 - Updated session-start hook and CLAUDE.md
@@ -16,7 +16,7 @@ Incorporate high-value patterns from the Superpowers workflow into our coding-ag
 ## Acceptance Criteria
 
 ### Tier 1 — High Impact, Low Effort
-- [ ] `/verify` skill created with iron law, gate function, rationalization table
+- [ ] `/verify-evidence` skill created with iron law, gate function, rationalization table
 - [ ] `/tdd` skill enhanced with iron law, rationalization table, testing anti-patterns reference
 - [ ] `/debug` skill enhanced with architecture questioning after 3 failed fixes, user signal recognition
 - [ ] `/build` skill enhanced with 2-stage review (spec compliance + code quality)

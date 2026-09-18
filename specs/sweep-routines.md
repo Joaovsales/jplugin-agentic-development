@@ -13,7 +13,6 @@ implementation_paths:
   - .agents/skills/wrap-up-session/scripts/routine_branch.py
   - .agents/skills/wrap-up-session/SKILL.md
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - .agents/skills/debug/SKILL.md
   - .agents/skills/maintain-verification-skill/SKILL.md
   - .agents/skills/software-design-expert-review/SKILL.md
@@ -68,7 +67,7 @@ steps or the proposed fix that a cheaper model would need to work cold.
 
 | Routine | Lens | Engine | Files as | Terminal artifact |
 |---|---|---|---|---|
-| `janitor` | bugs | full test suite + `/maintain-verification-skill` full pass (live pass drives every mapped feature under `/verify --scope e2e` rules) | `bug` | ready, docs-only PR carrying `Refs #N` per filed issue |
+| `janitor` | bugs | full test suite + `/maintain-verification-skill` full pass (live pass drives every mapped feature under `/verify-evidence --scope e2e` rules) | `bug` | ready, docs-only PR carrying `Refs #N` per filed issue |
 | `architect` | design | `/software-design-expert-review --scope tree` (APOSD red flags over the whole tree) | `task` + `tech-debt`, or `design-decision` when the fix needs a human decision | same |
 
 Producers run on the **Planner** tier; consumers (`fix`, `improve`) on the
@@ -311,7 +310,7 @@ template's history record; no allowlist entry is needed.
   `session-start.sh` list `/sweep` in its place.
 - AC10 — `task-registry/references/configuration.md` has an "Unattended
   routines" section naming both switches, `gh`, and `allow_label_creation`.
-- AC11 — `tests/test-skill-parity.sh` and `bash tests/run.sh` are fully green.
+- AC11 — `bash tests/run.sh` is fully green.
 
 ## Out of scope
 

@@ -4,8 +4,6 @@ implementation_paths:
   - .agents/skills/task-registry/scripts/registry/upsert.py
   - .agents/skills/task-registry/SKILL.md
   - .agents/skills/system-design-planning/SKILL.md
-  - .claude/skills/task-registry/**
-  - .claude/skills/system-design-planning/**
   - tests/test-task-registry.sh
   - tests/fixtures/task-registry/**
   - tests/test-doc-conventions.sh
@@ -55,7 +53,6 @@ AC-18), `select --routine build` (#98), and clearing a dependency (D8).
 | Every dependency names an index row | each value is the id of a row already in `tasks/todo.md` | inferred — **question for the reviewer**, see D2 | exit 2 before any provider call, message names the missing id and the two ways to create the row |
 | No silent replacement | when the flag replaces a non-empty existing set with a different one, the preview and applied lines show `blocked-by: <old> → <new>` | `CLAUDE.md` § No Silent Failures; hand-typed blockers exist in this index (`tasks/todo.md:467`) | new assertion: re-file over a hand-typed row and read the arrow |
 | Legacy rows keep parsing | a hand-typed row such as `(blocked-by: Beta work)` still loads; validation is a CLI concern, not a model one | `tests/test-task-registry.sh:1774-1785` | that test keeps passing |
-| Both trees stay identical after every slice | each slice copies its files to `.claude/skills/**` | `tests/test-skill-parity.sh:40` walks every canonical file | parity test green after slice 1, 2 and 3 separately |
 | Rollback | removing the flag leaves every written record readable: all three consumers already parse `depends-on` today | `registry/model.py:265`, `providers/local.py:176`, `registry/index.py:241-247` | no migration step exists to undo |
 
 ## System design
@@ -244,7 +241,6 @@ Review-card questions that do not apply: D3 (no amounts or timestamps on this pa
 - `.agents/skills/task-registry/scripts/registry/upsert.py` — `owned` in `upsert_task` and `_merge`; the existence check; the preview, replacement and capability disclosure lines
 - `.agents/skills/task-registry/SKILL.md` — the `--depends-on` line and its refusals in *Commands*
 - `.agents/skills/system-design-planning/SKILL.md` — Step 8 files sequentially with the flag; `After:` and the shortcut marker are removed
-- `.claude/skills/task-registry/**`, `.claude/skills/system-design-planning/**` — byte-identical copies, synced in every slice
 - `tests/test-task-registry.sh` — the slice 1 and 2 criteria, in the existing file per *Right-Sizing Mechanical Guards*
 - `tests/fixtures/task-registry/**` — the authenticated-gh `upsert --apply` fixture slice 2 needs
 - `tests/test-doc-conventions.sh` — the pin moves from `TODO(shortcut)` to `--depends-on` for the planning skill

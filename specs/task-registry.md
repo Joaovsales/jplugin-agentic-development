@@ -1,7 +1,6 @@
 ---
 implementation_paths:
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - tests/test-task-registry.sh
   - tests/test-task-escalation.sh
   - tests/test-routine-selectors.sh
@@ -213,7 +212,7 @@ copied into `tasks/todo.md`.
       *acts* on the index refuses a half-parsed one, because a row that failed to
       parse is absent from `by_id` and would turn an `upsert` update into a
       second row carrying the same id.
-- AC-20 — Workflow skills (`/plan`, `/build`, `/verify`, `/quality-gate`,
+- AC-20 — Workflow skills (`/plan`, `/build`, `/verify-evidence`, `/quality-gate`,
       `/wrap-up-session`) reach tracking only through this capability — no direct
       `gh` or tracker-API calls for task state.
 - AC-21 — An approval-gated local-pending upsert preserves an existing external
@@ -229,7 +228,7 @@ copied into `tasks/todo.md`.
 
 ## Implementation Paths
 
-- `.agents/skills/task-registry/SKILL.md` — the skill (canonical), parity-copied.
+- `.agents/skills/task-registry/SKILL.md` — the skill (canonical).
 - `.agents/skills/task-registry/scripts/task-registry.py` — CLI entrypoint.
 - `.agents/skills/task-registry/scripts/registry/` — model, config, index,
   detail, upsert, providers.
