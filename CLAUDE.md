@@ -289,7 +289,7 @@ Prefer editing existing files. Never skip git hooks. Atomic, descriptive commits
 Before marking any task complete, confirm:
 - [ ] All relevant tests pass
 - [ ] New code has ≥80% test coverage
-- [ ] Every user-facing AC has an e2e walkthrough recorded in `tasks/e2e-log.md` (see `/verify --scope e2e`)
+- [ ] Every user-facing AC has an e2e walkthrough recorded in `tasks/e2e-log.md` (see `/verify-evidence --scope e2e`)
 - [ ] No linting or type errors
 - [ ] Code passes Clean Code + SOLID review
 - [ ] No new security vulnerabilities
@@ -443,7 +443,7 @@ tracker — a third tracker is added by declaring `provider =`, never by being
 detectable. Run
 `/task-registry doctor` to see which provider resolved and why.
 
-**No skill talks to a tracker directly.** `/plan`, `/build`, `/verify`,
+**No skill talks to a tracker directly.** `/plan`, `/build`, `/verify-evidence`,
 `/quality-gate`, and `/wrap-up-session` reach the tracker for task state only
 through `/task-registry`, so a project can change tracker without editing a
 workflow skill. External task creation and status changes require explicit
@@ -465,7 +465,7 @@ authorization unless the project's configuration enables them.
 | `/sweep` | Producer routine (`--routine janitor` or `--routine architect`): read the backlog, run one engine over the whole tree, file verified findings as issues, commit a session record |
 | `/tidy` | Harness hygiene sweep: skills tables, session banner, retired skills, installed copies, backticked paths, worktrees, strays, task registers — Tier 0 fixed and committed one concern per commit, Tier 1 printed as commands, Tier 2 filed through `/task-registry` |
 | `/debug` | Root cause analysis, bug-track store documents, loop verification |
-| `/verify` | Evidence-based verification gate (`--scope deployment|e2e`) |
+| `/verify-evidence` | Evidence-based verification gate (`--scope deployment|e2e`) |
 | `/create-verification-skill` | Generate a grounded project-local `verify-<app>` recipe and feature map, with one live proof |
 | `/maintain-verification-skill` | Reconcile current user-facing changes with `--scope changed`; omit the option for a full audit |
 | `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |

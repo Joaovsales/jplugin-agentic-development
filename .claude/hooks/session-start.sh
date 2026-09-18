@@ -432,7 +432,7 @@ echo "  /yolo        — Full-auto loop: /plan → /build → /wrap-up until bac
 echo "  /sweep       — Producer routine (--routine janitor|architect): file verified findings as issues"
 echo "  /tidy        — Harness hygiene: eight checks; Tier 0 fixed, Tier 1 printed, Tier 2 filed"
 echo "  /debug       — Root cause analysis + bug-track store docs"
-echo "  /verify      — Evidence-based verification (--scope e2e|deployment)"
+echo "  /verify-evidence      — Evidence-based verification (--scope e2e|deployment)"
 echo "  /create-verification-skill — Generate a project-local verification recipe + feature map"
 echo "  /maintain-verification-skill — Reconcile --scope changed, or omit it for a full audit"
 echo "  /quality-gate — 3-phase post-build review: structural, anti-patterns, APOSD"

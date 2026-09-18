@@ -1,11 +1,11 @@
 ---
-name: verify
+name: verify-evidence
 description: Enforce evidence-based verification before any completion claims. Supports --scope deployment and --scope e2e. Use before committing, creating PRs, marking tasks done, or claiming success.
 argument-hint: "[--scope deployment|e2e]"
 harness: universal
 ---
 
-# /verify — Verification Before Completion
+# /verify-evidence — Verification Before Completion
 
 ## Overview
 
@@ -243,7 +243,7 @@ The log is **append-only**. Never overwrite prior walkthroughs — they form the
 For a practical obstacle, return a **structured blocked outcome** containing the
 exact failing command or walkthrough step, retained evidence (or why none is
 available), and whether reproduction was already confirmed. The caller owns the
-policy response. `/verify` must not invoke `task-registry escalate`; this avoids
+policy response. `/verify-evidence` must not invoke `task-registry escalate`; this avoids
 two reports for one failure. A completed check that finds a defect is a failed
 verification and returns through the existing debug/build repair loop.
 

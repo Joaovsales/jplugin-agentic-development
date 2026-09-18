@@ -112,7 +112,7 @@ source-and-live audit. Suggest a schedule only when asked.
 
 - Called directly when a target repository has no project-local verification skill.
 - Produces the input maintained by `/maintain-verification-skill` and consumed by
-  `/verify --scope e2e`.
+  `/verify-evidence --scope e2e`.
 
 ## Provenance
 

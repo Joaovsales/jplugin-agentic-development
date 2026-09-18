@@ -125,7 +125,7 @@ Invoke `/wrap-up-session` with these overrides:
 
 | `/wrap-up-session` step | Auto-push override |
 |---|---|
-| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify --scope e2e` automatically. The approval covered "ship it"; e2e verification is part of shipping. |
+| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. The approval covered "ship it"; e2e verification is part of shipping. |
 | Step 7 — Commit gate (MUST-FIX unresolved → STOP) | If a MUST-FIX cannot be auto-fixed, STOP and report. Do NOT push partial work. The approval did not cover skipping safety gates. |
 | Step 5.1 — Apply Gate | Run normally, **no prompt added**. A `MUST-FIX` that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately inside the wrap-up loop if you can, otherwise STOP and report it as unresolved. Never widen `autofix_class`, and never downgrade a finding, to reach the push. |
 | Step 7 — Push | Run normally. Push to the feature branch. |
@@ -160,7 +160,7 @@ In every stop case, leave the working tree in a recoverable state. The user can 
 | Excuse | Reality |
 |---|---|
 | "The user might want to see this implementation detail before I commit" | They approved the plan. The commit is downstream of "ship it". |
-| "I'll skip the E2E gate since the unit tests pass" | No. User-facing ACs need e2e evidence; that's `/verify --scope e2e`, not unit tests. |
+| "I'll skip the E2E gate since the unit tests pass" | No. User-facing ACs need e2e evidence; that's `/verify-evidence --scope e2e`, not unit tests. |
 | "MUST-FIX is annoying — I'll just push anyway" | No. The approval did not authorize skipping safety gates. STOP and report. |
 | "I should ask if they want me to also update the docs" | No. If docs weren't in the plan, they aren't in the build. Mention as a follow-up in the final report. |
 | "Let me confirm the branch name before pushing" | The branch was set at pre-flight. Push to that branch. |
@@ -213,7 +213,7 @@ Next: <PR review | re-run /auto-push for next feature | manual fix for <stopped 
 ## Integration
 
 - **Called by**: User directly. Not invoked by other skills.
-- **Calls**: `/plan` (unmodified), `/build` (unmodified), `/wrap-up-session` (with Phase C overrides), `/verify --scope e2e`.
+- **Calls**: `/plan` (unmodified), `/build` (unmodified), `/wrap-up-session` (with Phase C overrides), `/verify-evidence --scope e2e`.
 - **Pairs with**: `/yolo` — the unsupervised cousin. Auto-push keeps the plan-approval gate; yolo skips it.
 - **Differs from default workflow**: same `plan → build → wrap-up` sequence, but chained behind one command and one approval. No prompt between build and wrap-up.
 

@@ -116,7 +116,7 @@ assert_file_contains "$MAINTAINER" "active branch" "maintainer: changed mode edi
 assert_file_contains "$MAINTAINER" "idempotent" "maintainer: changed mode is idempotent"
 assert_file_contains "$MAINTAINER" "count candidates before validating their contents" \
   "maintainer: counts every verify-* candidate before target validation"
-assert_file_contains "$MAINTAINER" 'candidate set as `/verify --scope e2e`' \
+assert_file_contains "$MAINTAINER" 'candidate set as `/verify-evidence --scope e2e`' \
   "maintainer: shares verify's ambiguity boundary"
 assert_file_contains "$MAINTAINER" "one read-only subagent per feature" \
   "maintainer: full mode has independent source coverage"

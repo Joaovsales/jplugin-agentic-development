@@ -1,9 +1,9 @@
 #!/bin/bash
-# tests/test-e2e-classifier.sh — the e2e browser tier contract in /verify.
+# tests/test-e2e-classifier.sh — the e2e browser tier contract in /verify-evidence.
 #
 # WHY THIS EXISTS
 #
-# `/verify --scope e2e` may now resolve to lightpanda, which executes JavaScript
+# `/verify-evidence --scope e2e` may now resolve to lightpanda, which executes JavaScript
 # over a real network but never lays out or paints the result. A page with
 # completely broken layout still exposes a correct DOM, so "the button exists and
 # says Submit" passes on a page where the button is invisible, off-screen, or
@@ -29,8 +29,8 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-CANONICAL=".agents/skills/verify/SKILL.md"
-COMPAT=".claude/skills/verify/SKILL.md"
+CANONICAL=".agents/skills/verify-evidence/SKILL.md"
+COMPAT=".claude/skills/verify-evidence/SKILL.md"
 
 for f in "$CANONICAL" "$COMPAT"; do
 

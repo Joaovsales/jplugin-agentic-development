@@ -535,13 +535,13 @@ If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if s
 
 For every user-facing AC in specs touched this session:
 
-1. Confirm a `/verify --scope e2e` walkthrough ran by checking `tasks/e2e-log.md` for an entry matching the spec and current commit short-sha
+1. Confirm a `/verify-evidence --scope e2e` walkthrough ran by checking `tasks/e2e-log.md` for an entry matching the spec and current commit short-sha
 2. If missing: ask:
-   > "AC [ID] is user-facing but has no e2e walkthrough. Run /verify --scope e2e now, or acknowledge the gap? (run/acknowledge)"
-3. On `run`: invoke `/verify --scope e2e`, then re-check
+   > "AC [ID] is user-facing but has no e2e walkthrough. Run /verify-evidence --scope e2e now, or acknowledge the gap? (run/acknowledge)"
+3. On `run`: invoke `/verify-evidence --scope e2e`, then re-check
 4. On `acknowledge`: record the gap as a knowledge-track document in `tasks/solutions/process/` (tags: `[e2e-gap]`)
 
-On a `routine/fix/` branch, if `/verify --scope e2e` returns a structured blocked
+On a `routine/fix/` branch, if `/verify-evidence --scope e2e` returns a structured blocked
 outcome, return its exact command, evidence, and reproduction state to `/debug`'s
 § *Canonical unattended escalation owner*. That owner invokes the registry once;
 the escalation is terminal for this run, so do not offer acknowledgement or
@@ -747,7 +747,7 @@ the register for repeated IDs before trusting it.
 
 After push, verify deployment services if `## Deployment Targets` section exists in `.claude/project.md` (Claude Code only).
 
-Use `/verify --scope deployment` to poll, fetch logs on failure, and loop a `code-debugger` fix cycle up to 3 iterations.
+Use `/verify-evidence --scope deployment` to poll, fetch logs on failure, and loop a `code-debugger` fix cycle up to 3 iterations.
 
 If `--skip-deploy` flag was passed: skip this step entirely.
 

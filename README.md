@@ -235,7 +235,7 @@ flowchart TD
     D -->|"after each task"| D2["code-reviewer\nSpec compliance + quality"]
     D -->|"on failure"| D3["/debug\nRoot cause analysis"]
     D -->|"after all tasks"| D4["/quality-gate\nStructural + anti-pattern + design review"]
-    D -->|"before claims"| D5["/verify\nEvidence-based verification"]
+    D -->|"before claims"| D5["/verify-evidence\nEvidence-based verification"]
 
     %% Skills called by /debug
     D3 -->|"uses"| D5
@@ -264,7 +264,7 @@ flowchart TD
 
 **Alternate entry**: `/system-design-planning` replaces brainstorm → plan when the change crosses a component boundary, changes a persisted data model, or changes an external contract
 
-**Internal calls**: /build delegates to sub-agents for TDD, invokes code-reviewer for 2-stage review, /debug on failures, /quality-gate after all tasks, and /verify before any completion claims.
+**Internal calls**: /build delegates to sub-agents for TDD, invokes code-reviewer for 2-stage review, /debug on failures, /quality-gate after all tasks, and /verify-evidence before any completion claims.
 
 Project verification maps use a two-speed update path. `/build` and
 `/wrap-up-session` invoke `/maintain-verification-skill --scope changed` before
@@ -292,7 +292,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/sweep` | Producer routine (`--routine janitor` or `--routine architect`): read the backlog, run one engine over the whole tree, file verified findings as issues |
 | `/tidy` | Harness hygiene sweep: skills tables, session banner, retired skills, installed copies, backticked paths, worktrees, strays, task registers — Tier 0 fixed and committed one concern per commit, Tier 1 printed as commands, Tier 2 filed through `/task-registry` |
 | `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
-| `/verify` | Evidence-based verification gate — no completion claims without fresh command output |
+| `/verify-evidence` | Evidence-based verification gate — no completion claims without fresh command output |
 | `/create-verification-skill` | Discover an app's real user surface, generate its `verify-<app>` recipe and feature map, then prove one feature live |
 | `/maintain-verification-skill` | Reconcile changed user behavior with `--scope changed`, or run a full audit of the complete feature map |
 | `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
@@ -330,7 +330,7 @@ This workflow is built on patterns that prevent common AI agent failure modes:
 
 **Two-Stage Review** — Every task in `/build` passes through spec compliance review AND code quality review before proceeding.
 
-**Evidence Over Claims** — The `/verify` skill bans phrases like "should work" or "looks correct". Only actual command output counts.
+**Evidence Over Claims** — The `/verify-evidence` skill bans phrases like "should work" or "looks correct". Only actual command output counts.
 
 **Memory Across Sessions** — the typed learning store (`tasks/solutions/`) persists one document per learning with grep-first retrieval, so the agent doesn't repeat mistakes or bulk-load stale context. Old-format projects convert with the template repo's `scripts/migrate-learning-store.py`.
 

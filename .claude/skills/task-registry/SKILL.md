@@ -189,7 +189,7 @@ No workflow skill talks to a tracker about task state. They go through here.
 | `/plan` | after the plan is approved, offer to record tasks (`upsert`) |
 | `/system-design-planning` | read the issue (`show`) at intake; after approval, one `upsert` per build slice |
 | `/build` | claim a task and update status at task boundaries |
-| `/verify` | attach evidence links to the task |
+| `/verify-evidence` | attach evidence links to the task |
 | `/quality-gate` | report findings against the task |
 | `/wrap-up-session` | record deferred work (`upsert`) before the commit |
 

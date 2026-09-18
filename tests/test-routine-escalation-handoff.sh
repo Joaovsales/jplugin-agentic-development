@@ -7,7 +7,7 @@ cd "$REPO"
 for tree in .agents .claude; do
   debug="$tree/skills/debug/SKILL.md"
   build="$tree/skills/build/SKILL.md"
-  verify="$tree/skills/verify/SKILL.md"
+  verify="$tree/skills/verify-evidence/SKILL.md"
   wrap="$tree/skills/wrap-up-session/SKILL.md"
   prompt="$tree/skills/wrap-up-session/references/routine-prompts/fix.md"
 
@@ -52,7 +52,7 @@ assert_files_identical .agents/skills/debug/SKILL.md .claude/skills/debug/SKILL.
   "AC13: debug mirrors are byte-identical"
 assert_files_identical .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md \
   "AC13: build mirrors are byte-identical"
-assert_files_identical .agents/skills/verify/SKILL.md .claude/skills/verify/SKILL.md \
+assert_files_identical .agents/skills/verify-evidence/SKILL.md .claude/skills/verify-evidence/SKILL.md \
   "AC13: verify mirrors are byte-identical"
 assert_files_identical .agents/skills/wrap-up-session/SKILL.md .claude/skills/wrap-up-session/SKILL.md \
   "AC13: wrap-up mirrors are byte-identical"

@@ -33,7 +33,7 @@ Emit exactly one outcome word and its evidence:
 
 Find every `verify-*` directory in the canonical `.agents/skills/` tree and
 count candidates before validating their contents. This must use the same
-candidate set as `/verify --scope e2e`.
+candidate set as `/verify-evidence --scope e2e`.
 
 - Exactly one candidate: require its `SKILL.md` to have Launch, Doctor, Drive,
   Evidence, and Cleanup instructions plus `features/README.md`, then use it and
@@ -69,7 +69,7 @@ Run this pass only for `/maintain-verification-skill --scope changed`.
    anything, reconcile again before returning; the result must be idempotent.
 
 Do not launch the app in this pass. The caller's immediately following
-`/verify --scope e2e` supplies live evidence for changed acceptance criteria.
+`/verify-evidence --scope e2e` supplies live evidence for changed acceptance criteria.
 Return only `clean`, `changed`, or `blocked` with affected feature IDs and paths.
 
 ## Full pass
@@ -131,7 +131,7 @@ Run this pass when no scope argument is supplied.
   regression as a `bug` through `/task-registry` and carries any proven map
   correction on its own branch.
 - Maintains output from `/create-verification-skill`; live driving follows the
-  selected project skill and `/verify --scope e2e` capability rules.
+  selected project skill and `/verify-evidence --scope e2e` capability rules.
 
 ## Provenance
 

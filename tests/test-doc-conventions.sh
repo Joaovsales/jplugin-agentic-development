@@ -728,7 +728,7 @@ done
 # --- the legacy shims are gone (specs/claude-plugin-manifest.md, slice 7) ------
 # /sync Steps 2.5 and 2.6 migrated `.claude/commands/` and a CLAUDE.md
 # `## Deployment Targets` section for projects synced years ago; the
-# session-start hook, /verify, /verify-deployment and /setup-deployment all
+# session-start hook, /verify-evidence, /verify-deployment and /setup-deployment all
 # read CLAUDE.md as a fallback for the same section; the auto test-runner hook
 # and tests.md were placeholders nothing wired. Each is deleted with every
 # reference, so nothing can route a user to a step that no longer exists.
@@ -746,7 +746,7 @@ done
 assert_file_not_matches README.md 'tests\.md' \
   "Shims: the README directory tree no longer lists tests.md"
 for f in .agents/skills/verify-deployment/SKILL.md .claude/skills/verify-deployment/SKILL.md \
-         .agents/skills/verify/SKILL.md .claude/skills/verify/SKILL.md \
+         .agents/skills/verify-evidence/SKILL.md .claude/skills/verify-evidence/SKILL.md \
          .agents/skills/setup-deployment/SKILL.md .claude/skills/setup-deployment/SKILL.md \
          .claude/deployments/README.md .claude/hooks/session-start.sh; do
   assert_file_not_matches "$f" \

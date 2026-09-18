@@ -294,7 +294,7 @@ only place "every mapped feature was driven and nothing failed" is stated.
 ### `janitor` — steps
 
 Lens: bugs. Engine: the full test suite plus `/maintain-verification-skill`'s
-full pass, whose live pass drives every mapped feature under `/verify --scope
+full pass, whose live pass drives every mapped feature under `/verify-evidence --scope
 e2e` rules. Files as `bug`. Terminal artifact: a ready, docs-only PR whose body
 carries `Refs #N` per filed issue and this step list.
 
