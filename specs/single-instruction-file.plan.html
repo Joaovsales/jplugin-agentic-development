@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Single instruction file for every harness — Architecture Review</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+  --border: #30363d; --text: #c9d1d9; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-2: #3fb950; --warn: #f85149;
+  --warn-bg: rgba(248,81,73,0.12); --code-bg: #1e1e1e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4); --radius: 10px;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --surface-2: #eaeef2;
+  --border: #d0d7de; --text: #1f2328; --text-secondary: #57606a;
+  --accent: #0969da; --accent-2: #1a7f37; --warn: #cf222e;
+  --warn-bg: rgba(207,34,46,0.08); --code-bg: #f6f8fa;
+  --shadow: 0 4px 20px rgba(31,35,40,0.08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.65; font-size: 16px;
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+@media (min-width: 1100px) { .container { max-width: 920px; } }
+
+/* Hero */
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 0.5rem; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+.hero .takeaway {
+  font-size: 1.15rem; line-height: 1.5; padding: 1rem 1.2rem;
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 1.2rem 0;
+}
+.hero .meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
+  color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;
+}
+.hero .meta span strong { color: var(--text); margin-right: 0.25rem; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); margin-bottom: 0.25rem; }
+.card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); line-height: 1.1; }
+.card .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+/* Sections */
+section { margin: 2.5rem 0; scroll-margin-top: 1.5rem; }
+section > h2 {
+  font-size: 1.45rem; margin: 0 0 1rem; padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--accent); display: flex; gap: 0.5rem; align-items: baseline;
+}
+section h3 { font-size: 1.1rem; margin: 1.4rem 0 0.5rem; }
+section p { margin: 0.7rem 0; }
+section ul { padding-left: 1.4rem; margin: 0.5rem 0; }
+section li { margin: 0.3rem 0; }
+
+/* Sidebar nav */
+.nav-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  padding: 1.5rem 0.8rem; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transform: translateX(0); transition: transform 0.25s; z-index: 100;
+}
+.nav-sidebar.hidden { transform: translateX(-100%); }
+.nav-sidebar h3 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); margin: 1rem 0.5rem 0.4rem;
+}
+.nav-sidebar a {
+  display: block; padding: 0.4rem 0.6rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; line-height: 1.35;
+}
+.nav-sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.nav-sidebar a.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+.layout { display: flex; }
+.layout main { flex: 1; margin-left: 240px; min-width: 0; }
+@media (max-width: 900px) {
+  .nav-sidebar { transform: translateX(-100%); }
+  .nav-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .layout main { margin-left: 0; }
+}
+
+/* Toolbar buttons (theme, nav toggle) */
+.toolbar { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; z-index: 200; }
+.toolbar button, .nav-toggle {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.toolbar button:hover, .nav-toggle:hover { background: var(--surface-2); }
+.nav-toggle { position: fixed; top: 1rem; left: 1rem; z-index: 200; }
+
+/* Code */
+pre {
+  margin: 0.5rem 0; padding: 1rem 1.1rem; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow-x: auto; font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace;
+  font-size: 0.85rem; line-height: 1.55;
+}
+code { font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace; font-size: 0.9em; }
+p code, li code {
+  padding: 0.1rem 0.35rem; background: var(--surface-2);
+  border-radius: 4px; font-size: 0.85em;
+}
+.code-block { margin: 1rem 0; }
+.code-block .caption {
+  font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-block .caption .lang { font-family: monospace; font-size: 0.75rem;
+  padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-2); }
+
+/* Collapsible */
+details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.6rem 1rem; margin: 0.8rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; }
+details[open] { padding-bottom: 1rem; }
+
+/* References footer */
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+.refs a {
+  display: block; padding: 0.8rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.9rem;
+}
+.refs a:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Reflection */
+.reflection {
+  background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(63,185,80,0.10));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.3rem 1.5rem; margin: 2rem 0;
+}
+.reflection h3 { margin-top: 0; color: var(--accent); }
+
+footer {
+  margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.85rem; text-align: center;
+}
+
+/* Slides mode */
+body.mode-slides { overflow: hidden; }
+body.mode-slides .layout main { margin-left: 0; }
+body.mode-slides .nav-sidebar, body.mode-slides .nav-toggle { display: none; }
+body.mode-slides .container { max-width: none; padding: 0; }
+body.mode-slides .slide {
+  width: 100vw; height: 100vh; padding: 4rem 6rem; display: none;
+  flex-direction: column; justify-content: center;
+}
+body.mode-slides .slide.active { display: flex; }
+body.mode-slides .slide h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+body.mode-slides .slide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); border: none; }
+body.mode-slides .slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem; color: var(--text-secondary);
+  font-size: 0.85rem; font-family: monospace;
+}
+</style>
+<style>
+.diff-add { color: var(--accent-2); }
+.diff-del { color: var(--warn); }
+.diff-ctx { color: var(--text-secondary); }
+
+.tabset { margin: 1rem 0; }
+.tab-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.tab-btn {
+  background: none; cursor: pointer; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.4rem 0.9rem; color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.tab-btn.active { color: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  colorDiffBlocks();
+  buildKeychangeTabs();
+});
+
+function colorDiffBlocks() {
+  document.querySelectorAll('pre code.lang-diff').forEach(function (block) {
+    var lines = block.textContent.split('\n');
+    block.textContent = '';
+    lines.forEach(function (line, i) {
+      var span = document.createElement('span');
+      if (line.startsWith('+')) {
+        span.className = 'diff-add';
+      } else if (line.startsWith('-')) {
+        span.className = 'diff-del';
+      } else {
+        span.className = 'diff-ctx';
+      }
+      span.textContent = line;
+      block.appendChild(span);
+      if (i < lines.length - 1) {
+        block.appendChild(document.createTextNode('\n'));
+      }
+    });
+  });
+}
+
+function buildKeychangeTabs() {
+  var sections = Array.from(document.querySelectorAll('main section[id]'));
+  var i = 0;
+  while (i < sections.length) {
+    if (!sections[i].id.startsWith('keychange-')) {
+      i += 1;
+      continue;
+    }
+    var group = [];
+    while (i < sections.length && sections[i].id.startsWith('keychange-')) {
+      group.push(sections[i]);
+      i += 1;
+    }
+    wrapGroupInTabset(group);
+  }
+}
+
+function wrapGroupInTabset(group) {
+  var tabset = document.createElement('div');
+  tabset.className = 'tabset';
+  var tabBtns = document.createElement('div');
+  tabBtns.className = 'tab-btns';
+  tabset.appendChild(tabBtns);
+
+  group[0].parentNode.insertBefore(tabset, group[0]);
+
+  group.forEach(function (section, idx) {
+    var heading = section.querySelector('h2');
+    var label = heading ? heading.textContent.trim() : section.id;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+    btn.textContent = label;
+    tabBtns.appendChild(btn);
+
+    section.classList.add('tab-panel');
+    if (idx === 0) {
+      section.classList.add('active');
+    }
+    tabset.appendChild(section);
+
+    btn.addEventListener('click', function () {
+      tabBtns.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      tabset.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      section.classList.add('active');
+    });
+  });
+}
+</script>
+</head>
+<body class="mode-report" data-theme="dark">
+<div class="toolbar"><button onclick="toggleTheme()" aria-label="Toggle theme">🌓 Theme</button></div><button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+<div class="layout">
+<nav class="nav-sidebar" id="navSidebar"><h3>Contents</h3><a href="#problem">Problem — what changes, for whom</a><a href="#constraints">Constraints — which correct designs are wrong here</a><a href="#system-design">System design — who owns what, and what fails together</a><a href="#contracts">Component contracts — can the caller ignore a case it must handle</a><a href="#data-models">Data models — which combinations are nonsense, and does the type forbid them</a><a href="#build-order">Build order — each slice ships alone, riskiest unknown first</a><a href="#decisions">Decisions — expensive to change later</a><a href="#acceptance-criteria">Acceptance Criteria — the contract /build holds</a><a href="#implementation-paths">Implementation Paths</a><a href="#reflection">Reflect</a><a href="#references">References</a></nav>
+<main><div class="container"><header class="hero"><h1>Single instruction file for every harness — Architecture Review</h1><p class="subtitle">jplugin-agentic-development · prompt (grilling rounds Q1–Q23) · 2026-09-21</p><p class="takeaway">Every harness reads one AGENTS.md — template rules in a managed block under 200 lines, project rules below it, CLAUDE.md a one-line import, protocol detail in .agents/references/, hooks shipped by the plugin. The decision to weigh: each slice must carry its own downstream-facing half (D14, D16, D17), or a routine /sync between merges silently deletes rules.</p><div class="meta"><span><strong>Origin:</strong>prompt — three grilling rounds, decisions final</span><span><strong>Spec:</strong>specs/single-instruction-file.md</span><span><strong>Status:</strong>awaiting review — critic pass applied: 3 MUST-FIX, 6 SHOULD-FIX, 2 NITPICK, all 11 applied, 0 declined</span></div></header><div class="cards"><div class="card"><div class="label">Components touched</div><div class="value">10</div><div class="hint">AGENTS.md, CLAUDE.md, references, hooks, sync script, render-codex, skills-table generator, install.sh, project-template, /tidy</div></div><div class="card"><div class="label">Contracts</div><div class="value">6 new · 3 changed</div><div class="hint">managed block, sync script, pointer CLAUDE.md, reference files, hooks.json, table generator · install.sh, config readers, render-codex</div></div><div class="card"><div class="label">Entities</div><div class="value">2 new · 2 changed</div><div class="hint">reference files, installed-copy state · AGENTS.md, settings.json hooks</div></div><div class="card"><div class="label">Build slices</div><div class="value">6</div><div class="hint">order fixed by Q20; each carries its downstream half</div></div><div class="card"><div class="label">Open decisions</div><div class="value">4</div><div class="hint">Ownership placements, D2, D3, D10</div></div></div><section id="problem"><h2>Problem — what changes, for whom</h2><p>Every Claude Code session in this repository loads about 15k tokens of instructions from four files — <code>CLAUDE.md</code> (493 lines, 29 KB, 54 % review-protocol text), a stale <code>~/.claude/CLAUDE.md</code> copy, <code>.claude/project.md</code>, and a session banner that restates the skills table a third time — while Pi and Codex each read a different subset. After this change every harness reads one <code>AGENTS.md</code>: template rules inside a marker-delimited managed block under 200 lines, project rules below it, <code>CLAUDE.md</code> reduced to <code>@AGENTS.md</code>, protocol detail in <code>.agents/references/</code>, and the Claude Code hooks shipped by the <code>jplugin</code> plugin. Out of scope, filed as follow-ups after approval: auto-running the block write on a project&#x27;s first session (Q12), a repository-qualification guard for auto-sync (Q13), a graphify PreToolUse warning (Q23); also <code>feat/106</code> re-baselining and any skill-body change beyond repointing citations.</p>
+
+<p><strong>Current state</strong> — every path below was read at <code>7980eff</code>.</p>
+
+<pre><code class="lang-text"> Claude Code session                          Pi session                    Codex session
+ ───────────────────                          ──────────                    ─────────────
+ ~/.claude/CLAUDE.md   (install.sh:195 copy;  CLAUDE.md natively            ~/.codex/AGENTS.md
+   stale: lacks /system-design-planning)        (CLAUDE.md:5)                 (install-codex.sh:53
+ CLAUDE.md:1-493                              AGENTS.md:1-70 &quot;Pi only&quot;        render_global :102-126)
+   @.claude/project.md  :10  ─► 175 lines       Task Tracking :14            AGENTS.md:1-70
+   @CLAUDE.local.md     :11                      Code Economy  :23 (dup of
+                                                 project.md:67)
+ ~/.claude/settings.json SessionStart ─► ~/.claude/hooks/session-start.sh (install.sh:236)
+ .claude/settings.json  Stop, PreCompact ─► .claude/hooks/{session-stop,pre-compact}.sh
+ session-start.sh:440-472  SKILLS AVAILABLE (30 hard-coded lines) · :474-477 &quot;Ready.&quot; footer
+ session-start.sh:278-281  reads `## Deployment Targets` from .claude/project.md only
+ Skills catalogs: CLAUDE.md:453-493 · README.md:285-320 · session-start.sh:440-472 (three, hand-kept)
+ Plugin: .claude-plugin/plugin.json → skills only; no hooks/ dir, no hooks.json
+ Tests pinning the above: 118 CLAUDE.md references across 15 files (tests/*.sh)
+</code></pre></section>
+<section id="constraints"><h2>Constraints — which correct designs are wrong here</h2><p>An <code>inferred</code> row is a question for you, not a fact.</p>
+
+<pre><code class="lang-text">Constraint                         Value                                                        Source                    Detected by
+─────────────────────────────────  ───────────────────────────────────────────────────────────  ────────────────────────  ─────────────────────────────────────────────
+Managed block size                 ≤ 200 lines between the markers                              user; Anthropic docs      NEW tests/test-instruction-budget.sh
+Whole-file size                    AGENTS.md ≤ 16 KiB (half Codex&#x27;s 32 KiB default — inferred)  user (Q4)                 same test, wc -c
+CLAUDE.md is a pointer             exactly `@AGENTS.md`, nothing else                           user (Q2)                 same test, byte-compare (CRLF tolerated)
+No rule loads twice                Claude Code reads CLAUDE.md, follows the import once;        Claude Code docs; user    budget test: no `@` line in AGENTS.md;
+                                   AGENTS.md has no `@` line; banner restates nothing                                     doc-conventions: no SKILLS AVAILABLE block
+Every removed rule keeps one home  block, one reference file, or one skill — never two/none     inferred — REVIEWER       repointed heading assertions; NEW citation test
+Paths skills name are deliverable  .agents/references/ and .agents/hooks/ are syncable roots;   architecture decision     tests/test-syncable-paths.sh
+                                   no SKILL.md names a bare scripts/… path
+Project text survives /sync        outside-marker bytes untouched; idempotent; migration        user (Q22 A)              NEW tests/test-sync-managed-block.sh, cmp;
+                                   moves EVERY project.md line except the 5 generic sections                              `## Tech Stack` fixture lands below end marker
+No downstream window               each slice ships its downstream-facing half: block write     critic; inferred          slice criteria: fixture project synced from the
+between slices                     with the pointer (2), settings migration with hook                                     slice-2 branch ends with a block, never a bare
+                                   retirement (3), install step 1 removed with pointer (2)                                pointer; slice 3 fixture drops old hook entries
+Unmigrated projects keep working   no markers → block appended on next /sync; legacy            inferred — REVIEWER (D3)  test-task-registry.sh pointer fixtures keep
+                                   project.md pointer/targets still read with a notice                                    passing + notice assertion
+Triggerability does not regress    /eval on /plan, /build, /quality-gate ≥ current file          user (Q21 A)              manual gate before slice-2 merge; path in PR body
+Each hook event fires once         plugin hooks.json only; project settings.json has none;      user (Q14–16); hooks docs test-settings-json.sh; test-install-sh.sh;
+                                   downstream `.claude/hooks/&lt;name&gt;.sh` entries removed by                                /sync fixture (only session-start has a guard)
+                                   the same /sync that retires the scripts
+Hooks stay portable                bash scripts via `bash &quot;${CLAUDE_PLUGIN_ROOT}/.agents/…&quot;`     inferred (Windows CI)     test-session-start.sh, test-pre-compact.sh
+Failure-only banner                ≤ 12 lines when nothing is wrong; missing-block line only    Observability Discipline  fixtures: current block → no ⚠; non-adopting
+                                   in an adopting repository (plugin is user-scoped)                                      repo → no ⚠
+Rollback                           every slice one PR of tracked files; installed-copy          inferred                  slice-5 test: `N` keeps every copy, Kept(n)
+                                   removal after one confirmation, re-creatable
+</code></pre></section>
+<section id="system-design"><h2>System design — who owns what, and what fails together</h2><p><strong>Ownership.</strong> One source of truth per fact; a cache is a reader.</p>
+
+<pre><code class="lang-text">Component                                    Owns                                                                  Reads
+───────────────────────────────────────────  ────────────────────────────────────────────────────────────────────  ──────────────────────────────
+AGENTS.md — managed block (template)         Session Start Checklist; Workflow; Review Gate Taxonomy + 3-line       —
+                                             stub; Core Principles (APOSD list kept; Clean Code/SOLID named in one
+                                             line each); Quality Gate; Key Directories; Agents rule; Task Tracking
+                                             index rule + pointer convention; Code Economy, Surgical Changes,
+                                             Ambiguity Protocol, Large-Artifact Handoff (one clause of why each);
+                                             namespace sentence
+AGENTS.md — below end marker (project)       Task tracking pointer; ## Deployment Targets; team rules                —
+CLAUDE.md                                    nothing — the one-line import                                          AGENTS.md
+.agents/references/finding-model.md          four axes; emission format; anchors; gates; anchor-75; Independence    —
+.agents/references/review-dispatch-contract  seven items; empty≠absent; bounded; repo-survey; share/withhold        finding-model (item 7)
+.agents/references/model-routing.md          tiers; Ceiling; Floors; Agents table (Model column); dispatch rules     PI_SETUP.md for concrete IDs
+task-registry/references/configuration.md    provider resolution, pointer search order, dangling-pointer refusal    AGENTS.md; legacy project.md
+quality-gate SKILL.md § 1.2 / 1.3            Clean Code and SOLID checklists (already there; CLAUDE.md stops dup)    finding-model
+.agents/hooks/{session-start,pre-compact,     banner content; checkpoint flush (moved from .claude/hooks/)           AGENTS.md, tasks/, git, graph.json
+  session-stop}.sh
+hooks/hooks.json (plugin root = repo root)   Claude Code registration of the three events                          .agents/hooks/*.sh via ${CLAUDE_PLUGIN_ROOT}
+sync/scripts/sync-managed-block.py           block replace; pointer CLAUDE.md; one-shot project.md migration        template AGENTS.md, project AGENTS.md, project.md
+scripts/render-codex.py                      Codex agent TOML + hooks merge (render_global REMOVED)                 .agents/agents/
+scripts/render-skills-table.py (template)    README skills table between markers                                    .agents/skills/*/SKILL.md frontmatter
+install.sh                                   plugin, ~/.agents/, Pi, graphify, scaffold; NEW stale-copy removal      ~/.claude/, ~/.codex/
+project-template/                            seeds: one-line CLAUDE.md; AGENTS.md without the block (D2)            —
+/tidy                                        inventory runs the generator; NEW graph staleness check                 graph.json, git log -1
+</code></pre>
+
+<p><strong>Interaction.</strong> Every arrow is a synchronous local read or write; the only network call is the <code>git fetch</code> <code>/sync</code> Step 2 already performs. NEW marks what this change adds.</p>
+
+<pre><code class="lang-text"> Claude Code start ─(1)─► CLAUDE.md ─@─► AGENTS.md [ managed block | project rules ]      both files read once
+                   ─(2)─► plugin hooks/hooks.json SessionStart ─► .agents/hooks/session-start.sh ─► banner
+ Pi start          ─(3)─► AGENTS.md natively · ~/.pi/agent/AGENTS.md personal
+ Codex start       ─(4)─► ~/.codex/AGENTS.md (personal only; block no longer rendered) ─► AGENTS.md
+ /sync in project  ─(5)─► git show workflow/&lt;branch&gt;:AGENTS.md ─► sync-managed-block.py ─► between markers   NEW
+                   ─(6)─► --migrate ─► project.md content → below end marker → file deleted;               NEW
+                          settings.json entries matching .claude/hooks/&lt;name&gt;.sh dropped
+ dispatching skill ─(7)─► finding-model.md § Emission format (project → plugin root → ~/.agents) ─► item 7  NEW
+ install.sh        ─(8)─► lists stale copies ─► one [y/N] ─► removed / kept                                   NEW
+ /tidy, CI         ─(9)─► render-skills-table.py --check ─► README == frontmatter, or exit 1 + diff          NEW
+</code></pre>
+
+<pre><code class="lang-text">Arrow  On failure                                                                        On duplicate / re-run
+─────  ────────────────────────────────────────────────────────────────────────────────  ─────────────────────────────────────
+(1)    AGENTS.md missing → nothing loads; adopting repo&#x27;s banner prints the missing-     one read per session
+       block line; elsewhere nothing (D18)
+(2)    plugin absent → no banner/hooks, rules still load via (1); script error → stderr  banner guard keys on session_id;
+                                                                                         pre-compact/session-stop have none →
+                                                                                         leftover entries removed by (6)
+(5)    source has no markers → exit 2; target unmatched/doubled marker → exit 2, NOTHING  second run: `unchanged`, exit 0
+       written; tempfile + os.replace
+(6)    project.md absent → `nothing to move`; targets table in both places → exit 2      runs once; project.md deleted last
+(7)    all three locations miss → `review dispatch refused … — run /sync`; never a        n/a
+       reviewer without an output format
+(8)    `N` → Kept(n) + double-banner note; personal ~/.claude/CLAUDE.md never listed      second run → Clean
+(9)    SKILL.md without name/description → exit 2 naming the dir                          --check writes nothing
+</code></pre>
+
+<p><strong>Failure unit.</strong> <code>AGENTS.md</code> missing or stale → every harness in that project runs on stale or absent rules; the banner line is the only signal, by design (Q12 A). Plugin not installed → Claude Code loses banner, checkpoint flush and unpushed warning together with the skills it already depended on since #156; the rules do not depend on it. A reference missing everywhere → review dispatches refuse; <code>/build</code> inline gates and <code>/plan</code> unaffected. A refused managed-block write leaves the project exactly as it was; the rest of the sync proceeds.</p></section>
+<section id="contracts"><h2>Component contracts — can the caller ignore a case it must handle</h2><h3>Managed block (markdown, both directions of /sync)</h3>
+
+<pre><code class="lang-text">&lt;!-- jplugin-agentic-development:begin --&gt;
+## &lt;heading&gt;            # `## ` and `### ` only — the project&#x27;s `# ` title stays the sole H1
+…
+&lt;!-- jplugin-agentic-development:end --&gt;
+</code></pre>
+
+<ul>
+<li><strong>Source</strong>: the template repository&#x27;s own <code>AGENTS.md</code>; the block is whatever lies between its markers</li>
+<li><strong>Invariants</strong>: ≤ 200 lines; no line starts with <code>@</code>; no match of the registry&#x27;s <code>POINTER_RE</code> (case-insensitive, mid-line — <code>config.py:36</code>), so the convention is documented with <code>&lt;path&gt;</code>, never an example path; no <code># </code> heading; namespace sentence present; the <code>[AMBIGUITY] … | options … | picked … | reason</code> format line and the <code>TODO(shortcut):</code> marker present verbatim (D21); fixed heading set in order</li>
+<li><strong>Legacy</strong>: <code>coding-agent-workflow</code> markers (<code>render-codex.py:23-24</code>) recognised on read, replaced on write</li>
+<li><strong>Versioning</strong>: none — replaced wholesale; the template&#x27;s git history is the version</li>
+</ul>
+
+<h3>sync-managed-block.py (.agents/skills/sync/scripts/)</h3>
+
+<pre><code class="lang-bash">python3 sync-managed-block.py --source &lt;template-AGENTS.md | -&gt; --target AGENTS.md \
+    [--claude-md CLAUDE.md] [--migrate .claude/project.md] [--dry-run]
+</code></pre>
+
+<ul>
+<li><strong>Outcomes</strong> (one stdout line each): <code>AGENTS.md: replaced</code> · <code>appended</code> · <code>unchanged</code> · <code>CLAUDE.md: written</code> · <code>unchanged</code> · <code>migration: moved &lt;n&gt; section(s), .claude/project.md deleted</code> · <code>migration: nothing to move</code></li>
+<li><strong>Exit 2, before any write</strong>: source lacks a marker pair; target has an unmatched marker or &gt; 1 begin; <code>--migrate</code> finds <code>## Deployment Targets</code> in both places; <code>--claude-md</code> target is a directory</li>
+<li><strong>Raises</strong>: I/O errors only, with the path</li>
+<li><strong>Idempotency</strong>: re-run is a no-op reporting <code>unchanged</code>; <code>--dry-run</code> prints <code>would …</code> and writes nothing</li>
+<li><strong>Writes</strong>: tempfile + <code>os.replace</code> per file; outside-marker bytes copied verbatim incl. line endings. Fixed order — <code>AGENTS.md</code> first, then <code>CLAUDE.md</code>, then the <code>project.md</code> delete last — so a crash duplicates and never loses</li>
+<li><strong>Migration (<code>--migrate</code>)</strong>: moves <strong>everything</strong> in <code>project.md</code> below its header except <code>### Code Economy</code>, <code>### Surgical Changes</code>, <code>### Ambiguity Protocol</code>, <code>### Large-Artifact Handoff</code> and the <code>### Task Tracking</code> placement prose (the block owns all five); pointer line first, then the rest in original order with headings unchanged, appended below the end marker; an existing <code>## Project-Specific Rules</code> heading is reused (D15)</li>
+</ul>
+
+<h3>CLAUDE.md</h3>
+
+<pre><code class="lang-text">@AGENTS.md
+</code></pre>
+
+<p>One line, LF or CRLF. <code>/sync</code> writes it whenever it differs (D4). <code>CLAUDE.local.md</code> keeps working — Claude Code loads it natively.</p>
+
+<h3>Reference files (.agents/references/&lt;name&gt;.md)</h3>
+
+<ul>
+<li><strong>Structure</strong>: <code># Title</code>, one sentence of purpose, then the fixed <code>## </code> headings</li>
+<li><strong>Citation form</strong> everywhere: `<code> </code>.agents/references/&lt;name&gt;.md<code> § <em>&lt;Heading&gt;</em> </code><code> — the string tests grep for (D5)</li>
+<li><strong>Read at dispatch</strong>: a skill dispatching </code>code-reviewer<code>, </code>critic<code>, </code>security-reviewer<code> or </code>software-design-expert-review<code> pastes </code>finding-model.md<code> § Emission format as item 7 and reads </code>review-dispatch-contract.md<code> for items 1–6. Resolution: project </code>.agents/references/<code> → </code>${CLAUDE_PLUGIN_ROOT}/.agents/references/<code> (Claude Code) → </code>~/.agents/references/<code> (Pi, Codex); refuse only when all three miss (D19)</li>
+</ul>
+
+<h3>hooks/hooks.json (plugin root)</h3>
+
+<pre><code class="lang-json">{
+  &quot;hooks&quot;: {
+    &quot;SessionStart&quot;: [{ &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;bash \&quot;${CLAUDE_PLUGIN_ROOT}/.agents/hooks/session-start.sh\&quot;&quot; }] }],
+    &quot;PreCompact&quot;:   [{ &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;bash \&quot;${CLAUDE_PLUGIN_ROOT}/.agents/hooks/pre-compact.sh\&quot;&quot; }] }],
+    &quot;Stop&quot;:         [{ &quot;hooks&quot;: [{ &quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;bash \&quot;${CLAUDE_PLUGIN_ROOT}/.agents/hooks/session-stop.sh\&quot;&quot; }] }]
+  }
+}
+</code></pre>
+
+<ul>
+<li><strong>Inputs</strong>: the same stdin JSON a settings hook receives (</code>session_id<code>, </code>cwd<code>, </code>source<code>); cwd is the project</li>
+<li><strong>Banner lines</strong>: always header, counts, tasks, git. Conditional, one line each: drift (block hash, D6); </code>⚠ AGENTS.md has no jplugin-agentic-development managed block — run /sync<code> only in an adopting repository (D18); </code>⚠ code graph stale …<code>; </code>⚠ graphify installed but no graph …<code> only when the tree has code files. Removed: </code>SKILLS AVAILABLE<code>, </code>Ready.<code> footer</li>
+<li><strong>Command string test</strong>: each command run via </code>bash -c<code> with </code>CLAUDE_PLUGIN_ROOT<code> containing a space and, on Windows, backslashes (D20)</li>
+<li><strong>Codex</strong>: </code>install-codex.sh:61-72<code> copies the scripts from </code>.agents/hooks/<code></li>
+<li><strong>Versioning</strong>: plugin </code>version<code> bump when hooks change</li>
+</ul>
+
+<h3>render-skills-table.py (scripts/, template repository only)</h3>
+
+<pre><code class="lang-bash">python3 scripts/render-skills-table.py [--check]
+</code></pre>
+
+<ul>
+<li><strong>Inputs</strong>: every </code>.agents/skills/*/SKILL.md<code> frontmatter </code>name<code>, </code>description<code>; non-universal </code>harness:<code> shown in a third column</li>
+<li><strong>Outcomes</strong>: table sorted by directory; </code>--check<code> exit 0 when identical, exit 1 with a unified diff; exit 2 on a missing field or missing README markers</li>
+<li><strong>Named from skills</strong> as </code>python3 &lt;template-clone&gt;/scripts/render-skills-table.py<code> (keeps it out of the syncable-paths scanner, D13)</li>
+</ul>
+
+<h3>install.sh — removal of stale pre-plugin copies</h3>
+
+<ul>
+<li><strong>Lists</strong>: </code>~/.claude/CLAUDE.md<code> when its first five lines contain </code>Template-managed<code> <strong>or</strong> its only non-blank line is </code>@AGENTS.md<code> (D9, D17); </code>~/.claude/hooks/session-start.sh<code> <strong>together with</strong> the </code>SessionStart<code> entry ending </code>hooks/session-start.sh<code> in </code>~/.claude/settings.json<code> — one item; the managed block (either slug) inside </code>~/.codex/AGENTS.md<code> — the file is never deleted (D8)</li>
+<li><strong>Prompt</strong>: one </code>Delete them? [y/N]<code> (</code>remove_legacy_skill_copies<code> shape, </code>install.sh:149-178<code>); outcome </code>Clean<code> / </code>Kept(n)<code> / </code>Removed(n)<code>; on </code>Kept<code> the summary names the double banner</li>
+<li><strong>Never</strong>: writes </code>~/.claude/CLAUDE.md<code>, </code>~/.claude/hooks/<code>, or a </code>SessionStart<code> entry — steps 1 and 5 are removed (step 1 in slice 2, D17). </code>install-codex.sh<code> stops rendering </code>~/.codex/AGENTS.md<code>; </code>render_global<code> moves into </code>sync-managed-block.py`</li>
+</ul>
+
+<h3>Readers of project configuration</h3>
+
+<pre><code class="lang-text">Reader                                            Today                                  After
+────────────────────────────────────────────────  ─────────────────────────────────────  ──────────────────────────────────────────────────────
+task-registry POINTER_FILES (config.py:35)        (.claude/project.md, AGENTS.md,        (AGENTS.md, .claude/project.md) — CLAUDE.md dropped;
+                                                  CLAUDE.md)                             doctor prints the legacy notice (D3)
+session-start.sh:278-281, /setup-deployment       .claude/project.md § Deployment        AGENTS.md first (same exact-match regex), then
+Step 4, /verify-deployment:38, /verify-evidence   Targets                                project.md with the notice; /setup-deployment WRITES
+:65, /wrap-up-session:748, .claude/deployments/*                                          AGENTS.md only, below the end marker
+/build:314; agents citing Code Economy /          `.claude/project.md` § …               `AGENTS.md` § …
+Surgical Changes / Ambiguity Protocol
+</code></pre></section>
+<section id="data-models"><h2>Data models — which combinations are nonsense, and does the type forbid them</h2><h3>AGENTS.md</h3>
+
+<pre><code class="lang-text">Field           Type                        Invariant                                              Enforced by
+──────────────  ──────────────────────────  ─────────────────────────────────────────────────────  ──────────────────────────────────────
+title           `# ` heading, 0..1          the only H1 in the file                                budget test: grep -c &#x27;^# &#x27; ≤ 1
+managed block   marker pair, 0..1           exactly one begin and one end, begin before end        script exit 2; budget test requires one here
+block body      markdown                    ≤ 200 lines; no `@`; no POINTER_RE match;              budget test; test-routine-skills.sh:511-513
+                                            [AMBIGUITY] + TODO(shortcut) present; fixed headings   repointed to the extracted block
+project rules   markdown below end marker   ≤ 1 pointer line; ≤ 1 `## Deployment Targets`          test-routine-skills.sh:503-508; targets regex
+</code></pre>
+
+<p><strong>Fixed heading set of the block, in order</strong> (presence and order pinned; wording free within the invariants): Session Start Checklist · Workflow: PRD → Plan → Build → Wrap Up · Review Gate Taxonomy · Core Principles · Quality Gate · Key Directories · Agents · Task Tracking · Code Economy · Surgical Changes · Ambiguity Protocol · Large-Artifact Handoff · Skills.</p>
+
+<h3>Reference files — fixed headings</h3>
+
+<pre><code class="lang-text">File                          `## ` headings, in order
+────────────────────────────  ─────────────────────────────────────────────────────────────────────────────────────────────
+finding-model.md              Four axes · Emission format · Confidence anchors · Gates · Resolving an anchor-75 finding · Independence Accounting
+review-dispatch-contract.md   The seven items · Empty is not absent · Bounded items · Repo-survey dispatch · Share intent, withhold conclusions
+model-routing.md              Tiers · Ceiling · Floors · Agents · Rules
+</code></pre>
+
+<p><code>tests/test-agents.sh:83-90</code> parses the Agents table from <code>model-routing.md</code> § Agents with the same awk. <code>test-model-tiers.sh</code>, <code>test-review-context.sh</code>, <code>test-doc-conventions.sh</code> M1/M2 keep their structural assertions and have their prose assertions <strong>repointed</strong> to the reference files in slice 1 (verbatim move); slice 2 deletes only those whose sentence the block compression removes, and only against the block (D22).</p>
+
+<p><strong>Illegal states</strong></p>
+
+<ul>
+<li>two managed blocks in one <code>AGENTS.md</code> — script refuses on begin-count ≠ 1; budget test</li>
+<li><code>CLAUDE.md</code> with content beyond the import — budget test byte-compare; <code>/sync</code> rewrites it</li>
+<li>a live pointer inside the block — budget test with <code>POINTER_RE</code></li>
+<li>a <code>## Deployment Targets</code> table in two places — <code>--migrate</code> exit 2; readers take <code>AGENTS.md</code> first and print the notice</li>
+<li>a rule with two homes — citation test + review; the block names a standard in one line and cites the skill</li>
+<li>a hook registered in the plugin and in <code>.claude/settings.json</code> — template file asserted clean; downstream entries dropped by the same <code>/sync</code> that retires the scripts (only <code>session-start.sh</code> has a <code>session_id</code> guard)</li>
+<li>a <code>settings.json</code> entry pointing at a retired script — removal and retirement are one step; a hand-kept entry surfaces in the drift line</li>
+<li>a reviewer dispatched without the output format — dispatching skills refuse after the three-location lookup</li>
+</ul>
+
+<p><strong>Transitions — a project&#x27;s instruction-file state</strong></p>
+
+<pre><code class="lang-text">From                                    To                              Trigger
+──────────────────────────────────────  ──────────────────────────────  ─────────────────────────────────────────────────────
+unmanaged (no markers)                  managed                         /sync Step 5 → `appended`; `CLAUDE.md: written`
+legacy-markers (coding-agent-workflow)  managed                         /sync Step 5 → `replaced` with the current slug
+managed                                 stale                           template block changes (drift line, block hash, D6)
+stale                                   managed                         /sync Step 5 → `replaced`
+managed + project.md present            managed, project.md absent      /sync Step 6.6 --migrate, same approved run
+broken (unmatched marker)               broken                          /sync refuses, exit 2, file named; human repairs
+</code></pre>
+
+<p><strong>Transitions — an installed copy on a machine</strong></p>
+
+<pre><code class="lang-text">From                                              To                          Trigger
+────────────────────────────────────────────────  ──────────────────────────  ─────────────────────────────────────────
+template-managed or pointer-only ~/.claude/CLAUDE.md  absent                  install.sh removal step, `y`
+same                                              same                        `N` → Kept(n), listed again next run
+personal ~/.claude/CLAUDE.md (no header)          personal                    never listed, never touched
+~/.codex/AGENTS.md with block                     same file, block stripped   `y`; personal text preserved byte-for-byte
+~/.claude/settings.json SessionStart + script     both absent                 `y` — one item; `N` keeps both, double banner named
+</code></pre>
+
+<p><strong>Transitions — a downstream project&#x27;s <code>.claude/settings.json</code> hooks block</strong></p>
+
+<pre><code class="lang-text">From                                              To                          Trigger
+────────────────────────────────────────────────  ──────────────────────────  ─────────────────────────────────────────
+entries for .claude/hooks/*.sh, scripts present   entries + scripts absent    slice-3+ /sync: Step 5 merge drops matching
+                                                                              entries, Step 6.4 retires scripts — same run
+same                                              unchanged                   /sync declined at Step 4 — nothing written
+entries absent, plugin installed                  unchanged                   steady state — each event fires once
+entries present, scripts hand-deleted             entries absent              next /sync — merge needs no script on disk
+</code></pre>
+
+<p><strong>Migration and compatibility.</strong> Forward per project: one <code>/sync</code> appends the block, writes the pointer, moves <code>project.md</code> content, drops the old hook entries — all under the single Step 4 approval. Forward per machine: one <code>install.sh</code> run, one confirmation. Reverse: <code>/sync</code> never commits — the user does — so the rollback unit is that commit; <code>git revert</code> restores <code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.claude/project.md</code> and the hook entries together. The previous <code>install.sh</code> tag re-creates machine copies. Old layout under new tooling: readers keep the <code>.claude/project.md</code> fallback with a notice (D3); a block-less <code>AGENTS.md</code> loads only project rules and the banner says so on every session in an adopting repository.</p></section>
+<section id="build-order"><h2>Build order — each slice ships alone, riskiest unknown first</h2><pre><code class="lang-text">#  Slice                                   Delivers                                                                 Depends  Contract exposed              Size
+─  ──────────────────────────────────────  ───────────────────────────────────────────────────────────────────────  ───────  ────────────────────────────  ────
+1  References move                         .agents/references/{finding-model,review-dispatch-contract,model-        —        reference headings;           M
+                                           routing}.md verbatim; CLAUDE.md sections → 3-line stubs; new syncable            citation form
+                                           root; 11 citing files + 4 tests repointed (prose assertions repointed,
+                                           D22); skills read the reference at dispatch; citation test
+2  Single AGENTS.md + its delivery         block &lt; 200 lines; Pi AGENTS.md + project.md sections merged below;      1        managed-block format;         L
+                                           project.md deleted; CLAUDE.md → @AGENTS.md; project-template seeds;               pointer CLAUDE.md; script
+                                           project.md readers repointed with notice; sync-managed-block.py                   CLI (partial)
+                                           (replace/append/pointer), /sync Step 5, sync-template.yml, syncable-
+                                           paths rows (D14); install.sh step 1 removed (D17); render_global reads
+                                           the block from AGENTS.md; table assertions → README; budget test with
+                                           block invariants (D21); /eval gate
+3  Plugin hooks + slim banner + retirement hooks/hooks.json; scripts → .agents/hooks/ (syncable root);              2        hooks/hooks.json;             M
+                                           .claude/hooks/ RETIRED; settings.json without Stop/PreCompact; /sync              banner lines
+                                           merge drops downstream hook entries (D16); adoption-gated missing-block
+                                           line (D18) + graphify lines; /tidy graph check; install-codex.sh new
+                                           path; reference fallback chain (D19); command-string test (D20);
+                                           plugin version bump
+4  /sync project migration + drift         --migrate (everything but the five generic sections, D15); Step 6.6;    2, 3     script CLI (complete)         M
+                                           drift by block hash (D6); migration fixtures
+5  install.sh stops copying                step 5 removed; removal step with one confirmation incl. pointer-only    3, 4     install.sh prompt and         M
+                                           ~/.claude/CLAUDE.md; install-codex.sh no global render; render_global             outcome words
+                                           deleted; README Layer 1; /tidy installed check; tests repointed
+6  README skills-table generator           scripts/render-skills-table.py; README markers; test-skills-table.sh;   2        script CLI                    S
+                                           /tidy inventory runs it as Tier 0 fix
+</code></pre>
+
+<p>Slice 1 carries no behavioural risk — it moves text and repoints strings — and makes slice 2&#x27;s file small enough to evaluate; the riskiest unknown, skill triggerability, is measured inside slice 2 before its merge (D7).</p>
+
+<p><strong>Slice criteria</strong> — each one a test can pin.</p>
+
+<ul>
+<li><strong>Slice 1</strong>: each reference file has its fixed heading set; no <code>CLAUDE.md § Finding Model / Review Dispatch Contract / Model Routing / Independence Accounting</code> citation remains under <code>.agents/</code> or <code>.claude/agents/</code>; <code>test-review-context.sh</code> requires the reference citation at every dispatch site; repointed <code>assert_prose_contains</code> assertions pass against the reference files, none deleted; <code>test-agents.sh</code> yields ≥ 10 names from <code>model-routing.md</code>; <code>test-syncable-paths.sh</code> passes with <code>.agents/references/</code> in all six copies; the citation test resolves every <code>§</code> citation; the four dispatching skills state the refusal line; <code>bash tests/run.sh</code> green.</li>
+<li><strong>Slice 2</strong>: budget test passes (≤ 200 lines, ≤ 16 KiB, <code>CLAUDE.md</code> byte-equal, headings in order, no <code>@</code>, ≤ 1 H1, no <code>POINTER_RE</code> match, <code>[AMBIGUITY]</code> format and <code>TODO(shortcut):</code> present); <code>.claude/project.md</code> absent and no reference to it outside <code>tasks/</code>, <code>specs/</code> and the legacy-notice lines; AC7 asserts the pointer below the end marker; <code>session-start.sh</code> finds Deployment Targets in <code>AGENTS.md</code> and prints the notice for a project.md-only fixture; <code>test-sync-managed-block.sh</code> first half (append, replace incl. legacy, unchanged, cmp, exit 2 no-write, dry-run, <code>CLAUDE.md: written</code>); a fixture project synced from this branch ends with a block and the pointer in one run; <code>/sync</code> Step 5 no longer checks out <code>CLAUDE.md</code>; <code>sync-template.yml</code> calls the script; <code>install.sh</code> no longer copies <code>CLAUDE.md</code>; Codex install still receives <code>Session Start Checklist</code>; the <code>/eval</code> report shows no regression and its path is in the PR body; suite green.</li>
+<li><strong>Slice 3</strong>: <code>hooks/hooks.json</code> valid with exactly three events, each <code>bash &quot;${CLAUDE_PLUGIN_ROOT}/.agents/hooks/…&quot;</code>, each passing the spaced/backslashed <code>bash -c</code> test; <code>.claude/hooks/</code> has no <code>*.sh</code> and its row begins <code>RETIRED</code>; project <code>settings.json</code> has none of the three events; a <code>/sync</code> fixture with the old <code>Stop</code>/<code>PreCompact</code> entries ends without them, other keys byte-identical; banner fixtures: current block → no ⚠ and no <code>SKILLS AVAILABLE</code>; stale graph → stale line; adopting + no block → missing-block line; non-adopting → no ⚠; a dispatching skill resolves the reference from <code>${CLAUDE_PLUGIN_ROOT}</code> before refusing; <code>test-pre-compact.sh</code> from the new path; <code>/tidy</code> <code>graph</code> check in its table; suite green.</li>
+<li><strong>Slice 4</strong>: <code>--migrate</code> moves pointer, targets table and a <code>## Tech Stack</code> section below the end marker in order and deletes <code>project.md</code>; the five generic sections stay unmoved; doubled targets table → exit 2, <code>project.md</code> intact; re-run → <code>nothing to move</code>; a template commit touching only text below the end marker produces no drift line; suite green.</li>
+<li><strong>Slice 5</strong>: <code>~/.claude/settings.json</code> gains no <code>session-start.sh</code>; template-headed and pointer-only <code>~/.claude/CLAUDE.md</code> both listed, removed on <code>y</code>, kept on <code>N</code> with <code>Kept(n)</code> and the double-banner note; personal one never listed; <code>SessionStart</code> entry and script removed together; <code>$CODEX_HOME/AGENTS.md</code> not created, pre-seeded block stripped with personal text intact; <code>render_global</code> gone; README Layer 1 shows no <code>~/.claude/CLAUDE.md</code>; suite green.</li>
+<li><strong>Slice 6</strong>: <code>--check</code> exits 0 on HEAD; a removed README row → exit 1 with diff; a skill without <code>description</code> → exit 2 naming the directory; <code>test-skills-table.sh</code> runs the check; <code>/tidy</code> <code>inventory</code> names the generator with the <code>&lt;template-clone&gt;</code> prefix; suite green.</li>
+</ul></section>
+<section id="decisions"><h2>Decisions — expensive to change later</h2><pre><code class="lang-text">#    Decision                                   Options                                  Recommended                                  Wrong when
+───  ─────────────────────────────────────────  ───────────────────────────────────────  ───────────────────────────────────────────  ─────────────────────────────────────────
+D1   Home of the hook scripts                   A .agents/hooks/ / B hooks/ at root      A — shared core under .agents/; /build:177   B if Codex/Pi never ran them — Codex does
+                                                                                          and /refresh:26 must name a syncable path
+D2   Scaffold seed carries the block            A seed + drift test / B nudge only       B — Q12 A chose no automatic write; the      A if new projects must have rules before
+                                                                                          install-time copy is stale anyway            their first /sync                    OPEN
+D3   Legacy .claude/project.md readers          A keep with notice / B cut now           A — migration needs the user&#x27;s `y`           B once every downstream synced past 4 OPEN
+D4   /sync and a non-pointer CLAUDE.md          A always write pointer / B header-gated  A — CLAUDE.md template-managed since day 1   B if a project hand-writes CLAUDE.md
+D5   Citation string                            `.agents/references/&lt;n&gt;.md` § *Heading*  as stated — greppable, resolvable            —
+D6   Drift signal for AGENTS.md                 A path-based / B block sha256            B — A flags the template&#x27;s own project text  A if git show cannot expose the file (it can)
+D7   Riskiest slice first (card B4)             A eval spike first / B keep order        B — Q20 A; slice 1 is a pure move            A if the eval needed the move undone — no
+D8   ~/.codex/AGENTS.md                         A strip block / B delete file            A — file holds personal Codex text           B only if provably template-only
+D9   ~/.claude/CLAUDE.md deletion guard         A header-gated / B whenever present      A — a hand-written global file is the user&#x27;s B wrong on machines that never ran install
+D10  Skills catalog for Pi and Codex            A README only, frontmatter discovery /   A — Pi loads ~/.agents/skills, Codex          B if Codex does not surface descriptions
+                                                B table in the block                     .agents/skills; a block table is copy #3     from ~/.agents/skills (inferred)      OPEN
+D11  Superseded architecture record             layered-config-… doc                     successor via /learn at slice-2 wrap-up      —
+D12  Compression target                         ≈125 lines (per-section estimate)        as estimated; 75 lines of slack               —
+D13  Generator location                         scripts/ + &lt;template-clone&gt; / skill dir  scripts/ — README exists only in the template skill dir if downstream READMEs carry it
+D14  Downstream window slices 2→4  (MUST-FIX)   A ship pointer first / B fold block       B — A replaces 493 lines with a pointer to    A only if no downstream syncs between
+                                                write into slice 2                        nothing on every /sync and CI auto-merge     merges — not controllable
+D15  What --migrate moves         (MUST-FIX)    A enumerated subset / B everything but   B — project.md&#x27;s header invites team          A if project.md were template-owned
+                                                the five generic sections                 sections; A destroys them
+D16  Downstream settings.json hooks (MUST-FIX)  A leave, rely on guard / B same /sync    B — entries would run deleted scripts; only   A only for session-start.sh
+                                                drops matching entries                    session-start has a guard
+D17  install.sh step 1 between 2 and 5 (SHOULD) A remove in slice 5 / B remove in 2 +    B — a re-run after slice 2 would write a      A if nobody re-runs install.sh — not
+                                                list pointer-only copy as stale           dangling pointer D9 then calls personal      controllable
+D18  Missing-block line everywhere  (SHOULD)    A always / B adopting repos only         B — plugin is user-scoped, hook runs in       A if the plugin were per-project
+                                                                                          every repo; minimal signal, Q13 stays a FUP
+D19  Reference resolution ahead of sync (SHOULD) A project only / B project → plugin     B — plugin cache refreshes on version bump    A if skills ran from the project tree
+                                                root → ~/.agents                          independent of /sync; A blocks review gates
+D20  hooks.json quoting on Windows  (NITPICK)   A trust / B bash -c fixture              B — script tests never exercise the string   —
+D21  Machine-parsed lines in block  (SHOULD 75) A wording free / B pin [AMBIGUITY] +     B — /build:314 cites the section, does not   A if /build carried the format itself
+     → resolved by reading /build:314            TODO(shortcut) as invariants              restate it; dependency read and confirmed
+D22  Prose assertions on moved text (SHOULD)    A delete in slice 1 / B repoint in 1,    B — verbatim move makes repointing free;      A if the references were compressed too
+                                                delete in 2 only what compression drops   test-model-tiers:108-110 guards the Floors
+</code></pre>
+
+<p><strong>Open</strong> — needs the reviewer:</p>
+
+<ul>
+<li>The placement column of <em>Ownership</em> — constraint &quot;every removed rule keeps exactly one home&quot;: is each section in the right home?</li>
+<li>D2 — should new projects get the block from the scaffold seed (drift-tested) or only from their first <code>/sync</code> (banner nudge)?</li>
+<li>D3 — keep reading <code>.claude/project.md</code> with a notice until a follow-up removes it, or cut now?</li>
+<li>D10 — is a README-only catalog enough for Codex readers? Codex surfacing skill descriptions from <code>~/.agents/skills</code> is inferred, not verified.</li>
+</ul>
+
+<p>Declined critic findings: none.</p></section>
+<section id="acceptance-criteria"><h2>Acceptance Criteria — the contract /build holds</h2><ul>
+<li><code>AGENTS.md</code> at the repository root carries the template rules between <code>&lt;!-- jplugin-agentic-development:begin --&gt;</code> and <code>&lt;!-- jplugin-agentic-development:end --&gt;</code>, in ≤ 200 lines, with the fixed heading set in order, and the file is ≤ 16 KiB.</li>
+<li><code>CLAUDE.md</code> is byte-equal to <code>@AGENTS.md</code> plus a line ending, and <code>tests/test-instruction-budget.sh</code> fails on any other content.</li>
+<li><code>.claude/project.md</code> does not exist; its four generic sections live in the block and its project sections below the end marker.</li>
+<li><code>.agents/references/finding-model.md</code>, <code>review-dispatch-contract.md</code>, <code>model-routing.md</code> exist with their fixed headings, <code>.agents/references/</code> is a syncable root, and no file under <code>.agents/</code> or <code>.claude/agents/</code> cites <code>CLAUDE.md</code> § for those sections.</li>
+<li>Every skill that dispatches a reviewer reads <code>finding-model.md</code> § Emission format at dispatch time and refuses to dispatch when the file is missing.</li>
+<li><code>hooks/hooks.json</code> at the plugin root registers <code>SessionStart</code>, <code>PreCompact</code> and <code>Stop</code> against <code>.agents/hooks/*.sh</code>; <code>.claude/hooks/</code> holds no scripts and <code>.claude/settings.json</code> registers none of the three events.</li>
+<li>The session banner prints no skills list and no footer; it prints one line when the block is missing, one when <code>graphify-out/graph.json</code> is older than HEAD, and nothing extra when nothing is wrong.</li>
+<li><code>sync-managed-block.py</code> replaces only the text between the markers, appends a block when none exists, writes the one-line <code>CLAUDE.md</code>, migrates <code>.claude/project.md</code> content once, is idempotent, and refuses with exit 2 and no write on an unmatched marker.</li>
+<li><code>install.sh</code> writes neither <code>~/.claude/CLAUDE.md</code>, nor <code>~/.claude/hooks/session-start.sh</code>, nor a <code>SessionStart</code> entry; <code>install-codex.sh</code> writes no <code>~/.codex/AGENTS.md</code>; one confirmation removes the stale copies and <code>N</code> keeps them.</li>
+<li><code>scripts/render-skills-table.py --check</code> exits 0 on HEAD and <code>tests/test-skills-table.sh</code> fails when README drifts from the skill frontmatter.</li>
+<li><code>bash tests/run.sh</code> is green after every slice, and the slice-2 PR body links an <code>/eval</code> triggerability report showing no regression on <code>/plan</code>, <code>/build</code>, <code>/quality-gate</code>.</li>
+</ul></section>
+<section id="implementation-paths"><h2>Implementation Paths</h2><ul>
+<li><code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>project-template/{AGENTS.md,CLAUDE.md}</code> — the instruction files and their scaffold seeds.</li>
+<li><code>.agents/references/*.md</code> — the three protocol references; <code>.agents/skills/task-registry/references/configuration.md</code> — provider resolution moved from <code>CLAUDE.md</code>.</li>
+<li><code>.agents/hooks/*.sh</code>, <code>hooks/hooks.json</code> — hook scripts and their plugin registration; <code>.claude/settings.json</code> loses the two events.</li>
+<li><code>.agents/skills/sync/SKILL.md</code>, <code>.agents/skills/sync/scripts/sync-managed-block.py</code>, <code>.github/workflows/sync-template.yml</code> — managed-block replacement, settings migration and project migration.</li>
+<li><code>install.sh</code>, <code>scripts/install-codex.sh</code>, <code>scripts/render-codex.py</code> — stop writing global copies; remove stale ones.</li>
+<li><code>scripts/render-skills-table.py</code>, <code>README.md</code> — generated skills table.</li>
+<li><code>.agents/skills/{quality-gate,wrap-up-session,software-design-expert-review,sweep,tidy,auto-push,yolo,build,plan,setup-deployment,verify-deployment,verify-evidence}/SKILL.md</code>, <code>.agents/agents/<em>.md</code>, <code>.claude/agents/</em>.md</code>, <code>.claude/deployments/*.md</code>, <code>PI_SETUP.md</code> — repointed citations and readers.</li>
+<li><code>tests/test-instruction-budget.sh</code>, <code>tests/test-sync-managed-block.sh</code>, <code>tests/test-skills-table.sh</code> — new; the seventeen existing tests listed in the spec frontmatter — repointed.</li>
+</ul></section><section id="reflection"><div class="reflection"><h3>Reflect</h3><p>Reply with findings as [constraints|system-design|contracts|data-models|build-order] &lt;finding&gt; — &lt;evidence&gt;, or approved.</p></div></section><section id="references"><h2>📚 References</h2><div class="refs"><a href="single-instruction-file.md" target="_blank" rel="noopener">Spec (the contract /build holds)</a><a href="../.agents/skills/system-design-planning/references/review-card.md" target="_blank" rel="noopener">Review card</a></div></section><footer>Generated 2026-09-21 17:37 — html-presentation skill</footer></div></main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const saved = localStorage.getItem('html-presentation-theme');
+  if (saved) document.body.dataset.theme = saved;
+  else if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) {
+    document.body.dataset.theme = 'light';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  window.toggleTheme = function () {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = next;
+    localStorage.setItem('html-presentation-theme', next);
+  };
+  window.toggleNav = function () {
+    document.querySelector('.nav-sidebar').classList.toggle('open');
+  };
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav-sidebar a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Active section on scroll
+  const sections = document.querySelectorAll('main section[id]');
+  const links = new Map();
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    links.set(a.getAttribute('href').slice(1), a);
+  });
+  if (sections.length && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove('active'));
+          const link = links.get(entry.target.id);
+          if (link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => io.observe(s));
+  }
+
+  // Slides keyboard nav
+  if (document.body.classList.contains('mode-slides')) {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let idx = 0;
+    const counter = document.querySelector('.slide-counter');
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    }
+    show(0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+    });
+  }
+})();
+</script>
+</body>
+</html>
