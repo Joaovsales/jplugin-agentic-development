@@ -725,3 +725,29 @@ back vacuous and was repaired.
 - Fix: tests/run.sh per-file timing, closed stdin, `--jobs N`/`TEST_JOBS`; tests/lib.sh `TEST_PYTHON` resolution and `now_ms`; sync-retirement helpers builtin-first (1275 s -> 695 s, identical results); upstream-drift bound relative to the no-op helper run plus pid liveness; codex adapter resolves bash via `shutil.which` (a bare `bash` reached WSL under a plain CPython).
 - Verification: `--jobs 4` 1404 s, `--jobs 8` 936 s, 8 files failing with the baseline's assertion names; acceptance target (<10 min) not met on this machine — carried forward.
 - Documents: tasks/solutions/performance/windows-suite-takes-20-to-38-minutes-because-every-process-spawn-costs-over-a-second.md, tasks/solutions/patterns/a-bash-suite-on-windows-is-process-bound-so-attribute-time-by-spawn-before-optimizing.md, process doc updated.
+
+### [2026-09-21] — stdin hang in the pre-push-gate Banner block
+
+- Key changes: the two Banner-block invocations of the session-start hook in
+  `tests/test-pre-push-gate.sh` (lines 218 and 224) gained `</dev/null`, matching
+  the sibling quote-safety call at line 262. Every other hook execution across
+  `tests/*.sh` already pipes stdin from `printf`, so it closes on its own. The hook
+  is unchanged. One commit, rebased onto master after #156 landed.
+- Evidence: `bash tests/test-pre-push-gate.sh < <(sleep 1000)` stopped after the
+  `Hook: no network or tracker command invoked` assertion with no output — the
+  hook's `HOOK_INPUT=$(cat ...)` at `.claude/hooks/session-start.sh:42` waits for
+  an EOF the inherited pipe never delivers.
+- Review: four passes dispatched. No defects in the diff. One corroborated
+  advisory for a human — `tests/run.sh` launched every suite file with inherited
+  stdin, so the hang class would return if a future test added an unredirected
+  hook call. Not applied here as a scope decision; resolved independently by #166,
+  which landed while this PR was open and now passes `</dev/null` to every file.
+- Verification: full Windows suite 35/44 files green; the 9 failing files fail with
+  identical assertion names on a clean detached worktree of origin/master
+  (`.claude/worktrees/base-0de3f8a`, 159 shared names), so zero regressions. The
+  one extra name in this run (`test-upstream-drift.sh` process-tree deadline) is the
+  known one-second-granularity timing assertion and passed on a solo re-run (64/64);
+  the suite had been running concurrently with four review agents.
+- Learnings captured:
+  `tasks/solutions/bugs/test-inherits-open-stdin-and-the-hook-reads-it-to-eof.md`
+  (fixed).

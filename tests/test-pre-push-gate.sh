@@ -215,13 +215,13 @@ fi
 BANNER="$REPO/.claude/hooks/session-start.sh"
 D="$(new_repo banner)"
 cp "$BANNER" "$D/session-start.sh"
-BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh 2>/dev/null )"
+BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
 assert_not_contains "not-empty:$BAN_OUT" "WRAP-UP DEBT" \
   "Banner: silent when no ledger exists"
 
 printf '# Wrap-Up Debt\n\n## master abc1234..def5678\n- Recorded: 2026-09-02\n' \
   > "$D/tasks/wrap-up-debt.md"
-BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh 2>/dev/null )"
+BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
 assert_contains "$BAN_OUT" "WRAP-UP DEBT" "Banner: reports outstanding debt"
 assert_contains "$BAN_OUT" "master abc1234..def5678" "Banner: names the range"
 assert_contains "$BAN_OUT" "/task-registry upsert" "Banner: names how to file it"
