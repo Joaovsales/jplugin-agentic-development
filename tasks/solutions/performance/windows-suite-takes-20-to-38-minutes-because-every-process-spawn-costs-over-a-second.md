@@ -9,7 +9,7 @@ root_cause: "The suite assumes processes are free. On Windows every spawn costs 
 resolution: "tests/run.sh prints per-file elapsed seconds, runs every file with stdin closed and takes --jobs N / TEST_JOBS=N to run files concurrently; tests/lib.sh resolves TEST_PYTHON once (real CPython ahead of the Store launcher) and every test invokes it; the sync-retirement fixture helpers use builtins and one mkdir per fixture (1275 s -> 695 s, identical 365 assertion results); the upstream-drift bound is relative to a no-op helper run plus a PID liveness check."
 ---
 
-**Status**: fixed — 2026-09-21
+**Status**: fixed — 2026-09-21 (PR #166; the ten-minute target carried forward)
 **Regression test**: tests/test-run-sh.sh (runner contract and TEST_PYTHON resolution); tests/test-upstream-drift.sh "process tree" assertions; tests/test-sync-retirement.sh unchanged 365 assertions as the equivalence check
 
 ## Investigation
