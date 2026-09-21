@@ -181,4 +181,15 @@ for tree in $TREES; do
     "Chain: $tree/plan states that planning creates no external issue on its own"
 done
 
+# ── /brainstorm -> /grilling and /grill-me -> /grilling ──────────────────────
+# The interview primitive is reached only through these two callers. Sever the
+# brainstorm handoff and Step 3 silently reverts to a question dump with no
+# recommendations; sever grill-me's and the user-typed front door does nothing.
+for tree in $TREES; do
+  assert_file_matches "$tree/skills/brainstorm/SKILL.md" '^Invoke `/grilling`' \
+    "Chain: $tree/brainstorm invokes /grilling"
+  assert_file_matches "$tree/skills/grill-me/SKILL.md" '^Invoke `/grilling`' \
+    "Chain: $tree/grill-me invokes /grilling"
+done
+
 finish

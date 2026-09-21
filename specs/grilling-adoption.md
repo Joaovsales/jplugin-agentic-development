@@ -1,13 +1,9 @@
 ---
 implementation_paths:
   - .agents/skills/grilling/**
-  - .claude/skills/grilling/**
   - .agents/skills/grill-me/**
-  - .claude/skills/grill-me/**
   - .agents/skills/brainstorm/**
-  - .claude/skills/brainstorm/**
   - .agents/skills/writing-skills/SKILL.md
-  - .claude/skills/writing-skills/SKILL.md
   - .github/upstreams.json
   - THIRD_PARTY_NOTICES.md
   - CLAUDE.md
@@ -34,6 +30,8 @@ interview with no repository and no files. Comparison that motivated the change:
 | Provenance of the adapted text | Vendor and register | `LICENSE.mattpocock` in each new skill dir, a `THIRD_PARTY_NOTICES.md` section, an `.github/upstreams.json` source pinned at `c55ee46073ed923f86ce59a5eb3b6d895095d1b7` |
 | `disable-model-invocation` on `/grill-me` | `true`, matching upstream | The writing-skills guide gains a documented exception; AC 11 verifies the harness still fires a typed `/grill-me` |
 | `/plan` Step 1 through `/grilling` | Not in this change | #106 rewrites `/plan` Steps 1 to 3 in flight; a follow-up task is filed after confirmation |
+| Skill tree layout (re-baseline, 2026-09-21, after #156 merged) | One canonical tree | `.claude/skills/` is a retired root and `tests/test-skill-parity.sh` is gone, so no copy is written and the parity criterion becomes the frontmatter, references and plugin-manifest tests. Claude Code loads `.agents/skills/` through the `jplugin` plugin, so a user types `/jplugin:grill-me`; skill bodies stay namespace-free. `/verify` is `/verify-evidence` |
+| Round format restated in `/brainstorm` Step 3 (wrap-up review, 2026-09-21) | Kept, as a marked `TODO(shortcut)` in the brainstorm frontmatter | A session that fails to load `/grilling` still asks in rounds, at the cost that the primitive is optional and the load has no reply-level tell; `/eval` Mode A measured 5/6 on 2026-09-21. OPEN for the maintainer: whether AC 13 gets a floor (the wrap-up critic proposed at least 5/6) and whether Step 3 shrinks to a pointer once the chain holds without the restatement |
 
 ## Behavior
 
@@ -99,9 +97,10 @@ layer in `references/domain-modeling.md` is active:
   per `/learn` § Score Overlap Before Writing before any file is created. When
   a gate fails, the agent says which one and writes nothing.
 
-Steps 4 (options table), 4.5 (pre-mortem), 5, 6 (living-contract spec), 7, 8 and
-9 are unchanged. The hard gate, the lightpanda research paragraph, and the
-absence of any `/tdd` reference are preserved.
+Steps 4 (options table), 4.5 (pre-mortem), 5, 7, 8 and 9 are unchanged; Step 6
+(living-contract spec) gains only the vocabulary constraint. The hard gate, the
+lightpanda research paragraph, and the absence of any `/tdd` reference are
+preserved.
 
 ### `/brainstorm` stages after this change
 
@@ -114,7 +113,7 @@ absence of any `/tdd` reference are preserved.
 | 4. Propose 2 to 3 approaches | Option A / B / C with approach, pros, cons, complexity, files affected, recommendation | Same. The settled decisions from Step 3 constrain the options rather than being re-asked | none |
 | 4.5. Pre-mortem | 3 to 5 failure scenarios per approach; flag likely-and-high-impact | Same | none |
 | 5. Present design sections | Architecture, data flow, error handling, testing, one at a time for complex features | Same | none |
-| 6. Write the design spec | Living-contract spec at `specs/<feature>.md` | Same. Terms used in the spec are the canonical ones settled in Step 3 | none |
+| 6. Write the design spec | Living-contract spec at `specs/<feature>.md` | Same. Terms used in the spec are the canonical ones settled in Step 3 | extended |
 | 7. Self-review the spec | Placeholders, contradictions, ambiguity, edge cases, testability | Same | none |
 | 8. User approval | `y` to proceed | Same | none |
 | 9. Hand off | Invoke `/plan` with the approved spec | Same | none |
@@ -155,8 +154,9 @@ scheduled drift checker reports upstream changes to the adapted files.
   or more `tasks/concepts.md` entries written mid-session and zero or more
   `tasks/solutions/architecture/<slug>.md` documents. See the stage table
   under Behavior for the full before and after.
-- Repository: two new skill directories in both trees, one new reference doc,
-  one new test file, edits to the surfaces listed in the frontmatter.
+- Repository: two new skill directories in the canonical tree, one new
+  reference doc, one new test file, edits to the surfaces listed in the
+  frontmatter.
 
 ## Edge Cases
 
@@ -180,9 +180,13 @@ scheduled drift checker reports upstream changes to the adapted files.
 - **An architecture decision overlaps an existing document at 4 to 5
   dimensions.** The existing document is updated in place; no sibling is
   created.
-- **Another skill invokes `/grilling` but the primitive does not load.** The tell
-  is a question dump with no ➡️ recommendations. AC 13's triggerability eval
-  measures this; a failing result is reported, and the chain assertion in
+- **Another skill invokes `/grilling` but the primitive does not load.** There is
+  no tell in the reply: `/brainstorm` Step 3 carries the round format, so the
+  output still looks right while the rules that live only in `/grilling` (the
+  opt-out, the empty-frontier end, the confirmation gate) are silently absent.
+  The detector is the transcript, a `Skill` load of `grilling`, graded by
+  `.agents/skills/eval/scripts/grade-skill-loads.sh`. AC 13's triggerability
+  eval measures it; a failing result is reported, and the chain assertion in
   `tests/test-skill-invocation-chain.sh` keeps the handoff written down.
 - **Upstream moves past the pinned baseline.** The scheduled drift workflow
   reports it. That is the registration working, not a failure of this feature.
@@ -205,14 +209,17 @@ scheduled drift checker reports upstream changes to the adapted files.
    `disable-model-invocation: true`, `harness: universal`, an `argument-hint`,
    and a body that invokes `/grilling`, states that it writes no files and needs
    no repository, and routes repository feature work to `/brainstorm`.
-3. Both new skill directories carry `LICENSE.mattpocock` (MIT, Matt Pocock) and
-   byte-identical `.claude/skills/` copies; `tests/test-skill-parity.sh` passes.
+3. Both new skill directories carry `LICENSE.mattpocock` (MIT, Matt Pocock) in
+   the one canonical tree; `tests/test-skill-frontmatter.sh`,
+   `tests/test-skill-references.sh` and `tests/test-plugin-manifest.sh` pass
+   (no `.claude/skills/` copy, no `jplugin:` literal in a skill body).
 4. `/brainstorm` Step 3 invokes `/grilling` with frontier rounds as the default,
    keeps the multiple-choice preference, and no longer lists one question at a
    time as a key principle; Step 1 reads `tasks/concepts.md`; the Key Principles
    name rounds, the facts-versus-decisions split, and the glossary-only rule;
-   Steps 4, 4.5, 6, the hard gate, and the lightpanda paragraph are unchanged,
-   and no `/tdd` reference exists.
+   Steps 4, 4.5, the hard gate, and the lightpanda paragraph are unchanged,
+   Step 6 gains only the canonical-vocabulary constraint, and no `/tdd`
+   reference exists.
 5. `.agents/skills/brainstorm/references/domain-modeling.md` exists, is named
    from Step 3, and defines the glossary challenge, term sharpening, concrete
    scenarios, code cross-reference, inline `tasks/concepts.md` writes in the
@@ -221,7 +228,7 @@ scheduled drift checker reports upstream changes to the adapted files.
    on the knowledge track, offered not assumed, overlap-scored per `/learn`.
 6. `/writing-skills`' frontmatter note states the `false` default, the `true`
    exception for user-only front doors naming `/grill-me`, and the harness
-   check, in both trees.
+   check.
 7. `.github/upstreams.json` carries a source with `id` `mattpocock-skills`,
    `url` `https://github.com/mattpocock/skills.git`, `ref` `refs/heads/main`,
    `baseline` `c55ee46073ed923f86ce59a5eb3b6d895095d1b7`, paths `LICENSE`,
@@ -237,11 +244,12 @@ scheduled drift checker reports upstream changes to the adapted files.
    `SKILLS AVAILABLE` block of `.claude/hooks/session-start.sh` each carry a
    `/grilling` row and a `/grill-me` row; `README.md` § Sources lists
    `mattpocock/skills`; `tests/test-session-start.sh` passes.
-10. `tests/test-grilling-adoption.sh` pins criteria 1 to 9 in both trees;
+10. `tests/test-grilling-adoption.sh` pins criteria 1 to 9;
     `tests/test-skill-invocation-chain.sh` asserts `brainstorm` invokes
-    `/grilling` and `grill-me` invokes `/grilling` in both trees; `bash
-    tests/run.sh` is green.
-11. Typing `/grill-me <idea>` in the Claude desktop harness starts a round in
+    `/grilling` and `grill-me` invokes `/grilling`; `bash tests/run.sh` is
+    green.
+11. Typing `/grill-me <idea>` in the Claude desktop harness (`/jplugin:grill-me`
+    there, per the namespace sentence in `CLAUDE.md`) starts a round in
     the `❓` / `➡️` format and leaves `git status` unchanged; the walkthrough is
     recorded in `tasks/e2e-log.md`. A refusal is handled per Edge Cases and
     recorded the same way.
@@ -267,16 +275,12 @@ scheduled drift checker reports upstream changes to the adapted files.
 ## Implementation Paths
 
 - `.agents/skills/grilling/**` — the interview primitive and its license notice
-- `.claude/skills/grilling/**` — byte-identical Claude Code copy
 - `.agents/skills/grill-me/**` — the stateless user-only front door and its
   license notice
-- `.claude/skills/grill-me/**` — byte-identical Claude Code copy
 - `.agents/skills/brainstorm/**` — Step 3 rewired to `/grilling`; the domain
   layer in `references/domain-modeling.md`
-- `.claude/skills/brainstorm/**` — byte-identical Claude Code copy
 - `.agents/skills/writing-skills/SKILL.md` — the frontmatter note with the
   `true` exception
-- `.claude/skills/writing-skills/SKILL.md` — byte-identical Claude Code copy
 - `.github/upstreams.json` — the pinned upstream source the drift checker reads
 - `THIRD_PARTY_NOTICES.md` — attribution and license text for the adapted files
 - `CLAUDE.md` — skills table rows
