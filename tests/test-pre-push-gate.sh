@@ -243,11 +243,11 @@ if [ -d "$SLUGGY" ]; then
     bash_slug=$(printf '%s' "$heading" | tr '[:upper:]' '[:lower:]' \
       | tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//')
     [ -n "$bash_slug" ] || bash_slug=task
-    py_slug=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" python3 -c \
+    py_slug=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" "$TEST_PYTHON" -c \
       'import sys; from registry.model import slugify_id; print(slugify_id(sys.argv[1]))' "$heading")
     assert_eq "$py_slug" "$bash_slug" \
       "Banner slug agrees with slugify_id for: $heading"
-    valid=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" python3 -c \
+    valid=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" "$TEST_PYTHON" -c \
       'import sys; from registry.model import is_valid_id; print(is_valid_id("wrap-up-debt." + sys.argv[1]))' "$bash_slug")
     assert_eq "True" "$valid" \
       "Banner slug yields an id upsert accepts for: $heading"

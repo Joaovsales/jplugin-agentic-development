@@ -25,7 +25,7 @@ cd "$REPO"
 SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
 CLI="$SCRIPTS/task-registry.py"
 FIXTURES="$REPO/tests/fixtures/task-registry"
-PY=python3
+PY="$TEST_PYTHON"
 
 TMP_DIRS=()
 cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
@@ -518,7 +518,7 @@ assert_contains "$claim_blank" "'in-progress'" \
 assert_not_contains "$claim_blank" "''" \
   "AC12: no blank claim label survives, which would disable the overlap guard"
 
-escalation_config="$($PY - "$SCRIPTS" <<'PY'
+escalation_config="$("$PY" - "$SCRIPTS" <<'PY'
 import pathlib, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 from registry.config import ConfigError, load_config
@@ -680,7 +680,7 @@ F_NO_HOLD_LABEL="$(new_fixture)"
 write_config "$F_NO_HOLD_LABEL" <<'EOF'
 EOF
 write_labels "$F_NO_HOLD_LABEL" bug enhancement design-decision tech-debt documentation in-progress
-$PY - "$F_NO_HOLD_LABEL/ghdata/labels.json" <<'PY'
+"$PY" - "$F_NO_HOLD_LABEL/ghdata/labels.json" <<'PY'
 import json, pathlib, sys
 path = pathlib.Path(sys.argv[1])
 path.write_text(json.dumps([x for x in json.loads(path.read_text()) if x["name"] != "needs-investigation"]))

@@ -25,7 +25,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
-PY=python3
+PY="$TEST_PYTHON"
 
 TMP_DIRS=()
 cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }

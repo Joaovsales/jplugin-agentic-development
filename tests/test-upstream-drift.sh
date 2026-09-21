@@ -27,7 +27,7 @@ run_checker() {
   shift
   CHECK_STDOUT="$FIXTURE_ROOT/stdout"
   CHECK_STDERR="$FIXTURE_ROOT/stderr"
-  python3 "$CHECKER" --registry "$_registry" "$@" >"$CHECK_STDOUT" 2>"$CHECK_STDERR"
+  "$TEST_PYTHON" "$CHECKER" --registry "$_registry" "$@" >"$CHECK_STDOUT" 2>"$CHECK_STDERR"
   CHECK_STATUS=$?
   CHECK_OUTPUT="$(cat "$CHECK_STDOUT"; cat "$CHECK_STDERR")"
 }
@@ -110,7 +110,9 @@ printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"noisy\",\"url\":\"noisy::target\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$NOISY_REGISTRY"
+NOISY_STARTED_MS="$(now_ms)"
 PATH="$NOISY_BIN:$PATH" run_checker "$NOISY_REGISTRY"
+NOISY_ELAPSED_MS="$(( $(now_ms) - NOISY_STARTED_MS ))"
 assert_eq "1" "$CHECK_STATUS" "bounded diagnostic: failing helper is unavailable"
 assert_contains "$CHECK_OUTPUT" "distinctive remote failure" \
   "bounded diagnostic: useful fetch evidence survives"
@@ -122,7 +124,10 @@ else
 fi
 
 # A remote helper that outlives Git must not keep the stderr reader past the deadline.
-printf '#!/bin/sh\nprintf "%s" "$$" > "%s"\nsleep 3\nexit 1\n' '%s' "$FIXTURE_ROOT/hanging-helper.pid" \
+# The helper sleeps far longer than any plausible spawn latency: a killed helper
+# costs nothing extra, and one that outlives the kill must still be alive when
+# the liveness check below runs, not exited on its own.
+printf '#!/bin/sh\nprintf "%s" "$$" > "%s"\nsleep 30\nexit 1\n' '%s' "$FIXTURE_ROOT/hanging-helper.pid" \
   > "$NOISY_BIN/git-remote-hanging"
 chmod +x "$NOISY_BIN/git-remote-hanging"
 HANGING_REGISTRY="$FIXTURE_ROOT/hanging.json"
@@ -130,15 +135,43 @@ printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"hanging\",\"url\":\"hanging::target\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$HANGING_REGISTRY"
-HANGING_STARTED="$(date +%s)"
+HANGING_STARTED_MS="$(now_ms)"
 PATH="$NOISY_BIN:$PATH" run_checker "$HANGING_REGISTRY" --deadline-seconds 0.1
-HANGING_ELAPSED="$(( $(date +%s) - HANGING_STARTED ))"
+HANGING_ELAPSED_MS="$(( $(now_ms) - HANGING_STARTED_MS ))"
 assert_eq "1" "$CHECK_STATUS" "process tree: hanging helper is unavailable"
-if [ "$HANGING_ELAPSED" -lt 2 ]; then
+
+# The wall-clock bound is relative, not absolute. The noisy run above walked the
+# same python + git path with a helper that exits at once, so it measures this
+# machine's spawn cost; a killed helper adds only the 0.1 s deadline to that,
+# while one that outlives the kill holds the stderr pipe open and adds the
+# checker's one-second reader join. On Windows a single spawn can cost a
+# second, so the old absolute "under 2 s" read as a failure there (#136).
+HANGING_BUDGET_MS="$(( NOISY_ELAPSED_MS + 1500 ))"
+if [ "$HANGING_ELAPSED_MS" -le "$HANGING_BUDGET_MS" ]; then
   assert_eq "bounded" "bounded" "process tree: helper cannot outlive the checker deadline"
 else
-  assert_eq "under-2-seconds" "$HANGING_ELAPSED" \
+  assert_eq "within ${HANGING_BUDGET_MS} ms (no-op helper run + 1500)" "${HANGING_ELAPSED_MS} ms" \
     "process tree: helper cannot outlive the checker deadline"
+fi
+
+# The direct evidence: a helper that started recorded its pid, and it must be
+# gone once the checker has returned. When the 0.1 s deadline expires before Git
+# even spawns the helper -- the case on a machine where one spawn costs more
+# than that -- there is no pid to check, and the timing bound above is the only
+# evidence; say so instead of passing in silence.
+if [ -f "$FIXTURE_ROOT/hanging-helper.pid" ]; then
+  HELPER_PID="$(cat "$FIXTURE_ROOT/hanging-helper.pid")"
+  _waited=0
+  while kill -0 "$HELPER_PID" 2>/dev/null && [ "$_waited" -lt 20 ]; do
+    sleep 0.05; _waited=$((_waited + 1))
+  done
+  if kill -0 "$HELPER_PID" 2>/dev/null; then
+    assert_eq "gone" "alive (pid $HELPER_PID)" "process tree: the helper is dead once the checker returns"
+  else
+    assert_eq "gone" "gone" "process tree: the helper is dead once the checker returns"
+  fi
+else
+  printf '  note process tree: the deadline expired before Git spawned the helper; timing bound only\n'
 fi
 
 # Relevant scoped drift and an unavailable ref are both reported in one run.
@@ -216,7 +249,7 @@ printf '#!/bin/sh\nprintf called > "%s"\nexit 99\n' "$GIT_MARKER" > "$FAKE_BIN/g
 chmod +x "$FAKE_BIN/git"
 CHECK_STDOUT="$FIXTURE_ROOT/invalid-stdout"
 CHECK_STDERR="$FIXTURE_ROOT/invalid-stderr"
-PATH="$FAKE_BIN:$PATH" python3 "$CHECKER" --registry "$INVALID_REGISTRY" >"$CHECK_STDOUT" 2>"$CHECK_STDERR"
+PATH="$FAKE_BIN:$PATH" "$TEST_PYTHON" "$CHECKER" --registry "$INVALID_REGISTRY" >"$CHECK_STDOUT" 2>"$CHECK_STDERR"
 CHECK_STATUS=$?
 CHECK_OUTPUT="$(cat "$CHECK_STDOUT"; cat "$CHECK_STDERR")"
 assert_eq "2" "$CHECK_STATUS" "invalid registry: uses configuration-error status"
@@ -268,7 +301,7 @@ assert_contains "$CHECK_OUTPUT" "existing file" "missing notice: actionable path
 # A standard absolute registry path resolves repository-relative notices even outside the repo.
 OUTSIDE_STDOUT="$FIXTURE_ROOT/outside-stdout"
 OUTSIDE_STDERR="$FIXTURE_ROOT/outside-stderr"
-(cd "$FIXTURE_ROOT" && python3 "$CHECKER" \
+(cd "$FIXTURE_ROOT" && "$TEST_PYTHON" "$CHECKER" \
   --registry "$REPO/.github/upstreams.json" --deadline-seconds 0.000001 \
   >"$OUTSIDE_STDOUT" 2>"$OUTSIDE_STDERR")
 OUTSIDE_STATUS=$?

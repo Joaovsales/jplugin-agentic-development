@@ -29,7 +29,7 @@ This session observed a stable set of environment-only failures on Windows
 | test-verification-skill-integration | 2/90 | bundled-license byte comparison |
 | test-install-sh | 1/94 | dangling-symlink handling |
 | test-task-escalation | 1/62 | artifact-confinement failure not reported — `chmod` does not confine on Windows (seen at d6c5e5b, 2026-09-15) |
-| test-upstream-drift | 0–1 | the process-deadline assertion wants a hanging helper killed in under 2 s wall-clock (`tests/test-upstream-drift.sh:137-141`); on 2026-09-15 it measured exactly 2 s even when the file ran alone, so it is process-spawn latency, not load |
+| test-upstream-drift | 0 since #136 | the process-deadline assertion used to want a hanging helper killed in under 2 s wall-clock; on Windows the 0.1 s deadline expires before Git spawns the helper at all, so it measured python + git start-up. Since #136 the bound is relative to the no-op helper run and the file prints a `note` that the helper was not exercised |
 
 The same set, with identical counts, reproduced on 2026-09-15 at a clean worktree of e7ab8fa (8 files, 148 of 3789 assertions) during the `/tidy` build; the `gh`-stub rows are explained by Python resolving `gh` through PATHEXT to the real `gh.exe` instead of the extensionless bash mock.
 
@@ -50,10 +50,24 @@ afterwards.
 None of these names a file the session touched. Without the HEAD comparison,
 each is an hour of false debugging; with it, each is a one-line report.
 
+## A clone under the Claude desktop app's scratch workspace is not a normal path
+
+`AppData/Roaming/Claude/scratch-workspaces/...` is a packaged-app virtualized
+path: git resolves it to `AppData/Local/Packages/Claude_.../LocalCache/Roaming/...`.
+The Store `python3` is its own MSIX package with its own AppData view and cannot
+see files there — every `python3 script.py` fails with `can't open file`, which
+invents failures that are not in the table above (codex-install 8/26,
+html-presentation) and makes Python-heavy files finish fast and wrong. Clone
+under `/tmp` (`AppData/Local/Temp`, visible to both) before running the suite
+from such a session. Seen 2026-09-21 while working #136.
+
 ## Two things that make the run slow to read
 
 - `python3` resolves to the Store launcher under `WindowsApps`, which adds
-  noticeable start-up cost to every call; a full suite takes over twenty minutes.
+  noticeable start-up cost to every call. Since #136 `tests/lib.sh` resolves a
+  real CPython into `TEST_PYTHON` when one is installed, `tests/run.sh` prints
+  per-file timings, and `bash tests/run.sh --jobs N` (or `TEST_JOBS=N`) runs the
+  files concurrently; a serial run on Windows is still measured in tens of minutes.
 - A background run piped through `grep` shows **nothing** until it exits,
   because `grep` buffers to a file. An empty output file is not a hung run —
   check `ps -W` for the shell PID before concluding anything.
