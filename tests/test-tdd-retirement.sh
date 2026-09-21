@@ -16,7 +16,7 @@
 REPO="$(cd "$(dirname "$0")" && cd .. && pwd)"
 cd "$REPO"
 
-TREES=".agents .claude"
+TREES=".agents"
 
 # ── The doctrine survived the fold ───────────────────────────────────────────
 for tree in $TREES; do

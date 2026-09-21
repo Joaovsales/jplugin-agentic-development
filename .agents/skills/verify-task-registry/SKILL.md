@@ -130,6 +130,6 @@ read-back observations, cleanup outcome, and surviving evidence paths to
 
 ## Integration
 
-Consumed by `/verify --scope e2e`. After user-facing changes run
+Consumed by `/verify-evidence --scope e2e`. After user-facing changes run
 `/maintain-verification-skill --scope changed`; for a full source-and-live audit
 run `/maintain-verification-skill`. This skill does not commit or push its evidence.

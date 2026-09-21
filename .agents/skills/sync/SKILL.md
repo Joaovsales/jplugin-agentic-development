@@ -1,12 +1,12 @@
 ---
 name: sync
-description: Pull latest skills, hooks, agents, and config from the coding-agent-workflow template repo.
+description: Pull latest skills, hooks, agents, and config from the jplugin-agentic-development template repo.
 harness: universal
 ---
 
 # /sync — Sync Workflow Updates from Template Repo
 
-Pull the latest skills, hooks, agents, and config from the `coding-agent-workflow` template repo into the current project.
+Pull the latest skills, hooks, agents, and config from the `jplugin-agentic-development` template repo into the current project.
 
 ## Layered Configuration Model
 
@@ -43,7 +43,7 @@ Pi reads `CLAUDE.md` (shared rules) + `AGENTS.md` (project-specific additions). 
 
 ## Source Repo
 
-- **GitHub**: `Joaovsales/coding-agent-workflow`
+- **GitHub**: `Joaovsales/jplugin-agentic-development`
 - **Remote name convention**: `workflow`
 
 ## Automatic Drift Notification
@@ -64,7 +64,7 @@ not, install this hook.
 **Enable on a fresh project:**
 
 ```bash
-git remote add workflow https://github.com/Joaovsales/coding-agent-workflow.git
+git remote add workflow https://github.com/Joaovsales/jplugin-agentic-development.git
 ```
 
 Once the remote exists, the hook takes over automatically. Fetch is capped at a
@@ -89,21 +89,23 @@ These are the files/directories managed by the workflow template.
 
 > **This block is machine-parsed** — by `scripts/sync-retire.py`, which reads it
 > for the roots it scans, and by `tests/test-syncable-paths.sh`, which pins the
-> other six copies of this list against it. Both parsers split each line on the
+> other hand copies of this list against it. Both parsers split each line on the
 > arrow glyph, so keep the two-column shape, and keep the trailing slash on
 > every directory: an entry without one is read as a file and excluded from
 > retirement. Do not use that glyph in prose anywhere between this heading and
 > the next one — the parsers are fence-unaware and would read the line as a root.
+> A right-hand column that begins `RETIRED` marks a root the script scans for
+> retirement but `/sync` never checks out; keep the marker first on that line.
 
 ```
 CLAUDE.md             → Shared rules: workflow, principles, skills index (both harnesses)
 .agents/skills/       → Canonical skills (harness-neutral)
 .agents/agents/       → Canonical sub-agent personas (harness-neutral, discovered by pi-subagents)
-.claude/skills/       → Claude Code backwards-compat copy of .agents/skills/
+.claude/skills/       → RETIRED — the jplugin plugin reads .agents/skills/; kept so /sync retires downstream copies
 .claude/agents/       → Subagent definitions (Claude Code only)
 .claude/hooks/        → Lifecycle hooks (Claude Code only)
-.claude/browsers/     → Browser adapter runbooks read by /verify --scope e2e
-.claude/settings.json → Hook configuration + env (Claude Code only — no SessionStart, see above)
+.claude/browsers/     → Browser adapter runbooks read by /verify-evidence --scope e2e
+.claude/settings.json → Hook configuration + env + plugin declaration (Claude Code only — no SessionStart, see above)
 .agents/git-hooks/    → Git hooks (harness-agnostic; installed separately, see below)
 ```
 
@@ -149,14 +151,14 @@ git remote get-url workflow 2>/dev/null
 
 | Option | Action |
 |--------|--------|
-| **Add git remote** | `git remote add workflow https://github.com/Joaovsales/coding-agent-workflow.git` |
+| **Add git remote** | `git remote add workflow https://github.com/Joaovsales/jplugin-agentic-development.git` |
 | **Manual diff** | Skip git, do a file-by-file comparison using a local clone in `/tmp` |
 
 If user chooses manual diff, clone to a **fresh private directory** and remember it:
 
 ```bash
 WORKFLOW_CLONE="$(mktemp -d)"
-git clone --filter=blob:none https://github.com/Joaovsales/coding-agent-workflow.git "$WORKFLOW_CLONE"
+git clone --filter=blob:none https://github.com/Joaovsales/jplugin-agentic-development.git "$WORKFLOW_CLONE"
 ```
 
 `--filter=blob:none`, not `--depth 1`: Step 6.4 asks the template what it *used
@@ -165,7 +167,7 @@ every retired skill looks project-specific and is kept forever. The filter keeps
 the clone cheap (commits and trees only; file contents are fetched on demand)
 while leaving that question answerable.
 
-Do not reuse a fixed path such as `/tmp/coding-agent-workflow`, and do not trust
+Do not reuse a fixed path such as `/tmp/jplugin-agentic-development`, and do not trust
 one that already exists. Step 6.4 points a **file-deleting** tool at this
 directory and reads the syncable-root list out of it, so anything that can
 pre-create that path chooses what gets deleted.
@@ -192,95 +194,6 @@ Store the detected branch name — use `workflow/$WORKFLOW_BRANCH` in all subseq
 
 If using manual diff mode, use the `"$WORKFLOW_CLONE"` checkout from Step 1 as the source.
 
-### Step 2.5 — Legacy Directory Migration
-
-Older versions of this workflow shipped slash commands under `.claude/commands/`. The current layout uses `.claude/skills/`. Projects synced before the rename retain a stale `.claude/commands/` directory whose entries can shadow or contradict the canonical skills.
-
-Detect and resolve before showing diffs:
-
-1. Check whether `.claude/commands/` exists in the target project (`ls .claude/commands/ 2>/dev/null`)
-2. **If absent:** silent no-op — do not log anything, proceed to Step 3.
-3. **If present:** list its entries, then check for **overlapping basenames** with `.claude/skills/`:
-   - Build the set `commands_basenames = basename(file) without extension for file in .claude/commands/`
-   - Build the set `skills_basenames = basename(dir) for dir in .claude/skills/`
-   - Compute the intersection
-4. **If overlapping basenames exist:** surface the conflict list and refuse to auto-resolve:
-   ```
-   ⛔ Conflict: the following entries exist in BOTH .claude/commands/ and .claude/skills/:
-     - <basename1>
-     - <basename2>
-   These would shadow each other at runtime. Resolve manually before re-running /sync:
-     - Decide which version is authoritative (usually the skills/ version)
-     - Delete the obsolete copy
-     - Re-run /sync
-   ```
-   Do NOT prompt for archive/delete in this case — the user must intervene.
-5. **If no overlapping basenames:** prompt the user with three options:
-   ```
-   Legacy directory .claude/commands/ found with N entries.
-   The current workflow uses .claude/skills/ exclusively.
-   How should we handle the legacy directory?
-     [archive]  Rename to .claude/commands.legacy/ (preserves contents)
-     [delete]   Remove .claude/commands/ entirely
-     [skip]     Leave it in place for now (re-prompted next /sync)
-   Choose: archive / delete / skip
-   ```
-6. Apply the user's choice:
-   - `archive`: `mv .claude/commands .claude/commands.legacy`
-   - `delete`: `rm -rf .claude/commands` (confirm once more before running)
-   - `skip`: log "Legacy migration skipped — will re-prompt next /sync" and proceed
-
-### Step 2.6 — Legacy CLAUDE.md Migration
-
-Earlier versions of this workflow wrote the `## Deployment Targets` routing table directly into `CLAUDE.md`. The current layout keeps project-specific content in `.claude/project.md` so `/sync` can overwrite `CLAUDE.md` safely.
-
-Before showing the diff, detect and offer to auto-migrate:
-
-1. **Detect** with the exact-match regex:
-   ```bash
-   grep -qE '^## Deployment Targets[[:space:]]*$' CLAUDE.md 2>/dev/null
-   ```
-2. **If absent**: silent no-op — do not log anything, proceed to Step 3.
-3. **If present in `CLAUDE.md` AND also present in `.claude/project.md`**: ambiguous state. Refuse to auto-migrate:
-   ```
-   ⛔ Conflict: ## Deployment Targets exists in BOTH CLAUDE.md AND .claude/project.md.
-   Manually consolidate before re-running /sync:
-     - Decide which section is authoritative
-     - Delete the other
-     - Re-run /sync
-   ```
-   Do NOT prompt — user must intervene.
-4. **If present only in `CLAUDE.md`**: prompt with default-no:
-   ```
-   Legacy Deployment Targets section found in CLAUDE.md.
-   The current layout keeps this section in .claude/project.md so /sync can
-   overwrite CLAUDE.md safely without wiping your deployment config.
-
-   Migrate now? [y/N]:
-   ```
-5. **On `y`** — apply the migration:
-   a. Extract the block from the `^## Deployment Targets[[:space:]]*$` heading through the end of the `**Config:**` bullet list (or end-of-file / next `^## ` heading, whichever comes first)
-   b. If `.claude/project.md` does not exist, create it from this stub:
-      ```markdown
-      # Project-Specific Configuration
-
-      > Imported by CLAUDE.md. Safe to edit — /sync never touches this file.
-      ```
-   c. Append the extracted block to `.claude/project.md` (separated by a blank line from any existing content)
-   d. Remove the same block from `CLAUDE.md`
-   e. Ensure `.gitignore` contains `CLAUDE.local.md`; add it if missing with a comment header
-   f. Stage all three files (`CLAUDE.md`, `.claude/project.md`, `.gitignore`) for the user to review
-   g. Log: `✓ Migrated Deployment Targets from CLAUDE.md → .claude/project.md`
-6. **On `n` (or default)** — **abort the entire sync**:
-   ```
-   Sync aborted — CLAUDE.md cannot be safely overwritten while Deployment Targets
-   still lives in it. Re-run /sync and choose 'y' to migrate, or manually move the
-   section to .claude/project.md.
-   ```
-   Do NOT partially apply. The whole sync stops here.
-
-**Idempotency**: running `/sync` a second time after a successful migration finds no matching section in `CLAUDE.md`, takes the silent no-op path in step 2, and proceeds normally. Re-runs are safe.
-
 ### Step 3 — Show What Changed
 
 Compare the syncable paths between the current project and the template source.
@@ -290,12 +203,12 @@ Compare the syncable paths between the current project and the template source.
 # Show changed files in syncable paths only
 # Note: use two-dot diff (not three-dot) — template and project have unrelated histories,
 # so HEAD...workflow/$WORKFLOW_BRANCH fails with "no merge base"
-git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 Then show the full diff:
 ```bash
-git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/skills/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 **If manual diff mode:**
@@ -339,7 +252,7 @@ Summarize the changes in a clear table:
 ```
 | File                          | Status   | Summary                    |
 |-------------------------------|----------|----------------------------|
-| .claude/skills/sync/SKILL.md  | NEW      | New sync skill              |
+| .agents/skills/sync/SKILL.md  | NEW      | New sync skill              |
 | .claude/agents/planner.md     | MODIFIED | Updated planning prompts    |
 | CLAUDE.md                     | MODIFIED | Added new workflow section  |
 ```
@@ -370,11 +283,50 @@ Copy files from the source to the project, overwriting existing files.
 
 For each applied file, briefly note what changed.
 
+**Merge the plugin declaration.** The template's `.claude/settings.json`
+declares the `jplugin-agentic-development` marketplace under
+`extraKnownMarketplaces` and enables `jplugin@jplugin-agentic-development` under
+`enabledPlugins`. Step 5 merges those two keys into the project's existing
+`.claude/settings.json` rather than overwriting it — the `hooks` and `env`
+blocks and any project-specific keys stay as they are. `.claude/settings.json`
+is never in `<selected-files>`: the merge below is its only write path, so the
+checkout above cannot replace the project's file. It writes no `ref`: a
+marketplace `ref` must be a branch or tag (a commit sha does not clone), so the
+source floats on the template's default branch and the plugin's `version` in
+`.claude-plugin/plugin.json` is the pin — `version` pins what Claude Code caches
+for the project, and it refreshes that copy only when the template bumps it.
+Skill bodies and the scripts they call can diverge between a `version` bump and
+the project's next sync: Claude Code refreshes the cached skills on the project's
+next open, while the scripts they invoke by project path stay at the last `/sync`.
+Sync promptly after a bump — `/sync` is what closes that window.
+
+The declaration itself is read from the template's copy, never restated here,
+so the template's `.claude/settings.json` stays its single source.
+
+```bash
+python3 - "$(git show "workflow/$WORKFLOW_BRANCH:.claude/settings.json")" <<'PY'
+import json, sys
+template = json.loads(sys.argv[1])
+path = ".claude/settings.json"
+settings = json.load(open(path, encoding="utf-8"))
+for key in ("extraKnownMarketplaces", "enabledPlugins"):
+    settings.setdefault(key, {}).update(template.get(key, {}))
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(settings, handle, indent=2, ensure_ascii=False)
+    handle.write("\n")
+PY
+```
+
+In manual-diff mode pass `$(cat "$WORKFLOW_CLONE/.claude/settings.json")` instead.
+Run it on every sync so a renamed marketplace or plugin id lands in the project.
+The merge never deletes: after a rename, remove the old marketplace and plugin
+keys by hand, or every synced project keeps enabling an id that no longer resolves.
+
 ### Step 6 — Post-Sync
 
 1. Run `git diff --stat` to confirm what was updated
 2. Ask the user if they want to commit the sync:
-   - Suggested message: `chore: sync workflow updates from coding-agent-workflow`
+   - Suggested message: `chore: sync workflow updates from jplugin-agentic-development`
 3. Remind the user to review `CLAUDE.md` if it was updated — they may need to merge project-specific customizations back in
 
 ### Step 6.4 — Retired Path Removal
@@ -398,6 +350,24 @@ retirement set is set arithmetic over that file:
     retire = project paths under syncable roots
            - template paths under the same roots
            - paths matching a sync-keep pattern
+
+**A `RETIRED` root is scanned, never checked out.** `.claude/skills/` is marked
+`RETIRED` in § Syncable Paths: the plugin reads `.agents/skills/` directly, so
+Step 5 no longer copies anything there, and the copies earlier syncs left behind
+are retired here — but only a file whose bytes match something the template once
+shipped at that path. A project-local skill under that root
+(a `verify-<app>` skill an earlier `/create-verification-skill` mirrored there) is never a candidate,
+with or without a `sync-keep` entry. Nothing under the retired root enters the
+plan while the project's `.claude/settings.json` does not enable
+`jplugin@jplugin-agentic-development`: until it does, those copies are the only
+skills the project has. The report says so in one `retired roots:` line naming
+the file and Step 5. In the Step 3 preview that is the expected state — Step 5
+has not run yet — and the live-root list is unaffected; here it means the
+settings write was skipped, so run it and re-run. A retired root never counts
+toward the one-empty-root budget, so the template having nothing under it is
+the expected state, not the "incomplete source" refusal. The running session
+cached its plugins at startup, so once the copies are gone the skills return on
+the next session start, not in this one.
 
 Apply it. This is the same command Step 3 already ran as a dry run, plus
 `--apply`:
@@ -442,7 +412,7 @@ error, but usually a stale entry that has stopped protecting what it names.
 
 **Project-local content under a syncable root belongs in `sync-keep`.** Other
 skills write there — `/create-verification-skill` generates a `verify-<app>`
-skill into `.agents/skills/` and mirrors it into `.claude/skills/` — and nothing
+skill into `.agents/skills/` — and nothing
 registers those paths automatically. Once a project has promoted its candidate,
 anything generated afterwards is a retire candidate on the next sync. It is
 always reported before deletion, so nothing is lost silently, but the operator
@@ -531,7 +501,7 @@ cannot vouch for.
 
 Retired content was folded into surviving skills, not dropped: `tdd` → `/build`
 Phase 1 § *TDD Discipline*; `simplify` and `deslop` → `/quality-gate` Phase 1
-and Phase 2; `verify-e2e` → `/verify --scope e2e`; `route` → the routine contract
+and Phase 2; `verify-e2e` → `/verify-evidence --scope e2e`; `route` → the routine contract
 at `.agents/skills/wrap-up-session/references/routines.md`, plus
 `task-registry select`/`claim` and `/wrap-up-session` § *The Pull Request*.
 
@@ -552,7 +522,7 @@ If any hit **and** `tasks/solutions/` does not exist:
 
 > ⚠ This project still uses the retired monolithic learning store. The synced
 > skills read `tasks/solutions/` instead. Run the converter from your
-> coding-agent-workflow clone —
+> jplugin-agentic-development clone —
 > `python3 <template-clone>/scripts/migrate-learning-store.py --repo .`
 > (dry-run by default; `--apply` to convert; originals are archived, never
 > deleted). Where `python3` is not on PATH (Windows, notably), substitute
@@ -601,4 +571,4 @@ already applied, a graphify failure leaves the sync itself fully intact.
 - **settings.json merge**: If the project has custom hooks in `.claude/settings.json`, show both versions and help the user merge rather than overwrite. Syncing this file never installs the `SessionStart` drift hook — that is registered once at user level by `install.sh` (see Automatic Drift Notification). If a project's `.claude/settings.json` contains a `SessionStart` entry pointing at `session-start.sh`, it duplicates the user-level registration and makes the banner print twice — flag it for removal.
 - **New files**: Files that exist in the template but not the project are shown as NEW and can be added.
 - **Deleted files**: Files that exist in the project's `.claude/` but NOT in the template are flagged — they may be project-specific additions (don't remove them).
-- **`.claude/project.md` missing in the target project**: expected for fresh projects that haven't run `/setup-deployment` yet. `/sync` does not create it — that happens lazily on first write by `/setup-deployment` or the migration step above.
+- **`.claude/project.md` missing in the target project**: expected for fresh projects that haven't run `/setup-deployment` yet. `/sync` does not create it — that happens lazily on first write by `/setup-deployment`.

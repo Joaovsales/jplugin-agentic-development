@@ -2,13 +2,9 @@
 implementation_paths:
   - CLAUDE.md
   - .agents/skills/wrap-up-session/SKILL.md
-  - .claude/skills/wrap-up-session/SKILL.md
   - .agents/skills/quality-gate/SKILL.md
-  - .claude/skills/quality-gate/SKILL.md
   - .agents/skills/auto-improve/SKILL.md
-  - .claude/skills/auto-improve/SKILL.md
   - .agents/skills/software-design-expert-review/SKILL.md
-  - .claude/skills/software-design-expert-review/SKILL.md
   - .agents/agents/code-reviewer.md
   - .agents/agents/critic.md
   - .agents/agents/security-reviewer.md
@@ -184,7 +180,6 @@ adapter landed after), not assumed:
 - `.agents/skills/auto-improve/SKILL.md:69` — the adjacent pin.
 - `tests/test-agents.sh` §3 — pins all four axes in **both** trees per persona.
 - `tests/test-model-tiers.sh` §8 — the `model: <alias>` guard with the hole.
-- `tests/test-skill-parity.sh` — byte-identical `.agents/skills` → `.claude/skills`.
 
 The Codex adapter renders from `.agents/` at install time (`scripts/render-codex.py`),
 so there is no third tree to mirror into.
@@ -246,7 +241,6 @@ so there is no third tree to mirror into.
       deleted, a dispatch site's pointer is removed, a persona's intake section is
       removed, or the anchor-75 rule is deleted — each probed and recorded
 
-- [x] `tests/test-skill-parity.sh` green over every edited skill
 - [x] No persona caps a severity with an `autofix_class` value, and every persona
       carries a never-out-of-scope clause covering the never-on-the-chopping-block list
 - [x] The anchor-75 text agrees with the Apply Gate about what `75` does
@@ -324,4 +318,3 @@ AC — four different ways to report success while measuring nothing.
   documented exception to items 2, 3 and 6.
 - `tests/test-review-context.sh` — pins each payload item individually, so a
   table emptied of its rows fails rather than passing on the heading alone.
-- `.claude/skills/**` — byte-identical compatibility mirrors.

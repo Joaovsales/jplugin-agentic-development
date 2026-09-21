@@ -1,7 +1,6 @@
 ---
 implementation_paths:
   - .agents/skills/memory-maintain/SKILL.md
-  - .claude/skills/memory-maintain/SKILL.md
   - .claude/hooks/session-start.sh
   - tests/test-memory-maintain-doc.sh
   - tests/test-session-start.sh
@@ -45,14 +44,13 @@ multiples of five.
 - AC3: Missing/empty history, four sessions, and six sessions remain silent;
   unrelated headings and malformed dates do not inflate the count.
 - AC4: The skill and hook use equivalent recognition for both formats and the
-  same positive-multiple-of-five gate; both skill copies remain byte-identical.
+  same positive-multiple-of-five gate.
 - AC5: Forced maintenance, the light pass, and glossary bootstrap are preserved;
   relevant tests and the full repository suite pass.
 
 ## Implementation Paths
 
 - `.agents/skills/memory-maintain/SKILL.md` — canonical counting contract.
-- `.claude/skills/memory-maintain/SKILL.md` — compatibility copy.
 - `.claude/hooks/session-start.sh` — executable session counter and reminder.
 - `tests/test-session-start.sh` — behavioral fixture regressions.
-- `tests/test-memory-maintain-doc.sh` — skill contract and parity guards.
+- `tests/test-memory-maintain-doc.sh` — skill contract guards.

@@ -666,3 +666,23 @@ back vacuous and was repaired.
   (fixed), `tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md`
   (open); `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`
   updated with the worktree-session baseline recipe.
+
+### [2026-09-18] — plugin manifest: S4 verdict, version pinning, verify-evidence, one tree
+
+- Branch `worktree-plugin-manifest` (base master `2608d0a`), 17 commits, HEAD `35adb24`. Not pushed: two
+  human-owned MUST-FIX review findings hold the push gate (see below).
+- Spike S4 resolved PASS on 2.1.277 after a clean-trust re-run: a settings-declared plugin installs
+  when the folder is trusted and leaves only the versioned cache — never `installed_plugins.json`.
+  The first FAIL was a contaminated trust dialog (invalid `C:/` url, leftover cache).
+- User decisions: pinning = github source, no `ref`, `version` bumped per release (Addy Osmani's
+  model); `verify` → `verify-evidence` (Claude Code bundles `verify`).
+- Slices built and committed: 5b (no-`ref` pinning, cache-aware hook), 5c (rename, 24 files),
+  6 (`.claude/skills/` and the parity test deleted, 30 two-tree tests collapsed, namespace sentence).
+- Wrap-up: living-spec reconciliation over 15 specs; four dispatched review passes (45 findings,
+  0 auto-applied at 50, 31 applied or fixed deliberately); Windows suite failing names ⊆ baseline.
+- Open for the maintainer: CI-synced projects keep a frozen `.claude/skills/` (sync-template.yml
+  never deletes) — filed as an OPEN row in the spec's Decisions; and the AC3 github-source re-run
+  after merge.
+- Learnings captured: `tasks/solutions/tooling/settings-declared-plugin-installs-at-trust-and-leaves-only-the-cache.md`,
+  `tasks/solutions/process/the-trust-dialog-is-the-install-moment-so-a-contaminated-first-trust-is-a-false-negative.md`,
+  `tasks/solutions/tooling/a-marketplace-ref-must-be-a-branch-or-tag-so-the-plugin-version-is-the-pin.md`.

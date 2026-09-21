@@ -37,5 +37,5 @@
 - **selector** — the set of provider labels a routine claims issues by, in `[routines.selectors]`. Disjoint across routines, so exactly one routine owns any issue.
 - **shortcut** — a deliberate minimal implementation marked `TODO(shortcut):` with its limitation and upgrade path stated.
 - **skill chain** — the ordered skills a routine runs once selection has chosen its issue, in `[routines.skills]`. Transcribed from the routine contract's step 4 plus the shared spine's step 5, which is why every chain ends at `/wrap-up-session`.
-- **syncable root** — a directory `/sync` overwrites wholesale in a downstream project (`.agents/skills/`, `.claude/skills/`, and the other roots `sync/SKILL.md` lists). Project-local content placed under one is destroyed on the next sync, and a `SKILL.md` may not name a path outside them.
+- **syncable root** — a directory `/sync` overwrites wholesale in a downstream project (`.agents/skills/` and the other roots `sync/SKILL.md` lists; `.claude/skills/` is a RETIRED root, scanned for deletion and never checked out). Project-local content placed under one is destroyed on the next sync, and a `SKILL.md` may not name a path outside them.
 - **track** — one of the store's two document kinds, selected by `problem_type`: bug track (`symptoms`/`root_cause`/`resolution`) or knowledge track (`applies_when`).

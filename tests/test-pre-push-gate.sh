@@ -276,8 +276,6 @@ assert_file_contains "$REPO/install.sh" 'git rev-parse --git-common-dir' \
 assert_file_contains "$REPO/.agents/skills/sync/SKILL.md" \
   'cp .agents/git-hooks/pre-push' \
   "sync: refreshes the hook in an already-cloned repo"
-assert_files_identical "$REPO/.agents/skills/sync/SKILL.md" \
-  "$REPO/.claude/skills/sync/SKILL.md" "sync: both skill trees stay in parity"
 
 # The deprecated second pre-push script is gone: two pre-push scripts in one
 # tree is an invitation to edit the dormant one.

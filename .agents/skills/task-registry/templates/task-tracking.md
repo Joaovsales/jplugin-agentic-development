@@ -116,7 +116,7 @@ improve = enhancement, documentation
 ;
 ; Three rules, all checked at load rather than at step 4 with the claim label
 ; already written:
-;   * every skill named must exist in .agents/skills/ or .claude/skills/
+;   * every skill named must exist in .agents/skills/
 ;   * every chain must END at /wrap-up-session — it is the review gate, and a
 ;     chain that runs it anywhere but last can still ship work after it
 ;   * the routine names are the contract's four; inventing one is a deliberate

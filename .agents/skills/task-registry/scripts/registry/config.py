@@ -124,9 +124,9 @@ DEFAULT_ROUTINE_SKILLS: Mapping[str, Tuple[str, ...]] = {
 #: "non-skippable for every routine without exception".
 TERMINAL_ROUTINE_SKILL = "/wrap-up-session"
 
-#: Where a chain's skills are looked for. Both trees are pinned byte-identical by
-#: tests/test-skill-parity.sh, and a project may carry only the Claude Code copy.
-SKILL_ROOTS = (".agents/skills", ".claude/skills")
+#: Where a chain's skills are looked for: the canonical tree, which Claude Code
+#: loads through the jplugin plugin and Pi and Codex read directly.
+SKILL_ROOTS = (".agents/skills",)
 
 #: Written before a routine branches, and skipped when already present.
 DEFAULT_CLAIM_LABEL = "in-progress"

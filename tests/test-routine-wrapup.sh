@@ -15,7 +15,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-for tree in .agents .claude; do
+for tree in .agents; do
   f="$tree/skills/wrap-up-session/SKILL.md"
 
   # --- AC7: exactly one place describes PR creation --------------------------
@@ -167,15 +167,10 @@ done
 # `/sweep` is not listed: its producers run on a `routine/<name>/<stamp>-sweep`
 # branch, which the parser rule above already reads as unattended.
 for caller in yolo auto-push; do
-  for tree in .agents .claude; do
+  for tree in .agents; do
     assert_file_contains "$REPO/$tree/skills/$caller/SKILL.md" "Step 8.5" \
       "AC11: $tree/$caller declares its wrap-up run unattended"
   done
 done
-
-assert_files_identical \
-  ".agents/skills/wrap-up-session/SKILL.md" \
-  ".claude/skills/wrap-up-session/SKILL.md" \
-  "Parity: the wrap-up skill is byte-identical across trees"
 
 finish

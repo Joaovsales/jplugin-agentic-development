@@ -1,4 +1,4 @@
-# Coding Agent Workflow
+# jplugin for agentic development
 
 A reusable, project-agnostic configuration system that enforces **spec-driven, TDD-first development** across all your projects — with persistent memory, specialized agents, and a structured session lifecycle. Works with Claude Code, Codex, Pi, Cursor, and other AI coding tools.
 
@@ -9,9 +9,9 @@ A reusable, project-agnostic configuration system that enforces **spec-driven, T
 | Layer | What it does |
 |-------|-------------|
 | **CLAUDE.md** | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate |
-| **Skills** (`.claude/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
+| **Skills** (`.agents/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
 | **Agents** (`.claude/agents/`) | 8 specialized subagents for planning, coding, review, debugging, security |
-| **Hooks** (`.claude/hooks/`) | Session start orientation + auto test runner on file save |
+| **Hooks** (`.claude/hooks/`) | Session start orientation |
 | **Learning store** (`tasks/solutions/`) | Typed per-document learnings, grep-first retrieval, written via `/learn` |
 
 Codex uses the same canonical `.agents/` sources through the explicit adapter
@@ -22,8 +22,8 @@ Codex uses the same canonical `.agents/` sources through the explicit adapter
 From the workflow repository, install the shared user-level configuration:
 
 ```bash
-git clone <this-repo-url> ~/coding-agent-workflow
-cd ~/coding-agent-workflow
+git clone <this-repo-url> ~/jplugin-agentic-development
+cd ~/jplugin-agentic-development
 bash scripts/install-codex.sh
 ```
 
@@ -35,7 +35,7 @@ command is idempotent. Review the hook commands with Codex's `/hooks` command
 before enabling them.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
-For an existing project, run `bash ~/coding-agent-workflow/scripts/scaffold-project.sh`
+For an existing project, run `bash ~/jplugin-agentic-development/scripts/scaffold-project.sh`
 from inside the repository: it adds the neutral `project-template/AGENTS.md`
 seed and the rest of the scaffold without touching files already present. The
 Codex adapter registers no git alias; `git scaffold` and `newproject` come from
@@ -44,7 +44,7 @@ Codex adapter registers no git alias; `git scaffold` and `newproject` come from
 Update all installed workflow artifacts with:
 
 ```bash
-cd ~/coding-agent-workflow
+cd ~/jplugin-agentic-development
 git pull
 bash scripts/install-codex.sh
 ```
@@ -58,8 +58,8 @@ Run `install.sh` once. It sets up three layers of enforcement: layers 1 and 3 ac
 ### Step 1 — Clone and install
 
 ```bash
-git clone <this-repo-url> ~/coding-agent-workflow
-cd ~/coding-agent-workflow
+git clone <this-repo-url> ~/jplugin-agentic-development
+cd ~/jplugin-agentic-development
 bash install.sh
 ```
 
@@ -85,17 +85,22 @@ That's it. Claude is fully oriented from the first message.
 
 ### Layer 1 — Global Claude config (`~/.claude/`)
 
-Copies your skills, agents, and CLAUDE.md into `~/.claude/`. Claude Code reads this directory for **every session in every project** — no per-project setup needed.
+Copies CLAUDE.md and the agents into `~/.claude/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed.
 
 ```
 ~/.claude/
 ├── CLAUDE.md          ← global rules (applies everywhere)
-├── skills/            ← all skills available in every project
 ├── agents/            ← all agents available in every project
 ├── hooks/
 │   └── session-start.sh
+├── plugins/           ← Claude Code's own records: the jplugin-agentic-development
+│                        marketplace (this checkout) and the installed jplugin plugin
 └── settings.json      ← registers the SessionStart hook globally
 ```
+
+Skills are **not** copied into `~/.claude/skills/` any more: the plugin manifest (`.claude-plugin/plugin.json`) points Claude Code at `.agents/skills/` in the checkout, so every skill is invoked as `/jplugin:<name>` (bare `/<name>` also resolves while no other skill claims the name). If an earlier install left copies in `~/.claude/skills/`, the installer lists them and deletes them only after you answer `y`; anything there the template never shipped is never touched. Without the `claude` CLI on `PATH` the plugin step prints a note and skips.
+
+**Requires Claude Code 2.1.227 or newer** (plugin `skills` paths). **Developing skills in the checkout:** run `claude --plugin-dir <checkout>` — the checkout's own `.claude/settings.json` declares the github marketplace, which replaces the directory registration `install.sh` made, so a plain session loads the cached release, not your edits.
 
 The **SessionStart hook** runs automatically at the start of every Claude Code session. It prints:
 - Learning-store counts from `tasks/solutions/` (documents + needs_review)
@@ -157,9 +162,24 @@ graphify hook install       # re-index on commit/checkout
 Re-running `install.sh` is safe — it overwrites `~/.claude/` with the latest version:
 
 ```bash
-cd ~/coding-agent-workflow
+cd ~/jplugin-agentic-development
 git pull
 bash install.sh
+```
+
+**Releasing skills to synced projects.** Claude Code pins each project's copy of the plugin
+to `version` in `.claude-plugin/plugin.json` and refreshes it only when that value changes, so
+bump `version` in the same commit as any skill change every synced project should pick up.
+`/sync` merges the marketplace declaration into the project; Claude Code caches the new
+release on the project's next open. A marketplace `ref` is never written — it would have to
+be a branch or tag, and the version is the pin.
+
+The repository was renamed from its original slug. A clone made before the rename still
+works through GitHub's redirect, but point it at the current name once so the redirect is
+not load-bearing:
+
+```bash
+git remote set-url origin https://github.com/Joaovsales/jplugin-agentic-development.git
 ```
 
 If you pasted `newproject` into your shell rc before `git scaffold` existed, replace it with the function the installer prints: the old one relied on a post-init hook git never runs, so it committed unscaffolded repos.
@@ -217,7 +237,7 @@ flowchart TD
     D -->|"after each task"| D2["code-reviewer\nSpec compliance + quality"]
     D -->|"on failure"| D3["/debug\nRoot cause analysis"]
     D -->|"after all tasks"| D4["/quality-gate\nStructural + anti-pattern + design review"]
-    D -->|"before claims"| D5["/verify\nEvidence-based verification"]
+    D -->|"before claims"| D5["/verify-evidence\nEvidence-based verification"]
 
     %% Skills called by /debug
     D3 -->|"uses"| D5
@@ -246,7 +266,7 @@ flowchart TD
 
 **Alternate entry**: `/system-design-planning` replaces brainstorm → plan when the change crosses a component boundary, changes a persisted data model, or changes an external contract
 
-**Internal calls**: /build delegates to sub-agents for TDD, invokes code-reviewer for 2-stage review, /debug on failures, /quality-gate after all tasks, and /verify before any completion claims.
+**Internal calls**: /build delegates to sub-agents for TDD, invokes code-reviewer for 2-stage review, /debug on failures, /quality-gate after all tasks, and /verify-evidence before any completion claims.
 
 Project verification maps use a two-speed update path. `/build` and
 `/wrap-up-session` invoke `/maintain-verification-skill --scope changed` before
@@ -274,7 +294,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/sweep` | Producer routine (`--routine janitor` or `--routine architect`): read the backlog, run one engine over the whole tree, file verified findings as issues |
 | `/tidy` | Harness hygiene sweep: skills tables, session banner, retired skills, installed copies, backticked paths, worktrees, strays, task registers — Tier 0 fixed and committed one concern per commit, Tier 1 printed as commands, Tier 2 filed through `/task-registry` |
 | `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
-| `/verify` | Evidence-based verification gate — no completion claims without fresh command output |
+| `/verify-evidence` | Evidence-based verification gate — no completion claims without fresh command output |
 | `/create-verification-skill` | Discover an app's real user surface, generate its `verify-<app>` recipe and feature map, then prove one feature live |
 | `/maintain-verification-skill` | Reconcile changed user behavior with `--scope changed`, or run a full audit of the complete feature map |
 | `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
@@ -312,7 +332,7 @@ This workflow is built on patterns that prevent common AI agent failure modes:
 
 **Two-Stage Review** — Every task in `/build` passes through spec compliance review AND code quality review before proceeding.
 
-**Evidence Over Claims** — The `/verify` skill bans phrases like "should work" or "looks correct". Only actual command output counts.
+**Evidence Over Claims** — The `/verify-evidence` skill bans phrases like "should work" or "looks correct". Only actual command output counts.
 
 **Memory Across Sessions** — the typed learning store (`tasks/solutions/`) persists one document per learning with grep-first retrieval, so the agent doesn't repeat mistakes or bulk-load stale context. Old-format projects convert with the template repo's `scripts/migrate-learning-store.py`.
 
@@ -342,7 +362,6 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 | Hook | Trigger | What It Does |
 |------|---------|-------------|
 | `session-start.sh` | Session start | Prints memory, active tasks, lessons, git status, available skills catalog |
-| `auto-test-runner.sh` | After every Bash tool use | Runs tests on changed files; creates task entries on failure |
 
 ---
 
@@ -359,21 +378,23 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │       ├── history.md
 │       ├── concepts.md
 │       └── solutions/
+├── .agents/
+│   └── skills/                      ← canonical skills, each with SKILL.md + optional reference docs
+├── .claude-plugin/
+│   ├── plugin.json                  ← the jplugin manifest (skills: ./.agents/skills)
+│   └── marketplace.json             ← the marketplace entry Claude Code installs from
 ├── .claude/
 │   ├── AGENTS.md                    ← Agent reference documentation
 │   ├── settings.json                ← Hook configuration
 │   ├── agents/                      ← 8 specialized subagents
-│   ├── skills/                      ← skills, each with SKILL.md + optional reference docs
 │   └── hooks/
-│       ├── session-start.sh         ← Orientation + skill awareness
-│       └── auto-test-runner.sh
+│       └── session-start.sh         ← Orientation + skill awareness
 ├── tasks/
 │   ├── todo.md                      ← Active task plan
 │   ├── history.md                   ← Session narrative log
 │   ├── concepts.md                  ← Concept glossary (project vocabulary)
 │   └── solutions/                   ← Typed learning store (written via /learn)
-├── specs/                           ← Feature specifications
-└── tests.md                         ← Project-specific test configuration
+└── specs/                           ← Feature specifications
 ```
 
 ---

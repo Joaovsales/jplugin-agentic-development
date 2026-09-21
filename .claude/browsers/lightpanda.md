@@ -11,9 +11,9 @@ pinned_release: "0.3.6"
 
 # Lightpanda — DOM-tier e2e browser
 
-> Adapter runbook for `/verify --scope e2e`. The frontmatter above is the
+> Adapter runbook for `/verify-evidence --scope e2e`. The frontmatter above is the
 > machine-readable contract; this body is the human-readable operating notes.
-> Optional: if lightpanda is absent, `/verify` falls through to the next tier and
+> Optional: if lightpanda is absent, `/verify-evidence` falls through to the next tier and
 > that is **not** an error.
 
 [Lightpanda](https://github.com/lightpanda-io/browser) is a headless browser
@@ -24,7 +24,7 @@ headless Chrome on the same pages.
 
 This workflow uses it for exactly one job: **executing DOM-functional acceptance
 criteria in unattended runs where no desktop Chrome exists** — `/yolo`,
-unattended routine runs, cloud containers, CI. It is the third tier in `/verify --scope e2e`'s
+unattended routine runs, cloud containers, CI. It is the third tier in `/verify-evidence --scope e2e`'s
 resolution order, behind Chrome MCP and Playwright MCP.
 
 ---
@@ -76,9 +76,9 @@ criteria are refused rather than attempted-and-checked: there is no runtime
 signal to check against. The classifier has to decide before it runs, which is
 why it fails closed.
 
-That is why `/verify --scope e2e` classifies every AC before choosing a tier and
+That is why `/verify-evidence --scope e2e` classifies every AC before choosing a tier and
 **fails closed** — an AC whose wording is ambiguous is treated as VISUAL and
-refuses to run here. See `.agents/skills/verify/SKILL.md` § `--scope e2e`.
+refuses to run here. See `.agents/skills/verify-evidence/SKILL.md` § `--scope e2e`.
 
 It is also why every `tasks/e2e-log.md` entry records the backend and its
 fidelity. A PASS produced here is a narrower claim than a PASS from Chrome, and
@@ -118,7 +118,7 @@ frontmatter above is a deliberate edit with a deliberate re-verification.
 **There is no Windows build.** Release 0.3.6 ships
 `{aarch64,x86_64}-{linux,macos}` and two `.deb` packages — nothing else. On
 Windows, run it under **WSL2** or **Docker** Desktop, or accept that
-`/verify --scope e2e` will resolve to a different tier on that machine.
+`/verify-evidence --scope e2e` will resolve to a different tier on that machine.
 
 This is a real portability seam, not a rough edge: a repository whose sessions
 alternate between a Windows box and a Linux box will take different verification
@@ -163,7 +163,7 @@ result, and nothing here needs a fork to work.
 
 ## Troubleshooting
 
-**`/verify` never selects lightpanda.** Resolution is ordered: Chrome MCP, then
+**`/verify-evidence` never selects lightpanda.** Resolution is ordered: Chrome MCP, then
 Playwright MCP, then lightpanda. If a full-fidelity backend is present it wins,
 by design — lightpanda is a fallback for environments without one, not a
 preference.

@@ -414,5 +414,72 @@ assert_not_contains "$out_noup" "BEHIND UPSTREAM" "upstream: silent with no upst
 
 rm -rf "$tmpU"
 
+# --- plugin declared but not installed: one line, only on that state --------
+# specs/claude-plugin-manifest.md § /sync: a synced project enables
+# jplugin@jplugin-agentic-development in .claude/settings.json. A user who
+# declined the marketplace prompt has no jplugin: skills in that project and
+# nothing else says so. Silent when installed, and when nothing is declared.
+tmpP=$(mktemp -d)
+mkdir -p "$tmpP/proj/.claude" "$tmpP/home/.claude/plugins"
+printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}\n' > "$tmpP/proj/.claude/settings.json"
+cd "$tmpP/proj"
+run_plugin_probe() {
+  printf '{"source":"startup"}' \
+    | HOME="$tmpP/home" CLAUDE_CONFIG_DIR="$tmpP/home/.claude" CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null
+}
+out_missing=$(run_plugin_probe)
+assert_contains "$out_missing" "PLUGIN NOT INSTALLED" \
+  "Plugin: enabled in settings but absent from installed_plugins.json prints the line"
+assert_contains "$out_missing" "jplugin@jplugin-agentic-development" \
+  "Plugin: the line names the plugin id"
+assert_eq "1" "$(printf '%s\n' "$out_missing" | grep -c 'PLUGIN NOT INSTALLED')" \
+  "Plugin: exactly one headline"
+printf '{"version": 2, "plugins": {"jplugin@jplugin-agentic-development": [{"scope": "user"}]}}\n' \
+  > "$tmpP/home/.claude/plugins/installed_plugins.json"
+out_installed=$(run_plugin_probe)
+assert_not_contains "$out_installed" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent once installed_plugins.json records the plugin"
+# A settings-driven install (Claude Code caching the plugin when the folder is
+# trusted) writes no installed_plugins.json record at all -- only the versioned
+# cache directory exists. Spike S4 measured it; without this branch every
+# synced project warns while the plugin works.
+rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
+mkdir -p "$tmpP/home/.claude/plugins/cache/jplugin-agentic-development/jplugin/1.0.0"
+out_cached=$(run_plugin_probe)
+assert_not_contains "$out_cached" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when only the versioned cache directory records the install"
+# An empty plugin directory (interrupted fetch, uninstall) records nothing.
+rm -rf "$tmpP/home/.claude/plugins/cache/jplugin-agentic-development/jplugin/1.0.0"
+out_empty_cache=$(run_plugin_probe)
+assert_contains "$out_empty_cache" "PLUGIN NOT INSTALLED" \
+  "Plugin: a cache directory with no version under it does not count as installed"
+rm -rf "$tmpP/home/.claude/plugins/cache"
+# A project that set the plugin to false has declined it: no line.
+printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": false}}\n' > "$tmpP/proj/.claude/settings.json"
+out_disabled=$(run_plugin_probe)
+assert_not_contains "$out_disabled" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when the project disables the plugin"
+# Pre-plugin copies under ~/.claude/skills/ that shadow a skill this project
+# carries are named; the user's own skills there are not.
+mkdir -p "$tmpP/proj/.agents/skills/plan" "$tmpP/home/.claude/skills/plan" "$tmpP/home/.claude/skills/my-own"
+out_stale=$(run_plugin_probe)
+assert_contains "$out_stale" "STALE SKILL COPIES" \
+  "Stale copies: a template skill copied under ~/.claude/skills/ prints the line"
+assert_contains "$out_stale" " plan" \
+  "Stale copies: the line names the shadowed skill"
+assert_not_contains "$out_stale" "my-own" \
+  "Stale copies: the user's own skill is not named"
+rm -rf "$tmpP/home/.claude/skills/plan"
+out_no_stale=$(run_plugin_probe)
+assert_not_contains "$out_no_stale" "STALE SKILL COPIES" \
+  "Stale copies: silent once the copy is gone"
+rm -rf "$tmpP/proj/.agents" "$tmpP/home/.claude/skills"
+printf '{}\n' > "$tmpP/proj/.claude/settings.json"
+rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
+out_undeclared=$(run_plugin_probe)
+assert_not_contains "$out_undeclared" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when the project declares no plugin"
+cd "$REPO"
+rm -rf "$tmpP"
 
 finish

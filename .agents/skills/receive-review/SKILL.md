@@ -214,4 +214,4 @@ State the correction factually and move on.
 
 ## Integration
 - Used during: PR review cycles, /build when reviews return feedback, /wrap-up-session code review phase
-- Pairs with: /verify (verify before claiming fix is done)
+- Pairs with: /verify-evidence (verify before claiming fix is done)

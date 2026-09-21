@@ -937,3 +937,288 @@ AGENTS.md has no skills table at e7ab8fa; the report's inventory row says "skipp
 
 ### AC-15: suite — EXERCISED
 Clean worktree at e7ab8fa: 8/39 files RED, 148 of 3789 assertions (all environment-only on this Windows host, see `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`). Changed tree: identical 8 files and 148 assertions, zero new failing assertion names, 3903 total.
+
+## Spike S1 — every canonical skill loads from the plugin manifest — 2026-09-17 3d52d73
+
+Spec: specs/claude-plugin-manifest.md (§ Build order slice 1; AC 1, AC 11)
+Commit: 3d52d73 (worktree-plugin-manifest)
+Claude Code: 2.1.227
+
+**S1** — all skills under `.agents/skills/` load as `jplugin:<name>` in place from the directory, with no install step.
+
+Commands run from the repository root:
+
+```
+claude plugin validate --strict .                      # marketplace manifest: Validation passed
+claude plugin validate .claude-plugin/plugin.json      # plugin manifest: passes; --strict warns only that a
+                                                       # root CLAUDE.md is not plugin context (expected here)
+claude --plugin-dir . plugin details jplugin           # loads the plugin from disk and prints its inventory
+```
+
+`details` reported `Source: jplugin@inline`, `Skills (33)`, `Agents (0)`, `Hooks (0)`, and this list:
+
+```
+auto-push, brainstorm, build, checkpoint, create-verification-skill, debug, eval,
+folder-context-optimization, html-presentation, learn, maintain-verification-skill,
+memory-maintain, plan, prd, quality-gate, receive-review, refresh, security-scan,
+software-design-expert-learn, software-design-expert-review, start-qa, sweep, sync,
+system-design-planning, task-registry, tidy, verify, verify-task-registry, visual-plan,
+visual-recap, wrap-up-session, writing-skills, yolo
+```
+
+`ls .agents/skills` at 3d52d73 is the same 33 names in the same order. Zero agents and zero hooks confirms the manifest carries only the `skills` key (spec § Decisions: agents and hooks stay project-level). Always-on cost reported: ~2,255 tokens per session.
+
+**Verdict: PASS.**
+
+## Spike S3 — two marketplaces under one name — 2026-09-17 3d52d73
+
+Spec: specs/claude-plugin-manifest.md (§ Build order slice 1, spike question S3)
+Claude Code: 2.1.227
+
+Two directory sources carrying the same `marketplace.json` name were registered in turn
+(the github source needs the manifest on the remote, which this branch has not pushed;
+the collision is on the *name*, and the docs state the rule source-independently):
+
+```
+claude plugin marketplace add <checkout A>     # Successfully added marketplace: jplugin-agentic-development
+claude plugin marketplace list                 # Source: Directory (<checkout A>)
+claude plugin marketplace add <checkout B>     # Successfully added marketplace: jplugin-agentic-development  (exit 0)
+claude plugin marketplace list                 # Source: Directory (<checkout B>)   <- A is gone
+```
+
+`~/.claude/plugins/known_marketplaces.json` held one entry for the name, pointing at B.
+Docs (plugin-marketplaces): "Each user can register only one marketplace per name — adding
+a second with the same name replaces the first."
+
+**Verdict: REPLACED, silently.** Consequence for § Decisions and slice 4: the developer
+machine's directory-source marketplace must carry a different name from the one project
+settings declare, or opening any synced project replaces the developer's in-place source.
+The probe marketplace was removed afterwards (`claude plugin marketplace remove`).
+
+### S3 follow-up — the `-dev` fallback is not expressible — 2026-09-17
+
+A second marketplace manifest named `jplugin-agentic-development-dev` was written to a scratch
+directory with its one plugin entry pointing at the checkout, first as a relative path that
+climbs out of the marketplace root, then as an absolute path:
+
+```
+claude plugin validate --strict <scratch>          # Validation failed (both forms)
+claude plugin marketplace add <scratch>            # Successfully added marketplace: jplugin-agentic-development-dev
+claude plugin install jplugin@jplugin-agentic-development-dev --scope user
+#  ✘ Failed to install plugin: This plugin's marketplace entry is invalid: source: Invalid input
+```
+
+A plugin's relative source must live under the marketplace root, and a directory marketplace's
+name is the name in the manifest at that directory — so one repository can publish exactly one
+marketplace name. Decision recorded in the spec (§ Decisions, marketplace-name collision):
+`install.sh` registers the checkout under the manifest's name and prints that opening a project
+whose settings declare the github source replaces the directory registration; the installed
+record keeps its `installPath`, so skills keep loading from the checkout until `plugin update`.
+The probe marketplace was removed afterwards.
+
+## Spike S2 — bare `/name` routes to `jplugin:<name>` with no un-namespaced copy — 2026-09-17 729ec6d
+
+Spec: specs/claude-plugin-manifest.md (§ Build order slice 1, spike question S2; AC 2, AC 11)
+Commit: 729ec6d (worktree-plugin-manifest); candidate tree 3d52d73 with `.claude/skills/` deleted
+Claude Code: 2.1.227
+Rubric: written before any candidate ran (scratchpad `s2-rubric.md`); graded from transcripts
+with `.agents/skills/eval/scripts/grade-skill-loads.sh`, never from what a session said.
+
+**Setup.** Nine print-mode sessions in the scratch worktree `.claude/worktrees/jplugin-routing`
+(3d52d73, `.claude/skills/` deleted), plugin loaded with `--plugin-dir`, isolation through an
+empty `CLAUDE_CONFIG_DIR` holding only credentials — no user-scope skills, no installed plugins —
+in place of the rubric's rename of `~/.claude/skills/` (same property, and it leaves the live
+user directory alone). `--max-budget-usd 1.50` per session. Two organic prompts per target plus
+one bare-slash probe.
+
+**Bare-slash probes (harness routing).** The first pass was invalid: Git Bash rewrote every
+`/name` argument into `C:/Program Files/Git/name` before Claude Code saw it (MSYS path
+conversion), so those three sessions are discarded as broken prompts (rubric rule 4) — two of
+them still loaded the right skill from the mangled text, which says nothing about routing.
+Re-run with `MSYS_NO_PATHCONV=1`:
+
+| typed | harness expanded to | verdict |
+|-------|---------------------|---------|
+| `/quality-gate` | `<command-name>/jplugin:quality-gate</command-name>` | FIRED — routed by the harness, no Skill tool block needed |
+| `/task-registry doctor` | `<command-name>/jplugin:task-registry</command-name>` `<command-args>doctor</command-args>` | FIRED |
+| `/verify` | `<command-name>/verify</command-name>` — the body is Claude Code's **bundled** `verify` skill (`bundled-skills/2.1.227/…/verify`, "Don't run tests. Don't typecheck.") | **MISROUTED** — a name collision the un-namespaced copy currently masks |
+
+Bundled skills shipped by Claude Code 2.1.227: `verify` only. It is the single collision with the
+33 plugin skill names.
+
+**Organic prompts (model routing), plugin only:**
+
+| target | rep 1 | rep 2 | notes |
+|--------|-------|-------|-------|
+| `jplugin:task-registry` | FIRED | FIRED | 9 and 8 turns |
+| `jplugin:quality-gate` | NONE (budget exhausted after 21 turns of a hand-rolled review) | FIRED | |
+| `jplugin:verify` | NONE (27 turns, verified by hand) | NONE (24 turns, verified by hand) | |
+
+**Control (same prompts, same commit, `.claude/skills/` present, no plugin):** `verify` fired in
+1 of 2 reps (23 and 27 turns). The organic weakness of the verify prompt is not introduced by the
+namespace; it is a property of the skill's description and pre-dates this change.
+
+**Verdict: FAIL** on the rubric's PASS standard (every rep FIRED for every target). Passes:
+task-registry in full. Fails: quality-gate on one organic rep; verify on both organic reps and,
+decisively, on the bare slash. The bare-slash miss is the finding that changes the plan: once
+`.claude/skills/` is deleted, `/verify` in every downstream project resolves to Anthropic's
+bundled skill, whose contract contradicts this template's (`/verify` here runs the suite and
+records e2e evidence). Slice 6 stays gated; § Decisions is reopened in the spec with the options.
+
+## Spike S4 — a fresh clone is offered the plugin from `.claude/settings.json` — 2026-09-17 cf82395
+
+Spec: specs/claude-plugin-manifest.md (§ Build order slice 1, spike question S4; AC 3, AC 11)
+Commit: cf82395 (worktree-plugin-manifest)
+Claude Code: 2.1.274 (the run started on 2.1.227; the CLI auto-updated between the first and
+second interactive open, and every measurement below is from 2.1.274)
+
+**Setup.** `git clone` of the branch into `.claude/worktrees/s4-clone` (`core.longpaths=true` —
+one task-detail filename exceeds the Windows default). Origin `master` carries no
+`.claude-plugin/` yet (nothing is pushed), so the clone's declaration keeps the marketplace
+name and points its `source` at this branch: `{"source": "git", "url":
+"file:///C:/Users/Joao.Souto/coding-agent-workflow/.claude/worktrees/plugin-manifest", "ref":
+"worktree-plugin-manifest"}`, with `enabledPlugins["jplugin@jplugin-agentic-development"]:
+true`. The mechanism under test — settings-driven registration, install and `ref` pinning —
+does not depend on the transport; the github source itself can only be exercised after push.
+Measured against the user's real `~/.claude` (the isolated-config variant of this spike proved
+nothing: a one-turn print session exits before the marketplace clone finishes, so it recorded
+"nothing registered" for a reason that was timing, not behaviour). Evidence is the
+`--debug` log Claude Code writes to `~/.claude/debug/<session>.txt`, the two plugin registries,
+and `claude plugin` CLI output.
+
+**Marketplace registration — automatic, headless too.** `installPluginsForHeadless` runs in
+`-p` mode and reconciles every declared marketplace (`[reconcile] 1 marketplace(s):
+jplugin-agentic-development(install)` → `git clone succeeded` → `Added marketplace source` →
+`installPluginsForHeadless: installed marketplace jplugin-agentic-development`). Three source
+constraints fell out of the failed attempts before that line appeared:
+
+| declaration | result |
+|-------------|--------|
+| `url` as a plain local path (`C:/Users/…/plugin-manifest`) | refused — only `https`, `http`, `ssh`, scp-like and `file://` URLs are accepted; the first interactive open showed no marketplace prompt because of this, not because prompts do not exist |
+| `ref` = commit sha (`729ec6d…`) | `git clone --branch <sha>` → "Remote branch … not found"; **`ref` must be a branch or tag** |
+| `url` = `file:///C:/…`, `ref` = branch | registered; `known_marketplaces.json` holds `source.ref: "worktree-plugin-manifest"`, checkout at `~/.claude/plugins/marketplaces/jplugin-agentic-development` on that branch at cf82395 |
+
+**Plugin install — not automatic, no prompt.** After the marketplace was registered, headless
+logs `Plugin not available for MCP: jplugin@jplugin-agentic-development - error type:
+plugin-cache-miss` and `installed_plugins.json` is unchanged; the binary's own strings confirm
+headless only ever "installed marketplace", never a plugin. Two interactive opens of the clone
+(user at the keyboard, trust and external-`CLAUDE.md` dialogs answered) produced **no install
+prompt**; `/jplugin:verify` reported `No commands match`, while the completion list still showed
+the un-namespaced `/build`, `/quality-gate`, `/sync`, `/tidy` from the clone's `.claude/skills/`.
+The offer in 2.1.274 is a diagnostic, not a prompt — the `plugin-not-installed` status text,
+surfaced through `/plugin`, reads:
+
+```
+Plugin "<id>" is enabled in project settings but isn't installed — run `claude plugin install <id> --scope project`
+```
+
+**Install record and what loads.** `claude plugin install jplugin@jplugin-agentic-development
+--scope project` from the clone: `✔ Successfully installed plugin (scope: project)`. The record:
+
+```json
+"jplugin@jplugin-agentic-development": [{
+  "scope": "project",
+  "installPath": "C:\\Users\\Joao.Souto\\.claude\\plugins\\cache\\jplugin-agentic-development\\jplugin\\1.0.0",
+  "version": "1.0.0",
+  "gitCommitSha": "cf823950003550e91d440fe2c823555c7911a6f7",
+  "projectPath": "C:\\Users\\Joao.Souto\\coding-agent-workflow\\.claude\\worktrees\\s4-clone"
+}]
+```
+
+The install record carries no `ref`; it carries the **commit the declared branch resolved to**
+(`gitCommitSha` = cf82395, the branch tip), and the marketplace record carries the `ref`. A
+following `claude -p --debug` in the clone logs `Loaded 35 skills from plugin jplugin custom
+path: …\cache\jplugin-agentic-development\jplugin\1.0.0\.agents\skills` and
+`getSkills returning: 80 skill dir commands, 36 plugin skills, 40 bundled skills`; `claude
+plugin details` lists the same 35 names. Side effect worth knowing: the project-scope install
+rewrote the clone's `.claude/settings.json` (keys reordered, content unchanged).
+
+**Verdict: FAIL on AC 3 as worded, with the mechanism recorded.** "Offered on first open" is
+false for 2.1.274 — the marketplace is registered silently and the plugin needs one explicit
+`claude plugin install … --scope project` (or `/plugin`) per machine, after which the declared
+`ref` is what loads. The `ref` `/sync` Step 5 writes today — the checked-out sha — cannot be
+cloned at all, so the pinning-model row of § Decisions is reopened with the three shapes that
+do work (branch, tag, omitted) before slice 6 proceeds. Cleanup: `claude plugin uninstall
+jplugin@jplugin-agentic-development --scope project` from the clone and `claude plugin
+marketplace remove jplugin-agentic-development`; a stray
+`~/.claude/plugins/marketplaces/temp_git_*..clone` directory is left over from the refused
+`C:/` attempt.
+
+## Spike S4 — follow-up: clean first open on 2.1.277 — 2026-09-18 66f45e3
+
+Spec: specs/claude-plugin-manifest.md (§ Build order slice 1, spike question S4; AC 3)
+Commit: 66f45e3 (worktree-plugin-manifest)
+Claude Code: 2.1.277 (auto-updated overnight from 2.1.274)
+
+**Why a re-run.** The FAIL above was contaminated: the trust dialog was accepted during the
+very first open, when the declaration still carried the refused `C:/` url, and the docs say
+project plugins are set up "once they trust the project folder, with no separate prompt".
+A second look at the 2.1.274 evidence also showed the versioned cache directory was left
+over from the manual `claude plugin install`, so "skills visible" could not be attributed.
+
+**Setup.** `claude plugin marketplace remove jplugin-agentic-development`, the leftover
+`~/.claude/plugins/cache/jplugin-agentic-development/` deleted, and a third clone at a path
+Claude Code had never seen (`.claude/worktrees/s4-clone3`, no project entry in
+`~/.claude.json`), declaration `{"source": "git", "url": "file:///C:/…/plugin-manifest",
+"ref": "worktree-plugin-manifest"}` plus `enabledPlugins` — same shape as before. Opened
+by the user with `claude --debug`; both dialogs accepted; `/jplugin:` typed.
+
+**Debug log (`~/.claude/debug/d40f0f15-….txt`), in order:**
+
+```
+Skipping orphaned enabledPlugins entry jplugin@jplugin-agentic-development: marketplace not registered
+clearPluginCache: invalidating loadAllPlugins cache (post-trust: re-discover project @skills-dir plugins)
+Installing 1 marketplace(s) in background
+[reconcile] 1 marketplace(s): jplugin-agentic-development(install)
+Marketplace checkout probe: no readable HEAD, cloning
+Added marketplace source: jplugin-agentic-development
+Loading plugin jplugin from source: "./"
+Using manifest version for jplugin@jplugin-agentic-development: 1.0.0
+Copying source directory ./ for plugin jplugin@jplugin-agentic-development
+Successfully cached plugin jplugin@jplugin-agentic-development at C:\Users\…\plugins\cache\jplugin-agentic-development\jplugin\1.0.0
+Loaded 35 skills from plugin jplugin custom path: …\cache\jplugin-agentic-development\jplugin\1.0.0\.agents\skills
+```
+
+The completion list showed `/jplugin:prd`, `/jplugin:sync`, `/jplugin:tidy` within ten
+seconds of accepting trust, with no plugin prompt. `known_marketplaces.json` gained the
+marketplace with `source.ref: "worktree-plugin-manifest"`; **`installed_plugins.json` gained
+nothing** — a settings-driven install is recorded only by the versioned cache directory,
+keyed by `plugin.json` `version` (1.0.0). A headless `claude -p` in the same clone before
+the cache existed reported `plugin-cache-miss`: print mode registers the marketplace but
+never copies the plugin, exactly as measured on 2.1.274.
+
+**Verdict: PASS on AC 3** — a fresh clone installs and loads the plugin on first open once
+the folder is trusted, and the declared `ref` is the branch that gets cloned. Two corrections
+follow from the whole spike and are decided in § Decisions (2026-09-18):
+
+1. **Pinning is by `version`, not by `ref`.** A commit sha as `ref` does not clone (`git
+   clone --branch <sha>`), and the docs pin a plugin by its manifest `version` ("users only
+   receive updates when it changes") — the model Addy Osmani's `agent-skills` uses: github
+   source, no `ref`, `version` bumped per release. `/sync` Step 5 stops writing `ref`.
+2. **`session-start.sh`'s "PLUGIN NOT INSTALLED" line reads `installed_plugins.json`,
+   which a settings-driven install never touches**, so every downstream project would see the
+   warning while the plugin works. The check must also accept the versioned cache directory.
+
+Cleanup: the marketplace, cache and `s4-clone`/`s4-clone2`/`s4-clone3` are scratch; remove
+with `claude plugin marketplace remove jplugin-agentic-development` and `rm -rf` of the three
+clone directories and `~/.claude/plugins/cache/jplugin-agentic-development`.
+
+## Spike S2 — follow-up: bare `/verify-evidence` routes to the plugin — 2026-09-18 eb5fdbd
+
+Spec: specs/claude-plugin-manifest.md (§ Decisions, `/verify` after the copy is deleted; AC 2)
+Commit: eb5fdbd (worktree-plugin-manifest) — the rename
+Claude Code: 2.1.277
+
+**Setup.** Scratch worktree `.claude/worktrees/jplugin-routing` detached at eb5fdbd with
+`.claude/skills/` deleted, plugin loaded with `--plugin-dir`, the user's real config (its
+`~/.claude/skills/verify` legacy copy is a different name and cannot shadow the probe), one
+print-mode session, `MSYS_NO_PATHCONV=1`, prompt `/verify-evidence`.
+
+**Result.** The transcript's first user turn is
+`<command-message>jplugin:verify-evidence</command-message>
+<command-name>/jplugin:verify-evidence</command-name>` — the harness routed the bare slash to
+the plugin skill. The S2 FAIL was the name collision with Claude Code's bundled `verify`, and
+the rename removes it; `/quality-gate` and `/task-registry` were already FIRED in S2.
+
+**Verdict: PASS** for the slice 6 gate (AC 2). The organic-prompt weakness of the verify
+description (S2 control 1/2) is unchanged by the rename and stays a separate `/eval` item.

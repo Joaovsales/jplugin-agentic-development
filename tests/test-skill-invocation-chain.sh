@@ -5,7 +5,7 @@
 #
 # Why this exists. A triggerability audit (2026-08-28) found that several
 # load-bearing skills never fire from an organic user request -- /quality-gate,
-# /verify, /learn and /security-scan are reached because an *upstream skill
+# /verify-evidence, /learn and /security-scan are reached because an *upstream skill
 # invokes them*, not because a user phrases a request that routes to them. That
 # makes the chain the actual delivery mechanism for those gates, and it lives
 # only in prose. Prose behavior is not mechanically enforced, so a reflow, a
@@ -28,7 +28,7 @@ cd "$(dirname "$0")/.."
 # is the byte-identical copy Claude Code actually reads, so a chain present in
 # only one of them is a real defect: the harness in use might be reading the
 # copy that lost the handoff.
-TREES=".agents .claude"
+TREES=".agents"
 
 # ── /build -> /quality-gate ───────────────────────────────────────────────────
 # The post-build review gate. /build is the only caller in the normal flow.
@@ -73,15 +73,15 @@ for tree in $TREES; do
     "Chain: $tree/wrap-up-session invokes /learn"
 done
 
-# ── /wrap-up-session -> /verify --scope e2e ──────────────────────────────────
+# ── /wrap-up-session -> /verify-evidence --scope e2e ──────────────────────────────────
 # CLAUDE.md's Quality Gate requires an e2e walkthrough per user-facing AC. The
-# enforcement point is wrap-up-session, not /verify itself.
+# enforcement point is wrap-up-session, not /verify-evidence itself.
 for tree in $TREES; do
   f="$tree/skills/wrap-up-session/SKILL.md"
   assert_file_contains "$f" "/maintain-verification-skill --scope changed" \
     "Chain: $tree/wrap-up-session reconciles the feature map"
-  assert_file_contains "$f" "/verify --scope e2e" \
-    "Chain: $tree/wrap-up-session invokes /verify --scope e2e"
+  assert_file_contains "$f" "/verify-evidence --scope e2e" \
+    "Chain: $tree/wrap-up-session invokes /verify-evidence --scope e2e"
   assert_file_contains "$f" "tasks/e2e-log.md" \
     "Chain: $tree/wrap-up-session checks the e2e evidence log"
 done
@@ -94,7 +94,7 @@ for tree in $TREES; do
   for skill in build wrap-up-session; do
     f="$tree/skills/$skill/SKILL.md"
     maintain_line=$(grep -nF "/maintain-verification-skill --scope changed" "$f" | head -1 | cut -d: -f1)
-    verify_line=$(grep -niF 'invoke `/verify --scope e2e`' "$f" | head -1 | cut -d: -f1)
+    verify_line=$(grep -niF 'invoke `/verify-evidence --scope e2e`' "$f" | head -1 | cut -d: -f1)
     review_line=$(grep -nE '^## (Phase 3|Step 4) .*Quality Gate|^## Step 4 .*Code Review' "$f" | head -1 | cut -d: -f1)
     full_test_line=$(grep -nE '^## Phase 2 .*Full Suite|^## Step 6 .*Run Tests' "$f" | head -1 | cut -d: -f1)
     assert_file_contains "$f" "/maintain-verification-skill --scope changed" \

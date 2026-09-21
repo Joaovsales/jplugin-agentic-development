@@ -24,15 +24,23 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
 import os
 import re
 import subprocess
 import sys
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple
 
 KEEP_FILE = ".claude/sync-keep"
 CANDIDATE_FILE = ".claude/sync-keep.candidate"
 SKILL_DOC = ".agents/skills/sync/SKILL.md"
+# The plugin that replaces the `.claude/skills/` copies. A project that has not
+# enabled it still runs those copies, so `missing_plugin_declaration` keeps them
+# out of the plan; the declaration lives in the project's own settings file.
+PLUGIN_ID = "jplugin@jplugin-agentic-development"
+SETTINGS_FILE = ".claude/settings.json"
+# Right-hand column prefix that marks a doc-block root as retired.
+RETIRED_MARKER = "RETIRED"
 
 # `[`, `]`, `{`, `}` and `!` are the glob syntax this format does *not* accept.
 # Silently ignoring them would let an author record intent that protects
@@ -201,8 +209,15 @@ def _validate_root(entry: str, origin: str) -> str:
     return entry
 
 
-def parse_syncable_roots(text: str, origin: str) -> List[str]:
+def parse_syncable_roots(text: str, origin: str) -> Tuple[List[str], List[str]]:
     """Read the directory roots out of the `## Syncable Paths` doc block.
+
+    Returns `(live_roots, retired_roots)`. A row whose right-hand column begins
+    `RETIRED` is a root `/sync` no longer checks out but still scans, so the
+    copies earlier syncs left downstream can be retired against template
+    history. It is never handed to `usable_roots`: the template has nothing
+    under it by design, and reading that as "empty" would spend the
+    one-empty-root budget on a root that is meant to be empty.
 
     The block is parsed rather than copied so this script becomes a *consumer*
     of the one list `tests/test-syncable-paths.sh` already pins, instead of an
@@ -212,7 +227,8 @@ def parse_syncable_roots(text: str, origin: str) -> List[str]:
     retirement is undefined for a file — it has no project-only paths inside it
     — and the checkout step already handles them.
     """
-    directories: List[str] = []
+    live: List[str] = []
+    retired: List[str] = []
     in_block = False
     for line in text.splitlines():
         if line.startswith("## Syncable Paths"):
@@ -221,15 +237,17 @@ def parse_syncable_roots(text: str, origin: str) -> List[str]:
         if in_block and re.match(r"^#{2,} ", line):
             break
         if in_block and "→" in line:
-            entry = line.split("→", 1)[0].strip()
-            if entry.endswith("/"):
-                directories.append(_validate_root(entry, origin))
-    if not directories:
+            entry, description = (part.strip() for part in line.split("→", 1))
+            if not entry.endswith("/"):
+                continue
+            target = retired if description.startswith(RETIRED_MARKER) else live
+            target.append(_validate_root(entry, origin))
+    if not live:
         raise RetireError(
             f"{origin}: no `## Syncable Paths` doc block with directory roots — "
             f"cannot determine what to scan"
         )
-    return sorted(set(directories))
+    return sorted(set(live)), sorted(set(retired))
 
 
 # ---------------------------------------------------------------- inventories
@@ -570,6 +588,11 @@ class Plan:
     # Declared in the doc block but empty in the template: reported, never
     # scanned. Retirement is undefined for a root the template cannot vouch for.
     skipped_roots: List[str] = dataclasses.field(default_factory=list)
+    # Marked RETIRED in the doc block: scanned against template history, never
+    # checked out, never counted toward the empty-root budget.
+    retired_roots: List[str] = dataclasses.field(default_factory=list)
+    # Why nothing under a retired root could be examined this run, when so.
+    retired_reason: str = ""
     # Empty means provenance was read -- distinct from "read it, nothing was
     # ever retired". Non-empty is why it could not be, quoted to the operator.
     provenance_reason: str = ""
@@ -601,10 +624,152 @@ def split_by_allowlist(
     return retire, kept, [pattern for pattern in patterns if pattern not in used]
 
 
+class Template(NamedTuple):
+    """Where the template is read from: a ref fetched into the project, or a
+    directory. Exactly one of `ref` and `directory` is set."""
+    repo: str
+    ref: Optional[str]
+    directory: Optional[str]
+
+
 def compute_plan(repo: str, ref: Optional[str], directory: Optional[str]) -> Plan:
     """Resolve both inventories and reduce them to what this run would delete."""
+    template = Template(repo, ref, directory)
     source = ref or directory or ""
-    roots = parse_syncable_roots(read_template_doc(repo, ref, directory), source)
+    live, retired = parse_syncable_roots(read_template_doc(repo, ref, directory), source)
+    # Patterns may reach a retired root: downstream sync-keep files already name
+    # `.claude/skills/verify-<app>/**`, and the root changing status must not
+    # turn every one of them into a usage error.
+    patterns = read_keep_patterns(repo, [*live, *retired])
+    plan = _live_plan(template, live, patterns)
+    outcome = retired_root_plan(template, retired, patterns)
+    return dataclasses.replace(
+        plan,
+        retire=[*plan.retire, *outcome.retire],
+        kept=[*plan.kept, *outcome.kept],
+        # A pattern reaching a retired root may protect a project-local file that
+        # history cannot see (`.claude/skills/verify-<app>/**`); "matched nothing"
+        # would tell the operator it is about to stop protecting it.
+        unmatched=[
+            pattern for pattern in plan.unmatched
+            if pattern not in outcome.used and not _reaches_a_root(pattern, retired)
+        ],
+        retired_roots=list(retired),
+        retired_reason=outcome.reason,
+    )
+
+
+@dataclasses.dataclass
+class RetiredRoots:
+    """What the retired roots contribute to a plan.
+
+    Paths to retire, paths a pattern saved (with the pattern), the patterns
+    that did the saving — or, when nothing under a retired root could be
+    examined, the one reason why. `reason` and the lists are exclusive.
+    """
+    retire: List[str] = dataclasses.field(default_factory=list)
+    kept: List[Tuple[str, str]] = dataclasses.field(default_factory=list)
+    used: Set[str] = dataclasses.field(default_factory=set)
+    reason: str = ""
+
+
+def retired_root_plan(
+    template: Template, retired_roots: Sequence[str], patterns: Optional[List[str]]
+) -> RetiredRoots:
+    """The retired-root slice of the plan, computed once, folded in by the caller.
+
+    A retired root is one the template stopped checking out, so its current
+    inventory says nothing: everything the project holds there is project-only
+    by the live rule, and that would retire a project's own skill. History is
+    the only proof that applies. The plugin declaration is what keeps a project
+    that still runs those copies from losing them — carried as the reason in
+    the report rather than raised, because `/sync` Step 3 previews this plan
+    before Step 5 has written the declaration, and a refusal there would drop
+    the live-root list from the summary the user approves.
+    """
+    if not retired_roots:
+        return RetiredRoots()
+    history, reason = template_history_paths(*template, retired_roots)
+    if history is None:
+        return RetiredRoots(reason=reason)
+    proven = retired_root_candidates(template.repo, retired_roots, history)
+    reason = missing_plugin_declaration(proven, template.repo)
+    if reason:
+        return RetiredRoots(reason=reason)
+    if patterns is None:
+        return RetiredRoots(retire=proven)
+    retire, kept, _ = split_by_allowlist(proven, patterns)
+    return RetiredRoots(retire=retire, kept=kept, used={pattern for _, pattern in kept})
+
+
+def retired_root_candidates(
+    repo: str, retired_roots: Sequence[str], history: Dict[str, Set[str]]
+) -> List[str]:
+    """Tracked, on-disk project files under a retired root whose bytes match a
+    blob template history once carried at that path.
+
+    A retired root's current template inventory says nothing — the template
+    stopped shipping it — so the live rule ("project-only") would call every
+    file there the project's own and retire none, or call none the project's
+    own and retire a `verify-<app>` skill mirrored there. History is the proof
+    that applies, and it is content, not a path name, for the reason
+    `_project_blobs` gives.
+    """
+    present = project_paths(repo, retired_roots)
+    blobs = _project_blobs(repo, present)
+    return [path for path in present if blobs.get(path) in history.get(path, set())]
+
+
+def missing_plugin_declaration(retire: Sequence[str], repo: str) -> str:
+    """Why the retired-root copies stay, or "" when the project enables the plugin.
+
+    `retire` is the retired-root retirement set. Those copies are what a
+    project runs until it enables the plugin that replaces them; deleting them
+    first would leave it with no skills at all. `/sync` Step 5 writes the
+    declaration into the project's own `.claude/settings.json`, which is
+    therefore the file this reads. Nothing to retire needs no declaration, so
+    a project without copies is never asked for one.
+    """
+    if not retire or _enabled_plugins(repo).get(PLUGIN_ID) is True:
+        return ""
+    return (
+        f"{SETTINGS_FILE} does not enable {PLUGIN_ID} under enabledPlugins, so "
+        f"{len(retire)} file(s) under a retired root stay — without the plugin they "
+        f"are the only skills this project has. /sync Step 5 writes the declaration "
+        f"when it checks out {SETTINGS_FILE}"
+    )
+
+
+def _enabled_plugins(repo: str) -> Dict[str, object]:
+    """The project's `enabledPlugins` map; empty when the file is absent.
+
+    Absent is a legitimate state — a project that never synced settings — and
+    reads as "nothing enabled". Present but unparseable, or parseable into a
+    shape Claude Code cannot read (a top-level list, a string under the key), is
+    not: read as {} it would hold back a retirement the operator believes they
+    enabled, with no hint why, so it is reported on the tool's own channel.
+    """
+    path = os.path.join(repo, SETTINGS_FILE)
+    if not os.path.lexists(path):
+        return {}
+    try:
+        settings = json.loads(_read_text(path))
+    except ValueError as exc:
+        raise RetireError(f"cannot parse {SETTINGS_FILE}: {exc}")
+    if not isinstance(settings, dict):
+        raise RetireError(f"{SETTINGS_FILE}: expected a JSON object, got {type(settings).__name__}")
+    enabled = settings.get("enabledPlugins", {})
+    if not isinstance(enabled, dict):
+        raise RetireError(
+            f"{SETTINGS_FILE}: enabledPlugins must be a JSON object, got {type(enabled).__name__}"
+        )
+    return enabled
+
+
+def _live_plan(template: Template, roots: Sequence[str], patterns: Optional[List[str]]) -> Plan:
+    """The retirement plan for the live roots — the ones `/sync` checks out."""
+    repo, ref, directory = template
+    source = ref or directory or ""
     template = (
         template_paths_from_dir(directory, roots)
         if directory
@@ -613,7 +778,6 @@ def compute_plan(repo: str, ref: Optional[str], directory: Optional[str]) -> Pla
     scanned, skipped = usable_roots(template, roots, source)
     known = set(template)
     project_only = [p for p in project_paths(repo, scanned) if p not in known]
-    patterns = read_keep_patterns(repo, roots)
     if patterns is None:
         # Bootstrap. A project with no recorded allowlist still knows one thing
         # for certain: a path the template *used to* carry was retired upstream,
@@ -691,6 +855,13 @@ def render(plan: Plan) -> str:
             f"  skipped: {root} — declared but empty in the template; "
             f"nothing under it is retired this run"
         )
+    for root in plan.retired_roots:
+        lines.append(
+            f"  retired root: {root} — scanned against template history only; "
+            f"never checked out, never counted"
+        )
+    if plan.retired_reason:
+        lines.append(f"  retired roots: nothing retired this run — {plan.retired_reason}")
     if plan.bootstrap:
         lines.append(f"  bootstrap: required (no {KEEP_FILE})")
         if plan.provenance_reason:
@@ -783,7 +954,7 @@ def apply_plan(
         removed.append(relative)
     for relative in removed:
         try:
-            _prune_upwards(repo, os.path.dirname(relative), plan.roots)
+            _prune_upwards(repo, os.path.dirname(relative), [*plan.roots, *plan.retired_roots])
         except PruneError as exc:
             # The file is already gone; only the empty directory above it
             # survives. Propagating here would discard `removed` -- the record

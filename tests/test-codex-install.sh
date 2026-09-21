@@ -5,7 +5,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL="$REPO/scripts/install-codex.sh"
 RENDERER="$REPO/scripts/render-codex.py"
 
-assert_file_contains "$RENDERER" "coding-agent-workflow:begin" \
+assert_file_contains "$RENDERER" "{SLUG}:begin -->" \
   "renderer: managed global block marker exists"
 assert_file_contains "$INSTALL" "CODEX_HOME" \
   "installer: supports CODEX_HOME override"
@@ -31,11 +31,23 @@ printf 'personal skill\n' > "$HOME_DIR/.agents/skills/personal/SKILL.md"
 printf '# Personal Codex instructions\n' > "$CODEX_HOME/AGENTS.md"
 printf 'name = "personal-agent"\ndescription = "Keep me"\ndeveloper_instructions = "Do not remove me"\n' \
   > "$CODEX_HOME/agents/personal-agent.toml"
-cat > "$CODEX_HOME/hooks.json" <<'JSON'
+# The fixture carries the three hook registrations a machine installed before the
+# repository rename holds, under the old slug. The slug is assembled at runtime so
+# tests/test-repo-identity.sh's sweep does not read this file as a live reference.
+LEGACY_SLUG="coding-agent"; LEGACY_SLUG="$LEGACY_SLUG-workflow"
+cat > "$CODEX_HOME/hooks.json" <<JSON
 {
   "hooks": {
     "SessionStart": [
-      {"hooks": [{"type": "command", "command": "echo existing"}]}
+      {"hooks": [{"type": "command", "command": "echo existing"}]},
+      {"hooks": [{"type": "command", "command": "python3 $CODEX_HOME/hooks/$LEGACY_SLUG-session-start.py"}]},
+      {"hooks": [{"type": "command", "command": "bash $HOME_DIR/$LEGACY_SLUG-notes/hook.sh"}]}
+    ],
+    "PreCompact": [
+      {"hooks": [{"type": "command", "command": "bash $CODEX_HOME/hooks/$LEGACY_SLUG-pre-compact.sh"}]}
+    ],
+    "SessionEnd": [
+      {"hooks": [{"type": "command", "command": "bash $CODEX_HOME/hooks/$LEGACY_SLUG-session-end.sh"}]}
     ]
   },
   "userSetting": true
@@ -61,7 +73,7 @@ assert_eq "present" "$([ -f "$CODEX_HOME/agents/planner.toml" ] && echo present 
   "install: canonical agents become Codex TOML"
 assert_eq "present" "$([ -f "$CODEX_HOME/agents/personal-agent.toml" ] && echo present || echo missing)" \
   "install: unrelated personal agent is preserved"
-assert_eq "present" "$([ -f "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py" ] && echo present || echo missing)" \
+assert_eq "present" "$([ -f "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py" ] && echo present || echo missing)" \
   "install: SessionStart adapter is installed"
 assert_contains "$(cat "$BOX/install.log")" "Review installed hooks with /hooks" \
   "install: hook trust remains an explicit user action"
@@ -74,7 +86,7 @@ assert_eq "0" "$?" "scaffold from checkout: exits 0 without install.sh having ru
 assert_files_identical "$REPO/project-template/AGENTS.md" "$PROJECT/AGENTS.md" \
   "scaffold from checkout: neutral AGENTS.md seed lands in the project"
 
-if python3 - "$CODEX_HOME" "$REPO" <<'PY'
+if python3 - "$CODEX_HOME" "$REPO" "$LEGACY_SLUG" <<'PY'
 import json
 import sys
 import tomllib
@@ -92,10 +104,17 @@ for path in agents:
 hooks = json.loads((codex_home / "hooks.json").read_text())
 assert hooks["userSetting"] is True
 assert any("echo existing" in h.get("command", "") for g in hooks["hooks"]["SessionStart"] for h in g["hooks"])
+legacy_slug = sys.argv[3]
 for event in ("SessionStart", "PreCompact", "SessionEnd"):
     commands = [h["command"] for g in hooks["hooks"][event] for h in g["hooks"]]
-    adapter_commands = [command for command in commands if "coding-agent-workflow" in command]
+    adapter_commands = [command for command in commands if "jplugin-agentic-development" in command]
     assert len(adapter_commands) == 1, (event, commands)
+    # A re-run on a machine installed before the rename replaces the old-slug
+    # registration for the same event instead of leaving two adapters firing.
+    legacy_files = (f"{legacy_slug}-session-start.py", f"{legacy_slug}-pre-compact.sh", f"{legacy_slug}-session-end.sh")
+    assert not [command for command in commands if any(command.endswith(name) for name in legacy_files)], (event, commands)
+# A user hook whose path merely contains the old slug is not this adapter's and survives.
+assert any(f"{legacy_slug}-notes/hook.sh" in h.get("command", "") for g in hooks["hooks"]["SessionStart"] for h in g["hooks"])
 PY
 then
   :
@@ -113,7 +132,7 @@ assert_files_identical "$BOX/hooks.before" "$CODEX_HOME/hooks.json" \
   "install: hook registration is idempotent"
 
 HOOK_RESULT="$(printf '%s\n' '{"source":"startup"}' | HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" \
-  python3 "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py")"
+  python3 "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py")"
 # Run it a second time before asserting anything. The shell hook's
 # double-invocation guard is a Claude Code workaround that the adapter disables,
 # because it keys on $PPID — which is 1 for every bash spawned from a native
@@ -121,7 +140,7 @@ HOOK_RESULT="$(printf '%s\n' '{"source":"startup"}' | HOME="$HOME_DIR" CODEX_HOM
 # only the very first run in a 5-minute window carries a banner, so a
 # single-shot assertion passes on a clean machine and fails on a busy one.
 HOOK_RESULT_AGAIN="$(printf '%s\n' '{"source":"startup"}' | HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" \
-  python3 "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py")"
+  python3 "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py")"
 if python3 - "$HOOK_RESULT" <<'PY'
 import json
 import sys

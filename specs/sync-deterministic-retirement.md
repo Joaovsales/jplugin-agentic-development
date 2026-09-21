@@ -1,7 +1,6 @@
 ---
 implementation_paths:
   - .agents/skills/sync/**
-  - .claude/skills/sync/**
   - tests/test-sync-retirement.sh
 ---
 
@@ -94,6 +93,16 @@ and applies in full for both *all changes* and *pick files*. Retirement is defin
 by `sync-keep`, not by picking; a user who wants to keep a path adds it to
 `sync-keep`, which is the entire point of the mechanism. *Preview only* and
 *abort* apply nothing.
+
+### Retired roots
+
+A root marked `RETIRED` in the Syncable Paths block — `.claude/skills/` since the
+`jplugin` plugin replaced the copy — is scanned for candidates and never checked
+out. Its template-history files are retired only when the project's
+`.claude/settings.json` enables `jplugin@jplugin-agentic-development`; without
+that key the plan reports them as kept and deletes nothing. Contract and
+criteria: `specs/claude-plugin-manifest.md` § `sync-retire.py` — retired roots
+and the project guard.
 
 ## Inputs
 
@@ -326,8 +335,6 @@ global config.
   list, and adds the retirement pass to the procedure.
 - `.agents/skills/sync/scripts/sync-retire.py` — the mechanism. Stdlib-only
   Python 3; computes, reports, and applies the retirement set.
-- `.claude/skills/sync/**` — byte-identical Claude Code compatibility copy of the
-  above, pinned by `tests/test-skill-parity.sh`.
 - `tests/test-sync-retirement.sh` — the behavioral suite for every criterion
   above.
 

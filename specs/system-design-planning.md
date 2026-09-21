@@ -4,7 +4,6 @@ implementation_paths:
   - .agents/skills/system-design-planning/references/review-card.md
   - .agents/skills/system-design-planning/templates/architecture-spec-template.md
   - .agents/skills/system-design-planning/templates/content-model.json
-  - .claude/skills/system-design-planning/**
   - CLAUDE.md
   - README.md
   - .claude/hooks/session-start.sh
@@ -52,7 +51,7 @@ tracker except through `task-registry.py`.
 
 | Output | Path | Consumer |
 |--------|------|----------|
-| Architecture spec, living-contract format | `specs/<feature>.md` | `/build` pre-flight, `/wrap-up-session` reconciliation, `/verify` |
+| Architecture spec, living-contract format | `specs/<feature>.md` | `/build` pre-flight, `/wrap-up-session` reconciliation, `/verify-evidence` |
 | Rendered review document | `specs/<feature>.plan.html` | the human reviewer; the approval attaches to this file |
 | One task per build slice | tracker via `task-registry.py upsert --derive-id design --spec specs/<feature>.md --fold-title` | `/build` claims and reads criteria with `show` |
 | TDD plan block | appended to `tasks/todo.md`, one `### Slice n/total` heading per slice, `[ ] TDD:` rows beneath | `/build` Phase 1 |
@@ -119,7 +118,6 @@ tracker except through `task-registry.py`.
 - `.agents/skills/system-design-planning/references/review-card.md` — the 25-question dependency-ordered review card used in self-review and offered to the human reviewer
 - `.agents/skills/system-design-planning/templates/architecture-spec-template.md` — the spec skeleton in the fixed section order, living-contract frontmatter
 - `.agents/skills/system-design-planning/templates/content-model.json` — the `html-presentation` content model with the same sections for the rendered document
-- `.claude/skills/system-design-planning/**` — byte-identical Claude Code copy
 - `CLAUDE.md`, `README.md`, `.claude/hooks/session-start.sh` — skill registration
 - `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` — static pins for the contract above
 - `tests/test-visual-render.sh` — live render of `templates/content-model.json`, section ids in order

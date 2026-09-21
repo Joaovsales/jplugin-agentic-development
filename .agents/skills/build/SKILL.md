@@ -285,16 +285,16 @@ previous_failures: []
 |---------|-------------------|
 | `logic` | Unit test passes (covers the function in isolation) |
 | `integration` | Integration test passes (real API/DB/service interaction) |
-| `user-facing` | E2E walkthrough via `/verify --scope e2e` — entry in `tasks/e2e-log.md` for current commit short-sha |
+| `user-facing` | E2E walkthrough via `/verify-evidence --scope e2e` — entry in `tasks/e2e-log.md` for current commit short-sha |
 
 If ANY AC is classified `user-facing`:
 
-1. Invoke `/verify --scope e2e` before declaring Phase 4 complete.
+1. Invoke `/verify-evidence --scope e2e` before declaring Phase 4 complete.
 
 **For each round**:
 
 1. Re-read `specs/[feature-name].md`
-2. For every `user-facing` AC, invoke `/verify --scope e2e` (skip if already run this round with PASS entry for current commit)
+2. For every `user-facing` AC, invoke `/verify-evidence --scope e2e` (skip if already run this round with PASS entry for current commit)
 3. Walk through each AC:
    - Mark: `✅` (unit/integration test), `✅✅` (e2e walkthrough), `❌` (missing)
 4. **If all criteria are `✅` or `✅✅`**: proceed to Phase 5

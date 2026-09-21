@@ -18,12 +18,9 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 CANON=".agents/skills/wrap-up-session/references/routines.md"
-COPY=".claude/skills/wrap-up-session/references/routines.md"
 
 assert_eq "present" "$([ -f "$CANON" ] && echo present || echo missing)" \
   "Contract: $CANON exists"
-assert_files_identical "$CANON" "$COPY" \
-  "Contract: ships byte-identically to the .claude parity copy"
 
 # --- the four routines, three active and one deferred ------------------------
 for routine in plan fix improve build; do

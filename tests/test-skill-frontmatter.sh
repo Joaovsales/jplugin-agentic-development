@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/test-skill-frontmatter.sh — frontmatter validity across both skill trees.
+# tests/test-skill-frontmatter.sh — frontmatter validity across the skill tree.
 #
 # A skill whose frontmatter is malformed does not fail loudly: the harness either
 # skips it or registers it under the wrong name, and the only symptom is that
@@ -14,7 +14,7 @@
 #   5. `description:` is present — it is the model's only signal for auto-invocation
 #   6. `description:` stays within the 1024-char skill-spec cap
 #
-# Excludes .claude/worktrees/, which holds full copies of both trees.
+# Excludes .claude/worktrees/, which holds full copies of the tree.
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -45,7 +45,7 @@ scan_frontmatter() {
   ' "$1"
 }
 
-for tree in .agents/skills .claude/skills; do
+for tree in .agents/skills; do
   [ -d "$tree" ] || continue
   for dir in "$tree"/*/; do
     [ -d "$dir" ] || continue

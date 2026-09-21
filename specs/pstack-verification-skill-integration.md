@@ -14,7 +14,7 @@ skill over. The maintainer supports two modes:
 - Full mode retains pstack's complete source-and-live audit of every mapped
   feature and is invoked directly or by scheduled automation.
 
-`/verify --scope e2e` prefers one project-local `verify-<app>` skill when one
+`/verify-evidence --scope e2e` prefers one project-local `verify-<app>` skill when one
 exists, while preserving the current fail-closed acceptance-criterion
 classifier and generic browser fallback. Session Stop hooks do not run agentic
 maintenance; lifecycle integration remains in explicit skill chains.
@@ -67,7 +67,7 @@ parity contract remains true across Codex, Pi, and Claude Code.
 
 ### Resolution and fallback
 
-`/verify --scope e2e` resolves project-local verification skills before its
+`/verify-evidence --scope e2e` resolves project-local verification skills before its
 generic browser backend:
 
 1. Exactly one `verify-<app>` skill: read it and use its grounded launch, doctor,
@@ -86,7 +86,7 @@ Changed scope runs only when the caller has identified user-facing behavior in
 the current session. It reconciles affected and newly introduced behavior,
 updates the feature index, and leaves edits on the current branch for the normal
 review and commit flow. It does not open a separate PR or re-drive the entire
-map. The following `/verify --scope e2e` invocation supplies live evidence for
+map. The following `/verify-evidence --scope e2e` invocation supplies live evidence for
 the changed ACs.
 
 Full mode performs index hygiene, one independent read-only source inspection
@@ -239,7 +239,7 @@ its original sources.
 - [x] AC-6: `--scope changed` consumes current session intent and diff, updates
   only affected/missing feature-map entries on the active branch, is idempotent,
   does not open a separate PR, and skips internal-only changes.
-- [x] AC-7: `/verify --scope e2e` uses exactly one project-local verification
+- [x] AC-7: `/verify-evidence --scope e2e` uses exactly one project-local verification
   skill when available, stops on ambiguity, falls back unchanged when absent,
   and never allows a local driver to bypass the existing fail-closed
   VISUAL/DOM-functional capability gate.
@@ -279,7 +279,7 @@ its original sources.
   copy.
 - `.claude/skills/maintain-verification-skill/SKILL.md` — byte-identical
   compatibility copy.
-- `.agents/skills/verify/SKILL.md` and `.claude/skills/verify/SKILL.md` — local
+- `.agents/skills/verify-evidence/SKILL.md` and `.claude/skills/verify-evidence/SKILL.md` — local
   skill resolution, fallback, and capability-gate integration.
 - `.agents/skills/build/SKILL.md` and `.claude/skills/build/SKILL.md` — pre-E2E
   changed-map reconciliation.

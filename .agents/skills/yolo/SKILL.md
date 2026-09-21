@@ -163,7 +163,7 @@ Invoke `/wrap-up-session` with one override:
 
 | `/wrap-up-session` step | Yolo override |
 |---|---|
-| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify --scope e2e` automatically. If verify fails: log gap and continue. |
+| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. If verify fails: log gap and continue. |
 | Step 7 — Commit gate (any MUST-FIX unresolved → STOP) | If a MUST-FIX cannot be auto-fixed within the wrap-up loop, mark this iteration FAIL and **do not push**. The circuit breaker handles repeated failures. |
 | Step 5.1 — Apply Gate | Run normally, **no prompt added**. A `MUST-FIX` that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately inside the wrap-up loop if you can, otherwise it is an unresolved MUST-FIX and this iteration is FAIL. Never widen `autofix_class`, and never downgrade a finding, to get the loop moving. |
 | Step 7 — Push | Run normally. Push to the feature branch. |
@@ -269,7 +269,7 @@ Next: <suggested follow-up — re-run /yolo, or /wrap-up-session if HALT, or non
 ## Integration
 
 - **Called by**: User directly. Not invoked by other skills.
-- **Calls**: `/plan` (with Phase A overrides), `/build`, `/wrap-up-session` (with Phase C overrides), `/verify --scope e2e`.
+- **Calls**: `/plan` (with Phase A overrides), `/build`, `/wrap-up-session` (with Phase C overrides), `/verify-evidence --scope e2e`.
 - **Pairs with**: `/auto-push` — the supervised cousin. Same pipeline, but `/plan` keeps its user-confirmation gate.
 - **Persists state via**: `tasks/yolo-idea.md`, `tasks/yolo-log.md`, `tasks/backlog.md`, `tasks/todo.md`, git history.
 

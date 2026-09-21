@@ -9,7 +9,7 @@
 # producers: read the backlog, run an engine, file verified findings through the
 # registry, commit a session record, hand off to /wrap-up-session.
 #
-# These are static assertions over both skill trees. AC2 (the Python surface)
+# These are static assertions over the skill tree. AC2 (the Python surface)
 # lives in test-routine-branch.sh / test-routine-selectors.sh; AC4 (the handoff
 # schema) lives in test-sweep-handoff.sh.
 . "$(dirname "$0")/lib.sh"
@@ -17,7 +17,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-TREES=".agents .claude"
+TREES=".agents"
 WRAP=".agents/skills/wrap-up-session"
 CONTRACT="$WRAP/references/routines.md"
 PROMPTS="$WRAP/references/routine-prompts"
@@ -58,11 +58,11 @@ assert_prose_contains "$CONTRACT" "run stamp" \
   "AC1: the producer branch number is described as a run stamp, not an issue"
 
 # ============================================================================
-# AC3 — /sweep and its two lens files, byte-identical in both trees
+# AC3 — /sweep and its two lens files exist
 # ============================================================================
 for f in SKILL.md references/lens-janitor.md references/lens-architect.md; do
-  assert_files_identical ".agents/skills/sweep/$f" ".claude/skills/sweep/$f" \
-    "AC3: sweep/$f ships byte-identically to the .claude parity copy"
+  assert_eq "present" "$([ -f ".agents/skills/sweep/$f" ] && echo present || echo missing)" \
+    "AC3: sweep/$f exists"
 done
 
 SWEEP=".agents/skills/sweep/SKILL.md"
@@ -206,8 +206,6 @@ for name in janitor architect tidy fix improve plan; do
     "AC8: $name.md says sub-agent dispatch is not required"
   assert_file_not_matches "$p" 'jplugin|agentic-development|github\.com/' \
     "AC8: $name.md carries no repository name"
-  assert_files_identical "$p" ".claude/skills/wrap-up-session/references/routine-prompts/$name.md" \
-    "AC8: $name.md ships byte-identically to the .claude parity copy"
 done
 readme="$PROMPTS/README.md"
 assert_prose_contains "$readme" "Planner" "AC8: the README states the producer tier"
@@ -274,7 +272,5 @@ assert_contains "$unattended" "TASK_REGISTRY_TRUSTED_CONFIG=1" \
 assert_contains "$unattended" "gh" "AC10: the section names gh"
 assert_contains "$unattended" "allow_label_creation" \
   "AC10: the section names allow_label_creation"
-assert_files_identical "$CONF" ".claude/skills/task-registry/references/configuration.md" \
-  "AC10: configuration.md ships byte-identically to the .claude parity copy"
 
 finish

@@ -17,30 +17,30 @@ flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
 # Every swept root must exist — the `|| true` below absorbs grep's no-match
 # exit, but it would also absorb a missing-path error, letting a renamed root
 # silently shrink the sweep's coverage.
-for root in .agents .claude/skills .claude/agents .claude/hooks \
+for root in .agents .claude/agents .claude/hooks \
             CLAUDE.md AGENTS.md .claude/project.md README.md install.sh project-template; do
   assert_eq "present" "$([ -e "$root" ] && echo present || echo missing)" \
     "M3: sweep root $root exists (sweep coverage intact)"
 done
 for old in "tasks/memory.md" "tasks/lessons.md" "tasks/bugs.md"; do
-  offenders="$(grep -rlF "$old" .agents .claude/skills .claude/agents .claude/hooks \
+  offenders="$(grep -rlF "$old" .agents .claude/agents .claude/hooks \
       CLAUDE.md AGENTS.md .claude/project.md README.md install.sh project-template 2>/dev/null \
     | grep -v '\.claude/worktrees/' || true)"
   assert_eq "" "$offenders" "M3: no live reference to $old (offenders: ${offenders:-none})"
 done
-for f in .claude/skills/checkpoint/SKILL.md .agents/skills/checkpoint/SKILL.md \
-         .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md; do
+for f in .agents/skills/checkpoint/SKILL.md \
+         .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "tasks/solutions" "M3: $f references the typed store"
 done
 
 # --- Task 5 (P2): both build copies checkpoint at task boundaries ---
-for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md; do
+for f in .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "Task-boundary checkpoint" "Task5: $f checkpoints at task boundary"
   assert_file_contains "$f" "pre-compact.sh" "Task5: $f reuses the shared PreCompact flush"
 done
 
 # --- Task 7 (P3): circuit breaker auto-invokes /refresh before escalating ---
-for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md; do
+for f in .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "Backstop first" "Task7: $f circuit breaker runs /refresh backstop"
 done
 
@@ -51,12 +51,12 @@ assert_file_contains ".claude/hooks/session-start.sh" "/refresh" "Task6: session
 # --- Task 9 (P5): Large-Artifact Handoff convention + references ---
 assert_file_contains ".claude/project.md" "Large-Artifact Handoff" "Task9: project.md defines the convention"
 assert_file_contains ".claude/project.md" "truncate with a" "Task9: project.md states truncate-with-pointer"
-for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md .claude/skills/verify-deployment/SKILL.md; do
+for f in .agents/skills/build/SKILL.md .agents/skills/verify-deployment/SKILL.md; do
   assert_file_contains "$f" "Large-Artifact Handoff" "Task9: $f references the convention"
 done
 
 # --- visual-recap: documentation contract present in both tree copies ---
-for f in .claude/skills/visual-recap/SKILL.md .agents/skills/visual-recap/SKILL.md; do
+for f in .agents/skills/visual-recap/SKILL.md; do
   for token in "name: visual-recap" "argument-hint:" "Skip when trivial" \
                "true by construction" "git diff" "--name-status" "--stat" \
                "data-model" "api-endpoint" "file-tree" "keychange-" \
@@ -73,7 +73,7 @@ done
 # test-visual-render.sh invokes the script by an explicit absolute path -- a green
 # suite over a broken skill. The pin is updated to the canonical-tree path that
 # actually resolves; it is not relaxed.
-for f in .claude/skills/visual-plan/SKILL.md .agents/skills/visual-plan/SKILL.md; do
+for f in .agents/skills/visual-plan/SKILL.md; do
   for token in "name: visual-plan" "argument-hint:" "Skip when trivial" \
                "read-only" "specs/" ".plan.html" \
                ".agents/skills/visual-recap/scripts/visual-render.py" "file map" \
@@ -88,7 +88,7 @@ done
 # pins are the handoffs that make it interchangeable with /plan downstream: the
 # fixed section order of the spec it writes, the registry-only intake and filing,
 # the shared renderer, the approval gate wording, and the plan block /build reads.
-for f in .claude/skills/system-design-planning/SKILL.md .agents/skills/system-design-planning/SKILL.md; do
+for f in .agents/skills/system-design-planning/SKILL.md; do
   for token in "name: system-design-planning" "argument-hint:" \
                "disable-model-invocation: false" \
                "Skipping system-design-planning:" \
@@ -155,7 +155,7 @@ assert_eq "C1 C2 C3 C4 C5 S1 S2 S3 S4 S5 K1 K2 K3 K4 K5 D1 D2 D3 D4 D5 B1 B2 B3 
   "system-design-planning: review card carries the 25 questions in dependency order"
 # The plan block nests TDD rows under a registry row; /build must know not to
 # build that row, or the first design plan dispatches a coder against a title.
-for tree in .claude .agents; do
+for tree in .agents; do
   assert_file_contains "$tree/skills/build/SKILL.md" "slice header" \
     "system-design-planning: $tree/build names the slice header row it must not build"
 done
@@ -176,13 +176,13 @@ assert_file_contains ".claude/hooks/session-start.sh" "/system-design-planning" 
 # worktree removed without forge evidence -- plus the filing block the consumer
 # routines' selectors depend on. Pinned by the smallest falsifiable unit: a
 # frontmatter key, a table row, a flag, a section heading order.
-for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
+for f in .agents/skills/tidy/SKILL.md; do
   for token in "name: tidy" 'argument-hint: "[--report] [--check <name>[,<name>]]"' \
                "disable-model-invocation: false" "harness: universal" \
                "neither a producer nor a consumer" \
                "Tier 0" "Tier 1" "Tier 2" \
-               "git log --diff-filter=D" \
-               "bash install.sh" "--prune-skills" \
+               "git log --no-renames --diff-filter=D" \
+               "bash install.sh" "installed_plugins.json" \
                "never executed by the skill" "Never delete unmerged work" "forge evidence" \
                "squash-merge" "git branch --merged" \
                "task-registry.py upsert" "--derive-id tidy --source" "--fold-title" \
@@ -297,7 +297,7 @@ while IFS= read -r f; do
   hits="$(grep -n '![`]' "$f" 2>/dev/null | grep -cv '!\[' || true)"
   assert_eq "0" "${hits:-0}" "BannedConstruct: $f has no load-time !\`cmd\` pre-resolution"
 done <<INNER_EOF
-$(find .agents/skills .claude/skills -name '*.md' -not -path '*/.claude/worktrees/*' | sort)
+$(find .agents/skills -name '*.md' -not -path '*/.claude/worktrees/*' | sort)
 INNER_EOF
 
 # --- Tier 2 (M1): independence accounting -----------------------------------
@@ -330,9 +330,8 @@ assert_contains "$taxonomy" "Finding Model" \
 # dropped enum value is exactly what would let an unsure finding auto-apply, and
 # it is invisible in a whole-block snapshot.
 for f in CLAUDE.md \
-         .claude/skills/quality-gate/SKILL.md .agents/skills/quality-gate/SKILL.md \
-         .claude/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/SKILL.md \
-         .claude/skills/software-design-expert-review/SKILL.md \
+         .agents/skills/quality-gate/SKILL.md \
+         .agents/skills/wrap-up-session/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do
   flat="$(flatten "$f")"
   for axis in severity confidence autofix_class owner; do
@@ -359,8 +358,8 @@ done
 
 # Both review skills must disclose whether their passes were dispatched or ran
 # inline, and must not promote on same-context agreement.
-for f in .claude/skills/quality-gate/SKILL.md .agents/skills/quality-gate/SKILL.md \
-         .claude/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/SKILL.md; do
+for f in .agents/skills/quality-gate/SKILL.md \
+         .agents/skills/wrap-up-session/SKILL.md; do
   assert_file_contains "$f" "Dispatch Disclosure" \
     "M1: $f carries a Dispatch Disclosure requirement"
   assert_file_contains "$f" "Review independence:" \
@@ -372,8 +371,7 @@ done
 # same file:line corroborate; two lenses inside one batch do not. It must also stop
 # telling the agent to emit the old single-axis format -- that instruction would
 # override the persona and degrade every finding to anchor 50.
-for f in .claude/skills/software-design-expert-review/SKILL.md \
-         .agents/skills/software-design-expert-review/SKILL.md; do
+for f in .agents/skills/software-design-expert-review/SKILL.md; do
   assert_file_contains "$f" "Review independence:" \
     "M1: $f emits the independence line in its output block"
   assert_contains "$(flatten "$f")" "separately dispatched" \
@@ -391,8 +389,8 @@ done
 # The apply gate narrows what may be auto-applied, so a MUST-FIX can now be
 # unappliable. In an unattended loop that must reach the existing FAIL/STOP
 # path, never a user prompt.
-for f in .claude/skills/yolo/SKILL.md .agents/skills/yolo/SKILL.md \
-         .claude/skills/auto-push/SKILL.md .agents/skills/auto-push/SKILL.md; do
+for f in .agents/skills/yolo/SKILL.md \
+         .agents/skills/auto-push/SKILL.md; do
   assert_file_contains "$f" "gated_auto" \
     "M2: $f states how a non-gated_auto MUST-FIX is routed"
 done
@@ -403,7 +401,7 @@ done
 # that fixed it already landed -- observed on PR #55. Two things are pinned: that
 # the step exists, and that Step 7 no longer says "create if none exists" without
 # handling the update case, which is the wording the gap lived in.
-for f in .claude/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/SKILL.md; do
+for f in .agents/skills/wrap-up-session/SKILL.md; do
   # The sync step lives inside the one canonical PR section that
   # specs/category-routines.md AC7 converged Step 7 and Step 7.5 onto.
   assert_file_contains "$f" "Creating and re-syncing" \
@@ -448,7 +446,7 @@ for term in tier gate register drift ceiling store; do
 done
 # /learn accretes the glossary as a side effect (no separate prompt); a file it
 # bootstraps from scratch must still carry the pending marker so the sweep fires.
-for f in .claude/skills/learn/SKILL.md .agents/skills/learn/SKILL.md; do
+for f in .agents/skills/learn/SKILL.md; do
   assert_file_contains "$f" "tasks/concepts.md" \
     "M4: $f captures concepts to the glossary"
   assert_file_contains "$f" "Sweep: pending" \
@@ -457,7 +455,7 @@ done
 # /memory-maintain owns both glossary lifecycles: the one-time bootstrap sweep
 # (keyed on the pending marker, fires from the LIGHT pass so a fresh install
 # does not wait 5 sessions) and steady-state pruning in the heavy pass.
-for f in .claude/skills/memory-maintain/SKILL.md .agents/skills/memory-maintain/SKILL.md; do
+for f in .agents/skills/memory-maintain/SKILL.md; do
   assert_file_contains "$f" "tasks/concepts.md" \
     "M4: $f maintains the glossary"
   assert_file_contains "$f" "standard industry meaning" \
@@ -487,8 +485,8 @@ assert_file_contains "project-template/CLAUDE.md" "concepts.md" \
 # `lightpanda fetch` executes the scripts. It is optional everywhere: the machines
 # running this workflow differ (no Windows build exists), so each mention must say
 # absence is not an error, or a skill turns a missing optional tool into a blocker.
-for f in .agents/skills/prd/SKILL.md .claude/skills/prd/SKILL.md \
-         .agents/skills/brainstorm/SKILL.md .claude/skills/brainstorm/SKILL.md; do
+for f in .agents/skills/prd/SKILL.md \
+         .agents/skills/brainstorm/SKILL.md; do
   assert_file_contains "$f" "lightpanda fetch" \
     "lightpanda: $f offers the JS-capable fetch fallback"
   assert_prose_contains "$f" "not an error" \
@@ -500,17 +498,16 @@ done
 # rendering path, so routing manual QA to it would hand the user a browser that
 # cannot show them anything. This is not a preference — it is the one place the
 # tier is categorically wrong, so it is pinned rather than left to judgement.
-for f in .agents/skills/start-qa/SKILL.md .claude/skills/start-qa/SKILL.md; do
+for f in .agents/skills/start-qa/SKILL.md; do
   assert_file_not_matches "$f" "lightpanda"     "lightpanda: $f does NOT route manual QA to the DOM tier"
 done
-assert_files_identical .agents/skills/start-qa/SKILL.md .claude/skills/start-qa/SKILL.md   "lightpanda: start-qa stays byte-identical across both trees"
 
 # --- agent-reach was evaluated and declined ----------------------------------
 # Recorded as a guard so a later session does not quietly add the dependency the
 # spec argued its way out of. specs/ is exempt: that is where the decision and
 # its reversal path are written down. tests/ is exempt for the obvious reason
 # that this assertion names the token itself.
-reach_hits="$(grep -rl "agent-reach"   .agents .claude/skills .claude/agents .claude/hooks .claude/browsers   CLAUDE.md install.sh project-template 2>/dev/null | grep -vF '.claude/worktrees' || true)"
+reach_hits="$(grep -rl "agent-reach"   .agents .claude/agents .claude/hooks .claude/browsers   CLAUDE.md install.sh project-template 2>/dev/null | grep -vF '.claude/worktrees' || true)"
 assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhere outside specs/"
 
 # --- task-registry: the tracker abstraction ----------------------------------
@@ -559,7 +556,7 @@ assert_contains "$wrap_up_gate_spec" "hook never invokes \`/task-registry\`" \
 assert_file_contains ".claude/hooks/session-start.sh" "/task-registry" \
   "task-registry: the session-start banner lists the skill"
 
-for tree in .agents .claude; do
+for tree in .agents; do
   f="$tree/skills/task-registry/SKILL.md"
   assert_file_contains "$f" "Dry-run is the default" \
     "task-registry: $f states the dry-run default"
@@ -606,8 +603,8 @@ for tree in .agents .claude; do
 done
 
 # The five workflow skills reach tracking only through the registry.
-for tree in .agents .claude; do
-  for skill in plan build verify quality-gate wrap-up-session; do
+for tree in .agents; do
+  for skill in plan build verify-evidence quality-gate wrap-up-session; do
     assert_file_contains "$tree/skills/$skill/SKILL.md" "/task-registry" \
       "task-registry: $tree/$skill routes task state through the registry"
   done
@@ -622,7 +619,7 @@ assert_eq "absent" \
 # abstraction exists to remove, so they may appear only inside the registry.
 # `/rest/api/` stays in the pattern after the Jira adapter's removal: it guards
 # the next HTTP tracker somebody is tempted to call from a skill directly.
-coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills .claude/skills 2>/dev/null \
+coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills 2>/dev/null \
   | grep -v '/task-registry/' | grep -vF '.claude/worktrees' || true)"
 assert_eq "" "$coupling_hits" \
   "task-registry: no skill outside the registry calls a tracker's task API (offenders: ${coupling_hits:-none})"
@@ -673,7 +670,7 @@ assert_file_not_matches ".claude/hooks/session-start.sh" "/route" \
 
 # The routines that replaced it must be reachable from the skill that implements
 # the branch convention, in both trees.
-for tree in .agents .claude; do
+for tree in .agents; do
   assert_eq "present" \
     "$([ -f "$tree/skills/wrap-up-session/references/routines.md" ] && echo present || echo missing)" \
     "AC1: $tree ships the routine contract that replaced the router"
@@ -688,7 +685,7 @@ done
 #
 # Your own merged work is the highest-priority prior art AND the one category an
 # outward search structurally cannot find. It goes first.
-for tree in .agents .claude; do
+for tree in .agents; do
   P="$tree/skills/plan/SKILL.md"
   assert_prose_contains "$P" 'Check this repository first' \
     "PlanReuse($tree): pre-flight opens with the inward check"
@@ -700,5 +697,68 @@ for tree in .agents .claude; do
     "PlanReuse($tree): inward-before-outward ordering is stated"
 done
 
+# --- sync: the plugin declaration and the retired root -----------------------
+# specs/claude-plugin-manifest.md § /sync. Step 5 merges the two plugin keys
+# into the project's settings.json instead of overwriting it and writes no
+# `ref` (a sha does not clone; plugin.json version pins — Spike S4); Step 6.4
+# keeps the .claude/skills/ copies of a project that has not enabled the plugin
+# out of the plan. Pinned by the smallest falsifiable unit: the marker, the two
+# keys, the no-ref sentence, the guard's own wording.
+for f in .agents/skills/sync/SKILL.md; do
+  for token in "RETIRED —" "extraKnownMarketplaces" "enabledPlugins" "writes no \`ref\`" \
+               "jplugin@jplugin-agentic-development" "rather than overwriting" \
+               "does not enable" "\`version\` pins" "never in \`<selected-files>\`"; do
+    assert_file_contains "$f" "$token" "sync: $f contains '$token'"
+  done
+  assert_file_matches "$f" '^\.claude/skills/ +→ RETIRED — ' \
+    "sync: $f marks .claude/skills/ RETIRED in the doc block's right-hand column"
+done
+# session-start.sh: one line when the project enables the plugin and the
+# machine has no record of installing it. A settings-driven install is recorded
+# only by the versioned cache directory (Spike S4), install.sh's user-scope
+# install by installed_plugins.json; the hook has to accept either.
+for token in "enabledPlugins" "installed_plugins.json" "cache/jplugin-agentic-development/jplugin" "PLUGIN NOT INSTALLED"; do
+  assert_file_contains .claude/hooks/session-start.sh "$token" \
+    "session-start: names '$token' for the enabled-but-uninstalled line"
+done
+
+# --- the legacy shims are gone (specs/claude-plugin-manifest.md, slice 7) ------
+# /sync Steps 2.5 and 2.6 migrated `.claude/commands/` and a CLAUDE.md
+# `## Deployment Targets` section for projects synced years ago; the
+# session-start hook, /verify-evidence, /verify-deployment and /setup-deployment all
+# read CLAUDE.md as a fallback for the same section; the auto test-runner hook
+# and tests.md were placeholders nothing wired. Each is deleted with every
+# reference, so nothing can route a user to a step that no longer exists.
+# The literals are assembled at runtime so this block is not itself a hit.
+shim_hits() { git grep -l -e "$1" -- . ':!tasks' ':!specs' 2>/dev/null | paste -sd' ' - || true; }
+for needle in "commands.""legacy" "Step 2.""5" "Step 2.""6" "auto-test-""runner" "auto test ""runner" "TARGETS_IN_""CLAUDE"; do
+  hits="$(shim_hits "$needle")"
+  assert_eq "" "$hits" \
+    "Shims: no tracked file outside tasks/ and specs/ names '$needle' (hits: ${hits:-none})"
+done
+for gone in tests.md .claude/hooks/auto-test-"runner.sh" .claude/hooks/auto-test-"runner.ps1"; do
+  assert_eq "absent" "$([ -e "$gone" ] && echo present || echo absent)" \
+    "Shims: $gone is deleted"
+done
+assert_file_not_matches README.md 'tests\.md' \
+  "Shims: the README directory tree no longer lists tests.md"
+for f in .agents/skills/verify-deployment/SKILL.md \
+         .agents/skills/verify-evidence/SKILL.md \
+         .agents/skills/setup-deployment/SKILL.md \
+         .claude/deployments/README.md .claude/hooks/session-start.sh; do
+  assert_file_not_matches "$f" \
+    '[Ll]egacy (fallback|location|section|projects|Deployment Targets|`CLAUDE\.md`)|auto-migrat|Deprecation' \
+    "Shims: $f no longer reads or migrates a CLAUDE.md Deployment Targets section"
+done
+for f in .claude/deployments/README.md .claude/deployments/github-actions.md \
+         .claude/deployments/railway.md .claude/deployments/vercel.md \
+         .agents/skills/verify-deployment/SKILL.md .agents/skills/setup-deployment/SKILL.md; do
+  assert_file_not_matches "$f" 'CLAUDE\.md` § Deployment Targets|CLAUDE\.md § Deployment Targets' \
+    "Shims: $f points at .claude/project.md, not CLAUDE.md, for the Deployment Targets table"
+done
+assert_file_contains .claude/hooks/session-start.sh 'grep -qE "$TARGETS_REGEX" .claude/project.md' \
+  "Shims: session-start reads .claude/project.md for the section (non-vacuity)"
+assert_file_contains .agents/skills/sync/SKILL.md "### Step 2 — Detect Remote Default Branch" \
+  "Shims: /sync Step 2 survives the deletion of its two legacy sub-steps (non-vacuity)"
 
 finish
