@@ -686,3 +686,10 @@ back vacuous and was repaired.
 - Learnings captured: `tasks/solutions/tooling/settings-declared-plugin-installs-at-trust-and-leaves-only-the-cache.md`,
   `tasks/solutions/process/the-trust-dialog-is-the-install-moment-so-a-contaminated-first-trust-is-a-false-negative.md`,
   `tasks/solutions/tooling/a-marketplace-ref-must-be-a-branch-or-tag-so-the-plugin-version-is-the-pin.md`.
+
+## 2026-09-21 — #136 Windows suite duration (/debug)
+- Baseline on clean HEAD 0de3f8a in a `/tmp` clone (a clone in the Claude scratch workspace is a virtualized AppData path the Store python3 cannot read): serial 3051 s, sync-retirement alone 1275 s, the known 9 environment-only failing files.
+- Root cause by timestamped xtrace: process-bound, not Python-bound — mkdir 25 %, git 26 %, python3 20 % (launcher delta 5 %), dirname + subshell 19 % of the slowest file; per-section times uniform, no pathological section.
+- Fix: tests/run.sh per-file timing, closed stdin, `--jobs N`/`TEST_JOBS`; tests/lib.sh `TEST_PYTHON` resolution and `now_ms`; sync-retirement helpers builtin-first (1275 s -> 695 s, identical results); upstream-drift bound relative to the no-op helper run plus pid liveness; codex adapter resolves bash via `shutil.which` (a bare `bash` reached WSL under a plain CPython).
+- Verification: `--jobs 4` 1404 s, `--jobs 8` 936 s, 8 files failing with the baseline's assertion names; acceptance target (<10 min) not met on this machine — carried forward.
+- Documents: tasks/solutions/performance/windows-suite-takes-20-to-38-minutes-because-every-process-spawn-costs-over-a-second.md, tasks/solutions/patterns/a-bash-suite-on-windows-is-process-bound-so-attribute-time-by-spawn-before-optimizing.md, process doc updated.

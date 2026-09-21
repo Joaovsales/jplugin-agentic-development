@@ -75,15 +75,34 @@ never written — the 0.1 s deadline expired before Git spawned it. The old
 | `TEST_PYTHON` resolved once; 64 call sites use it | tests/lib.sh, tests/test-*.sh | 0.4 s per call when a real CPython is installed |
 | fixture helpers: `${1%/*}`, `[ -d ] \|\| mkdir`, one mkdir per builder, identity via .git/config, `$(<out)` capture, one sha256sum pass | tests/test-sync-retirement.sh | 1275 s -> 695 s; 47/365 failing and 318 passing names identical |
 | deadline bound relative to the no-op helper run + pid liveness + printed `note` | tests/test-upstream-drift.sh | 1/64 -> 0/64 on Windows; on Linux the pid check is the real pin |
+| `shutil.which("bash")` instead of a bare `bash` | codex/hooks/session_start.py | codex-install 24/24 under a plain CPython, where a bare `bash` reached WSL |
 
 ### Suite timings (idle Windows 11, 12 cores, Git Bash 5.2)
 
 | Run | Wall |
 |---|---|
 | baseline, serial, clean HEAD 0de3f8a | 3051 s |
-| after, `--jobs 4` | @SUITE_WALL@ s |
+| after, `--jobs 4` | 1404 s |
+| after, `--jobs 8` | 936 s |
+| after, serial (estimate from per-file times) | ~2470 s |
 
-Failing-file set after: @SUITE_FAILSET@.
+Failing-file set after: the eight known environment-only files (install-sh
+1/133, routine-selectors 60/189, routine-skills 2/63, skill-invocation-chain
+2/42, sync-retirement 47/365, task-escalation 1/62, task-registry 44/398,
+verification-skill-integration 2/82) with identical assertion names; upstream-drift
+left the table (0/64). Under concurrency each file runs 1.5–3× slower than
+alone (sum of per-file seconds 3045 serial vs 5610 at eight jobs), so the
+machine's spawn throughput, not the critical path, is the ceiling: the
+acceptance target of ten minutes is **not** met here (15.6 min at eight
+jobs) and needs the same process-thinning applied to install-sh, solutions-schema,
+session-start, routine-selectors and task-registry.
+
+Two comparison traps met on the way: a LF-normalized clone made
+verification-skill-integration's two license-byte failures disappear (they are
+CRLF artefacts, back in a CRLF checkout), and the real CPython surfaced a
+latent Windows bug in `codex/hooks/session_start.py` — a bare `bash` in
+`subprocess.run` reaches WSL's bash via System32 before PATH; fixed with
+`shutil.which("bash")`.
 
 The issue's machine measured spawns 2–3× slower than this one (python3 2.15 s
 vs 0.85 s, `bash -c true` 1.34 s vs 0.38 s), so its wall time scales
