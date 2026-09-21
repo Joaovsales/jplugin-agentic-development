@@ -458,6 +458,8 @@ On Claude Code the skills are installed as the `jplugin` plugin, so a `/name` in
 |-------|---------|
 | `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration before `/plan` |
+| `/grilling` | Frontier-round interview primitive: design tree, `❓` / `➡️` rounds with a recommendation on every question, facts looked up, decisions asked; invoked by `/brainstorm` |
+| `/grill-me` | The same interview typed by the user, stateless: writes no files, needs no repository |
 | `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
 | `/plan` | Interview → spec → task breakdown in `tasks/todo.md` |
 | `/build` | Autonomous TDD orchestrator with sub-agent delegation |

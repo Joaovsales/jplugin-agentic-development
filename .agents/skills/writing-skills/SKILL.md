@@ -31,11 +31,24 @@ Every skill lives in `.agents/skills/<skill-name>/SKILL.md` — the one canonica
 name: skill-name                    # Kebab-case, matches directory name
 description: One-line purpose.      # When to invoke this skill
 argument-hint: "[what to pass]"     # Optional — shown in help
-disable-model-invocation: false     # REQUIRED — must be false or skill won't work via Skill tool
+disable-model-invocation: false     # false unless the skill is a user-only front door — see the note below
 ---
 ```
 
-> **CRITICAL**: Always include `disable-model-invocation: false` in frontmatter. If set to `true` (or omitted in some environments), the Skill tool cannot invoke the skill, causing "Error: Skill X cannot be used with Skill tool due to disable-model-invocation".
+> **`disable-model-invocation`.** `disable-model-invocation: false` is the default
+> and what the Skill tool requires for any skill another skill invokes; set to
+> `true` (or omitted in some environments) the Skill tool refuses it with
+> "Error: Skill X cannot be used with Skill tool due to disable-model-invocation".
+> `disable-model-invocation: true` is reserved for user-only front doors that
+> must never fire on their own. `/grill-me` is the example: it is typed, never
+> dispatched, and delegates to the model-invocable `/grilling`. Check the harness
+> in use before shipping one: a typed slash command may route through the Skill tool,
+> and then the flag blocks the user too. On Claude Code the routing is
+> The typed route with the flag in place is verified on Claude Code (2.1.277, print
+> mode); Pi and Codex are unverified, so a `harness: universal` front door carries
+> that caveat until someone types it there.
+> proven by typing the command in a session and reading the transcript's
+> `<command-name>`; the walkthrough is recorded in `tasks/e2e-log.md`.
 
 ### Markdown Body
 

@@ -1,6 +1,6 @@
 ---
 title: Task registry configuration mirror broke skill parity
-date: 2026-08-30
+date: 2026-09-21
 problem_type: bug
 module: .agents/skills/task-registry/references/configuration.md, .claude/skills/task-registry/references/configuration.md
 tags: [task-registry, skill-parity, canonical-mirror, rebase]
@@ -8,6 +8,10 @@ symptoms: The full suite failed after rebasing PR #78 because the task-registry 
 root_cause: The task-registry merge carried a repository-specific GitHub example only in the Claude compatibility copy while the canonical copy retained the generic example
 resolution: Restored the Claude reference to the canonical generic repository example and verified byte parity through the focused and full suites
 ---
+
+> **Correction 2026-09-21:** #156 retired the `.claude/skills/` compatibility copy and
+> `tests/test-skill-parity.sh`; `.agents/skills/` is now the only skill tree, shipped to
+> Claude Code as the `jplugin` plugin (`.claude-plugin/`). There is no compatibility copy of `task-registry/references/configuration.md` any more and the regression test named below no longer exists; the generalisable point (a rebase can silently re-diverge a mirrored file) is what remains.
 
 **Status**: fixed — 2026-08-30
 **Regression test**: `tests/test-skill-parity.sh`

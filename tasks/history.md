@@ -687,6 +687,38 @@ back vacuous and was repaired.
   `tasks/solutions/process/the-trust-dialog-is-the-install-moment-so-a-contaminated-first-trust-is-a-false-negative.md`,
   `tasks/solutions/tooling/a-marketplace-ref-must-be-a-branch-or-tag-so-the-plugin-version-is-the-pin.md`.
 
+### [2026-09-21] — grilling adoption: /grilling primitive, /grill-me front door, domain layer in /brainstorm
+- Key changes: adopted Matt Pocock's `grilling` interview primitive as `/grilling` (frontier
+  rounds in the `❓`/`➡️` format, facts via Scout tier, decisions to the user, confirmation
+  gate, opt-out line) and `grill-me` as the stateless user-only front door
+  (`disable-model-invocation: true`); `/brainstorm` Step 3 now invokes `/grilling` and carries
+  a domain-modeling layer (`references/domain-modeling.md`: glossary challenge, inline
+  `tasks/concepts.md` writes, three-gate architecture decisions); `mattpocock-skills` pinned in
+  `.github/upstreams.json` with `LICENSE.mattpocock` and a THIRD_PARTY_NOTICES section; rows in
+  CLAUDE.md, README and the session banner; `tests/test-grilling-adoption.sh` (85 assertions).
+- Built on a worktree rebased onto master after #156 landed mid-build (one canonical tree,
+  `jplugin` plugin, `/verify-evidence`).
+- E2E: `/jplugin:grill-me` routed with the flag in place, no writes; `/brainstorm` wrote the
+  sample term on run 2 after the write trigger was tightened (run 1 narrated without writing);
+  `/eval` Mode A: `grilling` 5/6 FIRED, one session ran Step 3 inline without loading it.
+- Quality gate HOLD (dispatched design review): six `manual`/`advisory` findings reported, none
+  applied — rounds-vs-opt-out rhythm rule stated in two files, callee format restated in the
+  caller, undeclared seed frontier, glossary rule stated three times, `/learn` overlap rule
+  bug-track shaped, `harness: universal` proven on Claude Code only.
+- Windows suite: 160/1400 failing across nine files, all reproduced with identical assertion
+  names at a clean base worktree (plus one second-granularity timing flake in upstream-drift).
+- Wrap-up: four dispatched review passes returned 26 findings (2 MUST-FIX, both manual: AC 4
+  claimed Step 6 unchanged while it gained the vocabulary constraint; the spec's "primitive does
+  not load" tell was disproved by the eval). Both fixed deliberately in the spec, the format
+  restatement recorded as a `TODO(shortcut)` and an OPEN decision; 7 gated_auto test-pin fixes
+  applied (98 assertions); 3 agent-owned SHOULD-FIX skipped with justification; 6 human-owned
+  findings carried to the PR. Store heavy pass ran (session 30).
+- Learnings captured: `tasks/solutions/patterns/a-skill-write-needs-a-concrete-trigger-and-a-visible-line.md`,
+  `tasks/solutions/patterns/a-caller-that-restates-its-callees-format-makes-the-callee-optional.md`,
+  `tasks/solutions/tooling/print-mode-skill-probes-on-windows-git-bash.md`; updated
+  `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`;
+  glossary: **front door**, **frontier**, **round** added.
+
 ## 2026-09-21 — #136 Windows suite duration (/debug) → PR #166
 - Baseline on clean HEAD 0de3f8a in a `/tmp` clone (a clone in the Claude scratch workspace is a virtualized AppData path the Store python3 cannot read): serial 3051 s, sync-retirement alone 1275 s, the known 9 environment-only failing files.
 - Root cause by timestamped xtrace: process-bound, not Python-bound — mkdir 25 %, git 26 %, python3 20 % (launcher delta 5 %), dirname + subshell 19 % of the slowest file; per-section times uniform, no pathological section.

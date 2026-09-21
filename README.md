@@ -286,6 +286,8 @@ Invoke with `/skill-name` in any Claude Code session:
 |-------|-------------|
 | `/prd` | Greenfield project interview → PRD + backlog + context file |
 | `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
+| `/grilling` | Frontier-round interview: the whole frontier per round, numbered, a recommended answer on every question; facts found by a Scout-tier sub-agent, decisions put to you. Invoked by `/brainstorm` |
+| `/grill-me` | Grill me about a plan or idea: the same interview, typed by you, with no files written and no repository needed |
 | `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
 | `/plan` | Interviews you, writes spec to `specs/`, creates TDD task plan in `tasks/todo.md` |
 | `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
@@ -421,3 +423,4 @@ Effect is cosmetic noise only. Nothing in this repo emits it, and no change here
 - [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code) — Memory system, hook lifecycle, continuous learning
 - [obra/superpowers](https://github.com/obra/superpowers) — Iron laws, verification patterns, brainstorming workflow, systematic debugging
 - [cursor/plugins — pstack](https://github.com/cursor/plugins/tree/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack) — Lauren Tan's MIT-licensed verification-skill creator, maintainer, feature-map pattern, and blinded eval playbook (adapted from revision `68836ddaf5697224520f1847d90cdb90ca8babaa`; see `THIRD_PARTY_NOTICES.md`)
+- [mattpocock/skills](https://github.com/mattpocock/skills/tree/c55ee46073ed923f86ce59a5eb3b6d895095d1b7) — Matt Pocock's MIT-licensed `grilling` interview primitive, `grill-me` front door and domain-modeling discipline (adapted from revision `c55ee46073ed923f86ce59a5eb3b6d895095d1b7`; see `THIRD_PARTY_NOTICES.md`)
