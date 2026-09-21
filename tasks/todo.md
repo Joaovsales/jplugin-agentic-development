@@ -1,3 +1,47 @@
+## Plan: plan-slices-and-handover
+> Spec: specs/plan-slices-and-handover.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/106
+> Note: written by hand in the grammar `/slice` will own (slice 2); ids minted by `upsert --derive-id plan --spec specs/plan-slices-and-handover.md --fold-title` dry runs
+
+### Slice 1/7 — slice script and shared glob matcher
+- [ ] slice script and shared glob matcher <!-- task-id: plan.specs-plan-slices-and-handover-md.slice-script-and-shared-glob-matcher --> — `slice.py validate`, `ready`, `check` over `registry.index.TaskIndex` and a shared `registry/globs.py`
+  [ ] TDD: tests/test-slice.sh § validate — fixture with an intersecting pair and no blocker exits 1 naming both slices; a cycle exits 1 naming the cycle; a surface path outside `implementation_paths` exits 1 naming the path; the clean fixture exits 0 -> `slice.py validate --spec` parsing § Build Order and the frontmatter (AC 1)
+  [ ] TDD: tests/test-slice.sh § ready — fixture index with three slices where 2 is blocked by 1: `ready` lists 1 and 3 with surfaces and the intersecting pair `1 ↔ 3`; after 1 is `[x]` it lists 2 and 3; a block with no `### Slice` headings yields one implicit slice whose surface equals `implementation_paths` -> `slice.py ready --index --spec` over `TaskIndex` (AC 2)
+  [ ] TDD: tests/test-slice.sh § check — fixture repo where the diff touches one declared and one undeclared path: prints `undeclared:` and `untouched:`, exit 1; clean diff exits 0 and prints nothing -> `slice.py check --spec --slice --base` over `git diff --name-only` (AC 3)
+  [ ] TDD: tests/test-slice.sh § globs — `registry/globs.py` rejects absolute, `..`, backslash and unsupported-glob patterns naming spec and value; tests/test-living-spec-reconciliation.sh stays green with `spec-reconcile.py` importing `_pattern_to_regex` and `match_path` from it -> extract the matcher, repoint `spec-reconcile.py` through `sys.path` (AC 3)
+
+### Slice 2/7 — slice skill
+- [ ] slice skill <!-- task-id: plan.specs-plan-slices-and-handover-md.slice-skill --> — `SKILL.md`, `references/plan-block.md`, `references/sizing.md`, the three inventory rows
+  [ ] TDD: tests/test-doc-conventions.sh § slice — `.agents/skills/slice/SKILL.md` has `name: slice`, `disable-model-invocation: false`, `harness: universal`, an `argument-hint`; both references exist; `CLAUDE.md` and `README.md` skills tables and `.claude/hooks/session-start.sh` list `/slice`; `sizing.md` states `files > 8`, `systems > 2`, `ACs > 3` and contains no `floor`, `S (`, `M (` or `L (` label -> write the skill, the two references and the three rows (AC 4)
+  [ ] TDD: tests/test-doc-conventions.sh § slice propose — SKILL.md names `slice.py validate`, `✓ Build Order written:`, `✓ Plan written:`, `Caller gates`, `--derive-id plan`, `--fold-title`, the leading-`/` rule, and the in-place replacement rule; the plan-block example in SKILL.md and `references/plan-block.md` compare equal after flattening -> document the propose phase against the reference (AC 5)
+  [ ] TDD: tests/test-doc-conventions.sh § slice file — SKILL.md names the `> Approved` refusal, `--parent`, `--approve`, `local-pending` and `✓ Filed:`; the upsert invocation contains no `--depends-on` -> document the `--file` phase (AC 6)
+
+### Slice 3/7 — upsert parent flag
+- [ ] upsert parent flag <!-- task-id: plan.specs-plan-slices-and-handover-md.upsert-parent-flag --> — `--parent` through `link_parent`, disclosure, docs
+  [ ] TDD: tests/test-task-registry.sh § parent — `--parent '#N'` on the local fixture records a native parent; on the github fixture writes `parent:` metadata and prints the disclosure line; the dry run calls no provider; `SKILL.md` documents the flag -> `--parent` on `upsert` wired to `link_parent` (AC 7)
+
+### Slice 4/7 — plan skill calls slice
+- [ ] plan skill calls slice <!-- task-id: plan.specs-plan-slices-and-handover-md.plan-skill-calls-slice --> — Step 1 through `/grilling` with carry-forward, Step 1.5 escalation, § Decisions template, `Invoke /slice` in Steps 3 and 6, `> Approved`; `/yolo` rows (blocked-by: plan.specs-plan-slices-and-handover-md.slice-skill)
+  [ ] TDD: tests/test-doc-conventions.sh + tests/test-skill-invocation-chain.sh § plan — Step 1 has an `Invoke /grilling` line, `DECISIONS CARRIED`, the six seeds; Step 1.5 has `Escalating to /system-design-planning`; the template lists Behavior, Inputs, Outputs, Edge Cases, Decisions, Acceptance Criteria, Implementation Paths in order with `user`, `assumed`, `open`; Steps 3 and 6 have `Invoke /slice` lines; Step 4's sentence is unchanged and names `> Approved`; no hand-written `## Plan:` template or `upsert` invocation remains -> rewrite `/plan` Steps 1 to 6 (AC 8)
+  [ ] TDD: tests/test-doc-conventions.sh § unattended — `/yolo`'s override table has a Step 1 row naming `assumed` rows and a Step 4 row naming `> Approved` and `(unattended)`; `/auto-push` still contains "Does this spec and plan meet your requirements?" verbatim -> edit the two rows; leave `/auto-push` as it is (AC 9)
+
+### Slice 5/7 — design planning and brainstorm call slice
+- [ ] design planning and brainstorm call slice <!-- task-id: plan.specs-plan-slices-and-handover-md.design-planning-and-brainstorm-call-slice --> — Step 1 reads § Decisions, template trimmed, Steps 3.5 and 8 invoke `/slice`; `/brainstorm` Step 6 § Decisions (blocked-by: plan.specs-plan-slices-and-handover-md.plan-skill-calls-slice)
+  [ ] TDD: tests/test-doc-conventions.sh + tests/test-skill-invocation-chain.sh § design planning — Step 1 names § Decisions and `inferred`; the template has no `| # | Slice |` table and no `### Slice criteria`; Steps 3.5 and 8 have `Invoke /slice` lines, Step 8 with `--file --approve`; `TODO(shortcut)` is absent; the existing chain pins (reads issues, files through the registry, renders, hands off to `/build`) still hold -> rewrite Steps 1, 3, 3.5 and 8; trim the template (AC 10)
+  [ ] TDD: tests/test-grilling-adoption.sh stays green and tests/test-doc-conventions.sh § brainstorm pins `## Decisions` with a `Source` column in the Step 6 template -> extend Step 6's template by one section (AC 11)
+
+### Slice 6/7 — build and wrap-up on slices
+- [ ] build and wrap-up on slices <!-- task-id: plan.specs-plan-slices-and-handover-md.build-and-wrap-up-on-slices --> — implicit slice, `ready`, delegation items, `check`, handover write, unfinished rule, Phase 6 count; `## Handovers` (blocked-by: plan.specs-plan-slices-and-handover-md.slice-script-and-shared-glob-matcher, plan.specs-plan-slices-and-handover-md.design-planning-and-brainstorm-call-slice)
+  [ ] TDD: tests/test-doc-conventions.sh + tests/test-skill-invocation-chain.sh § build — pre-flight names the implicit slice; Phase 1 names `slice.py ready` and no longer assesses independence from prose; the delegation list has items 5 to 7 with `[SURFACE] +`, `> Handover:` and the budget; slice close names `slice.py check`, `undeclared:`, `untouched:`; the handover rule names the two required facts and `unfinished:`; Phase 6 counts nested `[x]` rows and names the forbidden state; `slice header` still present -> rewrite Phase 1 and Phase 6 (AC 12)
+  [ ] TDD: tests/test-doc-conventions.sh § wrap-up — the PR body step names `## Handovers` before the linkage check and the commit-message fallback -> add the section rule to Step 7 (AC 13)
+
+### Slice 7/7 — workflow text and live run
+- [ ] workflow text and live run <!-- task-id: plan.specs-plan-slices-and-handover-md.workflow-text-and-live-run --> — `CLAUDE.md` § Workflow, glossary terms through `/learn`, the two-slice e2e run (blocked-by: plan.specs-plan-slices-and-handover-md.slice-skill, plan.specs-plan-slices-and-handover-md.upsert-parent-flag, plan.specs-plan-slices-and-handover-md.build-and-wrap-up-on-slices)
+  [ ] TDD: tests/test-doc-conventions.sh § workflow — `CLAUDE.md` steps 1 to 3 name `/grilling`, `DECISIONS CARRIED`, `/slice`, one gate and `> Handover:`; `tasks/concepts.md` defines slice, surface, ready set and handover; `bash tests/run.sh` green on CI -> rewrite § Workflow 1 to 3; `/learn` the four terms (AC 14)
+  [ ] Verify: one live two-slice `/plan` → `/build` run on a fixture feature shows `DECISIONS CARRIED`, parallel dispatch of two disjoint slices, a handover read by a blocked slice and a surface report; recorded in tasks/e2e-log.md with the commit sha (AC 15)
+
+---
+
 # Fix: stdin hang in tests/test-pre-push-gate.sh Banner block
 > No issue, no spec — user-directed test-hardening fix from a chat message.
 
