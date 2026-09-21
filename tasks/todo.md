@@ -1,3 +1,13 @@
+# Fix: stdin hang in tests/test-pre-push-gate.sh Banner block
+> No issue, no spec — user-directed test-hardening fix from a chat message.
+
+- [x] Add `</dev/null` to the two Banner-block session-start.sh invocations (tests/test-pre-push-gate.sh:218, :224) -> matches the sibling at :262; every other hook call in tests/*.sh already pipes stdin from printf; hook unchanged; both `</dev/null` and `< <(sleep 30)` launches complete with 51 assertions
+
+## Session Summary — 2026-09-21 [0de3f8a..188b7da]
+- Completed: 1 task (stdin redirect fix, one commit, rebased onto master after #156 landed)
+- Pending: none for this fix; the tidy cloud-routine item below is another session's
+- Carry-forward: none. The reviewer advisory (tests/run.sh launched every suite with inherited stdin) was resolved by #166 while this PR was open — the runner now passes `</dev/null` to every file
+
 # Fix: #136 — Full suite takes 20–51 minutes on Windows because every process spawn costs over a second
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/136 (no spec — issue-driven fix via /debug)
 > Baseline (clean HEAD 0de3f8a, idle Windows 11, sequential): TOTAL 3051 s; sync-retirement 1275 s, install-sh 296 s, task-registry 236 s, solutions-schema 193 s. Root cause: the suite is process-bound (every spawn 100–500 ms), not Python-bound (launcher delta is 6 % of the slowest file).
