@@ -6,7 +6,7 @@
 **Structure**:
 - `.agents/skills/` — canonical, harness-neutral skills
 - `.claude/agents/` — specialized subagents
-- `.claude/skills/` — byte-identical compatibility copies of canonical skills
+- `.claude-plugin/` — plugin manifest: the canonical tree ships to Claude Code as the `jplugin` plugin
 - `.claude/hooks/` — lifecycle automation
 - `.github/upstreams.json` — registered upstream sources and pinned baselines
 - `.github/workflows/` — repository automation, including upstream drift checks
@@ -17,8 +17,8 @@
 - `CLAUDE.md` — root-level Claude Code config
 
 **Conventions**:
-- Edit canonical skills under `.agents/skills/` and keep their `.claude/skills/`
-  compatibility copies byte-identical.
+- Edit canonical skills under `.agents/skills/`, the one canonical tree: there is no
+  `.claude/skills/` copy, and a skill body never contains a `jplugin:` literal.
 - Vendored skill directories carry their own upstream license notice; repository-
   level attribution and pinned provenance live in `THIRD_PARTY_NOTICES.md`.
 - Recurring checks are silent on success and actionable on failure.
