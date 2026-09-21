@@ -1,6 +1,6 @@
 ---
 title: A parity `cp` can clobber a legitimate harness divergence
-date: 2026-08-11
+date: 2026-09-21
 problem_type: pattern
 module: skill-parity
 tags: [agents, claude, parity, frontmatter]
@@ -8,6 +8,10 @@ applies_when: Any time an edit to `.agents/**` is copied to the matching `.claud
 date_source: git-log
 migrated_from: tasks/memory.md
 ---
+
+> **Correction 2026-09-21:** #156 retired the `.claude/skills/` compatibility copy and
+> `tests/test-skill-parity.sh`; `.agents/skills/` is now the only skill tree, shipped to
+> Claude Code as the `jplugin` plugin (`.claude-plugin/`). Skills no longer have a copy to clobber. `.claude/agents/` is still a Claude Code copy of `.agents/agents/`, so the allowlisted-divergence point below still applies to agent personas.
 
 ## A parity `cp` can clobber a legitimate harness divergence
 

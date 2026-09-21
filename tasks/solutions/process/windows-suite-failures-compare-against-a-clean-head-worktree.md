@@ -1,6 +1,6 @@
 ---
 title: On a Windows checkout, compare a failing test file against a throwaway HEAD worktree before debugging it
-date: 2026-09-15
+date: 2026-09-21
 problem_type: process
 module: tests/run.sh on Windows (Git Bash, Microsoft Store python3)
 tags: [testing, windows, baseline, worktree, environment-failures]
@@ -57,6 +57,23 @@ each is an hour of false debugging; with it, each is a one-line report.
 - A background run piped through `grep` shows **nothing** until it exits,
   because `grep` buffers to a file. An empty output file is not a hung run —
   check `ps -W` for the shell PID before concluding anything.
+
+## Reproduced 2026-09-21 (grilling adoption build)
+
+Nine files at the build tree and at a clean detached worktree of the base commit,
+identical assertion names on both: install-sh 1/133, routine-selectors 60/189,
+routine-skills 2/63, skill-invocation-chain 2/44, sync-retirement 47/365,
+task-escalation 1/62, task-registry 44/398, verification-skill-integration 2/82,
+and the upstream-drift deadline assertion, which failed and passed on **both**
+trees across four alternating solo runs — a second-granularity flake, not a
+regression.
+
+Two details of the recipe on this machine: `git worktree add` under the session
+scratchpad fails with `Filename too long` (the scratchpad prefix plus the repo's
+deepest paths exceed MAX_PATH), so put the throwaway worktree at
+`.claude/worktrees/<short-name>`, which is gitignored, and remove it before the
+build report; and strip the `  FAIL ` prefix on **both** sides before diffing the
+assertion names under `LC_ALL=C sort`, or the whole list reads as different.
 
 ## Related
 

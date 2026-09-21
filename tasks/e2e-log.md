@@ -1222,3 +1222,43 @@ the rename removes it; `/quality-gate` and `/task-registry` were already FIRED i
 
 **Verdict: PASS** for the slice 6 gate (AC 2). The organic-prompt weakness of the verify
 description (S2 control 1/2) is unchanged by the rename and stays a separate `/eval` item.
+
+## E2E Walkthrough — grilling adoption — 2026-09-21 (worktree-grilling-adoption)
+
+Spec: specs/grilling-adoption.md (AC 11, AC 12, AC 13)
+Tree: the uncommitted build on `worktree-grilling-adoption`, on top of 7c37424 (master 0de3f8a, #156, plus the plan and spec commit). Committed by `/wrap-up-session` as 8d69510 on `worktree-grilling-adoption`; the wrap-up review then tightened the test pins, declared seed questions in `/grilling` § 1, added the opt-out clause to `/brainstorm` Step 3 and the read-only clause to `/grilling` § 4 — prose outside the round format, so the three verdicts above stand for that commit.
+Claude Code: 2.1.277
+Driver: print-mode sessions (`claude -p … --output-format json`), the plugin loaded from this worktree with `--plugin-dir` so the new skills are the ones under test, an isolated `CLAUDE_CONFIG_DIR` holding only credentials (no user-scope skills, no installed plugins), cwd the scratch worktree `.claude/worktrees/jplugin-routing` (detached eb5fdbd, `.claude/skills/` deleted), `MSYS_NO_PATHCONV=1`, `--max-budget-usd 1.50` per session — the S2 spike's setup. Every verdict below is read from the session `.jsonl` transcript (first user turn, `Skill` tool-use blocks, `Edit`/`Write` blocks), never from what a session said about itself.
+
+### AC 11: typing `/grill-me <idea>` starts a ❓/➡️ round and leaves `git status` unchanged — PASS
+
+Typed (`/jplugin:grill-me` on Claude Code, per the namespace sentence in CLAUDE.md): `/jplugin:grill-me Should we move this repository's nightly test suite from a cron job on the build box to a GitHub Actions schedule?`
+
+Transcript first user turn: `<command-message>jplugin:grill-me</command-message> <command-name>/jplugin:grill-me</command-name> <command-args>…</command-args>` — the harness routed the typed command with `disable-model-invocation: true` in place. No refusal, so the flag stays `true`, the writing-skills note stands as written, and no `[AMBIGUITY]` line is emitted. Skill loads: `jplugin:grilling` (the front door delegated as its body says). Tools: Agent (one Scout-tier fact lookup), Bash, Skill. File writes: none. Reply: three numbered `❓ **Qn**` questions, each followed by a `➡️` recommendation; the lookup found no build-box cron in the repository and the round re-rooted on that fact instead of asking the superseded questions. `git status --short` in the cwd after the session, excluding that worktree's pre-existing modifications (dated 2026-09-18, before any probe): empty. Session 521c8b35, 2 turns, $1.16.
+
+### AC 12: `/brainstorm` on a sample idea produces a first ❓/➡️ round and writes one resolved term to `tasks/concepts.md` before the spec is written; the sample term is reverted — PASS on the second run, first run recorded as the finding that changed the prose
+
+Sample idea: `/jplugin:brainstorm Add a quarantine state for flaky tests: the routine runner skips a quarantined test for a number of runs and files an issue instead of failing the whole run.` Both runs: `--permission-mode acceptEdits`.
+
+Run 1 (session c6a96db1, 13 + 1 turns, $2.60), prose as first written. Turn 1: `jplugin:grilling` loaded, six facts read from the tree first, then a six-question round in format; the reply named **quarantine** as "new project vocabulary" whose definition depended on Q2. Turn 2 answered all six recommendations; round 2 followed in format, no `Edit` at all, `tasks/concepts.md` untouched. Finding: the layer said "the moment it resolves" and the agent narrated the resolution without acting — the write had no concrete trigger. Fix, before run 2: brainstorm Step 3 and `references/domain-modeling.md` now state that a term resolves on the user's answer and the reply to that answer writes the entry before asking the next round, with `glossary: **term** written` as the visible line.
+
+Run 2 (session 0a4920b5, 14 + 2 turns, $2.54), tightened prose. Turn 1: five-question round in format, `jplugin:grilling` loaded, no writes. Turn 2 answered Q1–Q5; the reply opened with one `Edit` to `tasks/concepts.md` inserting `- **quarantine** — the non-blocking state of a test whose failure must not stop an unattended routine run: …` under Project vocabulary, alphabetically between `producer routine` and `run stamp`, reported `glossary: **quarantine** written`, declined a standalone `flaky` entry as a standard industry term (the glossary-only rule, applied unprompted), then asked round 2. No spec, no `tasks/todo.md` row, no store document.
+
+Revert: `git -C .claude/worktrees/jplugin-routing checkout -- tasks/concepts.md`; the diff is empty afterwards and this template's own `tasks/concepts.md` was never in a probe's cwd.
+
+### AC 13: `/eval` Mode A triggerability of `grilling` from at least three organic brainstorm-shaped prompts — 5/6 FIRED (83%)
+
+Mode A per `.agents/skills/eval/SKILL.md` and `references/probe-recipe.md`: three organic prompts, none naming a skill, each ending in the verbatim no-push clause — (1) quarantine flaky tests instead of failing the routine run, "help me think through the design and the options"; (2) let `/sweep` file to a Linear board instead of GitHub Issues, "explore the design space with me first"; (3) a handover note between sessions on long builds, "pressure-test it before we write a spec". N = 2 reps each, six sessions in parallel, `--permission-mode acceptEdits --max-turns 30`. Rubric fixed before any run: FIRED = a `Skill` tool-use block loading `jplugin:grilling`; MISROUTED = only other skills loaded; NONE = no Skill block. Graded with `.agents/skills/eval/scripts/grade-skill-loads.sh <transcripts> jplugin:grilling`:
+
+| prompt | rep | turns | loaded | verdict |
+|--------|-----|-------|--------|---------|
+| 1 quarantine | 1 | 12 | jplugin:brainstorm, jplugin:grilling | FIRED |
+| 1 quarantine | 2 | 14 | jplugin:brainstorm, jplugin:grilling | FIRED |
+| 2 Linear board | 1 | 14 | jplugin:brainstorm | MISROUTED |
+| 2 Linear board | 2 | 19 | jplugin:brainstorm, jplugin:grilling | FIRED |
+| 3 handover note | 1 | 13 | jplugin:brainstorm, jplugin:grilling | FIRED |
+| 3 handover note | 2 | 14 | jplugin:brainstorm, jplugin:grilling | FIRED |
+
+`-> jplugin:grilling: 5/6 FIRED, 1 MISROUTED, 0 NONE`. `jplugin:brainstorm` fired in 6/6, so the model routed every organic prompt to the caller and the brainstorm → grilling chain held in 5 of 6. The MISROUTED session ran Step 3 inline from the brainstorm text — six `❓` questions with a `➡️` on each — without loading the primitive: the spec's "primitive does not load" edge case, minus its tell, because the caller's own Step 3 now carries the format. Not a `grilling` description defect (no prompt targets it directly); it is slack in the chain, and `tests/test-skill-invocation-chain.sh` keeps the handoff written down. Every reply was in the round format; no session wrote a file. Cost $7.31.
+
+Not measured: the Workflow tool's sanitized-worktree fan-out from the probe recipe (no multi-agent opt-in in this session). Six print-mode sessions in one project-shaped scratch worktree stand in for it with the same blinding: no eval vocabulary in any path or prompt, and no session told it was being measured.
