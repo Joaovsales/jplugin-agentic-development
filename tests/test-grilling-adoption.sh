@@ -220,7 +220,7 @@ for path in "LICENSE" "skills/productivity/grilling/SKILL.md" \
 done
 # ref and source_notice belong to this one source, so read them out of its
 # object rather than matching a value every registered source shares.
-mp_source="$(python3 -c 'import json, sys
+mp_source="$("$TEST_PYTHON" -c 'import json, sys
 sources = json.load(open(sys.argv[1], encoding="utf-8"))["sources"]
 source = [s for s in sources if s["id"] == "mattpocock-skills"][0]
 print(source["ref"] + "|" + source["source_notice"])' "$UPSTREAMS")"
@@ -230,7 +230,7 @@ assert_eq "refs/heads/main|THIRD_PARTY_NOTICES.md" "$mp_source" \
 # the network and forces one deterministic outcome: validation passes, then
 # every fetch stops at the deadline (status 1, "unavailable"). Status 2 is an
 # invalid registry; anything else means the checker never ran.
-drift_out="$(python3 scripts/check-upstream-drift.py --registry "$UPSTREAMS" --deadline-seconds 0.000001 2>&1)"
+drift_out="$("$TEST_PYTHON" scripts/check-upstream-drift.py --registry "$UPSTREAMS" --deadline-seconds 0.000001 2>&1)"
 drift_rc=$?
 assert_not_contains "$drift_out" "invalid registry" \
   "AC7: check-upstream-drift.py accepts the registry"

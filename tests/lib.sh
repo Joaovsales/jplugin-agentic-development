@@ -5,6 +5,71 @@
 _TESTS=0
 _FAILS=0
 
+# now_ms — wall-clock milliseconds, for elapsed-time reporting. Bash 5 exposes
+# EPOCHREALTIME as a shell variable (no process); older shells fall back to
+# whole seconds from date. Callers must only ever compare two readings.
+now_ms() {
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    # bash prints EPOCHREALTIME with the locale's decimal mark; keep the digits only.
+    printf '%s\n' "$(( ${EPOCHREALTIME//[!0-9]/} / 1000 ))"
+  else
+    printf '%s000\n' "$(date +%s)"
+  fi
+}
+
+# TEST_PYTHON — the one interpreter every test invokes (`"$TEST_PYTHON" script`).
+#
+# On Windows the `python3` first on PATH is usually the Microsoft Store
+# execution alias under WindowsApps: a launcher that adds roughly half a second
+# to every start, on top of the second-per-spawn the platform already charges.
+# Sixty call sites, several inside per-assertion loops, turned that into most
+# of the suite's Python cost (#136). Resolution order:
+#   1. a preset TEST_PYTHON wins — tests/run.sh resolves once and exports, so
+#      the 42 files sourcing this library do not each repeat the probe;
+#   2. `python3`, then `python`, when neither resolves under WindowsApps;
+#   3. the newest CPython under $LOCALAPPDATA/Programs/Python or
+#      /c/Program Files (a real python.exe, not the launcher);
+#   4. the `py` launcher, the fallback two files used to carry themselves;
+#   5. plain `python3`, so a machine with only the Store build (or none)
+#      behaves exactly as before: the same interpreter, or the same error at
+#      the first use.
+# TEST_PYTHON_SYSTEM_ROOT overrides the all-users root (the runner test points
+# it at an empty directory so the host's own installs cannot change a verdict).
+# Only builtins and one `command -v` per candidate run here; nothing is spawned.
+_store_launcher() { case "$1" in */WindowsApps/*) return 0 ;; esac; return 1; }
+
+_newest_cpython() {
+  # Git Bash hands LOCALAPPDATA over as C:\Users\..., which bash cannot glob;
+  # convert a private copy rather than the variable the code under test inherits.
+  _local="${LOCALAPPDATA:-}"; _local=${_local//\\//}
+  _best="" _best_minor=-1
+  for _exe in "${_local:-/nonexistent}"/Programs/Python/Python3*/python.exe \
+              "${TEST_PYTHON_SYSTEM_ROOT:-/c/Program Files}/Python3"*/python.exe; do
+    [ -x "$_exe" ] || continue
+    _minor="${_exe%/python.exe}"; _minor="${_minor##*/Python3}"
+    case "$_minor" in ''|*[!0-9]*) continue ;; esac
+    if [ "$_minor" -gt "$_best_minor" ]; then _best="$_exe"; _best_minor="$_minor"; fi
+  done
+  printf '%s\n' "$_best"
+}
+
+resolve_test_python() {
+  if [ -n "${TEST_PYTHON:-}" ]; then return 0; fi
+  for _name in python3 python; do
+    _found="$(command -v "$_name" 2>/dev/null || true)"
+    if [ -n "$_found" ] && ! _store_launcher "$_found"; then
+      TEST_PYTHON="$_name"; return 0
+    fi
+  done
+  _found="$(_newest_cpython)"
+  if [ -n "$_found" ]; then TEST_PYTHON="$_found"; return 0; fi
+  if command -v py >/dev/null 2>&1; then TEST_PYTHON=py; return 0; fi
+  TEST_PYTHON=python3
+}
+
+resolve_test_python
+export TEST_PYTHON
+
 # assert_contains <haystack> <needle> <message>
 assert_contains() {
   _TESTS=$((_TESTS + 1))

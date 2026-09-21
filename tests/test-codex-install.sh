@@ -86,7 +86,7 @@ assert_eq "0" "$?" "scaffold from checkout: exits 0 without install.sh having ru
 assert_files_identical "$REPO/project-template/AGENTS.md" "$PROJECT/AGENTS.md" \
   "scaffold from checkout: neutral AGENTS.md seed lands in the project"
 
-if python3 - "$CODEX_HOME" "$REPO" "$LEGACY_SLUG" <<'PY'
+if "$TEST_PYTHON" - "$CODEX_HOME" "$REPO" "$LEGACY_SLUG" <<'PY'
 import json
 import sys
 import tomllib
@@ -132,7 +132,7 @@ assert_files_identical "$BOX/hooks.before" "$CODEX_HOME/hooks.json" \
   "install: hook registration is idempotent"
 
 HOOK_RESULT="$(printf '%s\n' '{"source":"startup"}' | HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" \
-  python3 "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py")"
+  "$TEST_PYTHON" "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py")"
 # Run it a second time before asserting anything. The shell hook's
 # double-invocation guard is a Claude Code workaround that the adapter disables,
 # because it keys on $PPID — which is 1 for every bash spawned from a native
@@ -140,8 +140,8 @@ HOOK_RESULT="$(printf '%s\n' '{"source":"startup"}' | HOME="$HOME_DIR" CODEX_HOM
 # only the very first run in a 5-minute window carries a banner, so a
 # single-shot assertion passes on a clean machine and fails on a busy one.
 HOOK_RESULT_AGAIN="$(printf '%s\n' '{"source":"startup"}' | HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" \
-  python3 "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py")"
-if python3 - "$HOOK_RESULT" <<'PY'
+  "$TEST_PYTHON" "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py")"
+if "$TEST_PYTHON" - "$HOOK_RESULT" <<'PY'
 import json
 import sys
 data = json.loads(sys.argv[1])
@@ -164,7 +164,7 @@ assert_contains "$HOOK_RESULT_AGAIN" '"hookEventName": "SessionStart"' \
 BAD="$BOX/bad-agents"
 mkdir -p "$BAD"
 printf '# malformed\n' > "$BAD/broken.md"
-if python3 "$RENDERER" --agents "$BAD" "$BOX/bad-output" > "$BOX/bad.log" 2>&1; then
+if "$TEST_PYTHON" "$RENDERER" --agents "$BAD" "$BOX/bad-output" > "$BOX/bad.log" 2>&1; then
   assert_eq "failure" "success" "renderer: malformed agent input is rejected"
 else
   assert_contains "$(cat "$BOX/bad.log")" "broken.md" \

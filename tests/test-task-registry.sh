@@ -23,16 +23,7 @@ SCRIPTS="$SKILL/scripts"
 CLI="$SCRIPTS/task-registry.py"
 FIXTURES="$REPO/tests/fixtures/task-registry"
 
-if command -v python3 >/dev/null 2>&1; then
-  PY=python3
-elif command -v python >/dev/null 2>&1; then
-  PY=python
-elif command -v py >/dev/null 2>&1; then
-  PY=py
-else
-  printf '  FAIL no python interpreter found (python3/python/py)\n'
-  exit 1
-fi
+PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
 
 TMP_DIRS=()
 cleanup() {
@@ -2414,7 +2405,7 @@ degraded_block="$(printf '%s\n' "$gh_degraded" | sed -n '/^  degraded:$/,/^  [a-
 assert_contains "$degraded_block" "reads degraded to local-only" \
   "Show: an answer assembled without the provider says so rather than reading as complete"
 
-label_only="$($PY - "$SCRIPTS" <<'PY'
+label_only="$("$PY" - "$SCRIPTS" <<'PY'
 import pathlib, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 from registry.config import Config
@@ -2480,7 +2471,7 @@ assert_contains "$label_only" "github-canonical-case: True" \
 assert_contains "$label_only" "github-missing: True" \
   "AC11: GitHub refuses an unknown hold label instead of silently dropping it"
 
-structured_upsert="$($PY - "$SCRIPTS" <<'PY'
+structured_upsert="$("$PY" - "$SCRIPTS" <<'PY'
 import pathlib, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 import registry.upsert as upsert

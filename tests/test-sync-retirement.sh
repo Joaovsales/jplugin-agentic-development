@@ -35,7 +35,7 @@ trap 'rm -rf "$FIXTURE_ROOT"' EXIT
 # extra root line appended inside the fence.
 write_skill_md() {
   _dir="$1" _extra="${2:-}"
-  mkdir -p "$_dir/.agents/skills/sync"
+  [ -d "$_dir/.agents/skills/sync" ] || mkdir -p "$_dir/.agents/skills/sync"
   {
     printf '## Syncable Paths\n\n```\n'
     printf 'CLAUDE.md             → Shared rules\n'
@@ -53,7 +53,7 @@ write_skill_md() {
 # so no root is "absent from the template" unless a test says so.
 make_template() {
   _dir="$1" _extra="${2:-}"
-  mkdir -p "$_dir"
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks"
   write_skill_md "$_dir" "$_extra"
   _f "$_dir/.agents/skills/build/SKILL.md"   "build skill"
   _f "$_dir/.agents/agents/planner.md"       "planner"
@@ -63,16 +63,30 @@ make_template() {
   _f "$_dir/.claude/settings.json"           "{}"
 }
 
-_f() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }
+# Write one fixture file, creating its directory when needed. The builders
+# above pre-create every directory in one mkdir, so the common path here is two
+# builtins and no process; a path outside those directories still gets its own.
+# On Windows a process costs 100-500 ms and this file writes ~900 fixture files,
+# so `mkdir -p "$(dirname ...)"` per file was a third of its runtime (#136).
+_f() {
+  case "$1" in */*) [ -d "${1%/*}" ] || mkdir -p "${1%/*}" ;; esac
+  printf '%s\n' "$2" > "$1"
+}
+
+# Identity for fixture commits, written straight into the repo's config file:
+# the same two lines `git config user.name` / `user.email` would write, minus
+# two git processes per fixture.
+fixture_identity() {
+  printf '[user]\n    name = fixture\n    email = fixture@example.test\n' >> "$1/.git/config"
+}
 
 # A project: a git repo, because the project inventory is the set of *tracked*
 # files. Untracked build residue was never synced in, so it is never retired.
 make_project() {
   _dir="$1"
-  mkdir -p "$_dir"
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks"
   git init -q --initial-branch=main "$_dir"
-  git -C "$_dir" config user.name fixture
-  git -C "$_dir" config user.email fixture@example.test
+  fixture_identity "$_dir"
   write_skill_md "$_dir"
   _f "$_dir/.agents/skills/build/SKILL.md"   "build skill"
   _f "$_dir/.agents/agents/planner.md"       "planner"
@@ -90,9 +104,16 @@ commit_all() {
 
 # Run the script; capture stdout+stderr and status into RUN_OUTPUT/RUN_STATUS.
 run_retire() {
-  python3 "$RETIRE" "$@" >"$FIXTURE_ROOT/out" 2>"$FIXTURE_ROOT/err"
+  "$TEST_PYTHON" "$RETIRE" "$@" >"$FIXTURE_ROOT/out" 2>"$FIXTURE_ROOT/err"
   RUN_STATUS=$?
-  RUN_OUTPUT="$(cat "$FIXTURE_ROOT/out"; cat "$FIXTURE_ROOT/err")"
+  # stdout then stderr, trailing newlines stripped -- exactly what
+  # `$(cat out; cat err)` produced. bash reads `$(<file)` without spawning cat,
+  # so the two-file form is kept only for the runs that wrote to stderr.
+  if [ -s "$FIXTURE_ROOT/err" ]; then
+    RUN_OUTPUT="$(cat "$FIXTURE_ROOT/out" "$FIXTURE_ROOT/err")"
+  else
+    RUN_OUTPUT="$(<"$FIXTURE_ROOT/out")"
+  fi
 }
 
 # Write a .claude/sync-keep from the remaining arguments, one pattern per line.
@@ -598,9 +619,9 @@ printf '\n-- 8. two runs converge --\n'
 # Hash every file under the syncable roots, path and content, so a difference
 # in either shows up. .git is excluded: index and log churn are not tree state.
 tree_hash() {
-  find "$1" -name .git -prune -o -type f -print \
-    | sed "s|^$1/||" | LC_ALL=C sort \
-    | while IFS= read -r f; do printf '%s %s\n' "$f" "$(sha256sum "$1/$f" | cut -d' ' -f1)"; done \
+  # One sha256sum over every file (paths relative to the root, sorted) instead
+  # of a process per file; only equality between two calls matters.
+  ( cd "$1" && find . -name .git -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum ) \
     | sha256sum | cut -d' ' -f1
 }
 
@@ -827,7 +848,7 @@ assert_not_contains "$RUN_OUTPUT" ".pyc" \
 AWK_DIRS="$(awk '/^## Syncable Paths/ { b = 1; next }
                  b && /^## / { exit }
                  b && /→/ { print $1 }' .agents/skills/sync/SKILL.md | grep '/$' | LC_ALL=C sort)"
-PY_DIRS="$(python3 - <<'PYX'
+PY_DIRS="$("$TEST_PYTHON" - <<'PYX'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("sr", ".agents/skills/sync/scripts/sync-retire.py")
 m = importlib.util.module_from_spec(spec); sys.modules["sr"] = m; spec.loader.exec_module(m)
@@ -925,7 +946,7 @@ assert_eq "present" "$([ -f "$P13B/.claude/sync-keep" ] && echo present || echo 
 
 # The seven real roots (six live, one retired) still parse — the constraint must not break the tool.
 run_retire --repo "$P13B" --from-dir "$T13B" >/dev/null 2>&1
-REAL_ROOTS="$(python3 - <<'PYX'
+REAL_ROOTS="$("$TEST_PYTHON" - <<'PYX'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("sr", ".agents/skills/sync/scripts/sync-retire.py")
 m = importlib.util.module_from_spec(spec); sys.modules["sr"] = m; spec.loader.exec_module(m)
@@ -1148,7 +1169,7 @@ done
 P21="$FIXTURE_ROOT/p21"; T21="$FIXTURE_ROOT/t21"
 make_project "$P21"; make_template "$T21"
 # Reopen the template's doc block with a sub-heading, then smuggle a root under it.
-python3 - "$T21/.agents/skills/sync/SKILL.md" <<'PY'
+"$TEST_PYTHON" - "$T21/.agents/skills/sync/SKILL.md" <<'PY'
 import io, sys
 p = sys.argv[1]
 s = io.open(p, encoding="utf-8").read()
@@ -1307,7 +1328,7 @@ printf '[core]\n\tfsmonitor = "touch %s/PWNED_GLOBAL; false"\n' "$FIXTURE_ROOT" 
 rm -f "$FIXTURE_ROOT/PWNED_GLOBAL"
 
 GIT_CONFIG_GLOBAL="$FIXTURE_ROOT/evil-global-config" \
-  python3 "$RETIRE" --repo "$P28" --from-dir "$T28" >/dev/null 2>&1
+  "$TEST_PYTHON" "$RETIRE" --repo "$P28" --from-dir "$T28" >/dev/null 2>&1
 # NOTE: this assertion cannot distinguish the two guards. `-c core.fsmonitor=`
 # outranks global config as well as repo config, so removing the
 # GIT_CONFIG_NOSYSTEM/GIT_CONFIG_GLOBAL suppression leaves this green. The env
@@ -1405,9 +1426,9 @@ printf '\n-- 20. record-loss and provenance regressions --\n'
 # by 20.1-20.3, which all need real history to read.
 make_history_template() {
   _dir="$1"
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks" "$_dir/.agents/skills/legacy"
   git init -q --initial-branch=main "$_dir"
-  git -C "$_dir" config user.name fixture
-  git -C "$_dir" config user.email fixture@example.test
+  fixture_identity "$_dir"
   write_skill_md "$_dir"
   _f "$_dir/.agents/skills/build/SKILL.md"  "build skill"
   _f "$_dir/.agents/agents/planner.md"      "planner"
@@ -1649,7 +1670,7 @@ make_project "$P36"
 make_template "$T36"
 # Inside the block, before its real terminator -- appending after
 # `## Next Section` would test nothing, since that heading already closed it.
-python3 - "$T36/.agents/skills/sync/SKILL.md" <<'EOF_PY'
+"$TEST_PYTHON" - "$T36/.agents/skills/sync/SKILL.md" <<'EOF_PY'
 import io, sys
 path = sys.argv[1]
 text = io.open(path, encoding="utf-8").read()
@@ -1697,7 +1718,7 @@ git -C "$P37" fetch -q workflow main
 
 PIPED_OUT="$(cd "$P37" && set -o pipefail && \
   git show "workflow/main:.agents/skills/sync/scripts/sync-retire.py" \
-  | python3 - --from-ref "workflow/main" 2>&1)"
+  | "$TEST_PYTHON" - --from-ref "workflow/main" 2>&1)"
 PIPED_STATUS=$?
 assert_eq "0" "$PIPED_STATUS" "the piped dry run exits zero"
 assert_contains "$PIPED_OUT" "retire: .agents/skills/legacy/SKILL.md" \
@@ -1714,21 +1735,21 @@ assert_eq "present" "$([ -f "$P37/.agents/skills/legacy/SKILL.md" ] && echo pres
 # is noise; if it is right, `set -o pipefail` is the only thing catching it.
 
 EMPTY_OUT="$(cd "$P37" && git show "workflow/main:no/such/script.py" 2>/dev/null \
-  | python3 - --from-ref "workflow/main" 2>&1)"
+  | "$TEST_PYTHON" - --from-ref "workflow/main" 2>&1)"
 EMPTY_STATUS=$?
 assert_eq "0" "$EMPTY_STATUS" \
   "without pipefail an empty program really does exit zero, as SKILL.md warns"
 assert_eq "" "$EMPTY_OUT" "having printed nothing at all"
 
 ( cd "$P37" && set -o pipefail && git show "workflow/main:no/such/script.py" 2>/dev/null \
-  | python3 - --from-ref "workflow/main" >/dev/null 2>&1 )
+  | "$TEST_PYTHON" - --from-ref "workflow/main" >/dev/null 2>&1 )
 assert_eq "128" "$?" "with pipefail the failed git show is what the caller sees"
 
 # --- 21.3 the --apply form, verbatim from Step 6.4 --------------------------
 
 APPLY_OUT="$(cd "$P37" && set -o pipefail && \
   git show "workflow/main:.agents/skills/sync/scripts/sync-retire.py" \
-  | python3 - --from-ref "workflow/main" --apply 2>&1)"
+  | "$TEST_PYTHON" - --from-ref "workflow/main" --apply 2>&1)"
 APPLY_STATUS=$?
 assert_eq "0" "$APPLY_STATUS" "the piped --apply exits zero"
 assert_eq "gone" "$([ -e "$P37/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
@@ -2007,7 +2028,7 @@ INJECT45="$FIXTURE_ROOT/inj"
 mkdir -p "$INJECT45:.agents/skills/sync"
 rm -f "$INJECT45:.agents/skills/sync/SKILL.md"
 
-INJECT_OUT="$(python3 - "$RETIRE" "$P45" "$INJECT45" <<'PYX' 2>&1 || true
+INJECT_OUT="$("$TEST_PYTHON" - "$RETIRE" "$P45" "$INJECT45" <<'PYX' 2>&1 || true
 import importlib.util, sys
 script, repo, victim = sys.argv[1], sys.argv[2], sys.argv[3]
 spec = importlib.util.spec_from_file_location("sr", script)
@@ -2044,7 +2065,7 @@ JPLUGIN_ID="jplugin@jplugin-agentic-development"
 # two-column shape and trailing slash as the live rows: the marker is the only
 # thing the parser may key on.
 write_retired_skill_md() {
-  mkdir -p "$1/.agents/skills/sync"
+  [ -d "$1/.agents/skills/sync" ] || mkdir -p "$1/.agents/skills/sync"
   {
     printf '## Syncable Paths\n\n```\n'
     printf 'CLAUDE.md             → Shared rules\n'
@@ -2063,9 +2084,10 @@ write_retired_skill_md() {
 # the retired root were counted, this template would be refused as incomplete.
 make_retired_template() {
   _dir="$1"
+  # No .claude/hooks here: the template's hooks root is deliberately absent.
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/skills/plan"
   git init -q --initial-branch=main "$_dir"
-  git -C "$_dir" config user.name fixture
-  git -C "$_dir" config user.email fixture@example.test
+  fixture_identity "$_dir"
   write_retired_skill_md "$_dir"
   _f "$_dir/.agents/skills/build/SKILL.md"  "build skill"
   _f "$_dir/.agents/agents/planner.md"      "planner"
@@ -2090,7 +2112,7 @@ commit_all "$P50"
 write_keep "$P50" ".agents/skills/mine/**"
 
 # --- 24.1 the parser splits live from retired -------------------------------
-PARSED="$(python3 - "$RETIRE" "$T50/.agents/skills/sync/SKILL.md" <<'PYX'
+PARSED="$("$TEST_PYTHON" - "$RETIRE" "$T50/.agents/skills/sync/SKILL.md" <<'PYX'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
 m = importlib.util.module_from_spec(spec); sys.modules["sr"] = m; spec.loader.exec_module(m)

@@ -1,3 +1,21 @@
+# Fix: #136 — Full suite takes 20–51 minutes on Windows because every process spawn costs over a second
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/136 (no spec — issue-driven fix via /debug)
+> Baseline (clean HEAD 0de3f8a, idle Windows 11, sequential): TOTAL 3051 s; sync-retirement 1275 s, install-sh 296 s, task-registry 236 s, solutions-schema 193 s. Root cause: the suite is process-bound (every spawn 100–500 ms), not Python-bound (launcher delta is 6 % of the slowest file).
+
+- [x] TDD: tests/test-run-sh.sh pins per-file timing -> tests/run.sh prints `--- <file>: <n> s ---` after each file and a `TOTAL:` line with the slowest files; `RESULT:` line unchanged; each file runs with stdin closed
+- [x] TDD: tests/test-run-sh.sh pins `--jobs N` / `TEST_JOBS` -> files run concurrently up to N, each file's output is captured and printed as one block on completion, exit status and `RESULT:` identical to sequential; `--jobs 0` or non-numeric is a usage error (exit 2)
+- [x] TDD: tests/test-run-sh.sh pins TEST_PYTHON resolution -> tests/lib.sh exports TEST_PYTHON once: a preset value wins; otherwise python3/python not under WindowsApps; otherwise the newest `Programs/Python/Python3*/python.exe`; otherwise python3. Every test invocation of `python3` becomes `"$TEST_PYTHON"`; string pins and comments untouched
+- [x] TDD: tests/test-upstream-drift.sh deadline assertion -> millisecond timing relative to the noisy-helper run made just before it (same python+git path), plus a PID-liveness check when the helper was spawned; fails on an outliving helper, not on spawn latency
+- [x] TDD: tests/test-sync-retirement.sh fixture helpers spend fewer processes with identical semantics -> `_f` uses `${1%/*}` and skips mkdir when the directory exists; make_template/make_project pre-create their directories in one mkdir; user.name/email written into .git/config instead of two git config calls; run_retire captures via `$(<out)` when stderr is empty; tree_hash hashes in one sha256sum pass. Assertion names and count (365) unchanged; Windows failure set (47) unchanged
+- [x] Verify: `bash tests/run.sh` sequential and `--jobs 4` on this machine; compare failing assertion names per file against the baseline; record timings in the bug document
+- [x] Record: tasks/solutions/performance/<slug>.md status fixed, regression tests named; process doc gains the virtualized-AppData gotcha; tasks/history.md entry
+
+## Session Summary — 2026-09-21 [0de3f8a..HEAD]
+- Completed: 7 tasks — runner timing + `--jobs`, TEST_PYTHON resolution (64 call sites), sync-retirement helpers (1275 s -> 695 s, identical 365 results), upstream-drift relative bound + pid check, Codex adapter bash resolution, learning-store documents. Review pass: 3 MUST-FIX + 5 SHOULD-FIX applied, 1 NITPICK applied.
+- Pending: 0 in this plan.
+- Carry-forward: the ten-minute acceptance target is not met on this machine (936 s at eight jobs; 3051 s serial baseline) — the spawn throughput ceiling means install-sh (296 s), solutions-schema (193 s), task-registry (236 s), routine-selectors (131 s) and session-start (113 s) need the same builtin-first helper treatment; `scripts/check-upstream-drift.py` cannot kill a helper's process tree on Windows (`process.kill()` reaches git.exe only).
+- Tests: `bash tests/run.sh --jobs 8` on Windows: 45 files, wall 936 s, 8 files failing with exactly the baseline's assertion names minus upstream-drift; codex-install and verification-skill-integration re-verified in a CRLF checkout.
+
 # Fix: #123 — A single `Closes #A, #B` list only closes the first issue
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/123 (no spec — issue-driven bug fix via /debug)
 

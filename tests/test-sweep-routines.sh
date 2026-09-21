@@ -78,7 +78,7 @@ for flag in --reproduction --proposed-fix --criterion --evidence --summary --der
   assert_file_contains "$SWEEP" "$flag" "AC3: /sweep passes $flag"
 done
 # Every subcommand the skill names must exist: `task-registry sync` once did not.
-commands="$(python3 -c '
+commands="$("$TEST_PYTHON" -c '
 import re, pathlib
 src = pathlib.Path(".agents/skills/task-registry/scripts/task-registry.py").read_text()
 print(" ".join(re.findall(r"\"([a-z]+)\"", re.search(r"COMMANDS = \((.*?)\)", src, re.S).group(1))))

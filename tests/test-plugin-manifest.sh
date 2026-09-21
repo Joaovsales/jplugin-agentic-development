@@ -22,7 +22,7 @@ MARKETPLACE=".claude-plugin/marketplace.json"
 # Reads one JSON value by dotted path; prints `<missing>` for an absent key so
 # a missing field fails the assertion instead of matching an empty expected.
 json_get() {
-  python3 - "$1" "$2" <<'PY'
+  "$TEST_PYTHON" - "$1" "$2" <<'PY'
 import json, sys
 try:
     document = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -45,7 +45,7 @@ PY
 }
 
 json_keys() {
-  python3 - "$1" <<'PY'
+  "$TEST_PYTHON" - "$1" <<'PY'
 import json, sys
 try:
     print(" ".join(sorted(json.load(open(sys.argv[1], encoding="utf-8")))))
@@ -71,7 +71,7 @@ assert_eq "jplugin" "$(json_get "$PLUGIN" name)" \
   "plugin.json: name is jplugin (the typed prefix)"
 assert_eq "jplugin" "$(json_get "$MARKETPLACE" plugins.0.name)" \
   "marketplace.json: plugins[0].name equals the plugin name"
-assert_eq "1" "$(json_get "$MARKETPLACE" plugins | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)" \
+assert_eq "1" "$(json_get "$MARKETPLACE" plugins | "$TEST_PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)" \
   "marketplace.json: exactly one plugin entry"
 assert_eq "./" "$(json_get "$MARKETPLACE" plugins.0.source)" \
   "marketplace.json: the plugin is the marketplace root (source ./)"

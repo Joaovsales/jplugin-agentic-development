@@ -55,7 +55,7 @@ cat >"$FIXTURE" <<'JSON'
 }
 JSON
 
-python3 "$RENDER_SCRIPT" --input "$FIXTURE" -o "$OUT" >"$TMP/render.log" 2>&1
+"$TEST_PYTHON" "$RENDER_SCRIPT" --input "$FIXTURE" -o "$OUT" >"$TMP/render.log" 2>&1
 RENDER_STATUS=$?
 assert_eq "0" "$RENDER_STATUS" "visual-render.py exits 0"
 
@@ -119,7 +119,7 @@ cat >"$PLAN_FIXTURE" <<'JSON'
 }
 JSON
 
-python3 "$RENDER_SCRIPT" --input "$PLAN_FIXTURE" -o "$PLAN_OUT" >"$TMP/plan-render.log" 2>&1
+"$TEST_PYTHON" "$RENDER_SCRIPT" --input "$PLAN_FIXTURE" -o "$PLAN_OUT" >"$TMP/plan-render.log" 2>&1
 assert_eq "0" "$?" "(AC1) plan fixture renders exit 0"
 assert_file_contains "$PLAN_OUT" "CSV export button to the widget dashboard" "(AC1) narrative text present"
 assert_file_contains "$PLAN_OUT" "src/widgets/export.py" "(AC1) file-map filename present"
@@ -154,7 +154,7 @@ cat >"$RECAP_FIXTURE" <<'JSON'
 }
 JSON
 
-python3 "$RENDER_SCRIPT" --input "$RECAP_FIXTURE" -o "$RECAP_OUT" >"$TMP/recap-render.log" 2>&1
+"$TEST_PYTHON" "$RENDER_SCRIPT" --input "$RECAP_FIXTURE" -o "$RECAP_OUT" >"$TMP/recap-render.log" 2>&1
 assert_eq "0" "$?" "(AC3/AC7) recap fixture renders exit 0"
 assert_file_contains "$RECAP_OUT" "src/added.py" "(AC3/AC7) added file present"
 assert_file_contains "$RECAP_OUT" "src/changed.py" "(AC3/AC7) changed file present"
@@ -166,13 +166,13 @@ assert_not_contains "$(cat "$RECAP_OUT")" "src/PHANTOM_NOT_IN_DIFF.py" \
 GEN_AGENTS="$REPO_ROOT/.agents/skills/html-presentation/scripts/generate-presentation.py"
 CKSUM_AGENTS_BEFORE="$(cksum "$GEN_AGENTS")"
 
-python3 "$RENDER_SCRIPT" --input "$FIXTURE" -o "$TMP/cksum-guard-out.html" >"$TMP/cksum-render.log" 2>&1
+"$TEST_PYTHON" "$RENDER_SCRIPT" --input "$FIXTURE" -o "$TMP/cksum-guard-out.html" >"$TMP/cksum-render.log" 2>&1
 
 CKSUM_AGENTS_AFTER="$(cksum "$GEN_AGENTS")"
 assert_eq "$CKSUM_AGENTS_BEFORE" "$CKSUM_AGENTS_AFTER" "(AC6) .agents generate-presentation.py untouched by render"
 
 # Regression: pin the base generator's </head> contract that the splice relies on.
-python3 "$REPO_ROOT/.agents/skills/html-presentation/scripts/generate-presentation.py" \
+"$TEST_PYTHON" "$REPO_ROOT/.agents/skills/html-presentation/scripts/generate-presentation.py" \
   --input "$FIXTURE" -o "$TMP/base_only.html" >"$TMP/base-only.log" 2>&1
 assert_file_contains "$TMP/base_only.html" "</head>" "base generator still emits </head> (splice contract)"
 
@@ -184,7 +184,7 @@ assert_file_contains "$TMP/base_only.html" "</head>" "base generator still emits
 # an eighth authored section would fail this, where a head -7 would not.
 SDP_MODEL="$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json"
 SDP_OUT="$TMP/sdp-out.html"
-python3 "$RENDER_SCRIPT" --input "$SDP_MODEL" -o "$SDP_OUT" >"$TMP/sdp-render.log" 2>&1
+"$TEST_PYTHON" "$RENDER_SCRIPT" --input "$SDP_MODEL" -o "$SDP_OUT" >"$TMP/sdp-render.log" 2>&1
 SDP_STATUS=$?
 [ "$SDP_STATUS" -eq 0 ] || cat "$TMP/sdp-render.log"
 assert_eq "0" "$SDP_STATUS" "(system-design-planning) content-model.json renders exit 0"

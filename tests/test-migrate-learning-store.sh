@@ -10,16 +10,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$REPO/scripts/migrate-learning-store.py"
 
-if command -v python3 >/dev/null 2>&1; then
-  PY=python3
-elif command -v python >/dev/null 2>&1; then
-  PY=python
-elif command -v py >/dev/null 2>&1; then
-  PY=py
-else
-  printf '  FAIL no python interpreter found (python3/python/py)\n'
-  exit 1
-fi
+PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
 
 TMP_DIRS=()
 cleanup() {
