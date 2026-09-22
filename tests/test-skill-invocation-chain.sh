@@ -196,6 +196,18 @@ for tree in $TREES; do
     "Chain: $tree/plan never itself invokes /build"
 done
 
+# ── /build -> /slice ──────────────────────────────────────────────────────
+# specs/plan-slices-and-handover.md AC12. /build's pre-flight files any
+# unlinked slice header through /slice --file --approve, in the session the
+# build prompt started -- the authorization the planning session never had.
+for tree in $TREES; do
+  f="$tree/skills/build/SKILL.md"
+  assert_file_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/build invokes /slice"
+  assert_file_contains "$f" "--file --approve" \
+    "Chain: $tree/build's /slice invocation carries --file --approve"
+done
+
 # ── /brainstorm -> /grilling, /grill-me -> /grilling, /system-design-planning -> /grilling ───
 # The interview primitive is reached only through these three callers. Sever the
 # brainstorm handoff and Step 3 silently reverts to a question dump with no

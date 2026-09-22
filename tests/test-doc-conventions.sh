@@ -1080,4 +1080,69 @@ else
     "brainstorm: template lists Decisions before Acceptance Criteria"
 fi
 
+# --- build: /build files slices, reads the ready set, closes with a handover ---
+# specs/plan-slices-and-handover.md AC12. Pre-flight files an unlinked slice
+# header through /slice --file --approve (/yolo omits --approve); a plan
+# with no ### Slice headings is one implicit slice over implementation_paths,
+# so every plan written before this spec still builds; Parallel Dispatch
+# Assessment reads slice.py ready instead of guessing independence from
+# prose; the delegation prompt carries the slice's Surface (with the
+# [SURFACE] + escape), the blocking slices' handovers, and the tool-call
+# budget with the ## Not finished list; Slice Close runs slice.py check
+# (undeclared:/untouched:), writes the > Handover: blockquote, and records
+# an interrupted slice as unfinished: rather than renumbering; Phase 6
+# counts nested rows and calls a header/child mismatch the forbidden state.
+# Pinned by the smallest falsifiable unit: the literal flags and phrases,
+# plus the negative pins that keep the retired prose from creeping back.
+BUILD_SKILL=.agents/skills/build/SKILL.md
+for token in "--file --approve" "lacks a provider link" "implicit slice" \
+             "implementation_paths" "slice.py ready" "intersecting pair" \
+             "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
+             "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
+             "forbidden state" "Use in the session the build prompt starts" \
+             "slice header" "\`/yolo\` omits \`--approve\`"; do
+  assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
+done
+
+# The ready call is described before the delegation prompt items -- a
+# reflow that moves it after would have the assessment re-derive
+# independence before it ever runs the command that replaced the guess.
+flat_build="$(flatten "$BUILD_SKILL")"
+pos_ready=$(printf '%s' "$flat_build" | grep -bo 'slice.py ready' | head -1 | cut -d: -f1)
+pos_deleg=$(printf '%s' "$flat_build" | grep -bo 'Delegation prompt must include' | head -1 | cut -d: -f1)
+if [ -n "${pos_ready:-}" ] && [ -n "${pos_deleg:-}" ] && [ "$pos_ready" -lt "$pos_deleg" ]; then
+  assert_eq "ordered" "ordered" "build: the ready call is described before the delegation prompt items"
+else
+  assert_eq "ready < delegation prompt" "${pos_ready:-missing} ${pos_deleg:-missing}" \
+    "build: the ready call is described before the delegation prompt items"
+fi
+
+# Negative pins: the retired ceremony this spec removed must not reappear.
+assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
+  "build: SKILL.md no longer says 'after /plan is confirmed'"
+assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
+  "build: SKILL.md no longer assesses independence from prose"
+assert_file_not_matches "$BUILD_SKILL" 'Step 2\.5' \
+  "build: SKILL.md never names the retired numbered sub-step (§2.5 is the spelling)"
+
+# --- wrap-up: PR body gains a Handovers section before the linkage check ---
+# specs/plan-slices-and-handover.md AC13. Step 7's Pull Request section
+# writes a `## Handovers` block -- one `### Slice n/N` heading per slice,
+# its lines verbatim -- before the linkage check reads the body, and falls
+# back to the commit message when there is no tracker to host a PR.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+for token in "## Handovers" "### Slice n/N" "commit message"; do
+  assert_file_contains "$WRAP_SKILL" "$token" "wrap-up: SKILL.md contains '$token'"
+done
+
+flat_wrap="$(flatten "$WRAP_SKILL")"
+pos_handovers=$(printf '%s' "$flat_wrap" | grep -bo '## Handovers' | head -1 | cut -d: -f1)
+pos_linkage=$(printf '%s' "$flat_wrap" | grep -bo 'pr_linkage.py check' | head -1 | cut -d: -f1)
+if [ -n "${pos_handovers:-}" ] && [ -n "${pos_linkage:-}" ] && [ "$pos_handovers" -lt "$pos_linkage" ]; then
+  assert_eq "ordered" "ordered" "wrap-up: ## Handovers section appears before the linkage check"
+else
+  assert_eq "Handovers < linkage check" "${pos_handovers:-missing} ${pos_linkage:-missing}" \
+    "wrap-up: ## Handovers section appears before the linkage check"
+fi
+
 finish

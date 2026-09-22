@@ -1,6 +1,6 @@
 ---
 name: build
-description: Execute the task plan from tasks/todo.md autonomously using TDD with sub-agent delegation. Use after /plan is confirmed.
+description: Execute the task plan from tasks/todo.md autonomously using TDD with sub-agent delegation. Use in the session the build prompt starts.
 argument-hint: ""
 ---
 
@@ -74,12 +74,15 @@ progress and drift further before finding out. Merge `main` in frequently.
    - If empty or missing: **STOP** — run `/plan` first
 2. Read the spec from `specs/` that matches the current plan
    - If no spec found: **STOP** — run `/plan` first
-3. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
-4. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
-5. Identify the project's test runner (check `package.json`, `Makefile`, `pyproject.toml`, etc.)
-6. Run the full test suite once to establish a **green baseline**
+3. **File the slices** when any slice header of the `## Plan:` block lacks a
+   provider link — see *Pre-Flight: File the Slices* below. Do this before
+   the green baseline.
+4. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
+5. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
+6. Identify the project's test runner (check `package.json`, `Makefile`, `pyproject.toml`, etc.)
+7. Run the full test suite once to establish a **green baseline**
    - If tests fail before you start: fix or flag to user before proceeding
-7. **Classify acceptance criteria** — for each AC in the spec, tag as `logic | integration | user-facing`:
+8. **Classify acceptance criteria** — for each AC in the spec, tag as `logic | integration | user-facing`:
    | AC type | Signals |
    |---------|---------|
    | `logic` | Pure functions, validators, transforms, utilities — no I/O |
@@ -87,43 +90,63 @@ progress and drift further before finding out. Merge `main` in frequently.
    | `user-facing` | Auth flows, form submissions, navigation, UI state, anything a user sees or clicks |
    When an AC mixes types, classify by the highest tier (`user-facing` > `integration` > `logic`).
 
+### Pre-Flight: File the Slices
+
+This session exists because a human started it with the build prompt, which
+is the authorization the planning session did not have. When any slice
+header of the `## Plan:` block in `tasks/todo.md` lacks a provider link:
+
+Invoke `/slice specs/<feature>.md --file --approve`. The dry run is shown,
+then the apply. `/yolo` omits `--approve`, so its slices land like every
+other unattended write on a project that requires approval. With no tracker
+the rows link to `tasks/details/`.
+
+A `## Plan:` block with no `### Slice` headings is one **implicit slice**
+whose surface is the spec's `implementation_paths` frontmatter, so every
+plan written before this spec still builds.
+
 ## Phase 1 — Task Execution (TDD Loop)
 
 Process every `[ ]` task in `tasks/todo.md` without pausing for user confirmation between tasks.
 
 A `[ ]` row whose indented children are `[ ] TDD:` rows is a **slice header**
-(written by `/system-design-planning`): the registry's row for that slice, not
-a task of its own. Claim it through `/task-registry` when its first child
-starts, mark it `[x]` when its last child passes, and never dispatch a coder
-against it.
+(written by `/slice`): the registry's row for that slice, not a task of its
+own. Claim it through `/task-registry` when its first child starts, mark it
+`[x]` when its last child passes, and never dispatch a coder against it.
 
 ### Parallel Dispatch Assessment
 
-Before processing tasks sequentially, assess if any can run in parallel.
+Before processing tasks sequentially, get the ready set instead of guessing
+independence from prose:
 
-**Tasks are independent when**:
-- They modify different files/modules
-- They have no data dependencies on each other
-- They don't share state or resources
+```bash
+python3 .agents/skills/slice/scripts/slice.py ready --index tasks/todo.md --spec <spec>
+```
 
-**If 2+ independent tasks found**:
-1. Group tasks by independence
-2. Dispatch one sub-agent per independent group, passing
-   `isolation: "worktree"` on each `Agent` call **when the groups write files**.
+This prints each ready slice with its surface and every intersecting pair.
+Disjoint ready slices dispatch in parallel; an intersecting pair with no
+blocker between them is a plan defect — serialized in table order and
+reported, never guessed. Re-run `ready` after every slice closes to pick up
+the next batch.
+
+**If 2+ ready slices are disjoint**:
+1. Dispatch one sub-agent per slice, passing
+   `isolation: "worktree"` on each `Agent` call **when the slice writes files**.
    Independence assessed at plan time is a prediction; worktree isolation makes
    it structurally true, so a mis-grouping surfaces as a merge conflict you can
    see rather than two agents silently overwriting each other.
-3. Wait for all to return; check for file conflicts
-   Before dispatching, give every sub-agent a tool-call budget with an explicit
+2. Before dispatching, give every sub-agent a tool-call budget with an explicit
    "stop and write partial work" escape hatch, and arm a stall monitor. A hung agent
    returns nothing, so null-check fallbacks never fire and this barrier never releases.
    See `.agents/skills/build/references/subagent-resilience.md`.
+3. Wait for all to return; check for file conflicts.
 4. Run the full test suite **centrally, once** — never instruct the sub-agents to
    run it themselves. Fanning verification out to every agent multiplies context
    for no added signal and is a known way to lose a whole fleet to autocompact
    thrashing. Isolate the *edits*, centralise the *verification*.
 
-**If tasks are sequential/dependent**: process one at a time (Steps 1–4 below).
+**Otherwise** — one ready slice, or an intersecting pair with no blocker:
+process slices one at a time, in table order (Steps 1–4 below).
 
 ### Step 1 — Implement the Task
 
@@ -140,6 +163,13 @@ Choose the agent or approach based on task type:
 - The relevant spec section from `specs/`
 - Paths to related source files
 - Instruction: "Follow TDD — write failing test first, then minimal implementation, then refactor"
+- The slice's Surface from § Build Order, with the rule: edit only inside
+  it; a file you must touch outside it is reported as
+  `[SURFACE] +<path> | reason: <one sentence>` and the work continues
+- The `> Handover:` lines of every slice this one is blocked by, verbatim
+- The tool-call budget and escape hatch from `subagent-resilience.md` Rule
+  1, and the instruction to list unfinished `TDD:` rows under
+  `## Not finished`
 
 **Role-based context injection from `tasks/project-context.md`** (if it exists):
 
@@ -181,6 +211,39 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
   dry-run unless `--apply` and the project's approval setting allow it.
 - Move to the next `[ ]` task immediately (no user prompt)
 - If a task is blocked by a previous failure, note it and skip to the next unblocked task
+
+### Slice Close
+
+When a slice's last `TDD:` row passes:
+
+```bash
+python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha>
+```
+
+This matches `git diff --name-only <base>..HEAD` against the slice's
+declared surface and prints `undeclared: <paths>` and `untouched: <globs>`,
+exiting 0 only when both are empty. Informational — nothing stops on a
+non-empty report; fold the result into the handover below and the Phase 4.5
+batch.
+
+Write a `> Handover:` blockquote under the slice heading, after its rows —
+one to four lines: what landed (`<short-sha>..<short-sha>`), what the next
+slice must not re-derive, then optionally the surface report and one open
+question. Write it for a one-slice plan too: it is what an interrupted
+build's next session reads.
+
+**Unfinished slice**: when the agent returns rows under `## Not finished`
+or the escape hatch fired, mark the finished rows `[x]`, leave the header
+and the remaining rows `[ ]`, write `unfinished: <rows>` in the handover,
+and leave the slice in the next `ready` set. Never renumber and never open
+a remainder slice. A header marked `[x]` with a `[ ]` child row is the
+**forbidden state** — Phase 6 counts nested rows and reports it as a build
+failure.
+
+The slice boundary is the checkpoint: run the full suite once, centrally;
+write the handover; flush the task-boundary checkpoint
+(`bash .claude/hooks/pre-compact.sh </dev/null`); then call `slice.py ready`
+again for the next batch.
 
 ### TDD Discipline (tdd)
 
@@ -353,7 +416,9 @@ End your turn with this report populated from **real command output**:
 1. `git status --short`
 2. `git log --oneline <base>..HEAD`
 3. `ls specs/ | grep <feature>`
-4. `grep -c '^\[x\]' tasks/todo.md` vs `grep -c '^\[ \]' tasks/todo.md`
+4. `grep -cE '^\s*(- )?\[x\]' tasks/todo.md` vs `grep -cE '^\s*(- )?\[ \]' tasks/todo.md` —
+   counted with leading whitespace so nested `TDD:` rows are counted, not
+   just top-level rows
 
 ```
 ══════════════════════════════════════
@@ -389,6 +454,9 @@ Next: /wrap-up-session
 - Claiming "build complete" without the persistence proof block
 - Stating a file was "created" or "updated" without showing its absolute path
 - Omitting the `Pushed:` line
+- A slice header marked `[x]` while any of its child rows stay `[ ]` — the
+  **forbidden state** Slice Close defines; report it as a build failure,
+  never as a cosmetic mismatch
 
 ## Error Handling
 
