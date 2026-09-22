@@ -193,7 +193,7 @@ No workflow skill talks to a tracker about task state. They go through here.
 | Skill | Point of contact |
 |-------|------------------|
 | `/plan` | after the plan is approved, offer to record tasks (`upsert`) |
-| `/system-design-planning` | read the issue (`show`) at intake; after approval, one `upsert` per build slice |
+| `/system-design-planning` | read the issue (`show`) at intake; filing is `/slice --file`, run by `/build`'s pre-flight in the build session |
 | `/build` | claim a task and update status at task boundaries |
 | `/verify-evidence` | attach evidence links to the task |
 | `/quality-gate` | report findings against the task |

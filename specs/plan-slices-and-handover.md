@@ -5,6 +5,7 @@ implementation_paths:
   - .agents/skills/plan/SKILL.md
   - .agents/skills/system-design-planning/SKILL.md
   - .agents/skills/system-design-planning/templates/architecture-spec-template.md
+  - .agents/skills/system-design-planning/templates/content-model.json
   - .agents/skills/brainstorm/SKILL.md
   - .agents/skills/build/SKILL.md
   - .agents/skills/wrap-up-session/SKILL.md
@@ -611,7 +612,7 @@ Constraints: work in the worktree `.claude/worktrees/106` on branch `feat/106-pl
 - `.agents/skills/task-registry/scripts/registry/globs.py`: the shared `implementation_paths` matcher
 - `.agents/skills/wrap-up-session/scripts/spec-reconcile.py`: source of the matcher being extracted
 - `.agents/skills/plan/SKILL.md`: Steps 1, 1.5, 2, 3, 4, 6 as specified; Step 7 removed
-- `.agents/skills/system-design-planning/SKILL.md` and `templates/architecture-spec-template.md`: Steps 1, 2.5, 3, 3.5, 7, 9; Step 8 removed; Iron Law, Red Flags, description; the trimmed template
+- `.agents/skills/system-design-planning/SKILL.md` and `templates/architecture-spec-template.md`: Steps 1, 2.5, 3, 3.5, 7, 9; Step 8 removed; Iron Law, Red Flags, description; the trimmed template; `templates/content-model.json`: the rendered document's build-order example and reflection line lose the old slice table and the approval word
 - `.agents/skills/brainstorm/SKILL.md`: Step 6 § Decisions
 - `.agents/skills/build/SKILL.md`: pre-flight filing, ready set, delegation items 5 to 7, surface check, handover, unfinished slice, Phase 6 count
 - `.agents/skills/wrap-up-session/SKILL.md`: `## Handovers`

@@ -1046,6 +1046,16 @@ assert_file_contains "$SDP_TEMPLATE" "## Build order" \
 assert_prose_contains "$SDP_TEMPLATE" "/slice fills this section's table" \
   "design-planning: template says /slice fills the Build order table"
 
+# The rendered document's reflection line is what the reviewer reads last;
+# an approval word there would reintroduce the gate Step 7 retired.
+SDP_MODEL=.agents/skills/system-design-planning/templates/content-model.json
+assert_file_not_matches "$SDP_MODEL" ', or approved' \
+  "design-planning: content-model.json reflection no longer offers the approval word"
+assert_file_contains "$SDP_MODEL" "starting a fresh session with the build prompt" \
+  "design-planning: content-model.json reflection points at the build session"
+assert_file_not_matches "$SDP_MODEL" 'Contract exposed        Size' \
+  "design-planning: content-model.json build-order example is /slice's table, not the retired one"
+
 # --- brainstorm: Step 6's template carries § Decisions with a Source column ---
 # specs/plan-slices-and-handover.md AC11. /plan Step 1 carries a settled tree
 # forward only when it can read a § Decisions table -- Step 6 must write one,
