@@ -109,7 +109,7 @@ assert_not_contains "$(cat "$BOM_OUT")" "<title>Presentation</title>" \
 
 # --- 4. Genuinely non-UTF-8 stdin fails loudly --------------------------------
 # The only new branch the fix adds beyond the happy path. decode() is strict by
-# design: a fallback here would be silent mojibake, which CLAUDE.md § No Silent
+# design: a fallback here would be silent mojibake, which AGENTS.md § No Silent
 # Failures forbids. Pin the loud contract -- non-zero, named cause, no artifact.
 BAD="$TMP/bad.md"
 printf '# Titre\n\nCaf\xe9 en latin-1.\n' >"$BAD"

@@ -880,9 +880,9 @@ printf '\n--- 10. Review context carries every relevant spec, not just one -----
 # Item 2 of the dispatch contract said "the spec" when a session can legitimately
 # touch several. A reviewer handed one of three measures the other two's changes
 # against nothing, and reports the difference as a defect.
-assert_prose_contains CLAUDE.md 'Every spec relevant to this session' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'Every spec relevant to this session' \
   "contract: item 2 carries every relevant spec, not a single one"
-assert_prose_contains CLAUDE.md 'each spec' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'each spec' \
   "contract: acceptance criteria are per-spec, so a reviewer can tell them apart"
 for f in "$WU"; do
   assert_prose_contains "$f" 'Every spec relevant to this session' \

@@ -35,6 +35,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from registry.config import (  # noqa: E402
     DEFERRED_ROUTINES,
+    LEGACY_POINTER_FILE,
+    LEGACY_POINTER_NOTICE,
     ConfigError,
     ConfigPointerError,
     PRODUCER_ROUTINES,
@@ -341,6 +343,8 @@ def _doctor(registry: Registry, fault: Optional[ConfigError] = None) -> str:
         f"provider:       {registry.provider.name}",
         f"selected because: {registry.selection_reason}",
         f"configuration:  {_configuration_line(config, pointer_fault)}",
+        *([f"notice:         {LEGACY_POINTER_NOTICE}"]
+          if config.pointer_file == LEGACY_POINTER_FILE else []),
         f"index:          {config.index_path}",
         f"capabilities:   {registry.provider.capabilities.render()}",
         f"reachable:      {'yes' if status.available else 'no'} — {status.detail}",

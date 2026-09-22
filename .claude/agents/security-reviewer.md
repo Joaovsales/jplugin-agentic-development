@@ -33,7 +33,7 @@ trust boundary is a property of the path, not of the diff.
 
 **Never out of scope**: a vulnerability in code this session changed or made
 reachable, whatever the deferral list says. A `TODO(shortcut):` marker excuses
-missing polish, never a missing trust-boundary check — `.claude/project.md` § *Code
+missing polish, never a missing trust-boundary check — `AGENTS.md` § *Code
 Economy* puts security on the never-on-the-chopping-block list, so an accepted
 trade-off that opens a hole is itself the finding.
 

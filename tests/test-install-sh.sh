@@ -22,6 +22,14 @@ assert_eq "0" "$(count_matching '^[[:space:]]*rm -rf "\$CLAUDE_HOME/skills"[[:sp
   "install.sh: no live 'rm -rf ~/.claude/skills' command"
 assert_eq "0" "$(count_matching 'cp -r "\$REPO_DIR/.claude/skills')" \
   "install.sh: no longer copies skills into ~/.claude/skills/ — the plugin serves them"
+# specs/single-instruction-file.md D17: the shared rules live in each project's
+# AGENTS.md managed block, written by /sync. A global copy would be stale on
+# arrival, and after slice 2 the template's CLAUDE.md is the one-line pointer —
+# copying it would point every session at a file that is not there.
+assert_eq "0" "$(count_matching 'cp "\$REPO_DIR/CLAUDE\.md"')" \
+  "install.sh: no longer copies CLAUDE.md into ~/.claude/ — the rules live in each project's AGENTS.md block"
+assert_not_contains "$src" 'Installing global CLAUDE.md' \
+  "install.sh: the global CLAUDE.md step is gone, not just silenced"
 assert_not_contains "$src" "--prune-skills" \
   "install.sh: the --prune-skills flag is gone (removal is the default, behind one y/N)"
 assert_contains "$src" 'plugin marketplace add' \
@@ -168,7 +176,9 @@ assert_not_contains "$(cat "$h/.claude/settings.json")" '"skills"' \
 assert_file_contains "$h/.claude/settings.json" "session-start.sh" \
   "no claude: SessionStart hook still registered"
 assert_eq "present" "$(exists "$h/.agents/skills/build/SKILL.md")" \
-  "no claude: step 3 still delivers ~/.agents/skills/ for Pi and Codex"
+  "no claude: step 2 still delivers ~/.agents/skills/ for Pi and Codex"
+assert_eq "missing" "$(exists "$h/.claude/CLAUDE.md")" \
+  "no claude: install.sh writes no ~/.claude/CLAUDE.md (D17 — a personal one there is the user's own)"
 rm -rf "$box"
 
 # ── Case 2: with `claude` — one marketplace add, one install, then `already` ─

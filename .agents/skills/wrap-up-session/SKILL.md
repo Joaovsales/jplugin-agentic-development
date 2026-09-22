@@ -329,7 +329,7 @@ Address any MUST-FIX findings before proceeding to commit.
 
 ## Step 3.7 — Shortcut Ledger
 
-`.claude/project.md` § *Code Economy* marks deliberate shortcuts with `TODO(shortcut):`
+`AGENTS.md` § *Code Economy* marks deliberate shortcuts with `TODO(shortcut):`
 naming a limit and an upgrade path. Collect them so a deferral cannot quietly
 become permanent:
 
@@ -343,7 +343,7 @@ marker naming no upgrade path `no-trigger` — those are the ones that rot. Clos
 with `<N> shortcuts, <M> without a trigger.`
 
 No markers found: print nothing and move on (failure-only reporting, per
-`CLAUDE.md` § *Observability Discipline*). This step reports only — it never
+`AGENTS.md` § *Observability Discipline*). This step reports only — it never
 blocks the commit, and shortcuts are not bugs, so they do not get bug-track
 documents in `tasks/solutions/`.
 
@@ -751,7 +751,7 @@ the register for repeated IDs before trusting it.
 
 ## Step 8 — Deployment Verification
 
-After push, verify deployment services if `## Deployment Targets` section exists in `.claude/project.md` (Claude Code only).
+After push, verify deployment services if a `## Deployment Targets` section exists in `AGENTS.md` — or, until `/sync` moves it, still in `.claude/project.md`, which `/verify-evidence` reads second with a one-line notice (Claude Code only).
 
 Use `/verify-evidence --scope deployment` to poll, fetch logs on failure, and loop a `code-debugger` fix cycle up to 3 iterations.
 

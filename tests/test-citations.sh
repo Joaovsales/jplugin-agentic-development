@@ -17,11 +17,12 @@
 #   `<path>.md` § *<Heading>*
 #
 # and it resolves when <path> exists and holds a `## <Heading>` or
-# `### <Heading>` line — or a `**<Heading>**` line, the shape CLAUDE.md's Core
-# Principles use for their sub-rules (Observability Discipline, No Silent
-# Failures, Code Graph First), which are cited by that name from AGENTS.md and
-# the skills. Headings are compared with whitespace collapsed, because the
-# prose is hard-wrapped and a citation can straddle a line break.
+# `### <Heading>` line — or a line that opens with a bold `**<Heading>**` or
+# `**<Heading>.**` label, the shape the AGENTS.md block's Core Principles use
+# for their sub-rules (Observability Discipline, No Silent Failures, Code Graph
+# First), which the skills cite by that name. Headings are compared with
+# whitespace collapsed, because the prose is hard-wrapped and a citation can
+# straddle a line break.
 #
 # Scope: every Markdown file under .agents/ and .claude/agents/, plus AGENTS.md
 # — the files the spec names as citing sites. Paths are resolved from the repo
@@ -38,7 +39,7 @@ import re, sys
 from pathlib import Path
 
 CITE = re.compile(r"`([^`\n]+\.md)` § \*([^*]+?)\*")
-HEADING = re.compile(r"^(?:#{2,3} |\*\*)(.+?)(?:\*\*)?\s*$", re.M)
+HEADING = re.compile(r"^#{2,3} (.+?)\s*$|^\*\*([^*\n]+?)\.?\*\*", re.M)
 
 def collapse(s):
     return re.sub(r"\s+", " ", s).strip()
@@ -50,7 +51,7 @@ headings = {}
 def headings_of(path):
     if path not in headings:
         text = path.read_text(encoding="utf-8", errors="replace")
-        headings[path] = {collapse(m.group(1).rstrip("*")) for m in HEADING.finditer(text)}
+        headings[path] = {collapse(m.group(1) or m.group(2)) for m in HEADING.finditer(text)}
     return headings[path]
 
 count = 0

@@ -65,7 +65,7 @@ Run `/setup-deployment` after editing `check_contexts` to re-validate the runboo
 
 ## Dashboard URL
 
-The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `.claude/project.md` § Deployment Targets. For GitHub Actions, use `<owner>/<repo>` (e.g. `joaovsales/jplugin-agentic-development`). The resulting URL opens the Actions tab for the repo.
+The `dashboard_url_template` interpolates `{project_id}` from the `Project ID` column of `AGENTS.md` § Deployment Targets. For GitHub Actions, use `<owner>/<repo>` (e.g. `joaovsales/jplugin-agentic-development`). The resulting URL opens the Actions tab for the repo.
 
 ## Manual troubleshooting
 
@@ -79,7 +79,7 @@ When `/verify-deployment` exhausts its 3 fix iterations and escalates, walk this
 
 ## CI is typically fast
 
-`default_timeout_minutes: 10` — CI jobs that take longer than 10 minutes are unusual and usually mean something is wrong. If your workflow genuinely needs longer (large test matrix, slow integration tests), override in `.claude/project.md` § Deployment Targets → `**Config:**` → `Build timeout: 20m`.
+`default_timeout_minutes: 10` — CI jobs that take longer than 10 minutes are unusual and usually mean something is wrong. If your workflow genuinely needs longer (large test matrix, slow integration tests), override in `AGENTS.md` § Deployment Targets → `**Config:**` → `Build timeout: 20m`.
 
 ## Adapter contract note
 

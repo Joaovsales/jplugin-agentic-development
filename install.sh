@@ -2,19 +2,22 @@
 # install.sh — One-time setup to enforce Claude workflow across all projects.
 #
 # What this does:
-#   1. Copies CLAUDE.md into ~/.claude/ (global Claude Code config)
-#   2. Registers this checkout as a Claude Code plugin marketplace and installs
+#   1. Registers this checkout as a Claude Code plugin marketplace and installs
 #      the `jplugin` plugin at user scope; offers to delete the pre-plugin skill
 #      copies from ~/.claude/skills/ (one y/N; nothing is deleted on N or EOF)
-#   3. Copies .agents/ into ~/.agents/ (harness-neutral skills, read by Pi and Codex)
-#   4. Copies agents into ~/.claude/agents/
-#   5. Installs a global SessionStart hook that orients Claude in any project
-#   6. Configures Pi (~/.pi/agent/settings.json) if installed
-#   7. Wires graphify into this project if the CLI is present (optional)
-#   8. Sets up a git template dir so new repos receive the pre-push hook
-#   9. Installs project-template/ + a global `git scaffold` alias that copies it
+#   2. Copies .agents/ into ~/.agents/ (harness-neutral skills, read by Pi and Codex)
+#   3. Copies agents into ~/.claude/agents/
+#   4. Installs a global SessionStart hook that orients Claude in any project
+#   5. Configures Pi (~/.pi/agent/settings.json) if installed
+#   6. Wires graphify into this project if the CLI is present (optional)
+#   7. Sets up a git template dir so new repos receive the pre-push hook
+#   8. Installs project-template/ + a global `git scaffold` alias that copies it
 #      into any repo (git has no post-init hook, so bootstrap is explicit)
-#  10. Prints a `newproject` shell function to add to your .bashrc / .zshrc
+#   9. Prints a `newproject` shell function to add to your .bashrc / .zshrc
+#
+#  The shared rules are not copied anywhere: every project reads them from the
+#  managed block of its own AGENTS.md, which /sync writes (a ~/.claude/CLAUDE.md
+#  is the user's own file and is never written here).
 #
 # Usage:
 #   git clone <this-repo> ~/jplugin-agentic-development
@@ -189,13 +192,8 @@ report_skills_source() {
   esac
 }
 
-# ── 1. Global CLAUDE.md ───────────────────────────────────────────────────────
-step "Installing global CLAUDE.md"
+# ── 1. Claude Code plugin ─────────────────────────────────────────────────────
 mkdir -p "$CLAUDE_HOME"
-cp "$REPO_DIR/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md"
-ok "copied" "~/.claude/CLAUDE.md"
-
-# ── 2. Claude Code plugin ─────────────────────────────────────────────────────
 # Skills reach Claude Code through the jplugin plugin, whose manifest points at
 # .agents/skills/. Nothing is copied into ~/.claude/skills/ any more; the
 # pre-plugin copies an earlier install left there are offered for removal, and
@@ -208,7 +206,7 @@ if [ "$PLUGIN_OUTCOME" != "Skipped" ]; then
 fi
 report_skills_source "$PLUGIN_OUTCOME" "$LEGACY_OUTCOME"
 
-# ── 3. Shared workflow → ~/.agents/ ──────────────────────────────────────────
+# ── 2. Shared workflow → ~/.agents/ ──────────────────────────────────────────
 step "Installing shared workflow → ~/.agents/"
 mkdir -p "$HOME/.agents"
 cp -r "$REPO_DIR/.agents/"* "$HOME/.agents/"
@@ -224,13 +222,13 @@ if [ -n "$stale_agents" ]; then
   echo "        Pi and Codex list them beside their replacements; remove with: (cd \"$HOME/.agents/skills\" && rm -rf $(printf '%s ' $stale_agents))"
 fi
 
-# ── 4. Global agents ─────────────────────────────────────────────────────────
+# ── 3. Global agents ─────────────────────────────────────────────────────────
 step "Installing global agents → ~/.claude/agents/"
 mkdir -p "$CLAUDE_HOME/agents"
 cp "$REPO_DIR/.claude/agents/"*.md "$CLAUDE_HOME/agents/"
 ok "copied" "$(ls "$CLAUDE_HOME/agents/"*.md | wc -l | tr -d ' ') agents"
 
-# ── 5. Global SessionStart hook ───────────────────────────────────────────────
+# ── 4. Global SessionStart hook ───────────────────────────────────────────────
 step "Installing global SessionStart hook"
 mkdir -p "$CLAUDE_HOME/hooks"
 cp "$REPO_DIR/.claude/hooks/session-start.sh" "$CLAUDE_HOME/hooks/session-start.sh"
@@ -284,7 +282,7 @@ fi
 # the skills through the plugin step 2 registers. Pi is a separate schema and
 # is still configured below.
 
-# ── 6. Configure Pi if installed ─────────────────────────────────────────────
+# ── 5. Configure Pi if installed ─────────────────────────────────────────────
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if [ -f "$PI_SETTINGS" ]; then
   step "Configuring Pi skill paths"
@@ -300,7 +298,7 @@ if [ -f "$PI_SETTINGS" ]; then
   fi
 fi
 
-# ── 7. Wire graphify into this project (optional) ────────────────────────────
+# ── 6. Wire graphify into this project (optional) ────────────────────────────
 # graphify is a per-machine CLI with per-project state (./graphify-out/graph.json),
 # so it has to be wired per repo. Entirely optional — never block the install.
 step "Wiring graphify (optional)"
@@ -308,23 +306,27 @@ if command -v graphify > /dev/null 2>&1; then
   graphify claude install > /dev/null 2>&1 || true
   graphify hook install > /dev/null 2>&1 || true
 
-  # `graphify claude install` writes its `## graphify` rules into CLAUDE.md, which /sync
-  # overwrites wholesale — so the rules vanish silently on the next sync while the
-  # PreToolUse hook and the skill both survive, leaving graphify looking wired but
-  # rule-less. Relocate the section to .claude/project.md, which /sync never touches.
+  # `graphify claude install` appends its `## graphify` rules to CLAUDE.md, which is
+  # the single line `@AGENTS.md` — /sync rewrites it whenever it differs, so the
+  # rules would vanish on the next sync while the PreToolUse hook and the skill
+  # both survive, leaving graphify looking wired but rule-less. Relocate the
+  # section below the end marker of AGENTS.md, which /sync never touches.
   if [ -f CLAUDE.md ] && grep -q '^## graphify$' CLAUDE.md; then
-    mkdir -p .claude
-    [ -f .claude/project.md ] || printf '# Project-Specific Configuration\n\n> Imported by CLAUDE.md. Safe to edit — /sync never touches this file.\n' > .claude/project.md
-    if ! grep -q '^## graphify$' .claude/project.md; then
+    [ -f AGENTS.md ] || printf '# Project Instructions\n' > AGENTS.md
+    if ! grep -q '^## graphify$' AGENTS.md; then
       {
         printf '\n'
         awk '/^## graphify$/{f=1} f' CLAUDE.md
-      } >> .claude/project.md
+      } >> AGENTS.md
     fi
     # Drop the section from CLAUDE.md. It is emitted last, so truncating at its
-    # header is sufficient and leaves the template content untouched.
+    # header is sufficient; then restore the exact one-line pointer if that is
+    # all that is left, so the budget invariant (byte-equal `@AGENTS.md`) holds.
     awk '/^## graphify$/{exit} {print}' CLAUDE.md > CLAUDE.md.tmp && mv CLAUDE.md.tmp CLAUDE.md
-    ok "moved" "graphify rules: CLAUDE.md -> .claude/project.md (survives /sync)"
+    if [ "$(grep -c . CLAUDE.md)" = "1" ] && grep -qx '@AGENTS.md' CLAUDE.md; then
+      printf '@AGENTS.md\n' > CLAUDE.md
+    fi
+    ok "moved" "graphify rules: CLAUDE.md -> AGENTS.md (survives /sync)"
   fi
 
   # graphify-out/ is ~13 MB of generated artefacts that sit in the working tree.
@@ -346,13 +348,13 @@ if command -v graphify > /dev/null 2>&1; then
     printf '# Search-tool exclusions (ripgrep, fd — plain `grep -r` does NOT honour this).\ngraphify-out/\nnode_modules/\n' >> .ignore
   fi
 
-  ok "wired" "graphify: CLAUDE.md + PreToolUse hook + git hooks + .gitignore/.ignore"
+  ok "wired" "graphify: AGENTS.md rules + PreToolUse hook + git hooks + .gitignore/.ignore"
 else
   echo "  NOTE: graphify not found — optional code-graph indexing skipped."
   echo "  Install with: pip install graphify   (then re-run this installer)"
 fi
 
-# ── 8. Git template directory ─────────────────────────────────────────────────
+# ── 7. Git template directory ─────────────────────────────────────────────────
 step "Setting up git template dir → $GIT_TEMPLATE_DIR"
 mkdir -p "$GIT_TEMPLATE_DIR/hooks"
 
@@ -376,7 +378,7 @@ fi
 git config --global init.templateDir "$GIT_TEMPLATE_DIR"
 ok "set" "git config --global init.templateDir $GIT_TEMPLATE_DIR"
 
-# ── 9. Project scaffold → ~/.agents/project-template + `git scaffold` ────────
+# ── 8. Project scaffold → ~/.agents/project-template + `git scaffold` ────────
 # Git has no post-init hook: a template dir only seeds .git/, it never runs
 # anything on `git init`. The hooks/post-init this step used to write was copied
 # into every new repo and executed nowhere. Bootstrap is now an explicit,
@@ -395,7 +397,7 @@ git config --global alias.scaffold '!bash "$HOME/.agents/bin/scaffold-project.sh
 ok "copied" "~/.agents/project-template ($(find "$REPO_DIR/project-template" -type f | wc -l | tr -d ' ') files)"
 ok "set" "git alias: git scaffold → ~/.agents/bin/scaffold-project.sh"
 
-# ── 10. Print newproject shell function ───────────────────────────────────────
+# ── 9. Print newproject shell function ───────────────────────────────────────
 step "Shell function — add this to your ~/.bashrc or ~/.zshrc"
 cat <<'SHELLCONFIG'
 

@@ -251,8 +251,8 @@ assert_eq "absent" "$([ -e "tests/test-$retired-rewire.sh" ] && echo present || 
 survey="$(awk '/repo-survey dispatch has no session/{f=1} f{print} f&&/^$/{exit}' .agents/references/review-dispatch-contract.md)"
 assert_contains "$survey" "/sweep" \
   "AC9: the review dispatch contract's repo-survey exception names /sweep"
-assert_file_matches CLAUDE.md '^\| `/sweep' \
-  "AC9: CLAUDE.md's skills table lists /sweep"
+assert_file_matches README.md '^\| `/sweep' \
+  "AC9: the README skills table lists /sweep"
 assert_file_matches README.md '^\| `/sweep' \
   "AC9: README.md's skills table lists /sweep"
 assert_file_contains .claude/hooks/session-start.sh "/sweep" \

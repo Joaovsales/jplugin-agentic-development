@@ -124,7 +124,7 @@ becomes an edit to the spec or a row in *Decisions* — never a remark in chat.
 ### 5. Adversarial pass (conditional)
 
 When any slice changes a persisted schema or an external contract, dispatch
-`critic` under the Review Dispatch Contract in `CLAUDE.md`. Item 1 has no empty
+`critic` under `.agents/references/review-dispatch-contract.md`. Item 1 has no empty
 form, so the spec itself is the diff: `git diff --no-index /dev/null
 specs/<feature>.md`, inline when small, else truncated-plus-path per
 *Large-Artifact Handoff*. Then the spec path and its acceptance criteria

@@ -1,70 +1,144 @@
-# Pi Project-Specific Rules
+# jplugin-agentic-development — Agent Instructions
 
-> **Pi harness only.** Claude Code uses `.claude/project.md` for project-specific rules.
-> `CLAUDE.md` (shared rules, workflow, principles) is loaded automatically by both harnesses — this file adds on top of it.
-> Safe to edit — `/sync` never touches this file.
+<!-- jplugin-agentic-development:begin -->
+## Session Start Checklist
 
----
+1. Note the learning-store counts in the session banner. When a task touches a known area, grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) — never bulk-load the store. Consult `tasks/concepts.md` for project terms you do not recognise and use its vocabulary when naming things.
+2. Check `tasks/todo.md` for in-progress work.
+3. Run `/memory-maintain` — it self-gates and only does work every 5 sessions or when overdue.
+
+## Workflow: PRD → Plan → Build → Wrap Up
+
+1. **PRD** (greenfield only) — `/prd` writes `specs/prd-<name>.md`, `tasks/backlog.md`, `tasks/project-context.md`.
+2. **Spec first** — every non-trivial feature gets `specs/<feature>.md` (Behavior / Inputs / Outputs / Edge Cases / Acceptance Criteria) through `/plan`, or `/system-design-planning` when the change crosses a component boundary, changes a persisted data model, or changes an external contract.
+3. **Plan before code (hard gate)** — write the step-by-step plan to `tasks/todo.md` as `[ ] TDD: [Test Name] -> [Impl Detail]` rows before touching source, then ask: "Does this plan meet your requirements? Confirm with 'y' to begin." Do not proceed without confirmation (`/system-design-planning` gates on the word **approved** against its rendered document instead).
+4. **Build** — `/build` runs the plan autonomously: failing test → minimal implementation → refactor → `[x]`; the full suite after every task; `/quality-gate` on the changed files when the tasks are done; every acceptance criterion validated; no prompts between tasks.
+5. **Wrap up** — after a correction, capture the root cause in `tasks/solutions/` (`/debug` or `/learn`); at session end run `/wrap-up-session` to sync learnings, run tests, and push.
+
+## Review Gate Taxonomy
+
+```
+Layer 1 — Per-task in /build       spec compliance check (inline) + tests pass
+Layer 2 — Post-build quality-gate  structural quality · AI anti-patterns · APOSD design
+Layer 3 — Pre-push in /wrap-up     consistency, defensive audit, coverage, adversarial critic
+```
+
+Every finding any layer emits carries the four axes of the *Finding Model* — `severity`, `confidence`, `autofix_class`, `owner` — and is auto-applied only when `gated_auto` at `confidence >= 75`; the emission format, anchors, gates and Independence Accounting are `.agents/references/finding-model.md`. Every reviewer dispatch carries the seven items of `.agents/references/review-dispatch-contract.md` § *The seven items*, stating `deferrals: none` and `no spec — <reason>` when an item is empty, and shares intent while withholding conclusions.
+
+## Core Principles
+
+**Never Guess — Verify.** Read before editing. Check that files exist. Validate from actual content.
+
+**Code Graph First.** Prefer the per-project code graph (`graphify-out/graph.json`) over blind grep/read sweeps: `graphify query "<question>"` to explore, `graphify explain "<symbol>"` for one node, `graphify path "A" "B"` for how two things connect. Optional — a missing `graphify` or graph is not an error, fall back to normal search. A stale graph is worse than none: `graphify hook install` re-indexes on commit and checkout.
+
+**Clean Code** — functions ≤20 LOC and ≤3 parameters, one abstraction level, meaningful names, DRY and KISS — is the standard `/quality-gate` Phase 1 checks.
+
+**APOSD Design.** Hide information behind simple interfaces. Pull complexity downward — callers never learn internal state machines, lock types or schemas. Prefer deep modules over shallow ones. Prefer general-purpose over special-case when it costs no complexity. Define errors out of existence rather than handling them.
+
+**SOLID** — single responsibility, open/closed via strategy or registry, Liskov, small interfaces, injected dependencies — is the standard `/quality-gate` Phase 1 checks.
+
+**Observability Discipline.** Recurring jobs (cron, smoke tests, health checks) report failure only: success is silent (exit 0, no log line); failure is loud (structured error, actionable context, non-zero exit).
+
+**Minimal Impact.** Touch only what the task needs. No unsolicited refactors, no proactive documentation.
+
+**No Silent Failures.** Explicit errors only. No `except: pass`. No fallback values that hide a broken assumption.
+
+**File & Git Hygiene.** Prefer editing existing files. Never skip git hooks. Atomic, descriptive commits.
+
+## Quality Gate
+
+Before marking any task complete, confirm:
+- All relevant tests pass, and new code has ≥80% test coverage
+- Every user-facing acceptance criterion has an e2e walkthrough in `tasks/e2e-log.md` (`/verify-evidence --scope e2e`)
+- No linting or type errors
+- Code passes the Clean Code and SOLID review, and introduces no security vulnerability
+
+## Key Directories
+
+```
+.agents/skills/            → Canonical skills (harness-neutral)
+.agents/agents/            → Sub-agent personas (canonical; .claude/agents/ = Claude Code copy)
+.agents/references/        → Protocol references: finding model, review dispatch contract, model routing
+.claude/hooks/             → Lifecycle hook scripts (Claude Code)
+specs/                     → Feature specifications
+tasks/todo.md              → Active task index
+tasks/backlog.md           → Ordered work items (from /prd)
+tasks/project-context.md   → Compressed agent briefing (auto-generated)
+tasks/solutions/           → Typed learning store: one doc per learning, grep-first retrieval (schema in its README.md)
+tasks/history.md           → Session narrative log (what happened, not learnings)
+tasks/concepts.md          → Concept glossary: project vocabulary (bootstrapped by /memory-maintain, accreted by /learn)
+tasks/checkpoint.md        → Session snapshots
+```
+
+## Agents
+
+One focused task per sub-agent. Canonical personas live in `.agents/agents/` and never pin a `model:`; `.claude/agents/` is the Claude Code copy and may pin built-in aliases. Which tier each agent runs on — Planner `opus`, Builder and Reviewer `sonnet`, Scout `haiku`, and *Ceiling* (`code-reviewer`, `security-reviewer`, `software-design-expert-review`, `critic` with a planner floor), which inherits the session model — is `.agents/references/model-routing.md`. On Claude Code pass `model` explicitly for the Planner, Builder, Reviewer and Scout tiers and pass **nothing** for Ceiling agents; on Pi never pass per-call model params, `subagents.agentOverrides` resolves them.
+
+## Task Tracking
+
+`tasks/todo.md` is an **index**, not the detailed source of truth: one row per task — status box, title, stable ID, provider link, one-line summary, optional dependency marker. Acceptance criteria, discussion and evidence live in the external ticket or the linked spec, read one task at a time through `/task-registry show <task-id>`.
+
+The configuration contract is `docs/task-tracking.md`, or wherever a `Task tracking instructions: <path>` line below the end marker of this file points; start from `.agents/skills/task-registry/templates/task-tracking.md`. A pointer whose target is missing is refused, never read as "no configuration". Provider resolution — an explicit `provider =`, else GitHub when a GitHub remote and an authenticated `gh` both exist, else local Markdown — and the search order are `.agents/skills/task-registry/references/configuration.md` § *Discovery and selection*.
+
+**No skill talks to a tracker directly.** `/plan`, `/build`, `/verify-evidence`, `/quality-gate` and `/wrap-up-session` reach the tracker only through `/task-registry`. External task creation and status changes require explicit authorization unless the project's configuration enables them.
+
+## Code Economy
+
+A generation-time gate that runs before you write code — the cheapest line to review is the one never written. Walk the hierarchy top to bottom and stop at the first rung that applies:
+
+1. **Necessity (YAGNI)** — skip speculative abstractions, one-setting knobs, features no AC asks for.
+2. **Existing code** — a helper, type or pattern already in this repo; re-implementing what lives a few files over is the commonest slop.
+3. **Standard library** — before a hand-rolled equivalent.
+4. **Native platform** — the OS, browser or runtime primitive (`<input type="date">` over a date-picker dependency).
+5. **Existing dependency** — before adding a new one; never add a dependency for what 1–4 cover.
+6. **One line** — if a correct one-liner exists, write it.
+7. **Minimal viable code** — only then the least code that satisfies the AC.
+
+Understand first: trace the real flow through every file the change touches before picking a rung — the smallest change in the wrong place is a second bug. Fix the root cause, not the symptom: check every caller of the function you touch, because one guard in the shared function beats one per caller. Tiebreak on correctness: at equal line count take the option that handles the edge cases. Never on the chopping block — security, accessibility, trust-boundary validation, error handling that prevents data loss, and anything the user explicitly asked for. Mark a deliberate minimal solution with a `TODO(shortcut):` comment naming the limit and the upgrade path; `/quality-gate` preserves the marker.
+
+## Surgical Changes
+
+Every code-modifying turn passes three tests. **Trace** — every changed line traces to the current task or request; revert a hunk you cannot point at a sentence for. **Style match** — follow the surrounding file's naming, formatting, error handling and comment density even where you would write it differently; style drift is a separate PR. **Orphan rule** — remove only the imports, variables and functions *your* change made unused; mention pre-existing dead code in the summary and move on. Explicit refactor or cleanup tasks are exempt.
+
+## Ambiguity Protocol
+
+When a sub-agent or `/build` hits **genuine semantic ambiguity** — a question whose answer changes the implementation, not a style choice or something one more file answers — it picks one option, proceeds, and emits a single parseable line:
+
+```
+[AMBIGUITY] <one-sentence description> | options: A) <option> B) <option> [C) ...] | picked: <letter> | reason: <one sentence>
+```
+
+`/build` collects every line and surfaces the batch to the user before `/quality-gate`. Use sparingly; when unsure whether a question qualifies, do not emit and note the assumption in the turn summary instead.
+
+## Large-Artifact Handoff
+
+Hand a large artifact (logs, command output, generated files, long diffs) to a sub-agent or the next context the same way every time: truncate with a pointer. Persist the full artifact to a file (`tasks/<name>-<sha>.log`, gitignored if transient), pass only the last 500 lines plus the path, and say the truncation happened. Bound what enters a context window at the source instead of compacting it afterwards.
+
+## Skills
+
+Skills are discovered from `.agents/skills/*/SKILL.md` frontmatter — the README skills table is the one human catalog. On Claude Code the skills are installed as the `jplugin` plugin, so a `/name` in this file is typed `/jplugin:name` and appears to the Skill tool as `jplugin:name`; Pi and Codex invoke `/name` directly.
+<!-- jplugin-agentic-development:end -->
 
 ## Project-Specific Rules
 
-> Add project-specific rules for Pi here.
-> Examples: tech-stack conventions, architectural constraints, domain glossary, service URLs.
+> Team-shared rules for this repository. `/sync` replaces only the block above; everything
+> below the end marker is yours. Personal overrides go in `CLAUDE.local.md` (Claude Code,
+> gitignored) or `~/.pi/agent/AGENTS.md` (Pi).
 
 ### Task Tracking
 
 Task tracking instructions: docs/task-tracking.md
 
-The Claude Code copy of this declaration is in `.claude/project.md`. Both harnesses
-need their own, because neither reads the other's project file — and the pointer
-cannot live in `CLAUDE.md`, which `/sync` overwrites wholesale with a template that
-cannot ship a `docs/` target (#82).
-
-### Code Economy
-
-A **generation-time** gate that runs *before* you write code — the preventive
-counterpart to the post-hoc `/quality-gate` passes.
-Apply to every code-writing turn. The cheapest line to review is the one never written.
-
-**Decision hierarchy** — walk top to bottom; stop at the first that applies:
-
-1. **Necessity (YAGNI)** — does this need to exist at all? Skip speculative
-   abstractions, config knobs with one setting, and features no AC asks for.
-2. **Existing code** — does a helper, util, type, or pattern already in this repo
-   do it? Reuse it. Re-implementing what lives a few files over is the most common
-   source of slop.
-3. **Standard library** — does the language's stdlib already provide it? Prefer
-   it over a hand-rolled equivalent.
-4. **Native platform** — does the OS/browser/runtime provide it? (e.g.
-   `<input type="date">` over a date-picker dependency.)
-5. **Existing dependency** — is it already installed? Reuse it before adding a
-   new one. **Do not add a dependency for what 1–4 already cover.**
-6. **One line** — if a correct one-liner exists, write the one-liner.
-7. **Minimal viable code** — only then write the least code that satisfies the AC.
-
-**Understand first, then walk the hierarchy** — it shortens the solution, never
-the reading. Trace the real flow through every file the change touches before
-picking a level. The smallest change in the wrong place is a second bug.
-
-**Root cause over symptom** — check every caller of the function you touch. One
-guard in the shared function is a smaller diff than one per caller, and patching
-only the path the ticket names leaves sibling callers broken.
-
-**Tiebreak on correctness** — two options, same line count? Take the one that
-handles edge cases. Economy means less code, not a flimsier algorithm.
-
-**Never-on-the-chopping-block** (these override the hierarchy — economy never
-justifies cutting them; see `CLAUDE.md` § *No Silent Failures*): security,
-accessibility, trust-boundary input validation, error handling that prevents
-data loss, and anything the user explicitly requested.
-
-**Intentional shortcuts** — when you deliberately pick a minimal solution with a
-known limitation, mark it with a `TODO(shortcut):` comment stating the limit and
-the upgrade path. `/quality-gate` Phase 2 preserves `TODO/FIXME`, so the marker
-survives cleanup.
-
 ### Code Graph
 
-Explore via the per-project code graph before broad grep/read sweeps:
-`graphify query "<question>"` (also `explain`, `path`; graph at `graphify-out/graph.json`).
-Optional — fall back to normal search when it is absent. See `CLAUDE.md` § *Code Graph First*.
+This shell-and-markdown repository has no code graph: `graphify` indexes code extensions
+only, so do not install its hook here — it reports "nothing to rebuild" on every commit.
+
+## Deployment Targets (placeholder — run /setup-deployment to populate)
+
+> This template repository has no deployment targets. The heading above is deliberately
+> **not** the literal `## Deployment Targets`, so `/verify-deployment` and the session
+> banner skip this repository silently. Downstream projects run `/setup-deployment`,
+> which writes a real `## Deployment Targets` section below the end marker (matched by
+> `^## Deployment Targets[[:space:]]*$`); the routing-table schema is in
+> `.claude/deployments/README.md` § Routing Table Schema.

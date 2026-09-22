@@ -141,13 +141,13 @@ assert_eq "" "$(git grep -l -E "$BARE_VERIFY" -- . ':!tasks' ':!specs' ':!tests/
 # --- 9. one tree, one namespace sentence (spec § Decisions, AC 1, AC 9) -----
 # The byte-identical `.claude/skills/` copy is gone: Claude Code loads
 # `.agents/skills/` through the plugin. Skill bodies stay harness-neutral (no
-# `jplugin:` literal — Pi and Codex have no namespace), and CLAUDE.md states the
-# mapping exactly once so a reader of `/name` knows what to type.
+# `jplugin:` literal — Pi and Codex have no namespace), and the AGENTS.md managed
+# block states the mapping exactly once so a reader of `/name` knows what to type.
 assert_eq "absent" "$([ -e .claude/skills ] && echo present || echo absent)" \
   "one tree: .claude/skills/ no longer exists in the template"
-assert_eq "" "$(git grep -l 'jplugin:' -- .agents/skills .claude/agents AGENTS.md PI_SETUP.md 2>/dev/null | paste -sd' ' -)" \
-  "one tree: no skill body, agent persona, AGENTS.md or PI_SETUP.md hardcodes the jplugin: namespace"
-assert_eq "1" "$(grep -cF 'is typed `/jplugin:name`' CLAUDE.md)" \
-  "one tree: CLAUDE.md states the namespace mapping exactly once"
+assert_eq "" "$(git grep -l 'jplugin:' -- .agents/skills .claude/agents PI_SETUP.md 2>/dev/null | paste -sd' ' -)" \
+  "one tree: no skill body, agent persona or PI_SETUP.md hardcodes the jplugin: namespace"
+assert_eq "1" "$(grep -cF 'is typed `/jplugin:name`' AGENTS.md)" \
+  "one tree: AGENTS.md states the namespace mapping exactly once"
 
 finish

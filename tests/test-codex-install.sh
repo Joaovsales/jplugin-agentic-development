@@ -65,8 +65,10 @@ assert_file_contains "$CODEX_HOME/AGENTS.md" "# Personal Codex instructions" \
   "install: existing AGENTS content is preserved"
 assert_file_contains "$CODEX_HOME/AGENTS.md" "Session Start Checklist" \
   "install: shared workflow rules are rendered"
-assert_not_contains "$(cat "$CODEX_HOME/AGENTS.md")" "@.claude/project.md" \
-  "install: Claude project import is not copied into Codex"
+assert_not_contains "$(cat "$CODEX_HOME/AGENTS.md")" "@AGENTS.md" \
+  "install: the CLAUDE.md pointer line is not copied into Codex"
+assert_not_contains "$(cat "$CODEX_HOME/AGENTS.md")" "Task tracking instructions: docs/" \
+  "install: the template's own project text below the end marker is not copied into Codex"
 assert_not_contains "$(cat "$CODEX_HOME/AGENTS.md")" "@CLAUDE.local.md" \
   "install: Claude local import is not copied into Codex"
 assert_eq "present" "$([ -f "$CODEX_HOME/agents/planner.toml" ] && echo present || echo missing)" \

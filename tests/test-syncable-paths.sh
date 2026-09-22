@@ -23,6 +23,12 @@
 # scans for retirement but never checks out (specs/claude-plugin-manifest.md
 # § Syncable Paths block). It is pinned present in the block and absent from
 # every checkout list, and the CI mirror is pinned to have stopped copying it.
+# One that begins `MANAGED` is a file `/sync` writes through
+# `sync-managed-block.py` instead of checking out (specs/single-instruction-file.md
+# § Component contracts): AGENTS.md, whose text below the end marker is the
+# project's own and differs from the template's by design, so a whole-file diff
+# would be permanent noise. It is pinned present in the block, absent from every
+# diff list, and both the skill and the CI mirror are pinned to call the script.
 #
 # INVARIANT 2 — assets a skill names must live where /sync ships them.
 #
@@ -74,7 +80,7 @@ paths_after_dashdash() {
 extract_doc_block() {
   awk '/^## Syncable Paths/ { inblock = 1; next }
        inblock && /^##+ / { exit }
-       inblock && /→/ && !/→ *RETIRED/ { print $1 }' "$1" | normalise
+       inblock && /→/ && !/→ *(RETIRED|MANAGED)/ { print $1 }' "$1" | normalise
 }
 
 # The rows the block marks RETIRED: scanned by sync-retire.py, checked out by
@@ -84,6 +90,13 @@ extract_retired_rows() {
   awk '/^## Syncable Paths/ { inblock = 1; next }
        inblock && /^##+ / { exit }
        inblock && /→ *RETIRED/ { print $1 }' "$1" | normalise
+}
+
+# The rows the block marks MANAGED: written by the script, checked out by nothing.
+extract_managed_rows() {
+  awk '/^## Syncable Paths/ { inblock = 1; next }
+       inblock && /^##+ / { exit }
+       inblock && /→ *MANAGED/ { print $1 }' "$1" | normalise
 }
 
 # --- sources 2-3: the two git diff commands ----------------------------------
@@ -132,6 +145,26 @@ assert_file_matches "$WORKFLOW" 'Retired .*`\.claude/skills/`' \
   "sync-template.yml: the PR body names .claude/skills/ as retired"
 assert_file_matches "$WORKFLOW" '^ *mirror "\.agents/skills"' \
   "sync-template.yml: the canonical tree is still mirrored (non-vacuity)"
+
+# --- the MANAGED row: in the block, written by the script everywhere -----------
+assert_eq "AGENTS.md" "$(extract_managed_rows "$SYNC_CANON")" \
+  "doc block: exactly one MANAGED row, AGENTS.md (block written by the script, never checked out)"
+assert_not_contains "$EXPECTED" "AGENTS.md" \
+  "doc block: the MANAGED row is not in the checkout set the lists above are pinned to"
+assert_contains "$EXPECTED" "CLAUDE.md" \
+  "doc block: CLAUDE.md stays in the drift set — a downstream copy that still holds inline rules differs until synced"
+mirror_call="$(join_continuations "$WORKFLOW" | grep 'sync-managed-block\.py' || true)"
+assert_contains "$mirror_call" '--source "$T/AGENTS.md" --target AGENTS.md --claude-md CLAUDE.md' \
+  "sync-template.yml: the CI mirror writes AGENTS.md and CLAUDE.md through the script"
+assert_file_not_matches "$WORKFLOW" 'cp "\$T/CLAUDE\.md"' \
+  "sync-template.yml: the CI mirror no longer copies CLAUDE.md"
+step5="$(sed -n '/^### Step 5 — Apply Changes/,/^### Step 6 — Post-Sync/p' "$SYNC_CANON")"
+assert_contains "$step5" "sync-managed-block.py" \
+  "canonical /sync: Step 5 writes the block through the script"
+assert_contains "$step5" "--target AGENTS.md --claude-md CLAUDE.md" \
+  "canonical /sync: Step 5 writes the pointer in the same run as the block"
+assert_eq "" "$(printf '%s\n' "$step5" | grep 'git checkout' | grep -F 'CLAUDE.md' || true)" \
+  "canonical /sync: Step 5 names CLAUDE.md in no git checkout"
 
 # --- invariant 2: skill assets resolve inside a syncable path ---------------
 is_syncable() {

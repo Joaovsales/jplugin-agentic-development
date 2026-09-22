@@ -253,8 +253,6 @@ assert_file_contains "$NOTICES" "Copyright (c) 2026 Matt Pocock" \
 
 # ── AC 9: registration on the three inventory surfaces + README credit ──────
 for skill in grilling grill-me; do
-  assert_file_matches "CLAUDE.md" "^\\| \`/$skill\`" \
-    "AC9: CLAUDE.md skills table lists /$skill"
   assert_file_matches "README.md" "^\\| \`/$skill\`" \
     "AC9: README skills table lists /$skill"
   assert_file_contains "$BANNER" "/$skill " \

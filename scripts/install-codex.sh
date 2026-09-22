@@ -51,7 +51,7 @@ cp -r "$REPO_DIR/.agents/skills/." "$AGENTS_HOME/skills/"
 printf 'installed canonical skills in %s\n' "$AGENTS_HOME/skills"
 
 "$PYTHON_BIN" "$RENDERER" --global \
-  "$REPO_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md"
+  "$REPO_DIR/AGENTS.md" "$CODEX_HOME/AGENTS.md"
 printf 'rendered shared workflow rules in %s\n' "$CODEX_HOME/AGENTS.md"
 
 "$PYTHON_BIN" "$RENDERER" --agents \

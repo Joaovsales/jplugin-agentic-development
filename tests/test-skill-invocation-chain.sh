@@ -129,7 +129,7 @@ for hook in .claude/hooks/*stop*.sh; do
 done
 
 # ── discoverability and two-speed maintenance --------------------------------
-for doc in README.md CLAUDE.md; do
+for doc in README.md; do
   assert_file_contains "$doc" "/create-verification-skill" \
     "Docs: $doc lists the verification-skill creator"
   assert_file_contains "$doc" "/maintain-verification-skill" \

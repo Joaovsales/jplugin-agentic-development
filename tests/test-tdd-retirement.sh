@@ -64,8 +64,8 @@ assert_file_not_matches "README.md" 'delegates to.*\n?.*/tdd' \
   "Repoint: README has no delegates-to-/tdd diagram edge"
 assert_file_not_matches "README.md" '\| `/tdd`' \
   "Repoint: README skills table has no /tdd row"
-assert_file_not_matches "CLAUDE.md" '\| `/tdd`' \
-  "Repoint: CLAUDE.md skills table has no /tdd row"
+assert_file_not_matches "AGENTS.md" '\| `/tdd`' \
+  "Repoint: the AGENTS.md managed block has no /tdd row"
 assert_file_not_matches ".claude/hooks/session-start.sh" '/tdd' \
   "Repoint: session-start banner no longer lists /tdd"
 

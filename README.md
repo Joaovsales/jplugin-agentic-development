@@ -8,7 +8,7 @@ A reusable, project-agnostic configuration system that enforces **spec-driven, T
 
 | Layer | What it does |
 |-------|-------------|
-| **CLAUDE.md** | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate |
+| **AGENTS.md** (managed block) | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate — one file read by Claude Code (through the `@AGENTS.md` line in `CLAUDE.md`), Pi and Codex; `/sync` rewrites only the block |
 | **Skills** (`.agents/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
 | **Agents** (`.claude/agents/`) | 8 specialized subagents for planning, coding, review, debugging, security |
 | **Hooks** (`.claude/hooks/`) | Session start orientation |
@@ -85,11 +85,10 @@ That's it. Claude is fully oriented from the first message.
 
 ### Layer 1 — Global Claude config (`~/.claude/`)
 
-Copies CLAUDE.md and the agents into `~/.claude/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed.
+Copies the agents into `~/.claude/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed.
 
 ```
 ~/.claude/
-├── CLAUDE.md          ← global rules (applies everywhere)
 ├── agents/            ← all agents available in every project
 ├── hooks/
 │   └── session-start.sh
@@ -117,8 +116,8 @@ tasks/solutions/         ← typed learning store (schema in its README.md)
 tasks/history.md         ← session narrative log
 tasks/concepts.md        ← concept glossary (swept once by /memory-maintain, then accreted)
 specs/                   ← feature specification directory
-CLAUDE.md               ← Claude project-specific overrides
-AGENTS.md               ← harness-neutral project-specific overrides
+AGENTS.md               ← project instructions for every harness (/sync adds the shared block)
+CLAUDE.md               ← the single line @AGENTS.md (Claude Code's import)
 .gitignore, .gitattributes, .ignore
 ```
 
@@ -149,7 +148,7 @@ pip install graphify        # once per machine
 
 # inside each project (per clone — none of this is shared)
 graphify update .           # build/refresh graphify-out/graph.json
-graphify claude install     # CLAUDE.md section + PreToolUse hook
+graphify claude install     # rules section (install.sh moves it into AGENTS.md) + PreToolUse hook
 graphify hook install       # re-index on commit/checkout
 ```
 
@@ -194,9 +193,10 @@ No need to use `newproject`. From inside the repository:
 git scaffold
 ```
 
-It adds every missing scaffold file and leaves existing ones untouched, so a project that already has its own `CLAUDE.md` or `.gitignore` keeps them. Nothing is overwritten; to replace a file deliberately, delete it first and run `git scaffold` again.
+It adds every missing scaffold file and leaves existing ones untouched, so a project that already has its own `AGENTS.md` or `.gitignore` keeps them. Nothing is overwritten; to replace a file deliberately, delete it first and run `git scaffold` again.
 
-Then edit `CLAUDE.md` to fill in your project's stack and test commands.
+Then edit `AGENTS.md` to fill in your project's stack and test commands, and run
+`/sync` once to add the shared rules block.
 
 ---
 
@@ -372,9 +372,11 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 ```
 .
 ├── install.sh                       ← Run once to set up global Claude config
-├── CLAUDE.md                        ← Core rules (copied to ~/.claude/CLAUDE.md)
+├── AGENTS.md                        ← Core rules in the managed block; project rules below it
+├── CLAUDE.md                        ← @AGENTS.md
 ├── project-template/                ← Scaffold copied into new projects
-│   ├── CLAUDE.md                    ← Project-specific override template
+│   ├── AGENTS.md                    ← Project instructions seed (no block — /sync adds it)
+│   ├── CLAUDE.md                    ← @AGENTS.md
 │   └── tasks/
 │       ├── todo.md
 │       ├── history.md

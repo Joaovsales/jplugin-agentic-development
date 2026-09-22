@@ -254,7 +254,7 @@ Budget alternative for the build tier: `z-ai/glm-4.7-flash` ($0.06/M in) if cost
 
 ## How Build Skill Sub-Agent Routing Works
 
-**This file is the single source of concrete model IDs.** `CLAUDE.md` and `/build` name tiers
+**This file is the single source of concrete model IDs.** `.agents/references/model-routing.md` and `/build` name tiers
 only and point here, so a model release touches one file instead of three. If you find an
 OpenRouter ID in either of those, delete it rather than updating it.
 

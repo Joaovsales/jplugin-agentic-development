@@ -174,8 +174,9 @@ fi
 
 # ── Memory Maintenance Check ─────────────────────────────────────────────────
 # Count session history entries. Nudge when maintenance is due (every 5 sessions).
-# The /memory-maintain skill is also called every session start via CLAUDE.md
-# step 4 — the skill self-gates, so this nudge is a belt-and-suspenders signal.
+# The /memory-maintain skill is also called every session start via the
+# AGENTS.md Session Start Checklist — the skill self-gates, so this nudge is a
+# belt-and-suspenders signal.
 if [ -f "tasks/history.md" ]; then
   SESSION_COUNT=$(grep -Ec '^(### \[[0-9]{4}-[0-9]{2}-[0-9]{2}\]|## [0-9]{4}-[0-9]{2}-[0-9]{2})([[:space:]]|$)' tasks/history.md 2>/dev/null || true)
   if [ "${SESSION_COUNT:-0}" -gt 0 ] && [ $(( SESSION_COUNT % 5 )) -eq 0 ]; then
@@ -267,10 +268,12 @@ if git rev-parse --is-inside-work-tree &>/dev/null; then
 fi
 
 # ── Deployment Signal Nudge ──────────────────────────────────────────────────
-# If .claude/project.md has no "## Deployment Targets" section AND any known
-# deployment signal file exists at the project root, print a one-line nudge.
-# Non-blocking. Suppressed by creating .claude/deploy-nudge-dismissed.
-# CLAUDE.md is template-managed and is never read for the section.
+# If AGENTS.md has no "## Deployment Targets" section AND any known deployment
+# signal file exists at the project root, print a one-line nudge. Non-blocking.
+# Suppressed by creating .claude/deploy-nudge-dismissed. A section still in
+# .claude/project.md (where it lived before the single instruction file) counts,
+# with a one-line notice, until /sync moves it. CLAUDE.md is the @AGENTS.md
+# pointer and is never read for the section.
 if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
   # Match ONLY a literal "## Deployment Targets" heading line — not headings with
   # extra text like "## Deployment Targets (placeholder — run /setup-deployment)".
@@ -278,7 +281,12 @@ if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
   TARGETS_REGEX='^## Deployment Targets[[:space:]]*$'
 
   TARGETS_IN_PROJECT=0
-  [ -f ".claude/project.md" ] && grep -qE "$TARGETS_REGEX" .claude/project.md 2>/dev/null && TARGETS_IN_PROJECT=1
+  [ -f "AGENTS.md" ] && grep -qE "$TARGETS_REGEX" AGENTS.md 2>/dev/null && TARGETS_IN_PROJECT=1
+  if [ "$TARGETS_IN_PROJECT" = "0" ] && [ -f ".claude/project.md" ] \
+     && grep -qE "$TARGETS_REGEX" .claude/project.md 2>/dev/null; then
+    TARGETS_IN_PROJECT=1
+    echo "ℹ  Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md."
+  fi
 
   # Nudge: signal files present but the section is absent
   if [ "$TARGETS_IN_PROJECT" = "0" ]; then
@@ -291,7 +299,7 @@ if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
     done
     if [ -n "$DEPLOY_SIGNAL" ]; then
       echo ""
-      echo "⚠  Deploy signals detected ($DEPLOY_SIGNAL) but no Deployment Targets in .claude/project.md."
+      echo "⚠  Deploy signals detected ($DEPLOY_SIGNAL) but no Deployment Targets in AGENTS.md."
       echo "   Run /setup-deployment to enable automatic build verification."
     fi
   fi

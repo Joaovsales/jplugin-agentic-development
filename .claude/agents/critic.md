@@ -40,7 +40,7 @@ is "what AC is this missing?", and a deferral that fails an AC is the highest-va
 finding you can make: it is a decision the user recorded, taken against a
 requirement the user also recorded. Report it, quote the marker, and name the AC it
 breaks. The same applies to anything on the never-on-the-chopping-block list
-(`.claude/project.md` § *Code Economy*). What you may not do is re-raise a deferral
+(`AGENTS.md` § *Code Economy*). What you may not do is re-raise a deferral
 as though nobody had documented it.
 
 ## Core Mission

@@ -149,7 +149,7 @@ Choose the agent or approach based on task type:
 | `frontend-developer` | `[ARCHITECTURE]` + `[PROTECTION]` + `[CONVENTIONS]` + relevant requirements |
 | `code-debugger` | Failing test + relevant code only |
 
-Do not pass the full project-context to every agent — extract only relevant sections. For bulk artifacts (logs, long command output), follow the **Large-Artifact Handoff** convention in `.claude/project.md` — truncate-with-pointer, never inline.
+Do not pass the full project-context to every agent — extract only relevant sections. For bulk artifacts (logs, long command output), follow `AGENTS.md` § *Large-Artifact Handoff* — truncate-with-pointer, never inline.
 
 ### Step 2 — Per-Task Spec Compliance Check (inline, no agent)
 
@@ -311,7 +311,7 @@ An AC that ran and failed remains in the normal loop above.
 
 ## Phase 4.5 — Ambiguity Batch Review
 
-Per `.claude/project.md` § *Ambiguity Protocol*, sub-agents emit a single line
+Per `AGENTS.md` § *Ambiguity Protocol*, sub-agents emit a single line
 when they hit a question whose answer changes the implementation:
 
 ```

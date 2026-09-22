@@ -100,11 +100,15 @@ def parse_agent(path: Path) -> tuple[str, str, str]:
 
 
 def render_global(source: Path, destination: Path) -> None:
+    """Render the template AGENTS.md managed block into the Codex global file.
+
+    The source is the template repository's own AGENTS.md; the shared rules are
+    whatever lies between its two markers, never the project text around them.
+    """
     source_text = source.read_text(encoding="utf-8")
-    marker = "## Session Start Checklist"
-    if marker not in source_text:
-        fail(f"{source}: shared rules marker not found")
-    body = source_text[source_text.index(marker) :]
+    if source_text.count(BEGIN) != 1 or source_text.count(END) != 1:
+        fail(f"{source}: managed block markers not found exactly once")
+    body = source_text.split(BEGIN, 1)[1].split(END, 1)[0]
     body = "\n".join(line for line in body.splitlines() if not line.startswith("@"))
     managed = (
         f"{BEGIN}\n"

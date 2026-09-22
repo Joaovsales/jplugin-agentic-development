@@ -482,4 +482,41 @@ assert_not_contains "$out_undeclared" "PLUGIN NOT INSTALLED" \
 cd "$REPO"
 rm -rf "$tmpP"
 
+# --- Deployment Targets: AGENTS.md first, .claude/project.md second with a notice ---
+# specs/single-instruction-file.md § Readers of project configuration (D3): the
+# table moved below the managed block's end marker in AGENTS.md; a project that
+# declined the migration keeps its table in .claude/project.md and must keep
+# working — loudly, so the state is visible and not permanent by accident.
+tmpD=$(mktemp -d)
+cd "$tmpD"
+mkdir -p .claude
+printf '{}\n' > railway.json
+targets_table='## Deployment Targets
+
+| Service | Runbook | Triggers on branch | Project ID |
+|---------|---------|--------------------|------------|
+| Railway | .claude/deployments/railway.md | main | demo |
+'
+printf '# Project Instructions\n\n%s' "$targets_table" > AGENTS.md
+out_targets_agents=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+assert_not_contains "$out_targets_agents" "no Deployment Targets" \
+  "Targets: a table in AGENTS.md satisfies the deploy-signal nudge"
+assert_not_contains "$out_targets_agents" "found in .claude/project.md" \
+  "Targets: no notice when the table is where it belongs"
+printf '# Project Instructions\n' > AGENTS.md
+printf '# Project-Specific Configuration\n\n%s' "$targets_table" > .claude/project.md
+out_targets_legacy=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+assert_not_contains "$out_targets_legacy" "no Deployment Targets" \
+  "Targets: a table still in .claude/project.md still counts — a declined migration breaks nothing"
+assert_contains "$out_targets_legacy" "Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md" \
+  "Targets: the pre-single-file location prints the one-line notice"
+rm .claude/project.md
+out_targets_none=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+assert_contains "$out_targets_none" "no Deployment Targets in AGENTS.md" \
+  "Targets: a deploy signal with no table anywhere nudges toward AGENTS.md"
+assert_not_contains "$out_targets_none" "found in .claude/project.md" \
+  "Targets: no notice when there is nothing in the old location"
+cd "$REPO"
+rm -rf "$tmpD"
+
 finish

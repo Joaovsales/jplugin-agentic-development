@@ -48,7 +48,7 @@ Build systems that can handle production load while maintaining code quality and
 
 ## Surgical Changes & Ambiguity
 
-When modifying existing code, follow `.claude/project.md` § *Surgical Changes*:
+When modifying existing code, follow `AGENTS.md` § *Surgical Changes*:
 - Every changed line must trace to the current task. No drive-by refactors.
 - Match the surrounding file's existing style even if you would write it differently.
 - Remove only orphans *your* changes created; mention but don't delete pre-existing dead code.

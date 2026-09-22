@@ -153,8 +153,10 @@ credentials are not consent to write to a company tracker. A tracker is added by
 declaring `provider =`, never by being detectable.
 
 The configuration document is `docs/task-tracking.md`, or wherever a
-`Task tracking instructions: <path>` line in `AGENTS.md`, `CLAUDE.md`, or
-`.claude/project.md` points. Copy `templates/task-tracking.md` to start one. A
+`Task tracking instructions: <path>` line in `AGENTS.md`, below the managed
+block, points (a pointer still in the pre-migration project file is read too,
+with a `doctor` notice — `references/configuration.md` § *Discovery and
+selection*). Copy `templates/task-tracking.md` to start one. A
 pointer whose target is missing is refused, naming the path — never defaulted.
 Full field reference, provider examples, and troubleshooting:
 `references/configuration.md`.

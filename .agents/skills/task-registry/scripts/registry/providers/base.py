@@ -127,7 +127,7 @@ class TrackerProvider(abc.ABC):
     #: URL fragments that identify a task URL belonging to this tracker. Knowing
     #: that `github.com` means GitHub is the provider's knowledge, not the index
     #: parser's — an index that hard-codes it has to be edited for every new
-    #: tracker (CLAUDE.md § Open/Closed).
+    #: tracker (AGENTS.md § *SOLID*, open/closed).
     url_markers: Sequence[str] = ()
 
     @classmethod
