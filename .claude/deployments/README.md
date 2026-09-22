@@ -8,7 +8,7 @@ This directory is read by:
 
 - **`/verify-deployment`** — loads the runbook for each row in `AGENTS.md` § Deployment Targets, validates frontmatter against this contract, then drives the wait/log/fix loop.
 - **`/setup-deployment`** — scans every runbook's `detect_files` to figure out which services this project uses, then writes the routing table into `CLAUDE.md`.
-- **`.claude/hooks/session-start.sh`** — uses `detect_files` to print a one-line nudge when signal files exist but no Deployment Targets section is configured.
+- **`.agents/hooks/session-start.sh`** — uses `detect_files` to print a one-line nudge when signal files exist but no Deployment Targets section is configured.
 
 The frontmatter is the **machine-readable contract**. The body is **human-readable troubleshooting notes** that get fed to the `code-debugger` agent on failure.
 

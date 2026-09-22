@@ -59,7 +59,7 @@ Before marking any task complete, confirm:
 .agents/skills/            → Canonical skills (harness-neutral)
 .agents/agents/            → Sub-agent personas (canonical; .claude/agents/ = Claude Code copy)
 .agents/references/        → Protocol references: finding model, review dispatch contract, model routing
-.claude/hooks/             → Lifecycle hook scripts (Claude Code)
+.agents/hooks/             → Lifecycle hook scripts, run by the Claude Code plugin
 specs/                     → Feature specifications
 tasks/todo.md              → Active task index
 tasks/backlog.md           → Ordered work items (from /prd)

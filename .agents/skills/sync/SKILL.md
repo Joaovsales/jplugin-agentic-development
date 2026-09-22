@@ -35,13 +35,13 @@ one-line `🔄 TEMPLATE DRIFT` notice at session start when syncable paths diffe
 from `workflow/<default-branch>`. It does **not** modify files — it only nudges
 you to run `/sync`.
 
-**Where the hook is registered:** `install.sh` registers `SessionStart` at the **user**
-level only (`~/.claude/hooks/session-start.sh` + `~/.claude/settings.json`) — once per
-machine, covering every project. It is deliberately **not** registered in the
-project-level `.claude/settings.json` that `/sync` copies. Registering it in both places
-makes the hook fire twice per session and print the banner twice. Do not "helpfully" add
-a `SessionStart` entry to `.claude/settings.json` — syncing that file does not, and must
-not, install this hook.
+**Where the hook is registered:** in the plugin's `hooks/hooks.json`, against
+`.agents/hooks/session-start.sh` — once, for every project the plugin is enabled in,
+together with `PreCompact` and `Stop`. Neither `.claude/settings.json` nor `install.sh`
+registers any of the three. Hooks from every source merge and all run, so a project
+file that still carries an entry pointing at `.claude/hooks/<name>.sh` would fire the
+same event twice; the Step 5 settings merge removes such entries (D16). Do not
+"helpfully" add one back.
 
 **Enable on a fresh project:**
 
@@ -88,11 +88,12 @@ CLAUDE.md             → Pointer: the single line @AGENTS.md, written by the sa
 .agents/skills/       → Canonical skills (harness-neutral)
 .agents/agents/       → Canonical sub-agent personas (harness-neutral, discovered by pi-subagents)
 .agents/references/   → Protocol references read at dispatch time: finding model, review dispatch contract, model routing
+.agents/hooks/        → Lifecycle hook scripts (session-start, pre-compact, session-stop), run by the plugin's hooks/hooks.json
 .claude/skills/       → RETIRED — the jplugin plugin reads .agents/skills/; kept so /sync retires downstream copies
+.claude/hooks/        → RETIRED — the scripts moved to .agents/hooks/ and run from the plugin; kept so /sync retires downstream copies
 .claude/agents/       → Subagent definitions (Claude Code only)
-.claude/hooks/        → Lifecycle hooks (Claude Code only)
 .claude/browsers/     → Browser adapter runbooks read by /verify-evidence --scope e2e
-.claude/settings.json → Hook configuration + env + plugin declaration (Claude Code only — no SessionStart, see above)
+.claude/settings.json → env + plugin declaration (Claude Code only — registers no hook, see above)
 .agents/git-hooks/    → Git hooks (harness-agnostic; installed separately, see below)
 ```
 
@@ -189,12 +190,12 @@ Compare the syncable paths between the current project and the template source.
 # Show changed files in syncable paths only
 # Note: use two-dot diff (not three-dot) — template and project have unrelated histories,
 # so HEAD...workflow/$WORKFLOW_BRANCH fails with "no merge base"
-git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/references/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/references/ .agents/hooks/ .agents/git-hooks/ .claude/agents/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 Then show the full diff:
 ```bash
-git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/references/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/references/ .agents/hooks/ .agents/git-hooks/ .claude/agents/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 **If manual diff mode:**
@@ -317,10 +318,16 @@ stop the sync there.
 declares the `jplugin-agentic-development` marketplace under
 `extraKnownMarketplaces` and enables `jplugin@jplugin-agentic-development` under
 `enabledPlugins`. Step 5 merges those two keys into the project's existing
-`.claude/settings.json` rather than overwriting it — the `hooks` and `env`
-blocks and any project-specific keys stay as they are. `.claude/settings.json`
-is never in `<selected-files>`: the merge below is its only write path, so the
-checkout above cannot replace the project's file. It writes no `ref`: a
+`.claude/settings.json` rather than overwriting it — the `env` block and any
+project-specific keys stay as they are. The one thing it removes is a
+`SessionStart`, `PreCompact` or `Stop` entry whose command names
+`.claude/hooks/<name>.sh`: those scripts now run from the plugin's
+`hooks/hooks.json`, and an entry left beside that registration fires the same
+event twice — the checkpoint flush has no guard against it (D16). The entry
+goes whether or not the script still exists; Step 6.4 retires the script in the
+same run. `.claude/settings.json` is never in `<selected-files>`: the merge
+below is its only write path, so the checkout above cannot replace the
+project's file. It writes no `ref`: a
 marketplace `ref` must be a branch or tag (a commit sha does not clone), so the
 source floats on the template's default branch and the plugin's `version` in
 `.claude-plugin/plugin.json` is the pin — `version` pins what Claude Code caches
@@ -335,12 +342,25 @@ so the template's `.claude/settings.json` stays its single source.
 
 ```bash
 python3 - "$(git show "workflow/$WORKFLOW_BRANCH:.claude/settings.json")" <<'PY'
-import json, sys
+import json, re, sys
 template = json.loads(sys.argv[1])
 path = ".claude/settings.json"
 settings = json.load(open(path, encoding="utf-8"))
 for key in ("extraKnownMarketplaces", "enabledPlugins"):
     settings.setdefault(key, {}).update(template.get(key, {}))
+# D16: hooks/hooks.json registers these three; a project entry still pointing at
+# a .claude/hooks/ script would fire the same event twice.
+retired = re.compile(r"\.claude/hooks/[^/\s\"']+\.sh")
+hooks = settings.get("hooks", {})
+for event in ("SessionStart", "PreCompact", "Stop"):
+    groups = hooks.get(event, [])
+    for group in groups:
+        group["hooks"] = [h for h in group.get("hooks", []) if not retired.search(h.get("command", ""))]
+    hooks[event] = [g for g in groups if g.get("hooks")]
+    if not hooks[event]:
+        hooks.pop(event)
+if "hooks" in settings and not hooks:
+    settings.pop("hooks")
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(settings, handle, indent=2, ensure_ascii=False)
     handle.write("\n")
@@ -349,8 +369,9 @@ PY
 
 In manual-diff mode pass `$(cat "$WORKFLOW_CLONE/.claude/settings.json")` instead.
 Run it on every sync so a renamed marketplace or plugin id lands in the project.
-The merge never deletes: after a rename, remove the old marketplace and plugin
-keys by hand, or every synced project keeps enabling an id that no longer resolves.
+Beyond the retired hook entries the merge deletes nothing: after a rename, remove
+the old marketplace and plugin keys by hand, or every synced project keeps
+enabling an id that no longer resolves.
 
 ### Step 6 — Post-Sync
 
@@ -601,6 +622,6 @@ already applied, a graphify failure leaves the sync itself fully intact.
 
 - **`CLAUDE.md` is rewritten, never merged**: it holds the single line `@AGENTS.md`. A downstream `CLAUDE.md` that still carries the old inline rules is replaced by the pointer in the same Step 5 run that writes the block, so no session ever loads the pointer alone. `CLAUDE.local.md` is loaded by Claude Code natively and needs no import line.
 - **`AGENTS.md` missing in the target project**: the script creates it with the block alone (`AGENTS.md: appended`); project rules go below the end marker afterwards.
-- **settings.json merge**: If the project has custom hooks in `.claude/settings.json`, show both versions and help the user merge rather than overwrite. Syncing this file never installs the `SessionStart` drift hook — that is registered once at user level by `install.sh` (see Automatic Drift Notification). If a project's `.claude/settings.json` contains a `SessionStart` entry pointing at `session-start.sh`, it duplicates the user-level registration and makes the banner print twice — flag it for removal.
+- **settings.json merge**: If the project has custom hooks in `.claude/settings.json`, show both versions and help the user merge rather than overwrite. Syncing this file installs no hook — the three lifecycle events come from the plugin's `hooks/hooks.json` (see Automatic Drift Notification). The Step 5 merge removes only an entry whose command names `.claude/hooks/<name>.sh`; a project's own hooks stay.
 - **New files**: Files that exist in the template but not the project are shown as NEW and can be added.
 - **Deleted files**: Files that exist in the project's `.claude/` but NOT in the template are flagged — they may be project-specific additions (don't remove them).

@@ -6,7 +6,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 A=".agents/skills/memory-maintain/SKILL.md"
-history_pattern=$(sed -n "s/.*grep -Ec '\([^']*\)' tasks\/history\.md.*/\1/p" .claude/hooks/session-start.sh)
+history_pattern=$(sed -n "s/.*grep -Ec '\([^']*\)' tasks\/history\.md.*/\1/p" .agents/hooks/session-start.sh)
 
 for f in "$A"; do
   assert_file_contains "$f" "Light pass — every session" "P4: $f documents per-session light pass"

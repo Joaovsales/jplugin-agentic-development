@@ -123,7 +123,7 @@ for tree in $TREES; do
 done
 
 # Stop is a shell cleanup/warning hook, not an agentic editing lifecycle.
-for hook in .claude/hooks/*stop*.sh; do
+for hook in .agents/hooks/*stop*.sh; do
   assert_file_not_matches "$hook" 'maintain-verification-skill|create-verification-skill' \
     "Chain: $hook does not invoke verification-skill maintenance"
 done
@@ -140,12 +140,10 @@ for doc in README.md; do
     "Docs: $doc distinguishes full maintenance"
 done
 
-assert_file_contains .claude/hooks/session-start.sh "/create-verification-skill" \
-  "Banner: lists the verification-skill creator"
-assert_file_contains .claude/hooks/session-start.sh "/maintain-verification-skill" \
-  "Banner: lists verification-skill maintenance"
-assert_file_contains .claude/hooks/session-start.sh "--scope changed" \
-  "Banner: identifies incremental maintenance"
+# The banner lists no skills (specs/single-instruction-file.md: README is the
+# one catalog, and a list restated at session start loads twice).
+assert_file_not_matches .agents/hooks/session-start.sh "SKILLS AVAILABLE" \
+  "Banner: carries no skills list"
 
 # ── /auto-push and /yolo -> the phases they promise ──────────────────────────
 # Both advertise an autonomous pipeline in their own descriptions. If a stage

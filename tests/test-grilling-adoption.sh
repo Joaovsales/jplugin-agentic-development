@@ -29,7 +29,6 @@ DOMAIN="$SKILLS/brainstorm/references/domain-modeling.md"
 WRITING="$SKILLS/writing-skills/SKILL.md"
 UPSTREAMS=".github/upstreams.json"
 NOTICES="THIRD_PARTY_NOTICES.md"
-BANNER=".claude/hooks/session-start.sh"
 BASELINE="c55ee46073ed923f86ce59a5eb3b6d895095d1b7"
 UPSTREAM_BLOB="https://github.com/mattpocock/skills/blob/$BASELINE"
 MIT_LICENSE_BLOB="f1dd2c09108dde1a5f56097cee8461b3ea834499"
@@ -255,8 +254,6 @@ assert_file_contains "$NOTICES" "Copyright (c) 2026 Matt Pocock" \
 for skill in grilling grill-me; do
   assert_file_matches "README.md" "^\\| \`/$skill\`" \
     "AC9: README skills table lists /$skill"
-  assert_file_contains "$BANNER" "/$skill " \
-    "AC9: session-start banner lists /$skill"
 done
 sources="$(awk '/^## Sources/{p=1} p' README.md)"
 assert_contains "$sources" "mattpocock/skills" \

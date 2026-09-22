@@ -66,7 +66,7 @@ assert_file_not_matches "README.md" '\| `/tdd`' \
   "Repoint: README skills table has no /tdd row"
 assert_file_not_matches "AGENTS.md" '\| `/tdd`' \
   "Repoint: the AGENTS.md managed block has no /tdd row"
-assert_file_not_matches ".claude/hooks/session-start.sh" '/tdd' \
+assert_file_not_matches ".agents/hooks/session-start.sh" '/tdd' \
   "Repoint: session-start banner no longer lists /tdd"
 
 # ── The learning document still points at something real ─────────────────────

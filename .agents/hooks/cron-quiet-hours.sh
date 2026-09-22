@@ -4,7 +4,7 @@
 # Usage in your cron script:
 #
 #   #!/bin/bash
-#   source "$(dirname "$0")/../.claude/hooks/cron-quiet-hours.sh"
+#   source "$(dirname "$0")/../.agents/hooks/cron-quiet-hours.sh"
 #   if cron_should_suppress; then
 #     # Active Claude session — write metrics only, no human-readable log.
 #     record_metric "smoke_test_result" "$result"

@@ -105,7 +105,7 @@ assert_eq "<missing>" "$(json_get "$SETTINGS" "$MARKET.ref")" \
   "settings.json: no ref (the source floats; plugin.json version pins)"
 assert_eq "true" "$(json_get "$SETTINGS" "enabledPlugins.jplugin@jplugin-agentic-development")" \
   "settings.json: the plugin is enabled under its install id"
-for kept in hooks.Stop hooks.PreCompact env.CLAUDE_CODE_AUTO_COMPACT_WINDOW; do
+for kept in env.CLAUDE_CODE_AUTO_COMPACT_WINDOW; do
   assert_not_contains "$(json_get "$SETTINGS" "$kept")" "<missing>" \
     "settings.json: the existing $kept block survives the declaration"
 done

@@ -170,4 +170,29 @@ done
 # where one is weaker is not two witnesses -- it is one witness and a decoy that
 # makes the pair look stronger than it is.
 
+
+# --- 8. The reference is resolved through the plugin before any refusal (D19) --
+# On Claude Code a skill body runs from the plugin cache, which refreshes on the
+# version bump independently of the project's next /sync. A skill that read
+# `.agents/references/` from the project only would refuse every review dispatch
+# downstream until the project synced; one that never refused would dispatch a
+# reviewer with no output format. Pinned as prose, in order: the project copy,
+# then ${CLAUDE_PLUGIN_ROOT}, then ~/.agents, and the refusal naming all three.
+# /sweep is included: it runs its engine inline but reads the same reference.
+for f in $DISPATCH_SITE_FILES skills/sweep/SKILL.md; do
+  f=".agents/$f"
+  flat="$(tr -s '[:space:]' ' ' < "$f")"
+  assert_contains "$flat" 'then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`' \
+    "D19: $f falls through to the plugin's copy of the reference"
+  assert_contains "$flat" 'then `~/.agents/references/`' \
+    "D19: $f falls through to the installed copy for Pi and Codex"
+  assert_contains "$flat" 'review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync' \
+    "D19: $f refuses only after all three locations miss, naming them"
+  plugin_at="$(printf '%s' "$flat" | grep -bo 'then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`' | head -1 | cut -d: -f1)"
+  home_at="$(printf '%s' "$flat" | grep -bo 'then `~/.agents/references/`' | head -1 | cut -d: -f1)"
+  refuse_at="$(printf '%s' "$flat" | grep -bo 'review dispatch refused: finding-model.md' | head -1 | cut -d: -f1)"
+  assert_eq "yes" "$([ "${plugin_at:-0}" -lt "${home_at:-0}" ] && [ "${home_at:-0}" -lt "${refuse_at:-0}" ] && echo yes || echo "no ($plugin_at/$home_at/$refuse_at)")" \
+    "D19: $f states the order plugin -> installed copy -> refusal"
+done
+
 finish

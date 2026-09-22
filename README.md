@@ -11,7 +11,7 @@ A reusable, project-agnostic configuration system that enforces **spec-driven, T
 | **AGENTS.md** (managed block) | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate — one file read by Claude Code (through the `@AGENTS.md` line in `CLAUDE.md`), Pi and Codex; `/sync` rewrites only the block |
 | **Skills** (`.agents/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
 | **Agents** (`.claude/agents/`) | 8 specialized subagents for planning, coding, review, debugging, security |
-| **Hooks** (`.claude/hooks/`) | Session start orientation |
+| **Hooks** (`.agents/hooks/`) | Session banner, checkpoint flush and unpushed-commit warning, registered once by the plugin's `hooks/hooks.json` |
 | **Learning store** (`tasks/solutions/`) | Typed per-document learnings, grep-first retrieval, written via `/learn` |
 
 Codex uses the same canonical `.agents/` sources through the explicit adapter
@@ -383,16 +383,17 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │       ├── concepts.md
 │       └── solutions/
 ├── .agents/
+│   ├── hooks/                       ← lifecycle hook scripts (session-start, pre-compact, session-stop)
 │   └── skills/                      ← canonical skills, each with SKILL.md + optional reference docs
+├── hooks/
+│   └── hooks.json                   ← registers SessionStart, PreCompact and Stop against .agents/hooks/
 ├── .claude-plugin/
 │   ├── plugin.json                  ← the jplugin manifest (skills: ./.agents/skills)
 │   └── marketplace.json             ← the marketplace entry Claude Code installs from
 ├── .claude/
 │   ├── AGENTS.md                    ← Agent reference documentation
-│   ├── settings.json                ← Hook configuration
-│   ├── agents/                      ← 8 specialized subagents
-│   └── hooks/
-│       └── session-start.sh         ← Orientation + skill awareness
+│   ├── settings.json                ← env + plugin declaration (no hooks — see hooks/hooks.json)
+│   └── agents/                      ← 8 specialized subagents
 ├── tasks/
 │   ├── todo.md                      ← Active task plan
 │   ├── history.md                   ← Session narrative log
@@ -415,7 +416,7 @@ The **claude-mem** plugin (marketplace `thedotmack`) registers more than one `Se
 
 That is not a single valid JSON object, so it can't be parsed as a hook response — Claude Code prints it into the transcript as raw text instead of suppressing it.
 
-Effect is cosmetic noise only. Nothing in this repo emits it, and no change here can suppress it; the fix belongs in claude-mem upstream. Don't go hunting for it in `.claude/hooks/`.
+Effect is cosmetic noise only. Nothing in this repo emits it, and no change here can suppress it; the fix belongs in claude-mem upstream. Don't go hunting for it in `.agents/hooks/`.
 
 ---
 

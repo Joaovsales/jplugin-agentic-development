@@ -128,7 +128,7 @@ assert_eq "absent" "$([ -e .claude/project.md ] && echo present || echo absent)"
   "Budget: .claude/project.md no longer exists"
 # The readers that keep an unmigrated project working (D3), and the two docs
 # that describe that state. Anything else naming the file is a stale pointer.
-allowed_mentions='^(\.agents/skills/task-registry/scripts/registry/config\.py|\.agents/skills/task-registry/references/configuration\.md|\.agents/skills/setup-deployment/SKILL\.md|\.agents/skills/verify-deployment/SKILL\.md|\.agents/skills/verify-evidence/SKILL\.md|\.agents/skills/wrap-up-session/SKILL\.md|\.agents/skills/sync/SKILL\.md|\.claude/hooks/session-start\.sh)$'
+allowed_mentions='^(\.agents/skills/task-registry/scripts/registry/config\.py|\.agents/skills/task-registry/references/configuration\.md|\.agents/skills/setup-deployment/SKILL\.md|\.agents/skills/verify-deployment/SKILL\.md|\.agents/skills/verify-evidence/SKILL\.md|\.agents/skills/wrap-up-session/SKILL\.md|\.agents/skills/sync/SKILL\.md|\.agents/hooks/session-start\.sh)$'
 stray="$(git grep -l -e '\.claude/project\.md' -- . ':!tasks' ':!specs' ':!tests' 2>/dev/null \
   | grep -vE "$allowed_mentions" || true)"
 assert_eq "" "$stray" \

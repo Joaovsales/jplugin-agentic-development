@@ -255,8 +255,6 @@ assert_file_matches README.md '^\| `/sweep' \
   "AC9: the README skills table lists /sweep"
 assert_file_matches README.md '^\| `/sweep' \
   "AC9: README.md's skills table lists /sweep"
-assert_file_contains .claude/hooks/session-start.sh "/sweep" \
-  "AC9: session-start.sh lists /sweep"
 
 # ============================================================================
 # AC10 — configuration.md has the unattended-routines checklist

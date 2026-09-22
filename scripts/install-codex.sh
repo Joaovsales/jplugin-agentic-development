@@ -58,11 +58,11 @@ printf 'rendered shared workflow rules in %s\n' "$CODEX_HOME/AGENTS.md"
   "$REPO_DIR/.agents/agents" "$CODEX_HOME/agents"
 printf 'rendered canonical agents in %s\n' "$CODEX_HOME/agents"
 
-cp "$REPO_DIR/.claude/hooks/session-start.sh" \
+cp "$REPO_DIR/.agents/hooks/session-start.sh" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.sh"
-cp "$REPO_DIR/.claude/hooks/pre-compact.sh" \
+cp "$REPO_DIR/.agents/hooks/pre-compact.sh" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-pre-compact.sh"
-cp "$REPO_DIR/.claude/hooks/session-stop.sh" \
+cp "$REPO_DIR/.agents/hooks/session-stop.sh" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-end.sh"
 cp "$REPO_DIR/codex/hooks/session_start.py" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py"

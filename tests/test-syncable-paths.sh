@@ -11,7 +11,7 @@
 #   1-3. .agents/skills/sync/SKILL.md   § Syncable Paths doc block,
 #                                       the `git diff --stat` command,
 #                                       the full `git diff` command
-#     4. .claude/hooks/session-start.sh the template-drift check
+#     4. .agents/hooks/session-start.sh the template-drift check
 #
 # Hand-maintained copies of one list drift, and had already: the
 # session-start.sh drift check omitted `.agents/agents`, so a project whose
@@ -112,7 +112,7 @@ extract_drift_check() {
 }
 
 SYNC_CANON=".agents/skills/sync/SKILL.md"
-HOOK=".claude/hooks/session-start.sh"
+HOOK=".agents/hooks/session-start.sh"
 WORKFLOW=".github/workflows/sync-template.yml"
 
 EXPECTED="$(extract_doc_block "$SYNC_CANON")"
@@ -132,11 +132,25 @@ assert_eq "$EXPECTED" "$(extract_diff_command "$SYNC_CANON" 2)" \
 assert_eq "$EXPECTED" "$(extract_drift_check "$HOOK")" \
   "session-start.sh: drift check covers the same set /sync applies"
 
-# --- the RETIRED root: in the block, out of every checkout list ---------------
-assert_eq ".claude/skills" "$(extract_retired_rows "$SYNC_CANON")" \
-  "doc block: exactly one RETIRED row, .claude/skills (scanned for retirement, never checked out)"
+# --- the RETIRED roots: in the block, out of every checkout list --------------
+assert_eq "$(printf '.claude/hooks\n.claude/skills')" "$(extract_retired_rows "$SYNC_CANON")" \
+  "doc block: exactly two RETIRED rows, .claude/hooks and .claude/skills (scanned for retirement, never checked out)"
 assert_not_contains "$EXPECTED" ".claude/skills" \
-  "doc block: the RETIRED row is not in the checkout set the lists above are pinned to"
+  "doc block: the RETIRED .claude/skills row is not in the checkout set the lists above are pinned to"
+assert_not_contains "$EXPECTED" ".claude/hooks" \
+  "doc block: the RETIRED .claude/hooks row is not in the checkout set the lists above are pinned to"
+assert_contains "$EXPECTED" ".agents/hooks" \
+  "doc block: .agents/hooks is a live root — the hook scripts /build and /refresh name are delivered by /sync"
+assert_eq "absent" "$(ls .claude/hooks/*.sh 2>/dev/null | grep -q . && echo present || echo absent)" \
+  "retired root: .claude/hooks/ holds no scripts in the template"
+assert_file_not_matches "$WORKFLOW" 'mirror "\.claude/hooks"' \
+  "sync-template.yml: the CI mirror no longer copies .claude/hooks"
+assert_file_matches "$WORKFLOW" '^ *mirror "\.agents/hooks"' \
+  "sync-template.yml: the CI mirror copies .agents/hooks"
+assert_file_matches "$WORKFLOW" '^# Retired .*\.claude/hooks/' \
+  "sync-template.yml: the header names .claude/hooks/ as retired"
+assert_file_matches "$WORKFLOW" 'Retired .*`\.claude/hooks/`' \
+  "sync-template.yml: the PR body names .claude/hooks/ as retired"
 assert_file_not_matches "$WORKFLOW" 'mirror "\.claude/skills"' \
   "sync-template.yml: the CI mirror no longer copies .claude/skills"
 assert_file_matches "$WORKFLOW" '^# Retired .*\.claude/skills/' \

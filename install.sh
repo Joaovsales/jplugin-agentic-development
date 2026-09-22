@@ -231,7 +231,7 @@ ok "copied" "$(ls "$CLAUDE_HOME/agents/"*.md | wc -l | tr -d ' ') agents"
 # ── 4. Global SessionStart hook ───────────────────────────────────────────────
 step "Installing global SessionStart hook"
 mkdir -p "$CLAUDE_HOME/hooks"
-cp "$REPO_DIR/.claude/hooks/session-start.sh" "$CLAUDE_HOME/hooks/session-start.sh"
+cp "$REPO_DIR/.agents/hooks/session-start.sh" "$CLAUDE_HOME/hooks/session-start.sh"
 chmod +x "$CLAUDE_HOME/hooks/session-start.sh"
 ok "copied" "~/.claude/hooks/session-start.sh"
 
