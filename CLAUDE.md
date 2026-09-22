@@ -459,8 +459,8 @@ On Claude Code the skills are installed as the `jplugin` plugin, so a `/name` in
 | `/brainstorm` | Divergent design exploration before `/plan` |
 | `/grilling` | Frontier-round interview primitive: design tree, `❓` / `➡️` rounds with a recommendation on every question, facts looked up, decisions asked; invoked by `/brainstorm` |
 | `/grill-me` | The same interview typed by the user, stateless: writes no files, needs no repository |
-| `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
-| `/plan` | Interview → spec → task breakdown in `tasks/todo.md` |
+| `/system-design-planning` | Architecture review with a mandatory `/grilling` interview → rendered HTML → `/slice` → build prompt for a fresh session |
+| `/plan` | Interview (decisions carried) → spec → `/slice` → build prompt for a fresh session |
 | `/slice` | Break a spec into session-sized slices: § Build Order, plan block and build prompt; `--file` files one task per slice through `/task-registry` |
 | `/build` | Autonomous TDD orchestrator with sub-agent delegation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |

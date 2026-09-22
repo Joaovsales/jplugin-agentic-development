@@ -288,8 +288,8 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
 | `/grilling` | Frontier-round interview: the whole frontier per round, numbered, a recommended answer on every question; facts found by a Scout-tier sub-agent, decisions put to you. Invoked by `/brainstorm` |
 | `/grill-me` | Grill me about a plan or idea: the same interview, typed by you, with no files written and no repository needed |
-| `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
-| `/plan` | Interviews you, writes spec to `specs/`, creates TDD task plan in `tasks/todo.md` |
+| `/system-design-planning` | Architecture review with a mandatory `/grilling` interview → rendered HTML → `/slice` → build prompt for a fresh session |
+| `/plan` | Interviews you (decisions carried), writes spec to `specs/`, hands to `/slice` and ends with the build prompt for a fresh session |
 | `/slice` | Break a spec into session-sized slices: § Build Order, plan block and build prompt; `--file` files one task per slice through `/task-registry` |
 | `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
