@@ -282,44 +282,49 @@ mapped feature.
 
 ## Skills
 
-Invoke with `/skill-name` in any Claude Code session:
+Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `/<name>` also resolves while no other skill claims it). The table is generated from each skill's `SKILL.md` frontmatter by `python3 scripts/render-skills-table.py` — edit the `description` there, never a row; a blank *Harness* cell means every harness:
 
-| Skill | What It Does |
-|-------|-------------|
-| `/prd` | Greenfield project interview → PRD + backlog + context file |
-| `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
-| `/grilling` | Frontier-round interview: the whole frontier per round, numbered, a recommended answer on every question; facts found by a Scout-tier sub-agent, decisions put to you. Invoked by `/brainstorm` |
-| `/grill-me` | Grill me about a plan or idea: the same interview, typed by you, with no files written and no repository needed |
-| `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
-| `/plan` | Interviews you, writes spec to `specs/`, creates TDD task plan in `tasks/todo.md` |
-| `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
-| `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
-| `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
-| `/sweep` | Producer routine (`--routine janitor` or `--routine architect`): read the backlog, run one engine over the whole tree, file verified findings as issues |
-| `/tidy` | Harness hygiene sweep: skills tables, session banner, retired skills, installed copies, backticked paths, worktrees, strays, task registers — Tier 0 fixed and committed one concern per commit, Tier 1 printed as commands, Tier 2 filed through `/task-registry` |
-| `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
-| `/verify-evidence` | Evidence-based verification gate — no completion claims without fresh command output |
-| `/create-verification-skill` | Discover an app's real user surface, generate its `verify-<app>` recipe and feature map, then prove one feature live |
-| `/maintain-verification-skill` | Reconcile changed user behavior with `--scope changed`, or run a full audit of the complete feature map |
-| `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
-| `/software-design-expert-review` | APOSD structural design gate — depth, leakage, error design; GO/HOLD/STOP verdict |
-| `/software-design-expert-learn` | APOSD design tutorial — end-of-session learning review based on Ousterhout |
-| `/receive-review` | Process code review feedback: technical evaluation, pushback protocol, no performative agreement |
-| `/learn` | Extracts session learnings into typed documents under `tasks/solutions/` |
-| `/memory-maintain` | Sweep the typed learning store — resolve, merge, prune — every 5 sessions |
-| `/checkpoint` | Saves progress snapshot to `tasks/checkpoint.md` for handoff or pause |
-| `/refresh` | Context reset — snapshot state to disk, then rebuild from a clean context (backstop for long tasks) |
-| `/security-scan` | Audits changed files against OWASP top 10; blocks commit on HIGH/MEDIUM |
-| `/start-qa` | Discover project config, restart app, launch browser, background smoke tests |
-| `/wrap-up-session` | Parallel code review → verify → merge worktree → sync learnings → run tests → push |
-| `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs |
-| `/visual-plan` | Turn a text spec into a rich, self-contained HTML visual plan for review before implementation |
-| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap |
-| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content |
-| `/eval` | Blinded A/B eval of a skill, prompt, or workflow change: sanitized worktrees, organic prompts, transcript-based grading |
-| `/sync` | Pull latest skills, hooks, agents from template repo into current project |
-| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues or a local Markdown store |
-| `/folder-context-optimization` | Sweep a folder for legacy/unused files, propose archival |
+<!-- skills-table:begin -->
+| Skill | What It Does | Harness |
+|-------|-------------|---------|
+| `/auto-push` | Semi-autonomous pipeline. User describes an idea; agent runs /plan and PAUSES for explicit approval. After approval, /build and /wrap-up-session run autonomously through commit and push. |  |
+| `/brainstorm` | Explore a feature idea through divergent design thinking before committing to a spec. Use before /plan for non-trivial features requiring design decisions. |  |
+| `/build` | Execute the task plan from tasks/todo.md autonomously using TDD with sub-agent delegation. Use after /plan is confirmed. |  |
+| `/checkpoint` | Snapshot current session progress to tasks/checkpoint.md for handoff or pause. |  |
+| `/create-verification-skill` | Generate a project-local verification skill that drives the real app through its user surface. Use when a repository has no grounded way to prove UI, CLI, desktop, API, mobile, or library behavior. |  |
+| `/debug` | Systematically investigate, diagnose, and fix bugs using root cause analysis. Use when debugging errors, test failures, runtime issues, or when the user reports a bug. Integrates with the typed learning store (tasks/solutions/). |  |
+| `/eval` | Blinded A/B evaluation of a skill, prompt, or workflow change before promoting it. Candidates run in sanitized worktrees on organic prompts and never learn they are being measured; grading comes from session transcripts, not self-report. Two runnable modes: triggerability (does the harness route to this skill at all) and variant lift (does variant A beat variant B). Use before merging a skill edit, when a skill seems never to fire, or when deciding whether a rewrite actually helped. Triggers on: 'does this skill even fire', 'A/B this prompt', 'did the rewrite improve anything', 'evaluate my skills', 'run an eval'. |  |
+| `/folder-context-optimization` | Sweep a folder to identify legacy/unused files, propose archival, and update docs. Use when a directory feels bloated or disorganized. |  |
+| `/grill-me` | A relentless interview to sharpen a plan, decision, or idea, typed by the user and never started by the agent. Use when the user says 'grill me' about something. |  |
+| `/grilling` | Interview the user relentlessly about a plan, decision, or idea until a shared understanding is reached, working the design tree in frontier rounds with a recommended answer on every question. Use when the user wants to stress-test their thinking, uses any 'grill' phrasing, or when another skill needs the decisions behind a piece of work settled before it acts. |  |
+| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content. Use when another skill or the user needs to publish a session review, design audit, project summary, or any narrative as a beautiful HTML document with strong visual and information-design quality. Triggers on: 'make an html presentation', 'generate a report', 'turn this into slides', or invocation by another skill (e.g. software-design-expert-learn). |  |
+| `/learn` | Extract durable learnings from the current session and persist them as typed documents in tasks/solutions/. |  |
+| `/maintain-verification-skill` | Reconcile a project verification skill after changed user behavior or run a full source-and-live feature audit. Use after user-facing changes or when auditing a verify-app feature map. |  |
+| `/memory-maintain` | Sweep the typed learning store (tasks/solutions/) — resolve needs_review documents, merge duplicates, prune stale or contradicted entries. Invoked at every session start and wrap-up; self-gates on session count. |  |
+| `/plan` | Interview user, write a feature spec, and create a TDD task breakdown. Use for any non-trivial feature before coding. |  |
+| `/prd` | Interview the user about a greenfield project, produce a structured PRD, ordered backlog, and agent context file. Use as the entry point for new projects. |  |
+| `/quality-gate` | The post-build review gate: run when all tasks in tasks/todo.md are done, before wrap-up or commit. Three sequential phases — structural quality and reuse (simplify), AI anti-pattern cleanup (deslop), and APOSD design audit — emitting four-axis findings (severity, confidence, autofix_class, owner). Triggers on: 'review before I call it done', 'thorough review of what I just built', 'I finished the tasks, check the code', 'run the quality gate', 'post-build review'. |  |
+| `/receive-review` | Process incoming code review feedback with technical rigor. Use when receiving review comments on PRs, from users, or from automated review tools. |  |
+| `/refresh` | Context reset for a session running out of room: snapshot working state to disk, then continue the work in a fresh context rebuilt from that snapshot. Distinct from /checkpoint, which saves progress and stops — reach for /refresh when the work continues but the context must be recycled. Triggers on: 'this conversation is getting too long', 'you are losing track', 'start clean and keep going', 'context is full', 'reset and continue', or when /build's architectural circuit breaker trips. |  |
+| `/security-scan` | OWASP-focused security audit scoped to the files changed in this session, worked through an explicit per-category checklist (input validation, authn/authz, secrets, crypto, dependencies, error handling). Use before committing or deploying changed code. Triggers on: 'security scan', 'check for vulnerabilities', 'any security issues in what I changed', 'is this safe to ship', 'OWASP audit'. |  |
+| `/setup-deployment` | One-time interactive bootstrap for deployment verification. Scans the project for deployment signal files, asks the user to confirm detected services and project IDs, and writes the routing table into AGENTS.md below the managed block. | claude |
+| `/software-design-expert-learn` | End-of-session code review and design tutorial based on 'A Philosophy of Software Design' by John Ousterhout. Use when the user wants to review all code written in the current session, understand design trade-offs, learn software design principles, or improve code review skills. Triggers on: 'review my code', 'explain the design', 'why did we do it this way', 'session review', 'code critique', 'design critique', or explicit /skill:software-design-expert-learn invocation. |  |
+| `/software-design-expert-review` | Run a focused APOSD design review on recently changed files. Scans for the 10 red flags from 'A Philosophy of Software Design' plus Error Design (R11), emits four-axis findings (severity, confidence, autofix_class, owner), and produces a GO / HOLD / STOP verdict. Can be invoked manually or called by /build Phase 3.5. |  |
+| `/start-qa` | Discover project config, restart app, and launch browser for manual QA testing. |  |
+| `/sweep` | Producer routine engine — verify the codebase through one lens (janitor for bugs, architect for design) and file every proven finding as a registry task with a reproduction and a proposed fix. Use unattended from the janitor and architect routines, or by hand for a weekly audit. |  |
+| `/sync` | Pull latest skills, hooks, agents, and config from the jplugin-agentic-development template repo. |  |
+| `/system-design-planning` | Turn an issue or a feature idea into an upstream architecture review — system design, component contracts, data models, constraints, and a dependency-ordered build plan — rendered as a self-contained HTML document a human approves before anything is filed or built. On approval it files one issue per build slice and writes the TDD plan /build consumes unchanged. Use instead of /brainstorm + /plan when the change crosses a component boundary, adds or changes a persisted data model, or introduces or changes an external contract. |  |
+| `/task-registry` | Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine. |  |
+| `/tidy` | Harness hygiene sweep for a jplugin-agentic-development repository — the template, its mirror, and any project that vendored the harness through /sync. Nine checks over the surfaces that duplicate by design (skills tables, retired skills, installed copies under ~/.claude and ~/.agents, backticked paths, worktrees, stray files, the task registers, the code graph). Mechanical drift is fixed and committed one concern per commit, machine-side remedies are printed as commands and never run, larger drift is filed through /task-registry. Use by hand after a retirement or rename, or from a scheduled routine; --report sweeps without writing anything. |  |
+| `/verify-deployment` | Wait for post-push deployment builds to resolve, fetch logs on failure, and loop a code-debugger fix cycle up to 3 iterations before escalating. Service-agnostic — driven by runbook files in .claude/deployments/. | claude |
+| `/verify-evidence` | Enforce evidence-based verification before any completion claims. Supports --scope deployment and --scope e2e. Use before committing, creating PRs, marking tasks done, or claiming success. |  |
+| `/verify-task-registry` | Verify this repository's task-registry CLI through isolated local task creation, reading, and routine selection with retained PTY evidence. |  |
+| `/visual-plan` | Turn an existing text spec into a rich, self-contained HTML visual plan — narrative, file map, architecture sketch, and open questions — for review before implementation. Use after /plan has already written specs/<feature>.md. |  |
+| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap — narrative, file-tree, and annotated key changes. Use after implementation to produce a richer review artifact than a plain diff. |  |
+| `/wrap-up-session` | Close session with code review, testing, fixes, and a clean commit. Use at the end of any coding session. |  |
+| `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs. Use when creating or improving skills for the workflow. |  |
+| `/yolo` | Fully autonomous loop. User describes an idea; the agent runs /plan, /build, and /wrap-up-session in a Ralph-style loop until the backlog is empty or a circuit breaker trips. No user prompts between phases. |  |
+<!-- skills-table:end -->
 
 ---
 
