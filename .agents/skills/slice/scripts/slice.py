@@ -476,4 +476,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 
 if __name__ == "__main__":
+    # `ready` prints a non-ASCII separator; a Windows console defaults to
+    # cp1252 and would die on it whenever PYTHONUTF8 is not exported.
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8")
     sys.exit(main())
