@@ -218,14 +218,25 @@ def _published_ref(config, task_id: str):
 
 
 def _sync_index(config, task: Task) -> str:
-    """Add or refresh the one compact row that points at this task."""
+    """Add or refresh the one compact row that points at this task.
+
+    A seeded row can carry a `(blocked-by: ...)` marker the provider record
+    itself has never heard of -- the row was filed ahead of the task it
+    describes, e.g. by `/slice`. `_existing` reads the provider, not the row,
+    so a brand-new task's `depends_on` is empty and rendering straight from it
+    would drop the marker on the very first refresh. Carrying the row's own
+    `depends_on` forward whenever the task has none makes a second run after
+    an interrupted filing safe, and is a no-op once the provider learns the
+    dependency itself.
+    """
     index = load_index_strict(config.path(config.index_path), config.index_path)
     row = index.by_id(task.id)
     if row is None:
         index.append_row(task)
         outcome = "row added"
     else:
-        index.replace_row(row.line, render_row(task, row.indent))
+        rendered = task if task.depends_on else task.with_(depends_on=row.task.depends_on)
+        index.replace_row(row.line, render_row(rendered, row.indent))
         outcome = "row refreshed"
     index.save()
     return outcome
@@ -236,13 +247,47 @@ def upsert_task_result(registry, task: Task, apply: bool) -> UpsertResult:
     return _upsert_task_result(registry, task, apply, preserve_existing=True)
 
 
-def upsert_task(registry, task: Task, apply: bool) -> Tuple[List[str], int]:
+def upsert_task(
+    registry, task: Task, apply: bool, parent_ref: Optional[str] = None
+) -> Tuple[List[str], int]:
     """Compatible human-oriented wrapper, including legacy reopen behavior."""
-    result = _upsert_task_result(registry, task, apply, preserve_existing=False)
+    result = _upsert_task_result(registry, task, apply, preserve_existing=False, parent_ref=parent_ref)
     return list(result.lines), result.code
 
 
-def _upsert_task_result(registry, task: Task, apply: bool, preserve_existing: bool) -> UpsertResult:
+def _preview_parent_line(provider, parent_ref: str) -> str:
+    """Decided from capabilities alone -- a dry run must not touch the provider."""
+    how = "native" if provider.capabilities.native_hierarchy else "parent: metadata"
+    return f"upsert: would link parent {parent_ref} ({how} on {provider.name})"
+
+
+def _link_parent_line(registry, target, written: Task, status, provider, parent_ref: str) -> Tuple[str, bool]:
+    """Apply-time parent link. Returns the report line and whether it is a hard failure.
+
+    An unreachable provider is not a hard failure: the body is already canonical
+    locally, and the pending link is reported the same way a pending publication
+    is -- never retried silently. Any other failure (bad reference, wrong
+    provider, a write the target refuses) is the command's own job to report,
+    so it is translated into a line here rather than left to propagate as a
+    traceback.
+    """
+    if not status.available:
+        return f"upsert: parent link pending — {provider.name} is unreachable", False
+    from .escalation import EscalationError, _authoritative_parent  # lazy: avoids the import cycle
+
+    try:
+        parent = _authoritative_parent(registry, parent_ref)
+        link = target.link_parent(written, parent)
+    except (EscalationError, ProviderError, ProviderUnavailable) as exc:
+        return f"upsert: parent {parent_ref} — {exc}", True
+    parent_display = parent.external.display() if parent.external else parent.id
+    how = "linked natively" if link.native else f"stored as metadata — {link.detail}"
+    return f"upsert: parent {parent_display} {how}", False
+
+
+def _upsert_task_result(
+    registry, task: Task, apply: bool, preserve_existing: bool, parent_ref: Optional[str] = None
+) -> UpsertResult:
     if not is_valid_id(task.id):
         line = f"upsert: {task.id!r} is not a valid task id"
         return UpsertResult(UpsertDisposition.FAILED, detail=line, lines=(line,), code=2)
@@ -279,7 +324,8 @@ def _upsert_task_result(registry, task: Task, apply: bool, preserve_existing: bo
         # what would happen, and reads as a typo in the past tense.
         intent = {"created": "create", "updated": "update", "reopened": "reopen"}[action]
         line = f"upsert: would {intent} {merged.id} ({destination}); index row would be synced"
-        return UpsertResult(UpsertDisposition.PREVIEW, task=merged, detail=line, lines=(line,))
+        preview_lines = (line, _preview_parent_line(provider, parent_ref)) if parent_ref else (line,)
+        return UpsertResult(UpsertDisposition.PREVIEW, task=merged, detail=line, lines=preview_lines)
 
     if preserve_existing:
         try:
@@ -315,7 +361,12 @@ def _upsert_task_result(registry, task: Task, apply: bool, preserve_existing: bo
             f"{'is unreachable' if not status.available else 'requires approval'}; "
             "the local record is canonical until it is published"
         )
-    return UpsertResult(UpsertDisposition(destination), task=written, readback=written, lines=tuple(lines))
+    code = 0
+    if parent_ref:
+        parent_line, parent_failed = _link_parent_line(registry, target, written, status, provider, parent_ref)
+        lines.append(parent_line)
+        code = 1 if parent_failed else code
+    return UpsertResult(UpsertDisposition(destination), task=written, readback=written, lines=tuple(lines), code=code)
 
 
 def _preserved_result(existing: Optional[Task], config) -> Optional[UpsertResult]:

@@ -130,6 +130,12 @@ writes gets the task and the index links it; otherwise the local Markdown record
 stays canonical and the pending publication is reported. An unpublishable task is
 never dropped and never blocks the caller.
 
+Pass `--parent <ref>` (an issue number like `#42`, or a local task id) to link
+this task's origin: native where the provider reports it (the local store), a
+`parent:` metadata field plus the same disclosure line every degraded link uses
+otherwise (GitHub). Dry run by default like every other write — the preview
+names the link it would make without contacting the provider.
+
 ## The index row
 
 ```markdown
