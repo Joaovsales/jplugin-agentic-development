@@ -44,8 +44,9 @@ from registry.globs import (  # noqa: E402  (path must be set up first)
     pattern_covered_by,
     patterns_intersect,
     read_implementation_paths,
+    validate_pattern,
 )
-from registry.index import IndexRow, load_index  # noqa: E402
+from registry.index import IndexRow, IndexUnreadable, load_index_strict, read_text  # noqa: E402
 
 BUILD_ORDER_HEADING = "## Build Order"
 PLAN_HEADING_RE = re.compile(r"^##\s*Plan:\s*(?P<name>.+?)\s*$")
@@ -74,11 +75,6 @@ class SliceRow:
     name: str
     surface: Tuple[str, ...]
     blocked_by: Tuple[int, ...]
-
-
-def _read(path: str) -> str:
-    with open(path, "r", encoding="utf-8") as handle:
-        return handle.read()
 
 
 _FENCE_RE = re.compile(r"^\s*(?P<fence>`{3,}|~{3,})")
@@ -140,11 +136,13 @@ def _table_rows(body: str) -> List[List[str]]:
     return rows
 
 
-def _split_surface(cell: str) -> Tuple[str, ...]:
+def _split_surface(cell: str, spec_path: str) -> Tuple[str, ...]:
+    """Surface globs go through the shared validator: an unsupported token
+    would otherwise reach `check` and `ready` as a literal that matches nothing."""
     if cell in ("", "—", "-"):
         return ()
     parts = [part.strip().strip("`").strip() for part in cell.split(",")]
-    return tuple(part for part in parts if part)
+    return tuple(validate_pattern(part, spec_path) for part in parts if part)
 
 
 def _split_blocked_by(cell: str, spec_path: str) -> Tuple[int, ...]:
@@ -184,6 +182,10 @@ def parse_build_order(spec_text: str, spec_path: str) -> List[SliceRow]:
 
     slices: List[SliceRow] = []
     for cells in rows[1:]:
+        if len(cells) < len(header):
+            raise SliceError(
+                f"{spec_path}: Build Order row has {len(cells)} cells, header has {len(header)}: {cells!r}"
+            )
         number_text = cells[idx_number]
         if not number_text.isdigit():
             raise SliceError(f"{spec_path}: Build Order `#` cell is not a number: {number_text!r}")
@@ -191,7 +193,7 @@ def parse_build_order(spec_text: str, spec_path: str) -> List[SliceRow]:
             SliceRow(
                 number=int(number_text),
                 name=cells[idx_name],
-                surface=_split_surface(cells[idx_surface]),
+                surface=_split_surface(cells[idx_surface], spec_path),
                 blocked_by=_split_blocked_by(cells[idx_blocked], spec_path),
             )
         )
@@ -223,7 +225,7 @@ def resolve_slices(spec_path: str, implicit_name: str) -> Dict[int, SliceRow]:
     definition from here so a legacy plan still builds and still checks.
     """
     try:
-        rows = parse_build_order(_read(spec_path), spec_path)
+        rows = parse_build_order(read_text(spec_path), spec_path)
     except MissingBuildOrder:
         surface = tuple(read_implementation_paths(spec_path))
         return {1: SliceRow(number=1, name=implicit_name, surface=surface, blocked_by=())}
@@ -314,7 +316,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     spec_path = args.spec
     try:
         implementation_paths = read_implementation_paths(spec_path)
-        rows = parse_build_order(_read(spec_path), spec_path)
+        rows = parse_build_order(read_text(spec_path), spec_path)
     except (SpecPathError, SliceError, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
@@ -330,7 +332,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def _normalize_spec_path(path: str) -> str:
-    return os.path.normpath(path).replace(os.sep, "/").lstrip("./")
+    normalized = os.path.normpath(path).replace(os.sep, "/")
+    return normalized[2:] if normalized.startswith("./") else normalized
 
 
 def _find_plan_block(todo_text: str, spec_path: str) -> Optional[Tuple[int, int, str]]:
@@ -395,6 +398,25 @@ def _done_by_slice(
     return done
 
 
+def _refuse_plan_drift(
+    slices: Dict[int, SliceRow], done: Dict[int, bool], spec_path: str, index_path: str
+) -> None:
+    """Every Build Order row has a `### Slice` heading and every heading names a row.
+
+    A row with no heading would never be ready and never be named; a heading
+    with no row would be ignored. Both mean the plan block drifted from the
+    table after `/slice` wrote them, and silence here is a slice that waits
+    forever on a blocker nothing can close.
+    """
+    table_only = sorted(set(slices) - set(done))
+    plan_only = sorted(set(done) - set(slices))
+    if table_only or plan_only:
+        raise SliceError(
+            f"{index_path} drifted from {spec_path} § Build Order: slices {table_only} have no "
+            f"`### Slice` heading; headings {plan_only} name no Build Order row"
+        )
+
+
 def _ready_numbers(slices: Dict[int, SliceRow], done: Dict[int, bool]) -> List[int]:
     """Open slices whose every blocker is done, in table order."""
     return [
@@ -430,7 +452,7 @@ def cmd_ready(args: argparse.Namespace) -> int:
     if not os.path.isfile(args.index):
         print(f"slice: no such index file: {args.index}", file=sys.stderr)
         return 2
-    todo_text = _without_fences(_read(args.index))
+    todo_text = _without_fences(read_text(args.index))
     block = _find_plan_block(todo_text, args.spec)
     if block is None:
         print(f"slice: {args.index} has no `## Plan:` block naming {args.spec!r}", file=sys.stderr)
@@ -438,13 +460,14 @@ def cmd_ready(args: argparse.Namespace) -> int:
     start_line, end_line, plan_name = block
     prose = todo_text.splitlines()
     headings = _slice_headings(prose, start_line, end_line)
-    index = load_index(args.index)
     try:
+        index = load_index_strict(args.index, args.index)
         if not headings:
             return _implicit_slice_ready(args, index, start_line, end_line, plan_name)
-        slices = {row.number: row for row in parse_build_order(_read(args.spec), args.spec)}
+        slices = {row.number: row for row in parse_build_order(read_text(args.spec), args.spec)}
         done = _done_by_slice(index.rows, headings, end_line, prose)
-    except (SpecPathError, SliceError, OSError) as exc:
+        _refuse_plan_drift(slices, done, args.spec, args.index)
+    except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
     _print_ready_set(slices, _ready_numbers(slices, done))

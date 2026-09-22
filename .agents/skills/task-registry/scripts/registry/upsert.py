@@ -231,7 +231,7 @@ def _seeded_from_row(index, existing: Optional[Task], task: Task) -> Task:
     row = index.by_id(task.id) if existing is None else None
     if row is None:
         return task
-    return task.with_(status=row.task.status, depends_on=task.depends_on or row.task.depends_on)
+    return task.with_(status=row.task.status, depends_on=_accreted(row.task.depends_on, task.depends_on))
 
 
 def _sync_index(config, task: Task) -> str:

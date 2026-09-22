@@ -18,6 +18,8 @@ from __future__ import annotations
 import re
 from typing import Iterator, List, Optional, Sequence
 
+from .index import read_text
+
 UNSUPPORTED_GLOB_CHARS = "[]{}!"
 
 FRONTMATTER_KEY = "implementation_paths"
@@ -103,17 +105,46 @@ def _literalize(pattern: str) -> str:
     return "".join(_LITERAL_FOR_TOKEN.get(token, token) for token in _tokens(pattern))
 
 
-def patterns_intersect(a: str, b: str) -> bool:
-    """Deterministic heuristic: do these two surface patterns overlap?
+def _segment_globs_intersect(x: str, y: str) -> bool:
+    """Whether two single-segment globs (`*`, `?`, literals) share a string."""
+    if x.startswith("*"):
+        return _segment_globs_intersect(x[1:], y) or (bool(y) and _segment_globs_intersect(x, y[1:]))
+    if y.startswith("*"):
+        return _segment_globs_intersect(y, x)
+    if not x or not y:
+        return x == y
+    if x[0] == "?" or y[0] == "?" or x[0] == y[0]:
+        return _segment_globs_intersect(x[1:], y[1:])
+    return False
 
-    Equal patterns intersect outright. Otherwise literalize each pattern's
-    wildcards and check whether the literalized form of one falls inside the
-    other's matcher — a cheap, symmetric stand-in for computing the true
-    intersection of two glob languages.
+
+def _segments_intersect(a: Sequence[str], b: Sequence[str]) -> bool:
+    """Walk both segment lists; a `**` segment absorbs zero or more segments."""
+    if not a and not b:
+        return True
+    if a and a[0] == "**":
+        return _segments_intersect(a[1:], b) or (bool(b) and _segments_intersect(a, b[1:]))
+    if b and b[0] == "**":
+        return _segments_intersect(b, a)
+    if not a or not b:
+        return False
+    return _segment_globs_intersect(a[0].replace("**", "*"), b[0].replace("**", "*")) and _segments_intersect(
+        a[1:], b[1:]
+    )
+
+
+def patterns_intersect(a: str, b: str) -> bool:
+    """Do these two surface patterns share at least one path?
+
+    Decided segment by segment: a `**` segment absorbs any run of segments,
+    and within a segment `*` and `?` intersect a literal wherever a string
+    could satisfy both. Literalizing one side and matching it against the
+    other (the earlier heuristic) missed `src/*/x.py` against `src/one/**`,
+    so two colliding slices dispatched in parallel as if disjoint.
     """
     if a == b:
         return True
-    return match_path(a, _literalize(b)) or match_path(b, _literalize(a))
+    return _segments_intersect(a.split("/"), b.split("/"))
 
 
 def pattern_covered_by(pattern: str, allowed: Sequence[str]) -> bool:
@@ -184,9 +215,7 @@ def read_implementation_paths(spec_path: str) -> List[str]:
     reader — that fallback belongs to living-spec reconciliation, which tolerates
     an unmigrated spec. A slice plan has no such excuse.
     """
-    with open(spec_path, "r", encoding="utf-8") as handle:
-        text = handle.read()
-    block = frontmatter_block(text, spec_path)
+    block = frontmatter_block(read_text(spec_path), spec_path)
     if block is None:
         raise SpecPathError(f"{spec_path}: no frontmatter block found")
     paths = parse_implementation_paths(block, spec_path)

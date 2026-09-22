@@ -1438,6 +1438,15 @@ assert_file_contains "$F_PARENT/tasks/details/child.of-parent.md" "parent: exist
 assert_not_contains "${parent_local}X" "stored as metadata" \
   "upsert --parent: a native link carries no metadata-degradation disclosure"
 
+# The reference must resolve to exactly one task: a typo is a hard failure the
+# unattended caller (/slice --file) sees as a non-zero exit, never a `✓ Filed`.
+parent_missing="$(run upsert child.orphan --repo "$F_PARENT" --title 'Child of nobody' --apply --parent no.such.task 2>&1)"
+parent_missing_code=$?
+assert_eq "1" "$parent_missing_code" \
+  "upsert --parent: a reference that names no task exits 1"
+assert_contains "$parent_missing" "cannot resolve exactly one authoritative parent" \
+  "upsert --parent: the failure names the unresolved reference"
+
 # GitHub has no native parent link: the same flag lands as `parent:` metadata
 # with the existing disclosure line -- and a dry run must not even resolve the
 # reference, let alone write, so issue #44 is never fetched.

@@ -67,6 +67,30 @@ CODE=$?
 assert_eq "2" "$CODE" "validate: an unknown Blocked by number is a malformed table, exit 2"
 assert_contains "$OUT" "slice 2 (two) is blocked by 9, which names no slice" "validate: names the slice and the unknown number"
 
+printf '\n--- validate: a surface with an unsupported glob token ---\n'
+
+# Surfaces go through the same validator as implementation_paths; without it
+# `[ab]` reaches `check` as a literal that matches nothing and `ready` as a
+# pattern that intersects nothing.
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-bad-surface-glob/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "validate: an unsupported glob token in a surface is refused, exit 2"
+assert_contains "$OUT" "unsupported glob syntax" "validate: the surface refusal names the unsupported syntax"
+
+printf '\n--- validate: a Build Order row with fewer cells than the header ---\n'
+
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-ragged-row/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "validate: a ragged row is a malformed table, exit 2 -- not a traceback"
+assert_contains "$OUT" "Build Order row has 2 cells, header has 8" "validate: the refusal counts the cells"
+
+printf '\n--- validate: a spec with no Build Order section ---\n'
+
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-no-build-order/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "validate: a missing Build Order is unreadable input, exit 2"
+assert_contains "$OUT" "no '## Build Order' section found" "validate: names the missing section"
+
 printf '\n--- validate: a surface outside implementation_paths ---\n'
 
 OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-outside-paths/spec.md" 2>&1)"
@@ -112,8 +136,24 @@ printf '\n--- ready: a flat legacy plan with no ### Slice headings ---\n'
 OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready-implicit/todo-open.md" --spec "$FIXTURES/ready-implicit/spec.md" 2>&1)"
 CODE=$?
 assert_eq "0" "$CODE" "ready: an implicit slice still exits 0"
-assert_contains "$OUT" "ready: 1" "ready: the whole block is one implicit ready slice"
+assert_contains "$OUT" "ready: 1 legacy-feature" "ready: the implicit slice takes the plan's name"
 assert_contains "$OUT" "surface: src/legacy/**, tests/test-legacy.sh" "ready: the implicit slice's surface is the spec's whole implementation_paths"
+
+printf '\n--- ready: a plan block that drifted from the Build Order ---\n'
+
+# Slice 2 has a table row and no heading: without the refusal it is never
+# ready and never named, and slice 3 would look ready on its own.
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-missing-heading.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "ready: a Build Order row with no heading is drift, exit 2"
+assert_contains "$OUT" "slices [2] have no \`### Slice\` heading" "ready: names the slice the plan block lost"
+
+printf '\n--- ready: a missing index file ---\n'
+
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/no-such-todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "ready: a missing index exits 2"
+assert_contains "$OUT" "no such index file" "ready: names the missing index"
 
 printf '\n--- check: a clean diff exits 0 and prints nothing ---\n'
 
@@ -171,6 +211,26 @@ assert_eq "1" "$CODE" "check: an undeclared path or untouched pattern exits 1"
 assert_contains "$OUT" "undeclared: src/other.py" "check: names the changed path no surface pattern declared"
 assert_contains "$OUT" "untouched: tests/test-feature.sh" "check: names the declared pattern nothing in the diff touched"
 
+printf '\n--- check: an untouched pattern alone still exits 1 ---\n'
+
+# The two conditions are pinned apart: a diff inside the surface that leaves
+# one declared pattern untouched must fail on `untouched:` alone.
+BASE3="$(git -C "$D1" rev-parse HEAD)"
+printf 'three\n' >> "$D1/src/feature/a.py"
+git -C "$D1" add -A >/dev/null
+git -C "$D1" commit -qm more
+
+OUT="$("$PY" "$SLICE" check --spec "$FIXTURES/check/spec.md" --slice 1 --base "$BASE3" --repo "$D1" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "check: an untouched pattern with nothing undeclared exits 1"
+assert_contains "$OUT" "untouched: tests/test-feature.sh" "check: names the untouched pattern"
+assert_not_contains "$OUT" "undeclared:" "check: prints no undeclared line when every changed path is declared"
+
+OUT="$("$PY" "$SLICE" check --spec "$FIXTURES/check/spec.md" --slice 9 --base "$BASE3" --repo "$D1" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "check: a slice number the table lacks exits 2"
+assert_contains "$OUT" "no slice 9 in" "check: names the missing slice number"
+
 printf '\n--- globs: registry/globs.py rejects what spec-reconcile.py used to reject ---\n'
 
 GLOBS_JSON="$("$PY" - "$GLOBS_ROOT" <<'PYEOF'
@@ -203,5 +263,39 @@ assert_contains "$GLOBS_JSON" "specs/x.md: use POSIX separators, not backslashes
   "globs: a backslash is rejected, naming the spec and the value"
 assert_contains "$GLOBS_JSON" "specs/x.md: unsupported glob syntax" \
   "globs: an unsupported glob character is rejected, naming the spec and the value"
+
+printf '\n--- globs: patterns_intersect is decided per segment, not by literalizing one side ---\n'
+
+INTERSECT_JSON="$("$PY" - "$GLOBS_ROOT" <<'PYEOF'
+import sys, json
+sys.path.insert(0, sys.argv[1])
+from registry.globs import patterns_intersect, match_path
+
+cases = {
+    "star-vs-literal-segment": patterns_intersect("src/*/x.py", "src/one/**"),
+    "disjoint-siblings": patterns_intersect("src/one/**", "src/two/**"),
+    "nested-under-doublestar": patterns_intersect("src/one/**", "src/one/sub/**"),
+    "depth-mismatch": patterns_intersect("a/*.py", "a/b/c.py"),
+    "question-vs-literal": patterns_intersect("src/?.py", "src/a.py"),
+    "different-extensions": patterns_intersect("src/*.py", "src/*.sh"),
+    "match-star-stays-in-segment": match_path("src/*.py", "src/a/b.py"),
+}
+print(json.dumps(cases))
+PYEOF
+)"
+assert_contains "$INTERSECT_JSON" '"star-vs-literal-segment": true' \
+  "globs: a * segment intersects a literal segment under **"
+assert_contains "$INTERSECT_JSON" '"disjoint-siblings": false' \
+  "globs: sibling directories do not intersect"
+assert_contains "$INTERSECT_JSON" '"nested-under-doublestar": true' \
+  "globs: a nested surface intersects its parent's **"
+assert_contains "$INTERSECT_JSON" '"depth-mismatch": false' \
+  "globs: * never crosses a segment boundary"
+assert_contains "$INTERSECT_JSON" '"question-vs-literal": true' \
+  "globs: ? intersects one literal character"
+assert_contains "$INTERSECT_JSON" '"different-extensions": false' \
+  "globs: two wildcards with different literal tails do not intersect"
+assert_contains "$INTERSECT_JSON" '"match-star-stays-in-segment": false' \
+  "globs: match_path's * stops at /"
 
 finish

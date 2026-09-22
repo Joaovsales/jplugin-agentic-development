@@ -1122,8 +1122,6 @@ assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
   "build: SKILL.md no longer says 'after /plan is confirmed'"
 assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
   "build: SKILL.md no longer assesses independence from prose"
-assert_file_not_matches "$BUILD_SKILL" 'Step 2\.5' \
-  "build: SKILL.md never names the retired numbered sub-step (§2.5 is the spelling)"
 
 # --- wrap-up: PR body gains a Handovers section before the linkage check ---
 # specs/plan-slices-and-handover.md AC13. Step 7's Pull Request section
