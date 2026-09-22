@@ -24,6 +24,7 @@ implementation_paths:
   - tests/test-doc-conventions.sh
   - tests/test-skill-invocation-chain.sh
   - tests/test-task-registry.sh
+  - tests/test-living-spec-reconciliation.sh
   - tasks/concepts.md
   - tasks/e2e-log.md
 ---
@@ -621,4 +622,5 @@ Constraints: work in the worktree `.claude/worktrees/106` on branch `feat/106-pl
 - `.claude/hooks/session-start.sh`, `CLAUDE.md`, `README.md`: the inventory rows; `CLAUDE.md` § Workflow steps 1 to 3
 - `tests/test-slice.sh`, `tests/fixtures/slice/**`: `validate`, `ready`, `check` over fixtures
 - `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh`, `tests/test-task-registry.sh`: the pins named in § Acceptance Criteria
+- `tests/test-living-spec-reconciliation.sh`: the `> Spec:` plan-block pin follows the template from `/plan` to `/slice`
 - `tasks/concepts.md`, `tasks/e2e-log.md`: the five glossary terms (AC 14) and the two-session live run (AC 15) that slice 7 records
