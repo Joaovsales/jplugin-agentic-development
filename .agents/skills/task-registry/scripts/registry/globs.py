@@ -16,7 +16,7 @@ nothing and quietly stops being maintained.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Sequence
+from typing import Iterator, List, Optional, Sequence
 
 UNSUPPORTED_GLOB_CHARS = "[]{}!"
 
@@ -60,6 +60,24 @@ def validate_pattern(pattern: str, spec: str) -> str:
     return value
 
 
+def _tokens(pattern: str) -> Iterator[str]:
+    """Split a pattern into `**`, `*`, `?` and single literal characters."""
+    index = 0
+    while index < len(pattern):
+        if pattern.startswith("**", index):
+            yield "**"
+            index += 2
+        else:
+            yield pattern[index]
+            index += 1
+
+
+_REGEX_FOR_TOKEN = {"**": ".*", "*": "[^/]*", "?": "[^/]"}
+# `**` becomes two literal segments joined by `/` so it can still cross a
+# directory boundary the way a real path would.
+_LITERAL_FOR_TOKEN = {"**": "__d__/__d__", "*": "__s__", "?": "__c__"}
+
+
 def _pattern_to_regex(pattern: str) -> str:
     """Translate the three supported tokens; everything else is a literal.
 
@@ -67,22 +85,7 @@ def _pattern_to_regex(pattern: str) -> str:
     `[seq]` syntax this format does not accept. Borrowing it would silently
     widen every declared surface.
     """
-    out: List[str] = []
-    index = 0
-    while index < len(pattern):
-        if pattern.startswith("**", index):
-            out.append(".*")
-            index += 2
-        elif pattern[index] == "*":
-            out.append("[^/]*")
-            index += 1
-        elif pattern[index] == "?":
-            out.append("[^/]")
-            index += 1
-        else:
-            out.append(re.escape(pattern[index]))
-            index += 1
-    return "".join(out)
+    return "".join(_REGEX_FOR_TOKEN.get(token, re.escape(token)) for token in _tokens(pattern))
 
 
 def match_path(pattern: str, path: str) -> bool:
@@ -95,25 +98,9 @@ def _literalize(pattern: str) -> str:
 
     Used by `patterns_intersect`: to ask whether pattern `a` overlaps pattern
     `b`, turn `b`'s wildcards into ordinary path characters and test the result
-    against `a`'s matcher. `**` becomes two literal segments joined by `/` so it
-    can still cross a directory boundary the way a real path would.
+    against `a`'s matcher.
     """
-    out: List[str] = []
-    index = 0
-    while index < len(pattern):
-        if pattern.startswith("**", index):
-            out.append("__d__/__d__")
-            index += 2
-        elif pattern[index] == "*":
-            out.append("__s__")
-            index += 1
-        elif pattern[index] == "?":
-            out.append("__c__")
-            index += 1
-        else:
-            out.append(pattern[index])
-            index += 1
-    return "".join(out)
+    return "".join(_LITERAL_FOR_TOKEN.get(token, token) for token in _tokens(pattern))
 
 
 def patterns_intersect(a: str, b: str) -> bool:

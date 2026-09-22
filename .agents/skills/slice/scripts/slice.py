@@ -253,42 +253,43 @@ def find_cycle(slices: Dict[int, SliceRow]) -> Optional[List[int]]:
 # --------------------------------------------------------------- validate
 
 
+def _surface_problems(rows: Sequence[SliceRow], implementation_paths: Sequence[str]) -> List[str]:
+    return [
+        f"slice {row.number} ({row.name}): surface `{pattern}` is outside implementation_paths"
+        for row in rows
+        for pattern in row.surface
+        if not pattern_covered_by(pattern, implementation_paths)
+    ]
+
+
+def _ordering_problems(slices: Dict[int, SliceRow]) -> List[str]:
+    cycle = find_cycle(slices)
+    if cycle:
+        # Ordering is undefined while a cycle exists, so the intersection check
+        # only runs once the graph is confirmed acyclic.
+        return ["cycle: " + " -> ".join(str(number) for number in cycle)]
+    return [
+        f"slices {a} and {b} have intersecting surfaces with no blocker between them"
+        for a, b in combinations(sorted(slices), 2)
+        if _surfaces_intersect(slices[a].surface, slices[b].surface) and not _ordered(slices, a, b)
+    ]
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
+    """Exit 0 for a buildable plan, 1 for plan problems, 2 when the spec cannot be read."""
     spec_path = args.spec
     try:
         implementation_paths = read_implementation_paths(spec_path, spec_path)
         rows = parse_build_order(_read(spec_path), spec_path)
     except (SpecPathError, SliceError, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
-        return 1
+        return 2
 
     slices = {row.number: row for row in rows}
-    problems: List[str] = []
-
-    for row in rows:
-        for pattern in row.surface:
-            if not pattern_covered_by(pattern, implementation_paths):
-                problems.append(
-                    f"slice {row.number} ({row.name}): surface `{pattern}` is outside implementation_paths"
-                )
-
-    cycle = find_cycle(slices)
-    if cycle:
-        problems.append("cycle: " + " -> ".join(str(number) for number in cycle))
-    else:
-        # Ordering is undefined while a cycle exists, so the intersection check
-        # only runs once the graph is confirmed acyclic.
-        for a, b in combinations(sorted(slices), 2):
-            if _surfaces_intersect(slices[a].surface, slices[b].surface) and not _ordered(slices, a, b):
-                problems.append(
-                    f"slices {a} and {b} have intersecting surfaces with no blocker between them"
-                )
-
-    if problems:
-        for problem in problems:
-            print(f"slice: {problem}", file=sys.stderr)
-        return 1
-    return 0
+    problems = _surface_problems(rows, implementation_paths) + _ordering_problems(slices)
+    for problem in problems:
+        print(f"slice: {problem}", file=sys.stderr)
+    return 1 if problems else 0
 
 
 # ------------------------------------------------------------------ ready
@@ -338,60 +339,72 @@ def _print_ready(number: int, name: str, surface: Sequence[str]) -> None:
     print(f"  surface: {', '.join(surface)}")
 
 
-def cmd_ready(args: argparse.Namespace) -> int:
-    if not os.path.isfile(args.index):
-        print(f"slice: no such index file: {args.index}", file=sys.stderr)
-        return 2
-    todo_text = _without_fences(_read(args.index))
-    lines = todo_text.splitlines()
-    block = _find_plan_block(todo_text, args.spec)
-    if block is None:
-        print(f"slice: {args.index} has no `## Plan:` block naming {args.spec!r}", file=sys.stderr)
-        return 2
-    start_line, end_line, plan_name = block
-    headings = _slice_headings(lines, start_line, end_line)
-    index = load_index(args.index)
-
-    if not headings:
-        # Edge Case: a flat legacy plan predates § Slice headings. It is one
-        # implicit slice whose surface is the spec's whole implementation_paths.
-        if not _block_has_open_row(index.rows, start_line, end_line):
-            return 0
-        try:
-            surface = read_implementation_paths(args.spec, args.spec)
-        except (SpecPathError, OSError) as exc:
-            print(f"slice: {exc}", file=sys.stderr)
-            return 2
-        _print_ready(1, plan_name, surface)
-        return 0
-
-    try:
-        slices = {row.number: row for row in parse_build_order(_read(args.spec), args.spec)}
-    except (SliceError, OSError) as exc:
-        print(f"slice: {exc}", file=sys.stderr)
-        return 2
-
+def _done_by_slice(
+    rows: Sequence[IndexRow], headings: Sequence[Tuple[int, int, str]], end_line: int
+) -> Dict[int, bool]:
+    """Whether each `### Slice` heading's header row is `[x]`, keyed by slice number."""
     boundaries = [heading[0] - 1 for heading in headings[1:]] + [end_line]
     done: Dict[int, bool] = {}
     for (heading_line, number, _name), boundary in zip(headings, boundaries):
-        row = _row_after(index.rows, heading_line, boundary)
+        row = _row_after(rows, heading_line, boundary)
         if row is None:
-            print(f"slice: no task row found under `### Slice {number}` heading", file=sys.stderr)
-            return 2
+            raise SliceError(f"no task row found under `### Slice {number}` heading")
         done[number] = row.task.status == "done"
+    return done
 
-    ready_numbers = [
+
+def _ready_numbers(slices: Dict[int, SliceRow], done: Dict[int, bool]) -> List[int]:
+    """Open slices whose every blocker is done, in table order."""
+    return [
         number
         for number in sorted(slices)
         if number in done
         and not done[number]
         and all(done.get(dep, False) for dep in slices[number].blocked_by)
     ]
+
+
+def _print_ready_set(slices: Dict[int, SliceRow], ready_numbers: Sequence[int]) -> None:
     for number in ready_numbers:
         _print_ready(number, slices[number].name, slices[number].surface)
     for a, b in combinations(ready_numbers, 2):
         if _surfaces_intersect(slices[a].surface, slices[b].surface) and not _ordered(slices, a, b):
             print(f"intersects: {a} \u2194 {b} (no blocker; serialize in table order)")
+
+
+def _implicit_slice_ready(args: argparse.Namespace, index, start_line: int, end_line: int, plan_name: str) -> int:
+    """Edge Case: a flat legacy plan predates `### Slice` headings.
+
+    It is one implicit slice whose surface is the spec's whole implementation_paths.
+    """
+    if not _block_has_open_row(index.rows, start_line, end_line):
+        return 0
+    _print_ready(1, plan_name, read_implementation_paths(args.spec, args.spec))
+    return 0
+
+
+def cmd_ready(args: argparse.Namespace) -> int:
+    """Exit 0 with the ready set on stdout; 2 when the index, block or spec cannot be read."""
+    if not os.path.isfile(args.index):
+        print(f"slice: no such index file: {args.index}", file=sys.stderr)
+        return 2
+    todo_text = _without_fences(_read(args.index))
+    block = _find_plan_block(todo_text, args.spec)
+    if block is None:
+        print(f"slice: {args.index} has no `## Plan:` block naming {args.spec!r}", file=sys.stderr)
+        return 2
+    start_line, end_line, plan_name = block
+    headings = _slice_headings(todo_text.splitlines(), start_line, end_line)
+    index = load_index(args.index)
+    try:
+        if not headings:
+            return _implicit_slice_ready(args, index, start_line, end_line, plan_name)
+        slices = {row.number: row for row in parse_build_order(_read(args.spec), args.spec)}
+        done = _done_by_slice(index.rows, headings, end_line)
+    except (SpecPathError, SliceError, OSError) as exc:
+        print(f"slice: {exc}", file=sys.stderr)
+        return 2
+    _print_ready_set(slices, _ready_numbers(slices, done))
     return 0
 
 
