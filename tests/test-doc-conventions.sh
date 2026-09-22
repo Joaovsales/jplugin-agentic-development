@@ -1145,4 +1145,29 @@ else
     "wrap-up: ## Handovers section appears before the linkage check"
 fi
 
+# --- workflow: CLAUDE.md § Workflow steps 1-3 after the build prompt replaced the y gate
+# specs/plan-slices-and-handover.md AC14. The planner interviews, slices and
+# hands over; the fresh session the build prompt starts files and builds. The
+# pins are the vocabulary a reader needs to find the skills, the two retired
+# gates as negative pins, and the five glossary terms in tasks/concepts.md.
+WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' CLAUDE.md)"
+for token in "/grill-me" "/brainstorm" "DECISIONS CARRIED" "/grilling" \
+             "/system-design-planning" "/slice" "build prompt" "fresh session" \
+             "> Handover:" "never builds and never files" \
+             "Spec and plan are ready to be built" "--file --approve" \
+             "slice.py ready" "/auto-push" "/yolo"; do
+  assert_contains "$WORKFLOW" "$token" "workflow: CLAUDE.md § Workflow names '$token'"
+done
+assert_not_contains "$WORKFLOW" "Confirm with 'y' to begin" \
+  "workflow: the y gate is gone from CLAUDE.md § Workflow"
+assert_not_contains "$WORKFLOW" "**approved**" \
+  "workflow: the approved parenthetical is gone from CLAUDE.md § Workflow"
+assert_not_contains "$WORKFLOW" "Do not proceed without user confirmation" \
+  "workflow: the planning session no longer waits for a confirmation word"
+
+for term in "build prompt" "handover" "ready set" "slice" "surface"; do
+  assert_file_contains tasks/concepts.md "- **$term** —" \
+    "workflow: tasks/concepts.md defines '$term'"
+done
+
 finish

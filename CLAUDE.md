@@ -28,25 +28,24 @@ Run `/prd` to produce:
 - `tasks/backlog.md` — ordered work items by phase
 - `tasks/project-context.md` — compressed agent briefing (auto-updated)
 
-### 1. Spec First
-For every non-trivial feature, create a formal spec before writing code:
-- Create `specs/[feature-name].md`: Behavior / Inputs / Outputs / Edge Cases / Acceptance Criteria
-- Use `/plan` to run this interactively
-- Use `/system-design-planning` instead when the change crosses a component boundary, changes a persisted data model, or changes an external contract — it writes the spec as an architecture review a human approves from the rendered HTML, then files one issue per build slice
+### 1. Specify
+For every non-trivial feature, write the spec before any code:
+- Optional precursors: `/grill-me` (a stateless interview, nothing written) or `/brainstorm` (divergent exploration; its spec carries § Decisions). Their settled decisions are carried forward — `/plan` prints `DECISIONS CARRIED: <n> from <spec path | conversation>` and asks only the `open` rows and the gaps
+- Use `/plan` to interview and write `specs/[feature-name].md`: Behavior / Inputs / Outputs / Edge Cases / Decisions / Acceptance Criteria / Implementation Paths
+- Use `/system-design-planning` instead when the change crosses a component boundary, changes a persisted data model, or changes an external contract — it writes the spec as an architecture review a human reads from the rendered HTML; its interview through `/grilling` is mandatory at that bar, minus what is already settled
 
-### 2. Plan Before Code (Hard Gate)
-- Write a step-by-step plan to `tasks/todo.md` before touching source code
-- Each task format: `[ ] TDD: [Test Name] -> [Impl Detail]`
-- Ask user: "Does this plan meet your requirements? Confirm with 'y' to begin." (`/system-design-planning` gates on the word **approved** against its rendered document instead — see its Iron Law)
-- Do not proceed without user confirmation
+### 2. Slice (Hard Gate)
+- The planner invokes `/slice`, which sizes the spec into session-sized slices, writes § Build Order and the `## Plan:` block in `tasks/todo.md` (`[ ] TDD: [Test Name] -> [Impl Detail]` rows under `### Slice n/N` headings), and prints the build prompt
+- The planning session ends with `Spec and plan are ready to be built. Start a fresh session with this prompt:` — it never builds and never files
+- Change requests are applied in place: edit the spec, re-run `/slice`. `/auto-push` (behind its own `y`) and `/yolo` (unattended) are the two named exceptions that build in the planning session
 
-### 3. Build (Autonomous Execution)
-Run `/build` to execute the plan:
+### 3. Build (Fresh Session, Autonomous Execution)
+Start a fresh session with the build prompt; `/build` executes the plan:
+- Pre-flight files the slices through `/slice … --file --approve` — the build prompt is the authorization the planning session did not have
+- `slice.py ready` names the slices whose blockers are done; disjoint ready slices dispatch in parallel, each agent editing only its slice's Surface
 - Each task follows TDD: failing test → minimal impl → refactor → mark `[x]`
-- Full test suite after every task (no regressions)
-- Runs `/quality-gate` on all changed files when tasks are done
-- Validates every acceptance criterion from the spec
-- No user prompts between tasks
+- Every slice closes with the full suite, a surface check and a `> Handover:` blockquote under its heading — what landed, what the next slice must not re-derive
+- Runs `/quality-gate` on all changed files when tasks are done, validates every acceptance criterion from the spec, no user prompts between tasks
 
 ### 4. Wrap Up
 After corrections: capture the root cause as a bug-track document in `tasks/solutions/` (via `/debug` or `/learn`).
