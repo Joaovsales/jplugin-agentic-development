@@ -752,7 +752,7 @@ back vacuous and was repaired.
   `tasks/solutions/bugs/test-inherits-open-stdin-and-the-hook-reads-it-to-eof.md`
   (fixed).
 
-## 2026-09-22 — #106 plan slices and handover (/build → /wrap-up-session) → PR pending
+## 2026-09-22 — #106 plan slices and handover (/build → /wrap-up-session) → PR #176
 - Built the seven slices of `specs/plan-slices-and-handover.md` in the worktree
   `.claude/worktrees/106` on `feat/106-plan-slices-and-handover` (base 87ff22c):
   `/slice` skill and `slice.py validate/ready/check` over a shared
