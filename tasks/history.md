@@ -751,3 +751,33 @@ back vacuous and was repaired.
 - Learnings captured:
   `tasks/solutions/bugs/test-inherits-open-stdin-and-the-hook-reads-it-to-eof.md`
   (fixed).
+
+## 2026-09-22 — #106 plan slices and handover (/build → /wrap-up-session) → PR pending
+- Built the seven slices of `specs/plan-slices-and-handover.md` in the worktree
+  `.claude/worktrees/106` on `feat/106-plan-slices-and-handover` (base 87ff22c):
+  `/slice` skill and `slice.py validate/ready/check` over a shared
+  `registry/globs.py` matcher; `upsert --parent`; `/plan`, `/system-design-planning`,
+  `/brainstorm`, `/yolo`, `/auto-push` ending with a build prompt instead of a `y`
+  gate; `/build` filing in pre-flight, dispatching from the ready set and closing
+  every slice with a check and a `> Handover:`; `/wrap-up-session` `## Handovers`;
+  `CLAUDE.md` § Workflow and five glossary terms.
+- Slices 1–3 and the quality-gate fixes ran inline; slices 4–6 were dispatched to
+  builder-tier agents with surfaces and verbatim handovers. Every slice closed with
+  a two-commit pattern (code, then plan/handover) and a checkpoint flush.
+- Quality gate: Phase 1 refactor, Phase 3 dispatched HOLD → 3 MUST-FIX applied
+  (seeded `[x]` rows kept, unknown blockers refused once, implicit slice in
+  `check`, fenced decoy rows ignored); 1 SHOULD-FIX and 1 NITPICK reported.
+- AC 15 live run in the fixture `.claude/worktrees/e2e-106`: plan session ee94098b
+  ended with the build prompt and filed nothing; build session d0ac3717 filed four
+  slices in pre-flight and closed each with a handover and a surface report.
+  Parallel dispatch and a handover crossing a dispatch boundary were not observed —
+  the slices were too small for the session to dispatch. Both sessions were routed
+  by the harness to user-scope skill copies and read the project-local ones
+  themselves.
+- Full suite at f6e9049 (`--jobs 8`, detached worktree `106-base`): 8/47 files,
+  162 failing assertions vs 159 in the baseline; the 3 new are GitHub-mock
+  `upsert --parent` pins unreachable from Python on Windows (#129).
+- Documents: tasks/solutions/bugs/upsert-re-rendered-a-seeded-done-row-from-the-provider-record-on-first-filing.md
+  (fixed), tasks/solutions/patterns/a-live-proof-of-parallel-dispatch-needs-slices-large-enough-to-earn-an-agent.md,
+  appends to tooling/print-mode-skill-probes-on-windows-git-bash.md and
+  patterns/explicit-encoding-at-every-python-io-boundary.md.
