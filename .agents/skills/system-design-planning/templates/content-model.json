@@ -49,7 +49,7 @@
       "id": "build-order",
       "title": "Build order — each slice ships alone, riskiest unknown first",
       "icon": "",
-      "body_md": "```text\n#  Slice                      Delivers                         Depends  Contract exposed        Size\n─  ─────────────────────────  ───────────────────────────────  ───────  ──────────────────────  ────\n1  <spike / riskiest slice>   <what is known at the end>       —        none / stub             S\n2  <data model + migration>   <entities and transitions>       1        repository interface    M\n3  <contract + component>     <ComponentA.operation>           2        signature above         M\n4  <consumer wiring>          <caller handles the outcome>     3        —                       S\n```\n\n**Slice criteria** — each one a test can pin.\n\n- Slice 1: <criterion>\n- Slice 2: <criterion>; <criterion>\n- Slice 3: <criterion>; <criterion>\n- Slice 4: <criterion>"
+      "body_md": "```text\n#  Slice                    Delivers                    Surface             Blocked by  ACs   Verify                    Size\n─  ────────────────────────  ──────────────────────────  ──────────────────  ──────────  ────  ────────────────────────  ──────────────────────\n1  <spike / riskiest slice>  <what is known at the end>  src/spike/**        —           1     <test command>            2 files · 1 system · 1 AC\n2  <data model + migration>  <entities and transitions>  src/model/**        1           2, 3  <test command>            3 files · 1 system · 2 ACs\n```\n\nWritten by `/slice` in Step 3.5 — this session sizes nothing by hand. \"Contract exposed\" is stated in each slice's Delivers text; the sizing ceiling lives in `.agents/skills/slice/references/sizing.md`."
     },
     {
       "id": "decisions",
@@ -62,5 +62,5 @@
     { "title": "Spec (the contract /build holds)", "url": "<feature>.md" },
     { "title": "Review card", "url": "../.agents/skills/system-design-planning/references/review-card.md" }
   ],
-  "reflection": "Reply with findings as [constraints|system-design|contracts|data-models|build-order] <finding> — <evidence>, or approved."
+  "reflection": "Reply with findings as [constraints|system-design|contracts|data-models|build-order] <finding> — <evidence>. Approve by starting a fresh session with the build prompt below — nothing is filed or built in this one."
 }

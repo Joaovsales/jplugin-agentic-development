@@ -1416,6 +1416,100 @@ for command in doctor selectors; do
   assert_eq "0" "$code" "CLI: '$command' runs clean on a well-formed repository"
 done
 
+# --- upsert --parent: native, metadata degradation, and dry run ------------
+#
+# AC7: `upsert --parent` records a native parent on the local fixture, and
+# `parent:` metadata plus the existing disclosure line on the GitHub fixture.
+# Dry run by default, and the preview is decided from capabilities alone --
+# it must never resolve the reference through the provider.
+F_PARENT="$(new_fixture)"
+write_index "$F_PARENT"
+run upsert existing.parent --repo "$F_PARENT" --title 'Existing parent' --apply >/dev/null
+
+parent_dry="$(run upsert child.of-parent --repo "$F_PARENT" --title 'Child of parent' --parent existing.parent 2>&1)"
+assert_contains "$parent_dry" "upsert: would link parent existing.parent (native on local)" \
+  "upsert --parent: a local dry run names the intended link without --apply"
+
+parent_local="$(run upsert child.of-parent --repo "$F_PARENT" --title 'Child of parent' --apply --parent existing.parent 2>&1)"
+assert_contains "$parent_local" "upsert: parent local:existing.parent linked natively" \
+  "upsert --parent: the local provider links natively and says so plainly"
+assert_file_contains "$F_PARENT/tasks/details/child.of-parent.md" "parent: existing.parent" \
+  "upsert --parent: the child's detail file records the native parent"
+assert_not_contains "${parent_local}X" "stored as metadata" \
+  "upsert --parent: a native link carries no metadata-degradation disclosure"
+
+# The reference must resolve to exactly one task: a typo is a hard failure the
+# unattended caller (/slice --file) sees as a non-zero exit, never a `✓ Filed`.
+parent_missing="$(run upsert child.orphan --repo "$F_PARENT" --title 'Child of nobody' --apply --parent no.such.task 2>&1)"
+parent_missing_code=$?
+assert_eq "1" "$parent_missing_code" \
+  "upsert --parent: a reference that names no task exits 1"
+assert_contains "$parent_missing" "cannot resolve exactly one authoritative parent" \
+  "upsert --parent: the failure names the unresolved reference"
+
+# GitHub has no native parent link: the same flag lands as `parent:` metadata
+# with the existing disclosure line -- and a dry run must not even resolve the
+# reference, let alone write, so issue #44 is never fetched.
+gh_parent_dry="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-parent-dry.log" \
+  run upsert recipe.morph-live-grid --repo "$F_GH" --title 'Morph live grid recipe' --parent '#44' 2>&1)"
+assert_contains "$gh_parent_dry" "upsert: would link parent #44 (parent: metadata on github)" \
+  "upsert --parent: a GitHub dry run names the degraded link without --apply"
+assert_not_contains "$(cat "$F_GH/gh-parent-dry.log")X" "44" \
+  "upsert --parent: a dry run never resolves the parent reference through gh"
+
+gh_parent_apply="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-parent-apply.log" \
+  run upsert recipe.morph-live-grid --repo "$F_GH" --title 'Morph live grid recipe' --apply --approve --parent '#44' 2>&1)"
+gh_parent_apply_code=$?
+assert_eq "0" "$gh_parent_apply_code" \
+  "upsert --parent: a resolvable GitHub parent link exits clean"
+assert_contains "$gh_parent_apply" \
+  'upsert: parent github:44 stored as metadata — GitHub issues expose no parent link through gh; stored as `parent:` metadata' \
+  "upsert --parent: GitHub reports the degraded link with the existing disclosure line"
+assert_contains "$(cat "$F_GH/gh-parent-apply.log")" "parent: render.dither-strategy" \
+  "upsert --parent: the child issue's body gains parent: metadata naming the resolved parent"
+
+# --- upsert: seeded blocked-by survives a fresh provider record ------------
+#
+# `/slice --file` seeds the compact row -- including its `(blocked-by: ...)`
+# marker -- before the task it names has ever been created. `_existing` reads
+# the provider record, not the index row, so the first `upsert --apply` sees
+# no record and creates one with an empty `depends_on`; rendering the row
+# straight from that record would drop the marker on this very first refresh.
+# A second run after an interrupted filing must be exactly as safe.
+F_SEEDED="$(new_fixture)"
+cat > "$F_SEEDED/tasks/todo.md" <<'EOF'
+# Task Plan
+
+- [ ] Seeded task <!-- task-id: seeded.blocked --> — filed ahead of itself (blocked-by: seeded.blocker)
+EOF
+
+seeded_run1="$(run upsert seeded.blocked --repo "$F_SEEDED" --title 'Seeded task' --summary 'filed ahead of itself' --apply 2>&1)"
+assert_contains "$seeded_run1" "created seeded.blocked" \
+  "upsert seeded blocked-by: no provider record exists yet, so the first run creates"
+assert_file_contains "$F_SEEDED/tasks/todo.md" "(blocked-by: seeded.blocker)" \
+  "upsert seeded blocked-by: the first refresh keeps the marker the row seeded"
+
+seeded_run2="$(run upsert seeded.blocked --repo "$F_SEEDED" --title 'Seeded task' --summary 'filed ahead of itself' --apply 2>&1)"
+assert_contains "$seeded_run2" "updated seeded.blocked" \
+  "upsert seeded blocked-by: the second run finds the record the first run created"
+assert_file_contains "$F_SEEDED/tasks/todo.md" "(blocked-by: seeded.blocker)" \
+  "upsert seeded blocked-by: the second refresh keeps the marker too"
+assert_eq "1" "$(grep -c 'task-id: seeded\.blocked' "$F_SEEDED/tasks/todo.md")" \
+  "upsert seeded blocked-by: exactly one row for the id, never a duplicate"
+
+# A slice built before it was filed is seeded `[x]`; the task is created from
+# the row's status, so the first refresh keeps the box instead of reopening it.
+cat >> "$F_SEEDED/tasks/todo.md" <<'EOF'
+- [x] Seeded done <!-- task-id: seeded.done --> — finished before filing
+EOF
+seeded_done="$(run upsert seeded.done --repo "$F_SEEDED" --title 'Seeded done' --summary 'finished before filing' --apply 2>&1)"
+assert_contains "$seeded_done" "created seeded.done" \
+  "upsert seeded [x]: the first run creates the task from the seeded row"
+assert_file_contains "$F_SEEDED/tasks/todo.md" "- [x] Seeded done" \
+  "upsert seeded [x]: the first refresh keeps the done box the row seeded"
+
 # =============================================================================
 # 12. Regressions — one block per defect found in review
 #

@@ -27,12 +27,16 @@ reference or a free-text idea, reads the real codebase, and writes one
 architecture spec in a fixed section order: constraints, system design,
 component contracts, data models, build order, decisions, acceptance criteria,
 implementation paths. It renders that spec to a self-contained HTML document and
-stops at a human review gate. After the reviewer replies "approved", it files
-one task per build slice through `/task-registry` and appends a `## Plan:` block
-of `[ ] TDD:` rows to `tasks/todo.md`, grouped by slice in build order under a
-slice header row that is the registry's row for that slice. `/build` consumes
-both; the slice header is the one row it reads differently — claimed and closed
-with its children, never built on its own.
+stops at a human review loop: change requests are applied to the spec in place
+and the document is re-rendered. When the reviewer has nothing left, the skill
+invokes `/slice`, which writes § Build Order into the spec and a `## Plan:` block
+of `[ ] TDD:` rows to `tasks/todo.md`, grouped under `### Slice` headings whose
+header row is the registry's row for that slice, and the skill ends with the
+build prompt for a fresh session. Nothing is filed and nothing is built in the
+planning session; the build session started with that prompt files one task per
+slice in `/build`'s pre-flight and then consumes the block. The slice header is
+the one row `/build` reads differently — claimed and closed with its children,
+never built on its own.
 
 The skill never edits source, never files before approval, and never talks to a
 tracker except through `task-registry.py`.
@@ -91,16 +95,20 @@ tracker except through `task-registry.py`.
   headings of the spec it writes, in the order constraints, system design,
   component contracts, data models, build order.
 - The skill reads issue references only through `task-registry.py show` and
-  files only through `task-registry.py upsert` with `--derive-id design`.
+  files nothing itself: `/slice <spec> --file` mints and files one task per
+  slice with `task-registry.py upsert --derive-id plan` in the session the
+  build prompt starts.
 - The skill renders through `.agents/skills/visual-recap/scripts/visual-render.py`
   to `specs/<feature>.plan.html` and prints that path before asking for review.
-- The skill states that nothing is filed and nothing is built before the
-  reviewer's "approved", that approval attaches to the rendered document, and
-  that the apply run carries `--approve` so the approval reaches the write gate.
-- The skill appends `[ ] TDD:` rows grouped under `### Slice` headings to
-  `tasks/todo.md`, writes the plan block before filing, puts `> Spec:` alone on
-  its line, and names `/build` as the consumer; `/build` names the slice header
-  row it must not build.
+- The skill states that nothing is filed and nothing is built in the planning
+  session, that the review loop attaches to the rendered document, and that
+  the build prompt a human starts the build session with is the authorization
+  `/build`'s pre-flight passes to the write gate as `--approve`.
+- Through `/slice`, `[ ] TDD:` rows grouped under `### Slice` headings reach
+  `tasks/todo.md` with `> Spec:` alone on its line, and the skill ends with
+  `Spec and plan are ready to be built. Start a fresh session with this
+  prompt:` followed by the build prompt; `/build` names the slice header row it
+  must not build.
 - The skill carries an off-ramp line `Skipping system-design-planning:` for
   changes below the bar.
 - `templates/content-model.json` renders through `visual-render.py` without

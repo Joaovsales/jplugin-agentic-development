@@ -645,6 +645,17 @@ The routine's executed **step list** goes in the body, the same list Step 2 wrot
 to `tasks/todo.md` — every mandatory step, and every skipped one retained with
 `skip: <reason>`. See § *Step ledger* in the contract for each routine's list.
 
+#### Handovers
+
+When the branch's `## Plan:` block carries `> Handover:` blockquotes, the PR
+body gains a `## Handovers` section: one `### Slice n/N — <name>` heading per
+slice, followed by that slice's whole blockquote verbatim — the `> Handover:`,
+`> Do not re-derive:`, `> Surface:` and `> Open:` lines `/build` § Slice Close
+defines. Write this section
+before the linkage check below runs on the body — the check has to read the
+body as it will actually ship. With no tracker to host a PR, the same
+section lands in the commit message instead.
+
 #### Creating and re-syncing
 
 `gh pr create` writes the description once, from the branch as it stood at that

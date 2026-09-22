@@ -140,17 +140,22 @@ Invoke the `/plan` skill on the current work item, with the following overrides:
 
 | `/plan` step | Yolo override |
 |---|---|
-| Step 1 — Interview | **Do not interview the user.** Synthesize a spec from the idea (or backlog item) and any context in `tasks/project-context.md`. If genuinely ambiguous: pick the most conservative interpretation and note the assumption in the spec's "Assumptions" section. |
+| Step 1 — Interview | **Do not interview the user.** Synthesize a spec from the idea (or backlog item) and any context in `tasks/project-context.md`. If genuinely ambiguous: pick the most conservative interpretation. Every gap becomes an `assumed` row in § Decisions stating why; an `open` row is answered the same conservative way and recorded there too, instead of being left for a human. |
 | Step 2 — Write spec | Run normally. Spec file must be written to `specs/<feature-name>.md`. |
-| Step 3 — Write plan | Run normally. Tasks appended to `tasks/todo.md`. |
-| Step 4 — Present and confirm | **SKIPPED.** No user prompt. Proceed directly to Phase B. |
+| Step 3 — Slice the spec | Run normally. `/slice` writes § Build Order and the plan block to `tasks/todo.md`. |
+| Step 4 — Present | Run normally — it asks nothing anyway. |
 | Step 5 — Divergence check | Run normally. If divergence found, log it to `tasks/yolo-log.md` and proceed — do NOT prompt user. |
+| Step 6 — Hand over | Prints no prompt; Phase B invokes `/build` in place instead of waiting for a fresh session to pick up the build prompt. |
 
 After Phase A: `specs/<feature>.md` and `tasks/todo.md` must exist on disk with the new plan block.
 
 ### Phase B — Build
 
-Invoke `/build`. It is already autonomous. Run it to completion.
+Invoke `/build` in place, in this same session — `/yolo` is a named exception
+to building in a fresh session, and it is unattended by design. It is already
+autonomous. Run it to completion. Its pre-flight filing runs `--file` without
+`--approve`: unattended, the project's approval floor decides whether the
+slices land or go `local-pending`.
 
 - Phases 1–5 run as normal (TDD, quality gate, spec validation, backlog update).
 - Phase 6 (build report) is required — paste it into `tasks/yolo-log.md`.
