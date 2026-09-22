@@ -47,7 +47,10 @@ def frontmatter(path: Path) -> Dict[str, str]:
     indented continuation lines, which append to the previous key.
     """
     label = path.parent.name
-    lines = path.read_text(encoding="utf-8").splitlines()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        fail(f"{label}: SKILL.md is not UTF-8 ({exc.reason} at byte {exc.start})")
     if not lines or lines[0].strip() != "---":
         fail(f"{label}: SKILL.md has no frontmatter")
     fields: Dict[str, str] = {}

@@ -315,6 +315,7 @@ plant_stale() {
   "hooks": {
     "SessionStart": [
       {"hooks": [{"type": "command", "command": "echo mine"}]},
+      {"hooks": [{"type": "command", "command": "bash $1/dotfiles/hooks/session-start.sh"}]},
       {"hooks": [{"type": "command", "command": "bash $1/.claude/hooks/session-start.sh"}]}
     ]
   }
@@ -354,11 +355,17 @@ assert_contains "$(cat "$box/stale.log")" "Removed(3)" \
 assert_not_contains "$(cat "$box/stale.log")" "still fires the old banner" \
   "stale copies (answered y): no double-banner note once the entry is gone"
 assert_eq "missing" "$(exists "$h/.claude/CLAUDE.md")" \
-  "stale copies (answered y): template-headed CLAUDE.md deleted"
+  "stale copies (answered y): template-headed CLAUDE.md no longer loaded"
+assert_file_contains "$h/.claude/CLAUDE.md.pre-plugin.bak" "Template-managed" \
+  "stale copies (answered y): the file is moved aside as CLAUDE.md.pre-plugin.bak, not deleted"
+assert_contains "$(cat "$box/stale.log")" "moved aside as CLAUDE.md.pre-plugin.bak" \
+  "stale copies (answered y): the listing says the file is moved aside"
 assert_eq "missing" "$(exists "$h/.claude/hooks/session-start.sh")" \
   "stale copies (answered y): hook copy deleted"
-assert_not_contains "$(cat "$h/.claude/settings.json")" "session-start.sh" \
+assert_not_contains "$(cat "$h/.claude/settings.json")" ".claude/hooks/session-start.sh" \
   "stale copies (answered y): the SessionStart entry goes with its script"
+assert_file_contains "$h/.claude/settings.json" "dotfiles/hooks/session-start.sh" \
+  "stale copies (answered y): a user hook that merely ends in hooks/session-start.sh survives"
 assert_file_contains "$h/.claude/settings.json" "echo mine" \
   "stale copies (answered y): the user's own SessionStart hook survives"
 assert_file_contains "$h/.claude/settings.json" "KEEP_ME" \
@@ -396,6 +403,27 @@ assert_not_contains "$(cat "$box/malformed.log")" "managed block in ~/.codex/AGE
   "malformed Codex file: a begin marker without an end marker is not listed"
 assert_files_identical "$box/codex.before" "$h/.codex/AGENTS.md" \
   "malformed Codex file: byte-identical after the run"
+assert_contains "$(cat "$box/malformed.log")" "has 1 begin / 0 end marker(s) — left untouched" \
+  "malformed Codex file: the NOTE reports the marker counts instead of Clean"
+rm -rf "$box"
+
+# The exact path named outside a SessionStart entry (here under Stop): no
+# SessionStart entry matches, so nothing is rewritten — settings.json stays
+# byte-identical, the script stays with it, and the NOTE names the file.
+box="$(run_install "" --with-claude)"; h="$box/home"
+mkdir -p "$h/.claude/hooks"
+printf '#!/usr/bin/env bash\necho old banner\n' > "$h/.claude/hooks/session-start.sh"
+printf '{\n  "hooks": {\n    "Stop": [{"hooks": [{"type": "command", "command": "bash %s/.claude/hooks/session-start.sh"}]}]\n  }\n}\n' "$h" > "$h/.claude/settings.json"
+cp "$h/.claude/settings.json" "$box/settings.before"
+rerun_install "$box" "y" outside.log
+assert_contains "$(cat "$box/outside.log")" "outside a SessionStart entry — nothing rewritten" \
+  "hook entry outside SessionStart: the NOTE says nothing was rewritten"
+assert_files_identical "$box/settings.before" "$h/.claude/settings.json" \
+  "hook entry outside SessionStart: settings.json byte-identical"
+assert_eq "present" "$(exists "$h/.claude/hooks/session-start.sh")" \
+  "hook entry outside SessionStart: the script stays with its reference"
+assert_contains "$(cat "$box/outside.log")" "Kept(1)" \
+  "hook entry outside SessionStart: counted as kept"
 rm -rf "$box"
 
 # Without the plugin the old copy is the only banner this machine has, so the

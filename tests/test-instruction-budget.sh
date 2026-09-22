@@ -128,9 +128,10 @@ assert_eq "absent" "$([ -e .claude/project.md ] && echo present || echo absent)"
   "Budget: .claude/project.md no longer exists"
 # The readers that keep an unmigrated project working (D3), the two docs
 # that describe that state, and the /sync script that moves the file's
-# sections into AGENTS.md (--migrate, slice 4). Anything else naming the file
-# is a stale pointer.
-allowed_mentions='^(\.agents/skills/task-registry/scripts/registry/config\.py|\.agents/skills/task-registry/references/configuration\.md|\.agents/skills/setup-deployment/SKILL\.md|\.agents/skills/verify-deployment/SKILL\.md|\.agents/skills/verify-evidence/SKILL\.md|\.agents/skills/wrap-up-session/SKILL\.md|\.agents/skills/sync/SKILL\.md|\.agents/skills/sync/scripts/sync-managed-block\.py|\.agents/hooks/session-start\.sh)$'
+# sections into AGENTS.md (--migrate, slice 4), and the CI mirror whose PR body
+# tells a project the file is loaded by nothing until a local /sync. Anything
+# else naming the file is a stale pointer.
+allowed_mentions='^(\.agents/skills/task-registry/scripts/registry/config\.py|\.agents/skills/task-registry/references/configuration\.md|\.agents/skills/setup-deployment/SKILL\.md|\.agents/skills/verify-deployment/SKILL\.md|\.agents/skills/verify-evidence/SKILL\.md|\.agents/skills/wrap-up-session/SKILL\.md|\.agents/skills/sync/SKILL\.md|\.agents/skills/sync/scripts/sync-managed-block\.py|\.agents/hooks/session-start\.sh|\.github/workflows/sync-template\.yml)$'
 stray="$(git grep -l -e '\.claude/project\.md' -- . ':!tasks' ':!specs' ':!tests' 2>/dev/null \
   | grep -vE "$allowed_mentions" || true)"
 assert_eq "" "$stray" \

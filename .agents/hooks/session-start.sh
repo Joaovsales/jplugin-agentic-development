@@ -332,6 +332,13 @@ if [ "$ADOPTING" = "1" ] && ! grep -qF -- "$BLOCK_BEGIN" AGENTS.md 2>/dev/null; 
   echo ""
   echo "⚠  AGENTS.md has no jplugin-agentic-development managed block — run /sync"
 fi
+# Once CLAUDE.md is the pointer nothing imports .claude/project.md any more. A sync
+# through the CI mirror writes the pointer without migrating, so the file sits
+# there loaded by nothing until a hand-run /sync (Step 6.6) moves it.
+if [ -f ".claude/project.md" ] && [ "$(tr -d '\r' < CLAUDE.md 2>/dev/null)" = "@AGENTS.md" ]; then
+  echo ""
+  echo "⚠  .claude/project.md is loaded by nothing — run /sync to move it into AGENTS.md"
+fi
 
 # ── Workflow Template Drift Check ────────────────────────────────────────────
 # Notifies if the jplugin-agentic-development template has new commits affecting

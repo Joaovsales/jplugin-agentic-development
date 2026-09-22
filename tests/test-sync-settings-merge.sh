@@ -46,7 +46,10 @@ settings = {
     "permissions": {"allow": ["Bash(npm test:*)"]},
     "hooks": {
         "SessionStart": [{"hooks": [{"type": "command", "command": "bash scripts/own-session-hook.sh"}]}],
-        "Stop": [{"hooks": [{"type": "command", "command": "bash .claude/hooks/session-stop.sh"}]}],
+        "Stop": [
+            {"hooks": [{"type": "command", "command": "bash .claude/hooks/session-stop.sh"}]},
+            {"hooks": [{"type": "command", "command": "bash .claude/hooks/lint.sh"}]},
+        ],
         "PreCompact": [{"hooks": [{"type": "command", "command": "bash .claude/hooks/pre-compact.sh"}]}],
     },
     "env": {"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "400000", "MY_FLAG": "1"},
@@ -68,11 +71,12 @@ import json, sys
 before = json.load(open(sys.argv[1], encoding="utf-8"))
 after = json.load(open(sys.argv[2], encoding="utf-8"))
 hooks = after.get("hooks", {})
-print("Stop:", "present" if "Stop" in hooks else "absent")
+print("Stop:", ",".join(h["command"] for g in hooks.get("Stop", []) for h in g["hooks"]) or "absent")
 print("PreCompact:", "present" if "PreCompact" in hooks else "absent")
 own = [h["command"] for g in hooks.get("SessionStart", []) for h in g["hooks"]]
 print("SessionStart:", ",".join(own) or "absent")
-print("retired-path:", "present" if ".claude/hooks/" in json.dumps(after) else "absent")
+import re
+print("retired-template:", "present" if re.search(r"\.claude/hooks/(session-start|pre-compact|session-stop)\.sh", json.dumps(after)) else "absent")
 for key in before:
     if key == "hooks":
         continue
@@ -82,12 +86,12 @@ print("plugin:", after.get("enabledPlugins", {}).get("jplugin@jplugin-agentic-de
 print("order:", ",".join(after))
 PY
 )"
-assert_contains "$report" "Stop: absent" \
-  "Step 5 merge: the Stop entry pointing at .claude/hooks/session-stop.sh is gone"
+assert_contains "$report" "Stop: bash .claude/hooks/lint.sh" \
+  "Step 5 merge: the Stop entry pointing at .claude/hooks/session-stop.sh is gone; the project's own .claude/hooks/lint.sh entry survives"
 assert_contains "$report" "PreCompact: absent" \
   "Step 5 merge: the PreCompact entry pointing at .claude/hooks/pre-compact.sh is gone"
-assert_contains "$report" "retired-path: absent" \
-  "Step 5 merge: nothing in the file names .claude/hooks/ any more"
+assert_contains "$report" "retired-template: absent" \
+  "Step 5 merge: nothing in the file names one of the three retired template scripts any more"
 assert_contains "$report" "SessionStart: bash scripts/own-session-hook.sh" \
   "Step 5 merge: the project's own hook entry survives — only retired-path entries are dropped"
 assert_contains "$report" "permissions: identical" \

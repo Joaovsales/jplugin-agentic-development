@@ -165,14 +165,22 @@ becomes an edit to the spec or a row in *Decisions* — never a remark in chat.
 
 ### 5. Adversarial pass (conditional)
 
+**Item 7 is read, not remembered.** Before dispatching, resolve `finding-model.md` in
+order — the project's `.agents/references/`, then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`
+on Claude Code (the skill body and the reference then come from the same plugin version),
+then `~/.agents/references/` on Pi and Codex — and paste its § *Emission format* into the
+prompt verbatim. When all three are missing, stop before dispatch:
+`review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync`. Never dispatch a reviewer with no output format.
+
 When any slice changes a persisted schema or an external contract, dispatch
 `critic` under `.agents/references/review-dispatch-contract.md`. Item 1 has no empty
 form, so the spec itself is the diff: `git diff --no-index /dev/null
 specs/<feature>.md`, inline when small, else truncated-plus-path per
 *Large-Artifact Handoff*. Then the spec path and its acceptance criteria
-verbatim, `deferrals: none`, the boundary "review the design in this spec, not
+verbatim (item 2 is never `no spec — …` here: the spec under review is the
+spec), `deferrals: none`, the boundary "review the design in this spec, not
 the repository — check only that its `file:line` claims are true", and the
-four-axis output format. Every finding is answered in the spec — as an edit
+four-axis output format read as below. Every finding is answered in the spec — as an edit
 when it is accepted, as a *Decisions* row when it is declined — and the spec's
 status line records how many were applied and how many declined, so the human
 reviewer can see the critic's hand before approving. Accept and decline under

@@ -351,8 +351,10 @@ settings = json.load(open(path, encoding="utf-8"))
 for key in ("extraKnownMarketplaces", "enabledPlugins"):
     settings.setdefault(key, {}).update(template.get(key, {}))
 # D16: hooks/hooks.json registers these three; a project entry still pointing at
-# a .claude/hooks/ script would fire the same event twice.
-retired = re.compile(r"\.claude/hooks/[^/\s\"']+\.sh")
+# one of the three retired template scripts would fire the same event twice. A
+# project's own .claude/hooks/<name>.sh is not retired (Step 6.4 keeps the file
+# too), so it is matched by name, never by directory.
+retired = re.compile(r"\.claude/hooks/(session-start|pre-compact|session-stop)\.sh")
 hooks = settings.get("hooks", {})
 for event in ("SessionStart", "PreCompact", "Stop"):
     groups = hooks.get(event, [])

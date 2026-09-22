@@ -30,7 +30,7 @@ import os
 import re
 import sys
 import tempfile
-from typing import List, Optional, Sequence, Tuple
+from typing import List, NamedTuple, Optional, Sequence, Tuple
 
 SLUG = "jplugin-agentic-development"
 BEGIN = f"<!-- {SLUG}:begin -->"
@@ -66,16 +66,26 @@ def source_label(source: str) -> str:
     return "<stdin>" if source == "-" else source
 
 
+def not_utf8(label: str, exc: UnicodeDecodeError) -> ManagedBlockError:
+    return ManagedBlockError(f"{label}: not UTF-8 ({exc.reason} at byte {exc.start})")
+
+
 def read_source_text(source: str) -> str:
-    if source == "-":
-        return sys.stdin.read()
-    with open(source, "r", encoding="utf-8") as stream:
-        return stream.read()
+    try:
+        if source == "-":
+            return sys.stdin.read()
+        with open(source, "r", encoding="utf-8") as stream:
+            return stream.read()
+    except UnicodeDecodeError as exc:
+        raise not_utf8(source_label(source), exc) from None
 
 
 def read_text(path: str) -> str:
-    with open(path, "r", encoding="utf-8", newline="") as stream:
-        return stream.read()
+    try:
+        with open(path, "r", encoding="utf-8", newline="") as stream:
+            return stream.read()
+    except UnicodeDecodeError as exc:
+        raise not_utf8(path, exc) from None
 
 
 def write_text(path: str, content: str) -> None:
@@ -107,8 +117,10 @@ def bare_line(line: str) -> str:
 
 
 def find_marker_lines(lines: Sequence[str], markers: Sequence[str]) -> List[int]:
-    """1-based line numbers where a bare line matches one of `markers`."""
-    return [index + 1 for index, line in enumerate(lines) if bare_line(line) in markers]
+    """1-based line numbers where a line, stripped of surrounding whitespace,
+    matches one of `markers`. Padding from an editor must not turn a marked
+    file into an unmarked one — that would append a second block."""
+    return [index + 1 for index, line in enumerate(lines) if line.strip() in markers]
 
 
 def locate_marker_pair(
@@ -260,12 +272,27 @@ def trim_segment(lines: List[str]) -> List[str]:
     return lines[start:end]
 
 
+class MigrationPlan(NamedTuple):
+    chunks: List[List[str]]   # appended below the end marker, in order
+    notes: List[str]          # one line per section dropped or reused, for the operator
+
+
+def strip_leading_blockquote(lines: List[str]) -> List[str]:
+    """A blockquote directly under a heading describes the section (the template
+    seeds one); it goes with the heading, the text after it stays."""
+    index = 0
+    while index < len(lines) and (lines[index].strip() == "" or lines[index].startswith(">")):
+        index += 1
+    return lines[index:]
+
+
 def plan_migration(
     project_label: str, project_text: str, target_label: str, target_text: str
-) -> List[List[str]]:
+) -> MigrationPlan:
     """The chunks to append below the end marker, in order — the pointer line
-    first, then each moved section. Raises ManagedBlockError when the move would
-    put `## Deployment Targets` in two places."""
+    first, then each moved section — and a note per section not moved. Raises
+    ManagedBlockError when the move would put `## Deployment Targets` in two
+    places."""
     target_lines = outside_block_lines(target_text)
     rules_heading_present = PROJECT_RULES_HEADING in target_lines
     targets_present = any(TARGETS_RE.match(line) for line in target_lines)
@@ -273,31 +300,63 @@ def plan_migration(
     body = strip_header([bare_line(line) for line in project_text.splitlines(keepends=True)])
     pointer: Optional[str] = None
     chunks: List[List[str]] = []
+    notes: List[str] = []
     for segment in split_sections(body):
         heading = segment[0] if segment and is_heading(segment[0]) else None
         if heading in GENERIC_HEADINGS:
+            notes.append(f"dropped {heading} (owned by the block)")
             continue
         if heading == PROJECT_RULES_HEADING and rules_heading_present:
-            continue
+            # The heading exists below the end marker already: only the heading
+            # and its descriptive blockquote are redundant — the team's text under
+            # it moves like any other section.
+            notes.append(f"reused {heading} (already below the end marker)")
+            segment = strip_leading_blockquote(segment[1:])
+            heading = None
         if heading is not None and TARGETS_RE.match(heading) and targets_present:
             raise ManagedBlockError(
                 f"{project_label}: '## Deployment Targets' is also below the end marker of "
                 f"{target_label}; nothing moved — merge the two tables by hand, then re-run"
             )
         kept: List[str] = []
+        in_fence = False
         for line in segment:
-            if pointer is None and POINTER_RE.search(line):
+            if line.startswith("```"):
+                in_fence = not in_fence
+            if pointer is None and not in_fence and POINTER_RE.search(line):
                 pointer = line.strip()
                 continue
             kept.append(line)
         if heading == TASK_TRACKING_HEADING:
-            continue  # the block documents the pointer's placement now
+            notes.append(f"dropped {heading} (the block documents the pointer's placement)")
+            continue
         kept = trim_segment(kept)
         if kept:
             chunks.append(kept)
     if pointer is not None:
         chunks.insert(0, [pointer])
-    return chunks
+    return MigrationPlan(chunks, notes)
+
+
+GENERIC_TITLES = frozenset(heading.lstrip("#").strip() for heading in GENERIC_HEADINGS)
+
+
+def duplicates_outside_block(target_text: str) -> List[str]:
+    """Lines outside the block that repeat what the block owns: a generic
+    section heading at any level (a pre-single-file Pi AGENTS.md carried
+    `### Code Economy`), or a second `Task tracking instructions:` pointer.
+    Reported, never edited — the text is the project's own."""
+    found: List[str] = []
+    pointers = 0
+    for line in outside_block_lines(target_text):
+        text = line.strip()
+        if is_heading(text) and text.lstrip("#").strip() in GENERIC_TITLES:
+            found.append(text)
+        elif POINTER_RE.search(text):
+            pointers += 1
+            if pointers > 1:
+                found.append(text)
+    return found
 
 
 def append_chunks(target_text: str, chunks: List[List[str]], newline: str) -> str:
@@ -339,10 +398,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         block_text = build_target_text(existing_target, block, newline, pair)
         new_target = block_text
         migrate_file = args.migrate if args.migrate and os.path.isfile(args.migrate) else None
-        chunks: List[List[str]] = []
+        plan = MigrationPlan([], [])
         if migrate_file is not None:
-            chunks = plan_migration(migrate_file, read_text(migrate_file), args.target, block_text)
-            new_target = append_chunks(block_text, chunks, newline)
+            plan = plan_migration(migrate_file, read_text(migrate_file), args.target, block_text)
+            new_target = append_chunks(block_text, plan.chunks, newline)
+        duplicates = duplicates_outside_block(new_target)
+        existing_claude: Optional[str] = None
+        if args.claude_md and os.path.exists(args.claude_md):
+            existing_claude = read_text(args.claude_md)
     except ManagedBlockError as exc:
         print(f"sync-managed-block: {exc}", file=sys.stderr)
         return 2
@@ -358,7 +421,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     claude_outcome: Optional[str] = None
     if args.claude_md:
-        existing_claude = read_text(args.claude_md) if os.path.exists(args.claude_md) else None
         is_pointer = existing_claude is not None and claude_md_is_pointer(existing_claude)
         claude_outcome = "unchanged" if is_pointer else "written"
 
@@ -370,7 +432,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if migrate_file is None:
             print(f"{prefix}migration: nothing to move")
         else:
-            print(f"{prefix}migration: moved {len(chunks)} section(s), {args.migrate} deleted")
+            print(f"{prefix}migration: moved {len(plan.chunks)} section(s), {args.migrate} deleted")
+            for note in plan.notes:
+                print(f"{prefix}migration: {note}")
+    for line in duplicates:
+        print(f"{os.path.basename(args.target)}: '{line}' outside the block duplicates the block — remove by hand")
 
     if args.dry_run:
         return 0

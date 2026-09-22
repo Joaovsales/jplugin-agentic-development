@@ -20,6 +20,12 @@ implementation_paths:
   - .agents/skills/verify-deployment/**
   - .agents/skills/verify-evidence/**
   - .agents/skills/task-registry/**
+  - .agents/skills/system-design-planning/**
+  - .agents/skills/grilling/SKILL.md
+  - .agents/skills/receive-review/SKILL.md
+  - .agents/skills/memory-maintain/SKILL.md
+  - .agents/skills/refresh/SKILL.md
+  - .agents/skills/maintain-verification-skill/SKILL.md
   - .agents/agents/*.md
   - .claude/agents/*.md
   - .claude/settings.json
@@ -341,7 +347,7 @@ Forward, per project: one `/sync` appends the block, writes the pointer `CLAUDE.
 | 1 | References move | `.agents/references/{finding-model,review-dispatch-contract,model-routing}.md` with verbatim text; `CLAUDE.md` sections replaced by three-line stubs; `.agents/references/` a syncable root; 11 citing files + `test-review-context.sh`, `test-model-tiers.sh`, `test-agents.sh`, `test-doc-conventions.sh` M1/M2 repointed; dispatching skills read the reference at dispatch time; citation test | — | reference-file headings; citation form | M |
 | 2 | Single `AGENTS.md` + its delivery | the managed block (< 200 lines) in `AGENTS.md`; Pi `AGENTS.md` content and `project.md` project sections merged below the end marker; `.claude/project.md` deleted; `CLAUDE.md` → `@AGENTS.md`; `project-template/` seeds; every `.claude/project.md` reader repointed with the legacy notice; **`sync-managed-block.py` (replace / append / pointer — no `--migrate` yet), `/sync` Step 5 calling it instead of checking out `CLAUDE.md`, `sync-template.yml` mirroring through it, and the syncable-paths block rows `AGENTS.md (managed block)` and `CLAUDE.md (pointer)` — so the first downstream sync after this merge delivers the block with the pointer, never the pointer alone (D14)**; **`install.sh` step 1 removed (D17)**; `render_global` reads the block from `AGENTS.md` so `install-codex.sh` keeps working until slice 5; skills-table assertions repointed to `README.md`; budget test; block-invariant greps for `POINTER_RE`, the `[AMBIGUITY]` format and `TODO(shortcut):`; `/eval` gate | 1 | managed-block format; `CLAUDE.md` pointer; script CLI (partial) | L |
 | 3 | Plugin hooks + slim banner + hook retirement | `hooks/hooks.json`; scripts moved to `.agents/hooks/` (syncable root); `.claude/hooks/` marked `RETIRED` in the syncable-paths block; `.claude/settings.json` without `Stop`/`PreCompact`; **`/sync` Step 5 settings merge drops downstream entries matching `.claude/hooks/<name>.sh` (D16)**; banner without skills list and footer, with the adoption-gated missing-block line (D18) and graphify lines; `/tidy` `graph` check; `install-codex.sh` copies from the new path; reference-resolution fallback chain in the dispatching skills (D19); command-string test (D20); plugin `version` bump | 2 | `hooks/hooks.json`; banner lines | M |
-| 4 | `/sync` project migration + drift | `sync-managed-block.py --migrate` (everything but the five generic sections — D15); `/sync` Step 6.6 runs it inside the approved run; drift check by block hash (D6); `test-sync-managed-block.sh` gains the migration fixtures (`## Tech Stack` section, doubled targets table → exit 2) | 2, 3 | script CLI (complete) | M |
+| 4 | `/sync` project migration + drift | `sync-managed-block.py --migrate` (everything but the five generic sections — D15); `/sync` Step 6.6 runs it inside the approved run; drift check by block text (D6); `test-sync-managed-block.sh` gains the migration fixtures (`## Tech Stack` section, doubled targets table → exit 2) | 2, 3 | script CLI (complete) | M |
 | 5 | `install.sh` stops copying | step 5 removed (step 1 went in slice 2); removal step with one confirmation, pointer-content `~/.claude/CLAUDE.md` included; `install-codex.sh` no longer renders the global file; `render_global` deleted; README Layer 1 rewritten; `/tidy` `installed` check updated; `test-install-sh.sh`, `test-codex-install.sh` repointed | 3, 4 | `install.sh` prompt and outcome words | M |
 | 6 | README skills table generator | `scripts/render-skills-table.py`; markers in `README.md`; `tests/test-skills-table.sh` drift test; `/tidy` `inventory` runs the generator as its Tier 0 fix | 2 | script CLI | S |
 

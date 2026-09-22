@@ -218,6 +218,10 @@ for generic in "### Code Economy" "### Surgical Changes" "### Ambiguity Protocol
   assert_not_contains "$(cat "$CASE11/AGENTS.md")" "$generic" "case11: generic section not moved — $generic"
 done
 assert_not_contains "$(cat "$CASE11/AGENTS.md")" "### Task Tracking" "case11: the Task Tracking heading is not moved (the block documents the pointer's placement)"
+assert_contains "$OUT11" "migration: dropped ### Code Economy (owned by the block)" \
+  "case11: every generic section dropped is reported by heading"
+assert_contains "$OUT11" "migration: dropped ### Task Tracking (the block documents the pointer's placement)" \
+  "case11: the Task Tracking drop is reported — the operator approves a deletion knowing what does not move"
 assert_not_contains "$(cat "$CASE11/AGENTS.md")" "The declaration lives here" "case11: the Task Tracking prose is not moved"
 assert_not_contains "$(cat "$CASE11/AGENTS.md")" "Claude Code only." "case11: project.md's own header is not moved"
 assert_eq "1" "$(grep -cF -- "$BEGIN" "$CASE11/AGENTS.md")" "case11: still exactly one block"
@@ -255,6 +259,21 @@ assert_contains "$OUT14" "migration: moved 3 section(s), .claude/project.md dele
 assert_eq "1" "$(grep -c '^## Project-Specific Rules$' "$CASE14/AGENTS.md")" "case14: one Project-Specific Rules heading, not two"
 assert_file_contains "$CASE14/AGENTS.md" "### Domain Glossary" "case14: the team's ### section moved"
 assert_file_contains "$CASE14/AGENTS.md" "No graph here." "case14: the existing project text is untouched"
+assert_contains "$OUT14" "migration: reused ## Project-Specific Rules (already below the end marker)" \
+  "case14: the reuse is reported"
+# 14b: text the team wrote directly under the reused heading is moved, not discarded.
+CASE14B="$BOX/case14b"; mkdir -p "$CASE14B/.claude"
+cp "$CASE14/source.md" "$CASE14B/source.md"
+printf '%s\nCONTENT\n%s\n\n## Project-Specific Rules\n\n### Code Graph\n\nNo graph here.\n' "$BEGIN" "$END" > "$CASE14B/AGENTS.md"
+{
+  printf '# Project-Specific Configuration\n\n> Imported by CLAUDE.md.\n\n---\n\n'
+  printf '## Project-Specific Rules\n\n> Add any team-shared rules here.\n\nTEAM RULE UNDER HEADING\n\n### Domain Glossary\n\n- tenant: one paying customer\n'
+} > "$CASE14B/.claude/project.md"
+OUT14B="$(cd "$CASE14B" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md)"
+assert_contains "$OUT14B" "migration: moved 2 section(s)" "case14b: the rule text and the glossary move"
+assert_file_contains "$CASE14B/AGENTS.md" "TEAM RULE UNDER HEADING" "case14b: text under the reused heading is moved, not dropped"
+assert_not_contains "$(cat "$CASE14B/AGENTS.md")" "Add any team-shared rules here." "case14b: the template's placeholder blockquote goes with the heading"
+assert_eq "1" "$(grep -c '^## Project-Specific Rules$' "$CASE14B/AGENTS.md")" "case14b: still one Project-Specific Rules heading"
 
 # --- case 15: --dry-run reports the migration and writes nothing --------------
 CASE15="$BOX/case15"; mkdir -p "$CASE15/.claude"
@@ -287,5 +306,88 @@ assert_eq "2" "$RC16" "case16: a missing --source exits 2"
 assert_contains "$OUT16" "absent.md" "case16: the refusal names the missing file"
 assert_not_contains "$OUT16" "Traceback" "case16: no traceback reaches the operator"
 assert_eq "false" "$([ -f "$CASE16/AGENTS.md" ] && echo true || echo false)" "case16: nothing is written"
+
+# --- case 17: every malformed marker set refuses with the line, nothing written --
+CASE17="$BOX/case17"; mkdir -p "$CASE17"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE17/source.md"
+while IFS='|' read -r name body expect; do
+  printf '%b' "$body" > "$CASE17/$name.md"
+  ERR17="$(run_script --source "$CASE17/source.md" --target "$CASE17/$name.md" 2>&1 >/dev/null)"; RC17=$?
+  assert_eq "2" "$RC17" "case17 ($name): exits 2"
+  assert_contains "$ERR17" "$name.md:$expect" "case17 ($name): the refusal names the file and the line"
+  assert_eq "$(printf '%b' "$body")" "$(cat "$CASE17/$name.md")" "case17 ($name): nothing written"
+done <<EOF17
+end-only|head\n$END\ntail\n|2: end marker with no matching begin marker
+end-first|head\n$END\nmid\n$BEGIN\ntail\n|2: end marker precedes its begin marker
+two-ends|$BEGIN\nx\n$END\ny\n$END\n|5: more than one end marker
+EOF17
+
+# --- case 18: an empty target and a markers-only target ----------------------
+CASE18="$BOX/case18"; mkdir -p "$CASE18"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE18/source.md"
+: > "$CASE18/empty.md"
+OUT18="$(run_script --source "$CASE18/source.md" --target "$CASE18/empty.md")"
+assert_contains "$OUT18" "empty.md: appended" "case18: an existing empty target is appended to"
+assert_eq "$(printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END")" "$(cat "$CASE18/empty.md")" "case18: the empty target becomes exactly the block"
+printf '%s\n%s\n' "$BEGIN" "$END" > "$CASE18/bare.md"
+OUT18B="$(run_script --source "$CASE18/source.md" --target "$CASE18/bare.md")"
+assert_contains "$OUT18B" "bare.md: replaced" "case18: a markers-only target is replaced"
+assert_eq "1" "$(grep -cF -- "$BEGIN" "$CASE18/bare.md")" "case18: still one block"
+
+# --- case 19: whitespace-padded markers are still markers (no second block) ----
+CASE19="$BOX/case19"; mkdir -p "$CASE19"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE19/source.md"
+printf 'above\n%s \nOLD\n  %s\t\nbelow\n' "$BEGIN" "$END" > "$CASE19/AGENTS.md"
+OUT19="$(run_script --source "$CASE19/source.md" --target "$CASE19/AGENTS.md")"
+assert_contains "$OUT19" "AGENTS.md: replaced" "case19: padded markers are recognised — replaced, not appended"
+assert_eq "1" "$(grep -cF -- "$BEGIN" "$CASE19/AGENTS.md")" "case19: exactly one begin marker afterwards"
+assert_not_contains "$(cat "$CASE19/AGENTS.md")" "OLD" "case19: the old block text is gone"
+assert_eq "above" "$(head -1 "$CASE19/AGENTS.md")" "case19: text above intact"
+
+# --- case 20: a non-UTF-8 input is a refusal naming the file, not a traceback ---
+CASE20="$BOX/case20"; mkdir -p "$CASE20"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE20/source.md"
+printf 'caf\351\n%s\nOLD\n%s\n' "$BEGIN" "$END" > "$CASE20/AGENTS.md"
+cp "$CASE20/AGENTS.md" "$CASE20/before.md"
+ERR20="$(run_script --source "$CASE20/source.md" --target "$CASE20/AGENTS.md" 2>&1 >/dev/null)"; RC20=$?
+assert_eq "2" "$RC20" "case20: a cp1252 byte in the target exits 2"
+assert_contains "$ERR20" "AGENTS.md: not UTF-8" "case20: the refusal names the file"
+assert_not_contains "$ERR20" "Traceback" "case20: no traceback"
+assert_files_identical "$CASE20/before.md" "$CASE20/AGENTS.md" "case20: nothing written"
+
+# --- case 21: migration edges — no headings, a fenced heading, a fenced pointer -
+CASE21="$BOX/case21"; mkdir -p "$CASE21/.claude"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE21/source.md"
+cp "$CASE21/source.md" "$CASE21/AGENTS.md"
+printf '# Project-Specific Configuration\n\n> Imported.\n\n---\n\nJust prose, no headings.\n' > "$CASE21/.claude/project.md"
+OUT21="$(cd "$CASE21" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md)"
+assert_contains "$OUT21" "migration: moved 1 section(s)" "case21: a heading-less body moves as one section"
+assert_file_contains "$CASE21/AGENTS.md" "Just prose, no headings." "case21: the prose landed below the end marker"
+cp "$CASE21/source.md" "$CASE21/AGENTS.md"
+{
+  printf '# Project-Specific Configuration\n\n---\n\n### Team Notes\n\n'
+  printf '```md\n## Not A Heading\nTask tracking instructions: fenced/path.md\n```\n\n'
+  printf 'Task tracking instructions: docs/real.md\n'
+} > "$CASE21/.claude/project.md"
+OUT21B="$(cd "$CASE21" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md)"
+assert_contains "$OUT21B" "migration: moved 2 section(s)" "case21: the pointer and one section — the fenced heading did not split it"
+below21="$(awk -v e="$END" '$0 == e {p=1; next} p' "$CASE21/AGENTS.md")"
+assert_eq "Task tracking instructions: docs/real.md" "$(printf '%s\n' "$below21" | grep -m1 .)" \
+  "case21: the unfenced pointer is promoted to the first line below the end marker"
+assert_eq "1" "$(grep -c 'fenced/path.md' "$CASE21/AGENTS.md")" "case21: the fenced pointer line stays inside its fence as text"
+assert_eq "1" "$(grep -c '^## Not A Heading$' "$CASE21/AGENTS.md")" "case21: the fenced heading moved intact inside its section"
+
+# --- case 22: generic headings and a second pointer outside the block are reported
+CASE22="$BOX/case22"; mkdir -p "$CASE22"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE22/source.md"
+printf '# Pi rules\n\n### Code Economy\n\nold copy\n\nTask tracking instructions: docs/a.md\n\n%s\nOLD\n%s\n\nTask tracking instructions: docs/b.md\n' "$BEGIN" "$END" > "$CASE22/AGENTS.md"
+OUT22="$(run_script --source "$CASE22/source.md" --target "$CASE22/AGENTS.md")"
+assert_contains "$OUT22" "AGENTS.md: '### Code Economy' outside the block duplicates the block — remove by hand" \
+  "case22: a generic heading above the block is reported"
+assert_contains "$OUT22" "AGENTS.md: 'Task tracking instructions: docs/b.md' outside the block duplicates the block — remove by hand" \
+  "case22: a second pointer is reported"
+assert_file_contains "$CASE22/AGENTS.md" "old copy" "case22: reported, never edited"
+assert_eq "0" "$(run_script --source "$CASE22/source.md" --target "$CASE22/AGENTS.md" | grep -c "docs/a.md")" \
+  "case22: the first pointer is not a duplicate"
 
 finish

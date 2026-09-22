@@ -229,8 +229,31 @@ template_managed_claude_md() {
   [ "$(tr -d '\r' < "$1" | grep -v '^[[:space:]]*$')" = "@AGENTS.md" ]
 }
 
+# display_path DIR — `~/…` when DIR is under $HOME, else the literal path: the
+# prompt names exactly what a `y` removes, also under CLAUDE_CONFIG_DIR/CODEX_HOME.
+display_path() {
+  case "$1" in
+    "$HOME"/*) printf '~/%s' "${1#"$HOME"/}" ;;
+    *)         printf '%s' "$1" ;;
+  esac
+}
+
+# hook_spellings — the ways an earlier install.sh could have named its copy in a
+# SessionStart command: the resolved $CLAUDE_HOME it embedded, plus the `~/` and
+# `$HOME/` spellings of the same file. One line each; both the grep below and the
+# Python prune read this list, so they can never disagree. A hook of the user's
+# own that merely ends in hooks/session-start.sh is not on it and is never matched.
+hook_spellings() {
+  printf '%s/hooks/session-start.sh\n' "$CLAUDE_HOME"
+  case "$CLAUDE_HOME" in
+    "$HOME"/*) printf '~/%s/hooks/session-start.sh\n$HOME/%s/hooks/session-start.sh\n' \
+                 "${CLAUDE_HOME#"$HOME"/}" "${CLAUDE_HOME#"$HOME"/}" ;;
+  esac
+}
+
 session_hook_registered() {
-  grep -q 'hooks/session-start\.sh' "$CLAUDE_HOME/settings.json" 2>/dev/null
+  [ -f "$CLAUDE_HOME/settings.json" ] || return 1
+  hook_spellings | grep -qF -f - "$CLAUDE_HOME/settings.json"
 }
 
 # codex_block_present — exactly one begin and one end marker (either slug). A
@@ -246,54 +269,96 @@ codex_block_present() {
 # The hook copy is offered only once the plugin is registered: without it, that
 # copy is the only banner this machine has.
 stale_global_copies() {
+  local claude_dir codex_dir begins ends
+  claude_dir="$(display_path "$CLAUDE_HOME")"; codex_dir="$(display_path "$CODEX_HOME")"
   if template_managed_claude_md "$CLAUDE_HOME/CLAUDE.md"; then
-    printf 'claude-md\t~/.claude/CLAUDE.md (the template rules an earlier install.sh copied; every project reads them from its own AGENTS.md now)\n'
+    printf 'claude-md\t%s/CLAUDE.md (the template rules an earlier install.sh copied; every project reads them from its own AGENTS.md now — moved aside as CLAUDE.md.pre-plugin.bak, not deleted)\n' "$claude_dir"
   fi
   if [ "$PLUGIN_OUTCOME" != "Skipped" ] \
      && { [ -f "$CLAUDE_HOME/hooks/session-start.sh" ] || session_hook_registered; }; then
-    printf 'session-hook\t~/.claude/hooks/session-start.sh and its SessionStart entry in ~/.claude/settings.json (the plugin runs the hook now; this copy fires a second banner)\n'
+    printf 'session-hook\t%s/hooks/session-start.sh and its SessionStart entry in %s/settings.json (the plugin runs the hook now; this copy fires a second banner)\n' "$claude_dir" "$claude_dir"
   fi
   if codex_block_present; then
-    printf 'codex-block\tthe managed block in ~/.codex/AGENTS.md (the file stays; only the block between the markers goes)\n'
+    printf 'codex-block\tthe managed block in %s/AGENTS.md (the file stays; only the block between the markers goes)\n' "$codex_dir"
+  elif [ -f "$CODEX_HOME/AGENTS.md" ]; then
+    # Markers present but not one matched pair: never touched, and never silently
+    # "clean" either — the user is told what to fix by hand.
+    begins="$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):begin -->" "$CODEX_HOME/AGENTS.md" || true)"
+    ends="$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):end -->" "$CODEX_HOME/AGENTS.md" || true)"
+    if [ "$begins" != 0 ] || [ "$ends" != 0 ]; then
+      echo "  NOTE: $codex_dir/AGENTS.md has $begins begin / $ends end marker(s) — left untouched; fix the pair by hand" >&2
+    fi
   fi
 }
 
 # remove_session_hook — the script and its settings entry go together, or
 # neither does: a dangling command would fail on every session start. Returns 1
-# when the pair is kept.
+# when the pair is kept. The Python matches only the spellings hook_spellings
+# lists, writes through a temp file + os.replace so an interrupted run never
+# leaves a truncated settings.json, and exits 3 without writing when no
+# SessionStart entry matched — the file is then named in a NOTE and nothing is
+# touched. The spellings travel in a file, not in argv or the environment: MSYS
+# (Git Bash) rewrites POSIX-looking paths in both when it starts a native python,
+# and the strings must match the JSON exactly as bash wrote them.
 remove_session_hook() {
-  local python
+  local python rc=0 settings_shown spellings
+  settings_shown="$(display_path "$CLAUDE_HOME")/settings.json"
   if session_hook_registered; then
     python="$(python_bin)"
     if [ -z "$python" ]; then
-      echo "  NOTE: neither python3 nor python found — the SessionStart entry in ~/.claude/settings.json stays, and so does its script"
+      echo "  NOTE: neither python3 nor python found — the SessionStart entry in $settings_shown stays, and so does its script"
       return 1
     fi
-    "$python" - "$CLAUDE_HOME/settings.json" <<'PY' || return 1
-import json, sys
-path = sys.argv[1]
-with open(path, encoding="utf-8") as handle:
-    settings = json.load(handle)
+    spellings="$(mktemp)"
+    hook_spellings > "$spellings"
+    "$python" - "$CLAUDE_HOME/settings.json" "$spellings" <<'PY' || rc=$?
+import json, os, sys
+path, spellings_file = sys.argv[1], sys.argv[2]
+with open(spellings_file, encoding="utf-8") as handle:
+    spellings = {line.rstrip("\r\n").replace("\\", "/") for line in handle if line.strip()}
+
+
+def is_ours(command):
+    text = command.strip()
+    for shell in ("bash ", "sh "):
+        if text.startswith(shell):
+            text = text[len(shell):].strip()
+    return text.strip("\"'").replace("\\", "/") in spellings
+
+
+try:
+    with open(path, encoding="utf-8") as handle:
+        settings = json.load(handle)
+except (OSError, ValueError) as exc:
+    print(f"  NOTE: {path}: {exc} — the SessionStart entry stays, and so does its script")
+    sys.exit(1)
 hooks = settings.get("hooks", {})
 groups = hooks.get("SessionStart", [])
+removed = 0
 for group in groups:
-    group["hooks"] = [
-        hook for hook in group.get("hooks", [])
-        if not hook.get("command", "").strip().strip("\"'").endswith("hooks/session-start.sh")
-    ]
+    kept = [hook for hook in group.get("hooks", []) if not is_ours(hook.get("command", ""))]
+    removed += len(group.get("hooks", [])) - len(kept)
+    group["hooks"] = kept
+if removed == 0:
+    sys.exit(3)
 hooks["SessionStart"] = [group for group in groups if group.get("hooks")]
 if not hooks["SessionStart"]:
     hooks.pop("SessionStart")
 if "hooks" in settings and not hooks:
     settings.pop("hooks")
-with open(path, "w", encoding="utf-8") as handle:
+temporary = path + ".tmp"
+with open(temporary, "w", encoding="utf-8") as handle:
     json.dump(settings, handle, indent=2, ensure_ascii=False)
     handle.write("\n")
+os.replace(temporary, path)
 PY
-    if session_hook_registered; then
-      echo "  NOTE: ~/.claude/settings.json still names hooks/session-start.sh outside a SessionStart entry — the script stays with it"
-      return 1
-    fi
+    rm -f "$spellings"
+    case "$rc" in
+      0) ;;
+      3) echo "  NOTE: $settings_shown names hooks/session-start.sh outside a SessionStart entry — nothing rewritten; the script stays with it"
+         return 1 ;;
+      *) return 1 ;;
+    esac
   fi
   rm -f "$CLAUDE_HOME/hooks/session-start.sh"
   rmdir "$CLAUDE_HOME/hooks" 2>/dev/null || true
@@ -301,10 +366,12 @@ PY
 
 # strip_codex_block FILE — removes the block between the markers (either slug)
 # and the blank line after it; every other line stays (D8). Returns 1 and
-# leaves the file alone when the end marker never comes.
+# leaves the file alone when the end marker never comes, or when awk itself
+# could not run — the two are reported apart.
 strip_codex_block() {
   local tmp="$1.tmp.$$"
-  if ! awk -v legacy="$LEGACY_SLUG" '
+  local rc=0
+  awk -v legacy="$LEGACY_SLUG" '
     BEGIN { begin_re = "^<!-- (jplugin-agentic-development|" legacy "):begin -->"
             end_re   = "^<!-- (jplugin-agentic-development|" legacy "):end -->" }
     !skip && $0 ~ begin_re { skip = 1; next }
@@ -313,12 +380,19 @@ strip_codex_block() {
     drop_blank && $0 ~ /^[[:space:]]*$/ { drop_blank = 0; next }
     { drop_blank = 0; print }
     END { if (skip) exit 1 }
-  ' "$1" > "$tmp"; then
+  ' "$1" > "$tmp" || rc=$?
+  if [ "$rc" -eq 1 ]; then
     rm -f "$tmp"
     echo "  NOTE: $1 has a begin marker with no end marker — left untouched; remove the block by hand"
     return 1
+  elif [ "$rc" -ne 0 ]; then
+    # Not awk's own verdict: a redirect failure, a missing awk — say that, not "malformed".
+    rm -f "$tmp"
+    echo "  NOTE: could not rewrite $1 (awk exit $rc) — left untouched"
+    return 1
   fi
-  mv "$tmp" "$1"
+  # cat, not mv: writes through a symlinked AGENTS.md and keeps the file's mode.
+  cat "$tmp" > "$1" && rm -f "$tmp"
 }
 
 # remove_stale_global_copies — sets STALE_OUTCOME. Lists the stale copies and
@@ -346,12 +420,12 @@ remove_stale_global_copies() {
   fi
   while IFS=$'\t' read -r kind _; do
     case "$kind" in
-      claude-md)    rm -f "$CLAUDE_HOME/CLAUDE.md"; removed=$((removed + 1)) ;;
+      claude-md)    mv -f "$CLAUDE_HOME/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md.pre-plugin.bak"; removed=$((removed + 1)) ;;
       session-hook) if remove_session_hook; then removed=$((removed + 1)); else kept=$((kept + 1)); STALE_HOOK_KEPT=1; fi ;;
       codex-block)  if strip_codex_block "$CODEX_HOME/AGENTS.md"; then removed=$((removed + 1)); else kept=$((kept + 1)); fi ;;
     esac
   done <<< "$items"
-  ok "removed" "$removed item(s) deleted"
+  ok "removed" "$removed item(s) removed"
   if [ "$kept" -gt 0 ]; then STALE_OUTCOME="Kept($kept)"; else STALE_OUTCOME="Removed($removed)"; fi
 }
 

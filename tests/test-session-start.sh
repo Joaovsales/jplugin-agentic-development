@@ -587,6 +587,23 @@ printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}\n' > "
 out_adopt_plugin="$(banner_run "$tmpB/adopt-plugin")"
 assert_contains "$out_adopt_plugin" "has no jplugin-agentic-development managed block" \
   "Banner: adopting (plugin enabled) with no AGENTS.md at all -> the missing-block line"
+# Orphaned project.md: CLAUDE.md is the pointer, so nothing imports it (a CI-only
+# sync leaves exactly this state); the line is printed until /sync moves it.
+mkdir -p "$tmpB/orphan/.claude"
+printf '@AGENTS.md\n' > "$tmpB/orphan/CLAUDE.md"
+printf '<!-- jplugin-agentic-development:begin -->\nrules\n<!-- jplugin-agentic-development:end -->\n' > "$tmpB/orphan/AGENTS.md"
+printf '## Team Rules\n\nours\n' > "$tmpB/orphan/.claude/project.md"
+out_orphan="$(banner_run "$tmpB/orphan")"
+assert_contains "$out_orphan" "⚠  .claude/project.md is loaded by nothing — run /sync to move it into AGENTS.md" \
+  "Banner: .claude/project.md beside a pointer CLAUDE.md -> the orphaned-file line"
+printf '@.claude/project.md\n' > "$tmpB/orphan/CLAUDE.md"
+out_imported="$(banner_run "$tmpB/orphan")"
+assert_not_contains "$out_imported" "loaded by nothing" \
+  "Banner: a CLAUDE.md that still imports .claude/project.md prints no orphan line"
+printf '@AGENTS.md\n' > "$tmpB/orphan/CLAUDE.md"; rm -f "$tmpB/orphan/.claude/project.md"
+out_migrated="$(banner_run "$tmpB/orphan")"
+assert_not_contains "$out_migrated" "loaded by nothing" \
+  "Banner: no .claude/project.md -> no orphan line"
 mkdir -p "$tmpB/other/.claude"
 printf '{"enabledPlugins": {"someone-else@market": true}}\n' > "$tmpB/other/.claude/settings.json"
 out_other="$(banner_run "$tmpB/other")"

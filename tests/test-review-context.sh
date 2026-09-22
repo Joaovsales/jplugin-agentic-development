@@ -25,7 +25,7 @@ cd "$REPO"
 # reviewer only through `/software-design-expert-review --scope tree`, whose
 # repo survey is an exception to the *subject* of items 2/3/6 -- a repo survey
 # has no session to describe -- never to stating them.
-DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md"
+DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/system-design-planning/SKILL.md"
 
 REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
 

@@ -73,6 +73,49 @@ assert_contains "$out" "description" "missing description: the message names the
 assert_files_identical "$box/README.before" "$box/README.md" "missing description: README is not written"
 rm -rf "$box/.agents/skills/nodesc"
 
+# A `|` in a description is escaped so the row keeps its three cells.
+mkdir -p "$box/.agents/skills/pipey"
+printf -- '---\nname: pipey\ndescription: Renders a | b as one cell.\n---\n# x\n' > "$box/.agents/skills/pipey/SKILL.md"
+run_gen --repo "$box" > /dev/null 2>&1
+assert_file_matches "$box/README.md" '^\| `/pipey` \| Renders a \\| b as one cell\. \|  \|' \
+  "pipe: a | in the description is escaped"
+rm -rf "$box/.agents/skills/pipey"
+
+# A CRLF README round-trips: every line still ends in CR after a rewrite.
+run_gen --repo "$box" > /dev/null 2>&1
+sed 's/\r$//; s/$/\r/' "$box/README.md" > "$box/README.crlf" && mv "$box/README.crlf" "$box/README.md"
+mkdir -p "$box/.agents/skills/zz-crlf"
+printf -- '---\nname: zz-crlf\ndescription: Added under CRLF.\n---\n# x\n' > "$box/.agents/skills/zz-crlf/SKILL.md"
+run_gen --repo "$box" > /dev/null 2>&1
+assert_eq "0" "$(grep -c -v $'\r$' "$box/README.md")" "crlf: no line lost its CR after a rewrite"
+assert_file_contains "$box/README.md" "/zz-crlf" "crlf: the new row was written"
+rm -rf "$box/.agents/skills/zz-crlf"
+sed 's/\r$//' "$box/README.md" > "$box/README.lf" && mv "$box/README.lf" "$box/README.md"
+
+# A SKILL.md that is not UTF-8, or has no frontmatter, is refused by directory name.
+cp "$box/README.md" "$box/README.before"
+mkdir -p "$box/.agents/skills/latin1"
+printf -- '---\nname: latin1\ndescription: caf\351\n---\n' > "$box/.agents/skills/latin1/SKILL.md"
+out="$(run_gen --repo "$box" 2>&1)"; code=$?
+assert_eq "2" "$code" "not utf-8: exits 2"
+assert_contains "$out" "latin1: SKILL.md is not UTF-8" "not utf-8: the message names the directory"
+assert_not_contains "$out" "Traceback" "not utf-8: no traceback"
+rm -rf "$box/.agents/skills/latin1"
+mkdir -p "$box/.agents/skills/nofm"
+printf '# no frontmatter here\n' > "$box/.agents/skills/nofm/SKILL.md"
+out="$(run_gen --repo "$box" 2>&1)"; code=$?
+assert_eq "2" "$code" "no frontmatter: exits 2"
+assert_contains "$out" "nofm: SKILL.md has no frontmatter" "no frontmatter: the message names the directory"
+rm -rf "$box/.agents/skills/nofm"
+assert_files_identical "$box/README.before" "$box/README.md" "refusals: README is not written"
+
+# Exit 2 on a second marker pair.
+printf '\n<!-- skills-table:begin -->\n<!-- skills-table:end -->\n' >> "$box/README.md"
+out="$(run_gen --repo "$box" --check 2>&1)"; code=$?
+assert_eq "2" "$code" "two marker pairs: exits 2"
+assert_contains "$out" "exactly once" "two marker pairs: the message says the pair must appear exactly once"
+cp "$box/README.before" "$box/README.md"
+
 # Exit 2 on a README without the marker pair.
 grep -v 'skills-table:' "$box/README.md" > "$box/README.nomarkers" && mv "$box/README.nomarkers" "$box/README.md"
 out="$(run_gen --repo "$box" --check 2>&1)"; code=$?
