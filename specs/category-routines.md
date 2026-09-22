@@ -156,17 +156,16 @@ default vocabulary is extended to cover the chain, and the precedence order itse
 is configurable alongside it.
 
 A configured selector label that does not exist upstream is a **loud** failure:
-non-zero exit naming the label. Per `CLAUDE.md` § Observability Discipline,
+non-zero exit naming the label. Per `AGENTS.md` § Observability Discipline,
 "nothing matched" and "the vocabulary is wrong" are different outcomes and must
 not share an exit code.
 
 ### Where the contract document lives
 
-Not `docs/routines.md`. `/sync` ships `CLAUDE.md`, `.agents/skills/`,
-`.agents/agents/`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`,
-`.claude/browsers/`, `.claude/settings.json` and `.agents/git-hooks/`, and
-`install.sh` copies only `.claude/skills/` and `.agents/`. A `docs/` path is in
-neither set, so the contract would reach no consumer — while this spec's blast
+Not `docs/routines.md`. `/sync` ships the `AGENTS.md` managed block, `.agents/skills/`,
+`.agents/agents/`, `.agents/references/`, `.agents/hooks/`, `.claude/agents/`,
+`.claude/browsers/`, `.claude/settings.json` and `.agents/git-hooks/`. A `docs/`
+path is not in that set, so the contract would reach no consumer — while this spec's blast
 radius line promises it ships to every one of them. The contract is pure
 convention with no project-specific content, so it belongs inside the syncable
 tree: `.agents/skills/wrap-up-session/references/routines.md`, which Claude Code

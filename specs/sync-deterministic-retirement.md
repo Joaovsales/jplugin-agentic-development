@@ -53,7 +53,7 @@ deleting it needs no human classification. That is a record, not a judgement,
 which is the same standard the `sync-keep` arithmetic meets.
 
 The comparison is on **content, not on the path**, and the difference is not
-academic. `.claude/hooks/` is a syncable root and `pre-commit.sh` is a name a
+academic. `.agents/hooks/` is a syncable root and `pre-commit.sh` is a name a
 template and a project both reach for, so path membership alone would delete a
 file this project wrote itself and never synced. It also protects the case git
 cannot: a synced file the project later **edited** hashes to something no
@@ -123,7 +123,7 @@ and the project guard.
   already pins, not an eighth hand-maintained duplicate of it.
 
 A syncable root must be a direct subdirectory of `.agents/` or `.claude/` —
-`.agents/skills/`, `.claude/hooks/`, and so on. The doc block is read from the
+`.agents/skills/`, `.agents/hooks/`, and so on. The doc block is read from the
 template, which is a remote repository or a local directory, so it is untrusted
 input to a file-deleting operation: an unconstrained block naming `src/` would
 delete the project's source, and `.claude/` would sweep in the never-sync files

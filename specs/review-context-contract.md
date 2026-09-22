@@ -33,7 +33,7 @@ A reviewer dispatched by `/wrap-up-session`, `/quality-gate`, or
 |---------|---------|-----------------|
 | Persona file (`.claude/agents/<name>.md`) | role, red flags, finding axes, read-only constraint | the file itself |
 | Dispatch prompt | whatever the orchestrator improvises | **only** `software-design-expert-review/SKILL.md:45` |
-| Ambient project files | `CLAUDE.md`, `.claude/project.md` | harness auto-load |
+| Ambient project files | `AGENTS.md` (through the `CLAUDE.md` pointer) | harness auto-load |
 | The repo | anything the agent chooses to read | **only** `security-reviewer.md:18` |
 
 `/build` already holds implementers to a contract — *"Delegation prompt must
@@ -49,7 +49,7 @@ projects. Item 2 is different: it is a gap in the shipped instructions, checkabl
 by reading them.
 
 1. **Deliberate decisions get re-litigated.** The repo produces two explicit
-   deferral records — `[AMBIGUITY]` lines (`.claude/project.md` § *Ambiguity
+   deferral records — `[AMBIGUITY]` lines (`AGENTS.md` § *Ambiguity
    Protocol*) and `TODO(shortcut):` markers (§ *Code Economy*, ledgered at
    `wrap-up-session` Step 3.7). Neither reaches a reviewer, so a shortcut whose
    limit and upgrade path are already written down comes back as a finding.
@@ -99,7 +99,7 @@ guidance argues the opposite for sub-agents: keep the detailed context isolated 
 return a distilled summary.
 
 For reviewers, this repo has already picked a side and written it down:
-`CLAUDE.md` § *Independence Accounting* — *"Two lenses reasoned inside one context
+`.agents/references/finding-model.md` § *Independence Accounting* — *"Two lenses reasoned inside one context
 are two perspectives, not two witnesses: they share the same priors and the same
 blind spots."* Handing a reviewer the builder's reasoning imports exactly those
 priors, and the promotion rule then counts a downstream echo as corroboration.
@@ -119,7 +119,7 @@ or runtime value outside the reviewed scope."* Nothing then tells the reviewer t
 go read it — so a finding parks at 75 and, under the Apply Gate, is reported but
 never applied even when a single `grep` would settle it.
 
-Two rules, both in `CLAUDE.md` § *Finding Model*:
+Two rules, both in `.agents/references/finding-model.md`:
 
 - A finding at `75` must **name** the specific caller, config key, or runtime value
   its correctness depends on. "Depends on the caller" without naming one is a `50`.
@@ -226,7 +226,7 @@ so there is no third tree to mirror into.
       conclusions would corrupt Independence Accounting
 - [x] All four reviewer dispatch sites cite the contract by section name
 - [x] Each site states the absent-vs-empty rule for spec and deferrals
-- [x] `CLAUDE.md` § *Finding Model* requires a finding at `75` to name its
+- [x] `.agents/references/finding-model.md` requires a finding at `75` to name its
       dependency, and an unnamed dependency reads as `50`
 - [x] It states the verification path (read the dependency → promote to `100` with
       evidence, or drop, or hold and say what stopped it)

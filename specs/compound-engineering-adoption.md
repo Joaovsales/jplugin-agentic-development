@@ -281,8 +281,8 @@ every downstream project that runs it:
 | `CLAUDE.md` | `ceiling` tier + resolution rule; Independence Accounting subsection; Review Gate Taxonomy note; Session Start Checklist no longer reads `memory.md`; Key Directories replaces `memory.md`/`lessons.md`/`bugs.md` rows with `solutions/`, `history.md`, `concepts.md` |
 | `README.md` | Store description and directory listing |
 | `install.sh` | Seeds the new task files instead of `lessons.md` / `bugs.md` |
-| `.claude/hooks/session-start.sh` | Reports store counts in one line; stops dumping `memory.md` and `lessons.md` |
-| `.claude/hooks/pre-compact.sh` | Flushes to the new destinations |
+| `.agents/hooks/session-start.sh` | Reports store counts in one line; stops dumping `memory.md` and `lessons.md` |
+| `.agents/hooks/pre-compact.sh` | Flushes to the new destinations |
 | `.agents/skills/learn/SKILL.md` | Writes typed documents; overlap scoring; grounding rule; concept capture |
 | `.agents/skills/memory-maintain/SKILL.md` | Sweeps `tasks/solutions/`; sweeps `needs_review` documents; prunes `tasks/concepts.md` |
 | `.agents/skills/debug/SKILL.md` | Bug register becomes bug-track documents |
@@ -510,7 +510,7 @@ Two mechanisms from the same analysis are deliberately **not** in this spec:
 - **Subagents write to disk, return a path.** A subagent asked to return long prose
   inline intermittently returns a summary instead, and the original is unrecoverable
   from the orchestrator side. Complements the existing
-  `.claude/project.md` § *Large-Artifact Handoff*, which covers only the inbound
+  `AGENTS.md` § *Large-Artifact Handoff*, which covers only the inbound
   direction.
 - **Settled-decision provenance.** Annotate decisions the user examined at the
   `/plan` gate so `/quality-gate` and `critic` augment rather than re-litigate them,
@@ -534,12 +534,13 @@ Stated rather than asked, because each has a clearly better answer in this repo:
    nothing here.
 3. **The store lives at `tasks/solutions/`** and the glossary at
    `tasks/concepts.md`, matching the existing `tasks/` register convention in
-   `CLAUDE.md` § Key Directories rather than the source repo's root `CONCEPTS.md`
+   `AGENTS.md` § Key Directories rather than the source repo's root `CONCEPTS.md`
    and `docs/solutions/`.
-4. **Shared rules go in `CLAUDE.md`**, which `/sync` propagates and both harnesses
-   read natively. Skill mechanics go in the relevant `SKILL.md`.
-   `.claude/project.md` and `AGENTS.md` are not touched — `/sync` never syncs them,
-   so a rule placed there would not reach downstream projects.
+4. **Shared rules go in the `AGENTS.md` managed block**, which `/sync` propagates
+   and every harness reads (Claude Code through the `CLAUDE.md` pointer). Skill
+   mechanics go in the relevant `SKILL.md`. Text below the block's end marker is
+   the project's own — `/sync` never rewrites it, so a rule placed there would
+   not reach downstream projects.
 5. **Confidence anchors are 50 / 75 / 100** with 75 as the actionable threshold,
    matching the source repo's calibration rather than inventing a new scale.
 6. **Archive, never delete.** The migration moves originals aside; a human decides
@@ -548,8 +549,8 @@ Stated rather than asked, because each has a clearly better answer in this repo:
 ## Files Likely Involved
 
 - `scripts/migrate-learning-store.py` — the migration tool
-- `CLAUDE.md`, `README.md`, `install.sh` — store description, checklist, seeds
-- `.claude/hooks/{session-start.sh,pre-compact.sh}` — stop reading the monolith
+- `AGENTS.md`, `README.md`, `install.sh` — store description, checklist, seeds
+- `.agents/hooks/{session-start.sh,pre-compact.sh}` — stop reading the monolith
 - `.agents/skills/{learn,memory-maintain,debug,quality-gate,wrap-up-session,writing-skills,receive-review,build,plan,auto-improve,brainstorm,checkpoint,prd,refresh,sync,start-qa}/SKILL.md`
 - `.claude/skills/**` — byte-identical copies (parity-tested)
 - `.agents/agents/{code-reviewer,critic,security-reviewer,software-design-expert-review}.md` + `.claude/agents/` copies

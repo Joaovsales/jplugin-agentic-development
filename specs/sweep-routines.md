@@ -18,7 +18,7 @@ implementation_paths:
   - .agents/skills/software-design-expert-review/SKILL.md
   - CLAUDE.md
   - README.md
-  - .claude/hooks/session-start.sh
+  - .agents/hooks/session-start.sh
   - tests/test-sweep-routines.sh
   - tests/test-sweep-handoff.sh
   - tests/test-routine-branch.sh

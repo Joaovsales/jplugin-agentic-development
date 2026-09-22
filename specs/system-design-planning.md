@@ -6,7 +6,6 @@ implementation_paths:
   - .agents/skills/system-design-planning/templates/content-model.json
   - CLAUDE.md
   - README.md
-  - .claude/hooks/session-start.sh
   - tests/test-doc-conventions.sh
   - tests/test-skill-invocation-chain.sh
   - tests/test-visual-render.sh
@@ -113,7 +112,7 @@ tracker except through `task-registry.py`.
   changes below the bar.
 - `templates/content-model.json` renders through `visual-render.py` without
   error and the output contains the seven section ids in order.
-- `CLAUDE.md`, `README.md` and `.claude/hooks/session-start.sh` list
+- The `README.md` skills table, rendered from `SKILL.md` frontmatter, lists
   `/system-design-planning`.
 - `tests/test-doc-conventions.sh` pins the tokens above in both trees,
   `tests/test-skill-invocation-chain.sh` pins the handoffs to `task-registry`,
@@ -126,6 +125,6 @@ tracker except through `task-registry.py`.
 - `.agents/skills/system-design-planning/references/review-card.md` — the 25-question dependency-ordered review card used in self-review and offered to the human reviewer
 - `.agents/skills/system-design-planning/templates/architecture-spec-template.md` — the spec skeleton in the fixed section order, living-contract frontmatter
 - `.agents/skills/system-design-planning/templates/content-model.json` — the `html-presentation` content model with the same sections for the rendered document
-- `CLAUDE.md`, `README.md`, `.claude/hooks/session-start.sh` — skill registration
+- `README.md` — skill registration (generated skills table)
 - `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` — static pins for the contract above
 - `tests/test-visual-render.sh` — live render of `templates/content-model.json`, section ids in order

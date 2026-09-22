@@ -8,7 +8,6 @@ implementation_paths:
   - THIRD_PARTY_NOTICES.md
   - CLAUDE.md
   - README.md
-  - .claude/hooks/session-start.sh
   - tests/test-grilling-adoption.sh
   - tests/test-skill-invocation-chain.sh
 ---
@@ -130,9 +129,9 @@ invokes; `true` is reserved for user-only front doors that must never fire on
 their own, with `/grill-me` as the example, and the harness in use must be
 checked because a typed slash command may route through the Skill tool.
 
-**Registration.** Both new skills appear in the `CLAUDE.md` skills table, the
-`README.md` skills table, and the `SKILLS AVAILABLE` block of
-`.claude/hooks/session-start.sh`. `README.md` § Sources credits
+**Registration.** Both new skills appear in the `README.md` skills table,
+rendered from their `SKILL.md` frontmatter by `scripts/render-skills-table.py`.
+`README.md` § Sources credits
 `mattpocock/skills`. `.github/upstreams.json` registers the source so the
 scheduled drift checker reports upstream changes to the adapted files.
 
@@ -240,9 +239,8 @@ scheduled drift checker reports upstream changes to the adapted files.
    upstream is informational).
 8. `THIRD_PARTY_NOTICES.md` has a section for the Matt Pocock skills linking the
    four upstream files at the pinned revision and quoting the MIT license text.
-9. The `CLAUDE.md` skills table, the `README.md` skills table, and the
-   `SKILLS AVAILABLE` block of `.claude/hooks/session-start.sh` each carry a
-   `/grilling` row and a `/grill-me` row; `README.md` § Sources lists
+9. The `README.md` skills table carries a `/grilling` row and a `/grill-me`
+   row, rendered from each skill's frontmatter; `README.md` § Sources lists
    `mattpocock/skills`; `tests/test-session-start.sh` passes.
 10. `tests/test-grilling-adoption.sh` pins criteria 1 to 9;
     `tests/test-skill-invocation-chain.sh` asserts `brainstorm` invokes
@@ -285,6 +283,5 @@ scheduled drift checker reports upstream changes to the adapted files.
 - `THIRD_PARTY_NOTICES.md` — attribution and license text for the adapted files
 - `CLAUDE.md` — skills table rows
 - `README.md` — skills table rows and the Sources credit
-- `.claude/hooks/session-start.sh` — `SKILLS AVAILABLE` banner rows
 - `tests/test-grilling-adoption.sh` — pins criteria 1 to 9
 - `tests/test-skill-invocation-chain.sh` — pins the two new `/grilling` handoffs

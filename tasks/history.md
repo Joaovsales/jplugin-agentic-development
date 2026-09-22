@@ -781,3 +781,56 @@ back vacuous and was repaired.
   (fixed), tasks/solutions/patterns/a-live-proof-of-parallel-dispatch-needs-slices-large-enough-to-earn-an-agent.md,
   appends to tooling/print-mode-skill-probes-on-windows-git-bash.md and
   patterns/explicit-encoding-at-every-python-io-boundary.md.
+
+## 2026-09-22 — single instruction file: merge of #176, wrap-up review, PR
+- Merged origin/master (#176 plan slices and handover, dfbbe2b) into
+  `feat/single-agents-file` as f1313a4. Three conflicts, all resolved for the
+  retired-surface design and then re-ported: `.agents/hooks/session-start.sh` and
+  `CLAUDE.md` ours; `README.md` ours re-rendered by `scripts/render-skills-table.py`
+  (the `/build`, `/plan`, `/slice`, `/system-design-planning` rows came from the
+  frontmatter #176 rewrote). #176's `CLAUDE.md` § Workflow rewrite (Specify /
+  Slice / Build in a fresh session) landed as `AGENTS.md` § Workflow steps 2 to 4
+  inside the managed block; the `/slice` registration pin moved from the three
+  inventories to the one rendered `README.md` row; `/build`'s checkpoint flush and
+  `slice/references/sizing.md` stopped naming `.claude/hooks/` and the two skills
+  tables.
+- Master's tightened contracts hit the branch too: `registry/globs.py` (#176)
+  refuses brace groups, so the spec's `implementation_paths` went from 27 brace
+  entries to 56 explicit ones before `spec-reconcile.py discover` would run.
+- Living-spec reconciliation over the merged diff: 20 candidates — 17 updated for
+  the moved surfaces (`.claude/project.md` → `AGENTS.md`, `.claude/hooks/` →
+  `.agents/hooks/`, `CLAUDE.md §` → `.agents/references/`), 3 unchanged,
+  `specs/separate-project-config.md` removed (its subject no longer exists; the one
+  remaining mention is historical in `tasks/e2e-log.md`). The three legacy-format
+  specs got factual path edits only, not a format migration.
+- Review: five passes dispatched (code-reviewer ×2 lenses, critic, design, security)
+  over the 95-file `origin/master...HEAD` diff → 38 findings. Applied: atomic
+  `settings.json` rewrite and exact-spelling hook match in `install.sh` (the old
+  `endswith("hooks/session-start.sh")` would have deleted a user's own hook), the
+  `awk` status split and symlink-safe rewrite in `strip_codex_block`, marker-count
+  NOTE for a malformed Codex file, `~/.claude/CLAUDE.md` moved aside as
+  `CLAUDE.md.pre-plugin.bak` instead of deleted, real paths in the removal prompt;
+  `sync-managed-block.py` keeps the team's text under a reused
+  `## Project-Specific Rules` heading (the old code dropped the whole segment),
+  treats padded markers as markers, refuses non-UTF-8 by file name, reads
+  `CLAUDE.md` inside the refusal try, reports every dropped or reused section and
+  every generic heading or second pointer left outside the block; the `/sync`
+  settings prune matches the three template scripts by name instead of every
+  `.claude/hooks/*.sh`; `/system-design-planning` Step 5 reads `finding-model.md`
+  before dispatch and joins the dispatch-site pins; the banner names an orphaned
+  `.claude/project.md` beside a pointer `CLAUDE.md`; the CI mirror's PR body says
+  it never migrates that file. 3 SHOULD-FIX skipped with reasons, 4 NITPICKs
+  skipped, 5 owner-human items reported (CI script pinning and `template_ref`
+  injection, the `/tmp` sentinel, the D4 `~/.claude/CLAUDE.md` overwrite policy,
+  graph staleness after pull).
+- Local harness: `tests/lib.sh` now exports `PYTHONUTF8=1` — Windows CPython wrote
+  em dashes as cp1252 bytes, so the new registry notice assertion (and a class of
+  baseline failures) could never match a UTF-8 needle.
+- Full suite on the merge (`--jobs 4`): 8/53 files, 163 failing assertions vs 159
+  in the pre-merge baseline; the 3 new are the `upsert --parent` GitHub-mock pins
+  (#129, Windows only) and the 4th was the encoding class above, now fixed.
+  Every touched test file re-run solo after the fixes; only baseline names remain.
+- Documents: tasks/solutions/patterns/port-master-edits-onto-the-successor-surface-when-a-branch-retires-one.md,
+  tasks/solutions/conventions/spec-implementation-paths-accept-only-star-question-and-double-star.md,
+  a superseded note on bugs/readme-skill-table-merge-conflict.md, and the
+  **managed block** glossary term in `tasks/concepts.md`.
