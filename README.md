@@ -27,11 +27,13 @@ cd ~/jplugin-agentic-development
 bash scripts/install-codex.sh
 ```
 
-The adapter installs skills in `~/.agents/skills/`, renders shared rules into
-`~/.codex/AGENTS.md`, converts canonical Markdown agents into
-`~/.codex/agents/*.toml`, and merges optional lifecycle hooks into
-`~/.codex/hooks.json`. Existing personal content is preserved and rerunning the
-command is idempotent. Review the hook commands with Codex's `/hooks` command
+The adapter installs skills in `~/.agents/skills/`, converts canonical Markdown
+agents into `~/.codex/agents/*.toml`, and merges optional lifecycle hooks into
+`~/.codex/hooks.json`. It writes no `~/.codex/AGENTS.md`: the shared rules reach
+Codex through the managed block `/sync` writes into each project's `AGENTS.md`
+(a block an earlier adapter rendered into `~/.codex/AGENTS.md` is offered for
+removal by `install.sh`). Existing personal content is preserved and rerunning
+the command is idempotent. Review the hook commands with Codex's `/hooks` command
 before enabling them.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
@@ -85,26 +87,26 @@ That's it. Claude is fully oriented from the first message.
 
 ### Layer 1 — Global Claude config (`~/.claude/`)
 
-Copies the agents into `~/.claude/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed.
+Copies the agents into `~/.claude/agents/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed. Nothing else is written under `~/.claude/`: the shared rules live in the managed block of each project's `AGENTS.md` (written by `/sync`), and the session hook runs from the plugin's `hooks/hooks.json`.
 
 ```
 ~/.claude/
 ├── agents/            ← all agents available in every project
-├── hooks/
-│   └── session-start.sh
-├── plugins/           ← Claude Code's own records: the jplugin-agentic-development
-│                        marketplace (this checkout) and the installed jplugin plugin
-└── settings.json      ← registers the SessionStart hook globally
+└── plugins/           ← Claude Code's own records: the jplugin-agentic-development
+                         marketplace (this checkout) and the installed jplugin plugin
 ```
+
+An earlier `install.sh` also wrote `~/.claude/CLAUDE.md`, `~/.claude/hooks/session-start.sh` with a `SessionStart` entry in `~/.claude/settings.json`, and (through the Codex adapter) a managed block in `~/.codex/AGENTS.md`. Nothing reads those copies now — the hook copy fires a second banner beside the plugin's — so the installer lists whichever it finds and deletes them only after you answer `y`. A personal `~/.claude/CLAUDE.md` without the template header is never listed, and `~/.codex/AGENTS.md` itself is never deleted, only its block.
 
 Skills are **not** copied into `~/.claude/skills/` any more: the plugin manifest (`.claude-plugin/plugin.json`) points Claude Code at `.agents/skills/` in the checkout, so every skill is invoked as `/jplugin:<name>` (bare `/<name>` also resolves while no other skill claims the name). If an earlier install left copies in `~/.claude/skills/`, the installer lists them and deletes them only after you answer `y`; anything there the template never shipped is never touched. Without the `claude` CLI on `PATH` the plugin step prints a note and skips.
 
 **Requires Claude Code 2.1.227 or newer** (plugin `skills` paths). **Developing skills in the checkout:** run `claude --plugin-dir <checkout>` — the checkout's own `.claude/settings.json` declares the github marketplace, which replaces the directory registration `install.sh` made, so a plain session loads the cached release, not your edits.
 
-The **SessionStart hook** runs automatically at the start of every Claude Code session. It prints:
+The **SessionStart hook** runs from the plugin (`hooks/hooks.json`) at the start of every Claude Code session. It prints:
 - Learning-store counts from `tasks/solutions/` (documents + needs_review)
 - Pending and in-progress tasks from `tasks/todo.md`
 - Current git branch and uncommitted change count
+- One warning line per problem, and nothing when there is none: template drift, an `AGENTS.md` without the managed block in an adopting project, a stale code graph
 
 ### Layer 2 — Project scaffold (`git scaffold`)
 
@@ -363,7 +365,7 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 
 | Hook | Trigger | What It Does |
 |------|---------|-------------|
-| `session-start.sh` | Session start | Prints memory, active tasks, lessons, git status, available skills catalog |
+| `session-start.sh` | Session start (the plugin's `hooks/hooks.json`) | Prints learning-store counts, active tasks and the git line, plus one warning line per problem: template drift, a missing managed block, a stale code graph |
 
 ---
 

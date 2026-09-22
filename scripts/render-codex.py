@@ -13,15 +13,14 @@ from pathlib import Path
 from typing import NoReturn, Optional
 
 SLUG = "jplugin-agentic-development"
-BEGIN = f"<!-- {SLUG}:begin -->"
-END = f"<!-- {SLUG}:end -->"
 MANAGED = f"# {SLUG}:managed"
-# Files written before the repository rename carry the old slug in the same three
-# markers and in the hook file names. Assembled at runtime so the identity sweep
+# Files written before the repository rename carry the old slug in the same
+# marker and in the hook file names. Assembled at runtime so the identity sweep
 # (tests/test-repo-identity.sh) does not read this module as a live reference.
+# The shared rules are not rendered here any more: each project reads them from
+# the managed block /sync writes into its AGENTS.md (sync-managed-block.py owns
+# those markers).
 LEGACY_SLUG = "coding-agent" + "-workflow"
-LEGACY_BEGIN = BEGIN.replace(SLUG, LEGACY_SLUG)
-LEGACY_END = END.replace(SLUG, LEGACY_SLUG)
 LEGACY_MANAGED = MANAGED.replace(SLUG, LEGACY_SLUG)
 LEGACY_HOOK_FILES = tuple(
     f"{LEGACY_SLUG}-{name}" for name in ("session-start.py", "pre-compact.sh", "session-end.sh")
@@ -97,37 +96,6 @@ def parse_agent(path: Path) -> tuple[str, str, str]:
     if not body:
         fail(f"{path}: agent instructions are empty")
     return fields["name"], fields["description"], body
-
-
-def render_global(source: Path, destination: Path) -> None:
-    """Render the template AGENTS.md managed block into the Codex global file.
-
-    The source is the template repository's own AGENTS.md; the shared rules are
-    whatever lies between its two markers, never the project text around them.
-    """
-    source_text = source.read_text(encoding="utf-8")
-    if source_text.count(BEGIN) != 1 or source_text.count(END) != 1:
-        fail(f"{source}: managed block markers not found exactly once")
-    body = source_text.split(BEGIN, 1)[1].split(END, 1)[0]
-    body = "\n".join(line for line in body.splitlines() if not line.startswith("@"))
-    managed = (
-        f"{BEGIN}\n"
-        "# Shared jplugin for agentic development\n"
-        "> Project-specific instructions belong in the project's AGENTS.md.\n\n"
-        f"{body.rstrip()}\n"
-        f"{END}\n"
-    )
-    existing = destination.read_text(encoding="utf-8") if destination.exists() else ""
-    begin, end = BEGIN, END
-    if BEGIN not in existing and LEGACY_BEGIN in existing and LEGACY_END in existing:
-        begin, end = LEGACY_BEGIN, LEGACY_END
-    if begin in existing and end in existing:
-        before = existing.split(begin, 1)[0]
-        after = existing.split(end, 1)[1].lstrip("\n")
-        result = before + managed + after
-    else:
-        result = existing.rstrip() + ("\n\n" if existing.strip() else "") + managed
-    write_text(destination, result)
 
 
 def render_agents(source_dir: Path, destination_dir: Path) -> None:
@@ -216,7 +184,6 @@ def merge_hooks(destination: Path, commands: list[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--global", dest="global_args", nargs=2, metavar=("SOURCE", "DEST"))
     parser.add_argument("--agents", dest="agents_args", nargs=2, metavar=("SOURCE", "DEST"))
     parser.add_argument(
         "--merge-hooks",
@@ -225,12 +192,10 @@ def main() -> None:
         metavar=("DEST", "SESSION_START", "PRE_COMPACT", "SESSION_END"),
     )
     args = parser.parse_args()
-    selected = [args.global_args, args.agents_args, args.hooks_args]
+    selected = [args.agents_args, args.hooks_args]
     if sum(value is not None for value in selected) != 1:
         parser.error("choose exactly one rendering operation")
-    if args.global_args:
-        render_global(Path(args.global_args[0]), Path(args.global_args[1]))
-    elif args.agents_args:
+    if args.agents_args:
         render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]))
     else:
         merge_hooks(Path(args.hooks_args[0]), args.hooks_args[1:])

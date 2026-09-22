@@ -16,9 +16,12 @@ usage() {
   cat <<'EOF'
 Usage: bash scripts/install-codex.sh
 
-Installs the workflow's harness-neutral skills, agents, shared rules, and
-optional lifecycle hooks for the current user. Set CODEX_HOME or AGENTS_HOME
-to test or use a non-default configuration directory.
+Installs the workflow's harness-neutral skills, agents and optional lifecycle
+hooks for the current user. The shared rules are not rendered globally: each
+project reads them from the managed block of its own AGENTS.md, written by
+/sync (a block an earlier adapter rendered into ~/.codex/AGENTS.md is offered
+for removal by install.sh). Set CODEX_HOME or AGENTS_HOME to test or use a
+non-default configuration directory.
 EOF
 }
 
@@ -49,10 +52,6 @@ fi
 mkdir -p "$AGENTS_HOME/skills" "$CODEX_HOME/agents" "$CODEX_HOME/hooks"
 cp -r "$REPO_DIR/.agents/skills/." "$AGENTS_HOME/skills/"
 printf 'installed canonical skills in %s\n' "$AGENTS_HOME/skills"
-
-"$PYTHON_BIN" "$RENDERER" --global \
-  "$REPO_DIR/AGENTS.md" "$CODEX_HOME/AGENTS.md"
-printf 'rendered shared workflow rules in %s\n' "$CODEX_HOME/AGENTS.md"
 
 "$PYTHON_BIN" "$RENDERER" --agents \
   "$REPO_DIR/.agents/agents" "$CODEX_HOME/agents"
