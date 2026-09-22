@@ -290,6 +290,7 @@ Invoke with `/skill-name` in any Claude Code session:
 | `/grill-me` | Grill me about a plan or idea: the same interview, typed by you, with no files written and no repository needed |
 | `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
 | `/plan` | Interviews you, writes spec to `specs/`, creates TDD task plan in `tasks/todo.md` |
+| `/slice` | Break a spec into session-sized slices: § Build Order, plan block and build prompt; `--file` files one task per slice through `/task-registry` |
 | `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |

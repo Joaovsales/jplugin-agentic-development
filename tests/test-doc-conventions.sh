@@ -761,4 +761,115 @@ assert_file_contains .claude/hooks/session-start.sh 'grep -qE "$TARGETS_REGEX" .
 assert_file_contains .agents/skills/sync/SKILL.md "### Step 2 — Detect Remote Default Branch" \
   "Shims: /sync Step 2 survives the deletion of its two legacy sub-steps (non-vacuity)"
 
+# --- slice: spec to session-sized slices, documentation contract ------------
+# specs/plan-slices-and-handover.md AC4-6. /slice is the one owner of sizing,
+# ordering, filing and the build-prompt handover that both /plan and
+# /system-design-planning call. Pinned by the smallest falsifiable unit: the
+# frontmatter, the three references' existence, the two fenced templates
+# compared byte-for-byte between SKILL.md and their references (the build
+# prompt verbatim, the plan block after flattening), the required output
+# lines, the refusal conditions, and the negative pins that keep the removed
+# ceremony (a build invocation, a 'y' gate, an approval word, a dependency
+# flag `upsert` does not have) from creeping back in.
+SLICE_SKILL=.agents/skills/slice/SKILL.md
+for token in "name: slice" "disable-model-invocation: false" "harness: universal" \
+             "argument-hint:" "slice.py validate" \
+             "✓ Build Order written:" "✓ Plan written:" \
+             "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
+             "--derive-id plan" "--fold-title" "never start with \`/\`" \
+             "--parent" "local-pending" "✓ Filed:"; do
+  assert_file_contains "$SLICE_SKILL" "$token" "slice: SKILL.md contains '$token'"
+done
+
+# The three references exist.
+for ref in plan-block sizing build-prompt; do
+  assert_eq "present" \
+    "$([ -f ".agents/skills/slice/references/$ref.md" ] && echo present || echo missing)" \
+    "slice: references/$ref.md exists"
+done
+
+# In-place replacement, the no-plan-block refusal, the idempotent re-run and
+# the --approve rule are hard-wrapped prose; pinned via flatten rather than a
+# single-line literal.
+flat_slice="$(flatten "$SLICE_SKILL")"
+assert_contains "$flat_slice" "replaced section by section, in place" \
+  "slice: SKILL.md states the in-place plan-block replacement rule"
+assert_contains "$flat_slice" "Never two blocks for one feature" \
+  "slice: SKILL.md states the one-block-per-feature rule"
+assert_contains "$flat_slice" "there is nothing to file before a proposal" \
+  "slice: SKILL.md states the no-plan-block refusal"
+assert_contains "$flat_slice" "filing is idempotent" \
+  "slice: SKILL.md states the idempotent re-run rule"
+assert_contains "$flat_slice" "the build prompt a human typed is the reviewer's word" \
+  "slice: SKILL.md states the --approve rule the /build and /yolo callers follow"
+
+# Negative pins: the ceremony this spec removed must not reappear here.
+assert_file_not_matches "$SLICE_SKILL" "Invoke /build" \
+  "slice: SKILL.md never itself invokes /build"
+assert_file_not_matches "$SLICE_SKILL" "meet your requirements" \
+  "slice: SKILL.md carries no 'y' gate sentence"
+assert_file_not_matches "$SLICE_SKILL" "> Approved" \
+  "slice: SKILL.md carries no approval-word line"
+if grep -qF -- "--depends-on" "$SLICE_SKILL" 2>/dev/null; then
+  assert_eq "absent" "present" "slice: the --file upsert invocation names no --depends-on flag"
+else
+  assert_eq "absent" "absent" "slice: the --file upsert invocation names no --depends-on flag"
+fi
+
+# Registration in the three listings a new skill must appear in.
+assert_file_contains "CLAUDE.md" "\`/slice\`" \
+  "slice: CLAUDE.md skills table lists it"
+assert_file_contains "README.md" "\`/slice\`" \
+  "slice: README skills table lists it"
+assert_file_contains ".claude/hooks/session-start.sh" "/slice" \
+  "slice: session-start banner lists it"
+
+# sizing.md: the one ceiling, no floor, no size labels/buckets.
+SIZING=.agents/skills/slice/references/sizing.md
+for token in "files > 8" "systems > 2" "ACs > 3"; do
+  assert_file_contains "$SIZING" "$token" "slice: sizing.md states '$token'"
+done
+for absent in "floor" "S (" "M (" "L ("; do
+  if grep -qF -- "$absent" "$SIZING" 2>/dev/null; then
+    assert_eq "absent" "present" "slice: sizing.md must not contain '$absent'"
+  else
+    assert_eq "absent" "absent" "slice: sizing.md must not contain '$absent'"
+  fi
+done
+
+# The plan-block example: the fenced ```markdown block that carries
+# "## Plan:", byte-identical between SKILL.md and its reference after
+# flattening.
+extract_markdown_fence() {
+  awk '
+    /^```markdown$/ { capturing=1; buffer=""; next }
+    capturing && /^```$/ { if (buffer ~ /## Plan:/) { printf "%s", buffer; exit } else { capturing=0 } }
+    capturing { buffer = buffer $0 "\n" }
+  ' "$1" | tr -d '\r'
+}
+plan_block_skill="$(extract_markdown_fence "$SLICE_SKILL" | tr '\n' ' ' | tr -s ' ')"
+plan_block_ref="$(extract_markdown_fence .agents/skills/slice/references/plan-block.md | tr '\n' ' ' | tr -s ' ')"
+assert_eq "$plan_block_ref" "$plan_block_skill" \
+  "slice: plan-block example in SKILL.md matches references/plan-block.md (flattened)"
+assert_contains "$plan_block_skill" "task-id: plan." \
+  "slice: plan-block example carries the plan.<id> task-id form"
+
+# The build-prompt template: the fenced block following the literal
+# "Build prompt:" marker, byte-identical between SKILL.md and its reference.
+extract_build_prompt() {
+  awk '
+    /Build prompt:/ { seen=1 }
+    seen && /^```$/ { if (infence) { exit } else { infence=1; next } }
+    infence { print }
+  ' "$1" | tr -d '\r'
+}
+build_prompt_skill="$(extract_build_prompt "$SLICE_SKILL")"
+build_prompt_ref="$(extract_build_prompt .agents/skills/slice/references/build-prompt.md)"
+assert_eq "$build_prompt_ref" "$build_prompt_skill" \
+  "slice: build-prompt template in SKILL.md matches references/build-prompt.md verbatim"
+for token in "--file --approve" "Surface" "§ Decisions" "[AMBIGUITY]" "> Handover:" "/wrap-up-session"; do
+  assert_contains "$build_prompt_skill" "$token" \
+    "slice: build prompt instruction lines name '$token'"
+done
+
 finish

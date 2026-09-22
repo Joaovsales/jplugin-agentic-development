@@ -462,6 +462,7 @@ On Claude Code the skills are installed as the `jplugin` plugin, so a `/name` in
 | `/grill-me` | The same interview typed by the user, stateless: writes no files, needs no repository |
 | `/system-design-planning` | Architecture review → HTML approval → one issue per slice → `/build` |
 | `/plan` | Interview → spec → task breakdown in `tasks/todo.md` |
+| `/slice` | Break a spec into session-sized slices: § Build Order, plan block and build prompt; `--file` files one task per slice through `/task-registry` |
 | `/build` | Autonomous TDD orchestrator with sub-agent delegation |
 | `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
 | `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |

@@ -446,6 +446,7 @@ echo "  /grilling    — Frontier-round interview: whole frontier per round, a r
 echo "  /grill-me    — Grill me about a plan or idea (no files written, no repo needed)"
 echo "  /system-design-planning — Architecture review → HTML approval → one issue per slice → /build"
 echo "  /plan        — Write spec + task breakdown (uses opus)"
+echo "  /slice       — Break a spec into session-sized slices + build prompt; --file files through task-registry"
 echo "  /build       — Autonomous TDD execution with sub-agents"
 echo "  /auto-push   — /plan (approved) → /build → /wrap-up autonomously"
 echo "  /yolo        — Full-auto loop: /plan → /build → /wrap-up until backlog empty"
