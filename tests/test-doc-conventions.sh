@@ -92,12 +92,11 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
   for token in "name: system-design-planning" "argument-hint:" \
                "disable-model-invocation: false" \
                "Skipping system-design-planning:" \
-               "task-registry.py show" "task-registry.py upsert" "--derive-id design" \
+               "task-registry.py show" \
                ".agents/skills/visual-recap/scripts/visual-render.py" ".plan.html" \
                "references/review-card.md" "templates/architecture-spec-template.md" \
                "templates/content-model.json" \
-               "[ ] TDD:" "### Slice" "TODO(shortcut)" "UNVERIFIED" \
-               "--apply --approve" "> Visual: specs/<feature>.plan.html"; do
+               "[ ] TDD:" "### Slice" "UNVERIFIED"; do
     assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
   done
   # The four elements plus the build order, in the order the spec table lists them.
@@ -117,15 +116,17 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
       "${pos_c:-missing} ${pos_s:-missing} ${pos_k:-missing} ${pos_d:-missing} ${pos_b:-missing}" \
       "system-design-planning: $f lists the elements in dependency order"
   fi
-  # The gate: approval attaches to the rendered document, and filing waits for it.
-  assert_contains "$flat_sdp" "NOTHING IS FILED AND NOTHING IS BUILT UNTIL A HUMAN HAS APPROVED" \
+  # The gate: nothing is filed or built in this session; the reviewer approves
+  # by starting the build session with the printed prompt instead.
+  assert_contains "$flat_sdp" \
+    "NOTHING IS FILED AND NOTHING IS BUILT IN THE PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD PROMPT." \
     "system-design-planning: $f carries the approval iron law"
-  assert_file_contains "$f" "after approval only" \
-    "system-design-planning: $f files slices only after approval"
+  assert_file_contains "$f" "filed in the planning session" \
+    "system-design-planning: $f's Red Flag names filing in the planning session"
   # The path is printed before the gate asks, so the reviewer opens the file
   # the approval attaches to. Pinned by ORDER: the line must precede Step 7.
   pos_v=$(printf '%s' "$flat_sdp" | grep -bo '✓ Visual written:' | head -1 | cut -d: -f1)
-  pos_g=$(printf '%s' "$flat_sdp" | grep -bo '### 7. Human review gate' | head -1 | cut -d: -f1)
+  pos_g=$(printf '%s' "$flat_sdp" | grep -bo '### 7. Review Loop' | head -1 | cut -d: -f1)
   if [ -n "${pos_v:-}" ] && [ -n "${pos_g:-}" ] && [ "$pos_v" -lt "$pos_g" ]; then
     assert_eq "ordered" "ordered" "system-design-planning: $f prints the render path before the gate"
   else
@@ -973,5 +974,100 @@ assert_file_contains "$AUTO_PUSH_SKILL" "--approve" \
   "pipelines: auto-push Phase B names --approve"
 assert_file_contains "$AUTO_PUSH_SKILL" "fresh session" \
   "pipelines: auto-push names the fresh-session rule it is excepted from"
+
+# --- design-planning: /system-design-planning interviews and hands off instead of filing ---
+# specs/plan-slices-and-handover.md AC10. Step 1 reads a settled § Decisions
+# tree instead of re-asking; the new §2.5 runs the mandatory /grilling
+# interview with its own seed frontier and carry-forward rule; the template's
+# build-order table and "Slice criteria" are gone because /slice now owns
+# sizing (Step 3.5); Step 7 ends with the build prompt instead of an approval
+# word; Step 8 (filing) is deleted outright; Step 9 (hand off) stays. The
+# negative pins are the retired ceremony this rewrite removes -- a pin on
+# retired text is replaced by a pin on the new contract, never silently
+# dropped.
+SDP_SKILL=.agents/skills/system-design-planning/SKILL.md
+for token in "§ Decisions" "DECISIONS CARRIED" "frontier is empty" \
+             "how a violation would be detected" \
+             "who owns each fact a boundary crosses" \
+             "outcomes and its failure unit" \
+             "illegal states and transitions a status field must forbid" \
+             "Spec and plan are ready to be built" \
+             "[constraints|system-design|contracts|data-models|build-order]" \
+             "### 9. Hand off" "references/build-prompt.md" \
+             "NOTHING IS FILED AND NOTHING IS BUILT IN THE PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD PROMPT." \
+             "filed in the planning session"; do
+  assert_file_contains "$SDP_SKILL" "$token" "design-planning: SKILL.md contains '$token'"
+done
+
+# Step 1 names § Decisions specifically as what it reads from a prior spec.
+step1_sdp="$(awk '/^### 1\. Intake/{p=1} /^### 2\. Recon/{p=0} p' "$SDP_SKILL")"
+assert_contains "$step1_sdp" "§ Decisions" \
+  "design-planning: Step 1 names § Decisions"
+
+# §2.5 carries the mandatory /grilling invocation, at column 0 so the
+# chain test can pin it beside /brainstorm's and /grill-me's.
+assert_file_matches "$SDP_SKILL" '^Invoke `/grilling' \
+  "design-planning: §2.5 invokes /grilling"
+
+# Step 3.5 carries the /slice invocation, same column-0 convention.
+assert_file_matches "$SDP_SKILL" '^Invoke `/slice' \
+  "design-planning: Step 3.5 invokes /slice"
+
+# Negative pins: the retired filing ceremony must not reappear. A bare
+# "upsert" pin would false-flag the pre-existing worked example
+# specs/upsert-depends-on.md, so these target the actual invocation and
+# markers that made up Step 8 instead of the substring.
+for absent in "task-registry.py upsert" "--derive-id design" "--apply --approve" \
+              "> Approved" "TODO(shortcut)" "File slices" \
+              "after approval only"; do
+  if grep -qF -- "$absent" "$SDP_SKILL" 2>/dev/null; then
+    assert_eq "absent" "present" "design-planning: SKILL.md must not contain '$absent'"
+  else
+    assert_eq "absent" "absent" "design-planning: SKILL.md must not contain '$absent'"
+  fi
+done
+assert_file_not_matches "$SDP_SKILL" '"approved"' \
+  "design-planning: SKILL.md no longer treats the bare word approved as approval"
+
+# The template's build-order table and Slice criteria list are gone; /slice
+# owns sizing now.
+SDP_TEMPLATE=.agents/skills/system-design-planning/templates/architecture-spec-template.md
+for absent in "| # | Slice |" "### Slice criteria"; do
+  if grep -qF -- "$absent" "$SDP_TEMPLATE" 2>/dev/null; then
+    assert_eq "absent" "present" "design-planning: template must not contain '$absent'"
+  else
+    assert_eq "absent" "absent" "design-planning: template must not contain '$absent'"
+  fi
+done
+# The Build order heading survives -- it is one of the nine pinned headings --
+# with one line saying /slice fills it, not the table itself.
+assert_file_contains "$SDP_TEMPLATE" "## Build order" \
+  "design-planning: template keeps the Build order heading"
+assert_prose_contains "$SDP_TEMPLATE" "/slice fills this section's table" \
+  "design-planning: template says /slice fills the Build order table"
+
+# --- brainstorm: Step 6's template carries § Decisions with a Source column ---
+# specs/plan-slices-and-handover.md AC11. /plan Step 1 carries a settled tree
+# forward only when it can read a § Decisions table -- Step 6 must write one,
+# every row `user`, so a brainstormed spec is on equal terms with a planned
+# one.
+BRAINSTORM_SKILL=.agents/skills/brainstorm/SKILL.md
+assert_file_contains "$BRAINSTORM_SKILL" "## Decisions" \
+  "brainstorm: Step 6 template carries a Decisions section"
+assert_file_contains "$BRAINSTORM_SKILL" "| Source |" \
+  "brainstorm: Step 6 template's Decisions table carries a Source column"
+
+# Decisions sits between the free-form design section and Acceptance
+# Criteria -- the template has no Edge Cases heading of its own, so the
+# order check degrades to Decisions-before-Acceptance-Criteria only.
+flat_brainstorm="$(flatten "$BRAINSTORM_SKILL")"
+pos_dec_b=$(printf '%s' "$flat_brainstorm" | grep -bo '## Decisions' | head -1 | cut -d: -f1)
+pos_ac_b=$(printf '%s' "$flat_brainstorm" | grep -bo '## Acceptance Criteria' | head -1 | cut -d: -f1)
+if [ -n "${pos_dec_b:-}" ] && [ -n "${pos_ac_b:-}" ] && [ "$pos_dec_b" -lt "$pos_ac_b" ]; then
+  assert_eq "ordered" "ordered" "brainstorm: template lists Decisions before Acceptance Criteria"
+else
+  assert_eq "Decisions < Acceptance Criteria" "${pos_dec_b:-missing} ${pos_ac_b:-missing}" \
+    "brainstorm: template lists Decisions before Acceptance Criteria"
+fi
 
 finish
