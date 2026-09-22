@@ -212,14 +212,16 @@ SYNC_TMP="$(mktemp -d)"
 git show "workflow/$WORKFLOW_BRANCH:.agents/skills/sync/scripts/sync-managed-block.py" > "$SYNC_TMP/sync-managed-block.py"
 git show "workflow/$WORKFLOW_BRANCH:AGENTS.md" > "$SYNC_TMP/AGENTS.md"
 python3 "$SYNC_TMP/sync-managed-block.py" --source "$SYNC_TMP/AGENTS.md" \
-  --target AGENTS.md --claude-md CLAUDE.md --dry-run
+  --target AGENTS.md --claude-md CLAUDE.md --migrate .claude/project.md --dry-run
 ```
 
 In manual-diff mode run
 `python3 "$WORKFLOW_CLONE/.agents/skills/sync/scripts/sync-managed-block.py"`
 with `--source "$WORKFLOW_CLONE/AGENTS.md"` instead. It prints `would AGENTS.md:
-replaced|appended|unchanged` and `would CLAUDE.md: written|unchanged`; show both
-lines in the summary.
+replaced|appended|unchanged`, `would CLAUDE.md: written|unchanged` and `would
+migration: moved <n> section(s), .claude/project.md deleted` or `would migration:
+nothing to move`; show all three lines in the summary — the migration line is
+how the user approves the deletion Step 6.6 performs.
 
 **Retirement preview (both modes):** the diff above covers additions and
 modifications. Deletions come from the retirement pass, which is a dry run here
@@ -378,7 +380,7 @@ enabling an id that no longer resolves.
 1. Run `git diff --stat` to confirm what was updated
 2. Ask the user if they want to commit the sync:
    - Suggested message: `chore: sync workflow updates from jplugin-agentic-development`
-3. If `CLAUDE.md: written` replaced a full rules file with the pointer, say so: Claude Code now reads the block through `AGENTS.md`. A project that still has `.claude/project.md` is no longer importing it — its pointer and Deployment Targets are still read (with a notice), but any other team text there is loaded by nothing until it is moved below the end marker of `AGENTS.md`; offer to move it by hand now, or wait for the migration step a later template release adds to this skill
+3. If `CLAUDE.md: written` replaced a full rules file with the pointer, say so: Claude Code now reads the block through `AGENTS.md`. A project that still has `.claude/project.md` is no longer importing it — Step 6.6 moves that file's content below the end marker in this same run; until it has run, the pointer and Deployment Targets there are still read (with a notice) and any other team text is loaded by nothing
 
 ### Step 6.4 — Retired Path Removal
 
@@ -582,6 +584,45 @@ If any hit **and** `tasks/solutions/` does not exist:
 If `tasks/solutions/` exists alongside old files, name the leftover files and
 suggest re-running the migration or archiving them manually. Silent when there
 is nothing to flag.
+
+### Step 6.6 — Project-File Migration
+
+Before the single instruction file, a project's own rules lived in
+`.claude/project.md`, imported by the old `CLAUDE.md`. The pointer written in
+Step 5 imports nothing but `AGENTS.md`, so whatever is still in that file is
+loaded by nothing — except the task-tracking pointer and the Deployment Targets
+table, which their readers still find there with a one-line notice. Move it
+once, inside the run the user approved in Step 4:
+
+```bash
+python3 "$SYNC_TMP/sync-managed-block.py" --source "$SYNC_TMP/AGENTS.md" \
+  --target AGENTS.md --migrate .claude/project.md
+```
+
+Same script and source as Step 5 (`$SYNC_TMP` from that step; in manual-diff
+mode the clone's copy with `--source "$WORKFLOW_CLONE/AGENTS.md"`). The block was
+written already, so the first line reads `AGENTS.md: unchanged`; report the
+`migration:` line. What moves is **everything** below the file's own header —
+its `# ` title, the `> ` blockquote describing the file, and the `---` that
+closes them — in its original order with headings unchanged, except the four
+generic sections the block owns now (`### Code Economy`, `### Surgical Changes`,
+`### Ambiguity Protocol`, `### Large-Artifact Handoff`) and the `### Task
+Tracking` prose that explained where the pointer lived. The pointer line itself
+moves and is written first, directly below the end marker, so
+`/task-registry` finds it in `AGENTS.md`. A `## Project-Specific Rules` heading
+already below the end marker is reused rather than duplicated. `AGENTS.md` is
+written first and `.claude/project.md` deleted last, so an interrupted run
+leaves a redundant copy the next run removes — never a lost section.
+
+| Outcome | Meaning |
+|---------|---------|
+| `migration: moved <n> section(s), .claude/project.md deleted` | done; `git diff` shows the sections below the end marker |
+| `migration: nothing to move` | no `.claude/project.md` — already migrated, or the project never had one |
+| exit 2, `'## Deployment Targets' is also below the end marker` | the table exists in both files; nothing was written and `project.md` is intact — merge the two tables by hand, then re-run this step |
+
+The CI mirror (`sync-template.yml`) never runs this step: it adds and
+overwrites but never deletes, and the migration ends in a delete. A project
+synced only by CI migrates on its first hand-run `/sync`.
 
 ### Step 7 — Optional: Re-wire graphify
 

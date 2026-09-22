@@ -343,6 +343,9 @@ fi
 #   - Fetches at most once per 24h (cached in .claude/.sync-check-cache)
 #   - 5s network timeout — never hangs the session if offline
 #   - Reports drift count; user runs /sync to review & apply
+#   - AGENTS.md is MANAGED, not checked out: only its block is the template's,
+#     so the block's text is compared, never the path — a template commit
+#     touching its own rules below the end marker is not drift here (D6)
 WORKFLOW_CHECK_CACHE=".claude/.sync-check-cache"
 WORKFLOW_CHECK_MAX_AGE=86400  # 24 hours
 
@@ -371,6 +374,12 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
       DRIFT_COUNT=$(git diff --name-only "workflow/$WORKFLOW_BRANCH" -- \
         .agents/skills .agents/agents .agents/references .agents/hooks .agents/git-hooks .claude/agents .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
         | wc -l | tr -d ' ')
+      managed_block() { tr -d '\r' | awk -v b="$BLOCK_BEGIN" -v e="<!-- jplugin-agentic-development:end -->" '$0 == b { p = 1; next } $0 == e { p = 0 } p'; }
+      TEMPLATE_BLOCK=$(git show "workflow/$WORKFLOW_BRANCH:AGENTS.md" 2>/dev/null | managed_block || true)
+      LOCAL_BLOCK=$(managed_block < AGENTS.md 2>/dev/null || true)
+      if [ -n "$TEMPLATE_BLOCK" ] && [ "$TEMPLATE_BLOCK" != "$LOCAL_BLOCK" ]; then
+        DRIFT_COUNT=$(( DRIFT_COUNT + 1 ))
+      fi
       printf '%s\n%s\n' "$DRIFT_COUNT" "$WORKFLOW_BRANCH" > "$WORKFLOW_CHECK_CACHE"
     fi
   else
@@ -381,7 +390,7 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
 
   if [ "${DRIFT_COUNT:-0}" -gt 0 ]; then
     echo ""
-    echo "🔄  TEMPLATE DRIFT — $DRIFT_COUNT file(s) differ from workflow/$WORKFLOW_BRANCH"
+    echo "🔄  TEMPLATE DRIFT — $DRIFT_COUNT item(s) differ from workflow/$WORKFLOW_BRANCH (syncable files, or the AGENTS.md managed block)"
     echo "    Run /sync to review and apply updates (or 'touch .claude/sync-check-dismissed' to silence)."
   fi
 fi

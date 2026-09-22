@@ -11,7 +11,11 @@
 # refusal before any write on a malformed marker set (case 5), refusal when
 # the template itself carries no block (case 6), --dry-run doing nothing
 # (case 7), the CLAUDE.md pointer file (case 8), reading the template from
-# stdin (case 9), and creating an absent target (case 10).
+# stdin (case 9), creating an absent target (case 10), and the one-shot
+# .claude/project.md migration (cases 11-15, D15): everything below the file's
+# header moves in order except the block's four generic sections and the Task
+# Tracking prose, the pointer line goes first, a doubled Deployment Targets
+# table refuses before any write, and a re-run finds nothing to move.
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -173,5 +177,107 @@ assert_eq "false" "$([ -f "$CASE10/AGENTS.md" ] && echo true || echo false)" "ca
 OUT10="$(run_script --source "$CASE10/source.md" --target "$CASE10/AGENTS.md")"
 assert_contains "$OUT10" "AGENTS.md: appended" "case10: absent target is created via append"
 assert_file_contains "$CASE10/AGENTS.md" "CONTENT10" "case10: created file carries the block"
+
+
+# --- case 11: --migrate moves project.md below the end marker, in order -------
+# The fixture is the shape .claude/project.md had before the single instruction
+# file: header, Deployment Targets, Project-Specific Rules with the Task Tracking
+# pointer and the four generic sections, plus a section a team added.
+project_md() {  # project_md <path> [extra-section-text]
+  {
+    printf '# Project-Specific Configuration\n\n'
+    printf '> **Claude Code only.** Imported by `CLAUDE.md`.\n> Safe to edit.\n\n---\n\n'
+    printf '## Deployment Targets\n\n| Service | Runbook | Triggers on branch | Project ID |\n|---|---|---|---|\n| Railway | .claude/deployments/railway.md | main | demo |\n\n---\n\n'
+    printf '## Project-Specific Rules\n\n> Add any team-shared rules here.\n\n'
+    printf '### Task Tracking\n\nTask tracking instructions: docs/tracking.md\n\nThe declaration lives here rather than in CLAUDE.md on purpose.\n\n'
+    printf '### Code Economy\n\nGENERIC ECONOMY TEXT\n\n### Surgical Changes\n\nGENERIC SURGICAL TEXT\n\n'
+    printf '### Ambiguity Protocol\n\nGENERIC AMBIGUITY TEXT\n\n### Large-Artifact Handoff\n\nGENERIC HANDOFF TEXT\n\n'
+    printf '%s' "${2:-}"
+  } > "$1"
+}
+CASE11="$BOX/case11"; mkdir -p "$CASE11/.claude"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE11/source.md"
+printf '# Demo\n\n%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE11/AGENTS.md"
+project_md "$CASE11/.claude/project.md" $'## Tech Stack\n\n- Python 3.12\n- Postgres\n'
+
+OUT11="$(cd "$CASE11" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md)"; RC11=$?
+assert_eq "0" "$RC11" "case11: migration exits 0"
+assert_contains "$OUT11" "AGENTS.md: unchanged" "case11: the block itself was already current"
+assert_contains "$OUT11" "migration: moved 4 section(s), .claude/project.md deleted" \
+  "case11: reports the pointer, Deployment Targets, Project-Specific Rules and Tech Stack as moved"
+assert_eq "false" "$([ -f "$CASE11/.claude/project.md" ] && echo true || echo false)" "case11: project.md deleted"
+below11="$(awk -v e="$END" 'seen { print } $0 == e { seen = 1 }' "$CASE11/AGENTS.md")"
+assert_eq "Task tracking instructions: docs/tracking.md" "$(printf '%s\n' "$below11" | grep -m1 .)" \
+  "case11: the pointer line is the first non-blank line below the end marker"
+order11="$(printf '%s\n' "$below11" | grep -E '^(Task tracking|## )' | tr '\n' '|')"
+assert_eq "Task tracking instructions: docs/tracking.md|## Deployment Targets|## Project-Specific Rules|## Tech Stack|" "$order11" \
+  "case11: pointer, targets table, Project-Specific Rules, Tech Stack — original order, headings unchanged"
+assert_file_contains "$CASE11/AGENTS.md" "| Railway | .claude/deployments/railway.md | main | demo |" "case11: the targets table row moved intact"
+assert_file_contains "$CASE11/AGENTS.md" "- Postgres" "case11: the team section's body moved"
+for generic in "### Code Economy" "### Surgical Changes" "### Ambiguity Protocol" "### Large-Artifact Handoff" "GENERIC ECONOMY TEXT" "GENERIC HANDOFF TEXT"; do
+  assert_not_contains "$(cat "$CASE11/AGENTS.md")" "$generic" "case11: generic section not moved — $generic"
+done
+assert_not_contains "$(cat "$CASE11/AGENTS.md")" "### Task Tracking" "case11: the Task Tracking heading is not moved (the block documents the pointer's placement)"
+assert_not_contains "$(cat "$CASE11/AGENTS.md")" "The declaration lives here" "case11: the Task Tracking prose is not moved"
+assert_not_contains "$(cat "$CASE11/AGENTS.md")" "Claude Code only." "case11: project.md's own header is not moved"
+assert_eq "1" "$(grep -cF -- "$BEGIN" "$CASE11/AGENTS.md")" "case11: still exactly one block"
+assert_eq "# Demo" "$(head -1 "$CASE11/AGENTS.md")" "case11: text above the block byte-identical"
+
+# --- case 12: re-run -> nothing to move, bytes identical ---------------------
+CONTENT12="$(cat "$CASE11/AGENTS.md")"
+OUT12="$(cd "$CASE11" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md)"; RC12=$?
+assert_eq "0" "$RC12" "case12: re-run exits 0"
+assert_contains "$OUT12" "migration: nothing to move" "case12: re-run reports nothing to move"
+assert_eq "$CONTENT12" "$(cat "$CASE11/AGENTS.md")" "case12: re-run leaves AGENTS.md byte-identical"
+
+# --- case 13: doubled Deployment Targets -> exit 2, nothing written ----------
+CASE13="$BOX/case13"; mkdir -p "$CASE13/.claude"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE13/source.md"
+printf '%s\nOLD\n%s\n\n## Deployment Targets\n\n| Service | Runbook | Triggers on branch | Project ID |\n|---|---|---|---|\n| Vercel | .claude/deployments/vercel.md | main | web |\n' \
+  "$BEGIN" "$END" > "$CASE13/AGENTS.md"
+project_md "$CASE13/.claude/project.md"
+ORIG13="$(cat "$CASE13/AGENTS.md")"
+ERR13="$(cd "$CASE13" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md 2>&1)"; RC13=$?
+assert_eq "2" "$RC13" "case13: a Deployment Targets table in both files exits 2"
+assert_contains "$ERR13" "'## Deployment Targets' is also below the end marker" "case13: the refusal names the collision"
+assert_contains "$ERR13" ".claude/project.md" "case13: the refusal names project.md"
+assert_eq "true" "$([ -f "$CASE13/.claude/project.md" ] && echo true || echo false)" "case13: project.md intact"
+assert_eq "$ORIG13" "$(cat "$CASE13/AGENTS.md")" "case13: AGENTS.md bytes unchanged — the block was not written either"
+
+# --- case 14: an existing Project-Specific Rules heading is reused ------------
+CASE14="$BOX/case14"; mkdir -p "$CASE14/.claude"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE14/source.md"
+printf '%s\nCONTENT\n%s\n\n## Project-Specific Rules\n\n### Code Graph\n\nNo graph here.\n' "$BEGIN" "$END" > "$CASE14/AGENTS.md"
+project_md "$CASE14/.claude/project.md" $'### Domain Glossary\n\n- tenant: one paying customer\n'
+OUT14="$(cd "$CASE14" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md)"
+assert_contains "$OUT14" "migration: moved 3 section(s), .claude/project.md deleted" \
+  "case14: pointer, targets table and the glossary move; the rules heading is reused, not counted"
+assert_eq "1" "$(grep -c '^## Project-Specific Rules$' "$CASE14/AGENTS.md")" "case14: one Project-Specific Rules heading, not two"
+assert_file_contains "$CASE14/AGENTS.md" "### Domain Glossary" "case14: the team's ### section moved"
+assert_file_contains "$CASE14/AGENTS.md" "No graph here." "case14: the existing project text is untouched"
+
+# --- case 15: --dry-run reports the migration and writes nothing --------------
+CASE15="$BOX/case15"; mkdir -p "$CASE15/.claude"
+printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE15/source.md"
+printf '%s\nOLD\n%s\n' "$BEGIN" "$END" > "$CASE15/AGENTS.md"
+project_md "$CASE15/.claude/project.md"
+ORIG15="$(cat "$CASE15/AGENTS.md")"
+OUT15="$(cd "$CASE15" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md --dry-run)"
+assert_contains "$OUT15" "would AGENTS.md: replaced" "case15: dry-run reports the block write"
+assert_contains "$OUT15" "would migration: moved 3 section(s), .claude/project.md deleted" "case15: dry-run reports the migration"
+assert_eq "true" "$([ -f "$CASE15/.claude/project.md" ] && echo true || echo false)" "case15: dry-run keeps project.md"
+assert_eq "$ORIG15" "$(cat "$CASE15/AGENTS.md")" "case15: dry-run writes nothing"
+OUT15B="$(cd "$CASE15" && rm .claude/project.md && run_script --source source.md --target AGENTS.md --migrate .claude/project.md --dry-run)"
+assert_contains "$OUT15B" "would migration: nothing to move" "case15b: dry-run with no project.md reports nothing to move"
+
+# --- /sync runs the migration inside the approved run (Step 6.6) -------------
+SYNC_SKILL="$REPO/.agents/skills/sync/SKILL.md"
+assert_file_matches "$SYNC_SKILL" '^### Step 6\.6 — Project-File Migration' "sync: Step 6.6 exists"
+step66="$(awk '/^### Step 6\.6/ { p = 1; next } p && /^### / { exit } p' "$SYNC_SKILL")"
+assert_contains "$step66" -- '--target AGENTS.md --migrate .claude/project.md' "sync: Step 6.6 runs the script with --migrate"
+assert_contains "$step66" 'migration: nothing to move' "sync: Step 6.6 documents the re-run outcome"
+assert_contains "$step66" 'never runs this step' "sync: Step 6.6 says the CI mirror does not migrate (it never deletes)"
+step3="$(awk '/^### Step 3 /{ p = 1; next } p && /^### / { exit } p' "$SYNC_SKILL")"
+assert_contains "$step3" -- '--migrate .claude/project.md --dry-run' "sync: the Step 3 preview shows the migration the user approves"
 
 finish

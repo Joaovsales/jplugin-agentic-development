@@ -597,4 +597,46 @@ assert_not_contains "$out_other" "⚠" \
 cd "$REPO"
 rm -rf "$tmpB"
 
+
+# --- Template drift compares the managed block, not the AGENTS.md path (D6) ---
+# AGENTS.md is MANAGED: the template's own rules below its end marker differ
+# from every project's by design, so a path diff would report drift on every
+# template commit that touched only that text. Fixture: a template repository
+# on disk as the `workflow` remote, and a project synced from it.
+tmpW=$(mktemp -d)
+mkdir -p "$tmpW/cfg"
+drift_run() {  # drift_run <project> -> banner output with a fresh drift cache
+  rm -f "$1/.claude/.sync-check-cache"
+  ( cd "$1" && printf '{"source":"startup"}' \
+      | CCW_SESSION_GUARD=0 CLAUDE_CONFIG_DIR="$tmpW/cfg" bash "$HOOK" 2>/dev/null )
+}
+write_agents() {  # write_agents <file> <block-line> <below-line>
+  printf '# Title\n\n<!-- jplugin-agentic-development:begin -->\n%s\n<!-- jplugin-agentic-development:end -->\n\n%s\n' "$2" "$3" > "$1"
+}
+mkdir -p "$tmpW/template" "$tmpW/project/.claude"
+( cd "$tmpW/template" && git init -q -b main && git config user.email t@t && git config user.name t \
+  && write_agents AGENTS.md "RULE v1" "template's own rules" && printf '@AGENTS.md\n' > CLAUDE.md \
+  && git add -A && git commit -qm init ) >/dev/null 2>&1
+( cd "$tmpW/project" && git init -q -b main && git config user.email t@t && git config user.name t \
+  && write_agents AGENTS.md "RULE v1" "this project's rules" && printf '@AGENTS.md\n' > CLAUDE.md \
+  && git add -A && git commit -qm init && git remote add workflow "$tmpW/template" ) >/dev/null 2>&1
+out_synced="$(drift_run "$tmpW/project")"
+assert_contains "$out_synced" "SESSION START" "Drift: the fixture prints the banner (non-vacuity)"
+assert_not_contains "$out_synced" "TEMPLATE DRIFT" \
+  "Drift: same block, different project text -> no drift line"
+( cd "$tmpW/template" && write_agents AGENTS.md "RULE v1" "template's own rules, edited" \
+  && git commit -qam below-marker ) >/dev/null 2>&1
+out_below="$(drift_run "$tmpW/project")"
+assert_not_contains "$out_below" "TEMPLATE DRIFT" \
+  "Drift: a template commit touching only text below the end marker produces no drift line"
+( cd "$tmpW/template" && write_agents AGENTS.md "RULE v2" "template's own rules, edited" \
+  && git commit -qam block ) >/dev/null 2>&1
+out_block="$(drift_run "$tmpW/project")"
+assert_contains "$out_block" "TEMPLATE DRIFT" \
+  "Drift: a template commit changing the block produces the drift line"
+assert_contains "$out_block" "1 item(s) differ" \
+  "Drift: the block counts as one item"
+cd "$REPO"
+rm -rf "$tmpW"
+
 finish

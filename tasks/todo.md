@@ -1054,9 +1054,9 @@ Filed this sweep:
   [x] TDD: a dispatching skill with the project reference removed resolves it from `${CLAUDE_PLUGIN_ROOT}` before refusing -> D19 fallback chain in the dispatching skills; /tidy gains the `graph` check row
 
 ### Slice 4/6
-- [ ] Sync project migration and drift <!-- task-id: design.specs-single-instruction-file-md.sync-project-migration-and-drift --> — Slice 4/6: sync-managed-block.py --migrate moves everything but the five generic sections below the end marker and dele… ([design.specs-single-instruction-file-md.sync-project-migration-and-drift](tasks/details/design.specs-single-instruction-file-md.sync-project-migration-and-drift.md))
-  [ ] TDD: test-sync-managed-block.sh second half (--migrate moves pointer, targets table, `## Tech Stack` in order and deletes project.md; the five generic sections stay; exit 2 on a doubled targets table with project.md intact; re-run reports nothing to move) -> `sync-managed-block.py --migrate`
-  [ ] TDD: a template commit touching only text below the end marker produces no drift line -> /sync Step 6.6 runs --migrate inside the approved run; banner drift compares block hashes
+- [x] Sync project migration and drift <!-- task-id: design.specs-single-instruction-file-md.sync-project-migration-and-drift --> — Slice 4/6: sync-managed-block.py --migrate moves everything but the five generic sections below the end marker and dele… ([design.specs-single-instruction-file-md.sync-project-migration-and-drift](tasks/details/design.specs-single-instruction-file-md.sync-project-migration-and-drift.md))
+  [x] TDD: test-sync-managed-block.sh second half (--migrate moves pointer, targets table, `## Tech Stack` in order and deletes project.md; the five generic sections stay; exit 2 on a doubled targets table with project.md intact; re-run reports nothing to move) -> `sync-managed-block.py --migrate`
+  [x] TDD: a template commit touching only text below the end marker produces no drift line -> /sync Step 6.6 runs --migrate inside the approved run; banner drift compares block hashes
 
 ### Slice 5/6
 - [ ] install.sh stops copying <!-- task-id: design.specs-single-instruction-file-md.install-sh-stops-copying --> — Slice 5/6: install.sh step 5 removed, one-confirmation removal of stale ~/.claude/CLAUDE.md, ~/.claude/hooks/session-st… ([design.specs-single-instruction-file-md.install-sh-stops-copying](tasks/details/design.specs-single-instruction-file-md.install-sh-stops-copying.md))
