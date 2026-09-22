@@ -100,17 +100,16 @@ If the feature involves non-trivial architecture, add an **Architecture Notes** 
 - Key design decisions and alternatives considered
 - Performance and security implications
 
-### Phase 5 — Present & Confirm
+### Phase 5 — Present & Hand Over
 
 Show the user:
 1. The completed spec
 2. The task plan in `tasks/todo.md`
 
-Ask:
-> "Does this spec and plan meet your requirements?
-> Confirm with **'y'** and I'll hand off to the TDD loop."
-
-Do not proceed to implementation without explicit confirmation.
+Then return to the invoking skill, which owns the handover: the planning
+session ends with `Spec and plan are ready to be built. Start a fresh session
+with this prompt:` and the build prompt. Ask no confirmation question; nothing
+is filed and nothing is built in the planning session.
 
 ## Output Standards
 

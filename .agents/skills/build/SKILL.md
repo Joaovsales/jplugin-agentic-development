@@ -166,7 +166,7 @@ Choose the agent or approach based on task type:
 - The slice's Surface from § Build Order, with the rule: edit only inside
   it; a file you must touch outside it is reported as
   `[SURFACE] +<path> | reason: <one sentence>` and the work continues
-- The `> Handover:` lines of every slice this one is blocked by, verbatim
+- The `> Handover:` blockquote (every `>` line) of each slice this one is blocked by, verbatim
 - The tool-call budget and escape hatch from `subagent-resilience.md` Rule
   1, and the instruction to list unfinished `TDD:` rows under
   `## Not finished`
@@ -227,10 +227,19 @@ non-empty report; fold the result into the handover below and the Phase 4.5
 batch.
 
 Write a `> Handover:` blockquote under the slice heading, after its rows —
-one to four lines: what landed (`<short-sha>..<short-sha>`), what the next
-slice must not re-derive, then optionally the surface report and one open
-question. Write it for a one-slice plan too: it is what an interrupted
-build's next session reads.
+one to four blockquote lines, each with its own prefix:
+
+```markdown
+> Handover: landed <short-sha>..<short-sha> — what landed
+> Do not re-derive: the facts the next slice must not rediscover
+> Surface: the `check` report (`undeclared:` / `untouched:`, or none)
+> Open: one open question (optional)
+```
+
+The first two lines are required; the blockquote is the unit every reader
+consumes — the delegation prompt and `/wrap-up-session` § Handovers carry
+the whole blockquote, never the `> Handover:` line alone. Write it for a
+one-slice plan too: it is what an interrupted build's next session reads.
 
 **Unfinished slice**: when the agent returns rows under `## Not finished`
 or the escape hatch fired, mark the finished rows `[x]`, leave the header

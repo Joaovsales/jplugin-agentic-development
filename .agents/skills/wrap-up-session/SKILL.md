@@ -647,9 +647,11 @@ to `tasks/todo.md` — every mandatory step, and every skipped one retained with
 
 #### Handovers
 
-When the branch's `## Plan:` block carries `> Handover:` lines, the PR body
-gains a `## Handovers` section: one `### Slice n/N — <name>` heading per
-slice, followed by that slice's handover lines verbatim. Write this section
+When the branch's `## Plan:` block carries `> Handover:` blockquotes, the PR
+body gains a `## Handovers` section: one `### Slice n/N — <name>` heading per
+slice, followed by that slice's whole blockquote verbatim — the `> Handover:`,
+`> Do not re-derive:`, `> Surface:` and `> Open:` lines `/build` § Slice Close
+defines. Write this section
 before the linkage check below runs on the body — the check has to read the
 body as it will actually ship. With no tracker to host a PR, the same
 section lands in the commit message instead.

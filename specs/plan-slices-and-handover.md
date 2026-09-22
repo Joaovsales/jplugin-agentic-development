@@ -153,7 +153,9 @@ Sizing: <N> slices. Ceiling: files > 8, systems > 2, ACs > 3. Over: <none | slic
   `python3 .agents/skills/slice/scripts/slice.py validate --spec <spec>`
   refuses an intersecting pair with no blocker between them, a cycle, and a
   surface path outside `implementation_paths`, naming the slices or the path
-  and exiting 1. `/slice` writes nothing on a refusal.
+  and exiting 1; an unreadable or malformed spec, a missing § Build Order, a
+  `Blocked by` number that names no slice, or a plan index it cannot parse
+  exits 2 naming the input. `/slice` writes nothing on either refusal.
 - **The build prompt** closes the section, in a fenced block, per
   `slice/references/build-prompt.md`:
 
@@ -165,7 +167,7 @@ Sizing: <N> slices. Ceiling: files > 8, systems > 2, ACs > 3. Over: <none | slic
   Plan: `## Plan: <feature>` in `tasks/todo.md`, <N> slices, ready set <1, 2>.
   Files: <implementation_paths, comma-separated>.
   Instructions:
-  1. File the slices first: `/slice specs/<feature>.md --file --approve`. The planning session filed nothing.
+  1. `/build`'s pre-flight files the slices: `/slice specs/<feature>.md --file --approve`. The planning session filed nothing.
   2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
   3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
   4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -230,9 +232,10 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
 Dry run first, then `--apply`; `--approve` only when the caller passed it. The
 build prompt a human typed is the reviewer's word, so `/build` passes it by
 default and `/yolo` does not. `--parent` is passed when the block has a
-`> Issue:` line. The seeded row is refreshed in place and its `(blocked-by:)`
-marker is carried from the row, so a second run after an interrupted filing
-is safe. Every write honours the project's approval floor; an unreachable
+`> Issue:` line. The seeded row is refreshed in place; when the task is
+created, its status box and its `(blocked-by:)` marker are carried from the
+row, so a slice built before it was filed stays `[x]` and a second run after
+an interrupted filing is safe. Every write honours the project's approval floor; an unreachable
 tracker reports `local-pending` and is never retried silently. Output: one
 `✓ Filed: <id> → <#N | local, publication pending>` line per slice.
 
@@ -596,7 +599,7 @@ Invoke `/build` for `specs/plan-slices-and-handover.md`.
 Plan: `## Plan: plan-slices-and-handover` in `tasks/todo.md`, 7 slices, ready set 1, 2, 3.
 Files: .agents/skills/slice/**, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/system-design-planning/templates/architecture-spec-template.md, .agents/skills/brainstorm/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/scripts/spec-reconcile.py, .agents/skills/task-registry/SKILL.md, .agents/skills/task-registry/scripts/task-registry.py, .agents/skills/task-registry/scripts/registry/upsert.py, .agents/skills/task-registry/scripts/registry/globs.py, .agents/skills/yolo/SKILL.md, .agents/skills/auto-push/SKILL.md, .claude/hooks/session-start.sh, CLAUDE.md, README.md, tests/test-slice.sh, tests/fixtures/slice/**, tests/test-doc-conventions.sh, tests/test-skill-invocation-chain.sh, tests/test-task-registry.sh.
 Instructions:
-1. File the slices first: `/slice specs/plan-slices-and-handover.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight files the slices: `/slice specs/plan-slices-and-handover.md --file --approve`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

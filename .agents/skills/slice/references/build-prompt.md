@@ -15,7 +15,7 @@ Invoke `/build` for `specs/<feature>.md`.
 Plan: `## Plan: <feature>` in `tasks/todo.md`, <N> slices, ready set <1, 2>.
 Files: <implementation_paths, comma-separated>.
 Instructions:
-1. File the slices first: `/slice specs/<feature>.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight files the slices: `/slice specs/<feature>.md --file --approve`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

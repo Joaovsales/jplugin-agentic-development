@@ -209,10 +209,10 @@ Feature Request
 /brainstorm ──► explore options → multi-option proposals → design approval
     │
     ▼
-/plan ──► interviews you → writes spec → task list in tasks/todo.md
+/plan ──► interviews you → writes spec → /slice → § Build Order + plan block → build prompt
     │
-    ▼  (confirm with 'y')
-/build ──► autonomous TDD + sub-agents → 2-stage review → quality-gate → spec validation
+    ▼  (fresh session started with the build prompt)
+/build ──► pre-flight files the slices → ready set → TDD + sub-agents → handovers → quality-gate → spec validation
     │
     ▼  (all tasks done)
 /security-scan ──► audit changed files for OWASP issues
