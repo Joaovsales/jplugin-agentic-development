@@ -602,12 +602,17 @@ for tree in .agents; do
     "task-registry: $tree configuration guide separates discovery from provider selection"
 done
 
-# The five workflow skills reach tracking only through the registry.
+# The five workflow skills reach tracking only through the registry. /plan
+# is not one of them any more: specs/plan-slices-and-handover.md AC8 moved
+# filing to /slice, so /plan reaches tracking transitively and is asserted
+# separately below rather than dropped from coverage.
 for tree in .agents; do
-  for skill in plan build verify-evidence quality-gate wrap-up-session; do
+  for skill in slice build verify-evidence quality-gate wrap-up-session; do
     assert_file_contains "$tree/skills/$skill/SKILL.md" "/task-registry" \
       "task-registry: $tree/$skill routes task state through the registry"
   done
+  assert_file_matches "$tree/skills/plan/SKILL.md" '^Invoke `/slice' \
+    "task-registry: $tree/plan reaches tracking transitively, through /slice"
 done
 
 assert_eq "absent" \
@@ -871,5 +876,102 @@ for token in "--file --approve" "Surface" "§ Decisions" "[AMBIGUITY]" "> Handov
   assert_contains "$build_prompt_skill" "$token" \
     "slice: build prompt instruction lines name '$token'"
 done
+
+# --- plan: /plan calls /slice instead of writing the plan block itself ------
+# specs/plan-slices-and-handover.md AC8. /plan keeps its six-question
+# interview and the carry-forward rule, escalates to /system-design-planning
+# on its own § When to Use bar, and hands off to /slice for sizing, the plan
+# block and the build prompt -- so the pins are the carry-forward vocabulary,
+# the seven-section spec template in order, the `Invoke /slice` line, and the
+# negative pins that keep the retired ceremony (a hand-written plan block, a
+# 'y' gate, a build invocation, an upsert call) from creeping back in.
+PLAN_SKILL=.agents/skills/plan/SKILL.md
+for token in "DECISIONS CARRIED" "/grill-me" "/brainstorm" \
+             "Escalating to /system-design-planning" \
+             "What is the desired behavior?" "What are the inputs and outputs?" \
+             "What are the edge cases and failure modes?" \
+             "What constraints exist" \
+             "Which existing files/components are likely involved?" \
+             "What does \"done\" look like?" \
+             "Spec and plan are ready to be built" \
+             "references/build-prompt.md"; do
+  assert_file_contains "$PLAN_SKILL" "$token" "plan: SKILL.md contains '$token'"
+done
+
+# The spec template's seven sections, in order. Pinned by ORDER, not count:
+# a reflow that moves Decisions above Edge Cases silently changes what
+# /slice reads as settled versus what the human still has to answer.
+flat_plan="$(flatten "$PLAN_SKILL")"
+pos_beh=$(printf '%s' "$flat_plan" | grep -bo '## Behavior' | head -1 | cut -d: -f1)
+pos_in=$(printf '%s' "$flat_plan" | grep -bo '## Inputs' | head -1 | cut -d: -f1)
+pos_out=$(printf '%s' "$flat_plan" | grep -bo '## Outputs' | head -1 | cut -d: -f1)
+pos_edge=$(printf '%s' "$flat_plan" | grep -bo '## Edge Cases' | head -1 | cut -d: -f1)
+pos_dec=$(printf '%s' "$flat_plan" | grep -bo '## Decisions' | head -1 | cut -d: -f1)
+pos_ac=$(printf '%s' "$flat_plan" | grep -bo '## Acceptance Criteria' | head -1 | cut -d: -f1)
+pos_impl=$(printf '%s' "$flat_plan" | grep -bo '## Implementation Paths' | head -1 | cut -d: -f1)
+if [ -n "${pos_beh:-}" ] && [ -n "${pos_in:-}" ] && [ -n "${pos_out:-}" ] && [ -n "${pos_edge:-}" ] \
+   && [ -n "${pos_dec:-}" ] && [ -n "${pos_ac:-}" ] && [ -n "${pos_impl:-}" ] \
+   && [ "$pos_beh" -lt "$pos_in" ] && [ "$pos_in" -lt "$pos_out" ] && [ "$pos_out" -lt "$pos_edge" ] \
+   && [ "$pos_edge" -lt "$pos_dec" ] && [ "$pos_dec" -lt "$pos_ac" ] && [ "$pos_ac" -lt "$pos_impl" ]; then
+  assert_eq "ordered" "ordered" "plan: spec template lists the seven sections in order"
+else
+  assert_eq "Behavior < Inputs < Outputs < Edge Cases < Decisions < Acceptance Criteria < Implementation Paths" \
+    "${pos_beh:-missing} ${pos_in:-missing} ${pos_out:-missing} ${pos_edge:-missing} ${pos_dec:-missing} ${pos_ac:-missing} ${pos_impl:-missing}" \
+    "plan: spec template lists the seven sections in order"
+fi
+
+# § Decisions' three sources, in the prose that explains the column.
+assert_contains "$flat_plan" '`user` for an answer the user gave' \
+  "plan: SKILL.md defines Source \`user\`"
+assert_contains "$flat_plan" '`assumed` for one `/plan` picked without asking' \
+  "plan: SKILL.md defines Source \`assumed\`"
+assert_contains "$flat_plan" '`open` for one nobody has decided yet' \
+  "plan: SKILL.md defines Source \`open\`"
+
+# Negative pins: the ceremony this spec removed must not reappear here.
+assert_file_not_matches "$PLAN_SKILL" 'Invoke `/grilling' \
+  "plan: SKILL.md never itself invokes /grilling"
+assert_file_not_matches "$PLAN_SKILL" 'Invoke `/build' \
+  "plan: SKILL.md never itself invokes /build"
+assert_file_not_matches "$PLAN_SKILL" "Does this spec and plan meet your requirements" \
+  "plan: SKILL.md carries no 'y' gate sentence"
+assert_file_not_matches "$PLAN_SKILL" "upsert" \
+  "plan: SKILL.md never calls upsert itself"
+assert_file_not_matches "$PLAN_SKILL" "> Approved" \
+  "plan: SKILL.md carries no approval-word line"
+assert_file_not_matches "$PLAN_SKILL" '^## Plan:' \
+  "plan: SKILL.md no longer carries a hand-written plan-block template"
+assert_file_not_matches "$PLAN_SKILL" "Hand Off to TDD" \
+  "plan: SKILL.md no longer hands off to TDD directly"
+assert_file_not_matches "$PLAN_SKILL" "Register the Tasks" \
+  "plan: SKILL.md no longer registers tasks itself"
+
+# --- pipelines: /yolo and /auto-push after /plan's handover rewrite ---------
+# specs/plan-slices-and-handover.md AC9 ("In-session pipelines"). Both are
+# named exceptions to building in a fresh session -- /yolo because it is
+# unattended end to end, /auto-push because its one gate is now its own,
+# owned as an override on /plan's Step 6 instead of /plan's default handover.
+YOLO_SKILL=.agents/skills/yolo/SKILL.md
+AUTO_PUSH_SKILL=.agents/skills/auto-push/SKILL.md
+assert_file_contains "$YOLO_SKILL" '`assumed` row' \
+  "pipelines: yolo Step 1 override records gaps as \`assumed\` rows"
+assert_file_matches "$YOLO_SKILL" 'Step 6.*no prompt' \
+  "pipelines: yolo Step 6 row prints no prompt"
+assert_file_matches "$YOLO_SKILL" 'no prompt.*in place' \
+  "pipelines: yolo Step 6 row invokes /build in place"
+assert_prose_contains "$YOLO_SKILL" 'runs `--file` without `--approve`' \
+  "pipelines: yolo Phase B files with --file and no --approve"
+assert_file_contains "$YOLO_SKILL" "fresh session" \
+  "pipelines: yolo names the fresh-session rule it is excepted from"
+
+assert_file_contains "$AUTO_PUSH_SKILL" \
+  "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll build, wrap up and push in this session." \
+  "pipelines: auto-push Phase A owns the 'y' sentence as its own override on /plan Step 6"
+assert_file_contains "$AUTO_PUSH_SKILL" "Step 6" \
+  "pipelines: auto-push Phase A names /plan's Step 6 as the overridden step"
+assert_file_contains "$AUTO_PUSH_SKILL" "--approve" \
+  "pipelines: auto-push Phase B names --approve"
+assert_file_contains "$AUTO_PUSH_SKILL" "fresh session" \
+  "pipelines: auto-push names the fresh-session rule it is excepted from"
 
 finish

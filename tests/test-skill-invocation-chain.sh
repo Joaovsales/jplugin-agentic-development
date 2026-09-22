@@ -172,13 +172,16 @@ for tree in $TREES; do
     "Chain: $tree/wrap-up-session records deferred work as a task"
 done
 
-# ── /plan -> /task-registry, after approval and never before ────────────────
+# ── /plan -> /slice ───────────────────────────────────────────────────────
+# specs/plan-slices-and-handover.md AC8. /plan no longer writes a plan block
+# or files tasks itself -- Step 3 hands sizing, the plan block and the build
+# prompt to /slice, and /plan never invokes /build directly.
 for tree in $TREES; do
   f="$tree/skills/plan/SKILL.md"
-  assert_file_contains "$f" "/task-registry" \
-    "Chain: $tree/plan registers tasks through the registry"
-  assert_file_contains "$f" "never creates an external issue implicitly" \
-    "Chain: $tree/plan states that planning creates no external issue on its own"
+  assert_file_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/plan invokes /slice"
+  assert_file_not_matches "$f" 'Invoke `/build' \
+    "Chain: $tree/plan never itself invokes /build"
 done
 
 # ── /brainstorm -> /grilling and /grill-me -> /grilling ──────────────────────

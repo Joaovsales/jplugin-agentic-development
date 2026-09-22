@@ -90,11 +90,13 @@ If any pre-flight check fails, STOP. Do not proceed past unresolved guards.
 
 ### Phase A — Plan (with the approval gate)
 
-Run `/plan` **as-is**. Do not override anything. The user's interview, spec, and confirmation gate all run normally.
+Run `/plan` with one override, on its Step 6 — Hand over: instead of
+printing the build prompt for a fresh session, `/plan` asks exactly:
 
-The plan phase ends with `/plan` asking:
+> "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll build, wrap up and push in this session."
 
-> "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll begin the TDD loop."
+Everything before Step 6 — the interview, the spec, the plan `/slice`
+writes — runs unmodified.
 
 This is the **only** user prompt in the entire `/auto-push` flow.
 
@@ -111,7 +113,10 @@ Once `y` is received, **stop asking questions**. The rest is on you.
 
 ### Phase B — Build (autonomous)
 
-Invoke `/build`. It is already autonomous — no overrides needed for build itself. Run it to completion.
+Invoke `/build` in place, in this same session — `/auto-push` is a named
+exception to building in a fresh session, because its one gate is its own.
+Its pre-flight filing is `--approve`d by that `y`. It is already autonomous
+— no other overrides are needed for build itself. Run it to completion.
 
 - All TDD, quality gate, spec validation, backlog update phases run as normal.
 - If `/build`'s Phase 4 spec validation HALTS after 3 rounds: stop the auto-push pipeline. Do NOT proceed to wrap-up. Report the HALT to the user with the validation failures.
@@ -213,7 +218,7 @@ Next: <PR review | re-run /auto-push for next feature | manual fix for <stopped 
 ## Integration
 
 - **Called by**: User directly. Not invoked by other skills.
-- **Calls**: `/plan` (unmodified), `/build` (unmodified), `/wrap-up-session` (with Phase C overrides), `/verify-evidence --scope e2e`.
+- **Calls**: `/plan` (with the Step 6 override above), `/build` (in place, unmodified otherwise), `/wrap-up-session` (with Phase C overrides), `/verify-evidence --scope e2e`.
 - **Pairs with**: `/yolo` — the unsupervised cousin. Auto-push keeps the plan-approval gate; yolo skips it.
 - **Differs from default workflow**: same `plan → build → wrap-up` sequence, but chained behind one command and one approval. No prompt between build and wrap-up.
 
