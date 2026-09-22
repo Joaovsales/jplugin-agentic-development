@@ -77,6 +77,41 @@ def _read(path: str) -> str:
         return handle.read()
 
 
+_FENCE_RE = re.compile(r"^\s*(?P<fence>`{3,}|~{3,})")
+
+
+def _closes_fence(fence: str, line: str) -> bool:
+    """A fence closes on a run of the same character at least as long, alone on its line."""
+    match = _FENCE_RE.match(line)
+    if not match:
+        return False
+    run = match.group("fence")
+    return run[0] == fence[0] and len(run) >= len(fence) and not line.strip()[len(run):].strip()
+
+
+def _without_fences(text: str) -> str:
+    """Blank every line inside a code fence, keeping line numbers intact.
+
+    A spec shows the grammar it asks for inside a fenced example, so the first
+    `## Build Order` in the file may be the illustration rather than the
+    section; the real plan-slices spec is exactly that shape. Headings and
+    table rows are only read from prose.
+    """
+    out: List[str] = []
+    fence = ""
+    for line in text.splitlines():
+        match = _FENCE_RE.match(line)
+        if fence and _closes_fence(fence, line):
+            fence = ""
+        elif not fence and match:
+            fence = match.group("fence")
+        else:
+            out.append("" if fence else line)
+            continue
+        out.append("")
+    return "\n".join(out)
+
+
 # ------------------------------------------------------------- Build Order
 
 
@@ -126,7 +161,7 @@ def _split_blocked_by(cell: str, spec_path: str) -> Tuple[int, ...]:
 
 def parse_build_order(spec_text: str, spec_path: str) -> List[SliceRow]:
     """Parse the `# | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size` table."""
-    body = _section_body(spec_text, BUILD_ORDER_HEADING)
+    body = _section_body(_without_fences(spec_text), BUILD_ORDER_HEADING)
     if body is None:
         raise SliceError(f"{spec_path}: no {BUILD_ORDER_HEADING!r} section found")
     rows = _table_rows(body)
@@ -307,7 +342,7 @@ def cmd_ready(args: argparse.Namespace) -> int:
     if not os.path.isfile(args.index):
         print(f"slice: no such index file: {args.index}", file=sys.stderr)
         return 2
-    todo_text = _read(args.index)
+    todo_text = _without_fences(_read(args.index))
     lines = todo_text.splitlines()
     block = _find_plan_block(todo_text, args.spec)
     if block is None:

@@ -32,6 +32,16 @@ CODE=$?
 assert_eq "0" "$CODE" "validate: clean fixture exits 0"
 assert_eq "" "$OUT" "validate: clean fixture prints nothing"
 
+printf '\n--- validate: a fenced example above the real Build Order is skipped ---\n'
+
+# The real spec shows the § Build Order grammar inside a ```markdown fence
+# before the section itself. Reading the first heading found parses the decoy
+# table and refuses a clean plan (found on the first live run).
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-fenced/spec.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "validate: a fenced decoy Build Order is not the section"
+assert_eq "" "$OUT" "validate: the fenced decoy's outside path is never reported"
+
 printf '\n--- validate: an intersecting pair with no blocker ---\n'
 
 OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-intersect/spec.md" 2>&1)"
