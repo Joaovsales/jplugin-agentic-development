@@ -1,27 +1,15 @@
-# Checkpoint — 2026-09-22T14:18:38Z
+# Checkpoint — 2026-09-22T14:37:53Z
 
-> Auto-written by PreCompact hook (trigger: ). Re-read on resume.
+> Auto-written by PreCompact hook (trigger: auto). Re-read on resume.
 
 ## Git
 - Branch: feat/106-plan-slices-and-handover
 
 ```
- M .agents/skills/task-registry/SKILL.md
- M .agents/skills/task-registry/scripts/registry/upsert.py
- M .agents/skills/task-registry/scripts/task-registry.py
- M .agents/skills/wrap-up-session/scripts/spec-reconcile.py
-?? .agents/skills/slice/scripts/
-?? .agents/skills/task-registry/scripts/registry/globs.py
-?? tests/fixtures/slice/
+ M tasks/checkpoint.md
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
-  [ ] TDD: tests/test-slice.sh § validate — fixture with an intersecting pair and no blocker exits 1 naming both slices; a cycle exits 1 naming the cycle; a surface path outside `implementation_paths` exits 1 naming the path; the clean fixture exits 0 -> `slice.py validate --spec` parsing § Build Order and the frontmatter (AC 1)
-  [ ] TDD: tests/test-slice.sh § ready — fixture index with three slices where 2 is blocked by 1: `ready` lists 1 and 3 with surfaces and the intersecting pair `1 ↔ 3`; after 1 is `[x]` it lists 2 and 3; a block with no `### Slice` headings yields one implicit slice whose surface equals `implementation_paths` -> `slice.py ready --index --spec` over `TaskIndex` (AC 2)
-  [ ] TDD: tests/test-slice.sh § check — fixture repo where the diff touches one declared and one undeclared path: prints `undeclared:` and `untouched:`, exit 1; clean diff exits 0 and prints nothing -> `slice.py check --spec --slice --base` over `git diff --name-only` (AC 3)
-  [ ] TDD: tests/test-slice.sh § globs — `registry/globs.py` rejects absolute, `..`, backslash and unsupported-glob patterns naming spec and value; tests/test-living-spec-reconciliation.sh stays green with `spec-reconcile.py` importing `_pattern_to_regex` and `match_path` from it -> extract the matcher, repoint `spec-reconcile.py` through `sys.path` (AC 3)
-  [ ] TDD: tests/test-task-registry.sh § parent — `--parent '#N'` on the local fixture records a native parent; on the github fixture writes `parent:` metadata and prints the disclosure line; the dry run calls no provider; `SKILL.md` documents the flag -> `--parent` on `upsert` wired to `link_parent` (AC 7)
-  [ ] TDD: tests/test-task-registry.sh § seeded blocked-by — a first `upsert --apply` against an index row that carries `(blocked-by: id)` keeps the marker on the refreshed row, and a second run keeps it too -> carry the index row's `depends_on` into the merge when the incoming task has none (added in `/build` pre-flight: the probe on a local fixture dropped the marker, so filing before this fix would corrupt the plan block)
   [ ] TDD: tests/test-doc-conventions.sh + tests/test-skill-invocation-chain.sh § plan — Step 1 keeps its six questions, has no `Invoke /grilling` line, names `/grill-me` and `/brainstorm` as optional precursors and states `DECISIONS CARRIED`; Step 1.5 has `Escalating to /system-design-planning`; the template lists Behavior, Inputs, Outputs, Edge Cases, Decisions, Acceptance Criteria, Implementation Paths in order with `user`, `assumed`, `open`; Step 3 has an `Invoke /slice` line; "Does this spec and plan meet your requirements" is absent; Step 6 names `Spec and plan are ready to be built`; no `Invoke /build`, no hand-written `## Plan:` template, no `upsert` invocation and no `> Approved` remains -> rewrite `/plan` Steps 3 to 6, delete Step 7 (AC 8)
   [ ] TDD: tests/test-doc-conventions.sh § pipelines — `/yolo`'s override table has a Step 1 row naming `assumed` rows, a Step 6 row naming no prompt and `/build` in place, and a Phase B line naming `--file` without `--approve`; `/auto-push` Phase A contains "Does this spec and plan meet your requirements?" as an override on `/plan` Step 6 and Phase B names `--approve`; both name the fresh-session rule they are excepted from -> edit the rows in both pipelines (AC 9)
   [ ] TDD: tests/test-doc-conventions.sh + tests/test-skill-invocation-chain.sh § design planning — Step 1 names § Decisions; Step 2.5 has an `Invoke /grilling` line with its seed questions, `DECISIONS CARRIED` and the empty-frontier rule, pinned in the invocation-chain test beside `/brainstorm`'s; the template has no `| # | Slice |` table and no `### Slice criteria`; Step 3.5 has an `Invoke /slice` line; Step 7 keeps the `[constraints|system-design|contracts|data-models|build-order]` format, names `Spec and plan are ready to be built` and no longer says the bare word is approval; no `File slices` heading, `upsert` invocation, `> Approved` or `TODO(shortcut)` remains; `### 9. Hand off` present; Iron Law and Red Flag name the planning session; the chain pin "files slices through task-registry" moves to `slice/SKILL.md`, the other three (reads issues, renders, hands off) still hold -> rewrite Steps 1, 3, 3.5, 7, 9, the Iron Law, the Red Flags and the description; delete Step 8; trim the template; move one chain pin (AC 10)
