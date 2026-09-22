@@ -1490,6 +1490,17 @@ assert_file_contains "$F_SEEDED/tasks/todo.md" "(blocked-by: seeded.blocker)" \
 assert_eq "1" "$(grep -c 'task-id: seeded\.blocked' "$F_SEEDED/tasks/todo.md")" \
   "upsert seeded blocked-by: exactly one row for the id, never a duplicate"
 
+# A slice built before it was filed is seeded `[x]`; the task is created from
+# the row's status, so the first refresh keeps the box instead of reopening it.
+cat >> "$F_SEEDED/tasks/todo.md" <<'EOF'
+- [x] Seeded done <!-- task-id: seeded.done --> — finished before filing
+EOF
+seeded_done="$(run upsert seeded.done --repo "$F_SEEDED" --title 'Seeded done' --summary 'finished before filing' --apply 2>&1)"
+assert_contains "$seeded_done" "created seeded.done" \
+  "upsert seeded [x]: the first run creates the task from the seeded row"
+assert_file_contains "$F_SEEDED/tasks/todo.md" "- [x] Seeded done" \
+  "upsert seeded [x]: the first refresh keeps the done box the row seeded"
+
 # =============================================================================
 # 12. Regressions — one block per defect found in review
 #

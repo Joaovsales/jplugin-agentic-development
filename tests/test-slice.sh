@@ -58,6 +58,15 @@ assert_eq "1" "$CODE" "validate: a cycle exits 1"
 assert_contains "$OUT" "cycle:" "validate: names the cycle, not just a generic failure"
 assert_contains "$OUT" "2 -> 3 -> 2" "validate: the cycle path names both slices in the loop"
 
+printf '\n--- validate: a Blocked by number that names no slice ---\n'
+
+# Refused once, at parse time, so a typo (`9` for `1`) is an error the author
+# sees -- not a slice that validates clean and is never ready.
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-unknown-blocker/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "validate: an unknown Blocked by number is a malformed table, exit 2"
+assert_contains "$OUT" "slice 2 (two) is blocked by 9, which names no slice" "validate: names the slice and the unknown number"
+
 printf '\n--- validate: a surface outside implementation_paths ---\n'
 
 OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-outside-paths/spec.md" 2>&1)"
@@ -86,6 +95,17 @@ assert_eq "0" "$CODE" "ready: still exits 0 once slice 1 is [x]"
 assert_contains "$OUT" "ready: 2 two" "ready: slice 2 is ready once its blocker (1) is done"
 assert_contains "$OUT" "ready: 3 three" "ready: slice 3 stays ready"
 assert_not_contains "$OUT" "ready: 1 one" "ready: a done slice is absent from the ready set"
+
+printf '\n--- ready: a fenced example row above the real header row ---\n'
+
+# `registry/index.py` parses every `[ ]` line, fenced or not; `ready` must
+# attribute only prose rows to a heading, or a pasted example marks a finished
+# slice as ready again.
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-fenced-decoy.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "ready: a fenced decoy row still exits 0"
+assert_not_contains "$OUT" "ready: 1 one" "ready: the fenced decoy row is not slice 1's header; the real [x] row is"
+assert_contains "$OUT" "ready: 2 two" "ready: slice 2 is ready because the real slice 1 row is [x]"
 
 printf '\n--- ready: a flat legacy plan with no ### Slice headings ---\n'
 
@@ -117,6 +137,15 @@ OUT="$("$PY" "$SLICE" check --spec "$FIXTURES/check/spec.md" --slice 1 --base "$
 CODE=$?
 assert_eq "0" "$CODE" "check: a diff matching the declared surface exits 0"
 assert_eq "" "$OUT" "check: a clean diff prints nothing"
+
+printf '\n--- check: a legacy spec with no Build Order is one implicit slice ---\n'
+
+# The implicit slice is defined once (`resolve_slices`) and read by `ready`
+# and `check` alike, so a plan written before § Build Order still checks.
+OUT="$("$PY" "$SLICE" check --spec "$FIXTURES/check-implicit/spec.md" --slice 1 --base "$BASE1" --repo "$D1" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "check: the implicit slice's surface is the spec's implementation_paths"
+assert_eq "" "$OUT" "check: a legacy spec's clean diff prints nothing"
 
 printf '\n--- check: an undeclared path and an untouched pattern ---\n'
 

@@ -217,26 +217,32 @@ def _published_ref(config, task_id: str):
     return None if row is None else row.task.external
 
 
-def _sync_index(config, task: Task) -> str:
-    """Add or refresh the one compact row that points at this task.
+def _seeded_from_row(index, existing: Optional[Task], task: Task) -> Task:
+    """A row filed ahead of its task is the only record of its status and blockers.
 
-    A seeded row can carry a `(blocked-by: ...)` marker the provider record
-    itself has never heard of -- the row was filed ahead of the task it
-    describes, e.g. by `/slice`. `_existing` reads the provider, not the row,
-    so a brand-new task's `depends_on` is empty and rendering straight from it
-    would drop the marker on the very first refresh. Carrying the row's own
-    `depends_on` forward whenever the task has none makes a second run after
-    an interrupted filing safe, and is a no-op once the provider learns the
-    dependency itself.
+    `/slice --file` seeds the compact row -- `[x]` for a slice already built,
+    `(blocked-by: ...)` for its ordering -- before the task it names exists
+    anywhere else. `_existing` reads the provider, so without this the task
+    would be created `open` with no `depends_on`, and the very first refresh
+    would rewrite the seeded row from that record: a finished slice back to
+    `[ ]`, its marker gone. Seeding the incoming task from the row, once, before
+    the merge, lets `_sync_index` stay a pure render of the task.
     """
+    row = index.by_id(task.id) if existing is None else None
+    if row is None:
+        return task
+    return task.with_(status=row.task.status, depends_on=task.depends_on or row.task.depends_on)
+
+
+def _sync_index(config, task: Task) -> str:
+    """Add or refresh the one compact row that points at this task."""
     index = load_index_strict(config.path(config.index_path), config.index_path)
     row = index.by_id(task.id)
     if row is None:
         index.append_row(task)
         outcome = "row added"
     else:
-        rendered = task if task.depends_on else task.with_(depends_on=row.task.depends_on)
-        index.replace_row(row.line, render_row(rendered, row.indent))
+        index.replace_row(row.line, render_row(task, row.indent))
         outcome = "row refreshed"
     index.save()
     return outcome
@@ -299,7 +305,7 @@ def _upsert_task_result(
     # is skipped on the external path, the other runs after `_persist`. Loading
     # here is what makes the guarantee unconditional -- and makes the dry run
     # refuse identically, so the preview describes the run `--apply` performs.
-    load_index_strict(config.path(config.index_path), config.index_path)
+    index = load_index_strict(config.path(config.index_path), config.index_path)
     try:
         status = provider.discover()
         destination = resolve_destination(provider.name, gate, status.available)
@@ -310,6 +316,7 @@ def _upsert_task_result(
     except (ProviderError, ProviderUnavailable) as exc:
         line = f"upsert: cannot establish whether {task.id} already exists: {exc}"
         return UpsertResult(UpsertDisposition.FAILED, detail=str(exc), lines=(line,), code=1)
+    task = _seeded_from_row(index, existing, task)
 
     preserved = _preserved_result(existing, config) if preserve_existing else None
     if preserved is not None:

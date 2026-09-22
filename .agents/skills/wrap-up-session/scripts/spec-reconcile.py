@@ -41,8 +41,6 @@ if _TASK_REGISTRY_SCRIPTS not in sys.path:
 
 from registry.globs import (  # noqa: E402  (path must be set up first)
     SpecPathError,
-    UNSUPPORTED_GLOB_CHARS,
-    _pattern_to_regex,
     frontmatter_block as _frontmatter_lines,
     match_path,
     parse_implementation_paths as _parse_implementation_paths,

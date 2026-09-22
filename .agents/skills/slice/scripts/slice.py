@@ -62,6 +62,10 @@ class SliceError(Exception):
     """
 
 
+class MissingBuildOrder(SliceError):
+    """The spec has no `## Build Order` section at all — a legacy, one-slice plan."""
+
+
 @dataclass(frozen=True)
 class SliceRow:
     """One row of § Build Order."""
@@ -163,7 +167,7 @@ def parse_build_order(spec_text: str, spec_path: str) -> List[SliceRow]:
     """Parse the `# | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size` table."""
     body = _section_body(_without_fences(spec_text), BUILD_ORDER_HEADING)
     if body is None:
-        raise SliceError(f"{spec_path}: no {BUILD_ORDER_HEADING!r} section found")
+        raise MissingBuildOrder(f"{spec_path}: no {BUILD_ORDER_HEADING!r} section found")
     rows = _table_rows(body)
     if len(rows) < 2:
         raise SliceError(f"{spec_path}: Build Order table not found")
@@ -191,7 +195,39 @@ def parse_build_order(spec_text: str, spec_path: str) -> List[SliceRow]:
                 blocked_by=_split_blocked_by(cells[idx_blocked], spec_path),
             )
         )
+    _refuse_unknown_blockers(slices, spec_path)
     return slices
+
+
+def _refuse_unknown_blockers(slices: Sequence[SliceRow], spec_path: str) -> None:
+    """Every `Blocked by` number names a row of the same table.
+
+    Refused here, once, so the ordering helpers and `ready` can index the table
+    unconditionally: a typo (`9` for `1`) is an error the author sees, not a
+    slice that validates clean and is never ready.
+    """
+    numbers = {row.number for row in slices}
+    for row in slices:
+        for dep in row.blocked_by:
+            if dep not in numbers:
+                raise SliceError(
+                    f"{spec_path}: slice {row.number} ({row.name}) is blocked by {dep}, which names no slice"
+                )
+
+
+def resolve_slices(spec_path: str, implicit_name: str) -> Dict[int, SliceRow]:
+    """The spec's slices by number — or one implicit slice when it has no Build Order.
+
+    A plan written before § Build Order existed is one slice whose surface is
+    the spec's whole `implementation_paths`; `ready` and `check` both read that
+    definition from here so a legacy plan still builds and still checks.
+    """
+    try:
+        rows = parse_build_order(_read(spec_path), spec_path)
+    except MissingBuildOrder:
+        surface = tuple(read_implementation_paths(spec_path))
+        return {1: SliceRow(number=1, name=implicit_name, surface=surface, blocked_by=())}
+    return {row.number: row for row in rows}
 
 
 # --------------------------------------------------------- ordering helpers
@@ -203,7 +239,7 @@ def _reachable(slices: Dict[int, SliceRow], start: int) -> set:
     stack = [start]
     while stack:
         current = stack.pop()
-        for dep in slices.get(current, SliceRow(0, "", (), ())).blocked_by:
+        for dep in slices[current].blocked_by:
             if dep not in seen:
                 seen.add(dep)
                 stack.append(dep)
@@ -229,12 +265,10 @@ def find_cycle(slices: Dict[int, SliceRow]) -> Optional[List[int]]:
         color[number] = GRAY
         path.append(number)
         for dep in slices[number].blocked_by:
-            if dep not in slices:
-                continue
-            if color.get(dep) == GRAY:
+            if color[dep] == GRAY:
                 start = path.index(dep)
                 return path[start:] + [dep]
-            if color.get(dep) == WHITE:
+            if color[dep] == WHITE:
                 found = visit(dep)
                 if found:
                     return found
@@ -279,7 +313,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     """Exit 0 for a buildable plan, 1 for plan problems, 2 when the spec cannot be read."""
     spec_path = args.spec
     try:
-        implementation_paths = read_implementation_paths(spec_path, spec_path)
+        implementation_paths = read_implementation_paths(spec_path)
         rows = parse_build_order(_read(spec_path), spec_path)
     except (SpecPathError, SliceError, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
@@ -324,9 +358,17 @@ def _slice_headings(lines: Sequence[str], start_line: int, end_line: int) -> Lis
     return headings
 
 
-def _row_after(rows: Sequence[IndexRow], line_number: int, boundary: int) -> Optional[IndexRow]:
-    """The earliest row strictly after `line_number` and no later than `boundary`."""
-    candidates = [row for row in rows if line_number < row.line <= boundary]
+def _row_after(
+    rows: Sequence[IndexRow], line_number: int, boundary: int, prose: Sequence[str]
+) -> Optional[IndexRow]:
+    """The earliest prose row strictly after `line_number` and no later than `boundary`.
+
+    `prose` is the index text with every fenced line blanked, so a `- [ ]`
+    example inside a fence is never mistaken for the heading's row.
+    """
+    candidates = [
+        row for row in rows if line_number < row.line <= boundary and prose[row.line - 1].strip()
+    ]
     return min(candidates, key=lambda row: row.line) if candidates else None
 
 
@@ -340,13 +382,13 @@ def _print_ready(number: int, name: str, surface: Sequence[str]) -> None:
 
 
 def _done_by_slice(
-    rows: Sequence[IndexRow], headings: Sequence[Tuple[int, int, str]], end_line: int
+    rows: Sequence[IndexRow], headings: Sequence[Tuple[int, int, str]], end_line: int, prose: Sequence[str]
 ) -> Dict[int, bool]:
     """Whether each `### Slice` heading's header row is `[x]`, keyed by slice number."""
     boundaries = [heading[0] - 1 for heading in headings[1:]] + [end_line]
     done: Dict[int, bool] = {}
     for (heading_line, number, _name), boundary in zip(headings, boundaries):
-        row = _row_after(rows, heading_line, boundary)
+        row = _row_after(rows, heading_line, boundary, prose)
         if row is None:
             raise SliceError(f"no task row found under `### Slice {number}` heading")
         done[number] = row.task.status == "done"
@@ -379,7 +421,7 @@ def _implicit_slice_ready(args: argparse.Namespace, index, start_line: int, end_
     """
     if not _block_has_open_row(index.rows, start_line, end_line):
         return 0
-    _print_ready(1, plan_name, read_implementation_paths(args.spec, args.spec))
+    _print_ready(1, plan_name, read_implementation_paths(args.spec))
     return 0
 
 
@@ -394,13 +436,14 @@ def cmd_ready(args: argparse.Namespace) -> int:
         print(f"slice: {args.index} has no `## Plan:` block naming {args.spec!r}", file=sys.stderr)
         return 2
     start_line, end_line, plan_name = block
-    headings = _slice_headings(todo_text.splitlines(), start_line, end_line)
+    prose = todo_text.splitlines()
+    headings = _slice_headings(prose, start_line, end_line)
     index = load_index(args.index)
     try:
         if not headings:
             return _implicit_slice_ready(args, index, start_line, end_line, plan_name)
         slices = {row.number: row for row in parse_build_order(_read(args.spec), args.spec)}
-        done = _done_by_slice(index.rows, headings, end_line)
+        done = _done_by_slice(index.rows, headings, end_line, prose)
     except (SpecPathError, SliceError, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
@@ -425,9 +468,11 @@ def _git_changed_paths(repo: str, base: str) -> List[str]:
 
 
 def cmd_check(args: argparse.Namespace) -> int:
+    """Exit 0 when the diff stayed inside the slice's surface, 1 when it did not, 2 on bad input."""
+    implicit_name = os.path.splitext(os.path.basename(args.spec))[0]
     try:
-        slices = {row.number: row for row in parse_build_order(_read(args.spec), args.spec)}
-    except (SliceError, OSError) as exc:
+        slices = resolve_slices(args.spec, implicit_name)
+    except (SpecPathError, SliceError, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
     row = slices.get(args.slice)

@@ -176,7 +176,7 @@ def parse_implementation_paths(block: Sequence[str], spec: str) -> Optional[List
     return entries
 
 
-def read_implementation_paths(spec_file: str, spec_path: str) -> List[str]:
+def read_implementation_paths(spec_path: str) -> List[str]:
     """Read and validate `implementation_paths` straight off a spec's frontmatter.
 
     `slice.py` needs this to check a slice's surface against the spec's declared
@@ -184,7 +184,7 @@ def read_implementation_paths(spec_file: str, spec_path: str) -> List[str]:
     reader — that fallback belongs to living-spec reconciliation, which tolerates
     an unmigrated spec. A slice plan has no such excuse.
     """
-    with open(spec_file, "r", encoding="utf-8") as handle:
+    with open(spec_path, "r", encoding="utf-8") as handle:
         text = handle.read()
     block = frontmatter_block(text, spec_path)
     if block is None:
