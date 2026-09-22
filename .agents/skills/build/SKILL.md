@@ -26,7 +26,7 @@ Sub-agent model assignment for build orchestration. The Tier column is canonical
 
 **Escalation ladder for test regressions:**
 1. 2 attempts at builder tier
-2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `CLAUDE.md` § Model Routing → Floors.
+2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `.agents/references/model-routing.md` § *Floors*.
 3. Circuit breaker — `planner` at planner tier analyzes all 4 attempts; then halt and escalate to user
 
 Steps 1 and 2 must never resolve to the same model. If they do, the ladder has no middle rung and the first genuine escalation is the circuit breaker — four failed attempts later than intended.
@@ -468,7 +468,7 @@ On Pi + OpenRouter, explicit model IDs from the Model Routing table are used.
 override caps the highest-stakes review below the model the user chose.
 `critic` is the one exception: it carries a **planner floor**, so pass the planner
 alias when the session model is below planner tier and omit `model` otherwise.
-See `CLAUDE.md` § Model Routing.
+See `.agents/references/model-routing.md`.
 
 ### Pi Dispatch
 

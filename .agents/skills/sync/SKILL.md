@@ -101,6 +101,7 @@ These are the files/directories managed by the workflow template.
 CLAUDE.md             → Shared rules: workflow, principles, skills index (both harnesses)
 .agents/skills/       → Canonical skills (harness-neutral)
 .agents/agents/       → Canonical sub-agent personas (harness-neutral, discovered by pi-subagents)
+.agents/references/   → Protocol references read at dispatch time: finding model, review dispatch contract, model routing
 .claude/skills/       → RETIRED — the jplugin plugin reads .agents/skills/; kept so /sync retires downstream copies
 .claude/agents/       → Subagent definitions (Claude Code only)
 .claude/hooks/        → Lifecycle hooks (Claude Code only)
@@ -203,12 +204,12 @@ Compare the syncable paths between the current project and the template source.
 # Show changed files in syncable paths only
 # Note: use two-dot diff (not three-dot) — template and project have unrelated histories,
 # so HEAD...workflow/$WORKFLOW_BRANCH fails with "no merge base"
-git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/references/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 Then show the full diff:
 ```bash
-git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/references/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 **If manual diff mode:**

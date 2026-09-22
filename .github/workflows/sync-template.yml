@@ -5,7 +5,7 @@ name: Sync jplugin-agentic-development (reusable)
 # public jplugin-agentic-development repo, opening a PR with any changes.
 #
 # Managed (overwritten/added, never deleted): CLAUDE.md, .agents/skills/,
-#   .claude/agents/, .claude/hooks/, .claude/settings.json
+#   .agents/references/, .claude/agents/, .claude/hooks/, .claude/settings.json
 # Retired (not mirrored; /sync deletes the copies, this workflow never deletes): .claude/skills/
 # Preserved (never touched): .claude/project.md, AGENTS.md, CLAUDE.local.md
 
@@ -54,6 +54,7 @@ jobs:
             fi
           }
           mirror ".agents/skills"
+          mirror ".agents/references"
           mirror ".claude/agents"
           mirror ".claude/hooks"
           if [ -f "$T/.claude/settings.json" ]; then
@@ -78,7 +79,7 @@ jobs:
             [jplugin-agentic-development@${{ inputs.template_ref }}](https://github.com/Joaovsales/jplugin-agentic-development/tree/${{ inputs.template_ref }})
             (`${{ steps.fetch.outputs.sha }}`).
 
-            **Managed (overwritten/added):** `CLAUDE.md`, `.agents/skills/`, `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`
+            **Managed (overwritten/added):** `CLAUDE.md`, `.agents/skills/`, `.agents/references/`, `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`
             **Retired (not mirrored — run `/sync` in the project to delete the copies):** `.claude/skills/`
             **Preserved (untouched):** `.claude/project.md`, `AGENTS.md`, `CLAUDE.local.md`
 

@@ -51,7 +51,7 @@ produce no file.
 Runs in the main context at the session model. Recon (Step 2) delegates to the
 scout tier — `haiku` on Claude Code, `scout` on Pi. The Step 5 `critic` is
 ceiling with a planner floor: pass no `model` unless the session model is below
-planner tier. See `CLAUDE.md` § Model Routing.
+planner tier. See `.agents/references/model-routing.md`.
 
 ## The Process
 

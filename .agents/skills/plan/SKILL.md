@@ -17,7 +17,7 @@ Sub-agent delegations follow the Model Routing table in `/build` (planner tier f
   agents (`code-reviewer`, `security-reviewer`, `software-design-expert-review`,
   `critic`), which take no `model` so they inherit the session model. `critic` carries a
   **planner floor**: pass the planner alias if the session model is below planner tier.
-  See `CLAUDE.md` § Model Routing.
+  See `.agents/references/model-routing.md`.
 - **Pi** — no per-call model params; routing resolves from `subagents.agentOverrides` (requires the `pi-subagents` extension). Use `scout` for codebase exploration.
 - The planning phase requires the strongest reasoning model for architecture decisions
 

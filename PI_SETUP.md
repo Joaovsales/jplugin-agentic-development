@@ -272,8 +272,7 @@ Model ID per sub-agent role:
 | Search / recon | `scout` | `deepseek/deepseek-v4-flash` | $0.14 |
 
 On Claude Code these are passed to the Agent tool when dispatching sub-agents — **except Ceiling-tier
-roles, which take no `model` at all** so they inherit the session model (see `CLAUDE.md` § *Model
-Routing*). On Pi they resolve from `subagents.agentOverrides` (see previous section), where Ceiling roles
+roles, which take no `model` at all** so they inherit the session model (see `.agents/references/model-routing.md`). On Pi they resolve from `subagents.agentOverrides` (see previous section), where Ceiling roles
 stay explicitly pinned, because omission there falls through to `defaultModel` rather than to the
 session model. Each sub-agent runs
 independently with its own model and context.

@@ -13,7 +13,7 @@ Review recently changed files for security vulnerabilities. Flag issues by sever
 
 ## Context Intake
 
-**Given to you** (per `CLAUDE.md` § *Review Dispatch Contract*): the diff or its
+**Given to you** (per `.agents/references/review-dispatch-contract.md`): the diff or its
 path, every relevant spec's path plus its acceptance criteria, the task entries closed this run, the
 deferral list, and the scope boundary. Use the given base rather than guessing one —
 the commands below are the fallback for when no diff was passed. `deferrals: none`

@@ -65,172 +65,28 @@ Layer 3 — Pre-push in /wrap-up     codebase consistency, defensive audit,
                                    test coverage, adversarial critic
 ```
 
-Every finding any layer emits carries the four axes in *Finding Model* below. Any
-layer that promotes a finding because reviewers agreed is bound by *Independence
-Accounting*.
+Every finding any layer emits carries the four axes of the *Finding Model*
+(`.agents/references/finding-model.md`). Any layer that promotes a finding because
+reviewers agreed is bound by its § *Independence Accounting*.
 
 ---
 
 ## Finding Model
 
-A finding carries four orthogonal fields. One tag cannot answer four questions,
-and collapsing them is what lets an unsure guess inherit the authority of a
-proven defect.
-
-| Field | Answers | Values |
-|-------|---------|--------|
-| `severity` | how urgent | `MUST-FIX` / `SHOULD-FIX` / `NITPICK` |
-| `confidence` | how sure | `50` / `75` / `100` |
-| `autofix_class` | what shape the fix is | `gated_auto` / `manual` / `advisory` |
-| `owner` | who acts | `agent` / `human` / `release` |
-
-Canonical emission format, so findings stay parseable across harnesses:
-
-```
-[MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent] file.py:42 — description and impact
-  evidence: `except Exception: pass` (file.py:42)
-```
-
-**Confidence anchors** are behavioral criteria, not a feeling:
-
-| Anchor | Criterion |
-|--------|-----------|
-| `100` | The reviewer read the defect in the diff and can quote the line that proves it. Reproducible from the evidence alone. |
-| `75` | The reviewer located the defect and can cite the line, but correctness turns on a caller, config, or runtime value outside the reviewed scope. |
-| `50` | Pattern-matched or inferred. No line proves it, or the reviewer never read the path it depends on. |
-
-**Gates:**
-
-- A finding at `75` or `100` **must** carry `evidence` — the verbatim motivating
-  line with `file:line`. Missing evidence **demotes** it to `50` rather than
-  dropping it.
-- Independent corroboration promotes `confidence` by exactly one anchor, and only
-  as *Independence Accounting* permits.
-- On reviewer disagreement, synthesis takes the **more conservative**
-  `autofix_class`. It never widens.
-- A finding is auto-applied only when it is `gated_auto` **and**
-  `confidence >= 75`. Everything else is reported, never silently dropped.
-- A finding arriving with no `confidence` — an older single-axis reviewer — is
-  read as `50` / `autofix_class: manual`: reported, never auto-applied, never
-  discarded.
-
-### Resolving an anchor-75 finding
-
-Anchor `75` is a *pending question*, not a resting place. It is the anchor where a
-`manual` or `advisory` finding waits on a human, and where a `gated_auto` one is
-applied on evidence the reviewer never actually read — so leaving it unresolved
-costs something in both directions.
-
-- A finding at `75` must **name** the specific caller, config key, or runtime value
-  its correctness turns on. "Depends on the caller" without naming one is a `50` —
-  it is a pattern match wearing a higher anchor.
-- Read that dependency and resolve the finding: promote to `100` with a second
-  `evidence` line quoting what you found, or drop it. A finding that stays at `75`
-  must say what stopped the check — outside the repo, needs runtime, budget spent.
-  It is never dropped for being unverifiable.
-
-Promotion this way does not stretch anchor `100`. `100` means reproducible from the
-cited evidence alone, and the second `evidence` line *is* cited — the reader
-reproduces it from two quoted lines instead of one, without re-deriving anything.
-
-**Verification-promotion is not agreement-promotion, and *Independence Accounting*
-does not constrain it.** Agreement promotes on *witnesses*, so it needs separately
-dispatched contexts. Verification promotes on *evidence*, so one context reading
-one more line is enough. Conflating them either forbids a legitimate promotion or
-licenses an illegitimate one.
-
-### Independence Accounting
-
-Corroboration counts **only** when the findings came from separately dispatched
-contexts. Two lenses reasoned inside one context are two perspectives, not two
-witnesses: they share the same priors and the same blind spots, so their
-agreement carries no information about whether the finding is real.
-
-A run that could not dispatch still reports its findings and still applies them
-under the gates above — but it must **state the corroboration it lost** instead
-of promoting on it. Naming the loss is the correct floor, not a failure.
-
-Never claim independent corroboration from a model whose identity was only
-requested rather than verified.
+Every finding carries four orthogonal axes — `severity`, `confidence`, `autofix_class`,
+`owner` — and is auto-applied only when it is `gated_auto` at `confidence >= 75`. The
+emission format, the confidence anchors, the gates, anchor-75 resolution and Independence
+Accounting live in `.agents/references/finding-model.md`.
 
 ---
 
 ## Review Dispatch Contract
 
-A dispatched reviewer knows only what its prompt carries. `/build` already holds
-implementers to a contract (§ *Delegation prompt must include* in `/build`);
-reviewers get the same treatment here, because a reviewer without the spec is
-reviewing what the code *is* against nothing but its own priors about what code
-should be.
-
-This contract governs what crosses a **dispatch boundary**. An inline run already
-holds all of it in context; *Dispatch Disclosure* governs what its agreement is
-worth.
-
 Every dispatch of `code-reviewer`, `critic`, `security-reviewer`, or
-`software-design-expert-review` must carry all seven:
-
-| # | Item | Why the reviewer cannot supply it itself |
-|---|------|------------------------------------------|
-| 1 | The `<base>...HEAD` diff — inline when small, else truncated-plus-path per *Large-Artifact Handoff* | it can run `git diff`, but not know which base this session used |
-| 2 | **Every spec relevant to this session** — each spec's path **and** the AC list verbatim, with the checkbox state stripped | nothing in a diff names the spec it implements |
-| 3 | The `tasks/todo.md` entries completed this run | separates "not implemented" from "next task, deliberately" |
-| 4 | The `[AMBIGUITY]` lines emitted this run | a decision already made and recorded reads as a defect |
-| 5 | The `TODO(shortcut):` markers touching changed files | same: a documented limit with an upgrade path is not a finding |
-| 6 | The boundary — review issues **introduced** by this session; pre-existing patterns are out of scope | today this is stated to the orchestrator and never to the agent |
-| 7 | The output format — four axes, `evidence` required at `75` or above | a persona drifts from the gate that consumes it |
-
-Item 2 is plural because a session is. One shared module can belong to several
-features, so a change routinely touches more than one spec — and a reviewer handed
-one of three measures the other two's changes against nothing but its own priors,
-then reports the difference as a defect. List **each spec** with its own criteria
-rather than merging them into a single list, or the reviewer cannot tell which
-contract an unmet criterion belongs to.
-
-**Items 2–5 must distinguish **empty** from **absent**.** Pass `deferrals: none`
-and `no spec — <reason>`, never a missing line. A reviewer that cannot tell
-"nothing was deferred" from "nobody told me" has to assume the latter and re-flag
-everything, which is the noise this contract exists to remove. Items 1, 6 and 7
-have no empty form — a dispatch without them is incomplete, not empty.
-
-Keep items 2–5 bounded the way item 1 is. A 250-line spec pasted verbatim into four
-parallel dispatches costs four times what it reads; truncate-plus-path applies to
-any of them that outgrows the diff it explains.
-
-**A repo-survey dispatch has no session to describe.** `/sweep --routine architect`
-reviews the whole tree through `/software-design-expert-review --scope tree`
-rather than a change, so items 2, 3 and 6 have no subject. It passes `no spec — repo survey, nothing built this run` and
-`deferrals: none`, and carries items 1, 4, 5 and 7 unchanged. This is the one
-exception, and it is an exception to the *subject* of the items, never to stating
-them.
-
-### Share intent, withhold conclusions
-
-**Share intent** — spec, acceptance criteria, task text, constraints, and the
-documented deferrals above. These are facts about what was asked for, and a
-reviewer denied them reviews against its own assumptions instead.
-
-**Withhold conclusions** — the builder's account of why the code is correct, and
-any other reviewer's findings. These are judgements about whether the ask was met,
-and that judgement is the reviewer's own product. Passing them would import
-exactly those priors that *Independence Accounting* keeps out, and the promotion
-rule would then count a downstream echo as an independent witness.
-
-The split is imperfect in one direction worth naming. A spec written by the builder
-argues for its own design, and an AC list encodes what the builder decided "done"
-means — so intent arrives carrying some of the author's case. Strip the checkbox
-state (item 2), and treat the spec's rationale as a **claim to be tested**, not as
-evidence. A reviewer that finds the spec's argument unsound should say so; that is
-a finding, not a scope violation.
-
-**A shared payload narrows independence to the reading, not the framing.** Four
-passes handed identical intent share a frame by construction, which is exactly the
-property *Independence Accounting* discounts. Their agreement still promotes,
-because each read the diff separately — but a finding that merely restates
-something the payload told all four is not corroboration, and must not be promoted
-on that basis.
-
-The split is why this contract does not simply forward the whole build trace.
+`software-design-expert-review` carries the seven items in
+`.agents/references/review-dispatch-contract.md` § *The seven items*, states
+`deferrals: none` and `no spec — <reason>` when an item is empty, and shares intent while
+withholding conclusions.
 
 ---
 
@@ -316,94 +172,11 @@ tasks/checkpoint.md        → Session snapshots
 
 ## Agents — `.agents/agents/` (canonical) / `.claude/agents/` (Claude Code copy)
 
-Canonical persona definitions live in `.agents/agents/` (model-agnostic — never pin `model:` there).
-- **Claude Code** reads `.claude/agents/` (may pin built-in aliases like `sonnet`).
-- **Pi** discovers `.agents/agents/` automatically via the `pi-subagents` extension; routing comes from `subagents.agentOverrides` in `~/.pi/agent/settings.json`. Extension builtins `scout`, `oracle`, `researcher`, `context-builder` fill roles the workflow does not define; overlapping builtins are disabled in settings.
-
-| Agent | Model | Best For |
-|-------|-------|---------|
-| `planner` | `opus` | Spec writing, task breakdown, architecture decisions |
-| `backend-developer` | `sonnet` | APIs, databases, auth, performance, security |
-| `frontend-developer` | `sonnet` | React/Vue/Angular components, responsive UI |
-| `frontend-design-validator` | `sonnet` | Validate UI against design specs |
-| `code-reviewer` | *ceiling* | Post-implementation quality review |
-| `code-debugger` | `sonnet` | Debugging failing tests and runtime errors |
-| `security-reviewer` | *ceiling* | OWASP checks, auth flows, injection vectors |
-| `critic` | *ceiling (planner floor)* | Adversarial quality gate for plans, code, specs |
-| `context-document-optimizer` | `sonnet` | Compress large docs for token efficiency |
-| `software-design-expert-review` | *ceiling* | Read-only APOSD design audit — depth, leakage, error design (dispatched by `/quality-gate`) |
-
-**Rule**: One focused task per subagent. Resolve each agent's model through the
-tier in *Model Routing* below — on Claude Code pass `model` explicitly for the
-Planner, Builder, Reviewer, and Scout tiers, and pass **nothing** for *ceiling*
-agents so they inherit the session model; on Pi, never pass per-call model params
-(agentOverrides resolves them).
-
----
-
-## Model Routing
-
-Canonical tiers. Concrete provider model IDs are deliberately **not** repeated here — `PI_SETUP.md` § Sub-Agent Routing is their single source, so a model release updates one file instead of three:
-
-| Tier | Used for | Claude Code |
-|------|----------|-------------|
-| Ceiling | correctness, security, design, and adversarial review — the highest-stakes judgment | *inherit* |
-| Planner | `/plan`, architecture, oracle, circuit breaker | `opus` |
-| Builder | `/build` coding, debugging (attempts 1–2) | `sonnet` |
-| Reviewer | doc compression, debugging (attempts 3–4 — see the floor below) | `sonnet` |
-| Scout | search, recon, context building | `haiku` |
-
-**`Ceiling` means: omit the model override entirely so the sub-agent inherits the
-session model.** It is not a model name and must never be written as one. If the
-user is running Opus, a ceiling-tier reviewer runs on Opus.
-
-Ceiling exists because pinning a tier to a concrete model *caps* it. A rule that
-says "always pass `model` explicitly" silently downgrades the highest-stakes
-review to the pinned tier for exactly the users who chose a stronger session
-model — the reviewers most worth running at full capability. Inheriting is also
-the correct cross-harness fallback: where a harness cannot select a model per
-agent, omit the override rather than guessing a name, because a working review on
-the parent model beats a failed dispatch on an unrecognized one.
-
-### Floors
-
-`ceiling (<tier> floor)` means: inherit the session model, but never resolve
-*below* `<tier>`. Omit the override when the session model is at `<tier>` or
-above; pass `<tier>`'s alias when it is lower. A floor is always a **dispatch
-rule, not frontmatter** — a `model:` pin would satisfy the floor on a weaker
-session but *cap* the agent on a stronger one, the same defect Ceiling exists to
-remove. Nothing mechanically enforces a floor; `tests/test-model-tiers.sh` pins
-the rule's presence and the absence of a pin, which is as far as a static guard
-reaches. Two roles carry one:
-
-**`critic` — `*ceiling (planner floor)*`, so it never resolves below planner
-tier.** It is the adversarial gate of last resort, and a plain ceiling would
-silently drop it beneath planner tier on a Builder- or Scout-tier session — downgrading the one reviewer whose job is
-catching what the others missed.
-
-**Debugger attempts 3–4 — `ceiling (builder floor)`.** This is the escalation
-rung of the regression ladder, and on Claude Code it had nothing to escalate *to*:
-**Reviewer and Builder both resolve to `sonnet`**, because Claude Code offers no
-alias between them. So attempts 3–4 re-ran the exact model that had just failed
-twice, and "graduated escalation" was a no-op until the circuit breaker. The floor
-makes the rung strictly stronger than attempts 1–2 on every session — planner
-alias on a Builder-or-weaker session, inherited model above that — without
-capping an Opus-or-stronger session at a fixed alias. Pi is unaffected: it has a
-genuine three-model ladder already (see `PI_SETUP.md`).
-
-Rules:
-- Never use the planner tier for code writing; never use the scout tier for coding
-  or planning.
-- **Claude Code**: pass `model` explicitly for the Planner, Builder, Reviewer, and
-  Scout tiers. Pass **nothing** for Ceiling — an override there is the regression
-  this tier exists to prevent. `critic` is the one exception, and only downward,
-  per its floor above.
-- **Pi**: never pass per-call model params; `subagents.agentOverrides` resolves
-  them. Ceiling-tier agents stay **explicitly pinned** there. Omitting an agent
-  from `agentOverrides` falls through to `subagents.defaultModel` — a fixed
-  builder-tier model, not the session model — so omission on Pi *downgrades*
-  rather than inherits. Ceiling-by-omission is a Claude Code property; see
-  `PI_SETUP.md` § Sub-Agent Routing for the Pi equivalent.
+One focused task per subagent. The persona table with its Model column, the tiers,
+Ceiling, the floors and the per-harness dispatch rules live in
+`.agents/references/model-routing.md`: on Claude Code pass `model` explicitly for the
+Planner, Builder, Reviewer and Scout tiers and pass **nothing** for *ceiling* agents so
+they inherit the session model; on Pi never pass per-call model params.
 
 ---
 

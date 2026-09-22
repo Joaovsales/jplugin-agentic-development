@@ -314,10 +314,10 @@ INNER_EOF
 # worktree whose files were authored with LF and fails on a fresh clone of the same
 # commit -- which is exactly what it did.
 
-assert_file_contains "CLAUDE.md" "### Independence Accounting" \
-  "M1: CLAUDE.md has an Independence Accounting subsection"
-assert_contains "$(flatten CLAUDE.md)" "separately dispatched contexts" \
-  "M1: CLAUDE.md requires separately dispatched contexts for corroboration"
+assert_file_contains ".agents/references/finding-model.md" "## Independence Accounting" \
+  "M1: finding-model.md has an Independence Accounting section"
+assert_contains "$(flatten .agents/references/finding-model.md)" "separately dispatched contexts" \
+  "M1: finding-model.md requires separately dispatched contexts for corroboration"
 
 taxonomy="$(sed -n '/^## Review Gate Taxonomy/,/^## Finding Model/p' CLAUDE.md | tr -d '\r' | tr '\n' ' ' | tr -s ' ')"
 assert_contains "$taxonomy" "Independence Accounting" \
@@ -325,11 +325,11 @@ assert_contains "$taxonomy" "Independence Accounting" \
 assert_contains "$taxonomy" "Finding Model" \
   "M1: Review Gate Taxonomy cross-references the Finding Model"
 
-# --- Tier 2 (M2): four-axis findings in CLAUDE.md and both review skills -----
+# --- Tier 2 (M2): four-axis findings in the finding model and both review skills -----
 # Each axis, enum value, and confidence anchor is pinned as its own token. A
 # dropped enum value is exactly what would let an unsure finding auto-apply, and
 # it is invisible in a whole-block snapshot.
-for f in CLAUDE.md \
+for f in .agents/references/finding-model.md \
          .agents/skills/quality-gate/SKILL.md \
          .agents/skills/wrap-up-session/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do

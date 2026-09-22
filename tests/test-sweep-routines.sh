@@ -248,9 +248,9 @@ done
 assert_eq "absent" "$([ -e "tests/test-$retired-rewire.sh" ] && echo present || echo absent)" \
   "AC9: the retired skill's rewire test is deleted"
 
-survey="$(awk '/repo-survey dispatch has no session/{f=1} f{print} f&&/^$/{exit}' CLAUDE.md)"
+survey="$(awk '/repo-survey dispatch has no session/{f=1} f{print} f&&/^$/{exit}' .agents/references/review-dispatch-contract.md)"
 assert_contains "$survey" "/sweep" \
-  "AC9: CLAUDE.md's repo-survey exception names /sweep"
+  "AC9: the review dispatch contract's repo-survey exception names /sweep"
 assert_file_matches CLAUDE.md '^\| `/sweep' \
   "AC9: CLAUDE.md's skills table lists /sweep"
 assert_file_matches README.md '^\| `/sweep' \

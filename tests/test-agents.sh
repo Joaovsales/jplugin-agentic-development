@@ -8,7 +8,7 @@
 #   - every .claude/agents/ persona has a canonical counterpart
 #   - no agent's frontmatter carries the plain-scalar constructs that break the
 #     YAML parse and silently deregister the persona (see § 4)
-#   - every persona CLAUDE.md § Agents names has a file in both trees (see § 5)
+#   - every persona model-routing.md § Agents names has a file in both trees (see § 5)
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -77,7 +77,7 @@ frontmatter_hazards() {
   ' "$1"
 }
 
-# Emit the agent names CLAUDE.md § Agents routes to, one per line. Scoped to
+# Emit the agent names model-routing.md § Agents routes to, one per line. Scoped to
 # that section so the Finding Model and Skills tables (same row shape) do not
 # leak in. Callers must check the count — see the floor assertion in § 5.
 claude_md_agent_names() {
@@ -86,7 +86,7 @@ claude_md_agent_names() {
     /^## Agents/ { inside = 1; next }
     inside && /^## /                { exit }
     inside && /^\| `[a-z0-9-]+` \|/ { sub(/^\| `/, ""); sub(/`.*/, ""); print }
-  ' CLAUDE.md
+  ' .agents/references/model-routing.md
 }
 
 # 1. Frontmatter validity + no model pin in canonical agents
@@ -223,7 +223,7 @@ for f in "$CANONICAL"/*.md "$CLAUDE"/*.md; do
   fi
 done
 
-# 5. Every persona CLAUDE.md § Agents names must exist in both trees.
+# 5. Every persona model-routing.md § Agents names must exist in both trees.
 #
 # The mirror of check 2, which only walks disk -> docs and so cannot see a
 # documented agent with no file at all. /wrap-up-session and /quality-gate
@@ -246,11 +246,11 @@ CANONICAL_AGENT_COUNT="$(ls "$CANONICAL"/*.md | grep -vc '/README\.md$' || true)
 # itself silently. Pin the count to the files on disk so drift is loud.
 if [ "$CLAUDE_MD_AGENT_COUNT" -lt "$CANONICAL_AGENT_COUNT" ]; then
   _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-  printf '  FAIL Agents: CLAUDE.md §%s Agents yielded %s names but %s persona files exist — table or heading drifted\n' \
+  printf '  FAIL Agents: model-routing.md §%s Agents yielded %s names but %s persona files exist — table or heading drifted\n' \
     ' ' "$CLAUDE_MD_AGENT_COUNT" "$CANONICAL_AGENT_COUNT"
 else
   _TESTS=$((_TESTS + 1))
-  printf '  ok   Agents: CLAUDE.md Agents table yields %s names (>= %s on disk)\n' \
+  printf '  ok   Agents: model-routing.md Agents table yields %s names (>= %s on disk)\n' \
     "$CLAUDE_MD_AGENT_COUNT" "$CANONICAL_AGENT_COUNT"
 fi
 
@@ -260,7 +260,7 @@ for agent in $CLAUDE_MD_AGENTS; do
     # dominates this suite's runtime on Windows (see test-skill-frontmatter.sh).
     if [ -f "$tree/$agent.md" ]; then found=present; else found=missing; fi
     assert_eq "present" "$found" \
-      "Agents: CLAUDE.md routes to \`$agent\` and $tree/$agent.md exists"
+      "Agents: model-routing.md routes to \`$agent\` and $tree/$agent.md exists"
   done
 done
 
