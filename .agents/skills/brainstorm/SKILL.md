@@ -123,6 +123,12 @@ implementation_paths:
 
 [Architecture, components, data flow, error handling, testing approach]
 
+## Decisions
+
+| # | Question | Decision | Source | Why |
+|---|---|---|---|---|
+| 1 | [question] | [decision] | user | [reason] |
+
 ## Acceptance Criteria
 - [Verifiable criterion 1]
 - [Verifiable criterion 2]
@@ -135,7 +141,10 @@ implementation_paths:
 Acceptance Criteria are ordinary bullets, and every section states current
 behavior in the present tense. Full path rules live in `/plan` § *Write the Spec*.
 Use the canonical terms settled in Step 3; a spec that needs a term the glossary
-does not have reopens the interview rather than coining one silently.
+does not have reopens the interview rather than coining one silently. § Decisions
+rows are all `Source: user` — Step 3 settled them through the interview, never
+by assumption — so `/plan` Step 1 can print `DECISIONS CARRIED` and carry them
+forward instead of re-asking.
 
 ### Step 7 — Self-Review the Spec
 Before presenting to the user, check the spec for:

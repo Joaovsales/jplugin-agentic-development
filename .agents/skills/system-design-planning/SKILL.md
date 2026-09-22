@@ -1,6 +1,6 @@
 ---
 name: system-design-planning
-description: Turn an issue or a feature idea into an upstream architecture review — system design, component contracts, data models, constraints, and a dependency-ordered build plan — rendered as a self-contained HTML document a human approves before anything is filed or built. On approval it files one issue per build slice and writes the TDD plan /build consumes unchanged. Use instead of /brainstorm + /plan when the change crosses a component boundary, adds or changes a persisted data model, or introduces or changes an external contract.
+description: Turn an issue or a feature idea into an upstream architecture review — system design, component contracts, data models, constraints, and a dependency-ordered build plan — rendered as a self-contained HTML document, then ends with a build prompt for a fresh session. Nothing is filed and nothing is built in this session; the reviewer approves by starting the build session with that prompt. Use instead of /brainstorm + /plan when the change crosses a component boundary, adds or changes a persisted data model, or introduces or changes an external contract.
 argument-hint: "[#issue | task-id | feature idea or problem statement]"
 disable-model-invocation: false
 harness: universal
@@ -17,22 +17,19 @@ spends the human's review time there.
 
 Given an issue or an idea, it reads the real codebase, proposes an architecture
 in four elements plus a build order, renders it to HTML, and stops. A human
-reviews the rendered document. Only after approval does it file one issue per
-build slice and write the `[ ] TDD:` plan that `/build` executes unchanged.
+reviews the rendered document and approves it by starting a fresh session with
+the build prompt this session prints — that session, not this one, files the
+slices and builds them.
 
 Worked example: `specs/upsert-depends-on.md` and its render
-`specs/upsert-depends-on.plan.html` — the design for the `--depends-on` flag that
-Step 8 asks for, produced by running this skill against its own shortcut.
+`specs/upsert-depends-on.plan.html` — the design for the `--depends-on` flag,
+produced by running this skill against its own shortcut.
 
 ## The Iron Law
 
 ```
-NOTHING IS FILED AND NOTHING IS BUILT UNTIL A HUMAN HAS APPROVED THE RENDERED ARCHITECTURE DOCUMENT.
+NOTHING IS FILED AND NOTHING IS BUILT IN THE PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD PROMPT.
 ```
-
-"Approved" is the reviewer's word in chat **after** the `.plan.html` path was
-printed. Silence, a partial answer, or agreement given before the render is not
-approval.
 
 ## When to Use / When Not
 
@@ -61,6 +58,10 @@ planner tier. See `.agents/references/model-routing.md`.
   `python3 .agents/skills/task-registry/scripts/task-registry.py show <ref>`,
   never a tracker CLI. Title, body, criteria and labels are the problem statement.
 - Free text → the text is the problem statement.
+- A spec already on disk — `/plan` escalating after its own Step 1, or a
+  second pass through this skill — → read its § Decisions: `user` rows are
+  constraints with source `user` and are not re-asked; `open` rows seed Step
+  2.5's frontier. Proceed straight to Step 2.
 - `git rev-list --count HEAD..@{upstream}` non-zero → pull before reading anything.
 - If `tasks/backlog.md` has a matching item, mark it `[~]` and use its description.
 
@@ -86,6 +87,39 @@ tool-call budget — `.agents/skills/build/references/subagent-resilience.md`.
 Output: a *current-state* ASCII sketch. A path or symbol you did not read is
 written `NEW` or `UNVERIFIED`, never presented as fact.
 
+### 2.5. Interview Through `/grilling`
+
+Mandatory — never skipped, even when the frontier turns out to be empty.
+
+Invoke `/grilling` with the problem statement as the root of the design tree.
+The seed frontier is the architecture template's own questions, minus
+whatever Step 1 or recon already settled:
+
+- each constraint's value and how a violation would be detected
+- who owns each fact a boundary crosses
+- each boundary's outcomes and its failure unit
+- the illegal states and transitions a status field must forbid
+
+When Step 1 carried a settled tree — a spec with § Decisions, or an earlier
+`/grilling` run in this conversation whose frontier is already empty — print
+`DECISIONS CARRIED: <n> from <spec path | conversation>` and ask only that
+source's `open` rows plus whatever recon raised; settled rows are never
+re-asked. Both orders work: `/grilling` before this skill, or this skill
+before `/grilling`. Facts come from recon and are looked up, not asked;
+decisions go to the reviewer.
+
+When nothing is left to ask, the frontier is empty and this step ends
+without a round.
+
+The settled tree is written to the spec's § Decisions as each answer
+resolves. A question the reviewer leaves open stays an `inferred` constraint,
+not a decided one.
+
+**Fallback.** When `/grilling` fails to load, say so —
+`/grilling did not load; asking the seed frontier directly` — and run one
+round in its own `❓` / `➡️` format: the whole seed frontier at once,
+numbered, with a recommended answer on every question.
+
 ### 3. Write the architecture spec (MUST persist)
 
 Write `specs/<feature>.md` from `templates/architecture-spec-template.md`. The
@@ -98,7 +132,7 @@ checked against them:
 | System design | ownership table (component → the facts it is the source of truth for); interaction sketch with sync/async and the failure unit per arrow | who owns what, and what fails together? |
 | Component contracts | per boundary: signature in the project's language, outcomes vs exceptions, idempotency, versioning | can the caller ignore a case it must handle? |
 | Data models | entities with invariants; illegal-state list with the construct that forbids each; a transition table for every status field; migration and compatibility | which field combinations are nonsense, and does the type forbid them? |
-| Build order | slices — each: delivers, depends on, contract exposed, acceptance criteria, size | can each slice ship alone, and is the riskiest unknown first? |
+| Build order | left empty here — `/slice` fills it in Step 3.5; its Delivers text is where "contract exposed" lives, since its table has no separate column for it | can each slice ship alone, and is the riskiest unknown first? |
 | Decisions | hard-to-reverse choices, recommended option, what makes each option wrong | what is expensive to change later? |
 | Acceptance Criteria, Implementation Paths | the `/plan` living-contract format, present tense, plain bullets, `implementation_paths` frontmatter | — |
 
@@ -109,12 +143,20 @@ Rules that make the spec reviewable rather than readable:
   an external call can time out.
 - Every cross-boundary call states its behaviour on timeout and on duplicate
   delivery.
-- Slices are ordered so contracts and data models land before their consumers,
-  every slice leaves the suite green, and the slice with the largest unknown is
-  first — a spike slice if needed. A slice that depends on a later slice is a
-  defect in the order.
+- Build order is `/slice`'s job (Step 3.5), not this one's — sizing and
+  ordering rules live in `.agents/skills/slice/references/sizing.md`.
 
 Required output: `✓ Spec written: /absolute/path/specs/<feature>.md`
+
+### 3.5. Slice the Spec
+
+Invoke `/slice specs/<feature>.md --issue #N`. This runs before Step 6 so the
+rendered HTML carries § Build Order and the build prompt. It sizes the
+spec's acceptance criteria into session-sized slices, writes § Build Order
+and the plan block into `tasks/todo.md` per its own grammar, and prints the
+build prompt — see `.agents/skills/slice/SKILL.md` for what each output
+means and how it is written. This skill does not size slices, write a plan
+block, or print a build prompt itself.
 
 ### 4. Self-review
 
@@ -168,96 +210,39 @@ it, so the reviewed document must survive in history the way the spec does.
 
 Required output: `✓ Visual written: /absolute/path/specs/<feature>.plan.html`
 
-### 7. Human review gate
+### 7. Review Loop
 
 Print both paths and this request, then stop:
 
 > Review the rendered document. Reply with findings as
-> `[constraints|system-design|contracts|data-models|build-order] <finding> — <evidence>`,
-> or **approved**.
+> `[constraints|system-design|contracts|data-models|build-order] <finding> — <evidence>`.
 
-Approval is the bare word. A reply that contains any finding line is findings,
-not approval, even when it also contains the word "approved".
+On findings: edit the spec, re-run Steps 3.5, 4 and 6 to the same paths,
+reprint the paths and the build prompt. Every finding is answered in the
+spec, not in chat. Loop until the reviewer has nothing left to say, then
+print:
 
-On findings: edit the spec, re-run Steps 4 and 6 to the same paths, reprint the
-paths. Every finding is answered in the spec, not in chat. Loop until approved.
+> Spec and plan are ready to be built. Start a fresh session with this prompt:
 
-### 8. File slices (after approval only)
-
-One task per slice, in build order. Three moves, in this order: dry-run,
-plan block, apply. The dry run prints each slice's id; the plan block seeds a
-row carrying that id; the apply then refreshes the seeded row in place instead
-of appending a stray `[ ]` row at the end of `tasks/todo.md`.
-
-```bash
-python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
-  --derive-id design --spec specs/<feature>.md --fold-title \
-  --title '<slice name>' --kind feature \
-  --summary 'Slice <n>/<total>: <what it delivers>. After: <previous slice name, or none>.' \
-  --criterion '<acceptance criterion>' --criterion '<acceptance criterion>' \
-  --evidence 'design: specs/<feature>.md § Build order, slice <n>'
-```
-
-Read the preview (`upsert: would create design.<…> (<destination>)`), write
-the plan block below, then re-run the same command with `--apply --approve`.
-
-- `--approve` carries the reviewer's word into the write gate. Without it,
-  `upsert` honours `require_write_approval` and every slice lands
-  `local-pending` — three "publication pending" lines and no issue. The dry run
-  never carries it.
-- `--kind` is `feature` for new capability, `task` for internal restructuring,
-  `operational` for a spike or a migration.
-- An unreachable tracker still reports `local-pending`; that is reported as
-  such, never retried silently.
-- `TODO(shortcut):` `upsert` has no dependency flag, so ordering lives in the
-  summary's `After:` line and in the plan block order below. Upgrade path: a
-  `--depends-on` flag on `upsert`; the index already parses `(blocked-by: …)`.
-
-The slice number lives in the summary, not the title: `--fold-title` folds the
-title into the id, so a slice keeps its task when a re-plan renumbers it and
-mints a new one only when it is renamed. Slice names are frozen at first
-filing; a renamed slice retires the old task explicitly.
-
-The plan block. If a `## Plan: <feature>` block already exists — an interrupted
-filing, a second approval round — replace its `### Slice` sections in place;
-otherwise **append**. Never leave two blocks for one feature: `/build` runs
-every `[ ]` row it finds. `> Spec:` stands alone on its line —
-`/wrap-up-session` anchors the path to end-of-line and drops the association
-when anything follows it.
-
-```markdown
-## Plan: <feature>
-> Spec: specs/<feature>.md
-> Visual: specs/<feature>.plan.html
-> Approved <YYYY-MM-DD> by <reviewer>
-
-### Slice 1/<total>
-- [ ] <slice name> <!-- task-id: design.<id> -->
-  [ ] TDD: <test that pins acceptance criterion 1> -> <minimal implementation>
-  [ ] TDD: <test that pins acceptance criterion 2> -> <minimal implementation>
-
-### Slice 2/<total>
-- [ ] <slice name> <!-- task-id: design.<id> -->
-  [ ] TDD: <test> -> <implementation>
-```
-
-The `- [ ]` row under each heading is the registry's row: the apply rewrites it
-with the summary and the issue link, and `/build` reads it as a slice header,
-not as work. The indented `[ ] TDD:` rows are the work.
-
-Required output: `✓ Plan written: /absolute/path/tasks/todo.md`, then one line
-per slice: `✓ Filed: <task-id> → <#N | local, publication pending>`.
+followed by the build prompt `/slice` printed in Step 3.5, verbatim — see
+`.agents/skills/slice/references/build-prompt.md`. The reviewer approves by
+starting that session, not by a word typed into this one; this session
+files nothing and builds nothing either way.
 
 ### 9. Hand off
 
-`/build` runs the plan block top to bottom. The `- [ ]` row under each `### Slice`
-heading is a slice header: `/build` claims it through `/task-registry` when its
-first `TDD:` child starts and closes it when the last one passes, and never
-dispatches a coder against it. It does not read the filed task body, so the
-plan block is self-sufficient: every `[ ] TDD:` row names the criterion it
-pins. When an implementation contradicts the spec,
-`/build` stops and the change comes back here — the spec is the contract, and
-`/wrap-up-session` reconciles it when the implementation surface moves.
+The build session files the slices first, through `/build`'s pre-flight
+(`/slice specs/<feature>.md --file --approve`) — this planning session filed
+nothing. `/build` then runs the plan block `/slice` wrote top to bottom: the
+`- [ ]` row under each `### Slice` heading is a slice header, claimed
+through `/task-registry` when its first `TDD:` child starts and closed when
+the last one passes, never dispatched to a coder directly — see
+`.agents/skills/slice/SKILL.md` for the plan block's grammar. `/build` does
+not read the filed task body, so the plan block is self-sufficient: every
+`[ ] TDD:` row names the criterion it pins. When an implementation
+contradicts the spec, `/build` stops and the change comes back here — the
+spec is the contract, and `/wrap-up-session` reconciles it when the
+implementation surface moves.
 
 ## Common Rationalizations
 
@@ -269,12 +254,12 @@ pins. When an implementation contradicts the spec,
 | "The reviewer said it looks good before I rendered" | Approval attaches to the rendered document. Render, then ask. |
 | "I'll settle the data model while building" | Data outlives code. It is the most expensive element to get wrong and the cheapest to review now. |
 | "A diagram is decoration" | The diagram is where the missing arrow — the timeout nobody owns — becomes visible. |
-| "Filing now saves a round-trip" | Filing before approval publishes a design nobody agreed to. |
+| "Filing now saves a round-trip" | Filing is `/build`'s pre-flight, in the build session. Filing here publishes a design nobody has reviewed yet. |
 | "I did not read that module but I know how it works" | Then it is `UNVERIFIED`. A confident wrong path costs the builder hours. |
 
 ## Red Flags — STOP
 
-- A task was filed before the word "approved" appeared in chat
+- A task was filed in the planning session
 - A contract row with no error semantics or no idempotency answer
 - A status field without a transition table
 - A constraint without a detection method
@@ -286,10 +271,12 @@ pins. When an implementation contradicts the spec,
 
 - **Replaces**: `/brainstorm` → `/plan` for changes that meet the *When to Use*
   bar. Not a replacement for `/debug` (bugs) or `/prd` (greenfield projects).
-- **Calls**: `task-registry show` (intake) and `upsert` (filing);
+- **Calls**: `task-registry show` (intake, Step 1); `/grilling` (§2.5);
+  `/slice` (Step 3.5, which owns sizing, the plan block and filing);
   `.agents/skills/visual-recap/scripts/visual-render.py` (render); `critic` (Step 5).
-- **Precedes**: `/build`, which consumes the plan block and the slice tasks
-  unchanged. `/auto-push` and `/yolo` still start from `/plan`; this skill is
+- **Precedes**: `/build`, which a fresh session starts with the build prompt
+  this skill prints; that session, not this one, files the plan block and the
+  slice tasks. `/auto-push` and `/yolo` still start from `/plan`; this skill is
   the supervised entry point.
 - **Pairs with**: `/software-design-expert-review` after the build, auditing
   what was built against what was designed; `/wrap-up-session`, which keeps

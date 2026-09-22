@@ -123,25 +123,10 @@ def operation(request: Request, *, idempotency_key: str) -> Done | Rejected | Un
 
 ## Build order
 
-<!-- Slices are ordered so contracts and data models land before their
-     consumers, every slice leaves the suite green, and the largest unknown is
-     first. A slice that depends on a later slice is a defect in the order. -->
-
-| # | Slice | Delivers | Depends on | Contract exposed | Size |
-|---|-------|----------|------------|------------------|------|
-| 1 | <spike or riskiest slice> | <what is known at the end> | — | <none / a stub> | S |
-| 2 | <data model + migration> | <entities and transitions above> | 1 | <repository interface> | M |
-| 3 | <contract + component> | <ComponentA.operation> | 2 | <signature above> | M |
-| 4 | <consumer wiring> | <caller uses the outcome type> | 3 | — | S |
-
-### Slice criteria
-
-<!-- Criteria a test can pin. No "works correctly", no "handles errors". -->
-
-- Slice 1: <criterion>
-- Slice 2: <criterion>; <criterion>
-- Slice 3: <criterion>; <criterion>
-- Slice 4: <criterion>
+<!-- Left empty here. /slice fills this section's table when it sizes this
+     spec into session-sized slices — see .agents/skills/slice/SKILL.md. Its
+     table has no separate "contract exposed" column; that fact is stated in
+     each slice's Delivers text instead. -->
 
 ## Decisions
 

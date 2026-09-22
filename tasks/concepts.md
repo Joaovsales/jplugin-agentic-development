@@ -9,13 +9,18 @@
 > Sweep: done 2026-08-13
 
 ## Harness vocabulary
-
+- **build prompt** — the fenced message a planning session ends with (`Spec and plan are ready to be built. Start a fresh session with this prompt:`): the spec path, the plan block, the ready set and the constraints a fresh `/build` session needs; written by `/slice` into the spec's § Build Order, which is its durable copy.
 - **ceiling** — model-tier resolution meaning "omit the model override so the sub-agent inherits the session model"; not a model name. Reserved for the highest-stakes review roles.
 - **drift** — divergence between a downstream project and this template (caught by the session-start drift check), or between a vendored skill and its pinned upstream revision in `.github/upstreams.json` (`scripts/check-upstream-drift.py`).
 - **gate** — a hard checkpoint that blocks progress until its condition holds (plan confirmation, quality gate, evidence gate). A review reports; a gate stops.
+- **handover** — the `> Handover:` blockquote `/build` writes under a slice's heading when the slice closes: what landed (`<short-sha>..<short-sha>`), what the next slice must not re-derive, optionally the surface report and one open question; passed verbatim into the delegation prompt of every slice blocked by it, and collected into the PR's `## Handovers` section.
+- **ready set** — the slices whose `Blocked by` slices are all `[x]`, printed by `slice.py ready` with each one's surface and every intersecting pair; disjoint ready slices dispatch in parallel, an intersecting pair without a blocker is serialized in table order.
 - **register** — a single append-oriented markdown file under `tasks/` recording one kind of thing (todo, history, checkpoint, this glossary).
+- **slice** — one session-sized row of a spec's § Build Order (`# | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size`), under the ceiling in `slice/references/sizing.md`; in `tasks/todo.md` a `### Slice n/N — <name>` heading whose `- [ ]` header row is the registry's task and whose indented `[ ] TDD:` rows are the work.
 - **store** — the typed learning store at `tasks/solutions/`: one document per learning, YAML frontmatter, grep-first retrieval. Replaces the retired monolithic `tasks/memory.md`.
+- **surface** — the `implementation_paths` globs a slice may edit, declared in its Build Order row; an agent that must touch a file outside it reports `[SURFACE] +<path> | reason: …` and continues, and `slice.py check` reports `undeclared:` and `untouched:` paths when the slice closes.
 - **tier** — a model-routing band (Ceiling / Planner / Builder / Reviewer / Scout), or an adoption phase in a multi-mechanism spec (Tier 1–3).
+
 
 ## Project vocabulary
 

@@ -45,23 +45,35 @@ for tree in $TREES; do
     "Chain: $tree/quality-gate dispatches software-design-expert-review"
 done
 
-# ── /system-design-planning -> task-registry, visual-render.py, /build ────────
+# ── /system-design-planning -> /grilling, /slice, visual-render.py, /build ───
 # The supervised architecture entry point. It is interchangeable with /plan
-# downstream only while these three handoffs stay written: intake and filing go
-# through the registry (never a tracker CLI), the review document renders through
-# the shared post-processor, and the approved plan lands where /build reads it.
+# downstream only while these handoffs stay written: intake reads through the
+# registry (never a tracker CLI), §2.5 interviews through /grilling, Step
+# 3.5 sizes and files through /slice (which now owns the upsert call this pin
+# used to sit on), the review document renders through the shared
+# post-processor, and the plan /slice writes lands where /build reads it.
 for tree in $TREES; do
   f="$tree/skills/system-design-planning/SKILL.md"
   assert_file_contains "$f" "task-registry.py show" \
     "Chain: $tree/system-design-planning reads issues through task-registry"
-  assert_file_contains "$f" "task-registry.py upsert" \
-    "Chain: $tree/system-design-planning files slices through task-registry"
+  assert_file_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/system-design-planning invokes /slice"
   assert_file_contains "$f" ".agents/skills/visual-recap/scripts/visual-render.py" \
     "Chain: $tree/system-design-planning renders through visual-render.py"
   assert_file_contains "$f" "### 9. Hand off" \
     "Chain: $tree/system-design-planning hands off to /build"
   assert_file_contains "$f" "tasks/todo.md" \
     "Chain: $tree/system-design-planning writes the plan /build reads"
+done
+
+# ── /slice -> task-registry upsert (moved from /system-design-planning) ─────
+# /slice is the one owner of filing now -- Step 3.5 hands sizing, the plan
+# block and the build prompt to it, so the "files slices through
+# task-registry" pin follows the upsert call to where it actually lives.
+for tree in $TREES; do
+  f="$tree/skills/slice/SKILL.md"
+  assert_file_contains "$f" "task-registry.py upsert" \
+    "Chain: $tree/slice files slices through task-registry"
 done
 
 # ── /wrap-up-session -> /learn ───────────────────────────────────────────────
@@ -170,24 +182,42 @@ for tree in $TREES; do
     "Chain: $tree/wrap-up-session records deferred work as a task"
 done
 
-# ── /plan -> /task-registry, after approval and never before ────────────────
+# ── /plan -> /slice ───────────────────────────────────────────────────────
+# specs/plan-slices-and-handover.md AC8. /plan no longer writes a plan block
+# or files tasks itself -- Step 3 hands sizing, the plan block and the build
+# prompt to /slice, and /plan never invokes /build directly.
 for tree in $TREES; do
   f="$tree/skills/plan/SKILL.md"
-  assert_file_contains "$f" "/task-registry" \
-    "Chain: $tree/plan registers tasks through the registry"
-  assert_file_contains "$f" "never creates an external issue implicitly" \
-    "Chain: $tree/plan states that planning creates no external issue on its own"
+  assert_file_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/plan invokes /slice"
+  assert_file_not_matches "$f" 'Invoke `/build' \
+    "Chain: $tree/plan never itself invokes /build"
 done
 
-# ── /brainstorm -> /grilling and /grill-me -> /grilling ──────────────────────
-# The interview primitive is reached only through these two callers. Sever the
+# ── /build -> /slice ──────────────────────────────────────────────────────
+# specs/plan-slices-and-handover.md AC12. /build's pre-flight files any
+# unlinked slice header through /slice --file --approve, in the session the
+# build prompt started -- the authorization the planning session never had.
+for tree in $TREES; do
+  f="$tree/skills/build/SKILL.md"
+  assert_file_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/build invokes /slice"
+  assert_file_contains "$f" "--file --approve" \
+    "Chain: $tree/build's /slice invocation carries --file --approve"
+done
+
+# ── /brainstorm -> /grilling, /grill-me -> /grilling, /system-design-planning -> /grilling ───
+# The interview primitive is reached only through these three callers. Sever the
 # brainstorm handoff and Step 3 silently reverts to a question dump with no
-# recommendations; sever grill-me's and the user-typed front door does nothing.
+# recommendations; sever grill-me's and the user-typed front door does nothing;
+# sever system-design-planning's §2.5 and it stops interviewing altogether.
 for tree in $TREES; do
   assert_file_matches "$tree/skills/brainstorm/SKILL.md" '^Invoke `/grilling`' \
     "Chain: $tree/brainstorm invokes /grilling"
   assert_file_matches "$tree/skills/grill-me/SKILL.md" '^Invoke `/grilling`' \
     "Chain: $tree/grill-me invokes /grilling"
+  assert_file_matches "$tree/skills/system-design-planning/SKILL.md" '^Invoke `/grilling' \
+    "Chain: $tree/system-design-planning invokes /grilling"
 done
 
 finish

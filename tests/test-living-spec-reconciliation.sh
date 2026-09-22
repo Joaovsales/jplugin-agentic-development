@@ -81,9 +81,11 @@ for tree in "$CANON"; do
 
   # The plan block is what associates completed tasks with a spec. Without an
   # exact machine-readable line, wrap-up would have to guess a spec from a
-  # similar filename, which is the one thing the spec forbids it to do.
-  assert_file_contains "$tree/plan/SKILL.md" '> Spec: specs/[feature-name].md' \
-    "plan ($tree): plan template associates its tasks with exactly one spec path"
+  # similar filename, which is the one thing the spec forbids it to do. The
+  # block is written by /slice since specs/plan-slices-and-handover.md; /plan
+  # only invokes it.
+  assert_file_contains "$tree/slice/SKILL.md" '> Spec: specs/<feature>.md' \
+    "slice ($tree): plan block associates its tasks with exactly one spec path"
 done
 
 # specs/README.md is where a human learns the format. A contract documented only

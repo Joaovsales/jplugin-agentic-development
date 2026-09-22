@@ -91,12 +91,11 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
   for token in "name: system-design-planning" "argument-hint:" \
                "disable-model-invocation: false" \
                "Skipping system-design-planning:" \
-               "task-registry.py show" "task-registry.py upsert" "--derive-id design" \
+               "task-registry.py show" \
                ".agents/skills/visual-recap/scripts/visual-render.py" ".plan.html" \
                "references/review-card.md" "templates/architecture-spec-template.md" \
                "templates/content-model.json" \
-               "[ ] TDD:" "### Slice" "TODO(shortcut)" "UNVERIFIED" \
-               "--apply --approve" "> Visual: specs/<feature>.plan.html"; do
+               "[ ] TDD:" "### Slice" "UNVERIFIED"; do
     assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
   done
   # The four elements plus the build order, in the order the spec table lists them.
@@ -116,15 +115,17 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
       "${pos_c:-missing} ${pos_s:-missing} ${pos_k:-missing} ${pos_d:-missing} ${pos_b:-missing}" \
       "system-design-planning: $f lists the elements in dependency order"
   fi
-  # The gate: approval attaches to the rendered document, and filing waits for it.
-  assert_contains "$flat_sdp" "NOTHING IS FILED AND NOTHING IS BUILT UNTIL A HUMAN HAS APPROVED" \
+  # The gate: nothing is filed or built in this session; the reviewer approves
+  # by starting the build session with the printed prompt instead.
+  assert_contains "$flat_sdp" \
+    "NOTHING IS FILED AND NOTHING IS BUILT IN THE PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD PROMPT." \
     "system-design-planning: $f carries the approval iron law"
-  assert_file_contains "$f" "after approval only" \
-    "system-design-planning: $f files slices only after approval"
+  assert_file_contains "$f" "filed in the planning session" \
+    "system-design-planning: $f's Red Flag names filing in the planning session"
   # The path is printed before the gate asks, so the reviewer opens the file
   # the approval attaches to. Pinned by ORDER: the line must precede Step 7.
   pos_v=$(printf '%s' "$flat_sdp" | grep -bo '✓ Visual written:' | head -1 | cut -d: -f1)
-  pos_g=$(printf '%s' "$flat_sdp" | grep -bo '### 7. Human review gate' | head -1 | cut -d: -f1)
+  pos_g=$(printf '%s' "$flat_sdp" | grep -bo '### 7. Review Loop' | head -1 | cut -d: -f1)
   if [ -n "${pos_v:-}" ] && [ -n "${pos_g:-}" ] && [ "$pos_v" -lt "$pos_g" ]; then
     assert_eq "ordered" "ordered" "system-design-planning: $f prints the render path before the gate"
   else
@@ -601,12 +602,17 @@ for tree in .agents; do
     "task-registry: $tree configuration guide separates discovery from provider selection"
 done
 
-# The five workflow skills reach tracking only through the registry.
+# The five workflow skills reach tracking only through the registry. /plan
+# is not one of them any more: specs/plan-slices-and-handover.md AC8 moved
+# filing to /slice, so /plan reaches tracking transitively and is asserted
+# separately below rather than dropped from coverage.
 for tree in .agents; do
-  for skill in plan build verify-evidence quality-gate wrap-up-session; do
+  for skill in slice build verify-evidence quality-gate wrap-up-session; do
     assert_file_contains "$tree/skills/$skill/SKILL.md" "/task-registry" \
       "task-registry: $tree/$skill routes task state through the registry"
   done
+  assert_file_matches "$tree/skills/plan/SKILL.md" '^Invoke `/slice' \
+    "task-registry: $tree/plan reaches tracking transitively, through /slice"
 done
 
 assert_eq "absent" \
@@ -764,5 +770,404 @@ assert_file_contains .agents/hooks/session-start.sh 'Deployment Targets found in
   "Shims: session-start prints the one-line notice for a table still in .claude/project.md"
 assert_file_contains .agents/skills/sync/SKILL.md "### Step 2 — Detect Remote Default Branch" \
   "Shims: /sync Step 2 survives the deletion of its two legacy sub-steps (non-vacuity)"
+
+# --- slice: spec to session-sized slices, documentation contract ------------
+# specs/plan-slices-and-handover.md AC4-6. /slice is the one owner of sizing,
+# ordering, filing and the build-prompt handover that both /plan and
+# /system-design-planning call. Pinned by the smallest falsifiable unit: the
+# frontmatter, the three references' existence, the two fenced templates
+# compared byte-for-byte between SKILL.md and their references (the build
+# prompt verbatim, the plan block after flattening), the required output
+# lines, the refusal conditions, and the negative pins that keep the removed
+# ceremony (a build invocation, a 'y' gate, an approval word, a dependency
+# flag `upsert` does not have) from creeping back in.
+SLICE_SKILL=.agents/skills/slice/SKILL.md
+for token in "name: slice" "disable-model-invocation: false" "harness: universal" \
+             "argument-hint:" "slice.py validate" \
+             "✓ Build Order written:" "✓ Plan written:" \
+             "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
+             "--derive-id plan" "--fold-title" "never start with \`/\`" \
+             "--parent" "local-pending" "✓ Filed:"; do
+  assert_file_contains "$SLICE_SKILL" "$token" "slice: SKILL.md contains '$token'"
+done
+
+# The three references exist.
+for ref in plan-block sizing build-prompt; do
+  assert_eq "present" \
+    "$([ -f ".agents/skills/slice/references/$ref.md" ] && echo present || echo missing)" \
+    "slice: references/$ref.md exists"
+done
+
+# In-place replacement, the no-plan-block refusal, the idempotent re-run and
+# the --approve rule are hard-wrapped prose; pinned via flatten rather than a
+# single-line literal.
+flat_slice="$(flatten "$SLICE_SKILL")"
+assert_contains "$flat_slice" "replaced section by section, in place" \
+  "slice: SKILL.md states the in-place plan-block replacement rule"
+assert_contains "$flat_slice" "Never two blocks for one feature" \
+  "slice: SKILL.md states the one-block-per-feature rule"
+assert_contains "$flat_slice" "there is nothing to file before a proposal" \
+  "slice: SKILL.md states the no-plan-block refusal"
+assert_contains "$flat_slice" "filing is idempotent" \
+  "slice: SKILL.md states the idempotent re-run rule"
+assert_contains "$flat_slice" "the build prompt a human typed is the reviewer's word" \
+  "slice: SKILL.md states the --approve rule the /build and /yolo callers follow"
+
+# Negative pins: the ceremony this spec removed must not reappear here.
+assert_file_not_matches "$SLICE_SKILL" "Invoke /build" \
+  "slice: SKILL.md never itself invokes /build"
+assert_file_not_matches "$SLICE_SKILL" "meet your requirements" \
+  "slice: SKILL.md carries no 'y' gate sentence"
+assert_file_not_matches "$SLICE_SKILL" "> Approved" \
+  "slice: SKILL.md carries no approval-word line"
+if grep -qF -- "--depends-on" "$SLICE_SKILL" 2>/dev/null; then
+  assert_eq "absent" "present" "slice: the --file upsert invocation names no --depends-on flag"
+else
+  assert_eq "absent" "absent" "slice: the --file upsert invocation names no --depends-on flag"
+fi
+
+# Registration in the one listing a new skill must appear in (the AGENTS.md
+# managed block carries no skills table and the banner lists none — README is
+# the one catalog, rendered from SKILL.md frontmatter).
+assert_file_matches "README.md" '^\| `/slice`' \
+  "slice: README skills table lists it"
+
+# sizing.md: the one ceiling, no floor, no size labels/buckets.
+SIZING=.agents/skills/slice/references/sizing.md
+for token in "files > 8" "systems > 2" "ACs > 3"; do
+  assert_file_contains "$SIZING" "$token" "slice: sizing.md states '$token'"
+done
+for absent in "floor" "S (" "M (" "L ("; do
+  if grep -qF -- "$absent" "$SIZING" 2>/dev/null; then
+    assert_eq "absent" "present" "slice: sizing.md must not contain '$absent'"
+  else
+    assert_eq "absent" "absent" "slice: sizing.md must not contain '$absent'"
+  fi
+done
+
+# The plan-block example: the fenced ```markdown block that carries
+# "## Plan:", byte-identical between SKILL.md and its reference after
+# flattening.
+extract_markdown_fence() {
+  awk '
+    /^```markdown$/ { capturing=1; buffer=""; next }
+    capturing && /^```$/ { if (buffer ~ /## Plan:/) { printf "%s", buffer; exit } else { capturing=0 } }
+    capturing { buffer = buffer $0 "\n" }
+  ' "$1" | tr -d '\r'
+}
+plan_block_skill="$(extract_markdown_fence "$SLICE_SKILL" | tr '\n' ' ' | tr -s ' ')"
+plan_block_ref="$(extract_markdown_fence .agents/skills/slice/references/plan-block.md | tr '\n' ' ' | tr -s ' ')"
+assert_eq "$plan_block_ref" "$plan_block_skill" \
+  "slice: plan-block example in SKILL.md matches references/plan-block.md (flattened)"
+assert_contains "$plan_block_skill" "task-id: plan." \
+  "slice: plan-block example carries the plan.<id> task-id form"
+
+# The build-prompt template: the fenced block following the literal
+# "Build prompt:" marker, byte-identical between SKILL.md and its reference.
+extract_build_prompt() {
+  awk '
+    /Build prompt:/ { seen=1 }
+    seen && /^```$/ { if (infence) { exit } else { infence=1; next } }
+    infence { print }
+  ' "$1" | tr -d '\r'
+}
+build_prompt_skill="$(extract_build_prompt "$SLICE_SKILL")"
+build_prompt_ref="$(extract_build_prompt .agents/skills/slice/references/build-prompt.md)"
+assert_eq "$build_prompt_ref" "$build_prompt_skill" \
+  "slice: build-prompt template in SKILL.md matches references/build-prompt.md verbatim"
+for token in "--file --approve" "Surface" "§ Decisions" "[AMBIGUITY]" "> Handover:" "/wrap-up-session"; do
+  assert_contains "$build_prompt_skill" "$token" \
+    "slice: build prompt instruction lines name '$token'"
+done
+
+# --- plan: /plan calls /slice instead of writing the plan block itself ------
+# specs/plan-slices-and-handover.md AC8. /plan keeps its six-question
+# interview and the carry-forward rule, escalates to /system-design-planning
+# on its own § When to Use bar, and hands off to /slice for sizing, the plan
+# block and the build prompt -- so the pins are the carry-forward vocabulary,
+# the seven-section spec template in order, the `Invoke /slice` line, and the
+# negative pins that keep the retired ceremony (a hand-written plan block, a
+# 'y' gate, a build invocation, an upsert call) from creeping back in.
+PLAN_SKILL=.agents/skills/plan/SKILL.md
+for token in "DECISIONS CARRIED" "/grill-me" "/brainstorm" \
+             "Escalating to /system-design-planning" \
+             "What is the desired behavior?" "What are the inputs and outputs?" \
+             "What are the edge cases and failure modes?" \
+             "What constraints exist" \
+             "Which existing files/components are likely involved?" \
+             "What does \"done\" look like?" \
+             "Spec and plan are ready to be built" \
+             "references/build-prompt.md"; do
+  assert_file_contains "$PLAN_SKILL" "$token" "plan: SKILL.md contains '$token'"
+done
+
+# The spec template's seven sections, in order. Pinned by ORDER, not count:
+# a reflow that moves Decisions above Edge Cases silently changes what
+# /slice reads as settled versus what the human still has to answer.
+flat_plan="$(flatten "$PLAN_SKILL")"
+pos_beh=$(printf '%s' "$flat_plan" | grep -bo '## Behavior' | head -1 | cut -d: -f1)
+pos_in=$(printf '%s' "$flat_plan" | grep -bo '## Inputs' | head -1 | cut -d: -f1)
+pos_out=$(printf '%s' "$flat_plan" | grep -bo '## Outputs' | head -1 | cut -d: -f1)
+pos_edge=$(printf '%s' "$flat_plan" | grep -bo '## Edge Cases' | head -1 | cut -d: -f1)
+pos_dec=$(printf '%s' "$flat_plan" | grep -bo '## Decisions' | head -1 | cut -d: -f1)
+pos_ac=$(printf '%s' "$flat_plan" | grep -bo '## Acceptance Criteria' | head -1 | cut -d: -f1)
+pos_impl=$(printf '%s' "$flat_plan" | grep -bo '## Implementation Paths' | head -1 | cut -d: -f1)
+if [ -n "${pos_beh:-}" ] && [ -n "${pos_in:-}" ] && [ -n "${pos_out:-}" ] && [ -n "${pos_edge:-}" ] \
+   && [ -n "${pos_dec:-}" ] && [ -n "${pos_ac:-}" ] && [ -n "${pos_impl:-}" ] \
+   && [ "$pos_beh" -lt "$pos_in" ] && [ "$pos_in" -lt "$pos_out" ] && [ "$pos_out" -lt "$pos_edge" ] \
+   && [ "$pos_edge" -lt "$pos_dec" ] && [ "$pos_dec" -lt "$pos_ac" ] && [ "$pos_ac" -lt "$pos_impl" ]; then
+  assert_eq "ordered" "ordered" "plan: spec template lists the seven sections in order"
+else
+  assert_eq "Behavior < Inputs < Outputs < Edge Cases < Decisions < Acceptance Criteria < Implementation Paths" \
+    "${pos_beh:-missing} ${pos_in:-missing} ${pos_out:-missing} ${pos_edge:-missing} ${pos_dec:-missing} ${pos_ac:-missing} ${pos_impl:-missing}" \
+    "plan: spec template lists the seven sections in order"
+fi
+
+# § Decisions' three sources, in the prose that explains the column.
+assert_contains "$flat_plan" '`user` for an answer the user gave' \
+  "plan: SKILL.md defines Source \`user\`"
+assert_contains "$flat_plan" '`assumed` for one `/plan` picked without asking' \
+  "plan: SKILL.md defines Source \`assumed\`"
+assert_contains "$flat_plan" '`open` for one nobody has decided yet' \
+  "plan: SKILL.md defines Source \`open\`"
+
+# Negative pins: the ceremony this spec removed must not reappear here.
+assert_file_not_matches "$PLAN_SKILL" 'Invoke `/grilling' \
+  "plan: SKILL.md never itself invokes /grilling"
+assert_file_not_matches "$PLAN_SKILL" 'Invoke `/build' \
+  "plan: SKILL.md never itself invokes /build"
+assert_file_not_matches "$PLAN_SKILL" "Does this spec and plan meet your requirements" \
+  "plan: SKILL.md carries no 'y' gate sentence"
+assert_file_not_matches "$PLAN_SKILL" "upsert" \
+  "plan: SKILL.md never calls upsert itself"
+assert_file_not_matches "$PLAN_SKILL" "> Approved" \
+  "plan: SKILL.md carries no approval-word line"
+assert_file_not_matches "$PLAN_SKILL" '^## Plan:' \
+  "plan: SKILL.md no longer carries a hand-written plan-block template"
+assert_file_not_matches "$PLAN_SKILL" "Hand Off to TDD" \
+  "plan: SKILL.md no longer hands off to TDD directly"
+assert_file_not_matches "$PLAN_SKILL" "Register the Tasks" \
+  "plan: SKILL.md no longer registers tasks itself"
+
+# --- pipelines: /yolo and /auto-push after /plan's handover rewrite ---------
+# specs/plan-slices-and-handover.md AC9 ("In-session pipelines"). Both are
+# named exceptions to building in a fresh session -- /yolo because it is
+# unattended end to end, /auto-push because its one gate is now its own,
+# owned as an override on /plan's Step 6 instead of /plan's default handover.
+YOLO_SKILL=.agents/skills/yolo/SKILL.md
+AUTO_PUSH_SKILL=.agents/skills/auto-push/SKILL.md
+assert_file_contains "$YOLO_SKILL" '`assumed` row' \
+  "pipelines: yolo Step 1 override records gaps as \`assumed\` rows"
+assert_file_matches "$YOLO_SKILL" 'Step 6.*no prompt' \
+  "pipelines: yolo Step 6 row prints no prompt"
+assert_file_matches "$YOLO_SKILL" 'no prompt.*in place' \
+  "pipelines: yolo Step 6 row invokes /build in place"
+assert_prose_contains "$YOLO_SKILL" 'runs `--file` without `--approve`' \
+  "pipelines: yolo Phase B files with --file and no --approve"
+assert_file_contains "$YOLO_SKILL" "fresh session" \
+  "pipelines: yolo names the fresh-session rule it is excepted from"
+
+assert_file_contains "$AUTO_PUSH_SKILL" \
+  "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll build, wrap up and push in this session." \
+  "pipelines: auto-push Phase A owns the 'y' sentence as its own override on /plan Step 6"
+assert_file_contains "$AUTO_PUSH_SKILL" "Step 6" \
+  "pipelines: auto-push Phase A names /plan's Step 6 as the overridden step"
+assert_file_contains "$AUTO_PUSH_SKILL" "--approve" \
+  "pipelines: auto-push Phase B names --approve"
+assert_file_contains "$AUTO_PUSH_SKILL" "fresh session" \
+  "pipelines: auto-push names the fresh-session rule it is excepted from"
+
+# --- design-planning: /system-design-planning interviews and hands off instead of filing ---
+# specs/plan-slices-and-handover.md AC10. Step 1 reads a settled § Decisions
+# tree instead of re-asking; the new §2.5 runs the mandatory /grilling
+# interview with its own seed frontier and carry-forward rule; the template's
+# build-order table and "Slice criteria" are gone because /slice now owns
+# sizing (Step 3.5); Step 7 ends with the build prompt instead of an approval
+# word; Step 8 (filing) is deleted outright; Step 9 (hand off) stays. The
+# negative pins are the retired ceremony this rewrite removes -- a pin on
+# retired text is replaced by a pin on the new contract, never silently
+# dropped.
+SDP_SKILL=.agents/skills/system-design-planning/SKILL.md
+for token in "§ Decisions" "DECISIONS CARRIED" "frontier is empty" \
+             "how a violation would be detected" \
+             "who owns each fact a boundary crosses" \
+             "outcomes and its failure unit" \
+             "illegal states and transitions a status field must forbid" \
+             "Spec and plan are ready to be built" \
+             "[constraints|system-design|contracts|data-models|build-order]" \
+             "### 9. Hand off" "references/build-prompt.md" \
+             "NOTHING IS FILED AND NOTHING IS BUILT IN THE PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD PROMPT." \
+             "filed in the planning session"; do
+  assert_file_contains "$SDP_SKILL" "$token" "design-planning: SKILL.md contains '$token'"
+done
+
+# Step 1 names § Decisions specifically as what it reads from a prior spec.
+step1_sdp="$(awk '/^### 1\. Intake/{p=1} /^### 2\. Recon/{p=0} p' "$SDP_SKILL")"
+assert_contains "$step1_sdp" "§ Decisions" \
+  "design-planning: Step 1 names § Decisions"
+
+# §2.5 carries the mandatory /grilling invocation, at column 0 so the
+# chain test can pin it beside /brainstorm's and /grill-me's.
+assert_file_matches "$SDP_SKILL" '^Invoke `/grilling' \
+  "design-planning: §2.5 invokes /grilling"
+
+# Step 3.5 carries the /slice invocation, same column-0 convention.
+assert_file_matches "$SDP_SKILL" '^Invoke `/slice' \
+  "design-planning: Step 3.5 invokes /slice"
+
+# Negative pins: the retired filing ceremony must not reappear. A bare
+# "upsert" pin would false-flag the pre-existing worked example
+# specs/upsert-depends-on.md, so these target the actual invocation and
+# markers that made up Step 8 instead of the substring.
+for absent in "task-registry.py upsert" "--derive-id design" "--apply --approve" \
+              "> Approved" "TODO(shortcut)" "File slices" \
+              "after approval only"; do
+  if grep -qF -- "$absent" "$SDP_SKILL" 2>/dev/null; then
+    assert_eq "absent" "present" "design-planning: SKILL.md must not contain '$absent'"
+  else
+    assert_eq "absent" "absent" "design-planning: SKILL.md must not contain '$absent'"
+  fi
+done
+assert_file_not_matches "$SDP_SKILL" '"approved"' \
+  "design-planning: SKILL.md no longer treats the bare word approved as approval"
+
+# The template's build-order table and Slice criteria list are gone; /slice
+# owns sizing now.
+SDP_TEMPLATE=.agents/skills/system-design-planning/templates/architecture-spec-template.md
+for absent in "| # | Slice |" "### Slice criteria"; do
+  if grep -qF -- "$absent" "$SDP_TEMPLATE" 2>/dev/null; then
+    assert_eq "absent" "present" "design-planning: template must not contain '$absent'"
+  else
+    assert_eq "absent" "absent" "design-planning: template must not contain '$absent'"
+  fi
+done
+# The Build order heading survives -- it is one of the nine pinned headings --
+# with one line saying /slice fills it, not the table itself.
+assert_file_contains "$SDP_TEMPLATE" "## Build order" \
+  "design-planning: template keeps the Build order heading"
+assert_prose_contains "$SDP_TEMPLATE" "/slice fills this section's table" \
+  "design-planning: template says /slice fills the Build order table"
+
+# The rendered document's reflection line is what the reviewer reads last;
+# an approval word there would reintroduce the gate Step 7 retired.
+SDP_MODEL=.agents/skills/system-design-planning/templates/content-model.json
+assert_file_not_matches "$SDP_MODEL" ', or approved' \
+  "design-planning: content-model.json reflection no longer offers the approval word"
+assert_file_contains "$SDP_MODEL" "starting a fresh session with the build prompt" \
+  "design-planning: content-model.json reflection points at the build session"
+assert_file_not_matches "$SDP_MODEL" 'Contract exposed        Size' \
+  "design-planning: content-model.json build-order example is /slice's table, not the retired one"
+
+# --- brainstorm: Step 6's template carries § Decisions with a Source column ---
+# specs/plan-slices-and-handover.md AC11. /plan Step 1 carries a settled tree
+# forward only when it can read a § Decisions table -- Step 6 must write one,
+# every row `user`, so a brainstormed spec is on equal terms with a planned
+# one.
+BRAINSTORM_SKILL=.agents/skills/brainstorm/SKILL.md
+assert_file_contains "$BRAINSTORM_SKILL" "## Decisions" \
+  "brainstorm: Step 6 template carries a Decisions section"
+assert_file_contains "$BRAINSTORM_SKILL" "| Source |" \
+  "brainstorm: Step 6 template's Decisions table carries a Source column"
+
+# Decisions sits between the free-form design section and Acceptance
+# Criteria -- the template has no Edge Cases heading of its own, so the
+# order check degrades to Decisions-before-Acceptance-Criteria only.
+flat_brainstorm="$(flatten "$BRAINSTORM_SKILL")"
+pos_dec_b=$(printf '%s' "$flat_brainstorm" | grep -bo '## Decisions' | head -1 | cut -d: -f1)
+pos_ac_b=$(printf '%s' "$flat_brainstorm" | grep -bo '## Acceptance Criteria' | head -1 | cut -d: -f1)
+if [ -n "${pos_dec_b:-}" ] && [ -n "${pos_ac_b:-}" ] && [ "$pos_dec_b" -lt "$pos_ac_b" ]; then
+  assert_eq "ordered" "ordered" "brainstorm: template lists Decisions before Acceptance Criteria"
+else
+  assert_eq "Decisions < Acceptance Criteria" "${pos_dec_b:-missing} ${pos_ac_b:-missing}" \
+    "brainstorm: template lists Decisions before Acceptance Criteria"
+fi
+
+# --- build: /build files slices, reads the ready set, closes with a handover ---
+# specs/plan-slices-and-handover.md AC12. Pre-flight files an unlinked slice
+# header through /slice --file --approve (/yolo omits --approve); a plan
+# with no ### Slice headings is one implicit slice over implementation_paths,
+# so every plan written before this spec still builds; Parallel Dispatch
+# Assessment reads slice.py ready instead of guessing independence from
+# prose; the delegation prompt carries the slice's Surface (with the
+# [SURFACE] + escape), the blocking slices' handovers, and the tool-call
+# budget with the ## Not finished list; Slice Close runs slice.py check
+# (undeclared:/untouched:), writes the > Handover: blockquote, and records
+# an interrupted slice as unfinished: rather than renumbering; Phase 6
+# counts nested rows and calls a header/child mismatch the forbidden state.
+# Pinned by the smallest falsifiable unit: the literal flags and phrases,
+# plus the negative pins that keep the retired prose from creeping back.
+BUILD_SKILL=.agents/skills/build/SKILL.md
+for token in "--file --approve" "lacks a provider link" "implicit slice" \
+             "implementation_paths" "slice.py ready" "intersecting pair" \
+             "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
+             "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
+             "forbidden state" "Use in the session the build prompt starts" \
+             "slice header" "\`/yolo\` omits \`--approve\`"; do
+  assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
+done
+
+# The ready call is described before the delegation prompt items -- a
+# reflow that moves it after would have the assessment re-derive
+# independence before it ever runs the command that replaced the guess.
+flat_build="$(flatten "$BUILD_SKILL")"
+pos_ready=$(printf '%s' "$flat_build" | grep -bo 'slice.py ready' | head -1 | cut -d: -f1)
+pos_deleg=$(printf '%s' "$flat_build" | grep -bo 'Delegation prompt must include' | head -1 | cut -d: -f1)
+if [ -n "${pos_ready:-}" ] && [ -n "${pos_deleg:-}" ] && [ "$pos_ready" -lt "$pos_deleg" ]; then
+  assert_eq "ordered" "ordered" "build: the ready call is described before the delegation prompt items"
+else
+  assert_eq "ready < delegation prompt" "${pos_ready:-missing} ${pos_deleg:-missing}" \
+    "build: the ready call is described before the delegation prompt items"
+fi
+
+# Negative pins: the retired ceremony this spec removed must not reappear.
+assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
+  "build: SKILL.md no longer says 'after /plan is confirmed'"
+assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
+  "build: SKILL.md no longer assesses independence from prose"
+
+# --- wrap-up: PR body gains a Handovers section before the linkage check ---
+# specs/plan-slices-and-handover.md AC13. Step 7's Pull Request section
+# writes a `## Handovers` block -- one `### Slice n/N` heading per slice,
+# its lines verbatim -- before the linkage check reads the body, and falls
+# back to the commit message when there is no tracker to host a PR.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+for token in "## Handovers" "### Slice n/N" "commit message"; do
+  assert_file_contains "$WRAP_SKILL" "$token" "wrap-up: SKILL.md contains '$token'"
+done
+
+flat_wrap="$(flatten "$WRAP_SKILL")"
+pos_handovers=$(printf '%s' "$flat_wrap" | grep -bo '## Handovers' | head -1 | cut -d: -f1)
+pos_linkage=$(printf '%s' "$flat_wrap" | grep -bo 'pr_linkage.py check' | head -1 | cut -d: -f1)
+if [ -n "${pos_handovers:-}" ] && [ -n "${pos_linkage:-}" ] && [ "$pos_handovers" -lt "$pos_linkage" ]; then
+  assert_eq "ordered" "ordered" "wrap-up: ## Handovers section appears before the linkage check"
+else
+  assert_eq "Handovers < linkage check" "${pos_handovers:-missing} ${pos_linkage:-missing}" \
+    "wrap-up: ## Handovers section appears before the linkage check"
+fi
+
+# --- workflow: AGENTS.md § Workflow steps 2-4 after the build prompt replaced the y gate
+# specs/plan-slices-and-handover.md AC14. The planner interviews, slices and
+# hands over; the fresh session the build prompt starts files and builds. The
+# pins are the vocabulary a reader needs to find the skills, the two retired
+# gates as negative pins, and the five glossary terms in tasks/concepts.md.
+WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' AGENTS.md)"
+for token in "/grill-me" "/brainstorm" "DECISIONS CARRIED" "/grilling" \
+             "/system-design-planning" "/slice" "build prompt" "fresh session" \
+             "> Handover:" "never builds and never files" \
+             "Spec and plan are ready to be built" "--file --approve" \
+             "slice.py ready" "/auto-push" "/yolo"; do
+  assert_contains "$WORKFLOW" "$token" "workflow: AGENTS.md § Workflow names '$token'"
+done
+assert_not_contains "$WORKFLOW" "Confirm with 'y' to begin" \
+  "workflow: the y gate is gone from AGENTS.md § Workflow"
+assert_not_contains "$WORKFLOW" "**approved**" \
+  "workflow: the approved parenthetical is gone from AGENTS.md § Workflow"
+assert_not_contains "$WORKFLOW" "Do not proceed without user confirmation" \
+  "workflow: the planning session no longer waits for a confirmation word"
+
+for term in "build prompt" "handover" "ready set" "slice" "surface"; do
+  assert_file_contains tasks/concepts.md "- **$term** —" \
+    "workflow: tasks/concepts.md defines '$term'"
+done
 
 finish

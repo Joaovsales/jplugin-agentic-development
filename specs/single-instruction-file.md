@@ -7,7 +7,19 @@ implementation_paths:
   - hooks/hooks.json
   - .agents/skills/sync/SKILL.md
   - .agents/skills/sync/scripts/sync-managed-block.py
-  - .agents/skills/{quality-gate,wrap-up-session,software-design-expert-review,sweep,tidy,auto-push,yolo,build,plan,setup-deployment,verify-deployment,verify-evidence,task-registry}/**
+  - .agents/skills/quality-gate/**
+  - .agents/skills/wrap-up-session/**
+  - .agents/skills/software-design-expert-review/**
+  - .agents/skills/sweep/**
+  - .agents/skills/tidy/**
+  - .agents/skills/auto-push/**
+  - .agents/skills/yolo/**
+  - .agents/skills/build/**
+  - .agents/skills/plan/**
+  - .agents/skills/setup-deployment/**
+  - .agents/skills/verify-deployment/**
+  - .agents/skills/verify-evidence/**
+  - .agents/skills/task-registry/**
   - .agents/agents/*.md
   - .claude/agents/*.md
   - .claude/settings.json
@@ -16,14 +28,31 @@ implementation_paths:
   - scripts/install-codex.sh
   - scripts/render-codex.py
   - scripts/render-skills-table.py
-  - project-template/{CLAUDE.md,AGENTS.md}
+  - project-template/CLAUDE.md
+  - project-template/AGENTS.md
   - README.md
   - PI_SETUP.md
   - .github/workflows/sync-template.yml
   - tests/test-instruction-budget.sh
   - tests/test-skills-table.sh
   - tests/test-sync-managed-block.sh
-  - tests/{test-doc-conventions,test-model-tiers,test-review-context,test-agents,test-routine-skills,test-settings-json,test-install-sh,test-codex-install,test-syncable-paths,test-session-start,test-pre-compact,test-pre-push-gate,test-tdd-retirement,test-sweep-routines,test-skill-invocation-chain,test-memory-maintain-doc,test-refresh-skill}.sh
+  - tests/test-doc-conventions.sh
+  - tests/test-model-tiers.sh
+  - tests/test-review-context.sh
+  - tests/test-agents.sh
+  - tests/test-routine-skills.sh
+  - tests/test-settings-json.sh
+  - tests/test-install-sh.sh
+  - tests/test-codex-install.sh
+  - tests/test-syncable-paths.sh
+  - tests/test-session-start.sh
+  - tests/test-pre-compact.sh
+  - tests/test-pre-push-gate.sh
+  - tests/test-tdd-retirement.sh
+  - tests/test-sweep-routines.sh
+  - tests/test-skill-invocation-chain.sh
+  - tests/test-memory-maintain-doc.sh
+  - tests/test-refresh-skill.sh
 ---
 
 # Spec: Single instruction file for every harness
