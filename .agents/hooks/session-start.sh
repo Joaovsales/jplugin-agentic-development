@@ -316,10 +316,16 @@ fi
 # repository the user opens (specs/single-instruction-file.md, D18).
 JPLUGIN_ID="jplugin@jplugin-agentic-development"
 BLOCK_BEGIN="<!-- jplugin-agentic-development:begin -->"
+BLOCK_END="<!-- jplugin-agentic-development:end -->"
 ADOPTING=0
 [ -d .agents/skills ] && ADOPTING=1
-if [ "$ADOPTING" = "0" ] && [ -f ".claude/settings.json" ] \
-   && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true"; then
+# plugin_enabled_here — .claude/settings.json enables the plugin in this project.
+# The one reading of enabledPlugins; the Plugin Declaration Check below uses it too.
+plugin_enabled_here() {
+  [ -f ".claude/settings.json" ] \
+    && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true"
+}
+if [ "$ADOPTING" = "0" ] && plugin_enabled_here; then
   ADOPTING=1
 fi
 if [ "$ADOPTING" = "1" ] && ! grep -qF -- "$BLOCK_BEGIN" AGENTS.md 2>/dev/null; then
@@ -374,7 +380,7 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
       DRIFT_COUNT=$(git diff --name-only "workflow/$WORKFLOW_BRANCH" -- \
         .agents/skills .agents/agents .agents/references .agents/hooks .agents/git-hooks .claude/agents .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
         | wc -l | tr -d ' ')
-      managed_block() { tr -d '\r' | awk -v b="$BLOCK_BEGIN" -v e="<!-- jplugin-agentic-development:end -->" '$0 == b { p = 1; next } $0 == e { p = 0 } p'; }
+      managed_block() { tr -d '\r' | awk -v b="$BLOCK_BEGIN" -v e="$BLOCK_END" '$0 == b { p = 1; next } $0 == e { p = 0 } p'; }
       TEMPLATE_BLOCK=$(git show "workflow/$WORKFLOW_BRANCH:AGENTS.md" 2>/dev/null | managed_block || true)
       LOCAL_BLOCK=$(managed_block < AGENTS.md 2>/dev/null || true)
       if [ -n "$TEMPLATE_BLOCK" ] && [ "$TEMPLATE_BLOCK" != "$LOCAL_BLOCK" ]; then
@@ -407,8 +413,7 @@ fi
 PLUGINS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins"
 INSTALLED_PLUGINS="$PLUGINS_DIR/installed_plugins.json"
 PLUGIN_CACHE="$PLUGINS_DIR/cache/jplugin-agentic-development/jplugin"
-if [ -f ".claude/settings.json" ] \
-   && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true" \
+if plugin_enabled_here \
    && ! grep -qF "\"$JPLUGIN_ID\"" "$INSTALLED_PLUGINS" 2>/dev/null \
    && [ -z "$(ls -A "$PLUGIN_CACHE" 2>/dev/null)" ]; then
   echo ""
@@ -440,8 +445,7 @@ fi
 # not installed and when the graph is current. The missing-graph line is printed
 # only when the tree has files in graphify's code-extension set — a shell-and-
 # markdown repository has no graph to build (observability discipline: loud only
-# on actionable state). No skills list and no footer follow: the README skills
-# table is the one catalog, and a rule restated here would load twice.
+# on actionable state).
 if command -v graphify >/dev/null 2>&1 && git rev-parse --is-inside-work-tree &>/dev/null; then
   GRAPH_FILE="graphify-out/graph.json"
   CODE_EXTENSIONS='\.(py|js|jsx|ts|tsx|go|rs|java|kt|c|h|cc|cpp|hpp|cs|rb|php|swift|scala)$'
@@ -463,4 +467,3 @@ if command -v graphify >/dev/null 2>&1 && git rev-parse --is-inside-work-tree &>
     fi
   fi
 fi
-echo ""

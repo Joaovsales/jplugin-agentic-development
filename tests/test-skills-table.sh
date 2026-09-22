@@ -1,3 +1,4 @@
+#!/bin/bash
 # tests/test-skills-table.sh — the README skills table is generated from the
 # skill frontmatter by scripts/render-skills-table.py, and `--check` is the drift
 # test (specs/single-instruction-file.md slice 6). A row added or edited by hand

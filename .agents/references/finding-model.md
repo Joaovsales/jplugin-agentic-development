@@ -53,8 +53,6 @@ Canonical emission format, so findings stay parseable across harnesses:
 
 ## Resolving an anchor-75 finding
 
-### Resolving an anchor-75 finding
-
 Anchor `75` is a *pending question*, not a resting place. It is the anchor where a
 `manual` or `advisory` finding waits on a human, and where a `gated_auto` one is
 applied on evidence the reviewer never actually read — so leaving it unresolved

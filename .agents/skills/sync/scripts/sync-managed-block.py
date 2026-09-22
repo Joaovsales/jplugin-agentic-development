@@ -262,10 +262,10 @@ def trim_segment(lines: List[str]) -> List[str]:
 
 def plan_migration(
     project_label: str, project_text: str, target_label: str, target_text: str
-) -> Tuple[List[List[str]], int]:
-    """The chunks to append below the end marker, in order, and how many
-    sections they count for. Raises ManagedBlockError when the move would put
-    `## Deployment Targets` in two places."""
+) -> List[List[str]]:
+    """The chunks to append below the end marker, in order — the pointer line
+    first, then each moved section. Raises ManagedBlockError when the move would
+    put `## Deployment Targets` in two places."""
     target_lines = outside_block_lines(target_text)
     rules_heading_present = PROJECT_RULES_HEADING in target_lines
     targets_present = any(TARGETS_RE.match(line) for line in target_lines)
@@ -297,7 +297,7 @@ def plan_migration(
             chunks.append(kept)
     if pointer is not None:
         chunks.insert(0, [pointer])
-    return chunks, len(chunks)
+    return chunks
 
 
 def append_chunks(target_text: str, chunks: List[List[str]], newline: str) -> str:
@@ -336,19 +336,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.claude_md and os.path.isdir(args.claude_md):
             raise ManagedBlockError(f"{args.claude_md}: is a directory")
         newline = detect_newline(existing_target)
-        new_target = build_target_text(existing_target, block, newline, pair)
+        block_text = build_target_text(existing_target, block, newline, pair)
+        new_target = block_text
         migrate_file = args.migrate if args.migrate and os.path.isfile(args.migrate) else None
         chunks: List[List[str]] = []
-        moved = 0
         if migrate_file is not None:
-            chunks, moved = plan_migration(migrate_file, read_text(migrate_file), args.target, new_target)
-            new_target = append_chunks(new_target, chunks, newline)
+            chunks = plan_migration(migrate_file, read_text(migrate_file), args.target, block_text)
+            new_target = append_chunks(block_text, chunks, newline)
     except ManagedBlockError as exc:
         print(f"sync-managed-block: {exc}", file=sys.stderr)
         return 2
+    except OSError as exc:
+        print(f"sync-managed-block: {exc.filename}: {exc.strerror}", file=sys.stderr)
+        return 2
 
     target_changed = new_target != existing_target
-    block_changed = build_target_text(existing_target, block, newline, pair) != existing_target
+    block_changed = block_text != existing_target
     target_outcome = "unchanged"
     if block_changed:
         target_outcome = "appended" if pair is None else "replaced"
@@ -367,7 +370,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if migrate_file is None:
             print(f"{prefix}migration: nothing to move")
         else:
-            print(f"{prefix}migration: moved {moved} section(s), {args.migrate} deleted")
+            print(f"{prefix}migration: moved {len(chunks)} section(s), {args.migrate} deleted")
 
     if args.dry_run:
         return 0

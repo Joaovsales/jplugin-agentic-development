@@ -386,6 +386,16 @@ assert_not_contains "$(cat "$box/personal.log")" "Delete them?" \
   "personal CLAUDE.md: never listed"
 assert_eq "$(printf '# My own global rules\n\nAlways answer in Portuguese.\n')" "$(cat "$h/.claude/CLAUDE.md")" \
   "personal CLAUDE.md: byte-identical after the run"
+# A ~/.codex/AGENTS.md with a begin marker and no end marker is malformed: it is
+# never listed, so the strip can never take the text below the marker with it.
+mkdir -p "$h/.codex"
+printf '# Personal\n\n<!-- %s:begin -->\nBLOCK WITHOUT END\nStill personal\n' "$LEGACY_SLUG" > "$h/.codex/AGENTS.md"
+cp "$h/.codex/AGENTS.md" "$box/codex.before"
+rerun_install "$box" "y" malformed.log
+assert_not_contains "$(cat "$box/malformed.log")" "managed block in ~/.codex/AGENTS.md" \
+  "malformed Codex file: a begin marker without an end marker is not listed"
+assert_files_identical "$box/codex.before" "$h/.codex/AGENTS.md" \
+  "malformed Codex file: byte-identical after the run"
 rm -rf "$box"
 
 # Without the plugin the old copy is the only banner this machine has, so the

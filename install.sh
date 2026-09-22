@@ -233,9 +233,13 @@ session_hook_registered() {
   grep -q 'hooks/session-start\.sh' "$CLAUDE_HOME/settings.json" 2>/dev/null
 }
 
+# codex_block_present — exactly one begin and one end marker (either slug). A
+# file with a begin marker and no end is malformed and is never touched: the
+# strip would take every line below the marker with it.
 codex_block_present() {
-  [ -f "$CODEX_HOME/AGENTS.md" ] \
-    && grep -qE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):begin -->" "$CODEX_HOME/AGENTS.md"
+  [ -f "$CODEX_HOME/AGENTS.md" ] || return 1
+  [ "$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):begin -->" "$CODEX_HOME/AGENTS.md")" = 1 ] \
+    && [ "$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):end -->" "$CODEX_HOME/AGENTS.md")" = 1 ]
 }
 
 # stale_global_copies — one line per stale item: `<kind><TAB><what the user sees>`.
@@ -286,16 +290,21 @@ with open(path, "w", encoding="utf-8") as handle:
     json.dump(settings, handle, indent=2, ensure_ascii=False)
     handle.write("\n")
 PY
+    if session_hook_registered; then
+      echo "  NOTE: ~/.claude/settings.json still names hooks/session-start.sh outside a SessionStart entry — the script stays with it"
+      return 1
+    fi
   fi
   rm -f "$CLAUDE_HOME/hooks/session-start.sh"
   rmdir "$CLAUDE_HOME/hooks" 2>/dev/null || true
 }
 
 # strip_codex_block FILE — removes the block between the markers (either slug)
-# and the blank line after it; every other line stays (D8).
+# and the blank line after it; every other line stays (D8). Returns 1 and
+# leaves the file alone when the end marker never comes.
 strip_codex_block() {
   local tmp="$1.tmp.$$"
-  awk -v legacy="$LEGACY_SLUG" '
+  if ! awk -v legacy="$LEGACY_SLUG" '
     BEGIN { begin_re = "^<!-- (jplugin-agentic-development|" legacy "):begin -->"
             end_re   = "^<!-- (jplugin-agentic-development|" legacy "):end -->" }
     !skip && $0 ~ begin_re { skip = 1; next }
@@ -303,7 +312,13 @@ strip_codex_block() {
     skip                   { next }
     drop_blank && $0 ~ /^[[:space:]]*$/ { drop_blank = 0; next }
     { drop_blank = 0; print }
-  ' "$1" > "$tmp" && mv "$tmp" "$1"
+    END { if (skip) exit 1 }
+  ' "$1" > "$tmp"; then
+    rm -f "$tmp"
+    echo "  NOTE: $1 has a begin marker with no end marker — left untouched; remove the block by hand"
+    return 1
+  fi
+  mv "$tmp" "$1"
 }
 
 # remove_stale_global_copies — sets STALE_OUTCOME. Lists the stale copies and
@@ -333,7 +348,7 @@ remove_stale_global_copies() {
     case "$kind" in
       claude-md)    rm -f "$CLAUDE_HOME/CLAUDE.md"; removed=$((removed + 1)) ;;
       session-hook) if remove_session_hook; then removed=$((removed + 1)); else kept=$((kept + 1)); STALE_HOOK_KEPT=1; fi ;;
-      codex-block)  strip_codex_block "$CODEX_HOME/AGENTS.md"; removed=$((removed + 1)) ;;
+      codex-block)  if strip_codex_block "$CODEX_HOME/AGENTS.md"; then removed=$((removed + 1)); else kept=$((kept + 1)); fi ;;
     esac
   done <<< "$items"
   ok "removed" "$removed item(s) deleted"
@@ -377,9 +392,9 @@ cp "$REPO_DIR/.claude/agents/"*.md "$CLAUDE_HOME/agents/"
 ok "copied" "$(ls "$CLAUDE_HOME/agents/"*.md | wc -l | tr -d ' ') agents"
 
 # ── 4. Copies an earlier install.sh wrote ────────────────────────────────────
-# Nothing is copied here any more: the plugin's hooks/hooks.json runs
-# session-start.sh from the checkout, and the shared rules live in each
-# project's AGENTS.md. See the helpers above for what is listed and why.
+# The plugin's hooks/hooks.json runs session-start.sh from the checkout and the
+# shared rules live in each project's AGENTS.md; the helpers above list what an
+# earlier version of this script wrote and nothing reads now.
 step "Removing copies an earlier install.sh wrote"
 remove_stale_global_copies
 
@@ -418,8 +433,8 @@ if command -v graphify > /dev/null 2>&1; then
   # `graphify claude install` appends its `## graphify` rules to CLAUDE.md, which is
   # the single line `@AGENTS.md` — /sync rewrites it whenever it differs, so the
   # rules would vanish on the next sync while the PreToolUse hook and the skill
-  # both survive, leaving graphify looking wired but rule-less. Relocate the
-  # section below the end marker of AGENTS.md, which /sync never touches.
+  # both survive, leaving graphify looking wired but rule-less. Append the
+  # section to AGENTS.md, outside the managed block — the only part /sync rewrites.
   if [ -f CLAUDE.md ] && grep -q '^## graphify$' CLAUDE.md; then
     [ -f AGENTS.md ] || printf '# Project Instructions\n' > AGENTS.md
     if ! grep -q '^## graphify$' AGENTS.md; then

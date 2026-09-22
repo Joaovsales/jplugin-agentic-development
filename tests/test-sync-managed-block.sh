@@ -274,10 +274,18 @@ assert_contains "$OUT15B" "would migration: nothing to move" "case15b: dry-run w
 SYNC_SKILL="$REPO/.agents/skills/sync/SKILL.md"
 assert_file_matches "$SYNC_SKILL" '^### Step 6\.6 — Project-File Migration' "sync: Step 6.6 exists"
 step66="$(awk '/^### Step 6\.6/ { p = 1; next } p && /^### / { exit } p' "$SYNC_SKILL")"
-assert_contains "$step66" -- '--target AGENTS.md --migrate .claude/project.md' "sync: Step 6.6 runs the script with --migrate"
+assert_contains "$step66" '--target AGENTS.md --migrate .claude/project.md' "sync: Step 6.6 runs the script with --migrate"
 assert_contains "$step66" 'migration: nothing to move' "sync: Step 6.6 documents the re-run outcome"
 assert_contains "$step66" 'never runs this step' "sync: Step 6.6 says the CI mirror does not migrate (it never deletes)"
 step3="$(awk '/^### Step 3 /{ p = 1; next } p && /^### / { exit } p' "$SYNC_SKILL")"
-assert_contains "$step3" -- '--migrate .claude/project.md --dry-run' "sync: the Step 3 preview shows the migration the user approves"
+assert_contains "$step3" '--migrate .claude/project.md --dry-run' "sync: the Step 3 preview shows the migration the user approves"
+
+# --- case 16: a missing input file is a refusal, not a traceback --------------
+CASE16="$BOX/case16"; mkdir -p "$CASE16"
+OUT16="$(run_script --source "$CASE16/absent.md" --target "$CASE16/AGENTS.md" 2>&1)"; RC16=$?
+assert_eq "2" "$RC16" "case16: a missing --source exits 2"
+assert_contains "$OUT16" "absent.md" "case16: the refusal names the missing file"
+assert_not_contains "$OUT16" "Traceback" "case16: no traceback reaches the operator"
+assert_eq "false" "$([ -f "$CASE16/AGENTS.md" ] && echo true || echo false)" "case16: nothing is written"
 
 finish
