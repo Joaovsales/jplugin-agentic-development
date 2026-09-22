@@ -62,7 +62,7 @@ table before it interviews and asks only about `open` rows.
 | 9 | `--parent` on `upsert` | Added now, through the existing `link_parent` | user | #97 flips it native later without touching callers |
 | 10 | Name and shape | `/slice <spec> [--issue #N] [--file]` | user | Matches the unit's name; reads as a verb in the caller's text |
 | 11 | How handovers reach the parent issue | A `## Handovers` section in the PR body that closes the issue, written by `/wrap-up-session` before its linkage check | assumed | The user asked for the handovers on the issue's closing record; the PR body is the write wrap-up already makes and the linkage check already guards, and it degrades to the commit message with no tracker |
-| 12 | Interview reuse | `/plan` interviews through `/grilling`. A spec that already carries this table, or a conversation whose `/grilling` frontier is already empty for this feature, is the settled tree: `/plan` asks only its `open` rows and the gaps its stock questions still leave | user | A brainstormed feature was already interviewed once |
+| 12 | Interviews and their reuse | `/plan` does not invoke `/grilling`; `/grill-me` and `/brainstorm` are the user's choice before planning. `/plan` asks its own six questions, and when a spec already carries this table, or the conversation already ran `/grilling` to an empty frontier for this feature, it asks only the `open` rows and the gaps. `/system-design-planning` interviews through `/grilling`, mandatorily | user | A feature may be grilled or brainstormed and never built, or planned without ceremony; the architecture bar is where the extra rigor pays for itself |
 | 13 | Where assumptions and open questions go | This table, through the `Source` column, instead of separate Assumptions and Open Questions sections | assumed | One table serves the human at the gate, `/plan`'s carry-forward and `/yolo`'s unattended picks; three sections would say the same thing three ways |
 
 ## Problem
@@ -199,18 +199,21 @@ publication pending>` line per slice.
 
 Steps not named are unchanged.
 
-**Step 1: Interview through `/grilling`.** `Invoke /grilling` with the feature
-as the root and the six stock questions as the seed frontier. Before the first
-round, `/plan` looks for the settled tree:
+**Step 1: Interview, carrying settled decisions forward.** `/plan` asks its
+six stock questions itself and does not invoke `/grilling`. `/grill-me` and
+`/brainstorm` are the user's choice before planning, and a feature may go
+through either and never reach `/plan`. Before asking, `/plan` looks for the
+settled tree:
 
 - a `specs/<feature>.md` with a § Decisions table (a `/brainstorm` output), or
 - a `/grilling` run in this conversation whose frontier is already empty for
   this feature.
 
 When either exists it prints `DECISIONS CARRIED: <n> from <spec path |
-conversation>` and seeds the frontier with the `open` rows plus whatever the
-six questions still leave unanswered. Settled rows are never re-asked. A
-backlog item pre-fills answers as today.
+conversation>` and asks only the `open` rows plus whatever the six questions
+still leave unanswered. Settled rows are never re-asked. With neither, it
+interviews as today and § Decisions is filled from the answers. A backlog item
+pre-fills answers as today.
 
 **Step 1.5: Escalate when the design bar is met.** When a settled answer shows
 the change re-routes a call between components, adds or changes a persisted
@@ -246,8 +249,18 @@ runs `/plan` as-is and still matches the Step 4 sentence.
 ### `/system-design-planning`
 
 - **Step 1**: a spec with § Decisions is read; its `user` rows are constraints
-  with source `user` and are not re-asked; its `open` rows become `inferred`
-  constraints, which the skill already treats as questions to the reviewer.
+  with source `user` and are not re-asked; its `open` rows seed Step 2.5.
+- **Step 2.5: Interview through `/grilling`, mandatory.** After recon and
+  before the spec, `Invoke /grilling` with the problem statement as the root
+  and, as the seed frontier, the questions the architecture template asks
+  (constraints and how a violation is detected, ownership, each boundary's
+  outcomes and failure unit, illegal states and transitions) plus any `open`
+  rows carried from Step 1. Facts come from the recon, decisions from the
+  reviewer. The settled tree is written to the spec's § Decisions; what the
+  reviewer left open stays an `inferred` constraint, which the skill already
+  treats as a question to the reviewer. The design bar is where a second
+  interview pays for itself, so this step has no opt-out beyond `/grilling`'s
+  own one-question-at-a-time line.
 - **Step 3**: the architecture template's own build-order table and "Slice
   criteria" list are removed; "contract exposed" is stated in the Delivers
   text of `/slice`'s table.
@@ -367,9 +380,11 @@ it is the open task `glob-matcher-shared-module`.
   brainstormed in an earlier session is carried from the spec alone.
 - **`/plan` escalates after a spec was written.** The design skill reads the
   spec's § Decisions and proceeds to recon.
-- **`/grilling` fails to load.** `/plan` asks its six questions in one round in
-  the `❓` / `➡️` format anyway (the `/brainstorm` Step 3 fallback), and says
-  the primitive did not load.
+- **`/plan` with no prior grilling or brainstorm.** Interviews as today; no
+  `DECISIONS CARRIED` line; § Decisions is filled from the answers.
+- **`/grilling` fails to load in `/system-design-planning`.** Step 2.5 asks
+  its seed questions in one round in the `❓` / `➡️` format anyway (the
+  `/brainstorm` Step 3 fallback) and says the primitive did not load.
 - **Session banner and lane blocks.** Nested rows and `>` lines already fall
   outside the banner's row counts and the lane grammar.
 
@@ -399,16 +414,19 @@ it is the open task `glob-matcher-shared-module`.
 7. `upsert --parent '#N'` records a native parent on the local fixture and
    `parent:` metadata plus the disclosure line on the GitHub fixture; dry run
    by default; `SKILL.md` documents the flag.
-8. `/plan` Step 1 has an `Invoke /grilling` line with the six seeds, the
-   `DECISIONS CARRIED` rule and the `Escalating to /system-design-planning`
-   line; Step 2's template has the sections in order with § Decisions and its
+8. `/plan` Step 1 keeps its six questions, contains no `Invoke /grilling`
+   line, names `/grill-me` and `/brainstorm` as the user's optional
+   precursors, and states the `DECISIONS CARRIED` rule; Step 1.5 has the
+   `Escalating to /system-design-planning` line; Step 2's template has the sections in order with § Decisions and its
    three sources; Steps 3 and 6 have `Invoke /slice` lines; Step 4's sentence
    is unchanged and writes the `> Approved` line.
 9. `/yolo`'s override table carries the two new rows; `/auto-push` still
    contains the Step 4 sentence verbatim.
-10. `/system-design-planning` Step 1 names § Decisions, the template's own
-    build-order table and "Slice criteria" are gone, Step 3.5 and Step 8 have
-    `Invoke /slice` lines, and no `TODO(shortcut)` remains.
+10. `/system-design-planning` Step 1 names § Decisions; Step 2.5 has an
+    `Invoke /grilling` line with its seed questions and the not-re-asked rule
+    (pinned in the invocation-chain test beside `/brainstorm`'s); the
+    template's own build-order table and "Slice criteria" are gone; Steps 3.5
+    and 8 have `Invoke /slice` lines; no `TODO(shortcut)` remains.
 11. `/brainstorm` Step 6's template carries § Decisions with the `Source`
     column.
 12. `/build` documents the implicit slice, the `ready` call replacing the
@@ -418,8 +436,9 @@ it is the open task `glob-matcher-shared-module`.
     state.
 13. `/wrap-up-session` documents the `## Handovers` section before the linkage
     check.
-14. `CLAUDE.md` § Workflow steps 1 to 3 describe Specify (through `/grilling`,
-    decisions carried) → Slice → one gate → Build with handovers;
+14. `CLAUDE.md` § Workflow steps 1 to 3 describe Specify (optional
+    `/grill-me` or `/brainstorm` first, decisions carried; `/grilling`
+    mandatory at the design bar) → Slice → one gate → Build with handovers;
     `tasks/concepts.md` defines slice, surface, ready set and handover; `bash
     tests/run.sh` is green on CI.
 15. One live two-slice `/plan` → `/build` run shows `DECISIONS CARRIED`,
@@ -439,8 +458,8 @@ one contract a reviewer reads together).
 | 1 | slice script and shared glob matcher | `slice.py validate`, `ready`, `check`; `registry/globs.py` extracted from `spec-reconcile.py`; fixtures | `.agents/skills/slice/scripts/slice.py`, `.agents/skills/task-registry/scripts/registry/globs.py`, `.agents/skills/wrap-up-session/scripts/spec-reconcile.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**` | — | 1, 2, 3 | `bash tests/test-slice.sh tests/test-living-spec-reconciliation.sh` | 5 files + fixtures · 3 systems (one file each in registry and wrap-up) · 3 ACs |
 | 2 | slice skill | `SKILL.md`, `references/plan-block.md`, `references/sizing.md`, the three inventory rows | `.agents/skills/slice/SKILL.md`, `.agents/skills/slice/references/**`, `CLAUDE.md`, `README.md`, `.claude/hooks/session-start.sh`, `tests/test-doc-conventions.sh` | — | 4, 5, 6 | `bash tests/test-doc-conventions.sh` | 7 files · 1 system + inventory · 3 ACs |
 | 3 | upsert parent flag | `--parent` through `link_parent`, disclosure, docs | `.agents/skills/task-registry/scripts/task-registry.py`, `.agents/skills/task-registry/scripts/registry/upsert.py`, `.agents/skills/task-registry/SKILL.md`, `tests/test-task-registry.sh` | — | 7 | `bash tests/test-task-registry.sh` | 4 files · 1 system · 1 AC |
-| 4 | plan skill calls slice | Step 1 through `/grilling` with carry-forward, Step 1.5 escalation, § Decisions template, `Invoke /slice` in Steps 3 and 6, `> Approved`; `/yolo` rows | `.agents/skills/plan/SKILL.md`, `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 2 | 8, 9 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 5 files · 3 systems (over, see above) · 2 ACs |
-| 5 | design planning and brainstorm call slice | Step 1 reads § Decisions, template trimmed, Steps 3.5 and 8 invoke `/slice`; `/brainstorm` Step 6 § Decisions | `.agents/skills/system-design-planning/SKILL.md`, `.agents/skills/system-design-planning/templates/architecture-spec-template.md`, `.agents/skills/brainstorm/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 4 | 10, 11 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh tests/test-grilling-adoption.sh` | 5 files · 2 systems · 2 ACs |
+| 4 | plan skill calls slice | Step 1 carry-forward without `/grilling`, Step 1.5 escalation, § Decisions template, `Invoke /slice` in Steps 3 and 6, `> Approved`; `/yolo` rows | `.agents/skills/plan/SKILL.md`, `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 2 | 8, 9 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 5 files · 3 systems (over, see above) · 2 ACs |
+| 5 | design planning and brainstorm call slice | Step 1 reads § Decisions, Step 2.5 interviews through `/grilling`, template trimmed, Steps 3.5 and 8 invoke `/slice`; `/brainstorm` Step 6 § Decisions | `.agents/skills/system-design-planning/SKILL.md`, `.agents/skills/system-design-planning/templates/architecture-spec-template.md`, `.agents/skills/brainstorm/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 4 | 10, 11 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh tests/test-grilling-adoption.sh` | 5 files · 2 systems · 2 ACs |
 | 6 | build and wrap-up on slices | implicit slice, `ready`, delegation items, `check`, handover write, unfinished rule, Phase 6 count; `## Handovers` | `.agents/skills/build/SKILL.md`, `.agents/skills/wrap-up-session/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 1, 5 | 12, 13 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 4 files · 2 systems · 2 ACs |
 | 7 | workflow text and live run | `CLAUDE.md` § Workflow, glossary terms through `/learn`, the two-slice e2e run | `CLAUDE.md`, `tasks/concepts.md`, `tasks/e2e-log.md`, `tests/test-doc-conventions.sh` | 2, 3, 6 | 14, 15 | `bash tests/run.sh` | 4 files · docs · 2 ACs |
 
