@@ -30,23 +30,26 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
-# Only these three tokens are glob syntax. Everything else a pattern contains is
-# a literal, and anything resembling other glob dialects is rejected outright
-# rather than silently treated as a literal -- a spec claiming `src/[ab]/**`
-# would otherwise match nothing and go quietly unmaintained forever.
-UNSUPPORTED_GLOB_CHARS = "[]{}!"
+# The glob matcher and frontmatter reader used to live here; `/slice` needs the
+# identical answer, so both now import `registry/globs.py` instead of keeping
+# two copies that could quietly drift (spec: plan-slices-and-handover.md).
+_TASK_REGISTRY_SCRIPTS = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "task-registry", "scripts")
+)
+if _TASK_REGISTRY_SCRIPTS not in sys.path:
+    sys.path.insert(0, _TASK_REGISTRY_SCRIPTS)
 
-FRONTMATTER_KEY = "implementation_paths"
+from registry.globs import (  # noqa: E402  (path must be set up first)
+    SpecPathError,
+    UNSUPPORTED_GLOB_CHARS,
+    _pattern_to_regex,
+    frontmatter_block as _frontmatter_lines,
+    match_path,
+    parse_implementation_paths as _parse_implementation_paths,
+    validate_pattern,
+)
+
 LEGACY_HEADING = "## Files Likely Involved"
-
-
-class SpecPathError(Exception):
-    """A spec declares a path this program refuses to interpret.
-
-    Always names the spec and the offending value: the whole point of failing
-    loudly here is that the author can fix it without re-deriving which of forty
-    specs was at fault.
-    """
 
 
 @dataclass(frozen=True)
@@ -79,113 +82,12 @@ class Candidate:
     source: str
 
 
-# ------------------------------------------------------- patterns and matching
-
-
-def validate_pattern(pattern: str, spec: str) -> str:
-    """Return `pattern` if this program will interpret it, else raise.
-
-    Every rejection here is a value that would otherwise fail *silently*: an
-    unsupported token matches nothing, so the spec is never selected and quietly
-    stops being maintained. Refusing loudly is the only way the author finds out.
-    """
-    value = pattern.strip()
-    if not value:
-        raise SpecPathError(f"{spec}: empty implementation path")
-    if value.startswith("/") or re.match(r"^[A-Za-z]:", value):
-        raise SpecPathError(f"{spec}: absolute path not allowed: {value!r}")
-    if "\\" in value:
-        raise SpecPathError(f"{spec}: use POSIX separators, not backslashes: {value!r}")
-    if ".." in value.split("/"):
-        raise SpecPathError(f"{spec}: `..` traversal not allowed: {value!r}")
-    bad = [c for c in UNSUPPORTED_GLOB_CHARS if c in value]
-    if bad:
-        raise SpecPathError(
-            f"{spec}: unsupported glob syntax {''.join(bad)!r} in {value!r} "
-            f"— only *, ? and ** are accepted"
-        )
-    return value
-
-
-def _pattern_to_regex(pattern: str) -> str:
-    """Translate the three supported tokens; everything else is a literal.
-
-    Hand-written rather than `fnmatch`, whose `*` happily crosses `/` and whose
-    `[seq]` syntax this format does not accept. Borrowing it would silently
-    widen every declared surface.
-    """
-    out: List[str] = []
-    index = 0
-    while index < len(pattern):
-        if pattern.startswith("**", index):
-            out.append(".*")
-            index += 2
-        elif pattern[index] == "*":
-            out.append("[^/]*")
-            index += 1
-        elif pattern[index] == "?":
-            out.append("[^/]")
-            index += 1
-        else:
-            out.append(re.escape(pattern[index]))
-            index += 1
-    return "".join(out)
-
-
-def match_path(pattern: str, path: str) -> bool:
-    """Case-sensitive whole-path match. A prefix is not a match."""
-    return re.fullmatch(_pattern_to_regex(pattern), path) is not None
-
-
 # ------------------------------------------------------------- spec metadata
 
 
 def _read(path: str) -> str:
     with open(path, "r", encoding="utf-8") as handle:
         return handle.read()
-
-
-def _frontmatter_lines(text: str, spec: str) -> Optional[List[str]]:
-    """Return the frontmatter block's lines, or None when there is no block.
-
-    An opened block that never closes is an error rather than "no frontmatter":
-    treating it as absent would drop the spec to the legacy reader, which is the
-    silent degradation this whole format exists to end.
-    """
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return None
-    for index in range(1, len(lines)):
-        if lines[index].strip() == "---":
-            return lines[1:index]
-    raise SpecPathError(f"{spec}: frontmatter opened with `---` but never closed")
-
-
-def _parse_implementation_paths(block: Sequence[str], spec: str) -> Optional[List[str]]:
-    """Read the `implementation_paths` list out of a frontmatter block."""
-    entries: List[str] = []
-    collecting = False
-    for line in block:
-        if re.match(rf"^{FRONTMATTER_KEY}\s*:", line):
-            remainder = line.split(":", 1)[1].strip()
-            if remainder:
-                raise SpecPathError(
-                    f"{spec}: {FRONTMATTER_KEY} must be a list, got scalar {remainder!r}"
-                )
-            collecting = True
-            continue
-        if collecting:
-            item = re.match(r"^\s+-\s*(?P<value>.+?)\s*$", line)
-            if item:
-                entries.append(item.group("value").strip("\"'"))
-                continue
-            if line.strip():
-                break
-    if not collecting:
-        return None
-    if not entries:
-        raise SpecPathError(f"{spec}: {FRONTMATTER_KEY} declares no paths")
-    return entries
 
 
 def _legacy_paths(text: str) -> List[str]:
