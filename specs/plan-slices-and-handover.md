@@ -62,7 +62,7 @@ table before it interviews and asks only about `open` rows.
 | 9 | `--parent` on `upsert` | Added now, through the existing `link_parent` | user | #97 flips it native later without touching callers |
 | 10 | Name and shape | `/slice <spec> [--issue #N] [--file]` | user | Matches the unit's name; reads as a verb in the caller's text |
 | 11 | How handovers reach the parent issue | A `## Handovers` section in the PR body that closes the issue, written by `/wrap-up-session` before its linkage check | assumed | The user asked for the handovers on the issue's closing record; the PR body is the write wrap-up already makes and the linkage check already guards, and it degrades to the commit message with no tracker |
-| 12 | Interviews and their reuse | `/plan` does not invoke `/grilling`; `/grill-me` and `/brainstorm` are the user's choice before planning. `/plan` asks its own six questions, and when a spec already carries this table, or the conversation already ran `/grilling` to an empty frontier for this feature, it asks only the `open` rows and the gaps. `/system-design-planning` interviews through `/grilling`, mandatorily | user | A feature may be grilled or brainstormed and never built, or planned without ceremony; the architecture bar is where the extra rigor pays for itself |
+| 12 | Interviews and their reuse | `/plan` does not invoke `/grilling`; `/grill-me` and `/brainstorm` are the user's choice before planning. `/plan` asks its own six questions, and when a spec already carries this table, or the conversation already ran `/grilling` to an empty frontier for this feature, it asks only the `open` rows and the gaps. `/system-design-planning` interviews through `/grilling`, mandatorily, with the same carry-forward, so grilling may come before or inside it | user | A feature may be grilled or brainstormed and never built, or planned without ceremony; the architecture bar is where the extra rigor pays for itself |
 | 13 | Where assumptions and open questions go | This table, through the `Source` column, instead of separate Assumptions and Open Questions sections | assumed | One table serves the human at the gate, `/plan`'s carry-forward and `/yolo`'s unattended picks; three sections would say the same thing three ways |
 
 ## Problem
@@ -251,16 +251,23 @@ runs `/plan` as-is and still matches the Step 4 sentence.
 - **Step 1**: a spec with § Decisions is read; its `user` rows are constraints
   with source `user` and are not re-asked; its `open` rows seed Step 2.5.
 - **Step 2.5: Interview through `/grilling`, mandatory.** After recon and
-  before the spec, `Invoke /grilling` with the problem statement as the root
-  and, as the seed frontier, the questions the architecture template asks
+  before the spec, `Invoke /grilling` with the problem statement as the root.
+  The seed frontier is the questions the architecture template asks
   (constraints and how a violation is detected, ownership, each boundary's
-  outcomes and failure unit, illegal states and transitions) plus any `open`
-  rows carried from Step 1. Facts come from the recon, decisions from the
-  reviewer. The settled tree is written to the spec's § Decisions; what the
-  reviewer left open stays an `inferred` constraint, which the skill already
-  treats as a question to the reviewer. The design bar is where a second
-  interview pays for itself, so this step has no opt-out beyond `/grilling`'s
-  own one-question-at-a-time line.
+  outcomes and failure unit, illegal states and transitions) **minus what is
+  already settled**: the same carry-forward as `/plan` Step 1. A spec with
+  § Decisions, or a `/grilling` run earlier in this conversation whose
+  frontier is already empty for this feature, prints `DECISIONS CARRIED: <n>
+  from <spec path | conversation>`, and only its `open` rows plus the
+  questions recon raised are asked. Both orders therefore work: grilling
+  first, then the design skill asks what the architecture adds; or the design
+  skill first, and its own grilling is the whole interview. When nothing is
+  left, the frontier is empty and the step ends without a round. Facts come
+  from the recon, decisions from the reviewer. The settled tree is written to
+  the spec's § Decisions; what the reviewer left open stays an `inferred`
+  constraint, which the skill already treats as a question to the reviewer.
+  The design bar is where a second interview pays for itself, so the step is
+  never skipped; carrying decisions forward is what keeps it from repeating.
 - **Step 3**: the architecture template's own build-order table and "Slice
   criteria" list are removed; "contract exposed" is stated in the Delivers
   text of `/slice`'s table.
@@ -382,6 +389,10 @@ it is the open task `glob-matcher-shared-module`.
   spec's § Decisions and proceeds to recon.
 - **`/plan` with no prior grilling or brainstorm.** Interviews as today; no
   `DECISIONS CARRIED` line; § Decisions is filled from the answers.
+- **`/grill-me` or `/brainstorm` before `/system-design-planning`.** Step 2.5
+  prints `DECISIONS CARRIED` and asks only the `open` rows and what recon
+  raised; with nothing left, the frontier is empty and no round is asked. The
+  design skill first is the other order: Step 2.5 is the whole interview.
 - **`/grilling` fails to load in `/system-design-planning`.** Step 2.5 asks
   its seed questions in one round in the `❓` / `➡️` format anyway (the
   `/brainstorm` Step 3 fallback) and says the primitive did not load.
@@ -423,8 +434,9 @@ it is the open task `glob-matcher-shared-module`.
 9. `/yolo`'s override table carries the two new rows; `/auto-push` still
    contains the Step 4 sentence verbatim.
 10. `/system-design-planning` Step 1 names § Decisions; Step 2.5 has an
-    `Invoke /grilling` line with its seed questions and the not-re-asked rule
-    (pinned in the invocation-chain test beside `/brainstorm`'s); the
+    `Invoke /grilling` line with its seed questions, the `DECISIONS CARRIED`
+    carry-forward and the empty-frontier rule (pinned in the invocation-chain
+    test beside `/brainstorm`'s); the
     template's own build-order table and "Slice criteria" are gone; Steps 3.5
     and 8 have `Invoke /slice` lines; no `TODO(shortcut)` remains.
 11. `/brainstorm` Step 6's template carries § Decisions with the `Source`
