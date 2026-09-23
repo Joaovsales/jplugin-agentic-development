@@ -86,9 +86,10 @@ progress and drift further before finding out. Merge `main` in frequently.
    The command is the `Full suite: <command>` line below the `AGENTS.md` end
    marker, verbatim — the cache key hashes the command, so every skill must
    spell it the same way; when a project declares none, use the runner step 6
-   identified. A green run on this tree — a `/yolo` or `/auto-push` pre-flight a moment
-   ago — is reused, not repeated. This is the build's only full run; the
-   pre-push one belongs to `/wrap-up-session` Step 6.
+   identified. A green run of that command on this tree is reused, not
+   repeated; `/yolo` and `/auto-push` leave their baseline to this step. This
+   is the build's only full run; the pre-push one belongs to
+   `/wrap-up-session` Step 6.
    - If tests fail before you start: fix or flag to user before proceeding
    - Resolve the **affected-test command** every later checkpoint runs: the
      `Affected tests: <command with {base}>` line below the `AGENTS.md` end
@@ -108,12 +109,21 @@ progress and drift further before finding out. Merge `main` in frequently.
 
 **One suite at a time, no polling.** Launch the full suite as a background
 task (`run_in_background` on Claude Code) and wait for its completion
-notification; while it runs, do non-conflicting work — reading the spec,
-classifying the ACs. Never wait in a foreground `sleep` or a poll loop.
-`cached-suite.sh` refuses a second full run with exit 3, and the rule extends
-to every test run: no test run starts while a suite is running — no targeted
-file, no affected-test run — because a test beside a running suite shares its
-load, slows both and can fake a failure in either.
+notification. While it runs, do only work that leaves the working tree alone —
+reading the spec, classifying the ACs — because `cached-suite.sh` hashed the
+tree when the run started, and an edit made now would be pushed without a full
+run. Never wait in a foreground `sleep` or a poll loop. `cached-suite.sh`
+refuses a second full run with exit 3, and the rule extends to every test run:
+no test run starts while a suite is running — no targeted file, no
+affected-test run — because a test beside a running suite shares its load,
+slows both and can fake a failure in either.
+
+**A refusal is not a test result.** Exit 3 with `cached-suite: a suite is
+already running` on stderr means nothing ran: never hand it to `code-debugger`
+and never count it as a fix attempt. When the running suite is this session's
+own background job, wait for its completion notification and run again; when
+it belongs to another session or worktree, report the pid and start time the
+line names and stop, rather than wait on a job this session cannot see finish.
 
 ### Pre-Flight: File the Slices
 
@@ -349,6 +359,8 @@ After all tasks are `[x]`:
 
 1. Run the **affected-test command** against the base SHA — every test file the
    build touched, in one run. The pre-push full run is `/wrap-up-session` Step 6.
+   This run is not a "tests pass" claim under `/verify-evidence`, which wants
+   the full suite; that claim is made after Step 6's run, never from here.
 2. Run linter / type checker if configured
 3. Confirm all tests pass and no errors
 4. If anything fails: fix with `code-debugger`, then re-run

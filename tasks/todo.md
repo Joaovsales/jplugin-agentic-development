@@ -1158,7 +1158,7 @@ Filed this sweep:
   [x] TDD: tests/test-cached-suite.sh § lock — a second invocation while one runs exits 3 with `cached-suite: a suite is already running` and starts nothing; a lock naming a dead pid is reclaimed -> `mkdir` lock with pid and start time, removed on exit trap, `kill -0` staleness check (AC 2)
 
 > Handover: landed cddf272..5362005 — `.agents/skills/build/scripts/cached-suite.sh -- <cmd>` (100755) and `tests/test-cached-suite.sh` (32 assertions green)
-> Do not re-derive: the lock is taken before the cache lookup, so even a would-be reuse exits 3 while a suite runs; the lock is `<common-dir>/cached-suite/lock/owner` = `<pid> <ISO UTC>`, published by an atomic `mv -T` of a pre-written directory; key = temp-index `write-tree` (seeded from a copy of the real index) + `git hash-object` of the NUL-joined argv; reuse line is `cached-suite: reused green run of <argv joined by spaces> on tree <sha> from <YYYY-MM-DD HH:MM:SS UTC>`; exit 2 on usage or an unhashable tree
+> Do not re-derive: the lock is taken before the cache lookup, so even a would-be reuse exits 3 while a suite runs; the lock is `<common-dir>/cached-suite/lock/owner` = `<pid> <ISO UTC>`, taken by `mkdir` as the atomic test-and-set with the owner line written right after, removed only by the process the owner line names; an ownerless lock over a minute old is stale (449765d, 1cf575a); key = temp-index `write-tree` (seeded from a copy of the real index) + `git hash-object` of the NUL-joined argv; reuse line is `cached-suite: reused green run of <argv joined by spaces> on tree <sha> from <YYYY-MM-DD HH:MM:SS UTC>`; exit 2 on usage or an unhashable tree
 > Surface: none undeclared in cddf272..5362005
 
 ### Slice 2/4 — Affected-test selector

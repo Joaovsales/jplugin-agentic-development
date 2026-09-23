@@ -1230,8 +1230,21 @@ assert_contains "$(wrap_section "## Step 6 — Run Tests")" "cached-suite.sh -- 
 assert_contains "$(wrap_section "## Step 7.5 —")" "cached-suite.sh -- " \
   "fewer full runs: /wrap-up-session Step 7.5 merged-result run goes through cached-suite.sh"
 for pipeline in yolo auto-push; do
-  assert_contains "$(grep -F '**Test baseline**' ".agents/skills/$pipeline/SKILL.md")" "cached-suite.sh -- " \
+  baseline_line="$(grep -F '**Test baseline**' ".agents/skills/$pipeline/SKILL.md")"
+  assert_contains "$baseline_line" "cached-suite.sh -- " \
     "fewer full runs: /$pipeline pre-flight baseline goes through cached-suite.sh"
+  # /plan and the pre-flight write to the tree before /build starts, so a
+  # baseline run here would hash a tree /build never sees.
+  assert_contains "$baseline_line" "Do not run a baseline here" \
+    "fewer full runs: /$pipeline leaves its baseline to /build's pre-flight"
+done
+assert_contains "$(flatten AGENTS.md)" "Every slice closes with the affected-test command" \
+  "fewer full runs: AGENTS.md § Workflow closes a slice with the affected-test command"
+assert_not_contains "$(flatten AGENTS.md)" "closes with the full suite" \
+  "fewer full runs: AGENTS.md § Workflow no longer closes a slice with the full suite"
+BLOCK="$(awk '/jplugin-agentic-development:begin/{p=1} p; /jplugin-agentic-development:end/{exit}' AGENTS.md)"
+for token in "Full suite: <command>" "Affected tests: <command with {base}>"; do
+  assert_contains "$BLOCK" "$token" "fewer full runs: the managed block tells every project to declare '$token'"
 done
 
 # --- one suite, no polling: no test run beside a suite, no poll loops --------
@@ -1241,7 +1254,9 @@ done
 for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
   flat="$(flatten "$skill")"
   for token in "One suite at a time, no polling." "no test run starts while a suite is running" \
-               "run_in_background" "completion notification" "foreground \`sleep\`" "poll loop"; do
+               "run_in_background" "completion notification" "foreground \`sleep\`" "poll loop" \
+               "leaves the working tree alone" "A refusal is not a test result." \
+               "never count it as a fix attempt"; do
     assert_contains "$flat" "$token" "one suite: $skill names '$token'"
   done
 done

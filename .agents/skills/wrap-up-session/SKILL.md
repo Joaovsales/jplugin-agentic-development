@@ -534,18 +534,30 @@ Discover test commands from `package.json`, `Makefile`, `pyproject.toml`, or `TE
 Run in order: lint/typecheck, unit, integration, e2e.
 
 The full suite is the session's one pre-push full run and goes through the
-cache: `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`, with the `Full suite:` line below the `AGENTS.md` end marker verbatim, as `/build` ran it.
-On a tree `/build` already proved green it prints `cached-suite: reused green
-run` and costs nothing; any edit since runs it for real.
+cache: `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`,
+with the `Full suite:` line below the `AGENTS.md` end marker verbatim, as
+`/build` ran it — or, when a project declares none, the exact command `/build`'s
+baseline ran, so the key matches. On a tree already proved green it prints
+`cached-suite: reused green run` and costs nothing; any edit since runs it for
+real. Make every tree edit this wrap-up needs before this run, not after it.
 
 **One suite at a time, no polling.** Launch the full suite as a background
 task (`run_in_background` on Claude Code) and wait for its completion
-notification; while it runs, do non-conflicting work — learnings, the PR body,
-the handovers. Never wait in a foreground `sleep` or a poll loop.
-`cached-suite.sh` refuses a second full run with exit 3, and the rule extends
-to every test run: no test run starts while a suite is running — no targeted
-file, no affected-test run — because a test beside a running suite shares its
-load, slows both and can fake a failure in either.
+notification. While it runs, do only work that leaves the working tree alone —
+drafting the PR body in a scratch file outside the repository — because
+`cached-suite.sh` hashed the tree when the run started, and an edit made now
+would be pushed without a full run. Never wait in a foreground `sleep` or a
+poll loop. `cached-suite.sh` refuses a second full run with exit 3, and the
+rule extends to every test run: no test run starts while a suite is running —
+no targeted file, no affected-test run — because a test beside a running suite
+shares its load, slows both and can fake a failure in either.
+
+**A refusal is not a test result.** Exit 3 with `cached-suite: a suite is
+already running` on stderr means nothing ran: never hand it to `code-debugger`
+and never count it as a fix attempt. When the running suite is this session's
+own background job, wait for its completion notification and run again; when
+it belongs to another session or worktree, report the pid and start time the
+line names and stop, rather than wait on a job this session cannot see finish.
 
 If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report, do not push, and end through Step 8.5.
 

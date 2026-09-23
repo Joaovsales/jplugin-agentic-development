@@ -14,6 +14,7 @@ implementation_paths:
   - tests/test-run-sh.sh
   - tests/test-doc-conventions.sh
   - tests/test-skill-invocation-chain.sh
+  - .gitignore
 ---
 
 # Spec: A build session runs the full suite at most twice
@@ -49,19 +50,29 @@ a cached record instead of re-running.
   prints `cached-suite: reused green run of <command> on tree <hash> from <UTC time>`
   and exits 0 without running anything. Otherwise it runs the command,
   passes its output and exit status through, and records the result only
-  when the run is green. The `/yolo` or `/auto-push` pre-flight baseline and
-  `/build`'s baseline therefore cost one run between them. So does a
-  `/wrap-up-session` Step 6 on a tree the build already proved green.
+  when the run is green and the tree still hashes the same after it; a tree
+  edited during the run is not recorded. `/yolo` and `/auto-push` run no
+  baseline of their own: `/plan` writes to the tree before `/build` starts, so
+  theirs could never be reused, and `/build`'s baseline stops a red loop
+  instead. A `/wrap-up-session` Step 6 on a tree already proved green costs
+  nothing.
 - **One suite at a time.** While a `cached-suite.sh` run is in progress for
   the repository, a second invocation refuses. It prints
   `cached-suite: a suite is already running (pid <n>, since <UTC time>)` and
   exits 3, starting nothing. A lock whose pid is no longer alive is reclaimed.
   The skills extend the same rule to every test run: no targeted file or
-  affected-test run starts while a full suite is running.
+  affected-test run starts while a full suite is running. A refusal is not a
+  test result: it is never handed to a debugger or counted as a fix attempt.
+  When the running suite is the session's own background job, the session
+  waits for its completion notification and runs again; when it belongs to
+  another session or worktree, the session reports the pid and start time and
+  stops.
 - **No poll loops.** The skills launch the full suite as a background task
   (`run_in_background` on Claude Code) and wait for its completion
-  notification. While it runs they do non-conflicting work: learnings, PR
-  body, handover. They never wait in a foreground `sleep` or poll loop.
+  notification. While it runs they do only work that leaves the working tree
+  alone (reading the spec, drafting the PR body outside the repository), since
+  the run's key was hashed when it started. They never wait in a foreground
+  `sleep` or poll loop.
 - **Affected tests between checkpoints.** After each task, at each slice
   close, at the parallel-dispatch barrier, in `/build` Phase 2 and after the
   quality gate, `/build` runs the project's declared affected-test command
@@ -115,7 +126,14 @@ a cached record instead of re-running.
 - **Same tree, different command** (for example `--jobs 4` against serial):
   different key, real run.
 - **Killed run.** The lock names a dead pid, so the next invocation reclaims
-  it. No record was written, because only a finished green run writes one.
+  it. No record was written, because only a finished green run writes one. A
+  lock whose owner line was never written refuses while it is under a minute
+  old and is reclaimed after. Only the process the owner line names removes
+  the lock.
+- **Renamed file.** `tests/affected.sh` lists both the old and the new path,
+  so a test naming the old one is selected.
+- **Handoff logs.** `tasks/*.log` is ignored, so a Large-Artifact Handoff log
+  written between two runs does not change the key.
 - **Not a git repository.** `cached-suite.sh` runs the command uncached and
   prints `cached-suite: not a git repository, running uncached` to stderr.
 - **Selector miss.** A test that builds paths dynamically (for example by
@@ -165,10 +183,11 @@ a cached record instead of re-running.
    command against the base SHA, and Key Principles no longer says "Full test
    suite after every task" (`tests/test-doc-conventions.sh`).
 5. `/wrap-up-session` Step 6 and the Step 7.5 merged-result run go through
-   `cached-suite.sh`, and `/yolo` and `/auto-push` pre-flight baselines do too
-   (`tests/test-doc-conventions.sh`).
+   `cached-suite.sh`, and `/yolo` and `/auto-push` leave their baseline to
+   `/build`'s cached pre-flight run (`tests/test-doc-conventions.sh`).
 6. `/build` and `/wrap-up-session` forbid starting any test run while a suite
-   is running, and forbid foreground `sleep` or poll loops. The full suite is
+   is running, treat a lock refusal as no test result, and forbid foreground
+   `sleep` or poll loops. The full suite is
    launched in the background and waited on through its completion
    notification (`tests/test-doc-conventions.sh`).
 7. `AGENTS.md` below the end marker declares
