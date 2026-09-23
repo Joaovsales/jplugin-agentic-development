@@ -9,6 +9,7 @@
 > Sweep: done 2026-08-13
 
 ## Harness vocabulary
+- **affected-test command** — the project's `Affected tests: <command with {base}>` line below the `AGENTS.md` end marker, run by `/build` against the build's base SHA at every checkpoint except the baseline; the full suite runs only at the cached baseline and pre-push, both through `cached-suite.sh -- <the declared Full suite: command>`.
 - **build prompt** — the fenced message a planning session ends with (`Spec and plan are ready to be built. Start a fresh session with this prompt:`): the spec path, the plan block, the ready set and the constraints a fresh `/build` session needs; written by `/slice` into the spec's § Build Order, which is its durable copy.
 - **ceiling** — model-tier resolution meaning "omit the model override so the sub-agent inherits the session model"; not a model name. Reserved for the highest-stakes review roles.
 - **drift** — divergence between a downstream project and this template (caught by the session-start drift check), or between a vendored skill and its pinned upstream revision in `.github/upstreams.json` (`scripts/check-upstream-drift.py`).

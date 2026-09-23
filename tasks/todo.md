@@ -1188,3 +1188,8 @@ Filed this sweep:
 > Handover: landed cc18008..73b0944, amended by 449765d — `/wrap-up-session` Step 6 and the Step 7.5 merged-result run, `/yolo` and `/auto-push` baselines go through `cached-suite.sh -- <the declared Full suite: command>`; `/build` pre-flight and `/wrap-up-session` Step 6 carry the "One suite at a time, no polling." paragraph; AC 8: the last ten green `tests.yml` runs took 45–64 s, `tests.yml` unedited
 > Do not re-derive: the no-polling paragraph is duplicated in two skills on purpose within this surface (a shared reference file was reported, not applied); red proven by running the new `test-doc-conventions.sh` on the cddf272 tree — exactly the 38 new assertions failed
 > Surface: none undeclared in cc18008..73b0944
+
+## Session Summary — 2026-09-23 [cddf272..342e633]
+- Completed: 4 slices of `## Plan: fewer-full-suite-runs` (#183, #180, #181, #182 — 8 TDD rows, 1 Verify row), plus the quality-gate portability fixes and the design review's `Full suite:` declaration
+- Pending: none in this plan; the issues close on merge through the PR's `Closes` lines
+- Carry-forward: reported, not applied — the duplicated "One suite at a time, no polling." paragraph in `/build` and `/wrap-up-session` (a shared `.agents/references/` file is outside the surface), `tests/affected.sh` runner-file list does not generalize to new shared helpers, cache records under `.git/cached-suite/` are never pruned

@@ -13,6 +13,7 @@ implementation_paths:
   - tests/test-affected.sh
   - tests/test-run-sh.sh
   - tests/test-doc-conventions.sh
+  - tests/test-skill-invocation-chain.sh
 ---
 
 # Spec: A build session runs the full suite at most twice
@@ -40,7 +41,10 @@ a cached record instead of re-running.
 - **Cached full runs.** Every full-suite run in `/build`, `/wrap-up-session`,
   `/yolo` and `/auto-push` goes through
   `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`.
-  The script hashes the working tree (tracked and untracked, not ignored)
+  The command is the `Full suite: <command>` line below the `AGENTS.md` end
+  marker, used verbatim by every skill (in this repository,
+  `bash tests/run.sh`); a project that declares none uses the runner `/build`
+  identified. The script hashes the working tree (tracked and untracked, not ignored)
   together with the command. When a green record exists for that key, it
   prints `cached-suite: reused green run of <command> on tree <hash> from <UTC time>`
   and exits 0 without running anything. Otherwise it runs the command,
@@ -63,7 +67,9 @@ a cached record instead of re-running.
   quality gate, `/build` runs the project's declared affected-test command
   against the build's base SHA. A project declares it below the end marker
   of `AGENTS.md` as `Affected tests: <command with {base}>`. In this
-  repository that is `bash tests/affected.sh --run {base}`. When a project
+  repository that is `bash tests/affected.sh --run {base}`. `/build` runs it
+  through `cached-suite.sh` as well, so the lock refuses it beside a running
+  suite and an unchanged tree reuses its green run. When a project
   declares none, the builder runs the test files that cover the changed
   paths and names them in its log line.
 - **This repository's selector.** `tests/affected.sh <base>` prints one
@@ -81,8 +87,8 @@ a cached record instead of re-running.
 
 ## Inputs
 
-- The full-suite command, after `--` on `cached-suite.sh` (in this
-  repository, `bash tests/run.sh`).
+- The `Full suite:` line below the `AGENTS.md` end marker, passed after `--`
+  on `cached-suite.sh` (in this repository, `bash tests/run.sh`).
 - The build's base SHA, recorded by `/build` before its first task, passed
   to the affected-test command as `{base}`.
 - The `Affected tests:` line below the `AGENTS.md` end marker.
@@ -136,6 +142,7 @@ a cached record instead of re-running.
 | 7 | Key on a clean `HEAD^{tree}` or on the working tree | Working tree, through a temporary index (`GIT_INDEX_FILE`, `git add -A`, `git write-tree`) | assumed | `/wrap-up-session` Step 6 runs on an uncommitted tree; a clean-tree-only key would never hit there |
 | 8 | Enforce "one suite at a time" in code or prose | Both: the lock refuses a second full run; the skills forbid targeted runs beside a running suite | assumed | Only full runs pass through the script; the load-contention cost (2.4×) came from targeted loops beside a suite |
 | 9 | CI timeout | Unchanged at 15 min | assumed | Linux suite runs in ~1 min; the cancellation had another cause, already fixed |
+| 10 | How every skill spells the full-suite command | A `Full suite:` line beside `Affected tests:`, used verbatim; the affected-test command also runs through `cached-suite.sh` | assumed | The key hashes the command, so a hand-spelled variant is a silent cache miss; the lock then covers affected runs too |
 
 ## Acceptance Criteria
 
@@ -165,7 +172,10 @@ a cached record instead of re-running.
    launched in the background and waited on through its completion
    notification (`tests/test-doc-conventions.sh`).
 7. `AGENTS.md` below the end marker declares
-   `Affected tests: bash tests/affected.sh --run {base}`
+   `Full suite: bash tests/run.sh` and
+   `Affected tests: bash tests/affected.sh --run {base}`; `/build`, `/yolo`,
+   `/auto-push` and `/wrap-up-session` read the `Full suite:` line, and
+   `/build` runs the affected-test command through `cached-suite.sh`
    (`tests/test-doc-conventions.sh`).
 8. `tests.yml`'s `timeout-minutes: 15` exceeds the measured Linux suite time:
    the last ten successful `tests.yml` runs each take under 2 min
