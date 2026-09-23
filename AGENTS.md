@@ -12,7 +12,7 @@
 1. **PRD** (greenfield only) — `/prd` writes `specs/prd-<name>.md`, `tasks/backlog.md`, `tasks/project-context.md`.
 2. **Specify** — every non-trivial feature gets `specs/<feature>.md` (Behavior / Inputs / Outputs / Edge Cases / Decisions / Acceptance Criteria / Implementation Paths) through `/plan`, or `/system-design-planning` when the change crosses a component boundary, changes a persisted data model, or changes an external contract — its `/grilling` interview is mandatory at that bar, minus what is already settled. Optional precursors `/grill-me` (a stateless interview, nothing written) and `/brainstorm` (divergent exploration; its spec carries § Decisions) settle decisions that carry forward: `/plan` prints `DECISIONS CARRIED: <n> from <spec path | conversation>` and asks only the `open` rows and the gaps.
 3. **Slice (hard gate)** — the planner invokes `/slice`, which sizes the spec into session-sized slices, writes § Build Order and the `## Plan:` block in `tasks/todo.md` (`[ ] TDD: [Test Name] -> [Impl Detail]` rows under `### Slice n/N` headings) and prints the build prompt. The planning session ends with `Spec and plan are ready to be built. Start a fresh session with this prompt:` — it never builds and never files. Change requests are applied in place: edit the spec, re-run `/slice`. `/auto-push` (behind its own `y`) and `/yolo` (unattended) are the two named exceptions that build in the planning session.
-4. **Build (fresh session)** — `/build` runs the plan autonomously in the session the build prompt starts. Pre-flight files the slices through `/slice … --file --approve` — the build prompt is the authorization the planning session did not have; `slice.py ready` names the slices whose blockers are done, and disjoint ready slices dispatch in parallel, each agent editing only its slice's Surface. Each task: failing test → minimal implementation → refactor → `[x]`. Every slice closes with the full suite, a surface check and a `> Handover:` blockquote under its heading — what landed, what the next slice must not re-derive. `/quality-gate` on the changed files when the tasks are done; every acceptance criterion validated; no prompts between tasks.
+4. **Build (fresh session)** — `/build` runs the plan autonomously in the session the build prompt starts. Pre-flight files the slices through `/slice … --file --approve` — the build prompt is the authorization the planning session did not have; `slice.py ready` names the slices whose blockers are done, and disjoint ready slices dispatch in parallel, each agent editing only its slice's Surface. Each task: failing test → minimal implementation → refactor → `[x]`. Every slice closes with the affected-test command, a surface check and a `> Handover:` blockquote under its heading — what landed, what the next slice must not re-derive. `/quality-gate` on the changed files when the tasks are done; every acceptance criterion validated; no prompts between tasks. The full suite runs twice a session — `/build`'s baseline and `/wrap-up-session` Step 6 — both through `.agents/skills/build/scripts/cached-suite.sh`, which reuses a green run of the same command on the same working tree and allows one suite at a time; every other checkpoint runs the affected-test command. A project declares both below the end marker as `Full suite: <command>` and `Affected tests: <command with {base}>`; with neither, the skills use the runner they discover and the test files covering the changed paths.
 5. **Wrap up** — after a correction, capture the root cause in `tasks/solutions/` (`/debug` or `/learn`); at session end run `/wrap-up-session` to sync learnings, run tests, and push.
 
 ## Review Gate Taxonomy
@@ -128,6 +128,11 @@ Skills are discovered from `.agents/skills/*/SKILL.md` frontmatter — the READM
 ### Task Tracking
 
 Task tracking instructions: docs/task-tracking.md
+
+### Test Commands
+
+Full suite: bash tests/run.sh
+Affected tests: bash tests/affected.sh --run {base}
 
 ### Code Graph
 

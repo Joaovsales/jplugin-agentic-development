@@ -3,7 +3,11 @@
 # Each test file is a standalone script that sources tests/lib.sh and calls
 # `finish`. Exit non-zero if any test file fails. No external dependencies.
 #
-#   bash tests/run.sh [--jobs N]        # or TEST_JOBS=N
+#   bash tests/run.sh [--jobs N] [file ...]   # or TEST_JOBS=N
+#
+# With file arguments (paths from the repo root) only those files run —
+# tests/affected.sh --run passes its list here; with none, every
+# tests/test-*.sh runs. A named path that does not exist is a usage error.
 #
 # Every file runs with stdin closed: a hook under test that slurps its payload
 # from stdin must not inherit an agent shell's open pipe
@@ -26,17 +30,22 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 usage() {
-  printf 'usage: bash tests/run.sh [--jobs N]\n' >&2
+  printf 'usage: bash tests/run.sh [--jobs N] [file ...]\n' >&2
   exit 2
 }
 
 jobs="${TEST_JOBS:-1}"
+named=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --jobs) [ $# -ge 2 ] || usage; jobs="$2"; shift 2 ;;
     --jobs=*) jobs="${1#--jobs=}"; shift ;;
-    *) usage ;;
+    -*) usage ;;
+    *) named+=("$1"); shift ;;
   esac
+done
+for test_file in ${named[@]+"${named[@]}"}; do
+  [ -f "$test_file" ] || { printf 'tests/run.sh: no such test file: %s\n' "$test_file" >&2; exit 2; }
 done
 case "$jobs" in
   ''|*[!0-9]*|0)
@@ -110,7 +119,8 @@ collect() {
 
 wall_started="$(now_ms)"
 shopt -s nullglob
-for test_file in tests/test-*.sh; do
+[ ${#named[@]} -gt 0 ] || named=(tests/test-*.sh)
+for test_file in ${named[@]+"${named[@]}"}; do
   total=$((total + 1))
   if [ "$jobs" -eq 1 ]; then
     printf '\n=== %s ===\n' "$test_file"

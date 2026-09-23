@@ -533,6 +533,32 @@ Discover test commands from `package.json`, `Makefile`, `pyproject.toml`, or `TE
 
 Run in order: lint/typecheck, unit, integration, e2e.
 
+The full suite is the session's one pre-push full run and goes through the
+cache: `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`,
+with the `Full suite:` line below the `AGENTS.md` end marker verbatim, as
+`/build` ran it — or, when a project declares none, the exact command `/build`'s
+baseline ran, so the key matches. On a tree already proved green it prints
+`cached-suite: reused green run` and costs nothing; any edit since runs it for
+real. Make every tree edit this wrap-up needs before this run, not after it.
+
+**One suite at a time, no polling.** Launch the full suite as a background
+task (`run_in_background` on Claude Code) and wait for its completion
+notification. While it runs, do only work that leaves the working tree alone —
+drafting the PR body in a scratch file outside the repository — because
+`cached-suite.sh` hashed the tree when the run started, and an edit made now
+would be pushed without a full run. Never wait in a foreground `sleep` or a
+poll loop. `cached-suite.sh` refuses a second full run with exit 3, and the
+rule extends to every test run: no test run starts while a suite is running —
+no targeted file, no affected-test run — because a test beside a running suite
+shares its load, slows both and can fake a failure in either.
+
+**A refusal is not a test result.** Exit 3 with `cached-suite: a suite is
+already running` on stderr means nothing ran: never hand it to `code-debugger`
+and never count it as a fix attempt. When the running suite is this session's
+own background job, wait for its completion notification and run again; when
+it belongs to another session or worktree, report the pid and start time the
+line names and stop, rather than wait on a job this session cannot see finish.
+
 If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report, do not push, and end through Step 8.5.
 
 ---
@@ -745,9 +771,11 @@ If NOT in a git worktree: skip. Otherwise check which flow this repo uses.
 1. Verify clean: `git status --porcelain` empty
 2. Switch to the parent worktree, `git pull --ff-only`
 3. `git merge --no-ff <branch>`
-4. Run the **full** suite on the merged result — this is the first time these two
-   lines of history have coexisted, so a green run on either side proves nothing
-   about the merge
+4. Run the **full** suite on the merged result, through
+   `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>` — this is
+   the first time these two lines of history have coexisted, so a green run on
+   either side proves nothing about the merge; the merged tree is new, so the
+   cache runs it for real
 5. Green → `git worktree remove <path>` and delete the branch
 6. Red → keep both, report the failures, change nothing else
 

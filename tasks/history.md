@@ -834,3 +834,19 @@ back vacuous and was repaired.
   tasks/solutions/conventions/spec-implementation-paths-accept-only-star-question-and-double-star.md,
   a superseded note on bugs/readme-skill-table-merge-conflict.md, and the
   **managed block** glossary term in `tasks/concepts.md`.
+
+### [2026-09-23] — fewer full-suite runs
+- Key changes: built #178 in four slices (filed #183, #180, #181, #182) —
+  `.agents/skills/build/scripts/cached-suite.sh` reuses a green run per working
+  tree and command and refuses a second concurrent suite (exit 3);
+  `tests/affected.sh [--run] <base>` selects the test files a change touches and
+  `tests/run.sh` takes named files; `/build` runs the full suite only at its
+  cached baseline and the affected-test command at every other checkpoint;
+  `/wrap-up-session`, `/yolo` and `/auto-push` run full suites through the
+  cache; `AGENTS.md` § Test Commands declares `Full suite:` and `Affected tests:`.
+- Quality gate: GNU-only `mv -T`, bash-4 `mapfile` and a `set -u` empty-array
+  expansion replaced for macOS bash 3.2; the dispatched design review added the
+  `Full suite:` declaration (the cache key hashes argv) and put affected runs
+  behind the lock.
+- Baseline (cddf272, Windows, serial): 8/53 files, 152 failing assertions, 2085 s.
+- Learnings captured: tasks/solutions/tooling/python-exact-match-patches-miss-crlf-working-copies.md

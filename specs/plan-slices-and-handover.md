@@ -398,7 +398,8 @@ every row `user`. That is what lets `/plan` Step 1 carry them forward.
   header `[x]` with a `[ ]` child is the forbidden state; Phase 6 counts rows
   with leading whitespace before `[x]` so nested rows are counted, and reports
   the forbidden state as a build failure.
-- **Slice boundary is the checkpoint**: full suite once, centrally; the
+- **Slice boundary is the checkpoint**: the affected-test command once,
+  centrally (`specs/fewer-full-suite-runs.md`); the
   handover; the task-boundary flush (`bash .agents/hooks/pre-compact.sh
   </dev/null`); the next `ready`.
 

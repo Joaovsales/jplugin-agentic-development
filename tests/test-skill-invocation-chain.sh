@@ -108,7 +108,7 @@ for tree in $TREES; do
     maintain_line=$(grep -nF "/maintain-verification-skill --scope changed" "$f" | head -1 | cut -d: -f1)
     verify_line=$(grep -niF 'invoke `/verify-evidence --scope e2e`' "$f" | head -1 | cut -d: -f1)
     review_line=$(grep -nE '^## (Phase 3|Step 4) .*Quality Gate|^## Step 4 .*Code Review' "$f" | head -1 | cut -d: -f1)
-    full_test_line=$(grep -nE '^## Phase 2 .*Full Suite|^## Step 6 .*Run Tests' "$f" | head -1 | cut -d: -f1)
+    full_test_line=$(grep -nE '^## Phase 2 .*Validation|^## Step 6 .*Run Tests' "$f" | head -1 | cut -d: -f1)
     assert_file_contains "$f" "/maintain-verification-skill --scope changed" \
       "Chain: $tree/$skill names changed-scope maintenance"
     assert_file_matches "$f" '`blocked`.*STOP' \

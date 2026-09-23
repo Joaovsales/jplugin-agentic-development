@@ -1170,4 +1170,95 @@ for term in "build prompt" "handover" "ready set" "slice" "surface"; do
     "workflow: tasks/concepts.md defines '$term'"
 done
 
+# --- fewer full runs (build): the full suite only at the cached baseline -----
+# specs/fewer-full-suite-runs.md AC4. The pre-flight baseline goes through
+# cached-suite.sh and records the base SHA; the pre-flight also resolves the
+# project's `Affected tests:` command (with `{base}`) and the fallback when a
+# project declares none. Every other checkpoint -- Step 3, the parallel
+# barrier, the slice close, Phase 2 and the post-quality-gate run -- names the
+# affected-test command instead of the full suite.
+build_section() {  # <heading prefix>: that heading's body, up to the next ## or ### heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^##/ { exit } p' "$BUILD_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+PREFLIGHT="$(build_section "## Pre-Flight Checks")"
+for token in "cached-suite.sh -- " "base SHA" "Affected tests:" "{base}" "declares none"; do
+  assert_contains "$PREFLIGHT" "$token" "fewer full runs: /build pre-flight names '$token'"
+done
+for heading in "### Parallel Dispatch Assessment" "### Step 3 — Run Tests" "### Slice Close" \
+               "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+  assert_contains "$(build_section "$heading")" "affected-test command" \
+    "fewer full runs: /build '$heading' runs the affected-test command"
+done
+for heading in "### Step 3 — Run Tests" "### Slice Close" "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+  body="$(build_section "$heading")"
+  for retired in "full test suite" "complete test suite" "run the full suite"; do
+    assert_not_contains "$body" "$retired" \
+      "fewer full runs: /build '$heading' no longer says '$retired'"
+  done
+done
+assert_file_not_matches "$BUILD_SKILL" "Full test suite after every task" \
+  "fewer full runs: Key Principles no longer says 'Full test suite after every task'"
+
+# --- affected declaration: this repository's `Affected tests:` line ----------
+# specs/fewer-full-suite-runs.md AC7. Below the end marker, so /sync keeps it.
+BELOW_END="$(awk '/<!-- jplugin-agentic-development:end -->/{p=1; next} p' AGENTS.md)"
+assert_contains "$BELOW_END" "Affected tests: bash tests/affected.sh --run {base}" \
+  "affected declaration: AGENTS.md declares the command below the end marker"
+# The cache key hashes the command, so every skill that runs the full suite
+# reads it from one declaration instead of spelling it itself.
+assert_contains "$BELOW_END" "Full suite: bash tests/run.sh" \
+  "affected declaration: AGENTS.md declares the full-suite command below the end marker"
+for skill in build yolo auto-push wrap-up-session; do
+  assert_file_contains ".agents/skills/$skill/SKILL.md" "\`Full suite:" \
+    "affected declaration: /$skill reads the declared full-suite command"
+done
+assert_contains "$PREFLIGHT" "cached-suite.sh -- <affected-test command>" \
+  "affected declaration: /build runs the affected-test command through the lock"
+
+# --- fewer full runs (wrap-up, pipelines): every full run goes through the cache
+# specs/fewer-full-suite-runs.md AC5. /wrap-up-session Step 6 and the Step 7.5
+# merged-result run, and the /yolo and /auto-push pre-flight baselines, so
+# /build's baseline and a Step 6 on a proven-green tree reuse the record.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+wrap_section() {  # <heading prefix>: that heading's body, up to the next ## heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$WRAP_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+assert_contains "$(wrap_section "## Step 6 — Run Tests")" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session Step 6 runs the full suite through cached-suite.sh"
+assert_contains "$(wrap_section "## Step 7.5 —")" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session Step 7.5 merged-result run goes through cached-suite.sh"
+for pipeline in yolo auto-push; do
+  baseline_line="$(grep -F '**Test baseline**' ".agents/skills/$pipeline/SKILL.md")"
+  assert_contains "$baseline_line" "cached-suite.sh -- " \
+    "fewer full runs: /$pipeline pre-flight baseline goes through cached-suite.sh"
+  # /plan and the pre-flight write to the tree before /build starts, so a
+  # baseline run here would hash a tree /build never sees.
+  assert_contains "$baseline_line" "Do not run a baseline here" \
+    "fewer full runs: /$pipeline leaves its baseline to /build's pre-flight"
+done
+assert_contains "$(flatten AGENTS.md)" "Every slice closes with the affected-test command" \
+  "fewer full runs: AGENTS.md § Workflow closes a slice with the affected-test command"
+assert_not_contains "$(flatten AGENTS.md)" "closes with the full suite" \
+  "fewer full runs: AGENTS.md § Workflow no longer closes a slice with the full suite"
+BLOCK="$(awk '/jplugin-agentic-development:begin/{p=1} p; /jplugin-agentic-development:end/{exit}' AGENTS.md)"
+for token in "Full suite: <command>" "Affected tests: <command with {base}>"; do
+  assert_contains "$BLOCK" "$token" "fewer full runs: the managed block tells every project to declare '$token'"
+done
+
+# --- one suite, no polling: no test run beside a suite, no poll loops --------
+# specs/fewer-full-suite-runs.md AC6. The load-contention cost came from
+# targeted loops beside a running suite; the lock only covers full runs, so
+# the rest of the rule lives in the prose of both skills.
+for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
+  flat="$(flatten "$skill")"
+  for token in "One suite at a time, no polling." "no test run starts while a suite is running" \
+               "run_in_background" "completion notification" "foreground \`sleep\`" "poll loop" \
+               "leaves the working tree alone" "A refusal is not a test result." \
+               "never count it as a fix attempt"; do
+    assert_contains "$flat" "$token" "one suite: $skill names '$token'"
+  done
+done
+
 finish

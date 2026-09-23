@@ -79,7 +79,7 @@ Before entering the loop:
 
 1. **Branch safety**: Confirm we are NOT on `main`, `master`, or `develop`. If we are: STOP and ask user for a feature branch name.
 2. **Clean tree**: Run `git status --short`. If uncommitted changes exist that aren't from this session, STOP and ask user how to handle them.
-3. **Test baseline**: Run the full test suite once. If red before we start, STOP — yolo mode cannot loop on a broken baseline.
+3. **Test baseline**: `/build`'s pre-flight runs it, after `/plan`, through `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>` with the `Full suite:` line below the `AGENTS.md` end marker; a red baseline STOPS there — yolo mode cannot loop on a broken baseline. Do not run a baseline here: `/plan` and this pre-flight write to the tree before `/build` starts, so a run now would hash a tree `/build` never sees and be paid twice.
 4. **Idea capture**: Write the user's idea verbatim to `tasks/yolo-idea.md` (overwrite any previous). This is the source-of-truth prompt that survives context resets.
 5. **Initialize log**: Create `tasks/yolo-log.md` if missing, with this header:
    ```markdown
