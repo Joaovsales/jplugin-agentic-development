@@ -64,6 +64,7 @@ if [ "$run" -eq 0 ]; then
   printf '%s\n' "$selected"
   exit 0
 fi
-mapfile -t files <<<"$selected"
+files=()
+while IFS= read -r f; do files+=("$f"); done <<<"$selected"
 rm -f "$changed"
 exec bash tests/run.sh "${files[@]}"

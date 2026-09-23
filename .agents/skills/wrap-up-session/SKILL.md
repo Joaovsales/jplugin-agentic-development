@@ -534,7 +534,7 @@ Discover test commands from `package.json`, `Makefile`, `pyproject.toml`, or `TE
 Run in order: lint/typecheck, unit, integration, e2e.
 
 The full suite is the session's one pre-push full run and goes through the
-cache: `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`.
+cache: `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`, with the `Full suite:` line below the `AGENTS.md` end marker verbatim, as `/build` ran it.
 On a tree `/build` already proved green it prints `cached-suite: reused green
 run` and costs nothing; any edit since runs it for real.
 

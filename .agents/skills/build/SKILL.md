@@ -83,16 +83,21 @@ progress and drift further before finding out. Merge `main` in frequently.
 7. Record the **base SHA** (`git rev-parse HEAD`) and run the full test suite
    once, through the cache, to establish a **green baseline**:
    `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`.
-   A green run on this tree — a `/yolo` or `/auto-push` pre-flight a moment
+   The command is the `Full suite: <command>` line below the `AGENTS.md` end
+   marker, verbatim — the cache key hashes the command, so every skill must
+   spell it the same way; when a project declares none, use the runner step 6
+   identified. A green run on this tree — a `/yolo` or `/auto-push` pre-flight a moment
    ago — is reused, not repeated. This is the build's only full run; the
    pre-push one belongs to `/wrap-up-session` Step 6.
    - If tests fail before you start: fix or flag to user before proceeding
    - Resolve the **affected-test command** every later checkpoint runs: the
      `Affected tests: <command with {base}>` line below the `AGENTS.md` end
      marker, with `{base}` replaced by the base SHA (in this repository,
-     `bash tests/affected.sh --run {base}`). When a project declares none,
-     run the test files that cover the changed paths and name them in the
-     log line.
+     `bash tests/affected.sh --run {base}`). Run it through
+     `cached-suite.sh -- <affected-test command>` too, so the lock refuses it
+     beside a running suite and an unchanged tree reuses its green run. When a
+     project declares none, run the test files that cover the changed paths
+     and name them in the log line.
 8. **Classify acceptance criteria** — for each AC in the spec, tag as `logic | integration | user-facing`:
    | AC type | Signals |
    |---------|---------|

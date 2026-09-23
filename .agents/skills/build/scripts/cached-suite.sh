@@ -61,19 +61,29 @@ working_tree_hash() {
   GIT_INDEX_FILE="$SCRATCH/index" git -C "$top" write-tree
 }
 
-# take_lock: publish a fully written owner file by renaming a directory into
-# place — the rename is atomic and fails while another lock exists.
-take_lock() {
-  mkdir "$SCRATCH/lock" && printf '%s %s\n' "$$" "$(utc_now)" > "$SCRATCH/lock/owner"
-  if mv -T "$SCRATCH/lock" "$LOCK" 2>/dev/null; then OWNS_LOCK=1; return 0; fi
-  read -r pid since < "$LOCK/owner" 2>/dev/null || { pid=""; since="unknown"; }
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-    printf 'cached-suite: a suite is already running (pid %s, since %s)\n' "$pid" "$since" >&2
-    exit 3
+# lock_is_stale: the owner's pid is dead, or no owner was ever written and the
+# lock is over a minute old (its creator died between mkdir and the write).
+lock_is_stale() {
+  if read -r pid since < "$LOCK/owner" 2>/dev/null && [ -n "$pid" ]; then
+    ! kill -0 "$pid" 2>/dev/null
+  else
+    pid="unknown"; since="unknown"
+    [ -n "$(find "$LOCK" -maxdepth 0 -mmin +1 2>/dev/null)" ]
   fi
-  rm -rf "$LOCK"
-  mv -T "$SCRATCH/lock" "$LOCK" 2>/dev/null && { OWNS_LOCK=1; return 0; }
-  printf 'cached-suite: a suite is already running (lock %s just taken)\n' "$LOCK" >&2
+}
+
+# take_lock: `mkdir` is the atomic test-and-set; a stale lock is reclaimed once.
+take_lock() {
+  for attempt in 1 2; do
+    if mkdir "$LOCK" 2>/dev/null; then
+      OWNS_LOCK=1
+      printf '%s %s\n' "$$" "$(utc_now)" > "$LOCK/owner"
+      return 0
+    fi
+    lock_is_stale || break
+    rm -rf "$LOCK"
+  done
+  printf 'cached-suite: a suite is already running (pid %s, since %s)\n' "${pid:-unknown}" "${since:-unknown}" >&2
   exit 3
 }
 

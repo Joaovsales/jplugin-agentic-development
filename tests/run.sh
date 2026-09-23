@@ -44,7 +44,7 @@ while [ $# -gt 0 ]; do
     *) named+=("$1"); shift ;;
   esac
 done
-for test_file in "${named[@]}"; do
+for test_file in ${named[@]+"${named[@]}"}; do
   [ -f "$test_file" ] || { printf 'tests/run.sh: no such test file: %s\n' "$test_file" >&2; exit 2; }
 done
 case "$jobs" in
@@ -120,7 +120,7 @@ collect() {
 wall_started="$(now_ms)"
 shopt -s nullglob
 [ ${#named[@]} -gt 0 ] || named=(tests/test-*.sh)
-for test_file in "${named[@]}"; do
+for test_file in ${named[@]+"${named[@]}"}; do
   total=$((total + 1))
   if [ "$jobs" -eq 1 ]; then
     printf '\n=== %s ===\n' "$test_file"

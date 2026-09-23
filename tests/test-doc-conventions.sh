@@ -1205,6 +1205,16 @@ assert_file_not_matches "$BUILD_SKILL" "Full test suite after every task" \
 BELOW_END="$(awk '/<!-- jplugin-agentic-development:end -->/{p=1; next} p' AGENTS.md)"
 assert_contains "$BELOW_END" "Affected tests: bash tests/affected.sh --run {base}" \
   "affected declaration: AGENTS.md declares the command below the end marker"
+# The cache key hashes the command, so every skill that runs the full suite
+# reads it from one declaration instead of spelling it itself.
+assert_contains "$BELOW_END" "Full suite: bash tests/run.sh" \
+  "affected declaration: AGENTS.md declares the full-suite command below the end marker"
+for skill in build yolo auto-push wrap-up-session; do
+  assert_file_contains ".agents/skills/$skill/SKILL.md" "\`Full suite:" \
+    "affected declaration: /$skill reads the declared full-suite command"
+done
+assert_contains "$PREFLIGHT" "cached-suite.sh -- <affected-test command>" \
+  "affected declaration: /build runs the affected-test command through the lock"
 
 # --- fewer full runs (wrap-up, pipelines): every full run goes through the cache
 # specs/fewer-full-suite-runs.md AC5. /wrap-up-session Step 6 and the Step 7.5

@@ -129,8 +129,9 @@ Skills are discovered from `.agents/skills/*/SKILL.md` frontmatter — the READM
 
 Task tracking instructions: docs/task-tracking.md
 
-### Affected Tests
+### Test Commands
 
+Full suite: bash tests/run.sh
 Affected tests: bash tests/affected.sh --run {base}
 
 ### Code Graph
