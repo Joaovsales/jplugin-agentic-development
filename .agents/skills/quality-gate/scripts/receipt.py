@@ -280,20 +280,26 @@ def receipt_path(fingerprint: str) -> str:
     return os.path.join(receipts_dir(), f"{fingerprint}.json")
 
 
-def load_receipt(fingerprint: str) -> Optional[Dict]:
-    path = receipt_path(fingerprint)
+def _read_json(path: str, corrupt: Optional[Dict]) -> Optional[Dict]:
+    """A stored file's JSON, None when absent, `corrupt` when unparseable."""
     if not os.path.isfile(path):
         return None
     with open(path, "r") as handle:
-        return json.load(handle)
+        try:
+            return json.load(handle)
+        except json.JSONDecodeError:
+            return corrupt
+
+
+def load_receipt(fingerprint: str) -> Optional[Dict]:
+    # A corrupt receipt loads as one with no schema, so `check` reports it as
+    # `stale schema` and the gate re-runs, instead of crashing wrap-up.
+    return _read_json(receipt_path(fingerprint), {})
 
 
 def load_pointer(branch: Optional[str] = None) -> Optional[Dict]:
-    path = pointer_path(branch)
-    if not os.path.isfile(path):
-        return None
-    with open(path, "r") as handle:
-        return json.load(handle)
+    # A corrupt pointer names no parent: the same as no pointer (`missing`).
+    return _read_json(pointer_path(branch), None)
 
 
 # --------------------------------------------------------------------------

@@ -109,5 +109,20 @@
       {"observe": {"debug": "not-fixed"}, "expect": "action mark-draft reason=debug not-fixed"},
       {"observe": {"partial": "drafted"}, "expect": "terminal partial state=repair reason=debug not-fixed draft=yes"}
     ]
+  },
+  {
+    "name": "hold-approved",
+    "steps": [
+      {"observe": {"receipt": "stale", "scope": "full"}, "expect": "action quality-gate scope=full"},
+      {"observe": {"gate": "HOLD"}, "expect": "action approve-hold"},
+      {"observe": {"approve": "approved"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 31}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "none"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "n/a", "reason": "no targets"}, "expect": "action record-closure note=not applicable — no targets"},
+      {"observe": {"record": "recorded"}, "expect": "terminal complete state=record reason=closure recorded"}
+    ]
   }
 ]

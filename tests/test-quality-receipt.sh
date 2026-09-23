@@ -349,6 +349,15 @@ assert_eq "3" "$CODE" "check: a receipt with another schema is stale"
 assert_contains "$OUT" "receipt: stale schema" "check: names the reason schema"
 cp "$BOX/backup-schema.json" "$STORE3/$FP3B.json"
 
+# --- corrupt: a stored receipt that is not JSON is stale schema, not a crash --
+printf '{"schema":' > "$STORE3/$FP3B.json"
+OUT="$(cd "$REPO3" && receipt check --base main 2>&1)"
+CODE=$?
+assert_eq "3" "$CODE" "check: a corrupt stored receipt is stale"
+assert_contains "$OUT" "receipt: stale schema" "check: a corrupt stored receipt names the reason schema"
+assert_not_contains "$OUT" "Traceback" "check: a corrupt stored receipt prints no traceback"
+cp "$BOX/backup-schema.json" "$STORE3/$FP3B.json"
+
 # --- policy-changed: a copied skill tree with one policy file edited -------
 COPY_ROOT="$BOX/policy-copy"
 mkdir -p "$COPY_ROOT"

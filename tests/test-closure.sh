@@ -51,6 +51,21 @@ run_case "receipt-stale-gated-pr-open" \
   '{"phase":"receipt","pr_open":true,"gated":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"receipt":"stale"}' "action mark-draft reason=receipt not written after gate"
 
+run_case "receipt-hold" \
+  '{"phase":"receipt","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"receipt":"hold"}' "action approve-hold"
+
+printf '\n--- transitions: approve (an unapproved HOLD, Step 4) ---\n'
+run_case "approve-approved" \
+  '{"phase":"approve","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"approve":"approved"}' "action run-suite"
+run_case "approve-declined-no-pr" \
+  '{"phase":"approve","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"approve":"declined"}' "terminal stopped state=approve reason=review HOLD"
+run_case "approve-declined-pr-open" \
+  '{"phase":"approve","pr_open":true,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"approve":"declined"}' "action mark-draft reason=review HOLD"
+
 printf '\n--- transitions: gate ---\n'
 run_case "gate-go" \
   '{"phase":"gate","pr_open":false,"gated":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
@@ -60,7 +75,7 @@ run_case "gate-hold-approved" \
   '{"gate":"HOLD-approved"}' "action check-receipt"
 run_case "gate-hold" \
   '{"phase":"gate","pr_open":false,"gated":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
-  '{"gate":"HOLD"}' "terminal stopped state=gate reason=review HOLD"
+  '{"gate":"HOLD"}' "action approve-hold"
 run_case "gate-stop" \
   '{"phase":"gate","pr_open":false,"gated":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"gate":"STOP"}' "terminal stopped state=gate reason=review STOP"
@@ -222,6 +237,40 @@ cp "$_state_file2" "$_state_file2.before"
 _code=$?
 assert_eq "2" "$_code" "unrecognized suite observation: exit 2"
 assert_files_identical "$_state_file2.before" "$_state_file2" "unrecognized suite observation: state file untouched"
+
+printf '\n--- state lifecycle: a terminal line ends the run; the next run starts fresh ---\n'
+# step_on <file> <observe-json>: one step against a persistent state file.
+step_on() { "$PY" "$CLOSURE" step --state "$1" --observe "$2" 2>&1; }
+for _end in stopped complete partial; do
+  _life="$TMP/life_$_end.json"
+  case "$_end" in
+    stopped)  printf '%s' "$D0" > "$_life"
+              _out="$(step_on "$_life" '{"receipt":"valid"}')"
+              _out="$(step_on "$_life" '{"suite":"red"}')"
+              assert_eq "terminal stopped state=suite reason=tests" "$_out" "lifecycle $_end: run ends" ;;
+    complete) printf '%s' '{"phase":"record","pr_open":true,"gated":false,"ci_rounds":2,"conflict_rounds":1,"deploy_reentries":1}' > "$_life"
+              _out="$(step_on "$_life" '{"record":"recorded"}')"
+              assert_eq "terminal complete state=record reason=closure recorded" "$_out" "lifecycle $_end: run ends" ;;
+    partial)  printf '%s' '{"phase":"partial","pr_open":true,"gated":true,"ci_rounds":2,"conflict_rounds":0,"deploy_reentries":0,"reason":"ci fail","label":"ci"}' > "$_life"
+              _out="$(step_on "$_life" '{"partial":"drafted"}')"
+              assert_eq "terminal partial state=ci reason=ci fail draft=yes" "$_out" "lifecycle $_end: run ends" ;;
+  esac
+  assert_eq "done" "$("$PY" -c 'import json,sys;print(json.load(open(sys.argv[1]))["phase"])' "$_life")" \
+    "lifecycle $_end: the terminal line writes phase done"
+  _out="$(step_on "$_life" '{"receipt":"valid"}')"
+  assert_eq "action run-suite" "$_out" "lifecycle $_end: the next run starts at receipt"
+  assert_eq "0 0 0 False False" \
+    "$("$PY" -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d["ci_rounds"],d["conflict_rounds"],d["deploy_reentries"],d["gated"],d["pr_open"])' "$_life")" \
+    "lifecycle $_end: the next run starts with fresh counters"
+done
+
+_corrupt="$TMP/corrupt.json"
+printf '%s' '{"phase":' > "$_corrupt"
+_out="$(step_on "$_corrupt" '{"receipt":"valid"}')"
+_code=$?
+assert_eq "2" "$_code" "corrupt state: exit 2, never a traceback"
+assert_contains "$_out" "closure: state file" "corrupt state: names the state file"
+assert_not_contains "$_out" "Traceback" "corrupt state: no traceback"
 
 printf '\n--- cycle check: every cycle in the table consumes a counter (or gated) ---\n'
 DRIVER="$TMP/driver.py"

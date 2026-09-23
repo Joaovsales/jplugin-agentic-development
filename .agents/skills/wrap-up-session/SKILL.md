@@ -380,9 +380,10 @@ gate's own report — as the source of truth:
 findings and ask the human to approve. A yes runs
 `receipt.py approve --fingerprint <fp> --by "$(git config user.name)"`, where
 `<fp>` is the third field `receipt.py fingerprint` prints (`check` prints no
-fingerprint on a stale line), then re-checks; a no stops as above. **Unattended
-run** (a routine branch, or a caller declaring Step 8.5 unattended): never
-approves — the HOLD stops the run through Step 8.5.
+fingerprint on a stale line), and reports `approve: approved`; a no reports
+`approve: declined`, which ends the run. **Unattended run** (a routine branch,
+or a caller declaring Step 8.5 unattended): never approves — it reports
+`approve: declined`, and the HOLD stops the run through Step 8.5.
 
 Spec reconciliation (Step 3.2) still runs before this step, so a reconciled
 spec is part of the tree the gate reviewed. Step 6's full suite still runs
@@ -480,14 +481,17 @@ repeat until a `terminal` line. The first call reports Step 4's
 `receipt.py check` result, since a fresh state starts in the `receipt` phase.
 `<sanitized branch>` is the current branch with every character outside
 `A-Za-z0-9_.-` replaced by `-`, the rule `receipt.py` uses for its branch
-pointer. This table maps
+pointer. A `terminal` line ends the run: the engine records it, and the next
+`/wrap-up-session` on the branch starts a fresh run, while a run interrupted
+before its terminal line resumes where it stopped. This table maps
 each action to the step or section that performs it and the observation it
 reports back:
 
 | Action | Performed by | Reports |
 |--------|---------------|---------|
-| `check-receipt` | Step 4, `receipt.py check` | `receipt: valid` \| `receipt: stale`, `scope: delta\|full` |
+| `check-receipt` | Step 4, `receipt.py check` | `receipt: valid` \| `receipt: hold` (on `stale verdict HOLD`) \| `receipt: stale`, `scope: delta\|full` |
 | `quality-gate` | Step 4, the `/quality-gate` re-entry | `gate: GO\|HOLD-approved\|HOLD\|STOP\|none` |
+| `approve-hold` | Step 4, *Approving a HOLD* | `approve: approved\|declined` (an unattended run always reports `declined`) |
 | `run-suite` | Step 6, `cached-suite.sh` | `suite: green\|red\|blocked` |
 | `commit-push` | § Commit & Push below | `push: ok` \| `push: non-ff` \| `push: denied` |
 | `pr-sync` | § The Pull Request below | `pr: <n>` \| `pr: failed` |

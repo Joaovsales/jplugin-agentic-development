@@ -1450,6 +1450,11 @@ assert_contains "$LOOP_TABLE" "Recording the closure" \
   "closure loop table: record-closure points at its own section"
 assert_contains "$LOOP_TABLE" "Marking a partial PR draft" \
   "closure loop table: mark-draft points at its own section"
+# An unapproved HOLD is its own observation and action, so the engine and
+# Step 4 route it the same way; a terminal line ends the run for good.
+for token in "approve-hold" "receipt: hold" "approve: approved" "starts a fresh run"; do
+  assert_contains "$LOOP_TABLE" "$token" "closure loop table: names '$token'"
+done
 
 # --- closure history: Step 2 states the pre-push-only recording rule --------
 STEP2="$(wrap_section "## Step 2 — Update Task Register")"

@@ -14,7 +14,10 @@ performs the actions this prints; this file only decides what happens next.
 
 The state file is created with the defaults below on first use, at
 `<git-common-dir>/closure/<sanitized branch>.json` (the caller resolves that
-path; this script only reads and writes whatever path it is given):
+path; this script only reads and writes whatever path it is given). Every
+terminal line writes `"phase": "done"`, and a `done` state loads as the
+defaults again, so the next `/wrap-up-session` on the branch starts a fresh
+run while an interrupted run resumes where it stopped:
 
     {"phase": "receipt", "pr_open": false, "gated": false,
      "ci_rounds": 0, "conflict_rounds": 0, "deploy_reentries": 0}
@@ -29,8 +32,9 @@ which `table()`'s caller walks and verifies.
 
 Observation shapes (one dict key per phase, JSON on --observe):
 
-    receipt:   {"receipt": "valid"} | {"receipt": "stale", "scope": "delta"|"full"}
+    receipt:   {"receipt": "valid"} | {"receipt": "hold"} | {"receipt": "stale", "scope": "delta"|"full"}
     gate:      {"gate": "GO"|"HOLD-approved"|"HOLD"|"STOP"|"none"}
+    approve:   {"approve": "approved"|"declined"}
     suite:     {"suite": "green"|"red"|"blocked"}
     push:      {"push": "ok"} | {"push": "non-ff", "branch": "<name>"} | {"push": "denied"}
     pr:        {"pr": <number>} | {"pr": "failed"}
@@ -83,7 +87,11 @@ def load_state(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         return dict(DEFAULT_STATE)
     with open(path, "r", encoding="utf-8") as handle:
-        return json.load(handle)
+        try:
+            state = json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise ClosureError(f"closure: state file {path} is not valid JSON ({exc}); delete it to start fresh")
+    return dict(DEFAULT_STATE) if state.get("phase") == "done" else state
 
 
 def save_state(path: str, state: Dict[str, Any]) -> None:
@@ -112,6 +120,7 @@ def go_end(state: Dict[str, Any], reason: str, label: Optional[str] = None) -> s
     """A `-> end(r)` row: stopped before a PR exists, drafted after (spec § Transitions)."""
     label = label or state["phase"]
     if not state["pr_open"]:
+        state["phase"] = "done"
         return terminal_line("stopped", label, reason)
     state["reason"] = reason
     state["label"] = label
@@ -131,6 +140,7 @@ _ALWAYS = lambda state: True  # noqa: E731
 def _rows() -> List[Any]:
     return [
         ("receipt", lambda o: o.get("receipt") == "valid", _ALWAYS, "suite"),
+        ("receipt", lambda o: o.get("receipt") == "hold", _ALWAYS, "approve"),
         ("receipt", lambda o: o.get("receipt") == "stale", lambda s: not s["gated"], "gate"),
         (
             "receipt",
@@ -139,7 +149,12 @@ def _rows() -> List[Any]:
             "END:receipt not written after gate",
         ),
         ("gate", lambda o: o.get("gate") in ("GO", "HOLD-approved"), _ALWAYS, "receipt"),
-        ("gate", lambda o: o.get("gate") in ("HOLD", "STOP", "none"), _ALWAYS, "ENDF:gate"),
+        ("gate", lambda o: o.get("gate") == "HOLD", _ALWAYS, "approve"),
+        ("gate", lambda o: o.get("gate") in ("STOP", "none"), _ALWAYS, "ENDF:gate"),
+        # Approval writes `hold_approved_by` into the receipt, so it is valid:
+        # straight on to the suite, no second check-receipt (and no cycle).
+        ("approve", lambda o: o.get("approve") == "approved", _ALWAYS, "suite"),
+        ("approve", lambda o: o.get("approve") == "declined", _ALWAYS, "END:review HOLD"),
         ("suite", lambda o: o.get("suite") == "green", _ALWAYS, "push"),
         ("suite", lambda o: o.get("suite") == "red", _ALWAYS, "END:tests"),
         ("suite", lambda o: o.get("suite") == "blocked", _ALWAYS, "END:suite lock held"),
@@ -224,6 +239,7 @@ ROWS = _rows()
 ACTION_BY_PHASE = {
     "receipt": "check-receipt",
     "gate": "quality-gate",
+    "approve": "approve-hold",
     "suite": "run-suite",
     "push": "commit-push",
     "pr": "pr-sync",
@@ -271,6 +287,7 @@ def apply_row(row: Any, obs: Dict[str, Any], state: Dict[str, Any]) -> str:
     from_phase = state["phase"]
     to = row[3]
     if to == "COMPLETE":
+        state["phase"] = "done"
         return terminal_line("complete", "record", "closure recorded")
     if to.startswith("RESET:"):
         counter = to[len("RESET:") :]
@@ -285,6 +302,7 @@ def apply_row(row: Any, obs: Dict[str, Any], state: Dict[str, Any]) -> str:
         return go_end(state, f"review {verdict}", from_phase)
     if to.startswith("PARTIAL:"):
         draft = to[len("PARTIAL:") :]
+        state["phase"] = "done"
         return terminal_line("partial", state.get("label", "partial"), state.get("reason", ""), draft=draft)
     return _dispatch_action(to, obs, from_phase, state)
 
