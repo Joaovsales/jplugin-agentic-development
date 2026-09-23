@@ -1,7 +1,7 @@
 ---
 name: quality-gate
-description: "The post-build review gate: run when all tasks in tasks/todo.md are done, before wrap-up or commit. Three sequential phases — structural quality and reuse (simplify), AI anti-pattern cleanup (deslop), and APOSD design audit — emitting four-axis findings (severity, confidence, autofix_class, owner). Triggers on: 'review before I call it done', 'thorough review of what I just built', 'I finished the tasks, check the code', 'run the quality gate', 'post-build review'."
-argument-hint: "[--scope <path>]"
+description: "The post-build review gate: run when all tasks in tasks/todo.md are done, before wrap-up or commit. Sequential phases — structural quality and reuse (simplify), AI anti-pattern cleanup (deslop), the security checklist, and APOSD design audit — emitting four-axis findings (severity, confidence, autofix_class, owner), then the affected tests and a quality receipt bound to the diff. Triggers on: 'review before I call it done', 'thorough review of what I just built', 'I finished the tasks, check the code', 'run the quality gate', 'post-build review'."
+argument-hint: "[--scope <path> ...] [--parent <fingerprint>]"
 ---
 
 # /quality-gate — Post-Build Quality Review
@@ -11,13 +11,27 @@ argument-hint: "[--scope <path>]"
 > work and stop" escape hatch, arm a stall monitor, and never retry a deterministic failure
 > with an identical prompt.
 
-3-phase sequential review run after all build tasks are complete. Each phase has a unique mandate.
+Six sequential phases run after all build tasks are complete: four review
+phases, each with a unique mandate, then the tests and the receipt. This is the
+one review pass a diff gets — `/wrap-up-session` reuses its receipt instead of
+reviewing again (`specs/quality-receipt-closure.md`).
 
 ## Scope
 
-Determine files to review:
-1. If `--scope <path>` provided: review only that path
-2. Otherwise: `git diff --name-only <base>..HEAD` — all files changed since the build started
+Determine files to review — **the gate's own file list**, which every phase uses:
+1. If `--scope <path> ...` provided: review only those paths. `/wrap-up-session`
+   passes the delta `receipt.py check` printed, with `--parent <fingerprint>`.
+2. Otherwise: every file that differs between the merge-base and the working
+   tree — committed, staged, unstaged and untracked, `tasks/**` excluded. The
+   merge-base is the first field `receipt.py fingerprint` prints; call it with
+   no `--base`, so the gate and wrap-up agree on one base:
+
+   ```bash
+   python3 .agents/skills/quality-gate/scripts/receipt.py fingerprint
+   # <merge-base> <tree> <fingerprint>
+   git diff --name-only <merge-base> -- . ':(exclude)tasks/**'
+   git ls-files --others --exclude-standard -- . ':(exclude)tasks/**'
+   ```
 
 Skip: generated files, lock files, migration files, test fixtures.
 
@@ -161,7 +175,24 @@ try { doThing(); } catch (e) { throw e; }  // passthrough
 
 ---
 
-## Phase 3 — Design Quality (APOSD)
+## Phase 3 — Security
+
+**Mandate**: "Does this change open a vulnerability?" — injection, auth, secrets,
+unsafe input handling.
+
+Run the `/security-scan` checklist inline over **the gate's own file list**
+(untracked files included, `--scope` honoured) — not the `git diff --name-only`
+list the skill builds when it is invoked on its own. Emit its findings in the
+four-axis format and apply its fixes under the **Apply Gate**; a `MUST-FIX` it
+will not apply stays unresolved and reaches the receipt. Record the phase as
+`{"phase": 3, "lens": "security-scan", "dispatch": "inline"}`.
+
+Security runs before Phase 4 so the dispatched design reviewer sees the
+security fixes too.
+
+---
+
+## Phase 4 — Design Quality (APOSD)
 
 **Mandate**: "Are modules well-designed?" — deep/shallow, info leakage, complexity flow.
 
@@ -183,22 +214,26 @@ Run tests after fixes.
 
 ### Dispatch Disclosure
 
-Phase 3 runs either as a dispatched `software-design-expert-review` agent or
+Phase 4 runs either as a dispatched `software-design-expert-review` agent or
 inline in the main context. The two are not equivalent, and the output must say
 which happened:
 
 | How it ran | Disclosure | Promotion |
 |-----------|-----------|-----------|
-| Dispatched agent | `dispatched` | Its agreement with a Phase 1 or Phase 2 finding is independent corroboration: promote `confidence` by exactly one anchor. |
-| Inline in the main context | `inline` | **No promotion.** Phase 3 shares this context's priors with Phases 1 and 2, so agreement is one perspective repeated. Name the corroboration lost. |
+| Dispatched agent | `dispatched` | Its agreement with a Phase 1, 2 or 3 finding is independent corroboration: promote `confidence` by exactly one anchor. |
+| Inline in the main context | `inline` | **No promotion.** Phase 4 shares this context's priors with Phases 1–3, so agreement is one perspective repeated. Name the corroboration lost. |
 
 Per `.agents/references/finding-model.md` § *Independence Accounting*, agreement inside one context is not
 two witnesses. An inline run is a complete run — it reports and applies under the
 Apply Gate — but it may never report a promoted confidence.
 
+**No phase after 4 edits the tree.** Phase 4's applied fixes are the last edit;
+Phases 5 and 6 only observe, so the receipt describes exactly the tree that was
+reviewed.
+
 ## Claude Code Enhancements
 
-Dispatch the `software-design-expert-review` skill (invokes the `software-design-expert-review` agent at Ceiling tier — pass no `model`, so it inherits the session model) instead of running inline Phase 3. The agent is read-only — it reports findings only. Apply findings in the main context after the agent returns per the Apply Gate. Run tests after applying fixes. Because this path is a separate dispatch, record it as `dispatched`.
+Dispatch the `software-design-expert-review` skill (invokes the `software-design-expert-review` agent at Ceiling tier — pass no `model`, so it inherits the session model) instead of running inline Phase 4. The agent is read-only — it reports findings only. Apply findings in the main context after the agent returns per the Apply Gate. Run tests after applying fixes. Because this path is a separate dispatch, record it as `dispatched`.
 
 The dispatch carries the full payload in `.agents/references/review-dispatch-contract.md` —
 diff, every relevant spec's path plus its acceptance criteria verbatim (or `no spec — <reason>`), the closed
@@ -206,7 +241,7 @@ diff, every relevant spec's path plus its acceptance criteria verbatim (or `no s
 `deferrals: none`), the introduced-only boundary, and the four-axis format. A design
 reviewer told only *what* changed reports structural debt the spec deliberately
 accepted; the deferral list is what makes an accepted trade-off distinguishable from
-an oversight. Withhold Phase 1 and Phase 2 findings — passing them makes Phase 3 an
+an oversight. Withhold the findings of Phases 1–3 — passing them makes Phase 4 an
 echo rather than a witness.
 
 **Item 7 is read, not remembered.** Before dispatching, resolve `finding-model.md` in
@@ -215,6 +250,51 @@ on Claude Code (the skill body and the reference then come from the same plugin 
 then `~/.agents/references/` on Pi and Codex — and paste its § *Emission format* into the
 prompt verbatim. When all three are missing, stop before dispatch:
 `review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync`. Never dispatch a reviewer with no output format.
+
+---
+
+## Phase 5 — Tests
+
+**Mandate**: "Is the reviewed tree green?" — evidence for the receipt, run once
+after every fix has landed.
+
+Run the project's `Affected tests:` command (below the `AGENTS.md` end marker,
+`{base}` replaced by the merge-base from *Scope*) through the cache:
+`.agents/skills/build/scripts/cached-suite.sh -- <affected-test command>`. With
+no declaration, run the test files that cover the gate's file list. Record
+`{"command": "<command>", "exit": <status>, "tree": "<tree>"}`, where `"tree"`
+is the second field `receipt.py fingerprint` prints immediately before the run.
+
+A failure here is a red `tests` record that the receipt turns into STOP —
+never a silent fix. Fixing it is a new edit, and a new edit means a new gate
+run on the new tree. This phase never runs the full suite: `/wrap-up-session`
+Step 6 owns that, through the same cache.
+
+## Phase 6 — Receipt
+
+**Mandate**: "What exactly was reviewed, and what was left?" — a receipt bound
+to the diff, which `/wrap-up-session` checks instead of reviewing again.
+
+Write the outcome JSON under the git common dir, never in the worktree (a file
+there would change the fingerprint it describes), then mint the receipt:
+
+```bash
+outcome="$(git rev-parse --path-format=absolute --git-common-dir)/quality-receipts/outcome.json"
+python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome "$outcome" [--parent <fingerprint>]
+```
+
+| Outcome field | Value |
+|---------------|-------|
+| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it |
+| `unresolved` | every finding in `Reported, not applied`, four-axis, with `location` (`file:line`) and `summary` |
+| `design_verdict` | Phase 4's GO / HOLD / STOP |
+| `tests` | Phase 5's record |
+| `scope` | `"full"`, or the `--scope` path list — which requires `--parent <fingerprint>` |
+
+The gate never supplies a verdict: `receipt.py` derives it from `unresolved`,
+`design_verdict` and `tests`, and ignores a `verdict` key. On exit 2 the
+receipt was refused and nothing was written — report `Receipt: none —` with
+its stderr. The caller treats that as a stale receipt, never as GO.
 
 ---
 
@@ -241,12 +321,21 @@ Phase 2 — AI Anti-Patterns
   Removed: [N lines — list with file:line and category]
   Tests: [PASS / FAIL — N reverted]
 
-Phase 3 — APOSD Design (/software-design-expert-review)
+Phase 3 — Security (/security-scan checklist, inline)
+  Applied: [N fixes — list with file:line]
+  Tests: [PASS / FAIL — N reverted]
+
+Phase 4 — APOSD Design (/software-design-expert-review)
   Verdict: 🟢 GO / 🟡 HOLD (N refactors applied) / 🔴 STOP
   Tests: [PASS / FAIL]
 
-Review independence: [Phase 3 dispatched / Phase 3 inline — no promotion; lost corroboration: <what>]
+Phase 5 — Tests: [<affected-test command> exit N on tree <tree8>]
+
+Review independence: [Phase 4 dispatched / Phase 4 inline — no promotion; lost corroboration: <what>]
 Reported, not applied: [N findings — list with file:line, autofix_class, owner]
+
+Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx> [parent <fp8>]
+   or:   Receipt: none — <receipt.py stderr>
 
 ══════════════════════════════════════════
 ```

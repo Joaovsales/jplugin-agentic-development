@@ -1261,4 +1261,56 @@ for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
   done
 done
 
+# --- quality receipt (gate): /quality-gate owns the one review pass and mints its receipt
+# specs/quality-receipt-closure.md AC4. Security runs as phase 3 over the
+# gate's own file list, before the dispatched APOSD phase 4 so the design
+# reviewer sees the security fixes; nothing edits the tree after phase 4; the
+# affected tests run through the cache as phase 5 and receipt.py write mints
+# the receipt as phase 6. A write refusal is `Receipt: none`, never GO.
+QG_SKILL=.agents/skills/quality-gate/SKILL.md
+qg_section() {  # <heading prefix>: that heading's body, up to the next ## heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$QG_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+assert_file_matches "$QG_SKILL" '^argument-hint: .*--scope <path>.*--parent <fingerprint>' \
+  "quality receipt: /quality-gate's argument hint takes --scope and --parent <fingerprint>"
+flat_qg="$(flatten "$QG_SKILL")"
+prev=0
+for heading in "## Phase 1 — " "## Phase 2 — " "## Phase 3 — Security" "## Phase 4 — Design Quality (APOSD)" \
+               "## Phase 5 — Tests" "## Phase 6 — Receipt" "## Output"; do
+  pos=$(printf '%s' "$flat_qg" | grep -bo -- "$heading" | head -1 | cut -d: -f1)
+  if [ -n "${pos:-}" ] && [ "$pos" -gt "$prev" ]; then
+    assert_eq "ordered" "ordered" "quality receipt: '$heading' follows the phase before it"
+    prev=$pos
+  else
+    assert_eq "after $prev" "${pos:-missing}" "quality receipt: '$heading' follows the phase before it"
+  fi
+done
+SCOPE_QG="$(qg_section "## Scope")"
+for token in "receipt.py fingerprint" "untracked" "tasks/**" "--scope"; do
+  assert_contains "$SCOPE_QG" "$token" "quality receipt: the gate's Scope names '$token'"
+done
+assert_not_contains "$SCOPE_QG" "git diff --name-only <base>..HEAD" \
+  "quality receipt: the gate's file list is no longer the committed diff alone"
+SEC_QG="$(qg_section "## Phase 3 — Security")"
+for token in "/security-scan" "the gate's own file list" "untracked" "Apply Gate" "\"inline\""; do
+  assert_contains "$SEC_QG" "$token" "quality receipt: phase 3 names '$token'"
+done
+assert_contains "$flat_qg" "No phase after 4 edits the tree" \
+  "quality receipt: the gate forbids edits after the APOSD phase"
+TESTS_QG="$(qg_section "## Phase 5 — Tests")"
+for token in "Affected tests:" "cached-suite.sh -- " "\"tree\"" "never a silent fix"; do
+  assert_contains "$TESTS_QG" "$token" "quality receipt: phase 5 names '$token'"
+done
+RECEIPT_QG="$(qg_section "## Phase 6 — Receipt")"
+for token in "receipt.py write --outcome" "--parent <fingerprint>" "--git-common-dir" \
+             "never supplies a verdict" "Receipt: none —"; do
+  assert_contains "$RECEIPT_QG" "$token" "quality receipt: phase 6 names '$token'"
+done
+OUTPUT_QG="$(qg_section "## Output")"
+assert_contains "$OUTPUT_QG" "Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx> [parent <fp8>]" \
+  "quality receipt: the Output block carries the Receipt line"
+assert_contains "$OUTPUT_QG" "Receipt: none — <receipt.py stderr>" \
+  "quality receipt: the Output block carries the refusal form"
+
 finish
