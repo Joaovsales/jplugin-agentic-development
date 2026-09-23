@@ -66,6 +66,18 @@ done
 TEST_JOBS=1 bash "$BOX/tests/run.sh" --frobnicate </dev/null >"$BOX/bad.out" 2>&1
 assert_eq "2" "$?" "usage: an unknown flag exits 2"
 
+# --- named files: only those run; a missing one is a usage error --------------
+NAMED="$(bash "$BOX/tests/run.sh" tests/test-alpha.sh </dev/null 2>&1)"; NSTATUS=$?
+assert_eq "0" "$NSTATUS" "named: exit 0 when the named file passes"
+assert_contains "$NAMED" "=== tests/test-alpha.sh ===" "named: the named file runs"
+assert_not_contains "$NAMED" "test-stdin.sh" "named: an unnamed file does not run"
+assert_contains "$NAMED" "RESULT: all 1 test files passed" "named: the RESULT counts only named files"
+NAMED="$(bash "$BOX/tests/run.sh" --jobs 2 tests/test-alpha.sh tests/test-stdin.sh </dev/null 2>&1)"
+assert_contains "$NAMED" "RESULT: all 2 test files passed" "named: --jobs combines with named files"
+bash "$BOX/tests/run.sh" tests/test-missing.sh </dev/null >"$BOX/bad.out" 2>&1
+assert_eq "2" "$?" "named: a missing named path exits 2"
+assert_file_contains "$BOX/bad.out" "tests/test-missing.sh" "named: the missing path is named"
+
 # --- TEST_PYTHON resolution ---------------------------------------------------
 LIB="$REPO/tests/lib.sh"
 assert_eq "/preset/python" "$(TEST_PYTHON=/preset/python "$BASH" -c '. "$1"; printf %s "$TEST_PYTHON"' _ "$LIB")" \
