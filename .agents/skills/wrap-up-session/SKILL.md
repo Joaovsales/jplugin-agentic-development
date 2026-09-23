@@ -471,8 +471,11 @@ python3 .agents/skills/wrap-up-session/scripts/closure.py step \
 
 Perform the named action, turn its result into the observation shape
 `closure.py`'s module docstring defines, feed that back on the next call, and
-repeat until a `terminal` line. `<sanitized branch>` is the current branch
-with `/` replaced the way the state path's caller always has. This table maps
+repeat until a `terminal` line. The first call reports Step 4's
+`receipt.py check` result, since a fresh state starts in the `receipt` phase.
+`<sanitized branch>` is the current branch with every character outside
+`A-Za-z0-9_.-` replaced by `-`, the rule `receipt.py` uses for its branch
+pointer. This table maps
 each action to the step or section that performs it and the observation it
 reports back:
 
@@ -665,8 +668,9 @@ mergeable`. `MERGEABLE` reports `mergeable: clean`. `CONFLICTING` reports
 `mergeable: conflicting` with the PR's base branch, which the engine routes
 to *Conflict Repair* below. `UNKNOWN` is re-queried up to 3 times inside this
 action before it gives up and reports `mergeable: unknown` — GitHub has not
-finished computing it, not a real conflict. `BEHIND` is not a trigger here
-(Decision 9): it reports `mergeable: clean` and CI watch proceeds.
+finished computing it, not a real conflict. A branch that is merely behind
+its base (`mergeStateStatus: BEHIND`) is not a trigger (Decision 9): the
+`mergeable` field still reads `MERGEABLE`, and CI watch proceeds.
 
 #### CI Watch and Repair
 
@@ -691,7 +695,9 @@ the failing run's log, `gh run view <run-id> --log-failed`, and hand it to
 `/debug`. The fix re-enters Step 4 (`check-receipt`) and Step 6 (`run-suite`)
 before the next push — the same gates every other commit passes, so a repair
 commit is never smuggled past the receipt or the suite. Report `debug: fixed`
-once the push after the fix lands, or `debug: not-fixed` when the round is
+once the fix is committed — the engine then routes it through
+`check-receipt`, `run-suite` and `commit-push`, so this action never pushes
+itself — or `debug: not-fixed` when the round is
 spent without a passing push.
 
 **Every repair commit adds a `## Session Summary — <date> [<a>..<b>] —
@@ -713,7 +719,8 @@ Resolve every conflict and commit the merge; report `merge: resolved`, which
 re-enters Step 4 so the merged tree gets checked before the next push. A
 conflict that cannot be resolved in this round is aborted —
 `git merge --abort` — and reported as `merge: unresolved`, which ends the run
-partial rather than leaving a half-resolved merge in the tree.
+(stopped while no PR exists, partial with the PR drafted after) rather than
+leaving a half-resolved merge in the tree.
 
 ### Push Failure Handling
 
