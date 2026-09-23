@@ -1417,4 +1417,54 @@ PUSH_FAILURE="$(wrap_section "### Push Failure Handling")"
 assert_contains "$PUSH_FAILURE" "Conflict Repair" \
   "closure conflicts: the non-fast-forward row routes to Conflict Repair"
 
+# --- closure deploy: verify-deploy runs when a target applies, else n/a -----
+# specs/quality-receipt-closure.md AC12. A moved HEAD re-enters Step 4 once.
+STEP8="$(wrap_section "## Step 8 — Deployment Verification")"
+for token in "/verify-evidence --scope deployment" "head-moved: true" "head-moved: false" \
+             "re-enters Step 4" "deploy_reentries" "at most once" \
+             "Deployments: not applicable —" "\`--skip-deploy\`"; do
+  assert_contains "$STEP8" "$token" "closure deploy: Step 8 names '$token'"
+done
+assert_contains "$STEP8" "Deployment Targets\` row applies to the pushed branch" \
+  "closure deploy: Step 8 names the applying-target case"
+assert_contains "$STEP8" "Accepted exception" \
+  "closure deploy: Step 8 names the accepted exception"
+
+# --- closure record: record-closure and mark-draft are described, and the ---
+# Done report carries a Closure line. specs/quality-receipt-closure.md AC13.
+DONE_SECTION="$(wrap_section "## Done")"
+for token in "record-closure" "gh pr edit <n> --body-file" "record: recorded" "record: record-failed" \
+             "mark-draft" "gh pr ready <n> --undo" "partial: drafted" "partial: draft-failed" \
+             "partial: no-pr" "Closure: [complete / partial" "closure engine failed" \
+             "facts known before the push"; do
+  assert_contains "$DONE_SECTION" "$token" "closure record: the Done section names '$token'"
+done
+assert_contains "$flat_wrap" "closure repair" \
+  "closure record: closure repair commits stay named in the wrap-up flow"
+
+# --- closure loop table: the three pointers now name real sections ----------
+LOOP_TABLE="$(wrap_section "### The Closure Loop")"
+assert_contains "$LOOP_TABLE" "Step 8 — Deployment Verification" \
+  "closure loop table: verify-deploy points at Step 8's real heading"
+assert_contains "$LOOP_TABLE" "Recording the closure" \
+  "closure loop table: record-closure points at its own section"
+assert_contains "$LOOP_TABLE" "Marking a partial PR draft" \
+  "closure loop table: mark-draft points at its own section"
+
+# --- closure history: Step 2 states the pre-push-only recording rule --------
+STEP2="$(wrap_section "## Step 2 — Update Task Register")"
+for token in "facts known" "before" "the push" "CI, conflict-repair and deployment outcomes" \
+             "never written here"; do
+  assert_contains "$STEP2" "$token" "closure history: Step 2 names '$token'"
+done
+
+# --- routine spine: step 5/4 name the receipt, not review passes ------------
+# specs/quality-receipt-closure.md AC13.
+ROUTINES=.agents/skills/wrap-up-session/references/routines.md
+flat_routines="$(flatten "$ROUTINES")"
+assert_contains "$flat_routines" "checks the quality receipt, tests, and the pull request" \
+  "routine spine: routines.md names the quality receipt in place of review passes"
+assert_not_contains "$flat_routines" "review passes, tests, and the pull request" \
+  "routine spine: routines.md no longer names review passes in either spine table"
+
 finish
