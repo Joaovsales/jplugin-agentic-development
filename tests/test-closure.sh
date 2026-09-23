@@ -101,6 +101,17 @@ run_case "pr-failed" \
   '{"phase":"pr","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"pr":"failed"}' "terminal stopped state=pr reason=pr-sync failed"
 
+# pr_open turns true on the reported PR number, not when pr-sync starts: a
+# first pr-sync that fails leaves no PR to draft, so the run ends stopped.
+PR_FLOW="$TMP/state_pr_flow.json"
+printf '%s' '{"phase":"push","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' > "$PR_FLOW"
+"$PY" "$CLOSURE" step --state "$PR_FLOW" --observe '{"push":"ok"}' >/dev/null
+assert_eq "terminal stopped state=pr reason=pr-sync failed" \
+  "$("$PY" "$CLOSURE" step --state "$PR_FLOW" --observe '{"pr":"failed"}')" \
+  "pr-failed after push: no PR exists yet, so the run ends stopped"
+run_case "observe-not-json" "$D0" 'not json' \
+  "closure: observation not json not valid in phase receipt" 2
+
 printf '\n--- transitions: mergeable ---\n'
 run_case "mergeable-clean" \
   '{"phase":"mergeable","pr_open":true,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \

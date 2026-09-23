@@ -259,7 +259,8 @@ def find_row(phase: str, obs: Dict[str, Any], state: Dict[str, Any]) -> Optional
 
 def _dispatch_action(to_phase: str, obs: Dict[str, Any], from_phase: str, state: Dict[str, Any]) -> str:
     state["phase"] = to_phase
-    if to_phase == "pr":
+    # The PR exists once pr-sync reported its number, not when pr-sync starts.
+    if from_phase == "pr":
         state["pr_open"] = True
     if to_phase == "gate":
         state["gated"] = True
@@ -290,7 +291,12 @@ def apply_row(row: Any, obs: Dict[str, Any], state: Dict[str, Any]) -> str:
 
 def step(state_path: str, observe_json: str) -> str:
     state = load_state(state_path)
-    obs = json.loads(observe_json)
+    try:
+        obs = json.loads(observe_json)
+    except json.JSONDecodeError:
+        obs = None
+    if not isinstance(obs, dict):
+        raise ClosureError(f"closure: observation {observe_json} not valid in phase {state['phase']}")
     row = find_row(state["phase"], obs, state)
     if row is None:
         raise ClosureError(f"closure: observation {observe_json} not valid in phase {state['phase']}")
