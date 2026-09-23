@@ -26,7 +26,7 @@ Sub-agent model assignment for build orchestration. The Tier column is canonical
 
 **Escalation ladder for test regressions:**
 1. 2 attempts at builder tier
-2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `CLAUDE.md` § Model Routing → Floors.
+2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `.agents/references/model-routing.md` § *Floors*.
 3. Circuit breaker — `planner` at planner tier analyzes all 4 attempts; then halt and escalate to user
 
 Steps 1 and 2 must never resolve to the same model. If they do, the ladder has no middle rung and the first genuine escalation is the circuit breaker — four failed attempts later than intended.
@@ -179,7 +179,7 @@ Choose the agent or approach based on task type:
 | `frontend-developer` | `[ARCHITECTURE]` + `[PROTECTION]` + `[CONVENTIONS]` + relevant requirements |
 | `code-debugger` | Failing test + relevant code only |
 
-Do not pass the full project-context to every agent — extract only relevant sections. For bulk artifacts (logs, long command output), follow the **Large-Artifact Handoff** convention in `.claude/project.md` — truncate-with-pointer, never inline.
+Do not pass the full project-context to every agent — extract only relevant sections. For bulk artifacts (logs, long command output), follow `AGENTS.md` § *Large-Artifact Handoff* — truncate-with-pointer, never inline.
 
 ### Step 2 — Per-Task Spec Compliance Check (inline, no agent)
 
@@ -204,7 +204,7 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 
 - Change `[ ]` to `[x]` in `tasks/todo.md`
 - Log: `✓ [Test Name] — [one-line summary]`
-- **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the shared flush (`bash .claude/hooks/pre-compact.sh </dev/null`) — no prompt, no commit. This keeps on-disk state current at each semantic (task) boundary, so a context compaction or `/refresh` loses at most one task of work.
+- **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the shared flush (`bash .agents/hooks/pre-compact.sh </dev/null`) — no prompt, no commit. This keeps on-disk state current at each semantic (task) boundary, so a context compaction or `/refresh` loses at most one task of work.
 - **Task status**: when the project tracks tasks externally, claim the task and
   update its status through `/task-registry` (never by calling `gh` or a
   tracker API directly). Status writes are gated the same way every other external write is —
@@ -251,7 +251,7 @@ failure.
 
 The slice boundary is the checkpoint: run the full suite once, centrally;
 write the handover; flush the task-boundary checkpoint
-(`bash .claude/hooks/pre-compact.sh </dev/null`); then call `slice.py ready`
+(`bash .agents/hooks/pre-compact.sh </dev/null`); then call `slice.py ready`
 again for the next batch.
 
 ### TDD Discipline (tdd)
@@ -383,7 +383,7 @@ An AC that ran and failed remains in the normal loop above.
 
 ## Phase 4.5 — Ambiguity Batch Review
 
-Per `.claude/project.md` § *Ambiguity Protocol*, sub-agents emit a single line
+Per `AGENTS.md` § *Ambiguity Protocol*, sub-agents emit a single line
 when they hit a question whose answer changes the implementation:
 
 ```
@@ -545,7 +545,7 @@ On Pi + OpenRouter, explicit model IDs from the Model Routing table are used.
 override caps the highest-stakes review below the model the user chose.
 `critic` is the one exception: it carries a **planner floor**, so pass the planner
 alias when the session model is below planner tier and omit `model` otherwise.
-See `CLAUDE.md` § Model Routing.
+See `.agents/references/model-routing.md`.
 
 ### Pi Dispatch
 

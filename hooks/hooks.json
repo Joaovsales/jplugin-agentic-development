@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.agents/hooks/session-start.sh\"" }] }],
+    "PreCompact":   [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.agents/hooks/pre-compact.sh\"" }] }],
+    "Stop":         [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.agents/hooks/session-stop.sh\"" }] }]
+  }
+}

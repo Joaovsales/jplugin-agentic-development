@@ -530,7 +530,7 @@ assert_not_contains "$noptr_out" "BROKEN" \
 F_PTROK="$(new_fixture)"
 write_index "$F_PTROK"
 printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$F_PTROK/docs/tracking.md"
-printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTROK/CLAUDE.md"
+printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTROK/AGENTS.md"
 ptrok_out="$(run doctor --repo "$F_PTROK" 2>&1)"
 ptrok_code=$?
 assert_eq "0" "$ptrok_code" "Pointer states: pointer to an existing file — exit 0"
@@ -539,13 +539,13 @@ assert_contains "$ptrok_out" "configuration:  docs/tracking.md" \
 
 F_PTRMISS="$(new_fixture)"
 write_index "$F_PTRMISS"
-printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTRMISS/CLAUDE.md"
+printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTRMISS/AGENTS.md"
 ptrmiss_doctor="$(run doctor --repo "$F_PTRMISS" 2>&1)"
 ptrmiss_code=$?
 assert_eq "1" "$ptrmiss_code" "Pointer states: pointer to a missing file — doctor exits non-zero"
 assert_contains "$ptrmiss_doctor" "configuration:  BROKEN" \
   "Pointer states: pointer to a missing file — doctor reports BROKEN, not none"
-assert_contains "$ptrmiss_doctor" "CLAUDE.md declares" \
+assert_contains "$ptrmiss_doctor" "AGENTS.md declares" \
   "Pointer states: the fault names where the pointer was declared"
 assert_contains "$ptrmiss_doctor" "'docs/tracking.md' does not exist" \
   "Pointer states: the fault names the declared path"
@@ -563,11 +563,12 @@ ptrmiss_rec="$(run selectors --repo "$F_PTRMISS" 2>&1)"
 ptrmiss_rec_code=$?
 assert_eq "1" "$ptrmiss_rec_code" \
   "Pointer states: every command except doctor refuses to run on a broken pointer"
-assert_contains "$ptrmiss_rec" "task-registry: CLAUDE.md declares" \
+assert_contains "$ptrmiss_rec" "task-registry: AGENTS.md declares" \
   "Pointer states: the refusal carries the same fault text"
 
 # First pointer wins, broken or not: a dangling project-owned pointer is not
-# rescued by a valid template-managed one further down the search order. The
+# rescued by a valid one further down the search order (CLAUDE.md is the
+# @AGENTS.md pointer and is not searched at all, so the third line is inert). The
 # most authoritative declaration is the one that is wrong, and that is what the
 # user must hear.
 F_PTRPREC="$(new_fixture)"
@@ -591,7 +592,7 @@ assert_contains "$ptrprec_out" ".claude/project.md declares" \
 # something that is already there.
 F_PTRDIR="$(new_fixture)"
 write_index "$F_PTRDIR"
-printf 'Task tracking instructions: docs\n' > "$F_PTRDIR/CLAUDE.md"
+printf 'Task tracking instructions: docs\n' > "$F_PTRDIR/AGENTS.md"
 ptrdir_out="$(run doctor --repo "$F_PTRDIR" 2>&1)"
 assert_contains "$ptrdir_out" "'docs' exists but is not a file" \
   "Pointer states: a pointer to a directory is not reported as missing"
@@ -599,7 +600,7 @@ assert_not_contains "$ptrdir_out" "does not exist" \
   "Pointer states: a directory target never gets the create-it advice"
 F_PTRESC="$(new_fixture)"
 write_index "$F_PTRESC"
-printf 'Task tracking instructions: \033[31mdocs/x.md\n' > "$F_PTRESC/CLAUDE.md"
+printf 'Task tracking instructions: \033[31mdocs/x.md\n' > "$F_PTRESC/AGENTS.md"
 ptresc_out="$(run doctor --repo "$F_PTRESC" 2>&1)"
 assert_contains "$ptresc_out" "'\\x1b[31mdocs/x.md' does not exist" \
   "Pointer states: the declared path is echoed escaped, never raw"
@@ -621,13 +622,21 @@ assert_eq "0" "$ptrprose_code" \
   "Pointer states: sentence punctuation after the path is not part of the path"
 assert_contains "$ptrprose_out" "configuration:  docs/tracking.md" \
   "Pointer states: the prose mention resolves to the file it names"
+# `.claude/project.md` is where the pointer lived before the single instruction
+# file. It is still read — a declined migration must not break the registry —
+# but doctor says so, so the state is visible and not permanent by accident
+# (specs/single-instruction-file.md, D3).
+assert_contains "$ptrprose_out" "pointer found in .claude/project.md — /sync will move it to AGENTS.md" \
+  "Pointer states: a pointer still in .claude/project.md is read with the one-line notice"
+assert_not_contains "$ptrok_out" "pointer found in .claude/project.md" \
+  "Pointer states: a pointer in AGENTS.md prints no notice"
 
 # A run that is nothing but punctuation (`Task tracking instructions: ...`) is a
 # sentence fragment, not a path — it must read as "no pointer", not as a
 # pointer to a file called `...`.
 F_PTRDOTS="$(new_fixture)"
 write_index "$F_PTRDOTS"
-printf 'Task tracking instructions: ...\n' > "$F_PTRDOTS/CLAUDE.md"
+printf 'Task tracking instructions: ...\n' > "$F_PTRDOTS/AGENTS.md"
 ptrdots_out="$(run doctor --repo "$F_PTRDOTS" 2>&1)"
 ptrdots_code=$?
 assert_eq "0" "$ptrdots_code" \

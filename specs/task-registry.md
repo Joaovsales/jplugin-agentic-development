@@ -90,8 +90,9 @@ copied into `tasks/todo.md`.
 
 - `docs/task-tracking.md` — the project configuration contract (an ```ini fenced
   block parsed with `configparser`). Discovered directly, or through a
-  `Task tracking instructions: <path>` pointer in `AGENTS.md`, `CLAUDE.md`, or
-  `.claude/project.md`. A pointer whose target is missing is refused, naming
+  `Task tracking instructions: <path>` pointer in `AGENTS.md` (a pointer still in
+  `.claude/project.md` is read with a one-line notice until `/sync` moves it). A
+  pointer whose target is missing is refused, naming
   the declaring file and the path (#82) — only "no pointer, no default file"
   is silent.
 - `tasks/todo.md` — the compact local index.
@@ -240,4 +241,4 @@ copied into `tasks/todo.md`.
 - `tests/test-task-registry.sh`, `tests/test-task-escalation.sh`,
   `tests/test-routine-selectors.sh`, `tests/fixtures/task-registry/` — contract
   and escalation tests.
-- `CLAUDE.md`, `README.md`, `.claude/hooks/session-start.sh` — registration.
+- `README.md` — registration (generated skills table).

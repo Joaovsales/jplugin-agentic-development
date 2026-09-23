@@ -30,7 +30,7 @@ You care about:
 
 ## Context Intake
 
-**Given to you** (per `CLAUDE.md` § *Review Dispatch Contract*): the diff or its
+**Given to you** (per `.agents/references/review-dispatch-contract.md`): the diff or its
 path, absolute file paths, every relevant spec's path plus its acceptance criteria, the task entries
 closed this run, the deferral list, and the scope boundary. `deferrals: none` means
 nothing was deferred; a missing deferral line means you were not told.
@@ -45,7 +45,7 @@ re-reporting a deferral-list item as though it were undiscovered.
 
 A recorded trade-off is **context for your judgement, not a cap on it**. Severity
 says how urgent a defect is; `autofix_class` says what shape the fix is; the two are
-orthogonal (`CLAUDE.md` § *Finding Model*) and a marker written by the party under
+orthogonal (`.agents/references/finding-model.md`) and a marker written by the party under
 review cannot set either. So: judge the trade-off on its merits, cite the marker,
 and say whether its stated upgrade path actually covers what you found. A shortcut
 whose limit turns out to be wider than its author wrote down is a `MUST-FIX`, and

@@ -67,7 +67,7 @@ scan_tokens() {
     }
     {
       line = $0
-      while (match(line, /\.\.\/[A-Za-z0-9_.\/-]+|\.(agents|claude)\/skills\/[A-Za-z0-9_.\/-]+|(references|scripts|assets|templates)\/[A-Za-z0-9_.*?\/-]+/)) {
+      while (match(line, /\.\.\/[A-Za-z0-9_.\/-]+|\.(agents|claude)\/skills\/[A-Za-z0-9_.\/-]+|\.agents\/references\/[A-Za-z0-9_.\/-]+|(references|scripts|assets|templates)\/[A-Za-z0-9_.*?\/-]+/)) {
         tok = substr(line, RSTART, RLENGTH)
         line = substr(line, RSTART + RLENGTH)
         # Trim trailing markdown/punctuation the regex absorbs. Done here rather
@@ -118,7 +118,7 @@ for tree in $TREES; do
               "RefInt: $md:$lineno cited path $tok exists"
           fi
           ;;
-        .agents/skills/*)
+        .agents/skills/*|.agents/references/*)
           # Canonical tree: allowed in executed commands, must still exist.
           assert_eq "exists" "$([ -e "$tok" ] && echo exists || echo missing)" \
             "RefInt: $md:$lineno canonical path $tok exists"

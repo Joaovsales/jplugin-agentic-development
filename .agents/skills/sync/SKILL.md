@@ -10,36 +10,18 @@ Pull the latest skills, hooks, agents, and config from the `jplugin-agentic-deve
 
 ## Layered Configuration Model
 
-Config is split across layers so `/sync` can overwrite template-managed files safely without touching project-specific content.
-
-### Shared layer (both Claude Code and Pi read this natively)
+One instruction file per project, `AGENTS.md`, read by every harness. `/sync` rewrites only the text between its two markers, so the template's rules and the team's rules share a file without sharing an edit.
 
 | Path | Scope | Committed? | Touched by /sync? |
 |---|---|---|---|
-| `CLAUDE.md` | All shared rules inline: workflow, principles, skills index | Yes | **Yes — overwritten wholesale** |
-| `.agents/skills/` | Canonical skills — readable by any harness | Yes | **Yes** |
-| `.agents/agents/` | Canonical sub-agent personas (model-agnostic) | Yes | **Yes** |
+| `AGENTS.md` — the managed block, `<!-- jplugin-agentic-development:begin -->` to `<!-- jplugin-agentic-development:end -->` | Shared rules: workflow, principles, review taxonomy, task tracking, code economy | Yes | **Yes — replaced wholesale by `scripts/sync-managed-block.py`** |
+| `AGENTS.md` — below the end marker | Team-shared project rules, the `Task tracking instructions:` pointer, `## Deployment Targets` | Yes | **Never** |
+| `CLAUDE.md` | The single line `@AGENTS.md` — Claude Code's import of the same file | Yes | **Rewritten whenever it differs** |
+| `.agents/skills/`, `.agents/agents/`, `.agents/references/` | Canonical skills, personas and protocol references — readable by any harness | Yes | **Yes** |
+| `CLAUDE.local.md` | Personal per-project overrides (Claude Code, loaded natively) | No (gitignored) | **Never** |
+| `~/.pi/agent/AGENTS.md` | Cross-project personal (Pi) | N/A (global) | **Never** |
 
-Both Claude Code and Pi read `CLAUDE.md` natively at session start. All shared workflow rules and coding principles live there inline — no `@` import required for shared content.
-
-### Claude Code additional layer
-
-| File | Scope | Committed? | Touched by /sync? |
-|---|---|---|---|
-| `.claude/project.md` | Team-shared, project-specific rules + Deployment Targets | Yes | **Never** |
-| `CLAUDE.local.md` | Personal per-project overrides | No (gitignored) | **Never** |
-| `~/.claude/CLAUDE.md` | Cross-project personal | N/A (global) | **Never** |
-
-`CLAUDE.md` uses Claude Code's native `@` import syntax to pull in `.claude/project.md` and `CLAUDE.local.md`. This layering exists so `/sync` can overwrite `CLAUDE.md` without touching project-specific content.
-
-### Pi additional layer
-
-| File | Scope | Committed? | Touched by /sync? |
-|---|---|---|---|
-| `AGENTS.md` | Team-shared, project-specific rules for Pi | Yes | **Never** |
-| `~/.pi/agent/AGENTS.md` | Cross-project personal | N/A (global) | **Never** |
-
-Pi reads `CLAUDE.md` (shared rules) + `AGENTS.md` (project-specific additions). `AGENTS.md` is Pi's equivalent of `.claude/project.md`.
+Claude Code follows the `@AGENTS.md` import; Pi and Codex read `AGENTS.md` natively. There is no `.claude/project.md` any more. A project still carrying one keeps working — its pointer and its Deployment Targets are read after `AGENTS.md`, with a one-line notice — until a later `/sync` step moves that content below the end marker and deletes the file (`specs/single-instruction-file.md`).
 
 ## Source Repo
 
@@ -53,13 +35,13 @@ one-line `🔄 TEMPLATE DRIFT` notice at session start when syncable paths diffe
 from `workflow/<default-branch>`. It does **not** modify files — it only nudges
 you to run `/sync`.
 
-**Where the hook is registered:** `install.sh` registers `SessionStart` at the **user**
-level only (`~/.claude/hooks/session-start.sh` + `~/.claude/settings.json`) — once per
-machine, covering every project. It is deliberately **not** registered in the
-project-level `.claude/settings.json` that `/sync` copies. Registering it in both places
-makes the hook fire twice per session and print the banner twice. Do not "helpfully" add
-a `SessionStart` entry to `.claude/settings.json` — syncing that file does not, and must
-not, install this hook.
+**Where the hook is registered:** in the plugin's `hooks/hooks.json`, against
+`.agents/hooks/session-start.sh` — once, for every project the plugin is enabled in,
+together with `PreCompact` and `Stop`. Neither `.claude/settings.json` nor `install.sh`
+registers any of the three. Hooks from every source merge and all run, so a project
+file that still carries an entry pointing at `.claude/hooks/<name>.sh` would fire the
+same event twice; the Step 5 settings merge removes such entries (D16). Do not
+"helpfully" add one back.
 
 **Enable on a fresh project:**
 
@@ -96,16 +78,22 @@ These are the files/directories managed by the workflow template.
 > the next one — the parsers are fence-unaware and would read the line as a root.
 > A right-hand column that begins `RETIRED` marks a root the script scans for
 > retirement but `/sync` never checks out; keep the marker first on that line.
+> One that begins `MANAGED` marks a file `/sync` writes through
+> `scripts/sync-managed-block.py` instead of checking out: it is in no diff
+> list, because the project's own text below the end marker differs by design.
 
 ```
-CLAUDE.md             → Shared rules: workflow, principles, skills index (both harnesses)
+AGENTS.md             → MANAGED — the block between the markers is replaced by scripts/sync-managed-block.py (Step 5); the project's text below the end marker is never touched
+CLAUDE.md             → Pointer: the single line @AGENTS.md, written by the same script (Step 5), never checked out
 .agents/skills/       → Canonical skills (harness-neutral)
 .agents/agents/       → Canonical sub-agent personas (harness-neutral, discovered by pi-subagents)
+.agents/references/   → Protocol references read at dispatch time: finding model, review dispatch contract, model routing
+.agents/hooks/        → Lifecycle hook scripts (session-start, pre-compact, session-stop), run by the plugin's hooks/hooks.json
 .claude/skills/       → RETIRED — the jplugin plugin reads .agents/skills/; kept so /sync retires downstream copies
+.claude/hooks/        → RETIRED — the scripts moved to .agents/hooks/ and run from the plugin; kept so /sync retires downstream copies
 .claude/agents/       → Subagent definitions (Claude Code only)
-.claude/hooks/        → Lifecycle hooks (Claude Code only)
 .claude/browsers/     → Browser adapter runbooks read by /verify-evidence --scope e2e
-.claude/settings.json → Hook configuration + env + plugin declaration (Claude Code only — no SessionStart, see above)
+.claude/settings.json → env + plugin declaration (Claude Code only — registers no hook, see above)
 .agents/git-hooks/    → Git hooks (harness-agnostic; installed separately, see below)
 ```
 
@@ -124,8 +112,7 @@ Idempotent, and one copy covers every worktree since they share the common dir.
 Skipping it is how a gate ends up present in the tree and wired nowhere.
 
 **Never sync** (project-specific state):
-- `AGENTS.md` — Pi project-specific rules (Pi's equivalent of .claude/project.md)
-- `.claude/project.md` — Claude Code project-specific rules, Deployment Targets, team conventions
+- `AGENTS.md` below the end marker — project rules, the task-tracking pointer, Deployment Targets (only the block above it is written)
 - `tasks/solutions/` and `tasks/history.md` — project-specific learnings and session log
 - `CLAUDE.local.md` — personal per-project overrides (gitignored)
 - `tasks/` — project-specific task state
@@ -203,16 +190,38 @@ Compare the syncable paths between the current project and the template source.
 # Show changed files in syncable paths only
 # Note: use two-dot diff (not three-dot) — template and project have unrelated histories,
 # so HEAD...workflow/$WORKFLOW_BRANCH fails with "no merge base"
-git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH --stat -- .agents/skills/ .agents/agents/ .agents/references/ .agents/hooks/ .agents/git-hooks/ .claude/agents/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 Then show the full diff:
 ```bash
-git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/git-hooks/ .claude/agents/ .claude/hooks/ .claude/browsers/ .claude/settings.json CLAUDE.md
+git diff workflow/$WORKFLOW_BRANCH -- .agents/skills/ .agents/agents/ .agents/references/ .agents/hooks/ .agents/git-hooks/ .claude/agents/ .claude/browsers/ .claude/settings.json CLAUDE.md
 ```
 
 **If manual diff mode:**
 For each syncable path, compare using `diff -rq` between the project and `"$WORKFLOW_CLONE"`.
+
+**Managed block preview (both modes):** `AGENTS.md` is in neither list above —
+the project's own text below its end marker differs from the template's by
+design, so a whole-file diff is noise. Preview what Step 5 will write with the
+script's `--dry-run`, run from the template's copy for the same reason the
+retirement preview below is:
+
+```bash
+SYNC_TMP="$(mktemp -d)"
+git show "workflow/$WORKFLOW_BRANCH:.agents/skills/sync/scripts/sync-managed-block.py" > "$SYNC_TMP/sync-managed-block.py"
+git show "workflow/$WORKFLOW_BRANCH:AGENTS.md" > "$SYNC_TMP/AGENTS.md"
+python3 "$SYNC_TMP/sync-managed-block.py" --source "$SYNC_TMP/AGENTS.md" \
+  --target AGENTS.md --claude-md CLAUDE.md --migrate .claude/project.md --dry-run
+```
+
+In manual-diff mode run
+`python3 "$WORKFLOW_CLONE/.agents/skills/sync/scripts/sync-managed-block.py"`
+with `--source "$WORKFLOW_CLONE/AGENTS.md"` instead. It prints `would AGENTS.md:
+replaced|appended|unchanged`, `would CLAUDE.md: written|unchanged` and `would
+migration: moved <n> section(s), .claude/project.md deleted` or `would migration:
+nothing to move`; show all three lines in the summary — the migration line is
+how the user approves the deletion Step 6.6 performs.
 
 **Retirement preview (both modes):** the diff above covers additions and
 modifications. Deletions come from the retirement pass, which is a dry run here
@@ -254,7 +263,7 @@ Summarize the changes in a clear table:
 |-------------------------------|----------|----------------------------|
 | .agents/skills/sync/SKILL.md  | NEW      | New sync skill              |
 | .claude/agents/planner.md     | MODIFIED | Updated planning prompts    |
-| CLAUDE.md                     | MODIFIED | Added new workflow section  |
+| AGENTS.md (managed block)     | MODIFIED | Block replaced by the script |
 ```
 
 Then ask the user:
@@ -283,14 +292,44 @@ Copy files from the source to the project, overwriting existing files.
 
 For each applied file, briefly note what changed.
 
+**Write the managed block and the pointer.** `AGENTS.md` and `CLAUDE.md` are
+never in `<selected-files>`: checking either out would replace the project's
+own rules with the template's. The script is their only write path — it
+replaces the text between the markers (appending a block when the project has
+none, recognising the markers written before the repository was renamed), copies every
+byte outside them unchanged, and rewrites `CLAUDE.md` to the single line
+`@AGENTS.md` whenever it differs. Both land in the same run, so no downstream
+session ever loads the pointer without the block:
+
+```bash
+SYNC_TMP="$(mktemp -d)"
+git show "workflow/$WORKFLOW_BRANCH:.agents/skills/sync/scripts/sync-managed-block.py" > "$SYNC_TMP/sync-managed-block.py"
+git show "workflow/$WORKFLOW_BRANCH:AGENTS.md" > "$SYNC_TMP/AGENTS.md"
+python3 "$SYNC_TMP/sync-managed-block.py" --source "$SYNC_TMP/AGENTS.md" \
+  --target AGENTS.md --claude-md CLAUDE.md
+```
+
+In manual-diff mode point `--source` at `"$WORKFLOW_CLONE/AGENTS.md"` and run
+the clone's copy of the script. Report its two outcome lines (`AGENTS.md:
+replaced|appended|unchanged`, `CLAUDE.md: written|unchanged`). Exit 2 means a
+malformed marker pair in the project's `AGENTS.md` (unmatched or duplicated);
+nothing was written — show the message, which names the file and line, and
+stop the sync there.
+
 **Merge the plugin declaration.** The template's `.claude/settings.json`
 declares the `jplugin-agentic-development` marketplace under
 `extraKnownMarketplaces` and enables `jplugin@jplugin-agentic-development` under
 `enabledPlugins`. Step 5 merges those two keys into the project's existing
-`.claude/settings.json` rather than overwriting it — the `hooks` and `env`
-blocks and any project-specific keys stay as they are. `.claude/settings.json`
-is never in `<selected-files>`: the merge below is its only write path, so the
-checkout above cannot replace the project's file. It writes no `ref`: a
+`.claude/settings.json` rather than overwriting it — the `env` block and any
+project-specific keys stay as they are. The one thing it removes is a
+`SessionStart`, `PreCompact` or `Stop` entry whose command names
+`.claude/hooks/<name>.sh`: those scripts now run from the plugin's
+`hooks/hooks.json`, and an entry left beside that registration fires the same
+event twice — the checkpoint flush has no guard against it (D16). The entry
+goes whether or not the script still exists; Step 6.4 retires the script in the
+same run. `.claude/settings.json` is never in `<selected-files>`: the merge
+below is its only write path, so the checkout above cannot replace the
+project's file. It writes no `ref`: a
 marketplace `ref` must be a branch or tag (a commit sha does not clone), so the
 source floats on the template's default branch and the plugin's `version` in
 `.claude-plugin/plugin.json` is the pin — `version` pins what Claude Code caches
@@ -305,12 +344,27 @@ so the template's `.claude/settings.json` stays its single source.
 
 ```bash
 python3 - "$(git show "workflow/$WORKFLOW_BRANCH:.claude/settings.json")" <<'PY'
-import json, sys
+import json, re, sys
 template = json.loads(sys.argv[1])
 path = ".claude/settings.json"
 settings = json.load(open(path, encoding="utf-8"))
 for key in ("extraKnownMarketplaces", "enabledPlugins"):
     settings.setdefault(key, {}).update(template.get(key, {}))
+# D16: hooks/hooks.json registers these three; a project entry still pointing at
+# one of the three retired template scripts would fire the same event twice. A
+# project's own .claude/hooks/<name>.sh is not retired (Step 6.4 keeps the file
+# too), so it is matched by name, never by directory.
+retired = re.compile(r"\.claude/hooks/(session-start|pre-compact|session-stop)\.sh")
+hooks = settings.get("hooks", {})
+for event in ("SessionStart", "PreCompact", "Stop"):
+    groups = hooks.get(event, [])
+    for group in groups:
+        group["hooks"] = [h for h in group.get("hooks", []) if not retired.search(h.get("command", ""))]
+    hooks[event] = [g for g in groups if g.get("hooks")]
+    if not hooks[event]:
+        hooks.pop(event)
+if "hooks" in settings and not hooks:
+    settings.pop("hooks")
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(settings, handle, indent=2, ensure_ascii=False)
     handle.write("\n")
@@ -319,15 +373,16 @@ PY
 
 In manual-diff mode pass `$(cat "$WORKFLOW_CLONE/.claude/settings.json")` instead.
 Run it on every sync so a renamed marketplace or plugin id lands in the project.
-The merge never deletes: after a rename, remove the old marketplace and plugin
-keys by hand, or every synced project keeps enabling an id that no longer resolves.
+Beyond the retired hook entries the merge deletes nothing: after a rename, remove
+the old marketplace and plugin keys by hand, or every synced project keeps
+enabling an id that no longer resolves.
 
 ### Step 6 — Post-Sync
 
 1. Run `git diff --stat` to confirm what was updated
 2. Ask the user if they want to commit the sync:
    - Suggested message: `chore: sync workflow updates from jplugin-agentic-development`
-3. Remind the user to review `CLAUDE.md` if it was updated — they may need to merge project-specific customizations back in
+3. If `CLAUDE.md: written` replaced a full rules file with the pointer, say so: Claude Code now reads the block through `AGENTS.md`. A project that still has `.claude/project.md` is no longer importing it — Step 6.6 moves that file's content below the end marker in this same run; until it has run, the pointer and Deployment Targets there are still read (with a notice) and any other team text is loaded by nothing
 
 ### Step 6.4 — Retired Path Removal
 
@@ -507,7 +562,7 @@ at `.agents/skills/wrap-up-session/references/routines.md`, plus
 
 ### Step 6.5 — Unmigrated Learning Store Check
 
-/sync overwrites `CLAUDE.md` and the skills, so a project can end up with new
+/sync replaces the managed block and the skills, so a project can end up with new
 skills pointing at `tasks/solutions/` while its learnings still sit in the old
 monolithic store. Detect and tell the user — never migrate for them:
 
@@ -532,6 +587,45 @@ If `tasks/solutions/` exists alongside old files, name the leftover files and
 suggest re-running the migration or archiving them manually. Silent when there
 is nothing to flag.
 
+### Step 6.6 — Project-File Migration
+
+Before the single instruction file, a project's own rules lived in
+`.claude/project.md`, imported by the old `CLAUDE.md`. The pointer written in
+Step 5 imports nothing but `AGENTS.md`, so whatever is still in that file is
+loaded by nothing — except the task-tracking pointer and the Deployment Targets
+table, which their readers still find there with a one-line notice. Move it
+once, inside the run the user approved in Step 4:
+
+```bash
+python3 "$SYNC_TMP/sync-managed-block.py" --source "$SYNC_TMP/AGENTS.md" \
+  --target AGENTS.md --migrate .claude/project.md
+```
+
+Same script and source as Step 5 (`$SYNC_TMP` from that step; in manual-diff
+mode the clone's copy with `--source "$WORKFLOW_CLONE/AGENTS.md"`). The block was
+written already, so the first line reads `AGENTS.md: unchanged`; report the
+`migration:` line. What moves is **everything** below the file's own header —
+its `# ` title, the `> ` blockquote describing the file, and the `---` that
+closes them — in its original order with headings unchanged, except the four
+generic sections the block owns now (`### Code Economy`, `### Surgical Changes`,
+`### Ambiguity Protocol`, `### Large-Artifact Handoff`) and the `### Task
+Tracking` prose that explained where the pointer lived. The pointer line itself
+moves and is written first, directly below the end marker, so
+`/task-registry` finds it in `AGENTS.md`. A `## Project-Specific Rules` heading
+already below the end marker is reused rather than duplicated. `AGENTS.md` is
+written first and `.claude/project.md` deleted last, so an interrupted run
+leaves a redundant copy the next run removes — never a lost section.
+
+| Outcome | Meaning |
+|---------|---------|
+| `migration: moved <n> section(s), .claude/project.md deleted` | done; `git diff` shows the sections below the end marker |
+| `migration: nothing to move` | no `.claude/project.md` — already migrated, or the project never had one |
+| exit 2, `'## Deployment Targets' is also below the end marker` | the table exists in both files; nothing was written and `project.md` is intact — merge the two tables by hand, then re-run this step |
+
+The CI mirror (`sync-template.yml`) never runs this step: it adds and
+overwrites but never deletes, and the migration ends in a delete. A project
+synced only by CI migrates on its first hand-run `/sync`.
+
 ### Step 7 — Optional: Re-wire graphify
 
 `graphify` is a per-machine CLI (`~/.local/bin/graphify`) that most projects do not use.
@@ -542,12 +636,14 @@ because of it. Skip silently when the binary is absent:
 command -v graphify >/dev/null 2>&1 || echo "graphify not installed — skipping"
 ```
 
-If it *is* available, note that `/sync` may have just overwritten `CLAUDE.md`, which
-wipes the graphify section written by `graphify claude install`. Re-run the per-project
-wiring to restore it:
+If it *is* available, note that `graphify claude install` appends its `## graphify`
+section to `CLAUDE.md`, which is now the single line `@AGENTS.md` — `/sync` rewrites
+that file whenever it differs, so the section would vanish on the next sync.
+`install.sh` moves it below the end marker of `AGENTS.md`, where it survives; if
+the section is missing from `AGENTS.md`, re-run the per-project wiring and move it:
 
 ```bash
-graphify claude install || true   # CLAUDE.md section + PreToolUse hook
+graphify claude install || true   # writes a CLAUDE.md section — move it into AGENTS.md (see install.sh)
 graphify hook install  || true    # post-commit / post-checkout re-index git hooks
 ```
 
@@ -567,8 +663,8 @@ already applied, a graphify failure leaves the sync itself fully intact.
 
 ## Edge Cases
 
-- **CLAUDE.md is safe to overwrite**: `CLAUDE.md` contains only shared template rules (workflow, principles, skills index). Project-specific content lives in `.claude/project.md` (Claude Code) or `AGENTS.md` (Pi), which `/sync` never touches. The `@.claude/project.md` and `@CLAUDE.local.md` imports at the top of `CLAUDE.md` are Claude Code layering — they survive the overwrite unchanged since `/sync` replaces the whole file with the same imports.
-- **settings.json merge**: If the project has custom hooks in `.claude/settings.json`, show both versions and help the user merge rather than overwrite. Syncing this file never installs the `SessionStart` drift hook — that is registered once at user level by `install.sh` (see Automatic Drift Notification). If a project's `.claude/settings.json` contains a `SessionStart` entry pointing at `session-start.sh`, it duplicates the user-level registration and makes the banner print twice — flag it for removal.
+- **`CLAUDE.md` is rewritten, never merged**: it holds the single line `@AGENTS.md`. A downstream `CLAUDE.md` that still carries the old inline rules is replaced by the pointer in the same Step 5 run that writes the block, so no session ever loads the pointer alone. `CLAUDE.local.md` is loaded by Claude Code natively and needs no import line.
+- **`AGENTS.md` missing in the target project**: the script creates it with the block alone (`AGENTS.md: appended`); project rules go below the end marker afterwards.
+- **settings.json merge**: If the project has custom hooks in `.claude/settings.json`, show both versions and help the user merge rather than overwrite. Syncing this file installs no hook — the three lifecycle events come from the plugin's `hooks/hooks.json` (see Automatic Drift Notification). The Step 5 merge removes only an entry whose command names `.claude/hooks/<name>.sh`; a project's own hooks stay.
 - **New files**: Files that exist in the template but not the project are shown as NEW and can be added.
 - **Deleted files**: Files that exist in the project's `.claude/` but NOT in the template are flagged — they may be project-specific additions (don't remove them).
-- **`.claude/project.md` missing in the target project**: expected for fresh projects that haven't run `/setup-deployment` yet. `/sync` does not create it — that happens lazily on first write by `/setup-deployment`.

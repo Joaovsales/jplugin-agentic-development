@@ -1,7 +1,7 @@
 """Provider registry.
 
 A dict, not an if-chain: adding a tracker means adding an entry, and nothing in
-the core has to learn its name (CLAUDE.md § Open/Closed).
+the core has to learn its name (AGENTS.md § *SOLID*, open/closed).
 """
 
 from __future__ import annotations

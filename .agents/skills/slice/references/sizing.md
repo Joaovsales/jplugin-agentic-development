@@ -13,9 +13,8 @@ against the tree — never off the glob patterns themselves.
 
 A **system** is the first path segment, or the second segment under a
 container directory (`src`, `lib`, `.agents/skills`, `tests`). A skill's
-inventory rows — the skills tables in `CLAUDE.md` and `README.md`, the
-session banner line in `.claude/hooks/session-start.sh` — count together as
-that skill's one system, not as three separate ones.
+inventory — its `SKILL.md` and the `README.md` skills-table row rendered from
+its frontmatter — counts as that skill's one system, not as two separate ones.
 
 A slice over the ceiling is allowed when the `Sizing:` line in § Build Order
 names it and says why. It is never silent, and there is no separate

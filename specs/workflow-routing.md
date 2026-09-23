@@ -153,9 +153,9 @@ That makes the two obvious requirements contradictory: refuse a
 declared-but-missing pointer loudly, *and* give a fresh install working defaults.
 No rule can do both while the synced file carries the declaration.
 
-**Resolution: the declaration moves to `.claude/project.md`** (and `AGENTS.md`
-for Pi), which `/sync` never touches. `config.py` already reads all three
-(`POINTER_FILES`). Then:
+**Resolution: the declaration moves below the end marker of `AGENTS.md`**,
+which `/sync` never rewrites; a pointer still in `.claude/project.md` is read
+with a one-line notice (`config.py` `POINTER_FILES`). Then:
 
 | Project state | Declaration | File | Behaviour |
 |---|---|---|---|
@@ -231,7 +231,7 @@ both cases: a survivor reads through them.**
 
 * **`index.py` (402) stays.** `show` resolves a reference against the local index
   before the provider, so deleting the row parser would mean deleting `show` —
-  which `CLAUDE.md` § *Task Tracking* names as the way a task is read. Only the
+  which `AGENTS.md` § *Task Tracking* names as the way a task is read. Only the
   three helpers nothing but the sync engine called retire (`collect_problems`,
   `row_text`, `replace_line`).
 * **`upsert.py` (204) stays whole, including its index write.** `_published_ref`

@@ -92,7 +92,7 @@ Run this pass when no scope argument is supplied.
    files. If independent dispatch is unavailable, run the wave **inline**, one
    feature at a time, in this context — and state the lost corroboration in
    the report: every drift call then has a single witness, so none is promoted
-   on agreement (`CLAUDE.md` § *Independence Accounting*). `blocked` is
+   on agreement (`.agents/references/finding-model.md` § *Independence Accounting*). `blocked` is
    reserved for source that cannot be read, not for a wave that could not be
    parallelised or had to be batched.
 3. **Reconcile.** Require a returned summary for every feature; a batch that

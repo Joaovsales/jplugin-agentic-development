@@ -2,7 +2,7 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-HOOK="$REPO/.claude/hooks/pre-compact.sh"
+HOOK="$REPO/.agents/hooks/pre-compact.sh"
 
 # --- Case 1: seeded todo.md, dirty tree, custom branch ---
 tmp1=$(mktemp -d)

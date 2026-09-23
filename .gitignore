@@ -6,7 +6,7 @@ tasks/deploy-state.json
 .claude/sync-check-dismissed
 
 # Personal, per-project Claude Code overrides — gitignored by convention.
-# Imported by CLAUDE.md alongside .claude/project.md (committed, team-shared).
+# Loaded natively by Claude Code beside AGENTS.md (committed, team-shared).
 # Use this file for personal shortcuts, local paths, and experimental preferences.
 CLAUDE.local.md
 

@@ -4,7 +4,7 @@ implementation_paths:
   - .claude/settings.json
   - .claude/hooks/auto-test-runner.sh
   - .claude/hooks/auto-test-runner.ps1
-  - .claude/hooks/session-start.sh
+  - .agents/hooks/session-start.sh
   - .claude/deployments/README.md
   - .agents/skills/setup-deployment/**
   - .agents/skills/verify-deployment/**
@@ -141,7 +141,7 @@ releases, as they do today.
 | `.agents/skills/sync/SKILL.md` § Syncable Paths | the list of roots `/sync` manages, including which one is retired | — |
 | `sync-retire.py` | which downstream files are retired | Syncable Paths block, template history, the project's `.claude/settings.json` |
 | `.github/workflows/sync-template.yml` | the CI mirror list | — |
-| `.claude/hooks/session-start.sh` | the banner and the drift notice | Syncable Paths list (hand-pinned copy), the project's `.claude/settings.json` |
+| `.agents/hooks/session-start.sh` | the banner and the drift notice | Syncable Paths list, the plugin's `hooks/hooks.json` |
 | `README.md` | the repository's name and install path as users see them | — |
 | `tests/` | the pins above | all of the above |
 | Claude Code (`~/.claude/plugins/`) | `known_marketplaces.json`, `installed_plugins.json`, `cache/` | manifest, marketplace, project settings |

@@ -17,14 +17,14 @@ flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
 # Every swept root must exist — the `|| true` below absorbs grep's no-match
 # exit, but it would also absorb a missing-path error, letting a renamed root
 # silently shrink the sweep's coverage.
-for root in .agents .claude/agents .claude/hooks \
-            CLAUDE.md AGENTS.md .claude/project.md README.md install.sh project-template; do
+for root in .agents .claude/agents \
+            CLAUDE.md AGENTS.md README.md install.sh project-template; do
   assert_eq "present" "$([ -e "$root" ] && echo present || echo missing)" \
     "M3: sweep root $root exists (sweep coverage intact)"
 done
 for old in "tasks/memory.md" "tasks/lessons.md" "tasks/bugs.md"; do
-  offenders="$(grep -rlF "$old" .agents .claude/agents .claude/hooks \
-      CLAUDE.md AGENTS.md .claude/project.md README.md install.sh project-template 2>/dev/null \
+  offenders="$(grep -rlF "$old" .agents .claude/agents \
+      CLAUDE.md AGENTS.md README.md install.sh project-template 2>/dev/null \
     | grep -v '\.claude/worktrees/' || true)"
   assert_eq "" "$offenders" "M3: no live reference to $old (offenders: ${offenders:-none})"
 done
@@ -44,13 +44,12 @@ for f in .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "Backstop first" "Task7: $f circuit breaker runs /refresh backstop"
 done
 
-# --- Task 6 (P3): /refresh registered in CLAUDE.md table + session-start banner ---
-assert_file_contains "CLAUDE.md" "\`/refresh\`" "Task6: CLAUDE.md skills table lists /refresh"
-assert_file_contains ".claude/hooks/session-start.sh" "/refresh" "Task6: session-start banner lists /refresh"
+# --- Task 6 (P3): /refresh registered in the README table (the one skills catalog) ---
+assert_file_contains "README.md" "\`/refresh\`" "Task6: README skills table lists /refresh"
 
 # --- Task 9 (P5): Large-Artifact Handoff convention + references ---
-assert_file_contains ".claude/project.md" "Large-Artifact Handoff" "Task9: project.md defines the convention"
-assert_file_contains ".claude/project.md" "truncate with a" "Task9: project.md states truncate-with-pointer"
+assert_file_contains "AGENTS.md" "Large-Artifact Handoff" "Task9: AGENTS.md defines the convention"
+assert_file_contains "AGENTS.md" "truncate with a" "Task9: AGENTS.md states truncate-with-pointer"
 for f in .agents/skills/build/SKILL.md .agents/skills/verify-deployment/SKILL.md; do
   assert_file_contains "$f" "Large-Artifact Handoff" "Task9: $f references the convention"
 done
@@ -136,7 +135,7 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
   # Every intake form the skill accepts is in the hint, so a caller sees them.
   assert_file_contains "$f" 'argument-hint: "[#issue | task-id | feature idea or problem statement]"' \
     "system-design-planning: $f advertises every intake form"
-  # Tracker access is registry-only (CLAUDE.md § Task Tracking); a direct gh
+  # Tracker access is registry-only (AGENTS.md § Task Tracking); a direct gh
   # call is the regression this pin exists to catch.
   assert_file_not_matches "$f" '\bgh (issue|api|pr)\b' \
     "system-design-planning: $f never calls gh directly"
@@ -160,13 +159,11 @@ for tree in .agents; do
   assert_file_contains "$tree/skills/build/SKILL.md" "slice header" \
     "system-design-planning: $tree/build names the slice header row it must not build"
 done
-# Registration in the three listings a new skill must appear in.
-assert_file_contains "CLAUDE.md" "\`/system-design-planning\`" \
-  "system-design-planning: CLAUDE.md skills table lists it"
+# Registration in the one listing a new skill must appear in (the AGENTS.md
+# managed block carries no skills table and the banner lists none — README is
+# the one catalog).
 assert_file_contains "README.md" "\`/system-design-planning\`" \
   "system-design-planning: README skills table lists it"
-assert_file_contains ".claude/hooks/session-start.sh" "/system-design-planning" \
-  "system-design-planning: session-start banner lists it"
 
 # --- tidy: harness-hygiene contract present in both tree copies ---
 # specs/tidy-skill.md. /tidy is neither a producer nor a consumer under the
@@ -205,14 +202,18 @@ for f in .agents/skills/tidy/SKILL.md; do
     assert_file_contains "$f" "$token" "tidy: $f contains '$token'"
   done
   flat_tidy="$(flatten "$f")"
-  # AC-2: eight checks, each a table row naming the surfaces it reads, and a
+  # AC-2: nine checks, each a table row naming the surfaces it reads, and a
   # surface the host repository lacks is skipped rather than reported.
-  for check in suite inventory retired installed refs worktrees strays registers; do
+  for check in suite inventory retired installed refs worktrees strays registers graph; do
     assert_file_matches "$f" "^\| \`$check\` \|" \
       "tidy: $f defines the \`$check\` check as a table row"
   done
-  assert_file_matches "$f" '^\| `inventory` \| .*SKILLS AVAILABLE' \
-    "tidy: $f inventory reads the session-start banner"
+  # The banner lists no skills since specs/single-instruction-file.md slice 3, so
+  # it is not an inventory surface any more.
+  assert_file_not_matches "$f" 'SKILLS AVAILABLE' \
+    "tidy: $f inventory no longer reads a banner skills list"
+  assert_file_matches "$f" '^\| `graph` \| `command -v graphify`' \
+    "tidy: $f graph check reads graphify and the graph file"
   assert_file_matches "$f" '^\| `registers` \| `tasks/todo.md`, `tasks/checkpoint.md` \|' \
     "tidy: $f registers reads the two task registers"
   assert_contains "$flat_tidy" "skipped with a note" \
@@ -271,15 +272,12 @@ for f in .agents/skills/tidy/SKILL.md; do
   ' "$f")"
   assert_eq "0" "$bare_entries" "tidy: $f allowlist entries all carry a reason"
 done
-# Registration in the three listings a new skill must appear in. AGENTS.md
-# carries no skills table at this baseline, so it is not a listing here -- the
-# same rule the skill's own `inventory` check applies to a missing surface.
-assert_file_matches "CLAUDE.md" '^\| `/tidy`' \
-  "tidy: CLAUDE.md skills table lists it"
+# Registration in the one listing a new skill must appear in. AGENTS.md
+# carries no skills table and the banner lists none, so neither is a listing
+# here -- the same rule the skill's own `inventory` check applies to a missing
+# surface.
 assert_file_matches "README.md" '^\| `/tidy`' \
   "tidy: README skills table lists it"
-assert_file_contains ".claude/hooks/session-start.sh" "/tidy" \
-  "tidy: session-start banner lists it"
 
 # --- Banned construct: load-time shell pre-resolution in skill bodies ---
 # A SKILL.md line of the form  !`cmd`  runs cmd when the SKILL LOADS and inlines
@@ -315,22 +313,22 @@ INNER_EOF
 # worktree whose files were authored with LF and fails on a fresh clone of the same
 # commit -- which is exactly what it did.
 
-assert_file_contains "CLAUDE.md" "### Independence Accounting" \
-  "M1: CLAUDE.md has an Independence Accounting subsection"
-assert_contains "$(flatten CLAUDE.md)" "separately dispatched contexts" \
-  "M1: CLAUDE.md requires separately dispatched contexts for corroboration"
+assert_file_contains ".agents/references/finding-model.md" "## Independence Accounting" \
+  "M1: finding-model.md has an Independence Accounting section"
+assert_contains "$(flatten .agents/references/finding-model.md)" "separately dispatched contexts" \
+  "M1: finding-model.md requires separately dispatched contexts for corroboration"
 
-taxonomy="$(sed -n '/^## Review Gate Taxonomy/,/^## Finding Model/p' CLAUDE.md | tr -d '\r' | tr '\n' ' ' | tr -s ' ')"
+taxonomy="$(sed -n '/^## Review Gate Taxonomy/,/^## Core Principles/p' AGENTS.md | tr -d '\r' | tr '\n' ' ' | tr -s ' ')"
 assert_contains "$taxonomy" "Independence Accounting" \
   "M1: Review Gate Taxonomy cross-references Independence Accounting"
 assert_contains "$taxonomy" "Finding Model" \
   "M1: Review Gate Taxonomy cross-references the Finding Model"
 
-# --- Tier 2 (M2): four-axis findings in CLAUDE.md and both review skills -----
+# --- Tier 2 (M2): four-axis findings in the finding model and both review skills -----
 # Each axis, enum value, and confidence anchor is pinned as its own token. A
 # dropped enum value is exactly what would let an unsure finding auto-apply, and
 # it is invisible in a whole-block snapshot.
-for f in CLAUDE.md \
+for f in .agents/references/finding-model.md \
          .agents/skills/quality-gate/SKILL.md \
          .agents/skills/wrap-up-session/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do
@@ -473,12 +471,12 @@ for f in .agents/skills/memory-maintain/SKILL.md; do
   assert_file_contains "$f" "runs regardless" \
     "M4: $f exempts the glossary marker check from the empty-store no-op"
 done
-# Registration: the glossary is a listed register in both CLAUDE.md variants.
-keydirs="$(sed -n '/^## Key Directories/,/^## Agents/p' CLAUDE.md)"
+# Registration: the glossary is a listed register in the managed block and the seed.
+keydirs="$(sed -n '/^## Key Directories/,/^## Agents/p' AGENTS.md)"
 assert_contains "$keydirs" "tasks/concepts.md" \
-  "M4: CLAUDE.md Key Directories lists tasks/concepts.md"
-assert_file_contains "project-template/CLAUDE.md" "concepts.md" \
-  "M4: project-template CLAUDE.md lists the glossary"
+  "M4: AGENTS.md Key Directories lists tasks/concepts.md"
+assert_file_contains "project-template/AGENTS.md" "concepts.md" \
+  "M4: project-template AGENTS.md lists the glossary"
 
 # --- lightpanda: JS-capable page reads offered as an OPTIONAL research fallback ---
 # WebFetch returns the empty shell for a JS-rendered page and gives no signal that
@@ -508,7 +506,7 @@ done
 # spec argued its way out of. specs/ is exempt: that is where the decision and
 # its reversal path are written down. tests/ is exempt for the obvious reason
 # that this assertion names the token itself.
-reach_hits="$(grep -rl "agent-reach"   .agents .claude/agents .claude/hooks .claude/browsers   CLAUDE.md install.sh project-template 2>/dev/null | grep -vF '.claude/worktrees' || true)"
+reach_hits="$(grep -rl "agent-reach"   .agents .claude/agents .claude/browsers   AGENTS.md CLAUDE.md install.sh project-template 2>/dev/null | grep -vF '.claude/worktrees' || true)"
 assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhere outside specs/"
 
 # --- task-registry: the tracker abstraction ----------------------------------
@@ -518,44 +516,45 @@ assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhe
 # registered where agents look for it, the configuration contract is
 # discoverable, the five workflow skills route through it, and nothing outside
 # the registry itself names a provider's task API.
-assert_file_contains "CLAUDE.md" '`/task-registry`' \
-  "task-registry: CLAUDE.md skills table lists the skill"
-assert_file_contains "CLAUDE.md" "## Task Tracking" \
-  "task-registry: CLAUDE.md defines the task-tracking section"
-# The convention is documented, but CLAUDE.md must not itself emit a live
-# pointer. It is template-managed and ships to every consumer, while `docs/` is
-# outside every syncable root — so a bare `Task tracking instructions: <file>`
-# here is a pointer whose target the template can never deliver, and the loader
+assert_file_contains "README.md" '`/task-registry`' \
+  "task-registry: README skills table lists the skill"
+assert_file_contains "AGENTS.md" "## Task Tracking" \
+  "task-registry: AGENTS.md defines the task-tracking section"
+# The convention is documented in the managed block, which must not itself emit
+# a live pointer. The block ships to every consumer, while `docs/` is outside
+# every syncable root — so a bare `Task tracking instructions: <file>` inside it
+# is a pointer whose target the template can never deliver, and the loader
 # refuses a pointer with no target (#82). The loader's POINTER_RE stops at a
 # backtick or `<` but does not require one, so a backticked concrete path still
-# matches: only the `<path>` placeholder is inert. Any live pointer that does
-# appear must resolve to a file this repository ships.
-assert_file_contains "CLAUDE.md" '`Task tracking instructions: <path>`' \
-  "task-registry: CLAUDE.md documents the pointer convention"
-assert_file_contains "CLAUDE.md" "templates/task-tracking.md" \
-  "task-registry: CLAUDE.md names the template a project starts its configuration from"
-claude_md_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' CLAUDE.md \
+# matches: only the `<path>` placeholder is inert. The live pointer this
+# repository does carry sits below the end marker and must resolve to a file
+# this repository ships (tests/test-instruction-budget.sh pins the placement).
+assert_file_contains "AGENTS.md" '`Task tracking instructions: <path>`' \
+  "task-registry: AGENTS.md documents the pointer convention"
+assert_file_contains "AGENTS.md" "templates/task-tracking.md" \
+  "task-registry: AGENTS.md names the template a project starts its configuration from"
+agents_md_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' AGENTS.md \
   | sed -E 's/^[^:]*:[[:space:]]*//' || true)"
-for target in $claude_md_pointers; do
+for target in $agents_md_pointers; do
   assert_eq "present" "$([ -f "$target" ] && echo present || echo missing)" \
-    "task-registry: live pointer in CLAUDE.md resolves to a shipped file ($target)"
+    "task-registry: live pointer in AGENTS.md resolves to a shipped file ($target)"
 done
-assert_prose_contains "CLAUDE.md" "is an **index**, not the detailed source of truth" \
-  "task-registry: CLAUDE.md states that tasks/todo.md is an index"
-assert_not_contains "$(flatten CLAUDE.md)" \
+assert_prose_contains "AGENTS.md" "is an **index**, not the detailed source of truth" \
+  "task-registry: AGENTS.md states that tasks/todo.md is an index"
+assert_not_contains "$(flatten AGENTS.md)" \
   "a project without one gets the local Markdown provider and works offline" \
   "task-registry: absent configuration does not erase GitHub auto-selection"
-assert_prose_contains "CLAUDE.md" \
-  "without one, provider selection still prefers GitHub when a GitHub remote and an authenticated \`gh\` both exist, then falls back to local Markdown" \
-  "task-registry: CLAUDE.md pins GitHub-before-local auto-selection"
+assert_prose_contains "AGENTS.md" \
+  "else GitHub when a GitHub remote and an authenticated \`gh\` both exist, else local Markdown" \
+  "task-registry: AGENTS.md pins GitHub-before-local auto-selection"
 wrap_up_gate_spec="$(flatten specs/wrap-up-gate-and-tdd-fold.md)"
 assert_not_contains "$wrap_up_gate_spec" \
   "no \`docs/task-tracking.md\`, so the registry resolves to the offline local provider regardless" \
   "task-registry: wrap-up spec does not claim absent configuration forces local"
 assert_contains "$wrap_up_gate_spec" "hook never invokes \`/task-registry\`" \
   "task-registry: wrap-up spec gives the real reason the hook cannot reach a tracker"
-assert_file_contains ".claude/hooks/session-start.sh" "/task-registry" \
-  "task-registry: the session-start banner lists the skill"
+assert_file_matches "README.md" '^\| `/task-registry`' \
+  "task-registry: the README skills table lists the skill"
 
 for tree in .agents; do
   f="$tree/skills/task-registry/SKILL.md"
@@ -671,7 +670,7 @@ assert_eq "absent" "$([ -e ".claude/hooks/user-prompt-route.sh" ] && echo presen
   "AC2: the UserPromptSubmit routing hook is deleted"
 assert_file_not_matches ".claude/settings.json" "user-prompt-route" \
   "AC2: settings.json no longer registers the routing hook"
-assert_file_not_matches ".claude/hooks/session-start.sh" "/route" \
+assert_file_not_matches ".agents/hooks/session-start.sh" "/route" \
   "AC2: the session-start banner no longer advertises the router"
 
 # The routines that replaced it must be reachable from the skill that implements
@@ -724,7 +723,7 @@ done
 # only by the versioned cache directory (Spike S4), install.sh's user-scope
 # install by installed_plugins.json; the hook has to accept either.
 for token in "enabledPlugins" "installed_plugins.json" "cache/jplugin-agentic-development/jplugin" "PLUGIN NOT INSTALLED"; do
-  assert_file_contains .claude/hooks/session-start.sh "$token" \
+  assert_file_contains .agents/hooks/session-start.sh "$token" \
     "session-start: names '$token' for the enabled-but-uninstalled line"
 done
 
@@ -751,7 +750,7 @@ assert_file_not_matches README.md 'tests\.md' \
 for f in .agents/skills/verify-deployment/SKILL.md \
          .agents/skills/verify-evidence/SKILL.md \
          .agents/skills/setup-deployment/SKILL.md \
-         .claude/deployments/README.md .claude/hooks/session-start.sh; do
+         .claude/deployments/README.md .agents/hooks/session-start.sh; do
   assert_file_not_matches "$f" \
     '[Ll]egacy (fallback|location|section|projects|Deployment Targets|`CLAUDE\.md`)|auto-migrat|Deprecation' \
     "Shims: $f no longer reads or migrates a CLAUDE.md Deployment Targets section"
@@ -760,10 +759,15 @@ for f in .claude/deployments/README.md .claude/deployments/github-actions.md \
          .claude/deployments/railway.md .claude/deployments/vercel.md \
          .agents/skills/verify-deployment/SKILL.md .agents/skills/setup-deployment/SKILL.md; do
   assert_file_not_matches "$f" 'CLAUDE\.md` § Deployment Targets|CLAUDE\.md § Deployment Targets' \
-    "Shims: $f points at .claude/project.md, not CLAUDE.md, for the Deployment Targets table"
+    "Shims: $f points at AGENTS.md, not CLAUDE.md, for the Deployment Targets table"
 done
-assert_file_contains .claude/hooks/session-start.sh 'grep -qE "$TARGETS_REGEX" .claude/project.md' \
-  "Shims: session-start reads .claude/project.md for the section (non-vacuity)"
+assert_file_contains .agents/hooks/session-start.sh 'grep -qE "$TARGETS_REGEX" AGENTS.md' \
+  "Shims: session-start reads AGENTS.md for the section (non-vacuity)"
+# The pre-single-file location is still read, second, with a notice — a
+# declined migration must not silence deployment verification
+# (specs/single-instruction-file.md, D3).
+assert_file_contains .agents/hooks/session-start.sh 'Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md' \
+  "Shims: session-start prints the one-line notice for a table still in .claude/project.md"
 assert_file_contains .agents/skills/sync/SKILL.md "### Step 2 — Detect Remote Default Branch" \
   "Shims: /sync Step 2 survives the deletion of its two legacy sub-steps (non-vacuity)"
 
@@ -822,13 +826,11 @@ else
   assert_eq "absent" "absent" "slice: the --file upsert invocation names no --depends-on flag"
 fi
 
-# Registration in the three listings a new skill must appear in.
-assert_file_contains "CLAUDE.md" "\`/slice\`" \
-  "slice: CLAUDE.md skills table lists it"
-assert_file_contains "README.md" "\`/slice\`" \
+# Registration in the one listing a new skill must appear in (the AGENTS.md
+# managed block carries no skills table and the banner lists none — README is
+# the one catalog, rendered from SKILL.md frontmatter).
+assert_file_matches "README.md" '^\| `/slice`' \
   "slice: README skills table lists it"
-assert_file_contains ".claude/hooks/session-start.sh" "/slice" \
-  "slice: session-start banner lists it"
 
 # sizing.md: the one ceiling, no floor, no size labels/buckets.
 SIZING=.agents/skills/slice/references/sizing.md
@@ -1143,23 +1145,23 @@ else
     "wrap-up: ## Handovers section appears before the linkage check"
 fi
 
-# --- workflow: CLAUDE.md § Workflow steps 1-3 after the build prompt replaced the y gate
+# --- workflow: AGENTS.md § Workflow steps 2-4 after the build prompt replaced the y gate
 # specs/plan-slices-and-handover.md AC14. The planner interviews, slices and
 # hands over; the fresh session the build prompt starts files and builds. The
 # pins are the vocabulary a reader needs to find the skills, the two retired
 # gates as negative pins, and the five glossary terms in tasks/concepts.md.
-WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' CLAUDE.md)"
+WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' AGENTS.md)"
 for token in "/grill-me" "/brainstorm" "DECISIONS CARRIED" "/grilling" \
              "/system-design-planning" "/slice" "build prompt" "fresh session" \
              "> Handover:" "never builds and never files" \
              "Spec and plan are ready to be built" "--file --approve" \
              "slice.py ready" "/auto-push" "/yolo"; do
-  assert_contains "$WORKFLOW" "$token" "workflow: CLAUDE.md § Workflow names '$token'"
+  assert_contains "$WORKFLOW" "$token" "workflow: AGENTS.md § Workflow names '$token'"
 done
 assert_not_contains "$WORKFLOW" "Confirm with 'y' to begin" \
-  "workflow: the y gate is gone from CLAUDE.md § Workflow"
+  "workflow: the y gate is gone from AGENTS.md § Workflow"
 assert_not_contains "$WORKFLOW" "**approved**" \
-  "workflow: the approved parenthetical is gone from CLAUDE.md § Workflow"
+  "workflow: the approved parenthetical is gone from AGENTS.md § Workflow"
 assert_not_contains "$WORKFLOW" "Do not proceed without user confirmation" \
   "workflow: the planning session no longer waits for a confirmation word"
 

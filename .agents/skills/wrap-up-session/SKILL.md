@@ -329,7 +329,7 @@ Address any MUST-FIX findings before proceeding to commit.
 
 ## Step 3.7 — Shortcut Ledger
 
-`CLAUDE.md` § *Code Economy* marks deliberate shortcuts with `TODO(shortcut):`
+`AGENTS.md` § *Code Economy* marks deliberate shortcuts with `TODO(shortcut):`
 naming a limit and an upgrade path. Collect them so a deferral cannot quietly
 become permanent:
 
@@ -343,7 +343,7 @@ marker naming no upgrade path `no-trigger` — those are the ones that rot. Clos
 with `<N> shortcuts, <M> without a trigger.`
 
 No markers found: print nothing and move on (failure-only reporting, per
-`CLAUDE.md` § *Observability Discipline*). This step reports only — it never
+`AGENTS.md` § *Observability Discipline*). This step reports only — it never
 blocks the commit, and shortcuts are not bugs, so they do not get bug-track
 documents in `tasks/solutions/`.
 
@@ -358,8 +358,7 @@ Run the 4 review passes. For each pass:
 
 ### Review Payload
 
-Every dispatched pass carries all seven items in `CLAUDE.md` § *Review Dispatch
-Contract*. Assemble once, reuse for all four — they differ by lens, not by input:
+Every dispatched pass carries all seven items in `.agents/references/review-dispatch-contract.md`. Assemble once, reuse for all four — they differ by lens, not by input:
 
 1. The `<base-branch>...HEAD` diff (truncated-plus-path per *Large-Artifact Handoff* if large)
 2. **Every spec relevant to this session** — the session spec plus every spec
@@ -370,6 +369,13 @@ Contract*. Assemble once, reuse for all four — they differ by lens, not by inp
 5. The `TODO(shortcut):` markers from Step 3.7 touching changed files — or `deferrals: none`
 6. The boundary from the bullets above, stated **to the agent**, not just here
 7. The four-axis format from *Finding Classification* below
+
+**Item 7 is read, not remembered.** Before dispatching, resolve `finding-model.md` in
+order — the project's `.agents/references/`, then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`
+on Claude Code (the skill body and the reference then come from the same plugin version),
+then `~/.agents/references/` on Pi and Codex — and paste its § *Emission format* into the
+prompt verbatim. When all three are missing, stop before dispatch:
+`review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync`. Never dispatch a reviewer with no output format.
 
 Pass the intent, not the conclusions: no builder rationale, and never one pass's
 findings to another. Both would import the priors *Independence Accounting* exists
@@ -387,14 +393,14 @@ which**, because it decides what the passes' agreement is worth:
 | 4 dispatched agents | `dispatched` | Two passes independently finding the same defect is corroboration: promote `confidence` by exactly one anchor. |
 | Sequentially inline | `inline` | **No promotion.** Four lenses in one context share its priors and blind spots, so agreement is one perspective repeated. Name the corroboration lost. |
 
-Per `CLAUDE.md` § *Independence Accounting*, same-context agreement is never
+Per `.agents/references/finding-model.md` § *Independence Accounting*, same-context agreement is never
 promotion evidence. An inline run is complete and still applies findings under
 5.1 — it simply may not report a promoted confidence, and must say so. Record the
 answer in the `Review independence:` line of the Done report.
 
 ### Finding Classification
 
-Four orthogonal fields. Rationale lives in `CLAUDE.md` § *Finding Model*; the
+Four orthogonal fields. Rationale lives in `.agents/references/finding-model.md`; the
 operational contract is here, where findings get enforced.
 
 | Field | Answers | Values |
@@ -756,7 +762,7 @@ the register for repeated IDs before trusting it.
 
 ## Step 8 — Deployment Verification
 
-After push, verify deployment services if `## Deployment Targets` section exists in `.claude/project.md` (Claude Code only).
+After push, verify deployment services if a `## Deployment Targets` section exists in `AGENTS.md` — or, until `/sync` moves it, still in `.claude/project.md`, which `/verify-evidence` reads second with a one-line notice (Claude Code only).
 
 Use `/verify-evidence --scope deployment` to poll, fetch logs on failure, and loop a `code-debugger` fix cycle up to 3 iterations.
 
@@ -863,7 +869,7 @@ Session wrapped up.
 ### Step 4 — Parallel Code Review
 Launch all 4 review passes as parallel agents in a SINGLE message with multiple Agent tool calls.
 
-`code-reviewer` and `critic` are **Ceiling** tier (`CLAUDE.md` § *Model Routing*):
+`code-reviewer` and `critic` are **Ceiling** tier (`.agents/references/model-routing.md`):
 pass **no** `model` parameter so each inherits the session model. `critic` is the one exception: it carries a **planner floor**, so pass the planner
 alias when the session model is below planner tier and omit `model` otherwise. Pinning them
 downgrades the highest-stakes review for exactly the users running a stronger
@@ -874,7 +880,7 @@ only path that licenses confidence promotion. Record it as `dispatched` and
 disclose it per *Dispatch Disclosure*.
 
 Every one of the four calls carries the *Review Payload* assembled in Step 4, which
-implements `CLAUDE.md` § *Review Dispatch Contract* — including its `deferrals: none`
+implements `.agents/references/review-dispatch-contract.md` — including its `deferrals: none`
 and `no spec — <reason>` markers, which are stated even when there is nothing to state.
 Identical input, different lens —
 identical input, different lens. A pass dispatched without it reviews the diff

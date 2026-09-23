@@ -8,10 +8,10 @@ A reusable, project-agnostic configuration system that enforces **spec-driven, T
 
 | Layer | What it does |
 |-------|-------------|
-| **CLAUDE.md** | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate |
+| **AGENTS.md** (managed block) | Core rules: Spec → Plan → TDD workflow, Clean Code, SOLID, quality gate — one file read by Claude Code (through the `@AGENTS.md` line in `CLAUDE.md`), Pi and Codex; `/sync` rewrites only the block |
 | **Skills** (`.agents/skills/`) | Cross-harness workflows for planning, building, verification, review, learning, synchronization, and project-specific verification recipes |
 | **Agents** (`.claude/agents/`) | 8 specialized subagents for planning, coding, review, debugging, security |
-| **Hooks** (`.claude/hooks/`) | Session start orientation |
+| **Hooks** (`.agents/hooks/`) | Session banner, checkpoint flush and unpushed-commit warning, registered once by the plugin's `hooks/hooks.json` |
 | **Learning store** (`tasks/solutions/`) | Typed per-document learnings, grep-first retrieval, written via `/learn` |
 
 Codex uses the same canonical `.agents/` sources through the explicit adapter
@@ -27,11 +27,13 @@ cd ~/jplugin-agentic-development
 bash scripts/install-codex.sh
 ```
 
-The adapter installs skills in `~/.agents/skills/`, renders shared rules into
-`~/.codex/AGENTS.md`, converts canonical Markdown agents into
-`~/.codex/agents/*.toml`, and merges optional lifecycle hooks into
-`~/.codex/hooks.json`. Existing personal content is preserved and rerunning the
-command is idempotent. Review the hook commands with Codex's `/hooks` command
+The adapter installs skills in `~/.agents/skills/`, converts canonical Markdown
+agents into `~/.codex/agents/*.toml`, and merges optional lifecycle hooks into
+`~/.codex/hooks.json`. It writes no `~/.codex/AGENTS.md`: the shared rules reach
+Codex through the managed block `/sync` writes into each project's `AGENTS.md`
+(a block an earlier adapter rendered into `~/.codex/AGENTS.md` is offered for
+removal by `install.sh`). Existing personal content is preserved and rerunning
+the command is idempotent. Review the hook commands with Codex's `/hooks` command
 before enabling them.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
@@ -85,27 +87,26 @@ That's it. Claude is fully oriented from the first message.
 
 ### Layer 1 — Global Claude config (`~/.claude/`)
 
-Copies CLAUDE.md and the agents into `~/.claude/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed.
+Copies the agents into `~/.claude/agents/`, and registers this checkout as a Claude Code plugin marketplace with the `jplugin` plugin installed at user scope. Claude Code reads all of it for **every session in every project** — no per-project setup needed. Nothing else is written under `~/.claude/`: the shared rules live in the managed block of each project's `AGENTS.md` (written by `/sync`), and the session hook runs from the plugin's `hooks/hooks.json`.
 
 ```
 ~/.claude/
-├── CLAUDE.md          ← global rules (applies everywhere)
 ├── agents/            ← all agents available in every project
-├── hooks/
-│   └── session-start.sh
-├── plugins/           ← Claude Code's own records: the jplugin-agentic-development
-│                        marketplace (this checkout) and the installed jplugin plugin
-└── settings.json      ← registers the SessionStart hook globally
+└── plugins/           ← Claude Code's own records: the jplugin-agentic-development
+                         marketplace (this checkout) and the installed jplugin plugin
 ```
+
+An earlier `install.sh` also wrote `~/.claude/CLAUDE.md`, `~/.claude/hooks/session-start.sh` with a `SessionStart` entry in `~/.claude/settings.json`, and (through the Codex adapter) a managed block in `~/.codex/AGENTS.md`. Nothing reads those copies now — the hook copy fires a second banner beside the plugin's — so the installer lists whichever it finds and deletes them only after you answer `y`. A personal `~/.claude/CLAUDE.md` without the template header is never listed, and `~/.codex/AGENTS.md` itself is never deleted, only its block.
 
 Skills are **not** copied into `~/.claude/skills/` any more: the plugin manifest (`.claude-plugin/plugin.json`) points Claude Code at `.agents/skills/` in the checkout, so every skill is invoked as `/jplugin:<name>` (bare `/<name>` also resolves while no other skill claims the name). If an earlier install left copies in `~/.claude/skills/`, the installer lists them and deletes them only after you answer `y`; anything there the template never shipped is never touched. Without the `claude` CLI on `PATH` the plugin step prints a note and skips.
 
 **Requires Claude Code 2.1.227 or newer** (plugin `skills` paths). **Developing skills in the checkout:** run `claude --plugin-dir <checkout>` — the checkout's own `.claude/settings.json` declares the github marketplace, which replaces the directory registration `install.sh` made, so a plain session loads the cached release, not your edits.
 
-The **SessionStart hook** runs automatically at the start of every Claude Code session. It prints:
+The **SessionStart hook** runs from the plugin (`hooks/hooks.json`) at the start of every Claude Code session. It prints:
 - Learning-store counts from `tasks/solutions/` (documents + needs_review)
 - Pending and in-progress tasks from `tasks/todo.md`
 - Current git branch and uncommitted change count
+- One warning line per problem, and nothing when there is none: template drift, an `AGENTS.md` without the managed block in an adopting project, a stale code graph
 
 ### Layer 2 — Project scaffold (`git scaffold`)
 
@@ -117,8 +118,8 @@ tasks/solutions/         ← typed learning store (schema in its README.md)
 tasks/history.md         ← session narrative log
 tasks/concepts.md        ← concept glossary (swept once by /memory-maintain, then accreted)
 specs/                   ← feature specification directory
-CLAUDE.md               ← Claude project-specific overrides
-AGENTS.md               ← harness-neutral project-specific overrides
+AGENTS.md               ← project instructions for every harness (/sync adds the shared block)
+CLAUDE.md               ← the single line @AGENTS.md (Claude Code's import)
 .gitignore, .gitattributes, .ignore
 ```
 
@@ -149,7 +150,7 @@ pip install graphify        # once per machine
 
 # inside each project (per clone — none of this is shared)
 graphify update .           # build/refresh graphify-out/graph.json
-graphify claude install     # CLAUDE.md section + PreToolUse hook
+graphify claude install     # rules section (install.sh moves it into AGENTS.md) + PreToolUse hook
 graphify hook install       # re-index on commit/checkout
 ```
 
@@ -194,9 +195,10 @@ No need to use `newproject`. From inside the repository:
 git scaffold
 ```
 
-It adds every missing scaffold file and leaves existing ones untouched, so a project that already has its own `CLAUDE.md` or `.gitignore` keeps them. Nothing is overwritten; to replace a file deliberately, delete it first and run `git scaffold` again.
+It adds every missing scaffold file and leaves existing ones untouched, so a project that already has its own `AGENTS.md` or `.gitignore` keeps them. Nothing is overwritten; to replace a file deliberately, delete it first and run `git scaffold` again.
 
-Then edit `CLAUDE.md` to fill in your project's stack and test commands.
+Then edit `AGENTS.md` to fill in your project's stack and test commands, and run
+`/sync` once to add the shared rules block.
 
 ---
 
@@ -280,45 +282,50 @@ mapped feature.
 
 ## Skills
 
-Invoke with `/skill-name` in any Claude Code session:
+Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `/<name>` also resolves while no other skill claims it). The table is generated from each skill's `SKILL.md` frontmatter by `python3 scripts/render-skills-table.py` — edit the `description` there, never a row; a blank *Harness* cell means every harness:
 
-| Skill | What It Does |
-|-------|-------------|
-| `/prd` | Greenfield project interview → PRD + backlog + context file |
-| `/brainstorm` | Divergent design exploration: 2-3 approaches with trade-offs, design approval before `/plan` |
-| `/grilling` | Frontier-round interview: the whole frontier per round, numbered, a recommended answer on every question; facts found by a Scout-tier sub-agent, decisions put to you. Invoked by `/brainstorm` |
-| `/grill-me` | Grill me about a plan or idea: the same interview, typed by you, with no files written and no repository needed |
-| `/system-design-planning` | Architecture review with a mandatory `/grilling` interview → rendered HTML → `/slice` → build prompt for a fresh session |
-| `/plan` | Interviews you (decisions carried), writes spec to `specs/`, hands to `/slice` and ends with the build prompt for a fresh session |
-| `/slice` | Break a spec into session-sized slices: § Build Order, plan block and build prompt; `--file` files one task per slice through `/task-registry` |
-| `/build` | Autonomous orchestrator: TDD + sub-agents + 2-stage review + parallel dispatch + quality-gate + spec validation |
-| `/auto-push` | One approval gate at `/plan`, then `/build` + `/wrap-up-session` run autonomously through commit and push |
-| `/yolo` | Ralph-style full-auto loop: `/plan` (auto-confirmed) → `/build` → `/wrap-up-session`, iterating until backlog empty or circuit breaker |
-| `/sweep` | Producer routine (`--routine janitor` or `--routine architect`): read the backlog, run one engine over the whole tree, file verified findings as issues |
-| `/tidy` | Harness hygiene sweep: skills tables, session banner, retired skills, installed copies, backticked paths, worktrees, strays, task registers — Tier 0 fixed and committed one concern per commit, Tier 1 printed as commands, Tier 2 filed through `/task-registry` |
-| `/debug` | Root cause analysis with architecture questioning after 3 fails, bug-track store documents |
-| `/verify-evidence` | Evidence-based verification gate — no completion claims without fresh command output |
-| `/create-verification-skill` | Discover an app's real user surface, generate its `verify-<app>` recipe and feature map, then prove one feature live |
-| `/maintain-verification-skill` | Reconcile changed user behavior with `--scope changed`, or run a full audit of the complete feature map |
-| `/quality-gate` | 3-phase post-build review: structural quality, AI anti-patterns, APOSD design |
-| `/software-design-expert-review` | APOSD structural design gate — depth, leakage, error design; GO/HOLD/STOP verdict |
-| `/software-design-expert-learn` | APOSD design tutorial — end-of-session learning review based on Ousterhout |
-| `/receive-review` | Process code review feedback: technical evaluation, pushback protocol, no performative agreement |
-| `/learn` | Extracts session learnings into typed documents under `tasks/solutions/` |
-| `/memory-maintain` | Sweep the typed learning store — resolve, merge, prune — every 5 sessions |
-| `/checkpoint` | Saves progress snapshot to `tasks/checkpoint.md` for handoff or pause |
-| `/refresh` | Context reset — snapshot state to disk, then rebuild from a clean context (backstop for long tasks) |
-| `/security-scan` | Audits changed files against OWASP top 10; blocks commit on HIGH/MEDIUM |
-| `/start-qa` | Discover project config, restart app, launch browser, background smoke tests |
-| `/wrap-up-session` | Parallel code review → verify → merge worktree → sync learnings → run tests → push |
-| `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs |
-| `/visual-plan` | Turn a text spec into a rich, self-contained HTML visual plan for review before implementation |
-| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap |
-| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content |
-| `/eval` | Blinded A/B eval of a skill, prompt, or workflow change: sanitized worktrees, organic prompts, transcript-based grading |
-| `/sync` | Pull latest skills, hooks, agents from template repo into current project |
-| `/task-registry` | Sync `tasks/todo.md` with GitHub Issues or a local Markdown store |
-| `/folder-context-optimization` | Sweep a folder for legacy/unused files, propose archival |
+<!-- skills-table:begin -->
+| Skill | What It Does | Harness |
+|-------|-------------|---------|
+| `/auto-push` | Semi-autonomous pipeline. User describes an idea; agent runs /plan and PAUSES for explicit approval. After approval, /build and /wrap-up-session run autonomously through commit and push. |  |
+| `/brainstorm` | Explore a feature idea through divergent design thinking before committing to a spec. Use before /plan for non-trivial features requiring design decisions. |  |
+| `/build` | Execute the task plan from tasks/todo.md autonomously using TDD with sub-agent delegation. Use in the session the build prompt starts. |  |
+| `/checkpoint` | Snapshot current session progress to tasks/checkpoint.md for handoff or pause. |  |
+| `/create-verification-skill` | Generate a project-local verification skill that drives the real app through its user surface. Use when a repository has no grounded way to prove UI, CLI, desktop, API, mobile, or library behavior. |  |
+| `/debug` | Systematically investigate, diagnose, and fix bugs using root cause analysis. Use when debugging errors, test failures, runtime issues, or when the user reports a bug. Integrates with the typed learning store (tasks/solutions/). |  |
+| `/eval` | Blinded A/B evaluation of a skill, prompt, or workflow change before promoting it. Candidates run in sanitized worktrees on organic prompts and never learn they are being measured; grading comes from session transcripts, not self-report. Two runnable modes: triggerability (does the harness route to this skill at all) and variant lift (does variant A beat variant B). Use before merging a skill edit, when a skill seems never to fire, or when deciding whether a rewrite actually helped. Triggers on: 'does this skill even fire', 'A/B this prompt', 'did the rewrite improve anything', 'evaluate my skills', 'run an eval'. |  |
+| `/folder-context-optimization` | Sweep a folder to identify legacy/unused files, propose archival, and update docs. Use when a directory feels bloated or disorganized. |  |
+| `/grill-me` | A relentless interview to sharpen a plan, decision, or idea, typed by the user and never started by the agent. Use when the user says 'grill me' about something. |  |
+| `/grilling` | Interview the user relentlessly about a plan, decision, or idea until a shared understanding is reached, working the design tree in frontier rounds with a recommended answer on every question. Use when the user wants to stress-test their thinking, uses any 'grill' phrasing, or when another skill needs the decisions behind a piece of work settled before it acts. |  |
+| `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content. Use when another skill or the user needs to publish a session review, design audit, project summary, or any narrative as a beautiful HTML document with strong visual and information-design quality. Triggers on: 'make an html presentation', 'generate a report', 'turn this into slides', or invocation by another skill (e.g. software-design-expert-learn). |  |
+| `/learn` | Extract durable learnings from the current session and persist them as typed documents in tasks/solutions/. |  |
+| `/maintain-verification-skill` | Reconcile a project verification skill after changed user behavior or run a full source-and-live feature audit. Use after user-facing changes or when auditing a verify-app feature map. |  |
+| `/memory-maintain` | Sweep the typed learning store (tasks/solutions/) — resolve needs_review documents, merge duplicates, prune stale or contradicted entries. Invoked at every session start and wrap-up; self-gates on session count. |  |
+| `/plan` | Interview user, write a feature spec, slice it into session-sized build steps, and end with a build prompt for a fresh session. Use for any non-trivial feature before coding. |  |
+| `/prd` | Interview the user about a greenfield project, produce a structured PRD, ordered backlog, and agent context file. Use as the entry point for new projects. |  |
+| `/quality-gate` | The post-build review gate: run when all tasks in tasks/todo.md are done, before wrap-up or commit. Three sequential phases — structural quality and reuse (simplify), AI anti-pattern cleanup (deslop), and APOSD design audit — emitting four-axis findings (severity, confidence, autofix_class, owner). Triggers on: 'review before I call it done', 'thorough review of what I just built', 'I finished the tasks, check the code', 'run the quality gate', 'post-build review'. |  |
+| `/receive-review` | Process incoming code review feedback with technical rigor. Use when receiving review comments on PRs, from users, or from automated review tools. |  |
+| `/refresh` | Context reset for a session running out of room: snapshot working state to disk, then continue the work in a fresh context rebuilt from that snapshot. Distinct from /checkpoint, which saves progress and stops — reach for /refresh when the work continues but the context must be recycled. Triggers on: 'this conversation is getting too long', 'you are losing track', 'start clean and keep going', 'context is full', 'reset and continue', or when /build's architectural circuit breaker trips. |  |
+| `/security-scan` | OWASP-focused security audit scoped to the files changed in this session, worked through an explicit per-category checklist (input validation, authn/authz, secrets, crypto, dependencies, error handling). Use before committing or deploying changed code. Triggers on: 'security scan', 'check for vulnerabilities', 'any security issues in what I changed', 'is this safe to ship', 'OWASP audit'. |  |
+| `/setup-deployment` | One-time interactive bootstrap for deployment verification. Scans the project for deployment signal files, asks the user to confirm detected services and project IDs, and writes the routing table into AGENTS.md below the managed block. | claude |
+| `/slice` | Break a spec's acceptance criteria and implementation paths into session-sized slices — a Build Order table, a plan block in tasks/todo.md, and a build prompt — then, in a later session, file one task per slice through /task-registry. Use after a spec carries § Decisions and § Acceptance Criteria, or to refresh the Build Order and plan block after the spec changes. |  |
+| `/software-design-expert-learn` | End-of-session code review and design tutorial based on 'A Philosophy of Software Design' by John Ousterhout. Use when the user wants to review all code written in the current session, understand design trade-offs, learn software design principles, or improve code review skills. Triggers on: 'review my code', 'explain the design', 'why did we do it this way', 'session review', 'code critique', 'design critique', or explicit /skill:software-design-expert-learn invocation. |  |
+| `/software-design-expert-review` | Run a focused APOSD design review on recently changed files. Scans for the 10 red flags from 'A Philosophy of Software Design' plus Error Design (R11), emits four-axis findings (severity, confidence, autofix_class, owner), and produces a GO / HOLD / STOP verdict. Can be invoked manually or called by /build Phase 3.5. |  |
+| `/start-qa` | Discover project config, restart app, and launch browser for manual QA testing. |  |
+| `/sweep` | Producer routine engine — verify the codebase through one lens (janitor for bugs, architect for design) and file every proven finding as a registry task with a reproduction and a proposed fix. Use unattended from the janitor and architect routines, or by hand for a weekly audit. |  |
+| `/sync` | Pull latest skills, hooks, agents, and config from the jplugin-agentic-development template repo. |  |
+| `/system-design-planning` | Turn an issue or a feature idea into an upstream architecture review — system design, component contracts, data models, constraints, and a dependency-ordered build plan — rendered as a self-contained HTML document, then ends with a build prompt for a fresh session. Nothing is filed and nothing is built in this session; the reviewer approves by starting the build session with that prompt. Use instead of /brainstorm + /plan when the change crosses a component boundary, adds or changes a persisted data model, or introduces or changes an external contract. |  |
+| `/task-registry` | Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine. |  |
+| `/tidy` | Harness hygiene sweep for a jplugin-agentic-development repository — the template, its mirror, and any project that vendored the harness through /sync. Nine checks over the surfaces that duplicate by design (skills tables, retired skills, installed copies under ~/.claude and ~/.agents, backticked paths, worktrees, stray files, the task registers, the code graph). Mechanical drift is fixed and committed one concern per commit, machine-side remedies are printed as commands and never run, larger drift is filed through /task-registry. Use by hand after a retirement or rename, or from a scheduled routine; --report sweeps without writing anything. |  |
+| `/verify-deployment` | Wait for post-push deployment builds to resolve, fetch logs on failure, and loop a code-debugger fix cycle up to 3 iterations before escalating. Service-agnostic — driven by runbook files in .claude/deployments/. | claude |
+| `/verify-evidence` | Enforce evidence-based verification before any completion claims. Supports --scope deployment and --scope e2e. Use before committing, creating PRs, marking tasks done, or claiming success. |  |
+| `/verify-task-registry` | Verify this repository's task-registry CLI through isolated local task creation, reading, and routine selection with retained PTY evidence. |  |
+| `/visual-plan` | Turn an existing text spec into a rich, self-contained HTML visual plan — narrative, file map, architecture sketch, and open questions — for review before implementation. Use after /plan has already written specs/<feature>.md. |  |
+| `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap — narrative, file-tree, and annotated key changes. Use after implementation to produce a richer review artifact than a plain diff. |  |
+| `/wrap-up-session` | Close session with code review, testing, fixes, and a clean commit. Use at the end of any coding session. |  |
+| `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs. Use when creating or improving skills for the workflow. |  |
+| `/yolo` | Fully autonomous loop. User describes an idea; the agent runs /plan, /build, and /wrap-up-session in a Ralph-style loop until the backlog is empty or a circuit breaker trips. No user prompts between phases. |  |
+<!-- skills-table:end -->
 
 ---
 
@@ -364,7 +371,7 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 
 | Hook | Trigger | What It Does |
 |------|---------|-------------|
-| `session-start.sh` | Session start | Prints memory, active tasks, lessons, git status, available skills catalog |
+| `session-start.sh` | Session start (the plugin's `hooks/hooks.json`) | Prints learning-store counts, active tasks and the git line, plus one warning line per problem: template drift, a missing managed block, a stale code graph |
 
 ---
 
@@ -373,25 +380,28 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 ```
 .
 ├── install.sh                       ← Run once to set up global Claude config
-├── CLAUDE.md                        ← Core rules (copied to ~/.claude/CLAUDE.md)
+├── AGENTS.md                        ← Core rules in the managed block; project rules below it
+├── CLAUDE.md                        ← @AGENTS.md
 ├── project-template/                ← Scaffold copied into new projects
-│   ├── CLAUDE.md                    ← Project-specific override template
+│   ├── AGENTS.md                    ← Project instructions seed (no block — /sync adds it)
+│   ├── CLAUDE.md                    ← @AGENTS.md
 │   └── tasks/
 │       ├── todo.md
 │       ├── history.md
 │       ├── concepts.md
 │       └── solutions/
 ├── .agents/
+│   ├── hooks/                       ← lifecycle hook scripts (session-start, pre-compact, session-stop)
 │   └── skills/                      ← canonical skills, each with SKILL.md + optional reference docs
+├── hooks/
+│   └── hooks.json                   ← registers SessionStart, PreCompact and Stop against .agents/hooks/
 ├── .claude-plugin/
 │   ├── plugin.json                  ← the jplugin manifest (skills: ./.agents/skills)
 │   └── marketplace.json             ← the marketplace entry Claude Code installs from
 ├── .claude/
 │   ├── AGENTS.md                    ← Agent reference documentation
-│   ├── settings.json                ← Hook configuration
-│   ├── agents/                      ← 8 specialized subagents
-│   └── hooks/
-│       └── session-start.sh         ← Orientation + skill awareness
+│   ├── settings.json                ← env + plugin declaration (no hooks — see hooks/hooks.json)
+│   └── agents/                      ← 8 specialized subagents
 ├── tasks/
 │   ├── todo.md                      ← Active task plan
 │   ├── history.md                   ← Session narrative log
@@ -414,7 +424,7 @@ The **claude-mem** plugin (marketplace `thedotmack`) registers more than one `Se
 
 That is not a single valid JSON object, so it can't be parsed as a hook response — Claude Code prints it into the transcript as raw text instead of suppressing it.
 
-Effect is cosmetic noise only. Nothing in this repo emits it, and no change here can suppress it; the fix belongs in claude-mem upstream. Don't go hunting for it in `.claude/hooks/`.
+Effect is cosmetic noise only. Nothing in this repo emits it, and no change here can suppress it; the fix belongs in claude-mem upstream. Don't go hunting for it in `.agents/hooks/`.
 
 ---
 

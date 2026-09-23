@@ -1,9 +1,9 @@
 # Task tracking
 
 > This project's configuration contract, read by `/task-registry`. Declared from
-> `.claude/project.md` (Claude Code) and `AGENTS.md` (Pi) — never from
-> `CLAUDE.md`, which `/sync` overwrites wholesale. `docs/` is outside every
-> syncable root, so what is chosen here survives a template update.
+> `AGENTS.md` below the managed block's end marker — never inside the block,
+> which `/sync` replaces wholesale. `docs/` is outside every syncable root, so
+> what is chosen here survives a template update.
 >
 > Only the keys this project actually decides are listed. Everything omitted
 > takes the shipped default; start from

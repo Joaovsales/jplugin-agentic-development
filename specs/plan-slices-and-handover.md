@@ -16,8 +16,8 @@ implementation_paths:
   - .agents/skills/task-registry/scripts/registry/globs.py
   - .agents/skills/yolo/SKILL.md
   - .agents/skills/auto-push/SKILL.md
-  - .claude/hooks/session-start.sh
   - CLAUDE.md
+  - AGENTS.md
   - README.md
   - tests/test-slice.sh
   - tests/fixtures/slice/**
@@ -95,7 +95,7 @@ reviewed on its own.
 | Phase 0: capability map, dependency direction, build order | § Build Order of the spec, written by `/slice` |
 | `ASSUMPTIONS I'M MAKING`, Open Questions | § Decisions rows with `Source` `assumed` and `open` |
 | Objective, success criteria, "reframe vague instructions as success criteria" | § Behavior and § Acceptance Criteria; a rule in `/plan` Step 2 |
-| Commands, Project Structure, Code Style, Boundaries | Project-level already: `tasks/project-context.md`, `CLAUDE.md`, `.claude/project.md`. Not repeated per feature |
+| Commands, Project Structure, Code Style, Boundaries | Project-level already: `tasks/project-context.md`, `AGENTS.md`. Not repeated per feature |
 | Task template: Acceptance, Verify, Files, Dependencies, Scope | One row of § Build Order: ACs, Verify, Surface, Blocked by, Size |
 | "Completable in one session", "break down when" | § Sizing: one ceiling |
 | Checkpoints | A slice boundary: suite, surface check, handover, flush |
@@ -399,7 +399,7 @@ every row `user`. That is what lets `/plan` Step 1 carry them forward.
   with leading whitespace before `[x]` so nested rows are counted, and reports
   the forbidden state as a build failure.
 - **Slice boundary is the checkpoint**: full suite once, centrally; the
-  handover; the task-boundary flush (`bash .claude/hooks/pre-compact.sh
+  handover; the task-boundary flush (`bash .agents/hooks/pre-compact.sh
   </dev/null`); the next `ready`.
 
 ### `/wrap-up-session`
@@ -502,8 +502,8 @@ it is the open task `glob-matcher-shared-module`.
    unsupported-glob patterns are pinned.
 4. `.agents/skills/slice/SKILL.md` exists, model-invocable, `harness:
    universal`, with `references/plan-block.md`, `references/sizing.md` and
-   `references/build-prompt.md`; the skill is listed in `CLAUDE.md`,
-   `README.md` and the session banner; the ceiling is stated once and no floor
+   `references/build-prompt.md`; the skill is listed in the
+   `README.md` skills table; the ceiling is stated once and no floor
    or size label appears.
 5. `/slice <spec>` documents writing § Build Order in place with the build
    prompt as its closing fenced block, the plan block per the grammar, minting
@@ -557,7 +557,7 @@ it is the open task `glob-matcher-shared-module`.
     `/plan` is confirmed".
 13. `/wrap-up-session` documents the `## Handovers` section before the linkage
     check.
-14. `CLAUDE.md` § Workflow steps 1 to 3 describe Specify (optional
+14. `AGENTS.md` § Workflow steps 2 to 4 describe Specify (optional
     `/grill-me` or `/brainstorm` first, decisions carried; `/grilling`
     mandatory at the design bar) → Slice → build prompt → Build in a fresh
     session with handovers; the "Confirm with 'y' to begin" line and the
@@ -581,12 +581,12 @@ are one contract a reviewer reads together).
 | # | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size |
 |---|-------|----------|---------|------------|-----|--------|------|
 | 1 | slice script and shared glob matcher | `slice.py validate`, `ready`, `check`; `registry/globs.py` extracted from `spec-reconcile.py`; fixtures | `.agents/skills/slice/scripts/slice.py`, `.agents/skills/task-registry/scripts/registry/globs.py`, `.agents/skills/wrap-up-session/scripts/spec-reconcile.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**` | — | 1, 2, 3 | `bash tests/test-slice.sh tests/test-living-spec-reconciliation.sh` | 5 files + fixtures · 3 systems (one file each in registry and wrap-up) · 3 ACs |
-| 2 | slice skill | `SKILL.md`, `references/plan-block.md`, `references/sizing.md`, `references/build-prompt.md`, the three inventory rows | `.agents/skills/slice/SKILL.md`, `.agents/skills/slice/references/**`, `CLAUDE.md`, `README.md`, `.claude/hooks/session-start.sh`, `tests/test-doc-conventions.sh` | — | 4, 5, 6 | `bash tests/test-doc-conventions.sh` | 8 files · 1 system + inventory · 3 ACs |
+| 2 | slice skill | `SKILL.md`, `references/plan-block.md`, `references/sizing.md`, `references/build-prompt.md`, the README inventory row | `.agents/skills/slice/SKILL.md`, `.agents/skills/slice/references/**`, `README.md`, `tests/test-doc-conventions.sh` | — | 4, 5, 6 | `bash tests/test-doc-conventions.sh` | 6 files · 1 system + inventory · 3 ACs |
 | 3 | upsert parent flag | `--parent` through `link_parent`, disclosure, docs | `.agents/skills/task-registry/scripts/task-registry.py`, `.agents/skills/task-registry/scripts/registry/upsert.py`, `.agents/skills/task-registry/SKILL.md`, `tests/test-task-registry.sh` | — | 7 | `bash tests/test-task-registry.sh` | 4 files · 1 system · 1 AC |
 | 4 | plan skill calls slice | Step 1 carry-forward without `/grilling`, Step 1.5 escalation, § Decisions template, `Invoke /slice` in Step 3, Step 4 without a question, Step 6 handover with the build prompt, no filing; `/yolo` rows; `/auto-push` owns the `y` sentence | `.agents/skills/plan/SKILL.md`, `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 2 | 8, 9 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 5 files · 3 systems (over, see above) · 2 ACs |
 | 5 | design planning and brainstorm call slice | Step 1 reads § Decisions, Step 2.5 interviews through `/grilling`, template trimmed, Step 3.5 invokes `/slice`, Step 7 loses the approval word and ends with the build prompt, Step 8 removed, Iron Law and Red Flag reworded; `/brainstorm` Step 6 § Decisions | `.agents/skills/system-design-planning/SKILL.md`, `.agents/skills/system-design-planning/templates/architecture-spec-template.md`, `.agents/skills/brainstorm/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 4 | 10, 11 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh tests/test-grilling-adoption.sh` | 5 files · 2 systems · 2 ACs |
 | 6 | build and wrap-up on slices | pre-flight filing through `/slice --file`, implicit slice, `ready`, delegation items, `check`, handover write, unfinished rule, Phase 6 count; `## Handovers` | `.agents/skills/build/SKILL.md`, `.agents/skills/wrap-up-session/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 1, 5 | 12, 13 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 4 files · 2 systems · 2 ACs |
-| 7 | workflow text and live run | `CLAUDE.md` § Workflow with the build prompt replacing the `y` gate, glossary terms through `/learn`, the two-session e2e run | `CLAUDE.md`, `tasks/concepts.md`, `tasks/e2e-log.md`, `tests/test-doc-conventions.sh` | 2, 3, 6 | 14, 15 | `bash tests/run.sh` | 4 files · docs · 2 ACs |
+| 7 | workflow text and live run | `AGENTS.md` § Workflow with the build prompt replacing the `y` gate, glossary terms through `/learn`, the two-session e2e run | `AGENTS.md`, `tasks/concepts.md`, `tasks/e2e-log.md`, `tests/test-doc-conventions.sh` | 2, 3, 6 | 14, 15 | `bash tests/run.sh` | 4 files · docs · 2 ACs |
 
 Slices 1, 2 and 3 have disjoint surfaces and no blockers: they are the first
 ready set. Slice 4 follows 2 (it cites the references), 5 follows 4 (shared
@@ -597,7 +597,7 @@ Build prompt:
 ```
 Invoke `/build` for `specs/plan-slices-and-handover.md`.
 Plan: `## Plan: plan-slices-and-handover` in `tasks/todo.md`, 7 slices, ready set 1, 2, 3.
-Files: .agents/skills/slice/**, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/system-design-planning/templates/architecture-spec-template.md, .agents/skills/brainstorm/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/scripts/spec-reconcile.py, .agents/skills/task-registry/SKILL.md, .agents/skills/task-registry/scripts/task-registry.py, .agents/skills/task-registry/scripts/registry/upsert.py, .agents/skills/task-registry/scripts/registry/globs.py, .agents/skills/yolo/SKILL.md, .agents/skills/auto-push/SKILL.md, .claude/hooks/session-start.sh, CLAUDE.md, README.md, tests/test-slice.sh, tests/fixtures/slice/**, tests/test-doc-conventions.sh, tests/test-skill-invocation-chain.sh, tests/test-task-registry.sh.
+Files: .agents/skills/slice/**, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/system-design-planning/templates/architecture-spec-template.md, .agents/skills/brainstorm/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/scripts/spec-reconcile.py, .agents/skills/task-registry/SKILL.md, .agents/skills/task-registry/scripts/task-registry.py, .agents/skills/task-registry/scripts/registry/upsert.py, .agents/skills/task-registry/scripts/registry/globs.py, .agents/skills/yolo/SKILL.md, .agents/skills/auto-push/SKILL.md, CLAUDE.md, README.md, tests/test-slice.sh, tests/fixtures/slice/**, tests/test-doc-conventions.sh, tests/test-skill-invocation-chain.sh, tests/test-task-registry.sh.
 Instructions:
 1. `/build`'s pre-flight files the slices: `/slice specs/plan-slices-and-handover.md --file --approve`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
@@ -622,7 +622,7 @@ Constraints: work in the worktree `.claude/worktrees/106` on branch `feat/106-pl
 - `.agents/skills/wrap-up-session/SKILL.md`: `## Handovers`
 - `.agents/skills/task-registry/SKILL.md`, `scripts/task-registry.py`, `scripts/registry/upsert.py`: `--parent`
 - `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md`: the override rows; `/auto-push` owns the `y` sentence
-- `.claude/hooks/session-start.sh`, `CLAUDE.md`, `README.md`: the inventory rows; `CLAUDE.md` § Workflow steps 1 to 3
+- `README.md`: the inventory row; `AGENTS.md` § Workflow steps 2 to 4
 - `tests/test-slice.sh`, `tests/fixtures/slice/**`: `validate`, `ready`, `check` over fixtures
 - `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh`, `tests/test-task-registry.sh`: the pins named in § Acceptance Criteria
 - `tests/test-living-spec-reconciliation.sh`: the `> Spec:` plan-block pin follows the template from `/plan` to `/slice`

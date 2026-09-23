@@ -1,6 +1,6 @@
 ---
 name: setup-deployment
-description: One-time interactive bootstrap for deployment verification. Scans the project for deployment signal files, asks the user to confirm detected services and project IDs, and writes the routing table into .claude/project.md.
+description: One-time interactive bootstrap for deployment verification. Scans the project for deployment signal files, asks the user to confirm detected services and project IDs, and writes the routing table into AGENTS.md below the managed block.
 disable-model-invocation: false
 # TODO(shortcut): `harness:` has no consumer yet, so the Pi and Codex installers copy
 # this Claude-only skill too; filter on `harness: claude` when a Pi user reports noise.
@@ -9,7 +9,7 @@ harness: claude
 
 # /setup-deployment — Deployment Verification Bootstrap
 
-Configure `/verify-deployment` for this project. Scans the project for deployment signal files, confirms detected services with the user, prompts for the per-service routing details, and writes the `## Deployment Targets` section into `.claude/project.md`.
+Configure `/verify-deployment` for this project. Scans the project for deployment signal files, confirms detected services with the user, prompts for the per-service routing details, and writes the `## Deployment Targets` section into `AGENTS.md`, below the managed block's end marker.
 
 This skill is idempotent. Re-running it offers to update existing routing rather than duplicating it.
 
@@ -92,33 +92,33 @@ Store the responses as `{ service_name → { branch, project_id } }`.
 
 ---
 
-## Step 4 — Check existing .claude/project.md state
+## Step 4 — Check existing AGENTS.md state
 
-Read `.claude/project.md`. **If the file does not exist, auto-create it** from the stub below before writing the Deployment Targets table. Do NOT fall back to writing into `CLAUDE.md` — that file is template-managed and overwritten by `/sync`.
+Read `AGENTS.md`. **If the file does not exist, auto-create it** from the stub below before writing the Deployment Targets table. Do NOT write into `CLAUDE.md` — it is the single line `@AGENTS.md`, and `/sync` rewrites it whenever it differs.
 
 **Stub content (create if missing):**
 
 ```markdown
-# Project-Specific Configuration
+# Project Instructions
 
-> Imported by CLAUDE.md. Safe to edit — /sync never touches this file.
-
-```
-
-If `.claude/project.md` cannot be created or written (permission error, filesystem failure), **abort** with:
+> Project rules for this repository. /sync adds the shared workflow block above and never touches the rest.
 
 ```
-setup-deployment: could not write .claude/project.md — <specific error>.
+
+If `AGENTS.md` cannot be created or written (permission error, filesystem failure), **abort** with:
+
+```
+setup-deployment: could not write AGENTS.md — <specific error>.
 This file is required for deployment target configuration. Resolve the filesystem
-error and re-run /setup-deployment. Do NOT manually add the Deployment Targets
-section to CLAUDE.md — it will be wiped on the next /sync.
+error and re-run /setup-deployment. Do NOT add the Deployment Targets section to
+CLAUDE.md — it is a pointer and /sync rewrites it.
 ```
 
-Once `.claude/project.md` exists, look for an existing `## Deployment Targets` section in it.
+Once `AGENTS.md` exists, look for an existing `## Deployment Targets` section **below** the managed block's end marker (`<!-- jplugin-agentic-development:end -->`) — the only part of the file `/sync` leaves alone; a section inside the block would be lost on the next sync. A section still in `.claude/project.md`, where it lived before the single instruction file, counts as "present" for the merge below: print `Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md`, take its rows as the existing rows, write the merged section to `AGENTS.md`, and never write back to `.claude/project.md`.
 
 | Existing state | Action |
 |---|---|
-| Section absent in project.md | Append a new section at the end of `.claude/project.md` |
+| Section absent | Append a new section at the end of `AGENTS.md` (which is below the end marker) |
 | Section present, no overlapping services | Add the new rows to the existing table; preserve existing rows |
 | Section present, same service appears | Ask: `<service> is already configured for branch <X>. Replace with the new branch <Y>? (y/n)` — replace on yes, skip on no |
 
@@ -195,7 +195,7 @@ Next steps:
   2. Push a commit to a configured branch
   3. Run /verify-deployment (or /wrap-up-session, which calls it automatically)
 
-To disable: delete the "## Deployment Targets" section from .claude/project.md.
+To disable: delete the "## Deployment Targets" section from AGENTS.md.
 To suppress the session-start nudge without enabling: touch .claude/deploy-nudge-dismissed
 ```
 
@@ -203,7 +203,7 @@ To suppress the session-start nudge without enabling: touch .claude/deploy-nudge
 
 ## Edge Cases
 
-- **`.claude/` directory missing** — abort with: `.claude/ directory not found at the project root. /setup-deployment requires .claude/ to write .claude/project.md into.`
+- **`.claude/deployments/` directory missing** — there is nothing to discover services from; abort with: `.claude/deployments/ not found at the project root. /setup-deployment discovers services from the runbooks there.`
 - **Multiple detect_files match for the same service** — that's fine, just pick the first matching file for the summary line. The service is still listed once.
 - **User runs setup with services already configured** — Step 4's merge logic handles this without duplication. The interview in Step 3 only re-asks for services the user explicitly confirms in Step 2.
 - **Two different runbooks declare overlapping `detect_files`** (e.g. both list `Dockerfile`) — list both as detected and let the user toggle in the `edit` flow. Don't auto-pick.
@@ -214,7 +214,7 @@ To suppress the session-start nudge without enabling: touch .claude/deploy-nudge
 
 ## Invariants
 
-1. **Idempotent** — running setup twice with the same answers produces the same `.claude/project.md` state, not duplicate rows.
+1. **Idempotent** — running setup twice with the same answers produces the same `AGENTS.md` state, not duplicate rows.
 2. **Non-destructive** — never overwrites a user's existing Config block values; never removes existing rows for services the user didn't re-confirm.
 3. **No hardcoded service list** — discovery is purely from `.claude/deployments/*.md`. Adding a new runbook there makes it immediately available to setup.
-4. **Writes are confined to** `.claude/project.md` and `.gitignore`. **Never writes to CLAUDE.md** — that file is template-managed and overwritten by `/sync`, so any project-specific content there would be lost.
+4. **Writes are confined to** `AGENTS.md` below the end marker and `.gitignore`. **Never writes to CLAUDE.md** — it is the `@AGENTS.md` pointer, rewritten by `/sync` — and never inside the managed block, which `/sync` replaces.

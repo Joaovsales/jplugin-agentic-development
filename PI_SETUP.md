@@ -254,7 +254,7 @@ Budget alternative for the build tier: `z-ai/glm-4.7-flash` ($0.06/M in) if cost
 
 ## How Build Skill Sub-Agent Routing Works
 
-**This file is the single source of concrete model IDs.** `CLAUDE.md` and `/build` name tiers
+**This file is the single source of concrete model IDs.** `.agents/references/model-routing.md` and `/build` name tiers
 only and point here, so a model release touches one file instead of three. If you find an
 OpenRouter ID in either of those, delete it rather than updating it.
 
@@ -272,8 +272,7 @@ Model ID per sub-agent role:
 | Search / recon | `scout` | `deepseek/deepseek-v4-flash` | $0.14 |
 
 On Claude Code these are passed to the Agent tool when dispatching sub-agents — **except Ceiling-tier
-roles, which take no `model` at all** so they inherit the session model (see `CLAUDE.md` § *Model
-Routing*). On Pi they resolve from `subagents.agentOverrides` (see previous section), where Ceiling roles
+roles, which take no `model` at all** so they inherit the session model (see `.agents/references/model-routing.md`). On Pi they resolve from `subagents.agentOverrides` (see previous section), where Ceiling roles
 stay explicitly pinned, because omission there falls through to `defaultModel` rather than to the
 session model. Each sub-agent runs
 independently with its own model and context.

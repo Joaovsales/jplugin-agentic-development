@@ -25,10 +25,15 @@ is shared and stated once here.
 
 **No sub-agent is dispatched anywhere in a sweep.** The prompt that invokes this
 skill is universal across projects and carries no dispatch; the skill runs every
-engine inline. The cost is stated, not hidden: per `CLAUDE.md` § *Independence
-Accounting*, every finding this run files has a **single witness**, so no
+engine inline. The cost is stated, not hidden: per `.agents/references/finding-model.md` § *Independence Accounting*, every finding this run files has a **single witness**, so no
 confidence anchor is promoted on agreement. Verification-promotion (reading one
 more line) is still available and is how a `75` becomes a `100`.
+
+The engine's output format is `.agents/references/finding-model.md` § *Emission format*,
+read at run time with the resolution order the dispatching skills use — the project's
+`.agents/references/`, then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`, then
+`~/.agents/references/`. When all three are missing the sweep stops before filing anything:
+`review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync`.
 
 Tracker access is only ever through `/task-registry`. This skill never calls a
 tracker CLI or REST API for task state — the coupling guard in

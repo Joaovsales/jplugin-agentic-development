@@ -57,7 +57,7 @@ for ambiguity.
 
 When a frontier question needs a fact from the environment (filesystem, tools,
 documentation), dispatch a read-only Scout-tier lookup (the `Explore` agent
-on Claude Code, per the Model Routing table in `CLAUDE.md`; the `scout`
+on Claude Code, per `.agents/references/model-routing.md` § *Tiers*; the `scout`
 builtin on Pi) rather than asking the user for anything you could look up.
 The lookup reads; it never edits, so "writes nothing" holds whatever it
 finds. Do not block on it: a running lookup is an

@@ -69,6 +69,12 @@ resolve_test_python() {
 
 resolve_test_python
 export TEST_PYTHON
+# Windows CPython writes stdout in the console code page (cp1252) unless told
+# otherwise, so every em dash a script prints reaches the assertion as one
+# 0x97 byte and never matches the UTF-8 needle in the test. The suite compares
+# text, not bytes-as-rendered: force UTF-8 so a local Windows run gives the
+# verdict Linux CI gives.
+export PYTHONUTF8=1
 
 # assert_contains <haystack> <needle> <message>
 assert_contains() {

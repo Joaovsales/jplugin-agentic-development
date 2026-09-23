@@ -53,7 +53,7 @@ and the reviewer is told so.
 
 ## Phase 2 — Dispatch APOSD Reviewer Agent
 
-For each changed file (or grouped batch if <5 files), dispatch the `software-design-expert-review` agent (Ceiling tier — pass no `model` at all, so it inherits the session model; see `CLAUDE.md` § *Model Routing*) in a single tool call. Pass the seven items in `CLAUDE.md` § *Review Dispatch Contract*, which for this gate means:
+For each changed file (or grouped batch if <5 files), dispatch the `software-design-expert-review` agent (Ceiling tier — pass no `model` at all, so it inherits the session model; see `.agents/references/model-routing.md`) in a single tool call. Pass the seven items in `.agents/references/review-dispatch-contract.md`, which for this gate means:
 - The git diff for the file(s)
 - Absolute paths of the files
 - Every spec relevant to this session: each one's path and its acceptance criteria
@@ -62,6 +62,13 @@ For each changed file (or grouped batch if <5 files), dispatch the `software-des
 - The `[AMBIGUITY]` lines and any `TODO(shortcut):` markers in these files, or `deferrals: none` — an accepted trade-off is not a red flag, and R1–R11 have no way to tell the difference from the diff alone
 - The boundary: review issues **introduced** by this diff; pre-existing structure inside a changed file is out of scope
 - The instruction: "Review ONLY these changed files. Emit every finding in the canonical four-axis format `[SEVERITY | confidence | autofix_class | owner] file:line — description`, with an `evidence:` line quoting the motivating source line for any finding at anchor `75` or `100`."
+
+**Item 7 is read, not remembered.** Before dispatching, resolve `finding-model.md` in
+order — the project's `.agents/references/`, then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`
+on Claude Code (the skill body and the reference then come from the same plugin version),
+then `~/.agents/references/` on Pi and Codex — and paste its § *Emission format* into the
+prompt verbatim. When all three are missing, stop before dispatch:
+`review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync`. Never dispatch a reviewer with no output format.
 
 Withhold conclusions — no prior findings, no builder rationale. Batches are the unit
 of independence here (Phase 3), so an inherited opinion inflates corroboration.
@@ -83,7 +90,7 @@ ones are.
 ### Agent Failure Handling
 - If the agent errors or returns unparseable output: log the failure, label review status `degraded`, and proceed to Phase 3 with a warning.
 - If the agent returns findings with no `confidence`, treat each as `50` /
-  `autofix_class: manual` per `CLAUDE.md` § *Finding Model* — reported, never
+  `autofix_class: manual` per `.agents/references/finding-model.md` — reported, never
   discarded. Do not re-dispatch to chase the format.
 
 ---
@@ -108,8 +115,7 @@ Deduplicate identical findings (same file:line + same root cause):
   `gated_auto`). Synthesis never widens.
 - Two findings from **separately dispatched** batches naming the same `file:line`
   are independent corroboration: promote `confidence` by exactly one anchor. Two
-  lenses inside a single batch are not — see `CLAUDE.md` § *Independence
-  Accounting*. Batching files therefore trades corroboration for tool calls;
+  lenses inside a single batch are not — see `.agents/references/finding-model.md` § *Independence Accounting*. Batching files therefore trades corroboration for tool calls;
   state which happened in the output.
 
 ---

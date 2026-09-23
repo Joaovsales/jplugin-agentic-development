@@ -2,28 +2,35 @@
 # install.sh — One-time setup to enforce Claude workflow across all projects.
 #
 # What this does:
-#   1. Copies CLAUDE.md into ~/.claude/ (global Claude Code config)
-#   2. Registers this checkout as a Claude Code plugin marketplace and installs
+#   1. Registers this checkout as a Claude Code plugin marketplace and installs
 #      the `jplugin` plugin at user scope; offers to delete the pre-plugin skill
 #      copies from ~/.claude/skills/ (one y/N; nothing is deleted on N or EOF)
-#   3. Copies .agents/ into ~/.agents/ (harness-neutral skills, read by Pi and Codex)
-#   4. Copies agents into ~/.claude/agents/
-#   5. Installs a global SessionStart hook that orients Claude in any project
-#   6. Configures Pi (~/.pi/agent/settings.json) if installed
-#   7. Wires graphify into this project if the CLI is present (optional)
-#   8. Sets up a git template dir so new repos receive the pre-push hook
-#   9. Installs project-template/ + a global `git scaffold` alias that copies it
+#   2. Copies .agents/ into ~/.agents/ (harness-neutral skills, read by Pi and Codex)
+#   3. Copies agents into ~/.claude/agents/
+#   4. Lists the copies an earlier install.sh wrote and nothing reads any more
+#      (~/.claude/CLAUDE.md, ~/.claude/hooks/session-start.sh with its SessionStart
+#      entry, the managed block in ~/.codex/AGENTS.md) and deletes them only after
+#      a typed y — the plugin's hooks/hooks.json runs the session hook now
+#   5. Configures Pi (~/.pi/agent/settings.json) if installed
+#   6. Wires graphify into this project if the CLI is present (optional)
+#   7. Sets up a git template dir so new repos receive the pre-push hook
+#   8. Installs project-template/ + a global `git scaffold` alias that copies it
 #      into any repo (git has no post-init hook, so bootstrap is explicit)
-#  10. Prints a `newproject` shell function to add to your .bashrc / .zshrc
+#   9. Prints a `newproject` shell function to add to your .bashrc / .zshrc
+#
+#  The shared rules are not copied anywhere: every project reads them from the
+#  managed block of its own AGENTS.md, which /sync writes (a ~/.claude/CLAUDE.md
+#  is the user's own file and is never written here).
 #
 # Usage:
 #   git clone <this-repo> ~/jplugin-agentic-development
 #   cd ~/jplugin-agentic-development && bash install.sh
 #
 # Skill delivery is the plugin, not a copy: nothing is ever written into
-# ~/.claude/skills/. The only deletion this script can perform is of entries
-# there whose name the template ships now or once shipped, and only after you
-# answer y to a list of them. Anything else in ~/.claude/skills/ is never touched.
+# ~/.claude/skills/. The only deletions this script can perform are of entries
+# there whose name the template ships now or once shipped, and of the copies an
+# earlier version of it wrote (step 4) — each list shown first, each deleted only
+# after you answer y. Anything else under ~/.claude/ is never touched.
 
 set -euo pipefail
 
@@ -43,8 +50,9 @@ usage() {
   echo ""
   echo "  -h, --help      Show this message."
   echo ""
-  echo "  Pre-plugin copies under ~/.claude/skills/ are listed during the run and"
-  echo "  deleted only after a typed y. There is no flag for it any more."
+  echo "  Pre-plugin copies under ~/.claude/skills/, and the copies an earlier install.sh"
+  echo "  wrote to ~/.claude/CLAUDE.md, ~/.claude/hooks/ and ~/.codex/AGENTS.md, are listed"
+  echo "  during the run and deleted only after a typed y. There is no flag for it."
 }
 
 for arg in "$@"; do
@@ -189,13 +197,240 @@ report_skills_source() {
   esac
 }
 
-# ── 1. Global CLAUDE.md ───────────────────────────────────────────────────────
-step "Installing global CLAUDE.md"
-mkdir -p "$CLAUDE_HOME"
-cp "$REPO_DIR/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md"
-ok "copied" "~/.claude/CLAUDE.md"
+# ── Copies an earlier install.sh wrote, and nothing reads any more ───────────
+# Before specs/single-instruction-file.md this script copied CLAUDE.md to
+# ~/.claude/CLAUDE.md, copied session-start.sh to ~/.claude/hooks/ and registered
+# it in ~/.claude/settings.json, and the Codex adapter rendered the shared rules
+# into ~/.codex/AGENTS.md. Every project now reads the rules from the managed
+# block of its own AGENTS.md, and the plugin's hooks/hooks.json runs the session
+# hook, so those copies are stale: the old hook fires a second banner beside the
+# plugin's, and the old CLAUDE.md carries rules /sync no longer updates. They are
+# listed and deleted only after a typed y — never silently (D8, D9, D17).
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+# The slug before the repository rename, assembled so the identity sweep
+# (tests/test-repo-identity.sh) does not read this script as a live reference.
+LEGACY_SLUG="coding-agent"; LEGACY_SLUG="$LEGACY_SLUG-workflow"
+STALE_OUTCOME=""    # Clean | Kept(n) | Removed(n)
+STALE_HOOK_KEPT=0   # 1 when the SessionStart copy stays — the summary names the double banner
 
-# ── 2. Claude Code plugin ─────────────────────────────────────────────────────
+# python_bin — the interpreter that edits ~/.claude/settings.json; empty when none.
+python_bin() {
+  if command -v python3 >/dev/null 2>&1; then command -v python3
+  elif command -v python >/dev/null 2>&1; then command -v python
+  fi
+}
+
+# template_managed_claude_md FILE — the copy step 1 used to write: the template
+# header in its first five lines, or (between slices 2 and 5) the one-line
+# pointer. A file with neither is the user's own and is never listed (D9, D17).
+template_managed_claude_md() {
+  [ -f "$1" ] || return 1
+  if head -n 5 "$1" | grep -q 'Template-managed'; then return 0; fi
+  [ "$(tr -d '\r' < "$1" | grep -v '^[[:space:]]*$')" = "@AGENTS.md" ]
+}
+
+# display_path DIR — `~/…` when DIR is under $HOME, else the literal path: the
+# prompt names exactly what a `y` removes, also under CLAUDE_CONFIG_DIR/CODEX_HOME.
+display_path() {
+  case "$1" in
+    "$HOME"/*) printf '~/%s' "${1#"$HOME"/}" ;;
+    *)         printf '%s' "$1" ;;
+  esac
+}
+
+# hook_spellings — the ways an earlier install.sh could have named its copy in a
+# SessionStart command: the resolved $CLAUDE_HOME it embedded, plus the `~/` and
+# `$HOME/` spellings of the same file. One line each; both the grep below and the
+# Python prune read this list, so they can never disagree. A hook of the user's
+# own that merely ends in hooks/session-start.sh is not on it and is never matched.
+hook_spellings() {
+  printf '%s/hooks/session-start.sh\n' "$CLAUDE_HOME"
+  case "$CLAUDE_HOME" in
+    "$HOME"/*) printf '~/%s/hooks/session-start.sh\n$HOME/%s/hooks/session-start.sh\n' \
+                 "${CLAUDE_HOME#"$HOME"/}" "${CLAUDE_HOME#"$HOME"/}" ;;
+  esac
+}
+
+session_hook_registered() {
+  [ -f "$CLAUDE_HOME/settings.json" ] || return 1
+  hook_spellings | grep -qF -f - "$CLAUDE_HOME/settings.json"
+}
+
+# codex_block_present — exactly one begin and one end marker (either slug). A
+# file with a begin marker and no end is malformed and is never touched: the
+# strip would take every line below the marker with it.
+codex_block_present() {
+  [ -f "$CODEX_HOME/AGENTS.md" ] || return 1
+  [ "$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):begin -->" "$CODEX_HOME/AGENTS.md")" = 1 ] \
+    && [ "$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):end -->" "$CODEX_HOME/AGENTS.md")" = 1 ]
+}
+
+# stale_global_copies — one line per stale item: `<kind><TAB><what the user sees>`.
+# The hook copy is offered only once the plugin is registered: without it, that
+# copy is the only banner this machine has.
+stale_global_copies() {
+  local claude_dir codex_dir begins ends
+  claude_dir="$(display_path "$CLAUDE_HOME")"; codex_dir="$(display_path "$CODEX_HOME")"
+  if template_managed_claude_md "$CLAUDE_HOME/CLAUDE.md"; then
+    printf 'claude-md\t%s/CLAUDE.md (the template rules an earlier install.sh copied; every project reads them from its own AGENTS.md now — moved aside as CLAUDE.md.pre-plugin.bak, not deleted)\n' "$claude_dir"
+  fi
+  if [ "$PLUGIN_OUTCOME" != "Skipped" ] \
+     && { [ -f "$CLAUDE_HOME/hooks/session-start.sh" ] || session_hook_registered; }; then
+    printf 'session-hook\t%s/hooks/session-start.sh and its SessionStart entry in %s/settings.json (the plugin runs the hook now; this copy fires a second banner)\n' "$claude_dir" "$claude_dir"
+  fi
+  if codex_block_present; then
+    printf 'codex-block\tthe managed block in %s/AGENTS.md (the file stays; only the block between the markers goes)\n' "$codex_dir"
+  elif [ -f "$CODEX_HOME/AGENTS.md" ]; then
+    # Markers present but not one matched pair: never touched, and never silently
+    # "clean" either — the user is told what to fix by hand.
+    begins="$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):begin -->" "$CODEX_HOME/AGENTS.md" || true)"
+    ends="$(grep -cE "^<!-- (jplugin-agentic-development|$LEGACY_SLUG):end -->" "$CODEX_HOME/AGENTS.md" || true)"
+    if [ "$begins" != 0 ] || [ "$ends" != 0 ]; then
+      echo "  NOTE: $codex_dir/AGENTS.md has $begins begin / $ends end marker(s) — left untouched; fix the pair by hand" >&2
+    fi
+  fi
+}
+
+# remove_session_hook — the script and its settings entry go together, or
+# neither does: a dangling command would fail on every session start. Returns 1
+# when the pair is kept. The Python matches only the spellings hook_spellings
+# lists, writes through a temp file + os.replace so an interrupted run never
+# leaves a truncated settings.json, and exits 3 without writing when no
+# SessionStart entry matched — the file is then named in a NOTE and nothing is
+# touched. The spellings travel in a file, not in argv or the environment: MSYS
+# (Git Bash) rewrites POSIX-looking paths in both when it starts a native python,
+# and the strings must match the JSON exactly as bash wrote them.
+remove_session_hook() {
+  local python rc=0 settings_shown spellings
+  settings_shown="$(display_path "$CLAUDE_HOME")/settings.json"
+  if session_hook_registered; then
+    python="$(python_bin)"
+    if [ -z "$python" ]; then
+      echo "  NOTE: neither python3 nor python found — the SessionStart entry in $settings_shown stays, and so does its script"
+      return 1
+    fi
+    spellings="$(mktemp)"
+    hook_spellings > "$spellings"
+    "$python" - "$CLAUDE_HOME/settings.json" "$spellings" <<'PY' || rc=$?
+import json, os, sys
+path, spellings_file = sys.argv[1], sys.argv[2]
+with open(spellings_file, encoding="utf-8") as handle:
+    spellings = {line.rstrip("\r\n").replace("\\", "/") for line in handle if line.strip()}
+
+
+def is_ours(command):
+    text = command.strip()
+    for shell in ("bash ", "sh "):
+        if text.startswith(shell):
+            text = text[len(shell):].strip()
+    return text.strip("\"'").replace("\\", "/") in spellings
+
+
+try:
+    with open(path, encoding="utf-8") as handle:
+        settings = json.load(handle)
+except (OSError, ValueError) as exc:
+    print(f"  NOTE: {path}: {exc} — the SessionStart entry stays, and so does its script")
+    sys.exit(1)
+hooks = settings.get("hooks", {})
+groups = hooks.get("SessionStart", [])
+removed = 0
+for group in groups:
+    kept = [hook for hook in group.get("hooks", []) if not is_ours(hook.get("command", ""))]
+    removed += len(group.get("hooks", [])) - len(kept)
+    group["hooks"] = kept
+if removed == 0:
+    sys.exit(3)
+hooks["SessionStart"] = [group for group in groups if group.get("hooks")]
+if not hooks["SessionStart"]:
+    hooks.pop("SessionStart")
+if "hooks" in settings and not hooks:
+    settings.pop("hooks")
+temporary = path + ".tmp"
+with open(temporary, "w", encoding="utf-8") as handle:
+    json.dump(settings, handle, indent=2, ensure_ascii=False)
+    handle.write("\n")
+os.replace(temporary, path)
+PY
+    rm -f "$spellings"
+    case "$rc" in
+      0) ;;
+      3) echo "  NOTE: $settings_shown names hooks/session-start.sh outside a SessionStart entry — nothing rewritten; the script stays with it"
+         return 1 ;;
+      *) return 1 ;;
+    esac
+  fi
+  rm -f "$CLAUDE_HOME/hooks/session-start.sh"
+  rmdir "$CLAUDE_HOME/hooks" 2>/dev/null || true
+}
+
+# strip_codex_block FILE — removes the block between the markers (either slug)
+# and the blank line after it; every other line stays (D8). Returns 1 and
+# leaves the file alone when the end marker never comes, or when awk itself
+# could not run — the two are reported apart.
+strip_codex_block() {
+  local tmp="$1.tmp.$$"
+  local rc=0
+  awk -v legacy="$LEGACY_SLUG" '
+    BEGIN { begin_re = "^<!-- (jplugin-agentic-development|" legacy "):begin -->"
+            end_re   = "^<!-- (jplugin-agentic-development|" legacy "):end -->" }
+    !skip && $0 ~ begin_re { skip = 1; next }
+    skip && $0 ~ end_re    { skip = 0; drop_blank = 1; next }
+    skip                   { next }
+    drop_blank && $0 ~ /^[[:space:]]*$/ { drop_blank = 0; next }
+    { drop_blank = 0; print }
+    END { if (skip) exit 1 }
+  ' "$1" > "$tmp" || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    rm -f "$tmp"
+    echo "  NOTE: $1 has a begin marker with no end marker — left untouched; remove the block by hand"
+    return 1
+  elif [ "$rc" -ne 0 ]; then
+    # Not awk's own verdict: a redirect failure, a missing awk — say that, not "malformed".
+    rm -f "$tmp"
+    echo "  NOTE: could not rewrite $1 (awk exit $rc) — left untouched"
+    return 1
+  fi
+  # cat, not mv: writes through a symlinked AGENTS.md and keeps the file's mode.
+  cat "$tmp" > "$1" && rm -f "$tmp"
+}
+
+# remove_stale_global_copies — sets STALE_OUTCOME. Lists the stale copies and
+# asks once, in the remove_legacy_skill_copies shape: y removes them; N, EOF or
+# a non-interactive run keeps every one.
+remove_stale_global_copies() {
+  local items count reply="" kind kept=0 removed=0
+  items="$(stale_global_copies)"
+  if [ -z "$items" ]; then
+    ok "clean" "no copies from an earlier install.sh to remove"
+    STALE_OUTCOME="Clean"
+    return 0
+  fi
+  count="$(printf '%s\n' "$items" | wc -l | tr -d ' ')"
+  echo ""
+  echo "  An earlier install.sh left $count item(s) nothing reads any more:"
+  printf '%s\n' "$items" | cut -f2- | sed 's/^/    - /'
+  printf '  Delete them? [y/N] '
+  read -r reply || reply=""
+  if [ "$reply" != "y" ] && [ "$reply" != "Y" ]; then
+    echo "  Kept."
+    if printf '%s\n' "$items" | cut -f1 | grep -qx 'session-hook'; then STALE_HOOK_KEPT=1; fi
+    STALE_OUTCOME="Kept($count)"
+    return 0
+  fi
+  while IFS=$'\t' read -r kind _; do
+    case "$kind" in
+      claude-md)    mv -f "$CLAUDE_HOME/CLAUDE.md" "$CLAUDE_HOME/CLAUDE.md.pre-plugin.bak"; removed=$((removed + 1)) ;;
+      session-hook) if remove_session_hook; then removed=$((removed + 1)); else kept=$((kept + 1)); STALE_HOOK_KEPT=1; fi ;;
+      codex-block)  if strip_codex_block "$CODEX_HOME/AGENTS.md"; then removed=$((removed + 1)); else kept=$((kept + 1)); fi ;;
+    esac
+  done <<< "$items"
+  ok "removed" "$removed item(s) removed"
+  if [ "$kept" -gt 0 ]; then STALE_OUTCOME="Kept($kept)"; else STALE_OUTCOME="Removed($removed)"; fi
+}
+
+# ── 1. Claude Code plugin ─────────────────────────────────────────────────────
+mkdir -p "$CLAUDE_HOME"
 # Skills reach Claude Code through the jplugin plugin, whose manifest points at
 # .agents/skills/. Nothing is copied into ~/.claude/skills/ any more; the
 # pre-plugin copies an earlier install left there are offered for removal, and
@@ -208,7 +443,7 @@ if [ "$PLUGIN_OUTCOME" != "Skipped" ]; then
 fi
 report_skills_source "$PLUGIN_OUTCOME" "$LEGACY_OUTCOME"
 
-# ── 3. Shared workflow → ~/.agents/ ──────────────────────────────────────────
+# ── 2. Shared workflow → ~/.agents/ ──────────────────────────────────────────
 step "Installing shared workflow → ~/.agents/"
 mkdir -p "$HOME/.agents"
 cp -r "$REPO_DIR/.agents/"* "$HOME/.agents/"
@@ -224,57 +459,18 @@ if [ -n "$stale_agents" ]; then
   echo "        Pi and Codex list them beside their replacements; remove with: (cd \"$HOME/.agents/skills\" && rm -rf $(printf '%s ' $stale_agents))"
 fi
 
-# ── 4. Global agents ─────────────────────────────────────────────────────────
+# ── 3. Global agents ─────────────────────────────────────────────────────────
 step "Installing global agents → ~/.claude/agents/"
 mkdir -p "$CLAUDE_HOME/agents"
 cp "$REPO_DIR/.claude/agents/"*.md "$CLAUDE_HOME/agents/"
 ok "copied" "$(ls "$CLAUDE_HOME/agents/"*.md | wc -l | tr -d ' ') agents"
 
-# ── 5. Global SessionStart hook ───────────────────────────────────────────────
-step "Installing global SessionStart hook"
-mkdir -p "$CLAUDE_HOME/hooks"
-cp "$REPO_DIR/.claude/hooks/session-start.sh" "$CLAUDE_HOME/hooks/session-start.sh"
-chmod +x "$CLAUDE_HOME/hooks/session-start.sh"
-ok "copied" "~/.claude/hooks/session-start.sh"
-
-# Merge SessionStart into ~/.claude/settings.json (preserves existing settings).
-# NOTE: this is the ONLY place the SessionStart hook is registered. Deliberately
-# user-level only — the repo's .claude/settings.json must NOT register it too, or
-# /sync would copy that into every project and the hook would fire twice per session.
-SETTINGS_FILE="$CLAUDE_HOME/settings.json"
-SESSION_HOOK_CMD="bash $CLAUDE_HOME/hooks/session-start.sh"
-
-if [ ! -f "$SETTINGS_FILE" ]; then
-  cat > "$SETTINGS_FILE" <<EOF
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$SESSION_HOOK_CMD"
-          }
-        ]
-      }
-    ]
-  }
-}
-EOF
-  ok "created" "~/.claude/settings.json"
-else
-  # Check if SessionStart hook is already present
-  if ! grep -q "session-start.sh" "$SETTINGS_FILE" 2>/dev/null; then
-    echo ""
-    echo "  NOTE: ~/.claude/settings.json already exists."
-    echo "  Add this SessionStart hook manually if it's missing:"
-    echo ""
-    echo '    "SessionStart": [{"hooks": [{"type": "command", "command": "'"$SESSION_HOOK_CMD"'"}]}]'
-    echo ""
-  else
-    ok "already present" "SessionStart hook in ~/.claude/settings.json"
-  fi
-fi
+# ── 4. Copies an earlier install.sh wrote ────────────────────────────────────
+# The plugin's hooks/hooks.json runs session-start.sh from the checkout and the
+# shared rules live in each project's AGENTS.md; the helpers above list what an
+# earlier version of this script wrote and nothing reads now.
+step "Removing copies an earlier install.sh wrote"
+remove_stale_global_copies
 
 # NOTE: there is deliberately no step here writing a top-level `skills` key into
 # ~/.claude/settings.json. Claude Code's settings schema is strict and has no such
@@ -284,7 +480,7 @@ fi
 # the skills through the plugin step 2 registers. Pi is a separate schema and
 # is still configured below.
 
-# ── 6. Configure Pi if installed ─────────────────────────────────────────────
+# ── 5. Configure Pi if installed ─────────────────────────────────────────────
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if [ -f "$PI_SETTINGS" ]; then
   step "Configuring Pi skill paths"
@@ -300,7 +496,7 @@ if [ -f "$PI_SETTINGS" ]; then
   fi
 fi
 
-# ── 7. Wire graphify into this project (optional) ────────────────────────────
+# ── 6. Wire graphify into this project (optional) ────────────────────────────
 # graphify is a per-machine CLI with per-project state (./graphify-out/graph.json),
 # so it has to be wired per repo. Entirely optional — never block the install.
 step "Wiring graphify (optional)"
@@ -308,23 +504,27 @@ if command -v graphify > /dev/null 2>&1; then
   graphify claude install > /dev/null 2>&1 || true
   graphify hook install > /dev/null 2>&1 || true
 
-  # `graphify claude install` writes its `## graphify` rules into CLAUDE.md, which /sync
-  # overwrites wholesale — so the rules vanish silently on the next sync while the
-  # PreToolUse hook and the skill both survive, leaving graphify looking wired but
-  # rule-less. Relocate the section to .claude/project.md, which /sync never touches.
+  # `graphify claude install` appends its `## graphify` rules to CLAUDE.md, which is
+  # the single line `@AGENTS.md` — /sync rewrites it whenever it differs, so the
+  # rules would vanish on the next sync while the PreToolUse hook and the skill
+  # both survive, leaving graphify looking wired but rule-less. Append the
+  # section to AGENTS.md, outside the managed block — the only part /sync rewrites.
   if [ -f CLAUDE.md ] && grep -q '^## graphify$' CLAUDE.md; then
-    mkdir -p .claude
-    [ -f .claude/project.md ] || printf '# Project-Specific Configuration\n\n> Imported by CLAUDE.md. Safe to edit — /sync never touches this file.\n' > .claude/project.md
-    if ! grep -q '^## graphify$' .claude/project.md; then
+    [ -f AGENTS.md ] || printf '# Project Instructions\n' > AGENTS.md
+    if ! grep -q '^## graphify$' AGENTS.md; then
       {
         printf '\n'
         awk '/^## graphify$/{f=1} f' CLAUDE.md
-      } >> .claude/project.md
+      } >> AGENTS.md
     fi
     # Drop the section from CLAUDE.md. It is emitted last, so truncating at its
-    # header is sufficient and leaves the template content untouched.
+    # header is sufficient; then restore the exact one-line pointer if that is
+    # all that is left, so the budget invariant (byte-equal `@AGENTS.md`) holds.
     awk '/^## graphify$/{exit} {print}' CLAUDE.md > CLAUDE.md.tmp && mv CLAUDE.md.tmp CLAUDE.md
-    ok "moved" "graphify rules: CLAUDE.md -> .claude/project.md (survives /sync)"
+    if [ "$(grep -c . CLAUDE.md)" = "1" ] && grep -qx '@AGENTS.md' CLAUDE.md; then
+      printf '@AGENTS.md\n' > CLAUDE.md
+    fi
+    ok "moved" "graphify rules: CLAUDE.md -> AGENTS.md (survives /sync)"
   fi
 
   # graphify-out/ is ~13 MB of generated artefacts that sit in the working tree.
@@ -346,13 +546,13 @@ if command -v graphify > /dev/null 2>&1; then
     printf '# Search-tool exclusions (ripgrep, fd — plain `grep -r` does NOT honour this).\ngraphify-out/\nnode_modules/\n' >> .ignore
   fi
 
-  ok "wired" "graphify: CLAUDE.md + PreToolUse hook + git hooks + .gitignore/.ignore"
+  ok "wired" "graphify: AGENTS.md rules + PreToolUse hook + git hooks + .gitignore/.ignore"
 else
   echo "  NOTE: graphify not found — optional code-graph indexing skipped."
   echo "  Install with: pip install graphify   (then re-run this installer)"
 fi
 
-# ── 8. Git template directory ─────────────────────────────────────────────────
+# ── 7. Git template directory ─────────────────────────────────────────────────
 step "Setting up git template dir → $GIT_TEMPLATE_DIR"
 mkdir -p "$GIT_TEMPLATE_DIR/hooks"
 
@@ -376,7 +576,7 @@ fi
 git config --global init.templateDir "$GIT_TEMPLATE_DIR"
 ok "set" "git config --global init.templateDir $GIT_TEMPLATE_DIR"
 
-# ── 9. Project scaffold → ~/.agents/project-template + `git scaffold` ────────
+# ── 8. Project scaffold → ~/.agents/project-template + `git scaffold` ────────
 # Git has no post-init hook: a template dir only seeds .git/, it never runs
 # anything on `git init`. The hooks/post-init this step used to write was copied
 # into every new repo and executed nowhere. Bootstrap is now an explicit,
@@ -395,7 +595,7 @@ git config --global alias.scaffold '!bash "$HOME/.agents/bin/scaffold-project.sh
 ok "copied" "~/.agents/project-template ($(find "$REPO_DIR/project-template" -type f | wc -l | tr -d ' ') files)"
 ok "set" "git alias: git scaffold → ~/.agents/bin/scaffold-project.sh"
 
-# ── 10. Print newproject shell function ───────────────────────────────────────
+# ── 9. Print newproject shell function ───────────────────────────────────────
 step "Shell function — add this to your ~/.bashrc or ~/.zshrc"
 cat <<'SHELLCONFIG'
 
@@ -422,6 +622,11 @@ echo "  Or in an existing repo: git scaffold   (adds missing files, never overwr
 echo "  Pasted newproject before this version? Replace it — the old one relied on a"
 echo "  post-init hook git never runs, so it committed unscaffolded repos."
 echo ""
-echo "  Claude will now orient itself at session start in every project"
-echo "  (learning-store counts, active tasks, git branch) via the global SessionStart hook."
+echo "  copies from an earlier install.sh: $STALE_OUTCOME"
+if [ "$STALE_HOOK_KEPT" = "1" ]; then
+  echo "  (the kept SessionStart entry still fires the old banner alongside the plugin's)"
+fi
+echo ""
+echo "  Claude orients itself at session start in every project (learning-store"
+echo "  counts, active tasks, git branch) through the plugin's SessionStart hook."
 echo ""

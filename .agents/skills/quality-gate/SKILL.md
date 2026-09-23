@@ -26,7 +26,7 @@ Skip: generated files, lock files, migration files, test fixtures.
 ## Finding Model
 
 Every finding this gate produces or consumes carries four orthogonal fields.
-Rationale and the cross-harness rule live in `CLAUDE.md` § *Finding Model*; the
+Rationale and the cross-harness rule live in `.agents/references/finding-model.md`; the
 operational contract is here, at the point where findings get applied.
 
 | Field | Answers | Values |
@@ -192,7 +192,7 @@ which happened:
 | Dispatched agent | `dispatched` | Its agreement with a Phase 1 or Phase 2 finding is independent corroboration: promote `confidence` by exactly one anchor. |
 | Inline in the main context | `inline` | **No promotion.** Phase 3 shares this context's priors with Phases 1 and 2, so agreement is one perspective repeated. Name the corroboration lost. |
 
-Per `CLAUDE.md` § *Independence Accounting*, agreement inside one context is not
+Per `.agents/references/finding-model.md` § *Independence Accounting*, agreement inside one context is not
 two witnesses. An inline run is a complete run — it reports and applies under the
 Apply Gate — but it may never report a promoted confidence.
 
@@ -200,7 +200,7 @@ Apply Gate — but it may never report a promoted confidence.
 
 Dispatch the `software-design-expert-review` skill (invokes the `software-design-expert-review` agent at Ceiling tier — pass no `model`, so it inherits the session model) instead of running inline Phase 3. The agent is read-only — it reports findings only. Apply findings in the main context after the agent returns per the Apply Gate. Run tests after applying fixes. Because this path is a separate dispatch, record it as `dispatched`.
 
-The dispatch carries the full payload in `CLAUDE.md` § *Review Dispatch Contract* —
+The dispatch carries the full payload in `.agents/references/review-dispatch-contract.md` —
 diff, every relevant spec's path plus its acceptance criteria verbatim (or `no spec — <reason>`), the closed
 `tasks/todo.md` entries, the `[AMBIGUITY]` batch and `TODO(shortcut):` markers (or
 `deferrals: none`), the introduced-only boundary, and the four-axis format. A design
@@ -208,6 +208,13 @@ reviewer told only *what* changed reports structural debt the spec deliberately
 accepted; the deferral list is what makes an accepted trade-off distinguishable from
 an oversight. Withhold Phase 1 and Phase 2 findings — passing them makes Phase 3 an
 echo rather than a witness.
+
+**Item 7 is read, not remembered.** Before dispatching, resolve `finding-model.md` in
+order — the project's `.agents/references/`, then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`
+on Claude Code (the skill body and the reference then come from the same plugin version),
+then `~/.agents/references/` on Pi and Codex — and paste its § *Emission format* into the
+prompt verbatim. When all three are missing, stop before dispatch:
+`review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync`. Never dispatch a reviewer with no output format.
 
 ---
 

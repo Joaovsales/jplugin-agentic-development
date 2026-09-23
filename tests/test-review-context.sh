@@ -25,7 +25,7 @@ cd "$REPO"
 # reviewer only through `/software-design-expert-review --scope tree`, whose
 # repo survey is an exception to the *subject* of items 2/3/6 -- a repo survey
 # has no session to describe -- never to stating them.
-DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md"
+DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/system-design-planning/SKILL.md"
 
 REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
 
@@ -33,20 +33,20 @@ REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-r
 # Canonical rather than copied into each skill: #61 removed four model IDs that
 # had been duplicated across three files because the copies nobody updates are
 # the ones that go stale. A seven-item payload list is a bigger version of that.
-assert_file_matches CLAUDE.md '^## Review Dispatch Contract' \
-  "ReviewContext: CLAUDE.md has a Review Dispatch Contract section"
+assert_file_matches .agents/references/review-dispatch-contract.md '^## The seven items' \
+  "ReviewContext: review-dispatch-contract.md has the seven-items section"
 
 # Each payload item, pinned individually. A section heading alone would stay green
 # with the table emptied.
-assert_prose_contains CLAUDE.md 'the AC list verbatim' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'the AC list verbatim' \
   "ReviewContext: contract requires the acceptance criteria, not just the spec path"
-assert_prose_contains CLAUDE.md '[AMBIGUITY]' \
+assert_prose_contains .agents/references/review-dispatch-contract.md '[AMBIGUITY]' \
   "ReviewContext: contract requires the ambiguity lines from this run"
-assert_prose_contains CLAUDE.md 'TODO(shortcut):' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'TODO(shortcut):' \
   "ReviewContext: contract requires the shortcut markers"
-assert_prose_contains CLAUDE.md 'issues **introduced** by this session' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'issues **introduced** by this session' \
   "ReviewContext: contract passes the scope boundary to the agent"
-assert_prose_contains CLAUDE.md 'Large-Artifact Handoff' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'Large-Artifact Handoff' \
   "ReviewContext: contract defers to the truncate-with-pointer convention for the diff"
 
 # --- 2. Empty must be distinguishable from absent ----------------------------
@@ -54,9 +54,9 @@ assert_prose_contains CLAUDE.md 'Large-Artifact Handoff' \
 # "nobody told me", and the safe reading of the ambiguous case is to re-flag
 # everything -- which is the noise this contract removes. Same hazard class as the
 # vacuous `assert_not_contains` closed in #61.
-assert_prose_contains CLAUDE.md 'deferrals: none' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'deferrals: none' \
   "ReviewContext: contract requires an explicit empty marker for deferrals"
-assert_prose_contains CLAUDE.md 'distinguish **empty** from **absent**' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'distinguish **empty** from **absent**' \
   "ReviewContext: contract states the absent-vs-empty rule as a rule"
 
 # --- 3. Intent is shared; conclusions are not --------------------------------
@@ -65,11 +65,11 @@ assert_prose_contains CLAUDE.md 'distinguish **empty** from **absent**' \
 # then count an echo as a witness. The needles name the *reason*, not the slogan:
 # a section that says "share intent" without saying why is one edit from being
 # widened to "share everything".
-assert_prose_contains CLAUDE.md '**Share intent** — spec, acceptance criteria' \
+assert_prose_contains .agents/references/review-dispatch-contract.md '**Share intent** — spec, acceptance criteria' \
   "ReviewContext: contract says intent is shared"
-assert_prose_contains CLAUDE.md 'Withhold conclusions' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'Withhold conclusions' \
   "ReviewContext: contract says conclusions are withheld"
-assert_prose_contains CLAUDE.md 'would import exactly those priors' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'would import exactly those priors' \
   "ReviewContext: contract explains why conclusions are withheld"
 
 # --- 4. Anchor 75 has a named dependency and a way out ------------------------
@@ -78,13 +78,13 @@ assert_prose_contains CLAUDE.md 'would import exactly those priors' \
 # So findings park at 75, where the Apply Gate reports and never applies them,
 # even when one grep would settle it. Two rules close that: name the dependency,
 # then resolve it.
-assert_prose_contains CLAUDE.md 'must **name** the specific caller, config key, or runtime value' \
+assert_prose_contains .agents/references/finding-model.md 'must **name** the specific caller, config key, or runtime value' \
   "ReviewContext: a finding at 75 must name what it depends on"
-assert_prose_contains CLAUDE.md 'without naming one is a `50`' \
+assert_prose_contains .agents/references/finding-model.md 'without naming one is a `50`' \
   "ReviewContext: an unnamed dependency demotes to 50"
-assert_prose_contains CLAUDE.md 'promote to `100` with a second `evidence` line' \
+assert_prose_contains .agents/references/finding-model.md 'promote to `100` with a second `evidence` line' \
   "ReviewContext: the verification path resolves a 75 rather than parking it"
-assert_prose_contains CLAUDE.md 'must say what stopped the check' \
+assert_prose_contains .agents/references/finding-model.md 'must say what stopped the check' \
   "ReviewContext: a finding held at 75 states why it could not be verified"
 
 # --- 5. Verification-promotion is not agreement-promotion ---------------------
@@ -92,12 +92,12 @@ assert_prose_contains CLAUDE.md 'must say what stopped the check' \
 # either Independence Accounting forbids a legitimate one-context verification, or
 # "I verified it" licenses promoting on agreement. Both were reachable from the
 # text before this rule existed, so the distinction is pinned, not implied.
-assert_prose_contains CLAUDE.md 'agreement-promotion, and *Independence Accounting*
+assert_prose_contains .agents/references/finding-model.md 'agreement-promotion, and *Independence Accounting*
 does not constrain it' \
-  "ReviewContext: CLAUDE.md separates the two promotion mechanisms"
-assert_prose_contains CLAUDE.md 'promotes on *evidence*' \
+  "ReviewContext: finding-model.md separates the two promotion mechanisms"
+assert_prose_contains .agents/references/finding-model.md 'promotes on *evidence*' \
   "ReviewContext: verification promotes on evidence, so one context suffices"
-assert_prose_contains CLAUDE.md 'promotes on *witnesses*' \
+assert_prose_contains .agents/references/finding-model.md 'promotes on *witnesses*' \
   "ReviewContext: agreement promotes on witnesses, which is what needs independence"
 
 # --- 6. Every dispatch site cites the contract and its empty markers ----------
@@ -110,7 +110,7 @@ for tree in .agents; do
     f="$tree/$site"
     # Prose, not literal: the citation is a sentence and wraps. A wrap-fragile
     # needle here would fail on reflow and teach the next author to delete it.
-    assert_prose_contains "$f" 'CLAUDE.md` § *Review Dispatch Contract*' \
+    assert_prose_contains "$f" '.agents/references/review-dispatch-contract.md`' \
       "ReviewContext: $f cites the Review Dispatch Contract"
     assert_file_contains "$f" 'deferrals: none' \
       "ReviewContext: $f passes an explicit empty marker for deferrals"
@@ -129,7 +129,7 @@ for tree in .agents; do
   # the citation from the parallel-dispatch site left the suite fully green. Two
   # sites in this file, so two citations.
   cites="$(tr -s '[:space:]' ' ' < "$tree/skills/wrap-up-session/SKILL.md" \
-    | grep -oF 'CLAUDE.md` § *Review Dispatch Contract*' | wc -l | tr -d ' ')"
+    | grep -oF '.agents/references/review-dispatch-contract.md`' | wc -l | tr -d ' ')"
   [ "$cites" -ge 2 ] && cites_ok=yes || cites_ok="no (found $cites)"
   assert_eq "yes" "$cites_ok" \
     "ReviewContext: $tree wrap-up cites the contract at both of its dispatch sites"
@@ -156,7 +156,7 @@ for tree in .agents/agents .claude/agents; do
       "ReviewContext: $f states what it will be handed"
     assert_file_contains "$f" 'Fetch yourself' \
       "ReviewContext: $f says what to fetch itself"
-    assert_prose_contains "$f" 'CLAUDE.md` § *Review Dispatch Contract*' \
+    assert_prose_contains "$f" '.agents/references/review-dispatch-contract.md`' \
       "ReviewContext: $f points at the contract it is the receiving end of"
     assert_file_contains "$f" 'deferrals: none' \
       "ReviewContext: $f knows an empty deferral list from a missing one"
@@ -169,5 +169,30 @@ done
 # so `|Design review | sonnet |` walked past it while 8b caught it). Two guards
 # where one is weaker is not two witnesses -- it is one witness and a decoy that
 # makes the pair look stronger than it is.
+
+
+# --- 8. The reference is resolved through the plugin before any refusal (D19) --
+# On Claude Code a skill body runs from the plugin cache, which refreshes on the
+# version bump independently of the project's next /sync. A skill that read
+# `.agents/references/` from the project only would refuse every review dispatch
+# downstream until the project synced; one that never refused would dispatch a
+# reviewer with no output format. Pinned as prose, in order: the project copy,
+# then ${CLAUDE_PLUGIN_ROOT}, then ~/.agents, and the refusal naming all three.
+# /sweep is included: it runs its engine inline but reads the same reference.
+for f in $DISPATCH_SITE_FILES skills/sweep/SKILL.md; do
+  f=".agents/$f"
+  flat="$(tr -s '[:space:]' ' ' < "$f")"
+  assert_contains "$flat" 'then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`' \
+    "D19: $f falls through to the plugin's copy of the reference"
+  assert_contains "$flat" 'then `~/.agents/references/`' \
+    "D19: $f falls through to the installed copy for Pi and Codex"
+  assert_contains "$flat" 'review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync' \
+    "D19: $f refuses only after all three locations miss, naming them"
+  plugin_at="$(printf '%s' "$flat" | grep -bo 'then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`' | head -1 | cut -d: -f1)"
+  home_at="$(printf '%s' "$flat" | grep -bo 'then `~/.agents/references/`' | head -1 | cut -d: -f1)"
+  refuse_at="$(printf '%s' "$flat" | grep -bo 'review dispatch refused: finding-model.md' | head -1 | cut -d: -f1)"
+  assert_eq "yes" "$([ "${plugin_at:-0}" -lt "${home_at:-0}" ] && [ "${home_at:-0}" -lt "${refuse_at:-0}" ] && echo yes || echo "no ($plugin_at/$home_at/$refuse_at)")" \
+    "D19: $f states the order plugin -> installed copy -> refusal"
+done
 
 finish

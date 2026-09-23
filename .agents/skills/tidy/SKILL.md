@@ -1,6 +1,6 @@
 ---
 name: tidy
-description: Harness hygiene sweep for a jplugin-agentic-development repository — the template, its mirror, and any project that vendored the harness through /sync. Eight checks over the surfaces that duplicate by design (skills tables, the session banner, retired skills, installed copies under ~/.claude and ~/.agents, backticked paths, worktrees, stray files, the task registers). Mechanical drift is fixed and committed one concern per commit, machine-side remedies are printed as commands and never run, larger drift is filed through /task-registry. Use by hand after a retirement or rename, or from a scheduled routine; --report sweeps without writing anything.
+description: Harness hygiene sweep for a jplugin-agentic-development repository — the template, its mirror, and any project that vendored the harness through /sync. Nine checks over the surfaces that duplicate by design (skills tables, retired skills, installed copies under ~/.claude and ~/.agents, backticked paths, worktrees, stray files, the task registers, the code graph). Mechanical drift is fixed and committed one concern per commit, machine-side remedies are printed as commands and never run, larger drift is filed through /task-registry. Use by hand after a retirement or rename, or from a scheduled routine; --report sweeps without writing anything.
 argument-hint: "[--report] [--check <name>[,<name>]]"
 disable-model-invocation: false
 harness: universal
@@ -82,28 +82,29 @@ environment are the scheduler's, not this file's.
    record at the end. Stage `tasks/todo.md` by explicit path only with the record
    commit, never with a Tier 0 commit.
 
-### 1–8. The checks
+### 1–9. The checks
 
 Each check names the surfaces it reads. A surface that does not exist in the host
 repository — a downstream project has no `README.md` skills table, no `AGENTS.md`
 table — is **skipped with a note** in the report, never a finding. One skill serves the
 template and its descendants, with one difference. A descendant is any checkout
 whose `origin` is not the template repository
-(`github.com/Joaovsales/jplugin-agentic-development`). There `CLAUDE.md` is
-template-managed and overwritten by `/sync`, so `inventory` treats it as
-read-only (report, never edit), and the descendant's own allowlist entries live
+(`github.com/Joaovsales/jplugin-agentic-development`). There the managed block
+of `AGENTS.md` is replaced by `/sync`, so `inventory` treats it as read-only
+(report, never edit), and the descendant's own allowlist entries live
 in `.claude/tidy-allowlist` — one `path — reason` per line, same format — read
 in addition to the seed list at the end of this file.
 
 | Check | Reads | Finds |
 |-------|-------|-------|
 | `suite` | the project's test runner, discovered the way `/wrap-up-session` Step 6 does (`package.json`, `Makefile`, `pyproject.toml`, `TESTING.md`; in this repository, `tests/run.sh`) | a red suite. Ordered first; nothing is fixed on a red baseline. No runner → **inconclusive** |
-| `inventory` | `.agents/skills/` (the canonical tree; Claude Code loads it through the `jplugin` plugin) ↔ the skills tables in `CLAUDE.md`, `README.md`, `AGENTS.md` (table rows whose first cell is a backticked `/<name>`) ↔ the `SKILLS AVAILABLE` block of `.claude/hooks/session-start.sh` | a skill present in one surface and absent from another, **in either direction**. A directory with no row is Tier 0 in the template repository — the row is determined by its `description` — and Tier 1 in a descendant, where `CLAUDE.md` is `/sync`-managed. A row naming a skill in neither tree is skipped when the *Allowlist* names it (`graphify` is registered on purpose), otherwise Tier 1: it may be a global-only skill the surface's prose still relies on, so the remedy (remove the row, or vendor the skill) is printed, not applied |
+| `inventory` | `.agents/skills/` (the canonical tree; Claude Code loads it through the `jplugin` plugin) ↔ the skills table in `README.md` (table rows whose first cell is a backticked `/<name>`; the one catalog — the `AGENTS.md` managed block carries none and the session banner lists no skills) | a skill present in one surface and absent from another, **in either direction**. A directory with no row is Tier 0 in the template repository — the row is determined by its `description`, and the fix is `python3 <template-clone>/scripts/render-skills-table.py`, which rewrites the whole table between the `<!-- skills-table:begin -->` / `<!-- skills-table:end -->` markers from the frontmatter (its `--check` is the drift test `tests/test-skills-table.sh` runs) — and Tier 1 in a descendant, where the README is the descendant's own. A row naming a skill in neither tree is skipped when the *Allowlist* names it (`graphify` is registered on purpose), otherwise Tier 1: it may be a global-only skill the surface's prose still relies on, so the remedy (remove the row, or vendor the skill) is printed, not applied |
 | `retired` | `git log --no-renames --diff-filter=D --name-only --format= -- '.agents/skills/*/SKILL.md' '.claude/skills/*/SKILL.md'` — the retired set is *computed from history* over the canonical tree and the retired `.claude/skills/` copy, never typed — against every file outside `tasks/` and `specs/` | a retired skill still named **as live**: a banner line, a table row, a `/build` delegation, a hook that branches on it, an install or sync copy list. `tasks/` and `specs/` are history and exempt |
-| `installed` | `~/.claude/CLAUDE.md`, `~/.claude/agents/`, `~/.claude/hooks/session-start.sh`, `~/.agents/` against what `install.sh` would write from `HEAD`; `~/.claude/plugins/installed_plugins.json` for the `jplugin@jplugin-agentic-development` record; `~/.claude/skills/` for pre-plugin copies of template names | a stale, missing, or retired installed copy. No `~/.claude/` on this machine → **inconclusive** with the note |
-| `refs` | paths in backticks in `CLAUDE.md`, `README.md`, `AGENTS.md`, `PI_SETUP.md`, `.claude/project.md`, and every `SKILL.md` | a path that resolves nowhere after trying the literal path, `~` expansion, and a basename search over `git ls-files`, minus the *Allowlist*. Placeholders (`<name>`) and globs are not paths |
+| `installed` | `~/.claude/agents/`, `~/.agents/` against what `install.sh` would write from `HEAD`; `~/.claude/plugins/installed_plugins.json` for the `jplugin@jplugin-agentic-development` record; `~/.claude/skills/` for pre-plugin copies of template names; the copies an earlier `install.sh` wrote and nothing reads now — a `~/.claude/CLAUDE.md` with the template header in its first five lines or a pointer-only `@AGENTS.md` body, `~/.claude/hooks/session-start.sh` with its `SessionStart` entry in `~/.claude/settings.json`, the managed block in `~/.codex/AGENTS.md` | a stale, missing, or retired installed copy. No `~/.claude/` on this machine → **inconclusive** with the note |
+| `refs` | paths in backticks in `AGENTS.md`, `README.md`, `PI_SETUP.md`, and every `SKILL.md` | a path that resolves nowhere after trying the literal path, `~` expansion, and a basename search over `git ls-files`, minus the *Allowlist*. Placeholders (`<name>`) and globs are not paths |
 | `worktrees` | `git worktree list --porcelain`, `git branch`, `gh pr list --state merged --limit 200 --json headRefName,headRefOid` | a worktree or local branch whose branch is **provably** merged — its name is in the forge's merged set **and** that PR's `headRefOid` is the local tip or reachable from it (`git merge-base --is-ancestor`); a name match with a different tip is *Unverified* (the name was reused). A merged set whose size equals the `--limit` is truncated: unmatched entries are *inconclusive*, not unmerged. Without forge access every worktree is report-only, because a squash-merge leaves no ancestry and is invisible to `git branch --merged` |
 | `strays` | `git status --porcelain --untracked-files=all --ignored`; a direct listing of `.claude/worktrees/` (its ignore rule is machine-local, written by the runtime into `.git/info/exclude`, so `status` may or may not show those files) | transient droppings only: `*.log`, `*.tmp`, `*.orig`, `*.rej`, `*.bak`, `*.swp`, `*.pyc`, `__pycache__`, `nul`, `hookout.txt`, `hookerr.txt`. Any other untracked file is WIP and is context, not a finding |
+| `graph` | `command -v graphify`; `graphify-out/graph.json` mtime against `git log -1 --format=%ct`; `git ls-files` for graphify's code extensions | a graph older than HEAD, or graphify installed with no graph in a tree that has code files — Tier 1, the `graphify` re-index command printed (the banner says the same at session start; this is the sweep that records it). No graphify on this machine, or no code files → **skipped** with the note; this shell-and-markdown template has no graph by design |
 | `registers` | `tasks/todo.md`, `tasks/checkpoint.md` | a closed plan block (every row `[x]`) older than the last two `## Session Summary` headings; a checkpoint whose header date is older than the newest summary. `tasks/solutions/` is **not** read — `/memory-maintain` owns it |
 
 Per-check notes, where the table is not enough:
@@ -157,13 +158,14 @@ built from that list, not from memory.
 Every finding lands in exactly one tier, and the tier decides what the pass may do:
 
 - **Tier 0 — mechanical, reversible, tree content.** Fixed in the pass and
-  committed: deleting a stray; adding a table row or banner line whose correct
-  text is fully determined by the skill directory and the skill's own
-  `description` (removing one is Tier 1 — see `inventory`); repairing a moved
+  committed: deleting a stray; adding a table row whose correct text is fully
+  determined by the skill directory and the skill's own `description` — in the
+  template repository by re-running `python3 <template-clone>/scripts/render-skills-table.py`
+  (removing one is Tier 1 — see `inventory`); repairing a moved
   reference, a directory path whose basename resolves to exactly one file.
 - **Tier 1 — needs judgment, or touches the operator's machine.** Reported with
   the exact remedy command, **never executed by the skill**: `git worktree remove
-  <path>`, `bash install.sh` (answering `y` to the pre-plugin list), a reference whose basename resolves to
+  <path>`, `bash install.sh` (answering `y` to its removal lists — the pre-plugin skill copies and the stale global copies), a reference whose basename resolves to
   two files, a closed plan block to archive into `tasks/history.md`.
 - **Tier 2 — larger than a tidy pass.** Filed through `/task-registry` (§ *Filing*)
   for a consumer routine: a doc section describing retired behaviour, a hook that
@@ -339,7 +341,7 @@ graphify-out/graph.json — per-project code graph, generated, optional
 tasks/backlog.md — /prd artifact, absent in projects that never ran /prd
 docs/task-tracking.md — optional registry configuration; absence selects a provider
 ~/.pi/agent/models.json — Pi's model registry; lives in the operator's home, never in the repo
-graphify — an external per-machine CLI (README § Optional — graphify), registered in CLAUDE.md on purpose (#48); not a tree skill
+graphify — an external per-machine CLI (README § Optional — graphify), registered in the README skills table on purpose (#48); not a tree skill
 installed:aws-saml2aws-auth — the operator's own skill under ~/.claude/skills; never a template name, so never a removal candidate
 installed:prior-year-evidence — the operator's own skill under ~/.claude/skills; never a template name, so never a removal candidate
 ```

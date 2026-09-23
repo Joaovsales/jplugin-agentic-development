@@ -45,7 +45,7 @@ Focus on shipping production-ready code with excellent user experience. Prioriti
 
 ## Surgical Changes & Ambiguity
 
-When modifying existing code, follow `.claude/project.md` § *Surgical Changes*:
+When modifying existing code, follow `AGENTS.md` § *Surgical Changes*:
 - Every changed line must trace to the current task. No drive-by refactors.
 - Match the surrounding file's existing style (naming, CSS conventions, component patterns) even if you would write it differently.
 - Remove only orphans *your* changes created; mention but don't delete pre-existing dead code.

@@ -37,6 +37,7 @@
 - **frontier** — the subset of open design-tree questions whose prerequisites are already settled and can be asked now (`/grilling`, `/brainstorm` Step 3); a round asks the whole frontier at once, and an empty frontier ends the interview.
 - **harness** — an agent runtime the workflow supports (Claude Code, Pi); `harness: universal` prose must run identically on both.
 - **heavy pass** — `/memory-maintain`'s every-5-sessions consolidation (Phases 1–4); contrast **light pass**, the bounded per-session work.
+- **managed block** — the text between `<!-- jplugin-agentic-development:begin -->` and `:end -->` in a project's `AGENTS.md`; the only part `/sync` rewrites (through `sync-managed-block.py`). Everything below the end marker is the project's own; `CLAUDE.md` is a one-line `@AGENTS.md` pointer to it.
 - **needs_review** — frontmatter flag marking a store document with inferred or missing required fields; resolved by `/memory-maintain` Phase 1.
 - **parity** — (historical) the byte-identical requirement between `.agents/skills/` and its `.claude/skills/` copy, enforced by `tests/test-skill-parity.sh`; both retired with #156. Survives only for agent personas (`.agents/agents/` vs `.claude/agents/`).
 - **producer routine** — a routine (`janitor`, `architect` through `/sweep`; `tidy` through its own skill) that reads the backlog, runs one engine over the whole tree, and files verified findings as issues; it never edits product code (`tidy` commits Tier 0 repairs to harness surfaces only). Listed in `PRODUCER_ROUTINES` and refused by `select`/`claim`.

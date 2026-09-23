@@ -212,7 +212,7 @@ fi
 # ── session-start surfaces the ledger for a human to file ────────────────────
 # The gate cannot create the issue itself (approval floor + no network in a
 # hook), so the banner is the handoff point. Silent when there is no debt.
-BANNER="$REPO/.claude/hooks/session-start.sh"
+BANNER="$REPO/.agents/hooks/session-start.sh"
 D="$(new_repo banner)"
 cp "$BANNER" "$D/session-start.sh"
 BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
@@ -256,7 +256,7 @@ fi
 
 # A heading carrying a single quote must not break the command the banner prints.
 QD="$(mktemp -d)"; mkdir -p "$QD/tasks"
-cp "$REPO/.claude/hooks/session-start.sh" "$QD/session-start.sh"
+cp "$REPO/.agents/hooks/session-start.sh" "$QD/session-start.sh"
 printf "# Wrap-Up Debt\n\n## feat/o'brien abc1234..def5678\n- Recorded: 2026-09-08\n" \
   > "$QD/tasks/wrap-up-debt.md"
 Q_OUT="$( cd "$QD" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
@@ -279,7 +279,7 @@ assert_file_contains "$REPO/.agents/skills/sync/SKILL.md" \
 
 # The deprecated second pre-push script is gone: two pre-push scripts in one
 # tree is an invitation to edit the dormant one.
-if [ -f "$REPO/.claude/hooks/pre-push-guard.sh" ]; then
+if [ -f "$REPO/.agents/hooks/pre-push-guard.sh" ]; then
   assert_eq "removed" "present" "Deprecated pre-push-guard.sh removed"
 else
   assert_eq "removed" "removed" "Deprecated pre-push-guard.sh removed"

@@ -5,8 +5,15 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL="$REPO/scripts/install-codex.sh"
 RENDERER="$REPO/scripts/render-codex.py"
 
-assert_file_contains "$RENDERER" "{SLUG}:begin -->" \
-  "renderer: managed global block marker exists"
+# specs/single-instruction-file.md slice 5: the shared rules reach Codex through
+# the managed block /sync writes into each project's AGENTS.md, so the renderer
+# no longer writes a global file and the markers live with the script that does.
+assert_file_not_matches "$RENDERER" 'render_global' \
+  "renderer: render_global is gone"
+assert_file_not_matches "$RENDERER" '\-\-global' \
+  "renderer: the --global operation is gone"
+assert_file_contains "$REPO/.agents/skills/sync/scripts/sync-managed-block.py" "{SLUG}:begin -->" \
+  "sync-managed-block.py: the managed block markers live with the script that writes them"
 assert_file_contains "$INSTALL" "CODEX_HOME" \
   "installer: supports CODEX_HOME override"
 assert_file_contains "$INSTALL" ".agents/skills/." \
@@ -28,7 +35,6 @@ CODEX_HOME="$HOME_DIR/.codex"
 PROJECT="$BOX/project"
 mkdir -p "$HOME_DIR/.agents/skills/personal" "$CODEX_HOME/agents" "$PROJECT"
 printf 'personal skill\n' > "$HOME_DIR/.agents/skills/personal/SKILL.md"
-printf '# Personal Codex instructions\n' > "$CODEX_HOME/AGENTS.md"
 printf 'name = "personal-agent"\ndescription = "Keep me"\ndeveloper_instructions = "Do not remove me"\n' \
   > "$CODEX_HOME/agents/personal-agent.toml"
 # The fixture carries the three hook registrations a machine installed before the
@@ -59,16 +65,10 @@ JSON
 
 assert_eq "present" "$([ -f "$HOME_DIR/.agents/skills/build/SKILL.md" ] && echo present || echo missing)" \
   "install: canonical skills are available to Codex"
-assert_eq "present" "$([ -f "$CODEX_HOME/AGENTS.md" ] && echo present || echo missing)" \
-  "install: global AGENTS.md is created"
-assert_file_contains "$CODEX_HOME/AGENTS.md" "# Personal Codex instructions" \
-  "install: existing AGENTS content is preserved"
-assert_file_contains "$CODEX_HOME/AGENTS.md" "Session Start Checklist" \
-  "install: shared workflow rules are rendered"
-assert_not_contains "$(cat "$CODEX_HOME/AGENTS.md")" "@.claude/project.md" \
-  "install: Claude project import is not copied into Codex"
-assert_not_contains "$(cat "$CODEX_HOME/AGENTS.md")" "@CLAUDE.local.md" \
-  "install: Claude local import is not copied into Codex"
+assert_eq "missing" "$([ -f "$CODEX_HOME/AGENTS.md" ] && echo present || echo missing)" \
+  "install: no global AGENTS.md is created — the rules live in each project's AGENTS.md block (slice 5)"
+assert_not_contains "$(cat "$BOX/install.log")" "rendered shared workflow rules" \
+  "install: the adapter no longer reports rendering a global file"
 assert_eq "present" "$([ -f "$CODEX_HOME/agents/planner.toml" ] && echo present || echo missing)" \
   "install: canonical agents become Codex TOML"
 assert_eq "present" "$([ -f "$CODEX_HOME/agents/personal-agent.toml" ] && echo present || echo missing)" \
@@ -122,14 +122,21 @@ else
   assert_eq "0" "1" "install: generated Codex configuration validates"
 fi
 
-cp "$CODEX_HOME/AGENTS.md" "$BOX/agents.before"
 cp "$CODEX_HOME/hooks.json" "$BOX/hooks.before"
 ( cd "$PROJECT" && HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" bash "$INSTALL" ) \
   > "$BOX/install-again.log" 2>&1
-assert_files_identical "$BOX/agents.before" "$CODEX_HOME/AGENTS.md" \
-  "install: global AGENTS rendering is idempotent"
 assert_files_identical "$BOX/hooks.before" "$CODEX_HOME/hooks.json" \
   "install: hook registration is idempotent"
+
+# A ~/.codex/AGENTS.md an earlier adapter rendered into is the user's file: this
+# script never writes it again; install.sh lists the stale block for removal
+# (tests/test-install-sh.sh, Case 9) and the file itself is never deleted (D8).
+printf '# Personal\n\n<!-- %s:begin -->\nOLD\n<!-- %s:end -->\n' "$LEGACY_SLUG" "$LEGACY_SLUG" > "$CODEX_HOME/AGENTS.md"
+cp "$CODEX_HOME/AGENTS.md" "$BOX/agents.seeded"
+( cd "$PROJECT" && HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" bash "$INSTALL" ) \
+  > "$BOX/install-seeded.log" 2>&1
+assert_files_identical "$BOX/agents.seeded" "$CODEX_HOME/AGENTS.md" \
+  "install: a pre-seeded ~/.codex/AGENTS.md is left byte-identical — the adapter neither renders nor strips it"
 
 HOOK_RESULT="$(printf '%s\n' '{"source":"startup"}' | HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" \
   "$TEST_PYTHON" "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py")"

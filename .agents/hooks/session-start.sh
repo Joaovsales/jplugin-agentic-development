@@ -45,10 +45,12 @@ if [ ! -t 0 ]; then
 fi
 
 # ── Double-invocation guard ──────────────────────────────────────────────────
-# This hook is registered TWICE: globally by install.sh (~/.claude/settings.json)
-# and per-project by .claude/settings.json, which /sync copies into every repo.
-# Both registrations fire for the same session, so the banner prints twice. The
-# first invocation drops a session-scoped sentinel; the second exits silently.
+# This hook is registered once, by the plugin's hooks/hooks.json. A machine that
+# ran an older install.sh still registers it at user level, and a project synced
+# before .claude/hooks/ was retired may still carry an entry in its own
+# .claude/settings.json — until install.sh and /sync remove those, one session can
+# fire it twice and the banner would print twice. The first invocation drops a
+# session-scoped sentinel; the second exits silently.
 # Escape hatch: CCW_SESSION_GUARD=0 (same convention as SKIP_SESSION_START).
 # Reuses HOOK_INPUT above — stdin can only be consumed once.
 #
@@ -174,8 +176,9 @@ fi
 
 # ── Memory Maintenance Check ─────────────────────────────────────────────────
 # Count session history entries. Nudge when maintenance is due (every 5 sessions).
-# The /memory-maintain skill is also called every session start via CLAUDE.md
-# step 4 — the skill self-gates, so this nudge is a belt-and-suspenders signal.
+# The /memory-maintain skill is also called every session start via the
+# AGENTS.md Session Start Checklist — the skill self-gates, so this nudge is a
+# belt-and-suspenders signal.
 if [ -f "tasks/history.md" ]; then
   SESSION_COUNT=$(grep -Ec '^(### \[[0-9]{4}-[0-9]{2}-[0-9]{2}\]|## [0-9]{4}-[0-9]{2}-[0-9]{2})([[:space:]]|$)' tasks/history.md 2>/dev/null || true)
   if [ "${SESSION_COUNT:-0}" -gt 0 ] && [ $(( SESSION_COUNT % 5 )) -eq 0 ]; then
@@ -267,10 +270,12 @@ if git rev-parse --is-inside-work-tree &>/dev/null; then
 fi
 
 # ── Deployment Signal Nudge ──────────────────────────────────────────────────
-# If .claude/project.md has no "## Deployment Targets" section AND any known
-# deployment signal file exists at the project root, print a one-line nudge.
-# Non-blocking. Suppressed by creating .claude/deploy-nudge-dismissed.
-# CLAUDE.md is template-managed and is never read for the section.
+# If AGENTS.md has no "## Deployment Targets" section AND any known deployment
+# signal file exists at the project root, print a one-line nudge. Non-blocking.
+# Suppressed by creating .claude/deploy-nudge-dismissed. A section still in
+# .claude/project.md (where it lived before the single instruction file) counts,
+# with a one-line notice, until /sync moves it. CLAUDE.md is the @AGENTS.md
+# pointer and is never read for the section.
 if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
   # Match ONLY a literal "## Deployment Targets" heading line — not headings with
   # extra text like "## Deployment Targets (placeholder — run /setup-deployment)".
@@ -278,7 +283,12 @@ if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
   TARGETS_REGEX='^## Deployment Targets[[:space:]]*$'
 
   TARGETS_IN_PROJECT=0
-  [ -f ".claude/project.md" ] && grep -qE "$TARGETS_REGEX" .claude/project.md 2>/dev/null && TARGETS_IN_PROJECT=1
+  [ -f "AGENTS.md" ] && grep -qE "$TARGETS_REGEX" AGENTS.md 2>/dev/null && TARGETS_IN_PROJECT=1
+  if [ "$TARGETS_IN_PROJECT" = "0" ] && [ -f ".claude/project.md" ] \
+     && grep -qE "$TARGETS_REGEX" .claude/project.md 2>/dev/null; then
+    TARGETS_IN_PROJECT=1
+    echo "ℹ  Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md."
+  fi
 
   # Nudge: signal files present but the section is absent
   if [ "$TARGETS_IN_PROJECT" = "0" ]; then
@@ -291,17 +301,51 @@ if [ ! -f ".claude/deploy-nudge-dismissed" ]; then
     done
     if [ -n "$DEPLOY_SIGNAL" ]; then
       echo ""
-      echo "⚠  Deploy signals detected ($DEPLOY_SIGNAL) but no Deployment Targets in .claude/project.md."
+      echo "⚠  Deploy signals detected ($DEPLOY_SIGNAL) but no Deployment Targets in AGENTS.md."
       echo "   Run /setup-deployment to enable automatic build verification."
     fi
   fi
 fi
 
+# ── Managed Block Check ──────────────────────────────────────────────────────
+# The shared rules reach a project only through the managed block /sync writes
+# into AGENTS.md; without it every harness runs on the project's own rules and
+# nothing else says so. Printed only in a repository that has adopted the
+# workflow — .agents/skills/ exists, or .claude/settings.json enables the plugin —
+# because the plugin is installed at user scope and this hook runs in every
+# repository the user opens (specs/single-instruction-file.md, D18).
+JPLUGIN_ID="jplugin@jplugin-agentic-development"
+BLOCK_BEGIN="<!-- jplugin-agentic-development:begin -->"
+BLOCK_END="<!-- jplugin-agentic-development:end -->"
+ADOPTING=0
+[ -d .agents/skills ] && ADOPTING=1
+# plugin_enabled_here — .claude/settings.json enables the plugin in this project.
+# The one reading of enabledPlugins; the Plugin Declaration Check below uses it too.
+plugin_enabled_here() {
+  [ -f ".claude/settings.json" ] \
+    && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true"
+}
+if [ "$ADOPTING" = "0" ] && plugin_enabled_here; then
+  ADOPTING=1
+fi
+if [ "$ADOPTING" = "1" ] && ! grep -qF -- "$BLOCK_BEGIN" AGENTS.md 2>/dev/null; then
+  echo ""
+  echo "⚠  AGENTS.md has no jplugin-agentic-development managed block — run /sync"
+fi
+# Once CLAUDE.md is the pointer nothing imports .claude/project.md any more. A sync
+# through the CI mirror writes the pointer without migrating, so the file sits
+# there loaded by nothing until a hand-run /sync (Step 6.6) moves it.
+if [ -f ".claude/project.md" ] && [ "$(tr -d '\r' < CLAUDE.md 2>/dev/null)" = "@AGENTS.md" ]; then
+  echo ""
+  echo "⚠  .claude/project.md is loaded by nothing — run /sync to move it into AGENTS.md"
+fi
+
 # ── Workflow Template Drift Check ────────────────────────────────────────────
 # Notifies if the jplugin-agentic-development template has new commits affecting
-# syncable paths (.agents/skills, .agents/agents, .agents/git-hooks, .claude/agents,
-# .claude/hooks, .claude/browsers, settings.json, CLAUDE.md). `.claude/skills` is
-# a RETIRED root: never checked out, so never drift.
+# syncable paths (.agents/skills, .agents/agents, .agents/references, .agents/hooks,
+# .agents/git-hooks, .claude/agents, .claude/browsers, settings.json, CLAUDE.md).
+# `.claude/skills` and `.claude/hooks` are RETIRED roots: never checked out, so
+# never drift.
 # Silent when in sync (observability discipline: loud only on actionable state).
 #
 # Preconditions:
@@ -312,6 +356,9 @@ fi
 #   - Fetches at most once per 24h (cached in .claude/.sync-check-cache)
 #   - 5s network timeout — never hangs the session if offline
 #   - Reports drift count; user runs /sync to review & apply
+#   - AGENTS.md is MANAGED, not checked out: only its block is the template's,
+#     so the block's text is compared, never the path — a template commit
+#     touching its own rules below the end marker is not drift here (D6)
 WORKFLOW_CHECK_CACHE=".claude/.sync-check-cache"
 WORKFLOW_CHECK_MAX_AGE=86400  # 24 hours
 
@@ -338,8 +385,14 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
 
     if timeout 5 git fetch workflow "$WORKFLOW_BRANCH" &>/dev/null; then
       DRIFT_COUNT=$(git diff --name-only "workflow/$WORKFLOW_BRANCH" -- \
-        .agents/skills .agents/agents .agents/git-hooks .claude/agents .claude/hooks .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
+        .agents/skills .agents/agents .agents/references .agents/hooks .agents/git-hooks .claude/agents .claude/browsers .claude/settings.json CLAUDE.md 2>/dev/null \
         | wc -l | tr -d ' ')
+      managed_block() { tr -d '\r' | awk -v b="$BLOCK_BEGIN" -v e="$BLOCK_END" '$0 == b { p = 1; next } $0 == e { p = 0 } p'; }
+      TEMPLATE_BLOCK=$(git show "workflow/$WORKFLOW_BRANCH:AGENTS.md" 2>/dev/null | managed_block || true)
+      LOCAL_BLOCK=$(managed_block < AGENTS.md 2>/dev/null || true)
+      if [ -n "$TEMPLATE_BLOCK" ] && [ "$TEMPLATE_BLOCK" != "$LOCAL_BLOCK" ]; then
+        DRIFT_COUNT=$(( DRIFT_COUNT + 1 ))
+      fi
       printf '%s\n%s\n' "$DRIFT_COUNT" "$WORKFLOW_BRANCH" > "$WORKFLOW_CHECK_CACHE"
     fi
   else
@@ -350,7 +403,7 @@ if [ ! -f ".claude/sync-check-dismissed" ] \
 
   if [ "${DRIFT_COUNT:-0}" -gt 0 ]; then
     echo ""
-    echo "🔄  TEMPLATE DRIFT — $DRIFT_COUNT file(s) differ from workflow/$WORKFLOW_BRANCH"
+    echo "🔄  TEMPLATE DRIFT — $DRIFT_COUNT item(s) differ from workflow/$WORKFLOW_BRANCH (syncable files, or the AGENTS.md managed block)"
     echo "    Run /sync to review and apply updates (or 'touch .claude/sync-check-dismissed' to silence)."
   fi
 fi
@@ -364,12 +417,10 @@ fi
 # before the declaration existed has no jplugin: skills in this project and
 # nothing else says so. Silent when either record exists and when nothing is
 # declared.
-JPLUGIN_ID="jplugin@jplugin-agentic-development"
 PLUGINS_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins"
 INSTALLED_PLUGINS="$PLUGINS_DIR/installed_plugins.json"
 PLUGIN_CACHE="$PLUGINS_DIR/cache/jplugin-agentic-development/jplugin"
-if [ -f ".claude/settings.json" ] \
-   && tr -d '[:space:]' < .claude/settings.json | grep -o '"enabledPlugins":{[^}]*}' | grep -q "\"$JPLUGIN_ID\":true" \
+if plugin_enabled_here \
    && ! grep -qF "\"$JPLUGIN_ID\"" "$INSTALLED_PLUGINS" 2>/dev/null \
    && [ -z "$(ls -A "$PLUGIN_CACHE" 2>/dev/null)" ]; then
   echo ""
@@ -395,84 +446,31 @@ if [ -d .agents/skills ] && [ -d "$LEGACY_SKILLS_DIR" ]; then
   fi
 fi
 
-# ── Code Graph Staleness Check ───────────────────────────────────────────────
-# graphify indexes the repo into graphify-out/graph.json and answers queries from
-# that snapshot, so an out-of-date graph silently reports outdated structure.
-# Silent when graphify isn't installed and when the graph is fresh
-# (observability discipline: loud only on actionable state).
-if command -v graphify >/dev/null 2>&1; then
+# ── Code Graph Check ─────────────────────────────────────────────────────────
+# graphify answers queries from graphify-out/graph.json, so a graph older than
+# HEAD reports structure the last commit already changed. Silent when graphify is
+# not installed and when the graph is current. The missing-graph line is printed
+# only when the tree has files in graphify's code-extension set — a shell-and-
+# markdown repository has no graph to build (observability discipline: loud only
+# on actionable state).
+if command -v graphify >/dev/null 2>&1 && git rev-parse --is-inside-work-tree &>/dev/null; then
   GRAPH_FILE="graphify-out/graph.json"
-  GRAPH_MAX_AGE=1209600  # 14 days — fallback when mtime comparison is unavailable
-
-  if [ ! -f "$GRAPH_FILE" ]; then
-    echo ""
-    echo "🕸  NO CODE GRAPH — graphify-out/graph.json is missing"
-    echo "    Run graphify to index this project, then 'graphify claude install' to wire it in."
-  else
+  CODE_EXTENSIONS='\.(py|js|jsx|ts|tsx|go|rs|java|kt|c|h|cc|cpp|hpp|cs|rb|php|swift|scala)$'
+  if [ -f "$GRAPH_FILE" ]; then
     GRAPH_MTIME=$(stat -c %Y "$GRAPH_FILE" 2>/dev/null \
                   || stat -f %m "$GRAPH_FILE" 2>/dev/null \
                   || echo 0)
-    GRAPH_AGE=$(( $(date +%s) - GRAPH_MTIME ))
-
-    # Any TRACKED source file touched after the graph was written makes it stale.
-    # Tracked-only keeps build output, logs and scratch files from crying wolf.
-    # Outside a git repo (or with nothing tracked) the age fallback below applies.
-    NEWER_SOURCE=""
-    if git rev-parse --is-inside-work-tree &>/dev/null; then
-      while IFS= read -r TRACKED_FILE; do
-        if [ -f "$TRACKED_FILE" ] && [ "$TRACKED_FILE" -nt "$GRAPH_FILE" ]; then
-          NEWER_SOURCE="$TRACKED_FILE"
-          break
-        fi
-      done < <(git ls-files 2>/dev/null || true)
-    fi
-
-    if [ -n "$NEWER_SOURCE" ] || [ "$GRAPH_AGE" -gt "$GRAPH_MAX_AGE" ]; then
+    HEAD_TIME=$(git log -1 --format=%ct 2>/dev/null || echo 0)
+    if [ "${HEAD_TIME:-0}" -gt "${GRAPH_MTIME:-0}" ]; then
       echo ""
-      echo "🕸  CODE GRAPH STALE — source files changed since graphify-out/graph.json was built"
-      echo "    Queries will answer from an outdated snapshot. Re-index, or run"
-      echo "    'graphify hook install' to refresh it on every commit and checkout."
+      echo "⚠  code graph stale: graphify-out/graph.json is older than HEAD — run graphify"
+    fi
+  else
+    # `|| true`: grep -c exits 1 on zero matches, and pipefail would end the banner.
+    CODE_FILES=$(git ls-files 2>/dev/null | grep -ciE "$CODE_EXTENSIONS" || true)
+    if [ "${CODE_FILES:-0}" -gt 0 ]; then
+      echo ""
+      echo "⚠  graphify installed but no graph — run graphify"
     fi
   fi
 fi
-
-# ── Available Skills ────────────────────────────────────────────────────────
-echo ""
-echo "SKILLS AVAILABLE"
-echo "────────────────────────────────"
-echo "  /prd         — Greenfield project: interview → PRD + backlog"
-echo "  /brainstorm  — Divergent design exploration before /plan"
-echo "  /grilling    — Frontier-round interview: whole frontier per round, a recommendation per question"
-echo "  /grill-me    — Grill me about a plan or idea (no files written, no repo needed)"
-echo "  /system-design-planning — Architecture review with a mandatory /grilling interview → rendered HTML → /slice → build prompt for a fresh session"
-echo "  /plan        — Interview (decisions carried) → spec → /slice → build prompt for a fresh session (uses opus)"
-echo "  /slice       — Break a spec into session-sized slices + build prompt; --file files through task-registry"
-echo "  /build       — Autonomous TDD execution with sub-agents"
-echo "  /auto-push   — /plan (approved) → /build → /wrap-up autonomously"
-echo "  /yolo        — Full-auto loop: /plan → /build → /wrap-up until backlog empty"
-echo "  /sweep       — Producer routine (--routine janitor|architect): file verified findings as issues"
-echo "  /tidy        — Harness hygiene: eight checks; Tier 0 fixed, Tier 1 printed, Tier 2 filed"
-echo "  /debug       — Root cause analysis + bug-track store docs"
-echo "  /verify-evidence — Evidence-based verification (--scope e2e|deployment)"
-echo "  /create-verification-skill — Generate a project-local verification recipe + feature map"
-echo "  /maintain-verification-skill — Reconcile --scope changed, or omit it for a full audit"
-echo "  /quality-gate — 3-phase post-build review: structural, anti-patterns, APOSD"
-echo "  /software-design-expert-review — APOSD design audit (GO/HOLD/STOP)"
-echo "  /software-design-expert-learn  — APOSD design tutorial (end-of-session)"
-echo "  /receive-review  — Process code review feedback"
-echo "  /security-scan   — OWASP audit on changed files"
-echo "  /learn       — Extract learnings to tasks/solutions/"
-echo "  /memory-maintain — Sweep the typed learning store (resolve, merge, prune)"
-echo "  /checkpoint  — Snapshot progress for handoff"
-echo "  /refresh     — Context reset: snapshot to disk, rebuild clean context"
-echo "  /wrap-up-session — Close session: review, test, push"
-echo "  /writing-skills  — Author new skills"
-echo "  /task-registry — Resolve a task against GitHub/local tracking; claim"
-echo "  /eval        — Blinded A/B eval of a skill or prompt change"
-echo "  /sync        — Pull latest from template repo"
-
-echo ""
-echo "$DIVIDER"
-echo "  Ready. Use /brainstorm or /plan to start, or continue from tasks/todo.md."
-echo "$DIVIDER"
-echo ""

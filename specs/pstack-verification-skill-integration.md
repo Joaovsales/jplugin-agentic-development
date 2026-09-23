@@ -300,7 +300,7 @@ its original sources.
   workflow with read-only repository permissions.
 - `tests/test-upstream-drift.sh` — local Git-fixture coverage for clean, drift,
   unavailable, rewritten-history, multi-source, and invalid-registry outcomes.
-- `README.md`, `CLAUDE.md`, `.claude/hooks/session-start.sh` — discoverability,
+- `README.md` — discoverability (generated skills table),
   credits, and update-mechanism documentation.
 
 ## Verification

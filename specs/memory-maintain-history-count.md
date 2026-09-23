@@ -1,7 +1,7 @@
 ---
 implementation_paths:
   - .agents/skills/memory-maintain/SKILL.md
-  - .claude/hooks/session-start.sh
+  - .agents/hooks/session-start.sh
   - tests/test-memory-maintain-doc.sh
   - tests/test-session-start.sh
 ---
@@ -51,6 +51,6 @@ multiples of five.
 ## Implementation Paths
 
 - `.agents/skills/memory-maintain/SKILL.md` — canonical counting contract.
-- `.claude/hooks/session-start.sh` — executable session counter and reminder.
+- `.agents/hooks/session-start.sh` — executable session counter and reminder.
 - `tests/test-session-start.sh` — behavioral fixture regressions.
 - `tests/test-memory-maintain-doc.sh` — skill contract guards.

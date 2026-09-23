@@ -9,9 +9,9 @@ harness: claude
 
 # /verify-deployment — Post-Push Deployment Verification
 
-Wait for the deployment service(s) configured in `.claude/project.md` § Deployment Targets to finish building the current commit. On failure, fetch logs, delegate the fix to `code-debugger`, push the fix as a new commit, and loop. Maximum 3 fix iterations per service before escalation.
+Wait for the deployment service(s) configured in `AGENTS.md` § Deployment Targets to finish building the current commit. On failure, fetch logs, delegate the fix to `code-debugger`, push the fix as a new commit, and loop. Maximum 3 fix iterations per service before escalation.
 
-**Note**: The routing table lives in `.claude/project.md`, not `CLAUDE.md`, so `/sync` can overwrite the template-managed `CLAUDE.md` without wiping deployment config. `CLAUDE.md` is never read for it.
+**Note**: The routing table lives in `AGENTS.md` below the managed block's end marker — the part of the file `/sync` never rewrites. `CLAUDE.md` is the `@AGENTS.md` pointer and is never read for it. A table still in `.claude/project.md`, where it lived before the single instruction file, is read after `AGENTS.md` with the one-line notice `Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md`.
 
 This skill is **service-agnostic by construction**. No specific deployment service is named anywhere in this file. All service-specific behavior comes from runbook files in `.claude/deployments/<service>.md`. Adding a new service is a drop-in change to that directory.
 
@@ -35,7 +35,7 @@ Exit. Do not proceed.
 
 Look for a section header line that matches **exactly** `^## Deployment Targets[[:space:]]*$` — the heading must be `## Deployment Targets` with no trailing text. Headings like `## Deployment Targets (placeholder — run /setup-deployment to populate)` are intentionally not matched, so the template repo can document the schema without activating verification.
 
-**Location:** `.claude/project.md` — read the file if it exists and grep for the exact header regex above. `CLAUDE.md` is template-managed and is not searched.
+**Location:** `AGENTS.md` — read the file if it exists and grep for the exact header regex above. No match there: read `.claude/project.md` the same way and, on a match, print the notice from the note above. `CLAUDE.md` is not searched.
 
 **If the section is missing:**
 
@@ -110,8 +110,8 @@ Initialize:
 
 - `started_at` = now
 - `iteration` = current value from `tasks/deploy-state.json` for this `{commit_sha, service}` key, or `0`
-- `timeout` = project.md config `Build timeout` if set, else runbook `default_timeout_minutes`
-- `max_iterations` = project.md config `Max fix iterations` if set, else `3`
+- `timeout` = routing-table config `Build timeout` if set, else runbook `default_timeout_minutes`
+- `max_iterations` = routing-table config `Max fix iterations` if set, else `3`
 
 Persist `{ service, iteration, last_sha, started_at }` to `tasks/deploy-state.json` so a session resume can pick up where polling left off.
 
@@ -151,7 +151,7 @@ Determine the source:
 - **github-checks** without `log_fetch_command`: fetch the check run's `details_url` (the build's web page) — this is best-effort; many services don't expose plain-text logs at that URL
 - **cli**: run `log_fetch_command` with `{deployment_id}` from the prior status response
 
-Follow the **Large-Artifact Handoff** convention (`.claude/project.md`): truncate logs to the last 500 lines if larger to fit the debugger's context window, and keep the original full log saved at `tasks/deploy-logs-<service>-<sha>.log` (gitignored via the same pattern as `deploy-state.json`).
+Follow `AGENTS.md` § *Large-Artifact Handoff*: truncate logs to the last 500 lines if larger to fit the debugger's context window, and keep the original full log saved at `tasks/deploy-logs-<service>-<sha>.log` (gitignored via the same pattern as `deploy-state.json`).
 
 #### D.2 — Match failure patterns
 
@@ -286,7 +286,7 @@ Clean up `tasks/deploy-state.json` only on `ALL_GREEN` or `SKIPPED` — leaving 
 - **No check runs returned within the first 30 seconds** (the service hasn't picked up the push yet): keep polling at the normal cadence. Don't escalate this as a failure — the service may be slow to register.
 - **Runbook references a CLI that isn't installed**: `auth_check_command` exits non-zero (command not found = exit 127), which triggers the AUTH_FAILED path. Report includes "command not found — install the CLI or switch to github-checks".
 - **`.claude/deployments/` directory missing entirely**: there are no runbooks to validate against. Skip verification with: `No runbooks found in .claude/deployments/. Run /setup-deployment to populate.`
-- **`.claude/project.md` `Deployment Targets` section references a runbook file that doesn't exist**: skip that target with `<service>: runbook file not found at <path>`. Continue with other targets.
+- **The `Deployment Targets` section references a runbook file that doesn't exist**: skip that target with `<service>: runbook file not found at <path>`. Continue with other targets.
 - **Code-debugger applies a fix that breaks local tests**: per the debugger's own protocol, it should report failure rather than commit. If a diff exists but tests fail, do NOT commit — skip directly to D.6 (count as failed iteration).
 
 ---
