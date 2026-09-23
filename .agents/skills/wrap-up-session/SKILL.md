@@ -357,6 +357,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py check
 | Result | Action |
 |--------|--------|
 | `receipt: valid <GO\|HOLD-approved> <fp8> policy <v>` | Reuse it. Quote `Quality receipt: <verdict> · <fp8> · policy <v>` for the PR body |
+| `receipt: stale verdict HOLD` | The gate already reviewed this tree and left a HOLD — see *Approving a HOLD*. Never re-run the gate for it |
 | `receipt: stale diff-changed parent <fp> delta <path> ...` | Invoke `/quality-gate --scope <delta paths> --parent <fp>` **once** |
 | any other `receipt: stale <reason>` | Invoke `/quality-gate` **once** at full scope |
 
@@ -367,8 +368,16 @@ gate's own report — as the source of truth:
 | Second check | Action |
 |--------------|--------|
 | `valid GO` or `valid HOLD-approved` | Proceed to Step 5.5 |
-| `valid HOLD` (not yet approved) | **Interactive run**: ask the human to approve. A yes runs `receipt.py approve --fingerprint <fp> --by "$(git config user.name)"`, then re-checks. **Unattended run** (a routine branch, or a caller declaring Step 8.5 unattended): never approves |
-| a `stale <reason>`, a `STOP` verdict, `Receipt: none`, or any other second stale result | STOP wrap-up: report the reason, commit nothing. Run Step 8.5 before ending |
+| `stale verdict HOLD` | *Approving a HOLD* |
+| any other `stale <reason>` (a `STOP` verdict included), or the gate reported `Receipt: none` | STOP wrap-up: report the reason, commit nothing. Run Step 8.5 before ending |
+
+**Approving a HOLD.** **Interactive run**: show the receipt's unresolved
+findings and ask the human to approve. A yes runs
+`receipt.py approve --fingerprint <fp> --by "$(git config user.name)"`, where
+`<fp>` is the third field `receipt.py fingerprint` prints (`check` prints no
+fingerprint on a stale line), then re-checks; a no stops as above. **Unattended
+run** (a routine branch, or a caller declaring Step 8.5 unattended): never
+approves — the HOLD stops the run through Step 8.5.
 
 Spec reconciliation (Step 3.2) still runs before this step, so a reconciled
 spec is part of the tree the gate reviewed. Step 6's full suite still runs

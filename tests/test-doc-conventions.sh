@@ -1351,5 +1351,14 @@ for token in "receipt.py check" "diff-changed" "--scope <delta paths> --parent <
 done
 assert_contains "$WRAP_STEP4" "Never call \`/quality-gate\` a second time on an unchanged tree." \
   "receipt check: /wrap-up-session Step 4 runs no second gate on the same tree"
+# receipt.py reports an unapproved HOLD as `stale verdict HOLD`, never as
+# `valid HOLD`; the approval path keys on that line, before any re-entry, and
+# takes the fingerprint from `receipt.py fingerprint` (check prints none there).
+assert_contains "$WRAP_STEP4" "stale verdict HOLD" \
+  "receipt check: /wrap-up-session Step 4 keys the approval path on 'stale verdict HOLD'"
+assert_contains "$WRAP_STEP4" "receipt.py fingerprint" \
+  "receipt check: /wrap-up-session Step 4 reads the HOLD's fingerprint from receipt.py fingerprint"
+assert_not_contains "$WRAP_STEP4" "\`valid HOLD\` (not yet approved)" \
+  "receipt check: /wrap-up-session Step 4 names no 'valid HOLD' line receipt.py never prints"
 
 finish
