@@ -1309,3 +1309,33 @@ After every slice commit the session ran `slice.py check --spec specs/greeting.m
 `/wrap-up-session` ran four dispatched passes, applied 3 MUST-FIX (cd3ae87 `fix: let help flags reach the parser`), and corrected its own e2e log (c6a5b98). No `## Handovers` section was produced, in a PR body or in the commit message the skill names for a repository with no tracker — the wrap-up ran from the user-scope `~/.claude/skills/wrap-up-session` copy, which predates the section (setup finding 1 below). AC 13 therefore has doc-pin evidence only; the first `## Handovers` section is the PR of this branch.
 
 Verdict for AC 15: the planning-session contract, the pre-flight filing, the ready set, the handover blocks and the surface reports were observed and are cited above; parallel dispatch and a handover consumed across a dispatch boundary were not, because the fixture's slices were too small for the session to dispatch at all. Fixture commits 812bb0d…c6a5b98 are kept in `.claude/worktrees/e2e-106` (git-excluded) for re-reading; they are not part of this repository.
+
+## E2E Walkthrough — quality-receipt-closure — 2026-09-23 (feat/163-wrap-up-reuses-quality-receipt)
+
+Spec: specs/quality-receipt-closure.md (Decision 13, slice 6 `Verify:`; ACs 8–13 exercised live)
+Tree: c445abb (base 3525c70), pushed; PR #191
+Driver: this PR's own interactive `/wrap-up-session`. It followed the repository copy of the skill, because the installed `jplugin` plugin copy predates the branch. Every observation below was fed to `closure.py step`, and every action it printed was performed as written. The verdicts are read from the engine's printed lines and from `gh`, never from prose about them.
+
+### Run 1 — terminal stopped (suite), before any push — PASS (a legitimate stop)
+
+1. `receipt.py check` → `stale diff-changed parent 39e94696… delta specs/review-context-contract.md` (Step 3.2 reconciled that spec). Engine: `action quality-gate scope=delta`.
+2. Delta gate: phases 1–4 inline, phase 5 affected tests under WSL at cc94bf0, 33/33 green. Receipt `79ad2899` GO, parent the human-approved HOLD `39e94696`. `gate: GO` → `action check-receipt` → `valid GO` → `action run-suite`.
+3. Full suite (WSL, cc94bf0): 1/57 files red, `tests/test-skills-table.sh`, a README table left stale by slice 2. `suite: red` → `terminal stopped state=suite reason=tests`; state file `phase: done`, `pr_open: false`. No PR existed, so no draft was needed.
+
+### Run 2 — terminal complete — PASS
+
+The fix commit c445abb re-rendered the README table.
+
+1. The `done` state loaded fresh. `receipt.py check` → `stale diff-changed … delta README.md` → `action quality-gate scope=delta`.
+2. Delta gate: affected tests at c445abb, 40/40 green. Receipt `fa15ba1d` GO → `action check-receipt` → `valid GO fa15ba1d` → `action run-suite`.
+3. Full suite (WSL, c445abb, tree a57c70bb): 57/57 green → `action commit-push`.
+4. `git push -u origin feat/163-wrap-up-reuses-quality-receipt` (hooks enabled, no rebase, no force) → `push: ok` → `action pr-sync`.
+5. Linkage check exit 0 on the draft; `gh pr create` → #191 → `pr: 191` → `action mergeability`.
+6. `gh pr view 191 --json mergeable` → `MERGEABLE` (`mergeStateStatus: UNSTABLE`, checks still running, which is not a trigger) → `action watch-ci`.
+7. No required checks, so the loop watched all of them: `gh pr checks 191 --watch` in the background → `test pass 1m9s` → `ci: pass` → `action verify-deploy`.
+8. No `## Deployment Targets` section and no `tasks/deployments/*.md` → `deploy: n/a` → `action record-closure note=not applicable — no ## Deployment Targets section`.
+9. Live body linkage check exit 0; `gh pr edit 191 --body-file …` re-synced `## Closure` → `record: recorded` → **`terminal complete state=record reason=closure recorded`**. State `phase: done`, `pr_open: true`.
+
+Not exercised live: CI repair, conflict repair, deployment re-entry and mark-draft. `tests/test-closure.sh` and its 8 fixture scenarios cover those rows.
+
+Finding: a Step 6 fix edits the tree the receipt covers, and the engine has no `suite: fixed` observation. The honest route is the one taken here: end the run on `suite: red`, commit the fix, and start a fresh run whose receipt check re-enters the gate at delta scope. The affected-test selector also does not map a `SKILL.md` frontmatter change to `tests/test-skills-table.sh`. Both are recorded as follow-ups in #191.

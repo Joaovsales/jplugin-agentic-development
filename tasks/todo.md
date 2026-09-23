@@ -1245,17 +1245,17 @@ Filed this sweep:
 > Surface: none
 
 ### Slice 6/6 — Closure loop: deploy, record, partial
-- [ ] Closure loop: deploy, record, partial <!-- task-id: plan.specs-quality-receipt-closure-md.closure-loop-deploy-record-partial --> — Slice 6/6 of #163: Wrap-up verifies deployment or records it as not applicable, writes the closure record, and drafts a… ([#190](https://github.com/Joaovsales/jplugin-agentic-development/issues/190)) (blocked-by: plan.specs-quality-receipt-closure-md.closure-loop-pr-ci-conflicts)
+- [x] Closure loop: deploy, record, partial <!-- task-id: plan.specs-quality-receipt-closure-md.closure-loop-deploy-record-partial --> — Slice 6/6 of #163: Wrap-up verifies deployment or records it as not applicable, writes the closure record, and drafts a… ([#190](https://github.com/Joaovsales/jplugin-agentic-development/issues/190)) (blocked-by: plan.specs-quality-receipt-closure-md.closure-loop-pr-ci-conflicts)
   [x] TDD: tests/test-doc-conventions.sh § closure deploy — `/verify-evidence --scope deployment` when a target applies, `Deployments: not applicable —` otherwise, a moved HEAD re-enters Step 4 once -> deployment step inside the loop (AC 12)
   [x] TDD: tests/test-doc-conventions.sh § closure record — registers record pre-push facts only; the Done report carries `Closure: <complete|partial — state>`; a partial run runs `gh pr ready --undo`; `routines.md` spine step names the quality receipt, not review passes -> Done report, partial path, routines.md (AC 13)
-  [ ] Verify: this PR's own wrap-up drives the loop to `terminal complete` on green CI and is recorded in `tasks/e2e-log.md` (Decision 13)
+  [x] Verify: this PR's own wrap-up drives the loop to `terminal complete` on green CI and is recorded in `tasks/e2e-log.md` (Decision 13)
 
 > Handover: landed 693e3ed..c0b2c6d (merged) — Step 8 is the `verify-deploy` action (`head-moved` compare, one re-entry, `Deployments: not applicable — <reason>`); `## Done` gains *Recording the closure* (`gh pr edit`) and *Marking a partial PR draft* (`gh pr ready <n> --undo`) and the `Closure:` line; `routines.md` spine names the quality receipt
 > Do not re-derive: registers record pre-push facts only (Step 2 says so); the `Closure:` line quotes the engine's `state=`, `reason=` and `draft=`
 > Surface: none
-> Open: unfinished — the `Verify:` row runs in this PR's own `/wrap-up-session` (Decision 13), so the slice header stays `[ ]` until then
+> Open: none — PR #191's own `/wrap-up-session` drove the loop to `terminal complete state=record reason=closure recorded` on green CI (entry in `tasks/e2e-log.md`)
 
 ## Session Summary — 2026-09-23 [3525c70..5e00630]
 - Completed: 6 slices of `## Plan: quality-receipt-closure` (filed as issues, refs #163 and #162), with every TDD row done; slice 6's `Verify:` row stays open because it is this PR's own closure run (Decision 13); quality-gate fixes: receipt.py refuses a non-hex fingerprint; HOLD routes through the `approve` phase and the receipt is re-checked; a closure run ends at `done` and keeps `pr_open`; corrupt state and receipt files are handled
-- Pending: slice 6 `Verify:` — this wrap-up's closure loop reaching `terminal complete`
+- Pending: none in this plan; the issues close on merge through #191's `Closes` lines
 - Carry-forward (reported, not applied; recorded in receipt 39e94696): the base choice duplicated across `check --base`, `write` and Base Branch Detection; the gate's file list rebuilt by hand (no `receipt.py paths`); the `quality-gate` action carries no parent or delta paths; `key=value` output with spaces in values; destination strings parsed twice in closure.py; one shared `outcome.json` path; a corrupt receipt reported as `stale schema`; `build/SKILL.md` Phase 3 still says "all 3 phases"; the installed plugin copy of `/wrap-up-session` predates this branch until the plugin is reinstalled
