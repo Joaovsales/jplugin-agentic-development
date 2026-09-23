@@ -80,8 +80,19 @@ progress and drift further before finding out. Merge `main` in frequently.
 4. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
 5. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
 6. Identify the project's test runner (check `package.json`, `Makefile`, `pyproject.toml`, etc.)
-7. Run the full test suite once to establish a **green baseline**
+7. Record the **base SHA** (`git rev-parse HEAD`) and run the full test suite
+   once, through the cache, to establish a **green baseline**:
+   `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`.
+   A green run on this tree — a `/yolo` or `/auto-push` pre-flight a moment
+   ago — is reused, not repeated. This is the build's only full run; the
+   pre-push one belongs to `/wrap-up-session` Step 6.
    - If tests fail before you start: fix or flag to user before proceeding
+   - Resolve the **affected-test command** every later checkpoint runs: the
+     `Affected tests: <command with {base}>` line below the `AGENTS.md` end
+     marker, with `{base}` replaced by the base SHA (in this repository,
+     `bash tests/affected.sh --run {base}`). When a project declares none,
+     run the test files that cover the changed paths and name them in the
+     log line.
 8. **Classify acceptance criteria** — for each AC in the spec, tag as `logic | integration | user-facing`:
    | AC type | Signals |
    |---------|---------|
@@ -140,7 +151,7 @@ the next batch.
    returns nothing, so null-check fallbacks never fire and this barrier never releases.
    See `.agents/skills/build/references/subagent-resilience.md`.
 3. Wait for all to return; check for file conflicts.
-4. Run the full test suite **centrally, once** — never instruct the sub-agents to
+4. Run the affected-test command **centrally, once** — never instruct the sub-agents to
    run it themselves. Fanning verification out to every agent multiplies context
    for no added signal and is a known way to lose a whole fleet to autocompact
    thrashing. Isolate the *edits*, centralise the *verification*.
@@ -196,7 +207,7 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 ### Step 3 — Run Tests
 
 1. Run the new test — confirm it **passes**
-2. Run the **full test suite** — confirm no regressions
+2. Run the **affected-test command** against the base SHA — confirm no regressions
 3. If failures: fix with `code-debugger` agent and full failure context
 4. Repeat until green
 
@@ -249,7 +260,7 @@ a remainder slice. A header marked `[x]` with a `[ ]` child row is the
 **forbidden state** — Phase 6 counts nested rows and reports it as a build
 failure.
 
-The slice boundary is the checkpoint: run the full suite once, centrally;
+The slice boundary is the checkpoint: run the affected-test command once, centrally;
 write the handover; flush the task-boundary checkpoint
 (`bash .agents/hooks/pre-compact.sh </dev/null`); then call `slice.py ready`
 again for the next batch.
@@ -316,13 +327,14 @@ criterion is `user-facing`:
    escalation owner*; that owner invokes the registry once.
 
 Internal-only changes skip changed-scope maintenance silently. This phase runs
-before the full suite and quality gate so any map edits receive both checks.
+before Phase 2 and the quality gate so any map edits receive both checks.
 
-## Phase 2 — Full Suite Validation
+## Phase 2 — Affected-Test Validation
 
 After all tasks are `[x]`:
 
-1. Run the **complete test suite**
+1. Run the **affected-test command** against the base SHA — every test file the
+   build touched, in one run. The pre-push full run is `/wrap-up-session` Step 6.
 2. Run linter / type checker if configured
 3. Confirm all tests pass and no errors
 4. If anything fails: fix with `code-debugger`, then re-run
@@ -340,7 +352,7 @@ Invoke `/quality-gate` on all files changed during this build:
 
 1. Identify changed files via `git diff --name-only` (against baseline before build started)
 2. Run `/quality-gate` — this executes all 3 phases (structural, AI anti-patterns, APOSD design)
-3. Re-run full test suite after quality gate completes to confirm no regressions
+3. Re-run the affected-test command after quality gate completes to confirm no regressions
 
 ## Phase 4 — Spec Validation (Persistence Loop)
 
@@ -528,7 +540,7 @@ User input required before proceeding.
 
 - **Autonomous**: No user prompts between tasks. Run to completion or until blocked.
 - **Observable**: Log every task completion so progress is visible.
-- **Safe**: Full test suite after every task. Never let regressions accumulate.
+- **Safe**: The affected-test command after every task; the full suite only at the cached baseline and pre-push. Never let regressions accumulate.
 - **Spec-faithful**: The spec is the contract. Build is not done until every AC has evidence.
 
 ## Claude Code Enhancements

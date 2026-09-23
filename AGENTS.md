@@ -129,6 +129,10 @@ Skills are discovered from `.agents/skills/*/SKILL.md` frontmatter — the READM
 
 Task tracking instructions: docs/task-tracking.md
 
+### Affected Tests
+
+Affected tests: bash tests/affected.sh --run {base}
+
 ### Code Graph
 
 This shell-and-markdown repository has no code graph: `graphify` indexes code extensions

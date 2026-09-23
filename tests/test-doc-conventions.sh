@@ -1170,4 +1170,40 @@ for term in "build prompt" "handover" "ready set" "slice" "surface"; do
     "workflow: tasks/concepts.md defines '$term'"
 done
 
+# --- fewer full runs (build): the full suite only at the cached baseline -----
+# specs/fewer-full-suite-runs.md AC4. The pre-flight baseline goes through
+# cached-suite.sh and records the base SHA; the pre-flight also resolves the
+# project's `Affected tests:` command (with `{base}`) and the fallback when a
+# project declares none. Every other checkpoint -- Step 3, the parallel
+# barrier, the slice close, Phase 2 and the post-quality-gate run -- names the
+# affected-test command instead of the full suite.
+build_section() {  # <heading prefix>: that heading's body, up to the next ## or ### heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^##/ { exit } p' "$BUILD_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+PREFLIGHT="$(build_section "## Pre-Flight Checks")"
+for token in "cached-suite.sh -- " "base SHA" "Affected tests:" "{base}" "declares none"; do
+  assert_contains "$PREFLIGHT" "$token" "fewer full runs: /build pre-flight names '$token'"
+done
+for heading in "### Parallel Dispatch Assessment" "### Step 3 — Run Tests" "### Slice Close" \
+               "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+  assert_contains "$(build_section "$heading")" "affected-test command" \
+    "fewer full runs: /build '$heading' runs the affected-test command"
+done
+for heading in "### Step 3 — Run Tests" "### Slice Close" "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+  body="$(build_section "$heading")"
+  for retired in "full test suite" "complete test suite" "run the full suite"; do
+    assert_not_contains "$body" "$retired" \
+      "fewer full runs: /build '$heading' no longer says '$retired'"
+  done
+done
+assert_file_not_matches "$BUILD_SKILL" "Full test suite after every task" \
+  "fewer full runs: Key Principles no longer says 'Full test suite after every task'"
+
+# --- affected declaration: this repository's `Affected tests:` line ----------
+# specs/fewer-full-suite-runs.md AC7. Below the end marker, so /sync keeps it.
+BELOW_END="$(awk '/<!-- jplugin-agentic-development:end -->/{p=1; next} p' AGENTS.md)"
+assert_contains "$BELOW_END" "Affected tests: bash tests/affected.sh --run {base}" \
+  "affected declaration: AGENTS.md declares the command below the end marker"
+
 finish
