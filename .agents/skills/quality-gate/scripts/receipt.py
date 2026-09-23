@@ -162,11 +162,12 @@ def diff_paths(base: str, tree: str, extra_pathspec: Sequence[str] = ()) -> List
 
 
 def diff_bytes(base: str, tree: str) -> bytes:
+    # Raw bytes: text mode would fold CRLF into LF and hide a line-ending edit.
     args = ["git", "-c", "core.quotepath=false", "diff", *DIFF_FLAGS, base, tree, "--", ".", EXCLUDE_PATHSPEC]
-    result = _run(args)
+    result = subprocess.run(args, capture_output=True)
     if result.returncode not in (0, 1):
-        raise ReceiptError((result.stderr or "diff failed").strip())
-    return result.stdout.encode("utf-8")
+        raise ReceiptError((result.stderr.decode("utf-8", "replace") or "diff failed").strip())
+    return result.stdout
 
 
 def compute_fingerprint(explicit_base: Optional[str]) -> Tuple[str, str, str]:
@@ -299,20 +300,18 @@ def _has_must_fix(unresolved: List[Dict]) -> bool:
 def chain_should_fix_carry(parent_fingerprint: Optional[str]) -> int:
     """Sum unresolved SHOULD-FIX up the parent chain to the nearest approved HOLD.
 
-    A GO ancestor or an approved-HOLD ancestor is the boundary: its own count
-    is included and the walk stops there. A missing ancestor stops the walk
-    with nothing more added (`check` is what flags a broken chain as invalid).
+    The approved HOLD is the boundary and its own findings are excluded: a
+    human accepted them. GO links are summed through, so three per link can
+    never pile up unnoticed. A missing ancestor stops the walk (`check` is
+    what flags a broken chain as invalid).
     """
     total = 0
     fingerprint = parent_fingerprint
     while fingerprint:
         receipt = load_receipt(fingerprint)
-        if receipt is None:
+        if receipt is None or (receipt.get("verdict") == "HOLD" and receipt.get("hold_approved_by")):
             break
         total += _should_fix_count(receipt.get("unresolved", []))
-        verdict = receipt.get("verdict")
-        if verdict == "GO" or (verdict == "HOLD" and receipt.get("hold_approved_by")):
-            break
         fingerprint = receipt.get("parent")
     return total
 
@@ -459,7 +458,7 @@ def cmd_check(args: argparse.Namespace) -> None:
     current_diff = diff_paths(base, tree)
     delta = [path for path in tree_delta if path in set(current_diff)]
 
-    parts = [f"receipt: stale diff-changed parent {pointer['fingerprint'][:8]}"]
+    parts = [f"receipt: stale diff-changed parent {pointer['fingerprint']}"]
     if delta:
         parts.append("delta " + " ".join(delta))
     print(" ".join(parts))

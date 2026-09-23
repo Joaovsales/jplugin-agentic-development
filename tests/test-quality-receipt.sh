@@ -86,6 +86,12 @@ git -C "$REPO1" add -A
 git -C "$REPO1" -c commit.gpgsign=false commit -q -m "edit feature.txt"
 FP1="$(fp_field 3 "$OUT5")"
 
+# --- changed by a line-ending-only edit -----------------------------------
+printf 'feature changed\r\n' > "$REPO1/feature.txt"
+OUT5B="$(cd "$REPO1" && receipt fingerprint --base main)"
+assert_not_contains "$FP1" "$(fp_field 3 "$OUT5B")" "fingerprint: a CRLF-only edit changes it"
+git -C "$REPO1" checkout -q -- feature.txt
+
 # --- changed by an untracked file -----------------------------------------
 printf 'new\n' > "$REPO1/untracked.txt"
 OUT6="$(cd "$REPO1" && receipt fingerprint --base main)"
@@ -252,7 +258,17 @@ TREE2B2="$(fp_field 2 "$FP_OUT_B2")"
 FP2B2="$(fp_field 3 "$FP_OUT_B2")"
 make_outcome "$BOX/outcome-delta-carry.json" "$TREE2B2" no 2 GO 0 '["feature.txt"]' ""
 OUT="$(cd "$REPO2B" && receipt write --outcome "$BOX/outcome-delta-carry.json" --parent "$FP2B")"
-assert_contains "$OUT" "verdict HOLD" "write: a delta's own 2 SHOULD-FIX plus the approved-HOLD parent's 2 exceeds 3, forcing HOLD"
+assert_contains "$OUT" "verdict GO" "write: an approved-HOLD parent's SHOULD-FIX were accepted, so a delta's own 2 stay GO"
+
+# A GO link is summed through: this delta's 2 plus its GO parent's 2 exceed 3,
+# and the walk stops at the approved HOLD behind them.
+printf 'second delta\n' > "$REPO2B/feature.txt"
+git -C "$REPO2B" add -A
+git -C "$REPO2B" -c commit.gpgsign=false commit -q -m "second delta"
+TREE2B3="$(fp_field 2 "$(cd "$REPO2B" && receipt fingerprint --base main)")"
+make_outcome "$BOX/outcome-delta-carry2.json" "$TREE2B3" no 2 GO 0 '["feature.txt"]' ""
+OUT="$(cd "$REPO2B" && receipt write --outcome "$BOX/outcome-delta-carry2.json" --parent "$FP2B2")"
+assert_contains "$OUT" "verdict HOLD" "write: SHOULD-FIX carried through a GO link back to the approved HOLD force HOLD"
 
 # ===========================================================================
 printf '\n--- check and approve ---\n'
@@ -286,7 +302,7 @@ git -C "$REPO3" -c commit.gpgsign=false commit -q -m "diff change"
 OUT="$(cd "$REPO3" && receipt check --base main)"
 CODE=$?
 assert_eq "3" "$CODE" "check: an unreviewed new tree is stale"
-assert_contains "$OUT" "receipt: stale diff-changed parent ${FP3:0:8}" "check: diff-changed names the parent"
+assert_contains "$OUT" "receipt: stale diff-changed parent $FP3 " "check: diff-changed names the parent's full fingerprint"
 assert_contains "$OUT" "delta feature.txt" "check: diff-changed names the changed path"
 
 # write a HOLD outcome for this new tree, then check reports stale verdict HOLD
