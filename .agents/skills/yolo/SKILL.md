@@ -79,7 +79,7 @@ Before entering the loop:
 
 1. **Branch safety**: Confirm we are NOT on `main`, `master`, or `develop`. If we are: STOP and ask user for a feature branch name.
 2. **Clean tree**: Run `git status --short`. If uncommitted changes exist that aren't from this session, STOP and ask user how to handle them.
-3. **Test baseline**: Run the full test suite once. If red before we start, STOP — yolo mode cannot loop on a broken baseline.
+3. **Test baseline**: Run the full test suite once, through `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`, so `/build`'s baseline on the same tree reuses it. If red before we start, STOP — yolo mode cannot loop on a broken baseline.
 4. **Idea capture**: Write the user's idea verbatim to `tasks/yolo-idea.md` (overwrite any previous). This is the source-of-truth prompt that survives context resets.
 5. **Initialize log**: Create `tasks/yolo-log.md` if missing, with this header:
    ```markdown

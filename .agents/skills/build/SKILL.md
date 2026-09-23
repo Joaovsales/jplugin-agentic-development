@@ -101,6 +101,15 @@ progress and drift further before finding out. Merge `main` in frequently.
    | `user-facing` | Auth flows, form submissions, navigation, UI state, anything a user sees or clicks |
    When an AC mixes types, classify by the highest tier (`user-facing` > `integration` > `logic`).
 
+**One suite at a time, no polling.** Launch the full suite as a background
+task (`run_in_background` on Claude Code) and wait for its completion
+notification; while it runs, do non-conflicting work — reading the spec,
+classifying the ACs. Never wait in a foreground `sleep` or a poll loop.
+`cached-suite.sh` refuses a second full run with exit 3, and the rule extends
+to every test run: no test run starts while a suite is running — no targeted
+file, no affected-test run — because a test beside a running suite shares its
+load, slows both and can fake a failure in either.
+
 ### Pre-Flight: File the Slices
 
 This session exists because a human started it with the build prompt, which

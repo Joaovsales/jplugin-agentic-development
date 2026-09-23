@@ -533,6 +533,20 @@ Discover test commands from `package.json`, `Makefile`, `pyproject.toml`, or `TE
 
 Run in order: lint/typecheck, unit, integration, e2e.
 
+The full suite is the session's one pre-push full run and goes through the
+cache: `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`.
+On a tree `/build` already proved green it prints `cached-suite: reused green
+run` and costs nothing; any edit since runs it for real.
+
+**One suite at a time, no polling.** Launch the full suite as a background
+task (`run_in_background` on Claude Code) and wait for its completion
+notification; while it runs, do non-conflicting work — learnings, the PR body,
+the handovers. Never wait in a foreground `sleep` or a poll loop.
+`cached-suite.sh` refuses a second full run with exit 3, and the rule extends
+to every test run: no test run starts while a suite is running — no targeted
+file, no affected-test run — because a test beside a running suite shares its
+load, slows both and can fake a failure in either.
+
 If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report, do not push, and end through Step 8.5.
 
 ---
@@ -745,9 +759,11 @@ If NOT in a git worktree: skip. Otherwise check which flow this repo uses.
 1. Verify clean: `git status --porcelain` empty
 2. Switch to the parent worktree, `git pull --ff-only`
 3. `git merge --no-ff <branch>`
-4. Run the **full** suite on the merged result — this is the first time these two
-   lines of history have coexisted, so a green run on either side proves nothing
-   about the merge
+4. Run the **full** suite on the merged result, through
+   `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>` — this is
+   the first time these two lines of history have coexisted, so a green run on
+   either side proves nothing about the merge; the merged tree is new, so the
+   cache runs it for real
 5. Green → `git worktree remove <path>` and delete the branch
 6. Red → keep both, report the failures, change nothing else
 

@@ -1206,4 +1206,34 @@ BELOW_END="$(awk '/<!-- jplugin-agentic-development:end -->/{p=1; next} p' AGENT
 assert_contains "$BELOW_END" "Affected tests: bash tests/affected.sh --run {base}" \
   "affected declaration: AGENTS.md declares the command below the end marker"
 
+# --- fewer full runs (wrap-up, pipelines): every full run goes through the cache
+# specs/fewer-full-suite-runs.md AC5. /wrap-up-session Step 6 and the Step 7.5
+# merged-result run, and the /yolo and /auto-push pre-flight baselines, so
+# /build's baseline and a Step 6 on a proven-green tree reuse the record.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+wrap_section() {  # <heading prefix>: that heading's body, up to the next ## heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$WRAP_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+assert_contains "$(wrap_section "## Step 6 — Run Tests")" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session Step 6 runs the full suite through cached-suite.sh"
+assert_contains "$(wrap_section "## Step 7.5 —")" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session Step 7.5 merged-result run goes through cached-suite.sh"
+for pipeline in yolo auto-push; do
+  assert_contains "$(grep -F '**Test baseline**' ".agents/skills/$pipeline/SKILL.md")" "cached-suite.sh -- " \
+    "fewer full runs: /$pipeline pre-flight baseline goes through cached-suite.sh"
+done
+
+# --- one suite, no polling: no test run beside a suite, no poll loops --------
+# specs/fewer-full-suite-runs.md AC6. The load-contention cost came from
+# targeted loops beside a running suite; the lock only covers full runs, so
+# the rest of the rule lives in the prose of both skills.
+for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
+  flat="$(flatten "$skill")"
+  for token in "One suite at a time, no polling." "no test run starts while a suite is running" \
+               "run_in_background" "completion notification" "foreground \`sleep\`" "poll loop"; do
+    assert_contains "$flat" "$token" "one suite: $skill names '$token'"
+  done
+done
+
 finish

@@ -80,7 +80,7 @@ Before starting:
 
 1. **Branch safety**: Run `git rev-parse --abbrev-ref HEAD`. Confirm we are NOT on `main`, `master`, or `develop`. If we are: STOP and ask the user for a feature branch name.
 2. **Clean tree**: Run `git status --short`. If unrelated uncommitted changes exist, surface them and ask user how to handle before starting.
-3. **Test baseline**: Run the full test suite once. If red: STOP — auto-push will not commit on top of a broken baseline.
+3. **Test baseline**: Run the full test suite once, through `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`, so `/build`'s baseline on the same tree reuses it. If red: STOP — auto-push will not commit on top of a broken baseline.
 
 If any pre-flight check fails, STOP. Do not proceed past unresolved guards.
 
