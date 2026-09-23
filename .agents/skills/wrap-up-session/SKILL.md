@@ -806,9 +806,10 @@ re-entry is spent ends the run `partial` (`mark-draft`).
 
 **No target applies, or `--skip-deploy` was passed**: report `deploy: n/a`
 with a one-line reason — `--skip-deploy`, no `## Deployment Targets`
-section, or signal files found under `tasks/deployments/*.md` naming
-`/setup-deployment` — recorded in the Done report as `Deployments: not
-applicable — <reason>`.
+section, or no row matching the pushed branch — recorded in the Done report
+as `Deployments: not applicable — <reason>`. With no section, also scan
+`tasks/deployments/*.md` for signal files; when any exist, nudge the user to
+run `/setup-deployment`.
 
 ---
 
@@ -931,8 +932,10 @@ Session wrapped up.
 - Unattended PR assertion: [PASS / FAILED — no PR, reason / N/A — interactive]
 ```
 
-The `Closure:` line quotes `closure.py`'s terminal line — its `state=` and
-`reason=` fields — rather than restating them in prose, so the report
+The `Closure:` line quotes `closure.py`'s terminal line — its `state=`,
+`reason=` and, on a partial run, `draft=` fields (`draft=failed` or
+`draft=none` means the PR was not drafted; say so) — rather than restating
+them in prose, so the report
 cannot drift from what the engine actually decided. When `closure.py`
 itself fails after the push (a crash, not a `terminal partial` line), the
 commit and PR still exist; report `Closure: partial — closure engine
