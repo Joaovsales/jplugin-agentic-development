@@ -327,10 +327,12 @@ assert_contains "$taxonomy" "Finding Model" \
 # --- Tier 2 (M2): four-axis findings in the finding model and both review skills -----
 # Each axis, enum value, and confidence anchor is pinned as its own token. A
 # dropped enum value is exactly what would let an unsure finding auto-apply, and
-# it is invisible in a whole-block snapshot.
+# it is invisible in a whole-block snapshot. `wrap-up-session` is not among them
+# since #188: it dispatches no reviewer of its own and applies no finding, so it
+# defines none of this machinery -- `/quality-gate` is the one place a finding
+# is classified.
 for f in .agents/references/finding-model.md \
          .agents/skills/quality-gate/SKILL.md \
-         .agents/skills/wrap-up-session/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do
   flat="$(flatten "$f")"
   for axis in severity confidence autofix_class owner; do
@@ -355,10 +357,12 @@ for f in .agents/references/finding-model.md \
     "M2: $f takes the more conservative autofix_class on disagreement"
 done
 
-# Both review skills must disclose whether their passes were dispatched or ran
-# inline, and must not promote on same-context agreement.
-for f in .agents/skills/quality-gate/SKILL.md \
-         .agents/skills/wrap-up-session/SKILL.md; do
+# /quality-gate must disclose whether its passes were dispatched or ran inline,
+# and must not promote on same-context agreement. `wrap-up-session` carries no
+# Dispatch Disclosure requirement of its own since #188 -- it reuses the gate's
+# receipt rather than running a review pass, so there is nothing here for it to
+# disclose.
+for f in .agents/skills/quality-gate/SKILL.md; do
   assert_file_contains "$f" "Dispatch Disclosure" \
     "M1: $f carries a Dispatch Disclosure requirement"
   assert_file_contains "$f" "Review independence:" \
@@ -1312,5 +1316,40 @@ assert_contains "$OUTPUT_QG" "Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx
   "quality receipt: the Output block carries the Receipt line"
 assert_contains "$OUTPUT_QG" "Receipt: none — <receipt.py stderr>" \
   "quality receipt: the Output block carries the refusal form"
+
+# --- no wrap-up reviewer: wrap-up dispatches no reviewer of its own ----------
+# specs/quality-receipt-closure.md AC7. Before #188, wrap-up ran 4 dispatched
+# review passes (Step 4) plus an inline /security-scan (Step 3.5). Both are
+# gone: /quality-gate is the one review pass per diff, and wrap-up only checks
+# its receipt.
+flat_wrap="$(flatten "$WRAP_SKILL")"
+# Targets the dispatch machinery itself, not the disclaimer sentence in Step 4
+# that names these personas on purpose to say wrap-up dispatches none of them.
+for token in "Review Payload" "Parallel Code Review" "Dispatch Disclosure" \
+             "Finding Classification" "Agent assignments:"; do
+  assert_not_contains "$flat_wrap" "$token" \
+    "no wrap-up reviewer: $WRAP_SKILL no longer carries '$token'"
+done
+assert_file_not_matches "$WRAP_SKILL" '^### Pass [0-9]' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer defines its own review passes"
+assert_file_not_matches "$WRAP_SKILL" '^## Step 3\.5' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 3.5 security scan"
+assert_file_not_matches "$WRAP_SKILL" '^## Step 5 —' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 5 apply-and-reconcile"
+
+# --- receipt check: wrap-up's Step 4 reuses the gate's receipt --------------
+# specs/quality-receipt-closure.md AC8. On `valid` it reuses the receipt; on
+# `diff-changed` it re-enters the gate at delta scope with --parent; on any
+# other stale reason, at full scope, once. It approves a HOLD only after a
+# human answer in an interactive run, and never on an unattended one.
+WRAP_STEP4="$(wrap_section "## Step 4 — Quality Gate Receipt")"
+for token in "receipt.py check" "diff-changed" "--scope <delta paths> --parent <fp>" \
+             "at full scope" "Quality receipt:" "receipt.py approve --fingerprint" \
+             "Interactive run" "Unattended run" "never approves" "Step 8.5"; do
+  assert_contains "$WRAP_STEP4" "$token" \
+    "receipt check: /wrap-up-session Step 4 names '$token'"
+done
+assert_contains "$WRAP_STEP4" "Never call \`/quality-gate\` a second time on an unchanged tree." \
+  "receipt check: /wrap-up-session Step 4 runs no second gate on the same tree"
 
 finish

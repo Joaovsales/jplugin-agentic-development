@@ -20,7 +20,7 @@
 ```
 Layer 1 — Per-task in /build       spec compliance check (inline) + tests pass
 Layer 2 — Post-build quality-gate  structural quality · AI anti-patterns · APOSD design
-Layer 3 — Pre-push in /wrap-up     consistency, defensive audit, coverage, adversarial critic
+Layer 3 — Pre-push in /wrap-up     quality receipt check (re-enter the gate on a stale diff), full suite, closure loop
 ```
 
 Every finding any layer emits carries the four axes of the *Finding Model* — `severity`, `confidence`, `autofix_class`, `owner` — and is auto-applied only when `gated_auto` at `confidence >= 75`; the emission format, anchors, gates and Independence Accounting are `.agents/references/finding-model.md`. Every reviewer dispatch carries the seven items of `.agents/references/review-dispatch-contract.md` § *The seven items*, stating `deferrals: none` and `no spec — <reason>` when an item is empty, and shares intent while withholding conclusions.
