@@ -848,7 +848,6 @@ for f in "$WU"; do
   LINE_REG="$(grep -n '^## Step 2 ' "$f" | cut -d: -f1)"
   LINE_REC="$(grep -n '^## Step 3.2 ' "$f" | cut -d: -f1)"
   LINE_MAP="$(grep -n '^## Step 3.3 ' "$f" | cut -d: -f1)"
-  LINE_SEC="$(grep -n '^## Step 3.5 ' "$f" | cut -d: -f1)"
   LINE_REV="$(grep -n '^## Step 4 ' "$f" | cut -d: -f1)"
   LINE_TEST="$(grep -n '^## Step 6 ' "$f" | cut -d: -f1)"
   LINE_PUSH="$(grep -n '^## Step 7 ' "$f" | cut -d: -f1)"
@@ -856,10 +855,10 @@ for f in "$WU"; do
     "placement ($f): reconciliation runs AFTER the task register"
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_MAP" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE verification-map maintenance"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_SEC" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE the security scan"
+  # Step 3.5 (the inline security scan) is gone since #188 -- the gate's own
+  # phase 3 owns that check now, so there is no anchor left to test against.
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_REV" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE code review"
+    "placement ($f): reconciliation runs BEFORE the quality receipt check"
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_TEST" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE the test run"
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_PUSH" ] && echo before || echo after)" \
@@ -886,16 +885,9 @@ assert_prose_contains .agents/references/review-dispatch-contract.md 'Every spec
   "contract: item 2 carries every relevant spec, not a single one"
 assert_prose_contains .agents/references/review-dispatch-contract.md 'each spec' \
   "contract: acceptance criteria are per-spec, so a reviewer can tell them apart"
-for f in "$WU"; do
-  assert_prose_contains "$f" 'Every spec relevant to this session' \
-    "payload ($f): the review payload assembles every relevant spec"
-  assert_prose_contains "$f" 'reconciled this session' \
-    "payload ($f): reconciled specs are named as part of the payload"
-  # The boundary must survive the generalization. Handing a reviewer more specs
-  # without it invites a re-review of every pre-existing spec in the tree.
-  assert_prose_contains "$f" 'issues **introduced** by this session' \
-    "payload ($f): the introduced-this-session boundary is retained"
-done
+# wrap-up itself no longer assembles a Review Payload (#188): it dispatches no
+# reviewer and reuses the quality-gate's receipt instead, so the payload rules
+# above are exercised only at the gate's own dispatch site, not here.
 
 # Deferred tasks reach the PR body, where reviewers actually look.
 for f in "$WU"; do

@@ -320,13 +320,6 @@ review, and tests so any verification-map edits are included in every gate.
 
 ---
 
-## Step 3.5 — Security Scan
-
-Run `/security-scan` on files changed this session (`git diff --name-only <base-branch>...HEAD`).
-Address any MUST-FIX findings before proceeding to commit.
-
----
-
 ## Step 3.7 — Shortcut Ledger
 
 `AGENTS.md` § *Code Economy* marks deliberate shortcuts with `TODO(shortcut):`
@@ -349,172 +342,39 @@ documents in `tasks/solutions/`.
 
 ---
 
-## Step 4 — Code Review (4 passes)
+## Step 4 — Quality Gate Receipt
 
-Run the 4 review passes. For each pass:
-- Use `git diff --name-only <base-branch>...HEAD` to scope to changed files
-- Focus on issues **introduced** by this session, not pre-existing patterns
-- Classify every finding on all four axes below
+`/quality-gate` is the one review pass per diff (AGENTS.md § Review Gate
+Taxonomy, Layer 3). Wrap-up dispatches no `code-reviewer`, `critic`,
+`security-reviewer` or `software-design-expert-review`, and runs no
+`/security-scan` — it reuses the gate's receipt instead of re-reviewing the
+same tree.
 
-### Review Payload
-
-Every dispatched pass carries all seven items in `.agents/references/review-dispatch-contract.md`. Assemble once, reuse for all four — they differ by lens, not by input:
-
-1. The `<base-branch>...HEAD` diff (truncated-plus-path per *Large-Artifact Handoff* if large)
-2. **Every spec relevant to this session** — the session spec plus every spec
-   reconciled this session in Step 3.2 — each with its path and its own
-   acceptance criteria verbatim, checkbox state stripped; or `no spec — <reason>`
-3. The `tasks/todo.md` entries closed this session
-4. The `[AMBIGUITY]` batch `/build` surfaced — or `deferrals: none`
-5. The `TODO(shortcut):` markers from Step 3.7 touching changed files — or `deferrals: none`
-6. The boundary from the bullets above, stated **to the agent**, not just here
-7. The four-axis format from *Finding Classification* below
-
-**Item 7 is read, not remembered.** Before dispatching, resolve `finding-model.md` in
-order — the project's `.agents/references/`, then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`
-on Claude Code (the skill body and the reference then come from the same plugin version),
-then `~/.agents/references/` on Pi and Codex — and paste its § *Emission format* into the
-prompt verbatim. When all three are missing, stop before dispatch:
-`review dispatch refused: finding-model.md not found in .agents/references/, ${CLAUDE_PLUGIN_ROOT}/.agents/references/, ~/.agents/references/ — run /sync`. Never dispatch a reviewer with no output format.
-
-Pass the intent, not the conclusions: no builder rationale, and never one pass's
-findings to another. Both would import the priors *Independence Accounting* exists
-to keep out, and the promotion in *Dispatch Disclosure* would then count an echo as
-a witness.
-
-### Dispatch Disclosure
-
-These 4 passes run either as separately dispatched agents (see *Claude Code
-Enhancements*) or sequentially inline in this context. **The output must state
-which**, because it decides what the passes' agreement is worth:
-
-| How they ran | Disclosure | Promotion |
-|-------------|-----------|-----------|
-| 4 dispatched agents | `dispatched` | Two passes independently finding the same defect is corroboration: promote `confidence` by exactly one anchor. |
-| Sequentially inline | `inline` | **No promotion.** Four lenses in one context share its priors and blind spots, so agreement is one perspective repeated. Name the corroboration lost. |
-
-Per `.agents/references/finding-model.md` § *Independence Accounting*, same-context agreement is never
-promotion evidence. An inline run is complete and still applies findings under
-5.1 — it simply may not report a promoted confidence, and must say so. Record the
-answer in the `Review independence:` line of the Done report.
-
-### Finding Classification
-
-Four orthogonal fields. Rationale lives in `.agents/references/finding-model.md`; the
-operational contract is here, where findings get enforced.
-
-| Field | Answers | Values |
-|-------|---------|--------|
-| `severity` | how urgent | `MUST-FIX` / `SHOULD-FIX` / `NITPICK` |
-| `confidence` | how sure | `50` / `75` / `100` |
-| `autofix_class` | what shape the fix is | `gated_auto` / `manual` / `advisory` |
-| `owner` | who acts | `agent` / `human` / `release` |
-
-| Severity | Definition |
-|----------|-----------|
-| `MUST-FIX` | Correctness, security, silent failures, data loss |
-| `SHOULD-FIX` | Quality, maintainability, coverage gaps |
-| `NITPICK` | Purely cosmetic — zero logic/behavior impact |
-
-`NITPICK` is ONLY for cosmetic issues. Any logic, architecture, or security finding is `SHOULD-FIX` or higher.
-
-**Confidence anchors** — behavioral criteria, not a feeling:
-
-| Anchor | Criterion |
-|--------|-----------|
-| `100` | You read the defect in the diff and can quote the line that proves it. Reproducible from the evidence alone. |
-| `75` | You located the defect and can cite the line, but correctness turns on a caller, config, or runtime value outside the reviewed scope. |
-| `50` | Pattern-matched or inferred. No line proves it, or you never read the path it depends on. |
-
-A finding at `75` or `100` **must** carry `evidence` — the verbatim motivating
-line with `file:line`. Missing evidence **demotes** it to `50`; the finding
-survives, its authority does not.
-
-**Output format for each finding**:
-```
-[MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent] file.py:42 — Description and impact
-  evidence: `except Exception: pass` (file.py:42)
-[SHOULD-FIX | confidence: 75 | autofix_class: manual | owner: human] handler.py:120 — Description and impact. Correctness turns on `settings.CACHE_TTL`.
-  depends-on: `settings.CACHE_TTL` — set at deploy time, not readable from the tree
-  evidence: `return cached or {}` (handler.py:120)
-[NITPICK | confidence: 50 | autofix_class: advisory | owner: human] utils.py:30 — Description
+```bash
+python3 .agents/skills/quality-gate/scripts/receipt.py check
 ```
 
-### Pass 1: Codebase Consistency
-- Duplicated logic that already exists elsewhere in the codebase
-- Inconsistencies where the same fix should be applied in similar locations
-- Missed opportunities to reuse existing utilities
+| Result | Action |
+|--------|--------|
+| `receipt: valid <GO\|HOLD-approved> <fp8> policy <v>` | Reuse it. Quote `Quality receipt: <verdict> · <fp8> · policy <v>` for the PR body |
+| `receipt: stale diff-changed parent <fp> delta <path> ...` | Invoke `/quality-gate --scope <delta paths> --parent <fp>` **once** |
+| any other `receipt: stale <reason>` | Invoke `/quality-gate` **once** at full scope |
 
-### Pass 2: Defensive Code Audit
-- Silent exception swallowing or overly broad catch blocks
-- Fallback values that mask real errors
-- Null-safe chains hiding broken assumptions
-- Patterns that make production debugging harder
+Never call `/quality-gate` a second time on an unchanged tree. After a re-entry
+above, run `receipt.py check` again and read that second result — not the
+gate's own report — as the source of truth:
 
-### Pass 3: Test Coverage
-- Changed code paths that lack test coverage
-- Missing edge case tests, error path tests, boundary conditions
-- Existing tests that no longer align with changed behavior
+| Second check | Action |
+|--------------|--------|
+| `valid GO` or `valid HOLD-approved` | Proceed to Step 5.5 |
+| `valid HOLD` (not yet approved) | **Interactive run**: ask the human to approve. A yes runs `receipt.py approve --fingerprint <fp> --by "$(git config user.name)"`, then re-checks. **Unattended run** (a routine branch, or a caller declaring Step 8.5 unattended): never approves |
+| a `stale <reason>`, a `STOP` verdict, `Receipt: none`, or any other second stale result | STOP wrap-up: report the reason, commit nothing. Run Step 8.5 before ending |
 
-### Pass 4: Adversarial Critic
-- Read the specs touched this session and every AC
-- Ask "what AC is this missing?" and "what user-facing behavior would break?"
-- Hunt for: response-shape mismatches, declared-done-without-e2e patterns, duplicate todo blocks
-- Check API contract changes against any clients (frontend, tests, docs)
-
----
-
-## Step 5 — Reconcile & Apply Fixes
-
-### 5.1 — Apply Gate (Enforcement)
-
-Enforcement is keyed on the **combination** of `severity`, `autofix_class`, and
-`confidence` — not on severity alone. Severity says how much the finding matters;
-`autofix_class` and `confidence` say whether this loop has earned the right to
-edit code over it.
-
-| Severity | `autofix_class` + `confidence` | Action |
-|----------|-------------------------------|--------|
-| `MUST-FIX` | `gated_auto` **and** `confidence >= 75` | Auto-apply in the fix loop. |
-| `MUST-FIX` | `manual` or `advisory`, `confidence >= 75` | Cannot be auto-applied — and cannot be skipped. Fix it deliberately, one finding at a time, and record the diff in 5.2. If it cannot be fixed here, it reaches Step 7 unresolved and **STOPS the commit**. |
-| `MUST-FIX` | `confidence` `50` | **Verify it first — do not fix it and do not block on it.** Read the path the finding depends on. Evidence found → it is now `75`+ and takes the row above. Refuted → record the refutation in 5.2 and drop it. |
-| `SHOULD-FIX` | `gated_auto` **and** `confidence >= 75` | Apply by default. |
-| `SHOULD-FIX` | anything else | Report. May skip ≤3 total with code-specific justification. |
-| `NITPICK` | any | Auto-skip. |
-
-Overriding rules:
-
-- **Never auto-apply at `confidence` `50`.** An unproven fix costs more than an
-  unfixed finding: it edits code on a guess and consumes the review budget that
-  would have proven it.
-- **`owner: human` or `owner: release` is never auto-applied**, at any severity or
-  confidence. It is carried to the Done report under that owner.
-- **A finding arriving with no `confidence`** — an older single-axis reviewer —
-  is read as `50` / `autofix_class: manual`: reported, never auto-applied, never
-  discarded. No reviewer output is thrown away for failing to use this schema.
-- **On disagreement between passes**, synthesis takes the **more conservative**
-  `autofix_class` (`advisory` > `manual` > `gated_auto` in conservatism) and the
-  **higher** severity. It never widens. Two passes disagreeing is information
-  about uncertainty, not a vote to be averaged.
-- **Do not downgrade a finding to clear the gate.** Reclassifying a `MUST-FIX` as
-  `NITPICK`, or dropping a `confidence` to make it reportable rather than
-  fixable, defeats the entire mechanism. If it must be resolved and cannot be,
-  STOP — via Step 8.5.
-
-### 5.2 — Review Reconciliation Table
-
-After processing all findings (skip if total findings ≤ 3):
-
-```markdown
-### Review Reconciliation
-
-| # | Pass | Severity | Confidence | Autofix class | Owner | Finding | Action | Justification |
-|---|------|----------|-----------|---------------|-------|---------|--------|---------------|
-```
-
-### 5.3 — Review-Fix-Recheck Loop (max 2 iterations)
-
-After applying fixes, re-check only modified files. If new issues found: apply fixes (iteration 2). Stop after iteration 2.
+Spec reconciliation (Step 3.2) still runs before this step, so a reconciled
+spec is part of the tree the gate reviewed. Step 6's full suite still runs
+unconditionally through `cached-suite.sh` — the receipt's `tests` field is
+evidence the gate already recorded, not a substitute for wrap-up's own
+pre-push run.
 
 ---
 
@@ -589,11 +449,10 @@ is internal-only.
 
 ### Code Review Gate
 
-| Review Status | Action |
-|---------------|--------|
-| All MUST-FIX resolved AND ≤3 SHOULD-FIX skipped | Proceed |
-| Any MUST-FIX unresolved — skipped, or held back by the Apply Gate and not fixed deliberately | STOP — ask user for explicit approval, then Step 8.5 |
-| More than 3 SHOULD-FIX skipped | STOP — present skipped items, ask for approval, then Step 8.5 |
+Step 4's quality receipt is the gate: reaching Step 7 already means it read
+`valid GO` or `valid HOLD-approved`. Any other result stopped at Step 4 and
+routed through Step 8.5 before this step could run, so there is nothing further
+to check here.
 
 ### Commit & Push
 
@@ -856,7 +715,7 @@ legitimate outcome:
 |---|---|
 | No changes detected | Step 0 |
 | Tests still failing after 2 fix attempts | Step 6 |
-| Unresolved MUST-FIX | Step 5 |
+| The quality receipt is not GO or approved HOLD | Step 4 |
 | The push gate refused | Step 7 |
 | The local record could not be written | Step 3.2 |
 | A `blocked` maintainer outcome | Step 3.3 |
@@ -876,13 +735,7 @@ Session wrapped up.
 - Learnings: [N patterns / none]
 - Tasks: [X completed, Y pending]
 - Bugs: [N opened, N closed / no changes]
-- Code Review: [PASS / INCOMPLETE — N unresolved issues]
-  - Review independence: [4 passes dispatched / inline — no promotion; lost corroboration: <what>]
-  - MUST-FIX: [N found, N auto-applied, N fixed deliberately, N unresolved]
-  - SHOULD-FIX: [N found, N applied, N skipped]
-  - NITPICK: [N found, skipped]
-  - Reported, not applied: [N — with autofix_class and owner, or none]
-- Security Scan: [PASS / N issues addressed]
+- Quality receipt: [<verdict> · <fp8> · policy <v> — reused / <verdict> · <fp8> · policy <v> — re-entered at <full|delta> scope]
 - Tests: [PASS — suite name] or [FAIL] or [SKIPPED — no suite]
 - E2E coverage: [N user-facing ACs verified / NONE / GAP — N acknowledged]
 - Routine: [<name> #N — S steps, K skipped / none — not a routine branch]
@@ -892,31 +745,3 @@ Session wrapped up.
 - Unattended PR assertion: [PASS / FAILED — no PR, reason / N/A — interactive]
 ```
 
-## Claude Code Enhancements
-
-### Step 4 — Parallel Code Review
-Launch all 4 review passes as parallel agents in a SINGLE message with multiple Agent tool calls.
-
-`code-reviewer` and `critic` are **Ceiling** tier (`.agents/references/model-routing.md`):
-pass **no** `model` parameter so each inherits the session model. `critic` is the one exception: it carries a **planner floor**, so pass the planner
-alias when the session model is below planner tier and omit `model` otherwise. Pinning them
-downgrades the highest-stakes review for exactly the users running a stronger
-model.
-
-This path is what makes the 4 passes separately dispatched contexts, so it is the
-only path that licenses confidence promotion. Record it as `dispatched` and
-disclose it per *Dispatch Disclosure*.
-
-Every one of the four calls carries the *Review Payload* assembled in Step 4, which
-implements `.agents/references/review-dispatch-contract.md` — including its `deferrals: none`
-and `no spec — <reason>` markers, which are stated even when there is nothing to state.
-Identical input, different lens —
-identical input, different lens. A pass dispatched without it reviews the diff
-against its own priors about what code should look like, which is where
-re-litigated shortcuts come from.
-
-Agent assignments:
-- Agent 1: `code-reviewer` — Codebase Consistency (Pass 1)
-- Agent 2: `code-reviewer` — Defensive Code Audit (Pass 2)
-- Agent 3: `code-reviewer` — Test Coverage (Pass 3)
-- Agent 4: `critic` — Adversarial Critic (Pass 4)
