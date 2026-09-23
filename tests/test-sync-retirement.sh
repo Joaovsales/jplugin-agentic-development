@@ -944,7 +944,7 @@ assert_file_contains "$P13B/.claude/project.md" "project config" \
 assert_eq "present" "$([ -f "$P13B/.claude/sync-keep" ] && echo present || echo gone)" \
   "the allowlist itself survives"
 
-# The seven real roots (six live, one retired) still parse — the constraint must not break the tool.
+# The nine real roots (seven live, two retired — .claude/skills/ and .claude/hooks/) still parse — the constraint must not break the tool.
 run_retire --repo "$P13B" --from-dir "$T13B" >/dev/null 2>&1
 REAL_ROOTS="$("$TEST_PYTHON" - <<'PYX'
 import importlib.util, sys
@@ -954,7 +954,7 @@ live, retired = m.parse_syncable_roots(open(".agents/skills/sync/SKILL.md").read
 print(len(live) + len(retired))
 PYX
 )"
-assert_eq "7" "$REAL_ROOTS" "all seven real syncable roots still pass the constraint"
+assert_eq "9" "$REAL_ROOTS" "all nine real syncable roots still pass the constraint"
 
 # ============================== 14. allowlist entries that protect nothing
 #

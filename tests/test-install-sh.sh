@@ -142,7 +142,10 @@ run_install() {
   printf 'name: %s\n' "$USER_SKILL" > "$home/.claude/skills/$USER_SKILL/SKILL.md"
   # SAFE_PATH carries no Python; the stale-copy step (Case 9) edits
   # ~/.claude/settings.json through python3, so the sandbox gets the suite's.
-  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$TEST_PYTHON" > "$sandbox/bin/python3"
+  # Resolved to an absolute path first: on Linux TEST_PYTHON is the bare name
+  # `python3`, and a shim that exec'd it by name would find itself on the
+  # sandbox PATH and re-exec forever — CI hung on that until its 15-minute cap.
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$(command -v "$TEST_PYTHON")" > "$sandbox/bin/python3"
   chmod +x "$sandbox/bin/python3"
   [ "$with_claude" = "1" ] && make_claude_stub "$sandbox/bin"
   # Empty confirm means a closed stdin (true EOF), not a blank line.
