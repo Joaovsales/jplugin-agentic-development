@@ -1361,4 +1361,60 @@ assert_contains "$WRAP_STEP4" "receipt.py fingerprint" \
 assert_not_contains "$WRAP_STEP4" "\`valid HOLD\` (not yet approved)" \
   "receipt check: /wrap-up-session Step 4 names no 'valid HOLD' line receipt.py never prints"
 
+# --- closure PR: Step 7 is rewritten around the closure engine -------------
+# specs/quality-receipt-closure.md AC9. From Step 4 on, wrap-up performs the
+# actions closure.py step prints, with its state file under the git common
+# dir, never --no-verify, and the PR body carries the receipt line and a
+# Closure section while still passing the linkage check.
+STEP7="$(wrap_section "## Step 7 — Commit & Push")"
+for token in "closure.py step" "git-common-dir" "action <name>" "terminal"; do
+  assert_contains "$STEP7" "$token" "closure PR: Step 7 names '$token'"
+done
+assert_contains "$flat_wrap" "closure/<sanitized branch>.json" \
+  "closure PR: the closure state path lives under the git common dir"
+assert_not_contains "$flat_wrap" "--no-verify" \
+  "closure PR: wrap-up commits never pass --no-verify"
+assert_contains "$flat_wrap" "the \`Quality receipt: <verdict> · <fp8> · policy <v>\` line" \
+  "closure PR: the PR body carries the Quality receipt line from Step 4"
+assert_contains "$flat_wrap" "a \`## Closure\` section" \
+  "closure PR: the PR body carries a ## Closure section"
+PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^### Push Failure Handling/{exit} f' "$WRAP_SKILL")"
+assert_contains "$PR_SECTION" "pr_linkage.py" \
+  "closure PR: the PR section still runs the linkage check"
+assert_contains "$PR_SECTION" "pr-sync" \
+  "closure PR: the pull-request section is the pr-sync action"
+
+# --- closure CI: mergeability, CI watch and bounded repair ------------------
+# specs/quality-receipt-closure.md AC10.
+CI_SECTION="$(wrap_section "#### CI Watch and Repair")"
+MERGE_SECTION="$(wrap_section "#### Mergeability")"
+assert_contains "$MERGE_SECTION" "gh pr view <n> --json mergeable" \
+  "closure CI: mergeability names 'gh pr view <n> --json mergeable'"
+for token in "gh pr checks <n> --watch --required" "run_in_background" \
+             "gh pr checks <n>" "30 minutes" "2-minute registration window" \
+             "gh run view <run-id> --log-failed" "/debug" "re-enters Step 4" "Step 6" \
+             "2 total" "closure repair"; do
+  assert_contains "$CI_SECTION" "$token" "closure CI: CI Watch and Repair names '$token'"
+done
+assert_contains "$flat_wrap" "no \`.github/workflows/*\` file triggers on \`pull_request\`" \
+  "closure CI: ci: none requires no pull_request-triggered workflow too"
+assert_contains "$flat_wrap" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
+  "closure CI: every repair commit adds a closure-repair Session Summary line"
+assert_contains "$flat_wrap" "introduces_summary" \
+  "closure CI: the repair-commit line is named against the pre-push hook's check"
+
+# --- closure conflicts: merge, never rebase, never force ---------------------
+# specs/quality-receipt-closure.md AC11.
+CONFLICT_SECTION="$(wrap_section "#### Conflict Repair")"
+for token in "git merge origin/<base>" "git merge origin/<branch>" \
+             "never \`rebase\`" "never \`--force\`" "git merge --abort" \
+             "merge: unresolved" "at most 1 round"; do
+  assert_contains "$CONFLICT_SECTION" "$token" "closure conflicts: Conflict Repair names '$token'"
+done
+assert_not_contains "$flat_wrap" "pull --rebase" \
+  "closure conflicts: wrap-up no longer resolves a non-fast-forward push with pull --rebase"
+PUSH_FAILURE="$(wrap_section "### Push Failure Handling")"
+assert_contains "$PUSH_FAILURE" "Conflict Repair" \
+  "closure conflicts: the non-fast-forward row routes to Conflict Repair"
+
 finish
