@@ -100,6 +100,11 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
   routine that never had that gate, and an absent gate leaves no trace in the
   diff a reviewer reads. The same list goes in the PR body (Step 7). Step lists
   are in `.agents/skills/wrap-up-session/references/routines.md` § *Step ledger*.
+- `tasks/history.md` and `tasks/todo.md` record only facts known **before**
+  the push (Decision 7). CI, conflict-repair and deployment outcomes are
+  decided after Step 7 pushes, so they are never written here — they land
+  only in the PR body's `## Closure` section and the Done report's
+  `Closure:` line (§ Done).
 - Append session summary with idempotency fingerprint (commit range short-SHAs)
   - **Resolve both endpoints to real short SHAs.** The pre-push wrap-up gate
     validates them as bare hex, so `HEAD` — the obvious thing to write in this
@@ -490,9 +495,9 @@ reports back:
 | `merge-base` | § Conflict Repair below | `merge: resolved\|unresolved` |
 | `watch-ci` | § CI Watch and Repair below | `ci: pass\|none\|fail\|timeout` |
 | `debug-ci` | § CI Watch and Repair below | `debug: fixed\|not-fixed` |
-| `verify-deploy` | Step 8 (see that step) | `deploy: pass\|n/a\|fail` |
-| `record-closure` | the Done report (see § Done) | `record: recorded\|record-failed` |
-| `mark-draft` | the Done report (see § Done) | `partial: drafted\|draft-failed\|no-pr` |
+| `verify-deploy` | Step 8 — Deployment Verification | `deploy: pass\|n/a\|fail` |
+| `record-closure` | § Done, *Recording the closure* | `record: recorded\|record-failed` |
+| `mark-draft` | § Done, *Marking a partial PR draft* | `partial: drafted\|draft-failed\|no-pr` |
 
 ### Code Review Gate
 
@@ -777,13 +782,33 @@ the register for repeated IDs before trusting it.
 
 ## Step 8 — Deployment Verification
 
-After push, verify deployment services if a `## Deployment Targets` section exists in `AGENTS.md` — or, until `/sync` moves it, still in `.claude/project.md`, which `/verify-evidence` reads second with a one-line notice (Claude Code only).
+The `verify-deploy` action, entered once `watch-ci` reports `ci: pass` or a
+registration-checked `ci: none`.
 
-Use `/verify-evidence --scope deployment` to poll, fetch logs on failure, and loop a `code-debugger` fix cycle up to 3 iterations.
+**A `## Deployment Targets` row applies to the pushed branch** — the section
+below the `AGENTS.md` end marker (or, until `/sync` moves it, still in
+`.claude/project.md`, which `/verify-evidence` reads second with a one-line
+notice, Claude Code only), matched by `^## Deployment Targets[[:space:]]*$`:
+run `/verify-evidence --scope deployment` to poll, fetch logs on failure, and
+loop a `code-debugger` fix cycle up to 3 iterations, and record its evidence.
 
-If `--skip-deploy` flag was passed: skip this step entirely.
+That skill may push its own fix commit, so compare the head it leaves
+against the head this loop pushed: `git rev-parse HEAD` differing from the
+pushed head is `head-moved: true`, matching it is `head-moved: false`.
+Report `deploy: pass` or `deploy: fail` with that flag.
 
-If no `## Deployment Targets` section: scan `tasks/deployments/*.md` for signal files. If found, nudge user to run `/setup-deployment`. If not found: skip silently.
+**Accepted exception.** `head-moved: true` re-enters Step 4
+(`check-receipt`) at most once — `closure.py` counts it in
+`deploy_reentries`. For the length of one deployment fix the remote holds a
+tree no receipt covers, and the very next action gates it, so the gap never
+outlives that single re-entry. A second `head-moved: true` after the
+re-entry is spent ends the run `partial` (`mark-draft`).
+
+**No target applies, or `--skip-deploy` was passed**: report `deploy: n/a`
+with a one-line reason — `--skip-deploy`, no `## Deployment Targets`
+section, or signal files found under `tasks/deployments/*.md` naming
+`/setup-deployment` — recorded in the Done report as `Deployments: not
+applicable — <reason>`.
 
 ---
 
@@ -858,6 +883,38 @@ convert a legitimate stop into a PR.
 
 ## Done
 
+### Recording the closure
+
+The `record-closure` action, entered once `deploy` reports `pass` (with
+`head-moved: false`) or `n/a`. Re-sync the PR body's `## Closure` section
+(§ *The Pull Request*) with every outcome the loop now knows — the CI
+result, conflict-repair rounds, the deployment result or its
+not-applicable reason, and the `Quality receipt:` line from Step 4,
+unchanged:
+
+```bash
+gh pr edit <n> --body-file <redrafted body>
+```
+
+Report `record: recorded` on success, `record: record-failed` when `gh`
+refuses. `tasks/history.md` and `tasks/todo.md` (Step 2) record only facts
+known before the push (Decision 7) — CI, conflict and deployment outcomes
+are never written there; they live only in the PR body's `## Closure`
+section and the `Closure:` line below.
+
+### Marking a partial PR draft
+
+The `mark-draft` action, entered on every non-`complete` end once a PR is
+open (`pr_open: true`):
+
+```bash
+gh pr ready <n> --undo
+```
+
+Report `partial: drafted` on success, `partial: draft-failed` when `gh`
+refuses, or `partial: no-pr` when no PR exists to draft. A partial run
+never leaves a ready PR behind.
+
 ```
 Session wrapped up.
 - Learnings: [N patterns / none]
@@ -869,7 +926,16 @@ Session wrapped up.
 - Routine: [<name> #N — S steps, K skipped / none — not a routine branch]
 - Pushed: [yes / no — reason]
 - PR: [#N opened / #N description re-synced — what changed / #N already accurate / #N linkage repaired — <refs> / none]
-- Deployments: [results or SKIPPED / NONE]
+- Deployments: [results / not applicable — <reason> / SKIPPED / NONE]
+- Closure: [complete / partial — <state, reason> / partial — closure engine failed]
 - Unattended PR assertion: [PASS / FAILED — no PR, reason / N/A — interactive]
 ```
+
+The `Closure:` line quotes `closure.py`'s terminal line — its `state=` and
+`reason=` fields — rather than restating them in prose, so the report
+cannot drift from what the engine actually decided. When `closure.py`
+itself fails after the push (a crash, not a `terminal partial` line), the
+commit and PR still exist; report `Closure: partial — closure engine
+failed` rather than waiting for a terminal line that will never print
+(§ *Failure unit*).
 
