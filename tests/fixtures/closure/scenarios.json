@@ -115,7 +115,8 @@
     "steps": [
       {"observe": {"receipt": "stale", "scope": "full"}, "expect": "action quality-gate scope=full"},
       {"observe": {"gate": "HOLD"}, "expect": "action approve-hold"},
-      {"observe": {"approve": "approved"}, "expect": "action run-suite"},
+      {"observe": {"approve": "approved"}, "expect": "action check-receipt"},
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
       {"observe": {"suite": "green"}, "expect": "action commit-push"},
       {"observe": {"push": "ok"}, "expect": "action pr-sync"},
       {"observe": {"pr": 31}, "expect": "action mergeability"},

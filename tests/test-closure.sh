@@ -58,7 +58,13 @@ run_case "receipt-hold" \
 printf '\n--- transitions: approve (an unapproved HOLD, Step 4) ---\n'
 run_case "approve-approved" \
   '{"phase":"approve","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
-  '{"approve":"approved"}' "action run-suite"
+  '{"approve":"approved"}' "action check-receipt"
+run_case "receipt-hold-after-approve-no-pr" \
+  '{"phase":"receipt","pr_open":false,"gated":false,"approved":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"receipt":"hold"}' "terminal stopped state=receipt reason=hold not approved after approve"
+run_case "receipt-hold-after-approve-pr-open" \
+  '{"phase":"receipt","pr_open":true,"gated":false,"approved":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"receipt":"hold"}' "action mark-draft reason=hold not approved after approve"
 run_case "approve-declined-no-pr" \
   '{"phase":"approve","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"approve":"declined"}' "terminal stopped state=approve reason=review HOLD"
@@ -260,9 +266,27 @@ for _end in stopped complete partial; do
   _out="$(step_on "$_life" '{"receipt":"valid"}')"
   assert_eq "action run-suite" "$_out" "lifecycle $_end: the next run starts at receipt"
   assert_eq "0 0 0 False False" \
-    "$("$PY" -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d["ci_rounds"],d["conflict_rounds"],d["deploy_reentries"],d["gated"],d["pr_open"])' "$_life")" \
+    "$("$PY" -c 'import json,sys;d=json.load(open(sys.argv[1]));print(d["ci_rounds"],d["conflict_rounds"],d["deploy_reentries"],d["gated"],d.get("approved",False))' "$_life")" \
     "lifecycle $_end: the next run starts with fresh counters"
+  # pr_open is a fact about GitHub, not about the run: an open PR stays open.
+  case "$_end" in stopped) _pr=False ;; *) _pr=True ;; esac
+  assert_eq "$_pr" "$("$PY" -c 'import json,sys;print(json.load(open(sys.argv[1]))["pr_open"])' "$_life")" \
+    "lifecycle $_end: the next run keeps pr_open"
 done
+
+# A re-run on a branch whose PR is still open drafts it on an early end.
+_life="$TMP/life_rerun.json"
+printf '%s' '{"phase":"done","pr_open":true,"gated":true,"ci_rounds":2,"conflict_rounds":1,"deploy_reentries":1}' > "$_life"
+step_on "$_life" '{"receipt":"valid"}' >/dev/null
+_out="$(step_on "$_life" '{"suite":"red"}')"
+assert_eq "action mark-draft reason=tests" "$_out" "lifecycle rerun: an early end with the PR still open marks it draft"
+
+# A tree-changing repair clears the approval with gated: a new tree needs its own.
+run_case "merge-resolved-clears-approved" \
+  '{"phase":"merge","pr_open":true,"gated":true,"approved":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"merge":"resolved"}' "action check-receipt"
+assert_eq "False" "$("$PY" -c 'import json,sys;print(json.load(open(sys.argv[1]))["approved"])' "$TMP/state_merge-resolved-clears-approved.json")" \
+  "merge-resolved-clears-approved: approved reset"
 
 _corrupt="$TMP/corrupt.json"
 printf '%s' '{"phase":' > "$_corrupt"

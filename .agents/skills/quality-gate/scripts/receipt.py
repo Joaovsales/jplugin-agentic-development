@@ -280,15 +280,15 @@ def receipt_path(fingerprint: str) -> str:
     return os.path.join(receipts_dir(), f"{fingerprint}.json")
 
 
-def _read_json(path: str, corrupt: Optional[Dict]) -> Optional[Dict]:
-    """A stored file's JSON, None when absent, `corrupt` when unparseable."""
+def _read_json(path: str, on_corrupt: Optional[Dict]) -> Optional[Dict]:
+    """A stored file's JSON, None when absent, `on_corrupt` when unparseable."""
     if not os.path.isfile(path):
         return None
     with open(path, "r") as handle:
         try:
             return json.load(handle)
         except json.JSONDecodeError:
-            return corrupt
+            return on_corrupt
 
 
 def load_receipt(fingerprint: str) -> Optional[Dict]:

@@ -17,14 +17,16 @@ The state file is created with the defaults below on first use, at
 path; this script only reads and writes whatever path it is given). Every
 terminal line writes `"phase": "done"`, and a `done` state loads as the
 defaults again, so the next `/wrap-up-session` on the branch starts a fresh
-run while an interrupted run resumes where it stopped:
+run while an interrupted run resumes where it stopped. `pr_open` survives the
+reset: it is a fact about the branch's PR, not about the run:
 
-    {"phase": "receipt", "pr_open": false, "gated": false,
+    {"phase": "receipt", "pr_open": false, "gated": false, "approved": false,
      "ci_rounds": 0, "conflict_rounds": 0, "deploy_reentries": 0}
 
 Bounds (Constraints row *Bounded closure*): 2 CI rounds, 1 conflict round, 1
 deployment re-entry, 1 gate run per tree (`gated`, reset whenever a
-tree-changing repair returns to `receipt` from `merge`, `repair` or `deploy`).
+tree-changing repair returns to `receipt` from `merge`, `repair` or `deploy`),
+1 HOLD approval per tree (`approved`, reset with `gated`).
 Reaching a bound turns the next repair into `mark-draft` instead of retrying.
 There is no global step budget (Decision C1): every cycle in the transition
 table consumes one of these counters (or `gated`, for the one-gate-run cycle),
@@ -69,6 +71,7 @@ DEFAULT_STATE = {
     "phase": "receipt",
     "pr_open": False,
     "gated": False,
+    "approved": False,
     "ci_rounds": 0,
     "conflict_rounds": 0,
     "deploy_reentries": 0,
@@ -91,7 +94,9 @@ def load_state(path: str) -> Dict[str, Any]:
             state = json.load(handle)
         except json.JSONDecodeError as exc:
             raise ClosureError(f"closure: state file {path} is not valid JSON ({exc}); delete it to start fresh")
-    return dict(DEFAULT_STATE) if state.get("phase") == "done" else state
+    if state.get("phase") != "done":
+        return state
+    return {**DEFAULT_STATE, "pr_open": state.get("pr_open", False)}
 
 
 def save_state(path: str, state: Dict[str, Any]) -> None:
@@ -140,7 +145,13 @@ _ALWAYS = lambda state: True  # noqa: E731
 def _rows() -> List[Any]:
     return [
         ("receipt", lambda o: o.get("receipt") == "valid", _ALWAYS, "suite"),
-        ("receipt", lambda o: o.get("receipt") == "hold", _ALWAYS, "approve"),
+        ("receipt", lambda o: o.get("receipt") == "hold", lambda s: not s.get("approved"), "approve"),
+        (
+            "receipt",
+            lambda o: o.get("receipt") == "hold",
+            lambda s: s.get("approved"),
+            "END:hold not approved after approve",
+        ),
         ("receipt", lambda o: o.get("receipt") == "stale", lambda s: not s["gated"], "gate"),
         (
             "receipt",
@@ -149,11 +160,17 @@ def _rows() -> List[Any]:
             "END:receipt not written after gate",
         ),
         ("gate", lambda o: o.get("gate") in ("GO", "HOLD-approved"), _ALWAYS, "receipt"),
-        ("gate", lambda o: o.get("gate") == "HOLD", _ALWAYS, "approve"),
+        ("gate", lambda o: o.get("gate") == "HOLD", lambda s: not s.get("approved"), "approve"),
+        (
+            "gate",
+            lambda o: o.get("gate") == "HOLD",
+            lambda s: s.get("approved"),
+            "END:hold not approved after approve",
+        ),
         ("gate", lambda o: o.get("gate") in ("STOP", "none"), _ALWAYS, "ENDF:gate"),
-        # Approval writes `hold_approved_by` into the receipt, so it is valid:
-        # straight on to the suite, no second check-receipt (and no cycle).
-        ("approve", lambda o: o.get("approve") == "approved", _ALWAYS, "suite"),
+        # receipt.py, not the caller, decides the approved receipt is valid:
+        # back to check-receipt, the cycle bounded by `approved`.
+        ("approve", lambda o: o.get("approve") == "approved", _ALWAYS, "receipt"),
         ("approve", lambda o: o.get("approve") == "declined", _ALWAYS, "END:review HOLD"),
         ("suite", lambda o: o.get("suite") == "green", _ALWAYS, "push"),
         ("suite", lambda o: o.get("suite") == "red", _ALWAYS, "END:tests"),
@@ -280,6 +297,8 @@ def _dispatch_action(to_phase: str, obs: Dict[str, Any], from_phase: str, state:
         state["pr_open"] = True
     if to_phase == "gate":
         state["gated"] = True
+    if to_phase == "approve":
+        state["approved"] = True
     return action_line(ACTION_BY_PHASE[to_phase], _action_args(to_phase, obs, from_phase))
 
 
@@ -293,6 +312,7 @@ def apply_row(row: Any, obs: Dict[str, Any], state: Dict[str, Any]) -> str:
         counter = to[len("RESET:") :]
         state[counter] = state[counter] + 1
         state["gated"] = False
+        state["approved"] = False
         return _dispatch_action("receipt", obs, from_phase, state)
     if to.startswith("END:"):
         reason, _, label = to[len("END:") :].partition(":")
@@ -340,8 +360,8 @@ def table() -> List[Dict[str, Any]]:
             rows.append({"phase": phase, "to": "receipt", "counter": to[len("RESET:") :]})
         elif to.startswith("END:") or to.startswith("ENDF:"):
             rows.append({"phase": phase, "to": "partial", "counter": None})
-        elif to == "gate":
-            rows.append({"phase": phase, "to": to, "counter": "gated"})
+        elif to in ("gate", "approve"):
+            rows.append({"phase": phase, "to": to, "counter": {"gate": "gated", "approve": "approved"}[to]})
         else:
             rows.append({"phase": phase, "to": to, "counter": None})
     return rows

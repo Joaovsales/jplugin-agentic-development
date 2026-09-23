@@ -380,7 +380,8 @@ gate's own report — as the source of truth:
 findings and ask the human to approve. A yes runs
 `receipt.py approve --fingerprint <fp> --by "$(git config user.name)"`, where
 `<fp>` is the third field `receipt.py fingerprint` prints (`check` prints no
-fingerprint on a stale line), and reports `approve: approved`; a no reports
+fingerprint on a stale line), and reports `approve: approved` once it exits 0
+— the engine then re-checks the receipt; a no reports
 `approve: declined`, which ends the run. **Unattended run** (a routine branch,
 or a caller declaring Step 8.5 unattended): never approves — it reports
 `approve: declined`, and the HOLD stops the run through Step 8.5.

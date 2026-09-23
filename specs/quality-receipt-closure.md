@@ -310,18 +310,19 @@ It is listed here because the illegal-states table above does not forbid it.
 
 "→ end(*r*)" means: while `pr_open` is false, `terminal stopped reason=r`; once a PR is
 open, `partial` (`mark-draft`) with reason *r*. Counters and flags are in the state file.
-A tree-changing return to `receipt` (from `merge`, `repair` or `deploy`) resets `gated`. Every terminal line writes `phase: done`, which the next run loads as a fresh state.
+A tree-changing return to `receipt` (from `merge`, `repair` or `deploy`) resets `gated`. Every terminal line writes `phase: done`, which the next run loads as a fresh state except `pr_open` (a fact about the PR, not the run). A tree-changing return also resets `approved`.
 
 | From | Observation | To (action printed) |
 |------|-------------|---------------------|
 | `receipt` | `receipt: valid` | `suite` (`run-suite`) |
-| `receipt` | `receipt: hold` (`check` printed `stale verdict HOLD`) | `approve` (`approve-hold`) |
+| `receipt` | `receipt: hold` (`check` printed `stale verdict HOLD`), `approved` false | `approve` (`approve-hold`); `approved` ← true |
+| `receipt` | `receipt: hold`, `approved` true | → end(`hold not approved after approve`) |
 | `receipt` | `receipt: stale`, `scope: delta\|full`, `gated` false | `gate` (`quality-gate scope=…`); `gated` ← true |
 | `receipt` | `receipt: stale`, `gated` true | → end(`receipt not written after gate`) |
 | `gate` | `gate: GO` or `gate: HOLD-approved` | `receipt` (`check-receipt`), which confirms the new receipt |
-| `gate` | `gate: HOLD` (not approved) | `approve` (`approve-hold`) |
+| `gate` | `gate: HOLD` (not approved) | `approve` (`approve-hold`), bounded by `approved` as above |
 | `gate` | `gate: STOP` or `gate: none` | → end(`review <verdict>`) |
-| `approve` | `approve: approved` (a human approved; the receipt is now valid) | `suite` (`run-suite`) |
+| `approve` | `approve: approved` (`receipt.py approve` exited 0) | `receipt` (`check-receipt`), which confirms the approval |
 | `approve` | `approve: declined` (a no, or any unattended run) | → end(`review HOLD`) |
 | `suite` | `suite: green` | `push` (`commit-push`) |
 | `suite` | `suite: red` (after Step 6's own 2 fix attempts) | → end(`tests`) |
