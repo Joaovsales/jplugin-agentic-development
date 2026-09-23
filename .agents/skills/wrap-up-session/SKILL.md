@@ -456,6 +456,44 @@ is internal-only.
 
 ## Step 7 — Commit & Push
 
+### The Closure Loop
+
+From Step 4 on, wrap-up does not decide what happens next by reading this
+skill top to bottom — it drives `closure.py`, the pure state machine behind
+this loop, and performs exactly the action it names, once per naming:
+
+```bash
+python3 .agents/skills/wrap-up-session/scripts/closure.py step \
+  --state "$(git rev-parse --path-format=absolute --git-common-dir)/closure/<sanitized branch>.json" \
+  --observe '<json observation of the last action>'
+# stdout: action <name> [key=value ...]  |  terminal <complete|partial|stopped> ...
+```
+
+Perform the named action, turn its result into the observation shape
+`closure.py`'s module docstring defines, feed that back on the next call, and
+repeat until a `terminal` line. The first call reports Step 4's
+`receipt.py check` result, since a fresh state starts in the `receipt` phase.
+`<sanitized branch>` is the current branch with every character outside
+`A-Za-z0-9_.-` replaced by `-`, the rule `receipt.py` uses for its branch
+pointer. This table maps
+each action to the step or section that performs it and the observation it
+reports back:
+
+| Action | Performed by | Reports |
+|--------|---------------|---------|
+| `check-receipt` | Step 4, `receipt.py check` | `receipt: valid` \| `receipt: stale`, `scope: delta\|full` |
+| `quality-gate` | Step 4, the `/quality-gate` re-entry | `gate: GO\|HOLD-approved\|HOLD\|STOP\|none` |
+| `run-suite` | Step 6, `cached-suite.sh` | `suite: green\|red\|blocked` |
+| `commit-push` | § Commit & Push below | `push: ok` \| `push: non-ff` \| `push: denied` |
+| `pr-sync` | § The Pull Request below | `pr: <n>` \| `pr: failed` |
+| `mergeability` | § Mergeability below | `mergeable: clean\|conflicting\|unknown` |
+| `merge-base` | § Conflict Repair below | `merge: resolved\|unresolved` |
+| `watch-ci` | § CI Watch and Repair below | `ci: pass\|none\|fail\|timeout` |
+| `debug-ci` | § CI Watch and Repair below | `debug: fixed\|not-fixed` |
+| `verify-deploy` | Step 8 (see that step) | `deploy: pass\|n/a\|fail` |
+| `record-closure` | the Done report (see § Done) | `record: recorded\|record-failed` |
+| `mark-draft` | the Done report (see § Done) | `partial: drafted\|draft-failed\|no-pr` |
+
 ### Code Review Gate
 
 Step 4's quality receipt is the gate: reaching Step 7 already means it read
@@ -465,20 +503,40 @@ to check here.
 
 ### Commit & Push
 
+The `commit-push` action. Hooks stay enabled for every commit this loop
+makes, here and in every repair commit — skipping them is never an option,
+because the hooks are the gate this whole loop exists to satisfy, not an
+obstacle to it.
+
 1. Stage changes: `git add -p` — stage only relevant changes
 2. Commit with type prefix: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 3. Append optional trailers: `Constraint:`, `Rejected:`, `Not-tested:`, `Confidence:`
 4. Push: `git push -u origin <branch>`
-5. Open or re-sync the pull request — see *The Pull Request* below. That section is the only description of PR creation in this skill, and Step 7.5 reaches the same one.
+5. Report the observation: `push: ok` on success; `push: non-ff` (with the
+   branch name) on a non-fast-forward rejection — the engine routes that to
+   *Conflict Repair* below, never to a rebase; `push: denied` on a permission
+   or branch-protection refusal
+6. On `push: ok`, open or re-sync the pull request — see *The Pull Request*
+   below. That section is the only description of PR creation in this skill,
+   and Step 7.5 reaches the same one.
 
 **Do not push if**: any test is failing, uncommitted changes unreviewed, MUST-FIX skipped.
 
 ### The Pull Request
 
-The single description of PR creation in this skill. Step 7 above and Step 7.5
-below both reach *here* rather than restating it — this action is irreversible
-and outward-facing, and it now carries a conditional (`--draft`) that would
-eventually be true in one copy and false in the other.
+The `pr-sync` action, and the single description of PR creation in this
+skill. Step 7 above and Step 7.5 below both reach *here* rather than
+restating it — this action is irreversible and outward-facing, and it now
+carries a conditional (`--draft`) that would eventually be true in one copy
+and false in the other. Report `pr: <n>` on success or `pr: failed` when
+`gh` is unreachable or the linkage check keeps refusing.
+
+The body carries the `Quality receipt: <verdict> · <fp8> · policy <v>` line
+Step 4 produced, and a `## Closure` section reporting what the loop has done
+so far — CI, mergeability and deployment outcomes belong there, never in
+`tasks/history.md` or `tasks/todo.md` (Decision 7). The linkage check below
+still reads the whole body, `## Closure` included, before every create or
+re-sync.
 
 #### What the branch tells you
 
@@ -603,12 +661,73 @@ This runs on **every** push to a branch with an open PR, including a
 line of the Done report — a sync step with no visible result is one that silently
 stops happening.
 
+#### Mergeability
+
+The `mergeability` action, run once the PR exists: `gh pr view <n> --json
+mergeable`. `MERGEABLE` reports `mergeable: clean`. `CONFLICTING` reports
+`mergeable: conflicting` with the PR's base branch, which the engine routes
+to *Conflict Repair* below. `UNKNOWN` is re-queried up to 3 times inside this
+action before it gives up and reports `mergeable: unknown` — GitHub has not
+finished computing it, not a real conflict. A branch that is merely behind
+its base (`mergeStateStatus: BEHIND`) is not a trigger (Decision 9): the
+`mergeable` field still reads `MERGEABLE`, and CI watch proceeds.
+
+#### CI Watch and Repair
+
+The `watch-ci` action: `gh pr checks <n> --watch --required` as a background
+task (`run_in_background` on Claude Code — never a foreground `sleep` or poll
+loop; wait for its completion notification like Step 6's suite). When the PR
+declares no required checks, watch all of them instead: `gh pr checks <n>
+--watch`. Budget 30 minutes; past it, report `ci: timeout`.
+
+The push just landed, so checks may not be registered yet. Give the push a
+2-minute registration window before deciding there are none: report `ci:
+none` only when that window saw no checks running **and** no
+`.github/workflows/*` file triggers on `pull_request`. Otherwise, no checks
+within the window is a `ci: timeout`, not a `ci: none` — a workflow that
+exists but is slow to start is still expected to run.
+
+All checks green (or none, per the rule above) reports `ci: pass`. A failing
+required check reports `ci: fail` with the failing check names.
+
+The `debug-ci` action runs on `ci: fail` with rounds left (2 total): fetch
+the failing run's log, `gh run view <run-id> --log-failed`, and hand it to
+`/debug`. The fix re-enters Step 4 (`check-receipt`) and Step 6 (`run-suite`)
+before the next push — the same gates every other commit passes, so a repair
+commit is never smuggled past the receipt or the suite. Report `debug: fixed`
+once the fix is committed — the engine then routes it through
+`check-receipt`, `run-suite` and `commit-push`, so this action never pushes
+itself — or `debug: not-fixed` when the round is
+spent without a passing push.
+
+**Every repair commit adds a `## Session Summary — <date> [<a>..<b>] —
+closure repair <n>` line to `tasks/todo.md` in that same commit.**
+`.agents/git-hooks/pre-push`'s `introduces_summary` check recognizes that
+line and counts the commit covered, so a CI repair never turns into an entry
+in `tasks/wrap-up-debt.md`.
+
+#### Conflict Repair
+
+The `merge-base` action, entered from a `push: non-ff` or a `mergeable:
+conflicting` observation, for at most 1 round: `git merge origin/<base>` (a
+conflicting mergeability) or `git merge origin/<branch>` (a non-fast-forward
+push) — **never `rebase`, never `--force` or `--force-with-lease`**. This
+repository does not rewrite history that may already be on someone else's
+machine (Constraint *No history rewrite*).
+
+Resolve every conflict and commit the merge; report `merge: resolved`, which
+re-enters Step 4 so the merged tree gets checked before the next push. A
+conflict that cannot be resolved in this round is aborted —
+`git merge --abort` — and reported as `merge: unresolved`, which ends the run
+(stopped while no PR exists, partial with the PR drafted after) rather than
+leaving a half-resolved merge in the tree.
+
 ### Push Failure Handling
 
 | Failure | Action |
 |---------|--------|
 | Network error | Retry up to 4 times with backoff (2s, 4s, 8s, 16s) |
-| Non-fast-forward | `git pull --rebase`, resolve conflicts, push again |
+| Non-fast-forward | Report `push: non-ff` to the closure loop, which merges (never rebases) the remote branch — see § Conflict Repair |
 | Permission denied | Report to user — do not retry |
 | Branch protection | Report to user — do not retry |
 
