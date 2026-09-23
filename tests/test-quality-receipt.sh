@@ -128,7 +128,6 @@ export GIT_COMMON_DIR_2="$(cd "$REPO2" && git rev-parse --path-format=absolute -
 
 make_outcome() { # make_outcome <file> <tree> <must-fix?> <should-fix-count> <design-verdict> <tests-exit> <scope-json> <verdict-lie>
   file="$1"; tree="$2"; mustfix="$3"; shouldfix="$4"; design="$5"; texit="$6"; scope="$7"; lie="$8"
-  findings="[]"
   entries=()
   if [ "$mustfix" = "yes" ]; then
     entries+=('{"severity":"MUST-FIX","confidence":100,"autofix_class":"manual","owner":"human","location":"x.py:1","summary":"bad"}')
@@ -429,5 +428,17 @@ assert_eq "3" "$CODE" "check: after a base merge plus a branch edit the tree is 
 assert_not_contains "$OUT" "base-only.txt" "check: the delta excludes a file only the base branch changed"
 assert_contains "$OUT" "delta feature.txt" "check: the delta still names the branch's own edit"
 assert_contains "$OUT" "receipt: stale diff-changed" "check: reports diff-changed after the base merge"
+
+# --- a fingerprint argument never names a path outside the store ----------
+REPO6="$BOX/repo6"
+new_repo "$REPO6"
+STORE6="$(cd "$REPO6" && git rev-parse --path-format=absolute --git-common-dir)/quality-receipts"
+mkdir -p "$STORE6"
+printf '{"verdict": "HOLD"}\n' > "$BOX/escape.json"
+ERR="$(cd "$REPO6" && receipt approve --fingerprint "../../../escape" --by mallory 2>&1 1>/dev/null)"
+CODE=$?
+assert_eq "2" "$CODE" "approve: a non-hex fingerprint exits 2"
+assert_contains "$ERR" "receipt: not a fingerprint" "approve: names the refused fingerprint"
+assert_file_not_matches "$BOX/escape.json" "mallory" "approve: never writes outside the receipt store"
 
 finish

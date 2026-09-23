@@ -32,7 +32,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -221,34 +220,34 @@ def validate_reviewer(reviewer: Dict, index: int) -> None:
     _require(reviewer.get("dispatch") in DISPATCHES, f"reviewers[{index}].dispatch: must be one of {DISPATCHES}")
 
 
-def validate_outcome(outcome: Dict, tree: str) -> None:
-    _require(isinstance(outcome, dict), "outcome is not an object")
-
-    reviewers = outcome.get("reviewers")
+def validate_reviewers(reviewers: object) -> None:
     _require(isinstance(reviewers, list) and len(reviewers) > 0, "reviewers: must be a non-empty list")
     for index, reviewer in enumerate(reviewers):
         validate_reviewer(reviewer, index)
     phases_present = {reviewer.get("phase") for reviewer in reviewers}
     _require({1, 2, 3, 4}.issubset(phases_present), "reviewers: phases 1-4 must each be present")
 
-    unresolved = outcome.get("unresolved", [])
-    _require(isinstance(unresolved, list), "unresolved: must be a list")
-    for index, finding in enumerate(unresolved):
-        validate_finding(finding, index)
 
-    _require(outcome.get("design_verdict") in VERDICTS, f"design_verdict: must be one of {VERDICTS}")
-
-    tests = outcome.get("tests")
+def validate_tests(tests: object, tree: str) -> None:
     _require(isinstance(tests, dict), "tests: must be an object")
     _require(isinstance(tests.get("command"), str) and tests["command"], "tests.command: required")
     _require(isinstance(tests.get("exit"), int), "tests.exit: required")
     _require(isinstance(tests.get("tree"), str) and tests["tree"], "tests.tree: required")
     _require(tests["tree"] == tree, "tests.tree: does not match the reviewed tree")
 
+
+def validate_outcome(outcome: Dict, tree: str) -> None:
+    _require(isinstance(outcome, dict), "outcome is not an object")
+    validate_reviewers(outcome.get("reviewers"))
+    unresolved = outcome.get("unresolved", [])
+    _require(isinstance(unresolved, list), "unresolved: must be a list")
+    for index, finding in enumerate(unresolved):
+        validate_finding(finding, index)
+    _require(outcome.get("design_verdict") in VERDICTS, f"design_verdict: must be one of {VERDICTS}")
+    validate_tests(outcome.get("tests"), tree)
     scope = outcome.get("scope")
-    is_full = scope == "full"
     is_delta = isinstance(scope, list) and len(scope) > 0
-    _require(is_full or is_delta, "scope: must be \"full\" or a non-empty path list")
+    _require(scope == "full" or is_delta, "scope: must be \"full\" or a non-empty path list")
 
 
 # --------------------------------------------------------------------------
@@ -269,8 +268,20 @@ def _atomic_write(path: str, payload: Dict) -> None:
         raise
 
 
+FINGERPRINT_PATTERN = re.compile(r"[0-9a-f]{64}")
+
+
+def receipt_path(fingerprint: str) -> str:
+    """The store path for a fingerprint; anything but 64 hex is refused, so a
+    caller-supplied `--parent` or `--fingerprint` can never name a path outside
+    the store."""
+    if not FINGERPRINT_PATTERN.fullmatch(fingerprint):
+        raise ReceiptError(f"not a fingerprint: {fingerprint}")
+    return os.path.join(receipts_dir(), f"{fingerprint}.json")
+
+
 def load_receipt(fingerprint: str) -> Optional[Dict]:
-    path = os.path.join(receipts_dir(), f"{fingerprint}.json")
+    path = receipt_path(fingerprint)
     if not os.path.isfile(path):
         return None
     with open(path, "r") as handle:
@@ -316,80 +327,86 @@ def chain_should_fix_carry(parent_fingerprint: Optional[str]) -> int:
     return total
 
 
-def derive_verdict(outcome: Dict, tree: str, parent: Optional[str]) -> Tuple[str, int]:
+def derive_verdict(outcome: Dict, parent: Optional[str]) -> str:
     unresolved = outcome.get("unresolved", [])
     should_fix = _should_fix_count(unresolved)
     if parent:
         should_fix += chain_should_fix_carry(parent)
 
     if _has_must_fix(unresolved) or outcome.get("design_verdict") == "STOP" or outcome["tests"]["exit"] != 0:
-        return "STOP", should_fix
+        return "STOP"
     if should_fix > 3 or outcome.get("design_verdict") == "HOLD":
-        return "HOLD", should_fix
-    return "GO", should_fix
+        return "HOLD"
+    return "GO"
 
 
 # --------------------------------------------------------------------------
 # write
 # --------------------------------------------------------------------------
 
-def cmd_write(args: argparse.Namespace) -> None:
-    if not os.path.isfile(args.outcome):
-        die(f"invalid outcome — file not found: {args.outcome}")
-    with open(args.outcome, "r") as handle:
+def load_outcome(path: str) -> Dict:
+    if not os.path.isfile(path):
+        raise ReceiptError(f"invalid outcome — file not found: {path}")
+    with open(path, "r") as handle:
         try:
-            outcome = json.load(handle)
+            return json.load(handle)
         except json.JSONDecodeError as exc:
-            die(f"invalid outcome — not valid JSON: {exc}")
+            raise ReceiptError(f"invalid outcome — not valid JSON: {exc}")
 
-    base, tree, fingerprint = compute_fingerprint(None)
 
-    try:
-        validate_outcome(outcome, tree)
-    except ReceiptError as exc:
-        die(str(exc))
-
-    scope = outcome["scope"]
+def validate_parent(scope: object, parent: Optional[str]) -> None:
     is_delta = isinstance(scope, list)
-    if is_delta and not args.parent:
-        die("invalid outcome — scope: a delta scope requires --parent")
-    if not is_delta and args.parent:
-        die("invalid outcome — scope: a full scope must not carry --parent")
-    if args.parent and load_receipt(args.parent) is None:
-        die(f"invalid outcome — parent: no stored receipt {args.parent}")
+    _require(not is_delta or bool(parent), "scope: a delta scope requires --parent")
+    _require(is_delta or not parent, "scope: a full scope must not carry --parent")
+    if parent and load_receipt(parent) is None:
+        raise ReceiptError(f"invalid outcome — parent: no stored receipt {parent}")
 
-    verdict, _ = derive_verdict(outcome, tree, args.parent)
-    policy = policy_hash()
-    head = _git("rev-parse", "HEAD") if _run(["git", "rev-parse", "--verify", "--quiet", "HEAD"]).returncode == 0 else ""
 
-    receipt = {
+def current_head() -> str:
+    has_head = _run(["git", "rev-parse", "--verify", "--quiet", "HEAD"]).returncode == 0
+    return _git("rev-parse", "HEAD") if has_head else ""
+
+
+def build_receipt(outcome: Dict, measured: Tuple[str, str, str], parent: Optional[str]) -> Dict:
+    base, tree, fingerprint = measured
+    return {
         "schema": SCHEMA,
         "fingerprint": fingerprint,
         "base": base,
-        "head": head,
+        "head": current_head(),
         "tree": tree,
-        "policy": policy,
-        "scope": scope,
-        "parent": args.parent,
+        "policy": policy_hash(),
+        "scope": outcome["scope"],
+        "parent": parent,
         "reviewers": outcome["reviewers"],
         "tests": outcome["tests"],
         "unresolved": outcome.get("unresolved", []),
         "design_verdict": outcome["design_verdict"],
-        "verdict": verdict,
+        "verdict": derive_verdict(outcome, parent),
         "hold_approved_by": None,
         "written_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
-    receipt_path = os.path.join(receipts_dir(), f"{fingerprint}.json")
-    _atomic_write(receipt_path, receipt)
-    _atomic_write(pointer_path(), {"fingerprint": fingerprint, "tree": tree, "base": base})
 
-    print(f"receipt: written {fingerprint[:8]} verdict {verdict} policy {policy}")
+def cmd_write(args: argparse.Namespace) -> None:
+    outcome = load_outcome(args.outcome)
+    measured = compute_fingerprint(None)
+    base, tree, fingerprint = measured
+    validate_outcome(outcome, tree)
+    validate_parent(outcome["scope"], args.parent)
+    receipt = build_receipt(outcome, measured, args.parent)
+    _atomic_write(receipt_path(fingerprint), receipt)
+    _atomic_write(pointer_path(), {"fingerprint": fingerprint, "tree": tree, "base": base})
+    print(f"receipt: written {fingerprint[:8]} verdict {receipt['verdict']} policy {receipt['policy']}")
 
 
 # --------------------------------------------------------------------------
 # check
 # --------------------------------------------------------------------------
+
+class Stale(Exception):
+    """`check`'s one non-valid outcome: printed as `receipt: stale <reason>`, exit 3."""
+
 
 def _link_valid(receipt: Dict, expected_policy: str) -> bool:
     if receipt.get("schema") != SCHEMA:
@@ -413,56 +430,45 @@ def _chain_valid(receipt: Dict, expected_policy: str) -> Tuple[bool, Optional[st
     return True, None
 
 
+def check_own_receipt(receipt: Dict, policy: str) -> str:
+    """The receipt stored for this exact fingerprint: its valid label, or Stale."""
+    if receipt.get("schema") != SCHEMA:
+        raise Stale("schema")
+    if receipt.get("policy") != policy:
+        raise Stale("policy-changed")
+    verdict = receipt.get("verdict")
+    if verdict == "STOP" or (verdict == "HOLD" and not receipt.get("hold_approved_by")):
+        raise Stale(f"verdict {verdict}")
+    valid, bad_fp = _chain_valid(receipt, policy)
+    if not valid:
+        raise Stale(f"parent-invalid {bad_fp}")
+    return "GO" if verdict == "GO" else "HOLD-approved"
+
+
+def stale_against_pointer(base: str, tree: str, policy: str) -> str:
+    """No receipt for this tree: `diff-changed` with the delta, or `missing`."""
+    pointer = load_pointer()
+    parent = load_receipt(pointer["fingerprint"]) if pointer else None
+    if parent is None or not _chain_valid(parent, policy)[0]:
+        return "missing"
+    ours = set(diff_paths(base, tree))
+    delta = [path for path in diff_paths(pointer["tree"], tree) if path in ours]
+    reason = f"diff-changed parent {pointer['fingerprint']}"
+    return f"{reason} delta {' '.join(delta)}" if delta else reason
+
+
 def cmd_check(args: argparse.Namespace) -> None:
     base, tree, fingerprint = compute_fingerprint(args.base)
     policy = policy_hash()
-
     receipt = load_receipt(fingerprint)
-    if receipt is not None:
-        if receipt.get("schema") != SCHEMA:
-            print(f"receipt: stale schema", file=sys.stdout)
-            sys.exit(3)
-        if receipt.get("policy") != policy:
-            print(f"receipt: stale policy-changed", file=sys.stdout)
-            sys.exit(3)
-        verdict = receipt.get("verdict")
-        if verdict == "STOP":
-            print("receipt: stale verdict STOP")
-            sys.exit(3)
-        if verdict == "HOLD" and not receipt.get("hold_approved_by"):
-            print("receipt: stale verdict HOLD")
-            sys.exit(3)
-        valid, bad_fp = _chain_valid(receipt, policy)
-        if not valid:
-            print(f"receipt: stale parent-invalid {bad_fp}")
-            sys.exit(3)
-        label = "GO" if verdict == "GO" else "HOLD-approved"
-        print(f"receipt: valid {label} {fingerprint[:8]} policy {policy}")
-        sys.exit(0)
-
-    pointer = load_pointer()
-    if pointer is None:
-        print("receipt: stale missing")
+    try:
+        if receipt is None:
+            raise Stale(stale_against_pointer(base, tree, policy))
+        label = check_own_receipt(receipt, policy)
+    except Stale as stale:
+        print(f"receipt: stale {stale}")
         sys.exit(3)
-
-    parent_receipt = load_receipt(pointer["fingerprint"])
-    if parent_receipt is None:
-        print("receipt: stale missing")
-        sys.exit(3)
-    chain_ok, _ = _chain_valid(parent_receipt, policy)
-    if not chain_ok:
-        print("receipt: stale missing")
-        sys.exit(3)
-
-    tree_delta = diff_paths(pointer["tree"], tree)
-    current_diff = diff_paths(base, tree)
-    delta = [path for path in tree_delta if path in set(current_diff)]
-
-    parts = [f"receipt: stale diff-changed parent {pointer['fingerprint']}"]
-    if delta:
-        parts.append("delta " + " ".join(delta))
-    print(" ".join(parts))
-    sys.exit(3)
+    print(f"receipt: valid {label} {fingerprint[:8]} policy {policy}")
 
 
 # --------------------------------------------------------------------------
@@ -472,13 +478,12 @@ def cmd_check(args: argparse.Namespace) -> None:
 def cmd_approve(args: argparse.Namespace) -> None:
     receipt = load_receipt(args.fingerprint)
     if receipt is None:
-        die(f"no such receipt {args.fingerprint}")
+        raise ReceiptError(f"no such receipt {args.fingerprint}")
     if receipt.get("verdict") != "HOLD":
-        die("only HOLD can be approved")
+        raise ReceiptError("only HOLD can be approved")
     receipt["hold_approved_by"] = args.by
-    _atomic_write(os.path.join(receipts_dir(), f"{args.fingerprint}.json"), receipt)
+    _atomic_write(receipt_path(args.fingerprint), receipt)
     print(f"receipt: approved {args.fingerprint[:8]} by {args.by}")
-
 
 # --------------------------------------------------------------------------
 # fingerprint
