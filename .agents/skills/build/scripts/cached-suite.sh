@@ -20,7 +20,10 @@
 # exits 3. A lock whose pid is no longer alive is reclaimed.
 #
 # Exit status: the command's own; 3 when another suite holds the lock; 2 on
-# usage or a working tree that cannot be hashed.
+# usage or a working tree that cannot be hashed. The command may exit 2 or 3
+# itself, so a caller tells a refusal apart by the `cached-suite:` line on
+# stderr, never by the status alone. A green run whose tree changed while it
+# ran is not recorded.
 set -uo pipefail
 
 die() { printf 'cached-suite: %s\n' "$1" >&2; exit 2; }
@@ -42,7 +45,10 @@ SCRATCH="$(mktemp -d "$STORE/tmp.XXXXXX")" || die "mktemp failed under $STORE"
 OWNS_LOCK=0
 cleanup() {
   rm -rf "$SCRATCH"
-  [ "$OWNS_LOCK" -eq 1 ] && rm -rf "$LOCK"
+  # Only the lock this process wrote: a reclaimer that raced us may own it now.
+  if [ "$OWNS_LOCK" -eq 1 ] && read -r owner _ < "$LOCK/owner" 2>/dev/null && [ "$owner" = "$$" ]; then
+    rm -rf "$LOCK"
+  fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -54,9 +60,12 @@ utc_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 # written through a copy of the index so the real one is never touched.
 working_tree_hash() {
   index="$(git rev-parse --path-format=absolute --git-path index)"
-  [ -f "$index" ] && cp "$index" "$SCRATCH/index"
+  # -p keeps the index's mtime, so git's racy-entry check still re-hashes
+  # files modified in the same second the index was written.
+  [ -f "$index" ] && cp -p "$index" "$SCRATCH/index"
   top="$(git rev-parse --show-toplevel)"
-  GIT_INDEX_FILE="$SCRATCH/index" git -C "$top" add -A 2>"$SCRATCH/add.err" \
+  # safecrlf off: a mixed-line-ending file must not make the tree unhashable.
+  GIT_INDEX_FILE="$SCRATCH/index" git -c core.safecrlf=false -C "$top" add -A 2>"$SCRATCH/add.err" \
     || { cat "$SCRATCH/add.err" >&2; return 1; }
   GIT_INDEX_FILE="$SCRATCH/index" git -C "$top" write-tree
 }
@@ -81,6 +90,10 @@ take_lock() {
       return 0
     fi
     lock_is_stale || break
+    # Re-read just before removing: a reclaimer that won the race has written
+    # its own owner line, and that lock is live.
+    read -r current _ < "$LOCK/owner" 2>/dev/null || current="unknown"
+    [ "$current" = "$pid" ] || break
     rm -rf "$LOCK"
   done
   printf 'cached-suite: a suite is already running (pid %s, since %s)\n' "${pid:-unknown}" "${since:-unknown}" >&2
@@ -100,6 +113,11 @@ fi
 "$@"
 status=$?
 if [ "$status" -eq 0 ]; then
-  printf '%s UTC\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" > "$SCRATCH/record" && mv "$SCRATCH/record" "$RECORD"
+  # A tree edited during the run was not the tree that was tested.
+  if [ "$(working_tree_hash)" = "$TREE" ]; then
+    printf '%s UTC\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" > "$SCRATCH/record" && mv "$SCRATCH/record" "$RECORD"
+  else
+    printf 'cached-suite: the working tree changed during the run, not recorded\n' >&2
+  fi
 fi
 exit "$status"

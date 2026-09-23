@@ -62,6 +62,28 @@ for runner in lib.sh run.sh affected.sh; do
   cp "$BOX/$runner.orig" "$FIX/tests/$runner"
 done
 
+# A rename lists the old path too, so a test naming it is still selected.
+passing_test "covers src/bar.txt" test-e.sh
+git -C "$FIX" add -A
+commit "second base"
+BASE2="$(git -C "$FIX" rev-parse HEAD)"
+git -C "$FIX" mv src/bar.txt src/bar2.txt
+OUT="$(affected "$BASE2")"
+assert_eq "tests/test-e.sh" "$OUT" "rename: the test naming the old path is selected"
+
+# A deleted test file is not listed, and --run still starts.
+git -C "$FIX" rm -q tests/test-b.sh
+OUT="$(affected "$BASE2")"
+assert_not_contains "$OUT" "test-b.sh" "deleted test file: not listed"
+RUN="$(affected --run "$BASE2")"; RSTATUS=$?
+assert_eq "0" "$RSTATUS" "deleted test file: --run still exits 0"
+
+# A red selected file makes --run exit non-zero.
+printf '%s\n' ". \"\$(dirname \"\$0\")/lib.sh\"" "# covers src/bar.txt" 'assert_eq a b "breaks"' 'finish' \
+  > "$FIX/tests/test-e.sh"
+RUN="$(affected --run "$BASE2")"; RSTATUS=$?
+assert_eq "1" "$RSTATUS" "--run: a failing selected file's status passes through"
+
 (cd "$FIX" && bash tests/affected.sh </dev/null >"$BOX/usage.out" 2>&1)
 assert_eq "2" "$?" "usage: no base exits 2"
 (cd "$FIX" && bash tests/affected.sh no-such-ref </dev/null >"$BOX/usage.out" 2>&1)

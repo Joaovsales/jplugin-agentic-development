@@ -42,7 +42,11 @@ git rev-parse --verify --quiet "$base^{commit}" >/dev/null \
 
 changed="$(mktemp)"
 trap 'rm -f "$changed"' EXIT
-{ git -c core.safecrlf=false diff --name-only "$base" --; git ls-files --others --exclude-standard; } | sort -u > "$changed"
+# --no-renames lists a rename as its old and new path, so a test that still
+# names the old one is selected.
+{ git -c core.safecrlf=false diff --no-renames --name-only "$base" -- \
+    && git ls-files --others --exclude-standard; } | sort -u > "$changed" \
+  || { printf 'tests/affected.sh: git could not list the changes since %s\n' "$base" >&2; exit 2; }
 
 shopt -s nullglob
 all=(tests/test-*.sh)

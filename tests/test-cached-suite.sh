@@ -92,6 +92,24 @@ assert_eq "0" "$STATUS" "outside a repo: the exit status passes through"
 
 (cd "$FIX" && bash "$SCRIPT" </dev/null >"$BOX/usage.out" 2>&1)
 assert_eq "2" "$?" "usage: no -- and no command exits 2"
+(cd "$FIX" && bash "$SCRIPT" -- </dev/null >"$BOX/usage.out" 2>&1)
+assert_eq "2" "$?" "usage: -- with no command exits 2"
+
+# Two worktrees at the same commit share one record store.
+git -C "$FIX" worktree add -q --detach "$BOX/wt1" 2>/dev/null
+git -C "$FIX" worktree add -q --detach "$BOX/wt2" 2>/dev/null
+OUT="$( (cd "$BOX/wt1" && bash "$SCRIPT" -- bash "$BOX/count.sh" shared) 2>&1)"
+assert_contains "$OUT" "ran shared" "worktrees: the first worktree runs"
+OUT="$( (cd "$BOX/wt2" && bash "$SCRIPT" -- bash "$BOX/count.sh" shared) 2>&1)"
+assert_contains "$OUT" "cached-suite: reused green run" \
+  "worktrees: a second worktree on the same tree reuses the first one's record"
+
+# A green run whose tree changed while it ran is not recorded.
+printf 'printf x > "%s/made-during-run.txt"\n' "$FIX" > "$BOX/mutate.sh"
+OUT="$( (cd "$FIX" && bash "$SCRIPT" -- bash "$BOX/mutate.sh") 2>&1)"
+assert_contains "$OUT" "cached-suite: the working tree changed during the run, not recorded" \
+  "mid-run edit: the green run is not recorded"
+rm -f "$FIX/made-during-run.txt"
 
 # --- lock (AC 2) ----------------------------------------------------------
 cat > "$BOX/slow.sh" <<'EOF'
@@ -123,5 +141,16 @@ assert_eq "0" "$STATUS" "stale lock: a dead pid's lock is reclaimed"
 assert_contains "$OUT" "ran reclaimed" "stale lock: the command runs"
 assert_eq "no" "$([ -e "$COMMON/cached-suite/lock" ] && echo yes || echo no)" \
   "stale lock: the reclaimed lock is removed on exit"
+
+# A lock with no owner yet is a run between mkdir and its owner write: fresh,
+# it refuses; over a minute old, its creator died and it is reclaimed.
+mkdir -p "$COMMON/cached-suite/lock"
+OUT="$(cached ownerless)"; STATUS=$?
+assert_eq "3" "$STATUS" "ownerless lock, fresh: refused"
+assert_contains "$OUT" "(pid unknown, since unknown)" "ownerless lock, fresh: says the owner is unknown"
+touch -d '2 minutes ago' "$COMMON/cached-suite/lock"
+OUT="$(cached ownerless)"; STATUS=$?
+assert_eq "0" "$STATUS" "ownerless lock, old: reclaimed"
+assert_contains "$OUT" "ran ownerless" "ownerless lock, old: the command runs"
 
 finish
