@@ -81,19 +81,24 @@ DEFAULT_KIND_LABELS: Mapping[str, str] = {
 
 DEFAULT_PRIORITY_LABELS: Mapping[str, str] = {"now": "high", "next": "medium"}
 
-#: Routine -> the provider label names it selects. One label axis, disjoint sets:
-#: `now`/`next` are the PRIORITY axis and order candidates *within* a pool, so
-#: they never appear here. Selecting on both axes gave two routines a claim on
-#: one issue in a third of all cases, which is what made selection partial.
+#: The routine vocabulary — which lanes are routines, which select on which
+#: labels, which are producers, which are deferred, and what each runs — is not
+#: written here. It is read from the lane catalogue (`lanes.py`, one markdown
+#: file per lane under `../../lanes/`) so that the scheduled router and `/go`
+#: read one definition. The five names below are still importable from this
+#: module, resolved lazily by `__getattr__` at the bottom of the file:
 #:
-#: `build` is deliberately absent. It is deferred behind the `blockedBy` provider
-#: capability (#97) and the routine itself (#98), and a selector shipped for a
-#: routine nobody runs would let a deferred capability fail a live gate.
-DEFAULT_SELECTORS: Mapping[str, Tuple[str, ...]] = {
-    "plan": ("design-decision",),
-    "fix": ("bug", "tech-debt"),
-    "improve": ("enhancement", "documentation"),
-}
+#:   CONTRACT_ROUTINES, PRODUCER_ROUTINES, DEFERRED_ROUTINES,
+#:   DEFAULT_SELECTORS, DEFAULT_ROUTINE_SKILLS
+#:
+#: Lazy on purpose: importing this module must read no lane file, or `doctor` —
+#: the command a human runs because something is broken — dies on a broken lane
+#: before it can name it. `load_config` reads the catalogue and reports a fault
+#: the way it reports any other configuration fault.
+#:
+#: One label axis, disjoint sets: `now`/`next` are the PRIORITY axis and order
+#: candidates *within* a pool, so no lane selects on them. Selecting on both
+#: axes gave two routines a claim on one issue in a third of all cases.
 
 #: First match wins. This orders the LABEL keys of `[labels.kind]`, not canonical
 #: kinds: `tech-debt` and `documentation` both normalize to `task`, so a chain
@@ -105,25 +110,6 @@ DEFAULT_KIND_PRECEDENCE: Tuple[str, ...] = (
     "enhancement",
     "documentation",
 )
-
-#: What each routine RUNS, once selection has told it which issue to run on.
-#: Transcribed from `.agents/skills/wrap-up-session/references/routines.md` --
-#: step 4 of each routine plus the
-#: shared spine's step 5, which is why every chain ends at `/wrap-up-session`.
-#: That document is the routine contract; a chain invented here instead would be
-#: a second, unversioned answer to a question it already answers.
-#:
-#: `plan` deliberately omits `/build` and `/quality-gate`: it produces a spec and
-#: no implementation, so requiring them would write a `skip:` row on every run.
-#: `build` is listed though it is deferred (#97/#98) -- `workflow` must be able to
-#: say "this routine exists and is deferred", which it cannot do for a routine it
-#: has no chain for.
-DEFAULT_ROUTINE_SKILLS: Mapping[str, Tuple[str, ...]] = {
-    "plan": ("/plan", "/wrap-up-session"),
-    "fix": ("/debug", "/build", "/quality-gate", "/wrap-up-session"),
-    "improve": ("/plan", "/build", "/quality-gate", "/wrap-up-session"),
-    "build": ("/build", "/quality-gate", "/wrap-up-session"),
-}
 
 #: The step every chain must end on. `/wrap-up-session` is the review gate whose
 #: omission shipped #93 green, and `references/routines.md` marks it
@@ -137,26 +123,33 @@ SKILL_ROOTS = (".agents/skills",)
 #: Written before a routine branches, and skipped when already present.
 DEFAULT_CLAIM_LABEL = "in-progress"
 DEFAULT_ESCALATION_LABEL = "needs-investigation"
-#: The routine names the contract defines. `build` is deferred (#97/#98) but is a
-#: contract routine, so configuring selectors for it is legal.
-#: Kept in step with `references/routines.md` by tests/test-routine-selectors.sh --
-#: `routine_branch.format_routine_branch` refuses anything outside this set, and
-#: without the check here a project learns that at spine step 3, mid-run.
-CONTRACT_ROUTINES = ("plan", "fix", "improve", "build", "janitor", "architect", "tidy")
-#: The contract routines that FILE issues rather than select one
-#: (specs/sweep-routines.md; `tidy` in specs/tidy-skill.md). They branch and
-#: round-trip like any other routine, but `select` and `claim` refuse them and a
-#: selector naming one is a config error.
-PRODUCER_ROUTINES = ("janitor", "architect", "tidy")
 
-#: Contract routines that are specified but not runnable yet. `workflow` reports
-#: one as an answer rather than a failure: "this routine owns your issue and is
-#: deferred" is a different fact from "no routine owns it", and a caller that
-#: cannot tell them apart re-triages an issue that is already correctly labelled.
-DEFERRED_ROUTINES: Mapping[str, str] = {
-    "build": "deferred behind the blockedBy provider capability (#97) and the "
-             "routine itself (#98) — not runnable yet",
+
+def _lanes():
+    """The shipped lane catalogue. Imported here, not at module top: `lanes.py`
+    imports `ConfigError` from this module, and reading it at import would make
+    every `import registry.config` a lanes-directory read."""
+    from .lanes import catalogue
+
+    return catalogue()
+
+
+#: The legacy names, each a view of the catalogue. `from registry.config import
+#: PRODUCER_ROUTINES` still works (PEP 562), and now reads the lane files.
+_LANE_VIEWS = {
+    "CONTRACT_ROUTINES": lambda lanes: lanes.routines,
+    "PRODUCER_ROUTINES": lambda lanes: lanes.producers,
+    "DEFERRED_ROUTINES": lambda lanes: lanes.deferred,
+    "DEFAULT_SELECTORS": lambda lanes: lanes.selectors,
+    "DEFAULT_ROUTINE_SKILLS": lambda lanes: lanes.chains,
 }
+
+
+def __getattr__(name: str):
+    view = _LANE_VIEWS.get(name)
+    if view is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return view(_lanes())
 
 
 class ConfigError(Exception):
@@ -199,7 +192,7 @@ class Config:
     #: motivated this design was a label that had never been created.
     kind_precedence: Sequence[str] = DEFAULT_KIND_PRECEDENCE
     routine_skills: Mapping[str, Sequence[str]] = field(
-        default_factory=lambda: dict(DEFAULT_ROUTINE_SKILLS)
+        default_factory=lambda: dict(_lanes().chains)
     )
     #: Whether `[routines.skills]` was written by the project. The on-disk skill
     #: check reads it: a project is answerable for the chain it declared, while a
@@ -209,8 +202,11 @@ class Config:
     #: configuration at all.
     routine_skills_declared: bool = False
     routine_selectors: Mapping[str, Sequence[str]] = field(
-        default_factory=lambda: dict(DEFAULT_SELECTORS)
+        default_factory=lambda: dict(_lanes().selectors)
     )
+    #: The lane catalogue's refusal, recorded only by a non-strict load so that
+    #: `doctor` can print it. A strict load raises it instead.
+    catalogue_fault: str = ""
     kind_labels: Mapping[str, str] = field(default_factory=lambda: dict(DEFAULT_KIND_LABELS))
     priority_labels: Mapping[str, str] = field(
         default_factory=lambda: dict(DEFAULT_PRIORITY_LABELS)
@@ -358,6 +354,9 @@ def load_config(
     inherits the guarantees.
     """
     env = env if env is not None else os.environ
+    lanes, catalogue_fault = _catalogue_or_fault(strict)
+    shipped_chains = dict(lanes.chains) if lanes else {}
+    shipped_selectors = dict(lanes.selectors) if lanes else {}
     try:
         config_path, pointer_file = find_config_source(root)
     except ConfigPointerError:
@@ -365,7 +364,12 @@ def load_config(
             raise
         config_path, pointer_file = None, None
     if config_path is None:
-        return Config(root=root)
+        return Config(
+            root=root,
+            routine_skills=shipped_chains,
+            routine_selectors=shipped_selectors,
+            catalogue_fault=catalogue_fault,
+        )
 
     with open(config_path, "r", encoding="utf-8-sig") as handle:
         parser = _parse_ini(handle.read(), os.path.relpath(config_path, root))
@@ -419,9 +423,10 @@ def load_config(
         claim_label=_claim_label(routines.get("claim_label")),
         escalation_label=_escalation_label(routines.get("escalation_label")),
         kind_precedence=_label_list(routines.get("kind_precedence")) or DEFAULT_KIND_PRECEDENCE,
-        routine_skills=declared_skills if declared_skills is not None else dict(DEFAULT_ROUTINE_SKILLS),
+        routine_skills=declared_skills if declared_skills is not None else shipped_chains,
         routine_skills_declared=declared_skills is not None,
-        routine_selectors=_selectors(parser),
+        routine_selectors=_selectors(parser, shipped_selectors),
+        catalogue_fault=catalogue_fault,
         kind_labels=section("labels.kind", DEFAULT_KIND_LABELS),
         priority_labels=section("labels.priority", DEFAULT_PRIORITY_LABELS),
         status_sources=section("status", {}),
@@ -464,7 +469,19 @@ def _label_list(value: Optional[str]) -> Tuple[str, ...]:
     return tuple(item.strip() for item in re.split(r"[,\n]", value or "") if item.strip())
 
 
-def _selectors(parser: configparser.ConfigParser) -> Dict[str, Tuple[str, ...]]:
+def _catalogue_or_fault(strict: bool):
+    """(catalogue, "") or, non-strictly, (None, the refusal) so `doctor` can print it."""
+    try:
+        return _lanes(), ""
+    except ConfigError as exc:
+        if strict:
+            raise
+        return None, str(exc)
+
+
+def _selectors(
+    parser: configparser.ConfigParser, shipped: Mapping[str, Tuple[str, ...]]
+) -> Dict[str, Tuple[str, ...]]:
     """Routine -> the provider labels it selects.
 
     Declared entries REPLACE the shipped map rather than layering over it, unlike
@@ -474,7 +491,7 @@ def _selectors(parser: configparser.ConfigParser) -> Dict[str, Tuple[str, ...]]:
     duplicate invisible in the configuration file.
     """
     if not parser.has_section("routines.selectors"):
-        return dict(DEFAULT_SELECTORS)
+        return dict(shipped)
     declared = {
         routine.strip(): _label_list(labels)
         for routine, labels in parser.items("routines.selectors")
@@ -562,25 +579,40 @@ def _refuse_unknown_routines(config) -> None:
     -- after the claim label is already written. Refusing here moves that failure
     to load time, where it names the mistake instead of aborting a live run.
     """
-    producers = sorted(set(config.routine_selectors) & set(PRODUCER_ROUTINES))
-    if producers:
-        raise ConfigError(
-            "routines: [routines.selectors] declares "
-            f"{', '.join(repr(name) for name in producers)}, which is a producer "
-            "routine — it files issues, it does not select them. Producers take no "
-            "selector; remove the key."
-        )
+    lanes = _lanes()
+    _refuse_producer_keys(config, lanes)
     for section, declared in (
         ("[routines.selectors]", config.routine_selectors),
         ("[routines.skills]", config.routine_skills),
     ):
-        unknown = sorted(set(declared) - set(CONTRACT_ROUTINES))
+        unknown = sorted(set(declared) - set(lanes.routines))
         if unknown:
             raise ConfigError(
                 f"routines: {section} declares "
                 f"{', '.join(repr(name) for name in unknown)}, which the routine contract "
-                f"does not define. Known routines: {', '.join(CONTRACT_ROUTINES)}. Adding "
-                "one is a deliberate edit to the contract, not a configuration key."
+                f"does not define. Known routines: {', '.join(lanes.routines)}. Adding "
+                "one is a new lane file in the shipped catalogue, not a configuration key."
+            )
+
+
+def _refuse_producer_keys(config, lanes) -> None:
+    """A producer files issues; it neither selects them nor takes a project chain.
+
+    Its chain is shipped with the lane catalogue and read through `lane(name)`,
+    which is why `LaneCatalogue.chains` — the domain `[routines.skills]` may
+    replace — holds consumers only. Refusing the key here is what makes that
+    docstring true rather than hopeful.
+    """
+    for section, declared, verb in (
+        ("[routines.selectors]", config.routine_selectors, "it files issues, it does not select them"),
+        ("[routines.skills]", config.routine_skills, "its chain is shipped, not project-configurable"),
+    ):
+        producers = sorted(set(declared) & set(lanes.producers))
+        if producers:
+            raise ConfigError(
+                f"routines: {section} declares "
+                f"{', '.join(repr(name) for name in producers)}, which is a producer "
+                f"routine — {verb}. Remove the key."
             )
 
 
@@ -698,7 +730,7 @@ def _refuse_absent_chain_skills(config) -> None:
             f"{routine}: {skill!r}"
             for routine, chain in config.routine_skills.items()
             for skill in chain
-            if not _skill_on_disk(config.root, skill)
+            if not skill_on_disk(config.root, skill)
         }
     )
     if not missing:
@@ -709,7 +741,7 @@ def _refuse_absent_chain_skills(config) -> None:
     )
 
 
-def _skill_on_disk(root: str, skill: str) -> bool:
+def skill_on_disk(root: str, skill: str) -> bool:
     """Is `/name` an installed skill in either skills tree?
 
     A skill reference is a directory NAME, never a path, so anything carrying a

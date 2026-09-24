@@ -135,22 +135,62 @@ for routine in plan fix improve; do
     "Contract: $routine has a step section of its own"
 done
 
+# The step rows themselves live in the lane catalogue (specs/lane-catalogue.md
+# AC6): each routine's section names its lane file and restates no row, so the
+# gates below are read from the lane file and the section is pinned row-free.
+LANES=".agents/skills/task-registry/lanes"
+for routine in plan fix improve janitor architect tidy; do
+  section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
+  assert_contains "$section" "$routine.md" \
+    "Contract: $routine's section names its lane file"
+  assert_eq "0" "$(printf '%s\n' "$section" | grep -cE '^\| [0-9]' || true)" \
+    "Contract: $routine's section carries no step rows of its own"
+  assert_eq "present" "$([ -f "$LANES/$routine.md" ] && echo present || echo missing)" \
+    "Contract: lane file $LANES/$routine.md exists"
+done
+
 # The routines that produce code reach /build and /quality-gate; both are gates.
 for routine in fix improve; do
-  section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
-  assert_contains "$section" "/build" "Contract: $routine step 4 reaches /build"
-  assert_contains "$section" "/quality-gate" "Contract: $routine step 4 reaches /quality-gate"
-  assert_contains "$section" "non-skippable" \
-    "Contract: $routine marks its build and quality gates non-skippable"
+  assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
+  assert_file_contains "$LANES/$routine.md" "/quality-gate" \
+    "Contract: $routine's lane reaches /quality-gate"
+  assert_file_contains "$LANES/$routine.md" "non-skippable" \
+    "Contract: $routine's lane marks its build and quality gates non-skippable"
 done
 
 # `plan` produces a spec and no implementation. Requiring /quality-gate there
 # would write a `skip:` row on every run, and a ledger that always reads `skip:`
 # teaches nobody anything -- so its absence is stated, not silent.
 plan_section="$(awk 'index($0, "### `plan` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
-assert_contains "$plan_section" "/plan" "Contract: plan's step 4 is /plan"
+assert_file_contains "$LANES/plan.md" '`/plan <ref>`' "Contract: plan's lane step is /plan"
 assert_contains "$plan_section" "deliberately absent" \
   "Contract: plan states WHY it carries no build or quality gate"
+
+# --- the routine table is a mirror of the catalogue, pinned ------------------
+# Names, selectors and the deferral all live in the lane files' frontmatter now;
+# the table stays because it is what a human reads first, and this is what keeps
+# it honest.
+table_names="$(sed -nE 's/^\| `([a-z-]+)` \|.*/\1/p' "$CANON" | sort | paste -sd' ' -)"
+catalogue_view="$(PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -B -c '
+from registry.lanes import catalogue
+c = catalogue()
+print(" ".join(c.routines))
+for name, labels in sorted(c.selectors.items()):
+    print(name + ": " + " ".join(labels))' | tr -d '\r')"
+assert_eq "$(printf '%s\n' "$catalogue_view" | head -1)" "$table_names" \
+  "Contract: the routine table's rows are exactly the catalogue's routines"
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  name="${line%%:*}"
+  row="$(grep -E "^\| \`$name\` \|" "$CANON")"
+  for label in ${line#*: }; do
+    assert_contains "$row" "\`$label\`" \
+      "Contract: $name's table row carries its catalogue selector $label"
+  done
+done <<EOF
+$(printf '%s\n' "$catalogue_view" | tail -n +2)
+EOF
 
 # --- the ledger rule itself --------------------------------------------------
 assert_prose_contains "$CANON" "skip: <reason>" \

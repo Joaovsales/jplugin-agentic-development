@@ -1,7 +1,7 @@
 ---
 name: task-registry
 description: Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine.
-argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|upsert <task-id>|escalate <task-reference>]"
+argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|lanes [<lane>]|upsert <task-id>|escalate <task-reference>]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -65,6 +65,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py escalate '#42' \
 | `select` | provider | no | no |
 | `claim` | one task | no | `--apply` (+ approval) |
 | `workflow` | one task | no | no |
+| `lanes` | the lane catalogue (+ config, non-strict) | no | no |
 | `escalate` | parent + optional blocker | run artifact with `--apply` | hold, optional blocker, comment (`--apply` + approval) |
 
 Exit codes: `0` success · `1` failure or partial failure · `2` usage error.
@@ -96,6 +97,33 @@ which routine's selector matches it, which skill chain that routine runs, and
 whether anything makes it unrunnable right now. `select_routine` collapses five
 distinct situations into a bare `None`; this command gives each its own sentence,
 so "nobody owns it" and "somebody already claimed it" stop looking alike.
+
+### `lanes` — every lane, or one lane's playbook
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py lanes
+python3 .agents/skills/task-registry/scripts/task-registry.py lanes fix
+```
+
+A **lane** is one markdown file under `lanes/` — the routine the scheduler runs
+on a labelled issue and the route `/go` picks from a goal are the same
+definition (specs/lane-catalogue.md). The registry derives every routine
+attribute from those files: which lanes are routines, what each selects on,
+which are producers or deferred, and what each runs. `workflow` answers with a
+lane's chain; `lanes` prints the whole catalogue so `/go` can match a goal
+against each lane's `cues:` and copy its steps into `tasks/todo.md`.
+
+The chain printed is the **effective** one — the project's `[routines.skills]`
+entry for a consumer lane, the shipped chain otherwise — so `lanes` and
+`workflow` never disagree. `lanes <name>` also checks that every chain skill is
+installed under `.agents/skills/` and exits `2` naming the
+missing one, so a lane is refused before a step is recorded, not at the step.
+
+`lanes` reads no tracker: it selects no provider and loads the configuration
+non-strictly. A configuration that cannot be read still prints the table (routine
+rows carry the shipped chain and the error), `lanes investigate` still exits `0`,
+and only `lanes <routine lane>` exits `2` — the one case where the chain a project
+may have replaced is about to run.
 
 ### `upsert` — record one task, addressed by its ID
 

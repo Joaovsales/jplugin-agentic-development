@@ -66,7 +66,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # A genuine load: the tool-use shape observed in real transcripts.
-printf '%s\n' '{"type":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"debug"}}]}' \
+printf '%s\n' '{"type":"assistant","content":[{"type":"tool_use","id":"toolu_01x","name":"Skill","input":{"skill":"debug"}}]}' \
   > "$TMP/agent-aaa.jsonl"
 
 # The false positive this grader exists to refuse: the candidate talks about the
@@ -102,14 +102,37 @@ EMPTY="$TMP/empty"; mkdir -p "$EMPTY"
 bash "$GRADER_REL" "$EMPTY" debug >/dev/null 2>&1
 assert_eq "2" "$?" "grader: a directory with no transcripts is an error, not zero loads"
 
-# Transcript format drift: a Skill block the extractor cannot parse must be
-# loud. Reporting NONE here is the false negative that scored 11 skills wrong.
+# Transcript format drift: a Skill tool-use block the extractor cannot parse
+# must be loud. Reporting NONE here is the false negative that scored 11 skills
+# wrong. The fixture is a tool_use block whose input key moved — the drift the
+# guard is for — not a bare `"name":"Skill"`, which the schema fixture below
+# shows is ordinary transcript content.
 MOVED="$TMP/moved"; mkdir -p "$MOVED"
-printf '%s\n' '{"content":[{"name":"Skill","parameters":{"skillName":"debug"}}]}' \
+printf '%s\n' '{"content":[{"type":"tool_use","name":"Skill","parameters":{"skillName":"debug"}}]}' \
   > "$MOVED/agent-ddd.jsonl"
 err="$(bash "$GRADER_REL" "$MOVED" debug 2>&1)"; rc=$?
 assert_eq "2" "$rc" "grader: an unreadable Skill block is an error, not NONE"
 assert_contains "$err" "transcript format changed" "grader: says what broke"
+
+# The tool schema rides inline in every transcript as `{"name":"Skill",
+# "description":...}`. That is not a load and not drift: a bare-name anchor
+# made eight clean transcripts die as "format changed" on 2026-09-16, so a run
+# in which nobody loaded anything produced zero measurements instead of 8 NONE.
+SCHEMA="$TMP/schema"; mkdir -p "$SCHEMA"
+printf '%s\n' '{"tools":[{"name":"Skill","description":"Invoke a skill.","schema":{"name":"Skill"}}]}' \
+  > "$SCHEMA/agent-eee.jsonl"
+out="$(bash "$GRADER_REL" "$SCHEMA" debug 2>&1)"; rc=$?
+assert_eq "0" "$rc" "grader: the inline tool schema is not an unreadable block"
+assert_contains "$out" "NONE       agent-eee" "grader: the inline tool schema grades as no load"
+
+# A real tool-use block serialised name-before-type escapes the extractor. The
+# drift guard must still catch it: an error, never a silent NONE.
+REORDERED="$TMP/reordered"; mkdir -p "$REORDERED"
+printf '%s\n' '{"content":[{"name":"Skill","type":"tool_use","input":{"skill":"debug"}}]}' \
+  > "$REORDERED/agent-fff.jsonl"
+err="$(bash "$GRADER_REL" "$REORDERED" debug 2>&1)"; rc=$?
+assert_eq "2" "$rc" "grader: a name-before-type Skill block is an error, not NONE"
+assert_contains "$err" "transcript format changed" "grader: reordered keys are reported as drift"
 
 assert_eq "" "$(bash -n "$GRADER_REL" 2>&1)" "grader: parses under bash -n"
 

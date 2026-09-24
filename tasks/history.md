@@ -667,6 +667,28 @@ back vacuous and was repaired.
   (open); `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`
   updated with the worktree-session baseline recipe.
 
+### [2026-09-16] — /go front door
+
+- Key changes: new `/go <goal>` skill — lane table (seven lanes), precedence
+  rule, `[ROUTE]` line, one Iron Law — with five frontmatter-less playbooks under
+  `lanes/`; registry consulted first for `#N`; chains resolved against either
+  skill root. `tests/test-go-lanes.sh` (187 assertions) pins the file set, skill
+  resolution, `fix` == `DEFAULT_ROUTINE_SKILLS["fix"]`, table-row chain ==
+  playbook tokens, gate-before-`/build`, and no routine host naming `/go`.
+  CLAUDE.md/README `/go` rows and the entry-point sentence; banner leads and
+  closes on `/go`. `flatten`/`first_pos` moved into `tests/lib.sh`.
+  `grade-skill-loads.sh` anchor fixed (inline tool schema false positive).
+- Verification: three live `/go` runs (investigate, untriaged `#135` exit-2
+  refusal, refactor stopping at `/plan`'s gate) and the Mode A eval (0/8 fired,
+  0 misrouted — recorded, lane table unchanged) in `tasks/e2e-log.md`; full
+  suite 8/43 files failing, all in the Windows gh-mock baseline with identical
+  counts, zero regressions; design review dispatched — HOLD cleared by applying
+  the MUST-FIX and five SHOULD-FIX. Four review passes and a security scan
+  dispatched as separate agents at wrap-up.
+- Learnings captured: [eval grader anchor matched the inline tool schema](solutions/bugs/eval-grader-anchor-matched-the-inline-tool-schema.md),
+  [pin a twice-declared contract equal by test](solutions/patterns/pin-a-twice-declared-contract-equal-by-test.md),
+  [skill description does not route organic prompts](solutions/process/skill-description-does-not-route-organic-prompts.md).
+- Glossary: `lane`, `lane block` added.
 ### [2026-09-18] — plugin manifest: S4 verdict, version pinning, verify-evidence, one tree
 
 - Branch `worktree-plugin-manifest` (base master `2608d0a`), 17 commits, HEAD `35adb24`. Not pushed: two

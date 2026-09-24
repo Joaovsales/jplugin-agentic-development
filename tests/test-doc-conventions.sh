@@ -5,8 +5,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-# One flattening pipeline for every whole-file order check below.
-flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
+# `flatten` and `first_pos` for the whole-file order checks below come from lib.sh.
 
 # --- M3: retired store — the old monolith files have no live references ------
 # INVERTED from the pre-M3 assertion that /build and /checkpoint reference
@@ -705,6 +704,22 @@ for tree in .agents; do
   assert_prose_contains "$P" 'before any outward search' \
     "PlanReuse($tree): inward-before-outward ordering is stated"
 done
+
+# --- /go is the interactive entry point, and the listings say so -------------
+# specs/go-front-door.md AC4. AC5's banner listing went with the plugin (#156:
+# the hook lists no skills) and CLAUDE.md is a pointer since #177, so the two
+# surfaces left are AGENTS.md § Workflow, which names /go before step 1, and the
+# README skills table, rendered from the skill's own frontmatter. Pinned by
+# token and by ORDER, never by the sentence's wording beyond the command.
+assert_prose_contains "AGENTS.md" 'Interactive work starts with `/go <goal>`' \
+  "go: AGENTS.md § Workflow names /go as the interactive entry point"
+flat_agents="$(flatten AGENTS.md)"
+assert_precedes "$flat_agents" '## Workflow: PRD' 'Interactive work starts with `/go <goal>`' \
+  "go: the /go sentence sits inside § Workflow, not earlier in the file"
+assert_precedes "$flat_agents" 'Interactive work starts with `/go <goal>`' '1. **PRD**' \
+  "go: AGENTS.md names /go before Workflow step 1"
+assert_file_matches "README.md" '^\| `/go` \|' \
+  "go: the rendered README skills table lists /go"
 
 # --- sync: the plugin declaration and the retired root -----------------------
 # specs/claude-plugin-manifest.md § /sync. Step 5 merges the two plugin keys

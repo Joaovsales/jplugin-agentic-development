@@ -9,6 +9,8 @@
 
 ## Workflow: PRD → Plan → Build → Wrap Up
 
+Interactive work starts with `/go <goal>`: it picks one lane from the shared lane catalogue (`task-registry lanes`), prints a `[ROUTE]` line, and runs the steps below through the skills that own them.
+
 1. **PRD** (greenfield only) — `/prd` writes `specs/prd-<name>.md`, `tasks/backlog.md`, `tasks/project-context.md`.
 2. **Specify** — every non-trivial feature gets `specs/<feature>.md` (Behavior / Inputs / Outputs / Edge Cases / Decisions / Acceptance Criteria / Implementation Paths) through `/plan`, or `/system-design-planning` when the change crosses a component boundary, changes a persisted data model, or changes an external contract — its `/grilling` interview is mandatory at that bar, minus what is already settled. Optional precursors `/grill-me` (a stateless interview, nothing written) and `/brainstorm` (divergent exploration; its spec carries § Decisions) settle decisions that carry forward: `/plan` prints `DECISIONS CARRIED: <n> from <spec path | conversation>` and asks only the `open` rows and the gaps.
 3. **Slice (hard gate)** — the planner invokes `/slice`, which sizes the spec into session-sized slices, writes § Build Order and the `## Plan:` block in `tasks/todo.md` (`[ ] TDD: [Test Name] -> [Impl Detail]` rows under `### Slice n/N` headings) and prints the build prompt. The planning session ends with `Spec and plan are ready to be built. Start a fresh session with this prompt:` — it never builds and never files. Change requests are applied in place: edit the spec, re-run `/slice`. `/auto-push` (behind its own `y`) and `/yolo` (unattended) are the two named exceptions that build in the planning session.

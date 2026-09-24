@@ -1006,6 +1006,39 @@ Filed this sweep:
 - [ ] Sixteen closed plan blocks are still in the todo index <!-- task-id: tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index --> — tasks/todo.md is specified as an index but carries 16 fully-checked plan blocks older than the last two session summari… ([#143](https://github.com/Joaovsales/jplugin-agentic-development/issues/143))
 - [ ] Verify issue closure after a PR merged by the GitHub Actions app <!-- task-id: issue-linkage.agents-skills-wrap-up-session-references-routines-md --> — A PR whose body carried a single, correctly linked Closes #N merged into the default branch and the issue stayed open.… ([#146](https://github.com/Joaovsales/jplugin-agentic-development/issues/146))
 
+## Plan: /go — natural-language front door over lane playbooks
+> Spec: specs/go-front-door.md
+> Approved by direct `build specs/go-front-door.md` request on 2026-09-16 (spec is v2, design-reviewed; the plan gate is the spec itself).
+
+[x] TDD: test-go-lanes.sh pins the skill, five playbooks, no frontmatter, and skill resolution in both trees -> author `.agents/skills/go/SKILL.md` (lane table, precedence, `[ROUTE]` format, one Iron Law) and `lanes/{investigate,fix,refactor,perf,babysit}.md`; mirror to `.claude/skills/go/` (AC1, AC2)
+[x] TDD: test-go-lanes.sh pins fix chain == DEFAULT_ROUTINE_SKILLS["fix"], investigate never names /wrap-up-session, refactor/babysit name /plan or /debug before /build, no routine host or hook invokes /go -> playbook step wording that satisfies each pin (AC3)
+[x] TDD: test-doc-conventions.sh pins the CLAUDE.md entry-point sentence + `/go` row, the README `/go` row, and the banner closing line -> edit CLAUDE.md § Workflow, CLAUDE.md skills table, README.md skills table, session-start.sh (banner lists /go first; closing line "Use /go <goal> to start, or continue from tasks/todo.md.") (AC4, AC5)
+[x] Live proof: run `/go` three times (investigate; issue-referenced; refactor) and record each `[ROUTE]` line, the lane block shape, and where the chain stopped in tasks/e2e-log.md (AC6)
+[x] Eval: /eval mode A triggerability on four boundary prompts (fix-vs-perf, refactor-vs-feature, investigate-vs-fix, babysit), N=2, result table in tasks/e2e-log.md; a miss is a cue defect fixed in the lane table (AC7)
+[x] Verify: `bash tests/run.sh` fully green with output recorded; `/quality-gate` on all changed files (AC8)
+
+## Plan: lane catalogue — one definition per lane, read by both routers
+> Spec: specs/lane-catalogue.md
+> Approved by direct "do the lane class unification in this PR" request on 2026-09-16 during review of PR #147; design reviewed by software-design-expert-review before code.
+
+[x] TDD: tests/test-lane-catalogue.sh RED — shipped catalogue views (routines, producers, deferred, selectors, chains, interactive, names) equal the spec table; eight load refusals on temp fixture directories each name the file -> `registry/lanes.py` (frontmatter + step grammar, Lane, LaneCatalogue, load_catalogue) and the twelve lane files under `.agents/skills/task-registry/lanes/` (AC1, AC2, AC3)
+[x] TDD: test-routine-skills.sh, test-routine-selectors.sh (literal-in-config.py pin repointed at the catalogue), test-routines-contract.sh deferred pins, test-task-registry.sh, test-sweep-routines.sh all green with config.py's five constants bound to the catalogue and holding no lane literal -> config.py edit (AC1, AC5)
+[x] TDD: `lanes` table with effective chain; `lanes <name>` steps + Reply; unknown name exit 2 listing lanes; chain skill absent from both roots exit 2 naming it; `[routines.skills]` override prints `note:`; misconfigured tracker exit 2 -> `lanes` command in task-registry.py; SKILL.md command table row and section (AC4)
+[x] TDD: test-routines-contract.sh pins the routine table equal to the catalogue and reads each routine's step rows from its lane file; per-routine sections carry no step rows; test-sweep-routines.sh section pins repointed -> routines.md per-routine sections shrink to the lane pointer plus rationale (AC6)
+[x] TDD: test-go-lanes.sh rewritten — SKILL.md names `task-registry lanes` and `workflow`, no lane table, no `go/lanes/`; interactive code-changing lanes gate before /build; investigate never names /wrap-up-session; host sweep and banner pins unchanged -> rewrite `.agents/skills/go/SKILL.md`, delete `go/lanes/`, README row, concepts.md entries, go-front-door.md supersession note, template `[routines.skills]` comment (AC7, AC8)
+[x] Verify: byte-identical `.claude` copies (test-skill-parity.sh); `bash tests/run.sh` against the recorded baseline; `/quality-gate` on all changed files (AC9)
+
+## Lane: investigate — how does task-registry choose a provider
+1. Restate the question as a falsifiable claim and name the files it turns on
+2. Read those files; quote the lines that answer it
+3. Trace one live run if the code alone is inconclusive — skip: answered from source (config.py:795-805 is a single function)
+4. Reply with the cited answer
+5. `/checkpoint` only if the human asks to keep the answer
+
+## Session Summary — 2026-09-16 [d7b6cf0..fd4001a]
+- Completed: 6 tasks — the `/go` front door (SKILL.md, five lane playbooks, byte-identical `.claude` copy), `tests/test-go-lanes.sh`, CLAUDE.md/README rows + entry-point sentence, banner, three live `/go` proofs, the Mode A eval, the recorded suite run and quality gate; plus the `grade-skill-loads.sh` anchor fix and the `/tidy` host sweep.
+- Pending: 1 task — master's `Cloud routine: update the existing tidy routine` row (not this build's; waits on its PR merging).
+- Carry-forward: `/go` lane blocks accumulate in this file and neither `/wrap-up-session` Step 2 nor `/tidy` folds them (advisory, human decision); `docs/task-tracking.md` names `Joaovsales/jplugin-agentic-development` and four routine labels are absent there, so `task-registry workflow '#N'` exits 2 live; the grader anchor still assumes `"type"` precedes `"name"` in a tool-use object.
 ## Plan: Claude Code plugin manifest over the canonical skill tree
 > Spec: specs/claude-plugin-manifest.md
 > Visual: specs/claude-plugin-manifest.plan.html

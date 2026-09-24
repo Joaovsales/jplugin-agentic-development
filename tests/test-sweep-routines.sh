@@ -145,9 +145,13 @@ for tree in $TREES; do
   assert_file_contains "$f" "[ ] TDD:" \
     "AC5: $tree/debug writes TDD tasks from the issue's proposed fix and criteria"
 done
+# The step rows live in the lane file (specs/lane-catalogue.md); `<ref>` is `#N`
+# on a scheduled run and the goal text when /go picked the lane.
+assert_file_contains ".agents/skills/task-registry/lanes/fix.md" '`/debug <ref>`' \
+  "AC5: the fix lane's first step reads /debug <ref>"
 fix_section="$(awk 'index($0, "### `fix` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CONTRACT")"
-assert_contains "$fix_section" "/debug #N" \
-  "AC5: the fix routine's step 4a reads /debug #N"
+assert_contains "$fix_section" '`#N`' \
+  "AC5: the contract states that <ref> is #N on a scheduled run"
 
 # ============================================================================
 # AC6 — engine amendments

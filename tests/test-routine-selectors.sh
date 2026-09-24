@@ -389,14 +389,17 @@ unknown_out="$(run_selectors "$F_UNKNOWN")"; unknown_code=$?
 assert_eq "1" "$unknown_code" "AC12: a routine outside the contract is refused at load"
 assert_contains "$unknown_out" "refactor" "AC12: the refusal names the invented routine"
 
-# The contract document is the single source. Two mirrors guard it: routine_branch's
-# CONTRACT_ROUTINES (pinned in test-routine-branch.sh) and config's copy, here.
+# The lane catalogue is the single source (specs/lane-catalogue.md); the contract
+# document's routine table is a mirror pinned by test-routines-contract.sh, and
+# routine_branch's CONTRACT_ROUTINES another, pinned in test-routine-branch.sh.
+# Config's CONTRACT_ROUTINES is the catalogue's `routines` view, so the pin here
+# is that each consumer routine is a lane file that says so.
 contract_doc="$REPO/.agents/skills/wrap-up-session/references/routines.md"
 for routine in plan fix improve build; do
   assert_file_contains "$contract_doc" "$routine" \
     "AC8: the contract document defines the '$routine' routine"
-  assert_file_contains "$REPO/.agents/skills/task-registry/scripts/registry/config.py" \
-    "\"$routine\"" "AC12: config's CONTRACT_ROUTINES carries '$routine'"
+  assert_file_contains "$REPO/.agents/skills/task-registry/lanes/$routine.md" \
+    "routine: consumer" "AC12: lane file '$routine.md' declares a consumer routine"
 done
 
 # ============================================================================
@@ -413,7 +416,7 @@ print("in-contract:", all(name in CONTRACT_ROUTINES for name in PRODUCER_ROUTINE
 print("selectable:", ",".join(sorted(set(PRODUCER_ROUTINES) & set(DEFAULT_SELECTORS))) or "none")
 PY
 )"
-assert_contains "$producers" "producers: janitor,architect,tidy" \
+assert_contains "$producers" "producers: architect,janitor,tidy" \
   "AC2: config.PRODUCER_ROUTINES names all three producers"
 assert_contains "$producers" "in-contract: True" \
   "AC2: every producer is also a contract routine"

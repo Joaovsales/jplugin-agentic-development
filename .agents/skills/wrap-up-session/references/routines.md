@@ -43,6 +43,14 @@ PR because human review *is* the gate.
 | `architect` | — (producer; **files** `task` + `tech-debt`, or `design-decision`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
 | `tidy` | — (producer; **files** `documentation`, or `task` + `tech-debt`; commits Tier 0 repairs) | ready PR carrying the session record and the Tier 0 repair commits | `Refs #N` per filed issue | active |
 
+Every row is a **lane** — one file under `.agents/skills/task-registry/lanes/`
+whose frontmatter carries the selector, the producer flag and the deferral, and
+whose numbered steps are the routine's step 4. This table is a pinned mirror of
+those files (`tests/test-routines-contract.sh`); `task-registry lanes` prints the
+live one. The same files are what the interactive front door (the `go` skill)
+matches a goal against, so a labelled issue and a typed goal that name the same
+work run the same steps.
+
 `plan`, `fix`, `improve` and `build` are consumers. `janitor`, `architect` and
 `tidy` are producers — see *Producers* below. Consumers run on the **Builder** tier,
 producers on the **Planner** tier; cadence is the operator's call, typically
@@ -61,9 +69,12 @@ link as native is the one thing capability degradation must never do.
 Until both land, a `routine/build/...` branch parses and round-trips correctly
 but no scheduler fires it. The branch parser is general over routine names, so
 adding `build` never touches the regex — but it is not a documentation-only
-change either. A new routine edits `DEFAULT_SELECTORS`, `CONTRACT_ROUTINES`, the
-`[routines.selectors]` template block, and this document's step table. The regex
-is general; the vocabulary is not, and the vocabulary is where the work is.
+change either. A new routine is a new lane file with `routine:` set in
+`.agents/skills/task-registry/lanes/` (specs/lane-catalogue.md), plus
+`DEFAULT_KIND_PRECEDENCE` for any new selector label, this document's routine
+table, `routine_branch.CONTRACT_ROUTINES`, and the template's `[routines.skills]`
+block — each of the last three a mirror pinned to the catalogue by test. The
+regex is general; the vocabulary is not, and the vocabulary is where the work is.
 
 ## Selecting an issue
 
@@ -220,9 +231,9 @@ does not already carry.
 Selector: `design-decision`. Terminal artifact: a **draft** PR whose body carries
 `Refs #N` and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 4 | `/plan` — write `specs/<feature>.md` and the task breakdown | **non-skippable** — the spec is the routine's entire artifact |
+Step 4 is the lane file `plan.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+plan` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 `/build` and `/quality-gate` are deliberately absent. `plan` produces a spec and
 no implementation, so requiring them here would write a `skip:` row on every
@@ -234,22 +245,20 @@ which is exactly the failure this ledger exists to prevent.
 Selector: `bug`, `tech-debt`. Terminal artifact: a ready PR whose body carries
 `Closes #N` and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 4a | `/debug #N` — root cause before code; reproduced and progressable work continues, while an inconclusive or practically blocked investigation is held and reported by the canonical escalation owner | — |
-| 4b | `/build` — TDD against the issue's acceptance criteria | **non-skippable** — no fix ships without a failing test that now passes |
-| 4c | `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside `/build` Phase 3; the row records where it ran) | **non-skippable** |
+Step 4 is the lane file `fix.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+fix` prints it. The rows are not restated here (specs/lane-catalogue.md).
+Its first step is `/debug <ref>`: `<ref>` is `#N` on a scheduled run and the goal
+text when the interactive front door picked the lane — the only thing that differs between them.
 
 ### `improve` — steps
 
 Selector: `enhancement`, `documentation`. Terminal artifact: a ready PR whose body
 carries `Closes #N` and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 4a | `/plan` — write or extend the spec, unless the issue already links a merged one | — |
-| 4b | `/build` — TDD against the acceptance criteria | **non-skippable** |
-| 4c | `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside `/build` Phase 3; the row records where it ran) | **non-skippable** |
+Step 4 is the lane file `improve.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+improve` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 ### `build` — steps (deferred, #98)
 
@@ -272,10 +281,10 @@ every issue in the record's *Filed* section. Never `Closes`: nothing was fixed.
 The branch number is a **run stamp** (`YYYYMMDD`), not an issue. The formatter
 and parser treat it as any other positive integer; `/wrap-up-session` does not
 look it up. `CONTRACT_ROUTINES` in `routine_branch.py` carries both names so the
-branch formats, and `PRODUCER_ROUTINES` in the registry's `config.py` carries
-them so `task-registry select` and `task-registry claim` refuse a producer with
-exit 2 — it files issues, it does not select them — and a `[routines.selectors]`
-key naming one is refused at load like any unknown routine.
+branch formats, and the registry reads them as `routine: producer` lanes from the
+lane catalogue, so `task-registry select` and `task-registry claim` refuse a
+producer with exit 2 — it files issues, it does not select them — and a
+`[routines.selectors]` key naming one is refused at load like any unknown routine.
 
 ### Producer spine
 
@@ -298,9 +307,9 @@ full pass, whose live pass drives every mapped feature under `/verify-evidence -
 e2e` rules. Files as `bug`. Terminal artifact: a ready, docs-only PR whose body
 carries `Refs #N` per filed issue and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 3 | `/sweep --routine janitor` — the bar to file is a reproduction **executed this run** (command, observed, expected) at confidence `75` or above; a failing or flaky test is filed with the test command as its reproduction | **non-skippable** |
+Step 3 is the lane file `janitor.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+janitor` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 ### `architect` — steps
 
@@ -309,9 +318,9 @@ red flags over the whole tree, not a diff. Files as `task` + `tech-debt`, or
 `design-decision` when the proposed fix is a choice between designs. Terminal
 artifact: as `janitor`.
 
-| # | Step | Gate |
-|---|---|---|
-| 3 | `/sweep --routine architect` — the bar to file is an `evidence` line quoting the motivating code with `file:line` at confidence `75` or above; `NITPICK` is never filed | **non-skippable** |
+Step 3 is the lane file `architect.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+architect` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 ### `tidy` — steps
 
@@ -328,9 +337,9 @@ Tier 0 commits by check name, and this step list. No `verify-<app>` skill is
 required; step 1 is `task-registry doctor` alone, and in a fresh checkout the
 `installed` and `worktrees` checks report *skipped* with a note, never clean.
 
-| # | Step | Gate |
-|---|---|---|
-| 3 | `/tidy` — the bar to repair is Tier 0 (the correct text is fully determined by the tree); the bar to file is a finding the report names with its surface and remedy; `--report` never commits | **non-skippable** |
+Step 3 is the lane file `tidy.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+tidy` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 ## Edge cases
 

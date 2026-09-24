@@ -119,13 +119,15 @@ improve = enhancement, documentation
 ;   * every skill named must exist in .agents/skills/
 ;   * every chain must END at /wrap-up-session — it is the review gate, and a
 ;     chain that runs it anywhere but last can still ship work after it
-;   * the routine names are the contract's four; inventing one is a deliberate
-;     edit to CONTRACT_ROUTINES, not a configuration key
+;   * the routine names are the lane catalogue's consumer lanes; inventing one
+;     is a new lane file with `routine:` set, not a configuration key
 ;
-; Defaults shown, transcribed from the routine contract at
-; .agents/skills/wrap-up-session/references/routines.md. `plan` omits /build
-; and /quality-gate on purpose: it produces a spec and no implementation, so
-; requiring them would write a `skip:` row on every single run.
+; Defaults shown, transcribed from the lane catalogue — one file per lane under
+; .agents/skills/task-registry/lanes/, the same files `/go` matches and records
+; from; `task-registry lanes` prints them. tests/test-lane-catalogue.sh pins
+; this block equal to the catalogue. `plan` omits /build and /quality-gate on
+; purpose: it produces a spec and no implementation, so requiring them would
+; write a `skip:` row on every single run.
 [routines.skills]
 plan = /plan, /wrap-up-session
 fix = /debug, /build, /quality-gate, /wrap-up-session
