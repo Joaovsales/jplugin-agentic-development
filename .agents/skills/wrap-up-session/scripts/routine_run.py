@@ -23,7 +23,7 @@ Completion is stated, not inferred. The prompt tells the agent to print
 succeeds when the exit code is 0, a start and a finish were printed and no
 failure was. A run that printed no envelope line at all never began -- nothing
 was claimed or branched -- so it is retried exactly once. Success is silent;
-failure persists the output under `<log-dir>/<routine>-<UTC stamp>/`, prints one
+failure persists the output under `<log-dir>/<routine>-<UTC stamp>-<suffix>/`, prints one
 `ROUTINE FAILED` block to stderr and exits 1. A usage error exits 2.
 
 Standard library only, so it runs wherever `/wrap-up-session` does.
@@ -39,9 +39,10 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 PROMPTS = pathlib.Path(__file__).resolve().parent.parent / "references" / "routine-prompts"
 ENVELOPE = "ROUTINE-ENVELOPE"
@@ -49,8 +50,11 @@ KINDS = ("start", "finish", "failure")
 #: The finish outcomes each routine may report -- the one table the prompts
 #: restate (tests/test-routine-run.sh pins every prompt to its row). Membership
 #: is also what makes a routine name valid.
+HARNESSES = ("claude", "codex")
+#: An escalation is not an outcome: `fix` escalates by stopping non-zero, and
+#: that stop prints a `failure` line, so the run has one completion signal.
 ROUTINE_OUTCOMES: Dict[str, tuple] = {
-    "fix": ("pr_opened", "no_candidate", "escalated"),
+    "fix": ("pr_opened", "no_candidate"),
     "improve": ("pr_opened", "no_candidate"),
     "plan": ("pr_opened", "no_candidate"),
     "janitor": ("pr_opened",),
@@ -90,12 +94,16 @@ class Verdict:
 
 
 @dataclass
-class RunReport:
-    """A failed run: every attempt with its verdict, the last one deciding."""
+class RunResult:
+    """Every attempt of one run with its verdict, in launch order; the last decides."""
 
     routine: str
     harness: str
-    attempts: List[tuple]  # (Attempt, Verdict), in launch order
+    attempts: List[Tuple[Attempt, Optional[Verdict]]]
+
+    @property
+    def succeeded(self) -> bool:
+        return self.attempts[-1][1] is None
 
     def to_json(self) -> dict:
         last, verdict = self.attempts[-1]
@@ -125,14 +133,15 @@ def build_command(harness: str, prompt: str, mcp_config: Optional[str] = None) -
     """
     if mcp_config is not None and not pathlib.Path(mcp_config).is_file():
         raise UsageError(f"--mcp-config file not found: {mcp_config}")
+    allowed = _allowed_servers(mcp_config)
     if harness == "claude":
         # Plain `-p` prints only the final message; the start line is printed at
         # the top of the session, so every assistant message has to be streamed.
         argv = ["claude", "-p", prompt, "--strict-mcp-config", "--output-format", "stream-json", "--verbose"]
         return argv + (["--mcp-config", mcp_config] if mcp_config else [])
     if harness == "codex":
-        return ["codex", "exec", *_codex_disable_flags(_allowed_servers(mcp_config)), prompt]
-    raise UsageError(f"unknown harness {harness!r} (claude, codex)")
+        return ["codex", "exec", *_codex_disable_flags(allowed), prompt]
+    raise UsageError(f"unknown harness {harness!r} ({', '.join(HARNESSES)})")
 
 
 def _allowed_servers(mcp_config: Optional[str]) -> set:
@@ -213,7 +222,7 @@ def read_envelope(lines: Sequence[str], routine: str) -> Envelope:
 def _parse_envelope_line(line: str, routine: str):
     parts = line.split(" ", 2)
     if len(parts) != 3 or parts[0] != ENVELOPE or parts[1] not in KINDS:
-        raise ValueError("not `ROUTINE-ENVELOPE start|finish|failure {json}`")
+        raise ValueError(f"not `{ENVELOPE} {'|'.join(KINDS)} {{json}}`")
     payload = json.loads(parts[2])  # JSONDecodeError is a ValueError
     if not isinstance(payload, dict) or payload.get("routine") != routine:
         raise ValueError(f"not an envelope for routine {routine!r}")
@@ -261,7 +270,7 @@ def launch(argv: Sequence[str], timeout: int) -> Attempt:
     return Attempt(_decode(done.stdout), _decode(done.stderr), done.returncode)
 
 
-def run_with_retry(argv: Sequence[str], routine: str, timeout: int) -> List[tuple]:
+def run_with_retry(argv: Sequence[str], routine: str, timeout: int) -> List[Tuple[Attempt, Optional[Verdict]]]:
     """Every `(attempt, verdict)` launched, retrying once only a run that never began.
 
     The last verdict decides the run: None means it succeeded.
@@ -290,11 +299,15 @@ def with_harness_override(argv: List[str]) -> List[str]:
     return [*executable, *argv[1:]]
 
 
-def report_failure(log_dir: str, report: RunReport) -> None:
-    """The last attempt's streams at the top, each earlier one as `attempt-<n>.*`."""
+def report_failure(log_dir: str, report: RunResult) -> None:
+    """The last attempt's streams at the top, each earlier one as `attempt-<n>.*`.
+
+    The directory is `<routine>-<UTC stamp>-<unique suffix>`, so two failures in
+    the same second each keep their record.
+    """
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_dir = pathlib.Path(log_dir) / f"{report.routine}-{stamp}"
-    run_dir.mkdir(parents=True)
+    pathlib.Path(log_dir).mkdir(parents=True, exist_ok=True)
+    run_dir = pathlib.Path(tempfile.mkdtemp(prefix=f"{report.routine}-{stamp}-", dir=log_dir))
     *earlier, (last, _) = report.attempts
     for number, (attempt, _) in enumerate(earlier, start=1):
         _write_streams(run_dir, f"attempt-{number}.", attempt)
@@ -321,7 +334,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="launch one routine unattended and judge its envelope")
     run.add_argument("--routine", required=True)
-    run.add_argument("--harness", required=True, choices=("claude", "codex"))
+    run.add_argument("--harness", required=True, choices=HARNESSES)
     run.add_argument("--log-dir", required=True)
     run.add_argument("--mcp-config", help="the only MCP servers the routine may load")
     run.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S, help="seconds per attempt")
@@ -336,10 +349,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except UsageError as exc:
         print(f"routine_run: {exc}", file=sys.stderr)
         return USAGE_ERROR
-    history = run_with_retry(command, args.routine, args.timeout)
-    if history[-1][1] is None:
+    result = RunResult(args.routine, args.harness, run_with_retry(command, args.routine, args.timeout))
+    if result.succeeded:
         return 0
-    report_failure(args.log_dir, RunReport(args.routine, args.harness, history))
+    report_failure(args.log_dir, result)
     return RUN_FAILED
 
 

@@ -49,8 +49,8 @@ launcher removes both conditions at the source:
 own line, `ROUTINE-ENVELOPE start {"routine": "<name>"}` first and, last,
 `ROUTINE-ENVELOPE finish {"routine": "<name>", "outcome": "<outcome>"}`
 or `ROUTINE-ENVELOPE failure {"routine": "<name>", "reason": "…"}`. Each
-routine's outcomes are its row of `ROUTINE_OUTCOMES` in the launcher: `fix`
-`pr_opened|no_candidate|escalated`, `improve` and `plan` `pr_opened|no_candidate`,
+routine's outcomes are its row of `ROUTINE_OUTCOMES` in the launcher: `fix`,
+`improve` and `plan` `pr_opened|no_candidate` (an escalation is a `failure` line),
 the producers `pr_opened`; each prompt restates its row and a test pins the two
 together. Claude's
 stream is read as assistant text only, so a tool result that echoes a prompt
@@ -68,7 +68,7 @@ never is: the idempotent claim and the loud "branch exists" already guard a
 second run.
 
 **Success is silent**, exit 0. Failure writes
-`<log-dir>/<routine>-<UTC stamp>/{stdout.txt,stderr.txt,verdict.json}` from the
+`<log-dir>/<routine>-<UTC stamp>-<suffix>/{stdout.txt,stderr.txt,verdict.json}` from the
 last attempt (a retried run keeps the first as `attempt-1.stdout.txt` and
 `attempt-1.stderr.txt`, and `verdict.json` lists every attempt's reason), prints one `ROUTINE FAILED` block (routine, reason, exit code,
 attempts, log dir) to stderr and exits 1.

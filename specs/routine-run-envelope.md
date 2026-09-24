@@ -61,8 +61,8 @@ second run (idempotent claim; "branch exists" is loud).
 The prompt tells the agent to print, each on its own line:
 `ROUTINE-ENVELOPE start {"routine": "<name>"}` first, and last either
 `ROUTINE-ENVELOPE finish {"routine": "<name>", "outcome": "<outcome>"}`, the outcome
-drawn from the routine's own row (`fix`: `pr_opened|no_candidate|escalated`;
-`improve`, `plan`: `pr_opened|no_candidate`; producers: `pr_opened`),
+drawn from the routine's own row (`fix`, `improve`, `plan`: `pr_opened|no_candidate`, an escalation being a
+`failure` line; producers: `pr_opened`),
 or `ROUTINE-ENVELOPE failure {"routine": "<name>", "reason": "…"}`.
 
 A run succeeds when the exit code is 0, a `start` and a `finish` were printed, and
@@ -73,7 +73,7 @@ malformed envelope (bad JSON, another routine's name, an unknown outcome, a
 `finish` with no `start`) · exited without a result · non-zero exit.
 
 Success is silent, exit 0. Failure writes
-`<log-dir>/<routine>-<UTC stamp>/{stdout.txt,stderr.txt,verdict.json}` (a retried
+`<log-dir>/<routine>-<UTC stamp>-<suffix>/{stdout.txt,stderr.txt,verdict.json}` (a retried
 run also keeps `attempt-1.stdout.txt` and `attempt-1.stderr.txt`, and
 `verdict.json` lists each attempt's reason), prints a
 single `ROUTINE FAILED` block (routine, reason, exit code, attempts, log dir) to
@@ -95,7 +95,7 @@ stderr, and exits 1. A usage error exits 2.
 - `assumed`: Codex per-server `enabled=false` via `-c`. **Unverified here** (Codex is not installed on the build host). It is tested against the built argv, and the first real run on the Orca host is the proof.
 - `assumed`: one retry, only before the start line.
 - `assumed` (build): Claude runs with `--output-format stream-json --verbose`. Plain `-p` prints only the final message, so the start line printed first could never be observed; AC1's prefix `claude -p <prompt> --strict-mcp-config` is unchanged.
-- `user` (wrap-up): each routine's finish outcomes are a row of the launcher's `ROUTINE_OUTCOMES`; the prompt restates the row and `tests/test-routine-run.sh` pins the two, so a producer printing `escalated` is malformed. Retry reads the verdict's `retryable` flag, never the reason text.
+- `user` (wrap-up): each routine's finish outcomes are a row of the launcher's `ROUTINE_OUTCOMES`; the prompt restates the row and `tests/test-routine-run.sh` pins the two, so a producer printing `no_candidate` is malformed. An escalation is a `failure` line, never a `finish` outcome, so a run has one completion signal. Retry reads the verdict's `retryable` flag, never the reason text.
 - `assumed` (build): malformed envelope is judged before "exited without a result", so a garbled `finish` names itself instead of reading as a missing one; "never started" means no envelope-marked line at all, which keeps a malformed run from being retried.
 
 ## Acceptance Criteria

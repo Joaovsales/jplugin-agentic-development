@@ -125,6 +125,13 @@ class ClaudeArgvTests(unittest.TestCase):
         self.assertEqual(run.code, 2)
         self.assertEqual(run.attempts, 0)
 
+    def test_malformed_mcp_config_is_a_usage_error_for_claude_too(self):
+        bad = pathlib.Path(tempfile.mkdtemp()) / "bad.json"
+        bad.write_text("not json", encoding="utf-8")
+        run = Run([{"stdout": START + FINISH}], "--mcp-config", str(bad), harness="claude")
+        self.assertEqual(run.code, 2)
+        self.assertEqual(run.attempts, 0)
+
     def test_missing_mcp_config_file_is_a_usage_error(self):
         run = Run([{"stdout": START + FINISH}], "--mcp-config", "no-such.json", harness="claude")
         self.assertEqual(run.code, 2)
@@ -266,9 +273,9 @@ class VerdictTests(unittest.TestCase):
                           "malformed envelope")
 
     def test_an_outcome_another_routine_owns_is_malformed(self):
-        # `escalated` is fix's outcome; a producer that prints it did not follow its prompt.
+        # `no_candidate` is a consumer's outcome; a producer that prints it did not follow its prompt.
         lines = ('ROUTINE-ENVELOPE start {"routine": "janitor"}\n'
-                 'ROUTINE-ENVELOPE finish {"routine": "janitor", "outcome": "escalated"}\n')
+                 'ROUTINE-ENVELOPE finish {"routine": "janitor", "outcome": "no_candidate"}\n')
         run = Run([{"stdout": lines}], routine="janitor")
         self.assertEqual(run.code, 1, run.stderr)
         self.assertEqual(run.attempts, 1)
@@ -315,12 +322,36 @@ class SilentSuccessTests(unittest.TestCase):
         self.assertIn("exited without a result", echoed.verdict()["reason"])
 
 
+class ReportTests(unittest.TestCase):
+    def test_two_failures_in_the_same_second_keep_both_records(self):
+        logs = pathlib.Path(tempfile.mkdtemp())
+        attempt = routine_run.Attempt(stderr=MCP_LINE, exit_code=0)
+        verdict = routine_run.judge(attempt, "improve")
+        result = routine_run.RunResult("improve", "codex", [(attempt, verdict)])
+        saved_stderr, sys.stderr = sys.stderr, open(os.devnull, "w")
+        try:
+            routine_run.report_failure(str(logs), result)
+            routine_run.report_failure(str(logs), result)
+        finally:
+            sys.stderr.close()
+            sys.stderr = saved_stderr
+        dirs = sorted(logs.iterdir())
+        self.assertEqual(len(dirs), 2)
+        self.assertTrue(all(d.name.startswith("improve-") for d in dirs))
+
+
 class PromptAgreementTests(unittest.TestCase):
     """The prompts restate the launcher's outcome table; a drift fails here, not at 03:00."""
 
     def test_every_prompt_has_an_outcome_row_and_every_row_a_prompt(self):
         prompts = {p.stem for p in PROMPTS.glob("*.md") if p.stem != "README"}
         self.assertEqual(prompts, set(routine_run.ROUTINE_OUTCOMES))
+
+    def test_an_escalation_is_a_failure_line_not_a_finish_outcome(self):
+        # fix escalates by stopping non-zero; a `finish` beside a non-zero exit would
+        # give the run two completion signals that disagree.
+        self.assertNotIn("escalated", routine_run.ROUTINE_OUTCOMES["fix"])
+        self.assertNotIn("escalated", (PROMPTS / "fix.md").read_text(encoding="utf-8"))
 
     def test_each_prompts_finish_line_lists_exactly_its_outcomes(self):
         for name, outcomes in routine_run.ROUTINE_OUTCOMES.items():
