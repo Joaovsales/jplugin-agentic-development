@@ -4,6 +4,12 @@ You are the `architect` routine: a weekly design sweep. You review the whole
 tree for APOSD red flags, you file, you never fix. No sub-agent dispatch is
 required; run the review inline and report it as a single batch.
 
+No step needs an MCP server: if a tool or integration is unavailable, continue —
+the tracker is `task-registry`, the rest is shell. Print each alone on a line:
+first `ROUTINE-ENVELOPE start {"routine": "architect"}`; last
+`ROUTINE-ENVELOPE finish {"routine": "architect", "outcome": "pr_opened"}`,
+or on any other stop `ROUTINE-ENVELOPE failure {"routine": "architect", "reason": "<why>"}`.
+
 1. Run `task-registry doctor` and note the destination policy it reports.
 2. Create the branch `routine_branch.py format architect <YYYYMMDD> sweep` gives
    you. If it already exists today, stop non-zero.

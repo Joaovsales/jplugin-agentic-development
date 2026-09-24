@@ -34,7 +34,7 @@ mistake above cannot be made:
 
 | Harness | Command built |
 |---|---|
-| `claude` | `claude -p <prompt> --strict-mcp-config [--mcp-config <file>]` |
+| `claude` | `claude -p <prompt> --strict-mcp-config --output-format stream-json --verbose [--mcp-config <file>]` — plain `-p` prints only the final message, so the start line would never reach the launcher; only assistant text counts |
 | `codex` | `codex exec <prompt>` plus `-c mcp_servers.<name>.enabled=false` for every server in the user's `~/.codex/config.toml` (or `$CODEX_HOME`) that `--mcp-config` does not list |
 
 - **Always non-interactive**, stdin closed. A TUI cannot be reached.
@@ -65,9 +65,10 @@ or `ROUTINE-ENVELOPE failure {"routine": "<name>", "reason": "…"}`.
 
 A run succeeds when the exit code is 0, a `start` and a `finish` were printed, and
 no `failure` was printed. Otherwise it fails, with the reason for the first check
-that did not hold: timeout · empty output · never started (quoting any startup
-line such as an MCP failure) · reported failure · exited without a result ·
-malformed envelope · non-zero exit.
+that did not hold: timeout · empty output · never started (no envelope line at
+all; quoting the last output line, such as an MCP failure) · reported failure ·
+malformed envelope (bad JSON, another routine's name, an unknown outcome, a
+`finish` with no `start`) · exited without a result · non-zero exit.
 
 Success is silent, exit 0. Failure writes
 `<log-dir>/<routine>-<UTC stamp>/{stdout.txt,stderr.txt,verdict.json}`, prints a
@@ -89,6 +90,8 @@ stderr, and exits 1. A usage error exits 2.
 - `assumed`: the launcher builds the command (`--harness`) instead of passing through argv. Passthrough would keep the hand-written, interactive launch possible.
 - `assumed`: Codex per-server `enabled=false` via `-c`. **Unverified here** (Codex is not installed on the build host). It is tested against the built argv, and the first real run on the Orca host is the proof.
 - `assumed`: one retry, only before the start line.
+- `assumed` (build): Claude runs with `--output-format stream-json --verbose`. Plain `-p` prints only the final message, so the start line printed first could never be observed; AC1's prefix `claude -p <prompt> --strict-mcp-config` is unchanged.
+- `assumed` (build): malformed envelope is judged before "exited without a result", so a garbled `finish` names itself instead of reading as a missing one; "never started" means no envelope-marked line at all, which keeps a malformed run from being retried.
 
 ## Acceptance Criteria
 

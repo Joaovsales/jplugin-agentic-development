@@ -14,7 +14,59 @@ docs-only pull request carrying the session record.
 Where a routine *lives* is out of scope: an Orca prompt, a Docker job, a Claude
 skill, a shell script — any host works, because this document is the whole
 contract. What is emphatically **in** scope is the step list, for the reason in
-*The step ledger* below.
+*The step ledger* below, and the launch command, for the reason in *Launching a
+routine*.
+
+## Launching a routine
+
+Every host runs a routine the same way — the launcher, never a hand-written
+harness command (`specs/routine-run-envelope.md`):
+
+```
+python3 .agents/skills/wrap-up-session/scripts/routine_run.py run --routine <name> \
+  --harness <claude|codex> --log-dir <dir> [--mcp-config <file>] [--timeout S]
+```
+
+On 2026-09-11 an `improve` run was recorded as completed while its output ended
+at an interactive Codex startup screen, `MCP startup incomplete (failed: linear)`:
+the session had inherited a server no step uses and was waiting for a human. The
+launcher removes both conditions at the source:
+
+| Harness | Command built |
+|---|---|
+| Claude Code | `claude -p <prompt> --strict-mcp-config --output-format stream-json --verbose [--mcp-config <file>]` |
+| Codex | `codex exec <prompt>` with `-c mcp_servers.<name>.enabled=false` for every server in `$CODEX_HOME/config.toml` (default `~/.codex/`) that `--mcp-config` does not list |
+
+- **Non-interactive, stdin closed.** A TUI cannot be reached.
+- **Zero MCP servers by default.** A routine gets an integration only by naming
+  it in `--mcp-config` (an `{"mcpServers": {...}}` file); naming a server Codex
+  does not configure is a usage error, exit 2, before anything launches.
+- **The prompt is read from `routine-prompts/<name>.md`**, so a scheduler holds
+  no copy that can drift. Every prompt also says no step needs an MCP server, so
+  a session launched some other way still proceeds.
+
+**The envelope.** The prompt tells the agent to print, each at the start of its
+own line, `ROUTINE-ENVELOPE start {"routine": "<name>"}` first and, last,
+`ROUTINE-ENVELOPE finish {"routine": "<name>", "outcome": "pr_opened|no_candidate|escalated"}`
+or `ROUTINE-ENVELOPE failure {"routine": "<name>", "reason": "…"}`. Claude's
+stream is read as assistant text only, so a tool result that echoes a prompt
+never counts. A run succeeds when the exit code is 0, a `start` and a `finish`
+were printed and no `failure` was. Otherwise the reason is the first check that
+did not hold: timeout · empty output · never started (quoting the last output
+line, such as an MCP failure) · reported failure · malformed envelope (bad JSON,
+another routine's name, an unknown outcome, a `finish` with no `start`) · exited
+without a result · non-zero exit. A missing harness binary is `harness could not
+start`. MCP startup warnings never decide the verdict.
+
+**One retry, only before the start line.** A run that printed no envelope line
+at all claimed and branched nothing, so it is re-run once. After a start line it
+never is: the idempotent claim and the loud "branch exists" already guard a
+second run.
+
+**Success is silent**, exit 0. Failure writes
+`<log-dir>/<routine>-<UTC stamp>/{stdout.txt,stderr.txt,verdict.json}` from the
+last attempt, prints one `ROUTINE FAILED` block (routine, reason, exit code,
+attempts, log dir) to stderr and exits 1.
 
 ## Why there is no autonomy computation
 

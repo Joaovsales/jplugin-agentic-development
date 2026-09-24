@@ -2,13 +2,13 @@
 > Spec: specs/routine-run-envelope.md
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/127
 
-- [ ] TDD: tests/test-routine-run.sh § claude argv — `build_command("claude", prompt, allow=None)` is `claude -p <prompt> --strict-mcp-config`; with an allow file adds `--mcp-config <file>`; unknown routine or harness exits 2 -> launcher arg parsing + prompt file read + claude builder (AC1)
-- [ ] TDD: tests/test-routine-run.sh § codex argv — fixture config.toml with `linear` and `github`; allowing `github` yields `codex exec` + `-c mcp_servers.linear.enabled=false` only; missing config adds no overrides; allowing an unconfigured server exits 2 -> codex builder reading CODEX_HOME via tomllib (AC2)
-- [ ] TDD: tests/test-routine-run.sh § retry — fake harness (via `ROUTINE_RUN_HARNESS_BIN` override) prints only the MCP line on attempt 1 and a full envelope on attempt 2: exit 0, silent, no log dir -> single retry before the start line (AC3)
-- [ ] TDD: tests/test-routine-run.sh § never started — both attempts print only the MCP line: exit 1, stderr names `never started` and `linear`, log dir has stdout.txt, stderr.txt, verdict.json with attempts=2 (AC4)
-- [ ] TDD: tests/test-routine-run.sh § verdicts — start-only, failure envelope, finish + exit 3, empty output, malformed JSON, other routine's name: each fails with its reason after one attempt (AC5)
-- [ ] TDD: tests/test-routine-run.sh § silent success — MCP warning then full envelope: exit 0, empty stdout/stderr, no log dir (AC6)
-- [ ] TDD: tests/test-routine-run.sh § docs — six prompts carry `ROUTINE-ENVELOPE start`, `ROUTINE-ENVELOPE finish`, `ROUTINE-ENVELOPE failure` and the integrations-optional rule; routines.md § Launching a routine and the prompts README name `routine_run.py run --routine` -> edit prompts, contract, README (AC7)
+- [x] TDD: tests/test-routine-run.sh § claude argv — `build_command("claude", prompt, allow=None)` is `claude -p <prompt> --strict-mcp-config`; with an allow file adds `--mcp-config <file>`; unknown routine or harness exits 2 -> launcher arg parsing + prompt file read + claude builder (AC1)
+- [x] TDD: tests/test-routine-run.sh § codex argv — fixture config.toml with `linear` and `github`; allowing `github` yields `codex exec` + `-c mcp_servers.linear.enabled=false` only; missing config adds no overrides; allowing an unconfigured server exits 2 -> codex builder reading CODEX_HOME via tomllib (AC2)
+- [x] TDD: tests/test-routine-run.sh § retry — fake harness (via `ROUTINE_RUN_HARNESS_BIN` override) prints only the MCP line on attempt 1 and a full envelope on attempt 2: exit 0, silent, no log dir -> single retry before the start line (AC3)
+- [x] TDD: tests/test-routine-run.sh § never started — both attempts print only the MCP line: exit 1, stderr names `never started` and `linear`, log dir has stdout.txt, stderr.txt, verdict.json with attempts=2 (AC4)
+- [x] TDD: tests/test-routine-run.sh § verdicts — start-only, failure envelope, finish + exit 3, empty output, malformed JSON, other routine's name: each fails with its reason after one attempt (AC5)
+- [x] TDD: tests/test-routine-run.sh § silent success — MCP warning then full envelope: exit 0, empty stdout/stderr, no log dir (AC6)
+- [x] TDD: tests/test-routine-run.sh § docs — six prompts carry `ROUTINE-ENVELOPE start`, `ROUTINE-ENVELOPE finish`, `ROUTINE-ENVELOPE failure` and the integrations-optional rule; routines.md § Launching a routine and the prompts README name `routine_run.py run --routine` -> edit prompts, contract, README (AC7)
 
 ## Plan: plan-slices-and-handover
 > Spec: specs/plan-slices-and-handover.md

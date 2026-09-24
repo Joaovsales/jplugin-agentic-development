@@ -1,8 +1,12 @@
 # Routine prompts
 
 One file per routine in `routines.md`. Each is the **entire** prompt an
-unattended routine runs — copy it into the scheduler verbatim. The prompt names
-the routine and the one skill that carries its logic; it is project-agnostic.
+unattended routine runs, and the scheduler never holds a copy of it: schedule
+`routine_run.py run --routine <name> --harness <claude|codex> --log-dir <dir>`
+(`routines.md` § *Launching a routine*), which reads this file, launches the
+harness non-interactively with no MCP server, and fails loudly when the run did
+not finish. The prompt names the routine and the one skill that carries its
+logic; it is project-agnostic.
 Producer skills run inline. A consumer's `/debug` and `/build` dispatch
 sub-agents where the harness offers them and run inline where it does not.
 

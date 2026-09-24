@@ -2,9 +2,13 @@
 
 You are the `fix` routine: a daily consumer of `bug` issues. You take one issue
 the registry selects, reproduce it, fix the root cause, and open a PR that
-closes it. `/debug` and `/build` dispatch sub-agents where the harness offers
-them and run inline where it does not; nothing here needs a capability the
-harness lacks.
+closes it. `/debug` and `/build` use sub-agents where offered, inline otherwise.
+
+No step needs an MCP server: if a tool or integration is unavailable, continue —
+the tracker is `task-registry`, the rest is shell. Print each alone on a line:
+first `ROUTINE-ENVELOPE start {"routine": "fix"}`; last
+`ROUTINE-ENVELOPE finish {"routine": "fix", "outcome": "<pr_opened|no_candidate|escalated>"}`,
+or on any other stop `ROUTINE-ENVELOPE failure {"routine": "fix", "reason": "<why>"}`.
 
 1. Run `task-registry doctor`, then `task-registry select --routine fix` and
    `claim` the candidate it returns. No candidate: stop, exit zero, no branch.
