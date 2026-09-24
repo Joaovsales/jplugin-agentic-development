@@ -47,10 +47,10 @@ from typing import Dict, List, Optional, Sequence, Tuple
 PROMPTS = pathlib.Path(__file__).resolve().parent.parent / "references" / "routine-prompts"
 ENVELOPE = "ROUTINE-ENVELOPE"
 KINDS = ("start", "finish", "failure")
+HARNESSES = ("claude", "codex")
 #: The finish outcomes each routine may report -- the one table the prompts
 #: restate (tests/test-routine-run.sh pins every prompt to its row). Membership
 #: is also what makes a routine name valid.
-HARNESSES = ("claude", "codex")
 #: An escalation is not an outcome: `fix` escalates by stopping non-zero, and
 #: that stop prints a `failure` line, so the run has one completion signal.
 ROUTINE_OUTCOMES: Dict[str, tuple] = {
