@@ -46,6 +46,7 @@ from typing import Dict, List, Optional, Sequence
 
 PROMPTS = pathlib.Path(__file__).resolve().parent.parent / "references" / "routine-prompts"
 ENVELOPE = "ROUTINE-ENVELOPE"
+KINDS = ("start", "finish", "failure")
 OUTCOMES = ("pr_opened", "no_candidate", "escalated")
 NEVER_STARTED = "never started"
 #: Four hours: longer than any routine takes, short enough that a stalled
@@ -73,7 +74,7 @@ class Attempt:
 @dataclass
 class Envelope:
     seen: bool = False
-    lines: Dict[str, List[dict]] = field(default_factory=lambda: {"start": [], "finish": [], "failure": []})
+    by_kind: Dict[str, List[dict]] = field(default_factory=lambda: {kind: [] for kind in KINDS})
     malformed: Optional[str] = None
 
 
@@ -162,13 +163,13 @@ def read_envelope(lines: Sequence[str], routine: str) -> Envelope:
         except ValueError as exc:
             envelope.malformed = envelope.malformed or f"{exc}: {_quote(line)}"
             continue
-        envelope.lines[kind].append(payload)
+        envelope.by_kind[kind].append(payload)
     return envelope
 
 
 def _parse_envelope_line(line: str, routine: str):
     parts = line.split(" ", 2)
-    if len(parts) != 3 or parts[0] != ENVELOPE or parts[1] not in ("start", "finish", "failure"):
+    if len(parts) != 3 or parts[0] != ENVELOPE or parts[1] not in KINDS:
         raise ValueError("not `ROUTINE-ENVELOPE start|finish|failure {json}`")
     payload = json.loads(parts[2])  # JSONDecodeError is a ValueError
     if not isinstance(payload, dict) or payload.get("routine") != routine:
@@ -191,26 +192,24 @@ def judge(attempt: Attempt, routine: str) -> Optional[str]:
     if not envelope.seen:
         last = next((line for line in reversed(lines) if line.strip()), "")
         return f"{NEVER_STARTED} - last output: {_quote(last)}"
-    if envelope.lines["failure"]:
-        return f"reported failure: {envelope.lines['failure'][0]['reason']}"
+    if envelope.by_kind["failure"]:
+        return f"reported failure: {envelope.by_kind['failure'][0]['reason']}"
     if envelope.malformed:
         return f"malformed envelope: {envelope.malformed}"
-    if not envelope.lines["start"]:
+    if not envelope.by_kind["start"]:
         return "malformed envelope: finish without start"
-    if not envelope.lines["finish"]:
+    if not envelope.by_kind["finish"]:
         return "exited without a result"
     return None if attempt.exit_code == 0 else f"non-zero exit {attempt.exit_code}"
 
 
 def launch(argv: Sequence[str], timeout: int) -> Attempt:
     """One harness run: stdin closed, output captured as bytes and decoded safely."""
-    override = os.environ.get(HARNESS_BIN_ENV)
-    command = [*json.loads(override), *argv[1:]] if override else list(argv)
-    exe = shutil.which(command[0])
+    exe = shutil.which(argv[0])
     if exe is None:
-        return Attempt(error=f"harness could not start: {command[0]} not found")
+        return Attempt(error=f"harness could not start: {argv[0]} not found")
     try:
-        done = subprocess.run([exe, *command[1:]], stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout)
+        done = subprocess.run([exe, *argv[1:]], stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         return Attempt(_decode(exc.stdout), _decode(exc.stderr), error=f"timeout after {timeout}s")
     except OSError as exc:
@@ -227,9 +226,23 @@ def run_with_retry(argv: Sequence[str], routine: str, timeout: int):
             return attempt, reason, attempts
 
 
-def report_failure(args: argparse.Namespace, attempt: Attempt, verdict: dict) -> None:
+def with_harness_override(argv: List[str]) -> List[str]:
+    """`argv` with its executable replaced by the test seam's JSON array, if set."""
+    override = os.environ.get(HARNESS_BIN_ENV)
+    if not override:
+        return argv
+    try:
+        executable = json.loads(override)
+    except ValueError as exc:
+        raise UsageError(f"{HARNESS_BIN_ENV} is not JSON: {exc}") from exc
+    if not (isinstance(executable, list) and executable and all(isinstance(a, str) for a in executable)):
+        raise UsageError(f"{HARNESS_BIN_ENV} must be a non-empty JSON array of strings")
+    return [*executable, *argv[1:]]
+
+
+def report_failure(log_dir: str, attempt: Attempt, verdict: dict) -> None:
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_dir = pathlib.Path(args.log_dir) / f"{args.routine}-{stamp}"
+    run_dir = pathlib.Path(log_dir) / f"{verdict['routine']}-{stamp}"
     run_dir.mkdir(parents=True)
     (run_dir / "stdout.txt").write_text(attempt.stdout, encoding="utf-8")
     (run_dir / "stderr.txt").write_text(attempt.stderr, encoding="utf-8")
@@ -264,7 +277,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     sys.stderr.reconfigure(errors="replace")  # a quoted line must never crash the report
     args = build_parser().parse_args(argv)
     try:
-        command = build_command(args.harness, read_prompt(args.routine), args.mcp_config)
+        command = with_harness_override(build_command(args.harness, read_prompt(args.routine), args.mcp_config))
     except UsageError as exc:
         print(f"routine_run: {exc}", file=sys.stderr)
         return USAGE_ERROR
@@ -273,7 +286,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
     verdict = {"routine": args.routine, "harness": args.harness, "reason": reason,
                "exit_code": attempt.exit_code, "attempts": attempts}
-    report_failure(args, attempt, verdict)
+    report_failure(args.log_dir, attempt, verdict)
     return RUN_FAILED
 
 
