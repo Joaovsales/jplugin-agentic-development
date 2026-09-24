@@ -212,16 +212,16 @@ fi
 # ── session-start surfaces the ledger for a human to file ────────────────────
 # The gate cannot create the issue itself (approval floor + no network in a
 # hook), so the banner is the handoff point. Silent when there is no debt.
-BANNER="$REPO/.claude/hooks/session-start.sh"
+BANNER="$REPO/.agents/hooks/session-start.sh"
 D="$(new_repo banner)"
 cp "$BANNER" "$D/session-start.sh"
-BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh 2>/dev/null )"
+BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
 assert_not_contains "not-empty:$BAN_OUT" "WRAP-UP DEBT" \
   "Banner: silent when no ledger exists"
 
 printf '# Wrap-Up Debt\n\n## master abc1234..def5678\n- Recorded: 2026-09-02\n' \
   > "$D/tasks/wrap-up-debt.md"
-BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh 2>/dev/null )"
+BAN_OUT="$( cd "$D" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
 assert_contains "$BAN_OUT" "WRAP-UP DEBT" "Banner: reports outstanding debt"
 assert_contains "$BAN_OUT" "master abc1234..def5678" "Banner: names the range"
 assert_contains "$BAN_OUT" "/task-registry upsert" "Banner: names how to file it"
@@ -243,11 +243,11 @@ if [ -d "$SLUGGY" ]; then
     bash_slug=$(printf '%s' "$heading" | tr '[:upper:]' '[:lower:]' \
       | tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//')
     [ -n "$bash_slug" ] || bash_slug=task
-    py_slug=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" python3 -c \
+    py_slug=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" "$TEST_PYTHON" -c \
       'import sys; from registry.model import slugify_id; print(slugify_id(sys.argv[1]))' "$heading")
     assert_eq "$py_slug" "$bash_slug" \
       "Banner slug agrees with slugify_id for: $heading"
-    valid=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" python3 -c \
+    valid=$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SLUGGY" "$TEST_PYTHON" -c \
       'import sys; from registry.model import is_valid_id; print(is_valid_id("wrap-up-debt." + sys.argv[1]))' "$bash_slug")
     assert_eq "True" "$valid" \
       "Banner slug yields an id upsert accepts for: $heading"
@@ -256,7 +256,7 @@ fi
 
 # A heading carrying a single quote must not break the command the banner prints.
 QD="$(mktemp -d)"; mkdir -p "$QD/tasks"
-cp "$REPO/.claude/hooks/session-start.sh" "$QD/session-start.sh"
+cp "$REPO/.agents/hooks/session-start.sh" "$QD/session-start.sh"
 printf "# Wrap-Up Debt\n\n## feat/o'brien abc1234..def5678\n- Recorded: 2026-09-08\n" \
   > "$QD/tasks/wrap-up-debt.md"
 Q_OUT="$( cd "$QD" && CCW_SESSION_GUARD=0 bash ./session-start.sh </dev/null 2>/dev/null )"
@@ -276,12 +276,10 @@ assert_file_contains "$REPO/install.sh" 'git rev-parse --git-common-dir' \
 assert_file_contains "$REPO/.agents/skills/sync/SKILL.md" \
   'cp .agents/git-hooks/pre-push' \
   "sync: refreshes the hook in an already-cloned repo"
-assert_files_identical "$REPO/.agents/skills/sync/SKILL.md" \
-  "$REPO/.claude/skills/sync/SKILL.md" "sync: both skill trees stay in parity"
 
 # The deprecated second pre-push script is gone: two pre-push scripts in one
 # tree is an invitation to edit the dormant one.
-if [ -f "$REPO/.claude/hooks/pre-push-guard.sh" ]; then
+if [ -f "$REPO/.agents/hooks/pre-push-guard.sh" ]; then
   assert_eq "removed" "present" "Deprecated pre-push-guard.sh removed"
 else
   assert_eq "removed" "removed" "Deprecated pre-push-guard.sh removed"

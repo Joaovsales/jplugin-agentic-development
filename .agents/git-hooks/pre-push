@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # pre-push — runs typecheck + lint before every git push.
-# Installed by coding-agent-workflow/install.sh into .git/hooks/pre-push.
+# Installed by jplugin-agentic-development/install.sh into .git/hooks/pre-push.
 # Harness-agnostic: works for manual pushes, Claude Code, Pi, and CI.
 #
 # Kill switch: SKIP_PREPUSH=1 git push

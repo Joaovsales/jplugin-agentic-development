@@ -15,7 +15,6 @@ MIT_LICENSE_BLOB=6b5400237fdf6545be0b8fae370d6f2fcff8fb25
 
 for skill in create-verification-skill maintain-verification-skill; do
   canonical=".agents/skills/$skill/SKILL.md"
-  compat=".claude/skills/$skill/SKILL.md"
   frontmatter="$(awk 'NR == 1 && /^---$/ { in_frontmatter=1; next }
     in_frontmatter && /^---$/ { exit }
     in_frontmatter { print }' "$canonical" 2>/dev/null)"
@@ -23,13 +22,8 @@ for skill in create-verification-skill maintain-verification-skill; do
   assert_contains "$frontmatter" "description:" "$skill: description is present"
   assert_contains "$frontmatter" "disable-model-invocation: false" "$skill: model invocation is enabled"
   assert_contains "$frontmatter" "harness: universal" "$skill: harness-neutral registration"
-  assert_files_identical "$canonical" "$compat" "$skill: canonical and Claude copies match"
   assert_file_contains ".agents/skills/$skill/LICENSE.pstack" "Copyright (c) 2026 Lauren Tan" \
     "$skill: standalone canonical copy bundles attribution"
-  assert_file_contains ".claude/skills/$skill/LICENSE.pstack" "Permission is hereby granted" \
-    "$skill: standalone Claude copy bundles the MIT grant"
-  assert_files_identical ".agents/skills/$skill/LICENSE.pstack" ".claude/skills/$skill/LICENSE.pstack" \
-    "$skill: bundled notices match across trees"
   assert_eq "$NOTICE_TEXT" "$(cat ".agents/skills/$skill/LICENSE.pstack")" \
     "$skill: bundled license matches the complete repository notice"
   assert_eq "$MIT_LICENSE_BLOB" "$(git hash-object ".agents/skills/$skill/LICENSE.pstack")" \
@@ -62,9 +56,6 @@ assert_file_contains "$CREATOR" "Surface and capability ceiling" \
   "creator: generated skill declares its surface and capability ceiling"
 assert_file_contains "$CREATOR" 'canonical `.agents/skills/` tree' \
   "creator: canonical generated path"
-assert_file_contains "$CREATOR" 'compatibility `.claude/skills/` tree' \
-  "creator: mirrored generated path"
-assert_file_contains "$CREATOR" "byte-identical" "creator: generated trees stay byte-identical"
 assert_file_contains "$CREATOR" "top 3-5" "creator: seeds a bounded feature map"
 assert_file_contains "$CREATOR" "evidence still exists" "creator: proof survives cleanup"
 assert_file_not_matches "$CREATOR" 'TBD|PLACEHOLDER|TODO:' \
@@ -116,7 +107,7 @@ assert_file_contains "$MAINTAINER" "active branch" "maintainer: changed mode edi
 assert_file_contains "$MAINTAINER" "idempotent" "maintainer: changed mode is idempotent"
 assert_file_contains "$MAINTAINER" "count candidates before validating their contents" \
   "maintainer: counts every verify-* candidate before target validation"
-assert_file_contains "$MAINTAINER" 'candidate set as `/verify --scope e2e`' \
+assert_file_contains "$MAINTAINER" 'candidate set as `/verify-evidence --scope e2e`' \
   "maintainer: shares verify's ambiguity boundary"
 assert_file_contains "$MAINTAINER" "one read-only subagent per feature" \
   "maintainer: full mode has independent source coverage"

@@ -1,15 +1,10 @@
 ---
 implementation_paths:
   - .agents/skills/wrap-up-session/**
-  - .claude/skills/wrap-up-session/**
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - .agents/skills/debug/SKILL.md
-  - .claude/skills/debug/SKILL.md
   - .agents/skills/build/SKILL.md
-  - .claude/skills/build/SKILL.md
-  - .agents/skills/verify/SKILL.md
-  - .claude/skills/verify/SKILL.md
+  - .agents/skills/verify-evidence/SKILL.md
   - tests/test-routine-branch.sh
   - tests/test-routines-contract.sh
   - tests/test-routine-selectors.sh
@@ -161,21 +156,20 @@ default vocabulary is extended to cover the chain, and the precedence order itse
 is configurable alongside it.
 
 A configured selector label that does not exist upstream is a **loud** failure:
-non-zero exit naming the label. Per `CLAUDE.md` § Observability Discipline,
+non-zero exit naming the label. Per `AGENTS.md` § Observability Discipline,
 "nothing matched" and "the vocabulary is wrong" are different outcomes and must
 not share an exit code.
 
 ### Where the contract document lives
 
-Not `docs/routines.md`. `/sync` ships `CLAUDE.md`, `.agents/skills/`,
-`.agents/agents/`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`,
-`.claude/browsers/`, `.claude/settings.json` and `.agents/git-hooks/`, and
-`install.sh` copies only `.claude/skills/` and `.agents/`. A `docs/` path is in
-neither set, so the contract would reach no consumer — while this spec's blast
+Not `docs/routines.md`. `/sync` ships the `AGENTS.md` managed block, `.agents/skills/`,
+`.agents/agents/`, `.agents/references/`, `.agents/hooks/`, `.claude/agents/`,
+`.claude/browsers/`, `.claude/settings.json` and `.agents/git-hooks/`. A `docs/`
+path is not in that set, so the contract would reach no consumer — while this spec's blast
 radius line promises it ships to every one of them. The contract is pure
 convention with no project-specific content, so it belongs inside the syncable
-tree: `.agents/skills/wrap-up-session/references/routines.md`, with the
-byte-identical `.claude/` copy that `tests/test-skill-parity.sh` requires.
+tree: `.agents/skills/wrap-up-session/references/routines.md`, which Claude Code
+loads through the `jplugin` plugin.
 
 Wrap-up owns it because wrap-up is the skill that parses the branch convention and
 opens the PR; `routine_branch.py` already lands in the same skill.
@@ -360,8 +354,8 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
       documents the four routines, their kind selectors, the precedence order, the
       branch convention, **and each routine's mandatory step list with its
       non-skippable gates**; `build` is marked deferred, naming #97 and #98, so a
-      reader cannot mistake it for available. Ships byte-identically to
-      `.claude/skills/wrap-up-session/references/routines.md`.
+      reader cannot mistake it for available. Claude Code loads it through
+      the `jplugin` plugin; no copy is shipped.
 - AC9 — A routine's executed step list, with skipped rows and reasons, appears
       in `tasks/todo.md` and in the PR body.
 - AC10 — `/auto-improve` Phases 3, 4, and 5 name no routing engine and no
@@ -396,6 +390,6 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
   claim-label read/write, upstream label-existence check; `KINDS` unchanged
 - `.agents/skills/task-registry/templates/task-tracking.md` — default kind
   vocabulary extended to cover the precedence chain; claim label documented
-- `.agents/skills/wrap-up-session/references/routines.md` — new, the routine contract and step lists (+ `.claude` parity copy)
+- `.agents/skills/wrap-up-session/references/routines.md` — new, the routine contract and step lists
 - `CLAUDE.md`, `README.md` — table rows
 - `tasks/solutions/**` — two documents reconciled

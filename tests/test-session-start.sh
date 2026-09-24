@@ -2,7 +2,7 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-HOOK="$REPO/.claude/hooks/session-start.sh"
+HOOK="$REPO/.agents/hooks/session-start.sh"
 cd "$REPO"
 
 # These three exercise `source` parsing, not the double-invocation guard, and
@@ -13,17 +13,17 @@ cd "$REPO"
 # --- source=compact -> lightweight restore, NO full banner ---
 out_compact=$(printf '{"source":"compact"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
 assert_contains "$out_compact" "Context was just compacted" "P1: compact source prints restore block"
-assert_not_contains "$out_compact" "SKILLS AVAILABLE" "P1: compact source skips full skills banner"
+assert_not_contains "$out_compact" "SESSION START" "P1: compact source skips the full banner"
 assert_not_contains "$out_compact" "tasks/memory.md" "M3: compact restore no longer points at memory.md"
 assert_contains "$out_compact" "tasks/solutions" "M3: compact restore points at the typed store"
 
 # --- source=startup -> full banner ---
 out_startup=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
-assert_contains "$out_startup" "SKILLS AVAILABLE" "P1: startup source prints full banner"
+assert_contains "$out_startup" "SESSION START" "P1: startup source prints full banner"
 
 # --- empty/absent stdin -> defaults to full banner (no regression) ---
 out_empty=$(printf '' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
-assert_contains "$out_empty" "SKILLS AVAILABLE" "P1: empty stdin defaults to full banner"
+assert_contains "$out_empty" "SESSION START" "P1: empty stdin defaults to full banner"
 
 # --- M3 store cutover: one-line counts, no bodies, no retired files ---------
 tmpS=$(mktemp -d)
@@ -106,7 +106,7 @@ EOF
 out_zero=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
 ec_zero=$?
 assert_eq "0" "$ec_zero" "M3: zero-flag store does not abort the hook"
-assert_contains "$out_zero" "SKILLS AVAILABLE" "M3: zero-flag store still prints the full banner"
+assert_contains "$out_zero" "SESSION START" "M3: zero-flag store still prints the full banner"
 assert_contains "$out_zero" "2 documents, 0 needs_review" \
   "M3: neither the README nor a document quoting the flag is counted as flagged"
 assert_not_contains "$out_zero" "Partially migrated" \
@@ -189,7 +189,7 @@ assert_maintenance_notice() {
     CLAUDE_SESSION_SENTINEL="$PWD/session-active" bash "$HOOK" 2>&1)
   status=$?
   assert_eq "0" "$status" "$label: hook succeeds"
-  assert_contains "$output" "SKILLS AVAILABLE" "$label: full banner runs"
+  assert_contains "$output" "SESSION START" "$label: full banner runs"
   if [ -n "$expected" ]; then
     assert_contains "$output" "MEMORY MAINTENANCE DUE ($expected sessions)" "$label: reminder counts sessions"
   else
@@ -293,8 +293,8 @@ assert_guard_silent() {  # assert_guard_silent <outfile> <message>
 # Two repos, no session_id in the payload -> each gets its own banner.
 guard_run "$tmpG/repo-a" '{"source":"startup"}' "$tmpG/a.out"
 guard_run "$tmpG/repo-b" '{"source":"startup"}' "$tmpG/b.out"
-assert_contains "$(cat "$tmpG/a.out")" "SKILLS AVAILABLE" "guard: first repo prints the banner"
-assert_contains "$(cat "$tmpG/b.out")" "SKILLS AVAILABLE" \
+assert_contains "$(cat "$tmpG/a.out")" "SESSION START" "guard: first repo prints the banner"
+assert_contains "$(cat "$tmpG/b.out")" "SESSION START" \
   "guard: a second repo inside the freshness window still gets its own banner"
 
 # Same repo, no session_id -> the second registration is de-duplicated. This
@@ -306,14 +306,14 @@ assert_guard_silent "$tmpG/a2.out" "guard: the repo's second registration stays 
 
 # An absent payload (tty / empty stdin) must take the same cwd branch, not crash.
 guard_run "$tmpG/repo-c" '' "$tmpG/e.out"
-assert_contains "$(cat "$tmpG/e.out")" "SKILLS AVAILABLE" \
+assert_contains "$(cat "$tmpG/e.out")" "SESSION START" \
   "guard: an empty payload still keys on cwd and prints"
 
 # The freshness window is the ONLY escape from a per-checkout key, so pin it.
 # -t with a fixed old stamp is the portable form (GNU and BSD both take it).
 touch -t 200101010000 "$tmpG/tmp"/.ccw-session-start-* 2>/dev/null || true
 guard_run "$tmpG/repo-a" '{"source":"startup"}' "$tmpG/a3.out"
-assert_contains "$(cat "$tmpG/a3.out")" "SKILLS AVAILABLE" \
+assert_contains "$(cat "$tmpG/a3.out")" "SESSION START" \
   "guard: a stale sentinel expires rather than wedging the hook permanently"
 
 # session_id is the primary key. Running the pair from DIFFERENT cwds is what
@@ -321,22 +321,22 @@ assert_contains "$(cat "$tmpG/a3.out")" "SKILLS AVAILABLE" \
 # so only an actually-parsed session_id can — and it is parsed without jq.
 guard_run "$tmpG/repo-b" '{"source":"startup","session_id":"aaaa-1111"}' "$tmpG/s1.out"
 guard_run "$tmpG/repo-d" '{"source":"startup","session_id":"aaaa-1111"}' "$tmpG/s2.out"
-assert_contains "$(cat "$tmpG/s1.out")" "SKILLS AVAILABLE" "guard: session_id's first registration prints"
+assert_contains "$(cat "$tmpG/s1.out")" "SESSION START" "guard: session_id's first registration prints"
 assert_guard_silent "$tmpG/s2.out" \
   "guard: one session_id collapses across two cwds (so it was really parsed, without jq)"
 
 # A different session_id in the SAME repo is a different session -> prints.
 guard_run "$tmpG/repo-b" '{"source":"startup","session_id":"bbbb-2222"}' "$tmpG/s3.out"
-assert_contains "$(cat "$tmpG/s3.out")" "SKILLS AVAILABLE" \
+assert_contains "$(cat "$tmpG/s3.out")" "SESSION START" \
   "guard: a new session in the same repo is not swallowed by the previous one"
 
 # Ids are not restricted to [A-Za-z0-9_-]; a rejected id would fall back to the
 # cwd key and silently collapse two distinct sessions in one repo.
 guard_run "$tmpG/repo-b" '{"source":"startup","session_id":"sess.1/2+3="}' "$tmpG/s5.out"
 guard_run "$tmpG/repo-b" '{"source":"startup","session_id":"sess.9/8+7="}' "$tmpG/s6.out"
-assert_contains "$(cat "$tmpG/s5.out")" "SKILLS AVAILABLE" \
+assert_contains "$(cat "$tmpG/s5.out")" "SESSION START" \
   "guard: a punctuation-bearing session_id is accepted, not dropped to the cwd key"
-assert_contains "$(cat "$tmpG/s6.out")" "SKILLS AVAILABLE" \
+assert_contains "$(cat "$tmpG/s6.out")" "SESSION START" \
   "guard: a second punctuation-bearing id is still a distinct session"
 
 # A later source under one session_id must not inherit the startup sentinel.
@@ -357,7 +357,7 @@ printf '{"source":"startup"}' \
 nock_rc=$?
 cd "$REPO"
 assert_eq "0" "$nock_rc" "guard: a missing cksum degrades rather than killing the hook"
-assert_contains "$(cat "$tmpG/nock.out")" "SKILLS AVAILABLE" \
+assert_contains "$(cat "$tmpG/nock.out")" "SESSION START" \
   "guard: the banner still prints when cksum is unavailable"
 rm -rf "$shimG"
 
@@ -391,7 +391,7 @@ git -C "$tmpU/work" branch --set-upstream-to=origin/master &>/dev/null \
 cd "$tmpU/work"
 out_current=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
 cd "$REPO"
-assert_contains "$out_current" "SKILLS AVAILABLE" "upstream: banner still prints when current"
+assert_contains "$out_current" "SESSION START" "upstream: banner still prints when current"
 assert_not_contains "$out_current" "BEHIND UPSTREAM" "upstream: silent when the clone is current"
 
 # behind by one -> loud, with the count
@@ -414,5 +414,246 @@ assert_not_contains "$out_noup" "BEHIND UPSTREAM" "upstream: silent with no upst
 
 rm -rf "$tmpU"
 
+# --- plugin declared but not installed: one line, only on that state --------
+# specs/claude-plugin-manifest.md § /sync: a synced project enables
+# jplugin@jplugin-agentic-development in .claude/settings.json. A user who
+# declined the marketplace prompt has no jplugin: skills in that project and
+# nothing else says so. Silent when installed, and when nothing is declared.
+tmpP=$(mktemp -d)
+mkdir -p "$tmpP/proj/.claude" "$tmpP/home/.claude/plugins"
+printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}\n' > "$tmpP/proj/.claude/settings.json"
+cd "$tmpP/proj"
+run_plugin_probe() {
+  printf '{"source":"startup"}' \
+    | HOME="$tmpP/home" CLAUDE_CONFIG_DIR="$tmpP/home/.claude" CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null
+}
+out_missing=$(run_plugin_probe)
+assert_contains "$out_missing" "PLUGIN NOT INSTALLED" \
+  "Plugin: enabled in settings but absent from installed_plugins.json prints the line"
+assert_contains "$out_missing" "jplugin@jplugin-agentic-development" \
+  "Plugin: the line names the plugin id"
+assert_eq "1" "$(printf '%s\n' "$out_missing" | grep -c 'PLUGIN NOT INSTALLED')" \
+  "Plugin: exactly one headline"
+printf '{"version": 2, "plugins": {"jplugin@jplugin-agentic-development": [{"scope": "user"}]}}\n' \
+  > "$tmpP/home/.claude/plugins/installed_plugins.json"
+out_installed=$(run_plugin_probe)
+assert_not_contains "$out_installed" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent once installed_plugins.json records the plugin"
+# A settings-driven install (Claude Code caching the plugin when the folder is
+# trusted) writes no installed_plugins.json record at all -- only the versioned
+# cache directory exists. Spike S4 measured it; without this branch every
+# synced project warns while the plugin works.
+rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
+mkdir -p "$tmpP/home/.claude/plugins/cache/jplugin-agentic-development/jplugin/1.0.0"
+out_cached=$(run_plugin_probe)
+assert_not_contains "$out_cached" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when only the versioned cache directory records the install"
+# An empty plugin directory (interrupted fetch, uninstall) records nothing.
+rm -rf "$tmpP/home/.claude/plugins/cache/jplugin-agentic-development/jplugin/1.0.0"
+out_empty_cache=$(run_plugin_probe)
+assert_contains "$out_empty_cache" "PLUGIN NOT INSTALLED" \
+  "Plugin: a cache directory with no version under it does not count as installed"
+rm -rf "$tmpP/home/.claude/plugins/cache"
+# A project that set the plugin to false has declined it: no line.
+printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": false}}\n' > "$tmpP/proj/.claude/settings.json"
+out_disabled=$(run_plugin_probe)
+assert_not_contains "$out_disabled" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when the project disables the plugin"
+# Pre-plugin copies under ~/.claude/skills/ that shadow a skill this project
+# carries are named; the user's own skills there are not.
+mkdir -p "$tmpP/proj/.agents/skills/plan" "$tmpP/home/.claude/skills/plan" "$tmpP/home/.claude/skills/my-own"
+out_stale=$(run_plugin_probe)
+assert_contains "$out_stale" "STALE SKILL COPIES" \
+  "Stale copies: a template skill copied under ~/.claude/skills/ prints the line"
+assert_contains "$out_stale" " plan" \
+  "Stale copies: the line names the shadowed skill"
+assert_not_contains "$out_stale" "my-own" \
+  "Stale copies: the user's own skill is not named"
+rm -rf "$tmpP/home/.claude/skills/plan"
+out_no_stale=$(run_plugin_probe)
+assert_not_contains "$out_no_stale" "STALE SKILL COPIES" \
+  "Stale copies: silent once the copy is gone"
+rm -rf "$tmpP/proj/.agents" "$tmpP/home/.claude/skills"
+printf '{}\n' > "$tmpP/proj/.claude/settings.json"
+rm -f "$tmpP/home/.claude/plugins/installed_plugins.json"
+out_undeclared=$(run_plugin_probe)
+assert_not_contains "$out_undeclared" "PLUGIN NOT INSTALLED" \
+  "Plugin: silent when the project declares no plugin"
+cd "$REPO"
+rm -rf "$tmpP"
+
+# --- Deployment Targets: AGENTS.md first, .claude/project.md second with a notice ---
+# specs/single-instruction-file.md § Readers of project configuration (D3): the
+# table moved below the managed block's end marker in AGENTS.md; a project that
+# declined the migration keeps its table in .claude/project.md and must keep
+# working — loudly, so the state is visible and not permanent by accident.
+tmpD=$(mktemp -d)
+cd "$tmpD"
+mkdir -p .claude
+printf '{}\n' > railway.json
+targets_table='## Deployment Targets
+
+| Service | Runbook | Triggers on branch | Project ID |
+|---------|---------|--------------------|------------|
+| Railway | .claude/deployments/railway.md | main | demo |
+'
+printf '# Project Instructions\n\n%s' "$targets_table" > AGENTS.md
+out_targets_agents=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+assert_not_contains "$out_targets_agents" "no Deployment Targets" \
+  "Targets: a table in AGENTS.md satisfies the deploy-signal nudge"
+assert_not_contains "$out_targets_agents" "found in .claude/project.md" \
+  "Targets: no notice when the table is where it belongs"
+printf '# Project Instructions\n' > AGENTS.md
+printf '# Project-Specific Configuration\n\n%s' "$targets_table" > .claude/project.md
+out_targets_legacy=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+assert_not_contains "$out_targets_legacy" "no Deployment Targets" \
+  "Targets: a table still in .claude/project.md still counts — a declined migration breaks nothing"
+assert_contains "$out_targets_legacy" "Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md" \
+  "Targets: the pre-single-file location prints the one-line notice"
+rm .claude/project.md
+out_targets_none=$(printf '{"source":"startup"}' | CCW_SESSION_GUARD=0 bash "$HOOK" 2>/dev/null)
+assert_contains "$out_targets_none" "no Deployment Targets in AGENTS.md" \
+  "Targets: a deploy signal with no table anywhere nudges toward AGENTS.md"
+assert_not_contains "$out_targets_none" "found in .claude/project.md" \
+  "Targets: no notice when there is nothing in the old location"
+cd "$REPO"
+rm -rf "$tmpD"
+
+
+# --- Failure-only banner (specs/single-instruction-file.md § Invariants, D18) ---
+# Nothing wrong -> header, counts, tasks, git and nothing else: no ⚠ line, no
+# skills list, no footer, at most 12 lines. Each conditional line is pinned
+# below with the fixture that trips it. CLAUDE_CONFIG_DIR and a private PATH
+# prefix isolate the runs from this machine's plugin records and graphify.
+tmpB=$(mktemp -d)
+mkdir -p "$tmpB/cfg" "$tmpB/bin"
+banner_run() {  # banner_run <dir> -> stdout of one startup run
+  ( cd "$1" && printf '{"source":"startup"}' \
+      | CCW_SESSION_GUARD=0 CLAUDE_CONFIG_DIR="$tmpB/cfg" PATH="$tmpB/bin:$PATH" bash "$HOOK" 2>/dev/null )
+}
+block_agents='# Demo
+
+<!-- jplugin-agentic-development:begin -->
+## Session Start Checklist
+<!-- jplugin-agentic-development:end -->
+'
+# Adopting (.agents/skills/ exists), block present, graph newer than HEAD, no
+# upstream, no debt, no deploy signal.
+mkdir -p "$tmpB/clean/.agents/skills/zz-fixture" "$tmpB/clean/tasks" "$tmpB/clean/graphify-out"
+( cd "$tmpB/clean" && git init -q && git config user.email t@t && git config user.name t \
+  && printf '%s' "$block_agents" > AGENTS.md && printf '[ ] TDD: pending -> later\n' > tasks/todo.md \
+  && git add -A && git commit -qm init ) >/dev/null 2>&1
+printf '{}' > "$tmpB/clean/graphify-out/graph.json"   # written after HEAD: current
+out_clean="$(banner_run "$tmpB/clean")"
+assert_contains "$out_clean" "SESSION START" \
+  "Banner: the clean fixture prints the full banner (non-vacuity)"
+assert_not_contains "$out_clean" "⚠" \
+  "Banner: nothing wrong -> no ⚠ line"
+assert_not_contains "$out_clean" "SKILLS AVAILABLE" \
+  "Banner: no skills list — the README table is the one catalog"
+assert_not_contains "$out_clean" "Ready." \
+  "Banner: no footer"
+assert_not_contains "$out_clean" "managed block" \
+  "Banner: a present block prints no missing-block line"
+clean_lines="$(printf '%s\n' "$out_clean" | grep -c '' || true)"
+assert_eq "yes" "$([ "$clean_lines" -le 12 ] && echo yes || echo "no ($clean_lines lines)")" \
+  "Banner: nothing wrong -> at most 12 lines"
+
+# Graph older than HEAD -> the stale line. graphify is a stub on the private PATH.
+printf '#!/bin/bash\nexit 0\n' > "$tmpB/bin/graphify"; chmod +x "$tmpB/bin/graphify"
+touch -t 202001010000 "$tmpB/clean/graphify-out/graph.json"
+out_stale="$(banner_run "$tmpB/clean")"
+assert_contains "$out_stale" "⚠  code graph stale: graphify-out/graph.json is older than HEAD — run graphify" \
+  "Banner: a graph older than HEAD prints the stale line"
+# No graph: silent in a tree without code files, loud once a code file is tracked.
+rm -rf "$tmpB/clean/graphify-out"
+out_nograph_md="$(banner_run "$tmpB/clean")"
+assert_not_contains "$out_nograph_md" "graphify installed but no graph" \
+  "Banner: no graph in a tree without code files prints nothing — there is nothing to build"
+( cd "$tmpB/clean" && printf 'print(1)\n' > main.py && git add main.py && git commit -qm code ) >/dev/null 2>&1
+out_nograph_code="$(banner_run "$tmpB/clean")"
+assert_contains "$out_nograph_code" "⚠  graphify installed but no graph — run graphify" \
+  "Banner: graphify installed, code files tracked, no graph -> the missing-graph line"
+rm -f "$tmpB/bin/graphify"
+
+# Missing block: printed only in an adopting repository (D18).
+mkdir -p "$tmpB/adopt-skills/.agents/skills/zz-fixture"
+printf '# Project Instructions\n' > "$tmpB/adopt-skills/AGENTS.md"
+out_adopt_skills="$(banner_run "$tmpB/adopt-skills")"
+assert_contains "$out_adopt_skills" "⚠  AGENTS.md has no jplugin-agentic-development managed block — run /sync" \
+  "Banner: adopting (.agents/skills/ present) without a block -> the missing-block line"
+mkdir -p "$tmpB/adopt-plugin/.claude"
+printf '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}\n' > "$tmpB/adopt-plugin/.claude/settings.json"
+out_adopt_plugin="$(banner_run "$tmpB/adopt-plugin")"
+assert_contains "$out_adopt_plugin" "has no jplugin-agentic-development managed block" \
+  "Banner: adopting (plugin enabled) with no AGENTS.md at all -> the missing-block line"
+# Orphaned project.md: CLAUDE.md is the pointer, so nothing imports it (a CI-only
+# sync leaves exactly this state); the line is printed until /sync moves it.
+mkdir -p "$tmpB/orphan/.claude"
+printf '@AGENTS.md\n' > "$tmpB/orphan/CLAUDE.md"
+printf '<!-- jplugin-agentic-development:begin -->\nrules\n<!-- jplugin-agentic-development:end -->\n' > "$tmpB/orphan/AGENTS.md"
+printf '## Team Rules\n\nours\n' > "$tmpB/orphan/.claude/project.md"
+out_orphan="$(banner_run "$tmpB/orphan")"
+assert_contains "$out_orphan" "⚠  .claude/project.md is loaded by nothing — run /sync to move it into AGENTS.md" \
+  "Banner: .claude/project.md beside a pointer CLAUDE.md -> the orphaned-file line"
+printf '@.claude/project.md\n' > "$tmpB/orphan/CLAUDE.md"
+out_imported="$(banner_run "$tmpB/orphan")"
+assert_not_contains "$out_imported" "loaded by nothing" \
+  "Banner: a CLAUDE.md that still imports .claude/project.md prints no orphan line"
+printf '@AGENTS.md\n' > "$tmpB/orphan/CLAUDE.md"; rm -f "$tmpB/orphan/.claude/project.md"
+out_migrated="$(banner_run "$tmpB/orphan")"
+assert_not_contains "$out_migrated" "loaded by nothing" \
+  "Banner: no .claude/project.md -> no orphan line"
+mkdir -p "$tmpB/other/.claude"
+printf '{"enabledPlugins": {"someone-else@market": true}}\n' > "$tmpB/other/.claude/settings.json"
+out_other="$(banner_run "$tmpB/other")"
+assert_contains "$out_other" "SESSION START" \
+  "Banner: a non-adopting repository still gets the banner (non-vacuity)"
+assert_not_contains "$out_other" "⚠" \
+  "Banner: a non-adopting repository prints no ⚠ line — the missing-block nudge is gated on adoption"
+cd "$REPO"
+rm -rf "$tmpB"
+
+
+# --- Template drift compares the managed block, not the AGENTS.md path (D6) ---
+# AGENTS.md is MANAGED: the template's own rules below its end marker differ
+# from every project's by design, so a path diff would report drift on every
+# template commit that touched only that text. Fixture: a template repository
+# on disk as the `workflow` remote, and a project synced from it.
+tmpW=$(mktemp -d)
+mkdir -p "$tmpW/cfg"
+drift_run() {  # drift_run <project> -> banner output with a fresh drift cache
+  rm -f "$1/.claude/.sync-check-cache"
+  ( cd "$1" && printf '{"source":"startup"}' \
+      | CCW_SESSION_GUARD=0 CLAUDE_CONFIG_DIR="$tmpW/cfg" bash "$HOOK" 2>/dev/null )
+}
+write_agents() {  # write_agents <file> <block-line> <below-line>
+  printf '# Title\n\n<!-- jplugin-agentic-development:begin -->\n%s\n<!-- jplugin-agentic-development:end -->\n\n%s\n' "$2" "$3" > "$1"
+}
+mkdir -p "$tmpW/template" "$tmpW/project/.claude"
+( cd "$tmpW/template" && git init -q -b main && git config user.email t@t && git config user.name t \
+  && write_agents AGENTS.md "RULE v1" "template's own rules" && printf '@AGENTS.md\n' > CLAUDE.md \
+  && git add -A && git commit -qm init ) >/dev/null 2>&1
+( cd "$tmpW/project" && git init -q -b main && git config user.email t@t && git config user.name t \
+  && write_agents AGENTS.md "RULE v1" "this project's rules" && printf '@AGENTS.md\n' > CLAUDE.md \
+  && git add -A && git commit -qm init && git remote add workflow "$tmpW/template" ) >/dev/null 2>&1
+out_synced="$(drift_run "$tmpW/project")"
+assert_contains "$out_synced" "SESSION START" "Drift: the fixture prints the banner (non-vacuity)"
+assert_not_contains "$out_synced" "TEMPLATE DRIFT" \
+  "Drift: same block, different project text -> no drift line"
+( cd "$tmpW/template" && write_agents AGENTS.md "RULE v1" "template's own rules, edited" \
+  && git commit -qam below-marker ) >/dev/null 2>&1
+out_below="$(drift_run "$tmpW/project")"
+assert_not_contains "$out_below" "TEMPLATE DRIFT" \
+  "Drift: a template commit touching only text below the end marker produces no drift line"
+( cd "$tmpW/template" && write_agents AGENTS.md "RULE v2" "template's own rules, edited" \
+  && git commit -qam block ) >/dev/null 2>&1
+out_block="$(drift_run "$tmpW/project")"
+assert_contains "$out_block" "TEMPLATE DRIFT" \
+  "Drift: a template commit changing the block produces the drift line"
+assert_contains "$out_block" "1 item(s) differ" \
+  "Drift: the block counts as one item"
+cd "$REPO"
+rm -rf "$tmpW"
 
 finish

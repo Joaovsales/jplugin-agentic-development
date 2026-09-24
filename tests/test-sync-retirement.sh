@@ -35,7 +35,7 @@ trap 'rm -rf "$FIXTURE_ROOT"' EXIT
 # extra root line appended inside the fence.
 write_skill_md() {
   _dir="$1" _extra="${2:-}"
-  mkdir -p "$_dir/.agents/skills/sync"
+  [ -d "$_dir/.agents/skills/sync" ] || mkdir -p "$_dir/.agents/skills/sync"
   {
     printf '## Syncable Paths\n\n```\n'
     printf 'CLAUDE.md             → Shared rules\n'
@@ -53,7 +53,7 @@ write_skill_md() {
 # so no root is "absent from the template" unless a test says so.
 make_template() {
   _dir="$1" _extra="${2:-}"
-  mkdir -p "$_dir"
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks"
   write_skill_md "$_dir" "$_extra"
   _f "$_dir/.agents/skills/build/SKILL.md"   "build skill"
   _f "$_dir/.agents/agents/planner.md"       "planner"
@@ -63,16 +63,30 @@ make_template() {
   _f "$_dir/.claude/settings.json"           "{}"
 }
 
-_f() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }
+# Write one fixture file, creating its directory when needed. The builders
+# above pre-create every directory in one mkdir, so the common path here is two
+# builtins and no process; a path outside those directories still gets its own.
+# On Windows a process costs 100-500 ms and this file writes ~900 fixture files,
+# so `mkdir -p "$(dirname ...)"` per file was a third of its runtime (#136).
+_f() {
+  case "$1" in */*) [ -d "${1%/*}" ] || mkdir -p "${1%/*}" ;; esac
+  printf '%s\n' "$2" > "$1"
+}
+
+# Identity for fixture commits, written straight into the repo's config file:
+# the same two lines `git config user.name` / `user.email` would write, minus
+# two git processes per fixture.
+fixture_identity() {
+  printf '[user]\n    name = fixture\n    email = fixture@example.test\n' >> "$1/.git/config"
+}
 
 # A project: a git repo, because the project inventory is the set of *tracked*
 # files. Untracked build residue was never synced in, so it is never retired.
 make_project() {
   _dir="$1"
-  mkdir -p "$_dir"
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks"
   git init -q --initial-branch=main "$_dir"
-  git -C "$_dir" config user.name fixture
-  git -C "$_dir" config user.email fixture@example.test
+  fixture_identity "$_dir"
   write_skill_md "$_dir"
   _f "$_dir/.agents/skills/build/SKILL.md"   "build skill"
   _f "$_dir/.agents/agents/planner.md"       "planner"
@@ -90,9 +104,16 @@ commit_all() {
 
 # Run the script; capture stdout+stderr and status into RUN_OUTPUT/RUN_STATUS.
 run_retire() {
-  python3 "$RETIRE" "$@" >"$FIXTURE_ROOT/out" 2>"$FIXTURE_ROOT/err"
+  "$TEST_PYTHON" "$RETIRE" "$@" >"$FIXTURE_ROOT/out" 2>"$FIXTURE_ROOT/err"
   RUN_STATUS=$?
-  RUN_OUTPUT="$(cat "$FIXTURE_ROOT/out"; cat "$FIXTURE_ROOT/err")"
+  # stdout then stderr, trailing newlines stripped -- exactly what
+  # `$(cat out; cat err)` produced. bash reads `$(<file)` without spawning cat,
+  # so the two-file form is kept only for the runs that wrote to stderr.
+  if [ -s "$FIXTURE_ROOT/err" ]; then
+    RUN_OUTPUT="$(cat "$FIXTURE_ROOT/out" "$FIXTURE_ROOT/err")"
+  else
+    RUN_OUTPUT="$(<"$FIXTURE_ROOT/out")"
+  fi
 }
 
 # Write a .claude/sync-keep from the remaining arguments, one pattern per line.
@@ -598,9 +619,9 @@ printf '\n-- 8. two runs converge --\n'
 # Hash every file under the syncable roots, path and content, so a difference
 # in either shows up. .git is excluded: index and log churn are not tree state.
 tree_hash() {
-  find "$1" -name .git -prune -o -type f -print \
-    | sed "s|^$1/||" | LC_ALL=C sort \
-    | while IFS= read -r f; do printf '%s %s\n' "$f" "$(sha256sum "$1/$f" | cut -d' ' -f1)"; done \
+  # One sha256sum over every file (paths relative to the root, sorted) instead
+  # of a process per file; only equality between two calls matters.
+  ( cd "$1" && find . -name .git -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum ) \
     | sha256sum | cut -d' ' -f1
 }
 
@@ -699,12 +720,12 @@ assert_not_contains "$FEATURE_PATHS" "stale-on-feature" \
 # safe: .claude/sync-keep is never synced, so a template update cannot
 # overwrite a project's record of its own intent.
 #
-# Asserted against BOTH trees. .claude/skills/ is the copy Claude Code actually
-# reads, so a canonical-only edit ships the feature to no one.
+# Asserted against the canonical tree, which Claude Code loads through the
+# jplugin plugin and Pi and Codex read directly.
 
 printf '\n-- 10. SKILL.md documents the retirement pass --\n'
 
-for tree in .agents .claude; do
+for tree in .agents; do
   MD="$tree/skills/sync/SKILL.md"
 
   assert_file_contains "$MD" "sync-keep" \
@@ -827,11 +848,12 @@ assert_not_contains "$RUN_OUTPUT" ".pyc" \
 AWK_DIRS="$(awk '/^## Syncable Paths/ { b = 1; next }
                  b && /^## / { exit }
                  b && /→/ { print $1 }' .agents/skills/sync/SKILL.md | grep '/$' | LC_ALL=C sort)"
-PY_DIRS="$(python3 - <<'PYX'
+PY_DIRS="$("$TEST_PYTHON" - <<'PYX'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("sr", ".agents/skills/sync/scripts/sync-retire.py")
 m = importlib.util.module_from_spec(spec); sys.modules["sr"] = m; spec.loader.exec_module(m)
-print("\n".join(m.parse_syncable_roots(open(".agents/skills/sync/SKILL.md").read(), "SKILL.md")))
+live, retired = m.parse_syncable_roots(open(".agents/skills/sync/SKILL.md").read(), "SKILL.md")
+print("\n".join(sorted(live + retired)))
 PYX
 )"
 assert_contains "$AWK_DIRS" ".agents/skills/" "F6: the awk extractor found the block (non-vacuity)"
@@ -922,16 +944,17 @@ assert_file_contains "$P13B/.claude/project.md" "project config" \
 assert_eq "present" "$([ -f "$P13B/.claude/sync-keep" ] && echo present || echo gone)" \
   "the allowlist itself survives"
 
-# The seven real roots still parse — the constraint must not break the tool.
+# The nine real roots (seven live, two retired — .claude/skills/ and .claude/hooks/) still parse — the constraint must not break the tool.
 run_retire --repo "$P13B" --from-dir "$T13B" >/dev/null 2>&1
-REAL_ROOTS="$(python3 - <<'PYX'
+REAL_ROOTS="$("$TEST_PYTHON" - <<'PYX'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("sr", ".agents/skills/sync/scripts/sync-retire.py")
 m = importlib.util.module_from_spec(spec); sys.modules["sr"] = m; spec.loader.exec_module(m)
-print(len(m.parse_syncable_roots(open(".agents/skills/sync/SKILL.md").read(), "real")))
+live, retired = m.parse_syncable_roots(open(".agents/skills/sync/SKILL.md").read(), "real")
+print(len(live) + len(retired))
 PYX
 )"
-assert_eq "7" "$REAL_ROOTS" "all seven real syncable roots still pass the constraint"
+assert_eq "9" "$REAL_ROOTS" "all nine real syncable roots still pass the constraint"
 
 # ============================== 14. allowlist entries that protect nothing
 #
@@ -1146,7 +1169,7 @@ done
 P21="$FIXTURE_ROOT/p21"; T21="$FIXTURE_ROOT/t21"
 make_project "$P21"; make_template "$T21"
 # Reopen the template's doc block with a sub-heading, then smuggle a root under it.
-python3 - "$T21/.agents/skills/sync/SKILL.md" <<'PY'
+"$TEST_PYTHON" - "$T21/.agents/skills/sync/SKILL.md" <<'PY'
 import io, sys
 p = sys.argv[1]
 s = io.open(p, encoding="utf-8").read()
@@ -1305,7 +1328,7 @@ printf '[core]\n\tfsmonitor = "touch %s/PWNED_GLOBAL; false"\n' "$FIXTURE_ROOT" 
 rm -f "$FIXTURE_ROOT/PWNED_GLOBAL"
 
 GIT_CONFIG_GLOBAL="$FIXTURE_ROOT/evil-global-config" \
-  python3 "$RETIRE" --repo "$P28" --from-dir "$T28" >/dev/null 2>&1
+  "$TEST_PYTHON" "$RETIRE" --repo "$P28" --from-dir "$T28" >/dev/null 2>&1
 # NOTE: this assertion cannot distinguish the two guards. `-c core.fsmonitor=`
 # outranks global config as well as repo config, so removing the
 # GIT_CONFIG_NOSYSTEM/GIT_CONFIG_GLOBAL suppression leaves this green. The env
@@ -1403,9 +1426,9 @@ printf '\n-- 20. record-loss and provenance regressions --\n'
 # by 20.1-20.3, which all need real history to read.
 make_history_template() {
   _dir="$1"
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks" "$_dir/.agents/skills/legacy"
   git init -q --initial-branch=main "$_dir"
-  git -C "$_dir" config user.name fixture
-  git -C "$_dir" config user.email fixture@example.test
+  fixture_identity "$_dir"
   write_skill_md "$_dir"
   _f "$_dir/.agents/skills/build/SKILL.md"  "build skill"
   _f "$_dir/.agents/agents/planner.md"      "planner"
@@ -1647,7 +1670,7 @@ make_project "$P36"
 make_template "$T36"
 # Inside the block, before its real terminator -- appending after
 # `## Next Section` would test nothing, since that heading already closed it.
-python3 - "$T36/.agents/skills/sync/SKILL.md" <<'EOF_PY'
+"$TEST_PYTHON" - "$T36/.agents/skills/sync/SKILL.md" <<'EOF_PY'
 import io, sys
 path = sys.argv[1]
 text = io.open(path, encoding="utf-8").read()
@@ -1695,7 +1718,7 @@ git -C "$P37" fetch -q workflow main
 
 PIPED_OUT="$(cd "$P37" && set -o pipefail && \
   git show "workflow/main:.agents/skills/sync/scripts/sync-retire.py" \
-  | python3 - --from-ref "workflow/main" 2>&1)"
+  | "$TEST_PYTHON" - --from-ref "workflow/main" 2>&1)"
 PIPED_STATUS=$?
 assert_eq "0" "$PIPED_STATUS" "the piped dry run exits zero"
 assert_contains "$PIPED_OUT" "retire: .agents/skills/legacy/SKILL.md" \
@@ -1712,21 +1735,21 @@ assert_eq "present" "$([ -f "$P37/.agents/skills/legacy/SKILL.md" ] && echo pres
 # is noise; if it is right, `set -o pipefail` is the only thing catching it.
 
 EMPTY_OUT="$(cd "$P37" && git show "workflow/main:no/such/script.py" 2>/dev/null \
-  | python3 - --from-ref "workflow/main" 2>&1)"
+  | "$TEST_PYTHON" - --from-ref "workflow/main" 2>&1)"
 EMPTY_STATUS=$?
 assert_eq "0" "$EMPTY_STATUS" \
   "without pipefail an empty program really does exit zero, as SKILL.md warns"
 assert_eq "" "$EMPTY_OUT" "having printed nothing at all"
 
 ( cd "$P37" && set -o pipefail && git show "workflow/main:no/such/script.py" 2>/dev/null \
-  | python3 - --from-ref "workflow/main" >/dev/null 2>&1 )
+  | "$TEST_PYTHON" - --from-ref "workflow/main" >/dev/null 2>&1 )
 assert_eq "128" "$?" "with pipefail the failed git show is what the caller sees"
 
 # --- 21.3 the --apply form, verbatim from Step 6.4 --------------------------
 
 APPLY_OUT="$(cd "$P37" && set -o pipefail && \
   git show "workflow/main:.agents/skills/sync/scripts/sync-retire.py" \
-  | python3 - --from-ref "workflow/main" --apply 2>&1)"
+  | "$TEST_PYTHON" - --from-ref "workflow/main" --apply 2>&1)"
 APPLY_STATUS=$?
 assert_eq "0" "$APPLY_STATUS" "the piped --apply exits zero"
 assert_eq "gone" "$([ -e "$P37/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
@@ -2005,7 +2028,7 @@ INJECT45="$FIXTURE_ROOT/inj"
 mkdir -p "$INJECT45:.agents/skills/sync"
 rm -f "$INJECT45:.agents/skills/sync/SKILL.md"
 
-INJECT_OUT="$(python3 - "$RETIRE" "$P45" "$INJECT45" <<'PYX' 2>&1 || true
+INJECT_OUT="$("$TEST_PYTHON" - "$RETIRE" "$P45" "$INJECT45" <<'PYX' 2>&1 || true
 import importlib.util, sys
 script, repo, victim = sys.argv[1], sys.argv[2], sys.argv[3]
 spec = importlib.util.spec_from_file_location("sr", script)
@@ -2023,5 +2046,198 @@ assert_eq "absent" \
   "a ref that looks like an option never becomes one at the git show sink"
 assert_contains "$INJECT_OUT" "RetireError" \
   "it is refused as a bad revision, through the module's own error type"
+
+# ================================ 24. retired roots (specs/claude-plugin-manifest.md)
+#
+# `.claude/skills/` stops being checked out: the jplugin plugin reads
+# `.agents/skills/` directly. The root stays in the doc block, marked RETIRED in
+# its right-hand column, so /sync can still delete the copies earlier syncs left
+# downstream -- and only those. Three properties are pinned: the parser splits
+# the two kinds of root, a retired root never counts toward the one-empty-root
+# budget, and nothing under it enters the plan unless the project's own
+# settings enable the plugin that replaces the copies.
+
+printf '\n-- 24. retired roots: history-matched, never counted, plugin-guarded --\n'
+
+JPLUGIN_ID="jplugin@jplugin-agentic-development"
+
+# The fixture doc block with the `.claude/skills/` row marked RETIRED. Same
+# two-column shape and trailing slash as the live rows: the marker is the only
+# thing the parser may key on.
+write_retired_skill_md() {
+  [ -d "$1/.agents/skills/sync" ] || mkdir -p "$1/.agents/skills/sync"
+  {
+    printf '## Syncable Paths\n\n```\n'
+    printf 'CLAUDE.md             → Shared rules\n'
+    printf '.agents/skills/       → Canonical skills\n'
+    printf '.agents/agents/       → Canonical personas\n'
+    printf '.claude/skills/       → RETIRED — the plugin reads .agents/skills/\n'
+    printf '.claude/hooks/        → Lifecycle hooks\n'
+    printf '.claude/settings.json → Hook configuration\n'
+    printf '```\n\n## Next Section\n'
+  } > "$1/.agents/skills/sync/SKILL.md"
+}
+
+# A template that shipped `plan` and `build` under .claude/skills/ and later
+# dropped the whole root, and whose .claude/hooks/ root is empty. Two roots the
+# template has nothing under: one live (skipped, as ever) and one retired. If
+# the retired root were counted, this template would be refused as incomplete.
+make_retired_template() {
+  _dir="$1"
+  # No .claude/hooks here: the template's hooks root is deliberately absent.
+  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/skills/plan"
+  git init -q --initial-branch=main "$_dir"
+  fixture_identity "$_dir"
+  write_retired_skill_md "$_dir"
+  _f "$_dir/.agents/skills/build/SKILL.md"  "build skill"
+  _f "$_dir/.agents/agents/planner.md"      "planner"
+  _f "$_dir/.claude/skills/build/SKILL.md"  "build skill"
+  _f "$_dir/.claude/skills/plan/SKILL.md"   "plan skill"
+  _f "$_dir/CLAUDE.md"                      "rules"
+  _f "$_dir/.claude/settings.json"          "{}"
+  commit_all "$_dir"
+  git -C "$_dir" rm -q -r .claude/skills
+  commit_all "$_dir"
+}
+
+P50="$FIXTURE_ROOT/p50"; T50="$FIXTURE_ROOT/t50"
+make_project "$P50"; make_retired_template "$T50"
+# `build` came from make_project and is byte-identical to what the template
+# shipped; `plan` likewise; `verify-myapp` the template never carried.
+_f "$P50/.claude/skills/plan/SKILL.md"         "plan skill"
+_f "$P50/.claude/skills/verify-myapp/SKILL.md" "this project's own verification recipe"
+_f "$P50/.agents/skills/mine/SKILL.md"         "project specific"
+_f "$P50/.agents/skills/stale/SKILL.md"        "project-only under a live root, no keep pattern"
+commit_all "$P50"
+write_keep "$P50" ".agents/skills/mine/**"
+
+# --- 24.1 the parser splits live from retired -------------------------------
+PARSED="$("$TEST_PYTHON" - "$RETIRE" "$T50/.agents/skills/sync/SKILL.md" <<'PYX'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
+m = importlib.util.module_from_spec(spec); sys.modules["sr"] = m; spec.loader.exec_module(m)
+live, retired = m.parse_syncable_roots(open(sys.argv[2], encoding="utf-8").read(), "fixture")
+print("live=" + ",".join(live))
+print("retired=" + ",".join(retired))
+PYX
+)"
+assert_contains "$PARSED" "live=.agents/agents/,.agents/skills/,.claude/hooks/" \
+  "24.1: live_roots holds every directory row without the marker, sorted"
+assert_contains "$PARSED" "retired=.claude/skills/" \
+  "24.1: the RETIRED marker puts a root in retired_roots"
+assert_not_contains "$(printf '%s\n' "$PARSED" | grep '^live=')" ".claude/skills/" \
+  "24.1: ... and in retired_roots only"
+
+# --- 24.2 the project guard ---------------------------------------------------
+# `{}` is what make_project writes: a project that never accepted the plugin.
+# Deleting its .claude/skills/ copies would leave it with no skills at all. The
+# guard is a plan state, not a refusal: /sync Step 3 previews this plan before
+# Step 5 has written the declaration, so a refusal would exit 1 on every
+# downstream project's first sync and drop the live-root list from the summary.
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" \
+  "24.2: settings without enabledPlugins still produce a plan -- Step 3 previews before Step 5 writes them"
+assert_contains "$RUN_OUTPUT" ".claude/settings.json" \
+  "24.2: the report names the file that must enable the plugin"
+assert_contains "$RUN_OUTPUT" "$JPLUGIN_ID" \
+  "24.2: ... and the plugin id it must enable"
+assert_contains "$RUN_OUTPUT" "Step 5" \
+  "24.2: ... and the /sync step that writes it"
+assert_not_contains "$RUN_OUTPUT" "retire: .claude/skills/" \
+  "24.2: nothing under the retired root enters the plan without the declaration"
+assert_contains "$RUN_OUTPUT" "retire: .agents/skills/stale/SKILL.md" \
+  "24.2: live-root retirement is unaffected, so the preview the user approves is complete"
+
+_f "$P50/.claude/settings.json" "{ not json"
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "1" "$RUN_STATUS" "24.3: unreadable settings JSON is a refusal, not a traceback"
+assert_contains "$RUN_OUTPUT" "cannot parse .claude/settings.json" \
+  "24.3: the error names the file"
+assert_not_contains "$RUN_OUTPUT" "Traceback" "24.3: ... through RetireError"
+
+# --- 24.3b a shape Claude Code cannot read is a refusal too; absent and false hold back ---
+_f "$P50/.claude/settings.json" '{"enabledPlugins": []}'
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "1" "$RUN_STATUS" "24.3b: enabledPlugins that is not an object is refused, not read as empty"
+assert_contains "$RUN_OUTPUT" "enabledPlugins" "24.3b: the error names the key"
+_f "$P50/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": false}}'
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.3b: a project that set the plugin to false still gets a plan"
+assert_contains "$RUN_OUTPUT" "does not enable" "24.3b: ... held back with the same reason"
+assert_not_contains "$RUN_OUTPUT" "retire: .claude/skills/" "24.3b: ... and nothing under the retired root enters it"
+rm -f "$P50/.claude/settings.json"
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.3b: a project with no settings file at all still gets a plan"
+assert_contains "$RUN_OUTPUT" "does not enable" "24.3b: ... held back the same way"
+
+# --- 24.4 with the plugin enabled, history decides ----------------------------
+_f "$P50/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}'
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.4: with the plugin enabled the plan is produced"
+assert_contains "$RUN_OUTPUT" "retired root: .claude/skills/" \
+  "24.4: the report names the retired root"
+assert_contains "$RUN_OUTPUT" "skipped: .claude/hooks/" \
+  "24.4: the one empty LIVE root is skipped as before"
+assert_contains "$RUN_OUTPUT" "roots: 2" \
+  "24.4: the retired root is not counted among the scanned roots"
+assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
+  "24.4: a byte-identical copy of a file the template once shipped there is retired"
+assert_contains "$RUN_OUTPUT" "retire: .claude/skills/build/SKILL.md" \
+  "24.4: so is a copy of one the template still ships under its live root"
+assert_not_contains "$RUN_OUTPUT" "verify-myapp" \
+  "24.4: a project-local skill under the retired root is listed under nothing"
+
+# --- 24.5 sync-keep still reaches a retired root -----------------------------
+# /create-verification-skill used to mirror into .claude/skills/, and downstream
+# sync-keep files already name paths there. A pattern under a retired root must
+# stay a valid pattern, or every such project's allowlist becomes a usage error.
+write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/build/**"
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.5: a sync-keep pattern under a retired root is still valid"
+assert_contains "$RUN_OUTPUT" "kept:   .claude/skills/build/SKILL.md" \
+  "24.5: and it protects the copy it names"
+assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
+  "24.5: without protecting its neighbour"
+
+# --- 24.5b ... and a pattern guarding a project-local file there is not stale ---
+# History cannot see verify-myapp, so nothing matches the pattern; reporting it as
+# `unmatched` would tell the operator it is about to stop protecting something.
+write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/verify-myapp/**"
+run_retire --repo "$P50" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.5b: a sync-keep pattern for a project-local skill under the retired root is valid"
+assert_not_contains "$RUN_OUTPUT" "unmatched: .claude/skills/verify-myapp" \
+  "24.5b: it is not reported as matching nothing"
+write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/build/**"
+
+# --- 24.6 --apply deletes only the history-matched, unprotected copies -------
+run_retire --repo "$P50" --from-dir "$T50" --apply
+assert_eq "0" "$RUN_STATUS" "24.6: --apply succeeds"
+assert_eq "gone" "$([ -e "$P50/.claude/skills/plan/SKILL.md" ] && echo present || echo gone)" \
+  "24.6: the history-matched copy is deleted"
+assert_eq "gone" "$([ -d "$P50/.claude/skills/plan" ] && echo present || echo gone)" \
+  "24.6: its emptied directory is pruned"
+assert_eq "present" "$([ -d "$P50/.claude/skills" ] && echo present || echo gone)" \
+  "24.6: the retired root itself is the prune boundary"
+assert_file_contains "$P50/.claude/skills/verify-myapp/SKILL.md" "own verification" \
+  "24.6: the project-local skill is untouched"
+assert_file_contains "$P50/.claude/skills/build/SKILL.md" "build skill" \
+  "24.6: the kept copy is untouched"
+
+# --- 24.7 bootstrap retires retired-root copies too -------------------------
+# They are proven by history, which is the same proof bootstrap already accepts
+# for a live root -- a project that never promoted a candidate must not keep
+# its shadow copies forever.
+P51="$FIXTURE_ROOT/p51"
+make_project "$P51"
+_f "$P51/.claude/skills/plan/SKILL.md" "plan skill"
+commit_all "$P51"
+rm -f "$P51/.claude/sync-keep"
+_f "$P51/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}'
+run_retire --repo "$P51" --from-dir "$T50"
+assert_eq "0" "$RUN_STATUS" "24.7: bootstrap against a template with a retired root produces a plan"
+assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
+  "24.7: bootstrap retires the history-proven copy under the retired root"
+assert_not_contains "$RUN_OUTPUT" "candidate: .claude/skills" \
+  "24.7: nothing under a retired root is sent to the human -- history already answered"
 
 finish

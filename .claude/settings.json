@@ -1,25 +1,14 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/session-stop.sh"
-          }
-        ]
+  "extraKnownMarketplaces": {
+    "jplugin-agentic-development": {
+      "source": {
+        "source": "github",
+        "repo": "Joaovsales/jplugin-agentic-development"
       }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pre-compact.sh"
-          }
-        ]
-      }
-    ]
+    }
+  },
+  "enabledPlugins": {
+    "jplugin@jplugin-agentic-development": true
   },
   "env": {
     "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "400000",

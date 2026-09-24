@@ -2,8 +2,8 @@
 
 > Copy this file to `docs/task-tracking.md` in your project and edit the block
 > below. Discovery finds it there automatically; to keep it elsewhere, add a line
-> `Task tracking instructions: <path>` to `.claude/project.md` (Claude Code) or
-> `AGENTS.md` (Pi) — never to `CLAUDE.md`, which `/sync` overwrites.
+> `Task tracking instructions: <path>` to `AGENTS.md` below the managed block's
+> end marker — never inside the block, which `/sync` replaces.
 >
 > Read by `/task-registry`. Everything is optional — without configuration,
 > selection still prefers GitHub when a GitHub remote and an authenticated `gh`
@@ -116,7 +116,7 @@ improve = enhancement, documentation
 ;
 ; Three rules, all checked at load rather than at step 4 with the claim label
 ; already written:
-;   * every skill named must exist in .agents/skills/ or .claude/skills/
+;   * every skill named must exist in .agents/skills/
 ;   * every chain must END at /wrap-up-session — it is the review gate, and a
 ;     chain that runs it anywhere but last can still ship work after it
 ;   * the routine names are the lane catalogue's consumer lanes; inventing one

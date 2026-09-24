@@ -25,7 +25,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
-PY=python3
+PY="$TEST_PYTHON"
 
 TMP_DIRS=()
 cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
@@ -189,13 +189,13 @@ present_out="$(load_report "$present")"
 assert_contains "$present_out" "chain plan: /plan -> /summon-the-kraken -> /wrap-up-session" \
   "AC4 control: the identical chain loads once the skill exists on disk"
 
-# `.claude/skills/` satisfies the check too — the two trees are pinned
-# byte-identical, and a project that carries only the Claude Code copy is
-# correctly configured, not broken.
-printf '\n-- AC4: .claude/skills counts as on disk --\n'
+# The Claude Code copy is retired (specs/claude-plugin-manifest.md): a skill that
+# exists only under .claude/skills/ is a pre-plugin leftover, not an installation,
+# so the loader looks in the canonical tree alone and says so.
+printf '\n-- AC4: .claude/skills alone is not on disk --\n'
 claude_only="$(mktemp -d "${TMPDIR:-/tmp}/routine-skills.XXXXXX")"
 TMP_DIRS+=("$claude_only")
-mkdir -p "$claude_only/tasks" "$claude_only/docs"
+mkdir -p "$claude_only/tasks" "$claude_only/docs" "$claude_only/.agents/skills"
 printf '[ ] placeholder\n' > "$claude_only/tasks/todo.md"
 for name in plan wrap-up-session; do
   mkdir -p "$claude_only/.claude/skills/$name"
@@ -208,8 +208,11 @@ plan = design-decision
 [routines.skills]
 plan = /plan, /wrap-up-session
 INI
-assert_contains "$(load_report "$claude_only")" "chain plan: /plan -> /wrap-up-session" \
-  "AC4: a skill present only in .claude/skills/ satisfies the on-disk check"
+assert_contains "$(load_report "$claude_only")" "REFUSED:" \
+  "AC4: a skill present only in .claude/skills/ no longer satisfies the on-disk check"
+assert_contains "$(refusal_of "$claude_only")" "Looked in .agents/skills" \
+  "AC4: the refusal names the one tree it searched"
+
 
 # A skill reference is a directory NAME, not a path. The name comes from a file
 # in the repository — the same untrusted input class the task-tracking pointer is
@@ -470,12 +473,13 @@ assert_contains "$skills_only_refusal" "triage" \
 # repository itself: a configuration contract nobody dogfoods is a contract
 # nobody has run.
 #
-# The placement is the substance of #82. `CLAUDE.md` is template-managed and
-# `/sync` overwrites it wholesale, while `docs/` is in no syncable root — so a
-# pointer in `CLAUDE.md` would ship to every adopter naming a file the template
-# can never deliver, permanently in the "declared but missing" state the loader
-# now refuses. The declaration therefore lives in `.claude/project.md`, which
-# `/sync` never touches, next to a target that ships with the project.
+# The placement is the substance of #82. The managed block of `AGENTS.md` is
+# replaced by `/sync` wholesale, while `docs/` is in no syncable root — so a
+# pointer inside the block would ship to every adopter naming a file the
+# template can never deliver, permanently in the "declared but missing" state
+# the loader now refuses. The declaration therefore lives below the block's end
+# marker, which `/sync` never touches, next to a target that ships with the
+# project.
 printf '\n-- this project is configured, and the configuration is where /sync cannot reach --\n'
 
 assert_eq "present" "$([ -f docs/task-tracking.md ] && echo present || echo missing)" \
@@ -484,30 +488,32 @@ assert_eq "present" "$([ -f docs/task-tracking.md ] && echo present || echo miss
 # The pointer, and the file it names. A declaration whose target is missing is
 # refused loudly (#82) — so asserting the target exists is asserting the project
 # is in the "configured" state rather than the "broken" one.
-assert_file_matches ".claude/project.md" "^Task tracking instructions: " \
-  "AC7: .claude/project.md carries the declaration"
-project_pointer="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' .claude/project.md \
+assert_file_matches "AGENTS.md" "^Task tracking instructions: " \
+  "AC7: AGENTS.md carries the declaration"
+project_pointer="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' AGENTS.md \
   | sed -E 's/^[^:]*:[[:space:]]*//' | head -1)"
 assert_eq "docs/task-tracking.md" "$project_pointer" \
   "AC7: the declaration names this project's configuration file"
 assert_eq "present" "$([ -f "$project_pointer" ] && echo present || echo missing)" \
   "AC7: the declared target exists — the project is configured, not broken"
 
-# Pi does not read `.claude/project.md` and Claude Code does not read `AGENTS.md`,
-# so one pointer configures one harness. Shipping only the Claude Code copy left
-# this project silently loading defaults on Pi, with the routine chains and the
-# claim label unconfigured and nothing saying so.
-assert_file_matches "AGENTS.md" "^Task tracking instructions: " \
-  "AC7: AGENTS.md carries the declaration too — Pi reads no other project file"
-agents_pointer="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' AGENTS.md \
+# Every harness reads the same file, so one pointer configures all of them —
+# provided it sits below the end marker. Inside the block it would be replaced
+# on the next /sync, and the block ships to every adopter.
+below_marker="$(sed -n '/^<!-- jplugin-agentic-development:end -->$/,$p' AGENTS.md)"
+below_pointer="$(printf '%s\n' "$below_marker" \
+  | grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' \
   | sed -E 's/^[^:]*:[[:space:]]*//' | head -1)"
-assert_eq "$project_pointer" "$agents_pointer" \
-  "AC7: both harnesses are pointed at the SAME configuration file"
+assert_eq "$project_pointer" "$below_pointer" \
+  "AC7: the declaration sits below the managed block's end marker"
 
-# CLAUDE.md documents the convention and emits no live pointer of its own.
-claude_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' CLAUDE.md || true)"
-assert_eq "" "$claude_pointers" \
-  "AC7: CLAUDE.md emits no bare parseable pointer — it ships to every adopter"
+# The block documents the convention and emits no live pointer of its own.
+block="$(sed -n '/^<!-- jplugin-agentic-development:begin -->$/,/^<!-- jplugin-agentic-development:end -->$/p' AGENTS.md)"
+assert_contains "$block" "Task tracking instructions" \
+  "AC7: the managed block documents the pointer convention (non-vacuity)"
+block_pointers="$(printf '%s\n' "$block" | grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' || true)"
+assert_eq "" "$block_pointers" \
+  "AC7: the managed block emits no bare parseable pointer — it ships to every adopter"
 
 # Neither the declaration nor its target may sit under a syncable root, or the
 # next /sync destroys the project's configuration. The root list is read from
@@ -515,12 +521,12 @@ assert_eq "" "$claude_pointers" \
 # cannot pass against a stale copy of the list.
 sync_roots="$(awk '/^## Syncable Paths/ { inblock = 1; next }
                    inblock && /^##+ / { exit }
-                   inblock && /→/ { print $1 }' .agents/skills/sync/SKILL.md \
+                   inblock && /→/ && !/→ *(RETIRED|MANAGED)/ { print $1 }' .agents/skills/sync/SKILL.md \
               | sed 's|/$||' | grep -v '^$' | sort -u)"
 assert_not_contains "$sync_roots" "docs" \
   "AC7: docs/ is not a syncable root — the configuration survives /sync"
-assert_not_contains "$sync_roots" ".claude/project.md" \
-  "AC7: .claude/project.md is not a syncable root — the declaration survives /sync"
+assert_not_contains "$sync_roots" "AGENTS.md" \
+  "AC7: AGENTS.md is never checked out wholesale — only its managed block is written, so the declaration below the end marker survives /sync"
 
 # `doctor` is what a human runs to ask "am I configured?". It must name the file,
 # not report `none`. Pinned against the local provider so the answer does not
@@ -547,7 +553,7 @@ assert_contains "$project_chains" "declared: True" \
 
 # The template an adopter starts from must document the section, or the layer
 # exists only for projects that read the source.
-for tree in .agents .claude; do
+for tree in .agents; do
   assert_file_contains "$tree/skills/task-registry/templates/task-tracking.md" "[routines.skills]" \
     "AC12: $tree template documents the [routines.skills] section"
   assert_file_contains "$tree/skills/task-registry/templates/task-tracking.md" "/wrap-up-session" \

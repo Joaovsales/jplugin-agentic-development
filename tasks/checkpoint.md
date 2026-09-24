@@ -1,6 +1,7 @@
 # Checkpoint — 2026-09-16T20:15:27Z
+# Checkpoint — 2026-09-22T16:45:13Z
 
-> Auto-written by PreCompact hook (trigger: auto). Re-read on resume.
+> Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
 ## Git
 - Branch: routing
@@ -44,6 +45,10 @@ D  .claude/skills/go/lanes/refactor.md
 ?? .claude/skills/task-registry/scripts/registry/lanes.py
 ?? specs/lane-catalogue.md
 ?? tests/test-lane-catalogue.sh
+- Branch: feat/106-plan-slices-and-handover
+
+```
+ M tasks/checkpoint.md
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
@@ -57,6 +62,9 @@ D  .claude/skills/go/lanes/refactor.md
 
 ## Active Spec
 - specs/lane-catalogue.md
+
+## Active Spec
+- specs/grilling-adoption.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`

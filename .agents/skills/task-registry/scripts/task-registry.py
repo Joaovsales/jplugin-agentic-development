@@ -27,16 +27,17 @@ import traceback
 from typing import Optional
 
 # Set before the package is imported, and deliberately: this package lives inside
-# a *skills tree*, where `.agents/skills/` and `.claude/skills/` are pinned
-# byte-identical by tests/test-skill-parity.sh. Bytecode written next to the
-# source would appear in one tree and not the other and fail that guard, and
-# would litter every downstream checkout besides.
+# a *skills tree* that /sync checks out wholesale into every downstream
+# project. Bytecode written next to the source would litter every one of
+# those checkouts and show up as an untracked change on the next sync.
 sys.dont_write_bytecode = True
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from registry import config as registry_config  # noqa: E402
 from registry.config import (  # noqa: E402
+    LEGACY_POINTER_FILE,
+    LEGACY_POINTER_NOTICE,
     ConfigError,
     ConfigPointerError,
     load_config,
@@ -148,6 +149,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--label", action="append", default=[], help="label (upsert); repeatable"
     )
     parser.add_argument(
+        "--parent",
+        metavar="REF",
+        help="link a parent (upsert), e.g. '#42' or a local task id; native where "
+        "the provider supports it, `parent:` metadata with a disclosure line "
+        "otherwise. Dry run by default, like every other write",
+    )
+    parser.add_argument(
         "--derive-id",
         metavar="NAMESPACE",
         help="derive the task id as NAMESPACE.<normalized --source or --spec path> "
@@ -212,6 +220,9 @@ def _run(argv, redact) -> int:
         if not args.title:
             print("task-registry: `upsert` requires --title", file=sys.stderr)
             return 2
+    elif args.parent:
+        print("task-registry: `--parent` is only valid with `upsert`", file=sys.stderr)
+        return 2
     if args.command == "escalate":
         if args.report:
             print("task-registry: `escalate` does not accept --report", file=sys.stderr)
@@ -323,7 +334,7 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
             )
         except TaskModelError as exc:
             return (f"task-registry: {exc}", 2)
-        lines, code = upsert_task(registry, task, apply_writes)
+        lines, code = upsert_task(registry, task, apply_writes, parent_ref=args.parent)
         return ("\n".join(lines), code)
     if command == "doctor":
         return _doctor(registry, args.config_fault), (1 if args.config_fault else 0)
@@ -361,6 +372,8 @@ def _doctor(registry: Registry, fault: Optional[ConfigError] = None) -> str:
         f"provider:       {registry.provider.name}",
         f"selected because: {registry.selection_reason}",
         f"configuration:  {_configuration_line(config, pointer_fault)}",
+        *([f"notice:         {LEGACY_POINTER_NOTICE}"]
+          if config.pointer_file == LEGACY_POINTER_FILE else []),
         f"index:          {config.index_path}",
         f"capabilities:   {registry.provider.capabilities.render()}",
         f"reachable:      {'yes' if status.available else 'no'} — {status.detail}",

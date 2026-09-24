@@ -96,9 +96,8 @@ python3 .agents/skills/task-registry/scripts/task-registry.py lanes <lane>
 ```
 
 It exits 2, naming the skill, when a chain step is not installed under
-`.agents/skills/` or `.claude/skills/` — the same two roots the registry
-resolves configured chains against, because a downstream project may carry only
-the Claude Code copy. That refusal is printed in place of the route: a missing
+`.agents/skills/` — the one canonical tree, and the same root the registry
+resolves configured chains against. That refusal is printed in place of the route: a missing
 step is found before work starts, not at the step. When the project's
 `[routines.skills]` replaced the shipped chain, the output carries a `note:`
 line and the steps shown are the shipped playbook; the effective chain is the

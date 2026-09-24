@@ -23,6 +23,19 @@
         "pstack/skills/poteto-mode/playbooks/eval.md"
       ],
       "source_notice": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "id": "mattpocock-skills",
+      "url": "https://github.com/mattpocock/skills.git",
+      "ref": "refs/heads/main",
+      "baseline": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "paths": [
+        "LICENSE",
+        "skills/productivity/grilling/SKILL.md",
+        "skills/productivity/grill-me/SKILL.md",
+        "skills/engineering/domain-modeling/SKILL.md"
+      ],
+      "source_notice": "THIRD_PARTY_NOTICES.md"
     }
   ]
 }

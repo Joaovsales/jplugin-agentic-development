@@ -8,11 +8,12 @@
 # nobody can test round-trip, and a routine emitting `routine/plan/90_slug` would
 # parse to None while wrap-up silently opened a ready PR instead of a draft.
 set -euo pipefail
+. "$(dirname "$0")/lib.sh"
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 export ROOT
 
-python3 - <<'PY'
+"$TEST_PYTHON" - <<'PY'
 import importlib.util
 import os
 import pathlib

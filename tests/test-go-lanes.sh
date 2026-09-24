@@ -15,7 +15,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-TREES=".agents .claude"
+TREES=".agents"
 LANES_DIR=".agents/skills/task-registry/lanes"
 
 # Every `/skill` token in a file, first appearance first, one per line. A slash
@@ -60,8 +60,8 @@ for tree in $TREES; do
     "GoLanes: $f fetches the chosen lane's playbook by name"
   assert_prose_contains "$f" "never routed around" \
     "GoLanes: $f refuses a misconfigured tracker"
-  assert_prose_contains "$f" 'under `.agents/skills/` or `.claude/skills/`' \
-    "GoLanes: $f resolves chains against either skill root"
+  assert_prose_contains "$f" 'under `.agents/skills/`' \
+    "GoLanes: $f resolves chains against the canonical skill root"
   assert_prose_contains "$f" "<ref>" \
     "GoLanes: $f substitutes <ref> when recording a lane's steps"
   # No lane of its own. A table row here would be a second statement of a lane
@@ -114,38 +114,23 @@ assert_file_not_matches "$LANES_DIR/investigate.md" '/wrap-up-session' \
 
 # --- AC3: no routine host invokes /go ------------------------------------------
 # The routine contract chooses the lane from the label; there is no prompt to
-# match. The two session-start banner lines are the only allowed mentions,
-# matched by their exact text so a third line cannot hide behind them.
-BANNER_ROW='/go <goal>   — Natural-language front door: pick a lane, print [ROUTE], run its skills'
-BANNER_CLOSE='Ready. Use /go <goal> to start, or continue from tasks/todo.md.'
+# match. The session-start hook lists no skills since the plugin took over
+# (#156), so the hook root is swept like every other host: zero mentions.
 GO_INVOCATION='(^|[^A-Za-z0-9_/.-])/go([^A-Za-z0-9_/-]|$)'
 HOST_ROOTS=".agents/skills/sweep .agents/skills/tidy .agents/skills/yolo .agents/skills/auto-push
   .agents/skills/wrap-up-session/references .agents/skills/task-registry/lanes
-  .claude/skills/sweep .claude/skills/tidy .claude/skills/yolo .claude/skills/auto-push
-  .claude/skills/wrap-up-session/references .claude/skills/task-registry/lanes
-  .claude/hooks"
+  .agents/hooks"
 # A negative sweep passes on nothing if a root moved or the regex is dead, so
-# every root is asserted present and the banner is the positive control: the
-# unfiltered sweep must hit both allowlisted lines before they are filtered out.
+# every root is asserted present and the skill's own file is the positive
+# control: the same regex must hit it before the sweep's empty result counts.
 for root in $HOST_ROOTS; do
   assert_eq "present" "$([ -d "$root" ] && echo present || echo missing)" \
     "GoLanes: host sweep root $root exists"
 done
-banner_hits="$(grep -nE "$GO_INVOCATION" .claude/hooks/session-start.sh || true)"
-assert_contains "$banner_hits" "$BANNER_ROW" \
-  "GoLanes: host sweep regex matches the banner row (positive control)"
-assert_contains "$banner_hits" "$BANNER_CLOSE" \
-  "GoLanes: host sweep regex matches the banner closing line (positive control)"
-host_hits="$(grep -rnE "$GO_INVOCATION" $HOST_ROOTS \
-  | grep -vF "$BANNER_ROW" | grep -vF "$BANNER_CLOSE" || true)"
+assert_eq "yes" "$(grep -qE "$GO_INVOCATION" .agents/skills/go/SKILL.md && echo yes || echo no)" \
+  "GoLanes: host sweep regex matches /go in the skill's own file (positive control)"
+host_hits="$(grep -rnE "$GO_INVOCATION" $HOST_ROOTS || true)"
 assert_eq "" "$host_hits" \
   "GoLanes: no routine host, lane file, or hook invokes /go (offenders: ${host_hits:-none})"
-
-# --- AC5: the banner leads with /go ---------------------------------------------
-# The closing line is pinned by tests/test-doc-conventions.sh, which AC5 names;
-# it is only an allowlist entry here, not a second pin.
-first_skill_row="$(grep -E '^echo "  /' .claude/hooks/session-start.sh | head -1)"
-assert_contains "$first_skill_row" "/go <goal>" \
-  "GoLanes: session-start banner lists /go first in the skills block"
 
 finish

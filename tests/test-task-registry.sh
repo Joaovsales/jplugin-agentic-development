@@ -23,16 +23,7 @@ SCRIPTS="$SKILL/scripts"
 CLI="$SCRIPTS/task-registry.py"
 FIXTURES="$REPO/tests/fixtures/task-registry"
 
-if command -v python3 >/dev/null 2>&1; then
-  PY=python3
-elif command -v python >/dev/null 2>&1; then
-  PY=python
-elif command -v py >/dev/null 2>&1; then
-  PY=py
-else
-  printf '  FAIL no python interpreter found (python3/python/py)\n'
-  exit 1
-fi
+PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
 
 TMP_DIRS=()
 cleanup() {
@@ -56,8 +47,9 @@ run() { "$PY" "$CLI" "$@"; }
 
 # Run a snippet against the package, the way another Python caller would.
 # PYTHONDONTWRITEBYTECODE mirrors the CLI's own `sys.dont_write_bytecode`: a
-# __pycache__ inside the canonical skills tree breaks tests/test-skill-parity.sh,
-# so no entry point to this package may leave one behind.
+# __pycache__ inside the canonical skills tree corrupts the byte-identical
+# copy other tooling relies on, so no entry point to this package may leave
+# one behind.
 pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -; }
 
 # --- shared fixture content --------------------------------------------------
@@ -538,7 +530,7 @@ assert_not_contains "$noptr_out" "BROKEN" \
 F_PTROK="$(new_fixture)"
 write_index "$F_PTROK"
 printf '# T\n\n```ini\n[tracker]\nprovider = local\n```\n' > "$F_PTROK/docs/tracking.md"
-printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTROK/CLAUDE.md"
+printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTROK/AGENTS.md"
 ptrok_out="$(run doctor --repo "$F_PTROK" 2>&1)"
 ptrok_code=$?
 assert_eq "0" "$ptrok_code" "Pointer states: pointer to an existing file — exit 0"
@@ -547,13 +539,13 @@ assert_contains "$ptrok_out" "configuration:  docs/tracking.md" \
 
 F_PTRMISS="$(new_fixture)"
 write_index "$F_PTRMISS"
-printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTRMISS/CLAUDE.md"
+printf 'Task tracking instructions: docs/tracking.md\n' > "$F_PTRMISS/AGENTS.md"
 ptrmiss_doctor="$(run doctor --repo "$F_PTRMISS" 2>&1)"
 ptrmiss_code=$?
 assert_eq "1" "$ptrmiss_code" "Pointer states: pointer to a missing file — doctor exits non-zero"
 assert_contains "$ptrmiss_doctor" "configuration:  BROKEN" \
   "Pointer states: pointer to a missing file — doctor reports BROKEN, not none"
-assert_contains "$ptrmiss_doctor" "CLAUDE.md declares" \
+assert_contains "$ptrmiss_doctor" "AGENTS.md declares" \
   "Pointer states: the fault names where the pointer was declared"
 assert_contains "$ptrmiss_doctor" "'docs/tracking.md' does not exist" \
   "Pointer states: the fault names the declared path"
@@ -571,11 +563,12 @@ ptrmiss_rec="$(run selectors --repo "$F_PTRMISS" 2>&1)"
 ptrmiss_rec_code=$?
 assert_eq "1" "$ptrmiss_rec_code" \
   "Pointer states: every command except doctor refuses to run on a broken pointer"
-assert_contains "$ptrmiss_rec" "task-registry: CLAUDE.md declares" \
+assert_contains "$ptrmiss_rec" "task-registry: AGENTS.md declares" \
   "Pointer states: the refusal carries the same fault text"
 
 # First pointer wins, broken or not: a dangling project-owned pointer is not
-# rescued by a valid template-managed one further down the search order. The
+# rescued by a valid one further down the search order (CLAUDE.md is the
+# @AGENTS.md pointer and is not searched at all, so the third line is inert). The
 # most authoritative declaration is the one that is wrong, and that is what the
 # user must hear.
 F_PTRPREC="$(new_fixture)"
@@ -599,7 +592,7 @@ assert_contains "$ptrprec_out" ".claude/project.md declares" \
 # something that is already there.
 F_PTRDIR="$(new_fixture)"
 write_index "$F_PTRDIR"
-printf 'Task tracking instructions: docs\n' > "$F_PTRDIR/CLAUDE.md"
+printf 'Task tracking instructions: docs\n' > "$F_PTRDIR/AGENTS.md"
 ptrdir_out="$(run doctor --repo "$F_PTRDIR" 2>&1)"
 assert_contains "$ptrdir_out" "'docs' exists but is not a file" \
   "Pointer states: a pointer to a directory is not reported as missing"
@@ -607,7 +600,7 @@ assert_not_contains "$ptrdir_out" "does not exist" \
   "Pointer states: a directory target never gets the create-it advice"
 F_PTRESC="$(new_fixture)"
 write_index "$F_PTRESC"
-printf 'Task tracking instructions: \033[31mdocs/x.md\n' > "$F_PTRESC/CLAUDE.md"
+printf 'Task tracking instructions: \033[31mdocs/x.md\n' > "$F_PTRESC/AGENTS.md"
 ptresc_out="$(run doctor --repo "$F_PTRESC" 2>&1)"
 assert_contains "$ptresc_out" "'\\x1b[31mdocs/x.md' does not exist" \
   "Pointer states: the declared path is echoed escaped, never raw"
@@ -629,13 +622,21 @@ assert_eq "0" "$ptrprose_code" \
   "Pointer states: sentence punctuation after the path is not part of the path"
 assert_contains "$ptrprose_out" "configuration:  docs/tracking.md" \
   "Pointer states: the prose mention resolves to the file it names"
+# `.claude/project.md` is where the pointer lived before the single instruction
+# file. It is still read — a declined migration must not break the registry —
+# but doctor says so, so the state is visible and not permanent by accident
+# (specs/single-instruction-file.md, D3).
+assert_contains "$ptrprose_out" "pointer found in .claude/project.md — /sync will move it to AGENTS.md" \
+  "Pointer states: a pointer still in .claude/project.md is read with the one-line notice"
+assert_not_contains "$ptrok_out" "pointer found in .claude/project.md" \
+  "Pointer states: a pointer in AGENTS.md prints no notice"
 
 # A run that is nothing but punctuation (`Task tracking instructions: ...`) is a
 # sentence fragment, not a path — it must read as "no pointer", not as a
 # pointer to a file called `...`.
 F_PTRDOTS="$(new_fixture)"
 write_index "$F_PTRDOTS"
-printf 'Task tracking instructions: ...\n' > "$F_PTRDOTS/CLAUDE.md"
+printf 'Task tracking instructions: ...\n' > "$F_PTRDOTS/AGENTS.md"
 ptrdots_out="$(run doctor --repo "$F_PTRDOTS" 2>&1)"
 ptrdots_code=$?
 assert_eq "0" "$ptrdots_code" \
@@ -1423,6 +1424,100 @@ for command in doctor selectors; do
   code=$?
   assert_eq "0" "$code" "CLI: '$command' runs clean on a well-formed repository"
 done
+
+# --- upsert --parent: native, metadata degradation, and dry run ------------
+#
+# AC7: `upsert --parent` records a native parent on the local fixture, and
+# `parent:` metadata plus the existing disclosure line on the GitHub fixture.
+# Dry run by default, and the preview is decided from capabilities alone --
+# it must never resolve the reference through the provider.
+F_PARENT="$(new_fixture)"
+write_index "$F_PARENT"
+run upsert existing.parent --repo "$F_PARENT" --title 'Existing parent' --apply >/dev/null
+
+parent_dry="$(run upsert child.of-parent --repo "$F_PARENT" --title 'Child of parent' --parent existing.parent 2>&1)"
+assert_contains "$parent_dry" "upsert: would link parent existing.parent (native on local)" \
+  "upsert --parent: a local dry run names the intended link without --apply"
+
+parent_local="$(run upsert child.of-parent --repo "$F_PARENT" --title 'Child of parent' --apply --parent existing.parent 2>&1)"
+assert_contains "$parent_local" "upsert: parent local:existing.parent linked natively" \
+  "upsert --parent: the local provider links natively and says so plainly"
+assert_file_contains "$F_PARENT/tasks/details/child.of-parent.md" "parent: existing.parent" \
+  "upsert --parent: the child's detail file records the native parent"
+assert_not_contains "${parent_local}X" "stored as metadata" \
+  "upsert --parent: a native link carries no metadata-degradation disclosure"
+
+# The reference must resolve to exactly one task: a typo is a hard failure the
+# unattended caller (/slice --file) sees as a non-zero exit, never a `✓ Filed`.
+parent_missing="$(run upsert child.orphan --repo "$F_PARENT" --title 'Child of nobody' --apply --parent no.such.task 2>&1)"
+parent_missing_code=$?
+assert_eq "1" "$parent_missing_code" \
+  "upsert --parent: a reference that names no task exits 1"
+assert_contains "$parent_missing" "cannot resolve exactly one authoritative parent" \
+  "upsert --parent: the failure names the unresolved reference"
+
+# GitHub has no native parent link: the same flag lands as `parent:` metadata
+# with the existing disclosure line -- and a dry run must not even resolve the
+# reference, let alone write, so issue #44 is never fetched.
+gh_parent_dry="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-parent-dry.log" \
+  run upsert recipe.morph-live-grid --repo "$F_GH" --title 'Morph live grid recipe' --parent '#44' 2>&1)"
+assert_contains "$gh_parent_dry" "upsert: would link parent #44 (parent: metadata on github)" \
+  "upsert --parent: a GitHub dry run names the degraded link without --apply"
+assert_not_contains "$(cat "$F_GH/gh-parent-dry.log")X" "44" \
+  "upsert --parent: a dry run never resolves the parent reference through gh"
+
+gh_parent_apply="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-parent-apply.log" \
+  run upsert recipe.morph-live-grid --repo "$F_GH" --title 'Morph live grid recipe' --apply --approve --parent '#44' 2>&1)"
+gh_parent_apply_code=$?
+assert_eq "0" "$gh_parent_apply_code" \
+  "upsert --parent: a resolvable GitHub parent link exits clean"
+assert_contains "$gh_parent_apply" \
+  'upsert: parent github:44 stored as metadata — GitHub issues expose no parent link through gh; stored as `parent:` metadata' \
+  "upsert --parent: GitHub reports the degraded link with the existing disclosure line"
+assert_contains "$(cat "$F_GH/gh-parent-apply.log")" "parent: render.dither-strategy" \
+  "upsert --parent: the child issue's body gains parent: metadata naming the resolved parent"
+
+# --- upsert: seeded blocked-by survives a fresh provider record ------------
+#
+# `/slice --file` seeds the compact row -- including its `(blocked-by: ...)`
+# marker -- before the task it names has ever been created. `_existing` reads
+# the provider record, not the index row, so the first `upsert --apply` sees
+# no record and creates one with an empty `depends_on`; rendering the row
+# straight from that record would drop the marker on this very first refresh.
+# A second run after an interrupted filing must be exactly as safe.
+F_SEEDED="$(new_fixture)"
+cat > "$F_SEEDED/tasks/todo.md" <<'EOF'
+# Task Plan
+
+- [ ] Seeded task <!-- task-id: seeded.blocked --> — filed ahead of itself (blocked-by: seeded.blocker)
+EOF
+
+seeded_run1="$(run upsert seeded.blocked --repo "$F_SEEDED" --title 'Seeded task' --summary 'filed ahead of itself' --apply 2>&1)"
+assert_contains "$seeded_run1" "created seeded.blocked" \
+  "upsert seeded blocked-by: no provider record exists yet, so the first run creates"
+assert_file_contains "$F_SEEDED/tasks/todo.md" "(blocked-by: seeded.blocker)" \
+  "upsert seeded blocked-by: the first refresh keeps the marker the row seeded"
+
+seeded_run2="$(run upsert seeded.blocked --repo "$F_SEEDED" --title 'Seeded task' --summary 'filed ahead of itself' --apply 2>&1)"
+assert_contains "$seeded_run2" "updated seeded.blocked" \
+  "upsert seeded blocked-by: the second run finds the record the first run created"
+assert_file_contains "$F_SEEDED/tasks/todo.md" "(blocked-by: seeded.blocker)" \
+  "upsert seeded blocked-by: the second refresh keeps the marker too"
+assert_eq "1" "$(grep -c 'task-id: seeded\.blocked' "$F_SEEDED/tasks/todo.md")" \
+  "upsert seeded blocked-by: exactly one row for the id, never a duplicate"
+
+# A slice built before it was filed is seeded `[x]`; the task is created from
+# the row's status, so the first refresh keeps the box instead of reopening it.
+cat >> "$F_SEEDED/tasks/todo.md" <<'EOF'
+- [x] Seeded done <!-- task-id: seeded.done --> — finished before filing
+EOF
+seeded_done="$(run upsert seeded.done --repo "$F_SEEDED" --title 'Seeded done' --summary 'finished before filing' --apply 2>&1)"
+assert_contains "$seeded_done" "created seeded.done" \
+  "upsert seeded [x]: the first run creates the task from the seeded row"
+assert_file_contains "$F_SEEDED/tasks/todo.md" "- [x] Seeded done" \
+  "upsert seeded [x]: the first refresh keeps the done box the row seeded"
 
 # =============================================================================
 # 12. Regressions — one block per defect found in review
@@ -2413,7 +2508,7 @@ degraded_block="$(printf '%s\n' "$gh_degraded" | sed -n '/^  degraded:$/,/^  [a-
 assert_contains "$degraded_block" "reads degraded to local-only" \
   "Show: an answer assembled without the provider says so rather than reading as complete"
 
-label_only="$($PY - "$SCRIPTS" <<'PY'
+label_only="$("$PY" - "$SCRIPTS" <<'PY'
 import pathlib, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 from registry.config import Config
@@ -2479,7 +2574,7 @@ assert_contains "$label_only" "github-canonical-case: True" \
 assert_contains "$label_only" "github-missing: True" \
   "AC11: GitHub refuses an unknown hold label instead of silently dropping it"
 
-structured_upsert="$($PY - "$SCRIPTS" <<'PY'
+structured_upsert="$("$PY" - "$SCRIPTS" <<'PY'
 import pathlib, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 import registry.upsert as upsert

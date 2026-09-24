@@ -69,7 +69,7 @@ split without adding infrastructure.
 
 ### P5 — Generalized large-artifact truncation convention
 Promote the one-off "truncate logs to last 500 lines" rule from `verify-deployment`
-into a shared, named convention in `.claude/project.md` ("Large-Artifact Handoff"),
+into a shared, named convention in `AGENTS.md` ("Large-Artifact Handoff"),
 and reference it from `/build` sub-agent delegation. Any large artifact handed to a
 sub-agent is truncated-with-pointer: last-N lines + full copy persisted to a path.
 
@@ -83,12 +83,12 @@ sub-agent is truncated-with-pointer: last-N lines + full copy persisted to a pat
 - **P5:** Sub-agent delegation prompts in `/build`; build/deploy logs.
 
 ## Outputs
-- **P1:** `.claude/hooks/pre-compact.sh`; `PreCompact` entry in `.claude/settings.json`;
+- **P1:** `.agents/hooks/pre-compact.sh`; `PreCompact` entry in the plugin's `hooks/hooks.json`;
   `source=compact` branch in `session-start.sh`; updated `tasks/checkpoint.md` on compact.
 - **P2:** checkpoint write after each completed `/build` task (edit to `build/SKILL.md` ×2).
-- **P3:** `refresh/SKILL.md` in both skill locations; circuit-breaker edit in `build/SKILL.md` ×2; `/refresh` row in `CLAUDE.md` + session-start skills banner.
+- **P3:** `refresh/SKILL.md` in both skill locations; circuit-breaker edit in `build/SKILL.md` ×2; `/refresh` row in the `README.md` skills table.
 - **P4:** revised `memory-maintain/SKILL.md` ×2 (per-session lessons pass + gated heavy pass).
-- **P5:** "Large-Artifact Handoff" section in `.claude/project.md`; references in `build/SKILL.md` ×2; `verify-deployment` points at the shared convention.
+- **P5:** "Large-Artifact Handoff" section in `AGENTS.md`; references in `build/SKILL.md` ×2; `verify-deployment` points at the shared convention.
 - **All:** `tests/` harness + passing test scripts.
 
 ## Edge Cases
@@ -104,25 +104,25 @@ sub-agent is truncated-with-pointer: last-N lines + full copy persisted to a pat
 ## Acceptance Criteria
 - [ ] P1: `pre-compact.sh`, given mock PreCompact stdin, writes a `tasks/checkpoint.md` containing the timestamp, git branch, and current `[~]`/`[ ]` todo items; exits 0.
 - [ ] P1: `pre-compact.sh` exits 0 and writes git-only state when `tasks/todo.md` is absent (no crash).
-- [ ] P1: `.claude/settings.json` is valid JSON and registers the `PreCompact` hook → `bash .claude/hooks/pre-compact.sh`.
-- [ ] P1: `session-start.sh` with `source=compact` on stdin prints the "RESUMING AFTER COMPACTION" block and skips the full skills banner; with `source=startup` (or absent) it prints the full banner unchanged.
+- [ ] P1: the plugin's `hooks/hooks.json` is valid JSON and registers the `PreCompact` hook → `bash "${CLAUDE_PLUGIN_ROOT}/.agents/hooks/pre-compact.sh"`.
+- [ ] P1: `session-start.sh` with `source=compact` on stdin prints the "RESUMING AFTER COMPACTION" block and skips the banner; with `source=startup` (or absent) it prints the banner.
 - [ ] P2: `build/SKILL.md` (both locations) instructs a silent checkpoint write after each task is marked `[x]`, reusing the P1 flush routine.
-- [ ] P3: `/refresh` skill exists in both locations with snapshot → handoff steps; `/build` circuit breaker auto-invokes `/refresh` before escalating; `/refresh` appears in `CLAUDE.md` skills table and the session-start banner.
+- [ ] P3: `/refresh` skill exists in both locations with snapshot → handoff steps; `/build` circuit breaker auto-invokes `/refresh` before escalating; `/refresh` appears in the `README.md` skills table.
 - [ ] P4: `memory-maintain/SKILL.md` (both locations) runs the lessons dedup/decay pass every session and gates the heavy archive/promote pass at every-5; a no-lessons-file run is a silent no-op.
-- [ ] P5: `.claude/project.md` has a "Large-Artifact Handoff" convention; `build/SKILL.md` and `verify-deployment/SKILL.md` reference it instead of restating the 500-line rule ad hoc.
+- [ ] P5: `AGENTS.md` has a "Large-Artifact Handoff" convention; `build/SKILL.md` and `verify-deployment/SKILL.md` reference it instead of restating the 500-line rule ad hoc.
 - [ ] Stale `.claude/memory.md` references in `checkpoint/SKILL.md` and `build/SKILL.md` corrected to `tasks/memory.md`.
 - [ ] `tests/` harness runs all test scripts with a single command and reports pass/fail; every new hook has a test; suite is green.
 - [ ] `.agents/skills/` and `.claude/skills/` copies of every touched/new skill are in sync.
 
 ## Files Likely Involved
-- `.claude/hooks/pre-compact.sh` — NEW (P1 flush).
-- `.claude/hooks/session-start.sh` — `source=compact` restore branch (P1).
-- `.claude/settings.json` — register `PreCompact` (P1).
+- `.agents/hooks/pre-compact.sh` — NEW (P1 flush).
+- `.agents/hooks/session-start.sh` — `source=compact` restore branch (P1).
+- `hooks/hooks.json` — register `PreCompact` (P1).
 - `.agents/skills/build/SKILL.md` + `.claude/skills/build/SKILL.md` — task-boundary checkpoint (P2), circuit-breaker /refresh (P3), large-artifact ref (P5), stale-path fix.
 - `.agents/skills/refresh/SKILL.md` + `.claude/skills/refresh/SKILL.md` — NEW (P3).
 - `.agents/skills/memory-maintain/SKILL.md` + `.claude/skills/memory-maintain/SKILL.md` — per-session lessons pass (P4).
 - `.agents/skills/checkpoint/SKILL.md` + `.claude/skills/checkpoint/SKILL.md` — stale-path fix; shared flush format (P1/P2).
-- `.claude/project.md` — Large-Artifact Handoff convention (P5).
+- `AGENTS.md` — Large-Artifact Handoff convention (P5).
 - `.claude/skills/verify-deployment/SKILL.md` — point at shared convention (P5).
 - `CLAUDE.md` — add `/refresh` to skills index (P3). NOTE: template-managed; edit is intentional template content.
 - `tests/` — NEW zero-dep bash harness + test scripts.

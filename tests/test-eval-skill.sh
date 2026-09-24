@@ -24,7 +24,7 @@ cd "$REPO"
 GRADER_REL=".agents/skills/eval/scripts/grade-skill-loads.sh"
 
 # --- 1. distribution --------------------------------------------------------
-for tree in .agents .claude; do
+for tree in .agents; do
   assert_eq "present" "$([ -f "$tree/skills/eval/SKILL.md" ] && echo present || echo missing)" \
     "$tree/skills/eval/SKILL.md exists"
   assert_eq "present" "$([ -f "$tree/skills/eval/references/probe-recipe.md" ] && echo present || echo missing)" \
@@ -43,7 +43,7 @@ done
 # The scope table is the one section a future editor is most likely to "helpfully"
 # complete by re-adding presence/absence as a third mode. It is not measurable
 # where a global install exists, and a run designed against it reports noise.
-for tree in .agents .claude; do
+for tree in .agents; do
   md="$tree/skills/eval/SKILL.md"
   assert_file_contains "$md" "THE CANDIDATE NEVER KNOWS IT IS BEING EVALUATED" \
     "$md: the Iron Law survives"
@@ -137,7 +137,7 @@ assert_contains "$err" "transcript format changed" "grader: reordered keys are r
 assert_eq "" "$(bash -n "$GRADER_REL" 2>&1)" "grader: parses under bash -n"
 
 # --- 4. provenance ----------------------------------------------------------
-for tree in .agents .claude; do
+for tree in .agents; do
   assert_eq "present" "$([ -f "$tree/skills/eval/LICENSE.pstack" ] && echo present || echo missing)" \
     "$tree/skills/eval: upstream MIT notice travels with the skill"
   assert_file_contains "$tree/skills/eval/LICENSE.pstack" "Copyright (c) 2026 Lauren Tan" \

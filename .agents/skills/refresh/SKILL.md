@@ -23,7 +23,7 @@ buys a fresh, focused context.
 Run the shared flush to write the current snapshot to `tasks/checkpoint.md`:
 
 ```bash
-bash .claude/hooks/pre-compact.sh </dev/null
+bash .agents/hooks/pre-compact.sh </dev/null
 ```
 
 This captures the git branch, working-tree status, in-progress (`[~]`) and

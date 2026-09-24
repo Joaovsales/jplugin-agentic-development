@@ -16,11 +16,12 @@
 # job is to catch silent non-closure, so every separator people actually write
 # has to end up here.
 set -euo pipefail
+. "$(dirname "$0")/lib.sh"
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 export ROOT
 
-PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" - <<'PY'
 import importlib.util
 import os
 import pathlib

@@ -4,7 +4,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
 CLI="$SCRIPTS/task-registry.py"
-PY=python3
+PY="$TEST_PYTHON"
 TMP_DIRS=()
 cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
 trap cleanup EXIT
@@ -29,37 +29,37 @@ COMMON=(escalate parent.bug --repo "$P" --reason execution-blocked
   --evidence tasks/routine-runs/source.md)
 
 before="$(find "$P" -type f -exec sha256sum {} + | sort)"
-dry="$($PY "$CLI" "${COMMON[@]}" 2>&1)"; dry_code=$?
+dry="$("$PY" "$CLI" "${COMMON[@]}" 2>&1)"; dry_code=$?
 after="$(find "$P" -type f -exec sha256sum {} + | sort)"
 assert_eq "0" "$dry_code" "AC10: escalation defaults to a successful no-write preview"
 assert_eq "$before" "$after" "AC10: dry-run changes no provider file or run artifact"
 assert_contains "$dry" "hold: preview" "AC10: preview names the intended hold stage"
 
-report_refusal="$($PY "$CLI" "${COMMON[@]}" --report "$P/report.md" 2>&1)"; report_code=$?
+report_refusal="$("$PY" "$CLI" "${COMMON[@]}" --report "$P/report.md" 2>&1)"; report_code=$?
 assert_eq "2" "$report_code" "AC10: escalate rejects the shared --report option as usage"
 assert_eq "absent" "$([ -e "$P/report.md" ] && echo present || echo absent)" \
   "AC10: rejected --report never reaches the shared output writer"
 
-bad_pair="$($PY "$CLI" escalate parent.bug --repo "$P" --reason verification-blocked \
+bad_pair="$("$PY" "$CLI" escalate parent.bug --repo "$P" --reason verification-blocked \
   --reproduction-state unverified --run-at 2026-09-12T12:00:00Z --repro-command x \
   --observed y --evidence z 2>&1)"; bad_pair_code=$?
 assert_eq "2" "$bad_pair_code" "AC2: reason/state contradictions are usage errors"
 assert_contains "$bad_pair" "verification-blocked" "AC2: validation names the contradictory field"
 
-naive_time="$($PY "$CLI" escalate parent.bug --repo "$P" --reason inconclusive \
+naive_time="$("$PY" "$CLI" escalate parent.bug --repo "$P" --reason inconclusive \
   --reproduction-state unverified --run-at 2026-09-12T12:00:00 --repro-command x \
   --observed y --evidence z 2>&1)"; naive_code=$?
 assert_eq "2" "$naive_code" "AC2: run-at must carry an explicit timezone"
-both_evidence="$($PY "$CLI" "${COMMON[@]}" --evidence-unavailable missing 2>&1)"; both_code=$?
+both_evidence="$("$PY" "$CLI" "${COMMON[@]}" --evidence-unavailable missing 2>&1)"; both_code=$?
 assert_eq "2" "$both_code" "AC2: evidence reference and unavailable reason are mutually exclusive"
-unavailable="$($PY "$CLI" escalate parent.bug --repo "$P" --reason inconclusive \
+unavailable="$("$PY" "$CLI" escalate parent.bug --repo "$P" --reason inconclusive \
   --reproduction-state not-reproduced --run-at 2026-09-12T12:00:00Z \
   --repro-command x --observed y --evidence-unavailable 'artifact host unavailable' 2>&1)"
 assert_eq "0" "$?" "AC2: an explicit evidence-unavailable reason is a valid preview"
 
 BLOCKER="$P/blocker.json"
 printf '%s\n' '{"version":1,"source":"tests/runner.sh","title":"Repair runner","summary":"Runner misses fixture","handling":"routine","reproduction":["run tests"],"proposed_fix":["restore fixture"],"criteria":["test reaches assertions"]}' > "$BLOCKER"
-applied="$($PY "$CLI" "${COMMON[@]}" --blocker-file "$BLOCKER" --apply 2>&1)"; applied_code=$?
+applied="$("$PY" "$CLI" "${COMMON[@]}" --blocker-file "$BLOCKER" --apply 2>&1)"; applied_code=$?
 assert_eq "1" "$applied_code" "AC9: a fully applied escalation always terminates non-zero"
 assert_contains "$applied" "hold: confirmed" "AC5: label readback confirms the hold before blocker filing"
 assert_contains "$applied" "blocker: local" "AC6: a valid actionable blocker is filed"
@@ -89,7 +89,7 @@ assert_file_contains "$RUN_ARTIFACT" '"parent_ref": "parent.bug"' \
 
 HUMAN="$P/human.json"
 printf '%s\n' '{"version":1,"source":"tests/human-prereq.sh","title":"Restore operator credential","summary":"The external credential is unavailable","handling":"human","reproduction":["run credential check"],"proposed_fix":["restore operator credential"],"criteria":["credential check succeeds"]}' > "$HUMAN"
-human="$($PY "$CLI" "${COMMON[@]}" --blocker-file "$HUMAN" --apply 2>&1)"; human_code=$?
+human="$("$PY" "$CLI" "${COMMON[@]}" --blocker-file "$HUMAN" --apply 2>&1)"; human_code=$?
 assert_eq "1" "$human_code" "AC9: a human prerequisite escalation remains terminal"
 assert_contains "$human" "blocker: existing-held" \
   "AC6: a newly retained human prerequisite truthfully reports its held state"
@@ -100,7 +100,7 @@ assert_file_contains "$HUMAN_DETAIL" "- labels: needs-investigation" \
   "AC6: a human prerequisite is held for explicit human review"
 assert_file_contains "$HUMAN_DETAIL" "originating parent: local:parent.bug" \
   "AC7: a human prerequisite retains the canonical parent reference"
-human_workflow="$($PY "$CLI" workflow "$(basename "$HUMAN_DETAIL" .md)" --repo "$P" 2>&1)"; human_workflow_code=$?
+human_workflow="$("$PY" "$CLI" workflow "$(basename "$HUMAN_DETAIL" .md)" --repo "$P" 2>&1)"; human_workflow_code=$?
 assert_eq "1" "$human_workflow_code" "AC3: a human prerequisite has no runnable consumer workflow"
 assert_contains "$human_workflow" "ESCALATED" "AC3: human prerequisite selection requires explicit re-triage"
 blocker_files_before="$(find "$P/tasks/details" -name 'routine-blocker.*.md' | wc -l)"
@@ -108,7 +108,7 @@ blocker_rows_before="$(grep -c 'routine-blocker\.' "$P/tasks/todo.md")"
 
 HAZARD="$P/hazard.json"
 printf '%s\n' '{"version":1,"source":"tests/runner.sh","title":"Repair runner","summary":"Runner misses fixture","handling":"routine","reproduction":["run tests"],"proposed_fix":["status: done"],"criteria":["works"]}' > "$HAZARD"
-hazard="$($PY "$CLI" "${COMMON[@]}" --blocker-file "$HAZARD" --apply 2>&1)"; hazard_code=$?
+hazard="$("$PY" "$CLI" "${COMMON[@]}" --blocker-file "$HAZARD" --apply 2>&1)"; hazard_code=$?
 assert_eq "1" "$hazard_code" "AC10: invalid blocker does not turn escalation into success"
 assert_contains "$hazard" "blocker: failed" "AC10: hazardous blocker field is reported separately"
 assert_contains "$hazard" "proposed_fix" "AC10: blocker failure names the invalid field"
@@ -120,7 +120,7 @@ assert_eq "$blocker_rows_before" "$(grep -c 'routine-blocker\.' "$P/tasks/todo.m
 
 ESCAPE="$P/escape.json"
 printf '%s\n' '{"version":1,"source":"../outside","title":"Repair runner","summary":"Runner misses fixture","handling":"routine","reproduction":["run tests"],"proposed_fix":["restore fixture"],"criteria":["works"]}' > "$ESCAPE"
-escape="$($PY "$CLI" "${COMMON[@]}" --blocker-file "$ESCAPE" --apply 2>&1)"; escape_code=$?
+escape="$("$PY" "$CLI" "${COMMON[@]}" --blocker-file "$ESCAPE" --apply 2>&1)"; escape_code=$?
 assert_eq "1" "$escape_code" "AC10: escaping blocker source is rejected without aborting parent escalation"
 assert_contains "$escape" "blocker: failed" "AC10: source-containment failure is a blocker stage result"
 assert_contains "$escape" "comment: delivered" "AC12: source-containment failure still reaches parent notification"
@@ -132,14 +132,14 @@ assert_eq "$blocker_rows_before" "$(grep -c 'routine-blocker\.' "$P/tasks/todo.m
 outside_runs="$(mktemp -d)"; TMP_DIRS+=("$outside_runs")
 rm -rf "$P/tasks/routine-runs"
 ln -s "$outside_runs" "$P/tasks/routine-runs"
-artifact_failure="$($PY "$CLI" "${COMMON[@]}" --apply 2>&1)"; artifact_failure_code=$?
+artifact_failure="$("$PY" "$CLI" "${COMMON[@]}" --apply 2>&1)"; artifact_failure_code=$?
 assert_eq "1" "$artifact_failure_code" "AC9: artifact confinement failure remains a terminal result"
 assert_contains "$artifact_failure" "hold: confirmed" "AC9: artifact failure retains the completed hold stage"
 assert_contains "$artifact_failure" "comment: delivered" "AC9: artifact failure retains the completed comment stage"
 assert_contains "$artifact_failure" "artifact: failed" "AC9: artifact confinement failure is reported explicitly"
 assert_not_contains "$artifact_failure" "Traceback" "AC9: expected artifact confinement failure has no traceback"
 
-unit="$($PY - "$SCRIPTS" <<'PY'
+unit="$("$PY" - "$SCRIPTS" <<'PY'
 import sys, tempfile, pathlib
 sys.path.insert(0, sys.argv[1])
 from registry.config import Config
@@ -250,7 +250,7 @@ assert_contains "$unit" "closed: 1 0 0 True" \
 assert_contains "$unit" "mismatch: 1 0 0 True" \
   "AC5: authoritative identity mismatch refuses all escalation writes"
 
-dispositions="$($PY - "$SCRIPTS" <<'PY'
+dispositions="$("$PY" - "$SCRIPTS" <<'PY'
 import json, pathlib, re, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 import registry.escalation as escalation

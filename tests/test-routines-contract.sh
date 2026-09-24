@@ -18,12 +18,9 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 CANON=".agents/skills/wrap-up-session/references/routines.md"
-COPY=".claude/skills/wrap-up-session/references/routines.md"
 
 assert_eq "present" "$([ -f "$CANON" ] && echo present || echo missing)" \
   "Contract: $CANON exists"
-assert_files_identical "$CANON" "$COPY" \
-  "Contract: ships byte-identically to the .claude parity copy"
 
 # --- the four routines, three active and one deferred ------------------------
 for routine in plan fix improve build; do
@@ -246,7 +243,7 @@ assert_eq "build" "$contract_deferred" \
   "Contract: the Status column marks exactly one routine deferred"
 
 config_deferred="$(PYTHONDONTWRITEBYTECODE=1 \
-  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -c '
+  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" "$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(sorted(DEFERRED_ROUTINES)))')"
 assert_eq "$contract_deferred" "$config_deferred" \
@@ -258,7 +255,7 @@ for issue in 97 98; do
   assert_file_contains "$CANON" "#$issue" \
     "Contract: the deferral section cites #$issue"
   assert_contains "$(PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -c '
+    PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" "$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(DEFERRED_ROUTINES.values()))')" "#$issue" \
     "Contract: the deferral message workflow prints cites #$issue too"

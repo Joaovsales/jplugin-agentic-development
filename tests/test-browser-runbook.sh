@@ -3,7 +3,7 @@
 #
 # WHY THIS EXISTS
 #
-# `/verify --scope e2e` may resolve to lightpanda, a headless browser that
+# `/verify-evidence --scope e2e` may resolve to lightpanda, a headless browser that
 # executes JavaScript over a real network but has NO rendering path: no
 # screenshots, no Canvas/WebGL, partial CSS layout. A page whose layout is
 # broken can still expose a correct DOM, so a reviewer who does not know the

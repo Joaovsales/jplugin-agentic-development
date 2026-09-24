@@ -1,0 +1,11 @@
+{
+  "name": "jplugin",
+  "version": "1.1.0",
+  "description": "Spec -> plan -> TDD build -> review -> wrap-up workflow skills for coding agents.",
+  "author": {
+    "name": "jplugin-agentic-development maintainers"
+  },
+  "repository": "https://github.com/Joaovsales/jplugin-agentic-development",
+  "license": "MIT",
+  "skills": "./.agents/skills"
+}

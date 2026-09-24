@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Interview user, write a feature spec, and create a TDD task breakdown. Use for any non-trivial feature before coding.
+description: Interview user, write a feature spec, slice it into session-sized build steps, and end with a build prompt for a fresh session. Use for any non-trivial feature before coding.
 argument-hint: "[feature description]"
 disable-model-invocation: false
 harness: universal
@@ -17,7 +17,7 @@ Sub-agent delegations follow the Model Routing table in `/build` (planner tier f
   agents (`code-reviewer`, `security-reviewer`, `software-design-expert-review`,
   `critic`), which take no `model` so they inherit the session model. `critic` carries a
   **planner floor**: pass the planner alias if the session model is below planner tier.
-  See `CLAUDE.md` § Model Routing.
+  See `.agents/references/model-routing.md`.
 - **Pi** — no per-call model params; routing resolves from `subagents.agentOverrides` (requires the `pi-subagents` extension). Use `scout` for codebase exploration.
 - The planning phase requires the strongest reasoning model for architecture decisions
 
@@ -49,7 +49,7 @@ Before interviewing, load available project context:
    - If no match: list available `[ ]` items and ask user to pick one
 4. **If no backlog exists**: proceed normally (interview from scratch)
 
-### 1. Interview the User
+### 1. Interview the User, Carrying Settled Decisions Forward
 Ask clarifying questions to fully understand the feature:
 - What is the desired behavior? What problem does it solve?
 - What are the inputs and outputs?
@@ -58,9 +58,27 @@ Ask clarifying questions to fully understand the feature:
 - Which existing files/components are likely involved?
 - What does "done" look like? How will we verify it works?
 
+Before asking, look for a settled tree: a `specs/<feature-name>.md` that
+already carries a § Decisions table, or a `/grilling` run in this
+conversation whose frontier is already empty for this feature. `/grill-me`
+and `/brainstorm` are the user's optional precursors to `/plan` — a feature
+may go through either and never reach this skill. When a settled tree
+exists, print `DECISIONS CARRIED: <n> from <spec path | conversation>` and
+ask only the `open` rows plus whatever the six questions above still leave
+unanswered — settled rows are never re-asked. With neither source, interview
+as described above and fill § Decisions from the answers.
+
 If working from a backlog item, use its description and the PRD context to pre-fill known answers. Only ask about gaps.
 
 Wait for complete answers before proceeding.
+
+### 1.5. Escalate When the Design Bar Is Met
+
+Before writing the spec, check whether a settled answer meets the bar in
+`.agents/skills/system-design-planning/SKILL.md` § When to Use. When it
+does, print `Escalating to /system-design-planning: <criterion>` and invoke
+`/system-design-planning` with the decisions gathered so far — it does not
+re-ask them.
 
 ### 2. Write the Spec (MUST persist to disk)
 
@@ -112,6 +130,16 @@ implementation_paths:
 - [Edge case 1 and expected behavior]
 - [Edge case 2 and expected behavior]
 
+## Decisions
+
+| # | Question | Decision | Source | Why |
+|---|---|---|---|---|
+| 1 | [question] | [decision] | user | [reason] |
+
+`Source` is `user` for an answer the user gave in the interview, `assumed`
+for one `/plan` picked without asking (state why in the row), and `open` for
+one nobody has decided yet.
+
 ## Acceptance Criteria
 - [Verifiable criterion 1]
 - [Verifiable criterion 2]
@@ -122,6 +150,10 @@ implementation_paths:
 - `tests/test_feature.py` — [what it verifies]
 ```
 
+A vague requirement is rewritten as a measurable acceptance criterion before
+it enters § Acceptance Criteria, and the rewrite is shown to the user.
+§ Build Order is not written here — `/slice` writes it in Step 3.
+
 `implementation_paths` is the matching contract; the `## Implementation Paths`
 section explains each path's role to a human. Paths are repository-relative
 POSIX paths or globs — never absolute, never `..`. Only `*` and `?` (neither
@@ -129,43 +161,22 @@ crosses `/`) and `**` (which does) are accepted. Declare the complete current
 surface, including tests and configuration whose changes can alter or verify the
 behavior, not merely the files this session touched.
 
-### 3. Write the Plan (MUST persist to disk)
+### 3. Slice the Spec
 
-Same echo-or-fail pattern as Step 2 — applied to `tasks/todo.md`:
+Invoke `/slice specs/<feature-name>.md [--issue #N]`. It sizes the spec's
+acceptance criteria into session-sized slices, writes § Build Order and the
+plan block into `tasks/todo.md` per its own grammar, and prints the build
+prompt — see `.agents/skills/slice/SKILL.md` for what each output means and
+how it is written. `/plan` does not size slices, write a plan block, or
+print a build prompt itself.
 
-1. The file `tasks/todo.md` exists on disk and contains the new `## Plan:` block (verify with `grep -F "## Plan:" tasks/todo.md`)
-2. You have printed its **absolute path** in your message output
+### 4. Present
 
-**Required output format at end of Step 3:**
-
-```
-✓ Plan written: /absolute/path/to/tasks/todo.md
-```
-
-**Forbidden:** presenting the plan inline only, batching plan + spec into a single "draft" without writing both files.
-
-If `tasks/todo.md` already exists with prior content, **append** the new `## Plan:` block — do not overwrite.
-
-Plan template:
-
-```markdown
-## Plan: [Feature Name]
-> Spec: specs/[feature-name].md
-
-[ ] TDD: [test name] -> [minimal implementation detail]
-[ ] TDD: [test name] -> [minimal implementation detail]
-[ ] TDD: [test name] -> [minimal implementation detail]
-```
-
-Each entry must be a single, testable behavior. Order by dependency.
-
-### 4. Present and Confirm
-Show the user both the spec and the plan. Ask:
-
-> "Does this spec and plan meet your requirements?
-> Once you confirm with **'y'**, I'll begin the TDD loop."
-
-**Do not write any code until the user confirms.**
+Show the user both the spec and the plan block `/slice` wrote. Ask no
+question — the fresh session that opens with the build prompt is the review
+gate, not a word typed into this one. Change requests are applied in place:
+edit the spec, then re-run Step 3, for as long as the user keeps making
+them.
 
 ### 5. Divergence Check
 
@@ -186,23 +197,15 @@ If yes:
 
 If no: note the divergence in the spec as a conscious decision and proceed.
 
-### 6. Register the Tasks (after confirmation)
+### 6. Hand Over
 
-Once the user has confirmed, offer to register the plan's tasks through
-`/task-registry` — never before, and never automatically:
+The session's last message is:
 
-```bash
-python3 .agents/skills/task-registry/scripts/task-registry.py upsert <task-id> \
-  --title '...' --spec specs/<feature>.md --apply
+```
+Spec and plan are ready to be built. Start a fresh session with this prompt:
 ```
 
-- Rows written in Step 3 carry only the compact fields (see `/task-registry`);
-  the spec stays the detailed source of truth and is linked, not copied.
-- `upsert --apply` creates a task and needs explicit user authorization before it
-  reaches an external tracker, unless the project's task-tracking configuration
-  disables approval. **Planning never creates an external issue implicitly.**
-- If the project has no tracker configured, this is a local no-op — the registry
-  falls back to local Markdown and the plan proceeds unchanged.
-
-### 7. Hand Off to TDD
-After confirmation, proceed with `/build`, which executes the plan under the TDD discipline in its Phase 1.
+followed by the build prompt, verbatim from § Build Order (see
+`.agents/skills/slice/references/build-prompt.md` for the template). `/plan`
+files nothing and never invokes `/build`; both happen only in the session
+that prompt starts.

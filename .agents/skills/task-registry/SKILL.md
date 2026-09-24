@@ -116,7 +116,7 @@ against each lane's `cues:` and copy its steps into `tasks/todo.md`.
 The chain printed is the **effective** one — the project's `[routines.skills]`
 entry for a consumer lane, the shipped chain otherwise — so `lanes` and
 `workflow` never disagree. `lanes <name>` also checks that every chain skill is
-installed under `.agents/skills/` or `.claude/skills/` and exits `2` naming the
+installed under `.agents/skills/` and exits `2` naming the
 missing one, so a lane is refused before a step is recorded, not at the step.
 
 `lanes` reads no tracker: it selects no provider and loads the configuration
@@ -158,6 +158,12 @@ writes gets the task and the index links it; otherwise the local Markdown record
 stays canonical and the pending publication is reported. An unpublishable task is
 never dropped and never blocks the caller.
 
+Pass `--parent <ref>` (an issue number like `#42`, or a local task id) to link
+this task's origin: native where the provider reports it (the local store), a
+`parent:` metadata field plus the same disclosure line every degraded link uses
+otherwise (GitHub). Dry run by default like every other write — the preview
+names the link it would make without contacting the provider.
+
 ## The index row
 
 ```markdown
@@ -181,8 +187,10 @@ credentials are not consent to write to a company tracker. A tracker is added by
 declaring `provider =`, never by being detectable.
 
 The configuration document is `docs/task-tracking.md`, or wherever a
-`Task tracking instructions: <path>` line in `AGENTS.md`, `CLAUDE.md`, or
-`.claude/project.md` points. Copy `templates/task-tracking.md` to start one. A
+`Task tracking instructions: <path>` line in `AGENTS.md`, below the managed
+block, points (a pointer still in the pre-migration project file is read too,
+with a `doctor` notice — `references/configuration.md` § *Discovery and
+selection*). Copy `templates/task-tracking.md` to start one. A
 pointer whose target is missing is refused, naming the path — never defaulted.
 Full field reference, provider examples, and troubleshooting:
 `references/configuration.md`.
@@ -215,9 +223,9 @@ No workflow skill talks to a tracker about task state. They go through here.
 | Skill | Point of contact |
 |-------|------------------|
 | `/plan` | after the plan is approved, offer to record tasks (`upsert`) |
-| `/system-design-planning` | read the issue (`show`) at intake; after approval, one `upsert` per build slice |
+| `/system-design-planning` | read the issue (`show`) at intake; filing is `/slice --file`, run by `/build`'s pre-flight in the build session |
 | `/build` | claim a task and update status at task boundaries |
-| `/verify` | attach evidence links to the task |
+| `/verify-evidence` | attach evidence links to the task |
 | `/quality-gate` | report findings against the task |
 | `/wrap-up-session` | record deferred work (`upsert`) before the commit |
 

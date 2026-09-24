@@ -6,9 +6,9 @@
 
 This directory is read by:
 
-- **`/verify-deployment`** — loads the runbook for each row in `CLAUDE.md` § Deployment Targets, validates frontmatter against this contract, then drives the wait/log/fix loop.
+- **`/verify-deployment`** — loads the runbook for each row in `AGENTS.md` § Deployment Targets, validates frontmatter against this contract, then drives the wait/log/fix loop.
 - **`/setup-deployment`** — scans every runbook's `detect_files` to figure out which services this project uses, then writes the routing table into `CLAUDE.md`.
-- **`.claude/hooks/session-start.sh`** — uses `detect_files` to print a one-line nudge when signal files exist but no Deployment Targets section is configured.
+- **`.agents/hooks/session-start.sh`** — uses `detect_files` to print a one-line nudge when signal files exist but no Deployment Targets section is configured.
 
 The frontmatter is the **machine-readable contract**. The body is **human-readable troubleshooting notes** that get fed to the `code-debugger` agent on failure.
 
@@ -129,7 +129,7 @@ When the agent gives up after 3 iterations, check the dashboard for:
 4. **Write the `auth_check_command`** to exit 0 only when credentials are present (e.g. `railway whoami`, `vercel whoami`, `flyctl auth whoami`). This runs before polling so we fail fast.
 5. **Add 2–4 `common_failure_patterns`** for the most frequent build failures you've personally hit on this service. These compound across teams that `/sync` from this template — better hints lead to faster fix loops.
 6. **Write a `## Manual troubleshooting` body** with the things the agent can't auto-diagnose: env var issues, quota limits, dashboard-only settings.
-7. **Test the runbook** by adding a row to your project's `CLAUDE.md` § Deployment Targets that points at it, then run `/verify-deployment` after a known-good push.
+7. **Test the runbook** by adding a row to your project's `AGENTS.md` § Deployment Targets that points at it, then run `/verify-deployment` after a known-good push.
 8. **Open a PR back to the template** — once your runbook works for your project, others using `/sync` will benefit.
 
 ---
@@ -144,11 +144,11 @@ If you need a field that doesn't exist yet, add it as **optional** first, ship r
 
 ## Routing Table Schema
 
-This section documents the `## Deployment Targets` section that lives in a project's `.claude/project.md` file. `/setup-deployment` writes it; `/verify-deployment` and `session-start.sh` read it.
+This section documents the `## Deployment Targets` section that lives in a project's `AGENTS.md`, below the managed block's end marker. `/setup-deployment` writes it; `/verify-deployment` and `session-start.sh` read it.
 
 ### Location
 
-The `## Deployment Targets` section lives in **`.claude/project.md`** (project-specific config, committed). It used to live in `CLAUDE.md`; legacy projects may still have it there — `/sync` offers automatic migration and the tooling falls back to `CLAUDE.md` with a deprecation warning when the section is not yet migrated.
+The `## Deployment Targets` section lives in **`AGENTS.md`**, below the `<!-- jplugin-agentic-development:end -->` marker — the part of the file `/sync` never rewrites (committed).
 
 The section heading must be **exactly** `## Deployment Targets` with no trailing text. `/verify-deployment` and the session-start hook match this header with the regex `^## Deployment Targets[[:space:]]*$`, so any extra text (e.g. `## Deployment Targets (placeholder)`) intentionally disables verification — this is how the template repo documents the schema without activating it.
 
@@ -192,4 +192,4 @@ Overrides runbook defaults. Placed directly below the table.
 
 ### Disabling Verification
 
-Delete the `## Deployment Targets` section from `.claude/project.md` (or rename its heading so it no longer matches the exact regex). Both tooling paths will then skip verification silently.
+Delete the `## Deployment Targets` section from `AGENTS.md` (or rename its heading so it no longer matches the exact regex). Both tooling paths will then skip verification silently.

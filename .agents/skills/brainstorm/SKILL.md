@@ -4,12 +4,15 @@ description: Explore a feature idea through divergent design thinking before com
 argument-hint: "[feature idea or problem statement]"
 disable-model-invocation: false
 harness: universal
+# TODO(shortcut): Step 3 restates /grilling's round format so a session that fails to load the
+# primitive still asks in rounds; the cost is that the load has no reply-level tell. Upgrade path:
+# shrink Step 3 to a pointer once /eval Mode A shows the chain holding without the restatement.
 ---
 
 # /brainstorm — Divergent Design Exploration
 
 ## Overview
-Step back and ask what you're really trying to do. Explore the problem space before narrowing to a solution.
+Step back and ask what you're really trying to do. Explore the problem space before narrowing to a solution. The interview runs in frontier rounds through `/grilling`, and the vocabulary it settles is written to the glossary as it settles.
 
 ## The Hard Gate
 
@@ -23,6 +26,7 @@ DO NOT invoke /plan, /build, write any code, scaffold any project, or take any i
 - Read existing codebase structure (package.json, directory layout, key files)
 - Check for related specs in specs/, prior plans in tasks/todo.md
 - Grep tasks/solutions/ frontmatter (architecture-decision, pattern docs) for architectural context and past decisions
+- Read `tasks/concepts.md` so Step 3 can challenge the user's terms against the existing glossary
 - Understand what already exists before proposing anything new
 
 **Reading prior art on a JS-rendered page.** `WebFetch` returns the empty shell
@@ -37,16 +41,20 @@ If the topic benefits from diagrams, mockups, or flowcharts:
 - Offer to create ASCII diagrams, Mermaid charts, or component trees
 - Visual aids help align understanding before committing to design
 
-### Step 3 — Ask Clarifying Questions
-Ask questions **one at a time** to understand the full picture:
+### Step 3 — Interview Through `/grilling`
+Invoke `/grilling` with the problem statement as the root of the design tree and these four stock questions as the seed frontier:
 - What problem does this solve? Who benefits?
 - What are the constraints (performance, security, backwards-compat)?
 - What does "done" look like?
 - Are there examples of similar features in the codebase or elsewhere?
 
-**Prefer multiple-choice questions** when possible — they're faster for the user and reduce ambiguity.
+Rounds arrive in `/grilling`'s `❓` / `➡️` format: the whole frontier at once, numbered, a recommended answer on every question. A user who set `/grilling`'s opt-out line gets one question per turn instead; that opt-out applies here unchanged. **Prefer multiple-choice bodies** — they're faster for the user and reduce ambiguity. Facts are looked up by a Scout-tier sub-agent; decisions are put to the user.
 
-Do NOT dump all questions at once. Ask one, wait for answer, then ask the next based on the response.
+While the interview runs, the domain layer in `references/domain-modeling.md` is active: challenge terms against `tasks/concepts.md`, sharpen vague ones, stress-test relationships with concrete scenarios, cross-reference claims with the code, write each resolved project-specific term to `tasks/concepts.md` the moment it resolves, and offer — never assume — an architecture decision when all three of its gates hold.
+
+The moment a term resolves is the user's answer. The reply to a round opens with the glossary writes that round's answers settled — the `Edit` to `tasks/concepts.md`, then one line per term (`glossary: **quarantine** written`) — before it asks the next frontier. A reply that names a new project term, or says one is now settled, and asks another question without having written it has skipped this step.
+
+Step 3 ends when the frontier is empty and the user confirms the understanding is shared. The settled decisions constrain Step 4's options rather than being re-asked.
 
 ### Step 4 — Propose 2-3 Approaches
 Present distinct design options with trade-offs:
@@ -115,6 +123,12 @@ implementation_paths:
 
 [Architecture, components, data flow, error handling, testing approach]
 
+## Decisions
+
+| # | Question | Decision | Source | Why |
+|---|---|---|---|---|
+| 1 | [question] | [decision] | user | [reason] |
+
 ## Acceptance Criteria
 - [Verifiable criterion 1]
 - [Verifiable criterion 2]
@@ -126,6 +140,11 @@ implementation_paths:
 
 Acceptance Criteria are ordinary bullets, and every section states current
 behavior in the present tense. Full path rules live in `/plan` § *Write the Spec*.
+Use the canonical terms settled in Step 3; a spec that needs a term the glossary
+does not have reopens the interview rather than coining one silently. § Decisions
+rows are all `Source: user` — Step 3 settled them through the interview, never
+by assumption — so `/plan` Step 1 can print `DECISIONS CARRIED` and carry them
+forward instead of re-asking.
 
 ### Step 7 — Self-Review the Spec
 Before presenting to the user, check the spec for:
@@ -160,7 +179,9 @@ Go directly to /plan instead.
 
 ## Key Principles
 - **Diverge before converging** — explore options before committing
-- **One question at a time** — respect the user's attention
+- **Rounds, not drips: ask the whole frontier, recommend on every question** — one numbered round with a ➡️ on each question beats a drip of single questions, unless the user's `/grilling` opt-out line is set, which wins
+- **Facts are the agent's job, decisions are the user's** — look up what the environment can settle; ask only what it cannot
+- **Glossary is a glossary** — `tasks/concepts.md` holds definitions only; decisions and implementation detail go to the spec or the store
 - **Show trade-offs** — never present a single option as the only way
 - **Hard gate on implementation** — no code until design is approved
 - **Scale to complexity** — simple features need less ceremony

@@ -14,7 +14,7 @@ reproduction this run actually executed.
    `--scope` option — the full source-and-live audit. Its source wave gives each
    feature one read-only reviewer in waves bounded by the worker slots available,
    and runs inline only where dispatch is unavailable, naming those features;
-   its live pass drives every mapped feature under the `/verify --scope e2e`
+   its live pass drives every mapped feature under the `/verify-evidence --scope e2e`
    rules. When invoked from `/sweep` its ship-or-stop step defers to the caller:
    the sweep owns the PR, so
    verification map corrections it proved are carried on the sweep branch and

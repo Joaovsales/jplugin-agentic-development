@@ -126,7 +126,7 @@ Fix the gap where it lives, not where it was noticed:
 | Runtime protocol | The ordered steps an invocation follows |
 | Loading / placement | *Where* an instruction sits, so it fires at the right moment |
 | Deterministic enforcement | A test, guard, or hook — not prose |
-| Shared rule | `CLAUDE.md` or a convention used by several skills |
+| Shared rule | the `AGENTS.md` managed block, a reference under `.agents/references/`, or a convention used by several skills |
 
 **Prose is the fix only when it is the smallest mechanism that closes the gap.** If
 a guard can enforce it, write the guard instead — see `/writing-skills` §
@@ -214,4 +214,4 @@ State the correction factually and move on.
 
 ## Integration
 - Used during: PR review cycles, /build when reviews return feedback, /wrap-up-session code review phase
-- Pairs with: /verify (verify before claiming fix is done)
+- Pairs with: /verify-evidence (verify before claiming fix is done)

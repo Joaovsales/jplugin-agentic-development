@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wrap-up reuses the quality receipt and closes the PR loop — Architecture Review</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+  --border: #30363d; --text: #c9d1d9; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-2: #3fb950; --warn: #f85149;
+  --warn-bg: rgba(248,81,73,0.12); --code-bg: #1e1e1e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4); --radius: 10px;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --surface-2: #eaeef2;
+  --border: #d0d7de; --text: #1f2328; --text-secondary: #57606a;
+  --accent: #0969da; --accent-2: #1a7f37; --warn: #cf222e;
+  --warn-bg: rgba(207,34,46,0.08); --code-bg: #f6f8fa;
+  --shadow: 0 4px 20px rgba(31,35,40,0.08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.65; font-size: 16px;
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+@media (min-width: 1100px) { .container { max-width: 920px; } }
+
+/* Hero */
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 0.5rem; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+.hero .takeaway {
+  font-size: 1.15rem; line-height: 1.5; padding: 1rem 1.2rem;
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 1.2rem 0;
+}
+.hero .meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
+  color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;
+}
+.hero .meta span strong { color: var(--text); margin-right: 0.25rem; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); margin-bottom: 0.25rem; }
+.card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); line-height: 1.1; }
+.card .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+/* Sections */
+section { margin: 2.5rem 0; scroll-margin-top: 1.5rem; }
+section > h2 {
+  font-size: 1.45rem; margin: 0 0 1rem; padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--accent); display: flex; gap: 0.5rem; align-items: baseline;
+}
+section h3 { font-size: 1.1rem; margin: 1.4rem 0 0.5rem; }
+section p { margin: 0.7rem 0; }
+section ul { padding-left: 1.4rem; margin: 0.5rem 0; }
+section li { margin: 0.3rem 0; }
+
+/* Sidebar nav */
+.nav-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  padding: 1.5rem 0.8rem; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transform: translateX(0); transition: transform 0.25s; z-index: 100;
+}
+.nav-sidebar.hidden { transform: translateX(-100%); }
+.nav-sidebar h3 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); margin: 1rem 0.5rem 0.4rem;
+}
+.nav-sidebar a {
+  display: block; padding: 0.4rem 0.6rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; line-height: 1.35;
+}
+.nav-sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.nav-sidebar a.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+.layout { display: flex; }
+.layout main { flex: 1; margin-left: 240px; min-width: 0; }
+@media (max-width: 900px) {
+  .nav-sidebar { transform: translateX(-100%); }
+  .nav-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .layout main { margin-left: 0; }
+}
+
+/* Toolbar buttons (theme, nav toggle) */
+.toolbar { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; z-index: 200; }
+.toolbar button, .nav-toggle {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.toolbar button:hover, .nav-toggle:hover { background: var(--surface-2); }
+.nav-toggle { position: fixed; top: 1rem; left: 1rem; z-index: 200; }
+
+/* Code */
+pre {
+  margin: 0.5rem 0; padding: 1rem 1.1rem; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow-x: auto; font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace;
+  font-size: 0.85rem; line-height: 1.55;
+}
+code { font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace; font-size: 0.9em; }
+p code, li code {
+  padding: 0.1rem 0.35rem; background: var(--surface-2);
+  border-radius: 4px; font-size: 0.85em;
+}
+.code-block { margin: 1rem 0; }
+.code-block .caption {
+  font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-block .caption .lang { font-family: monospace; font-size: 0.75rem;
+  padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-2); }
+
+/* Collapsible */
+details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.6rem 1rem; margin: 0.8rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; }
+details[open] { padding-bottom: 1rem; }
+
+/* References footer */
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+.refs a {
+  display: block; padding: 0.8rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.9rem;
+}
+.refs a:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Reflection */
+.reflection {
+  background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(63,185,80,0.10));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.3rem 1.5rem; margin: 2rem 0;
+}
+.reflection h3 { margin-top: 0; color: var(--accent); }
+
+footer {
+  margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.85rem; text-align: center;
+}
+
+/* Slides mode */
+body.mode-slides { overflow: hidden; }
+body.mode-slides .layout main { margin-left: 0; }
+body.mode-slides .nav-sidebar, body.mode-slides .nav-toggle { display: none; }
+body.mode-slides .container { max-width: none; padding: 0; }
+body.mode-slides .slide {
+  width: 100vw; height: 100vh; padding: 4rem 6rem; display: none;
+  flex-direction: column; justify-content: center;
+}
+body.mode-slides .slide.active { display: flex; }
+body.mode-slides .slide h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+body.mode-slides .slide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); border: none; }
+body.mode-slides .slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem; color: var(--text-secondary);
+  font-size: 0.85rem; font-family: monospace;
+}
+</style>
+<style>
+.diff-add { color: var(--accent-2); }
+.diff-del { color: var(--warn); }
+.diff-ctx { color: var(--text-secondary); }
+
+.tabset { margin: 1rem 0; }
+.tab-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.tab-btn {
+  background: none; cursor: pointer; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.4rem 0.9rem; color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.tab-btn.active { color: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  colorDiffBlocks();
+  buildKeychangeTabs();
+});
+
+function colorDiffBlocks() {
+  document.querySelectorAll('pre code.lang-diff').forEach(function (block) {
+    var lines = block.textContent.split('\n');
+    block.textContent = '';
+    lines.forEach(function (line, i) {
+      var span = document.createElement('span');
+      if (line.startsWith('+')) {
+        span.className = 'diff-add';
+      } else if (line.startsWith('-')) {
+        span.className = 'diff-del';
+      } else {
+        span.className = 'diff-ctx';
+      }
+      span.textContent = line;
+      block.appendChild(span);
+      if (i < lines.length - 1) {
+        block.appendChild(document.createTextNode('\n'));
+      }
+    });
+  });
+}
+
+function buildKeychangeTabs() {
+  var sections = Array.from(document.querySelectorAll('main section[id]'));
+  var i = 0;
+  while (i < sections.length) {
+    if (!sections[i].id.startsWith('keychange-')) {
+      i += 1;
+      continue;
+    }
+    var group = [];
+    while (i < sections.length && sections[i].id.startsWith('keychange-')) {
+      group.push(sections[i]);
+      i += 1;
+    }
+    wrapGroupInTabset(group);
+  }
+}
+
+function wrapGroupInTabset(group) {
+  var tabset = document.createElement('div');
+  tabset.className = 'tabset';
+  var tabBtns = document.createElement('div');
+  tabBtns.className = 'tab-btns';
+  tabset.appendChild(tabBtns);
+
+  group[0].parentNode.insertBefore(tabset, group[0]);
+
+  group.forEach(function (section, idx) {
+    var heading = section.querySelector('h2');
+    var label = heading ? heading.textContent.trim() : section.id;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+    btn.textContent = label;
+    tabBtns.appendChild(btn);
+
+    section.classList.add('tab-panel');
+    if (idx === 0) {
+      section.classList.add('active');
+    }
+    tabset.appendChild(section);
+
+    btn.addEventListener('click', function () {
+      tabBtns.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      tabset.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      section.classList.add('active');
+    });
+  });
+}
+</script>
+</head>
+<body class="mode-report" data-theme="dark">
+<div class="toolbar"><button onclick="toggleTheme()" aria-label="Toggle theme">🌓 Theme</button></div><button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+<div class="layout">
+<nav class="nav-sidebar" id="navSidebar"><h3>Contents</h3><a href="#problem">Problem</a><a href="#constraints">Constraints</a><a href="#system-design">System design</a><a href="#contracts">Component contracts</a><a href="#data-models">Data models</a><a href="#build-order">Build Order</a><a href="#decisions">Decisions</a><a href="#acceptance-criteria">Acceptance Criteria</a><a href="#implementation-paths">Implementation Paths</a><a href="#reflection">Reflect</a><a href="#references">References</a></nav>
+<main><div class="container"><header class="hero"><h1>Wrap-up reuses the quality receipt and closes the PR loop — Architecture Review</h1><p class="subtitle">jplugin-agentic-development · #163 (+ minimal #162) · 2026-09-23</p><p class="takeaway">One review pass per diff: /quality-gate writes a diff-bound receipt, /wrap-up-session reuses it (re-entering the gate only on the delta a CI, conflict or deploy fix adds) and spends its time on closure — PR, CI, conflicts, deployment, honest record. Weigh Decisions 2, 3, 6 and the critic refinements C1, C5, C6 most.</p><div class="meta"><span><strong>Origin:</strong>#163, Refs #162</span><span><strong>Spec:</strong>specs/quality-receipt-closure.md</span><span><strong>Status:</strong>awaiting review</span></div></header><div class="cards"><div class="card"><div class="label">Components touched</div><div class="value">4</div><div class="hint">receipt.py (NEW), /quality-gate, closure.py (NEW), /wrap-up-session</div></div><div class="card"><div class="label">Contracts</div><div class="value">5 new · 1 changed</div><div class="hint">receipt fingerprint/write/check/approve, closure step; /quality-gate args + phases</div></div><div class="card"><div class="label">Entities</div><div class="value">2 new · 0 changed</div><div class="hint">quality-receipt/1, closure state</div></div><div class="card"><div class="label">Build slices</div><div class="value">6</div><div class="hint">fingerprint determinism first; ready set 1, 3</div></div><div class="card"><div class="label">Open decisions</div><div class="value">3 to confirm</div><div class="hint">C1, C5, C6 refine your rows 8, 7, 12</div></div></div><section id="problem"><h2>Problem</h2><p>&gt; Origin: <a href="https://github.com/Joaovsales/jplugin-agentic-development/issues/163" target="_blank" rel="noopener">#163</a>, with the minimal slice of
+&gt; <a href="https://github.com/Joaovsales/jplugin-agentic-development/issues/162" target="_blank" rel="noopener">#162</a> it consumes (receipt schema, <code>/quality-gate</code> emits it).
+&gt; #162&#x27;s risk-fact extractor, bounded classifier and review profiles are out of scope; #162 stays open.
+&gt; Seam with <a href="https://github.com/Joaovsales/jplugin-agentic-development/issues/178" target="_blank" rel="noopener">#178</a> (merged as <code>3525c70</code>): see Decision 6.
+&gt; Designed 2026-09-23 · Review status: <strong>draft, critic pass applied</strong>. A dispatched <code>critic</code> reported 8 MUST-FIX, 11 SHOULD-FIX and 5 NITPICK. All 24 were applied as spec edits and none were declined. Decisions C1–C12 record the ones that change the design, and C1, C5 and C6 refine rows you settled (8, 7 and 12), so they are flagged for your confirmation.
+&gt; Visual: specs/quality-receipt-closure.plan.html</p>
+
+<p>Every build session pays for review twice. <code>/quality-gate</code> reviews the diff, then
+<code>/wrap-up-session</code> sends three <code>code-reviewer</code> passes and a <code>critic</code> over the same diff
+(<code>.agents/skills/wrap-up-session/SKILL.md:352-465</code>, <code>:895-922</code>), plus an inline
+<code>/security-scan</code> (<code>:323-326</code>). Over 2026-09-21 → 09-23 that came to 18 reviewer
+sub-agents and 2.94M tokens (median 157k tokens and 7.4 min each). Wrap-up reviewer
+batches took 9–25 min of wall time, and Step 6&#x27;s full suite waited on the slowest reviewer
+(23 min once). After this change there is exactly one review pass per diff, and
+<code>/quality-gate</code> owns it. The gate records the pass as a receipt bound to the diff.
+Wrap-up checks the receipt and re-enters the gate only for a diff the receipt does not
+cover. Wrap-up then runs the closure loop: commit, push, PR, mergeability, CI, bounded
+repair, deployment, and an honest closure record. Out of scope: risk-scaled review
+depth (#162) and the two slow test files (#179).</p>
+
+<p><strong>Current state</strong> — every path below was read.</p>
+
+<pre><code class="lang-text"> /build Phase 3 (build/SKILL.md:375-381)
+   │ invokes /quality-gate on base..working-tree (committed slices + uncommitted tail)
+   ▼
+ /quality-gate (quality-gate/SKILL.md)           Phase 1 simplify · Phase 2 deslop · Phase 3 APOSD
+   │ prints a text report (:229-252)             (dispatched software-design-expert-review)
+   │ persists NOTHING a later step can read
+   ▼
+ /build Phase 3.3 re-runs affected tests         (through cached-suite.sh, #178)
+   ▼
+ /wrap-up-session
+   Step 1-3.3  learnings, todo, bugs, spec reconciliation (edits tasks/**, specs/**)
+   Step 3.5    /security-scan inline            ◄── second review of the same diff
+   Step 4      4 dispatched reviewers           ◄── third review (code-reviewer ×3 + critic)
+   Step 5      apply gate, reconciliation table, recheck loop
+   Step 6      full suite via cached-suite.sh   (waits for Step 4 to return)
+   Step 7      commit, push, open/re-sync PR    ── ends here: no CI watch, no conflict check
+   Step 8      /verify-evidence --scope deployment (pushes its own fix commits)
+   Step 8.5    unattended PR assertion
+</code></pre>
+
+<p>Facts the design rests on:</p>
+
+<ul>
+<li><code>/build</code> gives no commit instruction (its only commit mentions are <code>build/SKILL.md:242</code>,</li>
+</ul>
+  the checkpoint flush, and the <code>Commits this build:</code> report line), yet in practice build
+  sessions commit per slice (for example, #178&#x27;s handovers, &quot;landed cddf272..5362005&quot;).
+  The gate therefore reviews committed slices plus an uncommitted tail, and wrap-up commits
+  the rest in Step 7. The fingerprint has to be commit-independent.
+<ul>
+<li><code>/build</code> records its base as <code>git rev-parse HEAD</code> at pre-flight (<code>build/SKILL.md:83</code>),</li>
+</ul>
+  while wrap-up detects <code>main</code>/<code>master</code>/<code>develop</code> (<code>wrap-up-session/SKILL.md:42-52</code>). The
+  two callers do not agree on a base today.
+<ul>
+<li><code>.agents/git-hooks/pre-push:95-106</code> counts a pushed code commit as covered only when it</li>
+</ul>
+  falls inside a <code>## Session Summary … [a..b]</code> range, or itself adds a <code>## Session Summary</code>
+  line (<code>introduces_summary</code>, <code>:73-76</code>).
+<ul>
+<li><code>tests/test-routine-wrapup.sh:124-131</code> reads Step 8.5&#x27;s exit table and requires every step</li>
+</ul>
+  it names to route through Step 8.5. <code>tests/test-routine-step-ledger.sh:28-35</code> cuts
+  wrap-up by the <code>## Step 2</code> and <code>### The Pull Request … ### Push Failure</code> headings.
+<ul>
+<li><code>AGENTS.md:23</code> (managed block) describes Layer 3 as &quot;consistency, defensive audit,</li>
+</ul>
+  coverage, adversarial critic&quot;.
+<ul>
+<li>Wrap-up edits <code>tasks/<strong></code> (Steps 1–3) and <code>specs/</strong></code> (Step 3.2) <em>after</em> the gate has run.</li>
+<li><code>.agents/git-hooks/pre-push:62</code> already classes <code>tasks/*</code> as non-code.</li>
+<li><code>cached-suite.sh</code> keys a green run on the working-tree object plus the command</li>
+</ul>
+  (<code>build/scripts/cached-suite.sh:58-69</code>). It already makes Step 6 free on a tree that was
+  proved green.
+<ul>
+<li><code>master</code> has no branch protection (<code>gh api …/branches/master/protection</code> → 404), so this</li>
+</ul>
+  repository has <strong>no required checks</strong>.
+<ul>
+<li>No skill watches CI today: <code>gh pr checks</code> and <code>gh run</code> appear nowhere under <code>.agents/</code>.</li>
+<li><code>/security-scan</code> is an inline checklist and dispatches no agent (<code>security-scan/SKILL.md</code>).</li>
+<li>Tests that pin wrap-up&#x27;s reviewer dispatch: <code>tests/test-review-context.sh:22-137</code> (two</li>
+</ul>
+  dispatch sites) and <code>tests/test-model-tiers.sh:173-182</code> (critic&#x27;s planner floor at the
+  dispatch). Tests that pin its heading order: <code>tests/test-living-spec-reconciliation.sh:845-866</code>
+  (<code>## Step 3.5</code>, <code>## Step 4</code>) and <code>tests/test-skill-invocation-chain.sh:108</code>
+  (<code>Step 4 .*Quality Gate|Code Review</code>).</section>
+<section id="constraints"><h2>Constraints</h2><pre><code class="lang-text">■ Constraint: Review passes per diff
+    Value: Exactly one: `/quality-gate`&#x27;s. Wrap-up dispatches no `code-reviewer`, `critic`, `security-reviewer` or `software-design-expert-review`, and runs no `/security-scan`
+    Source: issue #163 AC2, user
+    Detected by: `tests/test-review-context.sh` asserts wrap-up is not a dispatch site; `tests/test-doc-conventions.sh` asserts no reviewer persona or `/security-scan` in wrap-up
+
+■ Constraint: Receipt reuse
+    Value: Only a receipt whose fingerprint, policy and chain all match the current tree, and whose verdict is GO (or HOLD with a recorded approval)
+    Source: issue #163 AC1
+    Detected by: `tests/test-quality-receipt.sh` staleness cases
+
+■ Constraint: Verdict integrity
+    Value: The verdict is computed from findings by `receipt.py`, never supplied by the caller
+    Source: user (Q4)
+    Detected by: `tests/test-quality-receipt.sh`: outcome with an unresolved MUST-FIX yields STOP whatever else it says
+
+■ Constraint: Bookkeeping does not invalidate
+    Value: Edits under `tasks/**` leave the fingerprint unchanged
+    Source: user (Q2)
+    Detected by: `tests/test-quality-receipt.sh`
+
+■ Constraint: Commit does not invalidate
+    Value: The same tree gives the same fingerprint uncommitted and committed
+    Source: inferred: build sessions leave an uncommitted tail
+    Detected by: `tests/test-quality-receipt.sh`
+
+■ Constraint: One pre-push full suite (#178)
+    Value: Step 6 still runs the full suite through `cached-suite.sh`. The receipt&#x27;s test record never skips it
+    Source: user (Q6)
+    Detected by: `tests/test-doc-conventions.sh` fewer-full-runs needles stay green
+
+■ Constraint: Bounded closure
+    Value: ≤ 2 CI repair rounds, ≤ 1 conflict repair round, ≤ 30 min per CI watch, ≤ 1 deployment re-entry, ≤ 1 gate run per tree. Every cycle in the transition table consumes one of these counters, so no global step budget is needed
+    Source: user (Q8), critic C1
+    Detected by: `tests/test-closure.sh` bound cases, plus a cycle check that walks the table and fails on any cycle with no counter
+
+■ Constraint: Every run terminates
+    Value: Every accepted (phase, observation) pair has exactly one row, and each terminal is reached with the PR drafted whenever one is open
+    Source: critic C3
+    Detected by: `tests/test-closure.sh` enumerates the accepted set and asserts one row each
+
+■ Constraint: No history rewrite
+    Value: Conflict and non-fast-forward repair merge; nothing force-pushes
+    Source: user (Q9)
+    Detected by: `tests/test-doc-conventions.sh`: wrap-up has no `--force`, no `rebase`
+
+■ Constraint: Hooks enabled
+    Value: Commits never pass `--no-verify`
+    Source: issue #163 AC3, AGENTS.md
+    Detected by: `tests/test-doc-conventions.sh`
+
+■ Constraint: No polling (#178)
+    Value: CI watch runs as a background task and completes on its notification
+    Source: #178
+    Detected by: `tests/test-doc-conventions.sh`
+
+■ Constraint: Honest closure
+    Value: Nothing is recorded as passed before its evidence exists; a run that did not finish ends `Closure: partial — &lt;state&gt;` with the PR as a draft
+    Source: issue #163 AC7, user (Q7)
+    Detected by: `tests/test-closure.sh` partial cases
+
+■ Constraint: Provider coupling
+    Value: Wrap-up uses `gh pr` / `gh run` only; task state goes through `/task-registry`
+    Source: `tests/test-doc-conventions.sh:622-630`
+    Detected by: existing guard
+
+■ Constraint: Engine files outside the tree
+    Value: The closure state file and the gate&#x27;s outcome JSON live under `$(git rev-parse --git-common-dir)/`, never in the worktree, so writing them cannot change the fingerprint
+    Source: critic C9
+    Detected by: `tests/test-quality-receipt.sh`: fingerprint unchanged across a `closure.py step`
+
+■ Constraint: Repair pushes stay covered
+    Value: Every repair commit adds a `## Session Summary … — closure repair &lt;n&gt;` line, so `pre-push` counts it covered and writes no `tasks/wrap-up-debt.md` entry
+    Source: critic C5
+    Detected by: `tests/test-doc-conventions.sh`
+
+■ Constraint: Rollout / rollback
+    Value: Documentation plus two scripts, and no persisted data outside `$(git rev-parse --git-common-dir)/quality-receipts/` and `…/closure/`. Rollback is a revert, and a stale store is ignored because every read re-validates
+    Source: inferred
+    Detected by: revert leaves the suite green
+</code></pre></section>
+<section id="system-design"><h2>System design</h2><h3>Ownership</h3>
+
+<pre><code class="lang-text">■ Component: `receipt.py` (NEW)
+    Owns (source of truth for): fingerprint algorithm, policy version, verdict rule, receipt schema, receipt store, staleness verdict
+    Reads: the working tree, the merge-base, the three policy files
+
+■ Component: `/quality-gate`
+    Owns (source of truth for): which reviewers run and what they found; the gate&#x27;s affected-test run
+    Reads: `receipt.py check` (to learn the delta and parent on re-entry)
+
+■ Component: `cached-suite.sh` (#178, unchanged)
+    Owns (source of truth for): &quot;this command was green on tree X&quot;
+    Reads: —
+
+■ Component: `closure.py` (NEW)
+    Owns (source of truth for): closure state, transition rules, repair counters, bounds
+    Reads: observations the skill reports
+
+■ Component: `/wrap-up-session`
+    Owns (source of truth for): performing the actions `closure.py` names, and the PR body
+    Reads: `receipt.py check`, `closure.py` actions
+
+■ Component: GitHub
+    Owns (source of truth for): PR state, check results, mergeability
+    Reads: —
+
+■ Component: `/debug`, `/verify-evidence --scope deployment`
+    Owns (source of truth for): diagnosing a failed check; deployment outcome
+    Reads: —
+</code></pre>
+
+<h3>Interaction</h3>
+
+<pre><code class="lang-text"> /build Phase 3 ──(1) sync──► /quality-gate ── phases 1-4 ──(2) sync──► receipt.py write ──► store/&lt;fp&gt;.json
+                                                                                          └─► store/branch-&lt;b&gt;.json (latest pointer)
+ /wrap-up-session  Steps 0–3.7 (learnings, registers, specs, map, ledger) run first and are not in the loop.
+   From Step 4 on, closure.py drives: every later step is an action it names, run once per naming.
+   ──(5) loop──► closure.py step --state &lt;common-dir&gt;/closure/&lt;branch&gt;.json --observe &lt;json&gt;
+                              │ prints: action &lt;name&gt; [args] | terminal &lt;outcome&gt;
+   check-receipt ──(3) sync──► receipt.py check            (Step 4 describes this action)
+   quality-gate  ──(4) sync──► /quality-gate [--scope &lt;delta&gt; --parent &lt;fp&gt;]   (Step 4)
+   run-suite     ── full suite through cached-suite.sh, #178                   (Step 6)
+                              ▼
+            wrap-up performs the action:  commit · push · pr-sync · mergeability ──(6) gh pr view
+                                          watch-ci ──(7) async── gh pr checks --watch (background)
+                                          debug-ci ── /debug   merge-base ── git merge origin/&lt;base&gt;
+                                          verify-deploy ── /verify-evidence --scope deployment
+                                          re-gate ── back to Step 4 (receipt check)   mark-draft ── gh pr ready --undo
+</code></pre>
+
+<pre><code class="lang-text">■ Arrow: (1) gate run
+    Mode: sync
+    On timeout: n/a (in-session skill); a hung Phase 3 agent follows `subagent-resilience.md`
+    On duplicate: a second run on the same tree overwrites the same `&lt;fp&gt;.json` with its own result
+
+■ Arrow: (2) `receipt.py write`
+    Mode: sync, local
+    On timeout: n/a
+    On duplicate: idempotent: same inputs → byte-identical file apart from `written_at`
+
+■ Arrow: (3) `receipt.py check`
+    Mode: sync, local, read-only
+    On timeout: n/a
+    On duplicate: pure: same tree and store → same answer
+
+■ Arrow: (4) gate re-entry
+    Mode: sync
+    On timeout: as (1)
+    On duplicate: the delta is recomputed from the store, so a repeat reviews the same delta
+
+■ Arrow: (5) `closure.py step`
+    Mode: sync, local
+    On timeout: n/a
+    On duplicate: not idempotent by design: each call consumes one observation. The state file carries the counters, and replaying a state file is how the fixtures test it
+
+■ Arrow: (6) mergeability
+    Mode: sync, network
+    On timeout: `gh` failure → observation `mergeable: unknown`; re-queried ≤ 3 times inside the action, then `unknown` → partial
+    On duplicate: read-only
+
+■ Arrow: (7) CI watch
+    Mode: async (background task, completion notification)
+    On timeout: 30 min → observation `ci: timeout` → partial, state `ci-pending`. Checks not registered yet: the action gives the push a 2-min registration window, and reports `ci: none` only when that window saw no checks **and** no `.github/workflows/*` file triggers on `pull_request`. Otherwise it reports `ci: timeout`
+    On duplicate: re-watching a finished run returns the same result
+</code></pre>
+
+<h3>Failure unit</h3>
+
+<p>A broken <code>receipt.py</code> or a store it cannot read makes <code>check</code> report <code>stale missing</code>, so
+wrap-up runs the gate once. The failure costs one review, never a skipped one. A broken
+<code>closure.py</code> stops wrap-up after the push. The commit and PR still exist, and the Done report
+says <code>Closure: partial — closure engine failed</code>. GitHub being unreachable leaves the PR
+unsynced and the run partial, and loses no work.</p>
+
+<p><code>write</code> makes two writes: the receipt, then the branch pointer. It writes them in that
+order, each through a temp file and a rename. A crash between the two leaves the pointer
+naming an older receipt. The next delta is then computed from that older tree, so it is
+larger than needed but still covers everything, and nothing goes unreviewed.</p></section>
+<section id="contracts"><h2>Component contracts</h2><h3><code>receipt.py fingerprint</code></h3>
+
+<pre><code class="lang-bash">python3 .agents/skills/quality-gate/scripts/receipt.py fingerprint [--base &lt;ref&gt;]
+# stdout: &lt;merge-base-sha&gt; &lt;tree-sha&gt; &lt;fingerprint&gt;
+</code></pre>
+
+<pre><code class="lang-text">■ Aspect: Inputs
+    Contract: `--base`: optional. Omitted, `receipt.py` resolves it itself as the first ref that exists among `origin/main`, `origin/master`, `origin/develop`, `main`, `master`, `develop`. Merge-base = `git merge-base HEAD &lt;ref&gt;`. **Every caller omits it**, so `/build` and wrap-up agree on one base (critic C4)
+
+■ Aspect: Algorithm
+    Contract: Tree = `git write-tree` over a temporary index after `git -c core.safecrlf=false add -A` (tracked + untracked, not ignored), as `cached-suite.sh` does. Fingerprint = sha256 of `git -c core.quotepath=false diff --binary --full-index --no-ext-diff --no-textconv --no-renames --no-color --src-prefix=a/ --dst-prefix=b/ &lt;merge-base&gt; &lt;tree&gt; -- . &#x27;:(exclude)tasks/**&#x27;`, so no user diff config can change it
+
+■ Aspect: Outcomes
+    Contract: exit 0 with the line above
+
+■ Aspect: Raises
+    Contract: exit 2 `receipt: &lt;reason&gt;` when the tree cannot be hashed or there is no merge-base
+
+■ Aspect: Idempotency
+    Contract: pure
+</code></pre>
+
+<h3><code>receipt.py write</code></h3>
+
+<pre><code class="lang-bash">python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome &lt;common-dir&gt;/quality-receipts/outcome.json [--parent &lt;fingerprint&gt;]
+# stdout: receipt: written &lt;fp8&gt; verdict &lt;GO|HOLD|STOP&gt; policy &lt;qg1-xxxxxxxx&gt;
+</code></pre>
+
+<pre><code class="lang-text">■ Aspect: Inputs
+    Contract: outcome JSON (schema below): `reviewers`, `unresolved`, `tests`, `design_verdict`, `scope`. `--parent` only when `scope` is a path list. The outcome file is written under the git common dir, never in the worktree (critic C9)
+
+■ Aspect: Outcomes
+    Contract: exit 0, receipt stored at `&lt;common-dir&gt;/quality-receipts/&lt;fingerprint&gt;.json`, branch pointer `branch-&lt;sanitized branch&gt;.json` updated (`{fingerprint, tree, base}`)
+
+■ Aspect: Raises
+    Contract: exit 2 `receipt: invalid outcome — &lt;field&gt;: &lt;why&gt;` and nothing written, when the outcome fails the schema, `--parent` names no stored receipt, or `tests.tree` differs from the tree `write` computes (test evidence from another tree, critic C8)
+
+■ Aspect: Idempotency
+    Contract: same tree + same outcome → same file content except `written_at`; written via temp file + rename
+
+■ Aspect: Versioning
+    Contract: `schema: &quot;quality-receipt/1&quot;`. A reader that meets any other schema reports `stale schema`
+</code></pre>
+
+<h3><code>receipt.py check</code></h3>
+
+<pre><code class="lang-bash">python3 .agents/skills/quality-gate/scripts/receipt.py check [--base &lt;ref&gt;]
+# exit 0 — receipt: valid &lt;GO|HOLD-approved&gt; &lt;fp8&gt; policy &lt;v&gt;
+# exit 3 — receipt: stale &lt;reason&gt;  [parent &lt;fp&gt;]  [delta &lt;path&gt; ...]
+</code></pre>
+
+<pre><code class="lang-text">■ Aspect: Reasons (exit 3)
+    Contract: `missing` (no receipt for this fingerprint and no branch pointer) · `diff-changed` (no receipt for this fingerprint, but the branch pointer names one; prints `parent &lt;fp&gt;` and `delta`) · `policy-changed` · `schema` · `verdict &lt;HOLD
+
+■ Aspect: Delta
+    Contract: the paths that differ between the pointer&#x27;s tree and the current tree (`git diff --name-only &lt;pointer tree&gt; &lt;current tree&gt; -- . &#x27;:(exclude)tasks/**&#x27;`), **intersected with** the paths of the current `&lt;merge-base&gt;..&lt;tree&gt;` diff. After a base merge this drops the files that only the base branch changed, so the gate never reviews other people&#x27;s merged code (critic C10). A file the branch touches that the merge changed stays in. A file of ours the delta leaves out was reviewed by the chain, and its content is unchanged since
+
+■ Aspect: A `parent` with a failed chain
+    Contract: `diff-changed` is printed only when the pointer&#x27;s receipt is itself valid. Otherwise the reason is `missing`, so the re-entry is a full-scope gate run
+
+■ Aspect: Raises
+    Contract: exit 2 as `fingerprint`
+
+■ Aspect: Idempotency
+    Contract: read-only, pure
+</code></pre>
+
+<h3><code>receipt.py approve</code></h3>
+
+<pre><code class="lang-bash">python3 .agents/skills/quality-gate/scripts/receipt.py approve --fingerprint &lt;fp&gt; --by &lt;name&gt;
+</code></pre>
+
+<p>Sets <code>hold_approved_by</code> on a HOLD receipt; exit 0. Refuses a GO or STOP receipt with exit 2 <code>receipt: only HOLD can be approved</code>. Idempotent. <strong>Only a human answer in an interactive session calls it</strong>: wrap-up Step 4 asks, and runs <code>approve --by &quot;&lt;git config user.name&gt;&quot;</code> on a yes. An unattended run (a routine branch, or a caller declaring Step 8.5 unattended) never calls it, and a HOLD then stops. The script cannot tell a human from an agent, so the rule lives in the skill and is pinned by a doc needle (critic C11).</p>
+
+<h3><code>/quality-gate</code> (changed public contract)</h3>
+
+<pre><code class="lang-text">/quality-gate [--scope &lt;path&gt; ...] [--parent &lt;fingerprint&gt;]
+</code></pre>
+
+<pre><code class="lang-text">■ Aspect: Phases
+    Contract: 1 simplify · 2 deslop · **3 security**: the `/security-scan` checklist, run inline over **the gate&#x27;s own file list** (untracked files included, `--scope` honoured), not the skill&#x27;s `git diff --name-only`. Its MUST-FIX fixes are applied under the Apply Gate · **4 APOSD**: dispatched `software-design-expert-review`, unchanged, and now after every edit phase, so it reviews the security fixes too · **5 tests**: the `Affected tests:` command through `cached-suite.sh` (or the covering test files when none is declared), run after every fix and recorded as `tests` · **6 receipt**: `receipt.py write`. No phase after 4 edits the tree. A phase-5 failure is a red `tests` record, never a silent fix (critic C7)
+
+■ Aspect: Outcomes
+    Contract: report as today plus the line `Receipt: &lt;verdict&gt; &lt;fp8&gt; policy &lt;v&gt; [parent &lt;fp8&gt;]`
+
+■ Aspect: On a `receipt.py write` refusal
+    Contract: the gate reports `Receipt: none — &lt;stderr&gt;`, and the caller treats that as a stale receipt. It is never reported as GO
+
+■ Aspect: Callers
+    Contract: `/build` Phase 3 (full scope, unchanged call) and `/wrap-up-session` Step 4 (delta scope on `diff-changed`, full scope on every other reason)
+</code></pre>
+
+<h3><code>closure.py step</code></h3>
+
+<pre><code class="lang-bash">python3 .agents/skills/wrap-up-session/scripts/closure.py step --state &lt;state.json&gt; --observe &#x27;&lt;json&gt;&#x27;
+# stdout: action &lt;name&gt; [key=value ...]   |   terminal &lt;complete|partial|stopped&gt; state=&lt;phase&gt; reason=&lt;text&gt;
+</code></pre>
+
+<pre><code class="lang-text">■ Aspect: Inputs
+    Contract: `--state`: `&lt;git-common-dir&gt;/closure/&lt;sanitized branch&gt;.json`, created with `{&quot;phase&quot;:&quot;receipt&quot;,&quot;pr_open&quot;:false,&quot;gated&quot;:false,&quot;ci_rounds&quot;:0,&quot;conflict_rounds&quot;:0,&quot;deploy_reentries&quot;:0}` when absent. `--observe`: the result of the last action, e.g. `{&quot;receipt&quot;:&quot;stale&quot;,&quot;scope&quot;:&quot;delta&quot;}`, `{&quot;ci&quot;:&quot;fail&quot;,&quot;checks&quot;:[&quot;tests&quot;]}`
+
+■ Aspect: Outcomes
+    Contract: writes the new state and prints exactly one line. Actions: `check-receipt`, `quality-gate`, `run-suite`, `commit-push`, `pr-sync`, `mergeability`, `merge-base`, `watch-ci`, `debug-ci`, `verify-deploy`, `record-closure`, `mark-draft`
+
+■ Aspect: Raises
+    Contract: exit 2 `closure: observation &lt;x&gt; not valid in phase &lt;p&gt;` for an observation the phase does not accept. The state file is left unchanged. The accepted set per phase is exactly the observation column of § Transitions, and each accepted pair has exactly one row
+
+■ Aspect: Bounds
+    Contract: enforced from the counters in the state file (Constraints row *Bounded closure*). A bound reached turns the next repair into `mark-draft` → `terminal partial`. There is no global step budget (critic C1): every cycle consumes a counter
+
+■ Aspect: Terminals
+    Contract: `stopped` is printed only while `pr_open` is false. Once a PR exists, every non-`complete` end goes through `mark-draft` and ends `terminal partial` (critic C6). `partial` accepts `drafted`, `draft-failed` and `no-pr`, all → `terminal partial`, the last two carrying `draft=&lt;failed\
+
+■ Aspect: Idempotency
+    Contract: none (see arrow 5); deterministic given the state and the observation
+</code></pre></section>
+<section id="data-models"><h2>Data models</h2><h3>Entity — quality receipt (<code>quality-receipt/1</code>)</h3>
+
+<pre><code class="lang-text">■ Field: `schema`
+    Type: const `&quot;quality-receipt/1&quot;`
+    Invariant: exact
+    Enforced by: `write` sets it; `check` refuses any other value
+
+■ Field: `fingerprint`
+    Type: 64-hex
+    Invariant: equals the file name; sha256 of the tasks-excluded diff
+    Enforced by: `write` computes it and never accepts it as input
+
+■ Field: `base`
+    Type: 40-hex
+    Invariant: the merge-base at write time
+    Enforced by: computed
+
+■ Field: `head`
+    Type: 40-hex
+    Invariant: `HEAD` at write time; provenance only, not a validity key (the fingerprint subsumes it and survives the Step 7 commit)
+    Enforced by: computed
+
+■ Field: `tree`
+    Type: 40-hex
+    Invariant: the working-tree object that was reviewed
+    Enforced by: computed
+
+■ Field: `policy`
+    Type: `qg1-&lt;8 hex&gt;`
+    Invariant: sha256 of every file that decides a verdict: `receipt.py` itself (the verdict rule), `quality-gate/SKILL.md`, `security-scan/SKILL.md`, `software-design-expert-review/SKILL.md`, `.agents/agents/software-design-expert-review.md`, `references/finding-model.md` and `references/review-dispatch-contract.md`. All are resolved relative to `receipt.py`, and a missing one is hashed as its path plus `&lt;missing&gt;` (critic C12)
+    Enforced by: computed
+
+■ Field: `scope`
+    Type: `&quot;full&quot;` or a non-empty path list
+    Invariant: a path list requires `parent`
+    Enforced by: schema check in `write`
+
+■ Field: `parent`
+    Type: null or 64-hex
+    Invariant: non-null iff `scope` is a list; names a stored receipt
+    Enforced by: schema check + store lookup
+
+■ Field: `reviewers`
+    Type: list of `{phase, lens, dispatch: &quot;dispatched&quot;\
+    Invariant: &quot;inline&quot;, verdict?}`
+    Enforced by: non-empty; phases 1–4 each present
+
+■ Field: `tests`
+    Type: `{command, exit, tree}`
+    Invariant: `tree` is the tree the tests ran on, and equals the receipt&#x27;s `tree`
+    Enforced by: `write` refuses a mismatch (exit 2)
+
+■ Field: `unresolved`
+    Type: list of four-axis findings `{severity, confidence, autofix_class, owner, location, summary}`
+    Invariant: every field in its enum
+    Enforced by: schema check
+
+■ Field: `design_verdict`
+    Type: `GO`\
+    Invariant: `HOLD`\
+    Enforced by: `STOP`
+
+■ Field: `verdict`
+    Type: `GO`\
+    Invariant: `HOLD`\
+    Enforced by: `STOP`
+
+■ Field: `hold_approved_by`
+    Type: null or string
+    Invariant: non-null only when `verdict` is HOLD
+    Enforced by: `approve` refuses other verdicts
+
+■ Field: `written_at`
+    Type: UTC ISO-8601 `Z`
+    Invariant: —
+    Enforced by: computed
+</code></pre>
+
+<h3>Illegal states</h3>
+
+<pre><code class="lang-text">■ Illegal combination: `verdict = GO` with an unresolved MUST-FIX
+    Made unrepresentable by: verdict derived in `write`; input `verdict` ignored
+
+■ Illegal combination: `verdict = GO` with red tests
+    Made unrepresentable by: same derivation (`tests.exit ≠ 0` → STOP)
+
+■ Illegal combination: approval on a GO or STOP receipt
+    Made unrepresentable by: `approve` refuses
+
+■ Illegal combination: delta receipt with no parent, or a full receipt with one
+    Made unrepresentable by: schema check in `write`
+
+■ Illegal combination: receipt reused whose parent chain has a stale link
+    Made unrepresentable by: `check` walks the chain; any bad link → `parent-invalid`
+
+■ Illegal combination: receipt reused after the gate&#x27;s rules changed
+    Made unrepresentable by: `policy` recomputed on every `check`
+
+■ Illegal combination: closure `complete` with CI red or unknown
+    Made unrepresentable by: `closure.py` reaches `record-closure` only from `ci: pass` or a registration-checked `ci: none`
+
+■ Illegal combination: a push by wrap-up of a tree with no valid receipt
+    Made unrepresentable by: `closure.py` reaches `commit-push` only after `receipt: valid` and `suite: green`
+
+■ Illegal combination: a repair beyond its bound
+    Made unrepresentable by: counters in the state; the bound turns the repair into `mark-draft`
+
+■ Illegal combination: a second gate run on an unchanged tree
+    Made unrepresentable by: the `gated` flag: `receipt: stale` while `gated` is true → the run ends (the gate ran but wrote no matching receipt). A tree-changing repair resets `gated`
+
+■ Illegal combination: a `stopped` run that leaves a ready PR behind
+    Made unrepresentable by: `stopped` only while `pr_open` is false; afterwards the same causes route to `mark-draft`
+
+■ Illegal combination: an open PR whose closure outcome is unrecorded
+    Made unrepresentable by: every terminal after `pr` prints the state the Done report&#x27;s `Closure:` line quotes
+</code></pre>
+
+<p><strong>Accepted exception (critic C6b, Decision 12).</strong> <code>/verify-evidence --scope deployment</code> pushes
+its own fix commits outside <code>closure.py</code>, so for the length of one deployment fix the remote
+holds a tree no receipt covers. The exception is bounded: at most one re-entry, and the
+very next action is <code>check-receipt</code> on that tree, which gates the delta before anything
+else happens. If that re-entry is already used, the run ends partial with the PR drafted.
+It is listed here because the illegal-states table above does not forbid it.</p>
+
+<h3>Transitions — closure <code>phase</code></h3>
+
+<p>&quot;→ end(<em>r</em>)&quot; means: while <code>pr_open</code> is false, <code>terminal stopped reason=r</code>; once a PR is
+open, <code>partial</code> (<code>mark-draft</code>) with reason <em>r</em>. Counters and flags are in the state file.
+A tree-changing return to <code>receipt</code> (from <code>merge</code>, <code>repair</code> or <code>deploy</code>) resets <code>gated</code>.</p>
+
+<pre><code class="lang-text">■ From: `receipt`
+    Observation: `receipt: valid`
+    To (action printed): `suite` (`run-suite`)
+
+■ From: `receipt`
+    Observation: `receipt: stale`, `scope: delta\
+    To (action printed): full`, `gated` false
+
+■ From: `receipt`
+    Observation: `receipt: stale`, `gated` true
+    To (action printed): → end(`receipt not written after gate`)
+
+■ From: `gate`
+    Observation: `gate: GO` or `gate: HOLD-approved`
+    To (action printed): `receipt` (`check-receipt`), which confirms the new receipt
+
+■ From: `gate`
+    Observation: `gate: HOLD` (not approved), `gate: STOP` or `gate: none`
+    To (action printed): → end(`review &lt;verdict&gt;`)
+
+■ From: `suite`
+    Observation: `suite: green`
+    To (action printed): `push` (`commit-push`)
+
+■ From: `suite`
+    Observation: `suite: red` (after Step 6&#x27;s own 2 fix attempts)
+    To (action printed): → end(`tests`)
+
+■ From: `suite`
+    Observation: `suite: blocked` (another session&#x27;s suite holds the lock)
+    To (action printed): → end(`suite lock held`)
+
+■ From: `push`
+    Observation: `push: ok`
+    To (action printed): `pr` (`pr-sync`)
+
+■ From: `push`
+    Observation: `push: non-ff`, conflict rounds left
+    To (action printed): `merge` (`merge-base ref=origin/&lt;branch&gt;`)
+
+■ From: `push`
+    Observation: `push: non-ff`, no conflict rounds left
+    To (action printed): → end(`push non-fast-forward`)
+
+■ From: `push`
+    Observation: `push: denied`
+    To (action printed): → end(`push denied`)
+
+■ From: `pr`
+    Observation: `pr: &lt;n&gt;`
+    To (action printed): `mergeable` (`mergeability`); `pr_open` ← true
+
+■ From: `pr`
+    Observation: `pr: failed` (gh unreachable, linkage refused)
+    To (action printed): → end(`pr-sync failed`)
+
+■ From: `mergeable`
+    Observation: `mergeable: clean`
+    To (action printed): `ci` (`watch-ci`)
+
+■ From: `mergeable`
+    Observation: `mergeable: conflicting`, conflict rounds left
+    To (action printed): `merge` (`merge-base ref=origin/&lt;base&gt;`)
+
+■ From: `mergeable`
+    Observation: `mergeable: conflicting`, no conflict rounds left
+    To (action printed): `partial` (`mark-draft`)
+
+■ From: `mergeable`
+    Observation: `mergeable: unknown` (after the action&#x27;s 3 re-queries)
+    To (action printed): `partial` (`mark-draft`)
+
+■ From: `merge`
+    Observation: `merge: resolved`
+    To (action printed): `receipt` (`check-receipt`); `conflict_rounds` +1
+
+■ From: `merge`
+    Observation: `merge: unresolved` (merge aborted)
+    To (action printed): → end(`merge unresolved`)
+
+■ From: `ci`
+    Observation: `ci: pass` or `ci: none` (registration-checked, arrow 7)
+    To (action printed): `deploy` (`verify-deploy`)
+
+■ From: `ci`
+    Observation: `ci: fail`, CI rounds left
+    To (action printed): `repair` (`debug-ci checks=…`)
+
+■ From: `ci`
+    Observation: `ci: fail`, no CI rounds left
+    To (action printed): `partial` (`mark-draft`)
+
+■ From: `ci`
+    Observation: `ci: timeout`
+    To (action printed): `partial` (`mark-draft`), state `ci-pending` (in doubt: the run may still pass)
+
+■ From: `repair`
+    Observation: `debug: fixed`
+    To (action printed): `receipt` (`check-receipt`); `ci_rounds` +1
+
+■ From: `repair`
+    Observation: `debug: not-fixed`
+    To (action printed): `partial` (`mark-draft`)
+
+■ From: `deploy`
+    Observation: `deploy: pass`, `head-moved: false`
+    To (action printed): `record` (`record-closure`)
+
+■ From: `deploy`
+    Observation: `deploy: pass`, `head-moved: true`, re-entry unused
+    To (action printed): `receipt` (`check-receipt`); `deploy_reentries` +1
+
+■ From: `deploy`
+    Observation: `deploy: pass`, `head-moved: true`, re-entry used
+    To (action printed): `partial` (`mark-draft`)
+
+■ From: `deploy`
+    Observation: `deploy: n/a`
+    To (action printed): `record` (`record-closure`), which records `not applicable — &lt;reason&gt;`
+
+■ From: `deploy`
+    Observation: `deploy: fail`
+    To (action printed): `partial` (`mark-draft`)
+
+■ From: `record`
+    Observation: `recorded`
+    To (action printed): terminal `complete`
+
+■ From: `record`
+    Observation: `record-failed`
+    To (action printed): `partial` (`mark-draft`)
+
+■ From: `partial`
+    Observation: `drafted`, `draft-failed` or `no-pr`
+    To (action printed): terminal `partial` reason=`&lt;cause&gt;` draft=`&lt;yes\
+</code></pre>
+
+<p>Cycles, each consuming one counter: <code>receipt → gate → receipt</code> (<code>gated</code>),
+<code>merge → receipt → … → push/mergeable → merge</code> (<code>conflict_rounds</code>),
+<code>ci → repair → receipt → … → ci</code> (<code>ci_rounds</code>), <code>deploy → receipt → … → deploy</code>
+(<code>deploy_reentries</code>). The longest legal run is the initial pass plus 2 CI rounds, 1
+conflict round and 1 deployment re-entry. <code>tests/test-closure.sh</code> walks the table and
+fails on any cycle that does not consume a counter.</p>
+
+<h3>Migration and compatibility</h3>
+
+<p>The store is new and lives outside the tree, so there is nothing to migrate. A session on an
+older plugin copy writes no receipt, and wrap-up then sees <code>stale missing</code> and runs the gate
+once. That matches today&#x27;s cost, less the four extra reviewers. A receipt with another
+<code>schema</code> is <code>stale schema</code> and is never read as valid.</p></section>
+<section id="build-order"><h2>Build Order</h2><p>Sizing: 6 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 4 (7 files, 7 systems) and slice 5 (4 files, 4 systems). Removing wrap-up&#x27;s dispatch sites and rewriting Step 7 break existing tests that pin wrap-up&#x27;s headings and sites, and those tests must move in the same slice so the suite stays green. Every system past the first is a <code>tests/</code> file, plus the one-line <code>AGENTS.md</code> taxonomy fix.</p>
+
+<pre><code class="lang-text">■ #: 1
+    Slice: Quality receipt script
+    Delivers: `receipt.py` fingerprints the tasks-excluded diff and writes, checks and approves `quality-receipt/1` receipts (the #162 schema contract)
+    Surface: `.agents/skills/quality-gate/scripts/receipt.py`, `tests/test-quality-receipt.sh`
+    Blocked by: —
+    ACs: 1, 2, 3
+    Verify: `bash tests/test-quality-receipt.sh`
+    Size: 2 files · 2 systems · 3 ACs
+
+■ #: 2
+    Slice: Gate emits the receipt
+    Delivers: `/quality-gate` runs security as phase 3 (before APOSD) and tests as phase 5, takes `--parent`, and writes the receipt as phase 6
+    Surface: `.agents/skills/quality-gate/SKILL.md`, `tests/test-doc-conventions.sh`
+    Blocked by: 1
+    ACs: 4
+    Verify: `bash tests/test-doc-conventions.sh`
+    Size: 2 files · 2 systems · 1 AC
+
+■ #: 3
+    Slice: Closure engine
+    Delivers: `closure.py step` implements the transition table and bounds, and replays the seven AC-6 scenarios from fixtures
+    Surface: `.agents/skills/wrap-up-session/scripts/closure.py`, `tests/test-closure.sh`, `tests/fixtures/closure/scenarios.json`
+    Blocked by: —
+    ACs: 5, 6
+    Verify: `bash tests/test-closure.sh`
+    Size: 3 files · 2 systems · 2 ACs
+
+■ #: 4
+    Slice: Wrap-up reuses the receipt
+    Delivers: Wrap-up Step 4 checks the receipt and re-enters the gate once on a miss; Steps 3.5, 5 and the reviewer dispatch are gone; Step 8.5&#x27;s exit table and `AGENTS.md` Layer 3 follow
+    Surface: `.agents/skills/wrap-up-session/SKILL.md`, `AGENTS.md`, `tests/test-review-context.sh`, `tests/test-model-tiers.sh`, `tests/test-living-spec-reconciliation.sh`, `tests/test-routine-wrapup.sh`, `tests/test-doc-conventions.sh`
+    Blocked by: 2
+    ACs: 7, 8
+    Verify: `bash tests/test-review-context.sh &amp;&amp; bash tests/test-model-tiers.sh &amp;&amp; bash tests/test-living-spec-reconciliation.sh &amp;&amp; bash tests/test-routine-wrapup.sh &amp;&amp; bash tests/test-skill-invocation-chain.sh &amp;&amp; bash tests/test-doc-conventions.sh`
+    Size: 7 files · 7 systems · 2 ACs
+
+■ #: 5
+    Slice: Closure loop: PR, CI, conflicts
+    Delivers: Wrap-up drives `closure.py` from Step 4 on, through commit, push, PR, mergeability, CI watch and bounded CI and conflict repair
+    Surface: `.agents/skills/wrap-up-session/SKILL.md`, `tests/test-routine-wrapup.sh`, `tests/test-routine-step-ledger.sh`, `tests/test-doc-conventions.sh`
+    Blocked by: 3, 4
+    ACs: 9, 10, 11
+    Verify: `bash tests/test-routine-wrapup.sh &amp;&amp; bash tests/test-routine-step-ledger.sh &amp;&amp; bash tests/test-doc-conventions.sh`
+    Size: 4 files · 4 systems · 3 ACs
+
+■ #: 6
+    Slice: Closure loop: deploy, record, partial
+    Delivers: Wrap-up verifies deployment or records it as not applicable, writes the closure record, and drafts a partial PR; the routine contract names the receipt
+    Surface: `.agents/skills/wrap-up-session/SKILL.md`, `.agents/skills/wrap-up-session/references/routines.md`, `tests/test-doc-conventions.sh`
+    Blocked by: 5
+    ACs: 12, 13
+    Verify: `bash tests/test-doc-conventions.sh`
+    Size: 3 files · 2 systems · 2 ACs
+</code></pre>
+
+<p>Build prompt:</p>
+
+<pre><code class="lang-">Invoke `/build` for `specs/quality-receipt-closure.md`.
+Plan: `## Plan: quality-receipt-closure` in `tasks/todo.md`, 6 slices, ready set 1, 3.
+Files: .agents/skills/quality-gate/scripts/receipt.py, .agents/skills/quality-gate/SKILL.md, .agents/skills/wrap-up-session/scripts/closure.py, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/references/routines.md, tests/test-quality-receipt.sh, tests/test-closure.sh, tests/fixtures/closure/scenarios.json, tests/test-review-context.sh, tests/test-model-tiers.sh, tests/test-living-spec-reconciliation.sh, tests/test-routine-wrapup.sh, tests/test-routine-step-ledger.sh, tests/test-doc-conventions.sh, AGENTS.md.
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/quality-receipt-closure.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints: the verdict is computed by `receipt.py` from findings, never accepted as input (Decision 4).
+Constraints: the fingerprint excludes `tasks/**` only; `specs/**` stays in it (Decision 2).
+Constraints: every caller omits `--base`; `receipt.py` resolves it (Decision C4).
+Constraints: no global step budget; every cycle in the closure table consumes a counter (Decision C1).
+Constraints: Step 6 still runs the full suite through `cached-suite.sh`; the receipt&#x27;s test record never skips it (Decision 6).
+Constraints: repair merges, never rebases or force-pushes (Decision 9).
+Constraints: #162&#x27;s risk-fact extractor, classifier and review profiles are not built (Decision 14).
+Constraints: the PR body carries `Closes #163` and `Refs #162`, never `Closes #162`.
+</code></pre></section>
+<section id="decisions"><h2>Decisions</h2><pre><code class="lang-text">■ #: 1
+    Decision: Receipt storage
+    Options: A) `&lt;git-common-dir&gt;/quality-receipts/` · B) committed `tasks/receipts/` · C) PR comment
+    Recommended / chosen: A. Wrap-up quotes `Quality receipt: &lt;verdict&gt; · &lt;fp8&gt; · policy &lt;v&gt;` in the PR body. No signing: the threat is staleness, not forgery, and the fingerprint is the content address
+    Source: user (Q1)
+    Wrong when: a receipt must survive to another machine (for example, a cloud wrap-up of a local build)
+
+■ #: 2
+    Decision: Fingerprint scope
+    Options: A) whole diff · B) exclude `tasks/**` · C) exclude `tasks/**` and `specs/**`
+    Recommended / chosen: B, the same class as `pre-push` `touches_code`. Spec edits from Step 3.2 stay reviewable
+    Source: user (Q2)
+    Wrong when: C is right if spec reconciliation stops being a contract change
+
+■ #: 3
+    Decision: Re-entry scope
+    Options: A) full diff again · B) delta since the branch&#x27;s latest receipt, `--scope` + `parent` chain
+    Recommended / chosen: B. A two-line CI fix gets a two-line review
+    Source: user (Q3)
+    Wrong when: the delta interacts with unchanged code the reviewer does not see (accepted: Phase 3 reads whole changed files, not hunks)
+
+■ #: 4
+    Decision: Verdict rule and HOLD
+    Options: computed from findings; HOLD → A) interactive approval recorded / unattended stop · B) always stop
+    Recommended / chosen: A, via `receipt.py approve`
+    Source: user (Q4)
+    Wrong when: —
+
+■ #: 5
+    Decision: Policy version
+    Options: A) hand-bumped constant · B) content hash of the three policy files, script-relative
+    Recommended / chosen: B, `qg1-&lt;sha8&gt;`. Without it, a receipt minted under old rules (for example, before this change moved `/security-scan` into the gate) stays valid under new ones, and the installed plugin copy and the project copy can differ
+    Source: user (Q5)
+    Wrong when: a typo fix in `finding-model.md` invalidates live receipts, costing one gate run. Accepted
+
+■ #: 6
+    Decision: #178 seam: does the receipt&#x27;s test record skip Step 6?
+    Options: A) yes · B) no; `cached-suite.sh` stays the sole owner of &quot;green on tree X&quot;
+    Recommended / chosen: B. The receipt records test **evidence** (`{command, exit, tree}`, an affected-test run). `cached-suite.sh` decides **reuse**, and Step 6 is free on a tree already proved green. Removing Step 4&#x27;s reviewers is what lets Step 6 start without waiting
+    Source: user (Q6)
+    Wrong when: the gate starts running the full suite itself, and then cached-suite already reuses it with no receipt logic needed
+
+■ #: 7
+    Decision: Where closure outcomes are recorded
+    Options: A) a final `tasks/`-only commit + one more CI cycle · B) pre-push registers record only pre-push facts; CI, conflict and deploy outcomes go in the PR body&#x27;s `## Closure` and the Done report
+    Recommended / chosen: B
+    Source: user (Q7)
+    Wrong when: the project needs closure outcomes in `tasks/history.md` for later sessions to read
+
+■ #: 8
+    Decision: Loop bounds
+    Options: 2 CI rounds · 1 conflict round · 30 min per watch · all checks when none are required · 1 deployment re-entry · 1 gate run per tree
+    Recommended / chosen: as listed; the 12-step global budget first proposed is dropped (C1)
+    Source: user (Q8)
+    Wrong when: a project whose CI takes longer than 30 min; the watch budget is then a project setting (not built: YAGNI)
+
+■ #: 9
+    Decision: Conflict repair
+    Options: A) `git merge origin/&lt;base&gt;`, no force-push · B) rebase + `--force-with-lease`; trigger on `CONFLICTING` only, not `BEHIND`
+    Recommended / chosen: A, `CONFLICTING` only
+    Source: user (Q9)
+    Wrong when: a repository requires up-to-date branches (branch protection); `BEHIND` then becomes a trigger
+
+■ #: 10
+    Decision: How the state machine is tested
+    Options: A) a pure `closure.py` driven by observation fixtures · B) prose needles
+    Recommended / chosen: A. No `gh` calls inside the engine, which also avoids the Windows gh-mock trap
+    Source: user (Q10)
+    Wrong when: —
+
+■ #: 11
+    Decision: `/security-scan`
+    Options: A) moves into the gate as phase 4, recorded in `reviewers` · B) stays in wrap-up
+    Recommended / chosen: A
+    Source: user (Q11)
+    Wrong when: #162&#x27;s profiles make security depth risk-scaled; phase 4 is then where the profile plugs in
+
+■ #: 12
+    Decision: Deployment fix commits
+    Options: A) HEAD moved after deploy → re-enter at the receipt check (≤ 1) · B) stop `/verify-deployment` pushing
+    Recommended / chosen: A
+    Source: user (Q12)
+    Wrong when: a deployment runbook pushes more than once per verification
+
+■ #: 13
+    Decision: AC-8 evidence
+    Options: A) fixture scenarios + this PR&#x27;s own wrap-up recorded in `tasks/e2e-log.md` · B) also live scratch-repo runs
+    Recommended / chosen: A
+    Source: user (Q13)
+    Wrong when: —
+
+■ #: 14
+    Decision: How much of #162
+    Options: receipt schema + gate emission only; extractor, classifier and profiles deferred; #162 stays open (`Refs #162`)
+    Recommended / chosen: as listed
+    Source: user (prompt)
+    Wrong when: —
+
+■ #: 15
+    Decision: Fingerprint vs head as validity key
+    Options: the fingerprint is the key; `head` is provenance
+    Recommended / chosen: fingerprint
+    Source: inferred: build sessions commit per slice and leave an uncommitted tail
+    Wrong when: wrap-up starts receiving already-committed trees from elsewhere; still correct, because the fingerprint is commit-independent
+
+■ #: 16
+    Decision: Tree hashing duplicated in `receipt.py` and `cached-suite.sh`
+    Options: A) share a helper · B) each keeps its own five-line temp-index hash
+    Recommended / chosen: B. Different languages, and the two hashes need not be equal (different keys, different stores)
+    Source: inferred
+    Wrong when: the two start disagreeing about which files are in the tree; then extract `tree-hash.sh`
+
+■ #: C1
+    Decision: Global step budget (refines 8)
+    Options: A) 12 steps · B) no global budget; every cycle consumes a named counter, checked by a table walk
+    Recommended / chosen: B. With 12 steps, one CI repair already exhausted the budget before its CI watch, so the bounds in row 8 were unreachable
+    Source: critic MUST-FIX — **confirm**
+    Wrong when: —
+
+■ #: C2
+    Decision: Chain validity vs approved HOLD
+    Options: a chain link counts as valid when it is GO **or** approved HOLD. Delta receipts count unresolved SHOULD-FIX back to the nearest approved HOLD
+    Recommended / chosen: as listed
+    Source: critic MUST-FIX
+    Wrong when: —
+
+■ #: C3
+    Decision: Transition holes
+    Options: add rows: non-ff with no rounds left, `pr: failed`, deploy re-entry used, `suite: blocked`, `record-failed`, `partial` on `draft-failed`/`no-pr`; the `gated` flag stops a second gate run on an unchanged tree
+    Recommended / chosen: as listed
+    Source: critic MUST-FIX
+    Wrong when: —
+
+■ #: C4
+    Decision: Base agreement
+    Options: `receipt.py` resolves the base itself (the first existing of `origin/main`, `origin/master`, `origin/develop`, `main`, `master`, `develop`) and every caller omits `--base`
+    Recommended / chosen: as listed
+    Source: critic MUST-FIX
+    Wrong when: a repository whose integration branch has another name; `--base` is then the override
+
+■ #: C5
+    Decision: Repair commits vs the pre-push gate (refines 7)
+    Options: each repair commit adds a `## Session Summary … — closure repair &lt;n&gt;` line (a fact known before that push), so `introduces_summary` covers it
+    Recommended / chosen: as listed
+    Source: critic MUST-FIX — **confirm**
+    Wrong when: the pre-push gate&#x27;s coverage rule changes
+
+■ #: C6
+    Decision: Stopped vs partial after a PR exists; the deployment exception (refines 12)
+    Options: `stopped` only before a PR exists, `partial` + draft after. The deployment fix push is listed as an accepted, bounded exception, not claimed impossible
+    Recommended / chosen: as listed
+    Source: critic MUST-FIX ×2 — **confirm**
+    Wrong when: —
+
+■ #: C7
+    Decision: Gate phase order
+    Options: security becomes phase 3, before the dispatched APOSD phase 4, so the reviewer sees the security fixes. No phase after 4 edits the tree
+    Recommended / chosen: as listed
+    Source: critic SHOULD-FIX
+    Wrong when: —
+
+■ #: C8
+    Decision: Test evidence bound to the tree
+    Options: `write` refuses when `tests.tree` differs from the reviewed tree
+    Recommended / chosen: as listed
+    Source: critic SHOULD-FIX
+    Wrong when: —
+
+■ #: C9
+    Decision: Engine files outside the worktree
+    Options: the state and the outcome JSON live under the git common dir
+    Recommended / chosen: as listed
+    Source: critic SHOULD-FIX
+    Wrong when: —
+
+■ #: C10
+    Decision: Delta after a base merge
+    Options: intersect the tree-to-tree delta with the branch&#x27;s own `merge-base..tree` paths
+    Recommended / chosen: as listed
+    Source: critic SHOULD-FIX
+    Wrong when: —
+
+■ #: C11
+    Decision: Who may approve a HOLD; `ci: none` race; test surfaces; `AGENTS.md` taxonomy; diff flags pinned
+    Options: as written in the contracts, Build Order and ACs
+    Recommended / chosen: as listed
+    Source: critic SHOULD-FIX / NITPICK
+    Wrong when: —
+
+■ #: C12
+    Decision: Policy hash coverage
+    Options: hash every verdict-deciding file (`receipt.py`, the gate, security-scan, the APOSD skill and persona, the two references)
+    Recommended / chosen: as listed
+    Source: critic SHOULD-FIX
+    Wrong when: —
+</code></pre></section>
+<section id="acceptance-criteria"><h2>Acceptance Criteria</h2><p>1. <code>receipt.py fingerprint --base &lt;ref&gt;</code> prints the merge-base, the tree and a fingerprint. The fingerprint is unchanged by an edit under <code>tasks/**</code> and by committing the same tree. It changes on any other edit, an untracked file included (<code>tests/test-quality-receipt.sh</code>).
+2. <code>receipt.py write</code> stores <code>quality-receipt/1</code> at <code>&lt;git-common-dir&gt;/quality-receipts/&lt;fingerprint&gt;.json</code> with every field in § Data models. It derives the verdict (an unresolved MUST-FIX, a design STOP or red tests → STOP; more than 3 unresolved SHOULD-FIX or a design HOLD → HOLD; else GO) and ignores any supplied <code>verdict</code>. It refuses an outcome that fails the schema, or a delta scope with no stored parent, with exit 2 and writes nothing (<code>tests/test-quality-receipt.sh</code>).
+3. <code>receipt.py check</code> exits 0 for a GO or approved-HOLD receipt matching the current fingerprint and policy with a valid chain. Otherwise it exits 3 with <code>receipt: stale &lt;missing|diff-changed|policy-changed|schema|verdict|parent-invalid&gt;</code>. <code>diff-changed</code> prints <code>parent</code> and the delta paths. Editing a policy file yields <code>policy-changed</code>. <code>approve</code> sets <code>hold_approved_by</code> on HOLD only (<code>tests/test-quality-receipt.sh</code>).
+4. <code>/quality-gate</code> runs the <code>/security-scan</code> checklist over its own file list (untracked files included) as phase 3, before the dispatched APOSD phase 4. It runs the affected-test command through <code>cached-suite.sh</code> as phase 5, and no phase after 4 edits the tree. It takes <code>--scope &lt;path&gt; … --parent &lt;fingerprint&gt;</code>, runs <code>receipt.py write</code> as phase 6, and prints <code>Receipt: &lt;verdict&gt; &lt;fp8&gt; policy &lt;v&gt;</code>. A write refusal prints <code>Receipt: none — …</code>, never GO (<code>tests/test-doc-conventions.sh</code>).
+5. <code>closure.py step</code> implements every row of § Transitions — closure <code>phase</code>. It rejects an observation its phase does not accept with exit 2 and an unchanged state file. Each accepted (phase, observation) pair has exactly one row. It turns a repair past its bound, a CI timeout, an unknown mergeability and a second stale receipt after a gate run into an end: <code>terminal stopped</code> before a PR exists, and <code>mark-draft</code> → <code>terminal partial</code> after. Every cycle in the table consumes a counter (<code>tests/test-closure.sh</code>).
+6. Fixture scenarios in <code>tests/fixtures/closure/scenarios.json</code> replay green CI, CI repair, conflict repair, deployment success, deployment failure, stale receipt and a draft partial PR, each to its expected action trace and terminal line (<code>tests/test-closure.sh</code>).
+7. <code>/wrap-up-session</code> dispatches no reviewer and runs no <code>/security-scan</code>. The review payload, the Step 5 apply and reconciliation loop and the <em>Parallel Code Review</em> enhancement are gone. <code>tests/test-review-context.sh</code> no longer lists wrap-up as a dispatch site and asserts it has none, and <code>tests/test-model-tiers.sh</code> no longer expects critic&#x27;s floor there. <code>AGENTS.md</code>&#x27;s Layer 3 line names the receipt, not reviewer passes (<code>tests/test-review-context.sh</code>, <code>tests/test-model-tiers.sh</code>, <code>tests/test-doc-conventions.sh</code>).
+8. Wrap-up <code>## Step 4 — Quality Gate Receipt</code> runs <code>receipt.py check</code>. On <code>valid</code> it reuses the receipt. On <code>diff-changed</code> it invokes <code>/quality-gate --scope &lt;delta&gt; --parent &lt;fp&gt;</code> once, on any other stale reason <code>/quality-gate</code> once at full scope, and it proceeds only on GO or approved HOLD. It approves a HOLD only after a human answer in an interactive run. It still reconciles specs before Step 4 and runs Step 6&#x27;s full suite through <code>cached-suite.sh</code>. Step 8.5&#x27;s exit table names Step 4&#x27;s review stop in place of Step 5, and every closure end routes through Step 8.5 (<code>tests/test-living-spec-reconciliation.sh</code>, <code>tests/test-routine-wrapup.sh</code>, <code>tests/test-doc-conventions.sh</code>).
+9. Wrap-up commits with hooks enabled (no <code>--no-verify</code>), pushes, and creates or re-syncs the PR with the existing linkage check. The body carries the <code>Quality receipt:</code> line and a <code>## Closure</code> section. From Step 4 on, wrap-up performs the actions <code>closure.py step</code> prints, with its state file under the git common dir (<code>tests/test-doc-conventions.sh</code>, <code>tests/test-routine-step-ledger.sh</code>).
+10. Wrap-up checks mergeability with <code>gh pr view --json mergeable</code> and watches checks with <code>gh pr checks &lt;n&gt; --watch --required</code> as a background task (all checks when none are required), with a 30-min budget. A failed check&#x27;s log (<code>gh run view --log-failed</code>) goes to <code>/debug</code>. The fix re-enters Step 4 and Step 6 before the push, for at most 2 rounds. <code>ci: none</code> is reported only when the 2-min registration window saw no checks and no workflow triggers on <code>pull_request</code>. Every repair commit adds a <code>## Session Summary … — closure repair &lt;n&gt;</code> line so the pre-push gate counts it covered (<code>tests/test-doc-conventions.sh</code>).
+11. On <code>CONFLICTING</code>, or on a non-fast-forward push, wrap-up merges the base (or the remote branch) with no rebase and no force-push, for at most 1 round. A clean resolution re-enters Step 4. An unresolved merge is aborted and the run goes partial (<code>tests/test-doc-conventions.sh</code>).
+12. When a <code>## Deployment Targets</code> row applies to the pushed branch, wrap-up invokes <code>/verify-evidence --scope deployment</code> and records its evidence. Otherwise it records <code>Deployments: not applicable — &lt;reason&gt;</code>. A deployment fix that moved HEAD re-enters Step 4 once (<code>tests/test-doc-conventions.sh</code>).
+13. <code>tasks/history.md</code> and <code>tasks/todo.md</code> record only facts known before the push. CI, conflict and deployment outcomes go in the PR body&#x27;s <code>## Closure</code> and the Done report&#x27;s <code>Closure: &lt;complete|partial — state&gt;</code> line. A partial run marks the PR draft with <code>gh pr ready --undo</code>. <code>routines.md</code> names the receipt in place of review passes (<code>tests/test-doc-conventions.sh</code>).</p></section>
+<section id="implementation-paths"><h2>Implementation Paths</h2><ul>
+<li><code>.agents/skills/quality-gate/scripts/receipt.py</code> — fingerprint, receipt schema, write, check, approve</li>
+<li><code>.agents/skills/quality-gate/SKILL.md</code> — phases 4–6, <code>--parent</code>, the <code>Receipt:</code> output line</li>
+<li><code>.agents/skills/wrap-up-session/scripts/closure.py</code> — the closure transition function and its bounds</li>
+<li><code>.agents/skills/wrap-up-session/SKILL.md</code> — Step 4 receipt check, the removed review steps, the closure loop, the Done report</li>
+<li><code>.agents/skills/wrap-up-session/references/routines.md</code> — step 5 of the routine spine names the receipt</li>
+<li><code>tests/test-quality-receipt.sh</code> — AC 1–3</li>
+<li><code>tests/test-closure.sh</code>, <code>tests/fixtures/closure/scenarios.json</code> — AC 5–6</li>
+<li><code>tests/test-review-context.sh</code>, <code>tests/test-model-tiers.sh</code> — AC 7</li>
+<li><code>AGENTS.md</code> — the Layer 3 line of the Review Gate Taxonomy names the receipt (AC 7)</li>
+<li><code>tests/test-routine-wrapup.sh</code> — Step 8.5&#x27;s exit table and routing (AC 8)</li>
+<li><code>tests/test-routine-step-ledger.sh</code> — the Step 7 PR section it cuts (AC 9)</li>
+<li><code>tests/test-living-spec-reconciliation.sh</code> — AC 8 heading order</li>
+<li><code>tests/test-doc-conventions.sh</code> — AC 4, 7–13</li>
+</ul></section><section id="reflection"><div class="reflection"><h3>Reflect</h3><p>Reply with findings as [constraints|system-design|contracts|data-models|build-order] &lt;finding&gt; — &lt;evidence&gt;. Approve by starting a fresh session with the build prompt in § Build Order — nothing is filed or built in this one.</p></div></section><section id="references"><h2>📚 References</h2><div class="refs"><a href="quality-receipt-closure.md" target="_blank" rel="noopener">Spec (the contract /build holds)</a><a href="../.agents/skills/system-design-planning/references/review-card.md" target="_blank" rel="noopener">Review card</a><a href="fewer-full-suite-runs.md" target="_blank" rel="noopener">#178 seam — fewer full-suite runs</a></div></section><footer>Generated 2026-09-23 14:22 — html-presentation skill</footer></div></main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const saved = localStorage.getItem('html-presentation-theme');
+  if (saved) document.body.dataset.theme = saved;
+  else if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) {
+    document.body.dataset.theme = 'light';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  window.toggleTheme = function () {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = next;
+    localStorage.setItem('html-presentation-theme', next);
+  };
+  window.toggleNav = function () {
+    document.querySelector('.nav-sidebar').classList.toggle('open');
+  };
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav-sidebar a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Active section on scroll
+  const sections = document.querySelectorAll('main section[id]');
+  const links = new Map();
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    links.set(a.getAttribute('href').slice(1), a);
+  });
+  if (sections.length && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove('active'));
+          const link = links.get(entry.target.id);
+          if (link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => io.observe(s));
+  }
+
+  // Slides keyboard nav
+  if (document.body.classList.contains('mode-slides')) {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let idx = 0;
+    const counter = document.querySelector('.slide-counter');
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    }
+    show(0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+    });
+  }
+})();
+</script>
+</body>
+</html>

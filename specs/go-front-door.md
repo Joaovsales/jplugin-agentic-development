@@ -2,15 +2,20 @@
 status: draft
 implementation_paths:
   - .agents/skills/go/SKILL.md
-  - .agents/skills/go/lanes/*.md
-  - .claude/skills/go/**
-  - CLAUDE.md
+  - AGENTS.md
   - README.md
-  - .claude/hooks/session-start.sh
   - tests/test-go-lanes.sh
   - tests/test-doc-conventions.sh
   - tasks/e2e-log.md
 ---
+
+> **Rebased 2026-09-24 onto the plugin-era harness.** `.claude/skills/` is retired
+> (#156), so "both trees" in AC2/AC3 reads as the one canonical tree; the
+> session-start hook no longer lists skills, so AC5's banner pins are gone; and
+> `CLAUDE.md` is a pointer to `AGENTS.md` (#177), so AC4's entry-point sentence
+> lives in `AGENTS.md` § *Workflow* and the `/go` row in the README is rendered
+> from the skill's frontmatter by `scripts/render-skills-table.py`. The lanes
+> themselves moved to the registry's catalogue — see `specs/lane-catalogue.md`.
 
 # `/go` — a natural-language front door over lane playbooks
 

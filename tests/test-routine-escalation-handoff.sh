@@ -4,10 +4,10 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-for tree in .agents .claude; do
+for tree in .agents; do
   debug="$tree/skills/debug/SKILL.md"
   build="$tree/skills/build/SKILL.md"
-  verify="$tree/skills/verify/SKILL.md"
+  verify="$tree/skills/verify-evidence/SKILL.md"
   wrap="$tree/skills/wrap-up-session/SKILL.md"
   prompt="$tree/skills/wrap-up-session/references/routine-prompts/fix.md"
 
@@ -47,15 +47,6 @@ for tree in .agents .claude; do
   [ "$lines" -lt 25 ]; assert_eq "0" "$?" \
     "AC13: $tree/fix prompt remains under 25 lines"
 done
-
-assert_files_identical .agents/skills/debug/SKILL.md .claude/skills/debug/SKILL.md \
-  "AC13: debug mirrors are byte-identical"
-assert_files_identical .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md \
-  "AC13: build mirrors are byte-identical"
-assert_files_identical .agents/skills/verify/SKILL.md .claude/skills/verify/SKILL.md \
-  "AC13: verify mirrors are byte-identical"
-assert_files_identical .agents/skills/wrap-up-session/SKILL.md .claude/skills/wrap-up-session/SKILL.md \
-  "AC13: wrap-up mirrors are byte-identical"
 
 contract=.agents/skills/wrap-up-session/references/routines.md
 assert_prose_contains "$contract" "investigation escalation" \

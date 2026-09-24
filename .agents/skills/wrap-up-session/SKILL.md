@@ -100,6 +100,11 @@ Run `/memory-maintain` (it self-gates on the session count — runs every 5 sess
   routine that never had that gate, and an absent gate leaves no trace in the
   diff a reviewer reads. The same list goes in the PR body (Step 7). Step lists
   are in `.agents/skills/wrap-up-session/references/routines.md` § *Step ledger*.
+- `tasks/history.md` and `tasks/todo.md` record only facts known **before**
+  the push (Decision 7). CI, conflict-repair and deployment outcomes are
+  decided after Step 7 pushes, so they are never written here — they land
+  only in the PR body's `## Closure` section and the Done report's
+  `Closure:` line (§ Done).
 - Append session summary with idempotency fingerprint (commit range short-SHAs)
   - **Resolve both endpoints to real short SHAs.** The pre-push wrap-up gate
     validates them as bare hex, so `HEAD` — the obvious thing to write in this
@@ -320,16 +325,9 @@ review, and tests so any verification-map edits are included in every gate.
 
 ---
 
-## Step 3.5 — Security Scan
-
-Run `/security-scan` on files changed this session (`git diff --name-only <base-branch>...HEAD`).
-Address any MUST-FIX findings before proceeding to commit.
-
----
-
 ## Step 3.7 — Shortcut Ledger
 
-`CLAUDE.md` § *Code Economy* marks deliberate shortcuts with `TODO(shortcut):`
+`AGENTS.md` § *Code Economy* marks deliberate shortcuts with `TODO(shortcut):`
 naming a limit and an upgrade path. Collect them so a deferral cannot quietly
 become permanent:
 
@@ -343,172 +341,56 @@ marker naming no upgrade path `no-trigger` — those are the ones that rot. Clos
 with `<N> shortcuts, <M> without a trigger.`
 
 No markers found: print nothing and move on (failure-only reporting, per
-`CLAUDE.md` § *Observability Discipline*). This step reports only — it never
+`AGENTS.md` § *Observability Discipline*). This step reports only — it never
 blocks the commit, and shortcuts are not bugs, so they do not get bug-track
 documents in `tasks/solutions/`.
 
 ---
 
-## Step 4 — Code Review (4 passes)
+## Step 4 — Quality Gate Receipt
 
-Run the 4 review passes. For each pass:
-- Use `git diff --name-only <base-branch>...HEAD` to scope to changed files
-- Focus on issues **introduced** by this session, not pre-existing patterns
-- Classify every finding on all four axes below
+`/quality-gate` is the one review pass per diff (AGENTS.md § Review Gate
+Taxonomy, Layer 3). Wrap-up dispatches no `code-reviewer`, `critic`,
+`security-reviewer` or `software-design-expert-review`, and runs no
+`/security-scan` — it reuses the gate's receipt instead of re-reviewing the
+same tree.
 
-### Review Payload
-
-Every dispatched pass carries all seven items in `CLAUDE.md` § *Review Dispatch
-Contract*. Assemble once, reuse for all four — they differ by lens, not by input:
-
-1. The `<base-branch>...HEAD` diff (truncated-plus-path per *Large-Artifact Handoff* if large)
-2. **Every spec relevant to this session** — the session spec plus every spec
-   reconciled this session in Step 3.2 — each with its path and its own
-   acceptance criteria verbatim, checkbox state stripped; or `no spec — <reason>`
-3. The `tasks/todo.md` entries closed this session
-4. The `[AMBIGUITY]` batch `/build` surfaced — or `deferrals: none`
-5. The `TODO(shortcut):` markers from Step 3.7 touching changed files — or `deferrals: none`
-6. The boundary from the bullets above, stated **to the agent**, not just here
-7. The four-axis format from *Finding Classification* below
-
-Pass the intent, not the conclusions: no builder rationale, and never one pass's
-findings to another. Both would import the priors *Independence Accounting* exists
-to keep out, and the promotion in *Dispatch Disclosure* would then count an echo as
-a witness.
-
-### Dispatch Disclosure
-
-These 4 passes run either as separately dispatched agents (see *Claude Code
-Enhancements*) or sequentially inline in this context. **The output must state
-which**, because it decides what the passes' agreement is worth:
-
-| How they ran | Disclosure | Promotion |
-|-------------|-----------|-----------|
-| 4 dispatched agents | `dispatched` | Two passes independently finding the same defect is corroboration: promote `confidence` by exactly one anchor. |
-| Sequentially inline | `inline` | **No promotion.** Four lenses in one context share its priors and blind spots, so agreement is one perspective repeated. Name the corroboration lost. |
-
-Per `CLAUDE.md` § *Independence Accounting*, same-context agreement is never
-promotion evidence. An inline run is complete and still applies findings under
-5.1 — it simply may not report a promoted confidence, and must say so. Record the
-answer in the `Review independence:` line of the Done report.
-
-### Finding Classification
-
-Four orthogonal fields. Rationale lives in `CLAUDE.md` § *Finding Model*; the
-operational contract is here, where findings get enforced.
-
-| Field | Answers | Values |
-|-------|---------|--------|
-| `severity` | how urgent | `MUST-FIX` / `SHOULD-FIX` / `NITPICK` |
-| `confidence` | how sure | `50` / `75` / `100` |
-| `autofix_class` | what shape the fix is | `gated_auto` / `manual` / `advisory` |
-| `owner` | who acts | `agent` / `human` / `release` |
-
-| Severity | Definition |
-|----------|-----------|
-| `MUST-FIX` | Correctness, security, silent failures, data loss |
-| `SHOULD-FIX` | Quality, maintainability, coverage gaps |
-| `NITPICK` | Purely cosmetic — zero logic/behavior impact |
-
-`NITPICK` is ONLY for cosmetic issues. Any logic, architecture, or security finding is `SHOULD-FIX` or higher.
-
-**Confidence anchors** — behavioral criteria, not a feeling:
-
-| Anchor | Criterion |
-|--------|-----------|
-| `100` | You read the defect in the diff and can quote the line that proves it. Reproducible from the evidence alone. |
-| `75` | You located the defect and can cite the line, but correctness turns on a caller, config, or runtime value outside the reviewed scope. |
-| `50` | Pattern-matched or inferred. No line proves it, or you never read the path it depends on. |
-
-A finding at `75` or `100` **must** carry `evidence` — the verbatim motivating
-line with `file:line`. Missing evidence **demotes** it to `50`; the finding
-survives, its authority does not.
-
-**Output format for each finding**:
-```
-[MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent] file.py:42 — Description and impact
-  evidence: `except Exception: pass` (file.py:42)
-[SHOULD-FIX | confidence: 75 | autofix_class: manual | owner: human] handler.py:120 — Description and impact. Correctness turns on `settings.CACHE_TTL`.
-  depends-on: `settings.CACHE_TTL` — set at deploy time, not readable from the tree
-  evidence: `return cached or {}` (handler.py:120)
-[NITPICK | confidence: 50 | autofix_class: advisory | owner: human] utils.py:30 — Description
+```bash
+python3 .agents/skills/quality-gate/scripts/receipt.py check
 ```
 
-### Pass 1: Codebase Consistency
-- Duplicated logic that already exists elsewhere in the codebase
-- Inconsistencies where the same fix should be applied in similar locations
-- Missed opportunities to reuse existing utilities
+| Result | Action |
+|--------|--------|
+| `receipt: valid <GO\|HOLD-approved> <fp8> policy <v>` | Reuse it. Quote `Quality receipt: <verdict> · <fp8> · policy <v>` for the PR body |
+| `receipt: stale verdict HOLD` | The gate already reviewed this tree and left a HOLD — see *Approving a HOLD*. Never re-run the gate for it |
+| `receipt: stale diff-changed parent <fp> delta <path> ...` | Invoke `/quality-gate --scope <delta paths> --parent <fp>` **once** |
+| any other `receipt: stale <reason>` | Invoke `/quality-gate` **once** at full scope |
 
-### Pass 2: Defensive Code Audit
-- Silent exception swallowing or overly broad catch blocks
-- Fallback values that mask real errors
-- Null-safe chains hiding broken assumptions
-- Patterns that make production debugging harder
+Never call `/quality-gate` a second time on an unchanged tree. After a re-entry
+above, run `receipt.py check` again and read that second result — not the
+gate's own report — as the source of truth:
 
-### Pass 3: Test Coverage
-- Changed code paths that lack test coverage
-- Missing edge case tests, error path tests, boundary conditions
-- Existing tests that no longer align with changed behavior
+| Second check | Action |
+|--------------|--------|
+| `valid GO` or `valid HOLD-approved` | Proceed to Step 5.5 |
+| `stale verdict HOLD` | *Approving a HOLD* |
+| any other `stale <reason>` (a `STOP` verdict included), or the gate reported `Receipt: none` | STOP wrap-up: report the reason, commit nothing. Run Step 8.5 before ending |
 
-### Pass 4: Adversarial Critic
-- Read the specs touched this session and every AC
-- Ask "what AC is this missing?" and "what user-facing behavior would break?"
-- Hunt for: response-shape mismatches, declared-done-without-e2e patterns, duplicate todo blocks
-- Check API contract changes against any clients (frontend, tests, docs)
+**Approving a HOLD.** **Interactive run**: show the receipt's unresolved
+findings and ask the human to approve. A yes runs
+`receipt.py approve --fingerprint <fp> --by "$(git config user.name)"`, where
+`<fp>` is the third field `receipt.py fingerprint` prints (`check` prints no
+fingerprint on a stale line), and reports `approve: approved` once it exits 0
+— the engine then re-checks the receipt; a no reports
+`approve: declined`, which ends the run. **Unattended run** (a routine branch,
+or a caller declaring Step 8.5 unattended): never approves — it reports
+`approve: declined`, and the HOLD stops the run through Step 8.5.
 
----
-
-## Step 5 — Reconcile & Apply Fixes
-
-### 5.1 — Apply Gate (Enforcement)
-
-Enforcement is keyed on the **combination** of `severity`, `autofix_class`, and
-`confidence` — not on severity alone. Severity says how much the finding matters;
-`autofix_class` and `confidence` say whether this loop has earned the right to
-edit code over it.
-
-| Severity | `autofix_class` + `confidence` | Action |
-|----------|-------------------------------|--------|
-| `MUST-FIX` | `gated_auto` **and** `confidence >= 75` | Auto-apply in the fix loop. |
-| `MUST-FIX` | `manual` or `advisory`, `confidence >= 75` | Cannot be auto-applied — and cannot be skipped. Fix it deliberately, one finding at a time, and record the diff in 5.2. If it cannot be fixed here, it reaches Step 7 unresolved and **STOPS the commit**. |
-| `MUST-FIX` | `confidence` `50` | **Verify it first — do not fix it and do not block on it.** Read the path the finding depends on. Evidence found → it is now `75`+ and takes the row above. Refuted → record the refutation in 5.2 and drop it. |
-| `SHOULD-FIX` | `gated_auto` **and** `confidence >= 75` | Apply by default. |
-| `SHOULD-FIX` | anything else | Report. May skip ≤3 total with code-specific justification. |
-| `NITPICK` | any | Auto-skip. |
-
-Overriding rules:
-
-- **Never auto-apply at `confidence` `50`.** An unproven fix costs more than an
-  unfixed finding: it edits code on a guess and consumes the review budget that
-  would have proven it.
-- **`owner: human` or `owner: release` is never auto-applied**, at any severity or
-  confidence. It is carried to the Done report under that owner.
-- **A finding arriving with no `confidence`** — an older single-axis reviewer —
-  is read as `50` / `autofix_class: manual`: reported, never auto-applied, never
-  discarded. No reviewer output is thrown away for failing to use this schema.
-- **On disagreement between passes**, synthesis takes the **more conservative**
-  `autofix_class` (`advisory` > `manual` > `gated_auto` in conservatism) and the
-  **higher** severity. It never widens. Two passes disagreeing is information
-  about uncertainty, not a vote to be averaged.
-- **Do not downgrade a finding to clear the gate.** Reclassifying a `MUST-FIX` as
-  `NITPICK`, or dropping a `confidence` to make it reportable rather than
-  fixable, defeats the entire mechanism. If it must be resolved and cannot be,
-  STOP — via Step 8.5.
-
-### 5.2 — Review Reconciliation Table
-
-After processing all findings (skip if total findings ≤ 3):
-
-```markdown
-### Review Reconciliation
-
-| # | Pass | Severity | Confidence | Autofix class | Owner | Finding | Action | Justification |
-|---|------|----------|-----------|---------------|-------|---------|--------|---------------|
-```
-
-### 5.3 — Review-Fix-Recheck Loop (max 2 iterations)
-
-After applying fixes, re-check only modified files. If new issues found: apply fixes (iteration 2). Stop after iteration 2.
+Spec reconciliation (Step 3.2) still runs before this step, so a reconciled
+spec is part of the tree the gate reviewed. Step 6's full suite still runs
+unconditionally through `cached-suite.sh` — the receipt's `tests` field is
+evidence the gate already recorded, not a substitute for wrap-up's own
+pre-push run.
 
 ---
 
@@ -527,6 +409,32 @@ Discover test commands from `package.json`, `Makefile`, `pyproject.toml`, or `TE
 
 Run in order: lint/typecheck, unit, integration, e2e.
 
+The full suite is the session's one pre-push full run and goes through the
+cache: `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`,
+with the `Full suite:` line below the `AGENTS.md` end marker verbatim, as
+`/build` ran it — or, when a project declares none, the exact command `/build`'s
+baseline ran, so the key matches. On a tree already proved green it prints
+`cached-suite: reused green run` and costs nothing; any edit since runs it for
+real. Make every tree edit this wrap-up needs before this run, not after it.
+
+**One suite at a time, no polling.** Launch the full suite as a background
+task (`run_in_background` on Claude Code) and wait for its completion
+notification. While it runs, do only work that leaves the working tree alone —
+drafting the PR body in a scratch file outside the repository — because
+`cached-suite.sh` hashed the tree when the run started, and an edit made now
+would be pushed without a full run. Never wait in a foreground `sleep` or a
+poll loop. `cached-suite.sh` refuses a second full run with exit 3, and the
+rule extends to every test run: no test run starts while a suite is running —
+no targeted file, no affected-test run — because a test beside a running suite
+shares its load, slows both and can fake a failure in either.
+
+**A refusal is not a test result.** Exit 3 with `cached-suite: a suite is
+already running` on stderr means nothing ran: never hand it to `code-debugger`
+and never count it as a fix attempt. When the running suite is this session's
+own background job, wait for its completion notification and run again; when
+it belongs to another session or worktree, report the pid and start time the
+line names and stop, rather than wait on a job this session cannot see finish.
+
 If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if still failing, report, do not push, and end through Step 8.5.
 
 ---
@@ -535,13 +443,13 @@ If tests fail: fix root cause (not workaround), re-run. Max 2 fix attempts; if s
 
 For every user-facing AC in specs touched this session:
 
-1. Confirm a `/verify --scope e2e` walkthrough ran by checking `tasks/e2e-log.md` for an entry matching the spec and current commit short-sha
+1. Confirm a `/verify-evidence --scope e2e` walkthrough ran by checking `tasks/e2e-log.md` for an entry matching the spec and current commit short-sha
 2. If missing: ask:
-   > "AC [ID] is user-facing but has no e2e walkthrough. Run /verify --scope e2e now, or acknowledge the gap? (run/acknowledge)"
-3. On `run`: invoke `/verify --scope e2e`, then re-check
+   > "AC [ID] is user-facing but has no e2e walkthrough. Run /verify-evidence --scope e2e now, or acknowledge the gap? (run/acknowledge)"
+3. On `run`: invoke `/verify-evidence --scope e2e`, then re-check
 4. On `acknowledge`: record the gap as a knowledge-track document in `tasks/solutions/process/` (tags: `[e2e-gap]`)
 
-On a `routine/fix/` branch, if `/verify --scope e2e` returns a structured blocked
+On a `routine/fix/` branch, if `/verify-evidence --scope e2e` returns a structured blocked
 outcome, return its exact command, evidence, and reproduction state to `/debug`'s
 § *Canonical unattended escalation owner*. That owner invokes the registry once;
 the escalation is terminal for this run, so do not offer acknowledgement or
@@ -555,30 +463,90 @@ is internal-only.
 
 ## Step 7 — Commit & Push
 
+### The Closure Loop
+
+From Step 4 on, wrap-up does not decide what happens next by reading this
+skill top to bottom — it drives `closure.py`, the pure state machine behind
+this loop, and performs exactly the action it names, once per naming:
+
+```bash
+python3 .agents/skills/wrap-up-session/scripts/closure.py step \
+  --state "$(git rev-parse --path-format=absolute --git-common-dir)/closure/<sanitized branch>.json" \
+  --observe '<json observation of the last action>'
+# stdout: action <name> [key=value ...]  |  terminal <complete|partial|stopped> ...
+```
+
+Perform the named action, turn its result into the observation shape
+`closure.py`'s module docstring defines, feed that back on the next call, and
+repeat until a `terminal` line. The first call reports Step 4's
+`receipt.py check` result, since a fresh state starts in the `receipt` phase.
+`<sanitized branch>` is the current branch with every character outside
+`A-Za-z0-9_.-` replaced by `-`, the rule `receipt.py` uses for its branch
+pointer. A `terminal` line ends the run: the engine records it, and the next
+`/wrap-up-session` on the branch starts a fresh run, while a run interrupted
+before its terminal line resumes where it stopped. This table maps
+each action to the step or section that performs it and the observation it
+reports back:
+
+| Action | Performed by | Reports |
+|--------|---------------|---------|
+| `check-receipt` | Step 4, `receipt.py check` | `receipt: valid` \| `receipt: hold` (on `stale verdict HOLD`) \| `receipt: stale`, `scope: delta\|full` |
+| `quality-gate` | Step 4, the `/quality-gate` re-entry | `gate: GO\|HOLD-approved\|HOLD\|STOP\|none` |
+| `approve-hold` | Step 4, *Approving a HOLD* | `approve: approved\|declined` (an unattended run always reports `declined`) |
+| `run-suite` | Step 6, `cached-suite.sh` | `suite: green\|red\|blocked` |
+| `commit-push` | § Commit & Push below | `push: ok` \| `push: non-ff` \| `push: denied` |
+| `pr-sync` | § The Pull Request below | `pr: <n>` \| `pr: failed` |
+| `mergeability` | § Mergeability below | `mergeable: clean\|conflicting\|unknown` |
+| `merge-base` | § Conflict Repair below | `merge: resolved\|unresolved` |
+| `watch-ci` | § CI Watch and Repair below | `ci: pass\|none\|fail\|timeout` |
+| `debug-ci` | § CI Watch and Repair below | `debug: fixed\|not-fixed` |
+| `verify-deploy` | Step 8 — Deployment Verification | `deploy: pass\|n/a\|fail` |
+| `record-closure` | § Done, *Recording the closure* | `record: recorded\|record-failed` |
+| `mark-draft` | § Done, *Marking a partial PR draft* | `partial: drafted\|draft-failed\|no-pr` |
+
 ### Code Review Gate
 
-| Review Status | Action |
-|---------------|--------|
-| All MUST-FIX resolved AND ≤3 SHOULD-FIX skipped | Proceed |
-| Any MUST-FIX unresolved — skipped, or held back by the Apply Gate and not fixed deliberately | STOP — ask user for explicit approval, then Step 8.5 |
-| More than 3 SHOULD-FIX skipped | STOP — present skipped items, ask for approval, then Step 8.5 |
+Step 4's quality receipt is the gate: reaching Step 7 already means it read
+`valid GO` or `valid HOLD-approved`. Any other result stopped at Step 4 and
+routed through Step 8.5 before this step could run, so there is nothing further
+to check here.
 
 ### Commit & Push
+
+The `commit-push` action. Hooks stay enabled for every commit this loop
+makes, here and in every repair commit — skipping them is never an option,
+because the hooks are the gate this whole loop exists to satisfy, not an
+obstacle to it.
 
 1. Stage changes: `git add -p` — stage only relevant changes
 2. Commit with type prefix: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
 3. Append optional trailers: `Constraint:`, `Rejected:`, `Not-tested:`, `Confidence:`
 4. Push: `git push -u origin <branch>`
-5. Open or re-sync the pull request — see *The Pull Request* below. That section is the only description of PR creation in this skill, and Step 7.5 reaches the same one.
+5. Report the observation: `push: ok` on success; `push: non-ff` (with the
+   branch name) on a non-fast-forward rejection — the engine routes that to
+   *Conflict Repair* below, never to a rebase; `push: denied` on a permission
+   or branch-protection refusal
+6. On `push: ok`, open or re-sync the pull request — see *The Pull Request*
+   below. That section is the only description of PR creation in this skill,
+   and Step 7.5 reaches the same one.
 
 **Do not push if**: any test is failing, uncommitted changes unreviewed, MUST-FIX skipped.
 
 ### The Pull Request
 
-The single description of PR creation in this skill. Step 7 above and Step 7.5
-below both reach *here* rather than restating it — this action is irreversible
-and outward-facing, and it now carries a conditional (`--draft`) that would
-eventually be true in one copy and false in the other.
+The `pr-sync` action, and the single description of PR creation in this
+skill. Step 7 above and Step 7.5 below both reach *here* rather than
+restating it — this action is irreversible and outward-facing, and it now
+carries a conditional (`--draft`) that would eventually be true in one copy
+and false in the other. Report `pr: <n>` on success or `pr: failed` when
+`gh` is unreachable or the linkage check keeps refusing.
+
+The body carries the `Quality receipt: <verdict> · <fp8> · policy <v>` line
+Step 4 produced, and a `## Closure` section reporting what the loop has done
+so far — CI, mergeability and deployment outcomes belong there, never in
+`tasks/history.md` or `tasks/todo.md` (Decision 7). The linkage check below
+still reads the whole body, `## Closure` included, before every create or
+re-sync.
 
 #### What the branch tells you
 
@@ -645,6 +613,17 @@ The routine's executed **step list** goes in the body, the same list Step 2 wrot
 to `tasks/todo.md` — every mandatory step, and every skipped one retained with
 `skip: <reason>`. See § *Step ledger* in the contract for each routine's list.
 
+#### Handovers
+
+When the branch's `## Plan:` block carries `> Handover:` blockquotes, the PR
+body gains a `## Handovers` section: one `### Slice n/N — <name>` heading per
+slice, followed by that slice's whole blockquote verbatim — the `> Handover:`,
+`> Do not re-derive:`, `> Surface:` and `> Open:` lines `/build` § Slice Close
+defines. Write this section
+before the linkage check below runs on the body — the check has to read the
+body as it will actually ship. With no tracker to host a PR, the same
+section lands in the commit message instead.
+
 #### Creating and re-syncing
 
 `gh pr create` writes the description once, from the branch as it stood at that
@@ -692,12 +671,73 @@ This runs on **every** push to a branch with an open PR, including a
 line of the Done report — a sync step with no visible result is one that silently
 stops happening.
 
+#### Mergeability
+
+The `mergeability` action, run once the PR exists: `gh pr view <n> --json
+mergeable`. `MERGEABLE` reports `mergeable: clean`. `CONFLICTING` reports
+`mergeable: conflicting` with the PR's base branch, which the engine routes
+to *Conflict Repair* below. `UNKNOWN` is re-queried up to 3 times inside this
+action before it gives up and reports `mergeable: unknown` — GitHub has not
+finished computing it, not a real conflict. A branch that is merely behind
+its base (`mergeStateStatus: BEHIND`) is not a trigger (Decision 9): the
+`mergeable` field still reads `MERGEABLE`, and CI watch proceeds.
+
+#### CI Watch and Repair
+
+The `watch-ci` action: `gh pr checks <n> --watch --required` as a background
+task (`run_in_background` on Claude Code — never a foreground `sleep` or poll
+loop; wait for its completion notification like Step 6's suite). When the PR
+declares no required checks, watch all of them instead: `gh pr checks <n>
+--watch`. Budget 30 minutes; past it, report `ci: timeout`.
+
+The push just landed, so checks may not be registered yet. Give the push a
+2-minute registration window before deciding there are none: report `ci:
+none` only when that window saw no checks running **and** no
+`.github/workflows/*` file triggers on `pull_request`. Otherwise, no checks
+within the window is a `ci: timeout`, not a `ci: none` — a workflow that
+exists but is slow to start is still expected to run.
+
+All checks green (or none, per the rule above) reports `ci: pass`. A failing
+required check reports `ci: fail` with the failing check names.
+
+The `debug-ci` action runs on `ci: fail` with rounds left (2 total): fetch
+the failing run's log, `gh run view <run-id> --log-failed`, and hand it to
+`/debug`. The fix re-enters Step 4 (`check-receipt`) and Step 6 (`run-suite`)
+before the next push — the same gates every other commit passes, so a repair
+commit is never smuggled past the receipt or the suite. Report `debug: fixed`
+once the fix is committed — the engine then routes it through
+`check-receipt`, `run-suite` and `commit-push`, so this action never pushes
+itself — or `debug: not-fixed` when the round is
+spent without a passing push.
+
+**Every repair commit adds a `## Session Summary — <date> [<a>..<b>] —
+closure repair <n>` line to `tasks/todo.md` in that same commit.**
+`.agents/git-hooks/pre-push`'s `introduces_summary` check recognizes that
+line and counts the commit covered, so a CI repair never turns into an entry
+in `tasks/wrap-up-debt.md`.
+
+#### Conflict Repair
+
+The `merge-base` action, entered from a `push: non-ff` or a `mergeable:
+conflicting` observation, for at most 1 round: `git merge origin/<base>` (a
+conflicting mergeability) or `git merge origin/<branch>` (a non-fast-forward
+push) — **never `rebase`, never `--force` or `--force-with-lease`**. This
+repository does not rewrite history that may already be on someone else's
+machine (Constraint *No history rewrite*).
+
+Resolve every conflict and commit the merge; report `merge: resolved`, which
+re-enters Step 4 so the merged tree gets checked before the next push. A
+conflict that cannot be resolved in this round is aborted —
+`git merge --abort` — and reported as `merge: unresolved`, which ends the run
+(stopped while no PR exists, partial with the PR drafted after) rather than
+leaving a half-resolved merge in the tree.
+
 ### Push Failure Handling
 
 | Failure | Action |
 |---------|--------|
 | Network error | Retry up to 4 times with backoff (2s, 4s, 8s, 16s) |
-| Non-fast-forward | `git pull --rebase`, resolve conflicts, push again |
+| Non-fast-forward | Report `push: non-ff` to the closure loop, which merges (never rebases) the remote branch — see § Conflict Repair |
 | Permission denied | Report to user — do not retry |
 | Branch protection | Report to user — do not retry |
 
@@ -728,9 +768,11 @@ If NOT in a git worktree: skip. Otherwise check which flow this repo uses.
 1. Verify clean: `git status --porcelain` empty
 2. Switch to the parent worktree, `git pull --ff-only`
 3. `git merge --no-ff <branch>`
-4. Run the **full** suite on the merged result — this is the first time these two
-   lines of history have coexisted, so a green run on either side proves nothing
-   about the merge
+4. Run the **full** suite on the merged result, through
+   `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>` — this is
+   the first time these two lines of history have coexisted, so a green run on
+   either side proves nothing about the merge; the merged tree is new, so the
+   cache runs it for real
 5. Green → `git worktree remove <path>` and delete the branch
 6. Red → keep both, report the failures, change nothing else
 
@@ -745,13 +787,34 @@ the register for repeated IDs before trusting it.
 
 ## Step 8 — Deployment Verification
 
-After push, verify deployment services if `## Deployment Targets` section exists in `.claude/project.md` (Claude Code only).
+The `verify-deploy` action, entered once `watch-ci` reports `ci: pass` or a
+registration-checked `ci: none`.
 
-Use `/verify --scope deployment` to poll, fetch logs on failure, and loop a `code-debugger` fix cycle up to 3 iterations.
+**A `## Deployment Targets` row applies to the pushed branch** — the section
+below the `AGENTS.md` end marker (or, until `/sync` moves it, still in
+`.claude/project.md`, which `/verify-evidence` reads second with a one-line
+notice, Claude Code only), matched by `^## Deployment Targets[[:space:]]*$`:
+run `/verify-evidence --scope deployment` to poll, fetch logs on failure, and
+loop a `code-debugger` fix cycle up to 3 iterations, and record its evidence.
 
-If `--skip-deploy` flag was passed: skip this step entirely.
+That skill may push its own fix commit, so compare the head it leaves
+against the head this loop pushed: `git rev-parse HEAD` differing from the
+pushed head is `head-moved: true`, matching it is `head-moved: false`.
+Report `deploy: pass` or `deploy: fail` with that flag.
 
-If no `## Deployment Targets` section: scan `tasks/deployments/*.md` for signal files. If found, nudge user to run `/setup-deployment`. If not found: skip silently.
+**Accepted exception.** `head-moved: true` re-enters Step 4
+(`check-receipt`) at most once — `closure.py` counts it in
+`deploy_reentries`. For the length of one deployment fix the remote holds a
+tree no receipt covers, and the very next action gates it, so the gap never
+outlives that single re-entry. A second `head-moved: true` after the
+re-entry is spent ends the run `partial` (`mark-draft`).
+
+**No target applies, or `--skip-deploy` was passed**: report `deploy: n/a`
+with a one-line reason — `--skip-deploy`, no `## Deployment Targets`
+section, or no row matching the pushed branch — recorded in the Done report
+as `Deployments: not applicable — <reason>`. With no section, also scan
+`tasks/deployments/*.md` for signal files; when any exist, nudge the user to
+run `/setup-deployment`.
 
 ---
 
@@ -811,7 +874,7 @@ legitimate outcome:
 |---|---|
 | No changes detected | Step 0 |
 | Tests still failing after 2 fix attempts | Step 6 |
-| Unresolved MUST-FIX | Step 5 |
+| The quality receipt is not GO or approved HOLD | Step 4 |
 | The push gate refused | Step 7 |
 | The local record could not be written | Step 3.2 |
 | A `blocked` maintainer outcome | Step 3.3 |
@@ -826,52 +889,61 @@ convert a legitimate stop into a PR.
 
 ## Done
 
+### Recording the closure
+
+The `record-closure` action, entered once `deploy` reports `pass` (with
+`head-moved: false`) or `n/a`. Re-sync the PR body's `## Closure` section
+(§ *The Pull Request*) with every outcome the loop now knows — the CI
+result, conflict-repair rounds, the deployment result or its
+not-applicable reason, and the `Quality receipt:` line from Step 4,
+unchanged:
+
+```bash
+gh pr edit <n> --body-file <redrafted body>
+```
+
+Report `record: recorded` on success, `record: record-failed` when `gh`
+refuses. `tasks/history.md` and `tasks/todo.md` (Step 2) record only facts
+known before the push (Decision 7) — CI, conflict and deployment outcomes
+are never written there; they live only in the PR body's `## Closure`
+section and the `Closure:` line below.
+
+### Marking a partial PR draft
+
+The `mark-draft` action, entered on every non-`complete` end once a PR is
+open (`pr_open: true`):
+
+```bash
+gh pr ready <n> --undo
+```
+
+Report `partial: drafted` on success, `partial: draft-failed` when `gh`
+refuses, or `partial: no-pr` when no PR exists to draft. A partial run
+never leaves a ready PR behind.
+
 ```
 Session wrapped up.
 - Learnings: [N patterns / none]
 - Tasks: [X completed, Y pending]
 - Bugs: [N opened, N closed / no changes]
-- Code Review: [PASS / INCOMPLETE — N unresolved issues]
-  - Review independence: [4 passes dispatched / inline — no promotion; lost corroboration: <what>]
-  - MUST-FIX: [N found, N auto-applied, N fixed deliberately, N unresolved]
-  - SHOULD-FIX: [N found, N applied, N skipped]
-  - NITPICK: [N found, skipped]
-  - Reported, not applied: [N — with autofix_class and owner, or none]
-- Security Scan: [PASS / N issues addressed]
+- Quality receipt: [<verdict> · <fp8> · policy <v> — reused / <verdict> · <fp8> · policy <v> — re-entered at <full|delta> scope]
 - Tests: [PASS — suite name] or [FAIL] or [SKIPPED — no suite]
 - E2E coverage: [N user-facing ACs verified / NONE / GAP — N acknowledged]
 - Routine: [<name> #N — S steps, K skipped / none — not a routine branch]
 - Pushed: [yes / no — reason]
 - PR: [#N opened / #N description re-synced — what changed / #N already accurate / #N linkage repaired — <refs> / none]
-- Deployments: [results or SKIPPED / NONE]
+- Deployments: [results / not applicable — <reason> / SKIPPED / NONE]
+- Closure: [complete / partial — <state, reason> / partial — closure engine failed]
 - Unattended PR assertion: [PASS / FAILED — no PR, reason / N/A — interactive]
 ```
 
-## Claude Code Enhancements
+The `Closure:` line quotes `closure.py`'s terminal line — its `state=`,
+`reason=` and, on a partial run, `draft=` fields (`draft=failed` or
+`draft=none` means the PR was not drafted; say so) — rather than restating
+them in prose, so the report
+cannot drift from what the engine actually decided. When `closure.py`
+itself fails after the push (a crash, not a `terminal partial` line), the
+commit and PR still exist; report `Closure: partial — closure engine
+failed` rather than waiting for a terminal line that will never print
+(§ *Failure unit*).
 
-### Step 4 — Parallel Code Review
-Launch all 4 review passes as parallel agents in a SINGLE message with multiple Agent tool calls.
-
-`code-reviewer` and `critic` are **Ceiling** tier (`CLAUDE.md` § *Model Routing*):
-pass **no** `model` parameter so each inherits the session model. `critic` is the one exception: it carries a **planner floor**, so pass the planner
-alias when the session model is below planner tier and omit `model` otherwise. Pinning them
-downgrades the highest-stakes review for exactly the users running a stronger
-model.
-
-This path is what makes the 4 passes separately dispatched contexts, so it is the
-only path that licenses confidence promotion. Record it as `dispatched` and
-disclose it per *Dispatch Disclosure*.
-
-Every one of the four calls carries the *Review Payload* assembled in Step 4, which
-implements `CLAUDE.md` § *Review Dispatch Contract* — including its `deferrals: none`
-and `no spec — <reason>` markers, which are stated even when there is nothing to state.
-Identical input, different lens —
-identical input, different lens. A pass dispatched without it reviews the diff
-against its own priors about what code should look like, which is where
-re-litigated shortcuts come from.
-
-Agent assignments:
-- Agent 1: `code-reviewer` — Codebase Consistency (Pass 1)
-- Agent 2: `code-reviewer` — Defensive Code Audit (Pass 2)
-- Agent 3: `code-reviewer` — Test Coverage (Pass 3)
-- Agent 4: `critic` — Adversarial Critic (Pass 4)

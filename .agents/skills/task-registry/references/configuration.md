@@ -10,10 +10,12 @@ something fails.
 
 The registry looks for its configuration in this order:
 
-1. a `Task tracking instructions: <path>` line in `.claude/project.md`,
-   `AGENTS.md`, or `CLAUDE.md`, searched in that order — the first path found
-   wins. Project-owned files come first because `CLAUDE.md` is template-managed
-   and `/sync` overwrites it;
+1. a `Task tracking instructions: <path>` line in `AGENTS.md` — below the
+   managed block's end marker, the part of the file `/sync` never rewrites —
+   or, for a project not yet migrated, in `.claude/project.md`, searched in that
+   order; the first path found wins, and a pointer found in `.claude/project.md`
+   makes `doctor` print `pointer found in .claude/project.md — /sync will move it
+   to AGENTS.md`. `CLAUDE.md` is the `@AGENTS.md` import and is not searched;
 2. `docs/task-tracking.md`;
 3. nothing — configuration defaults apply; provider auto-selection still follows
    the table below.

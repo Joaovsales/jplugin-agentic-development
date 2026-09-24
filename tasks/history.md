@@ -689,3 +689,205 @@ back vacuous and was repaired.
   [pin a twice-declared contract equal by test](solutions/patterns/pin-a-twice-declared-contract-equal-by-test.md),
   [skill description does not route organic prompts](solutions/process/skill-description-does-not-route-organic-prompts.md).
 - Glossary: `lane`, `lane block` added.
+### [2026-09-18] — plugin manifest: S4 verdict, version pinning, verify-evidence, one tree
+
+- Branch `worktree-plugin-manifest` (base master `2608d0a`), 17 commits, HEAD `35adb24`. Not pushed: two
+  human-owned MUST-FIX review findings hold the push gate (see below).
+- Spike S4 resolved PASS on 2.1.277 after a clean-trust re-run: a settings-declared plugin installs
+  when the folder is trusted and leaves only the versioned cache — never `installed_plugins.json`.
+  The first FAIL was a contaminated trust dialog (invalid `C:/` url, leftover cache).
+- User decisions: pinning = github source, no `ref`, `version` bumped per release (Addy Osmani's
+  model); `verify` → `verify-evidence` (Claude Code bundles `verify`).
+- Slices built and committed: 5b (no-`ref` pinning, cache-aware hook), 5c (rename, 24 files),
+  6 (`.claude/skills/` and the parity test deleted, 30 two-tree tests collapsed, namespace sentence).
+- Wrap-up: living-spec reconciliation over 15 specs; four dispatched review passes (45 findings,
+  0 auto-applied at 50, 31 applied or fixed deliberately); Windows suite failing names ⊆ baseline.
+- Open for the maintainer: CI-synced projects keep a frozen `.claude/skills/` (sync-template.yml
+  never deletes) — filed as an OPEN row in the spec's Decisions; and the AC3 github-source re-run
+  after merge.
+- Learnings captured: `tasks/solutions/tooling/settings-declared-plugin-installs-at-trust-and-leaves-only-the-cache.md`,
+  `tasks/solutions/process/the-trust-dialog-is-the-install-moment-so-a-contaminated-first-trust-is-a-false-negative.md`,
+  `tasks/solutions/tooling/a-marketplace-ref-must-be-a-branch-or-tag-so-the-plugin-version-is-the-pin.md`.
+
+### [2026-09-21] — grilling adoption: /grilling primitive, /grill-me front door, domain layer in /brainstorm
+- Key changes: adopted Matt Pocock's `grilling` interview primitive as `/grilling` (frontier
+  rounds in the `❓`/`➡️` format, facts via Scout tier, decisions to the user, confirmation
+  gate, opt-out line) and `grill-me` as the stateless user-only front door
+  (`disable-model-invocation: true`); `/brainstorm` Step 3 now invokes `/grilling` and carries
+  a domain-modeling layer (`references/domain-modeling.md`: glossary challenge, inline
+  `tasks/concepts.md` writes, three-gate architecture decisions); `mattpocock-skills` pinned in
+  `.github/upstreams.json` with `LICENSE.mattpocock` and a THIRD_PARTY_NOTICES section; rows in
+  CLAUDE.md, README and the session banner; `tests/test-grilling-adoption.sh` (85 assertions).
+- Built on a worktree rebased onto master after #156 landed mid-build (one canonical tree,
+  `jplugin` plugin, `/verify-evidence`).
+- E2E: `/jplugin:grill-me` routed with the flag in place, no writes; `/brainstorm` wrote the
+  sample term on run 2 after the write trigger was tightened (run 1 narrated without writing);
+  `/eval` Mode A: `grilling` 5/6 FIRED, one session ran Step 3 inline without loading it.
+- Quality gate HOLD (dispatched design review): six `manual`/`advisory` findings reported, none
+  applied — rounds-vs-opt-out rhythm rule stated in two files, callee format restated in the
+  caller, undeclared seed frontier, glossary rule stated three times, `/learn` overlap rule
+  bug-track shaped, `harness: universal` proven on Claude Code only.
+- Windows suite: 160/1400 failing across nine files, all reproduced with identical assertion
+  names at a clean base worktree (plus one second-granularity timing flake in upstream-drift).
+- Wrap-up: four dispatched review passes returned 26 findings (2 MUST-FIX, both manual: AC 4
+  claimed Step 6 unchanged while it gained the vocabulary constraint; the spec's "primitive does
+  not load" tell was disproved by the eval). Both fixed deliberately in the spec, the format
+  restatement recorded as a `TODO(shortcut)` and an OPEN decision; 7 gated_auto test-pin fixes
+  applied (98 assertions); 3 agent-owned SHOULD-FIX skipped with justification; 6 human-owned
+  findings carried to the PR. Store heavy pass ran (session 30).
+- Learnings captured: `tasks/solutions/patterns/a-skill-write-needs-a-concrete-trigger-and-a-visible-line.md`,
+  `tasks/solutions/patterns/a-caller-that-restates-its-callees-format-makes-the-callee-optional.md`,
+  `tasks/solutions/tooling/print-mode-skill-probes-on-windows-git-bash.md`; updated
+  `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`;
+  glossary: **front door**, **frontier**, **round** added.
+
+## 2026-09-21 — #136 Windows suite duration (/debug) → PR #166
+- Baseline on clean HEAD 0de3f8a in a `/tmp` clone (a clone in the Claude scratch workspace is a virtualized AppData path the Store python3 cannot read): serial 3051 s, sync-retirement alone 1275 s, the known 9 environment-only failing files.
+- Root cause by timestamped xtrace: process-bound, not Python-bound — mkdir 25 %, git 26 %, python3 20 % (launcher delta 5 %), dirname + subshell 19 % of the slowest file; per-section times uniform, no pathological section.
+- Fix: tests/run.sh per-file timing, closed stdin, `--jobs N`/`TEST_JOBS`; tests/lib.sh `TEST_PYTHON` resolution and `now_ms`; sync-retirement helpers builtin-first (1275 s -> 695 s, identical results); upstream-drift bound relative to the no-op helper run plus pid liveness; codex adapter resolves bash via `shutil.which` (a bare `bash` reached WSL under a plain CPython).
+- Verification: `--jobs 4` 1404 s, `--jobs 8` 936 s, 8 files failing with the baseline's assertion names; acceptance target (<10 min) not met on this machine — carried forward.
+- Documents: tasks/solutions/performance/windows-suite-takes-20-to-38-minutes-because-every-process-spawn-costs-over-a-second.md, tasks/solutions/patterns/a-bash-suite-on-windows-is-process-bound-so-attribute-time-by-spawn-before-optimizing.md, process doc updated.
+
+### [2026-09-21] — stdin hang in the pre-push-gate Banner block
+
+- Key changes: the two Banner-block invocations of the session-start hook in
+  `tests/test-pre-push-gate.sh` (lines 218 and 224) gained `</dev/null`, matching
+  the sibling quote-safety call at line 262. Every other hook execution across
+  `tests/*.sh` already pipes stdin from `printf`, so it closes on its own. The hook
+  is unchanged. One commit, rebased onto master after #156 landed.
+- Evidence: `bash tests/test-pre-push-gate.sh < <(sleep 1000)` stopped after the
+  `Hook: no network or tracker command invoked` assertion with no output — the
+  hook's `HOOK_INPUT=$(cat ...)` at `.claude/hooks/session-start.sh:42` waits for
+  an EOF the inherited pipe never delivers.
+- Review: four passes dispatched. No defects in the diff. One corroborated
+  advisory for a human — `tests/run.sh` launched every suite file with inherited
+  stdin, so the hang class would return if a future test added an unredirected
+  hook call. Not applied here as a scope decision; resolved independently by #166,
+  which landed while this PR was open and now passes `</dev/null` to every file.
+- Verification: full Windows suite 35/44 files green; the 9 failing files fail with
+  identical assertion names on a clean detached worktree of origin/master
+  (`.claude/worktrees/base-0de3f8a`, 159 shared names), so zero regressions. The
+  one extra name in this run (`test-upstream-drift.sh` process-tree deadline) is the
+  known one-second-granularity timing assertion and passed on a solo re-run (64/64);
+  the suite had been running concurrently with four review agents.
+- Learnings captured:
+  `tasks/solutions/bugs/test-inherits-open-stdin-and-the-hook-reads-it-to-eof.md`
+  (fixed).
+
+## 2026-09-22 — #106 plan slices and handover (/build → /wrap-up-session) → PR #176
+- Built the seven slices of `specs/plan-slices-and-handover.md` in the worktree
+  `.claude/worktrees/106` on `feat/106-plan-slices-and-handover` (base 87ff22c):
+  `/slice` skill and `slice.py validate/ready/check` over a shared
+  `registry/globs.py` matcher; `upsert --parent`; `/plan`, `/system-design-planning`,
+  `/brainstorm`, `/yolo`, `/auto-push` ending with a build prompt instead of a `y`
+  gate; `/build` filing in pre-flight, dispatching from the ready set and closing
+  every slice with a check and a `> Handover:`; `/wrap-up-session` `## Handovers`;
+  `CLAUDE.md` § Workflow and five glossary terms.
+- Slices 1–3 and the quality-gate fixes ran inline; slices 4–6 were dispatched to
+  builder-tier agents with surfaces and verbatim handovers. Every slice closed with
+  a two-commit pattern (code, then plan/handover) and a checkpoint flush.
+- Quality gate: Phase 1 refactor, Phase 3 dispatched HOLD → 3 MUST-FIX applied
+  (seeded `[x]` rows kept, unknown blockers refused once, implicit slice in
+  `check`, fenced decoy rows ignored); 1 SHOULD-FIX and 1 NITPICK reported.
+- AC 15 live run in the fixture `.claude/worktrees/e2e-106`: plan session ee94098b
+  ended with the build prompt and filed nothing; build session d0ac3717 filed four
+  slices in pre-flight and closed each with a handover and a surface report.
+  Parallel dispatch and a handover crossing a dispatch boundary were not observed —
+  the slices were too small for the session to dispatch. Both sessions were routed
+  by the harness to user-scope skill copies and read the project-local ones
+  themselves.
+- Full suite at f6e9049 (`--jobs 8`, detached worktree `106-base`): 8/47 files,
+  162 failing assertions vs 159 in the baseline; the 3 new are GitHub-mock
+  `upsert --parent` pins unreachable from Python on Windows (#129).
+- Documents: tasks/solutions/bugs/upsert-re-rendered-a-seeded-done-row-from-the-provider-record-on-first-filing.md
+  (fixed), tasks/solutions/patterns/a-live-proof-of-parallel-dispatch-needs-slices-large-enough-to-earn-an-agent.md,
+  appends to tooling/print-mode-skill-probes-on-windows-git-bash.md and
+  patterns/explicit-encoding-at-every-python-io-boundary.md.
+
+## 2026-09-22 — single instruction file: merge of #176, wrap-up review, PR
+- Merged origin/master (#176 plan slices and handover, dfbbe2b) into
+  `feat/single-agents-file` as f1313a4. Three conflicts, all resolved for the
+  retired-surface design and then re-ported: `.agents/hooks/session-start.sh` and
+  `CLAUDE.md` ours; `README.md` ours re-rendered by `scripts/render-skills-table.py`
+  (the `/build`, `/plan`, `/slice`, `/system-design-planning` rows came from the
+  frontmatter #176 rewrote). #176's `CLAUDE.md` § Workflow rewrite (Specify /
+  Slice / Build in a fresh session) landed as `AGENTS.md` § Workflow steps 2 to 4
+  inside the managed block; the `/slice` registration pin moved from the three
+  inventories to the one rendered `README.md` row; `/build`'s checkpoint flush and
+  `slice/references/sizing.md` stopped naming `.claude/hooks/` and the two skills
+  tables.
+- Master's tightened contracts hit the branch too: `registry/globs.py` (#176)
+  refuses brace groups, so the spec's `implementation_paths` went from 27 brace
+  entries to 56 explicit ones before `spec-reconcile.py discover` would run.
+- Living-spec reconciliation over the merged diff: 20 candidates — 17 updated for
+  the moved surfaces (`.claude/project.md` → `AGENTS.md`, `.claude/hooks/` →
+  `.agents/hooks/`, `CLAUDE.md §` → `.agents/references/`), 3 unchanged,
+  `specs/separate-project-config.md` removed (its subject no longer exists; the one
+  remaining mention is historical in `tasks/e2e-log.md`). The three legacy-format
+  specs got factual path edits only, not a format migration.
+- Review: five passes dispatched (code-reviewer ×2 lenses, critic, design, security)
+  over the 95-file `origin/master...HEAD` diff → 38 findings. Applied: atomic
+  `settings.json` rewrite and exact-spelling hook match in `install.sh` (the old
+  `endswith("hooks/session-start.sh")` would have deleted a user's own hook), the
+  `awk` status split and symlink-safe rewrite in `strip_codex_block`, marker-count
+  NOTE for a malformed Codex file, `~/.claude/CLAUDE.md` moved aside as
+  `CLAUDE.md.pre-plugin.bak` instead of deleted, real paths in the removal prompt;
+  `sync-managed-block.py` keeps the team's text under a reused
+  `## Project-Specific Rules` heading (the old code dropped the whole segment),
+  treats padded markers as markers, refuses non-UTF-8 by file name, reads
+  `CLAUDE.md` inside the refusal try, reports every dropped or reused section and
+  every generic heading or second pointer left outside the block; the `/sync`
+  settings prune matches the three template scripts by name instead of every
+  `.claude/hooks/*.sh`; `/system-design-planning` Step 5 reads `finding-model.md`
+  before dispatch and joins the dispatch-site pins; the banner names an orphaned
+  `.claude/project.md` beside a pointer `CLAUDE.md`; the CI mirror's PR body says
+  it never migrates that file. 3 SHOULD-FIX skipped with reasons, 4 NITPICKs
+  skipped, 5 owner-human items reported (CI script pinning and `template_ref`
+  injection, the `/tmp` sentinel, the D4 `~/.claude/CLAUDE.md` overwrite policy,
+  graph staleness after pull).
+- Local harness: `tests/lib.sh` now exports `PYTHONUTF8=1` — Windows CPython wrote
+  em dashes as cp1252 bytes, so the new registry notice assertion (and a class of
+  baseline failures) could never match a UTF-8 needle.
+- Full suite on the merge (`--jobs 4`): 8/53 files, 163 failing assertions vs 159
+  in the pre-merge baseline; the 3 new are the `upsert --parent` GitHub-mock pins
+  (#129, Windows only) and the 4th was the encoding class above, now fixed.
+  Every touched test file re-run solo after the fixes; only baseline names remain.
+- Documents: tasks/solutions/patterns/port-master-edits-onto-the-successor-surface-when-a-branch-retires-one.md,
+  tasks/solutions/conventions/spec-implementation-paths-accept-only-star-question-and-double-star.md,
+  a superseded note on bugs/readme-skill-table-merge-conflict.md, and the
+  **managed block** glossary term in `tasks/concepts.md`.
+
+### [2026-09-23] — fewer full-suite runs
+- Key changes: built #178 in four slices (filed #183, #180, #181, #182) —
+  `.agents/skills/build/scripts/cached-suite.sh` reuses a green run per working
+  tree and command and refuses a second concurrent suite (exit 3);
+  `tests/affected.sh [--run] <base>` selects the test files a change touches and
+  `tests/run.sh` takes named files; `/build` runs the full suite only at its
+  cached baseline and the affected-test command at every other checkpoint;
+  `/wrap-up-session`, `/yolo` and `/auto-push` run full suites through the
+  cache; `AGENTS.md` § Test Commands declares `Full suite:` and `Affected tests:`.
+- Quality gate: GNU-only `mv -T`, bash-4 `mapfile` and a `set -u` empty-array
+  expansion replaced for macOS bash 3.2; the dispatched design review added the
+  `Full suite:` declaration (the cache key hashes argv) and put affected runs
+  behind the lock.
+- Baseline (cddf272, Windows, serial): 8/53 files, 152 failing assertions, 2085 s.
+- Learnings captured: tasks/solutions/tooling/python-exact-match-patches-miss-crlf-working-copies.md
+
+### [2026-09-23] — Quality receipt closure
+- Key changes: `receipt.py` (quality-receipt/1: fingerprint excluding `tasks/**`,
+  derived verdict, check/approve, delta chains) and `/quality-gate` phases 3–6
+  that write it; `closure.py`, the wrap-up closure state machine (receipt, gate,
+  approve, suite, push, pr, mergeable, merge, ci, repair, deploy, record,
+  partial), with every cycle bounded by a counter; `/wrap-up-session` Step 4
+  reuses the receipt in place of four review passes, and Step 7 drives the
+  closure loop (merge-only conflict repair, CI watch and repair, a partial run
+  marks the PR draft). Six slices, filed and built (#163, refs #162).
+- Quality gate: two design passes (STOP, then HOLD). Fixed: HOLD routing,
+  through a new `approve` phase that re-checks the receipt; the closure run
+  lifecycle (`done`, keeping `pr_open`); corrupt state and receipt handling.
+  Seven SHOULD-FIX items stay unresolved in the receipt, and the HOLD was
+  approved by a human.
+- Baseline (Windows): affected tests 6/31 files red with 104 assertions, none
+  new; WSL Ubuntu, clean clone at 5e00630: 31/31 green in 63 s.
+- Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md,
+  tasks/solutions/patterns/a-state-reset-must-keep-facts-about-the-world.md

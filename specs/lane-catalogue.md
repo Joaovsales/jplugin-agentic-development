@@ -9,9 +9,6 @@ implementation_paths:
   - .agents/skills/task-registry/templates/task-tracking.md
   - .agents/skills/go/SKILL.md
   - .agents/skills/wrap-up-session/references/routines.md
-  - .claude/skills/task-registry/**
-  - .claude/skills/go/**
-  - .claude/skills/wrap-up-session/references/routines.md
   - tests/test-lane-catalogue.sh
   - tests/test-go-lanes.sh
   - tests/test-routines-contract.sh
@@ -24,7 +21,9 @@ implementation_paths:
 > Supersedes the *No `[lanes.skills]` configuration section* decision in
 > `specs/go-front-door.md` and the `TODO(shortcut):` it left in
 > `.agents/skills/go/SKILL.md`. Written 2026-09-16 on the `routing` branch during
-> review of PR #147.
+> review of PR #147. Rebased 2026-09-24 onto the plugin-era harness: `.claude/skills/`
+> is retired (#156), so the lane files have no mirror, and `CLAUDE.md` is a pointer
+> to `AGENTS.md` (#177), so the `/go` entry-point sentence lives there.
 
 ## Problem
 
@@ -311,7 +310,8 @@ the step ledger's own convention and it makes the chain linear.
 
 ## Inputs
 
-- The twelve lane files, shipped with the registry and mirrored to `.claude/`.
+- The twelve lane files, shipped with the registry under
+  `.agents/skills/task-registry/lanes/` — the one canonical tree since #156.
 - `docs/task-tracking.md` `[routines.skills]` / `[routines.selectors]`, unchanged.
 - `task-registry lanes [name]` from `/go`; `task-registry workflow <ref>` as today.
 
@@ -340,13 +340,13 @@ the step ledger's own convention and it makes the chain linear.
 
 - [x] **AC1** `registry/lanes.py` loads every file under the shipped `lanes/` directory on first call to `catalogue()`, never at import, derives each chain by the step grammar, and exposes `routines`, `producers`, `deferred`, `selectors`, `chains` (consumers only), `interactive`, `names` and `lane(name)`. `config.py`'s `CONTRACT_ROUTINES`, `PRODUCER_ROUTINES`, `DEFERRED_ROUTINES`, `DEFAULT_SELECTORS` and `DEFAULT_ROUTINE_SKILLS` resolve lazily to those views and contain no lane literal; `import registry.config` reads no lane file.
 - [x] **AC2** The loader raises `LaneCatalogueError` (a `ConfigError`) naming the file for: a filename stem outside `[a-z][a-z-]*`, an unknown frontmatter key, `selects` without `routine: consumer`, `deferred` without `routine`, a routine chain not ending at `/wrap-up-session`, a step gap or checkbox step, a step wrapped onto an indented line, a lane with neither `routine` nor `cues`, and a missing `## Reply` section. `doctor` on a project whose shipped catalogue is broken still runs to completion — exiting 1, as for any configuration fault — and prints a `catalogue:` line naming the fault once.
-- [x] **AC3** Twelve lane files exist with the attributes in *The lanes*, mirrored byte-identically under `.claude/skills/task-registry/lanes/`; `.agents/skills/go/lanes/` no longer exists. Every `/skill` token anywhere in any lane file resolves to `<name>/SKILL.md` under `.agents/skills/`; the first skill step of every routine lane takes `<ref>`.
+- [x] **AC3** Twelve lane files exist under `.agents/skills/task-registry/lanes/` with the attributes in *The lanes*; `.agents/skills/go/lanes/` no longer exists. Every `/skill` token anywhere in any lane file resolves to `<name>/SKILL.md` under `.agents/skills/`; the first skill step of every routine lane takes `<ref>`.
 - [x] **AC4** `task-registry lanes` prints one row per lane with the effective chain and selects no provider; `lanes <name>` prints the numbered steps and the *Reply* section; an unknown name exits 2 listing known lanes; a chain skill missing from disk exits 2 naming it; a configured override prints the `note:` line; with an unreadable configuration the table prints, `lanes investigate` exits 0 and `lanes fix` exits 2.
 - [x] **AC5** Every existing assertion in `tests/test-routine-skills.sh`, `tests/test-routine-selectors.sh`, `tests/test-routine-branch.sh` and `tests/test-task-registry.sh` stays green, and `workflow`'s output is unchanged for its fixtures. Two assertions move rather than stay: `tests/test-routine-selectors.sh`'s "config.py carries the literal `"plan"`" pin becomes a catalogue pin, and `tests/test-sweep-routines.sh`'s "`fix` step 4a reads `/debug #N`" pin reads `/debug <ref>` from the lane file.
 - [x] **AC6** `tests/test-routines-contract.sh` pins the routine table in `routines.md` equal to the catalogue (names, selectors, deferred) and reads each routine's step rows from its lane file; `routines.md`'s per-routine sections carry no step rows. `tests/test-lane-catalogue.sh` pins the template's `[routines.skills]` block equal to `catalogue().chains`.
 - [x] **AC7** `tests/test-go-lanes.sh` pins: `/go`'s SKILL.md names `task-registry lanes` and `workflow`, carries no lane table and no `lanes/` directory; every interactive lane with a code-changing chain names `/plan` or `/debug` before `/build`; `investigate` never names `/wrap-up-session`; the host sweep and banner pins are unchanged.
 - [x] **AC8** `specs/go-front-door.md` records the supersession; `.agents/skills/go/SKILL.md` carries no `TODO(shortcut)`; `tasks/concepts.md` defines *lane*, *lane catalogue*, *contract routine* and *skill chain* in the new terms; the template's `[routines.skills]` comment names the catalogue as its source.
-- [x] **AC9** `bash tests/run.sh` green except the known Windows `gh`-mock baseline; `tests/test-skill-parity.sh` green.
+- [x] **AC9** `bash tests/run.sh` green except the known Windows `gh`-mock baseline.
 
 ## Testing approach
 

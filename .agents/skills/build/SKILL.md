@@ -1,6 +1,6 @@
 ---
 name: build
-description: Execute the task plan from tasks/todo.md autonomously using TDD with sub-agent delegation. Use after /plan is confirmed.
+description: Execute the task plan from tasks/todo.md autonomously using TDD with sub-agent delegation. Use in the session the build prompt starts.
 argument-hint: ""
 ---
 
@@ -26,7 +26,7 @@ Sub-agent model assignment for build orchestration. The Tier column is canonical
 
 **Escalation ladder for test regressions:**
 1. 2 attempts at builder tier
-2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `CLAUDE.md` § Model Routing → Floors.
+2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `.agents/references/model-routing.md` § *Floors*.
 3. Circuit breaker — `planner` at planner tier analyzes all 4 attempts; then halt and escalate to user
 
 Steps 1 and 2 must never resolve to the same model. If they do, the ladder has no middle rung and the first genuine escalation is the circuit breaker — four failed attempts later than intended.
@@ -74,12 +74,32 @@ progress and drift further before finding out. Merge `main` in frequently.
    - If empty or missing: **STOP** — run `/plan` first
 2. Read the spec from `specs/` that matches the current plan
    - If no spec found: **STOP** — run `/plan` first
-3. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
-4. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
-5. Identify the project's test runner (check `package.json`, `Makefile`, `pyproject.toml`, etc.)
-6. Run the full test suite once to establish a **green baseline**
+3. **File the slices** when any slice header of the `## Plan:` block lacks a
+   provider link — see *Pre-Flight: File the Slices* below. Do this before
+   the green baseline.
+4. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
+5. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
+6. Identify the project's test runner (check `package.json`, `Makefile`, `pyproject.toml`, etc.)
+7. Record the **base SHA** (`git rev-parse HEAD`) and run the full test suite
+   once, through the cache, to establish a **green baseline**:
+   `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>`.
+   The command is the `Full suite: <command>` line below the `AGENTS.md` end
+   marker, verbatim — the cache key hashes the command, so every skill must
+   spell it the same way; when a project declares none, use the runner step 6
+   identified. A green run of that command on this tree is reused, not
+   repeated; `/yolo` and `/auto-push` leave their baseline to this step. This
+   is the build's only full run; the pre-push one belongs to
+   `/wrap-up-session` Step 6.
    - If tests fail before you start: fix or flag to user before proceeding
-7. **Classify acceptance criteria** — for each AC in the spec, tag as `logic | integration | user-facing`:
+   - Resolve the **affected-test command** every later checkpoint runs: the
+     `Affected tests: <command with {base}>` line below the `AGENTS.md` end
+     marker, with `{base}` replaced by the base SHA (in this repository,
+     `bash tests/affected.sh --run {base}`). Run it through
+     `cached-suite.sh -- <affected-test command>` too, so the lock refuses it
+     beside a running suite and an unchanged tree reuses its green run. When a
+     project declares none, run the test files that cover the changed paths
+     and name them in the log line.
+8. **Classify acceptance criteria** — for each AC in the spec, tag as `logic | integration | user-facing`:
    | AC type | Signals |
    |---------|---------|
    | `logic` | Pure functions, validators, transforms, utilities — no I/O |
@@ -87,43 +107,81 @@ progress and drift further before finding out. Merge `main` in frequently.
    | `user-facing` | Auth flows, form submissions, navigation, UI state, anything a user sees or clicks |
    When an AC mixes types, classify by the highest tier (`user-facing` > `integration` > `logic`).
 
+**One suite at a time, no polling.** Launch the full suite as a background
+task (`run_in_background` on Claude Code) and wait for its completion
+notification. While it runs, do only work that leaves the working tree alone —
+reading the spec, classifying the ACs — because `cached-suite.sh` hashed the
+tree when the run started, and an edit made now would be pushed without a full
+run. Never wait in a foreground `sleep` or a poll loop. `cached-suite.sh`
+refuses a second full run with exit 3, and the rule extends to every test run:
+no test run starts while a suite is running — no targeted file, no
+affected-test run — because a test beside a running suite shares its load,
+slows both and can fake a failure in either.
+
+**A refusal is not a test result.** Exit 3 with `cached-suite: a suite is
+already running` on stderr means nothing ran: never hand it to `code-debugger`
+and never count it as a fix attempt. When the running suite is this session's
+own background job, wait for its completion notification and run again; when
+it belongs to another session or worktree, report the pid and start time the
+line names and stop, rather than wait on a job this session cannot see finish.
+
+### Pre-Flight: File the Slices
+
+This session exists because a human started it with the build prompt, which
+is the authorization the planning session did not have. When any slice
+header of the `## Plan:` block in `tasks/todo.md` lacks a provider link:
+
+Invoke `/slice specs/<feature>.md --file --approve`. The dry run is shown,
+then the apply. `/yolo` omits `--approve`, so its slices land like every
+other unattended write on a project that requires approval. With no tracker
+the rows link to `tasks/details/`.
+
+A `## Plan:` block with no `### Slice` headings is one **implicit slice**
+whose surface is the spec's `implementation_paths` frontmatter, so every
+plan written before this spec still builds.
+
 ## Phase 1 — Task Execution (TDD Loop)
 
 Process every `[ ]` task in `tasks/todo.md` without pausing for user confirmation between tasks.
 
 A `[ ]` row whose indented children are `[ ] TDD:` rows is a **slice header**
-(written by `/system-design-planning`): the registry's row for that slice, not
-a task of its own. Claim it through `/task-registry` when its first child
-starts, mark it `[x]` when its last child passes, and never dispatch a coder
-against it.
+(written by `/slice`): the registry's row for that slice, not a task of its
+own. Claim it through `/task-registry` when its first child starts, mark it
+`[x]` when its last child passes, and never dispatch a coder against it.
 
 ### Parallel Dispatch Assessment
 
-Before processing tasks sequentially, assess if any can run in parallel.
+Before processing tasks sequentially, get the ready set instead of guessing
+independence from prose:
 
-**Tasks are independent when**:
-- They modify different files/modules
-- They have no data dependencies on each other
-- They don't share state or resources
+```bash
+python3 .agents/skills/slice/scripts/slice.py ready --index tasks/todo.md --spec <spec>
+```
 
-**If 2+ independent tasks found**:
-1. Group tasks by independence
-2. Dispatch one sub-agent per independent group, passing
-   `isolation: "worktree"` on each `Agent` call **when the groups write files**.
+This prints each ready slice with its surface and every intersecting pair.
+Disjoint ready slices dispatch in parallel; an intersecting pair with no
+blocker between them is a plan defect — serialized in table order and
+reported, never guessed. Re-run `ready` after every slice closes to pick up
+the next batch.
+
+**If 2+ ready slices are disjoint**:
+1. Dispatch one sub-agent per slice, passing
+   `isolation: "worktree"` on each `Agent` call **when the slice writes files**.
    Independence assessed at plan time is a prediction; worktree isolation makes
    it structurally true, so a mis-grouping surfaces as a merge conflict you can
    see rather than two agents silently overwriting each other.
-3. Wait for all to return; check for file conflicts
-   Before dispatching, give every sub-agent a tool-call budget with an explicit
+2. Before dispatching, give every sub-agent a tool-call budget with an explicit
    "stop and write partial work" escape hatch, and arm a stall monitor. A hung agent
    returns nothing, so null-check fallbacks never fire and this barrier never releases.
    See `.agents/skills/build/references/subagent-resilience.md`.
-4. Run the full test suite **centrally, once** — never instruct the sub-agents to
+3. Wait for all to return; check for file conflicts.
+4. Run the affected-test command **centrally, once** — never instruct the sub-agents to
    run it themselves. Fanning verification out to every agent multiplies context
    for no added signal and is a known way to lose a whole fleet to autocompact
    thrashing. Isolate the *edits*, centralise the *verification*.
 
-**If tasks are sequential/dependent**: process one at a time (Steps 1–4 below).
+**Otherwise** — one ready slice, or an intersecting pair with no blocker:
+process slices one at a time, in table order (Steps 1–4 below).
 
 ### Step 1 — Implement the Task
 
@@ -140,6 +198,13 @@ Choose the agent or approach based on task type:
 - The relevant spec section from `specs/`
 - Paths to related source files
 - Instruction: "Follow TDD — write failing test first, then minimal implementation, then refactor"
+- The slice's Surface from § Build Order, with the rule: edit only inside
+  it; a file you must touch outside it is reported as
+  `[SURFACE] +<path> | reason: <one sentence>` and the work continues
+- The `> Handover:` blockquote (every `>` line) of each slice this one is blocked by, verbatim
+- The tool-call budget and escape hatch from `subagent-resilience.md` Rule
+  1, and the instruction to list unfinished `TDD:` rows under
+  `## Not finished`
 
 **Role-based context injection from `tasks/project-context.md`** (if it exists):
 
@@ -149,7 +214,7 @@ Choose the agent or approach based on task type:
 | `frontend-developer` | `[ARCHITECTURE]` + `[PROTECTION]` + `[CONVENTIONS]` + relevant requirements |
 | `code-debugger` | Failing test + relevant code only |
 
-Do not pass the full project-context to every agent — extract only relevant sections. For bulk artifacts (logs, long command output), follow the **Large-Artifact Handoff** convention in `.claude/project.md` — truncate-with-pointer, never inline.
+Do not pass the full project-context to every agent — extract only relevant sections. For bulk artifacts (logs, long command output), follow `AGENTS.md` § *Large-Artifact Handoff* — truncate-with-pointer, never inline.
 
 ### Step 2 — Per-Task Spec Compliance Check (inline, no agent)
 
@@ -166,7 +231,7 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 ### Step 3 — Run Tests
 
 1. Run the new test — confirm it **passes**
-2. Run the **full test suite** — confirm no regressions
+2. Run the **affected-test command** against the base SHA — confirm no regressions
 3. If failures: fix with `code-debugger` agent and full failure context
 4. Repeat until green
 
@@ -174,13 +239,55 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 
 - Change `[ ]` to `[x]` in `tasks/todo.md`
 - Log: `✓ [Test Name] — [one-line summary]`
-- **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the shared flush (`bash .claude/hooks/pre-compact.sh </dev/null`) — no prompt, no commit. This keeps on-disk state current at each semantic (task) boundary, so a context compaction or `/refresh` loses at most one task of work.
+- **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the shared flush (`bash .agents/hooks/pre-compact.sh </dev/null`) — no prompt, no commit. This keeps on-disk state current at each semantic (task) boundary, so a context compaction or `/refresh` loses at most one task of work.
 - **Task status**: when the project tracks tasks externally, claim the task and
   update its status through `/task-registry` (never by calling `gh` or a
   tracker API directly). Status writes are gated the same way every other external write is —
   dry-run unless `--apply` and the project's approval setting allow it.
 - Move to the next `[ ]` task immediately (no user prompt)
 - If a task is blocked by a previous failure, note it and skip to the next unblocked task
+
+### Slice Close
+
+When a slice's last `TDD:` row passes:
+
+```bash
+python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha>
+```
+
+This matches `git diff --name-only <base>..HEAD` against the slice's
+declared surface and prints `undeclared: <paths>` and `untouched: <globs>`,
+exiting 0 only when both are empty. Informational — nothing stops on a
+non-empty report; fold the result into the handover below and the Phase 4.5
+batch.
+
+Write a `> Handover:` blockquote under the slice heading, after its rows —
+one to four blockquote lines, each with its own prefix:
+
+```markdown
+> Handover: landed <short-sha>..<short-sha> — what landed
+> Do not re-derive: the facts the next slice must not rediscover
+> Surface: the `check` report (`undeclared:` / `untouched:`, or none)
+> Open: one open question (optional)
+```
+
+The first two lines are required; the blockquote is the unit every reader
+consumes — the delegation prompt and `/wrap-up-session` § Handovers carry
+the whole blockquote, never the `> Handover:` line alone. Write it for a
+one-slice plan too: it is what an interrupted build's next session reads.
+
+**Unfinished slice**: when the agent returns rows under `## Not finished`
+or the escape hatch fired, mark the finished rows `[x]`, leave the header
+and the remaining rows `[ ]`, write `unfinished: <rows>` in the handover,
+and leave the slice in the next `ready` set. Never renumber and never open
+a remainder slice. A header marked `[x]` with a `[ ]` child row is the
+**forbidden state** — Phase 6 counts nested rows and reports it as a build
+failure.
+
+The slice boundary is the checkpoint: run the affected-test command once, centrally;
+write the handover; flush the task-boundary checkpoint
+(`bash .agents/hooks/pre-compact.sh </dev/null`); then call `slice.py ready`
+again for the next batch.
 
 ### TDD Discipline (tdd)
 
@@ -244,13 +351,16 @@ criterion is `user-facing`:
    escalation owner*; that owner invokes the registry once.
 
 Internal-only changes skip changed-scope maintenance silently. This phase runs
-before the full suite and quality gate so any map edits receive both checks.
+before Phase 2 and the quality gate so any map edits receive both checks.
 
-## Phase 2 — Full Suite Validation
+## Phase 2 — Affected-Test Validation
 
 After all tasks are `[x]`:
 
-1. Run the **complete test suite**
+1. Run the **affected-test command** against the base SHA — every test file the
+   build touched, in one run. The pre-push full run is `/wrap-up-session` Step 6.
+   This run is not a "tests pass" claim under `/verify-evidence`, which wants
+   the full suite; that claim is made after Step 6's run, never from here.
 2. Run linter / type checker if configured
 3. Confirm all tests pass and no errors
 4. If anything fails: fix with `code-debugger`, then re-run
@@ -268,7 +378,7 @@ Invoke `/quality-gate` on all files changed during this build:
 
 1. Identify changed files via `git diff --name-only` (against baseline before build started)
 2. Run `/quality-gate` — this executes all 3 phases (structural, AI anti-patterns, APOSD design)
-3. Re-run full test suite after quality gate completes to confirm no regressions
+3. Re-run the affected-test command after quality gate completes to confirm no regressions
 
 ## Phase 4 — Spec Validation (Persistence Loop)
 
@@ -285,16 +395,16 @@ previous_failures: []
 |---------|-------------------|
 | `logic` | Unit test passes (covers the function in isolation) |
 | `integration` | Integration test passes (real API/DB/service interaction) |
-| `user-facing` | E2E walkthrough via `/verify --scope e2e` — entry in `tasks/e2e-log.md` for current commit short-sha |
+| `user-facing` | E2E walkthrough via `/verify-evidence --scope e2e` — entry in `tasks/e2e-log.md` for current commit short-sha |
 
 If ANY AC is classified `user-facing`:
 
-1. Invoke `/verify --scope e2e` before declaring Phase 4 complete.
+1. Invoke `/verify-evidence --scope e2e` before declaring Phase 4 complete.
 
 **For each round**:
 
 1. Re-read `specs/[feature-name].md`
-2. For every `user-facing` AC, invoke `/verify --scope e2e` (skip if already run this round with PASS entry for current commit)
+2. For every `user-facing` AC, invoke `/verify-evidence --scope e2e` (skip if already run this round with PASS entry for current commit)
 3. Walk through each AC:
    - Mark: `✅` (unit/integration test), `✅✅` (e2e walkthrough), `❌` (missing)
 4. **If all criteria are `✅` or `✅✅`**: proceed to Phase 5
@@ -311,7 +421,7 @@ An AC that ran and failed remains in the normal loop above.
 
 ## Phase 4.5 — Ambiguity Batch Review
 
-Per `.claude/project.md` § *Ambiguity Protocol*, sub-agents emit a single line
+Per `AGENTS.md` § *Ambiguity Protocol*, sub-agents emit a single line
 when they hit a question whose answer changes the implementation:
 
 ```
@@ -353,7 +463,9 @@ End your turn with this report populated from **real command output**:
 1. `git status --short`
 2. `git log --oneline <base>..HEAD`
 3. `ls specs/ | grep <feature>`
-4. `grep -c '^\[x\]' tasks/todo.md` vs `grep -c '^\[ \]' tasks/todo.md`
+4. `grep -cE '^\s*(- )?\[x\]' tasks/todo.md` vs `grep -cE '^\s*(- )?\[ \]' tasks/todo.md` —
+   counted with leading whitespace so nested `TDD:` rows are counted, not
+   just top-level rows
 
 ```
 ══════════════════════════════════════
@@ -389,6 +501,9 @@ Next: /wrap-up-session
 - Claiming "build complete" without the persistence proof block
 - Stating a file was "created" or "updated" without showing its absolute path
 - Omitting the `Pushed:` line
+- A slice header marked `[x]` while any of its child rows stay `[ ]` — the
+  **forbidden state** Slice Close defines; report it as a build failure,
+  never as a cosmetic mismatch
 
 ## Error Handling
 
@@ -451,7 +566,7 @@ User input required before proceeding.
 
 - **Autonomous**: No user prompts between tasks. Run to completion or until blocked.
 - **Observable**: Log every task completion so progress is visible.
-- **Safe**: Full test suite after every task. Never let regressions accumulate.
+- **Safe**: The affected-test command after every task; the full suite only at the cached baseline and pre-push. Never let regressions accumulate.
 - **Spec-faithful**: The spec is the contract. Build is not done until every AC has evidence.
 
 ## Claude Code Enhancements
@@ -468,7 +583,7 @@ On Pi + OpenRouter, explicit model IDs from the Model Routing table are used.
 override caps the highest-stakes review below the model the user chose.
 `critic` is the one exception: it carries a **planner floor**, so pass the planner
 alias when the session model is below planner tier and omit `model` otherwise.
-See `CLAUDE.md` § Model Routing.
+See `.agents/references/model-routing.md`.
 
 ### Pi Dispatch
 

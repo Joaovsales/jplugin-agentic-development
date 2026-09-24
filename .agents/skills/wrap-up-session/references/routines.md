@@ -216,7 +216,7 @@ ledger exists to prevent, reproduced in the document that prevents it.
 | 2 | Claim it: `task-registry claim <issue> --routine <name> --apply --approve`. Idempotent, and it refuses an issue belonging to another routine | — |
 | 3 | Create the branch: `routine_branch.py format <name> <issue> <slug>` | — |
 | 4 | **The routine-specific work.** See each routine below | — |
-| 5 | `/wrap-up-session` — review passes, tests, and the pull request | **non-skippable** |
+| 5 | `/wrap-up-session` — checks the quality receipt, tests, and the pull request | **non-skippable** |
 
 Step 5 is non-skippable for every progressable routine run: it is the review
 gate whose omission shipped #93 green. The one terminal before it is a fix
@@ -295,7 +295,7 @@ Stated once, like the consumer spine, and for the same reason.
 | 1 | `task-registry doctor` — records the destination policy the findings will take (local canonical, external issue, or publication pending). `janitor` additionally requires exactly one project-local `verify-<app>` skill: missing → loud non-zero naming `/create-verification-skill`, no branch, no PR | — |
 | 2 | Create the branch: `routine_branch.py format <name> <YYYYMMDD> sweep`. A branch that already exists is a second run the same day: loud non-zero, no second branch | — |
 | 3 | `/sweep --routine <name>` (`/tidy` for the `tidy` routine) — read the backlog, run the engine, verify, file, write the session record | **non-skippable** — the sweep is the routine's entire artifact |
-| 4 | `/wrap-up-session` — review passes, tests, and the pull request | **non-skippable** |
+| 4 | `/wrap-up-session` — checks the quality receipt, tests, and the pull request | **non-skippable** |
 
 A clean sweep still writes the record and still opens the PR: the record is the
 only place "every mapped feature was driven and nothing failed" is stated.
@@ -303,7 +303,7 @@ only place "every mapped feature was driven and nothing failed" is stated.
 ### `janitor` — steps
 
 Lens: bugs. Engine: the full test suite plus `/maintain-verification-skill`'s
-full pass, whose live pass drives every mapped feature under `/verify --scope
+full pass, whose live pass drives every mapped feature under `/verify-evidence --scope
 e2e` rules. Files as `bug`. Terminal artifact: a ready, docs-only PR whose body
 carries `Refs #N` per filed issue and this step list.
 

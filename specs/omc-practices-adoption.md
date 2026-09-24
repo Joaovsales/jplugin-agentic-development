@@ -218,5 +218,5 @@ For each proposed approach, generate 3-5 specific failure scenarios:
 - No tmux/multi-AI orchestration
 - No magic keyword detection (stays with slash commands)
 - No HUD/status line changes
-- No changes to `/plan`, `/tdd`, `/verify`, `/prd` skills
+- No changes to `/plan`, `/tdd`, `/verify-evidence`, `/prd` skills
 - No new hooks beyond kill switch edits

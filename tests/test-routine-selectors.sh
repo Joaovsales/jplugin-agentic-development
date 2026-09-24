@@ -25,7 +25,7 @@ cd "$REPO"
 SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
 CLI="$SCRIPTS/task-registry.py"
 FIXTURES="$REPO/tests/fixtures/task-registry"
-PY=python3
+PY="$TEST_PYTHON"
 
 TMP_DIRS=()
 cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
@@ -521,7 +521,7 @@ assert_contains "$claim_blank" "'in-progress'" \
 assert_not_contains "$claim_blank" "''" \
   "AC12: no blank claim label survives, which would disable the overlap guard"
 
-escalation_config="$($PY - "$SCRIPTS" <<'PY'
+escalation_config="$("$PY" - "$SCRIPTS" <<'PY'
 import pathlib, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 from registry.config import ConfigError, load_config
@@ -683,7 +683,7 @@ F_NO_HOLD_LABEL="$(new_fixture)"
 write_config "$F_NO_HOLD_LABEL" <<'EOF'
 EOF
 write_labels "$F_NO_HOLD_LABEL" bug enhancement design-decision tech-debt documentation in-progress
-$PY - "$F_NO_HOLD_LABEL/ghdata/labels.json" <<'PY'
+"$PY" - "$F_NO_HOLD_LABEL/ghdata/labels.json" <<'PY'
 import json, pathlib, sys
 path = pathlib.Path(sys.argv[1])
 path.write_text(json.dumps([x for x in json.loads(path.read_text()) if x["name"] != "needs-investigation"]))
@@ -750,7 +750,7 @@ assert_not_contains "$prod_sel_out" "unknown routine" \
 # ============================================================================
 # 7. The template documents what it ships
 # ============================================================================
-for tree in .agents .claude; do
+for tree in .agents; do
   tmpl="$tree/skills/task-registry/templates/task-tracking.md"
   assert_file_contains "$tmpl" "[routines]" \
     "AC12: $tree template documents the [routines] section"
@@ -1042,7 +1042,7 @@ assert_contains "$wf_help" "workflow" \
 
 # `--help` is not where an agent finds a command; the skill is. A command in one
 # and not the other is a command nothing reaches.
-for tree in .agents .claude; do
+for tree in .agents; do
   wf_skill="$REPO/$tree/skills/task-registry/SKILL.md"
   assert_file_matches "$wf_skill" '^argument-hint:.*workflow' \
     "AC13: $tree/task-registry offers workflow in its argument-hint"

@@ -25,7 +25,7 @@ trap 'rm -rf "$TMP"' EXIT
 # the traceback instead of a bare exit code. Sets $RC; never aborts under set -u.
 run_stdin() {
   local script="$1" input="$2" out="$3" log="$TMP/run.log"
-  PYTHONIOENCODING=cp1252 python3 "$script" --markdown - -o "$out" \
+  PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$script" --markdown - -o "$out" \
     <"$input" >"$log" 2>&1
   RC=$?
   [ "$RC" -eq 0 ] || { printf '       --- generator output ---\n'; sed 's/^/       /' "$log"; }
@@ -35,7 +35,7 @@ run_stdin() {
 # --- 0. The method itself, asserted -------------------------------------------
 # If PYTHONIOENCODING ever stops reaching sys.stdin, every assertion below goes
 # vacuous: they would all pass against `sys.stdin.read()`. Fail loudly instead.
-STDIN_ENC="$(PYTHONIOENCODING=cp1252 python3 -c 'import sys; print(sys.stdin.encoding)' </dev/null 2>&1)"
+STDIN_ENC="$(PYTHONIOENCODING=cp1252 "$TEST_PYTHON" -c 'import sys; print(sys.stdin.encoding)' </dev/null 2>&1)"
 assert_eq "cp1252" "$STDIN_ENC" "PYTHONIOENCODING reaches sys.stdin (guards every pin below from going vacuous)"
 
 # --- 1. The reported defect: UTF-8 markdown piped in on stdin ------------------
@@ -55,10 +55,9 @@ Box rules, arrows and em-dashes — the common case, not an edge one.
 └──────────────┘
 MD_EOF
 
-# Both mirror copies run: test-skill-parity.sh enforces byte-identity, but it
-# exempts its ALLOWLIST from comparison entirely, so an allowlist slip would
-# silence parity here while this loop still catches the drift.
-for TREE in ".agents" ".claude"; do
+# The canonical tree is the only copy: Claude Code loads it through the jplugin
+# plugin, so this run is what catches a drift in generate-presentation.py's output.
+for TREE in ".agents"; do
   OUT="$TMP/stdin-$TREE.html"
   run_stdin "$REPO_ROOT/$TREE/skills/html-presentation/scripts/generate-presentation.py" "$MD" "$OUT"
   assert_eq "0" "$RC" "($TREE) stdin path exits 0 under a non-UTF-8 default encoding"
@@ -73,7 +72,7 @@ done
 # needle that stopped rendering at all would satisfy the absence check in § 2 for
 # the wrong reason.
 FILE_OUT="$TMP/file.html"
-PYTHONIOENCODING=cp1252 python3 "$CANONICAL" --markdown "$MD" -o "$FILE_OUT" >"$TMP/file.log" 2>&1
+PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$CANONICAL" --markdown "$MD" -o "$FILE_OUT" >"$TMP/file.log" 2>&1
 FILE_RC=$?
 [ "$FILE_RC" -eq 0 ] || sed 's/^/       /' "$TMP/file.log"
 assert_eq "0" "$FILE_RC" "file path exits 0 under a non-UTF-8 default encoding"
@@ -110,12 +109,12 @@ assert_not_contains "$(cat "$BOM_OUT")" "<title>Presentation</title>" \
 
 # --- 4. Genuinely non-UTF-8 stdin fails loudly --------------------------------
 # The only new branch the fix adds beyond the happy path. decode() is strict by
-# design: a fallback here would be silent mojibake, which CLAUDE.md § No Silent
+# design: a fallback here would be silent mojibake, which AGENTS.md § No Silent
 # Failures forbids. Pin the loud contract -- non-zero, named cause, no artifact.
 BAD="$TMP/bad.md"
 printf '# Titre\n\nCaf\xe9 en latin-1.\n' >"$BAD"
 BAD_OUT="$TMP/bad.html"
-PYTHONIOENCODING=cp1252 python3 "$CANONICAL" --markdown - -o "$BAD_OUT" \
+PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$CANONICAL" --markdown - -o "$BAD_OUT" \
   <"$BAD" >"$TMP/bad.log" 2>&1
 BAD_RC=$?
 assert_eq "1" "$BAD_RC" "invalid UTF-8 on stdin: exits non-zero rather than mangling"

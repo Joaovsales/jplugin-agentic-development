@@ -21,7 +21,7 @@ cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d";
 trap cleanup EXIT
 
 # `-B` keeps every probe from writing __pycache__ into the canonical tree, which
-# tests/test-skill-parity.sh would report as drift.
+# every downstream /sync would then carry as an untracked change.
 pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -B -; }
 run_cli() { PYTHONDONTWRITEBYTECODE=1 "$PY" -B "$CLI" "$@"; }
 
@@ -285,10 +285,10 @@ PY
 )" "subclass: True" "AC2: LaneCatalogueError is a ConfigError"
 
 # ============================================================================
-# 3. AC3 — twelve files in both trees, every /skill token on disk
+# 3. AC3 — twelve files in the canonical tree, every /skill token on disk
 # ============================================================================
 printf '\n-- files --\n'
-for tree in .agents .claude; do
+for tree in .agents; do
   for lane in architect babysit build fix improve investigate janitor none perf plan refactor tidy; do
     f="$tree/skills/task-registry/lanes/$lane.md"
     assert_eq "present" "$([ -f "$f" ] && echo present || echo missing)" "AC3: $f exists"
@@ -302,8 +302,6 @@ for tree in .agents .claude; do
 done
 assert_eq "absent" "$([ -d .agents/skills/go/lanes ] && echo present || echo absent)" \
   "AC3: .agents/skills/go/lanes/ no longer exists"
-assert_eq "absent" "$([ -d .claude/skills/go/lanes ] && echo present || echo absent)" \
-  "AC3: .claude/skills/go/lanes/ no longer exists"
 
 # Every `/skill` token anywhere in a lane file — head, prose, or optional step —
 # resolves on disk. A prose-named alternative is found before work starts.

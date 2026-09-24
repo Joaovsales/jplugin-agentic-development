@@ -28,11 +28,17 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 CONFIG_DEFAULT_PATH = "docs/task-tracking.md"
 CONFIG_TEMPLATE_PATH = ".agents/skills/task-registry/templates/task-tracking.md"
-#: Searched in order, first hit wins. Project-owned files come first: `.claude/
-#: project.md` and `AGENTS.md` are written by the team, while `CLAUDE.md` is
-#: template-managed and overwritten by `/sync` — a pointer there is the least
-#: authoritative statement of where this project keeps its tracking config.
-POINTER_FILES = (".claude/project.md", "AGENTS.md", "CLAUDE.md")
+#: Searched in order, first hit wins. `AGENTS.md` is the project's instruction
+#: file — the pointer sits below the managed block's end marker. `.claude/
+#: project.md` is where projects declared it before the single instruction
+#: file; it stays readable, with a `doctor` notice, until `/sync` moves the
+#: line (specs/single-instruction-file.md, D3). `CLAUDE.md` is the `@AGENTS.md`
+#: import and is not searched.
+LEGACY_POINTER_FILE = ".claude/project.md"
+POINTER_FILES = ("AGENTS.md", LEGACY_POINTER_FILE)
+LEGACY_POINTER_NOTICE = (
+    f"pointer found in {LEGACY_POINTER_FILE} — /sync will move it to AGENTS.md"
+)
 POINTER_RE = re.compile(r"Task tracking instructions:\s*([^\s`<>]+)", re.IGNORECASE)
 _FENCE_RE = re.compile(r"```(?:ini|cfg|conf|toml)\s*\n(.*?)```", re.DOTALL)
 
@@ -110,9 +116,9 @@ DEFAULT_KIND_PRECEDENCE: Tuple[str, ...] = (
 #: "non-skippable for every routine without exception".
 TERMINAL_ROUTINE_SKILL = "/wrap-up-session"
 
-#: Where a chain's skills are looked for. Both trees are pinned byte-identical by
-#: tests/test-skill-parity.sh, and a project may carry only the Claude Code copy.
-SKILL_ROOTS = (".agents/skills", ".claude/skills")
+#: Where a chain's skills are looked for: the canonical tree, which Claude Code
+#: loads through the jplugin plugin and Pi and Codex read directly.
+SKILL_ROOTS = (".agents/skills",)
 
 #: Written before a routine branches, and skipped when already present.
 DEFAULT_CLAIM_LABEL = "in-progress"
@@ -207,6 +213,10 @@ class Config:
     )
     status_sources: Mapping[str, str] = field(default_factory=dict)
     source_path: Optional[str] = None
+    #: The project-instruction file whose pointer named `source_path`, or None
+    #: when the default path or nothing was used. `doctor` prints a notice when
+    #: it is the pre-single-file location.
+    pointer_file: Optional[str] = None
     #: True when the configuration asked to drop the approval requirement and the
     #: operator had not opted in. Surfaced by `doctor` so the refusal is visible.
     approval_relaxation_ignored: bool = False
@@ -243,7 +253,15 @@ def _as_bool(value: str, default: bool) -> bool:
 
 
 def find_config_path(root: str) -> Optional[str]:
+    """`find_config_source` without the declaring file — see there."""
+    return find_config_source(root)[0]
+
+
+def find_config_source(root: str) -> Tuple[Optional[str], Optional[str]]:
     """Resolve the configuration document, following a project-instruction pointer.
+
+    Returns `(config_path, pointer_file)`: the document, and the instruction
+    file whose pointer named it (None for the default path).
 
     Three states, and only the first is silent:
 
@@ -254,8 +272,9 @@ def find_config_path(root: str) -> Optional[str]:
     The third is a declared intent with a broken target. Folding it into the
     first made a project run on defaults while its own instructions said it was
     configured, and nothing said so (#82). The first pointer found wins, broken
-    or not: a dangling `.claude/project.md` pointer is not rescued by a valid
-    `CLAUDE.md` one, because the most authoritative declaration is the wrong one.
+    or not: a dangling `AGENTS.md` pointer is not rescued by a valid
+    `.claude/project.md` one, because the most authoritative declaration is the
+    wrong one.
     """
     for pointer_file in POINTER_FILES:
         declared = _declared_pointer(root, pointer_file)
@@ -277,9 +296,9 @@ def find_config_path(root: str) -> Optional[str]:
                 f"but {declared!r} {state} — create it from {CONFIG_TEMPLATE_PATH}, "
                 "or remove the pointer"
             )
-        return candidate
+        return candidate, pointer_file
     default = os.path.join(root, CONFIG_DEFAULT_PATH)
-    return default if os.path.isfile(default) else None
+    return (default if os.path.isfile(default) else None), None
 
 
 def _declared_pointer(root: str, pointer_file: str) -> Optional[str]:
@@ -339,11 +358,11 @@ def load_config(
     shipped_chains = dict(lanes.chains) if lanes else {}
     shipped_selectors = dict(lanes.selectors) if lanes else {}
     try:
-        config_path = find_config_path(root)
+        config_path, pointer_file = find_config_source(root)
     except ConfigPointerError:
         if strict:
             raise
-        config_path = None
+        config_path, pointer_file = None, None
     if config_path is None:
         return Config(
             root=root,
@@ -412,6 +431,7 @@ def load_config(
         priority_labels=section("labels.priority", DEFAULT_PRIORITY_LABELS),
         status_sources=section("status", {}),
         source_path=os.path.relpath(config_path, root),
+        pointer_file=pointer_file,
         approval_relaxation_ignored=not configured_approval and not trusted,
     )
     # Validated here rather than in the one command that reports selectors: a

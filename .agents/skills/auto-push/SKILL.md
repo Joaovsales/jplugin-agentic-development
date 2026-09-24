@@ -80,7 +80,7 @@ Before starting:
 
 1. **Branch safety**: Run `git rev-parse --abbrev-ref HEAD`. Confirm we are NOT on `main`, `master`, or `develop`. If we are: STOP and ask the user for a feature branch name.
 2. **Clean tree**: Run `git status --short`. If unrelated uncommitted changes exist, surface them and ask user how to handle before starting.
-3. **Test baseline**: Run the full test suite once. If red: STOP — auto-push will not commit on top of a broken baseline.
+3. **Test baseline**: `/build`'s pre-flight runs it, after `/plan`, through `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>` with the `Full suite:` line below the `AGENTS.md` end marker; a red baseline STOPS there — auto-push will not commit on top of a broken baseline. Do not run a baseline here: `/plan` and this pre-flight write to the tree before `/build` starts, so a run now would hash a tree `/build` never sees and be paid twice.
 
 If any pre-flight check fails, STOP. Do not proceed past unresolved guards.
 
@@ -90,11 +90,13 @@ If any pre-flight check fails, STOP. Do not proceed past unresolved guards.
 
 ### Phase A — Plan (with the approval gate)
 
-Run `/plan` **as-is**. Do not override anything. The user's interview, spec, and confirmation gate all run normally.
+Run `/plan` with one override, on its Step 6 — Hand over: instead of
+printing the build prompt for a fresh session, `/plan` asks exactly:
 
-The plan phase ends with `/plan` asking:
+> "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll build, wrap up and push in this session."
 
-> "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll begin the TDD loop."
+Everything before Step 6 — the interview, the spec, the plan `/slice`
+writes — runs unmodified.
 
 This is the **only** user prompt in the entire `/auto-push` flow.
 
@@ -111,7 +113,10 @@ Once `y` is received, **stop asking questions**. The rest is on you.
 
 ### Phase B — Build (autonomous)
 
-Invoke `/build`. It is already autonomous — no overrides needed for build itself. Run it to completion.
+Invoke `/build` in place, in this same session — `/auto-push` is a named
+exception to building in a fresh session, because its one gate is its own.
+Its pre-flight filing is `--approve`d by that `y`. It is already autonomous
+— no other overrides are needed for build itself. Run it to completion.
 
 - All TDD, quality gate, spec validation, backlog update phases run as normal.
 - If `/build`'s Phase 4 spec validation HALTS after 3 rounds: stop the auto-push pipeline. Do NOT proceed to wrap-up. Report the HALT to the user with the validation failures.
@@ -125,7 +130,7 @@ Invoke `/wrap-up-session` with these overrides:
 
 | `/wrap-up-session` step | Auto-push override |
 |---|---|
-| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify --scope e2e` automatically. The approval covered "ship it"; e2e verification is part of shipping. |
+| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. The approval covered "ship it"; e2e verification is part of shipping. |
 | Step 7 — Commit gate (MUST-FIX unresolved → STOP) | If a MUST-FIX cannot be auto-fixed, STOP and report. Do NOT push partial work. The approval did not cover skipping safety gates. |
 | Step 5.1 — Apply Gate | Run normally, **no prompt added**. A `MUST-FIX` that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately inside the wrap-up loop if you can, otherwise STOP and report it as unresolved. Never widen `autofix_class`, and never downgrade a finding, to reach the push. |
 | Step 7 — Push | Run normally. Push to the feature branch. |
@@ -160,7 +165,7 @@ In every stop case, leave the working tree in a recoverable state. The user can 
 | Excuse | Reality |
 |---|---|
 | "The user might want to see this implementation detail before I commit" | They approved the plan. The commit is downstream of "ship it". |
-| "I'll skip the E2E gate since the unit tests pass" | No. User-facing ACs need e2e evidence; that's `/verify --scope e2e`, not unit tests. |
+| "I'll skip the E2E gate since the unit tests pass" | No. User-facing ACs need e2e evidence; that's `/verify-evidence --scope e2e`, not unit tests. |
 | "MUST-FIX is annoying — I'll just push anyway" | No. The approval did not authorize skipping safety gates. STOP and report. |
 | "I should ask if they want me to also update the docs" | No. If docs weren't in the plan, they aren't in the build. Mention as a follow-up in the final report. |
 | "Let me confirm the branch name before pushing" | The branch was set at pre-flight. Push to that branch. |
@@ -213,7 +218,7 @@ Next: <PR review | re-run /auto-push for next feature | manual fix for <stopped 
 ## Integration
 
 - **Called by**: User directly. Not invoked by other skills.
-- **Calls**: `/plan` (unmodified), `/build` (unmodified), `/wrap-up-session` (with Phase C overrides), `/verify --scope e2e`.
+- **Calls**: `/plan` (with the Step 6 override above), `/build` (in place, unmodified otherwise), `/wrap-up-session` (with Phase C overrides), `/verify-evidence --scope e2e`.
 - **Pairs with**: `/yolo` — the unsupervised cousin. Auto-push keeps the plan-approval gate; yolo skips it.
 - **Differs from default workflow**: same `plan → build → wrap-up` sequence, but chained behind one command and one approval. No prompt between build and wrap-up.
 

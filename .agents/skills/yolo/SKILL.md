@@ -79,7 +79,7 @@ Before entering the loop:
 
 1. **Branch safety**: Confirm we are NOT on `main`, `master`, or `develop`. If we are: STOP and ask user for a feature branch name.
 2. **Clean tree**: Run `git status --short`. If uncommitted changes exist that aren't from this session, STOP and ask user how to handle them.
-3. **Test baseline**: Run the full test suite once. If red before we start, STOP — yolo mode cannot loop on a broken baseline.
+3. **Test baseline**: `/build`'s pre-flight runs it, after `/plan`, through `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>` with the `Full suite:` line below the `AGENTS.md` end marker; a red baseline STOPS there — yolo mode cannot loop on a broken baseline. Do not run a baseline here: `/plan` and this pre-flight write to the tree before `/build` starts, so a run now would hash a tree `/build` never sees and be paid twice.
 4. **Idea capture**: Write the user's idea verbatim to `tasks/yolo-idea.md` (overwrite any previous). This is the source-of-truth prompt that survives context resets.
 5. **Initialize log**: Create `tasks/yolo-log.md` if missing, with this header:
    ```markdown
@@ -140,17 +140,22 @@ Invoke the `/plan` skill on the current work item, with the following overrides:
 
 | `/plan` step | Yolo override |
 |---|---|
-| Step 1 — Interview | **Do not interview the user.** Synthesize a spec from the idea (or backlog item) and any context in `tasks/project-context.md`. If genuinely ambiguous: pick the most conservative interpretation and note the assumption in the spec's "Assumptions" section. |
+| Step 1 — Interview | **Do not interview the user.** Synthesize a spec from the idea (or backlog item) and any context in `tasks/project-context.md`. If genuinely ambiguous: pick the most conservative interpretation. Every gap becomes an `assumed` row in § Decisions stating why; an `open` row is answered the same conservative way and recorded there too, instead of being left for a human. |
 | Step 2 — Write spec | Run normally. Spec file must be written to `specs/<feature-name>.md`. |
-| Step 3 — Write plan | Run normally. Tasks appended to `tasks/todo.md`. |
-| Step 4 — Present and confirm | **SKIPPED.** No user prompt. Proceed directly to Phase B. |
+| Step 3 — Slice the spec | Run normally. `/slice` writes § Build Order and the plan block to `tasks/todo.md`. |
+| Step 4 — Present | Run normally — it asks nothing anyway. |
 | Step 5 — Divergence check | Run normally. If divergence found, log it to `tasks/yolo-log.md` and proceed — do NOT prompt user. |
+| Step 6 — Hand over | Prints no prompt; Phase B invokes `/build` in place instead of waiting for a fresh session to pick up the build prompt. |
 
 After Phase A: `specs/<feature>.md` and `tasks/todo.md` must exist on disk with the new plan block.
 
 ### Phase B — Build
 
-Invoke `/build`. It is already autonomous. Run it to completion.
+Invoke `/build` in place, in this same session — `/yolo` is a named exception
+to building in a fresh session, and it is unattended by design. It is already
+autonomous. Run it to completion. Its pre-flight filing runs `--file` without
+`--approve`: unattended, the project's approval floor decides whether the
+slices land or go `local-pending`.
 
 - Phases 1–5 run as normal (TDD, quality gate, spec validation, backlog update).
 - Phase 6 (build report) is required — paste it into `tasks/yolo-log.md`.
@@ -163,7 +168,7 @@ Invoke `/wrap-up-session` with one override:
 
 | `/wrap-up-session` step | Yolo override |
 |---|---|
-| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify --scope e2e` automatically. If verify fails: log gap and continue. |
+| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. If verify fails: log gap and continue. |
 | Step 7 — Commit gate (any MUST-FIX unresolved → STOP) | If a MUST-FIX cannot be auto-fixed within the wrap-up loop, mark this iteration FAIL and **do not push**. The circuit breaker handles repeated failures. |
 | Step 5.1 — Apply Gate | Run normally, **no prompt added**. A `MUST-FIX` that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately inside the wrap-up loop if you can, otherwise it is an unresolved MUST-FIX and this iteration is FAIL. Never widen `autofix_class`, and never downgrade a finding, to get the loop moving. |
 | Step 7 — Push | Run normally. Push to the feature branch. |
@@ -269,7 +274,7 @@ Next: <suggested follow-up — re-run /yolo, or /wrap-up-session if HALT, or non
 ## Integration
 
 - **Called by**: User directly. Not invoked by other skills.
-- **Calls**: `/plan` (with Phase A overrides), `/build`, `/wrap-up-session` (with Phase C overrides), `/verify --scope e2e`.
+- **Calls**: `/plan` (with Phase A overrides), `/build`, `/wrap-up-session` (with Phase C overrides), `/verify-evidence --scope e2e`.
 - **Pairs with**: `/auto-push` — the supervised cousin. Same pipeline, but `/plan` keeps its user-confirmation gate.
 - **Persists state via**: `tasks/yolo-idea.md`, `tasks/yolo-log.md`, `tasks/backlog.md`, `tasks/todo.md`, git history.
 

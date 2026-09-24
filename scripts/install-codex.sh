@@ -16,9 +16,12 @@ usage() {
   cat <<'EOF'
 Usage: bash scripts/install-codex.sh
 
-Installs the workflow's harness-neutral skills, agents, shared rules, and
-optional lifecycle hooks for the current user. Set CODEX_HOME or AGENTS_HOME
-to test or use a non-default configuration directory.
+Installs the workflow's harness-neutral skills, agents and optional lifecycle
+hooks for the current user. The shared rules are not rendered globally: each
+project reads them from the managed block of its own AGENTS.md, written by
+/sync (a block an earlier adapter rendered into ~/.codex/AGENTS.md is offered
+for removal by install.sh). Set CODEX_HOME or AGENTS_HOME to test or use a
+non-default configuration directory.
 EOF
 }
 
@@ -50,34 +53,30 @@ mkdir -p "$AGENTS_HOME/skills" "$CODEX_HOME/agents" "$CODEX_HOME/hooks"
 cp -r "$REPO_DIR/.agents/skills/." "$AGENTS_HOME/skills/"
 printf 'installed canonical skills in %s\n' "$AGENTS_HOME/skills"
 
-"$PYTHON_BIN" "$RENDERER" --global \
-  "$REPO_DIR/CLAUDE.md" "$CODEX_HOME/AGENTS.md"
-printf 'rendered shared workflow rules in %s\n' "$CODEX_HOME/AGENTS.md"
-
 "$PYTHON_BIN" "$RENDERER" --agents \
   "$REPO_DIR/.agents/agents" "$CODEX_HOME/agents"
 printf 'rendered canonical agents in %s\n' "$CODEX_HOME/agents"
 
-cp "$REPO_DIR/.claude/hooks/session-start.sh" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-start.sh"
-cp "$REPO_DIR/.claude/hooks/pre-compact.sh" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-pre-compact.sh"
-cp "$REPO_DIR/.claude/hooks/session-stop.sh" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-end.sh"
+cp "$REPO_DIR/.agents/hooks/session-start.sh" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.sh"
+cp "$REPO_DIR/.agents/hooks/pre-compact.sh" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-pre-compact.sh"
+cp "$REPO_DIR/.agents/hooks/session-stop.sh" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-end.sh"
 cp "$REPO_DIR/codex/hooks/session_start.py" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py"
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py"
 chmod +x \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-start.sh" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-pre-compact.sh" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-end.sh" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py"
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.sh" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-pre-compact.sh" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-end.sh" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py"
 
 printf -v start_hook '%q %q' "$PYTHON_BIN" \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py"
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py"
 printf -v compact_hook 'bash %q' \
-  "$CODEX_HOME/hooks/coding-agent-workflow-pre-compact.sh"
+  "$CODEX_HOME/hooks/jplugin-agentic-development-pre-compact.sh"
 printf -v end_hook 'bash %q' \
-  "$CODEX_HOME/hooks/coding-agent-workflow-session-end.sh"
+  "$CODEX_HOME/hooks/jplugin-agentic-development-session-end.sh"
 "$PYTHON_BIN" "$RENDERER" --merge-hooks "$CODEX_HOME/hooks.json" \
   "$start_hook" "$compact_hook" "$end_hook"
 

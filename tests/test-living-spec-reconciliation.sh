@@ -32,7 +32,6 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 CANON=".agents/skills"
-COMPAT=".claude/skills"
 
 # Extract the body of the FIRST `## Acceptance Criteria` section, stopping at the
 # next H2 or at a fence terminator. Anchoring on the heading rather than grepping
@@ -59,7 +58,7 @@ printf '\n--- 1. Workflow-created specs are living contracts ------------------\
 # that surface changes -- it is discoverable only by the legacy prose fallback,
 # which is exactly the debt this feature retires. So the templates that CREATE
 # specs must emit the metadata, or every new spec is born legacy.
-for tree in "$CANON" "$COMPAT"; do
+for tree in "$CANON"; do
   for skill in plan brainstorm; do
     f="$tree/$skill/SKILL.md"
     assert_file_matches "$f" '^implementation_paths:' \
@@ -82,9 +81,11 @@ for tree in "$CANON" "$COMPAT"; do
 
   # The plan block is what associates completed tasks with a spec. Without an
   # exact machine-readable line, wrap-up would have to guess a spec from a
-  # similar filename, which is the one thing the spec forbids it to do.
-  assert_file_contains "$tree/plan/SKILL.md" '> Spec: specs/[feature-name].md' \
-    "plan ($tree): plan template associates its tasks with exactly one spec path"
+  # similar filename, which is the one thing the spec forbids it to do. The
+  # block is written by /slice since specs/plan-slices-and-handover.md; /plan
+  # only invokes it.
+  assert_file_contains "$tree/slice/SKILL.md" '> Spec: specs/<feature>.md' \
+    "slice ($tree): plan block associates its tasks with exactly one spec path"
 done
 
 # specs/README.md is where a human learns the format. A contract documented only
@@ -103,10 +104,7 @@ assert_prose_contains specs/README.md 'Frontmatter is the matching contract' \
 
 HELPER="$REPO/$CANON/wrap-up-session/scripts/spec-reconcile.py"
 
-if command -v python3 >/dev/null 2>&1; then PY=python3
-elif command -v python >/dev/null 2>&1; then PY=python
-else printf '  FAIL no python interpreter found (python3/python)\n'; exit 1
-fi
+PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
 
 TMP_DIRS=()
 cleanup() { for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
@@ -148,7 +146,7 @@ printf 'staged\n' > "$D/src/staged.py"
 git -C "$D" add src/staged.py
 printf 'four\ndirty\n' > "$D/src/unstaged.py"
 
-CS="$($PY "$HELPER" changeset --repo "$D" --base main --json 2>&1)"
+CS="$("$PY" "$HELPER" changeset --repo "$D" --base main --json 2>&1)"
 assert_contains "$CS" '"src/kept.py"'      "changeset: committed modification captured"
 assert_contains "$CS" '"src/added.py"'     "changeset: committed addition captured"
 assert_contains "$CS" '"src/staged.py"'    "changeset: staged-but-uncommitted path captured"
@@ -176,7 +174,7 @@ assert_contains "$CS" '"status": "A"' "changeset: addition reported with status 
 # byte, and a quoted path matches no spec pattern -- so the spec that documents
 # that file is silently never selected. NUL delimiting removes the quoting layer
 # entirely rather than teaching the parser to undo it.
-PARSED="$($PY - "$HELPER" <<'EOF'
+PARSED="$("$PY" - "$HELPER" <<'EOF'
 import importlib.util, sys, json
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
@@ -197,7 +195,7 @@ printf '\n--- 3. Path metadata: matching semantics and loud rejection ---------\
 # The matcher is exercised in-process. Driving it through fixture repositories
 # would test git and the matcher at once, and a matching bug would surface as a
 # missing candidate three layers away from the rule that caused it.
-MATCH="$($PY - "$HELPER" <<'EOF'
+MATCH="$("$PY" - "$HELPER" <<'EOF'
 import importlib.util, sys, json
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
@@ -238,7 +236,7 @@ assert_contains "$MATCH" '"exact": true'              "glob: a literal path matc
 # Rejection. Each of these is a value a spec author can write by accident, and
 # each fails in the same silent direction if merely ignored: the pattern matches
 # nothing, so the spec is never selected and quietly stops being maintained.
-REJECT="$($PY - "$HELPER" <<'EOF'
+REJECT="$("$PY" - "$HELPER" <<'EOF'
 import importlib.util, sys, json
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
@@ -287,7 +285,7 @@ assert_contains "$REJECT" '/etc/passwd' "validation: the error quotes the offend
 # Malformed frontmatter is the same class of failure one level up: the block
 # parses to nothing, so the spec looks metadata-free and silently falls back to
 # the legacy reader instead of announcing that its contract is broken.
-FM="$($PY - "$HELPER" <<'EOF'
+FM="$("$PY" - "$HELPER" <<'EOF'
 import importlib.util, sys, json, tempfile, os
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
@@ -427,7 +425,7 @@ git -C "$E" rm -q src/deleted.py
 printf '\nedited during the session\n' >> "$E/specs/unrelated.md"
 git -C "$E" add -A >/dev/null && git -C "$E" commit -qm work
 
-DISC="$($PY "$HELPER" discover --repo "$E" --base main --json 2>&1)"
+DISC="$("$PY" "$HELPER" discover --repo "$E" --base main --json 2>&1)"
 assert_contains "$DISC" '"spec": "specs/alpha.md"'   "discover: a spec matched through its metadata is a candidate"
 assert_contains "$DISC" '"spec": "specs/beta.md"'    "discover: a second spec claiming the same file is ALSO a candidate"
 assert_contains "$DISC" '"spec": "specs/legacy.md"'  "discover: a legacy spec is found through Files Likely Involved"
@@ -445,7 +443,7 @@ assert_not_contains "$DISC" '"spec": "specs/meta.md"' \
 # whether or not the rename selected anything -- the assertion would stay green
 # through exactly the regression it exists to catch.
 printf '%s' "$DISC" > "$E/discover.json"
-DISC_REASONS="$($PY -c '
+DISC_REASONS="$("$PY" -c '
 import json, sys
 payload = json.load(open(sys.argv[1]))
 print("\n".join(r for c in payload["candidates"] for r in c["reasons"]))
@@ -458,7 +456,7 @@ assert_contains "$DISC_REASONS" 'session-spec'        "discover: the session-spe
 # once carrying both.
 ALPHA_COUNT="$(printf '%s' "$DISC" | grep -c '"spec": "specs/alpha.md"')"
 assert_eq "1" "$ALPHA_COUNT" "discover: a spec matched by two paths appears exactly once"
-ALPHA_REASONS="$($PY - <<EOF
+ALPHA_REASONS="$("$PY" - <<EOF
 import json,sys
 d=json.loads('''$DISC''')
 c=[x for x in d["candidates"] if x["spec"]=="specs/alpha.md"][0]
@@ -475,7 +473,7 @@ cat > "$E/tasks/todo.md" <<'EOF'
 
 [x] TDD: work -> done
 EOF
-NOASSOC="$($PY "$HELPER" discover --repo "$E" --base main --json 2>&1)"
+NOASSOC="$("$PY" "$HELPER" discover --repo "$E" --base main --json 2>&1)"
 assert_not_contains "$NOASSOC" 'session-spec' \
   'discover: a plan block without a `> Spec:` line contributes no session spec'
 assert_not_contains "$NOASSOC" '"spec": "specs/session.md"' \
@@ -491,7 +489,7 @@ implementation_paths:
 ---
 # Spec: Broken
 EOF
-BROKEN_OUT="$($PY "$HELPER" discover --repo "$E" --base main 2>&1)"; BROKEN_RC=$?
+BROKEN_OUT="$("$PY" "$HELPER" discover --repo "$E" --base main 2>&1)"; BROKEN_RC=$?
 assert_eq "1" "$BROKEN_RC" "discover: invalid metadata exits non-zero rather than returning a short list"
 assert_contains "$BROKEN_OUT" "specs/broken.md" "discover: the failure names the offending spec"
 assert_contains "$BROKEN_OUT" "/etc/passwd"     "discover: the failure quotes the offending value"
@@ -503,7 +501,7 @@ F="$(make_repo)"
 git -C "$F" checkout -qb feature
 printf 'x\n' >> "$F/src/kept.py"
 git -C "$F" commit -qam work
-EMPTY_OUT="$($PY "$HELPER" discover --repo "$F" --base main 2>&1)"; EMPTY_RC=$?
+EMPTY_OUT="$("$PY" "$HELPER" discover --repo "$F" --base main 2>&1)"; EMPTY_RC=$?
 assert_eq "0" "$EMPTY_RC" "discover: no candidates exits 0"
 assert_contains "$EMPTY_OUT" "0 candidates" "discover: no candidates reports a bounded count, not silence"
 
@@ -548,7 +546,7 @@ printf 'shared\n# reformatted only\n' > "$S/src/shared.py"                  # ->
 printf 'opaque\nvalue = CONFIG_SET_AT_DEPLOY\n' > "$S/src/opaque.py"        # -> deferred
 git -C "$S" commit -qam work
 
-SEM="$($PY "$HELPER" discover --repo "$S" --base main --json 2>&1)"
+SEM="$("$PY" "$HELPER" discover --repo "$S" --base main --json 2>&1)"
 assert_contains "$SEM" '"spec": "specs/changed-behavior.md"' \
   "semantic: the spec whose behavior changed reaches reconciliation"
 assert_contains "$SEM" '"spec": "specs/untouched-contract.md"' \
@@ -561,8 +559,7 @@ assert_contains "$SEM" '"spec": "specs/unresolvable.md"' \
 # pinned is that the protocol exists, names exactly three outcomes, and says
 # which evidence must be read before one is assigned.
 WU="$CANON/wrap-up-session/SKILL.md"
-WUC="$COMPAT/wrap-up-session/SKILL.md"
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'exactly one outcome' \
     "wrap-up ($f): every candidate receives exactly one outcome"
   assert_prose_contains "$f" '`updated`' "wrap-up ($f): the updated outcome is defined"
@@ -595,7 +592,7 @@ printf '\n--- 6. Legacy migration rides on behavioral change, never on format -\
 # with the list emptied, and each step is separately forgettable: a migration that
 # adds frontmatter but leaves `## Files Likely Involved` in place ships a spec with
 # two contradictory path lists and no rule saying which one wins.
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'add valid `implementation_paths` frontmatter' \
     "migration ($f): step 1 adds the metadata"
   assert_prose_contains "$f" 'replace `## Files Likely Involved` with `## Implementation Paths`' \
@@ -616,12 +613,6 @@ for f in "$WU" "$WUC"; do
     "migration ($f): the reason migration is lazy is stated, not just the rule"
 done
 
-# The two skill trees must agree byte-for-byte. A contract that holds only in the
-# canonical tree is one Claude Code never reads.
-assert_files_identical "$WU" "$WUC" "wrap-up SKILL.md is byte-identical across skill trees"
-assert_files_identical "$CANON/wrap-up-session/scripts/spec-reconcile.py" \
-                       "$COMPAT/wrap-up-session/scripts/spec-reconcile.py" \
-                       "spec-reconcile.py is byte-identical across skill trees"
 
 printf '\n--- 7. Deferred work becomes one idempotent, provider-neutral task ---\n'
 
@@ -631,7 +622,7 @@ REGISTRY="$REPO/$CANON/task-registry/scripts/task-registry.py"
 # has at most one live reconciliation task. Deriving it from the basename would
 # collide `specs/auth.md` with `specs/legacy/auth.md` and silently merge two
 # unrelated deferrals into one ticket.
-IDS="$($PY - "$REGISTRY" <<'EOF'
+IDS="$("$PY" - "$REGISTRY" <<'EOF'
 import importlib.util, sys, json, os
 root = os.path.dirname(sys.argv[1])
 sys.path.insert(0, root)
@@ -675,7 +666,7 @@ DEFER_ARGS=(
 # Dry-run is the registry's iron law and this command is not an exception. A step
 # that wrote on the default path would make every `/wrap-up-session` rehearsal
 # leave litter behind.
-DRY="$($PY "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" \
+DRY="$("$PY" "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" \
   "${DEFER_ARGS[@]}" 2>&1)"; DRY_RC=$?
 assert_eq "0" "$DRY_RC" "upsert: dry-run exits 0"
 assert_contains "$DRY" "would" "upsert: dry-run says what it would do"
@@ -685,7 +676,7 @@ assert_not_contains "$(cat "$P/tasks/todo.md")" "spec-reconciliation" \
   "upsert: dry-run writes no index row"
 
 # --apply: one durable record and one compact index row pointing at it.
-APPLY="$($PY "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" --apply \
+APPLY="$("$PY" "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" --apply \
   "${DEFER_ARGS[@]}" 2>&1)"; APPLY_RC=$?
 assert_eq "0" "$APPLY_RC" "upsert --apply exits 0"
 DETAIL="$P/tasks/details/spec-reconciliation.specs-feature-c-md.md"
@@ -718,7 +709,7 @@ assert_file_contains "$DETAIL" "research" "upsert: the task is filed as research
 # Idempotence. Re-running wrap-up over the same change set is a normal thing to
 # do -- after a review fix, after a rebase -- and each run must update the one
 # task rather than mint a second.
-$PY "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" --apply \
+"$PY" "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" --apply \
   --title 'Reconcile specs/feature-c.md with current export ordering' \
   --kind research --spec specs/feature-c.md \
   --summary 'Second look: the only consumer is a downstream repository.' \
@@ -731,13 +722,13 @@ assert_file_contains "$DETAIL" "downstream repository" "upsert: the second run's
 
 # Reopen. A spec that was reconciled and closed, then goes uncertain again, is
 # the same question recurring -- not a new one -- so the closed task reopens.
-$PY - "$DETAIL" <<'EOF'
+"$PY" - "$DETAIL" <<'EOF'
 import sys, re
 p = sys.argv[1]
 t = open(p, encoding="utf-8").read()
 open(p, "w", encoding="utf-8").write(re.sub(r"^- status: .*$", "- status: done", t, count=1, flags=re.M))
 EOF
-REOPEN="$($PY "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" --apply \
+REOPEN="$("$PY" "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$P" --apply \
   --title 'Reconcile specs/feature-c.md with current export ordering' \
   --kind research --spec specs/feature-c.md \
   --summary 'The question came back after the exporter changed again.' 2>&1)"
@@ -750,7 +741,7 @@ printf '\n--- 8. External publication only where the write policy already allows
 # whichever tracker happens to be installed on the machine running the suite.
 # Every branch here is a way documentation debt could be lost: published without
 # authorization, or dropped because publishing was not allowed.
-DEST="$($PY - "$REGISTRY" <<'EOF'
+DEST="$("$PY" - "$REGISTRY" <<'EOF'
 import sys, os, json
 root = os.path.dirname(sys.argv[1])
 sys.path.insert(0, root)
@@ -786,7 +777,7 @@ assert_contains "$DEST" '"unreachable": "local-pending"' \
 # the dry-run flag into the approval policy, so reading it here made the dry-run
 # report `local-pending` for a provider the apply run would have written to --
 # and the preview is the artifact a human reads before authorizing that write.
-PREVIEW="$($PY - "$REGISTRY" <<'EOF'
+PREVIEW="$("$PY" - "$REGISTRY" <<'EOF'
 import sys, os, json
 sys.path.insert(0, os.path.dirname(sys.argv[1]))
 from registry.upsert import resolve_destination
@@ -801,8 +792,8 @@ EOF
 )"
 assert_contains "$PREVIEW" '"dry": "external"' \
   "destination: the dry-run preview names the destination --apply would use"
-DRY_DEST="$($PY -c "import json,sys;d=json.loads(sys.argv[1]);print(d['dry'])" "$PREVIEW")"
-APPLY_DEST="$($PY -c "import json,sys;d=json.loads(sys.argv[1]);print(d['apply'])" "$PREVIEW")"
+DRY_DEST="$("$PY" -c "import json,sys;d=json.loads(sys.argv[1]);print(d['dry'])" "$PREVIEW")"
+APPLY_DEST="$("$PY" -c "import json,sys;d=json.loads(sys.argv[1]);print(d['apply'])" "$PREVIEW")"
 assert_eq "$APPLY_DEST" "$DRY_DEST" \
   "destination: preview and apply agree — destination is policy, not intent-to-write"
 
@@ -810,23 +801,23 @@ assert_eq "$APPLY_DEST" "$DRY_DEST" \
 # only in prose is one each caller re-derives by hand, and `is_valid_id` accepts
 # both plausible normalizations -- so a mismatch mints a second task silently, on
 # the second session. The derivation is therefore exposed, not described.
-DERIVED="$($PY "$REGISTRY" upsert --repo "$P" --derive-id spec-reconciliation \
+DERIVED="$("$PY" "$REGISTRY" upsert --repo "$P" --derive-id spec-reconciliation \
   --spec specs/feature-c.md --title 'Derived id run' --kind research 2>&1)"
 assert_contains "$DERIVED" "spec-reconciliation.specs-feature-c-md" \
   "derive-id: the CLI mints the same id the normalization rule specifies"
 assert_contains "$DERIVED" "would update" \
   "derive-id: the derived id addresses the EXISTING task, proving the two agree"
 
-BOTH_IDS="$($PY "$REGISTRY" upsert some.id --repo "$P" --derive-id spec-reconciliation \
+BOTH_IDS="$("$PY" "$REGISTRY" upsert some.id --repo "$P" --derive-id spec-reconciliation \
   --spec specs/feature-c.md --title 'x' 2>&1)"; BOTH_RC=$?
 assert_eq "2" "$BOTH_RC" "derive-id: supplying both an explicit and a derived id is a usage error"
-NEITHER="$($PY "$REGISTRY" upsert --repo "$P" --title 'x' 2>&1)"; NEITHER_RC=$?
+NEITHER="$("$PY" "$REGISTRY" upsert --repo "$P" --title 'x' 2>&1)"; NEITHER_RC=$?
 assert_eq "2" "$NEITHER_RC" "derive-id: supplying neither is a usage error, not a default"
 
 # And the skill must say so, because the failure this prevents is a judgement
 # call made at 3am by an unattended run: pausing for approval would hang the
 # pipeline, and publishing without it would breach the project's write policy.
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'does not pause or fail' \
     "deferred ($f): an unpublishable task never blocks wrap-up"
   assert_prose_contains "$f" 'publication is pending' \
@@ -851,13 +842,12 @@ printf '\n--- 9. Placement: after the register, before every downstream gate ---
 # checked. So the step's position is asserted against the actual heading
 # sequence, not merely its presence.
 step_order() { grep -n '^## Step ' "$1" | sed 's/:.*Step /:/' | sed 's/ .*//'; }
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   ORDER="$(step_order "$f")"
   assert_contains "$ORDER" ":3.2" "placement ($f): a Step 3.2 exists"
   LINE_REG="$(grep -n '^## Step 2 ' "$f" | cut -d: -f1)"
   LINE_REC="$(grep -n '^## Step 3.2 ' "$f" | cut -d: -f1)"
   LINE_MAP="$(grep -n '^## Step 3.3 ' "$f" | cut -d: -f1)"
-  LINE_SEC="$(grep -n '^## Step 3.5 ' "$f" | cut -d: -f1)"
   LINE_REV="$(grep -n '^## Step 4 ' "$f" | cut -d: -f1)"
   LINE_TEST="$(grep -n '^## Step 6 ' "$f" | cut -d: -f1)"
   LINE_PUSH="$(grep -n '^## Step 7 ' "$f" | cut -d: -f1)"
@@ -865,10 +855,10 @@ for f in "$WU" "$WUC"; do
     "placement ($f): reconciliation runs AFTER the task register"
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_MAP" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE verification-map maintenance"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_SEC" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE the security scan"
+  # Step 3.5 (the inline security scan) is gone since #188 -- the gate's own
+  # phase 3 owns that check now, so there is no anchor left to test against.
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_REV" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE code review"
+    "placement ($f): reconciliation runs BEFORE the quality receipt check"
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_TEST" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE the test run"
   assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_PUSH" ] && echo before || echo after)" \
@@ -891,30 +881,23 @@ printf '\n--- 10. Review context carries every relevant spec, not just one -----
 # Item 2 of the dispatch contract said "the spec" when a session can legitimately
 # touch several. A reviewer handed one of three measures the other two's changes
 # against nothing, and reports the difference as a defect.
-assert_prose_contains CLAUDE.md 'Every spec relevant to this session' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'Every spec relevant to this session' \
   "contract: item 2 carries every relevant spec, not a single one"
-assert_prose_contains CLAUDE.md 'each spec' \
+assert_prose_contains .agents/references/review-dispatch-contract.md 'each spec' \
   "contract: acceptance criteria are per-spec, so a reviewer can tell them apart"
-for f in "$WU" "$WUC"; do
-  assert_prose_contains "$f" 'Every spec relevant to this session' \
-    "payload ($f): the review payload assembles every relevant spec"
-  assert_prose_contains "$f" 'reconciled this session' \
-    "payload ($f): reconciled specs are named as part of the payload"
-  # The boundary must survive the generalization. Handing a reviewer more specs
-  # without it invites a re-review of every pre-existing spec in the tree.
-  assert_prose_contains "$f" 'issues **introduced** by this session' \
-    "payload ($f): the introduced-this-session boundary is retained"
-done
+# wrap-up itself no longer assembles a Review Payload (#188): it dispatches no
+# reviewer and reuses the quality-gate's receipt instead, so the payload rules
+# above are exercised only at the gate's own dispatch site, not here.
 
 # Deferred tasks reach the PR body, where reviewers actually look.
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   assert_prose_contains "$f" 'deliberately left alone rather than missed' \
     "PR ($f): a deferred spec is explained, not silently absent"
 done
 
 printf '\n--- 11. Reporting stays bounded; the new verb is documented ----------\n'
 
-for f in "$WU" "$WUC"; do
+for f in "$WU"; do
   # Counts on all four outcomes. Reporting only what changed would make
   # "examined and still accurate" indistinguishable from "never looked".
   assert_prose_contains "$f" 'candidates, 2 updated, 2 unchanged, 1 deferred' \
@@ -938,8 +921,7 @@ done
 # The registry gained a verb. An undocumented command is one no skill will use,
 # and the command table is what a reader consults before the source.
 RS="$CANON/task-registry/SKILL.md"
-RSC="$COMPAT/task-registry/SKILL.md"
-for f in "$RS" "$RSC"; do
+for f in "$RS"; do
   assert_file_contains "$f" "task-registry.py upsert" \
     "registry ($f): upsert appears in the command examples"
   assert_prose_contains "$f" '| `upsert` |' \
@@ -948,19 +930,13 @@ for f in "$RS" "$RSC"; do
     "registry ($f): the property that makes upsert safe to re-run is stated"
 done
 
-# The helper must be reachable from where the skill says it is, in both trees.
-for tree in "$CANON" "$COMPAT"; do
+# The helper must be reachable from where the skill says it is.
+for tree in "$CANON"; do
   assert_eq "present" "$([ -f "$tree/wrap-up-session/scripts/spec-reconcile.py" ] && echo present || echo absent)" \
     "distribution ($tree): the discovery helper ships inside the skill directory"
   assert_eq "present" "$([ -f "$tree/task-registry/scripts/registry/upsert.py" ] && echo present || echo absent)" \
     "distribution ($tree): the upsert module ships inside the skill directory"
 done
-assert_files_identical "$CANON/task-registry/scripts/registry/upsert.py" \
-                       "$COMPAT/task-registry/scripts/registry/upsert.py" \
-                       "upsert.py is byte-identical across skill trees"
-assert_files_identical "$CANON/task-registry/scripts/task-registry.py" \
-                       "$COMPAT/task-registry/scripts/task-registry.py" \
-                       "task-registry.py is byte-identical across skill trees"
 
 # This feature's own spec must obey the format it introduces. A spec that
 # exempts itself is the clearest possible signal the format is optional.
@@ -977,7 +953,7 @@ assert_not_contains "$own_ac" '- [ ]' \
 
 # And the paths it declares must actually be the ones this feature ships, or the
 # next session's reconciliation will not select it.
-OWN_MATCH="$($PY - "$HELPER" <<'EOF'
+OWN_MATCH="$("$PY" - "$HELPER" <<'EOF'
 import importlib.util, sys, json, os
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
@@ -1037,7 +1013,7 @@ implementation_paths:
 EOF
 mkdir -p "$R/src" && echo x > "$R/src/a.py"
 git -C "$R" add -A >/dev/null && git -C "$R" commit -qm work
-RET="$($PY "$HELPER" discover --repo "$R" --base main --json 2>&1)"
+RET="$("$PY" "$HELPER" discover --repo "$R" --base main --json 2>&1)"
 assert_contains "$RET" '"spec": "specs/live.md"' \
   "retired: a live spec sharing the same path is still selected"
 assert_not_contains "$RET" '"spec": "specs/gone.md"' \
@@ -1049,7 +1025,7 @@ assert_not_contains "$RET" '"spec": "specs/replaced.md"' \
 # reconciliation -- typically a rename. Returning None makes it indistinguishable
 # from a plan that named nothing at all.
 printf '\n## Plan: x\n> Spec: specs/vanished.md\n' >> "$R/tasks/todo.md"
-MISSING="$($PY "$HELPER" discover --repo "$R" --base main --json 2>&1 || true)"
+MISSING="$("$PY" "$HELPER" discover --repo "$R" --base main --json 2>&1 || true)"
 assert_contains "$MISSING" 'specs/vanished.md' \
   "session-spec: an unresolvable > Spec: line names the offending path"
 assert_contains "$MISSING" 'does not exist' \
@@ -1057,7 +1033,7 @@ assert_contains "$MISSING" 'does not exist' \
 
 # Prose writes a directory as `src/`, but matching is a whole-path fullmatch and
 # no file path ends in a slash -- so the token looked declared and selected nothing.
-DIRTOK="$($PY - "$HELPER" <<'EOF'
+DIRTOK="$("$PY" - "$HELPER" <<'EOF'
 import importlib.util, sys, json
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
@@ -1073,12 +1049,12 @@ assert_contains "$DIRTOK" '"hit": true' \
 
 # `{base}...HEAD` is one argv element, but git reads a leading dash as an option
 # wherever it appears.
-BASEDASH="$($PY "$HELPER" changeset --repo "$R" --base '--upload-pack=touch /tmp/pwn' 2>&1 || true)"
+BASEDASH="$("$PY" "$HELPER" changeset --repo "$R" --base '--upload-pack=touch /tmp/pwn' 2>&1 || true)"
 assert_contains "$BASEDASH" 'option-like' \
   "base: an option-like revision name is rejected before it reaches git"
 
 # upsert must not overwrite the fields a human owns, nor forget where a task lives.
-MERGE="$($PY - "$REPO/$CANON/task-registry/scripts" <<'EOF'
+MERGE="$("$PY" - "$REPO/$CANON/task-registry/scripts" <<'EOF'
 import json, sys
 sys.path.insert(0, sys.argv[1])
 from registry.model import Task, ExternalRef

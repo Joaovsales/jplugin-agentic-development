@@ -18,3 +18,10 @@ and `CLAUDE.md` auto-merged, which disconfirmed semantic incompatibility or a
 general stale-worktree problem. The resolved catalog preserves PR #83's
 `/auto-push`, `/yolo`, and `/auto-improve` rows alongside PR #84's `/route` row
 at `README.md:268`.
+
+**Superseded — 2026-09-22.** The README skills table is now rendered from
+`.agents/skills/*/SKILL.md` frontmatter by `scripts/render-skills-table.py`
+between `<!-- skills-table:begin -->` / `<!-- skills-table:end -->`. A table
+conflict is no longer resolved by hand: take the branch side of the markers and
+re-run the generator, which emits every current skill row in directory order.
+See [[port-master-edits-onto-the-successor-surface-when-a-branch-retires-one]].

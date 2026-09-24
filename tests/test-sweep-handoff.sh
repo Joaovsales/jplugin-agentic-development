@@ -12,7 +12,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
 CLI="$SCRIPTS/task-registry.py"
-PY=python3
+PY="$TEST_PYTHON"
 
 TMP_DIRS=()
 cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
@@ -275,13 +275,5 @@ assert_eq "2" "$nl_rc" "CLI: a reproduction step containing a newline is refused
 assert_contains "$nl" "reproduction" "CLI: the refusal names the field"
 assert_eq "absent" "$([ -f "$P/tasks/details/x.y.md" ] && echo present || echo absent)" \
   "CLI: the refused upsert wrote nothing"
-
-# The parity copy carries the same engine.
-assert_files_identical "$CLI" "$REPO/.claude/skills/task-registry/scripts/task-registry.py" \
-  "parity: task-registry.py is mirrored"
-for f in model.py upsert.py detail.py providers/github.py providers/local.py; do
-  assert_files_identical "$SCRIPTS/registry/$f" "$REPO/.claude/skills/task-registry/scripts/registry/$f" \
-    "parity: registry/$f is mirrored"
-done
 
 finish

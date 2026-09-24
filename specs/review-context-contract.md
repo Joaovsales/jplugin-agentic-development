@@ -1,14 +1,9 @@
 ---
 implementation_paths:
   - CLAUDE.md
-  - .agents/skills/wrap-up-session/SKILL.md
-  - .claude/skills/wrap-up-session/SKILL.md
   - .agents/skills/quality-gate/SKILL.md
-  - .claude/skills/quality-gate/SKILL.md
   - .agents/skills/auto-improve/SKILL.md
-  - .claude/skills/auto-improve/SKILL.md
   - .agents/skills/software-design-expert-review/SKILL.md
-  - .claude/skills/software-design-expert-review/SKILL.md
   - .agents/agents/code-reviewer.md
   - .agents/agents/critic.md
   - .agents/agents/security-reviewer.md
@@ -30,14 +25,16 @@ implementation_paths:
 
 ### The defect
 
-A reviewer dispatched by `/wrap-up-session`, `/quality-gate`, or
-`/software-design-expert-review` receives context through four channels:
+A reviewer dispatched by `/quality-gate` or `/software-design-expert-review`
+receives context through four channels. `/wrap-up-session` dispatches no
+reviewer; it reuses the quality receipt `/quality-gate` wrote
+(`specs/quality-receipt-closure.md`):
 
 | Channel | Carries | Specified where |
 |---------|---------|-----------------|
 | Persona file (`.claude/agents/<name>.md`) | role, red flags, finding axes, read-only constraint | the file itself |
 | Dispatch prompt | whatever the orchestrator improvises | **only** `software-design-expert-review/SKILL.md:45` |
-| Ambient project files | `CLAUDE.md`, `.claude/project.md` | harness auto-load |
+| Ambient project files | `AGENTS.md` (through the `CLAUDE.md` pointer) | harness auto-load |
 | The repo | anything the agent chooses to read | **only** `security-reviewer.md:18` |
 
 `/build` already holds implementers to a contract — *"Delegation prompt must
@@ -53,7 +50,7 @@ projects. Item 2 is different: it is a gap in the shipped instructions, checkabl
 by reading them.
 
 1. **Deliberate decisions get re-litigated.** The repo produces two explicit
-   deferral records — `[AMBIGUITY]` lines (`.claude/project.md` § *Ambiguity
+   deferral records — `[AMBIGUITY]` lines (`AGENTS.md` § *Ambiguity
    Protocol*) and `TODO(shortcut):` markers (§ *Code Economy*, ledgered at
    `wrap-up-session` Step 3.7). Neither reaches a reviewer, so a shortcut whose
    limit and upgrade path are already written down comes back as a finding.
@@ -103,7 +100,7 @@ guidance argues the opposite for sub-agents: keep the detailed context isolated 
 return a distilled summary.
 
 For reviewers, this repo has already picked a side and written it down:
-`CLAUDE.md` § *Independence Accounting* — *"Two lenses reasoned inside one context
+`.agents/references/finding-model.md` § *Independence Accounting* — *"Two lenses reasoned inside one context
 are two perspectives, not two witnesses: they share the same priors and the same
 blind spots."* Handing a reviewer the builder's reasoning imports exactly those
 priors, and the promotion rule then counts a downstream echo as corroboration.
@@ -123,7 +120,7 @@ or runtime value outside the reviewed scope."* Nothing then tells the reviewer t
 go read it — so a finding parks at 75 and, under the Apply Gate, is reported but
 never applied even when a single `grep` would settle it.
 
-Two rules, both in `CLAUDE.md` § *Finding Model*:
+Two rules, both in `.agents/references/finding-model.md`:
 
 - A finding at `75` must **name** the specific caller, config key, or runtime value
   its correctness depends on. "Depends on the caller" without naming one is a `50`.
@@ -184,7 +181,6 @@ adapter landed after), not assumed:
 - `.agents/skills/auto-improve/SKILL.md:69` — the adjacent pin.
 - `tests/test-agents.sh` §3 — pins all four axes in **both** trees per persona.
 - `tests/test-model-tiers.sh` §8 — the `model: <alias>` guard with the hole.
-- `tests/test-skill-parity.sh` — byte-identical `.agents/skills` → `.claude/skills`.
 
 The Codex adapter renders from `.agents/` at install time (`scripts/render-codex.py`),
 so there is no third tree to mirror into.
@@ -194,7 +190,6 @@ so there is no third tree to mirror into.
 | Path | Change |
 |------|--------|
 | `CLAUDE.md` | § *Review Dispatch Contract* (the 7-item table, the intent/conclusions split); § *Finding Model* gains the anchor-75 naming rule, the verification path, and the verification-vs-agreement distinction |
-| `.agents/skills/wrap-up-session/SKILL.md` + `.claude/` copy | Step 4 and *Parallel Code Review* carry the payload and point at the contract |
 | `.agents/skills/quality-gate/SKILL.md` + `.claude/` copy | Phase 3 dispatch carries the payload and points at the contract |
 | `.agents/skills/software-design-expert-review/SKILL.md` + `.claude/` copy | Phase 2's existing `Pass:` list extended to the full contract |
 | `.agents/skills/auto-improve/SKILL.md` + `.claude/` copy | design-review charter unpinned to *ceiling* |
@@ -231,7 +226,7 @@ so there is no third tree to mirror into.
       conclusions would corrupt Independence Accounting
 - [x] All four reviewer dispatch sites cite the contract by section name
 - [x] Each site states the absent-vs-empty rule for spec and deferrals
-- [x] `CLAUDE.md` § *Finding Model* requires a finding at `75` to name its
+- [x] `.agents/references/finding-model.md` requires a finding at `75` to name its
       dependency, and an unnamed dependency reads as `50`
 - [x] It states the verification path (read the dependency → promote to `100` with
       evidence, or drop, or hold and say what stopped it)
@@ -246,12 +241,11 @@ so there is no third tree to mirror into.
       deleted, a dispatch site's pointer is removed, a persona's intake section is
       removed, or the anchor-75 rule is deleted — each probed and recorded
 
-- [x] `tests/test-skill-parity.sh` green over every edited skill
 - [x] No persona caps a severity with an `autofix_class` value, and every persona
       carries a never-out-of-scope clause covering the never-on-the-chopping-block list
 - [x] The anchor-75 text agrees with the Apply Gate about what `75` does
-- [x] Both trees of `wrap-up-session` cite the contract at **both** of their dispatch
-      sites, verified by count rather than presence
+- [x] `wrap-up-session` dispatches no reviewer, and `tests/test-review-context.sh`
+      asserts it has no dispatch site
 - [x] The alias guard catches a bold, capitalised, or suffixed alias and an
       unlisted review charter — validated against 8 evasion fixtures
 - [x] `**Given to you**`, the contract pointer, and the boundary heading are each
@@ -272,7 +266,7 @@ so there is no third tree to mirror into.
 - No mechanical enforcement of what a dispatch prompt actually contained at runtime.
   The guard is static, like the tier floors: it pins the instruction, not the call.
 - No change to `/build`'s implementer contract — it is the model being copied.
-- No new reviewer, lens, or gate. Four dispatch sites in, four out.
+- No new reviewer, lens, or gate.
 
 ## Sources
 
@@ -299,7 +293,6 @@ below were re-measured against the hardened guards rather than adjusted on paper
 | Mutation | Guard | Assertions failed |
 |----------|-------|-------------------|
 | Delete § *Review Dispatch Contract* wholesale | `test-review-context` §1–3 | 11 |
-| Drop the contract citation from the parallel-dispatch site (both trees) | §6 count | 2 |
 | Rename `critic`'s `## Context Intake` heading (both trees) | §7 | 2 |
 | Delete the `**Given to you**` paragraph from one persona (both trees) | §7 | 6 |
 | Delete `security-reviewer`'s boundary paragraph (both trees) | §7 | 2 |
@@ -316,12 +309,8 @@ AC — four different ways to report success while measuring nothing.
 
 - `CLAUDE.md` — the canonical Review Dispatch Contract, its seven items, and the
   empty-versus-absent rule.
-- `.agents/skills/wrap-up-session/SKILL.md` — the Review Payload assembled for
-  the four review passes, and the Dispatch Disclosure that decides what their
-  agreement is worth.
 - `.agents/skills/quality-gate/SKILL.md` — the Phase 3 design-review dispatch.
 - `.agents/skills/auto-improve/SKILL.md` — the repo-survey dispatch, the one
   documented exception to items 2, 3 and 6.
 - `tests/test-review-context.sh` — pins each payload item individually, so a
   table emptied of its rows fails rather than passing on the heading alone.
-- `.claude/skills/**` — byte-identical compatibility mirrors.
