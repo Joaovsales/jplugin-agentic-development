@@ -869,3 +869,20 @@ back vacuous and was repaired.
   new; WSL Ubuntu, clean clone at 5e00630: 31/31 green in 63 s.
 - Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md,
   tasks/solutions/patterns/a-state-reset-must-keep-facts-about-the-world.md
+
+### [2026-09-24] — Routine run envelope (#127)
+- Key changes: `routine_run.py run --routine` builds the harness command itself
+  (`claude -p … --strict-mcp-config --output-format stream-json --verbose`,
+  `codex exec` with every unallowed configured MCP server disabled), stdin
+  closed, prompt read from `routine-prompts/<name>.md`; judges the
+  `ROUTINE-ENVELOPE start|finish|failure` lines, retries once only a run with
+  no envelope line, silent on success, `ROUTINE FAILED` block plus
+  `<log-dir>/<routine>-<stamp>/` on failure. The six prompts carry the envelope and
+  the integrations-optional rule; `routines.md` § Launching a routine.
+- Quality gate: dispatched design review GO; applied the harness-seam usage error,
+  the `report_failure` signature, `KINDS` named once. Reported only: retry keyed on
+  the reason string, first attempt's output discarded on a double failure, envelope
+  paragraph copied into six prompts with outcomes not checked per routine.
+- Baseline (Windows, bd7dbeb): 8/57 files red, all pre-existing; affected run
+  6/20 red, failure names identical to baseline.
+- Learnings captured: tasks/solutions/tooling/claude-print-mode-shows-only-the-final-message.md

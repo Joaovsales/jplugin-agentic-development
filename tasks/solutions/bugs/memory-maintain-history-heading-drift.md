@@ -2,7 +2,7 @@
 title: Memory maintenance ignores alternate session history headings
 date: 2026-09-09
 problem_type: bug
-module: .agents/skills/memory-maintain, .claude/hooks/session-start.sh
+module: .agents/skills/memory-maintain, .agents/hooks/session-start.sh
 tags: [memory-maintain, history, session-count, heading-drift]
 symptoms: Five alternate-format history entries produce no maintenance reminder
 root_cause: Both counters recognize only bracketed level-three dates while actual history also uses unbracketed level-two dates
@@ -15,7 +15,8 @@ resolution: Recognize both existing heading formats in the hook and mirrored ski
 ## Reproduction
 
 Create a temporary `tasks/history.md` with five `## 2026-09-0N — session`
-headings, N=1..5. Run the repository's absolute `.claude/hooks/session-start.sh`
+headings, N=1..5. Run the repository's absolute `.agents/hooks/session-start.sh`
+(formerly `.claude/hooks/session-start.sh`, moved in the #156 surface retirement)
 path from that directory with `CCW_SESSION_GUARD=0` and stdin
 `{"source":"startup"}`. Exit is zero, but `MEMORY MAINTENANCE DUE` is absent.
 Changing only the headings to `### [2026-09-0N] — session` produces the reminder.
@@ -26,7 +27,9 @@ independently by a dispatched code-debugger.
 
 ## Original root cause and alternatives (before the fix)
 
-- `.claude/hooks/session-start.sh:180` counts only bracketed level-three dates.
+- `.claude/hooks/session-start.sh:180` (now `.agents/hooks/session-start.sh`, moved
+  in the #156 surface retirement — line unverified since) counts only bracketed
+  level-three dates.
 - `.agents/skills/memory-maintain/SKILL.md:42` specifies the same restriction.
 - `tasks/history.md:405`, `:432`, and `:460` contain excluded session headings.
   Current history has 19 recognized entries plus three excluded entries.
@@ -43,7 +46,9 @@ sweeps are separate limitations of the documented modulo cadence.
 
 ## Resolution and verification
 
-The hook at `.claude/hooks/session-start.sh:180` and the canonical skill's
+The hook at `.agents/hooks/session-start.sh` (line ~182-183 as of 2026-09-24;
+formerly `.claude/hooks/session-start.sh:180` before the #156 surface retirement)
+and the canonical skill's
 command at `.agents/skills/memory-maintain/SKILL.md:47` now recognize both
 formats. Complete brackets and a whitespace/end boundary exclude partial dates.
 The date check is syntactic; it does not validate calendar dates.

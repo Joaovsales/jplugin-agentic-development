@@ -22,8 +22,9 @@ paths; the report line, the spec, and the acceptance criterion all claimed a fac
 about the *file*. Three cases break on that gap:
 
 - a synced file the project **edited** afterwards — deleted, edit gone
-- a file the project **wrote itself** at a colliding path — `.claude/hooks/` is a
-  syncable root and `pre-commit.sh` is a name both a template and a project reach
+- a file the project **wrote itself** at a colliding path — `.claude/hooks/` was
+  a syncable root at the time (since retired in favor of `.agents/hooks/`,
+  #156) and `pre-commit.sh` is a name both a template and a project reach
   for — deleted, never recoverable because it was never upstream
 - a tracked file with **uncommitted** modifications — deleted, and
   `git checkout --` restores only the committed version, silently losing the edit
