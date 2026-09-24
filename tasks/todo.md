@@ -1274,4 +1274,5 @@ Filed this sweep:
 ## Session Summary — 2026-09-24 [2d68d66..2cc3dc3]
 - Completed: 7 TDD rows of `## Plan: routine-run-envelope` (#127) — `routine_run.py` launcher, envelope verdict, one pre-start retry, six prompts and `routines.md` § Launching a routine
 - Pending: none in this plan; #127 closes on merge
-- Carry-forward (reported, not applied): retry keyed on the reason string (`routine_run.py` `run_with_retry`); a double failure keeps only the second attempt's output; the envelope paragraph is copied into six prompts and outcomes are not checked per routine (needs a spec change); Codex `-c mcp_servers.<name>.enabled=false` unverified until the first Orca-host run
+- Carry-forward: Codex `-c mcp_servers.<name>.enabled=false` unverified until the first Orca-host run (marked in `routines.md`)
+- Resolved at the HOLD (user asked for the fixes, not an approval): retry now reads `Verdict.retryable`, not the reason string; a retried failure keeps `attempt-1.*` and `attempt_reasons`; `RunReport` replaces the untyped verdict dict; per-routine `ROUTINE_OUTCOMES` is enforced and pinned to each prompt by a test

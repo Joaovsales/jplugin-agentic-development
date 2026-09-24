@@ -35,7 +35,7 @@ launcher removes both conditions at the source:
 | Harness | Command built |
 |---|---|
 | Claude Code | `claude -p <prompt> --strict-mcp-config --output-format stream-json --verbose [--mcp-config <file>]` |
-| Codex | `codex exec <prompt>` with `-c mcp_servers.<name>.enabled=false` for every server in `$CODEX_HOME/config.toml` (default `~/.codex/`) that `--mcp-config` does not list |
+| Codex | `codex exec <prompt>` with `-c mcp_servers.<name>.enabled=false` for every server in `$CODEX_HOME/config.toml` (default `~/.codex/`) that `--mcp-config` does not list. **Unverified:** no Codex CLI on the build host; the first live `codex exec` run is the proof |
 
 - **Non-interactive, stdin closed.** A TUI cannot be reached.
 - **Zero MCP servers by default.** A routine gets an integration only by naming
@@ -47,14 +47,18 @@ launcher removes both conditions at the source:
 
 **The envelope.** The prompt tells the agent to print, each at the start of its
 own line, `ROUTINE-ENVELOPE start {"routine": "<name>"}` first and, last,
-`ROUTINE-ENVELOPE finish {"routine": "<name>", "outcome": "pr_opened|no_candidate|escalated"}`
-or `ROUTINE-ENVELOPE failure {"routine": "<name>", "reason": "…"}`. Claude's
+`ROUTINE-ENVELOPE finish {"routine": "<name>", "outcome": "<outcome>"}`
+or `ROUTINE-ENVELOPE failure {"routine": "<name>", "reason": "…"}`. Each
+routine's outcomes are its row of `ROUTINE_OUTCOMES` in the launcher: `fix`
+`pr_opened|no_candidate|escalated`, `improve` and `plan` `pr_opened|no_candidate`,
+the producers `pr_opened`; each prompt restates its row and a test pins the two
+together. Claude's
 stream is read as assistant text only, so a tool result that echoes a prompt
 never counts. A run succeeds when the exit code is 0, a `start` and a `finish`
 were printed and no `failure` was. Otherwise the reason is the first check that
 did not hold: timeout · empty output · never started (quoting the last output
 line, such as an MCP failure) · reported failure · malformed envelope (bad JSON,
-another routine's name, an unknown outcome, a `finish` with no `start`) · exited
+another routine's name, an outcome outside the routine's row, a `finish` with no `start`) · exited
 without a result · non-zero exit. A missing harness binary is `harness could not
 start`. MCP startup warnings never decide the verdict.
 
@@ -65,7 +69,8 @@ second run.
 
 **Success is silent**, exit 0. Failure writes
 `<log-dir>/<routine>-<UTC stamp>/{stdout.txt,stderr.txt,verdict.json}` from the
-last attempt, prints one `ROUTINE FAILED` block (routine, reason, exit code,
+last attempt (a retried run keeps the first as `attempt-1.stdout.txt` and
+`attempt-1.stderr.txt`, and `verdict.json` lists every attempt's reason), prints one `ROUTINE FAILED` block (routine, reason, exit code,
 attempts, log dir) to stderr and exits 1.
 
 ## Why there is no autonomy computation

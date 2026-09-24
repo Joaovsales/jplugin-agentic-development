@@ -36,7 +36,6 @@ import datetime
 import json
 import os
 import pathlib
-import re
 import shutil
 import subprocess
 import sys
@@ -47,7 +46,17 @@ from typing import Dict, List, Optional, Sequence
 PROMPTS = pathlib.Path(__file__).resolve().parent.parent / "references" / "routine-prompts"
 ENVELOPE = "ROUTINE-ENVELOPE"
 KINDS = ("start", "finish", "failure")
-OUTCOMES = ("pr_opened", "no_candidate", "escalated")
+#: The finish outcomes each routine may report -- the one table the prompts
+#: restate (tests/test-routine-run.sh pins every prompt to its row). Membership
+#: is also what makes a routine name valid.
+ROUTINE_OUTCOMES: Dict[str, tuple] = {
+    "fix": ("pr_opened", "no_candidate", "escalated"),
+    "improve": ("pr_opened", "no_candidate"),
+    "plan": ("pr_opened", "no_candidate"),
+    "janitor": ("pr_opened",),
+    "architect": ("pr_opened",),
+    "tidy": ("pr_opened",),
+}
 NEVER_STARTED = "never started"
 #: Four hours: longer than any routine takes, short enough that a stalled
 #: session is reported the same night instead of holding the scheduler slot.
@@ -72,6 +81,36 @@ class Attempt:
 
 
 @dataclass
+class Verdict:
+    """Why an attempt failed, and whether re-running it is safe."""
+
+    reason: str
+    #: True only for a run that printed no envelope line: nothing was claimed or branched.
+    retryable: bool = False
+
+
+@dataclass
+class RunReport:
+    """A failed run: every attempt with its verdict, the last one deciding."""
+
+    routine: str
+    harness: str
+    attempts: List[tuple]  # (Attempt, Verdict), in launch order
+
+    def to_json(self) -> dict:
+        last, verdict = self.attempts[-1]
+        return {"routine": self.routine, "harness": self.harness, "reason": verdict.reason,
+                "exit_code": last.exit_code, "attempts": len(self.attempts),
+                "attempt_reasons": [v.reason for _, v in self.attempts]}
+
+    def render(self, run_dir: pathlib.Path) -> str:
+        data = self.to_json()
+        rows = [f"  {label}: {data[key]}" for label, key in
+                (("routine", "routine"), ("reason", "reason"), ("exit code", "exit_code"), ("attempts", "attempts"))]
+        return "\n".join(["ROUTINE FAILED", *rows, f"  log dir: {run_dir}"])
+
+
+@dataclass
 class Envelope:
     seen: bool = False
     by_kind: Dict[str, List[dict]] = field(default_factory=lambda: {kind: [] for kind in KINDS})
@@ -79,7 +118,11 @@ class Envelope:
 
 
 def build_command(harness: str, prompt: str, mcp_config: Optional[str] = None) -> List[str]:
-    """The non-interactive argv for `harness`, with only the named MCP servers."""
+    """The non-interactive argv for `harness`, with only the named MCP servers.
+
+    For `codex` this reads `$CODEX_HOME/config.toml` (default `~/.codex/`) to
+    learn which servers exist, so each one not named can be switched off.
+    """
     if mcp_config is not None and not pathlib.Path(mcp_config).is_file():
         raise UsageError(f"--mcp-config file not found: {mcp_config}")
     if harness == "claude":
@@ -119,7 +162,7 @@ def _codex_disable_flags(allowed: set) -> List[str]:
 
 def read_prompt(routine: str) -> str:
     path = PROMPTS / f"{routine}.md"
-    if not re.fullmatch(r"[a-z][a-z-]*", routine) or not path.is_file():
+    if routine not in ROUTINE_OUTCOMES or not path.is_file():
         raise UsageError(f"unknown routine {routine!r}: no prompt at {path}")
     return path.read_text(encoding="utf-8")
 
@@ -174,33 +217,34 @@ def _parse_envelope_line(line: str, routine: str):
     payload = json.loads(parts[2])  # JSONDecodeError is a ValueError
     if not isinstance(payload, dict) or payload.get("routine") != routine:
         raise ValueError(f"not an envelope for routine {routine!r}")
-    if parts[1] == "finish" and payload.get("outcome") not in OUTCOMES:
-        raise ValueError(f"finish outcome is not one of {', '.join(OUTCOMES)}")
+    outcomes = ROUTINE_OUTCOMES[routine]
+    if parts[1] == "finish" and payload.get("outcome") not in outcomes:
+        raise ValueError(f"finish outcome is not one of {', '.join(outcomes)}")
     if parts[1] == "failure" and not isinstance(payload.get("reason"), str):
         raise ValueError("failure carries no reason")
     return parts[1], payload
 
 
-def judge(attempt: Attempt, routine: str) -> Optional[str]:
-    """None for success, else the reason for the first check that did not hold."""
+def judge(attempt: Attempt, routine: str) -> Optional[Verdict]:
+    """None for success, else the first check that did not hold."""
     if attempt.error:
-        return attempt.error
+        return Verdict(attempt.error)
     if not (attempt.stdout.strip() or attempt.stderr.strip()):
-        return "empty output"
+        return Verdict("empty output")
     lines = transcript_lines(attempt)
     envelope = read_envelope(lines, routine)
     if not envelope.seen:
         last = next((line for line in reversed(lines) if line.strip()), "")
-        return f"{NEVER_STARTED} - last output: {_quote(last)}"
+        return Verdict(f"{NEVER_STARTED} - last output: {_quote(last)}", retryable=True)
     if envelope.by_kind["failure"]:
-        return f"reported failure: {envelope.by_kind['failure'][0]['reason']}"
+        return Verdict(f"reported failure: {envelope.by_kind['failure'][0]['reason']}")
     if envelope.malformed:
-        return f"malformed envelope: {envelope.malformed}"
+        return Verdict(f"malformed envelope: {envelope.malformed}")
     if not envelope.by_kind["start"]:
-        return "malformed envelope: finish without start"
+        return Verdict("malformed envelope: finish without start")
     if not envelope.by_kind["finish"]:
-        return "exited without a result"
-    return None if attempt.exit_code == 0 else f"non-zero exit {attempt.exit_code}"
+        return Verdict("exited without a result")
+    return None if attempt.exit_code == 0 else Verdict(f"non-zero exit {attempt.exit_code}")
 
 
 def launch(argv: Sequence[str], timeout: int) -> Attempt:
@@ -217,13 +261,19 @@ def launch(argv: Sequence[str], timeout: int) -> Attempt:
     return Attempt(_decode(done.stdout), _decode(done.stderr), done.returncode)
 
 
-def run_with_retry(argv: Sequence[str], routine: str, timeout: int):
-    """`(attempt, reason, attempts)`, retrying once only a run that never began."""
-    for attempts in (1, 2):
+def run_with_retry(argv: Sequence[str], routine: str, timeout: int) -> List[tuple]:
+    """Every `(attempt, verdict)` launched, retrying once only a run that never began.
+
+    The last verdict decides the run: None means it succeeded.
+    """
+    history: List[tuple] = []
+    for _ in range(2):
         attempt = launch(argv, timeout)
-        reason = judge(attempt, routine)
-        if reason is None or not reason.startswith(NEVER_STARTED) or attempts == 2:
-            return attempt, reason, attempts
+        verdict = judge(attempt, routine)
+        history.append((attempt, verdict))
+        if verdict is None or not verdict.retryable:
+            break
+    return history
 
 
 def with_harness_override(argv: List[str]) -> List[str]:
@@ -240,17 +290,22 @@ def with_harness_override(argv: List[str]) -> List[str]:
     return [*executable, *argv[1:]]
 
 
-def report_failure(log_dir: str, attempt: Attempt, verdict: dict) -> None:
+def report_failure(log_dir: str, report: RunReport) -> None:
+    """The last attempt's streams at the top, each earlier one as `attempt-<n>.*`."""
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_dir = pathlib.Path(log_dir) / f"{verdict['routine']}-{stamp}"
+    run_dir = pathlib.Path(log_dir) / f"{report.routine}-{stamp}"
     run_dir.mkdir(parents=True)
-    (run_dir / "stdout.txt").write_text(attempt.stdout, encoding="utf-8")
-    (run_dir / "stderr.txt").write_text(attempt.stderr, encoding="utf-8")
-    (run_dir / "verdict.json").write_text(json.dumps(verdict, indent=2) + "\n", encoding="utf-8")
-    print("ROUTINE FAILED", file=sys.stderr)
-    for label in ("routine", "reason", "exit_code", "attempts"):
-        print(f"  {label.replace('_', ' ')}: {verdict[label]}", file=sys.stderr)
-    print(f"  log dir: {run_dir}", file=sys.stderr)
+    *earlier, (last, _) = report.attempts
+    for number, (attempt, _) in enumerate(earlier, start=1):
+        _write_streams(run_dir, f"attempt-{number}.", attempt)
+    _write_streams(run_dir, "", last)
+    (run_dir / "verdict.json").write_text(json.dumps(report.to_json(), indent=2) + "\n", encoding="utf-8")
+    print(report.render(run_dir), file=sys.stderr)
+
+
+def _write_streams(run_dir: pathlib.Path, prefix: str, attempt: Attempt) -> None:
+    (run_dir / f"{prefix}stdout.txt").write_text(attempt.stdout, encoding="utf-8")
+    (run_dir / f"{prefix}stderr.txt").write_text(attempt.stderr, encoding="utf-8")
 
 
 def _decode(data: Optional[bytes]) -> str:
@@ -281,12 +336,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except UsageError as exc:
         print(f"routine_run: {exc}", file=sys.stderr)
         return USAGE_ERROR
-    attempt, reason, attempts = run_with_retry(command, args.routine, args.timeout)
-    if reason is None:
+    history = run_with_retry(command, args.routine, args.timeout)
+    if history[-1][1] is None:
         return 0
-    verdict = {"routine": args.routine, "harness": args.harness, "reason": reason,
-               "exit_code": attempt.exit_code, "attempts": attempts}
-    report_failure(args.log_dir, attempt, verdict)
+    report_failure(args.log_dir, RunReport(args.routine, args.harness, history))
     return RUN_FAILED
 
 

@@ -880,9 +880,11 @@ back vacuous and was repaired.
   `<log-dir>/<routine>-<stamp>/` on failure. The six prompts carry the envelope and
   the integrations-optional rule; `routines.md` § Launching a routine.
 - Quality gate: dispatched design review GO; applied the harness-seam usage error,
-  the `report_failure` signature, `KINDS` named once. Reported only: retry keyed on
-  the reason string, first attempt's output discarded on a double failure, envelope
-  paragraph copied into six prompts with outcomes not checked per routine.
+  the `report_failure` signature, `KINDS` named once. The wrap-up receipt run
+  came back HOLD; at the user's request the items were fixed rather than
+  approved: retry reads `Verdict.retryable`, a retried failure keeps
+  `attempt-1.*`, `RunReport` types the verdict, and per-routine outcomes are
+  enforced and pinned to the prompts. Codex `enabled=false` stays unverified.
 - Baseline (Windows, bd7dbeb): 8/57 files red, all pre-existing; affected run
   6/20 red, failure names identical to baseline.
 - Learnings captured: tasks/solutions/tooling/claude-print-mode-shows-only-the-final-message.md

@@ -20,6 +20,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -199,6 +200,26 @@ class RetryTests(unittest.TestCase):
         self.assertIn("never started", verdict["reason"])
         self.assertIn(str(run_dir), run.stderr)
 
+    def test_a_retried_failure_keeps_the_first_attempts_evidence(self):
+        second = "MCP startup incomplete (failed: github)\n"
+        run = Run([{"stderr": MCP_LINE}, {"stderr": second}])
+        (run_dir,) = run.run_dirs()
+        self.assertIn("github", (run_dir / "stderr.txt").read_text(encoding="utf-8"))
+        self.assertIn("linear", (run_dir / "attempt-1.stderr.txt").read_text(encoding="utf-8"))
+        self.assertTrue((run_dir / "attempt-1.stdout.txt").is_file())
+        reasons = run.verdict()["attempt_reasons"]
+        self.assertEqual(len(reasons), 2)
+        self.assertIn("linear", reasons[0])
+        self.assertIn("github", reasons[1])
+
+    def test_retry_follows_the_envelope_not_the_reason_wording(self):
+        # A harness error whose text happens to begin with the never-started
+        # wording must not be retried: retry is a property of the verdict.
+        verdict = routine_run.judge(routine_run.Attempt(error="never started by the scheduler"), "improve")
+        self.assertFalse(verdict.retryable)
+        verdict = routine_run.judge(routine_run.Attempt(stderr=MCP_LINE, exit_code=0), "improve")
+        self.assertTrue(verdict.retryable)
+
     def test_an_envelope_mid_line_never_counts(self):
         run = Run([{"stdout": "echo: " + START + "> " + FINISH}])
         self.assertEqual(run.code, 1)
@@ -244,6 +265,15 @@ class VerdictTests(unittest.TestCase):
         self.assert_fails([{"stdout": START + envelope("finish", outcome="done")}],
                           "malformed envelope")
 
+    def test_an_outcome_another_routine_owns_is_malformed(self):
+        # `escalated` is fix's outcome; a producer that prints it did not follow its prompt.
+        lines = ('ROUTINE-ENVELOPE start {"routine": "janitor"}\n'
+                 'ROUTINE-ENVELOPE finish {"routine": "janitor", "outcome": "escalated"}\n')
+        run = Run([{"stdout": lines}], routine="janitor")
+        self.assertEqual(run.code, 1, run.stderr)
+        self.assertEqual(run.attempts, 1)
+        self.assertIn("malformed envelope", run.verdict()["reason"])
+
     def test_finish_without_start_is_malformed(self):
         self.assert_fails([{"stdout": FINISH}], "malformed envelope")
 
@@ -283,6 +313,23 @@ class SilentSuccessTests(unittest.TestCase):
         echoed = Run([{"stdout": head + said_start + tool_echo}], harness="claude")
         self.assertEqual(echoed.code, 1)
         self.assertIn("exited without a result", echoed.verdict()["reason"])
+
+
+class PromptAgreementTests(unittest.TestCase):
+    """The prompts restate the launcher's outcome table; a drift fails here, not at 03:00."""
+
+    def test_every_prompt_has_an_outcome_row_and_every_row_a_prompt(self):
+        prompts = {p.stem for p in PROMPTS.glob("*.md") if p.stem != "README"}
+        self.assertEqual(prompts, set(routine_run.ROUTINE_OUTCOMES))
+
+    def test_each_prompts_finish_line_lists_exactly_its_outcomes(self):
+        for name, outcomes in routine_run.ROUTINE_OUTCOMES.items():
+            with self.subTest(routine=name):
+                text = (PROMPTS / f"{name}.md").read_text(encoding="utf-8")
+                match = re.search(
+                    r'ROUTINE-ENVELOPE finish \{"routine": "' + name + r'", "outcome": "<?([a-z_|]+)>?"\}', text)
+                self.assertIsNotNone(match, f"{name}.md has no finish line")
+                self.assertEqual(tuple(match.group(1).split("|")), outcomes)
 
 
 runner = unittest.TextTestRunner(verbosity=0, stream=sys.stderr)
