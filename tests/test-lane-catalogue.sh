@@ -116,7 +116,7 @@ assert_contains "$views" "janitor-chain: /sweep -> /wrap-up-session" \
 assert_contains "$views" "interactive: babysit,fix,improve,investigate,none,perf,plan,refactor" \
   "AC1: interactive lanes are those with cues, alphabetical"
 assert_contains "$views" "investigate-chain: none" \
-  "AC1: investigate has no chain — its /checkpoint step is optional"
+  "AC1: investigate has no chain — its /how, /why and /checkpoint steps are optional"
 assert_contains "$views" "fix-ends: ready PR" "AC1: ends is read verbatim"
 assert_contains "$views" "fix-first-step: \`/debug <ref>\`" \
   "AC1: the first skill step of a routine lane takes <ref>"

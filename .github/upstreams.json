@@ -25,6 +25,18 @@
       "source_notice": "THIRD_PARTY_NOTICES.md"
     },
     {
+      "id": "pstack-how-why",
+      "url": "https://github.com/cursor/plugins.git",
+      "ref": "refs/heads/main",
+      "baseline": "12d587dfb20741cafc376c42c696c5f6e2a64487",
+      "paths": [
+        "pstack/LICENSE",
+        "pstack/skills/how",
+        "pstack/skills/why"
+      ],
+      "source_notice": "THIRD_PARTY_NOTICES.md"
+    },
+    {
       "id": "mattpocock-skills",
       "url": "https://github.com/mattpocock/skills.git",
       "ref": "refs/heads/main",
