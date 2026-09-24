@@ -13,6 +13,20 @@ Original source files:
 - [`pstack/skills/maintain-verification-skill/SKILL.md`](https://github.com/cursor/plugins/blob/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack/skills/maintain-verification-skill/SKILL.md)
 - [`pstack/skills/create-verification-skill/references/feature-map-example/`](https://github.com/cursor/plugins/tree/68836ddaf5697224520f1847d90cdb90ca8babaa/pstack/skills/create-verification-skill/references/feature-map-example)
 
+## pstack how and why skills
+
+The adapted `how` and `why` skills in this repository come from the pstack
+plugin in [cursor/plugins](https://github.com/cursor/plugins), pinned at
+revision `12d587dfb20741cafc376c42c696c5f6e2a64487`. Their `references/`
+files are copied unmodified.
+
+Original source files:
+
+- [`pstack/skills/how/SKILL.md`](https://github.com/cursor/plugins/blob/12d587dfb20741cafc376c42c696c5f6e2a64487/pstack/skills/how/SKILL.md)
+- [`pstack/skills/how/references/`](https://github.com/cursor/plugins/tree/12d587dfb20741cafc376c42c696c5f6e2a64487/pstack/skills/how/references)
+- [`pstack/skills/why/SKILL.md`](https://github.com/cursor/plugins/blob/12d587dfb20741cafc376c42c696c5f6e2a64487/pstack/skills/why/SKILL.md)
+- [`pstack/skills/why/references/`](https://github.com/cursor/plugins/tree/12d587dfb20741cafc376c42c696c5f6e2a64487/pstack/skills/why/references)
+
 ## pstack eval playbook
 
 The adapted `eval` skill in this repository comes from the pstack plugin in

@@ -294,7 +294,7 @@ Twelve files. The five that exist today move; `feature` is folded into
 | `janitor` | producer | — | — | `/sweep`, `/wrap-up-session` | docs-only PR carrying the session record |
 | `architect` | producer | — | — | `/sweep`, `/wrap-up-session` | docs-only PR carrying the session record |
 | `tidy` | producer | — | — | `/tidy`, `/wrap-up-session` | PR carrying the record and Tier 0 repairs |
-| `investigate` | — | — | how does X work, why was Y built this way, is Z safe, compare A and B | (none — its `/checkpoint` step ends ` — optional`) | a cited answer, no diff |
+| `investigate` | — | — | how does X work, where should X live, why was Y built this way, is Z safe, compare A and B | (none — its `/how`, `/why` and `/checkpoint` steps end ` — optional`) | a cited answer, no diff |
 | `refactor` | — | — | rename, extract, inline, dedupe, move, no behaviour change | `/plan`, `/build`, `/quality-gate`, `/wrap-up-session` | PR quoting the before and after proof |
 | `perf` | — | — | slow, latency, memory, takes N seconds, a profile attached | `/debug`, `/build`, `/quality-gate`, `/wrap-up-session` | PR quoting baseline and after numbers |
 | `babysit` | — | — | PR URL or number plus get it green, address the comments, CI red | `/receive-review`, `/debug`, `/plan`, `/build`, `/wrap-up-session` | PR merge-ready, or a named blocker |

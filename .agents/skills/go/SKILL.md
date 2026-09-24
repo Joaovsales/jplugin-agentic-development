@@ -122,10 +122,12 @@ the issue reference, when the registry routed it):
 ```markdown
 ## Lane: investigate — why does the cache entry survive logout
 1. Restate the question as a falsifiable claim and name the files it turns on
-2. Read those files; quote the lines that answer it
-3. Trace one live run if the code alone is inconclusive — skip: answered from source
-4. Reply with the cited answer
-5. `/checkpoint` — keep the answer on disk, only if the human asks — optional
+2. `/how why does the cache entry survive logout` — the question asks how it works or where it belongs; its explanation answers it — optional — skip: one file, answered from source
+3. `/why why does the cache entry survive logout` — the question asks why it is this way; its cited read answers it — optional — skip: asks for runtime behaviour, not design rationale
+4. Read those files; quote the lines that answer it
+5. Trace one live run if the code alone is inconclusive — skip: answered from source
+6. Reply with the cited answer
+7. `/checkpoint` — keep the answer on disk, only if the human asks — optional
 ```
 
 Plain numbered lines. Never checkbox rows: `/build` executes every `[ ]` row
@@ -185,7 +187,8 @@ effective chain. Interactive-only lanes ship as written.
 - **Calls**: `task-registry workflow` for issue references, `task-registry
   lanes` for the catalogue, and whatever skills the chosen lane's steps name
   (`/debug`, `/plan`, `/build`, `/quality-gate`, `/receive-review`,
-  `/wrap-up-session`, `/brainstorm`, `/system-design-planning`, `/checkpoint`).
+  `/wrap-up-session`, `/brainstorm`, `/system-design-planning`, `/how`, `/why`,
+  `/checkpoint`).
 - **Called by**: nobody. Interactive entry point only.
 - **Writes**: one lane block per invocation in `tasks/todo.md`. Reads nothing
   back from it.
