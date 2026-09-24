@@ -850,3 +850,22 @@ back vacuous and was repaired.
   behind the lock.
 - Baseline (cddf272, Windows, serial): 8/53 files, 152 failing assertions, 2085 s.
 - Learnings captured: tasks/solutions/tooling/python-exact-match-patches-miss-crlf-working-copies.md
+
+### [2026-09-23] — Quality receipt closure
+- Key changes: `receipt.py` (quality-receipt/1: fingerprint excluding `tasks/**`,
+  derived verdict, check/approve, delta chains) and `/quality-gate` phases 3–6
+  that write it; `closure.py`, the wrap-up closure state machine (receipt, gate,
+  approve, suite, push, pr, mergeable, merge, ci, repair, deploy, record,
+  partial), with every cycle bounded by a counter; `/wrap-up-session` Step 4
+  reuses the receipt in place of four review passes, and Step 7 drives the
+  closure loop (merge-only conflict repair, CI watch and repair, a partial run
+  marks the PR draft). Six slices, filed and built (#163, refs #162).
+- Quality gate: two design passes (STOP, then HOLD). Fixed: HOLD routing,
+  through a new `approve` phase that re-checks the receipt; the closure run
+  lifecycle (`done`, keeping `pr_open`); corrupt state and receipt handling.
+  Seven SHOULD-FIX items stay unresolved in the receipt, and the HOLD was
+  approved by a human.
+- Baseline (Windows): affected tests 6/31 files red with 104 assertions, none
+  new; WSL Ubuntu, clean clone at 5e00630: 31/31 green in 63 s.
+- Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md,
+  tasks/solutions/patterns/a-state-reset-must-keep-facts-about-the-world.md

@@ -18,14 +18,14 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-# The three skill FILES that dispatch a reviewer. A file can hold more than one
-# site -- wrap-up-session carries two (Step 4 and Parallel Code Review), which is
-# why the second one gets its own needle below rather than riding on the file.
-# `/sweep` is NOT a dispatch site: it runs its engine inline and reaches a
-# reviewer only through `/software-design-expert-review --scope tree`, whose
-# repo survey is an exception to the *subject* of items 2/3/6 -- a repo survey
-# has no session to describe -- never to stating them.
-DISPATCH_SITE_FILES="skills/wrap-up-session/SKILL.md skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/system-design-planning/SKILL.md"
+# The skill FILES that dispatch a reviewer. `/wrap-up-session` is NOT a dispatch
+# site: it reuses the quality-gate receipt and dispatches no reviewer agent of
+# its own (issue #188). `/sweep` is NOT a dispatch site either: it runs its
+# engine inline and reaches a reviewer only through
+# `/software-design-expert-review --scope tree`, whose repo survey is an
+# exception to the *subject* of items 2/3/6 -- a repo survey has no session to
+# describe -- never to stating them.
+DISPATCH_SITE_FILES="skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/system-design-planning/SKILL.md"
 
 REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
 
@@ -117,22 +117,25 @@ for tree in .agents; do
     assert_file_contains "$f" 'no spec —' \
       "ReviewContext: $f passes an explicit marker when there is no spec"
   done
-  # wrap-up-session holds two sites, and a per-file needle is satisfied
-  # by either. Pin the second one -- the parallel-dispatch path -- separately: it is
-  # the only path the skill says "licenses confidence promotion", so a payload that
-  # silently stops reaching it degrades exactly the run that promotes on it.
-  assert_prose_contains "$tree/skills/wrap-up-session/SKILL.md" \
-    'carries the *Review Payload* assembled in Step 4' \
-    "ReviewContext: $tree wrap-up parallel dispatch carries the payload too"
-  # Counted, not merely present. The AC is "all four sites cite the contract", and
-  # a per-file needle is satisfied by the Step 4 citation alone -- probed: dropping
-  # the citation from the parallel-dispatch site left the suite fully green. Two
-  # sites in this file, so two citations.
-  cites="$(tr -s '[:space:]' ' ' < "$tree/skills/wrap-up-session/SKILL.md" \
-    | grep -oF '.agents/references/review-dispatch-contract.md`' | wc -l | tr -d ' ')"
-  [ "$cites" -ge 2 ] && cites_ok=yes || cites_ok="no (found $cites)"
-  assert_eq "yes" "$cites_ok" \
-    "ReviewContext: $tree wrap-up cites the contract at both of its dispatch sites"
+done
+
+# --- 6b. Wrap-up is no longer a dispatch site --------------------------------
+# Before #188, wrap-up carried two reviewer-dispatch sites (Step 4 and the
+# Parallel Code Review enhancement) and cited the contract at both. It now
+# reuses the quality-gate receipt instead, so it dispatches no review persona
+# and carries no Review Payload or Parallel Code Review path. The needles below
+# target the dispatch machinery itself, not the sentence that documents its
+# absence -- that sentence names `code-reviewer`/`critic`/`security-reviewer`
+# on purpose, to say wrap-up dispatches none of them.
+for tree in .agents; do
+  f="$tree/skills/wrap-up-session/SKILL.md"
+  for needle in 'Review Payload' 'Parallel Code Review' 'Dispatch Disclosure' \
+                'Finding Classification' 'Agent assignments:'; do
+    assert_not_contains "$(cat "$f")" "$needle" \
+      "ReviewContext: $f no longer carries '$needle' — wrap-up dispatches no reviewer"
+  done
+  assert_file_not_matches "$f" '^### Pass [0-9]' \
+    "ReviewContext: $f no longer defines its own review passes"
 done
 
 # --- 7. Each reviewer persona declares its intake ----------------------------

@@ -327,10 +327,12 @@ assert_contains "$taxonomy" "Finding Model" \
 # --- Tier 2 (M2): four-axis findings in the finding model and both review skills -----
 # Each axis, enum value, and confidence anchor is pinned as its own token. A
 # dropped enum value is exactly what would let an unsure finding auto-apply, and
-# it is invisible in a whole-block snapshot.
+# it is invisible in a whole-block snapshot. `wrap-up-session` is not among them
+# since #188: it dispatches no reviewer of its own and applies no finding, so it
+# defines none of this machinery -- `/quality-gate` is the one place a finding
+# is classified.
 for f in .agents/references/finding-model.md \
          .agents/skills/quality-gate/SKILL.md \
-         .agents/skills/wrap-up-session/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do
   flat="$(flatten "$f")"
   for axis in severity confidence autofix_class owner; do
@@ -355,10 +357,12 @@ for f in .agents/references/finding-model.md \
     "M2: $f takes the more conservative autofix_class on disagreement"
 done
 
-# Both review skills must disclose whether their passes were dispatched or ran
-# inline, and must not promote on same-context agreement.
-for f in .agents/skills/quality-gate/SKILL.md \
-         .agents/skills/wrap-up-session/SKILL.md; do
+# /quality-gate must disclose whether its passes were dispatched or ran inline,
+# and must not promote on same-context agreement. `wrap-up-session` carries no
+# Dispatch Disclosure requirement of its own since #188 -- it reuses the gate's
+# receipt rather than running a review pass, so there is nothing here for it to
+# disclose.
+for f in .agents/skills/quality-gate/SKILL.md; do
   assert_file_contains "$f" "Dispatch Disclosure" \
     "M1: $f carries a Dispatch Disclosure requirement"
   assert_file_contains "$f" "Review independence:" \
@@ -1260,5 +1264,212 @@ for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
     assert_contains "$flat" "$token" "one suite: $skill names '$token'"
   done
 done
+
+# --- quality receipt (gate): /quality-gate owns the one review pass and mints its receipt
+# specs/quality-receipt-closure.md AC4. Security runs as phase 3 over the
+# gate's own file list, before the dispatched APOSD phase 4 so the design
+# reviewer sees the security fixes; nothing edits the tree after phase 4; the
+# affected tests run through the cache as phase 5 and receipt.py write mints
+# the receipt as phase 6. A write refusal is `Receipt: none`, never GO.
+QG_SKILL=.agents/skills/quality-gate/SKILL.md
+qg_section() {  # <heading prefix>: that heading's body, up to the next ## heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$QG_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+assert_file_matches "$QG_SKILL" '^argument-hint: .*--scope <path>.*--parent <fingerprint>' \
+  "quality receipt: /quality-gate's argument hint takes --scope and --parent <fingerprint>"
+flat_qg="$(flatten "$QG_SKILL")"
+prev=0
+for heading in "## Phase 1 — " "## Phase 2 — " "## Phase 3 — Security" "## Phase 4 — Design Quality (APOSD)" \
+               "## Phase 5 — Tests" "## Phase 6 — Receipt" "## Output"; do
+  pos=$(printf '%s' "$flat_qg" | grep -bo -- "$heading" | head -1 | cut -d: -f1)
+  if [ -n "${pos:-}" ] && [ "$pos" -gt "$prev" ]; then
+    assert_eq "ordered" "ordered" "quality receipt: '$heading' follows the phase before it"
+    prev=$pos
+  else
+    assert_eq "after $prev" "${pos:-missing}" "quality receipt: '$heading' follows the phase before it"
+  fi
+done
+SCOPE_QG="$(qg_section "## Scope")"
+for token in "receipt.py fingerprint" "untracked" "tasks/**" "--scope"; do
+  assert_contains "$SCOPE_QG" "$token" "quality receipt: the gate's Scope names '$token'"
+done
+assert_not_contains "$SCOPE_QG" "git diff --name-only <base>..HEAD" \
+  "quality receipt: the gate's file list is no longer the committed diff alone"
+SEC_QG="$(qg_section "## Phase 3 — Security")"
+for token in "/security-scan" "the gate's own file list" "untracked" "Apply Gate" "\"inline\""; do
+  assert_contains "$SEC_QG" "$token" "quality receipt: phase 3 names '$token'"
+done
+assert_contains "$flat_qg" "No phase after 4 edits the tree" \
+  "quality receipt: the gate forbids edits after the APOSD phase"
+TESTS_QG="$(qg_section "## Phase 5 — Tests")"
+for token in "Affected tests:" "cached-suite.sh -- " "\"tree\"" "never a silent fix"; do
+  assert_contains "$TESTS_QG" "$token" "quality receipt: phase 5 names '$token'"
+done
+RECEIPT_QG="$(qg_section "## Phase 6 — Receipt")"
+for token in "receipt.py write --outcome" "--parent <fingerprint>" "--git-common-dir" \
+             "never supplies a verdict" "Receipt: none —"; do
+  assert_contains "$RECEIPT_QG" "$token" "quality receipt: phase 6 names '$token'"
+done
+OUTPUT_QG="$(qg_section "## Output")"
+assert_contains "$OUTPUT_QG" "Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx> [parent <fp8>]" \
+  "quality receipt: the Output block carries the Receipt line"
+assert_contains "$OUTPUT_QG" "Receipt: none — <receipt.py stderr>" \
+  "quality receipt: the Output block carries the refusal form"
+
+# --- no wrap-up reviewer: wrap-up dispatches no reviewer of its own ----------
+# specs/quality-receipt-closure.md AC7. Before #188, wrap-up ran 4 dispatched
+# review passes (Step 4) plus an inline /security-scan (Step 3.5). Both are
+# gone: /quality-gate is the one review pass per diff, and wrap-up only checks
+# its receipt.
+flat_wrap="$(flatten "$WRAP_SKILL")"
+# Targets the dispatch machinery itself, not the disclaimer sentence in Step 4
+# that names these personas on purpose to say wrap-up dispatches none of them.
+for token in "Review Payload" "Parallel Code Review" "Dispatch Disclosure" \
+             "Finding Classification" "Agent assignments:"; do
+  assert_not_contains "$flat_wrap" "$token" \
+    "no wrap-up reviewer: $WRAP_SKILL no longer carries '$token'"
+done
+assert_file_not_matches "$WRAP_SKILL" '^### Pass [0-9]' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer defines its own review passes"
+assert_file_not_matches "$WRAP_SKILL" '^## Step 3\.5' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 3.5 security scan"
+assert_file_not_matches "$WRAP_SKILL" '^## Step 5 —' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 5 apply-and-reconcile"
+
+# --- receipt check: wrap-up's Step 4 reuses the gate's receipt --------------
+# specs/quality-receipt-closure.md AC8. On `valid` it reuses the receipt; on
+# `diff-changed` it re-enters the gate at delta scope with --parent; on any
+# other stale reason, at full scope, once. It approves a HOLD only after a
+# human answer in an interactive run, and never on an unattended one.
+WRAP_STEP4="$(wrap_section "## Step 4 — Quality Gate Receipt")"
+for token in "receipt.py check" "diff-changed" "--scope <delta paths> --parent <fp>" \
+             "at full scope" "Quality receipt:" "receipt.py approve --fingerprint" \
+             "Interactive run" "Unattended run" "never approves" "Step 8.5"; do
+  assert_contains "$WRAP_STEP4" "$token" \
+    "receipt check: /wrap-up-session Step 4 names '$token'"
+done
+assert_contains "$WRAP_STEP4" "Never call \`/quality-gate\` a second time on an unchanged tree." \
+  "receipt check: /wrap-up-session Step 4 runs no second gate on the same tree"
+# receipt.py reports an unapproved HOLD as `stale verdict HOLD`, never as
+# `valid HOLD`; the approval path keys on that line, before any re-entry, and
+# takes the fingerprint from `receipt.py fingerprint` (check prints none there).
+assert_contains "$WRAP_STEP4" "stale verdict HOLD" \
+  "receipt check: /wrap-up-session Step 4 keys the approval path on 'stale verdict HOLD'"
+assert_contains "$WRAP_STEP4" "receipt.py fingerprint" \
+  "receipt check: /wrap-up-session Step 4 reads the HOLD's fingerprint from receipt.py fingerprint"
+assert_not_contains "$WRAP_STEP4" "\`valid HOLD\` (not yet approved)" \
+  "receipt check: /wrap-up-session Step 4 names no 'valid HOLD' line receipt.py never prints"
+
+# --- closure PR: Step 7 is rewritten around the closure engine -------------
+# specs/quality-receipt-closure.md AC9. From Step 4 on, wrap-up performs the
+# actions closure.py step prints, with its state file under the git common
+# dir, never --no-verify, and the PR body carries the receipt line and a
+# Closure section while still passing the linkage check.
+STEP7="$(wrap_section "## Step 7 — Commit & Push")"
+for token in "closure.py step" "git-common-dir" "action <name>" "terminal"; do
+  assert_contains "$STEP7" "$token" "closure PR: Step 7 names '$token'"
+done
+assert_contains "$flat_wrap" "closure/<sanitized branch>.json" \
+  "closure PR: the closure state path lives under the git common dir"
+assert_not_contains "$flat_wrap" "--no-verify" \
+  "closure PR: wrap-up commits never pass --no-verify"
+assert_contains "$flat_wrap" "the \`Quality receipt: <verdict> · <fp8> · policy <v>\` line" \
+  "closure PR: the PR body carries the Quality receipt line from Step 4"
+assert_contains "$flat_wrap" "a \`## Closure\` section" \
+  "closure PR: the PR body carries a ## Closure section"
+PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^### Push Failure Handling/{exit} f' "$WRAP_SKILL")"
+assert_contains "$PR_SECTION" "pr_linkage.py" \
+  "closure PR: the PR section still runs the linkage check"
+assert_contains "$PR_SECTION" "pr-sync" \
+  "closure PR: the pull-request section is the pr-sync action"
+
+# --- closure CI: mergeability, CI watch and bounded repair ------------------
+# specs/quality-receipt-closure.md AC10.
+CI_SECTION="$(wrap_section "#### CI Watch and Repair")"
+MERGE_SECTION="$(wrap_section "#### Mergeability")"
+assert_contains "$MERGE_SECTION" "gh pr view <n> --json mergeable" \
+  "closure CI: mergeability names 'gh pr view <n> --json mergeable'"
+for token in "gh pr checks <n> --watch --required" "run_in_background" \
+             "gh pr checks <n>" "30 minutes" "2-minute registration window" \
+             "gh run view <run-id> --log-failed" "/debug" "re-enters Step 4" "Step 6" \
+             "2 total" "closure repair"; do
+  assert_contains "$CI_SECTION" "$token" "closure CI: CI Watch and Repair names '$token'"
+done
+assert_contains "$flat_wrap" "no \`.github/workflows/*\` file triggers on \`pull_request\`" \
+  "closure CI: ci: none requires no pull_request-triggered workflow too"
+assert_contains "$flat_wrap" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
+  "closure CI: every repair commit adds a closure-repair Session Summary line"
+assert_contains "$flat_wrap" "introduces_summary" \
+  "closure CI: the repair-commit line is named against the pre-push hook's check"
+
+# --- closure conflicts: merge, never rebase, never force ---------------------
+# specs/quality-receipt-closure.md AC11.
+CONFLICT_SECTION="$(wrap_section "#### Conflict Repair")"
+for token in "git merge origin/<base>" "git merge origin/<branch>" \
+             "never \`rebase\`" "never \`--force\`" "git merge --abort" \
+             "merge: unresolved" "at most 1 round"; do
+  assert_contains "$CONFLICT_SECTION" "$token" "closure conflicts: Conflict Repair names '$token'"
+done
+assert_not_contains "$flat_wrap" "pull --rebase" \
+  "closure conflicts: wrap-up no longer resolves a non-fast-forward push with pull --rebase"
+PUSH_FAILURE="$(wrap_section "### Push Failure Handling")"
+assert_contains "$PUSH_FAILURE" "Conflict Repair" \
+  "closure conflicts: the non-fast-forward row routes to Conflict Repair"
+
+# --- closure deploy: verify-deploy runs when a target applies, else n/a -----
+# specs/quality-receipt-closure.md AC12. A moved HEAD re-enters Step 4 once.
+STEP8="$(wrap_section "## Step 8 — Deployment Verification")"
+for token in "/verify-evidence --scope deployment" "head-moved: true" "head-moved: false" \
+             "re-enters Step 4" "deploy_reentries" "at most once" \
+             "Deployments: not applicable —" "\`--skip-deploy\`"; do
+  assert_contains "$STEP8" "$token" "closure deploy: Step 8 names '$token'"
+done
+assert_contains "$STEP8" "Deployment Targets\` row applies to the pushed branch" \
+  "closure deploy: Step 8 names the applying-target case"
+assert_contains "$STEP8" "Accepted exception" \
+  "closure deploy: Step 8 names the accepted exception"
+
+# --- closure record: record-closure and mark-draft are described, and the ---
+# Done report carries a Closure line. specs/quality-receipt-closure.md AC13.
+DONE_SECTION="$(wrap_section "## Done")"
+for token in "record-closure" "gh pr edit <n> --body-file" "record: recorded" "record: record-failed" \
+             "mark-draft" "gh pr ready <n> --undo" "partial: drafted" "partial: draft-failed" \
+             "partial: no-pr" "Closure: [complete / partial" "closure engine failed" \
+             "facts known before the push"; do
+  assert_contains "$DONE_SECTION" "$token" "closure record: the Done section names '$token'"
+done
+assert_contains "$flat_wrap" "closure repair" \
+  "closure record: closure repair commits stay named in the wrap-up flow"
+
+# --- closure loop table: the three pointers now name real sections ----------
+LOOP_TABLE="$(wrap_section "### The Closure Loop")"
+assert_contains "$LOOP_TABLE" "Step 8 — Deployment Verification" \
+  "closure loop table: verify-deploy points at Step 8's real heading"
+assert_contains "$LOOP_TABLE" "Recording the closure" \
+  "closure loop table: record-closure points at its own section"
+assert_contains "$LOOP_TABLE" "Marking a partial PR draft" \
+  "closure loop table: mark-draft points at its own section"
+# An unapproved HOLD is its own observation and action, so the engine and
+# Step 4 route it the same way; a terminal line ends the run for good.
+for token in "approve-hold" "receipt: hold" "approve: approved" "starts a fresh run"; do
+  assert_contains "$LOOP_TABLE" "$token" "closure loop table: names '$token'"
+done
+
+# --- closure history: Step 2 states the pre-push-only recording rule --------
+STEP2="$(wrap_section "## Step 2 — Update Task Register")"
+for token in "facts known" "before" "the push" "CI, conflict-repair and deployment outcomes" \
+             "never written here"; do
+  assert_contains "$STEP2" "$token" "closure history: Step 2 names '$token'"
+done
+
+# --- routine spine: step 5/4 name the receipt, not review passes ------------
+# specs/quality-receipt-closure.md AC13.
+ROUTINES=.agents/skills/wrap-up-session/references/routines.md
+flat_routines="$(flatten "$ROUTINES")"
+assert_contains "$flat_routines" "checks the quality receipt, tests, and the pull request" \
+  "routine spine: routines.md names the quality receipt in place of review passes"
+assert_not_contains "$flat_routines" "review passes, tests, and the pull request" \
+  "routine spine: routines.md no longer names review passes in either spine table"
 
 finish

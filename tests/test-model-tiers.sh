@@ -173,9 +173,11 @@ done
 # --- 10. critic's floor is stated where critic is dispatched ------------------
 # The floor lived only in CLAUDE.md while three skills instructed plain ceiling
 # unconditionally — documented and simultaneously negated. Pin it at the sites
-# that actually dispatch, or the rule is not shipped.
+# that actually dispatch, or the rule is not shipped. `wrap-up-session` is not
+# among them: since #188 it dispatches no reviewer at all, critic included, so
+# it has no dispatch site left to carry the floor.
 for tree in .agents; do
-  for skill in build plan wrap-up-session; do
+  for skill in build plan; do
     assert_prose_contains "$tree/skills/$skill/SKILL.md" "planner floor" \
       "ModelTier: $tree $skill states critic's planner floor at its dispatch"
   done

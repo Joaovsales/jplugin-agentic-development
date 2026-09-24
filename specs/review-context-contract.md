@@ -1,7 +1,6 @@
 ---
 implementation_paths:
   - CLAUDE.md
-  - .agents/skills/wrap-up-session/SKILL.md
   - .agents/skills/quality-gate/SKILL.md
   - .agents/skills/auto-improve/SKILL.md
   - .agents/skills/software-design-expert-review/SKILL.md
@@ -26,8 +25,10 @@ implementation_paths:
 
 ### The defect
 
-A reviewer dispatched by `/wrap-up-session`, `/quality-gate`, or
-`/software-design-expert-review` receives context through four channels:
+A reviewer dispatched by `/quality-gate` or `/software-design-expert-review`
+receives context through four channels. `/wrap-up-session` dispatches no
+reviewer; it reuses the quality receipt `/quality-gate` wrote
+(`specs/quality-receipt-closure.md`):
 
 | Channel | Carries | Specified where |
 |---------|---------|-----------------|
@@ -189,7 +190,6 @@ so there is no third tree to mirror into.
 | Path | Change |
 |------|--------|
 | `CLAUDE.md` | § *Review Dispatch Contract* (the 7-item table, the intent/conclusions split); § *Finding Model* gains the anchor-75 naming rule, the verification path, and the verification-vs-agreement distinction |
-| `.agents/skills/wrap-up-session/SKILL.md` + `.claude/` copy | Step 4 and *Parallel Code Review* carry the payload and point at the contract |
 | `.agents/skills/quality-gate/SKILL.md` + `.claude/` copy | Phase 3 dispatch carries the payload and points at the contract |
 | `.agents/skills/software-design-expert-review/SKILL.md` + `.claude/` copy | Phase 2's existing `Pass:` list extended to the full contract |
 | `.agents/skills/auto-improve/SKILL.md` + `.claude/` copy | design-review charter unpinned to *ceiling* |
@@ -244,8 +244,8 @@ so there is no third tree to mirror into.
 - [x] No persona caps a severity with an `autofix_class` value, and every persona
       carries a never-out-of-scope clause covering the never-on-the-chopping-block list
 - [x] The anchor-75 text agrees with the Apply Gate about what `75` does
-- [x] Both trees of `wrap-up-session` cite the contract at **both** of their dispatch
-      sites, verified by count rather than presence
+- [x] `wrap-up-session` dispatches no reviewer, and `tests/test-review-context.sh`
+      asserts it has no dispatch site
 - [x] The alias guard catches a bold, capitalised, or suffixed alias and an
       unlisted review charter — validated against 8 evasion fixtures
 - [x] `**Given to you**`, the contract pointer, and the boundary heading are each
@@ -266,7 +266,7 @@ so there is no third tree to mirror into.
 - No mechanical enforcement of what a dispatch prompt actually contained at runtime.
   The guard is static, like the tier floors: it pins the instruction, not the call.
 - No change to `/build`'s implementer contract — it is the model being copied.
-- No new reviewer, lens, or gate. Four dispatch sites in, four out.
+- No new reviewer, lens, or gate.
 
 ## Sources
 
@@ -293,7 +293,6 @@ below were re-measured against the hardened guards rather than adjusted on paper
 | Mutation | Guard | Assertions failed |
 |----------|-------|-------------------|
 | Delete § *Review Dispatch Contract* wholesale | `test-review-context` §1–3 | 11 |
-| Drop the contract citation from the parallel-dispatch site (both trees) | §6 count | 2 |
 | Rename `critic`'s `## Context Intake` heading (both trees) | §7 | 2 |
 | Delete the `**Given to you**` paragraph from one persona (both trees) | §7 | 6 |
 | Delete `security-reviewer`'s boundary paragraph (both trees) | §7 | 2 |
@@ -310,9 +309,6 @@ AC — four different ways to report success while measuring nothing.
 
 - `CLAUDE.md` — the canonical Review Dispatch Contract, its seven items, and the
   empty-versus-absent rule.
-- `.agents/skills/wrap-up-session/SKILL.md` — the Review Payload assembled for
-  the four review passes, and the Dispatch Disclosure that decides what their
-  agreement is worth.
 - `.agents/skills/quality-gate/SKILL.md` — the Phase 3 design-review dispatch.
 - `.agents/skills/auto-improve/SKILL.md` — the repo-survey dispatch, the one
   documented exception to items 2, 3 and 6.

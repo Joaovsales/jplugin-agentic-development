@@ -1,0 +1,129 @@
+[
+  {
+    "name": "green-ci",
+    "steps": [
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 17}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "pass"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "pass", "head-moved": false}, "expect": "action record-closure"},
+      {"observe": {"record": "recorded"}, "expect": "terminal complete state=record reason=closure recorded"}
+    ]
+  },
+  {
+    "name": "ci-repair",
+    "steps": [
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 21}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "fail", "checks": ["tests"]}, "expect": "action debug-ci checks=tests"},
+      {"observe": {"debug": "fixed"}, "expect": "action check-receipt"},
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 21}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "pass"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "pass", "head-moved": false}, "expect": "action record-closure"},
+      {"observe": {"record": "recorded"}, "expect": "terminal complete state=record reason=closure recorded"}
+    ]
+  },
+  {
+    "name": "conflict-repair",
+    "steps": [
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "non-ff", "branch": "feat/163"}, "expect": "action merge-base ref=origin/feat/163"},
+      {"observe": {"merge": "resolved"}, "expect": "action check-receipt"},
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 5}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "pass"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "pass", "head-moved": false}, "expect": "action record-closure"},
+      {"observe": {"record": "recorded"}, "expect": "terminal complete state=record reason=closure recorded"}
+    ]
+  },
+  {
+    "name": "deploy-success",
+    "steps": [
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 9}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "pass"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "pass", "head-moved": true}, "expect": "action check-receipt"},
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 9}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "pass"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "pass", "head-moved": false}, "expect": "action record-closure"},
+      {"observe": {"record": "recorded"}, "expect": "terminal complete state=record reason=closure recorded"}
+    ]
+  },
+  {
+    "name": "deploy-failure",
+    "steps": [
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 12}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "pass"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "fail"}, "expect": "action mark-draft reason=deployment failed"},
+      {"observe": {"partial": "drafted"}, "expect": "terminal partial state=deploy reason=deployment failed draft=yes"}
+    ]
+  },
+  {
+    "name": "stale-receipt",
+    "steps": [
+      {"observe": {"receipt": "stale", "scope": "delta"}, "expect": "action quality-gate scope=delta"},
+      {"observe": {"gate": "GO"}, "expect": "action check-receipt"},
+      {"observe": {"receipt": "stale"}, "expect": "terminal stopped state=receipt reason=receipt not written after gate"}
+    ]
+  },
+  {
+    "name": "draft-partial",
+    "steps": [
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 20}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "fail", "checks": ["tests"]}, "expect": "action debug-ci checks=tests"},
+      {"observe": {"debug": "fixed"}, "expect": "action check-receipt"},
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 20}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "fail", "checks": ["e2e"]}, "expect": "action debug-ci checks=e2e"},
+      {"observe": {"debug": "not-fixed"}, "expect": "action mark-draft reason=debug not-fixed"},
+      {"observe": {"partial": "drafted"}, "expect": "terminal partial state=repair reason=debug not-fixed draft=yes"}
+    ]
+  },
+  {
+    "name": "hold-approved",
+    "steps": [
+      {"observe": {"receipt": "stale", "scope": "full"}, "expect": "action quality-gate scope=full"},
+      {"observe": {"gate": "HOLD"}, "expect": "action approve-hold"},
+      {"observe": {"approve": "approved"}, "expect": "action check-receipt"},
+      {"observe": {"receipt": "valid"}, "expect": "action run-suite"},
+      {"observe": {"suite": "green"}, "expect": "action commit-push"},
+      {"observe": {"push": "ok"}, "expect": "action pr-sync"},
+      {"observe": {"pr": 31}, "expect": "action mergeability"},
+      {"observe": {"mergeable": "clean"}, "expect": "action watch-ci"},
+      {"observe": {"ci": "none"}, "expect": "action verify-deploy"},
+      {"observe": {"deploy": "n/a", "reason": "no targets"}, "expect": "action record-closure note=not applicable — no targets"},
+      {"observe": {"record": "recorded"}, "expect": "terminal complete state=record reason=closure recorded"}
+    ]
+  }
+]
