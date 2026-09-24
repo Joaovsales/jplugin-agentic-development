@@ -1,0 +1,7 @@
+model = "gpt-5"
+
+[mcp_servers.linear]
+command = "linear-mcp"
+
+[mcp_servers.github]
+command = "github-mcp"

@@ -1,3 +1,15 @@
+## Plan: routine-run-envelope
+> Spec: specs/routine-run-envelope.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/127
+
+- [x] TDD: tests/test-routine-run.sh § claude argv — `build_command("claude", prompt, allow=None)` is `claude -p <prompt> --strict-mcp-config`; with an allow file adds `--mcp-config <file>`; unknown routine or harness exits 2 -> launcher arg parsing + prompt file read + claude builder (AC1)
+- [x] TDD: tests/test-routine-run.sh § codex argv — fixture config.toml with `linear` and `github`; allowing `github` yields `codex exec` + `-c mcp_servers.linear.enabled=false` only; missing config adds no overrides; allowing an unconfigured server exits 2 -> codex builder reading CODEX_HOME via tomllib (AC2)
+- [x] TDD: tests/test-routine-run.sh § retry — fake harness (via `ROUTINE_RUN_HARNESS_BIN` override) prints only the MCP line on attempt 1 and a full envelope on attempt 2: exit 0, silent, no log dir -> single retry before the start line (AC3)
+- [x] TDD: tests/test-routine-run.sh § never started — both attempts print only the MCP line: exit 1, stderr names `never started` and `linear`, log dir has stdout.txt, stderr.txt, verdict.json with attempts=2 (AC4)
+- [x] TDD: tests/test-routine-run.sh § verdicts — start-only, failure envelope, finish + exit 3, empty output, malformed JSON, other routine's name: each fails with its reason after one attempt (AC5)
+- [x] TDD: tests/test-routine-run.sh § silent success — MCP warning then full envelope: exit 0, empty stdout/stderr, no log dir (AC6)
+- [x] TDD: tests/test-routine-run.sh § docs — six prompts carry `ROUTINE-ENVELOPE start`, `ROUTINE-ENVELOPE finish`, `ROUTINE-ENVELOPE failure` and the integrations-optional rule; routines.md § Launching a routine and the prompts README name `routine_run.py run --routine` -> edit prompts, contract, README (AC7)
+
 ## Plan: plan-slices-and-handover
 > Spec: specs/plan-slices-and-handover.md
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/106
@@ -1292,3 +1304,9 @@ Filed this sweep:
 - Completed: 6 slices of `## Plan: quality-receipt-closure` (filed as issues, refs #163 and #162), with every TDD row done; slice 6's `Verify:` row stays open because it is this PR's own closure run (Decision 13); quality-gate fixes: receipt.py refuses a non-hex fingerprint; HOLD routes through the `approve` phase and the receipt is re-checked; a closure run ends at `done` and keeps `pr_open`; corrupt state and receipt files are handled
 - Pending: none in this plan; the issues close on merge through #191's `Closes` lines
 - Carry-forward (reported, not applied; recorded in receipt 39e94696): the base choice duplicated across `check --base`, `write` and Base Branch Detection; the gate's file list rebuilt by hand (no `receipt.py paths`); the `quality-gate` action carries no parent or delta paths; `key=value` output with spaces in values; destination strings parsed twice in closure.py; one shared `outcome.json` path; a corrupt receipt reported as `stale schema`; `build/SKILL.md` Phase 3 still says "all 3 phases"; the installed plugin copy of `/wrap-up-session` predates this branch until the plugin is reinstalled
+## Session Summary — 2026-09-24 [2d68d66..834df20]
+- Completed: 7 TDD rows of `## Plan: routine-run-envelope` (#127) — `routine_run.py` launcher, envelope verdict, one pre-start retry, six prompts and `routines.md` § Launching a routine
+- Pending: none in this plan; #127 closes on merge
+- Carry-forward (receipt d7d7a01e → 4f224fd4, GO): Codex `-c mcp_servers.<name>.enabled=false` unverified until the first Orca-host run (marked in `routines.md`); `RunResult.to_json`/`render` assume a failed result; harness validated both by argparse and `build_command`
+- Second design round (43cb19a): an escalation is a `failure` line, not a `finish` outcome; collision-proof log dirs; Claude `--mcp-config` validated; typed `RunResult`. Full suite (WSL, 834df20): 58/58; it first caught the README's `routines.md` citation, fixed in 487ae3c/834df20
+- Resolved at the HOLD (user asked for the fixes, not an approval): retry now reads `Verdict.retryable`, not the reason string; a retried failure keeps `attempt-1.*` and `attempt_reasons`; `RunReport` replaces the untyped verdict dict; per-routine `ROUTINE_OUTCOMES` is enforced and pinned to each prompt by a test

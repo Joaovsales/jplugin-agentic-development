@@ -2,11 +2,11 @@
 title: grep with zero matches aborts hooks under set -eo pipefail
 date: 2026-09-05
 problem_type: bug
-module: .claude/hooks/session-start.sh
+module: .agents/hooks/session-start.sh
 tags: [bash, hooks, grep, pipefail, set-e]
 symptoms: session-start banner died mid-print whenever the learning store had zero flagged documents — no error, hook just stopped
 root_cause: grep exits 1 on no match; inside a pipeline under set -eo pipefail that non-zero status propagates through the command substitution and kills the script
-resolution: append `|| true` to the pipeline, and anchor the pattern to line start so only frontmatter counts (.claude/hooks/session-start.sh:156). The original scope-the-glob fix addressed only the README instance and recurred inside a category directory — see Recurrence below
+resolution: append `|| true` to the pipeline, and anchor the pattern to line start so only frontmatter counts (originally .claude/hooks/session-start.sh:156; the hook moved to .agents/hooks/session-start.sh in the #156 surface retirement, line number unverified since). The original scope-the-glob fix addressed only the README instance and recurred inside a category directory — see Recurrence below
 ---
 
 ## Symptoms
@@ -29,7 +29,7 @@ Two independent defects stacked:
 
 ## Resolution
 
-`.claude/hooks/session-start.sh:103` now reads:
+`.agents/hooks/session-start.sh` (formerly `.claude/hooks/session-start.sh:103`; the hook moved in the #156 surface retirement) now reads:
 
 ```bash
 REVIEW_COUNT=$(grep -rl 'needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
@@ -58,7 +58,7 @@ search location:
 REVIEW_COUNT=$(grep -rlE '^needs_review: true' tasks/solutions/*/ 2>/dev/null | wc -l | tr -d ' ' || true)
 ```
 
-`.claude/hooks/session-start.sh:156`, and the same pattern in
+`.agents/hooks/session-start.sh` (formerly `.claude/hooks/session-start.sh:156`), and the same pattern in
 `/memory-maintain`'s light pass (both skill copies).
 Regression test: `tests/test-session-start.sh` — a fixture document that
 mentions the flag in prose must count as zero flagged.

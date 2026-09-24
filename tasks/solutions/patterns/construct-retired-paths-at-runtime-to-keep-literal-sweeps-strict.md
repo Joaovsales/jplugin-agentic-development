@@ -2,7 +2,7 @@
 title: Construct retired paths at runtime to keep literal-reference sweeps strict
 date: 2026-08-13
 problem_type: pattern
-module: .claude/hooks/session-start.sh
+module: .agents/hooks/session-start.sh (formerly .claude/hooks/session-start.sh; moved in the #156 surface retirement)
 tags: [migration, grep, sweeps, detection, retired-files]
 applies_when: a spec bans literal references to retired file paths (verified by grep) but live code must still detect those same paths
 ---
@@ -27,7 +27,9 @@ for OLD_STORE in memory lessons bugs; do
 done
 ```
 
-(.claude/hooks/session-start.sh:110-111; `/sync` Step 6.5 uses brace
+(originally .claude/hooks/session-start.sh:110-111, now
+`.agents/hooks/session-start.sh` since the #156 surface retirement, line
+unverified since; `/sync` Step 6.5 uses brace
 expansion the same way.) The literal-grep sweep stays allowlist-free — any
 new literal reference anywhere in either skill tree fails the suite — while
 the detection logic keeps working.

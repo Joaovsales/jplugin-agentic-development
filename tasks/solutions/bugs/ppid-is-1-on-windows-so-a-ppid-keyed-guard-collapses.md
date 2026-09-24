@@ -2,7 +2,7 @@
 title: PPID is 1 on Windows so a PPID-keyed session guard collapses to one constant
 date: 2026-08-18
 problem_type: bug
-module: .claude/hooks/session-start.sh
+module: .agents/hooks/session-start.sh (formerly .claude/hooks/session-start.sh; moved in the #156 surface retirement)
 tags: [windows, hooks, session-start, guard, ppid]
 symptoms: "Start Claude Code in repo A, then in repo B within five minutes, and repo B's session prints NO session-start banner at all — no learning-store counts, no active tasks, no git status. Observable on disk as a single shared sentinel `$TMPDIR/.ccw-session-start-1-<source>` instead of one per session."
 root_cause: "The double-invocation guard fell back to `GUARD_KEY=${GUARD_KEY:-$PPID}` whenever `jq` was absent or the payload carried no `session_id`. On Windows, bash spawned from a native Windows parent (node, python) reports `PPID=1`, so the key collapsed to the constant `1-<source>` and every session in every repo shared one sentinel. The 5-minute freshness window then made the first session suppress the next one."

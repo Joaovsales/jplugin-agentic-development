@@ -53,3 +53,22 @@ normal run; reproduce with `< <(sleep N)` before trusting a hook test.
 
 Related: [[grep-zero-matches-aborts-hooks-under-set-e-pipefail]] — the same hook,
 a different way that "works at my terminal" concealed a defect in the non-tty path.
+
+## Merged from test-suite-hangs-when-stdin-is-an-open-pipe (2026-09-07)
+
+An earlier occurrence of this same hang — before the two Banner-block call sites
+above regressed — was worked around at the suite level: run the whole suite as
+`bash tests/run.sh </dev/null` (the fix above instead closes stdin at each call
+site inside `tests/test-pre-push-gate.sh`, so the suite no longer needs the
+wrapper). If a suite run shows no progress for minutes with no failure printed,
+check `ps` for a `cat` process under `session-start.sh` before assuming a slow
+test.
+
+That session also noted a related PTY observation while generating
+verify-task-registry: util-linux `script` consumes subsequent recipe lines when
+the parent Bash program itself came from stdin. Redirecting the noninteractive
+CLI driver's stdin with `</dev/null` kept those lines with the parent shell
+(`.agents/skills/verify-task-registry/SKILL.md:65`; walkthrough in
+`tasks/e2e-log.md`). Same principle — a program that branches on stdin state
+needs stdin owned explicitly — different failure mode (consumed script input
+rather than a blocking hook).

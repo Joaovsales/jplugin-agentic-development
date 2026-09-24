@@ -28,7 +28,8 @@ The second is *masked* by the first: the guard exits before the encode is
 reached, which is why the failure presented as silence rather than a traceback.
 
 **1 — the double-invocation guard collapses onto one key.**
-`.claude/hooks/session-start.sh:43-65` de-duplicates the banner for Claude Code,
+`.agents/hooks/session-start.sh:43-65` (formerly `.claude/hooks/session-start.sh`
+before the #156 surface retirement) de-duplicates the banner for Claude Code,
 which registers the hook twice (globally by `install.sh` and per-project by
 `.claude/settings.json`). Without `jq` or a `session_id` it falls back to
 `GUARD_KEY=${GUARD_KEY:-$PPID}` (`session-start.sh:49`).

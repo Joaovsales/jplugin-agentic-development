@@ -5,6 +5,12 @@ take one issue the registry selects and turn it into a spec and a task list,
 proposed as a draft PR for a human to accept. You write no product code. No
 sub-agent dispatch is required; every step runs inline.
 
+No step needs an MCP server: if a tool or integration is unavailable, continue —
+the tracker is `task-registry`, the rest is shell. Print each alone on a line:
+first `ROUTINE-ENVELOPE start {"routine": "plan"}`; last
+`ROUTINE-ENVELOPE finish {"routine": "plan", "outcome": "<pr_opened|no_candidate>"}`,
+or on any other stop `ROUTINE-ENVELOPE failure {"routine": "plan", "reason": "<why>"}`.
+
 1. Run `task-registry doctor`, then `task-registry select --routine plan` and
    `claim` the candidate it returns. No candidate: stop, exit zero, no branch.
 2. Create the branch `routine_branch.py format plan <N> <title>` gives you.

@@ -2,7 +2,7 @@
 title: A settings-declared plugin installs at the trust dialog and leaves only the versioned cache
 date: 2026-09-18
 problem_type: tooling
-module: .claude/settings.json, .claude/hooks/session-start.sh, tasks/e2e-log.md (Spike S4)
+module: .claude/settings.json, .agents/hooks/session-start.sh, tasks/e2e-log.md (Spike S4)
 tags: [claude-code, plugin, marketplace, session-start, install-detection]
 applies_when: detecting or debugging a Claude Code plugin that a project enables through `extraKnownMarketplaces` + `enabledPlugins` rather than through `claude plugin install`
 ---
@@ -37,7 +37,8 @@ Installing 1 marketplace(s) in background → Added marketplace source
 The session-start hook's "PLUGIN NOT INSTALLED" check had keyed on
 `installed_plugins.json` alone and would have fired on every correctly installed
 project. It now accepts the cache directory as the install record
-(`.claude/hooks/session-start.sh`, pinned by `tests/test-session-start.sh`).
+(`.agents/hooks/session-start.sh`, formerly `.claude/hooks/session-start.sh` before
+the #156 surface retirement; pinned by `tests/test-session-start.sh`).
 
 Related: [[the-trust-dialog-is-the-install-moment-so-a-contaminated-first-trust-is-a-false-negative]],
 [[a-marketplace-ref-must-be-a-branch-or-tag-so-the-plugin-version-is-the-pin]].
