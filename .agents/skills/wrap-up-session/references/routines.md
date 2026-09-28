@@ -341,6 +341,113 @@ Step 3 is the lane file `tidy.md` in `.agents/skills/task-registry/lanes/`: its 
 routine's step list, its chain is derived from them, and `task-registry lanes
 tidy` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
+## Wrap-up on a routine branch
+
+Everything the wrap-up skill does only on a `routine/` branch or for an
+unattended caller. An interactive session on an ordinary branch never reads
+this section.
+
+### Fix-escalation terminal
+
+If a `routine/fix/` caller supplies a completed investigation escalation result,
+preserve that non-zero terminal result and STOP: open no PR, write no PR ledger,
+and do not repeat the registry command. Do not run Step 8.5; the escalation is
+already the retained, loud no-PR result. This exception applies only to the fix
+routine's investigation path. Interactive wrap-up and deployment verification
+keep their existing contracts.
+
+### Step-ledger rows
+
+Write the routine's executed step list into `tasks/todo.md`, one row per
+mandatory step. A step that could not run **keeps its row**, carrying
+`skip: <reason>` — retained, never deleted. Silent omission is the one thing
+that is never allowed here, because a deleted row reads as a routine that never
+had that gate, and an absent gate leaves no trace in the diff a reviewer reads.
+Each routine's list is in § *Step ledger* above.
+
+The same step list goes in the PR body — every mandatory step, and every
+skipped one retained with `skip: <reason>`.
+
+### What the branch tells you
+
+A routine encodes the routine name and the issue number in the branch, under a
+reserved namespace, because wrap-up runs in a context that never saw the issue:
+
+```bash
+python3 .agents/skills/wrap-up-session/scripts/routine_branch.py parse "$(git branch --show-current)"
+```
+
+Exit 0 prints `<routine> <issue>`. **Exit 3** means the branch is **outside the
+`routine/` namespace** — no routine, no issue, and wrap-up behaves exactly as it
+does today. That is the ordinary case and not an error; the convention is opt-in
+by shape, so no existing workflow changes behavior.
+
+Treat only 3 that way. Any other non-zero code is the script failing to run, and
+reading that as "not a routine branch" is how a routine silently ships a PR with
+no `Closes #N` and no `--draft`.
+
+### Draft and linkage
+
+| Branch | Flags | Title | Body carries |
+|---|---|---|---|
+| `routine/plan/<n>-<slug>` | `--draft` | conventional | `Refs #N` |
+| `routine/janitor/<YYYYMMDD>-sweep` | none | `chore(sweep): janitor <YYYY-MM-DD>` (`— clean` suffix when nothing was filed) | step ledger, the record path `tasks/sweeps/<YYYY-MM-DD>-janitor.md`, and `Refs #N` for **every** issue in the record's *Filed* section — never `Closes` |
+| `routine/architect/<YYYYMMDD>-sweep` | none | `chore(sweep): architect <YYYY-MM-DD>`, same suffix rule | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-architect.md` |
+| `routine/tidy/<YYYYMMDD>-sweep` | none | `chore(tidy): <YYYY-MM-DD>` (`— clean` suffix only when nothing was filed **and** no Tier 0 repair was committed) | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-tidy.md` and the Tier 0 repair commits listed by check name |
+| any other `routine/<name>/<n>-<slug>` | none | conventional | `Closes #N` |
+| outside `routine/` | none | conventional | whatever the session warrants |
+
+A producer branch's number is a **run stamp** (`YYYYMMDD`), not an issue. It is
+never looked up as one, so the "issue is missing or closed" report below does
+not apply to it; the issues a producer PR references are the ones the session
+record's *Filed* section lists, read from that file. When the record says
+`Filed: none`, the body carries no `Refs` line and says so.
+
+`--draft` is passed **when and only when the routine is `plan`**. A plan is a
+proposal, so it opens as a draft; every other routine ends at a ready PR because
+human review *is* the gate that the deleted policy lattice tried to compute.
+
+The body carries the linkage and the tracker closes the issue **on merge**. No
+step here closes an issue itself: that keeps the provider coupling guard intact
+so every tracker keeps working, removes "PR created but close failed" as a
+failure mode, and stops an abandoned PR from leaving a closed issue with no fix.
+`plan` uses `Refs #N` rather than `Closes #N` precisely so a merged plan leaves
+the issue open for the routine that builds it.
+
+**If the branch is a routine branch but the issue is missing or closed**: report
+it loudly, non-zero, naming the issue — and **open the PR anyway**. A bad link
+must not discard the session's work.
+
+### E2E handoff on `routine/fix`
+
+On a `routine/fix/` branch, if `/verify-evidence --scope e2e` returns a structured blocked
+outcome, return its exact command, evidence, and reproduction state to `/debug`'s
+§ *Canonical unattended escalation owner*. That owner invokes the registry once;
+the escalation is terminal for this run, so do not offer acknowledgement or
+continue to the PR assertion.
+
+### Unattended detection
+
+The terminal PR assertion runs on unattended runs only. A run is unattended
+when either holds:
+
+```bash
+# 1. The branch is a routine branch. Exit 0 means yes; exit 3 means no.
+#    `routine/` is a prefix, but only the parser knows which names under it are
+#    real -- `routine/plna/90-x` is nobody's branch, and matching the prefix
+#    would read it as a routine run.
+python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
+  parse "$(git branch --show-current)"
+```
+
+2. The caller declared it. `/yolo` and `/auto-push` each carry a
+   **Step 8.5 — unattended** row in the override table they pass to this skill.
+   Their branches are ordinary feature branches, so nothing about the branch name
+   says a human stopped watching; only the caller knows, so only the caller can
+   say.
+
+An unattended run never approves a HOLD: it reports `approve: declined`.
+
 ## Edge cases
 
 | Situation | Behavior |

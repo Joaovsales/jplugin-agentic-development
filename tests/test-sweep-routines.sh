@@ -175,7 +175,8 @@ done
 # AC7 — wrap-up's linkage table has the producer row
 # ============================================================================
 for tree in $TREES; do
-  w="$tree/skills/wrap-up-session/SKILL.md"
+  # The linkage table lives in the contract's wrap-up section.
+  w="$tree/skills/wrap-up-session/references/routines.md"
   assert_file_matches "$w" '^\| `routine/(janitor|architect|\(janitor\|architect\))/' \
     "AC7: $tree/wrap-up-session linkage table has a producer row"
   assert_file_matches "$w" '^\| `routine/tidy/<YYYYMMDD>-sweep` \|' \

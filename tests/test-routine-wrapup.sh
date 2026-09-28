@@ -17,6 +17,10 @@ cd "$REPO"
 
 for tree in .agents; do
   f="$tree/skills/wrap-up-session/SKILL.md"
+  # Routine-only rules live in the contract's wrap-up section.
+  r="$tree/skills/wrap-up-session/references/routines.md"
+  assert_file_matches "$r" '^## Wrap-up on a routine branch' \
+    "AC6: $tree routines.md carries the routine-only wrap-up section"
 
   # --- AC7: exactly one place describes PR creation --------------------------
   # `gh pr create` is the executable proof. Prose may point AT the procedure from
@@ -40,17 +44,17 @@ for tree in .agents; do
     "AC7: $tree Step 7.5 points at the procedure instead of restating it"
 
   # --- AC6: --draft iff the routine is plan ----------------------------------
-  assert_prose_contains "$f" "routine_branch.py" \
+  assert_prose_contains "$r" "routine_branch.py" \
     "AC6: $tree/wrap-up-session reads the routine from the branch with the shared parser"
   assert_prose_contains "$f" "--draft" \
     "AC6: $tree/wrap-up-session names the draft flag"
-  assert_prose_contains "$f" "when and only when the routine is \`plan\`" \
+  assert_prose_contains "$r" "when and only when the routine is \`plan\`" \
     "AC6: $tree states --draft is passed when AND ONLY WHEN the routine is plan"
 
   # --- AC6: issue linkage in the body, closure on merge ----------------------
-  assert_prose_contains "$f" "Closes #N" \
+  assert_prose_contains "$r" "Closes #N" \
     "AC6: $tree states the body carries Closes #N"
-  assert_prose_contains "$f" "Refs #N" \
+  assert_prose_contains "$r" "Refs #N" \
     "AC6: $tree states plan's body carries Refs #N instead"
 
   # --- AC6: a multi-issue list must repeat the keyword per issue -------------
@@ -83,16 +87,18 @@ for tree in .agents; do
   # coupling guard with it.
   assert_file_not_matches "$f" "gh issue" \
     "AC6: $tree/wrap-up-session never closes an issue itself"
+  assert_file_not_matches "$r" "gh issue" \
+    "AC6: $tree routines.md never closes an issue itself"
 
   # --- AC7: a branch outside routine/ keeps today's behavior -----------------
-  assert_prose_contains "$f" "outside the \`routine/\` namespace" \
+  assert_prose_contains "$r" "outside the \`routine/\` namespace" \
     "AC7: $tree names the non-routine case explicitly"
-  assert_prose_contains "$f" "exactly as it does today" \
+  assert_prose_contains "$r" "exactly as it does today" \
     "AC7: $tree states a non-routine branch keeps today's behavior"
 
   # --- the bad-link edge case: report loudly, still open the PR ---------------
   # A routine branch whose issue is missing must not discard the session's work.
-  assert_prose_contains "$f" "open the PR anyway" \
+  assert_prose_contains "$r" "open the PR anyway" \
     "Edge: $tree opens the PR even when the issue link is bad"
 
   # --- AC11: an unattended run that produces no PR is never SILENT -----------
@@ -153,7 +159,10 @@ for tree in .agents; do
 
   # The scope test is the parser, not the prefix: `routine/plna/90-x` matches
   # `routine/` and belongs to no routine.
-  assert_contains "$terminal" "routine_branch.py" \
+  unattended="$(awk '/^### Unattended detection/{f=1;next} f&&/^##/{exit} f' "$r")"
+  assert_contains "$terminal" "Unattended detection" \
+    "AC11: $tree's assertion points at the unattended-detection rule"
+  assert_contains "$unattended" "routine_branch.py" \
     "AC11: $tree decides 'is this a routine branch' with the parser that owns the format"
 
   # --- the contract document is reachable from the skill that implements it ---
