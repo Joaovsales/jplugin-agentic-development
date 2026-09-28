@@ -1332,8 +1332,12 @@ Filed this sweep:
 > Surface: [SURFACE] +references/closure-actions.md, +references/routines.md, +references/spec-reconcile.md | reason: their "Step N" pointers had to become § names in the same commit as the headings they named
 
 ### Slice 5/7 — Repoint caller override tables
-- [ ] Repoint caller override tables <!-- task-id: plan.specs-wrap-up-phases-md.repoint-caller-override-tables --> — Slice 5/7 of specs/wrap-up-phases.md: the yolo and auto-push override tables cite wrap-up sections by name and drop dea… ([#199](https://github.com/Joaovsales/jplugin-agentic-development/issues/199)) (blocked-by: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases)
-  [ ] TDD: routine-wrapup requires yolo and auto-push to name § Terminal PR assertion and carry no "Step 5.1" / "MUST-FIX" row (AC 7) -> rewrite both override tables and the "4 parallel passes" line
+- [x] Repoint caller override tables <!-- task-id: plan.specs-wrap-up-phases-md.repoint-caller-override-tables --> — Slice 5/7 of specs/wrap-up-phases.md: the yolo and auto-push override tables cite wrap-up sections by name and drop dea… ([#199](https://github.com/Joaovsales/jplugin-agentic-development/issues/199)) (blocked-by: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases)
+  [x] TDD: routine-wrapup requires yolo and auto-push to name § Terminal PR assertion and carry no "Step 5.1" / "MUST-FIX" row (AC 7) -> rewrite both override tables and the "4 parallel passes" line
+
+> Handover: landed 0f28a9e — yolo and auto-push override tables are keyed by wrap-up section (E2E coverage, Quality receipt, Commit and push, closure-actions.md Deployment verification, Terminal PR assertion — unattended); the Apply Gate and MUST-FIX commit-gate rows are gone, their `gated_auto` rule lives in the Quality receipt row; auto-push no longer claims "4 parallel passes"; both cite § *Worktree integration* instead of Step 7.5
+> Do not re-derive: test-doc-conventions M2 still needs `gated_auto` in both callers — keep it in the Quality receipt row. The caller loop in test-routine-wrapup resolves every cited § against wrap-up's headings, so a renamed wrap-up section fails there first
+> Surface: none
 
 ### Slice 6/7 — Repoint remaining step citations
 - [ ] Repoint remaining step citations <!-- task-id: plan.specs-wrap-up-phases-md.repoint-remaining-step-citations --> — Slice 6/7 of specs/wrap-up-phases.md: every other wrap-up step-number reference becomes a § citation ([#200](https://github.com/Joaovsales/jplugin-agentic-development/issues/200)) (blocked-by: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases)
