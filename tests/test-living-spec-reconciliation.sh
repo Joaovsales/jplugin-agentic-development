@@ -559,7 +559,14 @@ assert_contains "$SEM" '"spec": "specs/unresolvable.md"' \
 # pinned is that the protocol exists, names exactly three outcomes, and says
 # which evidence must be read before one is assigned.
 WU="$CANON/wrap-up-session/SKILL.md"
-for f in "$WU"; do
+# The procedure lives in the reference file; SKILL.md keeps the rule and the
+# command, and must link the procedure or a reader never finds it.
+SR="$CANON/wrap-up-session/references/spec-reconcile.md"
+assert_file_contains "$WU" "references/spec-reconcile.md" \
+  "wrap-up: SKILL.md links the spec-reconciliation procedure"
+assert_prose_contains "$WU" "exactly one outcome" \
+  "wrap-up: SKILL.md keeps the one-outcome rule beside the command"
+for f in "$SR"; do
   assert_prose_contains "$f" 'exactly one outcome' \
     "wrap-up ($f): every candidate receives exactly one outcome"
   assert_prose_contains "$f" '`updated`' "wrap-up ($f): the updated outcome is defined"
@@ -592,7 +599,7 @@ printf '\n--- 6. Legacy migration rides on behavioral change, never on format -\
 # with the list emptied, and each step is separately forgettable: a migration that
 # adds frontmatter but leaves `## Files Likely Involved` in place ships a spec with
 # two contradictory path lists and no rule saying which one wins.
-for f in "$WU"; do
+for f in "$SR"; do
   assert_prose_contains "$f" 'add valid `implementation_paths` frontmatter' \
     "migration ($f): step 1 adds the metadata"
   assert_prose_contains "$f" 'replace `## Files Likely Involved` with `## Implementation Paths`' \
@@ -817,7 +824,7 @@ assert_eq "2" "$NEITHER_RC" "derive-id: supplying neither is a usage error, not 
 # And the skill must say so, because the failure this prevents is a judgement
 # call made at 3am by an unattended run: pausing for approval would hang the
 # pipeline, and publishing without it would breach the project's write policy.
-for f in "$WU"; do
+for f in "$SR"; do
   assert_prose_contains "$f" 'does not pause or fail' \
     "deferred ($f): an unpublishable task never blocks wrap-up"
   assert_prose_contains "$f" 'publication is pending' \
@@ -870,9 +877,9 @@ for f in "$WU"; do
   # And a failing downstream gate must take the spec edits down with the code.
   # Committing a spec whose code was rejected publishes a description of
   # behavior that does not exist.
-  assert_prose_contains "$f" 'join the code in the verification, security, review, test, commit, and push gates' \
+  assert_prose_contains "$SR" 'join the code in the verification, security, review, test, commit, and push gates' \
     "placement ($f): updated specs are covered by every downstream gate"
-  assert_prose_contains "$f" 'failing gate blocks both' \
+  assert_prose_contains "$SR" 'failing gate blocks both' \
     "placement ($f): a failing downstream gate blocks the spec edit as well as the code"
 done
 
@@ -890,14 +897,14 @@ assert_prose_contains .agents/references/review-dispatch-contract.md 'each spec'
 # above are exercised only at the gate's own dispatch site, not here.
 
 # Deferred tasks reach the PR body, where reviewers actually look.
-for f in "$WU"; do
+for f in "$SR"; do
   assert_prose_contains "$f" 'deliberately left alone rather than missed' \
     "PR ($f): a deferred spec is explained, not silently absent"
 done
 
 printf '\n--- 11. Reporting stays bounded; the new verb is documented ----------\n'
 
-for f in "$WU"; do
+for f in "$SR"; do
   # Counts on all four outcomes. Reporting only what changed would make
   # "examined and still accurate" indistinguishable from "never looked".
   assert_prose_contains "$f" 'candidates, 2 updated, 2 unchanged, 1 deferred' \
