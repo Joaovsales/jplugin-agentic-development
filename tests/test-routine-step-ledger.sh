@@ -25,11 +25,11 @@ for tree in .agents; do
   skill="$tree/skills/wrap-up-session/SKILL.md"
 
   # --- sink 1: tasks/todo.md -------------------------------------------------
-  step2="$(awk '/^## Step 2 — Update Task Register/{f=1;next} f&&/^## Step 3/{exit} f' "$skill")"
+  step2="$(awk '/^### Task register/{f=1;next} f&&/^##/{exit} f' "$skill")"
   # The rule itself lives in the contract's wrap-up section; the skill points at it.
   rows="$(awk '/^### Step-ledger rows/{f=1;next} f&&/^##/{exit} f' "$CONTRACT")"
   assert_contains "$step2" "Step-ledger rows" \
-    "AC9: $tree Step 2 points at the contract's step-ledger rule"
+    "AC9: $tree § Task register points at the contract's step-ledger rule"
   assert_contains "$rows" "step list" \
     "AC9: $tree Step 2 writes the routine's step list into tasks/todo.md"
   assert_contains "$rows" "skip:" \

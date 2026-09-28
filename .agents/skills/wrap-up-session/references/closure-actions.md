@@ -4,6 +4,32 @@
 > Design rationale: `specs/quality-receipt-closure.md`. Each section reports the
 > observation `closure.py`'s module docstring defines.
 
+## Action map
+
+Each action `closure.py step` can name, the section that performs it, and the
+observation it reports back. Sections of `/wrap-up-session` are cited by name;
+the rest are below.
+
+| Action | Performed by | Reports |
+|--------|---------------|---------|
+| `check-receipt` | `/wrap-up-session` § *Quality receipt*, `receipt.py check` | `receipt: valid` \| `receipt: hold` (on `stale verdict HOLD`) \| `receipt: stale`, `scope: delta\|full` |
+| `quality-gate` | `/wrap-up-session` § *Quality receipt*, the `/quality-gate` re-entry | `gate: GO\|HOLD-approved\|HOLD\|STOP\|none` |
+| `approve-hold` | `/wrap-up-session` § *Quality receipt*, *Approving a HOLD* | `approve: approved\|declined` (an unattended run always reports `declined`) |
+| `run-suite` | `/wrap-up-session` § *Full suite*, `cached-suite.sh` | `suite: green\|red\|blocked` |
+| `commit-push` | `/wrap-up-session` § *Commit and push* | `push: ok` \| `push: non-ff` \| `push: denied` |
+| `pr-sync` | `/wrap-up-session` § *The Pull Request* | `pr: <n>` \| `pr: failed` |
+| `mergeability` | § *Mergeability* | `mergeable: clean\|conflicting\|unknown` |
+| `merge-base` | § *Conflict repair* | `merge: resolved\|unresolved` |
+| `watch-ci` | § *CI watch and repair* | `ci: pass\|none\|fail\|timeout` |
+| `debug-ci` | § *CI watch and repair* | `debug: fixed\|not-fixed` |
+| `verify-deploy` | § *Deployment verification* | `deploy: pass\|n/a\|fail` |
+| `record-closure` | § *Recording the closure* | `record: recorded\|record-failed` |
+| `mark-draft` | § *Marking a partial PR draft* | `partial: drafted\|draft-failed\|no-pr` |
+
+A `terminal` line ends the run: the engine records it, and the next
+`/wrap-up-session` on the branch starts a fresh run, while a run interrupted before its
+terminal line resumes where it stopped.
+
 ## Handovers
 
 When the branch's `## Plan:` block carries `> Handover:` blockquotes, the PR
@@ -38,7 +64,7 @@ It prints every reference that no closing keyword reaches, one per line, and
 exits 3; exit 0 prints nothing. Any other exit — 2 is a usage error, 1 a crash
 — is the script failing, not a clean body. A listed reference is a claim to
 rewrite: repeat the keyword before it, and report `linkage repaired` on the
-`PR:` line of the Done report below.
+`PR:` line of `/wrap-up-session` § *Report*.
 
 **No PR for this branch** → draft the body to a file, run the check on the
 draft, repair what it lists, then create the PR from that file
@@ -78,7 +104,7 @@ stops happening.
 | Failure | Action |
 |---------|--------|
 | Network error | Retry up to 4 times with backoff (2s, 4s, 8s, 16s) |
-| Non-fast-forward | Report `push: non-ff` to the closure loop, which merges (never rebases) the remote branch — see § Conflict Repair |
+| Non-fast-forward | Report `push: non-ff` to the closure loop, which merges (never rebases) the remote branch — see § *Conflict repair* |
 | Permission denied | Report to user — do not retry |
 | Branch protection | Report to user — do not retry |
 
@@ -87,7 +113,7 @@ stops happening.
 The `mergeability` action, run once the PR exists: `gh pr view <n> --json
 mergeable`. `MERGEABLE` reports `mergeable: clean`. `CONFLICTING` reports
 `mergeable: conflicting` with the PR's base branch, which the engine routes
-to *Conflict Repair* below. `UNKNOWN` is re-queried up to 3 times inside this
+to § *Conflict repair* below. `UNKNOWN` is re-queried up to 3 times inside this
 action before it gives up and reports `mergeable: unknown` — GitHub has not
 finished computing it, not a real conflict. A branch that is merely behind
 its base (`mergeStateStatus: BEHIND`) is not a trigger (Decision 9): the
@@ -97,7 +123,7 @@ its base (`mergeStateStatus: BEHIND`) is not a trigger (Decision 9): the
 
 The `watch-ci` action: `gh pr checks <n> --watch --required` as a background
 task (`run_in_background` on Claude Code — never a foreground `sleep` or poll
-loop; wait for its completion notification like Step 6's suite). When the PR
+loop; wait for its completion notification like `/wrap-up-session` § *Full suite*). When the PR
 declares no required checks, watch all of them instead: `gh pr checks <n>
 --watch`. Budget 30 minutes; past it, report `ci: timeout`.
 
@@ -113,8 +139,8 @@ required check reports `ci: fail` with the failing check names.
 
 The `debug-ci` action runs on `ci: fail` with rounds left (2 total): fetch
 the failing run's log, `gh run view <run-id> --log-failed`, and hand it to
-`/debug`. The fix re-enters Step 4 (`check-receipt`) and Step 6 (`run-suite`)
-before the next push — the same gates every other commit passes, so a repair
+`/debug`. The fix re-enters `/wrap-up-session` § *Quality receipt* (`check-receipt`) and
+§ *Full suite* (`run-suite`) before the next push — the same gates every other commit passes, so a repair
 commit is never smuggled past the receipt or the suite. Report `debug: fixed`
 once the fix is committed — the engine then routes it through
 `check-receipt`, `run-suite` and `commit-push`, so this action never pushes
@@ -137,7 +163,8 @@ repository does not rewrite history that may already be on someone else's
 machine (Constraint *No history rewrite*).
 
 Resolve every conflict and commit the merge; report `merge: resolved`, which
-re-enters Step 4 so the merged tree gets checked before the next push. A
+re-enters `/wrap-up-session` § *Quality receipt* so the merged tree gets checked before
+the next push. A
 conflict that cannot be resolved in this round is aborted —
 `git merge --abort` — and reported as `merge: unresolved`, which ends the run
 (stopped while no PR exists, partial with the PR drafted after) rather than
@@ -160,8 +187,8 @@ against the head this loop pushed: `git rev-parse HEAD` differing from the
 pushed head is `head-moved: true`, matching it is `head-moved: false`.
 Report `deploy: pass` or `deploy: fail` with that flag.
 
-**Accepted exception.** `head-moved: true` re-enters Step 4
-(`check-receipt`) at most once — `closure.py` counts it in
+**Accepted exception.** `head-moved: true` re-enters
+`/wrap-up-session` § *Quality receipt* (`check-receipt`) at most once — `closure.py` counts it in
 `deploy_reentries`. For the length of one deployment fix the remote holds a
 tree no receipt covers, and the very next action gates it, so the gap never
 outlives that single re-entry. A second `head-moved: true` after the
@@ -180,7 +207,7 @@ The `record-closure` action, entered once `deploy` reports `pass` (with
 `head-moved: false`) or `n/a`. Re-sync the PR body's `## Closure` section
 (§ *The Pull Request*) with every outcome the loop now knows — the CI
 result, conflict-repair rounds, the deployment result or its
-not-applicable reason, and the `Quality receipt:` line from Step 4,
+not-applicable reason, and the `Quality receipt:` line from § *Quality receipt*,
 unchanged:
 
 ```bash
@@ -188,10 +215,10 @@ gh pr edit <n> --body-file <redrafted body>
 ```
 
 Report `record: recorded` on success, `record: record-failed` when `gh`
-refuses. `tasks/history.md` and `tasks/todo.md` (Step 2) record only facts
+refuses. `tasks/history.md` and `tasks/todo.md` (`/wrap-up-session` § *Task register*) record only facts
 known before the push (Decision 7) — CI, conflict and deployment outcomes
 are never written there; they live only in the PR body's `## Closure`
-section and the `Closure:` line below.
+section and the report's `Closure:` line.
 
 ## Marking a partial PR draft
 
@@ -205,3 +232,26 @@ gh pr ready <n> --undo
 Report `partial: drafted` on success, `partial: draft-failed` when `gh`
 refuses, or `partial: no-pr` when no PR exists to draft. A partial run
 never leaves a ready PR behind.
+
+## Local worktree merge
+
+`/wrap-up-session` § *Worktree integration*, when the repo merges locally (no remote, or the
+user asked for a direct merge):
+
+1. Verify clean: `git status --porcelain` empty
+2. Switch to the parent worktree, `git pull --ff-only`
+3. `git merge --no-ff <branch>`
+4. Run the **full** suite on the merged result, through
+   `.agents/skills/build/scripts/cached-suite.sh -- <full-suite command>` — this is
+   the first time these two lines of history have coexisted, so a green run on
+   either side proves nothing about the merge; the merged tree is new, so the
+   cache runs it for real
+5. Green → `git worktree remove <path>` and delete the branch
+6. Red → keep both, report the failures, change nothing else
+
+**Conflicts.** Expect them in `tasks/*.md` — the append-only registers are
+touched by nearly every session and are a bigger conflict source than source
+code. A `.gitattributes` with `merge=union` on those files removes the mechanical
+conflict but not the semantic one: two sessions that each allocate the next
+`BUG-NNN` produce duplicate IDs with no marker to catch it. After merging, scan
+the register for repeated IDs before trusting it.

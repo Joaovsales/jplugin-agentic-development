@@ -146,7 +146,7 @@ keeping the work locally and reporting the pending publication loses neither.
 
 If the local record itself cannot be written, **STOP wrap-up: the documentation
 debt would otherwise be lost** — which is the one thing this step exists to
-prevent. End through the terminal PR assertion (`.agents/skills/wrap-up-session/SKILL.md`).
+prevent. End through `.agents/skills/wrap-up-session/SKILL.md` § *Terminal PR assertion*.
 
 The **PR description** lists every deferred reconciliation task, so a reviewer
 sees that the affected spec was deliberately left alone rather than missed.

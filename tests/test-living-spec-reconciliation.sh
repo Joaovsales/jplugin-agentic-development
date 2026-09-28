@@ -848,27 +848,25 @@ printf '\n--- 9. Placement: after the register, before every downstream gate ---
 # caught them -- a spec rewritten AFTER review and tests is a file nothing
 # checked. So the step's position is asserted against the actual heading
 # sequence, not merely its presence.
-step_order() { grep -n '^## Step ' "$1" | sed 's/:.*Step /:/' | sed 's/ .*//'; }
+heading_line() { grep -n "^### $2\$" "$1" | head -1 | cut -d: -f1; }
 for f in "$WU"; do
-  ORDER="$(step_order "$f")"
-  assert_contains "$ORDER" ":3.2" "placement ($f): a Step 3.2 exists"
-  LINE_REG="$(grep -n '^## Step 2 ' "$f" | cut -d: -f1)"
-  LINE_REC="$(grep -n '^## Step 3.2 ' "$f" | cut -d: -f1)"
-  LINE_MAP="$(grep -n '^## Step 3.3 ' "$f" | cut -d: -f1)"
-  LINE_REV="$(grep -n '^## Step 4 ' "$f" | cut -d: -f1)"
-  LINE_TEST="$(grep -n '^## Step 6 ' "$f" | cut -d: -f1)"
-  LINE_PUSH="$(grep -n '^## Step 7 ' "$f" | cut -d: -f1)"
-  assert_eq "after" "$([ "$LINE_REC" -gt "$LINE_REG" ] && echo after || echo before)" \
+  LINE_REG="$(heading_line "$f" 'Task register')"
+  LINE_REC="$(heading_line "$f" 'Spec reconciliation')"
+  LINE_MAP="$(heading_line "$f" 'Changed verification map')"
+  LINE_REV="$(heading_line "$f" 'Quality receipt')"
+  LINE_TEST="$(heading_line "$f" 'Full suite')"
+  LINE_PUSH="$(heading_line "$f" 'Commit and push')"
+  assert_eq "present" "$([ -n "$LINE_REC" ] && echo present || echo missing)" \
+    "placement ($f): a Spec reconciliation section exists"
+  assert_eq "after" "$([ "${LINE_REC:-0}" -gt "${LINE_REG:-0}" ] && echo after || echo before)" \
     "placement ($f): reconciliation runs AFTER the task register"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_MAP" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_MAP:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE verification-map maintenance"
-  # Step 3.5 (the inline security scan) is gone since #188 -- the gate's own
-  # phase 3 owns that check now, so there is no anchor left to test against.
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_REV" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_REV:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE the quality receipt check"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_TEST" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_TEST:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE the test run"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_PUSH" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_PUSH:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE commit and push"
 
   # The snapshot must precede the writes, or the step reads its own edits.

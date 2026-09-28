@@ -37,7 +37,7 @@ for tree in .agents; do
     "AC9: $tree/wrap-up points at the fix-escalation terminal"
   assert_prose_contains "$routines" "investigation escalation" \
     "AC9: $tree/wrap-up recognizes the no-PR escalation terminal"
-  assert_prose_contains "$routines" "Do not run Step 8.5" \
+  assert_prose_contains "$routines" "Do not run the terminal PR assertion" \
     "AC9: $tree/wrap-up does not replace the escalation result with a PR assertion"
   assert_prose_contains "$routines" "structured blocked outcome" \
     "AC9: $tree/wrap-up routes its own blocked E2E result to the canonical owner"

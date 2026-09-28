@@ -36,8 +36,8 @@ for tree in .agents; do
     "AC7: $tree/wrap-up-session has one canonical PR section"
 
   # --- AC7: both Step 7 and Step 7.5 reach that one place --------------------
-  step7="$(awk '/^## Step 7 — Commit & Push/{f=1;next} f&&/^## Step 7.5/{exit} f' "$f")"
-  step75="$(awk '/^## Step 7.5/{f=1;next} f&&/^## Step 8/{exit} f' "$f")"
+  step7="$(awk '/^### Commit and push/{f=1;next} f&&/^##/{exit} f' "$f")"
+  step75="$(awk '/^### Worktree integration/{f=1;next} f&&/^##/{exit} f' "$f")"
 
   assert_contains "$step7" "The Pull Request" \
     "AC7: $tree Step 7 reaches the canonical PR section"
@@ -114,10 +114,10 @@ for tree in .agents; do
   # What changes is the FAILURE MODE the spec actually names: a 03:00 run that
   # ends having produced nothing, and says so to nobody. So the assertion is
   # about loudness and exit code, not about forcing a PR into existence.
-  assert_file_matches "$f" '^## Step 8.5' \
+  assert_file_matches "$f" '^### Terminal PR assertion$' \
     "AC11: $tree/wrap-up-session has a terminal PR assertion step"
 
-  terminal="$(awk '/^## Step 8.5/{f=1;next} f&&/^## /{exit} f' "$f")"
+  terminal="$(awk '/^### Terminal PR assertion/{f=1;next} f&&/^##/{exit} f' "$f")"
 
   assert_contains "$terminal" "gh pr view" \
     "AC11: $tree checks for the PR with gh pr view on the branch"
@@ -138,16 +138,20 @@ for tree in .agents; do
 
   # ...and the claim above is prose. A reader following this skill top to bottom
   # hits "STOP" and stops, so the step is reachable only if each early exit says
-  # so where the exit is written. The exits are read from Step 8.5's own table,
-  # so a new exit added there is checked without editing this test.
-  for exit_step in $(printf '%s\n' "$terminal" \
-      | sed -nE 's/^\|[^|]*\|[[:space:]]*Step ([0-9.]+)[[:space:]]*\|.*/\1/p' \
-      | sort -u); do
-    section="$(awk -v want="## Step $exit_step " \
-      'index($0, want) == 1 { f = 1; next } f && /^## / { exit } f' "$f")"
-    assert_contains "$section" "Step 8.5" \
-      "AC11: $tree's Step $exit_step exit routes to Step 8.5 rather than just stopping"
-  done
+  # so where the exit is written. The exits are read from the assertion's own
+  # table, keyed by section name, so a new exit added there is checked without
+  # editing this test -- and a table that lists nothing fails instead of passing.
+  exit_sections="$(printf '%s\n' "$terminal" \
+    | sed -nE 's/^\|[^|]*\|[[:space:]]*§ \*([^*]+)\*[[:space:]]*\|.*/\1/p')"
+  assert_eq "6" "$(printf '%s\n' "$exit_sections" | grep -c . || true)" \
+    "AC11: $tree's exits table lists exactly the six no-PR exits"
+  while IFS= read -r exit_section; do
+    [ -n "$exit_section" ] || continue
+    section="$(awk -v want="### $exit_section" \
+      '$0 == want { f = 1; next } f && /^##/ { exit } f' "$f")"
+    assert_contains "$section" "Terminal PR assertion" \
+      "AC11: $tree's '$exit_section' exit routes to the terminal PR assertion rather than just stopping"
+  done <<< "$exit_sections"
 
   # Silence on success. A terminal check that prints on every green run trains
   # readers to ignore it, which is how the loud case stops being loud.

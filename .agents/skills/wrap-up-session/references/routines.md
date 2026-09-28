@@ -351,8 +351,9 @@ this section.
 
 If a `routine/fix/` caller supplies a completed investigation escalation result,
 preserve that non-zero terminal result and STOP: open no PR, write no PR ledger,
-and do not repeat the registry command. Do not run Step 8.5; the escalation is
-already the retained, loud no-PR result. This exception applies only to the fix
+and do not repeat the registry command. Do not run the terminal PR assertion
+(`/wrap-up-session` § *Terminal PR assertion*); the escalation is already the
+retained, loud no-PR result. This exception applies only to the fix
 routine's investigation path. Interactive wrap-up and deployment verification
 keep their existing contracts.
 
@@ -441,7 +442,8 @@ python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
 ```
 
 2. The caller declared it. `/yolo` and `/auto-push` each carry a
-   **Step 8.5 — unattended** row in the override table they pass to this skill.
+   **Terminal PR assertion — unattended** row in the override table they pass
+   to wrap-up.
    Their branches are ordinary feature branches, so nothing about the branch name
    says a human stopped watching; only the caller knows, so only the caller can
    say.

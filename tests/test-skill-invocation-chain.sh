@@ -107,8 +107,8 @@ for tree in $TREES; do
     f="$tree/skills/$skill/SKILL.md"
     maintain_line=$(grep -nF "/maintain-verification-skill --scope changed" "$f" | head -1 | cut -d: -f1)
     verify_line=$(grep -niF 'invoke `/verify-evidence --scope e2e`' "$f" | head -1 | cut -d: -f1)
-    review_line=$(grep -nE '^## (Phase 3|Step 4) .*Quality Gate|^## Step 4 .*Code Review' "$f" | head -1 | cut -d: -f1)
-    full_test_line=$(grep -nE '^## Phase 2 .*Validation|^## Step 6 .*Run Tests' "$f" | head -1 | cut -d: -f1)
+    review_line=$(grep -nE '^## Phase 3 .*Quality Gate|^### Quality receipt$' "$f" | head -1 | cut -d: -f1)
+    full_test_line=$(grep -nE '^## Phase 2 .*Validation|^### Full suite$' "$f" | head -1 | cut -d: -f1)
     assert_file_contains "$f" "/maintain-verification-skill --scope changed" \
       "Chain: $tree/$skill names changed-scope maintenance"
     assert_file_matches "$f" '`blocked`.*STOP' \
@@ -130,6 +130,26 @@ for tree in $TREES; do
     else
       assert_eq "maintenance before review" "${maintain_line:-missing} / ${review_line:-missing}" \
         "Chain: $tree/$skill maintains before review"
+    fi
+  done
+done
+
+# ── wrap-up: E2E coverage sits in Reconcile, before the receipt and the suite
+# specs/wrap-up-phases.md AC4 and Decision 2. The walkthrough can write
+# tasks/e2e-log.md or an [e2e-gap] document; run after cached-suite.sh hashed the
+# tree, those edits would be pushed without a full run.
+for tree in $TREES; do
+  f="$tree/skills/wrap-up-session/SKILL.md"
+  prev=0
+  for anchor in "/maintain-verification-skill --scope changed" 'invoke `/verify-evidence --scope e2e`' \
+                "### Quality receipt" "### Full suite"; do
+    line=$(grep -nF -- "$anchor" "$f" | head -1 | cut -d: -f1)
+    if [ -n "${line:-}" ] && [ "$line" -gt "$prev" ]; then
+      assert_eq "ordered" "ordered" "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
+      prev=$line
+    else
+      assert_eq "after line $prev" "${line:-missing}" \
+        "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
     fi
   done
 done

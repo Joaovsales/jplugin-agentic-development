@@ -142,6 +142,24 @@ assert_file_contains .agents/skills/task-registry/scripts/registry/config.py \
   'pointer found in {LEGACY_POINTER_FILE} — /sync will move it to AGENTS.md' \
   "Budget: the registry prints the one-line notice for a pointer still in .claude/project.md"
 
+# --- /wrap-up-session: five named phases, within budget ---------------------
+# specs/wrap-up-phases.md AC1. Lookup detail lives in the skill's reference
+# files; SKILL.md keeps the rule and the command. Numbered step headings are
+# gone for good: they forced renumbering on every insertion (Decision 5).
+WRAP=.agents/skills/wrap-up-session/SKILL.md
+wrap_lines="$(grep -c '' "$WRAP")"
+assert_eq "yes" "$([ "$wrap_lines" -gt 100 ] && [ "$wrap_lines" -le 300 ] && echo yes || echo "no ($wrap_lines lines)")" \
+  "Budget: /wrap-up-session SKILL.md is at most 300 lines (and non-vacuous)"
+assert_eq "$(printf '%s\n' '## Bookkeeping' '## Reconcile' '## Gate' '## Ship' '## Done')" \
+  "$(tr -d '\r' < "$WRAP" | unfenced | grep '^## ')" \
+  "Budget: /wrap-up-session has exactly the five phase headings, in order"
+assert_eq "" "$(tr -d '\r' < "$WRAP" | unfenced | grep -nE '^#{2,4} Step ' || true)" \
+  "Budget: /wrap-up-session has no numbered step heading"
+for ref in spec-reconcile closure-actions routines; do
+  assert_file_contains "$WRAP" "references/$ref.md" \
+    "Budget: /wrap-up-session links references/$ref.md"
+done
+
 # --- scaffold seeds -----------------------------------------------------------
 assert_eq "@AGENTS.md" "$(tr -d '\r' < project-template/CLAUDE.md)" \
   "Budget: project-template/CLAUDE.md is the same pointer"
