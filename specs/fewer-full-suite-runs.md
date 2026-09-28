@@ -35,7 +35,7 @@ implementation_paths:
 ## Behavior
 
 A build session pays for the full suite at most twice: once for the green
-baseline and once pre-push in `/wrap-up-session` Step 6. Every other
+baseline and once pre-push in `/wrap-up-session` § *Full suite*. Every other
 verification point runs only the **affected** test files. A second full-suite
 request on a tree that already passed, for the same command, is answered from
 a cached record instead of re-running.
@@ -55,7 +55,7 @@ a cached record instead of re-running.
   edited during the run is not recorded. `/yolo` and `/auto-push` run no
   baseline of their own: `/plan` writes to the tree before `/build` starts, so
   theirs could never be reused, and `/build`'s baseline stops a red loop
-  instead. A `/wrap-up-session` Step 6 on a tree already proved green costs
+  instead. A `/wrap-up-session` § *Full suite* on a tree already proved green costs
   nothing.
 - **One suite at a time.** While a `cached-suite.sh` run is in progress for
   the repository, a second invocation refuses. It prints
@@ -141,7 +141,7 @@ a cached record instead of re-running.
   looping over every skill) is not selected by a verbatim-path match. The
   pre-push full run and PR CI catch what the selector misses. This is the
   risk #178 accepted.
-- **Local-merge path** (`/wrap-up-session` Step 7.5, no remote). The full
+- **Local-merge path** (`.agents/skills/wrap-up-session/references/closure-actions.md` § *Local worktree merge*, no remote). The full
   run on the merged result is a new tree and runs for real. It is the one
   third full run, and it happens only when there is no PR to run CI.
 - **CI timeout.** `tests.yml` keeps `timeout-minutes: 15`. It already
