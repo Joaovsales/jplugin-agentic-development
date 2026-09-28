@@ -1340,8 +1340,12 @@ Filed this sweep:
 > Surface: none
 
 ### Slice 6/7 — Repoint remaining step citations
-- [ ] Repoint remaining step citations <!-- task-id: plan.specs-wrap-up-phases-md.repoint-remaining-step-citations --> — Slice 6/7 of specs/wrap-up-phases.md: every other wrap-up step-number reference becomes a § citation ([#200](https://github.com/Joaovsales/jplugin-agentic-development/issues/200)) (blocked-by: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases)
-  [ ] TDD: doc-conventions greps .agents, .claude, README, AGENTS.md for `wrap-up… Step N` / `§ 5.1` and finds nothing; test-citations resolves each new § (AC 6) -> rewrite build, quality-gate, tidy, memory-maintain, verify-evidence, sync, system-design-planning, closure.py docstring, pre-push comment, test-closure label
+- [x] Repoint remaining step citations <!-- task-id: plan.specs-wrap-up-phases-md.repoint-remaining-step-citations --> — Slice 6/7 of specs/wrap-up-phases.md: every other wrap-up step-number reference becomes a § citation ([#200](https://github.com/Joaovsales/jplugin-agentic-development/issues/200)) (blocked-by: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases)
+  [x] TDD: doc-conventions greps .agents, .claude, README, AGENTS.md for `wrap-up… Step N` / `§ 5.1` and finds nothing; test-citations resolves each new § (AC 6) -> rewrite build, quality-gate, tidy, memory-maintain, verify-evidence, sync, system-design-planning, closure.py docstring, pre-push comment, test-closure label
+
+> Handover: landed d186ef1 — build, quality-gate, tidy, memory-maintain, verify-evidence, system-design-planning, the closure.py docstring, the pre-push comment, the test-closure label and AGENTS.md now cite `/wrap-up-session` § *Name*; system-design-planning's Apply Gate cite points at `.agents/skills/quality-gate/SKILL.md` § *Apply Gate*, where the gate now lives
+> Do not re-derive: test-doc-conventions' last block flattens every tracked file under .agents, .claude/agents, README.md and AGENTS.md, fails on `wrap-up… (Step N` / `§ 5.1` across line breaks, and resolves each `/wrap-up-session` § citation against the SKILL.md and references headings (non-vacuous at ≥8). sync/SKILL.md needed no edit
+> Surface: [SURFACE] +AGENTS.md | reason: its § Workflow cited `/wrap-up-session` Step 6 and the AC grep covers it; [SURFACE] +.agents/skills/verify-deployment/SKILL.md | reason: its push-failure citation pointed at Step 7 — slice 7 rewrites the table itself
 
 ### Slice 7/7 — Fix behavioral drift in callers
 - [ ] Fix behavioral drift in callers <!-- task-id: plan.specs-wrap-up-phases-md.fix-behavioral-drift-in-callers --> — Slice 7/7 of specs/wrap-up-phases.md: verify-deployment merges, persona and lane wording corrected, spec diagram updated ([#201](https://github.com/Joaovsales/jplugin-agentic-development/issues/201)) (blocked-by: plan.specs-wrap-up-phases-md.repoint-remaining-step-citations)
