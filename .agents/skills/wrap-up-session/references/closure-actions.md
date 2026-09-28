@@ -14,7 +14,7 @@ the rest are below.
 |--------|---------------|---------|
 | `check-receipt` | `/wrap-up-session` § *Quality receipt*, `receipt.py check` | `receipt: valid` \| `receipt: hold` (on `stale verdict HOLD`) \| `receipt: stale`, `scope: delta\|full` |
 | `quality-gate` | `/wrap-up-session` § *Quality receipt*, the `/quality-gate` re-entry | `gate: GO\|HOLD-approved\|HOLD\|STOP\|none` |
-| `approve-hold` | `/wrap-up-session` § *Quality receipt*, *Approving a HOLD* | `approve: approved\|declined` (an unattended run always reports `declined`) |
+| `approve-hold` | `/wrap-up-session` § *Quality receipt*, *Approving a HOLD* | `approve: approved\|declined` |
 | `run-suite` | `/wrap-up-session` § *Full suite*, `cached-suite.sh` | `suite: green\|red\|blocked` |
 | `commit-push` | `/wrap-up-session` § *Commit and push* | `push: ok` \| `push: non-ff` \| `push: denied` |
 | `pr-sync` | `/wrap-up-session` § *The Pull Request* | `pr: <n>` \| `pr: failed` |
@@ -48,7 +48,7 @@ When a PR resolves several issues, the body repeats the keyword per issue —
 GitHub binds a closing keyword to the one reference that immediately follows
 it: `Closes #A, #B` links only the first reference and leaves the rest as
 plain mentions, so they stay open after merge with nothing reporting it. The
-linkage check in § *Creating and re-syncing* catches the failing form before
+linkage check in § *PR re-sync* catches the failing form before
 the body is written.
 
 ## PR re-sync
@@ -66,9 +66,8 @@ exits 3; exit 0 prints nothing. Any other exit — 2 is a usage error, 1 a crash
 rewrite: repeat the keyword before it, and report `linkage repaired` on the
 `PR:` line of `/wrap-up-session` § *Report*.
 
-**No PR for this branch** → draft the body to a file, run the check on the
-draft, repair what it lists, then create the PR from that file
-(`/wrap-up-session` § *The Pull Request*):
+**No PR for this branch** → `/wrap-up-session` § *The Pull Request* owns
+creation; the check it runs on the draft body is:
 
 ```bash
 python3 .agents/skills/wrap-up-session/scripts/pr_linkage.py check --body-file <draft>
@@ -140,7 +139,7 @@ required check reports `ci: fail` with the failing check names.
 The `debug-ci` action runs on `ci: fail` with rounds left (2 total): fetch
 the failing run's log, `gh run view <run-id> --log-failed`, and hand it to
 `/debug`. The fix re-enters `/wrap-up-session` § *Quality receipt* (`check-receipt`) and
-§ *Full suite* (`run-suite`) before the next push — the same gates every other commit passes, so a repair
+`/wrap-up-session` § *Full suite* (`run-suite`) before the next push — the same gates every other commit passes, so a repair
 commit is never smuggled past the receipt or the suite. Report `debug: fixed`
 once the fix is committed — the engine then routes it through
 `check-receipt`, `run-suite` and `commit-push`, so this action never pushes
@@ -205,9 +204,9 @@ run `/setup-deployment`.
 
 The `record-closure` action, entered once `deploy` reports `pass` (with
 `head-moved: false`) or `n/a`. Re-sync the PR body's `## Closure` section
-(§ *The Pull Request*) with every outcome the loop now knows — the CI
+(`/wrap-up-session` § *The Pull Request*) with every outcome the loop now knows — the CI
 result, conflict-repair rounds, the deployment result or its
-not-applicable reason, and the `Quality receipt:` line from § *Quality receipt*,
+not-applicable reason, and the `Quality receipt:` line from `/wrap-up-session` § *Quality receipt*,
 unchanged:
 
 ```bash

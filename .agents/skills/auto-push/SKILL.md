@@ -131,7 +131,7 @@ Invoke `/wrap-up-session` with these overrides:
 | `/wrap-up-session` section | Auto-push override |
 |---|---|
 | § *E2E coverage* | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. The approval covered "ship it"; e2e verification is part of shipping. |
-| § *Quality receipt* | Run normally, **no prompt added**. The gate auto-applies only `gated_auto` findings at `confidence >= 75`; anything else leaves a HOLD or STOP, and an unattended run never approves a HOLD. A receipt that is not GO or approved HOLD is a STOP: report it and do NOT push partial work — the approval did not cover skipping safety gates. Never widen `autofix_class`, and never downgrade a finding, to get a GO. |
+| § *Quality receipt* | Run normally, **no prompt added**. A MUST-FIX the gate did not auto-apply (below `gated_auto` at `confidence >= 75`, `.agents/references/finding-model.md`) stays unresolved on the receipt. A receipt that is not GO or approved HOLD is a STOP: report it and do NOT push partial work — the approval did not cover skipping safety gates. |
 | § *Commit and push* | Run normally. Push to the feature branch. |
 | `.agents/skills/wrap-up-session/references/closure-actions.md` § *Deployment verification* | Run normally if configured. |
 | § *Terminal PR assertion* — unattended | **This run is unattended.** Declare it, so the assertion runs: the branch is an ordinary feature branch, and nothing in its name tells wrap-up a human stopped watching. |

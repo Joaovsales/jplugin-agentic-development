@@ -151,7 +151,7 @@ prevent. End through `.agents/skills/wrap-up-session/SKILL.md` § *Terminal PR a
 The **PR description** lists every deferred reconciliation task, so a reviewer
 sees that the affected spec was deliberately left alone rather than missed.
 
-## Report
+## Reconciliation report
 
 ```text
 Spec reconciliation: 5 candidates, 2 updated, 2 unchanged, 1 deferred
@@ -169,7 +169,7 @@ deliberate `unchanged` from a comparison that never happened. Bound each line at
 
 No candidates is a **successful outcome** and stays one line. So is all-unchanged — but it still names the specs it compared.
 
-Updated specs then join the code in the verification, security, review, test,
-commit, and push gates that follow — and a **failing gate blocks both**. A spec
+Updated specs then join the code in every Gate and Ship section of
+`/wrap-up-session` that follows — and a **failing gate blocks both**. A spec
 committed while the code it documents was rejected would publish a description of
 behavior that does not exist, which is worse than the stale spec it replaced.

@@ -875,7 +875,7 @@ for f in "$WU"; do
   # And a failing downstream gate must take the spec edits down with the code.
   # Committing a spec whose code was rejected publishes a description of
   # behavior that does not exist.
-  assert_prose_contains "$SR" 'join the code in the verification, security, review, test, commit, and push gates' \
+  assert_prose_contains "$SR" 'join the code in every Gate and Ship section' \
     "placement ($f): updated specs are covered by every downstream gate"
   assert_prose_contains "$SR" 'failing gate blocks both' \
     "placement ($f): a failing downstream gate blocks the spec edit as well as the code"

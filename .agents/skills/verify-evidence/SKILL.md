@@ -275,4 +275,4 @@ verification and returns through the existing debug/build repair loop.
 - **Default mode required by**: `/build` (after each task and in Phase 4), `/debug` (Phase 3), `/wrap-up-session` (§ *Full suite*)
 - **`--scope e2e` invoked by**: `/build` Phase 4 (user-facing ACs), `/wrap-up-session` § *E2E coverage*
 - **Project recipe maintained by**: `/maintain-verification-skill --scope changed`
-- **`--scope deployment` invoked by**: `/wrap-up-session` § *Deployment verification*
+- **`--scope deployment` invoked by**: `.agents/skills/wrap-up-session/references/closure-actions.md` § *Deployment verification*

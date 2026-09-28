@@ -432,14 +432,15 @@ continue to the PR assertion.
 The terminal PR assertion runs on unattended runs only. A run is unattended
 when either holds:
 
-```bash
-# 1. The branch is a routine branch. Exit 0 means yes; exit 3 means no.
-#    `routine/` is a prefix, but only the parser knows which names under it are
-#    real -- `routine/plna/90-x` is nobody's branch, and matching the prefix
-#    would read it as a routine run.
-python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
-  parse "$(git branch --show-current)"
-```
+1. The branch is a routine branch. Exit 0 means yes; exit 3 means no.
+   `routine/` is a prefix, but only the parser knows which names under it are
+   real — `routine/plna/90-x` is nobody's branch, and matching the prefix
+   would read it as a routine run.
+
+   ```bash
+   python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
+     parse "$(git branch --show-current)"
+   ```
 
 2. The caller declared it. `/yolo` and `/auto-push` each carry a
    **Terminal PR assertion — unattended** row in the override table they pass
@@ -448,7 +449,8 @@ python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
    says a human stopped watching; only the caller knows, so only the caller can
    say.
 
-An unattended run never approves a HOLD: it reports `approve: declined`.
+What that changes is stated where it applies: `/wrap-up-session` § *Quality receipt*
+(*Approving a HOLD*) and § *Terminal PR assertion*.
 
 ## Edge cases
 

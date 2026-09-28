@@ -190,7 +190,7 @@ Where `N` is the new iteration number (1-indexed in the message).
 git push origin <current-branch>
 ```
 
-Apply the same push failure handling as `/wrap-up-session` § *Push failures*:
+Apply the same push failure handling as `.agents/skills/wrap-up-session/references/closure-actions.md` § *Push failures*:
 
 | Failure | Action |
 |---|---|

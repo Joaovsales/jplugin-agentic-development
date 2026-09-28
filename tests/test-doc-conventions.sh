@@ -1254,7 +1254,6 @@ wrap_sub() {  # <### heading>: that subsection's body, up to the next ## or ### 
     | tr -s '[:space:]' ' '
 }
 # The closure actions after pr-sync live in their own reference file.
-CA_FILE=.agents/skills/wrap-up-session/references/closure-actions.md
 ca_section() {  # <heading prefix>: that heading's body in closure-actions.md, up to the next ## heading
   awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$CA_FILE" \
     | tr -s '[:space:]' ' '
@@ -1369,7 +1368,7 @@ assert_file_not_matches "$WRAP_SKILL" '^## Step 5 —' \
 assert_file_not_matches "$WRAP_SKILL" '^#+ Step ' \
   "wrap-up phases: $WRAP_SKILL has no numbered step heading"
 
-# --- receipt check: wrap-up's Step 4 reuses the gate's receipt --------------
+# --- receipt check: wrap-up § Quality receipt reuses the gate's receipt --------------
 # specs/quality-receipt-closure.md AC8. On `valid` it reuses the receipt; on
 # `diff-changed` it re-enters the gate at delta scope with --parent; on any
 # other stale reason, at full scope, once. It approves a HOLD only after a
@@ -1382,19 +1381,19 @@ for token in "receipt.py check" "diff-changed" "--scope <delta paths> --parent <
     "receipt check: /wrap-up-session § Quality receipt names '$token'"
 done
 assert_contains "$WRAP_STEP4" "Never call \`/quality-gate\` a second time on an unchanged tree." \
-  "receipt check: /wrap-up-session Step 4 runs no second gate on the same tree"
+  "receipt check: /wrap-up-session § Quality receipt runs no second gate on the same tree"
 # receipt.py reports an unapproved HOLD as `stale verdict HOLD`, never as
 # `valid HOLD`; the approval path keys on that line, before any re-entry, and
 # takes the fingerprint from `receipt.py fingerprint` (check prints none there).
 assert_contains "$WRAP_STEP4" "stale verdict HOLD" \
-  "receipt check: /wrap-up-session Step 4 keys the approval path on 'stale verdict HOLD'"
+  "receipt check: /wrap-up-session § Quality receipt keys the approval path on 'stale verdict HOLD'"
 assert_contains "$WRAP_STEP4" "receipt.py fingerprint" \
-  "receipt check: /wrap-up-session Step 4 reads the HOLD's fingerprint from receipt.py fingerprint"
+  "receipt check: /wrap-up-session § Quality receipt reads the HOLD's fingerprint from receipt.py fingerprint"
 assert_not_contains "$WRAP_STEP4" "\`valid HOLD\` (not yet approved)" \
-  "receipt check: /wrap-up-session Step 4 names no 'valid HOLD' line receipt.py never prints"
+  "receipt check: /wrap-up-session § Quality receipt names no 'valid HOLD' line receipt.py never prints"
 
-# --- closure PR: Step 7 is rewritten around the closure engine -------------
-# specs/quality-receipt-closure.md AC9. From Step 4 on, wrap-up performs the
+# --- closure PR: § The closure loop is rewritten around the closure engine -------------
+# specs/quality-receipt-closure.md AC9. From § Quality receipt on, wrap-up performs the
 # actions closure.py step prints, with its state file under the git common
 # dir, never --no-verify, and the PR body carries the receipt line and a
 # Closure section while still passing the linkage check.
@@ -1410,7 +1409,7 @@ flat_ca="$(flatten "$CA_FILE")"
 assert_not_contains "$flat_ca" "--no-verify" \
   "closure PR: closure-action commits never pass --no-verify"
 assert_contains "$flat_wrap" "the \`Quality receipt: <verdict> · <fp8> · policy <v>\` line" \
-  "closure PR: the PR body carries the Quality receipt line from Step 4"
+  "closure PR: the PR body carries the Quality receipt line from § Quality receipt"
 assert_contains "$flat_wrap" "a \`## Closure\` section" \
   "closure PR: the PR body carries a ## Closure section"
 PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^###? /{exit} f' "$WRAP_SKILL")"
@@ -1455,17 +1454,17 @@ assert_contains "$PUSH_FAILURE" "Conflict repair" \
   "closure conflicts: the non-fast-forward row routes to Conflict Repair"
 
 # --- closure deploy: verify-deploy runs when a target applies, else n/a -----
-# specs/quality-receipt-closure.md AC12. A moved HEAD re-enters Step 4 once.
+# specs/quality-receipt-closure.md AC12. A moved HEAD re-enters § Quality receipt once.
 STEP8="$(ca_section "## Deployment verification")"
 for token in "/verify-evidence --scope deployment" "head-moved: true" "head-moved: false" \
              "re-enters \`/wrap-up-session\` § *Quality receipt*" "deploy_reentries" "at most once" \
              "Deployments: not applicable —" "\`--skip-deploy\`"; do
-  assert_contains "$STEP8" "$token" "closure deploy: Step 8 names '$token'"
+  assert_contains "$STEP8" "$token" "closure deploy: § Deployment verification names '$token'"
 done
 assert_contains "$STEP8" "Deployment Targets\` row applies to the pushed branch" \
-  "closure deploy: Step 8 names the applying-target case"
+  "closure deploy: § Deployment verification names the applying-target case"
 assert_contains "$STEP8" "Accepted exception" \
-  "closure deploy: Step 8 names the accepted exception"
+  "closure deploy: § Deployment verification names the accepted exception"
 
 # --- closure record: record-closure and mark-draft are described, and the ---
 # Done report carries a Closure line. specs/quality-receipt-closure.md AC13.
@@ -1496,11 +1495,11 @@ for token in "approve-hold" "receipt: hold" "approve: approved" "starts a fresh 
   assert_contains "$LOOP_TABLE" "$token" "closure loop table: names '$token'"
 done
 
-# --- closure history: Step 2 states the pre-push-only recording rule --------
+# --- closure history: § Task register states the pre-push-only recording rule --------
 STEP2="$(wrap_sub "### Task register")"
 for token in "facts known" "before" "the push" "CI, conflict-repair and deployment outcomes" \
              "never written here"; do
-  assert_contains "$STEP2" "$token" "closure history: Step 2 names '$token'"
+  assert_contains "$STEP2" "$token" "closure history: § Task register names '$token'"
 done
 
 # --- routine spine: step 5/4 name the receipt, not review passes ------------
@@ -1550,11 +1549,12 @@ from pathlib import Path
 files = subprocess.run(
     ["git", "ls-files", "--", ".agents", ".claude/agents", ".claude/AGENTS.md", "README.md", "AGENTS.md"],
     capture_output=True, text=True, check=True).stdout.split()
-wrap = Path(".agents/skills/wrap-up-session")
+# A `/wrap-up-session` § citation names a SKILL.md section. A section of a
+# reference file is cited by its path, which tests/test-citations.sh resolves;
+# one flat namespace would let a caller send the reader to the wrong file.
 heading = re.compile(r"^#{2,3} (.+?)\s*$", re.M)
-names = set()
-for doc in [wrap / "SKILL.md", *sorted((wrap / "references").glob("*.md"))]:
-    names |= {re.sub(r"\s+", " ", h) for h in heading.findall(doc.read_text(encoding="utf-8"))}
+skill = Path(".agents/skills/wrap-up-session/SKILL.md").read_text(encoding="utf-8")
+names = {re.sub(r"\s+", " ", h) for h in heading.findall(skill)}
 step = re.compile(r"wrap-up\S* \(?(§ 5\.1|Step [0-9])")
 cite = re.compile(r"`/wrap-up-session` § \*([^*]+?)\*")
 count = 0
