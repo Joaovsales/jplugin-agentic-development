@@ -11,7 +11,7 @@ spec or a decision and no implementation. A plan is a proposal, so the PR it
 opens is a **draft** and its body carries `Refs #N`, never `Closes`.
 
 1. `/plan <ref>` — write `specs/<feature>.md` and the task breakdown; this is where the human is asked before anything else happens — **non-skippable** — the spec is the lane's entire artifact
-2. `/wrap-up-session` — review passes, tests, commit, push, and the pull request — **non-skippable**
+2. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
 
 `/build` and `/quality-gate` are deliberately absent. This lane produces a spec
 and no implementation, so requiring them would write a `skip:` row on every

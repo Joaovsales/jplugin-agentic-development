@@ -1511,6 +1511,32 @@ assert_contains "$flat_routines" "checks the quality receipt, tests, and the pul
   "routine spine: routines.md names the quality receipt in place of review passes"
 assert_not_contains "$flat_routines" "review passes, tests, and the pull request" \
   "routine spine: routines.md no longer names review passes in either spine table"
+# specs/wrap-up-phases.md AC10: the same ban reaches every lane file and the
+# README's flow line, which described wrap-up as running review passes.
+for lane in .agents/skills/task-registry/lanes/*.md; do
+  assert_file_not_matches "$lane" 'wrap-up-session` — review passes' \
+    "routine spine: $lane no longer says wrap-up runs review passes"
+done
+for lane in architect build fix improve janitor plan tidy; do
+  assert_file_contains ".agents/skills/task-registry/lanes/$lane.md" \
+    "\`/wrap-up-session\` — checks the quality receipt, tests" \
+    "routine spine: lanes/$lane.md names the quality receipt check"
+done
+assert_file_not_matches README.md 'wrap-up-session.*(code review|review agents|parallel review)' \
+  "routine spine: README describes wrap-up without its retired review passes"
+assert_file_contains README.md "/wrap-up-session ──► sync learnings → reconcile specs → quality receipt" \
+  "routine spine: README's flow line names the quality receipt"
+
+# --- verify-deployment merges, never rebases (specs/wrap-up-phases.md AC8) --
+# Its fix loop pushes the same way wrap-up's closure loop does, so its
+# non-fast-forward row follows closure-actions.md § Conflict repair.
+VD=.agents/skills/verify-deployment/SKILL.md
+assert_file_not_matches "$VD" 'pull --rebase|git rebase' \
+  "verify-deployment: never resolves a non-fast-forward push with a rebase"
+vd_nonff="$(grep '^| Non-fast-forward' "$VD")"
+for token in "git merge origin/<branch>" "Conflict repair" "never" "--force"; do
+  assert_contains "$vd_nonff" "$token" "verify-deployment: the non-fast-forward row names '$token'"
+done
 
 # --- wrap-up phases: callers cite wrap-up by section name, and it resolves --
 # specs/wrap-up-phases.md AC6 and Decision 1. A step number is a pointer that

@@ -195,7 +195,7 @@ Apply the same push failure handling as `/wrap-up-session` § *Push failures*:
 | Failure | Action |
 |---|---|
 | Network error | Retry up to 4 times with backoff 2s → 4s → 8s → 16s |
-| Non-fast-forward | `git pull --rebase`, resolve any conflicts, re-run, push again |
+| Non-fast-forward | `git fetch` and `git merge origin/<branch>`, resolve any conflicts, re-run, push again — never `rebase`, never `--force`, as `.agents/skills/wrap-up-session/references/closure-actions.md` § *Conflict repair* |
 | Permission denied | Escalate to user — do not retry |
 | Branch protection | Escalate to user — do not retry |
 

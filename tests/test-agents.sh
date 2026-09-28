@@ -264,4 +264,15 @@ for agent in $CLAUDE_MD_AGENTS; do
   done
 done
 
+# specs/wrap-up-phases.md AC9. Since #188 /wrap-up-session reuses the quality
+# receipt and dispatches no reviewer, so a persona description naming it as a
+# dispatcher routes the harness toward a call that never happens.
+for tree in "$CANONICAL" "$CLAUDE"; do
+  desc="$(grep -m1 '^description:' "$tree/code-reviewer.md")"
+  assert_contains "$desc" "/quality-gate" \
+    "Agents: $tree/code-reviewer.md names /quality-gate as its dispatcher"
+  assert_not_contains "$desc" "/wrap-up-session" \
+    "Agents: $tree/code-reviewer.md no longer claims /wrap-up-session dispatches it"
+done
+
 finish

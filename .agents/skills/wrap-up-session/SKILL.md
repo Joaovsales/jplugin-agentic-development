@@ -1,6 +1,6 @@
 ---
 name: wrap-up-session
-description: Close session with code review, testing, fixes, and a clean commit. Use at the end of any coding session.
+description: Close the session — learnings, spec reconciliation, the quality-receipt check, the full suite, then a clean commit, push and pull request. Use at the end of any coding session.
 ---
 
 # /wrap-up-session — Session Wrap-Up
