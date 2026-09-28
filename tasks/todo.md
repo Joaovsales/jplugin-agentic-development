@@ -1313,9 +1313,13 @@ Filed this sweep:
 > Surface: none
 
 ### Slice 3/7 — Extract closure actions
-- [ ] Extract closure actions <!-- task-id: plan.specs-wrap-up-phases-md.extract-closure-actions --> — Slice 3/7 of specs/wrap-up-phases.md: references/closure-actions.md holds one section per action after pr-sync; negativ… ([#197](https://github.com/Joaovsales/jplugin-agentic-development/issues/197)) (blocked-by: plan.specs-wrap-up-phases-md.extract-routine-only-wrap-up-rules)
-  [ ] TDD: doc-conventions CI/mergeability/conflict/deploy/record/mark-draft cuts read references/closure-actions.md (AC 2, 3) -> move those sections plus PR re-sync, linkage, handovers, push-failure table
-  [ ] TDD: review-context and model-tiers negative checks also scan the new reference files (AC 2) -> extend the file lists; add closure-actions.md to instruction-budget's .claude/project.md allowlist
+- [x] Extract closure actions <!-- task-id: plan.specs-wrap-up-phases-md.extract-closure-actions --> — Slice 3/7 of specs/wrap-up-phases.md: references/closure-actions.md holds one section per action after pr-sync; negativ… ([#197](https://github.com/Joaovsales/jplugin-agentic-development/issues/197)) (blocked-by: plan.specs-wrap-up-phases-md.extract-routine-only-wrap-up-rules)
+  [x] TDD: doc-conventions CI/mergeability/conflict/deploy/record/mark-draft cuts read references/closure-actions.md (AC 2, 3) -> move those sections plus PR re-sync, linkage, handovers, push-failure table
+  [x] TDD: review-context and model-tiers negative checks also scan the new reference files (AC 2) -> extend the file lists; add closure-actions.md to instruction-budget's .claude/project.md allowlist
+
+> Handover: landed 723b1f1 — `references/closure-actions.md` holds `##` Handovers, Issue linkage, PR re-sync, Push failures, Mergeability, CI watch and repair, Conflict repair, Deployment verification, Recording the closure, Marking a partial PR draft; SKILL.md's closure-loop table cites each by `§ *Name*`, and § The Pull Request keeps the only `gh pr create`
+> Do not re-derive: test-doc-conventions reads these through `ca_section` (cut at the next `## `) and `flat_ca`; test-routine-wrapup's `$ca` must count zero `gh pr create`. The moved text still says "Step 4", "Step 6", "Step 8.5", "§ Done" and the CI/deploy tests still pin "re-enters Step 4" / "Step 6" — slice 4 renames both sides together. `.claude/project.md` is named in § Deployment verification, so closure-actions.md joined the instruction-budget allowlist
+> Surface: `undeclared: tasks/todo.md` (the slice-2 close commit); `untouched: tests/test-skill-invocation-chain.sh` — nothing it pins moved in this slice
 
 ### Slice 4/7 — Rewrite SKILL.md into five phases
 - [ ] Rewrite SKILL.md into five phases <!-- task-id: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases --> — Slice 4/7 of specs/wrap-up-phases.md: five named phases, E2E coverage in Reconcile, one exits table, SKILL.md at most 3… ([#198](https://github.com/Joaovsales/jplugin-agentic-development/issues/198)) (blocked-by: plan.specs-wrap-up-phases-md.extract-closure-actions)
