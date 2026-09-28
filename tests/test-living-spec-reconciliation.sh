@@ -559,7 +559,14 @@ assert_contains "$SEM" '"spec": "specs/unresolvable.md"' \
 # pinned is that the protocol exists, names exactly three outcomes, and says
 # which evidence must be read before one is assigned.
 WU="$CANON/wrap-up-session/SKILL.md"
-for f in "$WU"; do
+# The procedure lives in the reference file; SKILL.md keeps the rule and the
+# command, and must link the procedure or a reader never finds it.
+SR="$CANON/wrap-up-session/references/spec-reconcile.md"
+assert_file_contains "$WU" "references/spec-reconcile.md" \
+  "wrap-up: SKILL.md links the spec-reconciliation procedure"
+assert_prose_contains "$WU" "exactly one outcome" \
+  "wrap-up: SKILL.md keeps the one-outcome rule beside the command"
+for f in "$SR"; do
   assert_prose_contains "$f" 'exactly one outcome' \
     "wrap-up ($f): every candidate receives exactly one outcome"
   assert_prose_contains "$f" '`updated`' "wrap-up ($f): the updated outcome is defined"
@@ -592,7 +599,7 @@ printf '\n--- 6. Legacy migration rides on behavioral change, never on format -\
 # with the list emptied, and each step is separately forgettable: a migration that
 # adds frontmatter but leaves `## Files Likely Involved` in place ships a spec with
 # two contradictory path lists and no rule saying which one wins.
-for f in "$WU"; do
+for f in "$SR"; do
   assert_prose_contains "$f" 'add valid `implementation_paths` frontmatter' \
     "migration ($f): step 1 adds the metadata"
   assert_prose_contains "$f" 'replace `## Files Likely Involved` with `## Implementation Paths`' \
@@ -817,7 +824,7 @@ assert_eq "2" "$NEITHER_RC" "derive-id: supplying neither is a usage error, not 
 # And the skill must say so, because the failure this prevents is a judgement
 # call made at 3am by an unattended run: pausing for approval would hang the
 # pipeline, and publishing without it would breach the project's write policy.
-for f in "$WU"; do
+for f in "$SR"; do
   assert_prose_contains "$f" 'does not pause or fail' \
     "deferred ($f): an unpublishable task never blocks wrap-up"
   assert_prose_contains "$f" 'publication is pending' \
@@ -841,27 +848,25 @@ printf '\n--- 9. Placement: after the register, before every downstream gate ---
 # caught them -- a spec rewritten AFTER review and tests is a file nothing
 # checked. So the step's position is asserted against the actual heading
 # sequence, not merely its presence.
-step_order() { grep -n '^## Step ' "$1" | sed 's/:.*Step /:/' | sed 's/ .*//'; }
+heading_line() { grep -n "^### $2\$" "$1" | head -1 | cut -d: -f1; }
 for f in "$WU"; do
-  ORDER="$(step_order "$f")"
-  assert_contains "$ORDER" ":3.2" "placement ($f): a Step 3.2 exists"
-  LINE_REG="$(grep -n '^## Step 2 ' "$f" | cut -d: -f1)"
-  LINE_REC="$(grep -n '^## Step 3.2 ' "$f" | cut -d: -f1)"
-  LINE_MAP="$(grep -n '^## Step 3.3 ' "$f" | cut -d: -f1)"
-  LINE_REV="$(grep -n '^## Step 4 ' "$f" | cut -d: -f1)"
-  LINE_TEST="$(grep -n '^## Step 6 ' "$f" | cut -d: -f1)"
-  LINE_PUSH="$(grep -n '^## Step 7 ' "$f" | cut -d: -f1)"
-  assert_eq "after" "$([ "$LINE_REC" -gt "$LINE_REG" ] && echo after || echo before)" \
+  LINE_REG="$(heading_line "$f" 'Task register')"
+  LINE_REC="$(heading_line "$f" 'Spec reconciliation')"
+  LINE_MAP="$(heading_line "$f" 'Changed verification map')"
+  LINE_REV="$(heading_line "$f" 'Quality receipt')"
+  LINE_TEST="$(heading_line "$f" 'Full suite')"
+  LINE_PUSH="$(heading_line "$f" 'Commit and push')"
+  assert_eq "present" "$([ -n "$LINE_REC" ] && echo present || echo missing)" \
+    "placement ($f): a Spec reconciliation section exists"
+  assert_eq "after" "$([ "${LINE_REC:-0}" -gt "${LINE_REG:-0}" ] && echo after || echo before)" \
     "placement ($f): reconciliation runs AFTER the task register"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_MAP" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_MAP:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE verification-map maintenance"
-  # Step 3.5 (the inline security scan) is gone since #188 -- the gate's own
-  # phase 3 owns that check now, so there is no anchor left to test against.
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_REV" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_REV:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE the quality receipt check"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_TEST" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_TEST:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE the test run"
-  assert_eq "before" "$([ "$LINE_REC" -lt "$LINE_PUSH" ] && echo before || echo after)" \
+  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_PUSH:-0}" ] && echo before || echo after)" \
     "placement ($f): reconciliation runs BEFORE commit and push"
 
   # The snapshot must precede the writes, or the step reads its own edits.
@@ -870,9 +875,9 @@ for f in "$WU"; do
   # And a failing downstream gate must take the spec edits down with the code.
   # Committing a spec whose code was rejected publishes a description of
   # behavior that does not exist.
-  assert_prose_contains "$f" 'join the code in the verification, security, review, test, commit, and push gates' \
+  assert_prose_contains "$SR" 'join the code in every Gate and Ship section' \
     "placement ($f): updated specs are covered by every downstream gate"
-  assert_prose_contains "$f" 'failing gate blocks both' \
+  assert_prose_contains "$SR" 'failing gate blocks both' \
     "placement ($f): a failing downstream gate blocks the spec edit as well as the code"
 done
 
@@ -890,14 +895,14 @@ assert_prose_contains .agents/references/review-dispatch-contract.md 'each spec'
 # above are exercised only at the gate's own dispatch site, not here.
 
 # Deferred tasks reach the PR body, where reviewers actually look.
-for f in "$WU"; do
+for f in "$SR"; do
   assert_prose_contains "$f" 'deliberately left alone rather than missed' \
     "PR ($f): a deferred spec is explained, not silently absent"
 done
 
 printf '\n--- 11. Reporting stays bounded; the new verb is documented ----------\n'
 
-for f in "$WU"; do
+for f in "$SR"; do
   # Counts on all four outcomes. Reporting only what changed would make
   # "examined and still accurate" indistinguishable from "never looked".
   assert_prose_contains "$f" 'candidates, 2 updated, 2 unchanged, 1 deferred' \

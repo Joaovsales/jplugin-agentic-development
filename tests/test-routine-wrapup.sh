@@ -17,6 +17,11 @@ cd "$REPO"
 
 for tree in .agents; do
   f="$tree/skills/wrap-up-session/SKILL.md"
+  # Routine-only rules live in the contract's wrap-up section.
+  r="$tree/skills/wrap-up-session/references/routines.md"
+  ca="$tree/skills/wrap-up-session/references/closure-actions.md"
+  assert_file_matches "$r" '^## Wrap-up on a routine branch' \
+    "AC6: $tree routines.md carries the routine-only wrap-up section"
 
   # --- AC7: exactly one place describes PR creation --------------------------
   # `gh pr create` is the executable proof. Prose may point AT the procedure from
@@ -24,13 +29,15 @@ for tree in .agents; do
   creates="$(grep -c 'gh pr create' "$f" || true)"
   assert_eq "1" "$creates" \
     "AC7: $tree/wrap-up-session names \`gh pr create\` exactly once"
+  assert_eq "0" "$(grep -c 'gh pr create' "$ca" || true)" \
+    "AC7: $tree closure-actions.md points at the procedure instead of restating it"
 
   assert_file_matches "$f" '^### The Pull Request' \
     "AC7: $tree/wrap-up-session has one canonical PR section"
 
   # --- AC7: both Step 7 and Step 7.5 reach that one place --------------------
-  step7="$(awk '/^## Step 7 — Commit & Push/{f=1;next} f&&/^## Step 7.5/{exit} f' "$f")"
-  step75="$(awk '/^## Step 7.5/{f=1;next} f&&/^## Step 8/{exit} f' "$f")"
+  step7="$(awk '/^### Commit and push/{f=1;next} f&&/^##/{exit} f' "$f")"
+  step75="$(awk '/^### Worktree integration/{f=1;next} f&&/^##/{exit} f' "$f")"
 
   assert_contains "$step7" "The Pull Request" \
     "AC7: $tree Step 7 reaches the canonical PR section"
@@ -40,17 +47,17 @@ for tree in .agents; do
     "AC7: $tree Step 7.5 points at the procedure instead of restating it"
 
   # --- AC6: --draft iff the routine is plan ----------------------------------
-  assert_prose_contains "$f" "routine_branch.py" \
+  assert_prose_contains "$r" "routine_branch.py" \
     "AC6: $tree/wrap-up-session reads the routine from the branch with the shared parser"
   assert_prose_contains "$f" "--draft" \
     "AC6: $tree/wrap-up-session names the draft flag"
-  assert_prose_contains "$f" "when and only when the routine is \`plan\`" \
+  assert_prose_contains "$r" "when and only when the routine is \`plan\`" \
     "AC6: $tree states --draft is passed when AND ONLY WHEN the routine is plan"
 
   # --- AC6: issue linkage in the body, closure on merge ----------------------
-  assert_prose_contains "$f" "Closes #N" \
+  assert_prose_contains "$r" "Closes #N" \
     "AC6: $tree states the body carries Closes #N"
-  assert_prose_contains "$f" "Refs #N" \
+  assert_prose_contains "$r" "Refs #N" \
     "AC6: $tree states plan's body carries Refs #N instead"
 
   # --- AC6: a multi-issue list must repeat the keyword per issue -------------
@@ -58,16 +65,16 @@ for tree in .agents; do
   # follows it (issue #123, verified via PR #121's closingIssuesReferences).
   # `Closes #A, #B` silently links only #A; the working form repeats the
   # keyword: `Closes #A, closes #B`.
-  assert_prose_contains "$f" "Closes #A, closes #B" \
+  assert_prose_contains "$ca" "Closes #A, closes #B" \
     "#123: $tree states the working multi-issue form repeats the keyword per issue"
-  assert_prose_contains "$f" "links only the first" \
+  assert_prose_contains "$ca" "links only the first" \
     "#123: $tree names the failing multi-issue form and what it silently drops"
 
   # Both PR paths must run the check on the body they are about to trust: the
   # create path on its draft, and the re-sync path on the fetched body even when
   # nothing else looks stale -- an already-open PR whose only defect is the
   # linkage otherwise takes the "already accurate" path and is never checked.
-  sync_section="$(awk '/^#### Creating and re-syncing/{f=1;next} f&&/^### Push Failure Handling/{exit} f' "$f")"
+  sync_section="$(awk '/^## PR re-sync/{f=1;next} f&&/^## /{exit} f' "$ca")"
   create_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*No PR for this branch\*\*/{f=1} f&&/^\*\*A PR already exists\*\*/{exit} f')"
   resync_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*A PR already exists\*\*/{f=1} f&&/^\*\*Correct, do not erase\.\*\*/{exit} f')"
   assert_contains "$create_path" "pr_linkage.py" \
@@ -83,16 +90,18 @@ for tree in .agents; do
   # coupling guard with it.
   assert_file_not_matches "$f" "gh issue" \
     "AC6: $tree/wrap-up-session never closes an issue itself"
+  assert_file_not_matches "$r" "gh issue" \
+    "AC6: $tree routines.md never closes an issue itself"
 
   # --- AC7: a branch outside routine/ keeps today's behavior -----------------
-  assert_prose_contains "$f" "outside the \`routine/\` namespace" \
+  assert_prose_contains "$r" "outside the \`routine/\` namespace" \
     "AC7: $tree names the non-routine case explicitly"
-  assert_prose_contains "$f" "exactly as it does today" \
+  assert_prose_contains "$r" "exactly as it does today" \
     "AC7: $tree states a non-routine branch keeps today's behavior"
 
   # --- the bad-link edge case: report loudly, still open the PR ---------------
   # A routine branch whose issue is missing must not discard the session's work.
-  assert_prose_contains "$f" "open the PR anyway" \
+  assert_prose_contains "$r" "open the PR anyway" \
     "Edge: $tree opens the PR even when the issue link is bad"
 
   # --- AC11: an unattended run that produces no PR is never SILENT -----------
@@ -105,10 +114,10 @@ for tree in .agents; do
   # What changes is the FAILURE MODE the spec actually names: a 03:00 run that
   # ends having produced nothing, and says so to nobody. So the assertion is
   # about loudness and exit code, not about forcing a PR into existence.
-  assert_file_matches "$f" '^## Step 8.5' \
+  assert_file_matches "$f" '^### Terminal PR assertion$' \
     "AC11: $tree/wrap-up-session has a terminal PR assertion step"
 
-  terminal="$(awk '/^## Step 8.5/{f=1;next} f&&/^## /{exit} f' "$f")"
+  terminal="$(awk '/^### Terminal PR assertion/{f=1;next} f&&/^##/{exit} f' "$f")"
 
   assert_contains "$terminal" "gh pr view" \
     "AC11: $tree checks for the PR with gh pr view on the branch"
@@ -129,16 +138,20 @@ for tree in .agents; do
 
   # ...and the claim above is prose. A reader following this skill top to bottom
   # hits "STOP" and stops, so the step is reachable only if each early exit says
-  # so where the exit is written. The exits are read from Step 8.5's own table,
-  # so a new exit added there is checked without editing this test.
-  for exit_step in $(printf '%s\n' "$terminal" \
-      | sed -nE 's/^\|[^|]*\|[[:space:]]*Step ([0-9.]+)[[:space:]]*\|.*/\1/p' \
-      | sort -u); do
-    section="$(awk -v want="## Step $exit_step " \
-      'index($0, want) == 1 { f = 1; next } f && /^## / { exit } f' "$f")"
-    assert_contains "$section" "Step 8.5" \
-      "AC11: $tree's Step $exit_step exit routes to Step 8.5 rather than just stopping"
-  done
+  # so where the exit is written. The exits are read from the assertion's own
+  # table, keyed by section name, so a new exit added there is checked without
+  # editing this test -- and a table that lists nothing fails instead of passing.
+  exit_sections="$(printf '%s\n' "$terminal" \
+    | sed -nE 's/^\|[^|]*\|[[:space:]]*§ \*([^*]+)\*[[:space:]]*\|.*/\1/p')"
+  assert_eq "6" "$(printf '%s\n' "$exit_sections" | grep -c . || true)" \
+    "AC11: $tree's exits table lists exactly the six no-PR exits"
+  while IFS= read -r exit_section; do
+    [ -n "$exit_section" ] || continue
+    section="$(awk -v want="### $exit_section" \
+      '$0 == want { f = 1; next } f && /^##/ { exit } f' "$f")"
+    assert_contains "$section" "Terminal PR assertion" \
+      "AC11: $tree's '$exit_section' exit routes to the terminal PR assertion rather than just stopping"
+  done <<< "$exit_sections"
 
   # Silence on success. A terminal check that prints on every green run trains
   # readers to ignore it, which is how the loud case stops being loud.
@@ -153,7 +166,10 @@ for tree in .agents; do
 
   # The scope test is the parser, not the prefix: `routine/plna/90-x` matches
   # `routine/` and belongs to no routine.
-  assert_contains "$terminal" "routine_branch.py" \
+  unattended="$(awk '/^### Unattended detection/{f=1;next} f&&/^##/{exit} f' "$r")"
+  assert_contains "$terminal" "Unattended detection" \
+    "AC11: $tree's assertion points at the unattended-detection rule"
+  assert_contains "$unattended" "routine_branch.py" \
     "AC11: $tree decides 'is this a routine branch' with the parser that owns the format"
 
   # --- the contract document is reachable from the skill that implements it ---
@@ -168,8 +184,34 @@ done
 # branch, which the parser rule above already reads as unattended.
 for caller in yolo auto-push; do
   for tree in .agents; do
-    assert_file_contains "$REPO/$tree/skills/$caller/SKILL.md" "Step 8.5" \
+    c="$REPO/$tree/skills/$caller/SKILL.md"
+    f="$REPO/$tree/skills/wrap-up-session/SKILL.md"
+    ca="$REPO/$tree/skills/wrap-up-session/references/closure-actions.md"
+    assert_file_contains "$c" "§ *Terminal PR assertion* — unattended" \
       "AC11: $tree/$caller declares its wrap-up run unattended"
+    # specs/wrap-up-phases.md AC7: the override table cites wrap-up by section
+    # name, and the rows for gates wrap-up no longer has are gone.
+    rows="$(awk '/^\| `\/wrap-up-session` section \|/{f=1;next} f&&!/^\|/{exit} f' "$c")"
+    assert_eq "5" "$(printf '%s\n' "$rows" | grep -c '^| [^-]' || true)" \
+      "wrap-up phases: $tree/$caller's override table has its five section rows"
+    assert_not_contains "$rows" "Step " \
+      "wrap-up phases: $tree/$caller's override table cites no wrap-up step number"
+    for dead in "Step 5.1" "Apply Gate" "MUST-FIX"; do
+      assert_not_contains "$rows" "$dead" \
+        "wrap-up phases: $tree/$caller's override table drops the dead '$dead' row"
+    done
+    assert_file_not_matches "$c" 'parallel passes' \
+      "wrap-up phases: $tree/$caller no longer claims wrap-up runs review passes"
+    # Each cited section resolves: a heading of wrap-up's SKILL.md, or of the
+    # reference file the row names.
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      if grep -qxF "### $name" "$f" || grep -qxF "## $name" "$ca"; then
+        assert_eq "resolves" "resolves" "wrap-up phases: $tree/$caller cites § $name"
+      else
+        assert_eq "resolves" "no such section" "wrap-up phases: $tree/$caller cites § $name"
+      fi
+    done <<< "$(printf '%s\n' "$rows" | sed -nE 's/^\| [^|]*§ \*([^*]+)\*.*/\1/p')"
   done
 done
 

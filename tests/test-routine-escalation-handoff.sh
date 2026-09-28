@@ -32,13 +32,16 @@ for tree in .agents; do
     "AC2: $tree/verify returns blocked evidence to its caller"
   assert_prose_contains "$verify" "must not invoke" \
     "AC9: $tree/verify does not create a second escalation"
-  assert_prose_contains "$wrap" "investigation escalation" \
+  routines="$tree/skills/wrap-up-session/references/routines.md"
+  assert_prose_contains "$wrap" "Fix-escalation terminal" \
+    "AC9: $tree/wrap-up points at the fix-escalation terminal"
+  assert_prose_contains "$routines" "investigation escalation" \
     "AC9: $tree/wrap-up recognizes the no-PR escalation terminal"
-  assert_prose_contains "$wrap" "Do not run Step 8.5" \
+  assert_prose_contains "$routines" "Do not run the terminal PR assertion" \
     "AC9: $tree/wrap-up does not replace the escalation result with a PR assertion"
-  assert_prose_contains "$wrap" "structured blocked outcome" \
+  assert_prose_contains "$routines" "structured blocked outcome" \
     "AC9: $tree/wrap-up routes its own blocked E2E result to the canonical owner"
-  assert_prose_contains "$wrap" "do not offer acknowledgement" \
+  assert_prose_contains "$routines" "do not offer acknowledgement" \
     "AC9: $tree/wrap-up cannot acknowledge past a fix-routine verification blocker"
 
   assert_contains "$(cat "$prompt")" "task-registry escalate" \

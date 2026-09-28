@@ -220,7 +220,7 @@ Feature Request
 /security-scan ──► audit changed files for OWASP issues
     │
     ▼
-/wrap-up-session ──► verify → code review → sync learnings → merge worktree → push
+/wrap-up-session ──► sync learnings → reconcile specs → quality receipt → full suite → push → closure loop
 ```
 
 ---
@@ -233,7 +233,7 @@ flowchart TD
     B --> C["/plan\nSpec + task breakdown"]
     C --> D["/build\nAutonomous TDD orchestrator"]
     D --> E["/security-scan\nOWASP audit"]
-    E --> F["/wrap-up-session\nReview, test, push"]
+    E --> F["/wrap-up-session\nReceipt, test, push"]
 
     %% Skills called by /build
     D -->|"after each task"| D2["code-reviewer\nSpec compliance + quality"]
@@ -245,10 +245,10 @@ flowchart TD
     D3 -->|"uses"| D5
 
     %% Skills called by /wrap-up-session
-    F -->|"step 1"| F1["/learn\nPersist patterns to memory"]
-    F -->|"step 4"| F2["code-reviewer\n4 parallel review agents"]
-    F -->|"step 5.5"| D5
-    F -->|"step 6.5"| F3["Worktree merge to main"]
+    F -->|"Bookkeeping"| F1["/learn\nPersist patterns to memory"]
+    F -->|"Reconcile"| D5
+    F -->|"Gate"| F2["quality receipt\nreused, or /quality-gate re-entered once"]
+    F -->|"Ship"| F3["PR, CI watch, worktree integration"]
 
     %% Standalone skills
     G["/checkpoint\nSnapshot for handoff"]
@@ -325,7 +325,7 @@ Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `
 | `/visual-plan` | Turn an existing text spec into a rich, self-contained HTML visual plan — narrative, file map, architecture sketch, and open questions — for review before implementation. Use after /plan has already written specs/<feature>.md. |  |
 | `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap — narrative, file-tree, and annotated key changes. Use after implementation to produce a richer review artifact than a plain diff. |  |
 | `/why` | Use for 'why does X work this way', 'why we picked Y', design rationale, regressions, postmortems, or data-backed thresholds. Discovers available MCPs and queries each evidence category (source control, issue tracker, long-form docs, real-time chat, infrastructure observability, error tracking, product analytics warehouse) in parallel, then returns a cited read on decisions and tradeoffs. Use how for runtime behavior. |  |
-| `/wrap-up-session` | Close session with code review, testing, fixes, and a clean commit. Use at the end of any coding session. |  |
+| `/wrap-up-session` | Close the session — learnings, spec reconciliation, the quality-receipt check, the full suite, then a clean commit, push and pull request. Use at the end of any coding session. |  |
 | `/writing-skills` | Author new skills with proper structure, iron laws, and reference docs. Use when creating or improving skills for the workflow. |  |
 | `/yolo` | Fully autonomous loop. User describes an idea; the agent runs /plan, /build, and /wrap-up-session in a Ralph-style loop until the backlog is empty or a circuit breaker trips. No user prompts between phases. |  |
 <!-- skills-table:end -->

@@ -12,7 +12,7 @@ request yet.
 
 1. `/build` — read the merged spec linked from <ref> instead of writing one; TDD against its acceptance criteria — **non-skippable**
 2. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
-3. `/wrap-up-session` — review passes, tests, commit, push, and the pull request — **non-skippable**
+3. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
 
 ## Reply
 

@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Use for detailed code review after code has been written or modified. Analyses quality, identifies bugs, suggests improvements, and checks adherence to project conventions. Use PROACTIVELY after implementing or modifying code; dispatched by /wrap-up-session and /quality-gate.
+description: Use for detailed code review after code has been written or modified. Analyses quality, identifies bugs, suggests improvements, and checks adherence to project conventions. Use PROACTIVELY after implementing or modifying code; dispatched by /quality-gate.
 color: orange
 ---
 

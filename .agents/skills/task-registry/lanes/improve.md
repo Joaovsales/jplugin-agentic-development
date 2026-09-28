@@ -13,7 +13,7 @@ goal asks to add, change, or support new behaviour.
 2. `/plan <ref>` — write or extend the spec and the task breakdown; this is where the human is asked before code changes. Kept with ` — skip: spec written by /system-design-planning` when step 1 took that route
 3. `/build` — TDD against the acceptance criteria — **non-skippable**
 4. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
-5. `/wrap-up-session` — review passes, tests, commit, push, and the pull request — **non-skippable**
+5. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
 
 ## Reply
 

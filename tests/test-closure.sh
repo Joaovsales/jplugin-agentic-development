@@ -55,7 +55,7 @@ run_case "receipt-hold" \
   '{"phase":"receipt","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"receipt":"hold"}' "action approve-hold"
 
-printf '\n--- transitions: approve (an unapproved HOLD, Step 4) ---\n'
+printf '\n--- transitions: approve (an unapproved HOLD, § Quality receipt) ---\n'
 run_case "approve-approved" \
   '{"phase":"approve","pr_open":false,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"approve":"approved"}' "action check-receipt"

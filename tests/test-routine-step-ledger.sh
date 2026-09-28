@@ -25,28 +25,32 @@ for tree in .agents; do
   skill="$tree/skills/wrap-up-session/SKILL.md"
 
   # --- sink 1: tasks/todo.md -------------------------------------------------
-  step2="$(awk '/^## Step 2 — Update Task Register/{f=1;next} f&&/^## Step 3/{exit} f' "$skill")"
-  assert_contains "$step2" "step list" \
+  step2="$(awk '/^### Task register/{f=1;next} f&&/^##/{exit} f' "$skill")"
+  # The rule itself lives in the contract's wrap-up section; the skill points at it.
+  rows="$(awk '/^### Step-ledger rows/{f=1;next} f&&/^##/{exit} f' "$CONTRACT")"
+  assert_contains "$step2" "Step-ledger rows" \
+    "AC9: $tree § Task register points at the contract's step-ledger rule"
+  assert_contains "$rows" "step list" \
     "AC9: $tree Step 2 writes the routine's step list into tasks/todo.md"
-  assert_contains "$step2" "skip:" \
+  assert_contains "$rows" "skip:" \
     "AC9: $tree Step 2 retains a skipped row carrying its reason"
 
   # --- sink 2: the PR body ---------------------------------------------------
-  pr="$(awk '/^### The Pull Request/{f=1;next} f&&/^### Push Failure/{exit} f' "$skill")"
+  pr="$(awk '/^### The Pull Request/{f=1;next} f&&/^###? /{exit} f' "$skill")"
   assert_contains "$pr" "step list" \
     "AC9: $tree the PR body carries the executed step list"
-  assert_contains "$pr" "skip: <reason>" \
+  assert_contains "$rows" "skip: <reason>" \
     "AC9: $tree the PR body retains skipped rows with reasons"
 
   # --- the rule that makes the ledger worth anything -------------------------
-  assert_prose_contains "$skill" "Silent omission" \
+  assert_prose_contains "$CONTRACT" "Silent omission" \
     "AC9: $tree names silent omission as the thing that is never allowed"
-  assert_prose_contains "$skill" "retained" \
+  assert_prose_contains "$CONTRACT" "retained" \
     "AC9: $tree states a skipped row is retained rather than deleted"
 
   # A row that is merely deleted when its step does not run is worse than no
   # ledger: it reads as a routine that never had that gate.
-  assert_prose_contains "$skill" "never deleted" \
+  assert_prose_contains "$CONTRACT" "never deleted" \
     "AC9: $tree forbids deleting a skipped row"
 
   # --- the ledger is visible in the report the session ends on ---------------

@@ -194,7 +194,7 @@ presence/absence/text of elements, or absence of console errors.
 A `BLOCKED` AC has not failed — it was never attempted — so it does not halt the
 walkthrough, and the remaining DOM-functional ACs still execute. But any run
 containing a `BLOCKED` AC reports **non-success** to its caller (`/build` Phase 4,
-`/wrap-up-session` Step 6.3). Partial coverage is reported as partial coverage.
+`/wrap-up-session` § *E2E coverage*). Partial coverage is reported as partial coverage.
 
 ### Walkthrough Protocol
 
@@ -272,7 +272,7 @@ verification and returns through the existing debug/build repair loop.
 
 ## Integration
 
-- **Default mode required by**: `/build` (after each task and in Phase 4), `/debug` (Phase 3), `/wrap-up-session` (Step 6)
-- **`--scope e2e` invoked by**: `/build` Phase 4 (user-facing ACs), `/wrap-up-session` Step 6.3
+- **Default mode required by**: `/build` (after each task and in Phase 4), `/debug` (Phase 3), `/wrap-up-session` (§ *Full suite*)
+- **`--scope e2e` invoked by**: `/build` Phase 4 (user-facing ACs), `/wrap-up-session` § *E2E coverage*
 - **Project recipe maintained by**: `/maintain-verification-skill --scope changed`
-- **`--scope deployment` invoked by**: `/wrap-up-session` Step 8
+- **`--scope deployment` invoked by**: `.agents/skills/wrap-up-session/references/closure-actions.md` § *Deployment verification*

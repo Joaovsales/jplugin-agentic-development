@@ -238,7 +238,7 @@ Both trees deleted, `tests/test-auto-improve-rewire.sh` deleted, and every
 reference outside `tasks/` and `specs/` history repointed: `CLAUDE.md` skills
 table and the repo-survey exception in *Review Dispatch Contract* (now `/sweep
 --routine architect`), `README.md`, `session-start.sh`, `/build` and
-`subagent-resilience.md`, the `/wrap-up-session` Step 8.5 caller list, and the
+`subagent-resilience.md`, the `/wrap-up-session` § *Terminal PR assertion* caller list, and the
 test loops in `test-doc-conventions.sh`, `test-model-tiers.sh`,
 `test-review-context.sh`, `test-skill-invocation-chain.sh`,
 `test-routines-contract.sh`, `test-routine-wrapup.sh` (`/sweep` runs on a

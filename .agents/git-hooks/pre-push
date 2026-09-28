@@ -38,7 +38,7 @@ fi
 # Every code-producing session converges on a push, so this is the one place a
 # missing /wrap-up-session is observable regardless of which skill ran, or none.
 #
-# Evidence is /wrap-up-session Step 2's fingerprint in tasks/todo.md:
+# Evidence is the fingerprint /wrap-up-session § Task register writes to tasks/todo.md:
 #   ## Session Summary — [YYYY-MM-DD] [a1b2c3f..d4e5f6a]
 #
 # The gate does no network I/O and reaches no tracker: it runs on every push,

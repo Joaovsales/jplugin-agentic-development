@@ -268,7 +268,7 @@ is the second field `receipt.py fingerprint` prints immediately before the run.
 A failure here is a red `tests` record that the receipt turns into STOP —
 never a silent fix. Fixing it is a new edit, and a new edit means a new gate
 run on the new tree. This phase never runs the full suite: `/wrap-up-session`
-Step 6 owns that, through the same cache.
+§ *Full suite* owns that, through the same cache.
 
 ## Phase 6 — Receipt
 

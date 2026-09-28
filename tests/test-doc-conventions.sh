@@ -406,14 +406,17 @@ done
 for f in .agents/skills/wrap-up-session/SKILL.md; do
   # The sync step lives inside the one canonical PR section that
   # specs/category-routines.md AC7 converged Step 7 and Step 7.5 onto.
-  assert_file_contains "$f" "Creating and re-syncing" \
-    "PRSync: $f carries the PR description sync step"
-  assert_contains "$(flatten "$f")" "Correct, do not erase" \
+  ca=.agents/skills/wrap-up-session/references/closure-actions.md
+  assert_file_contains "$f" "§ *PR re-sync*" \
+    "PRSync: $f points at the PR description sync step"
+  assert_file_matches "$ca" "^## PR re-sync" \
+    "PRSync: $ca carries the PR description sync step"
+  assert_contains "$(flatten "$ca")" "Correct, do not erase" \
     "PRSync: $f forbids silently deleting a superseded claim"
   assert_file_contains "$f" "- PR: [" \
     "PRSync: $f reports the sync outcome on the Done report's PR line"
   # The create-only wording is the defect itself, not merely incomplete docs.
-  if grep -qF "Create PR if none exists" "$f"; then
+  if grep -qF "Create PR if none exists" "$f" "$ca"; then
     assert_eq "absent" "present" \
       "PRSync: $f must not describe PR creation as the only case"
   else
@@ -1150,13 +1153,15 @@ assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
 # its lines verbatim -- before the linkage check reads the body, and falls
 # back to the commit message when there is no tracker to host a PR.
 WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+CA_FILE=.agents/skills/wrap-up-session/references/closure-actions.md
 for token in "## Handovers" "### Slice n/N" "commit message"; do
-  assert_file_contains "$WRAP_SKILL" "$token" "wrap-up: SKILL.md contains '$token'"
+  assert_file_contains "$CA_FILE" "$token" "wrap-up: closure-actions.md contains '$token'"
 done
+assert_file_contains "$WRAP_SKILL" "§ *Handovers*" "wrap-up: SKILL.md points at the Handovers section"
 
-flat_wrap="$(flatten "$WRAP_SKILL")"
-pos_handovers=$(printf '%s' "$flat_wrap" | grep -bo '## Handovers' | head -1 | cut -d: -f1)
-pos_linkage=$(printf '%s' "$flat_wrap" | grep -bo 'pr_linkage.py check' | head -1 | cut -d: -f1)
+flat_handovers="$(flatten "$CA_FILE")"
+pos_handovers=$(printf '%s' "$flat_handovers" | grep -bo '## Handovers' | head -1 | cut -d: -f1)
+pos_linkage=$(printf '%s' "$flat_handovers" | grep -bo 'pr_linkage.py check' | head -1 | cut -d: -f1)
 if [ -n "${pos_handovers:-}" ] && [ -n "${pos_linkage:-}" ] && [ "$pos_handovers" -lt "$pos_linkage" ]; then
   assert_eq "ordered" "ordered" "wrap-up: ## Handovers section appears before the linkage check"
 else
@@ -1244,10 +1249,19 @@ wrap_section() {  # <heading prefix>: that heading's body, up to the next ## hea
   awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$WRAP_SKILL" \
     | tr -s '[:space:]' ' '
 }
-assert_contains "$(wrap_section "## Step 6 — Run Tests")" "cached-suite.sh -- " \
-  "fewer full runs: /wrap-up-session Step 6 runs the full suite through cached-suite.sh"
-assert_contains "$(wrap_section "## Step 7.5 —")" "cached-suite.sh -- " \
-  "fewer full runs: /wrap-up-session Step 7.5 merged-result run goes through cached-suite.sh"
+wrap_sub() {  # <### heading>: that subsection's body, up to the next ## or ### heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^###? / { exit } p' "$WRAP_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+# The closure actions after pr-sync live in their own reference file.
+ca_section() {  # <heading prefix>: that heading's body in closure-actions.md, up to the next ## heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$CA_FILE" \
+    | tr -s '[:space:]' ' '
+}
+assert_contains "$(wrap_sub "### Full suite")" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session § Full suite runs the full suite through cached-suite.sh"
+assert_contains "$(ca_section "## Local worktree merge")" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session's local worktree merge run goes through cached-suite.sh"
 for pipeline in yolo auto-push; do
   baseline_line="$(grep -F '**Test baseline**' ".agents/skills/$pipeline/SKILL.md")"
   assert_contains "$baseline_line" "cached-suite.sh -- " \
@@ -1351,49 +1365,54 @@ assert_file_not_matches "$WRAP_SKILL" '^## Step 3\.5' \
   "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 3.5 security scan"
 assert_file_not_matches "$WRAP_SKILL" '^## Step 5 —' \
   "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 5 apply-and-reconcile"
+assert_file_not_matches "$WRAP_SKILL" '^#+ Step ' \
+  "wrap-up phases: $WRAP_SKILL has no numbered step heading"
 
-# --- receipt check: wrap-up's Step 4 reuses the gate's receipt --------------
+# --- receipt check: wrap-up § Quality receipt reuses the gate's receipt --------------
 # specs/quality-receipt-closure.md AC8. On `valid` it reuses the receipt; on
 # `diff-changed` it re-enters the gate at delta scope with --parent; on any
 # other stale reason, at full scope, once. It approves a HOLD only after a
 # human answer in an interactive run, and never on an unattended one.
-WRAP_STEP4="$(wrap_section "## Step 4 — Quality Gate Receipt")"
+WRAP_STEP4="$(wrap_sub "### Quality receipt")"
 for token in "receipt.py check" "diff-changed" "--scope <delta paths> --parent <fp>" \
              "at full scope" "Quality receipt:" "receipt.py approve --fingerprint" \
-             "Interactive run" "Unattended run" "never approves" "Step 8.5"; do
+             "Interactive run" "Unattended run" "never approves" "Terminal PR assertion"; do
   assert_contains "$WRAP_STEP4" "$token" \
-    "receipt check: /wrap-up-session Step 4 names '$token'"
+    "receipt check: /wrap-up-session § Quality receipt names '$token'"
 done
 assert_contains "$WRAP_STEP4" "Never call \`/quality-gate\` a second time on an unchanged tree." \
-  "receipt check: /wrap-up-session Step 4 runs no second gate on the same tree"
+  "receipt check: /wrap-up-session § Quality receipt runs no second gate on the same tree"
 # receipt.py reports an unapproved HOLD as `stale verdict HOLD`, never as
 # `valid HOLD`; the approval path keys on that line, before any re-entry, and
 # takes the fingerprint from `receipt.py fingerprint` (check prints none there).
 assert_contains "$WRAP_STEP4" "stale verdict HOLD" \
-  "receipt check: /wrap-up-session Step 4 keys the approval path on 'stale verdict HOLD'"
+  "receipt check: /wrap-up-session § Quality receipt keys the approval path on 'stale verdict HOLD'"
 assert_contains "$WRAP_STEP4" "receipt.py fingerprint" \
-  "receipt check: /wrap-up-session Step 4 reads the HOLD's fingerprint from receipt.py fingerprint"
+  "receipt check: /wrap-up-session § Quality receipt reads the HOLD's fingerprint from receipt.py fingerprint"
 assert_not_contains "$WRAP_STEP4" "\`valid HOLD\` (not yet approved)" \
-  "receipt check: /wrap-up-session Step 4 names no 'valid HOLD' line receipt.py never prints"
+  "receipt check: /wrap-up-session § Quality receipt names no 'valid HOLD' line receipt.py never prints"
 
-# --- closure PR: Step 7 is rewritten around the closure engine -------------
-# specs/quality-receipt-closure.md AC9. From Step 4 on, wrap-up performs the
+# --- closure PR: § The closure loop is rewritten around the closure engine -------------
+# specs/quality-receipt-closure.md AC9. From § Quality receipt on, wrap-up performs the
 # actions closure.py step prints, with its state file under the git common
 # dir, never --no-verify, and the PR body carries the receipt line and a
 # Closure section while still passing the linkage check.
-STEP7="$(wrap_section "## Step 7 — Commit & Push")"
+STEP7="$(wrap_sub "### The closure loop")"
 for token in "closure.py step" "git-common-dir" "action <name>" "terminal"; do
-  assert_contains "$STEP7" "$token" "closure PR: Step 7 names '$token'"
+  assert_contains "$STEP7" "$token" "closure PR: § The closure loop names '$token'"
 done
 assert_contains "$flat_wrap" "closure/<sanitized branch>.json" \
   "closure PR: the closure state path lives under the git common dir"
 assert_not_contains "$flat_wrap" "--no-verify" \
   "closure PR: wrap-up commits never pass --no-verify"
+flat_ca="$(flatten "$CA_FILE")"
+assert_not_contains "$flat_ca" "--no-verify" \
+  "closure PR: closure-action commits never pass --no-verify"
 assert_contains "$flat_wrap" "the \`Quality receipt: <verdict> · <fp8> · policy <v>\` line" \
-  "closure PR: the PR body carries the Quality receipt line from Step 4"
+  "closure PR: the PR body carries the Quality receipt line from § Quality receipt"
 assert_contains "$flat_wrap" "a \`## Closure\` section" \
   "closure PR: the PR body carries a ## Closure section"
-PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^### Push Failure Handling/{exit} f' "$WRAP_SKILL")"
+PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^###? /{exit} f' "$WRAP_SKILL")"
 assert_contains "$PR_SECTION" "pr_linkage.py" \
   "closure PR: the PR section still runs the linkage check"
 assert_contains "$PR_SECTION" "pr-sync" \
@@ -1401,26 +1420,26 @@ assert_contains "$PR_SECTION" "pr-sync" \
 
 # --- closure CI: mergeability, CI watch and bounded repair ------------------
 # specs/quality-receipt-closure.md AC10.
-CI_SECTION="$(wrap_section "#### CI Watch and Repair")"
-MERGE_SECTION="$(wrap_section "#### Mergeability")"
+CI_SECTION="$(ca_section "## CI watch and repair")"
+MERGE_SECTION="$(ca_section "## Mergeability")"
 assert_contains "$MERGE_SECTION" "gh pr view <n> --json mergeable" \
   "closure CI: mergeability names 'gh pr view <n> --json mergeable'"
 for token in "gh pr checks <n> --watch --required" "run_in_background" \
              "gh pr checks <n>" "30 minutes" "2-minute registration window" \
-             "gh run view <run-id> --log-failed" "/debug" "re-enters Step 4" "Step 6" \
+             "gh run view <run-id> --log-failed" "/debug" "re-enters \`/wrap-up-session\` § *Quality receipt*" "§ *Full suite*" \
              "2 total" "closure repair"; do
   assert_contains "$CI_SECTION" "$token" "closure CI: CI Watch and Repair names '$token'"
 done
-assert_contains "$flat_wrap" "no \`.github/workflows/*\` file triggers on \`pull_request\`" \
+assert_contains "$flat_ca" "no \`.github/workflows/*\` file triggers on \`pull_request\`" \
   "closure CI: ci: none requires no pull_request-triggered workflow too"
-assert_contains "$flat_wrap" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
+assert_contains "$flat_ca" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
   "closure CI: every repair commit adds a closure-repair Session Summary line"
-assert_contains "$flat_wrap" "introduces_summary" \
+assert_contains "$flat_ca" "introduces_summary" \
   "closure CI: the repair-commit line is named against the pre-push hook's check"
 
 # --- closure conflicts: merge, never rebase, never force ---------------------
 # specs/quality-receipt-closure.md AC11.
-CONFLICT_SECTION="$(wrap_section "#### Conflict Repair")"
+CONFLICT_SECTION="$(ca_section "## Conflict repair")"
 for token in "git merge origin/<base>" "git merge origin/<branch>" \
              "never \`rebase\`" "never \`--force\`" "git merge --abort" \
              "merge: unresolved" "at most 1 round"; do
@@ -1428,39 +1447,44 @@ for token in "git merge origin/<base>" "git merge origin/<branch>" \
 done
 assert_not_contains "$flat_wrap" "pull --rebase" \
   "closure conflicts: wrap-up no longer resolves a non-fast-forward push with pull --rebase"
-PUSH_FAILURE="$(wrap_section "### Push Failure Handling")"
-assert_contains "$PUSH_FAILURE" "Conflict Repair" \
+assert_not_contains "$flat_ca" "pull --rebase" \
+  "closure conflicts: closure-actions.md never resolves a non-fast-forward push with pull --rebase"
+PUSH_FAILURE="$(ca_section "## Push failures")"
+assert_contains "$PUSH_FAILURE" "Conflict repair" \
   "closure conflicts: the non-fast-forward row routes to Conflict Repair"
 
 # --- closure deploy: verify-deploy runs when a target applies, else n/a -----
-# specs/quality-receipt-closure.md AC12. A moved HEAD re-enters Step 4 once.
-STEP8="$(wrap_section "## Step 8 — Deployment Verification")"
+# specs/quality-receipt-closure.md AC12. A moved HEAD re-enters § Quality receipt once.
+STEP8="$(ca_section "## Deployment verification")"
 for token in "/verify-evidence --scope deployment" "head-moved: true" "head-moved: false" \
-             "re-enters Step 4" "deploy_reentries" "at most once" \
+             "re-enters \`/wrap-up-session\` § *Quality receipt*" "deploy_reentries" "at most once" \
              "Deployments: not applicable —" "\`--skip-deploy\`"; do
-  assert_contains "$STEP8" "$token" "closure deploy: Step 8 names '$token'"
+  assert_contains "$STEP8" "$token" "closure deploy: § Deployment verification names '$token'"
 done
 assert_contains "$STEP8" "Deployment Targets\` row applies to the pushed branch" \
-  "closure deploy: Step 8 names the applying-target case"
+  "closure deploy: § Deployment verification names the applying-target case"
 assert_contains "$STEP8" "Accepted exception" \
-  "closure deploy: Step 8 names the accepted exception"
+  "closure deploy: § Deployment verification names the accepted exception"
 
 # --- closure record: record-closure and mark-draft are described, and the ---
 # Done report carries a Closure line. specs/quality-receipt-closure.md AC13.
 DONE_SECTION="$(wrap_section "## Done")"
+RECORD_SECTION="$(ca_section "## Recording the closure") $(ca_section "## Marking a partial PR draft")"
 for token in "record-closure" "gh pr edit <n> --body-file" "record: recorded" "record: record-failed" \
              "mark-draft" "gh pr ready <n> --undo" "partial: drafted" "partial: draft-failed" \
-             "partial: no-pr" "Closure: [complete / partial" "closure engine failed" \
-             "facts known before the push"; do
+             "partial: no-pr" "facts known before the push"; do
+  assert_contains "$RECORD_SECTION" "$token" "closure record: closure-actions.md names '$token'"
+done
+for token in "Closure: [complete / partial" "closure engine failed"; do
   assert_contains "$DONE_SECTION" "$token" "closure record: the Done section names '$token'"
 done
-assert_contains "$flat_wrap" "closure repair" \
+assert_contains "$flat_ca" "closure repair" \
   "closure record: closure repair commits stay named in the wrap-up flow"
 
 # --- closure loop table: the three pointers now name real sections ----------
-LOOP_TABLE="$(wrap_section "### The Closure Loop")"
-assert_contains "$LOOP_TABLE" "Step 8 — Deployment Verification" \
-  "closure loop table: verify-deploy points at Step 8's real heading"
+LOOP_TABLE="$(ca_section "## Action map")"
+assert_contains "$LOOP_TABLE" "§ *Deployment verification*" \
+  "closure loop table: verify-deploy points at its own section"
 assert_contains "$LOOP_TABLE" "Recording the closure" \
   "closure loop table: record-closure points at its own section"
 assert_contains "$LOOP_TABLE" "Marking a partial PR draft" \
@@ -1471,11 +1495,11 @@ for token in "approve-hold" "receipt: hold" "approve: approved" "starts a fresh 
   assert_contains "$LOOP_TABLE" "$token" "closure loop table: names '$token'"
 done
 
-# --- closure history: Step 2 states the pre-push-only recording rule --------
-STEP2="$(wrap_section "## Step 2 — Update Task Register")"
+# --- closure history: § Task register states the pre-push-only recording rule --------
+STEP2="$(wrap_sub "### Task register")"
 for token in "facts known" "before" "the push" "CI, conflict-repair and deployment outcomes" \
              "never written here"; do
-  assert_contains "$STEP2" "$token" "closure history: Step 2 names '$token'"
+  assert_contains "$STEP2" "$token" "closure history: § Task register names '$token'"
 done
 
 # --- routine spine: step 5/4 name the receipt, not review passes ------------
@@ -1486,5 +1510,73 @@ assert_contains "$flat_routines" "checks the quality receipt, tests, and the pul
   "routine spine: routines.md names the quality receipt in place of review passes"
 assert_not_contains "$flat_routines" "review passes, tests, and the pull request" \
   "routine spine: routines.md no longer names review passes in either spine table"
+# specs/wrap-up-phases.md AC10: the same ban reaches every lane file and the
+# README's flow line, which described wrap-up as running review passes.
+for lane in .agents/skills/task-registry/lanes/*.md; do
+  assert_file_not_matches "$lane" 'wrap-up-session` — review passes' \
+    "routine spine: $lane no longer says wrap-up runs review passes"
+done
+for lane in architect build fix improve janitor plan tidy; do
+  assert_file_contains ".agents/skills/task-registry/lanes/$lane.md" \
+    "\`/wrap-up-session\` — checks the quality receipt, tests" \
+    "routine spine: lanes/$lane.md names the quality receipt check"
+done
+assert_file_not_matches README.md 'wrap-up-session.*(code review|review agents|parallel review)' \
+  "routine spine: README describes wrap-up without its retired review passes"
+assert_file_contains README.md "/wrap-up-session ──► sync learnings → reconcile specs → quality receipt" \
+  "routine spine: README's flow line names the quality receipt"
+
+# --- verify-deployment merges, never rebases (specs/wrap-up-phases.md AC8) --
+# Its fix loop pushes the same way wrap-up's closure loop does, so its
+# non-fast-forward row follows closure-actions.md § Conflict repair.
+VD=.agents/skills/verify-deployment/SKILL.md
+assert_file_not_matches "$VD" 'pull --rebase|git rebase' \
+  "verify-deployment: never resolves a non-fast-forward push with a rebase"
+vd_nonff="$(grep '^| Non-fast-forward' "$VD")"
+for token in "git merge origin/<branch>" "Conflict repair" "never" "--force"; do
+  assert_contains "$vd_nonff" "$token" "verify-deployment: the non-fast-forward row names '$token'"
+done
+
+# --- wrap-up phases: callers cite wrap-up by section name, and it resolves --
+# specs/wrap-up-phases.md AC6 and Decision 1. A step number is a pointer that
+# every insertion renumbers; a § name is one tests/test-citations.sh-style check
+# can resolve. Files are flattened first, because a citation hard-wrapped
+# across a line break ("`/wrap-up-session`\nStep 6") is still a citation.
+cite_report="$("$TEST_PYTHON" - <<'PY'
+import re, subprocess
+from pathlib import Path
+
+files = subprocess.run(
+    ["git", "ls-files", "--", ".agents", ".claude/agents", ".claude/AGENTS.md", "README.md", "AGENTS.md"],
+    capture_output=True, text=True, check=True).stdout.split()
+# A `/wrap-up-session` § citation names a SKILL.md section. A section of a
+# reference file is cited by its path, which tests/test-citations.sh resolves;
+# one flat namespace would let a caller send the reader to the wrong file.
+heading = re.compile(r"^#{2,3} (.+?)\s*$", re.M)
+skill = Path(".agents/skills/wrap-up-session/SKILL.md").read_text(encoding="utf-8")
+names = {re.sub(r"\s+", " ", h) for h in heading.findall(skill)}
+step = re.compile(r"wrap-up\S* \(?(§ 5\.1|Step [0-9])")
+cite = re.compile(r"`/wrap-up-session` § \*([^*]+?)\*")
+count = 0
+for f in files:
+    if not f.endswith((".md", ".py", ".sh")) and "/git-hooks/" not in f:
+        continue
+    flat = re.sub(r"\s+", " ", Path(f).read_text(encoding="utf-8", errors="replace"))
+    for m in step.finditer(flat):
+        print(f"STEP {f}: ...{flat[max(0, m.start() - 30):m.end() + 10]}...")
+    for m in cite.finditer(flat):
+        count += 1
+        if m.group(1) not in names:
+            print(f"UNRESOLVED {f}: § *{m.group(1)}*")
+print(f"COUNT {count}")
+PY
+)"
+assert_eq "" "$(printf '%s\n' "$cite_report" | grep '^STEP' || true)" \
+  "wrap-up phases: no caller cites wrap-up by step number"
+assert_eq "" "$(printf '%s\n' "$cite_report" | grep '^UNRESOLVED' || true)" \
+  "wrap-up phases: every \`/wrap-up-session\` § citation names a real section"
+cite_count="$(printf '%s\n' "$cite_report" | sed -n 's/^COUNT //p')"
+assert_eq "yes" "$([ "${cite_count:-0}" -ge 8 ] && echo yes || echo "no (${cite_count:-0})")" \
+  "wrap-up phases: the scan saw the section citations it exists to check (non-vacuous)"
 
 finish
