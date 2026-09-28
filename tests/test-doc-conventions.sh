@@ -406,14 +406,17 @@ done
 for f in .agents/skills/wrap-up-session/SKILL.md; do
   # The sync step lives inside the one canonical PR section that
   # specs/category-routines.md AC7 converged Step 7 and Step 7.5 onto.
-  assert_file_contains "$f" "Creating and re-syncing" \
-    "PRSync: $f carries the PR description sync step"
-  assert_contains "$(flatten "$f")" "Correct, do not erase" \
+  ca=.agents/skills/wrap-up-session/references/closure-actions.md
+  assert_file_contains "$f" "§ *PR re-sync*" \
+    "PRSync: $f points at the PR description sync step"
+  assert_file_matches "$ca" "^## PR re-sync" \
+    "PRSync: $ca carries the PR description sync step"
+  assert_contains "$(flatten "$ca")" "Correct, do not erase" \
     "PRSync: $f forbids silently deleting a superseded claim"
   assert_file_contains "$f" "- PR: [" \
     "PRSync: $f reports the sync outcome on the Done report's PR line"
   # The create-only wording is the defect itself, not merely incomplete docs.
-  if grep -qF "Create PR if none exists" "$f"; then
+  if grep -qF "Create PR if none exists" "$f" "$ca"; then
     assert_eq "absent" "present" \
       "PRSync: $f must not describe PR creation as the only case"
   else
@@ -1150,13 +1153,15 @@ assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
 # its lines verbatim -- before the linkage check reads the body, and falls
 # back to the commit message when there is no tracker to host a PR.
 WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+CA_FILE=.agents/skills/wrap-up-session/references/closure-actions.md
 for token in "## Handovers" "### Slice n/N" "commit message"; do
-  assert_file_contains "$WRAP_SKILL" "$token" "wrap-up: SKILL.md contains '$token'"
+  assert_file_contains "$CA_FILE" "$token" "wrap-up: closure-actions.md contains '$token'"
 done
+assert_file_contains "$WRAP_SKILL" "§ *Handovers*" "wrap-up: SKILL.md points at the Handovers section"
 
-flat_wrap="$(flatten "$WRAP_SKILL")"
-pos_handovers=$(printf '%s' "$flat_wrap" | grep -bo '## Handovers' | head -1 | cut -d: -f1)
-pos_linkage=$(printf '%s' "$flat_wrap" | grep -bo 'pr_linkage.py check' | head -1 | cut -d: -f1)
+flat_handovers="$(flatten "$CA_FILE")"
+pos_handovers=$(printf '%s' "$flat_handovers" | grep -bo '## Handovers' | head -1 | cut -d: -f1)
+pos_linkage=$(printf '%s' "$flat_handovers" | grep -bo 'pr_linkage.py check' | head -1 | cut -d: -f1)
 if [ -n "${pos_handovers:-}" ] && [ -n "${pos_linkage:-}" ] && [ "$pos_handovers" -lt "$pos_linkage" ]; then
   assert_eq "ordered" "ordered" "wrap-up: ## Handovers section appears before the linkage check"
 else
@@ -1242,6 +1247,12 @@ assert_contains "$PREFLIGHT" "cached-suite.sh -- <affected-test command>" \
 WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
 wrap_section() {  # <heading prefix>: that heading's body, up to the next ## heading
   awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$WRAP_SKILL" \
+    | tr -s '[:space:]' ' '
+}
+# The closure actions after pr-sync live in their own reference file.
+CA_FILE=.agents/skills/wrap-up-session/references/closure-actions.md
+ca_section() {  # <heading prefix>: that heading's body in closure-actions.md, up to the next ## heading
+  awk -v h="$1" 'index($0, h) == 1 { p = 1; print; next } p && /^## / { exit } p' "$CA_FILE" \
     | tr -s '[:space:]' ' '
 }
 assert_contains "$(wrap_section "## Step 6 — Run Tests")" "cached-suite.sh -- " \
@@ -1389,11 +1400,14 @@ assert_contains "$flat_wrap" "closure/<sanitized branch>.json" \
   "closure PR: the closure state path lives under the git common dir"
 assert_not_contains "$flat_wrap" "--no-verify" \
   "closure PR: wrap-up commits never pass --no-verify"
+flat_ca="$(flatten "$CA_FILE")"
+assert_not_contains "$flat_ca" "--no-verify" \
+  "closure PR: closure-action commits never pass --no-verify"
 assert_contains "$flat_wrap" "the \`Quality receipt: <verdict> · <fp8> · policy <v>\` line" \
   "closure PR: the PR body carries the Quality receipt line from Step 4"
 assert_contains "$flat_wrap" "a \`## Closure\` section" \
   "closure PR: the PR body carries a ## Closure section"
-PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^### Push Failure Handling/{exit} f' "$WRAP_SKILL")"
+PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^###? /{exit} f' "$WRAP_SKILL")"
 assert_contains "$PR_SECTION" "pr_linkage.py" \
   "closure PR: the PR section still runs the linkage check"
 assert_contains "$PR_SECTION" "pr-sync" \
@@ -1401,8 +1415,8 @@ assert_contains "$PR_SECTION" "pr-sync" \
 
 # --- closure CI: mergeability, CI watch and bounded repair ------------------
 # specs/quality-receipt-closure.md AC10.
-CI_SECTION="$(wrap_section "#### CI Watch and Repair")"
-MERGE_SECTION="$(wrap_section "#### Mergeability")"
+CI_SECTION="$(ca_section "## CI watch and repair")"
+MERGE_SECTION="$(ca_section "## Mergeability")"
 assert_contains "$MERGE_SECTION" "gh pr view <n> --json mergeable" \
   "closure CI: mergeability names 'gh pr view <n> --json mergeable'"
 for token in "gh pr checks <n> --watch --required" "run_in_background" \
@@ -1411,16 +1425,16 @@ for token in "gh pr checks <n> --watch --required" "run_in_background" \
              "2 total" "closure repair"; do
   assert_contains "$CI_SECTION" "$token" "closure CI: CI Watch and Repair names '$token'"
 done
-assert_contains "$flat_wrap" "no \`.github/workflows/*\` file triggers on \`pull_request\`" \
+assert_contains "$flat_ca" "no \`.github/workflows/*\` file triggers on \`pull_request\`" \
   "closure CI: ci: none requires no pull_request-triggered workflow too"
-assert_contains "$flat_wrap" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
+assert_contains "$flat_ca" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
   "closure CI: every repair commit adds a closure-repair Session Summary line"
-assert_contains "$flat_wrap" "introduces_summary" \
+assert_contains "$flat_ca" "introduces_summary" \
   "closure CI: the repair-commit line is named against the pre-push hook's check"
 
 # --- closure conflicts: merge, never rebase, never force ---------------------
 # specs/quality-receipt-closure.md AC11.
-CONFLICT_SECTION="$(wrap_section "#### Conflict Repair")"
+CONFLICT_SECTION="$(ca_section "## Conflict repair")"
 for token in "git merge origin/<base>" "git merge origin/<branch>" \
              "never \`rebase\`" "never \`--force\`" "git merge --abort" \
              "merge: unresolved" "at most 1 round"; do
@@ -1428,13 +1442,15 @@ for token in "git merge origin/<base>" "git merge origin/<branch>" \
 done
 assert_not_contains "$flat_wrap" "pull --rebase" \
   "closure conflicts: wrap-up no longer resolves a non-fast-forward push with pull --rebase"
-PUSH_FAILURE="$(wrap_section "### Push Failure Handling")"
+assert_not_contains "$flat_ca" "pull --rebase" \
+  "closure conflicts: closure-actions.md never resolves a non-fast-forward push with pull --rebase"
+PUSH_FAILURE="$(ca_section "## Push failures")"
 assert_contains "$PUSH_FAILURE" "Conflict Repair" \
   "closure conflicts: the non-fast-forward row routes to Conflict Repair"
 
 # --- closure deploy: verify-deploy runs when a target applies, else n/a -----
 # specs/quality-receipt-closure.md AC12. A moved HEAD re-enters Step 4 once.
-STEP8="$(wrap_section "## Step 8 — Deployment Verification")"
+STEP8="$(ca_section "## Deployment verification")"
 for token in "/verify-evidence --scope deployment" "head-moved: true" "head-moved: false" \
              "re-enters Step 4" "deploy_reentries" "at most once" \
              "Deployments: not applicable —" "\`--skip-deploy\`"; do
@@ -1448,19 +1464,22 @@ assert_contains "$STEP8" "Accepted exception" \
 # --- closure record: record-closure and mark-draft are described, and the ---
 # Done report carries a Closure line. specs/quality-receipt-closure.md AC13.
 DONE_SECTION="$(wrap_section "## Done")"
+RECORD_SECTION="$(ca_section "## Recording the closure") $(ca_section "## Marking a partial PR draft")"
 for token in "record-closure" "gh pr edit <n> --body-file" "record: recorded" "record: record-failed" \
              "mark-draft" "gh pr ready <n> --undo" "partial: drafted" "partial: draft-failed" \
-             "partial: no-pr" "Closure: [complete / partial" "closure engine failed" \
-             "facts known before the push"; do
+             "partial: no-pr" "facts known before the push"; do
+  assert_contains "$RECORD_SECTION" "$token" "closure record: closure-actions.md names '$token'"
+done
+for token in "Closure: [complete / partial" "closure engine failed"; do
   assert_contains "$DONE_SECTION" "$token" "closure record: the Done section names '$token'"
 done
-assert_contains "$flat_wrap" "closure repair" \
+assert_contains "$flat_ca" "closure repair" \
   "closure record: closure repair commits stay named in the wrap-up flow"
 
 # --- closure loop table: the three pointers now name real sections ----------
 LOOP_TABLE="$(wrap_section "### The Closure Loop")"
-assert_contains "$LOOP_TABLE" "Step 8 — Deployment Verification" \
-  "closure loop table: verify-deploy points at Step 8's real heading"
+assert_contains "$LOOP_TABLE" "§ *Deployment verification*" \
+  "closure loop table: verify-deploy points at its own section"
 assert_contains "$LOOP_TABLE" "Recording the closure" \
   "closure loop table: record-closure points at its own section"
 assert_contains "$LOOP_TABLE" "Marking a partial PR draft" \

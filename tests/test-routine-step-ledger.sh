@@ -36,7 +36,7 @@ for tree in .agents; do
     "AC9: $tree Step 2 retains a skipped row carrying its reason"
 
   # --- sink 2: the PR body ---------------------------------------------------
-  pr="$(awk '/^### The Pull Request/{f=1;next} f&&/^### Push Failure/{exit} f' "$skill")"
+  pr="$(awk '/^### The Pull Request/{f=1;next} f&&/^###? /{exit} f' "$skill")"
   assert_contains "$pr" "step list" \
     "AC9: $tree the PR body carries the executed step list"
   assert_contains "$rows" "skip: <reason>" \

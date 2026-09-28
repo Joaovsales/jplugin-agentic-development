@@ -19,6 +19,7 @@ for tree in .agents; do
   f="$tree/skills/wrap-up-session/SKILL.md"
   # Routine-only rules live in the contract's wrap-up section.
   r="$tree/skills/wrap-up-session/references/routines.md"
+  ca="$tree/skills/wrap-up-session/references/closure-actions.md"
   assert_file_matches "$r" '^## Wrap-up on a routine branch' \
     "AC6: $tree routines.md carries the routine-only wrap-up section"
 
@@ -28,6 +29,8 @@ for tree in .agents; do
   creates="$(grep -c 'gh pr create' "$f" || true)"
   assert_eq "1" "$creates" \
     "AC7: $tree/wrap-up-session names \`gh pr create\` exactly once"
+  assert_eq "0" "$(grep -c 'gh pr create' "$ca" || true)" \
+    "AC7: $tree closure-actions.md points at the procedure instead of restating it"
 
   assert_file_matches "$f" '^### The Pull Request' \
     "AC7: $tree/wrap-up-session has one canonical PR section"
@@ -62,16 +65,16 @@ for tree in .agents; do
   # follows it (issue #123, verified via PR #121's closingIssuesReferences).
   # `Closes #A, #B` silently links only #A; the working form repeats the
   # keyword: `Closes #A, closes #B`.
-  assert_prose_contains "$f" "Closes #A, closes #B" \
+  assert_prose_contains "$ca" "Closes #A, closes #B" \
     "#123: $tree states the working multi-issue form repeats the keyword per issue"
-  assert_prose_contains "$f" "links only the first" \
+  assert_prose_contains "$ca" "links only the first" \
     "#123: $tree names the failing multi-issue form and what it silently drops"
 
   # Both PR paths must run the check on the body they are about to trust: the
   # create path on its draft, and the re-sync path on the fetched body even when
   # nothing else looks stale -- an already-open PR whose only defect is the
   # linkage otherwise takes the "already accurate" path and is never checked.
-  sync_section="$(awk '/^#### Creating and re-syncing/{f=1;next} f&&/^### Push Failure Handling/{exit} f' "$f")"
+  sync_section="$(awk '/^## PR re-sync/{f=1;next} f&&/^## /{exit} f' "$ca")"
   create_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*No PR for this branch\*\*/{f=1} f&&/^\*\*A PR already exists\*\*/{exit} f')"
   resync_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*A PR already exists\*\*/{f=1} f&&/^\*\*Correct, do not erase\.\*\*/{exit} f')"
   assert_contains "$create_path" "pr_linkage.py" \

@@ -127,8 +127,9 @@ done
 # target the dispatch machinery itself, not the sentence that documents its
 # absence -- that sentence names `code-reviewer`/`critic`/`security-reviewer`
 # on purpose, to say wrap-up dispatches none of them.
-for tree in .agents; do
-  f="$tree/skills/wrap-up-session/SKILL.md"
+# The reference files SKILL.md delegates to are scanned too: moving text out
+# of SKILL.md must not move a dispatch path out of the check's sight.
+for f in .agents/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/references/*.md; do
   for needle in 'Review Payload' 'Parallel Code Review' 'Dispatch Disclosure' \
                 'Finding Classification' 'Agent assignments:'; do
     assert_not_contains "$(cat "$f")" "$needle" \

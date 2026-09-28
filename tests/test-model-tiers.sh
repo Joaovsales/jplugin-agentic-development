@@ -135,6 +135,10 @@ for tree in .agents; do
     assert_file_not_matches "$tree/skills/$skill/SKILL.md" 'model: .?(sonnet|opus|haiku)' \
       "ModelTier: $tree $skill pins no Ceiling role to an alias"
   done
+  for ref in "$tree"/skills/wrap-up-session/references/*.md; do
+    assert_file_not_matches "$ref" 'model: .?(sonnet|opus|haiku)' \
+      "ModelTier: $ref pins no Ceiling role to an alias"
+  done
 done
 
 # --- 8b. A table cell pins just as hard as frontmatter -----------------------
