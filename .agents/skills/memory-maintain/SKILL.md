@@ -12,7 +12,7 @@ duplicates, prune stale content, correct contradicted claims. The store schema
 and category map live in `tasks/solutions/README.md`.
 
 Invoked at every session start (AGENTS.md Session Start Checklist) and by
-/wrap-up-session Step 1.5. Self-gates on session count so it only does real work
+`/wrap-up-session` § *Learnings*. Self-gates on session count so it only does real work
 every 5 sessions. Run manually with /memory-maintain --force at any time.
 
 ## When to run

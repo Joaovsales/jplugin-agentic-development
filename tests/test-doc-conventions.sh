@@ -1512,4 +1512,45 @@ assert_contains "$flat_routines" "checks the quality receipt, tests, and the pul
 assert_not_contains "$flat_routines" "review passes, tests, and the pull request" \
   "routine spine: routines.md no longer names review passes in either spine table"
 
+# --- wrap-up phases: callers cite wrap-up by section name, and it resolves --
+# specs/wrap-up-phases.md AC6 and Decision 1. A step number is a pointer that
+# every insertion renumbers; a § name is one tests/test-citations.sh-style check
+# can resolve. Files are flattened first, because a citation hard-wrapped
+# across a line break ("`/wrap-up-session`\nStep 6") is still a citation.
+cite_report="$("$TEST_PYTHON" - <<'PY'
+import re, subprocess
+from pathlib import Path
+
+files = subprocess.run(
+    ["git", "ls-files", "--", ".agents", ".claude/agents", ".claude/AGENTS.md", "README.md", "AGENTS.md"],
+    capture_output=True, text=True, check=True).stdout.split()
+wrap = Path(".agents/skills/wrap-up-session")
+heading = re.compile(r"^#{2,3} (.+?)\s*$", re.M)
+names = set()
+for doc in [wrap / "SKILL.md", *sorted((wrap / "references").glob("*.md"))]:
+    names |= {re.sub(r"\s+", " ", h) for h in heading.findall(doc.read_text(encoding="utf-8"))}
+step = re.compile(r"wrap-up\S* \(?(§ 5\.1|Step [0-9])")
+cite = re.compile(r"`/wrap-up-session` § \*([^*]+?)\*")
+count = 0
+for f in files:
+    if not f.endswith((".md", ".py", ".sh")) and "/git-hooks/" not in f:
+        continue
+    flat = re.sub(r"\s+", " ", Path(f).read_text(encoding="utf-8", errors="replace"))
+    for m in step.finditer(flat):
+        print(f"STEP {f}: ...{flat[max(0, m.start() - 30):m.end() + 10]}...")
+    for m in cite.finditer(flat):
+        count += 1
+        if m.group(1) not in names:
+            print(f"UNRESOLVED {f}: § *{m.group(1)}*")
+print(f"COUNT {count}")
+PY
+)"
+assert_eq "" "$(printf '%s\n' "$cite_report" | grep '^STEP' || true)" \
+  "wrap-up phases: no caller cites wrap-up by step number"
+assert_eq "" "$(printf '%s\n' "$cite_report" | grep '^UNRESOLVED' || true)" \
+  "wrap-up phases: every \`/wrap-up-session\` § citation names a real section"
+cite_count="$(printf '%s\n' "$cite_report" | sed -n 's/^COUNT //p')"
+assert_eq "yes" "$([ "${cite_count:-0}" -ge 8 ] && echo yes || echo "no (${cite_count:-0})")" \
+  "wrap-up phases: the scan saw the section citations it exists to check (non-vacuous)"
+
 finish

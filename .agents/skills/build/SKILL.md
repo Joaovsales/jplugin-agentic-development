@@ -36,7 +36,7 @@ Steps 1 and 2 must never resolve to the same model. If they do, the ladder has n
 ## Step 0.5 — Isolation
 
 Decide **before** the green baseline whether this build runs in a git worktree.
-Pairs with `/wrap-up-session` Step 7.5, which merges and removes it.
+Pairs with `/wrap-up-session` § *Worktree integration*, which merges and removes it.
 
 **Enter a worktree if ANY of these hold:**
 
@@ -89,7 +89,7 @@ progress and drift further before finding out. Merge `main` in frequently.
    identified. A green run of that command on this tree is reused, not
    repeated; `/yolo` and `/auto-push` leave their baseline to this step. This
    is the build's only full run; the pre-push one belongs to
-   `/wrap-up-session` Step 6.
+   `/wrap-up-session` § *Full suite*.
    - If tests fail before you start: fix or flag to user before proceeding
    - Resolve the **affected-test command** every later checkpoint runs: the
      `Affected tests: <command with {base}>` line below the `AGENTS.md` end
@@ -358,7 +358,7 @@ before Phase 2 and the quality gate so any map edits receive both checks.
 After all tasks are `[x]`:
 
 1. Run the **affected-test command** against the base SHA — every test file the
-   build touched, in one run. The pre-push full run is `/wrap-up-session` Step 6.
+   build touched, in one run. The pre-push full run is `/wrap-up-session` § *Full suite*.
    This run is not a "tests pass" claim under `/verify-evidence`, which wants
    the full suite; that claim is made after Step 6's run, never from here.
 2. Run linter / type checker if configured

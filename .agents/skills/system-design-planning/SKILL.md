@@ -184,7 +184,7 @@ four-axis output format read as below. Every finding is answered in the spec —
 when it is accepted, as a *Decisions* row when it is declined — and the spec's
 status line records how many were applied and how many declined, so the human
 reviewer can see the critic's hand before approving. Accept and decline under
-the Apply Gate in `/wrap-up-session` § 5.1: `gated_auto` at confidence 75 or
+the `.agents/skills/quality-gate/SKILL.md` § *Apply Gate*: `gated_auto` at confidence 75 or
 above is applied; an anchor-75 finding is resolved first by reading the
 dependency it names; `manual` and `advisory` findings become *Decisions* rows
 for the human. Otherwise print one line

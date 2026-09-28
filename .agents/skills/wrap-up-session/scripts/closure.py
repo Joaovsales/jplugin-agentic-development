@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """closure.py — the closure loop's transition engine.
 
-`/wrap-up-session` Step 4 on drives a repair-and-close loop: check the quality
+`/wrap-up-session` § *The closure loop* drives a repair-and-close loop: check the quality
 receipt, commit, push, open or re-sync the PR, watch mergeability and CI,
 repair within bounds, verify deployment, and record an honest outcome. This
 script is the pure state machine behind that loop (specs/quality-receipt-closure.md
