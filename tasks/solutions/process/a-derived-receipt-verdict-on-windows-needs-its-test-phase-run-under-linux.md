@@ -4,7 +4,7 @@ date: 2026-09-23
 problem_type: process
 module: .agents/skills/quality-gate/scripts/receipt.py § derive_verdict; /quality-gate phase 5
 tags: [quality-receipt, windows, wsl, baseline-failures, tests, verdict]
-applies_when: /quality-gate phase 5 (or wrap-up Step 6) runs on this Windows machine and the affected or full test set includes files already in the Windows failure baseline
+applies_when: /quality-gate phase 5 (or wrap-up § Full suite) runs on this Windows machine and the affected or full test set includes files already in the Windows failure baseline
 ---
 
 `receipt.py` derives the verdict from the recorded test exit and never accepts a
@@ -31,6 +31,13 @@ Invoking WSL from the Bash tool (Git Bash) has two traps:
 
 Put the script in a file, strip CR with `sed 's/\r$//'`, and write its log back
 to a `/mnt/c` path the Windows side can read.
+
+WSL Ubuntu has no `gh`, and CI does. Without one,
+`tests/test-lane-catalogue.sh` "AC4 control: workflow's failure is the
+provider's" fails, on master too (2026-09-28): the provider's error names the
+missing binary, not `no repository configured`. Put a two-line wrapper on PATH
+that execs the real Windows binary, `/mnt/c/Program Files/GitHub CLI/gh.exe`.
+With it, the same clean clone ran 44/44 affected and 60/60 full.
 
 Related: [../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md](../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md)
 (the same WSL reproduction recipe).

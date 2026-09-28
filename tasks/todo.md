@@ -1356,3 +1356,8 @@ Filed this sweep:
 > Handover: landed 498f26a — verify-deployment's non-fast-forward row merges `origin/<branch>` (never rebase, never force) citing closure-actions.md § *Conflict repair*; both code-reviewer copies name only /quality-gate; the seven lane files and README say wrap-up checks the quality receipt; the quality-receipt-closure spec's interaction diagram, contract rows and implementation paths name wrap-up sections
 > Do not re-derive: the wrap-up description changed too (it claimed code review), so README's rendered skills table was re-run with scripts/render-skills-table.py. The README flow still lists /security-scan as a step before wrap-up although the gate's phase 3 owns it now — outside this spec, left alone
 > Surface: [SURFACE] +.agents/skills/wrap-up-session/SKILL.md | reason: its frontmatter description is the source README's table renders from
+
+## Session Summary — 2026-09-28 [8ae3346..c1c3133]
+- Completed: wrap-up-phases slices 1–7 (specs/wrap-up-phases.md); quality-gate fixes (1b116e8, c1c3133); spec reconciliation of 4 specs that cited wrap-up by step number
+- Pending: none in this plan
+- Carry-forward: README's flow still lists /security-scan as its own step before wrap-up, although /quality-gate phase 3 now runs it; specs outside the reconciliation candidates (lightpanda-browser-adoption, omc-practices-adoption, workflow-insights-improvements, wrap-up-gate-and-tdd-fold) still cite old wrap-up step numbers in historical context

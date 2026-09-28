@@ -52,7 +52,7 @@ by reading them.
 1. **Deliberate decisions get re-litigated.** The repo produces two explicit
    deferral records — `[AMBIGUITY]` lines (`AGENTS.md` § *Ambiguity
    Protocol*) and `TODO(shortcut):` markers (§ *Code Economy*, ledgered at
-   `wrap-up-session` Step 3.7). Neither reaches a reviewer, so a shortcut whose
+   `/wrap-up-session` § *Shortcut ledger*). Neither reaches a reviewer, so a shortcut whose
    limit and upgrade path are already written down comes back as a finding.
 2. **Acceptance criteria go unchecked.** Only Pass 4 is told to read the specs and
    every AC (`wrap-up-session/SKILL.md:203`), and that instruction sits in the

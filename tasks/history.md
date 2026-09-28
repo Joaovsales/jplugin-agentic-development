@@ -891,3 +891,23 @@ back vacuous and was repaired.
   new; WSL Ubuntu, clean clone at 5e00630: 31/31 green in 63 s.
 - Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md,
   tasks/solutions/patterns/a-state-reset-must-keep-facts-about-the-world.md
+
+### [2026-09-28] — Wrap-up in five named phases
+- Key changes: `/wrap-up-session` SKILL.md rewritten from ~780 lines of numbered
+  steps into five `##` phases (Bookkeeping, Reconcile, Gate, Ship, Done) in 300
+  lines, with the lookup detail in `references/spec-reconcile.md`,
+  `references/closure-actions.md` and `references/routines.md` § Wrap-up on a
+  routine branch. E2E coverage moved into Reconcile, ahead of the receipt and the
+  suite. Every caller cites wrap-up by § name, and a test resolves each citation
+  against SKILL.md's own headings. Behavioral drift in callers fixed:
+  verify-deployment merges instead of rebasing, and the code-reviewer persona,
+  lane files and README no longer claim wrap-up runs review passes. Seven
+  slices (#200, #201), no script behavior changed.
+- Quality gate: Phases 1–3 inline (duplicate `CA_FILE`, stale step labels);
+  Phase 4 dispatched, HOLD with 5 SHOULD-FIX items and 1 NITPICK, all fixed and
+  re-verified by the same reviewer (GO). Receipt GO fd05ed85, nothing unresolved.
+- Baseline (Windows): affected tests on 1b116e8 had 9/44 files red. Two
+  failures were new: the override rows still said "MUST-FIX". c1c3133 fixed
+  them, and the two files were re-run green. WSL Ubuntu, clean clone at c1c3133 with a real `gh` on PATH: 44/44
+  affected and 60/60 full.
+- Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md (WSL has no gh)

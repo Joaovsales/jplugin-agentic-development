@@ -4,6 +4,7 @@ implementation_paths:
   - .agents/skills/build/scripts/cached-suite.sh
   - .agents/skills/build/SKILL.md
   - .agents/skills/wrap-up-session/SKILL.md
+  - .agents/skills/wrap-up-session/references/closure-actions.md
   - .agents/skills/yolo/SKILL.md
   - .agents/skills/auto-push/SKILL.md
   - AGENTS.md
@@ -182,7 +183,7 @@ a cached record instead of re-running.
    Phase 2 and the post-quality-gate run use the declared affected-test
    command against the base SHA, and Key Principles no longer says "Full test
    suite after every task" (`tests/test-doc-conventions.sh`).
-5. `/wrap-up-session` Step 6 and the Step 7.5 merged-result run go through
+5. `/wrap-up-session` § *Full suite* and the local worktree merge's merged-result run go through
    `cached-suite.sh`, and `/yolo` and `/auto-push` leave their baseline to
    `/build`'s cached pre-flight run (`tests/test-doc-conventions.sh`).
 6. `/build` and `/wrap-up-session` forbid starting any test run while a suite
@@ -204,7 +205,8 @@ a cached record instead of re-running.
 
 - `.agents/skills/build/scripts/cached-suite.sh` — the tree-keyed cache and the one-suite lock around any full-suite command
 - `.agents/skills/build/SKILL.md` — baseline through the cache; affected tests at every other checkpoint; the concurrency and no-poll rules
-- `.agents/skills/wrap-up-session/SKILL.md` — Step 6 and the merged-result run through the cache; the concurrency and no-poll rules
+- `.agents/skills/wrap-up-session/SKILL.md` — § Full suite through the cache; the concurrency and no-poll rules
+- `.agents/skills/wrap-up-session/references/closure-actions.md` — § Local worktree merge, the merged-result run through the cache
 - `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md` — pre-flight baseline through the cache, so `/build`'s baseline reuses it
 - `AGENTS.md` — this repository's `Affected tests:` declaration below the end marker
 - `tests/run.sh` — optional named-file arguments
