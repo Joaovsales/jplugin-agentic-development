@@ -1297,12 +1297,20 @@ Filed this sweep:
 > Spec: specs/wrap-up-phases.md
 
 ### Slice 1/7 — Extract spec reconciliation
-- [ ] Extract spec reconciliation <!-- task-id: plan.specs-wrap-up-phases-md.extract-spec-reconciliation --> — Slice 1/7 of specs/wrap-up-phases.md: the Step 3.2 detail moves to references/spec-reconcile.md and its prose tests are… ([#195](https://github.com/Joaovsales/jplugin-agentic-development/issues/195))
-  [ ] TDD: test-living-spec-reconciliation prose tokens read references/spec-reconcile.md and SKILL.md links it (AC 3) -> move outcome table, semantic rule, legacy migration, derive-id upsert, write-policy table and report format out of SKILL.md
+- [x] Extract spec reconciliation <!-- task-id: plan.specs-wrap-up-phases-md.extract-spec-reconciliation --> — Slice 1/7 of specs/wrap-up-phases.md: the Step 3.2 detail moves to references/spec-reconcile.md and its prose tests are… ([#195](https://github.com/Joaovsales/jplugin-agentic-development/issues/195))
+  [x] TDD: test-living-spec-reconciliation prose tokens read references/spec-reconcile.md and SKILL.md links it (AC 3) -> move outcome table, semantic rule, legacy migration, derive-id upsert, write-policy table and report format out of SKILL.md
+
+> Handover: landed 6d370d1 — the reconciliation procedure (outcomes, semantic rule, migration, deferred tasks, write policy, report) lives in `references/spec-reconcile.md`, headings promoted to `##`; SKILL.md keeps the discover command, the one-outcome rule, the `task-registry.py upsert --derive-id` line and the STOP
+> Do not re-derive: test-living-spec-reconciliation reads prose from `$SR`; only the heading-order (placement) loop still reads `$WU` and is keyed to `## Step N` — slice 4 re-keys it. The reference's STOP line names the terminal PR assertion in plain text; slice 4 turns it into a § citation once the heading exists
+> Surface: none
 
 ### Slice 2/7 — Extract routine-only wrap-up rules
-- [ ] Extract routine-only wrap-up rules <!-- task-id: plan.specs-wrap-up-phases-md.extract-routine-only-wrap-up-rules --> — Slice 2/7 of specs/wrap-up-phases.md: routines.md gains ## Wrap-up on a routine branch and its tests are repointed ([#196](https://github.com/Joaovsales/jplugin-agentic-development/issues/196)) (blocked-by: plan.specs-wrap-up-phases-md.extract-spec-reconciliation)
-  [ ] TDD: routine-wrapup, step-ledger, escalation-handoff and sweep-routines tokens read routines.md § Wrap-up on a routine branch (AC 2) -> move fix-escalation terminal, ledger rows, draft/linkage table, routine/fix e2e handoff, unattended detection
+- [x] Extract routine-only wrap-up rules <!-- task-id: plan.specs-wrap-up-phases-md.extract-routine-only-wrap-up-rules --> — Slice 2/7 of specs/wrap-up-phases.md: routines.md gains ## Wrap-up on a routine branch and its tests are repointed ([#196](https://github.com/Joaovsales/jplugin-agentic-development/issues/196)) (blocked-by: plan.specs-wrap-up-phases-md.extract-spec-reconciliation)
+  [x] TDD: routine-wrapup, step-ledger, escalation-handoff and sweep-routines tokens read routines.md § Wrap-up on a routine branch (AC 2) -> move fix-escalation terminal, ledger rows, draft/linkage table, routine/fix e2e handoff, unattended detection
+
+> Handover: landed 5dc3647 — `references/routines.md` § *Wrap-up on a routine branch* (before § *Edge cases*) holds the fix-escalation terminal, step-ledger rows, branch parsing, the draft/linkage table, the `routine/fix` e2e handoff and unattended detection; SKILL.md keeps one-line pointers citing each `###` by name
+> Do not re-derive: the section's intro must not name `/wrap-up-session` — test-routines-contract cuts the `tidy` steps section up to the next `###`, which now runs into this intro. The moved text still says "Step 8.5" (fix terminal, unattended detection); slice 4 renames it. The multi-issue `Closes #A, closes #B` paragraph stayed in SKILL.md for slice 3
+> Surface: none
 
 ### Slice 3/7 — Extract closure actions
 - [ ] Extract closure actions <!-- task-id: plan.specs-wrap-up-phases-md.extract-closure-actions --> — Slice 3/7 of specs/wrap-up-phases.md: references/closure-actions.md holds one section per action after pr-sync; negativ… ([#197](https://github.com/Joaovsales/jplugin-agentic-development/issues/197)) (blocked-by: plan.specs-wrap-up-phases-md.extract-routine-only-wrap-up-rules)
