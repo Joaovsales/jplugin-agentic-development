@@ -1292,3 +1292,39 @@ Filed this sweep:
 - Completed: 6 slices of `## Plan: quality-receipt-closure` (filed as issues, refs #163 and #162), with every TDD row done; slice 6's `Verify:` row stays open because it is this PR's own closure run (Decision 13); quality-gate fixes: receipt.py refuses a non-hex fingerprint; HOLD routes through the `approve` phase and the receipt is re-checked; a closure run ends at `done` and keeps `pr_open`; corrupt state and receipt files are handled
 - Pending: none in this plan; the issues close on merge through #191's `Closes` lines
 - Carry-forward (reported, not applied; recorded in receipt 39e94696): the base choice duplicated across `check --base`, `write` and Base Branch Detection; the gate's file list rebuilt by hand (no `receipt.py paths`); the `quality-gate` action carries no parent or delta paths; `key=value` output with spaces in values; destination strings parsed twice in closure.py; one shared `outcome.json` path; a corrupt receipt reported as `stale schema`; `build/SKILL.md` Phase 3 still says "all 3 phases"; the installed plugin copy of `/wrap-up-session` predates this branch until the plugin is reinstalled
+
+## Plan: wrap-up-phases
+> Spec: specs/wrap-up-phases.md
+
+### Slice 1/7 — Extract spec reconciliation
+- [ ] Extract spec reconciliation <!-- task-id: plan.specs-wrap-up-phases-md.extract-spec-reconciliation --> — Slice 1/7 of specs/wrap-up-phases.md: the Step 3.2 detail moves to references/spec-reconcile.md and its prose tests are… ([#195](https://github.com/Joaovsales/jplugin-agentic-development/issues/195))
+  [ ] TDD: test-living-spec-reconciliation prose tokens read references/spec-reconcile.md and SKILL.md links it (AC 3) -> move outcome table, semantic rule, legacy migration, derive-id upsert, write-policy table and report format out of SKILL.md
+
+### Slice 2/7 — Extract routine-only wrap-up rules
+- [ ] Extract routine-only wrap-up rules <!-- task-id: plan.specs-wrap-up-phases-md.extract-routine-only-wrap-up-rules --> — Slice 2/7 of specs/wrap-up-phases.md: routines.md gains ## Wrap-up on a routine branch and its tests are repointed ([#196](https://github.com/Joaovsales/jplugin-agentic-development/issues/196)) (blocked-by: plan.specs-wrap-up-phases-md.extract-spec-reconciliation)
+  [ ] TDD: routine-wrapup, step-ledger, escalation-handoff and sweep-routines tokens read routines.md § Wrap-up on a routine branch (AC 2) -> move fix-escalation terminal, ledger rows, draft/linkage table, routine/fix e2e handoff, unattended detection
+
+### Slice 3/7 — Extract closure actions
+- [ ] Extract closure actions <!-- task-id: plan.specs-wrap-up-phases-md.extract-closure-actions --> — Slice 3/7 of specs/wrap-up-phases.md: references/closure-actions.md holds one section per action after pr-sync; negativ… ([#197](https://github.com/Joaovsales/jplugin-agentic-development/issues/197)) (blocked-by: plan.specs-wrap-up-phases-md.extract-routine-only-wrap-up-rules)
+  [ ] TDD: doc-conventions CI/mergeability/conflict/deploy/record/mark-draft cuts read references/closure-actions.md (AC 2, 3) -> move those sections plus PR re-sync, linkage, handovers, push-failure table
+  [ ] TDD: review-context and model-tiers negative checks also scan the new reference files (AC 2) -> extend the file lists; add closure-actions.md to instruction-budget's .claude/project.md allowlist
+
+### Slice 4/7 — Rewrite SKILL.md into five phases
+- [ ] Rewrite SKILL.md into five phases <!-- task-id: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases --> — Slice 4/7 of specs/wrap-up-phases.md: five named phases, E2E coverage in Reconcile, one exits table, SKILL.md at most 3… ([#198](https://github.com/Joaovsales/jplugin-agentic-development/issues/198)) (blocked-by: plan.specs-wrap-up-phases-md.extract-closure-actions)
+  [ ] TDD: instruction-budget asserts SKILL.md ≤300 lines and exactly the five ## phases, no ## Step heading (AC 1) -> rewrite SKILL.md under Bookkeeping/Reconcile/Gate/Ship/Done
+  [ ] TDD: skill-invocation-chain and living-spec heading-order checks require maintain-verification < e2e < Quality receipt < Full suite (AC 4) -> move E2E coverage into Reconcile
+  [ ] TDD: routine-wrapup exits loop asserts exactly 6 exits, each section naming § Terminal PR assertion (AC 5) -> single exits table keyed by section name
+
+### Slice 5/7 — Repoint caller override tables
+- [ ] Repoint caller override tables <!-- task-id: plan.specs-wrap-up-phases-md.repoint-caller-override-tables --> — Slice 5/7 of specs/wrap-up-phases.md: the yolo and auto-push override tables cite wrap-up sections by name and drop dea… ([#199](https://github.com/Joaovsales/jplugin-agentic-development/issues/199)) (blocked-by: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases)
+  [ ] TDD: routine-wrapup requires yolo and auto-push to name § Terminal PR assertion and carry no "Step 5.1" / "MUST-FIX" row (AC 7) -> rewrite both override tables and the "4 parallel passes" line
+
+### Slice 6/7 — Repoint remaining step citations
+- [ ] Repoint remaining step citations <!-- task-id: plan.specs-wrap-up-phases-md.repoint-remaining-step-citations --> — Slice 6/7 of specs/wrap-up-phases.md: every other wrap-up step-number reference becomes a § citation ([#200](https://github.com/Joaovsales/jplugin-agentic-development/issues/200)) (blocked-by: plan.specs-wrap-up-phases-md.rewrite-skill-md-into-five-phases)
+  [ ] TDD: doc-conventions greps .agents, .claude, README, AGENTS.md for `wrap-up… Step N` / `§ 5.1` and finds nothing; test-citations resolves each new § (AC 6) -> rewrite build, quality-gate, tidy, memory-maintain, verify-evidence, sync, system-design-planning, closure.py docstring, pre-push comment, test-closure label
+
+### Slice 7/7 — Fix behavioral drift in callers
+- [ ] Fix behavioral drift in callers <!-- task-id: plan.specs-wrap-up-phases-md.fix-behavioral-drift-in-callers --> — Slice 7/7 of specs/wrap-up-phases.md: verify-deployment merges, persona and lane wording corrected, spec diagram updated ([#201](https://github.com/Joaovsales/jplugin-agentic-development/issues/201)) (blocked-by: plan.specs-wrap-up-phases-md.repoint-remaining-step-citations)
+  [ ] TDD: doc-conventions forbids `pull --rebase` in verify-deployment (AC 8) -> its push-failure table merges per § Conflict repair
+  [ ] TDD: agents test forbids "dispatched by /wrap-up-session" in both code-reviewer copies (AC 9) -> edit both descriptions
+  [ ] TDD: doc-conventions extends the "review passes" ban from routines.md to task-registry/lanes/*.md and README (AC 10) -> reword lanes, README flow line, quality-receipt-closure step diagram
