@@ -1022,3 +1022,5 @@ After the Pi changed-source fix, a fresh installed Pi 0.85.1 run made exactly
 one path-only native read. Its `tool_execution_end` text began with the JSON
 source map, the agent named the first claim, and no fallback was logged. This
 confirms the new comparison still permits a matching original result.
+
+Verified implementation commit: `d093429` (automatic bulk-read routing).
