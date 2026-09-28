@@ -596,8 +596,8 @@ assert_file_contains CLAUDE.md '| `bulk-reader` | `haiku` |' \
   "BulkRead: CLAUDE.md Agents table routes bulk-reader to haiku"
 assert_file_contains CLAUDE.md "### Bulk-Read Handoff" \
   "BulkRead: CLAUDE.md has the Bulk-Read Handoff subsection under Model Routing"
-for token in "BULK_READ_MIN_LINES" "350" 'Dispatch `bulk-reader` with a question' \
-             "Read the ranges needed to understand and edit the component" "BULK_READ_GATE=off" \
+for token in "BULK_READ_MIN_LINES" "350" "PostToolUse" "automatic source map" \
+             "directly inspect cited ranges" "BULK_READ_GATE=off" \
              ".claude/hooks/bulk-read-gate.py" "pi/extensions/bulk-read-gate.ts" \
              "scripts/install-codex.sh"; do
   assert_prose_contains CLAUDE.md "$token" "BulkRead: CLAUDE.md handoff states '$token'"
@@ -606,6 +606,10 @@ assert_prose_contains CLAUDE.md "Codex Scout-tier IDs live in the same section" 
   "BulkRead: CLAUDE.md routes Codex Scout-tier IDs to PI_SETUP.md"
 assert_prose_contains CLAUDE.md "not cumulative context" \
   "BulkRead: per-call size never caps component understanding"
+assert_prose_contains CLAUDE.md "directly inspect cited ranges" \
+  "BulkRead: cited source is inspected before edits or correctness claims"
+assert_prose_contains CLAUDE.md "scripts/context-read.py --question" \
+  "BulkRead: explicit follow-up CLI is documented"
 assert_prose_contains CLAUDE.md "Before editing" \
   "BulkRead: source inspection precedes edits"
 assert_prose_contains CLAUDE.md "contracts, callers, state and error paths, and tests" \
@@ -644,8 +648,8 @@ for tree in .agents .claude; do
     assert_file_contains "$tree/skills/$skill/SKILL.md" "Bulk-Read Handoff" \
       "BulkRead: $tree/$skill routes bulk reads through the handoff"
   done
-  assert_file_contains "$tree/skills/build/SKILL.md" "bulk-reader answer" \
-    "BulkRead: $tree/build's delegation contract hands builders a bulk-reader answer, not the file"
+  assert_file_contains "$tree/skills/build/SKILL.md" "source map" \
+    "BulkRead: $tree/build's delegation contract hands builders a source map"
 done
 
 finish

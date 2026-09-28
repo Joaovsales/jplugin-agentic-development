@@ -1,0 +1,38 @@
+{
+  "A": {
+    "factual": 1,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "Names first-marker mechanism and both consumers, but says END becomes -1 despite a later complete block; cited lines drift, no bounded cited-range check.",
+    "total": 4
+  },
+  "B": {
+    "factual": 2,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "All requested functions, bands, exceptions, and consumers are named; cited late-function and rule-row lines are wrong; only one whole-file read.",
+    "total": 5
+  },
+  "C": {
+    "factual": 2,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "All requested facts are named, with some correct early lines, but late-function and exception anchors are wrong; only one whole-file read.",
+    "total": 5
+  },
+  "D": {
+    "factual": 1,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "First-marker mechanism and both consumers named, but proposed quote stripping is insufficient for authoritative complete-block selection; no bounded cited-range check.",
+    "total": 4
+  }
+}

@@ -63,7 +63,8 @@ assert_eq "present" "$([ -f "$CODEX_HOME/agents/personal-agent.toml" ] && echo p
   "install: unrelated personal agent is preserved"
 assert_eq "present" "$([ -f "$CODEX_HOME/hooks/coding-agent-workflow-session-start.py" ] && echo present || echo missing)" \
   "install: SessionStart adapter is installed"
-assert_files_identical "$REPO/.claude/hooks/bulk-read-gate.py" "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py" "install: bulk-read gate is installed byte-identical to the Claude Code hook"
+assert_files_identical "$REPO/.claude/hooks/bulk-read-gate.py" "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py" "install: bulk-read adapter is shared byte-identically"
+assert_files_identical "$REPO/scripts/context-read.py" "$CODEX_HOME/hooks/context-read.py" "install: shared worker CLI is installed"
 assert_contains "$(cat "$BOX/install.log")" "Review installed hooks with /hooks" \
   "install: hook trust remains an explicit user action"
 
@@ -112,11 +113,14 @@ for path in agents:
         assert "model" not in data, (path.stem, data.get("model"))
 hooks = json.loads((codex_home / "hooks.json").read_text())
 assert hooks["userSetting"] is True
+assert not any("bulk-read" in h.get("command", "") for g in hooks["hooks"].get("PreToolUse", []) for h in g.get("hooks", []))
 assert any("echo existing" in h.get("command", "") for g in hooks["hooks"]["SessionStart"] for h in g["hooks"])
-for event in ("SessionStart", "PreCompact", "SessionEnd", "PreToolUse"):
+for event in ("SessionStart", "PreCompact", "SessionEnd", "PostToolUse"):
     commands = [h["command"] for g in hooks["hooks"][event] for h in g["hooks"]]
     adapter_commands = [command for command in commands if "coding-agent-workflow" in command]
     assert len(adapter_commands) == 1, (event, commands)
+    if event == "PostToolUse":
+        assert f"BULK_READ_SCOUT_MODEL={scout_model}" in adapter_commands[0], adapter_commands[0]
 PY
 then
   :

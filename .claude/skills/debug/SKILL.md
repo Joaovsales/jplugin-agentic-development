@@ -32,9 +32,8 @@ Symptom fixes are failure. Single-hypothesis tunnel vision is failure.
    - If a matching bug document exists, reference and update it rather than
      starting a duplicate investigation
    - **Bulk reads follow the Bulk-Read Handoff** (`CLAUDE.md` § Model Routing →
-     *Bulk-Read Handoff*): when a file the investigation needs is over the gate's
-     line threshold, ask `bulk-reader` for a source map and inspect the failing
-     path, callers, contracts, and tests yourself in bounded reads; expand to
+     *Bulk-Read Handoff*): use the automatic source map for large reads, then directly inspect
+     its cited ranges, the failing path, callers, contracts, and tests yourself in bounded reads; expand to
      the whole relevant component when needed, including files you will not edit
 
 2. **Identify the bug**:

@@ -1,16 +1,5 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Read|Bash|PowerShell",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/bulk-read-gate.sh"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
@@ -27,6 +16,17 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/bulk-read-gate.sh"
           }
         ]
       }

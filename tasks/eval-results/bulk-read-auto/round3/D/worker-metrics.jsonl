@@ -1,0 +1,1 @@
+{"time":1790619238,"harness":"pi","requested_model":"openrouter/deepseek/deepseek-v4-flash","observed_model":"deepseek/deepseek-v4-flash","usage":{"input":6558,"output":859,"cacheRead":0,"cacheWrite":0,"reasoning":0,"totalTokens":7417,"cost":{"input":0.000321342,"output":8.4182e-05,"cacheRead":0,"cacheWrite":0,"total":0.000405524}},"cost_usd":0.000405524,"latency_ms":5696}

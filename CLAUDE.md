@@ -409,47 +409,37 @@ Rules:
 
 ### Bulk-Read Handoff
 
-Routing decides which model a *dispatched* agent runs on. Nothing above decides
-what the main thread or a builder does when it opens a 2,000-line file: it reads
-the whole file into the most expensive context in the session. So the Scout tier
-also owns **bulk reads**, and the rule is enforced mechanically rather than by
-prose.
+An eligible successful whole-file read is routed automatically after the read
+finishes. A `PostToolUse` adapter invokes the Scout-tier worker and replaces the
+model-facing output with a bounded source map. The main agent does not retry
+or dispatch an agent. The first release covers native `Read`/`read`, simple
+one-file `cat` and `Get-Content`, and text results over `BULK_READ_MIN_LINES`
+(default **350**) or the byte threshold. Direct `offset`/`limit` reads remain
+available at any size. Compound shell commands and failed results pass through.
+`BULK_READ_GATE=off` bypasses routing for one session.
 
-A pre-tool gate denies any single read that would put more than
-`BULK_READ_MIN_LINES` lines (default **350**) of one file into the calling
-model's context — a whole-file `Read`, a ranged `Read` whose `limit` is that
-large, or a shell command whose final pipe stage prints the file — every `;`, `&&` or
-newline-separated list is checked, and stdout redirected to a file is not a read — (`cat`,
-`type`, `Get-Content` without `-TotalCount` or `-Tail`, `head -n N`,
-`sed -n 'A,Bp'`). The deny names the file, its line count, the threshold, and
-the two allowed alternatives:
+The automatic source map names the inspected path and source hash, cited line
+ranges, connections, coverage, and unknowns. It is a navigation aid, not an
+edit anchor or correctness evidence. Before editing or making correctness
+claims, **directly inspect cited ranges** and the affected contracts, callers,
+state and error paths, and tests, including files you will not edit. Resolve
+correctness-relevant unknowns by expanding direct reads; report a blocker if
+one remains. Successive reads may cover the entire relevant component; the
+threshold is per call, not cumulative context. Assign work by coherent
+responsibilities, not file length.
 
-1. **Dispatch `bulk-reader` with a question.** It answers in structured
-   bullets with `file:line` anchors, relevant symbol ranges, callers, dependencies,
-   related tests, inspected scope, and unresolved questions. Use absolute paths
-   for the intended checkout. Summaries are navigation aids, not edit anchors
-   or correctness evidence; the reader never proposes edits or judges correctness.
-2. **Read the ranges needed to understand and edit the component** —
-   `offset`/`limit` under the threshold, or `sed -n 'A,Bp'` with the same bound.
+For a follow-up question, call
+`python scripts/context-read.py --question "What does this path call?" path/to/file`.
+A worker failure leaves the original read visible and writes a metadata-only
+fallback record. The worker uses the installed harness's Scout tier and existing
+credentials, with no new service. The old `bulk-reader` persona remains
+available for explicit human-directed exploration.
 
-Before editing, the implementing agent inspects the affected implementation,
-contracts, callers, state and error paths, and tests, including files it will not
-edit. State the behavior and dependencies with source anchors and resolve
-correctness-relevant unknowns by expanding reads or factual exploration; if one
-remains unresolved, report the blocker instead of editing on assumptions.
-The threshold limits each read, not cumulative context: successive bounded reads
-may cover the entire relevant component. Assign work by coherent responsibilities,
-not file length. The hook enforces read size; it cannot prove comprehension.
-
-The gate never rewrites a call; the model chooses the alternative. It fires
-inside sub-agents too, so `bulk-reader`, `Explore`, and every other persona
-chunk their reads. `BULK_READ_GATE=off` disables it for one session.
-
-| Harness | Enforcement surface | Scout model |
-|---------|---------------------|-------------|
-| Claude Code | `PreToolUse` hook on `Read`, `Bash`, `PowerShell` — `.claude/hooks/bulk-read-gate.py`, registered project-level in `.claude/settings.json` (never user-level, or it fires twice) | `haiku`, pinned in `.claude/agents/bulk-reader.md` |
-| Codex | the same script, installed by `scripts/install-codex.sh` and registered once under `PreToolUse` in `~/.codex/hooks.json` | Scout-tier `model` in the rendered TOML; the ID lives in `PI_SETUP.md` § Sub-Agent Routing, Codex column |
-| Pi | `pi/extensions/bulk-read-gate.ts` on `tool_call` (`read`, `bash`), returning `{ block, reason }` | `subagents.agentOverrides` — `PI_SETUP.md` § Sub-Agent Routing |
+| Harness | Automatic replacement | Scout model |
+|---------|-----------------------|-------------|
+| Claude Code | `PostToolUse` in `.claude/settings.json` uses `.claude/hooks/bulk-read-gate.py` and `updatedToolOutput` | Haiku |
+| Codex | `PostToolUse` installed once by `scripts/install-codex.sh`; documented feedback replaces the read result | Codex Scout tier from `PI_SETUP.md` |
+| Pi | `pi/extensions/bulk-read-gate.ts` uses `tool_result` for the matching call ID | DeepSeek Flash in `PI_SETUP.md` |
 
 ---
 

@@ -976,3 +976,49 @@ files contain required single-space context lines. A reviewed, folder-local
 `.gitattributes` rule disables only blank-at-eol checking for those serialized
 patches; source-file whitespace checks remain active. `git diff 5015f3d --check`
 passes with exact patches preserved.
+
+## Automatic bulk-read routing — 2026-09-28
+
+Installed-host smoke tests ran against Claude Code 2.1.281, Codex CLI 0.158.0,
+and Pi 0.85.1, using a generated 400-line file and a stub worker. Each host made
+one native whole-file read. Claude Code's `PostToolUse` response carried
+`hookSpecificOutput.updatedToolOutput`; Codex's `PostToolUse` response used
+`decision: block` with replacement feedback (rendered by Codex in a “Script
+failed” wrapper); Pi's `tool_result` returned replacement `content` for the
+matching tool-call ID. Each main agent answered from the stub map without
+retrying the read. The corresponding failed-worker runs delivered the original
+first line, with one `worker_failed` fallback record per call and `usage:
+unknown`. The fallback records contained time, category, harness, call ID, and
+usage status only. Live traces were captured in the isolated
+`/tmp/bulk-live-smoke.Jjplu3` fixture during this run.
+
+Real Scout probes on the same fixture returned validated maps: Claude requested
+Haiku and observed `claude-haiku-4-5-20251001`; Codex requested
+`gpt-5.6-luna`; Pi requested and observed `deepseek/deepseek-v4-flash`.
+The worker commands disabled tools and hook recursion (`BULK_READ_CHILD=1`).
+Codex's hook protocol cannot erase its “Script failed” wrapper, so map text is
+visible inside that wrapper. Source-map guidance still requires direct ranged
+inspection of cited lines before edits and correctness claims; direct ranged
+reads themselves pass through.
+
+The final focused suite passed 26 cases. The full suite passed all 41 test
+files with `TASK_REGISTRY_TRUSTED_CONFIG` unset. Subprocess coverage was 83.1%
+for `scripts/context-read.py`, 87.7% for the Python hook, and 83.9% combined.
+The paired evaluation, including blind answer grades and parent-plus-worker
+usage, is in `tasks/eval-results/bulk-read-auto/results.md`. The final round
+replaced one read with a map, fell back on the other, and did not establish
+whole-task savings or better answer quality. None of the evaluation answers
+performed direct bounded source verification, despite the prompt.
+
+Quality gate: Phase 1 split oversized functions; Phase 2 found no introduced
+anti-patterns. Inline Phase 3 found Pi's lowercase `read` had skipped the
+changed-source comparison; a red regression test reproduced it, then the
+shared check was fixed and both focused and full suites passed. Phase 3 verdict:
+GO after fix. Review independence: inline, so agreement across phases received
+no confidence promotion; independent design-review corroboration was not
+available. Reported, not applied: 0 findings.
+
+After the Pi changed-source fix, a fresh installed Pi 0.85.1 run made exactly
+one path-only native read. Its `tool_execution_end` text began with the JSON
+source map, the agent named the first claim, and no fallback was logged. This
+confirms the new comparison still permits a matching original result.

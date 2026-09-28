@@ -262,10 +262,9 @@ model release still updates only this file.
 ### Bulk-read gate on Pi
 
 `pi/extensions/bulk-read-gate.ts` mirrors the Claude Code / Codex hook
-(`.claude/hooks/bulk-read-gate.py`): it subscribes to `tool_call`, and blocks a
-`read` or `bash` call that would deliver more than `BULK_READ_MIN_LINES` lines
-(default 350) of one file, naming `bulk-reader` and the ranged read
-as the alternatives. `install.sh` copies it into `~/.pi/agent/extensions/` when
+(`.claude/hooks/bulk-read-gate.py`): it subscribes to `tool_result`, and replaces an eligible successful
+`read` or simple `bash` result with a bounded source map using the shared
+`context-read.py` CLI. Direct ranged reads remain available. `install.sh` copies it into `~/.pi/agent/extensions/` when
 `~/.pi/agent` exists; `BULK_READ_GATE=off` disables it for one session. The
 `bulk-reader` override above keeps the reader on the scout model with thinking
 off — it reads and reports, it does not reason. See `CLAUDE.md` § Model Routing

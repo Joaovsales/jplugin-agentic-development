@@ -167,6 +167,11 @@ def merge_hooks(destination: Path, bindings: list[tuple[str, str]]) -> None:
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         fail(f"{destination}: hooks must be an object")
+    old_groups = hooks.get("PreToolUse", [])
+    hooks["PreToolUse"] = [group for group in old_groups if not any(
+        "coding-agent-workflow-bulk-read-gate.py" in hook.get("command", "")
+        for hook in group.get("hooks", []) if isinstance(hook, dict)
+    )]
     for event, command in bindings:
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):

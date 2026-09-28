@@ -804,3 +804,24 @@ reverse.
 - Carry-forward: #129–#132 remain deferred; Windows and live Pi coverage limits are explicit.
 
 Publication: reviewed commits pushed and PR #128 title/body updated with measured limits; final remote CI confirmation follows publication.
+
+## Plan: Automatic bulk-read routing — supersede PR #128's deny-and-retry gate
+> Spec: specs/bulk-read-gate.md
+> Draft PR #128 and its branch remain intact. Reuse the source-map contract, tier resolution, installer wiring, and focused fixtures. The previously completed gate plan remains historical; this block governs the replacement. Initial fallback: deliver the original read and log metadata when routing fails.
+
+- [x] TDD: installed-harness hook smoke with a stub worker fails until each host replaces one read result without an agent retry and passes through on worker failure -> prove Claude `updatedToolOutput`, Codex PostToolUse feedback replacement, and Pi `tool_result` on the installed versions before building the worker; stop and revise the spec if any host cannot meet this contract.
+- [x] TDD: post-read eligibility matrix fails on large native reads, simple one-file cat/Get-Content, small reads, bounded ranges, long lines, compound commands, and failed reads -> extract a minimal shared eligibility contract; retire deny-only decisions and unsupported shell grammar.
+- [x] TDD: CLI worker stub receives exact file content and produces one bounded source map -> add `scripts/context-read.py` with safe argv-based worker launch, explicit-question mode, neutral automatic mode, source hash, strict response schema, citation bounds, and output ceiling.
+- [x] TDD: worker failure matrix preserves the original result -> cover missing CLI, timeout, auth/quota error, empty or invalid response, bad citation, oversized input/output, and changed file; log one metadata-only fallback event with unknown usage represented as unknown.
+- [x] TDD: Claude Code and Codex PostToolUse fixtures replace model-facing output without another agent call -> adapt the existing Python hook/shim, emit Claude `updatedToolOutput` and Codex replacement feedback, preserve `BULK_READ_GATE=off`, and prevent worker-child recursion.
+- [x] TDD: Pi `tool_result` fixtures replace only the matching call's content -> adapt the existing extension to invoke the shared CLI, preserve concurrent tool-call IDs and original error results, and verify against the installed Pi API.
+- [x] TDD: installer and model-tier tests fail on stale PreToolUse registration or duplicated hooks -> update Claude settings, Codex renderer/installer, and Pi installer idempotently; launch existing Haiku/Luna/DeepSeek scout tiers with current credentials, without new provider keys or worker tools.
+- [x] TDD: source-map guidance tests require direct cited-range inspection before edits and correctness claims -> keep PR #128's reader contract while updating shared rules, mirrored skills, and docs to describe automatic routing and the explicit-question CLI.
+- [x] TDD: live harness walkthroughs verify one automatic replacement and one fail-open fallback in Claude Code, Codex, and Pi -> record actual hook protocol output, worker identity, recursion behavior, and observed limitations in `tasks/e2e-log.md`.
+- [x] TDD: paired broad-read and subtle-bug tasks produce complete cost/quality records -> compare routed and direct paths using parent plus worker usage, cache, latency, retries, corrections, and answer quality; retain failures and avoid a savings claim unsupported by whole-task results.
+- [x] TDD: focused and full-suite regression checks pass -> run the repository quality gate, resolve introduced findings, and rewrite PR #128's title/body around the measured final behavior before publication.
+
+## Session Summary — 2026-09-28 [ba11f75..4f5920a]
+- Completed: 11 automatic bulk-read routing tasks.
+- Pending: 0 tasks in this approved plan.
+- Carry-forward: draft PR #128 remains open for further cost and answer-quality evaluation; no general savings claim.

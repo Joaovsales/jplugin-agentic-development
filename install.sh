@@ -209,6 +209,7 @@ if [ -d "$HOME/.pi/agent" ]; then
   step "Installing Pi bulk-read gate extension"
   mkdir -p "$HOME/.pi/agent/extensions"
   cp "$REPO_DIR/pi/extensions/bulk-read-gate.ts" "$HOME/.pi/agent/extensions/bulk-read-gate.ts"
+  cp "$REPO_DIR/scripts/context-read.py" "$HOME/.pi/agent/extensions/context-read.py"
   ok "copied" "~/.pi/agent/extensions/bulk-read-gate.ts"
 fi
 

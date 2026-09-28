@@ -317,6 +317,7 @@ box10="$(PRESEED_PI_AGENT=1 run_install "")"
 assert_files_identical "$REPO/pi/extensions/bulk-read-gate.ts" \
   "$box10/home/.pi/agent/extensions/bulk-read-gate.ts" \
   "pi gate: install.sh copies the extension when ~/.pi/agent exists"
+assert_files_identical "$REPO/scripts/context-read.py" "$box10/home/.pi/agent/extensions/context-read.py" "pi router: install.sh copies the shared CLI"
 assert_contains "$(cat "$box10/out.log")" "bulk-read-gate.ts" \
   "pi gate: install.sh reports the copy"
 

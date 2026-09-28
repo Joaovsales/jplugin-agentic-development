@@ -80,6 +80,7 @@ cp "$REPO_DIR/codex/hooks/session_start.py" \
 # The bulk-read gate is shared byte-identical with Claude Code (specs/bulk-read-gate.md).
 cp "$REPO_DIR/.claude/hooks/bulk-read-gate.py" \
   "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py"
+cp "$REPO_DIR/scripts/context-read.py" "$CODEX_HOME/hooks/context-read.py"
 chmod +x \
   "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py" \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-start.sh" \
@@ -93,7 +94,8 @@ printf -v compact_hook 'bash %q' \
   "$CODEX_HOME/hooks/coding-agent-workflow-pre-compact.sh"
 printf -v end_hook 'bash %q' \
   "$CODEX_HOME/hooks/coding-agent-workflow-session-end.sh"
-printf -v gate_hook '%q %q' "$PYTHON_BIN" \
+printf -v gate_hook 'BULK_READ_HARNESS=codex BULK_READ_SCOUT_MODEL=%q %q %q' \
+  "$CODEX_SCOUT_MODEL" "$PYTHON_BIN" \
   "$CODEX_HOME/hooks/coding-agent-workflow-bulk-read-gate.py"
 # EVENT=COMMAND pairs: the binding travels with the argument, so no positional
 # order has to be kept in step between this script and the renderer.
@@ -101,7 +103,7 @@ printf -v gate_hook '%q %q' "$PYTHON_BIN" \
   "SessionStart=$start_hook" \
   "PreCompact=$compact_hook" \
   "SessionEnd=$end_hook" \
-  "PreToolUse=$gate_hook"
+  "PostToolUse=$gate_hook"
 
 printf 'merged lifecycle hooks in %s\n' "$CODEX_HOME/hooks.json"
 printf 'Review installed hooks with /hooks before enabling them.\n'

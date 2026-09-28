@@ -604,3 +604,8 @@ back vacuous and was repaired.
 - Independent code, design/security, and evidence reviews completed; evidence narrative findings corrected. Report: tasks/eval-results/bulk-read-context/README.md.
 - Recorded Windows failures #129, Windows CI #130, Doctor environment leak #131, and independently reproduced fixture parser defect #132 for later work. Candidate parser fixes remain isolated artifacts.
 - Learnings captured: updated tasks/solutions/architecture/subagents-for-research.md; created tasks/solutions/bugs/metadata-reader-writer-pairing.md.
+
+### [2026-09-28] — Automatic bulk reads
+- Key changes: replaced deny-and-retry with post-read source-map replacement in Claude Code, Codex, and Pi; added the shared CLI, fail-open metadata logging, installer updates, and source-verification guidance.
+- Verification: installed-host stub replacement and fallback in all three harnesses; final Pi live run after the source-consistency fix; 26 focused cases and all 41 full-suite files passed. Three paired evaluation rounds found no whole-task savings or answer-quality gain.
+- Learnings captured: [Pi read skipped source-consistency check](solutions/bugs/pi-read-skipped-source-consistency-check.md).

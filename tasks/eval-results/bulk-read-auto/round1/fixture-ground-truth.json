@@ -1,0 +1,29 @@
+{
+  "lines": 428,
+  "bands": {
+    "intake": [
+      1,
+      90
+    ],
+    "review": [
+      91,
+      180
+    ],
+    "delivery": [
+      181,
+      270
+    ],
+    "archive": [
+      271,
+      360
+    ]
+  },
+  "exceptions": {
+    "17": "manual-check",
+    "91": "fresh-review",
+    "181": "release-approval",
+    "271": "cold-storage",
+    "359": "legal-hold"
+  },
+  "bug": "first BEGIN is paired with later END; unfinished quoted marker poisons the real block; both local_view and remote_view call parse_metadata"
+}
