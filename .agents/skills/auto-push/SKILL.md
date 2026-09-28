@@ -39,7 +39,7 @@ gated on an env file will skip those tests and report green. Pushing on a false
 green is worse here than in `/yolo`, because the user believes a human approved
 this one.
 
-`/wrap-up-session` Step 7.5 closes the worktree after the push.
+`/wrap-up-session` § *Worktree integration* closes the worktree after the push.
 
 ---
 
@@ -128,16 +128,15 @@ Unlike `/yolo`, there is no outer loop. A build failure ends the auto-push pipel
 
 Invoke `/wrap-up-session` with these overrides:
 
-| `/wrap-up-session` step | Auto-push override |
+| `/wrap-up-session` section | Auto-push override |
 |---|---|
-| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. The approval covered "ship it"; e2e verification is part of shipping. |
-| Step 7 — Commit gate (MUST-FIX unresolved → STOP) | If a MUST-FIX cannot be auto-fixed, STOP and report. Do NOT push partial work. The approval did not cover skipping safety gates. |
-| Step 5.1 — Apply Gate | Run normally, **no prompt added**. A `MUST-FIX` that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately inside the wrap-up loop if you can, otherwise STOP and report it as unresolved. Never widen `autofix_class`, and never downgrade a finding, to reach the push. |
-| Step 7 — Push | Run normally. Push to the feature branch. |
-| Step 8 — Deployment verification | Run normally if configured. |
-| Step 8.5 — Terminal PR assertion | **This run is unattended.** Declare it, so the assertion runs: the branch is an ordinary feature branch, and nothing in its name tells wrap-up a human stopped watching. |
+| § *E2E coverage* | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. The approval covered "ship it"; e2e verification is part of shipping. |
+| § *Quality receipt* | Run normally, **no prompt added**. The gate auto-applies only `gated_auto` findings at `confidence >= 75`; anything else leaves a HOLD or STOP, and an unattended run never approves a HOLD. A receipt that is not GO or approved HOLD is a STOP: report it and do NOT push partial work — the approval did not cover skipping safety gates. Never widen `autofix_class`, and never downgrade a finding, to get a GO. |
+| § *Commit and push* | Run normally. Push to the feature branch. |
+| `.agents/skills/wrap-up-session/references/closure-actions.md` § *Deployment verification* | Run normally if configured. |
+| § *Terminal PR assertion* — unattended | **This run is unattended.** Declare it, so the assertion runs: the branch is an ordinary feature branch, and nothing in its name tells wrap-up a human stopped watching. |
 
-Everything else runs as `/wrap-up-session` defines it: code review (4 parallel passes), security scan, tests, learnings capture.
+Everything else runs as `/wrap-up-session` defines it: the quality receipt check, the full suite, learnings capture.
 
 ---
 
@@ -153,7 +152,7 @@ Everything else runs as `/wrap-up-session` defines it: code review (4 parallel p
 - User declines plan approval → stop after Phase A, files preserved
 - Build spec validation HALT → stop after Phase B, report unmet ACs
 - Build circuit breaker → stop after Phase B, report failures
-- Wrap-up MUST-FIX can't auto-fix → stop before push, report findings
+- Wrap-up's quality receipt is HOLD or STOP → stop before push, report the findings
 - Push permanently rejected (branch protection, permission) → stop, report
 
 In every stop case, leave the working tree in a recoverable state. The user can fix whatever's wrong and re-run `/auto-push`, `/build`, or `/wrap-up-session` directly.

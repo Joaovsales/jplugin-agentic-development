@@ -184,8 +184,34 @@ done
 # branch, which the parser rule above already reads as unattended.
 for caller in yolo auto-push; do
   for tree in .agents; do
-    assert_file_contains "$REPO/$tree/skills/$caller/SKILL.md" "Step 8.5" \
+    c="$REPO/$tree/skills/$caller/SKILL.md"
+    f="$REPO/$tree/skills/wrap-up-session/SKILL.md"
+    ca="$REPO/$tree/skills/wrap-up-session/references/closure-actions.md"
+    assert_file_contains "$c" "§ *Terminal PR assertion* — unattended" \
       "AC11: $tree/$caller declares its wrap-up run unattended"
+    # specs/wrap-up-phases.md AC7: the override table cites wrap-up by section
+    # name, and the rows for gates wrap-up no longer has are gone.
+    rows="$(awk '/^\| `\/wrap-up-session` section \|/{f=1;next} f&&!/^\|/{exit} f' "$c")"
+    assert_eq "5" "$(printf '%s\n' "$rows" | grep -c '^| [^-]' || true)" \
+      "wrap-up phases: $tree/$caller's override table has its five section rows"
+    assert_not_contains "$rows" "Step " \
+      "wrap-up phases: $tree/$caller's override table cites no wrap-up step number"
+    for dead in "Step 5.1" "Apply Gate" "MUST-FIX"; do
+      assert_not_contains "$rows" "$dead" \
+        "wrap-up phases: $tree/$caller's override table drops the dead '$dead' row"
+    done
+    assert_file_not_matches "$c" 'parallel passes' \
+      "wrap-up phases: $tree/$caller no longer claims wrap-up runs review passes"
+    # Each cited section resolves: a heading of wrap-up's SKILL.md, or of the
+    # reference file the row names.
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      if grep -qxF "### $name" "$f" || grep -qxF "## $name" "$ca"; then
+        assert_eq "resolves" "resolves" "wrap-up phases: $tree/$caller cites § $name"
+      else
+        assert_eq "resolves" "no such section" "wrap-up phases: $tree/$caller cites § $name"
+      fi
+    done <<< "$(printf '%s\n' "$rows" | sed -nE 's/^\| [^|]*§ \*([^*]+)\*.*/\1/p')"
   done
 done
 

@@ -58,7 +58,7 @@ Never a bare `git worktree add` — no `node_modules`, no `.env*`, and a suite
 gated on an env file will skip those tests and report green. An unattended loop
 that trusts a false green will happily build on top of it for hours.
 
-`/wrap-up-session` Step 7.5 closes the worktree at the end of each iteration.
+`/wrap-up-session` § *Worktree integration* closes the worktree at the end of each iteration.
 
 ---
 
@@ -166,14 +166,13 @@ slices land or go `local-pending`.
 
 Invoke `/wrap-up-session` with one override:
 
-| `/wrap-up-session` step | Yolo override |
+| `/wrap-up-session` section | Yolo override |
 |---|---|
-| Step 6.3 — E2E coverage gate | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. If verify fails: log gap and continue. |
-| Step 7 — Commit gate (any MUST-FIX unresolved → STOP) | If a MUST-FIX cannot be auto-fixed within the wrap-up loop, mark this iteration FAIL and **do not push**. The circuit breaker handles repeated failures. |
-| Step 5.1 — Apply Gate | Run normally, **no prompt added**. A `MUST-FIX` that is not `gated_auto` at `confidence >= 75` is not auto-appliable: fix it deliberately inside the wrap-up loop if you can, otherwise it is an unresolved MUST-FIX and this iteration is FAIL. Never widen `autofix_class`, and never downgrade a finding, to get the loop moving. |
-| Step 7 — Push | Run normally. Push to the feature branch. |
-| Step 8 — Deployment verification | Run normally if configured. |
-| Step 8.5 — Terminal PR assertion | **This run is unattended.** Declare it, so the assertion runs: the branch is an ordinary feature branch, and nothing in its name tells wrap-up a human stopped watching. |
+| § *E2E coverage* | If a user-facing AC lacks an e2e walkthrough, **do not prompt the user**. Run `/verify-evidence --scope e2e` automatically. If verify fails: log gap and continue. |
+| § *Quality receipt* | Run normally, **no prompt added**. The gate auto-applies only `gated_auto` findings at `confidence >= 75`; anything else leaves a HOLD or STOP, and an unattended run never approves a HOLD. A receipt that is not GO or approved HOLD marks this iteration FAIL and **does not push**; the circuit breaker handles repeated failures. Never widen `autofix_class`, and never downgrade a finding, to get a GO. |
+| § *Commit and push* | Run normally. Push to the feature branch. |
+| `.agents/skills/wrap-up-session/references/closure-actions.md` § *Deployment verification* | Run normally if configured. |
+| § *Terminal PR assertion* — unattended | **This run is unattended.** Declare it, so the assertion runs: the branch is an ordinary feature branch, and nothing in its name tells wrap-up a human stopped watching. |
 
 After Phase C: commits exist, push attempted (success or logged failure).
 
