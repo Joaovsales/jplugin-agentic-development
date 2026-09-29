@@ -1361,3 +1361,20 @@ Filed this sweep:
 - Completed: wrap-up-phases slices 1–7 (specs/wrap-up-phases.md); quality-gate fixes (1b116e8, c1c3133); spec reconciliation of 4 specs that cited wrap-up by step number
 - Pending: none in this plan
 - Carry-forward: README's flow still lists /security-scan as its own step before wrap-up, although /quality-gate phase 3 now runs it; specs outside the reconciliation candidates (lightpanda-browser-adoption, omc-practices-adoption, workflow-insights-improvements, wrap-up-gate-and-tdd-fold) still cite old wrap-up step numbers in historical context
+
+## Plan: plugin-staleness-check
+> Spec: specs/plugin-staleness-check.md
+
+### Slice 1/2 — Stale plugin banner block
+- [ ] Stale plugin banner block <!-- task-id: plan.specs-plugin-staleness-check-md.stale-plugin-banner-block --> — the banner prints the update commands for every stale relevant record, silent otherwise
+  [ ] TDD: Stale plugin: user record behind the marketplace clone prints headline, marketplace update and plugin update once each -> record parser + clone-HEAD comparison (AC 1)
+  [ ] TDD: Stale plugin: project record for this path prints --scope project; another path's record prints nothing -> projectPath normalisation (AC 2)
+  [ ] TDD: Stale plugin: clone current but matching remote ref ahead prints the block -> remote-ref ancestry check (AC 3)
+  [ ] TDD: Stale plugin: current, sha-less, missing, malformed, non-adopting all silent and banner completes -> guards (AC 4, 5)
+  [ ] TDD: Stale plugin: same version at the newer template prints the not-bumped note and user reinstall, no update line -> version comparison (AC 6)
+  [ ] TDD: Stale plugin: the block adds no fetch/ls-remote/curl -> structural assertion (AC 7)
+
+### Slice 2/2 — Plugin version bump guard
+- [ ] Plugin version bump guard <!-- task-id: plan.specs-plugin-staleness-check-md.plugin-version-bump-guard --> — the suite fails a payload change without a version bump; README states the measured rule
+  [ ] TDD: Version guard: payload diff without an increase fails, with an increase passes, no base skips -> base resolution + semver compare in test-plugin-manifest.sh; bump plugin.json (AC 8)
+  [ ] TDD: Version guard: README § Releasing skills names the measured no-op and the enforced bump -> README edit (AC 9)
