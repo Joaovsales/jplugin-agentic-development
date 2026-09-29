@@ -239,8 +239,24 @@ Result: PASS
 
 ### AC-2: <criterion text>
 Tier: VISUAL (references layout)
+Journey: <plain-language steps>
+Result: PASS
+Screenshot: tasks/e2e-artifacts/<short-sha>/<AC-id>.png
+
+### AC-3: <criterion text>
+Tier: VISUAL (references layout)
 Result: BLOCKED — requires a full-fidelity browser; only lightpanda (DOM-tier) available
 ```
+
+Every VISUAL `PASS` carries a `Screenshot:` line naming a PNG the backend wrote
+**after** the walkthrough reached the state the AC describes — one per VISUAL
+AC, no "before" shot. DOM-FUNCTIONAL entries need none, though one is allowed
+when the backend can take it. `tasks/e2e-artifacts/` is gitignored; the PNGs
+reach the PR through the `e2e-evidence` branch at `/wrap-up-session`, never
+through the feature branch. `python3
+.agents/skills/verify-evidence/scripts/e2e_evidence.py check [--log <path>]
+[--sha <short-sha>]` refuses every VISUAL PASS whose line or file is missing,
+naming the entry and AC; it is silent and exits 0 when all are present.
 
 The log is **append-only**. Never overwrite prior walkthroughs — they form the audit trail.
 
@@ -277,7 +293,8 @@ verification and returns through the existing debug/build repair loop.
 2. Authentication must go through the real login flow — no token injection
 3. Every user-facing AC gets its own walkthrough entry — no batching
 4. A failed step halts the walkthrough — do not cascade to the next AC
-5. Evidence is the `tasks/e2e-log.md` entry — if the entry doesn't exist, the walkthrough didn't happen
+5. Evidence is the `tasks/e2e-log.md` entry — if the entry doesn't exist, the walkthrough didn't happen,
+   and a VISUAL PASS without its PNG on disk is not a PASS
 
 ---
 

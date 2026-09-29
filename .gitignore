@@ -26,3 +26,8 @@ __pycache__/
 tasks/tmp/
 tasks/*-review-*.diff
 tasks/*.log
+
+# E2E evidence — screenshots are committed only to the e2e-evidence branch,
+# and playwright-cli writes its per-command snapshots and logs to the CWD.
+tasks/e2e-artifacts/
+.playwright-cli/
