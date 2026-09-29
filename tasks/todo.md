@@ -1366,7 +1366,7 @@ Filed this sweep:
 > Spec: specs/plugin-staleness-check.md
 
 ### Slice 1/2 — Stale plugin banner block
-- [ ] Stale plugin banner block <!-- task-id: plan.specs-plugin-staleness-check-md.stale-plugin-banner-block --> — the banner prints the update commands for every stale relevant record, silent otherwise
+- [ ] Stale plugin banner block <!-- task-id: plan.specs-plugin-staleness-check-md.stale-plugin-banner-block --> — Slice 1/2: the banner prints the update commands for every stale relevant record, silent otherwise ([#210](https://github.com/Joaovsales/jplugin-agentic-development/issues/210))
   [ ] TDD: Stale plugin: user record behind the marketplace clone prints headline, marketplace update and plugin update once each -> record parser + clone-HEAD comparison (AC 1)
   [ ] TDD: Stale plugin: project record for this path prints --scope project; another path's record prints nothing -> projectPath normalisation (AC 2)
   [ ] TDD: Stale plugin: clone current but matching remote ref ahead prints the block -> remote-ref ancestry check (AC 3)
@@ -1375,6 +1375,6 @@ Filed this sweep:
   [ ] TDD: Stale plugin: the block adds no fetch/ls-remote/curl -> structural assertion (AC 7)
 
 ### Slice 2/2 — Plugin version bump guard
-- [ ] Plugin version bump guard <!-- task-id: plan.specs-plugin-staleness-check-md.plugin-version-bump-guard --> — the suite fails a payload change without a version bump; README states the measured rule
+- [ ] Plugin version bump guard <!-- task-id: plan.specs-plugin-staleness-check-md.plugin-version-bump-guard --> — Slice 2/2: the suite fails a payload change without a version bump; README states the measured rule ([#211](https://github.com/Joaovsales/jplugin-agentic-development/issues/211))
   [ ] TDD: Version guard: payload diff without an increase fails, with an increase passes, no base skips -> base resolution + semver compare in test-plugin-manifest.sh; bump plugin.json (AC 8)
   [ ] TDD: Version guard: README § Releasing skills names the measured no-op and the enforced bump -> README edit (AC 9)
