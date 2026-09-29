@@ -99,7 +99,19 @@ assert_eq "missing" "$([ -e "project-template/tasks/bugs.md" ] && echo present |
 # no-CLI path, so nothing here ever registers a marketplace on the developer's
 # machine. Plants a user-owned skill first so we can prove it survives.
 GIT_BIN_DIR="$(dirname "$(command -v git)")"
-SAFE_PATH="/usr/bin:/bin:$GIT_BIN_DIR"
+# install.sh's optional Playwright step runs a real global `npm install -g` when
+# npm is reachable, and /usr/bin (or the git dir) may carry one. SAFE_PATH is
+# therefore a directory of symlinks to everything those dirs hold EXCEPT npm, npx,
+# node and playwright-cli, so no case can reach a real npm; cases that exercise the
+# step put a stub npm in the sandbox bin/ instead.
+SAFE_PATH="$(mktemp -d)"
+for src_dir in "$GIT_BIN_DIR" /bin /usr/bin; do
+  for exe in "$src_dir"/*; do
+    name="${exe##*/}"
+    case "$name" in npm|npx|node|playwright-cli) continue ;; esac
+    if [ -x "$exe" ] && [ ! -e "$SAFE_PATH/$name" ]; then ln -s "$exe" "$SAFE_PATH/$name"; fi
+  done
+done
 
 # make_claude_stub <dir>: a `claude` that logs argv and mimics the two calls
 # install.sh makes. `marketplace add` records the name; `marketplace list`
@@ -608,6 +620,65 @@ assert_contains "$(cat "$box/broken.log")" "install.sh" \
   "newproject: failure names the fix"
 assert_eq "missing" "$(cd "$box/broken app" && HOME="$h" git rev-parse --verify -q HEAD >/dev/null 2>&1 && echo present || echo missing)" \
   "newproject: no commit is made when bootstrap fails"
+rm -rf "$box"
+
+# ── § playwright: optional pinned @playwright/cli install (AC 11) ────────────
+# Stubs append to one call log so the ORDER npm-install -> install-browser is
+# assertable. The stub npm "installs" a playwright-cli stub into the sandbox bin.
+make_playwright_stubs() { # <bin dir>
+  cat > "$1/npm" <<'STUB'
+#!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+printf 'npm %s\n' "$*" >> "$here/calls.log"
+[ "${NPM_STUB_FAIL:-}" = "1" ] && exit 9
+cat > "$here/playwright-cli" <<'CLI'
+#!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+printf 'playwright-cli %s\n' "$*" >> "$here/calls.log"
+[ "${1:-}" = "--version" ] && echo "0.1.22"
+[ "${CLI_STUB_FAIL:-}" = "1" ] && [ "${1:-}" = "install-browser" ] && exit 8
+exit 0
+CLI
+chmod +x "$here/playwright-cli"
+STUB
+  chmod +x "$1/npm"
+}
+
+# run_playwright_case <sandbox> [ENV=VAL...]: install.sh output lands in <sandbox>/out.log
+run_playwright_case() {
+  ( cd "$1" && env "${@:2}" HOME="$1/home" CLAUDE_CONFIG_DIR="$1/home/.claude" PATH="$1/bin:$SAFE_PATH" bash "$INSTALL" ) \
+    > "$1/out.log" 2>&1 < /dev/null
+  echo "exit=$?" >> "$1/out.log"
+}
+new_playwright_box() { local b; b="$(mktemp -d)"; mkdir -p "$b/home" "$b/bin"; echo "$b"; }
+
+box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
+run_playwright_case "$box"
+assert_eq "npm install -g @playwright/cli@0.1.22
+playwright-cli install-browser chromium" "$(cat "$box/bin/calls.log")" \
+  "playwright: npm install -g <pinned> runs, then install-browser chromium (in order)"
+assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: install.sh exits 0"
+rm -rf "$box"
+
+box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
+run_playwright_case "$box" NPM_STUB_FAIL=1
+assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: npm failure still exits 0"
+assert_contains "$(cat "$box/out.log")" "NOTE: npm install -g @playwright/cli" \
+  "playwright: npm failure prints a NOTE"
+rm -rf "$box"
+
+box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
+run_playwright_case "$box" CLI_STUB_FAIL=1
+assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: browser failure still exits 0"
+assert_contains "$(cat "$box/out.log")" "run: playwright-cli install-browser chromium" \
+  "playwright: browser failure NOTE names the command"
+rm -rf "$box"
+
+box="$(new_playwright_box)"
+run_playwright_case "$box"
+assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: no npm still exits 0"
+assert_contains "$(cat "$box/out.log")" "NOTE: npm not found — optional @playwright/cli" \
+  "playwright: no npm prints a NOTE naming @playwright/cli"
 rm -rf "$box"
 
 finish
