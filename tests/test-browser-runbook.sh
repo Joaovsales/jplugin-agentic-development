@@ -21,38 +21,52 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-RUNBOOK=".claude/browsers/lightpanda.md"
+# frontmatter <file> — the leading `---`-fenced block, so a token appearing
+# later in the body cannot satisfy a frontmatter assertion.
+frontmatter() { awk 'NR==1 && $0=="---"{f=1;next} f&&$0=="---"{exit} f' "$1"; }
 
-# --- 1. The file exists at the contracted location ---------------------------
-if [ -f "$RUNBOOK" ]; then
-  assert_eq "present" "present" "runbook: $RUNBOOK exists"
-else
-  assert_eq "present" "absent" "runbook: $RUNBOOK exists"
-  finish
-fi
+# field <frontmatter> <key> — one scalar value, CR-stripped.
+field() { printf '%s\n' "$1" | sed -n "s/^$2:[[:space:]]*//p" | tr -d '\r'; }
 
-# --- 2. Frontmatter contract -------------------------------------------------
-# Extract the leading `---`-fenced block so a token appearing later in the body
-# cannot satisfy a frontmatter assertion.
-FRONTMATTER="$(awk 'NR==1 && $0=="---"{f=1;next} f&&$0=="---"{exit} f' "$RUNBOOK")"
+# --- 1. The shared contract, for every runbook -------------------------------
+# A runbook added later inherits the contract without a test edit; a runbook
+# that drifts from it fails here rather than being silently mis-routed.
+RUNBOOKS="$(ls .claude/browsers/*.md 2>/dev/null)"
+assert_contains "$RUNBOOKS" ".claude/browsers/lightpanda.md" "runbooks: lightpanda.md exists"
+assert_contains "$RUNBOOKS" ".claude/browsers/playwright-cli.md" "runbooks: playwright-cli.md exists"
 
-assert_not_contains "$FRONTMATTER" "PLACEHOLDER" "frontmatter: no placeholder values"
+for book in $RUNBOOKS; do
+  fm="$(frontmatter "$book")"
+  assert_not_contains "$fm" "PLACEHOLDER" "$book: no placeholder values"
+  for key in name display_name fidelity screenshot detect_command platforms license; do
+    assert_contains "$fm" "$key:" "$book: declares $key"
+  done
 
-for field in name display_name fidelity detect_command mcp_command platforms license; do
-  assert_contains "$FRONTMATTER" "$field:" "frontmatter: declares $field"
+  # `name` must match the filename stem — it is the stable key a skill resolves
+  # the adapter by, mirroring the .claude/deployments/ contract.
+  assert_eq "$(basename "$book" .md)" "$(field "$fm" name)" "$book: name matches filename stem"
+
+  # `fidelity` is the field the classifier gates on. Anything outside the
+  # enumeration would route ACs by an unrecognised value.
+  case "$(field "$fm" fidelity)" in
+    dom|full) assert_eq "valid" "valid" "$book: fidelity is dom|full" ;;
+    *)        assert_eq "valid" "invalid: '$(field "$fm" fidelity)'" "$book: fidelity is dom|full" ;;
+  esac
+
+  # `screenshot` says whether a VISUAL PASS can have its PNG on disk: only
+  # `file` can. `session` (an id in the harness) and `none` cannot.
+  case "$(field "$fm" screenshot)" in
+    file|session|none) assert_eq "valid" "valid" "$book: screenshot is file|session|none" ;;
+    *)                 assert_eq "valid" "invalid: '$(field "$fm" screenshot)'" "$book: screenshot is file|session|none" ;;
+  esac
 done
 
-# `name` must match the filename stem — it is the stable key a skill resolves
-# the adapter by, mirroring the .claude/deployments/ contract.
-assert_contains "$FRONTMATTER" "name: lightpanda" "frontmatter: name matches filename stem"
-
-# `fidelity` is the field the classifier gates on. Anything outside the
-# enumeration would route ACs by an unrecognised value.
-FIDELITY="$(printf '%s\n' "$FRONTMATTER" | sed -n 's/^fidelity:[[:space:]]*//p' | tr -d '\r')"
-case "$FIDELITY" in
-  dom|full) assert_eq "valid" "valid" "frontmatter: fidelity is dom|full (got '$FIDELITY')" ;;
-  *)        assert_eq "valid" "invalid: '$FIDELITY'" "frontmatter: fidelity is dom|full" ;;
-esac
+# --- 2. Lightpanda: the DOM tier ---------------------------------------------
+RUNBOOK=".claude/browsers/lightpanda.md"
+FRONTMATTER="$(frontmatter "$RUNBOOK")"
+FIDELITY="$(field "$FRONTMATTER" fidelity)"
+assert_contains "$FRONTMATTER" "mcp_command:" "frontmatter: lightpanda declares mcp_command"
+assert_eq "none" "$(field "$FRONTMATTER" screenshot)" "frontmatter: lightpanda cannot screenshot"
 
 # Lightpanda specifically is the DOM tier. A future edit flipping this to `full`
 # would silently make every VISUAL AC eligible for a browser that cannot render.
@@ -103,5 +117,29 @@ assert_file_contains "$RUNBOOK" "getBoundingClientRect" \
   "ceiling: warns that geometry APIs are stubbed, not absent"
 assert_prose_contains "$RUNBOOK" "stubbed" \
   "ceiling: names the stubbed-not-missing distinction"
+
+# --- 7. Playwright CLI: the first-choice, file-capable full tier --------------
+# specs/visual-e2e-evidence.md AC 2. It is the only backend whose screenshot is
+# a file, so it is the only one a VISUAL PASS can rest on.
+PW=".claude/browsers/playwright-cli.md"
+PW_FM="$(frontmatter "$PW")"
+assert_eq "full" "$(field "$PW_FM" fidelity)" "playwright-cli: fidelity full"
+assert_eq "file" "$(field "$PW_FM" screenshot)" "playwright-cli: screenshot file"
+assert_contains "$PW_FM" 'detect_command: "command -v playwright-cli"' \
+  "playwright-cli: detected on PATH, not by MCP tools"
+# 0.x — the command surface can change between releases (Decision 8).
+assert_eq '"0.1.22"' "$(field "$PW_FM" pinned_version)" "playwright-cli: pinned version 0.1.22"
+assert_not_contains "$PW_FM" "mcp_command:" "playwright-cli: registers no MCP server (Decision 4)"
+
+# The command crib: every step a walkthrough needs, spelled as the CLI spells it.
+for cmd in open goto click fill eval console screenshot close; do
+  assert_file_matches "$PW" "playwright-cli $cmd( |\$|\`)" "playwright-cli: crib gives the $cmd command"
+done
+assert_file_contains "$PW" "--filename=tasks/e2e-artifacts/" \
+  "playwright-cli: the screenshot lands where the evidence check looks"
+# A missing Chromium must be named, not fallen back from (spec § Edge Cases).
+assert_file_contains "$PW" "playwright-cli install-browser chromium" \
+  "playwright-cli: names the missing-Chromium remedy"
+assert_file_contains "$PW" "@playwright/mcp" "playwright-cli: says why not the MCP server"
 
 finish
