@@ -63,15 +63,24 @@ This works in every project the harness runs in. Nothing is specific to one app.
   - the pinned version
 - For each VISUAL PASS: a PNG at `tasks/e2e-artifacts/<short-sha>/<AC-id>.png`
   and a `Screenshot: <path>` line in its log entry.
-- `e2e_evidence.py check`: exits 0 silently when every VISUAL PASS entry has its
-  file. Otherwise it exits non-zero with one line per offending entry.
-- `publish_evidence.py`:
+- `e2e_evidence.py check [--log <path>] [--sha <short-sha>]`: exits 0 silently
+  when every VISUAL PASS entry has its file at
+  `tasks/e2e-artifacts/<entry-sha>/<AC-id>.png`. Otherwise it exits 1 with one
+  line per offending entry; a missing log exits 2. `--sha` scopes the check to
+  one walkthrough, since the log is append-only across sessions.
+- `publish_evidence.py --sha <short-sha> [--repo <dir>]`, where `--sha` is
+  required and names the commit the walkthrough ran at (wrap-up has committed
+  since, so HEAD would name a directory with no PNGs):
   - pushes one commit to `origin/e2e-evidence` (creating the orphan branch if it
-    doesn't exist) that adds `<short-sha>/<AC-id>.png`
+    doesn't exist) that adds every `tasks/e2e-artifacts/<short-sha>/*.png` as
+    `<short-sha>/<AC-id>.png`; an unchanged tree links the existing tip
   - prints a markdown `## Visual evidence` section whose image links are pinned
     to that commit: `https://github.com/<owner>/<repo>/blob/<commit>/<short-sha>/<AC-id>.png?raw=true`
-- An optional `install.sh` step that installs the pinned `@playwright/cli` and its
-  Chromium, and never blocks the install.
+  - writes one `evidence:` line to stderr: `published <n> to <owner/repo>`
+    with ` — public repo` or ` — visibility unknown` (when `gh` cannot say),
+    `local <n>`, `none`, or `publish failed (<git error>)` (exit 1)
+- An optional `install.sh` step (6b) that installs the pinned `@playwright/cli`
+  (0.1.22) and its Chromium, and never blocks the install.
 - `.gitignore` entries for `tasks/e2e-artifacts/` and `.playwright-cli/`, in both
   this repo and `project-template/`.
 
@@ -79,6 +88,7 @@ This works in every project the harness runs in. Nothing is specific to one app.
 
 - **Only Chrome MCP is available.** Its screenshots are session IDs, not files, so
   a VISUAL AC is `BLOCKED` ("requires a file-capable full-fidelity browser").
+  Playwright MCP is not a backend at all; the CLI replaces it.
   DOM-FUNCTIONAL ACs still run on it.
 - **Only Lightpanda is available.** Unchanged: VISUAL is `BLOCKED` and
   DOM-FUNCTIONAL runs.
@@ -97,15 +107,21 @@ This works in every project the harness runs in. Nothing is specific to one app.
   embedded, and one line explains why.
 - **The `e2e-evidence` push is rejected (non-fast-forward, because another session
   published first).** The publisher refetches, rebuilds its commit on the new tip
-  and retries once. A second failure prints `evidence: publish failed`. The PR is
-  still created, and this failure never blocks the PR.
+  and retries once. A second rejection prints `evidence: publish failed`. Any
+  other git failure (unreachable remote, denied access) fails on the first
+  attempt with its own message. The PR is still created, and this failure never
+  blocks the PR.
 - **Re-running the publisher for the same short-sha.** It overwrites the same
   paths in a new commit. The evidence branch never gets a force-push.
 - **The feature branch is rebased after publishing.** The links still resolve,
   because they point at the evidence commit, not the feature commit.
 - **The repo is public.** Screenshots are public. The wrap-up report prints
-  `evidence: published to public repo <owner/repo>` so that's never silent;
-  `E2E evidence: local` is the opt-out.
+  `evidence: published <n> to <owner/repo> — public repo` so that's never
+  silent; when `gh` cannot answer it prints `— visibility unknown` rather than
+  implying private. `E2E evidence: local` is the opt-out.
+- **A `Screenshot:` path outside the layout.** `check` fails it and names the
+  expected `tasks/e2e-artifacts/<entry-sha>/<AC-id>.png`, because the publisher
+  reads that layout and would otherwise never publish the file.
 
 ## Decisions
 
@@ -122,6 +138,7 @@ This works in every project the harness runs in. Nothing is specific to one app.
 | 9 | Opt out of publishing | An `E2E evidence: local` line below the AGENTS.md end marker | assumed | Same convention as `Full suite:`. Privacy is never on the chopping block, so publishing must be switchable per project |
 | 10 | Does publishing need a separate approval? | No. It runs under the same authorization as the wrap-up push | assumed | Same remote and same session, and the report states it |
 | 11 | Gitignore the artefacts on the feature branch? | Yes, both `tasks/e2e-artifacts/` and `.playwright-cli/` | assumed | The evidence branch is the only place PNGs are committed |
+| 12 | Which PNGs does the publisher publish? | Every PNG under `tasks/e2e-artifacts/<sha>/` for the given `--sha`, not every `Screenshot:` path in the log | build ambiguity | The log is append-only across sessions; `check` enforces the same layout, so the two cannot diverge |
 
 ## Acceptance Criteria
 
@@ -140,8 +157,10 @@ This works in every project the harness runs in. Nothing is specific to one app.
    without its PNG on disk is not a PASS".
 5. `e2e_evidence.py check [--log tasks/e2e-log.md]`:
    - exits 0 silently when every VISUAL PASS entry references an existing PNG
+     at `tasks/e2e-artifacts/<entry-sha>/<AC-id>.png`
    - exits non-zero, naming the entry and AC, when the `Screenshot:` line is
-     missing or the file is absent
+     missing, names another path, or the file is absent
+   - `--sha` limits the check to one walkthrough's entries
    - ignores DOM-FUNCTIONAL and BLOCKED entries
 
    Pinned by `tests/test-e2e-evidence.sh` with fixture logs.
@@ -167,10 +186,10 @@ This works in every project the harness runs in. Nothing is specific to one app.
    wrap-up still creates the PR. Pinned by a fixture that advances the remote
    between fetch and push.
 10. `/wrap-up-session` § *The Pull Request* inserts the publisher's section into
-    the PR body before `gh pr create` and on every re-sync. The wrap-up report
-    carries an `evidence:` line (`published <n> to <owner/repo>` plus a `public
-    repo` marker when the repo is public, or `local <n>`, `none`, or `publish
-    failed`).
+    the PR body before `gh pr create` and on every re-sync, passing the
+    short-sha § *E2E coverage* checked. The wrap-up report carries an
+    `Evidence:` line (`published <n> to <owner/repo>` plus a `public repo` or
+    `visibility unknown` marker, or `local <n>`, `none`, or `publish failed`).
 11. `install.sh` has an optional step that installs the pinned `@playwright/cli`
     globally, then runs `playwright-cli install-browser chromium`. When `npm` is
     missing it prints a NOTE and continues with exit 0. `tests/test-install-sh.sh`
