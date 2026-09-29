@@ -1361,3 +1361,34 @@ Filed this sweep:
 - Completed: wrap-up-phases slices 1–7 (specs/wrap-up-phases.md); quality-gate fixes (1b116e8, c1c3133); spec reconciliation of 4 specs that cited wrap-up by step number
 - Pending: none in this plan
 - Carry-forward: README's flow still lists /security-scan as its own step before wrap-up, although /quality-gate phase 3 now runs it; specs outside the reconciliation candidates (lightpanda-browser-adoption, omc-practices-adoption, workflow-insights-improvements, wrap-up-gate-and-tdd-fold) still cite old wrap-up step numbers in historical context
+
+## Plan: visual-e2e-evidence
+> Spec: specs/visual-e2e-evidence.md
+
+### Slice 1/5 — Playwright CLI backend
+- [ ] Playwright CLI backend <!-- task-id: plan.specs-visual-e2e-evidence-md.playwright-cli-backend --> — Slice 1/5: the Playwright CLI runbook, backend order Playwright CLI → Chrome MCP → Lightpanda, and the Chrome-only VISU… ([#205](https://github.com/Joaovsales/jplugin-agentic-development/issues/205))
+  [ ] TDD: tests/test-e2e-classifier.sh § resolution order — Playwright CLI is order 1 detected by `command -v playwright-cli`, Chrome MCP 2, Lightpanda 3 -> rewrite verify-evidence § Backend resolution (AC 1)
+  [ ] TDD: tests/test-browser-runbook.sh — loops every `.claude/browsers/*.md`; playwright-cli declares name, fidelity full, screenshot file, detect_command, pinned version, platforms, and the command crib -> write `.claude/browsers/playwright-cli.md` (AC 2)
+  [ ] TDD: tests/test-e2e-classifier.sh § outcome matrix — row "Chrome MCP only | VISUAL | BLOCKED" and never PASS -> add the matrix row and Failure Handling line (AC 3)
+
+### Slice 2/5 — Screenshot evidence check
+- [ ] Screenshot evidence check <!-- task-id: plan.specs-visual-e2e-evidence-md.screenshot-evidence-check --> — Slice 2/5: the Screenshot: line and "no file, no PASS" in Evidence Format and Iron Law 5, e2e_evidence.py check, and th… ([#206](https://github.com/Joaovsales/jplugin-agentic-development/issues/206)) (blocked-by: plan.specs-visual-e2e-evidence-md.playwright-cli-backend)
+  [ ] TDD: tests/test-e2e-evidence.sh § prose — Evidence Format carries `Screenshot: tasks/e2e-artifacts/<short-sha>/<AC-id>.png` and Iron Law 5 names "without its PNG" -> edit verify-evidence § Evidence Format and Iron Laws (AC 4)
+  [ ] TDD: tests/test-e2e-evidence.sh § check — fixture logs: all present → exit 0 silently; missing line / missing file → non-zero naming entry + AC; DOM-FUNCTIONAL and BLOCKED ignored -> `scripts/e2e_evidence.py check [--log]` (AC 5)
+  [ ] TDD: tests/test-e2e-evidence.sh § gitignore — both .gitignore files carry `tasks/e2e-artifacts/` and `.playwright-cli/` -> add the entries (AC 12)
+
+### Slice 3/5 — Evidence branch publisher
+- [ ] Evidence branch publisher <!-- task-id: plan.specs-visual-e2e-evidence-md.evidence-branch-publisher --> — Slice 3/5: publish_evidence.py pushes PNGs to the orphan e2e-evidence branch and prints the PR section, with opt-out, n… ([#207](https://github.com/Joaovsales/jplugin-agentic-development/issues/207))
+  [ ] TDD: tests/test-publish-evidence.sh § publish — bare-repo remote: first run creates the orphan branch, a second run adds a child commit, no force-push, feature HEAD and tree untouched, one commit-pinned `?raw=true` image per PNG -> `publish_evidence.py` via a temporary GIT_INDEX_FILE + commit-tree + push (AC 7)
+  [ ] TDD: tests/test-publish-evidence.sh § skip paths — no PNGs → no output, no push; `E2E evidence: local` or a non-GitHub origin → local paths only, no push -> config and remote parsing (AC 8)
+  [ ] TDD: tests/test-publish-evidence.sh § race — remote advanced between fetch and push → one rebuild + retry succeeds; a second rejection → non-zero exit and `evidence: publish failed` -> retry-once loop (AC 9)
+
+### Slice 4/5 — Wrap-up wiring
+- [ ] Wrap-up wiring <!-- task-id: plan.specs-visual-e2e-evidence-md.wrap-up-wiring --> — Slice 4/5: § E2E coverage runs the check; § The Pull Request embeds the evidence section and reports evidence: ([#208](https://github.com/Joaovsales/jplugin-agentic-development/issues/208)) (blocked-by: plan.specs-visual-e2e-evidence-md.screenshot-evidence-check, plan.specs-visual-e2e-evidence-md.evidence-branch-publisher)
+  [ ] TDD: tests/test-e2e-evidence.sh § wrap-up — § E2E coverage names `e2e_evidence.py check` and routes a failure to the run/acknowledge prompt -> edit wrap-up § E2E coverage (AC 6)
+  [ ] TDD: tests/test-publish-evidence.sh § wrap-up — § The Pull Request runs the publisher before `gh pr create` and on re-sync, and the report has an `evidence:` line with a public-repo marker -> edit wrap-up § The Pull Request and the report template (AC 10)
+  [ ] Verify: affected tests green at the slice checkpoint; the full suite (AC 13) is `/wrap-up-session` § *Full suite*, never re-run here
+
+### Slice 5/5 — Optional Playwright install
+- [ ] Optional Playwright install <!-- task-id: plan.specs-visual-e2e-evidence-md.optional-playwright-install --> — Slice 5/5: install.sh installs the pinned @playwright/cli and Chromium, or prints a NOTE when npm is missing ([#209](https://github.com/Joaovsales/jplugin-agentic-development/issues/209))
+  [ ] TDD: tests/test-install-sh.sh § playwright — stubbed npm on PATH: installs the pinned @playwright/cli, then runs install-browser chromium; no npm → NOTE and exit 0 -> new optional install.sh step (AC 11)
