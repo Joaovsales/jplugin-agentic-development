@@ -36,8 +36,12 @@ LIST_MARK = re.compile(r"^(?:[-*>]|\d+\.)\s+")
 
 
 def git(*args):
-    return subprocess.run(["git", *args], capture_output=True, text=True,
-                          encoding="utf-8", check=False).stdout
+    done = subprocess.run(["git", *args], capture_output=True, text=True,
+                          encoding="utf-8", check=False)
+    if done.returncode != 0:
+        print(f"signals: git {args[0]} failed: {done.stderr.strip()}", file=sys.stderr)
+        sys.exit(2)
+    return done.stdout
 
 
 def tracked_texts():
@@ -182,7 +186,8 @@ def score(lines_saved, callers, loaded):
     return lines_saved * max(callers, 1) * (W if loaded else 1)
 
 
-def candidate(signal, path, line, saved, texts):
+def candidate(key, first, texts):
+    (signal, path), (line, saved) = key, first
     callers = sum(1 for p, t in texts.items() if p != path and path in t)
     loaded = always_loaded(path, line, texts[path])
     return {"signal": signal, "path": path, "line": line,
@@ -201,8 +206,7 @@ def rank(prefixes, limit):
         if not any(under(p, [prefix]) for p in texts):
             print(f"signals: --path {prefix} matches no tracked file", file=sys.stderr)
             return 2
-    cands = [candidate(s, p, line, saved, texts)
-             for (s, p), (line, saved) in hits(texts).items() if under(p, prefixes)]
+    cands = [candidate(key, first, texts) for key, first in hits(texts).items() if under(key[1], prefixes)]
     cands.sort(key=lambda c: (-c["score"], c["key"]))
     head = git("rev-parse", "--short", "HEAD").strip()
     sys.stdout.reconfigure(encoding="utf-8")

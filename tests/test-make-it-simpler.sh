@@ -98,6 +98,10 @@ assert_not_contains "$OUT" '"path": "tests/fixtures/' "AC 3: no candidate is eve
 # would change (duplicate-rule would score 2, lost.md would rank).
 OUT="$(rank "$REPO" --path tests/fixtures/make-it-simpler 2>&1)"; STATUS=$?
 assert_eq "2" "$STATUS" "AC 3: in this repository the fixtures are tracked but never rank"
+mkdir -p "$BOX/not-a-repo"
+OUT="$(rank "$BOX/not-a-repo" 2>&1)"; STATUS=$?
+assert_eq "2" "$STATUS" "rank outside a git repository is a usage error — exit 2, never an empty success"
+assert_contains "$OUT" "signals: git ls-files failed" "the refusal names the failing git command"
 
 # --- AC 4: what /tidy owns never surfaces --------------------------------------
 OUT="$(rank "$SEVEN" --limit 50)"
