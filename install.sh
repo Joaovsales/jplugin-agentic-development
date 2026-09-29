@@ -561,7 +561,7 @@ fi
 # changes the exit code, and there is no prompt. The npm install is skipped when the pinned version is already
 # present; `install-browser` still runs because it is idempotent upstream.
 PLAYWRIGHT_RUNBOOK="$REPO_DIR/.claude/browsers/playwright-cli.md"
-PLAYWRIGHT_CLI_VERSION="$(sed -n 's/^pinned_version: *"\(.*\)"[[:space:]]*$/\1/p' "$PLAYWRIGHT_RUNBOOK" 2> /dev/null | head -n 1 || true)"
+PLAYWRIGHT_CLI_VERSION="$(sed -n "s/^pinned_version: *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\}[[:space:]]*\$/\1/p" "$PLAYWRIGHT_RUNBOOK" 2> /dev/null | head -n 1 || true)"
 step "Installing @playwright/cli ${PLAYWRIGHT_CLI_VERSION:-(unpinned)} + Chromium (optional)"
 if [ -z "$PLAYWRIGHT_CLI_VERSION" ]; then
   echo "  NOTE: no pinned_version in $PLAYWRIGHT_RUNBOOK — optional @playwright/cli install skipped."

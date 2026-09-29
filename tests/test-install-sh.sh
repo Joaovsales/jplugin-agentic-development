@@ -655,9 +655,9 @@ new_playwright_box() { local b; b="$(mktemp -d)"; mkdir -p "$b/home" "$b/bin"; e
 
 box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
 run_playwright_case "$box"
-# The pin's single source is the runbook frontmatter; the test reads it there.
-PINNED="$(sed -n 's/^pinned_version: *"\(.*\)"[[:space:]]*$/\1/p' "$REPO/.claude/browsers/playwright-cli.md")"
-assert_eq "semver" "$(printf %s "$PINNED" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && echo semver || echo "not-semver")" "playwright: the runbook frontmatter carries a pinned semver"
+# The real runbook: npm is asked for a semver, whatever the current pin is.
+PINNED="$(sed -n 's/^npm install -g @playwright\/cli@//p' "$box/bin/calls.log" | head -n 1)"
+assert_eq "semver" "$(printf %s "$PINNED" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && echo semver || echo "not-semver")" "playwright: the real runbook's pin reaches npm as a semver"
 assert_eq "npm install -g @playwright/cli@$PINNED
 playwright-cli install-browser chromium" "$(cat "$box/bin/calls.log")" \
   "playwright: npm install -g <version from the runbook> runs, then install-browser chromium (in order)"
@@ -703,6 +703,16 @@ fake_checkout() { # <dir> <runbook-body|--missing>
   [ "$2" = --missing ] || printf '%s\n' "$2" > "$dir/.claude/browsers/playwright-cli.md"
   return 0
 }
+# The pin parses however YAML spells it: "x", 'x' or bare x.
+for spelling in '"0.1.23"' "'0.1.23'" '0.1.23'; do
+  box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
+  fake_checkout "$box/src" "$(printf -- '---\npinned_version: %s\n---' "$spelling")"
+  ( cd "$box" && HOME="$box/home" CLAUDE_CONFIG_DIR="$box/home/.claude" PATH="$box/bin:$SAFE_PATH" bash "$box/src/install.sh" ) \
+    > "$box/out.log" 2>&1 < /dev/null
+  assert_eq "npm install -g @playwright/cli@0.1.23
+playwright-cli install-browser chromium" "$(cat "$box/bin/calls.log")" "playwright: pinned_version: $spelling installs 0.1.23"
+  rm -rf "$box"
+done
 for variant in missing empty; do
   box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
   if [ "$variant" = missing ]; then fake_checkout "$box/src" --missing; else fake_checkout "$box/src" $'---\npinned_version: ""\n---'; fi

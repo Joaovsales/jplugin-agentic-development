@@ -42,6 +42,8 @@ npm install -g @playwright/cli@<pinned_version>
 playwright-cli install-browser chromium
 ```
 
+Here `<pinned_version>` is the `pinned_version` in the frontmatter above.
+
 **Pin the version.** The CLI is 0.x and its command surface can change between
 releases. Bumping `pinned_version` above is a deliberate edit, made in one
 commit with a re-run of the crib below; `install.sh` reads it from here.

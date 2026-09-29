@@ -22,7 +22,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator, List, Optional, Sequence
+from typing import Iterator, List, Optional, Sequence, Tuple
 
 DEFAULT_LOG = "tasks/e2e-log.md"
 #: Where a VISUAL PASS's PNG lives. This module is the layout's only owner: the
@@ -85,9 +85,13 @@ def artifact_path(sha: str, ac_id: str) -> str:
     return f"{ARTIFACT_DIR}/{sha}/{ac_id}.png"
 
 
-def artifact_pngs(root: Path, sha: str) -> List[Path]:
-    """Every PNG saved under `sha`, sorted; each stem is its AC-id."""
-    return sorted((root / ARTIFACT_DIR / sha).glob("*.png"))
+def artifact_pngs(root: Path, sha: str) -> List[Tuple[str, Path]]:
+    """Every PNG saved under `sha` as sorted `(ac_id, path)` pairs.
+
+    The file-name-to-AC-id rule lives here, next to `artifact_path`, so no
+    caller parses a file name.
+    """
+    return [(png.stem, png) for png in sorted((root / ARTIFACT_DIR / sha).glob("*.png"))]
 
 
 def problem(criterion: Criterion, root: Path) -> Optional[str]:

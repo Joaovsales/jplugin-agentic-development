@@ -270,11 +270,42 @@ RC=0; OUT="$(PATH="$STUBS:$PATH" "$TEST_PYTHON" "$LAYOUT_TREE/wrap-up-session/sc
   --repo "$WORK" --sha "$SHA" 2>/dev/null </dev/null)" || RC=$?
 assert_eq 0 "$RC" "layout: the publisher follows the checker's layout"
 assert_contains "$OUT" "/$SHA/AC-9.png?raw=true" "layout: a PNG under the checker's directory is published"
-rm "$LAYOUT_TREE/verify-evidence/scripts/e2e_evidence.py"
-RC=0; ERR="$(PATH="$STUBS:$PATH" "$TEST_PYTHON" "$LAYOUT_TREE/wrap-up-session/scripts/publish_evidence.py" \
-  --repo "$WORK" --sha "$SHA" 2>&1 >/dev/null </dev/null)" || RC=$?
+
+# The leaf naming (file name <-> AC-id) is the checker's too: a checker that
+# names files `<AC-id>-after.png` and strips the suffix must set the link text.
+NAMING_CHECKER="$LAYOUT_TREE/verify-evidence/scripts/e2e_evidence.py"
+python3 - "$NAMING_CHECKER" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('f"{ARTIFACT_DIR}/{sha}/{ac_id}.png"', 'f"{ARTIFACT_DIR}/{sha}/{ac_id}-after.png"')
+old = 'return [(png.stem, png) for png in sorted((root / ARTIFACT_DIR / sha).glob("*.png"))]'
+assert old in s
+s = s.replace(old, 'return [(p.stem.removesuffix("-after"), p) for p in sorted((root / ARTIFACT_DIR / sha).glob("*-after.png"))]')
+open(p, "w").write(s)
+PY
+rm -f "$WORK/custom/shots/$SHA/AC-9.png"; printf 'PNG-Y' > "$WORK/custom/shots/$SHA/AC-7-after.png"
+RC=0; OUT="$(PATH="$STUBS:$PATH" "$TEST_PYTHON" "$LAYOUT_TREE/wrap-up-session/scripts/publish_evidence.py" \
+  --repo "$WORK" --sha "$SHA" 2>/dev/null </dev/null)" || RC=$?
+assert_eq 0 "$RC" "layout: a checker with its own leaf naming publishes"
+assert_contains "$OUT" "![AC-7](" "layout: link text is the checker's AC-id"
+assert_contains "$OUT" "/$SHA/AC-7.png?raw=true" "layout: the evidence branch path uses the checker's AC-id"
+
+# The checker missing is an ordinary publish failure, not an import-time death.
+PUB_COPY="$LAYOUT_TREE/wrap-up-session/scripts/publish_evidence.py"
+rm "$NAMING_CHECKER"
+RC=0; PATH="$STUBS:$PATH" "$TEST_PYTHON" "$PUB_COPY" --help >/dev/null 2>&1 </dev/null || RC=$?
+assert_eq 0 "$RC" "layout: --help works with the checker absent"
+RC=0; ERR="$(PATH="$STUBS:$PATH" "$TEST_PYTHON" "$PUB_COPY" --repo "$WORK" --sha "$SHA" 2>&1 >/dev/null </dev/null)" || RC=$?
 assert_eq 1 "$RC" "layout: a missing checker exits 1, no copied constant"
-assert_contains "$ERR" "e2e_evidence.py" "layout: the failure names the missing checker"
+assert_contains "$ERR" "evidence: publish failed (layout owner" "layout: the failure is the normal publish-failed line"
+assert_contains "$ERR" "e2e_evidence.py not found)" "layout: the failure names the missing checker"
+assert_eq "False" "$("$TEST_PYTHON" -c "
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('pe', '$PUB_COPY')
+mod = importlib.util.module_from_spec(spec); sys.modules['pe'] = mod
+spec.loader.exec_module(mod)
+print('e2e_evidence' in sys.modules)")" "layout: importing the publisher loads nothing"
 
 # --- wrap-up wiring (AC 10) --------------------------------------------------
 # The publisher reaches a reviewer only through the PR body, so wrap-up must run

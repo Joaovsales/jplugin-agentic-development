@@ -63,18 +63,23 @@ GITHUB_URL_RE = re.compile(
 CHECKER = Path(__file__).resolve().parents[2] / "verify-evidence" / "scripts" / "e2e_evidence.py"
 
 
+class LayoutOwnerMissing(RuntimeError):
+    """The checker that owns the artifact layout is not beside this script."""
+
+
 def load_checker(path: Path):
-    """The module that owns the artifact layout; loud when it is not beside us."""
+    """The module that owns the artifact layout; loud when it is not beside us.
+
+    Loaded per run, not at import, so `--help` and imports work without it.
+    """
     if not path.is_file():
-        sys.exit(f"evidence: publish failed (layout owner {path} not found)")
+        raise LayoutOwnerMissing(f"layout owner {path} not found")
     spec = importlib.util.spec_from_file_location("e2e_evidence", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module  # dataclasses resolves its module by name
     spec.loader.exec_module(module)
     return module
 
-
-layout = load_checker(CHECKER)
 
 #: (short-sha, AC-id, absolute PNG path)
 Entry = Tuple[str, str, Path]
@@ -101,11 +106,11 @@ def git(repo: Path, *args: str, env: Optional[Dict[str, str]] = None) -> str:
     return result.stdout
 
 
-def collect_entries(repo: Path, shas: Sequence[str]) -> List[Entry]:
+def collect_entries(repo: Path, shas: Sequence[str], layout) -> List[Entry]:
     entries: List[Entry] = []
     for sha in shas:
-        for png in layout.artifact_pngs(repo, sha):
-            entries.append((sha, png.stem, png))
+        for ac_id, png in layout.artifact_pngs(repo, sha):
+            entries.append((sha, ac_id, png))
     return entries
 
 
@@ -232,7 +237,12 @@ def local_reason(slug: Optional[str]) -> str:
 
 
 def run(repo: Path, shas: Sequence[str]) -> int:
-    entries = collect_entries(repo, shas)
+    try:
+        layout = load_checker(CHECKER)
+    except LayoutOwnerMissing as error:
+        print(f"evidence: publish failed ({error})", file=sys.stderr)
+        return 1
+    entries = collect_entries(repo, shas, layout)
     if not entries:
         print("evidence: none", file=sys.stderr)
         return 0
