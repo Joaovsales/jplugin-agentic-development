@@ -1387,3 +1387,8 @@ Filed this sweep:
 > Handover: landed 378f169..a7c2f10 — § 10 version guard in tests/test-plugin-manifest.sh (7 fixture cases + this tree + 3 README prose checks, 38/38), plugin.json 1.1.0 -> 1.2.0, README § Releasing skills
 > Do not re-derive: base = $PLUGIN_VERSION_BASE, else HEAD^1 when HEAD is on origin/master, else merge-base; CI has fetch-depth 0 so origin/master exists there. Mutation probe (version back to 1.1.0) makes the real-tree assertion fail — the guard bites. Every future payload PR must bump
 > Surface: none (slice.py check rc 0)
+
+## Session Summary — 2026-09-29 [b2b5634..bfeed2b]
+- Completed: plugin-staleness-check slices 1–2 (#210 stale-plugin banner block, #211 version bump guard + 1.2.0); quality-gate fixes 0cd8495 (hex-only sha), bfeed2b (.agents/references in the payload, one marketplace name, drift branch reused)
+- Pending: none in this plan
+- Carry-forward: this clone's `origin` still uses the pre-rename slug `coding-agent-workflow`, so the banner's remote-ref check does not fire here until `git remote set-url origin https://github.com/Joaovsales/jplugin-agentic-development.git`; unresolved SHOULD-FIX: the stale block's helpers talk through STALE_* globals (session-start.sh newest_behind/note_stale_record); payload coverage scan does not yet include plugin.json-declared paths
