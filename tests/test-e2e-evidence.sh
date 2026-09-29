@@ -115,11 +115,23 @@ assert_contains "$OUT" "tasks/e2e-log.md" "check: names the missing log"
 write_log "### AC-7: legacy visual entry
 Tier: VISUAL (layout)
 Result: PASS"
-printf '\n## E2E Walkthrough — Later — 2026-09-30 def5678\n\n%s\n' "$VISUAL_OK" >> "$SANDBOX/tasks/e2e-log.md"
+mkdir -p "$SANDBOX/tasks/e2e-artifacts/def5678"; : > "$SANDBOX/tasks/e2e-artifacts/def5678/AC-2.png"
+printf '\n## E2E Walkthrough — Later — 2026-09-30 def5678\n\n%s\n' "${VISUAL_OK//abc1234/def5678}" >> "$SANDBOX/tasks/e2e-log.md"
 run_check --sha def5678
 assert_eq "0" "$RC" "check: --sha ignores other commits' entries"
 run_check --sha abc1234
 assert_eq "1" "$RC" "check: --sha still checks its own entries"
+
+# The publisher reads the layout, not the log, so a path elsewhere would pass
+# here and never reach the PR. The check owns the layout rule.
+: > "$SANDBOX/elsewhere.png"
+write_log "### AC-2: the submit button is visible
+Tier: VISUAL (visibility)
+Result: PASS
+Screenshot: elsewhere.png"
+run_check
+assert_eq "1" "$RC" "check: a Screenshot: outside tasks/e2e-artifacts/<sha>/<AC-id>.png fails"
+assert_contains "$OUT" "tasks/e2e-artifacts/abc1234/AC-2.png" "check: names the expected path"
 
 # --- 3. gitignore (AC 12) ----------------------------------------------------
 # PNGs are committed only to the e2e-evidence branch (Decision 11).

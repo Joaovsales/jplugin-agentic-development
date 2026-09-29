@@ -17,7 +17,12 @@ branch already exists. No checkout, stash or worktree switch ever happens.
 
 The evidence branch only grows: merged PRs link to its commits, so it is never
 force-pushed. A rejected push (another session published first) is retried once
-from a fresh fetch; a second failure is loud (`evidence: publish failed`, exit 1).
+from a fresh fetch; a second rejection, or any other git failure on the first
+attempt, is loud (`evidence: publish failed`, exit 1).
+
+`--sha` is required: wrap-up commits before it writes the PR, so HEAD has moved
+past the sha the walkthrough saved its PNGs under, and a HEAD default would
+publish nothing without saying so.
 Re-running for the same short-sha overwrites the same paths in a new commit; when
 the rebuilt tree equals the tip's tree no commit is made and the tip is linked.
 
@@ -59,6 +64,13 @@ class GitError(RuntimeError):
     """A git command exited non-zero."""
 
 
+class PushRejected(GitError):
+    """The remote moved on: another session published first."""
+
+#: git's wording for a push refused because the remote tip moved.
+REJECTED_RE = re.compile(r"\[rejected\]|non-fast-forward|fetch first|stale info")
+
+
 def git(repo: Path, *args: str, env: Optional[Dict[str, str]] = None) -> str:
     result = subprocess.run(
         ["git", "-C", str(repo), *args], capture_output=True, text=True, env=env
@@ -94,11 +106,12 @@ def opted_out_local(repo: Path) -> bool:
     return OPT_OUT_RE.search(below) is not None
 
 
-def is_public_repo(slug: str) -> bool:
-    """True only when `gh` positively says the repo is public.
+def visibility_marker(slug: str) -> str:
+    """` — public repo`, nothing for private, ` — visibility unknown` otherwise.
 
-    `gh` being absent, offline or unauthenticated is not an error for the
-    publish: the marker is advisory, so those cases read as "unknown".
+    `gh` being absent, offline or unauthenticated does not fail the publish,
+    but it must not read as private: the marker exists so a public publish is
+    never silent.
     """
     try:
         result = subprocess.run(
@@ -106,8 +119,9 @@ def is_public_repo(slug: str) -> bool:
             capture_output=True, text=True, timeout=15,
         )
     except (OSError, subprocess.TimeoutExpired):
-        return False
-    return result.returncode == 0 and result.stdout.strip() == "false"
+        return " — visibility unknown"
+    answer = result.stdout.strip() if result.returncode == 0 else ""
+    return {"false": " — public repo", "true": ""}.get(answer, " — visibility unknown")
 
 
 def fetch_tip(repo: Path) -> Optional[str]:
@@ -129,10 +143,11 @@ def build_tree(repo: Path, tip: Optional[str], entries: Sequence[Entry]) -> str:
         return git(repo, "write-tree", env=env).strip()
 
 
-def commit_env() -> Dict[str, str]:
+def commit_env(repo: Path) -> Dict[str, str]:
     """Repo identity when configured; a neutral one for CI containers without it."""
     env = dict(os.environ)
-    if subprocess.run(["git", "var", "GIT_COMMITTER_IDENT"], capture_output=True).returncode != 0:
+    ident = subprocess.run(["git", "-C", str(repo), "var", "GIT_COMMITTER_IDENT"], capture_output=True)
+    if ident.returncode != 0:
         for role in ("AUTHOR", "COMMITTER"):
             env.setdefault(f"GIT_{role}_NAME", "jplugin evidence")
             env.setdefault(f"GIT_{role}_EMAIL", "evidence@localhost")
@@ -147,7 +162,7 @@ def make_commit(repo: Path, tip: Optional[str], entries: Sequence[Entry]) -> Opt
     shas = ", ".join(dict.fromkeys(sha for sha, _, _ in entries))
     parent = ["-p", tip] if tip else []
     message = f"evidence: {shas} ({len(entries)} screenshots)"
-    return git(repo, "commit-tree", tree, *parent, "-m", message, env=commit_env()).strip()
+    return git(repo, "commit-tree", tree, *parent, "-m", message, env=commit_env(repo)).strip()
 
 
 def publish_once(repo: Path, entries: Sequence[Entry]) -> str:
@@ -155,15 +170,18 @@ def publish_once(repo: Path, entries: Sequence[Entry]) -> str:
     commit = make_commit(repo, tip, entries)
     if commit is None:
         return str(tip)
-    git(repo, "push", "origin", f"{commit}:{REF}")
+    try:
+        git(repo, "push", "origin", f"{commit}:{REF}")
+    except GitError as error:
+        raise PushRejected(str(error)) if REJECTED_RE.search(str(error)) else error
     return commit
 
 
 def publish(repo: Path, entries: Sequence[Entry]) -> str:
-    """Publish, retrying once from a fresh fetch. Raises GitError on the second failure."""
+    """Publish, retrying a rejected push once from a fresh fetch. Raises GitError otherwise."""
     try:
         return publish_once(repo, entries)
-    except GitError:
+    except PushRejected:
         return publish_once(repo, entries)
 
 
@@ -204,19 +222,17 @@ def run(repo: Path, shas: Sequence[str]) -> int:
         print(f"evidence: publish failed ({' '.join(str(error).split())})", file=sys.stderr)
         return 1
     print(render_published(slug, commit, entries))
-    marker = " — public repo" if is_public_repo(slug) else ""
-    print(f"evidence: published {len(entries)} to {slug}{marker}", file=sys.stderr)
+    print(f"evidence: published {len(entries)} to {slug}{visibility_marker(slug)}", file=sys.stderr)
     return 0
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--repo", default=".", help="feature repo (default: current directory)")
-    parser.add_argument("--sha", action="append", help="short sha to publish (repeatable; default HEAD)")
+    parser.add_argument("--sha", action="append", required=True,
+                        help="short sha the walkthrough saved its PNGs under (repeatable)")
     args = parser.parse_args(argv)
-    repo = Path(args.repo).resolve()
-    shas = args.sha or [git(repo, "rev-parse", "--short", "HEAD").strip()]
-    return run(repo, shas)
+    return run(Path(args.repo).resolve(), args.sha)
 
 
 if __name__ == "__main__":

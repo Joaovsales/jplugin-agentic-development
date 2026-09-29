@@ -25,6 +25,8 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Sequence
 
 DEFAULT_LOG = "tasks/e2e-log.md"
+#: Where a VISUAL PASS's PNG lives; the publisher reads this layout, not the log.
+ARTIFACT_DIR = "tasks/e2e-artifacts"
 
 #: The trailing short-sha of a `## ` walkthrough heading.
 SHA_RE = re.compile(r"\b([0-9a-f]{7,40})\s*$")
@@ -84,6 +86,9 @@ def problem(criterion: Criterion, root: Path) -> Optional[str]:
     screenshot = criterion.value("Screenshot")
     if not screenshot:
         return "VISUAL PASS with no Screenshot: line"
+    expected = f"{ARTIFACT_DIR}/{criterion.sha}/{criterion.label}.png"
+    if screenshot != expected:
+        return f"screenshot {screenshot} is not at {expected}"
     if not (root / screenshot).is_file():
         return f"screenshot {screenshot} is not on disk"
     return None

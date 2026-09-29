@@ -220,7 +220,7 @@ restate an irreversible action whose `--draft` conditional would drift. Report
 
 The body carries the `Quality receipt: <verdict> · <fp8> · policy <v>` line, a
 `## Closure` section for CI, mergeability and deployment outcomes, and the stdout
-of `python3 .agents/skills/wrap-up-session/scripts/publish_evidence.py` (the
+of `publish_evidence.py --sha <the short-sha § E2E coverage checked>` (the
 `## Visual evidence` section; its stderr `evidence:` line goes in the report),
 run before the PR is created and on every re-sync — a publish failure never
 blocks the PR. On a `routine/` branch the flags, title and issue linkage come
@@ -286,7 +286,7 @@ Session wrapped up.
 - Quality receipt: [<verdict> · <fp8> · policy <v> — reused / <verdict> · <fp8> · policy <v> — re-entered at <full|delta> scope]
 - Tests: [PASS — suite name] or [FAIL] or [SKIPPED — no suite]
 - E2E coverage: [N user-facing ACs verified / NONE / GAP — N acknowledged]
-- Evidence: [published <n> to <owner/repo> (+ ` — public repo` when public) / local <n> / none / publish failed]
+- Evidence: [published <n> to <owner/repo> (+ ` — public repo` / ` — visibility unknown`) / local <n> / none / publish failed]
 - Routine: [<name> #N — S steps, K skipped / none — not a routine branch]
 - Pushed: [yes / no — reason]
 - PR: [#N opened / #N description re-synced — what changed / #N already accurate / #N linkage repaired — <refs> / none]

@@ -105,6 +105,7 @@ GIT_BIN_DIR="$(dirname "$(command -v git)")"
 # node and playwright-cli, so no case can reach a real npm; cases that exercise the
 # step put a stub npm in the sandbox bin/ instead.
 SAFE_PATH="$(mktemp -d)"
+trap 'rm -rf "$SAFE_PATH"' EXIT
 for src_dir in "$GIT_BIN_DIR" /bin /usr/bin; do
   for exe in "$src_dir"/*; do
     name="${exe##*/}"

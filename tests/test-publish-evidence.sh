@@ -50,6 +50,7 @@ export GH_PRIVATE=true
 SHIM="$T/shim"; mkdir -p "$SHIM"
 cat > "$SHIM/git" <<'STUB'
 #!/bin/bash
+[ -n "$CALL_LOG" ] && printf '%s\n' "$*" >> "$CALL_LOG"
 if [ "$1" = push ] || { [ "$1" = -C ] && [ "$3" = push ]; }; then
   if [ "$RACE_MODE" = always ] || { [ "$RACE_MODE" = once ] && [ ! -e "$RACE_MARK" ]; }; then
     : > "$RACE_MARK"
@@ -102,11 +103,13 @@ add_png() {
 }
 
 # run_pub [args] — sets OUT, ERR, RC; the shim dir is opt-in via SHIM_ON.
+# Passes `--sha $SHA`, as wrap-up does, unless NO_SHA is set.
 run_pub() {
   local path="$STUBS:$PATH"
   [ -n "${SHIM_ON:-}" ] && path="$SHIM:$path"
+  local sha_args=(--sha "$SHA"); [ -n "${NO_SHA:-}" ] && sha_args=()
   RC=0
-  PATH="$path" "$TEST_PYTHON" "$PUB" --repo "$WORK" "$@" >"$T/out" 2>"$T/err" </dev/null || RC=$?
+  PATH="$path" "$TEST_PYTHON" "$PUB" --repo "$WORK" "${sha_args[@]}" "$@" >"$T/out" 2>"$T/err" </dev/null || RC=$?
   OUT="$(cat "$T/out")"; ERR="$(cat "$T/err")"
 }
 
@@ -150,6 +153,17 @@ assert_contains "$ERR" "evidence: published 2 to acme/widgets — public repo" "
 GH_PRIVATE= run_pub
 assert_eq 0 "$RC" "gh failing does not fail the publish"
 assert_not_contains "$ERR" "public repo" "gh failing omits the marker"
+assert_contains "$ERR" "— visibility unknown" "gh failing says visibility is unknown, never implies private"
+
+echo "  -- the sha is the walkthrough's, not HEAD's"
+# Wrap-up commits and pushes before it writes the PR, so HEAD has moved past
+# the sha the PNGs were saved under. Defaulting to HEAD would publish nothing.
+( cd "$WORK" && echo more >> app.txt && "$REAL_GIT" commit -qam "wrap-up commit" )
+run_pub
+assert_contains "$OUT" "/$SHA/AC-1.png?raw=true" "a commit after the walkthrough still publishes its PNGs"
+NO_SHA=1 run_pub
+assert_eq 2 "$RC" "no --sha is a usage error, never a silent HEAD guess"
+assert_contains "$ERR" "--sha" "the usage error names --sha"
 
 echo "  -- scp-style origin parses"
 "$REAL_GIT" -C "$WORK" config remote.origin.url git@github.com:acme/widgets.git
@@ -213,6 +227,18 @@ RACE_MODE=always run_pub
 assert_eq "true" "$([ "$RC" -ne 0 ] && echo true || echo false)" "a second rejection exits non-zero"
 assert_contains "$ERR" "evidence: publish failed" "and says publish failed on stderr"
 assert_eq "" "$OUT" "and prints no evidence section"
+
+# Only a rejected push is a lost race. A broken remote fails on the first
+# attempt with its own message, so the caller can tell the two apart.
+new_fixture broken; add_png AC-1
+"$REAL_GIT" -C "$WORK" config --unset "url.$BARE.insteadOf"
+"$REAL_GIT" -C "$WORK" config "url.$T/nowhere.git.insteadOf" https://github.com/acme/widgets.git
+export CALL_LOG="$T/broken/calls.log"
+RACE_MODE= run_pub
+assert_eq 1 "$RC" "a broken remote exits 1"
+assert_eq 1 "$(grep -c '^-C .* ls-remote' "$CALL_LOG")" "a broken remote is not retried"
+assert_contains "$ERR" "evidence: publish failed (git ls-remote" "and the first error is the one reported"
+unset CALL_LOG
 unset SHIM_ON
 
 # --- wrap-up wiring (AC 10) --------------------------------------------------
@@ -225,6 +251,8 @@ assert_contains "$PR_SECTION" "publish_evidence.py" "wrap-up: § The Pull Reques
 assert_precedes "$PR_SECTION" "publish_evidence.py" "gh pr create" \
   "wrap-up: the publisher runs before gh pr create"
 assert_contains "$PR_SECTION" "every re-sync" "wrap-up: the publisher runs on every re-sync"
+assert_contains "$PR_SECTION" "publish_evidence.py --sha <the short-sha § E2E coverage checked>" \
+  "wrap-up: the publisher gets the walkthrough's sha, not HEAD after the wrap-up commit"
 assert_contains "$PR_SECTION" "never blocks the PR" "wrap-up: a publish failure never blocks the PR"
 REPORT="$(awk '/^### Report/{f=1;next} f' "$WRAP" | grep -F -- '- Evidence:')"
 for form in "published <n> to <owner/repo>" "public repo" "local <n>" "none" "publish failed"; do
