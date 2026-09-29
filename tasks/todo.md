@@ -1410,7 +1410,7 @@ Filed this sweep:
 > Surface: none
 
 
-## Session Summary — 2026-09-29 [b2b5634..05c7234]
-- Completed: 5 slices / 14 TDD rows of `## Plan: visual-e2e-evidence` (#205–#209), plus the design-review fix commit 05c7234
+## Session Summary — 2026-09-29 [b2b5634..51045d1]
+- Completed: 5 slices / 14 TDD rows of `## Plan: visual-e2e-evidence` (#205–#209); design-review fixes 05c7234, 204992e, 51045d1
 - Pending: none in this plan
-- Carry-forward: receipt HOLD — 4 SHOULD-FIX unresolved (artifact layout spelled in two scripts; the push-rejection regex depends on git's English stderr; a heading with no sha yields a `None` path message; the @playwright/cli pin is hand-synced in 5 places). A real VISUAL walkthrough with playwright-cli has not run yet: the smoke test covered the crib, not a spec AC.
+- Carry-forward: receipt 964a2096 GO with two NITPICKs (END_MARKER duplicated from session-start.sh; visibility_marker mixes query and punctuation). No real VISUAL walkthrough with playwright-cli yet — the smoke test covered the crib, not a spec AC.

@@ -927,8 +927,11 @@ back vacuous and was repaired.
   probe ran in the CWD instead of the repo). Phase 4 was dispatched and returned
   HOLD with one MUST-FIX: the publisher defaulted to HEAD's sha after the wrap-up
   commit. That and three SHOULD-FIX items were fixed in 05c7234, and a delta
-  re-review returned GO. Receipt 28a49258 is HOLD: four SHOULD-FIX and two
-  NITPICK findings remain unresolved.
+  re-review returned GO. The four remaining SHOULD-FIX items (layout owner,
+  locale-dependent retry, no-sha message, hand-synced pin) and three follow-ups
+  from their delta review were fixed by a builder subagent in 204992e and
+  51045d1, each verified by a mutation probe. Receipt 964a2096 is GO with two
+  NITPICKs open.
 - Baseline: the full suite was 60/60 at b2b5634. Each slice checkpoint ran the
   affected tests green (23, 27 and 29 files).
 - Learnings captured: tasks/solutions/patterns/an-artifact-keyed-by-commit-must-be-read-by-the-commit-that-produced-it.md, tasks/solutions/tooling/in-the-template-repo-follow-the-repos-skills-not-the-plugin-cache.md
