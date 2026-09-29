@@ -215,4 +215,21 @@ assert_contains "$ERR" "evidence: publish failed" "and says publish failed on st
 assert_eq "" "$OUT" "and prints no evidence section"
 unset SHIM_ON
 
+# --- wrap-up wiring (AC 10) --------------------------------------------------
+# The publisher reaches a reviewer only through the PR body, so wrap-up must run
+# it before `gh pr create` AND on every re-sync, and the report must say where
+# the screenshots went — a public repo is never published to silently.
+WRAP="$REPO/.agents/skills/wrap-up-session/SKILL.md"
+PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^### /{exit} f' "$WRAP" | tr '\n' ' ' | tr -s ' ')"
+assert_contains "$PR_SECTION" "publish_evidence.py" "wrap-up: § The Pull Request runs the publisher"
+assert_precedes "$PR_SECTION" "publish_evidence.py" "gh pr create" \
+  "wrap-up: the publisher runs before gh pr create"
+assert_contains "$PR_SECTION" "every re-sync" "wrap-up: the publisher runs on every re-sync"
+assert_contains "$PR_SECTION" "never blocks the PR" "wrap-up: a publish failure never blocks the PR"
+REPORT="$(awk '/^### Report/{f=1;next} f' "$WRAP" | grep -F -- '- Evidence:')"
+for form in "published <n> to <owner/repo>" "public repo" "local <n>" "none" "publish failed"; do
+  assert_contains "$REPORT" "$form" "wrap-up: the report's evidence: line has '$form'"
+done
+assert_contains "$REPORT" "- Evidence:" "wrap-up: the report carries an Evidence line"
+
 finish

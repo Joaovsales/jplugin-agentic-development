@@ -128,4 +128,14 @@ for ignore in .gitignore project-template/.gitignore; do
   assert_file_matches "$ignore" '^\.playwright-cli/$' "$ignore: ignores .playwright-cli/"
 done
 
+# --- 4. wrap-up runs the check (AC 6) ----------------------------------------
+# The check only protects a PR if wrap-up runs it: a failing entry counts as
+# "no walkthrough" and goes to the same run/acknowledge prompt as a missing one.
+WRAP=".agents/skills/wrap-up-session/SKILL.md"
+COVERAGE="$(awk '/^### E2E coverage/{f=1;next} f&&/^##/{exit} f' "$WRAP")"
+assert_contains "$COVERAGE" "e2e_evidence.py check" "wrap-up: § E2E coverage runs e2e_evidence.py check"
+assert_contains "$COVERAGE" "no e2e walkthrough" "wrap-up: a failing entry counts as no walkthrough"
+assert_precedes "$(printf '%s' "$COVERAGE" | tr '\n' ' ')" "e2e_evidence.py check" "(run/acknowledge)" \
+  "wrap-up: the check runs before the run/acknowledge prompt"
+
 finish

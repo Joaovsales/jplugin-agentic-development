@@ -107,7 +107,7 @@ If any acceptance criterion or bug fix in the session is user-facing:
 For every user-facing AC in specs touched this session — or, with none touched,
 in the session diff and task evidence, so a user-facing bug fix still enters:
 
-1. Check `tasks/e2e-log.md` for a `/verify-evidence --scope e2e` entry matching the spec and current commit short-sha
+1. Check `tasks/e2e-log.md` for a `/verify-evidence --scope e2e` entry matching the spec and current commit short-sha, then run `python3 .agents/skills/verify-evidence/scripts/e2e_evidence.py check --sha <short-sha>`: an entry it names (a VISUAL PASS without its PNG) counts as missing
 2. If missing, ask: "AC [ID] is user-facing but has no e2e walkthrough. Run /verify-evidence --scope e2e now, or acknowledge the gap? (run/acknowledge)"
 3. On `run`: invoke `/verify-evidence --scope e2e`, then re-check
 4. On `acknowledge`: record the gap as a knowledge-track document in `tasks/solutions/process/` (tags: `[e2e-gap]`)
@@ -218,19 +218,18 @@ The `pr-sync` action, and the single description of PR creation in this skill:
 restate an irreversible action whose `--draft` conditional would drift. Report
 `pr: <n>`, or `pr: failed` when `gh` is unreachable or linkage keeps refusing.
 
-The body carries the `Quality receipt: <verdict> · <fp8> · policy <v>` line and
-a `## Closure` section for CI, mergeability and deployment outcomes. On a
-`routine/` branch the flags, title and issue linkage come from
-`references/routines.md` § *Draft and linkage*, with the executed step list.
+The body carries the `Quality receipt: <verdict> · <fp8> · policy <v>` line, a
+`## Closure` section for CI, mergeability and deployment outcomes, and the stdout
+of `python3 .agents/skills/wrap-up-session/scripts/publish_evidence.py` (the
+`## Visual evidence` section; its stderr `evidence:` line goes in the report),
+run before the PR is created and on every re-sync — a publish failure never
+blocks the PR. On a `routine/` branch the flags, title and issue linkage come
+from `references/routines.md` § *Draft and linkage*, with the executed step list.
 
 **No PR for this branch**: draft the body with its `## Handovers` section
-(`references/closure-actions.md` § *Handovers*), run
-`pr_linkage.py check --body-file <draft>` and repair what it lists
-(`references/closure-actions.md` § *PR re-sync*), then create the PR:
-
-```bash
-gh pr create --body-file <draft>   # plus --draft per § Draft and linkage
-```
+(`references/closure-actions.md` § *Handovers*), run `pr_linkage.py check
+--body-file <draft>` and repair what it lists (§ *PR re-sync* there), then run
+`gh pr create --body-file <draft>` (plus `--draft` per § *Draft and linkage*).
 
 **A PR already exists**: re-sync its body on every push (§ *PR re-sync* there).
 
@@ -287,6 +286,7 @@ Session wrapped up.
 - Quality receipt: [<verdict> · <fp8> · policy <v> — reused / <verdict> · <fp8> · policy <v> — re-entered at <full|delta> scope]
 - Tests: [PASS — suite name] or [FAIL] or [SKIPPED — no suite]
 - E2E coverage: [N user-facing ACs verified / NONE / GAP — N acknowledged]
+- Evidence: [published <n> to <owner/repo> (+ ` — public repo` when public) / local <n> / none / publish failed]
 - Routine: [<name> #N — S steps, K skipped / none — not a routine branch]
 - Pushed: [yes / no — reason]
 - PR: [#N opened / #N description re-synced — what changed / #N already accurate / #N linkage repaired — <refs> / none]
