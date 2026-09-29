@@ -1366,15 +1366,24 @@ Filed this sweep:
 > Spec: specs/plugin-staleness-check.md
 
 ### Slice 1/2 — Stale plugin banner block
-- [ ] Stale plugin banner block <!-- task-id: plan.specs-plugin-staleness-check-md.stale-plugin-banner-block --> — Slice 1/2: the banner prints the update commands for every stale relevant record, silent otherwise ([#210](https://github.com/Joaovsales/jplugin-agentic-development/issues/210))
-  [ ] TDD: Stale plugin: user record behind the marketplace clone prints headline, marketplace update and plugin update once each -> record parser + clone-HEAD comparison (AC 1)
-  [ ] TDD: Stale plugin: project record for this path prints --scope project; another path's record prints nothing -> projectPath normalisation (AC 2)
-  [ ] TDD: Stale plugin: clone current but matching remote ref ahead prints the block -> remote-ref ancestry check (AC 3)
-  [ ] TDD: Stale plugin: current, sha-less, missing, malformed, non-adopting all silent and banner completes -> guards (AC 4, 5)
-  [ ] TDD: Stale plugin: same version at the newer template prints the not-bumped note and user reinstall, no update line -> version comparison (AC 6)
-  [ ] TDD: Stale plugin: the block adds no fetch/ls-remote/curl -> structural assertion (AC 7)
+- [x] Stale plugin banner block <!-- task-id: plan.specs-plugin-staleness-check-md.stale-plugin-banner-block --> — Slice 1/2: the banner prints the update commands for every stale relevant record, silent otherwise ([#210](https://github.com/Joaovsales/jplugin-agentic-development/issues/210))
+  [x] TDD: Stale plugin: user record behind the marketplace clone prints headline, marketplace update and plugin update once each -> record parser + clone-HEAD comparison (AC 1)
+  [x] TDD: Stale plugin: project record for this path prints --scope project; another path's record prints nothing -> projectPath normalisation (AC 2)
+  [x] TDD: Stale plugin: clone current but matching remote ref ahead prints the block -> remote-ref ancestry check (AC 3)
+  [x] TDD: Stale plugin: current, sha-less, missing, malformed, non-adopting all silent and banner completes -> guards (AC 4, 5)
+  [x] TDD: Stale plugin: same version at the newer template prints the not-bumped note and user reinstall, no update line -> version comparison (AC 6)
+  [x] TDD: Stale plugin: the block adds no fetch/ls-remote/curl -> structural assertion (AC 7)
+
+> Handover: landed 83954b1..378f169 — `# ── Stale Plugin Install Check` block in .agents/hooks/session-start.sh (before Code Graph Check) + 36 fixture assertions in tests/test-session-start.sh; 172/172 pass
+> Do not re-derive: records are parsed in ONE awk pass (`relevant_records`) because per-field sed cost ~8 s of banner on Windows (7 worktree records in the real file); the block now adds ~2 s here. `git show <ref>:<path>` needs `MSYS_NO_PATHCONV=1` under Git Bash or the version reads empty. When several templates are ahead the highest `version` is named
+> Surface: none (slice.py check rc 0)
+> Open: this clone's `origin` is the pre-rename slug `coding-agent-workflow`, so per the spec's input rule only the marketplace clone is consulted here until `git remote set-url` (README already says to)
 
 ### Slice 2/2 — Plugin version bump guard
-- [ ] Plugin version bump guard <!-- task-id: plan.specs-plugin-staleness-check-md.plugin-version-bump-guard --> — Slice 2/2: the suite fails a payload change without a version bump; README states the measured rule ([#211](https://github.com/Joaovsales/jplugin-agentic-development/issues/211))
-  [ ] TDD: Version guard: payload diff without an increase fails, with an increase passes, no base skips -> base resolution + semver compare in test-plugin-manifest.sh; bump plugin.json (AC 8)
-  [ ] TDD: Version guard: README § Releasing skills names the measured no-op and the enforced bump -> README edit (AC 9)
+- [x] Plugin version bump guard <!-- task-id: plan.specs-plugin-staleness-check-md.plugin-version-bump-guard --> — Slice 2/2: the suite fails a payload change without a version bump; README states the measured rule ([#211](https://github.com/Joaovsales/jplugin-agentic-development/issues/211))
+  [x] TDD: Version guard: payload diff without an increase fails, with an increase passes, no base skips -> base resolution + semver compare in test-plugin-manifest.sh; bump plugin.json (AC 8)
+  [x] TDD: Version guard: README § Releasing skills names the measured no-op and the enforced bump -> README edit (AC 9)
+
+> Handover: landed 378f169..a7c2f10 — § 10 version guard in tests/test-plugin-manifest.sh (7 fixture cases + this tree + 3 README prose checks, 38/38), plugin.json 1.1.0 -> 1.2.0, README § Releasing skills
+> Do not re-derive: base = $PLUGIN_VERSION_BASE, else HEAD^1 when HEAD is on origin/master, else merge-base; CI has fetch-depth 0 so origin/master exists there. Mutation probe (version back to 1.1.0) makes the real-tree assertion fail — the guard bites. Every future payload PR must bump
+> Surface: none (slice.py check rc 0)
