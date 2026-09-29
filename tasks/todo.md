@@ -1366,47 +1366,47 @@ Filed this sweep:
 > Spec: specs/make-it-simpler.md
 
 ### Slice 1/9 — Rank the seven signals
-- [ ] Rank the seven signals <!-- task-id: plan.specs-make-it-simpler-md.rank-the-seven-signals --> — `signals.py rank` emits the seven signals over a temporary fixture repository, scored and sorted, deterministic and read-only
+- [ ] Rank the seven signals <!-- task-id: plan.specs-make-it-simpler-md.rank-the-seven-signals --> — Slice 1/9: `signals.py rank` emits the seven signals over a temporary fixture repository, scored and sorted, determinis… ([#212](https://github.com/Joaovsales/jplugin-agentic-development/issues/212))
   [ ] TDD: seven-signal fixture repo; assert seven candidates with path, line, verbatim evidence, score formula, sort order (AC 1) -> signals.py rank, one detector per signal
   [ ] TDD: rank twice and diff; git status unchanged; empty repo prints candidates [] exit 0 (AC 2) -> sorted, pure output
 
 ### Slice 2/9 — Signal boundaries
-- [ ] Signal boundaries <!-- task-id: plan.specs-make-it-simpler-md.signal-boundaries --> — `--path` matching nothing exits 2; `tests/fixtures/` and `/tidy`-owned findings never surface (blocked-by: plan.specs-make-it-simpler-md.rank-the-seven-signals)
+- [ ] Signal boundaries <!-- task-id: plan.specs-make-it-simpler-md.signal-boundaries --> — Slice 2/9: `--path` matching nothing exits 2; `tests/fixtures/` and `/tidy`-owned findings never surface ([#213](https://github.com/Joaovsales/jplugin-agentic-development/issues/213)) (blocked-by: plan.specs-make-it-simpler-md.rank-the-seven-signals)
   [ ] TDD: rank --path matching nothing exits 2 naming it; nothing under tests/fixtures/ ranks (AC 3) -> ls-files check and exclusion
   [ ] TDD: unresolved backticked path and retired-skill reference yield no candidate (AC 4) -> exclude /tidy-owned patterns
 
 ### Slice 3/9 — Lens references
-- [ ] Lens references <!-- task-id: plan.specs-make-it-simpler-md.lens-references --> — `references/lens.md` (signals, `W`, exclusions) and `references/safe-moves.md` (five practices) (blocked-by: plan.specs-make-it-simpler-md.signal-boundaries)
+- [ ] Lens references <!-- task-id: plan.specs-make-it-simpler-md.lens-references --> — Slice 3/9: `references/lens.md` (signals, `W`, exclusions) and `references/safe-moves.md` (five practices) ([#214](https://github.com/Joaovsales/jplugin-agentic-development/issues/214)) (blocked-by: plan.specs-make-it-simpler-md.signal-boundaries)
   [ ] TDD: lens.md names seven signals, W, the fixtures exclusion and nine /tidy checks (AC 5) -> write references/lens.md
   [ ] TDD: safe-moves.md states the five practices (AC 6) -> write references/safe-moves.md
 
 ### Slice 4/9 — Skill body
-- [ ] Skill body <!-- task-id: plan.specs-make-it-simpler-md.skill-body --> — `SKILL.md`: grammar, top-3 fields, significance citation, grilling seeds, safe-moves seeding, unattended sequence and its ends, scope stop; README row (blocked-by: plan.specs-make-it-simpler-md.lens-references)
+- [ ] Skill body <!-- task-id: plan.specs-make-it-simpler-md.skill-body --> — Slice 4/9: `SKILL.md`: grammar, top-3 fields, significance citation, grilling seeds, safe-moves seeding, unattended seq… ([#215](https://github.com/Joaovsales/jplugin-agentic-development/issues/215)) (blocked-by: plan.specs-make-it-simpler-md.lens-references)
   [ ] TDD: frontmatter, <=150 lines, section order; README row (AC 7) -> write SKILL.md, render-skills-table
   [ ] TDD: cites the /system-design-planning bar, no restated list (AC 8) -> citation line
   [ ] TDD: grammar, top-3 fields, none-today, four seeds, safe-moves seeding (AC 9) -> interactive process
   [ ] TDD: unattended sequence, three ends, scope stop (AC 10) -> unattended process
 
 ### Slice 5/9 — Pipeline overrides
-- [ ] Pipeline overrides <!-- task-id: plan.specs-make-it-simpler-md.pipeline-overrides --> — `SKILL.md` owns the `/plan` Step 1, Step 6 and `/build` pre-flight filing overrides; `AGENTS.md` names the third exception; `/yolo`, `/auto-push` and the registry CLI untouched (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+- [ ] Pipeline overrides <!-- task-id: plan.specs-make-it-simpler-md.pipeline-overrides --> — Slice 5/9: `SKILL.md` owns the `/plan` Step 1, Step 6 and `/build` pre-flight filing overrides; `AGENTS.md` names the t… ([#216](https://github.com/Joaovsales/jplugin-agentic-development/issues/216)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
   [ ] TDD: override table rows for /plan Step 1, Step 6 and /build pre-flight filing; fresh-session rule named; AGENTS.md names /make-it-simpler (AC 11) -> overrides + AGENTS.md sentence
   [ ] TDD: yolo, auto-push, task-registry.py and upsert.py unchanged against master (AC 12) -> surface check
 
 ### Slice 6/9 — Register the simplify routine
-- [ ] Register the simplify routine <!-- task-id: plan.specs-make-it-simpler-md.register-the-simplify-routine --> — Lane file; `kind_precedence`, selector and chain in `config.py`, the template and `docs/task-tracking.md`; the `routines.md` table row and precedence block; `CONTRACT_ROUTINES`; and every test that mirrors them (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+- [ ] Register the simplify routine <!-- task-id: plan.specs-make-it-simpler-md.register-the-simplify-routine --> — Slice 6/9: Lane file; `kind_precedence`, selector and chain in `config.py`, the template and `docs/task-tracking.md`; t… ([#217](https://github.com/Joaovsales/jplugin-agentic-development/issues/217)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
   [ ] TDD: task-registry lanes simplify: consumer, selects simplify, chain, step 5 PR-body text; catalogue counts (AC 13) -> lanes/simplify.md
   [ ] TDD: precedence, selector, chain in config.py, template, docs and routines.md block; selector test pins (AC 14) -> config edits
   [ ] TDD: routines.md table row, CONTRACT_ROUTINES, format/parse routine/simplify/12-trim-agents (AC 15) -> routine_branch.py + table row
 
 ### Slice 7/9 — Routine wrap-up rules
-- [ ] Routine wrap-up rules <!-- task-id: plan.specs-make-it-simpler-md.routine-wrap-up-rules --> — `routines.md` gains the `simplify` steps section, the two branch rows, and the scope stop in § *Fix-escalation terminal* (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+- [ ] Routine wrap-up rules <!-- task-id: plan.specs-make-it-simpler-md.routine-wrap-up-rules --> — Slice 7/9: `routines.md` gains the `simplify` steps section, the two branch rows, and the scope stop in § *Fix-escalati… ([#218](https://github.com/Joaovsales/jplugin-agentic-development/issues/218)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
   [ ] TDD: simplify steps section with pre-spine discovery; two branch rows (AC 16) -> routines.md sections
   [ ] TDD: Fix-escalation terminal names the simplify scope stop (AC 17) -> routines.md sentence
 
 ### Slice 8/9 — Selection precedence
-- [ ] Selection precedence <!-- task-id: plan.specs-make-it-simpler-md.selection-precedence --> — Pins: `simplify`+`tech-debt` → `simplify`; `design-decision`+`simplify` → `plan` (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+- [ ] Selection precedence <!-- task-id: plan.specs-make-it-simpler-md.selection-precedence --> — Slice 8/9: Pins: `simplify`+`tech-debt` → `simplify`; `design-decision`+`simplify` → `plan` ([#219](https://github.com/Joaovsales/jplugin-agentic-development/issues/219)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
   [ ] TDD: simplify+tech-debt selects simplify; design-decision+simplify selects plan (AC 18) -> selector test cases
 
 ### Slice 9/9 — Go routing
-- [ ] Go routing <!-- task-id: plan.specs-make-it-simpler-md.go-routing --> — `/go` states `fix` > `perf` > `simplify` > `refactor`, pinned (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+- [ ] Go routing <!-- task-id: plan.specs-make-it-simpler-md.go-routing --> — Slice 9/9: `/go` states `fix` > `perf` > `simplify` > `refactor`, pinned ([#220](https://github.com/Joaovsales/jplugin-agentic-development/issues/220)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
   [ ] TDD: go precedence sentence fix > perf > simplify > refactor pinned (AC 19) -> go/SKILL.md sentence
