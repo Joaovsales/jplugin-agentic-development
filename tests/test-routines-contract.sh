@@ -46,7 +46,7 @@ assert_prose_contains "$CANON" "documentation" "Contract: improve selects docume
 
 # --- precedence chain, verbatim and ordered ----------------------------------
 assert_prose_contains "$CANON" \
-  "bug > design-decision > tech-debt > enhancement > documentation" \
+  "bug > design-decision > simplify > tech-debt > enhancement > documentation" \
   "Contract: the kind precedence chain is stated in order"
 
 # The chain orders PROVIDER LABEL NAMES, not canonical kinds. `tech-debt` and
@@ -105,7 +105,7 @@ assert_contains "$spine" "non-skippable" "Contract: the spine marks its non-skip
 wrapup_rows="$(grep -cE '^\| [0-9a-c]+ \| .?/wrap-up-session' "$CANON" || true)"
 assert_eq "2" "$wrapup_rows" \
   "Contract: /wrap-up-session appears as exactly two step rows, one per spine"
-for routine in plan fix improve janitor architect tidy; do
+for routine in plan fix improve simplify janitor architect tidy; do
   section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
   assert_not_contains "$section" "/wrap-up-session" \
     "Contract: $routine's own section does not restate /wrap-up-session"
@@ -130,7 +130,7 @@ assert_contains "$producer_spine" "/sweep --routine" \
 assert_contains "$producer_spine" "non-skippable" \
   "Contract: the producer spine marks its gates non-skippable"
 
-for routine in plan fix improve; do
+for routine in plan fix improve simplify; do
   assert_file_matches "$CANON" "^### .$routine. — steps" \
     "Contract: $routine has a step section of its own"
 done
@@ -139,7 +139,7 @@ done
 # AC6): each routine's section names its lane file and restates no row, so the
 # gates below are read from the lane file and the section is pinned row-free.
 LANES=".agents/skills/task-registry/lanes"
-for routine in plan fix improve janitor architect tidy; do
+for routine in plan fix improve simplify janitor architect tidy; do
   section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
   assert_contains "$section" "$routine.md" \
     "Contract: $routine's section names its lane file"
