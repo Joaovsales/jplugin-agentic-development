@@ -19,12 +19,13 @@ implementation_paths:
   - tests/test-go-lanes.sh
   - tests/test-instruction-budget.sh
   - tests/test-doc-conventions.sh
+  - tests/test-task-registry.sh
   - tests/fixtures/make-it-simpler/**
 ---
 
 # Spec: make-it-simpler
 
-> Origin: "prompt" (2026-09-29 grilling session, after #204) · Designed 2026-09-29 · Review status: **draft** — critic: 15 findings, 12 applied as edits, 3 answered by the operator (Q28–Q30), 0 declined
+> Origin: "prompt" (2026-09-29 grilling session, after #204) · Designed 2026-09-29 · Review status: **built** 2026-09-29 (#212–#220) — critic: 15 findings, 12 applied as edits, 3 answered by the operator (Q28–Q30), 0 declined
 > Visual: specs/make-it-simpler.plan.html
 
 ## Problem
@@ -198,10 +199,10 @@ select --routine simplify ; claim <ref> --routine simplify --apply --approve
 routine: consumer
 selects: simplify
 cues: simplify, make it simpler, one home per rule, too long, trim
-ends: ready PR whose body quotes the before and after proof, Behavior changes and Simplified
+ends: ready PR whose body carries what step 5 names
 ---
 1. /make-it-simpler <ref> — before-proof, scope, spec with safe-moves Decisions; a scope stop ends the run here — non-skippable
-2. /plan <spec> — the overrides /make-it-simpler owns
+2. /plan <spec> — under the overrides /make-it-simpler § Overrides owns
 3. /build — non-skippable
 4. /quality-gate — non-skippable
 5. /wrap-up-session — PR body: before/after proof, `Behavior changes:`, `Simplified:` — non-skippable
@@ -353,7 +354,7 @@ Constraints: The GitHub simplify label is created by the operator, never by a te
 - `task-registry lanes simplify` prints a consumer lane selecting `simplify` whose chain is `/make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session`, and whose step 5 requires the PR body to quote the before- and after-proof, a `Behavior changes:` section (a list or `none`) and a `Simplified:` line; `tests/test-lane-catalogue.sh` passes with the lane counted.
 - `kind_precedence` is `bug, design-decision, simplify, tech-debt, enhancement, documentation` in `config.py`, `docs/task-tracking.md`, the template and the `routines.md` § *Kind precedence* block; `docs/task-tracking.md` and the template declare `simplify = simplify` and its chain; `task-registry selectors` validates, and `tests/test-routine-selectors.sh`'s default-chain, selector-union and label-fixture pins include `simplify`.
 - `routines.md` § *The routines* has a `simplify` row (consumer, selects `simplify`, ready PR, `Closes #N`), `CONTRACT_ROUTINES` includes `simplify`, and `routine_branch.py format simplify 12 trim-agents` prints `routine/simplify/12-trim-agents`, which `parse` reads back; `tests/test-routine-branch.sh` and `tests/test-routines-contract.sh` pass.
-- `routines.md` has a `### \`simplify\` — steps` section that points to the lane file and states the discovery that precedes the spine, and § *What the branch tells you* has `routine/simplify/<n>-<slug>` (ready, `Closes #N`) and `routine/simplify/<YYYYMMDD>-record` (ready, docs-only, `Refs #N` per filed issue) rows.
+- `routines.md` has a `### \`simplify\` — steps` section that points to the lane file and states the discovery that precedes the spine, and the branch-row table (§ *Draft and linkage*, under § *Wrap-up on a routine branch*) has `routine/simplify/<n>-<slug>` (ready, `Closes #N`) and `routine/simplify/<YYYYMMDD>-record` (ready, docs-only, `Refs #N` per filed issue) rows.
 - `routines.md` § *Fix-escalation terminal* also names the `simplify` scope stop: before any edit, non-zero, no PR, no PR ledger, the terminal PR assertion not run.
 - An issue labelled `simplify` and `tech-debt` selects the `simplify` routine; one labelled `design-decision` and `simplify` selects `plan`.
 - `/go` § precedence states `fix` > `perf` > `simplify` > `refactor`, and `tests/test-go-lanes.sh` pins that sentence (a static doc test; the routing itself is not claimed by it).
@@ -374,4 +375,5 @@ Constraints: The GitHub simplify label is created by the operator, never by a te
 - `AGENTS.md` — the named-exceptions sentence
 - `README.md` — regenerated skills table
 - `tests/test-make-it-simpler.sh`, `tests/fixtures/make-it-simpler/**` — `signals.py` and the skill's doc pins
+- `tests/test-task-registry.sh` — its GitHub label fixtures carry the `simplify` selector label
 - `tests/test-lane-catalogue.sh`, `tests/test-routines-contract.sh`, `tests/test-routine-selectors.sh`, `tests/test-routine-branch.sh`, `tests/test-routine-wrapup.sh`, `tests/test-go-lanes.sh`, `tests/test-instruction-budget.sh`, `tests/test-doc-conventions.sh` — the counts and pins the new lane, routine and overrides move

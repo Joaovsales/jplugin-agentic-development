@@ -1437,3 +1437,8 @@ Filed this sweep:
 > Handover: landed ebf3826 — /go precedence sentence `fix` > `perf` > `simplify` > `refactor`, pinned in test-go-lanes.sh
 > Do not re-derive: the pin is a static doc test; routing itself is not claimed
 > Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+## Session Summary — 2026-09-29 [76d1f97..bcd2562]
+- Completed: `/make-it-simpler` built from specs/make-it-simpler.md, all nine slices (#212–#220): signals.py rank, lens and safe-moves references, SKILL.md with its overrides, the `simplify` consumer routine (lane, precedence, selector, chain, branch rows, scope stop), and /go precedence.
+- Pending: the GitHub `simplify` label (the operator creates it; `task-registry selectors` names it missing); the HOLD receipt f8a98438 needs a human approval before push.
+- Carry-forward: four advisory SHOULD-FIX items in the receipt: the `orphan-or-overlap` name before the first filing, a release note for downstream `kind_precedence` configs, no callee pointer in /plan and /build to named exceptions, and code-red-flag cues dominating the ranking on this repository (D24).
