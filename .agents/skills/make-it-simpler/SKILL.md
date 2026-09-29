@@ -21,7 +21,7 @@ input here), and it never builds a *significant* change.
 
 ## The Process
 
-### 1. Read the argument
+### Read the argument
 
 First match wins:
 
@@ -32,10 +32,10 @@ First match wins:
 | any other text | interactive; the text is the focus the top 3 are chosen against (how `/go` passes a goal) |
 | nothing | interactive over the whole tree |
 
-`--unattended` is the scheduled entry (step 5); `--prepare` runs steps 5a–5b
-only, interactively, and the operator commits the index rows.
+`--unattended` is the scheduled entry (§ *Unattended*); `--prepare` runs its
+steps a–b only, interactively, and the operator commits the index rows.
 
-### 2. Rank, review, classify, size
+### Rank, review, classify, size
 
 ```bash
 python3 .agents/skills/make-it-simpler/scripts/signals.py rank [--path <p>]...
@@ -48,13 +48,13 @@ estimate the lines saved and the callers touched.
 - **Significant** when the change meets the bar in `/system-design-planning` § *When to Use / When Not*; otherwise **minor**. The bar is cited, never restated.
 - **Size** against `.agents/skills/slice/references/sizing.md`. An unattended build is at most 3 slices and one area — one skill with its `references/`, or one script with its tests.
 
-### 3. Interactive: offer the top 3
+### Offer the top 3
 
 Each candidate shown carries its signal, a `file:line` evidence quote, the
 estimated lines saved, the callers touched, and minor/significant. The operator
 picks one or declines: **none today writes nothing** — no task, no spec, no branch.
 
-A pick is filed and claimed (step 5b's commands, then
+A pick is filed and claimed (§ *Unattended* step b's commands, then
 `task-registry claim <ref> --apply --approve`). A significant pick is handed to
 `/plan`, or to `/system-design-planning` when it crosses its bar, and this skill
 stops. A minor pick goes to `/grilling` with four seeds, then the frontier:
@@ -64,7 +64,7 @@ stops. A minor pick goes to `/grilling` with four seeds, then the frontier:
 3. The minor behavior changes expected, or `none`.
 4. The slice cap for this change.
 
-### 4. Write the spec and run the lane
+### Write the spec and run the lane
 
 Write `specs/simplify-<slug>.md`, the path derived from the task's slug; an
 existing spec for it is reopened, not duplicated. The registry write always
@@ -73,13 +73,13 @@ practices as rows, in every spec this skill writes, beside the grilled answers.
 
 Before the first edit, record the **before-proof**: the affected-test command
 plus `bash tests/test-citations.sh`, command and result. Then run lane steps
-2–5 (`task-registry lanes simplify`); the PR body quotes the before- and
-after-proof, `Behavior changes:` (a list or `none`) and `Simplified:` (lines
-before→after per file, the always-loaded delta).
+2–5 (`task-registry lanes simplify`); lane step 5 is the one home of what the PR
+body carries. `Simplified:` lists lines before→after per file and the
+always-loaded delta.
 
-### 5. Unattended — `--unattended`
+### Unattended
 
-a. Rank, deep review, classify and size (step 2) over the whole tree.
+a. Rank, deep review, classify and size (§ *Rank, review, classify, size*) over the whole tree.
 b. File. For each confirmed candidate run `task-registry show <derived-id>` first and skip a `done` or `cancelled` id — `upsert` would reopen it. Then:
    ```bash
    python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
@@ -88,7 +88,7 @@ b. File. For each confirmed candidate run `task-registry show <derived-id>` firs
    ```
    Minor and within the cap files `--kind task`; significant or over the cap files `--kind decision` (its `design-decision` label hands it to the `plan` routine). Only the `simplify` label is ever passed.
 c. Spine 1–3 (`.agents/skills/wrap-up-session/references/routines.md` § *The shared spine*): `select --routine simplify`, `claim`, branch `routine/simplify/<n>-<slug>`. The `tasks/todo.md` index rows step b wrote are the branch's first commit.
-d. Lane step 1 is `/make-it-simpler <ref>`: step 6, then step 4, ending in a ready PR.
+d. Lane step 1 is `/make-it-simpler <ref>`: § *Scope stop*, then § *Write the spec and run the lane*, ending in a ready PR.
 
 The run has three ends, and the clone is clean after each (`git status --porcelain` empty):
 
@@ -98,18 +98,18 @@ The run has three ends, and the clone is clean after each (`git status --porcela
 
 An unreachable tracker prints the registry's `local-pending` lines and opens no branch.
 
-### 6. Scope stop
+### Scope stop
 
 At lane step 1, before any edit, re-check the claimed task at `HEAD`. When it is
 significant, over the cap, or no longer reproduces: exit non-zero, open no PR,
 leave the claim in place, and print one line naming the task, the reason and
 the remedy — `scope stop: #N — <reason> — relabel design-decision, or close it`.
 
-### 7. Overrides — like `/yolo` Phase A
+### Overrides
 
 This skill is the third named exception to the fresh-session rule in
 `AGENTS.md` § *Workflow: PRD → Plan → Build → Wrap Up* — a planning session
-never builds. It owns these overrides, and only these:
+never builds. Like `/yolo` Phase A, it owns these overrides, and only these:
 
 | Step | Override |
 |---|---|

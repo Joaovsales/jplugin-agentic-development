@@ -98,10 +98,12 @@ assert_not_contains "$OUT" '"path": "tests/fixtures/' "AC 3: no candidate is eve
 # would change (duplicate-rule would score 2, lost.md would rank).
 OUT="$(rank "$REPO" --path tests/fixtures/make-it-simpler 2>&1)"; STATUS=$?
 assert_eq "2" "$STATUS" "AC 3: in this repository the fixtures are tracked but never rank"
+assert_eq "$(rank "$SEVEN" --limit 50)" "$(rank "$SEVEN/docs" --limit 50)" \
+  "AC 3: run from a subdirectory, rank prints what it prints from the root (paths are root-relative)"
 mkdir -p "$BOX/not-a-repo"
 OUT="$(rank "$BOX/not-a-repo" 2>&1)"; STATUS=$?
 assert_eq "2" "$STATUS" "rank outside a git repository is a usage error — exit 2, never an empty success"
-assert_contains "$OUT" "signals: git ls-files failed" "the refusal names the failing git command"
+assert_contains "$OUT" "signals: git rev-parse failed" "the refusal names the failing git command"
 
 # --- AC 4: what /tidy owns never surfaces --------------------------------------
 OUT="$(rank "$SEVEN" --limit 50)"
@@ -115,8 +117,8 @@ SIGNAL_NAMES="$("$TEST_PYTHON" - "$SIGNALS" <<'PY'
 import ast, sys
 tree = ast.parse(open(sys.argv[1], encoding="utf-8").read())
 for node in tree.body:
-    if isinstance(node, ast.Assign) and node.targets[0].id == "SIGNALS":
-        print("\n".join(ast.literal_eval(node.value)))
+    if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "DETECTORS":
+        print("\n".join(ast.literal_eval(key) for key in node.value.keys))
 PY
 )"
 assert_eq "7" "$(printf '%s\n' "$SIGNAL_NAMES" | grep -c .)" "AC 5: signals.py declares seven signals"
@@ -126,6 +128,15 @@ for signal in $SIGNAL_NAMES; do
 done
 assert_file_contains "$LENS" "\`W\` — the always-loaded weight, **5**" "AC 5: lens.md names W and its value"
 assert_file_matches "$SIGNALS" "^W = 5[[:space:]]*$" "AC 5: signals.py's W matches lens.md"
+# lens.md restates the thresholds; each value is pinned to its one home.
+for pin in '^W = 5[[:space:]]*$|`W` — the always-loaded weight, **5**' \
+           '^CODE_BUDGET = 500[[:space:]]*$|over 500 lines (`CODE_BUDGET`)' \
+           '^LINE_BUDGETS = \{"SKILL.md": 150, "AGENTS.md": 200\}|a `SKILL.md` over 150 lines or an `AGENTS.md` over 200' \
+           '^DUPLICATE_MIN_CHARS = 60[[:space:]]*$|one Markdown line of at least 60 characters' \
+           '^NEEDLE_MIN_CHARS = 20[[:space:]]*$|a quoted needle (20+ characters)'; do
+  assert_file_matches "$SIGNALS" "${pin%%|*}" "AC 5: signals.py holds ${pin%%|*}"
+  assert_file_contains "$LENS" "${pin#*|}" "AC 5: lens.md states the same value — ${pin#*|}"
+done
 assert_file_contains "$LENS" "**\`tests/fixtures/\`** — never read and never ranked" "AC 5: lens.md states the fixtures exclusion"
 assert_prose_contains "$LENS" "its nine checks: \`suite\`, \`inventory\`, \`retired\`,
   \`installed\`, \`refs\`, \`worktrees\`, \`strays\`, \`graph\`, \`registers\`" \

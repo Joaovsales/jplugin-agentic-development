@@ -6,18 +6,19 @@
 Prints {"head": <short sha>, "candidates": [...]} sorted by score desc, then
 key asc. Deterministic, read-only and offline: the only subprocesses are
 `git ls-files` and `git rev-parse`. The seven signals, the weight W and the
-exclusions are defined in references/lens.md.
+exclusions are defined in references/lens.md. Paths are root-relative wherever
+it is run from; a tracked file that cannot be read (deleted, not yet staged) is
+skipped.
 """
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
 from pathlib import PurePosixPath
 
-SIGNALS = ("duplicate-rule", "citation-drift", "over-budget", "doc-script-contradiction",
-           "enforced-prose", "orphan-or-overlap", "code-red-flag")
 W = 5
 EXCLUDED_PREFIXES = ("tests/fixtures/",)
 ALWAYS_LOADED = ("AGENTS.md", "CLAUDE.md", ".agents/hooks/session-start.sh")
@@ -92,7 +93,7 @@ def detect_duplicate_rule(texts):
     for homes in seen.values():
         if len(homes) > 1:
             path, number = min(homes.values())
-            yield "duplicate-rule", path, number, len(homes) - 1
+            yield path, number, len(homes) - 1
 
 
 def detect_citation_drift(texts):
@@ -104,7 +105,7 @@ def detect_citation_drift(texts):
             wanted = " ".join(match[2].split())
             found = {" ".join((m[1] or m[2]).split()) for m in HEADING.finditer(texts[target])}
             if wanted not in found:
-                yield "citation-drift", path, texts[path].count("\n", 0, match.start()) + 1, 1
+                yield path, texts[path].count("\n", 0, match.start()) + 1, 1
 
 
 def detect_over_budget(texts):
@@ -112,7 +113,7 @@ def detect_over_budget(texts):
         budget = LINE_BUDGETS.get(PurePosixPath(path).name)
         count = len(text.splitlines())
         if budget and count > budget:
-            yield "over-budget", path, budget + 1, count - budget
+            yield path, budget + 1, count - budget
 
 
 def detect_doc_script_contradiction(texts):
@@ -121,7 +122,7 @@ def detect_doc_script_contradiction(texts):
             scripts = [s for s in (resolve(r, path, texts) for r in SCRIPT_REF.findall(line)) if s]
             flags = FLAG.findall(line)
             if scripts and any(all(f not in texts[s] for s in scripts) for f in flags):
-                yield "doc-script-contradiction", path, number, 1
+                yield path, number, 1
 
 
 def test_needles(texts):
@@ -137,7 +138,7 @@ def detect_enforced_prose(texts):
     for path in markdown(texts):
         for number, line in unfenced_lines(texts[path]):
             if ENFORCING.search(line) and any(n in line for n in needles):
-                yield "enforced-prose", path, number, 1
+                yield path, number, 1
 
 
 def detect_orphan(texts):
@@ -146,26 +147,34 @@ def detect_orphan(texts):
         if pure.parent.name != "references" or pure.suffix != ".md":
             continue
         if not any(pure.name in t for p, t in texts.items() if p != path):
-            yield "orphan-or-overlap", path, 1, len(texts[path].splitlines())
+            yield path, 1, len(texts[path].splitlines())
 
 
 def detect_code_red_flag(texts):
     for path, text in texts.items():
         count = len(text.splitlines())
         if path.endswith((".py", ".sh")) and count > CODE_BUDGET:
-            yield "code-red-flag", path, CODE_BUDGET + 1, count - CODE_BUDGET
+            yield path, CODE_BUDGET + 1, count - CODE_BUDGET
 
 
-DETECTORS = (detect_duplicate_rule, detect_citation_drift, detect_over_budget,
-             detect_doc_script_contradiction, detect_enforced_prose, detect_orphan,
-             detect_code_red_flag)
+#: The seven signals, in lens.md's order: the one place a signal is named.
+DETECTORS = {
+    "duplicate-rule": detect_duplicate_rule,
+    "citation-drift": detect_citation_drift,
+    "over-budget": detect_over_budget,
+    "doc-script-contradiction": detect_doc_script_contradiction,
+    "enforced-prose": detect_enforced_prose,
+    "orphan-or-overlap": detect_orphan,
+    "code-red-flag": detect_code_red_flag,
+}
+SIGNALS = tuple(DETECTORS)
 
 
 def hits(texts):
     """One (signal, path) → [first line, summed lines_saved]."""
     grouped = {}
-    for detector in DETECTORS:
-        for signal, path, line, saved in detector(texts):
+    for signal, detector in DETECTORS.items():
+        for path, line, saved in detector(texts):
             entry = grouped.setdefault((signal, path), [line, 0])
             entry[0] = min(entry[0], line)
             entry[1] += saved
@@ -201,6 +210,7 @@ def under(path, prefixes):
 
 
 def rank(prefixes, limit):
+    os.chdir(git("rev-parse", "--show-toplevel").strip())
     texts = tracked_texts()
     for prefix in prefixes:
         if not any(under(p, [prefix]) for p in texts):
