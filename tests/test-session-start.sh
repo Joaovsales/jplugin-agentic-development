@@ -656,4 +656,135 @@ assert_contains "$out_block" "1 item(s) differ" \
 cd "$REPO"
 rm -rf "$tmpW"
 
+# --- Stale plugin install: warn with the exact commands, never run them ------
+# specs/plugin-staleness-check.md. On 2026-09-29 the installed record sat at an
+# old sha while master had moved on, and nothing said so. Fixture: a template
+# repository named like the real one, three commits (A at 1.0.0; B bumps to
+# 1.0.1; C changes a skill and does not bump), a marketplace clone checked out
+# at a chosen commit, and installed_plugins.json records written per case.
+tmpK=$(mktemp -d)
+TPL="$tmpK/jplugin-agentic-development"
+MKT="$tmpK/cfg/plugins/marketplaces/jplugin-agentic-development"
+RECORDS="$tmpK/cfg/plugins/installed_plugins.json"
+tpl_commit() {  # tpl_commit <version> <skill-text> -> commits to the template
+  printf '{\n  "name": "jplugin",\n  "version": "%s"\n}\n' "$1" > "$TPL/.claude-plugin/plugin.json"
+  printf '%s\n' "$2" > "$TPL/.agents/skills/x/SKILL.md"
+  git -C "$TPL" add -A && git -C "$TPL" commit -qm "$2"
+}
+mkdir -p "$TPL/.claude-plugin" "$TPL/.agents/skills/x" "$tmpK/cfg/plugins/marketplaces" "$tmpK/plain/.agents/skills"
+( git -C "$TPL" init -q -b master && git -C "$TPL" config user.email t@t && git -C "$TPL" config user.name t \
+  && tpl_commit 1.0.0 v1 && tpl_commit 1.0.1 v2 && tpl_commit 1.0.1 v3 ) >/dev/null 2>&1
+SHA_A=$(git -C "$TPL" rev-parse HEAD~2); SHA_B=$(git -C "$TPL" rev-parse HEAD~1); SHA_C=$(git -C "$TPL" rev-parse HEAD)
+git clone -q "$TPL" "$MKT" 2>/dev/null
+git clone -q "$TPL" "$tmpK/synced" 2>/dev/null
+( cd "$tmpK/plain" && git init -q ) >/dev/null 2>&1
+mkt_at() { git -C "$MKT" checkout -q --detach "$1" 2>/dev/null; }
+json_path() {  # json_path <dir> -> the dir as installed_plugins.json writes it
+  ( cd "$1" && { pwd -W 2>/dev/null || pwd; } ) | sed 's#/#\\\\#g'
+}
+record() {  # record <scope> <version> <sha> [projectPath] -> one JSON record
+  local extra=""
+  [ -n "${4:-}" ] && extra="\"projectPath\": \"$4\", "
+  printf '{"scope": "%s", %s"installPath": "cache/%s", "version": "%s", "gitCommitSha": "%s"}' \
+    "$1" "$extra" "$2" "$2" "$3"
+}
+write_records() {  # write_records <record>... -> installed_plugins.json
+  local IFS=,
+  printf '{\n  "version": 2,\n  "plugins": {\n    "other@market": [{"scope": "user", "version": "9.9.9", "gitCommitSha": "%s"}],\n    "jplugin@jplugin-agentic-development": [%s]\n  }\n}\n' \
+    "$SHA_A" "$*" > "$RECORDS"
+}
+stale_run() {  # stale_run <project-dir> -> banner output
+  ( cd "$1" && printf '{"source":"startup"}' \
+      | CCW_SESSION_GUARD=0 CLAUDE_CONFIG_DIR="$tmpK/cfg" bash "$HOOK" 2>/dev/null )
+}
+count_lines() { printf '%s\n' "$1" | grep -cE -- "$2" || true; }
+UPDATE_USER='^    claude plugin update jplugin@jplugin-agentic-development$'
+UPDATE_PROJECT='^    claude plugin update jplugin@jplugin-agentic-development --scope project$'
+MKT_UPDATE='^    claude plugin marketplace update jplugin-agentic-development$'
+
+# AC 1 — user record at A, marketplace clone at its descendant B.
+mkt_at "$SHA_B"; write_records "$(record user 1.0.0 "$SHA_A")"
+out_k1="$(stale_run "$tmpK/plain")"
+assert_eq "1" "$(count_lines "$out_k1" 'PLUGIN UPDATE AVAILABLE')" "Stale plugin: exactly one headline for one stale user record"
+assert_contains "$out_k1" "user install is at 1.0.0 (${SHA_A:0:7}); the template is at 1.0.1 (${SHA_B:0:7})" \
+  "Stale plugin: the headline names both versions and short shas"
+assert_eq "1" "$(count_lines "$out_k1" "$MKT_UPDATE")" "Stale plugin: exactly one marketplace update line"
+assert_eq "1" "$(count_lines "$out_k1" "$UPDATE_USER")" "Stale plugin: exactly one user-scope plugin update line"
+assert_contains "$out_k1" "Restart Claude Code afterwards" "Stale plugin: the block says a restart follows"
+assert_not_contains "$out_k1" "--scope" "Stale plugin: a user-scope update carries no --scope"
+
+# AC 2 — project records: this directory's prints --scope project, another path's nothing.
+HERE_JSON="$(json_path "$tmpK/plain")"
+OTHER_JSON="$(json_path "$tmpK")\\\\elsewhere"
+write_records "$(record user 1.0.1 "$SHA_B")" "$(record project 1.0.0 "$SHA_A" "$HERE_JSON\\\\")" \
+  "$(record project 1.0.0 "$SHA_A" "$OTHER_JSON")"
+out_k2="$(stale_run "$tmpK/plain")"
+assert_eq "1" "$(count_lines "$out_k2" "$UPDATE_PROJECT")" "Stale plugin: a stale project record for this path prints --scope project once"
+assert_eq "1" "$(count_lines "$out_k2" 'PLUGIN UPDATE AVAILABLE')" "Stale plugin: only this path's project record gets a headline"
+assert_contains "$out_k2" "project install is at 1.0.0" "Stale plugin: the headline names the project scope"
+assert_eq "0" "$(count_lines "$out_k2" "$UPDATE_USER")" "Stale plugin: the current user record prints no update line"
+write_records "$(record project 1.0.0 "$SHA_A" "$OTHER_JSON")"
+assert_not_contains "$(stale_run "$tmpK/plain")" "PLUGIN UPDATE" "Stale plugin: another path's project record prints nothing"
+
+# AC 3 — the incident: the clone agrees with the record, the repository's remote ref is ahead.
+mkt_at "$SHA_A"; write_records "$(record user 1.0.0 "$SHA_A")"
+assert_not_contains "$(stale_run "$tmpK/plain")" "PLUGIN UPDATE" "Stale plugin: record equal to the clone and no matching remote is silent"
+out_k3="$(stale_run "$tmpK/synced")"
+assert_contains "$out_k3" "PLUGIN UPDATE AVAILABLE" "Stale plugin: a matching remote ref ahead of the record prints the block (2026-09-29)"
+assert_contains "$out_k3" "the template is at 1.0.1 (${SHA_C:0:7})" "Stale plugin: the remote ref is the template the headline names"
+mkt_at "$SHA_C"; write_records "$(record user 1.0.1 "$SHA_C")"
+git -C "$tmpK/synced" update-ref refs/remotes/origin/master "$SHA_B"
+assert_not_contains "$(stale_run "$tmpK/synced")" "PLUGIN UPDATE" "Stale plugin: a record ahead of the remote ref is not stale"
+git -C "$tmpK/synced" update-ref refs/remotes/origin/master "$SHA_C"
+mkt_at "$SHA_A"; write_records "$(record user 1.0.0 0123456789abcdef0123456789abcdef01234567)"
+out_k3u="$(stale_run "$tmpK/synced")"
+assert_contains "$out_k3u" "PLUGIN UPDATE AVAILABLE" "Stale plugin: a sha unknown to the repository still falls to the clone"
+assert_contains "$out_k3u" "the template is at 1.0.0 (${SHA_A:0:7})" "Stale plugin: ... and the clone is the template named"
+
+# AC 4, 5 — silent states, and the banner always completes.
+mkt_at "$SHA_C"
+assert_silent_stale() {  # assert_silent_stale <project> <message>
+  local out rc
+  out="$(stale_run "$1")"; rc=$?
+  assert_not_contains "$out" "PLUGIN UPDATE" "$2"
+  assert_eq "0:yes" "$rc:$(printf '%s' "$out" | grep -q '🌿  GIT' && echo yes || echo no)" "$2 (banner completes)"
+}
+write_records "$(record user 1.0.1 "$SHA_C")"
+assert_silent_stale "$tmpK/synced" "Stale plugin: record equal to every known template sha is silent"
+write_records '{"scope": "user", "installPath": "C:\\x", "version": "1.0.0"}'
+assert_silent_stale "$tmpK/plain" "Stale plugin: a record with no gitCommitSha is silent"
+rm -f "$RECORDS"
+assert_silent_stale "$tmpK/plain" "Stale plugin: no installed_plugins.json is silent"
+printf '{"version": 2, "plugins": {"jplugin@jplugin-agentic-development": [{"scope": "user", "gitCommitSha": "%s"' "$SHA_A" > "$RECORDS"
+assert_silent_stale "$tmpK/plain" "Stale plugin: a malformed installed_plugins.json is silent"
+mkdir -p "$tmpK/foreign"; ( cd "$tmpK/foreign" && git init -q ) >/dev/null 2>&1
+write_records "$(record user 1.0.0 "$SHA_A")"
+assert_silent_stale "$tmpK/foreign" "Stale plugin: a non-adopting repository is silent"
+assert_contains "$(stale_run "$tmpK/plain")" "PLUGIN UPDATE AVAILABLE" "Stale plugin: the same record in an adopting repository prints (non-vacuity)"
+
+# AC 6 — the newer template kept the record's version: 'plugin update' is a no-op.
+mkt_at "$SHA_C"; write_records "$(record user 1.0.1 "$SHA_B")" "$(record project 1.0.1 "$SHA_B" "$HERE_JSON")"
+out_k6="$(stale_run "$tmpK/plain")"
+assert_contains "$out_k6" "plugin.json version 1.0.1 was not bumped — 'claude plugin update' is a no-op (README § Releasing skills)." \
+  "Stale plugin: an unbumped template prints the not-bumped note"
+assert_eq "1" "$(count_lines "$out_k6" 'was not bumped')" "Stale plugin: the note prints once for two records"
+assert_eq "1" "$(count_lines "$out_k6" '^    User scope: claude plugin uninstall jplugin@jplugin-agentic-development && claude plugin install jplugin@jplugin-agentic-development$')" \
+  "Stale plugin: the user record gets the user-scope reinstall line"
+assert_eq "0" "$(count_lines "$out_k6" '^    claude plugin update')" "Stale plugin: no plugin update line for an unbumped template"
+assert_not_contains "$out_k6" "uninstall jplugin@jplugin-agentic-development --scope" "Stale plugin: never a project-scope uninstall (D8)"
+assert_eq "1" "$(count_lines "$out_k6" "$MKT_UPDATE")" "Stale plugin: the marketplace update line still prints"
+
+# AC 7 — the block reads only what the last fetch recorded.
+STALE_BLOCK="$(awk '/^# ── Stale Plugin Install Check/ { p = 1; next } p && /^# ── / { exit } p' "$HOOK")"
+assert_contains "$STALE_BLOCK" "gitCommitSha" "Stale plugin: the block is found in the hook (non-vacuity)"
+STALE_CODE="$(printf '%s\n' "$STALE_BLOCK" | grep -vE '^[[:space:]]*#' || true)"
+assert_eq "" "$(printf '%s\n' "$STALE_CODE" | grep -E 'fetch|ls-remote|curl|wget' || true)" \
+  "Stale plugin: the block makes no network call (D4)"
+assert_eq "" "$(printf '%s\n' "$STALE_CODE" | sed 's/"[^"]*"//g' | grep -E '(^|[;&|(]|then|do)[[:space:]]*claude[[:space:]]' || true)" \
+  "Stale plugin: the block never invokes claude, only prints its commands (D1)"
+assert_eq "" "$(printf '%s\n' "$STALE_CODE" | grep -E '(^|[^A-Za-z_])(jq|python3?)([^A-Za-z_]|$)' || true)" \
+  "Stale plugin: the block parses JSON without jq or python (D9)"
+cd "$REPO"
+rm -rf "$tmpK"
+
 finish
