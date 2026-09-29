@@ -51,6 +51,9 @@ SHIM="$T/shim"; mkdir -p "$SHIM"
 cat > "$SHIM/git" <<'STUB'
 #!/bin/bash
 [ -n "$CALL_LOG" ] && printf '%s\n' "$*" >> "$CALL_LOG"
+if [ -n "$PUSH_ENV_LOG" ] && { [ "$1" = push ] || { [ "$1" = -C ] && [ "$3" = push ]; }; }; then
+  printf 'LC_ALL=%s\n' "$LC_ALL" >> "$PUSH_ENV_LOG"
+fi
 if [ "$1" = push ] || { [ "$1" = -C ] && [ "$3" = push ]; }; then
   if [ "$RACE_MODE" = always ] || { [ "$RACE_MODE" = once ] && [ ! -e "$RACE_MARK" ]; }; then
     : > "$RACE_MARK"
@@ -228,6 +231,17 @@ assert_eq "true" "$([ "$RC" -ne 0 ] && echo true || echo false)" "a second rejec
 assert_contains "$ERR" "evidence: publish failed" "and says publish failed on stderr"
 assert_eq "" "$OUT" "and prints no evidence section"
 
+# git words a rejection in the user's language, so the classifier is only as
+# stable as the locale the push runs under: the push must pin LC_ALL=C itself,
+# whatever the caller's environment says.
+new_fixture locale; add_png AC-1
+export PUSH_ENV_LOG="$T/locale/push-env.log"
+LANG=pt_BR.UTF-8 LC_ALL=pt_BR.UTF-8 RACE_MODE=once run_pub
+assert_eq 0 "$RC" "a lost race is retried under a non-English caller locale"
+assert_eq "LC_ALL=C
+LC_ALL=C" "$(cat "$PUSH_ENV_LOG")" "every push ran with LC_ALL=C, twice for one retried race"
+unset PUSH_ENV_LOG
+
 # Only a rejected push is a lost race. A broken remote fails on the first
 # attempt with its own message, so the caller can tell the two apart.
 new_fixture broken; add_png AC-1
@@ -240,6 +254,27 @@ assert_eq 1 "$(grep -c '^-C .* ls-remote' "$CALL_LOG")" "a broken remote is not 
 assert_contains "$ERR" "evidence: publish failed (git ls-remote" "and the first error is the one reported"
 unset CALL_LOG
 unset SHIM_ON
+
+# --- one owner for the artifact layout ---------------------------------------
+# e2e_evidence.py owns tasks/e2e-artifacts/<sha>/<AC-id>.png; the publisher
+# imports it. A copy of both scripts whose checker names another directory must
+# publish from that directory, and a publisher without its checker must refuse.
+assert_eq 0 "$(grep -c 'tasks/e2e-artifacts' "$PUB" || true)" "layout: the publisher does not spell the artifact directory"
+new_fixture layout
+LAYOUT_TREE="$T/layout/tree"; mkdir -p "$LAYOUT_TREE/wrap-up-session/scripts" "$LAYOUT_TREE/verify-evidence/scripts"
+cp "$PUB" "$LAYOUT_TREE/wrap-up-session/scripts/"
+sed 's#tasks/e2e-artifacts#custom/shots#' "$REPO/.agents/skills/verify-evidence/scripts/e2e_evidence.py" \
+  > "$LAYOUT_TREE/verify-evidence/scripts/e2e_evidence.py"
+mkdir -p "$WORK/custom/shots/$SHA"; printf 'PNG-X' > "$WORK/custom/shots/$SHA/AC-9.png"
+RC=0; OUT="$(PATH="$STUBS:$PATH" "$TEST_PYTHON" "$LAYOUT_TREE/wrap-up-session/scripts/publish_evidence.py" \
+  --repo "$WORK" --sha "$SHA" 2>/dev/null </dev/null)" || RC=$?
+assert_eq 0 "$RC" "layout: the publisher follows the checker's layout"
+assert_contains "$OUT" "/$SHA/AC-9.png?raw=true" "layout: a PNG under the checker's directory is published"
+rm "$LAYOUT_TREE/verify-evidence/scripts/e2e_evidence.py"
+RC=0; ERR="$(PATH="$STUBS:$PATH" "$TEST_PYTHON" "$LAYOUT_TREE/wrap-up-session/scripts/publish_evidence.py" \
+  --repo "$WORK" --sha "$SHA" 2>&1 >/dev/null </dev/null)" || RC=$?
+assert_eq 1 "$RC" "layout: a missing checker exits 1, no copied constant"
+assert_contains "$ERR" "e2e_evidence.py" "layout: the failure names the missing checker"
 
 # --- wrap-up wiring (AC 10) --------------------------------------------------
 # The publisher reaches a reviewer only through the PR body, so wrap-up must run

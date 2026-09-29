@@ -655,9 +655,12 @@ new_playwright_box() { local b; b="$(mktemp -d)"; mkdir -p "$b/home" "$b/bin"; e
 
 box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
 run_playwright_case "$box"
-assert_eq "npm install -g @playwright/cli@0.1.22
+# The pin's single source is the runbook frontmatter; the test reads it there.
+PINNED="$(sed -n 's/^pinned_version: *"\(.*\)"[[:space:]]*$/\1/p' "$REPO/.claude/browsers/playwright-cli.md")"
+assert_eq "semver" "$(printf %s "$PINNED" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && echo semver || echo "not-semver")" "playwright: the runbook frontmatter carries a pinned semver"
+assert_eq "npm install -g @playwright/cli@$PINNED
 playwright-cli install-browser chromium" "$(cat "$box/bin/calls.log")" \
-  "playwright: npm install -g <pinned> runs, then install-browser chromium (in order)"
+  "playwright: npm install -g <version from the runbook> runs, then install-browser chromium (in order)"
 assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: install.sh exits 0"
 rm -rf "$box"
 
@@ -681,5 +684,35 @@ assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: no npm still exits
 assert_contains "$(cat "$box/out.log")" "NOTE: npm not found — optional @playwright/cli" \
   "playwright: no npm prints a NOTE naming @playwright/cli"
 rm -rf "$box"
+
+# A checkout whose runbook is missing or has no pin: NOTE, exit 0, npm untouched.
+# The checkout is a tree of symlinks so only the runbook differs.
+fake_checkout() { # <dir> <runbook-body|--missing>
+  local dir="$1" entry
+  mkdir -p "$dir/.claude/browsers"
+  for entry in "$REPO"/* "$REPO"/.[!.]*; do
+    case "$(basename "$entry")" in .git|.claude) continue ;; esac
+    ln -s "$entry" "$dir/$(basename "$entry")"
+  done
+  for entry in "$REPO"/.claude/* "$REPO"/.claude/.[!.]*; do
+    [ -e "$entry" ] && [ "$(basename "$entry")" != browsers ] && ln -s "$entry" "$dir/.claude/$(basename "$entry")"
+  done
+  for entry in "$REPO"/.claude/browsers/*; do
+    [ "$(basename "$entry")" != playwright-cli.md ] && ln -s "$entry" "$dir/.claude/browsers/$(basename "$entry")"
+  done
+  [ "$2" = --missing ] || printf '%s\n' "$2" > "$dir/.claude/browsers/playwright-cli.md"
+  return 0
+}
+for variant in missing empty; do
+  box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
+  if [ "$variant" = missing ]; then fake_checkout "$box/src" --missing; else fake_checkout "$box/src" $'---\npinned_version: ""\n---'; fi
+  ( cd "$box" && HOME="$box/home" CLAUDE_CONFIG_DIR="$box/home/.claude" PATH="$box/bin:$SAFE_PATH" bash "$box/src/install.sh" ) \
+    > "$box/out.log" 2>&1 < /dev/null
+  echo "exit=$?" >> "$box/out.log"
+  assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: a $variant runbook still exits 0"
+  assert_contains "$(cat "$box/out.log")" "NOTE: no pinned_version" "playwright: a $variant runbook prints a NOTE"
+  assert_eq "false" "$([ -e "$box/bin/calls.log" ] && echo true || echo false)" "playwright: a $variant runbook never calls npm"
+  rm -rf "$box"
+done
 
 finish

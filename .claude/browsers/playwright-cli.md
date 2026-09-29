@@ -38,13 +38,13 @@ browser, and a second way for the tier to be misconfigured.
 `install.sh` installs the pinned version when `npm` is present. By hand:
 
 ```bash
-npm install -g @playwright/cli@0.1.22
+npm install -g @playwright/cli@<pinned_version>
 playwright-cli install-browser chromium
 ```
 
 **Pin the version.** The CLI is 0.x and its command surface can change between
-releases. Bumping `pinned_version` above is a deliberate edit, made in the same
-commit as the `install.sh` pin and a re-run of the crib below.
+releases. Bumping `pinned_version` above is a deliberate edit, made in one
+commit with a re-run of the crib below; `install.sh` reads it from here.
 
 ## The command crib
 

@@ -25,7 +25,8 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Sequence
 
 DEFAULT_LOG = "tasks/e2e-log.md"
-#: Where a VISUAL PASS's PNG lives; the publisher reads this layout, not the log.
+#: Where a VISUAL PASS's PNG lives. This module is the layout's only owner: the
+#: publisher imports `artifact_path` / `artifact_pngs` rather than restating it.
 ARTIFACT_DIR = "tasks/e2e-artifacts"
 
 #: The trailing short-sha of a `## ` walkthrough heading.
@@ -79,6 +80,16 @@ def criteria(text: str) -> Iterator[Criterion]:
         yield current
 
 
+def artifact_path(sha: str, ac_id: str) -> str:
+    """The repo-relative PNG path for one AC of the walkthrough saved under `sha`."""
+    return f"{ARTIFACT_DIR}/{sha}/{ac_id}.png"
+
+
+def artifact_pngs(root: Path, sha: str) -> List[Path]:
+    """Every PNG saved under `sha`, sorted; each stem is its AC-id."""
+    return sorted((root / ARTIFACT_DIR / sha).glob("*.png"))
+
+
 def problem(criterion: Criterion, root: Path) -> Optional[str]:
     """Why this criterion's PASS is unevidenced, or None when it is not."""
     if not criterion.is_visual_pass():
@@ -86,7 +97,9 @@ def problem(criterion: Criterion, root: Path) -> Optional[str]:
     screenshot = criterion.value("Screenshot")
     if not screenshot:
         return "VISUAL PASS with no Screenshot: line"
-    expected = f"{ARTIFACT_DIR}/{criterion.sha}/{criterion.label}.png"
+    if criterion.sha is None:
+        return "walkthrough heading has no short-sha"
+    expected = artifact_path(criterion.sha, criterion.label)
     if screenshot != expected:
         return f"screenshot {screenshot} is not at {expected}"
     if not (root / screenshot).is_file():

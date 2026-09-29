@@ -128,7 +128,10 @@ assert_eq "file" "$(field "$PW_FM" screenshot)" "playwright-cli: screenshot file
 assert_contains "$PW_FM" 'detect_command: "command -v playwright-cli"' \
   "playwright-cli: detected on PATH, not by MCP tools"
 # 0.x — the command surface can change between releases (Decision 8).
-assert_eq '"0.1.22"' "$(field "$PW_FM" pinned_version)" "playwright-cli: pinned version 0.1.22"
+# The frontmatter is the pin's only source: install.sh reads it, the body refers to it.
+PW_PIN="$(field "$PW_FM" pinned_version | tr -d '"')"
+assert_eq "semver" "$(printf %s "$PW_PIN" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && echo semver || echo "not-semver")" "playwright-cli: pinned to an exact semver"
+assert_eq "1" "$(grep -cF "$PW_PIN" "$PW")" "playwright-cli: the version literal appears once, in the frontmatter"
 assert_not_contains "$PW_FM" "mcp_command:" "playwright-cli: registers no MCP server (Decision 4)"
 
 # The command crib: every step a walkthrough needs, spelled as the CLI spells it.

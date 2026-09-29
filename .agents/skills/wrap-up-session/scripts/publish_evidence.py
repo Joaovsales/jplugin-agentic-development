@@ -2,7 +2,7 @@
 """publish_evidence.py — push e2e screenshots to an orphan branch and print the PR section.
 
 A VISUAL acceptance criterion passes only with a PNG on disk
-(`tasks/e2e-artifacts/<short-sha>/<AC-id>.png`), but a reviewer reads the PR,
+(`<artifact dir>/<short-sha>/<AC-id>.png`, laid out by `e2e_evidence.py`), but a reviewer reads the PR,
 not the author's disk. This script commits those PNGs to the project's own
 `e2e-evidence` branch, which shares no history with the feature branch or
 `master`, and prints a `## Visual evidence` markdown section whose image links
@@ -14,6 +14,10 @@ Why it is built from plumbing: the feature branch must stay exactly as it was
 `GIT_INDEX_FILE` with `hash-object -w` / `update-index --cacheinfo` /
 `write-tree` / `commit-tree`, seeded with `read-tree` of the fetched tip when the
 branch already exists. No checkout, stash or worktree switch ever happens.
+
+The artifact layout belongs to `e2e_evidence.py` (the check that enforces it);
+this script loads that module from the sibling skill by path and refuses to run
+without it, rather than keep a copy of the layout that could drift.
 
 The evidence branch only grows: merged PRs link to its commits, so it is never
 force-pushed. A rejected push (another session published first) is retried once
@@ -37,6 +41,7 @@ stderr is one `evidence:` status line. Standard library only.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import re
 import subprocess
@@ -47,7 +52,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 BRANCH = "e2e-evidence"
 REF = f"refs/heads/{BRANCH}"
-ARTIFACT_DIR = "tasks/e2e-artifacts"
 END_MARKER = "<!-- jplugin-agentic-development:end -->"
 OPT_OUT_RE = re.compile(r"^[ \t]*E2E evidence:[ \t]*local[ \t]*$", re.IGNORECASE | re.MULTILINE)
 #: scp-style, https and ssh:// GitHub remotes, with or without `.git`.
@@ -55,6 +59,22 @@ GITHUB_URL_RE = re.compile(
     r"^(?:git@github\.com:|https?://(?:[^@/]+@)?github\.com/|ssh://git@github\.com/)"
     r"(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+?)(?:\.git)?/?$"
 )
+
+CHECKER = Path(__file__).resolve().parents[2] / "verify-evidence" / "scripts" / "e2e_evidence.py"
+
+
+def load_checker(path: Path):
+    """The module that owns the artifact layout; loud when it is not beside us."""
+    if not path.is_file():
+        sys.exit(f"evidence: publish failed (layout owner {path} not found)")
+    spec = importlib.util.spec_from_file_location("e2e_evidence", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolves its module by name
+    spec.loader.exec_module(module)
+    return module
+
+
+layout = load_checker(CHECKER)
 
 #: (short-sha, AC-id, absolute PNG path)
 Entry = Tuple[str, str, Path]
@@ -67,8 +87,9 @@ class GitError(RuntimeError):
 class PushRejected(GitError):
     """The remote moved on: another session published first."""
 
-#: git's wording for a push refused because the remote tip moved.
-REJECTED_RE = re.compile(r"\[rejected\]|non-fast-forward|fetch first|stale info")
+#: git's wording for a push refused because the remote tip moved. English only,
+#: so the push is run under LC_ALL=C (`push_env`).
+REJECTED_RE = re.compile(r"\[rejected\]|non-fast-forward|fetch first")
 
 
 def git(repo: Path, *args: str, env: Optional[Dict[str, str]] = None) -> str:
@@ -83,7 +104,7 @@ def git(repo: Path, *args: str, env: Optional[Dict[str, str]] = None) -> str:
 def collect_entries(repo: Path, shas: Sequence[str]) -> List[Entry]:
     entries: List[Entry] = []
     for sha in shas:
-        for png in sorted((repo / ARTIFACT_DIR / sha).glob("*.png")):
+        for png in layout.artifact_pngs(repo, sha):
             entries.append((sha, png.stem, png))
     return entries
 
@@ -165,13 +186,18 @@ def make_commit(repo: Path, tip: Optional[str], entries: Sequence[Entry]) -> Opt
     return git(repo, "commit-tree", tree, *parent, "-m", message, env=commit_env(repo)).strip()
 
 
+def push_env() -> Dict[str, str]:
+    """The caller's environment with git's messages pinned to English."""
+    return {**os.environ, "LC_ALL": "C"}
+
+
 def publish_once(repo: Path, entries: Sequence[Entry]) -> str:
     tip = fetch_tip(repo)
     commit = make_commit(repo, tip, entries)
     if commit is None:
         return str(tip)
     try:
-        git(repo, "push", "origin", f"{commit}:{REF}")
+        git(repo, "push", "origin", f"{commit}:{REF}", env=push_env())
     except GitError as error:
         raise PushRejected(str(error)) if REJECTED_RE.search(str(error)) else error
     return commit

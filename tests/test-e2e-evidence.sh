@@ -102,6 +102,25 @@ Result: **PASS** (both states observed)"
 run_check
 assert_eq "1" "$RC" "check: a bold/annotated PASS is still a PASS"
 
+# A heading with no trailing short-sha has nowhere to put a PNG; the message
+# names that cause instead of a path with "None" in it.
+printf '# E2E log\n\n## E2E Walkthrough — Fixture — no sha here\n\n%s\n' "$VISUAL_OK" \
+  > "$SANDBOX/tasks/e2e-log.md"
+run_check
+assert_eq "1" "$RC" "check: a heading with no short-sha fails → exit 1"
+assert_contains "$OUT" "walkthrough heading has no short-sha" "check: names the missing sha"
+assert_not_contains "$OUT" "None" "check: never spells the sha as None"
+
+# The layout has one owner: artifact_path() is what the check expects and what
+# the publisher lists (test-publish-evidence.sh pins the publisher side).
+LAYOUT="$("$TEST_PYTHON" -c "
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('e2e_evidence', '$SCRIPT')
+mod = importlib.util.module_from_spec(spec); sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+print(mod.artifact_path('abc1234', 'AC-2'))")"
+assert_eq "tasks/e2e-artifacts/abc1234/AC-2.png" "$LAYOUT" "layout: artifact_path spells the PNG location"
+
 # --log reads another file; a missing log is an error, not a silent pass.
 mv "$SANDBOX/tasks/e2e-log.md" "$SANDBOX/other-log.md"
 run_check --log other-log.md

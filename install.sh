@@ -555,14 +555,17 @@ fi
 
 # ── 6b. Pinned @playwright/cli + Chromium (optional) ─────────────────────────
 # Visual e2e evidence drives a real browser through playwright-cli. The package is
-# 0.x, so it is pinned (a minor bump can rename commands) — keep this in step with
-# `pinned_version` in .claude/browsers/playwright-cli.md. Optional like graphify:
-# no npm, or a failed download, prints a NOTE and never changes the exit code, and
-# there is no prompt. The npm install is skipped when the pinned version is already
+# 0.x, so it is pinned (a minor bump can rename commands). The pin lives only in
+# `pinned_version` in .claude/browsers/playwright-cli.md and is read from there. Optional
+# like graphify: no npm, no readable pin, or a failed download prints a NOTE and never
+# changes the exit code, and there is no prompt. The npm install is skipped when the pinned version is already
 # present; `install-browser` still runs because it is idempotent upstream.
-PLAYWRIGHT_CLI_VERSION="0.1.22"
-step "Installing @playwright/cli $PLAYWRIGHT_CLI_VERSION + Chromium (optional)"
-if ! command -v npm > /dev/null 2>&1; then
+PLAYWRIGHT_RUNBOOK="$REPO_DIR/.claude/browsers/playwright-cli.md"
+PLAYWRIGHT_CLI_VERSION="$(sed -n 's/^pinned_version: *"\(.*\)"[[:space:]]*$/\1/p' "$PLAYWRIGHT_RUNBOOK" 2> /dev/null | head -n 1 || true)"
+step "Installing @playwright/cli ${PLAYWRIGHT_CLI_VERSION:-(unpinned)} + Chromium (optional)"
+if [ -z "$PLAYWRIGHT_CLI_VERSION" ]; then
+  echo "  NOTE: no pinned_version in $PLAYWRIGHT_RUNBOOK — optional @playwright/cli install skipped."
+elif ! command -v npm > /dev/null 2>&1; then
   echo "  NOTE: npm not found — optional @playwright/cli install skipped."
   echo "  Install with: npm install -g @playwright/cli@$PLAYWRIGHT_CLI_VERSION && playwright-cli install-browser chromium"
 else
