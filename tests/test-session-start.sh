@@ -753,6 +753,8 @@ write_records "$(record user 1.0.1 "$SHA_C")"
 assert_silent_stale "$tmpK/synced" "Stale plugin: record equal to every known template sha is silent"
 write_records '{"scope": "user", "installPath": "C:\\x", "version": "1.0.0"}'
 assert_silent_stale "$tmpK/plain" "Stale plugin: a record with no gitCommitSha is silent"
+write_records "$(record user 1.0.0 --output=x)"
+assert_silent_stale "$tmpK/plain" "Stale plugin: a non-hex gitCommitSha never reaches git argv"
 rm -f "$RECORDS"
 assert_silent_stale "$tmpK/plain" "Stale plugin: no installed_plugins.json is silent"
 printf '{"version": 2, "plugins": {"jplugin@jplugin-agentic-development": [{"scope": "user", "gitCommitSha": "%s"' "$SHA_A" > "$RECORDS"

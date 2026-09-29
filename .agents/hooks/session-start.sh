@@ -479,7 +479,8 @@ relevant_records() {
         }
         function norm(p) { gsub(/\\+/, "/", p); sub(/\/+$/, "", p); return tolower(p) }
         {
-          sha = field("gitCommitSha"); if (sha == "") next
+          # Hex only: the sha reaches git argv, where a leading - would be an option.
+          sha = field("gitCommitSha"); if (sha !~ /^[0-9a-fA-F]+$/) next
           scope = field("scope"); if (scope == "") scope = "user"
           if (scope != "user" && norm(field("projectPath")) != norm(ENVIRON["STALE_HERE"])) next
           print scope, sha, field("version")
