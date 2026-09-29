@@ -175,7 +175,7 @@ bump `version` in the same commit as any skill change every synced project shoul
 that changes a skill without a bump leaves every install where it was ("already at the latest
 version"; specs/plugin-staleness-check.md § Why a bump is required).
 `tests/test-plugin-manifest.sh` fails a change to the plugin payload that does not bump it
-(`.agents/skills`, `.agents/hooks`, `hooks` against the merge base with `origin/master`). The
+(the paths its `PAYLOAD_PATHS` names, against the merge base with `origin/master`). The
 session-start banner says when an installed copy is behind the template and prints the
 commands that bring it current; it never runs them. `/sync` merges the marketplace declaration into the project; Claude Code caches the new
 release on the project's next open. A marketplace `ref` is never written — it would have to

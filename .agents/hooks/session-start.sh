@@ -459,7 +459,8 @@ fi
 # /tidy installed reads the same records for presence and content, not age (D10).
 # sed/tr rather than jq, for the reason json_string_field gives (D9). Adopting
 # repositories only, like the Managed Block Check (D11). Silent when current.
-MARKETPLACE_CLONE="$PLUGINS_DIR/marketplaces/jplugin-agentic-development"
+MARKETPLACE_NAME="${JPLUGIN_ID#*@}"
+MARKETPLACE_CLONE="$PLUGINS_DIR/marketplaces/$MARKETPLACE_NAME"
 
 # relevant_records — "<scope> <sha> <version>" for every jplugin record that
 # loads in this directory and carries a gitCommitSha: user scope, plus project
@@ -503,7 +504,7 @@ template_ref() {  # template_ref <remote> -> its template branch ref, as recorde
   branch=$(git symbolic-ref -q --short "refs/remotes/$1/HEAD" 2>/dev/null || true)
   branch=${branch#"$1"/}
   if [ -z "$branch" ] && [ "$1" = workflow ]; then
-    branch=$(sed -n '2p' "$WORKFLOW_CHECK_CACHE" 2>/dev/null || true)
+    branch=${WORKFLOW_BRANCH:-}  # set by the drift check above
   fi
   for branch in $branch master main; do
     if git rev-parse -q --verify "refs/remotes/$1/$branch^{commit}" >/dev/null 2>&1; then
@@ -517,7 +518,7 @@ template_ref() {  # template_ref <remote> -> its template branch ref, as recorde
 template_candidates() {  # lines of "<ref|clone> <sha> <version>"
   local remote ref sha
   for remote in $(git config --get-regexp '^remote\..*\.url$' 2>/dev/null \
-      | awk '$2 ~ /\/jplugin-agentic-development(\.git)?$/ { sub(/^remote\./, "", $1); sub(/\.url$/, "", $1); print $1 }'); do
+      | awk -v name="$MARKETPLACE_NAME" '$2 ~ ("/" name "(\\.git)?$") { sub(/^remote\./, "", $1); sub(/\.url$/, "", $1); print $1 }'); do
     ref=$(template_ref "$remote") || continue
     # MSYS_NO_PATHCONV: Git Bash rewrites a `<ref>:<path>` argument as a path list.
     printf 'ref %s %s\n' "$(git rev-parse "$ref")" \
@@ -577,7 +578,7 @@ if [ "$ADOPTING" = "1" ] && [ -f "$INSTALLED_PLUGINS" ]; then
   if [ -n "$STALE_HEADLINES" ]; then
     echo ""
     printf '%s' "$STALE_HEADLINES"
-    echo "    claude plugin marketplace update jplugin-agentic-development"
+    echo "    claude plugin marketplace update $MARKETPLACE_NAME"
     printf '%s' "$STALE_COMMANDS"
     if [ -n "$STALE_NOT_BUMPED" ]; then
       echo "    plugin.json version $STALE_NOT_BUMPED was not bumped — 'claude plugin update' is a no-op (README § Releasing skills)."

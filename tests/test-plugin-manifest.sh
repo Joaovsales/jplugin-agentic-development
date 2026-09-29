@@ -157,7 +157,9 @@ assert_eq "1" "$(grep -cF 'is typed `/jplugin:name`' AGENTS.md)" \
 # The base is $PLUGIN_VERSION_BASE, else HEAD^1 when HEAD is already on
 # origin/master (a push to master), else the merge base with origin/master (a
 # pull_request merge checkout, or a local branch). CI checks out fetch-depth 0.
-PAYLOAD_PATHS=(.agents/skills .agents/hooks hooks)
+# Every directory a skill or hook reads through ${CLAUDE_PLUGIN_ROOT} is payload;
+# the coverage assertion after the fixtures keeps this list from falling behind.
+PAYLOAD_PATHS=(.agents/skills .agents/hooks .agents/references hooks)
 version_base() {  # version_base -> the commit this tree's version is compared with
   if [ -n "${PLUGIN_VERSION_BASE:-}" ]; then printf '%s\n' "$PLUGIN_VERSION_BASE"; return 0; fi
   git rev-parse -q --verify 'refs/remotes/origin/master^{commit}' >/dev/null 2>&1 || return 1
@@ -221,6 +223,19 @@ else
   assert_eq "created" "failed" "version guard: the fixture repository could not be created"
 fi
 rm -rf "$F"
+
+RUNTIME_READS="$(git grep -hoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)?' -- "${PAYLOAD_PATHS[@]}" 2>/dev/null \
+  | sed -E 's#^\$\{?CLAUDE_PLUGIN_ROOT\}?/##' | sort -u)"
+assert_contains "$RUNTIME_READS" ".agents/references" "version guard: the runtime-read scan finds the plugin-root reads (non-vacuity)"
+UNCOVERED=""
+for read_path in $RUNTIME_READS; do
+  covered=no
+  for payload in "${PAYLOAD_PATHS[@]}"; do
+    case "$read_path/" in "$payload"/*) covered=yes ;; esac
+  done
+  if [ "$covered" = no ]; then UNCOVERED="$UNCOVERED $read_path"; fi
+done
+assert_eq "" "$UNCOVERED" "version guard: every \${CLAUDE_PLUGIN_ROOT} read lies under PAYLOAD_PATHS"
 
 REPO_VERDICT="$(version_verdict)"
 case "$REPO_VERDICT" in skip:*) printf '  note %s\n' "version guard skipped on this checkout — $REPO_VERDICT" ;; esac
