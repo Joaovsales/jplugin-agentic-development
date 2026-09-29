@@ -999,6 +999,20 @@ assert_file_contains "$AUTO_PUSH_SKILL" "--approve" \
 assert_file_contains "$AUTO_PUSH_SKILL" "fresh session" \
   "pipelines: auto-push names the fresh-session rule it is excepted from"
 
+# specs/make-it-simpler.md AC11: the third named exception owns its overrides
+# the way /yolo Phase A does, and AGENTS.md names it beside the other two.
+SIMPLER_SKILL=.agents/skills/make-it-simpler/SKILL.md
+assert_file_contains "$SIMPLER_SKILL" '| `/plan` Step 1 — Interview |' \
+  "pipelines: make-it-simpler overrides /plan Step 1"
+assert_file_matches "$SIMPLER_SKILL" '^\| `/plan` Step 6 — Hand over \| no build prompt is printed; `/build` runs in place' \
+  "pipelines: make-it-simpler's Step 6 row prints no prompt and builds in place"
+assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — filing \| no `/slice --file`.*slice headers are not claimed' \
+  "pipelines: make-it-simpler's /build pre-flight row files no slices and claims no header"
+assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
+  "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
+assert_prose_contains AGENTS.md '`/yolo` (unattended) and `/make-it-simpler` (one simplification sized to one review) are the three named exceptions that build in the planning session' \
+  "pipelines: AGENTS.md's named-exceptions sentence names /make-it-simpler"
+
 # --- design-planning: /system-design-planning interviews and hands off instead of filing ---
 # specs/plan-slices-and-handover.md AC10. Step 1 reads a settled § Decisions
 # tree instead of re-asking; the new §2.5 runs the mandatory /grilling
