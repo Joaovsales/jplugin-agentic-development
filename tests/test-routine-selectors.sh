@@ -911,7 +911,7 @@ assert_eq "$wf_fix_out" "$wf_hash_out" \
 F_WF_CLOSED="$(new_fixture)"
 write_config "$F_WF_CLOSED" <<'EOF'
 EOF
-write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation tech-debt now next in-progress
+write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation simplify tech-debt now next in-progress
 cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
 [{"number":31,"title":"Long since fixed","state":"CLOSED","url":"https://github.com/o/r/issues/31",
   "labels":[{"name":"bug"}],"assignees":[],
@@ -966,7 +966,7 @@ assert_contains "$wf_outage_out" "COULD NOT RUN" \
 F_WF_TRUNC="$(new_fixture)"
 write_config "$F_WF_TRUNC" <<'EOF'
 EOF
-write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation tech-debt now next in-progress
+write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation simplify tech-debt now next in-progress
 "$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'TRUNC_PY'
 import io, json, sys
 issues = [
