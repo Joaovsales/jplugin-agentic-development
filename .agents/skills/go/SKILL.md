@@ -78,7 +78,8 @@ routed around.
 the human wants back: a goal that asks a question and no change is
 `investigate` even when it pastes error text, and a goal that asks for the
 error to go away is `fix`. Among the change lanes, `fix` outranks `perf`,
-`perf` outranks `refactor`, and anything with a defect cue outranks `improve`.
+`perf` outranks `simplify`, `simplify` outranks `refactor`, and anything with a
+defect cue outranks `improve`.
 `plan` is picked only when the goal asks for a spec or a decision and no
 implementation. `none` is the fallback when nothing matches or the goal is too
 large or unclear to be one lane. `reason:` names the tie it broke.

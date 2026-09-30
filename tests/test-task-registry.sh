@@ -91,7 +91,7 @@ install_gh_mock() {
   chmod +x "$d/bin/gh"
   cat > "$d/ghdata/labels.json" <<'EOF'
 [{"name":"bug"},{"name":"enhancement"},{"name":"design-decision"},{"name":"question"},
- {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},
+ {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},{"name":"simplify"},
  {"name":"area/render"},{"name":"area/color"}]
 EOF
   cat > "$d/ghdata/issues.json" <<'EOF'
@@ -701,7 +701,7 @@ assert_contains "$sel_gh_unauth" "gh is unavailable or unauthenticated" \
 # before the repository resolution under test is ever exercised.
 cat > "$F_SEL_GH/ghdata/labels.json" <<'EOF'
 [{"name":"bug"},{"name":"enhancement"},{"name":"design-decision"},{"name":"question"},
- {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},
+ {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},{"name":"simplify"},
  {"name":"area/render"},{"name":"area/color"},
  {"name":"in-progress"},{"name":"needs-investigation"}]
 EOF

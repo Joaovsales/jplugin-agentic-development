@@ -160,6 +160,11 @@ for ref in spec-reconcile closure-actions routines; do
     "Budget: /wrap-up-session links references/$ref.md"
 done
 
+SIMPLER=.agents/skills/make-it-simpler/SKILL.md
+simpler_lines="$(grep -c '' "$SIMPLER")"
+assert_eq "yes" "$([ "$simpler_lines" -gt 50 ] && [ "$simpler_lines" -le 150 ] && echo yes || echo "no ($simpler_lines lines)")" \
+  "Budget: /make-it-simpler SKILL.md is at most 150 lines — it passes its own lens (D19)"
+
 # --- scaffold seeds -----------------------------------------------------------
 assert_eq "@AGENTS.md" "$(tr -d '\r' < project-template/CLAUDE.md)" \
   "Budget: project-template/CLAUDE.md is the same pointer"

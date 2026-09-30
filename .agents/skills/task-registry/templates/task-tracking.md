@@ -89,7 +89,11 @@ escalation_label = needs-investigation
 ; not canonical kinds. Every label ranked here must be selected by exactly one
 ; routine below, and every label a routine selects must be ranked here — the two
 ; sets are checked against each other and a mismatch is refused.
-kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
+; Upgrading from a release without `simplify`: a project that declares
+; kind_precedence, [routines.selectors] or [routines.skills] adds `simplify`
+; here ahead of `tech-debt`, `simplify = simplify` to the selectors and the
+; simplify chain to the skills — load_config refuses the mismatch until then.
+kind_precedence = bug, design-decision, simplify, tech-debt, enhancement, documentation
 
 ; Routine -> the labels it selects. Declared entries REPLACE this default rather
 ; than layering over it, so renaming your vocabulary does not leave the English
@@ -105,6 +109,7 @@ kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
 plan = design-decision
 fix = bug, tech-debt
 improve = enhancement, documentation
+simplify = simplify
 
 ; Routine -> the ordered skills it runs, once selection has told it WHICH issue.
 ; Like [routines.selectors] and unlike [labels.kind], declared entries REPLACE
@@ -132,6 +137,7 @@ improve = enhancement, documentation
 plan = /plan, /wrap-up-session
 fix = /debug, /build, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
+simplify = /make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session
 
 ; ---------------------------------------------------------------------------

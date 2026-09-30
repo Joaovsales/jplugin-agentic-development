@@ -215,4 +215,21 @@ for caller in yolo auto-push; do
   done
 done
 
+# --- specs/make-it-simpler.md AC16, AC17: the simplify routine's wrap-up rules --
+r=.agents/skills/wrap-up-session/references/routines.md
+simplify_steps="$(awk 'index($0, "### `simplify` — steps") == 1 {f=1; next} f && /^### / {exit} f' "$r")"
+assert_contains "$simplify_steps" "simplify.md" "make-it-simpler AC16: the simplify steps section points to its lane file"
+assert_contains "$(printf '%s' "$simplify_steps" | tr -s '[:space:]' ' ')" "its **discovery precedes the spine**" \
+  "make-it-simpler AC16: the section states the discovery that precedes the spine"
+assert_file_matches "$r" '^\| `routine/simplify/<n>-<slug>` \| none \| conventional \| `Closes #N`' \
+  "make-it-simpler AC16: routine/simplify/<n>-<slug> is ready and closes its issue"
+assert_file_matches "$r" '^\| `routine/simplify/<YYYYMMDD>-record` \| none \|.*docs-only.*`Refs #N` per filed issue' \
+  "make-it-simpler AC16: the record branch is ready, docs-only, Refs #N per filed issue"
+terminal="$(awk '/^### Fix-escalation terminal/{f=1; next} f && /^### /{exit} f' "$r" | tr -s '[:space:]' ' ')"
+assert_contains "$terminal" "The \`simplify\` routine's **scope stop**" \
+  "make-it-simpler AC17: the Fix-escalation terminal names the simplify scope stop"
+assert_contains "$terminal" "it stops before any edit, non-zero" "make-it-simpler AC17: before any edit, non-zero"
+assert_contains "$terminal" "Open no PR, write no PR ledger, and do not run the terminal PR assertion" \
+  "make-it-simpler AC17: no PR, no PR ledger, no terminal PR assertion"
+
 finish

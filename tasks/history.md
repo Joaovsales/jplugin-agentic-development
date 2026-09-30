@@ -911,3 +911,9 @@ back vacuous and was repaired.
   them, and the two files were re-run green. WSL Ubuntu, clean clone at c1c3133 with a real `gh` on PATH: 44/44
   affected and 60/60 full.
 - Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md (WSL has no gh)
+
+### [2026-09-29] — /make-it-simpler and the simplify routine
+- Key changes: new skill `/make-it-simpler` (SKILL.md 131 lines, `scripts/signals.py` ranking seven signals deterministically and read-only, `references/lens.md`, `references/safe-moves.md`); new `simplify` consumer lane, ranked ahead of `tech-debt` in `kind_precedence` across config.py, the template, docs/task-tracking.md and routines.md; `CONTRACT_ROUTINES`; routines.md steps section, two branch rows and the scope stop; `/go` precedence `fix` > `perf` > `simplify` > `refactor`; AGENTS.md names three in-session exceptions. Nine slices filed (#212–#220).
+- Quality gate: Phases 1–3 inline (a silent empty ranking when git fails, now exit 2; a 5-parameter function). Phase 4 dispatched, verdict HOLD. Fixed: ranking from a subdirectory leaked fixtures (now root-relative); the signal names now live only in one DETECTORS map; lens values are pinned; headings are names only; the PR-body contract has one home. Four advisory items stay unresolved.
+- Baseline (Windows): full suite on 76d1f97 had 7/60 files red. The affected run was 6/40 red, all matching the baseline by name. WSL Ubuntu at 13e56ec found 11 real failures hidden inside baseline files (label fixtures without `simplify`); after bcd2562: 40/40 affected and 61/61 full.
+- Learnings captured: tasks/solutions/process/a-new-default-selector-label-must-reach-every-github-label-fixture.md
