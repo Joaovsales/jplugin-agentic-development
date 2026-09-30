@@ -19,6 +19,10 @@ Sub-agent delegations follow the Model Routing table in `/build` (planner tier f
   **planner floor**: pass the planner alias if the session model is below planner tier.
   See `.agents/references/model-routing.md`.
 - **Pi** — no per-call model params; routing resolves from `subagents.agentOverrides` (requires the `pi-subagents` extension). Use `scout` for codebase exploration.
+- **Codex** — use the managed `explorer` role for read-only codebase
+  exploration and the managed `planner` role for planning. Resolve `critic`'s
+  planner floor against the parent tier before dispatch; inherit when the
+  parent meets the floor. The provider mapping lives in `config/agent-policy.toml`.
 - The planning phase requires the strongest reasoning model for architecture decisions
 
 ## Steps

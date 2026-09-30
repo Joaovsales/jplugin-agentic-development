@@ -12,6 +12,10 @@ import tempfile
 from pathlib import Path
 from typing import NoReturn, Optional
 
+from agent_policy import PolicyError, load_policy
+from agent_policy.codex import EXTRA_AGENTS, render_agent
+from agent_policy.install import apply, describe, plan_agent, plan_config
+
 SLUG = "jplugin-agentic-development"
 MANAGED = f"# {SLUG}:managed"
 # Files written before the repository rename carry the old slug in the same
@@ -98,24 +102,44 @@ def parse_agent(path: Path) -> tuple[str, str, str]:
     return fields["name"], fields["description"], body
 
 
-def render_agents(source_dir: Path, destination_dir: Path) -> None:
-    destination_dir.mkdir(parents=True, exist_ok=True)
+def _legacy_agent(name: str, description: str, instructions: str) -> str:
+    fields = {"name": name, "description": description, "developer_instructions": instructions}
+    return "".join(f"{key} = {json.dumps(value, ensure_ascii=False)}\n" for key, value in fields.items())
+
+
+def render_agents(source_dir: Path, destination_dir: Path, config: Optional[Path] = None,
+                  preview: bool = False, adopt_legacy: bool = False) -> None:
+    try:
+        policy = load_policy()
+    except PolicyError as exc:
+        fail(str(exc))
+    agents = {}
     for source in sorted(source_dir.glob("*.md")):
         if source.name == "README.md":
             continue
         name, description, instructions = parse_agent(source)
-        destination = destination_dir / f"{source.stem}.toml"
-        existing = destination.read_text(encoding="utf-8") if destination.exists() else ""
-        if destination.exists() and MANAGED not in existing and LEGACY_MANAGED not in existing:
-            print(f"kept personal agent: {destination}")
-            continue
-        content = (
-            f"{MANAGED}\n"
-            f"name = {json.dumps(name, ensure_ascii=False)}\n"
-            f"description = {json.dumps(description, ensure_ascii=False)}\n"
-            f"developer_instructions = {json.dumps(instructions, ensure_ascii=False)}\n"
-        )
-        write_text(destination, content)
+        agents[name] = (description, instructions, None)
+    agents.update({name: (*details, None) for name, details in EXTRA_AGENTS.items()})
+    role_tiers = {role["name"]: role["tier"] for role in policy["roles"]}
+    for lane in policy["lanes"]:
+        if lane.get("tier") == "Ceiling" and role_tiers[lane["role"]] != "Ceiling":
+            agents[lane["name"]] = (*agents[lane["role"]][:2], lane["name"])
+    plan = []
+    for name, (description, instructions, lane) in sorted(agents.items()):
+        destination = destination_dir / f"{name}.toml"
+        content = render_agent(policy, name, description, instructions, MANAGED, lane)
+        legacy = None if name in EXTRA_AGENTS or lane else _legacy_agent(name, description, instructions)
+        plan.append(plan_agent(destination, content, legacy, (MANAGED, LEGACY_MANAGED)))
+    if config is not None:
+        plan.append(plan_config(config, policy["limits"]["codex"]["max_children"]))
+    if preview:
+        for line in describe(plan):
+            print(line)
+        return
+    try:
+        apply(plan, adopt_legacy)
+    except (OSError, ValueError) as exc:
+        fail(str(exc))
 
 
 def _is_legacy_adapter(hook: object) -> bool:
@@ -185,6 +209,9 @@ def merge_hooks(destination: Path, commands: list[str]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--agents", dest="agents_args", nargs=2, metavar=("SOURCE", "DEST"))
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--preview", action="store_true")
+    parser.add_argument("--adopt-legacy", action="store_true")
     parser.add_argument(
         "--merge-hooks",
         dest="hooks_args",
@@ -196,7 +223,8 @@ def main() -> None:
     if sum(value is not None for value in selected) != 1:
         parser.error("choose exactly one rendering operation")
     if args.agents_args:
-        render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]))
+        render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]), args.config,
+                      args.preview, args.adopt_legacy)
     else:
         merge_hooks(Path(args.hooks_args[0]), args.hooks_args[1:])
 

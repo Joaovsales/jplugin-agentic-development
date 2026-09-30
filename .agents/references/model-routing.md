@@ -2,11 +2,12 @@
 
 Which tier every sub-agent runs on, what Ceiling and a floor mean, the persona table
 with its Model column, and the dispatch rules per harness. Concrete provider model IDs
-live in `PI_SETUP.md` § Sub-Agent Routing, never here.
+live in `PI_SETUP.md` § Sub-Agent Routing for Pi and `config/agent-policy.toml` for
+Codex, never here.
 
 ## Tiers
 
-Canonical tiers. Concrete provider model IDs are deliberately **not** repeated here — `PI_SETUP.md` § Sub-Agent Routing is their single source, so a model release updates one file instead of three:
+Canonical tiers. Concrete provider model IDs are deliberately **not** repeated here — `PI_SETUP.md` § Sub-Agent Routing owns Pi's mapping and `config/agent-policy.toml` owns Codex's mapping:
 
 | Tier | Used for | Claude Code |
 |------|----------|-------------|
@@ -82,6 +83,20 @@ tier in *Tiers* above — on Claude Code pass `model` explicitly for the
 Planner, Builder, Reviewer, and Scout tiers, and pass **nothing** for *ceiling*
 agents so they inherit the session model; on Pi, never pass per-call model params
 (agentOverrides resolves them).
+
+### Codex dispatch
+
+The policy in `config/agent-policy.toml` maps lanes to named roles and resolves
+their tier, model, effort, and permissions. Spawn the managed `explorer` role for
+read-only code reconnaissance (`/how`), and the managed `scout` role for
+MCP-backed investigation (`/why`). The latter receives read-only task instructions
+while retaining MCP access. Use the policy's Ceiling role for explanation and
+synthesis. Keep concrete Codex model IDs in the policy, not skill prose.
+
+Named Scout roles carry their own model and effort. Do not set a global model default
+or global reasoning-effort default to route them: it can silently cap a Ceiling role that should inherit
+the parent model. Check the effective route and report project or personal
+configuration that shadows a managed role before relying on its tier.
 
 ## Rules
 

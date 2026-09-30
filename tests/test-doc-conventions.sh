@@ -1579,4 +1579,14 @@ cite_count="$(printf '%s\n' "$cite_report" | sed -n 's/^COUNT //p')"
 assert_eq "yes" "$([ "${cite_count:-0}" -ge 8 ] && echo yes || echo "no (${cite_count:-0})")" \
   "wrap-up phases: the scan saw the section citations it exists to check (non-vacuous)"
 
+# Codex installation and route inspection are discoverable without touching
+# personal configuration. The doctor command is implemented in the next slice.
+for command in 'bash scripts/install-codex.sh --preview' \
+               'bash scripts/install-codex.sh --adopt-legacy' \
+               'python3 scripts/agent-policy explain --harness codex' \
+               'python3 scripts/agent-policy doctor --harness codex'; do
+  assert_file_contains README.md "$command" \
+    "Codex guide: README documents $command"
+done
+
 finish

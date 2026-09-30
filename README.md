@@ -24,17 +24,36 @@ From the workflow repository, install the shared user-level configuration:
 ```bash
 git clone <this-repo-url> ~/jplugin-agentic-development
 cd ~/jplugin-agentic-development
+bash scripts/install-codex.sh --preview
 bash scripts/install-codex.sh
 ```
 
 The adapter installs skills in `~/.agents/skills/`, converts canonical Markdown
 agents into `~/.codex/agents/*.toml`, and merges optional lifecycle hooks into
-`~/.codex/hooks.json`. It writes no `~/.codex/AGENTS.md`: the shared rules reach
+`~/.codex/hooks.json`. The preview reports planned changes without writing.
+Named Scout agents get their model and effort from `config/agent-policy.toml`;
+the installer also merges a three-child concurrency default into Codex config
+while retaining an existing user override. It writes no `~/.codex/AGENTS.md`: the shared rules reach
 Codex through the managed block `/sync` writes into each project's `AGENTS.md`
 (a block an earlier adapter rendered into `~/.codex/AGENTS.md` is offered for
 removal by `install.sh`). Existing personal content is preserved and rerunning
 the command is idempotent. Review the hook commands with Codex's `/hooks` command
 before enabling them.
+
+If preview identifies an exact older generated agent file, adopt it explicitly
+after reviewing the plan. Adoption backs up the old file first; personal or
+ambiguous agent files are preserved.
+
+```bash
+bash scripts/install-codex.sh --adopt-legacy
+python3 scripts/agent-policy explain --harness codex --lane how-explore
+python3 scripts/agent-policy doctor --harness codex
+```
+
+`explain` shows the policy route for a lane or role. `doctor` inspects effective
+Codex routing and reports configuration layers that are unavailable or shadow
+managed roles. A global model or reasoning-effort default can cap Ceiling roles, so use named Scout
+roles rather than setting one for the entire session.
 
 For a non-default Codex directory, set `CODEX_HOME` before running the script.
 For an existing project, run `bash ~/jplugin-agentic-development/scripts/scaffold-project.sh`

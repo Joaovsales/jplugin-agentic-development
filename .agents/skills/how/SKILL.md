@@ -10,6 +10,9 @@ harness: universal
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
 Each spawn below names a tier from `.agents/references/model-routing.md`. Explorers are Scout tier. The explainer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params; `subagents.agentOverrides` resolves them.
+On Codex, use the named roles from `config/agent-policy.toml`; the policy owns
+their model and effort settings. Check the effective route if a local or project
+configuration shadows a managed role.
 
 ## Step 1. Assess Complexity
 
@@ -25,6 +28,7 @@ When in doubt, take the simple path.
 Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem. Spawn all explorers in a single message:
 
 - Scout tier, read-only: the `Explore` agent with `model: "haiku"` on Claude Code, the `scout` builtin on Pi
+- On Codex, spawn the managed `explorer` role for read-only code reconnaissance.
 
 Each explorer gets the prompt in `references/explorer-prompt.md` with its angle filled in. Then go to Step 3.
 
@@ -33,6 +37,7 @@ Each explorer gets the prompt in `references/explorer-prompt.md` with its angle 
 Spawn one sub-agent that explores and explains in one pass:
 
 - Ceiling tier, read-only: the `general-purpose` agent on Claude Code, and pass no `model`. Its prompt forbids edits
+- On Codex, spawn the managed `code-reviewer` role as the Ceiling explainer; its prompt forbids edits.
 
 Build its prompt from `references/explainer-prompt.md` without the explorer-findings section. Go to Step 4.
 
@@ -41,6 +46,7 @@ Build its prompt from `references/explainer-prompt.md` without the explorer-find
 Once all explorers have returned, spawn one sub-agent to synthesize their findings into one explanation:
 
 - Ceiling tier, read-only: the `general-purpose` agent on Claude Code, and pass no `model`. Its prompt forbids edits
+- On Codex, spawn the managed `code-reviewer` role as the Ceiling explainer; its prompt forbids edits.
 
 Build its prompt from `references/explainer-prompt.md` with every explorer's findings filled in.
 
