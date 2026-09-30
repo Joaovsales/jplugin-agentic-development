@@ -104,12 +104,12 @@ PY
 # DEFAULT_SELECTORS and kind_precedence and never touches [labels.kind].
 assert_contains "$defaults" "domains-equal: True" \
   "AC12: the chain's domain and the selector union are the same set"
-assert_contains "$defaults" "chain: bug,design-decision,tech-debt,enhancement,documentation" \
+assert_contains "$defaults" "chain: bug,design-decision,simplify,tech-debt,enhancement,documentation" \
   "AC12: the shipped precedence order is the one the contract states"
-assert_contains "$defaults" "selector-union: bug,design-decision,documentation,enhancement,tech-debt" \
+assert_contains "$defaults" "selector-union: bug,design-decision,documentation,enhancement,simplify,tech-debt" \
   "AC12: the shipped default selectors cover every label in the precedence chain"
-assert_contains "$defaults" "routines: fix,improve,plan" \
-  "AC12: only the three ACTIVE routines ship a selector -- build is deferred"
+assert_contains "$defaults" "routines: fix,improve,plan,simplify" \
+  "AC12: only the four ACTIVE consumer routines ship a selector -- build is deferred"
 assert_not_contains "$defaults" "routines: build" \
   "AC12: build ships no selector, so it cannot fail this gate"
 assert_contains "$defaults" "claim: in-progress" \
@@ -139,6 +139,8 @@ cases = {
     "two-kinds": ("documentation", "tech-debt"),
     "bug-beats-decision": ("design-decision", "bug"),
     "debt-beats-enhancement": ("enhancement", "tech-debt"),
+    "simplify-beats-debt": ("tech-debt", "simplify"),
+    "decision-beats-simplify": ("simplify", "design-decision"),
     "documentation": ("documentation",),
     "priority-only": ("now", "next"),
     "no-kind": ("area/render",),
@@ -158,6 +160,13 @@ assert_contains "$picks" "two-kinds=fix" \
   "Precedence: tech-debt outranks documentation on a two-kind issue"
 assert_contains "$picks" "bug-beats-decision=fix" \
   "Precedence: bug outranks design-decision"
+# specs/make-it-simpler.md AC18 (D17): an adopted architect task keeps its
+# tech-debt label, and precedence hands it to simplify, not fix; a significant
+# candidate filed as a decision belongs to plan.
+assert_contains "$picks" "simplify-beats-debt=simplify" \
+  "Precedence: simplify outranks tech-debt"
+assert_contains "$picks" "decision-beats-simplify=plan" \
+  "Precedence: design-decision outranks simplify"
 assert_contains "$picks" "debt-beats-enhancement=fix" \
   "AC12: tech-debt selects and outranks enhancement -- with no [labels.kind] entry"
 assert_contains "$picks" "priority-only=None" \
@@ -213,7 +222,7 @@ assert_contains "$custom" "stale-default: None" \
 F_OK="$(new_fixture)"
 write_config "$F_OK" <<'EOF'
 EOF
-write_labels "$F_OK" bug enhancement design-decision tech-debt documentation now next in-progress
+write_labels "$F_OK" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 ok_out="$(run_selectors "$F_OK")"; ok_code=$?
 assert_eq "0" "$ok_code" "AC12: a repository carrying every routine label exits 0"
 assert_contains "$ok_out" "design-decision" "AC12: the report names plan's selector"
@@ -241,7 +250,7 @@ assert_not_contains "$miss_verdict" "design-decision" \
 F_NOCLAIM="$(new_fixture)"
 write_config "$F_NOCLAIM" <<'EOF'
 EOF
-write_labels "$F_NOCLAIM" bug enhancement design-decision tech-debt documentation now next
+write_labels "$F_NOCLAIM" bug enhancement design-decision simplify tech-debt documentation now next
 noclaim_out="$(run_selectors "$F_NOCLAIM")"; noclaim_code=$?
 assert_eq "1" "$noclaim_code" \
   "AC12: a claim label absent upstream exits NON-ZERO even when every selector exists"
@@ -306,7 +315,7 @@ assert_contains "$dup_out" "bug" "AC12: the refusal names the contested label"
 F_SEL="$(new_fixture)"
 write_config "$F_SEL" <<'EOF'
 EOF
-write_labels "$F_SEL" bug enhancement design-decision tech-debt documentation now next in-progress
+write_labels "$F_SEL" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 cat > "$F_SEL/ghdata/issues.json" <<'EOF'
 [
  {"number":10,"title":"Crash on load","state":"OPEN","url":"https://github.com/o/r/issues/10",
@@ -365,7 +374,7 @@ assert_contains "$fix_out" "unclassified" \
 F_EMPTY="$(new_fixture)"
 write_config "$F_EMPTY" <<'EOF'
 EOF
-write_labels "$F_EMPTY" bug enhancement design-decision tech-debt documentation in-progress
+write_labels "$F_EMPTY" bug enhancement design-decision simplify tech-debt documentation in-progress
 printf '[]\n' > "$F_EMPTY/ghdata/issues.json"
 empty_out="$(run_select "$F_EMPTY" --routine fix)"; empty_code=$?
 assert_eq "0" "$empty_code" \
@@ -395,7 +404,7 @@ assert_contains "$unknown_out" "refactor" "AC12: the refusal names the invented 
 # Config's CONTRACT_ROUTINES is the catalogue's `routines` view, so the pin here
 # is that each consumer routine is a lane file that says so.
 contract_doc="$REPO/.agents/skills/wrap-up-session/references/routines.md"
-for routine in plan fix improve build; do
+for routine in plan fix improve simplify build; do
   assert_file_contains "$contract_doc" "$routine" \
     "AC8: the contract document defines the '$routine' routine"
   assert_file_contains "$REPO/.agents/skills/task-registry/lanes/$routine.md" \
@@ -569,7 +578,7 @@ run_claim() {
 F_CLAIM="$(new_fixture)"
 write_config "$F_CLAIM" <<'EOF'
 EOF
-write_labels "$F_CLAIM" bug enhancement design-decision tech-debt documentation now next in-progress
+write_labels "$F_CLAIM" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
 [
  {"number":42,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/42",
@@ -638,7 +647,7 @@ assert_eq "1" "$missing_code" "claim: an unknown issue exits non-zero"
 F_HELD="$(new_fixture)"
 write_config "$F_HELD" <<'EOF'
 EOF
-write_labels "$F_HELD" bug enhancement design-decision tech-debt documentation in-progress
+write_labels "$F_HELD" bug enhancement design-decision simplify tech-debt documentation in-progress
 cat > "$F_HELD/ghdata/issues.json" <<'EOF'
 [
  {"number":51,"title":"Needs investigation","state":"OPEN","url":"https://github.com/o/r/issues/51",
@@ -682,7 +691,7 @@ assert_eq "0" "$resumed_claim_code" \
 F_NO_HOLD_LABEL="$(new_fixture)"
 write_config "$F_NO_HOLD_LABEL" <<'EOF'
 EOF
-write_labels "$F_NO_HOLD_LABEL" bug enhancement design-decision tech-debt documentation in-progress
+write_labels "$F_NO_HOLD_LABEL" bug enhancement design-decision simplify tech-debt documentation in-progress
 "$PY" - "$F_NO_HOLD_LABEL/ghdata/labels.json" <<'PY'
 import json, pathlib, sys
 path = pathlib.Path(sys.argv[1])
@@ -712,7 +721,7 @@ assert_not_contains "$gap_out" "nothing to claim" \
 F_OLDGH="$(new_fixture)"
 write_config "$F_OLDGH" <<'EOF'
 EOF
-write_labels "$F_OLDGH" bug enhancement design-decision tech-debt documentation now next in-progress
+write_labels "$F_OLDGH" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 cat > "$F_OLDGH/ghdata/issues.json" <<'EOF'
 [
  {"number":21,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/21",
@@ -769,6 +778,8 @@ for tree in .agents; do
     "AC12: $tree template ships tech-debt as a routine selector"
   assert_contains "$selectors_block" "documentation" \
     "AC12: $tree template ships documentation as a routine selector"
+  assert_contains "$selectors_block" "simplify = simplify" \
+    "make-it-simpler AC14: $tree template ships simplify as a routine selector"
   # Directives only -- the section's own warning comment quotes `tech-debt = task`
   # as the thing not to do, and a raw grep cannot tell advice from configuration.
   kind_block="$(awk '/^\[labels.kind\]/{f=1;next} f&&/^\[/{exit} f' "$tmpl" \
@@ -900,7 +911,7 @@ assert_eq "$wf_fix_out" "$wf_hash_out" \
 F_WF_CLOSED="$(new_fixture)"
 write_config "$F_WF_CLOSED" <<'EOF'
 EOF
-write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation tech-debt now next in-progress
+write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation simplify tech-debt now next in-progress
 cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
 [{"number":31,"title":"Long since fixed","state":"CLOSED","url":"https://github.com/o/r/issues/31",
   "labels":[{"name":"bug"}],"assignees":[],
@@ -955,7 +966,7 @@ assert_contains "$wf_outage_out" "COULD NOT RUN" \
 F_WF_TRUNC="$(new_fixture)"
 write_config "$F_WF_TRUNC" <<'EOF'
 EOF
-write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation tech-debt now next in-progress
+write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation simplify tech-debt now next in-progress
 "$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'TRUNC_PY'
 import io, json, sys
 issues = [
@@ -1084,7 +1095,7 @@ new_order_fixture() {  # writes issues from stdin-ordered args
   local d; d="$(new_fixture)"
   write_config "$d" <<'EOF'
 EOF
-  write_labels "$d" bug enhancement design-decision tech-debt documentation now next in-progress
+  write_labels "$d" bug enhancement design-decision simplify tech-debt documentation now next in-progress
   printf '%s' "$1" > "$d/ghdata/issues.json"
   printf '%s' "$d"
 }

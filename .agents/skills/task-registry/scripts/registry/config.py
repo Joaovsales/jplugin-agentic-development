@@ -106,6 +106,7 @@ DEFAULT_PRIORITY_LABELS: Mapping[str, str] = {"now": "high", "next": "medium"}
 DEFAULT_KIND_PRECEDENCE: Tuple[str, ...] = (
     "bug",
     "design-decision",
+    "simplify",
     "tech-debt",
     "enhancement",
     "documentation",

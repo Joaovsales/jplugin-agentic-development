@@ -29,7 +29,7 @@ implementation_paths:
 > **v3, 2026-09-16 — superseded in part by `specs/lane-catalogue.md`.** The five
 > playbooks under `.agents/skills/go/lanes/`, the lane table in `SKILL.md`, the
 > `feature` lane and the *No `[lanes.skills]`* decision below are replaced by the
-> lane catalogue: twelve lane files under `.agents/skills/task-registry/lanes/`,
+> lane catalogue: one lane file per lane under `.agents/skills/task-registry/lanes/`,
 > one per lane, read by both routers, printed by `task-registry lanes`. `feature`
 > is folded into `improve`; `none` becomes a file. AC2 and AC3 below are
 > superseded by that spec's AC3 and AC7; the rest stand.
@@ -157,7 +157,8 @@ not invent a second one.
 the human wants back: a goal that asks a question and no change is
 `investigate` even when it pastes error text, and a goal that asks for the
 error to go away is `fix`. Among the change lanes, `fix` outranks `perf`,
-`perf` outranks `refactor`, and anything with a defect cue outranks `feature`.
+`perf` outranks `simplify`, `simplify` outranks `refactor`, and anything with a
+defect cue outranks `improve`.
 The `reason:` names the tie it broke.
 
 ### Playbooks are free markdown

@@ -1362,6 +1362,87 @@ Filed this sweep:
 - Pending: none in this plan
 - Carry-forward: README's flow still lists /security-scan as its own step before wrap-up, although /quality-gate phase 3 now runs it; specs outside the reconciliation candidates (lightpanda-browser-adoption, omc-practices-adoption, workflow-insights-improvements, wrap-up-gate-and-tdd-fold) still cite old wrap-up step numbers in historical context
 
+## Plan: make-it-simpler
+> Spec: specs/make-it-simpler.md
+
+### Slice 1/9 — Rank the seven signals
+- [x] Rank the seven signals <!-- task-id: plan.specs-make-it-simpler-md.rank-the-seven-signals --> — Slice 1/9: `signals.py rank` emits the seven signals over a temporary fixture repository, scored and sorted, determinis… ([#212](https://github.com/Joaovsales/jplugin-agentic-development/issues/212))
+  [x] TDD: seven-signal fixture repo; assert seven candidates with path, line, verbatim evidence, score formula, sort order (AC 1) -> signals.py rank, one detector per signal
+  [x] TDD: rank twice and diff; git status unchanged; empty repo prints candidates [] exit 0 (AC 2) -> sorted, pure output
+> Handover: landed 5c60fd1 — `signals.py rank` with seven detectors, `W = 5`, one candidate per (signal, path), fixture repo `tests/fixtures/make-it-simpler/seven/`
+> Do not re-derive: the expected order in the test is the score formula by hand; a mutation W=1 fails 2 assertions; byte-identical mirror files count as one home for `duplicate-rule`
+
+### Slice 2/9 — Signal boundaries
+- [x] Signal boundaries <!-- task-id: plan.specs-make-it-simpler-md.signal-boundaries --> — Slice 2/9: `--path` matching nothing exits 2; `tests/fixtures/` and `/tidy`-owned findings never surface ([#213](https://github.com/Joaovsales/jplugin-agentic-development/issues/213)) (blocked-by: plan.specs-make-it-simpler-md.rank-the-seven-signals)
+  [x] TDD: rank --path matching nothing exits 2 naming it; nothing under tests/fixtures/ ranks (AC 3) -> ls-files check and exclusion
+  [x] TDD: unresolved backticked path and retired-skill reference yield no candidate (AC 4) -> exclude /tidy-owned patterns
+> Handover: landed 6d06af0 — `--path` refusal, `tests/fixtures/` exclusion and the /tidy skips were built in slice 1's detectors; slice 2 added fixture `docs/f.md` and a nested `tests/fixtures/dup/` plus their pins
+> Do not re-derive: mutations (empty EXCLUDED_PREFIXES; an unresolved citation resolved) each fail AC 1 and AC 3 pins
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 3/9 — Lens references
+- [x] Lens references <!-- task-id: plan.specs-make-it-simpler-md.lens-references --> — Slice 3/9: `references/lens.md` (signals, `W`, exclusions) and `references/safe-moves.md` (five practices) ([#214](https://github.com/Joaovsales/jplugin-agentic-development/issues/214)) (blocked-by: plan.specs-make-it-simpler-md.signal-boundaries)
+  [x] TDD: lens.md names seven signals, W, the fixtures exclusion and nine /tidy checks (AC 5) -> write references/lens.md
+  [x] TDD: safe-moves.md states the five practices (AC 6) -> write references/safe-moves.md
+> Handover: landed 6d06af0 — `references/lens.md` (signals table, score, `W`, exclusions) and `references/safe-moves.md` (five numbered practices)
+> Do not re-derive: the lens test reads `SIGNALS` from signals.py by AST, so a new signal fails until lens.md defines it
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 4/9 — Skill body
+- [x] Skill body <!-- task-id: plan.specs-make-it-simpler-md.skill-body --> — Slice 4/9: `SKILL.md`: grammar, top-3 fields, significance citation, grilling seeds, safe-moves seeding, unattended seq… ([#215](https://github.com/Joaovsales/jplugin-agentic-development/issues/215)) (blocked-by: plan.specs-make-it-simpler-md.lens-references)
+  [x] TDD: frontmatter, <=150 lines, section order; README row (AC 7) -> write SKILL.md, render-skills-table
+  [x] TDD: cites the /system-design-planning bar, no restated list (AC 8) -> citation line
+  [x] TDD: grammar, top-3 fields, none-today, four seeds, safe-moves seeding (AC 9) -> interactive process
+  [x] TDD: unattended sequence, three ends, scope stop (AC 10) -> unattended process
+> Handover: landed 6d06af0 — SKILL.md (131 lines with slice 5's section), README row via render-skills-table.py, a ≤150 pin in test-instruction-budget.sh
+> Do not re-derive: citations into routines.md use the full `.agents/skills/wrap-up-session/references/routines.md` path so test-citations resolves them
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 5/9 — Pipeline overrides
+- [x] Pipeline overrides <!-- task-id: plan.specs-make-it-simpler-md.pipeline-overrides --> — Slice 5/9: `SKILL.md` owns the `/plan` Step 1, Step 6 and `/build` pre-flight filing overrides; `AGENTS.md` names the t… ([#216](https://github.com/Joaovsales/jplugin-agentic-development/issues/216)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+  [x] TDD: override table rows for /plan Step 1, Step 6 and /build pre-flight filing; fresh-session rule named; AGENTS.md names /make-it-simpler (AC 11) -> overrides + AGENTS.md sentence
+  [x] TDD: yolo, auto-push, task-registry.py and upsert.py unchanged against master (AC 12) -> surface check
+> Handover: landed 53fe5d8 — `### 7. Overrides` table in SKILL.md; AGENTS.md step 3 names three exceptions; pins in test-doc-conventions.sh § pipelines
+> Do not re-derive: `git diff --quiet master` over yolo, auto-push, task-registry.py and upsert.py is clean
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 6/9 — Register the simplify routine
+- [x] Register the simplify routine <!-- task-id: plan.specs-make-it-simpler-md.register-the-simplify-routine --> — Slice 6/9: Lane file; `kind_precedence`, selector and chain in `config.py`, the template and `docs/task-tracking.md`; t… ([#217](https://github.com/Joaovsales/jplugin-agentic-development/issues/217)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+  [x] TDD: task-registry lanes simplify: consumer, selects simplify, chain, step 5 PR-body text; catalogue counts (AC 13) -> lanes/simplify.md
+  [x] TDD: precedence, selector, chain in config.py, template, docs and routines.md block; selector test pins (AC 14) -> config edits
+  [x] TDD: routines.md table row, CONTRACT_ROUTINES, format/parse routine/simplify/12-trim-agents (AC 15) -> routine_branch.py + table row
+> Handover: landed 4b785c5 — lanes/simplify.md; `simplify` ranked after design-decision in config.py, docs, template (with the upgrade note) and routines.md; CONTRACT_ROUTINES; the routines table row
+> Do not re-derive: test-routine-selectors and test-task-registry fail the same 60 and 39 names as baseline on Windows (gh mock, #129) — the label-fixture pins need Linux CI
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+> Open: `task-registry selectors` upstream check names `simplify` missing on GitHub — the operator creates the label
+
+### Slice 7/9 — Routine wrap-up rules
+- [x] Routine wrap-up rules <!-- task-id: plan.specs-make-it-simpler-md.routine-wrap-up-rules --> — Slice 7/9: `routines.md` gains the `simplify` steps section, the two branch rows, and the scope stop in § *Fix-escalati… ([#218](https://github.com/Joaovsales/jplugin-agentic-development/issues/218)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: simplify steps section with pre-spine discovery; two branch rows (AC 16) -> routines.md sections
+  [x] TDD: Fix-escalation terminal names the simplify scope stop (AC 17) -> routines.md sentence
+> Handover: landed 4b785c5 (with slice 6 — shared routines.md hunks) — `### simplify — steps`, two branch rows, the scope stop under § Fix-escalation terminal
+> Do not re-derive: the branch rows live in § Draft and linkage, the table under § What the branch tells you (see the [AMBIGUITY] line)
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 8/9 — Selection precedence
+- [x] Selection precedence <!-- task-id: plan.specs-make-it-simpler-md.selection-precedence --> — Slice 8/9: Pins: `simplify`+`tech-debt` → `simplify`; `design-decision`+`simplify` → `plan` ([#219](https://github.com/Joaovsales/jplugin-agentic-development/issues/219)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: simplify+tech-debt selects simplify; design-decision+simplify selects plan (AC 18) -> selector test cases
+> Handover: landed 4b785c5 (with slice 6 — shared test file) — `simplify-beats-debt=simplify`, `decision-beats-simplify=plan` in select_routine cases
+> Do not re-derive: those two cases are pure Python and pass on Windows
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 9/9 — Go routing
+- [x] Go routing <!-- task-id: plan.specs-make-it-simpler-md.go-routing --> — Slice 9/9: `/go` states `fix` > `perf` > `simplify` > `refactor`, pinned ([#220](https://github.com/Joaovsales/jplugin-agentic-development/issues/220)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: go precedence sentence fix > perf > simplify > refactor pinned (AC 19) -> go/SKILL.md sentence
+> Handover: landed ebf3826 — /go precedence sentence `fix` > `perf` > `simplify` > `refactor`, pinned in test-go-lanes.sh
+> Do not re-derive: the pin is a static doc test; routing itself is not claimed
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+## Session Summary — 2026-09-29 [76d1f97..bcd2562]
+- Completed: `/make-it-simpler` built from specs/make-it-simpler.md, all nine slices (#212–#220): signals.py rank, lens and safe-moves references, SKILL.md with its overrides, the `simplify` consumer routine (lane, precedence, selector, chain, branch rows, scope stop), and /go precedence.
+- Pending: the GitHub `simplify` label (the operator creates it; `task-registry selectors` names it missing); the HOLD receipt f8a98438 needs a human approval before push.
+- Carry-forward: four advisory SHOULD-FIX items in the receipt: the `orphan-or-overlap` name before the first filing, a release note for downstream `kind_precedence` configs, no callee pointer in /plan and /build to named exceptions, and code-red-flag cues dominating the ranking on this repository (D24).
+
 ## Plan: plugin-staleness-check
 > Spec: specs/plugin-staleness-check.md
 

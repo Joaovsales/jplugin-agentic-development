@@ -120,7 +120,7 @@ An issue may carry more than one kind label (#95 in the pipeline repo carries
 `documentation` and `tech-debt`). Precedence is a fixed order, first match wins:
 
 ```
-bug > design-decision > tech-debt > enhancement > documentation
+bug > design-decision > simplify > tech-debt > enhancement > documentation
 ```
 
 **The chain orders provider label names — the left-hand keys of `[labels.kind]` —

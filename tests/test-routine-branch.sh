@@ -43,6 +43,12 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(parse("routine/improve/12-x"), ("improve", 12))
         self.assertEqual(parse("routine/build/3-x"), ("build", 3))
 
+    def test_simplify_formats_and_parses_back(self):
+        # specs/make-it-simpler.md AC15, and the record branch's run stamp (AC16).
+        self.assertEqual(fmt("simplify", 12, "trim-agents"), "routine/simplify/12-trim-agents")
+        self.assertEqual(parse("routine/simplify/12-trim-agents"), ("simplify", 12))
+        self.assertEqual(parse(fmt("simplify", 20260929, "record")), ("simplify", 20260929))
+
     def test_ac4_rejects_everything_outside_the_namespace_or_shape(self):
         # `fix/2024-refactor` is the reason the namespace exists: prefix-anchoring
         # on a bare routine name links a human branch to unrelated issue 2024.

@@ -88,10 +88,10 @@ print("janitor-chain:", " -> ".join(c.lane("janitor").chain))
 print("none-chain:", " -> ".join(c.lane("none").chain))
 PY
 )"
-assert_contains "$views" "names: architect,babysit,build,fix,improve,investigate,janitor,none,perf,plan,refactor,tidy" \
-  "AC1: the catalogue carries the twelve lanes, alphabetical"
-assert_contains "$views" "routines: architect,build,fix,improve,janitor,plan,tidy" \
-  "AC1: routines are the seven lanes with routine: set"
+assert_contains "$views" "names: architect,babysit,build,fix,improve,investigate,janitor,none,perf,plan,refactor,simplify,tidy" \
+  "AC1: the catalogue carries the thirteen lanes, alphabetical"
+assert_contains "$views" "routines: architect,build,fix,improve,janitor,plan,simplify,tidy" \
+  "AC1: routines are the eight lanes with routine: set"
 assert_contains "$views" "producers: architect,janitor,tidy" \
   "AC1: producers are the three routine: producer lanes"
 assert_contains "$views" "deferred: build" "AC1: build is the one deferred lane"
@@ -113,7 +113,7 @@ assert_not_contains "$views" "chain janitor" \
   "AC1: chains covers consumers only — the domain [routines.skills] has"
 assert_contains "$views" "janitor-chain: /sweep -> /wrap-up-session" \
   "AC1: a producer's chain is read from its lane"
-assert_contains "$views" "interactive: babysit,fix,improve,investigate,none,perf,plan,refactor" \
+assert_contains "$views" "interactive: babysit,fix,improve,investigate,none,perf,plan,refactor,simplify" \
   "AC1: interactive lanes are those with cues, alphabetical"
 assert_contains "$views" "investigate-chain: none" \
   "AC1: investigate has no chain — its /how, /why and /checkpoint steps are optional"
@@ -139,13 +139,13 @@ PY
 )"
 assert_contains "$lazy" "after-import: 0" \
   "AC1: importing registry.config reads no lane file"
-assert_contains "$lazy" "contract: architect,build,fix,improve,janitor,plan,tidy" \
+assert_contains "$lazy" "contract: architect,build,fix,improve,janitor,plan,simplify,tidy" \
   "AC1: CONTRACT_ROUTINES is the catalogue's routines view, one order everywhere"
 assert_contains "$lazy" "producers: architect,janitor,tidy" "AC1: PRODUCER_ROUTINES from the catalogue"
 assert_contains "$lazy" "deferred: build" "AC1: DEFERRED_ROUTINES from the catalogue"
-assert_contains "$lazy" "selectors: fix=bug,tech-debt;improve=enhancement,documentation;plan=design-decision" \
+assert_contains "$lazy" "selectors: fix=bug,tech-debt;improve=enhancement,documentation;plan=design-decision;simplify=simplify" \
   "AC1: DEFAULT_SELECTORS from the catalogue"
-assert_contains "$lazy" "skills: build=/build,/quality-gate,/wrap-up-session;fix=/debug,/build,/quality-gate,/wrap-up-session;improve=/plan,/build,/quality-gate,/wrap-up-session;plan=/plan,/wrap-up-session" \
+assert_contains "$lazy" "skills: build=/build,/quality-gate,/wrap-up-session;fix=/debug,/build,/quality-gate,/wrap-up-session;improve=/plan,/build,/quality-gate,/wrap-up-session;plan=/plan,/wrap-up-session;simplify=/make-it-simpler,/plan,/build,/quality-gate,/wrap-up-session" \
   "AC1: DEFAULT_ROUTINE_SKILLS from the catalogue"
 assert_contains "$lazy" "after-access: 1" "AC1: the catalogue is read once, on first access"
 
@@ -285,11 +285,11 @@ PY
 )" "subclass: True" "AC2: LaneCatalogueError is a ConfigError"
 
 # ============================================================================
-# 3. AC3 — twelve files in the canonical tree, every /skill token on disk
+# 3. AC3 — thirteen files in the canonical tree, every /skill token on disk
 # ============================================================================
 printf '\n-- files --\n'
 for tree in .agents; do
-  for lane in architect babysit build fix improve investigate janitor none perf plan refactor tidy; do
+  for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy; do
     f="$tree/skills/task-registry/lanes/$lane.md"
     assert_eq "present" "$([ -f "$f" ] && echo present || echo missing)" "AC3: $f exists"
     [ -f "$f" ] || continue
@@ -360,7 +360,7 @@ assert_file_contains "$template" "lanes/" \
 printf '\n-- lanes command --\n'
 table="$(run_cli lanes --repo "$REPO" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes exits 0 on this repository"
-for lane in architect babysit build fix improve investigate janitor none perf plan refactor tidy; do
+for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy; do
   assert_contains "$table" "$lane" "AC4: the table has a $lane row"
 done
 assert_contains "$table" "/debug -> /build -> /quality-gate -> /wrap-up-session" \
@@ -373,6 +373,18 @@ assert_eq "0" "$code" "AC4: lanes fix exits 0"
 assert_contains "$one" "1. \`/debug <ref>\`" "AC4: lanes fix prints the numbered steps verbatim"
 assert_contains "$one" "## Reply" "AC4: lanes fix prints the Reply section"
 assert_contains "$one" "chain:" "AC4: lanes fix prints the effective chain"
+
+# specs/make-it-simpler.md AC13 — the simplify consumer lane.
+one="$(run_cli lanes simplify --repo "$REPO" 2>&1)"; code=$?
+assert_eq "0" "$code" "make-it-simpler AC13: lanes simplify exits 0"
+assert_contains "$one" "/make-it-simpler -> /plan -> /build -> /quality-gate -> /wrap-up-session" \
+  "make-it-simpler AC13: simplify's chain"
+assert_contains "$one" "1. \`/make-it-simpler <ref>\`" "make-it-simpler AC13: step 1 takes <ref>"
+assert_contains "$one" "the PR body quotes the before-proof and the after-proof from the same commands, a \`Behavior changes:\` section (a list or \`none\`) and a \`Simplified:\` line" \
+  "make-it-simpler AC13: step 5 requires the proof, Behavior changes and Simplified in the PR body"
+assert_contains "$views" "selects simplify: simplify" "make-it-simpler AC13: simplify selects the simplify label"
+assert_contains "$views" "chain simplify: /make-it-simpler -> /plan -> /build -> /quality-gate -> /wrap-up-session" \
+  "make-it-simpler AC13: simplify is a consumer with a chain"
 assert_not_contains "$one" "note:" "AC4: no note when the chain is not overridden"
 
 unknown="$(run_cli lanes nope --repo "$REPO" 2>&1)"; code=$?

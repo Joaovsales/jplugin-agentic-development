@@ -27,12 +27,13 @@ require_write_approval = false
 [routines]
 claim_label = in-progress
 escalation_label = needs-investigation
-kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
+kind_precedence = bug, design-decision, simplify, tech-debt, enhancement, documentation
 
 [routines.selectors]
 plan = design-decision
 fix = bug, tech-debt
 improve = enhancement, documentation
+simplify = simplify
 
 ; What each routine RUNS. Replaces wholesale, so every selected routine needs a
 ; chain here. `build` carries one though it is deferred (#97/#98), so
@@ -43,6 +44,7 @@ improve = enhancement, documentation
 plan = /plan, /wrap-up-session
 fix = /debug, /build, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
+simplify = /make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session
 ```
 
