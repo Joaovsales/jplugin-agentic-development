@@ -171,7 +171,13 @@ bash install.sh
 **Releasing skills to synced projects.** Claude Code pins each project's copy of the plugin
 to `version` in `.claude-plugin/plugin.json` and refreshes it only when that value changes, so
 bump `version` in the same commit as any skill change every synced project should pick up.
-`/sync` merges the marketplace declaration into the project; Claude Code caches the new
+`claude plugin update` compares versions only — measured on Claude Code 2.1.277, a commit
+that changes a skill without a bump leaves every install where it was ("already at the latest
+version"; specs/plugin-staleness-check.md § Why a bump is required).
+`tests/test-plugin-manifest.sh` fails a change to the plugin payload that does not bump it
+(the paths its `PAYLOAD_PATHS` names, against the merge base with `origin/master`). The
+session-start banner says when an installed copy is behind the template and prints the
+commands that bring it current; it never runs them. `/sync` merges the marketplace declaration into the project; Claude Code caches the new
 release on the project's next open. A marketplace `ref` is never written — it would have to
 be a branch or tag, and the version is the pin.
 

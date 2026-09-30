@@ -446,6 +446,150 @@ if [ -d .agents/skills ] && [ -d "$LEGACY_SKILLS_DIR" ]; then
   fi
 fi
 
+# ── Stale Plugin Install Check ───────────────────────────────────────────────
+# An installed plugin is a snapshot of the template at one sha, and nothing else
+# says when the template has moved on (specs/plugin-staleness-check.md). The
+# banner prints the commands and never runs them: `claude plugin update` needs a
+# restart and would swap the skills out from under this session (D1).
+# A record is stale when its gitCommitSha is behind a template sha this machine
+# already knows: the marketplace clone Claude Code installs from, and any remote
+# of this repository named like the template, as last fetched -- no network call
+# here (D4); the drift check above owns the fetch. The clone alone missed the
+# 2026-09-29 incident, because it had not been refreshed either (D4).
+# /tidy installed reads the same records for presence and content, not age (D10).
+# sed/tr rather than jq, for the reason json_string_field gives (D9). Adopting
+# repositories only, like the Managed Block Check (D11). Silent when current.
+MARKETPLACE_NAME="${JPLUGIN_ID#*@}"
+MARKETPLACE_CLONE="$PLUGINS_DIR/marketplaces/$MARKETPLACE_NAME"
+
+# relevant_records — "<scope> <sha> <version>" for every jplugin record that
+# loads in this directory and carries a gitCommitSha: user scope, plus project
+# and local records whose projectPath is this directory (D3). Paths compare with
+# \ as /, no trailing /, lowercased. One awk pass for every record: the file
+# holds one record per project, and a per-field sed costs a spawn each, which is
+# seconds of banner on Windows. Nothing when the file is absent or malformed.
+relevant_records() {
+  tr -d '\r\n' < "$INSTALLED_PLUGINS" 2>/dev/null \
+    | sed -n "s/.*\"$JPLUGIN_ID\"[[:space:]]*:[[:space:]]*\\[\\([^]]*\\)].*/\\1/p" \
+    | STALE_HERE="$(pwd -W 2>/dev/null || pwd)" awk -v RS='}' '
+        function field(name,   s) {
+          if (!match($0, "\"" name "\"[ \t]*:[ \t]*\"[^\"]*\"")) return ""
+          s = substr($0, RSTART, RLENGTH)
+          sub(/^"[^"]*"[ \t]*:[ \t]*"/, "", s); sub(/"$/, "", s)
+          return s
+        }
+        function norm(p) { gsub(/\\+/, "/", p); sub(/\/+$/, "", p); return tolower(p) }
+        {
+          # Hex only: the sha reaches git argv, where a leading - would be an option.
+          sha = field("gitCommitSha"); if (sha !~ /^[0-9a-fA-F]+$/) next
+          scope = field("scope"); if (scope == "") scope = "user"
+          if (scope != "user" && norm(field("projectPath")) != norm(ENVIRON["STALE_HERE"])) next
+          print scope, sha, field("version")
+        }' || true
+}
+
+version_gt() {  # version_gt <a> <b> -> true when semver a is greater than b
+  local IFS=. a b i
+  read -r -a a <<< "$1"
+  read -r -a b <<< "$2"
+  for i in 0 1 2; do
+    if [ "${a[i]:-0}" -gt "${b[i]:-0}" ] 2>/dev/null; then return 0; fi
+    if [ "${a[i]:-0}" -lt "${b[i]:-0}" ] 2>/dev/null; then return 1; fi
+  done
+  return 1
+}
+
+template_ref() {  # template_ref <remote> -> its template branch ref, as recorded locally
+  local branch
+  branch=$(git symbolic-ref -q --short "refs/remotes/$1/HEAD" 2>/dev/null || true)
+  branch=${branch#"$1"/}
+  if [ -z "$branch" ] && [ "$1" = workflow ]; then
+    branch=${WORKFLOW_BRANCH:-}  # set by the drift check above
+  fi
+  for branch in $branch master main; do
+    if git rev-parse -q --verify "refs/remotes/$1/$branch^{commit}" >/dev/null 2>&1; then
+      printf 'refs/remotes/%s/%s\n' "$1" "$branch"
+      return 0
+    fi
+  done
+  return 1
+}
+
+template_candidates() {  # lines of "<ref|clone> <sha> <version>"
+  local remote ref sha
+  for remote in $(git config --get-regexp '^remote\..*\.url$' 2>/dev/null \
+      | awk -v name="$MARKETPLACE_NAME" '$2 ~ ("/" name "(\\.git)?$") { sub(/^remote\./, "", $1); sub(/\.url$/, "", $1); print $1 }'); do
+    ref=$(template_ref "$remote") || continue
+    # MSYS_NO_PATHCONV: Git Bash rewrites a `<ref>:<path>` argument as a path list.
+    printf 'ref %s %s\n' "$(git rev-parse "$ref")" \
+      "$(json_string_field version "$(MSYS_NO_PATHCONV=1 git show "$ref:.claude-plugin/plugin.json" 2>/dev/null)")"
+  done
+  if [ -d "$MARKETPLACE_CLONE" ] && sha=$(git -C "$MARKETPLACE_CLONE" rev-parse -q --verify HEAD 2>/dev/null); then
+    printf 'clone %s %s\n' "$sha" \
+      "$(json_string_field version "$(cat "$MARKETPLACE_CLONE/.claude-plugin/plugin.json" 2>/dev/null)")"
+  fi
+}
+
+behind_template() {  # behind_template <ref|clone> <template-sha> <record-sha>
+  [ "$2" != "$3" ] || return 1
+  # The clone is shallow, so ancestry is not asked there: Claude Code installs
+  # from it and it only moves forward, so a different sha means behind.
+  [ "$1" = clone ] && return 0
+  git cat-file -e "$3^{commit}" 2>/dev/null && git merge-base --is-ancestor "$3" "$2" 2>/dev/null
+}
+
+newest_behind() {  # newest_behind <record-sha> -> "<sha> <version>" of the highest-version template it is behind
+  local kind sha version best_sha="" best_version=""
+  while read -r kind sha version; do
+    [ -n "$sha" ] && behind_template "$kind" "$sha" "$1" || continue
+    if [ -z "$best_sha" ] || version_gt "$version" "$best_version"; then
+      best_sha=$sha best_version=$version
+    fi
+  done <<< "$STALE_CANDIDATES"
+  if [ -n "$best_sha" ]; then printf '%s %s\n' "$best_sha" "$best_version"; fi
+}
+
+note_stale_record() {  # note_stale_record <scope> <sha> <version> -> appends to the STALE_* lines
+  local flag="" template line
+  template=$(newest_behind "$2")
+  [ -n "$template" ] || return 0
+  if [ "$1" != user ]; then flag=" --scope $1"; fi
+  STALE_HEADLINES="${STALE_HEADLINES}⬆  PLUGIN UPDATE AVAILABLE — $JPLUGIN_ID $1 install is at $3 (${2:0:7}); the template is at ${template#* } (${template:0:7})"$'\n'
+  # An unreadable template version cannot prove the bump is missing: print the ordinary update.
+  if [ -z "${template#* }" ] || version_gt "${template#* }" "$3"; then
+    line="    claude plugin update $JPLUGIN_ID$flag"
+    case "$STALE_COMMANDS" in *"$line"$'\n'*) ;; *) STALE_COMMANDS="$STALE_COMMANDS$line"$'\n' ;; esac
+  else
+    STALE_NOT_BUMPED="${template#* }"
+    # Never a project-scope uninstall: it deletes the project's enabledPlugins entry (D8).
+    if [ -z "$flag" ]; then STALE_USER_REINSTALL=1; fi
+  fi
+}
+
+if [ "$ADOPTING" = "1" ] && [ -f "$INSTALLED_PLUGINS" ]; then
+  STALE_RECORDS=$(relevant_records)
+  STALE_HEADLINES="" STALE_COMMANDS="" STALE_NOT_BUMPED="" STALE_USER_REINSTALL=0
+  if [ -n "$STALE_RECORDS" ]; then
+    STALE_CANDIDATES=$(template_candidates)
+    while read -r stale_scope stale_sha stale_version; do
+      note_stale_record "$stale_scope" "$stale_sha" "$stale_version"
+    done <<< "$STALE_RECORDS"
+  fi
+  if [ -n "$STALE_HEADLINES" ]; then
+    echo ""
+    printf '%s' "$STALE_HEADLINES"
+    echo "    claude plugin marketplace update $MARKETPLACE_NAME"
+    printf '%s' "$STALE_COMMANDS"
+    if [ -n "$STALE_NOT_BUMPED" ]; then
+      echo "    plugin.json version $STALE_NOT_BUMPED was not bumped — 'claude plugin update' is a no-op (README § Releasing skills)."
+      if [ "$STALE_USER_REINSTALL" = 1 ]; then
+        echo "    User scope: claude plugin uninstall $JPLUGIN_ID && claude plugin install $JPLUGIN_ID"
+      fi
+    fi
+    echo "    Restart Claude Code afterwards — the banner never runs these (an update swaps skills mid-session)."
+  fi
+fi
+
 # ── Code Graph Check ─────────────────────────────────────────────────────────
 # graphify answers queries from graphify-out/graph.json, so a graph older than
 # HEAD reports structure the last commit already changed. Silent when graphify is

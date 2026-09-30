@@ -941,3 +941,9 @@ back vacuous and was repaired.
 - Baseline: the full suite was 60/60 at b2b5634. Each slice checkpoint ran the
   affected tests green (23, 27 and 29 files).
 - Learnings captured: tasks/solutions/patterns/an-artifact-keyed-by-commit-must-be-read-by-the-commit-that-produced-it.md, tasks/solutions/tooling/in-the-template-repo-follow-the-repos-skills-not-the-plugin-cache.md
+
+### [2026-09-29] — Stale plugin check
+- Key changes: session-start banner warns when the installed jplugin record is behind the marketplace clone or a matching remote ref, printing the update commands without running them (#210); tests/test-plugin-manifest.sh fails a payload change without a plugin.json version bump, and the version went to 1.2.0 (#211); README § Releasing skills states the measured `claude plugin update` behaviour.
+- Quality gate: Phases 1-3 inline (only a hex gitCommitSha reaches git argv); Phase 4 dispatched, HOLD (payload list missed .agents/references, marketplace-name literals, a second reader of the drift cache), all three fixed and re-verified GO. One SHOULD-FIX (globals in the block's helpers) and two NITPICKs reported, not applied.
+- Baseline (Windows): 8/60 files, 152 failures before the build; affected run 7/32 files red with 0 failures new by name.
+- Learnings captured: tasks/solutions/bugs/git-show-ref-colon-path-is-rewritten-by-msys-in-git-bash-hooks.md, tasks/solutions/performance/per-field-sed-parsing-in-the-session-start-banner-costs-seconds-on-windows.md, tasks/solutions/patterns/derive-plugin-payload-coverage-from-plugin-root-reads.md
