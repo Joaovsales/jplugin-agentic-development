@@ -917,3 +917,8 @@ back vacuous and was repaired.
 - Quality gate: Phases 1–3 inline (a silent empty ranking when git fails, now exit 2; a 5-parameter function). Phase 4 dispatched, verdict HOLD. Fixed: ranking from a subdirectory leaked fixtures (now root-relative); the signal names now live only in one DETECTORS map; lens values are pinned; headings are names only; the PR-body contract has one home. Four advisory items stay unresolved.
 - Baseline (Windows): full suite on 76d1f97 had 7/60 files red. The affected run was 6/40 red, all matching the baseline by name. WSL Ubuntu at 13e56ec found 11 real failures hidden inside baseline files (label fixtures without `simplify`); after bcd2562: 40/40 affected and 61/61 full.
 - Learnings captured: tasks/solutions/process/a-new-default-selector-label-must-reach-every-github-label-fixture.md
+
+### [2026-09-30] — First /make-it-simpler run
+- Key changes: `/tidy` § *Filing a Tier 2 finding* cites `/sweep` § *2. Read the backlog* instead of restating the dedupe-set and escalated-task rule (#231, specs/simplify-duplicate-rule-in-agents-skills-tidy-skill-md.md). The GitHub `simplify` label was created.
+- Quality gate: Phases 1–3 inline with no findings. Phase 4 was dispatched: GO, one SHOULD-FIX applied (the kept clause now says an escalated task is hands-off), one advisory left about sweep § 2's sweep-only wording.
+- Evaluation: of 190 ranked candidates the top 10 were 8 `code-red-flag` hits whose evidence is line 501; the useful hits (duplicate-rule between skills) ranked 36th or lower. Four routine labels are missing on GitHub, so claim/select refuse.
