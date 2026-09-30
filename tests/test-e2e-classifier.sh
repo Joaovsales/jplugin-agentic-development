@@ -51,14 +51,26 @@ for f in "$CANONICAL"; do
     "$f: local recipes cannot bypass the AC classifier"
 
   # --- 1. Backend resolution order -------------------------------------------
-  # Ordered, first match wins. A full-fidelity backend must outrank lightpanda,
-  # or the cheap tier would win on machines that have a real browser available.
-  assert_prose_contains "$f" "Chrome MCP" \
-    "$f: resolution order names Chrome MCP"
-  assert_prose_contains "$f" "Playwright MCP" \
-    "$f: resolution order names Playwright MCP"
-  assert_prose_contains "$f" "Lightpanda" \
-    "$f: resolution order names Lightpanda"
+  # Ordered, first match wins. The Playwright CLI goes first because it is the
+  # only backend that writes a screenshot to disk, and a VISUAL PASS needs that
+  # file (specs/visual-e2e-evidence.md AC 1). A full-fidelity backend must
+  # outrank lightpanda, or the cheap tier would win on machines that have a real
+  # browser available.
+  RESOLUTION="$(awk '/^### Backend resolution/{f=1;next} f&&/^### /{exit} f' "$f" | tr '\n' ' ')"
+  assert_precedes "$RESOLUTION" "| 1 | Playwright CLI |" "| 2 | Chrome MCP |" \
+    "$f: resolution order puts Playwright CLI (1) before Chrome MCP (2)"
+  assert_precedes "$RESOLUTION" "| 2 | Chrome MCP |" "| 3 | Lightpanda MCP |" \
+    "$f: resolution order puts Chrome MCP (2) before Lightpanda (3)"
+  assert_precedes "$RESOLUTION" "| 3 | Lightpanda MCP |" "| 4 | none |" \
+    "$f: resolution order ends with none (4)"
+
+  # The CLI is a shell command, not an MCP server, so it is detected on PATH.
+  # Detecting it by MCP tools would miss it in every harness where it works.
+  assert_contains "$RESOLUTION" 'command -v playwright-cli' \
+    "$f: Playwright CLI is detected with command -v playwright-cli"
+  # Decision 4: one shell path for every agent, never @playwright/mcp.
+  assert_not_contains "$RESOLUTION" "Playwright MCP" \
+    "$f: Playwright MCP is no longer a backend"
 
   # Absence of every backend must still STOP — the pre-existing behaviour this
   # change must not weaken.
@@ -88,6 +100,19 @@ for f in "$CANONICAL"; do
   # coverage would read as full coverage to /build Phase 4.
   assert_prose_contains "$f" "non-success" \
     "$f: a BLOCKED AC makes the run report non-success"
+
+  # Chrome MCP renders, but its screenshots are session ids, not files, so it
+  # cannot meet "no file, no PASS". A Chrome-only VISUAL AC is BLOCKED — the
+  # matrix row and the Failure Handling line both, since a reader may hit either.
+  MATRIX="$(awk '/^### Outcome matrix/{f=1;next} f&&/^### /{exit} f' "$f")"
+  assert_contains "$MATRIX" '| Chrome MCP only | VISUAL | `BLOCKED` — **never** `PASS` |' \
+    "$f: outcome matrix row Chrome MCP only + VISUAL is BLOCKED, never PASS"
+  assert_not_contains "$MATRIX" "| full-fidelity | any |" \
+    "$f: no row lets every full-fidelity backend pass any AC"
+  assert_prose_contains "$f" "VISUAL AC, only Chrome MCP" \
+    "$f: Failure Handling names the Chrome-only VISUAL case"
+  assert_prose_contains "$f" "requires a file-capable full-fidelity browser" \
+    "$f: the Chrome-only BLOCKED reason is the spec's wording"
 
   # --- 5. Iron Law 1 cross-reference -----------------------------------------
   # Iron Law 1 forbids "headless emulation bypassing the network". Lightpanda

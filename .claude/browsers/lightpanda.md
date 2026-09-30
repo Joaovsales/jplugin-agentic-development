@@ -2,6 +2,7 @@
 name: lightpanda
 display_name: Lightpanda
 fidelity: dom
+screenshot: none
 detect_command: "command -v lightpanda"
 mcp_command: "lightpanda mcp"
 platforms: [linux-x86_64, linux-aarch64, macos-x86_64, macos-aarch64]
@@ -25,7 +26,7 @@ headless Chrome on the same pages.
 This workflow uses it for exactly one job: **executing DOM-functional acceptance
 criteria in unattended runs where no desktop Chrome exists** — `/yolo`,
 unattended routine runs, cloud containers, CI. It is the third tier in `/verify-evidence --scope e2e`'s
-resolution order, behind Chrome MCP and Playwright MCP.
+resolution order, behind the Playwright CLI and Chrome MCP.
 
 ---
 
@@ -163,8 +164,8 @@ result, and nothing here needs a fork to work.
 
 ## Troubleshooting
 
-**`/verify-evidence` never selects lightpanda.** Resolution is ordered: Chrome MCP, then
-Playwright MCP, then lightpanda. If a full-fidelity backend is present it wins,
+**`/verify-evidence` never selects lightpanda.** Resolution is ordered: the Playwright
+CLI, then Chrome MCP, then lightpanda. If a full-fidelity backend is present it wins,
 by design — lightpanda is a fallback for environments without one, not a
 preference.
 
