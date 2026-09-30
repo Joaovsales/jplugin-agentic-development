@@ -139,25 +139,29 @@ compatible higher-fidelity backend when the recipe permits it; otherwise record
 `BLOCKED`. A DOM-only local driver cannot pass a VISUAL AC.
 
 For a non-browser surface, follow the local skill's Drive contract without
-requiring an MCP browser. For a browser surface, resolve the recipe's compatible
+requiring a browser backend. For a browser surface, resolve the recipe's compatible
 driver first. When there is no local skill, use the generic order below exactly
 as before.
 
 ### Backend resolution
 
-Ordered; first available wins. A backend is available when its MCP tools are
-exposed in the session.
+Ordered; first available wins.
 
-| Order | Backend | Fidelity | Eligible ACs |
-|-------|---------|----------|--------------|
-| 1 | Chrome MCP | full | all |
-| 2 | Playwright MCP | full | all |
-| 3 | Lightpanda MCP | DOM only | DOM-FUNCTIONAL only |
-| 4 | none | — | STOP |
+| Order | Backend | Detected by | Fidelity | Screenshot | Eligible ACs |
+|-------|---------|-------------|----------|------------|--------------|
+| 1 | Playwright CLI | `command -v playwright-cli` | full | file | all |
+| 2 | Chrome MCP | its MCP tools exposed in the session | full | session id | DOM-FUNCTIONAL only |
+| 3 | Lightpanda MCP | its MCP tools exposed in the session | DOM only | none | DOM-FUNCTIONAL only |
+| 4 | none | — | — | — | STOP |
 
-Lightpanda's absence is never an error — fall through. Its runbook, including the
-capability ceiling, is `.claude/browsers/lightpanda.md` (Claude Code only —
-other harnesses read the same runbook from the template repo).
+The Playwright CLI is a shell command, not an MCP server, so every harness —
+Claude Code, Codex, Pi — drives it the same way with no registration; never
+substitute `@playwright/mcp`. It goes first because it is the only backend whose
+screenshot is a file, and a VISUAL PASS needs its PNG on disk. A missing
+backend is never an error — fall through. The runbooks, including each
+capability ceiling, are `.claude/browsers/playwright-cli.md` and
+`.claude/browsers/lightpanda.md` (Claude Code only — other harnesses read the
+same runbooks from the template repo).
 
 ### AC classification
 
@@ -186,7 +190,9 @@ presence/absence/text of elements, or absence of console errors.
 
 | Backend available | AC tier | Result |
 |---|---|---|
-| full-fidelity | any | walk through normally |
+| Playwright CLI | any | walk through normally |
+| Chrome MCP only | DOM-FUNCTIONAL | walk through normally |
+| Chrome MCP only | VISUAL | `BLOCKED` — **never** `PASS` |
 | lightpanda only | DOM-FUNCTIONAL | walk through, log as DOM-tier |
 | lightpanda only | VISUAL | `BLOCKED` — **never** `PASS` |
 | none | any | STOP |
@@ -201,7 +207,7 @@ containing a `BLOCKED` AC reports **non-success** to its caller (`/build` Phase 
 For each user-facing AC:
 
 1. **Describe the user journey** in plain language
-2. **Execute each step in the real browser** via MCP tool calls: navigate, click, type, submit, wait
+2. **Execute each step in the real browser** through the backend — `playwright-cli` commands or MCP tool calls: navigate, click, type, submit, wait
 3. **Assert observable state**: URL, required text/elements, network status, no console errors
 4. **Negative path check**: at least one failure variant per AC
 
@@ -233,8 +239,24 @@ Result: PASS
 
 ### AC-2: <criterion text>
 Tier: VISUAL (references layout)
+Journey: <plain-language steps>
+Result: PASS
+Screenshot: tasks/e2e-artifacts/<short-sha>/<AC-id>.png
+
+### AC-3: <criterion text>
+Tier: VISUAL (references layout)
 Result: BLOCKED — requires a full-fidelity browser; only lightpanda (DOM-tier) available
 ```
+
+Every VISUAL `PASS` carries a `Screenshot:` line naming a PNG the backend wrote
+**after** the walkthrough reached the state the AC describes — one per VISUAL
+AC, no "before" shot. DOM-FUNCTIONAL entries need none, though one is allowed
+when the backend can take it. `tasks/e2e-artifacts/` is gitignored; the PNGs
+reach the PR through the `e2e-evidence` branch at `/wrap-up-session`, never
+through the feature branch. `python3
+.agents/skills/verify-evidence/scripts/e2e_evidence.py check [--log <path>]
+[--sha <short-sha>]` refuses every VISUAL PASS whose line or file is missing,
+naming the entry and AC; it is silent and exits 0 when all are present.
 
 The log is **append-only**. Never overwrite prior walkthroughs — they form the audit trail.
 
@@ -248,9 +270,14 @@ two reports for one failure. A completed check that finds a defect is a failed
 verification and returns through the existing debug/build repair loop.
 
 - **Step fails**: STOP, report exact step + evidence, hand back to `/build` or `/debug`
-- **MCP browser unavailable**: STOP. Do not fall back to curl or unit tests.
+- **No backend (`playwright-cli` absent, MCP browser unavailable)**: STOP. Do not fall back to curl or unit tests.
+- **`playwright-cli` present, its Chromium missing**: a step failure naming
+  `playwright-cli install-browser chromium` — never a silent drop to Chrome MCP
 - **VISUAL AC, only a DOM-tier backend**: record `BLOCKED`, continue with the
   remaining DOM-functional ACs, report the run as non-success
+- **VISUAL AC, only Chrome MCP**: record `BLOCKED` — requires a file-capable
+  full-fidelity browser, since Chrome MCP's screenshots are session ids, not
+  files; the DOM-functional ACs still run on it; report the run as non-success
 - **DOM-tier backend errors on an unimplemented Web API**: treat as a step
   failure and name the API in evidence. Never re-classify the AC as passing —
   the gap is real and the feature was not verified
@@ -266,7 +293,8 @@ verification and returns through the existing debug/build repair loop.
 2. Authentication must go through the real login flow — no token injection
 3. Every user-facing AC gets its own walkthrough entry — no batching
 4. A failed step halts the walkthrough — do not cascade to the next AC
-5. Evidence is the `tasks/e2e-log.md` entry — if the entry doesn't exist, the walkthrough didn't happen
+5. Evidence is the `tasks/e2e-log.md` entry — if the entry doesn't exist, the walkthrough didn't happen,
+   and a VISUAL PASS without its PNG on disk is not a PASS
 
 ---
 

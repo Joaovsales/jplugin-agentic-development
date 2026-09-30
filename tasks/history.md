@@ -918,6 +918,30 @@ back vacuous and was repaired.
 - Baseline (Windows): full suite on 76d1f97 had 7/60 files red. The affected run was 6/40 red, all matching the baseline by name. WSL Ubuntu at 13e56ec found 11 real failures hidden inside baseline files (label fixtures without `simplify`); after bcd2562: 40/40 affected and 61/61 full.
 - Learnings captured: tasks/solutions/process/a-new-default-selector-label-must-reach-every-github-label-fixture.md
 
+### [2026-09-29] — Visual e2e evidence
+- Key changes: `/verify-evidence --scope e2e` now tries the Playwright CLI first
+  (`.claude/browsers/playwright-cli.md`, pinned 0.1.22, detected with
+  `command -v playwright-cli`), then Chrome MCP, then Lightpanda. A VISUAL AC
+  checked with only Chrome MCP is `BLOCKED`. A VISUAL PASS needs a
+  `Screenshot: tasks/e2e-artifacts/<sha>/<AC-id>.png` line, which
+  `e2e_evidence.py check` enforces. `publish_evidence.py` pushes the PNGs to an
+  orphan `e2e-evidence` branch; it never force-pushes and retries once on a
+  rejection. Wrap-up embeds that section in the PR body. `install.sh` step 6b
+  optionally installs the CLI and Chromium. Five slices (#205–#209): three were
+  built in parallel (1 inline, 3 and 5 in dispatched worktrees), then 2 and 4.
+- Quality gate: Phases 1–3 inline (a leaked SAFE_PATH tmpdir; the git identity
+  probe ran in the CWD instead of the repo). Phase 4 was dispatched and returned
+  HOLD with one MUST-FIX: the publisher defaulted to HEAD's sha after the wrap-up
+  commit. That and three SHOULD-FIX items were fixed in 05c7234, and a delta
+  re-review returned GO. The four remaining SHOULD-FIX items (layout owner,
+  locale-dependent retry, no-sha message, hand-synced pin) and three follow-ups
+  from their delta review were fixed by a builder subagent in 204992e and
+  51045d1, each verified by a mutation probe. Receipt 964a2096 is GO with two
+  NITPICKs open.
+- Baseline: the full suite was 60/60 at b2b5634. Each slice checkpoint ran the
+  affected tests green (23, 27 and 29 files).
+- Learnings captured: tasks/solutions/patterns/an-artifact-keyed-by-commit-must-be-read-by-the-commit-that-produced-it.md, tasks/solutions/tooling/in-the-template-repo-follow-the-repos-skills-not-the-plugin-cache.md
+
 ### [2026-09-29] — Stale plugin check
 - Key changes: session-start banner warns when the installed jplugin record is behind the marketplace clone or a matching remote ref, printing the update commands without running them (#210); tests/test-plugin-manifest.sh fails a payload change without a plugin.json version bump, and the version went to 1.2.0 (#211); README § Releasing skills states the measured `claude plugin update` behaviour.
 - Quality gate: Phases 1-3 inline (only a hex gitCommitSha reaches git argv); Phase 4 dispatched, HOLD (payload list missed .agents/references, marketplace-name literals, a second reader of the drift cache), all three fixed and re-verified GO. One SHOULD-FIX (globals in the block's helpers) and two NITPICKs reported, not applied.
