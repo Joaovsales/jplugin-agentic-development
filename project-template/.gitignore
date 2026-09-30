@@ -3,3 +3,8 @@
 
 # graphify knowledge graph — machine-local (~13 MB), rebuilt by the post-commit hook
 graphify-out/
+
+# E2E evidence — screenshots are committed only to the e2e-evidence branch,
+# and playwright-cli writes its per-command snapshots and logs to the CWD.
+tasks/e2e-artifacts/
+.playwright-cli/

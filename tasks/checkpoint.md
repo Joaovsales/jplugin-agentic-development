@@ -1,9 +1,9 @@
-# Checkpoint — 2026-09-29T18:56:21Z
+# Checkpoint — 2026-09-29T16:27:09Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
 ## Git
-- Branch: claude/make-it-simpler
+- Branch: claude/xenodochial-mendel-8e675d
 
 ```
 (working tree clean)
@@ -17,7 +17,7 @@
   [ ] /eval triggerability gate on /plan, /build, /quality-gate — manual, before the slice-2 merge; report path goes in the PR body — DEFERRED (manual gate; run before the slice-2 PR merges, not inside /build)
 
 ## Active Spec
-- specs/make-it-simpler.md
+- specs/plugin-staleness-check.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`
