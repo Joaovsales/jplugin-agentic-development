@@ -1442,3 +1442,13 @@ Filed this sweep:
 - Completed: `/make-it-simpler` built from specs/make-it-simpler.md, all nine slices (#212–#220): signals.py rank, lens and safe-moves references, SKILL.md with its overrides, the `simplify` consumer routine (lane, precedence, selector, chain, branch rows, scope stop), and /go precedence.
 - Pending: the GitHub `simplify` label (the operator creates it; `task-registry selectors` names it missing); the HOLD receipt f8a98438 needs a human approval before push.
 - Carry-forward: four advisory SHOULD-FIX items in the receipt: the `orphan-or-overlap` name before the first filing, a release note for downstream `kind_precedence` configs, no callee pointer in /plan and /build to named exceptions, and code-red-flag cues dominating the ranking on this repository (D24).
+- [ ] duplicate-rule in .agents/skills/tidy/SKILL.md <!-- task-id: simplify.agents-skills-tidy-skill-md.duplicate-rule-in-agents-skills-tidy-skill-md --> ([#231](https://github.com/Joaovsales/jplugin-agentic-development/issues/231))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-tidy-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-tidy-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/231
+
+### Slice 1/1 — tidy cites sweep dedupe set
+- [ ] tidy cites sweep dedupe set <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-tidy-skill-md-md.tidy-cites-sweep-dedupe-set --> — `/tidy` cites `/sweep` § *2. Read the backlog* instead of restating it
+  [x] TDD: the escalation-label sentence appears in exactly one skill, and tidy/SKILL.md cites `/sweep` § *2. Read the backlog* -> replace tidy's dedupe paragraph with the citation (AC 1, 2)
+  [ ] TDD: `bash tests/test-citations.sh` and `bash tests/affected.sh --run origin/master` match the before-proof -> no further edit (AC 3)
