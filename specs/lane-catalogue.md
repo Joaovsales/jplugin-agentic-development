@@ -310,7 +310,7 @@ the step ledger's own convention and it makes the chain linear.
 
 ## Inputs
 
-- The twelve lane files, shipped with the registry under
+- The lane files, one per lane, shipped with the registry under
   `.agents/skills/task-registry/lanes/` — the one canonical tree since #156.
 - `docs/task-tracking.md` `[routines.skills]` / `[routines.selectors]`, unchanged.
 - `task-registry lanes [name]` from `/go`; `task-registry workflow <ref>` as today.
