@@ -92,3 +92,22 @@ retain their previously approved text. Shared setup and update do not touch any
 project `DESIGN.md`. Existing UI projects without a brief wait for owner
 selection before this create command; never create a spatial brief for them
 without that choice.
+
+## Opt-in 3D
+
+Use img2threejs only when the task explicitly requests a 3D model or the
+approved brief's `3D Intent` calls for one. The default `No 3D intent.` is
+not an opt-in. The `scripts/three.py` guard reports whether the task or brief
+enables the pipeline and labels any incomplete result `prototype` with its
+open gates. Read the verified release's `sources/three/SKILL.md` and run its
+commands from that release; never infer the process from memory.
+
+Start with `forge/next.py --state .img2threejs/state.json` and obey a hard
+stop. Before generating code, run `forge/stage2_spec/validate_sculpt_spec.py`
+on the saved sculpt spec, then rerun it with `--strict-quality`. The strict
+result must pass. Continue through the installed forge state machine and its
+required off-axis, placement, deterministic render, vision and domain gates;
+the later forge completion must also pass. Record evidence paths and the
+result of every required gate. A failed, missing or unverified strict spec or
+forge gate blocks production completion. Keep the result labeled `prototype`
+and list failed/open gates until both stages pass.

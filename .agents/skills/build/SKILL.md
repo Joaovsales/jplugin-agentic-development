@@ -386,6 +386,13 @@ before Phase 2 and the quality gate so any map edits receive both checks.
 
 ## Phase 2 — Affected-Test Validation
 
+For a UI task with requested or brief-approved 3D, follow the installed
+img2threejs state machine through strict sculpt-spec validation and every
+required later forge gate. Use the design-stack 3D guard to report the
+`prototype` label and failed/open gates when either stage is incomplete.
+Do not mark production UI work complete from a plausible browser render alone.
+Tasks with no 3D request or positive brief intent do not invoke img2threejs.
+
 After all tasks are `[x]`:
 
 1. Run the **affected-test command** against the base SHA — every test file the
