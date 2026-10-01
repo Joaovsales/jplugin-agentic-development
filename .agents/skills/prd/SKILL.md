@@ -14,9 +14,13 @@ Entry point for greenfield projects. Interviews the user, produces a structured 
 
 ## Model Routing
 
-**This command MUST use `model: opus` for all agent delegations.**
-- PRD creation is a planning/architecture activity — requires strongest reasoning
-- For codebase exploration or searches, use `model: "haiku"` via the Explore agent
+PRD creation is a planning/architecture activity and requires the strongest
+reasoning tier. On Claude Code, use `model: opus` for planning delegations; for
+codebase exploration or searches, use `model: "haiku"` via the Explore agent.
+On Pi, use the roles resolved by `subagents.agentOverrides` without per-call
+model parameters. On Codex, use the managed `planner` role for PRD reasoning
+and the managed `explorer` role for read-only searches. Codex provider models
+and effort live in `config/agent-policy.toml`.
 
 ## The Hard Gate
 

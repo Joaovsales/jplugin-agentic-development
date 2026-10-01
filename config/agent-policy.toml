@@ -1,0 +1,120 @@
+schema_version = 1
+
+[limits.codex]
+max_children = 3
+
+[tiers.Scout]
+model = "gpt-6-luna"
+effort = "low"
+
+[tiers.Builder]
+model = "gpt-6.1-sol"
+effort = "medium"
+
+[tiers.Reviewer]
+model = "gpt-6.1-sol"
+effort = "medium"
+
+[tiers.Planner]
+model = "gpt-6-astra"
+effort = "high"
+
+[tiers.Ceiling]
+inherit_model = true
+
+[providers.codex.models."gpt-6-luna"]
+rank = 1
+efforts = ["low", "medium", "high"]
+
+[providers.codex.models."gpt-6.1-sol"]
+rank = 2
+efforts = ["low", "medium", "high", "xhigh", "max", "ultra"]
+
+[providers.codex.models."gpt-6-astra"]
+rank = 3
+efforts = ["low", "medium", "high", "xhigh", "max", "ultra"]
+
+[[roles]]
+name = "explorer"
+tier = "Scout"
+permission = "read-only"
+
+[[roles]]
+name = "scout"
+tier = "Scout"
+permission = "mcp-read"
+
+[[roles]]
+name = "planner"
+tier = "Planner"
+permission = "workspace-write"
+
+[[roles]]
+name = "backend-developer"
+tier = "Builder"
+permission = "workspace-write"
+
+[[roles]]
+name = "frontend-developer"
+tier = "Builder"
+permission = "workspace-write"
+
+[[roles]]
+name = "frontend-design-validator"
+tier = "Reviewer"
+permission = "read-only"
+
+[[roles]]
+name = "code-debugger"
+tier = "Builder"
+permission = "workspace-write"
+
+[[roles]]
+name = "context-document-optimizer"
+tier = "Reviewer"
+permission = "read-only"
+
+[[roles]]
+name = "code-reviewer"
+tier = "Ceiling"
+permission = "read-only"
+
+[[roles]]
+name = "security-reviewer"
+tier = "Ceiling"
+permission = "read-only"
+
+[[roles]]
+name = "software-design-expert-review"
+tier = "Ceiling"
+permission = "read-only"
+
+[[roles]]
+name = "critic"
+tier = "Ceiling"
+floor = "Planner"
+permission = "read-only"
+
+[[lanes]]
+name = "how-explore"
+role = "explorer"
+
+[[lanes]]
+name = "how-explain"
+role = "code-reviewer"
+
+[[lanes]]
+name = "why-investigate"
+role = "scout"
+
+[[lanes]]
+name = "why-synthesize"
+role = "code-reviewer"
+
+[[lanes]]
+name = "debug-escalation"
+role = "code-debugger"
+tier = "Ceiling"
+floor = "Builder"
+escalate_at_or_below = "Builder"
+escalate_to = "Planner"

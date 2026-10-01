@@ -59,6 +59,8 @@ When a frontier question needs a fact from the environment (filesystem, tools,
 documentation), dispatch a read-only Scout-tier lookup (the `Explore` agent
 on Claude Code, per `.agents/references/model-routing.md` § *Tiers*; the `scout`
 builtin on Pi) rather than asking the user for anything you could look up.
+On Codex, use the managed `explorer` role for that read-only lookup; its model
+and effort come from `config/agent-policy.toml`.
 The lookup reads; it never edits, so "writes nothing" holds whatever it
 finds. Do not block on it: a running lookup is an
 unsettled prerequisite, so only the questions downstream of it wait for the

@@ -81,6 +81,18 @@ assert_prose_contains "$WHY/SKILL.md" 'the `general-purpose` agent with `model: 
   "HowWhy: why investigators dispatch at Scout tier with full tool access"
 assert_prose_contains "$WHY/SKILL.md" 'pass no `model`' \
   "HowWhy: why synthesizer runs at Ceiling tier"
+assert_prose_contains "$HOW/SKILL.md" 'On Codex, spawn the managed `explorer` role for read-only code reconnaissance' \
+  "HowWhy: how uses the named Codex explorer for reconnaissance"
+assert_prose_contains "$HOW/SKILL.md" 'On Codex, spawn the managed `code-reviewer` role as the Ceiling explainer' \
+  "HowWhy: how uses a Ceiling Codex explainer"
+assert_prose_contains "$WHY/SKILL.md" 'On Codex, spawn the managed `scout` role for each MCP-backed investigator' \
+  "HowWhy: why uses the MCP-capable Codex Scout"
+assert_prose_contains "$WHY/SKILL.md" 'On Codex, spawn the managed `code-reviewer` role as the Ceiling synthesizer' \
+  "HowWhy: why uses a Ceiling Codex synthesizer"
+for skill in "$HOW" "$WHY"; do
+  assert_file_not_matches "$skill/SKILL.md" 'gpt-[0-9]' \
+    "HowWhy: $skill keeps Codex model IDs out of skill prose"
+done
 
 # --- 3. routing: the investigate lane offers both -----------------------------
 assert_file_matches "$LANE" '^[0-9]+\. `/how <ref>` .* — optional$' \
