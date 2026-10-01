@@ -35,7 +35,7 @@ for tree in $TREES; do
     "GoLanes: $f exists"
   assert_file_contains "$f" '[ROUTE] lane=<lane> | chain=<skill, skill, ...> | reason: <one sentence>' \
     "GoLanes: $f states the [ROUTE] emission format"
-  assert_prose_contains "$f" '`fix` outranks `perf`, `perf` outranks `refactor`' \
+  assert_prose_contains "$f" '`fix` outranks `perf`, `perf` outranks `simplify`, `simplify` outranks `refactor`' \
     "GoLanes: $f states the precedence rule"
   assert_prose_contains "$f" '`investigate` is decided first' \
     "GoLanes: $f decides investigate before the change lanes"

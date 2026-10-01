@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>make-it-simpler — Architecture Review</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+  --border: #30363d; --text: #c9d1d9; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-2: #3fb950; --warn: #f85149;
+  --warn-bg: rgba(248,81,73,0.12); --code-bg: #1e1e1e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4); --radius: 10px;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --surface-2: #eaeef2;
+  --border: #d0d7de; --text: #1f2328; --text-secondary: #57606a;
+  --accent: #0969da; --accent-2: #1a7f37; --warn: #cf222e;
+  --warn-bg: rgba(207,34,46,0.08); --code-bg: #f6f8fa;
+  --shadow: 0 4px 20px rgba(31,35,40,0.08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.65; font-size: 16px;
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+@media (min-width: 1100px) { .container { max-width: 920px; } }
+
+/* Hero */
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 0.5rem; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+.hero .takeaway {
+  font-size: 1.15rem; line-height: 1.5; padding: 1rem 1.2rem;
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 1.2rem 0;
+}
+.hero .meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
+  color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;
+}
+.hero .meta span strong { color: var(--text); margin-right: 0.25rem; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); margin-bottom: 0.25rem; }
+.card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); line-height: 1.1; }
+.card .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+/* Sections */
+section { margin: 2.5rem 0; scroll-margin-top: 1.5rem; }
+section > h2 {
+  font-size: 1.45rem; margin: 0 0 1rem; padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--accent); display: flex; gap: 0.5rem; align-items: baseline;
+}
+section h3 { font-size: 1.1rem; margin: 1.4rem 0 0.5rem; }
+section p { margin: 0.7rem 0; }
+section ul { padding-left: 1.4rem; margin: 0.5rem 0; }
+section li { margin: 0.3rem 0; }
+
+/* Sidebar nav */
+.nav-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  padding: 1.5rem 0.8rem; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transform: translateX(0); transition: transform 0.25s; z-index: 100;
+}
+.nav-sidebar.hidden { transform: translateX(-100%); }
+.nav-sidebar h3 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); margin: 1rem 0.5rem 0.4rem;
+}
+.nav-sidebar a {
+  display: block; padding: 0.4rem 0.6rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; line-height: 1.35;
+}
+.nav-sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.nav-sidebar a.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+.layout { display: flex; }
+.layout main { flex: 1; margin-left: 240px; min-width: 0; }
+@media (max-width: 900px) {
+  .nav-sidebar { transform: translateX(-100%); }
+  .nav-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .layout main { margin-left: 0; }
+}
+
+/* Toolbar buttons (theme, nav toggle) */
+.toolbar { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; z-index: 200; }
+.toolbar button, .nav-toggle {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.toolbar button:hover, .nav-toggle:hover { background: var(--surface-2); }
+.nav-toggle { position: fixed; top: 1rem; left: 1rem; z-index: 200; }
+
+/* Code */
+pre {
+  margin: 0.5rem 0; padding: 1rem 1.1rem; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow-x: auto; font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace;
+  font-size: 0.85rem; line-height: 1.55;
+}
+code { font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace; font-size: 0.9em; }
+p code, li code {
+  padding: 0.1rem 0.35rem; background: var(--surface-2);
+  border-radius: 4px; font-size: 0.85em;
+}
+.code-block { margin: 1rem 0; }
+.code-block .caption {
+  font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-block .caption .lang { font-family: monospace; font-size: 0.75rem;
+  padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-2); }
+
+/* Collapsible */
+details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.6rem 1rem; margin: 0.8rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; }
+details[open] { padding-bottom: 1rem; }
+
+/* References footer */
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+.refs a {
+  display: block; padding: 0.8rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.9rem;
+}
+.refs a:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Reflection */
+.reflection {
+  background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(63,185,80,0.10));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.3rem 1.5rem; margin: 2rem 0;
+}
+.reflection h3 { margin-top: 0; color: var(--accent); }
+
+footer {
+  margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.85rem; text-align: center;
+}
+
+/* Slides mode */
+body.mode-slides { overflow: hidden; }
+body.mode-slides .layout main { margin-left: 0; }
+body.mode-slides .nav-sidebar, body.mode-slides .nav-toggle { display: none; }
+body.mode-slides .container { max-width: none; padding: 0; }
+body.mode-slides .slide {
+  width: 100vw; height: 100vh; padding: 4rem 6rem; display: none;
+  flex-direction: column; justify-content: center;
+}
+body.mode-slides .slide.active { display: flex; }
+body.mode-slides .slide h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+body.mode-slides .slide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); border: none; }
+body.mode-slides .slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem; color: var(--text-secondary);
+  font-size: 0.85rem; font-family: monospace;
+}
+</style>
+<style>
+.diff-add { color: var(--accent-2); }
+.diff-del { color: var(--warn); }
+.diff-ctx { color: var(--text-secondary); }
+
+.tabset { margin: 1rem 0; }
+.tab-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.tab-btn {
+  background: none; cursor: pointer; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.4rem 0.9rem; color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.tab-btn.active { color: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  colorDiffBlocks();
+  buildKeychangeTabs();
+});
+
+function colorDiffBlocks() {
+  document.querySelectorAll('pre code.lang-diff').forEach(function (block) {
+    var lines = block.textContent.split('\n');
+    block.textContent = '';
+    lines.forEach(function (line, i) {
+      var span = document.createElement('span');
+      if (line.startsWith('+')) {
+        span.className = 'diff-add';
+      } else if (line.startsWith('-')) {
+        span.className = 'diff-del';
+      } else {
+        span.className = 'diff-ctx';
+      }
+      span.textContent = line;
+      block.appendChild(span);
+      if (i < lines.length - 1) {
+        block.appendChild(document.createTextNode('\n'));
+      }
+    });
+  });
+}
+
+function buildKeychangeTabs() {
+  var sections = Array.from(document.querySelectorAll('main section[id]'));
+  var i = 0;
+  while (i < sections.length) {
+    if (!sections[i].id.startsWith('keychange-')) {
+      i += 1;
+      continue;
+    }
+    var group = [];
+    while (i < sections.length && sections[i].id.startsWith('keychange-')) {
+      group.push(sections[i]);
+      i += 1;
+    }
+    wrapGroupInTabset(group);
+  }
+}
+
+function wrapGroupInTabset(group) {
+  var tabset = document.createElement('div');
+  tabset.className = 'tabset';
+  var tabBtns = document.createElement('div');
+  tabBtns.className = 'tab-btns';
+  tabset.appendChild(tabBtns);
+
+  group[0].parentNode.insertBefore(tabset, group[0]);
+
+  group.forEach(function (section, idx) {
+    var heading = section.querySelector('h2');
+    var label = heading ? heading.textContent.trim() : section.id;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+    btn.textContent = label;
+    tabBtns.appendChild(btn);
+
+    section.classList.add('tab-panel');
+    if (idx === 0) {
+      section.classList.add('active');
+    }
+    tabset.appendChild(section);
+
+    btn.addEventListener('click', function () {
+      tabBtns.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      tabset.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      section.classList.add('active');
+    });
+  });
+}
+</script>
+</head>
+<body class="mode-report" data-theme="dark">
+<div class="toolbar"><button onclick="toggleTheme()" aria-label="Toggle theme">🌓 Theme</button></div><button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+<div class="layout">
+<nav class="nav-sidebar" id="navSidebar"><h3>Contents</h3><a href="#problem">What changes, for whom</a><a href="#constraints">Constraints — which correct designs are wrong here</a><a href="#system-design">System design — who owns what, and what fails together</a><a href="#contracts">Component contracts — can the caller ignore a case it must handle</a><a href="#data-models">Data models — which combinations are nonsense, and does the type forbid them</a><a href="#build-order">Build order — each slice ships alone, riskiest unknown first</a><a href="#decisions">Decisions — expensive to change later</a><a href="#acceptance">Acceptance criteria</a><a href="#paths">Implementation paths</a><a href="#reflection">Reflect</a><a href="#references">References</a></nav>
+<main><div class="container"><header class="hero"><h1>make-it-simpler — Architecture Review</h1><p class="subtitle">jplugin-agentic-development · prompt · 2026-09-29</p><p class="takeaway">A daily /make-it-simpler finds one behavior-preserving harness simplification and ships it as a PR — interactively after a short grilling, or unattended as a new `simplify` consumer routine; the decision to weigh is that one unattended run both files candidates and builds the top minor one.</p><div class="meta"><span><strong>Origin:</strong>prompt (grilling 2026-09-29)</span><span><strong>Spec:</strong>specs/make-it-simpler.md</span><span><strong>Status:</strong>awaiting review</span></div></header><div class="cards"><div class="card"><div class="label">Components touched</div><div class="value">11</div><div class="hint">new skill, signals.py, lane, registry config, routine_branch, routines.md, /go, AGENTS.md</div></div><div class="card"><div class="label">Contracts</div><div class="value">4 new · 3 changed</div><div class="hint">signals.py, /make-it-simpler, overrides, lane · precedence, selectors, CONTRACT_ROUTINES</div></div><div class="card"><div class="label">Entities</div><div class="value">2 new · 0 changed</div><div class="hint">Candidate, simplify task</div></div><div class="card"><div class="label">Build slices</div><div class="value">9</div><div class="hint">signals.py first</div></div><div class="card"><div class="label">Decisions</div><div class="value">26 rows · 0 open</div><div class="hint">3 assumed — D20, D21, D24</div></div></div><section id="problem"><h2>What changes, for whom</h2><p>The operator of this harness wants one behavior-preserving simplification a
+day, sized to one review, shipped as a pull request — interactively with a
+short grilling, or unattended as a routine. Today <code>/sweep --routine architect</code>
+files APOSD design debt over the tree but never builds, and nothing looks for
+the harness-shaped bulk the wrap-up-phases work (#204) removed: one rule stated
+in many files, citations that no longer resolve, always-loaded prose over
+budget. Out of scope: replacing <code>/sweep</code> or <code>/tidy</code>, building a <em>significant</em>
+change, changing <code>/yolo</code> or <code>/auto-push</code>, and new <code>task-registry</code> verbs.</p></section>
+<section id="constraints"><h2>Constraints — which correct designs are wrong here</h2><p>An <code>inferred</code> row is a question for you, not a fact.</p>
+
+<ul>
+<li><strong>C1</strong> — <em>Constraint:</em> A significant change is never built unattended · <em>Value:</em> &quot;significant&quot; is the bar in <code>/system-design-planning</code> § <em>When to Use / When Not</em>, cited by name and never restated · <em>Source:</em> user (D5, D6) · <em>Detected by:</em> <code>tests/test-make-it-simpler.sh</code> pins the citation and the absence of a restated list</li>
+<li><strong>C2</strong> — <em>Constraint:</em> An unattended build is small · <em>Value:</em> ≤ 3 slices and one area — one skill with its <code>references/</code>, or one script with its tests — estimated against <code>slice/references/sizing.md</code> before filing · <em>Source:</em> user (D9, Q28) · <em>Detected by:</em> discovery sizes before it files (doc pin); the scope stop catches a miss</li>
+<li><strong>C3</strong> — <em>Constraint:</em> Minor behavior changes are declared · <em>Value:</em> the PR body carries <code>Behavior changes:</code> — a list or <code>none</code>; an undeclared change found by review is <strong>STOP</strong> · <em>Source:</em> user (D11) · <em>Detected by:</em> lane step text (doc pin); <code>/quality-gate</code>&#x27;s dispatch carries the declared list as intent</li>
+<li><strong>C4</strong> — <em>Constraint:</em> Before- and after-proof · <em>Value:</em> the affected-test command plus <code>bash tests/test-citations.sh</code>, run before the first edit and after the last, both quoted in the PR body · <em>Source:</em> user (D11) · <em>Detected by:</em> lane step text pin; PR body</li>
+<li><strong>C5</strong> — <em>Constraint:</em> The skill passes its own lens · <em>Value:</em> <code>SKILL.md</code> ≤ 150 lines · <em>Source:</em> user (Q26) · <em>Detected by:</em> <code>tests/test-instruction-budget.sh</code></li>
+<li><strong>C6</strong> — <em>Constraint:</em> <code>/yolo</code> and <code>/auto-push</code> are unchanged · <em>Value:</em> no edit to either <code>SKILL.md</code> · <em>Source:</em> user (Q22) · <em>Detected by:</em> slice 5&#x27;s Verify: <code>git diff --quiet master -- .agents/skills/yolo .agents/skills/auto-push</code></li>
+<li><strong>C7</strong> — <em>Constraint:</em> Only the <code>simplify</code> routine selects a <code>simplify</code> task · <em>Value:</em> <code>simplify</code> ranked in <code>kind_precedence</code> ahead of <code>tech-debt</code>; exactly one selector claims it · <em>Source:</em> user (Q24) · <em>Detected by:</em> <code>validate_selectors</code> (<code>config.py:537</code>); <code>tests/test-routine-selectors.sh</code></li>
+<li><strong>C8</strong> — <em>Constraint:</em> Every routine lane ends at <code>/wrap-up-session</code> · <em>Value:</em> chain&#x27;s last skill · <em>Source:</em> lane grammar · <em>Detected by:</em> <code>lanes.py:308</code>; <code>tests/test-lane-catalogue.sh</code></li>
+<li><strong>C9</strong> — <em>Constraint:</em> <code>signals.py</code> is read-only and offline · <em>Value:</em> no write, no network, no subprocess other than <code>git ls-files</code> / <code>git rev-parse</code> · <em>Source:</em> inferred · <em>Detected by:</em> the test asserts <code>git status --porcelain</code> is unchanged after <code>rank</code></li>
+<li><strong>C10</strong> — <em>Constraint:</em> <code>signals.py</code> is deterministic · <em>Value:</em> identical tree → byte-identical JSON · <em>Source:</em> user (Q25) · <em>Detected by:</em> the test runs it twice and compares</li>
+<li><strong>C11</strong> — <em>Constraint:</em> An unattended run leaves the clone clean · <em>Value:</em> every <code>tasks/todo.md</code> row its filing wrote (<code>registry/upsert.py:242</code>) is committed on its routine branch; a run that files nothing and selects nothing exits 0 with no output and no branch · <em>Source:</em> user (Q29) · <em>Detected by:</em> doc pin on the unattended sequence; the skill&#x27;s closing <code>git status --porcelain</code> check</li>
+<li><strong>C12</strong> — <em>Constraint:</em> The lens never re-reports what <code>/tidy</code> owns · <em>Value:</em> excluded: <code>suite</code>, <code>inventory</code>, <code>retired</code>, <code>installed</code>, <code>refs</code>, <code>worktrees</code>, <code>strays</code>, <code>graph</code>, <code>registers</code> (<code>tidy/SKILL.md:98-108</code>) · <em>Source:</em> user (D4) · <em>Detected by:</em> fixture: an unresolved backticked path and a retired-skill reference produce no candidate</li>
+<li><strong>C13</strong> — <em>Constraint:</em> No new always-loaded prose beyond one sentence · <em>Value:</em> <code>AGENTS.md</code> grows by at most the named-exceptions edit · <em>Source:</em> inferred · <em>Detected by:</em> <code>tests/test-instruction-budget.sh</code> block budget</li>
+<li><strong>C14</strong> — <em>Constraint:</em> Rollback · <em>Value:</em> the unit is the merged PR (slices 6–9 build on each other): reverting it removes the lane and the precedence entry; open <code>simplify</code> issues become unclassified — selected by no routine and counted in every routine&#x27;s report (routines.md § <em>An unclassified issue belongs to nobody</em>); no data migration · <em>Source:</em> inferred · <em>Detected by:</em> <code>tests/test-lane-catalogue.sh</code> and <code>tests/test-routine-selectors.sh</code> on the reverted tree</li>
+<li><strong>C15</strong> — <em>Constraint:</em> No new <code>task-registry</code> surface · <em>Value:</em> only existing verbs: <code>show</code>, <code>upsert</code>, <code>select</code>, <code>claim</code>, <code>lanes</code>, <code>selectors</code> · <em>Source:</em> user (Q28) · <em>Detected by:</em> <code>git diff --quiet master -- .agents/skills/task-registry/scripts/task-registry.py .agents/skills/task-registry/scripts/registry/upsert.py</code></li>
+</ul></section>
+<section id="system-design"><h2>System design — who owns what, and what fails together</h2><h3>Current state</h3>
+
+<pre><code class="lang-text"> scheduler ──► routine spine (routines.md § The shared spine)
+                 1 task-registry select --routine &lt;name&gt;      routines.py:56  (kind_precedence, config.py:106)
+                 2 task-registry claim                        in-progress label
+                 3 routine_branch.py format &lt;name&gt; &lt;n&gt; &lt;slug&gt; CONTRACT_ROUTINES, routine_branch.py:54
+                 4 lane steps  (lanes/&lt;name&gt;.md)              lanes.py:290 validates; chain must end /wrap-up-session
+                 5 /wrap-up-session
+
+ lanes today: fix(bug,tech-debt) improve(enhancement,documentation) plan(design-decision)
+              producers janitor/architect/tidy · interactive refactor/perf/investigate/babysit/none
+ /plan Step 6 prints a build prompt and stops; only /yolo and /auto-push override it (AGENTS.md:16)
+ /build pre-flight files one issue per slice (/slice --file)
+ upsert writes tasks/todo.md on every --apply (upsert.py:242) and reopens a closed id (upsert.py:166)
+ task-registry has no release or close verb; escalate takes investigation reasons only (escalation.py:20)
+</code></pre>
+
+<h3>Ownership</h3>
+
+<ul>
+<li><strong><code>make-it-simpler/scripts/signals.py</code> — NEW</strong> — <em>Owns (source of truth for):</em> the candidate list and its rank for a given tree · <em>Reads:</em> the working tree, <code>git ls-files</code></li>
+<li><strong><code>/make-it-simpler</code> <code>SKILL.md</code> — NEW</strong> — <em>Owns (source of truth for):</em> classification (minor/significant), the size estimate, the scope written into the spec, the seeded grilling, the unattended sequence, the <code>/plan</code> and <code>/build</code> overrides, the scope stop · <em>Reads:</em> <code>signals.py</code> output, the registry, <code>references/*</code></li>
+<li><strong><code>make-it-simpler/references/lens.md</code> — NEW</strong> — <em>Owns (source of truth for):</em> the seven signals&#x27; definitions, the weight <code>W</code>, the <code>tests/fixtures/</code> and <code>/tidy</code> exclusions</li>
+<li><strong><code>make-it-simpler/references/safe-moves.md</code> — NEW</strong> — <em>Owns (source of truth for):</em> the five practices seeded into every spec&#x27;s § Decisions</li>
+<li><strong><code>lanes/simplify.md</code> — NEW</strong> — <em>Owns (source of truth for):</em> the routine&#x27;s step list, chain, selector, cues</li>
+<li><strong><code>/task-registry</code></strong> — <em>Owns (source of truth for):</em> task state, claim, derived identity (dedup key), the <code>tasks/todo.md</code> index · <em>Reads:</em> <code>docs/task-tracking.md</code></li>
+<li><strong><code>docs/task-tracking.md</code> + <code>config.py</code> defaults</strong> — <em>Owns (source of truth for):</em> kind precedence, selectors, chains · <em>Reads:</em> lane catalogue</li>
+<li><strong><code>routine_branch.py</code></strong> — <em>Owns (source of truth for):</em> the routine-name allow-list</li>
+<li><strong><code>/system-design-planning</code></strong> — <em>Owns (source of truth for):</em> the significance bar</li>
+<li><strong><code>/plan</code>, <code>/slice</code>, <code>/build</code>, <code>/quality-gate</code>, <code>/wrap-up-session</code></strong> — <em>Owns (source of truth for):</em> spec format, slices, TDD, receipt, PR — unchanged · <em>Reads:</em> the spec the skill writes</li>
+</ul>
+
+<h3>Interaction</h3>
+
+<pre><code class="lang-text"> interactive:  operator  ─(1)► /make-it-simpler [&lt;arg&gt;]
+                                 rank(2) → top 3 → pick → file+claim(3) → /grilling(4) → spec(5) → lane steps 2–5
+ unattended:   scheduler ─(1)► /make-it-simpler --unattended                                        NEW sequence
+                                 a. rank(2) → deep review → classify → size
+                                 b. file(3): minor &amp; in cap → `simplify` task; else `decision`+`simplify`; skip closed ids
+                                 c. spine 1–3: select --routine simplify → claim → branch routine/simplify/&lt;n&gt;-&lt;slug&gt;
+                                    the index rows from b are the branch&#x27;s first commit
+                                 d. lane step 1 /make-it-simpler &lt;ref&gt; → spec(5) → lane steps 2–5 → ready PR
+                                 decisions only: branch routine/simplify/&lt;YYYYMMDD&gt;-record → docs-only PR of the index rows
+                                 nothing filed, nothing selected: exit 0, silent, no branch
+ preview:      operator  ─(1)► /make-it-simpler --prepare   (steps a–b only; the operator commits the index rows)
+
+ lane steps 2–5:  /plan &lt;spec&gt; (Step 6: no prompt, /build in place) ─► /build (pre-flight: no slice filing)
+                  ─► /quality-gate ─► /wrap-up-session
+</code></pre>
+
+<ul>
+<li><strong>(1)</strong> — <em>Mode:</em> sync, in-session · <em>On timeout:</em> n/a — no external call · <em>On duplicate:</em> a second unattended run the same day: its filing re-derives the same ids (update, not create); <code>select</code> skips the claimed task (<code>routines.py:70</code>)</li>
+<li><strong>(2)</strong> — <em>Mode:</em> sync subprocess · <em>On timeout:</em> n/a — local; a non-zero exit stops the run loudly before anything is filed · <em>On duplicate:</em> read-only; re-running is free</li>
+<li><strong>(3)</strong> — <em>Mode:</em> sync, network (GitHub) · <em>On timeout:</em> unreachable tracker → <code>local-pending</code>, reported, never retried silently (existing <code>upsert</code>) · <em>On duplicate:</em> <code>--derive-id simplify --source &lt;path&gt; --fold-title</code>; a <code>done</code>/<code>cancelled</code> id is skipped after <code>show</code>, because <code>upsert</code> would reopen it (<code>upsert.py:166</code>)</li>
+<li><strong>(4)</strong> — <em>Mode:</em> sync, human · <em>On timeout:</em> the operator never answers → nothing further written; the filed task stays open for tomorrow · <em>On duplicate:</em> n/a</li>
+<li><strong>(5)</strong> — <em>Mode:</em> sync, local write · <em>On timeout:</em> n/a · <em>On duplicate:</em> the spec path is derived from the task&#x27;s slug; an existing spec for it is reopened, not duplicated</li>
+</ul>
+
+<h3>Failure unit</h3>
+
+<ul>
+<li><code>signals.py</code> failing stops only <code>/make-it-simpler</code>; no other skill calls it.</li>
+<li>A bad <code>simplify</code> lane fails <code>task-registry lanes</code> for <strong>every</strong> router (<code>lanes.py:290</code> refuses the catalogue), and a <code>kind_precedence</code>/selector mismatch fails <code>load_config</code> for every routine (<code>config.py:442</code>) — which is why the lane, the config, the routines-table mirror and <code>CONTRACT_ROUTINES</code> land in one slice.</li>
+<li>The dual write (file the task, then write the spec) is ordered registry first: a crash between leaves an open task with no spec, and the next run re-derives the same id and resumes it.</li>
+<li>A scope stop leaves one task claimed and no branch pushed; nothing else is held.</li>
+</ul></section>
+<section id="contracts"><h2>Component contracts — can the caller ignore a case it must handle</h2><h3><code>signals.py rank</code></h3>
+
+<pre><code class="lang-text">python3 .agents/skills/make-it-simpler/scripts/signals.py rank [--path &lt;p&gt;]... [--limit N]
+  stdout: {&quot;head&quot;: &quot;&lt;short sha&gt;&quot;, &quot;candidates&quot;: [Candidate, ...]}   sorted by score desc, then key asc
+  exit 0: success, including &quot;candidates&quot;: []
+  exit 2: usage error, or a --path that matches no tracked file (message names it)
+</code></pre>
+
+<ul>
+<li><strong>Inputs</strong> — <em>Contract:</em> tracked files (<code>git ls-files</code>) minus <code>tests/fixtures/</code> (stated in <code>lens.md</code>), narrowed by <code>--path</code> prefixes; <code>--limit</code> default 10. Tests run <code>rank</code> inside a temporary <code>git init</code> repository built from <code>tests/fixtures/make-it-simpler/</code>, so fixtures are tracked there and never rank here</li>
+<li><strong>Outcomes</strong> — <em>Contract:</em> a ranked list; an empty list is success</li>
+<li><strong>Raises</strong> — <em>Contract:</em> exit 1 with a traceback only on a programmer error</li>
+<li><strong>Idempotency</strong> — <em>Contract:</em> pure over the tree (C10)</li>
+<li><strong>Versioning</strong> — <em>Contract:</em> no version field: its one consumer, this skill&#x27;s <code>SKILL.md</code>, ships in the same commit</li>
+</ul>
+
+<h3><code>/make-it-simpler</code></h3>
+
+<pre><code class="lang-text">/make-it-simpler [&lt;arg&gt;]       interactive
+/make-it-simpler --unattended  the scheduled entry: sequence a–d above
+/make-it-simpler --prepare     preview: a–b only, interactive
+/make-it-simpler &lt;ref&gt;         lane step 1 (from the spine or from /go)
+
+&lt;arg&gt;, first match wins:
+  `#N` or a registry id  → that task. On a `routine/simplify/` branch it is unattended lane step 1;
+                           anywhere else it is interactive and grilled (routines.md § *Unattended detection* decides)
+  a tracked path prefix  → interactive, candidates narrowed to it (`rank --path`)
+  any other text         → interactive; the text is the focus the top 3 are chosen against (how `/go` passes a goal)
+  nothing                → interactive over the whole tree
+</code></pre>
+
+<ul>
+<li><strong>interactive</strong> — <em>Outcomes the caller must handle:</em> built (PR) · significant → handed to <code>/plan</code> or <code>/system-design-planning</code> · &quot;none today&quot; (nothing written)</li>
+<li><strong><code>--unattended</code></strong> — <em>Outcomes the caller must handle:</em> ready PR · docs-only record PR (decisions filed, nothing buildable) · silent exit 0 (nothing filed, nothing selected) · tracker unreachable (<code>local-pending</code> lines, no branch) · scope stop</li>
+<li><strong><code>--prepare</code></strong> — <em>Outcomes the caller must handle:</em> filed <em>n</em> (the registry&#x27;s own lines) · nothing to file · tracker unreachable</li>
+<li><strong>scope stop</strong> — <em>Outcomes the caller must handle:</em> lane step 1 finds the claimed task significant, over the cap, or no longer reproducing at <code>HEAD</code> → before any edit: non-zero exit, no PR, the claim left in place, and one line naming the task, the reason and the remedy (relabel <code>design-decision</code>, or close it)</li>
+</ul>
+
+<p>Each candidate shown interactively carries its signal, a <code>file:line</code> evidence quote, the estimated lines saved, the callers touched, and minor/significant.</p>
+
+<h3>Overrides owned by <code>/make-it-simpler</code> (like <code>/yolo</code> Phase A)</h3>
+
+<ul>
+<li><strong><code>/plan</code> Step 1 — Interview</strong> — <em>Override:</em> the spec the skill wrote carries § Decisions; <code>/plan</code> prints <code>DECISIONS CARRIED</code> and asks nothing unattended. Interactive runs already grilled</li>
+<li><strong><code>/plan</code> Step 6 — Hand over</strong> — <em>Override:</em> prints no prompt; <code>/build</code> runs in place</li>
+<li><strong><code>/build</code> pre-flight — filing</strong> — <em>Override:</em> no <code>/slice --file</code>: the <code>simplify</code> task is the tracked unit, the slices stay plan-block rows, and slice headers are not claimed</li>
+</ul>
+
+<h3><code>task-registry</code> — as called</h3>
+
+<pre><code class="lang-text">show &lt;derived-id&gt;                                             # skip done / cancelled
+upsert --derive-id simplify --source &lt;path&gt; --fold-title --title &#x27;&lt;signal&gt; in &lt;path&gt;&#x27; \
+       --kind task --label simplify --evidence &#x27;&lt;file:line&gt; — &lt;quote&gt;&#x27; --criterion &#x27;&lt;checkable&gt;&#x27; --apply
+upsert ... --kind decision --label simplify ...               # significant or over cap
+select --routine simplify ; claim &lt;ref&gt; --routine simplify --apply --approve
+</code></pre>
+
+<p><code>--kind decision</code> maps to the <code>design-decision</code> label (<code>DEFAULT_KIND_LABELS</code>, <code>registry/config.py:72</code>), which outranks <code>simplify</code>, so the <code>plan</code> routine owns a significant candidate — the unattended form of &quot;hand it to <code>/plan</code>&quot;.</p>
+
+<h3>Lane <code>simplify</code></h3>
+
+<pre><code class="lang-text">---
+routine: consumer
+selects: simplify
+cues: simplify, make it simpler, one home per rule, too long, trim
+ends: ready PR whose body quotes the before and after proof, Behavior changes and Simplified
+---
+1. /make-it-simpler &lt;ref&gt; — before-proof, scope, spec with safe-moves Decisions; a scope stop ends the run here — non-skippable
+2. /plan &lt;spec&gt; — the overrides /make-it-simpler owns
+3. /build — non-skippable
+4. /quality-gate — non-skippable
+5. /wrap-up-session — PR body: before/after proof, `Behavior changes:`, `Simplified:` — non-skippable
+</code></pre></section>
+<section id="data-models"><h2>Data models — which combinations are nonsense, and does the type forbid them</h2><h3>Entities</h3>
+
+<p><code>Candidate</code> — one row of <code>signals.py</code> output.</p>
+
+<ul>
+<li><strong><code>signal</code></strong> — <em>Type:</em> <code>duplicate-rule</code> · <code>citation-drift</code> · <code>over-budget</code> · <code>doc-script-contradiction</code> · <code>enforced-prose</code> · <code>orphan-or-overlap</code> · <code>code-red-flag</code> · <em>Invariant:</em> one of seven · <em>Enforced by:</em> a module-level tuple; the test asserts every emitted value is in it</li>
+<li><strong><code>path</code></strong> — <em>Type:</em> tracked repo-relative path · <em>Invariant:</em> tracked at <code>head</code>, not under <code>tests/fixtures/</code> · <em>Enforced by:</em> <code>git ls-files</code> membership</li>
+<li><strong><code>line</code></strong> — <em>Type:</em> int ≥ 1 · <em>Invariant:</em> inside the file · <em>Enforced by:</em> computed from the match</li>
+<li><strong><code>evidence</code></strong> — <em>Type:</em> str · <em>Invariant:</em> the verbatim line at <code>path:line</code> · <em>Enforced by:</em> read, never composed</li>
+<li><strong><code>lines_saved</code></strong> — <em>Type:</em> int ≥ 0 · <em>Invariant:</em> an estimate · <em>Enforced by:</em> per-signal rule in <code>lens.md</code></li>
+<li><strong><code>callers</code></strong> — <em>Type:</em> int ≥ 0 · <em>Invariant:</em> tracked files citing <code>path</code> · <em>Enforced by:</em> grep over tracked files</li>
+<li><strong><code>always_loaded</code></strong> — <em>Type:</em> bool · <em>Invariant:</em> <code>AGENTS.md</code>, <code>CLAUDE.md</code>, a <code>SKILL.md</code> frontmatter, the session banner · <em>Enforced by:</em> a fixed list in <code>signals.py</code>, named in <code>lens.md</code></li>
+<li><strong><code>score</code></strong> — <em>Type:</em> int · <em>Invariant:</em> <code>lines_saved × max(callers, 1) × (W if always_loaded else 1)</code> · <em>Enforced by:</em> one function; <code>W</code> defined once in <code>signals.py</code></li>
+<li><strong><code>key</code></strong> — <em>Type:</em> str · <em>Invariant:</em> <code>&lt;signal&gt; in &lt;path&gt;</code> — the registry title · <em>Enforced by:</em> one formatter</li>
+</ul>
+
+<p><code>doc-script-contradiction</code>, <code>enforced-prose</code> and <code>code-red-flag</code> are <strong>cues</strong> at the script level (a doc sentence naming a flag, exit code or verb the script it cites does not contain; a sentence whose key phrase a test already asserts; a <code>.py</code>/<code>.sh</code> file over a size bound) — the skill&#x27;s deep review confirms or drops each before it is shown or filed.</p>
+
+<p><code>simplify</code> task — a registry record: <code>--kind task</code>, label <code>simplify</code>, derived id <code>simplify.&lt;…&gt;</code> from <code>--source &lt;path&gt;</code> and the folded title.</p>
+
+<h3>Illegal states</h3>
+
+<ul>
+<li><strong>a <code>simplify</code>+<code>tech-debt</code> task selected by <code>fix</code></strong> — <em>Made unrepresentable by:</em> not unrepresentable — the skill never passes <code>--label tech-debt</code>, but an adopted architect task keeps it (<code>upsert</code> preserves labels, <code>upsert.py:164</code>); precedence resolves it to <code>simplify</code> (<code>routines.py:71</code>)</li>
+<li><strong>two open tasks for one file+signal</strong> — <em>Made unrepresentable by:</em> derived id (<code>--derive-id simplify --source --fold-title</code>)</li>
+<li><strong>a declined or merged candidate reopened by the next run</strong> — <em>Made unrepresentable by:</em> <code>show</code> before <code>upsert</code>; <code>done</code>/<code>cancelled</code> ids are skipped</li>
+<li><strong>a significant candidate filed as a buildable <code>simplify</code> task</strong> — <em>Made unrepresentable by:</em> classification precedes filing; significant files <code>--kind decision</code>, whose <code>design-decision</code> label outranks <code>simplify</code></li>
+<li><strong>an unattended build over the cap</strong> — <em>Made unrepresentable by:</em> sizing precedes filing; the scope stop catches a misestimate before any edit</li>
+<li><strong>a dirty clone after an unattended run</strong> — <em>Made unrepresentable by:</em> the index rows are committed on the routine branch; the closing clean-tree check</li>
+<li><strong>a PR without <code>Behavior changes:</code></strong> — <em>Made unrepresentable by:</em> lane step 5 text; the design reviewer receives the declared list</li>
+</ul>
+
+<h3>Transitions — <code>simplify</code> task</h3>
+
+<ul>
+<li><strong>—</strong> — <em>To:</em> <code>open</code> · <em>Trigger:</em> unattended filing, <code>--prepare</code>, or an interactive pick of an unfiled candidate</li>
+<li><strong><code>open</code></strong> — <em>To:</em> <code>in_progress</code> · <em>Trigger:</em> spine claim (unattended) or the interactive run&#x27;s claim</li>
+<li><strong><code>in_progress</code></strong> — <em>To:</em> <code>done</code> · <em>Trigger:</em> the PR merges (<code>Closes #N</code>)</li>
+<li><strong><code>in_progress</code></strong> — <em>To:</em> <code>in_progress</code> (held) · <em>Trigger:</em> scope stop — the claim stays; the operator relabels <code>design-decision</code> (the <code>plan</code> routine then owns it once the claim is removed) or closes it</li>
+<li><strong><code>open</code> / <code>in_progress</code></strong> — <em>To:</em> <code>cancelled</code> · <em>Trigger:</em> the operator closes the task by hand — declining in chat, or closing the PR unmerged; no registry verb does this (C15)</li>
+<li><strong><code>done</code> / <code>cancelled</code></strong> — <em>Trigger:</em> terminal; <code>show</code> before <code>upsert</code> keeps it from being reopened</li>
+</ul>
+
+<h3>Migration and compatibility</h3>
+
+<p>No persisted data format changes, but the shipped selector set is an external
+contract for every downstream project, and <code>/sync</code> never repairs <code>docs/</code> (it
+is outside every syncable root). After a plugin upgrade, <code>load_config</code> refuses
+on every command in two cases: a project that declares <code>kind_precedence</code>
+without <code>[routines.selectors]</code> gets &quot;selected but not ranked&quot;
+(<code>config.py:800</code>); one that declares <code>[routines.skills]</code> wholesale without
+selectors gets &quot;select issues but have no skill chain&quot; (<code>config.py:656</code>). The
+fix in both is to add <code>simplify</code> to <code>kind_precedence</code> ahead of <code>tech-debt</code>,
+<code>simplify = simplify</code> to <code>[routines.selectors]</code>, and the lane&#x27;s chain to
+<code>[routines.skills]</code>; the template&#x27;s comment says so. This repository&#x27;s own
+<code>docs/task-tracking.md</code> is edited in the routine slice. The GitHub <code>simplify</code>
+label is created once by the operator; <code>select --routine simplify</code> refuses,
+naming it, until then.</p></section>
+<section id="build-order"><h2>Build order — each slice ships alone, riskiest unknown first</h2><p>Sizing: 9 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slices 1–3: each test and fixture path counts as its own system, so a script or reference with its test is 3; slice 4: 4 ACs, all pinning one new file; slice 5: 3 systems, because the exception lives in the skill and is named in <code>AGENTS.md</code> with its pin; slice 6: 10 files, 8 systems, because <code>lanes.py</code>, <code>validate_selectors</code>, the routines-table mirror (<code>tests/test-routine-branch.sh</code> ContractAgreementTests) and the selector pins each refuse a lane the others do not know — split, the suite is red between slices; slice 7: 3 systems, one reference with two tests.</p>
+
+<ul>
+<li><strong>1</strong> — <em>Slice:</em> Rank the seven signals · <em>Delivers:</em> <code>signals.py rank</code> emits the seven signals over a temporary fixture repository, scored and sorted, deterministic and read-only · <em>Surface:</em> <code>.agents/skills/make-it-simpler/scripts/signals.py</code>, <code>tests/fixtures/make-it-simpler/<em>*</code>, <code>tests/test-make-it-simpler.sh</code> · *ACs:</em> 1, 2 · <em>Verify:</em> <code>bash tests/test-make-it-simpler.sh</code> · <em>Size:</em> 3 files · 3 systems · 2 ACs</li>
+<li><strong>2</strong> — <em>Slice:</em> Signal boundaries · <em>Delivers:</em> <code>--path</code> matching nothing exits 2; <code>tests/fixtures/</code> and <code>/tidy</code>-owned findings never surface · <em>Surface:</em> <code>.agents/skills/make-it-simpler/scripts/signals.py</code>, <code>tests/fixtures/make-it-simpler/<em>*</code>, <code>tests/test-make-it-simpler.sh</code> · *Blocked by:</em> 1 · <em>ACs:</em> 3, 4 · <em>Verify:</em> <code>bash tests/test-make-it-simpler.sh</code> · <em>Size:</em> 3 files · 3 systems · 2 ACs</li>
+<li><strong>3</strong> — <em>Slice:</em> Lens references · <em>Delivers:</em> <code>references/lens.md</code> (signals, <code>W</code>, exclusions) and <code>references/safe-moves.md</code> (five practices) · <em>Surface:</em> <code>.agents/skills/make-it-simpler/references/lens.md</code>, <code>.agents/skills/make-it-simpler/references/safe-moves.md</code>, <code>tests/test-make-it-simpler.sh</code> · <em>Blocked by:</em> 2 · <em>ACs:</em> 5, 6 · <em>Verify:</em> <code>bash tests/test-make-it-simpler.sh &amp;&amp; bash tests/test-citations.sh</code> · <em>Size:</em> 3 files · 2 systems · 2 ACs</li>
+<li><strong>4</strong> — <em>Slice:</em> Skill body · <em>Delivers:</em> <code>SKILL.md</code>: grammar, top-3 fields, significance citation, grilling seeds, safe-moves seeding, unattended sequence and its ends, scope stop; README row · <em>Surface:</em> <code>.agents/skills/make-it-simpler/SKILL.md</code>, <code>README.md</code>, <code>tests/test-make-it-simpler.sh</code>, <code>tests/test-instruction-budget.sh</code> · <em>Blocked by:</em> 3 · <em>ACs:</em> 7, 8, 9, 10 · <em>Verify:</em> <code>bash tests/test-make-it-simpler.sh &amp;&amp; bash tests/test-instruction-budget.sh &amp;&amp; bash tests/test-skills-table.sh &amp;&amp; bash tests/test-skill-frontmatter.sh</code> · <em>Size:</em> 4 files · 3 systems · 4 ACs</li>
+<li><strong>5</strong> — <em>Slice:</em> Pipeline overrides · <em>Delivers:</em> <code>SKILL.md</code> owns the <code>/plan</code> Step 1, Step 6 and <code>/build</code> pre-flight filing overrides; <code>AGENTS.md</code> names the third exception; <code>/yolo</code>, <code>/auto-push</code> and the registry CLI untouched · <em>Surface:</em> <code>.agents/skills/make-it-simpler/SKILL.md</code>, <code>AGENTS.md</code>, <code>tests/test-doc-conventions.sh</code> · <em>Blocked by:</em> 4 · <em>ACs:</em> 11, 12 · <em>Verify:</em> <code>bash tests/test-doc-conventions.sh &amp;&amp; bash tests/test-instruction-budget.sh &amp;&amp; git diff --quiet master -- .agents/skills/yolo .agents/skills/auto-push .agents/skills/task-registry/scripts/task-registry.py .agents/skills/task-registry/scripts/registry/upsert.py</code> · <em>Size:</em> 3 files · 3 systems · 2 ACs</li>
+<li><strong>6</strong> — <em>Slice:</em> Register the simplify routine · <em>Delivers:</em> Lane file; <code>kind_precedence</code>, selector and chain in <code>config.py</code>, the template and <code>docs/task-tracking.md</code>; the <code>routines.md</code> table row and precedence block; <code>CONTRACT_ROUTINES</code>; and every test that mirrors them · <em>Surface:</em> <code>.agents/skills/task-registry/lanes/simplify.md</code>, <code>.agents/skills/task-registry/scripts/registry/config.py</code>, <code>.agents/skills/task-registry/templates/task-tracking.md</code>, <code>docs/task-tracking.md</code>, <code>.agents/skills/wrap-up-session/references/routines.md</code>, <code>.agents/skills/wrap-up-session/scripts/routine_branch.py</code>, <code>tests/test-lane-catalogue.sh</code>, <code>tests/test-routines-contract.sh</code>, <code>tests/test-routine-branch.sh</code>, <code>tests/test-routine-selectors.sh</code> · <em>Blocked by:</em> 4 · <em>ACs:</em> 13, 14, 15 · <em>Verify:</em> <code>bash tests/test-lane-catalogue.sh &amp;&amp; bash tests/test-routines-contract.sh &amp;&amp; bash tests/test-routine-branch.sh &amp;&amp; bash tests/test-routine-selectors.sh &amp;&amp; bash tests/test-task-registry.sh &amp;&amp; bash tests/test-go-lanes.sh</code> · <em>Size:</em> 10 files · 8 systems · 3 ACs</li>
+<li><strong>7</strong> — <em>Slice:</em> Routine wrap-up rules · <em>Delivers:</em> <code>routines.md</code> gains the <code>simplify</code> steps section, the two branch rows, and the scope stop in § <em>Fix-escalation terminal</em> · <em>Surface:</em> <code>.agents/skills/wrap-up-session/references/routines.md</code>, <code>tests/test-routine-wrapup.sh</code>, <code>tests/test-routines-contract.sh</code> · <em>Blocked by:</em> 6 · <em>ACs:</em> 16, 17 · <em>Verify:</em> <code>bash tests/test-routine-wrapup.sh &amp;&amp; bash tests/test-routines-contract.sh &amp;&amp; bash tests/test-citations.sh</code> · <em>Size:</em> 3 files · 3 systems · 2 ACs</li>
+<li><strong>8</strong> — <em>Slice:</em> Selection precedence · <em>Delivers:</em> Pins: <code>simplify</code>+<code>tech-debt</code> → <code>simplify</code>; <code>design-decision</code>+<code>simplify</code> → <code>plan</code> · <em>Surface:</em> <code>tests/test-routine-selectors.sh</code> · <em>Blocked by:</em> 6 · <em>ACs:</em> 18 · <em>Verify:</em> <code>bash tests/test-routine-selectors.sh</code> · <em>Size:</em> 1 file · 1 system · 1 AC</li>
+<li><strong>9</strong> — <em>Slice:</em> Go routing · <em>Delivers:</em> <code>/go</code> states <code>fix</code> &gt; <code>perf</code> &gt; <code>simplify</code> &gt; <code>refactor</code>, pinned · <em>Surface:</em> <code>.agents/skills/go/SKILL.md</code>, <code>tests/test-go-lanes.sh</code> · <em>Blocked by:</em> 6 · <em>ACs:</em> 19 · <em>Verify:</em> <code>bash tests/test-go-lanes.sh</code> · <em>Size:</em> 2 files · 2 systems · 1 AC</li>
+</ul>
+
+<p>AC numbering follows § Acceptance Criteria in order. Slices 5 and 6 are disjoint and run in parallel after 4; slices 7, 8 and 9 are disjoint and run in parallel after 6. <code>/wrap-up-session</code> runs the full suite once.</p>
+
+<p>Build prompt:</p>
+
+<pre><code class="lang-">Invoke `/build` for `specs/make-it-simpler.md`.
+Plan: `## Plan: make-it-simpler` in `tasks/todo.md`, 9 slices, ready set &lt;1&gt;.
+Files: .agents/skills/make-it-simpler/**, .agents/skills/task-registry/lanes/simplify.md, .agents/skills/task-registry/scripts/registry/config.py, .agents/skills/task-registry/templates/task-tracking.md, .agents/skills/wrap-up-session/scripts/routine_branch.py, .agents/skills/wrap-up-session/references/routines.md, .agents/skills/go/SKILL.md, docs/task-tracking.md, AGENTS.md, README.md, tests/test-make-it-simpler.sh, tests/test-lane-catalogue.sh, tests/test-routines-contract.sh, tests/test-routine-selectors.sh, tests/test-routine-branch.sh, tests/test-routine-wrapup.sh, tests/test-go-lanes.sh, tests/test-instruction-budget.sh, tests/test-doc-conventions.sh, tests/fixtures/make-it-simpler/**.
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/make-it-simpler.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints: The significance bar is cited from /system-design-planning § When to Use / When Not, never restated (D5).
+Constraints: /yolo, /auto-push and the task-registry CLI and upsert modules are not edited (D8, D22, C15).
+Constraints: simplify tasks carry only the simplify label, ranked ahead of tech-debt (D17).
+Constraints: signals.py is deterministic, read-only and offline; tests run it in a temporary git repo (D18).
+Constraints: make-it-simpler SKILL.md stays at most 150 lines (D19).
+Constraints: The GitHub simplify label is created by the operator, never by a test or script.
+</code></pre></section>
+<section id="decisions"><h2>Decisions — expensive to change later</h2><ul>
+<li><strong>D1</strong> — <em>Decision:</em> Name and relation to <code>/sweep</code> · <em>Options:</em> <code>/make-it-simpler</code> separate skill · a <code>/sweep</code> lens · <code>/simplify</code> · <em>Picked:</em> separate skill, harness lens; open <code>tech-debt</code> tasks are an input · <em>Source:</em> user · <em>Wrong when:</em> the built-in <code>simplify</code> stops shipping and a rename is wanted</li>
+<li><strong>D2</strong> — <em>Decision:</em> Targets · <em>Options:</em> docs/skills · code · both · <em>Picked:</em> both · <em>Source:</em> user</li>
+<li><strong>D3</strong> — <em>Decision:</em> Discovery · <em>Options:</em> full tree review daily · cheap signals then deep review · area only · <em>Picked:</em> cheap signals, deep review of the top few, optional <code>&lt;arg&gt;</code> · <em>Source:</em> user · <em>Wrong when:</em> cheap signals miss what matters (watch the pick rate)</li>
+<li><strong>D4</strong> — <em>Decision:</em> Signals · <em>Options:</em> the seven in § Data models, ranked by <code>score</code> · <em>Picked:</em> all seven; <code>/tidy</code>&#x27;s checks and <code>tests/fixtures/</code> excluded · <em>Source:</em> user</li>
+<li><strong>D5</strong> — <em>Decision:</em> Minor vs significant · <em>Options:</em> cite <code>/system-design-planning</code> § <em>When to Use / When Not</em> · own list · size threshold · <em>Picked:</em> cite the bar · <em>Source:</em> user</li>
+<li><strong>D6</strong> — <em>Decision:</em> Significant candidate · <em>Options:</em> grill → <code>/plan</code> (interactive); <code>--kind decision</code> (unattended) · <em>Picked:</em> as stated · <em>Source:</em> user</li>
+<li><strong>D7</strong> — <em>Decision:</em> Modes · <em>Options:</em> interactive · <code>--prepare</code> · unattended · <em>Picked:</em> interactive; <code>--unattended</code> (discovery + build, Q29); <code>--prepare</code> kept as an interactive preview · <em>Source:</em> user (Q29 revises)</li>
+<li><strong>D8</strong> — <em>Decision:</em> Pipeline · <em>Options:</em> <code>/yolo</code>+<code>/auto-push</code> · lane lists the chain · <em>Picked:</em> the lane lists <code>/plan</code>→<code>/build</code>→<code>/quality-gate</code>→<code>/wrap-up-session</code>; <code>/yolo</code> loops the backlog and is &quot;not invoked by other skills&quot; (<code>yolo/SKILL.md:275</code>) · <em>Source:</em> user (Q22) · <em>Wrong when:</em> <code>/yolo</code> gains a single-item callable mode</li>
+<li><strong>D9</strong> — <em>Decision:</em> Size cap · <em>Options:</em> ≤ 3 slices, one area, unattended · <em>Picked:</em> as stated; interactive cap agreed in grilling · <em>Source:</em> user</li>
+<li><strong>D10</strong> — <em>Decision:</em> Lane shape · <em>Options:</em> one consumer lane · producer · two lanes · <em>Picked:</em> one consumer lane, <code>selects: simplify</code>; the unattended entry runs discovery before the spine · <em>Source:</em> user (Q23, Q29)</li>
+<li><strong>D11</strong> — <em>Decision:</em> Proof · <em>Options:</em> refactor-lane before/after + <code>Behavior changes:</code> · suite only · <em>Picked:</em> refactor-lane proof, required section, undeclared = STOP · <em>Source:</em> user</li>
+<li><strong>D12</strong> — <em>Decision:</em> Practices home · <em>Options:</em> <code>references/safe-moves.md</code> · <code>tasks/solutions/</code> · <code>AGENTS.md</code> · <em>Picked:</em> <code>safe-moves.md</code>, seeded as § Decisions rows · <em>Source:</em> user</li>
+<li><strong>D13</strong> — <em>Decision:</em> Grilling · <em>Options:</em> four seeds + frontier · open · one question · <em>Picked:</em> four seeds: scope in/out; what stays byte-identical; expected minor behavior changes; slice cap · <em>Source:</em> user</li>
+<li><strong>D14</strong> — <em>Decision:</em> Dedup · <em>Options:</em> registry <code>simplify</code> label · ledger · none · <em>Picked:</em> registry, derived id per file+signal, <code>show</code> before <code>upsert</code> · <em>Source:</em> user</li>
+<li><strong>D15</strong> — <em>Decision:</em> Reporting · <em>Options:</em> <code>Simplified:</code> line · none · <em>Picked:</em> lines before→after per file, always-loaded delta, duplicates collapsed · <em>Source:</em> user</li>
+<li><strong>D16</strong> — <em>Decision:</em> Nothing buildable · <em>Options:</em> record PR · silent · <em>Picked:</em> decisions filed → docs-only record PR of the index rows; nothing filed → silent exit 0 · <em>Source:</em> user (Q29 revises)</li>
+<li><strong>D17</strong> — <em>Decision:</em> Labels · <em>Options:</em> <code>simplify</code> only · <code>simplify</code>+<code>tech-debt</code> · <em>Picked:</em> <code>simplify</code> only, ranked ahead of <code>tech-debt</code> · <em>Source:</em> user (Q24)</li>
+<li><strong>D18</strong> — <em>Decision:</em> Signal computation · <em>Options:</em> script · agent grep · <em>Picked:</em> <code>signals.py</code>, TDD, deterministic JSON · <em>Source:</em> user (Q25)</li>
+<li><strong>D19</strong> — <em>Decision:</em> Skill size · <em>Options:</em> ≤ 150 lines · no cap · <em>Picked:</em> ≤ 150, pinned · <em>Source:</em> user (Q26)</li>
+<li><strong>D20</strong> — <em>Decision:</em> <code>/go</code> routing · <em>Options:</em> no cues · cues + precedence · <em>Picked:</em> cues; <code>fix</code> &gt; <code>perf</code> &gt; <code>simplify</code> &gt; <code>refactor</code> · <em>Source:</em> user (Q27); placement against <code>fix</code>/<code>perf</code> assumed · <em>Wrong when:</em> cues misroute ordinary refactors (watch <code>[ROUTE]</code> lines)</li>
+<li><strong>D21</strong> — <em>Decision:</em> Crossing <code>/plan</code>&#x27;s handover · <em>Options:</em> third named exception owning overrides · a new <code>/plan</code> flag · <em>Picked:</em> third named exception; <code>AGENTS.md:16</code> names it · <em>Source:</em> assumed — follows from D7 + Q22 · <em>Wrong when:</em> the separate lane-handover fix (improve/refactor) lands one general rule first — then cite it instead</li>
+<li><strong>D22</strong> — <em>Decision:</em> Unattended run that cannot build · <em>Options:</em> new <code>release</code>/<code>close</code> verbs · stop loudly · avoid by sizing first · <em>Picked:</em> size and classify before filing; a miss is a scope stop (non-zero, no PR, claim left) · <em>Source:</em> user (Q28) · <em>Wrong when:</em> scope stops become common — then add <code>release</code>/<code>close</code> to <code>/task-registry</code> as their own change</li>
+<li><strong>D23</strong> — <em>Decision:</em> Declined PR → cancelled · <em>Options:</em> automatic · by hand · <em>Picked:</em> by hand; no registry verb exists (C15) · <em>Source:</em> user (Q28) · <em>Wrong when:</em> a <code>close</code> verb lands</li>
+<li><strong>D24</strong> — <em>Decision:</em> <code>signals.py</code> weight <code>W</code> for always-loaded · <em>Options:</em> 3 · 5 · 10 · <em>Picked:</em> 5 · <em>Source:</em> assumed · <em>Wrong when:</em> pick history shows always-loaded candidates dominate or never surface</li>
+<li><strong>D25</strong> — <em>Decision:</em> Where the index rows go · <em>Options:</em> same PR · producer record PR · operator · <em>Picked:</em> the unattended run commits them on its routine branch; decisions-only days get a docs-only PR on <code>routine/simplify/&lt;YYYYMMDD&gt;-record</code> · <em>Source:</em> user (Q29)</li>
+<li><strong>D26</strong> — <em>Decision:</em> Slice issues · <em>Options:</em> file per slice · skip · <em>Picked:</em> skip: <code>/build</code> pre-flight filing is overridden; the <code>simplify</code> task is the tracked unit · <em>Source:</em> user (Q30) · <em>Wrong when:</em> a build ever needs per-slice tracking (then pass <code>--parent #N</code>)</li>
+</ul>
+
+<p><strong>Assumed — check these:</strong> D21 (third named exception), D24 (weight <code>W</code> = 5), and D20&#x27;s placement against <code>fix</code>/<code>perf</code>. Every other row is your answer from the grilling.</p></section>
+<section id="acceptance"><h2>Acceptance criteria</h2><ul>
+<li><code>signals.py rank</code>, run inside a temporary <code>git init</code> repository built from <code>tests/fixtures/make-it-simpler/</code>, emits one candidate for each of the seven signals, with <code>path</code>, <code>line</code>, a verbatim <code>evidence</code> line and <code>score = lines_saved × max(callers,1) × (5 if always_loaded else 1)</code>, sorted by score then key.</li>
+<li><code>signals.py rank</code> run twice over the same tree prints byte-identical output, writes nothing (<code>git status --porcelain</code> unchanged), and exits 0 with <code>&quot;candidates&quot;: []</code> on a tree with no signal.</li>
+<li><code>signals.py rank --path &lt;p&gt;</code> exits 2 naming <code>&lt;p&gt;</code> when it matches no tracked file, and no candidate is ever under <code>tests/fixtures/</code>.</li>
+<li>A fixture unresolved backticked path and a fixture retired-skill reference produce no candidate.</li>
+<li><code>.agents/skills/make-it-simpler/references/lens.md</code> defines the seven signals, the weight <code>W</code> by name, the <code>tests/fixtures/</code> exclusion, and the nine <code>/tidy</code> checks it excludes.</li>
+<li><code>.agents/skills/make-it-simpler/references/safe-moves.md</code> states five practices: headings are names only; callers cite by § name; a moved assertion is repointed, never deleted without a replacement; one home per rule; no script behavior change unless declared minor.</li>
+<li><code>.agents/skills/make-it-simpler/SKILL.md</code> has frontmatter <code>name: make-it-simpler</code>, is at most 150 lines, and follows <code>/writing-skills</code>&#x27; section order; <code>README.md</code>&#x27;s skills table lists it (<code>tests/test-skills-table.sh</code> passes).</li>
+<li><code>SKILL.md</code> cites <code>/system-design-planning</code> § <em>When to Use / When Not</em> as the significance bar and does not restate its list.</li>
+<li><code>SKILL.md</code> states the argument grammar (<code>#N</code>/registry id, tracked path, free text, nothing), the top-3 fields (signal, <code>file:line</code> evidence, lines saved, callers, minor/significant), &quot;none today writes nothing&quot;, the four grilling seeds, and that the five <code>safe-moves.md</code> practices are seeded as § Decisions rows in every spec it writes.</li>
+<li><code>SKILL.md</code> states the unattended sequence — rank, classify, size against <code>slice/references/sizing.md</code>, <code>show</code> before <code>upsert</code> skipping <code>done</code>/<code>cancelled</code>, file, spine 1–3, index rows as the branch&#x27;s first commit — its three ends (ready PR; docs-only record PR on <code>routine/simplify/&lt;YYYYMMDD&gt;-record</code>; silent exit 0), and the scope stop (non-zero, no PR, claim left, one line with the remedy).</li>
+<li><code>SKILL.md</code> owns an override table with <code>/plan</code> Step 1, <code>/plan</code> Step 6 (no prompt, <code>/build</code> in place) and <code>/build</code> pre-flight filing (no <code>/slice --file</code>, slice headers unclaimed) rows, and names the fresh-session rule it is excepted from; <code>AGENTS.md</code>&#x27;s named-exceptions sentence names <code>/make-it-simpler</code>.</li>
+<li><code>.agents/skills/yolo/SKILL.md</code>, <code>.agents/skills/auto-push/SKILL.md</code> and the <code>task-registry</code> CLI and <code>upsert</code> modules are unchanged.</li>
+<li><code>task-registry lanes simplify</code> prints a consumer lane selecting <code>simplify</code> whose chain is <code>/make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session</code>, and whose step 5 requires the PR body to quote the before- and after-proof, a <code>Behavior changes:</code> section (a list or <code>none</code>) and a <code>Simplified:</code> line; <code>tests/test-lane-catalogue.sh</code> passes with the lane counted.</li>
+<li><code>kind_precedence</code> is <code>bug, design-decision, simplify, tech-debt, enhancement, documentation</code> in <code>config.py</code>, <code>docs/task-tracking.md</code>, the template and the <code>routines.md</code> § <em>Kind precedence</em> block; <code>docs/task-tracking.md</code> and the template declare <code>simplify = simplify</code> and its chain; <code>task-registry selectors</code> validates, and <code>tests/test-routine-selectors.sh</code>&#x27;s default-chain, selector-union and label-fixture pins include <code>simplify</code>.</li>
+<li><code>routines.md</code> § <em>The routines</em> has a <code>simplify</code> row (consumer, selects <code>simplify</code>, ready PR, <code>Closes #N</code>), <code>CONTRACT_ROUTINES</code> includes <code>simplify</code>, and <code>routine_branch.py format simplify 12 trim-agents</code> prints <code>routine/simplify/12-trim-agents</code>, which <code>parse</code> reads back; <code>tests/test-routine-branch.sh</code> and <code>tests/test-routines-contract.sh</code> pass.</li>
+<li><code>routines.md</code> has a <code>### \</code>simplify\<code> — steps</code> section that points to the lane file and states the discovery that precedes the spine, and § <em>What the branch tells you</em> has <code>routine/simplify/&lt;n&gt;-&lt;slug&gt;</code> (ready, <code>Closes #N</code>) and <code>routine/simplify/&lt;YYYYMMDD&gt;-record</code> (ready, docs-only, <code>Refs #N</code> per filed issue) rows.</li>
+<li><code>routines.md</code> § <em>Fix-escalation terminal</em> also names the <code>simplify</code> scope stop: before any edit, non-zero, no PR, no PR ledger, the terminal PR assertion not run.</li>
+<li>An issue labelled <code>simplify</code> and <code>tech-debt</code> selects the <code>simplify</code> routine; one labelled <code>design-decision</code> and <code>simplify</code> selects <code>plan</code>.</li>
+<li><code>/go</code> § precedence states <code>fix</code> &gt; <code>perf</code> &gt; <code>simplify</code> &gt; <code>refactor</code>, and <code>tests/test-go-lanes.sh</code> pins that sentence (a static doc test; the routing itself is not claimed by it).</li>
+</ul></section>
+<section id="paths"><h2>Implementation paths</h2><ul>
+<li><code>.agents/skills/make-it-simpler/SKILL.md</code> — modes, grammar, classification, sizing, unattended sequence, overrides, scope stop</li>
+<li><code>.agents/skills/make-it-simpler/references/lens.md</code> — the seven signals, <code>W</code>, exclusions</li>
+<li><code>.agents/skills/make-it-simpler/references/safe-moves.md</code> — the five practices seeded into every spec</li>
+<li><code>.agents/skills/make-it-simpler/scripts/signals.py</code> — the ranked candidate list</li>
+<li><code>.agents/skills/task-registry/lanes/simplify.md</code> — the routine and interactive lane</li>
+<li><code>.agents/skills/task-registry/scripts/registry/config.py</code> — <code>DEFAULT_KIND_PRECEDENCE</code> gains <code>simplify</code></li>
+<li><code>.agents/skills/task-registry/templates/task-tracking.md</code> — precedence, selector, chain defaults and the downstream-upgrade note</li>
+<li><code>docs/task-tracking.md</code> — this project&#x27;s precedence, selector and chain</li>
+<li><code>.agents/skills/wrap-up-session/scripts/routine_branch.py</code> — <code>CONTRACT_ROUTINES</code> gains <code>simplify</code></li>
+<li><code>.agents/skills/wrap-up-session/references/routines.md</code> — routines row, precedence block, <code>simplify</code> steps, branch rows, scope-stop terminal</li>
+<li><code>.agents/skills/go/SKILL.md</code> — precedence sentence</li>
+<li><code>AGENTS.md</code> — the named-exceptions sentence</li>
+<li><code>README.md</code> — regenerated skills table</li>
+<li><code>tests/test-make-it-simpler.sh</code>, <code>tests/fixtures/make-it-simpler/**</code> — <code>signals.py</code> and the skill&#x27;s doc pins</li>
+<li><code>tests/test-lane-catalogue.sh</code>, <code>tests/test-routines-contract.sh</code>, <code>tests/test-routine-selectors.sh</code>, <code>tests/test-routine-branch.sh</code>, <code>tests/test-routine-wrapup.sh</code>, <code>tests/test-go-lanes.sh</code>, <code>tests/test-instruction-budget.sh</code>, <code>tests/test-doc-conventions.sh</code> — the counts and pins the new lane, routine and overrides move</li>
+</ul></section><section id="reflection"><div class="reflection"><h3>Reflect</h3><p>Reply with findings as [constraints|system-design|contracts|data-models|build-order] &lt;finding&gt; — &lt;evidence&gt;. Approve by starting a fresh session with the build prompt in the Build order section — nothing is filed or built in this one.</p></div></section><section id="references"><h2>📚 References</h2><div class="refs"><a href="make-it-simpler.md" target="_blank" rel="noopener">Spec (the contract /build holds)</a><a href="../.agents/skills/system-design-planning/references/review-card.md" target="_blank" rel="noopener">Review card</a></div></section><footer>Generated 2026-09-29 12:45 — html-presentation skill</footer></div></main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const saved = localStorage.getItem('html-presentation-theme');
+  if (saved) document.body.dataset.theme = saved;
+  else if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) {
+    document.body.dataset.theme = 'light';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  window.toggleTheme = function () {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = next;
+    localStorage.setItem('html-presentation-theme', next);
+  };
+  window.toggleNav = function () {
+    document.querySelector('.nav-sidebar').classList.toggle('open');
+  };
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav-sidebar a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Active section on scroll
+  const sections = document.querySelectorAll('main section[id]');
+  const links = new Map();
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    links.set(a.getAttribute('href').slice(1), a);
+  });
+  if (sections.length && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove('active'));
+          const link = links.get(entry.target.id);
+          if (link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => io.observe(s));
+  }
+
+  // Slides keyboard nav
+  if (document.body.classList.contains('mode-slides')) {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let idx = 0;
+    const counter = document.querySelector('.slide-counter');
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    }
+    show(0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+    });
+  }
+})();
+</script>
+</body>
+</html>

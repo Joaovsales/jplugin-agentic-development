@@ -1420,3 +1420,168 @@ Filed this sweep:
 - Completed: six `codex-scout-routing` slices (#224–#229), policy-backed Codex Scout rendering, safe install migration, dispatch guidance, and doctor.
 - Pending: push, pull request, and CI closure after verification.
 - Carry-forward: Claude/Pi emitters and usage receipts remain #159/#164.
+
+## Plan: make-it-simpler
+> Spec: specs/make-it-simpler.md
+
+### Slice 1/9 — Rank the seven signals
+- [x] Rank the seven signals <!-- task-id: plan.specs-make-it-simpler-md.rank-the-seven-signals --> — Slice 1/9: `signals.py rank` emits the seven signals over a temporary fixture repository, scored and sorted, determinis… ([#212](https://github.com/Joaovsales/jplugin-agentic-development/issues/212))
+  [x] TDD: seven-signal fixture repo; assert seven candidates with path, line, verbatim evidence, score formula, sort order (AC 1) -> signals.py rank, one detector per signal
+  [x] TDD: rank twice and diff; git status unchanged; empty repo prints candidates [] exit 0 (AC 2) -> sorted, pure output
+> Handover: landed 5c60fd1 — `signals.py rank` with seven detectors, `W = 5`, one candidate per (signal, path), fixture repo `tests/fixtures/make-it-simpler/seven/`
+> Do not re-derive: the expected order in the test is the score formula by hand; a mutation W=1 fails 2 assertions; byte-identical mirror files count as one home for `duplicate-rule`
+
+### Slice 2/9 — Signal boundaries
+- [x] Signal boundaries <!-- task-id: plan.specs-make-it-simpler-md.signal-boundaries --> — Slice 2/9: `--path` matching nothing exits 2; `tests/fixtures/` and `/tidy`-owned findings never surface ([#213](https://github.com/Joaovsales/jplugin-agentic-development/issues/213)) (blocked-by: plan.specs-make-it-simpler-md.rank-the-seven-signals)
+  [x] TDD: rank --path matching nothing exits 2 naming it; nothing under tests/fixtures/ ranks (AC 3) -> ls-files check and exclusion
+  [x] TDD: unresolved backticked path and retired-skill reference yield no candidate (AC 4) -> exclude /tidy-owned patterns
+> Handover: landed 6d06af0 — `--path` refusal, `tests/fixtures/` exclusion and the /tidy skips were built in slice 1's detectors; slice 2 added fixture `docs/f.md` and a nested `tests/fixtures/dup/` plus their pins
+> Do not re-derive: mutations (empty EXCLUDED_PREFIXES; an unresolved citation resolved) each fail AC 1 and AC 3 pins
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 3/9 — Lens references
+- [x] Lens references <!-- task-id: plan.specs-make-it-simpler-md.lens-references --> — Slice 3/9: `references/lens.md` (signals, `W`, exclusions) and `references/safe-moves.md` (five practices) ([#214](https://github.com/Joaovsales/jplugin-agentic-development/issues/214)) (blocked-by: plan.specs-make-it-simpler-md.signal-boundaries)
+  [x] TDD: lens.md names seven signals, W, the fixtures exclusion and nine /tidy checks (AC 5) -> write references/lens.md
+  [x] TDD: safe-moves.md states the five practices (AC 6) -> write references/safe-moves.md
+> Handover: landed 6d06af0 — `references/lens.md` (signals table, score, `W`, exclusions) and `references/safe-moves.md` (five numbered practices)
+> Do not re-derive: the lens test reads `SIGNALS` from signals.py by AST, so a new signal fails until lens.md defines it
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 4/9 — Skill body
+- [x] Skill body <!-- task-id: plan.specs-make-it-simpler-md.skill-body --> — Slice 4/9: `SKILL.md`: grammar, top-3 fields, significance citation, grilling seeds, safe-moves seeding, unattended seq… ([#215](https://github.com/Joaovsales/jplugin-agentic-development/issues/215)) (blocked-by: plan.specs-make-it-simpler-md.lens-references)
+  [x] TDD: frontmatter, <=150 lines, section order; README row (AC 7) -> write SKILL.md, render-skills-table
+  [x] TDD: cites the /system-design-planning bar, no restated list (AC 8) -> citation line
+  [x] TDD: grammar, top-3 fields, none-today, four seeds, safe-moves seeding (AC 9) -> interactive process
+  [x] TDD: unattended sequence, three ends, scope stop (AC 10) -> unattended process
+> Handover: landed 6d06af0 — SKILL.md (131 lines with slice 5's section), README row via render-skills-table.py, a ≤150 pin in test-instruction-budget.sh
+> Do not re-derive: citations into routines.md use the full `.agents/skills/wrap-up-session/references/routines.md` path so test-citations resolves them
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 5/9 — Pipeline overrides
+- [x] Pipeline overrides <!-- task-id: plan.specs-make-it-simpler-md.pipeline-overrides --> — Slice 5/9: `SKILL.md` owns the `/plan` Step 1, Step 6 and `/build` pre-flight filing overrides; `AGENTS.md` names the t… ([#216](https://github.com/Joaovsales/jplugin-agentic-development/issues/216)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+  [x] TDD: override table rows for /plan Step 1, Step 6 and /build pre-flight filing; fresh-session rule named; AGENTS.md names /make-it-simpler (AC 11) -> overrides + AGENTS.md sentence
+  [x] TDD: yolo, auto-push, task-registry.py and upsert.py unchanged against master (AC 12) -> surface check
+> Handover: landed 53fe5d8 — `### 7. Overrides` table in SKILL.md; AGENTS.md step 3 names three exceptions; pins in test-doc-conventions.sh § pipelines
+> Do not re-derive: `git diff --quiet master` over yolo, auto-push, task-registry.py and upsert.py is clean
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 6/9 — Register the simplify routine
+- [x] Register the simplify routine <!-- task-id: plan.specs-make-it-simpler-md.register-the-simplify-routine --> — Slice 6/9: Lane file; `kind_precedence`, selector and chain in `config.py`, the template and `docs/task-tracking.md`; t… ([#217](https://github.com/Joaovsales/jplugin-agentic-development/issues/217)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+  [x] TDD: task-registry lanes simplify: consumer, selects simplify, chain, step 5 PR-body text; catalogue counts (AC 13) -> lanes/simplify.md
+  [x] TDD: precedence, selector, chain in config.py, template, docs and routines.md block; selector test pins (AC 14) -> config edits
+  [x] TDD: routines.md table row, CONTRACT_ROUTINES, format/parse routine/simplify/12-trim-agents (AC 15) -> routine_branch.py + table row
+> Handover: landed 4b785c5 — lanes/simplify.md; `simplify` ranked after design-decision in config.py, docs, template (with the upgrade note) and routines.md; CONTRACT_ROUTINES; the routines table row
+> Do not re-derive: test-routine-selectors and test-task-registry fail the same 60 and 39 names as baseline on Windows (gh mock, #129) — the label-fixture pins need Linux CI
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+> Open: `task-registry selectors` upstream check names `simplify` missing on GitHub — the operator creates the label
+
+### Slice 7/9 — Routine wrap-up rules
+- [x] Routine wrap-up rules <!-- task-id: plan.specs-make-it-simpler-md.routine-wrap-up-rules --> — Slice 7/9: `routines.md` gains the `simplify` steps section, the two branch rows, and the scope stop in § *Fix-escalati… ([#218](https://github.com/Joaovsales/jplugin-agentic-development/issues/218)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: simplify steps section with pre-spine discovery; two branch rows (AC 16) -> routines.md sections
+  [x] TDD: Fix-escalation terminal names the simplify scope stop (AC 17) -> routines.md sentence
+> Handover: landed 4b785c5 (with slice 6 — shared routines.md hunks) — `### simplify — steps`, two branch rows, the scope stop under § Fix-escalation terminal
+> Do not re-derive: the branch rows live in § Draft and linkage, the table under § What the branch tells you (see the [AMBIGUITY] line)
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 8/9 — Selection precedence
+- [x] Selection precedence <!-- task-id: plan.specs-make-it-simpler-md.selection-precedence --> — Slice 8/9: Pins: `simplify`+`tech-debt` → `simplify`; `design-decision`+`simplify` → `plan` ([#219](https://github.com/Joaovsales/jplugin-agentic-development/issues/219)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: simplify+tech-debt selects simplify; design-decision+simplify selects plan (AC 18) -> selector test cases
+> Handover: landed 4b785c5 (with slice 6 — shared test file) — `simplify-beats-debt=simplify`, `decision-beats-simplify=plan` in select_routine cases
+> Do not re-derive: those two cases are pure Python and pass on Windows
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 9/9 — Go routing
+- [x] Go routing <!-- task-id: plan.specs-make-it-simpler-md.go-routing --> — Slice 9/9: `/go` states `fix` > `perf` > `simplify` > `refactor`, pinned ([#220](https://github.com/Joaovsales/jplugin-agentic-development/issues/220)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: go precedence sentence fix > perf > simplify > refactor pinned (AC 19) -> go/SKILL.md sentence
+> Handover: landed ebf3826 — /go precedence sentence `fix` > `perf` > `simplify` > `refactor`, pinned in test-go-lanes.sh
+> Do not re-derive: the pin is a static doc test; routing itself is not claimed
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+## Session Summary — 2026-09-29 [76d1f97..bcd2562]
+- Completed: `/make-it-simpler` built from specs/make-it-simpler.md, all nine slices (#212–#220): signals.py rank, lens and safe-moves references, SKILL.md with its overrides, the `simplify` consumer routine (lane, precedence, selector, chain, branch rows, scope stop), and /go precedence.
+- Pending: the GitHub `simplify` label (the operator creates it; `task-registry selectors` names it missing); the HOLD receipt f8a98438 needs a human approval before push.
+- Carry-forward: four advisory SHOULD-FIX items in the receipt: the `orphan-or-overlap` name before the first filing, a release note for downstream `kind_precedence` configs, no callee pointer in /plan and /build to named exceptions, and code-red-flag cues dominating the ranking on this repository (D24).
+
+## Plan: visual-e2e-evidence
+> Spec: specs/visual-e2e-evidence.md
+
+### Slice 1/5 — Playwright CLI backend
+- [x] Playwright CLI backend <!-- task-id: plan.specs-visual-e2e-evidence-md.playwright-cli-backend --> — Slice 1/5: the Playwright CLI runbook, backend order Playwright CLI → Chrome MCP → Lightpanda, and the Chrome-only VISU… ([#205](https://github.com/Joaovsales/jplugin-agentic-development/issues/205))
+  [x] TDD: tests/test-e2e-classifier.sh § resolution order — Playwright CLI is order 1 detected by `command -v playwright-cli`, Chrome MCP 2, Lightpanda 3 -> rewrite verify-evidence § Backend resolution (AC 1)
+  [x] TDD: tests/test-browser-runbook.sh — loops every `.claude/browsers/*.md`; playwright-cli declares name, fidelity full, screenshot file, detect_command, pinned version, platforms, and the command crib -> write `.claude/browsers/playwright-cli.md` (AC 2)
+  [x] TDD: tests/test-e2e-classifier.sh § outcome matrix — row "Chrome MCP only | VISUAL | BLOCKED" and never PASS -> add the matrix row and Failure Handling line (AC 3)
+> Handover: landed da65d47 — `.claude/browsers/playwright-cli.md` (pinned 0.1.22, `screenshot: file`, crib smoke-tested headless 2026-09-29); verify-evidence § Backend resolution is Playwright CLI → Chrome MCP → Lightpanda → none with Detected-by and Screenshot columns; matrix row and Failure Handling line for Chrome-only VISUAL → `BLOCKED`
+> Do not re-derive: every runbook now declares `screenshot: file|session|none` (lightpanda is `none`); the crib's screenshot is `playwright-cli screenshot --filename=tasks/e2e-artifacts/<short-sha>/<AC-id>.png`; `playwright-cli` writes `.playwright-cli/` in the CWD on every command; Playwright MCP is gone from the order, not demoted
+> Surface: undeclared `.claude/browsers/lightpanda.md` (stale "behind Chrome MCP and Playwright MCP" prose + the new `screenshot: none` key the shared contract requires)
+
+### Slice 2/5 — Screenshot evidence check
+- [x] Screenshot evidence check <!-- task-id: plan.specs-visual-e2e-evidence-md.screenshot-evidence-check --> — Slice 2/5: the Screenshot: line and "no file, no PASS" in Evidence Format and Iron Law 5, e2e_evidence.py check, and th… ([#206](https://github.com/Joaovsales/jplugin-agentic-development/issues/206)) (blocked-by: plan.specs-visual-e2e-evidence-md.playwright-cli-backend)
+  [x] TDD: tests/test-e2e-evidence.sh § prose — Evidence Format carries `Screenshot: tasks/e2e-artifacts/<short-sha>/<AC-id>.png` and Iron Law 5 names "without its PNG" -> edit verify-evidence § Evidence Format and Iron Laws (AC 4)
+  [x] TDD: tests/test-e2e-evidence.sh § check — fixture logs: all present → exit 0 silently; missing line / missing file → non-zero naming entry + AC; DOM-FUNCTIONAL and BLOCKED ignored -> `scripts/e2e_evidence.py check [--log]` (AC 5)
+  [x] TDD: tests/test-e2e-evidence.sh § gitignore — both .gitignore files carry `tasks/e2e-artifacts/` and `.playwright-cli/` -> add the entries (AC 12)
+> Handover: landed b1bec22 — `verify-evidence/scripts/e2e_evidence.py check [--log PATH] [--sha SHORT ...]`; Evidence Format gains the VISUAL PASS example with `Screenshot:`; Iron Law 5 extended; both .gitignore files ignore `tasks/e2e-artifacts/` and `.playwright-cli/`
+> Do not re-derive: exit 0 silent / 1 one stderr line per entry (`<log>:<line>: <entry heading> — <AC>: <reason>`) / 2 missing log; paths resolve from CWD (run from repo root); `--sha` matches the trailing short-sha of the `## ` heading — pass it at wrap-up, because older VISUAL PASS entries predate screenshots; the real log passes unscoped today
+> Surface: none (per-commit); the base-relative `check` lists other slices' files
+
+### Slice 3/5 — Evidence branch publisher
+- [x] Evidence branch publisher <!-- task-id: plan.specs-visual-e2e-evidence-md.evidence-branch-publisher --> — Slice 3/5: publish_evidence.py pushes PNGs to the orphan e2e-evidence branch and prints the PR section, with opt-out, n… ([#207](https://github.com/Joaovsales/jplugin-agentic-development/issues/207))
+  [x] TDD: tests/test-publish-evidence.sh § publish — bare-repo remote: first run creates the orphan branch, a second run adds a child commit, no force-push, feature HEAD and tree untouched, one commit-pinned `?raw=true` image per PNG -> `publish_evidence.py` via a temporary GIT_INDEX_FILE + commit-tree + push (AC 7)
+  [x] TDD: tests/test-publish-evidence.sh § skip paths — no PNGs → no output, no push; `E2E evidence: local` or a non-GitHub origin → local paths only, no push -> config and remote parsing (AC 8)
+  [x] TDD: tests/test-publish-evidence.sh § race — remote advanced between fetch and push → one rebuild + retry succeeds; a second rejection → non-zero exit and `evidence: publish failed` -> retry-once loop (AC 9)
+> Handover: landed 244d83b — `wrap-up-session/scripts/publish_evidence.py [--repo DIR] [--sha SHORT ...]` (default HEAD short-sha); stdout = PR-body section only (`## Visual evidence` / `## Visual evidence (local only)` / empty); stderr = one `evidence:` line (`published <n> to <o/r>[ — public repo]`, `local <n>`, `none`, `publish failed (<git error>)`); exit 1 only on publish failed
+> Do not re-derive: plumbing via temp GIT_INDEX_FILE, never touches the feature branch; retry once from a fresh fetch; no force-push anywhere; public marker from `gh api repos/<o/r> --jq .private`
+> Surface: none
+> Open: [AMBIGUITY] publishes every PNG under tasks/e2e-artifacts/<sha>/ for --sha, not every Screenshot: path in the log (picked A — the log is append-only across sessions)
+
+### Slice 4/5 — Wrap-up wiring
+- [x] Wrap-up wiring <!-- task-id: plan.specs-visual-e2e-evidence-md.wrap-up-wiring --> — Slice 4/5: § E2E coverage runs the check; § The Pull Request embeds the evidence section and reports evidence: ([#208](https://github.com/Joaovsales/jplugin-agentic-development/issues/208)) (blocked-by: plan.specs-visual-e2e-evidence-md.screenshot-evidence-check, plan.specs-visual-e2e-evidence-md.evidence-branch-publisher)
+  [x] TDD: tests/test-e2e-evidence.sh § wrap-up — § E2E coverage names `e2e_evidence.py check` and routes a failure to the run/acknowledge prompt -> edit wrap-up § E2E coverage (AC 6)
+  [x] TDD: tests/test-publish-evidence.sh § wrap-up — § The Pull Request runs the publisher before `gh pr create` and on re-sync, and the report has an `evidence:` line with a public-repo marker -> edit wrap-up § The Pull Request and the report template (AC 10)
+  [x] Verify: affected tests green at the slice checkpoint; the full suite (AC 13) is `/wrap-up-session` § *Full suite*, never re-run here
+> Handover: landed f678ff6 — § E2E coverage step 1 runs `e2e_evidence.py check --sha <short-sha>` and a named entry counts as missing (existing run/acknowledge prompt); § The Pull Request puts `publish_evidence.py` stdout in the body before the PR is created and on every re-sync, a publish failure never blocks the PR; the Report gains `- Evidence:`
+> Do not re-derive: wrap-up SKILL.md sits at its 300-line budget (test-instruction-budget) — the `gh pr create` fence was inlined to pay for the additions, and `gh pr create` must still appear exactly once (test-routine-wrapup AC7); `references/closure-actions.md` § PR re-sync was not edited
+> Surface: [SURFACE] +tests/test-e2e-evidence.sh, +tests/test-publish-evidence.sh | reason: the slice's own TDD rows pin AC 6 and AC 10 there; AC 13's full suite belongs to /wrap-up-session § Full suite
+
+### Slice 5/5 — Optional Playwright install
+- [x] Optional Playwright install <!-- task-id: plan.specs-visual-e2e-evidence-md.optional-playwright-install --> — Slice 5/5: install.sh installs the pinned @playwright/cli and Chromium, or prints a NOTE when npm is missing ([#209](https://github.com/Joaovsales/jplugin-agentic-development/issues/209))
+  [x] TDD: tests/test-install-sh.sh § playwright — stubbed npm on PATH: installs the pinned @playwright/cli, then runs install-browser chromium; no npm → NOTE and exit 0 -> new optional install.sh step (AC 11)
+> Handover: landed 91098b8 — install.sh step 6b installs `@playwright/cli@0.1.22` then `playwright-cli install-browser chromium`; no npm / npm failure / browser failure → NOTE, exit 0
+> Do not re-derive: `PLAYWRIGHT_CLI_VERSION` in install.sh and `pinned_version` in the runbook must move together; tests/test-install-sh.sh `SAFE_PATH` is now a symlink farm excluding npm/npx/node/playwright-cli because `/usr/bin/npm` exists on this machine — any new functional case inherits that guard
+> Surface: none
+
+
+## Session Summary — 2026-09-29 [b2b5634..51045d1]
+- Completed: 5 slices / 14 TDD rows of `## Plan: visual-e2e-evidence` (#205–#209); design-review fixes 05c7234, 204992e, 51045d1
+- Pending: none in this plan
+- Carry-forward: receipt 964a2096 GO with two NITPICKs (END_MARKER duplicated from session-start.sh; visibility_marker mixes query and punctuation). No real VISUAL walkthrough with playwright-cli yet — the smoke test covered the crib, not a spec AC.
+
+## Plan: plugin-staleness-check
+> Spec: specs/plugin-staleness-check.md
+
+### Slice 1/2 — Stale plugin banner block
+- [x] Stale plugin banner block <!-- task-id: plan.specs-plugin-staleness-check-md.stale-plugin-banner-block --> — Slice 1/2: the banner prints the update commands for every stale relevant record, silent otherwise ([#210](https://github.com/Joaovsales/jplugin-agentic-development/issues/210))
+  [x] TDD: Stale plugin: user record behind the marketplace clone prints headline, marketplace update and plugin update once each -> record parser + clone-HEAD comparison (AC 1)
+  [x] TDD: Stale plugin: project record for this path prints --scope project; another path's record prints nothing -> projectPath normalisation (AC 2)
+  [x] TDD: Stale plugin: clone current but matching remote ref ahead prints the block -> remote-ref ancestry check (AC 3)
+  [x] TDD: Stale plugin: current, sha-less, missing, malformed, non-adopting all silent and banner completes -> guards (AC 4, 5)
+  [x] TDD: Stale plugin: same version at the newer template prints the not-bumped note and user reinstall, no update line -> version comparison (AC 6)
+  [x] TDD: Stale plugin: the block adds no fetch/ls-remote/curl -> structural assertion (AC 7)
+
+> Handover: landed 83954b1..378f169 — `# ── Stale Plugin Install Check` block in .agents/hooks/session-start.sh (before Code Graph Check) + 36 fixture assertions in tests/test-session-start.sh; 172/172 pass
+> Do not re-derive: records are parsed in ONE awk pass (`relevant_records`) because per-field sed cost ~8 s of banner on Windows (7 worktree records in the real file); the block now adds ~2 s here. `git show <ref>:<path>` needs `MSYS_NO_PATHCONV=1` under Git Bash or the version reads empty. When several templates are ahead the highest `version` is named
+> Surface: none (slice.py check rc 0)
+> Open: this clone's `origin` is the pre-rename slug `coding-agent-workflow`, so per the spec's input rule only the marketplace clone is consulted here until `git remote set-url` (README already says to)
+
+### Slice 2/2 — Plugin version bump guard
+- [x] Plugin version bump guard <!-- task-id: plan.specs-plugin-staleness-check-md.plugin-version-bump-guard --> — Slice 2/2: the suite fails a payload change without a version bump; README states the measured rule ([#211](https://github.com/Joaovsales/jplugin-agentic-development/issues/211))
+  [x] TDD: Version guard: payload diff without an increase fails, with an increase passes, no base skips -> base resolution + semver compare in test-plugin-manifest.sh; bump plugin.json (AC 8)
+  [x] TDD: Version guard: README § Releasing skills names the measured no-op and the enforced bump -> README edit (AC 9)
+
+> Handover: landed 378f169..a7c2f10 — § 10 version guard in tests/test-plugin-manifest.sh (7 fixture cases + this tree + 3 README prose checks, 38/38), plugin.json 1.1.0 -> 1.2.0, README § Releasing skills
+> Do not re-derive: base = $PLUGIN_VERSION_BASE, else HEAD^1 when HEAD is on origin/master, else merge-base; CI has fetch-depth 0 so origin/master exists there. Mutation probe (version back to 1.1.0) makes the real-tree assertion fail — the guard bites. Every future payload PR must bump
+> Surface: none (slice.py check rc 0)
+
+## Session Summary — 2026-09-29 [b2b5634..bfeed2b]
+- Completed: plugin-staleness-check slices 1–2 (#210 stale-plugin banner block, #211 version bump guard + 1.2.0); quality-gate fixes 0cd8495 (hex-only sha), bfeed2b (.agents/references in the payload, one marketplace name, drift branch reused)
+- Pending: none in this plan
+- Carry-forward: this clone's `origin` still uses the pre-rename slug `coding-agent-workflow`, so the banner's remote-ref check does not fire here until `git remote set-url origin https://github.com/Joaovsales/jplugin-agentic-development.git`; unresolved SHOULD-FIX: the stale block's helpers talk through STALE_* globals (session-start.sh newest_behind/note_stale_record); payload coverage scan does not yet include plugin.json-declared paths

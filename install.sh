@@ -13,6 +13,7 @@
 #      a typed y — the plugin's hooks/hooks.json runs the session hook now
 #   5. Configures Pi (~/.pi/agent/settings.json) if installed
 #   6. Wires graphify into this project if the CLI is present (optional)
+#   6b. Installs the pinned @playwright/cli + Chromium if npm is present (optional)
 #   7. Sets up a git template dir so new repos receive the pre-push hook
 #   8. Installs project-template/ + a global `git scaffold` alias that copies it
 #      into any repo (git has no post-init hook, so bootstrap is explicit)
@@ -550,6 +551,38 @@ if command -v graphify > /dev/null 2>&1; then
 else
   echo "  NOTE: graphify not found — optional code-graph indexing skipped."
   echo "  Install with: pip install graphify   (then re-run this installer)"
+fi
+
+# ── 6b. Pinned @playwright/cli + Chromium (optional) ─────────────────────────
+# Visual e2e evidence drives a real browser through playwright-cli. The package is
+# 0.x, so it is pinned (a minor bump can rename commands). The pin lives only in
+# `pinned_version` in .claude/browsers/playwright-cli.md and is read from there. Optional
+# like graphify: no npm, no readable pin, or a failed download prints a NOTE and never
+# changes the exit code, and there is no prompt. The npm install is skipped when the pinned version is already
+# present; `install-browser` still runs because it is idempotent upstream.
+PLAYWRIGHT_RUNBOOK="$REPO_DIR/.claude/browsers/playwright-cli.md"
+PLAYWRIGHT_CLI_VERSION="$(sed -n "s/^pinned_version: *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\}[[:space:]]*\$/\1/p" "$PLAYWRIGHT_RUNBOOK" 2> /dev/null | head -n 1 || true)"
+step "Installing @playwright/cli ${PLAYWRIGHT_CLI_VERSION:-(unpinned)} + Chromium (optional)"
+if [ -z "$PLAYWRIGHT_CLI_VERSION" ]; then
+  echo "  NOTE: no pinned_version in $PLAYWRIGHT_RUNBOOK — optional @playwright/cli install skipped."
+elif ! command -v npm > /dev/null 2>&1; then
+  echo "  NOTE: npm not found — optional @playwright/cli install skipped."
+  echo "  Install with: npm install -g @playwright/cli@$PLAYWRIGHT_CLI_VERSION && playwright-cli install-browser chromium"
+else
+  if playwright-cli --version 2> /dev/null | grep -qF "$PLAYWRIGHT_CLI_VERSION"; then
+    ok "present" "@playwright/cli $PLAYWRIGHT_CLI_VERSION"
+  elif npm install -g "@playwright/cli@$PLAYWRIGHT_CLI_VERSION" > /dev/null 2>&1; then
+    ok "installed" "@playwright/cli $PLAYWRIGHT_CLI_VERSION"
+  else
+    echo "  NOTE: npm install -g @playwright/cli@$PLAYWRIGHT_CLI_VERSION failed — optional, skipped."
+  fi
+  if command -v playwright-cli > /dev/null 2>&1; then
+    if playwright-cli install-browser chromium > /dev/null 2>&1; then
+      ok "installed" "Chromium for playwright-cli"
+    else
+      echo "  NOTE: browser download failed — run: playwright-cli install-browser chromium"
+    fi
+  fi
 fi
 
 # ── 7. Git template directory ─────────────────────────────────────────────────

@@ -38,6 +38,7 @@ PR because human review *is* the gate.
 | `plan` | `design-decision` | **draft** PR carrying a spec | `Refs #N` | active |
 | `fix` | `bug`, `tech-debt` | ready PR | `Closes #N` | active |
 | `improve` | `enhancement`, `documentation` | ready PR | `Closes #N` | active |
+| `simplify` | `simplify` | ready PR | `Closes #N` | active |
 | `build` | any kind, **and** a merged linked plan, **and** no open blockers | ready PR | `Closes #N` | **deferred — see below** |
 | `janitor` | — (producer; **files** `bug`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
 | `architect` | — (producer; **files** `task` + `tech-debt`, or `design-decision`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
@@ -51,7 +52,7 @@ live one. The same files are what the interactive front door (the `go` skill)
 matches a goal against, so a labelled issue and a typed goal that name the same
 work run the same steps.
 
-`plan`, `fix`, `improve` and `build` are consumers. `janitor`, `architect` and
+`plan`, `fix`, `improve`, `simplify` and `build` are consumers. `janitor`, `architect` and
 `tidy` are producers — see *Producers* below. Consumers run on the **Builder** tier,
 producers on the **Planner** tier; cadence is the operator's call, typically
 daily for consumers and weekly for producers.
@@ -84,7 +85,7 @@ An issue may carry more than one kind label. Precedence is a fixed order, first
 match wins:
 
 ```
-bug > design-decision > tech-debt > enhancement > documentation
+bug > design-decision > simplify > tech-debt > enhancement > documentation
 ```
 
 **The chain orders provider label names — the left-hand keys of `[labels.kind]`
@@ -260,6 +261,23 @@ Step 4 is the lane file `improve.md` in `.agents/skills/task-registry/lanes/`: i
 routine's step list, its chain is derived from them, and `task-registry lanes
 improve` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
+### `simplify` — steps
+
+Selector: `simplify`. Terminal artifact: a ready PR whose body carries
+`Closes #N`, this step list, the before- and after-proof, `Behavior changes:`
+and `Simplified:`.
+
+Step 4 is the lane file `simplify.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+simplify` prints it. The rows are not restated here (specs/lane-catalogue.md).
+Unlike the other consumers, the scheduled entry is `/make-it-simpler
+--unattended`, and its **discovery precedes the spine**: it ranks, classifies
+and sizes candidates and files them through `task-registry upsert` before spine
+step 1 selects one, so the index rows that filing wrote are the routine
+branch's first commit. A day that files only decisions and selects nothing
+opens the docs-only record PR below instead; a day that files and selects
+nothing exits 0 silently, with no branch.
+
 ### `build` — steps (deferred, #98)
 
 Listed so the deferral is legible, not so it can be run. Identical to `improve`
@@ -357,6 +375,12 @@ retained, loud no-PR result. This exception applies only to the fix
 routine's investigation path. Interactive wrap-up and deployment verification
 keep their existing contracts.
 
+The `simplify` routine's **scope stop** is the same kind of terminal: when
+`/make-it-simpler <ref>` finds the claimed task significant, over the cap, or
+no longer reproducing, it stops before any edit, non-zero, with the claim left
+in place. Open no PR, write no PR ledger, and do not run the terminal PR
+assertion; the one scope-stop line is the retained result.
+
 ### Step-ledger rows
 
 Write the routine's executed step list into `tasks/todo.md`, one row per
@@ -395,6 +419,8 @@ no `Closes #N` and no `--draft`.
 | `routine/janitor/<YYYYMMDD>-sweep` | none | `chore(sweep): janitor <YYYY-MM-DD>` (`— clean` suffix when nothing was filed) | step ledger, the record path `tasks/sweeps/<YYYY-MM-DD>-janitor.md`, and `Refs #N` for **every** issue in the record's *Filed* section — never `Closes` |
 | `routine/architect/<YYYYMMDD>-sweep` | none | `chore(sweep): architect <YYYY-MM-DD>`, same suffix rule | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-architect.md` |
 | `routine/tidy/<YYYYMMDD>-sweep` | none | `chore(tidy): <YYYY-MM-DD>` (`— clean` suffix only when nothing was filed **and** no Tier 0 repair was committed) | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-tidy.md` and the Tier 0 repair commits listed by check name |
+| `routine/simplify/<n>-<slug>` | none | conventional | `Closes #N`, the before- and after-proof, `Behavior changes:` and `Simplified:` |
+| `routine/simplify/<YYYYMMDD>-record` | none | `chore(simplify): record <YYYY-MM-DD>` | docs-only: the `tasks/todo.md` index rows, and `Refs #N` per filed issue — never `Closes` |
 | any other `routine/<name>/<n>-<slug>` | none | conventional | `Closes #N` |
 | outside `routine/` | none | conventional | whatever the session warrants |
 

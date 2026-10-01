@@ -150,4 +150,101 @@ assert_eq "" "$(git grep -l 'jplugin:' -- .agents/skills .claude/agents PI_SETUP
 assert_eq "1" "$(grep -cF 'is typed `/jplugin:name`' AGENTS.md)" \
   "one tree: AGENTS.md states the namespace mapping exactly once"
 
+# --- 10. a payload change bumps version (specs/plugin-staleness-check.md D5-D7) --
+# `claude plugin update` compares versions only (measured, spec § Why a bump is
+# required): a merge that changes the payload without a bump never reaches any
+# install. 1.1.0 shipped with #177 and six payload merges followed unbumped.
+# The base is $PLUGIN_VERSION_BASE, else HEAD^1 when HEAD is already on
+# origin/master (a push to master), else the merge base with origin/master (a
+# pull_request merge checkout, or a local branch). CI checks out fetch-depth 0.
+# Every directory a skill or hook reads through ${CLAUDE_PLUGIN_ROOT} is payload;
+# the coverage assertion after the fixtures keeps this list from falling behind.
+PAYLOAD_PATHS=(.agents/skills .agents/hooks .agents/references hooks)
+version_base() {  # version_base -> the commit this tree's version is compared with
+  if [ -n "${PLUGIN_VERSION_BASE:-}" ]; then printf '%s\n' "$PLUGIN_VERSION_BASE"; return 0; fi
+  git rev-parse -q --verify 'refs/remotes/origin/master^{commit}' >/dev/null 2>&1 || return 1
+  if git merge-base --is-ancestor HEAD origin/master 2>/dev/null; then
+    git rev-parse -q --verify 'HEAD^1^{commit}'
+  else
+    git merge-base HEAD origin/master
+  fi
+}
+json_version() { "$TEST_PYTHON" -c 'import json, sys; print(json.load(sys.stdin).get("version", ""))' 2>/dev/null || true; }
+version_greater() {  # version_greater <new> <old>
+  "$TEST_PYTHON" -c 'import sys; v = lambda s: tuple(int(p) for p in s.split(".")); sys.exit(0 if v(sys.argv[1]) > v(sys.argv[2]) else 1)' "$1" "$2" 2>/dev/null
+}
+version_verdict() {  # version_verdict -> "ok: ...", "fail: ..." or "skip: ..." for the repository in cwd
+  local base old new
+  if ! base=$(version_base 2>/dev/null) || [ -z "$base" ]; then
+    echo "skip: no base resolves (no origin/master, no PLUGIN_VERSION_BASE)"; return
+  fi
+  if git diff --quiet "$base" -- "${PAYLOAD_PATHS[@]}" 2>/dev/null; then
+    echo "ok: payload unchanged since ${base:0:7}"; return
+  fi
+  old=$(git show "$base:$PLUGIN" 2>/dev/null | json_version)
+  new=$(json_version < "$PLUGIN")
+  if version_greater "$new" "$old"; then echo "ok: $old -> $new"; return; fi
+  echo "fail: payload changed since ${base:0:7} but $PLUGIN version went '$old' -> '$new' (README § Releasing skills)"
+}
+
+F=$(mktemp -d)
+fixture_commit() {  # fixture_commit <version> <skill-text> -> commits both in $F
+  ( cd "$F" && printf '{"name": "jplugin", "version": "%s"}\n' "$1" > "$PLUGIN" \
+    && printf '%s\n' "$2" > .agents/skills/x/SKILL.md && git add -A && git commit -qm "$2" )
+}
+verdict_in_fixture() { ( cd "$F" && version_verdict ); }
+if [ -n "$F" ] && ( cd "$F" && git init -q -b master && git config user.email t@t && git config user.name t \
+     && mkdir -p .claude-plugin .agents/skills/x ) >/dev/null 2>&1; then
+  fixture_commit 1.0.0 v1 >/dev/null 2>&1
+  ( cd "$F" && git update-ref refs/remotes/origin/master HEAD && git checkout -qb feature \
+    && printf 'docs\n' > NOTES.md && git add NOTES.md && git commit -qm docs ) >/dev/null 2>&1
+  assert_contains "$(verdict_in_fixture)" "ok: payload unchanged" \
+    "version guard: a change outside the payload needs no bump"
+  fixture_commit 1.0.0 v2 >/dev/null 2>&1
+  assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+    "version guard: a branch that changes the payload without a bump fails"
+  fixture_commit 1.0.1 v3 >/dev/null 2>&1
+  assert_contains "$(verdict_in_fixture)" "ok: 1.0.0 -> 1.0.1" \
+    "version guard: the same branch with the version increased passes"
+  fixture_commit 0.9.0 v4 >/dev/null 2>&1
+  assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+    "version guard: a decreased version fails"
+  ( cd "$F" && git update-ref refs/remotes/origin/master HEAD ) >/dev/null 2>&1
+  fixture_commit 0.9.0 v5 >/dev/null 2>&1
+  ( cd "$F" && git update-ref refs/remotes/origin/master HEAD ) >/dev/null 2>&1
+  assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+    "version guard: on a push to master, HEAD^1 is the base and an unbumped payload commit fails"
+  assert_contains "$( cd "$F" && PLUGIN_VERSION_BASE=HEAD version_verdict )" "ok: payload unchanged" \
+    "version guard: PLUGIN_VERSION_BASE overrides the base"
+  ( cd "$F" && git update-ref -d refs/remotes/origin/master ) >/dev/null 2>&1
+  assert_contains "$(verdict_in_fixture)" "skip: no base resolves" \
+    "version guard: no origin/master and no PLUGIN_VERSION_BASE skips"
+else
+  assert_eq "created" "failed" "version guard: the fixture repository could not be created"
+fi
+rm -rf "$F"
+
+RUNTIME_READS="$(git grep -hoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)?' -- "${PAYLOAD_PATHS[@]}" 2>/dev/null \
+  | sed -E 's#^\$\{?CLAUDE_PLUGIN_ROOT\}?/##' | sort -u)"
+assert_contains "$RUNTIME_READS" ".agents/references" "version guard: the runtime-read scan finds the plugin-root reads (non-vacuity)"
+UNCOVERED=""
+for read_path in $RUNTIME_READS; do
+  covered=no
+  for payload in "${PAYLOAD_PATHS[@]}"; do
+    case "$read_path/" in "$payload"/*) covered=yes ;; esac
+  done
+  if [ "$covered" = no ]; then UNCOVERED="$UNCOVERED $read_path"; fi
+done
+assert_eq "" "$UNCOVERED" "version guard: every \${CLAUDE_PLUGIN_ROOT} read lies under PAYLOAD_PATHS"
+
+REPO_VERDICT="$(version_verdict)"
+case "$REPO_VERDICT" in skip:*) printf '  note %s\n' "version guard skipped on this checkout — $REPO_VERDICT" ;; esac
+assert_not_contains "$REPO_VERDICT" "fail:" "version guard: this tree's payload changes carry a version bump — $REPO_VERDICT"
+assert_prose_contains README.md '`claude plugin update` compares versions only' \
+  "README § Releasing skills: states that plugin update ignores an unbumped commit"
+assert_prose_contains README.md 'measured on Claude Code 2.1.277' \
+  "README § Releasing skills: ... as a measured behaviour, not a belief"
+assert_prose_contains README.md '`tests/test-plugin-manifest.sh` fails a change to the plugin payload that does not bump it' \
+  "README § Releasing skills: names the suite as the enforcement"
+
 finish

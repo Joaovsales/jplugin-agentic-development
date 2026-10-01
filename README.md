@@ -190,7 +190,13 @@ bash install.sh
 **Releasing skills to synced projects.** Claude Code pins each project's copy of the plugin
 to `version` in `.claude-plugin/plugin.json` and refreshes it only when that value changes, so
 bump `version` in the same commit as any skill change every synced project should pick up.
-`/sync` merges the marketplace declaration into the project; Claude Code caches the new
+`claude plugin update` compares versions only — measured on Claude Code 2.1.277, a commit
+that changes a skill without a bump leaves every install where it was ("already at the latest
+version"; specs/plugin-staleness-check.md § Why a bump is required).
+`tests/test-plugin-manifest.sh` fails a change to the plugin payload that does not bump it
+(the paths its `PAYLOAD_PATHS` names, against the merge base with `origin/master`). The
+session-start banner says when an installed copy is behind the template and prints the
+commands that bring it current; it never runs them. `/sync` merges the marketplace declaration into the project; Claude Code caches the new
 release on the project's next open. A marketplace `ref` is never written — it would have to
 be a branch or tag, and the version is the pin.
 
@@ -321,6 +327,7 @@ Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `
 | `/html-presentation` | Generate a polished, self-contained HTML presentation (report or slide-deck) from structured content. Use when another skill or the user needs to publish a session review, design audit, project summary, or any narrative as a beautiful HTML document with strong visual and information-design quality. Triggers on: 'make an html presentation', 'generate a report', 'turn this into slides', or invocation by another skill (e.g. software-design-expert-learn). |  |
 | `/learn` | Extract durable learnings from the current session and persist them as typed documents in tasks/solutions/. |  |
 | `/maintain-verification-skill` | Reconcile a project verification skill after changed user behavior or run a full source-and-live feature audit. Use after user-facing changes or when auditing a verify-app feature map. |  |
+| `/make-it-simpler` | One behavior-preserving simplification a day, sized to one review and shipped as a pull request. Ranks the tree with scripts/signals.py (a rule stated in many files, citations that no longer resolve, always-loaded prose over budget, docs contradicting their scripts, prose a test already enforces, orphaned references, oversized scripts), deep-reviews the top candidates, classifies each minor or significant, then grills the operator on one pick (interactive) or files and builds within a three-slice cap (--unattended, the simplify routine). Use when a skill, doc or script has grown bulky, one rule lives in several files, or the harness wants its daily trim. Triggers on: 'make it simpler', 'simplify this', 'one home per rule', 'this is too long', 'trim'. |  |
 | `/memory-maintain` | Sweep the typed learning store (tasks/solutions/) — resolve needs_review documents, merge duplicates, prune stale or contradicted entries. Invoked at every session start and wrap-up; self-gates on session count. |  |
 | `/plan` | Interview user, write a feature spec, slice it into session-sized build steps, and end with a build prompt for a fresh session. Use for any non-trivial feature before coding. |  |
 | `/prd` | Interview the user about a greenfield project, produce a structured PRD, ordered backlog, and agent context file. Use as the entry point for new projects. |  |
