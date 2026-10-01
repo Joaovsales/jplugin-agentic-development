@@ -11,9 +11,12 @@
 > Surface: none (slice.py check --slice 1 --base 1d7c57a).
 
 ### Slice 2/9 — Complete catalog
-- [ ] Complete catalog <!-- task-id: plan.specs-ui-design-stack-md.complete-catalog --> — Slice 2/9: Discovery of every installed style, archetype and reference, plus selection and fit warnings. ([#238](https://github.com/Joaovsales/jplugin-agentic-development/issues/238)) (blocked-by: plan.specs-ui-design-stack-md.shared-setup)
-  [ ] TDD: tests/test-design-stack-catalog.sh § discovery — a fixture adding a Taste style/archetype and reference appears without changing an enumerated count; Impeccable commands and img2threejs appear as tools; spatial/custom remain selectable -> catalog scan over installed sources (AC 3)
-  [ ] TDD: tests/test-design-stack-catalog.sh § selection — one primary direction, optional references and a custom brief are accepted; unsuitable use shows a warning and an owner override succeeds -> catalog selection contract (AC 4)
+- [x] Complete catalog <!-- task-id: plan.specs-ui-design-stack-md.complete-catalog --> — Slice 2/9: Discovery of every installed style, archetype and reference, plus selection and fit warnings. ([#238](https://github.com/Joaovsales/jplugin-agentic-development/issues/238)) (blocked-by: plan.specs-ui-design-stack-md.shared-setup)
+  [x] TDD: tests/test-design-stack-catalog.sh § discovery — a fixture adding a Taste style/archetype and reference appears without changing an enumerated count; Impeccable commands and img2threejs appear as tools; spatial/custom remain selectable -> catalog scan over installed sources (AC 3)
+  [x] TDD: tests/test-design-stack-catalog.sh § selection — one primary direction, optional references and a custom brief are accepted; unsuitable use shows a warning and an owner override succeeds -> catalog selection contract (AC 4)
+> Handover: landed ffc4051..b682444 — dynamic offline catalog, owner selection validation, fit warnings, and candidate catalog validation; fixture 12/12 and affected 34/34 green.
+> Do not re-derive: IDs are `taste:<skill>[:<archetype>]`, `reference:<name>`, `impeccable:<command>`, `three:img2threejs`, `spatial`, `custom`; `select_direction` validates without writing a brief. Live release yielded 15 directions, 13 archetypes, 74 references, 25 tools.
+> Surface: undeclared `.claude-plugin/plugin.json` — required 1.3.1 to 1.4.0 bump for the plugin payload version guard; no untouched patterns.
 
 ### Slice 3/9 — Stable brief
 - [ ] Stable brief <!-- task-id: plan.specs-ui-design-stack-md.stable-brief --> — Slice 3/9: A versioned `DESIGN.md` contract whose authored rules survive tool updates. ([#239](https://github.com/Joaovsales/jplugin-agentic-development/issues/239)) (blocked-by: plan.specs-ui-design-stack-md.complete-catalog)
