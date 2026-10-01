@@ -86,6 +86,18 @@ re-ask them.
 
 ### 2. Write the Spec (MUST persist to disk)
 
+For a UI feature, read the project's `DESIGN.md` and carry its direction,
+references and visual rules into the spec. If an existing UI has no brief,
+stop with `SelectionRequired` before planning; non-UI work skips this step.
+A new route/screen or substantial redesign is a major UI concept: write a
+reviewable `design/concepts/<feature>.html`, compute its SHA-256 from the saved
+bytes, and cite its path and digest in a § Decisions row before `/slice` prints
+the build prompt. The row must tell the owner to start the build with a prompt
+containing that exact digest; `/build` records the digest-bound receipt. Re-read
+the bytes before emitting the prompt so a stale digest cannot be approved.
+An owner-started prompt is required for a major UI build; an unattended run
+waits. A localized UI change follows the approved brief without a new concept.
+
 This step is not complete until both conditions hold:
 
 1. The file `specs/<feature-name>.md` exists on disk (verify with `ls specs/`)
