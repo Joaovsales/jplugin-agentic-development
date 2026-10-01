@@ -21,6 +21,9 @@ implementation_paths:
   - tests/test-doc-conventions.sh
   - tests/test-task-registry.sh
   - tests/fixtures/make-it-simpler/**
+  - .agents/skills/wrap-up-session/references/routine-prompts/simplify.md
+  - .agents/skills/wrap-up-session/references/routine-prompts/README.md
+  - tests/test-sweep-routines.sh
 ---
 
 # Spec: make-it-simpler
@@ -141,7 +144,7 @@ python3 .agents/skills/make-it-simpler/scripts/signals.py rank [--path <p>]... [
 
 | Aspect | Contract |
 |--------|----------|
-| Inputs | tracked files (`git ls-files`) minus `tests/fixtures/` (stated in `lens.md`), narrowed by `--path` prefixes; `--limit` default 10. Tests run `rank` inside a temporary `git init` repository built from `tests/fixtures/make-it-simpler/`, so fixtures are tracked there and never rank here |
+| Inputs | tracked files (`git ls-files`) minus `tests/fixtures/` and `tasks/` (stated in `lens.md`), narrowed by `--path` prefixes; `--limit` default 10. Tests run `rank` inside a temporary `git init` repository built from `tests/fixtures/make-it-simpler/`, so fixtures are tracked there and never rank here |
 | Outcomes | a ranked list; an empty list is success |
 | Raises | exit 1 with a traceback only on a programmer error |
 | Idempotency | pure over the tree (C10) |
@@ -217,7 +220,7 @@ ends: ready PR whose body carries what step 5 names
 | Field | Type | Invariant | Enforced by |
 |-------|------|-----------|-------------|
 | `signal` | `duplicate-rule` · `citation-drift` · `over-budget` · `doc-script-contradiction` · `enforced-prose` · `orphan-or-overlap` · `code-red-flag` | one of seven | a module-level tuple; the test asserts every emitted value is in it |
-| `path` | tracked repo-relative path | tracked at `head`, not under `tests/fixtures/` | `git ls-files` membership |
+| `path` | tracked repo-relative path | tracked at `head`, not under `tests/fixtures/` or `tasks/` | `git ls-files` membership |
 | `line` | int ≥ 1 | inside the file | computed from the match |
 | `evidence` | str | the verbatim line at `path:line` | read, never composed |
 | `lines_saved` | int ≥ 0 | an estimate | per-signal rule in `lens.md` |
@@ -336,14 +339,15 @@ Constraints: The GitHub simplify label is created by the operator, never by a te
 | D24 | `signals.py` weight `W` for always-loaded | 3 · 5 · 10 | 5 | assumed | pick history shows always-loaded candidates dominate or never surface |
 | D25 | Where the index rows go | same PR · producer record PR · operator | the unattended run commits them on its routine branch; decisions-only days get a docs-only PR on `routine/simplify/<YYYYMMDD>-record` | user (Q29) | — |
 | D26 | Slice issues | file per slice · skip | skip: `/build` pre-flight filing is overridden; the `simplify` task is the tracked unit | user (Q30) | a build ever needs per-slice tracking (then pass `--parent #N`) |
+| D27 | Size signals and noisy paths (from the first run, #231) | keep · cue-weight size hits · exclude logs | `code-red-flag`, and `over-budget` outside always-loaded files, save 1 line (a cue: moving or splitting lines saves none); `tasks/` is excluded like `tests/fixtures/`; `specs/` is never a `duplicate-rule` home | user (2026-10-01, after the first run ranked 8 size hits in the top 10 and 36th-place real duplicates) | a size hit the deep review confirms keeps ranking below the prose signals it should beat |
 
 ## Acceptance Criteria
 
 - `signals.py rank`, run inside a temporary `git init` repository built from `tests/fixtures/make-it-simpler/`, emits one candidate for each of the seven signals, with `path`, `line`, a verbatim `evidence` line and `score = lines_saved × max(callers,1) × (5 if always_loaded else 1)`, sorted by score then key.
 - `signals.py rank` run twice over the same tree prints byte-identical output, writes nothing (`git status --porcelain` unchanged), and exits 0 with `"candidates": []` on a tree with no signal.
-- `signals.py rank --path <p>` exits 2 naming `<p>` when it matches no tracked file, and no candidate is ever under `tests/fixtures/`.
+- `signals.py rank --path <p>` exits 2 naming `<p>` when it matches no tracked file, and no candidate is ever under `tests/fixtures/` or `tasks/`.
 - A fixture unresolved backticked path and a fixture retired-skill reference produce no candidate.
-- `.agents/skills/make-it-simpler/references/lens.md` defines the seven signals, the weight `W` by name, the `tests/fixtures/` exclusion, and the nine `/tidy` checks it excludes.
+- `.agents/skills/make-it-simpler/references/lens.md` defines the seven signals, the weight `W` by name, the `tests/fixtures/` and `tasks/` exclusions, `specs/` as never a `duplicate-rule` home, and the nine `/tidy` checks it excludes.
 - `.agents/skills/make-it-simpler/references/safe-moves.md` states five practices: headings are names only; callers cite by § name; a moved assertion is repointed, never deleted without a replacement; one home per rule; no script behavior change unless declared minor.
 - `.agents/skills/make-it-simpler/SKILL.md` has frontmatter `name: make-it-simpler`, is at most 150 lines, and follows `/writing-skills`' section order; `README.md`'s skills table lists it (`tests/test-skills-table.sh` passes).
 - `SKILL.md` cites `/system-design-planning` § *When to Use / When Not* as the significance bar and does not restate its list.
