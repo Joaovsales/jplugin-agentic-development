@@ -1362,6 +1362,65 @@ Filed this sweep:
 - Pending: none in this plan
 - Carry-forward: README's flow still lists /security-scan as its own step before wrap-up, although /quality-gate phase 3 now runs it; specs outside the reconciliation candidates (lightpanda-browser-adoption, omc-practices-adoption, workflow-insights-improvements, wrap-up-gate-and-tdd-fold) still cite old wrap-up step numbers in historical context
 
+## Plan: codex-scout-routing
+> Spec: specs/codex-scout-routing.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/158
+
+### Slice 1/6 — Policy contract and resolver
+- [x] Policy contract and resolver <!-- task-id: plan.specs-codex-scout-routing-md.policy-contract-and-resolver --> — Slice 1/6 of #158: Versioned #157 policy foundation resolves Codex lanes and roles and explains unsupported mappings ([#224](https://github.com/Joaovsales/jplugin-agentic-development/issues/224))
+  [x] TDD: policy fixtures reject unknown schema versions, duplicate role routes, unsupported model/effort pairs, and ambiguous lanes; known Codex roles resolve to semantic tiers with a complete explanation (AC 1) -> add `config/agent-policy.toml`, parser/resolver, and `scripts/agent-policy explain`
+
+> Handover: landed uncommitted from b2b5634 — versioned Codex policy, pure resolver, explain CLI; 54 policy assertions and 20 affected test files pass.
+> Do not re-derive: `load_policy` and `resolve` in `scripts/agent_policy/policy.py` own role, lane, floor, model, effort, permission and child-limit resolution; `explorer` and `scout` are Scout profiles.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree paths are within the declared surface.
+
+### Slice 2/6 — Managed Codex role rendering
+- [x] Managed Codex role rendering <!-- task-id: plan.specs-codex-scout-routing-md.managed-codex-role-rendering --> — Slice 2/6 of #158: Native TOML covers canonical roles plus Scout, with correct Ceiling and floor outcomes ([#225](https://github.com/Joaovsales/jplugin-agentic-development/issues/225)) (blocked-by: plan.specs-codex-scout-routing-md.policy-contract-and-resolver)
+  [x] TDD: rendered Codex TOML pins `explorer` to Scout `gpt-6-luna` and emits every canonical workflow role with intended effort and permissions (AC 2) -> add Codex emitter behind the policy façade and keep `render-codex.py` as compatibility entry
+  [x] TDD: effective-route fixtures prove Ceiling inherits without a global model default and documented floors escalate only when needed (AC 3) -> resolve Codex precedence before rendering or dispatch
+
+> Handover: landed uncommitted from b2b5634 — policy-backed Codex TOML for canonical roles, explorer, scout, and debug-escalation; 58 policy and 23 install assertions pass, with 22 affected test files green.
+> Do not re-derive: `debug-escalation` needs its separate model-free profile because `code-debugger.toml` pins Builder and wins over spawn values; inherited Ceiling routes refuse a global default. Slice 3 must preflight Python 3.11 before copying files.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 3/6 — Safe Codex install and migration
+- [x] Safe Codex install and migration <!-- task-id: plan.specs-codex-scout-routing-md.safe-codex-install-and-migration --> — Slice 3/6 of #158: Concurrency default, previewed legacy adoption, backups, and repeatable install ([#226](https://github.com/Joaovsales/jplugin-agentic-development/issues/226)) (blocked-by: plan.specs-codex-scout-routing-md.managed-codex-role-rendering)
+  [x] TDD: isolated Codex config gains a three-child concurrency default while a user override and unrelated keys survive; missing or excess caps are diagnosed (AC 6) -> merge the native `[agents]` setting through the Codex adapter
+  [x] TDD: exact old generated shape previews and migrates with backup only on opt-in; personal and invalid TOML stay byte-identical; a second install changes nothing (AC 7) -> add classification, preview, safe apply, and installer handoff
+
+> Handover: landed uncommitted from b2b5634 — read-only preview, exact legacy adoption with backup, native three-child cap, personal conflict refusal, Python 3.11 preflight; 49 installer assertions and 27 affected test files pass.
+> Do not re-derive: `scripts/agent_policy/install.py` plans and applies changes; `--adopt-legacy` is required for an exact old shape, and both native and legacy cap keys preserve personal overrides. A global subagent default conflicts with Ceiling inheritance.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 4/6 — How and why Scout dispatch
+- [x] How and why Scout dispatch <!-- task-id: plan.specs-codex-scout-routing-md.how-and-why-scout-dispatch --> — Slice 4/6 of #158: `/how` uses managed explorer; `/why` uses an MCP-capable Scout investigator ([#227](https://github.com/Joaovsales/jplugin-agentic-development/issues/227)) (blocked-by: plan.specs-codex-scout-routing-md.managed-codex-role-rendering)
+  [x] TDD: static and fixture checks distinguish Codex `/how` explorer from `/why` MCP investigator, retain Claude/Pi wording, and find no concrete Codex model ID in skill prose (AC 4) -> update both skills and the shared routing reference
+
+> Handover: landed uncommitted from b2b5634 — `/how` names managed read-only `explorer` and Ceiling explainer; `/why` names MCP-capable `scout` and Ceiling synthesizer; 59 how/why and 76 model-tier assertions pass, with 27 affected test files green.
+> Do not re-derive: the routing reference owns Codex dispatch guidance and points concrete provider mapping to `config/agent-policy.toml`; preserve its fixed `##` headings, keeping Codex detail under `### Codex dispatch`.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 5/6 — Other Scout dispatch and guidance
+- [x] Other Scout dispatch and guidance <!-- task-id: plan.specs-codex-scout-routing-md.other-scout-dispatch-and-guidance --> — Slice 5/6 of #158: Remaining Scout skills and Codex floor dispatch name the effective roles; the install guide shows ro… ([#228](https://github.com/Joaovsales/jplugin-agentic-development/issues/228)) (blocked-by: plan.specs-codex-scout-routing-md.how-and-why-scout-dispatch)
+  [x] TDD: plan, build, prd, grilling, and system-design-planning dispatch text follows the shared Codex Scout and floor rules; README shows install, preview, and explain without changing Claude/Pi contracts (AC 5) -> update dispatch guidance and docs
+
+> Handover: landed uncommitted from b2b5634 — Scout dispatch guidance in five skills, strict debugger floor instructions, and README install/preview/adopt/explain/doctor commands; 92 model-tier and 810 doc-convention assertions pass, with 35 affected test files green.
+> Do not re-derive: `debug-escalation` is the model-free Codex profile; request Planner on Builder-or-weaker parents and inherit above Builder. `config/agent-policy.toml` owns concrete Codex model IDs; doctor is documented but implemented in slice 6.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 6/6 — Codex doctor and conformance
+- [x] Codex doctor and conformance <!-- task-id: plan.specs-codex-scout-routing-md.codex-doctor-and-conformance --> — Slice 6/6 of #158: Read-only doctor reports effective routes, inherited expense, and missing caps with fixture-backed t… ([#229](https://github.com/Joaovsales/jplugin-agentic-development/issues/229)) (blocked-by: plan.specs-codex-scout-routing-md.safe-codex-install-and-migration, plan.specs-codex-scout-routing-md.other-scout-dispatch-and-guidance)
+  [x] TDD: `doctor --harness codex` identifies inherited expensive roles and missing caps with the winning config layer or project agent file, or reports unknown provenance; fixtures cover project agent shadows, project/profile/CLI precedence, render, migration, drift, repeat install, and personal preservation (AC 8) -> add layered installed-config inspection and conformance matrix
+
+> Handover: landed uncommitted from b2b5634 — read-only doctor with layered model/cap provenance, project agent shadows, drift, inherited cost and unknown-layer reporting; 100 policy assertions and 35 affected test files pass.
+> Do not re-derive: trusted closest project config beats selected profile and user config; doctor derives visible parent model only when higher layers are known, shows a global child default as the actual Ceiling source, and reports unknown project trust when agent files alone may shadow.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+## Session Summary — 2026-09-30 [b2b5634..b2b5634]
+- Completed: six `codex-scout-routing` slices (#224–#229), policy-backed Codex Scout rendering, safe install migration, dispatch guidance, and doctor.
+- Pending: push, pull request, and CI closure after verification.
+- Carry-forward: Claude/Pi emitters and usage receipts remain #159/#164.
+
 ## Plan: make-it-simpler
 > Spec: specs/make-it-simpler.md
 

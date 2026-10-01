@@ -911,6 +911,10 @@ back vacuous and was repaired.
   them, and the two files were re-run green. WSL Ubuntu, clean clone at c1c3133 with a real `gh` on PATH: 44/44
   affected and 60/60 full.
 - Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md (WSL has no gh)
+### [2026-09-30] — Codex Scout routing
+- Key changes: six slices of `specs/codex-scout-routing.md` built on `codex-scout-routing-build`; versioned policy, managed Scout roles, safe install preview and legacy adoption, child cap, dispatch guidance, and read-only doctor. CLI walkthrough and conformance tests recorded in `tasks/e2e-log.md`.
+- Quality correction: doctor and effective-route inspection now separate required floor overrides from observed dispatch; global reasoning-effort defaults are diagnosed and refused during install.
+- Learnings captured: [A policy route is not proof of an effective Codex dispatch](solutions/bugs/policy-route-is-not-proof-of-effective-codex-dispatch.md).
 
 ### [2026-09-29] — /make-it-simpler and the simplify routine
 - Key changes: new skill `/make-it-simpler` (SKILL.md 131 lines, `scripts/signals.py` ranking seven signals deterministically and read-only, `references/lens.md`, `references/safe-moves.md`); new `simplify` consumer lane, ranked ahead of `tech-debt` in `kind_precedence` across config.py, the template, docs/task-tracking.md and routines.md; `CONTRACT_ROUTINES`; routines.md steps section, two branch rows and the scope stop; `/go` precedence `fix` > `perf` > `simplify` > `refactor`; AGENTS.md names three in-session exceptions. Nine slices filed (#212–#220).

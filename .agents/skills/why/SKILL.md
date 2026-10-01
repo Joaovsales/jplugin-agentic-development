@@ -12,6 +12,9 @@ Investigate the motivation and intent behind code.
 Companion to the `how` skill. `how` answers what the code does and how it works. `why` answers what forces led to its shape.
 
 Each spawn below names a tier from `.agents/references/model-routing.md`. Investigators are Scout tier. The synthesizer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params; `subagents.agentOverrides` resolves them.
+On Codex, use the named roles from `config/agent-policy.toml`; the policy owns
+their model and effort settings. Check the effective route if a local or project
+configuration shadows a managed role.
 
 ## Operating Posture
 
@@ -82,6 +85,7 @@ Launch all matching investigators in a single message so they run concurrently. 
 
 Subagent config (each):
 - Scout tier: the `general-purpose` agent with `model: "haiku"` on Claude Code, the `scout` builtin on Pi. **Do not use a read-only agent type such as `Explore`.** A restricted tool set can drop MCP access, which disables MCP-backed investigators entirely. Investigators still shouldn't write anything.
+- On Codex, spawn the managed `scout` role for each MCP-backed investigator. It retains MCP access; instruct it to read without editing.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`
@@ -124,6 +128,7 @@ If your scope assessment suggests a single-commit trivial target where the PR de
 Spawn one synthesizer subagent:
 
 - Ceiling tier: the `general-purpose` agent on Claude Code, and pass no `model`. Not a read-only agent type: the synthesizer's quality check spot-verifies citations, which can require MCP access, and a restricted tool set can drop MCPs and defeat that.
+- On Codex, spawn the managed `code-reviewer` role as the Ceiling synthesizer. Its prompt permits citation checks through available MCPs and forbids edits.
 
 The synthesizer gets:
 1. The investigator findings, including any null results and any categories skipped with justification

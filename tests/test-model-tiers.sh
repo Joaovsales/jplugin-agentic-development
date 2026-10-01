@@ -71,6 +71,16 @@ assert_file_contains "$ROUTING" "| Ceiling |" \
   "ModelTier: model-routing.md Model Routing has a Ceiling row"
 assert_file_contains "$ROUTING" "omit the model override" \
   "ModelTier: model-routing.md defines ceiling as omitting the override"
+assert_prose_contains "$ROUTING" 'config/agent-policy.toml' \
+  "ModelTier: Codex provider model mapping lives in policy"
+assert_prose_contains "$ROUTING" 'managed `explorer` role' \
+  "ModelTier: Codex code reconnaissance names the explorer role"
+assert_prose_contains "$ROUTING" 'managed `scout` role' \
+  "ModelTier: Codex MCP investigation names the scout role"
+assert_prose_contains "$ROUTING" 'global model default' \
+  "ModelTier: routing warns against a default that caps Ceiling roles"
+assert_file_not_matches "$ROUTING" 'gpt-[0-9]' \
+  "ModelTier: routing reference keeps Codex model IDs in policy"
 for f in .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "Ceiling-tier agents take no \`model\` at all" \
     "ModelTier: $f states the ceiling dispatch rule"
@@ -225,5 +235,29 @@ assert_prose_contains "$ROUTING" 'Debugger attempts 3–4 — `ceiling (builder 
   "ModelTier: model-routing.md documents the debugger's builder floor"
 assert_file_matches "$ROUTING" '^\| Reviewer \|.*see the floor below' \
   "ModelTier: model-routing.md Reviewer row points at the floor rather than reading as flat sonnet"
+
+# --- 13. Codex dispatch uses named Scout and floor profiles ------------------
+for skill in plan prd grilling system-design-planning; do
+  assert_prose_contains ".agents/skills/$skill/SKILL.md" 'managed `explorer` role' \
+    "ModelTier: $skill names Codex's read-only explorer"
+done
+assert_prose_contains .agents/skills/build/SKILL.md 'managed `explorer` role' \
+  "ModelTier: build names Codex's read-only explorer"
+assert_prose_contains .agents/skills/build/SKILL.md 'managed `scout` role' \
+  "ModelTier: build names Codex's MCP-capable Scout"
+assert_prose_contains .agents/skills/build/SKILL.md 'managed `debug-escalation` role' \
+  "ModelTier: debugger escalation uses its separate Codex profile"
+assert_prose_contains .agents/skills/build/SKILL.md 'Resolve the parent tier before dispatch' \
+  "ModelTier: Codex floor dispatch checks the parent tier"
+assert_prose_contains .agents/skills/build/SKILL.md "For a Builder-or-weaker parent, request the policy's Planner model and effort" \
+  "ModelTier: Codex debugger escalation rises above a Builder parent"
+assert_prose_contains .agents/skills/build/SKILL.md 'Inherit only when the parent is above Builder' \
+  "ModelTier: Codex debugger escalation inherits only from a stronger parent"
+assert_prose_contains .agents/skills/build/SKILL.md 'the `code-debugger` agent file pins Builder' \
+  "ModelTier: Codex escalation does not reuse the Builder-pinned agent"
+for skill in plan build prd grilling system-design-planning; do
+  assert_file_not_matches ".agents/skills/$skill/SKILL.md" 'gpt-[0-9]' \
+    "ModelTier: $skill keeps Codex model IDs in policy"
+done
 
 finish

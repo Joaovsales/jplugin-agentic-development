@@ -49,6 +49,11 @@ Runs in the main context at the session model. Recon (Step 2) delegates to the
 scout tier — `haiku` on Claude Code, `scout` on Pi. The Step 5 `critic` is
 ceiling with a planner floor: pass no `model` unless the session model is below
 planner tier. See `.agents/references/model-routing.md`.
+On Codex, dispatch the managed `explorer` role for read-only recon. For the
+`critic`, resolve the parent tier against its planner floor before dispatch;
+inherit when the parent meets the floor, and request the policy's planner
+model and effort only when the floor requires escalation. The provider mapping
+lives in `config/agent-policy.toml`.
 
 ## The Process
 
