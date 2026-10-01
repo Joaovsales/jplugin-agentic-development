@@ -173,13 +173,9 @@ Every finding lands in exactly one tier, and the tier decides what the pass may 
 
 ## Filing a Tier 2 finding
 
-Read the **dedupe set** first: every open row of `tasks/todo.md` through
-`task-registry show <id>` (there is no bulk read — the index is the list, the
-ticket is the detail). A candidate whose `file:line` already appears in an open
-task's summary or evidence updates *that* task's ID instead of minting a new one.
-An open task carrying the configured escalation label remains in this dedupe set,
-but is human-owned: record its existing reference in the session record and do not
-update, reopen, relabel, or create an eligible replacement for the same finding.
+Read the **dedupe set** first, exactly as
+`.agents/skills/sweep/SKILL.md` § *2. Read the backlog* defines it; an
+escalated task is hands-off — its existing reference goes in the session record.
 
 One `upsert` per verified finding, mirroring `/sweep` § *File* so the consumers'
 selectors and the dedupe rules apply unchanged:

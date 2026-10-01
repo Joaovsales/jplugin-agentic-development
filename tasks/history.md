@@ -951,3 +951,7 @@ back vacuous and was repaired.
 - Quality gate: Phases 1-3 inline (only a hex gitCommitSha reaches git argv); Phase 4 dispatched, HOLD (payload list missed .agents/references, marketplace-name literals, a second reader of the drift cache), all three fixed and re-verified GO. One SHOULD-FIX (globals in the block's helpers) and two NITPICKs reported, not applied.
 - Baseline (Windows): 8/60 files, 152 failures before the build; affected run 7/32 files red with 0 failures new by name.
 - Learnings captured: tasks/solutions/bugs/git-show-ref-colon-path-is-rewritten-by-msys-in-git-bash-hooks.md, tasks/solutions/performance/per-field-sed-parsing-in-the-session-start-banner-costs-seconds-on-windows.md, tasks/solutions/patterns/derive-plugin-payload-coverage-from-plugin-root-reads.md
+### [2026-09-30] — First /make-it-simpler run
+- Key changes: `/tidy` § *Filing a Tier 2 finding* cites `/sweep` § *2. Read the backlog* instead of restating the dedupe-set and escalated-task rule (#231, specs/simplify-duplicate-rule-in-agents-skills-tidy-skill-md.md). The GitHub `simplify` label was created.
+- Quality gate: Phases 1–3 inline with no findings. Phase 4 was dispatched: GO, one SHOULD-FIX applied (the kept clause now says an escalated task is hands-off), one advisory left about sweep § 2's sweep-only wording.
+- Evaluation: of 190 ranked candidates the top 10 were 8 `code-red-flag` hits whose evidence is line 501; the useful hits (duplicate-rule between skills) ranked 36th or lower. Four routine labels are missing on GitHub, so claim/select refuse.

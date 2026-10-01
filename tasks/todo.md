@@ -1585,3 +1585,21 @@ Filed this sweep:
 - Completed: plugin-staleness-check slices 1–2 (#210 stale-plugin banner block, #211 version bump guard + 1.2.0); quality-gate fixes 0cd8495 (hex-only sha), bfeed2b (.agents/references in the payload, one marketplace name, drift branch reused)
 - Pending: none in this plan
 - Carry-forward: this clone's `origin` still uses the pre-rename slug `coding-agent-workflow`, so the banner's remote-ref check does not fire here until `git remote set-url origin https://github.com/Joaovsales/jplugin-agentic-development.git`; unresolved SHOULD-FIX: the stale block's helpers talk through STALE_* globals (session-start.sh newest_behind/note_stale_record); payload coverage scan does not yet include plugin.json-declared paths
+- [x] duplicate-rule in .agents/skills/tidy/SKILL.md <!-- task-id: simplify.agents-skills-tidy-skill-md.duplicate-rule-in-agents-skills-tidy-skill-md --> ([#231](https://github.com/Joaovsales/jplugin-agentic-development/issues/231))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-tidy-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-tidy-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/231
+
+### Slice 1/1 — tidy cites sweep dedupe set
+- [x] tidy cites sweep dedupe set <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-tidy-skill-md-md.tidy-cites-sweep-dedupe-set --> — `/tidy` cites `/sweep` § *2. Read the backlog* instead of restating it
+  [x] TDD: the escalation-label sentence appears in exactly one skill, and tidy/SKILL.md cites `/sweep` § *2. Read the backlog* -> replace tidy's dedupe paragraph with the citation (AC 1, 2)
+  [x] TDD: `bash tests/test-citations.sh` and `bash tests/affected.sh --run origin/master` match the before-proof -> no further edit (AC 3)
+> Handover: landed 6313da7 — `/tidy` § *Filing a Tier 2 finding* cites `.agents/skills/sweep/SKILL.md` § *2. Read the backlog* for the dedupe set; the escalation sentence has one home (sweep:73). Before/after proofs identical: citations 6/6; affected 8/40 red on Windows, the same 152 assertion names.
+> Do not re-derive: tidy § *Outputs*' six record sections are pinned by order in tests/test-doc-conventions.sh (tidy AC-11) and stay; sweep § 2 still says "at step 5" and "sweep record" (advisory, out of scope).
+> Surface: none
+
+## Session Summary — 2026-09-30 [a849698..6313da7]
+- Completed: first `/make-it-simpler` run (interactive): #231, `/tidy` cites `/sweep` § *2. Read the backlog* for the dedupe-set rule (-4 lines, behavior changes: none). Created the GitHub `simplify` label.
+- Pending: GitHub labels `design-decision`, `in-progress`, `needs-investigation`, `tech-debt` are missing, so `select`/`claim`/`workflow` refuse on this repo (claim of #231 skipped); installed jplugin 1.1.0 has no `/make-it-simpler`; no `routine-prompts/simplify.md`.
+- Carry-forward: ranking is dominated by `code-red-flag` (evidence is just line 501), and `tasks/` logs and specs quoting their skill produce false duplicate-rule/citation-drift hits; `/make-it-simpler` § *Offer the top 3* documents `claim` without the required `--routine`; the `/sweep` § *File* citation in tidy is not checked by either citation checker.
