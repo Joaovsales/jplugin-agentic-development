@@ -204,6 +204,22 @@ containing a `BLOCKED` AC reports **non-success** to its caller (`/build` Phase 
 
 ### Walkthrough Protocol
 
+For a changed browser UI, require a committed executable
+`tests/visual/<feature>.sh` or a committed equivalent project suite grounded
+in the project verification skill. Run it locally through
+`scripts/visual_check.py`'s `run_visual_check(project, feature,
+changed_states, output)` contract. The script launches the real app, drives
+every changed route/state through Playwright CLI, checks interactions and
+console errors, captures desktop and mobile PNGs after reaching each state,
+and writes `manifest.json` in `JPLUGIN_UI_OUTPUT`. The manifest's `states`
+map gives each state `desktop`, `mobile`, `interactions: true`,
+`console_errors: []`, and `visual_disposition: pass`. The validator checks
+all changed states and capture files. Keep the local run output for review.
+Missing CLI/Chromium, app launch failure, broken interaction, console error,
+missing viewport or unresolved visual defect blocks UI completion; report the
+exact command or state. A browser fixture that only writes PNG headers is
+test evidence for the validator, never a production walkthrough.
+
 For each user-facing AC:
 
 1. **Describe the user journey** in plain language
