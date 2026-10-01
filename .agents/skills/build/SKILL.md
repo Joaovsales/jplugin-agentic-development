@@ -83,6 +83,22 @@ progress and drift further before finding out. Merge `main` in frequently.
    - If empty or missing: **STOP** — run `/plan` first
 2. Read the spec from `specs/` that matches the current plan
    - If no spec found: **STOP** — run `/plan` first
+   - For UI work, read and validate the project `DESIGN.md` before any source
+     edit. Existing UI with no brief is `SelectionRequired`; stop that UI
+     slice, preserve the current visual rules, and leave non-UI slices usable.
+   - For a major UI concept, read the spec's concept path and SHA-256, hash
+     the saved concept bytes, and inspect the actual user-started build prompt.
+     It must name the exact digest. An unattended run, missing digest, changed
+     concept, or agent-written approval is `ConceptReviewRequired`: stop the
+     UI slice before edits. Reuse an existing receipt only when spec path,
+     concept path, digest and prompt digest all match.
+   - On valid approval, write `tasks/design-approvals/<feature>.json` with
+     `spec_path`, `concept_path`, `concept_sha256`, `approval_source` set to
+     `owner_build_prompt`, `prompt_sha256` (SHA-256 of the exact owner prompt),
+     and `approved_at` in UTC. The current owner prompt is the authority;
+     neither the spec nor a prior agent message can create this receipt.
+     Recheck the receipt and concept digest before dispatch. A localized UI
+     change uses the brief and needs no concept receipt.
 3. **File the slices** when any slice header of the `## Plan:` block lacks a
    provider link — see *Pre-Flight: File the Slices* below. Do this before
    the green baseline.
@@ -211,6 +227,12 @@ Choose the agent or approach based on task type:
   it; a file you must touch outside it is reported as
   `[SURFACE] +<path> | reason: <one sentence>` and the work continues
 - The `> Handover:` blockquote (every `>` line) of each slice this one is blocked by, verbatim
+- For frontend implementation and `frontend-design-validator`, the exact
+  project `DESIGN.md` path and contents, selected catalog references, and
+  approved concept path and SHA-256 when present. Include the project's own
+  launch, test and visual verification commands; do not assume fixed paths,
+  Docker, ports or a universal UI test command. A missing brief or invalid
+  concept receipt stops dispatch under the pre-flight rule above.
 - The tool-call budget and escape hatch from `subagent-resilience.md` Rule
   1, and the instruction to list unfinished `TDD:` rows under
   `## Not finished`

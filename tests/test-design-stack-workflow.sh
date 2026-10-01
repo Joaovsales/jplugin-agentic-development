@@ -14,4 +14,16 @@ for planner in plan system-design-planning; do
   assert_file_contains "$skill" 'owner-started' "$planner requires owner review"
   assert_file_contains "$skill" 'localized UI' "$planner allows localized change"
 done
+build="$repo/.agents/skills/build/SKILL.md"
+assert_file_contains "$build" 'SelectionRequired' 'build rejects missing existing UI choice'
+assert_file_contains "$build" 'ConceptReviewRequired' 'build requires concept approval'
+assert_file_contains "$build" 'tasks/design-approvals/<feature>.json' 'build records approval receipt'
+assert_file_contains "$build" 'prompt_sha256' 'receipt binds owner prompt'
+assert_file_contains "$build" 'frontend-design-validator' 'design validation dispatch'
+for agent in frontend-developer frontend-design-validator; do
+  assert_file_contains "$repo/.agents/agents/$agent.md" 'DESIGN.md' "$agent reads brief"
+  assert_file_contains "$repo/.agents/agents/$agent.md" 'concept' "$agent reads concept"
+  assert_file_contains "$repo/.claude/agents/$agent.md" 'DESIGN.md' "$agent Claude mirror reads brief"
+  assert_file_contains "$repo/.claude/agents/$agent.md" 'concept' "$agent Claude mirror reads concept"
+done
 finish
