@@ -18,7 +18,7 @@ import sys
 
 root = Path(os.environ["DESIGN_STACK_FIXTURE"])
 sys.path.insert(0, str(Path(os.environ["DESIGN_STACK_REPO"]) / ".agents/skills/design-stack/scripts"))
-from brief import create_brief, read_brief, refresh_brief
+from brief import create_brief, read_brief, refresh_brief, onboard_project
 import design_stack
 
 path = root / "project/DESIGN.md"
@@ -108,6 +108,21 @@ except ValueError as error:
     assert "owner-authored" in str(error)
 else:
     raise AssertionError("non-spatial brief accepted spatial defaults")
+new_ui = root / "new-ui"
+assert onboard_project(new_ui, "ui", owner_choice=True) == new_ui / "DESIGN.md"
+assert read_brief(new_ui / "DESIGN.md")["direction"] == "spatial"
+existing = root / "existing-ui"
+existing.mkdir()
+(existing / "index.html").write_text("<h1>Existing look</h1>")
+try:
+    onboard_project(existing, "ui", owner_choice=False)
+except ValueError as error:
+    assert "SelectionRequired" in str(error)
+else:
+    raise AssertionError("existing UI silently selected spatial")
+assert not (existing / "DESIGN.md").exists()
+assert onboard_project(root / "backend", "backend") is None
+assert not (root / "backend/DESIGN.md").exists()
 print("brief stable across update; refresh requires owner choice")
 PY
 )"; status=$?

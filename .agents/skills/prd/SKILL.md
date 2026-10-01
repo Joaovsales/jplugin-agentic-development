@@ -56,6 +56,17 @@ It is optional — fall back to `WebFetch` and record what you could not read.
 
 ### Step 2 — Hybrid Draft + Interview
 
+For a visual UI project, run `/design-stack` shared setup and show its full
+catalog before recording a direction. A new UI project preselects `spatial` if
+the owner gives no direction; record the choice in project `DESIGN.md` with
+the design-stack brief writer. An existing UI project without `DESIGN.md` is
+`SelectionRequired`: preserve its current palette, typography, layout and
+motion until the owner selects a direction and approves an authored brief.
+Unattended planning stops at that requirement. Read an existing brief rather
+than replacing it. A backend-only or CLI-only project bypasses this design
+flow. Carry the selected brief path and rules into UI requirements and the
+project context file.
+
 From the user's initial prompt and any existing context:
 
 1. **Draft a skeleton PRD** covering as many sections as possible from available information
