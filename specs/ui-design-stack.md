@@ -22,12 +22,12 @@ implementation_paths:
 
 # Spec: UI design stack for projects built with jplugin
 
-> Origin: user discussion · Designed 2026-10-01 · Review status: **draft; critic: 4 applied, 0 declined**
+> Origin: user discussion · Designed 2026-10-01 · Status: implemented
 > Visual: specs/ui-design-stack.plan.html
 
 ## Problem
 
-People building visual products with jplugin need a project-chosen design direction, the full set of available upstream design references and tools, and browser evidence that the finished UI works and looks intentional. The harness currently routes UI implementation and E2E checks, but does not persist a project design brief or require screenshot review. Redesigning jplugin's own visual-plan and recap renderer is a separate issue.
+People building visual products with jplugin need a project-chosen design direction, the full set of available upstream design references and tools, and browser evidence that the finished UI works and looks intentional. The harness routes UI implementation through a project design brief and requires screenshot review. Redesigning jplugin's own visual-plan and recap renderer is a separate issue.
 
 ## Constraints
 
@@ -44,42 +44,42 @@ People building visual products with jplugin need a project-chosen design direct
 | Production 3D | img2threejs runs only when requested or called for by the brief; production image-to-3D output passes its strict gates, while incomplete work is labeled prototype. | user | 3D gate fixture and skill contract test |
 | UI verification | Every completed UI change has desktop and mobile Playwright captures, interaction checks and visual review, with reviewer-visible links. | user | Browser fixture and E2E log assertions |
 | Evidence retention | GitHub-backed PRs run a committed project-specific visual check in CI and link that run's authenticated GitHub Actions artifact retained for 30 days; local-only projects link retained workspace artifacts. A missing or inaccessible review link blocks UI closure. | inferred | CI-workflow fixture, live fixture run and PR closure check |
-| Browser prerequisite | The Playwright CLI integration is merged before the browser-verification slice begins; this branch's verifier still names MCP backends. | user | Pre-flight check in the browser-verification slice |
+| Browser prerequisite | The Playwright CLI integration is the first-choice browser backend for visual checks. | user | Playwright runbook and browser-verification fixture |
 | Renderer boundary | The visual-plan/recap renderer and its design are unchanged by this feature. | user | Changed-path check against `html-presentation`, `visual-plan`, `visual-recap` |
 
 ## System design
 
-### Current state and ownership
+### Ownership
 
-The canonical skill tree is `.agents/skills/`; Claude's plugin manifest points at it (`.claude-plugin/plugin.json:10`), `install.sh:432-450` copies it to user scope for Pi/Codex, and `/sync` copies it into downstream projects (`.agents/skills/sync/SKILL.md:17-20,88-96`). `/prd` writes project context without a design brief (`.agents/skills/prd/SKILL.md:203-226`). `/plan` and `/system-design-planning` write specs and build prompts (`.agents/skills/plan/SKILL.md:118-179`; `.agents/skills/system-design-planning/SKILL.md:120-155`). `/build` dispatches frontend work and invokes `/verify-evidence --scope e2e` (`.agents/skills/build/SKILL.md:190-215,392-410`); the verifier distinguishes visual criteria but this branch has no Playwright CLI backend (`.agents/skills/verify-evidence/SKILL.md:146-197`).
+The canonical skill tree is `.agents/skills/`; Claude's plugin manifest points at it, `install.sh` copies it to user scope for Pi/Codex, and `/sync` copies it into downstream projects. `/prd` records the project design brief for UI work. `/plan` and `/system-design-planning` carry its rules and concept digest into specs and build prompts. `/build` checks owner approval before frontend dispatch. `/verify-evidence` runs committed Playwright CLI visual checks and `/wrap-up-session` gates UI closure on retained review links.
 
 | Component | Owns (source of truth for) | Reads |
 |-----------|----------------------------|-------|
-| Shared design installation (NEW) | Installed upstream source revisions, verified tool paths and rollback target | Upstream sources, explicit setup/update request |
-| Design catalog (NEW) | Available direction/reference/tool entries discovered from the installed sources | Shared installation; built-in `spatial` and `custom` entries |
-| Project `DESIGN.md` (NEW) | Chosen direction, optional references, and stable project-specific visual rules | Catalog at selection time; existing UI at adoption time |
+| Shared design installation | Installed upstream source revisions, verified tool paths and rollback target | Upstream sources, explicit setup/update request |
+| Design catalog | Available direction/reference/tool entries discovered from the installed sources | Shared installation; built-in `spatial` and `custom` entries |
+| Project `DESIGN.md` | Chosen direction, optional references, and stable project-specific visual rules | Catalog at selection time; existing UI at adoption time |
 | `/prd`, `/plan`, `/system-design-planning` | Project requirements, UI concept and reviewed spec | `DESIGN.md`, catalog |
-| Project `tasks/design-approvals/<feature>.json` (NEW) | The owner-started build prompt's approved concept path and SHA-256 digest | Reviewed spec and `design/concepts/<feature>.html` |
+| Project `tasks/design-approvals/<feature>.json` | The owner-started build prompt's approved concept path and SHA-256 digest | Reviewed spec and `design/concepts/<feature>.html` |
 | `/build` and frontend agents | Implemented UI | Approved spec, concept and `DESIGN.md` |
-| Project `tests/visual/<feature>.sh` (or existing executable suite) and `.github/workflows/jplugin-ui-evidence.yml` (NEW) | Reproducible app launch, changed-state browser checks and CI capture upload | Project verification skill, Playwright CLI, reviewed commit |
+| Project `tests/visual/<feature>.sh` (or existing executable suite) and `.github/workflows/jplugin-ui-evidence.yml` | Reproducible app launch, changed-state browser checks and CI capture upload | Project verification skill, Playwright CLI, reviewed commit |
 | `/verify-evidence` and `/wrap-up-session` | Append-only E2E record and completion gate | Changed UI, local and CI Playwright captures, review artifact links |
 
 ### Interaction
 
 ```text
-install.sh / sync ── existing copy ──► jplugin design skill (NEW)
+install.sh / sync ── existing copy ──► jplugin design skill
                                                 │
-first UI use ── sync setup ────────────────────► shared user-scope tools (NEW)
+first UI use ── sync setup ────────────────────► shared user-scope tools
 explicit update ── sync network request ──────► staged tools ── validate/promote
                                                 │
-project owner ── sync selection ───────────────► DESIGN.md (NEW)
+project owner ── sync selection ───────────────► DESIGN.md
                                                 │
-UI plan ── sync read ───────────────────────────► concept + digest + spec (NEW)
-owner starts digest-bearing build prompt ──────► approval receipt (NEW)
+UI plan ── sync read ───────────────────────────► concept + digest + spec
+owner starts digest-bearing build prompt ──────► approval receipt
 build ── sync receipt/brief read ───────────────► implemented UI
-verify ── sync Playwright CLI ──────────────────► captures + append-only E2E log (NEW)
-push ── async GitHub Actions visual check ─────► fresh CI captures + upload (NEW)
-wrap-up ── sync artifact metadata check ───────► review artifact URL (NEW)
+verify ── sync Playwright CLI ──────────────────► captures + append-only E2E log
+push ── async GitHub Actions visual check ─────► fresh CI captures + upload
+wrap-up ── sync artifact metadata check ───────► review artifact URL
 ```
 
 | Arrow | Mode | On timeout or unavailability | On duplicate |

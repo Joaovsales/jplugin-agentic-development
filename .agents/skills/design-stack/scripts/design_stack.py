@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 
-from catalog import build_catalog, select_direction
+from catalog import build_catalog, select_direction, source_paths
 from brief import SECTIONS, create_brief, read_brief, refresh_brief
 
 
@@ -54,17 +54,7 @@ def current_manifest():
 
 
 def validate(release):
-    sources = release / "sources"
-    required = {
-        "taste": lambda p: any((p / "skills").glob("*/SKILL.md")),
-        "impeccable": lambda p: (p / ".agent/skills/impeccable/SKILL.md").is_file(),
-        "references": lambda p: any((p / "design-md").glob("*/DESIGN.md")),
-        "three": lambda p: (p / "SKILL.md").is_file(),
-    }
-    for name, check in required.items():
-        path = sources / name
-        if not path.is_dir() or not check(path):
-            raise ValueError(f"{name} installation is incomplete")
+    source_paths(release)
 
 
 def stage_release(stage):
@@ -130,7 +120,7 @@ def promote(stage, revisions):
     return manifest
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("setup", "update", "status", "catalog", "select",
                                            "brief", "read-brief", "refresh"))
@@ -143,77 +133,98 @@ def main():
     parser.add_argument("--project", help="UI project directory containing DESIGN.md")
     parser.add_argument("--rule", action="append", default=[], help="visual rule as section=text")
     parser.add_argument("--owner-choice", action="store_true", help="confirm explicit owner selection")
-    args = parser.parse_args()
-    action = args.action
+    return parser.parse_args()
+
+
+def selected_rules(raw_rules):
+    rules = {}
+    for rule in raw_rules:
+        name, separator, value = rule.partition("=")
+        if not separator or name not in SECTIONS or name in rules:
+            raise ValueError("--rule needs a unique known section=text")
+        rules[name] = value
+    return rules
+
+
+def selected_command(args, entries):
+    if not args.direction:
+        raise ValueError("--direction is required for selection")
+    choice = select_direction(entries, args.direction, args.reference,
+                              args.custom_brief, args.use_case, args.override_fit)
+    if args.action == "select":
+        print(json.dumps(choice, indent=2))
+        return
+    if not args.project or not args.owner_choice:
+        raise ValueError("--project and explicit --owner-choice are required")
+    rules = selected_rules(args.rule)
+    path = Path(args.project) / "DESIGN.md"
+    if args.action == "brief":
+        create_brief(path, choice, rules or None)
+    else:
+        refresh_brief(path, choice, rules, owner_choice=True)
+    print(path)
+
+
+def catalog_command(args, previous):
+    if not previous:
+        raise ValueError("run design-stack setup before UI work")
+    release = HOME / "releases" / previous["current"]
+    entries = build_catalog(release, previous["sources"])
+    if args.action != "catalog":
+        selected_command(args, entries)
+    elif args.json:
+        print(json.dumps(entries, indent=2))
+    else:
+        for item in entries:
+            print(f"{item['kind']:10} {item['id']:45} {item['title']}")
+
+
+def install_command(previous):
+    HOME.mkdir(parents=True, exist_ok=True)
+    (HOME / "releases").mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="staging-", dir=HOME) as folder:
+        stage = Path(folder)
+        revisions = stage_release(stage)
+        if previous and previous["sources"] == revisions:
+            print(f"Ready {previous['current']} (unchanged)")
+            return
+        install_skills(stage)
+        validate(stage)
+        build_catalog(stage, revisions)
+        result = promote(stage, revisions)
+    print(f"Ready {result['current']}")
+
+
+def error_outcome(action, previous, error):
+    if action == "update" and previous:
+        return "UpdateRejected"
+    if action in ("select", "brief", "refresh") and previous and isinstance(error, ValueError):
+        return "SelectionRejected"
+    return "SetupRequired"
+
+
+def main():
+    args = parse_args()
     previous = None
     try:
-        if action == "read-brief":
+        if args.action == "read-brief":
             if not args.project:
                 raise ValueError("--project is required")
             print(json.dumps(read_brief(Path(args.project) / "DESIGN.md"), indent=2))
-            return 0
-        previous = current_manifest()
-        if action in ("catalog", "select", "brief", "refresh"):
-            if not previous:
-                raise ValueError("run design-stack setup before UI work")
-            release = HOME / "releases" / previous["current"]
-            entries = build_catalog(release, previous["sources"])
-            if action in ("select", "brief", "refresh"):
-                if not args.direction:
-                    raise ValueError("--direction is required for selection")
-                choice = select_direction(entries, args.direction, args.reference,
-                                          args.custom_brief, args.use_case, args.override_fit)
-                if action == "select":
-                    print(json.dumps(choice, indent=2))
-                else:
-                    if not args.project or not args.owner_choice:
-                        raise ValueError("--project and explicit --owner-choice are required")
-                    rules = {}
-                    for rule in args.rule:
-                        name, separator, value = rule.partition("=")
-                        if not separator or name not in SECTIONS or name in rules:
-                            raise ValueError("--rule needs a unique known section=text")
-                        rules[name] = value
-                    path = Path(args.project) / "DESIGN.md"
-                    if action == "brief":
-                        create_brief(path, choice, rules or None)
-                    else:
-                        refresh_brief(path, choice, rules, owner_choice=True)
-                    print(path)
-            elif args.json:
-                print(json.dumps(entries, indent=2))
+        else:
+            previous = current_manifest()
+            if args.action in ("catalog", "select", "brief", "refresh"):
+                catalog_command(args, previous)
+            elif args.action == "status" or (args.action == "setup" and previous):
+                if not previous:
+                    raise ValueError("run design-stack setup before UI work")
+                print(f"Ready {previous['current']} (offline)")
             else:
-                for item in entries:
-                    print(f"{item['kind']:10} {item['id']:45} {item['title']}")
-            return 0
-        if action == "status" or (action == "setup" and previous):
-            if not previous:
-                raise ValueError("run design-stack setup before UI work")
-            print(f"Ready {previous['current']} (offline)")
-            return 0
-        HOME.mkdir(parents=True, exist_ok=True)
-        (HOME / "releases").mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="staging-", dir=HOME) as folder:
-            stage = Path(folder)
-            revisions = stage_release(stage)
-            if previous and previous["sources"] == revisions:
-                print(f"Ready {previous['current']} (unchanged)")
-                return 0
-            install_skills(stage)
-            validate(stage)
-            build_catalog(stage, revisions)
-            result = promote(stage, revisions)
-        print(f"Ready {result['current']}")
+                install_command(previous)
         return 0
     except (OSError, ValueError, subprocess.SubprocessError) as error:
-        if action == "update" and previous:
-            outcome = "UpdateRejected"
-        elif action in ("select", "brief", "refresh") and previous and isinstance(error, ValueError):
-            outcome = "SelectionRejected"
-        else:
-            outcome = "SetupRequired"
-        detail = str(error).removeprefix(f"{outcome}: ")
-        print(f"{outcome}: {detail}", file=sys.stderr)
+        outcome = error_outcome(args.action, previous, error)
+        print(f"{outcome}: {str(error).removeprefix(f'{outcome}: ')}", file=sys.stderr)
         return 1
 
 

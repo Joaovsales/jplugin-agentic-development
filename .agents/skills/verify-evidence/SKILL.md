@@ -214,7 +214,8 @@ console errors, captures desktop and mobile PNGs after reaching each state,
 and writes `manifest.json` in `JPLUGIN_UI_OUTPUT`. The manifest's `states`
 map gives each state `desktop`, `mobile`, `interactions: true`,
 `console_errors: []`, and `visual_disposition: pass`. The validator checks
-all changed states and capture files. Keep the local run output for review.
+all changed states and complete PNG captures at desktop (≥768 px) and mobile
+(240–600 px) widths. Keep the local run output for review.
 Missing CLI/Chromium, app launch failure, broken interaction, console error,
 missing viewport or unresolved visual defect blocks UI completion; report the
 exact command or state. A browser fixture that only writes PNG headers is
@@ -287,6 +288,11 @@ capture files still exist. A GitHub PR requires a committed
 `tests/visual/<feature>.sh` and the one-time generated
 `.github/workflows/jplugin-ui-evidence.yml` from `ui_publication.py
 install-workflow --project <project>`. Commit both before opening the PR.
+The installed workflow carries a template digest. After a harness upgrade,
+`install-workflow --project <project> --update` refreshes an unchanged generated
+copy; a locally edited workflow is refused for owner review. The synced
+`scripts/visual_check.py validate` command is the stable project-side CI
+entrypoint; preserve that path when evolving its implementation.
 The workflow checks out the PR head commit, installs Playwright CLI/Chromium,
 runs the committed project visual checks, validates their manifests, and
 uploads its own captures with `actions/upload-artifact@v4` and

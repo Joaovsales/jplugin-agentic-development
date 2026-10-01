@@ -1,3 +1,4 @@
+# jplugin-ui-evidence schema: 1
 name: Jplugin UI evidence
 on:
   pull_request:

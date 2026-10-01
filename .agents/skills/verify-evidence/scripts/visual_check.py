@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import sys
 
@@ -13,12 +14,22 @@ import sys
 PNG = b"\x89PNG\r\n\x1a\n"
 
 
-def capture(output, name):
+def capture(output, name, viewport):
     path = (output / name).resolve()
     if not path.is_relative_to(output.resolve()) or not path.is_file():
         raise ValueError(f"missing or external capture: {name}")
-    if path.read_bytes()[:8] != PNG:
-        raise ValueError(f"capture is not PNG: {name}")
+    if path.stat().st_size < 36:
+        raise ValueError(f"capture is truncated: {name}")
+    with path.open("rb") as stream:
+        header = stream.read(24)
+        stream.seek(-12, 2)
+        trailer = stream.read(12)
+    if header[:8] != PNG or header[12:16] != b"IHDR" or trailer[4:8] != b"IEND":
+        raise ValueError(f"capture is not a complete PNG: {name}")
+    width, height = struct.unpack("!II", header[16:24])
+    if height < 320 or (viewport == "desktop" and width < 768) or (
+            viewport == "mobile" and not 240 <= width <= 600):
+        raise ValueError(f"capture has wrong {viewport} viewport: {name}")
 
 
 def validate_manifest(output, manifest, changed_states):
@@ -30,8 +41,8 @@ def validate_manifest(output, manifest, changed_states):
         if not isinstance(evidence, dict):
             raise ValueError(f"missing changed UI state: {state}")
         for viewport in ("desktop", "mobile"):
-            capture(output, evidence.get(viewport, ""))
-        if evidence.get("interactions") is not True or evidence.get("console_errors"):
+            capture(output, evidence.get(viewport, ""), viewport)
+        if evidence.get("interactions") is not True or evidence.get("console_errors") != []:
             raise ValueError(f"interaction or console failure: {state}")
         if evidence.get("visual_disposition") != "pass":
             raise ValueError(f"unresolved visual defect: {state}")

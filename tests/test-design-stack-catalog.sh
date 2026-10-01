@@ -67,6 +67,14 @@ for identifier, kind in {
 }.items():
     assert by_id[identifier]["kind"] == kind, identifier
 assert by_id["taste:new-style"]["source_revision"] == "taste-sha"
+(base / "sources/impeccable/.agent/skills/impeccable/SKILL.md").unlink()
+try:
+    build_catalog(base, revisions)
+except ValueError:
+    pass
+else:
+    raise AssertionError("missing Impeccable source skill was accepted")
+(base / "sources/impeccable/.agent/skills/impeccable/SKILL.md").write_text("# Impeccable\n")
 (base / "sources/taste/skills/future-style").mkdir()
 (base / "sources/taste/skills/future-style/SKILL.md").write_text(
     "---\nname: future-style\n---\n## Visual Archetypes\n### Ribbon Columns\n")

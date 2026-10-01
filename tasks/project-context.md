@@ -5,6 +5,7 @@
 
 **Structure**:
 - `.agents/skills/` — canonical, harness-neutral skills
+- `.agents/skills/design-stack/` — shared UI source setup, dynamic catalog, and project-owned `DESIGN.md` adapter
 - `.claude/agents/` — specialized subagents
 - `.claude-plugin/` — plugin manifest: the canonical tree ships to Claude Code as the `jplugin` plugin
 - `.claude/hooks/` — lifecycle automation

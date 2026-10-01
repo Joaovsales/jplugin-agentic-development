@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -13,17 +14,37 @@ from visual_check import validate_manifest
 
 
 TEMPLATE = Path(__file__).resolve().parent.parent / "templates/jplugin-ui-evidence.yml"
+MARKER = "# jplugin-ui-template-sha256: "
 
 
-def install_workflow(project):
-    target = Path(project) / ".github/workflows/jplugin-ui-evidence.yml"
-    content = TEMPLATE.read_bytes()
+def managed_workflow():
+    body = TEMPLATE.read_bytes()
+    return (MARKER + hashlib.sha256(body).hexdigest() + "\n").encode() + body
+
+
+def verified_managed_workflow(content):
+    header, separator, body = content.partition(b"\n")
+    if not separator or not header.startswith(MARKER.encode()):
+        return False
+    return header[len(MARKER):].decode() == hashlib.sha256(body).hexdigest()
+
+
+def install_workflow(project, update=False):
+    project = Path(project).resolve()
+    target = project / ".github/workflows/jplugin-ui-evidence.yml"
+    content = managed_workflow()
+    if target.is_symlink() or not target.parent.resolve().is_relative_to(project):
+        raise ValueError("UI evidence workflow path leaves the project")
     if target.exists():
-        if target.read_bytes() != content:
-            raise ValueError("existing UI evidence workflow differs; review before updating")
-        return target
+        current = target.read_bytes()
+        if current == content:
+            return target
+        if not update or not verified_managed_workflow(current):
+            raise ValueError("existing UI evidence workflow differs; explicit safe update required")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(content)
+    temporary = target.with_suffix(".yml.tmp")
+    temporary.write_bytes(content)
+    temporary.replace(target)
     return target
 
 
@@ -46,9 +67,14 @@ def validate_artifact(run, artifact, sha, pr_number):
 
 
 def artifact_review_link(slug, run, artifact):
-    if not re.fullmatch(r"[\w.-]+/[\w.-]+", slug):
+    if not valid_slug(slug):
         raise ValueError("invalid GitHub repository slug")
     return f"https://github.com/{slug}/actions/runs/{run['id']}/artifacts/{artifact['id']}"
+
+
+def valid_slug(slug):
+    return bool(re.fullmatch(r"[A-Za-z0-9-]+/[A-Za-z0-9_.-]+", slug)) and all(
+        part not in (".", "..") for part in slug.split("/"))
 
 
 def github_api(path):
@@ -58,6 +84,8 @@ def github_api(path):
 
 
 def lookup_ci_artifact(slug, pr_number, sha):
+    if not valid_slug(slug):
+        raise ValueError("invalid GitHub repository slug")
     if not re.fullmatch(r"[0-9a-f]{40}", sha) or not str(pr_number).isdigit():
         raise ValueError("invalid PR or commit for artifact lookup")
     runs = github_api(f"repos/{slug}/actions/workflows/jplugin-ui-evidence.yml/runs"
@@ -77,9 +105,18 @@ def lookup_ci_artifact(slug, pr_number, sha):
 
 def append_ui_entry(log, feature, sha, state, output, review_link, disposition):
     output = Path(output).resolve()
+    workspace = Path(log).resolve().parent.parent
+    if not output.is_relative_to(workspace):
+        raise ValueError("PublicationUnavailable: captures are outside the project workspace")
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
     validate_manifest(output, manifest, [state])
-    if disposition != "pass" or not review_link:
+    local_link = Path(review_link)
+    if not local_link.is_absolute():
+        local_link = workspace / local_link
+    local_link = local_link.resolve()
+    local_ok = local_link.is_relative_to(workspace) and local_link.exists()
+    github_link = re.fullmatch(r"https://github\.com/[\w.-]+/[\w.-]+/actions/runs/\d+/artifacts/\d+", review_link)
+    if disposition != "pass" or not review_link or not (github_link or local_ok):
         raise ValueError("PublicationUnavailable: unresolved defect or missing review link")
     evidence = manifest["states"][state]
     now = datetime.now(timezone.utc)
@@ -100,13 +137,15 @@ def append_ui_entry(log, feature, sha, state, output, review_link, disposition):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    sub.add_parser("install-workflow").add_argument("--project", required=True)
+    install = sub.add_parser("install-workflow")
+    install.add_argument("--project", required=True)
+    install.add_argument("--update", action="store_true")
     lookup = sub.add_parser("lookup")
     for flag in ("slug", "pr", "sha"):
         lookup.add_argument(f"--{flag}", required=True)
     args = parser.parse_args()
     if args.action == "install-workflow":
-        print(install_workflow(args.project))
+        print(install_workflow(args.project, update=args.update))
     else:
         print(lookup_ci_artifact(args.slug, args.pr, args.sha))
     return 0

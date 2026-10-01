@@ -97,16 +97,18 @@ def refresh_brief(path, choice, rules=None, *, owner_choice=False):
 
 def onboard_project(project, project_kind, choice=None, rules=None, *, owner_choice=False):
     """Set a new UI default; preserve an existing UI until its owner chooses."""
-    if project_kind != "ui":
+    if project_kind in ("backend", "cli"):
         return None
+    if project_kind not in ("new-ui", "existing-ui"):
+        raise ValueError("project kind must be new-ui, existing-ui, backend, or cli")
     project = Path(project)
     path = project / "DESIGN.md"
     if path.exists():
         read_brief(path)
         return path
-    existing = project.exists() and any(project.iterdir())
+    existing = project_kind == "existing-ui"
     if existing and not owner_choice:
         raise ValueError("SelectionRequired: existing UI needs an owner choice")
-    if existing and not rules:
+    if existing and any(not (rules or {}).get(name) for name in SECTIONS[:5]):
         raise ValueError("SelectionRequired: preserve existing visual rules in an authored brief")
     return create_brief(path, choice or {"direction": "spatial", "references": []}, rules)

@@ -19,32 +19,53 @@
 > Surface: undeclared `.claude-plugin/plugin.json` — required 1.3.1 to 1.4.0 bump for the plugin payload version guard; no untouched patterns.
 
 ### Slice 3/9 — Stable brief
-- [ ] Stable brief <!-- task-id: plan.specs-ui-design-stack-md.stable-brief --> — Slice 3/9: A versioned `DESIGN.md` contract whose authored rules survive tool updates. ([#239](https://github.com/Joaovsales/jplugin-agentic-development/issues/239)) (blocked-by: plan.specs-ui-design-stack-md.complete-catalog)
-  [ ] TDD: tests/test-design-stack-brief.sh § stability — an upstream update changes available guidance but not a project's approved palette, type, layout or motion; explicit owner refresh changes the same brief -> versioned brief template and reader/writer (AC 6)
+- [x] Stable brief <!-- task-id: plan.specs-ui-design-stack-md.stable-brief --> — Slice 3/9: A versioned `DESIGN.md` contract whose authored rules survive tool updates. ([#239](https://github.com/Joaovsales/jplugin-agentic-development/issues/239)) (blocked-by: plan.specs-ui-design-stack-md.complete-catalog)
+  [x] TDD: tests/test-design-stack-brief.sh § stability — an upstream update changes available guidance but not a project's approved palette, type, layout or motion; explicit owner refresh changes the same brief -> versioned brief template and reader/writer (AC 6)
+> Handover: landed 0bcdf90..694c021 — v1 project brief template, parser, guarded creation and explicit owner refresh; focused and affected tests passed.
+> Do not re-derive: `design_stack.py brief` requires an owner choice; spatial has usable defaults while other directions require authored rules; shared updates leave project bytes unchanged.
+> Surface: none (`slice.py check --slice 3 --base 0bcdf90`).
 
 ### Slice 4/9 — Project onboarding
-- [ ] Project onboarding <!-- task-id: plan.specs-ui-design-stack-md.project-onboarding --> — Slice 4/9: New UI selection with spatial preselected, existing UI preservation, and non-UI bypass. ([#240](https://github.com/Joaovsales/jplugin-agentic-development/issues/240)) (blocked-by: plan.specs-ui-design-stack-md.stable-brief)
-  [ ] TDD: tests/test-design-stack-brief.sh and tests/test-design-stack-workflow.sh § onboarding — new UI project saves an owner-selected brief with spatial preselected; existing UI is not rewritten before choice; unattended missing choice stops UI planning; backend/CLI bypasses design setup -> `/prd` and design-skill onboarding (AC 5)
+- [x] Project onboarding <!-- task-id: plan.specs-ui-design-stack-md.project-onboarding --> — Slice 4/9: New UI selection with spatial preselected, existing UI preservation, and non-UI bypass. ([#240](https://github.com/Joaovsales/jplugin-agentic-development/issues/240)) (blocked-by: plan.specs-ui-design-stack-md.stable-brief)
+  [x] TDD: tests/test-design-stack-brief.sh and tests/test-design-stack-workflow.sh § onboarding — new UI project saves an owner-selected brief with spatial preselected; existing UI is not rewritten before choice; unattended missing choice stops UI planning; backend/CLI bypasses design setup -> `/prd` and design-skill onboarding (AC 5)
+> Handover: landed 694c021..6909917 — UI onboarding chooses spatial for a new project, preserves existing UI until owner selection, and bypasses design setup for backend projects; focused and affected tests passed.
+> Do not re-derive: `onboard_project` is the decision boundary; an existing UI with no brief returns `SelectionRequired` and needs authored visual rules; `/prd` carries the resulting brief into requirements.
+> Surface: none (`slice.py check --slice 4 --base 694c021`).
 
 ### Slice 5/9 — Concept review
-- [ ] Concept review <!-- task-id: plan.specs-ui-design-stack-md.concept-review --> — Slice 5/9: UI plans carry the brief, concept digest and owner approval receipt contract before the build prompt. ([#241](https://github.com/Joaovsales/jplugin-agentic-development/issues/241)) (blocked-by: plan.specs-ui-design-stack-md.project-onboarding)
-  [ ] TDD: tests/test-design-stack-workflow.sh § concept — a major UI writes a concept and digest into its plan/build prompt; an owner-started prompt for that digest records one approval receipt, while unattended or stale-digest builds stop; localized UI changes follow the brief -> `/plan` and `/system-design-planning` integration (AC 7)
+- [x] Concept review <!-- task-id: plan.specs-ui-design-stack-md.concept-review --> — Slice 5/9: UI plans carry the brief, concept digest and owner approval receipt contract before the build prompt. ([#241](https://github.com/Joaovsales/jplugin-agentic-development/issues/241)) (blocked-by: plan.specs-ui-design-stack-md.project-onboarding)
+  [x] TDD: tests/test-design-stack-workflow.sh § concept — a major UI writes a concept and digest into its plan/build prompt; an owner-started prompt for that digest records one approval receipt, while unattended or stale-digest builds stop; localized UI changes follow the brief -> `/plan` and `/system-design-planning` integration (AC 7)
+> Handover: landed 6909917..a792062 — both planners read `DESIGN.md`, save a reviewable concept for major UI work, and carry its SHA-256 into the spec and build prompt; affected tests passed.
+> Do not re-derive: `/slice` copies the digest from a spec Decision into the prompt; `/build` must validate the current concept bytes and owner-started prompt before recording approval. Localized UI work needs no concept.
+> Surface: none (`slice.py check --slice 5 --base 6909917`).
 
 ### Slice 6/9 — Frontend dispatch
-- [ ] Frontend dispatch <!-- task-id: plan.specs-ui-design-stack-md.frontend-dispatch --> — Slice 6/9: Builders and design validators receive the approved brief/concept and stop on missing selection. ([#242](https://github.com/Joaovsales/jplugin-agentic-development/issues/242)) (blocked-by: plan.specs-ui-design-stack-md.concept-review)
-  [ ] TDD: tests/test-design-stack-workflow.sh § dispatch — UI frontend implementer and validator receive the exact brief/concept paths; an existing unselected UI stops before edits while a non-UI build follows its prior route -> `/build` dispatch contract and agent personas (AC 8)
+- [x] Frontend dispatch <!-- task-id: plan.specs-ui-design-stack-md.frontend-dispatch --> — Slice 6/9: Builders and design validators receive the approved brief/concept and stop on missing selection. ([#242](https://github.com/Joaovsales/jplugin-agentic-development/issues/242)) (blocked-by: plan.specs-ui-design-stack-md.concept-review)
+  [x] TDD: tests/test-design-stack-workflow.sh § dispatch — UI frontend implementer and validator receive the exact brief/concept paths; an existing unselected UI stops before edits while a non-UI build follows its prior route -> `/build` dispatch contract and agent personas (AC 8)
+> Handover: landed a792062..f9c430d — build pre-flight validates the UI brief and digest-bound owner prompt, records approval, and passes exact design context to frontend agents; affected tests passed.
+> Do not re-derive: missing existing-UI brief is `SelectionRequired`; missing or stale major concept approval is `ConceptReviewRequired`; personas now use supplied project commands rather than fixed Docker/port paths.
+> Surface: none (`slice.py check --slice 6 --base a792062`).
 
 ### Slice 7/9 — Strict 3D
-- [ ] Strict 3D <!-- task-id: plan.specs-ui-design-stack-md.strict-3d --> — Slice 7/9: Opt-in img2threejs execution with production gates and explicit prototype labeling. ([#243](https://github.com/Joaovsales/jplugin-agentic-development/issues/243)) (blocked-by: plan.specs-ui-design-stack-md.frontend-dispatch)
-  [ ] TDD: tests/test-design-stack-3d.sh § trigger/gate — no 3D invocation without request or brief intent; a failed strict spec or later forge gate cannot be marked production-complete and records a prototype label -> design-stack 3D contract and build check (AC 9)
+- [x] Strict 3D <!-- task-id: plan.specs-ui-design-stack-md.strict-3d --> — Slice 7/9: Opt-in img2threejs execution with production gates and explicit prototype labeling. ([#243](https://github.com/Joaovsales/jplugin-agentic-development/issues/243)) (blocked-by: plan.specs-ui-design-stack-md.frontend-dispatch)
+  [x] TDD: tests/test-design-stack-3d.sh § trigger/gate — no 3D invocation without request or brief intent; a failed strict spec or later forge gate cannot be marked production-complete and records a prototype label -> design-stack 3D contract and build check (AC 9)
+> Handover: landed f9c430d..ede7dfd — opt-in guard and strict production status, with installed img2threejs sculpt/forge contract; affected tests passed.
+> Do not re-derive: `three.py` returns `prototype` and open gates unless both strict spec and forge stages pass; the verified upstream `sources/three/SKILL.md` owns the exact commands and additional domain gates.
+> Surface: none (`slice.py check --slice 7 --base f9c430d`).
 
 ### Slice 8/9 — Browser QA
-- [ ] Browser QA <!-- task-id: plan.specs-ui-design-stack-md.browser-qa --> — Slice 8/9: A locally proven project visual check with Playwright CLI desktop/mobile captures, interactions and visual r… ([#244](https://github.com/Joaovsales/jplugin-agentic-development/issues/244)) (blocked-by: plan.specs-ui-design-stack-md.strict-3d)
-  [ ] TDD: tests/test-design-stack-evidence.sh § browser — a committed project-specific visual script or existing suite runs locally against each changed UI state with desktop/mobile captures and interaction/visual disposition; missing CLI/browser, console error or broken interaction prevents completion -> `/verify-evidence` Playwright CLI path after its branch merges (AC 10)
+- [x] Browser QA <!-- task-id: plan.specs-ui-design-stack-md.browser-qa --> — Slice 8/9: A locally proven project visual check with Playwright CLI desktop/mobile captures, interactions and visual r… ([#244](https://github.com/Joaovsales/jplugin-agentic-development/issues/244)) (blocked-by: plan.specs-ui-design-stack-md.strict-3d)
+  [x] TDD: tests/test-design-stack-evidence.sh § browser — a committed project-specific visual script or existing suite runs locally against each changed UI state with desktop/mobile captures and interaction/visual disposition; missing CLI/browser, console error or broken interaction prevents completion -> `/verify-evidence` Playwright CLI path after its branch merges (AC 10)
+> Handover: landed ede7dfd..dd8dd5a — committed project visual script runner validates every changed state, desktop/mobile PNGs, interactions, console errors and visual disposition; affected tests passed.
+> Do not re-derive: `visual_check.py` runs `tests/visual/<feature>.sh` with `JPLUGIN_UI_OUTPUT`; the script owns its states, real app launch and Playwright steps, then writes `manifest.json` for validation.
+> Surface: none (`slice.py check --slice 8 --base ede7dfd`).
 
 ### Slice 9/9 — Evidence closure
-- [ ] Evidence closure <!-- task-id: plan.specs-ui-design-stack-md.evidence-closure --> — Slice 9/9: Append-only E2E records and a CI workflow that reruns the committed visual check and uploads its own capture… ([#245](https://github.com/Joaovsales/jplugin-agentic-development/issues/245)) (blocked-by: plan.specs-ui-design-stack-md.browser-qa)
-  [ ] TDD: tests/test-design-stack-evidence.sh § links/closure — retries append E2E rows; a GitHub PR fixture runs the committed visual check in CI, uploads its own captures as a resolvable 30-day Actions artifact and links that run to the task/PR; local-only projects link readable workspace files; missing publication blocks UI closure -> verifier and wrap-up gate (AC 11)
+- [x] Evidence closure <!-- task-id: plan.specs-ui-design-stack-md.evidence-closure --> — Slice 9/9: Append-only E2E records and a CI workflow that reruns the committed visual check and uploads its own capture… ([#245](https://github.com/Joaovsales/jplugin-agentic-development/issues/245)) (blocked-by: plan.specs-ui-design-stack-md.browser-qa)
+  [x] TDD: tests/test-design-stack-evidence.sh § links/closure — retries append E2E rows; a GitHub PR fixture runs the committed visual check in CI, uploads its own captures as a resolvable 30-day Actions artifact and links that run to the task/PR; local-only projects link readable workspace files; missing publication blocks UI closure -> verifier and wrap-up gate (AC 11)
+> Handover: landed dd8dd5a..c2426f5 — append-only UI E2E records, reusable PR workflow with CI-generated captures and 30-day artifact retention, authenticated artifact lookup and UI closure gate; affected tests passed.
+> Do not re-derive: the workflow runs every committed `tests/visual/*.sh` on the PR head SHA; `ui_publication.py lookup` validates the successful run and artifact metadata; local retries remain in the log.
+> Surface: none (`slice.py check --slice 9 --base dd8dd5a`).
 
 ## Plan: plan-slices-and-handover
 > Spec: specs/plan-slices-and-handover.md
@@ -1409,3 +1430,7 @@ Filed this sweep:
 - Completed: wrap-up-phases slices 1–7 (specs/wrap-up-phases.md); quality-gate fixes (1b116e8, c1c3133); spec reconciliation of 4 specs that cited wrap-up by step number
 - Pending: none in this plan
 - Carry-forward: README's flow still lists /security-scan as its own step before wrap-up, although /quality-gate phase 3 now runs it; specs outside the reconciliation candidates (lightpanda-browser-adoption, omc-practices-adoption, workflow-insights-improvements, wrap-up-gate-and-tdd-fold) still cite old wrap-up step numbers in historical context
+## Session Summary — [2026-10-01] [1d7c57a..c2426f5]
+- Completed: nine UI design stack slices (#237–#245), their tests, handovers, and independent design review.
+- Pending: main repository PR and checks; the private fixture PR CI run and artifact proof passed.
+- Carry-forward: downstream UI projects commit their own visual script and generated workflow before their PR publication gate can pass.

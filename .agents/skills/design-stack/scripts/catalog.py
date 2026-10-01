@@ -25,6 +25,21 @@ def safe_file(path, release):
     return path
 
 
+def source_paths(release):
+    """Find required upstream files once for install validation and catalog reads."""
+    release = Path(release)
+    sources = release / "sources"
+    taste = sorted((sources / "taste/skills").glob("*/SKILL.md"))
+    references = sorted((sources / "references/design-md").glob("*/DESIGN.md"))
+    if not taste or not references:
+        raise ValueError("catalog needs Taste styles and design references")
+    for path in (*taste, *references):
+        safe_file(path, release)
+    impeccable = safe_file(sources / "impeccable/.agent/skills/impeccable/SKILL.md", release)
+    three = safe_file(sources / "three/SKILL.md", release)
+    return taste, references, impeccable, three
+
+
 def frontmatter(path):
     lines = path.read_text(encoding="utf-8").splitlines()
     fields = {}
@@ -70,57 +85,74 @@ def archetypes(lines, skill_name, revision, path):
     return found
 
 
+def taste_entries(paths, revision, release):
+    entries = []
+    for path in paths:
+        safe_file(path, release)
+        fields, lines = frontmatter(path)
+        name = path.parent.name
+        entries.append(entry(f"taste:{name}", "direction", fields.get("name", name),
+                             revision, fields.get("description", ""), path))
+        entries.extend(archetypes(lines, name, revision, path))
+    return entries
+
+
+def reference_entries(paths, revision, release):
+    entries = []
+    for path in paths:
+        safe_file(path, release)
+        name = path.parent.name
+        entries.append(entry(f"reference:{name}", "reference", name,
+                             revision, "Design reference", path))
+    return entries
+
+
+def metadata_commands(metadata, revision, release):
+    safe_file(metadata, release)
+    commands = json.loads(metadata.read_text(encoding="utf-8"))
+    if not isinstance(commands, dict):
+        raise ValueError("Impeccable command metadata is invalid")
+    entries = []
+    for name, details in sorted(commands.items()):
+        if not isinstance(details, dict) or not isinstance(details.get("description"), str):
+            raise ValueError(f"invalid Impeccable command: {name}")
+        entries.append(entry(f"impeccable:{slug(name)}", "tool", name,
+                             revision, details["description"], metadata))
+    return entries
+
+
+def reference_commands(source_skill, revision, release):
+    references_dir = release / ".agents/skills/impeccable/reference"
+    if not references_dir.is_dir():
+        references_dir = source_skill.parent / "reference"
+    entries = []
+    for path in sorted(references_dir.glob("*.md")):
+        safe_file(path, release)
+        entries.append(entry(f"impeccable:{slug(path.stem)}", "tool", path.stem,
+                             revision, "Impeccable command reference", path))
+    if not entries:
+        entries.append(entry("impeccable:impeccable", "tool", "Impeccable",
+                             revision, "UI design commands", source_skill))
+    return entries
+
+
 def build_catalog(release, revisions):
     """Return every option available in a staged or current local release."""
     release = Path(release)
     sources = release / "sources"
     entries = [entry("spatial", "direction", "Spatial", "builtin:v1", "Spatial UI"),
                entry("custom", "direction", "Custom", "builtin:v1", "Owner-authored visual rules")]
-    taste = sorted((sources / "taste/skills").glob("*/SKILL.md"))
-    references = sorted((sources / "references/design-md").glob("*/DESIGN.md"))
-    if not taste or not references:
-        raise ValueError("catalog needs Taste styles and design references")
-    for path in taste:
-        safe_file(path, release)
-        fields, lines = frontmatter(path)
-        name = path.parent.name
-        entries.append(entry(f"taste:{name}", "direction", fields.get("name", name),
-                             revisions["taste"], fields.get("description", ""), path))
-        entries.extend(archetypes(lines, name, revisions["taste"], path))
-    for path in references:
-        safe_file(path, release)
-        name = path.parent.name
-        entries.append(entry(f"reference:{name}", "reference", name,
-                             revisions["references"], "Design reference", path))
+    taste, references, impeccable, three = source_paths(release)
+    entries.extend(taste_entries(taste, revisions["taste"], release))
+    entries.extend(reference_entries(references, revisions["references"], release))
     metadata = release / ".agents/skills/impeccable/scripts/command-metadata.json"
     if not metadata.exists():
         metadata = sources / "impeccable/.agent/skills/impeccable/scripts/command-metadata.json"
     if metadata.exists():
-        safe_file(metadata, release)
-        commands = json.loads(metadata.read_text(encoding="utf-8"))
-        if not isinstance(commands, dict):
-            raise ValueError("Impeccable command metadata is invalid")
-        for name, details in sorted(commands.items()):
-            if not isinstance(details, dict) or not isinstance(details.get("description"), str):
-                raise ValueError(f"invalid Impeccable command: {name}")
-            entries.append(entry(f"impeccable:{slug(name)}", "tool", name,
-                                 revisions["impeccable"], details["description"], metadata))
+        entries.extend(metadata_commands(metadata, revisions["impeccable"], release))
     else:
-        source_skill = sources / "impeccable/.agent/skills/impeccable"
-        safe_file(source_skill / "SKILL.md", release)
-        references_dir = release / ".agents/skills/impeccable/reference"
-        if not references_dir.is_dir():
-            references_dir = source_skill / "reference"
-        command_files = sorted(references_dir.glob("*.md"))
-        for path in command_files:
-            safe_file(path, release)
-            entries.append(entry(f"impeccable:{slug(path.stem)}", "tool", path.stem,
-                                 revisions["impeccable"], "Impeccable command reference", path))
-        if not command_files:
-            entries.append(entry("impeccable:impeccable", "tool", "Impeccable",
-                                 revisions["impeccable"], "UI design commands",
-                                 source_skill / "SKILL.md"))
-    path = safe_file(sources / "three/SKILL.md", release)
+        entries.extend(reference_commands(impeccable, revisions["impeccable"], release))
+    path = three
     entries.append(entry("three:img2threejs", "tool", "img2threejs",
                          revisions["three"], "Opt-in image-to-3D pipeline", path))
     identifiers = [item["id"] for item in entries]
