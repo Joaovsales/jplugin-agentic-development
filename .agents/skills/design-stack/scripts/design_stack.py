@@ -11,6 +11,7 @@ import sys
 import tempfile
 
 from catalog import build_catalog, select_direction
+from brief import SECTIONS, create_brief, read_brief, refresh_brief
 
 
 SOURCES = {
@@ -131,29 +132,54 @@ def promote(stage, revisions):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("setup", "update", "status", "catalog", "select"))
+    parser.add_argument("action", choices=("setup", "update", "status", "catalog", "select",
+                                           "brief", "read-brief", "refresh"))
     parser.add_argument("--json", action="store_true", help="print catalog entries as JSON")
     parser.add_argument("--direction", help="one catalog direction or archetype ID")
     parser.add_argument("--reference", action="append", default=[], help="reference ID; repeatable")
     parser.add_argument("--custom-brief", default="", help="owner-authored brief text")
     parser.add_argument("--use-case", default="", help="target use case for a fit warning")
     parser.add_argument("--override-fit", action="store_true", help="accept a fit warning")
+    parser.add_argument("--project", help="UI project directory containing DESIGN.md")
+    parser.add_argument("--rule", action="append", default=[], help="visual rule as section=text")
+    parser.add_argument("--owner-choice", action="store_true", help="confirm explicit owner selection")
     args = parser.parse_args()
     action = args.action
     previous = None
     try:
+        if action == "read-brief":
+            if not args.project:
+                raise ValueError("--project is required")
+            print(json.dumps(read_brief(Path(args.project) / "DESIGN.md"), indent=2))
+            return 0
         previous = current_manifest()
-        if action in ("catalog", "select"):
+        if action in ("catalog", "select", "brief", "refresh"):
             if not previous:
                 raise ValueError("run design-stack setup before UI work")
             release = HOME / "releases" / previous["current"]
             entries = build_catalog(release, previous["sources"])
-            if action == "select":
+            if action in ("select", "brief", "refresh"):
                 if not args.direction:
                     raise ValueError("--direction is required for selection")
                 choice = select_direction(entries, args.direction, args.reference,
                                           args.custom_brief, args.use_case, args.override_fit)
-                print(json.dumps(choice, indent=2))
+                if action == "select":
+                    print(json.dumps(choice, indent=2))
+                else:
+                    if not args.project or not args.owner_choice:
+                        raise ValueError("--project and explicit --owner-choice are required")
+                    rules = {}
+                    for rule in args.rule:
+                        name, separator, value = rule.partition("=")
+                        if not separator or name not in SECTIONS or name in rules:
+                            raise ValueError("--rule needs a unique known section=text")
+                        rules[name] = value
+                    path = Path(args.project) / "DESIGN.md"
+                    if action == "brief":
+                        create_brief(path, choice, rules or None)
+                    else:
+                        refresh_brief(path, choice, rules, owner_choice=True)
+                    print(path)
             elif args.json:
                 print(json.dumps(entries, indent=2))
             else:
@@ -180,8 +206,14 @@ def main():
         print(f"Ready {result['current']}")
         return 0
     except (OSError, ValueError, subprocess.SubprocessError) as error:
-        outcome = "UpdateRejected" if action == "update" and previous else "SetupRequired"
-        print(f"{outcome}: {error}", file=sys.stderr)
+        if action == "update" and previous:
+            outcome = "UpdateRejected"
+        elif action in ("select", "brief", "refresh") and previous and isinstance(error, ValueError):
+            outcome = "SelectionRejected"
+        else:
+            outcome = "SetupRequired"
+        detail = str(error).removeprefix(f"{outcome}: ")
+        print(f"{outcome}: {detail}", file=sys.stderr)
         return 1
 
 

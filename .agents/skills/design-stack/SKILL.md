@@ -69,3 +69,26 @@ overlap with the named use case, it returns a fit warning. Show that warning
 to the owner; `--override-fit` accepts their deliberate choice. A tool or
 reference cannot be selected as the primary direction. A catalog or selection
 read does not write `DESIGN.md` or contact upstream.
+
+## Project brief
+
+The small v1 template at `templates/DESIGN.md` contains usable spatial palette,
+typography, layout, motion and accessibility rules. After the owner reviews the
+selection, run `design_stack.py brief --project <path> --direction <id>
+--owner-choice` to create that project's `DESIGN.md` once. Add `--reference
+<reference:id>` for each selected reference. A non-spatial direction requires
+authored `--rule section=text` values for palette, typography, layout, motion,
+and accessibility. Use the same
+flag to replace spatial defaults with owner-authored rules. Valid sections are
+`palette`, `typography`, `layout`, `motion`, `accessibility`, `3d intent`, and
+`custom brief`. A 3D intent in the brief opts the project into the 3D pipeline;
+the default template states no 3D intent.
+
+Run `design_stack.py read-brief --project <path>` to read and validate the
+versioned brief as JSON. A second `brief` call refuses to overwrite it. Only an
+explicit owner-requested `design_stack.py refresh --project <path> --direction
+<id> --owner-choice [--rule section=text ...]` changes it; omitted rule sections
+retain their previously approved text. Shared setup and update do not touch any
+project `DESIGN.md`. Existing UI projects without a brief wait for owner
+selection before this create command; never create a spatial brief for them
+without that choice.
