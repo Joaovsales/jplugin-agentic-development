@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+from catalog import build_catalog, select_direction
+
 
 SOURCES = {
     "taste": "https://github.com/Leonxlnx/taste-skill.git",
@@ -40,6 +42,7 @@ def current_manifest():
     if Path(manifest.get("catalog_path", "")).resolve() != (location / "sources").resolve():
         raise ValueError("catalog path leaves the verified release")
     validate(location)
+    build_catalog(location, manifest["sources"])
     if len(installed_entrypoints(location)) < 2:
         raise ValueError("installed design commands are missing")
     for name in SOURCES:
@@ -128,11 +131,35 @@ def promote(stage, revisions):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("setup", "update", "status"))
-    action = parser.parse_args().action
+    parser.add_argument("action", choices=("setup", "update", "status", "catalog", "select"))
+    parser.add_argument("--json", action="store_true", help="print catalog entries as JSON")
+    parser.add_argument("--direction", help="one catalog direction or archetype ID")
+    parser.add_argument("--reference", action="append", default=[], help="reference ID; repeatable")
+    parser.add_argument("--custom-brief", default="", help="owner-authored brief text")
+    parser.add_argument("--use-case", default="", help="target use case for a fit warning")
+    parser.add_argument("--override-fit", action="store_true", help="accept a fit warning")
+    args = parser.parse_args()
+    action = args.action
     previous = None
     try:
         previous = current_manifest()
+        if action in ("catalog", "select"):
+            if not previous:
+                raise ValueError("run design-stack setup before UI work")
+            release = HOME / "releases" / previous["current"]
+            entries = build_catalog(release, previous["sources"])
+            if action == "select":
+                if not args.direction:
+                    raise ValueError("--direction is required for selection")
+                choice = select_direction(entries, args.direction, args.reference,
+                                          args.custom_brief, args.use_case, args.override_fit)
+                print(json.dumps(choice, indent=2))
+            elif args.json:
+                print(json.dumps(entries, indent=2))
+            else:
+                for item in entries:
+                    print(f"{item['kind']:10} {item['id']:45} {item['title']}")
+            return 0
         if action == "status" or (action == "setup" and previous):
             if not previous:
                 raise ValueError("run design-stack setup before UI work")
@@ -148,6 +175,7 @@ def main():
                 return 0
             install_skills(stage)
             validate(stage)
+            build_catalog(stage, revisions)
             result = promote(stage, revisions)
         print(f"Ready {result['current']}")
         return 0

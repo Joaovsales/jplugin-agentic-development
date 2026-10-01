@@ -49,3 +49,23 @@ set skips installation.
 
 Never edit a project's `DESIGN.md` as part of shared setup or update. Its visual
 rules change only through an owner-selected project refresh.
+
+## Browse and choose
+
+Run `python3 .agents/skills/design-stack/scripts/design_stack.py catalog` to show
+every entry in the current verified release. `catalog --json` prints stable IDs,
+kinds, source revisions, fit descriptions and local source paths for tooling.
+This scan is local and read-only: a new installed Taste skill, archetype, or
+awesome-design-md reference appears without changing a count in the adapter.
+Taste style skills and their nested archetypes are both selectable directions;
+`spatial` and `custom` are built in. Impeccable commands and img2threejs appear
+as tools, never as primary directions.
+
+Use `design_stack.py select --direction <id> [--reference <id> ...]
+[--custom-brief <text>] [--use-case <description>]` to validate one primary
+choice and optional references. The command prints the selection as JSON for
+the project brief writer. If the chosen direction's fit description has no
+overlap with the named use case, it returns a fit warning. Show that warning
+to the owner; `--override-fit` accepts their deliberate choice. A tool or
+reference cannot be selected as the primary direction. A catalog or selection
+read does not write `DESIGN.md` or contact upstream.
