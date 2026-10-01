@@ -14,6 +14,9 @@ import sys
 root = Path(os.environ["DESIGN_STACK_FIXTURE"])
 sys.path.insert(0, str(Path(os.environ["DESIGN_STACK_REPO"]) / ".agents/skills/verify-evidence/scripts"))
 from visual_check import validate_manifest, run_visual_check
+from e2e_evidence import check as check_e2e
+from ui_publication import append_ui_entry, artifact_review_link, install_workflow, validate_artifact
+import ui_publication
 
 project = root / "project"
 script = project / "tests/visual/feature.sh"
@@ -56,8 +59,42 @@ except ValueError:
 else:
     raise AssertionError("changed state without captures was accepted")
 print("committed visual check and desktop/mobile evidence passed")
+workflow = install_workflow(project)
+content = workflow.read_text()
+assert "pull_request:" in content and "actions/upload-artifact@v4" in content
+assert "retention-days: 30" in content and "head.sha" in content
+assert "tests/visual/*.sh" in content
+assert install_workflow(project).read_bytes() == workflow.read_bytes()
+run = {"id": 42, "head_sha": "a" * 40, "conclusion": "success", "event": "pull_request"}
+artifact = {"id": 7, "name": "jplugin-ui-pr-12-" + "a" * 40,
+            "expired": False, "size_in_bytes": 1024,
+            "created_at": "2026-10-01T00:00:00Z", "expires_at": "2026-10-31T00:00:00Z"}
+assert validate_artifact(run, artifact, "a" * 40, 12)
+assert artifact_review_link("owner/repo", run, artifact).endswith("/actions/runs/42/artifacts/7")
+ui_publication.github_api = lambda path: ({"workflow_runs": [run]} if path.endswith("per_page=100")
+                                      else {"artifacts": [artifact]})
+assert ui_publication.lookup_ci_artifact("owner/repo", 12, "a" * 40).endswith("/artifacts/7")
+for bad in ({"expired": True}, {"size_in_bytes": 0}, {"expires_at": "2026-10-02T00:00:00Z"}):
+    broken = {**artifact, **bad}
+    try:
+        validate_artifact(run, broken, "a" * 40, 12)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("invalid CI artifact was accepted")
+log = project / "tasks/e2e-log.md"
+append_ui_entry(log, "feature", "a" * 40, "home", root / "captures", "review/link", "pass")
+append_ui_entry(log, "feature", "a" * 40, "home", root / "captures", "review/link", "pass")
+assert log.read_text().count("## E2E Walkthrough") == 2
+assert "Screenshot:" in log.read_text() and "Mobile Screenshot:" in log.read_text()
+assert "Review Link: review/link" in log.read_text()
+assert check_e2e(log, ["a" * 12], project) == 0
+(root / "captures/mobile.png").unlink()
+assert check_e2e(log, ["a" * 12], project) == 1
+print("append-only visual log and 30-day CI artifact contract passed")
 PY
 )"; code=$?
 assert_eq 0 "$code" "$out"
 assert_file_contains "$repo/.agents/skills/verify-evidence/SKILL.md" 'run_visual_check' 'visual check in verifier contract'
+assert_file_contains "$repo/.agents/skills/wrap-up-session/SKILL.md" 'PublicationUnavailable' 'UI closure blocks missing publication'
 finish

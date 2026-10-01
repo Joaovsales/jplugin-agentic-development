@@ -276,6 +276,31 @@ naming the entry and AC; it is silent and exits 0 when all are present.
 
 The log is **append-only**. Never overwrite prior walkthroughs — they form the audit trail.
 
+### UI evidence publication
+
+For a UI change, keep each local retry as a new run ID and append its
+desktop/mobile paths, interaction result, console result, visual defect
+disposition and review link with `scripts/ui_publication.py`'s
+`append_ui_entry`; never replace prior E2E entries. A local-only project
+uses a readable retained workspace path as its review link and verifies the
+capture files still exist. A GitHub PR requires a committed
+`tests/visual/<feature>.sh` and the one-time generated
+`.github/workflows/jplugin-ui-evidence.yml` from `ui_publication.py
+install-workflow --project <project>`. Commit both before opening the PR.
+The workflow checks out the PR head commit, installs Playwright CLI/Chromium,
+runs the committed project visual checks, validates their manifests, and
+uploads its own captures with `actions/upload-artifact@v4` and
+`retention-days: 30`. Local screenshots are not CI evidence.
+
+After the workflow succeeds, use `ui_publication.py lookup --slug <owner/repo>
+--pr <number> --sha <full-pr-head-sha>` to validate the run's commit, success,
+artifact name, nonempty size, expiry and 30-day retention through authenticated
+GitHub metadata. Link the returned Actions artifact URL in the E2E record and
+in the task/PR through `/task-registry`; verify the task link landed. If the
+run, upload, metadata or readable link is missing, return
+`PublicationUnavailable` and leave that UI task open. Non-UI verification
+keeps its existing path.
+
 ### Failure Handling
 
 For a practical obstacle, return a **structured blocked outcome** containing the

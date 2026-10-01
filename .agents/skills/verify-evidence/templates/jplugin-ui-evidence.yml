@@ -1,0 +1,45 @@
+name: Jplugin UI evidence
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  visual-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright CLI and Chromium
+        run: |
+          npm install -g @playwright/cli@0.1.22
+          playwright-cli install-browser chromium
+      - name: Run committed project visual checks
+        env:
+          JPLUGIN_UI_ROOT: ${{ runner.temp }}/ui-evidence
+        run: |
+          set -eu
+          found=0
+          for check in tests/visual/*.sh; do
+            [ -f "$check" ] || continue
+            found=1
+            name="$(basename "$check" .sh)"
+            output="$JPLUGIN_UI_ROOT/$name"
+            mkdir -p "$output"
+            JPLUGIN_UI_OUTPUT="$output" "$check"
+            python3 .agents/skills/verify-evidence/scripts/visual_check.py validate --output "$output"
+          done
+          [ "$found" -eq 1 ]
+      - name: Upload CI captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jplugin-ui-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/ui-evidence
+          if-no-files-found: error
+          retention-days: 30

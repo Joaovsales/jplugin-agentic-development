@@ -1,11 +1,13 @@
 """Run a committed project visual check and validate its local browser evidence."""
 
+import argparse
 import json
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 
 
 PNG = b"\x89PNG\r\n\x1a\n"
@@ -21,6 +23,8 @@ def capture(output, name):
 
 def validate_manifest(output, manifest, changed_states):
     states = manifest.get("states", {})
+    if not changed_states:
+        raise ValueError("visual check reported no states")
     for state in changed_states:
         evidence = states.get(state)
         if not isinstance(evidence, dict):
@@ -44,8 +48,21 @@ def run_visual_check(project, feature, changed_states, output):
     subprocess.run(["git", "cat-file", "-e", f"HEAD:{script}"], cwd=project, check=True)
     subprocess.run(["git", "diff", "--quiet", "HEAD", "--", str(script)], cwd=project, check=True)
     output.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, "JPLUGIN_UI_OUTPUT": str(output),
-           "JPLUGIN_UI_STATES": json.dumps(changed_states)}
+    env = {**os.environ, "JPLUGIN_UI_OUTPUT": str(output)}
     subprocess.run([str(project / script)], cwd=project, env=env, check=True, timeout=300)
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
     return validate_manifest(output, manifest, changed_states)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=("validate",))
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    manifest = json.loads((args.output / "manifest.json").read_text(encoding="utf-8"))
+    validate_manifest(args.output, manifest, list(manifest.get("states", {})))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

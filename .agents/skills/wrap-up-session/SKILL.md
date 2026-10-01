@@ -231,7 +231,7 @@ from `references/routines.md` § *Draft and linkage*, with the executed step lis
 --body-file <draft>` and repair what it lists (§ *PR re-sync* there), then run
 `gh pr create --body-file <draft>` (plus `--draft` per § *Draft and linkage*).
 
-**A PR already exists**: re-sync its body on every push (§ *PR re-sync* there).
+**A PR already exists**: re-sync its body on every push (§ *PR re-sync* there). For UI closure after push, follow `/verify-evidence` § *UI evidence publication*; `PublicationUnavailable` leaves the UI task open until its CI-created 30-day artifact link is validated through `/task-registry` (local-only projects use readable retained workspace links).
 
 ### Worktree integration
 
