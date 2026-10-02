@@ -101,6 +101,15 @@ def problem(criterion: Criterion, root: Path) -> Optional[str]:
     screenshot = criterion.value("Screenshot")
     if not screenshot:
         return "VISUAL PASS with no Screenshot: line"
+    if criterion.value("UI State"):
+        mobile = criterion.value("Mobile Screenshot")
+        if not mobile or not (root / mobile).is_file():
+            return "UI VISUAL PASS with no mobile screenshot on disk"
+        if not (root / screenshot).is_file():
+            return "UI VISUAL PASS with no desktop screenshot on disk"
+        if not criterion.value("Review Link"):
+            return "UI VISUAL PASS with no review link"
+        return None
     if criterion.sha is None:
         return "walkthrough heading has no short-sha"
     expected = artifact_path(criterion.sha, criterion.label)

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI design stack — architecture review</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+  --border: #30363d; --text: #c9d1d9; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-2: #3fb950; --warn: #f85149;
+  --warn-bg: rgba(248,81,73,0.12); --code-bg: #1e1e1e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4); --radius: 10px;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --surface-2: #eaeef2;
+  --border: #d0d7de; --text: #1f2328; --text-secondary: #57606a;
+  --accent: #0969da; --accent-2: #1a7f37; --warn: #cf222e;
+  --warn-bg: rgba(207,34,46,0.08); --code-bg: #f6f8fa;
+  --shadow: 0 4px 20px rgba(31,35,40,0.08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.65; font-size: 16px;
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+@media (min-width: 1100px) { .container { max-width: 920px; } }
+
+/* Hero */
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 0.5rem; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+.hero .takeaway {
+  font-size: 1.15rem; line-height: 1.5; padding: 1rem 1.2rem;
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 1.2rem 0;
+}
+.hero .meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
+  color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;
+}
+.hero .meta span strong { color: var(--text); margin-right: 0.25rem; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); margin-bottom: 0.25rem; }
+.card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); line-height: 1.1; }
+.card .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+/* Sections */
+section { margin: 2.5rem 0; scroll-margin-top: 1.5rem; }
+section > h2 {
+  font-size: 1.45rem; margin: 0 0 1rem; padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--accent); display: flex; gap: 0.5rem; align-items: baseline;
+}
+section h3 { font-size: 1.1rem; margin: 1.4rem 0 0.5rem; }
+section p { margin: 0.7rem 0; }
+section ul { padding-left: 1.4rem; margin: 0.5rem 0; }
+section li { margin: 0.3rem 0; }
+
+/* Sidebar nav */
+.nav-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  padding: 1.5rem 0.8rem; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transform: translateX(0); transition: transform 0.25s; z-index: 100;
+}
+.nav-sidebar.hidden { transform: translateX(-100%); }
+.nav-sidebar h3 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); margin: 1rem 0.5rem 0.4rem;
+}
+.nav-sidebar a {
+  display: block; padding: 0.4rem 0.6rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; line-height: 1.35;
+}
+.nav-sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.nav-sidebar a.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+.layout { display: flex; }
+.layout main { flex: 1; margin-left: 240px; min-width: 0; }
+@media (max-width: 900px) {
+  .nav-sidebar { transform: translateX(-100%); }
+  .nav-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .layout main { margin-left: 0; }
+}
+
+/* Toolbar buttons (theme, nav toggle) */
+.toolbar { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; z-index: 200; }
+.toolbar button, .nav-toggle {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.toolbar button:hover, .nav-toggle:hover { background: var(--surface-2); }
+.nav-toggle { position: fixed; top: 1rem; left: 1rem; z-index: 200; }
+
+/* Code */
+pre {
+  margin: 0.5rem 0; padding: 1rem 1.1rem; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow-x: auto; font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace;
+  font-size: 0.85rem; line-height: 1.55;
+}
+code { font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace; font-size: 0.9em; }
+p code, li code {
+  padding: 0.1rem 0.35rem; background: var(--surface-2);
+  border-radius: 4px; font-size: 0.85em;
+}
+.code-block { margin: 1rem 0; }
+.code-block .caption {
+  font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-block .caption .lang { font-family: monospace; font-size: 0.75rem;
+  padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-2); }
+
+/* Collapsible */
+details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.6rem 1rem; margin: 0.8rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; }
+details[open] { padding-bottom: 1rem; }
+
+/* References footer */
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+.refs a {
+  display: block; padding: 0.8rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.9rem;
+}
+.refs a:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Reflection */
+.reflection {
+  background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(63,185,80,0.10));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.3rem 1.5rem; margin: 2rem 0;
+}
+.reflection h3 { margin-top: 0; color: var(--accent); }
+
+footer {
+  margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.85rem; text-align: center;
+}
+
+/* Slides mode */
+body.mode-slides { overflow: hidden; }
+body.mode-slides .layout main { margin-left: 0; }
+body.mode-slides .nav-sidebar, body.mode-slides .nav-toggle { display: none; }
+body.mode-slides .container { max-width: none; padding: 0; }
+body.mode-slides .slide {
+  width: 100vw; height: 100vh; padding: 4rem 6rem; display: none;
+  flex-direction: column; justify-content: center;
+}
+body.mode-slides .slide.active { display: flex; }
+body.mode-slides .slide h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+body.mode-slides .slide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); border: none; }
+body.mode-slides .slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem; color: var(--text-secondary);
+  font-size: 0.85rem; font-family: monospace;
+}
+</style>
+<style>
+.diff-add { color: var(--accent-2); }
+.diff-del { color: var(--warn); }
+.diff-ctx { color: var(--text-secondary); }
+
+.tabset { margin: 1rem 0; }
+.tab-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.tab-btn {
+  background: none; cursor: pointer; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.4rem 0.9rem; color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.tab-btn.active { color: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  colorDiffBlocks();
+  buildKeychangeTabs();
+});
+
+function colorDiffBlocks() {
+  document.querySelectorAll('pre code.lang-diff').forEach(function (block) {
+    var lines = block.textContent.split('\n');
+    block.textContent = '';
+    lines.forEach(function (line, i) {
+      var span = document.createElement('span');
+      if (line.startsWith('+')) {
+        span.className = 'diff-add';
+      } else if (line.startsWith('-')) {
+        span.className = 'diff-del';
+      } else {
+        span.className = 'diff-ctx';
+      }
+      span.textContent = line;
+      block.appendChild(span);
+      if (i < lines.length - 1) {
+        block.appendChild(document.createTextNode('\n'));
+      }
+    });
+  });
+}
+
+function buildKeychangeTabs() {
+  var sections = Array.from(document.querySelectorAll('main section[id]'));
+  var i = 0;
+  while (i < sections.length) {
+    if (!sections[i].id.startsWith('keychange-')) {
+      i += 1;
+      continue;
+    }
+    var group = [];
+    while (i < sections.length && sections[i].id.startsWith('keychange-')) {
+      group.push(sections[i]);
+      i += 1;
+    }
+    wrapGroupInTabset(group);
+  }
+}
+
+function wrapGroupInTabset(group) {
+  var tabset = document.createElement('div');
+  tabset.className = 'tabset';
+  var tabBtns = document.createElement('div');
+  tabBtns.className = 'tab-btns';
+  tabset.appendChild(tabBtns);
+
+  group[0].parentNode.insertBefore(tabset, group[0]);
+
+  group.forEach(function (section, idx) {
+    var heading = section.querySelector('h2');
+    var label = heading ? heading.textContent.trim() : section.id;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+    btn.textContent = label;
+    tabBtns.appendChild(btn);
+
+    section.classList.add('tab-panel');
+    if (idx === 0) {
+      section.classList.add('active');
+    }
+    tabset.appendChild(section);
+
+    btn.addEventListener('click', function () {
+      tabBtns.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      tabset.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      section.classList.add('active');
+    });
+  });
+}
+</script>
+</head>
+<body class="mode-report" data-theme="dark">
+<div class="toolbar"><button onclick="toggleTheme()" aria-label="Toggle theme">🌓 Theme</button></div><button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+<div class="layout">
+<nav class="nav-sidebar" id="navSidebar"><h3>Contents</h3><a href="#problem">Problem</a><a href="#constraints">Constraints</a><a href="#system-design">System design</a><a href="#component-contracts">Component contracts</a><a href="#data-models">Data models</a><a href="#build-order">Build Order</a><a href="#decisions">Decisions</a><a href="#acceptance-criteria">Acceptance Criteria</a><a href="#implementation-paths">Implementation Paths</a><a href="#reflection">Reflect</a><a href="#references">References</a></nav>
+<main><div class="container"><header class="hero"><h1>UI design stack — architecture review</h1><p class="subtitle">jplugin · user discussion · 2026-10-01</p><p class="takeaway">A shared design installation feeds one stable project brief, approved UI concepts, and Playwright evidence without copying upstream tools into projects.</p><div class="meta"><span><strong>Origin:</strong>user discussion</span><span><strong>Spec:</strong>specs/ui-design-stack.md</span><span><strong>Status:</strong>awaiting review</span></div></header><div class="cards"><div class="card"><div class="label">Components touched</div><div class="value">6</div><div class="hint">setup, catalog, brief, planning, build, verify</div></div><div class="card"><div class="label">Contracts</div><div class="value">4</div><div class="hint">installation, selection, concept approval, evidence</div></div><div class="card"><div class="label">Entities</div><div class="value">4</div><div class="hint">manifest, catalog, brief, approval/evidence</div></div><div class="card"><div class="label">Build slices</div><div class="value">9</div><div class="hint">shared setup first</div></div><div class="card"><div class="label">Open decisions</div><div class="value">1</div><div class="hint">artifact retention default is inferred</div></div></div><section id="problem"><h2>Problem</h2><p>People building visual products with jplugin need a project-chosen design direction, the full set of available upstream design references and tools, and browser evidence that the finished UI works and looks intentional. The harness currently routes UI implementation and E2E checks, but does not persist a project design brief or require screenshot review. Redesigning jplugin&#x27;s own visual-plan and recap renderer is a separate issue.</p></section>
+<section id="constraints"><h2>Constraints</h2><pre><code class="lang-text">| Constraint | Value | Source | Detected by |
+|------------|-------|--------|-------------|
+| Applicability | Design orchestration runs for visual UI projects; CLI-only and backend-only work stays on its existing path. | user | UI/non-UI fixture runs in `tests/test-design-stack-workflow.sh` |
+| Direction choice | One primary direction from the full installed catalog, optional references and custom brief; `spatial` is the default for a new project with no answer. | user | Catalog and brief fixture tests |
+| Existing project | A project without `DESIGN.md` keeps its current visual language until its owner selects a direction; unattended work cannot silently apply spatial. | user | Existing-project fixture in `tests/test-design-stack-brief.sh` |
+| Distribution | Upstream packages install once at user scope; no upstream repository is copied into each project and normal design runs make no network fetch. | user | Setup/update tests with isolated home and offline run |
+| Updates | A deliberate update checks current upstream, records revisions, validates the candidate, and preserves the last working installation on failure. Existing project rules never change solely because tools update. | user | Failed-update and stable-brief fixtures |
+| Project choice | The project owner can browse all installed Taste styles/archetypes and awesome-design-md references, choose custom, and override a suitability warning. Impeccable commands and img2threejs are capabilities, not style entries. | user | Catalog enumeration and suitability fixtures |
+| Major UI review | A new screen/route or a substantial redesign has a reviewable concept before build; a localized UI change follows the approved brief. | user | Planning-skill contract tests and concept fixture |
+| Concept approval | A major-UI build starts only from an owner-started build prompt that names the reviewed concept digest; build records a receipt tied to that digest, and unattended runs wait for owner approval. | user | Concept-digest and approval-receipt fixture |
+| Production 3D | img2threejs runs only when requested or called for by the brief; production image-to-3D output passes its strict gates, while incomplete work is labeled prototype. | user | 3D gate fixture and skill contract test |
+| UI verification | Every completed UI change has desktop and mobile Playwright captures, interaction checks and visual review, with reviewer-visible links. | user | Browser fixture and E2E log assertions |
+| Evidence retention | GitHub-backed PRs run a committed project-specific visual check in CI and link that run&#x27;s authenticated GitHub Actions artifact retained for 30 days; local-only projects link retained workspace artifacts. A missing or inaccessible review link blocks UI closure. | inferred | CI-workflow fixture, live fixture run and PR closure check |
+| Browser prerequisite | The Playwright CLI integration is merged before the browser-verification slice begins; this branch&#x27;s verifier still names MCP backends. | user | Pre-flight check in the browser-verification slice |
+| Renderer boundary | The visual-plan/recap renderer and its design are unchanged by this feature. | user | Changed-path check against `html-presentation`, `visual-plan`, `visual-recap` |
+</code></pre></section>
+<section id="system-design"><h2>System design</h2><h3>Current state and ownership</h3>
+
+<p>The canonical skill tree is <code>.agents/skills/</code>; Claude&#x27;s plugin manifest points at it (<code>.claude-plugin/plugin.json:10</code>), <code>install.sh:432-450</code> copies it to user scope for Pi/Codex, and <code>/sync</code> copies it into downstream projects (<code>.agents/skills/sync/SKILL.md:17-20,88-96</code>). <code>/prd</code> writes project context without a design brief (<code>.agents/skills/prd/SKILL.md:203-226</code>). <code>/plan</code> and <code>/system-design-planning</code> write specs and build prompts (<code>.agents/skills/plan/SKILL.md:118-179</code>; <code>.agents/skills/system-design-planning/SKILL.md:120-155</code>). <code>/build</code> dispatches frontend work and invokes <code>/verify-evidence --scope e2e</code> (<code>.agents/skills/build/SKILL.md:190-215,392-410</code>); the verifier distinguishes visual criteria but this branch has no Playwright CLI backend (<code>.agents/skills/verify-evidence/SKILL.md:146-197</code>).</p>
+
+<pre><code class="lang-text">| Component | Owns (source of truth for) | Reads |
+|-----------|----------------------------|-------|
+| Shared design installation (NEW) | Installed upstream source revisions, verified tool paths and rollback target | Upstream sources, explicit setup/update request |
+| Design catalog (NEW) | Available direction/reference/tool entries discovered from the installed sources | Shared installation; built-in `spatial` and `custom` entries |
+| Project `DESIGN.md` (NEW) | Chosen direction, optional references, and stable project-specific visual rules | Catalog at selection time; existing UI at adoption time |
+| `/prd`, `/plan`, `/system-design-planning` | Project requirements, UI concept and reviewed spec | `DESIGN.md`, catalog |
+| Project `tasks/design-approvals/&lt;feature&gt;.json` (NEW) | The owner-started build prompt&#x27;s approved concept path and SHA-256 digest | Reviewed spec and `design/concepts/&lt;feature&gt;.html` |
+| `/build` and frontend agents | Implemented UI | Approved spec, concept and `DESIGN.md` |
+| Project `tests/visual/&lt;feature&gt;.sh` (or existing executable suite) and `.github/workflows/jplugin-ui-evidence.yml` (NEW) | Reproducible app launch, changed-state browser checks and CI capture upload | Project verification skill, Playwright CLI, reviewed commit |
+| `/verify-evidence` and `/wrap-up-session` | Append-only E2E record and completion gate | Changed UI, local and CI Playwright captures, review artifact links |
+</code></pre>
+
+<h3>Interaction</h3>
+
+<pre><code class="lang-text">install.sh / sync ── existing copy ──► jplugin design skill (NEW)
+                                                │
+first UI use ── sync setup ────────────────────► shared user-scope tools (NEW)
+explicit update ── sync network request ──────► staged tools ── validate/promote
+                                                │
+project owner ── sync selection ───────────────► DESIGN.md (NEW)
+                                                │
+UI plan ── sync read ───────────────────────────► concept + digest + spec (NEW)
+owner starts digest-bearing build prompt ──────► approval receipt (NEW)
+build ── sync receipt/brief read ───────────────► implemented UI
+verify ── sync Playwright CLI ──────────────────► captures + append-only E2E log (NEW)
+push ── async GitHub Actions visual check ─────► fresh CI captures + upload (NEW)
+wrap-up ── sync artifact metadata check ───────► review artifact URL (NEW)
+</code></pre>
+
+<pre><code class="lang-text">| Arrow | Mode | On timeout or unavailability | On duplicate |
+|-------|------|------------------------------|--------------|
+| Setup/update → upstream | sync network, only on explicit setup/update | Return `Unavailable` or `UpdateRejected`; keep last working installation and leave non-UI work usable. | Same verified revision is a no-op. |
+| Catalog → project selection | sync local | Missing installation returns `SetupRequired`; missing selected entry does not rewrite an existing brief. | Re-selecting the same direction preserves the existing authored rules. |
+| Plan → concept/spec | sync local | Missing design brief in an existing UI project returns `SelectionRequired`; planning does not fall back to spatial. | Re-run replaces the same concept/spec paths and changes the digest, invalidating any older approval. |
+| Owner prompt → approval receipt | sync local, only after explicit owner input | No owner-started digest-bearing prompt returns `ConceptReviewRequired`; unattended runs wait. | Same spec and digest reuse one receipt. |
+| Build → UI | sync local | Missing or stale concept approval for a major UI stops that slice before edits. | Existing build task idempotency and tests govern re-run. |
+| Verify → Playwright CLI | sync local browser process | Missing CLI/browser or timed-out capture fails UI verification with a diagnostic and no completion claim. | Each retry uses a new run ID and appends to the E2E log; prior captures and walkthroughs remain. |
+| Push → CI visual check | async GitHub Actions workflow runs the committed project visual script on the PR commit | Failed app launch, browser run or upload returns `PublicationUnavailable`; wrap-up waits or blocks UI closure. | Workflow and artifact names include task ID and commit SHA. |
+| Wrap-up → review artifact | sync authenticated GitHub Actions artifact lookup for a GitHub PR; sync retained workspace link for local-only | Timeout, expired or inaccessible URL returns `PublicationUnavailable` and blocks UI closure until a valid link exists. | Same task/commit/run resolves to one artifact record; duplicate lookup does not duplicate E2E entries. |
+</code></pre>
+
+<h3>Failure unit</h3>
+
+<p>An upstream setup/update failure blocks design setup or refresh only; the prior verified installation and all non-UI harness work remain usable. A missing design choice or owner concept approval blocks new UI work for the affected project, not its unrelated tasks. A local browser, CI browser/upload, publication or strict 3D gate failure blocks completion of the affected UI task, not unrelated slices. The CI visual check runs the same committed project script that the local check proved, against the PR commit; it does not need access to local screenshots.</p></section>
+<section id="component-contracts"><h2>Component contracts</h2><h3>Shared design installation</h3>
+
+<pre><code class="lang-text">design-stack setup|update -&gt; Ready(revisions, catalog_path)
+                          | SetupRequired(reason)
+                          | UpdateRejected(previous_revisions, reason)
+</code></pre>
+
+<pre><code class="lang-text">| Aspect | Contract |
+|--------|----------|
+| Inputs | User-scope install path, official Taste/Impeccable installers, shared awesome-design-md and img2threejs sources; `update` is explicit. |
+| Outcomes | A verified revision set becomes current, or the prior current set remains intact with a named reason. First-time offline setup reports `SetupRequired`. |
+| Raises | Programmer/configuration faults; expected network and validation failures are outcomes. |
+| Idempotency | The upstream revision set is the key; an already-current set is a no-op. |
+| Versioning | A small manifest records source revisions and a schema version. One prior manifest version remains readable during upgrades. |
+</code></pre>
+
+<h3>Catalog and project brief</h3>
+
+<pre><code class="lang-text">catalog list(installation) -&gt; Entries(directions, archetypes, references, tools)
+                            | SetupRequired(reason)
+select(project, direction_id, reference_ids) -&gt; Brief(path) | SelectionRejected(reason)
+</code></pre>
+
+<pre><code class="lang-text">| Aspect | Contract |
+|--------|----------|
+| Inputs | Installed Taste skill frontmatter/archetypes, installed awesome-design-md `DESIGN.md` files, local spatial/custom recipes; explicit owner selection. |
+| Outcomes | All discovered options appear in a browsable catalog. A fit warning is advisory and overrideable. Impeccable commands and img2threejs are listed as tools, not directions. |
+| Raises | Invalid catalog schema or unsafe path outside the shared install. |
+| Idempotency | Listing is read-only; selection of an unchanged brief is a no-op. |
+| Versioning | `DESIGN.md` carries a v1 heading/field contract; later readers keep accepting v1. |
+</code></pre>
+
+<h3>Planning and build</h3>
+
+<pre><code class="lang-text">plan_ui(project, change) -&gt; ProposedSpec(brief, concept_path?, concept_sha256?)
+                         | SelectionRequired
+approve_ui(proposed_spec, owner_build_prompt) -&gt; ApprovedReceipt | ConceptReviewRequired
+build_ui(approved_spec) -&gt; ImplementedUI | Blocked(reason)
+</code></pre>
+
+<pre><code class="lang-text">| Aspect | Contract |
+|--------|----------|
+| Inputs | A project brief; for a new route/screen or substantial redesign, `design/concepts/&lt;feature&gt;.html`, its SHA-256 in the spec/build prompt, and an owner-started build prompt. |
+| Outcomes | Build pre-flight writes `tasks/design-approvals/&lt;feature&gt;.json` with spec path, concept path/digest, prompt digest and approval time; it rejects a missing/stale digest before UI edits. Localized UI edits use the brief without a new concept gate. |
+| Raises | Existing planning/build errors only. |
+| Idempotency | Replanning changes the digest and invalidates an old receipt; an unchanged spec/digest reuses one receipt; building follows existing slice/task IDs. |
+| Versioning | Existing projects without `DESIGN.md` remain valid but require owner selection before UI planning. |
+</code></pre>
+
+<h3>UI verification</h3>
+
+<pre><code class="lang-text">verify_ui(changed_surfaces, reviewed_spec) -&gt; Captured(run_id, local_paths)
+                                           | Failed(defects, capture_paths)
+                                           | BackendUnavailable(reason)
+publish_ui_evidence(task_id, commit_sha, review_context) -&gt; Published(url, expires_at)
+                                                         | PublicationUnavailable(reason)
+</code></pre>
+
+<pre><code class="lang-text">| Aspect | Contract |
+|--------|----------|
+| Inputs | Every changed UI route/state and its acceptance criteria; Playwright CLI after the prerequisite merge; committed `tests/visual/&lt;feature&gt;.sh` or an existing executable suite that launches the app using the project verification skill&#x27;s grounded commands. |
+| Outcomes | Local desktop/mobile captures, interaction result and visual defect disposition append to `tasks/e2e-log.md`. For a GitHub PR, the one-time generated `.github/workflows/jplugin-ui-evidence.yml` runs the committed check on the PR commit, uploads its own captures with `actions/upload-artifact@v4` and 30-day retention, and links the authenticated artifact from the task/PR. Local-only projects retain workspace artifacts with resolvable paths. |
+| Raises | Unexpected runner faults; missing CLI/browser is `BackendUnavailable`. |
+| Idempotency | A task/run key names one local capture set; retries use new run IDs and append records, preserving prior walkthroughs. CI artifacts are keyed by task ID and commit SHA; a publication retry links the matching artifact. |
+| Versioning | Existing E2E log entries remain readable; visual entries add artifact links. |
+</code></pre></section>
+<section id="data-models"><h2>Data models</h2><h3>Shared installation manifest</h3>
+
+<pre><code class="lang-text">| Field | Type | Invariant | Enforced by |
+|-------|------|-----------|-------------|
+| `schema_version` | integer | Supported version, initially `1` | Manifest parser |
+| `sources` | source → revision map | One verified revision per required installed source | Setup/update validation |
+| `catalog_path` | local path | Inside the selected verified installation | Path containment check |
+| `current` | pointer to verified release | Either absent or complete; never points at staging | Promote only after validation |
+</code></pre>
+
+<h3>Catalog entry</h3>
+
+<pre><code class="lang-text">| Field | Type | Invariant | Enforced by |
+|-------|------|-----------|-------------|
+| `id` | stable namespaced string | Unique within installed catalog | Catalog validator |
+| `kind` | `direction`, `archetype`, `reference`, `tool` | Impeccable commands and img2threejs are tools, not primary directions | Catalog constructor |
+| `source_revision` | revision string | Matches the manifest source | Catalog validator |
+| `fit` | use-case description | Warning never silently removes an owner-selectable direction | Selection flow |
+</code></pre>
+
+<h3>Project <code>DESIGN.md</code></h3>
+
+<pre><code class="lang-text">| Field | Type | Invariant | Enforced by |
+|-------|------|-----------|-------------|
+| `version` | integer | Initially `1` | Brief validator |
+| `direction` | one catalog ID or `custom` | Exactly one primary direction; `spatial` is the new-project default | Brief validator and setup flow |
+| `references` | zero or more reference IDs | Optional; each selected ID is recorded | Brief validator |
+| Visual rules | Markdown sections for palette, typography, layout, motion, accessibility and any 3D intent | Authored project rules remain stable across upstream updates | Planning/build read, brief tests |
+</code></pre>
+
+<h3>Concept approval receipt</h3>
+
+<pre><code class="lang-text">| Field | Type | Invariant | Enforced by |
+|-------|------|-----------|-------------|
+| `spec_path` and `concept_path` | project-local paths | Both exist and the concept is cited by the spec | Build pre-flight |
+| `concept_sha256` | digest | Matches the concept bytes named in the owner-started build prompt | Build pre-flight and receipt validator |
+| `approval_source` and `prompt_sha256` | owner prompt reference and digest | An unattended agent cannot generate an owner approval; the prompt includes the concept digest | Build pre-flight |
+| `approved_at` | UTC timestamp | Records when the owner-started prompt was received | Receipt writer |
+</code></pre>
+
+<p>There is no mutable approval status: a receipt exists for one digest or does not; changing the concept makes the old receipt invalid by digest comparison.</p>
+
+<h3>Visual evidence set</h3>
+
+<pre><code class="lang-text">| Field | Type | Invariant | Enforced by |
+|-------|------|-----------|-------------|
+| `run_id` | unique task/run key | New for each retry | Verifier |
+| `commit_sha` | Git commit ID | A PR artifact comes from the reviewed commit, not a different local working tree | CI workflow and wrap-up lookup |
+| `captures` | desktop/mobile paths per changed state | Files exist in retained local or CI artifact | Capture and publication validation |
+| `review_link` | artifact URL or local path | GitHub PR URL resolves for reviewers, or local-only path remains readable | Wrap-up link check |
+| `expires_at` | UTC timestamp or local retention policy | GitHub Actions artifact retains at least 30 days from publication | Artifact metadata check |
+</code></pre>
+
+<h3>Illegal states</h3>
+
+<pre><code class="lang-text">| Illegal combination | Made unrepresentable by |
+|---------------------|-------------------------|
+| Current install points to unverified or partial sources | Stage-and-validate before pointer promotion |
+| Two primary design directions in one project brief | One `direction` field in the v1 brief parser |
+| A command or 3D pipeline is selected as a visual direction | Catalog `kind` check |
+| Existing UI with no brief is automatically restyled as spatial | `SelectionRequired` outcome in existing-project path |
+| A major UI builds from an unapproved or modified concept | Digest-bound owner approval receipt checked before edits |
+| Production 3D marked complete with a failed strict sculpt/spec or later forge gate | Gate result required by build/verification contract |
+| UI task marked complete without desktop/mobile screenshots or a resolvable reviewer-visible link | Visual E2E and publication completion gates |
+</code></pre>
+
+<h3>Migration and compatibility</h3>
+
+<p>New UI projects create <code>DESIGN.md</code> during setup. Existing projects remain valid with no file until their owner chooses a direction; adoption infers current visual rules for review before writing the brief and never rewrites UI merely to install the stack. The shared install uses a verified release pointer, so update rollback selects the previous release without rewriting project briefs. Existing E2E log entries remain valid and append-only; visual tasks created after this feature require links. A concept digest changes whenever the concept changes, so a previous approval receipt cannot authorize the revised concept. GitHub-backed UI projects add <code>.github/workflows/jplugin-ui-evidence.yml</code> from the verifier&#x27;s template and a committed project-specific visual check; they never commit captured screenshots or upstream source trees. If the project cannot run its app in CI, publication is unavailable and the UI task cannot close until CI is configured.</p></section>
+<section id="build-order"><h2>Build Order</h2><p>Sizing: 9 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slices 1–4 and 7 touch the canonical skill, required compatibility mirror and tests together; slices 5, 6 and 9 cross caller and verification systems whose contract must move atomically. Each slice remains below three ACs except slice 1, which carries exactly three.</p>
+
+<pre><code class="lang-text">| # | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size |
+|---|-------|----------|---------|------------|-----|--------|------|
+| 1 | Shared setup | One user-scope setup/update with verified revisions and rollback, distributed through the existing skill path. | `.agents/skills/design-stack/**`, `.claude/skills/design-stack/**`, `README.md`, `tests/test-design-stack-install.sh` | — | 1, 2, 12 | `bash tests/test-design-stack-install.sh` | 7 planned files · 3 systems · 3 ACs; mirror/test atomic |
+| 2 | Complete catalog | Discovery of every installed style, archetype and reference, plus selection and fit warnings. | `.agents/skills/design-stack/**`, `.claude/skills/design-stack/**`, `tests/test-design-stack-catalog.sh` | 1 | 3, 4 | `bash tests/test-design-stack-catalog.sh` | 5 planned files · 3 systems · 2 ACs; mirror/test atomic |
+| 3 | Stable brief | A versioned `DESIGN.md` contract whose authored rules survive tool updates. | `.agents/skills/design-stack/**`, `.claude/skills/design-stack/**`, `tests/test-design-stack-brief.sh` | 2 | 6 | `bash tests/test-design-stack-brief.sh` | 5 planned files · 3 systems · 1 AC; mirror/test atomic |
+| 4 | Project onboarding | New UI selection with spatial preselected, existing UI preservation, and non-UI bypass. | `.agents/skills/design-stack/**`, `.claude/skills/design-stack/**`, `.agents/skills/prd/SKILL.md`, `tests/test-design-stack-brief.sh`, `tests/test-design-stack-workflow.sh` | 3 | 5 | `bash tests/test-design-stack-brief.sh` | 6 planned files · 4 systems · 1 AC; brief/PRD contract atomic |
+| 5 | Concept review | UI plans carry the brief, concept digest and owner approval receipt contract before the build prompt. | `.agents/skills/plan/SKILL.md`, `.agents/skills/system-design-planning/SKILL.md`, `tests/test-design-stack-workflow.sh` | 4 | 7 | `bash tests/test-design-stack-workflow.sh` | 3 files · 3 systems · 1 AC; both planners share one gate |
+| 6 | Frontend dispatch | Builders and design validators receive the approved brief/concept and stop on missing selection. | `.agents/skills/build/SKILL.md`, `.agents/agents/frontend-developer.md`, `.agents/agents/frontend-design-validator.md`, `.claude/agents/frontend-developer.md`, `.claude/agents/frontend-design-validator.md`, `tests/test-design-stack-workflow.sh` | 5 | 8 | `bash tests/test-design-stack-workflow.sh` | 6 files · 4 systems · 1 AC; dispatch/mirror contract atomic |
+| 7 | Strict 3D | Opt-in img2threejs execution with production gates and explicit prototype labeling. | `.agents/skills/design-stack/**`, `.claude/skills/design-stack/**`, `.agents/skills/build/SKILL.md`, `tests/test-design-stack-3d.sh` | 6 | 9 | `bash tests/test-design-stack-3d.sh` | 5 planned files · 4 systems · 1 AC; skill/consumer gate atomic |
+| 8 | Browser QA | A locally proven project visual check with Playwright CLI desktop/mobile captures, interactions and visual review. | `.agents/skills/verify-evidence/**`, `tests/test-design-stack-evidence.sh` | 7 | 10 | `bash tests/test-design-stack-evidence.sh` | 3 planned files · 2 systems · 1 AC |
+| 9 | Evidence closure | Append-only E2E records and a CI workflow that reruns the committed visual check and uploads its own captures, or retained local-only links. | `.agents/skills/verify-evidence/**`, `.agents/skills/wrap-up-session/SKILL.md`, `tests/test-design-stack-evidence.sh` | 8 | 11 | `bash tests/test-design-stack-evidence.sh` plus one GitHub fixture CI run | 4 planned files · 3 systems · 1 AC; verify/wrap-up contract atomic |
+</code></pre>
+
+<p>The Playwright CLI branch is a prerequisite for slice 8; the user will merge it before this plan is built. Each slice leaves the affected tests green; the full suite runs at the build baseline and wrap-up as specified by the harness.</p>
+
+<p>Build prompt:</p>
+
+<pre><code class="lang-">Invoke `/build` for `specs/ui-design-stack.md`.
+Plan: `## Plan: ui-design-stack` in `tasks/todo.md`, 9 slices, ready set 1.
+Files: .agents/skills/design-stack/**, .claude/skills/design-stack/**, .agents/skills/prd/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/verify-evidence/**, .agents/skills/wrap-up-session/SKILL.md, .agents/agents/frontend-developer.md, .agents/agents/frontend-design-validator.md, .claude/agents/frontend-developer.md, .claude/agents/frontend-design-validator.md, README.md, tests/test-design-stack-install.sh, tests/test-design-stack-catalog.sh, tests/test-design-stack-brief.sh, tests/test-design-stack-workflow.sh, tests/test-design-stack-evidence.sh, tests/test-design-stack-3d.sh.
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/ui-design-stack.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints: UI projects only; spatial is a new-project default; existing visual rules remain stable until owner selection or refresh; shared setup and explicit update only; all installed directions and references remain browsable; major UI concepts require a digest-bound owner approval from this build prompt; 3D is opt-in and strict for production; Playwright CLI screenshot evidence gates UI completion, with CI rerunning a committed project visual check and publishing its own captures for GitHub PRs; visual-plan/recap redesign is out of scope.
+</code></pre></section>
+<section id="decisions"><h2>Decisions</h2><pre><code class="lang-text">| Decision | Options | Recommended | Wrong when |
+|----------|---------|-------------|------------|
+| Scope | UI projects / all artifact generation | UI projects (`user`) | Harness visual-plan/recap redesign belongs to a separate issue. |
+| Default and selection | Spatial default with project choice / fixed style | Spatial default, full catalog and custom (`user`) | An existing project with no brief must preserve its current UI. |
+| Distribution | Shared user-scope install with explicit update / copies per project / per-run fetch | Shared install and update (`user`) | Network is unavailable on first setup: report `SetupRequired`, do not claim readiness. |
+| Existing project stability | Stable brief / automatic restyle on upstream update | Stable brief (`user`) | Owner explicitly asks to refresh the project design. |
+| Major UI concept | Review before build / build first | Review new screen/route or substantial redesign (`user`) | A localized UI fix follows the existing brief. |
+| Concept approval evidence | Digest-bound owner build prompt / unversioned consent | Digest-bound receipt (`user`) | An unattended run has no owner prompt, so it waits. |
+| Production 3D | Strict img2threejs gates / plausible browser model | Strict gates, prototype label for incomplete work (`user`) | 3D was neither requested nor named in the brief. |
+| Evidence | Playwright desktop/mobile gate / optional captures | Mandatory gate and review artifact links (`user`) | Non-UI work has no visual surface to capture. |
+| Artifact destination | CI-created GitHub Actions artifact for PRs, retained workspace for local-only / commit screenshots | CI or local review artifacts (`inferred`) | A project cannot run a committed visual check or provide a resolvable reviewer-visible link; UI closure then waits. |
+</code></pre></section>
+<section id="acceptance-criteria"><h2>Acceptance Criteria</h2><ul>
+<li>AC 1. A one-time user-scope setup makes the upstream Taste and Impeccable skills/commands, awesome-design-md references, and img2threejs capability available through jplugin without copying upstream repositories into projects; normal UI runs work offline after setup.</li>
+<li>AC 2. An explicit update discovers upstream revisions, validates a candidate installation and catalog, records the revisions, and keeps the prior verified installation usable when the candidate fails or times out.</li>
+<li>AC 3. The catalog lists every installed Taste style and archetype plus every installed awesome-design-md reference without a fixed three-prototype or reference count; <code>spatial</code> and <code>custom</code> are available; Impeccable commands and img2threejs are tools rather than primary styles.</li>
+<li>AC 4. A project owner can select one direction, optional references and a custom brief from the browsable catalog; unsuitable combinations show an overrideable fit warning.</li>
+<li>AC 5. New UI projects save their choice in <code>DESIGN.md</code> with spatial preselected; existing UI projects without a brief retain their current look and require one owner choice before UI planning; backend/CLI projects do not enter the design flow.</li>
+<li>AC 6. A project&#x27;s approved palette, type, layout and motion rules remain in <code>DESIGN.md</code> across tool updates; a design refresh changes them only through an explicit owner choice.</li>
+<li>AC 7. <code>/prd</code>, <code>/plan</code> and <code>/system-design-planning</code> carry the project design brief into UI requirements; a new route/screen or substantial redesign produces a reviewable concept and digest before the build prompt, and only an owner-started prompt for that digest yields a recorded approval receipt; a localized change uses the existing brief.</li>
+<li>AC 8. <code>/build</code> supplies the approved brief and concept to frontend implementation and review; an unattended existing UI project without a brief stops with a named selection requirement instead of applying spatial.</li>
+<li>AC 9. img2threejs runs only when the task or brief requests 3D; production completion requires its strict quality gates, and an incomplete model is labeled prototype with failed/open gates recorded.</li>
+<li>AC 10. Every changed UI route/state gets a locally proven, executable project visual check with Playwright CLI desktop and mobile captures, interaction checks and a visual defect review; a missing browser/backend or failed check prevents a completion claim.</li>
+<li>AC 11. UI verification appends retained screenshot links and defect disposition to <code>tasks/e2e-log.md</code>; a GitHub PR workflow reruns the committed project visual check on the PR commit, uploads its own captures as a validated 30-day Actions artifact and links it from the task/PR; local-only projects link readable retained workspace artifacts; missing publication blocks UI closure while non-UI verification continues on its existing path.</li>
+<li>AC 12. Harness installation and <code>/sync</code> distribute only the jplugin adapter and small project-owned brief template; no new upstream payload copy or automatic upstream fetch is introduced per project or per design run, and the existing visual-plan/recap renderer is untouched.</li>
+</ul></section>
+<section id="implementation-paths"><h2>Implementation Paths</h2><ul>
+<li><code>.agents/skills/design-stack/<strong></code>, <code>.claude/skills/design-stack/</strong></code> — canonical design adapter, shared setup/update/catalog tooling, references and compatibility mirror.</li>
+<li><code>.agents/skills/prd/SKILL.md</code>, <code>.agents/skills/plan/SKILL.md</code>, <code>.agents/skills/system-design-planning/SKILL.md</code> — project choice and concept before build.</li>
+<li><code>.agents/skills/build/SKILL.md</code>, <code>.agents/agents/frontend-developer.md</code>, <code>.agents/agents/frontend-design-validator.md</code>, <code>.claude/agents/frontend-developer.md</code>, <code>.claude/agents/frontend-design-validator.md</code> — implementation and design review context.</li>
+<li><code>.agents/skills/verify-evidence/**</code>, <code>.agents/skills/wrap-up-session/SKILL.md</code> — Playwright evidence and UI completion gate after CLI merge.</li>
+<li><code>README.md</code> — discoverability; the brief template lives inside the design skill and is written only for UI projects.</li>
+<li><code>tests/test-design-stack-install.sh</code>, <code>tests/test-design-stack-catalog.sh</code>, <code>tests/test-design-stack-brief.sh</code>, <code>tests/test-design-stack-workflow.sh</code>, <code>tests/test-design-stack-evidence.sh</code>, <code>tests/test-design-stack-3d.sh</code> — behavioral and integration checks.</li>
+</ul></section><section id="reflection"><div class="reflection"><h3>Reflect</h3><p>Review the architecture and reply with [constraints|system-design|contracts|data-models|build-order] &lt;finding&gt; — &lt;evidence&gt;. The build prompt in the spec starts a fresh implementation session.</p></div></section><section id="references"><h2>📚 References</h2><div class="refs"><a href="ui-design-stack.md" target="_blank" rel="noopener">Spec (the build contract)</a><a href="../.agents/skills/system-design-planning/references/review-card.md" target="_blank" rel="noopener">Review card</a></div></section><footer>Generated 2026-10-01 10:38 — html-presentation skill</footer></div></main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const saved = localStorage.getItem('html-presentation-theme');
+  if (saved) document.body.dataset.theme = saved;
+  else if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) {
+    document.body.dataset.theme = 'light';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  window.toggleTheme = function () {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = next;
+    localStorage.setItem('html-presentation-theme', next);
+  };
+  window.toggleNav = function () {
+    document.querySelector('.nav-sidebar').classList.toggle('open');
+  };
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav-sidebar a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Active section on scroll
+  const sections = document.querySelectorAll('main section[id]');
+  const links = new Map();
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    links.set(a.getAttribute('href').slice(1), a);
+  });
+  if (sections.length && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove('active'));
+          const link = links.get(entry.target.id);
+          if (link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => io.observe(s));
+  }
+
+  // Slides keyboard nav
+  if (document.body.classList.contains('mode-slides')) {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let idx = 0;
+    const counter = document.querySelector('.slide-counter');
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    }
+    show(0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+    });
+  }
+})();
+</script>
+</body>
+</html>
