@@ -960,3 +960,7 @@ back vacuous and was repaired.
 - Quality gate: 44 affected test files passed; structural, AI-pattern, and security phases ran inline; independent APOSD review returned GO after workflow-update and source-layout fixes; receipt 766e0c55 was GO.
 - Live fixture: private [PR #1](https://github.com/Joaovsales/jplugin-ui-evidence-fixture-20261001/pull/1) passed [Actions run 36933936242](https://github.com/Joaovsales/jplugin-ui-evidence-fixture-20261001/actions/runs/36933936242) on PR head `b3bf400`; its [artifact](https://github.com/Joaovsales/jplugin-ui-evidence-fixture-20261001/actions/runs/36933936242/artifacts/11197102413) is 11,943 bytes and expires 2026-10-31T22:16:38Z.
 - Learnings captured: tasks/solutions/bugs/new-ui-scaffold-was-mistaken-for-existing-ui.md
+
+### [2026-10-02] — Visual-plan design study publication
+- Published three standalone Codex Scout Routing design studies from this repository on a separate branch, with portable source links and sanitized local paths.
+- Playwright reran desktop and mobile checks for each prototype; the full repository suite and independent privacy review passed before PR #248.
