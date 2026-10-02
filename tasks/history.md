@@ -965,3 +965,7 @@ back vacuous and was repaired.
 ### [2026-10-01] — /make-it-simpler follow-ups
 - Key changes: signals.py ranking (D27): `code-red-flag` and `over-budget` outside always-loaded files score as 1-line cues, `tasks/` is never read, `specs/` is never a `duplicate-rule` home. On this repository the top 10 went from 8 size hits to prose signals led by AGENTS.md. Also the `claim --routine simplify` fix and the new `routine-prompts/simplify.md`.
 - Quality gate: Phase 4 was dispatched, verdict HOLD with 1 MUST-FIX (the routine prompt re-ran the lane that `--unattended` already owns) and 5 SHOULD-FIX, all applied. Re-check verdict GO, and its last advisory (lens promised a /tidy check that doesn't exist) was applied as well.
+
+### [2026-10-02] — Visual-plan design study publication
+- Published three standalone Codex Scout Routing design studies from this repository on a separate branch, with portable source links and sanitized local paths.
+- Playwright reran desktop and mobile checks for each prototype; the full repository suite and independent privacy review passed before PR #248.
