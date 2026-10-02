@@ -127,6 +127,17 @@ numbered, with a recommended answer on every question.
 
 ### 3. Write the architecture spec (MUST persist)
 
+For UI changes, read the project's `DESIGN.md` and carry its direction,
+references and visual rules into the architecture spec. An existing UI
+without a brief stops with `SelectionRequired`; backend and CLI work bypass
+the design flow. For a new route/screen or substantial redesign, write
+`design/concepts/<feature>.html` as the reviewable concept. Compute its
+SHA-256 from saved bytes, then cite the concept path and digest in § Decisions
+before `/slice` prints the build prompt. A changed concept invalidates the
+old digest. Require an owner-started build prompt naming that exact digest;
+an unattended build waits for approval. A localized UI change follows the
+existing brief and does not require a new concept.
+
 Write `specs/<feature>.md` from `templates/architecture-spec-template.md`. The
 section order is fixed — constraints first, because every later section is
 checked against them:

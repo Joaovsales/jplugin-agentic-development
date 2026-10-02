@@ -1,0 +1,113 @@
+---
+name: design-stack
+description: Set up, update, and browse the shared UI design sources used by jplugin. Installs Taste, Impeccable, design references, and img2threejs once in user scope.
+harness: universal
+---
+
+# /design-stack — Shared UI design sources
+
+Use this skill for UI project design setup. The adapter lives in jplugin; upstream
+sources live in one user-scoped verified release. Never copy those repositories
+into a project or fetch them during an ordinary UI plan/build. Backend and CLI
+projects do not need this setup.
+
+## Setup and status
+
+Run `python3 .agents/skills/design-stack/scripts/design_stack.py setup` once on
+the user's machine. A verified release contains Taste skills, Impeccable commands,
+awesome-design-md references, and img2threejs. Setup reads the current release
+offline if it already exists. `status` is also offline. If the first setup cannot
+reach or validate the sources, report `SetupRequired` and stop UI setup.
+
+The default shared root is `~/.local/share/jplugin/design-stack`. The manifest
+records one SHA per source and points to a release in `releases/`. Read the
+manifest's `catalog_path` to browse installed sources; do not infer that the
+latest upstream content is installed. The source paths are:
+
+- `sources/taste/skills/*/SKILL.md` — Taste directions and archetypes.
+- `sources/impeccable/.agent/skills/impeccable/SKILL.md` — Impeccable command skill.
+- `sources/references/design-md/*/DESIGN.md` — design references.
+- `sources/three/SKILL.md` — img2threejs capability, used only on request.
+
+Taste's upstream installation uses `npx skills add`; Impeccable's uses
+`npx impeccable install`. The adapter invokes these official CLIs against a
+cloned revision in an isolated staging directory with a staging HOME and project
+cwd, then validates their staged skill/command outputs before promotion. Installed
+entrypoints live under the release's staging home in `.agent/`, `.agents/`, or
+`.claude/`; read them from the verified release, never from the current project.
+The references and 3D source use their official Git repositories. The project
+never receives installer output.
+
+## Update
+
+Run `python3 .agents/skills/design-stack/scripts/design_stack.py update` only
+after an explicit update request. The adapter stages all four sources, compares
+their revisions, runs the installers on a changed set, validates entrypoints,
+and atomically promotes the release pointer. A failed or timed-out update reports
+`UpdateRejected` and leaves the previous release usable. An unchanged revision
+set skips installation.
+
+Never edit a project's `DESIGN.md` as part of shared setup or update. Its visual
+rules change only through an owner-selected project refresh.
+
+## Browse and choose
+
+Run `python3 .agents/skills/design-stack/scripts/design_stack.py catalog` to show
+every entry in the current verified release. `catalog --json` prints stable IDs,
+kinds, source revisions, fit descriptions and local source paths for tooling.
+This scan is local and read-only: a new installed Taste skill, archetype, or
+awesome-design-md reference appears without changing a count in the adapter.
+Taste style skills and their nested archetypes are both selectable directions;
+`spatial` and `custom` are built in. Impeccable commands and img2threejs appear
+as tools, never as primary directions.
+
+Use `design_stack.py select --direction <id> [--reference <id> ...]
+[--custom-brief <text>] [--use-case <description>]` to validate one primary
+choice and optional references. The command prints the selection as JSON for
+the project brief writer. If the chosen direction's fit description has no
+overlap with the named use case, it returns a fit warning. Show that warning
+to the owner; `--override-fit` accepts their deliberate choice. A tool or
+reference cannot be selected as the primary direction. A catalog or selection
+read does not write `DESIGN.md` or contact upstream.
+
+## Project brief
+
+The small v1 template at `templates/DESIGN.md` contains usable spatial palette,
+typography, layout, motion and accessibility rules. After the owner reviews the
+selection, run `design_stack.py brief --project <path> --direction <id>
+--owner-choice` to create that project's `DESIGN.md` once. Add `--reference
+<reference:id>` for each selected reference. A non-spatial direction requires
+authored `--rule section=text` values for palette, typography, layout, motion,
+and accessibility. Use the same
+flag to replace spatial defaults with owner-authored rules. Valid sections are
+`palette`, `typography`, `layout`, `motion`, `accessibility`, `3d intent`, and
+`custom brief`. A 3D intent in the brief opts the project into the 3D pipeline;
+the default template states no 3D intent.
+
+Run `design_stack.py read-brief --project <path>` to read and validate the
+versioned brief as JSON. A second `brief` call refuses to overwrite it. Only an
+explicit owner-requested `design_stack.py refresh --project <path> --direction
+<id> --owner-choice [--rule section=text ...]` changes it; omitted rule sections
+retain their previously approved text. Shared setup and update do not touch any
+project `DESIGN.md`. Existing UI projects without a brief wait for owner
+selection before this create command; never create a spatial brief for them
+without that choice.
+
+## Opt-in 3D
+
+Use img2threejs only when the task explicitly requests a 3D model or the
+approved brief's `3D Intent` calls for one. The default `No 3D intent.` is
+not an opt-in. The `scripts/three.py` guard reports whether the task or brief
+enables the pipeline and labels any incomplete result `prototype` with its
+open gates. Read the verified release's `sources/three/SKILL.md` and run its
+commands from that release; never infer the process from memory.
+
+Start with `forge/next.py --state .img2threejs/state.json` and obey a hard
+stop. Before generating code, run `forge/stage2_spec/validate_sculpt_spec.py`
+on the saved sculpt spec, then rerun it with `--strict-quality`. The strict
+result must pass. Continue through the installed forge state machine and its
+required off-axis, placement, deterministic render, vision and domain gates;
+the later forge completion must also pass. Record evidence paths and the
+result of every required gate. A failed, missing or unverified strict spec or
+forge gate blocks production completion. Keep the result labeled `prototype`
+and list failed/open gates until both stages pass.

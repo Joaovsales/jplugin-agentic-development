@@ -204,6 +204,23 @@ containing a `BLOCKED` AC reports **non-success** to its caller (`/build` Phase 
 
 ### Walkthrough Protocol
 
+For a changed browser UI, require a committed executable
+`tests/visual/<feature>.sh` or a committed equivalent project suite grounded
+in the project verification skill. Run it locally through
+`scripts/visual_check.py`'s `run_visual_check(project, feature,
+changed_states, output)` contract. The script launches the real app, drives
+every changed route/state through Playwright CLI, checks interactions and
+console errors, captures desktop and mobile PNGs after reaching each state,
+and writes `manifest.json` in `JPLUGIN_UI_OUTPUT`. The manifest's `states`
+map gives each state `desktop`, `mobile`, `interactions: true`,
+`console_errors: []`, and `visual_disposition: pass`. The validator checks
+all changed states and complete PNG captures at desktop (≥768 px) and mobile
+(240–600 px) widths. Keep the local run output for review.
+Missing CLI/Chromium, app launch failure, broken interaction, console error,
+missing viewport or unresolved visual defect blocks UI completion; report the
+exact command or state. A browser fixture that only writes PNG headers is
+test evidence for the validator, never a production walkthrough.
+
 For each user-facing AC:
 
 1. **Describe the user journey** in plain language
@@ -259,6 +276,36 @@ through the feature branch. `python3
 naming the entry and AC; it is silent and exits 0 when all are present.
 
 The log is **append-only**. Never overwrite prior walkthroughs — they form the audit trail.
+
+### UI evidence publication
+
+For a UI change, keep each local retry as a new run ID and append its
+desktop/mobile paths, interaction result, console result, visual defect
+disposition and review link with `scripts/ui_publication.py`'s
+`append_ui_entry`; never replace prior E2E entries. A local-only project
+uses a readable retained workspace path as its review link and verifies the
+capture files still exist. A GitHub PR requires a committed
+`tests/visual/<feature>.sh` and the one-time generated
+`.github/workflows/jplugin-ui-evidence.yml` from `ui_publication.py
+install-workflow --project <project>`. Commit both before opening the PR.
+The installed workflow carries a template digest. After a harness upgrade,
+`install-workflow --project <project> --update` refreshes an unchanged generated
+copy; a locally edited workflow is refused for owner review. The synced
+`scripts/visual_check.py validate` command is the stable project-side CI
+entrypoint; preserve that path when evolving its implementation.
+The workflow checks out the PR head commit, installs Playwright CLI/Chromium,
+runs the committed project visual checks, validates their manifests, and
+uploads its own captures with `actions/upload-artifact@v4` and
+`retention-days: 30`. Local screenshots are not CI evidence.
+
+After the workflow succeeds, use `ui_publication.py lookup --slug <owner/repo>
+--pr <number> --sha <full-pr-head-sha>` to validate the run's commit, success,
+artifact name, nonempty size, expiry and 30-day retention through authenticated
+GitHub metadata. Link the returned Actions artifact URL in the E2E record and
+in the task/PR through `/task-registry`; verify the task link landed. If the
+run, upload, metadata or readable link is missing, return
+`PublicationUnavailable` and leave that UI task open. Non-UI verification
+keeps its existing path.
 
 ### Failure Handling
 

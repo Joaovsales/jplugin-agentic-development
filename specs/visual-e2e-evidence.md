@@ -26,16 +26,21 @@ Claude Code, Codex and Pi use it the same way, with no per-harness setup. It run
 headless, so unattended runs (`/yolo`, routines, cloud containers) get a
 full-fidelity browser and can pass VISUAL acceptance criteria.
 
-A VISUAL AC passes only with a real PNG on disk: after the walkthrough reaches the
+A standard VISUAL AC passes only with a real PNG on disk: after the walkthrough reaches the
 state the AC describes, the backend saves a screenshot to
 `tasks/e2e-artifacts/<short-sha>/<AC-id>.png`. The `tasks/e2e-log.md` entry
 references that file on a `Screenshot:` line. No file, no PASS.
 
 At `/wrap-up-session`, § *E2E coverage* checks the log with `e2e_evidence.py`.
-§ *The Pull Request* then publishes the referenced PNGs to the project's
+For standard visual entries, § *The Pull Request* publishes the referenced PNGs to the project's
 `e2e-evidence` branch, which is orphaned (it shares no history with `master`). The
 PR body gets a `## Visual evidence` section that embeds each screenshot under its
 AC. The screenshots never land on the feature branch or on `master`.
+
+Project UI visual entries additionally require desktop/mobile captures and a
+committed Playwright check. Their GitHub PR evidence is a CI-created Actions
+artifact retained for 30 days; local-only projects retain workspace files.
+The UI closure contract is `specs/ui-design-stack.md`.
 
 This works in every project the harness runs in. Nothing is specific to one app.
 
