@@ -20,7 +20,8 @@ import sys
 from pathlib import PurePosixPath
 
 W = 5
-EXCLUDED_PREFIXES = ("tests/fixtures/",)
+EXCLUDED_PREFIXES = ("tests/fixtures/", "tasks/")
+DESIGN_RECORDS = ("specs/",)
 ALWAYS_LOADED = ("AGENTS.md", "CLAUDE.md", ".agents/hooks/session-start.sh")
 LINE_BUDGETS = {"SKILL.md": 150, "AGENTS.md": 200}
 CODE_BUDGET = 500
@@ -85,6 +86,8 @@ def markdown(texts):
 def detect_duplicate_rule(texts):
     seen = {}
     for path in markdown(texts):
+        if path.startswith(DESIGN_RECORDS):
+            continue  # a spec quoting its skill is the design record, not a second home
         digest = hashlib.sha256(texts[path].encode("utf-8")).hexdigest()
         for number, line in unfenced_lines(texts[path]):
             rule = LIST_MARK.sub("", line.strip())
@@ -113,7 +116,9 @@ def detect_over_budget(texts):
         budget = LINE_BUDGETS.get(PurePosixPath(path).name)
         count = len(text.splitlines())
         if budget and count > budget:
-            yield path, budget + 1, count - budget
+            # only an always-loaded file saves its overflow; elsewhere moving the body
+            # to references/ moves lines, so the hit is a cue worth one line
+            yield path, budget + 1, count - budget if always_loaded(path, budget + 1, text) else 1
 
 
 def detect_doc_script_contradiction(texts):
@@ -154,7 +159,7 @@ def detect_code_red_flag(texts):
     for path, text in texts.items():
         count = len(text.splitlines())
         if path.endswith((".py", ".sh")) and count > CODE_BUDGET:
-            yield path, CODE_BUDGET + 1, count - CODE_BUDGET
+            yield path, CODE_BUDGET + 1, 1  # a cue: splitting moves lines, saves none
 
 
 #: The seven signals, in lens.md's order: the one place a signal is named.

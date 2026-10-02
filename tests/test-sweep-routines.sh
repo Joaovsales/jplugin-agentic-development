@@ -194,10 +194,10 @@ for tree in $TREES; do
 done
 
 # ============================================================================
-# AC8 — six routine prompts, each short and project-agnostic
+# AC8 — seven routine prompts, each short and project-agnostic
 # ============================================================================
-declare -A PROMPT_SKILL=([janitor]="/sweep" [architect]="/sweep" [tidy]="/tidy" [fix]="/debug" [improve]="/plan" [plan]="/plan")
-for name in janitor architect tidy fix improve plan; do
+declare -A PROMPT_SKILL=([janitor]="/sweep" [architect]="/sweep" [tidy]="/tidy" [fix]="/debug" [improve]="/plan" [plan]="/plan" [simplify]="/make-it-simpler")
+for name in janitor architect tidy fix improve plan simplify; do
   p="$PROMPTS/$name.md"
   assert_eq "present" "$([ -f "$p" ] && echo present || echo missing)" \
     "AC8: routine prompt $name.md exists"
