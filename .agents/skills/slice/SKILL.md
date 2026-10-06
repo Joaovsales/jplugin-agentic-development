@@ -178,7 +178,7 @@ One line per slice: `✓ Filed: <id> → <#N | local, publication pending>`.
 
 - **Called by**: `/plan` Step 3, `/system-design-planning` Step 3.5, and
   `/build`'s pre-flight (`--file --approve`, or `--file` alone from
-  `/yolo`).
+  `/yolo` or an unattended lane run).
 - **Calls**: `/task-registry` (`upsert`, dry run then `--apply`).
 - **Precedes**: `/build`, which reads the plan block's slice rows and the
   Build Order's Surface column, one slice at a time.
