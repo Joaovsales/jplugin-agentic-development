@@ -111,6 +111,50 @@ for routine in plan fix improve simplify janitor architect tidy; do
     "Contract: $routine's own section does not restate /wrap-up-session"
 done
 
+# --- crossing the plan handover (specs/lane-plan-handover.md AC1, AC2) --------
+# A lane that chains a planner into /build crosses /plan's build-prompt handover
+# here, once. Pinned by what each reader needs: the owners, the ownerless lanes,
+# the unattended override and the interactive rule.
+assert_file_matches "$CANON" '^### Crossing the plan handover' \
+  "AC1: the plan-handover crossing map has a section of its own"
+crossing="$(awk '/^### Crossing the plan handover/{f=1;next} f&&/^##/{exit} f' "$CANON")"
+for owner in /auto-push /yolo /make-it-simpler; do
+  assert_contains "$crossing" "$owner" \
+    "AC1: the crossing section names $owner as owning its crossing"
+done
+assert_contains "$crossing" "simplify" \
+  "AC1: the crossing section names simplify"
+assert_contains "$crossing" "Overrides" \
+  "AC1: simplify crosses through /make-it-simpler § Overrides"
+for lane in improve refactor babysit; do
+  assert_contains "$crossing" "$lane" \
+    "AC1: the crossing section names ownerless lane $lane"
+done
+assert_contains "$crossing" "Unattended detection" \
+  "AC1: the unattended rule keys on § Unattended detection"
+assert_contains "$crossing" "--file" \
+  "AC1: an unattended pre-flight files with --file"
+assert_contains "$crossing" "with no \`--approve\`" \
+  "AC1: the crossing section says the pre-flight passes no --approve"
+assert_contains "$crossing" "no build prompt" \
+  "AC1: an unattended run prints no build prompt"
+assert_contains "$crossing" "in place" \
+  "AC1: an unattended run builds in place"
+assert_contains "$crossing" "/system-design-planning" \
+  "AC1: the unattended override covers /system-design-planning's hand-over"
+assert_contains "$crossing" "last message" \
+  "AC1: an interactive build prompt stays the session's last message"
+assert_contains "$crossing" "handed over: build prompt" \
+  "AC1: interactive lane lines carry the handed-over marker"
+assert_contains "$crossing" "dispatches every slice to a sub-agent" \
+  "AC1: the crossing section cites /build for the fresh-context dispatch"
+assert_file_contains ".agents/skills/wrap-up-session/references/routine-prompts/improve.md" \
+  "Crossing the plan handover" \
+  "AC2: the improve routine prompt cites the crossing section"
+assert_file_not_matches ".agents/skills/wrap-up-session/references/routine-prompts/improve.md" \
+  "confirm the plan yourself" \
+  "AC2: the improve routine prompt no longer says to confirm the plan yourself"
+
 # --- producers: the second spine ---------------------------------------------
 for routine in janitor architect tidy; do
   assert_file_matches "$CANON" "^\| \`$routine\` \|" \
