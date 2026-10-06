@@ -13,7 +13,7 @@ steps are read-only; the moment it needs a code change it hands to `/debug` or
 2. `/receive-review` — every review thread, one at a time: verify against the code, then technical acknowledgment or reasoned pushback
 3. Read the failing CI logs (`gh run view <id> --log-failed`); quote the first failing assertion or error, not the summary line
 4. `/debug <ref>` — for a red job, with the quoted failure as the reproduction; stops at its own gate before code. Kept with ` — skip: no red job` otherwise
-5. `/plan <ref>` — for a requested change, with the review thread as the problem statement; stops at its own gate before code. Kept with ` — skip: no requested change` otherwise
+5. `/plan <ref>` — for a requested change, with the review thread as the problem statement; the handover is crossed as `.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan handover* says. Kept with ` — skip: no requested change` otherwise
 6. `/build` — the rows the previous step wrote
 7. `/wrap-up-session` — push to the PR's branch; no new PR
 
