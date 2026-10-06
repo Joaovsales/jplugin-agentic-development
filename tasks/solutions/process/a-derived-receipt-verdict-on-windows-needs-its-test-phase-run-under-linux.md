@@ -39,5 +39,11 @@ missing binary, not `no repository configured`. Put a two-line wrapper on PATH
 that execs the real Windows binary, `/mnt/c/Program Files/GitHub CLI/gh.exe`.
 With it, the same clean clone ran 44/44 affected and 60/60 full.
 
+Confirmed again on 2026-10-06 (lane-plan-handover). The Windows affected run
+failed 166 assertions, all also failing on the base SHA, and minted `STOP`. A
+WSL clone fetched from the local repository path at the same tree passed
+37/37. Fetching from the local path needs no push, so this check never has to
+publish the branch before the gate.
+
 Related: [../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md](../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md)
 (the same WSL reproduction recipe).

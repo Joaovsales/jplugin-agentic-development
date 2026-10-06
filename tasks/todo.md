@@ -1734,3 +1734,8 @@ Filed this sweep:
 > Handover: landed fbce2a9 — build/SKILL.md pre-flight and slice/SKILL.md § Integration name an unattended lane run alongside `/yolo` as omitting `--approve`; § Parallel Dispatch Assessment gains the "Built in the session that planned it" paragraph before **Otherwise**
 > Do not re-derive: the plugin payload changed, so `.claude-plugin/plugin.json` went 1.4.1 -> 1.4.2 (test-plugin-manifest.sh version guard); slice/SKILL.md § File still says only "`/yolo` omits it" — out of AC6's scope
 > Surface: [SURFACE] +.claude-plugin/plugin.json | reason: the version guard fails any payload change without a bump
+
+## Session Summary — [2026-10-06] [2509fa2..984b263]
+- Completed: lane-plan-handover, 5/5 slices (#250–#254) with handovers. The quality gate dispatched Phase 4 (verdict GO), and receipt a08fce98 is GO on a WSL affected run of 37/37.
+- Pending: the PR's Linux CI run. Reported, not applied: the ownerless-lane list is repeated in go/SKILL.md and AGENTS.md step 3 (SHOULD-FIX, manual), and the AC1 pins in test-routines-contract.sh are scoped to the section, not the bullet (NITPICK, advisory).
+- Carry-forward: routine-prompts/plan.md still says "confirm the plan yourself", and slice/SKILL.md § File still names only `/yolo` as omitting `--approve`. Both are outside this spec's ACs.
