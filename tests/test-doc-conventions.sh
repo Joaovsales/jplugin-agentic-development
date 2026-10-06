@@ -1168,7 +1168,7 @@ assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
 
 # specs/lane-plan-handover.md AC6: an unattended lane run omits --approve
 # alongside /yolo, in both /build's pre-flight and /slice's Integration.
-assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (routines.md § *Crossing the plan handover*) omit \`--approve\`" \
+assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (\`.agents/skills/wrap-up-session/references/routines.md\` § *Crossing the plan handover*) omit \`--approve\`" \
   "build: pre-flight names an unattended lane run alongside /yolo"
 assert_prose_contains .agents/skills/slice/SKILL.md "or \`--file\` alone from \`/yolo\` or an unattended lane run" \
   "slice: Integration names an unattended lane run alongside /yolo"

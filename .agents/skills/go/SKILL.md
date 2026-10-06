@@ -158,8 +158,7 @@ build prompt, per § *Crossing the plan handover* of
 `.agents/skills/wrap-up-session/references/routines.md`: append
 ` — handed over: build prompt` to each remaining line after the planner step
 instead of running it, and the fresh session started with the prompt runs
-them. `simplify` still builds in place, because `/make-it-simpler` owns its
-own override. Resuming interrupted work
+them. Resuming interrupted work
 needs nothing from `/go`: the session banner already opens on the first
 unfinished row the chain skills wrote.
 

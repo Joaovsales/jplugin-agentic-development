@@ -241,8 +241,8 @@ handover one of three ways:
   The run prints no build prompt and `/build` runs in place, in the same
   session; its pre-flight runs `/slice <spec> --file` with no `--approve`, so
   the project's approval floor decides, as for `/yolo`. The same override
-  covers `/system-design-planning`'s hand-over. It is the fourth named
-  exception to the fresh-session rule.
+  covers `/system-design-planning`'s hand-over. It is one of the named
+  exceptions to the fresh-session rule (`AGENTS.md` step 3).
 - **An interactive lane run with no owning skill** — the handover is honoured:
   the build prompt stays the session's last message, the `go` skill appends
   ` — handed over: build prompt` to each lane line after the planner step, and
