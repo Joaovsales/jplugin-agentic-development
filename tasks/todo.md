@@ -1689,3 +1689,29 @@ Filed this sweep:
 - Completed: sanitized and committed three standalone visual-plan design studies; six Playwright browser checks, privacy review, and the full suite passed.
 - Pending: PR #248 CI and merge.
 - Carry-forward: the studies are comparison artifacts; production visual-plan rendering remains unchanged.
+
+## Plan: lane-plan-handover
+> Spec: specs/lane-plan-handover.md
+
+### Slice 1/5 — Rule home in routines
+- [ ] Rule home in routines <!-- task-id: plan.specs-lane-plan-handover-md.rule-home-in-routines --> — § Crossing the plan handover in routines.md maps every crossing; the improve routine prompt cites it
+  [ ] TDD: test-routines-contract pins the section naming /auto-push, /yolo, /make-it-simpler as owners and simplify through § Overrides; the ownerless lanes improve/refactor/babysit; the unattended override (no prompt, /build in place, --file without --approve, /system-design-planning too); the interactive handover line; the /build fresh-context citation (AC 1) -> write § Crossing the plan handover next to § The shared spine
+  [ ] TDD: test-routines-contract pins routine-prompts/improve.md citing the section and not saying "confirm the plan yourself" (AC 2) -> rewrite its step 3 to cite the section
+
+### Slice 2/5 — Go honours the handover
+- [ ] Go honours the handover <!-- task-id: plan.specs-lane-plan-handover-md.go-honours-the-handover --> — /go cites the rule, appends " — handed over: build prompt", replies before the prompt
+  [ ] TDD: test-go-lanes pins go/SKILL.md citing § Crossing the plan handover, the handed-over append, reply-before-prompt, and no "Confirm with 'y'"; AC7 comment names the build prompt (AC 3) -> edit § Overview, § 2 Record, § 3 Run the chain, § 4 Reply
+
+### Slice 3/5 — Lane planner steps cite the rule
+- [ ] Lane planner steps cite the rule <!-- task-id: plan.specs-lane-plan-handover-md.lane-planner-steps-cite-the-rule --> — improve, refactor, babysit planner steps cite the rule (blocked-by: plan.specs-lane-plan-handover-md.go-honours-the-handover)
+  [ ] TDD: test-go-lanes pins each of improve/refactor/babysit citing § Crossing the plan handover and none saying "where the human is asked before code changes" (AC 4) -> edit each planner step; test-lane-catalogue chains unchanged
+
+### Slice 4/5 — Fourth named exception
+- [ ] Fourth named exception <!-- task-id: plan.specs-lane-plan-handover-md.fourth-named-exception --> — AGENTS.md step 3 names four exceptions; the make-it-simpler pin follows the new sentence
+  [ ] TDD: test-doc-conventions § pipelines pins AGENTS.md step 3 naming /auto-push, /yolo, /make-it-simpler and an unattended lane run citing the section (AC 5) -> rewrite the named-exceptions sentence; update the existing make-it-simpler pin; instruction budget stays green
+  [ ] TDD: git diff --quiet master -- .agents/skills/plan .agents/skills/yolo .agents/skills/auto-push .agents/skills/make-it-simpler (AC 7) -> no edit
+
+### Slice 5/5 — In-place build dispatches every slice
+- [ ] In-place build dispatches every slice <!-- task-id: plan.specs-lane-plan-handover-md.in-place-build-dispatches-every-slice --> — /build dispatches every slice to a sub-agent when built in the planning session; /build and /slice name the unattended lane run as omitting --approve (blocked-by: plan.specs-lane-plan-handover-md.fourth-named-exception)
+  [ ] TDD: test-doc-conventions § pipelines pins build/SKILL.md pre-flight and slice/SKILL.md § Integration naming an unattended lane run alongside /yolo (AC 6) -> one clause each
+  [ ] TDD: test-doc-conventions § build pins § Parallel Dispatch Assessment: built in the planning session, every slice (lone or serialized) dispatches to a sub-agent, verification stays central, no sub-agents means inline plus one line; build-prompt sessions unchanged (AC 8) -> one paragraph before the "Otherwise" branch
