@@ -157,7 +157,9 @@ is the authorization the planning session did not have. When any slice
 header of the `## Plan:` block in `tasks/todo.md` lacks a provider link:
 
 Invoke `/slice specs/<feature>.md --file --approve`. The dry run is shown,
-then the apply. `/yolo` omits `--approve`, so its slices land like every
+then the apply. `/yolo` and an unattended lane run
+(`.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan
+handover*) omit `--approve`, so their slices land like every
 other unattended write on a project that requires approval. With no tracker
 the rows link to `tasks/details/`.
 
@@ -204,6 +206,14 @@ the next batch.
    run it themselves. Fanning verification out to every agent multiplies context
    for no added signal and is a known way to lose a whole fleet to autocompact
    thrashing. Isolate the *edits*, centralise the *verification*.
+
+**Built in the session that planned it** (any of the named exceptions in
+`AGENTS.md` step 3): every slice dispatches to a sub-agent — a lone ready slice
+and each slice of a serialized pair included — carrying only what a dispatched
+slice already carries (its rows, the spec, its blockers' handovers).
+Verification stays central. Where the harness has no sub-agents, `/build` runs
+inline and says so in one line. A session started by a build prompt dispatches
+as below.
 
 **Otherwise** — one ready slice, or an intersecting pair with no blocker:
 process slices one at a time, in table order (Steps 1–4 below).

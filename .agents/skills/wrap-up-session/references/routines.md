@@ -227,6 +227,32 @@ the retained non-zero result opens no PR and creates no PR-ledger row.
 Each consumer routine below gives **only** its step 4 and any gate the spine
 does not already carry.
 
+### Crossing the plan handover
+
+`/plan` and `/system-design-planning` end the planning session with a build
+prompt and never build. A lane that chains a planner into `/build` crosses that
+handover one of three ways:
+
+- **A skill that owns a Step 6 override** — `/auto-push`, `/yolo`,
+  `/make-it-simpler` — crosses on its own terms; none is restated here.
+  `simplify` crosses through `/make-it-simpler` § *Overrides*, in every mode.
+- **An unattended lane run with no owning skill** — the ownerless lanes are
+  `improve`, `refactor` and `babysit`; unattended is § *Unattended detection*.
+  The run prints no build prompt and `/build` runs in place, in the same
+  session; its pre-flight runs `/slice <spec> --file` with no `--approve`, so
+  the project's approval floor decides, as for `/yolo`. The same override
+  covers `/system-design-planning`'s hand-over. It is one of the named
+  exceptions to the fresh-session rule (`AGENTS.md` step 3).
+- **An interactive lane run with no owning skill** — the handover is honoured:
+  the build prompt stays the session's last message, the `go` skill appends
+  ` — handed over: build prompt` to each lane line after the planner step, and
+  its reply precedes the prompt. The build session runs those steps.
+
+An in-place build still gets a fresh context for the code: `/build` (§ *Parallel
+Dispatch Assessment*) dispatches every slice to a sub-agent when it runs in the
+session that planned it. The `plan` lane stops at its planner, so none of this
+applies to it.
+
 ### `plan` — steps
 
 Selector: `design-decision`. Terminal artifact: a **draft** PR whose body carries

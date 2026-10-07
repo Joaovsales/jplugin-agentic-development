@@ -1689,3 +1689,53 @@ Filed this sweep:
 - Completed: sanitized and committed three standalone visual-plan design studies; six Playwright browser checks, privacy review, and the full suite passed.
 - Pending: PR #248 CI and merge.
 - Carry-forward: the studies are comparison artifacts; production visual-plan rendering remains unchanged.
+
+## Plan: lane-plan-handover
+> Spec: specs/lane-plan-handover.md
+
+### Slice 1/5 — Rule home in routines
+- [x] Rule home in routines <!-- task-id: plan.specs-lane-plan-handover-md.rule-home-in-routines --> — Slice 1/5: § Crossing the plan handover in routines.md maps every crossing; the improve routine prompt cites it ([#250](https://github.com/Joaovsales/jplugin-agentic-development/issues/250))
+  [x] TDD: test-routines-contract pins the section naming /auto-push, /yolo, /make-it-simpler as owners and simplify through § Overrides; the ownerless lanes improve/refactor/babysit; the unattended override (no prompt, /build in place, --file without --approve, /system-design-planning too); the interactive handover line; the /build fresh-context citation (AC 1) -> write § Crossing the plan handover next to § The shared spine
+  [x] TDD: test-routines-contract pins routine-prompts/improve.md citing the section and not saying "confirm the plan yourself" (AC 2) -> rewrite its step 3 to cite the section
+
+> Handover: landed 1753538 — `### Crossing the plan handover` in routines.md (after § The shared spine) maps all crossings; routine-prompts/improve.md step 3 cites it; 20 AC1/AC2 pins in test-routines-contract.sh
+> Do not re-derive: routines.md lives under a `/go`-free host root (test-go-lanes.sh § AC3 host sweep) — name it "the `go` skill", never `/go`; citations must use the full `.agents/skills/wrap-up-session/references/routines.md` path or test-citations.sh cannot resolve them
+> Surface: per-commit inside the surface; `check` against base lists the other parallel slices' files
+
+### Slice 2/5 — Go honours the handover
+- [x] Go honours the handover <!-- task-id: plan.specs-lane-plan-handover-md.go-honours-the-handover --> — Slice 2/5: /go cites the rule, appends ' — handed over: build prompt', replies before the prompt ([#251](https://github.com/Joaovsales/jplugin-agentic-development/issues/251))
+  [x] TDD: test-go-lanes pins go/SKILL.md citing § Crossing the plan handover, the handed-over append, reply-before-prompt, and no "Confirm with 'y'"; AC7 comment names the build prompt (AC 3) -> edit § Overview, § 2 Record, § 3 Run the chain, § 4 Reply
+
+> Handover: landed b5b1264 — go/SKILL.md cites the section in § Overview and § 3, names ` — handed over: build prompt` as the second block edit, § 4 reply precedes the build prompt; "Confirm with 'y'" gone
+> Do not re-derive: test-go-lanes.sh AC3 (lane-plan-handover) block loops `$TREES` with `assert_prose_contains`; the AC7 comment now names the build prompt as /plan's gate
+> Surface: per-commit inside the surface (the test-go-lanes.sh pins landed with slice 3's commit)
+
+### Slice 3/5 — Lane planner steps cite the rule
+- [x] Lane planner steps cite the rule <!-- task-id: plan.specs-lane-plan-handover-md.lane-planner-steps-cite-the-rule --> — Slice 3/5: improve, refactor, babysit planner steps cite the rule ([#252](https://github.com/Joaovsales/jplugin-agentic-development/issues/252)) (blocked-by: plan.specs-lane-plan-handover-md.go-honours-the-handover)
+  [x] TDD: test-go-lanes pins each of improve/refactor/babysit citing § Crossing the plan handover and none saying "where the human is asked before code changes" (AC 4) -> edit each planner step; test-lane-catalogue chains unchanged
+
+> Handover: landed 6212e45 — improve/refactor/babysit planner steps cite § *Crossing the plan handover* (full path); "where the human is asked" wording gone; chains unchanged (test-lane-catalogue.sh 247 ok)
+> Do not re-derive: lanes.py reads only each step's leading `/skill` token, so step tails are free prose; the citation must not restate the rule (parentheticals were cut per D3)
+> Surface: per-commit inside the surface
+
+### Slice 4/5 — Fourth named exception
+- [x] Fourth named exception <!-- task-id: plan.specs-lane-plan-handover-md.fourth-named-exception --> — Slice 4/5: AGENTS.md step 3 names four exceptions; the make-it-simpler pin follows the new sentence ([#253](https://github.com/Joaovsales/jplugin-agentic-development/issues/253))
+  [x] TDD: test-doc-conventions § pipelines pins AGENTS.md step 3 naming /auto-push, /yolo, /make-it-simpler and an unattended lane run citing the section (AC 5) -> rewrite the named-exceptions sentence; update the existing make-it-simpler pin; instruction budget stays green
+  [x] TDD: git diff --quiet master -- .agents/skills/plan .agents/skills/yolo .agents/skills/auto-push .agents/skills/make-it-simpler (AC 7) -> no edit
+
+> Handover: landed 09d56d1 — AGENTS.md step 3 names four exceptions, the fourth an unattended lane run citing the section; AGENTS.md 14856/16384 bytes
+> Do not re-derive: the make-it-simpler named-exceptions pin in test-doc-conventions.sh § pipelines matches the new sentence from `/yolo` onward, plus a five-token loop; AC7 holds (`git diff --quiet` on plan/yolo/auto-push/make-it-simpler)
+> Surface: per-commit inside the surface (its pins landed with slice 5's commit, which shares the file)
+
+### Slice 5/5 — In-place build dispatches every slice
+- [x] In-place build dispatches every slice <!-- task-id: plan.specs-lane-plan-handover-md.in-place-build-dispatches-every-slice --> — Slice 5/5: /build dispatches every slice to a sub-agent when built in the planning session; /build and /slice name the… ([#254](https://github.com/Joaovsales/jplugin-agentic-development/issues/254)) (blocked-by: plan.specs-lane-plan-handover-md.fourth-named-exception)
+  [x] TDD: test-doc-conventions § pipelines pins build/SKILL.md pre-flight and slice/SKILL.md § Integration naming an unattended lane run alongside /yolo (AC 6) -> one clause each
+  [x] TDD: test-doc-conventions § build pins § Parallel Dispatch Assessment: built in the planning session, every slice (lone or serialized) dispatches to a sub-agent, verification stays central, no sub-agents means inline plus one line; build-prompt sessions unchanged (AC 8) -> one paragraph before the "Otherwise" branch
+> Handover: landed fbce2a9 — build/SKILL.md pre-flight and slice/SKILL.md § Integration name an unattended lane run alongside `/yolo` as omitting `--approve`; § Parallel Dispatch Assessment gains the "Built in the session that planned it" paragraph before **Otherwise**
+> Do not re-derive: the plugin payload changed, so `.claude-plugin/plugin.json` went 1.4.1 -> 1.4.2 (test-plugin-manifest.sh version guard); slice/SKILL.md § File still says only "`/yolo` omits it" — out of AC6's scope
+> Surface: [SURFACE] +.claude-plugin/plugin.json | reason: the version guard fails any payload change without a bump
+
+## Session Summary — [2026-10-06] [2509fa2..984b263]
+- Completed: lane-plan-handover, 5/5 slices (#250–#254) with handovers. The quality gate dispatched Phase 4 (verdict GO), and receipt a08fce98 is GO on a WSL affected run of 37/37.
+- Pending: the PR's Linux CI run. Reported, not applied: the ownerless-lane list is repeated in go/SKILL.md and AGENTS.md step 3 (SHOULD-FIX, manual), and the AC1 pins in test-routines-contract.sh are scoped to the section, not the bullet (NITPICK, advisory).
+- Carry-forward: routine-prompts/plan.md still says "confirm the plan yourself", and slice/SKILL.md § File still names only `/yolo` as omitting `--approve`. Both are outside this spec's ACs.

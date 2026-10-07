@@ -969,3 +969,7 @@ back vacuous and was repaired.
 ### [2026-10-02] — Visual-plan design study publication
 - Published three standalone Codex Scout Routing design studies from this repository on a separate branch, with portable source links and sanitized local paths.
 - Playwright reran desktop and mobile checks for each prototype; the full repository suite and independent privacy review passed before PR #248.
+
+### [2026-10-06] — Lane plan-handover crossing
+- Key changes: new `routines.md` § *Crossing the plan handover* maps every crossing. `/go` and the improve/refactor/babysit lanes now cite it: interactive runs stop at the build prompt, unattended runs build in place with `--file` and no `--approve`. AGENTS.md step 3 names four exceptions. In `/build`, a build run in its planning session dispatches every slice to a sub-agent. Five slices (#250–#254) were built by parallel sub-agents with central verification. Plugin bumped to 1.4.2.
+- Learnings captured: [process/a-slice-verify-command-misses-repo-wide-doc-guards.md](solutions/process/a-slice-verify-command-misses-repo-wide-doc-guards.md), [tooling/slice-check-reports-sibling-slices-in-a-parallel-build.md](solutions/tooling/slice-check-reports-sibling-slices-in-a-parallel-build.md), updated [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md)

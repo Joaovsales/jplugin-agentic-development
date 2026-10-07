@@ -14,9 +14,11 @@ harness: universal
 the goal to a lane, prints the route, records the lane's steps, and runs the
 skills the lane names. It adds no review, build, verification, or confirmation
 logic of its own: every gate the human meets belongs to a skill the lane
-invokes (`/plan`'s "Confirm with 'y'", `/debug`'s root-cause prelude,
-`/system-design-planning`'s **approved**). Every code-changing lane passes
-through exactly one of them by construction.
+invokes (`/plan`'s build prompt, which a human crosses by starting a fresh
+session, `/debug`'s root-cause prelude, `/system-design-planning`'s
+**approved**). Every code-changing lane passes through exactly one of them by
+construction. For an ownerless lane the plan handover is honoured as
+`.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan handover* says.
 
 A **lane** is one markdown file in the task-registry skill's `lanes/` directory
 (specs/lane-catalogue.md). The same file is the routine the scheduler runs on a
@@ -135,9 +137,10 @@ Plain numbered lines. Never checkbox rows: `/build` executes every `[ ]` row
 it finds in that file and the session banner counts them, so a checkbox lane
 row would be dispatched as a task. The block is a record of what `/go` chose,
 not a task list. A step the agent decides not to run keeps its line with
-` — skip: <reason>` appended; it is never deleted. That append is the one
-edit `/go` makes to a block after writing it — it never reorders, deletes, or
-rewrites a line — and a second `/go` appends a second block and leaves the
+` — skip: <reason>` appended; it is never deleted. That append and the
+` — handed over: build prompt` append (step 3) are the two edits `/go` makes
+to a block after writing it — it never reorders, deletes, or rewrites a
+line — and a second `/go` appends a second block and leaves the
 first as written; its unfinished steps are the record of where that lane
 stopped.
 
@@ -149,14 +152,21 @@ debug documents, PRs) and stop at their own gates. An inline step (one that
 does not open with a skill) is done in place. A step whose case does not apply
 — `babysit`'s `/debug` when no job is red, `improve`'s `/plan` when
 `/system-design-planning` wrote the spec — keeps its line with a `skip:`
-reason, which is the step ledger's own convention. Resuming interrupted work
+reason, which is the step ledger's own convention. At the planner step of an
+ownerless lane (`improve`, `refactor`, `babysit`) the session stops at the
+build prompt, per § *Crossing the plan handover* of
+`.agents/skills/wrap-up-session/references/routines.md`: append
+` — handed over: build prompt` to each remaining line after the planner step
+instead of running it, and the fresh session started with the prompt runs
+them. Resuming interrupted work
 needs nothing from `/go`: the session banner already opens on the first
 unfinished row the chain skills wrote.
 
 ### 4. Reply
 
 Every lane ends with: the lane taken, the steps run and skipped, and the
-evidence the playbook's *Reply* section names.
+evidence the playbook's *Reply* section names. On a handed-over lane the
+reply precedes the build prompt, which stays the session's last message.
 
 ## Lanes
 

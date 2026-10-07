@@ -1010,8 +1010,13 @@ assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — filing \| no `
   "pipelines: make-it-simpler's /build pre-flight row files no slices and claims no header"
 assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
   "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
-assert_prose_contains AGENTS.md '`/yolo` (unattended) and `/make-it-simpler` (one simplification sized to one review) are the three named exceptions that build in the planning session' \
+assert_prose_contains AGENTS.md '`/yolo` (unattended), `/make-it-simpler` (one simplification sized to one review) and an unattended lane run (a routine with no owning skill — `improve`, `refactor`, `babysit`; `.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan handover*) are the four named exceptions that build in the planning session' \
   "pipelines: AGENTS.md's named-exceptions sentence names /make-it-simpler"
+# specs/lane-plan-handover.md AC5: step 3 names all four exceptions and cites the section.
+for token in '`/auto-push`' '`/yolo`' '`/make-it-simpler`' "unattended lane run" "Crossing the plan handover"; do
+  assert_prose_contains AGENTS.md "$token" \
+    "pipelines: AGENTS.md step 3 names $token among the named exceptions"
+done
 
 # --- design-planning: /system-design-planning interviews and hands off instead of filing ---
 # specs/plan-slices-and-handover.md AC10. Step 1 reads a settled § Decisions
@@ -1138,7 +1143,7 @@ for token in "--file --approve" "lacks a provider link" "implicit slice" \
              "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
              "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
              "forbidden state" "Use in the session the build prompt starts" \
-             "slice header" "\`/yolo\` omits \`--approve\`"; do
+             "slice header" "omit \`--approve\`"; do
   assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
 done
 
@@ -1160,6 +1165,23 @@ assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
   "build: SKILL.md no longer says 'after /plan is confirmed'"
 assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
   "build: SKILL.md no longer assesses independence from prose"
+
+# specs/lane-plan-handover.md AC6: an unattended lane run omits --approve
+# alongside /yolo, in both /build's pre-flight and /slice's Integration.
+assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (\`.agents/skills/wrap-up-session/references/routines.md\` § *Crossing the plan handover*) omit \`--approve\`" \
+  "build: pre-flight names an unattended lane run alongside /yolo"
+assert_prose_contains .agents/skills/slice/SKILL.md "or \`--file\` alone from \`/yolo\` or an unattended lane run" \
+  "slice: Integration names an unattended lane run alongside /yolo"
+
+# specs/lane-plan-handover.md AC8: built in the planning session, every slice
+# dispatches to a sub-agent (lone or serialized), verification stays central,
+# no sub-agents runs inline and says so; build-prompt sessions are unchanged.
+for token in "in the session that planned it" "every slice dispatches to a sub-agent" \
+             "lone ready slice" "serialized pair" "Verification stays central" \
+             "runs inline and says so in one line" "started by a build prompt dispatches as below"; do
+  assert_prose_contains "$BUILD_SKILL" "$token" \
+    "build: Parallel Dispatch Assessment contains '$token'"
+done
 
 # --- wrap-up: PR body gains a Handovers section before the linkage check ---
 # specs/plan-slices-and-handover.md AC13. Step 7's Pull Request section
