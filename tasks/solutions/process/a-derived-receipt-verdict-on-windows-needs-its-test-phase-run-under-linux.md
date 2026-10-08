@@ -47,3 +47,10 @@ publish the branch before the gate.
 
 Related: [../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md](../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md)
 (the same WSL reproduction recipe).
+
+Confirmed again on 2026-10-08 (readable-visual-plans). The Windows affected run had
+9/38 files failing, every one in the base baseline, and minted `STOP`. A WSL clone at
+the same tree (`99744b0`) failed only lane-catalogue AC4 without `gh`, and passed
+38/38 in 83 s with the `gh` wrapper. Run the WSL check *before* writing the receipt:
+re-minting a receipt over an existing one was refused as audit tampering by the
+auto-mode classifier, so the first `write` is the one that stands.

@@ -3,12 +3,11 @@ implementation_paths:
   - .agents/skills/system-design-planning/SKILL.md
   - .agents/skills/system-design-planning/references/review-card.md
   - .agents/skills/system-design-planning/templates/architecture-spec-template.md
-  - .agents/skills/system-design-planning/templates/content-model.json
   - CLAUDE.md
   - README.md
   - tests/test-doc-conventions.sh
   - tests/test-skill-invocation-chain.sh
-  - tests/test-visual-render.sh
+  - tests/test-plan-render.sh
   - .agents/skills/build/SKILL.md
 ---
 
@@ -97,8 +96,9 @@ tracker except through `task-registry.py`.
   files nothing itself: `/slice <spec> --file` mints and files one task per
   slice with `task-registry.py upsert --derive-id plan` in the session the
   build prompt starts.
-- The skill renders through `.agents/skills/visual-recap/scripts/visual-render.py`
-  to `specs/<feature>.plan.html` and prints that path before asking for review.
+- The skill renders the spec markdown alone through `.agents/skills/visual-plan/scripts/plan_render.py`
+  to `specs/<feature>.plan.html` and prints that path before asking for review
+  (specs/readable-visual-plans.md; the content model is retired).
 - The skill states that nothing is filed and nothing is built in the planning
   session, that the review loop attaches to the rendered document, and that
   the build prompt a human starts the build session with is the authorization
@@ -110,21 +110,20 @@ tracker except through `task-registry.py`.
   must not build.
 - The skill carries an off-ramp line `Skipping system-design-planning:` for
   changes below the bar.
-- `templates/content-model.json` renders through `visual-render.py` without
-  error and the output contains the seven section ids in order.
+- `templates/architecture-spec-template.md`, comments stripped, renders through
+  `plan_render.py` without error (tests/test-plan-render.sh § template).
 - The `README.md` skills table, rendered from `SKILL.md` frontmatter, lists
   `/system-design-planning`.
 - `tests/test-doc-conventions.sh` pins the tokens above in both trees,
   `tests/test-skill-invocation-chain.sh` pins the handoffs to `task-registry`,
-  `visual-render.py` and the Step 9 hand-off to `/build`, and
-  `tests/test-visual-render.sh` renders the content-model template live.
+  `plan_render.py` and the Step 9 hand-off to `/build`, and
+  `tests/test-plan-render.sh` renders the spec template live.
 
 ## Implementation Paths
 
 - `.agents/skills/system-design-planning/SKILL.md` — the process, iron law, gate, filing and handoff
 - `.agents/skills/system-design-planning/references/review-card.md` — the 25-question dependency-ordered review card used in self-review and offered to the human reviewer
 - `.agents/skills/system-design-planning/templates/architecture-spec-template.md` — the spec skeleton in the fixed section order, living-contract frontmatter
-- `.agents/skills/system-design-planning/templates/content-model.json` — the `html-presentation` content model with the same sections for the rendered document
 - `README.md` — skill registration (generated skills table)
 - `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` — static pins for the contract above
-- `tests/test-visual-render.sh` — live render of `templates/content-model.json`, section ids in order
+- `tests/test-plan-render.sh` — live render of the spec template through `plan_render.py`
