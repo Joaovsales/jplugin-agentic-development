@@ -222,6 +222,43 @@ assert_contains "$ESC" 'Client &lt;script&gt;' "flow-sequence: the escaped node 
 assert_contains "$ESC" 'Gateway &amp; Co' "flow-sequence: an ampersand in a node name is escaped"
 assert_contains "$ESC" 'get &lt;id&gt; &amp; &quot;flag&quot;' "flow-sequence: sequence message text is escaped"
 
+printf '\n--- risks: cards sort by impact then likelihood with text H/M/L labels ---\n'
+RISKS="$(between '<section class="sec sec-risks"' '</section>' "$FULL")"
+ORDER="$(printf '%s' "$RISKS" | grep -o 'id="r[0-9]"' | tr -d '\n')"
+assert_eq 'id="r1"id="r2"id="r3"id="r4"' "$ORDER" "risks: R1 (H impact, M likelihood), R2 (H, L), R3 (M, H), R4 (L, L)"
+R2="$(printf '%s' "$RISKS" | sed 's/<article/\n<article/g' | grep 'id="r2"')"
+assert_contains "$R2" '<span class="card-label">Risk</span>' "risks: the card carries its type label"
+assert_contains "$R2" '<span class="lvl lvl-L">Likelihood L</span>' "risks: likelihood is a text label"
+assert_contains "$R2" '<span class="lvl lvl-H">Impact H</span>' "risks: impact is a text label"
+assert_contains "$R2" 'No mitigation yet' "risks: an empty mitigation says so"
+assert_contains "$R2" 'is-blocker' "risks: an unmitigated high-impact risk is a blocker card"
+R1="$(printf '%s' "$RISKS" | sed 's/<article/\n<article/g' | grep 'id="r1"')"
+assert_contains "$R1" '<dt>Mitigation</dt><dd>Read in pages of 5000 rows</dd>' "risks: the mitigation is shown"
+assert_contains "$R1" '<dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd>' "risks: the slice links its card"
+assert_not_contains "$R1" 'is-blocker' "risks: a mitigated risk is not a blocker"
+render risks-none
+assert_eq "0" "$CODE" "risks: 'None identified — <why>' renders"
+NONE="$(between '<section class="sec sec-risks"' '</section>' "$(cat "$TMP/risks-none.html")")"
+assert_contains "$NONE" '<p class="risks-none">None identified — a read-only report with no external writes.</p>' "risks: None identified renders as a single line"
+assert_not_contains "$NONE" '<article' "risks: None identified renders no cards"
+
+printf '\n--- questions: a blocking question marks its slices in the DAG and appears in Blockers ---\n'
+QS="$(between '<section class="sec sec-open-questions"' '</section>' "$FULL")"
+Q1="$(printf '%s' "$QS" | sed 's/<article/\n<article/g' | grep 'id="q1"')"
+assert_contains "$Q1" '<span class="card-label">Question</span>' "questions: the card carries its type label"
+assert_contains "$Q1" '<span class="card-icon" aria-hidden="true">?</span>' "questions: the card carries the ? icon"
+assert_contains "$Q1" 'Blocks <a href="#slice-2">slice 2</a>' "questions: Blocks links the slices it blocks"
+assert_contains "$Q1" 'Needed from platform team' "questions: Needed from is a tag"
+assert_contains "$Q1" 'is-blocker' "questions: a blocking question is a blocker card"
+Q2="$(printf '%s' "$QS" | sed 's/<article/\n<article/g' | grep 'id="q2"')"
+assert_contains "$Q2" 'Blocks nothing' "questions: a non-blocking question says it blocks nothing"
+assert_not_contains "$Q2" 'is-blocker' "questions: a non-blocking question is not a blocker"
+DAG2="$(printf '%s' "$(between '<figure class="diagram card-diagram dag"' '</figure>' "$FULL")" | sed 's/<a /\n<a /g' | grep 'href="#slice-2"')"
+assert_contains "$DAG2" 'class="node node-blocked"' "questions: the blocked slice is marked in the DAG"
+assert_contains "$DAG2" '>blocked</text>' "questions: the DAG mark is also a text label"
+assert_contains "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'id="slice-2"')" 'chip-blocked' "questions: the blocked slice card carries a blocked chip"
+assert_not_contains "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'id="slice-3"')" 'chip-blocked' "questions: an unblocked slice carries no blocked chip"
+
 for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
   assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"
 done

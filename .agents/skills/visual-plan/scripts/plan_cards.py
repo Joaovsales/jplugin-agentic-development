@@ -5,10 +5,11 @@ the theme CSS styles them. Every card carries a text label and an aria-hidden ic
 no type is told apart by colour alone.
 """
 
+import re
 from typing import Dict, List, Optional
 
 from plan_md import Block, esc, inline, plain, render_blocks
-from plan_model import Plan, anchor, blockers, coverage
+from plan_model import Plan, anchor, blockers, coverage, is_blocking_risk
 
 # component type -> (icon glyph, text label); the registry AC3 checks.
 COMPONENTS: Dict[str, tuple] = {
@@ -112,6 +113,56 @@ def render_criteria(plan: Plan) -> str:
         '<p class="meta">This spec has not been sliced: no Build Order names its criteria yet.</p>')
     items = "".join(criterion_card(c, covered[c.id] if covered else None) for c in plan.criteria)
     return '%s<ol class="ac-list cards">%s</ol>' % (note, items)
+
+
+# ----------------------------------------------------------------- risks ---
+
+RANK = {"H": 0, "M": 1, "L": 2}
+
+
+def _slice_links(cell: str) -> str:
+    """`1, 2` -> slice links; anything else stays as written."""
+    nums = re.findall(r"\d+", plain(cell))
+    if not nums or re.sub(r"[\d,\s]", "", plain(cell)):
+        return inline(cell)
+    return ", ".join('<a href="#slice-%s">slice %s</a>' % (n, n) for n in nums)
+
+
+def risk_card(r) -> str:
+    blocking = is_blocking_risk(r)
+    levels = '<span class="lvl lvl-%s">Likelihood %s</span><span class="lvl lvl-%s">Impact %s</span>' % (
+        r.likelihood, r.likelihood, r.impact, r.impact)
+    mitigation = inline(r.mitigation) if plain(r.mitigation) else "<em>No mitigation yet</em>"
+    rows = "<dt>Mitigation</dt><dd>%s</dd>" % mitigation
+    if plain(r.slice):
+        rows += "<dt>Slice</dt><dd>%s</dd>" % _slice_links(r.slice)
+    return '<article class="%s" id="%s">%s<dl class="risk-body">%s</dl></article>' % (
+        classes("card card-risk", "is-blocker" if blocking else ""), anchor(r.id),
+        head("risk", r.id, levels, inline(r.text)), rows)
+
+
+def render_risks(plan: Plan) -> str:
+    if plan.risks is None or plan.risks.none_why is not None:
+        why = plan.risks.none_why if plan.risks else ""
+        return '<p class="risks-none">None identified — %s</p>' % inline(why)
+    ordered = sorted(plan.risks.items, key=lambda r: (RANK[r.impact], RANK[r.likelihood]))
+    return '<div class="cards">%s</div>' % "".join(risk_card(r) for r in ordered)
+
+
+# -------------------------------------------------------- open questions ---
+
+def question_card(q) -> str:
+    blocks = ("Blocks %s" % ", ".join('<a href="#slice-%d">slice %d</a>' % (n, n) for n in q.blocks)
+              if q.blocks else "Blocks nothing")
+    tags = '<p class="meta"><span class="tag">%s</span>%s</p>' % (
+        blocks, '<span class="tag">Needed from %s</span>' % inline(q.needed_from) if plain(q.needed_from) else "")
+    return '<article class="%s" id="%s">%s%s</article>' % (
+        classes("card card-question", "is-blocker" if q.blocks else ""), anchor(q.id),
+        head("question", q.id, chip("open", "blocking") if q.blocks else "", inline(q.text)), tags)
+
+
+def render_questions(plan: Plan) -> str:
+    return '<div class="cards">%s</div>' % "".join(question_card(q) for q in plan.questions)
 
 
 # --------------------------------------------- lead, strip and blockers ---

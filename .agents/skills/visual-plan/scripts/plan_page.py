@@ -72,6 +72,8 @@ TYPED: Dict[str, Callable[[Plan, Section, Callable], str]] = {
     "decisions": lambda plan, section, hook: cards.render_decisions(plan),
     "acceptance criteria": lambda plan, section, hook: cards.render_criteria(plan),
     "build order": lambda plan, section, hook: render_build_order(plan, hook),
+    "risks": lambda plan, section, hook: cards.render_risks(plan),
+    "open questions": lambda plan, section, hook: cards.render_questions(plan),
 }
 LEAD_ONLY = ("summary",)
 

@@ -44,10 +44,10 @@ The exporter reads every team's rows, writes `team-<id>.csv`, and hands files ov
 
 | ID | Risk | Likelihood | Impact | Mitigation | Slice |
 |---|---|---|---|---|---|
-| R1 | The store times out under the Monday load | M | H | Read in pages of 5000 rows | 1 |
-| R2 | The bucket quota is exceeded | L | H |  | 2 |
-| R3 | A column rename breaks old readers | H | M | Pin the header order in a test | 1 |
 | R4 | Clock skew delays the run | L | L | Schedule from UTC only | 1 |
+| R3 | A column rename breaks old readers | H | M | Pin the header order in a test | 1 |
+| R2 | The bucket quota is exceeded | L | H |  | 2 |
+| R1 | The store times out under the Monday load | M | H | Read in pages of 5000 rows | 1 |
 
 ## Open questions
 
