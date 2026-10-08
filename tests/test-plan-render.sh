@@ -80,4 +80,31 @@ assert_contains "$PAGE" '>AC1.1<' "legacy: a dotted AC-1.1 id normalises to AC1.
 assert_contains "$PAGE" '>AC2<' "legacy: an 'AC-2 —' prefix normalises to AC2"
 assert_contains "$PAGE" 'chip-settled' "legacy: 'settled (operator pick)' reads as settled"
 
+printf '\n--- theme: the jplugin plan theme is inlined; no design-stack install or project DESIGN.md is read ---\n'
+THEME="$REPO_ROOT/design/plan-theme"
+PAGE="$(cat "$TMP/legacy.html" 2>/dev/null)"
+assert_contains "$PAGE" '/* jplugin plan theme' "theme: the page inlines design/plan-theme/plan.css"
+assert_contains "$PAGE" 'prefers-color-scheme: dark' "theme: the theme carries dark tokens"
+assert_contains "$PAGE" '--paper:' "theme: the theme defines its paper token"
+assert_contains "$PAGE" '@media print' "theme: the theme carries print rules"
+assert_not_contains "$PAGE" '<link ' "theme: no stylesheet is linked; the CSS is inline"
+mkdir -p "$TMP/project"
+cp "$FIX/legacy.md" "$TMP/project/legacy.md"
+printf '# Project design\n\nbody { color: hotpink; } PROJECT-DESIGN-MARKER\n' > "$TMP/project/DESIGN.md"
+(cd "$TMP/project" && "$TEST_PYTHON" "$RENDER" legacy.md -o page.html >/dev/null 2>&1)
+assert_not_contains "$(cat "$TMP/project/page.html" 2>/dev/null)" 'PROJECT-DESIGN-MARKER' "theme: a project DESIGN.md beside the spec is not read"
+assert_eq "$(sed 1d "$TMP/legacy.html" | md5sum)" "$(sed 1d "$TMP/project/page.html" | md5sum)" "theme: the page is identical with or without a project DESIGN.md"
+# Lowercased through tr: `grep -i` aborts on multibyte input under Git Bash.
+SCRIPTS_LC="$(cat "$REPO_ROOT"/.agents/skills/visual-plan/scripts/*.py | tr 'A-Z' 'a-z')"
+for scripts_needle in 'design.md' 'design-stack' '.claude/skills' 'impeccable' 'taste'; do
+  if printf '%s' "$SCRIPTS_LC" | grep -qF -- "$scripts_needle"; then
+    assert_eq "unread" "read" "theme: the renderer never names $scripts_needle"
+  else
+    assert_eq "unread" "unread" "theme: the renderer never names $scripts_needle"
+  fi
+done
+for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
+  assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"
+done
+
 finish

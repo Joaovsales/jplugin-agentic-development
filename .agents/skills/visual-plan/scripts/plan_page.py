@@ -1,16 +1,21 @@
 """Assemble a parsed `Plan` into one self-contained HTML page."""
 
 import re
+from pathlib import Path
 from typing import Callable, Dict, List
 
 from plan_md import Section, esc, inline, plain, render_blocks
 from plan_model import Plan, section_key
 
-BASE_CSS = """
-body { font-family: Georgia, serif; max-width: 72rem; margin: 0 auto; padding: 1rem; }
-.table-scroll { overflow-x: auto; max-width: 100%; }
-pre { overflow-x: auto; }
-"""
+THEME_CSS = Path(__file__).resolve().parents[4] / "design" / "plan-theme" / "plan.css"
+
+
+def theme_css() -> str:
+    """The jplugin plan theme, inlined into every page; a missing theme is an error."""
+    if not THEME_CSS.is_file():
+        raise FileNotFoundError("plan theme not found at %s" % THEME_CSS)
+    return THEME_CSS.read_text(encoding="utf-8")
+
 
 PAGE = """<!doctype html>
 <html lang="en">
@@ -98,4 +103,4 @@ def render_page(plan: Plan) -> str:
     parts: List[str] = [render_blocks(plan.doc.preamble), render_lead(plan)]
     parts += [render_section(plan, s, slugs) for s in plan.doc.sections]
     title = plain(plan.doc.title)
-    return PAGE.format(title=esc(title), title_html=inline(plan.doc.title), css=BASE_CSS, main="\n".join(parts))
+    return PAGE.format(title=esc(title), title_html=inline(plan.doc.title), css=theme_css(), main="\n".join(parts))
