@@ -1771,9 +1771,12 @@ Filed this sweep:
 > Surface: none
 
 ### Slice 4/13 — Diagrams
-- [ ] Diagrams <!-- task-id: plan.specs-readable-visual-plans-md.diagrams --> — Slice 4/13 of #233: Inline SVG for the Build Order dependency DAG and for `flow` and `sequence` fences, with strict DSL… ([#259](https://github.com/Joaovsales/jplugin-agentic-development/issues/259)) (blocked-by: plan.specs-readable-visual-plans-md.decision-and-criteria-cards)
-  [ ] TDD: tests/test-plan-render.sh § dag — Build Order renders an SVG with one linked, named node per slice in dependency layers -> layered DAG generator (AC 9)
-  [ ] TDD: tests/test-plan-render.sh § flow-sequence — flow and sequence fixtures render SVG with caption, title, desc, new/changed styling and alt frames, source in a collapsed disclosure, no script src -> DSL parsers and SVG emitters (AC 10)
+- [x] Diagrams <!-- task-id: plan.specs-readable-visual-plans-md.diagrams --> — Slice 4/13 of #233: Inline SVG for the Build Order dependency DAG and for `flow` and `sequence` fences, with strict DSL… ([#259](https://github.com/Joaovsales/jplugin-agentic-development/issues/259)) (blocked-by: plan.specs-readable-visual-plans-md.decision-and-criteria-cards)
+  [x] TDD: tests/test-plan-render.sh § dag — Build Order renders an SVG with one linked, named node per slice in dependency layers -> layered DAG generator (AC 9)
+  [x] TDD: tests/test-plan-render.sh § flow-sequence — flow and sequence fixtures render SVG with caption, title, desc, new/changed styling and alt frames, source in a collapsed disclosure, no script src -> DSL parsers and SVG emitters (AC 10)
+> Handover: landed 41e58bd..6546beb — `plan_svg.py` (layered DAG, flow with lanes and new/changed nodes, sequence with lifelines and alt/else frames; `<title>`/`<desc>` on every SVG), `plan_figures.py` (`figure`, `dsl_figure`, `dag_figure`, `diagram_hook`), `plan_build.py` (Build Order section: intro, DAG, `article.card-slice#slice-<n>` cards with a collapsed `Slice details` body, prompt still a plain `<pre>`); `render_blocks(blocks, hook)` lets a hook claim a fence.
+> Do not re-derive: slice cards were not assigned to any slice, so they landed here with the DAG; `plan_build.blocked_slices()` and the `blocked` argument of `dag_svg` already exist for slice 5 (blocked nodes get `node-blocked` plus a `blocked` text label, cards get `is-blocked is-blocker` and a chip); slice 7 replaces the `<pre>` prompt in `render_build_order`; the flow gap between layers widens to fit edge labels; the DAG svg is `role="group"` (its nodes are links), flow and sequence are `role="img"`.
+> Surface: none
 
 ### Slice 5/13 — Risk and question cards
 - [ ] Risk and question cards <!-- task-id: plan.specs-readable-visual-plans-md.risk-and-question-cards --> — Slice 5/13 of #233: `## Risks` and `## Open questions` cards, their Blockers entries and blocked-slice marks in the DAG. ([#260](https://github.com/Joaovsales/jplugin-agentic-development/issues/260)) (blocked-by: plan.specs-readable-visual-plans-md.diagrams)
