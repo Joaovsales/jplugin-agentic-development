@@ -90,8 +90,14 @@ def find(doc: Document, *keys: str) -> Optional[Section]:
     return None
 
 
+def spec_sha256(text: str) -> str:
+    """SHA-256 of the spec text as read (line endings normalised to LF), so a CRLF
+    checkout and an LF checkout of one spec share a hash."""
+    return hashlib.sha256(text.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+
+
 def analyse(doc: Document, text: str, spec_path: str, out_path: str) -> Plan:
-    plan = Plan(doc, spec_path, out_path, hashlib.sha256(text.encode("utf-8")).hexdigest())
+    plan = Plan(doc, spec_path, out_path, spec_sha256(text))
     _read_typed(plan)
     plan.summary = _summary(doc)
     _read_diagrams(plan)

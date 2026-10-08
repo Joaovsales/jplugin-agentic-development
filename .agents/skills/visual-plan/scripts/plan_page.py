@@ -1,5 +1,6 @@
 """Assemble a parsed `Plan` into one self-contained HTML page."""
 
+import os
 import re
 from pathlib import Path
 from typing import Callable, Dict, List, Tuple
@@ -120,9 +121,27 @@ def render_toc(plan: Plan, sections: List[Tuple[Section, str]]) -> str:
         entries.append(("summary-lead", "Summary"))
     entries.append(("blockers", "Blockers"))
     entries += [(sid, s.title) for s, sid in sections]
+    if plan.build:
+        entries.append(("build-prompt", "Build prompt"))
     items = "".join('<li><a href="#%s">%s</a></li>' % (esc(sid), inline(title)) for sid, title in entries)
     return ('<nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary>'
             "<ol>%s</ol></details></nav>" % items)
+
+
+def source_href(plan: Plan) -> str:
+    """The spec, relative to the directory the page is written into."""
+    out_dir = os.path.dirname(os.path.abspath(plan.out_path))
+    return os.path.relpath(os.path.abspath(plan.spec_path), out_dir).replace(os.sep, "/")
+
+
+def render_masthead(plan: Plan) -> str:
+    shown = plan.spec_path.replace(os.sep, "/")
+    prompt = '<a href="#build-prompt">Build prompt ↓</a>' if plan.build else "Not sliced yet"
+    return (
+        '<p class="folio"><span>Visual plan</span><span>%s</span></p><h1>%s</h1>'
+        '<p class="source">Source: <a href="%s">%s</a> · sha256 <code>%s</code></p>'
+        % (prompt, inline(plan.doc.title), esc(source_href(plan)), esc(shown), plan.short_sha)
+    )
 
 
 def render_main(plan: Plan, sections: List[Tuple[Section, str]]) -> str:
@@ -140,7 +159,7 @@ def render_main(plan: Plan, sections: List[Tuple[Section, str]]) -> str:
 def render_page(plan: Plan) -> str:
     sections = body_sections(plan)
     return PAGE.format(
-        title=esc(plain(plan.doc.title)), masthead="<h1>%s</h1>" % inline(plan.doc.title),
+        title=esc(plain(plan.doc.title)), masthead=render_masthead(plan),
         css=theme_css(), toc=render_toc(plan, sections), main=render_main(plan, sections),
         script=PAGE_JS.read_text(encoding="utf-8"),
     )

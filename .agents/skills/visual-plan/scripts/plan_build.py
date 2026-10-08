@@ -37,11 +37,22 @@ def slice_card(s: Slice, is_blocked: bool) -> str:
         head("slice", "S%d" % s.number, chips, inline(s.name)), inline(goal), "".join(rows))
 
 
+def prompt_panel(plan: Plan) -> str:
+    """The canonical build prompt, verbatim, with a copy button over its exact text."""
+    if plan.build.prompt is None:
+        body = '<p class="meta">§ Build Order carries no build prompt yet: re-run <code>/slice</code>.</p>'
+    else:
+        body = ('<pre><code id="build-prompt-text">%s</code></pre>'
+                '<button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button>'
+                % esc(plan.build.prompt))
+    return '<section class="card card-prompt" id="build-prompt" aria-label="Build prompt">%s%s</section>' % (
+        head("prompt"), body)
+
+
 def render_build_order(plan: Plan, hook) -> str:
     blocked = blocked_slices(plan)
     intro = [b for b in plan.build.intro if not plain(b.text).lower().startswith("build prompt")]
     cards = "".join(slice_card(s, s.number in blocked) for s in plan.build.slices)
-    prompt = "<pre><code>%s</code></pre>" % esc(plan.build.prompt) if plan.build.prompt else ""
     return "%s%s<div class=\"cards slice-cards\">%s</div>%s" % (
-        render_blocks(intro, hook), dag_figure(plan, blocked), cards, prompt)
+        render_blocks(intro, hook), dag_figure(plan, blocked), cards, prompt_panel(plan))
 

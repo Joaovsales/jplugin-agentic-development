@@ -93,7 +93,9 @@ cp "$FIX/legacy.md" "$TMP/project/legacy.md"
 printf '# Project design\n\nbody { color: hotpink; } PROJECT-DESIGN-MARKER\n' > "$TMP/project/DESIGN.md"
 (cd "$TMP/project" && "$TEST_PYTHON" "$RENDER" legacy.md -o page.html >/dev/null 2>&1)
 assert_not_contains "$(cat "$TMP/project/page.html" 2>/dev/null)" 'PROJECT-DESIGN-MARKER' "theme: a project DESIGN.md beside the spec is not read"
-assert_eq "$(sed 1d "$TMP/legacy.html" | md5sum)" "$(sed 1d "$TMP/project/page.html" | md5sum)" "theme: the page is identical with or without a project DESIGN.md"
+mkdir -p "$TMP/bare" && cp "$FIX/legacy.md" "$TMP/bare/legacy.md"
+(cd "$TMP/bare" && "$TEST_PYTHON" "$RENDER" legacy.md -o page.html >/dev/null 2>&1)
+assert_eq "$(md5sum < "$TMP/bare/page.html")" "$(md5sum < "$TMP/project/page.html")" "theme: the page is identical with or without a project DESIGN.md"
 # Lowercased through tr: `grep -i` aborts on multibyte input under Git Bash.
 SCRIPTS_LC="$(cat "$REPO_ROOT"/.agents/skills/visual-plan/scripts/*.py | tr 'A-Z' 'a-z')"
 for scripts_needle in 'design.md' 'design-stack' '.claude/skills' 'impeccable' 'taste'; do
@@ -306,6 +308,43 @@ for sid in summary-lead blockers decisions acceptance-criteria build-order refer
   assert_contains "$TOC" "href=\"#$sid\"" "deep-links: the table of contents links #$sid"
 done
 assert_contains "$FULL" '<div class="shell"><nav class="toc"' "deep-links: the navigation sits in the layout shell beside main"
+
+printf '\n--- prompt: the build-prompt panel copies the canonical Build Order prompt ---\n'
+PANEL="$(between '<section class="card card-prompt' '</section>' "$FULL")"
+assert_contains "$PANEL" 'id="build-prompt"' "prompt: the panel has a stable anchor"
+assert_contains "$PANEL" '<span class="card-label">Build prompt</span>' "prompt: the panel carries its type label"
+assert_contains "$PANEL" '<button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button>' "prompt: Copy build prompt copies the prompt element"
+assert_contains "$(between '<header class="masthead"' '</header>' "$FULL")" 'href="#build-prompt"' "prompt: the first screen links the panel"
+assert_contains "$(between '<nav class="toc"' '</nav>' "$FULL")" 'href="#build-prompt"' "prompt: the table of contents links the panel"
+cat > "$TMP/prompt_bytes.py" <<'PY'
+import html, re, sys
+page = open(sys.argv[1], encoding="utf-8").read()
+spec = open(sys.argv[2], encoding="utf-8").read()
+m = re.search(r'<code id="build-prompt-text">(.*?)</code>', page, re.S)
+canon = re.search(r"Build prompt:\s*\n\s*```\n(.*?)\n```", spec, re.S)
+print("equal" if m and canon and html.unescape(m.group(1)) == canon.group(1) else "differ")
+PY
+assert_eq "equal" "$("$TEST_PYTHON" "$TMP/prompt_bytes.py" "$TMP/full.html" "$FIX/full.md")" "prompt: the copy payload equals the Build Order prompt byte for byte"
+assert_contains "$PANEL" 'quote &quot;values&quot; &amp; &lt;escape&gt; them' "prompt: the prompt payload is HTML-escaped"
+assert_not_contains "$PSHAPE" 'id="build-prompt"' "prompt: an unsliced spec has no prompt panel"
+
+printf '\n--- source: the header names the spec and its hash; nothing is embedded or fetched ---\n'
+SHA="$("$TEST_PYTHON" -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],encoding="utf-8").read().encode()).hexdigest()[:12])' "$FIX/full.md")"
+HEADER="$(between '<header class="masthead"' '</header>' "$FULL")"
+assert_contains "$HEADER" "\">full.md</a> · sha256 <code>$SHA</code>" "source: the header names the spec with its SHA-256 prefix"
+assert_contains "$HEADER" '<p class="source">Source: <a href="' "source: the source line is a link"
+assert_eq "$SHA" "$(cd "$FIX" && "$TEST_PYTHON" "$RENDER" --hash full.md)" "source: --hash prints the same prefix for /plan to compare"
+mkdir -p "$TMP/out/plans"
+(cd "$FIX" && "$TEST_PYTHON" "$RENDER" full.md -o "$TMP/out/plans/full.plan.html" >/dev/null 2>&1)
+REL="$("$TEST_PYTHON" -c 'import os,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]).replace(os.sep, "/"))' "$FIX/full.md" "$TMP/out/plans")"
+assert_contains "$(cat "$TMP/out/plans/full.plan.html")" "<a href=\"$REL\">" "source: the link is relative to where the page is written"
+assert_not_contains "$FULL" '| ID | Decision | Options |' "source: no raw markdown table is embedded"
+assert_not_contains "$FULL" 'implementation_paths' "source: the frontmatter is not embedded"
+assert_not_contains "$FULL" 'text/markdown' "source: no markdown payload block"
+assert_not_contains "$FULL" 'download' "source: no download of the markdown is offered"
+for needle in 'src="http' "src='http" '<link' '@import' 'url(http' 'fetch(' 'XMLHttpRequest' 'sendBeacon' 'WebSocket'; do
+  assert_not_contains "$FULL" "$needle" "source: nothing loads over the network ($needle)"
+done
 
 for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
   assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"
