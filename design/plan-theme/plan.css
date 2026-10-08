@@ -96,6 +96,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .stat-n { display: block; font: 400 30px/1.1 var(--display); color: var(--ink); }
 .stat-l { display: block; font: 12px/1.3 var(--mono); color: var(--muted); }
 .stat-alert .stat-n { color: var(--c-blocker); }
+.strip-label { grid-column: 1 / -1; display: flex; gap: 4px; align-items: baseline; padding: 8px 0 0; color: var(--muted); }
+.strip-label + .stat { border-left: 0; padding-left: 0; }
 .blockers { border: 1px solid var(--c-blocker); border-left-width: 6px; background: var(--t-blocker); padding: 16px 20px; margin: 0 0 30px; }
 .blockers h2 { font: 600 18px/1.3 var(--sans); margin: 0 0 8px; color: var(--c-blocker); }
 .blockers ul { margin: 0; padding-left: 0; list-style: none; }
@@ -222,6 +224,7 @@ svg .frame-divider { stroke: var(--c-question); stroke-dasharray: 4 3; }
 .review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .review button { padding: 6px 9px; min-height: 30px; font-size: 12px; }
 .review button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.review label { display: flex; align-items: center; gap: 6px; flex: 1 1 16ch; min-width: 0; font: 12px/1.3 var(--mono); color: var(--muted); }
 .review textarea, .review select, .review input { font: 13px/1.4 var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--strong); border-radius: 4px; padding: 6px 8px; flex: 1 1 16ch; min-width: 0; }
 .review-status { font: 12px/1.4 var(--mono); color: var(--muted); margin: 8px 0 0; max-width: none; }
 .review-panel { border: 1px solid var(--strong); padding: 16px 18px; margin: 26px 0; }
