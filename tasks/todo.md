@@ -1745,10 +1745,13 @@ Filed this sweep:
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/233
 
 ### Slice 1/13 — Renderer core
-- [ ] Renderer core <!-- task-id: plan.specs-readable-visual-plans-md.renderer-core --> — Slice 1/13 of #233: A stdlib markdown-subset renderer that turns any spec into a self-contained page with generic secti… ([#256](https://github.com/Joaovsales/jplugin-agentic-development/issues/256))
-  [ ] TDD: tests/test-plan-render.sh § failures — a malformed Decisions row, Risks value, duplicate ID and bad diagram line each exit 1 with `<spec>:<line>: <reason>` and write no file -> parser with section validators (AC 2)
-  [ ] TDD: tests/test-plan-render.sh § tables — fixture tables render as `<table>` with `<th>`, wide tables sit in a scroll container -> markdown table renderer (AC 14)
-  [ ] TDD: tests/test-plan-render.sh § legacy — a pre-change fixture spec (no IDs, no Summary, ASCII diagram) renders with auto IDs, summary fallback and a collapsed text diagram -> generic section and fallback rules (AC 21)
+- [x] Renderer core <!-- task-id: plan.specs-readable-visual-plans-md.renderer-core --> — Slice 1/13 of #233: A stdlib markdown-subset renderer that turns any spec into a self-contained page with generic secti… ([#256](https://github.com/Joaovsales/jplugin-agentic-development/issues/256))
+  [x] TDD: tests/test-plan-render.sh § failures — a malformed Decisions row, Risks value, duplicate ID and bad diagram line each exit 1 with `<spec>:<line>: <reason>` and write no file -> parser with section validators (AC 2)
+  [x] TDD: tests/test-plan-render.sh § tables — fixture tables render as `<table>` with `<th>`, wide tables sit in a scroll container -> markdown table renderer (AC 14)
+  [x] TDD: tests/test-plan-render.sh § legacy — a pre-change fixture spec (no IDs, no Summary, ASCII diagram) renders with auto IDs, summary fallback and a collapsed text diagram -> generic section and fallback rules (AC 21)
+> Handover: landed b8dec43..c304218 — `plan_render.py` CLI over `plan_md.py` (block parser + inline + generic render), `plan_sections.py` (typed parsers: decisions in both shapes, criteria, build order + prompt, risks, questions), `plan_diagrams.py` (strict flow/sequence parsers, no SVG yet), `plan_model.py` (`analyse` → `Plan`), `plan_page.py` (page assembly, `TYPED` section registry, minimal BASE_CSS); 59 assertions in tests/test-plan-render.sh.
+> Do not re-derive: every known section is parsed and validated in slice 1 — later slices only render from `Plan`; `Plan.diagrams` is keyed by fence line; the renderer reconfigures stdout/stderr to UTF-8 (cp1252 consoles); 46/47 existing specs render, and `specs/claude-plugin-manifest.md:477` fails on a genuinely ragged Decisions row (D11), accepted legacy dialects are `AC-1.1`, `AC-2 —`, `1–7` ranges and `settled (<note>)`.
+> Surface: none
 
 ### Slice 2/13 — Plan theme
 - [ ] Plan theme <!-- task-id: plan.specs-readable-visual-plans-md.plan-theme --> — Slice 2/13 of #233: The jplugin plan theme, authored with Taste and Impeccable from the minimalist prototype, recorded… ([#257](https://github.com/Joaovsales/jplugin-agentic-development/issues/257)) (blocked-by: plan.specs-readable-visual-plans-md.renderer-core)
