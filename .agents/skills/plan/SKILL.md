@@ -133,6 +133,9 @@ implementation_paths:
 
 # Spec: [Feature Name]
 
+## Summary
+[Optional: two to four sentences — what changes, for whom, the one decision not to miss]
+
 ## Behavior
 [What the feature does, from the user's perspective]
 
@@ -146,6 +149,13 @@ implementation_paths:
 - [Edge case 1 and expected behavior]
 - [Edge case 2 and expected behavior]
 
+## Risks
+[Optional]
+
+| ID | Risk | Likelihood | Impact | Mitigation | Slice |
+|---|---|---|---|---|---|
+| R1 | [what could go wrong] | M | H | [how it is caught or prevented] | [1] |
+
 ## Decisions
 
 | # | Question | Decision | Source | Why |
@@ -156,10 +166,17 @@ implementation_paths:
 for one `/plan` picked without asking (state why in the row), and `open` for
 one nobody has decided yet.
 
+## Open questions
+[Optional]
+
+| ID | Question | Blocks | Needed from |
+|---|---|---|---|
+| Q1 | [a fact someone outside the session must supply] | [slice numbers, or none] | [who] |
+
 ## Acceptance Criteria
-- [Verifiable criterion 1]
-- [Verifiable criterion 2]
-- [Verifiable criterion 3]
+- AC1: [Verifiable criterion 1]
+- AC2: [Verifiable criterion 2]
+- AC3: [Verifiable criterion 3]
 
 ## Implementation Paths
 - `src/feature/**` — [what this code does for the feature]
@@ -168,6 +185,17 @@ one nobody has decided yet.
 
 A vague requirement is rewritten as a measurable acceptance criterion before
 it enters § Acceptance Criteria, and the rewrite is shown to the user.
+
+The optional sections are typed on the visual plan: § Summary becomes its
+lead, a § Risks row with high impact and no mitigation and a § Open questions
+row that `Blocks` a slice become blockers, and an `open` decision or a blocking
+question keeps `/slice` from printing a build prompt. Omit a section rather
+than fill it with placeholders.
+
+**Write it to be read:** remove repetition, empty qualifiers and workflow
+narration — the spec states what the system does, not how the interview went —
+and write connected sentences, not slash-packed shorthand: "an export over
+50000 rows is split into parts" over "export/split/50k".
 § Build Order is not written here — `/slice` writes it in Step 3.
 
 `implementation_paths` is the matching contract; the `## Implementation Paths`

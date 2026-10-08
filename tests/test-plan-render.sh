@@ -512,6 +512,49 @@ for name in full legacy legacy-dialects plan-shape diagram-escape risks-none; do
     "preservation: every AC sentence, table row, code line and numeric limit of $name.md is in its page"
 done
 
+printf '\n--- wiring: both planners render through plan_render.py, from the spec alone ---\n'
+VP_SKILL="$REPO_ROOT/.agents/skills/visual-plan/SKILL.md"
+SDP_SKILL="$REPO_ROOT/.agents/skills/system-design-planning/SKILL.md"
+for f in "$VP_SKILL" "$SDP_SKILL"; do
+  name="$(basename "$(dirname "$f")")"
+  assert_file_contains "$f" 'python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html' "wiring: $name renders with plan_render.py"
+  assert_file_not_matches "$f" 'visual-render.py' "wiring: $name no longer calls the recap renderer"
+  assert_file_not_matches "$f" 'content-model.json' "wiring: $name builds no content model"
+  assert_file_not_matches "$f" '```text blocks' "wiring: $name no longer requires text fences for diagrams and tables"
+done
+assert_eq "absent" "$([ -e "$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json" ] && echo present || echo absent)" "wiring: content-model.json is removed"
+
+printf '\n--- template: the system-design template carries what the renderer types ---\n'
+SDP_TMPL="$REPO_ROOT/.agents/skills/system-design-planning/templates/architecture-spec-template.md"
+for heading in '## Summary' '## Risks' '## Open questions'; do
+  assert_file_contains "$SDP_TMPL" "$heading" "template: has $heading"
+done
+assert_file_contains "$SDP_TMPL" '| ID | Decision | Options | Recommended | Wrong when | Status |' "template: Decisions carry ID and Status columns"
+assert_file_contains "$SDP_TMPL" '| ID | Risk | Likelihood | Impact | Mitigation | Slice |' "template: Risks carry the typed columns"
+assert_file_contains "$SDP_TMPL" '| ID | Question | Blocks | Needed from |' "template: Open questions carry the typed columns"
+assert_file_contains "$SDP_TMPL" '```flow' "template: System design shows a flow diagram"
+assert_file_contains "$SDP_TMPL" '```sequence' "template: a contract shows a sequence diagram"
+assert_file_contains "$SDP_TMPL" '- AC1:' "template: criteria carry AC ids"
+SDP_TMPL_SPEC="$TMP/template-spec.md"
+sed '/^<!--/,/-->$/d' "$SDP_TMPL" > "$SDP_TMPL_SPEC"
+assert_eq "0" "$(cd "$TMP" && "$TEST_PYTHON" "$RENDER" template-spec.md -o template-spec.html >/dev/null 2>&1; echo $?)" "template: the template itself renders"
+assert_contains "$(cat "$TMP/template-spec.html" 2>/dev/null)" 'has not been sliced' "template: an empty Build order renders as a spec not sliced yet, not a failure"
+assert_file_contains "$SDP_SKILL" 'at least one `flow` diagram under § System design' "template: /system-design-planning requires a flow diagram"
+assert_file_contains "$SDP_SKILL" 'a `sequence` diagram for each changed external contract or cross-component failure path' "template: /system-design-planning requires sequence diagrams"
+assert_file_contains "$SDP_SKILL" '| Risks |' "template: /system-design-planning requires § Risks"
+
+printf '\n--- editorial: both planners tell the author how to write a readable spec ---\n'
+for f in "$REPO_ROOT/.agents/skills/plan/SKILL.md" "$SDP_SKILL"; do
+  name="$(basename "$(dirname "$f")")"
+  for phrase in 'remove repetition' 'empty qualifiers' 'workflow narration' 'connected sentences' 'slash-packed shorthand'; do
+    assert_prose_contains "$f" "$phrase" "editorial: $name says '$phrase'"
+  done
+done
+for heading in '## Summary' '## Risks' '## Open questions'; do
+  assert_file_contains "$REPO_ROOT/.agents/skills/plan/SKILL.md" "$heading" "template: /plan's template offers $heading"
+done
+assert_file_contains "$REPO_ROOT/.agents/skills/plan/SKILL.md" '- AC1:' "template: /plan's criteria carry AC ids"
+
 for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
   assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"
 done

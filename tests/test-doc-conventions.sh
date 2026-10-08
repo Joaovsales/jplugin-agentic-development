@@ -74,8 +74,8 @@ done
 for f in .agents/skills/visual-plan/SKILL.md; do
   for token in "name: visual-plan" "argument-hint:" "Skip when trivial" \
                "read-only" "specs/" ".plan.html" \
-               ".agents/skills/visual-recap/scripts/visual-render.py" "file map" \
-               "open questions" "wireframe" "NEW"; do
+               ".agents/skills/visual-plan/scripts/plan_render.py" "Open questions" \
+               "<spec>:<line>: <reason>"; do
     assert_file_contains "$f" "$token" "visual-plan: $f contains '$token'"
   done
 done
@@ -91,9 +91,8 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
                "disable-model-invocation: false" \
                "Skipping system-design-planning:" \
                "task-registry.py show" \
-               ".agents/skills/visual-recap/scripts/visual-render.py" ".plan.html" \
+               ".agents/skills/visual-plan/scripts/plan_render.py" ".plan.html" \
                "references/review-card.md" "templates/architecture-spec-template.md" \
-               "templates/content-model.json" \
                "[ ] TDD:" "### Slice" "UNVERIFIED"; do
     assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
   done
@@ -145,9 +144,9 @@ done
 # pinned by the smallest falsifiable unit — heading order and question ids —
 # never by prose.
 tmpl=.agents/skills/system-design-planning/templates/architecture-spec-template.md
-assert_eq "Problem Constraints System design Component contracts Data models Build order Decisions Acceptance Criteria Implementation Paths" \
+assert_eq "Summary Problem Constraints System design Component contracts Data models Risks Build order Decisions Open questions Acceptance Criteria Implementation Paths" \
   "$(grep '^## ' "$tmpl" | tr -d '\r' | sed 's/^## //' | paste -sd ' ' -)" \
-  "system-design-planning: spec template carries the nine sections in order"
+  "system-design-planning: spec template carries the twelve sections in order"
 card=.agents/skills/system-design-planning/references/review-card.md
 assert_eq "C1 C2 C3 C4 C5 S1 S2 S3 S4 S5 K1 K2 K3 K4 K5 D1 D2 D3 D4 D5 B1 B2 B3 B4 B5" \
   "$(grep -oE '^\| [CSKDB][1-5] ' "$card" | tr -d '| ' | paste -sd ' ' -)" \
@@ -1088,16 +1087,6 @@ assert_file_contains "$SDP_TEMPLATE" "## Build order" \
   "design-planning: template keeps the Build order heading"
 assert_prose_contains "$SDP_TEMPLATE" "/slice fills this section's table" \
   "design-planning: template says /slice fills the Build order table"
-
-# The rendered document's reflection line is what the reviewer reads last;
-# an approval word there would reintroduce the gate Step 7 retired.
-SDP_MODEL=.agents/skills/system-design-planning/templates/content-model.json
-assert_file_not_matches "$SDP_MODEL" ', or approved' \
-  "design-planning: content-model.json reflection no longer offers the approval word"
-assert_file_contains "$SDP_MODEL" "starting a fresh session with the build prompt" \
-  "design-planning: content-model.json reflection points at the build session"
-assert_file_not_matches "$SDP_MODEL" 'Contract exposed        Size' \
-  "design-planning: content-model.json build-order example is /slice's table, not the retired one"
 
 # --- brainstorm: Step 6's template carries § Decisions with a Source column ---
 # specs/plan-slices-and-handover.md AC11. /plan Step 1 carries a settled tree

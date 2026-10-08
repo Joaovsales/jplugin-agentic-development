@@ -120,7 +120,7 @@ def analyse(doc: Document, text: str, spec_path: str, out_path: str) -> Plan:
 def _read_typed(plan: Plan) -> None:
     doc = plan.doc
     build = find(doc, "build order")
-    plan.build = parse_build_order(build) if build else None
+    plan.build = parse_build_order(build) if build and build.blocks else None  # empty: not sliced yet
     numbers = {s.number for s in plan.build.slices} if plan.build else None
     readers = (
         ("decisions", lambda s: setattr(plan, "decisions", parse_decisions(s))),

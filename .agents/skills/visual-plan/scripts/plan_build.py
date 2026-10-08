@@ -68,6 +68,8 @@ def prompt_panel(plan: Plan) -> str:
 
 
 def render_build_order(plan: Plan, hook) -> str:
+    if plan.build is None:
+        return '<p class="meta">This spec has not been sliced yet: <code>/slice</code> writes this section.</p>'
     blocked = blocked_slices(plan)
     intro = [b for b in plan.build.intro if not plain(b.text).lower().startswith("build prompt")]
     cards = "".join(slice_card(s, s.number in blocked) for s in plan.build.slices)
