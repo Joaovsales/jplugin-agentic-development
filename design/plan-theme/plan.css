@@ -134,7 +134,8 @@ td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-a
 .card-more dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; }
 .card-more dt { font: 600 12px/1.6 var(--mono); color: var(--muted); }
 .card-more dd { margin: 0; color: var(--body); }
-.chosen { display: flex; gap: 8px; align-items: baseline; color: var(--ink); }
+.chosen { position: relative; padding-left: 26px; color: var(--ink); overflow-wrap: anywhere; }
+.chosen::before { position: absolute; left: 0; top: .2em; }
 .chosen::before { content: "\2713"; font: 700 12px/1 var(--mono); color: var(--c-criterion); border: 1px solid currentColor; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; flex: none; }
 .callout-wrong { border-left: 3px solid var(--c-blocker); padding: 6px 10px; background: var(--t-blocker); color: var(--ink); }
 .meta { font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: none; }
