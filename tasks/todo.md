@@ -1818,9 +1818,12 @@ Filed this sweep:
 > Surface: none
 
 ### Slice 10/13 — Fidelity checks
-- [ ] Fidelity checks <!-- task-id: plan.specs-readable-visual-plans-md.fidelity-checks --> — Slice 10/13 of #233: Fixture checks that every component type is visually distinct and that every AC sentence, decision… ([#265](https://github.com/Joaovsales/jplugin-agentic-development/issues/265)) (blocked-by: plan.specs-readable-visual-plans-md.review-export)
-  [ ] TDD: tests/test-plan-render.sh § distinct — every component type appears in the full fixture and no two share icon and label -> component registry check (AC 3)
-  [ ] TDD: tests/test-plan-render.sh § preservation — every AC sentence, decision row, signature, numeric limit and table row of each fixture appears in its HTML -> source-to-render checker (AC 22)
+- [x] Fidelity checks <!-- task-id: plan.specs-readable-visual-plans-md.fidelity-checks --> — Slice 10/13 of #233: Fixture checks that every component type is visually distinct and that every AC sentence, decision… ([#265](https://github.com/Joaovsales/jplugin-agentic-development/issues/265)) (blocked-by: plan.specs-readable-visual-plans-md.review-export)
+  [x] TDD: tests/test-plan-render.sh § distinct — every component type appears in the full fixture and no two share icon and label -> component registry check (AC 3)
+  [x] TDD: tests/test-plan-render.sh § preservation — every AC sentence, decision row, signature, numeric limit and table row of each fixture appears in its HTML -> source-to-render checker (AC 22)
+> Handover: landed 8ee230b..cef73f6 — § distinct (every `COMPONENTS` kind renders as `card-<kind>` with its own icon + label, no icon or label shared) and § preservation (AC sentences, table cells, code lines, numeric limits of all six fixtures found in the page text, typed sections compared through their parsers); fixes they forced: the strip carries its icon/label, text diagrams are `card-text-diagram` with the registry icon (`plan_md.TEXT_DIAGRAM` is the single source), a decision's status note (`settled (operator pick)`) shows in its chip, and `plain()` no longer strips `_`/`*` inside code spans (`team_id`, `src/**` were mangled).
+> Do not re-derive: the preservation checker strips <style>/<script>, squeezes whitespace on both sides, skips typed-table header rows, and reads Build Order blocked-by/AC cells as the slice card's links (S<n>, AC ids); 46/47 repo specs still render, claude-plugin-manifest.md:477 stays a genuine failure.
+> Surface: untouched tests/fixtures/plan-render/** — the existing six fixtures already exercised every component
 
 ### Slice 11/13 — Planner wiring
 - [ ] Planner wiring <!-- task-id: plan.specs-readable-visual-plans-md.planner-wiring --> — Slice 11/13 of #233: `/visual-plan` and `/system-design-planning` call the new renderer; the system-design template and… ([#266](https://github.com/Joaovsales/jplugin-agentic-development/issues/266)) (blocked-by: plan.specs-readable-visual-plans-md.fidelity-checks)
