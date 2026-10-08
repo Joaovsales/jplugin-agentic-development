@@ -1762,10 +1762,13 @@ Filed this sweep:
 > Open: Taste/Impeccable were not installed here, so no fresh detector pass ran ([AMBIGUITY] logged); the owner's screenshot review is the gate.
 
 ### Slice 3/13 — Decision and criteria cards
-- [ ] Decision and criteria cards <!-- task-id: plan.specs-readable-visual-plans-md.decision-and-criteria-cards --> — Slice 3/13 of #233: Decision cards in both table shapes, the AC checklist with slice coverage, the lead summary, the su… ([#258](https://github.com/Joaovsales/jplugin-agentic-development/issues/258)) (blocked-by: plan.specs-readable-visual-plans-md.plan-theme)
-  [ ] TDD: tests/test-plan-render.sh § decisions — both Decisions shapes render cards with ID, status chip and chosen option visible and the body in a disclosure; no-ID tables auto-number as settled -> decision parser and card (AC 4)
-  [ ] TDD: tests/test-plan-render.sh § criteria — each AC shows its covering slices; an unnamed AC carries `uncovered` -> AC parser joined with the Build Order ACs column (AC 5)
-  [ ] TDD: tests/test-plan-render.sh § blockers — Blockers lists exactly open decisions, blocking questions, uncovered ACs and unmitigated high risks; strip counts link to sections -> computed panel (AC 8)
+- [x] Decision and criteria cards <!-- task-id: plan.specs-readable-visual-plans-md.decision-and-criteria-cards --> — Slice 3/13 of #233: Decision cards in both table shapes, the AC checklist with slice coverage, the lead summary, the su… ([#258](https://github.com/Joaovsales/jplugin-agentic-development/issues/258)) (blocked-by: plan.specs-readable-visual-plans-md.plan-theme)
+  [x] TDD: tests/test-plan-render.sh § decisions — both Decisions shapes render cards with ID, status chip and chosen option visible and the body in a disclosure; no-ID tables auto-number as settled -> decision parser and card (AC 4)
+  [x] TDD: tests/test-plan-render.sh § criteria — each AC shows its covering slices; an unnamed AC carries `uncovered` -> AC parser joined with the Build Order ACs column (AC 5)
+  [x] TDD: tests/test-plan-render.sh § blockers — Blockers lists exactly open decisions, blocking questions, uncovered ACs and unmitigated high risks; strip counts link to sections -> computed panel (AC 8)
+> Handover: landed b6a41a5..5b027b1 — `plan_cards.py` (the `COMPONENTS` icon/label registry, `head`/`chip`, decision and criterion cards, lead, strip, Blockers); `plan_model.py` gains `Blocker`, `anchor()`, `coverage()`, `blockers()`; `plan_page.py` assigns section ids once (`section_slugs`, `RESERVED`) and renders `## Summary` only as the lead; fixtures `full.md` (every component type) and `plan-shape.md`.
+> Do not re-derive: card ids come from `anchor(id)` (`D2`→`d2`, `AC1.1`→`ac1-1`); slice cards must use `id="slice-<n>"` because AC coverage already links there; `full.md` Blockers are exactly D2, Q1, AC3, R2; an unsliced spec (no Build Order) marks no AC uncovered and says it has not been sliced; open items = open decisions + all live questions; assertions on class names must match the card markup, not the bare class, since the inlined CSS names every class too.
+> Surface: none
 
 ### Slice 4/13 — Diagrams
 - [ ] Diagrams <!-- task-id: plan.specs-readable-visual-plans-md.diagrams --> — Slice 4/13 of #233: Inline SVG for the Build Order dependency DAG and for `flow` and `sequence` fences, with strict DSL… ([#259](https://github.com/Joaovsales/jplugin-agentic-development/issues/259)) (blocked-by: plan.specs-readable-visual-plans-md.decision-and-criteria-cards)
