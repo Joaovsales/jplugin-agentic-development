@@ -6,6 +6,7 @@ from plan_cards import classes, chip, head
 from plan_figures import dag_figure
 from plan_md import esc, inline, plain, render_blocks
 from plan_model import Plan, anchor, not_ready_ids
+from plan_review import review_controls
 from plan_sections import Slice
 
 # Build Order column -> the label it carries in a slice card body
@@ -32,9 +33,10 @@ def slice_card(s: Slice, is_blocked: bool) -> str:
     rows.insert(2, "<dt>Criteria</dt><dd>%s</dd>" % _ac_links(s.acs))
     chips = chip("blocked", "blocked by a question") if is_blocked else ""
     goal = plain(s.cells.get("delivers", ""))
-    return '<article class="%s" id="slice-%d">%s<p>%s</p><details class="card-more"><summary>Slice details</summary><dl>%s</dl></details></article>' % (
+    return '<article class="%s" id="slice-%d">%s<p>%s</p><details class="card-more"><summary>Slice details</summary><dl>%s</dl></details>%s</article>' % (
         classes("card card-slice", "is-blocked is-blocker" if is_blocked else ""), s.number,
-        head("slice", "S%d" % s.number, chips, inline(s.name)), inline(goal), "".join(rows))
+        head("slice", "S%d" % s.number, chips, inline(s.name)), inline(goal), "".join(rows),
+        review_controls("S%d" % s.number))
 
 
 def _not_ready_body(plan: Plan, ids) -> str:

@@ -364,6 +364,58 @@ for needle in 'src="http' "src='http" '<link' '@import' 'url(http' 'fetch(' 'XML
   assert_not_contains "$FULL" "$needle" "source: nothing loads over the network ($needle)"
 done
 
+printf '\n--- review: hash-keyed marks on every reviewable card, an export /plan applies ---\n'
+for id in AC1 D1 D2 R1 Q1 S1; do
+  assert_contains "$FULL" "<div class=\"review\" data-review=\"$id\"" "review: $id carries ok / questioned controls"
+done
+D2CARD="$(between '<article class="card card-decision is-open is-blocker" id="d2"' '</article>' "$FULL")"
+assert_contains "$D2CARD" '<option value="A">A — 50000 rows</option><option value="B">B — 100 MB</option>' "review: an open decision offers its options as lettered picks"
+assert_not_contains "$(between '<article class="card card-decision" id="d1"' '</article>' "$FULL")" 'data-field="pick"' "review: a settled decision has no picker"
+assert_contains "$(between ' id="q1"' '</article>' "$FULL")" '<input data-field="answer"' "review: a question has an answer field"
+REVIEW="$(between '<section class="review-panel"' '</section>' "$FULL")"
+assert_contains "$REVIEW" "data-spec=\"full.md\" data-sha=\"$SHA\"" "review: the panel carries the spec path and its SHA-256 prefix"
+assert_contains "$REVIEW" 'data-action="export-review">Export review</button>' "review: the panel offers Export review"
+assert_contains "$FULL" "return 'jplugin-plan-review:' + sha + ':' + spec;" "review: the storage key includes the spec hash"
+assert_contains "$(between '<nav class="toc"' '</nav>' "$FULL")" '<a href="#review">Review</a>' "review: the contents list the review panel"
+if command -v node >/dev/null 2>&1; then
+  cp "$(dirname "$RENDER")/plan_page.js" "$TMP/plan_page.js"
+  cat > "$TMP/review-check.js" <<'EOF'
+var r = require('./plan_page.js');
+var items = [['D3', {mark: 'questioned', note: 'why not\n  JSON?'}], ['D4', {pick: 'B', note: 'fits'}],
+  ['Q2', {answer: 'yes, weekly'}], ['AC5', {mark: 'ok'}], ['S4', {mark: 'questioned', note: 'too big'}],
+  ['AC6', {}], ['R1', undefined]];
+console.log(r.format('specs/x.md', 'abc123def456', items));
+var denied = r.openStore(function () { throw new Error('denied'); }, 'k');
+console.log('denied', denied.ok, JSON.stringify(denied.load()), denied.save({a: 1}));
+var full = r.openStore(function () {
+  return {setItem: function () { throw new Error('quota'); }, removeItem: function () {}, getItem: function () { return null; }};
+}, 'k');
+console.log('full', full.ok, JSON.stringify(full.load()));
+EOF
+  EXPECTED="Review of specs/x.md @ abc123def456
+D3: questioned — why not JSON?
+D4: pick B — fits
+Q2: answer — yes, weekly
+AC5: ok
+S4: questioned — too big
+denied false {} false
+full false {}"
+  assert_eq "$EXPECTED" "$(cd "$TMP" && node review-check.js | tr -d '\r')" "review: the export matches the § Behavior block, and a throwing storage is handled"
+else
+  printf '  SKIP review: node is not installed — the export format and storage fallback are unchecked\n'
+fi
+assert_contains "$FULL" 'review marks will not persist' "review: a failing localStorage says marks will not persist"
+
+printf '\n--- plan-consumer: /plan applies a review export and refuses a stale one ---\n'
+PLAN_SKILL="$REPO_ROOT/.agents/skills/plan/SKILL.md"
+assert_file_contains "$PLAN_SKILL" 'Review of specs/<feature>.md @ <sha256[:12]>' "plan-consumer: /plan names the export block it accepts"
+assert_file_contains "$PLAN_SKILL" 'plan_render.py --hash specs/<feature>.md' "plan-consumer: /plan compares the block's hash with plan_render.py --hash"
+assert_file_contains "$PLAN_SKILL" 'naming both hashes' "plan-consumer: a hash mismatch is refused naming both hashes"
+for verb in 'answer' 'pick' 'questioned' 'ok'; do
+  assert_file_contains "$PLAN_SKILL" "\`<ID>: $verb" "plan-consumer: /plan says how a \`$verb\` line is applied"
+done
+assert_file_contains "$PLAN_SKILL" 'then re-run Step 3' "plan-consumer: an applied review re-runs /slice"
+
 for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
   assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"
 done

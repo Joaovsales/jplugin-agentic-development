@@ -11,13 +11,14 @@ from plan_build import render_build_order
 from plan_figures import diagram_hook
 from plan_md import Section, esc, inline, plain, render_blocks
 from plan_model import Plan, not_ready_ids, section_key
+from plan_review import render_review_panel
 
 HERE = Path(__file__).resolve().parent
 THEME_CSS = HERE.parents[3] / "design" / "plan-theme" / "plan.css"
 PAGE_JS = HERE / "plan_page.js"
 
 # ids the page itself owns; a section slug never takes one of them
-RESERVED = ("main", "summary-lead", "blockers", "blockers-h", "build-prompt", "review")
+RESERVED = ("main", "summary-lead", "blockers", "blockers-h", "build-prompt", "review", "review-h")
 
 # reference content starts collapsed; approval content (everything else) starts open
 COLLAPSED = ("constraints", "component contracts", "data models", "references")
@@ -123,6 +124,7 @@ def render_toc(plan: Plan, sections: List[Tuple[Section, str]]) -> str:
     entries += [(sid, s.title) for s, sid in sections]
     if plan.build:
         entries.append(("build-prompt", "Build prompt"))
+    entries.append(("review", "Review"))
     items = "".join('<li><a href="#%s">%s</a></li>' % (esc(sid), inline(title)) for sid, title in entries)
     return ('<nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary>'
             "<ol>%s</ol></details></nav>" % items)
@@ -158,6 +160,7 @@ def render_main(plan: Plan, sections: List[Tuple[Section, str]]) -> str:
         cards.render_strip(plan, by_key), cards.render_blockers(plan), render_controls(),
     ]
     parts += [render_section(plan, s, sid, hook) for s, sid in sections]
+    parts.append(render_review_panel(plan))
     return "\n".join(p for p in parts if p)
 
 

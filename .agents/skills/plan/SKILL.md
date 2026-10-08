@@ -194,6 +194,35 @@ gate, not a word typed into this one. Change requests are applied in place:
 edit the spec, then re-run Step 3, for as long as the user keeps making
 them.
 
+**A review export is a change request.** The visual plan's **Export review**
+copies a block the user pastes back here:
+
+```text
+Review of specs/<feature>.md @ <sha256[:12]>
+D4: pick B — <note>
+Q2: answer — <text>
+AC5: ok
+S4: questioned — <note>
+```
+
+Compare its hash with `python3 .agents/skills/visual-plan/scripts/plan_render.py --hash specs/<feature>.md`
+first. A mismatch is refused, naming both hashes — `review is of <block hash>,
+the spec is now <current hash>: re-render the plan and review again` — and
+nothing is applied. On a match, apply every line:
+
+- `<ID>: answer — <text>` settles the question: move it into § Decisions as a
+  `settled` row when it decides something, otherwise delete it from
+  § Open questions.
+- `<ID>: pick <letter> — <note>` settles the open decision on that option,
+  lettered in the order its Options cell lists them; the note joins the
+  rationale.
+- `<ID>: questioned — <note>` becomes a spec edit that resolves the note, or
+  an `open` decision row when it needs the user's call.
+- `<ID>: ok` changes nothing.
+
+Then re-run Step 3, so the Build Order, the plan block and the prompt match
+the edited spec.
+
 ### 5. Divergence Check
 
 If `tasks/project-context.md` exists, compare the new spec's decisions against it:

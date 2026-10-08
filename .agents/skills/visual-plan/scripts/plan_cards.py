@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 from plan_md import Block, esc, inline, plain, render_blocks
 from plan_model import Plan, anchor, blockers, coverage, is_blocking_risk
+from plan_review import review_controls
 
 # component type -> (icon glyph, text label); the registry AC3 checks.
 COMPONENTS: Dict[str, tuple] = {
@@ -82,9 +83,10 @@ def _chosen(d) -> str:
 
 def decision_card(d) -> str:
     is_open = d.status == "open"
-    return '<article class="%s" id="%s">%s%s%s</article>' % (
+    return '<article class="%s" id="%s">%s%s%s%s</article>' % (
         classes("card card-decision", "is-open is-blocker" if is_open else ""), anchor(d.id),
-        head("decision", d.id, chip(d.status), inline(d.title)), _chosen(d), _decision_body(d))
+        head("decision", d.id, chip(d.status), inline(d.title)), _chosen(d), _decision_body(d),
+        review_controls(d.id, pick_from=d.options if is_open else None))
 
 
 def render_decisions(plan: Plan) -> str:
@@ -102,9 +104,9 @@ def criterion_card(c, slices: Optional[List[int]]) -> str:
     uncovered = slices is not None and not slices
     chips = chip("uncovered") if uncovered else ""
     meta = _covered_by(slices) if slices else ""
-    return '<li class="%s" id="%s">%s<p>%s</p>%s</li>' % (
+    return '<li class="%s" id="%s">%s<p>%s</p>%s%s</li>' % (
         classes("card card-criterion", "is-uncovered is-blocker" if uncovered else ""), anchor(c.id),
-        head("criterion", c.id, chips), inline(c.text), meta)
+        head("criterion", c.id, chips), inline(c.text), meta, review_controls(c.id))
 
 
 def render_criteria(plan: Plan) -> str:
@@ -136,9 +138,9 @@ def risk_card(r) -> str:
     rows = "<dt>Mitigation</dt><dd>%s</dd>" % mitigation
     if plain(r.slice):
         rows += "<dt>Slice</dt><dd>%s</dd>" % _slice_links(r.slice)
-    return '<article class="%s" id="%s">%s<dl class="risk-body">%s</dl></article>' % (
+    return '<article class="%s" id="%s">%s<dl class="risk-body">%s</dl>%s</article>' % (
         classes("card card-risk", "is-blocker" if blocking else ""), anchor(r.id),
-        head("risk", r.id, levels, inline(r.text)), rows)
+        head("risk", r.id, levels, inline(r.text)), rows, review_controls(r.id))
 
 
 def render_risks(plan: Plan) -> str:
@@ -156,9 +158,10 @@ def question_card(q) -> str:
               if q.blocks else "Blocks nothing")
     tags = '<p class="meta"><span class="tag">%s</span>%s</p>' % (
         blocks, '<span class="tag">Needed from %s</span>' % inline(q.needed_from) if plain(q.needed_from) else "")
-    return '<article class="%s" id="%s">%s%s</article>' % (
+    return '<article class="%s" id="%s">%s%s%s</article>' % (
         classes("card card-question", "is-blocker" if q.blocks else ""), anchor(q.id),
-        head("question", q.id, chip("open", "blocking") if q.blocks else "", inline(q.text)), tags)
+        head("question", q.id, chip("open", "blocking") if q.blocks else "", inline(q.text)), tags,
+        review_controls(q.id, answer=True))
 
 
 def render_questions(plan: Plan) -> str:
