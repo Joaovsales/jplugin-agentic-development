@@ -13,6 +13,8 @@ mechanical questions a human should never have to hold in their head:
     headers are already `[x]`?
   * **check** — after a slice closes, did its diff actually stay inside the
     surface it declared?
+  * **readiness** — may a build prompt be printed at all? Not while a decision
+    is `open` or an open question blocks a slice (specs/readable-visual-plans.md).
 
 The glob matcher (`match_path`, `patterns_intersect`, `pattern_covered_by`) and
 the `implementation_paths` frontmatter reader live in `registry/globs.py`,
@@ -328,6 +330,41 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+# -------------------------------------------------------------- readiness
+
+# The visual plan renderer owns the spec parser; the readiness gate reads the
+# spec through it so `/slice` and the page's disabled copy name the same ids.
+_VISUAL_PLAN_SCRIPTS = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "visual-plan", "scripts")
+)
+
+
+def _use_visual_plan_parser() -> None:
+    sys.dont_write_bytecode = True  # importing the renderer must leave no __pycache__ in its skill
+    if _VISUAL_PLAN_SCRIPTS not in sys.path:
+        sys.path.insert(0, _VISUAL_PLAN_SCRIPTS)
+
+
+def cmd_readiness(args: argparse.Namespace) -> int:
+    """Exit 0 silently when a build prompt may be printed, 1 with `not ready: <ids>`, 2 when unreadable."""
+    _use_visual_plan_parser()
+    from plan_md import SpecError  # noqa: E402  (path set up above)
+    from plan_model import not_ready_ids, read_plan  # noqa: E402
+
+    try:
+        ids = not_ready_ids(read_plan(args.spec))
+    except SpecError as exc:
+        print(f"slice: {args.spec}:{exc.line}: {exc.reason}", file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"slice: {exc}", file=sys.stderr)
+        return 2
+    if ids:
+        print("not ready: " + ", ".join(ids))
+        return 1
+    return 0
+
+
 # ------------------------------------------------------------------ ready
 
 
@@ -538,6 +575,10 @@ def build_parser() -> argparse.ArgumentParser:
     ready_parser.add_argument("--index", required=True, help="path to tasks/todo.md")
     ready_parser.add_argument("--spec", required=True, help="path to the spec")
 
+    readiness_parser = sub.add_parser(
+        "readiness", help="Refuse a build prompt while a decision is open or a question blocks a slice.")
+    readiness_parser.add_argument("--spec", required=True, help="path to the spec")
+
     check_parser = sub.add_parser("check", help="Check a closed slice's diff against its declared surface.")
     check_parser.add_argument("--spec", required=True, help="path to the spec")
     check_parser.add_argument("--slice", required=True, type=int, help="slice number")
@@ -553,6 +594,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return cmd_validate(args)
     if args.command == "ready":
         return cmd_ready(args)
+    if args.command == "readiness":
+        return cmd_readiness(args)
     return cmd_check(args)
 
 

@@ -133,6 +133,9 @@ implementation_paths:
 
 # Spec: [Feature Name]
 
+## Summary
+[Optional: two to four sentences — what changes, for whom, the one decision not to miss]
+
 ## Behavior
 [What the feature does, from the user's perspective]
 
@@ -146,6 +149,13 @@ implementation_paths:
 - [Edge case 1 and expected behavior]
 - [Edge case 2 and expected behavior]
 
+## Risks
+[Optional]
+
+| ID | Risk | Likelihood | Impact | Mitigation | Slice |
+|---|---|---|---|---|---|
+| R1 | [what could go wrong] | M | H | [how it is caught or prevented] | [1] |
+
 ## Decisions
 
 | # | Question | Decision | Source | Why |
@@ -156,10 +166,17 @@ implementation_paths:
 for one `/plan` picked without asking (state why in the row), and `open` for
 one nobody has decided yet.
 
+## Open questions
+[Optional]
+
+| ID | Question | Blocks | Needed from |
+|---|---|---|---|
+| Q1 | [a fact someone outside the session must supply] | [slice numbers, or none] | [who] |
+
 ## Acceptance Criteria
-- [Verifiable criterion 1]
-- [Verifiable criterion 2]
-- [Verifiable criterion 3]
+- AC1: [Verifiable criterion 1]
+- AC2: [Verifiable criterion 2]
+- AC3: [Verifiable criterion 3]
 
 ## Implementation Paths
 - `src/feature/**` — [what this code does for the feature]
@@ -168,6 +185,17 @@ one nobody has decided yet.
 
 A vague requirement is rewritten as a measurable acceptance criterion before
 it enters § Acceptance Criteria, and the rewrite is shown to the user.
+
+The optional sections are typed on the visual plan: § Summary becomes its
+lead, a § Risks row with high impact and no mitigation and a § Open questions
+row that `Blocks` a slice become blockers, and an `open` decision or a blocking
+question keeps `/slice` from printing a build prompt. Omit a section rather
+than fill it with placeholders.
+
+**Write it to be read:** remove repetition, empty qualifiers and workflow
+narration — the spec states what the system does, not how the interview went —
+and write connected sentences, not slash-packed shorthand: "an export over
+50000 rows is split into parts" over "export/split/50k".
 § Build Order is not written here — `/slice` writes it in Step 3.
 
 `implementation_paths` is the matching contract; the `## Implementation Paths`
@@ -193,6 +221,35 @@ question — the fresh session that opens with the build prompt is the review
 gate, not a word typed into this one. Change requests are applied in place:
 edit the spec, then re-run Step 3, for as long as the user keeps making
 them.
+
+**A review export is a change request.** The visual plan's **Export review**
+copies a block the user pastes back here:
+
+```text
+Review of specs/<feature>.md @ <sha256[:12]>
+D4: pick B — <note>
+Q2: answer — <text>
+AC5: ok
+S4: questioned — <note>
+```
+
+Compare its hash with `python3 .agents/skills/visual-plan/scripts/plan_render.py --hash specs/<feature>.md`
+first. A mismatch is refused, naming both hashes — `review is of <block hash>,
+the spec is now <current hash>: re-render the plan and review again` — and
+nothing is applied. On a match, apply every line:
+
+- `<ID>: answer — <text>` settles the question: move it into § Decisions as a
+  `settled` row when it decides something, otherwise delete it from
+  § Open questions.
+- `<ID>: pick <letter> — <note>` settles the open decision on that option,
+  lettered in the order its Options cell lists them; the note joins the
+  rationale.
+- `<ID>: questioned — <note>` becomes a spec edit that resolves the note, or
+  an `open` decision row when it needs the user's call.
+- `<ID>: ok` changes nothing.
+
+Then re-run Step 3, so the Build Order, the plan block and the prompt match
+the edited spec.
 
 ### 5. Divergence Check
 

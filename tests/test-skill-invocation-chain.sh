@@ -45,21 +45,21 @@ for tree in $TREES; do
     "Chain: $tree/quality-gate dispatches software-design-expert-review"
 done
 
-# ── /system-design-planning -> /grilling, /slice, visual-render.py, /build ───
+# ── /system-design-planning -> /grilling, /slice, plan_render.py, /build ─────
 # The supervised architecture entry point. It is interchangeable with /plan
 # downstream only while these handoffs stay written: intake reads through the
 # registry (never a tracker CLI), §2.5 interviews through /grilling, Step
 # 3.5 sizes and files through /slice (which now owns the upsert call this pin
-# used to sit on), the review document renders through the shared
-# post-processor, and the plan /slice writes lands where /build reads it.
+# used to sit on), the review document renders through the visual-plan
+# renderer, and the plan /slice writes lands where /build reads it.
 for tree in $TREES; do
   f="$tree/skills/system-design-planning/SKILL.md"
   assert_file_contains "$f" "task-registry.py show" \
     "Chain: $tree/system-design-planning reads issues through task-registry"
   assert_file_matches "$f" '^Invoke `/slice' \
     "Chain: $tree/system-design-planning invokes /slice"
-  assert_file_contains "$f" ".agents/skills/visual-recap/scripts/visual-render.py" \
-    "Chain: $tree/system-design-planning renders through visual-render.py"
+  assert_file_contains "$f" ".agents/skills/visual-plan/scripts/plan_render.py" \
+    "Chain: $tree/system-design-planning renders through plan_render.py"
   assert_file_contains "$f" "### 9. Hand off" \
     "Chain: $tree/system-design-planning hands off to /build"
   assert_file_contains "$f" "tasks/todo.md" \

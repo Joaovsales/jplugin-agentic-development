@@ -4,6 +4,9 @@
 > Author: session `claude/visual-plan-recap-skills-3wgpnv`
 > Inspiration: `BuilderIO/skills` (`visual-plan`, `visual-recap`) — adapted to
 > a self-hosted, file-based, no-MCP model.
+> Superseded for `/visual-plan`: specs/readable-visual-plans.md renders the plan page from the
+> spec markdown through `.agents/skills/visual-plan/scripts/plan_render.py`; the content model and `visual-render.py`
+> path below remain the contract for `/visual-recap` only.
 
 ## 1. Summary
 
