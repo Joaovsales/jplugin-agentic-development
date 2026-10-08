@@ -1754,3 +1754,9 @@ Filed this sweep:
 - [x] registers — findings: 29 closed plan blocks (Tier 1, tracked as #143); checkpoint current
 - [x] Routine step 1 `/tidy` — record tasks/sweeps/2026-10-07-tidy.md
 - [x] Routine step 2 `/wrap-up-session` — push and ready PR `chore(tidy): 2026-10-07`
+
+## Session Summary — 2026-10-07 [239edb8..3c939d1]
+
+- Completed: scheduled `tidy` sweep at 239edb8; record `tasks/sweeps/2026-10-07-tidy.md`; filed #269 (six Windows-only test files).
+- Pending: Tier 0 `refs` repair at `.agents/skills/slice/SKILL.md:51` (held by Law 3: suite red on this Windows host); Tier 1 remedies printed in the record (installed copies, 11 merged worktrees + 28 branches, 29 closed plan blocks — #143).
+- Carry-forward: earlier tidy runs left `routine/tidy/20260928-sweep` (unpushed record `b3272cd`) and the `tidy-20260929` worktree; #155 is still open.
