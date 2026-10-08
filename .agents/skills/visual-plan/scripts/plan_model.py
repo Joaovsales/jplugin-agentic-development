@@ -37,6 +37,47 @@ class Plan:
         return self.sha256[:12]
 
 
+@dataclass
+class Blocker:
+    kind: str  # open decision | blocking question | uncovered criterion | unmitigated high-impact risk
+    id: str
+    title: str
+
+
+def anchor(item_id: str) -> str:
+    """The element id of a card: `D2` -> `d2`, `AC1.1` -> `ac1-1`."""
+    return re.sub(r"[^a-z0-9]+", "-", item_id.lower()).strip("-")
+
+
+def coverage(plan: Plan) -> Optional[Dict[str, List[int]]]:
+    """AC id -> the slices whose ACs column names it; None when the spec is unsliced."""
+    if plan.build is None:
+        return None
+    out: Dict[str, List[int]] = {c.id: [] for c in plan.criteria}
+    for s in plan.build.slices:
+        for ac in s.acs:
+            for c in plan.criteria:
+                if c.id == ac or c.id.split(".")[0] == ac:
+                    out[c.id].append(s.number)
+    return out
+
+
+def is_blocking_risk(risk) -> bool:
+    return risk.impact == "H" and not plain(risk.mitigation)
+
+
+def blockers(plan: Plan) -> List[Blocker]:
+    """Open decisions, blocking questions, uncovered ACs, unmitigated high-impact risks."""
+    out = [Blocker("open decision", d.id, d.title) for d in plan.decisions if d.status == "open"]
+    out += [Blocker("blocking question", q.id, q.text) for q in plan.questions if q.blocks]
+    covered = coverage(plan)
+    if covered is not None:
+        out += [Blocker("uncovered criterion", c.id, c.text) for c in plan.criteria if not covered[c.id]]
+    risks = plan.risks.items if plan.risks else []
+    out += [Blocker("unmitigated high-impact risk", r.id, r.text) for r in risks if is_blocking_risk(r)]
+    return out
+
+
 def section_key(title: str) -> str:
     """Normalised section title used to recognise known sections."""
     return re.sub(r"\s+", " ", plain(title).lower()).strip()

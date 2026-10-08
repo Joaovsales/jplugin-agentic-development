@@ -58,7 +58,7 @@ assert_not_contains "$PAGE" '|---|' "tables: no raw separator row leaks into the
 printf '\n--- legacy: a spec written before typed sections renders ---\n'
 assert_eq "1" "$(printf '%s' "$PAGE" | grep -o '<h1' | wc -l | tr -d ' ')" "legacy: the page has exactly one h1"
 assert_contains "$PAGE" 'Teams copy the weekly report by hand' "legacy: the summary falls back to the first Problem paragraph"
-assert_contains "$PAGE" 'class="lead"' "legacy: the fallback summary is the lead card"
+assert_contains "$PAGE" '<section class="lead card-lead"' "legacy: the fallback summary is the lead card"
 assert_contains "$PAGE" '>D1<' "legacy: decisions without an ID column are auto-numbered D1"
 assert_contains "$PAGE" '>D2<' "legacy: and D2"
 assert_contains "$PAGE" '>AC1<' "legacy: unprefixed acceptance criteria are auto-numbered AC1"
@@ -103,6 +103,73 @@ for scripts_needle in 'design.md' 'design-stack' '.claude/skills' 'impeccable' '
     assert_eq "unread" "unread" "theme: the renderer never names $scripts_needle"
   fi
 done
+# between <start-needle> <end-needle> <haystack> — the text from the first start
+# needle up to the next end needle, so an assertion reads one card, not the page.
+between() { printf '%s' "$3" | tr -d '\n' | awk -v s="$1" -v e="$2" '{i=index($0,s); if(!i) exit; r=substr($0,i); j=index(substr(r,length(s)+1),e); print (j ? substr(r,1,length(s)+j-1) : r)}'; }
+
+render full
+assert_eq "0" "$CODE" "render: full fixture exits 0"
+FULL="$(cat "$TMP/full.html" 2>/dev/null)"
+render plan-shape
+assert_eq "0" "$CODE" "render: plan-shape fixture exits 0"
+PSHAPE="$(cat "$TMP/plan-shape.html" 2>/dev/null)"
+
+printf '\n--- decisions: both table shapes render as cards ---\n'
+D2="$(between '<article class="card card-decision' '</article>' "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'id="d2"')")"
+assert_contains "$D2" 'is-open' "decisions: an open system-design row is marked open"
+assert_contains "$D2" '<span class="card-id">D2</span>' "decisions: the card shows its ID"
+assert_contains "$D2" '<span class="chip chip-open">open</span>' "decisions: the status chip is a text label"
+assert_contains "$D2" '<span class="card-label">Decision</span>' "decisions: the card carries its type label"
+assert_contains "$D2" '<h3>Split threshold</h3>' "decisions: the title is the card heading"
+assert_contains "$D2" '<p class="chosen"><span class="visually-hidden">Recommended: </span>50000 rows</p>' "decisions: the recommended option is visible outside the disclosure"
+assert_contains "$D2" '<details class="card-more">' "decisions: the body sits in a collapsed disclosure"
+assert_not_contains "$D2" '<details class="card-more" open' "decisions: the body is collapsed"
+assert_contains "$D2" '<dt>Options</dt><dd>50000 rows, 100 MB</dd>' "decisions: other options sit in the body"
+assert_contains "$D2" '<p class="callout-wrong"><strong>Wrong when:</strong> Rows grow past 2 KB each</p>' "decisions: Wrong when is a reversal callout"
+D1="$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'id="d1"')"
+assert_contains "$D1" '<span class="chip chip-settled">settled</span>' "decisions: a settled row carries the settled chip"
+PD2="$(printf '%s' "$PSHAPE" | sed 's/<article/\n<article/g' | grep 'id="d2"')"
+assert_contains "$PD2" 'chip-open' "decisions: a /plan row with Source = open is open"
+assert_contains "$PD2" 'Not decided yet' "decisions: an open /plan row says it is not decided"
+PD1="$(printf '%s' "$PSHAPE" | sed 's/<article/\n<article/g' | grep 'id="d1"')"
+assert_contains "$PD1" '<span class="visually-hidden">Decision: </span>gzip</p>' "decisions: a /plan row shows its Decision as the chosen option"
+assert_contains "$PD1" '<dt>Why</dt><dd>Every reader supports it</dd>' "decisions: a /plan Why is the rationale"
+assert_contains "$PD1" '<dt>Source</dt><dd>user</dd>' "decisions: a /plan Source is kept"
+assert_contains "$PSHAPE" 'id="d3"' "decisions: a bare number 3 in the # column becomes D3"
+assert_contains "$(printf '%s' "$PAGE" | grep -o 'card card-decision[^"]*" id="d1"')" 'card-decision' "decisions: a table with no ID column still renders cards"
+
+printf '\n--- criteria: each AC shows the slices that cover it ---\n'
+AC1="$(printf '%s' "$FULL" | sed 's/<li class="card card-criterion/\n&/g' | grep 'id="ac1"' | sed 's/<\/li>.*//')"
+assert_contains "$AC1" '<span class="card-id">AC1</span>' "criteria: the AC shows its ID"
+assert_contains "$AC1" 'covered by <a href="#slice-1">slice 1</a>' "criteria: the AC names its covering slice"
+assert_not_contains "$AC1" 'uncovered' "criteria: a covered AC has no uncovered badge"
+AC3="$(printf '%s' "$FULL" | sed 's/<li class="card card-criterion/\n&/g' | grep 'id="ac3"' | sed 's/<\/li>.*//')"
+assert_contains "$AC3" '<span class="chip chip-uncovered">uncovered</span>' "criteria: an AC no slice names carries the uncovered badge"
+assert_contains "$AC3" 'is-uncovered' "criteria: the uncovered AC changes its border shape too"
+assert_contains "$PSHAPE" 'not been sliced' "criteria: a spec with no Build Order says it has not been sliced"
+assert_not_contains "$PSHAPE" '<span class="chip chip-uncovered">' "criteria: an unsliced spec marks no AC uncovered"
+
+printf '\n--- blockers: the panel lists exactly the blocking items; the strip links its counts ---\n'
+BLOCKERS="$(between '<section class="blockers' '</section>' "$FULL")"
+for anchor in '#d2' '#q1' '#ac3' '#r2'; do
+  assert_contains "$BLOCKERS" "href=\"$anchor\"" "blockers: lists $anchor"
+done
+assert_eq "4" "$(printf '%s' "$BLOCKERS" | grep -o '<li' | wc -l | tr -d ' ')" "blockers: lists exactly four items"
+for anchor in '#d1' '#d3' '#q2' '#ac1' '#r1' '#r3'; do
+  assert_not_contains "$BLOCKERS" "href=\"$anchor\"" "blockers: does not list $anchor"
+done
+assert_contains "$BLOCKERS" 'open decision' "blockers: names why each item blocks"
+STRIP="$(between '<nav class="strip' '</nav>' "$FULL")"
+assert_contains "$STRIP" '<a class="stat" href="#build-order"><span class="stat-n">3</span><span class="stat-l">slices</span></a>' "blockers: the strip counts slices and links Build Order"
+assert_contains "$STRIP" 'href="#acceptance-criteria"><span class="stat-n">4</span><span class="stat-l">criteria</span>' "blockers: the strip counts criteria"
+assert_contains "$STRIP" 'href="#decisions"><span class="stat-n">3</span><span class="stat-l">decisions</span>' "blockers: the strip counts decisions"
+assert_contains "$STRIP" 'href="#risks"><span class="stat-n">4</span><span class="stat-l">risks</span>' "blockers: the strip counts risks"
+assert_contains "$STRIP" 'href="#open-questions"><span class="stat-n">3</span><span class="stat-l">open items</span>' "blockers: the strip counts open decisions plus questions"
+assert_contains "$STRIP" 'href="#blockers"><span class="stat-n">4</span><span class="stat-l">blockers</span>' "blockers: the strip counts blockers"
+LEAD="$(between '<section class="lead' '</section>' "$FULL")"
+assert_contains "$LEAD" 'The exporter turns the weekly report store into one CSV per team' "blockers: the lead card is the Summary section"
+assert_eq "1" "$(printf '%s' "$FULL" | grep -o 'The exporter turns the weekly report store' | wc -l | tr -d ' ')" "blockers: the Summary renders once, as the lead"
+
 for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
   assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"
 done

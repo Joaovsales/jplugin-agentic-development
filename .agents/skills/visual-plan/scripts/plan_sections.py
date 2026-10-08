@@ -25,6 +25,7 @@ class Decision:
     rationale: str = ""
     wrong_when: str = ""
     source: str = ""
+    chosen_label: str = ""  # the column the chosen option came from
 
 
 @dataclass
@@ -149,7 +150,7 @@ def _decision(row: Dict[str, str], no: int, n: int, title_col: str, chosen_col: 
         id=_norm_id(_pick(row, "id", "#"), "D", n), title=title,
         chosen=row.get(chosen_col, "") if chosen_col else "", status=status, line=no,
         options=_pick(row, "options"), rationale=_pick(row, "why", "rationale", "reason"),
-        wrong_when=_pick(row, "wrong when"), source=source,
+        wrong_when=_pick(row, "wrong when"), source=source, chosen_label=chosen_col.capitalize(),
     )
 
 
