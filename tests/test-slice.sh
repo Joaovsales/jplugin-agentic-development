@@ -298,4 +298,63 @@ assert_contains "$INTERSECT_JSON" '"different-extensions": false' \
 assert_contains "$INTERSECT_JSON" '"match-star-stays-in-segment": false' \
   "globs: match_path's * stops at /"
 
+printf '\n--- readiness: an open decision or a blocking question refuses the build prompt ---\n'
+# specs/readable-visual-plans.md AC16 (D23, D26): `/slice` runs `readiness`
+# before printing a build prompt. The ids it names are the ones the visual
+# plan page shows as `Not ready:`, because both read the spec the same way.
+READY_TMP="$(mktemp -d)"; TMP_DIRS+=("$READY_TMP")
+readiness_spec() {  # <file> <D2 status> <Q1 Blocks>
+  cat > "$1" <<SPEC
+# Spec: Readiness fixture
+
+## Decisions
+
+| ID | Decision | Options | Recommended | Wrong when | Status |
+|---|---|---|---|---|---|
+| D1 | Format | CSV, JSON | CSV | A consumer needs nesting | settled |
+| D2 | Threshold | 50000, 100000 | 50000 | Rows grow | $2 |
+
+## Open questions
+
+| ID | Question | Blocks | Needed from |
+|---|---|---|---|
+| Q1 | Which region? | $3 | platform |
+| Q2 | Add a BOM? | none | data |
+
+## Build Order
+
+| # | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size |
+|---|-------|----------|---------|------------|-----|--------|------|
+| 1 | Writer | CSV | \`src/a/**\` | — | 1 | \`make\` | 1 file |
+| 2 | Splitter | Parts | \`src/b/**\` | 1 | 2 | \`make\` | 1 file |
+SPEC
+}
+readiness_spec "$READY_TMP/open.md" open 2
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/open.md" 2>&1)"; CODE=$?
+assert_eq "1" "$CODE" "readiness: an open decision and a blocking question exit 1"
+assert_eq "not ready: D2, Q1" "$OUT" "readiness: prints not ready with the decision and question ids"
+readiness_spec "$READY_TMP/question.md" settled 2
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/question.md" 2>&1)"; CODE=$?
+assert_eq "1" "$CODE" "readiness: a blocking question alone exits 1"
+assert_eq "not ready: Q1" "$OUT" "readiness: names only the blocking question"
+readiness_spec "$READY_TMP/ready.md" settled none
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/ready.md" 2>&1)"; CODE=$?
+assert_eq "0" "$CODE" "readiness: settled decisions and non-blocking questions exit 0"
+assert_eq "" "$OUT" "readiness: a ready spec prints nothing"
+printf '# Spec: Broken\n\n## Decisions\n\n| ID | Decision | Status |\n|---|---|---|\n| D1 | Format |\n' > "$READY_TMP/broken.md"
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/broken.md" 2>&1)"; CODE=$?
+assert_eq "2" "$CODE" "readiness: a malformed Decisions table exits 2"
+assert_contains "$OUT" "broken.md:7: " "readiness: the failure names <spec>:<line>"
+if find "$REPO/.agents/skills/visual-plan/scripts" -name __pycache__ | grep -q .; then
+  assert_eq "no __pycache__" "__pycache__ written" "readiness: importing the renderer's parser writes no bytecode"
+else
+  assert_eq "no __pycache__" "no __pycache__" "readiness: importing the renderer's parser writes no bytecode"
+fi
+SLICE_DOC="$REPO/.agents/skills/slice/SKILL.md"
+assert_file_contains "$SLICE_DOC" "slice.py readiness --spec" "readiness: /slice runs the readiness check before the build prompt"
+assert_file_contains "$SLICE_DOC" "not ready: <ids>" "readiness: /slice documents the not-ready output"
+assert_file_contains "$REPO/.agents/skills/slice/references/build-prompt.md" "slice.py readiness" "readiness: the build-prompt reference names the gate"
+assert_file_not_matches "$SLICE_DOC" 'An `open` row is an `\[AMBIGUITY\]` line' "readiness: the retired open-row [AMBIGUITY] rule is gone (D26)"
+assert_file_not_matches "$REPO/.agents/skills/slice/references/build-prompt.md" 'An `open` row is an `\[AMBIGUITY\]` line' "readiness: the retired rule is gone from the reference too"
+
 finish

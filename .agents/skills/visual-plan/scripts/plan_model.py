@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from plan_diagrams import parse_diagram
-from plan_md import Block, Document, Section, plain
+from plan_md import Block, Document, Section, parse_document, plain
 from plan_sections import (
     BuildOrder, Criterion, Decision, Question, Risks,
     parse_build_order, parse_criteria, parse_decisions, parse_questions, parse_risks,
@@ -76,6 +76,19 @@ def blockers(plan: Plan) -> List[Blocker]:
     risks = plan.risks.items if plan.risks else []
     out += [Blocker("unmitigated high-impact risk", r.id, r.text) for r in risks if is_blocking_risk(r)]
     return out
+
+
+def not_ready_ids(plan: Plan) -> List[str]:
+    """Open decisions, then questions that block a slice: while any exists the
+    build prompt is not executable (`/slice readiness` and the page agree)."""
+    return [d.id for d in plan.decisions if d.status == "open"] + [q.id for q in plan.questions if q.blocks]
+
+
+def read_plan(spec_path: str, out_path: str = "") -> Plan:
+    """Parse and analyse a spec file; raises SpecError on a malformed known section."""
+    with open(spec_path, encoding="utf-8") as fh:
+        text = fh.read()
+    return analyse(parse_document(text), text, spec_path, out_path)
 
 
 def section_key(title: str) -> str:

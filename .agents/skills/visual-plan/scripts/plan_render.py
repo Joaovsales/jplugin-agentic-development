@@ -18,8 +18,8 @@ sys.dont_write_bytecode = True  # a render must not leave __pycache__ in the ski
 import argparse  # noqa: E402
 import os  # noqa: E402
 
-from plan_md import SpecError, parse_document  # noqa: E402
-from plan_model import analyse, spec_sha256  # noqa: E402
+from plan_md import SpecError  # noqa: E402
+from plan_model import read_plan, spec_sha256  # noqa: E402
 from plan_page import render_page  # noqa: E402
 
 
@@ -39,8 +39,7 @@ def read_spec(spec_path: str) -> str:
 
 def render_file(spec_path: str, out_path: str) -> str:
     """Render spec_path to out_path; raises SpecError before writing anything."""
-    text = read_spec(spec_path)
-    plan = analyse(parse_document(text), text, spec_path, out_path)
+    plan = read_plan(spec_path, out_path)
     page = render_page(plan)
     with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(page)

@@ -310,7 +310,16 @@ done
 assert_contains "$FULL" '<div class="shell"><nav class="toc"' "deep-links: the navigation sits in the layout shell beside main"
 
 printf '\n--- prompt: the build-prompt panel copies the canonical Build Order prompt ---\n'
-PANEL="$(between '<section class="card card-prompt' '</section>' "$FULL")"
+# full.md is deliberately not ready (D2 open, Q1 blocks slice 2); the ready
+# variant settles D2 and unblocks Q1, so its prompt is executable.
+mkdir -p "$TMP/ready"
+sed -e 's/| Rows grow past 2 KB each | open |/| Rows grow past 2 KB each | settled |/' \
+    -e 's/| Which bucket region holds part files? | 2 |/| Which bucket region holds part files? | none |/' \
+    "$FIX/full.md" > "$TMP/ready/full.md"
+(cd "$TMP/ready" && "$TEST_PYTHON" "$RENDER" full.md -o full.html >/dev/null 2>&1)
+READY="$(cat "$TMP/ready/full.html" 2>/dev/null)"
+PANEL="$(between '<section class="card card-prompt' '</section>' "$READY")"
+assert_not_contains "$PANEL" 'not-ready' "prompt: the ready variant's panel is executable"
 assert_contains "$PANEL" 'id="build-prompt"' "prompt: the panel has a stable anchor"
 assert_contains "$PANEL" '<span class="card-label">Build prompt</span>' "prompt: the panel carries its type label"
 assert_contains "$PANEL" '<button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button>' "prompt: Copy build prompt copies the prompt element"
@@ -324,7 +333,16 @@ m = re.search(r'<code id="build-prompt-text">(.*?)</code>', page, re.S)
 canon = re.search(r"Build prompt:\s*\n\s*```\n(.*?)\n```", spec, re.S)
 print("equal" if m and canon and html.unescape(m.group(1)) == canon.group(1) else "differ")
 PY
-assert_eq "equal" "$("$TEST_PYTHON" "$TMP/prompt_bytes.py" "$TMP/full.html" "$FIX/full.md")" "prompt: the copy payload equals the Build Order prompt byte for byte"
+assert_eq "equal" "$("$TEST_PYTHON" "$TMP/prompt_bytes.py" "$TMP/ready/full.html" "$TMP/ready/full.md")" "prompt: the copy payload equals the Build Order prompt byte for byte"
+
+printf '\n--- not-ready: an open decision or a blocking question disables the prompt ---\n'
+NR="$(between '<section class="card card-prompt' '</section>' "$FULL")"
+assert_contains "$NR" 'card card-prompt not-ready' "not-ready: the panel switches to its not-ready shape"
+assert_contains "$NR" '<p class="not-ready-msg">Not ready: <a href="#d2">D2</a>, <a href="#q1">Q1</a></p>' "not-ready: the panel names the same ids /slice prints"
+assert_contains "$NR" 'data-copy-from="build-prompt-text" disabled>Copy build prompt</button>' "not-ready: copy is disabled"
+assert_not_contains "$NR" '<details class="prompt-stale" open' "not-ready: the superseded prompt text is not shown as executable"
+assert_eq "not ready: D2, Q1" "$(cd "$FIX" && "$TEST_PYTHON" "$REPO_ROOT/.agents/skills/slice/scripts/slice.py" readiness --spec full.md)" "not-ready: /slice readiness names the same ids for the same spec"
+assert_contains "$(between '<header class="masthead"' '</header>' "$FULL")" 'Not ready' "not-ready: the first screen says the prompt is not ready"
 assert_contains "$PANEL" 'quote &quot;values&quot; &amp; &lt;escape&gt; them' "prompt: the prompt payload is HTML-escaped"
 assert_not_contains "$PSHAPE" 'id="build-prompt"' "prompt: an unsliced spec has no prompt panel"
 

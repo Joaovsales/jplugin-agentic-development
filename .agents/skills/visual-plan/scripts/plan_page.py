@@ -10,7 +10,7 @@ import plan_reference as reference
 from plan_build import render_build_order
 from plan_figures import diagram_hook
 from plan_md import Section, esc, inline, plain, render_blocks
-from plan_model import Plan, section_key
+from plan_model import Plan, not_ready_ids, section_key
 
 HERE = Path(__file__).resolve().parent
 THEME_CSS = HERE.parents[3] / "design" / "plan-theme" / "plan.css"
@@ -136,7 +136,12 @@ def source_href(plan: Plan) -> str:
 
 def render_masthead(plan: Plan) -> str:
     shown = plan.spec_path.replace(os.sep, "/")
-    prompt = '<a href="#build-prompt">Build prompt ↓</a>' if plan.build else "Not sliced yet"
+    if not plan.build:
+        prompt = "Not sliced yet"
+    elif not_ready_ids(plan):
+        prompt = '<a href="#build-prompt">Not ready: %s</a>' % esc(", ".join(not_ready_ids(plan)))
+    else:
+        prompt = '<a href="#build-prompt">Build prompt ↓</a>'
     return (
         '<p class="folio"><span>Visual plan</span><span>%s</span></p><h1>%s</h1>'
         '<p class="source">Source: <a href="%s">%s</a> · sha256 <code>%s</code></p>'

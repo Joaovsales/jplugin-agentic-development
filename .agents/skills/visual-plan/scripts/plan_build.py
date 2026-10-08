@@ -5,7 +5,7 @@ from typing import Set
 from plan_cards import classes, chip, head
 from plan_figures import dag_figure
 from plan_md import esc, inline, plain, render_blocks
-from plan_model import Plan, anchor
+from plan_model import Plan, anchor, not_ready_ids
 from plan_sections import Slice
 
 # Build Order column -> the label it carries in a slice card body
@@ -37,16 +37,32 @@ def slice_card(s: Slice, is_blocked: bool) -> str:
         head("slice", "S%d" % s.number, chips, inline(s.name)), inline(goal), "".join(rows))
 
 
+def _not_ready_body(plan: Plan, ids) -> str:
+    """Blockers named and linked; the superseded prompt kept out of sight, copy disabled."""
+    links = ", ".join('<a href="#%s">%s</a>' % (anchor(i), esc(i)) for i in ids)
+    stale = ""
+    if plan.build.prompt is not None:
+        stale = ('<details class="prompt-stale"><summary>Prompt text (not executable until these clear)</summary>'
+                 '<pre><code id="build-prompt-text">%s</code></pre></details>'
+                 '<button type="button" class="copy" data-copy-from="build-prompt-text" disabled>Copy build prompt</button>'
+                 % esc(plan.build.prompt))
+    return ('<p class="not-ready-msg">Not ready: %s</p><p class="meta">Settle these decisions and questions, '
+            'then re-run <code>/slice</code> for a prompt that is safe to build from.</p>%s' % (links, stale))
+
+
 def prompt_panel(plan: Plan) -> str:
     """The canonical build prompt, verbatim, with a copy button over its exact text."""
-    if plan.build.prompt is None:
+    ids = not_ready_ids(plan)
+    if ids:
+        body = _not_ready_body(plan, ids)
+    elif plan.build.prompt is None:
         body = '<p class="meta">§ Build Order carries no build prompt yet: re-run <code>/slice</code>.</p>'
     else:
         body = ('<pre><code id="build-prompt-text">%s</code></pre>'
                 '<button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button>'
                 % esc(plan.build.prompt))
-    return '<section class="card card-prompt" id="build-prompt" aria-label="Build prompt">%s%s</section>' % (
-        head("prompt"), body)
+    return '<section class="%s" id="build-prompt" aria-label="Build prompt">%s%s</section>' % (
+        classes("card card-prompt", "not-ready is-blocker" if ids else ""), head("prompt"), body)
 
 
 def render_build_order(plan: Plan, hook) -> str:
