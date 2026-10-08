@@ -1745,65 +1745,65 @@ Filed this sweep:
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/233
 
 ### Slice 1/13 — Renderer core
-- [ ] Renderer core <!-- task-id: plan.specs-readable-visual-plans-md.renderer-core --> — stdlib markdown-subset spec renderer with generic sections, semantic tables, loud parse failures and old-spec compatibility
+- [ ] Renderer core <!-- task-id: plan.specs-readable-visual-plans-md.renderer-core --> — Slice 1/13 of #233: A stdlib markdown-subset renderer that turns any spec into a self-contained page with generic secti… ([#256](https://github.com/Joaovsales/jplugin-agentic-development/issues/256))
   [ ] TDD: tests/test-plan-render.sh § failures — a malformed Decisions row, Risks value, duplicate ID and bad diagram line each exit 1 with `<spec>:<line>: <reason>` and write no file -> parser with section validators (AC 2)
   [ ] TDD: tests/test-plan-render.sh § tables — fixture tables render as `<table>` with `<th>`, wide tables sit in a scroll container -> markdown table renderer (AC 14)
   [ ] TDD: tests/test-plan-render.sh § legacy — a pre-change fixture spec (no IDs, no Summary, ASCII diagram) renders with auto IDs, summary fallback and a collapsed text diagram -> generic section and fallback rules (AC 21)
 
 ### Slice 2/13 — Plan theme
-- [ ] Plan theme <!-- task-id: plan.specs-readable-visual-plans-md.plan-theme --> — jplugin plan theme from the minimalist prototype, inlined by the renderer (blocked-by: plan.specs-readable-visual-plans-md.renderer-core)
+- [ ] Plan theme <!-- task-id: plan.specs-readable-visual-plans-md.plan-theme --> — Slice 2/13 of #233: The jplugin plan theme, authored with Taste and Impeccable from the minimalist prototype, recorded… ([#257](https://github.com/Joaovsales/jplugin-agentic-development/issues/257)) (blocked-by: plan.specs-readable-visual-plans-md.renderer-core)
   [ ] TDD: tests/test-plan-render.sh § theme — the page inlines `design/plan-theme` CSS with light and dark tokens and reads no design-stack path or project DESIGN.md; `design/plan-theme/DESIGN.md` has palette, typography, layout, motion, accessibility and component vocabulary sections -> author the theme with Taste and Impeccable, inline at render (AC 20)
 
 ### Slice 3/13 — Decision and criteria cards
-- [ ] Decision and criteria cards <!-- task-id: plan.specs-readable-visual-plans-md.decision-and-criteria-cards --> — decision cards in both shapes, AC checklist with coverage, lead summary, summary strip and Blockers (blocked-by: plan.specs-readable-visual-plans-md.plan-theme)
+- [ ] Decision and criteria cards <!-- task-id: plan.specs-readable-visual-plans-md.decision-and-criteria-cards --> — Slice 3/13 of #233: Decision cards in both table shapes, the AC checklist with slice coverage, the lead summary, the su… ([#258](https://github.com/Joaovsales/jplugin-agentic-development/issues/258)) (blocked-by: plan.specs-readable-visual-plans-md.plan-theme)
   [ ] TDD: tests/test-plan-render.sh § decisions — both Decisions shapes render cards with ID, status chip and chosen option visible and the body in a disclosure; no-ID tables auto-number as settled -> decision parser and card (AC 4)
   [ ] TDD: tests/test-plan-render.sh § criteria — each AC shows its covering slices; an unnamed AC carries `uncovered` -> AC parser joined with the Build Order ACs column (AC 5)
   [ ] TDD: tests/test-plan-render.sh § blockers — Blockers lists exactly open decisions, blocking questions, uncovered ACs and unmitigated high risks; strip counts link to sections -> computed panel (AC 8)
 
 ### Slice 4/13 — Diagrams
-- [ ] Diagrams <!-- task-id: plan.specs-readable-visual-plans-md.diagrams --> — inline SVG for the slice DAG and for flow and sequence fences (blocked-by: plan.specs-readable-visual-plans-md.decision-and-criteria-cards)
+- [ ] Diagrams <!-- task-id: plan.specs-readable-visual-plans-md.diagrams --> — Slice 4/13 of #233: Inline SVG for the Build Order dependency DAG and for `flow` and `sequence` fences, with strict DSL… ([#259](https://github.com/Joaovsales/jplugin-agentic-development/issues/259)) (blocked-by: plan.specs-readable-visual-plans-md.decision-and-criteria-cards)
   [ ] TDD: tests/test-plan-render.sh § dag — Build Order renders an SVG with one linked, named node per slice in dependency layers -> layered DAG generator (AC 9)
   [ ] TDD: tests/test-plan-render.sh § flow-sequence — flow and sequence fixtures render SVG with caption, title, desc, new/changed styling and alt frames, source in a collapsed disclosure, no script src -> DSL parsers and SVG emitters (AC 10)
 
 ### Slice 5/13 — Risk and question cards
-- [ ] Risk and question cards <!-- task-id: plan.specs-readable-visual-plans-md.risk-and-question-cards --> — Risks and Open questions cards with Blockers entries and DAG marks (blocked-by: plan.specs-readable-visual-plans-md.diagrams)
+- [ ] Risk and question cards <!-- task-id: plan.specs-readable-visual-plans-md.risk-and-question-cards --> — Slice 5/13 of #233: `## Risks` and `## Open questions` cards, their Blockers entries and blocked-slice marks in the DAG. ([#260](https://github.com/Joaovsales/jplugin-agentic-development/issues/260)) (blocked-by: plan.specs-readable-visual-plans-md.diagrams)
   [ ] TDD: tests/test-plan-render.sh § risks — risks sort by impact then likelihood with text labels; an unmitigated high risk is in Blockers; `None identified` renders one line -> risk section and card (AC 6)
   [ ] TDD: tests/test-plan-render.sh § questions — a blocking question marks its slices in the DAG and appears in Blockers -> question section and DAG mark (AC 7)
 
 ### Slice 6/13 — Disclosure and navigation
-- [ ] Disclosure and navigation <!-- task-id: plan.specs-readable-visual-plans-md.disclosure-and-navigation --> — default open and collapsed state, expand, collapse and blockers-only controls, deep links and mobile menu (blocked-by: plan.specs-readable-visual-plans-md.risk-and-question-cards)
+- [ ] Disclosure and navigation <!-- task-id: plan.specs-readable-visual-plans-md.disclosure-and-navigation --> — Slice 6/13 of #233: Open and collapsed defaults, Expand all, Collapse all, Show only blockers, deep links into collapse… ([#261](https://github.com/Joaovsales/jplugin-agentic-development/issues/261)) (blocked-by: plan.specs-readable-visual-plans-md.risk-and-question-cards)
   [ ] TDD: tests/test-plan-render.sh § disclosure — approval content has `open`, reference content does not; controls are buttons with accessible names -> disclosure defaults and controls script (AC 12)
   [ ] TDD: tests/test-plan-render.sh § deep-links — the page script opens collapsed ancestors on hash and closes the mobile menu on selection -> hash handler and nav script (AC 13)
 
 ### Slice 7/13 — Build prompt panel
-- [ ] Build prompt panel <!-- task-id: plan.specs-readable-visual-plans-md.build-prompt-panel --> — first-screen build-prompt panel with exact copy and the source line naming the spec and its hash (blocked-by: plan.specs-readable-visual-plans-md.disclosure-and-navigation)
+- [ ] Build prompt panel <!-- task-id: plan.specs-readable-visual-plans-md.build-prompt-panel --> — Slice 7/13 of #233: A first-screen build-prompt panel with exact copy, and the source line naming the spec and its hash. ([#262](https://github.com/Joaovsales/jplugin-agentic-development/issues/262)) (blocked-by: plan.specs-readable-visual-plans-md.disclosure-and-navigation)
   [ ] TDD: tests/test-plan-render.sh § prompt — the panel is linked from the first screen and the TOC and its copy payload equals the Build Order prompt bytes -> prompt extraction and panel (AC 15)
   [ ] TDD: tests/test-plan-render.sh § source — the header links the spec by relative path with its SHA-256 prefix, the page holds no embedded markdown copy, and no src or href attribute names an external URL -> source line (AC 17)
 
 ### Slice 8/13 — Readiness gate
-- [ ] Readiness gate <!-- task-id: plan.specs-readable-visual-plans-md.readiness-gate --> — slice refuses a build prompt while a decision is open or a question blocks; the page disables copy (blocked-by: plan.specs-readable-visual-plans-md.build-prompt-panel)
+- [ ] Readiness gate <!-- task-id: plan.specs-readable-visual-plans-md.readiness-gate --> — Slice 8/13 of #233: `/slice` refuses a build prompt while a decision is open or a question blocks a slice, and the page… ([#263](https://github.com/Joaovsales/jplugin-agentic-development/issues/263)) (blocked-by: plan.specs-readable-visual-plans-md.build-prompt-panel)
   [ ] TDD: tests/test-slice.sh § readiness and tests/test-plan-render.sh § not-ready — an open decision or blocking question makes `slice.py` print `not ready: <ids>` and exit non-zero and the page show `Not ready: <ids>` with copy disabled; a non-blocking question passes -> slice.py readiness check, SKILL and build-prompt reference update, panel state (AC 16)
 
 ### Slice 9/13 — Review export
-- [ ] Review export <!-- task-id: plan.specs-readable-visual-plans-md.review-export --> — hash-keyed review state, export block and its plan consumer (blocked-by: plan.specs-readable-visual-plans-md.readiness-gate)
+- [ ] Review export <!-- task-id: plan.specs-readable-visual-plans-md.review-export --> — Slice 9/13 of #233: Hash-keyed review state on every card, the export block, and `/plan`'s change-request path that app… ([#264](https://github.com/Joaovsales/jplugin-agentic-development/issues/264)) (blocked-by: plan.specs-readable-visual-plans-md.readiness-gate)
   [ ] TDD: tests/test-plan-render.sh § review — cards carry review controls, the storage key includes the spec hash, the export matches the Behavior block format, a throwing storage path is handled -> review-state script (AC 18)
   [ ] TDD: tests/test-plan-render.sh § plan-consumer — `/plan` SKILL.md applies an export block (answers, picks, questioned), refuses a hash mismatch naming both hashes, then re-runs `/slice` -> change-request path text (AC 19)
 
 ### Slice 10/13 — Fidelity checks
-- [ ] Fidelity checks <!-- task-id: plan.specs-readable-visual-plans-md.fidelity-checks --> — distinct component types and source-to-render content preservation (blocked-by: plan.specs-readable-visual-plans-md.review-export)
+- [ ] Fidelity checks <!-- task-id: plan.specs-readable-visual-plans-md.fidelity-checks --> — Slice 10/13 of #233: Fixture checks that every component type is visually distinct and that every AC sentence, decision… ([#265](https://github.com/Joaovsales/jplugin-agentic-development/issues/265)) (blocked-by: plan.specs-readable-visual-plans-md.review-export)
   [ ] TDD: tests/test-plan-render.sh § distinct — every component type appears in the full fixture and no two share icon and label -> component registry check (AC 3)
   [ ] TDD: tests/test-plan-render.sh § preservation — every AC sentence, decision row, signature, numeric limit and table row of each fixture appears in its HTML -> source-to-render checker (AC 22)
 
 ### Slice 11/13 — Planner wiring
-- [ ] Planner wiring <!-- task-id: plan.specs-readable-visual-plans-md.planner-wiring --> — visual-plan and system-design-planning call the new renderer; templates and plan guidance updated (blocked-by: plan.specs-readable-visual-plans-md.fidelity-checks)
+- [ ] Planner wiring <!-- task-id: plan.specs-readable-visual-plans-md.planner-wiring --> — Slice 11/13 of #233: `/visual-plan` and `/system-design-planning` call the new renderer; the system-design template and… ([#266](https://github.com/Joaovsales/jplugin-agentic-development/issues/266)) (blocked-by: plan.specs-readable-visual-plans-md.fidelity-checks)
   [ ] TDD: tests/test-plan-render.sh § wiring — both skills invoke `plan_render.py`; `content-model.json` and the text-fence rule are gone -> SKILL.md edits and template removal (AC 1)
   [ ] TDD: tests/test-plan-render.sh § template — the system-design template has ID and Status columns, Summary, Risks, Open questions and the flow and sequence requirement -> template and step text (AC 11)
   [ ] TDD: tests/test-doc-conventions.sh § editorial — `/plan` and `/system-design-planning` carry the editorial guidance -> guidance paragraph (AC 24)
 
 ### Slice 12/13 — Browser proof
-- [ ] Browser proof <!-- task-id: plan.specs-readable-visual-plans-md.browser-proof --> — Playwright page check over every fixture at desktop and mobile in both themes, with screenshots (blocked-by: plan.specs-readable-visual-plans-md.planner-wiring)
+- [ ] Browser proof <!-- task-id: plan.specs-readable-visual-plans-md.browser-proof --> — Slice 12/13 of #233: A Playwright check over every fixture page at 1440 and 390 px in both themes, with screenshots for… ([#267](https://github.com/Joaovsales/jplugin-agentic-development/issues/267)) (blocked-by: plan.specs-readable-visual-plans-md.planner-wiring)
   [ ] TDD: tests/test-plan-page.sh — disclosures, keyboard, deep links, menu dismissal, prompt copy bytes, source link, review export, no console errors and no overflow at 1440 and 390 px in light and dark; screenshots written; a loud SKIP without Playwright unless REQUIRE_BROWSER=1 -> check_plan_page.py (AC 23)
 
 ### Slice 13/13 — Dogfood comparison
-- [ ] Dogfood comparison <!-- task-id: plan.specs-readable-visual-plans-md.dogfood-comparison --> — snow-mcp OAuth plan upgraded and re-rendered outside the repo, before and after captures for the PR (blocked-by: plan.specs-readable-visual-plans-md.browser-proof)
+- [ ] Dogfood comparison <!-- task-id: plan.specs-readable-visual-plans-md.dogfood-comparison --> — Slice 13/13 of #233: The upgraded snow-mcp OAuth plan re-rendered outside the repo, with before and after screenshots k… ([#268](https://github.com/Joaovsales/jplugin-agentic-development/issues/268)) (blocked-by: plan.specs-readable-visual-plans-md.browser-proof)
   [ ] Verify: the upgraded snow-mcp `oauth-identity-source` spec renders without error and before and after screenshots sit in `design/plan-theme/dogfood/` for the owner's review (AC 25)
