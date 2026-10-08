@@ -1779,9 +1779,12 @@ Filed this sweep:
 > Surface: none
 
 ### Slice 5/13 — Risk and question cards
-- [ ] Risk and question cards <!-- task-id: plan.specs-readable-visual-plans-md.risk-and-question-cards --> — Slice 5/13 of #233: `## Risks` and `## Open questions` cards, their Blockers entries and blocked-slice marks in the DAG. ([#260](https://github.com/Joaovsales/jplugin-agentic-development/issues/260)) (blocked-by: plan.specs-readable-visual-plans-md.diagrams)
-  [ ] TDD: tests/test-plan-render.sh § risks — risks sort by impact then likelihood with text labels; an unmitigated high risk is in Blockers; `None identified` renders one line -> risk section and card (AC 6)
-  [ ] TDD: tests/test-plan-render.sh § questions — a blocking question marks its slices in the DAG and appears in Blockers -> question section and DAG mark (AC 7)
+- [x] Risk and question cards <!-- task-id: plan.specs-readable-visual-plans-md.risk-and-question-cards --> — Slice 5/13 of #233: `## Risks` and `## Open questions` cards, their Blockers entries and blocked-slice marks in the DAG. ([#260](https://github.com/Joaovsales/jplugin-agentic-development/issues/260)) (blocked-by: plan.specs-readable-visual-plans-md.diagrams)
+  [x] TDD: tests/test-plan-render.sh § risks — risks sort by impact then likelihood with text labels; an unmitigated high risk is in Blockers; `None identified` renders one line -> risk section and card (AC 6)
+  [x] TDD: tests/test-plan-render.sh § questions — a blocking question marks its slices in the DAG and appears in Blockers -> question section and DAG mark (AC 7)
+> Handover: landed 0ef0b67..d769c2d — `plan_cards.render_risks` (sorted by impact then likelihood, `Likelihood X` / `Impact X` text labels, `No mitigation yet`, slice links, `p.risks-none` single line) and `render_questions` (ringed `?`, `Blocks slice n` / `Blocks nothing` and `Needed from` tags, `blocking` chip); both registered in `plan_page.TYPED`; `full.md` risks now sit in reverse source order so the sort is exercised.
+> Do not re-derive: the DAG and slice-card blocked marks already came from slice 4's `blocked_slices`; every blocker card carries `is-blocker` (decisions, ACs, risks, questions, slices) — slice 6's Show only blockers keys on that class plus a section-level `has-blockers`; tag spans use `.meta` styling (no `.tag` rule exists in plan.css).
+> Surface: none
 
 ### Slice 6/13 — Disclosure and navigation
 - [ ] Disclosure and navigation <!-- task-id: plan.specs-readable-visual-plans-md.disclosure-and-navigation --> — Slice 6/13 of #233: Open and collapsed defaults, Expand all, Collapse all, Show only blockers, deep links into collapse… ([#261](https://github.com/Joaovsales/jplugin-agentic-development/issues/261)) (blocked-by: plan.specs-readable-visual-plans-md.risk-and-question-cards)
