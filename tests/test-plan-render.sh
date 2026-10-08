@@ -223,7 +223,7 @@ assert_contains "$ESC" 'Gateway &amp; Co' "flow-sequence: an ampersand in a node
 assert_contains "$ESC" 'get &lt;id&gt; &amp; &quot;flag&quot;' "flow-sequence: sequence message text is escaped"
 
 printf '\n--- risks: cards sort by impact then likelihood with text H/M/L labels ---\n'
-RISKS="$(between '<section class="sec sec-risks"' '</section>' "$FULL")"
+RISKS="$(between '<section class="sec sec-risks' '</section>' "$FULL")"
 ORDER="$(printf '%s' "$RISKS" | grep -o 'id="r[0-9]"' | tr -d '\n')"
 assert_eq 'id="r1"id="r2"id="r3"id="r4"' "$ORDER" "risks: R1 (H impact, M likelihood), R2 (H, L), R3 (M, H), R4 (L, L)"
 R2="$(printf '%s' "$RISKS" | sed 's/<article/\n<article/g' | grep 'id="r2"')"
@@ -238,12 +238,12 @@ assert_contains "$R1" '<dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd>' "r
 assert_not_contains "$R1" 'is-blocker' "risks: a mitigated risk is not a blocker"
 render risks-none
 assert_eq "0" "$CODE" "risks: 'None identified — <why>' renders"
-NONE="$(between '<section class="sec sec-risks"' '</section>' "$(cat "$TMP/risks-none.html")")"
+NONE="$(between '<section class="sec sec-risks' '</section>' "$(cat "$TMP/risks-none.html")")"
 assert_contains "$NONE" '<p class="risks-none">None identified — a read-only report with no external writes.</p>' "risks: None identified renders as a single line"
 assert_not_contains "$NONE" '<article' "risks: None identified renders no cards"
 
 printf '\n--- questions: a blocking question marks its slices in the DAG and appears in Blockers ---\n'
-QS="$(between '<section class="sec sec-open-questions"' '</section>' "$FULL")"
+QS="$(between '<section class="sec sec-open-questions' '</section>' "$FULL")"
 Q1="$(printf '%s' "$QS" | sed 's/<article/\n<article/g' | grep 'id="q1"')"
 assert_contains "$Q1" '<span class="card-label">Question</span>' "questions: the card carries its type label"
 assert_contains "$Q1" '<span class="card-icon" aria-hidden="true">?</span>' "questions: the card carries the ? icon"
@@ -258,6 +258,54 @@ assert_contains "$DAG2" 'class="node node-blocked"' "questions: the blocked slic
 assert_contains "$DAG2" '>blocked</text>' "questions: the DAG mark is also a text label"
 assert_contains "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'id="slice-2"')" 'chip-blocked' "questions: the blocked slice card carries a blocked chip"
 assert_not_contains "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'id="slice-3"')" 'chip-blocked' "questions: an unblocked slice carries no blocked chip"
+
+printf '\n--- disclosure: approval content is open, reference content is collapsed ---\n'
+sec_details() { printf '%s' "$FULL" | tr -d '\n' | grep -o "<section class=\"sec sec-[a-z-]*[^\"]*\" id=\"$1\"[^>]*><details class=\"sec-body\"[^>]*>"; }
+for sid in decisions acceptance-criteria risks open-questions build-order system-design behavior; do
+  assert_contains "$(sec_details "$sid")" ' open>' "disclosure: § $sid is open on load"
+done
+for sid in constraints component-contracts data-models references; do
+  got="$(sec_details "$sid")"
+  assert_contains "$got" '<details class="sec-body">' "disclosure: § $sid is present and collapsed on load"
+done
+assert_contains "$FULL" '<section class="lead' "disclosure: the lead summary is outside any disclosure"
+assert_contains "$FULL" '<nav class="strip' "disclosure: the summary strip is outside any disclosure"
+assert_contains "$FULL" '<section class="blockers' "disclosure: Blockers is outside any disclosure"
+CON="$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'card card-constraint' | grep 'Export window')"
+assert_contains "$CON" '<span class="chip chip-verify">verify</span>' "disclosure: an inferred constraint carries a verify badge"
+assert_contains "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'card card-constraint' | grep 'Maximum rows')" 'card-label">Constraint' "disclosure: constraints render as typed cards"
+CT="$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'card card-contract' | grep 'Exporter')"
+assert_contains "$CT" '<span class="chip chip-new">new</span>' "disclosure: a (NEW) contract heading becomes a new chip"
+assert_contains "$CT" '<h3>Exporter</h3>' "disclosure: the contract title drops the parenthetical"
+assert_contains "$CT" '<button type="button" class="copy"' "disclosure: a contract block has a copy button"
+assert_contains "$CT" 'export(team_id: str, rows: Iterable[Row]) -&gt; list[Path]' "disclosure: the contract signature is kept"
+assert_contains "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'card card-contract' | grep 'Splitter')" '<span class="chip chip-changed">changed</span>' "disclosure: a (changed) contract heading becomes a changed chip"
+assert_contains "$(printf '%s' "$FULL" | sed 's/<article/\n<article/g' | grep 'card card-model')" '<th scope="col">Field</th>' "disclosure: a data model renders its schema table"
+assert_contains "$FULL" 'class="card card-reference"' "disclosure: references render as reference items"
+CTRL="$(between '<div class="controls"' '</div>' "$FULL")"
+assert_contains "$CTRL" '<button type="button" class="btn" data-action="expand">Expand all</button>' "disclosure: Expand all is a named button"
+assert_contains "$CTRL" '<button type="button" class="btn" data-action="collapse">Collapse all</button>' "disclosure: Collapse all is a named button"
+assert_contains "$CTRL" '<button type="button" class="btn" data-action="blockers" aria-pressed="false">Show only blockers</button>' "disclosure: Show only blockers is a toggle button"
+assert_contains "$(printf '%s' "$FULL" | tr -d '\n' | grep -o '<section class="sec sec-decisions[^"]*"')" 'has-blockers' "disclosure: a section holding a blocker card is marked for blockers-only view"
+assert_not_contains "$(printf '%s' "$FULL" | tr -d '\n' | grep -o '<section class="sec sec-constraints[^"]*"')" 'has-blockers' "disclosure: a section with no blocker is not marked"
+
+printf '\n--- deep-links: the page script opens collapsed ancestors and dismisses the mobile menu ---\n'
+SCRIPT="$(between '<script>' '</script>' "$FULL")"
+assert_contains "$SCRIPT" 'function openTo(' "deep-links: the script has a hash target opener"
+assert_contains "$SCRIPT" "closest('details')" "deep-links: the opener walks up through every ancestor details"
+assert_contains "$SCRIPT" "addEventListener('hashchange'" "deep-links: a hash change opens its target"
+assert_contains "$SCRIPT" 'openTo(location.hash' "deep-links: the initial URL fragment is honoured on load"
+assert_contains "$SCRIPT" "matchMedia('(max-width: 767px)')" "deep-links: the menu knows the 768 px breakpoint"
+assert_contains "$SCRIPT" 'menu.open = false' "deep-links: choosing an item closes the mobile menu"
+assert_contains "$SCRIPT" 'IntersectionObserver' "deep-links: the table of contents has scrollspy"
+assert_contains "$SCRIPT" "'aria-current'" "deep-links: the active entry is exposed as aria-current"
+assert_contains "$SCRIPT" "addEventListener('beforeprint'" "deep-links: printing opens every disclosure"
+TOC="$(between '<nav class="toc"' '</nav>' "$FULL")"
+assert_contains "$TOC" '<details class="toc-menu" open><summary>Contents</summary>' "deep-links: the table of contents is a details menu"
+for sid in summary-lead blockers decisions acceptance-criteria build-order references; do
+  assert_contains "$TOC" "href=\"#$sid\"" "deep-links: the table of contents links #$sid"
+done
+assert_contains "$FULL" '<div class="shell"><nav class="toc"' "deep-links: the navigation sits in the layout shell beside main"
 
 for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
   assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"
