@@ -307,14 +307,23 @@ def _inline_token(m: "re.Match") -> str:
 
 
 def plain(text: str) -> str:
-    """Inline markdown stripped to plain text (for labels and slugs)."""
-    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
-    return re.sub(r"[`*_]", "", text).strip()
+    """Inline markdown stripped to plain text (for labels and slugs); code keeps its characters."""
+    return _INLINE.sub(_plain_token, text).strip()
+
+
+def _plain_token(m: "re.Match") -> str:
+    if m.group("code"):
+        return m.group("codebody").strip()
+    return plain(m.group("ltext") or m.group("bold") or m.group("em") or m.group("em2") or "")
 
 
 # ---------------------------------------------------------------- blocks ---
 
 _BOX = re.compile(r"[┌┐└┘│─├┤┬┴┼═║╔╗╚╝▶▼◀▲]|\+-{2,}|-{2,}>|<-{2,}|\|\s.*\s\|")
+
+
+# (icon, label) of the text-diagram component; plan_cards.COMPONENTS reads it from here
+TEXT_DIAGRAM = ("≡", "Text diagram")
 
 
 def looks_like_diagram(body: str) -> bool:
@@ -348,7 +357,8 @@ def render_list(block: Block) -> str:
 def render_code(block: Block) -> str:
     code = "<pre><code>%s</code></pre>" % esc(block.text)
     if block.lang in ("text", "") and looks_like_diagram(block.text):
-        return '<details class="text-diagram"><summary>Text diagram</summary>%s</details>' % code
+        return ('<details class="text-diagram card-text-diagram"><summary><span class="card-icon" aria-hidden="true">%s</span>'
+                '<span class="card-label">%s</span></summary>%s</details>' % (TEXT_DIAGRAM[0], TEXT_DIAGRAM[1], code))
     return code
 
 

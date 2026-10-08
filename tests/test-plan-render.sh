@@ -63,8 +63,8 @@ assert_contains "$PAGE" '>D1<' "legacy: decisions without an ID column are auto-
 assert_contains "$PAGE" '>D2<' "legacy: and D2"
 assert_contains "$PAGE" '>AC1<' "legacy: unprefixed acceptance criteria are auto-numbered AC1"
 assert_contains "$PAGE" '>AC2<' "legacy: and AC2"
-assert_contains "$PAGE" '<details class="text-diagram">' "legacy: an ASCII diagram sits in a collapsed text-diagram disclosure"
-assert_not_contains "$PAGE" '<details class="text-diagram" open' "legacy: the text diagram is collapsed"
+assert_contains "$PAGE" '<details class="text-diagram card-text-diagram">' "legacy: an ASCII diagram sits in a collapsed text-diagram disclosure"
+assert_not_contains "$PAGE" '<details class="text-diagram card-text-diagram" open' "legacy: the text diagram is collapsed"
 assert_contains "$PAGE" '| scheduler | ---&gt; | exporter' "legacy: the diagram text survives, escaped"
 assert_contains "$PAGE" '<pre><code>plain text that is not a diagram' "legacy: a plain text fence stays an ordinary code block"
 assert_contains "$PAGE" '<code>inline code</code> and <strong>bold</strong> and <em>italic</em>' "legacy: inline markdown renders"
@@ -415,6 +415,102 @@ for verb in 'answer' 'pick' 'questioned' 'ok'; do
   assert_file_contains "$PLAN_SKILL" "\`<ID>: $verb" "plan-consumer: /plan says how a \`$verb\` line is applied"
 done
 assert_file_contains "$PLAN_SKILL" 'then re-run Step 3' "plan-consumer: an applied review re-runs /slice"
+
+printf '\n--- distinct: every component type is present and told apart by icon and label ---\n'
+cat > "$TMP/distinct.py" <<'EOF'
+import html, re, sys
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+from plan_cards import COMPONENTS
+page = open(sys.argv[2], encoding="utf-8").read()
+page = page[page.index("<body"):]
+pairs = {}
+for kind, (glyph, text) in COMPONENTS.items():
+    m = re.search(r'class="[^"]*\bcard-%s\b[^"]*"' % re.escape(kind), page)
+    if not m:
+        print("missing: %s" % kind)
+        continue
+    head = page[m.end():m.end() + 600]
+    if ('<span class="card-icon" aria-hidden="true">%s</span>' % html.escape(glyph, quote=False)) not in head \
+            or ('<span class="card-label">%s</span>' % html.escape(text, quote=False)) not in head:
+        print("unlabelled: %s" % kind)
+    pairs.setdefault((glyph, text), []).append(kind)
+    pairs.setdefault(("icon", glyph), []).append(kind)
+    pairs.setdefault(("label", text), []).append(kind)
+for key, kinds in pairs.items():
+    if len(kinds) > 1:
+        print("shared %s: %s" % (key[0], ", ".join(kinds)))
+EOF
+assert_eq "" "$("$TEST_PYTHON" "$TMP/distinct.py" "$(dirname "$RENDER")" "$TMP/full.html" 2>&1)" "distinct: every registry type renders in full.md with its own icon and label, none shared"
+
+printf '\n--- preservation: what the spec says reaches the page ---\n'
+cat > "$TMP/preserve.py" <<'EOF'
+import html, re, sys
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+from plan_md import parse_document, plain
+from plan_sections import parse_build_order, parse_criteria
+
+# typed sections: their table headings and ID prefixes become card chrome
+TYPED = ("decisions", "acceptance criteria", "risks", "open questions", "build order")
+
+UNITS = r"(?:%|ms|s|seconds?|minutes?|hours?|days?|weeks?|KB|KiB|MB|MiB|GB|bytes?|rows?|px|chars?|characters|lines?|files?|slices?|UTC)"
+
+def norm(text):
+    return re.sub(r"\s+", " ", text).strip()
+
+def page_text(path):
+    raw = open(path, encoding="utf-8").read()
+    raw = re.sub(r"<(style|script)\b.*?</\1>", " ", raw, flags=re.S)
+    return norm(html.unescape(re.sub(r"<[^>]+>", " ", raw)))
+
+def expected(doc):
+    """AC sentences, table rows (decisions included), code lines (signatures), numeric limits."""
+    for section in doc.sections:
+        key = plain(section.title).lower()
+        if key == "acceptance criteria":
+            for c in parse_criteria(section):
+                yield "AC sentence", c.text
+            continue
+        if key == "build order":
+            for sl in parse_build_order(section).slices:
+                yield "slice", "S%d" % sl.number
+                for col, cell in sl.cells.items():
+                    if col not in ("#", "blocked by", "acs") and plain(cell):
+                        yield "slice cell", plain(cell)
+                for ac in sl.acs:
+                    yield "slice criterion", ac
+        for b in section.blocks:
+            if b.kind == "table" and key == "build order":
+                continue
+            if b.kind == "table":
+                for row in (b.rows[1:] if key in TYPED else b.rows):
+                    for cell in row:
+                        if plain(cell).strip():
+                            yield "table cell", plain(cell)
+            elif b.kind == "code":
+                for line in b.text.splitlines():
+                    if line.strip():
+                        yield "code line", line
+            elif b.kind == "list":
+                for item in b.items:
+                    yield "list item", plain(item.text)
+            elif b.kind == "para":
+                for m in re.finditer(r"\b\d[\d,.]*\s?" + UNITS + r"\b", plain(b.text)):
+                    yield "numeric limit", m.group(0)
+
+doc = parse_document(open(sys.argv[2], encoding="utf-8").read())
+text = page_text(sys.argv[3])
+squeezed = text.replace(" ", "")  # tags became spaces; inline markup may split a phrase
+for what, item in expected(doc):
+    if norm(item).replace(" ", "") not in squeezed:
+        print("%s missing: %s" % (what, norm(item)[:80]))
+EOF
+for name in full legacy legacy-dialects plan-shape diagram-escape risks-none; do
+  (cd "$FIX" && "$TEST_PYTHON" "$RENDER" "$name.md" -o "$TMP/preserve-$name.html" >/dev/null 2>&1)
+  assert_eq "" "$("$TEST_PYTHON" "$TMP/preserve.py" "$(dirname "$RENDER")" "$FIX/$name.md" "$TMP/preserve-$name.html" 2>&1)" \
+    "preservation: every AC sentence, table row, code line and numeric limit of $name.md is in its page"
+done
 
 for heading in '## Palette' '## Typography' '## Layout' '## Motion' '## Accessibility' '## Component vocabulary' '## Authoring record'; do
   assert_file_contains "$THEME/DESIGN.md" "$heading" "theme: design/plan-theme/DESIGN.md has $heading"

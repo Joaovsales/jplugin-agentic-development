@@ -8,7 +8,7 @@ no type is told apart by colour alone.
 import re
 from typing import Dict, List, Optional
 
-from plan_md import Block, esc, inline, plain, render_blocks
+from plan_md import TEXT_DIAGRAM, Block, esc, inline, plain, render_blocks
 from plan_model import Plan, anchor, blockers, coverage, is_blocking_risk
 from plan_review import review_controls
 
@@ -26,7 +26,7 @@ COMPONENTS: Dict[str, tuple] = {
     "model": ("⊞", "Data model"),
     "slice": ("▤", "Slice"),
     "diagram": ("◇", "Diagram"),
-    "text-diagram": ("≡", "Text diagram"),
+    "text-diagram": TEXT_DIAGRAM,
     "prompt": ("▶", "Build prompt"),
     "reference": ("↗", "Reference"),
 }
@@ -85,7 +85,7 @@ def decision_card(d) -> str:
     is_open = d.status == "open"
     return '<article class="%s" id="%s">%s%s%s%s</article>' % (
         classes("card card-decision", "is-open is-blocker" if is_open else ""), anchor(d.id),
-        head("decision", d.id, chip(d.status), inline(d.title)), _chosen(d), _decision_body(d),
+        head("decision", d.id, chip(d.status, d.status_text), inline(d.title)), _chosen(d), _decision_body(d),
         review_controls(d.id, pick_from=d.options if is_open else None))
 
 
@@ -193,7 +193,8 @@ def render_strip(plan: Plan, slugs: Dict[str, str]) -> str:
     ]
     links = [_stat(slugs[key], n, text) for key, n, text in stats if key in slugs]
     links.append(_stat("blockers", len(blockers(plan)), "blockers", alert=bool(blockers(plan))))
-    return '<nav class="strip card-strip" aria-label="At a glance">%s</nav>' % "".join(links)
+    return '<nav class="strip card-strip" aria-label="At a glance"><span class="strip-label">%s%s</span>%s</nav>' % (
+        icon("strip"), label("strip"), "".join(links))
 
 
 def render_blockers(plan: Plan) -> str:
