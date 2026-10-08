@@ -1810,9 +1810,12 @@ Filed this sweep:
 > Surface: none
 
 ### Slice 9/13 — Review export
-- [ ] Review export <!-- task-id: plan.specs-readable-visual-plans-md.review-export --> — Slice 9/13 of #233: Hash-keyed review state on every card, the export block, and `/plan`'s change-request path that app… ([#264](https://github.com/Joaovsales/jplugin-agentic-development/issues/264)) (blocked-by: plan.specs-readable-visual-plans-md.readiness-gate)
-  [ ] TDD: tests/test-plan-render.sh § review — cards carry review controls, the storage key includes the spec hash, the export matches the Behavior block format, a throwing storage path is handled -> review-state script (AC 18)
-  [ ] TDD: tests/test-plan-render.sh § plan-consumer — `/plan` SKILL.md applies an export block (answers, picks, questioned), refuses a hash mismatch naming both hashes, then re-runs `/slice` -> change-request path text (AC 19)
+- [x] Review export <!-- task-id: plan.specs-readable-visual-plans-md.review-export --> — Slice 9/13 of #233: Hash-keyed review state on every card, the export block, and `/plan`'s change-request path that app… ([#264](https://github.com/Joaovsales/jplugin-agentic-development/issues/264)) (blocked-by: plan.specs-readable-visual-plans-md.readiness-gate)
+  [x] TDD: tests/test-plan-render.sh § review — cards carry review controls, the storage key includes the spec hash, the export matches the Behavior block format, a throwing storage path is handled -> review-state script (AC 18)
+  [x] TDD: tests/test-plan-render.sh § plan-consumer — `/plan` SKILL.md applies an export block (answers, picks, questioned), refuses a hash mismatch naming both hashes, then re-runs `/slice` -> change-request path text (AC 19)
+> Handover: landed bdfcfd6..191e8b4 — `plan_review.py` (`review_controls` on AC, decision, risk, question and slice cards: ok / questioned + note, an answer field on questions, a lettered `select` picker on open decisions; `render_review_panel` `section#review` with `data-spec`/`data-sha`, status line, Export review); `plan_page.js` `planReview` pure helpers (`key`, `openStore` that never throws, `line`, `format`, exported to node) plus DOM wiring; `/plan` SKILL.md applies an export after comparing `plan_render.py --hash`.
+> Do not re-derive: the storage key is `jplugin-plan-review:<sha12>:<spec>`; picks are letters in the order the Options cell lists them (`option_labels`: lettered `A)` markers, else split on , ; or vs); one export line per item, pick > answer > mark, whitespace flattened; the node check in test-plan-render.sh SKIPs loudly without node; tests were written after the code in this slice, so three mutations of plan_page.js were run and caught; browser spot-check confirmed persistence across reload and no overflow.
+> Surface: none
 
 ### Slice 10/13 — Fidelity checks
 - [ ] Fidelity checks <!-- task-id: plan.specs-readable-visual-plans-md.fidelity-checks --> — Slice 10/13 of #233: Fixture checks that every component type is visually distinct and that every AC sentence, decision… ([#265](https://github.com/Joaovsales/jplugin-agentic-development/issues/265)) (blocked-by: plan.specs-readable-visual-plans-md.review-export)
