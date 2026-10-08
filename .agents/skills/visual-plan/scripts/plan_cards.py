@@ -119,7 +119,7 @@ def render_criteria(plan: Plan) -> str:
 def render_lead(blocks: List[Block], body_html: str = "") -> str:
     if not blocks:
         return ""
-    return '<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label">%s%s</span>%s</section>' % (
+    return '<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label">%s %s</span>%s</section>' % (
         icon("lead"), label("lead"), body_html or render_blocks(blocks))
 
 

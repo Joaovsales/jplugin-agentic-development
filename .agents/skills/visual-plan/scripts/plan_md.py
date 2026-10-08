@@ -10,7 +10,7 @@ a section parser can fail with `<spec>:<line>: <reason>`.
 import html
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 
 class SpecError(Exception):
@@ -369,5 +369,10 @@ def render_block(block: Block) -> str:
     return "<hr>"
 
 
-def render_blocks(blocks: List[Block]) -> str:
-    return "\n".join(render_block(b) for b in blocks)
+def render_blocks(blocks: List[Block], hook: Optional[Callable[[Block], Optional[str]]] = None) -> str:
+    """Render blocks; `hook` may claim a block (a diagram fence) by returning HTML."""
+    out = []
+    for block in blocks:
+        claimed = hook(block) if hook else None
+        out.append(claimed if claimed is not None else render_block(block))
+    return "\n".join(out)

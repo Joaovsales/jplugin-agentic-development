@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Callable, Dict, List
 
 import plan_cards as cards
+from plan_build import render_build_order
+from plan_figures import diagram_hook
 from plan_md import Section, esc, inline, plain, render_blocks
 from plan_model import Plan, section_key
 
@@ -66,17 +68,18 @@ def section_wrap(sid: str, title: str, inner: str, kind: str = "generic", open_:
     )
 
 
-TYPED: Dict[str, Callable[[Plan, Section], str]] = {
-    "decisions": lambda plan, section: cards.render_decisions(plan),
-    "acceptance criteria": lambda plan, section: cards.render_criteria(plan),
+TYPED: Dict[str, Callable[[Plan, Section, Callable], str]] = {
+    "decisions": lambda plan, section, hook: cards.render_decisions(plan),
+    "acceptance criteria": lambda plan, section, hook: cards.render_criteria(plan),
+    "build order": lambda plan, section, hook: render_build_order(plan, hook),
 }
 LEAD_ONLY = ("summary",)
 
 
-def render_section(plan: Plan, section: Section, sid: str) -> str:
+def render_section(plan: Plan, section: Section, sid: str, hook: Callable) -> str:
     key = section_key(section.title)
     renderer = TYPED.get(key)
-    inner = renderer(plan, section) if renderer else render_blocks(section.blocks)
+    inner = renderer(plan, section, hook) if renderer else render_blocks(section.blocks, hook)
     kind = re.sub(r"[^a-z]+", "-", key) if renderer else "generic"
     return section_wrap(sid, section.title, inner, kind)
 
@@ -89,12 +92,14 @@ def section_slugs(plan: Plan) -> Dict[int, str]:
 
 def render_main(plan: Plan) -> str:
     ids = section_slugs(plan)
+    hook = diagram_hook(plan)
     by_key = {section_key(s.title): ids[s.line] for s in plan.doc.sections}
     parts: List[str] = [
-        render_blocks(plan.doc.preamble), cards.render_lead(plan.summary),
+        render_blocks(plan.doc.preamble, hook),
+        cards.render_lead(plan.summary, render_blocks(plan.summary, hook)),
         cards.render_strip(plan, by_key), cards.render_blockers(plan),
     ]
-    parts += [render_section(plan, s, ids[s.line]) for s in plan.doc.sections
+    parts += [render_section(plan, s, ids[s.line], hook) for s in plan.doc.sections
               if section_key(s.title) not in LEAD_ONLY]
     return "\n".join(p for p in parts if p)
 
