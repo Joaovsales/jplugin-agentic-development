@@ -1739,3 +1739,24 @@ Filed this sweep:
 - Completed: lane-plan-handover, 5/5 slices (#250–#254) with handovers. The quality gate dispatched Phase 4 (verdict GO), and receipt a08fce98 is GO on a WSL affected run of 37/37.
 - Pending: the PR's Linux CI run. Reported, not applied: the ownerless-lane list is repeated in go/SKILL.md and AGENTS.md step 3 (SHOULD-FIX, manual), and the AC1 pins in test-routines-contract.sh are scoped to the section, not the bullet (NITPICK, advisory).
 - Carry-forward: routine-prompts/plan.md still says "confirm the plan yourself", and slice/SKILL.md § File still names only `/yolo` as omitting `--approve`. Both are outside this spec's ACs.
+- [ ] Six more test files fail only on Windows hosts (design-stack, evidence, codex install) <!-- task-id: tidy.tests-test-design-stack-install-sh.six-more-test-files-fail-only-on-windows-hosts-design-stack-evidence-codex-install --> — tests/run.sh at 239edb8 fails 6 files on Windows Git Bash that Linux CI passes at the same sha and that neither #129 no… ([#269](https://github.com/Joaovsales/jplugin-agentic-development/issues/269))
+
+## Tidy: 2026-10-07
+
+- [x] suite — RED locally: 14/70 files (Linux CI green at 239edb8); Tier 0 held by Law 3
+- [x] inventory — clean
+- [x] retired — clean (9 retired names; only retirement tests and history notes name them)
+- [x] installed — findings: 4 (Tier 1)
+- [x] refs — 1 Tier 0 candidate held by Law 3; 164 Unverified
+- [x] worktrees — findings: 11 worktrees + 28 branches provably merged (Tier 1); 3 detached skipped
+- [x] strays — clean
+- [x] graph — skipped: graphify not installed
+- [x] registers — findings: 29 closed plan blocks (Tier 1, tracked as #143); checkpoint current
+- [x] Routine step 1 `/tidy` — record tasks/sweeps/2026-10-07-tidy.md
+- [x] Routine step 2 `/wrap-up-session` — push and ready PR `chore(tidy): 2026-10-07`
+
+## Session Summary — 2026-10-07 [239edb8..3c939d1]
+
+- Completed: scheduled `tidy` sweep at 239edb8; record `tasks/sweeps/2026-10-07-tidy.md`; filed #269 (six Windows-only test files).
+- Pending: Tier 0 `refs` repair at `.agents/skills/slice/SKILL.md:51` (held by Law 3: suite red on this Windows host); Tier 1 remedies printed in the record (installed copies, 11 merged worktrees + 28 branches, 29 closed plan blocks — #143).
+- Carry-forward: earlier tidy runs left `routine/tidy/20260928-sweep` (unpushed record `b3272cd`) and the `tidy-20260929` worktree; #155 is still open.
