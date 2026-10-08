@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from plan_diagrams import Flow, Sequence as SeqDiagram
 from plan_md import esc
+from plan_model import slice_anchor
 
 PAD = 20
 GAP_X = 64
@@ -111,11 +112,11 @@ def _dag_node(s, xy: Tuple[float, float], layer: int, is_blocked: bool) -> str:
     status = '<text class="node-sub" x="%.1f" y="%.1f" text-anchor="end">blocked</text>' % (
         x + DAG_W - 10, y + 19) if is_blocked else ""
     return (
-        '<a href="#slice-%d" aria-label="%s" class="%s" data-layer="%d"><title>%s</title>'
+        '<a href="#%s" aria-label="%s" class="%s" data-layer="%d"><title>%s</title>'
         '<rect x="%.1f" y="%.1f" width="%d" height="%d" rx="6"/>'
         '<text class="node-sub" x="%.1f" y="%.1f">S%d</text>%s'
         '<text x="%.1f" y="%.1f">%s</text></a>'
-        % (s.number, esc(name), "node node-blocked" if is_blocked else "node", layer, esc(name),
+        % (slice_anchor(s.number), esc(name), "node node-blocked" if is_blocked else "node", layer, esc(name),
            x, y, DAG_W, DAG_H, x + 10, y + 19, s.number, status, x + 10, y + 39, esc(clip(s.name, 24)))
     )
 

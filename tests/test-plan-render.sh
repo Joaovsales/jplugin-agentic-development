@@ -42,6 +42,9 @@ assert_failure fail-sequence-end 8 "end without alt"
 assert_failure fail-question-blocks 7 "slice 9"
 assert_failure fail-build-cycle 7 "cycle"
 assert_failure fail-ac-duplicate 6 "duplicate ID AC1"
+# the page refuses the Blocked by cells /slice validate refuses: one grammar for both
+assert_failure fail-blocked-by 8 "Blocked by"
+assert_failure fail-flow-empty 7 "empty node name"
 
 render legacy
 assert_eq "0" "$CODE" "render: legacy exits 0"

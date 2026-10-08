@@ -200,6 +200,17 @@ def _numbers(cell: str, no: int, what: str) -> Tuple[int, ...]:
     return tuple(out)
 
 
+def _blocked_by(cell: str, no: int) -> Tuple[int, ...]:
+    """Bare slice numbers, comma-separated: the grammar `slice.py validate` accepts."""
+    text = plain(cell)
+    if text in ("", "-", "—"):
+        return ()
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if not all(p.isdigit() for p in parts):
+        raise SpecError(no, "Build Order Blocked by must list slice numbers, got %r" % cell)
+    return tuple(int(p) for p in parts)
+
+
 def parse_build_order(section: Section) -> BuildOrder:
     table = _one_table(section)
     slices = []
@@ -209,19 +220,23 @@ def parse_build_order(section: Section) -> BuildOrder:
             raise SpecError(no, "Build Order slice number must be an integer, got %r" % num)
         slices.append(Slice(
             int(num), _pick(row, "slice", "name"), no, row,
-            _numbers(_pick(row, "blocked by"), no, "Build Order Blocked by"),
+            _blocked_by(_pick(row, "blocked by"), no),
             tuple("AC%d" % n for n in _numbers(_pick(row, "acs"), no, "Build Order ACs")),
         ))
     _check_slices(slices)
-    intro = [b for b in section.blocks if b is not table and b.kind != "code"]
+    intro = [b for b in section.blocks if b is not table and b.kind != "code" and not _is_prompt_label(b)]
     return BuildOrder(slices, _prompt(section), intro)
+
+
+def _is_prompt_label(block) -> bool:
+    return block.kind == "para" and plain(block.text).lower().startswith("build prompt")
 
 
 def _prompt(section: Section) -> Optional[str]:
     """The fenced block after a `Build prompt:` paragraph, verbatim."""
     seen_label = False
     for block in section.blocks:
-        if block.kind == "para" and plain(block.text).lower().startswith("build prompt"):
+        if _is_prompt_label(block):
             seen_label = True
         elif block.kind == "code" and seen_label:
             return block.text

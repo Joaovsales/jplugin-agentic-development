@@ -74,7 +74,11 @@ def _node(flow: Flow, raw: str) -> str:
 def parse_flow(body: str, fence_line: int) -> Flow:
     flow = Flow()
     for no, text in _lines(body, fence_line):
-        if not _flow_line(flow, text):
+        try:
+            supported = _flow_line(flow, text)
+        except ValueError as err:  # _node: a marker with no name
+            raise SpecError(no, "%s: %r" % (err, text)) from None
+        if not supported:
             raise SpecError(no, "unsupported flow line: %r" % text)
     if not flow.edges and not flow.nodes:
         raise SpecError(fence_line, "empty flow diagram")

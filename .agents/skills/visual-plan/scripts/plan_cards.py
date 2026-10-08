@@ -9,7 +9,7 @@ import re
 from typing import Dict, List, Optional
 
 from plan_md import TEXT_DIAGRAM, Block, esc, inline, plain, render_blocks
-from plan_model import Plan, anchor, blockers, coverage, is_blocking_risk
+from plan_model import Plan, anchor, blockers, coverage, is_blocking_risk, slice_links
 from plan_review import review_controls
 
 # component type -> (icon glyph, text label); the registry AC3 checks.
@@ -96,8 +96,7 @@ def render_decisions(plan: Plan) -> str:
 # -------------------------------------------------------------- criteria ---
 
 def _covered_by(slices: List[int]) -> str:
-    links = ", ".join('<a href="#slice-%d">slice %d</a>' % (n, n) for n in slices)
-    return '<p class="meta">covered by %s</p>' % links
+    return '<p class="meta">covered by %s</p>' % slice_links(slices)
 
 
 def criterion_card(c, slices: Optional[List[int]]) -> str:
@@ -127,7 +126,7 @@ def _slice_links(cell: str) -> str:
     nums = re.findall(r"\d+", plain(cell))
     if not nums or re.sub(r"[\d,\s]", "", plain(cell)):
         return inline(cell)
-    return ", ".join('<a href="#slice-%s">slice %s</a>' % (n, n) for n in nums)
+    return slice_links(nums)
 
 
 def risk_card(r) -> str:
@@ -154,7 +153,7 @@ def render_risks(plan: Plan) -> str:
 # -------------------------------------------------------- open questions ---
 
 def question_card(q) -> str:
-    blocks = ("Blocks %s" % ", ".join('<a href="#slice-%d">slice %d</a>' % (n, n) for n in q.blocks)
+    blocks = ("Blocks %s" % slice_links(q.blocks)
               if q.blocks else "Blocks nothing")
     tags = '<p class="meta"><span class="tag">%s</span>%s</p>' % (
         blocks, '<span class="tag">Needed from %s</span>' % inline(q.needed_from) if plain(q.needed_from) else "")

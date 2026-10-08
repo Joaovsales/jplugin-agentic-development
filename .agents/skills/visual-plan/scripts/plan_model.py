@@ -49,6 +49,16 @@ def anchor(item_id: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", item_id.lower()).strip("-")
 
 
+def slice_anchor(number) -> str:
+    """The element id of slice card `number`."""
+    return "slice-%s" % number
+
+
+def slice_links(numbers) -> str:
+    """`1, 2` as links to their slice cards; empty when there are none."""
+    return ", ".join('<a href="#%s">slice %s</a>' % (slice_anchor(n), n) for n in numbers)
+
+
 def coverage(plan: Plan) -> Optional[Dict[str, List[int]]]:
     """AC id -> the slices whose ACs column names it; None when the spec is unsliced."""
     if plan.build is None:

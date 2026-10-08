@@ -5,7 +5,7 @@ from typing import Set
 from plan_cards import classes, chip, head
 from plan_figures import dag_figure
 from plan_md import esc, inline, plain, render_blocks
-from plan_model import Plan, anchor, not_ready_ids
+from plan_model import Plan, anchor, not_ready_ids, slice_anchor, slice_links
 from plan_review import review_controls
 from plan_sections import Slice
 
@@ -19,7 +19,7 @@ def blocked_slices(plan: Plan) -> Set[int]:
 
 
 def _links(numbers) -> str:
-    return ", ".join('<a href="#slice-%d">slice %d</a>' % (n, n) for n in numbers) or "none"
+    return slice_links(numbers) or "none"
 
 
 def _ac_links(acs) -> str:
@@ -33,8 +33,8 @@ def slice_card(s: Slice, is_blocked: bool) -> str:
     rows.insert(2, "<dt>Criteria</dt><dd>%s</dd>" % _ac_links(s.acs))
     chips = chip("blocked", "blocked by a question") if is_blocked else ""
     goal = plain(s.cells.get("delivers", ""))
-    return '<article class="%s" id="slice-%d">%s<p>%s</p><details class="card-more"><summary>Slice details</summary><dl>%s</dl></details>%s</article>' % (
-        classes("card card-slice", "is-blocked is-blocker" if is_blocked else ""), s.number,
+    return '<article class="%s" id="%s">%s<p>%s</p><details class="card-more"><summary>Slice details</summary><dl>%s</dl></details>%s</article>' % (
+        classes("card card-slice", "is-blocked is-blocker" if is_blocked else ""), slice_anchor(s.number),
         head("slice", "S%d" % s.number, chips, inline(s.name)), inline(goal), "".join(rows),
         review_controls("S%d" % s.number))
 
@@ -71,8 +71,7 @@ def render_build_order(plan: Plan, hook) -> str:
     if plan.build is None:
         return '<p class="meta">This spec has not been sliced yet: <code>/slice</code> writes this section.</p>'
     blocked = blocked_slices(plan)
-    intro = [b for b in plan.build.intro if not plain(b.text).lower().startswith("build prompt")]
     cards = "".join(slice_card(s, s.number in blocked) for s in plan.build.slices)
     return "%s%s<div class=\"cards slice-cards\">%s</div>%s" % (
-        render_blocks(intro, hook), dag_figure(plan, blocked), cards, prompt_panel(plan))
+        render_blocks(plan.build.intro, hook), dag_figure(plan, blocked), cards, prompt_panel(plan))
 

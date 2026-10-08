@@ -182,17 +182,8 @@ def check_view(browser, base: str, page: Path, root: Path, size: str, theme: str
     return view.problems
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Check rendered visual plans in a browser.")
-    parser.add_argument("root", type=Path)
-    parser.add_argument("--shots", type=Path, required=True)
-    parser.add_argument("--channel", default=None, help="browser channel, e.g. msedge or chrome")
-    args = parser.parse_args()
-    pages = sorted(args.root.glob("*.plan.html"))
-    if not pages:
-        print("check_plan_page: no *.plan.html in %s" % args.root, file=sys.stderr)
-        return 1
-    args.shots.mkdir(parents=True, exist_ok=True)
+def check_pages(pages, args) -> list:
+    """Every page at every viewport and theme, served from args.root; the problems found."""
     server = serve(args.root)
     base = "http://127.0.0.1:%d/" % server.server_address[1]
     problems = []
@@ -204,6 +195,21 @@ def main() -> int:
                     problems += check_view(browser, base, page, args.root, size, theme, args.shots)
         browser.close()
     server.shutdown()
+    return problems
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Check rendered visual plans in a browser.")
+    parser.add_argument("root", type=Path)
+    parser.add_argument("--shots", type=Path, required=True)
+    parser.add_argument("--channel", default=None, help="browser channel, e.g. msedge or chrome")
+    args = parser.parse_args()
+    pages = sorted(args.root.glob("*.plan.html"))
+    if not pages:
+        print("check_plan_page: no *.plan.html in %s" % args.root, file=sys.stderr)
+        return 1
+    args.shots.mkdir(parents=True, exist_ok=True)
+    problems = check_pages(pages, args)
     for problem in problems:
         print(problem)
     if problems:
