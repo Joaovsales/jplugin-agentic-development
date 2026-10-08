@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,7 +26,9 @@ HOME = Path(os.environ.get("DESIGN_STACK_HOME", Path.home() / ".local/share/jplu
 
 def run(*command, cwd=None, env=None):
     timeout = float(os.environ.get("DESIGN_STACK_TIMEOUT", "90"))
-    return subprocess.run(command, check=True, capture_output=True, text=True,
+    # Windows CreateProcess ignores PATHEXT, so a bare `npx` never finds npx.cmd.
+    executable = shutil.which(command[0]) or command[0]
+    return subprocess.run((executable, *command[1:]), check=True, capture_output=True, text=True,
                           timeout=timeout, cwd=cwd, env=env).stdout.strip()
 
 
