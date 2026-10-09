@@ -1882,8 +1882,11 @@ Filed this sweep:
   [ ] TDD: tests/test-doc-conventions.sh § shortcuts — the wrap-up ledger pattern matches C-block and HTML comment prefixes with wrap-up still 300 lines; /tidy lists check `shortcuts` citing § Shortcut ledger, `no-trigger` Tier 1 -> pattern edit and tidy check row (AC 7)
 
 ### Slice 7/8 — Seeded review fixtures
-- [ ] Seeded review fixtures <!-- task-id: plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures --> — Slice 7/8: four seeded diffs and their answer key ([#279](https://github.com/Joaovsales/jplugin-agentic-development/issues/279))
-  [ ] Verify: tests/fixtures/review-eval/ holds a race, an N+1 call, a time-zone off-by-one and a harmless decoy, each a diff, plus an answer key; no name hints at an eval (AC 8)
+- [x] Seeded review fixtures <!-- task-id: plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures --> — Slice 7/8: four seeded diffs and their answer key ([#279](https://github.com/Joaovsales/jplugin-agentic-development/issues/279))
+  [x] Verify: tests/fixtures/review-eval/ holds a race, an N+1 call, a time-zone off-by-one and a harmless decoy, each a diff, plus an answer key; no name hints at an eval (AC 8)
+> Handover: landed d27d85b — four Python diffs under tests/fixtures/review-eval/ (invite-redeem race, order-summary N+1, billing-cutoff UTC-vs-local off-by-one, settings-merge decoy with no defect) and `expected.md`, the key with diff-line anchors, failure cases, severities and a Grading section
+> Do not re-derive: the A/B hands candidates the four `.diff` files only, copied into a neutrally named sandbox — never `expected.md` and never the `review-eval` directory name (/eval blinding bans `eval` in anything a candidate sees); recall = location plus class, any finding on the decoy line or an unlisted MUST/SHOULD-FIX is a false positive
+> Surface: none (only `tests/fixtures/review-eval/**` touched)
 
 ### Slice 8/8 — Reviewer A/B
 - [ ] Reviewer A/B <!-- task-id: plan.specs-review-load-and-failure-cases-md.reviewer-a-b --> — Slice 8/8: the Mode B /eval report, linked from the PR body ([#280](https://github.com/Joaovsales/jplugin-agentic-development/issues/280)) (blocked-by: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite, plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures)

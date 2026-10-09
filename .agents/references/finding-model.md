@@ -24,7 +24,14 @@ Canonical emission format, so findings stay parseable across harnesses:
 ```
 [MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent] file.py:42 — description and impact
   evidence: `except Exception: pass` (file.py:42)
+  failure: a disk-full write raises, the handler swallows it, and the job reports success with no file written
 ```
+
+`evidence:` says *where* the defect is; `failure:` says *what goes wrong*. For a
+correctness, security or scale finding, `failure:` names the input or situation
+and the wrong result it produces. For a design or lean finding, it names the
+concrete change or read the defect makes harder — "adding a provider means
+editing A, B and C". It is never left empty because "design has no input".
 
 ## Confidence anchors
 
@@ -41,6 +48,8 @@ Canonical emission format, so findings stay parseable across harnesses:
 - A finding at `75` or `100` **must** carry `evidence` — the verbatim motivating
   line with `file:line`. Missing evidence **demotes** it to `50` rather than
   dropping it.
+- A finding with no `failure:` line is capped at `50` the same way: reported,
+  never auto-applied, never dropped.
 - Independent corroboration promotes `confidence` by exactly one anchor, and only
   as *Independence Accounting* permits.
 - On reviewer disagreement, synthesis takes the **more conservative**

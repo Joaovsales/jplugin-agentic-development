@@ -199,4 +199,20 @@ for f in $DISPATCH_SITE_FILES skills/sweep/SKILL.md; do
     "D19: $f states the order plugin -> installed copy -> refusal"
 done
 
+# --- 9. Every finding carries a failure case (AC1) ---------------------------
+# `evidence:` proves the reviewer read a line; it does not prove the line fails.
+# `failure:` names the input and the wrong result, so a finding with no failure
+# case is capped the same way one with no evidence is. The emission format is
+# pinned as adjacent lines: a `failure:` line that drifts away from `evidence:`
+# is one a parser reading the block in order no longer sees.
+fm=.agents/references/finding-model.md
+fm_flat="$(tr -s '[:space:]' ' ' < "$fm")"
+assert_eq "1" "$(grep -A1 '^  evidence: ' "$fm" | grep -c '^  failure: ')" \
+  "AC1: finding-model.md emission format shows failure: directly under evidence:"
+assert_contains "$fm_flat" 'A finding with no `failure:` line is capped at `50`' \
+  "AC1: finding-model.md § Gates caps a finding with no failure: at 50"
+gates="$(awk '/^## Gates/{on=1;next} /^## /{on=0} on' "$fm")"
+assert_contains "$gates" '`failure:`' \
+  "AC1: the failure: cap lives in § Gates"
+
 finish
