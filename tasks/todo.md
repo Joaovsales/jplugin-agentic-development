@@ -1857,29 +1857,48 @@ Filed this sweep:
 > Spec: specs/review-load-and-failure-cases.md
 
 ### Slice 1/8 — Failure line
-- [ ] Failure line <!-- task-id: plan.specs-review-load-and-failure-cases-md.failure-line --> — Slice 1/8: failure: in the emission format with its confidence cap, and the version bump ([#273](https://github.com/Joaovsales/jplugin-agentic-development/issues/273))
-  [ ] TDD: tests/test-review-context.sh § failure — finding-model.md shows `failure:` under `evidence:` and caps a finding without it at `50` -> emission format and § Gates edit; plugin.json minor bump (AC 1)
+- [x] Failure line <!-- task-id: plan.specs-review-load-and-failure-cases-md.failure-line --> — Slice 1/8: failure: in the emission format with its confidence cap, and the version bump ([#273](https://github.com/Joaovsales/jplugin-agentic-development/issues/273))
+  [x] TDD: tests/test-review-context.sh § failure — finding-model.md shows `failure:` under `evidence:` and caps a finding without it at `50` -> emission format and § Gates edit; plugin.json minor bump (AC 1)
+> Handover: landed 232c173 — finding-model.md § Emission format carries `failure:` under `evidence:` with a paragraph on what it holds per finding kind; § Gates caps a finding with no `failure:` at `50`; plugin.json 1.5.1 -> 1.6.0
+> Do not re-derive: the cap mirrors the evidence demotion exactly (reported, never auto-applied, never dropped); every receipt minted before this goes stale once (policy hash, R1)
+> Surface: none
 
 ### Slice 2/8 — Deferrals and load home
-- [ ] Deferrals and load home <!-- task-id: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home --> — Slice 2/8: § Deferrals and § Expected load, cited by the dispatch contract and three personas ([#274](https://github.com/Joaovsales/jplugin-agentic-development/issues/274)) (blocked-by: plan.specs-review-load-and-failure-cases-md.failure-line)
-  [ ] TDD: tests/test-agents.sh § deferrals — the combined shortcut rule names both exceptions, lives in one file, and critic, security-reviewer, software-design-expert-review (both trees) and dispatch item 5 cite it -> § Deferrals plus citations (AC 2)
-  [ ] TDD: tests/test-agents.sh § load — § Expected load defines `Load assumed:`, lookup order, no-source default and six scale patterns; the three personas reference it and the skill's dispatch instruction asks for `failure:` -> § Expected load plus references (AC 3)
+- [x] Deferrals and load home <!-- task-id: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home --> — Slice 2/8: § Deferrals and § Expected load, cited by the dispatch contract and three personas ([#274](https://github.com/Joaovsales/jplugin-agentic-development/issues/274)) (blocked-by: plan.specs-review-load-and-failure-cases-md.failure-line)
+  [x] TDD: tests/test-agents.sh § deferrals — the combined shortcut rule names both exceptions, lives in one file, and critic, security-reviewer, software-design-expert-review (both trees) and dispatch item 5 cite it -> § Deferrals plus citations (AC 2)
+  [x] TDD: tests/test-agents.sh § load — § Expected load defines `Load assumed:`, lookup order, no-source default and six scale patterns; the three personas reference it and the skill's dispatch instruction asks for `failure:` -> § Expected load plus references (AC 3)
+> Handover: landed 674b4a5, c75a3ad — finding-model.md § Expected load (Load assumed: line, lookup order, no-source default, six patterns) and § Deferrals (the one shortcut rule, exceptions (a) load and (b) never-cut list) plus a ponytail provenance line; dispatch contract item 5 cites § Deferrals, item 7 adds `failure:`; critic, security-reviewer, software-design-expert-review (both trees) and the sder skill cite both sections and show `failure:`
+> Do not re-derive: 'load already crosses' must stay in finding-model.md alone — tests/test-agents.sh § 6 counts files; security-reviewer writes `**failure**:` in its template, so its rule sentence carries the literal `failure:`
+> Surface: undeclared: tests/test-citations.sh — its fixed ## heading list for finding-model.md now names Expected load and Deferrals
 
 ### Slice 3/8 — Code reviewer rewrite
-- [ ] Code reviewer rewrite <!-- task-id: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite --> — Slice 3/8: the human layer and the bans in code-reviewer ([#275](https://github.com/Joaovsales/jplugin-agentic-development/issues/275)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
-  [ ] TDD: tests/test-agents.sh § code-reviewer — no Strengths, persona prose or Recommendations; template has `What this change does:`, `Load assumed:`, numbered findings with `failure:`, `Verdict:`, `Lean:`, `Not checked:`; bans "consider"; both trees byte-identical -> rewrite code-reviewer.md (AC 4)
+- [x] Code reviewer rewrite <!-- task-id: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite --> — Slice 3/8: the human layer and the bans in code-reviewer ([#275](https://github.com/Joaovsales/jplugin-agentic-development/issues/275)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [x] TDD: tests/test-agents.sh § code-reviewer — no Strengths, persona prose or Recommendations; template has `What this change does:`, `Load assumed:`, numbered findings with `failure:`, `Verdict:`, `Lean:`, `Not checked:`; bans "consider"; both trees byte-identical -> rewrite code-reviewer.md (AC 4)
+> Handover: landed 5e48ef3 — code-reviewer.md rewritten (both trees, byte-identical): Context Intake kept, What you check (correctness, security, scale, design, lean), What you never emit, human-layer Output with numbered findings, `failure:`, Verdict/Lean/Not checked
+> Do not re-derive: Verdict: names MUST-FIX numbers and decides nothing (D15); `What this tree does:` for repo surveys; the template's four example findings are the A/B's 'updated' arm
+> Surface: none
 
 ### Slice 4/8 — Gate load lens
-- [ ] Gate load lens <!-- task-id: plan.specs-review-load-and-failure-cases-md.gate-load-lens --> — Slice 4/8: Phase 3 Security and Load and the human-layer § Output ([#276](https://github.com/Joaovsales/jplugin-agentic-development/issues/276)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
-  [ ] TDD: tests/test-doc-conventions.sh § gate load — `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens with `What this change does:` and `Load assumed:`, numbered `Reported, not applied` with `failure:`, ends with `Lean:` and `Not checked:`; test-quality-receipt.sh green -> quality-gate SKILL.md edit (AC 5)
+- [x] Gate load lens <!-- task-id: plan.specs-review-load-and-failure-cases-md.gate-load-lens --> — Slice 4/8: Phase 3 Security and Load and the human-layer § Output ([#276](https://github.com/Joaovsales/jplugin-agentic-development/issues/276)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [x] TDD: tests/test-doc-conventions.sh § gate load — `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens with `What this change does:` and `Load assumed:`, numbered `Reported, not applied` with `failure:`, ends with `Lean:` and `Not checked:`; test-quality-receipt.sh green -> quality-gate SKILL.md edit (AC 5)
+> Handover: landed 0e1075c — /quality-gate `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens What this change does: / Load assumed:, numbered Reported-not-applied with failure:, then Receipt, Verdict (restated), Lean, Not checked
+> Do not re-derive: the old test prefix `## Phase 3 — Security` still matches; test-quality-receipt.sh's fixture lens `security-scan` is free text in receipt.py and stays valid
+> Surface: none
 
 ### Slice 5/8 — Split by job
-- [ ] Split by job <!-- task-id: plan.specs-review-load-and-failure-cases-md.split-by-job --> — Slice 5/8: the function-size rule in AGENTS.md and Phase 1.2 ([#277](https://github.com/Joaovsales/jplugin-agentic-development/issues/277)) (blocked-by: plan.specs-review-load-and-failure-cases-md.gate-load-lens)
-  [ ] TDD: tests/test-doc-conventions.sh § split by job — AGENTS.md and Phase 1.2 say "split by job" and "never by line count", no "20 LOC"; budget and managed-block tests green -> two rule edits (AC 6)
+- [x] Split by job <!-- task-id: plan.specs-review-load-and-failure-cases-md.split-by-job --> — Slice 5/8: the function-size rule in AGENTS.md and Phase 1.2 ([#277](https://github.com/Joaovsales/jplugin-agentic-development/issues/277)) (blocked-by: plan.specs-review-load-and-failure-cases-md.gate-load-lens)
+  [x] TDD: tests/test-doc-conventions.sh § split by job — AGENTS.md and Phase 1.2 say "split by job" and "never by line count", no "20 LOC"; budget and managed-block tests green -> two rule edits (AC 6)
+> Handover: landed b3f6651 — AGENTS.md § Core Principles and /quality-gate Phase 1.2 say split by job, never by line count, never into shorten-only helpers; ≤3 parameters kept
+> Do not re-derive: AGENTS.md is 14963 bytes of the 16 KiB budget; the managed-block test needs no change
+> Surface: none
 
 ### Slice 6/8 — Shortcut ledger on demand
-- [ ] Shortcut ledger on demand <!-- task-id: plan.specs-review-load-and-failure-cases-md.shortcut-ledger-on-demand --> — Slice 6/8: the wider ledger pattern and /tidy --check shortcuts ([#278](https://github.com/Joaovsales/jplugin-agentic-development/issues/278)) (blocked-by: plan.specs-review-load-and-failure-cases-md.split-by-job)
-  [ ] TDD: tests/test-doc-conventions.sh § shortcuts — the wrap-up ledger pattern matches C-block and HTML comment prefixes with wrap-up still 300 lines; /tidy lists check `shortcuts` citing § Shortcut ledger, `no-trigger` Tier 1 -> pattern edit and tidy check row (AC 7)
+- [x] Shortcut ledger on demand <!-- task-id: plan.specs-review-load-and-failure-cases-md.shortcut-ledger-on-demand --> — Slice 6/8: the wider ledger pattern and /tidy --check shortcuts ([#278](https://github.com/Joaovsales/jplugin-agentic-development/issues/278)) (blocked-by: plan.specs-review-load-and-failure-cases-md.split-by-job)
+  [x] TDD: tests/test-doc-conventions.sh § shortcuts — the wrap-up ledger pattern matches C-block and HTML comment prefixes with wrap-up still 300 lines; /tidy lists check `shortcuts` citing § Shortcut ledger, `no-trigger` Tier 1 -> pattern edit and tidy check row (AC 7)
+> Handover: landed 0acd572 — wrap-up § Shortcut ledger pattern is `(#|//|--|/\*|<!--) ?TODO\(shortcut\):` in place (still 300 lines); /tidy gains a `shortcuts` table row citing that section, `no-trigger` as Tier 1, never filed; heading 1–10
+> Do not re-derive: /tidy cites the command and never restates the grep (pinned)
+> Surface: none
+> Open: make-it-simpler/references/lens.md still says /tidy has nine checks (outside this surface; follow-up)
 
 ### Slice 7/8 — Seeded review fixtures
 - [x] Seeded review fixtures <!-- task-id: plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures --> — Slice 7/8: four seeded diffs and their answer key ([#279](https://github.com/Joaovsales/jplugin-agentic-development/issues/279))
