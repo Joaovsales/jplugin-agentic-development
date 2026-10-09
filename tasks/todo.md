@@ -1852,3 +1852,39 @@ Filed this sweep:
 - Completed: readable-visual-plans, 13/13 slices (#256–#268), each with a handover. Quality gate: Phases 1–3 inline, Phase 4 dispatched (HOLD). Four fixes applied in 76bedc8: one Blocked by grammar shared with /slice, empty flow node refused with spec:line, shared slice links, prompt label dropped in the parser. Plugin bumped to 1.5.0. Receipt c743aa3e is STOP on the Windows affected run (9/38, all baseline). WSL at the same tree passed 38/38 with the gh wrapper. The owner overrode STOP to push.
 - Pending: the owner's screenshot review (AC23) and the before/after dogfood comparison (AC25) in the PR, then the PR's Linux CI run. Reported, not applied (5 SHOULD-FIX, manual): pick text in the review export, has-blockers substring check, blocker predicates restated per card, no single section registry, ids not de-duplicated across modules.
 - Carry-forward: design-stack setup needs DESIGN_STACK_NPX=npx.cmd on Windows (bug doc open, follow-up suggested). The snow-mcp spec itself still fails the new renderer at :432.
+
+## Plan: Review load and failure cases
+> Spec: specs/review-load-and-failure-cases.md
+
+### Slice 1/8 — Failure line
+- [ ] Failure line <!-- task-id: plan.specs-review-load-and-failure-cases-md.failure-line --> — `failure:` in the emission format with its confidence cap, and the version bump
+  [ ] TDD: tests/test-review-context.sh § failure — finding-model.md shows `failure:` under `evidence:` and caps a finding without it at `50` -> emission format and § Gates edit; plugin.json minor bump (AC 1)
+
+### Slice 2/8 — Deferrals and load home
+- [ ] Deferrals and load home <!-- task-id: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home --> — § Deferrals and § Expected load, cited by the dispatch contract and three personas (blocked-by: plan.specs-review-load-and-failure-cases-md.failure-line)
+  [ ] TDD: tests/test-agents.sh § deferrals — the combined shortcut rule names both exceptions, lives in one file, and critic, security-reviewer, software-design-expert-review (both trees) and dispatch item 5 cite it -> § Deferrals plus citations (AC 2)
+  [ ] TDD: tests/test-agents.sh § load — § Expected load defines `Load assumed:`, lookup order, no-source default and six scale patterns; the three personas reference it and the skill's dispatch instruction asks for `failure:` -> § Expected load plus references (AC 3)
+
+### Slice 3/8 — Code reviewer rewrite
+- [ ] Code reviewer rewrite <!-- task-id: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite --> — the human layer and the bans in `code-reviewer` (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [ ] TDD: tests/test-agents.sh § code-reviewer — no Strengths, persona prose or Recommendations; template has `What this change does:`, `Load assumed:`, numbered findings with `failure:`, `Verdict:`, `Lean:`, `Not checked:`; bans "consider"; both trees byte-identical -> rewrite code-reviewer.md (AC 4)
+
+### Slice 4/8 — Gate load lens
+- [ ] Gate load lens <!-- task-id: plan.specs-review-load-and-failure-cases-md.gate-load-lens --> — Phase 3 `Security and Load` and the human-layer § Output (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [ ] TDD: tests/test-doc-conventions.sh § gate load — `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens with `What this change does:` and `Load assumed:`, numbered `Reported, not applied` with `failure:`, ends with `Lean:` and `Not checked:`; test-quality-receipt.sh green -> quality-gate SKILL.md edit (AC 5)
+
+### Slice 5/8 — Split by job
+- [ ] Split by job <!-- task-id: plan.specs-review-load-and-failure-cases-md.split-by-job --> — the function-size rule in `AGENTS.md` and Phase 1.2 (blocked-by: plan.specs-review-load-and-failure-cases-md.gate-load-lens)
+  [ ] TDD: tests/test-doc-conventions.sh § split by job — AGENTS.md and Phase 1.2 say "split by job" and "never by line count", no "20 LOC"; budget and managed-block tests green -> two rule edits (AC 6)
+
+### Slice 6/8 — Shortcut ledger on demand
+- [ ] Shortcut ledger on demand <!-- task-id: plan.specs-review-load-and-failure-cases-md.shortcut-ledger-on-demand --> — the wider ledger pattern and `/tidy --check shortcuts` (blocked-by: plan.specs-review-load-and-failure-cases-md.split-by-job)
+  [ ] TDD: tests/test-doc-conventions.sh § shortcuts — the wrap-up ledger pattern matches C-block and HTML comment prefixes with wrap-up still 300 lines; /tidy lists check `shortcuts` citing § Shortcut ledger, `no-trigger` Tier 1 -> pattern edit and tidy check row (AC 7)
+
+### Slice 7/8 — Seeded review fixtures
+- [ ] Seeded review fixtures <!-- task-id: plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures --> — four seeded diffs and their answer key
+  [ ] Verify: tests/fixtures/review-eval/ holds a race, an N+1 call, a time-zone off-by-one and a harmless decoy, each a diff, plus an answer key; no name hints at an eval (AC 8)
+
+### Slice 8/8 — Reviewer A/B
+- [ ] Reviewer A/B <!-- task-id: plan.specs-review-load-and-failure-cases-md.reviewer-a-b --> — the Mode B `/eval` report, linked from the PR body (blocked-by: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite, plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures)
+  [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
