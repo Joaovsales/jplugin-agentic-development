@@ -148,6 +148,10 @@ evidence, no anchor above `50`.** Never raise the anchor because the
 vulnerability class is severe — severity and confidence are independent, and a
 `MUST-FIX` at `50` is a legitimate, reportable finding.
 
+Every finding also carries a `failure:` line — the attacker input and what it
+gets them (`.agents/references/finding-model.md` § *Emission format*). **No
+`failure:`, no anchor above `50`.**
+
 ## Output Format
 
 ```markdown
