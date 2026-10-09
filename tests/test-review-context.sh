@@ -211,7 +211,7 @@ assert_eq "1" "$(grep -A1 '^  evidence: ' "$fm" | grep -c '^  failure: ')" \
   "AC1: finding-model.md emission format shows failure: directly under evidence:"
 assert_contains "$fm_flat" 'A finding with no `failure:` line is capped at `50`' \
   "AC1: finding-model.md § Gates caps a finding with no failure: at 50"
-gates="$(awk '/^## Gates/{on=1;next} /^## /{on=0} on' "$fm")"
+gates="$(section_body "$fm" '## Gates')"
 assert_contains "$gates" '`failure:`' \
   "AC1: the failure: cap lives in § Gates"
 

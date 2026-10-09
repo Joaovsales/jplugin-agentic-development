@@ -282,8 +282,7 @@ done
 # everyone else cites it. The single-home check is the guard: a persona that
 # grows its own copy again turns the count to 2.
 FM=.agents/references/finding-model.md
-section_flat() { awk -v h="^## $2" '$0 ~ h {on=1; next} /^## /{on=0} on' "$1" | tr -s '[:space:]' ' '; }
-deferrals="$(section_flat "$FM" 'Deferrals')"
+deferrals="$(section_body "$FM" '## Deferrals')"
 assert_contains "$deferrals" 'the assumed load already crosses the limit it names' \
   "AC2: § Deferrals names the load exception"
 assert_contains "$deferrals" 'never-on-the-chopping-block list' \
@@ -314,7 +313,7 @@ assert_contains "$item5" '§ *Deferrals*' \
 # A scale finding means nothing without the load it was judged against, so the
 # load is stated first and its source named. The six patterns are pinned one by
 # one: a heading with an emptied list would otherwise stay green.
-load="$(section_flat "$FM" 'Expected load')"
+load="$(section_body "$FM" '## Expected load')"
 assert_contains "$load" 'Load assumed: <who and how many run this> (source: <path | none found>)' \
   "AC3: § Expected load defines the Load assumed: line"
 assert_contains "$load" '§ Edge Cases and § Decisions' \

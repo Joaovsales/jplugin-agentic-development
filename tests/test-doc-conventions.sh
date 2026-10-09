@@ -1380,7 +1380,7 @@ assert_file_matches "$QG_SKILL" '^## Phase 3 — Security and Load$' \
   "gate load: Phase 3 is headed Security and Load"
 LOAD_QG="$(qg_section "## Phase 3 — Security and Load")"
 for token in '"lens": "security-scan+load"' 'Load assumed:' 'finding-model.md` § *Expected load*' \
-             'six patterns'; do
+             'scale patterns'; do
   assert_contains "$LOAD_QG" "$token" "gate load: phase 3 names '$token'"
 done
 assert_not_contains "$LOAD_QG" '"lens": "security-scan",' \
@@ -1403,8 +1403,8 @@ assert_contains "$OUTPUT_QG" 'Verdict: <GO|HOLD|STOP> — the receipt verdict' \
 # toward shallow helpers that exist only to make a function shorter — the APOSD
 # red flag the same gate reports in Phase 4. Both homes of the rule are pinned,
 # because the gate reads Phase 1.2 and every session reads AGENTS.md.
-CLEAN_QG="$(awk '/^### 1.2 Clean Code/{p=1; next} p && /^#/{exit} p' "$QG_SKILL" | tr -s '[:space:]' ' ')"
-AGENTS_CORE="$(awk '/^## Core Principles/{p=1; next} p && /^## /{exit} p' AGENTS.md | tr -s '[:space:]' ' ')"
+CLEAN_QG="$(section_body "$QG_SKILL" '### 1.2 Clean Code' '^#')"
+AGENTS_CORE="$(section_body AGENTS.md '## Core Principles')"
 for body in "$CLEAN_QG" "$AGENTS_CORE"; do
   case "$body" in "$CLEAN_QG") where="/quality-gate Phase 1.2" ;; *) where="AGENTS.md § Core Principles" ;; esac
   assert_contains "$body" 'split by job' "split by job: $where says split by job"
@@ -1417,7 +1417,8 @@ done
 # specs/review-load-and-failure-cases.md AC7. /wrap-up-session § Shortcut ledger
 # stays the one home of the command and format; /tidy cites it rather than
 # restating the grep, so the two cannot drift. The pattern now matches C-block
-# and HTML comment markers too, and wrap-up must not grow past its 300 lines.
+# and HTML comment markers too; tests/test-instruction-budget.sh holds wrap-up
+# to its 300 lines.
 WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
 ledger="$(grep -F 'TODO\(shortcut\):' "$WRAP_SKILL")"
 assert_contains "$ledger" "(#|//|--|/\\*|<!--) ?TODO\\(shortcut\\):" \
@@ -1432,8 +1433,6 @@ for marker in "# $tag x" "// $tag x" "/* $tag x */" "<!-- $tag x -->"; do
 done
 assert_eq "0" "$(printf 'a `%s` marker in prose\n' "$tag" | grep -cE "$pattern" || true)" \
   "shortcuts: a marker mentioned in prose is not a ledger row"
-assert_eq "300" "$(grep -c '' "$WRAP_SKILL")" \
-  "shortcuts: /wrap-up-session stays at 300 lines"
 TIDY_SKILL=.agents/skills/tidy/SKILL.md
 shortcuts_row="$(grep '^| `shortcuts` |' "$TIDY_SKILL")"
 assert_contains "$shortcuts_row" '`/wrap-up-session` § *Shortcut ledger*' \

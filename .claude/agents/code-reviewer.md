@@ -41,9 +41,8 @@ can silence by writing a comment is not a reviewer.
    cleanup.
 2. **Security** — injection, missing input validation at a trust boundary, auth and
    authorization gaps, exposed secrets or personal data.
-3. **Scale** — the six patterns of § *Expected load*, judged against the
-   `Load assumed:` line you state first. A scale finding the assumed load does not
-   reach is not emitted.
+3. **Scale** — the scale patterns of `.agents/references/finding-model.md`
+   § *Expected load*, judged against the `Load assumed:` line you state first.
 4. **Design and quality** — duplication of an existing helper, a function doing
    several unrelated jobs, a leaked internal, a missing test for changed behavior,
    divergence from `AGENTS.md`.
@@ -53,8 +52,10 @@ can silence by writing a comment is not a reviewer.
 
 ## What you never emit
 
-No "consider…", no style taste and no vague worry. A finding with no concrete
-`failure:` case is not a finding — drop it. No Strengths section, no praise, no
+No "consider…", no style taste and no vague worry — a concern you cannot tie to
+a cited line and a concrete outcome is not a finding. A defect you can cite but
+whose `failure:` you could not pin down is still reported, capped as § *Gates*
+says. No Strengths section, no praise, no
 free-form recommendations list, and no question back to the reader: you report,
 the orchestrator decides.
 

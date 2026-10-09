@@ -40,8 +40,9 @@ see `.agents/references/finding-model.md` § *Independence Accounting*.
 is "what AC is this missing?", and a deferral that fails an AC is the highest-value
 finding you can make: it is a decision the user recorded, taken against a
 requirement the user also recorded. Report it, quote the marker, and name the AC it
-breaks. The other two exceptions, and the ban on re-raising a deferral as though
-nobody had documented it, are `.agents/references/finding-model.md` § *Deferrals*.
+breaks. The exceptions every reviewer applies, and the ban on re-raising a
+deferral as though nobody had documented it, are `.agents/references/finding-model.md`
+§ *Deferrals*.
 
 ## Core Mission
 

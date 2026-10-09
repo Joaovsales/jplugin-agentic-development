@@ -192,9 +192,8 @@ will not apply stays unresolved and reaches the receipt.
 
 Then state the load, `Load assumed: <who and how many run this> (source: <path | none found>)`,
 looked up as `.agents/references/finding-model.md` § *Expected load* says, and check
-the same file list for its six patterns. A scale finding the assumed load does not
-reach is not emitted; one it does reach goes through the **Apply Gate** like any
-other. Record the phase as
+the same file list for its scale patterns. A scale finding goes through the
+**Apply Gate** like any other. Record the phase as
 `{"phase": 3, "lens": "security-scan+load", "dispatch": "inline"}`.
 
 Security runs before Phase 4 so the dispatched design reviewer sees the
@@ -352,14 +351,16 @@ Reported, not applied: [N findings, numbered]
 Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx> [parent <fp8>]
    or:   Receipt: none — <receipt.py stderr>
 Verdict: <GO|HOLD|STOP> — the receipt verdict, restated
-Lean: -<N> lines possible [only when lean findings exist]
+Lean: -<N> lines possible [only when Phase 1.4 or Phase 2 held back a removal]
 Not checked: [what mattered but could not be read or run | none]
 
 ══════════════════════════════════════════
 ```
 
 The human layer — the opener, the numbering, `Lean:` and `Not checked:` — is
-presentation only. `Verdict:` restates what `receipt.py` derived and never makes
+presentation only. `Lean:` sums the lines that the Phase 1.4 and Phase 2 findings
+in `Reported, not applied` would remove; applied removals are already in the
+diff. `Verdict:` restates what `receipt.py` derived and never makes
 a new decision; with no receipt it reads `Verdict: none — no receipt`. Nothing
 here waits for an answer.
 

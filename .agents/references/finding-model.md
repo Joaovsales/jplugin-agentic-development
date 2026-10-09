@@ -37,6 +37,10 @@ and the wrong result it produces. For a design or lean finding, it names the
 concrete change or read the defect makes harder — "adding a provider means
 editing A, B and C". It is never left empty because "design has no input".
 
+A finding may carry a `<n>. ` prefix so a human or a later turn can refer to it by
+number. The four-axis tag is still the first thing after the prefix; a consumer
+that finds findings by their leading `[SEVERITY` strips `^\d+\. ` first.
+
 ## Expected load
 
 A scale finding is only as real as the load it was judged against, so every
@@ -97,7 +101,8 @@ load than the stated one is not emitted.
 A `TODO(shortcut):` marker that names its limit is a decision, not a finding,
 unless either:
 
-- **(a)** the assumed load already crosses the limit it names (§ *Expected load*), or
+- **(a)** the assumed load already crosses the limit it names (§ *Expected load*),
+  or the code's real limit when that is narrower than the one named, or
 - **(b)** the shortcut opens a hole on the never-on-the-chopping-block list
   (`AGENTS.md` § *Code Economy*: security, accessibility, trust-boundary
   validation, error handling that prevents data loss).
