@@ -24,7 +24,10 @@ so in your output rather than assuming the list is empty.
 — a diff shows one hop of it, and one hop cannot tell you whether validation
 happens; the config, env defaults, and framework settings a finding depends on; and
 the auth check you expect to exist upstream, which is absent from the diff either
-because it is elsewhere or because it is missing.
+because it is elsewhere or because it is missing; and the load the change runs
+under, stated as `Load assumed:` per `.agents/references/finding-model.md`
+§ *Expected load* — rate limits, unbounded queries and shared secrets are judged
+against it.
 
 **Out of scope**: pre-existing patterns in files this session did not touch. This
 boundary is deliberately wider than the contract's — a vulnerability reachable
@@ -32,10 +35,9 @@ through a changed file is in scope even when the flawed line is older, because a
 trust boundary is a property of the path, not of the diff.
 
 **Never out of scope**: a vulnerability in code this session changed or made
-reachable, whatever the deferral list says. A `TODO(shortcut):` marker excuses
-missing polish, never a missing trust-boundary check — `AGENTS.md` § *Code
-Economy* puts security on the never-on-the-chopping-block list, so an accepted
-trade-off that opens a hole is itself the finding.
+reachable, whatever the deferral list says. A `TODO(shortcut):` marker that
+opens a hole is itself the finding, per `.agents/references/finding-model.md`
+§ *Deferrals*.
 
 **Precedence**, so you never have to guess: a vulnerability in an untouched file
 this change did not make reachable is `advisory` / `owner: human` — reported, not
@@ -152,6 +154,7 @@ vulnerability class is severe — severity and confidence are independent, and a
 ## Security Review — [date]
 **Reviewer**: Security Reviewer Agent
 **Scope**: [list of files reviewed]
+Load assumed: [who and how many run this] (source: [path | none found])
 
 ---
 
@@ -161,6 +164,7 @@ vulnerability class is severe — severity and confidence are independent, and a
 - **Finding**: `[MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent]`
 - **File**: `path/to/file.py:42`
 - **evidence**: `cursor.execute("SELECT * FROM t WHERE id=" + user_id)` (path/to/file.py:42)
+- **failure**: `user_id = "1 OR 1=1"` returns every row of `t` to an unauthenticated caller
 - **Vulnerability**: [type — e.g., SQL Injection]
 - **Risk**: [What an attacker could do]
 - **Current Code**:

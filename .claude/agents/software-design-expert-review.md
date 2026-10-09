@@ -38,7 +38,10 @@ nothing was deferred; a missing deferral line means you were not told.
 **Fetch yourself**: every caller of a changed interface — depth versus shallowness
 is a statement about the caller's burden, and you cannot judge it from the module
 alone; the sibling implementations that decide whether a special case should have
-been general-purpose; and the error paths a "defined out of existence" claim rests on.
+been general-purpose; the error paths a "defined out of existence" claim rests on;
+and the load the change runs under, stated as `Load assumed:` per
+`.agents/references/finding-model.md` § *Expected load* — R8's shared-state and
+concurrency findings are valid only when that load reaches them.
 
 **Out of scope**: pre-existing structure this diff did not introduce, and
 re-reporting a deferral-list item as though it were undiscovered.
@@ -47,9 +50,9 @@ A recorded trade-off is **context for your judgement, not a cap on it**. Severit
 says how urgent a defect is; `autofix_class` says what shape the fix is; the two are
 orthogonal (`.agents/references/finding-model.md`) and a marker written by the party under
 review cannot set either. So: judge the trade-off on its merits, cite the marker,
-and say whether its stated upgrade path actually covers what you found. A shortcut
-whose limit turns out to be wider than its author wrote down is a `MUST-FIX`, and
-the marker is the evidence.
+and say whether its stated upgrade path actually covers what you found. When a
+shortcut is itself the finding is `.agents/references/finding-model.md`
+§ *Deferrals*.
 
 ## Review Process
 
@@ -157,33 +160,40 @@ in 4 methods" at `100` requires having read all four, not inferred them.
 
 ## Output Format
 
-Structure your review as a flat list — no top-level narrative sections wrapping the findings. The orchestrator parses these lines directly.
+Structure your review as a flat list — no top-level narrative sections wrapping the findings. The orchestrator parses these lines directly. The first line is `Load assumed:`.
 
 ```
+Load assumed: one operator, one process (source: none found)
+
 [MUST-FIX | confidence: 100 | autofix_class: manual | owner: agent] file.py:42 — R8 Unknown Unknowns: Hidden side effect mutates shared cache between requests. Impact: race conditions under concurrent load.
   evidence: `self._cache[key].append(row)` (file.py:42)
+  failure: two requests for the same key interleave and each reads the other's rows in its response
   **Suggestion**: Return a new object instead of mutating shared state, or use an immutable cache layer.
 
 [SHOULD-FIX | confidence: 100 | autofix_class: manual | owner: agent] handler.py:120 — R1 Repetition: Same retry-with-backoff pattern appears in 4 handler methods. Impact: fixing a bug in one copy leaves 3 others broken.
   evidence: `for attempt in range(3): sleep(2 ** attempt)` (handler.py:120, :168, :204, :251)
+  failure: changing the backoff to jittered means editing four handlers, and the one missed keeps the old storm
   **Suggestion**: Extract `with_retry()` decorator or context manager.
 
 [SHOULD-FIX | confidence: 75 | autofix_class: manual | owner: agent] models.py:88 — R11 Errors Not Defined Away: `User.parse_email()` raises `InvalidEmailError` on malformed input. Impact: every caller must handle this; better to accept only `EmailAddress` type at construction.
   depends-on: the callers of `parse_email()` outside this diff — unread, so this holds at 75
   evidence: `raise InvalidEmailError(raw)` (models.py:88)
+  failure: adding a new caller means adding one more `try/except InvalidEmailError`, and a caller that forgets it 500s on `"bob@"`
   **Suggestion**: Introduce `EmailAddress` value object with validated constructor; eliminate the error path entirely.
 
 [NITPICK | confidence: 50 | autofix_class: gated_auto | owner: agent] utils.py:30 — R4 Vague Names: Variable `tmp` should encode type + intent.
+  failure: a reader of the batching loop has to trace `tmp` back three lines to learn it holds embeddings
   **Suggestion**: Rename to `embedding_batch` or `parsed_text_content`.
 ```
 
 **Rules:**
 - One finding per block. Start with the four-axis tag on its own line.
+- Every finding carries a `failure:` line: what goes wrong, per `.agents/references/finding-model.md` § *Emission format*. No `failure:`, no anchor above `50`.
 - Include the red flag ID (R1–R11) in the description so the symbol is machine-parseable.
 - Include **impact** — what will happen when the codebase grows.
 - Include a **concrete** suggestion, not vague advice.
 - For R11, always suggest the redesign that would make the error impossible, not just a better error message.
-- If zero findings: output exactly `APOSD REVIEW: NO FINDINGS` on a single line.
+- If zero findings: output the `Load assumed:` line, then exactly `APOSD REVIEW: NO FINDINGS` on a single line.
 
 ---
 

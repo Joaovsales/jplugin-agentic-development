@@ -4,6 +4,10 @@ The four-axis finding every review gate in this workflow emits and consumes: wha
 finding carries, how it is written, how sure it may claim to be, and when it may be
 applied.
 
+The `failure:` line, § *Expected load* and the load clause of § *Deferrals* are
+adapted from ponytail (`DietrichGebert/ponytail`, MIT) and restated here in this
+workflow's terms.
+
 ## Four axes
 
 A finding carries four orthogonal fields. One tag cannot answer four questions,
@@ -33,6 +37,34 @@ and the wrong result it produces. For a design or lean finding, it names the
 concrete change or read the defect makes harder — "adding a provider means
 editing A, B and C". It is never left empty because "design has no input".
 
+## Expected load
+
+A scale finding is only as real as the load it was judged against, so every
+review states that load before it reports anything:
+
+```
+Load assumed: <who and how many run this> (source: <path | none found>)
+```
+
+Look for it in this order: the spec's § Edge Cases and § Decisions, the
+`[NON-FUNCTIONAL]` section of `tasks/project-context.md`, then the README and the
+deploy or routine config. The reviewer reads these itself; they are not a
+dispatch item. With no source anywhere, write
+`Load assumed: one operator, one process (source: none found)`. Several sessions
+sharing one clone is load too — a shared register such as `tasks/todo.md` can race.
+
+Check the change against that load for six patterns:
+
+1. check-then-write races
+2. the same work done by every process or session
+3. state or lists that only grow
+4. one query or call per item
+5. O(n²) on input that can be large
+6. per-process state that has to be shared
+
+A scale finding is valid only when the assumed load reaches it. One that needs more
+load than the stated one is not emitted.
+
 ## Confidence anchors
 
 **Confidence anchors** are behavioral criteria, not a feeling:
@@ -59,6 +91,24 @@ editing A, B and C". It is never left empty because "design has no input".
 - A finding arriving with no `confidence` — an older single-axis reviewer — is
   read as `50` / `autofix_class: manual`: reported, never auto-applied, never
   discarded.
+
+## Deferrals
+
+A `TODO(shortcut):` marker that names its limit is a decision, not a finding,
+unless either:
+
+- **(a)** the assumed load already crosses the limit it names (§ *Expected load*), or
+- **(b)** the shortcut opens a hole on the never-on-the-chopping-block list
+  (`AGENTS.md` § *Code Economy*: security, accessibility, trust-boundary
+  validation, error handling that prevents data loss).
+
+In either case the shortcut itself is the finding. Cite the marker as `evidence:`
+and say what it failed to account for. Severity follows impact, and a security
+hole is `MUST-FIX` whatever the marker says: the marker was written by the party
+under review, so it can set neither `severity` nor `autofix_class`. The same
+holds for a recorded `[AMBIGUITY]` pick. Outside (a) and (b), a documented
+deferral is context for judgement — never re-raise one as though nobody had
+written it down.
 
 ## Resolving an anchor-75 finding
 

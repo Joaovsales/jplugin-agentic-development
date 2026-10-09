@@ -275,4 +275,73 @@ for tree in "$CANONICAL" "$CLAUDE"; do
     "Agents: $tree/code-reviewer.md no longer claims /wrap-up-session dispatches it"
 done
 
+# --- 6. One shortcut rule, one home (specs/review-load-and-failure-cases.md AC2) --
+# The rule used to be restated per persona — the security clause in two, the
+# "limit wider than written" clause in a third, the load clause nowhere — and
+# each copy drifted on its own. It now lives in finding-model.md § Deferrals;
+# everyone else cites it. The single-home check is the guard: a persona that
+# grows its own copy again turns the count to 2.
+FM=.agents/references/finding-model.md
+section_flat() { awk -v h="^## $2" '$0 ~ h {on=1; next} /^## /{on=0} on' "$1" | tr -s '[:space:]' ' '; }
+deferrals="$(section_flat "$FM" 'Deferrals')"
+assert_contains "$deferrals" 'the assumed load already crosses the limit it names' \
+  "AC2: § Deferrals names the load exception"
+assert_contains "$deferrals" 'never-on-the-chopping-block list' \
+  "AC2: § Deferrals names the never-cut exception"
+assert_contains "$deferrals" 'the shortcut itself is the finding' \
+  "AC2: § Deferrals makes the shortcut itself the finding"
+homes=""
+for f in .agents/references/*.md "$CANONICAL"/*.md; do
+  case "$(tr -s '[:space:]' ' ' < "$f")" in *'load already crosses'*) homes="$homes $f" ;; esac
+done
+assert_eq " $FM" "$homes" \
+  "AC2: the 'load already crosses' clause lives in exactly one file"
+DEFERRAL_CITERS=".agents/references/review-dispatch-contract.md .agents/skills/software-design-expert-review/SKILL.md"
+for tree in "$CANONICAL" "$CLAUDE"; do
+  for p in critic security-reviewer software-design-expert-review; do
+    DEFERRAL_CITERS="$DEFERRAL_CITERS $tree/$p.md"
+  done
+done
+for f in $DEFERRAL_CITERS; do
+  assert_prose_contains "$f" 'finding-model.md` § *Deferrals*' \
+    "AC2: $f cites finding-model.md § Deferrals"
+done
+item5="$(grep '^| 5 |' .agents/references/review-dispatch-contract.md)"
+assert_contains "$item5" '§ *Deferrals*' \
+  "AC2: dispatch contract item 5 is where the citation sits"
+
+# --- 7. Expected load (AC3) ---------------------------------------------------
+# A scale finding means nothing without the load it was judged against, so the
+# load is stated first and its source named. The six patterns are pinned one by
+# one: a heading with an emptied list would otherwise stay green.
+load="$(section_flat "$FM" 'Expected load')"
+assert_contains "$load" 'Load assumed: <who and how many run this> (source: <path | none found>)' \
+  "AC3: § Expected load defines the Load assumed: line"
+assert_contains "$load" '§ Edge Cases and § Decisions' \
+  "AC3: § Expected load reads the spec first"
+assert_contains "$load" '`[NON-FUNCTIONAL]`' \
+  "AC3: § Expected load reads tasks/project-context.md next"
+assert_contains "$load" 'the README and the deploy or routine config' \
+  "AC3: § Expected load reads the README and deploy config last"
+assert_contains "$load" 'one operator, one process (source: none found)' \
+  "AC3: § Expected load states the no-source default"
+for pattern in 'check-then-write races' 'the same work done by every process or session' \
+               'state or lists that only grow' 'one query or call per item' \
+               'O(n²) on input that can be large' 'per-process state that has to be shared'; do
+  assert_contains "$load" "$pattern" "AC3: scale checklist names '$pattern'"
+done
+assert_contains "$load" 'valid only when the assumed load reaches it' \
+  "AC3: a scale finding needs the load to reach it"
+for tree in "$CANONICAL" "$CLAUDE"; do
+  for p in critic security-reviewer software-design-expert-review; do
+    assert_prose_contains "$tree/$p.md" 'finding-model.md` § *Expected load*' \
+      "AC3: $tree/$p.md references § Expected load"
+    assert_file_contains "$tree/$p.md" 'failure:' \
+      "AC3: $tree/$p.md output carries a failure: line"
+  done
+done
+dispatch="$(grep 'The instruction: "Review ONLY these changed files' .agents/skills/software-design-expert-review/SKILL.md)"
+assert_contains "$dispatch" '`failure:` line' \
+  "AC3: the software-design-expert-review dispatch instruction asks for failure:"
+
 finish

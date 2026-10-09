@@ -59,9 +59,9 @@ For each changed file (or grouped batch if <5 files), dispatch the `software-des
 - Every spec relevant to this session: each one's path and its acceptance criteria
   verbatim, or `no spec — <reason>`
 - The `tasks/todo.md` entries closed this run
-- The `[AMBIGUITY]` lines and any `TODO(shortcut):` markers in these files, or `deferrals: none` — an accepted trade-off is not a red flag, and R1–R11 have no way to tell the difference from the diff alone
+- The `[AMBIGUITY]` lines and any `TODO(shortcut):` markers in these files, or `deferrals: none` — an accepted trade-off is not a red flag, and R1–R11 have no way to tell the difference from the diff alone; when a marker is itself the finding is `.agents/references/finding-model.md` § *Deferrals*
 - The boundary: review issues **introduced** by this diff; pre-existing structure inside a changed file is out of scope
-- The instruction: "Review ONLY these changed files. Emit every finding in the canonical four-axis format `[SEVERITY | confidence | autofix_class | owner] file:line — description`, with an `evidence:` line quoting the motivating source line for any finding at anchor `75` or `100`."
+- The instruction: "Review ONLY these changed files. Emit every finding in the canonical four-axis format `[SEVERITY | confidence | autofix_class | owner] file:line — description`, with an `evidence:` line quoting the motivating source line for any finding at anchor `75` or `100`, and a `failure:` line on every finding naming the change or read the defect makes harder. Open with `Load assumed:` per § Expected load."
 
 **Item 7 is read, not remembered.** Before dispatching, resolve `finding-model.md` in
 order — the project's `.agents/references/`, then `${CLAUDE_PLUGIN_ROOT}/.agents/references/`
