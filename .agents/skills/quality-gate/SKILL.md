@@ -175,17 +175,24 @@ try { doThing(); } catch (e) { throw e; }  // passthrough
 
 ---
 
-## Phase 3 — Security
+## Phase 3 — Security and Load
 
-**Mandate**: "Does this change open a vulnerability?" — injection, auth, secrets,
-unsafe input handling.
+**Mandate**: "What breaks in production?" — a vulnerability (injection, auth,
+secrets, unsafe input handling), or a pattern that fails under the load this code
+actually runs at.
 
 Run the `/security-scan` checklist inline over **the gate's own file list**
 (untracked files included, `--scope` honoured) — not the `git diff --name-only`
 list the skill builds when it is invoked on its own. Emit its findings in the
 four-axis format and apply its fixes under the **Apply Gate**; a `MUST-FIX` it
-will not apply stays unresolved and reaches the receipt. Record the phase as
-`{"phase": 3, "lens": "security-scan", "dispatch": "inline"}`.
+will not apply stays unresolved and reaches the receipt.
+
+Then state the load, `Load assumed: <who and how many run this> (source: <path | none found>)`,
+looked up as `.agents/references/finding-model.md` § *Expected load* says, and check
+the same file list for its six patterns. A scale finding the assumed load does not
+reach is not emitted; one it does reach goes through the **Apply Gate** like any
+other. Record the phase as
+`{"phase": 3, "lens": "security-scan+load", "dispatch": "inline"}`.
 
 Security runs before Phase 4 so the dispatched design reviewer sees the
 security fixes too.
@@ -313,6 +320,9 @@ auto-applied need no report; the ones that matter here are `owner: human` and
   QUALITY GATE — [N] files reviewed
 ══════════════════════════════════════════
 
+What this change does: [two or three sentences]
+Load assumed: [who and how many run this] (source: [path | none found])
+
 Phase 1 — Structural Quality
   Applied: [N changes — list with file:line]
   Tests: [PASS / FAIL — N reverted]
@@ -321,7 +331,7 @@ Phase 2 — AI Anti-Patterns
   Removed: [N lines — list with file:line and category]
   Tests: [PASS / FAIL — N reverted]
 
-Phase 3 — Security (/security-scan checklist, inline)
+Phase 3 — Security and Load (/security-scan checklist + scale patterns, inline)
   Applied: [N fixes — list with file:line]
   Tests: [PASS / FAIL — N reverted]
 
@@ -332,13 +342,23 @@ Phase 4 — APOSD Design (/software-design-expert-review)
 Phase 5 — Tests: [<affected-test command> exit N on tree <tree8>]
 
 Review independence: [Phase 4 dispatched / Phase 4 inline — no promotion; lost corroboration: <what>]
-Reported, not applied: [N findings — list with file:line, autofix_class, owner]
+Reported, not applied: [N findings, numbered]
+  1. [SEVERITY | confidence | autofix_class | owner] file:line — description. If skipped, [consequence].
+     failure: [the input or situation, and the wrong result]
 
 Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx> [parent <fp8>]
    or:   Receipt: none — <receipt.py stderr>
+Verdict: <GO|HOLD|STOP> — the receipt verdict, restated
+Lean: -<N> lines possible [only when lean findings exist]
+Not checked: [what mattered but could not be read or run | none]
 
 ══════════════════════════════════════════
 ```
+
+The human layer — the opener, the numbering, `Lean:` and `Not checked:` — is
+presentation only. `Verdict:` restates what `receipt.py` derived and never makes
+a new decision; with no receipt it reads `Verdict: none — no receipt`. Nothing
+here waits for an answer.
 
 The `Reported, not applied` line is not optional. A finding the Apply Gate held
 back is the one most likely to be lost, and an output that lists only what was

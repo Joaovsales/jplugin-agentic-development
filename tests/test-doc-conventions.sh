@@ -1371,6 +1371,33 @@ assert_contains "$OUTPUT_QG" "Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx
 assert_contains "$OUTPUT_QG" "Receipt: none — <receipt.py stderr>" \
   "quality receipt: the Output block carries the refusal form"
 
+# --- gate load: Phase 3 judges scale against a stated load ------------------
+# specs/review-load-and-failure-cases.md AC5. The gate had no scale lens at all.
+# It lives inside Phase 3 (D8): phases 1-4 are pinned in receipt.py and above,
+# so a new phase number would break every receipt reader. The Output's human
+# layer is presentation only (D15) — its Verdict: is the receipt's, never a new one.
+assert_file_matches "$QG_SKILL" '^## Phase 3 — Security and Load$' \
+  "gate load: Phase 3 is headed Security and Load"
+LOAD_QG="$(qg_section "## Phase 3 — Security and Load")"
+for token in '"lens": "security-scan+load"' 'Load assumed:' 'finding-model.md` § *Expected load*' \
+             'six patterns'; do
+  assert_contains "$LOAD_QG" "$token" "gate load: phase 3 names '$token'"
+done
+assert_not_contains "$LOAD_QG" '"lens": "security-scan",' \
+  "gate load: phase 3 no longer records the security-only lens"
+for token in 'What this change does:' 'Load assumed:' 'Reported, not applied:' '1. [' \
+             'failure:' 'Lean: -<N> lines possible' 'Not checked:'; do
+  assert_contains "$OUTPUT_QG" "$token" "gate load: the Output block carries '$token'"
+done
+assert_precedes "$OUTPUT_QG" 'What this change does:' 'Phase 1 — Structural Quality' \
+  "gate load: the Output opens with What this change does:"
+assert_precedes "$OUTPUT_QG" 'Receipt: <GO|HOLD|STOP>' 'Lean: -<N> lines possible' \
+  "gate load: Lean: follows the receipt line"
+assert_precedes "$OUTPUT_QG" 'Lean: -<N> lines possible' 'Not checked:' \
+  "gate load: the Output ends with Lean: then Not checked:"
+assert_contains "$OUTPUT_QG" 'Verdict: <GO|HOLD|STOP> — the receipt verdict' \
+  "gate load: the Output's Verdict: line is the receipt verdict"
+
 # --- no wrap-up reviewer: wrap-up dispatches no reviewer of its own ----------
 # specs/quality-receipt-closure.md AC7. Before #188, wrap-up ran 4 dispatched
 # review passes (Step 4) plus an inline /security-scan (Step 3.5). Both are
