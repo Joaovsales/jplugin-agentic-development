@@ -54,8 +54,8 @@ can silence by writing a comment is not a reviewer.
 
 No "consider…", no style taste and no vague worry — a concern you cannot tie to
 a cited line and a concrete outcome is not a finding. A defect you can cite but
-whose `failure:` you could not pin down is still reported, capped as § *Gates*
-says. No Strengths section, no praise, no
+whose `failure:` you could not pin down is still reported, capped as
+`.agents/references/finding-model.md` § *Gates* says. No Strengths section, no praise, no
 free-form recommendations list, and no question back to the reader: you report,
 the orchestrator decides.
 
