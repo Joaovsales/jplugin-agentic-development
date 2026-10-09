@@ -1910,3 +1910,8 @@ Filed this sweep:
 ### Slice 8/8 — Reviewer A/B
 - [ ] Reviewer A/B <!-- task-id: plan.specs-review-load-and-failure-cases-md.reviewer-a-b --> — Slice 8/8: the Mode B /eval report, linked from the PR body ([#280](https://github.com/Joaovsales/jplugin-agentic-development/issues/280)) (blocked-by: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite, plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures)
   [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
+
+## Session Summary — [2026-10-09] [3e71e95..882927f]
+- Completed: review-load-and-failure-cases slices 1–7 (#273–#279), each with a handover. The quality gate ran Phase 4 dispatched (HOLD, then GO after 6 fixes). Receipt f6760ca5 is STOP on the Windows affected run, where all 199 failing assertions are also failing at the base. The spec's § Behavior was reconciled for the narrower-real-limit clause.
+- Pending: slice 8 (#280), the Mode B /eval A/B of current code-reviewer vs updated vs ponytail-review over tests/fixtures/review-eval/. It is manual, needs the pushed branch and ponytail's prompt, and its report path goes in the PR body. Reported, not applied: critic's AC-failing-deferral exception is critic-only (add (c) to § Deferrals?); no lookup source states this repo's concurrent-session load (a [NON-FUNCTIONAL] line in tasks/project-context.md); `Verdict:` carries three meanings across personas (AC4 fixes the label).
+- Carry-forward: make-it-simpler/references/lens.md still says /tidy has nine checks; it now has ten, with `shortcuts`.

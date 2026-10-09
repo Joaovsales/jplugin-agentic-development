@@ -22,6 +22,12 @@ listed:
   matches. Prose there that describes an interactive run cannot write `/go`.
   This session wrote "the `go` skill" instead.
 
+- `tests/test-citations.sh` also pins the exact, ordered `## ` heading list of
+  each reference file (`check_headings`, tests/test-citations.sh:98). A slice
+  that adds a section to `.agents/references/finding-model.md` has to update
+  that list too. Only the affected run caught this in the review-load build
+  (2026-10-09).
+
 Prevention: before closing a slice, run the affected-test command, not just
 the Verify column. In this repository it is the declared
 `bash tests/affected.sh --run <base>`, and it picks up both guards. When a

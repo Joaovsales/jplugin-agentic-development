@@ -89,7 +89,8 @@ count, and never into helpers that exist only to make a function shorter. The
 
 **One shortcut rule.** A `TODO(shortcut):` marker that names its limit is a
 decision, not a finding, unless either (a) the assumed load already crosses the
-limit it names, or (b) the shortcut opens a hole on the never-on-the-chopping-block
+limit it names — or the code's real limit, when that is narrower than the one
+named — or (b) the shortcut opens a hole on the never-on-the-chopping-block
 list (security, accessibility, trust-boundary validation, error handling that
 prevents data loss). In either case the shortcut itself is the finding, citing the
 marker and saying what it failed to account for. The rule's one home is
