@@ -344,4 +344,30 @@ dispatch="$(grep 'The instruction: "Review ONLY these changed files' .agents/ski
 assert_contains "$dispatch" '`failure:` line' \
   "AC3: the software-design-expert-review dispatch instruction asks for failure:"
 
+# --- 8. code-reviewer: a human layer, no filler (AC4) -------------------------
+# The persona opened with self-praise, asked for a Strengths section and closed
+# with a free-form Recommendations list — none of which the Apply Gate can parse
+# or gate. The human layer replaces them: an opener, numbered findings with a
+# failure case each, and closing lines that restate decisions made elsewhere.
+# Presentation only (D15): the file must not grow a question to the user.
+assert_files_identical "$CANONICAL/code-reviewer.md" "$CLAUDE/code-reviewer.md" \
+  "AC4: code-reviewer.md is byte-identical in both trees"
+CR="$CANONICAL/code-reviewer.md"
+for cite in 'finding-model.md` § *Deferrals*' 'finding-model.md` § *Expected load*'; do
+  assert_prose_contains "$CR" "$cite" "AC4: code-reviewer cites $cite"
+done
+for absent in '^## Strengths' '^## Recommendations' '[Ee]lite' '[Mm]aster craftsman' \
+              '[Aa]sk for clarification' 'which (finding|one)s? (to|should I) fix'; do
+  assert_file_not_matches "$CR" "$absent" "AC4: code-reviewer has no '$absent'"
+done
+for line in 'What this change does:' 'Load assumed:' '1. [MUST-FIX' '  failure: ' \
+            'Verdict:' 'Lean: -' 'Not checked:'; do
+  assert_file_contains "$CR" "$line" "AC4: code-reviewer template shows '$line'"
+done
+assert_prose_contains "$CR" 'a summary for the orchestrator' \
+  "AC4: code-reviewer's Verdict: is a summary, not a decision"
+assert_prose_contains "$CR" 'No "consider…"' "AC4: code-reviewer bans 'consider'"
+assert_prose_contains "$CR" 'no style taste' "AC4: code-reviewer bans style taste"
+assert_prose_contains "$CR" 'no vague worry' "AC4: code-reviewer bans vague worries"
+
 finish
