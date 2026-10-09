@@ -53,6 +53,7 @@ operational contract is here, at the point where findings get applied.
 ```
 [MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent] file.py:42 — description and impact
   evidence: `except Exception: pass` (file.py:42)
+  failure: a disk-full write raises, the handler swallows it, and the job reports success with no file written
 ```
 
 **Confidence anchors** — behavioral criteria, not a feeling:
@@ -78,6 +79,8 @@ onward makes the next gate solve a problem you were holding the context to solve
 
 - A finding at `75` or `100` **must** carry `evidence` — the verbatim motivating
   line with `file:line`. Missing evidence **demotes** it to `50`.
+- A finding with no `failure:` line — what goes wrong — is capped at `50` the
+  same way.
 - A finding arriving with no `confidence` — an older single-axis reviewer, or an
   agent that ignored this contract — is read as `50` / `autofix_class: manual`:
   reported, never auto-applied, never discarded.

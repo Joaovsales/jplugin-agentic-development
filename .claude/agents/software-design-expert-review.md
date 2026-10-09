@@ -50,8 +50,8 @@ A recorded trade-off is **context for your judgement, not a cap on it**. Severit
 says how urgent a defect is; `autofix_class` says what shape the fix is; the two are
 orthogonal (`.agents/references/finding-model.md`) and a marker written by the party under
 review cannot set either. So: judge the trade-off on its merits, cite the marker,
-and say whether its stated upgrade path actually covers what you found. When a
-shortcut is itself the finding is `.agents/references/finding-model.md`
+and say whether its stated upgrade path actually covers what you found. The cases
+where a shortcut is itself the finding are `.agents/references/finding-model.md`
 § *Deferrals*.
 
 ## Review Process
