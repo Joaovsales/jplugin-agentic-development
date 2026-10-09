@@ -1422,11 +1422,15 @@ WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
 ledger="$(grep -F 'TODO\(shortcut\):' "$WRAP_SKILL")"
 assert_contains "$ledger" "(#|//|--|/\\*|<!--) ?TODO\\(shortcut\\):" \
   "shortcuts: the ledger pattern matches #, //, --, /* and <!-- prefixes"
-for marker in '# TODO(shortcut): x' '// TODO(shortcut): x' '/* TODO(shortcut): x */' '<!-- TODO(shortcut): x -->'; do
-  hit="$(printf '%s\n' "$marker" | grep -cE '(#|//|--|/\*|<!--) ?TODO\(shortcut\):' || true)"
+# The samples run through the pattern the skill actually prints. They are built
+# from a variable so this file never becomes a ledger row itself.
+pattern="$(printf '%s' "$ledger" | sed -n "s/.*grep -rnE '\([^']*\)'.*/\1/p")"
+tag='TODO(shortcut):'
+for marker in "# $tag x" "// $tag x" "/* $tag x */" "<!-- $tag x -->"; do
+  hit="$(printf '%s\n' "$marker" | grep -cE "$pattern" || true)"
   assert_eq "1" "$hit" "shortcuts: the ledger pattern matches '$marker'"
 done
-assert_eq "0" "$(printf 'a `TODO(shortcut):` marker in prose\n' | grep -cE '(#|//|--|/\*|<!--) ?TODO\(shortcut\):' || true)" \
+assert_eq "0" "$(printf 'a `%s` marker in prose\n' "$tag" | grep -cE "$pattern" || true)" \
   "shortcuts: a marker mentioned in prose is not a ledger row"
 assert_eq "300" "$(grep -c '' "$WRAP_SKILL")" \
   "shortcuts: /wrap-up-session stays at 300 lines"
