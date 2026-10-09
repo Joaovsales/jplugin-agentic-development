@@ -1413,6 +1413,34 @@ for body in "$CLEAN_QG" "$AGENTS_CORE"; do
   assert_not_contains "$body" '20 LOC' "split by job: $where no longer carries a 20-LOC rule"
 done
 
+# --- shortcuts: the ledger, on demand -----------------------------------------
+# specs/review-load-and-failure-cases.md AC7. /wrap-up-session § Shortcut ledger
+# stays the one home of the command and format; /tidy cites it rather than
+# restating the grep, so the two cannot drift. The pattern now matches C-block
+# and HTML comment markers too, and wrap-up must not grow past its 300 lines.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+ledger="$(grep -F 'TODO\(shortcut\):' "$WRAP_SKILL")"
+assert_contains "$ledger" "(#|//|--|/\\*|<!--) ?TODO\\(shortcut\\):" \
+  "shortcuts: the ledger pattern matches #, //, --, /* and <!-- prefixes"
+for marker in '# TODO(shortcut): x' '// TODO(shortcut): x' '/* TODO(shortcut): x */' '<!-- TODO(shortcut): x -->'; do
+  hit="$(printf '%s\n' "$marker" | grep -cE '(#|//|--|/\*|<!--) ?TODO\(shortcut\):' || true)"
+  assert_eq "1" "$hit" "shortcuts: the ledger pattern matches '$marker'"
+done
+assert_eq "0" "$(printf 'a `TODO(shortcut):` marker in prose\n' | grep -cE '(#|//|--|/\*|<!--) ?TODO\(shortcut\):' || true)" \
+  "shortcuts: a marker mentioned in prose is not a ledger row"
+assert_eq "300" "$(grep -c '' "$WRAP_SKILL")" \
+  "shortcuts: /wrap-up-session stays at 300 lines"
+TIDY_SKILL=.agents/skills/tidy/SKILL.md
+shortcuts_row="$(grep '^| `shortcuts` |' "$TIDY_SKILL")"
+assert_contains "$shortcuts_row" '`/wrap-up-session` § *Shortcut ledger*' \
+  "shortcuts: /tidy's shortcuts check cites the ledger's one home"
+assert_contains "$shortcuts_row" '`no-trigger`' \
+  "shortcuts: /tidy's shortcuts check reports no-trigger markers"
+assert_contains "$shortcuts_row" 'Tier 1' \
+  "shortcuts: a no-trigger marker is Tier 1"
+assert_not_contains "$shortcuts_row" 'grep -rnE' \
+  "shortcuts: /tidy cites the ledger command instead of restating it"
+
 # --- no wrap-up reviewer: wrap-up dispatches no reviewer of its own ----------
 # specs/quality-receipt-closure.md AC7. Before #188, wrap-up ran 4 dispatched
 # review passes (Step 4) plus an inline /security-scan (Step 3.5). Both are
