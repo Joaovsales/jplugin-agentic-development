@@ -127,6 +127,24 @@ assert_contains "$out" 'Ready' "successful update reports readiness"
 assert_eq 0 "$([ "$before" != "$(current)" ]; echo $?)" "successful update switches release"
 assert_file_contains "$DESIGN_STACK_HOME/releases/$(current)/sources/taste/skills/taste/SKILL.md" 'changed' "new content is available"
 
+printf '\n--- executable resolution ---\n'
+# Windows resolves `npx` to npx.cmd only through PATHEXT, which subprocess
+# without a shell ignores; run() must hand subprocess the which() result.
+out="$("$TEST_PYTHON" - "$(dirname "$CLI")" <<'PY' 2>&1
+import shutil, subprocess, sys
+sys.path.insert(0, sys.argv[1])
+import design_stack
+shutil.which = lambda name: {"npx": "C:/nodejs/npx.cmd"}.get(name)
+seen = []
+subprocess.run = lambda command, **_: seen.append(command) or subprocess.CompletedProcess(command, 0, "")
+design_stack.run("npx", "--yes")
+design_stack.run("unresolvable", "--yes")
+print(seen)
+PY
+)"
+assert_contains "$out" "('C:/nodejs/npx.cmd', '--yes')" "run resolves a bare command through PATH and PATHEXT"
+assert_contains "$out" "('unresolvable', '--yes')" "an unresolvable command keeps its name so the error stays explicit"
+
 printf '\n--- distribution ---\n'
 assert_file_contains "$REPO/README.md" '/design-stack' "README names the adapter"
 assert_eq 0 "$(find "$REPO/.agents/skills/design-stack" -type d -name .git | wc -l | tr -d ' ')" "adapter does not vendor upstream repositories"
