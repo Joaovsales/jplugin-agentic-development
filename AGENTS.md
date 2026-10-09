@@ -33,7 +33,7 @@ Every finding any layer emits carries the four axes of the *Finding Model* — `
 
 **Code Graph First.** Prefer the per-project code graph (`graphify-out/graph.json`) over blind grep/read sweeps: `graphify query "<question>"` to explore, `graphify explain "<symbol>"` for one node, `graphify path "A" "B"` for how two things connect. Optional — a missing `graphify` or graph is not an error, fall back to normal search. A stale graph is worse than none: `graphify hook install` re-indexes on commit and checkout.
 
-**Clean Code** — functions ≤20 LOC and ≤3 parameters, one abstraction level, meaningful names, DRY and KISS — is the standard `/quality-gate` Phase 1 checks.
+**Clean Code** — a function doing several unrelated jobs is split by job, never by line count and never into helpers that exist only to shorten it; ≤3 parameters, one abstraction level, meaningful names, DRY and KISS — is the standard `/quality-gate` Phase 1 checks.
 
 **APOSD Design.** Hide information behind simple interfaces. Pull complexity downward — callers never learn internal state machines, lock types or schemas. Prefer deep modules over shallow ones. Prefer general-purpose over special-case when it costs no complexity. Define errors out of existence rather than handling them.
 

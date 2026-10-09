@@ -100,7 +100,7 @@ For each file in scope:
 - **Existing utilities** that already do what new code does → replace
 
 ### 1.2 Clean Code
-- Functions **>20 LOC** → split
+- A function doing **several unrelated jobs** → split by job; never by line count, and never into helpers that exist only to make it shorter
 - Functions with **>3 parameters** → use options object/dataclass
 - **Poor naming**: generic names (`data`, `info`, `tmp`, `result`) → rename to reveal intent
 - **Dead code**: unreachable branches, unused imports → remove

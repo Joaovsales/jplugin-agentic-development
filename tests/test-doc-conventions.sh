@@ -1398,6 +1398,21 @@ assert_precedes "$OUTPUT_QG" 'Lean: -<N> lines possible' 'Not checked:' \
 assert_contains "$OUTPUT_QG" 'Verdict: <GO|HOLD|STOP> — the receipt verdict' \
   "gate load: the Output's Verdict: line is the receipt verdict"
 
+# --- split by job: function size is a job count, not a line count -------------
+# specs/review-load-and-failure-cases.md AC6. "Functions >20 LOC -> split" pushed
+# toward shallow helpers that exist only to make a function shorter — the APOSD
+# red flag the same gate reports in Phase 4. Both homes of the rule are pinned,
+# because the gate reads Phase 1.2 and every session reads AGENTS.md.
+CLEAN_QG="$(awk '/^### 1.2 Clean Code/{p=1; next} p && /^#/{exit} p' "$QG_SKILL" | tr -s '[:space:]' ' ')"
+AGENTS_CORE="$(awk '/^## Core Principles/{p=1; next} p && /^## /{exit} p' AGENTS.md | tr -s '[:space:]' ' ')"
+for body in "$CLEAN_QG" "$AGENTS_CORE"; do
+  case "$body" in "$CLEAN_QG") where="/quality-gate Phase 1.2" ;; *) where="AGENTS.md § Core Principles" ;; esac
+  assert_contains "$body" 'split by job' "split by job: $where says split by job"
+  assert_contains "$body" 'never by line count' "split by job: $where says never by line count"
+  assert_contains "$body" '3 parameters' "split by job: $where keeps the 3-parameter rule"
+  assert_not_contains "$body" '20 LOC' "split by job: $where no longer carries a 20-LOC rule"
+done
+
 # --- no wrap-up reviewer: wrap-up dispatches no reviewer of its own ----------
 # specs/quality-receipt-closure.md AC7. Before #188, wrap-up ran 4 dispatched
 # review passes (Step 4) plus an inline /security-scan (Step 3.5). Both are
