@@ -183,6 +183,8 @@ assert_file_contains "$DOMAIN" "applies_when" \
   "AC5: architecture decisions carry the knowledge-track field"
 assert_file_contains "$DOMAIN" "Score Overlap Before Writing" \
   "AC5: architecture decisions are overlap-scored per /learn"
+assert_prose_contains "$DOMAIN" "with the knowledge-track dimensions" \
+  "AC5: architecture decisions are overlap-scored on the knowledge-track set (#168)"
 assert_file_matches "$SKILLS/learn/SKILL.md" '^### .*Score Overlap Before Writing' \
   "AC5: the cited /learn overlap heading exists"
 assert_file_contains "$DOMAIN" "file:line" \
