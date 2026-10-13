@@ -1852,3 +1852,66 @@ Filed this sweep:
 - Completed: readable-visual-plans, 13/13 slices (#256–#268), each with a handover. Quality gate: Phases 1–3 inline, Phase 4 dispatched (HOLD). Four fixes applied in 76bedc8: one Blocked by grammar shared with /slice, empty flow node refused with spec:line, shared slice links, prompt label dropped in the parser. Plugin bumped to 1.5.0. Receipt c743aa3e is STOP on the Windows affected run (9/38, all baseline). WSL at the same tree passed 38/38 with the gh wrapper. The owner overrode STOP to push.
 - Pending: the owner's screenshot review (AC23) and the before/after dogfood comparison (AC25) in the PR, then the PR's Linux CI run. Reported, not applied (5 SHOULD-FIX, manual): pick text in the review export, has-blockers substring check, blocker predicates restated per card, no single section registry, ids not de-duplicated across modules.
 - Carry-forward: design-stack setup needs DESIGN_STACK_NPX=npx.cmd on Windows (bug doc open, follow-up suggested). The snow-mcp spec itself still fails the new renderer at :432.
+
+## Plan: Review load and failure cases
+> Spec: specs/review-load-and-failure-cases.md
+
+### Slice 1/8 — Failure line
+- [x] Failure line <!-- task-id: plan.specs-review-load-and-failure-cases-md.failure-line --> — Slice 1/8: failure: in the emission format with its confidence cap, and the version bump ([#273](https://github.com/Joaovsales/jplugin-agentic-development/issues/273))
+  [x] TDD: tests/test-review-context.sh § failure — finding-model.md shows `failure:` under `evidence:` and caps a finding without it at `50` -> emission format and § Gates edit; plugin.json minor bump (AC 1)
+> Handover: landed 232c173 — finding-model.md § Emission format carries `failure:` under `evidence:` with a paragraph on what it holds per finding kind; § Gates caps a finding with no `failure:` at `50`; plugin.json 1.5.1 -> 1.6.0
+> Do not re-derive: the cap mirrors the evidence demotion exactly (reported, never auto-applied, never dropped); every receipt minted before this goes stale once (policy hash, R1)
+> Surface: none
+
+### Slice 2/8 — Deferrals and load home
+- [x] Deferrals and load home <!-- task-id: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home --> — Slice 2/8: § Deferrals and § Expected load, cited by the dispatch contract and three personas ([#274](https://github.com/Joaovsales/jplugin-agentic-development/issues/274)) (blocked-by: plan.specs-review-load-and-failure-cases-md.failure-line)
+  [x] TDD: tests/test-agents.sh § deferrals — the combined shortcut rule names both exceptions, lives in one file, and critic, security-reviewer, software-design-expert-review (both trees) and dispatch item 5 cite it -> § Deferrals plus citations (AC 2)
+  [x] TDD: tests/test-agents.sh § load — § Expected load defines `Load assumed:`, lookup order, no-source default and six scale patterns; the three personas reference it and the skill's dispatch instruction asks for `failure:` -> § Expected load plus references (AC 3)
+> Handover: landed 674b4a5, c75a3ad — finding-model.md § Expected load (Load assumed: line, lookup order, no-source default, six patterns) and § Deferrals (the one shortcut rule, exceptions (a) load and (b) never-cut list) plus a ponytail provenance line; dispatch contract item 5 cites § Deferrals, item 7 adds `failure:`; critic, security-reviewer, software-design-expert-review (both trees) and the sder skill cite both sections and show `failure:`
+> Do not re-derive: 'load already crosses' must stay in finding-model.md alone — tests/test-agents.sh § 6 counts files; security-reviewer writes `**failure**:` in its template, so its rule sentence carries the literal `failure:`
+> Surface: undeclared: tests/test-citations.sh — its fixed ## heading list for finding-model.md now names Expected load and Deferrals
+
+### Slice 3/8 — Code reviewer rewrite
+- [x] Code reviewer rewrite <!-- task-id: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite --> — Slice 3/8: the human layer and the bans in code-reviewer ([#275](https://github.com/Joaovsales/jplugin-agentic-development/issues/275)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [x] TDD: tests/test-agents.sh § code-reviewer — no Strengths, persona prose or Recommendations; template has `What this change does:`, `Load assumed:`, numbered findings with `failure:`, `Verdict:`, `Lean:`, `Not checked:`; bans "consider"; both trees byte-identical -> rewrite code-reviewer.md (AC 4)
+> Handover: landed 5e48ef3 — code-reviewer.md rewritten (both trees, byte-identical): Context Intake kept, What you check (correctness, security, scale, design, lean), What you never emit, human-layer Output with numbered findings, `failure:`, Verdict/Lean/Not checked
+> Do not re-derive: Verdict: names MUST-FIX numbers and decides nothing (D15); `What this tree does:` for repo surveys; the template's four example findings are the A/B's 'updated' arm
+> Surface: none
+
+### Slice 4/8 — Gate load lens
+- [x] Gate load lens <!-- task-id: plan.specs-review-load-and-failure-cases-md.gate-load-lens --> — Slice 4/8: Phase 3 Security and Load and the human-layer § Output ([#276](https://github.com/Joaovsales/jplugin-agentic-development/issues/276)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [x] TDD: tests/test-doc-conventions.sh § gate load — `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens with `What this change does:` and `Load assumed:`, numbered `Reported, not applied` with `failure:`, ends with `Lean:` and `Not checked:`; test-quality-receipt.sh green -> quality-gate SKILL.md edit (AC 5)
+> Handover: landed 0e1075c — /quality-gate `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens What this change does: / Load assumed:, numbered Reported-not-applied with failure:, then Receipt, Verdict (restated), Lean, Not checked
+> Do not re-derive: the old test prefix `## Phase 3 — Security` still matches; test-quality-receipt.sh's fixture lens `security-scan` is free text in receipt.py and stays valid
+> Surface: none
+
+### Slice 5/8 — Split by job
+- [x] Split by job <!-- task-id: plan.specs-review-load-and-failure-cases-md.split-by-job --> — Slice 5/8: the function-size rule in AGENTS.md and Phase 1.2 ([#277](https://github.com/Joaovsales/jplugin-agentic-development/issues/277)) (blocked-by: plan.specs-review-load-and-failure-cases-md.gate-load-lens)
+  [x] TDD: tests/test-doc-conventions.sh § split by job — AGENTS.md and Phase 1.2 say "split by job" and "never by line count", no "20 LOC"; budget and managed-block tests green -> two rule edits (AC 6)
+> Handover: landed b3f6651 — AGENTS.md § Core Principles and /quality-gate Phase 1.2 say split by job, never by line count, never into shorten-only helpers; ≤3 parameters kept
+> Do not re-derive: AGENTS.md is 14963 bytes of the 16 KiB budget; the managed-block test needs no change
+> Surface: none
+
+### Slice 6/8 — Shortcut ledger on demand
+- [x] Shortcut ledger on demand <!-- task-id: plan.specs-review-load-and-failure-cases-md.shortcut-ledger-on-demand --> — Slice 6/8: the wider ledger pattern and /tidy --check shortcuts ([#278](https://github.com/Joaovsales/jplugin-agentic-development/issues/278)) (blocked-by: plan.specs-review-load-and-failure-cases-md.split-by-job)
+  [x] TDD: tests/test-doc-conventions.sh § shortcuts — the wrap-up ledger pattern matches C-block and HTML comment prefixes with wrap-up still 300 lines; /tidy lists check `shortcuts` citing § Shortcut ledger, `no-trigger` Tier 1 -> pattern edit and tidy check row (AC 7)
+> Handover: landed 0acd572 — wrap-up § Shortcut ledger pattern is `(#|//|--|/\*|<!--) ?TODO\(shortcut\):` in place (still 300 lines); /tidy gains a `shortcuts` table row citing that section, `no-trigger` as Tier 1, never filed; heading 1–10
+> Do not re-derive: /tidy cites the command and never restates the grep (pinned)
+> Surface: none
+> Open: make-it-simpler/references/lens.md still says /tidy has nine checks (outside this surface; follow-up)
+
+### Slice 7/8 — Seeded review fixtures
+- [x] Seeded review fixtures <!-- task-id: plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures --> — Slice 7/8: four seeded diffs and their answer key ([#279](https://github.com/Joaovsales/jplugin-agentic-development/issues/279))
+  [x] Verify: tests/fixtures/review-eval/ holds a race, an N+1 call, a time-zone off-by-one and a harmless decoy, each a diff, plus an answer key; no name hints at an eval (AC 8)
+> Handover: landed d27d85b — four Python diffs under tests/fixtures/review-eval/ (invite-redeem race, order-summary N+1, billing-cutoff UTC-vs-local off-by-one, settings-merge decoy with no defect) and `expected.md`, the key with diff-line anchors, failure cases, severities and a Grading section
+> Do not re-derive: the A/B hands candidates the four `.diff` files only, copied into a neutrally named sandbox — never `expected.md` and never the `review-eval` directory name (/eval blinding bans `eval` in anything a candidate sees); recall = location plus class, any finding on the decoy line or an unlisted MUST/SHOULD-FIX is a false positive
+> Surface: none (only `tests/fixtures/review-eval/**` touched)
+
+### Slice 8/8 — Reviewer A/B
+- [ ] Reviewer A/B <!-- task-id: plan.specs-review-load-and-failure-cases-md.reviewer-a-b --> — Slice 8/8: the Mode B /eval report, linked from the PR body ([#280](https://github.com/Joaovsales/jplugin-agentic-development/issues/280)) (blocked-by: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite, plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures)
+  [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
+
+## Session Summary — [2026-10-09] [3e71e95..882927f]
+- Completed: review-load-and-failure-cases slices 1–7 (#273–#279), each with a handover. The quality gate ran Phase 4 dispatched (HOLD, then GO after 6 fixes). Receipt f6760ca5 is STOP on the Windows affected run, where all 199 failing assertions are also failing at the base. The spec's § Behavior was reconciled for the narrower-real-limit clause.
+- Pending: slice 8 (#280), the Mode B /eval A/B of current code-reviewer vs updated vs ponytail-review over tests/fixtures/review-eval/. It is manual, needs the pushed branch and ponytail's prompt, and its report path goes in the PR body. Reported, not applied: critic's AC-failing-deferral exception is critic-only (add (c) to § Deferrals?); no lookup source states this repo's concurrent-session load (a [NON-FUNCTIONAL] line in tasks/project-context.md); `Verdict:` carries three meanings across personas (AC4 fixes the label).
+- Carry-forward: make-it-simpler/references/lens.md still says /tidy has nine checks; it now has ten, with `shortcuts`.

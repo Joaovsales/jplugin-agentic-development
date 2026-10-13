@@ -201,6 +201,15 @@ assert_files_differ() {
 # a wrapped line never matches "word\r word" otherwise.
 flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
 
+# section_body <file> <heading-prefix> [<stop-regex>]
+# The body under the first line that starts with <heading-prefix>, up to the
+# next line matching <stop-regex> (default: the next `## ` heading), flattened
+# the same way `flatten` does so a wrapped phrase still matches.
+section_body() {
+  tr -d '\r' < "$1" | awk -v h="$2" -v stop="${3:-^## }" \
+    'index($0, h) == 1 { p = 1; next } p && $0 ~ stop { exit } p' | tr '\n' ' ' | tr -s ' '
+}
+
 # first_pos <flattened-text> <literal>
 # Byte offset of the first occurrence, or empty when absent. `-F`: the needle is
 # a literal, so `[ROUTE]` or `**Scope**` is matched as written, not as a regex.

@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Spec: Review load and failure cases</title>
+<style>/* jplugin plan theme — inlined into every visual plan by
+   .agents/skills/visual-plan/scripts/plan_render.py. Rules: design/plan-theme/DESIGN.md.
+   Derived from the minimal technical journal prototype (design/prototypes/minimalist/). */
+
+:root {
+  color-scheme: light;
+  --paper: #f7f7f4; --surface: #ffffff; --ink: #26251e; --body: #4f4e48; --muted: #6b675f;
+  --line: #dcdad2; --strong: #b9b7ac; --code: #f0f0ea; --wash: #f1ebe5; --accent: #b93f18;
+  --c-decision: #1f5fa8; --c-criterion: #2d6a35; --c-risk: #8a5300; --c-question: #6a3d9a;
+  --c-blocker: #b3261e; --c-constraint: #4a5868; --c-contract: #0f6b6b; --c-model: #7a4b2a;
+  --c-slice: #3b4cc0; --c-prompt: #b93f18; --c-diagram: #50504a; --c-reference: #5f5c55;
+  --t-decision: #eaf1fa; --t-criterion: #ebf4ec; --t-risk: #f8f0e2; --t-question: #f2edf8;
+  --t-blocker: #fbeceb; --t-slice: #eeeffb; --t-prompt: #f8ece6;
+  --display: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+    --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+    --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+    --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+    --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+    --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+    --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+  --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+  --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+  --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+  --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+  --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+  --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+}
+
+/* ---------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.62 var(--sans); overflow-wrap: break-word; }
+a { color: inherit; text-underline-offset: .2em; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { background: var(--wash); color: var(--ink); }
+p, li { color: var(--body); max-width: var(--measure); }
+code { font: .88em/1.4 var(--mono); background: var(--code); padding: .08em .3em; border-radius: 3px; overflow-wrap: anywhere; }
+pre { margin: 16px 0 24px; background: var(--code); padding: 18px 20px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--ink); max-width: 100%; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+blockquote { margin: 0 0 20px; padding: 2px 0 2px 16px; border-left: 2px solid var(--strong); color: var(--muted); }
+h1, h2, h3 { color: var(--ink); }
+h3 { font: 600 17px/1.3 var(--sans); letter-spacing: -.01em; margin: 26px 0 10px; }
+ul, ol { padding-left: 22px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+.skip { position: absolute; left: 10px; top: -60px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 30; }
+.skip:focus { top: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ------------------------------------------------------------- layout */
+.masthead { max-width: 1440px; margin: 0 auto; padding: clamp(36px, 6vw, 84px) clamp(16px, 4vw, 64px) 26px; border-bottom: 1px solid var(--line); }
+.folio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin: 0 0 22px; color: var(--muted); font: 12px/1.5 var(--mono); max-width: none; }
+.masthead h1 { font: 400 clamp(36px, 6vw, 76px)/1.02 var(--display); letter-spacing: -.035em; margin: 0 0 18px; max-width: 22ch; }
+.source { margin: 0; font: 13px/1.5 var(--mono); color: var(--muted); max-width: none; }
+.source a { color: var(--ink); }
+.shell { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 0 clamp(16px, 4vw, 64px); }
+main { min-width: 0; padding-bottom: 80px; }
+
+/* ----------------------------------------------------------- navigation */
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 26px 0; font-size: 14px; }
+.toc-menu > summary { list-style: none; cursor: pointer; font: 12px/1.4 var(--mono); color: var(--muted); padding: 6px 0; }
+.toc-menu > summary::-webkit-details-marker { display: none; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; }
+.toc li { margin: 0; max-width: none; }
+.toc a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--line); text-decoration: none; color: var(--body); line-height: 1.35; }
+.toc a:hover { color: var(--ink); border-left-color: var(--strong); }
+.toc a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); font-weight: 600; }
+.toc .toc-prompt { margin-top: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.btn, .copy, .review button { font: 600 13px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--strong); border-radius: 4px; padding: 9px 12px; cursor: pointer; min-height: 36px; }
+.btn:hover, .copy:hover, .review button:hover { border-color: var(--ink); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ------------------------------------------------- lead, strip, blockers */
+.lead { margin: 30px 0 26px; }
+.lead p { font: 400 clamp(20px, 2.2vw, 27px)/1.42 var(--display); color: var(--ink); max-width: 40ch; margin: 0 0 14px; }
+.lead .lead-label, .card-label { font: 600 11px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.lead .lead-label { color: var(--muted); display: block; margin-bottom: 10px; }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); margin: 0 0 26px; }
+.stat { display: block; padding: 14px 14px 14px 0; text-decoration: none; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 14px; }
+.stat-n { display: block; font: 400 30px/1.1 var(--display); color: var(--ink); }
+.stat-l { display: block; font: 12px/1.3 var(--mono); color: var(--muted); }
+.stat-alert .stat-n { color: var(--c-blocker); }
+.strip-label { grid-column: 1 / -1; display: flex; gap: 4px; align-items: baseline; padding: 8px 0 0; color: var(--muted); }
+.strip-label + .stat { border-left: 0; padding-left: 0; }
+.blockers { border: 1px solid var(--c-blocker); border-left-width: 6px; background: var(--t-blocker); padding: 16px 20px; margin: 0 0 30px; }
+.blockers h2 { font: 600 18px/1.3 var(--sans); margin: 0 0 8px; color: var(--c-blocker); }
+.blockers ul { margin: 0; padding-left: 0; list-style: none; }
+.blockers li { padding: 4px 0; max-width: none; }
+.blockers .none { color: var(--body); margin: 0; }
+
+/* ------------------------------------------------------------- sections */
+.sec { scroll-margin-top: 12px; border-bottom: 1px solid var(--line); }
+.sec > details > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; padding: 30px 0 18px; }
+.sec > details > summary::-webkit-details-marker { display: none; }
+.sec > details > summary::after { content: "+"; margin-left: auto; font: 400 22px/1 var(--mono); color: var(--muted); }
+.sec > details[open] > summary::after { content: "\2212"; }
+.sec h2 { font: 400 clamp(28px, 3.4vw, 44px)/1.08 var(--display); letter-spacing: -.03em; margin: 0; }
+.sec-count { font: 12px/1 var(--mono); color: var(--muted); }
+.sec > details > :not(summary) { margin-left: 0; }
+.sec > details { padding-bottom: 26px; }
+.table-scroll { overflow-x: auto; max-width: 100%; margin: 14px 0 22px; border-top: 1px solid var(--ink); }
+.table-scroll:focus-visible { outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { position: sticky; top: 0; background: var(--paper); text-align: left; font: 600 12px/1.35 var(--mono); color: var(--muted); padding: 10px 12px 8px 0; border-bottom: 1px solid var(--strong); vertical-align: bottom; }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); min-width: 9ch; }
+
+/* ---------------------------------------------------------------- cards */
+.cards { display: grid; gap: 12px; margin: 6px 0 18px; padding: 0; list-style: none; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; max-width: none; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-head h3 { margin: 0; font: 600 16px/1.35 var(--sans); flex: 1 1 18ch; min-width: 0; }
+.card-icon { font: 700 14px/1 var(--mono); width: 1.5em; text-align: center; flex: none; }
+.card-id { font: 600 12px/1 var(--mono); color: var(--ink); background: var(--code); padding: 4px 6px; border-radius: 3px; }
+.card p { margin: 8px 0 0; }
+.card-body { margin-top: 8px; }
+.card-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.card-more > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.card-more dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; }
+.card-more dt { font: 600 12px/1.6 var(--mono); color: var(--muted); }
+.card-more dd { margin: 0; color: var(--body); }
+.chosen { position: relative; padding-left: 26px; color: var(--ink); overflow-wrap: anywhere; }
+.chosen::before { position: absolute; left: 0; top: .2em; }
+.chosen::before { content: "\2713"; font: 700 12px/1 var(--mono); color: var(--c-criterion); border: 1px solid currentColor; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; flex: none; }
+.callout-wrong { border-left: 3px solid var(--c-blocker); padding: 6px 10px; background: var(--t-blocker); color: var(--ink); }
+.meta { font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: none; }
+
+/* chips: text labels first, colour second */
+.chip { font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip-settled { color: var(--c-criterion); }
+.chip-open, .chip-uncovered, .chip-blocked { color: var(--c-blocker); border-style: dashed; }
+.chip-new { color: var(--c-contract); }
+.chip-changed { color: var(--c-risk); }
+.chip-verify { color: var(--c-question); border-style: dashed; }
+.lvl { font: 600 11px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--strong); border-radius: 3px; color: var(--ink); }
+.lvl-H { border-color: var(--c-blocker); color: var(--c-blocker); border-width: 2px; }
+.lvl-M { border-color: var(--c-risk); color: var(--c-risk); }
+.lvl-L { color: var(--muted); }
+
+/* one colour, icon, label and border shape per component type */
+.card-decision { border-color: var(--c-decision); border-style: solid; }
+.card-decision .card-icon, .card-decision .card-label { color: var(--c-decision); }
+.card-decision.is-open { background: var(--t-decision); }
+.card-criterion { border: 0; border-left: 3px solid var(--c-criterion); background: transparent; padding: 8px 12px; }
+.card-criterion .card-icon, .card-criterion .card-label { color: var(--c-criterion); }
+.card-criterion.is-uncovered { border-left-color: var(--c-blocker); border-left-style: dashed; background: var(--t-blocker); }
+.card-risk { border: 3px double var(--c-risk); }
+.card-risk .card-icon, .card-risk .card-label { color: var(--c-risk); }
+.card-question { border: 2px dashed var(--c-question); background: var(--t-question); }
+.card-question .card-icon { color: var(--c-question); border: 2px solid currentColor; border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; }
+.card-question .card-label { color: var(--c-question); }
+.card-constraint { border: 1px dotted var(--c-constraint); }
+.card-constraint .card-icon, .card-constraint .card-label { color: var(--c-constraint); }
+.card-contract { border: 1px solid var(--line); border-left: 6px solid var(--c-contract); }
+.card-contract .card-icon, .card-contract .card-label { color: var(--c-contract); }
+.card-contract pre { margin: 10px 0 0; }
+.card-model { border: 1px solid var(--line); border-top: 4px solid var(--c-model); }
+.card-model .card-icon, .card-model .card-label { color: var(--c-model); }
+.card-slice { border: 2px solid var(--c-slice); border-radius: 0 12px 12px 0; }
+.card-slice .card-icon, .card-slice .card-label { color: var(--c-slice); }
+.card-slice.is-blocked { background: var(--t-blocker); border-style: dashed; }
+.card-prompt { border: 2px solid var(--c-prompt); background: var(--t-prompt); padding: 18px 20px; }
+.card-prompt .card-icon, .card-prompt .card-label { color: var(--c-prompt); }
+.card-prompt pre { background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-prompt.not-ready { border-style: dashed; border-color: var(--c-blocker); background: var(--t-blocker); }
+.not-ready-msg { font-weight: 700; color: var(--c-blocker); }
+.card-reference { border: 0; border-top: 1px dotted var(--c-reference); background: transparent; padding: 10px 0; }
+.card-reference .card-icon, .card-reference .card-label { color: var(--c-reference); }
+.card-blockers .card-icon, .card-blockers .card-label { color: var(--c-blocker); }
+.card-strip .card-label { color: var(--muted); }
+.card-lead .card-label { color: var(--muted); }
+
+/* ------------------------------------------------------------- diagrams */
+.diagram { margin: 18px 0 24px; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.diagram .card-icon, .diagram .card-label { color: var(--c-diagram); }
+.diagram-scroll { overflow-x: auto; max-width: 100%; margin-top: 8px; }
+.diagram svg { display: block; max-width: none; height: auto; font-family: var(--sans); }
+.diagram figcaption { font: 13px/1.5 var(--sans); color: var(--body); margin-top: 8px; }
+.diagram-source, .text-diagram { margin-top: 10px; }
+.diagram-source > summary, .text-diagram > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.text-diagram { border: 1px dashed var(--strong); padding: 8px 12px; margin: 12px 0 20px; }
+svg .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+svg .node text { fill: var(--ink); font-size: 13px; }
+svg .node .node-sub { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .node-new rect { stroke: var(--c-contract); stroke-width: 2.4; }
+svg .node-changed rect { stroke: var(--c-risk); stroke-width: 2.4; stroke-dasharray: 6 3; }
+svg .node-blocked rect { stroke: var(--c-blocker); stroke-width: 2.4; stroke-dasharray: 3 3; fill: var(--t-blocker); }
+svg a:focus-visible rect, svg a:hover rect { stroke: var(--accent); stroke-width: 2.6; }
+svg .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .edge-dashed { stroke-dasharray: 5 4; }
+svg .arrow { fill: var(--muted); }
+svg .edge-label { fill: var(--body); font-size: 11px; font-family: var(--mono); }
+svg .label-bg { fill: var(--surface); }
+svg .lane { fill: var(--code); stroke: var(--line); }
+svg .lane-label { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .lifeline { stroke: var(--strong); stroke-dasharray: 4 4; }
+svg .actor rect { fill: var(--surface); stroke: var(--ink); }
+svg .actor text { fill: var(--ink); font-size: 13px; }
+svg .msg { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .msg-reply { stroke-dasharray: 5 4; }
+svg .msg-label { fill: var(--ink); font-size: 12px; }
+svg .frame { fill: none; stroke: var(--c-question); stroke-width: 1.2; }
+svg .frame-label { fill: var(--c-question); font-size: 11px; font-family: var(--mono); font-weight: 600; }
+svg .frame-tab { fill: var(--t-question); stroke: var(--c-question); }
+svg .frame-divider { stroke: var(--c-question); stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 12px/1.4 var(--mono); color: var(--muted); margin-top: 8px; padding: 0; list-style: none; }
+.legend li { max-width: none; }
+
+/* -------------------------------------------------------------- review */
+.review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.review button { padding: 6px 9px; min-height: 30px; font-size: 12px; }
+.review button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.review label { display: flex; align-items: center; gap: 6px; flex: 1 1 16ch; min-width: 0; font: 12px/1.3 var(--mono); color: var(--muted); }
+.review textarea, .review select, .review input { font: 13px/1.4 var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--strong); border-radius: 4px; padding: 6px 8px; flex: 1 1 16ch; min-width: 0; }
+.review-status { font: 12px/1.4 var(--mono); color: var(--muted); margin: 8px 0 0; max-width: none; }
+.review-panel { border: 1px solid var(--strong); padding: 16px 18px; margin: 26px 0; }
+.review-panel pre { white-space: pre-wrap; }
+
+/* ------------------------------------------------------- blockers-only */
+body.only-blockers main .sec:not(.has-blockers),
+body.only-blockers main .cards > :not(.is-blocker),
+body.only-blockers main .ac-list > :not(.is-blocker) { display: none; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 767px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: sticky; top: 0; z-index: 20; max-height: none; overflow: visible; background: var(--paper); border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .toc-menu > summary { font-size: 14px; color: var(--ink); padding: 10px 0; }
+  .toc-menu > summary::before { content: "\2630  "; }
+  .toc-menu[open] ol { max-height: 70vh; overflow-y: auto; padding-bottom: 10px; }
+  .masthead h1 { font-size: clamp(32px, 10vw, 48px); }
+  .stat + .stat { border-left: 0; padding-left: 0; }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card-more dl { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 768px) {
+  .toc-menu > summary { pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  :root { --paper: #fff; --surface: #fff; }
+  .toc, .controls, .review, .copy, .skip, .review-panel { display: none !important; }
+  .shell { display: block; padding: 0; }
+  .sec > details > summary::after { content: ""; }
+  .card, .diagram { break-inside: avoid; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 10px; color: var(--muted); }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body class="plan">
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead"><p class="folio"><span>Visual plan</span><span><a href="#build-prompt">Build prompt ↓</a></span></p><h1>Spec: Review load and failure cases</h1><p class="source">Source: <a href="review-load-and-failure-cases.md">specs/review-load-and-failure-cases.md</a> · sha256 <code>b23a6f17e11d</code></p></header>
+<div class="shell"><nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary><ol><li><a href="#summary-lead">Summary</a></li><li><a href="#blockers">Blockers</a></li><li><a href="#behavior">Behavior</a></li><li><a href="#inputs">Inputs</a></li><li><a href="#outputs">Outputs</a></li><li><a href="#edge-cases">Edge Cases</a></li><li><a href="#risks">Risks</a></li><li><a href="#decisions">Decisions</a></li><li><a href="#acceptance-criteria">Acceptance Criteria</a></li><li><a href="#implementation-paths">Implementation Paths</a></li><li><a href="#build-order">Build Order</a></li><li><a href="#build-prompt">Build prompt</a></li><li><a href="#review">Review</a></li></ol></details></nav><main id="main">
+<p>Five review ideas adapted from ponytail (<code>DietrichGebert/ponytail</code>, MIT — <code>skills/ponytail-review</code>, <code>skills/ponytail-audit</code>, <code>skills/ponytail-debt</code>), restated in this harness&#x27;s own words and fitted to the four-axis Finding Model. The ponytail plugin itself is not installed.</p>
+<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label"><span class="card-icon" aria-hidden="true">¶</span> <span class="card-label">Summary</span></span><p>Reviews in this harness state the load they judged against, give every finding a concrete failure case, and read well for a human without losing the four-axis line the Apply Gate parses. The function-size rule becomes &quot;split by job&quot;, the two shortcut-marker rules become one, and shortcut debt can be listed on demand. An A/B against ponytail&#x27;s reviewer checks the result on seeded bugs.</p></section>
+<nav class="strip card-strip" aria-label="At a glance"><span class="strip-label"><span class="card-icon" aria-hidden="true">#</span><span class="card-label">At a glance</span></span><a class="stat" href="#build-order"><span class="stat-n">8</span><span class="stat-l">slices</span></a><a class="stat" href="#acceptance-criteria"><span class="stat-n">9</span><span class="stat-l">criteria</span></a><a class="stat" href="#decisions"><span class="stat-n">15</span><span class="stat-l">decisions</span></a><a class="stat" href="#risks"><span class="stat-n">4</span><span class="stat-l">risks</span></a><a class="stat" href="#decisions"><span class="stat-n">0</span><span class="stat-l">open items</span></a><a class="stat" href="#blockers"><span class="stat-n">0</span><span class="stat-l">blockers</span></a></nav>
+<section class="blockers card-blockers" id="blockers" aria-labelledby="blockers-h"><h2 id="blockers-h"><span class="card-icon" aria-hidden="true">!</span><span class="card-label">Blockers</span> <span class="sec-count">0</span></h2><p class="none">No blockers: no open decision, blocking question, uncovered criterion or unmitigated high-impact risk.</p></section>
+<div class="controls" role="toolbar" aria-label="Disclosure"><button type="button" class="btn" data-action="expand">Expand all</button><button type="button" class="btn" data-action="collapse">Collapse all</button><button type="button" class="btn" data-action="blockers" aria-pressed="false">Show only blockers</button></div>
+<section class="sec sec-generic" id="behavior" data-kind="generic"><details class="sec-body" open><summary><h2>Behavior</h2></summary><p><strong>Expected load.</strong> Every review states the load it judged against before it reports anything: <code>Load assumed: &lt;who and how many run this&gt; (source: &lt;path | none found&gt;)</code>. The reviewer looks for it in this order: the spec&#x27;s § Edge Cases and § Decisions, the <code>[NON-FUNCTIONAL]</code> section of <code>tasks/project-context.md</code>, then the README and the deploy or routine config. If it finds none, it assumes one operator and one process, and says so. The load then drives a scale checklist: check-then-write races, the same work done by every process or session, state or lists that only grow, one query or call per item, O(n²) on input that can be large, and per-process state that has to be shared. A scale finding is valid only when the assumed load reaches it.</p>
+<p><strong>A failure case for every finding.</strong> Beside <code>evidence:</code> (<em>where</em> the defect is), every finding carries <code>failure:</code> (<em>what goes wrong</em>). For a correctness, security or scale finding that is the input or situation and the wrong result it produces. For a design or lean finding it is the concrete change or read the defect makes harder. A finding with no <code>failure:</code> line is capped at confidence <code>50</code>, the same way a finding with no <code>evidence:</code> line is.</p>
+<p><strong>A human layer on top of the four axes — presentation only.</strong> A review opens with <code>What this change does:</code> in two or three sentences, plus the <code>Load assumed:</code> line. Findings are numbered across all severities, so a person reading the output, or a later turn, can refer to one by number. Each finding&#x27;s description ends with what happens if it is skipped. The review closes with <code>Verdict:</code>, <code>Lean: -&lt;N&gt; lines possible</code> when lean findings exist, and <code>Not checked:</code> naming what mattered but could not be read or run. The four-axis line stays the first line of every finding, so the parsers and the Apply Gate are unchanged.</p>
+<p>The layer adds no human-in-the-loop step. Nothing waits for an answer, nothing asks &quot;which should I fix?&quot;, and <code>/build</code> still runs with no prompts between tasks. What gets applied, reported or escalated is decided exactly as today: by the Apply Gate (<code>gated_auto</code> at confidence <code>75</code> or higher) and by the <code>owner</code> axis. <code>Verdict:</code> restates a decision that already exists and never makes a new one. In <code>/quality-gate</code> it is the receipt verdict <code>receipt.py</code> derives (GO / HOLD / STOP). In a dispatched persona it is a summary for the orchestrator, naming the <code>MUST-FIX</code> numbers; the orchestrator&#x27;s gate decides, not the persona.</p>
+<p><strong>Banned content.</strong> The reviewer personas drop the Strengths section, the persona self-description and the free-form Recommendations list. They emit no &quot;consider…&quot;, no style taste and no vague worry: no <code>failure:</code> case, no finding. <code>NITPICK</code> stays in the enum for objective cosmetic defects (an unused import, a comment that contradicts the code).</p>
+<p><strong>Split by job, never by line count.</strong> The Clean Code rule in <code>AGENTS.md</code> and <code>/quality-gate</code> Phase 1.2 no longer says &quot;functions ≤20 LOC → split&quot;. It says: split a function that does several unrelated jobs, by job; never split by line count, and never into helpers that exist only to make a function shorter. The ≤3-parameter rule stays.</p>
+<p><strong>One shortcut rule.</strong> A <code>TODO(shortcut):</code> marker that names its limit is a decision, not a finding, unless either (a) the assumed load already crosses the limit it names, or (b) the shortcut opens a hole on the never-on-the-chopping-block list (security, accessibility, trust-boundary validation, error handling that prevents data loss). In either case the shortcut itself is the finding, citing the marker and saying what it failed to account for. The rule&#x27;s one home is <code>finding-model.md</code> § <em>Deferrals</em>; personas and the dispatch contract cite it instead of restating it.</p>
+<p><strong>Shortcut debt on demand.</strong> <code>/wrap-up-session</code> § <em>Shortcut ledger</em> stays the one home of the ledger&#x27;s command and format. Its pattern also matches <code>/*</code> and <code>&lt;!--</code> comment prefixes. <code>/tidy --check shortcuts</code> runs that same ledger on demand and reports <code>no-trigger</code> markers as Tier 1.</p></details></section>
+<section class="sec sec-generic" id="inputs" data-kind="generic"><details class="sec-body" open><summary><h2>Inputs</h2></summary><ul><li>The diff (or tree, for <code>/sweep</code> and <code>/tidy</code>) under review, plus the dispatch payload <code>review-dispatch-contract.md</code> already defines.</li><li>The load sources named under <em>Expected load</em>. They are read by the reviewer; they are not a new dispatch item.</li><li><code>TODO(shortcut):</code> markers in the tree.</li></ul></details></section>
+<section class="sec sec-generic" id="outputs" data-kind="generic"><details class="sec-body" open><summary><h2>Outputs</h2></summary><ul><li>Reviewer and <code>/quality-gate</code> output in the human-and-agent format above.</li><li><code>/quality-gate</code> Phase 3 renamed <code>Security and Load</code>. It records <code>{&quot;phase&quot;: 3, &quot;lens&quot;: &quot;security-scan+load&quot;, ...}</code> in the receipt.</li><li>A new receipt policy hash, because <code>finding-model.md</code>, <code>review-dispatch-contract.md</code> and the gate&#x27;s <code>SKILL.md</code> all change. Receipts minted before this change go stale once, as designed.</li><li><code>/tidy</code> report rows for check <code>shortcuts</code>.</li><li>A Mode B <code>/eval</code> report comparing three reviewers on seeded-bug diffs.</li></ul></details></section>
+<section class="sec sec-generic" id="edge-cases" data-kind="generic"><details class="sec-body" open><summary><h2>Edge Cases</h2></summary><ul><li><strong>No load source anywhere</strong> → <code>Load assumed: one operator, one process (source: none found)</code>. Scale findings that need more load than that are not emitted.</li><li><strong>This harness repository</strong> → the load is several concurrent sessions sharing one clone (<code>tasks/solutions/</code>, the parallel-sessions learning). Races on shared registers such as <code>tasks/todo.md</code> are in scope.</li><li><strong>Repo-survey dispatch</strong> (<code>/sweep --routine architect</code>) → there is no &quot;change&quot;, so the opener is <code>What this tree does:</code>; everything else is unchanged.</li><li><strong>Finding with <code>evidence:</code> but no <code>failure:</code></strong> → capped at <code>50</code>, reported, never auto-applied, never dropped.</li><li><strong>Design finding</strong> → <code>failure:</code> names the change that costs more because of the defect (e.g. &quot;adding a provider means editing A, B and C&quot;). It is never left empty because &quot;design has no input&quot;.</li><li><strong>Marker whose limit the load already crosses</strong> → the shortcut itself is the finding, severity by impact.</li><li><strong>Marker that opens a security hole</strong> → the finding is <code>MUST-FIX</code> whatever the marker says.</li><li><strong>A <code>TODO(shortcut):</code> mentioned in prose without a comment prefix</strong> (this spec, <code>AGENTS.md</code>) → not a ledger row.</li><li><strong>A descendant project with a pinned older reviewer</strong> → a finding with no <code>failure:</code> line reads as <code>50</code>. That is the existing degrade path, not a new error.</li></ul></details></section>
+<section class="sec sec-risks" id="risks" data-kind="risks"><details class="sec-body" open><summary><h2>Risks</h2></summary><div class="cards"><article class="card card-risk" id="r2"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R2</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-M">Impact M</span><h3>A descendant still on an older reviewer emits no <code>failure:</code> line, so all its findings drop to <code>50</code> and none auto-apply</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>the existing degrade path; <code>/sync</code> carries the new personas downstream</dd><dt>Slice</dt><dd><a href="#slice-2">slice 2</a></dd></dl><div class="review" data-review="R2" role="group" aria-label="Review R2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R2 note"></textarea></label></div></article><article class="card card-risk" id="r4"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R4</span><span class="lvl lvl-L">Likelihood L</span><span class="lvl lvl-M">Impact M</span><h3>Fixture names reveal the eval and candidates game it</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>neutral names, checked by the slice-7 verify</dd><dt>Slice</dt><dd><a href="#slice-7">slice 7</a></dd></dl><div class="review" data-review="R4" role="group" aria-label="Review R4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R4 note"></textarea></label></div></article><article class="card card-risk" id="r1"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R1</span><span class="lvl lvl-H">Likelihood H</span><span class="lvl lvl-L">Impact L</span><h3>Every existing quality receipt goes stale, because the policy hash covers <code>finding-model.md</code>, the dispatch contract and the gate&#x27;s <code>SKILL.md</code></h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>expected and one-off; the next <code>/quality-gate</code> run mints a fresh receipt</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R1" role="group" aria-label="Review R1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R1 note"></textarea></label></div></article><article class="card card-risk" id="r3"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R3</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-L">Impact L</span><h3><code>/wrap-up-session</code> is at its 300-line budget, so widening the ledger pattern could break <code>tests/test-instruction-budget.sh</code></h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>edit the pattern in place; the slice verify runs the budget test</dd><dt>Slice</dt><dd><a href="#slice-6">slice 6</a></dd></dl><div class="review" data-review="R3" role="group" aria-label="Review R3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R3 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-decisions" id="decisions" data-kind="decisions"><details class="sec-body" open><summary><h2>Decisions</h2></summary><div class="cards"><article class="card card-decision" id="d1"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D1</span><span class="chip chip-settled">settled</span><h3>Add an expected-load step and scale checklist?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Yes: every reviewer states <code>Load assumed:</code> and checks the six scale patterns against it</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>biggest gap found against ponytail; the gate had no scale lens</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D1" role="group" aria-label="Review D1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D1 note"></textarea></label></div></article><article class="card card-decision" id="d2"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D2</span><span class="chip chip-settled">settled</span><h3>Require a concrete failure case?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Yes: a <code>failure:</code> line beside <code>evidence:</code>; missing caps at <code>50</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the anchors prove a line was read, not that it fails</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D2" role="group" aria-label="Review D2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D2 note"></textarea></label></div></article><article class="card card-decision" id="d3"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D3</span><span class="chip chip-settled">settled</span><h3>Human-friendly output?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>A human layer (opener, numbering, skip consequence, Verdict / Lean / Not checked) on top of unchanged four-axis lines</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>readable for humans, still parseable for the Apply Gate</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D3" role="group" aria-label="Review D3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D3 note"></textarea></label></div></article><article class="card card-decision" id="d4"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D4</span><span class="chip chip-settled">settled</span><h3>Ban filler?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Drop Strengths, persona prose and Recommendations; no &quot;consider&quot;, taste or vague worries</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>noise that the finding model cannot gate</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D4" role="group" aria-label="Review D4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D4 note"></textarea></label></div></article><article class="card card-decision" id="d5"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D5</span><span class="chip chip-settled">settled</span><h3>Function-size rule?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Split by job, never by line count, never into shorten-only helpers; keep ≤3 parameters</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>APOSD-aligned; the 20-LOC rule pushed toward shallow helpers</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D5" role="group" aria-label="Review D5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D5 note"></textarea></label></div></article><article class="card card-decision" id="d6"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D6</span><span class="chip chip-settled">settled</span><h3>Debt reporting?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Keep <code>/wrap-up-session</code> § <em>Shortcut ledger</em> as home (it already scans the whole repo and tags <code>no-trigger</code>); widen the pattern and expose it as <code>/tidy --check shortcuts</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the earlier gap claim was wrong; the real delta is on-demand access</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D6" role="group" aria-label="Review D6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D6 note"></textarea></label></div></article><article class="card card-decision" id="d7"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D7</span><span class="chip chip-settled">settled</span><h3>Shortcut rule?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Decision unless the load crosses its limit <strong>or</strong> it opens a never-cut hole; one home in <code>finding-model.md</code> § <em>Deferrals</em></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>merges ponytail&#x27;s load clause with this harness&#x27;s security clause</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D7" role="group" aria-label="Review D7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D7 note"></textarea></label></div></article><article class="card card-decision" id="d8"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D8</span><span class="chip chip-settled">settled</span><h3>Where does the scale check live in <code>/quality-gate</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Inside Phase 3, renamed <code>Security and Load</code>; no new phase number</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>phases 1–4 are pinned in <code>receipt.py</code> and tests; both lenses ask &quot;what breaks in production&quot;</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D8" role="group" aria-label="Review D8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D8 note"></textarea></label></div></article><article class="card card-decision" id="d9"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D9</span><span class="chip chip-settled">settled</span><h3>Does load become an eighth dispatch item?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>No: the reviewer reads it from the repo (&quot;fetch yourself&quot;)</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>&quot;the seven items&quot; is cited widely; load is discoverable from the tree</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D9" role="group" aria-label="Review D9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D9 note"></textarea></label></div></article><article class="card card-decision" id="d10"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D10</span><span class="chip chip-settled">settled</span><h3>Keep the <code>NITPICK</code> severity?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Yes, for objective cosmetic defects only</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the enum is pinned in <code>receipt.py</code>, every persona and the tests</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D10" role="group" aria-label="Review D10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D10 note"></textarea></label></div></article><article class="card card-decision" id="d11"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D11</span><span class="chip chip-settled">settled</span><h3>Copy ponytail text verbatim?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>No: restate in house style, cite the source in this spec and in a provenance line in <code>finding-model.md</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>MIT requires the notice only for substantial copies; restating avoids a vendored licence file</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D11" role="group" aria-label="Review D11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D11 note"></textarea></label></div></article><article class="card card-decision" id="d12"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D12</span><span class="chip chip-settled">settled</span><h3><code>/tidy</code> tier for a <code>no-trigger</code> marker?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Tier 1 (report with remedy), never filed</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>adding a trigger needs judgment about the limit; filing one task per marker is noise</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D12" role="group" aria-label="Review D12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D12 note"></textarea></label></div></article><article class="card card-decision" id="d13"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D13</span><span class="chip chip-settled">settled</span><h3>How is the A/B graded?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Against an answer key of seeded defects (recall, false positives), plus a blinded Ceiling judge on readability; variants on pushed branches per <code>/eval</code> Mode B</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>an answer key is mechanical; the judge only grades what the key cannot</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D13" role="group" aria-label="Review D13"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D13 note"></textarea></label></div></article><article class="card card-decision" id="d14"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D14</span><span class="chip chip-settled">settled</span><h3>Should <code>/quality-gate</code> gain a bug-hunting (<code>code-reviewer</code>) phase?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Out of scope; recorded as a follow-up</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>nothing in the main flow dispatches <code>code-reviewer</code> today; adding a phase changes the receipt contract</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D14" role="group" aria-label="Review D14"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D14 note"></textarea></label></div></article><article class="card card-decision" id="d15"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D15</span><span class="chip chip-settled">settled</span><h3>Does the human layer change who decides on findings?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>No: presentation only. No new prompt or approval step; the Apply Gate, the <code>owner</code> axis and <code>receipt.py</code>&#x27;s verdict decide exactly as before, and <code>Verdict:</code> only restates them</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>readable for humans too, without adding a human in the loop</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D15" role="group" aria-label="Review D15"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D15 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-acceptance-criteria" id="acceptance-criteria" data-kind="acceptance-criteria"><details class="sec-body" open><summary><h2>Acceptance Criteria</h2></summary><ol class="ac-list cards"><li class="card card-criterion" id="ac1"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC1</span></div><p><code>finding-model.md</code> § <em>Emission format</em> shows a <code>failure:</code> line under <code>evidence:</code>, and § <em>Gates</em> states that a finding with no <code>failure:</code> is capped at <code>50</code>. <code>tests/test-review-context.sh</code> pins both. <code>.claude-plugin/plugin.json</code> bumps its minor version.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC1" role="group" aria-label="Review AC1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC1 note"></textarea></label></div></li><li class="card card-criterion" id="ac2"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC2</span></div><p><code>finding-model.md</code> § <em>Deferrals</em> states the combined shortcut rule with both exceptions named. <code>review-dispatch-contract.md</code> item 5, <code>critic.md</code>, <code>security-reviewer.md</code> and the <code>software-design-expert-review</code> agent and skill cite it instead of restating it, in both agent trees. A test asserts the &quot;load already crosses&quot; clause appears in exactly one file under <code>.agents/references/</code> and <code>.agents/agents/</code>.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC2" role="group" aria-label="Review AC2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC2 note"></textarea></label></div></li><li class="card card-criterion" id="ac3"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC3</span></div><p><code>finding-model.md</code> § <em>Expected load</em> defines the <code>Load assumed:</code> line, the lookup order, the no-source default and the six scale patterns. <code>critic.md</code>, <code>security-reviewer.md</code> and <code>software-design-expert-review.md</code> reference it in both trees, and the skill&#x27;s dispatch instruction asks for <code>failure:</code>. Both are pinned in <code>tests/test-agents.sh</code>.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC3" role="group" aria-label="Review AC3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC3 note"></textarea></label></div></li><li class="card card-criterion" id="ac4"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC4</span></div><p><code>code-reviewer.md</code> (both trees, still byte-identical) cites § <em>Deferrals</em> and § <em>Expected load</em>. It has no <code>## Strengths</code>, no &quot;elite&quot; or &quot;master craftsman&quot; persona prose and no <code>## Recommendations</code>. Its output template shows <code>What this change does:</code>, <code>Load assumed:</code>, numbered findings with <code>failure:</code>, and closing <code>Verdict:</code>, <code>Lean:</code> and <code>Not checked:</code> lines. Its <code>Verdict:</code> is described as a summary for the orchestrator, and the file contains no instruction to ask the user which finding to fix. It bans &quot;consider&quot;, style taste and vague worries. <code>tests/test-agents.sh</code> asserts the absences and the presences.</p><p class="meta">covered by <a href="#slice-3">slice 3</a></p><div class="review" data-review="AC4" role="group" aria-label="Review AC4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC4 note"></textarea></label></div></li><li class="card card-criterion" id="ac5"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC5</span></div><p><code>/quality-gate</code> <code>## Phase 3 — Security and Load</code> runs the scale checklist against <code>Load assumed:</code> and records lens <code>security-scan+load</code>. Its § Output opens with <code>What this change does:</code> and <code>Load assumed:</code>, numbers the <code>Reported, not applied</code> findings with their <code>failure:</code> lines, and ends with <code>Lean:</code> and <code>Not checked:</code>. <code>tests/test-doc-conventions.sh</code> pins the heading, the lens and the output lines, and that the <code>Verdict:</code> line is the receipt verdict. <code>tests/test-quality-receipt.sh</code> stays green.</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC5" role="group" aria-label="Review AC5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC5 note"></textarea></label></div></li><li class="card card-criterion" id="ac6"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC6</span></div><p><code>AGENTS.md</code> § Core Principles and <code>/quality-gate</code> Phase 1.2 contain &quot;split by job&quot; and &quot;never by line count&quot;, and no longer contain &quot;≤20 LOC&quot; or &quot;&gt;20 LOC&quot;. <code>AGENTS.md</code> stays within the <code>tests/test-instruction-budget.sh</code> byte budget.</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC6" role="group" aria-label="Review AC6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC6 note"></textarea></label></div></li><li class="card card-criterion" id="ac7"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC7</span></div><p><code>/wrap-up-session</code> § <em>Shortcut ledger</em> matches <code>/*</code> and <code>&lt;!--</code> prefixes with no added lines (the file sits at its 300-line budget). <code>/tidy</code> lists check <code>shortcuts</code>, which cites that section and reports <code>no-trigger</code> markers as Tier 1. <code>tests/test-doc-conventions.sh</code> pins the check name and the citation.</p><p class="meta">covered by <a href="#slice-6">slice 6</a></p><div class="review" data-review="AC7" role="group" aria-label="Review AC7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC7 note"></textarea></label></div></li><li class="card card-criterion" id="ac8"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC8</span></div><p><code>tests/fixtures/review-eval/</code> holds four seeded diffs (a check-then-write race, an N+1 call, a time-zone off-by-one, and one harmless line that looks suspicious) with an answer key. The fixture names give no hint that they are an eval.</p><p class="meta">covered by <a href="#slice-7">slice 7</a></p><div class="review" data-review="AC8" role="group" aria-label="Review AC8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC8 note"></textarea></label></div></li><li class="card card-criterion" id="ac9"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC9</span></div><p>A Mode B <code>/eval</code> run (N ≥ 2 per arm) compares the current <code>code-reviewer</code>, the updated one, and <code>ponytail-review</code> on recall, false positives, readability (blinded judge) and cost. The report path is in the PR body.</p><p class="meta">covered by <a href="#slice-8">slice 8</a></p><div class="review" data-review="AC9" role="group" aria-label="Review AC9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC9 note"></textarea></label></div></li></ol></details></section>
+<section class="sec sec-generic" id="implementation-paths" data-kind="generic"><details class="sec-body" open><summary><h2>Implementation Paths</h2></summary><ul><li><code>.agents/references/finding-model.md</code> — the one home for <code>failure:</code>, § <em>Expected load</em> and § <em>Deferrals</em></li><li><code>.agents/references/review-dispatch-contract.md</code> — item 5 cites § <em>Deferrals</em></li><li><code>.agents/agents/*.md</code>, <code>.claude/agents/*.md</code> — the four review personas: human layer, bans, citations</li><li><code>.agents/skills/software-design-expert-review/SKILL.md</code> — its dispatch instruction asks for <code>failure:</code></li><li><code>.agents/skills/quality-gate/SKILL.md</code> — Phase 1.2 rule, Phase 3 load lens, § Output</li><li><code>AGENTS.md</code> — Clean Code principle (managed block, so <code>/sync</code> carries it downstream)</li><li><code>.agents/skills/wrap-up-session/SKILL.md</code> — § <em>Shortcut ledger</em> pattern</li><li><code>.agents/skills/tidy/SKILL.md</code> — check <code>shortcuts</code></li><li><code>.claude-plugin/plugin.json</code> — payload version bump</li><li><code>tests/test-agents.sh</code>, <code>tests/test-review-context.sh</code>, <code>tests/test-doc-conventions.sh</code> — pins</li><li><code>tests/fixtures/review-eval/**</code> — seeded diffs and answer key for the A/B</li></ul></details></section>
+<section class="sec sec-build-order" id="build-order" data-kind="build-order"><details class="sec-body" open><summary><h2>Build Order</h2></summary><p>Sizing: 8 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slices 2 and 3 (systems: the <code>.agents/agents/</code> and <code>.claude/agents/</code> copies must change together or the parity test goes red between slices); slices 5 and 6 (systems: one source file plus the test file that pins it).</p><figure class="diagram card-diagram dag" id="slice-graph"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">dag</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="Slices in dependency order: a slice starts when every slice it is blocked by is done."><svg viewBox="0 0 1246 214" width="1246" height="214" role="group" aria-labelledby="dag-t dag-d"><title id="dag-t">Slice dependency graph</title><desc id="dag-d">Slice 1 (Failure line) has no blocker. Slice 2 (Deferrals and load home) is blocked by slice 1. Slice 3 (Code reviewer rewrite) is blocked by slice 2. Slice 4 (Gate load lens) is blocked by slice 2. Slice 5 (Split by job) is blocked by slice 4. Slice 6 (Shortcut ledger on demand) is blocked by slice 5. Slice 7 (Seeded review fixtures) has no blocker. Slice 8 (Reviewer A/B) is blocked by slice 3, slice 7.</desc><defs><marker id="dag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,64.0 274.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,64.0 C496.0,64.0 496.0,64.0 528.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,64.0 C496.0,64.0 496.0,138.0 528.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M718.0,138.0 C750.0,138.0 750.0,64.0 782.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M972.0,64.0 C1004.0,64.0 1004.0,64.0 1036.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M718.0,64.0 C750.0,64.0 750.0,138.0 782.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,138.0 C496.0,138.0 496.0,138.0 782.0,138.0" marker-end="url(#dag-arrow)"/><a href="#slice-1" aria-label="Slice 1: Failure line" class="node" data-layer="0"><title>Slice 1: Failure line</title><rect x="20.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="57.0">S1</text><text x="30.0" y="77.0">Failure line</text></a><a href="#slice-2" aria-label="Slice 2: Deferrals and load home" class="node" data-layer="1"><title>Slice 2: Deferrals and load home</title><rect x="274.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="57.0">S2</text><text x="284.0" y="77.0">Deferrals and load home</text></a><a href="#slice-3" aria-label="Slice 3: Code reviewer rewrite" class="node" data-layer="2"><title>Slice 3: Code reviewer rewrite</title><rect x="528.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="538.0" y="57.0">S3</text><text x="538.0" y="77.0">Code reviewer rewrite</text></a><a href="#slice-4" aria-label="Slice 4: Gate load lens" class="node" data-layer="2"><title>Slice 4: Gate load lens</title><rect x="528.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="538.0" y="131.0">S4</text><text x="538.0" y="151.0">Gate load lens</text></a><a href="#slice-5" aria-label="Slice 5: Split by job" class="node" data-layer="3"><title>Slice 5: Split by job</title><rect x="782.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="792.0" y="57.0">S5</text><text x="792.0" y="77.0">Split by job</text></a><a href="#slice-6" aria-label="Slice 6: Shortcut ledger on demand" class="node" data-layer="4"><title>Slice 6: Shortcut ledger on demand</title><rect x="1036.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="1046.0" y="57.0">S6</text><text x="1046.0" y="77.0">Shortcut ledger on dema…</text></a><a href="#slice-7" aria-label="Slice 7: Seeded review fixtures" class="node" data-layer="0"><title>Slice 7: Seeded review fixtures</title><rect x="20.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="131.0">S7</text><text x="30.0" y="151.0">Seeded review fixtures</text></a><a href="#slice-8" aria-label="Slice 8: Reviewer A/B" class="node" data-layer="3"><title>Slice 8: Reviewer A/B</title><rect x="782.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="792.0" y="131.0">S8</text><text x="792.0" y="151.0">Reviewer A/B</text></a></svg></div><figcaption>Slices in dependency order: a slice starts when every slice it is blocked by is done.</figcaption></figure><div class="cards slice-cards"><article class="card card-slice" id="slice-1"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S1</span><h3>Failure line</h3></div><p>failure: in the emission format with its confidence cap, and the version bump</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>failure:</code> in the emission format with its confidence cap, and the version bump</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac1">AC1</a></dd><dt>Surface</dt><dd><code>.agents/references/finding-model.md</code>, <code>tests/test-review-context.sh</code>, <code>.claude-plugin/plugin.json</code></dd><dt>Verify</dt><dd><code>bash tests/test-review-context.sh</code></dd><dt>Size</dt><dd>3 files · 3 systems · 1 AC</dd></dl></details><div class="review" data-review="S1" role="group" aria-label="Review S1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S1 note"></textarea></label></div></article><article class="card card-slice" id="slice-2"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S2</span><h3>Deferrals and load home</h3></div><p>§ Deferrals and § Expected load, cited by the dispatch contract and three personas</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>§ <em>Deferrals</em> and § <em>Expected load</em>, cited by the dispatch contract and three personas</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac2">AC2</a>, <a href="#ac3">AC3</a></dd><dt>Surface</dt><dd><code>.agents/references/finding-model.md</code>, <code>.agents/references/review-dispatch-contract.md</code>, <code>.agents/agents/critic.md</code>, <code>.agents/agents/security-reviewer.md</code>, <code>.agents/agents/software-design-expert-review.md</code>, <code>.claude/agents/critic.md</code>, <code>.claude/agents/security-reviewer.md</code>, <code>.claude/agents/software-design-expert-review.md</code>, <code>.agents/skills/software-design-expert-review/SKILL.md</code>, <code>tests/test-agents.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-agents.sh &amp;&amp; bash tests/test-review-context.sh</code></dd><dt>Size</dt><dd>10 files · 4 systems · 2 ACs</dd></dl></details><div class="review" data-review="S2" role="group" aria-label="Review S2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S2 note"></textarea></label></div></article><article class="card card-slice" id="slice-3"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S3</span><h3>Code reviewer rewrite</h3></div><p>the human layer and the bans in code-reviewer</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>the human layer and the bans in <code>code-reviewer</code></dd><dt>Blocked by</dt><dd><a href="#slice-2">slice 2</a></dd><dt>Criteria</dt><dd><a href="#ac4">AC4</a></dd><dt>Surface</dt><dd><code>.agents/agents/code-reviewer.md</code>, <code>.claude/agents/code-reviewer.md</code>, <code>tests/test-agents.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-agents.sh</code></dd><dt>Size</dt><dd>3 files · 3 systems · 1 AC</dd></dl></details><div class="review" data-review="S3" role="group" aria-label="Review S3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S3 note"></textarea></label></div></article><article class="card card-slice" id="slice-4"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S4</span><h3>Gate load lens</h3></div><p>Phase 3 Security and Load and the human-layer § Output</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>Phase 3 <code>Security and Load</code> and the human-layer § Output</dd><dt>Blocked by</dt><dd><a href="#slice-2">slice 2</a></dd><dt>Criteria</dt><dd><a href="#ac5">AC5</a></dd><dt>Surface</dt><dd><code>.agents/skills/quality-gate/SKILL.md</code>, <code>tests/test-doc-conventions.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-doc-conventions.sh &amp;&amp; bash tests/test-quality-receipt.sh</code></dd><dt>Size</dt><dd>2 files · 2 systems · 1 AC</dd></dl></details><div class="review" data-review="S4" role="group" aria-label="Review S4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S4 note"></textarea></label></div></article><article class="card card-slice" id="slice-5"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S5</span><h3>Split by job</h3></div><p>the function-size rule in AGENTS.md and Phase 1.2</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>the function-size rule in <code>AGENTS.md</code> and Phase 1.2</dd><dt>Blocked by</dt><dd><a href="#slice-4">slice 4</a></dd><dt>Criteria</dt><dd><a href="#ac6">AC6</a></dd><dt>Surface</dt><dd><code>AGENTS.md</code>, <code>.agents/skills/quality-gate/SKILL.md</code>, <code>tests/test-doc-conventions.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-doc-conventions.sh &amp;&amp; bash tests/test-instruction-budget.sh &amp;&amp; bash tests/test-sync-managed-block.sh</code></dd><dt>Size</dt><dd>3 files · 3 systems · 1 AC</dd></dl></details><div class="review" data-review="S5" role="group" aria-label="Review S5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S5 note"></textarea></label></div></article><article class="card card-slice" id="slice-6"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S6</span><h3>Shortcut ledger on demand</h3></div><p>the wider ledger pattern and /tidy --check shortcuts</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>the wider ledger pattern and <code>/tidy --check shortcuts</code></dd><dt>Blocked by</dt><dd><a href="#slice-5">slice 5</a></dd><dt>Criteria</dt><dd><a href="#ac7">AC7</a></dd><dt>Surface</dt><dd><code>.agents/skills/wrap-up-session/SKILL.md</code>, <code>.agents/skills/tidy/SKILL.md</code>, <code>tests/test-doc-conventions.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-doc-conventions.sh &amp;&amp; bash tests/test-instruction-budget.sh</code></dd><dt>Size</dt><dd>3 files · 3 systems · 1 AC</dd></dl></details><div class="review" data-review="S6" role="group" aria-label="Review S6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S6 note"></textarea></label></div></article><article class="card card-slice" id="slice-7"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S7</span><h3>Seeded review fixtures</h3></div><p>four seeded diffs and their answer key</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>four seeded diffs and their answer key</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac8">AC8</a></dd><dt>Surface</dt><dd><code>tests/fixtures/review-eval/**</code></dd><dt>Verify</dt><dd><code>ls tests/fixtures/review-eval</code></dd><dt>Size</dt><dd>5 files · 1 system · 1 AC</dd></dl></details><div class="review" data-review="S7" role="group" aria-label="Review S7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S7 note"></textarea></label></div></article><article class="card card-slice" id="slice-8"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S8</span><h3>Reviewer A/B</h3></div><p>the Mode B /eval report, linked from the PR body</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>the Mode B <code>/eval</code> report, linked from the PR body</dd><dt>Blocked by</dt><dd><a href="#slice-3">slice 3</a>, <a href="#slice-7">slice 7</a></dd><dt>Criteria</dt><dd><a href="#ac9">AC9</a></dd><dt>Surface</dt><dd><code>tests/fixtures/review-eval/**</code></dd><dt>Verify</dt><dd>manual: <code>/eval</code> Mode B, report path in the PR body</dd><dt>Size</dt><dd>0 files · 0 systems · 1 AC</dd></dl></details><div class="review" data-review="S8" role="group" aria-label="Review S8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S8 note"></textarea></label></div></article></div><section class="card card-prompt" id="build-prompt" aria-label="Build prompt"><div class="card-head"><span class="card-icon" aria-hidden="true">▶</span><span class="card-label">Build prompt</span></div><pre><code id="build-prompt-text">Invoke `/build` for `specs/review-load-and-failure-cases.md`.
+Plan: `## Plan: Review load and failure cases` in `tasks/todo.md`, 8 slices, ready set &lt;1, 7&gt;.
+Files: AGENTS.md, .agents/references/finding-model.md, .agents/references/review-dispatch-contract.md, .agents/agents/code-reviewer.md, .agents/agents/critic.md, .agents/agents/security-reviewer.md, .agents/agents/software-design-expert-review.md, .claude/agents/code-reviewer.md, .claude/agents/critic.md, .claude/agents/security-reviewer.md, .claude/agents/software-design-expert-review.md, .agents/skills/quality-gate/SKILL.md, .agents/skills/software-design-expert-review/SKILL.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/tidy/SKILL.md, .claude-plugin/plugin.json, tests/test-agents.sh, tests/test-review-context.sh, tests/test-doc-conventions.sh, tests/fixtures/review-eval/**.
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/review-load-and-failure-cases.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints: scale lives inside Phase 3, no new phase number (D8); load is read by the reviewer, not an eighth dispatch item (D9); keep `NITPICK` (D10); restate ponytail in house style, no verbatim copy (D11); `no-trigger` is Tier 1, never filed (D12); grade the A/B against the answer key first, judge only readability (D13); no `code-reviewer` phase in the gate (D14); the human layer is presentation only, no new prompt or approval step, `Verdict:` restates the Apply Gate and receipt (D15); `/wrap-up-session` stays at 300 lines; keep `.agents/agents/` and `.claude/agents/` byte-identical.</code></pre><button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button></section></details></section>
+<section class="review-panel" id="review" aria-labelledby="review-h" data-spec="specs/review-load-and-failure-cases.md" data-sha="b23a6f17e11d"><h2 id="review-h">Review</h2><p class="meta">Mark cards ok or questioned, answer questions and pick open decisions, then paste the export into the planning session: <code>/plan</code> applies it and re-runs <code>/slice</code>.</p><p class="review-status" id="review-status" role="status">Marks are saved in this browser for sha256 b23a6f17e11d.</p><button type="button" class="btn" data-action="export-review">Export review</button><pre><code id="review-export"></code></pre></section>
+</main>
+</div>
+<script>/* Visual plan page script: disclosure controls, deep links, navigation, copy.
+   Inlined by plan_render.py. No network, no dependencies; every feature
+   degrades to the plain <details> page when the script cannot run. */
+
+// Review state: pure helpers, kept apart from the DOM so they can be tested alone.
+var planReview = (function () {
+  'use strict';
+  function key(sha, spec) { return 'jplugin-plan-review:' + sha + ':' + spec; }
+  // A store that never throws: `ok` is false when the browser refuses storage.
+  function openStore(getStorage, name) {
+    var storage = null;
+    try {
+      storage = getStorage();
+      storage.setItem(name + ':probe', '1');
+      storage.removeItem(name + ':probe');
+    } catch (err) { storage = null; }
+    return {
+      ok: storage !== null,
+      load: function () {
+        if (!storage) { return {}; }
+        try { return JSON.parse(storage.getItem(name) || '{}') || {}; } catch (err) { return {}; }
+      },
+      save: function (state) {
+        if (!storage) { return false; }
+        try { storage.setItem(name, JSON.stringify(state)); return true; } catch (err) { return false; }
+      }
+    };
+  }
+  function flat(text) { return String(text || '').replace(/\s+/g, ' ').trim(); }
+  // One export line per item: a pick or an answer wins over the bare mark.
+  function line(id, s) {
+    var note = flat(s.note) ? ' — ' + flat(s.note) : '';
+    if (flat(s.pick)) { return id + ': pick ' + flat(s.pick) + note; }
+    if (flat(s.answer)) { return id + ': answer — ' + flat(s.answer) + note; }
+    if (s.mark) { return id + ': ' + s.mark + note; }
+    return null;
+  }
+  function format(spec, sha, items) {
+    var lines = ['Review of ' + spec + ' @ ' + sha];
+    items.forEach(function (item) {
+      var text = line(item[0], item[1] || {});
+      if (text) { lines.push(text); }
+    });
+    return lines.join('\n');
+  }
+  return { key: key, openStore: openStore, line: line, format: format };
+})();
+if (typeof module === 'object' && module.exports) { module.exports = planReview; }
+
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') { return; }
+  var doc = document;
+  var all = function (sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); };
+
+  // ------------------------------------------------------------ deep links
+  function openTo(hash) {
+    if (!hash || hash.length < 2) { return null; }
+    var target = doc.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!target) { return null; }
+    if (target.tagName === 'DETAILS') { target.open = true; }
+    var node = target.parentElement && target.parentElement.closest('details');
+    while (node) {
+      node.open = true;
+      node = node.parentElement && node.parentElement.closest('details');
+    }
+    var inner = target.querySelector(':scope > details');
+    if (inner) { inner.open = true; }
+    target.scrollIntoView({ block: 'start' });
+    return target;
+  }
+  window.addEventListener('hashchange', function () { openTo(location.hash); });
+  doc.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href^="#"]');
+    if (link && link.getAttribute('href') === location.hash) { openTo(location.hash); }
+  });
+
+  // ------------------------------------------------------------ navigation
+  var menu = doc.querySelector('.toc-menu');
+  var narrow = window.matchMedia('(max-width: 767px)');
+  function fitMenu() { if (menu) { menu.open = !narrow.matches; } }
+  if (menu) {
+    fitMenu();
+    if (narrow.addEventListener) { narrow.addEventListener('change', fitMenu); }
+    menu.addEventListener('click', function (event) {
+      if (event.target.closest('a') && narrow.matches) { menu.open = false; }
+    });
+  }
+  var links = all('.toc a[href^="#"]');
+  function markCurrent(id) {
+    links.forEach(function (a) {
+      if (a.getAttribute('href') === '#' + id) { a.setAttribute('aria-current', 'true'); }
+      else { a.removeAttribute('aria-current'); }
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { if (entry.isIntersecting) { markCurrent(entry.target.id); } });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    links.forEach(function (a) {
+      var section = doc.getElementById(a.getAttribute('href').slice(1));
+      if (section) { spy.observe(section); }
+    });
+  }
+
+  // ------------------------------------------------------------ disclosure
+  function setAll(open) { all('main details').forEach(function (d) { d.open = open; }); }
+  var onlyBlockers = doc.querySelector('[data-action="blockers"]');
+  function toggleBlockers() {
+    var on = !doc.body.classList.contains('only-blockers');
+    doc.body.classList.toggle('only-blockers', on);
+    onlyBlockers.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { all('.sec.has-blockers > details').forEach(function (d) { d.open = true; }); }
+  }
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button[data-action]');
+    if (!button) { return; }
+    var action = button.getAttribute('data-action');
+    if (action === 'expand') { setAll(true); }
+    if (action === 'collapse') { setAll(false); }
+    if (action === 'blockers') { toggleBlockers(); }
+  });
+  var printed = [];
+  window.addEventListener('beforeprint', function () {
+    printed = all('details:not([open])');
+    printed.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function () {
+    printed.forEach(function (d) { d.open = false; });
+    printed = [];
+  });
+
+  // ------------------------------------------------------------ copy
+  function copyText(text, button, done) {
+    function report(ok) {
+      var label = button.getAttribute('data-label') || button.textContent;
+      button.setAttribute('data-label', label);
+      button.textContent = ok ? (done || 'Copied') : 'Copy failed: select the text';
+      setTimeout(function () { button.textContent = label; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { report(true); }, function () { report(false); });
+      return;
+    }
+    var area = doc.createElement('textarea');
+    area.value = text;
+    doc.body.appendChild(area);
+    area.select();
+    var ok = false;
+    try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+    doc.body.removeChild(area);
+    report(ok);
+  }
+  window.planCopy = copyText;
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button.copy[data-copy-from]');
+    if (!button || button.disabled) { return; }
+    var source = doc.getElementById(button.getAttribute('data-copy-from'));
+    if (source) { copyText(source.textContent, button); }
+  });
+
+  // ------------------------------------------------------------ review
+  var panel = doc.getElementById('review');
+  var cards = all('.review[data-review]');
+  if (panel && cards.length) {
+    var spec = panel.getAttribute('data-spec');
+    var sha = panel.getAttribute('data-sha');
+    var store = planReview.openStore(function () { return window.localStorage; }, planReview.key(sha, spec));
+    var state = store.load();
+    var status = doc.getElementById('review-status');
+    if (!store.ok) {
+      status.textContent = 'Browser storage is unavailable: review marks will not persist past this page.';
+    }
+    var showMark = function (box, mark) {
+      all('button[data-mark]', box).forEach(function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-mark') === mark ? 'true' : 'false');
+      });
+    };
+    cards.forEach(function (box) {
+      var saved = state[box.getAttribute('data-review')] || {};
+      showMark(box, saved.mark);
+      all('[data-field]', box).forEach(function (f) { f.value = saved[f.getAttribute('data-field')] || ''; });
+    });
+    var update = function (box, change) {
+      var id = box.getAttribute('data-review');
+      var entry = state[id] || {};
+      Object.keys(change).forEach(function (k) { entry[k] = change[k]; });
+      state[id] = entry;
+      store.save(state);
+    };
+    doc.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('.review button[data-mark]');
+      if (!button) { return; }
+      var box = button.closest('.review');
+      var mark = button.getAttribute('aria-pressed') === 'true' ? '' : button.getAttribute('data-mark');
+      showMark(box, mark);
+      update(box, { mark: mark });
+    });
+    doc.addEventListener('input', function (event) {
+      var field = event.target.closest && event.target.closest('.review [data-field]');
+      if (!field) { return; }
+      var change = {};
+      change[field.getAttribute('data-field')] = field.value;
+      update(field.closest('.review'), change);
+    });
+    var exportButton = panel.querySelector('[data-action="export-review"]');
+    exportButton.addEventListener('click', function () {
+      var items = cards.map(function (box) {
+        var id = box.getAttribute('data-review');
+        return [id, state[id]];
+      });
+      var text = planReview.format(spec, sha, items);
+      doc.getElementById('review-export').textContent = text;
+      copyText(text, exportButton, 'Review copied');
+    });
+  }
+
+  openTo(location.hash);
+})();
+</script>
+</body>
+</html>
