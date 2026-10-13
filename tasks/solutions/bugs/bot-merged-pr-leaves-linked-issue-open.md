@@ -77,10 +77,15 @@ linked PR's id, number and URL, but never its state (checked against gh 2.76.2 o
 2026-10-13). `_linked_pr_state` read a `state` that never arrives, so every
 linked issue counted as in flight. Stranded issues were hidden for good rather
 than re-picked, and so was an issue whose PR closed unmerged. The provider now
-reads the states with one `gh api graphql` `nodes(ids:)` call per 100 PRs. A
-PR whose state cannot be read still counts as in flight. An open issue with a
-merged closing PR, nothing else in flight and a `stateReason` other than
-`REOPENED` is marked `merged_linked_pr`. A live read on 2026-10-13 named exactly
+reads the states with one `gh api graphql` `nodes(ids:)` call per 100 PRs, and
+only on the read `select` makes (`list_tasks_with_linked_prs`). `closes`,
+`show` and `escalate` never depend on that lookup. A PR whose state cannot be
+read still counts as in flight. An open issue with a closing PR in this
+repository that merged, nothing else in flight and a `stateReason` other than
+`REOPENED` is marked `merged_linked_pr`. A merged PR in another repository is
+resolved, because `closes` cannot reach it. A `gh` missing `stateReason` or
+`closedByPullRequestsReferences` makes `select` refuse, since a missing
+`stateReason` would otherwise read as "not reopened". A live read on 2026-10-13 named exactly
 the stranded issues listed above: image-video #94, #101, #155, #156 and
 private-knowledge-base #86.
 
