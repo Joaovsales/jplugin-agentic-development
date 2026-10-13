@@ -205,7 +205,7 @@ crosses `/`) and `**` (which does) are accepted. Declare the complete current
 surface, including tests and configuration whose changes can alter or verify the
 behavior, not merely the files this session touched.
 
-### 3. Slice the Spec
+### 3. Slice and Render
 
 Invoke `/slice specs/<feature-name>.md [--issue #N]`. It sizes the spec's
 acceptance criteria into session-sized slices, writes § Build Order and the
@@ -214,13 +214,29 @@ prompt — see `.agents/skills/slice/SKILL.md` for what each output means and
 how it is written. `/plan` does not size slices, write a plan block, or
 print a build prompt itself.
 
+Then render the visual plan from the sliced spec, so the page shows the Build
+Order `/slice` just wrote. Before rendering, apply `/visual-plan`
+§ *Skip when trivial*; when it skips, print its `Skipping visual-plan: <reason>`
+line instead of running the command:
+
+```bash
+python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html
+```
+
+Required output: `✓ Visual written: /absolute/path/specs/<feature>.plan.html`
+
+A refusal prints `<spec>:<line>: <reason>` and writes no page: fix that line
+in the spec and re-run this step, so `/slice` and the render always run as a
+pair. Every re-run of this step re-renders, so the page and its spec hash
+never trail the spec a change request edited.
+
 ### 4. Present
 
-Show the user both the spec and the plan block `/slice` wrote. Ask no
-question — the fresh session that opens with the build prompt is the review
-gate, not a word typed into this one. Change requests are applied in place:
-edit the spec, then re-run Step 3, for as long as the user keeps making
-them.
+Show the user the spec, the plan block `/slice` wrote and the visual plan's
+path from Step 3. Ask no question — the fresh session that opens with the
+build prompt is the review gate, not a word typed into this one. Change
+requests are applied in place: edit the spec, then re-run Step 3, for as long
+as the user keeps making them.
 
 **A review export is a change request.** The visual plan's **Export review**
 copies a block the user pastes back here:

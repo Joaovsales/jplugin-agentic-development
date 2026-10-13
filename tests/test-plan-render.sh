@@ -526,6 +526,13 @@ for f in "$VP_SKILL" "$SDP_SKILL"; do
   assert_file_not_matches "$f" '```text blocks' "wiring: $name no longer requires text fences for diagrams and tables"
 done
 assert_eq "absent" "$([ -e "$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json" ] && echo present || echo absent)" "wiring: content-model.json is removed"
+PLAN_SKILL="$REPO_ROOT/.agents/skills/plan/SKILL.md"
+PLAN_STEP3="$(awk '/^### 3\. Slice and Render/{on=1;next} /^### /{on=0} on' "$PLAN_SKILL")"
+assert_contains "$PLAN_STEP3" 'python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html' "wiring: /plan Step 3 renders the visual plan after /slice"
+assert_contains "$PLAN_STEP3" '✓ Visual written: /absolute/path/specs/<feature>.plan.html' "wiring: /plan Step 3 prints the Visual written line"
+assert_contains "$PLAN_STEP3" '§ *Skip when trivial*' "wiring: /plan Step 3 applies /visual-plan's skip gate by reference"
+assert_contains "$PLAN_STEP3" 'Every re-run of this step re-renders' "wiring: /plan re-renders whenever a change request re-runs Step 3"
+assert_eq "after" "$(printf '%s\n' "$PLAN_STEP3" | awk '/^Invoke `\/slice/{s=NR} /plan_render\.py specs/{r=NR} END{print (s && r>s) ? "after" : "before"}')" "wiring: /plan renders after /slice writes the Build Order"
 
 printf '\n--- template: the system-design template carries what the renderer types ---\n'
 SDP_TMPL="$REPO_ROOT/.agents/skills/system-design-planning/templates/architecture-spec-template.md"

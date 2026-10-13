@@ -979,3 +979,7 @@ back vacuous and was repaired.
 - Quality gate: Phase 4 was dispatched and returned HOLD. Four fixes were applied and 5 SHOULD-FIX were reported. Receipt c743aa3e is STOP from the Windows baseline. WSL passed 38/38 at the same tree, and the owner overrode STOP to push.
 - Design stack installed in user scope (release 7975901f) on the owner's request.
 - Learnings captured: [bugs/design-stack-setup-cannot-launch-npx-on-windows.md](solutions/bugs/design-stack-setup-cannot-launch-npx-on-windows.md), [tooling/playwright-clipboard-reads-crlf-on-windows-record-writetext.md](solutions/tooling/playwright-clipboard-reads-crlf-on-windows-record-writetext.md), updated [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md)
+
+### [2026-10-09] — /plan renders the visual plan
+- Key changes: `/plan` Step 3 runs `plan_render.py` after `/slice`, honours `/visual-plan`'s skip gate, prints `✓ Visual written: <path>`, and re-renders on every re-run of Step 3. Step 4 shows the page path. Five wiring assertions in `tests/test-plan-render.sh`. Plugin bumped to 1.5.2.
+- Learnings captured: [bugs/plan-described-the-visual-plan-but-never-rendered-it.md](solutions/bugs/plan-described-the-visual-plan-but-never-rendered-it.md)

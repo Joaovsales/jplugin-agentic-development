@@ -191,7 +191,7 @@ Constraints: render only from the spec markdown, stdlib Python, no network and n
 | D2 | Content source for the page | Deterministic spec→HTML renderer; no agent-built JSON model | user | One source of truth; the "render dropped a row" defect class disappears and source-to-render checks become mechanical |
 | D3 | Role of the design harness | One jplugin-owned plan theme authored with Taste/Impeccable; no runtime dependency | user | Reviewers learn the shapes once across projects; backend projects have no `DESIGN.md` |
 | D4 | Diagram production | Deterministic Python → inline SVG for DAG, `flow`, `sequence` | user | Themeable, accessible, clickable, no binary or 600 KB bundle; DSL source stays diffable |
-| D5 | Entry points | `/visual-plan` and `/system-design-planning`; `/visual-recap` stays on the old generator for now | user | `/plan` gains no extra step; recap moves in a later change |
+| D5 | Entry points | `/visual-plan`, `/system-design-planning`, and `/plan` Step 3 after `/slice`, under `/visual-plan`'s skip gate; `/visual-recap` stays on the old generator for now | user | Revised 2026-10-09: with no render step, `/plan` described an Export review on a page it never wrote; recap moves in a later change |
 | D6 | Default disclosure | Approval content open; reference content collapsed | user | NN/g and GOV.UK guidance: what the reviewer must approve stays visible |
 | D7 | Interactivity | Read-only controls plus local review state and export | user | Turns the page into the place blockers are cleared |
 | D8 | Decisions shape | Add `ID` and `Status` columns; rows render as cards | user | Smallest format change; "Wrong when" is the reviewer's objection trigger |
