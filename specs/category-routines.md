@@ -79,7 +79,7 @@ ends at a pull request a human reviews.
 `build` is specified here but **not implemented in the first change**. Its
 selector needs `blockedBy` read through `/task-registry`, and the GitHub provider
 does not request that field: `OPTIONAL_ISSUE_FIELDS` is
-`("closedByPullRequestsReferences",)`, and `capabilities` hardcodes
+`("closedByPullRequestsReferences", "stateReason")`, and `capabilities` hardcodes
 `native_dependencies=False` on the deliberate grounds (`github.py:60-63`) that
 claiming an inferred link as native is the one thing capability degradation must
 never do. Issue #97 revisits that with a runtime probe; #98 tracks `build` itself.
@@ -217,7 +217,12 @@ so `build`, which selects open issues with a merged linked plan, could never fir
 and its silence was indistinguishable from "nothing to do."
 
 Instead the PR body carries `Closes #N` (or `Refs #N` for `plan`) and GitHub
-closes the issue when the PR merges. This dissolves four problems at once:
+closes the issue when the PR merges. GitHub keeps that promise only for some
+mergers: a merge made with a workflow's `GITHUB_TOKEN` fires no closing keyword,
+whatever the token's permissions (#146). Whatever merges that way runs
+`task-registry closes '#<pr>' --apply --approve` right after its merge call,
+which closes each linked issue still open or exits 1 naming it. Routines still
+close nothing themselves. This dissolves four problems at once:
 
 - The `plan` → `build` handoff becomes possible: a merged plan PR leaves the issue
   open, now carrying a merged linked plan, which is exactly `build`'s selector.
@@ -232,7 +237,9 @@ The requirement closure was meant to serve — *don't pick the same issue again
 tomorrow* — is served instead by every routine's selector excluding issues that
 already have an open linked PR from a `routine/` branch. That is a read, not a
 write, and it is strictly more accurate: it also suppresses re-picking while a PR
-is still in review, which closing-on-create did not.
+is still in review, which closing-on-create did not. An issue whose closing PR in
+this repository merged without closing it is excluded too, and `select` names it
+in a `stranded:` line carrying the `closes` command.
 
 ### Concurrency
 
@@ -283,7 +290,7 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 |---|---|---|
 | Candidate issues, labels, claim | `/task-registry` | title/body untrusted, labels trusted |
 | Dependency state (`build` only — deferred, #97) | `gh --json blockedBy` via the registry | trusted; **not yet supplied** |
-| Linked PR state | `gh --json closedByPullRequestsReferences` via the registry | trusted; asserted at start |
+| Linked PR state | `gh --json closedByPullRequestsReferences,stateReason` plus one `gh api graphql` `nodes(ids:)` read of the PRs' states, via the registry — `gh` lists closing PRs without their state | trusted; asserted at start |
 | Kind/priority/claim vocabulary | project `task-tracking.md` | trusted |
 | Routine + issue number | current branch name | trusted |
 
@@ -306,11 +313,19 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 - **Issue carries no kind label** — never selected. The routine reports the count
   of such issues so the gap is visible.
 - **Issue already carries the claim label** — skipped as in-flight.
-- **`gh` predates `closedByPullRequestsReferences`** (< 2.73.0) — asserted **once
-  at routine start**, loudly. Every routine depends on the field to exclude issues
+- **`gh` predates `closedByPullRequestsReferences` or `stateReason`** (< 2.73.0) —
+  asserted **once at routine start**, loudly. Every routine depends on the field to exclude issues
   with an open linked routine PR, and degrading per-routine gave two different
   answers to one missing capability; `build`, when it lands, would have skipped
   every issue nightly and exited 0.
+- **Closing PR merged, issue still open** — a `GITHUB_TOKEN` merge the merger did
+  not follow with `closes`. Never selected while nothing else is in flight and
+  the issue was not reopened (`stateReason` `REOPENED`); `select` prints a
+  `stranded:` line with `task-registry closes '#<pr>' --apply --approve`. A
+  merged closing PR in another repository is out of `closes`' reach and counts as
+  resolved, like any other merge.
+- **A closing PR's state cannot be read** — it counts as in flight. A failed state
+  lookup fails `select` with exit 1.
 - **`blockedBy` non-empty** — `build` skips and names the blocker. Deferred with
   `build` itself (#98); no active routine reads dependency state.
 - **No candidate found** — exit silently and successfully. A routine with nothing

@@ -6,10 +6,10 @@ module: .agents/skills/task-registry/scripts/registry/closure.py; .agents/skills
 tags: [github, issue-linkage, auto-close, github-actions, github-token, routines, task-registry]
 symptoms: image-video-generation-pipeline PR #141 merged into `main` with a literal `Closes #91` and GitHub listed the link, yet #91 stayed open for three hours until closed by hand
 root_cause: GitHub does not fire closing keywords for a merge made with a workflow's `GITHUB_TOKEN` (the `github-actions` app), and granting that token `issues: write` does not restore it. The routines contract promised the tracker closes the issue on merge, and nothing checked the promise after a bot merge
-resolution: In progress. `task-registry closes '#<pr>'` reads a merged PR's closing references and closes each still-open issue through the registry's gated `close_task`, or exits 1 naming every one it could not close. The routines contract tells any `GITHUB_TOKEN` merger to run it after the merge call. As a backstop, `select` never offers an open issue whose closing PR merged, and names each one in a `stranded:` line that carries the `closes` command
+resolution: Fixed in this repository; the downstream wiring is tracked in follow-up issues. `task-registry closes '#<pr>'` reads a merged PR's closing references and closes each still-open issue through the registry's gated `close_task`, or exits 1 naming every one it could not close. The routines contract tells any `GITHUB_TOKEN` merger to run it after the merge call. As a backstop, `select` never offers an open issue whose closing PR merged, and names each one in a `stranded:` line that carries the `closes` command
 ---
 
-**Status**: in progress — issue #146
+**Status**: fixed — 2026-10-13 (issue #146; the downstream auto-merge wiring is tracked in follow-up issues)
 **Regression test**: tests/test-task-closes.sh § command, § select
 
 ## Evidence
@@ -88,6 +88,9 @@ resolved, because `closes` cannot reach it. A `gh` missing `stateReason` or
 `stateReason` would otherwise read as "not reopened". A live read on 2026-10-13 named exactly
 the stranded issues listed above: image-video #94, #101, #155, #156 and
 private-knowledge-base #86.
+
+Related: [../tooling/gh-closing-pr-references-carry-no-pr-state.md](../tooling/gh-closing-pr-references-carry-no-pr-state.md),
+[../patterns/a-degrade-once-path-breaks-when-a-second-optional-field-joins.md](../patterns/a-degrade-once-path-breaks-when-a-second-optional-field-joins.md)
 
 Origin: second and third comments on issue #123. The first symptom in that
 issue is fixed and recorded in [[closing-keyword-binds-to-one-issue-reference]].
