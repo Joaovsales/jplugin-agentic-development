@@ -67,6 +67,7 @@ from registry.routines import (  # noqa: E402
     routine_for_label,
     select_candidates,
     select_routine,
+    stranded,
     unclassified,
 )
 from registry.redaction import Redactor, redactor_for  # noqa: E402
@@ -547,6 +548,12 @@ def _select(registry: Registry, routine):
         ), 1
 
     lines = [f"unclassified:  {len(unclassified(tasks, config))} open issue(s) carry no kind label"]
+    for task in stranded(tasks):
+        pull = task.extra["merged_linked_pr"]
+        lines.append(
+            f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
+            f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"
+        )
     candidates = select_candidates(tasks, config, routine)
     if not candidates:
         lines.append(f"candidate:     none — {routine} has nothing to claim")

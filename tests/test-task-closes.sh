@@ -5,7 +5,9 @@
 # keywords (tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md), so
 # the automation that merged runs this command afterwards: every issue the PR
 # links and left open is closed through the registry's gated close, or named
-# with a non-zero exit.
+# with a non-zero exit. `select` is the backstop for a merge nobody ran it
+# after: an open issue whose closing PR merged is never a candidate, and each
+# one is named with the `closes` line that repairs it.
 #
 # Every case runs the real CLI in-process with `GitHubProvider._run` answered
 # from a canned scenario. That is the seam every gh call crosses, so the argv
@@ -38,6 +40,10 @@ EOF
 # [repository, issue] pairs it closes; `issues` maps an issue number to OPEN or
 # CLOSED; `fail` lists issue numbers whose close gh rejects; `unreadable` lists
 # issue numbers gh cannot read (transferred or deleted since the merge).
+# For `select`: `backlog` lists the open issues as [number, labels, linked PR
+# numbers, stateReason]; `pr_states` maps a linked PR number to the state the
+# GraphQL lookup answers (a PR missing from it resolves to a null node);
+# `graphql_fail` makes that lookup fail.
 cat > "$F/stub/closes_stub.py" <<'EOF'
 import importlib.util
 import json
@@ -46,11 +52,25 @@ import sys
 from registry.providers.base import ProviderError
 from registry.providers.github import GitHubProvider
 
+LABELS = ("needs-investigation", "bug", "enhancement", "design-decision", "simplify",
+          "tech-debt", "documentation", "now", "next", "in-progress")
+HERE = "fixture-owner/fixture-repo"
+
+
+def linked(numbers):
+    """Closing references the way gh lists them: no state, just the PR's identity."""
+    return [
+        {"id": f"PR_{n}", "number": n, "url": f"https://github.com/{HERE}/pull/{n}",
+         "repository": {"name": "fixture-repo", "owner": {"login": "fixture-owner"}}}
+        for n in numbers
+    ]
+
 
 def run_cli(cli, scenario, argv):
     calls = []
     prs, issues = scenario.get("prs", {}), scenario.get("issues", {})
     failing, unreadable = set(scenario.get("fail", ())), set(scenario.get("unreadable", ()))
+    backlog, pr_states = scenario.get("backlog", []), scenario.get("pr_states", {})
 
     def answer(command, code, output, check):
         if check and code != 0:
@@ -88,6 +108,29 @@ def run_cli(cli, scenario, argv):
             if number in failing:
                 return answer(command, 1, "HTTP 403: Resource not accessible by integration", check)
             return answer(command, 0, "", check)
+        if verb == ["label", "list"]:
+            return answer(command, 0, json.dumps([{"name": name} for name in LABELS]), check)
+        if verb == ["issue", "list"]:
+            return answer(command, 0, json.dumps([
+                {
+                    "number": issue, "title": f"Issue {issue}", "body": "", "state": "OPEN",
+                    "stateReason": reason, "labels": [{"name": name} for name in labels],
+                    "url": f"https://github.com/{HERE}/issues/{issue}",
+                    "createdAt": "2026-10-01T00:00:00Z", "updatedAt": "2026-10-01T00:00:00Z",
+                    "assignees": [], "closedByPullRequestsReferences": linked(links),
+                }
+                for issue, labels, links, reason in backlog
+            ]), check)
+        if verb == ["api", "graphql"]:
+            if scenario.get("graphql_fail"):
+                return answer(command, 1, "HTTP 502: Bad Gateway", check)
+            ids = [arg[len("ids[]="):] for arg in command if arg.startswith("ids[]=")]
+            nodes = [
+                {"id": node, "number": int(node[3:]), "state": pr_states[node[3:]]}
+                if node[3:] in pr_states else None
+                for node in ids
+            ]
+            return answer(command, 0, json.dumps({"data": {"nodes": nodes}}), check)
         raise AssertionError("unexpected gh call: " + " ".join(command))
 
     GitHubProvider._run = fake_run
@@ -110,15 +153,16 @@ if __name__ == "__main__":
     run_cli(sys.argv[1], scenario, sys.argv[3:])
 EOF
 
-# closes <scenario-json> <cli args...> — the CLI's output, then `exit=<code>`,
-# then one `call: <argv>` line per gh invocation. The scenario travels through
-# a file: MSYS rewrites path-like argv on Windows, and JSON naming
-# `owner/repo` looks like one.
-closes() {
+# registry <scenario-json> <cli args...> — the CLI's output, then
+# `exit=<code>`, then one `call: <argv>` line per gh invocation. The scenario
+# travels through a file: MSYS rewrites path-like argv on Windows, and JSON
+# naming `owner/repo` looks like one.
+registry() {
   printf '%s' "$1" > "$F/scenario.json"; shift
   (cd "$F" && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" \
-    "$PY" "$F/stub/closes_stub.py" "$CLI" "$F/scenario.json" closes "$@" 2>&1)
+    "$PY" "$F/stub/closes_stub.py" "$CLI" "$F/scenario.json" "$@" 2>&1)
 }
+closes() { local scenario="$1"; shift; registry "$scenario" closes "$@"; }
 
 HERE='fixture-owner/fixture-repo'
 
@@ -188,6 +232,40 @@ assert_contains "$out" "exit=2" "command: no pull request reference is a usage e
 assert_contains "$out" "requires the merged pull request" "command: the usage error says what is missing"
 assert_not_contains "$out" "call: gh" "command: a usage error reaches no tracker"
 
+# --- select: an issue a merge left open is never a candidate -----------------
+# #155's closing PR merged without closing it (stranded); #120's is still open
+# (in flight); #130's was closed unmerged; #140 was reopened after its PR
+# merged; #160's PR state cannot be read; #10 has no link at all.
+BACKLOG='"backlog":[[155,["bug","now"],[189],""],[120,["bug","now"],[144],""],[130,["bug","next"],[131],""],[140,["bug","next"],[141],"REOPENED"],[160,["bug","next"],[161],""],[10,["bug","next"],[],""]]'
+STATES='"pr_states":{"189":"MERGED","144":"OPEN","131":"CLOSED","141":"MERGED"}'
+out="$(registry "{$BACKLOG,$STATES}" select --routine fix)"
+assert_contains "$out" "exit=0" "select: a stranded issue does not fail the routine's pick"
+assert_contains "$out" "stranded:      #155" "select: an open issue whose closing PR merged is named as stranded"
+assert_contains "$out" "task-registry closes '#189' --apply --approve" \
+  "select: the stranded line carries the closes command that repairs it"
+assert_not_contains "$out" "candidate:     155 —" "select: a stranded issue is never the candidate"
+assert_not_contains "$out" "candidate:     120 —" "select: an issue whose closing PR is open stays in flight"
+assert_not_contains "$out" "stranded:      #140" "select: an issue reopened after its PR merged is not stranded"
+assert_not_contains "$out" "stranded:      #120" "select: an open closing PR is in flight, not stranded"
+assert_contains "$out" "remaining:     2 other candidate(s)" \
+  "select: the pool is #130 (PR closed unmerged), #140 (reopened) and #10 -- #160's unreadable PR counts as in flight"
+assert_contains "$out" "call: gh api graphql" "select: linked PR states are looked up, since gh lists links without them"
+assert_contains "$out" "ids[]=PR_189" "select: the lookup asks for each linked PR by node id"
+
+out="$(registry '{"backlog":[[155,["bug","now"],[189],""]],"pr_states":{"189":"MERGED"}}' select --routine fix)"
+assert_contains "$out" "exit=0" "select: a pool holding only a stranded issue exits 0"
+assert_contains "$out" "candidate:     none" "select: a pool holding only a stranded issue has no candidate"
+assert_contains "$out" "stranded:      #155" "select: a stranded issue is named even when nothing is claimable"
+
+out="$(registry '{"backlog":[[10,["bug","next"],[],""]]}' select --routine fix)"
+assert_contains "$out" "candidate:     10 —" "select: an unlinked issue is still a candidate"
+assert_not_contains "$out" "call: gh api" "select: no lookup runs when no open issue is linked"
+
+out="$(registry "{$BACKLOG,\"graphql_fail\":true}" select --routine fix)"
+assert_contains "$out" "exit=1" "select: a failed PR-state lookup exits 1"
+assert_contains "$out" "gh api graphql" "select: the failed lookup is named"
+assert_not_contains "$out" "candidate:" "select: no candidate is offered when linked PR state is unknown"
+
 # --- the skill documents the command ----------------------------------------
 SKILL_MD="$REPO/.agents/skills/task-registry/SKILL.md"
 assert_file_contains "$SKILL_MD" "closes <pull-request>" \
@@ -196,5 +274,7 @@ assert_file_contains "$SKILL_MD" '| `closes` |' \
   "skill: the command table has a closes row"
 assert_file_contains "$SKILL_MD" '### `closes`' \
   "skill: closes has its own section"
+assert_file_contains "$SKILL_MD" "stranded:" \
+  "skill: select's stranded line is documented"
 
 finish

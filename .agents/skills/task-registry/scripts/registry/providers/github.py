@@ -56,8 +56,14 @@ REQUIRED_ISSUE_FIELDS = (
 #: query rather than omitting the field. Absent it, `_linked_pr_state` already
 #: reports linked-PR state as unknown, and `linked_pr_exclusion_available()`
 #: turns that into a loud refusal in `select` rather than a silent clean read.
-#: That is the correct degradation; dying is not.
-OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences",)
+#: That is the correct degradation; dying is not. `stateReason` tells a
+#: reopened issue from one its merged pull request never closed.
+OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences", "stateReason")
+#: `gh` lists an issue's closing pull requests without their state, so the
+#: states come from one GraphQL read per batch of node ids; `nodes(ids:)`
+#: accepts at most 100.
+PR_STATE_QUERY = "query($ids: [ID!]!) { nodes(ids: $ids) { ... on PullRequest { id state } } }"
+PR_STATE_BATCH = 100
 UNKNOWN_FIELD_RE = re.compile(r'Unknown JSON field: "([^"]+)"')
 #: `gh` paginates internally up to this many issues. Reaching it exactly is
 #: indistinguishable from "there were more", so it is treated as truncation.
@@ -135,14 +141,15 @@ class GitHubProvider(TrackerProvider):
                 "has not seen every issue — publishing now could duplicate the ones past "
                 "the cut; narrow the repository or raise LIST_LIMIT"
             )
-        return [self._to_task(issue) for issue in payload]
+        pr_states = self._linked_pr_states(payload)
+        return [self._to_task(issue, pr_states) for issue in payload]
 
     def get_task(self, ref: ExternalRef) -> Task:
         payload = self._issue_json(
             lambda fields: ["gh", "issue", "view", "--repo", self._repo(), "--json", fields,
                             "--", self._number(ref)]
         )
-        return self._to_task(payload)
+        return self._to_task(payload, self._linked_pr_states([payload]))
 
     def resolve_reference(self, raw: str) -> Optional[ExternalRef]:
         if not raw:
@@ -187,13 +194,11 @@ class GitHubProvider(TrackerProvider):
             )
         here, elsewhere = [], []
         for issue in payload.get("closingIssuesReferences") or []:
-            repository = issue.get("repository") or {}
-            owner = (repository.get("owner") or {}).get("login", "")
-            name = repository.get("name", "")
-            if self._is_this_repo(owner, name):
+            label = self._node_label(issue)
+            if label.startswith("#"):
                 here.append(ExternalRef("github", str(issue.get("number")), issue.get("url", "")))
             else:
-                elsewhere.append(f"{owner}/{name}#{issue.get('number')}")
+                elsewhere.append(label)
         if elsewhere:
             raise ProviderError(
                 f"github: #{number} closes {', '.join(elsewhere)}, outside {self._repo()} — "
@@ -307,7 +312,7 @@ class GitHubProvider(TrackerProvider):
         return LinkResult("dependency", task.id, depends_on.id, native=False, detail=detail)
 
     # ------------------------------------------------- normalization (read-only)
-    def _to_task(self, issue: Dict) -> Task:
+    def _to_task(self, issue: Dict, pr_states: Dict[str, str]) -> Task:
         labels = tuple(label["name"] for label in issue.get("labels", []))
         state = (issue.get("state") or "OPEN").lower()
         status = self._status_for(state, labels, issue)
@@ -326,7 +331,7 @@ class GitHubProvider(TrackerProvider):
             area=self._area_for(labels),
             created_at=issue.get("createdAt"),
             updated_at=issue.get("updatedAt"),
-            extra=self._linked_pr_state(issue),
+            extra=self._linked_pr_state(issue, pr_states),
         )
 
     def _note_block_state(self, number: str, body: str) -> None:
@@ -334,16 +339,47 @@ class GitHubProvider(TrackerProvider):
         if note:
             self._note(f"issue #{number}: {note}")
 
-    @staticmethod
-    def _linked_pr_state(issue: Dict) -> Dict[str, str]:
+    def _linked_pr_state(self, issue: Dict, pr_states: Dict[str, str]) -> Dict[str, str]:
+        """What the issue's closing pull requests say about it.
+
+        A pull request whose state could not be read counts as open: assuming it
+        resolved would re-pick an issue that may still be under review.
+        """
         if "closedByPullRequestsReferences" not in issue:
             return {}
         references = issue.get("closedByPullRequestsReferences") or []
-        unresolved = any(
-            str(reference.get("state", "")).upper() not in ("MERGED", "CLOSED")
-            for reference in references
-        )
-        return {"unresolved_linked_pr": "true" if unresolved else "false"}
+        states = [pr_states.get(reference.get("id"), "UNKNOWN") for reference in references]
+        unresolved = any(state not in ("MERGED", "CLOSED") for state in states)
+        extra = {"unresolved_linked_pr": "true" if unresolved else "false"}
+        merged = [reference for reference, state in zip(references, states) if state == "MERGED"]
+        # Open after its closing PR merged, with nothing else in flight and no
+        # human reopening it: the merge fired no closing keyword (#146).
+        if (
+            merged and not unresolved
+            and (issue.get("state") or "OPEN").upper() == "OPEN"
+            and issue.get("stateReason") != "REOPENED"
+        ):
+            extra["merged_linked_pr"] = self._node_label(merged[0])
+        return extra
+
+    def _linked_pr_states(self, issues: Sequence[Dict]) -> Dict[str, str]:
+        """The state of every open issue's closing pull requests, by node id."""
+        ids = sorted({
+            reference["id"]
+            for issue in issues
+            if (issue.get("state") or "OPEN").upper() == "OPEN"
+            for reference in issue.get("closedByPullRequestsReferences") or []
+            if reference.get("id")
+        })
+        states: Dict[str, str] = {}
+        for start in range(0, len(ids), PR_STATE_BATCH):
+            command = ["gh", "api", "graphql", "-f", f"query={PR_STATE_QUERY}"]
+            for node_id in ids[start:start + PR_STATE_BATCH]:
+                command += ["-f", f"ids[]={node_id}"]
+            for node in (self._json(command).get("data") or {}).get("nodes") or []:
+                if node and node.get("id"):
+                    states[node["id"]] = str(node.get("state") or "")
+        return states
 
     def _kind_for(self, labels: Sequence[str]) -> str:
         for label in labels:
@@ -520,6 +556,14 @@ class GitHubProvider(TrackerProvider):
     def _is_this_repo(self, owner: str, name: str) -> bool:
         """GitHub owner and repository names are case-insensitive."""
         return f"{owner}/{name}".lower() == self._repo().lower()
+
+    def _node_label(self, node: Dict) -> str:
+        """`#N` for an issue or pull request in this repository, else `owner/name#N`."""
+        repository = node.get("repository") or {}
+        owner = (repository.get("owner") or {}).get("login", "")
+        name = repository.get("name", "")
+        prefix = "" if self._is_this_repo(owner, name) else f"{owner}/{name}"
+        return f"{prefix}#{node.get('number')}"
 
     def _repo(self) -> str:
         """The `owner/name` every gh call targets, discovered from the remote on demand.

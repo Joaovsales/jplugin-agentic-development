@@ -87,6 +87,8 @@ assert_contains "$CLOSURE" "GITHUB_TOKEN" \
   "Contract: closure names the GITHUB_TOKEN merge that fires no closing keyword"
 assert_contains "$CLOSURE" "task-registry closes" \
   "Contract: closure names the registry's post-merge check"
+assert_contains "$CLOSURE" "stranded" \
+  "routines: a merge nobody ran closes after is caught by select's stranded line"
 assert_contains "$CLOSURE" "issues: write" \
   "Contract: closure names the permission the check needs"
 

@@ -99,6 +99,16 @@ could not close — a refused write, a failed `gh` call, a dry run — is named 
 exits `1`, as does a PR that is not merged or that links an issue in another
 repository. The workflow token needs `issues: write`.
 
+`select` catches a merge nobody ran `closes` after: an open issue whose closing
+PR merged is never a candidate, and each one gets a line naming the repair —
+
+```
+stranded:      #155 — #189 merged and left it open; close it with `task-registry closes '#189' --apply --approve`
+```
+
+An issue a human reopened after its PR merged is not stranded and stays
+selectable.
+
 ### `workflow` — which routine owns one issue
 
 ```bash

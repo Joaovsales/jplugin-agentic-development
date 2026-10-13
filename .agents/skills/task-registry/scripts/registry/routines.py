@@ -98,12 +98,13 @@ def missing_routine_labels(config, known_labels: Sequence[str]) -> Sequence[str]
 def select_candidates(tasks: Iterable, config, routine: str) -> Sequence:
     """Every open task this routine may claim, best candidate first.
 
-    The three exclusions are the contract's step 1, in one place so that no
-    routine host re-derives them: an issue is out if another routine's label
-    outranks this one, if it already carries the claim label, or if a routine
-    pull request for it is still open. The last is a read rather than a write,
-    and it is strictly more accurate than closing the issue on PR creation —
-    it also suppresses re-picking while a PR sits in review.
+    The exclusions are the contract's step 1, in one place so that no routine
+    host re-derives them: an issue is out if another routine's label outranks
+    this one, if it already carries the claim label, if a pull request for it
+    is still open, or if one merged and left it open (`stranded`). The open-PR
+    rule is a read rather than a write, and it is strictly more accurate than
+    closing the issue on PR creation — it also suppresses re-picking while a PR
+    sits in review.
     """
     candidates = [
         task
@@ -111,8 +112,18 @@ def select_candidates(tasks: Iterable, config, routine: str) -> Sequence:
         if not task.is_terminal
         and select_routine(task.labels, config) == routine
         and task.extra.get("unresolved_linked_pr") != "true"
+        and not task.extra.get("merged_linked_pr")
     ]
     return sorted(candidates, key=by_priority)
+
+
+def stranded(tasks: Iterable) -> Sequence:
+    """Open tasks whose closing pull request merged without closing them (#146).
+
+    Picking one would redo merged work, so `select` names each with the
+    `closes` command that finishes what the merge left undone.
+    """
+    return [task for task in tasks if not task.is_terminal and task.extra.get("merged_linked_pr")]
 
 
 def matched_label(task, config) -> Optional[str]:

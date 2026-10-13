@@ -2,15 +2,15 @@
 title: A PR merged by the GitHub Actions app did not close its correctly linked issue
 date: 2026-09-16
 problem_type: bug
-module: .agents/skills/task-registry/scripts/registry/closure.py; .agents/skills/wrap-up-session/references/routines.md § Issue closure happens on merge; downstream auto-merge workflows
+module: .agents/skills/task-registry/scripts/registry/closure.py; .agents/skills/task-registry/scripts/registry/providers/github.py; .agents/skills/task-registry/scripts/registry/routines.py; .agents/skills/wrap-up-session/references/routines.md § Issue closure happens on merge; downstream auto-merge workflows
 tags: [github, issue-linkage, auto-close, github-actions, github-token, routines, task-registry]
 symptoms: image-video-generation-pipeline PR #141 merged into `main` with a literal `Closes #91` and GitHub listed the link, yet #91 stayed open for three hours until closed by hand
 root_cause: GitHub does not fire closing keywords for a merge made with a workflow's `GITHUB_TOKEN` (the `github-actions` app), and granting that token `issues: write` does not restore it. The routines contract promised the tracker closes the issue on merge, and nothing checked the promise after a bot merge
-resolution: In progress. `task-registry closes '#<pr>'` reads a merged PR's closing references and closes each still-open issue through the registry's gated `close_task`, or exits 1 naming every one it could not close. The routines contract tells any `GITHUB_TOKEN` merger to run it after the merge call
+resolution: In progress. `task-registry closes '#<pr>'` reads a merged PR's closing references and closes each still-open issue through the registry's gated `close_task`, or exits 1 naming every one it could not close. The routines contract tells any `GITHUB_TOKEN` merger to run it after the merge call. As a backstop, `select` never offers an open issue whose closing PR merged, and names each one in a `stranded:` line that carries the `closes` command
 ---
 
 **Status**: in progress — issue #146
-**Regression test**: tests/test-task-registry.sh § closes
+**Regression test**: tests/test-task-closes.sh § command, § select
 
 ## Evidence
 
@@ -67,6 +67,22 @@ references inline in its workflow. `image-video-generation-pipeline` and
 `private-knowledge-base` did not as of 2026-10-13. Issues still open there after
 a bot merge: image-video #94, #101, #155, #156; private-knowledge-base #86;
 pix #357, #493 (merged before its fix).
+
+### The `select` backstop
+
+A merger that skips `closes` would leave the issue for `select` to offer again,
+and the next routine run would redo merged work. Building the backstop exposed
+a second gap. `gh issue list --json closedByPullRequestsReferences` lists each
+linked PR's id, number and URL, but never its state (checked against gh 2.76.2 on
+2026-10-13). `_linked_pr_state` read a `state` that never arrives, so every
+linked issue counted as in flight. Stranded issues were hidden for good rather
+than re-picked, and so was an issue whose PR closed unmerged. The provider now
+reads the states with one `gh api graphql` `nodes(ids:)` call per 100 PRs. A
+PR whose state cannot be read still counts as in flight. An open issue with a
+merged closing PR, nothing else in flight and a `stateReason` other than
+`REOPENED` is marked `merged_linked_pr`. A live read on 2026-10-13 named exactly
+the stranded issues listed above: image-video #94, #101, #155, #156 and
+private-knowledge-base #86.
 
 Origin: second and third comments on issue #123. The first symptom in that
 issue is fixed and recorded in [[closing-keyword-binds-to-one-issue-reference]].

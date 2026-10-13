@@ -816,11 +816,11 @@ except ProviderError as exc:
 clean = provider._to_task({
     "number": 1, "title": "clean", "state": "OPEN", "url": "",
     "closedByPullRequestsReferences": [],
-})
+}, {})
 open_pr = provider._to_task({
     "number": 2, "title": "open pr", "state": "OPEN", "url": "",
     "closedByPullRequestsReferences": [{"state": "OPEN"}],
-})
+}, {})
 print("clean-pr=" + clean.extra.get("unresolved_linked_pr", "unknown"))
 print("open-pr=" + open_pr.extra.get("unresolved_linked_pr", "unknown"))
 print("identity=" + clean.extra.get("registry_identity", "stable"))
