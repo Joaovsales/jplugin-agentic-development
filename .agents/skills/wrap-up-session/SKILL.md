@@ -70,7 +70,7 @@ If `tasks/project-context.md` exists and the manifests, new directories or
 ### Shortcut ledger
 
 List every `TODO(shortcut):` marker (`AGENTS.md` § *Code Economy*) —
-`grep -rnE '(#|//|--) ?TODO\(shortcut\):' . --exclude-dir={.git,node_modules,dist,build,vendor}`
+`grep -rnE '(#|//|--|/\*|<!--) ?TODO\(shortcut\):' . --exclude-dir={.git,node_modules,dist,build,vendor}`
 — one line each, `<file>:<line> — <limit>. upgrade: <trigger>.`, tagging one with
 no upgrade path `no-trigger`, then `<N> shortcuts, <M> without a trigger.` No
 markers: print nothing. It never blocks the commit.
