@@ -160,27 +160,22 @@ class GitHubProvider(TrackerProvider):
     def _url_reference(self, candidate: str) -> Optional[ExternalRef]:
         parsed = urllib.parse.urlsplit(candidate)
         parts = [part for part in parsed.path.split("/") if part]
-        expected_repo = self._repo().lower().split("/")
         if parsed.hostname != "github.com" or len(parts) != 4 or parts[2] != "issues":
             raise ProviderError(f"github: {candidate!r} is not a canonical GitHub issue URL")
-        if [part.lower() for part in parts[:2]] != expected_repo:
+        if not self._is_this_repo(parts[0], parts[1]):
             raise ProviderError(
                 f"github: issue URL belongs to {'/'.join(parts[:2])}, not {self._repo()}"
             )
         return ExternalRef("github", parts[3], candidate) if parts[3].isdigit() else None
 
-    def closed_by_merge(self, raw: str) -> List[ExternalRef]:
-        """The issues a merged PR's closing keywords name — closed or not.
+    def closing_references(self, raw: str) -> List[ExternalRef]:
+        """The issues a merged PR's closing keywords name, whatever their state.
 
         GitHub fires those keywords only for some mergers: a merge made with a
         workflow's GITHUB_TOKEN closes nothing (#146), so this read is how the
         merger finds out what the merge still owes.
         """
-        number = str(raw).strip().lstrip("#")
-        if not REF_RE.match(number):
-            raise ProviderError(
-                f"github: {raw!r} is not a pull request number — refusing to pass it to gh"
-            )
+        number = self._number(ExternalRef("github", str(raw)))
         payload = self._json(
             ["gh", "pr", "view", "--repo", self._repo(),
              "--json", "state,closingIssuesReferences", "--", number]
@@ -194,11 +189,11 @@ class GitHubProvider(TrackerProvider):
         for issue in payload.get("closingIssuesReferences") or []:
             repository = issue.get("repository") or {}
             owner = (repository.get("owner") or {}).get("login", "")
-            slug = f"{owner}/{repository.get('name', '')}"
-            if slug.lower() == self._repo().lower():
+            name = repository.get("name", "")
+            if self._is_this_repo(owner, name):
                 here.append(ExternalRef("github", str(issue.get("number")), issue.get("url", "")))
             else:
-                elsewhere.append(f"{slug}#{issue.get('number')}")
+                elsewhere.append(f"{owner}/{name}#{issue.get('number')}")
         if elsewhere:
             raise ProviderError(
                 f"github: #{number} closes {', '.join(elsewhere)}, outside {self._repo()} — "
@@ -508,7 +503,7 @@ class GitHubProvider(TrackerProvider):
 
     # ------------------------------------------------------------- gh plumbing
     def _number(self, ref: ExternalRef) -> str:
-        """The issue number as a positional argument, or a refusal.
+        """The issue or pull request number as a positional argument, or a refusal.
 
         Every call site also passes `--` before its positionals; this is the other
         half of the same guard, because a value that is not a number has no
@@ -517,9 +512,14 @@ class GitHubProvider(TrackerProvider):
         number = str(ref.id).lstrip("#").strip()
         if not REF_RE.match(number):
             raise ProviderError(
-                f"github: {ref.id!r} is not an issue number — refusing to pass it to gh"
+                f"github: {ref.id!r} is not an issue or pull request number — "
+                "refusing to pass it to gh"
             )
         return number
+
+    def _is_this_repo(self, owner: str, name: str) -> bool:
+        """GitHub owner and repository names are case-insensitive."""
+        return f"{owner}/{name}".lower() == self._repo().lower()
 
     def _repo(self) -> str:
         """The `owner/name` every gh call targets, discovered from the remote on demand.

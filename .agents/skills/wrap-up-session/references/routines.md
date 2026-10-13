@@ -197,10 +197,12 @@ python3 .agents/skills/task-registry/scripts/task-registry.py closes "#$n" --app
 
 `task-registry closes` closes each issue the merged PR links and left open,
 through the registry's gated write, and exits 1 naming any it could not close,
-so the miss fails the run instead of waiting for someone to notice. The
-workflow's token needs `issues: write` for the close. Routines still close
-nothing themselves: the check belongs to the merger, not to the routine that
-opened the PR.
+so the miss fails the run instead of waiting for someone to notice. It refuses
+a PR that has not merged yet, so a job that only enables auto-merge
+(`gh pr merge --auto`) has no "right after" and must run it once the merge has
+landed. The workflow's token needs `issues: write` for the close. Routines
+still close nothing themselves: the check belongs to the merger, not to the
+routine that opened the PR.
 
 ## Step ledger
 

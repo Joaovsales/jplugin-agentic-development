@@ -36,7 +36,8 @@ EOF
 
 # The scenario is JSON: `prs` maps a PR number to its state and the
 # [repository, issue] pairs it closes; `issues` maps an issue number to OPEN or
-# CLOSED; `fail` lists issue numbers whose close gh rejects.
+# CLOSED; `fail` lists issue numbers whose close gh rejects; `unreadable` lists
+# issue numbers gh cannot read (transferred or deleted since the merge).
 cat > "$F/stub/closes_stub.py" <<'EOF'
 import importlib.util
 import json
@@ -49,7 +50,7 @@ from registry.providers.github import GitHubProvider
 def run_cli(cli, scenario, argv):
     calls = []
     prs, issues = scenario.get("prs", {}), scenario.get("issues", {})
-    failing = set(scenario.get("fail", ()))
+    failing, unreadable = set(scenario.get("fail", ())), set(scenario.get("unreadable", ()))
 
     def answer(command, code, output, check):
         if check and code != 0:
@@ -74,6 +75,8 @@ def run_cli(cli, scenario, argv):
             ]
             return answer(command, 0, json.dumps({"state": pr["state"], "closingIssuesReferences": refs}), check)
         if verb == ["issue", "view"]:
+            if number in unreadable:
+                return answer(command, 1, f"Could not resolve to an issue with the number of {number}.", check)
             return answer(command, 0, json.dumps({
                 "number": int(number), "title": f"Issue {number}", "body": "", "labels": [],
                 "state": issues.get(number, "OPEN"),
@@ -166,6 +169,12 @@ assert_contains "$out" "exit=1" "command: a failed close exits 1"
 assert_contains "$out" "#91 is still open" "command: the issue that could not be closed is named"
 assert_contains "$out" "call: gh issue close --repo $HERE -- 93" "command: a failed close does not stop the rest"
 assert_contains "$out" "closes: closed #93" "command: the issues that did close are still reported"
+
+out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",93]]}},"issues":{"93":"OPEN"},"unreadable":["91"]}' '#141' --apply --approve)"
+assert_contains "$out" "exit=1" "command: an issue that cannot be read exits 1"
+assert_contains "$out" "could not read #91" "command: an unreadable issue is reported as unread"
+assert_not_contains "$out" "#91 is still open" "command: an unreadable issue is never reported as open"
+assert_contains "$out" "closes: closed #93" "command: an unreadable issue does not stop the rest"
 
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",93]]}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141')"
 assert_contains "$out" "exit=1" "command: a dry run with open linked issues exits 1"

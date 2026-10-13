@@ -22,12 +22,19 @@ def close_merged(registry, pr_ref) -> Tuple[str, int]:
         return "task-registry: `closes` requires the merged pull request, e.g. '#141'", 2
     provider = registry.provider
     lines, failed = [], False
-    for ref in provider.closed_by_merge(pr_ref):
+    for ref in provider.closing_references(pr_ref):
         label = provider.reference_label(ref)
         try:
             task = provider.get_task(ref)
-            if task.is_terminal:
-                continue
+        except ProviderError as exc:
+            # Unread is not open: an issue transferred or deleted since the
+            # merge must not send the reader looking for an open one.
+            failed = True
+            lines.append(f"closes: could not read {label}, linked by {pr_ref} — {exc}")
+            continue
+        if task.is_terminal:
+            continue
+        try:
             provider.close_task(task)
         except ProviderError as exc:  # a refused write is a ProviderError too
             failed = True

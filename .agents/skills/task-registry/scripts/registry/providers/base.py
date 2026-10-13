@@ -171,8 +171,8 @@ class TrackerProvider(abc.ABC):
     def resolve_reference(self, raw: str) -> Optional[ExternalRef]:
         """Turn '#42', 'PROJ-7', or a URL into a reference this provider owns."""
 
-    def closed_by_merge(self, raw: str) -> Sequence[ExternalRef]:
-        """The tasks a merged pull request links with a closing keyword.
+    def closing_references(self, raw: str) -> Sequence[ExternalRef]:
+        """The tasks a merged pull request links with a closing keyword, open or closed.
 
         Not abstract: only a tracker with pull requests can answer, the same way
         `add_labels` is optional. Raises when `raw` is not a merged pull request,
