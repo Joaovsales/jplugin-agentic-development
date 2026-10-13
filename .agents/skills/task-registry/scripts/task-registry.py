@@ -529,7 +529,7 @@ def _select(registry: Registry, routine):
     if code:
         return verdict, code
 
-    tasks = registry.provider.list_tasks()
+    tasks = registry.provider.list_tasks_with_linked_prs()
 
     if registry.provider.result_truncated:
         return (
@@ -548,8 +548,7 @@ def _select(registry: Registry, routine):
         ), 1
 
     lines = [f"unclassified:  {len(unclassified(tasks, config))} open issue(s) carry no kind label"]
-    for task in stranded(tasks):
-        pull = task.extra["merged_linked_pr"]
+    for task, pull in stranded(tasks):
         lines.append(
             f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
             f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"

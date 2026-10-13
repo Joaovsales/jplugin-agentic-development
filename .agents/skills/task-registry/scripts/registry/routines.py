@@ -117,13 +117,17 @@ def select_candidates(tasks: Iterable, config, routine: str) -> Sequence:
     return sorted(candidates, key=by_priority)
 
 
-def stranded(tasks: Iterable) -> Sequence:
-    """Open tasks whose closing pull request merged without closing them (#146).
+def stranded(tasks: Iterable) -> Sequence[Tuple[object, str]]:
+    """(task, merged pull request) for each open task that merge left open (#146).
 
     Picking one would redo merged work, so `select` names each with the
     `closes` command that finishes what the merge left undone.
     """
-    return [task for task in tasks if not task.is_terminal and task.extra.get("merged_linked_pr")]
+    return [
+        (task, task.extra["merged_linked_pr"])
+        for task in tasks
+        if not task.is_terminal and task.extra.get("merged_linked_pr")
+    ]
 
 
 def matched_label(task, config) -> Optional[str]:

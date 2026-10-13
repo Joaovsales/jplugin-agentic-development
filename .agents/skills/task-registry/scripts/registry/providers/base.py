@@ -163,6 +163,15 @@ class TrackerProvider(abc.ABC):
     def list_tasks(self) -> List[Task]:
         ...
 
+    def list_tasks_with_linked_prs(self) -> List[Task]:
+        """`list_tasks`, plus what each open task's linked pull requests say about it.
+
+        Only `select` needs those facts, and reading them can cost a tracker
+        extra calls that can fail, so the plain reads leave them out. A tracker
+        with no pull requests has nothing to add.
+        """
+        return self.list_tasks()
+
     @abc.abstractmethod
     def get_task(self, ref: ExternalRef) -> Task:
         ...

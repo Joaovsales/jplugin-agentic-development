@@ -57,13 +57,20 @@ LABELS = ("needs-investigation", "bug", "enhancement", "design-decision", "simpl
 HERE = "fixture-owner/fixture-repo"
 
 
-def linked(numbers):
-    """Closing references the way gh lists them: no state, just the PR's identity."""
-    return [
-        {"id": f"PR_{n}", "number": n, "url": f"https://github.com/{HERE}/pull/{n}",
-         "repository": {"name": "fixture-repo", "owner": {"login": "fixture-owner"}}}
-        for n in numbers
-    ]
+def linked(entries):
+    """Closing references the way gh lists them: no state, just the PR's identity.
+
+    An entry is a PR number in this repository or a [repository, number] pair.
+    """
+    references = []
+    for entry in entries:
+        repo, number = entry if isinstance(entry, list) else (HERE, entry)
+        owner, name = repo.split("/")
+        references.append({
+            "id": f"PR_{number}", "number": number, "url": f"https://github.com/{repo}/pull/{number}",
+            "repository": {"name": name, "owner": {"login": owner}},
+        })
+    return references
 
 
 def run_cli(cli, scenario, argv):
@@ -102,7 +109,10 @@ def run_cli(cli, scenario, argv):
                 "state": issues.get(number, "OPEN"),
                 "url": f"https://github.com/fixture-owner/fixture-repo/issues/{number}",
                 "createdAt": "2026-10-01T00:00:00Z", "updatedAt": "2026-10-01T00:00:00Z",
-                "assignees": [], "closedByPullRequestsReferences": [],
+                "assignees": [], "closedByPullRequestsReferences": linked([
+                    int(pr) for pr, spec in prs.items()
+                    if any(repo == HERE and str(issue) == number for repo, issue in spec.get("closes", []))
+                ]),
             }), check)
         if verb == ["issue", "close"]:
             if number in failing:
@@ -198,6 +208,8 @@ assert_contains "$out" "exit=0" "command: closing every open linked issue exits 
 assert_contains "$out" "call: gh issue close --repo $HERE -- 91" "command: the open linked issue is closed through gh issue close"
 assert_not_contains "$out" "call: gh issue close --repo $HERE -- 92" "command: an issue already closed is left alone"
 assert_contains "$out" "closes: closed #91" "command: each closed issue gets one line"
+assert_not_contains "$out" "call: gh api" \
+  "command: closes reads no linked PR state -- a lookup only select needs must not fail the repair"
 
 out="$(closes '{"prs":{"140":{"state":"MERGED","closes":[["'$HERE'",92]]}},"issues":{"92":"CLOSED"}}' '#140' --apply --approve)"
 assert_contains "$out" "exit=0" "command: a merge that closed everything exits 0"
@@ -256,6 +268,12 @@ out="$(registry '{"backlog":[[155,["bug","now"],[189],""]],"pr_states":{"189":"M
 assert_contains "$out" "exit=0" "select: a pool holding only a stranded issue exits 0"
 assert_contains "$out" "candidate:     none" "select: a pool holding only a stranded issue has no candidate"
 assert_contains "$out" "stranded:      #155" "select: a stranded issue is named even when nothing is claimable"
+
+out="$(registry '{"backlog":[[170,["bug","next"],[["other-owner/other-repo",171]],""]],"pr_states":{"171":"MERGED"}}' select --routine fix)"
+assert_not_contains "$out" "stranded:" \
+  "select: a merged PR in another repository is not stranded -- closes cannot reach it"
+assert_contains "$out" "candidate:     170 —" \
+  "select: an issue whose only closing PR merged elsewhere is not in flight"
 
 out="$(registry '{"backlog":[[10,["bug","next"],[],""]]}' select --routine fix)"
 assert_contains "$out" "candidate:     10 —" "select: an unlinked issue is still a candidate"

@@ -205,8 +205,8 @@ still close nothing themselves: the check belongs to the merger, not to the
 routine that opened the PR.
 
 `select` is the backstop for a merger that skipped the check. An open issue
-whose closing PR merged, with no other PR in flight and no human reopening it,
-is never a candidate — picking it would redo merged work — and `select` prints
+whose closing PR in this repository merged, with no other PR in flight and no
+human reopening it, is never a candidate — picking it would redo merged work — and `select` prints
 a `stranded:` line for each one, carrying the `closes` command that finishes
 the job. `gh` lists an issue's closing PRs without their state, so the registry
 reads the states in one GraphQL call; an unreadable state counts as in flight.
