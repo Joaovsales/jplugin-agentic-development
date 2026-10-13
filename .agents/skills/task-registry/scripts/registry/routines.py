@@ -101,7 +101,8 @@ def select_candidates(tasks: Iterable, config, routine: str) -> Sequence:
     The exclusions are the contract's step 1, in one place so that no routine
     host re-derives them: an issue is out if another routine's label outranks
     this one, if it already carries the claim label, if a pull request for it
-    is still open, or if one merged and left it open (`stranded`). The open-PR
+    is still open, or if one in this repository merged and left it open
+    (`stranded`; `closes` cannot reach a merge elsewhere). The open-PR
     rule is a read rather than a write, and it is strictly more accurate than
     closing the issue on PR creation — it also suppresses re-picking while a PR
     sits in review.

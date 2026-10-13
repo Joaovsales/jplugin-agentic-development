@@ -542,9 +542,10 @@ def _select(registry: Registry, routine):
     if registry.provider.linked_pr_exclusion_available() is False:
         return (
             f"task-registry: refusing to select — {registry.provider.name} could not "
-            "report linked pull request state (`closedByPullRequestsReferences` needs "
-            "gh >= 2.73.0), so the in-flight exclusion cannot be evaluated. Selecting "
-            "anyway re-picks every issue already under review and races on its branch."
+            "report linked pull request state (`closedByPullRequestsReferences` and "
+            "`stateReason` need gh >= 2.73.0), so the in-flight exclusion cannot be "
+            "evaluated. Selecting anyway re-picks every issue already under review and "
+            "races on its branch."
         ), 1
 
     lines = [f"unclassified:  {len(unclassified(tasks, config))} open issue(s) carry no kind label"]
