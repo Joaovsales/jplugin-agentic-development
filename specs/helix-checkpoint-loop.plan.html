@@ -2,7 +2,7 @@
 :root{color-scheme:light;--canvas:#f7f6f2;--paper:#fffefa;--ink:#202521;--muted:#5f6860;--line:#d6d9d1;--line-soft:#e8e9e2;--accent:#285a47;--accent-wash:#e8f0e9;--code:#f1f2ed;--warn:#784d21}
 [data-theme=dark]{color-scheme:dark;--canvas:#141a17;--paper:#1b231e;--ink:#f2f2e9;--muted:#bac4ba;--line:#465249;--line-soft:#354037;--accent:#9cdbb7;--accent-wash:#243d2e;--code:#172019;--warn:#e6bd84}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--canvas);color:var(--ink);font:16px/1.65 'SF Pro Display','Helvetica Neue',Arial,sans-serif}button,a,summary{outline-offset:3px}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent)}a{color:var(--accent);text-underline-offset:3px}button{font:inherit;cursor:pointer}.topbar{position:sticky;top:0;z-index:10;background:var(--canvas);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px clamp(16px,3vw,48px)}.brand{font:700 12px/1.2 'SF Mono',Consolas,monospace;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;color:var(--ink)}.top-actions{display:flex;gap:14px;align-items:center}.top-actions a{font-size:13px}.theme-toggle{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:6px 11px;font-size:13px}.layout{max-width:1540px;margin:auto;display:grid;grid-template-columns:224px minmax(0,1fr);gap:clamp(20px,4vw,72px);padding:0 clamp(16px,3vw,48px)}.side{position:sticky;top:77px;align-self:start;padding:30px 0;height:calc(100vh - 77px);overflow:auto}.side-title,.eyebrow,.section-index,.mini-label{font:700 11px/1.3 'SF Mono',Consolas,monospace;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}.side nav{display:grid;gap:4px;margin:18px 0 32px}.side nav a{display:block;padding:7px 11px;text-decoration:none;color:var(--muted);border-left:2px solid transparent;font-size:14px}.side nav a:hover,.side nav a.active{color:var(--ink);border-color:var(--accent);background:var(--accent-wash)}.side-note{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:15px}.content{min-width:0;max-width:1120px;padding:46px 0 96px}.hero{padding:0 0 34px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--accent);margin:0 0 16px}.hero h1{font:400 clamp(42px,6vw,76px)/1.02 Georgia,'Times New Roman',serif;letter-spacing:-.045em;max-width:14ch;margin:0 0 22px}.hero .intro{font-size:clamp(17px,1.9vw,21px);line-height:1.45;max-width:70ch;color:var(--muted);margin:0}.hero-meta{display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:25px;font-size:12px;color:var(--muted)}.hero-meta strong{color:var(--ink)}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);margin:30px 0 28px;background:var(--paper)}.metric{padding:19px 22px;border-right:1px solid var(--line)}.metric:last-child{border-right:0}.metric strong{display:block;font:400 36px/1.05 Georgia,serif;color:var(--ink)}.metric span{display:block;margin-top:7px;font-size:12px;color:var(--muted)}.flow-panel{border:1px solid var(--line);background:var(--paper);padding:24px;margin-bottom:55px}.flow-panel h2{font:600 16px/1.3 'SF Pro Display','Helvetica Neue',Arial,sans-serif;margin:0 0 5px}.flow-panel p{font-size:13px;color:var(--muted);margin:0 0 19px}.flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;list-style:none;padding:0;margin:0}.flow li{position:relative;border-top:3px solid var(--accent);padding:12px 10px 0 0;min-width:0}.flow li+li{padding-left:12px}.flow li+li:before{content:'→';position:absolute;left:-9px;top:10px;color:var(--accent);background:var(--paper);font-size:14px}.flow strong{display:block;font-size:13px;line-height:1.3}.flow small{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:3px}.group{margin:0 0 52px}.doc-section{padding:36px 0;border-top:1px solid var(--line);scroll-margin-top:75px}.group .doc-section:first-child{border-top:2px solid var(--ink)}.section-head{display:grid;grid-template-columns:68px minmax(0,1fr);gap:10px;align-items:baseline;margin-bottom:21px}.section-head h2{font:400 clamp(26px,3vw,39px)/1.12 Georgia,serif;letter-spacing:-.025em;margin:0}.section-lede{font-size:17px;max-width:70ch;color:var(--muted);margin:0 0 22px}.prose{max-width:100%;overflow-wrap:anywhere}.prose>p,.prose>ul,.prose>ol,.prose>blockquote{max-width:77ch}.prose h3{font-size:18px;margin:32px 0 10px}.prose h4{font-size:15px;margin:24px 0 8px}.prose p{margin:0 0 18px}.prose ul,.prose ol{padding-left:23px}.prose li{margin:6px 0}.prose blockquote{margin:0;padding-left:16px;border-left:2px solid var(--accent);color:var(--muted)}.table-wrap{width:100%;max-width:100%;overflow-x:auto}.prose table{border-collapse:collapse;width:100%;font-size:13px;min-width:660px;line-height:1.4}.prose table th{text-align:left;color:var(--muted);font:700 11px/1.35 'SF Mono',Consolas,monospace;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;background:var(--canvas)}.prose table th,.prose table td{padding:11px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}.prose table td:first-child{font-weight:600;color:var(--ink)}.prose table tr:hover td{background:var(--accent-wash)}.prose table{display:table}.prose pre{background:var(--code);border:1px solid var(--line);padding:17px 19px;overflow:auto;font:12px/1.55 'SF Mono',Consolas,monospace;border-radius:5px;max-height:390px}.prose code{font:12px/1.4 'SF Mono',Consolas,monospace;background:var(--code);padding:2px 3px;border-radius:3px}.prose pre code{background:none;padding:0}.detail{border-bottom:1px solid var(--line);padding:0}.detail:first-of-type{border-top:1px solid var(--line)}.detail summary{display:flex;justify-content:space-between;gap:14px;align-items:baseline;list-style:none;padding:18px 0;cursor:pointer;font-weight:600}.detail summary::-webkit-details-marker{display:none}.detail summary:before{content:'+';color:var(--accent);font:700 18px/1 monospace;margin-right:8px}.detail[open] summary:before{content:'−'}.detail summary span:first-child{flex:1}.detail-hint{font-weight:400;font-size:12px;color:var(--muted)}.detail-body{padding:4px 0 21px 26px}.detail-body>p{max-width:78ch}.roadmap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px;list-style:none;padding:0;margin:23px 0 30px;border-top:1px solid var(--line)}.roadmap li{display:flex;gap:17px;align-items:baseline;border-bottom:1px solid var(--line);padding:13px 0;margin:0}.roadmap-n{font:700 12px/1 'SF Mono',Consolas,monospace;color:var(--accent);min-width:24px}.roadmap strong{display:block;font-size:14px;line-height:1.25}.roadmap small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.review-callout{background:var(--accent-wash);border-left:3px solid var(--accent);padding:21px 24px;margin-top:36px;max-width:760px}.review-callout h2{font:600 16px/1.3 'SF Pro Display','Helvetica Neue',Arial,sans-serif;margin:0 0 7px}.review-callout p{font-size:14px;margin:0}.footer{border-top:1px solid var(--line);padding:20px 0;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}@media(max-width:980px){.layout{display:block}.side{position:static;height:auto;padding:16px 0;border-bottom:1px solid var(--line)}.side nav{display:flex;overflow:auto;margin:9px 0 0;gap:2px}.side nav a{white-space:nowrap;border-left:0;border-bottom:2px solid transparent;padding:7px 10px}.side nav a.active,.side nav a:hover{border-color:var(--accent)}.side-note,.side-title{display:none}.content{padding-top:35px}}@media(max-width:700px){.topbar{padding:10px 16px}.top-actions a{display:none}.content{padding-top:27px}.hero h1{font-size:45px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.flow li+li{padding-left:0}.flow li+li:before{display:none}.roadmap{grid-template-columns:1fr}.section-head{grid-template-columns:1fr;gap:5px}.doc-section{padding:29px 0}.detail-hint{display:none}.detail-body{padding-left:8px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-</style></head><body><header class="topbar"><a class="brand" href="#top">Helix / architecture review</a><div class="top-actions"><a href="helix-checkpoint-loop.md">Source spec</a><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light and dark theme">Theme</button></div></header><div class="layout"><aside class="side" aria-label="Document navigation"><span class="side-title">Contents</span><nav aria-label="Sections"><a href="#overview-group">01 Overview</a><a href="#system-group">02 System</a><a href="#contracts-group">03 Contracts</a><a href="#evidence-group">04 Evidence</a><a href="#delivery-group">05 Delivery</a><a href="#scope-group">06 Decisions &amp; scope</a></nav><p class="side-note">The source spec is the implementation contract. This page is the review surface.</p></aside><main id="top" class="content"><header class="hero"><p class="eyebrow">Opt-in workflow proposal · October 2026</p><h1>A checkpoint at every slice.</h1><p class="intro">Helix adds a separate build route: each slice proves behavior, applicable UI, code quality and owner review before its commit can release dependent work.</p><div class="hero-meta"><span><strong>Status</strong> Awaiting design review</span><span><strong>Source</strong> helix-checkpoint-loop.md</span><span><strong>Spec SHA-256</strong> 73a7d6c2e6cb</span></div></header><div class="metrics" aria-label="Plan summary"><div class="metric"><strong>13</strong><span>ordered slices</span></div><div class="metric"><strong>4</strong><span>checkpoint gates</span></div><div class="metric"><strong>2</strong><span>independent reviewers</span></div><div class="metric"><strong>1</strong><span>PR with slice commits</span></div></div><section class="flow-panel" aria-labelledby="flow-title"><h2 id="flow-title">The advancement path</h2><p>Every required check binds to the current candidate. Dependents wait for the committed combined-tree barrier.</p><ol class="flow"><li><strong>Plan</strong><small>opt-in marker and slice scope</small></li><li><strong>Behavior</strong><small>red test, green candidate</small></li><li><strong>UI</strong><small>matched state or justified skip</small></li><li><strong>Code review</strong><small>existing GO / HOLD / STOP</small></li><li><strong>Owner</strong><small>slice review or scoped grant</small></li><li><strong>Commit + barrier</strong><small>integrated tree verified</small></li></ol></section><div class="group" id="overview-group"><section class="doc-section" id="problem" aria-labelledby="problem-title"><div class="section-head"><span class="section-index">01 / 09</span><h2 id="problem-title">Problem</h2></div><div class="prose"><p>Agents building features through this template currently close slices after TDD and a handover, while visual and code review evidence is collected later for the whole build. An explicit Helix route makes each slice an evidence-gated checkpoint, so dependent work starts only after that slice has passed the applicable behavior, UI, code review and human gates and has its own commit. Shopify-specific mobile tooling and stacked pull requests are outside the first release.</p>
+</style></head><body><header class="topbar"><a class="brand" href="#top">Helix / architecture review</a><div class="top-actions"><a href="helix-checkpoint-loop.md">Source spec</a><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light and dark theme">Theme</button></div></header><div class="layout"><aside class="side" aria-label="Document navigation"><span class="side-title">Contents</span><nav aria-label="Sections"><a href="#overview-group">01 Overview</a><a href="#system-group">02 System</a><a href="#contracts-group">03 Contracts</a><a href="#evidence-group">04 Evidence</a><a href="#delivery-group">05 Delivery</a><a href="#scope-group">06 Decisions &amp; scope</a></nav><p class="side-note">The source spec is the implementation contract. This page is the review surface.</p></aside><main id="top" class="content"><header class="hero"><p class="eyebrow">Opt-in workflow proposal · October 2026</p><h1>A checkpoint at every slice.</h1><p class="intro">Helix adds a separate build route: each slice proves behavior, applicable UI, code quality and owner review before its commit can release dependent work.</p><div class="hero-meta"><span><strong>Status</strong> Revised after architecture review</span><span><strong>Source</strong> helix-checkpoint-loop.md</span><span><strong>Spec SHA-256</strong> c7898a885c82</span></div></header><div class="metrics" aria-label="Plan summary"><div class="metric"><strong>17</strong><span>ordered slices</span></div><div class="metric"><strong>4</strong><span>checkpoint gates</span></div><div class="metric"><strong>2</strong><span>independent reviewers</span></div><div class="metric"><strong>4</strong><span>stacked review PRs</span></div></div><section class="flow-panel" aria-labelledby="flow-title"><h2 id="flow-title">The advancement path</h2><p>Every required check binds to the current candidate. Dependents wait for the committed combined-tree barrier.</p><ol class="flow"><li><strong>Plan</strong><small>opt-in marker and slice scope</small></li><li><strong>Behavior</strong><small>red test, green candidate</small></li><li><strong>UI</strong><small>matched state or justified skip</small></li><li><strong>Code review</strong><small>existing GO / HOLD / STOP</small></li><li><strong>Owner</strong><small>slice review or scoped grant</small></li><li><strong>Commit + barrier</strong><small>integrated tree verified</small></li></ol></section><div class="group" id="overview-group"><section class="doc-section" id="problem" aria-labelledby="problem-title"><div class="section-head"><span class="section-index">01 / 09</span><h2 id="problem-title">Problem</h2></div><div class="prose"><p>Agents building features through this template currently close slices after TDD and a handover, while visual and code review evidence is collected later for the whole build. An explicit Helix route makes each slice an evidence-gated checkpoint, so dependent work starts only after that slice has passed the applicable behavior, UI, code review and human gates and has its own commit. Explicit review units can publish groups of slices as a linear stack of smaller PRs. Shopify-specific mobile tooling remains outside the first release.</p>
 </div></section><section class="doc-section" id="constraints" aria-labelledby="constraints-title"><div class="section-head"><span class="section-index">02 / 09</span><h2 id="constraints-title">Constraints</h2></div><div class="prose"><div class='table-wrap'><table>
 <thead>
 <tr>
@@ -57,9 +57,21 @@
 </tr>
 <tr>
 <td>Commit boundary</td>
-<td>One commit per cleared slice, with source, plan status and evidence together; retain the final full suite, quality receipt, one PR and CI closure</td>
+<td>One commit per cleared slice, with source, plan status and evidence together; one PR when no review units are declared, or one PR per declared review unit in a linear stack</td>
 <td>user</td>
-<td>commit and wrap-up fixtures</td>
+<td>single-PR and stacked-PR closure fixtures</td>
+</tr>
+<tr>
+<td>Review units</td>
+<td>A stack is explicit and groups contiguous slices into independently green, reviewable PRs; every slice belongs to exactly one unit. A unit must not be one PR per slice merely because slices exist</td>
+<td>user</td>
+<td>coverage, ordering and independent-PR fixture tests</td>
+</tr>
+<tr>
+<td>Stack merge policy</td>
+<td>A stacked run never rewrites published slice commits. Parent PRs use merge commits; squash/rebase merge, force push, unavailable merge-commit policy or unverifiable ancestry blocks stack advancement</td>
+<td>inferred</td>
+<td>merge-strategy, rewritten-SHA and ancestry fixtures</td>
 </tr>
 <tr>
 <td>Parallel work</td>
@@ -99,9 +111,9 @@
 </tr>
 <tr>
 <td>Test economy</td>
-<td>Full suite remains the cached baseline and pre-push run; slice and review loops run the affected-test command centrally</td>
+<td>Each review unit uses affected tests at slice/integration checkpoints and the existing cached full suite before its PR push; the final integrated tree is checked again after retargeting the last PR</td>
 <td>user</td>
-<td>command-count fixtures</td>
+<td>per-unit command-count and retarget fixtures</td>
 </tr>
 </tbody>
 </table></div>
@@ -145,6 +157,16 @@
 <td>Integrated commits, affected tests and quality receipt</td>
 </tr>
 <tr>
+<td>Spec § Build Order <code>Review units</code>, <strong>NEW</strong></td>
+<td>Ordered unit IDs, exact slice ranges and parent unit relation; absent means one PR</td>
+<td>Slice table and owner-selected review boundaries</td>
+</tr>
+<tr>
+<td>GitHub PRs</td>
+<td>Live PR number, base/head, draft/merge state, checks and review history</td>
+<td>The declared unit chain; never inferred from a stale local cache</td>
+</tr>
+<tr>
 <td>Helix gate CLI, <strong>NEW</strong></td>
 <td>Versioned per-slice evidence, gate transitions, grant scope and closed-slice verification</td>
 <td>Run, spec, todo, test output, UI manifest and quality receipt</td>
@@ -156,8 +178,8 @@
 </tr>
 <tr>
 <td><code>/build</code></td>
-<td>Fresh test-planner and implementer dispatch, repair loop and one commit per cleared Helix slice</td>
-<td>Ready set, gate outcomes and reviewer findings</td>
+<td>Fresh test-planner and implementer dispatch, repair loop, one commit per cleared slice and review-unit boundary</td>
+<td>Ready set, gate outcomes, reviewer findings and declared unit mapping</td>
 </tr>
 <tr>
 <td><code>/quality-gate</code></td>
@@ -176,8 +198,8 @@
 </tr>
 <tr>
 <td><code>/wrap-up-session</code></td>
-<td>Final integrated quality/full-suite/PR/CI closure after human acceptance</td>
-<td>Slice commits, final review and final tree receipt</td>
+<td>Per-unit quality/full-suite/PR/CI closure and final integrated closure after human acceptance</td>
+<td>Slice commits, unit mapping, live PR state, final review and final tree receipt</td>
 </tr>
 </tbody>
 </table></div>
@@ -198,7 +220,11 @@
                                                       │
                                   merged tree integration barrier
                                                       │
-                                           next ready set / final wrap-up
+                                   review unit complete? ──yes──► PR to parent unit branch
+                                                      │                        │
+                                           next ready set           parent merges; retarget + recheck
+                                                                               │
+                                                                    final integrated review + wrap-up
 </code></pre>
 <div class='table-wrap'><table>
 <thead>
@@ -240,6 +266,18 @@
 <td>Merge conflict or failed central test blocks dependent slices</td>
 <td>Reapplying a merged slice is refused by its stable slice/task ID</td>
 </tr>
+<tr>
+<td>Unit branch → GitHub PR</td>
+<td>async network call</td>
+<td><code>unknown</code>: re-query by head/base before retry; leave this unit and descendants draft/blocked if state remains unknown</td>
+<td>Find the existing PR by exact head/base and unit ID; never create a second PR</td>
+</tr>
+<tr>
+<td>Parent PR → child PR</td>
+<td>async merge observation then sync Git merge/retarget</td>
+<td>A changed or unmerged parent keeps the child based on the parent branch and invalidates its combined barrier/CI claim</td>
+<td>Re-query parent merge commit and child base before any merge or retarget</td>
+</tr>
 </tbody>
 </table></div>
 <h3>Failure unit</h3>
@@ -249,6 +287,8 @@
 <li>An invalid Helix evidence record makes <code>ready</code> fail closed for the marked plan; legacy plans are unaffected.</li>
 <li>A combined-tree integration failure blocks the next dependency wave and final wrap-up, including slices whose isolated worktree tests passed.</li>
 <li>An unavailable screenshot publication path leaves the UI task open under the existing visual-evidence policy, even if local comparison passed.</li>
+<li>An upstream PR change blocks this unit's ready-for-review state until the parent is merged into its branch and its combined-tree checks rerun. A blocked unit does not erase already valid slice receipts on preserved commits.</li>
+<li>A failed, unknown or non-preserving PR merge blocks descendants; unrelated slices already under development can retain drafts, but no dependent PR is reported merge-ready.</li>
 </ul>
 </div></section></div>
 <div class="group" id="contracts-group"><section class="doc-section" id="component-contracts" aria-labelledby="component-contracts-title"><div class="section-head"><span class="section-index">04 / 09</span><h2 id="component-contracts-title">Component contracts</h2></div><div class="prose"><p class="section-lede">Open a boundary to inspect its inputs, outcomes, failure behavior and versioning.</p>
@@ -395,6 +435,46 @@ authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_i
 </tbody>
 </table></div>
 <p>The host conversation role, not a digest supplied by the agent, establishes who spoke. For Claude Code, Codex and Pi, the orchestrator may accept a grant only from a new user-role message delivered through that host's conversation channel while this run is active; it records the host name, session/message reference where exposed, role, exact message hash, spec/prototype digests and named slice IDs. It refuses a tool result, repository file, assistant text or copied transcript as a grant source. The CLI can verify scope and integrity of this record, but cannot independently authenticate a role label written by the agent. Therefore a persisted next-N grant is usable only while the originating host session can verify that message; on a resumed session or a host without stable role/message lookup, the owner reissues the grant in a fresh user turn. This is the cross-harness trust limit; no record is treated as cryptographic proof of owner intent. Per-slice review likewise requires a fresh user turn. The final integrated acceptance always requires its own fresh user turn, even when a batch grant remains valid.</p>
+</div></details>
+<details class="detail"><summary><span>Review units and stacked PRs</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><pre><code class="language-text">stack.py validate --spec PATH --index PATH -&gt; units | invalid
+stack.py inspect --spec PATH --unit ID -&gt; planned | draft | ready | merged | stale | blocked | unknown
+wrap-up-unit(spec, unit_id, expected_parent) -&gt; PR(number, head, base) | blocked | unknown
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inputs</td>
+<td>Explicit ordered <code>Review units</code> in the spec's Build Order, each naming a contiguous slice range; run ID from <code>run.json</code>; default branch; preserved slice commits and latest combined barrier; live GitHub PR observations</td>
+</tr>
+<tr>
+<td>Outcomes</td>
+<td>With no units, existing one-PR closure. With units, one branch and one PR per unit: <code>helix/&lt;feature&gt;/&lt;run-id&gt;/u&lt;ID&gt;</code> targets the preceding unit branch, or the default branch for the first. The PR diff covers only that unit; a child stays draft while its parent is unmerged.</td>
+</tr>
+<tr>
+<td>Raises</td>
+<td>A missing GitHub remote/authentication, disabled merge-commit strategy, rewritten slice SHA, duplicate head/base PR, changed base without revalidation, noncontiguous unit coverage or ambiguous remote state blocks stacked closure. No automatic fallback to one PR after a stack is published.</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>Unit ID plus run ID fixes the branch name; inspect exact head/base and existing PR before create or edit. On network timeout return <code>unknown</code>, then re-query; never issue a second create from a timeout alone. Repeated sync of an unchanged unit updates the same PR body.</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td><code>Review units</code> grammar v1 is accepted only for <code>workflow: helix/1</code>; absent units mean single-PR mode. Current branch-local <code>closure.py</code> state remains a retry cache; GitHub is authoritative for PR state. Unknown grammar or mutation of a published unit's ID, start, end or base is refused.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Grammar v1 is a <code>### Review units</code> subsection of § Build Order with one bullet per unit: <code>- U&lt;n&gt;: slices &lt;start&gt;-&lt;end&gt;; base: &lt;default|U&lt;n&gt;&gt;; &lt;short purpose&gt;</code>. IDs start at U1 and increase without gaps; ranges use ASCII hyphens and cover slice numbers once in table order; each base is the preceding unit except U1, whose base is <code>default</code>. The purpose is display text, never a parser input. A missing subsection means single-PR mode. A present but empty or malformed subsection is an error, not a fallback. The plan block mirrors the IDs and ranges for the builder, but the spec is authoritative.</p>
+<p><code>/slice</code> validates that units cover every slice exactly once, in table order, with no gaps or overlaps, and that each unit's last slice has a valid combined barrier before its PR opens. Publication freezes that unit's ID, range and base. A correction to a slice in an open unit reopens that slice under the same ID: append a linked correction commit on that unit branch, supersede its candidate evidence, rerun its gates and unit checks, and propagate the new parent head to descendants. A merged unit cannot be edited. New scope, including changes requested at final integrated review, becomes new numbered slices in an appended tail unit; previously published ranges never move. Unpublished suffix units may be regenerated to preserve contiguous coverage, but publication freezes each in turn. If a correction to a merged unit cannot be expressed as a tail slice without invalidating an ancestor's merge, stop for an explicit recovery plan. A unit can group multiple slice commits; an initial slice closure creates one commit, while a reopened slice may add linked correction commits without rewriting history.</p>
+<p>The first unit branches from the default branch before its first slice; every next unit branches from its predecessor's published head before its first slice. Each unit carries its own GO or approved-HOLD quality receipt, cached full-suite run, CI result, handovers and visual evidence, with intermediate PRs using <code>Refs</code> and only the final PR allowed to use <code>Closes</code> issue linkage. For unit-local spec reconciliation, affected tests, quality receipt fingerprint and PR body, the explicit base is the parent unit branch (default for the first), never the single-PR default. Unit-scoped <code>/quality-gate --spec PATH --unit ID --base REF</code> is permitted when <strong>that unit's</strong> slices and combined barrier are done; it runs the existing six phases and Finding Model against the unit diff, writes an immutable receipt keyed by run, unit, base and fingerprint, and leaves later units pending. Slice 3 introduces one shared review-unit reader for this boundary check; <code>/slice</code> reuses and extends that reader for full coverage validation in slice 14. <code>receipt.py fingerprint</code> and <code>check</code> already accept <code>--base</code>; <code>write</code> gains the same argument, and every gate caller uses the identical resolved base. A changed unit head/base invalidates that unit receipt and any descendant receipt until the same gate reruns. The combined barrier and final owner review additionally cover the integrated source tree.</p>
+<p>Published branch histories are never rebased or force-pushed. When a parent changes, merge its new head into the child, rerun candidate-sensitive gates, central affected tests, the quality receipt, the cached suite and child CI, and keep the child draft until clean. After a parent PR is merged with a <strong>merge commit</strong> into the default branch, verify every recorded slice commit remains an ancestor, explicitly retarget the child PR to the default branch, merge the updated default branch into the child if needed, and verify that the resulting PR diff contains only that child's declared unit changes. Then rerun the combined barrier, receipt, suite and CI on the new head/base before making that child ready. Squash or rebase merge cannot preserve the per-slice commit identity required by <code>verify</code>; if observed, stop stack advancement and report recovery as a human decision instead of accepting a rewritten history. No agent auto-merges a PR.</p>
+<p>Intermediate unit PRs can be reviewed while later units are built. The final unit remains draft until every parent has merged, the last branch has passed integrated checks against the default branch, and a fresh owner turn accepts the integrated feature. A failed or unknown merge, retarget, check or publication leaves the affected and descendant PRs draft with evidence. Ordinary builds and one-PR Helix runs retain the current wrap-up contract.</p>
 </div></details></div></section></div>
 <div class="group" id="evidence-group"><section class="doc-section" id="data-models" aria-labelledby="data-models-title"><div class="section-head"><span class="section-index">05 / 09</span><h2 id="data-models-title">Data models</h2></div><div class="prose"><p class="section-lede">Receipts bind each slice to its candidate. The combined-tree barrier releases dependents only for the exact merged set.</p>
 <details class="detail" open><summary><span>Entities</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
@@ -446,14 +526,26 @@ authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_i
 <tr>
 <td><code>commit</code></td>
 <td>Git commit containing code, status and receipt</td>
-<td>A done header is not ready until committed evidence is reachable; the commit ID is derived from Git, avoiding a self-referential receipt</td>
-<td><code>ready</code> verification</td>
+<td>A done header is not ready until committed evidence is reachable; a stack merge preserves each slice commit ID</td>
+<td><code>ready</code> and post-merge ancestry verification</td>
 </tr>
 <tr>
 <td><code>barrier</code></td>
 <td>version, sorted merged slice IDs, combined manifest hash, prior ordered slice commit IDs, test and quality evidence</td>
 <td>A dependent can start only from the exact merged set and combined source tree that passed central checks; the final commit ID is derived from Git</td>
 <td><code>verify-barrier</code></td>
+</tr>
+<tr>
+<td><code>review_unit</code></td>
+<td>stable ID, ordered inclusive slice range, predecessor ID</td>
+<td>Exact one-time coverage of the Build Order; source of truth is spec § Build Order, not PR titles</td>
+<td><code>stack.py validate</code></td>
+</tr>
+<tr>
+<td><code>unit_pr</code></td>
+<td>observed head/base SHA, branch, PR number, draft/ready/merged state, checks and merge method</td>
+<td>GitHub owns live values; local closure cache never overrides a fresh observation</td>
+<td><code>stack.py inspect</code>, wrap-up and Git ancestry check</td>
 </tr>
 <tr>
 <td><code>final_review</code></td>
@@ -495,6 +587,18 @@ authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_i
 <tr>
 <td>Complete slice with failed test, missing handover, or unmerged parallel integration</td>
 <td>close/ready and committed integration-barrier validation</td>
+</tr>
+<tr>
+<td>Two PRs for one unit, a child PR based on the wrong parent, or a unit missing a slice</td>
+<td>stable branch/PR lookup and review-unit coverage validation</td>
+</tr>
+<tr>
+<td>Child PR ready while parent is unmerged or parent head changed</td>
+<td>draft-state and base/head checks before ready transition</td>
+</tr>
+<tr>
+<td>Stack marked merged after squash/rebase rewrote slice commit IDs</td>
+<td>post-merge ancestry verification; stop descendant advancement</td>
 </tr>
 </tbody>
 </table></div>
@@ -654,6 +758,11 @@ authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_i
 <td><code>waiting</code></td>
 <td>Source tree or spec changes before wrap-up</td>
 </tr>
+<tr>
+<td><code>accepted</code></td>
+<td><code>waiting</code></td>
+<td>A stacked PR is retargeted or its parent/default base changes before final closure</td>
+</tr>
 </tbody>
 </table></div>
 </div></details>
@@ -694,16 +803,79 @@ authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_i
 </tbody>
 </table></div>
 </div></details>
+<details class="detail"><summary><span>Transitions — review unit PR</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>planned</code></td>
+<td><code>branch</code></td>
+<td>The declared base exists; create the stable branch before implementing this unit's first slice</td>
+</tr>
+<tr>
+<td><code>branch</code></td>
+<td><code>draft</code></td>
+<td>Every unit slice closes and its combined barrier passes; push, query exact head/base, then create or reuse the draft PR</td>
+</tr>
+<tr>
+<td><code>draft</code></td>
+<td><code>ready</code></td>
+<td>Parent is merged or this is the first unit; current head/base, quality receipt, full suite, CI and required owner review pass</td>
+</tr>
+<tr>
+<td><code>draft</code> / <code>ready</code></td>
+<td><code>stale</code></td>
+<td>Parent head/base, unit source or policy changes; return to draft and invalidate affected barrier/receipt/CI</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td><code>draft</code></td>
+<td>Merge parent without rewriting history, retarget if merged, rerun affected gates and central checks</td>
+</tr>
+<tr>
+<td><code>draft</code> / <code>ready</code></td>
+<td><code>merged</code></td>
+<td>Remote says merged with a merge commit and recorded slice SHAs are ancestors of the default branch</td>
+</tr>
+<tr>
+<td><code>planned</code> / <code>branch</code> / <code>draft</code> / <code>ready</code></td>
+<td><code>unknown</code></td>
+<td>GitHub create, query, retarget or merge observation times out; never infer success or retry creation blindly</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td>observed state</td>
+<td>Query exact branch, PR and base/head after service recovers</td>
+</tr>
+<tr>
+<td><code>draft</code> / <code>ready</code> / <code>stale</code></td>
+<td><code>blocked</code></td>
+<td>CI, conflict, unavailable merge policy or rewritten commit fails verification; retain evidence and keep descendants draft</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td><code>draft</code></td>
+<td>Correct the cause and rerun the unit checks on the current candidate</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
 <details class="detail"><summary><span>Migration and compatibility</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><ul>
 <li>Existing specs without <code>workflow: helix/1</code> and their flat or sliced plan blocks follow the current route, build and ready behavior without new evidence files.</li>
 <li>An active run's evidence remains discoverable if its marker is removed; removal produces a refusal, not a downgrade. Cancelling a run is an explicit recorded action, after which ordinary planning may start a new spec revision.</li>
-<li>Evidence records are retained when superseded. New readers validate <code>helix-evidence/1</code>; unknown versions fail closed only for Helix plans. A new correction slice changes the plan digest and grants but preserves prior receipts whose own slice contracts remain unchanged.</li>
+<li>Evidence records are retained when superseded. New readers validate <code>helix-evidence/1</code>; unknown versions fail closed only for Helix plans. A reopened or appended correction slice changes the plan digest and grants; prior receipts remain historical evidence, and affected unit and descendant receipts are revalidated.</li>
 <li>Rollback disables the opt-in route for new plans while active Helix plans remain gated or explicitly cancelled. No existing task, quality receipt or E2E log format is migrated.</li>
-<li>The first version uses one PR containing slice commits. Stacked PRs require branch-base, CI and rebase coordination in the single-PR closure engine and are deferred.</li>
+<li>Plans without explicit <code>Review units</code> keep one PR and the existing closure contract. A declared stack is linear and cannot silently downgrade once its first PR exists. Existing <code>closure.py</code> state stays branch-local; live PR facts are re-queried from GitHub on resume.</li>
+<li>Stack mode requires a GitHub remote and a merge-commit path that preserves published slice SHAs. Projects that permit only squash/rebase merges use one-PR mode until they change that policy. A wrong-method merge stops descendants for explicit recovery; old evidence remains auditable but is never rebound to a different commit silently.</li>
 <li>The Claude Stop reminder checks whether the run may pause before the existing session-stop cleanup; a blocked continuation keeps the session-active sentinel intact.</li>
 </ul>
 </div></details></div></section></div>
-<div class="group" id="delivery-group"><section class="doc-section" id="build-order" aria-labelledby="build-order-title"><div class="section-head"><span class="section-index">06 / 09</span><h2 id="build-order-title">Build Order</h2></div><div class="prose"><p class="section-lede">Evidence and readiness land first. The route is enabled only after the gates and closure path exist.</p><ol class="roadmap"><li><span class="roadmap-n">01</span><div><strong>Evidence kernel</strong><small>AC 4 · starts first</small></div></li><li><span class="roadmap-n">02</span><div><strong>Prototype reference</strong><small>AC 7 · after 1</small></div></li><li><span class="roadmap-n">03</span><div><strong>Readiness verifier</strong><small>AC 5 · after 1</small></div></li><li><span class="roadmap-n">04</span><div><strong>Behavior and UI gates</strong><small>AC 6, 9 · after 2, 3</small></div></li><li><span class="roadmap-n">05</span><div><strong>Review and human gates</strong><small>AC 10, 11, 12 · after 4</small></div></li><li><span class="roadmap-n">06</span><div><strong>Build checkpoints</strong><small>AC 13, 14, 15 · after 3, 5</small></div></li><li><span class="roadmap-n">07</span><div><strong>Single-PR closure</strong><small>AC 18 · after 6</small></div></li><li><span class="roadmap-n">08</span><div><strong>Helix plan marker</strong><small>AC 3 · after 2, 7</small></div></li><li><span class="roadmap-n">09</span><div><strong>Prototype digest prompt</strong><small>AC 8 · after 2, 8</small></div></li><li><span class="roadmap-n">10</span><div><strong>Checkpoint viewer</strong><small>AC 16 · after 9</small></div></li><li><span class="roadmap-n">11</span><div><strong>Stop reminder</strong><small>AC 17 · after 6</small></div></li><li><span class="roadmap-n">12</span><div><strong>Helix lane</strong><small>AC 1 · after 7, 9, 10, 11</small></div></li><li><span class="roadmap-n">13</span><div><strong>Route selection</strong><small>AC 2 · after 12</small></div></li></ol><details class="detail full-table"><summary><span>Full Build Order table</span><span class="detail-hint">13 slices, surfaces and checks</span></summary><div class="detail-body"><p>Sizing: 13 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 1: the new skill inventory, plugin pin and gate tests must ship together; slice 12: the lane declaration and canonical lane catalogue must agree in one change.</p>
+<div class="group" id="delivery-group"><section class="doc-section" id="build-order" aria-labelledby="build-order-title"><div class="section-head"><span class="section-index">06 / 09</span><h2 id="build-order-title">Build Order</h2></div><div class="prose"><p class="section-lede">Seventeen slices form four review units. Each unit has a smaller PR and its own quality receipt; a final review checks the integrated tree.</p><ol class="roadmap"><li><span class="roadmap-n">01</span><div><strong>Evidence kernel</strong><small>AC 4 · starts first</small></div></li><li><span class="roadmap-n">02</span><div><strong>Prototype reference</strong><small>AC 7 · after 1</small></div></li><li><span class="roadmap-n">03</span><div><strong>Readiness and unit gate</strong><small>AC 5, 23 · after 1</small></div></li><li><span class="roadmap-n">04</span><div><strong>Behavior and UI gates</strong><small>AC 6, 9 · after 2, 3</small></div></li><li><span class="roadmap-n">05</span><div><strong>Review and human gates</strong><small>AC 10, 11, 12 · after 4</small></div></li><li><span class="roadmap-n">06</span><div><strong>Build checkpoints</strong><small>AC 13, 14, 15 · after 3, 5</small></div></li><li><span class="roadmap-n">07</span><div><strong>Single-PR closure</strong><small>AC 18 · after 6</small></div></li><li><span class="roadmap-n">08</span><div><strong>Helix plan marker</strong><small>AC 3 · after 2, 7</small></div></li><li><span class="roadmap-n">09</span><div><strong>Prototype digest prompt</strong><small>AC 8 · after 2, 8</small></div></li><li><span class="roadmap-n">10</span><div><strong>Checkpoint viewer</strong><small>AC 16 · after 9</small></div></li><li><span class="roadmap-n">11</span><div><strong>Stop reminder</strong><small>AC 17 · after 6</small></div></li><li><span class="roadmap-n">12</span><div><strong>Helix lane</strong><small>AC 1 · after 7, 9, 10, 11</small></div></li><li><span class="roadmap-n">13</span><div><strong>Route selection</strong><small>AC 2 · after 12</small></div></li><li><span class="roadmap-n">14</span><div><strong>Review-unit plan contract</strong><small>AC 19 · after 7, 9, 13</small></div></li><li><span class="roadmap-n">15</span><div><strong>Stack branch lifecycle</strong><small>AC 20 · after 14</small></div></li><li><span class="roadmap-n">16</span><div><strong>Build unit boundaries</strong><small>AC 21 · after 15</small></div></li><li><span class="roadmap-n">17</span><div><strong>Stacked closure</strong><small>AC 22 · after 16</small></div></li></ol><details class="detail full-table"><summary><span>Full Build Order and review units</span><span class="detail-hint">17 slices, 4 PRs, surfaces and checks</span></summary><div class="detail-body"><p>Sizing: 17 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 1: the new skill inventory, plugin pin and gate tests must ship together; slice 12: the lane declaration and canonical lane catalogue must agree in one change; slice 14: the review-unit schema and its <code>/slice</code> consumer must validate one shared grammar.</p>
 <div class='table-wrap'><table>
 <thead>
 <tr>
@@ -740,13 +912,13 @@ authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_i
 </tr>
 <tr>
 <td>3</td>
-<td>Readiness verifier</td>
-<td><code>slice.py ready</code> refuses unproved Helix blockers and missing or stale combined-tree barriers while legacy readiness stays stable.</td>
-<td><code>.agents/skills/slice/scripts/slice.py</code>, <code>tests/test-slice.sh</code></td>
+<td>Readiness and unit gate</td>
+<td><code>slice.py ready</code> refuses unproved Helix blockers and stale barriers while legacy readiness stays stable; <code>/quality-gate</code> uses a shared review-unit reader to review a completed unit against its parent base and retain its receipt while later units remain pending.</td>
+<td><code>.agents/skills/helix/**</code>, <code>.agents/skills/slice/scripts/slice.py</code>, <code>.agents/skills/quality-gate/SKILL.md</code>, <code>.agents/skills/quality-gate/scripts/receipt.py</code>, <code>tests/test-slice.sh</code>, <code>tests/test-helix-unit-gate.sh</code></td>
 <td>1</td>
-<td>5</td>
-<td><code>bash tests/test-slice.sh</code></td>
-<td>2 files · 2 systems · 1 AC</td>
+<td>5, 23</td>
+<td><code>bash tests/test-slice.sh &amp;&amp; bash tests/test-helix-unit-gate.sh</code></td>
+<td>6 files · 3 systems · 2 ACs</td>
 </tr>
 <tr>
 <td>4</td>
@@ -848,18 +1020,68 @@ authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_i
 <td><code>bash tests/test-go-lanes.sh</code></td>
 <td>2 files · 2 systems · 1 AC</td>
 </tr>
+<tr>
+<td>14</td>
+<td>Review-unit plan contract</td>
+<td>The planner validates exact ordered slice coverage and records optional review units without changing single-PR plans.</td>
+<td><code>.agents/skills/helix/**</code>, <code>.agents/skills/slice/**</code>, <code>tests/test-helix-stack-plan.sh</code></td>
+<td>7, 9, 13</td>
+<td>19</td>
+<td><code>bash tests/test-helix-stack-plan.sh</code></td>
+<td>4 planned files · 3 systems · 1 AC</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Stack branch lifecycle</td>
+<td>Stable unit branches and PRs track explicit parent bases, preserved commits, remote outcomes and stale parents.</td>
+<td><code>.agents/skills/helix/**</code>, <code>tests/test-helix-stack-branch.sh</code></td>
+<td>14</td>
+<td>20</td>
+<td><code>bash tests/test-helix-stack-branch.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Build unit boundaries</td>
+<td><code>/build</code> publishes a proved unit, creates the next branch from its head and carries handovers and barriers across the boundary.</td>
+<td><code>.agents/skills/build/SKILL.md</code>, <code>tests/test-helix-stack-build.sh</code></td>
+<td>15</td>
+<td>21</td>
+<td><code>bash tests/test-helix-stack-build.sh</code></td>
+<td>2 files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Stacked closure</td>
+<td>Wrap-up checks each unit's retained receipt, suite, CI, merge ancestry and retargeted diff; final PR waits for integrated owner acceptance.</td>
+<td><code>.agents/skills/wrap-up-session/**</code>, <code>tests/test-helix-stack-wrapup.sh</code></td>
+<td>16</td>
+<td>22</td>
+<td><code>bash tests/test-helix-stack-wrapup.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
 </tbody>
 </table></div>
+<h3>Review units</h3>
+<ul>
+<li>U1: slices 1-3; base: default; evidence kernel and readiness.</li>
+<li>U2: slices 4-7; base: U1; behavior, UI, human gates and single-PR compatibility.</li>
+<li>U3: slices 8-13; base: U2; planning, viewer, reminder and explicit route.</li>
+<li>U4: slices 14-17; base: U3; stacked-PR contract, branch lifecycle and closure.</li>
+</ul>
+<p>These are the review boundaries for implementing this spec. This implementation is an <strong>ordinary <code>/build</code> bootstrap</strong>, not a Helix run: before U1, record a provisional bootstrap ID and default-branch SHA in the first build handover, and create <code>helix/helix-checkpoint-loop/&lt;bootstrap-id&gt;/u1</code>. Its ID is never rebound to a <code>run.json</code> ID. Before each next unit, branch <code>u&lt;n&gt;</code> from the preceding published unit head. Until the stack helper exists, use explicit Git and <code>gh pr create --draft --base &lt;parent&gt;</code>; inspect the exact remote head/base before creation and after timeouts.</p>
+<p>Run <code>/build</code> only through the current unit boundary in a fresh session, closing that unit's slices and combined barrier; the user-supplied per-unit prompt authorizes this bootstrap boundary even though ordinary <code>/build</code> normally runs the whole plan. Slice 3 adds unit-scoped <code>/quality-gate</code>, so U1 can run it at its boundary. Run that gate with the parent base, save its immutable receipt, run the cached full suite, push the unit branch, open its draft PR, and wait for CI and review before marking it ready. Record the PR, receipt fingerprint, base/head SHAs and next-unit branch in the handover. Do not invoke the existing terminal one-PR <code>/wrap-up-session</code> for U1–U3; the manual steps above are their interim closure. Resume the next unit from the preceding published head while the parent PR is under review. After each parent merge, apply the retarget, ancestry, diff and recheck procedure above. U4 uses the finished stacked closure and final integrated owner review; the new Helix stack contract is available to downstream runs only after U4 merges.</p>
 </div></details><details class="detail build-prompt"><summary><span>Fresh-session build prompt</span><span class="detail-hint">Copy after review</span></summary><div class="detail-body"><p>Build prompt:</p>
 <pre><code>Invoke `/build` for `specs/helix-checkpoint-loop.md`.
-Plan: `## Plan: helix-checkpoint-loop` in `tasks/todo.md`, 13 slices, ready set 1.
+Plan: `## Plan: helix-checkpoint-loop` in `tasks/todo.md`, 17 slices, ready set 1.
 Files: .agents/skills/helix/**, .agents/skills/prototype/**, .agents/skills/go/SKILL.md, .agents/skills/task-registry/lanes/helix.md, .agents/skills/slice/**, .agents/skills/build/SKILL.md, .agents/skills/wrap-up-session/**, .agents/hooks/session-stop.sh, .claude-plugin/plugin.json, README.md, specs/lane-catalogue.md, tests/**.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/helix-checkpoint-loop.md --file --approve`. The planning session filed nothing.
-2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
-3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
-4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
-Constraints: Helix is opt-in and this integration is built through the existing `/build`; use the current Finding Model and GO/HOLD policy; default human review is per slice with explicit next-N delegation; one commit per future Helix slice and one PR per feature; no stacked PRs in v1; bounded retries block without bypass; a transition CLI enforces gates across harnesses; final integrated human acceptance precedes wrap-up.
+1. `/build`'s pre-flight files the slices: `/slice specs/helix-checkpoint-loop.md --file --approve`. The planning session filed nothing. This bootstrap starts on U1; record a provisional bootstrap ID and base SHA before slice 1 and branch as § Review units specifies.
+2. Build only slices 1–3 in the first fresh session. At each later fresh session, build only the next unit's declared range. A slice edits only its Surface in § Build Order. This explicit bootstrap boundary overrides ordinary `/build`'s all-task continuation.
+3. At every unit boundary, run the unit-scoped existing quality gate with the exact parent base, cached full suite and CI; preserve the receipt and follow the interim publication/handover runbook in § Review units. Keep child PRs draft until their parent merges. Do not invoke terminal one-PR `/wrap-up-session` for U1–U3.
+4. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user. Reopen a slice for an in-unit correction or append a tail unit for new scope; do not change published ranges.
+5. Close every slice with a `&gt; Handover:` line; after U4 and integrated owner acceptance, run the new stacked closure in `/wrap-up-session`.
+Constraints: Helix is opt-in and this integration is built through ordinary `/build`; use the current Finding Model and GO/HOLD policy; default human review is per slice with explicit next-N delegation; one commit per initial slice closure and linked commits for reopened slices; explicit linear review units U1–U4 use smaller stacked PRs with preserved slice SHAs and no history rewrite; absent review units keep one PR; bounded retries block without bypass; a transition CLI enforces gates across harnesses.
 </code></pre>
 </div></details></div></section></div>
 <div class="group" id="scope-group"><section class="doc-section" id="decisions" aria-labelledby="decisions-title"><div class="section-head"><span class="section-index">07 / 09</span><h2 id="decisions-title">Decisions</h2></div><div class="prose"><div class='table-wrap'><table>
@@ -898,9 +1120,15 @@ Constraints: Helix is opt-in and this integration is built through the existing 
 </tr>
 <tr>
 <td>Commit/PR shape</td>
-<td>Slice commits in one PR / stacked PRs / one final commit</td>
-<td><strong>Slice commits in one PR</strong>, source: user</td>
-<td>Stacked PR support becomes cheap only after closure can track a chain of PR bases and CI</td>
+<td>One PR per feature / one PR per slice / grouped linear stack</td>
+<td><strong>Grouped linear stack when review units are declared; otherwise one PR</strong>, source: user</td>
+<td>A project disallows merge commits or lacks a GitHub remote; use one PR before publishing a stack</td>
+</tr>
+<tr>
+<td>Stack merge strategy</td>
+<td>Merge commits / squash / rebase merge</td>
+<td><strong>Merge commits preserve slice SHAs</strong>, source: inferred</td>
+<td>Commit identity ceases to be part of evidence; that would require a separately reviewed migration of the receipt contract</td>
 </tr>
 <tr>
 <td>Retry</td>
@@ -922,7 +1150,7 @@ Constraints: Helix is opt-in and this integration is built through the existing 
 </tr>
 </tbody>
 </table></div>
-</div></section><section class="doc-section" id="acceptance-criteria" aria-labelledby="acceptance-criteria-title"><div class="section-head"><span class="section-index">08 / 09</span><h2 id="acceptance-criteria-title">Acceptance Criteria</h2></div><div class="prose"><details class="detail"><summary><span>All 18 acceptance criteria</span><span class="detail-hint">Open checklist</span></summary><div class="detail-body"><ul>
+</div></section><section class="doc-section" id="acceptance-criteria" aria-labelledby="acceptance-criteria-title"><div class="section-head"><span class="section-index">08 / 09</span><h2 id="acceptance-criteria-title">Acceptance Criteria</h2></div><div class="prose"><details class="detail"><summary><span>All 23 acceptance criteria</span><span class="detail-hint">Open checklist</span></summary><div class="detail-body"><ul>
 <li>The lane catalogue registers a distinct Helix route with explicit cues and no fallback from ordinary requests.</li>
 <li><code>/go</code> selects that route only for an explicit Helix build request; ordinary requests retain their current lane and no unmarked plan changes behavior.</li>
 <li>Helix planning marks the spec <code>workflow: helix/1</code>, carries that mode into the fresh build prompt, and records each checkpoint's reference, applicable gates and done criteria in the Build Order.</li>
@@ -940,19 +1168,25 @@ Constraints: Helix is opt-in and this integration is built through the existing 
 <li>Human corrections are captured in relevant typed learnings and the next slice's handover/context without a second flat memory store.</li>
 <li>The Helix route renders a reviewable checkpoint view with statuses and evidence links from the canonical spec, todo and receipts.</li>
 <li>A Claude Stop hook reports open gates yet permits human waits and blocked exits, while Codex and Pi use the same gate CLI for advancement.</li>
-<li>After all slices, the owner reviews the integrated feature; requested changes become gated slices, and final <code>/wrap-up-session</code> waits for acceptance before checking every slice and integrated quality receipt, running the cached full suite, publishing captures, pushing the slice-commit branch and maintaining one PR; ordinary-build closure still works.</li>
+<li>In single-PR mode, after all slices the owner reviews the integrated feature; requested changes become gated slices, and final <code>/wrap-up-session</code> waits for acceptance before checking every slice and integrated quality receipt, running the cached full suite, publishing captures, pushing the slice-commit branch and maintaining one PR; ordinary-build closure still works.</li>
+<li>A Helix plan may declare contiguous review units that cover every slice exactly once. Without them it keeps one PR; with them <code>/slice</code> rejects gaps, overlaps, reordered slices or mutation of a published unit's ID, range or base. A reopened slice preserves its ID; new scope appends numbered slices in a tail unit while unpublished suffix units may be regenerated. The build prompt and task index carry the reviewed unit boundaries.</li>
+<li>In stack mode, each unit uses a stable branch and one PR against its predecessor, or the default branch for the first unit. Creating or resuming a PR re-queries the remote head/base; a timeout is <code>unknown</code>, never permission to create a duplicate. Parent changes merge into descendants without rewriting published slice commits and invalidate affected evidence and checks.</li>
+<li><code>/build</code> changes branches only at declared review-unit boundaries after the unit's slices and combined barrier pass; later units can build while parent PRs are under review, and blocked or stale ancestors keep descendant PRs draft.</li>
+<li>Each unit PR has its own existing GO/HOLD quality receipt, cached full-suite proof, CI, handovers and visual evidence. Intermediate PRs refer to the issue; only the final PR closes it. After each parent merges with a merge commit, descendants retarget to the default branch, prove their slice SHAs are still ancestors, verify the diff contains only their review unit, and rerun changed barriers, receipts, suite and CI. Squash/rebase merge, unknown state or failed checks block advancement. The final PR becomes ready only after all parents merge and the owner accepts the integrated feature; one-PR and ordinary-build closure remain unchanged.</li>
+<li>Unit-scoped <code>/quality-gate</code> runs the existing six phases once a unit's own slices and barrier are done, with later units still pending. It uses one explicit parent base for diff, affected tests, fingerprint and receipt write; it retains an immutable receipt per unit and invalidates that receipt on head/base changes without changing ordinary end-of-build gate behavior.</li>
 </ul>
 </div></details></div></section><section class="doc-section" id="implementation-paths" aria-labelledby="implementation-paths-title"><div class="section-head"><span class="section-index">09 / 09</span><h2 id="implementation-paths-title">Implementation Paths</h2></div><div class="prose"><details class="detail"><summary><span>Planned file surfaces</span><span class="detail-hint">Open paths</span></summary><div class="detail-body"><ul>
 <li><code>.agents/skills/helix/**</code> — opt-in gate contract, versioned evidence validation, grant scope, advancement and cross-harness orchestration.</li>
 <li><code>.agents/skills/prototype/**</code> — interactive reference authoring and state manifest validation.</li>
 <li><code>.agents/skills/go/SKILL.md</code>, <code>.agents/skills/task-registry/lanes/helix.md</code>, <code>specs/lane-catalogue.md</code> — explicit Helix route without changing ordinary route precedence.</li>
-<li><code>.agents/skills/slice/**</code> — prototype digest in the build prompt and ready-set gate check.</li>
-<li><code>.agents/skills/build/SKILL.md</code> — fresh test-planning and implementation contexts, per-slice gate order, retry/resume, human review, commit and parallel integration barrier.</li>
-<li><code>.agents/skills/wrap-up-session/**</code> — final single-PR closure over slice commits and retained visual evidence.</li>
+<li><code>.agents/skills/slice/**</code> — prototype digest in the build prompt, ready-set gate check and optional review-unit coverage validation.</li>
+<li><code>.agents/skills/build/SKILL.md</code> — fresh test-planning and implementation contexts, per-slice gate order, retry/resume, human review, commit, parallel integration barrier and unit branch boundary.</li>
+<li><code>.agents/skills/quality-gate/SKILL.md</code>, <code>.agents/skills/quality-gate/scripts/receipt.py</code> — optional unit-scoped invocation and base-bound retained receipts using the existing gate phases and policy.</li>
+<li><code>.agents/skills/wrap-up-session/**</code> — single-PR compatibility and per-unit stacked closure over preserved slice commits and retained visual evidence.</li>
 <li><code>.agents/hooks/session-stop.sh</code> — optional Claude Stop reminder without replacing the transition gate.</li>
 <li><code>.claude-plugin/plugin.json</code>, <code>README.md</code>, <code>tests/**</code> — plugin version, skills table and focused cross-harness, legacy and failure fixtures.</li>
 </ul>
-</div></details></div></section></div><section class="review-callout" aria-labelledby="review-title"><h2 id="review-title">Review the architecture before building</h2><p>Reply with a finding in <code>[constraints|system-design|contracts|data-models|build-order] finding — evidence</code> form, or start the fresh build session using the prompt in Build Order when the design is accepted.</p></section><footer class="footer"><span>Helix architecture review · generated 2026-10-11</span><span>Source: <a href="helix-checkpoint-loop.md">specs/helix-checkpoint-loop.md</a> · SHA-256 73a7d6c2e6cb</span></footer></main></div><script>
+</div></details></div></section></div><section class="review-callout" aria-labelledby="review-title"><h2 id="review-title">Review the architecture before building</h2><p>Reply with a finding in <code>[constraints|system-design|contracts|data-models|build-order] finding — evidence</code> form, or start the fresh build session using the prompt in Build Order when the design is accepted.</p></section><footer class="footer"><span>Helix architecture review · generated 2026-10-13</span><span>Source: <a href="helix-checkpoint-loop.md">specs/helix-checkpoint-loop.md</a> · SHA-256 c7898a885c82</span></footer></main></div><script>
 (function(){
   const root=document.documentElement,button=document.getElementById('theme-toggle');
   let saved=null;try{saved=localStorage.getItem('helix-plan-theme')}catch(e){}
