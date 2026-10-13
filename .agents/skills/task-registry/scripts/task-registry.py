@@ -9,6 +9,7 @@
     task-registry lanes [<lane>]        every lane, or one lane's playbook — what /go matches and records
     task-registry claim <ref> --routine R  write the claim label onto one issue
     task-registry escalate <ref> ...    hold an unresolved investigation and report it
+    task-registry closes <pr>           close what a merged PR's closing keywords left open
 
 Dry-run is the default for every command. `--apply` is the only way anything is
 written, and external writes additionally honour `require_write_approval`.
@@ -44,6 +45,7 @@ from registry.config import (  # noqa: E402
     select_provider,
     skill_on_disk,
 )
+from registry.closure import close_merged  # noqa: E402
 from registry.lanes import LaneCatalogueError, catalogue  # noqa: E402
 from registry.providers import build_provider  # noqa: E402
 from registry.providers.base import (  # noqa: E402
@@ -72,7 +74,7 @@ from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
     "show", "doctor", "upsert", "selectors", "select", "claim", "workflow", "escalate",
-    "lanes",
+    "lanes", "closes",
 )
 
 
@@ -85,7 +87,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("command", choices=COMMANDS)
     parser.add_argument(
         "task_id", nargs="?",
-        help="task id, required by `show`; issue ref for `claim` and `workflow`; lane name for `lanes`"
+        help="task id, required by `show`; issue ref for `claim` and `workflow`; lane name "
+        "for `lanes`; merged pull request for `closes`"
     )
     parser.add_argument("--repo", default=".", help="project root (default: cwd)")
     parser.add_argument(
@@ -348,6 +351,8 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _workflow(registry, args.task_id)
     if command == "escalate":
         return escalate_task(registry, args.escalation_request, apply_writes)
+    if command == "closes":
+        return close_merged(registry, args.task_id)
     # argparse's `choices` already refuses anything outside COMMANDS, so this is
     # unreachable from the CLI. It exists so that adding a command to COMMANDS
     # and forgetting to dispatch it fails by name instead of unpacking None.

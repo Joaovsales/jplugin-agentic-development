@@ -2,47 +2,71 @@
 title: A PR merged by the GitHub Actions app did not close its correctly linked issue
 date: 2026-09-16
 problem_type: bug
-module: downstream merge automation; .agents/skills/wrap-up-session/references/routines.md § Issue closure happens on merge
-tags: [github, issue-linkage, auto-close, github-actions, routines]
+module: .agents/skills/task-registry/scripts/registry/closure.py; .agents/skills/wrap-up-session/references/routines.md § Issue closure happens on merge; downstream auto-merge workflows
+tags: [github, issue-linkage, auto-close, github-actions, github-token, routines, task-registry]
 symptoms: image-video-generation-pipeline PR #141 merged into `main` with a literal `Closes #91` and GitHub listed the link, yet #91 stayed open for three hours until closed by hand
-root_cause: Not proven. The only discriminator against the control (PR #140, same author, same repo, same base, same keyword form, auto-closed #92 in two seconds) is the merger — PR #141 was merged by `app/github-actions`, PR #140 by a human
-resolution: Open. A post-merge closure check belongs in whatever performs the merge; this repository's wrap-up runs before merge and cannot observe it
+root_cause: GitHub does not fire closing keywords for a merge made with a workflow's `GITHUB_TOKEN` (the `github-actions` app), and granting that token `issues: write` does not restore it. The routines contract promised the tracker closes the issue on merge, and nothing checked the promise after a bot merge
+resolution: In progress. `task-registry closes '#<pr>'` reads a merged PR's closing references and closes each still-open issue through the registry's gated `close_task`, or exits 1 naming every one it could not close. The routines contract tells any `GITHUB_TOKEN` merger to run it after the merge call
 ---
 
-**Status**: open — tracked as issue #146 (filed 2026-09-16 through `/task-registry upsert`)
-**Regression test**: none yet — the fix is downstream of this repository
+**Status**: in progress — issue #146
+**Regression test**: tests/test-task-registry.sh § closes
 
 ## Evidence
 
-Read on 2026-09-16 with `gh pr view` and `gh api .../issues/N/timeline`:
+The merger-identity hypothesis was confirmed by a natural experiment recorded on
+2026-10-13, not by a new controlled merge. Its basis is GitHub's own records
+(evidence level 2). The search covered every merged PR with closing references
+in three of the owner's repositories (`image-video-generation-pipeline`,
+`pix-receipt-extractor-application`, `private-knowledge-base`) since 2026-07-13,
+when their auto-merge workflows were added. For each linked issue, the last
+`ClosedEvent`'s `closer` was read:
+
+| Merger | Linked issues | Closed by the merging PR (`closer` = the PR) |
+|---|---|---|
+| a person | 103 | 102. The exception, `jplugin-agentic-development` #103, was closed by hand a minute before its PR merged |
+| `github-actions` (`GITHUB_TOKEN`) | 47 | 0 |
+
+The original pair, read on 2026-09-16:
 
 | | PR #140 (control) | PR #141 (failure) |
 |---|---|---|
 | head | `routine/fix/92-…` | `routine/improve/91-…` |
 | base | `main` (default) | `main` (default) |
-| body | `Closes #92` | `Closes #91` |
+| body | `Closes #92`, never edited | `Closes #91`, last edited 11 h before merge |
 | `closingIssuesReferences` | `[92]` | `[91]` |
-| merged by | `Joaovsales` | `app/github-actions` |
-| issue close event | 2 s after merge | none; manual close 3 h later |
+| merged by | `Joaovsales` | `github-actions` (scheduled `auto-merge.yml`, `gh pr merge --squash`) |
+| issue close event | 2 s after merge, actor = the merger | none; manual close 3 h later |
 
-Evidence level 3: several independent facts converge on the merger identity
-and nothing else differs. Not level 1 — no controlled reproduction was run.
+## Alternatives ruled out
 
-## Why it is not fixed in this change
+- **Missing `issues` permission on the token.** The human control's close event
+  is recorded as the merger's, which suggested GitHub closes the issue as the
+  merger and silently fails without write access. The image-video workflow's
+  `permissions:` block grants `contents` and `pull-requests` only. But
+  `pix-receipt-extractor-application` added `issues: write` on 2026-10-08
+  (3ce3d5c). Its PR #532 then merged at 13:58:36 on 2026-10-09, and #472 was
+  still open at 13:58:40, when the workflow's explicit close step commented on
+  it. Human merges close within 2 s, and #472's only `ClosedEvent` has no
+  `closer`. The permission is necessary for a workflow to close the issue
+  itself, but it does not bring back the keyword close.
+- **Malformed linkage on the PR.** All 47 bot-merged links appear in
+  `closingIssuesReferences`, across many authors, keyword forms and PR bodies.
+  The split follows the merger and nothing else.
+
+## Resolution
 
 This repository's `/wrap-up-session` opens the PR and ends. Merge happens in
-the downstream repository's automation, which is the only actor that can
-observe "merged, issue still open". The routines contract deliberately keeps
-`gh issue` out of every skill except `/task-registry` (category-routines AC11),
-so any repair must go through the registry, not the wrap-up skill.
-
-## Proposed next step
-
-A registry-owned post-merge check: given a merged PR, read its
-`closingIssuesReferences`, and for each still-open issue either close it through
-the registry's approved write path or report the mismatch loudly. Wire it into
-the downstream merge automation after the merge call. Verify the merger-identity
-hypothesis first with one controlled merge by the Actions app.
+the downstream repository's automation, the only actor that can observe
+"merged, issue still open". The routines contract keeps `gh issue` out of every
+skill except `/task-registry` (category-routines AC11), so the repair is a
+registry command the downstream workflow calls after its merge call:
+`task-registry closes '#<pr>' --apply --approve`. The workflow's token then needs
+`issues: write`. `pix-receipt-extractor-application` already closes the
+references inline in its workflow. `image-video-generation-pipeline` and
+`private-knowledge-base` did not as of 2026-10-13. Issues still open there after
+a bot merge: image-video #94, #101, #155, #156; private-knowledge-base #86;
+pix #357, #493 (merged before its fix).
 
 Origin: second and third comments on issue #123. The first symptom in that
 issue is fixed and recorded in [[closing-keyword-binds-to-one-issue-reference]].

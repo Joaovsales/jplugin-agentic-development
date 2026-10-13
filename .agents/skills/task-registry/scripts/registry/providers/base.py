@@ -171,6 +171,16 @@ class TrackerProvider(abc.ABC):
     def resolve_reference(self, raw: str) -> Optional[ExternalRef]:
         """Turn '#42', 'PROJ-7', or a URL into a reference this provider owns."""
 
+    def closed_by_merge(self, raw: str) -> Sequence[ExternalRef]:
+        """The tasks a merged pull request links with a closing keyword.
+
+        Not abstract: only a tracker with pull requests can answer, the same way
+        `add_labels` is optional. Raises when `raw` is not a merged pull request,
+        or when it links a task this tracker cannot write, so a caller never
+        closes a subset believing it closed them all.
+        """
+        raise ProviderError(f"{self.name}: has no pull requests, so no merge closes a task here")
+
     # -- writes --------------------------------------------------------------
     @abc.abstractmethod
     def create_task(self, task: Task) -> Task:

@@ -184,6 +184,24 @@ four problems at once:
 - "PR created but close failed" stops existing as a failure mode.
 - An abandoned PR no longer leaves a closed issue with no fix.
 
+The tracker keeps that promise only for some mergers. GitHub closes the issue
+when a person merges, but a merge made with a workflow's `GITHUB_TOKEN` — an
+auto-merge job running `gh pr merge` as the `github-actions` app — fires no
+closing keyword, and granting the token `issues: write` does not change that
+(#146). Whatever performs such a merge runs the registry's post-merge check
+right after its merge call:
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py closes "#$n" --apply --approve
+```
+
+`task-registry closes` closes each issue the merged PR links and left open,
+through the registry's gated write, and exits 1 naming any it could not close,
+so the miss fails the run instead of waiting for someone to notice. The
+workflow's token needs `issues: write` for the close. Routines still close
+nothing themselves: the check belongs to the merger, not to the routine that
+opened the PR.
+
 ## Step ledger
 
 Each routine below names an ordered, **mandatory** step list. The routine writes

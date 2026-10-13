@@ -79,6 +79,16 @@ assert_prose_contains "$CANON" "Closes #N" \
   "Contract: fix/improve PR bodies carry Closes #N"
 assert_prose_contains "$CANON" "draft" \
   "Contract: plan's terminal artifact is a draft PR"
+# A GITHUB_TOKEN merge fires no closing keyword (#146), so "the tracker closes the
+# issue when the PR merges" holds only for a human merge. The contract names the
+# registry's post-merge check and the permission it needs.
+CLOSURE="$(section_body "$CANON" "## Issue closure happens on merge")"
+assert_contains "$CLOSURE" "GITHUB_TOKEN" \
+  "Contract: closure names the GITHUB_TOKEN merge that fires no closing keyword"
+assert_contains "$CLOSURE" "task-registry closes" \
+  "Contract: closure names the registry's post-merge check"
+assert_contains "$CLOSURE" "issues: write" \
+  "Contract: closure names the permission the check needs"
 
 # --- step lists: one shared spine, per-routine differences only --------------
 # The substance of AC8. Each active routine names an ordered, mandatory step list

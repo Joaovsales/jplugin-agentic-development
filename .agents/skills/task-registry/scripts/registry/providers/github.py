@@ -169,6 +169,43 @@ class GitHubProvider(TrackerProvider):
             )
         return ExternalRef("github", parts[3], candidate) if parts[3].isdigit() else None
 
+    def closed_by_merge(self, raw: str) -> List[ExternalRef]:
+        """The issues a merged PR's closing keywords name — closed or not.
+
+        GitHub fires those keywords only for some mergers: a merge made with a
+        workflow's GITHUB_TOKEN closes nothing (#146), so this read is how the
+        merger finds out what the merge still owes.
+        """
+        number = str(raw).strip().lstrip("#")
+        if not REF_RE.match(number):
+            raise ProviderError(
+                f"github: {raw!r} is not a pull request number — refusing to pass it to gh"
+            )
+        payload = self._json(
+            ["gh", "pr", "view", "--repo", self._repo(),
+             "--json", "state,closingIssuesReferences", "--", number]
+        )
+        state = payload.get("state") or "unknown"
+        if state != "MERGED":
+            raise ProviderError(
+                f"github: #{number} is not merged (state {state}) — run this after the merge"
+            )
+        here, elsewhere = [], []
+        for issue in payload.get("closingIssuesReferences") or []:
+            repository = issue.get("repository") or {}
+            owner = (repository.get("owner") or {}).get("login", "")
+            slug = f"{owner}/{repository.get('name', '')}"
+            if slug.lower() == self._repo().lower():
+                here.append(ExternalRef("github", str(issue.get("number")), issue.get("url", "")))
+            else:
+                elsewhere.append(f"{slug}#{issue.get('number')}")
+        if elsewhere:
+            raise ProviderError(
+                f"github: #{number} closes {', '.join(elsewhere)}, outside {self._repo()} — "
+                "close those there; nothing was closed"
+            )
+        return here
+
     # ------------------------------------------------------------------- writes
     def create_task(self, task: Task) -> Task:
         self.gate.authorize(f"create issue for {task.id}", self.name)
