@@ -1,12 +1,16 @@
-# Checkpoint — 2026-10-06T18:13:31Z
+# Checkpoint — 2026-10-13T20:33:50Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
 ## Git
-- Branch: claude/gracious-turing-9b1ca7
+- Branch: claude/goofy-tu-99f995
 
 ```
-(working tree clean)
+ M .agents/skills/memory-maintain/SKILL.md
+ M .claude-plugin/plugin.json
+ M tasks/solutions/bugs/learn-overlap-dimensions-only-fit-the-bug-track.md
+ M tasks/todo.md
+ M tests/test-memory-maintain-doc.sh
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
@@ -15,9 +19,10 @@
   [ ] Verify: parallel dispatch of two disjoint slices and a handover read by a dispatched blocked slice — rerun under an isolated `CLAUDE_CONFIG_DIR` with two ready slices each large enough for `/build` to dispatch (tasks/backlog.md § From #106)
 [ ] Cloud routine: update the existing `tidy` routine (trig_0156hDQVc2Qp5MuUx6j7ttxF) with routine-prompts/tidy.md, Planner-tier model, weekly cron; enable and run once after this PR merges; verify the run opened `chore(tidy): <date>` from `routine/tidy/<YYYYMMDD>-sweep` with the record under tasks/sweeps/
   [ ] /eval triggerability gate on /plan, /build, /quality-gate — manual, before the slice-2 merge; report path goes in the PR body — DEFERRED (manual gate; run before the slice-2 PR merges, not inside /build)
+  [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
 
 ## Active Spec
-- specs/lane-plan-handover.md
+- specs/review-load-and-failure-cases.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`
