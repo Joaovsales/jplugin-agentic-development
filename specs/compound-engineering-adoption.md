@@ -88,8 +88,8 @@ and that cost grows monotonically with the project's age.
 
 Before writing, `/learn` scores overlap against existing documents across the
 five dimensions of the candidate's track — `/learn` Step 4 lists the bug-track
-and knowledge-track sets (#168) — and a document on the other track scores
-Moderate at most:
+and knowledge-track sets — and a document on the other track scores Moderate at
+most:
 
 | Score | Dimensions matched | Action |
 |-------|-------------------|--------|
