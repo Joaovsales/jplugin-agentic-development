@@ -1200,7 +1200,7 @@ Filed this sweep:
 - Completed: 11 tasks (Grilling Adoption plan: 7 TDD + suite task + 2 e2e + 1 eval; all 13 ACs evidenced)
 - Pending: 1 task (the unrelated `tidy` cloud-routine row above; whole file 158 [x])
 - Carry-forward: six `manual`/`advisory` design-review findings on brainstorm Step 3 and `references/domain-modeling.md` (rhythm rule stated in two files, callee format restated in the caller, undeclared seed frontier, glossary rule stated three times, `/learn` overlap rule bug-track shaped, `harness: universal` proven on Claude Code only) — reported in the PR, not applied; the `/plan` Step 1 / `/prd` / `/system-design-planning` follow-up is filed through `/task-registry` only after confirmation (spec § Out of Scope)
-- [ ] /learn overlap dimensions are bug-track shaped, so knowledge-track decisions cannot reach the update-in-place branch <!-- task-id: learn.agents-skills-learn-skill-md --> — The five overlap dimensions in /learn Step 4 (problem, root cause, solution, files touched, prevention rule) describe a… ([#168](https://github.com/Joaovsales/jplugin-agentic-development/issues/168))
+- [x] /learn overlap dimensions are bug-track shaped, so knowledge-track decisions cannot reach the update-in-place branch <!-- task-id: learn.agents-skills-learn-skill-md --> — The five overlap dimensions in /learn Step 4 (problem, root cause, solution, files touched, prevention rule) describe a… ([#168](https://github.com/Joaovsales/jplugin-agentic-development/issues/168))
 
 ## Plan: single-instruction-file
 > Spec: specs/single-instruction-file.md
@@ -1915,3 +1915,19 @@ Filed this sweep:
 - Completed: review-load-and-failure-cases slices 1–7 (#273–#279), each with a handover. The quality gate ran Phase 4 dispatched (HOLD, then GO after 6 fixes). Receipt f6760ca5 is STOP on the Windows affected run, where all 199 failing assertions are also failing at the base. The spec's § Behavior was reconciled for the narrower-real-limit clause.
 - Pending: slice 8 (#280), the Mode B /eval A/B of current code-reviewer vs updated vs ponytail-review over tests/fixtures/review-eval/. It is manual, needs the pushed branch and ponytail's prompt, and its report path goes in the PR body. Reported, not applied: critic's AC-failing-deferral exception is critic-only (add (c) to § Deferrals?); no lookup source states this repo's concurrent-session load (a [NON-FUNCTIONAL] line in tasks/project-context.md); `Verdict:` carries three meanings across personas (AC4 fixes the label).
 - Carry-forward: make-it-simpler/references/lens.md still says /tidy has nine checks; it now has ten, with `shortcuts`.
+
+## Lane: fix — #168
+1. `/debug #168` — root cause before code; the prelude stops before any edit until a candidate is confirmed, and a constraint in the goal ("don't change code yet", "repro first") is part of its problem statement. Reproduced and progressable work continues; an inconclusive or blocked investigation is held and reported by the canonical escalation owner
+2. `/build` — TDD against the reproduced failure; no fix ships without a failing test that now passes — **non-skippable**
+3. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
+4. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
+
+## Fix: #168 — /learn overlap dimensions are bug-track shaped
+- [x] TDD: tests/test-solutions-schema.sh § overlap dimensions — `/learn` Step 4 carries a `| bug |` and a `| knowledge |` dimension row; `tasks/solutions/README.md` and `project-template/tasks/solutions/README.md` carry the same two rows byte for byte -> per-track dimension table in `learn/SKILL.md` Step 4 and in both READMEs' Writing rules (AC 1)
+- [x] TDD: tests/test-grilling-adoption.sh § AC 5 — `domain-modeling.md` scores an architecture decision with the knowledge-track set -> name the set in domain-modeling § Offer an architecture decision sparingly (AC 1)
+
+## Session Summary — [2026-10-14] [e461b5a..5178b2a]
+- Completed: #168 through the fix lane. The /debug prelude picked the issue's proposed fix after disconfirming two alternatives. 2 TDD rows: red at 237bedd, 13 assertions failing; green at 4264aa8. Plugin bumped to 1.6.2. The quality gate ran Phases 1–3 inline and Phase 4 dispatched (GO; both SHOULD-FIX fixed and re-verified). Receipt d032d845 is GO from a WSL clean clone at the same tree (22/22). On Windows, 104 assertions failed, all also failing at base e461b5a.
+- Pending: none for #168.
+- Carry-forward: `/memory-maintain`'s merge test (`memory-maintain/SKILL.md:98`, "same problem, same root cause") is still bug-shaped. A separate session was started for it. `/quality-gate` Phase 6 still names one shared `outcome.json` (`quality-gate/SKILL.md:291`); see process/name-the-gate-outcome-file-per-session-in-the-shared-receipt-store.md.
+- [ ] Reconcile specs/compound-engineering-adoption.md with current learning-store, review and guard behavior <!-- task-id: spec-reconciliation.specs-compound-engineering-adoption-md --> — The legacy spec was updated for per-track overlap scoring (#168), which triggers its migration (implementation_paths, I… ([spec-reconciliation.specs-compound-engineering-adoption-md](tasks/details/spec-reconciliation.specs-compound-engineering-adoption-md.md))

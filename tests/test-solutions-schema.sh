@@ -184,6 +184,22 @@ done <<ENUM_EOF
 $ENUM_PAIRS
 ENUM_EOF
 
+# --- Overlap dimensions: one set per track, the same in every copy ----------
+# /learn Step 4 scores a candidate on its own track's dimensions (#168): the
+# bug set alone left a knowledge-track document unable to reach High. The
+# store README and its project-template seed restate both rows verbatim.
+BUG_DIMS='| bug | problem, root cause, solution, files touched, prevention rule |'
+KNOWLEDGE_DIMS='| knowledge | situation (`applies_when`), claim, files or module, rule, consequence |'
+for f in .agents/skills/learn/SKILL.md tasks/solutions/README.md \
+         project-template/tasks/solutions/README.md; do
+  assert_file_contains "$f" "$BUG_DIMS" "overlap dimensions: $f carries the bug-track set"
+  assert_file_contains "$f" "$KNOWLEDGE_DIMS" "overlap dimensions: $f carries the knowledge-track set"
+  assert_prose_contains "$f" "the five dimensions of the candidate's track" \
+    "overlap dimensions: $f scores a candidate on its own track's set"
+  assert_prose_contains "$f" "on the other track scores Moderate at most" \
+    "overlap dimensions: $f caps a cross-track match at Moderate"
+done
+
 # --- Real store: every document in tasks/solutions/ must validate -----------
 if [ -d tasks/solutions ]; then
   REAL="$(validate_store tasks/solutions)"
