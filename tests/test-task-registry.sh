@@ -817,12 +817,17 @@ clean = provider._to_task({
     "number": 1, "title": "clean", "state": "OPEN", "url": "",
     "closedByPullRequestsReferences": [],
 })
-open_pr = provider._to_task({
-    "number": 2, "title": "open pr", "state": "OPEN", "url": "",
-    "closedByPullRequestsReferences": [{"state": "OPEN"}],
-})
-print("clean-pr=" + clean.extra.get("unresolved_linked_pr", "unknown"))
-print("open-pr=" + open_pr.extra.get("unresolved_linked_pr", "unknown"))
+
+
+def linked(references, states):
+    issue = {"number": 2, "state": "OPEN", "closedByPullRequestsReferences": references}
+    return provider._linked_pr_state(issue, states).get("unresolved_linked_pr", "unknown")
+
+
+print("clean-pr=" + linked([], {}))
+print("open-pr=" + linked([{"id": "PR_9"}], {"PR_9": "OPEN"}))
+print("unread-pr=" + linked([{"id": "PR_9"}], {}))
+print("plain-read=" + clean.extra.get("unresolved_linked_pr", "unset"))
 print("identity=" + clean.extra.get("registry_identity", "stable"))
 EOF
 )"
@@ -834,6 +839,10 @@ assert_contains "$github_reference_out" "clean-pr=false" \
   "GitHub: an empty closing-PR set explicitly attests no unresolved PR"
 assert_contains "$github_reference_out" "open-pr=true" \
   "GitHub: an open closing PR is reported as unresolved"
+assert_contains "$github_reference_out" "unread-pr=true" \
+  "GitHub: a closing PR whose state was not read counts as unresolved"
+assert_contains "$github_reference_out" "plain-read=unset" \
+  "GitHub: a plain read carries no linked-PR state -- only select's read looks it up"
 assert_contains "$github_reference_out" "identity=provisional-title-slug" \
   "GitHub: an unmanaged issue exposes its provisional identity"
 
@@ -867,6 +876,33 @@ print("linked=" + tasks[0].extra.get("unresolved_linked_pr", "unset"))
 print("attempts=%d" % len(provider.attempts))
 print("degraded=" + ("yes" if any("closedByPullRequestsReferences" in n for n in provider.limitations) else "no"))
 
+class OlderGh(OldGh):
+    """Rejects every field in `missing`, one per attempt, as gh does."""
+    missing = ("closedByPullRequestsReferences", "stateReason")
+
+    def _run(self, command, check=True):
+        fields = command[command.index("--json") + 1]
+        self.attempts.append(fields)
+        for field in self.missing:
+            if field in fields.split(","):
+                raise ProviderError(
+                    f'github: `gh issue list` exited 1 — Unknown JSON field: "{field}"'
+                )
+        return 0, '[{"number": 7, "title": "old gh", "state": "OPEN", "url": "", "labels": []}]'
+
+
+class NoStateReasonGh(OlderGh):
+    missing = ("stateReason",)
+
+
+older = OlderGh(Config(root=".", repository="owner/repo"))
+print("older-count=%d" % len(older.list_tasks()))
+print("older-attempts=%d" % len(older.attempts))
+print("older-exclusion=%s" % older.linked_pr_exclusion_available())
+no_reason = NoStateReasonGh(Config(root=".", repository="owner/repo"))
+no_reason.list_tasks()
+print("no-reason-exclusion=%s" % no_reason.linked_pr_exclusion_available())
+
 strict = OldGh(Config(root=".", repository="owner/repo"))
 strict.__class__._run = lambda self, command, check=True: (_ for _ in ()).throw(
     ProviderError('github: `gh issue list` exited 1 — Unknown JSON field: "title"')
@@ -886,6 +922,14 @@ assert_contains "$github_old_gh_out" "attempts=2" \
   "GitHub: the field is dropped and the read retried exactly once"
 assert_contains "$github_old_gh_out" "degraded=yes" \
   "GitHub: the dropped field is recorded as a limitation, not silently swallowed"
+assert_contains "$github_old_gh_out" "older-count=1" \
+  "GitHub: a gh missing both optional fields still degrades the read instead of failing it"
+assert_contains "$github_old_gh_out" "older-attempts=3" \
+  "GitHub: each rejected optional field is dropped in turn"
+assert_contains "$github_old_gh_out" "older-exclusion=False" \
+  "GitHub: without its linked-PR fields the in-flight exclusion is unavailable"
+assert_contains "$github_old_gh_out" "no-reason-exclusion=False" \
+  "GitHub: without stateReason a reopened issue cannot be told from a stranded one, so the exclusion is unavailable"
 assert_contains "$github_old_gh_out" "required=refused" \
   "GitHub: an unknown *required* field still fails — only optional ones are dropped"
 

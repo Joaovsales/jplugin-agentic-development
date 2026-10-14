@@ -9,6 +9,7 @@
     task-registry lanes [<lane>]        every lane, or one lane's playbook — what /go matches and records
     task-registry claim <ref> --routine R  write the claim label onto one issue
     task-registry escalate <ref> ...    hold an unresolved investigation and report it
+    task-registry closes <pr>           close what a merged PR's closing keywords left open
 
 Dry-run is the default for every command. `--apply` is the only way anything is
 written, and external writes additionally honour `require_write_approval`.
@@ -44,6 +45,7 @@ from registry.config import (  # noqa: E402
     select_provider,
     skill_on_disk,
 )
+from registry.closure import close_merged  # noqa: E402
 from registry.lanes import LaneCatalogueError, catalogue  # noqa: E402
 from registry.providers import build_provider  # noqa: E402
 from registry.providers.base import (  # noqa: E402
@@ -65,6 +67,7 @@ from registry.routines import (  # noqa: E402
     routine_for_label,
     select_candidates,
     select_routine,
+    stranded,
     unclassified,
 )
 from registry.redaction import Redactor, redactor_for  # noqa: E402
@@ -72,7 +75,7 @@ from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
     "show", "doctor", "upsert", "selectors", "select", "claim", "workflow", "escalate",
-    "lanes",
+    "lanes", "closes",
 )
 
 
@@ -85,7 +88,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("command", choices=COMMANDS)
     parser.add_argument(
         "task_id", nargs="?",
-        help="task id, required by `show`; issue ref for `claim` and `workflow`; lane name for `lanes`"
+        help="task id, required by `show`; issue ref for `claim` and `workflow`; lane name "
+        "for `lanes`; merged pull request for `closes`"
     )
     parser.add_argument("--repo", default=".", help="project root (default: cwd)")
     parser.add_argument(
@@ -348,6 +352,8 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _workflow(registry, args.task_id)
     if command == "escalate":
         return escalate_task(registry, args.escalation_request, apply_writes)
+    if command == "closes":
+        return close_merged(registry, args.task_id)
     # argparse's `choices` already refuses anything outside COMMANDS, so this is
     # unreachable from the CLI. It exists so that adding a command to COMMANDS
     # and forgetting to dispatch it fails by name instead of unpacking None.
@@ -523,7 +529,7 @@ def _select(registry: Registry, routine):
     if code:
         return verdict, code
 
-    tasks = registry.provider.list_tasks()
+    tasks = registry.provider.list_tasks_with_linked_prs()
 
     if registry.provider.result_truncated:
         return (
@@ -536,12 +542,18 @@ def _select(registry: Registry, routine):
     if registry.provider.linked_pr_exclusion_available() is False:
         return (
             f"task-registry: refusing to select — {registry.provider.name} could not "
-            "report linked pull request state (`closedByPullRequestsReferences` needs "
-            "gh >= 2.73.0), so the in-flight exclusion cannot be evaluated. Selecting "
-            "anyway re-picks every issue already under review and races on its branch."
+            "report linked pull request state (`closedByPullRequestsReferences` and "
+            "`stateReason` need gh >= 2.73.0), so the in-flight exclusion cannot be "
+            "evaluated. Selecting anyway re-picks every issue already under review and "
+            "races on its branch."
         ), 1
 
     lines = [f"unclassified:  {len(unclassified(tasks, config))} open issue(s) carry no kind label"]
+    for task, pull in stranded(tasks):
+        lines.append(
+            f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
+            f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"
+        )
     candidates = select_candidates(tasks, config, routine)
     if not candidates:
         lines.append(f"candidate:     none — {routine} has nothing to claim")
