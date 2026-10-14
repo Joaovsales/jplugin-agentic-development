@@ -24,24 +24,27 @@ done
 # Phase 2 merged a pair only on "same problem, same root cause", and no
 # knowledge-track document carries a root cause, so a duplicate decision or
 # pattern could never merge. Both passes now score a pair on /learn Step 4,
-# which owns the per-track sets (#168); the reference names Step 4's live
-# heading, so renaming that heading fails here instead of leaving a dead pointer.
-step4=$(tr -d '\r' < .agents/skills/learn/SKILL.md | sed -n 's/^### \(4\. Score Overlap.*\)$/\1/p')
+# which owns the per-track sets (#168). The heading and the High band are read
+# from Step 4 itself, so renaming the heading or moving the band fails here
+# instead of leaving a dead pointer or a stale copy.
+learn=$(tr -d '\r' < .agents/skills/learn/SKILL.md)
+step4=$(printf '%s\n' "$learn" | sed -n 's/^### \(4\. Score Overlap.*\)$/\1/p')
+high_band=$(printf '%s\n' "$learn" | sed -n 's/^| High | \([^|]*[^ |]\) *|.*/\1/p')
 assert_contains "$step4" "Score Overlap Before Writing" \
   "merge test: /learn Step 4 carries the heading the reference names"
 assert_prose_contains "$A" "Step 4 (§ $step4)" \
   "merge test: $A scores a pair on /learn Step 4"
-assert_prose_contains "$A" "merge only on a High score" \
-  "merge test: $A merges only on a High score"
-assert_prose_contains "$A" "4 or 5 of the five dimensions, the >70% threshold" \
-  "merge test: $A restates the >70% threshold on the five-dimension scale"
+assert_prose_contains "$A" "High is $high_band of the five dimensions, the >70% threshold" \
+  "merge test: $A restates Step 4's High band ($high_band) as the >70% threshold"
 assert_prose_contains "$A" "a pair on different tracks never merges" \
   "merge test: $A never merges across tracks"
 assert_prose_contains "$A" "passes the Phase 2 merge test" \
   "merge test: the light pass applies the Phase 2 merge test"
-phase2=$(awk '/^## Phase 2/{p=1} /^## Phase 3/{p=0} p' "$A")
-assert_contains "$phase2" "apply the **merge test**:" \
-  "merge test: Phase 2 defines the name the light pass cites"
+# The category condition lives inside the merge test, not in Phase 2's pair
+# filter, so the light pass, which cites the test, applies it too.
+phase2=$(awk '/^## Phase 2/{p=1} /^## Phase 3/{p=0} p' "$A" | tr -s '[:space:]' ' ')
+assert_contains "$phase2" "apply the **merge test**: merge only a pair in the same category, scored High" \
+  "merge test: Phase 2 defines the name the light pass cites, with the category condition inside it"
 assert_file_not_matches "$A" 'same root cause|semantic overlap' \
   "merge test: $A carries no bug-track-only overlap wording"
 
