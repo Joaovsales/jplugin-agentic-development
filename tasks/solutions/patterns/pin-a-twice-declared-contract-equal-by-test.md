@@ -2,9 +2,9 @@
 title: When a contract is declared twice on purpose, pin the two copies equal by test instead of deleting one
 date: 2026-09-16
 problem_type: pattern
-module: tests/test-go-lanes.sh, .agents/skills/go/SKILL.md, .agents/skills/go/lanes/
-tags: [static-pins, drift, information-leakage, prose-contract, skills]
-applies_when: a design review flags the same list or contract written in two places — a summary table an agent reads first and the source it summarises — and removing either copy would cost the reader the overview or the detail
+module: tests/test-go-lanes.sh, .agents/skills/go/SKILL.md, .agents/skills/go/lanes/, tests/test-memory-maintain-doc.sh, .agents/skills/memory-maintain/SKILL.md
+tags: [static-pins, drift, information-leakage, prose-contract, skills, cross-references]
+applies_when: a design review flags the same list or contract written in two places — a summary table an agent reads first and the source it summarises — and removing either copy would cost the reader the overview or the detail; or skill prose cites a heading, table row, command or threshold that another file owns
 ---
 
 ## The pattern
@@ -39,6 +39,28 @@ The corollary bit immediately: `investigate.md`'s *Reply* said a goal could be
 table row does not carry, and the pin failed. The sentence was reworded to
 "goes back through the front door" — the convention is now that a playbook
 never names `/go`, and the pin enforces it as a side effect.
+
+## A pointer is a copy too (2026-10-13)
+
+The same pin applies when one side is a single value another file owns. A pin
+on a literal copy checks the copy against itself: the owner changes, the
+dependent prose goes stale, and the pin still passes. `/memory-maintain` Phase 2
+cites `/learn` Step 4 by heading (`.agents/skills/memory-maintain/SKILL.md:99`).
+Its pin extracts the live heading (`tests/test-memory-maintain-doc.sh:29`) and
+asserts the citation carries it (`:32`), so renaming Step 4 fails the test
+instead of leaving a dead pointer. The same file already read its history-count
+command out of `.agents/hooks/session-start.sh` (`:9`, asserted at `:19`). The
+dispatched design review found the counter-example in the same block. The High
+band "4 or 5 of the five dimensions" is pinned as a literal (`:36`), while its
+owner is `/learn`'s `| High | 4–5 |` row (`.agents/skills/learn/SKILL.md:56`). It
+was reported, not applied, on the branch stacked on #168.
+
+- Extract with `tr -d '\r' <owner | sed -n 's/^…\(value\)…$/\1/p'` (the `tr`
+  matters on a CRLF checkout) and assert the result non-empty, so a renamed
+  source fails loudly instead of yielding an empty needle.
+- Pin a named rule inside the section that defines it (`awk` the section out,
+  `:42`), so the name and its definition move together.
+- Kill one mutant on a scratch copy before trusting the pin.
 
 ## When not to use it
 

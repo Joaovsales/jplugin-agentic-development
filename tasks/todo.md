@@ -1931,3 +1931,14 @@ Filed this sweep:
 - Pending: none for #168.
 - Carry-forward: `/memory-maintain`'s merge test (`memory-maintain/SKILL.md:98`, "same problem, same root cause") is still bug-shaped. A separate session was started for it. `/quality-gate` Phase 6 still names one shared `outcome.json` (`quality-gate/SKILL.md:291`); see process/name-the-gate-outcome-file-per-session-in-the-shared-receipt-store.md.
 - [ ] Reconcile specs/compound-engineering-adoption.md with current learning-store, review and guard behavior <!-- task-id: spec-reconciliation.specs-compound-engineering-adoption-md --> — The legacy spec was updated for per-track overlap scoring (#168), which triggers its migration (implementation_paths, I… ([spec-reconciliation.specs-compound-engineering-adoption-md](tasks/details/spec-reconciliation.specs-compound-engineering-adoption-md.md))
+
+## Lane: fix — /memory-maintain duplicate-merge criterion is bug-track shaped (stacked on #168)
+1. `/debug /memory-maintain duplicate-merge criterion is bug-track shaped (stacked on #168)` — root cause before code; the prelude stops before any edit until a candidate is confirmed, and a constraint in the goal ("don't change code yet", "repro first") is part of its problem statement. Reproduced and progressable work continues; an inconclusive or blocked investigation is held and reported by the canonical escalation owner
+2. `/build` — TDD against the reproduced failure; no fix ships without a failing test that now passes — **non-skippable**
+3. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
+4. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
+
+## Fix: /memory-maintain duplicate-merge criterion is bug-track shaped
+- [x] TDD: tests/test-memory-maintain-doc.sh § merge test — `memory-maintain/SKILL.md` no longer carries "same root cause" or "semantic overlap"; Phase 2 scores a pair on `/learn` Step 4 (§ 4. Score Overlap Before Writing) and merges only on a High score (4–5 of the track's five dimensions, the >70% threshold restated); the light pass applies the Phase 2 merge test; a cross-track pair never merges -> Phase 2 and the light pass reference `/learn` Step 4 instead of restating a bug-track test
+- [x] TDD: none (store doc) -> `tasks/solutions/bugs/learn-overlap-dimensions-only-fit-the-bug-track.md` drops its "Not changed: `/memory-maintain`'s merge test" line and records this fix and its pin (High overlap with #168's document: same problem, root cause, solution and prevention rule)
+- [x] TDD: tests/test-plugin-manifest.sh § 10 version guard — the payload change carries a bump -> `.claude-plugin/plugin.json` 1.6.2 -> 1.6.3 (master carries #286's 1.6.2)

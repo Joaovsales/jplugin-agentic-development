@@ -28,9 +28,10 @@ Runs on **every** invocation (session start + wrap-up). Bounded work only:
   If present, run **Phase 0** now — the bootstrap sweep fires on the first
   invocation that sees the marker, never waiting for the heavy-pass gate.
 - If any document written **this session** duplicates an existing one
-  (same `module` + overlapping `tags` **and** >70% semantic overlap — the
-  migration's generic `module: general` + `migrated` tag alone never qualify),
-  merge into the more specific document and note the merge in its body.
+  (same `module` + overlapping `tags` **and** the pair passes the Phase 2
+  merge test — the migration's generic `module: general` + `migrated` tag
+  alone never qualify), merge into the more specific document and note the
+  merge in its body.
 
 **If `tasks/solutions/` is absent or empty: silent no-op (exit 0, no output) —
 but the glossary marker check above runs regardless. A fresh install has an
@@ -95,11 +96,14 @@ For every document carrying `needs_review: true` (migration output and flagged
 ## Phase 2 — Deduplicate
 
 For each pair of documents in the same category with overlapping `module`/`tags`,
-check semantic overlap (same problem, same root cause, one a subset of the other).
-Merge only if >70% overlap — keep the more specific document, fold in unique
-detail, note `[merged from <slug>]` in the body, and delete the emptied sibling's
-file only after its content is fully absorbed. Fix any inbound cross-links.
-When in doubt, keep separate.
+apply the **merge test**: score the pair the way `/learn` Step 4 (§ 4. Score
+Overlap Before Writing) scores a candidate against an existing document, on the
+five dimensions of their track, and merge only on a High score — 4 or 5 of the
+five dimensions, the >70% threshold on that scale. Step 4 caps a cross-track
+match at Moderate, so a pair on different tracks never merges. Keep the more
+specific document, fold in unique detail, note `[merged from <slug>]` in the
+body, and delete the emptied sibling's file only after its content is fully
+absorbed. Fix any inbound cross-links. When in doubt, keep separate.
 
 ## Phase 3 — Prune Stale and Contradicted Documents
 
