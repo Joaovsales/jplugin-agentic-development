@@ -54,3 +54,11 @@ the same tree (`99744b0`) failed only lane-catalogue AC4 without `gh`, and passe
 38/38 in 83 s with the `gh` wrapper. Run the WSL check *before* writing the receipt:
 re-minting a receipt over an existing one was refused as audit tampering by the
 auto-mode classifier, so the first `write` is the one that stands.
+
+Confirmed again on 2026-10-14 (#168). On Windows, 6/22 affected files failed,
+104 assertions, every one also failing at the base. A WSL clone at the same tree
+passed 22/22 in 76 s, against about 40 minutes on Windows. `receipt.py` stores
+the `tests` object as given (`receipt.py:388`), so that session's outcome
+recorded the WSL exit and kept the Windows run next to it as `host`,
+`windows_exit` and `windows_note`. The receipt shows both runs and never hides
+the Windows exit.
