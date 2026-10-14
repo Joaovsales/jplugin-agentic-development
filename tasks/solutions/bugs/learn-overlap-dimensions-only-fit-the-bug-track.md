@@ -33,6 +33,8 @@ made Step 4's cross-track cap unreachable there, and it would have given
 `/memory-maintain` a merge boundary `/learn` does not have at write time. Step
 4's track cap is now the only boundary in both passes. The pin reads the High
 band and each track's dimension count from Step 4's tables, so neither can
-change under the ">70%" translation unnoticed. Prevention: a skill that scores
+change under the ">70%" translation unnoticed, and the schema test holds
+Phase 2's statement of the cross-track cap to the same constant as Step 4's
+other copies. Prevention: a skill that scores
 or merges on overlap points at Step 4 for the dimension sets and the boundary
 instead of adding its own.

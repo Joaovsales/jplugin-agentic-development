@@ -99,12 +99,12 @@ For each pair of documents with overlapping `module`/`tags`, apply the
 **merge test**: score the pair the way `/learn` Step 4 (§ 4. Score Overlap
 Before Writing) scores a candidate against an existing document, on the five
 dimensions of their track, and merge only on a High score. High is 4–5 of the
-five dimensions, the >70% threshold on that scale. Step 4 caps a cross-track
-match at Moderate, so a pair on different tracks never merges, whatever its
-category. Keep the more specific document,
-fold in unique detail, note `[merged from <slug>]` in the body, and delete the
-emptied sibling's file only after its content is fully absorbed. Fix any
-inbound cross-links. When in doubt, keep separate.
+five dimensions, the >70% threshold on that scale. Under Step 4 a document on
+the other track scores Moderate at most, so a pair on different tracks never
+merges. Keep the more specific document, fold in unique detail, note
+`[merged from <slug>]` in the body, and delete the emptied sibling's file only
+after its content is fully absorbed. Fix any inbound cross-links. When in
+doubt, keep separate.
 
 ## Phase 3 — Prune Stale and Contradicted Documents
 

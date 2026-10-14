@@ -27,7 +27,8 @@ done
 # which owns the per-track sets (#168). The heading, the High band and the
 # number of dimensions per track are read from Step 4 itself, so renaming the
 # heading or changing the band or the scale fails here instead of leaving a
-# dead pointer or a stale ">70%" translation.
+# dead pointer or a stale ">70%" translation. The cross-track cap is pinned with
+# Step 4's other copies in tests/test-solutions-schema.sh § Overlap dimensions.
 learn=$(tr -d '\r' < .agents/skills/learn/SKILL.md)
 step4=$(printf '%s\n' "$learn" | sed -n 's/^### \(4\. Score Overlap.*\)$/\1/p')
 high_band=$(printf '%s\n' "$learn" | sed -n 's/^| High | \([^|]*[^ |]\) *|.*/\1/p')
