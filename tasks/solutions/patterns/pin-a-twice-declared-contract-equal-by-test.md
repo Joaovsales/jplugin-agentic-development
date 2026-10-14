@@ -2,7 +2,7 @@
 title: When a contract is declared twice on purpose, pin the two copies equal by test instead of deleting one
 date: 2026-09-16
 problem_type: pattern
-module: tests/test-go-lanes.sh, .agents/skills/go/SKILL.md, .agents/skills/go/lanes/, tests/test-memory-maintain-doc.sh, .agents/skills/memory-maintain/SKILL.md
+module: tests/test-go-lanes.sh, .agents/skills/go/SKILL.md, .agents/skills/go/lanes/, tests/test-memory-maintain-doc.sh, .agents/skills/memory-maintain/SKILL.md, tests/test-solutions-schema.sh
 tags: [static-pins, drift, information-leakage, prose-contract, skills, cross-references]
 applies_when: a design review flags the same list or contract written in two places — a summary table an agent reads first and the source it summarises — and removing either copy would cost the reader the overview or the detail; or skill prose cites a heading, table row, command or threshold that another file owns
 ---
@@ -46,14 +46,22 @@ The same pin applies when one side is a single value another file owns. A pin
 on a literal copy checks the copy against itself: the owner changes, the
 dependent prose goes stale, and the pin still passes. `/memory-maintain` Phase 2
 cites `/learn` Step 4 by heading (`.agents/skills/memory-maintain/SKILL.md:99`).
-Its pin extracts the live heading (`tests/test-memory-maintain-doc.sh:29`) and
-asserts the citation carries it (`:32`), so renaming Step 4 fails the test
+Its pin extracts the live heading (`tests/test-memory-maintain-doc.sh:33`) and
+asserts the citation carries it (`:38`), so renaming Step 4 fails the test
 instead of leaving a dead pointer. The same file already read its history-count
-command out of `.agents/hooks/session-start.sh` (`:9`, asserted at `:19`). The
-dispatched design review found the counter-example in the same block. The High
-band "4 or 5 of the five dimensions" is pinned as a literal (`:36`), while its
-owner is `/learn`'s `| High | 4–5 |` row (`.agents/skills/learn/SKILL.md:56`). It
-was reported, not applied, on the branch stacked on #168.
+command out of `.agents/hooks/session-start.sh` (`:9`, asserted at `:19`).
+
+**A translation copies every input it rests on (2026-10-14).** Phase 2 restates
+the old ">70%" threshold as Step 4's High band, and that conclusion has three
+inputs from `/learn`: the band (`| High | 4–5 |`,
+`.agents/skills/learn/SKILL.md:56`), the scale (five dimensions per track), and
+the cross-track cap that makes "a pair on different tracks never merges" true.
+On PR #287, three review rounds in a row each found one more unpinned input: the
+band was a literal, then the dimension count, then the cap. Each was fixed only
+after a separate review. The pins now read the band (`:34`) and count each
+track's cells (`:35`, asserted at `:42`), and the cap phrase is one constant
+(`tests/test-solutions-schema.sh:193`) shared by Step 4's three copies and
+Phase 2 (`:205`).
 
 - Extract with `tr -d '\r' <owner | sed -n 's/^…\(value\)…$/\1/p'` (the `tr`
   matters on a CRLF checkout) and assert the result non-empty, so a renamed
@@ -61,6 +69,11 @@ was reported, not applied, on the branch stacked on #168.
 - Pin a named rule inside the section that defines it (`awk` the section out,
   `:42`), so the name and its definition move together.
 - Kill one mutant on a scratch copy before trusting the pin.
+- Before pinning a restatement, list every value it depends on: the number, its
+  scale, and any rule the conclusion follows from. Pin all of them in one pass,
+  and mutate each one, so review does not find them one round at a time.
+- When the owner's value already has a guard that loops over its copies, add the
+  new copy to that guard's constant instead of writing a second extractor.
 
 ## When not to use it
 
