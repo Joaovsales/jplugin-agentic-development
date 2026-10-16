@@ -403,6 +403,12 @@ required later forge gate. Use the design-stack 3D guard to report the
 Do not mark production UI work complete from a plausible browser render alone.
 Tasks with no 3D request or positive brief intent do not invoke img2threejs.
 
+For a UI task that opts into video per the design-stack video guard, run the pinned
+`npx hyperframes@<version>` CLI and report the `prototype` label and the open
+gates (`check`, `render`) when either is incomplete. Do not mark a video
+deliverable production from a plausible preview alone. Tasks with no video
+request do not invoke HyperFrames.
+
 After all tasks are `[x]`:
 
 1. Run the **affected-test command** against the base SHA — every test file the

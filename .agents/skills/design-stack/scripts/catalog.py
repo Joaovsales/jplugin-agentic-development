@@ -25,8 +25,12 @@ def safe_file(path, release):
     return path
 
 
-def source_paths(release):
-    """Find required upstream files once for install validation and catalog reads."""
+def source_paths(release, installed):
+    """Find required upstream files once for install validation and catalog reads.
+
+    `installed` names the sources the manifest or the staged revisions carry; an
+    optional source absent from it is not looked for on disk.
+    """
     release = Path(release)
     sources = release / "sources"
     taste = sorted((sources / "taste/skills").glob("*/SKILL.md"))
@@ -37,7 +41,13 @@ def source_paths(release):
         safe_file(path, release)
     impeccable = safe_file(sources / "impeccable/.agent/skills/impeccable/SKILL.md", release)
     three = safe_file(sources / "three/SKILL.md", release)
-    return taste, references, impeccable, three
+    hyperframes = []
+    if "hyperframes" in installed:
+        safe_file(sources / "hyperframes/skills/hyperframes/SKILL.md", release)
+        hyperframes = sorted((sources / "hyperframes/skills").glob("*/SKILL.md"))
+        for path in hyperframes:
+            safe_file(path, release)
+    return taste, references, impeccable, three, hyperframes
 
 
 def frontmatter(path):
@@ -85,15 +95,21 @@ def archetypes(lines, skill_name, revision, path):
     return found
 
 
+def skill_entry(path, prefix, kind, revision, release):
+    """One catalog entry for a SKILL.md: frontmatter name and description, the directory as fallback."""
+    safe_file(path, release)
+    fields, lines = frontmatter(path)
+    name = path.parent.name
+    return entry(f"{prefix}:{name}", kind, fields.get("name", name),
+                 revision, fields.get("description", ""), path), lines
+
+
 def taste_entries(paths, revision, release):
     entries = []
     for path in paths:
-        safe_file(path, release)
-        fields, lines = frontmatter(path)
-        name = path.parent.name
-        entries.append(entry(f"taste:{name}", "direction", fields.get("name", name),
-                             revision, fields.get("description", ""), path))
-        entries.extend(archetypes(lines, name, revision, path))
+        item, lines = skill_entry(path, "taste", "direction", revision, release)
+        entries.append(item)
+        entries.extend(archetypes(lines, path.parent.name, revision, path))
     return entries
 
 
@@ -105,6 +121,10 @@ def reference_entries(paths, revision, release):
         entries.append(entry(f"reference:{name}", "reference", name,
                              revision, "Design reference", path))
     return entries
+
+
+def hyperframes_entries(paths, revision, release):
+    return [skill_entry(path, "hyperframes", "tool", revision, release)[0] for path in paths]
 
 
 def metadata_commands(metadata, revision, release):
@@ -142,7 +162,7 @@ def build_catalog(release, revisions):
     sources = release / "sources"
     entries = [entry("spatial", "direction", "Spatial", "builtin:v1", "Spatial UI"),
                entry("custom", "direction", "Custom", "builtin:v1", "Owner-authored visual rules")]
-    taste, references, impeccable, three = source_paths(release)
+    taste, references, impeccable, three, hyperframes = source_paths(release, revisions)
     entries.extend(taste_entries(taste, revisions["taste"], release))
     entries.extend(reference_entries(references, revisions["references"], release))
     metadata = release / ".agents/skills/impeccable/scripts/command-metadata.json"
@@ -155,6 +175,8 @@ def build_catalog(release, revisions):
     path = three
     entries.append(entry("three:img2threejs", "tool", "img2threejs",
                          revisions["three"], "Opt-in image-to-3D pipeline", path))
+    if hyperframes:
+        entries.extend(hyperframes_entries(hyperframes, revisions["hyperframes"], release))
     identifiers = [item["id"] for item in entries]
     if len(identifiers) != len(set(identifiers)):
         raise ValueError("catalog contains duplicate IDs")

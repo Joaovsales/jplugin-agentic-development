@@ -1,6 +1,6 @@
 ---
 title: A derived receipt verdict on Windows needs its test phase run under Linux
-date: 2026-09-23
+date: 2026-10-16
 problem_type: process
 module: .agents/skills/quality-gate/scripts/receipt.py § derive_verdict; /quality-gate phase 5
 tags: [quality-receipt, windows, wsl, baseline-failures, tests, verdict]
@@ -38,6 +38,14 @@ provider's" fails, on master too (2026-09-28): the provider's error names the
 missing binary, not `no repository configured`. Put a two-line wrapper on PATH
 that execs the real Windows binary, `/mnt/c/Program Files/GitHub CLI/gh.exe`.
 With it, the same clean clone ran 44/44 affected and 60/60 full.
+
+Confirmed again on 2026-10-16 (HyperFrames build): without the wrapper the
+same control assertion was the one failure in 40 affected files; with
+`/var/tmp/bin/gh` on PATH and `TEST_JOBS=6` the 40 files passed in about 50 s.
+Write the wrapper through a file piped into `wsl -- bash -c 'cat > …'`: a
+`printf` from the Bash tool loses the `"$@"` and Git Bash expands `$PATH`
+on the Windows side. See also
+[cached-suite-keys-on-the-verbatim-command-so-parallelism-comes-from-the-environment](../tooling/cached-suite-keys-on-the-verbatim-command-so-parallelism-comes-from-the-environment.md).
 
 Confirmed again on 2026-10-06 (lane-plan-handover). The Windows affected run
 failed 166 assertions, all also failing on the base SHA, and minted `STOP`. A

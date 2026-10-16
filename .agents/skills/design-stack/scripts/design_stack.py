@@ -20,7 +20,10 @@ SOURCES = {
     "impeccable": "https://github.com/pbakaus/impeccable.git",
     "references": "https://github.com/VoltAgent/awesome-design-md.git",
     "three": "https://github.com/img2threejs/img2threejs.git",
+    "hyperframes": "https://github.com/heygen-com/hyperframes.git",
 }
+# The HyperFrames monorepo keeps regression baselines in Git LFS: clone it shallow and skip the LFS media.
+SHALLOW_NO_LFS_SOURCES = ("hyperframes",)
 HOME = Path(os.environ.get("DESIGN_STACK_HOME", Path.home() / ".local/share/jplugin/design-stack"))
 
 
@@ -39,25 +42,29 @@ def current_manifest():
     manifest = json.loads(path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") not in (0, 1):
         raise ValueError("unsupported design-stack manifest version")
+    unknown = sorted(set(manifest.get("sources", {})) - set(SOURCES))
+    if unknown:
+        raise ValueError(f"unsupported design-stack manifest source: {', '.join(unknown)}")
     release = manifest.get("current", "")
     if not isinstance(release, str) or len(release) != 64 or any(c not in "0123456789abcdef" for c in release):
         raise ValueError("invalid current release pointer")
     location = HOME / "releases" / release
     if Path(manifest.get("catalog_path", "")).resolve() != (location / "sources").resolve():
         raise ValueError("catalog path leaves the verified release")
-    validate(location)
+    validate(location, manifest["sources"])
     build_catalog(location, manifest["sources"])
     if len(installed_entrypoints(location)) < 2:
         raise ValueError("installed design commands are missing")
-    for name in SOURCES:
+    # An older manifest may lack a source SOURCES gained since; only `update` adds it.
+    for name in manifest["sources"]:
         revision = run("git", "-C", str(location / "sources" / name), "rev-parse", "HEAD")
         if manifest.get("sources", {}).get(name) != revision:
             raise ValueError(f"{name} revision differs from manifest")
     return manifest
 
 
-def validate(release):
-    source_paths(release)
+def validate(release, installed):
+    source_paths(release, installed)
 
 
 def stage_release(stage):
@@ -65,7 +72,11 @@ def stage_release(stage):
     for name, url in SOURCES.items():
         url = os.environ.get(f"DESIGN_STACK_{name.upper()}_URL", url)
         path = stage / "sources" / name
-        run("git", "clone", "--quiet", "--", url, str(path))
+        if name in SHALLOW_NO_LFS_SOURCES:
+            run("git", "clone", "--quiet", "--depth", "1", "--", url, str(path),
+                env={**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"})
+        else:
+            run("git", "clone", "--quiet", "--", url, str(path))
         revisions[name] = run("git", "-C", str(path), "rev-parse", "HEAD")
     return revisions
 
@@ -192,7 +203,7 @@ def install_command(previous):
             print(f"Ready {previous['current']} (unchanged)")
             return
         install_skills(stage)
-        validate(stage)
+        validate(stage, revisions)
         build_catalog(stage, revisions)
         result = promote(stage, revisions)
     print(f"Ready {result['current']}")
@@ -221,7 +232,9 @@ def main():
             elif args.action == "status" or (args.action == "setup" and previous):
                 if not previous:
                     raise ValueError("run design-stack setup before UI work")
-                print(f"Ready {previous['current']} (offline)")
+                missing = [name for name in SOURCES if name not in previous["sources"]]
+                added = f"; update adds: {', '.join(missing)}" if missing else ""
+                print(f"Ready {previous['current']} (offline{added})")
             else:
                 install_command(previous)
         return 0
