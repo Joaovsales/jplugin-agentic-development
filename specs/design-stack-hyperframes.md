@@ -11,7 +11,7 @@ implementation_paths:
 
 # Spec: HyperFrames as a fifth design-stack source
 
-> Origin: `/yolo` idea (2026-10-16) · Designed 2026-10-16 · Status: planned
+> Origin: `/yolo` idea (2026-10-16) · Designed 2026-10-16 · Status: implemented 2026-10-16
 > Parent spec: specs/ui-design-stack.md (the stack this extends)
 
 ## Summary
