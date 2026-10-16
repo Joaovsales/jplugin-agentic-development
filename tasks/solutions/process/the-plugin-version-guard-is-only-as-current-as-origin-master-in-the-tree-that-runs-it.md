@@ -27,9 +27,12 @@ and the real base 080484d, failed the one assertion: `payload changed since
   .agents/skills .agents/hooks .agents/references hooks` non-zero means a bump
   is due.
 - A suite run in any tree other than the GitHub-tracking checkout proves the
-  guard only if that tree's `origin/master` is current. Either fetch it first or
-  run the suite with `PLUGIN_VERSION_BASE=$(git merge-base HEAD origin/master)`
-  taken from the real checkout, so the guard compares against the true base.
+  guard only if that tree's `origin/master` is current: fetch it first
+  (`git fetch origin +refs/remotes/origin/master:refs/remotes/origin/master` from
+  a clone of the local checkout). `PLUGIN_VERSION_BASE` is for one targeted run
+  of `tests/test-plugin-manifest.sh`, never exported around the whole suite — it
+  also overrides the base inside the test's fixture repositories and fails three
+  of its own assertions (observed 2026-10-16).
 - Read the guard's own `ok:` line in the log (`ok: <old> -> <new>`): an `old`
   far below the current release means the base is stale and the pass is void.
 
