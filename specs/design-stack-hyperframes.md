@@ -45,8 +45,10 @@ IDs today.
 
 A new guard, `scripts/hyperframes.py`, answers two questions the skill text
 asks agents to settle before touching video: whether the task opts into
-HyperFrames (an explicit request for a video, an MP4, motion graphics, an
-explainer or a render, not a plain UI motion rule), and whether a render is
+HyperFrames (an explicit request in the task for a video, an MP4, motion
+graphics or an explainer video, or a Motion rule that names HyperFrames; never
+a bare `render`, which ordinary UI tasks use, and never a Motion rule that only
+mentions an existing video element), and whether a render is
 production or still a `prototype` (the composition passes `hyperframes check`
 and an MP4 was rendered). It also reads the pinned CLI version from the
 release's `packages/cli/package.json`, so an agent runs
@@ -99,7 +101,8 @@ no `hyperframes:` entries, and `status` names the source an `update` would add.
   revision comparison treats the missing key as changed, so the installers run
   and the new release carries five revisions.
 - The task text "no video" or "remove the video" does not opt in; a Motion
-  rule that only describes UI easing does not opt in.
+  rule that only describes UI easing, or that mentions a video element without
+  naming HyperFrames, does not opt in; "fix the re-render flicker" does not opt in.
 - `hyperframes.py` never runs the CLI or touches the network; the production
   gates are facts the agent records after running `hyperframes check` and
   `hyperframes render` itself.
@@ -121,10 +124,11 @@ no `hyperframes:` entries, and `status` names the source an `update` would add.
 | 3 | Does an installer run? | No. Source is read in place like references and img2threejs | assumed | The upstream plugin install (`claude plugin install hyperframes@hyperframes`) writes into the user's live Claude config, which the stack's isolation rule forbids |
 | 4 | What happens to a manifest with four sources? | It stays valid offline; `status` names what `update` adds; `update` adds it | assumed | The conservative reading of "update only after an explicit request": a plugin upgrade must not force network work on every status call |
 | 5 | How is the clone bounded? | `--depth 1` and `GIT_LFS_SKIP_SMUDGE=1` for `hyperframes` only | assumed | The repo carries LFS baselines under `packages/producer/tests/`; the other sources are small and keep today's behavior |
-| 6 | Does the brief change? | No template or version change; `hyperframes:` joins the rejected-primary prefixes | assumed | The brief stores opaque IDs and the parent spec's D4 keeps v1; a video intent is a task-level opt-in, not a brief field |
+| 6 | Does the brief change? | No template or version change; the brief accepts only `spatial`, `custom` and `taste:` IDs as its direction, so a `hyperframes:` ID is refused | assumed | The brief stores opaque IDs and the parent spec's D4 keeps v1; a video intent is a task-level opt-in, not a brief field |
 | 7 | How does an agent pick the CLI version? | `hyperframes.py cli_version` reads `packages/cli/package.json` from the release and the skill tells agents to run `npx hyperframes@<version>` | assumed | The release pins a source revision; running `latest` would silently drift from it |
 | 8 | Which gates mark a render production? | `check` (the composition passes `hyperframes check`) and `render` (an MP4 exists) | assumed | Mirrors the 3D guard's two-gate shape; both are commands the upstream CLI documents |
 | 9 | Do the frontend agent personas change? | No | assumed | Minimal impact: the build skill already routes design-stack guards; the personas read `DESIGN.md`, which is unchanged |
+| 10 | Which words opt a task in? | `video`, `mp4`, `motion graphics`, `explainer video/clip/animation` or `hyperframes` in the task; the brief's Motion rule opts in only by naming HyperFrames | assumed | A bare `render` or `explainer` matches ordinary UI work ("fix the re-render flicker", "explainer tooltip"), and a Motion rule that mentions an existing video element would opt every task on the project into video (the quality gate's design review, 2026-10-16) |
 
 ## Build Order
 

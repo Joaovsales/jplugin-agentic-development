@@ -22,8 +22,8 @@ SOURCES = {
     "three": "https://github.com/img2threejs/img2threejs.git",
     "hyperframes": "https://github.com/heygen-com/hyperframes.git",
 }
-# The HyperFrames monorepo keeps regression baselines in Git LFS: clone it shallow, without LFS media.
-SHALLOW_SOURCES = ("hyperframes",)
+# The HyperFrames monorepo keeps regression baselines in Git LFS: clone it shallow and skip the LFS media.
+SHALLOW_NO_LFS_SOURCES = ("hyperframes",)
 HOME = Path(os.environ.get("DESIGN_STACK_HOME", Path.home() / ".local/share/jplugin/design-stack"))
 
 
@@ -51,7 +51,7 @@ def current_manifest():
     location = HOME / "releases" / release
     if Path(manifest.get("catalog_path", "")).resolve() != (location / "sources").resolve():
         raise ValueError("catalog path leaves the verified release")
-    validate(location)
+    validate(location, manifest["sources"])
     build_catalog(location, manifest["sources"])
     if len(installed_entrypoints(location)) < 2:
         raise ValueError("installed design commands are missing")
@@ -63,8 +63,8 @@ def current_manifest():
     return manifest
 
 
-def validate(release):
-    source_paths(release)
+def validate(release, installed):
+    source_paths(release, installed)
 
 
 def stage_release(stage):
@@ -72,7 +72,7 @@ def stage_release(stage):
     for name, url in SOURCES.items():
         url = os.environ.get(f"DESIGN_STACK_{name.upper()}_URL", url)
         path = stage / "sources" / name
-        if name in SHALLOW_SOURCES:
+        if name in SHALLOW_NO_LFS_SOURCES:
             run("git", "clone", "--quiet", "--depth", "1", "--", url, str(path),
                 env={**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"})
         else:
@@ -203,7 +203,7 @@ def install_command(previous):
             print(f"Ready {previous['current']} (unchanged)")
             return
         install_skills(stage)
-        validate(stage)
+        validate(stage, revisions)
         build_catalog(stage, revisions)
         result = promote(stage, revisions)
     print(f"Ready {result['current']}")

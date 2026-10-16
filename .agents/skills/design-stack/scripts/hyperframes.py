@@ -4,19 +4,20 @@ import json
 import re
 from pathlib import Path
 
-_TERM = r"(?:video|mp4|motion graphics|explainer|render)"
+_TERM = r"(?:video|mp4|motion graphics|explainer (?:video|clip|animation)|hyperframes)"
 
 
 def _asks_for_video(text):
-    """An explicit video, MP4, motion-graphics, explainer or render request; a negation just before it cancels."""
+    """An explicit video, MP4, motion-graphics or explainer-video request; a negation just before it cancels."""
     requested = bool(re.search(rf"\b{_TERM}\b", text, re.IGNORECASE))
     negated = re.search(rf"\b(remove|disable|avoid|no|without|drop)\b.{{0,20}}\b{_TERM}\b", text, re.IGNORECASE)
     return requested and not negated
 
 
 def should_run_hyperframes(task, brief_motion):
-    """Only an explicit video request in the task or the Motion rule opts in; UI easing never does."""
-    return _asks_for_video(task) or _asks_for_video(brief_motion)
+    """Only an explicit video request in the task, or a Motion rule that names HyperFrames, opts in."""
+    directed = bool(re.search(r"\bhyperframes\b", brief_motion, re.IGNORECASE))
+    return _asks_for_video(task) or directed
 
 
 def production_status(gates):

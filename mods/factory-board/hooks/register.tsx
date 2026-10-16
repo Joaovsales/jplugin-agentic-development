@@ -38,10 +38,21 @@ function stageOf(card: Card, isAsking: boolean): Stage {
   return stageOfType(card.type)
 }
 
-function statusOf(engineStatus: string): Card['status'] {
-  if (engineStatus === 'running' || engineStatus === 'pending' || engineStatus === 'queued') return 'running'
-  if (engineStatus === 'completed') return 'done'
-  return 'failed'
+function statusOf(engineStatus: AgentInfo['status']): Card['status'] {
+  switch (engineStatus) {
+    case 'pending':
+    case 'running':
+    case 'waiting':
+    case 'idle':
+      return 'running'
+    case 'completed':
+      return 'done'
+    case 'failed':
+    case 'killed':
+      return 'failed'
+    default:
+      return engineStatus satisfies never
+  }
 }
 
 function countAmbiguities(answer: string): number {
@@ -70,11 +81,14 @@ function seconds(ms: number | undefined): string {
   return ms === undefined ? '' : ` · ${Math.round(ms / 1000)}s`
 }
 
-/** Fold the engine's own agent list into the cards: new agents join, statuses follow the engine. */
+/**
+ * Fold the engine's own agent list into the cards: new agents join and running cards follow the
+ * engine. A card already done or failed keeps the status its turn.complete recorded.
+ */
 function merge(known: Card[], live: AgentInfo[]): Card[] {
   const next = known.map(card => {
     const agent = live.find(one => one.id === card.agentId)
-    if (agent === undefined) return card
+    if (agent === undefined || card.status !== 'running') return card
     const status = statusOf(agent.status)
     return status === card.status ? card : { ...card, status }
   })
@@ -82,7 +96,6 @@ function merge(known: Card[], live: AgentInfo[]): Card[] {
     if (next.some(card => card.agentId === agent.id)) continue
     next.push({
       agentId: agent.id,
-      toolUseId: '',
       type: agent.type,
       description: agent.description,
       parentAgentId: agent.parentId,
@@ -212,7 +225,7 @@ export const register: Register = on => {
                     onPress={() => {
                       // Select it (again to clear) and bring its spawning row into view.
                       void update($, selected, current => (current === card.agentId ? null : card.agentId))
-                      if (card.toolUseId !== '') {
+                      if (card.toolUseId !== undefined) {
                         $.ui
                           .scroll({ to: { requestId: card.toolUseId }, block: 'center' })
                           .catch((reason: unknown) =>

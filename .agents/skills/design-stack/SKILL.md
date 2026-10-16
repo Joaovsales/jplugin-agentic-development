@@ -128,8 +128,10 @@ and list failed/open gates until both stages pass.
 ## Opt-in video
 
 Use HyperFrames only when the task explicitly requests a video, an MP4, motion
-graphics, an explainer or a render. A negation such as "remove the video" and a
-plain UI easing rule in the brief's motion section are not an opt-in. The
+graphics or an explainer video, or when the brief's Motion rule names HyperFrames.
+A negation such as "remove the video", a bare `render` ("fix the re-render
+flicker") and a Motion rule that only describes UI easing or an existing video
+element are not an opt-in. The
 `scripts/hyperframes.py` guard reports this through
 `should_run_hyperframes(task, brief_motion)`. Read the verified release's
 `sources/hyperframes/skills/hyperframes/SKILL.md` router and the skill it names;

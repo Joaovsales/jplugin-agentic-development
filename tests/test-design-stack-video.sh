@@ -21,11 +21,16 @@ from hyperframes import cli_version, production_status, should_run_hyperframes
 
 assert should_run_hyperframes("Render a 30s product launch video", "")
 assert should_run_hyperframes("Export an MP4 of the intro", "")
-assert should_run_hyperframes("Improve layout", "Render a 15s MP4 for the hero.")
+assert should_run_hyperframes("Improve layout", "Hero intro: a 15s MP4 rendered with HyperFrames.")
+assert should_run_hyperframes("Cut an explainer video for onboarding", "")
 assert not should_run_hyperframes("Smooth the hover transition", "Ease-out 200ms on hover")
 assert not should_run_hyperframes("Improve layout", "Ease-out 200ms on hover transition")
 assert not should_run_hyperframes("Remove the video hero", "")
 assert not should_run_hyperframes("No video on this page", "")
+assert not should_run_hyperframes("Fix the re-render flicker on hover", "")
+assert not should_run_hyperframes("Server-render the sidebar list", "")
+assert not should_run_hyperframes("Add an explainer tooltip", "")
+assert not should_run_hyperframes("Improve layout", "Hero keeps the looping background video; 200ms ease-out on hover")
 assert production_status({"check": True, "render": False})["label"] == "prototype"
 assert production_status({"check": False, "render": True})["label"] == "prototype"
 assert production_status({"check": True, "render": True})["label"] == "production"
