@@ -432,6 +432,8 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │   ├── AGENTS.md                    ← Agent reference documentation
 │   ├── settings.json                ← env + plugin declaration (no hooks — see hooks/hooks.json)
 │   └── agents/                      ← 8 specialized subagents
+├── mods/
+│   └── factory-board/               ← Claude Code mod: Kanban pane of the session's sub-agents (see its README)
 ├── tasks/
 │   ├── todo.md                      ← Active task plan
 │   ├── history.md                   ← Session narrative log
