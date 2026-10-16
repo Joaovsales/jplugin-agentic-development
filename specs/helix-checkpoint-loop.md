@@ -6,7 +6,7 @@ implementation_paths:
   - .agents/skills/go/SKILL.md
   - .agents/skills/task-registry/lanes/helix.md
   - .agents/skills/slice/**
-  - .agents/skills/build/SKILL.md
+  - .agents/skills/build/**
   - .agents/skills/wrap-up-session/**
   - .agents/hooks/session-stop.sh
   - .claude-plugin/plugin.json
@@ -17,7 +17,7 @@ implementation_paths:
 
 # Spec: Helix checkpoint loop
 
-> Origin: conversation · Designed 2026-10-04 · Review status: **stack review revised; 3 blocking findings addressed, 0 declined**
+> Origin: conversation · Designed 2026-10-04 · Review status: **portable worker review revised; 3 findings applied, 0 declined**
 > Visual: specs/helix-checkpoint-loop.plan.html
 
 ## Problem
@@ -40,10 +40,12 @@ Agents building features through this template currently close slices after TDD 
 | Stack merge policy | A stacked run never rewrites published slice commits. Parent PRs use merge commits; squash/rebase merge, force push, unavailable merge-commit policy or unverifiable ancestry blocks stack advancement | inferred | merge-strategy, rewritten-SHA and ancestry fixtures |
 | Parallel work | Disjoint ready slices may implement in separate worktrees; the orchestrator integrates them in table order and records a barrier for the exact merged slice set and combined source tree before dependent work advances | inferred | two-worktree merge and stale-barrier fixtures |
 | Shared run writes | Workers edit only their declared source Surface and produce private evidence drafts. The orchestrator alone writes `tasks/todo.md`, `run.json`, final slice evidence and commits on the integration branch | inferred | parallel shared-file collision fixture |
+| Worker backend | `/build --worker-backend` accepts `auto`, `native` or `orca` and selects execution transport, not a gate policy. `auto` prefers a verified Orca orchestration runtime for this worktree, then a capable host-native dispatch; explicit `orca` refuses when unavailable. No selection weakens isolation, review or evidence rules | user | capability, selection and refusal fixtures |
+| Runtime portability | Planning works without a worker runtime. Building requires repository write access, Git, test execution, isolated reviewer contexts and a supported worker backend; a host lacking these blocks the build with missing capabilities rather than pretending Helix ran | inferred | no-runtime and partial-capability fixtures |
 | Owner authority | A next-N grant comes from a role-tagged owner turn exposed by the active host; an agent-authored record or unverified imported transcript cannot create one. Across sessions, a grant needs host-verifiable provenance or the owner must reissue it | inferred | role/provenance and resume fixtures |
 | UI reference | A migration uses the existing app; a visually significant new feature uses an approved interactive prototype; a localized UI change may use the approved `DESIGN.md` and concept; logic-only slices record a UI skip reason | user | prototype and visual-gate fixtures |
 | UI evidence retention | Gate 2 keeps capture hashes and local paths per candidate; wrap-up publishes the retained captures with the existing PR visual-evidence mechanism, or leaves the UI task open when publication is unavailable | inferred | publication fixture with two slice captures |
-| Harness support | Gate advancement works in Claude Code, Codex and Pi without a Stop hook; a Claude Stop hook may prompt continuation but permits `waiting_human` and `blocked` stops | inferred | CLI and Stop-hook fixtures |
+| Harness support | Gate advancement is host-neutral where the host exposes repository, Git and test tools; Claude Code, Codex and Pi use the local CLI without a Stop hook, while Claude Desktop or claude.ai may build only when their connected tools meet the same capability contract. A Claude Stop hook may prompt continuation but permits `waiting_human` and `blocked` stops | user | CLI, capability and Stop-hook fixtures |
 | Test economy | Each review unit uses affected tests at slice/integration checkpoints and the existing cached full suite before its PR push; the final integrated tree is checked again after retargeting the last PR | user | per-unit command-count and retarget fixtures |
 
 ## System design
@@ -67,12 +69,15 @@ spec § Build Order ──► slice.py ready ──► [x] header + done blocker
 | `specs/<feature>.md` | Helix activation, acceptance criteria, reference/prototype digest and Build Order | Design brief and approved concept |
 | `tasks/todo.md` | Slice task status and handovers | Spec and registry task IDs |
 | `tasks/helix/<feature>/run.json`, **NEW** | Run activation, owner grants and final integrated review | Spec digest and host role-tagged owner turns |
+| Git common dir `helix-worker-attempts/`, **NEW** | Local attempt identity, chosen backend and result acceptance; operational state, never a gate receipt | Run/slice IDs and backend observations |
 | `tasks/helix/<feature>/barriers/<id>.json`, **NEW** | Exact merged-set integration result for one combined candidate | Integrated commits, affected tests and quality receipt |
 | Spec § Build Order `Review units`, **NEW** | Ordered unit IDs, exact slice ranges and parent unit relation; absent means one PR | Slice table and owner-selected review boundaries |
 | GitHub PRs | Live PR number, base/head, draft/merge state, checks and review history | The declared unit chain; never inferred from a stale local cache |
 | Helix gate CLI, **NEW** | Versioned per-slice evidence, gate transitions, grant scope and closed-slice verification | Run, spec, todo, test output, UI manifest and quality receipt |
 | `/slice` | Dependency graph, surface validation and ready set | Todo statuses and Helix gate verification for marked plans |
 | `/build` | Fresh test-planner and implementer dispatch, repair loop, one commit per cleared slice and review-unit boundary | Ready set, gate outcomes, reviewer findings and declared unit mapping |
+| Worker backend adapter, **NEW** | Capability probing and supervised slice-attempt lifecycle for `native` or optional `orca`; never gate verdicts | Pinned integration SHA, slice ID, Surface, task/spec digest, backend preference and local attempt record |
+| Orca orchestration, optional | Live Dispatch, request and worker liveness when Orca was selected; its state is re-queried after timeouts | Dispatch/request IDs from the local attempt record |
 | `/quality-gate` | Existing GO/HOLD/STOP policy and tree-bound review receipt | Changed code and reviewer evidence |
 | `prototype` skill, **NEW** | Interactive reference HTML and declared UI states before implementation | `DESIGN.md`, approved concept and spec |
 | `tasks/solutions/` | Reusable corrections and decisions | Slice feedback and source evidence |
@@ -109,6 +114,7 @@ owner ──explicit Helix request──► /go Helix lane (NEW)
 | `/build` → gate CLI | sync, local | Refuse the current slice; preserve recorded evidence for resume | Recheck the same evidence, never add a second approval |
 | Gate CLI → tests | sync, local | Record command and nonzero exit; gate stays open | Same command and candidate tree may reuse a green cached run |
 | `/build` → reviewer agents | async dispatch | Mark `blocked` after the existing retry ladder; no fabricated verdict | A reviewer ID and candidate fingerprint identify one verdict |
+| `/build` → worker backend | async attempt, private checkout | On unknown liveness retain and re-query the same attempt; no retry or backend switch until failure/stop is positively settled; terminal exit alone never clears a gate | Stable run/slice/attempt ID and pinned base SHA prevent duplicate editing |
 | Owner → human gate | async conversation | `waiting_human`; the session may end without advancing | The same grant ID applies only to its named slices once |
 | Worktree → integration branch | sync Git operation, serialized by orchestrator | Merge conflict or failed central test blocks dependent slices | Reapplying a merged slice is refused by its stable slice/task ID |
 | Unit branch → GitHub PR | async network call | `unknown`: re-query by head/base before retry; leave this unit and descendants draft/blocked if state remains unknown | Find the existing PR by exact head/base and unit ID; never create a second PR |
@@ -123,6 +129,7 @@ owner ──explicit Helix request──► /go Helix lane (NEW)
 - An unavailable screenshot publication path leaves the UI task open under the existing visual-evidence policy, even if local comparison passed.
 - An upstream PR change blocks this unit's ready-for-review state until the parent is merged into its branch and its combined-tree checks rerun. A blocked unit does not erase already valid slice receipts on preserved commits.
 - A failed, unknown or non-preserving PR merge blocks descendants; unrelated slices already under development can retain drafts, but no dependent PR is reported merge-ready.
+- Orca absence before dispatch selects `native` only in `auto` mode and only when native capabilities pass. An explicit `orca` request refuses. A launched worker with unknown or unverifiable liveness is never retried or replaced; a positively confirmed stop/failure and inspection of private changes are required before a new attempt.
 
 ## Component contracts
 
@@ -140,6 +147,25 @@ spec frontmatter: workflow: helix/1
 | Raises | Unknown workflow version is a planning/build refusal, never a fallback to ordinary build |
 | Idempotency | Replanning the same spec updates its Build Order and plan block in place |
 | Versioning | Missing marker means legacy; `helix/1` is the first supported opt-in version |
+
+### Slice worker execution
+
+```text
+/build --worker-backend auto|native|orca
+dispatch(slice_id, pinned_base_sha, Surface, task_digest, timeout) -> attempt_id
+observe(attempt_id) -> running | reported | failed | stopped | unknown
+collect(attempt_id) -> source_delta, draft_evidence, bounded_log_pointer | refused
+```
+
+| Aspect | Contract |
+|--------|----------|
+| Inputs | The build prompt or `/build` argument chooses `auto` (default), `native` or `orca`; each attempt receives exact run/slice IDs, immutable base SHA, declared Surface, task/spec digest, role and bounded work budget. The selector is execution configuration, never part of `workflow: helix/1` or a second gate policy. |
+| Outcomes | `native` uses the host's existing isolated subagent/worktree path. `orca` uses supervised Orca orchestration with a distinct child worktree and a Dispatch ID, addressing the worker through orchestration rather than a terminal handle; a user launch setting may create a PTY or no terminal. `auto` chooses Orca only after a read-only probe confirms a running matching Orca worktree and the ability to start a worker in a separately verified checkout; otherwise it chooses capable native dispatch and reports the choice. |
+| Raises | Explicit `orca` with unavailable runtime or mismatched repository refuses before dispatch. `auto` with neither capable backend blocks and lists missing capabilities. A host without repository write, Git, tests or independent reviewer contexts may plan and inspect evidence but cannot claim a completed build. A process exit, `worker_done` report or worker-supplied evidence is never a Helix gate verdict. |
+| Idempotency | The orchestrator persists an attempt ID, backend identity, pinned SHA, backend request/Dispatch ID, lifecycle state and bounded log/result pointers under the Git common dir, outside worker checkouts. The attempt ID is the retry key; only the current attempt's result can be accepted for a slice. A new attempt is permitted only after the prior worker is positively confirmed failed or stopped and its private changes are inspected. Orca request lookup resolves ambiguous network results before mutation is repeated; contact loss or `unverifiable` is never proof of stop. |
+| Versioning | Worker transport contract `helix-worker/1` is independent of evidence schema `helix-evidence/1`; a backend can be added without changing slice receipts. An ordinary build without the Helix marker retains its existing dispatch behavior unless the user explicitly invokes a supported backend. |
+
+The orchestrator writes a `created` attempt and stable request ID before calling an external launcher; if it crashes between the local write and Orca's response, it queries that request ID before retrying. The local record owns result acceptance, while Orca owns live Dispatch state; an old local observation never proves a worker stopped. The orchestrator pins all parallel workers in a wave to the same integration commit and verifies each returned delta against that SHA and Surface before serial integration. Orca `--base-branch` chooses a ref but does not prove the exact SHA. Because `worker-start --spec` creates the worktree and sends the task in one operation, the adapter must create and verify the child worktree at the pinned SHA **before** starting a worker in that exact checkout; if the installed runtime cannot target the verified checkout, the Orca backend refuses before dispatch. It verifies the returned delta's base independently. Only the orchestrator writes shared plan/run state, authoritative evidence, commits and barriers. Reviewer contexts and owner-role checks remain separate from implementer worker transport. A host-native backend may run slices sequentially when it cannot provide safe parallel worktrees, but it must still provide the required independent reviewers and tests. No host is assumed to expose local terminals merely because it can display the spec; this includes Claude Desktop and claude.ai configurations.
 
 ### Gate evidence and advancement
 
@@ -234,6 +260,7 @@ Intermediate unit PRs can be reviewed while later units are built. The final uni
 |-------|------|-----------|-------------|
 | `workflow` | `helix/1` or absent | An active Helix run never silently downgrades when the marker disappears | gate CLI activation check |
 | `run` | `tasks/helix/<feature>/run.json` | Holds activation and final review only; slice completion remains in todo and proof remains in slice files | versioned run validator |
+| `worker_attempt` | Git common dir `helix-worker-attempts/<run>/<slice>/<attempt>.json`, schema `helix-worker/1`: IDs, backend, pinned SHA, Surface/task digests, backend Dispatch/request ID, state and bounded pointers | Operational state survives a local orchestrator restart without becoming gate evidence; only the current settled attempt's result may be accepted | backend adapter and resume preflight |
 | `slice_id` | stable task ID plus slice number | Matches spec Build Order and todo heading | `slice.py` validation and gate CLI |
 | `candidate` | Surface manifest hash + slice-contract/prototype/policy digests | Evidence refers to the code and requirements each gate examined; `tasks/**` bookkeeping cannot stale it | gate CLI fingerprint validation |
 | `gate` | behavior, UI, review, human | Every required gate has producer, outcome, evidence path/hash and timestamp | `helix-evidence/1` validator |
@@ -254,9 +281,23 @@ Intermediate unit PRs can be reviewed while later units are built. The final uni
 | Human `approved` produced by the agent or a grant outside its exact slice set | host owner-role check and grant-scope validation; unverifiable resumed grants expire |
 | New candidate bytes with old behavior, UI or reviewer evidence | candidate fingerprint check and downstream invalidation |
 | Complete slice with failed test, missing handover, or unmerged parallel integration | close/ready and committed integration-barrier validation |
+| Two live attempts edit one slice, or a worker report closes a gate | one unsettled attempt per slice; orchestrator-only evidence and close validation |
 | Two PRs for one unit, a child PR based on the wrong parent, or a unit missing a slice | stable branch/PR lookup and review-unit coverage validation |
 | Child PR ready while parent is unmerged or parent head changed | draft-state and base/head checks before ready transition |
 | Stack marked merged after squash/rebase rewrote slice commit IDs | post-merge ancestry verification; stop descendant advancement |
+
+### Transitions — worker attempt
+
+| From | To | Trigger |
+|------|----|---------|
+| `created` | `running` | Backend returns a confirmed Dispatch/worker identity and the private checkout matches the pinned SHA |
+| `created` / `running` | `unknown` | Startup, observation or network call times out; retain request ID and re-query before any retry |
+| `unknown` | `running` / `reported` / `failed` / `stopped` | Backend observation resolves the exact attempt |
+| `running` | `reported` / `failed` / `stopped` | Worker reports a source result or backend proves failure/stop |
+| `reported` | `accepted` / `failed` | Orchestrator validates base SHA, Surface and current attempt ID; acceptance only admits source for integration, never closes gates |
+| `accepted` / `failed` / `stopped` | `released` | Result is integrated or rejected, logs remain at a bounded pointer, and backend resources are cleaned up |
+
+A retry creates a new attempt ID only after the prior worker is positively confirmed failed or stopped, its private changes are inspected and the prior record is released; it does not move that record back to `created`. A resumed host reads the local attempt record and re-queries the backend before deciding whether it may start another attempt. Cross-host continuation requires transfer of the original Git common-dir attempt record and confirmation that every prior attempt is settled; without that record the new host refuses to dispatch on the same run, even at a committed slice boundary. A new independent run may start after the old host's worker resources are positively shut down. An imported transcript cannot establish liveness.
 
 ### Transitions — gate outcome
 
@@ -334,11 +375,13 @@ Intermediate unit PRs can be reviewed while later units are built. The final uni
 - Rollback disables the opt-in route for new plans while active Helix plans remain gated or explicitly cancelled. No existing task, quality receipt or E2E log format is migrated.
 - Plans without explicit `Review units` keep one PR and the existing closure contract. A declared stack is linear and cannot silently downgrade once its first PR exists. Existing `closure.py` state stays branch-local; live PR facts are re-queried from GitHub on resume.
 - Stack mode requires a GitHub remote and a merge-commit path that preserves published slice SHAs. Projects that permit only squash/rebase merges use one-PR mode until they change that policy. A wrong-method merge stops descendants for explicit recovery; old evidence remains auditable but is never rebound to a different commit silently.
+- Worker backend selection is independent of stack mode and Helix evidence. `auto` records its choice at each attempt; Orca is used only when its supervised orchestration runtime matches this worktree. Hosts without Orca use native dispatch when capable. A missing execution or reviewer capability blocks the build, while planning and evidence inspection remain available.
+- Disabling the Orca adapter prevents new Orca attempts but retains local `helix-worker/1` records under the Git common dir for recovery. Existing native and evidence readers ignore those records; an active Orca attempt must be positively settled before native work resumes on that slice. Unknown future attempt schemas are refused for that slice, not interpreted as stopped. Cross-host transfer requires the original attempt record and positive settlement of every attempt; without the record, continuing the same run is refused.
 - The Claude Stop reminder checks whether the run may pause before the existing session-stop cleanup; a blocked continuation keeps the session-active sentinel intact.
 
 ## Build Order
 
-Sizing: 17 slices. Ceiling: per `slice/references/sizing.md`. Over: slice 1: the new skill inventory, plugin pin and gate tests must ship together; slice 12: the lane declaration and canonical lane catalogue must agree in one change; slice 14: the review-unit schema and its `/slice` consumer must validate one shared grammar.
+Sizing: 19 slices. Ceiling: per `slice/references/sizing.md`. Over: slice 1: the new skill inventory, plugin pin and gate tests must ship together; slice 12: the lane declaration and canonical lane catalogue must agree in one change; slice 14: the review-unit schema and its `/slice` consumer must validate one shared grammar.
 
 | # | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size |
 |---|-------|----------|---------|------------|-----|--------|------|
@@ -359,6 +402,8 @@ Sizing: 17 slices. Ceiling: per `slice/references/sizing.md`. Over: slice 1: the
 | 15 | Stack branch lifecycle | Stable unit branches and PRs track explicit parent bases, preserved commits, remote outcomes and stale parents. | `.agents/skills/helix/**`, `tests/test-helix-stack-branch.sh` | 14 | 20 | `bash tests/test-helix-stack-branch.sh` | 3 planned files · 2 systems · 1 AC |
 | 16 | Build unit boundaries | `/build` publishes a proved unit, creates the next branch from its head and carries handovers and barriers across the boundary. | `.agents/skills/build/SKILL.md`, `tests/test-helix-stack-build.sh` | 15 | 21 | `bash tests/test-helix-stack-build.sh` | 2 files · 2 systems · 1 AC |
 | 17 | Stacked closure | Wrap-up checks each unit's retained receipt, suite, CI, merge ancestry and retargeted diff; final PR waits for integrated owner acceptance. | `.agents/skills/wrap-up-session/**`, `tests/test-helix-stack-wrapup.sh` | 16 | 22 | `bash tests/test-helix-stack-wrapup.sh` | 3 planned files · 2 systems · 1 AC |
+| 18 | Worker backend selector | `/build` accepts `--worker-backend` values `auto`, `native` or `orca`, probes capabilities without mutation, records each attempt and preserves native behavior when Orca is absent. | `.agents/skills/build/SKILL.md`, `.agents/skills/build/scripts/worker-backend.py`, `tests/test-helix-worker-selector.sh` | 17 | 24 | `bash tests/test-helix-worker-selector.sh` | 3 planned files · 2 systems · 1 AC |
+| 19 | Orca supervised worker | The optional Orca adapter starts a slice in a child worktree, supervises its Dispatch ID and settles failures before retry/fallback. | `.agents/skills/build/scripts/worker-backend.py`, `.agents/skills/build/scripts/orca-worker.py`, `tests/test-helix-orca-worker.sh` | 18 | 25 | `bash tests/test-helix-orca-worker.sh` | 3 planned files · 2 systems · 1 AC |
 
 ### Review units
 
@@ -366,24 +411,25 @@ Sizing: 17 slices. Ceiling: per `slice/references/sizing.md`. Over: slice 1: the
 - U2: slices 4-7; base: U1; behavior, UI, human gates and single-PR compatibility.
 - U3: slices 8-13; base: U2; planning, viewer, reminder and explicit route.
 - U4: slices 14-17; base: U3; stacked-PR contract, branch lifecycle and closure.
+- U5: slices 18-19; base: U4; portable worker selection and optional Orca supervision.
 
 These are the review boundaries for implementing this spec. This implementation is an **ordinary `/build` bootstrap**, not a Helix run: before U1, record a provisional bootstrap ID and default-branch SHA in the first build handover, and create `helix/helix-checkpoint-loop/<bootstrap-id>/u1`. Its ID is never rebound to a `run.json` ID. Before each next unit, branch `u<n>` from the preceding published unit head. Until the stack helper exists, use explicit Git and `gh pr create --draft --base <parent>`; inspect the exact remote head/base before creation and after timeouts.
 
-Run `/build` only through the current unit boundary in a fresh session, closing that unit's slices and combined barrier; the user-supplied per-unit prompt authorizes this bootstrap boundary even though ordinary `/build` normally runs the whole plan. Slice 3 adds unit-scoped `/quality-gate`, so U1 can run it at its boundary. Run that gate with the parent base, save its immutable receipt, run the cached full suite, push the unit branch, open its draft PR, and wait for CI and review before marking it ready. Record the PR, receipt fingerprint, base/head SHAs and next-unit branch in the handover. Do not invoke the existing terminal one-PR `/wrap-up-session` for U1–U3; the manual steps above are their interim closure. Resume the next unit from the preceding published head while the parent PR is under review. After each parent merge, apply the retarget, ancestry, diff and recheck procedure above. U4 uses the finished stacked closure and final integrated owner review; the new Helix stack contract is available to downstream runs only after U4 merges.
+Run `/build` only through the current unit boundary in a fresh session, closing that unit's slices and combined barrier; the user-supplied per-unit prompt authorizes this bootstrap boundary even though ordinary `/build` normally runs the whole plan. Slice 3 adds unit-scoped `/quality-gate`, so U1 can run it at its boundary. Run that gate with the parent base, save its immutable receipt, run the cached full suite, push the unit branch, open its draft PR, and wait for CI and review before marking it ready. Record the PR, receipt fingerprint, base/head SHAs and next-unit branch in the handover. Do not invoke the existing terminal one-PR `/wrap-up-session` for U1–U3; the manual steps above are their interim closure. Resume the next unit from the preceding published head while the parent PR is under review. After each parent merge, apply the retarget, ancestry, diff and recheck procedure above. U4 uses the finished stacked closure for an intermediate PR; U5 is the final PR and receives the integrated owner review. The Helix stack contract is available to downstream runs after U4 merges; native worker execution remains functional without U5, while `--worker-backend orca` is available only after U5 lands.
 
 Build prompt:
 
 ```
 Invoke `/build` for `specs/helix-checkpoint-loop.md`.
-Plan: `## Plan: helix-checkpoint-loop` in `tasks/todo.md`, 17 slices, ready set 1.
-Files: .agents/skills/helix/**, .agents/skills/prototype/**, .agents/skills/go/SKILL.md, .agents/skills/task-registry/lanes/helix.md, .agents/skills/slice/**, .agents/skills/build/SKILL.md, .agents/skills/wrap-up-session/**, .agents/hooks/session-stop.sh, .claude-plugin/plugin.json, README.md, specs/lane-catalogue.md, tests/**.
+Plan: `## Plan: helix-checkpoint-loop` in `tasks/todo.md`, 19 slices, ready set 1.
+Files: .agents/skills/helix/**, .agents/skills/prototype/**, .agents/skills/go/SKILL.md, .agents/skills/task-registry/lanes/helix.md, .agents/skills/slice/**, .agents/skills/build/**, .agents/skills/wrap-up-session/**, .agents/skills/quality-gate/**, .agents/hooks/session-stop.sh, .claude-plugin/plugin.json, README.md, specs/lane-catalogue.md, tests/**.
 Instructions:
 1. `/build`'s pre-flight files the slices: `/slice specs/helix-checkpoint-loop.md --file --approve`. The planning session filed nothing. This bootstrap starts on U1; record a provisional bootstrap ID and base SHA before slice 1 and branch as § Review units specifies.
 2. Build only slices 1–3 in the first fresh session. At each later fresh session, build only the next unit's declared range. A slice edits only its Surface in § Build Order. This explicit bootstrap boundary overrides ordinary `/build`'s all-task continuation.
 3. At every unit boundary, run the unit-scoped existing quality gate with the exact parent base, cached full suite and CI; preserve the receipt and follow the interim publication/handover runbook in § Review units. Keep child PRs draft until their parent merges. Do not invoke terminal one-PR `/wrap-up-session` for U1–U3.
 4. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user. Reopen a slice for an in-unit correction or append a tail unit for new scope; do not change published ranges.
-5. Close every slice with a `> Handover:` line; after U4 and integrated owner acceptance, run the new stacked closure in `/wrap-up-session`.
-Constraints: Helix is opt-in and this integration is built through ordinary `/build`; use the current Finding Model and GO/HOLD policy; default human review is per slice with explicit next-N delegation; one commit per initial slice closure and linked commits for reopened slices; explicit linear review units U1–U4 use smaller stacked PRs with preserved slice SHAs and no history rewrite; absent review units keep one PR; bounded retries block without bypass; a transition CLI enforces gates across harnesses.
+5. Close every slice with a `> Handover:` line; after U5 and integrated owner acceptance, run the new stacked closure in `/wrap-up-session`.
+Constraints: Helix is opt-in and this integration is built through ordinary `/build`; use the current Finding Model and GO/HOLD policy; default human review is per slice with explicit next-N delegation; one commit per initial slice closure and linked commits for reopened slices; explicit linear review units U1–U5 use smaller stacked PRs with preserved slice SHAs and no history rewrite; absent review units keep one PR; bounded retries block without bypass; a transition CLI enforces gates across harnesses. Bootstrap U1–U4 with the existing native dispatch. After U5, worker execution defaults to `--worker-backend auto`, selecting verified Orca when available and capable native execution otherwise; explicit `orca` refuses when unavailable and no backend switch bypasses an unsettled attempt.
 ```
 ## Decisions
 
@@ -395,6 +441,10 @@ Constraints: Helix is opt-in and this integration is built through ordinary `/bu
 | Review verdict | New all-findings-fixed rule / existing GO-HOLD-STOP | **Existing receipt policy**, with two independent verdicts, source: user | The current policy cannot represent a proven blocker; fix that policy rather than fork it |
 | Commit/PR shape | One PR per feature / one PR per slice / grouped linear stack | **Grouped linear stack when review units are declared; otherwise one PR**, source: user | A project disallows merge commits or lacks a GitHub remote; use one PR before publishing a stack |
 | Stack merge strategy | Merge commits / squash / rebase merge | **Merge commits preserve slice SHAs**, source: inferred | Commit identity ceases to be part of evidence; that would require a separately reviewed migration of the receipt contract |
+| Worker execution | Native only / Orca mandatory / backend selector | **`auto` prefers verified Orca, else capable native; `native` and `orca` may be forced**, source: user | A host cannot provide Git, tests, repository writes or independent reviewers; report missing capabilities instead of claiming a Helix build |
+| Unknown worker liveness | Retry after timeout / wait for positive settlement | **Wait for positive stop/failure before retry or fallback**, source: Orca recovery contract and architecture review | A future sandbox can enforce exclusive, revocable shared-write authority and prove old results cannot be integrated |
+| Orca base pinning | Atomic new-child start / verified child checkout before dispatch | **Create and verify the child checkout first**, source: architecture review | The installed Orca runtime cannot launch a supervised worker in an existing verified checkout; then explicit Orca mode refuses |
+| Cross-host continuation | Infer quiescence / transfer attempt records | **Require original local attempt records and positive settlement**, source: architecture review | A durable shared coordinator store later provides authoritative attempt identity and liveness |
 | Retry | Unlimited / bounded and blocked | **Existing bounded escalation**, source: user | A recoverable environment issue is resolved; resume from retained evidence |
 | Enforcement | Agent-written Stop state / validated transition CLI | **Validated advancement**, source: conversation | A harness supplies a stronger trusted gate without trapping legitimate pauses |
 | Evidence identity | Current HEAD / explicit candidate fingerprint | **Explicit fingerprint**, source: inferred | A later commit or worktree merge otherwise makes `HEAD` refer to different bytes |
@@ -424,6 +474,8 @@ Constraints: Helix is opt-in and this integration is built through ordinary `/bu
 - `/build` changes branches only at declared review-unit boundaries after the unit's slices and combined barrier pass; later units can build while parent PRs are under review, and blocked or stale ancestors keep descendant PRs draft.
 - Each unit PR has its own existing GO/HOLD quality receipt, cached full-suite proof, CI, handovers and visual evidence. Intermediate PRs refer to the issue; only the final PR closes it. After each parent merges with a merge commit, descendants retarget to the default branch, prove their slice SHAs are still ancestors, verify the diff contains only their review unit, and rerun changed barriers, receipts, suite and CI. Squash/rebase merge, unknown state or failed checks block advancement. The final PR becomes ready only after all parents merge and the owner accepts the integrated feature; one-PR and ordinary-build closure remain unchanged.
 - Unit-scoped `/quality-gate` runs the existing six phases once a unit's own slices and barrier are done, with later units still pending. It uses one explicit parent base for diff, affected tests, fingerprint and receipt write; it retains an immutable receipt per unit and invalidates that receipt on head/base changes without changing ordinary end-of-build gate behavior.
+- `/build --worker-backend` accepts `auto`, `native` and `orca`, defaults to `auto`, and records the selected backend for each attempt. `auto` chooses verified Orca orchestration for this worktree when available, otherwise a capable native worker; explicit `orca` refuses before dispatch when unavailable, and hosts missing essential build capabilities block rather than weakening gates. Existing ordinary-build dispatch remains unchanged.
+- The optional Orca backend creates and checks a child worktree at the pinned integration SHA before dispatch, then starts a supervised worker in that exact checkout; it refuses when the installed runtime cannot target the verified checkout. It supervises a Dispatch ID rather than a terminal handle and returns only source changes and draft evidence. Unknown or unverifiable liveness blocks retry and native fallback until positive stop/failure, private-change inspection and release. Orchestrator-only Surface checks, integration, receipts, commits, barriers, independent reviewers and host owner grants remain authoritative.
 
 ## Implementation Paths
 
@@ -431,7 +483,7 @@ Constraints: Helix is opt-in and this integration is built through ordinary `/bu
 - `.agents/skills/prototype/**` — interactive reference authoring and state manifest validation.
 - `.agents/skills/go/SKILL.md`, `.agents/skills/task-registry/lanes/helix.md`, `specs/lane-catalogue.md` — explicit Helix route without changing ordinary route precedence.
 - `.agents/skills/slice/**` — prototype digest in the build prompt, ready-set gate check and optional review-unit coverage validation.
-- `.agents/skills/build/SKILL.md` — fresh test-planning and implementation contexts, per-slice gate order, retry/resume, human review, commit, parallel integration barrier and unit branch boundary.
+- `.agents/skills/build/**` — fresh test-planning and implementation contexts, per-slice gates, commit and unit branch boundary; runtime-neutral worker selector, persistent attempts and optional supervised Orca adapter.
 - `.agents/skills/quality-gate/SKILL.md`, `.agents/skills/quality-gate/scripts/receipt.py` — optional unit-scoped invocation and base-bound retained receipts using the existing gate phases and policy.
 - `.agents/skills/wrap-up-session/**` — single-PR compatibility and per-unit stacked closure over preserved slice commits and retained visual evidence.
 - `.agents/hooks/session-stop.sh` — optional Claude Stop reminder without replacing the transition gate.
