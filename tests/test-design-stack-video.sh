@@ -98,6 +98,16 @@ assert_eq 1 "$code" "status refuses a manifest naming an unknown source"
 assert_contains "$out" 'unsupported design-stack manifest' "unknown source is named an unsupported manifest"
 
 # ---------------------------------------------------------------- § docs
-# (appended by a later slice)
+DS="$repo/.agents/skills/design-stack/SKILL.md"
+BUILD="$repo/.agents/skills/build/SKILL.md"
+assert_file_contains "$DS" 'sources/hyperframes/skills/*/SKILL.md' 'skill names the HyperFrames skill source path'
+assert_file_contains "$DS" 'A `hyperframes:` ID is a tool' 'skill states the hyperframes: tool rule'
+assert_file_contains "$DS" 'npx hyperframes@' 'skill names the pinned CLI invocation'
+assert_file_contains "$DS" 'hyperframes check' 'skill names the check gate command'
+assert_file_contains "$DS" 'prototype' 'skill names the prototype label'
+assert_file_contains "$BUILD" 'design-stack video guard' 'build names the video guard'
+assert_file_contains "$BUILD" 'design-stack 3D guard' 'build still names the 3D guard'
+"$TEST_PYTHON" "$repo/scripts/render-skills-table.py" --repo "$repo" --check > /dev/null 2>&1; code=$?
+assert_eq 0 "$code" 'README skills table is current'
 
 finish
