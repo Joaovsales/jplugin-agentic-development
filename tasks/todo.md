@@ -1974,6 +1974,11 @@ Filed this sweep:
 - Pending: the follow-up issues in image-video-generation-pipeline and private-knowledge-base, to run `closes` after auto-merge, grant `issues: write`, and close the stranded #94, #101, #155, #156 and #86. Reported, not applied: (1) a merged closing PR in another repository leaves its issue selectable, because `closes` cannot reach it; (2) `select_candidates` and `stranded` are correct only on `list_tasks_with_linked_prs()`, so a plain `list_tasks()` caller would fail open.
 - Carry-forward: none.
 
+## Session Summary — [2026-10-16] [080484d..02c761a] — closure repair 1
+- Completed: `/yolo` iteration — the factory-board mod (`specs/factory-board.md`) and HyperFrames as a fifth `/design-stack` source (`specs/design-stack-hyperframes.md`, four slices, all `[x]`); quality receipt GO 481e85d3; PR #289. CI round 1 failed the plugin version guard (payload changed since 080484d without a bump); this repair bumps `.claude-plugin/plugin.json` to 1.6.5.
+- Pending: none.
+- Carry-forward: the gate's unresolved SHOULD-FIX — `cli_version(release)` makes the caller know the design-stack store layout (`hyperframes.py:30`); a validator for TDD-row test files outside their slice Surface runs as a separate session (chip).
+
 ## Plan: design-stack-hyperframes
 > Spec: specs/design-stack-hyperframes.md
 

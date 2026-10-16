@@ -94,7 +94,7 @@ Named builder overrides intentionally keep qwen. Suite: 31/31 files.
 **Plan tasks**: 11 added (4 slice headers, 6 TDD rows, 1 Verify row), 11 completed
 **Tests**: full suite 74/74 files passing (WSL Ubuntu, `TEST_JOBS=6`, 48 s) / 0 failing; affected 42/42 files; design-stack install 54, catalog 17, brief 2, 3D 3, video 16 assertions; mod `plugin validate` + `plugin test` 2/2, tsc clean
 **Commits**: 59e1d4c..65fc59d (13 commits on `claude/mods-kanban-agent-dashboard-b0c487`; 2f4cd78 before them is the factory-board mod from iteration 1)
-**Pushed**: pending — Phase C pushes after this entry
+**Pushed**: yes — PR #289 (https://github.com/Joaovsales/jplugin-agentic-development/pull/289); CI round 1 failed the plugin version guard (payload changed since 080484d, version unbumped), repaired by bumping `.claude-plugin/plugin.json` to 1.6.5 (closure repair 1)
 **Failure mode**: none
 **Next**: exit — backlog empty (no `tasks/backlog.md` items; no `[ ] TDD:` rows left in the plan)
 
