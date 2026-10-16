@@ -31,6 +31,7 @@ assert not should_run_hyperframes("Fix the re-render flicker on hover", "")
 assert not should_run_hyperframes("Server-render the sidebar list", "")
 assert not should_run_hyperframes("Add an explainer tooltip", "")
 assert not should_run_hyperframes("Improve layout", "Hero keeps the looping background video; 200ms ease-out on hover")
+assert not should_run_hyperframes("Improve layout", "Hero: CSS only, no HyperFrames")
 assert production_status({"check": True, "render": False})["label"] == "prototype"
 assert production_status({"check": False, "render": True})["label"] == "prototype"
 assert production_status({"check": True, "render": True})["label"] == "production"

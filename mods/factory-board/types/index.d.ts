@@ -2,8 +2,7 @@
 export type Card = {
   /** The agent's id: `$.agent.list()`'s `id`, `turn.complete`'s `agentId`. */
   agentId: string
-  /** The Agent tool call that spawned it: the transcript row a press scrolls to. */
-  /** The spawning tool call; absent for an agent the engine listed before this mod saw it spawn. */
+  /** The spawning Agent tool call, the transcript row a press scrolls to; absent for an agent the engine listed before this mod saw it spawn. */
   toolUseId?: string
   /** The agent definition it runs as (`planner`, `code-reviewer`, ...). */
   type: string
