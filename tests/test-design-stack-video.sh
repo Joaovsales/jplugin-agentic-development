@@ -45,7 +45,57 @@ PY
 assert_eq 0 "$code" "$out"
 
 # ---------------------------------------------------------------- § stale-manifest
-# (appended by a later slice)
+# A four-source manifest over a four-source release stays valid offline; an unknown source does not.
+home="$tmp/stale/home"
+release_id="$(printf '%064d' 0)"
+release="$home/releases/$release_id"
+mkdir -p "$release/sources/taste/skills/soft" "$release/sources/references/design-md/acme" \
+  "$release/sources/impeccable/.agent/skills/impeccable" "$release/sources/three" \
+  "$release/.agents/skills/taste" "$release/.agent/skills/impeccable"
+printf -- '---\nname: soft\ndescription: Soft style\n---\nSoft\n' > "$release/sources/taste/skills/soft/SKILL.md"
+printf '# Acme\n' > "$release/sources/references/design-md/acme/DESIGN.md"
+printf 'Impeccable\n' > "$release/sources/impeccable/.agent/skills/impeccable/SKILL.md"
+printf 'Three\n' > "$release/sources/three/SKILL.md"
+printf 'Taste\n' > "$release/.agents/skills/taste/SKILL.md"
+printf 'Impeccable\n' > "$release/.agent/skills/impeccable/SKILL.md"
+for source in taste impeccable references three; do
+  git -C "$release/sources/$source" init -q
+  git -C "$release/sources/$source" add .
+  git -C "$release/sources/$source" -c user.name=Test -c user.email=test@example.invalid commit -qm fixture
+done
+export DESIGN_STACK_HOME="$home" DESIGN_STACK_RELEASE_ID="$release_id"
+write_manifest() {
+  "$TEST_PYTHON" - "$1" <<'PY'
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+home = Path(os.environ["DESIGN_STACK_HOME"])
+release = home / "releases" / os.environ["DESIGN_STACK_RELEASE_ID"]
+sources = {name: subprocess.check_output(
+    ["git", "-C", str(release / "sources" / name), "rev-parse", "HEAD"], text=True).strip()
+    for name in ("taste", "impeccable", "references", "three")}
+if sys.argv[1] == "unknown":
+    sources["bogus"] = "0" * 40
+(home / "manifest.json").write_text(json.dumps({"schema_version": 1, "current": release.name,
+    "catalog_path": str(release / "sources"), "sources": sources}))
+PY
+}
+CLI="$repo/.agents/skills/design-stack/scripts/design_stack.py"
+write_manifest four
+out="$("$TEST_PYTHON" "$CLI" status 2>&1)"; code=$?
+assert_eq 0 "$code" "status accepts a four-source manifest: $out"
+assert_eq "Ready $release_id (offline; update adds: hyperframes)" "$out" "status names the source update adds"
+out="$("$TEST_PYTHON" "$CLI" catalog 2>&1)"; code=$?
+assert_eq 0 "$code" "catalog reads a four-source release offline: $out"
+assert_contains "$out" 'impeccable:impeccable' "four-source catalog lists the installed sources"
+assert_not_contains "$out" 'hyperframes:' "four-source catalog has no hyperframes entry"
+write_manifest unknown
+out="$("$TEST_PYTHON" "$CLI" status 2>&1)"; code=$?
+assert_eq 1 "$code" "status refuses a manifest naming an unknown source"
+assert_contains "$out" 'unsupported design-stack manifest' "unknown source is named an unsupported manifest"
 
 # ---------------------------------------------------------------- § docs
 # (appended by a later slice)

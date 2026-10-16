@@ -42,6 +42,9 @@ def current_manifest():
     manifest = json.loads(path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") not in (0, 1):
         raise ValueError("unsupported design-stack manifest version")
+    unknown = sorted(set(manifest.get("sources", {})) - set(SOURCES))
+    if unknown:
+        raise ValueError(f"unsupported design-stack manifest source: {', '.join(unknown)}")
     release = manifest.get("current", "")
     if not isinstance(release, str) or len(release) != 64 or any(c not in "0123456789abcdef" for c in release):
         raise ValueError("invalid current release pointer")
@@ -52,7 +55,8 @@ def current_manifest():
     build_catalog(location, manifest["sources"])
     if len(installed_entrypoints(location)) < 2:
         raise ValueError("installed design commands are missing")
-    for name in SOURCES:
+    # An older manifest may lack a source SOURCES gained since; only `update` adds it.
+    for name in manifest["sources"]:
         revision = run("git", "-C", str(location / "sources" / name), "rev-parse", "HEAD")
         if manifest.get("sources", {}).get(name) != revision:
             raise ValueError(f"{name} revision differs from manifest")
@@ -228,7 +232,9 @@ def main():
             elif args.action == "status" or (args.action == "setup" and previous):
                 if not previous:
                     raise ValueError("run design-stack setup before UI work")
-                print(f"Ready {previous['current']} (offline)")
+                missing = [name for name in SOURCES if name not in previous["sources"]]
+                added = f"; update adds: {', '.join(missing)}" if missing else ""
+                print(f"Ready {previous['current']} (offline{added})")
             else:
                 install_command(previous)
         return 0
