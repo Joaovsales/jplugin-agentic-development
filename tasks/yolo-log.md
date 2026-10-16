@@ -78,3 +78,11 @@ defaultModel → deepseek-v4-flash with incident rationale; turnBudget documente
 as agent-frontmatter-only (agentOverrides silently drops it); Ceiling paragraph
 updated (review pins now guard against scout-tier downgrade, not builder).
 Named builder overrides intentionally keep qwen. Suite: 31/31 files.
+
+## Iteration 2 — 2026-10-16 — Phase A (plan) complete, build pending
+
+**Work item**: HyperFrames as a fifth design-stack source (tasks/yolo-idea.md)
+**Spec**: specs/design-stack-hyperframes.md · Visual: specs/design-stack-hyperframes.plan.html
+**Plan**: `## Plan: design-stack-hyperframes` in tasks/todo.md — 4 slices, ready set {1, 2}; 9 `assumed` decisions, 0 open
+**Divergence** (tasks/project-context.md): a new upstream Git dependency, heygen-com/hyperframes, joins the design-stack source list; recorded in the spec (D2, D5) as a conscious decision, project context not regenerated.
+**Pre-flight incident**: `task-registry upsert` refused the whole index on tasks/todo.md:1970 — a `[x]` row linked `[Joaovsales/image-video-generation-pipeline#191](…)`, and the index reads the first link label as a tracker reference id, which rejects `#`. Moved the repo name outside the brackets (`… [#191](…)`); no other change to that row.
