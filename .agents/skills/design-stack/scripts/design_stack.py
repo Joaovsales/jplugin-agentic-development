@@ -20,7 +20,10 @@ SOURCES = {
     "impeccable": "https://github.com/pbakaus/impeccable.git",
     "references": "https://github.com/VoltAgent/awesome-design-md.git",
     "three": "https://github.com/img2threejs/img2threejs.git",
+    "hyperframes": "https://github.com/heygen-com/hyperframes.git",
 }
+# The HyperFrames monorepo keeps regression baselines in Git LFS: clone it shallow, without LFS media.
+SHALLOW_SOURCES = ("hyperframes",)
 HOME = Path(os.environ.get("DESIGN_STACK_HOME", Path.home() / ".local/share/jplugin/design-stack"))
 
 
@@ -65,7 +68,11 @@ def stage_release(stage):
     for name, url in SOURCES.items():
         url = os.environ.get(f"DESIGN_STACK_{name.upper()}_URL", url)
         path = stage / "sources" / name
-        run("git", "clone", "--quiet", "--", url, str(path))
+        if name in SHALLOW_SOURCES:
+            run("git", "clone", "--quiet", "--depth", "1", "--", url, str(path),
+                env={**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"})
+        else:
+            run("git", "clone", "--quiet", "--", url, str(path))
         revisions[name] = run("git", "-C", str(path), "rev-parse", "HEAD")
     return revisions
 

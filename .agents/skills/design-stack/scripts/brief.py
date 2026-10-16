@@ -47,7 +47,7 @@ def render_brief(direction, references, rules):
 def validated_choice(choice):
     direction = choice.get("direction")
     references = choice.get("references", [])
-    if not isinstance(direction, str) or not direction or direction.startswith(("reference:", "impeccable:", "three:")):
+    if not isinstance(direction, str) or not direction or direction.startswith(("reference:", "impeccable:", "three:", "hyperframes:")):
         raise ValueError("brief needs one selected visual direction")
     if not isinstance(references, list) or any(not isinstance(ref, str) or not ref.startswith("reference:") for ref in references):
         raise ValueError("brief references must be selected reference IDs")

@@ -37,7 +37,13 @@ def source_paths(release):
         safe_file(path, release)
     impeccable = safe_file(sources / "impeccable/.agent/skills/impeccable/SKILL.md", release)
     three = safe_file(sources / "three/SKILL.md", release)
-    return taste, references, impeccable, three
+    hyperframes = []
+    if (sources / "hyperframes").is_dir():
+        safe_file(sources / "hyperframes/skills/hyperframes/SKILL.md", release)
+        hyperframes = sorted((sources / "hyperframes/skills").glob("*/SKILL.md"))
+        for path in hyperframes:
+            safe_file(path, release)
+    return taste, references, impeccable, three, hyperframes
 
 
 def frontmatter(path):
@@ -107,6 +113,17 @@ def reference_entries(paths, revision, release):
     return entries
 
 
+def hyperframes_entries(paths, revision, release):
+    entries = []
+    for path in paths:
+        safe_file(path, release)
+        fields, _ = frontmatter(path)
+        name = path.parent.name
+        entries.append(entry(f"hyperframes:{name}", "tool", fields.get("name", name),
+                             revision, fields.get("description", ""), path))
+    return entries
+
+
 def metadata_commands(metadata, revision, release):
     safe_file(metadata, release)
     commands = json.loads(metadata.read_text(encoding="utf-8"))
@@ -142,7 +159,7 @@ def build_catalog(release, revisions):
     sources = release / "sources"
     entries = [entry("spatial", "direction", "Spatial", "builtin:v1", "Spatial UI"),
                entry("custom", "direction", "Custom", "builtin:v1", "Owner-authored visual rules")]
-    taste, references, impeccable, three = source_paths(release)
+    taste, references, impeccable, three, hyperframes = source_paths(release)
     entries.extend(taste_entries(taste, revisions["taste"], release))
     entries.extend(reference_entries(references, revisions["references"], release))
     metadata = release / ".agents/skills/impeccable/scripts/command-metadata.json"
@@ -155,6 +172,8 @@ def build_catalog(release, revisions):
     path = three
     entries.append(entry("three:img2threejs", "tool", "img2threejs",
                          revisions["three"], "Opt-in image-to-3D pipeline", path))
+    if hyperframes:
+        entries.extend(hyperframes_entries(hyperframes, revisions["hyperframes"], release))
     identifiers = [item["id"] for item in entries]
     if len(identifiers) != len(set(identifiers)):
         raise ValueError("catalog contains duplicate IDs")
