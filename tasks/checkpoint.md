@@ -1,4 +1,4 @@
-# Checkpoint — 2026-10-16T18:31:10Z
+# Checkpoint — 2026-10-16T18:36:02Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
@@ -6,7 +6,6 @@
 - Branch: claude/mods-kanban-agent-dashboard-b0c487
 
 ```
- M specs/design-stack-hyperframes.md
  M tasks/todo.md
 ```
 
@@ -17,7 +16,6 @@
 [ ] Cloud routine: update the existing `tidy` routine (trig_0156hDQVc2Qp5MuUx6j7ttxF) with routine-prompts/tidy.md, Planner-tier model, weekly cron; enable and run once after this PR merges; verify the run opened `chore(tidy): <date>` from `routine/tidy/<YYYYMMDD>-sweep` with the record under tasks/sweeps/
   [ ] /eval triggerability gate on /plan, /build, /quality-gate — manual, before the slice-2 merge; report path goes in the PR body — DEFERRED (manual gate; run before the slice-2 PR merges, not inside /build)
   [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
-  [ ] TDD: tests/test-design-stack-video.sh § stale-manifest — a four-source manifest over a four-source release answers `status` with `Ready <id> (offline; update adds: hyperframes)` and `catalog` with no `hyperframes:` entry, exit 0; a manifest naming an unknown source still fails -> `current_manifest` checks only the manifest's known sources, `build_catalog` skips an absent source (AC 4)
   [ ] TDD: tests/test-design-stack-video.sh § docs — design-stack SKILL.md names `sources/hyperframes/skills/*/SKILL.md`, the `hyperframes:` tool rule, `npx hyperframes@`, `hyperframes check` and `prototype`; build SKILL.md names the video guard beside the 3D guard; `python3 scripts/render-skills-table.py --check` is silent -> SKILL.md sections, build Phase 2 paragraph, regenerated README row (AC 6)
   [ ] Verify: `bash tests/test-design-stack-install.sh`, `test-design-stack-catalog.sh`, `test-design-stack-brief.sh`, `test-design-stack-3d.sh` and `test-design-stack-video.sh` all pass on the final tree (AC 7)
 
