@@ -39,7 +39,7 @@ Configure once per project:
   file **and** `TASK_REGISTRY_TRUSTED_CONFIG=1` in the routine's environment.
   With either missing the sweep still runs and files local records marked
   *publication pending*; the PR body names the switch to flip.
-- **An authenticated `gh`** — the GitHub provider is `gh`-only. `gh auth status`
+- **An authenticated `gh`** — the GitHub provider is `gh`-only. `gh api user`
   must succeed in the routine's environment, with a token that can read and
   write issues.
 - **Mapped labels pre-existing** — every label in `[labels]` and every routine

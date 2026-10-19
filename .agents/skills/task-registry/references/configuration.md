@@ -37,7 +37,7 @@ Then it selects a provider:
 | Precedence | Condition | Result |
 |-----------|-----------|--------|
 | 1 | `provider =` set in the configuration | that provider, always |
-| 2 | GitHub remote **and** `gh auth status` exits 0 | `github` |
+| 2 | GitHub remote **and** `gh api user` exits 0 | `github` |
 | 3 | anything else | `local` |
 
 **No tracker beyond rows 2 and 3 is reached by inference.** Credentials in the
@@ -177,7 +177,7 @@ before a branch exists; the routine checks the rest itself. The checklist:
   missing, a sweep still runs and files local records marked *publication
   pending*; its PR body names the switch to flip.
 - **An authenticated `gh`** in the routine's environment — the GitHub provider is
-  `gh`-only, and `gh auth status` must succeed with a token that reads and
+  `gh`-only, and `gh api user` must succeed with a token that reads and
   writes issues.
 - **Mapped labels pre-existing** in the tracker: every `[labels]` value and every
   `[routines.selectors]` value, plus the priority labels `now` and `next` that
@@ -204,7 +204,7 @@ not remove labels, comments, or related task records automatically.
 ## Troubleshooting
 
 **`provider: local` on a repository that has GitHub issues.**
-`gh` is missing or logged out. `gh auth status` to confirm, `gh auth login` to
+`gh` is missing or logged out. `gh api user` to confirm, `gh auth login` to
 fix. Selection deliberately falls back rather than failing — reads still work.
 
 **`reads degraded to local-only: ...`**

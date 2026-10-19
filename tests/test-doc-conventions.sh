@@ -634,6 +634,22 @@ coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills 2>/dev/null \
 assert_eq "" "$coupling_hits" \
   "task-registry: no skill outside the registry calls a tracker's task API (offenders: ${coupling_hits:-none})"
 
+# --- reachability wording: the GitHub requirement is REST, not gh auth status --
+# specs/github-rest-in-sandboxes.md AC9. A Claude Code cloud sandbox reaches GitHub
+# through a proxy that accepts REST and refuses GraphQL, and `gh auth status` exits
+# non-zero there although every REST call succeeds. The provider therefore probes
+# `gh api user`, and the four documents that state the environment requirement say
+# the same thing: `gh api user` succeeding, never `gh auth status`.
+for doc in .agents/skills/task-registry/references/configuration.md \
+           .agents/skills/task-registry/templates/task-tracking.md \
+           docs/task-tracking.md \
+           .agents/skills/wrap-up-session/references/routine-prompts/README.md; do
+  assert_file_contains "$doc" 'gh api user' \
+    "reachability (AC9): $doc states the requirement as \`gh api user\`"
+  assert_file_not_matches "$doc" 'gh auth status' \
+    "reachability (AC9): $doc no longer names \`gh auth status\`"
+done
+
 # --- /route is gone, and nothing in the shipping surface still names it ------
 # specs/category-routines.md AC1/AC2. The issue router computed how much autonomy
 # an issue permitted by running a model's description of the work through a policy
