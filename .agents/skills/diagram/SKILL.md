@@ -50,8 +50,10 @@ Read `$ARCHIFY_SKILL` — that is `$ARCHIFY_HOME/archify/SKILL.md` — and the
 references it names for the step you are on, then follow it: it chooses the
 diagram type, names the schema and example to read, says how the candidate is
 authored and how `finalize` runs and is repaired. Wherever its commands say
-`node bin/archify.mjs`, run `node "$ARCHIFY_BIN"` instead. All ten diagram
-types are available; Archify's own router picks (D6).
+`node bin/archify.mjs`, run `node "$ARCHIFY_BIN"` instead — except
+`finalize`, which always goes through Step 3's wrapper so the evidence check
+runs first. All ten diagram types are available; Archify's own router picks
+(D6).
 
 Where upstream leaves a choice open, the conventions below settle it. They
 are the whole of jplugin's addition.

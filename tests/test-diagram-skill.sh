@@ -172,6 +172,8 @@ assert_file_contains "$SKILL" '--repo-root' "evidence: finalize runs with --repo
 assert_file_contains "$SKILL" 'check-candidate' "evidence: the skill names the pre-finalize check"
 assert_file_contains "$SKILL" 'archify.sh finalize <type> <candidate.json> <output.html>' \
   "evidence: Step 3 finalizes through the resolver, which runs the check first"
+assert_prose_contains "$SKILL" 'except `finalize`, which always goes through Step 3' \
+  "evidence: the run-upstream-commands rule exempts finalize, so the check cannot be bypassed"
 
 if command -v node > /dev/null 2>&1; then
   mkdir -p "$box/repo"

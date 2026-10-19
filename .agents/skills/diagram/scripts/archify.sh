@@ -117,7 +117,6 @@ resolve() {
 # primary element, which collection is primary read from the install's own
 # schemas. Silent on success; each problem on stderr, exit 1.
 check_candidate() {
-  check_node || return 1
   node "$(dirname "${BASH_SOURCE[0]}")/check-candidate.mjs" "$@" --schemas "$ARCHIFY_HOME/archify/schemas"
 }
 
@@ -142,7 +141,7 @@ finalize() {
 case "${1:-resolve}" in
   resolve) resolve ;;
   install-command) install_command ;;
-  check-candidate) shift; check_candidate "$@" ;;
+  check-candidate) shift; check_node && check_candidate "$@" ;;
   finalize) shift; finalize "$@" ;;
   *) note "usage: archify.sh [resolve|install-command|check-candidate <candidate.json> --repo-root <dir>|finalize <type> <candidate.json> <output.html> [args…]]"; exit 2 ;;
 esac
