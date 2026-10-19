@@ -735,7 +735,7 @@ assert_not_contains "$sel_gh_select" "no repository configured" \
   "Selection (#124): select does not refuse on the repository doctor already resolved"
 # `select` prints the upstream verdict only when it fails, so a passing check is
 # proved from the mock's call log: the label listing named the discovered repo.
-assert_contains "$(cat "$F_SEL_GH/gh.log")" "label list --repo fixture-owner/fixture-repo" \
+assert_contains "$(cat "$F_SEL_GH/gh.log")" "api repos/fixture-owner/fixture-repo/labels?per_page=100&page=1" \
   "Selection (#124): the upstream label check ran against the discovered repository"
 assert_contains "$sel_gh_select" "candidate:" \
   "Selection (#124): select reached the candidate pool"
@@ -988,7 +988,7 @@ assert_contains "$gh_unauth_write" "local-pending" \
   "GitHub: the record is marked as not yet published"
 assert_contains "$gh_unauth_write" "external publication pending" \
   "GitHub: the unpublished half is reported, never silently dropped"
-assert_not_contains "$(cat "$F_GH/gh-unauth2.log")X" "issue create" \
+assert_not_contains "$(cat "$F_GH/gh-unauth2.log")X" "--method POST" \
   "GitHub: no create call is attempted while unauthenticated"
 
 # A local-pending write must not replace a previously published tracker address.
@@ -2117,6 +2117,10 @@ assert_contains "$gh_reg" "creation-off=True" \
   "GitHub: an unknown label is reported and omitted while creation is off"
 assert_contains "$(cat "$F_GH/gh-reg.log")" "api repos/fixture-owner/fixture-repo/issues/42" \
   "GitHub: one issue is read through the REST issues route, the number in the path"
+assert_contains "$(cat "$F_GH/gh-reg.log")" 'api --method POST repos/fixture-owner/fixture-repo/issues --input - {"body":' \
+  "GitHub (AC3): an issue is created through POST /issues, the payload on stdin"
+assert_not_contains "$(grep -- '--method POST' "$F_GH/gh-reg.log")" "brand-new-label" \
+  "GitHub (AC7): an unknown label is filtered before the write reaches the API"
 
 # Exactly LIST_LIMIT issues is indistinguishable from "there were more": the
 # REST read pages 100 at a time, stops at the cap instead of paging past it,
@@ -2186,10 +2190,79 @@ EOF
 )"
 assert_contains "$lbl_out" "created-note=True" \
   "GitHub: allow_label_creation actually creates the missing label"
-assert_contains "$(cat "$F_LBL/gh.log")" "label create" \
-  "GitHub: label creation goes through gh label create, not a silent skip"
+assert_contains "$(cat "$F_LBL/gh.log")" 'api --method POST repos/fixture-owner/fixture-repo/labels --input - {"name": "area/render"}' \
+  "GitHub (AC3): label creation is POST /labels with the name on stdin, not a silent skip"
 assert_file_contains "$F_LBL/lbldata/labels.json" "area/render" \
   "GitHub: the created label is really added to the repository vocabulary"
+
+# --- github (AC7): the mock refuses a label the repository lacks ------------
+# REST `POST /issues` silently CREATES an unknown label, so the provider's
+# known-label filter is the only guard; the mock fails where the API would stay
+# quiet, which is what makes the filter assertions above worth anything.
+slipped_out="$(cd "$F_GH" && printf '%s' '{"labels":["not-in-vocabulary"]}' \
+  | PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" GH_MOCK_LOG="$F_GH/gh-slipped.log" \
+    gh api --method POST repos/fixture-owner/fixture-repo/issues/42/labels --input - 2>&1)"
+slipped_code=$?
+assert_eq "1" "$slipped_code" \
+  "GitHub (AC7): a write naming a label absent from labels.json exits 1"
+assert_contains "$slipped_out" "not-in-vocabulary" \
+  "GitHub (AC7): the refusal names the label"
+assert_contains "$(cat "$F_GH/gh-slipped.log")" '--input - {"labels": ["not-in-vocabulary"]}' \
+  "GitHub (AC7, Decision 10): the log line carries the parsed stdin body"
+
+# --- github (AC3, AC8): update is PATCH then POST labels; close and comment --
+# REST has no single call that edits a body and adds labels, so the second write
+# can fail after the first landed. GH_MOCK_FAIL_ROUTE fails only the label add.
+upd_out="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-update.log" GH_MOCK_FAIL_ROUTE=issues/42/labels pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import ExternalRef
+from registry.providers import build_provider
+from registry.providers.base import ProviderError, WriteGate
+
+provider = build_provider("github", load_config("."), WriteGate(apply=True, require_approval=False))
+current = provider.get_task(ExternalRef("github", "42", ""))
+try:
+    provider.update_task(current.with_(labels=current.labels + ("bug",)))
+    print("update=ok")
+except ProviderError as exc:
+    print("update-error=" + str(exc))
+EOF
+)"
+assert_contains "$upd_out" "update-error=github: issue #42: body written, but adding label(s) bug failed" \
+  "GitHub (AC8): a label add that fails after the PATCH names the body as already written"
+upd_writes="$(grep -- '--method' "$F_GH/gh-update.log")"
+assert_contains "$(printf '%s\n' "$upd_writes" | sed -n '1p')" 'api --method PATCH repos/fixture-owner/fixture-repo/issues/42 --input - {"body": "' \
+  "GitHub (AC8): the body goes first, through PATCH /issues/{n} with the payload on stdin"
+assert_contains "$(printf '%s\n' "$upd_writes" | sed -n '2p')" 'api --method POST repos/fixture-owner/fixture-repo/issues/42/labels --input - {"labels": ["bug"]}' \
+  "GitHub (AC8): the new label follows, through POST /issues/{n}/labels"
+assert_eq "2" "$(printf '%s\n' "$upd_writes" | grep -c .)" \
+  "GitHub (AC8): an update is exactly those two writes"
+
+life_out="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-life.log" pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import ExternalRef
+from registry.providers import build_provider
+from registry.providers.base import WriteGate
+
+provider = build_provider("github", load_config("."), WriteGate(apply=True, require_approval=False))
+task = provider.get_task(ExternalRef("github", "42", ""))
+provider.update_task(task)
+provider.comment(task, "Reviewed over REST")
+print("closed=" + provider.close_task(task, "cancelled").status)
+EOF
+)"
+assert_contains "$life_out" "closed=cancelled" \
+  "GitHub (AC3): close_task answers the terminal status"
+assert_contains "$(cat "$F_GH/gh-life.log")" 'api --method POST repos/fixture-owner/fixture-repo/issues/42/comments --input - {"body": "Reviewed over REST"}' \
+  "GitHub (AC3): a comment is POST /issues/{n}/comments, the body on stdin"
+assert_contains "$(cat "$F_GH/gh-life.log")" 'api --method PATCH repos/fixture-owner/fixture-repo/issues/42 --input - {"state": "closed", "state_reason": "not_planned"}' \
+  "GitHub (AC3): a cancelled close is PATCH /issues/{n} with state closed and state_reason not_planned"
+assert_eq "0" "$(grep -c 'issues/42/labels' "$F_GH/gh-life.log")" \
+  "GitHub (AC3): an update with nothing new to label makes no label write"
+assert_eq "0" "$(cat "$F_GH/gh-life.log" "$F_GH/gh-update.log" "$F_GH/gh-reg.log" | grep -cE 'issue (edit|close|comment|create)|label (list|create)')" \
+  "GitHub (AC2): no gh issue or gh label subcommand remains on the write path"
 
 # --- migrate: id collisions, block-bounded specs, dependency rewrites --------
 F_MIG2="$(new_fixture)"
@@ -2552,19 +2625,20 @@ class RecordingGitHub(GitHubProvider):
     def __init__(self):
         super().__init__(Config(root=".", repository="o/r"), WriteGate(apply=True, require_approval=False))
         self.commands = []
-    def _json(self, command):
-        return [{"name": "bug"}, {"name": "needs-investigation"}]
-    def _run(self, command, check=True):
-        self.commands.append(command)
-        return 0, ""
+    def _run(self, command, check=True, input=None):
+        self.commands.append((list(command), input))
+        if "/labels?" in command[2]:
+            return 0, '[{"name": "bug"}, {"name": "needs-investigation"}]'
+        return 0, "[]"
 
 github = RecordingGitHub()
 external = Task(id="held.two", title="Do not replace", labels=("bug",),
                 external=ExternalRef("github", "42", "https://github.com/o/r/issues/42"))
 github.add_labels(external, ("needs-investigation",))
-command = github.commands[-1]
-print("github-add:", "--add-label" in command and "needs-investigation" in command)
-print("github-no-body:", "--body" not in command and "--title" not in command)
+command, body = github.commands[-1]
+print("github-add:", command[2:5] == ["--method", "POST", "repos/o/r/issues/42/labels"]
+      and body == '{"labels": ["needs-investigation"]}')
+print("github-no-body:", command[5:] == ["--input", "-"] and "body" not in body and "title" not in body)
 case_labels = github._writable_labels(
     external.with_(kind="bug", labels=("Bug", "Needs-Investigation"))
 )

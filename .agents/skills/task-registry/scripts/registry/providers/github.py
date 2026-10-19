@@ -133,21 +133,15 @@ class GitHubProvider(TrackerProvider):
         key. They count against the cap -- it bounds what this run read, not
         what it kept -- and are discarded before normalization.
         """
-        issues: List[Dict] = []
-        for page in range(1, LIST_LIMIT // PAGE_SIZE + 1):
-            batch = self._json(
-                ["gh", "api", self._path(f"issues?state=all&per_page={PAGE_SIZE}&page={page}")]
+        entries, complete = self._paged("issues", LIST_LIMIT, "state=all")
+        if not complete:
+            self.result_truncated = True
+            self._note(
+                f"issue list came back at the {LIST_LIMIT}-issue page limit, so this run "
+                "has not seen every issue — publishing now could duplicate the ones past "
+                "the cut; narrow the repository or raise LIST_LIMIT"
             )
-            issues.extend(entry for entry in batch if "pull_request" not in entry)
-            if len(batch) < PAGE_SIZE:
-                return issues
-        self.result_truncated = True
-        self._note(
-            f"issue list came back at the {LIST_LIMIT}-issue page limit, so this run "
-            "has not seen every issue — publishing now could duplicate the ones past "
-            "the cut; narrow the repository or raise LIST_LIMIT"
-        )
-        return issues
+        return [entry for entry in entries if "pull_request" not in entry]
 
     def get_task(self, ref: ExternalRef) -> Task:
         payload = self._json(["gh", "api", self._path("issues", self._number(ref))])
@@ -211,21 +205,16 @@ class GitHubProvider(TrackerProvider):
     # ------------------------------------------------------------------- writes
     def create_task(self, task: Task) -> Task:
         self.gate.authorize(f"create issue for {task.id}", self.name)
-        labels = self._writable_labels(task)
-        command = [
-            "gh", "issue", "create",
-            "--repo", self._repo(),
-            "--title", task.title,
-            "--body", self._body_for(task, existing=""),
-        ]
-        for label in labels:
-            command += ["--label", label]
-        _, output = self._run(command)
-        ref = self.resolve_reference(output.strip().splitlines()[-1] if output.strip() else "")
+        created = self._write("POST", self._path("issues"), {
+            "title": task.title,
+            "body": self._body_for(task, existing=""),
+            "labels": list(self._writable_labels(task)),
+        })
+        ref = self.resolve_reference(str(created.get("html_url") or ""))
         if ref is None:
             raise ProviderError(
-                f"github: issue created for {task.id} but the URL could not be parsed from "
-                f"gh output: {self.redact(output.strip())}"
+                f"github: issue created for {task.id} but the response carried no issue "
+                f"URL: {self.redact(json.dumps(created)[:200])}"
             )
         return task.with_(external=ref)
 
@@ -233,26 +222,28 @@ class GitHubProvider(TrackerProvider):
         if task.external is None:
             raise ProviderError(f"github: cannot update {task.id} — it has no issue reference")
         self.gate.authorize(f"update issue #{task.external.id} for {task.id}", self.name)
-        current = self._json(
-            [
-                "gh", "issue", "view",
-                "--repo", self._repo(), "--json", "body,labels,title",
-                "--", self._number(task.external),
-            ]
-        )
-        existing_labels = [label["name"] for label in current.get("labels", [])]
         number = self._number(task.external)
-        command = [
-            "gh", "issue", "edit",
-            "--repo", self._repo(),
-            "--body", self._body_for(task, existing=current.get("body", "")),
-        ]
+        current = self._json(["gh", "api", self._path("issues", number)])
+        existing_labels = [label["name"] for label in current.get("labels", [])]
+        payload = {"body": self._body_for(task, existing=current.get("body") or "")}
         if task.title.strip() and task.title.strip() != (current.get("title") or "").strip():
-            command += ["--title", task.title]
-        for label in self._writable_labels(task):
-            if not has_label(existing_labels, label):
-                command += ["--add-label", label]
-        self._run(command + ["--", number])
+            payload["title"] = task.title
+        additions = [
+            label for label in self._writable_labels(task) if not has_label(existing_labels, label)
+        ]
+        self._write("PATCH", self._path("issues", number), payload)
+        if not additions:
+            return task
+        # REST has no single call that edits a body and adds labels. A failure
+        # here lands after the PATCH, so it says what already happened: the
+        # operator retries the labels, not a body the issue already carries.
+        try:
+            self._add_issue_labels(number, additions)
+        except ProviderError as exc:
+            raise ProviderError(
+                f"github: issue #{number}: body written, but adding label(s) "
+                f"{', '.join(additions)} failed — {_unprefixed(exc)}"
+            ) from exc
         return task
 
     def add_labels(self, task: Task, labels: Sequence[str]) -> None:
@@ -272,32 +263,23 @@ class GitHubProvider(TrackerProvider):
         ))
         if not additions:
             return
-        command = ["gh", "issue", "edit", "--repo", self._repo()]
-        for label in additions:
-            command += ["--add-label", label]
-        self._run(command + ["--", self._number(task.external)])
+        self._add_issue_labels(self._number(task.external), additions)
 
     def close_task(self, task: Task, resolution: str = "done") -> Task:
         if task.external is None:
             raise ProviderError(f"github: cannot close {task.id} — it has no issue reference")
         self.gate.authorize(f"close issue #{task.external.id}", self.name)
-        command = ["gh", "issue", "close", "--repo", self._repo()]
-        if resolution == "cancelled":
-            command += ["--reason", "not planned"]
-        self._run(command + ["--", self._number(task.external)])
+        self._write("PATCH", self._path("issues", self._number(task.external)), {
+            "state": "closed",
+            "state_reason": "not_planned" if resolution == "cancelled" else "completed",
+        })
         return task.with_(status="done" if resolution != "cancelled" else "cancelled")
 
     def comment(self, task: Task, body: str) -> None:
         if task.external is None:
             raise ProviderError(f"github: cannot comment on {task.id} — no issue reference")
         self.gate.authorize(f"comment on issue #{task.external.id}", self.name)
-        self._run(
-            [
-                "gh", "issue", "comment",
-                "--repo", self._repo(), "--body", body,
-                "--", self._number(task.external),
-            ]
-        )
+        self._write("POST", self._path("issues", self._number(task.external), "comments"), {"body": body})
 
     def link_parent(self, child: Task, parent: Task) -> LinkResult:
         """Hierarchy is preserved in metadata; GitHub issues have no native parent."""
@@ -484,13 +466,10 @@ class GitHubProvider(TrackerProvider):
         other external write.
         """
         self.gate.authorize(f"create label {label!r}", self.name)
-        code, output = self._run(
-            ["gh", "label", "create", "--repo", self._repo(), "--", label], check=False
-        )
-        if code != 0:
-            self._note(
-                f"could not create label {label!r} — {self.redact(output.strip()) or 'no output'}"
-            )
+        try:
+            self._write("POST", self._path("labels"), {"name": label})
+        except ProviderError as exc:
+            self._note(f"could not create label {label!r} — {_unprefixed(exc)}")
             return False
         self._known_labels = tuple(self._known_labels or ()) + (label,)
         self._note(f"created label {label!r} because allow_label_creation is on")
@@ -522,16 +501,11 @@ class GitHubProvider(TrackerProvider):
         if self._known_labels is not None:
             return self._known_labels
         try:
-            payload = self._json(
-                [
-                    "gh", "label", "list", "--repo", self._repo(),
-                    "--limit", str(LABEL_LIST_LIMIT), "--json", "name",
-                ]
-            )
+            payload, complete = self._paged("labels", LABEL_LIST_LIMIT)
         except ProviderError as exc:
             self._note(f"could not list labels ({exc}); existing labels preserved, none added")
             raise
-        if len(payload) >= LABEL_LIST_LIMIT:
+        if not complete:
             # Reaching the cap exactly is indistinguishable from "there were more",
             # and a partial vocabulary makes the selector check report labels as
             # missing that exist -- a loud halt on a label the operator can see.
@@ -548,11 +522,11 @@ class GitHubProvider(TrackerProvider):
 
     # ------------------------------------------------------------- gh plumbing
     def _number(self, ref: ExternalRef) -> str:
-        """The issue or pull request number as a positional argument, or a refusal.
+        """The issue or pull request number as a path segment, or a refusal.
 
-        Every call site also passes `--` before its positionals; this is the other
-        half of the same guard, because a value that is not a number has no
-        business reaching `gh` at all.
+        Every call site puts the number inside a REST path, so a value that is
+        not a number has no business reaching `gh` at all: unchecked, a crafted
+        reference would become a path segment.
         """
         number = str(ref.id).lstrip("#").strip()
         if not REF_RE.match(number):
@@ -576,6 +550,33 @@ class GitHubProvider(TrackerProvider):
         """A REST path under this repository: `repos/<owner>/<name>/<parts...>`."""
         return "/".join(["repos", self._repo(), *parts])
 
+    def _paged(self, route: str, cap: int, *params: str) -> Tuple[List[Dict], bool]:
+        """A REST list read `PAGE_SIZE` at a time, and whether it was complete.
+
+        Paging stops at the first short page or at `cap` entries. Reaching the
+        cap exactly is indistinguishable from "there were more", so the caller
+        treats an incomplete read as truncation, never as the whole list.
+        """
+        entries: List[Dict] = []
+        for page in range(1, cap // PAGE_SIZE + 1):
+            query = "&".join([*params, f"per_page={PAGE_SIZE}", f"page={page}"])
+            batch = self._json(["gh", "api", self._path(f"{route}?{query}")])
+            entries.extend(batch)
+            if len(batch) < PAGE_SIZE:
+                return entries, True
+        return entries, False
+
+    def _write(self, method: str, path: str, payload: Dict):
+        """One REST write. The JSON payload travels on stdin through `--input -`,
+        never as `-f` fields: argv is capped near 32K on Windows and issue
+        bodies reach 64K, and `labels` is a list."""
+        command = ["gh", "api", "--method", method, path, "--input", "-"]
+        return self._json(command, input=json.dumps(payload))
+
+    def _add_issue_labels(self, number: str, labels: Sequence[str]) -> None:
+        """`POST /issues/{n}/labels` -- additive, the issue's other labels untouched."""
+        self._write("POST", self._path("issues", number, "labels"), {"labels": list(labels)})
+
     def _repo(self) -> str:
         """The `owner/name` every gh call targets, parsed from the remote on demand.
 
@@ -596,10 +597,11 @@ class GitHubProvider(TrackerProvider):
         self.repository = remote
         return self.repository
 
-    def _run(self, command: Sequence[str], check: bool = True):
+    def _run(self, command: Sequence[str], check: bool = True, input: Optional[str] = None):
         try:
             completed = subprocess.run(
                 list(command),
+                input=input,
                 cwd=self.config.root,
                 capture_output=True,
                 text=True,
@@ -616,13 +618,13 @@ class GitHubProvider(TrackerProvider):
         output = (completed.stdout or "") + (completed.stderr or "")
         if check and completed.returncode != 0:
             raise ProviderError(
-                f"github: `{' '.join(command[:3])}` exited {completed.returncode} — "
+                f"github: `{_describe(command)}` exited {completed.returncode} — "
                 f"{self.redact(output.strip()) or 'no output'}"
             )
         return completed.returncode, output
 
-    def _json(self, command: Sequence[str]):
-        _, output = self._run(command)
+    def _json(self, command: Sequence[str], input: Optional[str] = None):
+        _, output = self._run(command, input=input)
         payload = output[output.find("[") :] if output.lstrip().startswith("[") else output
         try:
             return json.loads(payload.strip() or "[]")
@@ -631,6 +633,26 @@ class GitHubProvider(TrackerProvider):
                 f"github: could not parse gh JSON output — {exc}; got: "
                 f"{self.redact(output.strip()[:200])}"
             ) from exc
+
+
+def _describe(command: Sequence[str]) -> str:
+    """`gh api <METHOD> <path>` for a REST call; the first three words otherwise."""
+    words = list(command)
+    if words[:2] != ["gh", "api"]:
+        return " ".join(words[:3])
+    method, path = "GET", ""
+    for index, word in enumerate(words[2:], start=2):
+        if word in ("--method", "-X") and index + 1 < len(words):
+            method = words[index + 1]
+        elif not word.startswith("-") and not path and words[index - 1] not in ("--method", "-X", "--input"):
+            path = word
+    return f"gh api {method} {path}"
+
+
+def _unprefixed(exc: Exception) -> str:
+    """An error's text without its leading `github: `, for nesting in another."""
+    text = str(exc)
+    return text[len("github: "):] if text.startswith("github: ") else text
 
 
 def _seed_body(task: Task) -> str:

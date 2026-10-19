@@ -4,7 +4,8 @@
 # The GitHub adapter shells out to `gh api` with argv-style arguments. This mock
 # is put first on PATH so the adapter's real command construction is exercised:
 # it records every invocation to $GH_MOCK_LOG and answers reads from canned JSON
-# in $GH_MOCK_DIR. Writes are recorded, never performed.
+# in $GH_MOCK_DIR. Writes are recorded, never performed — except that a created
+# label is appended to labels.json, so a test can see the vocabulary grow.
 #
 # It is deliberately strict where the real CLI — and the REST API behind it —
 # is strict:
@@ -13,16 +14,25 @@
 #     an adapter that regresses to argv payloads is caught here;
 #   * a path naming any repository but the fixture's answers 404, the way the
 #     real API does for a repository the token cannot see;
+#   * a write naming a label absent from labels.json exits 1. The real
+#     `POST /issues` would silently CREATE it, which is exactly the vocabulary
+#     mutation the adapter's known-label filter exists to prevent, so the mock
+#     fails loudly where the API would fail quietly;
 #   * positionals of the remaining subcommands are read after `--`, the way
-#     cobra parses them;
-#   * `--label` is rejected unless the label exists in labels.json, so a test
-#     cannot pass while the adapter invents vocabulary the repository lacks.
+#     cobra parses them.
+#
+# The log line of an `api` call is the argv line followed by the parsed stdin
+# body, re-serialized with sorted keys, so a test asserts on what was SENT —
+# `"labels": ["in-progress"]` — not only on which route was hit.
 #
 # Knobs (env):
-#   GH_MOCK_DIR     directory holding issues.json / labels.json / issue-<n>.json
-#   GH_MOCK_LOG     file every invocation is appended to, one line per call
-#   GH_MOCK_UNAUTH  when set, `gh api user` fails like a logged-out CLI
-#   GH_MOCK_FAIL    when set, every write exits 1 (partial-failure tests)
+#   GH_MOCK_DIR         directory holding issues.json / labels.json / issue-<n>.json
+#   GH_MOCK_LOG         file every invocation is appended to, one line per call
+#   GH_MOCK_UNAUTH      when set, `gh api user` fails like a logged-out CLI
+#   GH_MOCK_FAIL        when set, every write exits 1 (partial-failure tests)
+#   GH_MOCK_FAIL_ROUTE  a route under the repository (`issues/42/labels`) whose
+#                       writes alone exit 1, so a test can fail the second call
+#                       of a two-call write and leave the first one standing
 set -u
 
 : "${GH_MOCK_DIR:=.}"
@@ -33,8 +43,8 @@ subcommand="${1:-}"
 
 # ---------------------------------------------------------------- gh api -----
 # `gh api [--method M] <path> [--input -]`. The route table lives in Python so
-# that paging, lookups and the body echo read as one dispatcher rather than a
-# tangle of `case` arms and `jq`-less JSON handling.
+# that paging, lookups, body validation and the log line read as one dispatcher
+# rather than a tangle of `case` arms and `jq`-less JSON handling.
 if [ "$subcommand" = "api" ]; then
   shift
   method="GET"
@@ -68,16 +78,32 @@ if [ "$subcommand" = "api" ]; then
     echo "gh mock: api needs a path" >&2
     exit 1
   fi
-  printf '%s\n' "$argv_line" >> "$GH_MOCK_LOG"
-  GH_MOCK_BODY="$body" python3 - "$method" "$path" "$GH_MOCK_DIR" <<'PY'
+  GH_MOCK_BODY="$body" GH_MOCK_ARGV="$argv_line" python3 - "$method" "$path" "$GH_MOCK_DIR" "$GH_MOCK_LOG" <<'PY'
 import io, json, os, re, sys
 from urllib.parse import parse_qs, urlsplit
 
-method, raw_path, data = sys.argv[1].upper(), sys.argv[2], sys.argv[3]
+method, raw_path, data, log = sys.argv[1].upper(), sys.argv[2], sys.argv[3], sys.argv[4]
 REPO = "fixture-owner/fixture-repo"
 split = urlsplit(raw_path)
 path = split.path.strip("/")
 query = {key: values[-1] for key, values in parse_qs(split.query).items()}
+
+raw_body = os.environ.get("GH_MOCK_BODY", "")
+body = None
+if raw_body.strip():
+    try:
+        body = json.loads(raw_body)
+    except ValueError as exc:
+        sys.stderr.write(f"gh mock: --input body is not JSON ({exc})\n")
+        sys.exit(1)
+
+# The log line is written before dispatch so that a refused route is recorded
+# too: a test asserting "nothing was written" reads this log.
+line = os.environ.get("GH_MOCK_ARGV", "")
+if body is not None:
+    line += " " + json.dumps(body, sort_keys=True)
+with io.open(log, "a", encoding="utf-8") as handle:
+    handle.write(line + "\n")
 
 
 def fail(status, message):
@@ -94,6 +120,10 @@ def load(name, default=None):
         return default
 
 
+def save(name, payload):
+    io.open(os.path.join(data, name), "w", encoding="utf-8", newline="\n").write(json.dumps(payload))
+
+
 def page(entries):
     """GitHub paging: `per_page` (default 30, max 100) and 1-based `page`."""
     size = min(int(query.get("per_page", 30)), 100)
@@ -104,6 +134,32 @@ def page(entries):
 def answer(payload):
     sys.stdout.write(json.dumps(payload))
     sys.exit(0)
+
+
+def require_body(*keys):
+    if body is None:
+        sys.stderr.write(f"gh mock: {method} {path} needs a JSON body on stdin\n")
+        sys.exit(1)
+    for key in keys:
+        if key not in body:
+            sys.stderr.write(f"gh mock: {method} {path} body lacks {key!r}: {json.dumps(body)}\n")
+            sys.exit(1)
+    return body
+
+
+def require_known_labels(labels):
+    known = {entry["name"] for entry in load("labels.json", default=[])}
+    for label in labels:
+        if label not in known:
+            sys.stderr.write(
+                f"gh mock: label {label!r} is not in labels.json -- the adapter must filter "
+                "unknown labels before a write, since the real API would create it\n"
+            )
+            sys.exit(1)
+
+
+def issue_url(number):
+    return f"https://github.com/{REPO}/issues/{number}"
 
 
 if path == "user":
@@ -121,6 +177,9 @@ if match.group(1).lower() != REPO:
 route = match.group(2) or ""
 
 if method == "GET":
+    if body is not None:
+        sys.stderr.write(f"gh mock: GET {path} does not take a body\n")
+        sys.exit(1)
     if route == "issues":
         entries = load("issues.json")
         state = query.get("state", "open")
@@ -141,6 +200,39 @@ if method == "GET":
         fail(404, "Not Found")
     if route == "labels":
         answer(page(load("labels.json")))
+
+if method in ("POST", "PATCH"):
+    if os.environ.get("GH_MOCK_FAIL") or os.environ.get("GH_MOCK_FAIL_ROUTE", "\0") == route:
+        fail(403, "Resource not accessible by integration")
+    if method == "POST" and route == "issues":
+        payload = require_body("title", "body")
+        require_known_labels(payload.get("labels") or [])
+        counter = os.path.join(data, "next-number")
+        number = int(io.open(counter, encoding="utf-8").read().strip()) if os.path.exists(counter) else 100
+        io.open(counter, "w", encoding="utf-8").write(str(number + 1))
+        answer({"number": number, "html_url": issue_url(number), "state": "open"})
+    found = re.fullmatch(r"issues/(\d+)", route)
+    if found and method == "PATCH":
+        payload = require_body()
+        answer({"number": int(found.group(1)), "html_url": issue_url(found.group(1)),
+                "state": payload.get("state", "open")})
+    found = re.fullmatch(r"issues/(\d+)/labels", route)
+    if found and method == "POST":
+        payload = require_body("labels")
+        require_known_labels(payload["labels"])
+        answer([{"name": name} for name in payload["labels"]])
+    found = re.fullmatch(r"issues/(\d+)/comments", route)
+    if found and method == "POST":
+        require_body("body")
+        answer({"id": 1, "html_url": issue_url(found.group(1)) + "#issuecomment-1"})
+    if method == "POST" and route == "labels":
+        payload = require_body("name")
+        entries = load("labels.json", default=[])
+        if any(entry["name"] == payload["name"] for entry in entries):
+            fail(422, "Validation Failed (already_exists)")
+        entries.append({"name": payload["name"]})
+        save("labels.json", entries)
+        answer({"name": payload["name"]})
 
 sys.stderr.write(f"gh mock: unhandled api route: {method} {raw_path}\n")
 sys.exit(1)

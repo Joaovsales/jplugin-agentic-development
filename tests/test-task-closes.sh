@@ -85,12 +85,16 @@ def run_cli(cli, scenario, argv):
             raise ProviderError(f"github: `{' '.join(command[:3])}` exited {code} — {output}")
         return code, output
 
-    def fake_run(self, command, check=True):
+    def fake_run(self, command, check=True, input=None):
         command = list(command)
-        calls.append(" ".join(command))
+        calls.append(" ".join(command) + (f" {input}" if input else ""))
         verb, number = command[1:3], command[-1]
-        # Issue reads are REST: `gh api repos/<owner>/<name>/issues[/<n>|?<query>]`.
-        path = command[2] if command[1] == "api" else ""
+        # Issues are REST: `gh api [--method M] repos/<owner>/<name>/issues[/<n>|?<query>]`,
+        # a write's payload on stdin.
+        method = command[command.index("--method") + 1] if "--method" in command else "GET"
+        path = ""
+        if command[1] == "api":
+            path = next((arg for arg in command[2:] if not arg.startswith("-") and arg != method), "")
         issue_read = re.fullmatch(rf"repos/{HERE}/issues/(\d+)", path)
         if verb == ["pr", "view"]:
             if number not in prs:
@@ -105,6 +109,11 @@ def run_cli(cli, scenario, argv):
                 for repo, issue in pr.get("closes", [])
             ]
             return answer(command, 0, json.dumps({"state": pr["state"], "closingIssuesReferences": refs}), check)
+        if issue_read and method == "PATCH":
+            number = issue_read.group(1)
+            if number in failing:
+                return answer(command, 1, "HTTP 403: Resource not accessible by integration", check)
+            return answer(command, 0, json.dumps({"number": int(number), "state": "closed"}), check)
         if issue_read:
             number = issue_read.group(1)
             if number in unreadable:
@@ -119,11 +128,7 @@ def run_cli(cli, scenario, argv):
                     if any(repo == HERE and str(issue) == number for repo, issue in spec.get("closes", []))
                 ]),
             }), check)
-        if verb == ["issue", "close"]:
-            if number in failing:
-                return answer(command, 1, "HTTP 403: Resource not accessible by integration", check)
-            return answer(command, 0, "", check)
-        if verb == ["label", "list"]:
+        if path.startswith(f"repos/{HERE}/labels?"):
             return answer(command, 0, json.dumps([{"name": name} for name in LABELS]), check)
         if path.startswith(f"repos/{HERE}/issues?"):
             return answer(command, 0, json.dumps([
@@ -201,7 +206,7 @@ out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["other-
 assert_contains "$out" "exit=1" "provider: a closing reference in another repository exits 1"
 assert_contains "$out" "other-owner/other-repo#5" "provider: the foreign reference is named"
 assert_contains "$out" "nothing was closed" "provider: the refusal says nothing was closed"
-assert_not_contains "$out" "call: gh issue close" "provider: no issue is closed while one is out of reach"
+assert_not_contains "$out" "--method PATCH" "provider: no issue is closed while one is out of reach"
 
 out="$(closes '{}' '#141' --provider local --apply --approve)"
 assert_contains "$out" "exit=1" "provider: a tracker without pull requests refuses with exit 1"
@@ -210,8 +215,9 @@ assert_contains "$out" "local:" "provider: the refusal names the provider"
 # --- command: close what the merge left open ---------------------------------
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",92]]}},"issues":{"91":"OPEN","92":"CLOSED"}}' '#141' --apply --approve)"
 assert_contains "$out" "exit=0" "command: closing every open linked issue exits 0"
-assert_contains "$out" "call: gh issue close --repo $HERE -- 91" "command: the open linked issue is closed through gh issue close"
-assert_not_contains "$out" "call: gh issue close --repo $HERE -- 92" "command: an issue already closed is left alone"
+assert_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/91 --input - "'{"state": "closed", "state_reason": "completed"}' \
+  "command: the open linked issue is closed through PATCH /issues/{n}, the payload on stdin"
+assert_not_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/92" "command: an issue already closed is left alone"
 assert_contains "$out" "closes: closed #91" "command: each closed issue gets one line"
 assert_not_contains "$out" "call: gh api graphql" \
   "command: closes reads no linked PR state -- a lookup only select needs must not fail the repair"
@@ -219,7 +225,7 @@ assert_not_contains "$out" "call: gh api graphql" \
 out="$(closes '{"prs":{"140":{"state":"MERGED","closes":[["'$HERE'",92]]}},"issues":{"92":"CLOSED"}}' '#140' --apply --approve)"
 assert_contains "$out" "exit=0" "command: a merge that closed everything exits 0"
 assert_contains "$out" "nothing to do" "command: a merge that closed everything says nothing to do"
-assert_not_contains "$out" "call: gh issue close" "command: nothing is closed when nothing is open"
+assert_not_contains "$out" "--method PATCH" "command: nothing is closed when nothing is open"
 
 out="$(closes '{"prs":{"7":{"state":"MERGED","closes":[]}}}' '#7' --apply --approve)"
 assert_contains "$out" "exit=0" "command: a merged pull request with no closing reference exits 0"
@@ -228,7 +234,7 @@ assert_contains "$out" "nothing to do" "command: a merged pull request with no c
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",93]]}},"issues":{"91":"OPEN","93":"OPEN"},"fail":["91"]}' '#141' --apply --approve)"
 assert_contains "$out" "exit=1" "command: a failed close exits 1"
 assert_contains "$out" "#91 is still open" "command: the issue that could not be closed is named"
-assert_contains "$out" "call: gh issue close --repo $HERE -- 93" "command: a failed close does not stop the rest"
+assert_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/93" "command: a failed close does not stop the rest"
 assert_contains "$out" "closes: closed #93" "command: the issues that did close are still reported"
 
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",93]]}},"issues":{"93":"OPEN"},"unreadable":["91"]}' '#141' --apply --approve)"
@@ -242,7 +248,7 @@ assert_contains "$out" "exit=1" "command: a dry run with open linked issues exit
 assert_contains "$out" "#91 is still open" "command: a dry run names the first open issue"
 assert_contains "$out" "#93 is still open" "command: a dry run names every open issue"
 assert_contains "$out" "pass --apply" "command: a dry run says how to perform the close"
-assert_not_contains "$out" "call: gh issue close" "command: a dry run closes nothing"
+assert_not_contains "$out" "--method PATCH" "command: a dry run closes nothing"
 
 out="$(closes '{}')"
 assert_contains "$out" "exit=2" "command: no pull request reference is a usage error"

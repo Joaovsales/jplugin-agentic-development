@@ -605,7 +605,7 @@ assert_not_contains "$claim_dry" "wrote in-progress" "claim: a dry run writes no
 # implementation that printed nothing and wrote anyway passes both. gh.log is the
 # tracker-side evidence, and it is the same log the apply path asserts against
 # below, so the two directions are pinned with one mechanism.
-assert_file_not_matches "$F_CLAIM/gh.log" "add-label" \
+assert_file_not_matches "$F_CLAIM/gh.log" "--method" \
   "AC10: a dry run reaches the tracker with no label write at all"
 # "...and says so": the refusal has to name the flag that would proceed, or the
 # operator learns only that something was refused.
@@ -620,11 +620,11 @@ assert_contains "$claim_wrong" "belongs to fix" "claim: the refusal names the ow
 claim_out="$(run_claim "$F_CLAIM" 42 --routine fix --apply --approve)"; claim_code=$?
 assert_eq "0" "$claim_code" "claim: writes the claim label for the owning routine"
 assert_contains "$claim_out" "wrote in-progress to 42" "claim: the write is reported"
-assert_file_contains "$F_CLAIM/gh.log" "--add-label in-progress" \
+assert_file_contains "$F_CLAIM/gh.log" 'issues/42/labels --input - {"labels": ["in-progress"]}' \
   "claim: the label reaches the tracker — the read half is not the whole guard"
 
 # A retried routine must not need to know whether its first attempt got through.
-# The label is set directly here because the gh mock does not persist `issue edit`
+# The label is set directly here because the gh mock does not persist a label write
 # back into its issue list -- the property under test is how claim reads an issue
 # that ALREADY carries the label, not whether the mock round-trips a write.
 cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
@@ -675,7 +675,7 @@ assert_contains "$held_claim" "human investigation" \
 held_claimed="$(run_claim "$F_HELD" 52 --routine fix --apply --approve)"; held_claimed_code=$?
 assert_eq "1" "$held_claimed_code" \
   "AC3: escalation is checked before already-claimed idempotence"
-assert_file_not_matches "$F_HELD/gh.log" "add-label" \
+assert_file_not_matches "$F_HELD/gh.log" "--method" \
   "AC4: refusing held claims makes no tracker mutation"
 fresh_hold="$(run_claim "$F_HELD" 53 --routine fix --apply --approve)"; fresh_hold_code=$?
 assert_eq "1" "$fresh_hold_code" \
