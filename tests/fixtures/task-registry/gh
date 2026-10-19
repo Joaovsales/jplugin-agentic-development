@@ -5,10 +5,11 @@
 # with argv-style arguments. This mock is put first on PATH so the real command
 # construction is exercised: it records every invocation to $GH_MOCK_LOG and
 # answers reads from canned JSON in $GH_MOCK_DIR. Writes are recorded, never
-# performed — except that a created label is appended to labels.json, so a test
-# can see the vocabulary grow. Any other subcommand is an error: the cloud
-# sandbox proxies REST and refuses GraphQL, so `gh issue`, `gh pr`, `gh label`,
-# `gh repo` and `gh auth` have no business here.
+# performed — except that a created label is appended to labels.json and a
+# created or edited pull request to pulls.json, so a test can see the
+# vocabulary grow and a later read see the write. Any other subcommand is an
+# error: the cloud sandbox proxies REST and refuses GraphQL, so `gh issue`,
+# `gh pr`, `gh label`, `gh repo` and `gh auth` have no business here.
 #
 # It is deliberately strict where the real CLI — and the REST API behind it —
 # is strict:
@@ -29,12 +30,21 @@
 # Knobs (env):
 #   GH_MOCK_DIR         directory holding issues.json / labels.json / issue-<n>.json
 #                       / timeline-<n>.json (an issue's REST timeline events)
+#                       / pulls.json (REST pull requests: number, html_url, state,
+#                       merged, draft, body, head{ref,sha}, base{ref}, mergeable)
+#                       / check-runs-<sha>.json and status-<sha>.json (a commit's
+#                       check runs and combined status) / protection-<branch>.json
+#                       (a branch's required_status_checks; absent = unprotected)
 #   GH_MOCK_LOG         file every invocation is appended to, one line per call
 #   GH_MOCK_UNAUTH      when set, `gh api user` fails like a logged-out CLI
 #   GH_MOCK_FAIL        when set, every write exits 1 (partial-failure tests)
 #   GH_MOCK_FAIL_ROUTE  a route under the repository (`issues/42/labels`) whose
 #                       writes alone exit 1, so a test can fail the second call
 #                       of a two-call write and leave the first one standing
+#   GH_MOCK_FAIL_READS  when set, every read under the repository answers 502,
+#                       the "could not ask" a caller must not read as "not found"
+#   GH_MOCK_NO_CCR      when set, the `pulls/<n>/ccr/*` routes answer 404, the
+#                       way GitHub does outside the sandbox proxy that adds them
 set -u
 
 : "${GH_MOCK_DIR:=.}"
@@ -164,8 +174,35 @@ def require_known_labels(labels):
             sys.exit(1)
 
 
+def next_number():
+    """The next issue or pull request number: one counter, the way GitHub has one."""
+    counter = os.path.join(data, "next-number")
+    number = int(io.open(counter, encoding="utf-8").read().strip()) if os.path.exists(counter) else 100
+    io.open(counter, "w", encoding="utf-8").write(str(number + 1))
+    return number
+
+
+def by_state(entries):
+    state = query.get("state", "open")
+    if state == "all":
+        return entries
+    return [entry for entry in entries if (entry.get("state") or "open").lower() == state]
+
+
 def issue_url(number):
     return f"https://github.com/{REPO}/issues/{number}"
+
+
+def find_pull(number):
+    for entry in load("pulls.json", default=[]):
+        if str(entry.get("number")) == number:
+            return entry
+    fail(404, "Not Found")
+
+
+def save_pull(entry):
+    pulls = [pull for pull in load("pulls.json", default=[]) if pull.get("number") != entry.get("number")]
+    save("pulls.json", pulls + [entry])
 
 
 if path == "user":
@@ -186,12 +223,10 @@ if method == "GET":
     if body is not None:
         sys.stderr.write(f"gh mock: GET {path} does not take a body\n")
         sys.exit(1)
+    if os.environ.get("GH_MOCK_FAIL_READS"):
+        fail(502, "Bad Gateway")
     if route == "issues":
-        entries = load("issues.json")
-        state = query.get("state", "open")
-        if state != "all":
-            entries = [entry for entry in entries if (entry.get("state") or "open").lower() == state]
-        answer(page(entries))
+        answer(page(by_state(load("issues.json"))))
     found = re.fullmatch(r"issues/(\d+)", route)
     if found:
         number = found.group(1)
@@ -211,6 +246,28 @@ if method == "GET":
         answer(page(load(f"timeline-{found.group(1)}.json", default=[])))
     if route == "labels":
         answer(page(load("labels.json")))
+    if route == "pulls":
+        pulls = load("pulls.json", default=[])
+        if "head" in query:
+            # `head=owner:branch` narrows to the pull requests from that branch.
+            branch = query["head"].partition(":")[2]
+            pulls = [pull for pull in pulls if (pull.get("head") or {}).get("ref") == branch]
+        answer(page(by_state(pulls)))
+    found = re.fullmatch(r"pulls/(\d+)", route)
+    if found:
+        answer(find_pull(found.group(1)))
+    found = re.fullmatch(r"commits/([^/]+)/check-runs", route)
+    if found:
+        answer(load(f"check-runs-{found.group(1)}.json", default={"total_count": 0, "check_runs": []}))
+    found = re.fullmatch(r"commits/([^/]+)/status", route)
+    if found:
+        answer(load(f"status-{found.group(1)}.json", default={"state": "pending", "statuses": []}))
+    found = re.fullmatch(r"branches/([^/]+)/protection/required_status_checks", route)
+    if found:
+        protection = load(f"protection-{found.group(1)}.json", default={})
+        if not protection:
+            fail(404, "Branch not protected")
+        answer(protection)
 
 if method in ("POST", "PATCH"):
     if os.environ.get("GH_MOCK_FAIL") or os.environ.get("GH_MOCK_FAIL_ROUTE", "\0") == route:
@@ -218,9 +275,7 @@ if method in ("POST", "PATCH"):
     if method == "POST" and route == "issues":
         payload = require_body("title", "body")
         require_known_labels(payload.get("labels") or [])
-        counter = os.path.join(data, "next-number")
-        number = int(io.open(counter, encoding="utf-8").read().strip()) if os.path.exists(counter) else 100
-        io.open(counter, "w", encoding="utf-8").write(str(number + 1))
+        number = next_number()
         answer({"number": number, "html_url": issue_url(number), "state": "open"})
     found = re.fullmatch(r"issues/(\d+)", route)
     if found and method == "PATCH":
@@ -244,6 +299,34 @@ if method in ("POST", "PATCH"):
         entries.append({"name": payload["name"]})
         save("labels.json", entries)
         answer({"name": payload["name"]})
+    if method == "POST" and route == "pulls":
+        payload = require_body("title", "head", "base")
+        number = next_number()
+        entry = {
+            "number": number, "html_url": f"https://github.com/{REPO}/pull/{number}",
+            "state": "open", "merged": False, "draft": bool(payload.get("draft")),
+            "title": payload["title"], "body": payload.get("body") or "",
+            "head": {"ref": payload["head"], "sha": f"{number:040d}"}, "base": {"ref": payload["base"]},
+            "mergeable": None,
+        }
+        save_pull(entry)
+        answer(entry)
+    found = re.fullmatch(r"pulls/(\d+)", route)
+    if found and method == "PATCH":
+        payload = require_body()
+        entry = find_pull(found.group(1))
+        entry.update({key: payload[key] for key in ("title", "body", "state") if key in payload})
+        save_pull(entry)
+        answer(entry)
+    found = re.fullmatch(r"pulls/(\d+)/ccr/(ready_for_review|convert_to_draft)", route)
+    if found and method == "POST":
+        # Routes the Claude Code sandbox proxy adds; GitHub itself has none.
+        if os.environ.get("GH_MOCK_NO_CCR"):
+            fail(404, "Not Found")
+        entry = find_pull(found.group(1))
+        entry["draft"] = found.group(2) == "convert_to_draft"
+        save_pull(entry)
+        answer(entry)
 
 sys.stderr.write(f"gh mock: unhandled api route: {method} {raw_path}\n")
 sys.exit(1)
