@@ -77,7 +77,7 @@ Nothing new owns anything. The change moves one fact — *who sets `depends_on`*
    │ (1) upsert         │                          │                                  │
    │  --depends-on a ──►│ (2) validate ids NEW     │                                  │
    │                    │   pre-config block :180  │                                  │
-   │                    │ load_config, select_provider (unchanged; may call gh auth status :216)
+   │                    │ load_config, select_provider (unchanged; may call gh api user)
    │                    │ Task(depends_on=(a,))    │                                  │
    │                    │ owned={"depends_on"} ───►│ (3) load_index_strict            │
    │                    │                    NEW   │     every dep id in index?  NEW  │
@@ -94,9 +94,9 @@ Nothing new owns anything. The change moves one fact — *who sets `depends_on`*
 
 | Arrow | Mode | On failure | On duplicate run |
 |-------|------|------------|------------------|
-| (2) | sync, in-process, before `load_config` | exit 2; no config read, no `gh auth status`, nothing written | same answer |
+| (2) | sync, in-process, before `load_config` | exit 2; no config read, no `gh api user` probe, nothing written | same answer |
 | (3) | sync, local file | missing id → exit 2 before any provider call, in dry run and in apply alike | same answer |
-| (4)–(6) | sync, subprocess for github | `ProviderError` → `upsert: could not persist …`, exit 1, index untouched (`upsert.py:214-219`, unchanged). In-doubt case, pre-existing: `gh issue create` succeeds but its URL cannot be parsed (`github.py:180-184`) — the issue exists, the command reports failure, and the next run finds it only if the index already holds the reference | `_existing` finds the record → `updated`; `_merge` replaces `depends_on` because it is owned |
+| (4)–(6) | sync, subprocess for github | `ProviderError` → `upsert: could not persist …`, exit 1, index untouched (`upsert.py:214-219`, unchanged). In-doubt case, pre-existing: the `POST /issues` write succeeds but its response carries no issue URL (`github.py:265-270`) — the issue exists, the command reports failure, and the next run finds it only if the index already holds the reference | `_existing` finds the record → `updated`; `_merge` replaces `depends_on` because it is owned |
 | (7) | sync, local file | as today | row refreshed in place, not appended |
 
 ### Failure unit

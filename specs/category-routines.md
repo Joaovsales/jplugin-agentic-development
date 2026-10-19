@@ -78,9 +78,8 @@ ends at a pull request a human reviews.
 
 `build` is specified here but **not implemented in the first change**. Its
 selector needs `blockedBy` read through `/task-registry`, and the GitHub provider
-does not request that field: `OPTIONAL_ISSUE_FIELDS` is
-`("closedByPullRequestsReferences", "stateReason")`, and `capabilities` hardcodes
-`native_dependencies=False` on the deliberate grounds (`github.py:60-63`) that
+reads no dependency field off the REST issue, and `capabilities` hardcodes
+`native_dependencies=False` on the deliberate grounds (`github.py:91`) that
 claiming an inferred link as native is the one thing capability degradation must
 never do. Issue #97 revisits that with a runtime probe; #98 tracks `build` itself.
 
@@ -290,7 +289,7 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 |---|---|---|
 | Candidate issues, labels, claim | `/task-registry` | title/body untrusted, labels trusted |
 | Dependency state (`build` only — deferred, #97) | `gh --json blockedBy` via the registry | trusted; **not yet supplied** |
-| Linked PR state | `gh --json closedByPullRequestsReferences,stateReason` plus one `gh api graphql` `nodes(ids:)` read of the PRs' states, via the registry — `gh` lists closing PRs without their state | trusted; asserted at start |
+| Linked PR state | each candidate's `cross-referenced` timeline events (`GET /repos/{r}/issues/{n}/timeline`), read through the registry after the kind and claim filters; the pull request's `state` and `merged_at` ride on the event's `source.issue` | trusted; a timeline that cannot be read or paged to the end fails `select` |
 | Kind/priority/claim vocabulary | project `task-tracking.md` | trusted |
 | Routine + issue number | current branch name | trusted |
 
@@ -313,14 +312,12 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 - **Issue carries no kind label** — never selected. The routine reports the count
   of such issues so the gap is visible.
 - **Issue already carries the claim label** — skipped as in-flight.
-- **`gh` predates `closedByPullRequestsReferences` or `stateReason`** (< 2.73.0) —
-  asserted **once at routine start**, loudly. Every routine depends on the field to exclude issues
-  with an open linked routine PR, and degrading per-routine gave two different
-  answers to one missing capability; `build`, when it lands, would have skipped
-  every issue nightly and exited 0.
+- **A candidate's timeline runs past `TIMELINE_LIMIT`** — `select` exits 1 naming the
+  candidate. Guessing would re-pick work under review, so the whole run refuses rather
+  than one routine degrading differently from another.
 - **Closing PR merged, issue still open** — a `GITHUB_TOKEN` merge the merger did
   not follow with `closes`. Never selected while nothing else is in flight and
-  the issue was not reopened (`stateReason` `REOPENED`); `select` prints a
+  the issue was not reopened (`state_reason` `reopened`); `select` prints a
   `stranded:` line with `task-registry closes '#<pr>' --apply --approve`. A
   merged closing PR in another repository is out of `closes`' reach and counts as
   resolved, like any other merge.

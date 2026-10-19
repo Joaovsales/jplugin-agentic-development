@@ -233,7 +233,7 @@ listing the known ones.
 **`lanes` reads no tracker.** Every other registry command needs a provider to
 do its job; `lanes` needs a directory read and, for a routine lane, one
 configuration block. So it never selects or builds a provider — no `git remote`,
-no `gh auth status` subprocess — and it loads the configuration with
+no `gh api user` subprocess — and it loads the configuration with
 `strict=False`. A configuration that cannot be read does not block a question
 about how the code works: an interactive-only lane prints and exits 0, a routine
 lane's row shows the shipped chain with `(shipped — configuration could not be
