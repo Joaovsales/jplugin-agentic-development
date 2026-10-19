@@ -26,7 +26,7 @@ import subprocess
 import urllib.parse
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from ..config import github_remote
+from ..config import GH_AUTH_PROBE, github_remote
 from ..model import (
     BLOCK_STATE_NOTES,
     ExternalRef,
@@ -109,7 +109,7 @@ class GitHubProvider(TrackerProvider):
     # ---------------------------------------------------------------- discovery
     def discover(self) -> ProviderStatus:
         try:
-            code, output = self._run(["gh", "api", "user"], check=False)
+            code, output = self._run(list(GH_AUTH_PROBE), check=False)
         except ProviderUnavailable as exc:
             return ProviderStatus(False, str(exc))
         if code != 0:

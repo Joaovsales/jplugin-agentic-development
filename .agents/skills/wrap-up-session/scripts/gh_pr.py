@@ -137,14 +137,15 @@ def path(slug: str, *parts: str) -> str:
 
 
 def pr_number(value: str) -> str:
-    """A pull request number fit for a path segment, or a refusal.
+    """A pull request number fit for a path segment, or a parser refusal.
 
-    Every subcommand puts it inside a REST path, so anything but digits has no
-    business reaching `gh`: unchecked, `../issues/7` would become a route.
+    Every subcommand's `number` argument is parsed through this type, so
+    anything but digits never reaches `gh`: unchecked, `../issues/7` would
+    become a route. A leading `#` is tolerated, the way `gh` takes it.
     """
     number = value.lstrip("#")
     if not number.isdigit():
-        raise GhError(f"{value!r} is not a pull request number")
+        raise argparse.ArgumentTypeError(f"{value!r} is not a pull request number")
     return number
 
 
@@ -191,16 +192,21 @@ def required_checks(slug: str, base: str) -> Optional[set]:
         "GET", path(slug, "branches", base, "protection", "required_status_checks"), tolerate=(403, 404),
     )
     if protection is None:
-        print(f"checks: {base} declares no required checks (branch not protected) — watching all checks")
+        note(f"checks: {base} declares no required checks (branch not protected) — watching all checks")
         return None
     names = set(protection.get("contexts") or []) | {
         check.get("context", "") for check in protection.get("checks") or []
     }
     names.discard("")
     if not names:
-        print(f"checks: {base} declares no required checks — watching all checks")
+        note(f"checks: {base} declares no required checks — watching all checks")
         return None
     return names
+
+
+def note(message: str) -> None:
+    """A progress line on stderr, so stdout stays the results a caller parses."""
+    print(message, file=sys.stderr)
 
 
 # -------------------------------------------------------------- subcommands
@@ -219,8 +225,10 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 def cmd_view(args: argparse.Namespace) -> int:
     slug = repo_slug()
-    target = args.target.lstrip("#")
-    pull = read_pull(slug, target) if target.isdigit() else find_pull(slug, args.target)
+    try:
+        pull = read_pull(slug, pr_number(args.target))
+    except argparse.ArgumentTypeError:
+        pull = find_pull(slug, args.target)
     fields = [field.strip() for field in args.json.split(",") if field.strip()]
     unknown = [field for field in fields if field not in VIEW_FIELDS]
     if unknown:
@@ -323,23 +331,23 @@ def build_parser() -> argparse.ArgumentParser:
     view.set_defaults(run=cmd_view)
 
     edit = commands.add_parser("edit", help="replace a pull request's body")
-    edit.add_argument("number")
+    edit.add_argument("number", type=pr_number)
     edit.add_argument("--body-file", required=True)
     edit.set_defaults(run=cmd_edit)
 
     ready = commands.add_parser("ready", help="mark ready for review, or draft with --undo")
-    ready.add_argument("number")
+    ready.add_argument("number", type=pr_number)
     ready.add_argument("--undo", action="store_true")
     ready.set_defaults(run=cmd_ready)
 
     checks = commands.add_parser("checks", help="the head commit's check runs and statuses")
-    checks.add_argument("number")
+    checks.add_argument("number", type=pr_number)
     checks.add_argument("--watch", action="store_true")
     checks.add_argument("--required", action="store_true")
     checks.set_defaults(run=cmd_checks)
 
     mergeable = commands.add_parser("mergeable", help="clean, conflicting or unknown")
-    mergeable.add_argument("number")
+    mergeable.add_argument("number", type=pr_number)
     mergeable.set_defaults(run=cmd_mergeable)
     return parser
 
@@ -347,8 +355,6 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        if getattr(args, "number", None) is not None:
-            args.number = pr_number(args.number)
         return args.run(args)
     except GhError as exc:
         print(f"gh_pr.py: {exc}", file=sys.stderr)
