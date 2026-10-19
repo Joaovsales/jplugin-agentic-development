@@ -74,6 +74,11 @@ assert_contains "$install_line" "https://github.com/tt-a1i/archify" "resolver: t
 assert_contains "$install_line" "$box/empty-home" "resolver: the install command targets the resolved ARCHIFY_HOME"
 assert_eq "" "$RES_OUT" "resolver: a missing tool exports nothing"
 assert_eq "0" "$(html_written)" "resolver: a missing tool writes no HTML"
+# The same command lives in install.sh step 6c; a user who follows either must
+# land on the same checkout. Evaluate install.sh's template with the same home
+# instead of pinning the text twice.
+installer_cmd="$(ARCHIFY_HOME="$box/empty-home" bash -c "$(grep -E '^ARCHIFY_(REPO|TAG|HOME|INSTALL_CMD)=' install.sh); printf '%s\n' \"\$ARCHIFY_INSTALL_CMD\"")"
+assert_eq "$installer_cmd" "$install_line" "resolver: the install command is install.sh's, verbatim"
 
 # Node too old: the requirement is named, nothing exported, no HTML, non-zero.
 mkdir -p "$box/bin-b"
