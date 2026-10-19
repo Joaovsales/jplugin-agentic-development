@@ -2,7 +2,10 @@
 
 `gh` rather than an SDK: the harness already assumes it (`/wrap-up-session` opens
 PRs with it), it carries the user's existing auth, and it adds no dependency to
-install. Every call is argv-style — no shell string interpolation anywhere.
+install. Every call is `gh api` against the REST API, never `gh issue`, `gh
+label`, `gh repo` or `gh auth`: those speak GraphQL, which the Claude Code cloud
+sandbox's proxy refuses while REST goes through. Every call is argv-style — no
+shell string interpolation anywhere.
 
 Two rules this adapter exists to keep:
 
@@ -23,6 +26,7 @@ import subprocess
 import urllib.parse
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ..config import github_remote
 from ..model import (
     BLOCK_STATE_NOTES,
     ExternalRef,
@@ -46,28 +50,19 @@ from .base import (
     preserve_labels,
 )
 
-REQUIRED_ISSUE_FIELDS = (
-    "number", "title", "body", "labels", "state", "url",
-    "createdAt", "updatedAt", "assignees",
-)
-#: Fields the linked-PR exclusion needs, which a recent `gh` exposes and an
-#: older one does not: `closedByPullRequestsReferences` (gh 2.73.0) names an
-#: issue's closing pull requests, and `stateReason` tells a reopened issue from
-#: one its merged pull request never closed. `gh` validates `--json` names
-#: client-side, so asking an older one for either fails the whole query rather
-#: than omitting the field. Each rejected field is dropped and the read retried;
-#: `linked_pr_exclusion_available()` then turns the gap into a loud refusal in
-#: `select` rather than a silent clean read. That is the correct degradation;
-#: dying is not.
+#: Transitional until the timeline read lands: the linked-PR exclusion still
+#: reads `closedByPullRequestsReferences` and `stateReason` off an issue entry
+#: that carries them, and `linked_pr_exclusion_available()` still keys on them.
 OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences", "stateReason")
 #: `gh` lists an issue's closing pull requests without their state, so the
 #: states come from one GraphQL read per batch of node ids; `nodes(ids:)`
 #: accepts at most 100.
 PR_STATE_QUERY = "query($ids: [ID!]!) { nodes(ids: $ids) { ... on PullRequest { id state } } }"
 PR_STATE_BATCH = 100
-UNKNOWN_FIELD_RE = re.compile(r'Unknown JSON field: "([^"]+)"')
-#: `gh` paginates internally up to this many issues. Reaching it exactly is
-#: indistinguishable from "there were more", so it is treated as truncation.
+#: Issues are read `PAGE_SIZE` at a time (REST's maximum) up to this many.
+#: Reaching the cap exactly is indistinguishable from "there were more", so it
+#: is treated as truncation.
+PAGE_SIZE = 100
 LIST_LIMIT = 500
 #: Same reasoning for the label vocabulary. It backs a pass/fail gate now, so a
 #: silently truncated read would report existing labels as missing.
@@ -107,7 +102,7 @@ class GitHubProvider(TrackerProvider):
     # ---------------------------------------------------------------- discovery
     def discover(self) -> ProviderStatus:
         try:
-            code, output = self._run(["gh", "auth", "status"], check=False)
+            code, output = self._run(["gh", "api", "user"], check=False)
         except ProviderUnavailable as exc:
             return ProviderStatus(False, str(exc))
         if code != 0:
@@ -118,10 +113,8 @@ class GitHubProvider(TrackerProvider):
             )
         try:
             self._repo()
-        except ProviderUnavailable as exc:
+        except ProviderError as exc:
             return ProviderStatus(False, str(exc))
-        except ProviderError:
-            return ProviderStatus(False, "no repository configured and `gh repo view` failed")
         return ProviderStatus(True, f"gh authenticated for {self.repository}")
 
     # -------------------------------------------------------------------- reads
@@ -134,29 +127,30 @@ class GitHubProvider(TrackerProvider):
         return [self._to_task(issue, self._linked_pr_state(issue, pr_states)) for issue in issues]
 
     def _list_issues(self) -> List[Dict]:
-        payload = self._issue_json(
-            lambda fields: [
-                "gh", "issue", "list",
-                "--repo", self._repo(),
-                "--state", "all",
-                "--limit", str(LIST_LIMIT),
-                "--json", fields,
-            ]
-        )
-        if len(payload) >= LIST_LIMIT:
-            self.result_truncated = True
-            self._note(
-                f"issue list came back at the {LIST_LIMIT}-issue page limit, so this run "
-                "has not seen every issue — publishing now could duplicate the ones past "
-                "the cut; narrow the repository or raise LIST_LIMIT"
+        """Every issue in the repository, paged; pull requests dropped.
+
+        REST lists pull requests among the issues, marked by a `pull_request`
+        key. They count against the cap -- it bounds what this run read, not
+        what it kept -- and are discarded before normalization.
+        """
+        issues: List[Dict] = []
+        for page in range(1, LIST_LIMIT // PAGE_SIZE + 1):
+            batch = self._json(
+                ["gh", "api", self._path(f"issues?state=all&per_page={PAGE_SIZE}&page={page}")]
             )
-        return payload
+            issues.extend(entry for entry in batch if "pull_request" not in entry)
+            if len(batch) < PAGE_SIZE:
+                return issues
+        self.result_truncated = True
+        self._note(
+            f"issue list came back at the {LIST_LIMIT}-issue page limit, so this run "
+            "has not seen every issue — publishing now could duplicate the ones past "
+            "the cut; narrow the repository or raise LIST_LIMIT"
+        )
+        return issues
 
     def get_task(self, ref: ExternalRef) -> Task:
-        payload = self._issue_json(
-            lambda fields: ["gh", "issue", "view", "--repo", self._repo(), "--json", fields,
-                            "--", self._number(ref)]
-        )
+        payload = self._json(["gh", "api", self._path("issues", self._number(ref))])
         return self._to_task(payload)
 
     def resolve_reference(self, raw: str) -> Optional[ExternalRef]:
@@ -322,11 +316,14 @@ class GitHubProvider(TrackerProvider):
     # ------------------------------------------------- normalization (read-only)
     def _to_task(self, issue: Dict, linked_prs: Optional[Dict[str, str]] = None) -> Task:
         labels = tuple(label["name"] for label in issue.get("labels", []))
-        state = (issue.get("state") or "OPEN").lower()
+        state = (issue.get("state") or "open").lower()
         status = self._status_for(state, labels, issue)
         number = str(issue.get("number", ""))
-        ref = ExternalRef("github", number, issue.get("url", ""))
+        ref = ExternalRef("github", number, issue.get("html_url", ""))
         self._note_block_state(number, issue.get("body") or "")
+        extra = dict(linked_prs or {})
+        if issue.get("state_reason"):
+            extra["state_reason"] = issue["state_reason"]
         return task_from_metadata(
             title=issue.get("title", "") or f"issue #{number}",
             body=issue.get("body", "") or "",
@@ -337,9 +334,9 @@ class GitHubProvider(TrackerProvider):
             kind=self._kind_for(labels),
             priority=self._priority_for(labels),
             area=self._area_for(labels),
-            created_at=issue.get("createdAt"),
-            updated_at=issue.get("updatedAt"),
-            extra=dict(linked_prs or {}),
+            created_at=issue.get("created_at"),
+            updated_at=issue.get("updated_at"),
+            extra=extra,
         )
 
     def _note_block_state(self, number: str, body: str) -> None:
@@ -575,8 +572,12 @@ class GitHubProvider(TrackerProvider):
         repository = node.get("repository") or {}
         return (repository.get("owner") or {}).get("login", ""), repository.get("name", "")
 
+    def _path(self, *parts: str) -> str:
+        """A REST path under this repository: `repos/<owner>/<name>/<parts...>`."""
+        return "/".join(["repos", self._repo(), *parts])
+
     def _repo(self) -> str:
-        """The `owner/name` every gh call targets, discovered from the remote on demand.
+        """The `owner/name` every gh call targets, parsed from the remote on demand.
 
         Provider selection already chose GitHub because the checkout has a remote,
         so a missing `repository =` line is the ordinary case, not a fault. The
@@ -586,17 +587,13 @@ class GitHubProvider(TrackerProvider):
         """
         if self.repository:
             return self.repository
-        code, output = self._run(
-            ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-            check=False,
-        )
-        if code != 0 or not output.strip():
+        remote = github_remote(self.config.root)
+        if not remote:
             raise ProviderError(
                 "github: no repository configured — set `repository = owner/name` in the "
-                "task-tracking configuration, or run inside a repo with a GitHub remote "
-                f"(`gh repo view` answered: {self.redact(output.strip()) or 'no output'})"
+                "task-tracking configuration, or run inside a repo with a GitHub remote"
             )
-        self.repository = output.strip()
+        self.repository = remote
         return self.repository
 
     def _run(self, command: Sequence[str], check: bool = True):
@@ -623,34 +620,6 @@ class GitHubProvider(TrackerProvider):
                 f"{self.redact(output.strip()) or 'no output'}"
             )
         return completed.returncode, output
-
-    def _issue_fields(self) -> str:
-        optional = [f for f in OPTIONAL_ISSUE_FIELDS if f not in self._unsupported_fields]
-        return ",".join(list(REQUIRED_ISSUE_FIELDS) + optional)
-
-    def _issue_json(self, build):
-        """Read issues, dropping each optional field this `gh` predates.
-
-        `build(fields)` returns the argv for the read. `gh` names one unknown
-        field per refusal, so the read is retried once per rejected optional
-        field. A required field that `gh` rejects is still a hard failure:
-        dropping it would hand the caller a task with a silently missing
-        identity, which is worse than the refusal.
-        """
-        while True:
-            try:
-                return self._json(build(self._issue_fields()))
-            except ProviderError as exc:
-                match = UNKNOWN_FIELD_RE.search(str(exc))
-                field = match.group(1) if match else ""
-                if field not in OPTIONAL_ISSUE_FIELDS or field in self._unsupported_fields:
-                    raise
-                self._unsupported_fields.add(field)
-                self._note(
-                    f"this gh does not support the `{field}` issue field, so linked pull "
-                    "request state is unknown for every issue this run; upgrade to gh 2.73.0 "
-                    "or newer to restore it"
-                )
 
     def _json(self, command: Sequence[str]):
         _, output = self._run(command)

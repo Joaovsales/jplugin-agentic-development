@@ -833,7 +833,9 @@ def github_remote(root: str) -> str:
 
 
 def gh_authenticated(root: str) -> bool:
-    code, _ = _run(["gh", "auth", "status"], root)
+    """`gh api user` exits 0 -- the cheapest authenticated REST call, and the
+    probe that passes where `gh auth status` fails (the cloud sandbox's proxy)."""
+    code, _ = _run(["gh", "api", "user"], root)
     return code == 0
 
 

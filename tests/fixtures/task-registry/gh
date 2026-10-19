@@ -1,30 +1,155 @@
 #!/bin/bash
 # tests/fixtures/task-registry/gh — a stand-in for the GitHub CLI.
 #
-# The GitHub adapter shells out to `gh` with argv-style arguments. This mock is
-# put first on PATH so the adapter's real command construction is exercised: it
-# records every invocation to $GH_MOCK_LOG and answers reads from canned JSON in
-# $GH_MOCK_DIR. Writes are recorded, never performed.
+# The GitHub adapter shells out to `gh api` with argv-style arguments. This mock
+# is put first on PATH so the adapter's real command construction is exercised:
+# it records every invocation to $GH_MOCK_LOG and answers reads from canned JSON
+# in $GH_MOCK_DIR. Writes are recorded, never performed.
 #
-# It is deliberately strict where the real CLI is strict:
-#   * positionals are read after `--`, the way cobra parses them, so an adapter
-#     that forgets the separator is caught here rather than in production;
+# It is deliberately strict where the real CLI — and the REST API behind it —
+# is strict:
+#   * `api` takes exactly one path; the method comes from `--method`, and a
+#     payload only from `--input -` (stdin). `-f`/`-F` fields are refused, so
+#     an adapter that regresses to argv payloads is caught here;
+#   * a path naming any repository but the fixture's answers 404, the way the
+#     real API does for a repository the token cannot see;
+#   * positionals of the remaining subcommands are read after `--`, the way
+#     cobra parses them;
 #   * `--label` is rejected unless the label exists in labels.json, so a test
 #     cannot pass while the adapter invents vocabulary the repository lacks.
 #
 # Knobs (env):
 #   GH_MOCK_DIR     directory holding issues.json / labels.json / issue-<n>.json
 #   GH_MOCK_LOG     file every invocation is appended to, one line per call
-#   GH_MOCK_UNAUTH  when set, `gh auth status` fails like a logged-out CLI
-#   GH_MOCK_FAIL    when set, every write subcommand exits 1 (partial-failure tests)
+#   GH_MOCK_UNAUTH  when set, `gh api user` fails like a logged-out CLI
+#   GH_MOCK_FAIL    when set, every write exits 1 (partial-failure tests)
 set -u
 
 : "${GH_MOCK_DIR:=.}"
 : "${GH_MOCK_LOG:=/dev/null}"
 
-printf '%s\n' "$*" >> "$GH_MOCK_LOG"
-
+argv_line="$*"
 subcommand="${1:-}"
+
+# ---------------------------------------------------------------- gh api -----
+# `gh api [--method M] <path> [--input -]`. The route table lives in Python so
+# that paging, lookups and the body echo read as one dispatcher rather than a
+# tangle of `case` arms and `jq`-less JSON handling.
+if [ "$subcommand" = "api" ]; then
+  shift
+  method="GET"
+  path=""
+  body=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --method|-X)
+        method="${2:-}"; shift 2 ;;
+      --input)
+        if [ "${2:-}" != "-" ]; then
+          echo "gh mock: --input takes '-' (stdin) only, got '${2:-}'" >&2
+          exit 1
+        fi
+        body="$(cat)"; shift 2 ;;
+      -f|-F|--field|--raw-field)
+        echo "gh mock: $1 is refused -- payloads travel on stdin through --input -" >&2
+        exit 1 ;;
+      -*)
+        echo "gh mock: unknown api flag $1" >&2
+        exit 1 ;;
+      *)
+        if [ -n "$path" ]; then
+          echo "gh mock: api takes one path, got '$path' and '$1'" >&2
+          exit 1
+        fi
+        path="$1"; shift ;;
+    esac
+  done
+  if [ -z "$path" ]; then
+    echo "gh mock: api needs a path" >&2
+    exit 1
+  fi
+  printf '%s\n' "$argv_line" >> "$GH_MOCK_LOG"
+  GH_MOCK_BODY="$body" python3 - "$method" "$path" "$GH_MOCK_DIR" <<'PY'
+import io, json, os, re, sys
+from urllib.parse import parse_qs, urlsplit
+
+method, raw_path, data = sys.argv[1].upper(), sys.argv[2], sys.argv[3]
+REPO = "fixture-owner/fixture-repo"
+split = urlsplit(raw_path)
+path = split.path.strip("/")
+query = {key: values[-1] for key, values in parse_qs(split.query).items()}
+
+
+def fail(status, message):
+    sys.stderr.write(f"HTTP {status}: {message} (https://api.github.com/{path})\n")
+    sys.exit(1)
+
+
+def load(name, default=None):
+    try:
+        return json.loads(io.open(os.path.join(data, name), encoding="utf-8").read())
+    except (IOError, ValueError):
+        if default is None:
+            raise
+        return default
+
+
+def page(entries):
+    """GitHub paging: `per_page` (default 30, max 100) and 1-based `page`."""
+    size = min(int(query.get("per_page", 30)), 100)
+    number = int(query.get("page", 1))
+    return entries[(number - 1) * size:number * size]
+
+
+def answer(payload):
+    sys.stdout.write(json.dumps(payload))
+    sys.exit(0)
+
+
+if path == "user":
+    if method != "GET":
+        fail(404, "Not Found")
+    if os.environ.get("GH_MOCK_UNAUTH"):
+        fail(401, "Bad credentials")
+    answer({"login": "fixture-user"})
+
+match = re.fullmatch(r"repos/([^/]+/[^/]+)(?:/(.*))?", path)
+if not match:
+    fail(404, "Not Found")
+if match.group(1).lower() != REPO:
+    fail(404, "Not Found")
+route = match.group(2) or ""
+
+if method == "GET":
+    if route == "issues":
+        entries = load("issues.json")
+        state = query.get("state", "open")
+        if state != "all":
+            entries = [entry for entry in entries if (entry.get("state") or "open").lower() == state]
+        answer(page(entries))
+    found = re.fullmatch(r"issues/(\d+)", route)
+    if found:
+        number = found.group(1)
+        single = load(f"issue-{number}.json", default={})
+        if single:
+            answer(single)
+        # One issue is visible through both reads upstream, so a fixture that
+        # declared it in issues.json has declared it for the single read too.
+        for entry in load("issues.json", default=[]):
+            if str(entry.get("number")) == number:
+                answer(entry)
+        fail(404, "Not Found")
+    if route == "labels":
+        answer(page(load("labels.json")))
+
+sys.stderr.write(f"gh mock: unhandled api route: {method} {raw_path}\n")
+sys.exit(1)
+PY
+  exit $?
+fi
+
+printf '%s\n' "$argv_line" >> "$GH_MOCK_LOG"
+
 action="${2:-}"
 shift 2 2>/dev/null || true
 
@@ -75,14 +200,6 @@ reject_unknown_labels() {
 }
 
 case "$subcommand" in
-  auth)
-    if [ -n "${GH_MOCK_UNAUTH:-}" ]; then
-      echo "You are not logged into any GitHub hosts. Run gh auth login to authenticate." >&2
-      exit 1
-    fi
-    echo "github.com: Logged in as fixture-user"
-    exit 0
-    ;;
   repo)
     echo "fixture-owner/fixture-repo"
     exit 0

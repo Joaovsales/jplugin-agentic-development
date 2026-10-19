@@ -716,26 +716,6 @@ assert_contains "$gap_out" "tech-debt" "AC12: select's refusal names the missing
 assert_not_contains "$gap_out" "nothing to claim" \
   "AC12: a vocabulary gap never masquerades as an empty backlog"
 
-# A `gh` too old for closedByPullRequestsReferences cannot answer the in-flight
-# exclusion. Proceeding would re-pick every issue already under review.
-F_OLDGH="$(new_fixture)"
-write_config "$F_OLDGH" <<'EOF'
-EOF
-write_labels "$F_OLDGH" bug enhancement design-decision simplify tech-debt documentation now next in-progress
-cat > "$F_OLDGH/ghdata/issues.json" <<'EOF'
-[
- {"number":21,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/21",
-  "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":""}
-]
-EOF
-printf 'closedByPullRequestsReferences\n' > "$F_OLDGH/ghdata/unknown-fields"
-old_out="$(run_select "$F_OLDGH" --routine fix)"; old_code=$?
-assert_eq "1" "$old_code" \
-  "select: REFUSES when gh cannot report linked pull request state"
-assert_contains "$old_out" "closedByPullRequestsReferences" \
-  "select: the refusal names the field it could not read"
-
 # An unknown routine name is a configuration error, not an empty result.
 bad_out="$(run_select "$F_SEL" --routine nonesuch)"; bad_code=$?
 assert_eq "2" "$bad_code" "select: an unknown routine name exits non-zero"
