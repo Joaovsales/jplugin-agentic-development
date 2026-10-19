@@ -1,12 +1,12 @@
-# Checkpoint — 2026-10-16T18:44:30Z
+# Checkpoint — 2026-10-19T20:26:19Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
 ## Git
-- Branch: claude/mods-kanban-agent-dashboard-b0c487
+- Branch: claude/peaceful-thompson-e25b5f
 
 ```
- M tasks/todo.md
+(working tree clean)
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
@@ -18,7 +18,7 @@
   [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
 
 ## Active Spec
-- specs/design-stack-hyperframes.md
+- specs/x.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`

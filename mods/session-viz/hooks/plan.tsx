@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { PlanProgress, SliceRow } from '../types'
-import { INITIAL_PHASE, INITIAL_PLAN, fit, refreshStatus } from './state'
+import { EVERY, INITIAL_PHASE, INITIAL_PLAN, SPEC_PATH, fit, refreshStatus } from './state'
 import type { Draw } from './state'
 
 const plan = atom({ plugin: 'session-viz', key: 'plan' } as const, INITIAL_PLAN)
@@ -10,15 +10,10 @@ const phase = atom({ plugin: 'session-viz', key: 'phase' } as const, INITIAL_PHA
 
 const TODO = 'tasks/todo.md'
 
-/** Any working directory: a matcher that selects every session.start. */
-const ANY = /^/
 /** The tools that change the file their `file_path` names. */
 const WRITERS = /^(?:Edit|Write|MultiEdit)$/
 /** A path ending `tasks/todo.md`, either slash. */
 const TODO_PATH = /tasks[\\/]todo\.md$/
-
-/** The spec path a prompt names: `specs/<x>.md` (the shape slice 1 records). */
-const SPEC_IN_PROMPT = /specs\/[^\s`'"<>|()]+\.md/
 
 /** `## Plan: <feature>` — opens a block; any later line starting `## ` ends it. */
 const PLAN_HEAD = /^## Plan:\s*(.*)$/
@@ -108,9 +103,7 @@ async function reload($: EngineInterface, named?: string): Promise<void> {
 }
 
 export function registerPlan(on: On): void {
-  // Every hook carries a matcher: the engine refuses a second unmatched hook on one event in a plugin,
-  // and register.tsx and phase.tsx already hold the unmatched session.start and prompt.submit.
-  on('session.start', { cwd: ANY }, async ($, e, next) => {
+  on('session.start', { cwd: EVERY }, async ($, e, next) => {
     const result = await next(e)
     await reload($)
 
@@ -124,9 +117,9 @@ export function registerPlan(on: On): void {
     return ran
   })
 
-  on('prompt.submit', { text: SPEC_IN_PROMPT }, async ($, e, next) => {
+  on('prompt.submit', { text: SPEC_PATH }, async ($, e, next) => {
     const result = await next(e)
-    await reload($, SPEC_IN_PROMPT.exec(e.text)?.[0])
+    await reload($, SPEC_PATH.exec(e.text)?.[0])
 
     return result
   })

@@ -2,7 +2,7 @@ import { atom, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { DispatchIssue } from '../types'
-import { emptyGates, fit, lastSegment } from './state'
+import { GATES_KEPT, SPEC_PATH, emptyGates, fit, lastSegment } from './state'
 import type { Draw } from './state'
 
 const gates = atom({ plugin: 'session-viz', key: 'gates' } as const, emptyGates())
@@ -26,15 +26,12 @@ const ROUTING: Readonly<Record<string, Tier | 'inherit' | 'planner-floor'>> = {
 /** The personas whose dispatch must carry the seven contract items (review-dispatch-contract § The seven items). */
 const REVIEWERS: ReadonlySet<string> = new Set(['code-reviewer', 'critic', 'security-reviewer', 'software-design-expert-review'])
 
-/** A spec path in a dispatch prompt: `specs/<x>.md`. */
-const SPEC = /specs\/[^\s`'"<>|()]+\.md/i
-
 /** Each contract item as the test over a lower-cased prompt that says it is present, in item order 1..7. */
 const ITEM_PRESENT: ReadonlyArray<(text: string) => boolean> = [
   text => ['diff --git', '...head', 'git diff'].some(marker => text.includes(marker)),
-  text => SPEC.test(text) || text.includes('no spec —') || text.includes('no spec -'),
+  text => SPEC_PATH.test(text) || text.includes('no spec —') || text.includes('no spec -'),
   text => text.includes('tasks/todo.md'),
-  text => text.includes('[ambiguity]') || text.includes('ambiguit'),
+  text => text.includes('ambiguit'),
   text => text.includes('todo(shortcut)') || text.includes('deferrals: none'),
   text => ['introduced', 'pre-existing', 'boundary'].some(marker => text.includes(marker)),
   text => (text.includes('confidence') && text.includes('autofix_class')) || text.includes('failure:'),
@@ -75,7 +72,7 @@ export function missingContractItems(subagentType: string, prompt: string): numb
 async function raise($: EngineInterface, issues: DispatchIssue[]): Promise<void> {
   for (const issue of issues) {
     $.ui.toast(issue.text)
-    await update($, gates, current => ({ ...current, dispatch: [...current.dispatch, issue].slice(-50) }))
+    await update($, gates, current => ({ ...current, dispatch: [...current.dispatch, issue].slice(-GATES_KEPT) }))
   }
 }
 

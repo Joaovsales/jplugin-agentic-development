@@ -2,21 +2,16 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { FindingCounts, Gates, Receipt, Severity } from '../types'
-import { EMPTY_FINDINGS, INITIAL_AGENTS, INITIAL_TOASTED, emptyGates, fit } from './state'
+import { EMPTY_FINDINGS, EVERY, GATES_KEPT, INITIAL_AGENTS, INITIAL_TOASTED, SEVERITIES, emptyGates, findingCounts, fit } from './state'
 import type { Draw } from './state'
 
 const gates = atom({ plugin: 'session-viz', key: 'gates' } as const, emptyGates())
 const toasted = atom({ plugin: 'session-viz', key: 'toasted' } as const, INITIAL_TOASTED)
 const agents = atom({ plugin: 'session-viz', key: 'agents' } as const, INITIAL_AGENTS)
 
-const SEVERITIES: readonly Severity[] = ['MUST-FIX', 'SHOULD-FIX', 'NITPICK']
-/** Any value: a matcher that selects every event. The engine refuses a second unmatched hook on one event in a plugin, and register.tsx and agents.tsx hold the unmatched ones. */
-const ANY = /^/
-/** Entries kept per list on the Gates section; the oldest are dropped. */
-const KEPT = 50
 
 /** `1. [MUST-FIX | confidence: 100 | …] file:line — text`, the number prefix optional. */
-const FINDING = /^\s*(?:\d+\.\s*)?\[(MUST-FIX|SHOULD-FIX|NITPICK)\s*\|/
+const FINDING = new RegExp(`^\\s*(?:\\d+\\.\\s*)?\\[(${SEVERITIES.join('|')})\\s*\\|`)
 /** `Verdict: ✅ GO`, the glyph optional. */
 const VERDICT = /^\s*Verdict:\s*(?:\S+\s+)?(GO|HOLD|STOP)\b/
 /** `Receipt: STOP <fp8> policy qg1-00000000`. */
@@ -74,11 +69,7 @@ export function parseReceiptLine(text: string): { verdict: string; fp8: string }
 }
 
 function sumFindings(a: FindingCounts, b: FindingCounts): FindingCounts {
-  return {
-    'MUST-FIX': a['MUST-FIX'] + b['MUST-FIX'],
-    'SHOULD-FIX': a['SHOULD-FIX'] + b['SHOULD-FIX'],
-    NITPICK: a.NITPICK + b.NITPICK,
-  }
+  return findingCounts(severity => a[severity] + b[severity])
 }
 
 async function readText($: EngineInterface, path: string): Promise<string | undefined> {
@@ -137,9 +128,14 @@ async function readReceipt($: EngineInterface): Promise<Receipt | 'unreadable' |
 
 /** Toasts a STOP once per `id` of its kind (a receipt fingerprint, or a main-loop turn); HOLD and GO never reach here. */
 async function toastStop($: EngineInterface, kind: keyof typeof INITIAL_TOASTED, id: string, fp8: string | undefined): Promise<void> {
-  if ((await read($, toasted))[kind].includes(id)) return
-  await update($, toasted, current => ({ ...current, [kind]: [...current[kind], id] }))
-  await $.ui.toast(`session-viz: quality gate STOP${fp8 === undefined ? '' : ` (${fp8})`}`)
+  // Decided inside the updater, so two overlapping refreshes of one STOP cannot both toast.
+  let fresh = false
+  await update($, toasted, current => {
+    if (current[kind].includes(id)) return current
+    fresh = true
+    return { ...current, [kind]: [...current[kind], id] }
+  })
+  if (fresh) $.ui.toast(`session-viz: quality gate STOP${fp8 === undefined ? '' : ` (${fp8})`}`)
 }
 
 /** Re-reads the receipt files into the section; a STOP toasts once per fingerprint. A missing receipt leaves what a main-loop line set. */
@@ -159,8 +155,8 @@ async function recordAgentAnswer($: EngineInterface, agentId: string, answer: st
   await update($, gates, current => ({
     ...current,
     findings: sumFindings(current.findings, parsed.findings),
-    ambiguities: [...current.ambiguities, ...tagged(parsed.ambiguities)].slice(-KEPT),
-    surfaces: [...current.surfaces, ...tagged(parsed.surfaces)].slice(-KEPT),
+    ambiguities: [...current.ambiguities, ...tagged(parsed.ambiguities)].slice(-GATES_KEPT),
+    surfaces: [...current.surfaces, ...tagged(parsed.surfaces)].slice(-GATES_KEPT),
   }))
 }
 
@@ -186,14 +182,14 @@ async function recordMainAnswer($: EngineInterface, turnId: string, answer: stri
 }
 
 export function registerGates(on: On): void {
-  on('session.start', { cwd: ANY }, async ($, e, next) => {
+  on('session.start', { cwd: EVERY }, async ($, e, next) => {
     const result = await next(e)
     await refreshReceipt($)
 
     return result
   })
 
-  on('turn.complete', { answer: ANY }, async ($, e, next) => {
+  on('turn.complete', { answer: EVERY }, async ($, e, next) => {
     const result = await next(e)
     if (e.agentId === undefined) await recordMainAnswer($, e.turnId, e.answer)
     else await recordAgentAnswer($, e.agentId, e.answer)

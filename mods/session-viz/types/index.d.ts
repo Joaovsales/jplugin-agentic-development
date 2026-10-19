@@ -17,7 +17,7 @@ export type PhaseState = {
 /** The three severities of a four-axis finding. */
 export type Severity = 'MUST-FIX' | 'SHOULD-FIX' | 'NITPICK'
 
-export type FindingCounts = { 'MUST-FIX': number; 'SHOULD-FIX': number; NITPICK: number }
+export type FindingCounts = Record<Severity, number>
 
 /** What one sub-agent touched, from its `tool.call`s and `turn.step`s (spec D16). */
 export type Footprint = {

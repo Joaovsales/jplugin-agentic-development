@@ -2,7 +2,7 @@ import { atom, update } from 'claude-code'
 import type { AgentInfo, EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { AgentRow, Footprint } from '../types'
-import { EMPTY_FINDINGS, INITIAL_AGENTS, INITIAL_ASKING, INITIAL_SELECTED, MAIN, fit, refreshStatus, seconds } from './state'
+import { EMPTY_FINDINGS, EVERY, INITIAL_AGENTS, INITIAL_ASKING, INITIAL_SELECTED, MAIN, fit, refreshStatus, seconds } from './state'
 import type { Draw } from './state'
 
 const agents = atom({ plugin: 'session-viz', key: 'agents' } as const, INITIAL_AGENTS)
@@ -149,8 +149,7 @@ function updateRow(agentId: string, change: (row: Tracked) => Tracked): (list: A
 }
 
 export function registerAgents(on: On): void {
-  // The matcher keeps this hook distinct from register.tsx's own session.start (the engine refuses two unmatched hooks on one event).
-  on('session.start', { cwd: /^/ }, async ($, e, next) => {
+  on('session.start', { cwd: EVERY }, async ($, e, next) => {
     const sync = async () => {
       const live = await $.agent.list()
       let changed = false
@@ -162,7 +161,9 @@ export function registerAgents(on: On): void {
       if (changed) await refreshStatus($)
     }
     await sync()
-    $.clock.every(SYNC_MS, () => void sync())
+    $.clock.every(SYNC_MS, () => {
+      sync().catch((reason: unknown) => $.ui.log(`agent sync failed: ${String(reason)}`, { to: 'debug' }))
+    })
 
     return next(e)
   })
@@ -357,7 +358,7 @@ function detailLines(row: Tracked, width: number): string[] {
   ]
 }
 
-export function DrillDown(_$: EngineInterface, d: Draw, rows: AgentRow[], picked: string | null): RenderElement {
+export function DrillDown(d: Draw, rows: AgentRow[], picked: string | null): RenderElement {
   const { Box, Text } = d.t
   const row = picked === null ? undefined : rows.find(one => one.agentId === picked)
   if (row === undefined) {

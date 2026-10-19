@@ -1,7 +1,7 @@
 import { atom, read } from 'claude-code'
 import type { Elements, EngineInterface } from 'claude-code'
 
-import type { AgentRow, FindingCounts, Gates, Measure, PhaseState, PlanProgress, Toasted } from '../types'
+import type { AgentRow, FindingCounts, Gates, Measure, PhaseState, PlanProgress, Severity, Toasted } from '../types'
 
 export const PANE = 'session-viz'
 export const TITLE = 'Session'
@@ -9,7 +9,18 @@ export const MAIN = 'main'
 /** From this many body columns the drill-down is a right column beside the sections (spec D6). */
 export const WIDE_COLUMNS = 120
 
-export const EMPTY_FINDINGS: FindingCounts = { 'MUST-FIX': 0, 'SHOULD-FIX': 0, NITPICK: 0 }
+/** The severities of a four-axis finding, in the order the Gates section lists them. */
+export const SEVERITIES: readonly Severity[] = ['MUST-FIX', 'SHOULD-FIX', 'NITPICK']
+
+/** One count per severity, each from `count`. */
+export function findingCounts(count: (severity: Severity) => number): FindingCounts {
+  return Object.fromEntries(SEVERITIES.map(severity => [severity, count(severity)])) as FindingCounts
+}
+
+export const EMPTY_FINDINGS = findingCounts(() => 0)
+
+/** Entries kept per Gates list (ambiguities, surfaces, dispatch issues); the oldest leave first. */
+export const GATES_KEPT = 50
 
 export function emptyGates(): Gates {
   return { receipt: null, findings: { ...EMPTY_FINDINGS }, ambiguities: [], surfaces: [], dispatch: [] }
@@ -54,6 +65,16 @@ export function fit(text: string, width: number): string {
 export function seconds(ms: number | undefined): string {
   return ms === undefined ? '' : `${Math.round(ms / 1000)}s`
 }
+
+/** A spec path as a prompt, a plan block or a dispatch names it: `specs/<x>.md`. */
+export const SPEC_PATH = /specs\/[^\s`'"<>|()]+\.md/
+
+/**
+ * A matcher that selects every event. The engine refuses a second matcher-less hook on one
+ * event in a plugin, and register.tsx holds the matcher-less session.start, so every other
+ * section's hook on a shared event carries one.
+ */
+export const EVERY = /^/
 
 /** The segment after the last `:`: `jplugin:build` → `build`, `build` → `build`. */
 export function lastSegment(name: string): string {

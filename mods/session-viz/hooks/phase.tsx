@@ -2,7 +2,7 @@ import { atom, update } from 'claude-code'
 import type { On, RenderElement } from 'claude-code'
 
 import type { Phase, PhaseState } from '../types'
-import { INITIAL_PHASE, fit, lastSegment, refreshStatus } from './state'
+import { INITIAL_PHASE, SPEC_PATH, fit, lastSegment, refreshStatus } from './state'
 import type { Draw } from './state'
 
 const phase = atom({ plugin: 'session-viz', key: 'phase' } as const, INITIAL_PHASE)
@@ -31,9 +31,6 @@ const PHASE_OF: Readonly<Record<string, Phase>> = {
 /** `[ROUTE] lane=<lane> | chain=<skill, …> | reason: …`, as /go prints it. */
 const ROUTE = /^\s*\[ROUTE\]\s*lane=([^|\r\n]+?)\s*\|\s*chain=([^|\r\n]+?)\s*(?:\||$)/m
 
-/** The spec path a build prompt names: `specs/<x>.md` (spec D9). */
-const SPEC = /specs\/[^\s`'"<>|()]+\.md/
-
 export function phaseOfSkill(skill: string): Phase | undefined {
   return PHASE_OF[lastSegment(skill)]
 }
@@ -44,15 +41,15 @@ export function parseRoute(text: string): { lane: string; chain: string } | unde
 }
 
 export function parseSpec(text: string): string | undefined {
-  return SPEC.exec(text)?.[0]
+  return SPEC_PATH.exec(text)?.[0]
 }
 
 export function registerPhase(on: On): void {
   on('skill.prompt', async ($, e, next) => {
     const result = await next(e)
     const skill = lastSegment(e.skill)
-    const next_ = PHASE_OF[skill]
-    await update($, phase, current => ({ ...current, skill, phase: next_ ?? current.phase }))
+    const nextPhase = phaseOfSkill(e.skill)
+    await update($, phase, current => ({ ...current, skill, phase: nextPhase ?? current.phase }))
     await refreshStatus($)
 
     return result

@@ -84,7 +84,7 @@ export const register: Register = on => {
           {DispatchIssues(left, ga.dispatch)}
         </Box>
         <Box flexDirection="column" width={right.width}>
-          {DrillDown($, right, ag, picked)}
+          {DrillDown(right, ag, picked)}
         </Box>
       </Box>
     )
