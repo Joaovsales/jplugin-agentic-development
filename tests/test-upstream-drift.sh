@@ -334,6 +334,16 @@ assert_file_contains ".github/upstreams.json" "$ARCHIFY_COMMIT" \
 run_checker "$REPO/.github/upstreams.json" --validate
 assert_eq "0" "$CHECK_STATUS" "installed: --validate passes on the real registry"
 assert_eq "" "$CHECK_OUTPUT" "installed: --validate is silent on success"
+# One pin, three homes (D16): the registry baseline is the commit install.sh
+# verifies the clone against, and the tag install.sh and the /diagram resolver
+# clone is the tag the registry tracks. A bump that moves one and not the others
+# would install one version and report drift on another.
+assert_file_contains "install.sh" "ARCHIFY_COMMIT=\"$ARCHIFY_COMMIT\"" \
+  "installed: install.sh verifies the clone against the registry baseline"
+assert_file_contains "install.sh" 'ARCHIFY_TAG="v3.2.0"' \
+  "installed: install.sh clones the tag the registry tracks"
+assert_file_contains ".agents/skills/diagram/scripts/archify.sh" 'ARCHIFY_TAG="v3.2.0"' \
+  "installed: the /diagram resolver prints the install command for the same tag"
 
 # Installed fixture: a local upstream with a commit tagged v3.2.0.
 TOOL_REPO="$FIXTURE_ROOT/tool"
