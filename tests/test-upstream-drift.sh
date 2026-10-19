@@ -159,13 +159,21 @@ fi
 # even spawns the helper -- the case on a machine where one spawn costs more
 # than that -- there is no pid to check, and the timing bound above is the only
 # evidence; say so instead of passing in silence.
+# A killed helper is dead the moment the signal lands, but it stays in the
+# process table as a zombie until its new parent reaps it — and a container's
+# PID 1 may take half a second or longer to do that, while `kill -0` on a zombie
+# still succeeds. Read the state too: `Z` is dead, only a running state counts.
+helper_running() {
+  kill -0 "$1" 2>/dev/null || return 1
+  [ "$(ps -o stat= -p "$1" 2>/dev/null | cut -c1)" != "Z" ]
+}
 if [ -f "$FIXTURE_ROOT/hanging-helper.pid" ]; then
   HELPER_PID="$(cat "$FIXTURE_ROOT/hanging-helper.pid")"
   _waited=0
-  while kill -0 "$HELPER_PID" 2>/dev/null && [ "$_waited" -lt 20 ]; do
+  while helper_running "$HELPER_PID" && [ "$_waited" -lt 20 ]; do
     sleep 0.05; _waited=$((_waited + 1))
   done
-  if kill -0 "$HELPER_PID" 2>/dev/null; then
+  if helper_running "$HELPER_PID"; then
     assert_eq "gone" "alive (pid $HELPER_PID)" "process tree: the helper is dead once the checker returns"
   else
     assert_eq "gone" "gone" "process tree: the helper is dead once the checker returns"

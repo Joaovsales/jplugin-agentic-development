@@ -166,7 +166,9 @@ assert_file_contains "$SKILL" 'meta.repository' "evidence: the skill names meta.
 assert_file_contains "$SKILL" '`HEAD`' "evidence: the skill pins the candidate to HEAD"
 assert_file_contains "$SKILL" '`sources`' "evidence: the skill requires sources on every component"
 assert_file_contains "$SKILL" '--repo-root' "evidence: finalize runs with --repo-root"
-assert_file_contains "$SKILL" 'check-candidate' "evidence: the skill runs the pre-finalize check"
+assert_file_contains "$SKILL" 'check-candidate' "evidence: the skill names the pre-finalize check"
+assert_file_contains "$SKILL" 'archify.sh finalize <type> <candidate.json> <output.html>' \
+  "evidence: Step 3 finalizes through the resolver, which runs the check first"
 
 if command -v node > /dev/null 2>&1; then
   mkdir -p "$box/repo"
@@ -211,6 +213,29 @@ if command -v node > /dev/null 2>&1; then
   run_check "$box/freehand.json"
   assert_eq "1" "$CHK_STATUS" "evidence: a codebase candidate without meta.repository is rejected"
   assert_contains "$CHK_ERR" "meta.repository" "evidence: the rejection names meta.repository"
+
+  # `finalize` is upstream's command forwarded unchanged, after the check
+  # whenever --repo-root is present — the order D8 rests on is structural.
+  # The fixture CLI records the arguments it received instead of drawing.
+  printf 'import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.ARGV_LOG, process.argv.slice(2).join(" "));\n' \
+    > "$box/fixture-home/archify/bin/archify.mjs"
+  run_finalize() { # <candidate> [args…] → FIN_STATUS, FIN_ERR; the forwarded argv in $box/argv
+    rm -f "$box/argv"
+    ARCHIFY_HOME="$box/fixture-home" ARGV_LOG="$box/argv" bash "$RESOLVER" finalize architecture "$@" > /dev/null 2> "$box/fin.err"
+    FIN_STATUS=$?; FIN_ERR="$(cat "$box/fin.err")"
+  }
+  run_finalize "$box/uncited.json" "$box/out.html" --repo-root "$box/repo" --out-dir "$box/review-1"
+  assert_eq "1" "$FIN_STATUS" "finalize: an uncited codebase candidate stops before upstream runs"
+  assert_contains "$FIN_ERR" "b" "finalize: the refusal names the uncited component"
+  assert_eq "missing" "$([ -e "$box/argv" ] && echo present || echo missing)" "finalize: upstream never received the uncited candidate"
+  run_finalize "$box/cited.json" "$box/out.html" --repo-root "$box/repo" --out-dir "$box/review-1"
+  assert_eq "0" "$FIN_STATUS" "finalize: a cited candidate passes the check and runs upstream"
+  assert_eq "finalize architecture $box/cited.json $box/out.html --repo-root $box/repo --out-dir $box/review-1" \
+    "$(cat "$box/argv" 2>/dev/null)" "finalize: upstream's arguments are forwarded unchanged"
+  run_finalize "$box/freehand.json" "$box/out.html" --out-dir "$box/review-1"
+  assert_eq "0" "$FIN_STATUS" "finalize: a described system (no --repo-root) skips the check"
+  assert_contains "$(cat "$box/argv" 2>/dev/null)" "freehand.json" "finalize: a freehand candidate reaches upstream"
+  assert_eq "0" "$(html_written)" "finalize: the fixture run wrote no HTML"
 else
   printf '  note evidence: node is absent on this machine; the candidate-check cases did not run\n'
 fi

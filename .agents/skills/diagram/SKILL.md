@@ -66,9 +66,10 @@ pins `meta.repository` to the clean `HEAD` of that repository
 element — components, nodes, participants, states, entities, types, events,
 spans — carries `sources` with a repository-relative `path` and `line`, and
 `finalize` runs with `--repo-root <repo>` so Archify verifies every citation
-against committed bytes at that revision. Before `finalize`, run the
-pre-finalize check; it refuses a candidate that lacks any of this and names
-the element:
+against committed bytes at that revision. Step 3's `finalize` runs the
+pre-finalize check first whenever `--repo-root` is present; it refuses a
+candidate that lacks any of this and names the element, and can also run
+alone:
 
 ```bash
 bash .agents/skills/diagram/scripts/archify.sh check-candidate <candidate.json> --repo-root <repo>
@@ -112,11 +113,19 @@ offers. A request for "a page", "an explainer" or "a report" is not
 
 ## Step 3 — Finalize and reply
 
-Run the pre-finalize check for a codebase subject, then upstream's complete
-`finalize` command with `--repo-root` (codebase) and `--out-dir` (always). A
-non-zero exit is never success: follow upstream's repair contract — edit the
-connected neighbourhood, re-run with a fresh `--out-dir` — and when repair is
-exhausted, report the failing gate instead of the diagram.
+Run upstream's complete `finalize` command through the resolver, which
+forwards it unchanged after the pre-finalize check whenever `--repo-root` is
+among the arguments:
+
+```bash
+bash .agents/skills/diagram/scripts/archify.sh finalize <type> <candidate.json> <output.html> [--repo-root <repo>] --out-dir .archify/<slug>/review-<n> <upstream's other arguments>
+```
+
+Pass `--repo-root` for a codebase and `--out-dir` always; every other
+argument is upstream's. A non-zero exit is never success: follow upstream's
+repair contract — edit the connected neighbourhood, re-run with a fresh
+`--out-dir` — and when repair is exhausted, report the failing gate instead
+of the diagram.
 
 Reply per `$ARCHIFY_SKILL` § Output: lead with a clickable Markdown link to
 the HTML, add one or two sentences of takeaway when the subject is a real
@@ -131,8 +140,8 @@ HTML path resolves to its sibling candidate (`<stem>.<type>.json`). Re-read
 every cited source range at `HEAD`, update the components, their citations
 and `meta.repository.revision`; a component whose cited source no longer
 exists is removed or re-anchored from a fresh read of the source, and the
-reply names what was dropped or merged. Then run the pre-finalize check and
-`finalize` again with a fresh `--out-dir`.
+reply names what was dropped or merged. Then run Step 3's `finalize` again
+with a fresh `--out-dir`.
 
 This is the only regeneration path (D19): staleness is detected only here,
 and `/wrap-up-session` leaves diagrams alone — regenerating committed
@@ -155,8 +164,9 @@ documents at wrap-up would rewrite them unasked.
 - **Installed by**: `install.sh` step 6c when Node >= 18 is present; otherwise
   the resolver's printed command is the only install path (Pi and Codex
   sessions never ran `install.sh`).
-- **Pinned by**: `.github/upstreams.json` (`kind: installed`, tag `v3.2.0`),
-  reported by the weekly drift job and `/tidy`'s `tools` check.
+- **Pinned by**: the `archify` entry of `.github/upstreams.json`
+  (`kind: installed`), reported by the weekly drift job and `/tidy`'s `tools`
+  check; the resolver prints the install command for the same tag.
 - **Offered by**: `/how` after every explanation and `/plan` after a
   multi-component spec; **produced by** `/system-design-planning` beside its
   architecture spec.

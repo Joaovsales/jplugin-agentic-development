@@ -120,9 +120,28 @@ check_candidate() {
   node "$(dirname "${BASH_SOURCE[0]}")/check-candidate.mjs" "$@"
 }
 
+# finalize <type> <candidate.json> <output.html> [upstream arguments…] —
+# upstream's finalize, forwarded unchanged, after the evidence check whenever
+# --repo-root is among the arguments. The check→finalize order D8 rests on is
+# structural here rather than prose, and this wrapper knows no upstream flag
+# but that one (D17).
+finalize() {
+  local args=("$@") repo_root="" i
+  check_tool || return 1
+  check_node || return 1
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    [ "${args[i]}" = "--repo-root" ] && repo_root="${args[i + 1]:-}"
+  done
+  if [ -n "$repo_root" ]; then
+    check_candidate "${2:-}" --repo-root "$repo_root" || return 1
+  fi
+  exec node "$ARCHIFY_HOME/archify/bin/archify.mjs" finalize "$@"
+}
+
 case "${1:-resolve}" in
   resolve) resolve ;;
   install-command) install_command ;;
   check-candidate) shift; check_candidate "$@" ;;
-  *) note "usage: archify.sh [resolve|install-command|check-candidate <candidate.json> --repo-root <dir>]"; exit 2 ;;
+  finalize) shift; finalize "$@" ;;
+  *) note "usage: archify.sh [resolve|install-command|check-candidate <candidate.json> --repo-root <dir>|finalize <type> <candidate.json> <output.html> [args…]]"; exit 2 ;;
 esac

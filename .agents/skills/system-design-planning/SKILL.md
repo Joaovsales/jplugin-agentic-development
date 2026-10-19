@@ -246,12 +246,16 @@ installed: invoke `/diagram` for the spec's § System design, so it lands
 beside the spec as `specs/<feature>.architecture.html` (candidate
 `specs/<feature>.architecture.json`) and is committed with it. The spec's
 fenced `flow` / `sequence` blocks are unchanged — the renderer still draws
-them inline. When `/diagram`'s resolver reports the tool absent, print its
-install command as one line and go on: the spec and its rendered plan are the
-deliverable either way, and the session continues to Step 7.
+them inline. When `/diagram`'s resolver exits non-zero — the tool absent
+(its note carries the install command), or `node` missing or older than 18 —
+relay its note as one line and go on: the spec and its rendered plan are the
+deliverable either way, and the session continues to Step 7. When `finalize`
+fails and upstream's repair is exhausted, report the failing gate the same way
+and continue.
 
 Required output: `✓ Diagram written: /absolute/path/specs/<feature>.architecture.html`,
-or `○ Diagram skipped: Archify not installed — <install command>`
+`○ Diagram skipped: <the resolver's note, verbatim>`, or
+`○ Diagram failed: <the failing gate>`
 
 ### 7. Review Loop
 
