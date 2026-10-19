@@ -1,4 +1,4 @@
-# Checkpoint — 2026-10-19T18:24:42Z
+# Checkpoint — 2026-10-19T18:31:15Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
@@ -16,7 +16,6 @@
 [ ] Cloud routine: update the existing `tidy` routine (trig_0156hDQVc2Qp5MuUx6j7ttxF) with routine-prompts/tidy.md, Planner-tier model, weekly cron; enable and run once after this PR merges; verify the run opened `chore(tidy): <date>` from `routine/tidy/<YYYYMMDD>-sweep` with the record under tasks/sweeps/
   [ ] /eval triggerability gate on /plan, /build, /quality-gate — manual, before the slice-2 merge; report path goes in the PR body — DEFERRED (manual gate; run before the slice-2 PR merges, not inside /build)
   [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
-  [ ] TDD: tests/test-diagram-skill.sh § frontmatter still passes after the description edit; the eval report path is linked from § Decisions row 10 or the PR description -> /eval triggerability run and description wording (AC 9)
 
 ## Active Spec
 - specs/diagram-skill.md
