@@ -206,4 +206,32 @@ assert_prose_contains "$SKILL" 'only regeneration path' "refresh: --refresh is n
 assert_file_not_matches .agents/skills/wrap-up-session/SKILL.md 'archify|`/diagram`|--refresh' \
   "refresh: /wrap-up-session is untouched by this feature"
 
+# ── § how (AC 10) ────────────────────────────────────────────────────────────
+# /how offers, always, in one closing line; nothing renders until the user says
+# yes (D18). Its explainer prompt stops drawing Mermaid or ASCII in chat — the
+# standalone diagram is /diagram's job.
+HOW=.agents/skills/how/SKILL.md
+how_output="$(section_body "$HOW" "## Output Format")"
+assert_contains "$how_output" '`/diagram' "how: the output contract offers a /diagram"
+assert_contains "$how_output" "until the user says yes" "how: the offer renders nothing unasked"
+assert_file_not_matches .agents/skills/how/references/explainer-prompt.md '[Mm]ermaid|ASCII' \
+  "how: the explainer prompt no longer asks for Mermaid or ASCII diagrams"
+
+# ── § plan (AC 11) ───────────────────────────────────────────────────────────
+PLAN=.agents/skills/plan/SKILL.md
+plan_present="$(section_body "$PLAN" "### 4. Present" "^### ")"
+assert_contains "$plan_present" '`/diagram' "plan: § 4 Present offers a /diagram"
+assert_contains "$plan_present" "more than one component" "plan: the offer is for multi-component features"
+
+# ── § sdp (AC 12) ────────────────────────────────────────────────────────────
+# /system-design-planning produces the architecture diagram beside its spec
+# when the tool is installed; without it the spec and its DSL fences are
+# produced as today plus one install-command line, and the session continues.
+SDP=.agents/skills/system-design-planning/SKILL.md
+assert_file_contains "$SDP" 'specs/<feature>.architecture.html' "sdp: the architecture diagram lands beside the spec"
+assert_file_contains "$SDP" '`/diagram' "sdp: the diagram is produced through /diagram"
+assert_prose_contains "$SDP" 'install command' "sdp: without the tool the install command is printed"
+assert_prose_contains "$SDP" 'the session continues' "sdp: without the tool the session does not stop"
+assert_prose_contains "$SDP" 'fenced `flow` / `sequence` blocks' "sdp: the flow and sequence fences are unchanged (D12)"
+
 finish
