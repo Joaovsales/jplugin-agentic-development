@@ -136,15 +136,22 @@ def path(slug: str, *parts: str) -> str:
     return "/".join([f"repos/{slug}", *parts])
 
 
+def as_pr_number(value: str) -> Optional[str]:
+    """The digits of a pull request number (a leading `#` tolerated, the way
+    `gh` takes it), or None when `value` is something else, such as a branch."""
+    number = value.lstrip("#")
+    return number if number.isdigit() else None
+
+
 def pr_number(value: str) -> str:
     """A pull request number fit for a path segment, or a parser refusal.
 
     Every subcommand's `number` argument is parsed through this type, so
     anything but digits never reaches `gh`: unchecked, `../issues/7` would
-    become a route. A leading `#` is tolerated, the way `gh` takes it.
+    become a route.
     """
-    number = value.lstrip("#")
-    if not number.isdigit():
+    number = as_pr_number(value)
+    if number is None:
         raise argparse.ArgumentTypeError(f"{value!r} is not a pull request number")
     return number
 
@@ -225,10 +232,8 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 def cmd_view(args: argparse.Namespace) -> int:
     slug = repo_slug()
-    try:
-        pull = read_pull(slug, pr_number(args.target))
-    except argparse.ArgumentTypeError:
-        pull = find_pull(slug, args.target)
+    number = as_pr_number(args.target)
+    pull = read_pull(slug, number) if number else find_pull(slug, args.target)
     fields = [field.strip() for field in args.json.split(",") if field.strip()]
     unknown = [field for field in fields if field not in VIEW_FIELDS]
     if unknown:

@@ -834,8 +834,8 @@ def github_remote(root: str) -> str:
 
 #: The one reachability probe: the cheapest authenticated REST call, and the
 #: one that passes where `gh auth status` fails (the cloud sandbox's proxy).
-#: Provider selection and `GitHubProvider.discover()` both run exactly this, so
-#: `doctor` and selection can never disagree about whether GitHub is reachable.
+#: Provider selection and `GitHubProvider.discover()` both run exactly this
+#: probe; each still reads the result through its own runner and wording.
 GH_AUTH_PROBE = ("gh", "api", "user")
 
 
