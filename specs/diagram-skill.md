@@ -49,14 +49,22 @@ A user types `/diagram <what>` (or a phrase such as "draw the architecture",
 3. Adds jplugin's conventions on top of upstream's:
    - **Evidence is mandatory for a codebase.** When the subject is a repository,
      the candidate pins `meta.repository` to the clean `HEAD` of that repository
-     and every component carries `sources`; `finalize` runs with `--repo-root`.
-     A described system (no repository) is authored freehand.
+     and every element of the primary collection (components, nodes,
+     participants, states, entities, types, events or spans, per diagram type)
+     carries `sources` (a path and a line); `finalize` runs
+     with `--repo-root`, through the resolver's `finalize` wrapper, which runs
+     the pre-finalize evidence check first whenever `--repo-root` is present and
+     reads which collection is primary from the install's own schema. A
+     described system (no repository) is authored freehand.
    - **Output location.** A system or architecture diagram lands at
      `docs/architecture/<slug>.html` beside its candidate
      `docs/architecture/<slug>.architecture.json` (or `<slug>.<type>.json`),
      regenerated in place. A diagram that illustrates a spec lands beside it as
      `specs/<feature>.<type>.html`. Archify's working folder `.archify/` is
-     gitignored and holds receipts and captures only.
+     gitignored and holds receipts and captures only, reached through
+     `--out-dir`; the one receipt Archify keeps beside the HTML,
+     `<stem>.delivery.json`, is the provenance its `check` reads and is
+     committed with the diagram.
    - **Browser resolution.** Before `finalize`, the skill sets `ARCHIFY_CHROME`
      to the first of: an existing `ARCHIFY_CHROME`, a Chrome or Chromium on
      `PATH`, the Chromium that `playwright-cli` installed. When none is found
@@ -117,8 +125,8 @@ Installation and provenance:
 
 ## Outputs
 
-- A standalone HTML diagram and its candidate JSON at the paths above; Archify's
-  receipts under `.archify/`.
+- A standalone HTML diagram, its candidate JSON and its `<stem>.delivery.json`
+  at the paths above; Archify's other receipts and captures under `.archify/`.
 - A chat reply per Archify's output contract, with the browser-evidence gap
   stated when it applies.
 - install.sh: a cloned, pinned Archify under `$ARCHIFY_HOME`, or a NOTE.
@@ -170,7 +178,7 @@ Installation and provenance:
 | 1 | Vendor, install or wrap? | Install in user scope with a thin jplugin skill; never copy the package into the repo | user | Upstream is actively released with its own update channel; design-stack set the user-scope precedent |
 | 2 | User-facing skill or backend renderer? | Both, staged: `/diagram` first, consumer skills afterwards | user | One skill file is immediately useful; rewiring consumers is a second step |
 | 3 | Missing Node or browser | Node is a hard requirement; a missing browser degrades to the non-browser gates, stated in the reply; never a silent fallback | user | Nothing runs without Node; a diagram with schema and route checks beats Mermaid |
-| 4 | Where outputs live | `docs/architecture/` for system diagrams, beside the spec for spec diagrams; `.archify/` gitignored | user | Diagrams are documentation; receipts are scratch |
+| 4 | Where outputs live | `docs/architecture/` for system diagrams, beside the spec for spec diagrams; `.archify/` gitignored | user | Diagrams and their delivery receipt are documentation; review receipts and captures are scratch |
 | 5 | Explainer mode | Not exposed | user | html-presentation already covers narrative pages; proactive pages would slow fast lanes |
 | 6 | Diagram types | All ten; Archify's router picks | user | Curation drifts; jplugin contributes the *when*, not the *which type* |
 | 7 | Name and triggers | `/diagram`, with "archify" among its trigger phrases | user | Skills are named for the job; the alias catches people who know the tool |
@@ -182,7 +190,7 @@ Installation and provenance:
 | 13 | Browser resolution | The skill resolves `ARCHIFY_CHROME` itself (PATH, then Playwright's Chromium) | user | The skill knows the harness's install layout; Archify does not |
 | 14 | Provenance and drift | `upstreams.json` gains `kind: installed`; a THIRD_PARTY_NOTICES section; drift in the weekly summary and a `/tidy` check | user | Closes the design-stack gap with the same change |
 | 15 | Who installs | `install.sh` when Node ≥ 18 is present; `/diagram` prints the command when the tool is missing | user | Machine-side setup lives in the installer; a skill that clones on its own is a side effect jplugin avoids |
-| 16 | Pin format | Tag in the install constant, 40-character commit in `upstreams.json`, validator keeps them consistent | user | The drift script already validates commits; a tag alone can be moved |
+| 16 | Pin format | Tag and commit as `install.sh` constants, tag in the resolver, 40-character commit as the `upstreams.json` baseline; the tests read the registry as their oracle and pin the other homes equal | user | The drift script already validates commits; a tag alone can be moved |
 | 17 | Authoring instructions | Read upstream's SKILL.md from the install directory at run time; `/diagram` adds conventions only | user | Restating drifts every release; vendoring the docs splits one package across two pins |
 | 18 | How `/how` offers | Always, in one closing line | user | Simplest rule; nothing renders unasked |
 | 19 | Stale diagrams at wrap-up | Not touched; `--refresh` is the only regeneration path | user | Wrap-up regeneration would rewrite committed documents and churn diffs |
@@ -211,9 +219,9 @@ Installation and provenance:
   or finalize repair contract (`tests/test-diagram-skill.sh` greps for the
   upstream read and for the absence of those headings).
 - AC5: For a codebase subject, `SKILL.md` requires `meta.repository` pinned to
-  `HEAD`, `sources` on every component and `--repo-root` on `finalize`; a test
-  fixture candidate without `sources` is named as rejected by the skill's
-  pre-finalize check.
+  `HEAD`, `sources` on every component (every element of the diagram type's
+  primary collection) and `--repo-root` on `finalize`; a test fixture candidate
+  without `sources` is named as rejected by the skill's pre-finalize check.
 - AC6: `install.sh` on a machine with `node` ≥ 18 and an isolated `HOME` clones
   Archify into `$ARCHIFY_HOME` at commit `208acba8…` and reports "installed";
   a second run reports "present" without network; without `node` it prints a
@@ -290,5 +298,5 @@ Instructions:
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
-Constraints: Archify is installed as a pinned tool under `$ARCHIFY_HOME` (tag v3.2.0, commit 208acba8d412335185b2056fedf54b3405df43fb), never as a skill and never copied into the repo (D1, D11, D16); Node ≥ 18 is a hard requirement and a missing browser degrades to the non-browser gates with the gap stated, with no fallback to the DSL or html-presentation (D3); `/diagram` reads `$ARCHIFY_HOME/archify/SKILL.md` at run time and restates none of it (D17); codebase diagrams pin `meta.repository` to HEAD with `sources` on every component and `--repo-root` on finalize (D8); the explainer mode is not exposed (D5); `/wrap-up-session` is not edited and `--refresh` is the only regeneration path (D19); the `flow`/`sequence` DSL and its tests are untouched (D12).
+Constraints: Archify is installed as a pinned tool under `$ARCHIFY_HOME` (tag v3.2.0, commit 208acba8d412335185b2056fedf54b3405df43fb), never as a skill and never copied into the repo (D1, D11, D16); Node ≥ 18 is a hard requirement and a missing browser degrades to the non-browser gates with the gap stated, with no fallback to the DSL or html-presentation (D3); `/diagram` reads `$ARCHIFY_HOME/archify/SKILL.md` at run time and restates none of it (D17); codebase diagrams pin `meta.repository` to HEAD with `sources` on every component (every element of the diagram type's primary collection, per AC5) and `--repo-root` on finalize (D8); the explainer mode is not exposed (D5); `/wrap-up-session` is not edited and `--refresh` is the only regeneration path (D19); the `flow`/`sequence` DSL and its tests are untouched (D12).
 ```
