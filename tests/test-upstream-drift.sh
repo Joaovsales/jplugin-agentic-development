@@ -320,4 +320,95 @@ for invalid_deadline in nan inf; do
   assert_eq "2" "$CHECK_STATUS" "deadline: rejects $invalid_deadline"
 done
 
+# An installed source is a tool pinned at a tag, never a vendored copy: it has no `paths`.
+# The real registry carries the Archify entry; --validate proves it without Git or network.
+ARCHIFY_COMMIT="208acba8d412335185b2056fedf54b3405df43fb"
+assert_file_contains ".github/upstreams.json" '"id": "archify"' \
+  "installed: the registry identifies the Archify tool"
+assert_file_contains ".github/upstreams.json" '"kind": "installed"' \
+  "installed: the Archify entry is marked installed, not vendored"
+assert_file_contains ".github/upstreams.json" '"ref": "refs/tags/v3.2.0"' \
+  "installed: the Archify entry tracks its pinned tag"
+assert_file_contains ".github/upstreams.json" "$ARCHIFY_COMMIT" \
+  "installed: the baseline is the tag's dereferenced commit"
+run_checker "$REPO/.github/upstreams.json" --validate
+assert_eq "0" "$CHECK_STATUS" "installed: --validate passes on the real registry"
+assert_eq "" "$CHECK_OUTPUT" "installed: --validate is silent on success"
+
+# Installed fixture: a local upstream with a commit tagged v3.2.0.
+TOOL_REPO="$FIXTURE_ROOT/tool"
+new_repo "$TOOL_REPO"
+commit_file "$TOOL_REPO" "tool.txt" "pinned"
+git -C "$TOOL_REPO" tag v3.2.0
+TOOL_BASELINE="$(git -C "$TOOL_REPO" rev-parse HEAD)"
+write_tool_registry() {
+  printf '%s\n' \
+    '{"version":1,"sources":[' \
+    "{\"id\":\"tool\",$1\"url\":\"$TOOL_REPO\",\"ref\":\"refs/tags/v3.2.0\",\"baseline\":\"$TOOL_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
+    ']}' > "$2"
+}
+TOOL_REGISTRY="$FIXTURE_ROOT/tool.json"
+write_tool_registry '"kind":"installed",' "$TOOL_REGISTRY"
+run_checker "$TOOL_REGISTRY"
+assert_eq "0" "$CHECK_STATUS" "installed: an unmoved tag is clean"
+assert_eq "" "$CHECK_OUTPUT" "installed: a clean check is silent"
+
+# --validate never contacts Git, even when the upstream is unreachable.
+rm -f "$GIT_MARKER"
+PATH="$FAKE_BIN:$PATH" run_checker "$TOOL_REGISTRY" --validate
+assert_eq "0" "$CHECK_STATUS" "installed: --validate accepts a well-formed entry"
+if [ -e "$GIT_MARKER" ]; then
+  assert_eq "not-called" "called" "installed: --validate never reaches Git/network"
+else
+  assert_eq "not-called" "not-called" "installed: --validate never reaches Git/network"
+fi
+
+# Moving the tag is drift, reported exactly like a vendored source without paths.
+commit_file "$TOOL_REPO" "tool.txt" "retagged"
+git -C "$TOOL_REPO" tag -f v3.2.0 >/dev/null
+run_checker "$TOOL_REGISTRY"
+assert_eq "1" "$CHECK_STATUS" "installed: a moved tag fails"
+assert_contains "$CHECK_OUTPUT" "drift: tool" "installed: a moved tag is reported as drift"
+
+# An installed tool is not path-scoped: `paths` is rejected before Git/network.
+TOOL_PATHS_REGISTRY="$FIXTURE_ROOT/tool-paths.json"
+write_tool_registry '"kind":"installed","paths":["x"],' "$TOOL_PATHS_REGISTRY"
+rm -f "$GIT_MARKER"
+PATH="$FAKE_BIN:$PATH" run_checker "$TOOL_PATHS_REGISTRY"
+assert_eq "2" "$CHECK_STATUS" "installed with paths: invalid registry status"
+assert_contains "$CHECK_OUTPUT" "invalid registry" "installed with paths: labels the failure"
+assert_contains "$CHECK_OUTPUT" "paths" "installed with paths: names the forbidden field"
+if [ -e "$GIT_MARKER" ]; then
+  assert_eq "not-called" "called" "installed with paths: rejected before Git/network"
+else
+  assert_eq "not-called" "not-called" "installed with paths: rejected before Git/network"
+fi
+
+TOOL_BOGUS_REGISTRY="$FIXTURE_ROOT/tool-bogus.json"
+write_tool_registry '"kind":"bogus",' "$TOOL_BOGUS_REGISTRY"
+run_checker "$TOOL_BOGUS_REGISTRY"
+assert_eq "2" "$CHECK_STATUS" "unknown kind: invalid registry status"
+assert_contains "$CHECK_OUTPUT" "kind" "unknown kind: names the field"
+
+# Omitting `kind` keeps today's vendored semantics, where `paths` stays valid.
+TOOL_VENDORED_REGISTRY="$FIXTURE_ROOT/tool-vendored.json"
+write_tool_registry '"paths":["tool.txt"],' "$TOOL_VENDORED_REGISTRY"
+run_checker "$TOOL_VENDORED_REGISTRY" --validate
+assert_eq "0" "$CHECK_STATUS" "vendored default: an entry without kind keeps paths valid"
+
+# Provenance reaches the distribution surfaces: ignore rule, MIT notice, Sources entry.
+assert_file_contains ".gitignore" '.archify/' \
+  "notices: Archify's working folder (receipts, captures) is never committed"
+assert_file_contains "THIRD_PARTY_NOTICES.md" '## Archify (installed tool)' \
+  "notices: Archify has its own section"
+assert_file_contains "THIRD_PARTY_NOTICES.md" "$ARCHIFY_COMMIT" \
+  "notices: the section pins the tag's commit"
+assert_file_contains "THIRD_PARTY_NOTICES.md" 'Copyright (c) 2026 tt-a1i (Archify)' \
+  "notices: the upstream copyright line is carried"
+assert_file_contains "THIRD_PARTY_NOTICES.md" 'Permission is hereby granted, free of charge' \
+  "notices: the MIT text is carried"
+SOURCES_BODY="$(section_body README.md "## Sources")"
+assert_contains "$SOURCES_BODY" 'tt-a1i/archify' "notices: README Sources names Archify"
+assert_contains "$SOURCES_BODY" 'v3.2.0' "notices: README Sources names the pinned tag"
+
 finish
