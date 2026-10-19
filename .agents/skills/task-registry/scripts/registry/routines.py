@@ -32,6 +32,10 @@ __all__ = [
     "routine_for_label",
     "select_routine",
     "select_candidates",
+    "routine_pool",
+    "with_linked_pr_state",
+    "LinkedPrStateUnknown",
+    "stranded",
     "missing_routine_labels",
     "matched_label",
     "unclassified",
@@ -95,6 +99,44 @@ def missing_routine_labels(config, known_labels: Sequence[str]) -> Sequence[str]
     return tuple(sorted(label for label in needed if label.casefold() not in known_folded))
 
 
+def routine_pool(tasks: Iterable, config, routine: str) -> List:
+    """The open tasks this routine's selector owns: the kind and claim filters.
+
+    This is what `select` reads linked-pull-request state for -- one tracker
+    call per task -- so the pool is cut to the routine's own issues first, and
+    the `stranded` backstop covers the same pool.
+    """
+    return [
+        task
+        for task in tasks
+        if not task.is_terminal and select_routine(task.labels, config) == routine
+    ]
+
+
+class LinkedPrStateUnknown(Exception):
+    """A pool task whose linked-pull-request state could not be read this run."""
+
+    def __init__(self, task) -> None:
+        super().__init__(f"linked pull request state unknown for {task.id}")
+        self.task = task
+
+
+def with_linked_pr_state(pool: Iterable, linked_pr_state) -> List:
+    """Each pool task with the provider's answer folded into `extra`.
+
+    `linked_pr_state(task)` is the provider hook; None means it could not
+    answer, and that is raised rather than read as clean -- an unanswered
+    exclusion is indistinguishable from an empty backlog.
+    """
+    checked = []
+    for task in pool:
+        state = linked_pr_state(task)
+        if state is None:
+            raise LinkedPrStateUnknown(task)
+        checked.append(task.with_(extra={**task.extra, **state}))
+    return checked
+
+
 def select_candidates(tasks: Iterable, config, routine: str) -> Sequence:
     """Every open task this routine may claim, best candidate first.
 
@@ -102,17 +144,16 @@ def select_candidates(tasks: Iterable, config, routine: str) -> Sequence:
     host re-derives them: an issue is out if another routine's label outranks
     this one, if it already carries the claim label, if a pull request for it
     is still open, or if one in this repository merged and left it open
-    (`stranded`; `closes` cannot reach a merge elsewhere). The open-PR
-    rule is a read rather than a write, and it is strictly more accurate than
-    closing the issue on PR creation — it also suppresses re-picking while a PR
-    sits in review.
+    (`stranded`; `closes` cannot reach a merge elsewhere). The two pull-request
+    facts are read off `extra`, which `with_linked_pr_state` fills from the
+    provider. The open-PR rule is a read rather than a write, and it is
+    strictly more accurate than closing the issue on PR creation — it also
+    suppresses re-picking while a PR sits in review.
     """
     candidates = [
         task
-        for task in tasks
-        if not task.is_terminal
-        and select_routine(task.labels, config) == routine
-        and task.extra.get("unresolved_linked_pr") != "true"
+        for task in routine_pool(tasks, config, routine)
+        if task.extra.get("unresolved_linked_pr") != "true"
         and not task.extra.get("merged_linked_pr")
     ]
     return sorted(candidates, key=by_priority)

@@ -41,9 +41,9 @@ EOF
 # CLOSED; `fail` lists issue numbers whose close gh rejects; `unreadable` lists
 # issue numbers gh cannot read (transferred or deleted since the merge).
 # For `select`: `backlog` lists the open issues as [number, labels, linked PR
-# numbers, stateReason]; `pr_states` maps a linked PR number to the state the
-# GraphQL lookup answers (a PR missing from it resolves to a null node);
-# `graphql_fail` makes that lookup fail.
+# numbers, state_reason]; `pr_states` maps a linked PR number to the state its
+# timeline event carries (a PR missing from it has no readable state);
+# `timeline_fail` makes the timeline read fail.
 cat > "$F/stub/closes_stub.py" <<'EOF'
 import importlib.util
 import json
@@ -58,20 +58,26 @@ LABELS = ("needs-investigation", "bug", "enhancement", "design-decision", "simpl
 HERE = "fixture-owner/fixture-repo"
 
 
-def linked(entries):
-    """Closing references the way gh lists them: no state, just the PR's identity.
+def timeline(issue, entries, pr_states):
+    """Cross-referenced events the way the REST timeline lists them.
 
-    An entry is a PR number in this repository or a [repository, number] pair.
+    An entry is a PR number in this repository or a [repository, number] pair;
+    the PR's state, merge time, repository and body ride on `source.issue`. A
+    PR absent from `pr_states` carries no state at all.
     """
-    references = []
+    events = []
     for entry in entries:
         repo, number = entry if isinstance(entry, list) else (HERE, entry)
-        owner, name = repo.split("/")
-        references.append({
-            "id": f"PR_{number}", "number": number, "url": f"https://github.com/{repo}/pull/{number}",
-            "repository": {"name": name, "owner": {"login": owner}},
-        })
-    return references
+        state = pr_states.get(str(number))
+        source = {
+            "number": number, "body": f"Closes #{issue}",
+            "repository_url": f"https://api.github.com/repos/{repo}",
+            "pull_request": {"merged_at": "2026-10-02T00:00:00Z" if state == "MERGED" else None},
+        }
+        if state is not None:
+            source["state"] = "open" if state == "OPEN" else "closed"
+        events.append({"event": "cross-referenced", "source": {"type": "issue", "issue": source}})
+    return events
 
 
 def run_cli(cli, scenario, argv):
@@ -96,6 +102,7 @@ def run_cli(cli, scenario, argv):
         if command[1] == "api":
             path = next((arg for arg in command[2:] if not arg.startswith("-") and arg != method), "")
         issue_read = re.fullmatch(rf"repos/{HERE}/issues/(\d+)", path)
+        timeline_read = re.fullmatch(rf"repos/{HERE}/issues/(\d+)/timeline\?.*", path)
         if verb == ["pr", "view"]:
             if number not in prs:
                 return answer(command, 1, f"Could not resolve to a PullRequest with the number of {number}.", check)
@@ -123,34 +130,27 @@ def run_cli(cli, scenario, argv):
                 "state": issues.get(number, "OPEN").lower(),
                 "html_url": f"https://github.com/fixture-owner/fixture-repo/issues/{number}",
                 "created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-01T00:00:00Z",
-                "assignees": [], "closedByPullRequestsReferences": linked([
-                    int(pr) for pr, spec in prs.items()
-                    if any(repo == HERE and str(issue) == number for repo, issue in spec.get("closes", []))
-                ]),
+                "assignees": [],
             }), check)
+        if timeline_read:
+            if scenario.get("timeline_fail"):
+                return answer(command, 1, "HTTP 502: Bad Gateway", check)
+            events = [timeline(issue, links, pr_states) for issue, _, links, _ in backlog
+                      if str(issue) == timeline_read.group(1)]
+            return answer(command, 0, json.dumps(events[0] if events else []), check)
         if path.startswith(f"repos/{HERE}/labels?"):
             return answer(command, 0, json.dumps([{"name": name} for name in LABELS]), check)
         if path.startswith(f"repos/{HERE}/issues?"):
             return answer(command, 0, json.dumps([
                 {
                     "number": issue, "title": f"Issue {issue}", "body": "", "state": "open",
-                    "stateReason": reason, "labels": [{"name": name} for name in labels],
+                    "state_reason": reason.lower() or None, "labels": [{"name": name} for name in labels],
                     "html_url": f"https://github.com/{HERE}/issues/{issue}",
                     "created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-01T00:00:00Z",
-                    "assignees": [], "closedByPullRequestsReferences": linked(links),
+                    "assignees": [],
                 }
                 for issue, labels, links, reason in backlog
             ]), check)
-        if verb == ["api", "graphql"]:
-            if scenario.get("graphql_fail"):
-                return answer(command, 1, "HTTP 502: Bad Gateway", check)
-            ids = [arg[len("ids[]="):] for arg in command if arg.startswith("ids[]=")]
-            nodes = [
-                {"id": node, "number": int(node[3:]), "state": pr_states[node[3:]]}
-                if node[3:] in pr_states else None
-                for node in ids
-            ]
-            return answer(command, 0, json.dumps({"data": {"nodes": nodes}}), check)
         raise AssertionError("unexpected gh call: " + " ".join(command))
 
     GitHubProvider._run = fake_run
@@ -219,7 +219,7 @@ assert_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/91 --inpu
   "command: the open linked issue is closed through PATCH /issues/{n}, the payload on stdin"
 assert_not_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/92" "command: an issue already closed is left alone"
 assert_contains "$out" "closes: closed #91" "command: each closed issue gets one line"
-assert_not_contains "$out" "call: gh api graphql" \
+assert_not_contains "$out" "timeline" \
   "command: closes reads no linked PR state -- a lookup only select needs must not fail the repair"
 
 out="$(closes '{"prs":{"140":{"state":"MERGED","closes":[["'$HERE'",92]]}},"issues":{"92":"CLOSED"}}' '#140' --apply --approve)"
@@ -259,7 +259,7 @@ assert_not_contains "$out" "call: gh" "command: a usage error reaches no tracker
 # #155's closing PR merged without closing it (stranded); #120's is still open
 # (in flight); #130's was closed unmerged; #140 was reopened after its PR
 # merged; #160's PR state cannot be read; #10 has no link at all.
-BACKLOG='"backlog":[[155,["bug","now"],[189],""],[120,["bug","now"],[144],""],[130,["bug","next"],[131],""],[140,["bug","next"],[141],"REOPENED"],[160,["bug","next"],[161],""],[10,["bug","next"],[],""]]'
+BACKLOG='"backlog":[[155,["bug","now"],[189],""],[120,["bug","now"],[144],""],[130,["bug","next"],[131],""],[140,["bug","next"],[141],"REOPENED"],[160,["bug","next"],[161],""],[10,["bug","next"],[],""],[180,["enhancement","now"],[181],""]]'
 STATES='"pr_states":{"189":"MERGED","144":"OPEN","131":"CLOSED","141":"MERGED"}'
 out="$(registry "{$BACKLOG,$STATES}" select --routine fix)"
 assert_contains "$out" "exit=0" "select: a stranded issue does not fail the routine's pick"
@@ -272,8 +272,12 @@ assert_not_contains "$out" "stranded:      #140" "select: an issue reopened afte
 assert_not_contains "$out" "stranded:      #120" "select: an open closing PR is in flight, not stranded"
 assert_contains "$out" "remaining:     2 other candidate(s)" \
   "select: the pool is #130 (PR closed unmerged), #140 (reopened) and #10 -- #160's unreadable PR counts as in flight"
-assert_contains "$out" "call: gh api graphql" "select: linked PR states are looked up, since gh lists links without them"
-assert_contains "$out" "ids[]=PR_189" "select: the lookup asks for each linked PR by node id"
+assert_contains "$out" "call: gh api repos/$HERE/issues/155/timeline?per_page=100&page=1" \
+  "select: a candidate's linked PRs are read from its REST timeline, paged"
+assert_not_contains "$out" "issues/180/timeline" \
+  "select: the timeline is read after the kind filter -- another routine's issue costs nothing"
+assert_contains "$out" "checked:       6 candidate(s) for linked pull requests" \
+  "select: the routine's own pool is what was checked"
 
 out="$(registry '{"backlog":[[155,["bug","now"],[189],""]],"pr_states":{"189":"MERGED"}}' select --routine fix)"
 assert_contains "$out" "exit=0" "select: a pool holding only a stranded issue exits 0"
@@ -288,11 +292,12 @@ assert_contains "$out" "candidate:     170 —" \
 
 out="$(registry '{"backlog":[[10,["bug","next"],[],""]]}' select --routine fix)"
 assert_contains "$out" "candidate:     10 —" "select: an unlinked issue is still a candidate"
-assert_not_contains "$out" "call: gh api graphql" "select: no lookup runs when no open issue is linked"
+assert_contains "$out" "call: gh api repos/$HERE/issues/10/timeline" \
+  "select: every candidate's timeline is read -- an unlinked issue proves itself clean"
 
-out="$(registry "{$BACKLOG,\"graphql_fail\":true}" select --routine fix)"
-assert_contains "$out" "exit=1" "select: a failed PR-state lookup exits 1"
-assert_contains "$out" "gh api graphql" "select: the failed lookup is named"
+out="$(registry "{$BACKLOG,\"timeline_fail\":true}" select --routine fix)"
+assert_contains "$out" "exit=1" "select: a failed timeline read exits 1"
+assert_contains "$out" "timeline" "select: the failed timeline read is named"
 assert_not_contains "$out" "candidate:" "select: no candidate is offered when linked PR state is unknown"
 
 # --- the skill documents the command ----------------------------------------

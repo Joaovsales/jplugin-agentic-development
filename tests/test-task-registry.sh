@@ -831,20 +831,25 @@ try:
     print("foreign=accepted")
 except ProviderError as exc:
     print("foreign=" + str(exc))
-clean = provider._to_task({
-    "number": 1, "title": "clean", "state": "OPEN", "url": "",
-    "closedByPullRequestsReferences": [],
-})
+clean = provider._to_task({"number": 1, "title": "clean", "state": "open", "html_url": ""})
 
 
-def linked(references, states):
-    issue = {"number": 2, "state": "OPEN", "closedByPullRequestsReferences": references}
-    return provider._linked_pr_state(issue, states).get("unresolved_linked_pr", "unknown")
+def pull(state):
+    return {"event": "cross-referenced", "source": {"type": "issue", "issue": {
+        "number": 9, "state": state, "body": "", "pull_request": {"merged_at": None},
+        "repository_url": "https://api.github.com/repos/owner/repo"}}}
 
 
-print("clean-pr=" + linked([], {}))
-print("open-pr=" + linked([{"id": "PR_9"}], {"PR_9": "OPEN"}))
-print("unread-pr=" + linked([{"id": "PR_9"}], {}))
+def linked(events):
+    provider._json = lambda command, input=None: events
+    task = provider._to_task({"number": 2, "title": "linked", "state": "open",
+                              "html_url": "https://github.com/owner/repo/issues/2"})
+    return (provider.linked_pr_state(task) or {}).get("unresolved_linked_pr", "unknown")
+
+
+print("clean-pr=" + linked([]))
+print("open-pr=" + linked([pull("open")]))
+print("unread-pr=" + linked([pull(None)]))
 print("plain-read=" + clean.extra.get("unresolved_linked_pr", "unset"))
 print("identity=" + clean.extra.get("registry_identity", "stable"))
 EOF
@@ -854,11 +859,11 @@ assert_contains "$github_reference_out" "own=42" \
 assert_contains "$github_reference_out" "foreign=github: issue URL belongs to other/repo, not owner/repo" \
   "GitHub: a foreign repository URL is refused instead of retargeted"
 assert_contains "$github_reference_out" "clean-pr=false" \
-  "GitHub: an empty closing-PR set explicitly attests no unresolved PR"
+  "GitHub: an empty timeline explicitly attests no unresolved PR"
 assert_contains "$github_reference_out" "open-pr=true" \
-  "GitHub: an open closing PR is reported as unresolved"
+  "GitHub: an open cross-referencing PR is reported as unresolved"
 assert_contains "$github_reference_out" "unread-pr=true" \
-  "GitHub: a closing PR whose state was not read counts as unresolved"
+  "GitHub: a cross-referencing PR whose state is missing counts as unresolved"
 assert_contains "$github_reference_out" "plain-read=unset" \
   "GitHub: a plain read carries no linked-PR state -- only select's read looks it up"
 assert_contains "$github_reference_out" "identity=provisional-title-slug" \
@@ -2261,8 +2266,8 @@ assert_contains "$(cat "$F_GH/gh-life.log")" 'api --method PATCH repos/fixture-o
   "GitHub (AC3): a cancelled close is PATCH /issues/{n} with state closed and state_reason not_planned"
 assert_eq "0" "$(grep -c 'issues/42/labels' "$F_GH/gh-life.log")" \
   "GitHub (AC3): an update with nothing new to label makes no label write"
-assert_eq "0" "$(cat "$F_GH/gh-life.log" "$F_GH/gh-update.log" "$F_GH/gh-reg.log" | grep -cE 'issue (edit|close|comment|create)|label (list|create)')" \
-  "GitHub (AC2): no gh issue or gh label subcommand remains on the write path"
+assert_eq "0" "$(cat "$F_GH"/gh-*.log | grep -cvE '^api (--method [A-Z]+ )?(user|repos/fixture-owner/fixture-repo[/?])')" \
+  "GitHub (AC2): every gh call in the lifecycle logs is gh api on user or repos/<owner>/<repo>/..."
 
 # --- migrate: id collisions, block-bounded specs, dependency rewrites --------
 F_MIG2="$(new_fixture)"

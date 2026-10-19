@@ -50,15 +50,23 @@ from .base import (
     preserve_labels,
 )
 
-#: Transitional until the timeline read lands: the linked-PR exclusion still
-#: reads `closedByPullRequestsReferences` and `stateReason` off an issue entry
-#: that carries them, and `linked_pr_exclusion_available()` still keys on them.
-OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences", "stateReason")
-#: `gh` lists an issue's closing pull requests without their state, so the
-#: states come from one GraphQL read per batch of node ids; `nodes(ids:)`
-#: accepts at most 100.
-PR_STATE_QUERY = "query($ids: [ID!]!) { nodes(ids: $ids) { ... on PullRequest { id state } } }"
-PR_STATE_BATCH = 100
+#: An issue's timeline is read this far for its cross-referencing pull
+#: requests. Past it the linked-PR state is unknown and `select` refuses: a
+#: timeline this long is pathological, and guessing re-picks work under review.
+TIMELINE_LIMIT = 300
+#: GitHub's closing keywords, and the one reference each binds to (#123):
+#: `Closes #1, #2` closes only #1. A reference is `#N`, `owner/repo#N` or an
+#: issue URL; an optional colon may follow the keyword. Code spans are skipped.
+CLOSING_KEYWORDS = (
+    "close", "closes", "closed", "fix", "fixes", "fixed", "resolve", "resolves", "resolved",
+)
+CLOSING_REFERENCE_RE = re.compile(
+    r"\b(?:" + "|".join(CLOSING_KEYWORDS) + r")\b\s*:?\s*"
+    r"(?:https?://github\.com/(?P<url_repo>[\w.-]+/[\w.-]+)/issues/(?P<url_number>\d+)"
+    r"|(?P<repo>[\w.-]+/[\w.-]+)?#(?P<number>\d+))",
+    re.IGNORECASE,
+)
+CODE_SPAN_RE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
 #: Issues are read `PAGE_SIZE` at a time (REST's maximum) up to this many.
 #: Reaching the cap exactly is indistinguishable from "there were more", so it
 #: is treated as truncation.
@@ -97,7 +105,6 @@ class GitHubProvider(TrackerProvider):
         self.repository = config.repository
         self.redact = redactor_for(config)
         self._known_labels: Optional[Sequence[str]] = None
-        self._unsupported_fields: set = set()
 
     # ---------------------------------------------------------------- discovery
     def discover(self) -> ProviderStatus:
@@ -121,10 +128,54 @@ class GitHubProvider(TrackerProvider):
     def list_tasks(self) -> List[Task]:
         return [self._to_task(issue) for issue in self._list_issues()]
 
-    def list_tasks_with_linked_prs(self) -> List[Task]:
-        issues = self._list_issues()
-        pr_states = self._read_pr_states(issues)
-        return [self._to_task(issue, self._linked_pr_state(issue, pr_states)) for issue in issues]
+    def linked_pr_state(self, task: Task) -> Optional[Dict[str, str]]:
+        """The task's cross-referencing pull requests, read off its REST timeline.
+
+        Only `cross-referenced` events whose source is a pull request count; an
+        issue that mentions the task counts for nothing. Any open pull request,
+        here or elsewhere, leaves the task in flight -- a PR that merely
+        mentions it over-excludes, which is the chosen side of the error. With
+        none open, the first pull request of this repository that merged with
+        a closing keyword naming the task strands it (#146), unless a human has
+        reopened the task since. A pull request whose state is missing counts
+        as open; a timeline past TIMELINE_LIMIT answers None.
+        """
+        if task.external is None:
+            return {}
+        number = self._number(task.external)
+        events, complete = self._paged(f"issues/{number}/timeline", TIMELINE_LIMIT)
+        if not complete:
+            return None
+        pulls = [
+            event["source"]["issue"]
+            for event in events
+            if event.get("event") == "cross-referenced"
+            and "pull_request" in ((event.get("source") or {}).get("issue") or {})
+        ]
+        if any((pull.get("state") or "").lower() != "closed" for pull in pulls):
+            return {"unresolved_linked_pr": "true"}
+        state = {"unresolved_linked_pr": "false"}
+        if task.extra.get("state_reason") == "reopened":
+            return state
+        for pull in pulls:
+            if (pull.get("pull_request") or {}).get("merged_at") and self._closes_here(pull, number):
+                state["merged_linked_pr"] = f"#{pull.get('number')}"
+                break
+        return state
+
+    def _closes_here(self, pull: Dict, number: str) -> bool:
+        """Is this a pull request of THIS repository whose body closes issue `number`?
+
+        `closes` cannot reach a merge in another repository, so one there never
+        strands an issue here -- it only ever excludes while open.
+        """
+        repository = (pull.get("repository_url") or "").rsplit("/repos/", 1)[-1].lower()
+        if repository != self._repo().lower():
+            return False
+        return any(
+            repo in ("", repository) and issue == number
+            for repo, issue in closing_references_in(pull.get("body") or "")
+        )
 
     def _list_issues(self) -> List[Dict]:
         """Every issue in the repository, paged; pull requests dropped.
@@ -296,14 +347,14 @@ class GitHubProvider(TrackerProvider):
         return LinkResult("dependency", task.id, depends_on.id, native=False, detail=detail)
 
     # ------------------------------------------------- normalization (read-only)
-    def _to_task(self, issue: Dict, linked_prs: Optional[Dict[str, str]] = None) -> Task:
+    def _to_task(self, issue: Dict) -> Task:
         labels = tuple(label["name"] for label in issue.get("labels", []))
         state = (issue.get("state") or "open").lower()
         status = self._status_for(state, labels, issue)
         number = str(issue.get("number", ""))
         ref = ExternalRef("github", number, issue.get("html_url", ""))
         self._note_block_state(number, issue.get("body") or "")
-        extra = dict(linked_prs or {})
+        extra: Dict[str, str] = {}
         if issue.get("state_reason"):
             extra["state_reason"] = issue["state_reason"]
         return task_from_metadata(
@@ -325,52 +376,6 @@ class GitHubProvider(TrackerProvider):
         note = BLOCK_STATE_NOTES.get(metadata_block_state(body))
         if note:
             self._note(f"issue #{number}: {note}")
-
-    def _linked_pr_state(self, issue: Dict, pr_states: Dict[str, str]) -> Dict[str, str]:
-        """What an open issue's closing pull requests say about it, given their states.
-
-        A pull request whose state could not be read counts as open: assuming it
-        resolved would re-pick an issue that may still be under review.
-        """
-        if not self._is_open(issue) or "closedByPullRequestsReferences" not in issue:
-            return {}
-        references = issue.get("closedByPullRequestsReferences") or []
-        states = [pr_states.get(reference.get("id"), "UNKNOWN") for reference in references]
-        unresolved = any(state not in ("MERGED", "CLOSED") for state in states)
-        extra = {"unresolved_linked_pr": "true" if unresolved else "false"}
-        # Open after its closing PR here merged, with nothing else in flight and
-        # no human reopening it: the merge fired no closing keyword (#146). A PR
-        # in another repository is out of `closes`' reach, so it never counts.
-        merged = [
-            reference for reference, state in zip(references, states)
-            if state == "MERGED" and self._is_this_repo(*self._node_repo(reference))
-        ]
-        if merged and not unresolved and issue.get("stateReason") != "REOPENED":
-            extra["merged_linked_pr"] = f"#{merged[0].get('number')}"
-        return extra
-
-    def _read_pr_states(self, issues: Sequence[Dict]) -> Dict[str, str]:
-        """The state of every open issue's closing pull requests, by node id."""
-        ids = sorted({
-            reference["id"]
-            for issue in issues
-            if self._is_open(issue)
-            for reference in issue.get("closedByPullRequestsReferences") or []
-            if reference.get("id")
-        })
-        states: Dict[str, str] = {}
-        for start in range(0, len(ids), PR_STATE_BATCH):
-            command = ["gh", "api", "graphql", "-f", f"query={PR_STATE_QUERY}"]
-            for node_id in ids[start:start + PR_STATE_BATCH]:
-                command += ["-f", f"ids[]={node_id}"]
-            for node in (self._json(command).get("data") or {}).get("nodes") or []:
-                if node and node.get("id"):
-                    states[node["id"]] = str(node.get("state") or "")
-        return states
-
-    @staticmethod
-    def _is_open(issue: Dict) -> bool:
-        return (issue.get("state") or "OPEN").upper() == "OPEN"
 
     def _kind_for(self, labels: Sequence[str]) -> str:
         for label in labels:
@@ -517,8 +522,8 @@ class GitHubProvider(TrackerProvider):
         return self._known_labels
 
     def linked_pr_exclusion_available(self) -> Optional[bool]:
-        """False once `gh` has proved too old to answer -- see OPTIONAL_ISSUE_FIELDS."""
-        return not self._unsupported_fields.intersection(OPTIONAL_ISSUE_FIELDS)
+        """True: GitHub has pull requests, and `linked_pr_state` reads each candidate's."""
+        return True
 
     # ------------------------------------------------------------- gh plumbing
     def _number(self, ref: ExternalRef) -> str:
@@ -633,6 +638,20 @@ class GitHubProvider(TrackerProvider):
                 f"github: could not parse gh JSON output — {exc}; got: "
                 f"{self.redact(output.strip()[:200])}"
             ) from exc
+
+
+def closing_references_in(body: str) -> List[Tuple[str, str]]:
+    """(`owner/repo` lower-cased or "", number) per issue the body's closing keywords name.
+
+    REST exposes no closing-reference relation, so the body is read the way
+    GitHub itself reads it (Decision 13). Shared by the stranded check and by
+    `closes`, so a form the parser misses shows on the merger's own run (R6).
+    """
+    references = []
+    for match in CLOSING_REFERENCE_RE.finditer(CODE_SPAN_RE.sub(" ", body)):
+        repo = match.group("url_repo") or match.group("repo") or ""
+        references.append((repo.lower(), match.group("url_number") or match.group("number")))
+    return references
 
 
 def _describe(command: Sequence[str]) -> str:

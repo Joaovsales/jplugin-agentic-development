@@ -318,31 +318,32 @@ EOF
 write_labels "$F_SEL" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 cat > "$F_SEL/ghdata/issues.json" <<'EOF'
 [
- {"number":10,"title":"Crash on load","state":"OPEN","url":"https://github.com/o/r/issues/10",
+ {"number":10,"title":"Crash on load","state":"open","html_url":"https://github.com/o/r/issues/10",
   "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":11,"title":"Urgent crash","state":"OPEN","url":"https://github.com/o/r/issues/11",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":11,"title":"Urgent crash","state":"open","html_url":"https://github.com/o/r/issues/11",
   "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":12,"title":"Already claimed","state":"OPEN","url":"https://github.com/o/r/issues/12",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":12,"title":"Already claimed","state":"open","html_url":"https://github.com/o/r/issues/12",
   "labels":[{"name":"bug"},{"name":"now"},{"name":"in-progress"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":13,"title":"Has an open routine PR","state":"OPEN","url":"https://github.com/o/r/issues/13",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":13,"title":"Has an open routine PR","state":"open","html_url":"https://github.com/o/r/issues/13",
   "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[{"state":"OPEN"}]},
- {"number":14,"title":"Decide the thing","state":"OPEN","url":"https://github.com/o/r/issues/14",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":14,"title":"Decide the thing","state":"open","html_url":"https://github.com/o/r/issues/14",
   "labels":[{"name":"design-decision"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":15,"title":"Untriaged","state":"OPEN","url":"https://github.com/o/r/issues/15",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":15,"title":"Untriaged","state":"open","html_url":"https://github.com/o/r/issues/15",
   "labels":[{"name":"area/render"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
+EOF
+
+# #13's open routine PR is a REST timeline fact: a `cross-referenced` event whose
+# source is a pull request that is still open.
+cat > "$F_SEL/ghdata/timeline-13.json" <<'EOF'
+[{"event":"cross-referenced","source":{"type":"issue","issue":{"number":130,"state":"open","body":"Fixes #13",
+  "repository_url":"https://api.github.com/repos/fixture-owner/fixture-repo","pull_request":{"merged_at":null}}}}]
 EOF
 
 run_select() {
@@ -581,10 +582,9 @@ EOF
 write_labels "$F_CLAIM" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
 [
- {"number":42,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/42",
+ {"number":42,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/42",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
 EOF
 printf '{"number":42,"title":"Crash","body":"","labels":[{"name":"bug"}]}\n' \
@@ -629,10 +629,9 @@ assert_file_contains "$F_CLAIM/gh.log" 'issues/42/labels --input - {"labels": ["
 # that ALREADY carries the label, not whether the mock round-trips a write.
 cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
 [
- {"number":42,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/42",
+ {"number":42,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/42",
   "labels":[{"name":"bug"},{"name":"in-progress"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
 EOF
 printf '{"number":42,"title":"Crash","body":"","labels":[{"name":"bug"},{"name":"in-progress"}]}' \
@@ -650,18 +649,15 @@ EOF
 write_labels "$F_HELD" bug enhancement design-decision simplify tech-debt documentation in-progress
 cat > "$F_HELD/ghdata/issues.json" <<'EOF'
 [
- {"number":51,"title":"Needs investigation","state":"OPEN","url":"https://github.com/o/r/issues/51",
+ {"number":51,"title":"Needs investigation","state":"open","html_url":"https://github.com/o/r/issues/51",
   "labels":[{"name":"bug"},{"name":"needs-investigation"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":52,"title":"Claimed then held","state":"OPEN","url":"https://github.com/o/r/issues/52",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":52,"title":"Claimed then held","state":"open","html_url":"https://github.com/o/r/issues/52",
   "labels":[{"name":"bug"},{"name":"in-progress"},{"name":"needs-investigation"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":53,"title":"Held after selection","state":"OPEN","url":"https://github.com/o/r/issues/53",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":53,"title":"Held after selection","state":"open","html_url":"https://github.com/o/r/issues/53",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
 EOF
 for number in 51 52 53; do
@@ -715,6 +711,126 @@ assert_eq "1" "$gap_code" \
 assert_contains "$gap_out" "tech-debt" "AC12: select's refusal names the missing label"
 assert_not_contains "$gap_out" "nothing to claim" \
   "AC12: a vocabulary gap never masquerades as an empty backlog"
+
+# The in-flight exclusion and the stranded backstop are read off each
+# candidate's REST timeline (specs/github-rest-in-sandboxes.md, AC6): any open
+# cross-referencing pull request excludes; with none open, a merged PR of this
+# repository whose body closes the issue by keyword strands it unless a human
+# reopened it; an issue that merely mentions the candidate counts for nothing.
+F_LINK="$(new_fixture)"
+write_config "$F_LINK" <<'EOF'
+EOF
+write_labels "$F_LINK" bug enhancement design-decision simplify tech-debt documentation now next in-progress
+cat > "$F_LINK/ghdata/issues.json" <<'EOF'
+[
+ {"number":21,"title":"Open PR mentions it","state":"open","html_url":"https://github.com/o/r/issues/21",
+  "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":22,"title":"Only settled PRs","state":"open","html_url":"https://github.com/o/r/issues/22",
+  "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":23,"title":"Merge left it open","state":"open","html_url":"https://github.com/o/r/issues/23",
+  "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":24,"title":"Reopened after the merge","state":"open","state_reason":"reopened","html_url":"https://github.com/o/r/issues/24",
+  "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":25,"title":"An issue mentions it","state":"open","html_url":"https://github.com/o/r/issues/25",
+  "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":28,"title":"Another routine's issue","state":"open","html_url":"https://github.com/o/r/issues/28",
+  "labels":[{"name":"enhancement"},{"name":"now"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":29,"title":"Already claimed","state":"open","html_url":"https://github.com/o/r/issues/29",
+  "labels":[{"name":"bug"},{"name":"now"},{"name":"in-progress"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
+]
+EOF
+"$PY" - "$F_LINK/ghdata" <<'LINK_PY'
+import io, json, os, sys
+HERE = "https://api.github.com/repos/fixture-owner/fixture-repo"
+ELSEWHERE = "https://api.github.com/repos/other-owner/other-repo"
+
+
+def pull(number, state, body, merged=False, repo=HERE):
+    return {"event": "cross-referenced", "source": {"type": "issue", "issue": {
+        "number": number, "state": state, "body": body, "repository_url": repo,
+        "pull_request": {"merged_at": "2026-08-02T00:00:00Z" if merged else None}}}}
+
+
+def issue(number, body):
+    return {"event": "cross-referenced", "source": {"type": "issue", "issue": {
+        "number": number, "state": "open", "body": body, "repository_url": HERE}}}
+
+
+timelines = {
+    # mentions only, no closing keyword -- open, so it still excludes (R2)
+    21: [pull(210, "open", "See #21 for context")],
+    # merged without a keyword and closed unmerged: nothing in flight, nothing stranded
+    22: [pull(220, "closed", "Related to #22", merged=True), pull(221, "closed", "Closes #22"),
+         {"event": "labeled", "label": {"name": "bug"}}],
+    # merged in this repository with a closing keyword naming it, nothing open
+    23: [pull(230, "closed", "Fixes #23 by rewriting the loader", merged=True)],
+    # the same, but a human reopened the issue since
+    24: [pull(240, "closed", "Resolves: #24", merged=True)],
+    # an issue (no pull_request key) and a merged PR elsewhere that closes it
+    25: [issue(250, "Closes #25"), pull(251, "closed", "Closes fixture-owner/fixture-repo#25", merged=True, repo=ELSEWHERE)],
+    # another routine's issue and a claimed one: open PRs that select must never read
+    28: [pull(280, "open", "Fixes #28")],
+    29: [pull(290, "open", "Fixes #29")],
+}
+for number, events in timelines.items():
+    io.open(os.path.join(sys.argv[1], f"timeline-{number}.json"), "w", encoding="utf-8", newline="\n").write(json.dumps(events))
+LINK_PY
+link_out="$(run_select "$F_LINK" --routine fix)"; link_code=$?
+assert_eq "0" "$link_code" "AC6: select with timeline-read candidates exits 0"
+assert_not_contains "$link_out" "candidate:     21 —" \
+  "AC6: a cross-reference from an open PR excludes the candidate, keyword or not"
+assert_contains "$link_out" "candidate:     22 —" \
+  "AC6: merged-without-keyword and closed-unmerged references keep the candidate"
+assert_contains "$link_out" "stranded:      #23 — #230 merged and left it open; close it with \`task-registry closes '#230' --apply --approve\`" \
+  "AC6: a merged PR of this repository whose body closes the issue strands it"
+assert_not_contains "$link_out" "candidate:     23 —" "AC6: a stranded issue is never the candidate"
+assert_not_contains "$link_out" "stranded:      #24" \
+  "AC6: an issue reopened after its PR merged is not stranded"
+assert_not_contains "$link_out" "stranded:      #25" \
+  "AC6: a merged PR in another repository strands nothing -- closes cannot reach it"
+assert_contains "$link_out" "remaining:     2 other candidate(s)" \
+  "AC6: the pool is #22, #24 (reopened) and #25 (mentioned by an issue, closed elsewhere)"
+assert_contains "$link_out" "checked:       5 candidate(s) for linked pull requests" \
+  "AC6: select reports how many candidates it read the timeline for"
+assert_file_contains "$F_LINK/gh.log" "api repos/fixture-owner/fixture-repo/issues/21/timeline?per_page=100&page=1" \
+  "AC6: linked-PR state is read from the REST timeline, paged"
+assert_file_not_matches "$F_LINK/gh.log" "issues/28/timeline" \
+  "AC6 (Decision 7): the timeline is read after the kind filter -- another routine's issue costs nothing"
+assert_file_not_matches "$F_LINK/gh.log" "issues/29/timeline" \
+  "AC6 (Decision 7): the timeline is read after the claim filter -- a claimed issue costs nothing"
+assert_file_not_matches "$F_LINK/gh.log" "graphql" "AC6: no GraphQL anywhere"
+
+# A timeline past the read cap leaves the state unknown. Proceeding would
+# re-pick an issue that may be under review, so select refuses and names it.
+F_CAP="$(new_fixture)"
+write_config "$F_CAP" <<'EOF'
+EOF
+write_labels "$F_CAP" bug enhancement design-decision simplify tech-debt documentation now next in-progress
+cat > "$F_CAP/ghdata/issues.json" <<'EOF'
+[
+ {"number":26,"title":"Noisy issue","state":"open","html_url":"https://github.com/o/r/issues/26",
+  "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
+]
+EOF
+"$PY" - "$F_CAP/ghdata/timeline-26.json" <<'CAP_PY'
+import io, json, sys
+events = [{"event": "labeled", "label": {"name": "bug"}} for _ in range(300)]
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(events))
+CAP_PY
+cap_out="$(run_select "$F_CAP" --routine fix)"; cap_code=$?
+assert_eq "1" "$cap_code" "AC6: select REFUSES when a candidate's timeline exceeds the read cap"
+assert_contains "$cap_out" "#26" "AC6: the refusal names the issue whose state is unknown"
+assert_contains "$cap_out" "linked pull request state" "AC6: the refusal says what could not be read"
+assert_not_contains "$cap_out" "candidate:" "AC6: no candidate is offered while a state is unknown"
+assert_not_contains "$cap_out" "gh >= " "AC6: the refusal no longer cites a gh version"
 
 # An unknown routine name is a configuration error, not an empty result.
 bad_out="$(run_select "$F_SEL" --routine nonesuch)"; bad_code=$?
@@ -818,10 +934,9 @@ build = question
 EOF
 write_labels "$F_BUILD" bug design-decision enhancement documentation tech-debt question in-progress
 cat > "$F_BUILD/ghdata/issues.json" <<'EOF'
-[{"number":20,"title":"Ship the thing","state":"OPEN","url":"https://github.com/o/r/issues/20",
+[{"number":20,"title":"Ship the thing","state":"open","html_url":"https://github.com/o/r/issues/20",
   "labels":[{"name":"question"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_build_out="$(run_workflow "$F_BUILD" 20)"; wf_build_code=$?
 assert_eq "0" "$wf_build_code" \
@@ -893,10 +1008,9 @@ write_config "$F_WF_CLOSED" <<'EOF'
 EOF
 write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation simplify tech-debt now next in-progress
 cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
-[{"number":31,"title":"Long since fixed","state":"CLOSED","url":"https://github.com/o/r/issues/31",
+[{"number":31,"title":"Long since fixed","state":"CLOSED","html_url":"https://github.com/o/r/issues/31",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_closed_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_closed_code=$?
 assert_eq "1" "$wf_closed_code" \
@@ -909,10 +1023,9 @@ assert_contains "$wf_closed_out" "31" \
 # The same issue REOPENED must route. Without this pair the assertion above
 # passes for an implementation that refuses every issue in this fixture.
 cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
-[{"number":31,"title":"Long since fixed","state":"OPEN","url":"https://github.com/o/r/issues/31",
+[{"number":31,"title":"Long since fixed","state":"open","html_url":"https://github.com/o/r/issues/31",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_reopened_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_reopened_code=$?
 assert_eq "0" "$wf_reopened_code" \
@@ -928,10 +1041,9 @@ write_config "$F_WF_OUTAGE" <<'EOF'
 EOF
 rm -f "$F_WF_OUTAGE/ghdata/labels.json"   # `gh label list` now fails like an outage
 cat > "$F_WF_OUTAGE/ghdata/issues.json" <<'EOF'
-[{"number":32,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/32",
+[{"number":32,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/32",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_outage_out="$(run_workflow "$F_WF_OUTAGE" 32)"; wf_outage_code=$?
 assert_eq "1" "$wf_outage_code" \
@@ -950,11 +1062,11 @@ write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation simplif
 "$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'TRUNC_PY'
 import io, json, sys
 issues = [
-    {"number": n, "title": "Filler %d" % n, "state": "OPEN",
-     "url": "https://github.com/o/r/issues/%d" % n,
+    {"number": n, "title": "Filler %d" % n, "state": "open",
+     "html_url": "https://github.com/o/r/issues/%d" % n,
      "labels": [{"name": "bug"}], "assignees": [],
-     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
-     "body": "", "closedByPullRequestsReferences": []}
+     "created_at": "2026-08-01T00:00:00Z", "updated_at": "2026-08-01T00:00:00Z",
+     "body": ""}
     for n in range(1, 501)
 ]
 io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
@@ -973,11 +1085,11 @@ assert_not_contains "$wf_trunc_out" "no backlog task carries that id" \
 "$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'SHORT_PY'
 import io, json, sys
 io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps([
-    {"number": 1, "title": "Filler", "state": "OPEN",
-     "url": "https://github.com/o/r/issues/1",
+    {"number": 1, "title": "Filler", "state": "open",
+     "html_url": "https://github.com/o/r/issues/1",
      "labels": [{"name": "bug"}], "assignees": [],
-     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
-     "body": "", "closedByPullRequestsReferences": []}]))
+     "created_at": "2026-08-01T00:00:00Z", "updated_at": "2026-08-01T00:00:00Z",
+     "body": ""}]))
 SHORT_PY
 wf_short_out="$(run_workflow "$F_WF_TRUNC" T-9)"; wf_short_code=$?
 assert_eq "1" "$wf_short_code" "workflow: an id nothing carries still exits 1"
@@ -1010,10 +1122,9 @@ write_config "$F_WF_GAP" <<'EOF'
 EOF
 write_labels "$F_WF_GAP" bug design-decision enhancement documentation now next in-progress
 cat > "$F_WF_GAP/ghdata/issues.json" <<'EOF'
-[{"number":30,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/30",
+[{"number":30,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/30",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_gap_out="$(run_workflow "$F_WF_GAP" 30)"; wf_gap_code=$?
 assert_eq "2" "$wf_gap_code" \
@@ -1067,7 +1178,7 @@ done
 order_issue() {  # <number> <title> [extra-label]
   local extra=""
   if [ -n "${3:-}" ]; then extra=",{\"name\":\"$3\"}"; fi
-  printf '{"number":%s,"title":"%s","state":"OPEN","url":"https://github.com/o/r/issues/%s","labels":[{"name":"bug"}%s],"assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"","closedByPullRequestsReferences":[]}' \
+  printf '{"number":%s,"title":"%s","state":"open","html_url":"https://github.com/o/r/issues/%s","labels":[{"name":"bug"}%s],"assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}' \
     "$1" "$2" "$1" "$extra"
 }
 

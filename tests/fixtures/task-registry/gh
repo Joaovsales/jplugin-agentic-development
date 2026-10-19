@@ -1,11 +1,14 @@
 #!/bin/bash
 # tests/fixtures/task-registry/gh — a stand-in for the GitHub CLI.
 #
-# The GitHub adapter shells out to `gh api` with argv-style arguments. This mock
-# is put first on PATH so the adapter's real command construction is exercised:
-# it records every invocation to $GH_MOCK_LOG and answers reads from canned JSON
-# in $GH_MOCK_DIR. Writes are recorded, never performed — except that a created
-# label is appended to labels.json, so a test can see the vocabulary grow.
+# Every call the GitHub adapter (and the wrap-up's PR helper) makes is `gh api`
+# with argv-style arguments. This mock is put first on PATH so the real command
+# construction is exercised: it records every invocation to $GH_MOCK_LOG and
+# answers reads from canned JSON in $GH_MOCK_DIR. Writes are recorded, never
+# performed — except that a created label is appended to labels.json, so a test
+# can see the vocabulary grow. Any other subcommand is an error: the cloud
+# sandbox proxies REST and refuses GraphQL, so `gh issue`, `gh pr`, `gh label`,
+# `gh repo` and `gh auth` have no business here.
 #
 # It is deliberately strict where the real CLI — and the REST API behind it —
 # is strict:
@@ -17,16 +20,15 @@
 #   * a write naming a label absent from labels.json exits 1. The real
 #     `POST /issues` would silently CREATE it, which is exactly the vocabulary
 #     mutation the adapter's known-label filter exists to prevent, so the mock
-#     fails loudly where the API would fail quietly;
-#   * positionals of the remaining subcommands are read after `--`, the way
-#     cobra parses them.
+#     fails loudly where the API would fail quietly.
 #
-# The log line of an `api` call is the argv line followed by the parsed stdin
-# body, re-serialized with sorted keys, so a test asserts on what was SENT —
+# The log line of a call is the argv line followed by the parsed stdin body,
+# re-serialized with sorted keys, so a test asserts on what was SENT —
 # `"labels": ["in-progress"]` — not only on which route was hit.
 #
 # Knobs (env):
 #   GH_MOCK_DIR         directory holding issues.json / labels.json / issue-<n>.json
+#                       / timeline-<n>.json (an issue's REST timeline events)
 #   GH_MOCK_LOG         file every invocation is appended to, one line per call
 #   GH_MOCK_UNAUTH      when set, `gh api user` fails like a logged-out CLI
 #   GH_MOCK_FAIL        when set, every write exits 1 (partial-failure tests)
@@ -41,44 +43,48 @@ set -u
 argv_line="$*"
 subcommand="${1:-}"
 
-# ---------------------------------------------------------------- gh api -----
+if [ "$subcommand" != "api" ]; then
+  printf '%s\n' "$argv_line" >> "$GH_MOCK_LOG"
+  echo "gh mock: unhandled invocation: $argv_line -- every call is gh api (REST)" >&2
+  exit 1
+fi
+
 # `gh api [--method M] <path> [--input -]`. The route table lives in Python so
 # that paging, lookups, body validation and the log line read as one dispatcher
 # rather than a tangle of `case` arms and `jq`-less JSON handling.
-if [ "$subcommand" = "api" ]; then
-  shift
-  method="GET"
-  path=""
-  body=""
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --method|-X)
-        method="${2:-}"; shift 2 ;;
-      --input)
-        if [ "${2:-}" != "-" ]; then
-          echo "gh mock: --input takes '-' (stdin) only, got '${2:-}'" >&2
-          exit 1
-        fi
-        body="$(cat)"; shift 2 ;;
-      -f|-F|--field|--raw-field)
-        echo "gh mock: $1 is refused -- payloads travel on stdin through --input -" >&2
-        exit 1 ;;
-      -*)
-        echo "gh mock: unknown api flag $1" >&2
-        exit 1 ;;
-      *)
-        if [ -n "$path" ]; then
-          echo "gh mock: api takes one path, got '$path' and '$1'" >&2
-          exit 1
-        fi
-        path="$1"; shift ;;
-    esac
-  done
-  if [ -z "$path" ]; then
-    echo "gh mock: api needs a path" >&2
-    exit 1
-  fi
-  GH_MOCK_BODY="$body" GH_MOCK_ARGV="$argv_line" python3 - "$method" "$path" "$GH_MOCK_DIR" "$GH_MOCK_LOG" <<'PY'
+shift
+method="GET"
+path=""
+body=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --method|-X)
+      method="${2:-}"; shift 2 ;;
+    --input)
+      if [ "${2:-}" != "-" ]; then
+        echo "gh mock: --input takes '-' (stdin) only, got '${2:-}'" >&2
+        exit 1
+      fi
+      body="$(cat)"; shift 2 ;;
+    -f|-F|--field|--raw-field)
+      echo "gh mock: $1 is refused -- payloads travel on stdin through --input -" >&2
+      exit 1 ;;
+    -*)
+      echo "gh mock: unknown api flag $1" >&2
+      exit 1 ;;
+    *)
+      if [ -n "$path" ]; then
+        echo "gh mock: api takes one path, got '$path' and '$1'" >&2
+        exit 1
+      fi
+      path="$1"; shift ;;
+  esac
+done
+if [ -z "$path" ]; then
+  echo "gh mock: api needs a path" >&2
+  exit 1
+fi
+GH_MOCK_BODY="$body" GH_MOCK_ARGV="$argv_line" exec python3 - "$method" "$path" "$GH_MOCK_DIR" "$GH_MOCK_LOG" <<'PY'
 import io, json, os, re, sys
 from urllib.parse import parse_qs, urlsplit
 
@@ -198,6 +204,11 @@ if method == "GET":
             if str(entry.get("number")) == number:
                 answer(entry)
         fail(404, "Not Found")
+    found = re.fullmatch(r"issues/(\d+)/timeline", route)
+    if found:
+        # An issue with no timeline fixture has an empty timeline, the way a
+        # fresh issue does; a fixture lists REST timeline events verbatim.
+        answer(page(load(f"timeline-{found.group(1)}.json", default=[])))
     if route == "labels":
         answer(page(load("labels.json")))
 
@@ -237,154 +248,3 @@ if method in ("POST", "PATCH"):
 sys.stderr.write(f"gh mock: unhandled api route: {method} {raw_path}\n")
 sys.exit(1)
 PY
-  exit $?
-fi
-
-printf '%s\n' "$argv_line" >> "$GH_MOCK_LOG"
-
-action="${2:-}"
-shift 2 2>/dev/null || true
-
-# Split the remainder the way cobra does: flags until `--`, positionals after.
-positionals=()
-json_fields=""
-labels=()
-seen_separator=0
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --)
-      seen_separator=1
-      shift
-      while [ "$#" -gt 0 ]; do positionals+=("$1"); shift; done
-      ;;
-    --label|--add-label)
-      labels+=("${2:-}")
-      shift 2
-      ;;
-    --json)
-      json_fields="${2:-}"
-      shift 2
-      ;;
-    --*)
-      # Every flag this adapter passes takes a value except --json's siblings;
-      # peeking at the next argument keeps the mock indifferent to which.
-      if [ "${2:-}" = "" ] || [ "${2:0:2}" = "--" ]; then shift; else shift 2; fi
-      ;;
-    *)
-      positionals+=("$1")
-      shift
-      ;;
-  esac
-done
-
-label_exists() {
-  grep -q "\"$1\"" "$GH_MOCK_DIR/labels.json" 2>/dev/null
-}
-
-reject_unknown_labels() {
-  local label
-  for label in ${labels+"${labels[@]}"}; do
-    if ! label_exists "$label"; then
-      echo "could not add label: '$label' not found" >&2
-      exit 1
-    fi
-  done
-}
-
-case "$subcommand" in
-  repo)
-    echo "fixture-owner/fixture-repo"
-    exit 0
-    ;;
-  label)
-    case "$action" in
-      list)
-        cat "$GH_MOCK_DIR/labels.json"
-        exit 0
-        ;;
-      create)
-        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 403: Resource not accessible" >&2; exit 1; }
-        name="${positionals[0]:-}"
-        [ -z "$name" ] && { echo "gh mock: label create needs a name" >&2; exit 1; }
-        label_exists "$name" && { echo "label already exists" >&2; exit 1; }
-        python3 - "$GH_MOCK_DIR/labels.json" "$name" <<'PY'
-import io, json, sys
-path, name = sys.argv[1], sys.argv[2]
-entries = json.loads(io.open(path, encoding="utf-8").read())
-entries.append({"name": name})
-io.open(path, "w", encoding="utf-8", newline="\n").write(json.dumps(entries))
-PY
-        echo "https://github.com/fixture-owner/fixture-repo/labels/$name"
-        exit 0
-        ;;
-    esac
-    ;;
-  issue)
-    case "$action" in
-      list)
-        # Real `gh` validates --json names client-side and fails the WHOLE query on
-        # an unknown one, rather than omitting the field. `unknown-fields` (one name
-        # per line) makes a too-old gh reproducible.
-        if [ -f "$GH_MOCK_DIR/unknown-fields" ]; then
-          while IFS= read -r unknown; do
-            [ -n "$unknown" ] || continue
-            case ",$json_fields," in
-              *",$unknown,"*)
-                echo "Unknown JSON field: \"$unknown\"" >&2
-                exit 1
-                ;;
-            esac
-          done < "$GH_MOCK_DIR/unknown-fields"
-        fi
-        cat "$GH_MOCK_DIR/issues.json"
-        exit 0
-        ;;
-      view)
-        number="${positionals[0]:-}"
-        if [ "$seen_separator" != "1" ]; then
-          echo "gh mock: issue view got a positional without a '--' separator" >&2
-          exit 1
-        fi
-        if [ -f "$GH_MOCK_DIR/issue-$number.json" ]; then
-          cat "$GH_MOCK_DIR/issue-$number.json"
-          exit 0
-        fi
-        # One issue is visible through both reads upstream, so a fixture that
-        # declared it in issues.json has declared it for `view` too. Without this
-        # the mock answers "no such issue" for an issue the same mock lists.
-        if python3 - "$GH_MOCK_DIR/issues.json" "$number" <<'VIEW_PY'; then
-import io, json, sys
-try:
-    entries = json.loads(io.open(sys.argv[1], encoding="utf-8").read())
-except (IOError, ValueError):
-    sys.exit(1)
-for entry in entries:
-    if str(entry.get("number")) == sys.argv[2]:
-        sys.stdout.write(json.dumps(entry))
-        sys.exit(0)
-sys.exit(1)
-VIEW_PY
-          exit 0
-        fi
-        echo "could not find issue #$number" >&2
-        exit 1
-        ;;
-      create)
-        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 422: Validation Failed" >&2; exit 1; }
-        reject_unknown_labels
-        number="$(( $(cat "$GH_MOCK_DIR/next-number" 2>/dev/null || echo 100) ))"
-        echo "$(( number + 1 ))" > "$GH_MOCK_DIR/next-number"
-        echo "https://github.com/fixture-owner/fixture-repo/issues/$number"
-        exit 0
-        ;;
-      edit|close|comment)
-        [ -n "${GH_MOCK_FAIL:-}" ] && { echo "HTTP 403: Resource not accessible" >&2; exit 1; }
-        reject_unknown_labels
-        exit 0
-        ;;
-    esac
-    ;;
-esac
-
-echo "gh mock: unhandled invocation: $subcommand $action ${positionals[*]:-}" >&2
-exit 1
