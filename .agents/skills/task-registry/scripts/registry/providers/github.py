@@ -227,25 +227,26 @@ class GitHubProvider(TrackerProvider):
 
         GitHub fires those keywords only for some mergers: a merge made with a
         workflow's GITHUB_TOKEN closes nothing (#146), so this read is how the
-        merger finds out what the merge still owes.
+        merger finds out what the merge still owes. REST exposes no closing
+        relation, so the body is read with the parser the stranded check
+        shares (Decision 13); `merged` is read because REST's `state` is
+        `closed` for a merged and an abandoned pull request alike.
         """
         number = self._number(ExternalRef("github", str(raw)))
-        payload = self._json(
-            ["gh", "pr", "view", "--repo", self._repo(),
-             "--json", "state,closingIssuesReferences", "--", number]
-        )
-        state = payload.get("state") or "unknown"
-        if state != "MERGED":
+        pull = self._json(["gh", "api", self._path("pulls", number)])
+        if not pull.get("merged"):
             raise ProviderError(
-                f"github: #{number} is not merged (state {state}) — run this after the merge"
+                f"github: #{number} is not merged (state {pull.get('state') or 'unknown'}) — "
+                "run this after the merge"
             )
         here, elsewhere = [], []
-        for issue in payload.get("closingIssuesReferences") or []:
-            owner, name = self._node_repo(issue)
-            if self._is_this_repo(owner, name):
-                here.append(ExternalRef("github", str(issue.get("number")), issue.get("url", "")))
-            else:
-                elsewhere.append(f"{owner}/{name}#{issue.get('number')}")
+        for repo, issue in closing_references_in(pull.get("body") or ""):
+            if repo and repo != self._repo().lower():
+                elsewhere.append(f"{repo}#{issue}")
+            elif all(ref.id != issue for ref in here):
+                here.append(
+                    ExternalRef("github", issue, f"https://github.com/{self._repo()}/issues/{issue}")
+                )
         if elsewhere:
             raise ProviderError(
                 f"github: #{number} closes {', '.join(elsewhere)}, outside {self._repo()} — "
@@ -544,12 +545,6 @@ class GitHubProvider(TrackerProvider):
     def _is_this_repo(self, owner: str, name: str) -> bool:
         """GitHub owner and repository names are case-insensitive."""
         return f"{owner}/{name}".lower() == self._repo().lower()
-
-    @staticmethod
-    def _node_repo(node: Dict) -> Tuple[str, str]:
-        """The (owner, name) of the repository an issue or pull request node lives in."""
-        repository = node.get("repository") or {}
-        return (repository.get("owner") or {}).get("login", ""), repository.get("name", "")
 
     def _path(self, *parts: str) -> str:
         """A REST path under this repository: `repos/<owner>/<name>/<parts...>`."""

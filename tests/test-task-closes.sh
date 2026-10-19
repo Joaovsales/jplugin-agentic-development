@@ -36,8 +36,9 @@ repository = fixture-owner/fixture-repo
 ```
 EOF
 
-# The scenario is JSON: `prs` maps a PR number to its state and the
-# [repository, issue] pairs it closes; `issues` maps an issue number to OPEN or
+# The scenario is JSON: `prs` maps a PR number to its state and either the
+# [repository, issue] pairs its body closes (rendered as `closes <ref>` clauses)
+# or a verbatim `body`; `issues` maps an issue number to OPEN or
 # CLOSED; `fail` lists issue numbers whose close gh rejects; `unreadable` lists
 # issue numbers gh cannot read (transferred or deleted since the merge).
 # For `select`: `backlog` lists the open issues as [number, labels, linked PR
@@ -94,28 +95,30 @@ def run_cli(cli, scenario, argv):
     def fake_run(self, command, check=True, input=None):
         command = list(command)
         calls.append(" ".join(command) + (f" {input}" if input else ""))
-        verb, number = command[1:3], command[-1]
-        # Issues are REST: `gh api [--method M] repos/<owner>/<name>/issues[/<n>|?<query>]`,
+        # Everything is REST: `gh api [--method M] repos/<owner>/<name>/issues[/<n>|?<query>]`,
         # a write's payload on stdin.
         method = command[command.index("--method") + 1] if "--method" in command else "GET"
         path = ""
         if command[1] == "api":
             path = next((arg for arg in command[2:] if not arg.startswith("-") and arg != method), "")
+        pull_read = re.fullmatch(rf"repos/{HERE}/pulls/(\d+)", path)
         issue_read = re.fullmatch(rf"repos/{HERE}/issues/(\d+)", path)
         timeline_read = re.fullmatch(rf"repos/{HERE}/issues/(\d+)/timeline\?.*", path)
-        if verb == ["pr", "view"]:
+        if pull_read:
+            number = pull_read.group(1)
             if number not in prs:
-                return answer(command, 1, f"Could not resolve to a PullRequest with the number of {number}.", check)
+                return answer(command, 1, f"HTTP 404: Not Found (https://api.github.com/{path})", check)
             pr = prs[number]
-            refs = [
-                {
-                    "number": int(issue),
-                    "url": f"https://github.com/{repo}/issues/{issue}",
-                    "repository": {"name": repo.split("/")[1], "owner": {"login": repo.split("/")[0]}},
-                }
-                for repo, issue in pr.get("closes", [])
-            ]
-            return answer(command, 0, json.dumps({"state": pr["state"], "closingIssuesReferences": refs}), check)
+            body = pr.get("body")
+            if body is None:
+                body = ", ".join(
+                    f"closes {'' if repo == HERE else repo}#{issue}" for repo, issue in pr.get("closes", [])
+                )
+            return answer(command, 0, json.dumps({
+                "number": int(number), "state": "open" if pr["state"] == "OPEN" else "closed",
+                "merged": pr["state"] == "MERGED", "body": body,
+                "html_url": f"https://github.com/{HERE}/pull/{number}",
+            }), check)
         if issue_read and method == "PATCH":
             number = issue_read.group(1)
             if number in failing:
@@ -188,15 +191,26 @@ HERE='fixture-owner/fixture-repo'
 
 # --- provider: what one merged pull request closes ---------------------------
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",92]]}},"issues":{"91":"OPEN","92":"CLOSED"}}' '#141' --apply --approve)"
-assert_contains "$out" "call: gh pr view --repo $HERE --json state,closingIssuesReferences -- 141" \
-  "provider: closing references are read with gh pr view, the number after --"
+assert_contains "$out" "call: gh api repos/$HERE/pulls/141" \
+  "provider (AC13): the pull request is read with GET /pulls/{n}, never gh pr view"
+assert_not_contains "$out" "call: gh pr" \
+  "provider (AC13): no gh pr subcommand runs -- GraphQL is refused in the sandbox"
 assert_contains "$out" "call: gh api repos/$HERE/issues/91" \
   "provider: each linked issue's state is read over REST before anything is closed"
 
 out="$(closes '{"prs":{"141":{"state":"OPEN","closes":[["'$HERE'",91]]}}}' '#141' --apply --approve)"
 assert_contains "$out" "exit=1" "provider: a pull request that is not merged exits 1"
-assert_contains "$out" "not merged" "provider: the refusal says the pull request is not merged"
+assert_contains "$out" "not merged (state open)" "provider: the refusal says the pull request is not merged, naming its REST state"
 assert_not_contains "$out" "repos/$HERE/issues" "provider: nothing is read or closed for an unmerged pull request"
+
+out="$(closes '{"prs":{"141":{"state":"CLOSED","closes":[["'$HERE'",91]]}}}' '#141' --apply --approve)"
+assert_contains "$out" "exit=1" "provider: a pull request closed without merging exits 1"
+assert_contains "$out" "not merged (state closed)" \
+  "provider: closed is not merged -- REST's state alone cannot tell them apart, so merged is read"
+
+out="$(closes '{}' '#141' --apply --approve)"
+assert_contains "$out" "exit=1" "provider: a pull request GitHub cannot find exits 1"
+assert_contains "$out" "HTTP 404" "provider: the refusal carries gh's HTTP status"
 
 out="$(closes '{}' 'abc' --apply --approve)"
 assert_contains "$out" "exit=1" "provider: a reference that is not a number exits 1"
@@ -207,6 +221,33 @@ assert_contains "$out" "exit=1" "provider: a closing reference in another reposi
 assert_contains "$out" "other-owner/other-repo#5" "provider: the foreign reference is named"
 assert_contains "$out" "nothing was closed" "provider: the refusal says nothing was closed"
 assert_not_contains "$out" "--method PATCH" "provider: no issue is closed while one is out of reach"
+
+# --- provider (AC13): GitHub's closing keywords, read off the body ---------
+# REST exposes no closing-issue relation, so the body is parsed the way GitHub
+# reads it: each keyword binds to the ONE reference after it (Decision 13).
+for keyword in close closes closed fix fixes fixed resolve resolves resolved Closes FIXED; do
+  out="$(closes '{"prs":{"141":{"state":"MERGED","body":"'"$keyword"' #91"}},"issues":{"91":"OPEN"}}' '#141' --apply --approve)"
+  assert_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/91" \
+    "provider (AC13): \`$keyword #91\` in the body closes #91"
+done
+for body in "Fixes: #91" "Resolves $HERE#91" "closes https://github.com/$HERE/issues/91" \
+            "Closes #91, closes #93" "Closes #91 and later fixes #91 again"; do
+  out="$(closes '{"prs":{"141":{"state":"MERGED","body":"'"$body"'"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+  assert_contains "$out" "closes: closed #91" "provider (AC13): \`$body\` closes #91"
+  assert_eq "1" "$(printf '%s\n' "$out" | grep -c "PATCH repos/$HERE/issues/91 ")" \
+    "provider (AC13): \`$body\` closes #91 exactly once"
+done
+assert_contains "$out" "exit=0" "provider (AC13): a body naming #91 twice exits 0"
+out="$(closes '{"prs":{"141":{"state":"MERGED","body":"Closes #91, closes #93"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+assert_contains "$out" "closes: closed #93" "provider (AC13): a keyword repeated per reference closes each one"
+out="$(closes '{"prs":{"141":{"state":"MERGED","body":"Closes #91, #93"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+assert_contains "$out" "closes: closed #91" "provider (AC13): a keyword binds to the reference right after it"
+assert_not_contains "$out" "issues/93" \
+  "provider (AC13): a chained reference without its own keyword is not closed -- GitHub would not close it either"
+out="$(closes '{"prs":{"141":{"state":"MERGED","body":"See #91; the example body is `Closes #93`"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+assert_contains "$out" "nothing to do" \
+  "provider (AC13): a bare mention and a keyword inside a code span close nothing"
+assert_not_contains "$out" "--method PATCH" "provider (AC13): no issue is closed for a body without a live closing clause"
 
 out="$(closes '{}' '#141' --provider local --apply --approve)"
 assert_contains "$out" "exit=1" "provider: a tracker without pull requests refuses with exit 1"
