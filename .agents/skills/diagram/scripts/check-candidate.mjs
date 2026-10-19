@@ -66,9 +66,12 @@ function repositoryHead(repoRoot) {
   }
 }
 
+// A citation is a path and a line: `--refresh` re-reads the cited range, so a
+// path alone leaves it nothing to re-anchor from.
 function hasSources(element) {
   return Array.isArray(element.sources) && element.sources.length > 0
-    && element.sources.every((source) => source && typeof source.path === "string" && source.path.length > 0);
+    && element.sources.every((source) => source && typeof source.path === "string" && source.path.length > 0
+      && Number.isInteger(source.line) && source.line > 0);
 }
 
 function problems(candidate, head) {

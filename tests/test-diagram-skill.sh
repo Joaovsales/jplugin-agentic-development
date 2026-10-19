@@ -131,6 +131,12 @@ assert_eq "0" "$RES_STATUS" "browser: no browser still resolves — the non-brow
 assert_not_contains "$RES_OUT" "ARCHIFY_CHROME" "browser: no browser exports no ARCHIFY_CHROME"
 assert_contains "$RES_ERR" "without browser evidence" \
   "browser: no browser prints the without-browser-evidence marker"
+# The marker is a contract between the resolver (prints it) and the reply (must
+# carry it), so the page's copy is pinned to the resolver's constant.
+marker="$(sed -n 's/^NO_BROWSER_MARKER="\(.*\)"$/\1/p' "$RESOLVER")"
+assert_eq "1" "$(printf '%s' "$marker" | grep -c .)" "browser: the resolver declares one marker constant"
+assert_eq "2" "$(grep -c -F -- "*$marker*" "$SKILL")" \
+  "browser: both SKILL.md sites quote the resolver's marker verbatim"
 assert_eq "0" "$(html_written)" "browser: resolving writes no HTML"
 
 # ── § upstream-read (AC 4) ───────────────────────────────────────────────────
@@ -183,6 +189,12 @@ if command -v node > /dev/null 2>&1; then
   assert_eq "1" "$CHK_STATUS" "evidence: a component without sources is rejected"
   assert_contains "$CHK_ERR" "b" "evidence: the rejection names the uncited component"
   assert_contains "$CHK_ERR" "sources" "evidence: the rejection names the missing field"
+
+  # A path with no line is not a citation: --refresh has no range to re-read.
+  write_candidate "$box/lineless.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\",\"sources\":[{\"path\":\"src/a.sh\"}]}]"
+  run_check "$box/lineless.json"
+  assert_eq "1" "$CHK_STATUS" "evidence: a source without a line is rejected"
+  assert_contains "$CHK_ERR" "b" "evidence: the line-less rejection names the component"
 
   write_candidate "$box/cited.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\",\"sources\":[{\"path\":\"src/a.sh\",\"line\":1}]}]"
   run_check "$box/cited.json"
