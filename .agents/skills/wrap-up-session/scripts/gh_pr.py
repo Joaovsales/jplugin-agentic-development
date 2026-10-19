@@ -44,6 +44,7 @@ import subprocess
 import sys
 import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from urllib.parse import quote
 
 # The one GitHub-remote parser the wrap-up scripts share.
 from publish_evidence import GITHUB_URL_RE
@@ -135,6 +136,18 @@ def path(slug: str, *parts: str) -> str:
     return "/".join([f"repos/{slug}", *parts])
 
 
+def pr_number(value: str) -> str:
+    """A pull request number fit for a path segment, or a refusal.
+
+    Every subcommand puts it inside a REST path, so anything but digits has no
+    business reaching `gh`: unchecked, `../issues/7` would become a route.
+    """
+    number = value.lstrip("#")
+    if not number.isdigit():
+        raise GhError(f"{value!r} is not a pull request number")
+    return number
+
+
 def read_file(name: str) -> str:
     with open(name, encoding="utf-8") as handle:
         return handle.read()
@@ -151,7 +164,9 @@ def read_pull(slug: str, number: str) -> Dict:
 def find_pull(slug: str, branch: str) -> Dict:
     """The newest pull request whose head is `branch`, whatever its state."""
     owner = slug.split("/")[0]
-    found = ask("GET", path(slug, f"pulls?head={owner}:{branch}&state=all&per_page=1"))
+    # A branch name may carry `&` or `#`; quoted, it stays one query value.
+    head = f"{owner}:{quote(branch, safe='/')}"
+    found = ask("GET", path(slug, f"pulls?head={head}&state=all&per_page=1"))
     if not found:
         raise GhError(f"no pull request for {branch}", 1)
     return found[0]
@@ -204,7 +219,8 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 def cmd_view(args: argparse.Namespace) -> int:
     slug = repo_slug()
-    pull = read_pull(slug, args.target) if args.target.isdigit() else find_pull(slug, args.target)
+    target = args.target.lstrip("#")
+    pull = read_pull(slug, target) if target.isdigit() else find_pull(slug, args.target)
     fields = [field.strip() for field in args.json.split(",") if field.strip()]
     unknown = [field for field in fields if field not in VIEW_FIELDS]
     if unknown:
@@ -331,6 +347,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if getattr(args, "number", None) is not None:
+            args.number = pr_number(args.number)
         return args.run(args)
     except GhError as exc:
         print(f"gh_pr.py: {exc}", file=sys.stderr)

@@ -145,6 +145,18 @@ out="$(cd "$T/work" && PATH="$T/badgh:$PATH" "$PY" "$GH_PR" view 7 --json number
 assert_contains "$out" "exit=2" "view: a gh that answers something other than JSON is could-not-ask, exit 2"
 assert_contains "$out" "other than JSON" "view: the non-JSON answer is named"
 
+# --- the number and the branch never reach gh unchecked ----------------------
+out="$(ghpr badnum mergeable '../issues/7')"
+assert_contains "$out" "exit=2" "guard: a non-numeric pull request number is refused"
+assert_contains "$out" "is not a pull request number" "guard: the refusal names the value"
+assert_eq "0" "$(grep -c . "$T/badnum.log")" "guard: a refused number reaches no gh call"
+out="$(ghpr hashnum view '#7' --json number -q .number)"
+assert_eq "7
+exit=0" "$out" "guard: a leading # on the number is accepted, the way gh takes it"
+out="$(ghpr ampersand view 'fix/a&b' --json number)"
+assert_contains "$(cat "$T/ampersand.log")" 'pulls?head=fixture-owner:fix/a%26b&state=all' \
+  "guard: a branch name is URL-quoted into the head query, slashes kept"
+
 # --- edit: PATCH /pulls/{n} with the body on stdin ---------------------------
 out="$(ghpr edit edit 7 --body-file "$T/redraft.md")"
 assert_contains "$out" "exit=0" "edit: a redrafted body exits 0"
