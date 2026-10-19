@@ -111,8 +111,18 @@ resolve() {
   resolve_browser
 }
 
+# check-candidate <candidate.json> --repo-root <dir> — the pre-finalize evidence
+# check for a codebase diagram (D8), in Node because that is what Archify needs
+# anyway: meta.repository pinned to the repository's HEAD and `sources` on every
+# primary element. Silent on success; each problem on stderr, exit 1.
+check_candidate() {
+  check_node || return 1
+  node "$(dirname "${BASH_SOURCE[0]}")/check-candidate.mjs" "$@"
+}
+
 case "${1:-resolve}" in
   resolve) resolve ;;
   install-command) install_command ;;
-  *) note "usage: archify.sh [resolve|install-command]"; exit 2 ;;
+  check-candidate) shift; check_candidate "$@" ;;
+  *) note "usage: archify.sh [resolve|install-command|check-candidate <candidate.json> --repo-root <dir>]"; exit 2 ;;
 esac

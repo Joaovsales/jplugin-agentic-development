@@ -17,8 +17,10 @@ scope as a **pinned tool** under `$ARCHIFY_HOME` (default
 `~/.local/share/jplugin/archify`) — never as a skill the harness can route to
 and never as a copy in this repository, so `/diagram` is the only diagram
 entry point and the drawing instructions stay upstream's. This page adds what
-jplugin needs around them: the tool and Node check, the browser, and the
-conventions below.
+jplugin needs around them: the tool and Node check, the browser, and the four
+conventions below. It restates nothing else: type selection, candidate
+authoring, `finalize` and its repair contract are read from the install at
+run time.
 
 The homegrown `flow` / `sequence` fences inside specs are unchanged: the
 visual-plan renderer draws those inline. Archify draws the standalone
@@ -40,18 +42,101 @@ A non-zero exit **stops the skill**. Relay the note as printed — the one-line
 install command when the tool is absent, the `Node >= 18` requirement when
 `node` is missing or too old — and produce nothing: no DSL fallback, no
 html-presentation fallback, silent or otherwise. Node is the hard requirement;
-a browser is not. When the resolver reports that no browser was found, the
-run continues on Archify's non-browser gates (`validate`, `deliver`, `check`)
-and the reply **must** carry the marker it prints:
-*automated checks passed without browser evidence*.
+a browser is not (see *Browser* below).
 
-## Output
+## Step 2 — Read upstream's instructions
 
-Follow Archify's output contract from `$ARCHIFY_SKILL` § Output: lead with a
-clickable Markdown link to the HTML, add one or two sentences of takeaway
-when the subject is a real codebase, and state anything that changes how the
-diagram should be read. Never claim visual review that did not happen; when
-the browser gate did not run, say so with the marker above.
+Read `$ARCHIFY_SKILL` — that is `$ARCHIFY_HOME/archify/SKILL.md` — and the
+references it names for the step you are on, then follow it: it chooses the
+diagram type, names the schema and example to read, says how the candidate is
+authored and how `finalize` runs and is repaired. Wherever its commands say
+`node bin/archify.mjs`, run `node "$ARCHIFY_BIN"` instead. All ten diagram
+types are available; Archify's own router picks (D6).
+
+Where upstream leaves a choice open, the conventions below settle it. They
+are the whole of jplugin's addition.
+
+## jplugin conventions
+
+### Evidence
+
+A diagram of a **real codebase** is evidence or nothing (D8). The candidate
+pins `meta.repository` to the clean `HEAD` of that repository
+(`git rev-parse HEAD`, forty characters, credential-free URL), every primary
+element — components, nodes, participants, states, entities, types, events,
+spans — carries `sources` with a repository-relative `path` and `line`, and
+`finalize` runs with `--repo-root <repo>` so Archify verifies every citation
+against committed bytes at that revision. Before `finalize`, run the
+pre-finalize check; it refuses a candidate that lacks any of this and names
+the element:
+
+```bash
+bash .agents/skills/diagram/scripts/archify.sh check-candidate <candidate.json> --repo-root <repo>
+```
+
+A dirty worktree changes nothing about the pin: the candidate still pins
+`HEAD`, the reply names the changed paths, and no uncommitted bytes are cited
+as evidence (upstream's rule). A **described system** with no repository is
+authored freehand — no `meta.repository`, no check, no `--repo-root`.
+
+### Output location
+
+Diagrams are documentation and live with it; receipts are scratch (D4):
+
+| Subject | HTML | Candidate |
+|---|---|---|
+| a system or architecture | `docs/architecture/<slug>.html` | `docs/architecture/<slug>.<type>.json` (for example `<slug>.architecture.json`) |
+| a spec's illustration | `specs/<feature>.<type>.html` | `specs/<feature>.<type>.json` |
+
+Both are regenerated in place and committed. Pass
+`--out-dir .archify/<slug>/review-<n>` to every `finalize` so its receipts
+and any captures land under `.archify/`, which is gitignored; Archify keeps
+the delivery receipt `<stem>.delivery.json` beside the HTML as the
+provenance its `check` reads, so that file is committed with the diagram.
+
+### Browser
+
+`ARCHIFY_CHROME` is set by Step 1 (D13). When the resolver reports that no
+browser was found, continue: `finalize` runs its non-browser gates
+(`validate`, `deliver`, `check`) and skips `browser-check`, and the diagram
+is still delivered. The reply then **must** carry the marker the resolver
+prints — *automated checks passed without browser evidence* — and claim no
+visual review.
+
+### Diagrams only
+
+Archify's explainer mode is not exposed (D5): never author an explainer and
+never add an `[archify explainer: …]` rules line, whatever upstream's page
+offers. A request for "a page", "an explainer" or "a report" is not
+`/diagram` — route it to `/html-presentation` as today.
+
+## Step 3 — Finalize and reply
+
+Run the pre-finalize check for a codebase subject, then upstream's complete
+`finalize` command with `--repo-root` (codebase) and `--out-dir` (always). A
+non-zero exit is never success: follow upstream's repair contract — edit the
+connected neighbourhood, re-run with a fresh `--out-dir` — and when repair is
+exhausted, report the failing gate instead of the diagram.
+
+Reply per `$ARCHIFY_SKILL` § Output: lead with a clickable Markdown link to
+the HTML, add one or two sentences of takeaway when the subject is a real
+codebase, and state anything that changes how the diagram should be read —
+including the browser marker above when it applies. Never claim visual review
+that did not happen.
+
+## Refresh — `/diagram --refresh <candidate.json | diagram.html>`
+
+Re-authors an existing committed candidate against the current `HEAD`. An
+HTML path resolves to its sibling candidate (`<stem>.<type>.json`). Re-read
+every cited source range at `HEAD`, update the components, their citations
+and `meta.repository.revision`; a component whose cited source no longer
+exists is removed or re-anchored from a fresh read of the source, and the
+reply names what was dropped or merged. Then run the pre-finalize check and
+`finalize` again with a fresh `--out-dir`.
+
+This is the only regeneration path (D19): staleness is detected only here,
+and `/wrap-up-session` leaves diagrams alone — regenerating committed
+documents at wrap-up would rewrite them unasked.
 
 ## Edge cases
 
@@ -60,8 +145,10 @@ the browser gate did not run, say so with the marker above.
 | tool absent under `$ARCHIFY_HOME` | the install command is printed and `/diagram` stops; no fallback renderer |
 | `node` absent or older than 18 | stated with the `Node >= 18` requirement and stopped |
 | no Chrome, Chromium or playwright-cli browser | non-browser gates run; the reply says *automated checks passed without browser evidence*; the diagram is still delivered |
-| `finalize` exits non-zero | never success: follow upstream's repair contract and report the failing gate when repair is exhausted |
-| "a page", "an explainer", "a report" | not `/diagram` — route to `/html-presentation`; Archify's explainer mode is not exposed (D5) |
+| `finalize` exits non-zero | never success: upstream's repair contract, then the failing gate reported when repair is exhausted |
+| dirty worktree on a codebase subject | the candidate pins `HEAD`; the reply names the changed paths; no uncommitted bytes are cited |
+| `--refresh` and a cited component no longer exists | removed or re-anchored from a fresh read; the reply names what was dropped or merged |
+| "a page", "an explainer", "a report" | not `/diagram` — route to `/html-presentation`; the explainer mode is not exposed (D5) |
 
 ## Integration
 

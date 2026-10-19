@@ -128,4 +128,82 @@ assert_contains "$RES_ERR" "without browser evidence" \
   "browser: no browser prints the without-browser-evidence marker"
 assert_eq "0" "$(html_written)" "browser: resolving writes no HTML"
 
+# ── § upstream-read (AC 4) ───────────────────────────────────────────────────
+# The drawing instructions are upstream's, read from the install at run time
+# (D17): this page names the file and adds four conventions, and restates no
+# type router, schema or finalize-repair contract — restating drifts every
+# release.
+assert_file_contains "$SKILL" '$ARCHIFY_HOME/archify/SKILL.md' \
+  "upstream-read: the skill reads upstream's SKILL.md from the install"
+for convention in "Evidence" "Output location" "Browser" "Diagrams only"; do
+  assert_file_matches "$SKILL" "^#+ .*$convention" \
+    "upstream-read: convention '$convention' has its own heading"
+done
+for restated in 'Type router' 'Mermaid input' 'Delivery' 'Setup and fallback' 'Update awareness' 'repair'; do
+  assert_file_not_matches "$SKILL" "^#+ .*$restated" \
+    "upstream-read: no '$restated' heading restated from upstream"
+done
+assert_file_not_matches "$SKILL" 'schemas/[a-z]+\.schema\.json' "upstream-read: no schema paths restated"
+assert_file_not_matches "$SKILL" '^\| `(architecture|workflow|sequence|erd)` \|' \
+  "upstream-read: no type-router table restated"
+
+# ── § evidence (AC 5) ────────────────────────────────────────────────────────
+# A codebase diagram is evidence or nothing (D8): the page requires the pinned
+# revision, a source on every component and --repo-root, and the pre-finalize
+# check refuses a candidate that lacks any of them.
+assert_file_contains "$SKILL" 'meta.repository' "evidence: the skill names meta.repository"
+assert_file_contains "$SKILL" '`HEAD`' "evidence: the skill pins the candidate to HEAD"
+assert_file_contains "$SKILL" '`sources`' "evidence: the skill requires sources on every component"
+assert_file_contains "$SKILL" '--repo-root' "evidence: finalize runs with --repo-root"
+assert_file_contains "$SKILL" 'check-candidate' "evidence: the skill runs the pre-finalize check"
+
+if command -v node > /dev/null 2>&1; then
+  mkdir -p "$box/repo"
+  git -C "$box/repo" init -q
+  mkdir -p "$box/repo/src"; printf 'echo a\n' > "$box/repo/src/a.sh"
+  git -C "$box/repo" add src/a.sh
+  git -C "$box/repo" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm a
+  REV="$(git -C "$box/repo" rev-parse HEAD)"
+  write_candidate() { # <file> <revision-json-or-empty-meta> <components-json>
+    printf '{"schema_version":1,"diagram_type":"architecture","meta":{"title":"t"%s},"components":%s}\n' "$2" "$3" > "$1"
+  }
+  run_check() { # <candidate> → CHK_STATUS, CHK_OUT, CHK_ERR
+    bash "$RESOLVER" check-candidate "$1" --repo-root "$box/repo" > "$box/chk.out" 2> "$box/chk.err"
+    CHK_STATUS=$?; CHK_OUT="$(cat "$box/chk.out")"; CHK_ERR="$(cat "$box/chk.err")"
+  }
+  REPO_META=",\"repository\":{\"url\":\"https://example.test/r.git\",\"revision\":\"$REV\"}"
+  CITED='{"id":"a","label":"A","sources":[{"path":"src/a.sh","line":1}]}'
+  write_candidate "$box/uncited.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\"}]"
+  run_check "$box/uncited.json"
+  assert_eq "1" "$CHK_STATUS" "evidence: a component without sources is rejected"
+  assert_contains "$CHK_ERR" "b" "evidence: the rejection names the uncited component"
+  assert_contains "$CHK_ERR" "sources" "evidence: the rejection names the missing field"
+
+  write_candidate "$box/cited.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\",\"sources\":[{\"path\":\"src/a.sh\",\"line\":1}]}]"
+  run_check "$box/cited.json"
+  assert_eq "0" "$CHK_STATUS" "evidence: a fully cited candidate at HEAD passes"
+  assert_eq "" "$CHK_OUT$CHK_ERR" "evidence: a passing check is silent"
+
+  STALE=",\"repository\":{\"url\":\"https://example.test/r.git\",\"revision\":\"0000000000000000000000000000000000000000\"}"
+  write_candidate "$box/stale.json" "$STALE" "[$CITED]"
+  run_check "$box/stale.json"
+  assert_eq "1" "$CHK_STATUS" "evidence: a revision other than HEAD is rejected"
+  assert_contains "$CHK_ERR" "$REV" "evidence: the rejection names the repository HEAD"
+
+  write_candidate "$box/freehand.json" "" "[$CITED]"
+  run_check "$box/freehand.json"
+  assert_eq "1" "$CHK_STATUS" "evidence: a codebase candidate without meta.repository is rejected"
+  assert_contains "$CHK_ERR" "meta.repository" "evidence: the rejection names meta.repository"
+else
+  printf '  note evidence: node is absent on this machine; the candidate-check cases did not run\n'
+fi
+
+# ── § refresh (AC 14) ────────────────────────────────────────────────────────
+# `--refresh` is the only regeneration path (D19): /wrap-up-session never
+# learns about diagrams, so its page carries none of this feature's vocabulary.
+assert_file_contains "$SKILL" '--refresh <' "refresh: the skill documents --refresh <path>"
+assert_prose_contains "$SKILL" 'only regeneration path' "refresh: --refresh is named the only regeneration path"
+assert_file_not_matches .agents/skills/wrap-up-session/SKILL.md 'archify|`/diagram`|--refresh' \
+  "refresh: /wrap-up-session is untouched by this feature"
+
 finish
