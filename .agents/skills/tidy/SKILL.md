@@ -82,7 +82,7 @@ environment are the scheduler's, not this file's.
    record at the end. Stage `tasks/todo.md` by explicit path only with the record
    commit, never with a Tier 0 commit.
 
-### 1–10. The checks
+### 1–11. The checks
 
 Each check names the surfaces it reads. A surface that does not exist in the host
 repository — a downstream project has no `README.md` skills table, no `AGENTS.md`
@@ -107,6 +107,7 @@ in addition to the seed list at the end of this file.
 | `graph` | `command -v graphify`; `graphify-out/graph.json` mtime against `git log -1 --format=%ct`; `git ls-files` for graphify's code extensions | a graph older than HEAD, or graphify installed with no graph in a tree that has code files — Tier 1, the `graphify` re-index command printed (the banner says the same at session start; this is the sweep that records it). No graphify on this machine, or no code files → **skipped** with the note; this shell-and-markdown template has no graph by design |
 | `registers` | `tasks/todo.md`, `tasks/checkpoint.md` | a closed plan block (every row `[x]`) older than the last two `## Session Summary` headings; a checkpoint whose header date is older than the newest summary. `tasks/solutions/` is **not** read — `/memory-maintain` owns it |
 | `shortcuts` | the `TODO(shortcut):` ledger, run exactly as `/wrap-up-session` § *Shortcut ledger* defines its command and line format | a marker tagged `no-trigger` — a limit with no upgrade path. Tier 1: the report prints the marker's `file:line` and the remedy (add the trigger that would make the limit matter), never applied and never filed; markers with a trigger are listed as context, not findings |
+| `tools` | the commit checked out under `$ARCHIFY_HOME` (default `~/.local/share/jplugin/archify`; `git -C "$ARCHIFY_HOME" rev-parse HEAD`) against the `baseline` of the `archify` entry (`kind: installed`) in `.github/upstreams.json` — the pinned tool `/diagram` runs | a checked-out commit other than the baseline, or a directory that is not a git checkout — Tier 1, the re-install command printed (`rm -rf "$ARCHIFY_HOME" && <the install command install.sh step 6c and the /diagram resolver print>`), never applied: the tool lives on the operator's machine (Law 7). No install under `$ARCHIFY_HOME` → **inconclusive** with the note `archify not installed — bash install.sh, or the install command /diagram prints`; a registry without an `archify` entry → **skipped** with the note |
 
 Per-check notes, where the table is not enough:
 
@@ -311,6 +312,8 @@ request**; the host's `/wrap-up-session` does.
 | no test runner detected | `suite` inconclusive, not clean |
 | `gh` absent or unauthenticated | `worktrees` report-only; `installed` and `inventory` unaffected |
 | no `~/.claude/` on this machine | `installed` inconclusive with the note; not a finding |
+| no `$ARCHIFY_HOME` on this machine | `tools` inconclusive with the note; not a finding |
+| `$ARCHIFY_HOME` at a commit other than the registry baseline | `tools` Tier 1: the re-install command printed, never run |
 | downstream project without `README.md`/`AGENTS.md` skills tables | those `inventory` surfaces skipped with a note |
 | a reference's basename matches two files | Tier 1, both paths in the report |
 | a spec or learning names a retired skill | not a finding — history is exempt (`retired` scope) |

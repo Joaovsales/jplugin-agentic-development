@@ -234,4 +234,19 @@ assert_prose_contains "$SDP" 'install command' "sdp: without the tool the instal
 assert_prose_contains "$SDP" 'the session continues' "sdp: without the tool the session does not stop"
 assert_prose_contains "$SDP" 'fenced `flow` / `sequence` blocks' "sdp: the flow and sequence fences are unchanged (D12)"
 
+# ── § tidy (AC 13) ───────────────────────────────────────────────────────────
+# /tidy's `tools` check compares the commit checked out under $ARCHIFY_HOME with
+# the registry baseline: no install is inconclusive, another commit is Tier 1
+# with the re-install command printed, never run (Law 7).
+TIDY=.agents/skills/tidy/SKILL.md
+tools_row="$(grep -E '^\| `tools` \|' "$TIDY")"
+assert_contains "$tools_row" 'ARCHIFY_HOME' "tidy: the tools row reads \$ARCHIFY_HOME"
+assert_contains "$tools_row" 'rev-parse HEAD' "tidy: the tools row compares the checked-out commit"
+assert_contains "$tools_row" '.github/upstreams.json' "tidy: the tools row reads the registry baseline"
+assert_contains "$tools_row" 'inconclusive' "tidy: no install is inconclusive, not a finding"
+assert_contains "$tools_row" 'Tier 1' "tidy: another commit is a Tier 1 finding"
+assert_contains "$tools_row" 'never' "tidy: the re-install remedy is printed, never applied"
+assert_contains "$(section_body "$TIDY" "## Edge cases")" 'ARCHIFY_HOME' \
+  "tidy: the edge-case table carries the tools cases"
+
 finish
