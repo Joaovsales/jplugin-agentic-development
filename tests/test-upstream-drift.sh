@@ -330,12 +330,17 @@ done
 
 # An installed source is a tool pinned at a tag, never a vendored copy: it has no `paths`.
 # The real registry carries the Archify entry; --validate proves it without Git or network.
-ARCHIFY_COMMIT="208acba8d412335185b2056fedf54b3405df43fb"
+# The registry is the oracle for the pin: tag and commit are read from its
+# archify entry, so a bump edits the consumer files and never a test literal.
+ARCHIFY_COMMIT="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["baseline"])')"
+ARCHIFY_TAG="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["ref"].rsplit("/", 1)[-1])')"
+assert_eq "40" "${#ARCHIFY_COMMIT}" "installed: the registry baseline is a full commit (oracle is not empty)"
+assert_eq "v" "${ARCHIFY_TAG:0:1}" "installed: the registry ref is a version tag (oracle is not empty)"
 assert_file_contains ".github/upstreams.json" '"id": "archify"' \
   "installed: the registry identifies the Archify tool"
 assert_file_contains ".github/upstreams.json" '"kind": "installed"' \
   "installed: the Archify entry is marked installed, not vendored"
-assert_file_contains ".github/upstreams.json" '"ref": "refs/tags/v3.2.0"' \
+assert_file_contains ".github/upstreams.json" "\"ref\": \"refs/tags/$ARCHIFY_TAG\"" \
   "installed: the Archify entry tracks its pinned tag"
 assert_file_contains ".github/upstreams.json" "$ARCHIFY_COMMIT" \
   "installed: the baseline is the tag's dereferenced commit"
@@ -348,9 +353,9 @@ assert_eq "" "$CHECK_OUTPUT" "installed: --validate is silent on success"
 # would install one version and report drift on another.
 assert_file_contains "install.sh" "ARCHIFY_COMMIT=\"$ARCHIFY_COMMIT\"" \
   "installed: install.sh verifies the clone against the registry baseline"
-assert_file_contains "install.sh" 'ARCHIFY_TAG="v3.2.0"' \
+assert_file_contains "install.sh" "ARCHIFY_TAG=\"$ARCHIFY_TAG\"" \
   "installed: install.sh clones the tag the registry tracks"
-assert_file_contains ".agents/skills/diagram/scripts/archify.sh" 'ARCHIFY_TAG="v3.2.0"' \
+assert_file_contains ".agents/skills/diagram/scripts/archify.sh" "ARCHIFY_TAG=\"$ARCHIFY_TAG\"" \
   "installed: the /diagram resolver prints the install command for the same tag"
 
 # Installed fixture: a local upstream with a commit tagged v3.2.0.
@@ -427,6 +432,7 @@ assert_file_contains "THIRD_PARTY_NOTICES.md" 'Permission is hereby granted, fre
   "notices: the MIT text is carried"
 SOURCES_BODY="$(section_body README.md "## Sources")"
 assert_contains "$SOURCES_BODY" 'tt-a1i/archify' "notices: README Sources names Archify"
-assert_contains "$SOURCES_BODY" 'v3.2.0' "notices: README Sources names the pinned tag"
+assert_contains "$SOURCES_BODY" "tree/$ARCHIFY_TAG" "notices: README Sources links the pinned tag"
+assert_contains "$SOURCES_BODY" "$ARCHIFY_COMMIT" "notices: README Sources names the pinned commit"
 
 finish

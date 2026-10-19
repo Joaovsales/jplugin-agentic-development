@@ -2,31 +2,21 @@
 // check-candidate.mjs — /diagram's pre-finalize evidence check for a codebase
 // diagram (specs/diagram-skill.md D8, AC5).
 //
-//   node check-candidate.mjs <candidate.json> --repo-root <dir>
+//   node check-candidate.mjs <candidate.json> --repo-root <dir> --schemas <dir>
 //
 // Archify verifies cited ranges against the pinned revision; this check runs
 // before `finalize` and refuses what Archify would accept but jplugin does not:
 // a candidate with no `meta.repository`, a revision other than the
-// repository's HEAD, or a primary element without `sources`. Silent on success
-// (exit 0); every problem on stderr and exit 1; exit 2 for a usage error.
+// repository's HEAD, or a primary element without `sources`. Which collection
+// is primary is upstream's rule, read from upstream's schema under --schemas
+// rather than restated here (D17). Silent on success (exit 0); every problem
+// on stderr and exit 1; exit 2 for a usage error.
 
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
-// The elements that carry `sources` per diagram type — upstream's rule
-// (references/repository-authoring.md § Evidence by diagram type).
-const PRIMARY_ELEMENTS = {
-  architecture: "components",
-  workflow: "nodes",
-  sequence: "participants",
-  dataflow: "nodes",
-  lifecycle: "states",
-  erd: "entities",
-  tree: "nodes",
-  class: "types",
-  timeline: "events",
-  waterfall: "spans",
-};
+const DIAGRAM_TYPE_RE = /^[a-z]+$/;
 
 function fail(message, status) {
   process.stderr.write(`archify: ${message}\n`);
@@ -34,20 +24,24 @@ function fail(message, status) {
 }
 
 function parseArgs(argv) {
-  let candidate = null;
-  let repoRoot = null;
+  const parsed = { candidate: null, repoRoot: null, schemas: null };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--repo-root") {
-      repoRoot = argv[i + 1];
+      parsed.repoRoot = argv[i + 1];
       i += 1;
-    } else if (candidate === null) {
-      candidate = argv[i];
+    } else if (argv[i] === "--schemas") {
+      parsed.schemas = argv[i + 1];
+      i += 1;
+    } else if (parsed.candidate === null) {
+      parsed.candidate = argv[i];
     } else {
-      fail(`usage: check-candidate.mjs <candidate.json> --repo-root <dir> (unexpected ${argv[i]})`, 2);
+      fail(`usage: check-candidate.mjs <candidate.json> --repo-root <dir> --schemas <dir> (unexpected ${argv[i]})`, 2);
     }
   }
-  if (!candidate || !repoRoot) fail("usage: check-candidate.mjs <candidate.json> --repo-root <dir>", 2);
-  return { candidate, repoRoot };
+  if (!parsed.candidate || !parsed.repoRoot || !parsed.schemas) {
+    fail("usage: check-candidate.mjs <candidate.json> --repo-root <dir> --schemas <dir>", 2);
+  }
+  return parsed;
 }
 
 function readCandidate(path) {
@@ -66,6 +60,29 @@ function repositoryHead(repoRoot) {
   }
 }
 
+// The type's primary collection — components, nodes, participants, states,
+// entities, types, events or spans — is the one top-level array in its schema
+// whose items carry `sources`; `cards` is shared and arrives as a $ref.
+function primaryKey(schemasDir, diagramType) {
+  if (typeof diagramType !== "string" || !DIAGRAM_TYPE_RE.test(diagramType)) {
+    return { error: `diagram_type ${JSON.stringify(diagramType)} is not a diagram type name` };
+  }
+  const schemaPath = join(schemasDir, `${diagramType}.schema.json`);
+  let schema;
+  try {
+    schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+  } catch {
+    return { error: `diagram_type ${JSON.stringify(diagramType)} has no schema under ${schemasDir}: not one of this install's diagram types` };
+  }
+  const keys = Object.entries(schema.properties ?? {})
+    .filter(([, value]) => value.type === "array" && value.items?.properties && "sources" in value.items.properties)
+    .map(([key]) => key);
+  if (keys.length !== 1) {
+    return { error: `${schemaPath} names ${keys.length} arrays whose items carry sources; expected exactly one` };
+  }
+  return { key: keys[0] };
+}
+
 // A citation is a path and a line: `--refresh` re-reads the cited range, so a
 // path alone leaves it nothing to re-anchor from.
 function hasSources(element) {
@@ -74,7 +91,7 @@ function hasSources(element) {
       && Number.isInteger(source.line) && source.line > 0);
 }
 
-function problems(candidate, head) {
+function problems(candidate, head, schemasDir) {
   const found = [];
   const repository = candidate.meta && candidate.meta.repository;
   if (!repository || typeof repository !== "object") {
@@ -82,11 +99,12 @@ function problems(candidate, head) {
   } else if (repository.revision !== head) {
     found.push(`meta.repository.revision is ${repository.revision}, but the repository HEAD is ${head}: re-author against HEAD`);
   }
-  const key = PRIMARY_ELEMENTS[candidate.diagram_type];
-  if (!key) {
-    found.push(`diagram_type ${JSON.stringify(candidate.diagram_type)} is not one of Archify's diagram types`);
+  const primary = primaryKey(schemasDir, candidate.diagram_type);
+  if (primary.error) {
+    found.push(primary.error);
     return found;
   }
+  const key = primary.key;
   const elements = Array.isArray(candidate[key]) ? candidate[key] : [];
   if (elements.length === 0) found.push(`${key} is empty: nothing to cite`);
   elements.forEach((element, index) => {
@@ -98,7 +116,7 @@ function problems(candidate, head) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const found = problems(readCandidate(args.candidate), repositoryHead(args.repoRoot));
+const found = problems(readCandidate(args.candidate), repositoryHead(args.repoRoot), args.schemas);
 if (found.length > 0) {
   for (const problem of found) process.stderr.write(`archify: ${problem}\n`);
   process.exit(1);

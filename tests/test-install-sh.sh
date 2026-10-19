@@ -729,11 +729,15 @@ done
 # Archify is cloned to $ARCHIFY_HOME only when node >= 18 exists. node is never on
 # SAFE_PATH, so each case plants a stub that answers `--version`; ARCHIFY_URL is the
 # clone-source seam, so only case (e) touches the real upstream.
-ARCHIFY_PIN_COMMIT="208acba8d412335185b2056fedf54b3405df43fb"
-ARCHIFY_INSTALL_CMD="git clone --depth 1 --branch v3.2.0 --filter=blob:none --sparse https://github.com/tt-a1i/archify"
+# The registry is the oracle for the pin: a bump edits install.sh and the
+# registry, never a test literal.
+ARCHIFY_PIN_COMMIT="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["baseline"])')"
+ARCHIFY_PIN_TAG="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["ref"].rsplit("/", 1)[-1])')"
+assert_eq "40" "${#ARCHIFY_PIN_COMMIT}" "archify: the registry baseline is a full commit (oracle is not empty)"
+ARCHIFY_INSTALL_CMD="git clone --depth 1 --branch $ARCHIFY_PIN_TAG --filter=blob:none --sparse https://github.com/tt-a1i/archify"
 INSTALL_SH_TEXT="$(cat "$INSTALL")"
 assert_contains "$INSTALL_SH_TEXT" "ARCHIFY_COMMIT=\"$ARCHIFY_PIN_COMMIT\"" "archify: install.sh pins the commit"
-assert_contains "$INSTALL_SH_TEXT" 'ARCHIFY_TAG="v3.2.0"' "archify: install.sh pins the tag"
+assert_contains "$INSTALL_SH_TEXT" "ARCHIFY_TAG=\"$ARCHIFY_PIN_TAG\"" "archify: install.sh pins the registry's tag"
 
 make_node_stub() { # <bin dir> <version>
   printf '#!/usr/bin/env bash\n[ "${1:-}" = "--version" ] && echo "v%s"\nexit 0\n' "$2" > "$1/node"
@@ -762,7 +766,7 @@ rm -rf "$box"
 box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
 git init -q "$box/fixture"
 git -C "$box/fixture" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m fixture
-git -C "$box/fixture" -c user.name=t -c user.email=t@t -c tag.gpgsign=false tag v3.2.0
+git -C "$box/fixture" -c user.name=t -c user.email=t@t -c tag.gpgsign=false tag "$ARCHIFY_PIN_TAG"
 FIXTURE_SHA="$(git -C "$box/fixture" rev-parse HEAD)"
 run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME" ARCHIFY_URL="$box/fixture"
 assert_contains "$(cat "$box/out.log")" "exit=0" "archify: a mismatched tag still exits 0"
@@ -786,11 +790,11 @@ assert_eq "$OTHER_SHA" "$(git -C "$ARCHIFY_HOME" rev-parse HEAD)" "archify: a ch
 rm -rf "$box"
 
 # (e) the real pin: installed, then present offline. Needs the upstream to be reachable.
-if git ls-remote --exit-code https://github.com/tt-a1i/archify refs/tags/v3.2.0 > /dev/null 2>&1; then
+if git ls-remote --exit-code https://github.com/tt-a1i/archify "refs/tags/$ARCHIFY_PIN_TAG" > /dev/null 2>&1; then
   box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
   run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
   assert_contains "$(cat "$box/out.log")" "exit=0" "archify: first run exits 0"
-  assert_contains "$(cat "$box/out.log")" "Archify v3.2.0 installed" "archify: first run reports installed"
+  assert_contains "$(cat "$box/out.log")" "Archify $ARCHIFY_PIN_TAG installed" "archify: first run reports installed"
   assert_eq "$ARCHIFY_PIN_COMMIT" "$(git -C "$ARCHIFY_HOME" rev-parse HEAD)" "archify: the checkout is at the pinned commit"
   assert_eq "present" "$(exists "$ARCHIFY_HOME/archify/bin/archify.mjs")" "archify: the checkout holds the CLI"
   assert_eq "present" "$(exists "$ARCHIFY_HOME/archify/SKILL.md")" "archify: the checkout holds SKILL.md"
@@ -798,7 +802,7 @@ if git ls-remote --exit-code https://github.com/tt-a1i/archify refs/tags/v3.2.0 
   # A bogus clone source proves the second run never reaches for the network.
   run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME" ARCHIFY_URL="$box/no-such-repo"
   assert_contains "$(cat "$box/out.log")" "exit=0" "archify: second run exits 0"
-  assert_contains "$(cat "$box/out.log")" "Archify v3.2.0 present" "archify: second run reports present without cloning"
+  assert_contains "$(cat "$box/out.log")" "Archify $ARCHIFY_PIN_TAG present" "archify: second run reports present without cloning"
   rm -rf "$box"
 else
   printf '  note archify: upstream unreachable from this machine; the installed/present cases did not run\n'

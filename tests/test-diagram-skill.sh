@@ -69,7 +69,10 @@ assert_eq "1" "$RES_STATUS" "resolver: an empty ARCHIFY_HOME exits non-zero"
 assert_eq "1" "$(printf '%s\n' "$RES_ERR" | grep -c '^git clone ')" \
   "resolver: exactly one install command is printed"
 install_line="$(printf '%s\n' "$RES_ERR" | grep '^git clone ')"
-assert_contains "$install_line" "--branch v3.2.0" "resolver: the install command pins the tag"
+# The registry is the oracle for the pin: a bump edits the consumer files, never a test literal.
+ARCHIFY_TAG="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["ref"].rsplit("/", 1)[-1])')"
+assert_eq "v" "${ARCHIFY_TAG:0:1}" "resolver: the registry names the pinned tag (oracle is not empty)"
+assert_contains "$install_line" "--branch $ARCHIFY_TAG" "resolver: the install command pins the registry's tag"
 assert_contains "$install_line" "https://github.com/tt-a1i/archify" "resolver: the install command names upstream"
 assert_contains "$install_line" "$box/empty-home" "resolver: the install command targets the resolved ARCHIFY_HOME"
 assert_eq "" "$RES_OUT" "resolver: a missing tool exports nothing"
@@ -180,8 +183,14 @@ if command -v node > /dev/null 2>&1; then
   write_candidate() { # <file> <revision-json-or-empty-meta> <components-json>
     printf '{"schema_version":1,"diagram_type":"architecture","meta":{"title":"t"%s},"components":%s}\n' "$2" "$3" > "$1"
   }
+  # The check reads which collection is primary from the install's schema, so
+  # the fixture install carries the one shape that matters: a top-level array
+  # whose items have `sources`, beside the shared `cards` $ref.
+  mkdir -p "$box/fixture-home/archify/schemas"
+  printf '{"properties":{"components":{"type":"array","items":{"properties":{"id":{},"sources":{}}}},"cards":{"$ref":"common.schema.json#/$defs/cards"}}}\n' \
+    > "$box/fixture-home/archify/schemas/architecture.schema.json"
   run_check() { # <candidate> → CHK_STATUS, CHK_OUT, CHK_ERR
-    bash "$RESOLVER" check-candidate "$1" --repo-root "$box/repo" > "$box/chk.out" 2> "$box/chk.err"
+    ARCHIFY_HOME="$box/fixture-home" bash "$RESOLVER" check-candidate "$1" --repo-root "$box/repo" > "$box/chk.out" 2> "$box/chk.err"
     CHK_STATUS=$?; CHK_OUT="$(cat "$box/chk.out")"; CHK_ERR="$(cat "$box/chk.err")"
   }
   REPO_META=",\"repository\":{\"url\":\"https://example.test/r.git\",\"revision\":\"$REV\"}"
@@ -213,6 +222,12 @@ if command -v node > /dev/null 2>&1; then
   run_check "$box/freehand.json"
   assert_eq "1" "$CHK_STATUS" "evidence: a codebase candidate without meta.repository is rejected"
   assert_contains "$CHK_ERR" "meta.repository" "evidence: the rejection names meta.repository"
+
+  # A type the install has no schema for is upstream's to add, not this check's to guess.
+  sed 's/"diagram_type":"architecture"/"diagram_type":"c4"/' "$box/cited.json" > "$box/c4.json"
+  run_check "$box/c4.json"
+  assert_eq "1" "$CHK_STATUS" "evidence: a diagram_type without a schema in the install is rejected"
+  assert_contains "$CHK_ERR" '"c4"' "evidence: the rejection names the unknown type"
 
   # `finalize` is upstream's command forwarded unchanged, after the check
   # whenever --repo-root is present — the order D8 rests on is structural.

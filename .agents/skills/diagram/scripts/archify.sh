@@ -114,10 +114,11 @@ resolve() {
 # check-candidate <candidate.json> --repo-root <dir> — the pre-finalize evidence
 # check for a codebase diagram (D8), in Node because that is what Archify needs
 # anyway: meta.repository pinned to the repository's HEAD and `sources` on every
-# primary element. Silent on success; each problem on stderr, exit 1.
+# primary element, which collection is primary read from the install's own
+# schemas. Silent on success; each problem on stderr, exit 1.
 check_candidate() {
   check_node || return 1
-  node "$(dirname "${BASH_SOURCE[0]}")/check-candidate.mjs" "$@"
+  node "$(dirname "${BASH_SOURCE[0]}")/check-candidate.mjs" "$@" --schemas "$ARCHIFY_HOME/archify/schemas"
 }
 
 # finalize <type> <candidate.json> <output.html> [upstream arguments…] —
