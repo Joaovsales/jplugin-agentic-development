@@ -650,6 +650,15 @@ for doc in .agents/skills/task-registry/references/configuration.md \
     "reachability (AC9): $doc no longer names \`gh auth status\`"
 done
 
+# The routines contract describes the in-flight exclusion as the registry reads
+# it now -- each candidate's REST timeline -- and no longer gates a routine on a
+# `gh` version or a GraphQL field (specs/github-rest-in-sandboxes.md AC11).
+ROUTINES_MD=.agents/skills/wrap-up-session/references/routines.md
+assert_file_not_matches "$ROUTINES_MD" 'closedByPullRequestsReferences|2\.73|GraphQL' \
+  "routines (AC11): no gh version floor and no GraphQL read in routines.md"
+assert_prose_contains "$ROUTINES_MD" "REST timeline" \
+  "routines (AC11): the exclusion is described as a timeline read"
+
 # --- /route is gone, and nothing in the shipping surface still names it ------
 # specs/category-routines.md AC1/AC2. The issue router computed how much autonomy
 # an issue permitted by running a model's description of the work through a policy
@@ -1536,10 +1545,10 @@ assert_contains "$PR_SECTION" "pr-sync" \
 # specs/quality-receipt-closure.md AC10.
 CI_SECTION="$(ca_section "## CI watch and repair")"
 MERGE_SECTION="$(ca_section "## Mergeability")"
-assert_contains "$MERGE_SECTION" "gh pr view <n> --json mergeable" \
-  "closure CI: mergeability names 'gh pr view <n> --json mergeable'"
-for token in "gh pr checks <n> --watch --required" "run_in_background" \
-             "gh pr checks <n>" "30 minutes" "2-minute registration window" \
+assert_contains "$MERGE_SECTION" "gh_pr.py mergeable <n>" \
+  "closure CI: mergeability names 'gh_pr.py mergeable <n>' (REST, specs/github-rest-in-sandboxes.md AC11)"
+for token in "gh_pr.py checks <n> --watch --required" "run_in_background" \
+             "gh_pr.py checks <n> --watch" "30 minutes" "2-minute registration window" \
              "gh run view <run-id> --log-failed" "/debug" "re-enters \`/wrap-up-session\` § *Quality receipt*" "§ *Full suite*" \
              "2 total" "closure repair"; do
   assert_contains "$CI_SECTION" "$token" "closure CI: CI Watch and Repair names '$token'"
@@ -1584,8 +1593,8 @@ assert_contains "$STEP8" "Accepted exception" \
 # Done report carries a Closure line. specs/quality-receipt-closure.md AC13.
 DONE_SECTION="$(wrap_section "## Done")"
 RECORD_SECTION="$(ca_section "## Recording the closure") $(ca_section "## Marking a partial PR draft")"
-for token in "record-closure" "gh pr edit <n> --body-file" "record: recorded" "record: record-failed" \
-             "mark-draft" "gh pr ready <n> --undo" "partial: drafted" "partial: draft-failed" \
+for token in "record-closure" "gh_pr.py edit <n> --body-file" "record: recorded" "record: record-failed" \
+             "mark-draft" "gh_pr.py ready <n> --undo" "partial: drafted" "partial: draft-failed" \
              "partial: no-pr" "facts known before the push"; do
   assert_contains "$RECORD_SECTION" "$token" "closure record: closure-actions.md names '$token'"
 done

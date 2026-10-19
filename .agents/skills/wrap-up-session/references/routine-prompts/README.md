@@ -53,7 +53,7 @@ Configure once per project:
   browser. A feature that cannot launch is a coverage gap, not a finding, so an
   environment that launches nothing produces a record that proves nothing.
 - **`tidy` only: an authenticated `gh` that can read pull requests.** Its
-  `worktrees` check proves a merge through `gh pr list --state merged`; without
+  `worktrees` check proves a merge by listing the merged pull requests; without
   it every worktree is report-only. A fresh checkout has no installed copies
   and no worktrees, so `installed` and `worktrees` report *skipped* there —
   those two surfaces are only ever checked by a run on the operator's machine.

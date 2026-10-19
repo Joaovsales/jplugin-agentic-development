@@ -24,12 +24,14 @@ for tree in .agents; do
     "AC6: $tree routines.md carries the routine-only wrap-up section"
 
   # --- AC7: exactly one place describes PR creation --------------------------
-  # `gh pr create` is the executable proof. Prose may point AT the procedure from
-  # anywhere; only one place may BE it.
-  creates="$(grep -c 'gh pr create' "$f" || true)"
+  # `gh_pr.py create` is the executable proof. Prose may point AT the procedure from
+  # anywhere; only one place may BE it. (specs/github-rest-in-sandboxes.md AC11:
+  # the PR path runs through gh_pr.py, because the cloud sandbox refuses the
+  # GraphQL every `gh pr` subcommand needs.)
+  creates="$(grep -c 'gh_pr.py create' "$f" || true)"
   assert_eq "1" "$creates" \
-    "AC7: $tree/wrap-up-session names \`gh pr create\` exactly once"
-  assert_eq "0" "$(grep -c 'gh pr create' "$ca" || true)" \
+    "AC7: $tree/wrap-up-session names \`gh_pr.py create\` exactly once"
+  assert_eq "0" "$(grep -c 'gh_pr.py create' "$ca" || true)" \
     "AC7: $tree closure-actions.md points at the procedure instead of restating it"
 
   assert_file_matches "$f" '^### The Pull Request' \
@@ -43,7 +45,7 @@ for tree in .agents; do
     "AC7: $tree Step 7 reaches the canonical PR section"
   assert_contains "$step75" "The Pull Request" \
     "AC7: $tree Step 7.5 reaches the canonical PR section"
-  assert_not_contains "$step75" "gh pr create" \
+  assert_not_contains "$step75" "gh_pr.py create" \
     "AC7: $tree Step 7.5 points at the procedure instead of restating it"
 
   # --- AC6: --draft iff the routine is plan ----------------------------------
@@ -78,7 +80,7 @@ for tree in .agents; do
   create_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*No PR for this branch\*\*/{f=1} f&&/^\*\*A PR already exists\*\*/{exit} f')"
   resync_path="$(printf '%s\n' "$sync_section" | awk '/^\*\*A PR already exists\*\*/{f=1} f&&/^\*\*Correct, do not erase\.\*\*/{exit} f')"
   assert_contains "$create_path" "pr_linkage.py" \
-    "#123: $tree runs the linkage check on the draft before gh pr create"
+    "#123: $tree runs the linkage check on the draft before gh_pr.py create"
   assert_contains "$resync_path" "pr_linkage.py" \
     "#123: $tree runs the linkage check on an already-open PR's body"
   assert_contains "$resync_path" "whether or not anything else looks stale" \
@@ -119,8 +121,8 @@ for tree in .agents; do
 
   terminal="$(awk '/^### Terminal PR assertion/{f=1;next} f&&/^##/{exit} f' "$f")"
 
-  assert_contains "$terminal" "gh pr view" \
-    "AC11: $tree checks for the PR with gh pr view on the branch"
+  assert_contains "$terminal" "gh_pr.py view" \
+    "AC11: $tree checks for the PR with gh_pr.py view on the branch"
   # The exact ACTION, not the bare phrase: "non-zero" also appears in the
   # closing paragraph, so a needle that loose stays green with the action row
   # gutted — which is the one line that makes the run fail.
@@ -158,11 +160,23 @@ for tree in .agents; do
   assert_prose_contains "$f" "says nothing when the pull request exists" \
     "AC11: $tree keeps the success path silent (failure-only reporting)"
 
-  # `gh pr view` exits non-zero for "no such PR" AND for "could not ask". Reading
+  # `gh_pr.py view` exits 1 for "no such PR" and 2 for "could not ask". Reading
   # the second as the first reports a missing PR that may well exist — a false
   # alarm on every night gh is unhappy, which is how a nightly check gets muted.
   assert_contains "$terminal" "could not ask" \
     "AC11: $tree tells a failed gh apart from an absent pull request"
+  assert_contains "$terminal" 'exits 1 for "no such pull request" and 2 for "could not ask"' \
+    "AC11 (REST): $tree names the two exit codes gh_pr.py view uses for the distinction"
+
+  # specs/github-rest-in-sandboxes.md AC11: no `gh pr` anywhere in the four
+  # wrap-up documents -- every such subcommand is GraphQL and fails in the
+  # cloud sandbox, so a form that creeps back in is a PR that cannot open there.
+  for doc in "$f" "$ca" "$r" "$tree/skills/wrap-up-session/references/routine-prompts/README.md"; do
+    assert_file_not_matches "$doc" 'gh pr([^a-z_]|$)' \
+      "AC11 (REST): $doc names no gh pr subcommand"
+  done
+  assert_file_contains "$tree/skills/wrap-up-session/scripts/pr_linkage.py" 'gh_pr.py create' \
+    "AC11 (REST): $tree pr_linkage.py's docstring names gh_pr.py create as the step it precedes"
 
   # The scope test is the parser, not the prefix: `routine/plna/90-x` matches
   # `routine/` and belongs to no routine.
