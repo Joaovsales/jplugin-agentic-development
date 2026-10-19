@@ -176,7 +176,7 @@ Installation and provenance:
 | 7 | Name and triggers | `/diagram`, with "archify" among its trigger phrases | user | Skills are named for the job; the alias catches people who know the tool |
 | 8 | Repository evidence | Mandatory for codebase diagrams; freehand only for described systems | user | Never Guess — Verify; uncited diagrams go stale silently |
 | 9 | Workflow moments | `/how` offers, `/plan` offers, `/system-design-planning` produces; wrap-up does nothing | user | Offers keep fast lanes fast; wrap-up regeneration would rewrite committed documents unasked |
-| 10 | Eval before merge | One triggerability eval run after the description is written, as information | user | Three skills plausibly claim "make a picture"; a gate was judged heavier than the risk |
+| 10 | Eval before merge | One triggerability eval run after the description is written, as information — run 2026-10-19, report `tasks/eval-results/diagram-triggerability.md` (3/6 target prompts fired, 0/6 neighbours collided; description rewritten) | user | Three skills plausibly claim "make a picture"; a gate was judged heavier than the risk |
 | 11 | Install mechanism | Pinned clone into `~/.local/share/jplugin/archify`; not `npx skills add -g`, not a sixth design-stack source | user | A skill-scope install would be routable and collide with `/diagram`; design-stack's release ID hashes all sources together |
 | 12 | Fate of the `flow`/`sequence` DSL | Kept for inline spec fences; Archify for standalone diagrams | user | Planning must work on a Python-only machine; a small flow needs no Chromium gate |
 | 13 | Browser resolution | The skill resolves `ARCHIFY_CHROME` itself (PATH, then Playwright's Chromium) | user | The skill knows the harness's install layout; Archify does not |
