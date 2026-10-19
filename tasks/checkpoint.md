@@ -1,16 +1,12 @@
-# Checkpoint — 2026-10-13T20:33:50Z
+# Checkpoint — 2026-10-16T18:44:30Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
 ## Git
-- Branch: claude/goofy-tu-99f995
+- Branch: claude/mods-kanban-agent-dashboard-b0c487
 
 ```
- M .agents/skills/memory-maintain/SKILL.md
- M .claude-plugin/plugin.json
- M tasks/solutions/bugs/learn-overlap-dimensions-only-fit-the-bug-track.md
  M tasks/todo.md
- M tests/test-memory-maintain-doc.sh
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
@@ -22,7 +18,7 @@
   [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
 
 ## Active Spec
-- specs/review-load-and-failure-cases.md
+- specs/design-stack-hyperframes.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`

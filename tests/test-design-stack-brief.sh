@@ -36,7 +36,7 @@ old = {"schema_version": 1, "sources": {"taste": "old"}, "current": "old"}
 design_stack.current_manifest = lambda: old
 design_stack.stage_release = lambda stage: {"taste": "new"}
 design_stack.install_skills = lambda stage: None
-design_stack.validate = lambda stage: None
+design_stack.validate = lambda stage, installed: None
 design_stack.build_catalog = lambda stage, revisions: []
 design_stack.promote = lambda stage, revisions: {"current": "new"}
 sys.argv = ["design_stack.py", "update"]
@@ -133,6 +133,15 @@ else:
 assert not (existing / "DESIGN.md").exists()
 assert onboard_project(root / "backend", "backend") is None
 assert not (root / "backend/DESIGN.md").exists()
+from brief import validated_choice
+for rejected_choice in ({"direction": "hyperframes:motion-graphics", "references": []},
+                        {"direction": "spatial", "references": ["hyperframes:hyperframes"]}):
+    try:
+        validated_choice(rejected_choice)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(f"HyperFrames tool accepted in a brief: {rejected_choice}")
 print("brief stable across update; refresh requires owner choice")
 PY
 )"; status=$?

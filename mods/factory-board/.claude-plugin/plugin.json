@@ -1,0 +1,7 @@
+{
+  "name": "factory-board",
+  "version": "0.1.0",
+  "author": { "name": "jplugin-agentic-development maintainers" },
+  "description": "Kanban pane of the sub-agents in this session: Plan / Build / Review / Human / Done, one clickable card per agent.",
+  "types": "./types/index.d.ts"
+}
