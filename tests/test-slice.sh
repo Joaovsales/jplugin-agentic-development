@@ -99,6 +99,36 @@ assert_eq "1" "$CODE" "validate: a surface outside implementation_paths exits 1"
 assert_contains "$OUT" "src/other/thing.py" "validate: names the offending path"
 assert_contains "$OUT" "outside implementation_paths" "validate: says why the path was refused"
 
+printf '\n--- validate and ready: a TDD row whose test file is outside its slice surface ---\n'
+
+# Found live on specs/design-stack-hyperframes.md: slice 4's row targeted
+# tests/test-design-stack-video.sh while its Surface named only skill text, so
+# the build noticed only when slice 4 became ready and widened the surface by
+# hand. Only an open row whose token before ` § ` is a `tests/...` path is
+# checked: slice 2's open row matches its surface, its `t3 -> impl3` row
+# carries no path, its `[x]` row's test is already written, and the session
+# summary after the last heading is not slice 2's span (the live todo.md
+# attributed every later `## Fix:` row to the last slice before the `##` stop).
+TDD_FIX="$FIXTURES/validate-tdd-outside-surface"
+OUT="$("$PY" "$SLICE" validate --spec "$TDD_FIX/spec.md" --index "$TDD_FIX/todo.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "validate: a TDD row naming a test file outside its slice's surface exits 1"
+assert_contains "$OUT" "slice 1 (one): TDD row names tests/test-one.sh, which no surface pattern matches" "validate: names the slice and the test path"
+assert_not_contains "$OUT" "slice 2" "validate: a matched tests/ path and a row with no tests/ path both pass"
+assert_not_contains "$OUT" "tests/test-done.sh" "validate: a done [x] row outside the surface is history, not a refusal"
+assert_not_contains "$OUT" "tests/test-later.sh" "validate: a row after the next ## heading is not the last slice's"
+
+OUT="$("$PY" "$SLICE" validate --spec "$TDD_FIX/spec.md" --index "$TDD_FIX/no-such-todo.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "validate: with no plan block written yet (Propose step 1) the TDD check is skipped"
+assert_eq "" "$OUT" "validate: a missing index is not reported"
+
+OUT="$("$PY" "$SLICE" ready --index "$TDD_FIX/todo.md" --spec "$TDD_FIX/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "ready: the same plan block is refused before any slice is named ready, exit 2"
+assert_contains "$OUT" "slice 1 (one): TDD row names tests/test-one.sh, which no surface pattern matches" "ready: names the slice and the test path"
+assert_not_contains "$OUT" "ready: 1 one" "ready: no ready set is printed on the refusal"
+
 printf '\n--- ready: a three-slice index, 2 blocked by 1 ---\n'
 
 OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-open.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
