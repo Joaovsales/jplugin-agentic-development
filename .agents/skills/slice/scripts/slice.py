@@ -64,7 +64,9 @@ H2_RE = re.compile(r"^##\s")
 # A plan block's feature link: the `> Issue:` line, or the one `- [ ]` row above the first slice heading.
 ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
 FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
-INTERFACES_HEADING = "## Interfaces"
+FROZEN_LINE_RE = re.compile(r"^>\s*Frozen:\s*(?P<s>[0-9A-Za-z]+)\.\.(?P<f>[0-9A-Za-z]+)(?:\s|$)")
+AMENDED_LINE_RE = re.compile(r"^>\s*Test amended:\s*(?P<path>\S+)")
+INTERFACES_HEADING ="## Interfaces"
 INTERFACE_ENTRY_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$", re.MULTILINE)
 INTERFACE_PATH_RE = re.compile(r"^\s*-\s*\*\*Path:\*\*\s*(?P<path>.*?)\s*$", re.MULTILINE)
 
@@ -666,20 +668,69 @@ def cmd_ready(args: argparse.Namespace) -> int:
 
 
 def _git_changed_paths(repo: str, base: str) -> List[str]:
+    return _git_paths(repo, f"{base}..HEAD")
+
+
+def _git_paths(repo: str, *diff_args: str) -> List[str]:
     result = subprocess.run(
-        ("git", "-C", repo, "diff", "--name-only", f"{base}..HEAD"),
+        ("git", "-C", repo, "diff", "--name-only", *diff_args),
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
     if result.returncode != 0:
-        raise SliceError(f"git diff --name-only {base}..HEAD failed: {result.stderr.strip()}")
+        raise SliceError(f"git diff --name-only {' '.join(diff_args)} failed: {result.stderr.strip()}")
     return [line for line in result.stdout.splitlines() if line]
 
 
+def _slice_plan_lines(args: argparse.Namespace) -> Optional[Tuple[List[str], bool]]:
+    """(the lines under the slice's heading, whether the block is legacy), or None for a flat plan."""
+    if not os.path.isfile(args.index):
+        raise SliceError(f"no such index file: {args.index}")
+    prose = _without_fences(read_text(args.index)).splitlines()
+    block = _find_plan_block("\n".join(prose), args.spec)
+    if block is None:
+        raise SliceError(f"{args.index} has no `## Plan:` block naming {args.spec!r}")
+    start_line, end_line, _name = block
+    headings = _slice_headings(prose, start_line, end_line)
+    legacy = _block_is_legacy(load_index_strict(args.index, args.index).rows, headings, end_line, prose)
+    for heading_line, number, _title, boundary in _heading_spans(headings, end_line):
+        if number == args.slice:
+            return prose[heading_line:boundary], legacy
+    return None
+
+
+def _freeze_problems(args: argparse.Namespace, repo: str, row: SliceRow) -> List[str]:
+    """`frozen-edited:`, `amended-unknown:` and `missing freeze commit` for a design-mode slice.
+
+    The freeze lives in the plan block, never in `/build`'s context, so it
+    survives compaction. Contract tests are what `S..F` changed outside `tasks/`.
+    """
+    plan = _slice_plan_lines(args)
+    if plan is None:
+        return []
+    lines, legacy = plan
+    interface_paths = [path for _title, path in parse_interfaces(read_text(args.spec)) if path]
+    if _slice_mode(row, interface_paths, legacy) != "design":
+        return []
+    frozen = next((m for m in map(FROZEN_LINE_RE.match, lines) if m), None)
+    if frozen is None:
+        return ["missing freeze commit"]
+    contract = [p for p in _git_paths(repo, f"{frozen.group('s')}..{frozen.group('f')}") if not p.startswith("tasks/")]
+    after = _git_paths(repo, f"{frozen.group('f')}..HEAD")
+    added = _git_paths(repo, "--diff-filter=A", f"{frozen.group('f')}..HEAD")
+    directories = {os.path.dirname(path) for path in contract}
+    new_beside = [p for p in added if os.path.dirname(p) in directories and not p.startswith("tasks/")]
+    amended = [m.group("path") for m in map(AMENDED_LINE_RE.match, lines) if m]
+    known = set(contract) | set(new_beside)
+    edited = [p for p in after if p in known and p not in amended]
+    unknown = [p for p in amended if p not in known]
+    return [f"frozen-edited: {p}" for p in edited] + [f"amended-unknown: {p}" for p in unknown]
+
+
 def cmd_check(args: argparse.Namespace) -> int:
-    """Exit 0 when the diff stayed inside the slice's surface, 1 when it did not, 2 on bad input."""
+    """Exit 0 when the diff stayed inside the slice's surface, 1 when it did not, 3 on a freeze problem, 2 on bad input."""
     implicit_name = os.path.splitext(os.path.basename(args.spec))[0]
     try:
         slices = resolve_slices(args.spec, implicit_name)
@@ -700,6 +751,14 @@ def cmd_check(args: argparse.Namespace) -> int:
     undeclared = [path for path in changed if not any(match_path(pattern, path) for pattern in row.surface)]
     untouched = [pattern for pattern in row.surface if not any(match_path(pattern, path) for path in changed)]
 
+    freeze: List[str] = []
+    if args.index:
+        try:
+            freeze = _freeze_problems(args, args.repo or ".", row)
+        except (SliceError, IndexUnreadable, OSError) as exc:
+            print(f"slice: {exc}", file=sys.stderr)
+            return 2
+
     exit_code = 0
     if undeclared:
         print("undeclared: " + ", ".join(undeclared))
@@ -707,7 +766,9 @@ def cmd_check(args: argparse.Namespace) -> int:
     if untouched:
         print("untouched: " + ", ".join(untouched))
         exit_code = 1
-    return exit_code
+    for problem in freeze:
+        print(problem)
+    return 3 if freeze else exit_code
 
 
 # --------------------------------------------------------------------- CLI
@@ -739,6 +800,10 @@ def build_parser() -> argparse.ArgumentParser:
     check_parser.add_argument("--slice", required=True, type=int, help="slice number")
     check_parser.add_argument("--base", required=True, help="base revision to diff against")
     check_parser.add_argument("--repo", default=None, help="repository to diff (default: cwd)")
+    check_parser.add_argument(
+        "--index", default=None,
+        help="path to tasks/todo.md; a design-mode slice's `> Frozen:` and `> Test amended:` lines are checked",
+    )
 
     return parser
 
