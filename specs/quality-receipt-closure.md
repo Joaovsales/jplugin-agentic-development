@@ -146,11 +146,11 @@ Facts the design rests on:
    quality-gate  ──(4) sync──► /quality-gate [--scope <delta> --parent <fp>]   (§ Quality receipt)
    run-suite     ── full suite through cached-suite.sh, #178                   (§ Full suite)
                               ▼
-            wrap-up performs the action:  commit · push · pr-sync · mergeability ──(6) gh pr view
-                                          watch-ci ──(7) async── gh pr checks --watch (background)
+            wrap-up performs the action:  commit · push · pr-sync · mergeability ──(6) gh_pr.py mergeable
+                                          watch-ci ──(7) async── gh_pr.py checks --watch (background)
                                           debug-ci ── /debug   merge-base ── git merge origin/<base>
                                           verify-deploy ── /verify-evidence --scope deployment
-                                          re-gate ── back to § Quality receipt   mark-draft ── gh pr ready --undo
+                                          re-gate ── back to § Quality receipt   mark-draft ── gh_pr.py ready --undo
 ```
 
 | Arrow | Mode | On timeout | On duplicate |
@@ -447,10 +447,10 @@ Constraints: the PR body carries `Closes #163` and `Refs #162`, never `Closes #1
 7. `/wrap-up-session` dispatches no reviewer and runs no `/security-scan`. The review payload, the Step 5 apply and reconciliation loop and the *Parallel Code Review* enhancement are gone. `tests/test-review-context.sh` no longer lists wrap-up as a dispatch site and asserts it has none, and `tests/test-model-tiers.sh` no longer expects critic's floor there. `AGENTS.md`'s Layer 3 line names the receipt, not reviewer passes (`tests/test-review-context.sh`, `tests/test-model-tiers.sh`, `tests/test-doc-conventions.sh`).
 8. `/wrap-up-session` § *Quality receipt* runs `receipt.py check`. On `valid` it reuses the receipt. On `diff-changed` it invokes `/quality-gate --scope <delta> --parent <fp>` once, on any other stale reason `/quality-gate` once at full scope, and it proceeds only on GO or approved HOLD. It approves a HOLD only after a human answer in an interactive run. It still reconciles specs before § *Quality receipt* and runs § *Full suite* through `cached-suite.sh`. § *Terminal PR assertion*'s exit table names the receipt stop, and every closure end routes through § *Terminal PR assertion* (`tests/test-living-spec-reconciliation.sh`, `tests/test-routine-wrapup.sh`, `tests/test-doc-conventions.sh`).
 9. Wrap-up commits with hooks enabled (no `--no-verify`), pushes, and creates or re-syncs the PR with the existing linkage check. The body carries the `Quality receipt:` line and a `## Closure` section. From § *Quality receipt* on, wrap-up performs the actions `closure.py step` prints, with its state file under the git common dir (`tests/test-doc-conventions.sh`, `tests/test-routine-step-ledger.sh`).
-10. Wrap-up checks mergeability with `gh pr view --json mergeable` and watches checks with `gh pr checks <n> --watch --required` as a background task (all checks when none are required), with a 30-min budget. A failed check's log (`gh run view --log-failed`) goes to `/debug`. The fix re-enters § *Quality receipt* and § *Full suite* before the push, for at most 2 rounds. `ci: none` is reported only when the 2-min registration window saw no checks and no workflow triggers on `pull_request`. Every repair commit adds a `## Session Summary … — closure repair <n>` line so the pre-push gate counts it covered (`tests/test-doc-conventions.sh`).
+10. Wrap-up checks mergeability with `gh_pr.py mergeable <n>` and watches checks with `gh_pr.py checks <n> --watch --required` as a background task (all checks when none are required), with a 30-min budget. A failed check's log (`gh run view --log-failed`) goes to `/debug`. The fix re-enters § *Quality receipt* and § *Full suite* before the push, for at most 2 rounds. `ci: none` is reported only when the 2-min registration window saw no checks and no workflow triggers on `pull_request`. Every repair commit adds a `## Session Summary … — closure repair <n>` line so the pre-push gate counts it covered (`tests/test-doc-conventions.sh`).
 11. On `CONFLICTING`, or on a non-fast-forward push, wrap-up merges the base (or the remote branch) with no rebase and no force-push, for at most 1 round. A clean resolution re-enters § *Quality receipt*. An unresolved merge is aborted and the run goes partial (`tests/test-doc-conventions.sh`).
 12. When a `## Deployment Targets` row applies to the pushed branch, wrap-up invokes `/verify-evidence --scope deployment` and records its evidence. Otherwise it records `Deployments: not applicable — <reason>`. A deployment fix that moved HEAD re-enters § *Quality receipt* once (`tests/test-doc-conventions.sh`).
-13. `tasks/history.md` and `tasks/todo.md` record only facts known before the push. CI, conflict and deployment outcomes go in the PR body's `## Closure` and the Done report's `Closure: <complete|partial — state>` line. A partial run marks the PR draft with `gh pr ready --undo`. `routines.md` names the receipt in place of review passes (`tests/test-doc-conventions.sh`).
+13. `tasks/history.md` and `tasks/todo.md` record only facts known before the push. CI, conflict and deployment outcomes go in the PR body's `## Closure` and the Done report's `Closure: <complete|partial — state>` line. A partial run marks the PR draft with `gh_pr.py ready <n> --undo`. `routines.md` names the receipt in place of review passes (`tests/test-doc-conventions.sh`).
 
 ## Implementation Paths
 

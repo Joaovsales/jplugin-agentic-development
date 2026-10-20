@@ -94,31 +94,40 @@ install_gh_mock() {
  {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},{"name":"simplify"},
  {"name":"area/render"},{"name":"area/color"}]
 EOF
+  # The REST issue shape (`GET /repos/{r}/issues`): `html_url`, `created_at`,
+  # lower-case `state`. The list also returns pull requests, marked by a
+  # `pull_request` key -- #45 is one, carrying a managed block so that a
+  # provider that fails to drop it would surface a fourth task.
   cat > "$d/ghdata/issues.json" <<'EOF'
 [
- {"number":42,"title":"Morph live grid recipe","state":"OPEN",
-  "url":"https://github.com/fixture-owner/fixture-repo/issues/42",
+ {"number":42,"title":"Morph live grid recipe","state":"open",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/issues/42",
   "labels":[{"name":"enhancement"},{"name":"now"},{"name":"area/render"},{"name":"tech-debt"}],
-  "assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-02T00:00:00Z",
+  "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z",
   "body":"Ship the live grid morph.\n\n<!-- task-registry:begin -->\ntask-id: recipe.morph-live-grid\nkind: feature\ndepends-on: recipe.color-lut\n<!-- task-registry:end -->\n"},
- {"number":43,"title":"Colour LUT loader crashes on 8-bit input","state":"CLOSED",
-  "url":"https://github.com/fixture-owner/fixture-repo/issues/43",
+ {"number":43,"title":"Colour LUT loader crashes on 8-bit input","state":"closed","state_reason":"completed",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/issues/43",
   "labels":[{"name":"bug"},{"name":"area/color"}],
-  "assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-03T00:00:00Z",
+  "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-03T00:00:00Z",
   "body":"<!-- task-registry:begin -->\ntask-id: recipe.color-lut\nkind: bug\n<!-- task-registry:end -->\n"},
- {"number":44,"title":"Decide on dither strategy","state":"OPEN",
-  "url":"https://github.com/fixture-owner/fixture-repo/issues/44",
+ {"number":44,"title":"Decide on dither strategy","state":"open",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/issues/44",
   "labels":[{"name":"design-decision"},{"name":"next"},{"name":"area/render"}],
-  "assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-04T00:00:00Z",
-  "body":"Which dither?\n\n<!-- task-registry:begin -->\ntask-id: render.dither-strategy\nkind: decision\n<!-- task-registry:end -->\n"}
+  "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-04T00:00:00Z",
+  "body":"Which dither?\n\n<!-- task-registry:begin -->\ntask-id: render.dither-strategy\nkind: decision\n<!-- task-registry:end -->\n"},
+ {"number":45,"title":"Fix the colour LUT loader","state":"open",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/pull/45",
+  "pull_request":{"url":"https://api.github.com/repos/fixture-owner/fixture-repo/pulls/45"},
+  "labels":[{"name":"bug"}],
+  "assignees":[],"created_at":"2026-08-05T00:00:00Z","updated_at":"2026-08-05T00:00:00Z",
+  "body":"Closes #43\n\n<!-- task-registry:begin -->\ntask-id: recipe.color-lut-pr\nkind: bug\n<!-- task-registry:end -->\n"}
 ]
 EOF
-  cp "$d/ghdata/issues.json" "$d/ghdata/issue-42.json.all"
   cat > "$d/ghdata/issue-42.json" <<'EOF'
-{"number":42,"title":"Morph live grid recipe","state":"OPEN",
- "url":"https://github.com/fixture-owner/fixture-repo/issues/42",
+{"number":42,"title":"Morph live grid recipe","state":"open",
+ "html_url":"https://github.com/fixture-owner/fixture-repo/issues/42",
  "labels":[{"name":"enhancement"},{"name":"now"},{"name":"area/render"},{"name":"tech-debt"}],
- "assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-02T00:00:00Z",
+ "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z",
  "body":"Ship the live grid morph.\n\n<!-- task-registry:begin -->\ntask-id: recipe.morph-live-grid\nkind: feature\ndepends-on: recipe.color-lut\n<!-- task-registry:end -->\n"}
 EOF
   rm -f "$d/ghdata/issue-42.json.all"
@@ -680,6 +689,15 @@ sel_gh="$(
 assert_contains "$sel_gh" "provider:       github" \
   "Selection: a GitHub remote plus authenticated gh selects github"
 assert_contains "$sel_gh" "authenticated gh" "Selection: github selection states its reason"
+# The sandbox proxy fails `gh auth status` while every REST call succeeds, so
+# reachability is `gh api user` exiting 0 -- in provider selection and in the
+# provider's own `discover()` alike (specs/github-rest-in-sandboxes.md, AC1).
+assert_contains "$sel_gh" "reachable:      yes — gh authenticated for fixture-owner/fixture-repo" \
+  "Selection (AC1): doctor reports the remote-resolved repository reachable"
+assert_contains "$(cat "$F_SEL_GH/gh.log")" "api user" \
+  "Selection (AC1): reachability is probed with gh api user"
+assert_not_contains "$(cat "$F_SEL_GH/gh.log")" "auth status" \
+  "Selection (AC1): gh auth status never runs -- it fails in the sandbox while REST works"
 
 sel_gh_unauth="$(
   export PATH="$F_SEL_GH/bin:$PATH" GH_MOCK_DIR="$F_SEL_GH/ghdata" \
@@ -717,13 +735,13 @@ assert_not_contains "$sel_gh_select" "no repository configured" \
   "Selection (#124): select does not refuse on the repository doctor already resolved"
 # `select` prints the upstream verdict only when it fails, so a passing check is
 # proved from the mock's call log: the label listing named the discovered repo.
-assert_contains "$(cat "$F_SEL_GH/gh.log")" "label list --repo fixture-owner/fixture-repo" \
+assert_contains "$(cat "$F_SEL_GH/gh.log")" "api repos/fixture-owner/fixture-repo/labels?per_page=100&page=1" \
   "Selection (#124): the upstream label check ran against the discovered repository"
 assert_contains "$sel_gh_select" "candidate:" \
   "Selection (#124): select reached the candidate pool"
 sel_gh_repo_views="$(grep -c '^repo view' "$F_SEL_GH/gh.log")"
-assert_eq "1" "$sel_gh_repo_views" \
-  "Selection (#124): the repository is discovered once per run, not once per gh call"
+assert_eq "0" "$sel_gh_repo_views" \
+  "Selection (#124, AC1): the repository is parsed from the remote -- gh repo view is GraphQL and never runs"
 
 sel_gh_workflow="$(
   export PATH="$F_SEL_GH/bin:$PATH" GH_MOCK_DIR="$F_SEL_GH/ghdata" GH_MOCK_LOG="$F_SEL_GH/gh.log"
@@ -813,20 +831,25 @@ try:
     print("foreign=accepted")
 except ProviderError as exc:
     print("foreign=" + str(exc))
-clean = provider._to_task({
-    "number": 1, "title": "clean", "state": "OPEN", "url": "",
-    "closedByPullRequestsReferences": [],
-})
+clean = provider._to_task({"number": 1, "title": "clean", "state": "open", "html_url": ""})
 
 
-def linked(references, states):
-    issue = {"number": 2, "state": "OPEN", "closedByPullRequestsReferences": references}
-    return provider._linked_pr_state(issue, states).get("unresolved_linked_pr", "unknown")
+def pull(state):
+    return {"event": "cross-referenced", "source": {"type": "issue", "issue": {
+        "number": 9, "state": state, "body": "", "pull_request": {"merged_at": None},
+        "repository_url": "https://api.github.com/repos/owner/repo"}}}
 
 
-print("clean-pr=" + linked([], {}))
-print("open-pr=" + linked([{"id": "PR_9"}], {"PR_9": "OPEN"}))
-print("unread-pr=" + linked([{"id": "PR_9"}], {}))
+def linked(events):
+    provider._json = lambda command, input=None: events
+    task = provider._to_task({"number": 2, "title": "linked", "state": "open",
+                              "html_url": "https://github.com/owner/repo/issues/2"})
+    return (provider.linked_pr_state(task) or {}).get("unresolved_linked_pr", "unknown")
+
+
+print("clean-pr=" + linked([]))
+print("open-pr=" + linked([pull("open")]))
+print("unread-pr=" + linked([pull(None)]))
 print("plain-read=" + clean.extra.get("unresolved_linked_pr", "unset"))
 print("identity=" + clean.extra.get("registry_identity", "stable"))
 EOF
@@ -836,102 +859,15 @@ assert_contains "$github_reference_out" "own=42" \
 assert_contains "$github_reference_out" "foreign=github: issue URL belongs to other/repo, not owner/repo" \
   "GitHub: a foreign repository URL is refused instead of retargeted"
 assert_contains "$github_reference_out" "clean-pr=false" \
-  "GitHub: an empty closing-PR set explicitly attests no unresolved PR"
+  "GitHub: an empty timeline explicitly attests no unresolved PR"
 assert_contains "$github_reference_out" "open-pr=true" \
-  "GitHub: an open closing PR is reported as unresolved"
+  "GitHub: an open cross-referencing PR is reported as unresolved"
 assert_contains "$github_reference_out" "unread-pr=true" \
-  "GitHub: a closing PR whose state was not read counts as unresolved"
+  "GitHub: a cross-referencing PR whose state is missing counts as unresolved"
 assert_contains "$github_reference_out" "plain-read=unset" \
   "GitHub: a plain read carries no linked-PR state -- only select's read looks it up"
 assert_contains "$github_reference_out" "identity=provisional-title-slug" \
   "GitHub: an unmanaged issue exposes its provisional identity"
-
-# A `gh` older than the release that added an optional issue field rejects the
-# whole query client-side, so asking for it unconditionally turns every read into
-# a hard failure. The field is optional to us; the run must degrade, not die.
-github_old_gh_out="$(pyreg <<'EOF'
-from registry.config import Config
-from registry.providers.base import ProviderError
-from registry.providers.github import GitHubProvider
-
-class OldGh(GitHubProvider):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.attempts = []
-
-    def _run(self, command, check=True):
-        fields = command[command.index("--json") + 1]
-        self.attempts.append(fields)
-        if "closedByPullRequestsReferences" in fields:
-            raise ProviderError(
-                "github: `gh issue list` exited 1 — Unknown JSON field: "
-                '"closedByPullRequestsReferences"'
-            )
-        return 0, '[{"number": 7, "title": "old gh", "state": "OPEN", "url": "", "labels": []}]'
-
-provider = OldGh(Config(root=".", repository="owner/repo"))
-tasks = provider.list_tasks()
-print("count=%d" % len(tasks))
-print("linked=" + tasks[0].extra.get("unresolved_linked_pr", "unset"))
-print("attempts=%d" % len(provider.attempts))
-print("degraded=" + ("yes" if any("closedByPullRequestsReferences" in n for n in provider.limitations) else "no"))
-
-class OlderGh(OldGh):
-    """Rejects every field in `missing`, one per attempt, as gh does."""
-    missing = ("closedByPullRequestsReferences", "stateReason")
-
-    def _run(self, command, check=True):
-        fields = command[command.index("--json") + 1]
-        self.attempts.append(fields)
-        for field in self.missing:
-            if field in fields.split(","):
-                raise ProviderError(
-                    f'github: `gh issue list` exited 1 — Unknown JSON field: "{field}"'
-                )
-        return 0, '[{"number": 7, "title": "old gh", "state": "OPEN", "url": "", "labels": []}]'
-
-
-class NoStateReasonGh(OlderGh):
-    missing = ("stateReason",)
-
-
-older = OlderGh(Config(root=".", repository="owner/repo"))
-print("older-count=%d" % len(older.list_tasks()))
-print("older-attempts=%d" % len(older.attempts))
-print("older-exclusion=%s" % older.linked_pr_exclusion_available())
-no_reason = NoStateReasonGh(Config(root=".", repository="owner/repo"))
-no_reason.list_tasks()
-print("no-reason-exclusion=%s" % no_reason.linked_pr_exclusion_available())
-
-strict = OldGh(Config(root=".", repository="owner/repo"))
-strict.__class__._run = lambda self, command, check=True: (_ for _ in ()).throw(
-    ProviderError('github: `gh issue list` exited 1 — Unknown JSON field: "title"')
-)
-try:
-    strict.list_tasks()
-    print("required=dropped")
-except ProviderError:
-    print("required=refused")
-EOF
-)"
-assert_contains "$github_old_gh_out" "count=1" \
-  "GitHub: an unsupported optional field degrades the read instead of failing it"
-assert_contains "$github_old_gh_out" "linked=unset" \
-  "GitHub: a degraded read reports linked-PR state as unknown, never as clean"
-assert_contains "$github_old_gh_out" "attempts=2" \
-  "GitHub: the field is dropped and the read retried exactly once"
-assert_contains "$github_old_gh_out" "degraded=yes" \
-  "GitHub: the dropped field is recorded as a limitation, not silently swallowed"
-assert_contains "$github_old_gh_out" "older-count=1" \
-  "GitHub: a gh missing both optional fields still degrades the read instead of failing it"
-assert_contains "$github_old_gh_out" "older-attempts=3" \
-  "GitHub: each rejected optional field is dropped in turn"
-assert_contains "$github_old_gh_out" "older-exclusion=False" \
-  "GitHub: without its linked-PR fields the in-flight exclusion is unavailable"
-assert_contains "$github_old_gh_out" "no-reason-exclusion=False" \
-  "GitHub: without stateReason a reopened issue cannot be told from a stranded one, so the exclusion is unavailable"
-assert_contains "$github_old_gh_out" "required=refused" \
-  "GitHub: an unknown *required* field still fails — only optional ones are dropped"
 
 # =============================================================================
 # 6. Local provider — the full lifecycle, entirely offline
@@ -1035,6 +971,10 @@ assert_contains "$gh_norm" "render.dither-strategy|kind=decision|status=open|pri
   "GitHub: 'design-decision'->decision, 'next'->medium, open->open"
 assert_contains "$gh_norm" "ids-not-numbers=True" \
   "GitHub: identity comes from the body metadata, never from the issue number"
+assert_not_contains "$gh_norm" "ref=45" \
+  "GitHub (AC4): an issues entry carrying a pull_request key is a pull request, not a task"
+assert_contains "$(cat "$F_GH/gh-norm.log")" "api repos/fixture-owner/fixture-repo/issues?state=all&per_page=100&page=1" \
+  "GitHub (AC4): issues are listed through the REST issues route, paged"
 
 # The write gate itself survives the sync engine: `upsert` is now the command
 # that reaches a provider, so it is where "unreachable means refuse, never
@@ -1053,7 +993,7 @@ assert_contains "$gh_unauth_write" "local-pending" \
   "GitHub: the record is marked as not yet published"
 assert_contains "$gh_unauth_write" "external publication pending" \
   "GitHub: the unpublished half is reported, never silently dropped"
-assert_not_contains "$(cat "$F_GH/gh-unauth2.log")X" "issue create" \
+assert_not_contains "$(cat "$F_GH/gh-unauth2.log")X" "--method POST" \
   "GitHub: no create call is attempted while unauthenticated"
 
 # A local-pending write must not replace a previously published tracker address.
@@ -2180,8 +2120,49 @@ assert_contains "$gh_reg" "legit-ref=" \
   "GitHub: a legitimate issue number is still fetched after the guard"
 assert_contains "$gh_reg" "creation-off=True" \
   "GitHub: an unknown label is reported and omitted while creation is off"
-assert_contains "$(cat "$F_GH/gh-reg.log")" " -- " \
-  "GitHub: positional arguments are passed after a -- separator"
+assert_contains "$(cat "$F_GH/gh-reg.log")" "api repos/fixture-owner/fixture-repo/issues/42" \
+  "GitHub: one issue is read through the REST issues route, the number in the path"
+assert_contains "$(cat "$F_GH/gh-reg.log")" 'api --method POST repos/fixture-owner/fixture-repo/issues --input - {"body":' \
+  "GitHub (AC3): an issue is created through POST /issues, the payload on stdin"
+assert_not_contains "$(grep -- '--method POST' "$F_GH/gh-reg.log")" "brand-new-label" \
+  "GitHub (AC7): an unknown label is filtered before the write reaches the API"
+
+# Exactly LIST_LIMIT issues is indistinguishable from "there were more": the
+# REST read pages 100 at a time, stops at the cap instead of paging past it,
+# sets the truncation flag, and `select` refuses rather than claim from a
+# partial pool (specs/github-rest-in-sandboxes.md, AC5).
+F_PAGE="$(new_fixture)"
+write_index "$F_PAGE"
+write_github_config "$F_PAGE"
+install_gh_mock "$F_PAGE"
+cat > "$F_PAGE/ghdata/labels.json" <<'EOF'
+[{"name":"bug"},{"name":"enhancement"},{"name":"design-decision"},{"name":"question"},
+ {"name":"now"},{"name":"next"},{"name":"documentation"},{"name":"tech-debt"},{"name":"simplify"},
+ {"name":"in-progress"},{"name":"needs-investigation"}]
+EOF
+"$PY" - "$F_PAGE/ghdata/issues.json" <<'PY'
+import io, json, sys
+issues = [
+    {"number": n, "title": f"Issue {n}", "state": "open", "body": "",
+     "html_url": f"https://github.com/fixture-owner/fixture-repo/issues/{n}",
+     "labels": [{"name": "bug"}, {"name": "next"}], "assignees": [],
+     "created_at": "2026-08-01T00:00:00Z", "updated_at": "2026-08-01T00:00:00Z"}
+    for n in range(1, 501)
+]
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
+PY
+page_out="$(cd "$F_PAGE" && PATH="$F_PAGE/bin:$PATH" GH_MOCK_DIR="$F_PAGE/ghdata" \
+  GH_MOCK_LOG="$F_PAGE/gh.log" run select --routine fix --repo "$F_PAGE" 2>&1)"; page_code=$?
+assert_eq "1" "$page_code" \
+  "GitHub (AC5): a read of exactly LIST_LIMIT issues makes select refuse"
+assert_contains "$page_out" "truncated read" \
+  "GitHub (AC5): the refusal names the truncated read"
+assert_contains "$(cat "$F_PAGE/gh.log")" "issues?state=all&per_page=100&page=1" \
+  "GitHub (AC5): the issue list is paged from page 1, 100 per page"
+assert_contains "$(cat "$F_PAGE/gh.log")" "per_page=100&page=5" \
+  "GitHub (AC5): the read pages up to the LIST_LIMIT-th entry"
+assert_not_contains "$(cat "$F_PAGE/gh.log")" "page=6" \
+  "GitHub (AC5): the read stops at the cap instead of paging past it"
 
 F_LBL="$(new_fixture)"
 write_index "$F_LBL"
@@ -2214,10 +2195,79 @@ EOF
 )"
 assert_contains "$lbl_out" "created-note=True" \
   "GitHub: allow_label_creation actually creates the missing label"
-assert_contains "$(cat "$F_LBL/gh.log")" "label create" \
-  "GitHub: label creation goes through gh label create, not a silent skip"
+assert_contains "$(cat "$F_LBL/gh.log")" 'api --method POST repos/fixture-owner/fixture-repo/labels --input - {"name": "area/render"}' \
+  "GitHub (AC3): label creation is POST /labels with the name on stdin, not a silent skip"
 assert_file_contains "$F_LBL/lbldata/labels.json" "area/render" \
   "GitHub: the created label is really added to the repository vocabulary"
+
+# --- github (AC7): the mock refuses a label the repository lacks ------------
+# REST `POST /issues` silently CREATES an unknown label, so the provider's
+# known-label filter is the only guard; the mock fails where the API would stay
+# quiet, which is what makes the filter assertions above worth anything.
+slipped_out="$(cd "$F_GH" && printf '%s' '{"labels":["not-in-vocabulary"]}' \
+  | PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" GH_MOCK_LOG="$F_GH/gh-slipped.log" \
+    gh api --method POST repos/fixture-owner/fixture-repo/issues/42/labels --input - 2>&1)"
+slipped_code=$?
+assert_eq "1" "$slipped_code" \
+  "GitHub (AC7): a write naming a label absent from labels.json exits 1"
+assert_contains "$slipped_out" "not-in-vocabulary" \
+  "GitHub (AC7): the refusal names the label"
+assert_contains "$(cat "$F_GH/gh-slipped.log")" '--input - {"labels": ["not-in-vocabulary"]}' \
+  "GitHub (AC7, Decision 10): the log line carries the parsed stdin body"
+
+# --- github (AC3, AC8): update is PATCH then POST labels; close and comment --
+# REST has no single call that edits a body and adds labels, so the second write
+# can fail after the first landed. GH_MOCK_FAIL_ROUTE fails only the label add.
+upd_out="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-update.log" GH_MOCK_FAIL_ROUTE=issues/42/labels pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import ExternalRef
+from registry.providers import build_provider
+from registry.providers.base import ProviderError, WriteGate
+
+provider = build_provider("github", load_config("."), WriteGate(apply=True, require_approval=False))
+current = provider.get_task(ExternalRef("github", "42", ""))
+try:
+    provider.update_task(current.with_(labels=current.labels + ("bug",)))
+    print("update=ok")
+except ProviderError as exc:
+    print("update-error=" + str(exc))
+EOF
+)"
+assert_contains "$upd_out" "update-error=github: issue #42: body written, but adding label(s) bug failed" \
+  "GitHub (AC8): a label add that fails after the PATCH names the body as already written"
+upd_writes="$(grep -- '--method' "$F_GH/gh-update.log")"
+assert_contains "$(printf '%s\n' "$upd_writes" | sed -n '1p')" 'api --method PATCH repos/fixture-owner/fixture-repo/issues/42 --input - {"body": "' \
+  "GitHub (AC8): the body goes first, through PATCH /issues/{n} with the payload on stdin"
+assert_contains "$(printf '%s\n' "$upd_writes" | sed -n '2p')" 'api --method POST repos/fixture-owner/fixture-repo/issues/42/labels --input - {"labels": ["bug"]}' \
+  "GitHub (AC8): the new label follows, through POST /issues/{n}/labels"
+assert_eq "2" "$(printf '%s\n' "$upd_writes" | grep -c .)" \
+  "GitHub (AC8): an update is exactly those two writes"
+
+life_out="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
+  GH_MOCK_LOG="$F_GH/gh-life.log" pyreg <<'EOF'
+from registry.config import load_config
+from registry.model import ExternalRef
+from registry.providers import build_provider
+from registry.providers.base import WriteGate
+
+provider = build_provider("github", load_config("."), WriteGate(apply=True, require_approval=False))
+task = provider.get_task(ExternalRef("github", "42", ""))
+provider.update_task(task)
+provider.comment(task, "Reviewed over REST")
+print("closed=" + provider.close_task(task, "cancelled").status)
+EOF
+)"
+assert_contains "$life_out" "closed=cancelled" \
+  "GitHub (AC3): close_task answers the terminal status"
+assert_contains "$(cat "$F_GH/gh-life.log")" 'api --method POST repos/fixture-owner/fixture-repo/issues/42/comments --input - {"body": "Reviewed over REST"}' \
+  "GitHub (AC3): a comment is POST /issues/{n}/comments, the body on stdin"
+assert_contains "$(cat "$F_GH/gh-life.log")" 'api --method PATCH repos/fixture-owner/fixture-repo/issues/42 --input - {"state": "closed", "state_reason": "not_planned"}' \
+  "GitHub (AC3): a cancelled close is PATCH /issues/{n} with state closed and state_reason not_planned"
+assert_eq "0" "$(grep -c 'issues/42/labels' "$F_GH/gh-life.log")" \
+  "GitHub (AC3): an update with nothing new to label makes no label write"
+assert_eq "0" "$(cat "$F_GH"/gh-*.log | grep -cvE '^api (--method [A-Z]+ )?(user|repos/fixture-owner/fixture-repo[/?])')" \
+  "GitHub (AC2): every gh call in the lifecycle logs is gh api on user or repos/<owner>/<repo>/..."
 
 # --- migrate: id collisions, block-bounded specs, dependency rewrites --------
 F_MIG2="$(new_fixture)"
@@ -2580,19 +2630,20 @@ class RecordingGitHub(GitHubProvider):
     def __init__(self):
         super().__init__(Config(root=".", repository="o/r"), WriteGate(apply=True, require_approval=False))
         self.commands = []
-    def _json(self, command):
-        return [{"name": "bug"}, {"name": "needs-investigation"}]
-    def _run(self, command, check=True):
-        self.commands.append(command)
-        return 0, ""
+    def _run(self, command, check=True, input=None):
+        self.commands.append((list(command), input))
+        if "/labels?" in command[2]:
+            return 0, '[{"name": "bug"}, {"name": "needs-investigation"}]'
+        return 0, "[]"
 
 github = RecordingGitHub()
 external = Task(id="held.two", title="Do not replace", labels=("bug",),
                 external=ExternalRef("github", "42", "https://github.com/o/r/issues/42"))
 github.add_labels(external, ("needs-investigation",))
-command = github.commands[-1]
-print("github-add:", "--add-label" in command and "needs-investigation" in command)
-print("github-no-body:", "--body" not in command and "--title" not in command)
+command, body = github.commands[-1]
+print("github-add:", command[2:5] == ["--method", "POST", "repos/o/r/issues/42/labels"]
+      and body == '{"labels": ["needs-investigation"]}')
+print("github-no-body:", command[5:] == ["--input", "-"] and "body" not in body and "title" not in body)
 case_labels = github._writable_labels(
     external.with_(kind="bug", labels=("Bug", "Needs-Investigation"))
 )
