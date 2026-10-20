@@ -115,7 +115,7 @@ never builds. Like `/yolo` Phase A, it owns these overrides, and only these:
 |---|---|
 | `/plan` Step 1 — Interview | the spec this skill wrote carries § Decisions; `/plan` prints `DECISIONS CARRIED` and asks nothing unattended. An interactive run was already grilled |
 | `/plan` Step 6 — Hand over | no build prompt is printed; `/build` runs in place, in this session |
-| `/build` pre-flight — filing | no `/slice --file`: the `simplify` task is the tracked unit, the slices stay plan-block rows, and slice headers are not claimed |
+| `/build` pre-flight — feature issue | files nothing: the claimed `simplify` task is the plan's `> Issue:`, the slices stay plan-block rows, and slice headers are not claimed |
 
 ## Integration
 

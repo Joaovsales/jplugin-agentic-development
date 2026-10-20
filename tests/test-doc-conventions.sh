@@ -1015,8 +1015,12 @@ assert_file_matches "$YOLO_SKILL" 'Step 6.*no prompt' \
   "pipelines: yolo Step 6 row prints no prompt"
 assert_file_matches "$YOLO_SKILL" 'no prompt.*in place' \
   "pipelines: yolo Step 6 row invokes /build in place"
-assert_prose_contains "$YOLO_SKILL" 'runs `--file` without `--approve`' \
-  "pipelines: yolo Phase B files with --file and no --approve"
+assert_prose_contains "$YOLO_SKILL" 'pre-flight runs without `--approve`' \
+  "filing-callers: yolo Phase B runs the pre-flight without --approve"
+assert_prose_contains "$YOLO_SKILL" 'an open slice header or a legacy `TDD:` row' \
+  "filing-callers: yolo resumes an open slice header or a legacy TDD: row"
+assert_file_not_matches "$YOLO_SKILL" '--file' \
+  "filing-callers: yolo names no /slice --file"
 assert_file_contains "$YOLO_SKILL" "fresh session" \
   "pipelines: yolo names the fresh-session rule it is excepted from"
 
@@ -1037,8 +1041,29 @@ assert_file_contains "$SIMPLER_SKILL" '| `/plan` Step 1 — Interview |' \
   "pipelines: make-it-simpler overrides /plan Step 1"
 assert_file_matches "$SIMPLER_SKILL" '^\| `/plan` Step 6 — Hand over \| no build prompt is printed; `/build` runs in place' \
   "pipelines: make-it-simpler's Step 6 row prints no prompt and builds in place"
-assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — filing \| no `/slice --file`.*slice headers are not claimed' \
-  "pipelines: make-it-simpler's /build pre-flight row files no slices and claims no header"
+assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — feature issue \| files nothing.*slice headers are not claimed' \
+  "filing-callers: make-it-simpler's /build pre-flight row files nothing and claims no header"
+assert_file_not_matches "$SIMPLER_SKILL" '--file' \
+  "filing-callers: make-it-simpler names no /slice --file"
+assert_file_not_matches .agents/skills/task-registry/SKILL.md '--file' \
+  "filing-callers: task-registry/SKILL.md names no /slice --file"
+ROUTINES_REF=.agents/skills/wrap-up-session/references/routines.md
+crossing_fc="$(awk '/^### Crossing the plan handover/{f=1;next} f&&/^##/{exit} f' "$ROUTINES_REF" | tr -s '[:space:]' ' ')"
+assert_contains "$crossing_fc" '`> Issue:`' \
+  "filing-callers: routines.md crossing writes the claimed issue as > Issue:"
+assert_contains "$crossing_fc" 'files nothing' \
+  "filing-callers: routines.md crossing files nothing"
+assert_not_contains "$crossing_fc" '--file' \
+  "filing-callers: routines.md crossing names no /slice --file"
+CA_FC=.agents/skills/wrap-up-session/references/closure-actions.md
+assert_prose_contains "$CA_FC" 'one `Closes #N` for the feature issue' \
+  "filing-callers: closure-actions writes one Closes #N for a new block"
+assert_prose_contains "$CA_FC" 'legacy block' \
+  "filing-callers: closure-actions keeps the legacy per-row path"
+assert_file_contains "$CA_FC" 'Closes #A, closes #B' \
+  "filing-callers: closure-actions keeps Closes #A, closes #B for legacy rows"
+fc_left="$(grep -rn -e 'slice.*--file' .agents --exclude=upsert.py || true)"
+assert_eq "" "$fc_left" "filing-callers: no /slice --file under .agents (other than upsert.py)"
 assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
   "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
 assert_prose_contains AGENTS.md '`/yolo` (unattended), `/make-it-simpler` (one simplification sized to one review) and an unattended lane run (a routine with no owning skill — `improve`, `refactor`, `babysit`; `.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan handover*) are the four named exceptions that build in the planning session' \
