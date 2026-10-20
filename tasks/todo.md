@@ -2062,3 +2062,89 @@ Filed this sweep:
 > Handover: landed f8dc7bf — hooks/dispatch.tsx (the `ROUTING` persona table and `tierOf` for D11, the seven `ITEM_PRESENT` markers for D10, one matched agent.spawn hook `{ subagentType: /./ }`, `DispatchIssues`) and hooks/dispatch.test.ts (2 tests: tiers, contract)
 > Do not re-derive: agents.tsx owns the matcher-less agent.spawn, so this hook needs its matcher to load; a critic spawn that fits the planner floor is silent and never lands in `gates.dispatch`; `$.agent.spawn` in a test must pass every required AgentSpawnInput field (parentModel included) or `tierOf` throws and the engine skips the hook; the test's `$` is `Engine` from 'claude-code/testing', not `EngineInterface`
 > Surface: undeclared: none; untouched: none
+
+## Plan: helix-checkpoint-loop
+> Spec: specs/helix-checkpoint-loop.md
+> Review units: U1 1–3 → U2 4–7 → U3 8–13 → U4 14–17 → U5 18–19
+
+### Slice 1/19 — Evidence kernel
+- [ ] Evidence kernel <!-- task-id: plan.specs-helix-checkpoint-loop-md.evidence-kernel --> — Versioned evidence validates Surface manifests, historical commit identity, barrier records, gate order, staleness and idempotence without enabling a route.
+  [ ] TDD: tests/test-helix-gates.sh § schema — malformed, missing, stale, wrong-slice and unknown-version records refuse; identical input is idempotent; bookkeeping edits do not stale Surface evidence and old receipts verify against their historical commit -> versioned evidence validator and activation ledger (AC 4)
+
+### Slice 2/19 — Prototype reference
+- [ ] Prototype reference <!-- task-id: plan.specs-helix-checkpoint-loop-md.prototype-reference --> — A design-grounded clickable HTML reference exposes named, reachable UI states. (blocked-by: plan.specs-helix-checkpoint-loop-md.evidence-kernel)
+  [ ] TDD: tests/test-helix-prototype.sh § interaction — offline HTML reaches each declared state by an actual control and follows approved design inputs -> prototype skill and state manifest (AC 7)
+
+### Slice 3/19 — Readiness and unit gate
+- [ ] Readiness and unit gate <!-- task-id: plan.specs-helix-checkpoint-loop-md.readiness-verifier --> — Readiness requires committed proof; the existing quality gate can review a completed unit against its parent base and retain a receipt while later units remain pending. (blocked-by: plan.specs-helix-checkpoint-loop-md.evidence-kernel)
+  [ ] TDD: tests/test-slice.sh § helix-ready — a done blocker without committed receipt or exact-set combined-tree barrier refuses; valid proof releases dependents; legacy fixtures stay green -> readiness verifier (AC 5)
+  [ ] TDD: tests/test-helix-unit-gate.sh § unit-base — a completed unit with later slices pending runs all six existing quality phases against one parent base and retains a keyed receipt; changed head/base invalidates it -> unit-scoped gate and receipt write --base (AC 23)
+
+### Slice 4/19 — Behavior and UI gates
+- [ ] Behavior and UI gates <!-- task-id: plan.specs-helix-checkpoint-loop-md.behavior-and-ui-gates --> — Fresh test planning proves behavior first; matched-state visual review records PASS, FAIL or INVALID. (blocked-by: plan.specs-helix-checkpoint-loop-md.prototype-reference, plan.specs-helix-checkpoint-loop-md.readiness-verifier)
+  [ ] TDD: tests/test-helix-behavior.sh § red-green — separate test-planning and implementation contexts produce a meaningful failure then a tree-bound green affected run -> behavior gate (AC 6)
+  [ ] TDD: tests/test-helix-ui.sh § state-match — matching state/viewport captures report located differences, mismatch reports INVALID, non-UI skip carries a reason -> UI gate (AC 9)
+
+### Slice 5/19 — Review and human gates
+- [ ] Review and human gates <!-- task-id: plan.specs-helix-checkpoint-loop-md.review-and-human-gates --> — Independent reviewers use the existing receipt policy; host-role-checked exact-scope grants and bounded retries control advancement. (blocked-by: plan.specs-helix-checkpoint-loop-md.behavior-and-ui-gates)
+  [ ] TDD: tests/test-helix-review.sh § dual-verdict — isolated reviewers use seven-item dispatch and existing GO/HOLD/STOP policy; a code fix stales affected evidence -> review gate (AC 10)
+  [ ] TDD: tests/test-helix-human.sh § grant — only a host role-tagged owner turn issues an exact next-N grant; agent-authored or unverifiable resumed records refuse; named slices record delegated, never owner-approved -> human gate (AC 11)
+  [ ] TDD: tests/test-helix-human.sh § retry — exhausted attempts block the slice and descendants while unrelated ready slices continue -> bounded repair (AC 12)
+
+### Slice 6/19 — Build checkpoints
+- [ ] Build checkpoints <!-- task-id: plan.specs-helix-checkpoint-loop-md.build-checkpoints --> — `/build` serializes shared writes and one commit per proved slice, merges disjoint source work, records the exact combined-tree barrier and passes feedback forward. (blocked-by: plan.specs-helix-checkpoint-loop-md.readiness-verifier, plan.specs-helix-checkpoint-loop-md.review-and-human-gates)
+  [ ] TDD: tests/test-helix-build.sh § close-commit — source, receipt, handover and done header land in one slice commit; commit failure leaves dependents blocked -> build integration (AC 13)
+  [ ] TDD: tests/test-helix-parallel.sh § merge-barrier — two disjoint workers never edit shared status; central integration serializes commits, tests and quality, then commits an exact-set barrier before descendants release -> integration barrier (AC 14)
+  [ ] TDD: tests/test-helix-build.sh § feedback — human correction reaches typed learning and next handover/context without flat memory -> learning flow (AC 15)
+
+### Slice 7/19 — Single-PR closure
+- [ ] Single-PR closure <!-- task-id: plan.specs-helix-checkpoint-loop-md.single-pr-closure --> — Wrap-up requires final human acceptance, checks every slice receipt, publishes captures and keeps the final suite and one PR. (blocked-by: plan.specs-helix-checkpoint-loop-md.build-checkpoints)
+  [ ] TDD: tests/test-helix-wrapup.sh § closure — final human acceptance and pre-existing slice commits precede receipt checks, full suite, capture publication and one PR; ordinary build remains green -> wrap-up integration (AC 18)
+
+### Slice 8/19 — Helix plan marker
+- [ ] Helix plan marker <!-- task-id: plan.specs-helix-checkpoint-loop-md.helix-plan-marker --> — Helix planning records the workflow marker, reference and checkpoint gate contract. (blocked-by: plan.specs-helix-checkpoint-loop-md.prototype-reference, plan.specs-helix-checkpoint-loop-md.single-pr-closure)
+  [ ] TDD: tests/test-helix-plan.sh § marker — Helix planning writes workflow: helix/1 and checkpoint reference/gate/done criteria into the spec and prompt -> plan contract (AC 3)
+
+### Slice 9/19 — Prototype digest prompt
+- [ ] Prototype digest prompt <!-- task-id: plan.specs-helix-checkpoint-loop-md.prototype-digest-prompt --> — The fresh build prompt carries the approved prototype digest and invalidates stale visual authority. (blocked-by: plan.specs-helix-checkpoint-loop-md.prototype-reference, plan.specs-helix-checkpoint-loop-md.helix-plan-marker)
+  [ ] TDD: tests/test-helix-plan.sh § prototype-digest — prompt carries approved prototype bytes; changed bytes invalidate UI evidence and grants -> digest propagation (AC 8)
+
+### Slice 10/19 — Checkpoint viewer
+- [ ] Checkpoint viewer <!-- task-id: plan.specs-helix-checkpoint-loop-md.checkpoint-viewer --> — An HTML view reads the canonical plan and evidence to show order, statuses and review links. (blocked-by: plan.specs-helix-checkpoint-loop-md.prototype-digest-prompt)
+  [ ] TDD: tests/test-helix-view.sh § view — rendered checkpoint order, status and evidence links match canonical spec/todo/receipts -> read-only viewer (AC 16)
+
+### Slice 11/19 — Stop reminder
+- [ ] Stop reminder <!-- task-id: plan.specs-helix-checkpoint-loop-md.stop-reminder --> — The existing Claude Stop hook reports open gates but permits human waits and blocked exits. (blocked-by: plan.specs-helix-checkpoint-loop-md.build-checkpoints)
+  [ ] TDD: tests/test-helix-stop.sh § stop — Claude reports active open gates but permits waiting_human/blocked; advancement CLI remains cross-harness -> Stop reminder (AC 17)
+
+### Slice 12/19 — Helix lane
+- [ ] Helix lane <!-- task-id: plan.specs-helix-checkpoint-loop-md.helix-lane --> — The lane catalogue registers an explicit Helix route without changing ordinary cues. (blocked-by: plan.specs-helix-checkpoint-loop-md.single-pr-closure, plan.specs-helix-checkpoint-loop-md.prototype-digest-prompt, plan.specs-helix-checkpoint-loop-md.checkpoint-viewer, plan.specs-helix-checkpoint-loop-md.stop-reminder)
+  [ ] TDD: tests/test-lane-catalogue.sh § helix-lane — explicit Helix cues register as a separate lane without changing ordinary lane selection -> lane declaration (AC 1)
+
+### Slice 13/19 — Route selection
+- [ ] Route selection <!-- task-id: plan.specs-helix-checkpoint-loop-md.route-selection --> — `/go` chooses the Helix lane only on an explicit build request. (blocked-by: plan.specs-helix-checkpoint-loop-md.helix-lane)
+  [ ] TDD: tests/test-go-lanes.sh § helix-route — explicit Helix build request selects the lane; ordinary build and investigate requests keep their current route -> /go selection (AC 2)
+
+### Slice 14/19 — Review-unit plan contract
+- [ ] Review-unit plan contract <!-- task-id: plan.specs-helix-checkpoint-loop-md.review-unit-plan-contract --> — The planner validates exact ordered slice coverage and records optional review units without changing single-PR plans. (blocked-by: plan.specs-helix-checkpoint-loop-md.single-pr-closure, plan.specs-helix-checkpoint-loop-md.prototype-digest-prompt, plan.specs-helix-checkpoint-loop-md.route-selection)
+  [ ] TDD: tests/test-helix-stack-plan.sh § review-units — contiguous units cover every slice once; published ID/range/base freeze, reopened slices retain IDs, new scope appends a tail unit and only an unpublished suffix may shift; absent units keep one PR -> unit grammar and `/slice` validation (AC 19)
+
+### Slice 15/19 — Stack branch lifecycle
+- [ ] Stack branch lifecycle <!-- task-id: plan.specs-helix-checkpoint-loop-md.stack-branch-lifecycle --> — Stable unit branches and PRs track explicit parent bases, preserved commits, remote outcomes and stale parents. (blocked-by: plan.specs-helix-checkpoint-loop-md.review-unit-plan-contract)
+  [ ] TDD: tests/test-helix-stack-branch.sh § remote-state — branch/PR head-base lookup is idempotent; timeout is unknown; parent updates merge without rebase; wrong base, duplicate PR and rewritten SHA refuse -> stack inspect and branch contract (AC 20)
+
+### Slice 16/19 — Build unit boundaries
+- [ ] Build unit boundaries <!-- task-id: plan.specs-helix-checkpoint-loop-md.build-unit-boundaries --> — `/build` publishes a proved unit, creates the next branch from its head and carries handovers and barriers across the boundary. (blocked-by: plan.specs-helix-checkpoint-loop-md.stack-branch-lifecycle)
+  [ ] TDD: tests/test-helix-stack-build.sh § boundary — a unit opens only after all slice commits and its barrier; the next unit starts on its declared parent head; blocked/stale ancestors keep descendants draft -> `/build` review-unit transition (AC 21)
+
+### Slice 17/19 — Stacked closure
+- [ ] Stacked closure <!-- task-id: plan.specs-helix-checkpoint-loop-md.stacked-closure --> — Wrap-up checks each unit's receipt, suite, CI, merge ancestry and retargeted diff; final PR waits for integrated owner acceptance. (blocked-by: plan.specs-helix-checkpoint-loop-md.build-unit-boundaries)
+  [ ] TDD: tests/test-helix-stack-wrapup.sh § closure — each PR has a retained unit receipt/suite/CI/evidence; intermediate uses Refs, final uses Closes; merge commit preserves slice SHAs; retarget and final acceptance recheck integrated tree; single-PR and ordinary modes stay green -> stacked wrap-up (AC 22)
+
+### Slice 18/19 — Worker backend selector
+- [ ] Worker backend selector <!-- task-id: plan.specs-helix-checkpoint-loop-md.worker-backend-selector --> — `/build` chooses verified Orca or capable native dispatch from `--worker-backend`, recording each attempt without changing Helix gates. (blocked-by: plan.specs-helix-checkpoint-loop-md.stacked-closure)
+  [ ] TDD: tests/test-helix-worker-selector.sh § selection — auto prefers verified matching Orca then capable native; forced Orca refuses when unavailable; no capable backend blocks; selection records an attempt and ordinary build stays unchanged -> runtime-neutral backend selector (AC 24)
+
+### Slice 19/19 — Orca supervised worker
+- [ ] Orca supervised worker <!-- task-id: plan.specs-helix-checkpoint-loop-md.orca-supervised-worker --> — The optional Orca adapter runs slices in child worktrees and supervises Dispatch IDs, retries and cleanup. (blocked-by: plan.specs-helix-checkpoint-loop-md.worker-backend-selector)
+  [ ] TDD: tests/test-helix-orca-worker.sh § lifecycle — child worktree HEAD is verified before worker dispatch; exact base and Surface are checked on return; unknown liveness blocks retry/native fallback; positive stop, private-change inspection and release permit a new attempt; cross-host resume without original record refuses -> Orca worker adapter (AC 25)
