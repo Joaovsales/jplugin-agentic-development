@@ -96,9 +96,14 @@ assert_file_matches "README.md" '^\| `/tdd` \|' "Catalog: README skills table ha
 # A shallow clone cannot answer, so it is skipped rather than guessed.
 if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
   assert_eq "skipped" "skipped" "Retire: shallow clone — history check skipped"
+elif [ -z "$(git log --all --diff-filter=D --format=%H -1 -- "$TDD")" ]; then
+  assert_eq "skipped" "skipped" "Retire: no deletion commit in history — history check skipped"
 else
+  # Only copies shipped before the retirement count: the commit that re-created
+  # the file is not history, and the live file always matches itself.
+  del="$(git log --all --diff-filter=D --format=%H -1 -- "$TDD")"
   cur="$(git hash-object "$TDD")"
-  old="$(git log --all --format=%H -- "$TDD" | while read -r c; do
+  old="$(git log "$del" --format=%H -- "$TDD" | while read -r c; do
            git rev-parse -q --verify "$c:$TDD" 2>/dev/null
            git rev-parse -q --verify "$c^:$TDD" 2>/dev/null
          done | sort -u | grep -Fx "$cur" || true)"
