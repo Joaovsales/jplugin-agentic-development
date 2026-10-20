@@ -144,6 +144,19 @@ end
 
 <!-- Forward migration, reverse migration, and what old rows mean to new code. -->
 
+## Interfaces
+
+<!-- Optional. One entry per module whose interface the change creates or
+     reshapes; every entry names a `Path:`. -->
+
+### <module or entry point>
+
+- **Path:** `<file the change creates or reshapes>`
+- **Hides:** <the decision or state callers never learn>
+- **Interface:** <the signature or command, in one line>
+- **Alternative considered:** <the other shape, and why it lost>
+- **Depth:** <what one call does so the caller need not>
+
 ## Risks
 
 <!-- One row per risk; likelihood and impact are H, M or L. A high-impact risk

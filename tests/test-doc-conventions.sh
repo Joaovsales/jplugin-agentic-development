@@ -144,9 +144,17 @@ done
 # pinned by the smallest falsifiable unit — heading order and question ids —
 # never by prose.
 tmpl=.agents/skills/system-design-planning/templates/architecture-spec-template.md
-assert_eq "Summary Problem Constraints System design Component contracts Data models Risks Build order Decisions Open questions Acceptance Criteria Implementation Paths" \
+assert_eq "Summary Problem Constraints System design Component contracts Data models Interfaces Risks Build order Decisions Open questions Acceptance Criteria Implementation Paths" \
   "$(grep '^## ' "$tmpl" | tr -d '\r' | sed 's/^## //' | paste -sd ' ' -)" \
-  "system-design-planning: spec template carries the twelve sections in order"
+  "system-design-planning: spec template carries the thirteen sections in order"
+# specs/aposd-first-build.md AC9: both templates carry the optional § Interfaces
+# section with its five fields.
+for f in "$tmpl" .agents/skills/plan/SKILL.md; do
+  assert_file_contains "$f" "## Interfaces" "interfaces: $f carries the section"
+  for field in "Path:" "Hides:" "Interface:" "Alternative considered:" "Depth:"; do
+    assert_file_contains "$f" "**$field**" "interfaces: $f carries the $field field"
+  done
+done
 card=.agents/skills/system-design-planning/references/review-card.md
 assert_eq "C1 C2 C3 C4 C5 S1 S2 S3 S4 S5 K1 K2 K3 K4 K5 D1 D2 D3 D4 D5 B1 B2 B3 B4 B5" \
   "$(grep -oE '^\| [CSKDB][1-5] ' "$card" | tr -d '| ' | paste -sd ' ' -)" \

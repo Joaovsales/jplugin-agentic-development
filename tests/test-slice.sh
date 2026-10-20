@@ -228,6 +228,38 @@ OUT="$("$PY" "$SLICE" ready --index tasks/todo.md --spec specs/aposd-first-build
 CODE=$?
 assert_eq "0" "$CODE" "legacy-plan: the live legacy plan block still readies"
 
+printf '\n--- mode: derived from § Interfaces Path against Surface (AC3) ---\n'
+
+MODE="$FIXTURES/mode"
+OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-new.md" --spec "$MODE/spec.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "mode: a new block exits 0"
+assert_contains "$OUT" "ready: 1 one mode=design" "mode: a slice whose Surface matches an Interfaces Path is design"
+assert_contains "$OUT" "ready: 2 two mode=tdd" "mode: a slice matching no Interfaces Path is tdd"
+assert_contains "$OUT" "  surface: src/one/**" "mode: the surface line still follows"
+OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-legacy.md" --spec "$MODE/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 1 one mode=tdd" "mode: a legacy block's slice is tdd even when its Surface matches"
+assert_contains "$OUT" "ready: 2 two mode=tdd" "mode: every legacy slice is tdd"
+OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-new-no-interfaces.md" --spec "$MODE/spec-no-interfaces.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "mode: a spec with no Interfaces section is fine"
+assert_contains "$OUT" "ready: 1 one mode=tdd" "mode: no Interfaces section means every slice is tdd"
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready-implicit/todo-open.md" --spec "$FIXTURES/ready-implicit/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 1 legacy-feature mode=tdd" "mode: a flat legacy plan's implicit slice is tdd"
+OUT="$("$PY" "$SLICE" ready --index tasks/todo.md --spec specs/aposd-first-build.md 2>&1)"
+assert_contains "$OUT" "ready: 2 Interfaces section and mode mode=tdd" "mode: the live legacy plan prints tdd"
+OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec.md" --index "$MODE/todo-new.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "mode: validate passes when every Interfaces entry has a Path"
+OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec-no-path.md" --index "$MODE/todo-new.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "mode: validate refuses an Interfaces entry with no Path, exit 1"
+assert_contains "$OUT" '`one` module' "mode: the refusal names the entry"
+assert_contains "$OUT" "Path:" "mode: the refusal names the missing field"
+OUT="$("$PY" "$SLICE" validate --spec specs/aposd-first-build.md 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "mode: validate passes on the live spec"
+
 printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
 
 PLAN_REF="$REPO/.agents/skills/slice/references/plan-block.md"

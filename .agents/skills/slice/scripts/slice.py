@@ -64,6 +64,9 @@ H2_RE = re.compile(r"^##\s")
 # A plan block's feature link: the `> Issue:` line, or the one `- [ ]` row above the first slice heading.
 ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
 FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
+INTERFACES_HEADING = "## Interfaces"
+INTERFACE_ENTRY_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$", re.MULTILINE)
+INTERFACE_PATH_RE = re.compile(r"^\s*-\s*\*\*Path:\*\*\s*(?P<path>.*?)\s*$", re.MULTILINE)
 
 
 class SliceError(Exception):
@@ -297,6 +300,40 @@ def find_cycle(slices: Dict[int, SliceRow]) -> Optional[List[int]]:
     return None
 
 
+# ------------------------------------------------------------- Interfaces
+
+
+def parse_interfaces(spec_text: str) -> List[Tuple[str, Optional[str]]]:
+    """(title, Path or None) per `### ` entry of the spec's optional `## Interfaces` section."""
+    body = _section_body(_without_fences(spec_text), INTERFACES_HEADING)
+    if body is None:
+        return []
+    entries = list(INTERFACE_ENTRY_RE.finditer(body))
+    parsed: List[Tuple[str, Optional[str]]] = []
+    for position, entry in enumerate(entries):
+        end = entries[position + 1].start() if position + 1 < len(entries) else len(body)
+        path = INTERFACE_PATH_RE.search(body, entry.end(), end)
+        value = path.group("path").strip("`").strip() if path else ""
+        parsed.append((entry.group("title"), value or None))
+    return parsed
+
+
+def _interfaces_problems(spec_text: str) -> List[str]:
+    return [
+        f"§ Interfaces entry {title} has no `Path:`"
+        for title, path in parse_interfaces(spec_text)
+        if path is None
+    ]
+
+
+def _slice_mode(row: SliceRow, interface_paths: Sequence[str], legacy: bool) -> str:
+    """`design` when a § Interfaces `Path:` falls inside the slice's Surface and the block is new."""
+    if legacy:
+        return "tdd"
+    hit = any(match_path(pattern, path) for pattern in row.surface for path in interface_paths)
+    return "design" if hit else "tdd"
+
+
 # --------------------------------------------------------------- validate
 
 
@@ -327,14 +364,16 @@ def cmd_validate(args: argparse.Namespace) -> int:
     spec_path = args.spec
     try:
         implementation_paths = read_implementation_paths(spec_path)
-        rows = parse_build_order(read_text(spec_path), spec_path)
+        spec_text = read_text(spec_path)
+        rows = parse_build_order(spec_text, spec_path)
     except (SpecPathError, SliceError, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
 
     slices = {row.number: row for row in rows}
     problems = (
-        _surface_problems(rows, implementation_paths)
+        _interfaces_problems(spec_text)
+        + _surface_problems(rows, implementation_paths)
         + _ordering_problems(slices)
         + _plan_block_problems(args.index, spec_path, slices)
     )
@@ -509,8 +548,8 @@ def _block_has_open_row(rows: Sequence[IndexRow], start_line: int, end_line: int
     return any(start_line <= row.line <= end_line and row.task.status == "open" for row in rows)
 
 
-def _print_ready(number: int, name: str, surface: Sequence[str]) -> None:
-    print(f"ready: {number} {name}")
+def _print_ready(number: int, name: str, surface: Sequence[str], mode: str = "tdd") -> None:
+    print(f"ready: {number} {name} mode={mode}")
     print(f"  surface: {', '.join(surface)}")
 
 
@@ -557,9 +596,23 @@ def _ready_numbers(slices: Dict[int, SliceRow], done: Dict[int, bool]) -> List[i
     ]
 
 
-def _print_ready_set(slices: Dict[int, SliceRow], ready_numbers: Sequence[int]) -> None:
+def _block_is_legacy(
+    rows: Sequence[IndexRow], headings: Sequence[Tuple[int, int, str]], end_line: int, prose: Sequence[str]
+) -> bool:
+    """A block is legacy when any slice header row carries a `task-id` marker."""
+    for heading_line, _number, _name, boundary in _heading_spans(headings, end_line):
+        row = _row_after(rows, heading_line, boundary, prose)
+        if row is not None and "task-id:" in prose[row.line - 1]:
+            return True
+    return False
+
+
+def _print_ready_set(
+    slices: Dict[int, SliceRow], ready_numbers: Sequence[int], interface_paths: Sequence[str], legacy: bool
+) -> None:
     for number in ready_numbers:
-        _print_ready(number, slices[number].name, slices[number].surface)
+        row = slices[number]
+        _print_ready(number, row.name, row.surface, _slice_mode(row, interface_paths, legacy))
     for a, b in combinations(ready_numbers, 2):
         if _surfaces_intersect(slices[a].surface, slices[b].surface) and not _ordered(slices, a, b):
             print(f"intersects: {a} \u2194 {b} (no blocker; serialize in table order)")
@@ -593,7 +646,8 @@ def cmd_ready(args: argparse.Namespace) -> int:
         index = load_index_strict(args.index, args.index)
         if not headings:
             return _implicit_slice_ready(args, index, start_line, end_line, plan_name)
-        slices = {row.number: row for row in parse_build_order(read_text(args.spec), args.spec)}
+        spec_text = read_text(args.spec)
+        slices = {row.number: row for row in parse_build_order(spec_text, args.spec)}
         done = _done_by_slice(index.rows, headings, end_line, prose)
         _refuse_plan_drift(slices, done, args.spec, args.index)
         problems = _tdd_surface_problems(prose, headings, end_line, slices)
@@ -602,7 +656,9 @@ def cmd_ready(args: argparse.Namespace) -> int:
     except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
-    _print_ready_set(slices, _ready_numbers(slices, done))
+    interface_paths = [path for _title, path in parse_interfaces(spec_text) if path]
+    legacy = _block_is_legacy(index.rows, headings, end_line, prose)
+    _print_ready_set(slices, _ready_numbers(slices, done), interface_paths, legacy)
     return 0
 
 
