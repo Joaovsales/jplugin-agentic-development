@@ -247,7 +247,12 @@ assert_contains "$OUT" "ready: 1 one mode=tdd" "mode: no Interfaces section mean
 OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready-implicit/todo-open.md" --spec "$FIXTURES/ready-implicit/spec.md" 2>&1)"
 assert_contains "$OUT" "ready: 1 legacy-feature mode=tdd" "mode: a flat legacy plan's implicit slice is tdd"
 OUT="$("$PY" "$SLICE" ready --index tasks/todo.md --spec specs/aposd-first-build.md 2>&1)"
-assert_contains "$OUT" "ready: 2 Interfaces section and mode mode=tdd" "mode: the live legacy plan prints tdd"
+CODE=$?
+assert_eq "0" "$CODE" "mode: ready succeeds on the live plan"
+assert_eq "0" "$(printf '%s
+' "$OUT" | grep -c 'mode=design')" "mode: the live plan prints no design slice"
+assert_eq "0" "$(printf '%s
+' "$OUT" | grep '^ready:' | grep -vc 'mode=tdd$')" "mode: every live ready line ends with mode=tdd"
 OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec.md" --index "$MODE/todo-new.md" 2>&1)"
 CODE=$?
 assert_eq "0" "$CODE" "mode: validate passes when every Interfaces entry has a Path"
