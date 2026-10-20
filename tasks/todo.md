@@ -2227,3 +2227,16 @@ Filed this sweep:
 ### Slice 19/19 — Orca supervised worker
 - [ ] Orca supervised worker <!-- task-id: plan.specs-helix-checkpoint-loop-md.orca-supervised-worker --> — The optional Orca adapter runs slices in child worktrees and supervises Dispatch IDs, retries and cleanup. (blocked-by: plan.specs-helix-checkpoint-loop-md.worker-backend-selector)
   [ ] TDD: tests/test-helix-orca-worker.sh § lifecycle — child worktree HEAD is verified before worker dispatch; exact base and Surface are checked on return; unknown liveness blocks retry/native fallback; positive stop, private-change inspection and release permit a new attempt; cross-host resume without original record refuses -> Orca worker adapter (AC 25)
+- [ ] duplicate-rule in .agents/skills/slice/SKILL.md <!-- task-id: simplify.agents-skills-slice-skill-md.duplicate-rule-in-agents-skills-slice-skill-md --> ([#308](https://github.com/Joaovsales/jplugin-agentic-development/issues/308))
+- [ ] citation-drift in .agents/skills/tidy/SKILL.md <!-- task-id: simplify.agents-skills-tidy-skill-md.citation-drift-in-agents-skills-tidy-skill-md --> ([#309](https://github.com/Joaovsales/jplugin-agentic-development/issues/309))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-slice-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-slice-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/308
+
+### Slice 1/1 — slice cites plan-block grammar
+- [x] slice cites plan-block grammar <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-slice-skill-md-md.slice-cites-plan-block-grammar --> — `/slice` Step 4 cites `references/plan-block.md` instead of restating it
+  [x] TDD: tests/test-doc-conventions.sh § slice — the three grammar pins read `references/plan-block.md`; `SKILL.md` no longer carries "`> Issue:` is written when" and cites the reference -> trim the four bullets to a citation (AC 1, 2)
+  [x] TDD: before/after proof — `bash tests/affected.sh --run origin/master` and `bash tests/test-citations.sh` give the same result -> no code beyond the row above (AC 3)
+
+> Handover: SKILL.md Step 4 cites references/plan-block.md for the grammar; the three pins in tests/test-doc-conventions.sh now read plan-block.md. Affected set before and after: identical failure set (install-sh 4, task-registry 2, both pre-existing as root).

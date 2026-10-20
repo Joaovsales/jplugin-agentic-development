@@ -73,8 +73,8 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
 ```
 
 The dry run's id seeds the row below, so the `--file` phase refreshes it in
-place instead of appending a stray row. Grammar and the fenced example below
-must stay byte-for-byte identical to
+place instead of appending a stray row. The fenced example below must stay
+byte-for-byte identical to the one in
 `.agents/skills/slice/references/plan-block.md`.
 
 ```markdown
@@ -88,14 +88,8 @@ must stay byte-for-byte identical to
   [ ] TDD: <test that pins AC m> -> <minimal implementation>
 ```
 
-- Slice names never start with `/` — Git Bash on Windows rewrites a leading
-  `/name` into a path.
-- An existing `## Plan: <feature>` block is replaced section by section, in
-  place; a different feature is appended. Never two blocks for one feature.
-- `> Issue:` is written when `--issue` is given or the spec's origin line
-  names one. `> Spec:` stands alone on its line.
-- The `[ ] TDD:` rows are written here, one or more per AC the slice
-  carries. They are not what the human reviews; the Build Order is.
+Read the grammar before writing the block. The grammar is
+`.agents/skills/slice/references/plan-block.md`.
 
 ### 5. Print the build prompt and stop
 
