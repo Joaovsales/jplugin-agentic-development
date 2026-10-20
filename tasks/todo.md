@@ -1979,6 +1979,11 @@ Filed this sweep:
 - Pending: none.
 - Carry-forward: the gate's unresolved SHOULD-FIX — `cli_version(release)` makes the caller know the design-stack store layout (`hyperframes.py:30`); a validator for TDD-row test files outside their slice Surface runs as a separate session (chip).
 
+## Session Summary — [2026-10-19] [77cd01a..9065640]
+- Completed: the session-viz mod (`specs/session-viz-mod.md`, #299–#303) — all five slices built from the build prompt, slices 2–5 in parallel from per-slice scratchpad copies and merged centrally; `claude plugin validate` and `claude plugin test` (16 tests) green on 2.1.303; AC1–AC12 walked through in tasks/e2e-log.md; the quality gate applied nine fixes (shared SPEC_PATH/EVERY/SEVERITIES/GATES_KEPT in state.ts, a guarded agent sync, a once-only STOP toast) with the design review at GO.
+- Pending: the quality receipt ac52a67b is STOP because the Windows-local affected run exits 1 on the same 111 pre-existing assertions as the pre-build baseline (gh mock, symlinks); nothing was pushed — the push and the Linux CI run are the owner's call. The wrap-up's gate re-entry (receipt bdeeb22c, design HOLD with five SHOULD-FIX refactors, tests exit 1 on the same 111) applied one gated fix (dispatch issue text stored bare, prefix added in `raise`) that is uncommitted with this bookkeeping.
+- Carry-forward: the two unresolved gate findings — move the `dropped` overflow count into the Footprint contract (agents.tsx `Tracked`), and a parity test between receipt.py's layout and gates.tsx's reader; the README should say that `skill.prompt` hooks do not run under an organization-managed Claude Code; the spec's D13 now reads "initials in state.ts, atoms declared per file".
+
 ## Plan: design-stack-hyperframes
 > Spec: specs/design-stack-hyperframes.md
 
