@@ -23,7 +23,7 @@ export const EMPTY_FINDINGS = findingCounts(() => 0)
 export const GATES_KEPT = 50
 
 export function emptyGates(): Gates {
-  return { receipt: null, findings: { ...EMPTY_FINDINGS }, ambiguities: [], surfaces: [], dispatch: [] }
+  return { receipt: { state: 'none' }, findings: { ...EMPTY_FINDINGS }, ambiguities: [], surfaces: [], dispatch: [] }
 }
 
 // Every value a drawing or a toast decision reads lives in $.state (spec D4): a hot reload

@@ -95,6 +95,9 @@ export type Receipt = {
   designVerdict?: string
 }
 
+/** What the Gates section knows of the branch's receipt: none yet, a pointer or receipt it could not read, or the receipt itself. */
+export type ReceiptState = { state: 'none' } | { state: 'unreadable' } | ({ state: 'ok' } & Receipt)
+
 /** One dispatch check that toasted: off-tier (spec D11) or a missing contract item (spec D10). */
 export type DispatchIssue = {
   kind: 'off-tier' | 'contract'
@@ -104,8 +107,7 @@ export type DispatchIssue = {
 
 /** Everything the Gates section draws. */
 export type Gates = {
-  /** The receipt, `'unreadable'` for a malformed one, null for none. */
-  receipt: Receipt | 'unreadable' | null
+  receipt: ReceiptState
   /** The last `Verdict:` line seen on a main-loop answer. */
   verdict?: string
   findings: FindingCounts

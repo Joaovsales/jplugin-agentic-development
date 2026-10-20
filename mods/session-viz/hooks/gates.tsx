@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
-import type { FindingCounts, Gates, Receipt, Severity } from '../types'
+import type { FindingCounts, Gates, ReceiptState, Severity } from '../types'
 import { EMPTY_FINDINGS, EVERY, GATES_KEPT, INITIAL_AGENTS, INITIAL_TOASTED, SEVERITIES, emptyGates, findingCounts, fit } from './state'
 import type { Draw } from './state'
 
@@ -97,11 +97,11 @@ async function currentBranch($: EngineInterface, cwd: string): Promise<string | 
   return head === undefined ? undefined : HEAD_REF.exec(head)?.[1]
 }
 
-/** What the branch's pointer location holds: no pointer, a pointer or receipt that cannot be read (a dangling pointer included), or the receipt. */
-type ReadReceipt = { state: 'none' } | { state: 'unreadable' } | ({ state: 'ok' } & Receipt)
-
-/** The quality receipt of the current branch (spec D12); undefined when no repo or branch resolves, so no pointer location could be read. */
-async function readReceipt($: EngineInterface): Promise<ReadReceipt | undefined> {
+/**
+ * What the current branch's pointer location holds (spec D12): no pointer, a pointer or receipt that cannot be read
+ * (a dangling pointer included), or the receipt; undefined when no repo or branch resolves, so no location could be read.
+ */
+async function readReceipt($: EngineInterface): Promise<ReceiptState | undefined> {
   const repo = await $.session.repo()
   if (repo === null) return undefined
   const branch = await currentBranch($, await $.session.cwd())
@@ -149,13 +149,8 @@ async function toastStop($: EngineInterface, kind: keyof typeof INITIAL_TOASTED,
 async function refreshReceipt($: EngineInterface): Promise<void> {
   const found = await readReceipt($)
   if (found === undefined) return
-  const fresh = found.state === 'ok' ? omitState(found) : found.state === 'unreadable' ? found.state : null
-  await update($, gates, current => ({ ...current, receipt: fresh }))
+  await update($, gates, current => ({ ...current, receipt: found }))
   if (found.state === 'ok' && found.verdict === 'STOP') await toastStop($, 'fingerprints', found.fp8, found.fp8)
-}
-
-function omitState({ state: _state, ...receipt }: { state: 'ok' } & Receipt): Receipt {
-  return receipt
 }
 
 /** What a sub-agent's answer adds: its parsed lines go on its row and into the section. */
@@ -173,6 +168,11 @@ async function recordAgentAnswer($: EngineInterface, agentId: string, answer: st
   }))
 }
 
+/** A main-loop `Receipt:` line's verdict and fingerprint laid over the receipt the files last gave, when they gave one. */
+function fromLine(current: ReceiptState, line: { verdict: string; fp8: string }): ReceiptState {
+  return current.state === 'ok' ? { ...current, ...line } : { state: 'ok', ...line }
+}
+
 /** What the main loop's answer adds: its Verdict and Receipt lines, a STOP toast once per turn, then the files re-read. */
 async function recordMainAnswer($: EngineInterface, turnId: string, answer: string): Promise<void> {
   const verdict = parseVerdict(answer)
@@ -180,10 +180,7 @@ async function recordMainAnswer($: EngineInterface, turnId: string, answer: stri
   await update($, gates, current => ({
     ...current,
     verdict: verdict ?? current.verdict,
-    receipt:
-      line === undefined
-        ? current.receipt
-        : { ...(typeof current.receipt === 'object' && current.receipt !== null ? current.receipt : {}), ...line },
+    receipt: line === undefined ? current.receipt : fromLine(current.receipt, line),
   }))
   if (line?.verdict === 'STOP' || verdict === 'STOP') {
     const fp8 = line?.verdict === 'STOP' ? line.fp8 : undefined
@@ -218,9 +215,9 @@ export function registerGates(on: On): void {
   })
 }
 
-function receiptLine(receipt: Receipt | 'unreadable' | null): string {
-  if (receipt === 'unreadable') return 'receipt unreadable'
-  if (receipt === null) return 'no receipt yet'
+function receiptLine(receipt: ReceiptState): string {
+  if (receipt.state === 'unreadable') return 'receipt unreadable'
+  if (receipt.state === 'none') return 'no receipt yet'
   const parts = [
     `receipt ${receipt.verdict} ${receipt.fp8}`,
     receipt.testsExit === undefined ? undefined : `tests exit ${receipt.testsExit}`,
@@ -231,7 +228,7 @@ function receiptLine(receipt: Receipt | 'unreadable' | null): string {
 
 export function GatesSection(d: Draw, state: Gates): RenderElement {
   const { Box, Text } = d.t
-  const isDim = typeof state.receipt !== 'object' || state.receipt === null
+  const isDim = state.receipt.state !== 'ok'
   const counts = SEVERITIES.filter(severity => state.findings[severity] > 0)
     .map(severity => `${severity} ${state.findings[severity]}`)
     .join(' · ')
