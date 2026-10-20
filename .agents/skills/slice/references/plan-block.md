@@ -7,26 +7,26 @@ the spec against what was built.
 ```markdown
 ## Plan: <feature>
 > Spec: specs/<feature>.md
-> Issue: https://github.com/<owner>/<repo>/issues/<N>
+- [ ] <feature> <!-- task-id: plan.<spec-id> -->
 
 ### Slice 1/<N> — <name>
-- [ ] <name> <!-- task-id: plan.<id> --> — <delivers> (blocked-by: plan.<id>)
-  [ ] TDD: <test that pins AC n> -> <minimal implementation>
-  [ ] TDD: <test that pins AC m> -> <minimal implementation>
+- [ ] <name> — <delivers>
 ```
 
-- The `- [ ]` row under each `### Slice` heading is the registry's row:
-  compact fields only, `(blocked-by:)` in the form the index parses, no
-  surface. The surface lives once, in the spec's § Build Order table, and
-  `/build` reads it there by slice number and name.
-- Ids are minted by a dry-run `upsert --derive-id plan --spec <spec>
-  --fold-title --title '<slice name>'`, so the `--file` phase refreshes the
-  seeded row in place instead of appending. Slice names never start with
-  `/` — Git Bash on Windows rewrites a leading `/name` into a path.
-- The `[ ] TDD:` rows are written here, one or more per AC the slice
-  carries. They are not what the human reviews; the Build Order is.
+- The block links its feature exactly once: a `> Issue:` line, written when
+  `--issue` is given or the spec's origin line names an issue, or one feature
+  row carrying the id of a single dry-run `upsert --derive-id plan --spec
+  <spec>`. The example shows the feature row; with an issue, the `> Issue:`
+  line replaces it. Never both, never two of either.
+- The `- [ ]` row under each `### Slice` heading is the slice's header row:
+  a name and what it delivers, no task id, no `(blocked-by:)`, no `TDD:`
+  child. Blockers and the surface live once, in the spec's § Build Order
+  table, and `/build` reads them there by slice number and name.
+- Slice names never start with `/` — Git Bash on Windows rewrites a leading
+  `/name` into a path.
 - `> Spec:` stands alone on its line. An existing `## Plan: <feature>`
   block with `[ ]` rows is replaced section by section, in place; a
   different feature is appended. Never two blocks for one feature.
-- `> Issue:` is written when `--issue` is given or the spec's origin line
-  names one.
+- A block whose slice header rows carry `<!-- task-id: … -->` ids and
+  `[ ] TDD:` children is **legacy**: `slice.py` still validates and readies
+  it, and no new block is written in that form.

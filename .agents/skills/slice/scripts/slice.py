@@ -61,6 +61,9 @@ SLICE_HEADING_RE = re.compile(r"^###\s*Slice\s+(?P<number>\d+)/(?P<total>\d+)\s+
 # path, and a `[x]` row's test is already written, so its mismatch blocks no agent.
 OPEN_TDD_ROW_RE = re.compile(r"^\s*(?:-\s*)?\[ \]\s*TDD:\s*(?P<path>tests/\S+)\s+§\s")
 H2_RE = re.compile(r"^##\s")
+# A plan block's feature link: the `> Issue:` line, or the one `- [ ]` row above the first slice heading.
+ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
+FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
 
 
 class SliceError(Exception):
@@ -445,6 +448,29 @@ def _tdd_surface_problems(
     return problems
 
 
+def _feature_link_problems(
+    index_path: str, prose: Sequence[str], start_line: int, end_line: int, headings: Sequence[Tuple[int, int, str]]
+) -> List[str]:
+    """A block links its feature once: one `> Issue:` line or one feature row, never two.
+
+    The feature link sits between the `## Plan:` heading and the first
+    `### Slice` heading; a slice's own header row is not one. The refusal names
+    the second link, the line a human deletes. A flat legacy plan has no
+    headings, so its rows are tasks, not links.
+    """
+    if not headings:
+        return []
+    links = [
+        line_number
+        for line_number in range(start_line + 1, headings[0][0])
+        if ISSUE_LINE_RE.match(prose[line_number - 1]) or FEATURE_ROW_RE.match(prose[line_number - 1])
+    ]
+    return [
+        f"{index_path}:{line_number}: two feature links in one plan block (one `> Issue:` line or one feature row)"
+        for line_number in links[1:2]
+    ]
+
+
 def _plan_block_problems(index_path: str, spec_path: str, slices: Dict[int, SliceRow]) -> List[str]:
     """`validate`'s view of the plan block: TDD-row problems when the index already holds one.
 
@@ -459,7 +485,10 @@ def _plan_block_problems(index_path: str, spec_path: str, slices: Dict[int, Slic
         return []
     start_line, end_line, _name = block
     prose = todo_text.splitlines()
-    return _tdd_surface_problems(prose, _slice_headings(prose, start_line, end_line), end_line, slices)
+    headings = _slice_headings(prose, start_line, end_line)
+    return _feature_link_problems(index_path, prose, start_line, end_line, headings) + _tdd_surface_problems(
+        prose, headings, end_line, slices
+    )
 
 
 def _row_after(

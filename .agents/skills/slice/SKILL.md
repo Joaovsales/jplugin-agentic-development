@@ -63,39 +63,39 @@ Sizing: <N> slices. Ceiling: per `slice/references/sizing.md`. Over: <none | sli
 A slice over the ceiling is allowed only when the `Sizing:` line names it and
 says why; it is never silent.
 
-### 4. Mint ids and write the plan block into `tasks/todo.md`
+### 4. Write the plan block into `tasks/todo.md`
 
-Ids are minted by a **dry-run** upsert per slice, never applied here:
+The block links its feature once. With `--issue`, or a spec `> Origin:` that
+names an issue, write the `> Issue:` line. Otherwise mint one id with a single
+**dry-run** upsert, never applied here, and write the feature row it names:
 
 ```bash
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
-  --derive-id plan --spec <spec> --fold-title --title '<slice name>'
+  --derive-id plan --spec <spec> --title '<feature>'
 ```
 
-The dry run's id seeds the row below, so the `--file` phase refreshes it in
-place instead of appending a stray row. Grammar and the fenced example below
-must stay byte-for-byte identical to
-`.agents/skills/slice/references/plan-block.md`.
+Slice header rows take no id. Grammar and the fenced example below must stay
+byte-for-byte identical to `.agents/skills/slice/references/plan-block.md`.
 
 ```markdown
 ## Plan: <feature>
 > Spec: specs/<feature>.md
-> Issue: https://github.com/<owner>/<repo>/issues/<N>
+- [ ] <feature> <!-- task-id: plan.<spec-id> -->
 
 ### Slice 1/<N> — <name>
-- [ ] <name> <!-- task-id: plan.<id> --> — <delivers> (blocked-by: plan.<id>)
-  [ ] TDD: <test that pins AC n> -> <minimal implementation>
-  [ ] TDD: <test that pins AC m> -> <minimal implementation>
+- [ ] <name> — <delivers>
 ```
 
+- The example shows the feature row; with an issue, a `> Issue:
+  https://github.com/<owner>/<repo>/issues/<N>` line replaces it. Never both,
+  never two of either: `slice.py validate` refuses it.
+- A slice's header row carries no task id, no `(blocked-by:)` and no `TDD:`
+  child; blockers live only in § Build Order.
 - Slice names never start with `/` — Git Bash on Windows rewrites a leading
   `/name` into a path.
 - An existing `## Plan: <feature>` block is replaced section by section, in
   place; a different feature is appended. Never two blocks for one feature.
-- `> Issue:` is written when `--issue` is given or the spec's origin line
-  names one. `> Spec:` stands alone on its line.
-- The `[ ] TDD:` rows are written here, one or more per AC the slice
-  carries. They are not what the human reviews; the Build Order is.
+- `> Spec:` stands alone on its line.
 
 ### 5. Print the build prompt and stop
 
@@ -157,6 +157,8 @@ last thing its session says.
 ## File: `/slice <spec> --file [--approve]`
 
 Invoked from `/build`'s pre-flight, in the session the build prompt started.
+It files only a legacy block, whose header rows carry task ids; a block
+written by Step 4 has none to file.
 
 Refuses, naming the spec, when `tasks/todo.md` has no `## Plan:` block for
 it: there is nothing to file before a proposal.

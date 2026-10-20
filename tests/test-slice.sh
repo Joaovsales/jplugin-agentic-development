@@ -185,6 +185,58 @@ CODE=$?
 assert_eq "2" "$CODE" "ready: a missing index exits 2"
 assert_contains "$OUT" "no such index file" "ready: names the missing index"
 
+printf '\n--- header-plan: bare slice headers under one feature row ---\n'
+
+# specs/aposd-first-build.md AC1/AC2: a block `/slice` writes carries no task id,
+# no `(blocked-by:)` and no `TDD:` child on a slice row; `ready` reads it through
+# the same index path as a legacy block.
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-header-open.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "header-plan: a block of bare slice headers exits 0"
+assert_contains "$OUT" "ready: 1 one" "header-plan: slice 1 (no blockers) is ready"
+assert_not_contains "$OUT" "ready: 2 two" "header-plan: slice 2 waits on slice 1, whose blocker lives only in the Build Order"
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-header-slice1-done.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 2 two" "header-plan: slice 2 is ready once its header is [x]"
+assert_not_contains "$OUT" "ready: 1 one" "header-plan: a done header is absent from the ready set"
+
+TWO="$FIXTURES/validate-two-links"
+for ok in todo-one-row todo-one-issue; do
+  OUT="$("$PY" "$SLICE" validate --spec "$TWO/spec.md" --index "$TWO/$ok.md" 2>&1)"
+  CODE=$?
+  assert_eq "0" "$CODE" "header-plan: $ok holds one feature link and validates"
+  assert_eq "" "$OUT" "header-plan: $ok prints nothing"
+done
+for bad in todo-both todo-two-issues todo-two-rows; do
+  OUT="$("$PY" "$SLICE" validate --spec "$TWO/spec.md" --index "$TWO/$bad.md" 2>&1)"
+  CODE=$?
+  assert_eq "1" "$CODE" "header-plan: $bad holds two feature links, exit 1"
+  assert_contains "$OUT" "$TWO/$bad.md:6: " "header-plan: $bad names <path>:<line> of the second link"
+  assert_contains "$OUT" "two feature links" "header-plan: $bad says why"
+done
+
+printf '\n--- legacy-plan: task-id blocks still validate and ready unchanged ---\n'
+
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-slice1-done.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 2 two" "legacy-plan: a task-id block still readies slice 2 after slice 1 is [x]"
+OUT="$("$PY" "$SLICE" validate --spec "$TWO/spec.md" --index "$TWO/todo-legacy.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "legacy-plan: a task-id block with TDD rows and no feature link still validates"
+assert_eq "" "$OUT" "legacy-plan: a legacy block prints nothing"
+OUT="$("$PY" "$SLICE" ready --index "$TWO/todo-legacy.md" --spec "$TWO/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 1 one" "legacy-plan: a legacy block's open slice 1 is ready"
+OUT="$("$PY" "$SLICE" ready --index tasks/todo.md --spec specs/aposd-first-build.md 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "legacy-plan: the live legacy plan block still readies"
+
+printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
+
+PLAN_REF="$REPO/.agents/skills/slice/references/plan-block.md"
+PLAN_FENCE="$(awk '/^```markdown$/{c=1;next} c&&/^```$/{exit} c' "$PLAN_REF" | tr -d '\r')"
+assert_contains "$PLAN_FENCE" "### Slice 1/<N>" "plan-block.md: the example holds slice headings"
+assert_not_contains "$PLAN_FENCE" "blocked-by" "plan-block.md: no slice row carries a blocker marker"
+assert_not_contains "$PLAN_FENCE" "TDD:" "plan-block.md: the example holds no TDD row"
+assert_eq "1" "$(printf '%s\n' "$PLAN_FENCE" | grep -c 'task-id')" "plan-block.md: the one task id is the feature row's"
+
 printf '\n--- check: a clean diff exits 0 and prints nothing ---\n'
 
 D1="$(mktemp -d)"

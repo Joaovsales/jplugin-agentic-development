@@ -905,8 +905,14 @@ plan_block_skill="$(extract_markdown_fence "$SLICE_SKILL" | tr '\n' ' ' | tr -s 
 plan_block_ref="$(extract_markdown_fence .agents/skills/slice/references/plan-block.md | tr '\n' ' ' | tr -s ' ')"
 assert_eq "$plan_block_ref" "$plan_block_skill" \
   "slice: plan-block example in SKILL.md matches references/plan-block.md (flattened)"
-assert_contains "$plan_block_skill" "task-id: plan." \
-  "slice: plan-block example carries the plan.<id> task-id form"
+assert_contains "$plan_block_skill" "task-id: plan.<spec-id>" \
+  "slice: plan-block example carries the feature row's plan.<spec-id> task-id"
+assert_not_contains "$plan_block_skill" "TDD:" \
+  "slice: plan-block example holds no TDD row"
+assert_not_contains "$plan_block_skill" "blocked-by" \
+  "slice: plan-block example's slice rows carry no blocker marker"
+assert_eq "1" "$(printf '%s' "$plan_block_skill" | grep -o 'task-id' | wc -l | tr -d ' ')" \
+  "slice: plan-block example's one task id is the feature row's, never a slice row's"
 
 # The build-prompt template: the fenced block following the literal
 # "Build prompt:" marker, byte-identical between SKILL.md and its reference.
