@@ -117,7 +117,7 @@ done
 # a finding with no confidence downstream, where it degrades to anchor 50 and is
 # never applied -- so a silently dropped axis reads as "reviewer found nothing
 # actionable". Pinned per axis and per enum value in BOTH trees.
-for base in code-reviewer critic security-reviewer software-design-expert-review; do
+for base in code-reviewer critic security-reviewer software-design-expert-review test-engineer; do
   for f in "$CANONICAL/$base.md" "$CLAUDE/$base.md"; do
     for axis in severity confidence autofix_class owner; do
       assert_file_contains "$f" "$axis" "Findings: $f emits the $axis axis"
@@ -368,5 +368,19 @@ assert_prose_contains "$CR" 'a summary for the orchestrator' \
 assert_prose_contains "$CR" 'No "consider…"' "AC4: code-reviewer bans 'consider'"
 assert_prose_contains "$CR" 'no style taste' "AC4: code-reviewer bans style taste"
 assert_prose_contains "$CR" 'no vague worry' "AC4: code-reviewer bans vague worries"
+
+# --- 9. test-engineer: one persona, a Write job and a Review job (AC13) -------
+# Unlike the other .claude/agents copies it pins no model: the Write job runs at
+# Builder and the Review job at Reviewer, so the tier rides each dispatch, and a
+# pinned alias would silently fix one job's tier for both.
+TE="$CANONICAL/test-engineer.md"
+assert_files_identical "$TE" "$CLAUDE/test-engineer.md"   "AC13: test-engineer.md is byte-identical in both trees"
+assert_file_not_matches "$CLAUDE/test-engineer.md" '^model:'   "AC13: the .claude copy of test-engineer pins no model"
+for needle in '## Write job' '## Review job' 'Builder tier' 'Reviewer tier'               'context: fresh | forked | inline'               'an AC with no test' 'an edge case neither tested nor defined away'               'a test that reaches past the interface' 'an amendment that weakens a test'               '> Frozen:' '> Test amended:' 'at least SHOULD-FIX' 'no spec — '; do
+  assert_prose_contains "$TE" "$needle" "AC13: test-engineer names '$needle'"
+done
+for tree_file in .agents/references/model-routing.md config/agent-policy.toml README.md                  PI_SETUP.md .claude/AGENTS.md; do
+  assert_file_contains "$tree_file" 'test-engineer' "AC13: $tree_file lists test-engineer"
+done
 
 finish

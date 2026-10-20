@@ -166,7 +166,7 @@ pi install npm:pi-subagents
 
 ### Agents: workflow personas + builtin gap-fillers
 
-The workflow's own agents live in `.agents/agents/` (canonical, model-agnostic) and are auto-discovered per project: `planner`, `backend-developer`, `frontend-developer`, `code-reviewer`, `code-debugger`, `security-reviewer`, `critic`, `frontend-design-validator`, `context-document-optimizer`, `software-design-expert-review`.
+The workflow's own agents live in `.agents/agents/` (canonical, model-agnostic) and are auto-discovered per project: `planner`, `backend-developer`, `frontend-developer`, `code-reviewer`, `code-debugger`, `security-reviewer`, `critic`, `frontend-design-validator`, `context-document-optimizer`, `software-design-expert-review`, `test-engineer`.
 
 The extension's builtins fill roles the workflow does not define — keep these enabled:
 
@@ -214,6 +214,7 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, wi
     "security-reviewer":  { "model": "z-ai/glm-4.7" },
     "software-design-expert-review": { "model": "z-ai/glm-4.7" },
     "critic":             { "model": "moonshotai/kimi-k3" },
+    "test-engineer":      { "model": "qwen/qwen3-coder-next", "fallbackModels": ["z-ai/glm-4.7"] },
     "scout":              { "model": "deepseek/deepseek-v4-flash", "thinking": "off" },
     "context-builder":    { "model": "deepseek/deepseek-v4-flash" },
     "context-document-optimizer": { "model": "deepseek/deepseek-v4-flash" },

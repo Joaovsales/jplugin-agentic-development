@@ -260,4 +260,16 @@ for skill in plan build prd grilling system-design-planning; do
     "ModelTier: $skill keeps Codex model IDs in policy"
 done
 
+# --- 13. test-engineer routes by job, never by a pinned alias (AC13) ----------
+# Write is Builder tier, Review is Reviewer tier, and the model is passed per
+# dispatch, so neither tree pins one and the routing row names both tiers.
+for f in .agents/agents/test-engineer.md .claude/agents/test-engineer.md; do
+  assert_file_not_matches "$f" '^model:' "ModelTier: $f pins no model"
+done
+te_row="$(grep -E '^\|.*`test-engineer`' "$ROUTING")"
+assert_contains "$te_row" 'Builder' "ModelTier: model-routing.md routes the test-engineer Write job at Builder"
+assert_contains "$te_row" 'Reviewer' "ModelTier: model-routing.md routes the test-engineer Review job at Reviewer"
+assert_file_matches config/agent-policy.toml 'name = "test-engineer"'   "ModelTier: agent-policy.toml defines the test-engineer role"
+assert_file_matches PI_SETUP.md '"test-engineer":'   "ModelTier: PI_SETUP.md pins test-engineer on Pi"
+
 finish

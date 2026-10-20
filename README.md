@@ -396,6 +396,7 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 | `critic` | Adversarial quality gate for plans, code, specs |
 | `context-document-optimizer` | Compress large docs for token efficiency |
 | `software-design-expert-review` | Read-only APOSD design audit — depth, leakage, error design |
+| `test-engineer` | Writes contract tests from the spec and stubs before implementation (Write job); reviews test adequacy against the freeze lines (Review job) |
 
 ---
 
