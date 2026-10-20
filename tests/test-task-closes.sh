@@ -36,17 +36,19 @@ repository = fixture-owner/fixture-repo
 ```
 EOF
 
-# The scenario is JSON: `prs` maps a PR number to its state and the
-# [repository, issue] pairs it closes; `issues` maps an issue number to OPEN or
+# The scenario is JSON: `prs` maps a PR number to its state and either the
+# [repository, issue] pairs its body closes (rendered as `closes <ref>` clauses)
+# or a verbatim `body`; `issues` maps an issue number to OPEN or
 # CLOSED; `fail` lists issue numbers whose close gh rejects; `unreadable` lists
 # issue numbers gh cannot read (transferred or deleted since the merge).
 # For `select`: `backlog` lists the open issues as [number, labels, linked PR
-# numbers, stateReason]; `pr_states` maps a linked PR number to the state the
-# GraphQL lookup answers (a PR missing from it resolves to a null node);
-# `graphql_fail` makes that lookup fail.
+# numbers, state_reason]; `pr_states` maps a linked PR number to the state its
+# timeline event carries (a PR missing from it has no readable state);
+# `timeline_fail` makes the timeline read fail.
 cat > "$F/stub/closes_stub.py" <<'EOF'
 import importlib.util
 import json
+import re
 import sys
 
 from registry.providers.base import ProviderError
@@ -57,20 +59,26 @@ LABELS = ("needs-investigation", "bug", "enhancement", "design-decision", "simpl
 HERE = "fixture-owner/fixture-repo"
 
 
-def linked(entries):
-    """Closing references the way gh lists them: no state, just the PR's identity.
+def timeline(issue, entries, pr_states):
+    """Cross-referenced events the way the REST timeline lists them.
 
-    An entry is a PR number in this repository or a [repository, number] pair.
+    An entry is a PR number in this repository or a [repository, number] pair;
+    the PR's state, merge time, repository and body ride on `source.issue`. A
+    PR absent from `pr_states` carries no state at all.
     """
-    references = []
+    events = []
     for entry in entries:
         repo, number = entry if isinstance(entry, list) else (HERE, entry)
-        owner, name = repo.split("/")
-        references.append({
-            "id": f"PR_{number}", "number": number, "url": f"https://github.com/{repo}/pull/{number}",
-            "repository": {"name": name, "owner": {"login": owner}},
-        })
-    return references
+        state = pr_states.get(str(number))
+        source = {
+            "number": number, "body": f"Closes #{issue}",
+            "repository_url": f"https://api.github.com/repos/{repo}",
+            "pull_request": {"merged_at": "2026-10-02T00:00:00Z" if state == "MERGED" else None},
+        }
+        if state is not None:
+            source["state"] = "open" if state == "OPEN" else "closed"
+        events.append({"event": "cross-referenced", "source": {"type": "issue", "issue": source}})
+    return events
 
 
 def run_cli(cli, scenario, argv):
@@ -84,63 +92,68 @@ def run_cli(cli, scenario, argv):
             raise ProviderError(f"github: `{' '.join(command[:3])}` exited {code} — {output}")
         return code, output
 
-    def fake_run(self, command, check=True):
+    def fake_run(self, command, check=True, input=None):
         command = list(command)
-        calls.append(" ".join(command))
-        verb, number = command[1:3], command[-1]
-        if verb == ["pr", "view"]:
+        calls.append(" ".join(command) + (f" {input}" if input else ""))
+        # Everything is REST: `gh api [--method M] repos/<owner>/<name>/issues[/<n>|?<query>]`,
+        # a write's payload on stdin.
+        method = command[command.index("--method") + 1] if "--method" in command else "GET"
+        path = ""
+        if command[1] == "api":
+            path = next((arg for arg in command[2:] if not arg.startswith("-") and arg != method), "")
+        pull_read = re.fullmatch(rf"repos/{HERE}/pulls/(\d+)", path)
+        issue_read = re.fullmatch(rf"repos/{HERE}/issues/(\d+)", path)
+        timeline_read = re.fullmatch(rf"repos/{HERE}/issues/(\d+)/timeline\?.*", path)
+        if pull_read:
+            number = pull_read.group(1)
             if number not in prs:
-                return answer(command, 1, f"Could not resolve to a PullRequest with the number of {number}.", check)
+                return answer(command, 1, f"HTTP 404: Not Found (https://api.github.com/{path})", check)
             pr = prs[number]
-            refs = [
-                {
-                    "number": int(issue),
-                    "url": f"https://github.com/{repo}/issues/{issue}",
-                    "repository": {"name": repo.split("/")[1], "owner": {"login": repo.split("/")[0]}},
-                }
-                for repo, issue in pr.get("closes", [])
-            ]
-            return answer(command, 0, json.dumps({"state": pr["state"], "closingIssuesReferences": refs}), check)
-        if verb == ["issue", "view"]:
-            if number in unreadable:
-                return answer(command, 1, f"Could not resolve to an issue with the number of {number}.", check)
+            body = pr.get("body")
+            if body is None:
+                body = ", ".join(
+                    f"closes {'' if repo == HERE else repo}#{issue}" for repo, issue in pr.get("closes", [])
+                )
             return answer(command, 0, json.dumps({
-                "number": int(number), "title": f"Issue {number}", "body": "", "labels": [],
-                "state": issues.get(number, "OPEN"),
-                "url": f"https://github.com/fixture-owner/fixture-repo/issues/{number}",
-                "createdAt": "2026-10-01T00:00:00Z", "updatedAt": "2026-10-01T00:00:00Z",
-                "assignees": [], "closedByPullRequestsReferences": linked([
-                    int(pr) for pr, spec in prs.items()
-                    if any(repo == HERE and str(issue) == number for repo, issue in spec.get("closes", []))
-                ]),
+                "number": int(number), "state": "open" if pr["state"] == "OPEN" else "closed",
+                "merged": pr["state"] == "MERGED", "body": body,
+                "html_url": f"https://github.com/{HERE}/pull/{number}",
             }), check)
-        if verb == ["issue", "close"]:
+        if issue_read and method == "PATCH":
+            number = issue_read.group(1)
             if number in failing:
                 return answer(command, 1, "HTTP 403: Resource not accessible by integration", check)
-            return answer(command, 0, "", check)
-        if verb == ["label", "list"]:
+            return answer(command, 0, json.dumps({"number": int(number), "state": "closed"}), check)
+        if issue_read:
+            number = issue_read.group(1)
+            if number in unreadable:
+                return answer(command, 1, f"HTTP 404: Not Found (https://api.github.com/{path})", check)
+            return answer(command, 0, json.dumps({
+                "number": int(number), "title": f"Issue {number}", "body": "", "labels": [],
+                "state": issues.get(number, "OPEN").lower(),
+                "html_url": f"https://github.com/fixture-owner/fixture-repo/issues/{number}",
+                "created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-01T00:00:00Z",
+                "assignees": [],
+            }), check)
+        if timeline_read:
+            if scenario.get("timeline_fail"):
+                return answer(command, 1, "HTTP 502: Bad Gateway", check)
+            events = [timeline(issue, links, pr_states) for issue, _, links, _ in backlog
+                      if str(issue) == timeline_read.group(1)]
+            return answer(command, 0, json.dumps(events[0] if events else []), check)
+        if path.startswith(f"repos/{HERE}/labels?"):
             return answer(command, 0, json.dumps([{"name": name} for name in LABELS]), check)
-        if verb == ["issue", "list"]:
+        if path.startswith(f"repos/{HERE}/issues?"):
             return answer(command, 0, json.dumps([
                 {
-                    "number": issue, "title": f"Issue {issue}", "body": "", "state": "OPEN",
-                    "stateReason": reason, "labels": [{"name": name} for name in labels],
-                    "url": f"https://github.com/{HERE}/issues/{issue}",
-                    "createdAt": "2026-10-01T00:00:00Z", "updatedAt": "2026-10-01T00:00:00Z",
-                    "assignees": [], "closedByPullRequestsReferences": linked(links),
+                    "number": issue, "title": f"Issue {issue}", "body": "", "state": "open",
+                    "state_reason": reason.lower() or None, "labels": [{"name": name} for name in labels],
+                    "html_url": f"https://github.com/{HERE}/issues/{issue}",
+                    "created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-01T00:00:00Z",
+                    "assignees": [],
                 }
                 for issue, labels, links, reason in backlog
             ]), check)
-        if verb == ["api", "graphql"]:
-            if scenario.get("graphql_fail"):
-                return answer(command, 1, "HTTP 502: Bad Gateway", check)
-            ids = [arg[len("ids[]="):] for arg in command if arg.startswith("ids[]=")]
-            nodes = [
-                {"id": node, "number": int(node[3:]), "state": pr_states[node[3:]]}
-                if node[3:] in pr_states else None
-                for node in ids
-            ]
-            return answer(command, 0, json.dumps({"data": {"nodes": nodes}}), check)
         raise AssertionError("unexpected gh call: " + " ".join(command))
 
     GitHubProvider._run = fake_run
@@ -178,15 +191,26 @@ HERE='fixture-owner/fixture-repo'
 
 # --- provider: what one merged pull request closes ---------------------------
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",92]]}},"issues":{"91":"OPEN","92":"CLOSED"}}' '#141' --apply --approve)"
-assert_contains "$out" "call: gh pr view --repo $HERE --json state,closingIssuesReferences -- 141" \
-  "provider: closing references are read with gh pr view, the number after --"
-assert_contains "$out" "call: gh issue view --repo $HERE" \
-  "provider: each linked issue's state is read before anything is closed"
+assert_contains "$out" "call: gh api repos/$HERE/pulls/141" \
+  "provider (AC13): the pull request is read with GET /pulls/{n}, never gh pr view"
+assert_not_contains "$out" "call: gh pr" \
+  "provider (AC13): no gh pr subcommand runs -- GraphQL is refused in the sandbox"
+assert_contains "$out" "call: gh api repos/$HERE/issues/91" \
+  "provider: each linked issue's state is read over REST before anything is closed"
 
 out="$(closes '{"prs":{"141":{"state":"OPEN","closes":[["'$HERE'",91]]}}}' '#141' --apply --approve)"
 assert_contains "$out" "exit=1" "provider: a pull request that is not merged exits 1"
-assert_contains "$out" "not merged" "provider: the refusal says the pull request is not merged"
-assert_not_contains "$out" "call: gh issue" "provider: nothing is read or closed for an unmerged pull request"
+assert_contains "$out" "not merged (state open)" "provider: the refusal says the pull request is not merged, naming its REST state"
+assert_not_contains "$out" "repos/$HERE/issues" "provider: nothing is read or closed for an unmerged pull request"
+
+out="$(closes '{"prs":{"141":{"state":"CLOSED","closes":[["'$HERE'",91]]}}}' '#141' --apply --approve)"
+assert_contains "$out" "exit=1" "provider: a pull request closed without merging exits 1"
+assert_contains "$out" "not merged (state closed)" \
+  "provider: closed is not merged -- REST's state alone cannot tell them apart, so merged is read"
+
+out="$(closes '{}' '#141' --apply --approve)"
+assert_contains "$out" "exit=1" "provider: a pull request GitHub cannot find exits 1"
+assert_contains "$out" "HTTP 404" "provider: the refusal carries gh's HTTP status"
 
 out="$(closes '{}' 'abc' --apply --approve)"
 assert_contains "$out" "exit=1" "provider: a reference that is not a number exits 1"
@@ -196,7 +220,34 @@ out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["other-
 assert_contains "$out" "exit=1" "provider: a closing reference in another repository exits 1"
 assert_contains "$out" "other-owner/other-repo#5" "provider: the foreign reference is named"
 assert_contains "$out" "nothing was closed" "provider: the refusal says nothing was closed"
-assert_not_contains "$out" "call: gh issue close" "provider: no issue is closed while one is out of reach"
+assert_not_contains "$out" "--method PATCH" "provider: no issue is closed while one is out of reach"
+
+# --- provider (AC13): GitHub's closing keywords, read off the body ---------
+# REST exposes no closing-issue relation, so the body is parsed the way GitHub
+# reads it: each keyword binds to the ONE reference after it (Decision 13).
+for keyword in close closes closed fix fixes fixed resolve resolves resolved Closes FIXED; do
+  out="$(closes '{"prs":{"141":{"state":"MERGED","body":"'"$keyword"' #91"}},"issues":{"91":"OPEN"}}' '#141' --apply --approve)"
+  assert_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/91" \
+    "provider (AC13): \`$keyword #91\` in the body closes #91"
+done
+for body in "Fixes: #91" "Resolves $HERE#91" "closes https://github.com/$HERE/issues/91" \
+            "Closes #91, closes #93" "Closes #91 and later fixes #91 again"; do
+  out="$(closes '{"prs":{"141":{"state":"MERGED","body":"'"$body"'"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+  assert_contains "$out" "closes: closed #91" "provider (AC13): \`$body\` closes #91"
+  assert_eq "1" "$(printf '%s\n' "$out" | grep -c "PATCH repos/$HERE/issues/91 ")" \
+    "provider (AC13): \`$body\` closes #91 exactly once"
+done
+assert_contains "$out" "exit=0" "provider (AC13): a body naming #91 twice exits 0"
+out="$(closes '{"prs":{"141":{"state":"MERGED","body":"Closes #91, closes #93"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+assert_contains "$out" "closes: closed #93" "provider (AC13): a keyword repeated per reference closes each one"
+out="$(closes '{"prs":{"141":{"state":"MERGED","body":"Closes #91, #93"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+assert_contains "$out" "closes: closed #91" "provider (AC13): a keyword binds to the reference right after it"
+assert_not_contains "$out" "issues/93" \
+  "provider (AC13): a chained reference without its own keyword is not closed -- GitHub would not close it either"
+out="$(closes '{"prs":{"141":{"state":"MERGED","body":"See #91; the example body is `Closes #93`"}},"issues":{"91":"OPEN","93":"OPEN"}}' '#141' --apply --approve)"
+assert_contains "$out" "nothing to do" \
+  "provider (AC13): a bare mention and a keyword inside a code span close nothing"
+assert_not_contains "$out" "--method PATCH" "provider (AC13): no issue is closed for a body without a live closing clause"
 
 out="$(closes '{}' '#141' --provider local --apply --approve)"
 assert_contains "$out" "exit=1" "provider: a tracker without pull requests refuses with exit 1"
@@ -205,16 +256,17 @@ assert_contains "$out" "local:" "provider: the refusal names the provider"
 # --- command: close what the merge left open ---------------------------------
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",92]]}},"issues":{"91":"OPEN","92":"CLOSED"}}' '#141' --apply --approve)"
 assert_contains "$out" "exit=0" "command: closing every open linked issue exits 0"
-assert_contains "$out" "call: gh issue close --repo $HERE -- 91" "command: the open linked issue is closed through gh issue close"
-assert_not_contains "$out" "call: gh issue close --repo $HERE -- 92" "command: an issue already closed is left alone"
+assert_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/91 --input - "'{"state": "closed", "state_reason": "completed"}' \
+  "command: the open linked issue is closed through PATCH /issues/{n}, the payload on stdin"
+assert_not_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/92" "command: an issue already closed is left alone"
 assert_contains "$out" "closes: closed #91" "command: each closed issue gets one line"
-assert_not_contains "$out" "call: gh api" \
+assert_not_contains "$out" "timeline" \
   "command: closes reads no linked PR state -- a lookup only select needs must not fail the repair"
 
 out="$(closes '{"prs":{"140":{"state":"MERGED","closes":[["'$HERE'",92]]}},"issues":{"92":"CLOSED"}}' '#140' --apply --approve)"
 assert_contains "$out" "exit=0" "command: a merge that closed everything exits 0"
 assert_contains "$out" "nothing to do" "command: a merge that closed everything says nothing to do"
-assert_not_contains "$out" "call: gh issue close" "command: nothing is closed when nothing is open"
+assert_not_contains "$out" "--method PATCH" "command: nothing is closed when nothing is open"
 
 out="$(closes '{"prs":{"7":{"state":"MERGED","closes":[]}}}' '#7' --apply --approve)"
 assert_contains "$out" "exit=0" "command: a merged pull request with no closing reference exits 0"
@@ -223,7 +275,7 @@ assert_contains "$out" "nothing to do" "command: a merged pull request with no c
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",93]]}},"issues":{"91":"OPEN","93":"OPEN"},"fail":["91"]}' '#141' --apply --approve)"
 assert_contains "$out" "exit=1" "command: a failed close exits 1"
 assert_contains "$out" "#91 is still open" "command: the issue that could not be closed is named"
-assert_contains "$out" "call: gh issue close --repo $HERE -- 93" "command: a failed close does not stop the rest"
+assert_contains "$out" "call: gh api --method PATCH repos/$HERE/issues/93" "command: a failed close does not stop the rest"
 assert_contains "$out" "closes: closed #93" "command: the issues that did close are still reported"
 
 out="$(closes '{"prs":{"141":{"state":"MERGED","closes":[["'$HERE'",91],["'$HERE'",93]]}},"issues":{"93":"OPEN"},"unreadable":["91"]}' '#141' --apply --approve)"
@@ -237,7 +289,7 @@ assert_contains "$out" "exit=1" "command: a dry run with open linked issues exit
 assert_contains "$out" "#91 is still open" "command: a dry run names the first open issue"
 assert_contains "$out" "#93 is still open" "command: a dry run names every open issue"
 assert_contains "$out" "pass --apply" "command: a dry run says how to perform the close"
-assert_not_contains "$out" "call: gh issue close" "command: a dry run closes nothing"
+assert_not_contains "$out" "--method PATCH" "command: a dry run closes nothing"
 
 out="$(closes '{}')"
 assert_contains "$out" "exit=2" "command: no pull request reference is a usage error"
@@ -248,7 +300,7 @@ assert_not_contains "$out" "call: gh" "command: a usage error reaches no tracker
 # #155's closing PR merged without closing it (stranded); #120's is still open
 # (in flight); #130's was closed unmerged; #140 was reopened after its PR
 # merged; #160's PR state cannot be read; #10 has no link at all.
-BACKLOG='"backlog":[[155,["bug","now"],[189],""],[120,["bug","now"],[144],""],[130,["bug","next"],[131],""],[140,["bug","next"],[141],"REOPENED"],[160,["bug","next"],[161],""],[10,["bug","next"],[],""]]'
+BACKLOG='"backlog":[[155,["bug","now"],[189],""],[120,["bug","now"],[144],""],[130,["bug","next"],[131],""],[140,["bug","next"],[141],"REOPENED"],[160,["bug","next"],[161],""],[10,["bug","next"],[],""],[180,["enhancement","now"],[181],""]]'
 STATES='"pr_states":{"189":"MERGED","144":"OPEN","131":"CLOSED","141":"MERGED"}'
 out="$(registry "{$BACKLOG,$STATES}" select --routine fix)"
 assert_contains "$out" "exit=0" "select: a stranded issue does not fail the routine's pick"
@@ -261,8 +313,12 @@ assert_not_contains "$out" "stranded:      #140" "select: an issue reopened afte
 assert_not_contains "$out" "stranded:      #120" "select: an open closing PR is in flight, not stranded"
 assert_contains "$out" "remaining:     2 other candidate(s)" \
   "select: the pool is #130 (PR closed unmerged), #140 (reopened) and #10 -- #160's unreadable PR counts as in flight"
-assert_contains "$out" "call: gh api graphql" "select: linked PR states are looked up, since gh lists links without them"
-assert_contains "$out" "ids[]=PR_189" "select: the lookup asks for each linked PR by node id"
+assert_contains "$out" "call: gh api repos/$HERE/issues/155/timeline?per_page=100&page=1" \
+  "select: a candidate's linked PRs are read from its REST timeline, paged"
+assert_not_contains "$out" "issues/180/timeline" \
+  "select: the timeline is read after the kind filter -- another routine's issue costs nothing"
+assert_contains "$out" "checked:       6 candidate(s) for linked pull requests" \
+  "select: the routine's own pool is what was checked"
 
 out="$(registry '{"backlog":[[155,["bug","now"],[189],""]],"pr_states":{"189":"MERGED"}}' select --routine fix)"
 assert_contains "$out" "exit=0" "select: a pool holding only a stranded issue exits 0"
@@ -277,11 +333,12 @@ assert_contains "$out" "candidate:     170 —" \
 
 out="$(registry '{"backlog":[[10,["bug","next"],[],""]]}' select --routine fix)"
 assert_contains "$out" "candidate:     10 —" "select: an unlinked issue is still a candidate"
-assert_not_contains "$out" "call: gh api" "select: no lookup runs when no open issue is linked"
+assert_contains "$out" "call: gh api repos/$HERE/issues/10/timeline" \
+  "select: every candidate's timeline is read -- an unlinked issue proves itself clean"
 
-out="$(registry "{$BACKLOG,\"graphql_fail\":true}" select --routine fix)"
-assert_contains "$out" "exit=1" "select: a failed PR-state lookup exits 1"
-assert_contains "$out" "gh api graphql" "select: the failed lookup is named"
+out="$(registry "{$BACKLOG,\"timeline_fail\":true}" select --routine fix)"
+assert_contains "$out" "exit=1" "select: a failed timeline read exits 1"
+assert_contains "$out" "timeline" "select: the failed timeline read is named"
 assert_not_contains "$out" "candidate:" "select: no candidate is offered when linked PR state is unknown"
 
 # --- the skill documents the command ----------------------------------------

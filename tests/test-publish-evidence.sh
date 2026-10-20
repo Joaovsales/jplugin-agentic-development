@@ -309,13 +309,13 @@ print('e2e_evidence' in sys.modules)")" "layout: importing the publisher loads n
 
 # --- wrap-up wiring (AC 10) --------------------------------------------------
 # The publisher reaches a reviewer only through the PR body, so wrap-up must run
-# it before `gh pr create` AND on every re-sync, and the report must say where
+# it before `gh_pr.py create` AND on every re-sync, and the report must say where
 # the screenshots went — a public repo is never published to silently.
 WRAP="$REPO/.agents/skills/wrap-up-session/SKILL.md"
 PR_SECTION="$(awk '/^### The Pull Request/{f=1;next} f&&/^### /{exit} f' "$WRAP" | tr '\n' ' ' | tr -s ' ')"
 assert_contains "$PR_SECTION" "publish_evidence.py" "wrap-up: § The Pull Request runs the publisher"
-assert_precedes "$PR_SECTION" "publish_evidence.py" "gh pr create" \
-  "wrap-up: the publisher runs before gh pr create"
+assert_precedes "$PR_SECTION" "publish_evidence.py" "gh_pr.py create" \
+  "wrap-up: the publisher runs before gh_pr.py create"
 assert_contains "$PR_SECTION" "every re-sync" "wrap-up: the publisher runs on every re-sync"
 assert_contains "$PR_SECTION" "publish_evidence.py --sha <the short-sha § E2E coverage checked>" \
   "wrap-up: the publisher gets the walkthrough's sha, not HEAD after the wrap-up commit"

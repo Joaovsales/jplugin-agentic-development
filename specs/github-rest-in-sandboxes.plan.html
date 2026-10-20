@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Spec: GitHub through REST in Claude Code cloud sandboxes</title>
+<style>/* jplugin plan theme — inlined into every visual plan by
+   .agents/skills/visual-plan/scripts/plan_render.py. Rules: design/plan-theme/DESIGN.md.
+   Derived from the minimal technical journal prototype (design/prototypes/minimalist/). */
+
+:root {
+  color-scheme: light;
+  --paper: #f7f7f4; --surface: #ffffff; --ink: #26251e; --body: #4f4e48; --muted: #6b675f;
+  --line: #dcdad2; --strong: #b9b7ac; --code: #f0f0ea; --wash: #f1ebe5; --accent: #b93f18;
+  --c-decision: #1f5fa8; --c-criterion: #2d6a35; --c-risk: #8a5300; --c-question: #6a3d9a;
+  --c-blocker: #b3261e; --c-constraint: #4a5868; --c-contract: #0f6b6b; --c-model: #7a4b2a;
+  --c-slice: #3b4cc0; --c-prompt: #b93f18; --c-diagram: #50504a; --c-reference: #5f5c55;
+  --t-decision: #eaf1fa; --t-criterion: #ebf4ec; --t-risk: #f8f0e2; --t-question: #f2edf8;
+  --t-blocker: #fbeceb; --t-slice: #eeeffb; --t-prompt: #f8ece6;
+  --display: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+    --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+    --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+    --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+    --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+    --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+    --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+  --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+  --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+  --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+  --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+  --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+  --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+}
+
+/* ---------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.62 var(--sans); overflow-wrap: break-word; }
+a { color: inherit; text-underline-offset: .2em; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { background: var(--wash); color: var(--ink); }
+p, li { color: var(--body); max-width: var(--measure); }
+code { font: .88em/1.4 var(--mono); background: var(--code); padding: .08em .3em; border-radius: 3px; overflow-wrap: anywhere; }
+pre { margin: 16px 0 24px; background: var(--code); padding: 18px 20px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--ink); max-width: 100%; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+blockquote { margin: 0 0 20px; padding: 2px 0 2px 16px; border-left: 2px solid var(--strong); color: var(--muted); }
+h1, h2, h3 { color: var(--ink); }
+h3 { font: 600 17px/1.3 var(--sans); letter-spacing: -.01em; margin: 26px 0 10px; }
+ul, ol { padding-left: 22px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+.skip { position: absolute; left: 10px; top: -60px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 30; }
+.skip:focus { top: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ------------------------------------------------------------- layout */
+.masthead { max-width: 1440px; margin: 0 auto; padding: clamp(36px, 6vw, 84px) clamp(16px, 4vw, 64px) 26px; border-bottom: 1px solid var(--line); }
+.folio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin: 0 0 22px; color: var(--muted); font: 12px/1.5 var(--mono); max-width: none; }
+.masthead h1 { font: 400 clamp(36px, 6vw, 76px)/1.02 var(--display); letter-spacing: -.035em; margin: 0 0 18px; max-width: 22ch; }
+.source { margin: 0; font: 13px/1.5 var(--mono); color: var(--muted); max-width: none; }
+.source a { color: var(--ink); }
+.shell { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 0 clamp(16px, 4vw, 64px); }
+main { min-width: 0; padding-bottom: 80px; }
+
+/* ----------------------------------------------------------- navigation */
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 26px 0; font-size: 14px; }
+.toc-menu > summary { list-style: none; cursor: pointer; font: 12px/1.4 var(--mono); color: var(--muted); padding: 6px 0; }
+.toc-menu > summary::-webkit-details-marker { display: none; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; }
+.toc li { margin: 0; max-width: none; }
+.toc a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--line); text-decoration: none; color: var(--body); line-height: 1.35; }
+.toc a:hover { color: var(--ink); border-left-color: var(--strong); }
+.toc a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); font-weight: 600; }
+.toc .toc-prompt { margin-top: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.btn, .copy, .review button { font: 600 13px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--strong); border-radius: 4px; padding: 9px 12px; cursor: pointer; min-height: 36px; }
+.btn:hover, .copy:hover, .review button:hover { border-color: var(--ink); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ------------------------------------------------- lead, strip, blockers */
+.lead { margin: 30px 0 26px; }
+.lead p { font: 400 clamp(20px, 2.2vw, 27px)/1.42 var(--display); color: var(--ink); max-width: 40ch; margin: 0 0 14px; }
+.lead .lead-label, .card-label { font: 600 11px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.lead .lead-label { color: var(--muted); display: block; margin-bottom: 10px; }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); margin: 0 0 26px; }
+.stat { display: block; padding: 14px 14px 14px 0; text-decoration: none; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 14px; }
+.stat-n { display: block; font: 400 30px/1.1 var(--display); color: var(--ink); }
+.stat-l { display: block; font: 12px/1.3 var(--mono); color: var(--muted); }
+.stat-alert .stat-n { color: var(--c-blocker); }
+.strip-label { grid-column: 1 / -1; display: flex; gap: 4px; align-items: baseline; padding: 8px 0 0; color: var(--muted); }
+.strip-label + .stat { border-left: 0; padding-left: 0; }
+.blockers { border: 1px solid var(--c-blocker); border-left-width: 6px; background: var(--t-blocker); padding: 16px 20px; margin: 0 0 30px; }
+.blockers h2 { font: 600 18px/1.3 var(--sans); margin: 0 0 8px; color: var(--c-blocker); }
+.blockers ul { margin: 0; padding-left: 0; list-style: none; }
+.blockers li { padding: 4px 0; max-width: none; }
+.blockers .none { color: var(--body); margin: 0; }
+
+/* ------------------------------------------------------------- sections */
+.sec { scroll-margin-top: 12px; border-bottom: 1px solid var(--line); }
+.sec > details > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; padding: 30px 0 18px; }
+.sec > details > summary::-webkit-details-marker { display: none; }
+.sec > details > summary::after { content: "+"; margin-left: auto; font: 400 22px/1 var(--mono); color: var(--muted); }
+.sec > details[open] > summary::after { content: "\2212"; }
+.sec h2 { font: 400 clamp(28px, 3.4vw, 44px)/1.08 var(--display); letter-spacing: -.03em; margin: 0; }
+.sec-count { font: 12px/1 var(--mono); color: var(--muted); }
+.sec > details > :not(summary) { margin-left: 0; }
+.sec > details { padding-bottom: 26px; }
+.table-scroll { overflow-x: auto; max-width: 100%; margin: 14px 0 22px; border-top: 1px solid var(--ink); }
+.table-scroll:focus-visible { outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { position: sticky; top: 0; background: var(--paper); text-align: left; font: 600 12px/1.35 var(--mono); color: var(--muted); padding: 10px 12px 8px 0; border-bottom: 1px solid var(--strong); vertical-align: bottom; }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); min-width: 9ch; }
+
+/* ---------------------------------------------------------------- cards */
+.cards { display: grid; gap: 12px; margin: 6px 0 18px; padding: 0; list-style: none; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; max-width: none; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-head h3 { margin: 0; font: 600 16px/1.35 var(--sans); flex: 1 1 18ch; min-width: 0; }
+.card-icon { font: 700 14px/1 var(--mono); width: 1.5em; text-align: center; flex: none; }
+.card-id { font: 600 12px/1 var(--mono); color: var(--ink); background: var(--code); padding: 4px 6px; border-radius: 3px; }
+.card p { margin: 8px 0 0; }
+.card-body { margin-top: 8px; }
+.card-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.card-more > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.card-more dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; }
+.card-more dt { font: 600 12px/1.6 var(--mono); color: var(--muted); }
+.card-more dd { margin: 0; color: var(--body); }
+.chosen { position: relative; padding-left: 26px; color: var(--ink); overflow-wrap: anywhere; }
+.chosen::before { position: absolute; left: 0; top: .2em; }
+.chosen::before { content: "\2713"; font: 700 12px/1 var(--mono); color: var(--c-criterion); border: 1px solid currentColor; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; flex: none; }
+.callout-wrong { border-left: 3px solid var(--c-blocker); padding: 6px 10px; background: var(--t-blocker); color: var(--ink); }
+.meta { font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: none; }
+
+/* chips: text labels first, colour second */
+.chip { font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip-settled { color: var(--c-criterion); }
+.chip-open, .chip-uncovered, .chip-blocked { color: var(--c-blocker); border-style: dashed; }
+.chip-new { color: var(--c-contract); }
+.chip-changed { color: var(--c-risk); }
+.chip-verify { color: var(--c-question); border-style: dashed; }
+.lvl { font: 600 11px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--strong); border-radius: 3px; color: var(--ink); }
+.lvl-H { border-color: var(--c-blocker); color: var(--c-blocker); border-width: 2px; }
+.lvl-M { border-color: var(--c-risk); color: var(--c-risk); }
+.lvl-L { color: var(--muted); }
+
+/* one colour, icon, label and border shape per component type */
+.card-decision { border-color: var(--c-decision); border-style: solid; }
+.card-decision .card-icon, .card-decision .card-label { color: var(--c-decision); }
+.card-decision.is-open { background: var(--t-decision); }
+.card-criterion { border: 0; border-left: 3px solid var(--c-criterion); background: transparent; padding: 8px 12px; }
+.card-criterion .card-icon, .card-criterion .card-label { color: var(--c-criterion); }
+.card-criterion.is-uncovered { border-left-color: var(--c-blocker); border-left-style: dashed; background: var(--t-blocker); }
+.card-risk { border: 3px double var(--c-risk); }
+.card-risk .card-icon, .card-risk .card-label { color: var(--c-risk); }
+.card-question { border: 2px dashed var(--c-question); background: var(--t-question); }
+.card-question .card-icon { color: var(--c-question); border: 2px solid currentColor; border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; }
+.card-question .card-label { color: var(--c-question); }
+.card-constraint { border: 1px dotted var(--c-constraint); }
+.card-constraint .card-icon, .card-constraint .card-label { color: var(--c-constraint); }
+.card-contract { border: 1px solid var(--line); border-left: 6px solid var(--c-contract); }
+.card-contract .card-icon, .card-contract .card-label { color: var(--c-contract); }
+.card-contract pre { margin: 10px 0 0; }
+.card-model { border: 1px solid var(--line); border-top: 4px solid var(--c-model); }
+.card-model .card-icon, .card-model .card-label { color: var(--c-model); }
+.card-slice { border: 2px solid var(--c-slice); border-radius: 0 12px 12px 0; }
+.card-slice .card-icon, .card-slice .card-label { color: var(--c-slice); }
+.card-slice.is-blocked { background: var(--t-blocker); border-style: dashed; }
+.card-prompt { border: 2px solid var(--c-prompt); background: var(--t-prompt); padding: 18px 20px; }
+.card-prompt .card-icon, .card-prompt .card-label { color: var(--c-prompt); }
+.card-prompt pre { background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-prompt.not-ready { border-style: dashed; border-color: var(--c-blocker); background: var(--t-blocker); }
+.not-ready-msg { font-weight: 700; color: var(--c-blocker); }
+.card-reference { border: 0; border-top: 1px dotted var(--c-reference); background: transparent; padding: 10px 0; }
+.card-reference .card-icon, .card-reference .card-label { color: var(--c-reference); }
+.card-blockers .card-icon, .card-blockers .card-label { color: var(--c-blocker); }
+.card-strip .card-label { color: var(--muted); }
+.card-lead .card-label { color: var(--muted); }
+
+/* ------------------------------------------------------------- diagrams */
+.diagram { margin: 18px 0 24px; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.diagram .card-icon, .diagram .card-label { color: var(--c-diagram); }
+.diagram-scroll { overflow-x: auto; max-width: 100%; margin-top: 8px; }
+.diagram svg { display: block; max-width: none; height: auto; font-family: var(--sans); }
+.diagram figcaption { font: 13px/1.5 var(--sans); color: var(--body); margin-top: 8px; }
+.diagram-source, .text-diagram { margin-top: 10px; }
+.diagram-source > summary, .text-diagram > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.text-diagram { border: 1px dashed var(--strong); padding: 8px 12px; margin: 12px 0 20px; }
+svg .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+svg .node text { fill: var(--ink); font-size: 13px; }
+svg .node .node-sub { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .node-new rect { stroke: var(--c-contract); stroke-width: 2.4; }
+svg .node-changed rect { stroke: var(--c-risk); stroke-width: 2.4; stroke-dasharray: 6 3; }
+svg .node-blocked rect { stroke: var(--c-blocker); stroke-width: 2.4; stroke-dasharray: 3 3; fill: var(--t-blocker); }
+svg a:focus-visible rect, svg a:hover rect { stroke: var(--accent); stroke-width: 2.6; }
+svg .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .edge-dashed { stroke-dasharray: 5 4; }
+svg .arrow { fill: var(--muted); }
+svg .edge-label { fill: var(--body); font-size: 11px; font-family: var(--mono); }
+svg .label-bg { fill: var(--surface); }
+svg .lane { fill: var(--code); stroke: var(--line); }
+svg .lane-label { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .lifeline { stroke: var(--strong); stroke-dasharray: 4 4; }
+svg .actor rect { fill: var(--surface); stroke: var(--ink); }
+svg .actor text { fill: var(--ink); font-size: 13px; }
+svg .msg { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .msg-reply { stroke-dasharray: 5 4; }
+svg .msg-label { fill: var(--ink); font-size: 12px; }
+svg .frame { fill: none; stroke: var(--c-question); stroke-width: 1.2; }
+svg .frame-label { fill: var(--c-question); font-size: 11px; font-family: var(--mono); font-weight: 600; }
+svg .frame-tab { fill: var(--t-question); stroke: var(--c-question); }
+svg .frame-divider { stroke: var(--c-question); stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 12px/1.4 var(--mono); color: var(--muted); margin-top: 8px; padding: 0; list-style: none; }
+.legend li { max-width: none; }
+
+/* -------------------------------------------------------------- review */
+.review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.review button { padding: 6px 9px; min-height: 30px; font-size: 12px; }
+.review button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.review label { display: flex; align-items: center; gap: 6px; flex: 1 1 16ch; min-width: 0; font: 12px/1.3 var(--mono); color: var(--muted); }
+.review textarea, .review select, .review input { font: 13px/1.4 var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--strong); border-radius: 4px; padding: 6px 8px; flex: 1 1 16ch; min-width: 0; }
+.review-status { font: 12px/1.4 var(--mono); color: var(--muted); margin: 8px 0 0; max-width: none; }
+.review-panel { border: 1px solid var(--strong); padding: 16px 18px; margin: 26px 0; }
+.review-panel pre { white-space: pre-wrap; }
+
+/* ------------------------------------------------------- blockers-only */
+body.only-blockers main .sec:not(.has-blockers),
+body.only-blockers main .cards > :not(.is-blocker),
+body.only-blockers main .ac-list > :not(.is-blocker) { display: none; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 767px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: sticky; top: 0; z-index: 20; max-height: none; overflow: visible; background: var(--paper); border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .toc-menu > summary { font-size: 14px; color: var(--ink); padding: 10px 0; }
+  .toc-menu > summary::before { content: "\2630  "; }
+  .toc-menu[open] ol { max-height: 70vh; overflow-y: auto; padding-bottom: 10px; }
+  .masthead h1 { font-size: clamp(32px, 10vw, 48px); }
+  .stat + .stat { border-left: 0; padding-left: 0; }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card-more dl { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 768px) {
+  .toc-menu > summary { pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  :root { --paper: #fff; --surface: #fff; }
+  .toc, .controls, .review, .copy, .skip, .review-panel { display: none !important; }
+  .shell { display: block; padding: 0; }
+  .sec > details > summary::after { content: ""; }
+  .card, .diagram { break-inside: avoid; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 10px; color: var(--muted); }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body class="plan">
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead"><p class="folio"><span>Visual plan</span><span><a href="#build-prompt">Build prompt ↓</a></span></p><h1>Spec: GitHub through REST in Claude Code cloud sandboxes</h1><p class="source">Source: <a href="github-rest-in-sandboxes.md">specs/github-rest-in-sandboxes.md</a> · sha256 <code>cc50f6537703</code></p></header>
+<div class="shell"><nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary><ol><li><a href="#summary-lead">Summary</a></li><li><a href="#blockers">Blockers</a></li><li><a href="#behavior">Behavior</a></li><li><a href="#inputs">Inputs</a></li><li><a href="#outputs">Outputs</a></li><li><a href="#edge-cases">Edge Cases</a></li><li><a href="#risks">Risks</a></li><li><a href="#decisions">Decisions</a></li><li><a href="#open-questions">Open questions</a></li><li><a href="#acceptance-criteria">Acceptance Criteria</a></li><li><a href="#implementation-paths">Implementation Paths</a></li><li><a href="#build-order">Build Order</a></li><li><a href="#build-prompt">Build prompt</a></li><li><a href="#review">Review</a></li></ol></details></nav><main id="main">
+<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label"><span class="card-icon" aria-hidden="true">¶</span> <span class="card-label">Summary</span></span><p>Claude Code cloud sandboxes reach GitHub through a proxy that accepts REST calls (<code>gh api repos/{owner}/{repo}/...</code>, <code>gh api user</code>) and refuses GitHub&#x27;s GraphQL endpoint with HTTP 403. <code>gh auth status</code> also exits non-zero there although every REST call succeeds. The task-registry GitHub provider and the wrap-up PR path both drive <code>gh</code> through subcommands that use GraphQL (<code>gh issue</code>, <code>gh label</code>, <code>gh repo view --json</code>, <code>gh pr</code>), so an unattended routine stops at <code>task-registry doctor</code> and could never open its PR. Both move to REST: the provider calls <code>gh api</code> only, and the PR path runs through one script, <code>gh_pr.py</code>, that the wrap-up prose cites instead of <code>gh pr</code>. Every observable behavior stays the same; only the transport and the exact <code>gh</code> argv change. The decision not to miss: linked-PR exclusion in <code>select</code> is kept by reading each candidate&#x27;s REST timeline, conservatively. The merger&#x27;s post-merge check (<code>task-registry closes</code>) and the <code>stranded:</code> backstop in <code>select</code> read pull-request state from REST as well.</p></section>
+<nav class="strip card-strip" aria-label="At a glance"><span class="strip-label"><span class="card-icon" aria-hidden="true">#</span><span class="card-label">At a glance</span></span><a class="stat" href="#build-order"><span class="stat-n">7</span><span class="stat-l">slices</span></a><a class="stat" href="#acceptance-criteria"><span class="stat-n">13</span><span class="stat-l">criteria</span></a><a class="stat" href="#decisions"><span class="stat-n">15</span><span class="stat-l">decisions</span></a><a class="stat" href="#risks"><span class="stat-n">6</span><span class="stat-l">risks</span></a><a class="stat" href="#open-questions"><span class="stat-n">1</span><span class="stat-l">open items</span></a><a class="stat" href="#blockers"><span class="stat-n">0</span><span class="stat-l">blockers</span></a></nav>
+<section class="blockers card-blockers" id="blockers" aria-labelledby="blockers-h"><h2 id="blockers-h"><span class="card-icon" aria-hidden="true">!</span><span class="card-label">Blockers</span> <span class="sec-count">0</span></h2><p class="none">No blockers: no open decision, blocking question, uncovered criterion or unmitigated high-impact risk.</p></section>
+<div class="controls" role="toolbar" aria-label="Disclosure"><button type="button" class="btn" data-action="expand">Expand all</button><button type="button" class="btn" data-action="collapse">Collapse all</button><button type="button" class="btn" data-action="blockers" aria-pressed="false">Show only blockers</button></div>
+<section class="sec sec-generic" id="behavior" data-kind="generic"><details class="sec-body" open><summary><h2>Behavior</h2></summary><h3>The registry&#x27;s GitHub provider speaks REST</h3>
+<p><code>.agents/skills/task-registry/scripts/registry/providers/github.py</code> issues every GitHub call as <code>gh api</code> against <code>user</code> or <code>repos/{owner}/{repo}/...</code>. No <code>gh issue</code>, <code>gh label</code>, <code>gh repo</code> or <code>gh auth</code> invocation remains in the provider or in <code>config.py</code>.</p>
+<ul><li><strong>Reachability</strong> (<code>discover()</code> and provider selection in <code>config.py</code>) is <code>gh api user</code> exiting 0. The failure line keeps its shape: <code>gh is unavailable or unauthenticated — run \</code>gh auth login\<code>(&lt;last stderr line&gt;)</code>.</li><li><strong>Repository resolution</strong> without a <code>repository =</code> line parses the GitHub remote (<code>config.github_remote</code>) instead of calling <code>gh repo view</code>; the refusal when no remote exists keeps its text, minus the <code>gh repo view</code> quotation.</li><li><strong>Reads.</strong> <code>list_tasks</code> pages <code>GET /repos/{r}/issues?state=all&amp;per_page=100&amp;page=N</code> until a short page or <code>LIST_LIMIT</code> entries, keeping today&#x27;s truncation flag and note. Entries carrying a <code>pull_request</code> key are pull requests, not issues, and are dropped. <code>get_task</code> is <code>GET /repos/{r}/issues/{n}</code>. The REST shape maps onto the normalized model: <code>html_url</code> → url, <code>created_at</code> and <code>updated_at</code>, <code>state</code> lower-case, <code>labels[].name</code>, <code>assignees</code>.</li><li><strong>Writes</strong> send a JSON payload on stdin with <code>gh api --method &lt;M&gt; &lt;path&gt; --input -</code>. Create is <code>POST /issues</code> with <code>title</code>, <code>body</code> and <code>labels[]</code>; the issue URL comes from the response&#x27;s <code>html_url</code>. Update is <code>PATCH /issues/{n}</code> with <code>body</code> and, when it changed, <code>title</code>, followed by <code>POST /issues/{n}/labels</code> only when there are labels to add. Additive labels are <code>POST /issues/{n}/labels</code>. Close is <code>PATCH /issues/{n}</code> with <code>state: closed</code> and <code>state_reason</code> <code>completed</code> or <code>not_planned</code>. Comment is <code>POST /issues/{n}/comments</code>. Label creation is <code>POST /labels</code>; label listing pages <code>GET /labels?per_page=100</code> to <code>LABEL_LIST_LIMIT</code> with today&#x27;s cap refusal. Error lines read <code>github: \</code>gh api &lt;METHOD&gt; &lt;path&gt;\<code>exited N — &lt;redacted output&gt;</code>.</li><li><strong>A label never reaches a write unless the repository already has it.</strong> REST <code>POST /issues</code> silently creates unknown labels for anyone with push access, so the known-label filter is the only thing standing between an ordinary sync and a mutated vocabulary. The mock enforces it too.</li></ul>
+<h3>Linked-PR exclusion survives without GraphQL</h3>
+<p><code>select</code> still skips an issue whose fix is already under review, and still names an issue a merge left open. The provider gains <code>linked_pr_state(task) -&gt; Optional[Dict[str, str]]</code> (base default <code>None</code>, unknown). The GitHub implementation reads <code>GET /repos/{r}/issues/{n}/timeline</code> (paged, capped) and looks only at <code>cross-referenced</code> events whose source is a pull request; an open issue that mentions the candidate counts for nothing. It answers the two keys <code>select</code> reads today: <code>unresolved_linked_pr</code> is <code>true</code> when any such pull request is open, in this repository or another; <code>merged_linked_pr</code> names the first pull request of this repository that merged with a closing keyword naming the candidate, when no pull request is open and the issue&#x27;s <code>state_reason</code> is not <code>reopened</code>. The event&#x27;s <code>source.issue</code> carries the pull request&#x27;s state, <code>pull_request.merged_at</code>, <code>repository_url</code> and body, so the read costs no second call. A timeline over the cap answers <code>None</code>.</p>
+<p><code>select</code> evaluates the hook for the routine&#x27;s candidates only, after the kind and claim filters, so a 500-issue repository costs one call per candidate rather than per issue; the <code>stranded:</code> backstop therefore covers the routine&#x27;s own pool, and a stranded issue of another routine is named when that routine runs. A candidate whose state is unknown makes <code>select</code> refuse, naming the issue, exactly as the missing field does today. <code>linked_pr_exclusion_available()</code> answers <code>True</code> for this provider; the <code>select</code> refusal text no longer mentions a <code>gh</code> version. <code>list_tasks_with_linked_prs</code>, the per-issue <code>closedByPullRequestsReferences</code> and <code>stateReason</code> fields, the GraphQL <code>PR_STATE_QUERY</code>, the <code>OPTIONAL_ISSUE_FIELDS</code> degradation and the mock&#x27;s <code>unknown-fields</code> knob are retired with it. <code>routines.md</code> states the exclusion as a timeline read and drops its <code>gh</code> 2.73.0 floor and its GraphQL sentence.</p>
+<h3>The post-merge check reads the pull request over REST</h3>
+<p><code>closing_references(pr)</code> reads <code>GET /repos/{r}/pulls/{n}</code>; a pull request whose <code>merged</code> is false is refused naming its state, as today. The issues it closes are the closing keywords in its body — GitHub&#x27;s own list (<code>close</code>, <code>closes</code>, <code>closed</code>, <code>fix</code>, <code>fixes</code>, <code>fixed</code>, <code>resolve</code>, <code>resolves</code>, <code>resolved</code>, an optional colon, then <code>#N</code>, <code>owner/repo#N</code> or an issue URL) — parsed by one helper that the stranded check shares. A reference outside the repository is refused naming it and nothing is closed, as today. <code>task-registry closes</code> then reads and closes each open issue through the REST reads and writes above.</p>
+<h3>The wrap-up PR path runs through <code>gh_pr.py</code></h3>
+<p><code>.agents/skills/wrap-up-session/scripts/gh_pr.py</code> (standard library plus <code>gh api</code>) owns every pull-request operation the wrap-up and its closure actions perform:</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table: Subcommand, REST"><table><thead><tr><th scope="col">Subcommand</th><th scope="col">REST</th></tr></thead><tbody><tr><td><code>create --base &lt;branch&gt; --title &lt;t&gt; --body-file &lt;f&gt; [--draft]</code></td><td><code>POST /pulls</code> with <code>head</code> = current branch, <code>draft</code> as given; prints the PR URL</td></tr><tr><td><code>view &lt;n or branch&gt; --json &lt;fields&gt;</code></td><td><code>GET /pulls/{n}</code>, or <code>GET /pulls?head=&lt;owner&gt;:&lt;branch&gt;&amp;state=all</code> for a branch; fields <code>number,url,body,mergeable,headSha</code></td></tr><tr><td><code>edit &lt;n&gt; --body-file &lt;f&gt;</code></td><td><code>PATCH /pulls/{n}</code></td></tr><tr><td><code>ready &lt;n&gt; [--undo]</code></td><td><code>POST /pulls/{n}/ccr/ready_for_review</code>, or <code>POST /pulls/{n}/ccr/convert_to_draft</code> with <code>--undo</code>; when that route answers 404 the proxy is absent, and the script falls back to <code>gh pr ready [--undo]</code> (Decision 9)</td></tr><tr><td><code>checks &lt;n&gt; [--watch] [--required]</code></td><td><code>GET /commits/{sha}/check-runs</code> and <code>/commits/{sha}/status</code>; <code>--required</code> reads the base branch&#x27;s required checks and falls back to all when that read is refused</td></tr><tr><td><code>mergeable &lt;n&gt;</code></td><td><code>GET /pulls/{n}</code> <code>.mergeable</code>, <code>null</code> reported as unknown</td></tr></tbody></table></div>
+<p><code>view</code> tells &quot;no such pull request&quot; (an empty list or 404) apart from &quot;could not ask&quot; (any other failure) in its exit code and stderr, because the terminal PR assertion depends on that distinction. The wrap-up prose (<code>SKILL.md</code>, <code>closure-actions.md</code>, <code>routines.md</code>, the routine-prompts README) cites these subcommands and contains no <code>gh pr</code>; the one-place rule for PR creation now pins <code>gh_pr.py create</code> exactly once.</p>
+<h3>The <code>gh</code> mock answers REST</h3>
+<p><code>tests/fixtures/task-registry/gh</code> gains an <code>api</code> dispatcher over the routes above: <code>GET user</code> honors <code>GH_MOCK_UNAUTH</code>; writes honor <code>GH_MOCK_FAIL</code>; <code>--input -</code> bodies are parsed and appended to the <code>GH_MOCK_LOG</code> line so assertions can grep what was sent; unknown labels on any write exit 1; <code>issues</code> paging honors <code>per_page</code> and <code>page</code>; <code>issue-&lt;n&gt;.json</code> and <code>issues.json</code> keep their meaning; <code>timeline-&lt;n&gt;.json</code> answers the timeline route. The <code>auth</code>, <code>issue</code>, <code>label</code> and <code>repo</code> branches are removed, so a provider that regresses to a GraphQL-backed subcommand fails loudly.</p></details></section>
+<section class="sec sec-generic" id="inputs" data-kind="generic"><details class="sec-body" open><summary><h2>Inputs</h2></summary><ul><li><code>gh</code> on PATH, able to run <code>gh api</code> against api.github.com: a logged-in CLI or a sandbox-provided <code>GH_TOKEN</code>.</li><li>The project&#x27;s task-tracking configuration, unchanged.</li><li>For the PR path: the current branch, its base branch, and a PR body file.</li></ul></details></section>
+<section class="sec sec-generic" id="outputs" data-kind="generic"><details class="sec-body" open><summary><h2>Outputs</h2></summary><ul><li><code>doctor</code> reports <code>reachable: yes — gh authenticated for &lt;owner&gt;/&lt;repo&gt;</code> in the cloud sandbox, and every registry read and write succeeds there.</li><li><code>select</code> reports how many candidates had their linked-PR state checked and prints a <code>stranded:</code> line for each candidate a merge left open.</li><li><code>gh_pr.py</code> prints the same facts the prose previously read from <code>gh pr</code> (URL, number, body, mergeable, check results) in the same places.</li><li>Documentation states the environment requirement as &quot;<code>gh api user</code> succeeds&quot;, not &quot;<code>gh auth status</code> succeeds&quot;.</li></ul></details></section>
+<section class="sec sec-generic" id="edge-cases" data-kind="generic"><details class="sec-body" open><summary><h2>Edge Cases</h2></summary><ul><li><code>gh api user</code> fails: the provider is unreachable with the existing message; reads degrade to local-only and writes become <code>local-pending</code>, as today.</li><li>The issues endpoint returns pull requests: dropped before normalization; a fixture entry with a <code>pull_request</code> key proves it.</li><li>A page comes back exactly full at <code>LIST_LIMIT</code>: <code>result_truncated</code> is set and <code>select</code> refuses, as today.</li><li><code>update_task</code> patches the body and then fails to add labels: the error names the body as already written, so a retry does not re-apply a stale body.</li><li>An unknown label is requested: filtered before the write, reported in a note; the mock exits 1 if one slips through.</li><li>A candidate&#x27;s timeline exceeds the page cap: state unknown, <code>select</code> refuses and names the issue.</li><li>An open PR merely mentions the issue without closing it: it still excludes the issue. Over-exclusion is the chosen side of the error.</li><li>A cross-reference comes from an issue, not a pull request, in this or another repository: ignored.</li><li>A merged PR mentions the issue without a closing keyword: it excludes nothing and strands nothing.</li><li>A merged PR closes the issue in a form the keyword parser misses: no <code>stranded:</code> line, and the issue stays a candidate (R6).</li><li><code>closes</code> on a PR whose body names <code>owner/other#N</code>: refused naming it, nothing closed, as today.</li><li><code>gh_pr.py view &lt;branch&gt;</code> on a branch with no PR: exit 1 and <code>no pull request for &lt;branch&gt;</code>; a network or auth failure exits 2 with <code>gh</code>&#x27;s stderr, so the terminal assertion reports UNKNOWN rather than &quot;no PR&quot;.</li><li>Required-checks read refused or <code>Branch not protected</code> (404): <code>checks --required</code> watches all checks and says so.</li><li><code>ready</code> outside a sandbox: the <code>ccr</code> route answers 404, and the script runs <code>gh pr ready [--undo]</code> instead, reporting which path it took.</li><li><code>mergeable</code> is <code>null</code> right after a push: reported as unknown and re-queried up to three times, as the closure action does today.</li><li>REST writes are refused by the sandbox proxy (R3, Q1): the registry reports the HTTP status in its error line and the write becomes <code>local-pending</code>.</li><li>Windows: the Python-called mock is unreachable from the registry (#129); the mock-backed assertions are proven on Linux CI, as before.</li></ul></details></section>
+<section class="sec sec-risks" id="risks" data-kind="risks"><details class="sec-body" open><summary><h2>Risks</h2></summary><div class="cards"><article class="card card-risk" id="r5"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R5</span><span class="lvl lvl-H">Likelihood H</span><span class="lvl lvl-H">Impact H</span><h3>The suite fails as uid 0 in the sandbox (4 of 72 files), so the wrap-up gate would still refuse to push there</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>out of scope here; a separate fix guards those assertions on <code>id -u</code> like the two already guarded</dd><dt>Slice</dt><dd>—</dd></dl><div class="review" data-review="R5" role="group" aria-label="Review R5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R5 note"></textarea></label></div></article><article class="card card-risk" id="r1"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R1</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-H">Impact H</span><h3>REST <code>POST /issues</code> auto-creates labels the repository lacks</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>known-label filter before every write; mock rejects unknown labels on writes</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R1" role="group" aria-label="Review R1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R1 note"></textarea></label></div></article><article class="card card-risk" id="r3"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R3</span><span class="lvl lvl-L">Likelihood L</span><span class="lvl lvl-H">Impact H</span><h3>REST writes from the sandbox are refused although reads pass</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>unverified until the first real routine run; Q1</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R3" role="group" aria-label="Review R3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R3 note"></textarea></label></div></article><article class="card card-risk" id="r4"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R4</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-M">Impact M</span><h3>Mock argv assertions drift from the real <code>gh api</code> surface</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>the mock validates method, path and body shape like the real CLI validates flags</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R4" role="group" aria-label="Review R4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R4 note"></textarea></label></div></article><article class="card card-risk" id="r6"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R6</span><span class="lvl lvl-L">Likelihood L</span><span class="lvl lvl-M">Impact M</span><h3>The body parser misses a closing form GitHub honours, so a stranded issue is re-picked</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>GitHub&#x27;s documented keyword list, one test per form; <code>closes</code> reads the same helper, so a miss shows on the merger&#x27;s run</dd><dt>Slice</dt><dd><a href="#slice-4">slice 4</a></dd></dl><div class="review" data-review="R6" role="group" aria-label="Review R6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R6 note"></textarea></label></div></article><article class="card card-risk" id="r2"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R2</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-L">Impact L</span><h3>Timeline cross-references over-exclude a candidate</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>conservative by design; <code>select</code> prints the excluding PR number</dd><dt>Slice</dt><dd><a href="#slice-2">slice 2</a></dd></dl><div class="review" data-review="R2" role="group" aria-label="Review R2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R2 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-decisions" id="decisions" data-kind="decisions"><details class="sec-body" open><summary><h2>Decisions</h2></summary><div class="cards"><article class="card card-decision" id="d1"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D1</span><span class="chip chip-settled">settled</span><h3>How does <code>select</code> learn linked-PR state without GraphQL?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Read each candidate&#x27;s REST timeline; any cross-reference from an open PR excludes; over the cap is unknown and refuses</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>keeps the safety property that stops two routines racing on one branch</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D1" role="group" aria-label="Review D1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D1 note"></textarea></label></div></article><article class="card card-decision" id="d2"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D2</span><span class="chip chip-settled">settled</span><h3>Does this spec cover the wrap-up PR path too?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Yes: <code>gh_pr.py</code> replaces every <code>gh pr</code> call</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the routine&#x27;s last step is a PR; a registry that works and a PR that cannot open is still a failed run</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D2" role="group" aria-label="Review D2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D2 note"></textarea></label></div></article><article class="card card-decision" id="d3"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D3</span><span class="chip chip-settled">settled</span><h3>What is the reachability probe?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>gh api user</code> exit 0, in both <code>discover()</code> and provider selection</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the sandbox token fails <code>gh auth status</code> while every REST call works; <code>GET /user</code> is the cheapest authenticated call</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D3" role="group" aria-label="Review D3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D3 note"></textarea></label></div></article><article class="card card-decision" id="d4"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D4</span><span class="chip chip-settled">settled</span><h3>How is the repository resolved without <code>repository =</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>From the GitHub remote via <code>config.github_remote</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd><code>gh repo view --json</code> is GraphQL; the remote already exists because selection chose GitHub for it</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D4" role="group" aria-label="Review D4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D4 note"></textarea></label></div></article><article class="card card-decision" id="d5"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D5</span><span class="chip chip-settled">settled</span><h3>How do write payloads reach <code>gh api</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>JSON on stdin with <code>--input -</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>argv is capped near 32K on Windows and issue bodies reach 64K; arrays (<code>labels</code>) are awkward as <code>-f</code> fields</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D5" role="group" aria-label="Review D5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D5 note"></textarea></label></div></article><article class="card card-decision" id="d6"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D6</span><span class="chip chip-settled">settled</span><h3>How are lists paged?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>per_page=100&amp;page=N</code> loop in Python until a short page or the cap</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>no <code>gh</code> version floor for <code>--paginate --slurp</code>, the mock stays simple, truncation detection stays explicit</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D6" role="group" aria-label="Review D6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D6 note"></textarea></label></div></article><article class="card card-decision" id="d7"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D7</span><span class="chip chip-settled">settled</span><h3>When is linked-PR state read?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Per candidate inside <code>select</code>, after kind and claim filtering; the <code>stranded:</code> backstop covers the routine&#x27;s own pool</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>one timeline call per listed issue would be hundreds of calls per run; another routine&#x27;s stranded issue is named on that routine&#x27;s run</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D7" role="group" aria-label="Review D7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D7 note"></textarea></label></div></article><article class="card card-decision" id="d8"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D8</span><span class="chip chip-settled">settled</span><h3>Where does the PR logic live?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>A script, <code>gh_pr.py</code>, cited by the prose</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>prose cannot be tested; a script with a mock can, and the &quot;exactly one place creates the PR&quot; rule transfers to it</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D8" role="group" aria-label="Review D8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D8 note"></textarea></label></div></article><article class="card card-decision" id="d9"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D9</span><span class="chip chip-settled">settled</span><h3>Which route toggles draft and ready?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>The sandbox proxy&#x27;s <code>POST /repos/{o}/{r}/pulls/{n}/ccr/ready_for_review</code> and <code>.../ccr/convert_to_draft</code>; a 404 on that route means no proxy, and the script falls back to <code>gh pr ready [--undo]</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd><code>gh pr ready</code> is GraphQL and fails in the sandbox; the proxy&#x27;s own 403 message names these routes, and they exist nowhere else, so a plain <code>gh</code> outside the sandbox keeps the GraphQL path</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D9" role="group" aria-label="Review D9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D9 note"></textarea></label></div></article><article class="card card-decision" id="d10"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D10</span><span class="chip chip-settled">settled</span><h3>What does the mock record for a write?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>The argv line plus the parsed stdin body</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the claim and label tests assert on what was sent, not only on which route was hit</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D10" role="group" aria-label="Review D10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D10 note"></textarea></label></div></article><article class="card card-decision" id="d11"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D11</span><span class="chip chip-settled">settled</span><h3>What happens to the old-<code>gh</code> degradation path?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Retired with <code>OPTIONAL_ISSUE_FIELDS</code> and the <code>unknown-fields</code> knob</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>no <code>--json</code> field list exists on REST; the capability it degraded is now the timeline read</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D11" role="group" aria-label="Review D11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D11 note"></textarea></label></div></article><article class="card card-decision" id="d12"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D12</span><span class="chip chip-settled">settled</span><h3>Is the uid-0 suite failure fixed here?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>No; flagged as R5 for a separate, small fix</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>unrelated code, and this spec is already at the slice ceiling</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D12" role="group" aria-label="Review D12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D12 note"></textarea></label></div></article><article class="card card-decision" id="d13"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D13</span><span class="chip chip-settled">settled</span><h3>How is &quot;this PR closes that issue&quot; known without <code>closingIssuesReferences</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>GitHub&#x27;s closing keywords parsed from the PR body, by one helper shared by <code>closes</code> and the stranded check</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>REST exposes no closing-reference relation; the body is what GitHub itself reads, and the timeline event already carries it</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D13" role="group" aria-label="Review D13"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D13 note"></textarea></label></div></article><article class="card card-decision" id="d14"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D14</span><span class="chip chip-settled">settled</span><h3>Where do a cross-referencing PR&#x27;s state and body come from?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>The <code>cross-referenced</code> event&#x27;s <code>source.issue</code> (<code>state</code>, <code>pull_request.merged_at</code>, <code>repository_url</code>, <code>body</code>)</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>verified live on #146 on 2026-10-19; no second call per PR</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D14" role="group" aria-label="Review D14"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D14 note"></textarea></label></div></article><article class="card card-decision" id="d15"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D15</span><span class="chip chip-settled">settled</span><h3>Does a PR in another repository count?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>For the exclusion yes; for <code>stranded</code> no</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>conservative on the exclusion, and <code>closes</code> cannot reach a merge elsewhere, as today</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D15" role="group" aria-label="Review D15"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D15 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-open-questions" id="open-questions" data-kind="open-questions"><details class="sec-body" open><summary><h2>Open questions</h2></summary><div class="cards"><article class="card card-question" id="q1"><div class="card-head"><span class="card-icon" aria-hidden="true">?</span><span class="card-label">Question</span><span class="card-id">Q1</span><h3>Do REST writes (<code>POST /issues</code>, <code>POST /pulls</code>) succeed from the sandbox, not only reads?</h3></div><p class="meta"><span class="tag">Blocks nothing</span><span class="tag">Needed from the first real routine run</span></p><div class="review" data-review="Q1" role="group" aria-label="Review Q1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Answer <input data-field="answer" aria-label="Q1 answer"></label><label>Note <textarea data-field="note" rows="1" aria-label="Q1 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-acceptance-criteria" id="acceptance-criteria" data-kind="acceptance-criteria"><details class="sec-body" open><summary><h2>Acceptance Criteria</h2></summary><ol class="ac-list cards"><li class="card card-criterion" id="ac1"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC1</span></div><p>With a <code>gh</code> whose <code>auth status</code> exits 1 but whose <code>api user</code> exits 0, <code>doctor</code> prints <code>reachable: yes — gh authenticated for &lt;owner&gt;/&lt;repo&gt;</code> and provider selection with no <code>provider =</code> line picks <code>github</code>; with <code>api user</code> failing (<code>GH_MOCK_UNAUTH</code>) the existing unreachable line and the <code>local-pending</code> write path are unchanged.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC1" role="group" aria-label="Review AC1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC1 note"></textarea></label></div></li><li class="card card-criterion" id="ac2"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC2</span></div><p>The provider and <code>config.py</code> contain no <code>gh issue</code>, <code>gh label</code>, <code>gh repo</code> or <code>gh auth</code> invocation; the lifecycle test&#x27;s <code>gh.log</code> contains only <code>api</code> lines, each a <code>user</code> or <code>repos/&lt;owner&gt;/&lt;repo&gt;/...</code> path.</p><p class="meta">covered by <a href="#slice-3">slice 3</a></p><div class="review" data-review="AC2" role="group" aria-label="Review AC2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC2 note"></textarea></label></div></li><li class="card card-criterion" id="ac3"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC3</span></div><p>Every section-7 GitHub provider test (normalization, create, update, additive labels, close, comment, gated writes, unauthenticated degradation) passes against the REST mock, with assertions changed only in the argv or body they grep.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC3" role="group" aria-label="Review AC3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC3 note"></textarea></label></div></li><li class="card card-criterion" id="ac4"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC4</span></div><p>An <code>issues.json</code> entry carrying a <code>pull_request</code> key produces no task.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC4" role="group" aria-label="Review AC4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC4 note"></textarea></label></div></li><li class="card card-criterion" id="ac5"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC5</span></div><p>A read of exactly <code>LIST_LIMIT</code> issues sets <code>result_truncated</code> and <code>select</code> refuses with the existing message.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC5" role="group" aria-label="Review AC5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC5 note"></textarea></label></div></li><li class="card card-criterion" id="ac6"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC6</span></div><p><code>select</code> excludes a candidate whose <code>timeline-&lt;n&gt;.json</code> holds a cross-reference from an open PR, keeps one whose references are merged or closed, prints a <code>stranded:</code> line for a candidate whose only cross-referencing PR merged in this repository with a closing keyword naming it and whose <code>state_reason</code> is not <code>reopened</code>, refuses and names the issue when the timeline exceeds the cap, and reports the number of candidates checked; the <code>select</code> cases of <code>tests/test-task-closes.sh</code> pin the timeline read in place of <code>gh api graphql</code>.</p><p class="meta">covered by <a href="#slice-3">slice 3</a></p><div class="review" data-review="AC6" role="group" aria-label="Review AC6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC6 note"></textarea></label></div></li><li class="card card-criterion" id="ac7"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC7</span></div><p>Every write sends its payload on stdin; the mock&#x27;s log line carries the body; a write naming a label absent from <code>labels.json</code> exits 1 and the test asserts the refusal.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC7" role="group" aria-label="Review AC7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC7 note"></textarea></label></div></li><li class="card card-criterion" id="ac8"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC8</span></div><p><code>update_task</code> with a changed body and a new label issues <code>PATCH /issues/{n}</code> then <code>POST /issues/{n}/labels</code>; with <code>GH_MOCK_FAIL</code> set only for the second call, the error names the body as already written.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC8" role="group" aria-label="Review AC8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC8 note"></textarea></label></div></li><li class="card card-criterion" id="ac9"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC9</span></div><p><code>configuration.md</code>, <code>templates/task-tracking.md</code>, <code>docs/task-tracking.md</code> and the routine-prompts README state the requirement as <code>gh api user</code> succeeding; <code>gh auth status</code> appears in none of them.</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC9" role="group" aria-label="Review AC9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC9 note"></textarea></label></div></li><li class="card card-criterion" id="ac10"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC10</span></div><p><code>gh_pr.py</code> implements <code>create</code>, <code>view</code>, <code>edit</code>, <code>ready</code>, <code>checks</code> and <code>mergeable</code> through REST; <code>tests/test-gh-pr.sh</code> proves each subcommand&#x27;s method, path and body against the mock, and proves <code>view</code> exits 1 for &quot;no PR&quot; and 2 for &quot;could not ask&quot;.</p><p class="meta">covered by <a href="#slice-6">slice 6</a></p><div class="review" data-review="AC10" role="group" aria-label="Review AC10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC10 note"></textarea></label></div></li><li class="card card-criterion" id="ac11"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC11</span></div><p>The wrap-up <code>SKILL.md</code>, <code>closure-actions.md</code>, <code>routines.md</code> and the routine-prompts README contain no <code>gh pr</code>; <code>gh_pr.py create</code> appears exactly once across the skill; <code>tests/test-routine-wrapup.sh</code> and <code>tests/test-doc-conventions.sh</code> pin the new tokens where they pinned <code>gh pr</code> ones.</p><p class="meta">covered by <a href="#slice-7">slice 7</a></p><div class="review" data-review="AC11" role="group" aria-label="Review AC11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC11 note"></textarea></label></div></li><li class="card card-criterion" id="ac12"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC12</span></div><p><code>bash tests/run.sh</code> is green on the pull request&#x27;s Linux CI run.</p><p class="meta">covered by <a href="#slice-7">slice 7</a></p><div class="review" data-review="AC12" role="group" aria-label="Review AC12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC12 note"></textarea></label></div></li><li class="card card-criterion" id="ac13"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC13</span></div><p><code>task-registry closes &#x27;#N&#x27;</code> reads <code>GET /repos/{r}/pulls/{n}</code>, refuses an unmerged PR naming its state, takes its issues from the closing keywords in the body (one test per keyword form), refuses a reference outside the repository naming it, and closes each open one through <code>PATCH /issues/{n}</code>; the <code>closes</code> cases of <code>tests/test-task-closes.sh</code> pin that argv in place of <code>gh pr view</code>, <code>gh issue view</code> and <code>gh issue close</code>.</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC13" role="group" aria-label="Review AC13"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC13 note"></textarea></label></div></li></ol></details></section>
+<section class="sec sec-generic" id="implementation-paths" data-kind="generic"><details class="sec-body" open><summary><h2>Implementation Paths</h2></summary><ul><li><code>.agents/skills/task-registry/scripts/registry/providers/github.py</code> — the REST provider: reachability, reads, writes, label vocabulary, timeline-based linked-PR state.</li><li><code>.agents/skills/task-registry/scripts/registry/providers/base.py</code> — the <code>linked_pr_state</code> hook with its <code>None</code> default; <code>list_tasks_with_linked_prs</code> retired.</li><li><code>.agents/skills/task-registry/scripts/registry/config.py</code> — <code>gh_authenticated</code> probes <code>gh api user</code>.</li><li><code>.agents/skills/task-registry/scripts/registry/routines.py</code> — candidate filtering and <code>stranded</code> read the hook&#x27;s answer after kind and claim filters.</li><li><code>.agents/skills/task-registry/scripts/task-registry.py</code> — the <code>select</code> refusal text and the checked-candidates line.</li><li><code>.agents/skills/task-registry/references/configuration.md</code>, <code>.agents/skills/task-registry/templates/task-tracking.md</code>, <code>docs/task-tracking.md</code> — the environment requirement stated as REST reachability.</li><li><code>.agents/skills/wrap-up-session/scripts/gh_pr.py</code> — the REST PR helper.</li><li><code>.agents/skills/wrap-up-session/scripts/pr_linkage.py</code> — its docstring names <code>gh_pr.py create</code> as the step it precedes.</li><li><code>.agents/skills/wrap-up-session/SKILL.md</code>, <code>references/closure-actions.md</code>, <code>references/routines.md</code>, <code>references/routine-prompts/README.md</code> — prose cites <code>gh_pr.py</code> subcommands; <code>routines.md</code> describes the exclusion as a timeline read.</li><li><code>tests/fixtures/task-registry/gh</code> — the REST-aware mock.</li><li><code>tests/test-task-registry.sh</code>, <code>tests/test-routine-selectors.sh</code> — provider, selection and claim assertions against the REST mock.</li><li><code>tests/test-gh-pr.sh</code> — the PR helper&#x27;s contract.</li><li><code>tests/test-task-closes.sh</code> — the post-merge check and the <code>select</code> backstop against the in-process <code>_run</code> seam, pinning REST argv.</li><li><code>tests/test-routine-wrapup.sh</code>, <code>tests/test-doc-conventions.sh</code> — the prose pins moved from <code>gh pr</code> to <code>gh_pr.py</code>.</li></ul></details></section>
+<section class="sec sec-build-order" id="build-order" data-kind="build-order"><details class="sec-body" open><summary><h2>Build Order</h2></summary><p>Sizing: 7 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 5 (3 systems: one reachability sentence in the registry&#x27;s reference and template, the wrap-up&#x27;s routine-prompts README and the project&#x27;s <code>docs/task-tracking.md</code>, kept together because AC9 reads the four documents as one statement).</p><figure class="diagram card-diagram dag" id="slice-graph"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">dag</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="Slices in dependency order: a slice starts when every slice it is blocked by is done."><svg viewBox="0 0 1246 214" width="1246" height="214" role="group" aria-labelledby="dag-t dag-d"><title id="dag-t">Slice dependency graph</title><desc id="dag-d">Slice 1 (REST reads and reachability) has no blocker. Slice 2 (REST writes) is blocked by slice 1. Slice 3 (Timeline linked-PR exclusion) is blocked by slice 1, slice 2. Slice 4 (Post-merge closes over REST) is blocked by slice 3. Slice 5 (REST reachability in the docs) has no blocker. Slice 6 (gh_pr.py REST PR helper) is blocked by slice 3. Slice 7 (Wrap-up prose cites gh_pr.py) is blocked by slice 5, slice 6.</desc><defs><marker id="dag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,64.0 274.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,64.0 C369.0,64.0 369.0,64.0 528.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,64.0 C496.0,64.0 496.0,64.0 528.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M718.0,64.0 C750.0,64.0 750.0,64.0 782.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M718.0,64.0 C750.0,64.0 750.0,138.0 782.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,138.0 C623.0,138.0 623.0,64.0 1036.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M972.0,138.0 C1004.0,138.0 1004.0,64.0 1036.0,64.0" marker-end="url(#dag-arrow)"/><a href="#slice-1" aria-label="Slice 1: REST reads and reachability" class="node" data-layer="0"><title>Slice 1: REST reads and reachability</title><rect x="20.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="57.0">S1</text><text x="30.0" y="77.0">REST reads and reachabi…</text></a><a href="#slice-2" aria-label="Slice 2: REST writes" class="node" data-layer="1"><title>Slice 2: REST writes</title><rect x="274.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="57.0">S2</text><text x="284.0" y="77.0">REST writes</text></a><a href="#slice-3" aria-label="Slice 3: Timeline linked-PR exclusion" class="node" data-layer="2"><title>Slice 3: Timeline linked-PR exclusion</title><rect x="528.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="538.0" y="57.0">S3</text><text x="538.0" y="77.0">Timeline linked-PR excl…</text></a><a href="#slice-4" aria-label="Slice 4: Post-merge closes over REST" class="node" data-layer="3"><title>Slice 4: Post-merge closes over REST</title><rect x="782.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="792.0" y="57.0">S4</text><text x="792.0" y="77.0">Post-merge closes over …</text></a><a href="#slice-5" aria-label="Slice 5: REST reachability in the docs" class="node" data-layer="0"><title>Slice 5: REST reachability in the docs</title><rect x="20.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="131.0">S5</text><text x="30.0" y="151.0">REST reachability in th…</text></a><a href="#slice-6" aria-label="Slice 6: gh_pr.py REST PR helper" class="node" data-layer="3"><title>Slice 6: gh_pr.py REST PR helper</title><rect x="782.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="792.0" y="131.0">S6</text><text x="792.0" y="151.0">gh_pr.py REST PR helper</text></a><a href="#slice-7" aria-label="Slice 7: Wrap-up prose cites gh_pr.py" class="node" data-layer="4"><title>Slice 7: Wrap-up prose cites gh_pr.py</title><rect x="1036.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="1046.0" y="57.0">S7</text><text x="1046.0" y="77.0">Wrap-up prose cites gh_…</text></a></svg></div><figcaption>Slices in dependency order: a slice starts when every slice it is blocked by is done.</figcaption></figure><div class="cards slice-cards"><article class="card card-slice" id="slice-1"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S1</span><h3>REST reads and reachability</h3></div><p>discover() and config.gh_authenticated probe gh api user; _repo() falls back to the parsed remote; list_tasks and get_task page REST issues, drop pull requests and map the REST shape; the mock gains its api dispatcher for user, issues, issues/{n} and labels reads</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>discover()</code> and <code>config.gh_authenticated</code> probe <code>gh api user</code>; <code>_repo()</code> falls back to the parsed remote; <code>list_tasks</code> and <code>get_task</code> page REST issues, drop pull requests and map the REST shape; the mock gains its <code>api</code> dispatcher for <code>user</code>, <code>issues</code>, <code>issues/{n}</code> and <code>labels</code> reads</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac1">AC1</a>, <a href="#ac4">AC4</a>, <a href="#ac5">AC5</a></dd><dt>Surface</dt><dd><code>.agents/skills/task-registry/scripts/registry/providers/github.py</code>, <code>.agents/skills/task-registry/scripts/registry/config.py</code>, <code>tests/fixtures/task-registry/gh</code>, <code>tests/test-task-registry.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-task-registry.sh</code></dd><dt>Size</dt><dd>4 files · 1 system · 3 ACs</dd></dl></details><div class="review" data-review="S1" role="group" aria-label="Review S1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S1 note"></textarea></label></div></article><article class="card card-slice" id="slice-2"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S2</span><h3>REST writes</h3></div><p>create, update, additive labels, close, comment, label creation and label listing on gh api --method &lt;M&gt; &lt;path&gt; --input -; the mock parses stdin bodies into the log, honors GH_MOCK_FAIL and exits 1 on an unknown label</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>create, update, additive labels, close, comment, label creation and label listing on <code>gh api --method &lt;M&gt; &lt;path&gt; --input -</code>; the mock parses stdin bodies into the log, honors <code>GH_MOCK_FAIL</code> and exits 1 on an unknown label</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac3">AC3</a>, <a href="#ac7">AC7</a>, <a href="#ac8">AC8</a></dd><dt>Surface</dt><dd><code>.agents/skills/task-registry/scripts/registry/providers/github.py</code>, <code>tests/fixtures/task-registry/gh</code>, <code>tests/test-task-registry.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-task-registry.sh</code></dd><dt>Size</dt><dd>3 files · 1 system · 3 ACs</dd></dl></details><div class="review" data-review="S2" role="group" aria-label="Review S2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S2 note"></textarea></label></div></article><article class="card card-slice" id="slice-3"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S3</span><h3>Timeline linked-PR exclusion</h3></div><p>linked_pr_state hook (base None), the GitHub timeline read answering unresolved_linked_pr and merged_linked_pr, select_candidates and stranded reading it after kind and claim filters, the refusal text and checked-candidates line; list_tasks_with_linked_prs, OPTIONAL_ISSUE_FIELDS, PR_STATE_QUERY, closedByPullRequestsReferences and the mock&#x27;s auth/issue/label/repo branches and unknown-fields knob removed; the select cases of tests/test-task-closes.sh moved to the timeline argv</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>linked_pr_state</code> hook (base <code>None</code>), the GitHub timeline read answering <code>unresolved_linked_pr</code> and <code>merged_linked_pr</code>, <code>select_candidates</code> and <code>stranded</code> reading it after kind and claim filters, the refusal text and checked-candidates line; <code>list_tasks_with_linked_prs</code>, <code>OPTIONAL_ISSUE_FIELDS</code>, <code>PR_STATE_QUERY</code>, <code>closedByPullRequestsReferences</code> and the mock&#x27;s <code>auth</code>/<code>issue</code>/<code>label</code>/<code>repo</code> branches and <code>unknown-fields</code> knob removed; the <code>select</code> cases of <code>tests/test-task-closes.sh</code> moved to the timeline argv</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a>, <a href="#slice-2">slice 2</a></dd><dt>Criteria</dt><dd><a href="#ac2">AC2</a>, <a href="#ac6">AC6</a></dd><dt>Surface</dt><dd><code>.agents/skills/task-registry/scripts/registry/providers/base.py</code>, <code>.agents/skills/task-registry/scripts/registry/providers/github.py</code>, <code>.agents/skills/task-registry/scripts/registry/routines.py</code>, <code>.agents/skills/task-registry/scripts/task-registry.py</code>, <code>tests/fixtures/task-registry/gh</code>, <code>tests/test-task-registry.sh</code>, <code>tests/test-routine-selectors.sh</code>, <code>tests/test-task-closes.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-task-registry.sh tests/test-routine-selectors.sh tests/test-task-closes.sh</code></dd><dt>Size</dt><dd>8 files · 1 system · 2 ACs</dd></dl></details><div class="review" data-review="S3" role="group" aria-label="Review S3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S3 note"></textarea></label></div></article><article class="card card-slice" id="slice-4"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S4</span><h3>Post-merge closes over REST</h3></div><p>closing_references on GET /pulls/{n} plus the shared closing-keyword parser; unmerged and out-of-repository refusals kept; the closes cases of tests/test-task-closes.sh pin the REST argv, one per keyword form</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>closing_references</code> on <code>GET /pulls/{n}</code> plus the shared closing-keyword parser; unmerged and out-of-repository refusals kept; the <code>closes</code> cases of <code>tests/test-task-closes.sh</code> pin the REST argv, one per keyword form</dd><dt>Blocked by</dt><dd><a href="#slice-3">slice 3</a></dd><dt>Criteria</dt><dd><a href="#ac13">AC13</a></dd><dt>Surface</dt><dd><code>.agents/skills/task-registry/scripts/registry/providers/github.py</code>, <code>.agents/skills/task-registry/scripts/registry/providers/base.py</code>, <code>tests/test-task-closes.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-task-closes.sh</code></dd><dt>Size</dt><dd>3 files · 1 system · 1 AC</dd></dl></details><div class="review" data-review="S4" role="group" aria-label="Review S4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S4 note"></textarea></label></div></article><article class="card card-slice" id="slice-5"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S5</span><h3>REST reachability in the docs</h3></div><p>the environment requirement reads &quot;gh api user succeeds&quot; in the registry reference, its template, the project file and the routine-prompts README; gh auth status appears in none</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>the environment requirement reads &quot;<code>gh api user</code> succeeds&quot; in the registry reference, its template, the project file and the routine-prompts README; <code>gh auth status</code> appears in none</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac9">AC9</a></dd><dt>Surface</dt><dd><code>.agents/skills/task-registry/references/configuration.md</code>, <code>.agents/skills/task-registry/templates/task-tracking.md</code>, <code>docs/task-tracking.md</code>, <code>.agents/skills/wrap-up-session/references/routine-prompts/README.md</code>, <code>tests/test-doc-conventions.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-doc-conventions.sh</code></dd><dt>Size</dt><dd>5 files · 3 systems (over, see above) · 1 AC</dd></dl></details><div class="review" data-review="S5" role="group" aria-label="Review S5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S5 note"></textarea></label></div></article><article class="card card-slice" id="slice-6"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S6</span><h3>gh_pr.py REST PR helper</h3></div><p>create, view, edit, ready, checks, mergeable over gh api; view separates &quot;no PR&quot; (exit 1) from &quot;could not ask&quot; (exit 2); ready takes the ccr route and falls back to gh pr ready on 404; the mock answers pulls, check-runs, status and ccr routes</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>create</code>, <code>view</code>, <code>edit</code>, <code>ready</code>, <code>checks</code>, <code>mergeable</code> over <code>gh api</code>; <code>view</code> separates &quot;no PR&quot; (exit 1) from &quot;could not ask&quot; (exit 2); <code>ready</code> takes the <code>ccr</code> route and falls back to <code>gh pr ready</code> on 404; the mock answers <code>pulls</code>, <code>check-runs</code>, <code>status</code> and <code>ccr</code> routes</dd><dt>Blocked by</dt><dd><a href="#slice-3">slice 3</a></dd><dt>Criteria</dt><dd><a href="#ac10">AC10</a></dd><dt>Surface</dt><dd><code>.agents/skills/wrap-up-session/scripts/gh_pr.py</code>, <code>tests/test-gh-pr.sh</code>, <code>tests/fixtures/task-registry/gh</code></dd><dt>Verify</dt><dd><code>bash tests/test-gh-pr.sh</code></dd><dt>Size</dt><dd>3 files · 2 systems · 1 AC</dd></dl></details><div class="review" data-review="S6" role="group" aria-label="Review S6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S6 note"></textarea></label></div></article><article class="card card-slice" id="slice-7"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S7</span><h3>Wrap-up prose cites gh_pr.py</h3></div><p>SKILL.md, closure-actions.md, routines.md, the routine-prompts README and the pr_linkage.py docstring cite gh_pr.py subcommands and contain no gh pr; gh_pr.py create pinned exactly once; routines.md states the exclusion as a timeline read without the gh 2.73 floor or the GraphQL sentence; the prose tests move their pins; Linux CI green</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>SKILL.md</code>, <code>closure-actions.md</code>, <code>routines.md</code>, the routine-prompts README and the <code>pr_linkage.py</code> docstring cite <code>gh_pr.py</code> subcommands and contain no <code>gh pr</code>; <code>gh_pr.py create</code> pinned exactly once; <code>routines.md</code> states the exclusion as a timeline read without the <code>gh</code> 2.73 floor or the GraphQL sentence; the prose tests move their pins; Linux CI green</dd><dt>Blocked by</dt><dd><a href="#slice-5">slice 5</a>, <a href="#slice-6">slice 6</a></dd><dt>Criteria</dt><dd><a href="#ac11">AC11</a>, <a href="#ac12">AC12</a></dd><dt>Surface</dt><dd><code>.agents/skills/wrap-up-session/SKILL.md</code>, <code>.agents/skills/wrap-up-session/references/closure-actions.md</code>, <code>.agents/skills/wrap-up-session/references/routines.md</code>, <code>.agents/skills/wrap-up-session/references/routine-prompts/README.md</code>, <code>.agents/skills/wrap-up-session/scripts/pr_linkage.py</code>, <code>tests/test-routine-wrapup.sh</code>, <code>tests/test-doc-conventions.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-routine-wrapup.sh tests/test-doc-conventions.sh</code></dd><dt>Size</dt><dd>7 files · 1 system · 2 ACs</dd></dl></details><div class="review" data-review="S7" role="group" aria-label="Review S7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S7 note"></textarea></label></div></article></div><section class="card card-prompt" id="build-prompt" aria-label="Build prompt"><div class="card-head"><span class="card-icon" aria-hidden="true">▶</span><span class="card-label">Build prompt</span></div><pre><code id="build-prompt-text">Invoke `/build` for `specs/github-rest-in-sandboxes.md`.
+Plan: `## Plan: github-rest-in-sandboxes` in `tasks/todo.md`, 7 slices, ready set &lt;1, 5&gt;.
+Files: .agents/skills/task-registry/scripts/registry/providers/github.py, .agents/skills/task-registry/scripts/registry/providers/base.py, .agents/skills/task-registry/scripts/registry/config.py, .agents/skills/task-registry/scripts/registry/routines.py, .agents/skills/task-registry/scripts/task-registry.py, .agents/skills/task-registry/references/configuration.md, .agents/skills/task-registry/templates/task-tracking.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/references/closure-actions.md, .agents/skills/wrap-up-session/references/routines.md, .agents/skills/wrap-up-session/references/routine-prompts/README.md, .agents/skills/wrap-up-session/scripts/gh_pr.py, .agents/skills/wrap-up-session/scripts/pr_linkage.py, docs/task-tracking.md, tests/fixtures/task-registry/gh, tests/test-task-registry.sh, tests/test-routine-selectors.sh, tests/test-routine-wrapup.sh, tests/test-doc-conventions.sh, tests/test-gh-pr.sh, tests/test-task-closes.sh.
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/github-rest-in-sandboxes.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints:
+- Decision 5: every write payload travels on stdin through `gh api --input -`; no `-f`/`-F` fields.
+- Decisions 1, 7 and 15: linked-PR state is read from the REST timeline per candidate, after kind and claim filtering; any open cross-referencing PR excludes, an over-cap timeline makes `select` refuse, and `stranded` covers the routine&#x27;s own pool.
+- Decisions 13 and 14: the closing relation is GitHub&#x27;s closing-keyword list parsed from the PR body, one helper shared by `closes` and the stranded check, read off the timeline event&#x27;s `source.issue`; no GraphQL anywhere.
+- Decision 9: `ready` posts to the `ccr/ready_for_review` and `ccr/convert_to_draft` routes and falls back to `gh pr ready [--undo]` only on a 404 from that route.
+- Decision 12: the uid-0 suite failures (R5) are not fixed in this plan; no edit outside the Surfaces for them.</code></pre><button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button></section></details></section>
+<section class="review-panel" id="review" aria-labelledby="review-h" data-spec="specs/github-rest-in-sandboxes.md" data-sha="cc50f6537703"><h2 id="review-h">Review</h2><p class="meta">Mark cards ok or questioned, answer questions and pick open decisions, then paste the export into the planning session: <code>/plan</code> applies it and re-runs <code>/slice</code>.</p><p class="review-status" id="review-status" role="status">Marks are saved in this browser for sha256 cc50f6537703.</p><button type="button" class="btn" data-action="export-review">Export review</button><pre><code id="review-export"></code></pre></section>
+</main>
+</div>
+<script>/* Visual plan page script: disclosure controls, deep links, navigation, copy.
+   Inlined by plan_render.py. No network, no dependencies; every feature
+   degrades to the plain <details> page when the script cannot run. */
+
+// Review state: pure helpers, kept apart from the DOM so they can be tested alone.
+var planReview = (function () {
+  'use strict';
+  function key(sha, spec) { return 'jplugin-plan-review:' + sha + ':' + spec; }
+  // A store that never throws: `ok` is false when the browser refuses storage.
+  function openStore(getStorage, name) {
+    var storage = null;
+    try {
+      storage = getStorage();
+      storage.setItem(name + ':probe', '1');
+      storage.removeItem(name + ':probe');
+    } catch (err) { storage = null; }
+    return {
+      ok: storage !== null,
+      load: function () {
+        if (!storage) { return {}; }
+        try { return JSON.parse(storage.getItem(name) || '{}') || {}; } catch (err) { return {}; }
+      },
+      save: function (state) {
+        if (!storage) { return false; }
+        try { storage.setItem(name, JSON.stringify(state)); return true; } catch (err) { return false; }
+      }
+    };
+  }
+  function flat(text) { return String(text || '').replace(/\s+/g, ' ').trim(); }
+  // One export line per item: a pick or an answer wins over the bare mark.
+  function line(id, s) {
+    var note = flat(s.note) ? ' — ' + flat(s.note) : '';
+    if (flat(s.pick)) { return id + ': pick ' + flat(s.pick) + note; }
+    if (flat(s.answer)) { return id + ': answer — ' + flat(s.answer) + note; }
+    if (s.mark) { return id + ': ' + s.mark + note; }
+    return null;
+  }
+  function format(spec, sha, items) {
+    var lines = ['Review of ' + spec + ' @ ' + sha];
+    items.forEach(function (item) {
+      var text = line(item[0], item[1] || {});
+      if (text) { lines.push(text); }
+    });
+    return lines.join('\n');
+  }
+  return { key: key, openStore: openStore, line: line, format: format };
+})();
+if (typeof module === 'object' && module.exports) { module.exports = planReview; }
+
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') { return; }
+  var doc = document;
+  var all = function (sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); };
+
+  // ------------------------------------------------------------ deep links
+  function openTo(hash) {
+    if (!hash || hash.length < 2) { return null; }
+    var target = doc.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!target) { return null; }
+    if (target.tagName === 'DETAILS') { target.open = true; }
+    var node = target.parentElement && target.parentElement.closest('details');
+    while (node) {
+      node.open = true;
+      node = node.parentElement && node.parentElement.closest('details');
+    }
+    var inner = target.querySelector(':scope > details');
+    if (inner) { inner.open = true; }
+    target.scrollIntoView({ block: 'start' });
+    return target;
+  }
+  window.addEventListener('hashchange', function () { openTo(location.hash); });
+  doc.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href^="#"]');
+    if (link && link.getAttribute('href') === location.hash) { openTo(location.hash); }
+  });
+
+  // ------------------------------------------------------------ navigation
+  var menu = doc.querySelector('.toc-menu');
+  var narrow = window.matchMedia('(max-width: 767px)');
+  function fitMenu() { if (menu) { menu.open = !narrow.matches; } }
+  if (menu) {
+    fitMenu();
+    if (narrow.addEventListener) { narrow.addEventListener('change', fitMenu); }
+    menu.addEventListener('click', function (event) {
+      if (event.target.closest('a') && narrow.matches) { menu.open = false; }
+    });
+  }
+  var links = all('.toc a[href^="#"]');
+  function markCurrent(id) {
+    links.forEach(function (a) {
+      if (a.getAttribute('href') === '#' + id) { a.setAttribute('aria-current', 'true'); }
+      else { a.removeAttribute('aria-current'); }
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { if (entry.isIntersecting) { markCurrent(entry.target.id); } });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    links.forEach(function (a) {
+      var section = doc.getElementById(a.getAttribute('href').slice(1));
+      if (section) { spy.observe(section); }
+    });
+  }
+
+  // ------------------------------------------------------------ disclosure
+  function setAll(open) { all('main details').forEach(function (d) { d.open = open; }); }
+  var onlyBlockers = doc.querySelector('[data-action="blockers"]');
+  function toggleBlockers() {
+    var on = !doc.body.classList.contains('only-blockers');
+    doc.body.classList.toggle('only-blockers', on);
+    onlyBlockers.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { all('.sec.has-blockers > details').forEach(function (d) { d.open = true; }); }
+  }
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button[data-action]');
+    if (!button) { return; }
+    var action = button.getAttribute('data-action');
+    if (action === 'expand') { setAll(true); }
+    if (action === 'collapse') { setAll(false); }
+    if (action === 'blockers') { toggleBlockers(); }
+  });
+  var printed = [];
+  window.addEventListener('beforeprint', function () {
+    printed = all('details:not([open])');
+    printed.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function () {
+    printed.forEach(function (d) { d.open = false; });
+    printed = [];
+  });
+
+  // ------------------------------------------------------------ copy
+  function copyText(text, button, done) {
+    function report(ok) {
+      var label = button.getAttribute('data-label') || button.textContent;
+      button.setAttribute('data-label', label);
+      button.textContent = ok ? (done || 'Copied') : 'Copy failed: select the text';
+      setTimeout(function () { button.textContent = label; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { report(true); }, function () { report(false); });
+      return;
+    }
+    var area = doc.createElement('textarea');
+    area.value = text;
+    doc.body.appendChild(area);
+    area.select();
+    var ok = false;
+    try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+    doc.body.removeChild(area);
+    report(ok);
+  }
+  window.planCopy = copyText;
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button.copy[data-copy-from]');
+    if (!button || button.disabled) { return; }
+    var source = doc.getElementById(button.getAttribute('data-copy-from'));
+    if (source) { copyText(source.textContent, button); }
+  });
+
+  // ------------------------------------------------------------ review
+  var panel = doc.getElementById('review');
+  var cards = all('.review[data-review]');
+  if (panel && cards.length) {
+    var spec = panel.getAttribute('data-spec');
+    var sha = panel.getAttribute('data-sha');
+    var store = planReview.openStore(function () { return window.localStorage; }, planReview.key(sha, spec));
+    var state = store.load();
+    var status = doc.getElementById('review-status');
+    if (!store.ok) {
+      status.textContent = 'Browser storage is unavailable: review marks will not persist past this page.';
+    }
+    var showMark = function (box, mark) {
+      all('button[data-mark]', box).forEach(function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-mark') === mark ? 'true' : 'false');
+      });
+    };
+    cards.forEach(function (box) {
+      var saved = state[box.getAttribute('data-review')] || {};
+      showMark(box, saved.mark);
+      all('[data-field]', box).forEach(function (f) { f.value = saved[f.getAttribute('data-field')] || ''; });
+    });
+    var update = function (box, change) {
+      var id = box.getAttribute('data-review');
+      var entry = state[id] || {};
+      Object.keys(change).forEach(function (k) { entry[k] = change[k]; });
+      state[id] = entry;
+      store.save(state);
+    };
+    doc.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('.review button[data-mark]');
+      if (!button) { return; }
+      var box = button.closest('.review');
+      var mark = button.getAttribute('aria-pressed') === 'true' ? '' : button.getAttribute('data-mark');
+      showMark(box, mark);
+      update(box, { mark: mark });
+    });
+    doc.addEventListener('input', function (event) {
+      var field = event.target.closest && event.target.closest('.review [data-field]');
+      if (!field) { return; }
+      var change = {};
+      change[field.getAttribute('data-field')] = field.value;
+      update(field.closest('.review'), change);
+    });
+    var exportButton = panel.querySelector('[data-action="export-review"]');
+    exportButton.addEventListener('click', function () {
+      var items = cards.map(function (box) {
+        var id = box.getAttribute('data-review');
+        return [id, state[id]];
+      });
+      var text = planReview.format(spec, sha, items);
+      doc.getElementById('review-export').textContent = text;
+      copyText(text, exportButton, 'Review copied');
+    });
+  }
+
+  openTo(location.hash);
+})();
+</script>
+</body>
+</html>
