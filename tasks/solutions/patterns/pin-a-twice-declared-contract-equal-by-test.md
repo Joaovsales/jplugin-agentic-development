@@ -1,6 +1,6 @@
 ---
 title: When a contract is declared twice on purpose, pin the two copies equal by test instead of deleting one
-date: 2026-09-16
+date: 2026-10-19
 problem_type: pattern
 module: tests/test-go-lanes.sh, .agents/skills/go/SKILL.md, .agents/skills/go/lanes/, tests/test-memory-maintain-doc.sh, .agents/skills/memory-maintain/SKILL.md, tests/test-solutions-schema.sh
 tags: [static-pins, drift, information-leakage, prose-contract, skills, cross-references]
@@ -83,3 +83,21 @@ the extractor sees; prose that changes meaning without changing tokens still
 needs a human.
 
 Related: [write skill prose so the static guards can read it](../conventions/write-skill-prose-so-the-static-guards-can-read-it.md) — the line-shape rules the same guards impose.
+
+## The oracle is a file, not a literal (2026-10-19)
+
+The diagram-skill build pinned one tool version in three homes that ship
+separately — `install.sh` (tag and commit), the `/diagram` resolver
+`.agents/skills/diagram/scripts/archify.sh` (tag, for the install command it
+prints) and the `archify` entry of `.github/upstreams.json` (commit as
+`baseline`, tag as `ref`). The first tests pinned them equal by writing the tag
+and commit as literals into three test files, which made a bump a six-file edit
+and let the tests report the bump itself as the defect (design review,
+2026-10-19). The repair: the tests read `ref` and `baseline` from the registry
+(`"$TEST_PYTHON" -c 'import json; …'` in `tests/test-upstream-drift.sh`
+§ installed, `tests/test-install-sh.sh` § archify and
+`tests/test-diagram-skill.sh` § resolver) and assert every other home against
+it, including the README § Sources link and the notices section. A bump now
+edits the three consumer files and the notices, and no test. One copy is still
+the oracle; the rule is that the oracle is a file the build already owns, never
+a literal the test carries.

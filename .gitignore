@@ -31,3 +31,6 @@ tasks/*.log
 # and playwright-cli writes its per-command snapshots and logs to the CWD.
 tasks/e2e-artifacts/
 .playwright-cli/
+
+# Archify working folder — /diagram's receipts and captures, never the diagrams themselves.
+.archify/

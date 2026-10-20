@@ -238,6 +238,10 @@ build prompt is the review gate, not a word typed into this one. Change
 requests are applied in place: edit the spec, then re-run Step 3, for as long
 as the user keeps making them.
 
+When the feature spans more than one component, add one line offering an
+architecture diagram of it — `/diagram <feature>`, landing beside the spec —
+and render nothing until the user says yes.
+
 **A review export is a change request.** The visual plan's **Export review**
 copies a block the user pastes back here:
 
