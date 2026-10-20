@@ -91,12 +91,15 @@ test('parse: the active block follows the recorded spec, else the last block wit
   }
   expect(w.statuses.at(-1)).toBe('viz · idle · slice 0/1')
 
-  // A prompt naming specs/alpha.md records the spec; the section follows it.
-  await $.prompt.submit({ text: 'Invoke `/build` for `specs/alpha.md`.', wait: false, origin: { kind: 'composer' } })
+  // A prompt naming specs/alpha.md records the spec for the Phase section, and the same submit re-reads the plan against it.
+  const submitted = await $.prompt.submit({ text: 'Invoke `/build` for `specs/alpha.md`.', wait: false, origin: { kind: 'composer' } })
+  expect(submitted).toMatchObject({ text: 'Invoke `/build` for `specs/alpha.md`.' })
+  expect(w.reads.count).toBe(2)
   expect(w.statuses.at(-1)).toBe('viz · idle · slice 1/4')
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Text', text: 'spec specs/alpha.md' }), surface).toBeDefined()
     expect(await ui.find({ type: 'Text', text: 'alpha · slice 1/4 · rows 3/7' }), surface).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^1\/4 First · rows 2\/2 · ✓ handover$/ }), surface).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^2\/4 Second · rows 1\/2$/ }), surface).toBeDefined()
