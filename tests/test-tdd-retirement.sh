@@ -51,6 +51,19 @@ assert_file_not_matches "$BUILD" '^#+ *TDD Discipline' "Only: /build has no TDD 
 # ── /build calls /tdd ────────────────────────────────────────────────────────
 assert_file_matches "$BUILD" '/tdd' "Call: /build invokes /tdd for tdd-mode slices"
 
+# ── /debug runs its fix rows through /tdd; no writer emits a TDD: row ────────
+assert_file_matches ".agents/skills/debug/SKILL.md" '/tdd' "Debug: /debug invokes /tdd"
+assert_file_contains ".agents/skills/debug/SKILL.md" "- [ ] <criterion" \
+  "Debug: /debug writes plain criterion rows"
+hits="$(grep -rlF 'TDD:' .agents/skills/debug .agents/skills/task-registry/lanes \
+        .agents/skills/wrap-up-session/references/routine-prompts \
+        .agents/agents/planner.md .claude/agents/planner.md 2>/dev/null || true)"
+assert_eq "" "$hits" "Writers: no lane, routine prompt, planner or /debug names a TDD: row"
+for f in .agents/skills/wrap-up-session/references/routine-prompts/fix.md \
+         .agents/agents/planner.md .claude/agents/planner.md; do
+  assert_file_contains "$f" "/tdd" "Writers: $f says the fix runs through /tdd"
+done
+
 # ── The escape hatch is nowhere ──────────────────────────────────────────────
 # .claude/worktrees/ holds other checkouts (git-excluded, frozen at older
 # commits), not this tree, so it is skipped.

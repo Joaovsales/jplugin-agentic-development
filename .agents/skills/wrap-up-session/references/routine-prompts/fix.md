@@ -9,11 +9,11 @@ harness lacks.
 1. Run `task-registry doctor`, then `task-registry select --routine fix` and
    `claim` the candidate it returns. No candidate: stop, exit zero, no branch.
 2. Create the branch `routine_branch.py format fix <N> <title>` gives you.
-3. Run `/debug #N`. Reproduced, progressable work writes `[ ] TDD:` tasks and
-   continues. For an inconclusive or practically blocked investigation, `/debug`
+3. Run `/debug #N`. Reproduced, progressable work writes plain criterion rows,
+   which `/debug` runs through `/tdd` itself, and continues. For an inconclusive or practically blocked investigation, `/debug`
    owns one `task-registry escalate` call with the exact command and evidence.
    Preserve its non-zero result; stop with no PR and do not run wrap-up.
-4. Run `/build` on those tasks.
+4. Run `/build` on any rows `/debug` left open.
 5. Run `/wrap-up-session`. It opens the ready PR with `Closes #N`.
 
 Rules: reach the tracker only through `/task-registry`; never ask a user —
