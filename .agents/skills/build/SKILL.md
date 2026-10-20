@@ -238,7 +238,7 @@ Choose the agent or approach based on task type:
   lists, copied from the spec — a legacy block's `[ ] TDD:` rows ride along
 - The relevant spec section from `specs/`
 - Paths to related source files
-- Instruction: "Follow TDD — write failing test first, then minimal implementation, then refactor"
+- Instruction: "Run each acceptance criterion of the slice — and a legacy block's `TDD:` rows — through `/tdd`: failing test first, then minimal implementation, then refactor"
 - The slice's Surface from § Build Order, with the rule: edit only inside
   it; a file you must touch outside it is reported as
   `[SURFACE] +<path> | reason: <one sentence>` and the work continues
@@ -335,52 +335,6 @@ The slice boundary is the checkpoint: run the affected-test command once, centra
 write the handover; flush the task-boundary checkpoint
 (`bash .agents/hooks/pre-compact.sh </dev/null`); then call `slice.py ready`
 again for the next batch.
-
-### TDD Discipline (tdd)
-
-Folded in from the retired `/tdd` skill, which held this doctrine while `/build`
-carried only the one-line instruction above — so the rule that actually stops
-tests-after drift lived in the skill nobody ran. Applies to the main context and
-to every delegated sub-agent.
-
-**Red flags — STOP and start over with a failing test:**
-
-- Code written before test
-- Test written after implementation
-- Test passes immediately without implementation
-- Can't explain why test failed
-- Tests added "later"
-- Rationalizing "just this once"
-- "I already manually tested it"
-- "Keep as reference" or "adapt existing code"
-
-**All of these mean: delete the code. Start over with TDD.**
-
-**Common rationalizations:**
-
-| Excuse | Reality |
-|--------|---------|
-| "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
-| "I'll test after" | Tests passing immediately prove nothing. |
-| "Need to explore first" | Fine. Throw away exploration, start with TDD. |
-| "Test hard = design unclear" | Listen to the test. Hard to test = hard to use. |
-| "TDD will slow me down" | TDD is faster than debugging. |
-| "Manual test faster" | Manual doesn't prove edge cases. |
-| "Existing code has no tests" | You're improving it. Add tests. |
-| "Just this once" | That's rationalization. |
-| "It's about spirit not ritual" | Tests-after ≠ TDD. You get coverage, lose proof. |
-| "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is debt. |
-
-**When stuck:**
-
-| Problem | Solution |
-|---------|----------|
-| Don't know how to test | Write the wished-for API. Write the assertion first. |
-| Test too complicated | Design too complicated. Simplify the interface. |
-| Must mock everything | Code too coupled. Use dependency injection. |
-| Test setup is huge | Extract helpers. Still complex? Simplify the design. |
-
-Mock and test-utility pitfalls: `references/testing-anti-patterns.md`.
 
 ## Phase 1.5 — Changed Verification Map
 
