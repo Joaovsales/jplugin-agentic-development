@@ -8,7 +8,7 @@ follows it, not to every reference in the list that trails it. A body of
 and nothing reports it. The working form repeats the keyword per issue:
 `Closes #99, closes #100, closes #101`.
 
-`/wrap-up-session` runs this on the PR body before `gh pr create` and on the
+`/wrap-up-session` runs this on the PR body before `gh_pr.py create` and on the
 body of an already-open PR during re-sync, so a keyword that reaches only the
 first reference is caught before the merge rather than discovered after it.
 

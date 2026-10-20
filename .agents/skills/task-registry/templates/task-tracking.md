@@ -155,7 +155,7 @@ build = /build, /quality-gate, /wrap-up-session
 ## Credentials
 
 Never in this file, and no shipped provider needs one here. GitHub uses whatever
-`gh auth status` reports; the local Markdown store has no credential at all. A
+`gh api user` succeeds with; the local Markdown store has no credential at all. A
 tracker added later reads its own from the environment, never from this file.
 
 ## Naming conventions

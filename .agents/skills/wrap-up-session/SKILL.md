@@ -229,7 +229,7 @@ from `references/routines.md` § *Draft and linkage*, with the executed step lis
 **No PR for this branch**: draft the body with its `## Handovers` section
 (`references/closure-actions.md` § *Handovers*), run `pr_linkage.py check
 --body-file <draft>` and repair what it lists (§ *PR re-sync* there), then run
-`gh pr create --body-file <draft>` (plus `--draft` per § *Draft and linkage*).
+`python3 .agents/skills/wrap-up-session/scripts/gh_pr.py create --base <base> --title <title> --body-file <draft>` (plus `--draft` per § *Draft and linkage*).
 
 **A PR already exists**: re-sync its body on every push (§ *PR re-sync* there). For UI closure after push, follow `/verify-evidence` § *UI evidence publication*; `PublicationUnavailable` leaves the UI task open until its CI-created 30-day artifact link is validated through `/task-registry` (local-only projects use readable retained workspace links).
 
@@ -252,17 +252,17 @@ unattended runs only**; an **interactive** run is exempt, because a human is
 watching. Detection: `references/routines.md` § *Unattended detection*. Then:
 
 ```bash
-gh pr view "$(git branch --show-current)" --json number,url -q .url
+python3 .agents/skills/wrap-up-session/scripts/gh_pr.py view "$(git branch --show-current)" --json number,url -q .url
 ```
 
 | Result | Action |
 |---|---|
 | A pull request exists | **say nothing** beyond the `PR:` line of the report |
-| No pull request | report loudly, name which exit produced no PR, and **exit non-zero** |
-| `gh` itself failed — not installed, not authenticated, no network | report loudly as **UNKNOWN**, quote `gh`'s stderr, and **exit non-zero** |
+| No pull request (exit 1) | report loudly, name which exit produced no PR, and **exit non-zero** |
+| `gh` itself failed (exit 2) — not installed, not authenticated, no network | report loudly as **UNKNOWN**, quote `gh`'s stderr, and **exit non-zero** |
 
-`gh pr view` fails both for "no such pull request" and for "could not ask"; tell
-them apart by `gh`'s stderr, or nightly false alarms get the check muted. It
+`gh_pr.py view` exits 1 for "no such pull request" and 2 for "could not ask", `gh`'s
+stderr quoted; read the second as the first and nightly false alarms get the check muted. It
 **says nothing when the pull request exists**, and it **does not make every
 session end in a pull request** — it turns *silence* about one of the six
 legitimate no-PR exits into a non-zero exit:

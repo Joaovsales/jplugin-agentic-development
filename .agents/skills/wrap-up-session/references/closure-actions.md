@@ -75,11 +75,11 @@ python3 .agents/skills/wrap-up-session/scripts/pr_linkage.py check --body-file <
 
 **A PR already exists** → reconcile the body against the branch before reporting done:
 
-1. Read it: `gh pr view <n> --json body -q .body`, and run the check on what
+1. Read it: `gh_pr.py view <n> --json body -q .body`, and run the check on what
    comes back **whether or not anything else looks stale** — an open PR whose
    only defect is a keyword that reaches one reference is exactly the case
    this catches, and it would otherwise take the "already accurate" path:
-   `gh pr view <n> --json body -q .body | python3 .agents/skills/wrap-up-session/scripts/pr_linkage.py check`.
+   `python3 .agents/skills/wrap-up-session/scripts/gh_pr.py view <n> --json body -q .body | python3 .agents/skills/wrap-up-session/scripts/pr_linkage.py check`.
    Then list every factual claim —
    counts (files changed, tests, assertions) and every item marked deferred,
    known-gap, unresolved, or not-yet-done.
@@ -109,22 +109,22 @@ stops happening.
 
 ## Mergeability
 
-The `mergeability` action, run once the PR exists: `gh pr view <n> --json
-mergeable`. `MERGEABLE` reports `mergeable: clean`. `CONFLICTING` reports
-`mergeable: conflicting` with the PR's base branch, which the engine routes
-to § *Conflict repair* below. `UNKNOWN` is re-queried up to 3 times inside this
-action before it gives up and reports `mergeable: unknown` — GitHub has not
-finished computing it, not a real conflict. A branch that is merely behind
-its base (`mergeStateStatus: BEHIND`) is not a trigger (Decision 9): the
-`mergeable` field still reads `MERGEABLE`, and CI watch proceeds.
+The `mergeability` action, run once the PR exists: `gh_pr.py mergeable <n>`.
+It prints `mergeable: clean`, or `mergeable: conflicting with <base>` (exit 1),
+which the engine routes to § *Conflict repair* below. A `null` mergeable is
+re-read up to 3 times inside the script before it gives up and prints
+`mergeable: unknown` — GitHub has not finished computing it, not a real
+conflict. A branch that is merely behind its base is not a trigger
+(Decision 9): REST's `mergeable` still reads true, and CI watch proceeds.
 
 ## CI watch and repair
 
-The `watch-ci` action: `gh pr checks <n> --watch --required` as a background
+The `watch-ci` action: `gh_pr.py checks <n> --watch --required` as a background
 task (`run_in_background` on Claude Code — never a foreground `sleep` or poll
-loop; wait for its completion notification like `/wrap-up-session` § *Full suite*). When the PR
-declares no required checks, watch all of them instead: `gh pr checks <n>
---watch`. Budget 30 minutes; past it, report `ci: timeout`.
+loop; wait for its completion notification like `/wrap-up-session` § *Full suite*). When the base
+branch declares no required checks, the script says so and watches all of them,
+the same as `gh_pr.py checks <n> --watch`. Budget 30 minutes (the script's own
+watch budget); past it, report `ci: timeout`.
 
 The push just landed, so checks may not be registered yet. Give the push a
 2-minute registration window before deciding there are none: report `ci:
@@ -210,7 +210,7 @@ not-applicable reason, and the `Quality receipt:` line from `/wrap-up-session` �
 unchanged:
 
 ```bash
-gh pr edit <n> --body-file <redrafted body>
+python3 .agents/skills/wrap-up-session/scripts/gh_pr.py edit <n> --body-file <redrafted body>
 ```
 
 Report `record: recorded` on success, `record: record-failed` when `gh`
@@ -225,7 +225,7 @@ The `mark-draft` action, entered on every non-`complete` end once a PR is
 open (`pr_open: true`):
 
 ```bash
-gh pr ready <n> --undo
+python3 .agents/skills/wrap-up-session/scripts/gh_pr.py ready <n> --undo
 ```
 
 Report `partial: drafted` on success, `partial: draft-failed` when `gh`
