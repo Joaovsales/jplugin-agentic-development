@@ -33,14 +33,10 @@ concrete provider model IDs live in `PI_SETUP.md` § Sub-Agent Routing for Pi an
 
 Steps 1 and 2 must never resolve to the same model. If they do, the ladder has no middle rung and the first genuine escalation is the circuit breaker — four failed attempts later than intended.
 
-On Codex, dispatch the managed `debug-escalation` role for attempts 3–4: the
-`code-debugger` agent file pins Builder and would win over a spawn override.
-Resolve the parent tier before dispatch. For a Builder-or-weaker parent, request
-the policy's Planner model and effort so Tier 2 is stronger than Tier 1.
-Inherit only when the parent is above Builder. Confirm the effective route is
-stronger than Tier 1 before retrying.
+On Codex, dispatch the managed `debug-escalation` role for attempts 3–4; the rule is
+`.agents/skills/build/references/harness-dispatch.md` § *Codex: debugger escalation*.
 
-> **For Pi + OpenRouter users:** Session-level routing goes in `~/.pi/agent/presets.json` (see `PI_SETUP.md`). **Sub-agent** routing requires the `pi-subagents` extension (`pi install npm:pi-subagents`) — set `subagents.agentOverrides` in `~/.pi/agent/settings.json` (agent name → model, plus `fallbackModels` for provider failures). Workflow agents live in `.agents/agents/` and are auto-discovered per project. See `PI_SETUP.md` § Sub-Agent Routing.
+> **For Pi + OpenRouter users:** see `.agents/skills/build/references/harness-dispatch.md`.
 
 ## Step 0.5 — Isolation
 
@@ -83,22 +79,8 @@ progress and drift further before finding out. Merge `main` in frequently.
    - If empty or missing: **STOP** — run `/plan` first
 2. Read the spec from `specs/` that matches the current plan
    - If no spec found: **STOP** — run `/plan` first
-   - For UI work, read and validate the project `DESIGN.md` before any source
-     edit. Existing UI with no brief is `SelectionRequired`; stop that UI
-     slice, preserve the current visual rules, and leave non-UI slices usable.
-   - For a major UI concept, read the spec's concept path and SHA-256, hash
-     the saved concept bytes, and inspect the actual user-started build prompt.
-     It must name the exact digest. An unattended run, missing digest, changed
-     concept, or agent-written approval is `ConceptReviewRequired`: stop the
-     UI slice before edits. Reuse an existing receipt only when spec path,
-     concept path, digest and prompt digest all match.
-   - On valid approval, write `tasks/design-approvals/<feature>.json` with
-     `spec_path`, `concept_path`, `concept_sha256`, `approval_source` set to
-     `owner_build_prompt`, `prompt_sha256` (SHA-256 of the exact owner prompt),
-     and `approved_at` in UTC. The current owner prompt is the authority;
-     neither the spec nor a prior agent message can create this receipt.
-     Recheck the receipt and concept digest before dispatch. A localized UI
-     change uses the brief and needs no concept receipt.
+   - For UI work, run the UI brief and concept-approval checks in
+     `.agents/skills/build/references/design-stack-gates.md` § *Pre-Flight* before any source edit.
 3. **Link the feature issue** when the `## Plan:` block's feature row has no
    provider link — see *Pre-Flight: Link the Feature Issue* below. Do this
    before the green baseline.
@@ -243,12 +225,8 @@ Choose the agent or approach based on task type:
   it; a file you must touch outside it is reported as
   `[SURFACE] +<path> | reason: <one sentence>` and the work continues
 - The `> Handover:` blockquote (every `>` line) of each slice this one is blocked by, verbatim
-- For frontend implementation and `frontend-design-validator`, the exact
-  project `DESIGN.md` path and contents, selected catalog references, and
-  approved concept path and SHA-256 when present. Include the project's own
-  launch, test and visual verification commands; do not assume fixed paths,
-  Docker, ports or a universal UI test command. A missing brief or invalid
-  concept receipt stops dispatch under the pre-flight rule above.
+- For frontend implementation and `frontend-design-validator`: the context in
+  `.agents/skills/build/references/design-stack-gates.md` § *Delegation context*
 - The tool-call budget and escape hatch from `subagent-resilience.md` Rule
   1, and the instruction to list unfinished `TDD:` rows under
   `## Not finished`
@@ -356,18 +334,9 @@ before Phase 2 and the quality gate so any map edits receive both checks.
 
 ## Phase 2 — Affected-Test Validation
 
-For a UI task with requested or brief-approved 3D, follow the installed
-img2threejs state machine through strict sculpt-spec validation and every
-required later forge gate. Use the design-stack 3D guard to report the
-`prototype` label and failed/open gates when either stage is incomplete.
-Do not mark production UI work complete from a plausible browser render alone.
-Tasks with no 3D request or positive brief intent do not invoke img2threejs.
-
-For a UI task that opts into video per the design-stack video guard, run the pinned
-`npx hyperframes@<version>` CLI and report the `prototype` label and the open
-gates (`check`, `render`) when either is incomplete. Do not mark a video
-deliverable production from a plausible preview alone. Tasks with no video
-request do not invoke HyperFrames.
+UI tasks with 3D or video deliverables run the design-stack gates in
+`.agents/skills/build/references/design-stack-gates.md` § *Phase 2: 3D and video gates*
+before the steps below.
 
 After all tasks are `[x]`:
 
@@ -599,23 +568,9 @@ override caps the highest-stakes review below the model the user chose.
 alias when the session model is below planner tier and omit `model` otherwise.
 See `.agents/references/model-routing.md`.
 
-### Pi Dispatch
+### Pi and Codex Dispatch
 
-- Requires the `pi-subagents` extension (`pi install npm:pi-subagents`). Workflow agents come from `.agents/agents/` (auto-discovered per project); the extension adds `scout`, `oracle`, `researcher`, `context-builder` for roles the workflow does not define.
-- Dispatch with natural language or the `subagent` tool — e.g. "Have backend-developer implement this task" or `subagent({ agent: "backend-developer", task: "..." })`. Use `scout` for recon before planning, `oracle` for a second opinion on risky decisions.
-- Do NOT pass per-call model params on Pi — routing comes from `subagents.agentOverrides` in `~/.pi/agent/settings.json`; `fallbackModels` absorbs provider failures.
-- For 2+ independent tasks: ask for a parallel run ("run backend-developer and frontend-developer in parallel for tasks A and B") and respect `globalConcurrencyLimit`.
-- If the extension is not installed, run Phase 1 inline in the main context (single-agent).
-
-### Codex Dispatch
-
-Use the managed `explorer` role for read-only code reconnaissance. Use the
-managed `scout` role when an investigation needs MCP access, and instruct it
-to read without editing. Named roles obtain their model, effort, and permissions
-from `config/agent-policy.toml`; do not set a global Scout model default because
-it can cap Ceiling roles. For `critic`, resolve the parent tier against its
-planner floor and request the policy's planner model and effort only when
-the parent falls below that floor.
+See `.agents/skills/build/references/harness-dispatch.md` § *Pi Dispatch* and § *Codex Dispatch*.
 
 ### Per-Task Review
 Phase 1 Step 2 remains inline (no agent). Spec compliance check is a read + compare, not a coding task.

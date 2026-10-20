@@ -1196,6 +1196,17 @@ for token in "upsert --derive-id plan" "no provider link" "implicit slice" \
   assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
 done
 
+# build/SKILL.md stays under a line budget so the design-mode loop (a later
+# slice) has room; the design-stack gates and harness dispatch notes live in
+# build/references/ and SKILL.md points at them.
+build_lines="$(wc -l < "$BUILD_SKILL" | tr -d ' ')"
+assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_lines lines)")" \
+  "build: SKILL.md is at most 600 lines"
+for ref in design-stack-gates harness-dispatch; do
+  assert_file_contains "$BUILD_SKILL" "references/$ref.md" \
+    "build: SKILL.md points at references/$ref.md"
+done
+
 # The ready call is described before the delegation prompt items -- a
 # reflow that moves it after would have the assessment re-derive
 # independence before it ever runs the command that replaced the guess.

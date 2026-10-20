@@ -24,5 +24,7 @@ PY
 )"; code=$?
 assert_eq 0 "$code" "$out"
 assert_file_contains "$repo/.agents/skills/design-stack/SKILL.md" 'validate_sculpt_spec.py' 'strict upstream sculpt gate'
-assert_file_contains "$repo/.agents/skills/build/SKILL.md" 'prototype' 'build preserves incomplete label'
+assert_file_contains "$repo/.agents/skills/build/references/design-stack-gates.md" 'prototype' 'build gates reference preserves incomplete label'
+assert_file_contains "$repo/.agents/skills/build/references/design-stack-gates.md" 'design-stack 3D guard' 'build gates reference names the 3D guard'
+assert_file_contains "$repo/.agents/skills/build/SKILL.md" 'references/design-stack-gates.md' 'build points at the design-stack gates reference'
 finish
