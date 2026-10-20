@@ -35,9 +35,14 @@ const ANSWER = [
 function world(on: On) {
   const toasts: string[] = []
   const disk = {
+    /** What `.git/HEAD` holds: a branch ref, or a bare sha when detached. */
+    head: 'ref: refs/heads/feat/x\n',
     fingerprint: FP,
     receipt: { schema: 'qg1', verdict: 'STOP', tests: { exit: 1 }, unresolved: [{ id: 1 }], design_verdict: 'GO' } as unknown,
+    /** Whether feat/x's branch pointer file exists. */
     pointer: true,
+    /** Whether the receipt file the pointer names exists; false makes the pointer dangle. */
+    receiptFile: true,
   }
   on('ui.open', () => ({ value: { isPlaced: true as const } }))
   on('ui.status', () => ({ value: undefined }))
@@ -54,11 +59,11 @@ function world(on: On) {
   on('fs.read', ($, e) => {
     const path = e.path.replace(/\\/g, '/')
     if (path === 'C:/repo/.git') return { deny: 'EISDIR' }
-    if (path === 'C:/repo/.git/HEAD') return { value: 'ref: refs/heads/feat/x\n' }
+    if (path === 'C:/repo/.git/HEAD') return { value: disk.head }
     if (path === 'C:/repo/.git/quality-receipts/branch-feat-x.json' && disk.pointer) {
       return { value: JSON.stringify({ fingerprint: disk.fingerprint }) }
     }
-    if (path === `C:/repo/.git/quality-receipts/${disk.fingerprint}.json`) {
+    if (path === `C:/repo/.git/quality-receipts/${disk.fingerprint}.json` && disk.receiptFile) {
       return typeof disk.receipt === 'string' ? { value: disk.receipt } : { value: JSON.stringify(disk.receipt) }
     }
     return { deny: 'ENOENT: no such file' }
@@ -185,4 +190,40 @@ test('receipt: no pointer reads as no receipt yet, a malformed receipt as unread
   expect(await ui.find({ type: 'Text', text: /^receipt unreadable$/ })).toBeDefined()
   await ui.unmount()
   expect(w.toasts).toEqual([])
+})
+
+test('receipt: a branch with no pointer replaces the last branch\'s receipt, a dangling pointer is unreadable, a detached HEAD keeps what is shown', async ($, on) => {
+  const w = world(on)
+  await $.session.start({ cwd: 'C:/repo', surface: 'terminal', isInteractive: true })
+  await w.clock.settle()
+
+  const receiptLine = async (): Promise<string> => {
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    const line = (await ui.find({ type: 'Text', text: /^(receipt |no receipt)/ }))?.text ?? ''
+    await ui.unmount()
+    return line
+  }
+  const rewrite = async (): Promise<void> => {
+    await $.tool.call({ tool: 'Bash', command: 'python3 receipt.py write' })
+    await w.clock.settle()
+  }
+  expect(await receiptLine()).toMatch(/^receipt STOP ab12cd34/)
+
+  // On feat/y no pointer exists: feat/x's receipt must not stay on screen.
+  w.disk.head = 'ref: refs/heads/feat/y\n'
+  await rewrite()
+  expect(await receiptLine()).toBe('no receipt yet')
+
+  // Back on feat/x the pointer names a receipt file that is gone: a dangling pointer, not "no receipt".
+  w.disk.head = 'ref: refs/heads/feat/x\n'
+  w.disk.receiptFile = false
+  await rewrite()
+  expect(await receiptLine()).toBe('receipt unreadable')
+
+  // A detached HEAD names no branch, so no pointer location can be read: what is shown stays, whatever is on disk.
+  w.disk.head = `${'c0ffee00'.repeat(5)}\n`
+  w.disk.receiptFile = true
+  await rewrite()
+  expect(await receiptLine()).toBe('receipt unreadable')
+  expect(w.toasts).toEqual([STOP_TOAST])
 })

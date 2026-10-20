@@ -97,27 +97,31 @@ async function currentBranch($: EngineInterface, cwd: string): Promise<string | 
   return head === undefined ? undefined : HEAD_REF.exec(head)?.[1]
 }
 
-/** The quality receipt of the current branch (spec D12): null for none, `'unreadable'` for a malformed one. */
-async function readReceipt($: EngineInterface): Promise<Receipt | 'unreadable' | null> {
+/** What the branch's pointer location holds: no pointer, a pointer or receipt that cannot be read (a dangling pointer included), or the receipt. */
+type ReadReceipt = { state: 'none' } | { state: 'unreadable' } | ({ state: 'ok' } & Receipt)
+
+/** The quality receipt of the current branch (spec D12); undefined when no repo or branch resolves, so no pointer location could be read. */
+async function readReceipt($: EngineInterface): Promise<ReadReceipt | undefined> {
   const repo = await $.session.repo()
-  if (repo === null) return null
+  if (repo === null) return undefined
   const branch = await currentBranch($, await $.session.cwd())
-  if (branch === undefined) return null
+  if (branch === undefined) return undefined
 
   const dir = `${repo.root}/.git/quality-receipts`
   const pointerText = await readText($, `${dir}/branch-${branch.replace(/[^A-Za-z0-9_.-]/g, '-')}.json`)
-  if (pointerText === undefined) return null
+  if (pointerText === undefined) return { state: 'none' }
   const fingerprint = parseObject(pointerText)?.fingerprint
-  if (typeof fingerprint !== 'string' || !FINGERPRINT.test(fingerprint)) return 'unreadable'
+  if (typeof fingerprint !== 'string' || !FINGERPRINT.test(fingerprint)) return { state: 'unreadable' }
 
   const receiptText = await readText($, `${dir}/${fingerprint}.json`)
-  if (receiptText === undefined) return null
+  if (receiptText === undefined) return { state: 'unreadable' }
   const receipt = parseObject(receiptText)
-  if (receipt === undefined || typeof receipt.verdict !== 'string') return 'unreadable'
+  if (receipt === undefined || typeof receipt.verdict !== 'string') return { state: 'unreadable' }
 
   const tests = receipt.tests
   const testsExit = typeof tests === 'object' && tests !== null ? (tests as Record<string, unknown>).exit : undefined
   return {
+    state: 'ok',
     verdict: receipt.verdict,
     fp8: fingerprint.slice(0, 8),
     testsExit: typeof testsExit === 'number' ? testsExit : undefined,
@@ -138,11 +142,20 @@ async function toastStop($: EngineInterface, kind: keyof typeof INITIAL_TOASTED,
   if (fresh) $.ui.toast(`session-viz: quality gate STOP${fp8 === undefined ? '' : ` (${fp8})`}`)
 }
 
-/** Re-reads the receipt files into the section; a STOP toasts once per fingerprint. A missing receipt leaves what a main-loop line set. */
+/**
+ * Re-reads the receipt files into the section; a STOP toasts once per fingerprint. Whatever the pointer
+ * location holds replaces what is shown; only when no repo or branch resolves does a main-loop line's receipt stay.
+ */
 async function refreshReceipt($: EngineInterface): Promise<void> {
-  const fresh = await readReceipt($)
-  await update($, gates, current => ({ ...current, receipt: fresh ?? current.receipt }))
-  if (fresh !== null && fresh !== 'unreadable' && fresh.verdict === 'STOP') await toastStop($, 'fingerprints', fresh.fp8, fresh.fp8)
+  const found = await readReceipt($)
+  if (found === undefined) return
+  const fresh = found.state === 'ok' ? omitState(found) : found.state === 'unreadable' ? found.state : null
+  await update($, gates, current => ({ ...current, receipt: fresh }))
+  if (found.state === 'ok' && found.verdict === 'STOP') await toastStop($, 'fingerprints', found.fp8, found.fp8)
+}
+
+function omitState({ state: _state, ...receipt }: { state: 'ok' } & Receipt): Receipt {
+  return receipt
 }
 
 /** What a sub-agent's answer adds: its parsed lines go on its row and into the section. */
