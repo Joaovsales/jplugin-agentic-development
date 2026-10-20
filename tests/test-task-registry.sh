@@ -1336,22 +1336,26 @@ assert_contains "$flags_out" "rows scanned:        1" \
 
 # An unreadable spec changes how its rows are classified, so it must reach the
 # exit code rather than only a stderr warning an unattended run never reads.
-F_BADSPEC="$(new_fixture)"
-printf '# Plan\n\n## Plan: Thing\n> Spec: specs/locked.md\n\n- [ ] Row\n' > "$F_BADSPEC/tasks/todo.md"
-printf '# Locked\n\n> Superseded by: specs/other.md\n' > "$F_BADSPEC/specs/locked.md"
-chmod 000 "$F_BADSPEC/specs/locked.md"
-badspec_out="$("$PY" "$MIGRATE" --repo "$F_BADSPEC" 2>&1)"
-badspec_code=$?
-chmod 644 "$F_BADSPEC/specs/locked.md"
-if [ "$badspec_code" = "0" ]; then
-  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-  printf '  FAIL %s\n' "Migrate: an unreadable spec must not report success (exit was 0)"
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  skip  Migrate: the unreadable-spec case needs an unprivileged user (root ignores permission bits)\n'
 else
-  _TESTS=$((_TESTS + 1))
-  printf '  ok   %s\n' "Migrate: an unreadable spec fails the run rather than misclassifying silently"
+  F_BADSPEC="$(new_fixture)"
+  printf '# Plan\n\n## Plan: Thing\n> Spec: specs/locked.md\n\n- [ ] Row\n' > "$F_BADSPEC/tasks/todo.md"
+  printf '# Locked\n\n> Superseded by: specs/other.md\n' > "$F_BADSPEC/specs/locked.md"
+  chmod 000 "$F_BADSPEC/specs/locked.md"
+  badspec_out="$("$PY" "$MIGRATE" --repo "$F_BADSPEC" 2>&1)"
+  badspec_code=$?
+  chmod 644 "$F_BADSPEC/specs/locked.md"
+  if [ "$badspec_code" = "0" ]; then
+    _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
+    printf '  FAIL %s\n' "Migrate: an unreadable spec must not report success (exit was 0)"
+  else
+    _TESTS=$((_TESTS + 1))
+    printf '  ok   %s\n' "Migrate: an unreadable spec fails the run rather than misclassifying silently"
+  fi
+  assert_contains "$badspec_out" "cannot read" \
+    "Migrate: the unreadable spec is named in the report, not just on stderr"
 fi
-assert_contains "$badspec_out" "cannot read" \
-  "Migrate: the unreadable spec is named in the report, not just on stderr"
 
 # `missing-id` was a reconcile diagnostic and died with it, so the migration's
 # outcome is now read off the index itself: every active row carries a stable id

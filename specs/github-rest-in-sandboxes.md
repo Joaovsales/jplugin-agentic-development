@@ -218,7 +218,7 @@ provider that regresses to a GraphQL-backed subcommand fails loudly.
 | R2 | Timeline cross-references over-exclude a candidate | M | L | conservative by design; `select` prints the excluding PR number | 2 |
 | R3 | REST writes from the sandbox are refused although reads pass | L | H | unverified until the first real routine run; Q1 | 1 |
 | R4 | Mock argv assertions drift from the real `gh api` surface | M | M | the mock validates method, path and body shape like the real CLI validates flags | 1 |
-| R5 | The suite fails as uid 0 in the sandbox (4 of 72 files), so the wrap-up gate would still refuse to push there | H | H | out of scope here; a separate fix guards those assertions on `id -u` like the two already guarded | — |
+| R5 | The suite fails as uid 0 in the sandbox (4 of 72 files), so the wrap-up gate would still refuse to push there | H | H | out of scope here; a separate fix guards those assertions on `id -u` like the two already guarded | fixed separately (#141): `tests/test-sync-retirement.sh` §§ 16, 17.1, 18.3 and the unreadable-spec case in `tests/test-task-registry.sh` skip as uid 0; the four retired-name assertions in `tests/test-install-sh.sh` skip on a shallow checkout |
 | R6 | The body parser misses a closing form GitHub honours, so a stranded issue is re-picked | L | M | GitHub's documented keyword list, one test per form; `closes` reads the same helper, so a miss shows on the merger's run | 4 |
 
 ## Decisions
