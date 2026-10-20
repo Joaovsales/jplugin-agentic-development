@@ -46,6 +46,18 @@ is green:
    `/wrap-up-session`'s root invocation of the same command prints
    `cached-suite: reused green run` once the unprivileged run was green.
 
+## Update 2026-10-20 — the assertions now skip where they cannot hold
+
+The first cloud run of the `simplify` routine stopped on exactly these
+failures (receipt STOP, PR #310 left as a draft), so the alternative #141
+proposed landed: `tests/test-sync-retirement.sh` §§ 16, 17.1 and 18.3 and the
+unreadable-spec case in `tests/test-task-registry.sh` are wrapped in the same
+`[ "$(id -u)" -eq 0 ]` gate as §§ 20.4 and 22.3 and print a `skip` line; the
+four retired-name assertions in `tests/test-install-sh.sh` skip when
+`git rev-parse --is-shallow-repository` says `true`. A root or shallow run is
+therefore green with less coverage, and says so per assertion. The rule above
+still buys the full coverage: an unprivileged, unshallowed run skips nothing.
+
 ## The consequence of ignoring it
 
 `receipt.py` turns any non-zero `tests.exit` into `STOP` (its `derive_verdict`),
