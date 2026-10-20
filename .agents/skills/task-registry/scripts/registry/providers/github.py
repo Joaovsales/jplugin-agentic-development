@@ -2,7 +2,10 @@
 
 `gh` rather than an SDK: the harness already assumes it (`/wrap-up-session` opens
 PRs with it), it carries the user's existing auth, and it adds no dependency to
-install. Every call is argv-style — no shell string interpolation anywhere.
+install. Every call is `gh api` against the REST API, never `gh issue`, `gh
+label`, `gh repo` or `gh auth`: those speak GraphQL, which the Claude Code cloud
+sandbox's proxy refuses while REST goes through. Every call is argv-style — no
+shell string interpolation anywhere.
 
 Two rules this adapter exists to keep:
 
@@ -23,6 +26,7 @@ import subprocess
 import urllib.parse
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ..config import GH_AUTH_PROBE, github_remote
 from ..model import (
     BLOCK_STATE_NOTES,
     ExternalRef,
@@ -46,28 +50,27 @@ from .base import (
     preserve_labels,
 )
 
-REQUIRED_ISSUE_FIELDS = (
-    "number", "title", "body", "labels", "state", "url",
-    "createdAt", "updatedAt", "assignees",
+#: An issue's timeline is read this far for its cross-referencing pull
+#: requests. Past it the linked-PR state is unknown and `select` refuses: a
+#: timeline this long is pathological, and guessing re-picks work under review.
+TIMELINE_LIMIT = 300
+#: GitHub's closing keywords, and the one reference each binds to (#123):
+#: `Closes #1, #2` closes only #1. A reference is `#N`, `owner/repo#N` or an
+#: issue URL; an optional colon may follow the keyword. Code spans are skipped.
+CLOSING_KEYWORDS = (
+    "close", "closes", "closed", "fix", "fixes", "fixed", "resolve", "resolves", "resolved",
 )
-#: Fields the linked-PR exclusion needs, which a recent `gh` exposes and an
-#: older one does not: `closedByPullRequestsReferences` (gh 2.73.0) names an
-#: issue's closing pull requests, and `stateReason` tells a reopened issue from
-#: one its merged pull request never closed. `gh` validates `--json` names
-#: client-side, so asking an older one for either fails the whole query rather
-#: than omitting the field. Each rejected field is dropped and the read retried;
-#: `linked_pr_exclusion_available()` then turns the gap into a loud refusal in
-#: `select` rather than a silent clean read. That is the correct degradation;
-#: dying is not.
-OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences", "stateReason")
-#: `gh` lists an issue's closing pull requests without their state, so the
-#: states come from one GraphQL read per batch of node ids; `nodes(ids:)`
-#: accepts at most 100.
-PR_STATE_QUERY = "query($ids: [ID!]!) { nodes(ids: $ids) { ... on PullRequest { id state } } }"
-PR_STATE_BATCH = 100
-UNKNOWN_FIELD_RE = re.compile(r'Unknown JSON field: "([^"]+)"')
-#: `gh` paginates internally up to this many issues. Reaching it exactly is
-#: indistinguishable from "there were more", so it is treated as truncation.
+CLOSING_REFERENCE_RE = re.compile(
+    r"\b(?:" + "|".join(CLOSING_KEYWORDS) + r")\b\s*:?\s*"
+    r"(?:https?://github\.com/(?P<url_repo>[\w.-]+/[\w.-]+)/issues/(?P<url_number>\d+)"
+    r"|(?P<repo>[\w.-]+/[\w.-]+)?#(?P<number>\d+))",
+    re.IGNORECASE,
+)
+CODE_SPAN_RE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
+#: Issues are read `PAGE_SIZE` at a time (REST's maximum) up to this many.
+#: Reaching the cap exactly is indistinguishable from "there were more", so it
+#: is treated as truncation.
+PAGE_SIZE = 100
 LIST_LIMIT = 500
 #: Same reasoning for the label vocabulary. It backs a pass/fail gate now, so a
 #: silently truncated read would report existing labels as missing.
@@ -102,12 +105,11 @@ class GitHubProvider(TrackerProvider):
         self.repository = config.repository
         self.redact = redactor_for(config)
         self._known_labels: Optional[Sequence[str]] = None
-        self._unsupported_fields: set = set()
 
     # ---------------------------------------------------------------- discovery
     def discover(self) -> ProviderStatus:
         try:
-            code, output = self._run(["gh", "auth", "status"], check=False)
+            code, output = self._run(list(GH_AUTH_PROBE), check=False)
         except ProviderUnavailable as exc:
             return ProviderStatus(False, str(exc))
         if code != 0:
@@ -118,45 +120,82 @@ class GitHubProvider(TrackerProvider):
             )
         try:
             self._repo()
-        except ProviderUnavailable as exc:
+        except ProviderError as exc:
             return ProviderStatus(False, str(exc))
-        except ProviderError:
-            return ProviderStatus(False, "no repository configured and `gh repo view` failed")
         return ProviderStatus(True, f"gh authenticated for {self.repository}")
 
     # -------------------------------------------------------------------- reads
     def list_tasks(self) -> List[Task]:
         return [self._to_task(issue) for issue in self._list_issues()]
 
-    def list_tasks_with_linked_prs(self) -> List[Task]:
-        issues = self._list_issues()
-        pr_states = self._read_pr_states(issues)
-        return [self._to_task(issue, self._linked_pr_state(issue, pr_states)) for issue in issues]
+    def linked_pr_state(self, task: Task) -> Optional[Dict[str, str]]:
+        """The task's cross-referencing pull requests, read off its REST timeline.
+
+        Only `cross-referenced` events whose source is a pull request count; an
+        issue that mentions the task counts for nothing. Any open pull request,
+        here or elsewhere, leaves the task in flight -- a PR that merely
+        mentions it over-excludes, which is the chosen side of the error. With
+        none open, the first pull request of this repository that merged with
+        a closing keyword naming the task strands it (#146), unless a human has
+        reopened the task since. A pull request whose state is missing counts
+        as open; a timeline past TIMELINE_LIMIT answers None.
+        """
+        if task.external is None:
+            return {}
+        number = self._number(task.external)
+        events, complete = self._paged(f"issues/{number}/timeline", TIMELINE_LIMIT)
+        if not complete:
+            return None
+        pulls = [
+            event["source"]["issue"]
+            for event in events
+            if event.get("event") == "cross-referenced"
+            and "pull_request" in ((event.get("source") or {}).get("issue") or {})
+        ]
+        if any((pull.get("state") or "").lower() != "closed" for pull in pulls):
+            return {"unresolved_linked_pr": "true"}
+        state = {"unresolved_linked_pr": "false"}
+        if task.extra.get("state_reason") == "reopened":
+            return state
+        for pull in pulls:
+            if (pull.get("pull_request") or {}).get("merged_at") and self._closes_here(pull, number):
+                state["merged_linked_pr"] = f"#{pull.get('number')}"
+                break
+        return state
+
+    def _closes_here(self, pull: Dict, number: str) -> bool:
+        """Is this a pull request of THIS repository whose body closes issue `number`?
+
+        `closes` cannot reach a merge in another repository, so one there never
+        strands an issue here -- it only ever excludes while open.
+        """
+        repository = (pull.get("repository_url") or "").rsplit("/repos/", 1)[-1].lower()
+        if repository != self._repo().lower():
+            return False
+        return any(
+            repo in ("", repository) and issue == number
+            for repo, issue in closing_references_in(pull.get("body") or "")
+        )
 
     def _list_issues(self) -> List[Dict]:
-        payload = self._issue_json(
-            lambda fields: [
-                "gh", "issue", "list",
-                "--repo", self._repo(),
-                "--state", "all",
-                "--limit", str(LIST_LIMIT),
-                "--json", fields,
-            ]
-        )
-        if len(payload) >= LIST_LIMIT:
+        """Every issue in the repository, paged; pull requests dropped.
+
+        REST lists pull requests among the issues, marked by a `pull_request`
+        key. They count against the cap -- it bounds what this run read, not
+        what it kept -- and are discarded before normalization.
+        """
+        entries, complete = self._paged("issues", LIST_LIMIT, "state=all")
+        if not complete:
             self.result_truncated = True
             self._note(
                 f"issue list came back at the {LIST_LIMIT}-issue page limit, so this run "
                 "has not seen every issue — publishing now could duplicate the ones past "
                 "the cut; narrow the repository or raise LIST_LIMIT"
             )
-        return payload
+        return [entry for entry in entries if "pull_request" not in entry]
 
     def get_task(self, ref: ExternalRef) -> Task:
-        payload = self._issue_json(
-            lambda fields: ["gh", "issue", "view", "--repo", self._repo(), "--json", fields,
-                            "--", self._number(ref)]
-        )
+        payload = self._json(["gh", "api", self._path("issues", self._number(ref))])
         return self._to_task(payload)
 
     def resolve_reference(self, raw: str) -> Optional[ExternalRef]:
@@ -188,25 +227,26 @@ class GitHubProvider(TrackerProvider):
 
         GitHub fires those keywords only for some mergers: a merge made with a
         workflow's GITHUB_TOKEN closes nothing (#146), so this read is how the
-        merger finds out what the merge still owes.
+        merger finds out what the merge still owes. REST exposes no closing
+        relation, so the body is read with the parser the stranded check
+        shares (Decision 13); `merged` is read because REST's `state` is
+        `closed` for a merged and an abandoned pull request alike.
         """
         number = self._number(ExternalRef("github", str(raw)))
-        payload = self._json(
-            ["gh", "pr", "view", "--repo", self._repo(),
-             "--json", "state,closingIssuesReferences", "--", number]
-        )
-        state = payload.get("state") or "unknown"
-        if state != "MERGED":
+        pull = self._json(["gh", "api", self._path("pulls", number)])
+        if not pull.get("merged"):
             raise ProviderError(
-                f"github: #{number} is not merged (state {state}) — run this after the merge"
+                f"github: #{number} is not merged (state {pull.get('state') or 'unknown'}) — "
+                "run this after the merge"
             )
         here, elsewhere = [], []
-        for issue in payload.get("closingIssuesReferences") or []:
-            owner, name = self._node_repo(issue)
-            if self._is_this_repo(owner, name):
-                here.append(ExternalRef("github", str(issue.get("number")), issue.get("url", "")))
-            else:
-                elsewhere.append(f"{owner}/{name}#{issue.get('number')}")
+        for repo, issue in closing_references_in(pull.get("body") or ""):
+            if repo and repo != self._repo().lower():
+                elsewhere.append(f"{repo}#{issue}")
+            elif all(ref.id != issue for ref in here):
+                here.append(
+                    ExternalRef("github", issue, f"https://github.com/{self._repo()}/issues/{issue}")
+                )
         if elsewhere:
             raise ProviderError(
                 f"github: #{number} closes {', '.join(elsewhere)}, outside {self._repo()} — "
@@ -217,21 +257,16 @@ class GitHubProvider(TrackerProvider):
     # ------------------------------------------------------------------- writes
     def create_task(self, task: Task) -> Task:
         self.gate.authorize(f"create issue for {task.id}", self.name)
-        labels = self._writable_labels(task)
-        command = [
-            "gh", "issue", "create",
-            "--repo", self._repo(),
-            "--title", task.title,
-            "--body", self._body_for(task, existing=""),
-        ]
-        for label in labels:
-            command += ["--label", label]
-        _, output = self._run(command)
-        ref = self.resolve_reference(output.strip().splitlines()[-1] if output.strip() else "")
+        created = self._write("POST", self._path("issues"), {
+            "title": task.title,
+            "body": self._body_for(task, existing=""),
+            "labels": list(self._writable_labels(task)),
+        })
+        ref = self.resolve_reference(str(created.get("html_url") or ""))
         if ref is None:
             raise ProviderError(
-                f"github: issue created for {task.id} but the URL could not be parsed from "
-                f"gh output: {self.redact(output.strip())}"
+                f"github: issue created for {task.id} but the response carried no issue "
+                f"URL: {self.redact(json.dumps(created)[:200])}"
             )
         return task.with_(external=ref)
 
@@ -239,26 +274,28 @@ class GitHubProvider(TrackerProvider):
         if task.external is None:
             raise ProviderError(f"github: cannot update {task.id} — it has no issue reference")
         self.gate.authorize(f"update issue #{task.external.id} for {task.id}", self.name)
-        current = self._json(
-            [
-                "gh", "issue", "view",
-                "--repo", self._repo(), "--json", "body,labels,title",
-                "--", self._number(task.external),
-            ]
-        )
-        existing_labels = [label["name"] for label in current.get("labels", [])]
         number = self._number(task.external)
-        command = [
-            "gh", "issue", "edit",
-            "--repo", self._repo(),
-            "--body", self._body_for(task, existing=current.get("body", "")),
-        ]
+        current = self._json(["gh", "api", self._path("issues", number)])
+        existing_labels = [label["name"] for label in current.get("labels", [])]
+        payload = {"body": self._body_for(task, existing=current.get("body") or "")}
         if task.title.strip() and task.title.strip() != (current.get("title") or "").strip():
-            command += ["--title", task.title]
-        for label in self._writable_labels(task):
-            if not has_label(existing_labels, label):
-                command += ["--add-label", label]
-        self._run(command + ["--", number])
+            payload["title"] = task.title
+        additions = [
+            label for label in self._writable_labels(task) if not has_label(existing_labels, label)
+        ]
+        self._write("PATCH", self._path("issues", number), payload)
+        if not additions:
+            return task
+        # REST has no single call that edits a body and adds labels. A failure
+        # here lands after the PATCH, so it says what already happened: the
+        # operator retries the labels, not a body the issue already carries.
+        try:
+            self._add_issue_labels(number, additions)
+        except ProviderError as exc:
+            raise ProviderError(
+                f"github: issue #{number}: body written, but adding label(s) "
+                f"{', '.join(additions)} failed — {_unprefixed(exc)}"
+            ) from exc
         return task
 
     def add_labels(self, task: Task, labels: Sequence[str]) -> None:
@@ -278,32 +315,23 @@ class GitHubProvider(TrackerProvider):
         ))
         if not additions:
             return
-        command = ["gh", "issue", "edit", "--repo", self._repo()]
-        for label in additions:
-            command += ["--add-label", label]
-        self._run(command + ["--", self._number(task.external)])
+        self._add_issue_labels(self._number(task.external), additions)
 
     def close_task(self, task: Task, resolution: str = "done") -> Task:
         if task.external is None:
             raise ProviderError(f"github: cannot close {task.id} — it has no issue reference")
         self.gate.authorize(f"close issue #{task.external.id}", self.name)
-        command = ["gh", "issue", "close", "--repo", self._repo()]
-        if resolution == "cancelled":
-            command += ["--reason", "not planned"]
-        self._run(command + ["--", self._number(task.external)])
+        self._write("PATCH", self._path("issues", self._number(task.external)), {
+            "state": "closed",
+            "state_reason": "not_planned" if resolution == "cancelled" else "completed",
+        })
         return task.with_(status="done" if resolution != "cancelled" else "cancelled")
 
     def comment(self, task: Task, body: str) -> None:
         if task.external is None:
             raise ProviderError(f"github: cannot comment on {task.id} — no issue reference")
         self.gate.authorize(f"comment on issue #{task.external.id}", self.name)
-        self._run(
-            [
-                "gh", "issue", "comment",
-                "--repo", self._repo(), "--body", body,
-                "--", self._number(task.external),
-            ]
-        )
+        self._write("POST", self._path("issues", self._number(task.external), "comments"), {"body": body})
 
     def link_parent(self, child: Task, parent: Task) -> LinkResult:
         """Hierarchy is preserved in metadata; GitHub issues have no native parent."""
@@ -320,13 +348,16 @@ class GitHubProvider(TrackerProvider):
         return LinkResult("dependency", task.id, depends_on.id, native=False, detail=detail)
 
     # ------------------------------------------------- normalization (read-only)
-    def _to_task(self, issue: Dict, linked_prs: Optional[Dict[str, str]] = None) -> Task:
+    def _to_task(self, issue: Dict) -> Task:
         labels = tuple(label["name"] for label in issue.get("labels", []))
-        state = (issue.get("state") or "OPEN").lower()
+        state = (issue.get("state") or "open").lower()
         status = self._status_for(state, labels, issue)
         number = str(issue.get("number", ""))
-        ref = ExternalRef("github", number, issue.get("url", ""))
+        ref = ExternalRef("github", number, issue.get("html_url", ""))
         self._note_block_state(number, issue.get("body") or "")
+        extra: Dict[str, str] = {}
+        if issue.get("state_reason"):
+            extra["state_reason"] = issue["state_reason"]
         return task_from_metadata(
             title=issue.get("title", "") or f"issue #{number}",
             body=issue.get("body", "") or "",
@@ -337,61 +368,15 @@ class GitHubProvider(TrackerProvider):
             kind=self._kind_for(labels),
             priority=self._priority_for(labels),
             area=self._area_for(labels),
-            created_at=issue.get("createdAt"),
-            updated_at=issue.get("updatedAt"),
-            extra=dict(linked_prs or {}),
+            created_at=issue.get("created_at"),
+            updated_at=issue.get("updated_at"),
+            extra=extra,
         )
 
     def _note_block_state(self, number: str, body: str) -> None:
         note = BLOCK_STATE_NOTES.get(metadata_block_state(body))
         if note:
             self._note(f"issue #{number}: {note}")
-
-    def _linked_pr_state(self, issue: Dict, pr_states: Dict[str, str]) -> Dict[str, str]:
-        """What an open issue's closing pull requests say about it, given their states.
-
-        A pull request whose state could not be read counts as open: assuming it
-        resolved would re-pick an issue that may still be under review.
-        """
-        if not self._is_open(issue) or "closedByPullRequestsReferences" not in issue:
-            return {}
-        references = issue.get("closedByPullRequestsReferences") or []
-        states = [pr_states.get(reference.get("id"), "UNKNOWN") for reference in references]
-        unresolved = any(state not in ("MERGED", "CLOSED") for state in states)
-        extra = {"unresolved_linked_pr": "true" if unresolved else "false"}
-        # Open after its closing PR here merged, with nothing else in flight and
-        # no human reopening it: the merge fired no closing keyword (#146). A PR
-        # in another repository is out of `closes`' reach, so it never counts.
-        merged = [
-            reference for reference, state in zip(references, states)
-            if state == "MERGED" and self._is_this_repo(*self._node_repo(reference))
-        ]
-        if merged and not unresolved and issue.get("stateReason") != "REOPENED":
-            extra["merged_linked_pr"] = f"#{merged[0].get('number')}"
-        return extra
-
-    def _read_pr_states(self, issues: Sequence[Dict]) -> Dict[str, str]:
-        """The state of every open issue's closing pull requests, by node id."""
-        ids = sorted({
-            reference["id"]
-            for issue in issues
-            if self._is_open(issue)
-            for reference in issue.get("closedByPullRequestsReferences") or []
-            if reference.get("id")
-        })
-        states: Dict[str, str] = {}
-        for start in range(0, len(ids), PR_STATE_BATCH):
-            command = ["gh", "api", "graphql", "-f", f"query={PR_STATE_QUERY}"]
-            for node_id in ids[start:start + PR_STATE_BATCH]:
-                command += ["-f", f"ids[]={node_id}"]
-            for node in (self._json(command).get("data") or {}).get("nodes") or []:
-                if node and node.get("id"):
-                    states[node["id"]] = str(node.get("state") or "")
-        return states
-
-    @staticmethod
-    def _is_open(issue: Dict) -> bool:
-        return (issue.get("state") or "OPEN").upper() == "OPEN"
 
     def _kind_for(self, labels: Sequence[str]) -> str:
         for label in labels:
@@ -487,13 +472,10 @@ class GitHubProvider(TrackerProvider):
         other external write.
         """
         self.gate.authorize(f"create label {label!r}", self.name)
-        code, output = self._run(
-            ["gh", "label", "create", "--repo", self._repo(), "--", label], check=False
-        )
-        if code != 0:
-            self._note(
-                f"could not create label {label!r} — {self.redact(output.strip()) or 'no output'}"
-            )
+        try:
+            self._write("POST", self._path("labels"), {"name": label})
+        except ProviderError as exc:
+            self._note(f"could not create label {label!r} — {_unprefixed(exc)}")
             return False
         self._known_labels = tuple(self._known_labels or ()) + (label,)
         self._note(f"created label {label!r} because allow_label_creation is on")
@@ -525,16 +507,11 @@ class GitHubProvider(TrackerProvider):
         if self._known_labels is not None:
             return self._known_labels
         try:
-            payload = self._json(
-                [
-                    "gh", "label", "list", "--repo", self._repo(),
-                    "--limit", str(LABEL_LIST_LIMIT), "--json", "name",
-                ]
-            )
+            payload, complete = self._paged("labels", LABEL_LIST_LIMIT)
         except ProviderError as exc:
             self._note(f"could not list labels ({exc}); existing labels preserved, none added")
             raise
-        if len(payload) >= LABEL_LIST_LIMIT:
+        if not complete:
             # Reaching the cap exactly is indistinguishable from "there were more",
             # and a partial vocabulary makes the selector check report labels as
             # missing that exist -- a loud halt on a label the operator can see.
@@ -546,16 +523,16 @@ class GitHubProvider(TrackerProvider):
         return self._known_labels
 
     def linked_pr_exclusion_available(self) -> Optional[bool]:
-        """False once `gh` has proved too old to answer -- see OPTIONAL_ISSUE_FIELDS."""
-        return not self._unsupported_fields.intersection(OPTIONAL_ISSUE_FIELDS)
+        """True: GitHub has pull requests, and `linked_pr_state` reads each candidate's."""
+        return True
 
     # ------------------------------------------------------------- gh plumbing
     def _number(self, ref: ExternalRef) -> str:
-        """The issue or pull request number as a positional argument, or a refusal.
+        """The issue or pull request number as a path segment, or a refusal.
 
-        Every call site also passes `--` before its positionals; this is the other
-        half of the same guard, because a value that is not a number has no
-        business reaching `gh` at all.
+        Every call site puts the number inside a REST path, so a value that is
+        not a number has no business reaching `gh` at all: unchecked, a crafted
+        reference would become a path segment.
         """
         number = str(ref.id).lstrip("#").strip()
         if not REF_RE.match(number):
@@ -569,14 +546,39 @@ class GitHubProvider(TrackerProvider):
         """GitHub owner and repository names are case-insensitive."""
         return f"{owner}/{name}".lower() == self._repo().lower()
 
-    @staticmethod
-    def _node_repo(node: Dict) -> Tuple[str, str]:
-        """The (owner, name) of the repository an issue or pull request node lives in."""
-        repository = node.get("repository") or {}
-        return (repository.get("owner") or {}).get("login", ""), repository.get("name", "")
+    def _path(self, *parts: str) -> str:
+        """A REST path under this repository: `repos/<owner>/<name>/<parts...>`."""
+        return "/".join(["repos", self._repo(), *parts])
+
+    def _paged(self, route: str, cap: int, *params: str) -> Tuple[List[Dict], bool]:
+        """A REST list read `PAGE_SIZE` at a time, and whether it was complete.
+
+        Paging stops at the first short page or at `cap` entries. Reaching the
+        cap exactly is indistinguishable from "there were more", so the caller
+        treats an incomplete read as truncation, never as the whole list.
+        """
+        entries: List[Dict] = []
+        for page in range(1, cap // PAGE_SIZE + 1):
+            query = "&".join([*params, f"per_page={PAGE_SIZE}", f"page={page}"])
+            batch = self._json(["gh", "api", self._path(f"{route}?{query}")])
+            entries.extend(batch)
+            if len(batch) < PAGE_SIZE:
+                return entries, True
+        return entries, False
+
+    def _write(self, method: str, path: str, payload: Dict):
+        """One REST write. The JSON payload travels on stdin through `--input -`,
+        never as `-f` fields: argv is capped near 32K on Windows and issue
+        bodies reach 64K, and `labels` is a list."""
+        command = ["gh", "api", "--method", method, path, "--input", "-"]
+        return self._json(command, input=json.dumps(payload))
+
+    def _add_issue_labels(self, number: str, labels: Sequence[str]) -> None:
+        """`POST /issues/{n}/labels` -- additive, the issue's other labels untouched."""
+        self._write("POST", self._path("issues", number, "labels"), {"labels": list(labels)})
 
     def _repo(self) -> str:
-        """The `owner/name` every gh call targets, discovered from the remote on demand.
+        """The `owner/name` every gh call targets, parsed from the remote on demand.
 
         Provider selection already chose GitHub because the checkout has a remote,
         so a missing `repository =` line is the ordinary case, not a fault. The
@@ -586,23 +588,20 @@ class GitHubProvider(TrackerProvider):
         """
         if self.repository:
             return self.repository
-        code, output = self._run(
-            ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
-            check=False,
-        )
-        if code != 0 or not output.strip():
+        remote = github_remote(self.config.root)
+        if not remote:
             raise ProviderError(
                 "github: no repository configured — set `repository = owner/name` in the "
-                "task-tracking configuration, or run inside a repo with a GitHub remote "
-                f"(`gh repo view` answered: {self.redact(output.strip()) or 'no output'})"
+                "task-tracking configuration, or run inside a repo with a GitHub remote"
             )
-        self.repository = output.strip()
+        self.repository = remote
         return self.repository
 
-    def _run(self, command: Sequence[str], check: bool = True):
+    def _run(self, command: Sequence[str], check: bool = True, input: Optional[str] = None):
         try:
             completed = subprocess.run(
                 list(command),
+                input=input,
                 cwd=self.config.root,
                 capture_output=True,
                 text=True,
@@ -619,41 +618,13 @@ class GitHubProvider(TrackerProvider):
         output = (completed.stdout or "") + (completed.stderr or "")
         if check and completed.returncode != 0:
             raise ProviderError(
-                f"github: `{' '.join(command[:3])}` exited {completed.returncode} — "
+                f"github: `{_describe(command)}` exited {completed.returncode} — "
                 f"{self.redact(output.strip()) or 'no output'}"
             )
         return completed.returncode, output
 
-    def _issue_fields(self) -> str:
-        optional = [f for f in OPTIONAL_ISSUE_FIELDS if f not in self._unsupported_fields]
-        return ",".join(list(REQUIRED_ISSUE_FIELDS) + optional)
-
-    def _issue_json(self, build):
-        """Read issues, dropping each optional field this `gh` predates.
-
-        `build(fields)` returns the argv for the read. `gh` names one unknown
-        field per refusal, so the read is retried once per rejected optional
-        field. A required field that `gh` rejects is still a hard failure:
-        dropping it would hand the caller a task with a silently missing
-        identity, which is worse than the refusal.
-        """
-        while True:
-            try:
-                return self._json(build(self._issue_fields()))
-            except ProviderError as exc:
-                match = UNKNOWN_FIELD_RE.search(str(exc))
-                field = match.group(1) if match else ""
-                if field not in OPTIONAL_ISSUE_FIELDS or field in self._unsupported_fields:
-                    raise
-                self._unsupported_fields.add(field)
-                self._note(
-                    f"this gh does not support the `{field}` issue field, so linked pull "
-                    "request state is unknown for every issue this run; upgrade to gh 2.73.0 "
-                    "or newer to restore it"
-                )
-
-    def _json(self, command: Sequence[str]):
-        _, output = self._run(command)
+    def _json(self, command: Sequence[str], input: Optional[str] = None):
+        _, output = self._run(command, input=input)
         payload = output[output.find("[") :] if output.lstrip().startswith("[") else output
         try:
             return json.loads(payload.strip() or "[]")
@@ -662,6 +633,40 @@ class GitHubProvider(TrackerProvider):
                 f"github: could not parse gh JSON output — {exc}; got: "
                 f"{self.redact(output.strip()[:200])}"
             ) from exc
+
+
+def closing_references_in(body: str) -> List[Tuple[str, str]]:
+    """(`owner/repo` lower-cased or "", number) per issue the body's closing keywords name.
+
+    REST exposes no closing-reference relation, so the body is read the way
+    GitHub itself reads it (Decision 13). Shared by the stranded check and by
+    `closes`, so a form the parser misses shows on the merger's own run (R6).
+    """
+    references = []
+    for match in CLOSING_REFERENCE_RE.finditer(CODE_SPAN_RE.sub(" ", body)):
+        repo = match.group("url_repo") or match.group("repo") or ""
+        references.append((repo.lower(), match.group("url_number") or match.group("number")))
+    return references
+
+
+def _describe(command: Sequence[str]) -> str:
+    """`gh api <METHOD> <path>` for a REST call; the first three words otherwise."""
+    words = list(command)
+    if words[:2] != ["gh", "api"]:
+        return " ".join(words[:3])
+    method, path = "GET", ""
+    for index, word in enumerate(words[2:], start=2):
+        if word in ("--method", "-X") and index + 1 < len(words):
+            method = words[index + 1]
+        elif not word.startswith("-") and not path and words[index - 1] not in ("--method", "-X", "--input"):
+            path = word
+    return f"gh api {method} {path}"
+
+
+def _unprefixed(exc: Exception) -> str:
+    """An error's text without its leading `github: `, for nesting in another."""
+    text = str(exc)
+    return text[len("github: "):] if text.startswith("github: ") else text
 
 
 def _seed_body(task: Task) -> str:

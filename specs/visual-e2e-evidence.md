@@ -191,7 +191,7 @@ This works in every project the harness runs in. Nothing is specific to one app.
    wrap-up still creates the PR. Pinned by a fixture that advances the remote
    between fetch and push.
 10. `/wrap-up-session` § *The Pull Request* inserts the publisher's section into
-    the PR body before `gh pr create` and on every re-sync, passing the
+    the PR body before `gh_pr.py create` and on every re-sync, passing the
     short-sha § *E2E coverage* checked. The wrap-up report carries an
     `Evidence:` line (`published <n> to <owner/repo>` plus a `public repo` or
     `visibility unknown` marker, or `local <n>`, `none`, or `publish failed`).

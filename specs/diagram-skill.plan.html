@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Spec: /diagram — Archify as an installed diagram tool</title>
+<style>/* jplugin plan theme — inlined into every visual plan by
+   .agents/skills/visual-plan/scripts/plan_render.py. Rules: design/plan-theme/DESIGN.md.
+   Derived from the minimal technical journal prototype (design/prototypes/minimalist/). */
+
+:root {
+  color-scheme: light;
+  --paper: #f7f7f4; --surface: #ffffff; --ink: #26251e; --body: #4f4e48; --muted: #6b675f;
+  --line: #dcdad2; --strong: #b9b7ac; --code: #f0f0ea; --wash: #f1ebe5; --accent: #b93f18;
+  --c-decision: #1f5fa8; --c-criterion: #2d6a35; --c-risk: #8a5300; --c-question: #6a3d9a;
+  --c-blocker: #b3261e; --c-constraint: #4a5868; --c-contract: #0f6b6b; --c-model: #7a4b2a;
+  --c-slice: #3b4cc0; --c-prompt: #b93f18; --c-diagram: #50504a; --c-reference: #5f5c55;
+  --t-decision: #eaf1fa; --t-criterion: #ebf4ec; --t-risk: #f8f0e2; --t-question: #f2edf8;
+  --t-blocker: #fbeceb; --t-slice: #eeeffb; --t-prompt: #f8ece6;
+  --display: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+    --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+    --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+    --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+    --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+    --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+    --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+  --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+  --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+  --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+  --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+  --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+  --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+}
+
+/* ---------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.62 var(--sans); overflow-wrap: break-word; }
+a { color: inherit; text-underline-offset: .2em; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { background: var(--wash); color: var(--ink); }
+p, li { color: var(--body); max-width: var(--measure); }
+code { font: .88em/1.4 var(--mono); background: var(--code); padding: .08em .3em; border-radius: 3px; overflow-wrap: anywhere; }
+pre { margin: 16px 0 24px; background: var(--code); padding: 18px 20px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--ink); max-width: 100%; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+blockquote { margin: 0 0 20px; padding: 2px 0 2px 16px; border-left: 2px solid var(--strong); color: var(--muted); }
+h1, h2, h3 { color: var(--ink); }
+h3 { font: 600 17px/1.3 var(--sans); letter-spacing: -.01em; margin: 26px 0 10px; }
+ul, ol { padding-left: 22px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+.skip { position: absolute; left: 10px; top: -60px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 30; }
+.skip:focus { top: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ------------------------------------------------------------- layout */
+.masthead { max-width: 1440px; margin: 0 auto; padding: clamp(36px, 6vw, 84px) clamp(16px, 4vw, 64px) 26px; border-bottom: 1px solid var(--line); }
+.folio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin: 0 0 22px; color: var(--muted); font: 12px/1.5 var(--mono); max-width: none; }
+.masthead h1 { font: 400 clamp(36px, 6vw, 76px)/1.02 var(--display); letter-spacing: -.035em; margin: 0 0 18px; max-width: 22ch; }
+.source { margin: 0; font: 13px/1.5 var(--mono); color: var(--muted); max-width: none; }
+.source a { color: var(--ink); }
+.shell { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 0 clamp(16px, 4vw, 64px); }
+main { min-width: 0; padding-bottom: 80px; }
+
+/* ----------------------------------------------------------- navigation */
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 26px 0; font-size: 14px; }
+.toc-menu > summary { list-style: none; cursor: pointer; font: 12px/1.4 var(--mono); color: var(--muted); padding: 6px 0; }
+.toc-menu > summary::-webkit-details-marker { display: none; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; }
+.toc li { margin: 0; max-width: none; }
+.toc a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--line); text-decoration: none; color: var(--body); line-height: 1.35; }
+.toc a:hover { color: var(--ink); border-left-color: var(--strong); }
+.toc a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); font-weight: 600; }
+.toc .toc-prompt { margin-top: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.btn, .copy, .review button { font: 600 13px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--strong); border-radius: 4px; padding: 9px 12px; cursor: pointer; min-height: 36px; }
+.btn:hover, .copy:hover, .review button:hover { border-color: var(--ink); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ------------------------------------------------- lead, strip, blockers */
+.lead { margin: 30px 0 26px; }
+.lead p { font: 400 clamp(20px, 2.2vw, 27px)/1.42 var(--display); color: var(--ink); max-width: 40ch; margin: 0 0 14px; }
+.lead .lead-label, .card-label { font: 600 11px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.lead .lead-label { color: var(--muted); display: block; margin-bottom: 10px; }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); margin: 0 0 26px; }
+.stat { display: block; padding: 14px 14px 14px 0; text-decoration: none; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 14px; }
+.stat-n { display: block; font: 400 30px/1.1 var(--display); color: var(--ink); }
+.stat-l { display: block; font: 12px/1.3 var(--mono); color: var(--muted); }
+.stat-alert .stat-n { color: var(--c-blocker); }
+.strip-label { grid-column: 1 / -1; display: flex; gap: 4px; align-items: baseline; padding: 8px 0 0; color: var(--muted); }
+.strip-label + .stat { border-left: 0; padding-left: 0; }
+.blockers { border: 1px solid var(--c-blocker); border-left-width: 6px; background: var(--t-blocker); padding: 16px 20px; margin: 0 0 30px; }
+.blockers h2 { font: 600 18px/1.3 var(--sans); margin: 0 0 8px; color: var(--c-blocker); }
+.blockers ul { margin: 0; padding-left: 0; list-style: none; }
+.blockers li { padding: 4px 0; max-width: none; }
+.blockers .none { color: var(--body); margin: 0; }
+
+/* ------------------------------------------------------------- sections */
+.sec { scroll-margin-top: 12px; border-bottom: 1px solid var(--line); }
+.sec > details > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; padding: 30px 0 18px; }
+.sec > details > summary::-webkit-details-marker { display: none; }
+.sec > details > summary::after { content: "+"; margin-left: auto; font: 400 22px/1 var(--mono); color: var(--muted); }
+.sec > details[open] > summary::after { content: "\2212"; }
+.sec h2 { font: 400 clamp(28px, 3.4vw, 44px)/1.08 var(--display); letter-spacing: -.03em; margin: 0; }
+.sec-count { font: 12px/1 var(--mono); color: var(--muted); }
+.sec > details > :not(summary) { margin-left: 0; }
+.sec > details { padding-bottom: 26px; }
+.table-scroll { overflow-x: auto; max-width: 100%; margin: 14px 0 22px; border-top: 1px solid var(--ink); }
+.table-scroll:focus-visible { outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { position: sticky; top: 0; background: var(--paper); text-align: left; font: 600 12px/1.35 var(--mono); color: var(--muted); padding: 10px 12px 8px 0; border-bottom: 1px solid var(--strong); vertical-align: bottom; }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); min-width: 9ch; }
+
+/* ---------------------------------------------------------------- cards */
+.cards { display: grid; gap: 12px; margin: 6px 0 18px; padding: 0; list-style: none; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; max-width: none; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-head h3 { margin: 0; font: 600 16px/1.35 var(--sans); flex: 1 1 18ch; min-width: 0; }
+.card-icon { font: 700 14px/1 var(--mono); width: 1.5em; text-align: center; flex: none; }
+.card-id { font: 600 12px/1 var(--mono); color: var(--ink); background: var(--code); padding: 4px 6px; border-radius: 3px; }
+.card p { margin: 8px 0 0; }
+.card-body { margin-top: 8px; }
+.card-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.card-more > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.card-more dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; }
+.card-more dt { font: 600 12px/1.6 var(--mono); color: var(--muted); }
+.card-more dd { margin: 0; color: var(--body); }
+.chosen { position: relative; padding-left: 26px; color: var(--ink); overflow-wrap: anywhere; }
+.chosen::before { position: absolute; left: 0; top: .2em; }
+.chosen::before { content: "\2713"; font: 700 12px/1 var(--mono); color: var(--c-criterion); border: 1px solid currentColor; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; flex: none; }
+.callout-wrong { border-left: 3px solid var(--c-blocker); padding: 6px 10px; background: var(--t-blocker); color: var(--ink); }
+.meta { font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: none; }
+
+/* chips: text labels first, colour second */
+.chip { font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip-settled { color: var(--c-criterion); }
+.chip-open, .chip-uncovered, .chip-blocked { color: var(--c-blocker); border-style: dashed; }
+.chip-new { color: var(--c-contract); }
+.chip-changed { color: var(--c-risk); }
+.chip-verify { color: var(--c-question); border-style: dashed; }
+.lvl { font: 600 11px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--strong); border-radius: 3px; color: var(--ink); }
+.lvl-H { border-color: var(--c-blocker); color: var(--c-blocker); border-width: 2px; }
+.lvl-M { border-color: var(--c-risk); color: var(--c-risk); }
+.lvl-L { color: var(--muted); }
+
+/* one colour, icon, label and border shape per component type */
+.card-decision { border-color: var(--c-decision); border-style: solid; }
+.card-decision .card-icon, .card-decision .card-label { color: var(--c-decision); }
+.card-decision.is-open { background: var(--t-decision); }
+.card-criterion { border: 0; border-left: 3px solid var(--c-criterion); background: transparent; padding: 8px 12px; }
+.card-criterion .card-icon, .card-criterion .card-label { color: var(--c-criterion); }
+.card-criterion.is-uncovered { border-left-color: var(--c-blocker); border-left-style: dashed; background: var(--t-blocker); }
+.card-risk { border: 3px double var(--c-risk); }
+.card-risk .card-icon, .card-risk .card-label { color: var(--c-risk); }
+.card-question { border: 2px dashed var(--c-question); background: var(--t-question); }
+.card-question .card-icon { color: var(--c-question); border: 2px solid currentColor; border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; }
+.card-question .card-label { color: var(--c-question); }
+.card-constraint { border: 1px dotted var(--c-constraint); }
+.card-constraint .card-icon, .card-constraint .card-label { color: var(--c-constraint); }
+.card-contract { border: 1px solid var(--line); border-left: 6px solid var(--c-contract); }
+.card-contract .card-icon, .card-contract .card-label { color: var(--c-contract); }
+.card-contract pre { margin: 10px 0 0; }
+.card-model { border: 1px solid var(--line); border-top: 4px solid var(--c-model); }
+.card-model .card-icon, .card-model .card-label { color: var(--c-model); }
+.card-slice { border: 2px solid var(--c-slice); border-radius: 0 12px 12px 0; }
+.card-slice .card-icon, .card-slice .card-label { color: var(--c-slice); }
+.card-slice.is-blocked { background: var(--t-blocker); border-style: dashed; }
+.card-prompt { border: 2px solid var(--c-prompt); background: var(--t-prompt); padding: 18px 20px; }
+.card-prompt .card-icon, .card-prompt .card-label { color: var(--c-prompt); }
+.card-prompt pre { background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-prompt.not-ready { border-style: dashed; border-color: var(--c-blocker); background: var(--t-blocker); }
+.not-ready-msg { font-weight: 700; color: var(--c-blocker); }
+.card-reference { border: 0; border-top: 1px dotted var(--c-reference); background: transparent; padding: 10px 0; }
+.card-reference .card-icon, .card-reference .card-label { color: var(--c-reference); }
+.card-blockers .card-icon, .card-blockers .card-label { color: var(--c-blocker); }
+.card-strip .card-label { color: var(--muted); }
+.card-lead .card-label { color: var(--muted); }
+
+/* ------------------------------------------------------------- diagrams */
+.diagram { margin: 18px 0 24px; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.diagram .card-icon, .diagram .card-label { color: var(--c-diagram); }
+.diagram-scroll { overflow-x: auto; max-width: 100%; margin-top: 8px; }
+.diagram svg { display: block; max-width: none; height: auto; font-family: var(--sans); }
+.diagram figcaption { font: 13px/1.5 var(--sans); color: var(--body); margin-top: 8px; }
+.diagram-source, .text-diagram { margin-top: 10px; }
+.diagram-source > summary, .text-diagram > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.text-diagram { border: 1px dashed var(--strong); padding: 8px 12px; margin: 12px 0 20px; }
+svg .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+svg .node text { fill: var(--ink); font-size: 13px; }
+svg .node .node-sub { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .node-new rect { stroke: var(--c-contract); stroke-width: 2.4; }
+svg .node-changed rect { stroke: var(--c-risk); stroke-width: 2.4; stroke-dasharray: 6 3; }
+svg .node-blocked rect { stroke: var(--c-blocker); stroke-width: 2.4; stroke-dasharray: 3 3; fill: var(--t-blocker); }
+svg a:focus-visible rect, svg a:hover rect { stroke: var(--accent); stroke-width: 2.6; }
+svg .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .edge-dashed { stroke-dasharray: 5 4; }
+svg .arrow { fill: var(--muted); }
+svg .edge-label { fill: var(--body); font-size: 11px; font-family: var(--mono); }
+svg .label-bg { fill: var(--surface); }
+svg .lane { fill: var(--code); stroke: var(--line); }
+svg .lane-label { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .lifeline { stroke: var(--strong); stroke-dasharray: 4 4; }
+svg .actor rect { fill: var(--surface); stroke: var(--ink); }
+svg .actor text { fill: var(--ink); font-size: 13px; }
+svg .msg { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .msg-reply { stroke-dasharray: 5 4; }
+svg .msg-label { fill: var(--ink); font-size: 12px; }
+svg .frame { fill: none; stroke: var(--c-question); stroke-width: 1.2; }
+svg .frame-label { fill: var(--c-question); font-size: 11px; font-family: var(--mono); font-weight: 600; }
+svg .frame-tab { fill: var(--t-question); stroke: var(--c-question); }
+svg .frame-divider { stroke: var(--c-question); stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 12px/1.4 var(--mono); color: var(--muted); margin-top: 8px; padding: 0; list-style: none; }
+.legend li { max-width: none; }
+
+/* -------------------------------------------------------------- review */
+.review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.review button { padding: 6px 9px; min-height: 30px; font-size: 12px; }
+.review button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.review label { display: flex; align-items: center; gap: 6px; flex: 1 1 16ch; min-width: 0; font: 12px/1.3 var(--mono); color: var(--muted); }
+.review textarea, .review select, .review input { font: 13px/1.4 var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--strong); border-radius: 4px; padding: 6px 8px; flex: 1 1 16ch; min-width: 0; }
+.review-status { font: 12px/1.4 var(--mono); color: var(--muted); margin: 8px 0 0; max-width: none; }
+.review-panel { border: 1px solid var(--strong); padding: 16px 18px; margin: 26px 0; }
+.review-panel pre { white-space: pre-wrap; }
+
+/* ------------------------------------------------------- blockers-only */
+body.only-blockers main .sec:not(.has-blockers),
+body.only-blockers main .cards > :not(.is-blocker),
+body.only-blockers main .ac-list > :not(.is-blocker) { display: none; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 767px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: sticky; top: 0; z-index: 20; max-height: none; overflow: visible; background: var(--paper); border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .toc-menu > summary { font-size: 14px; color: var(--ink); padding: 10px 0; }
+  .toc-menu > summary::before { content: "\2630  "; }
+  .toc-menu[open] ol { max-height: 70vh; overflow-y: auto; padding-bottom: 10px; }
+  .masthead h1 { font-size: clamp(32px, 10vw, 48px); }
+  .stat + .stat { border-left: 0; padding-left: 0; }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card-more dl { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 768px) {
+  .toc-menu > summary { pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  :root { --paper: #fff; --surface: #fff; }
+  .toc, .controls, .review, .copy, .skip, .review-panel { display: none !important; }
+  .shell { display: block; padding: 0; }
+  .sec > details > summary::after { content: ""; }
+  .card, .diagram { break-inside: avoid; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 10px; color: var(--muted); }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body class="plan">
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead"><p class="folio"><span>Visual plan</span><span><a href="#build-prompt">Build prompt ↓</a></span></p><h1>Spec: <code>/diagram</code> — Archify as an installed diagram tool</h1><p class="source">Source: <a href="diagram-skill.md">specs/diagram-skill.md</a> · sha256 <code>2d1bc3942372</code></p></header>
+<div class="shell"><nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary><ol><li><a href="#summary-lead">Summary</a></li><li><a href="#blockers">Blockers</a></li><li><a href="#behavior">Behavior</a></li><li><a href="#inputs">Inputs</a></li><li><a href="#outputs">Outputs</a></li><li><a href="#edge-cases">Edge Cases</a></li><li><a href="#risks">Risks</a></li><li><a href="#decisions">Decisions</a></li><li><a href="#acceptance-criteria">Acceptance Criteria</a></li><li><a href="#implementation-paths">Implementation Paths</a></li><li><a href="#build-order">Build Order</a></li><li><a href="#build-prompt">Build prompt</a></li><li><a href="#review">Review</a></li></ol></details></nav><main id="main">
+<blockquote>Origin: <code>/grilling</code> interview (2026-10-19), 23 decisions carried · Designed 2026-10-19</blockquote>
+<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label"><span class="card-icon" aria-hidden="true">¶</span> <span class="card-label">Summary</span></span><p>jplugin gains <code>/diagram</code>, a thin skill that turns a system, flow, schema or history into a checked, explorable standalone HTML diagram through <a href="https://github.com/tt-a1i/archify">Archify</a>. Archify is installed once in user scope as a pinned <em>tool</em>, never as a skill the harness can route to, so <code>/diagram</code> is the only diagram entry point and the drawing instructions stay upstream&#x27;s. Diagrams of a real codebase always carry source citations verified against the pinned commit. The homegrown <code>flow</code>/<code>sequence</code> DSL keeps drawing inline spec fences; Archify draws the standalone diagrams. The one decision not to miss: Node is a hard requirement for <code>/diagram</code>, a browser is not.</p></section>
+<nav class="strip card-strip" aria-label="At a glance"><span class="strip-label"><span class="card-icon" aria-hidden="true">#</span><span class="card-label">At a glance</span></span><a class="stat" href="#build-order"><span class="stat-n">7</span><span class="stat-l">slices</span></a><a class="stat" href="#acceptance-criteria"><span class="stat-n">14</span><span class="stat-l">criteria</span></a><a class="stat" href="#decisions"><span class="stat-n">23</span><span class="stat-l">decisions</span></a><a class="stat" href="#risks"><span class="stat-n">4</span><span class="stat-l">risks</span></a><a class="stat" href="#decisions"><span class="stat-n">0</span><span class="stat-l">open items</span></a><a class="stat" href="#blockers"><span class="stat-n">0</span><span class="stat-l">blockers</span></a></nav>
+<section class="blockers card-blockers" id="blockers" aria-labelledby="blockers-h"><h2 id="blockers-h"><span class="card-icon" aria-hidden="true">!</span><span class="card-label">Blockers</span> <span class="sec-count">0</span></h2><p class="none">No blockers: no open decision, blocking question, uncovered criterion or unmitigated high-impact risk.</p></section>
+<div class="controls" role="toolbar" aria-label="Disclosure"><button type="button" class="btn" data-action="expand">Expand all</button><button type="button" class="btn" data-action="collapse">Collapse all</button><button type="button" class="btn" data-action="blockers" aria-pressed="false">Show only blockers</button></div>
+<section class="sec sec-generic" id="behavior" data-kind="generic"><details class="sec-body" open><summary><h2>Behavior</h2></summary><p>A user types <code>/diagram &lt;what&gt;</code> (or a phrase such as &quot;draw the architecture&quot;, &quot;visualize the request flow&quot;, &quot;map the module tree&quot;, &quot;archify this&quot;). The skill:</p>
+<ol><li>Locates the installed tool at <code>$ARCHIFY_HOME</code> (default <code>~/.local/share/jplugin/archify</code>). When it is absent, it prints the one-line install command and stops. When <code>node</code> is absent or older than 18, it says so and stops. Neither case produces a diagram or falls back to another renderer.</li><li>Reads upstream&#x27;s authoring instructions from the install directory (<code>&lt;home&gt;/archify/SKILL.md</code> and the references it names) and follows them for type selection, candidate authoring and <code>finalize</code>. All ten diagram types are available; Archify&#x27;s own type router picks.</li><li>Adds jplugin&#x27;s conventions on top of upstream&#x27;s:<ul><li><strong>Evidence is mandatory for a codebase.</strong> When the subject is a repository, the candidate pins <code>meta.repository</code> to the clean <code>HEAD</code> of that repository and every component carries <code>sources</code>; <code>finalize</code> runs with <code>--repo-root</code>. A described system (no repository) is authored freehand.</li><li><strong>Output location.</strong> A system or architecture diagram lands at <code>docs/architecture/&lt;slug&gt;.html</code> beside its candidate <code>docs/architecture/&lt;slug&gt;.architecture.json</code> (or <code>&lt;slug&gt;.&lt;type&gt;.json</code>), regenerated in place. A diagram that illustrates a spec lands beside it as <code>specs/&lt;feature&gt;.&lt;type&gt;.html</code>. Archify&#x27;s working folder <code>.archify/</code> is gitignored and holds receipts and captures only.</li><li><strong>Browser resolution.</strong> Before <code>finalize</code>, the skill sets <code>ARCHIFY_CHROME</code> to the first of: an existing <code>ARCHIFY_CHROME</code>, a Chrome or Chromium on <code>PATH</code>, the Chromium that <code>playwright-cli</code> installed. When none is found it runs the non-browser gates (<code>validate</code>, <code>deliver</code>, <code>check</code>) and states in its reply that browser evidence did not run.</li><li><strong>Diagrams only.</strong> Archify&#x27;s explainer mode is not exposed; a request for &quot;a page&quot; routes to <code>/html-presentation</code> as today.</li></ul></li><li><code>/diagram --refresh &lt;path&gt;</code> re-authors an existing committed candidate against the current <code>HEAD</code>: it re-reads the cited source, updates components, citations and the pinned revision, and re-runs <code>finalize</code>. Staleness is detected only through this command; <code>/wrap-up-session</code> leaves diagrams alone.</li><li>The reply follows Archify&#x27;s output contract: a clickable link to the HTML, one or two sentences of takeaway for a codebase diagram, and anything that changes how the diagram should be read. It never claims visual review that did not happen.</li></ol>
+<p>Three existing skills gain a diagram moment:</p>
+<ul><li><code>/how</code> ends every answer with one line offering a diagram of the flow it just explained; nothing renders until the user says yes. Its explainer prompt stops suggesting Mermaid or ASCII diagrams in chat.</li><li><code>/plan</code> offers a diagram in one line after the spec is written, when the feature spans more than one component.</li><li><code>/system-design-planning</code> produces an architecture diagram beside its spec as part of its deliverable when the tool is installed, and prints the install command (without stopping) when it is not. Its <code>flow</code> and <code>sequence</code> fences are unchanged.</li></ul>
+<p>Installation and provenance:</p>
+<ul><li><code>install.sh</code> gains a section after the Playwright one: when <code>node</code> ≥ 18 is present it clones Archify at the pinned tag into <code>$ARCHIFY_HOME</code>, verifying the checked-out commit equals the pinned commit; when the directory already holds that commit it reports &quot;present&quot;; otherwise it prints a NOTE with the install command and continues. Nothing prompts and the exit code never changes.</li><li><code>.github/upstreams.json</code> gains an entry of <code>kind: &quot;installed&quot;</code> for Archify: <code>url</code>, <code>ref: refs/tags/v3.2.0</code>, <code>baseline</code> = the tag&#x27;s commit, no <code>paths</code>, <code>source_notice</code>. <code>scripts/check-upstream-drift.py</code> accepts the new kind (<code>paths</code> forbidden, <code>ref</code> may be a tag) and reports drift for it the same way. Sources without <code>kind</code> keep today&#x27;s vendored semantics.</li><li><code>THIRD_PARTY_NOTICES.md</code> gains an &quot;Archify (installed tool)&quot; section with the MIT notice; README&#x27;s Sources section names it.</li><li><code>/tidy</code> gains a tenth check, <code>tools</code>, that compares the commit checked out in <code>$ARCHIFY_HOME</code> with the registry&#x27;s pinned baseline. No install on this machine → inconclusive with the note; a different commit → Tier 1 with the re-install command printed, never applied.</li></ul></details></section>
+<section class="sec sec-generic" id="inputs" data-kind="generic"><details class="sec-body" open><summary><h2>Inputs</h2></summary><ul><li><code>/diagram &lt;free-text subject&gt;</code> — a described system, or a request about the current repository (or another path the user names).</li><li><code>/diagram --refresh &lt;candidate.json | diagram.html&gt;</code> — an existing committed candidate.</li><li>Environment: <code>ARCHIFY_HOME</code> (install root override), <code>ARCHIFY_CHROME</code> (browser override), <code>node</code> on <code>PATH</code>.</li><li>Upstream: <code>https://github.com/tt-a1i/archify</code> at tag <code>v3.2.0</code>, commit <code>208acba8d412335185b2056fedf54b3405df43fb</code>.</li></ul></details></section>
+<section class="sec sec-generic" id="outputs" data-kind="generic"><details class="sec-body" open><summary><h2>Outputs</h2></summary><ul><li>A standalone HTML diagram and its candidate JSON at the paths above; Archify&#x27;s receipts under <code>.archify/</code>.</li><li>A chat reply per Archify&#x27;s output contract, with the browser-evidence gap stated when it applies.</li><li>install.sh: a cloned, pinned Archify under <code>$ARCHIFY_HOME</code>, or a NOTE.</li><li>Drift job summary: a <code>drift:</code> line for Archify when upstream&#x27;s tag moves ahead of the baseline.</li><li><code>/tidy</code> report: a <code>tools</code> row.</li></ul></details></section>
+<section class="sec sec-generic" id="edge-cases" data-kind="generic"><details class="sec-body" open><summary><h2>Edge Cases</h2></summary><ul><li>Tool absent → the install command is printed and <code>/diagram</code> stops. No DSL or html-presentation fallback, silent or otherwise.</li><li><code>node</code> absent or &lt; 18 → stated and stopped, with the Node requirement named.</li><li>No browser → non-browser gates run; the reply says &quot;automated checks passed without browser evidence&quot;. The diagram is still delivered.</li><li><code>finalize</code> fails → the skill follows upstream&#x27;s repair contract (edit the connected neighbourhood, re-run with a new <code>--out-dir</code>), never claims success on a non-zero exit, and reports the failing gate when repair is exhausted.</li><li>Dirty worktree when diagramming a codebase → the candidate still pins <code>HEAD</code>; the reply names the changed paths, and no uncommitted bytes are cited as evidence (upstream&#x27;s rule).</li><li><code>--refresh</code> on a candidate whose cited component no longer exists → the component is removed or re-anchored from a fresh read of the source; the reply names what was dropped or merged.</li><li>A request for &quot;a page&quot; or &quot;an explainer&quot; → not <code>/diagram</code>; routes to <code>/html-presentation</code>.</li><li><code>/system-design-planning</code> without the tool → the spec and its DSL diagrams are produced as today, plus one install-command line; the session does not stop.</li><li>Pi and Codex sessions never ran <code>install.sh</code> → the printed install command is the only path; <code>/diagram</code> is otherwise harness-neutral (Node CLI, no Claude Code specifics).</li><li>An <code>upstreams.json</code> entry of <code>kind: installed</code> with <code>paths</code> → the validator rejects it, naming the field.</li><li><code>$ARCHIFY_HOME</code> holds a commit other than the baseline → <code>/tidy tools</code> Tier 1 finding; <code>install.sh</code> re-clones only when told to, never on its own.</li></ul></details></section>
+<section class="sec sec-risks" id="risks" data-kind="risks"><details class="sec-body" open><summary><h2>Risks</h2></summary><div class="cards"><article class="card card-risk" id="r1"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R1</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-M">Impact M</span><h3><code>/diagram</code> collides with <code>/html-presentation</code>, <code>/visual-plan</code>, <code>/visual-recap</code> on &quot;make a picture&quot; prompts</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>A triggerability <code>/eval</code> run once after the description is written, as information, not a gate (AC9)</dd><dt>Slice</dt><dd><a href="#slice-7">slice 7</a></dd></dl><div class="review" data-review="R1" role="group" aria-label="Review R1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R1 note"></textarea></label></div></article><article class="card card-risk" id="r2"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R2</span><span class="lvl lvl-L">Likelihood L</span><span class="lvl lvl-M">Impact M</span><h3>Upstream SKILL.md changes shape between releases and <code>/diagram</code>&#x27;s conventions stop lining up</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>Pin by tag and commit; weekly drift line; bump is a deliberate PR</dd><dt>Slice</dt><dd><a href="#slice-4">slice 4</a></dd></dl><div class="review" data-review="R2" role="group" aria-label="Review R2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R2 note"></textarea></label></div></article><article class="card card-risk" id="r3"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R3</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-L">Impact L</span><h3>Reading upstream&#x27;s long SKILL.md at run time costs context on every diagram</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>Accepted: upstream&#x27;s instructions are the product; <code>/diagram</code> adds one short page</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R3" role="group" aria-label="Review R3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R3 note"></textarea></label></div></article><article class="card card-risk" id="r4"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R4</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-L">Impact L</span><h3><code>playwright-cli</code>&#x27;s Chromium path differs across platforms</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>Resolution order ends in &quot;no browser → non-browser gates&quot;, never a hard failure</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R4" role="group" aria-label="Review R4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R4 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-decisions" id="decisions" data-kind="decisions"><details class="sec-body" open><summary><h2>Decisions</h2></summary><div class="cards"><article class="card card-decision" id="d1"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D1</span><span class="chip chip-settled">settled</span><h3>Vendor, install or wrap?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Install in user scope with a thin jplugin skill; never copy the package into the repo</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Upstream is actively released with its own update channel; design-stack set the user-scope precedent</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D1" role="group" aria-label="Review D1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D1 note"></textarea></label></div></article><article class="card card-decision" id="d2"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D2</span><span class="chip chip-settled">settled</span><h3>User-facing skill or backend renderer?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Both, staged: <code>/diagram</code> first, consumer skills afterwards</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>One skill file is immediately useful; rewiring consumers is a second step</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D2" role="group" aria-label="Review D2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D2 note"></textarea></label></div></article><article class="card card-decision" id="d3"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D3</span><span class="chip chip-settled">settled</span><h3>Missing Node or browser</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Node is a hard requirement; a missing browser degrades to the non-browser gates, stated in the reply; never a silent fallback</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Nothing runs without Node; a diagram with schema and route checks beats Mermaid</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D3" role="group" aria-label="Review D3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D3 note"></textarea></label></div></article><article class="card card-decision" id="d4"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D4</span><span class="chip chip-settled">settled</span><h3>Where outputs live</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>docs/architecture/</code> for system diagrams, beside the spec for spec diagrams; <code>.archify/</code> gitignored</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Diagrams are documentation; receipts are scratch</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D4" role="group" aria-label="Review D4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D4 note"></textarea></label></div></article><article class="card card-decision" id="d5"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D5</span><span class="chip chip-settled">settled</span><h3>Explainer mode</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Not exposed</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>html-presentation already covers narrative pages; proactive pages would slow fast lanes</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D5" role="group" aria-label="Review D5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D5 note"></textarea></label></div></article><article class="card card-decision" id="d6"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D6</span><span class="chip chip-settled">settled</span><h3>Diagram types</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>All ten; Archify&#x27;s router picks</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Curation drifts; jplugin contributes the <em>when</em>, not the <em>which type</em></dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D6" role="group" aria-label="Review D6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D6 note"></textarea></label></div></article><article class="card card-decision" id="d7"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D7</span><span class="chip chip-settled">settled</span><h3>Name and triggers</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>/diagram</code>, with &quot;archify&quot; among its trigger phrases</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Skills are named for the job; the alias catches people who know the tool</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D7" role="group" aria-label="Review D7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D7 note"></textarea></label></div></article><article class="card card-decision" id="d8"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D8</span><span class="chip chip-settled">settled</span><h3>Repository evidence</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Mandatory for codebase diagrams; freehand only for described systems</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Never Guess — Verify; uncited diagrams go stale silently</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D8" role="group" aria-label="Review D8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D8 note"></textarea></label></div></article><article class="card card-decision" id="d9"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D9</span><span class="chip chip-settled">settled</span><h3>Workflow moments</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>/how</code> offers, <code>/plan</code> offers, <code>/system-design-planning</code> produces; wrap-up does nothing</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Offers keep fast lanes fast; wrap-up regeneration would rewrite committed documents unasked</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D9" role="group" aria-label="Review D9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D9 note"></textarea></label></div></article><article class="card card-decision" id="d10"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D10</span><span class="chip chip-settled">settled</span><h3>Eval before merge</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>One triggerability eval run after the description is written, as information</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Three skills plausibly claim &quot;make a picture&quot;; a gate was judged heavier than the risk</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D10" role="group" aria-label="Review D10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D10 note"></textarea></label></div></article><article class="card card-decision" id="d11"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D11</span><span class="chip chip-settled">settled</span><h3>Install mechanism</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Pinned clone into <code>~/.local/share/jplugin/archify</code>; not <code>npx skills add -g</code>, not a sixth design-stack source</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>A skill-scope install would be routable and collide with <code>/diagram</code>; design-stack&#x27;s release ID hashes all sources together</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D11" role="group" aria-label="Review D11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D11 note"></textarea></label></div></article><article class="card card-decision" id="d12"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D12</span><span class="chip chip-settled">settled</span><h3>Fate of the <code>flow</code>/<code>sequence</code> DSL</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Kept for inline spec fences; Archify for standalone diagrams</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Planning must work on a Python-only machine; a small flow needs no Chromium gate</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D12" role="group" aria-label="Review D12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D12 note"></textarea></label></div></article><article class="card card-decision" id="d13"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D13</span><span class="chip chip-settled">settled</span><h3>Browser resolution</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>The skill resolves <code>ARCHIFY_CHROME</code> itself (PATH, then Playwright&#x27;s Chromium)</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>The skill knows the harness&#x27;s install layout; Archify does not</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D13" role="group" aria-label="Review D13"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D13 note"></textarea></label></div></article><article class="card card-decision" id="d14"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D14</span><span class="chip chip-settled">settled</span><h3>Provenance and drift</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>upstreams.json</code> gains <code>kind: installed</code>; a THIRD_PARTY_NOTICES section; drift in the weekly summary and a <code>/tidy</code> check</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Closes the design-stack gap with the same change</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D14" role="group" aria-label="Review D14"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D14 note"></textarea></label></div></article><article class="card card-decision" id="d15"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D15</span><span class="chip chip-settled">settled</span><h3>Who installs</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>install.sh</code> when Node ≥ 18 is present; <code>/diagram</code> prints the command when the tool is missing</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Machine-side setup lives in the installer; a skill that clones on its own is a side effect jplugin avoids</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D15" role="group" aria-label="Review D15"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D15 note"></textarea></label></div></article><article class="card card-decision" id="d16"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D16</span><span class="chip chip-settled">settled</span><h3>Pin format</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Tag in the install constant, 40-character commit in <code>upstreams.json</code>, validator keeps them consistent</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>The drift script already validates commits; a tag alone can be moved</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D16" role="group" aria-label="Review D16"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D16 note"></textarea></label></div></article><article class="card card-decision" id="d17"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D17</span><span class="chip chip-settled">settled</span><h3>Authoring instructions</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Read upstream&#x27;s SKILL.md from the install directory at run time; <code>/diagram</code> adds conventions only</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Restating drifts every release; vendoring the docs splits one package across two pins</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D17" role="group" aria-label="Review D17"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D17 note"></textarea></label></div></article><article class="card card-decision" id="d18"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D18</span><span class="chip chip-settled">settled</span><h3>How <code>/how</code> offers</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Always, in one closing line</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Simplest rule; nothing renders unasked</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D18" role="group" aria-label="Review D18"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D18 note"></textarea></label></div></article><article class="card card-decision" id="d19"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D19</span><span class="chip chip-settled">settled</span><h3>Stale diagrams at wrap-up</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Not touched; <code>--refresh</code> is the only regeneration path</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Wrap-up regeneration would rewrite committed documents and churn diffs</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D19" role="group" aria-label="Review D19"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D19 note"></textarea></label></div></article><article class="card card-decision" id="d20"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D20</span><span class="chip chip-settled">settled</span><h3>Planning skills</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>/plan</code> offers; <code>/system-design-planning</code> produces</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>SDP&#x27;s entry bar is exactly when an architecture diagram earns its place</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D20" role="group" aria-label="Review D20"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D20 note"></textarea></label></div></article><article class="card card-decision" id="d21"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D21</span><span class="chip chip-settled">settled</span><h3>Drift reporting</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Job summary plus a <code>/tidy</code> check; not the session banner</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>The banner is about the template itself</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D21" role="group" aria-label="Review D21"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D21 note"></textarea></label></div></article><article class="card card-decision" id="d22"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D22</span><span class="chip chip-settled">settled</span><h3>Install root override</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>ARCHIFY_HOME</code>, mirroring <code>DESIGN_STACK_HOME</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Same shape as the existing user-scope install; tests need an isolated home</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D22" role="group" aria-label="Review D22"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D22 note"></textarea></label></div></article><article class="card card-decision" id="d23"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D23</span><span class="chip chip-settled">settled</span><h3>Escalate to <code>/system-design-planning</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>No; <code>/plan</code> with decisions carried</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>The <code>upstreams.json</code> change is one optional field on a file this repo owns; the decisions are already made</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D23" role="group" aria-label="Review D23"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D23 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-acceptance-criteria" id="acceptance-criteria" data-kind="acceptance-criteria"><details class="sec-body" open><summary><h2>Acceptance Criteria</h2></summary><ol class="ac-list cards"><li class="card card-criterion" id="ac1"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC1</span></div><p><code>.agents/skills/diagram/SKILL.md</code> exists with <code>name: diagram</code>, a description whose trigger phrases include &quot;diagram&quot;, &quot;draw&quot;, &quot;visualize&quot; and &quot;archify&quot;, universal harness, and passes <code>tests/test-skill-frontmatter.sh</code>; <code>python3 scripts/render-skills-table.py --check</code> passes with its README row.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC1" role="group" aria-label="Review AC1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC1 note"></textarea></label></div></li><li class="card card-criterion" id="ac2"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC2</span></div><p>With <code>ARCHIFY_HOME</code> pointing at an empty directory, the skill&#x27;s resolver script exits non-zero and prints exactly one install command; with <code>node</code> shimmed to report version 16 it exits non-zero naming the Node ≥ 18 requirement; in both cases it writes no HTML.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC2" role="group" aria-label="Review AC2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC2 note"></textarea></label></div></li><li class="card card-criterion" id="ac3"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC3</span></div><p>With a fixture install and a fixture <code>PATH</code> containing no browser but a <code>playwright-cli</code> browser directory, the resolver exports <code>ARCHIFY_CHROME</code> pointing at that Chromium; with neither, it exports nothing and prints the &quot;without browser evidence&quot; marker the skill&#x27;s reply must carry.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC3" role="group" aria-label="Review AC3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC3 note"></textarea></label></div></li><li class="card card-criterion" id="ac4"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC4</span></div><p><code>SKILL.md</code> instructs the agent to read <code>$ARCHIFY_HOME/archify/SKILL.md</code> and names the four jplugin conventions (evidence, output paths, browser, diagrams only); it contains no restatement of Archify&#x27;s type router, schemas or finalize repair contract (<code>tests/test-diagram-skill.sh</code> greps for the upstream read and for the absence of those headings).</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC4" role="group" aria-label="Review AC4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC4 note"></textarea></label></div></li><li class="card card-criterion" id="ac5"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC5</span></div><p>For a codebase subject, <code>SKILL.md</code> requires <code>meta.repository</code> pinned to <code>HEAD</code>, <code>sources</code> on every component and <code>--repo-root</code> on <code>finalize</code>; a test fixture candidate without <code>sources</code> is named as rejected by the skill&#x27;s pre-finalize check.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC5" role="group" aria-label="Review AC5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC5 note"></textarea></label></div></li><li class="card card-criterion" id="ac6"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC6</span></div><p><code>install.sh</code> on a machine with <code>node</code> ≥ 18 and an isolated <code>HOME</code> clones Archify into <code>$ARCHIFY_HOME</code> at commit <code>208acba8…</code> and reports &quot;installed&quot;; a second run reports &quot;present&quot; without network; without <code>node</code> it prints a NOTE containing the install command and exits 0 (<code>tests/test-install-sh.sh</code>).</p><p class="meta">covered by <a href="#slice-3">slice 3</a></p><div class="review" data-review="AC6" role="group" aria-label="Review AC6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC6 note"></textarea></label></div></li><li class="card card-criterion" id="ac7"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC7</span></div><p><code>.github/upstreams.json</code> carries the Archify entry with <code>kind: &quot;installed&quot;</code>, <code>ref: &quot;refs/tags/v3.2.0&quot;</code> and the tag&#x27;s commit as <code>baseline</code>; <code>scripts/check-upstream-drift.py --validate</code> passes; the same entry with a <code>paths</code> list fails validation naming <code>paths</code> (<code>tests/test-upstream-drift.sh</code>).</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC7" role="group" aria-label="Review AC7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC7 note"></textarea></label></div></li><li class="card card-criterion" id="ac8"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC8</span></div><p><code>.gitignore</code> ignores <code>.archify/</code>; <code>THIRD_PARTY_NOTICES.md</code> has an Archify section with the MIT text; README § Sources names Archify.</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC8" role="group" aria-label="Review AC8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC8 note"></textarea></label></div></li><li class="card card-criterion" id="ac9"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC9</span></div><p>A triggerability <code>/eval</code> has been run once over at least six organic prompts (three that should route to <code>/diagram</code>, three that should route to <code>/html-presentation</code>, <code>/visual-plan</code> or <code>/visual-recap</code>) and its report is linked from the spec&#x27;s § Decisions row 10 or from the PR description. The result informs the description wording and does not gate the merge.</p><p class="meta">covered by <a href="#slice-7">slice 7</a></p><div class="review" data-review="AC9" role="group" aria-label="Review AC9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC9 note"></textarea></label></div></li><li class="card card-criterion" id="ac10"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC10</span></div><p><code>/how</code>&#x27;s SKILL.md ends its output contract with the one-line diagram offer, and <code>references/explainer-prompt.md</code> no longer instructs Mermaid or ASCII diagrams (<code>tests/test-diagram-skill.sh</code> greps both).</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC10" role="group" aria-label="Review AC10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC10 note"></textarea></label></div></li><li class="card card-criterion" id="ac11"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC11</span></div><p><code>/plan</code> § 4 Present carries the one-line diagram offer for multi-component features (<code>tests/test-diagram-skill.sh</code> greps it).</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC11" role="group" aria-label="Review AC11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC11 note"></textarea></label></div></li><li class="card card-criterion" id="ac12"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC12</span></div><p><code>/system-design-planning</code> names the architecture diagram beside the spec as a deliverable and the no-tool behaviour: install command printed, session continues (<code>tests/test-diagram-skill.sh</code> greps both).</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC12" role="group" aria-label="Review AC12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC12 note"></textarea></label></div></li><li class="card card-criterion" id="ac13"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC13</span></div><p><code>/tidy</code> § The checks has a <code>tools</code> row describing the <code>$ARCHIFY_HOME</code> commit vs registry baseline comparison, its inconclusive case and its Tier 1 remedy; <code>tests/test-skill-references.sh</code> and <code>tests/test-doc-conventions.sh</code> still pass.</p><p class="meta">covered by <a href="#slice-6">slice 6</a></p><div class="review" data-review="AC13" role="group" aria-label="Review AC13"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC13 note"></textarea></label></div></li><li class="card card-criterion" id="ac14"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC14</span></div><p><code>/diagram --refresh &lt;path&gt;</code> is documented in <code>SKILL.md</code> as the only regeneration path, and <code>/wrap-up-session</code>&#x27;s SKILL.md is unchanged by this feature (<code>git diff --stat</code> on it is empty at wrap-up).</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC14" role="group" aria-label="Review AC14"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC14 note"></textarea></label></div></li></ol></details></section>
+<section class="sec sec-generic" id="implementation-paths" data-kind="generic"><details class="sec-body" open><summary><h2>Implementation Paths</h2></summary><ul><li><code>.agents/skills/diagram/**</code> — the skill page, its resolver script (tool and Node check, browser resolution, pre-finalize evidence check) and its pinned-version constant.</li><li><code>.agents/skills/how/SKILL.md</code>, <code>.agents/skills/how/references/explainer-prompt.md</code> — the closing offer; Mermaid/ASCII instruction removed.</li><li><code>.agents/skills/plan/SKILL.md</code> — the one-line offer in § 4 Present.</li><li><code>.agents/skills/system-design-planning/SKILL.md</code> — the architecture diagram as a deliverable and the no-tool line.</li><li><code>.agents/skills/tidy/SKILL.md</code> — the <code>tools</code> check row and its edge cases.</li><li><code>.github/upstreams.json</code>, <code>scripts/check-upstream-drift.py</code> — the <code>installed</code> kind and its validation.</li><li><code>install.sh</code> — the pinned clone section after Playwright.</li><li><code>.gitignore</code>, <code>THIRD_PARTY_NOTICES.md</code>, <code>README.md</code> — ignore rule, licence notice, skills-table row and Sources entry.</li><li><code>tests/test-diagram-skill.sh</code> — AC1 to AC5, AC10 to AC12 and AC14 over fixtures; <code>tests/test-upstream-drift.sh</code> — AC7; <code>tests/test-install-sh.sh</code> — AC6.</li></ul></details></section>
+<section class="sec sec-build-order" id="build-order" data-kind="build-order"><details class="sec-body" open><summary><h2>Build Order</h2></summary><p>Sizing: 7 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 4: six systems, because the registry, its validator, its test, the notices file, README § Sources and the ignore rule are each a one-file root-level edit and together one provenance concern; slice 5: four systems, because the three consumer skills each take a one-paragraph offer and share one test file, and splitting them would make three slices of one sentence each.</p><figure class="diagram card-diagram dag" id="slice-graph"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">dag</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="Slices in dependency order: a slice starts when every slice it is blocked by is done."><svg viewBox="0 0 992 214" width="992" height="214" role="group" aria-labelledby="dag-t dag-d"><title id="dag-t">Slice dependency graph</title><desc id="dag-d">Slice 1 (Skill core) has no blocker. Slice 2 (Evidence and conventions) is blocked by slice 1. Slice 3 (Installer) has no blocker. Slice 4 (Provenance) is blocked by slice 1. Slice 5 (Consumer offers) is blocked by slice 2. Slice 6 (Tidy tools check) is blocked by slice 4. Slice 7 (Triggerability eval) is blocked by slice 5.</desc><defs><marker id="dag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,64.0 274.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,138.0 274.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,64.0 C496.0,64.0 496.0,64.0 528.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,138.0 C496.0,138.0 496.0,138.0 528.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M718.0,64.0 C750.0,64.0 750.0,64.0 782.0,64.0" marker-end="url(#dag-arrow)"/><a href="#slice-1" aria-label="Slice 1: Skill core" class="node" data-layer="0"><title>Slice 1: Skill core</title><rect x="20.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="57.0">S1</text><text x="30.0" y="77.0">Skill core</text></a><a href="#slice-2" aria-label="Slice 2: Evidence and conventions" class="node" data-layer="1"><title>Slice 2: Evidence and conventions</title><rect x="274.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="57.0">S2</text><text x="284.0" y="77.0">Evidence and conventions</text></a><a href="#slice-3" aria-label="Slice 3: Installer" class="node" data-layer="0"><title>Slice 3: Installer</title><rect x="20.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="131.0">S3</text><text x="30.0" y="151.0">Installer</text></a><a href="#slice-4" aria-label="Slice 4: Provenance" class="node" data-layer="1"><title>Slice 4: Provenance</title><rect x="274.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="131.0">S4</text><text x="284.0" y="151.0">Provenance</text></a><a href="#slice-5" aria-label="Slice 5: Consumer offers" class="node" data-layer="2"><title>Slice 5: Consumer offers</title><rect x="528.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="538.0" y="57.0">S5</text><text x="538.0" y="77.0">Consumer offers</text></a><a href="#slice-6" aria-label="Slice 6: Tidy tools check" class="node" data-layer="2"><title>Slice 6: Tidy tools check</title><rect x="528.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="538.0" y="131.0">S6</text><text x="538.0" y="151.0">Tidy tools check</text></a><a href="#slice-7" aria-label="Slice 7: Triggerability eval" class="node" data-layer="3"><title>Slice 7: Triggerability eval</title><rect x="782.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="792.0" y="57.0">S7</text><text x="792.0" y="77.0">Triggerability eval</text></a></svg></div><figcaption>Slices in dependency order: a slice starts when every slice it is blocked by is done.</figcaption></figure><div class="cards slice-cards"><article class="card card-slice" id="slice-1"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S1</span><h3>Skill core</h3></div><p>/diagram skill page, README row, and the resolver script that checks the tool and Node, then resolves the browser</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>/diagram</code> skill page, README row, and the resolver script that checks the tool and Node, then resolves the browser</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac1">AC1</a>, <a href="#ac2">AC2</a>, <a href="#ac3">AC3</a></dd><dt>Surface</dt><dd><code>.agents/skills/diagram/**</code>, <code>README.md</code>, <code>tests/test-diagram-skill.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-diagram-skill.sh &amp;&amp; bash tests/test-skill-frontmatter.sh &amp;&amp; python3 scripts/render-skills-table.py --check</code></dd><dt>Size</dt><dd>4 files · 2 systems · 3 ACs</dd></dl></details><div class="review" data-review="S1" role="group" aria-label="Review S1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S1 note"></textarea></label></div></article><article class="card card-slice" id="slice-2"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S2</span><h3>Evidence and conventions</h3></div><p>Upstream SKILL.md read at run time, the four jplugin conventions, the pre-finalize evidence check, and --refresh as the only regeneration path</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>Upstream SKILL.md read at run time, the four jplugin conventions, the pre-finalize evidence check, and <code>--refresh</code> as the only regeneration path</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac4">AC4</a>, <a href="#ac5">AC5</a>, <a href="#ac14">AC14</a></dd><dt>Surface</dt><dd><code>.agents/skills/diagram/**</code>, <code>tests/test-diagram-skill.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-diagram-skill.sh</code></dd><dt>Size</dt><dd>3 files · 2 systems · 3 ACs</dd></dl></details><div class="review" data-review="S2" role="group" aria-label="Review S2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S2 note"></textarea></label></div></article><article class="card card-slice" id="slice-3"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S3</span><h3>Installer</h3></div><p>install.sh clones the pinned tag when Node ≥ 18 is present, reports present or a NOTE otherwise</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>install.sh</code> clones the pinned tag when Node ≥ 18 is present, reports present or a NOTE otherwise</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac6">AC6</a></dd><dt>Surface</dt><dd><code>install.sh</code>, <code>tests/test-install-sh.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-install-sh.sh</code></dd><dt>Size</dt><dd>2 files · 2 systems · 1 AC</dd></dl></details><div class="review" data-review="S3" role="group" aria-label="Review S3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S3 note"></textarea></label></div></article><article class="card card-slice" id="slice-4"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S4</span><h3>Provenance</h3></div><p>kind: installed in the upstreams registry and its validator, the notices section, README § Sources and the .archify/ ignore rule</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>kind: installed</code> in the upstreams registry and its validator, the notices section, README § Sources and the <code>.archify/</code> ignore rule</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac7">AC7</a>, <a href="#ac8">AC8</a></dd><dt>Surface</dt><dd><code>.github/upstreams.json</code>, <code>scripts/check-upstream-drift.py</code>, <code>tests/test-upstream-drift.sh</code>, <code>THIRD_PARTY_NOTICES.md</code>, <code>README.md</code>, <code>.gitignore</code></dd><dt>Verify</dt><dd><code>bash tests/test-upstream-drift.sh &amp;&amp; python3 scripts/check-upstream-drift.py --validate</code></dd><dt>Size</dt><dd>6 files · 6 systems · 2 ACs</dd></dl></details><div class="review" data-review="S4" role="group" aria-label="Review S4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S4 note"></textarea></label></div></article><article class="card card-slice" id="slice-5"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S5</span><h3>Consumer offers</h3></div><p>One-line diagram offers in /how and /plan, the architecture diagram as a /system-design-planning deliverable, Mermaid/ASCII instruction removed</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>One-line diagram offers in <code>/how</code> and <code>/plan</code>, the architecture diagram as a <code>/system-design-planning</code> deliverable, Mermaid/ASCII instruction removed</dd><dt>Blocked by</dt><dd><a href="#slice-2">slice 2</a></dd><dt>Criteria</dt><dd><a href="#ac10">AC10</a>, <a href="#ac11">AC11</a>, <a href="#ac12">AC12</a></dd><dt>Surface</dt><dd><code>.agents/skills/how/SKILL.md</code>, <code>.agents/skills/how/references/explainer-prompt.md</code>, <code>.agents/skills/plan/SKILL.md</code>, <code>.agents/skills/system-design-planning/SKILL.md</code>, <code>tests/test-diagram-skill.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-diagram-skill.sh &amp;&amp; bash tests/test-how-why-skills.sh</code></dd><dt>Size</dt><dd>5 files · 4 systems · 3 ACs</dd></dl></details><div class="review" data-review="S5" role="group" aria-label="Review S5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S5 note"></textarea></label></div></article><article class="card card-slice" id="slice-6"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S6</span><h3>Tidy tools check</h3></div><p>The tenth /tidy check comparing the installed commit with the registry baseline</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>The tenth <code>/tidy</code> check comparing the installed commit with the registry baseline</dd><dt>Blocked by</dt><dd><a href="#slice-4">slice 4</a></dd><dt>Criteria</dt><dd><a href="#ac13">AC13</a></dd><dt>Surface</dt><dd><code>.agents/skills/tidy/SKILL.md</code></dd><dt>Verify</dt><dd><code>bash tests/test-doc-conventions.sh &amp;&amp; bash tests/test-skill-references.sh</code></dd><dt>Size</dt><dd>1 file · 1 system · 1 AC</dd></dl></details><div class="review" data-review="S6" role="group" aria-label="Review S6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S6 note"></textarea></label></div></article><article class="card card-slice" id="slice-7"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S7</span><h3>Triggerability eval</h3></div><p>One /eval triggerability run over six organic prompts, its report linked, description wording adjusted</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>One <code>/eval</code> triggerability run over six organic prompts, its report linked, description wording adjusted</dd><dt>Blocked by</dt><dd><a href="#slice-5">slice 5</a></dd><dt>Criteria</dt><dd><a href="#ac9">AC9</a></dd><dt>Surface</dt><dd><code>.agents/skills/diagram/SKILL.md</code></dd><dt>Verify</dt><dd><code>bash tests/test-diagram-skill.sh &amp;&amp; bash tests/test-skill-frontmatter.sh</code></dd><dt>Size</dt><dd>1 file · 1 system · 1 AC</dd></dl></details><div class="review" data-review="S7" role="group" aria-label="Review S7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S7 note"></textarea></label></div></article></div><section class="card card-prompt" id="build-prompt" aria-label="Build prompt"><div class="card-head"><span class="card-icon" aria-hidden="true">▶</span><span class="card-label">Build prompt</span></div><pre><code id="build-prompt-text">Invoke `/build` for `specs/diagram-skill.md`.
+Plan: `## Plan: diagram-skill` in `tasks/todo.md`, 7 slices, ready set &lt;1, 3&gt;.
+Files: .agents/skills/diagram/**, .agents/skills/how/SKILL.md, .agents/skills/how/references/explainer-prompt.md, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/tidy/SKILL.md, .github/upstreams.json, scripts/check-upstream-drift.py, install.sh, .gitignore, THIRD_PARTY_NOTICES.md, README.md, tests/test-diagram-skill.sh, tests/test-upstream-drift.sh, tests/test-install-sh.sh
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/diagram-skill.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints: Archify is installed as a pinned tool under `$ARCHIFY_HOME` (tag v3.2.0, commit 208acba8d412335185b2056fedf54b3405df43fb), never as a skill and never copied into the repo (D1, D11, D16); Node ≥ 18 is a hard requirement and a missing browser degrades to the non-browser gates with the gap stated, with no fallback to the DSL or html-presentation (D3); `/diagram` reads `$ARCHIFY_HOME/archify/SKILL.md` at run time and restates none of it (D17); codebase diagrams pin `meta.repository` to HEAD with `sources` on every component and `--repo-root` on finalize (D8); the explainer mode is not exposed (D5); `/wrap-up-session` is not edited and `--refresh` is the only regeneration path (D19); the `flow`/`sequence` DSL and its tests are untouched (D12).</code></pre><button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button></section></details></section>
+<section class="review-panel" id="review" aria-labelledby="review-h" data-spec="specs/diagram-skill.md" data-sha="2d1bc3942372"><h2 id="review-h">Review</h2><p class="meta">Mark cards ok or questioned, answer questions and pick open decisions, then paste the export into the planning session: <code>/plan</code> applies it and re-runs <code>/slice</code>.</p><p class="review-status" id="review-status" role="status">Marks are saved in this browser for sha256 2d1bc3942372.</p><button type="button" class="btn" data-action="export-review">Export review</button><pre><code id="review-export"></code></pre></section>
+</main>
+</div>
+<script>/* Visual plan page script: disclosure controls, deep links, navigation, copy.
+   Inlined by plan_render.py. No network, no dependencies; every feature
+   degrades to the plain <details> page when the script cannot run. */
+
+// Review state: pure helpers, kept apart from the DOM so they can be tested alone.
+var planReview = (function () {
+  'use strict';
+  function key(sha, spec) { return 'jplugin-plan-review:' + sha + ':' + spec; }
+  // A store that never throws: `ok` is false when the browser refuses storage.
+  function openStore(getStorage, name) {
+    var storage = null;
+    try {
+      storage = getStorage();
+      storage.setItem(name + ':probe', '1');
+      storage.removeItem(name + ':probe');
+    } catch (err) { storage = null; }
+    return {
+      ok: storage !== null,
+      load: function () {
+        if (!storage) { return {}; }
+        try { return JSON.parse(storage.getItem(name) || '{}') || {}; } catch (err) { return {}; }
+      },
+      save: function (state) {
+        if (!storage) { return false; }
+        try { storage.setItem(name, JSON.stringify(state)); return true; } catch (err) { return false; }
+      }
+    };
+  }
+  function flat(text) { return String(text || '').replace(/\s+/g, ' ').trim(); }
+  // One export line per item: a pick or an answer wins over the bare mark.
+  function line(id, s) {
+    var note = flat(s.note) ? ' — ' + flat(s.note) : '';
+    if (flat(s.pick)) { return id + ': pick ' + flat(s.pick) + note; }
+    if (flat(s.answer)) { return id + ': answer — ' + flat(s.answer) + note; }
+    if (s.mark) { return id + ': ' + s.mark + note; }
+    return null;
+  }
+  function format(spec, sha, items) {
+    var lines = ['Review of ' + spec + ' @ ' + sha];
+    items.forEach(function (item) {
+      var text = line(item[0], item[1] || {});
+      if (text) { lines.push(text); }
+    });
+    return lines.join('\n');
+  }
+  return { key: key, openStore: openStore, line: line, format: format };
+})();
+if (typeof module === 'object' && module.exports) { module.exports = planReview; }
+
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') { return; }
+  var doc = document;
+  var all = function (sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); };
+
+  // ------------------------------------------------------------ deep links
+  function openTo(hash) {
+    if (!hash || hash.length < 2) { return null; }
+    var target = doc.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!target) { return null; }
+    if (target.tagName === 'DETAILS') { target.open = true; }
+    var node = target.parentElement && target.parentElement.closest('details');
+    while (node) {
+      node.open = true;
+      node = node.parentElement && node.parentElement.closest('details');
+    }
+    var inner = target.querySelector(':scope > details');
+    if (inner) { inner.open = true; }
+    target.scrollIntoView({ block: 'start' });
+    return target;
+  }
+  window.addEventListener('hashchange', function () { openTo(location.hash); });
+  doc.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href^="#"]');
+    if (link && link.getAttribute('href') === location.hash) { openTo(location.hash); }
+  });
+
+  // ------------------------------------------------------------ navigation
+  var menu = doc.querySelector('.toc-menu');
+  var narrow = window.matchMedia('(max-width: 767px)');
+  function fitMenu() { if (menu) { menu.open = !narrow.matches; } }
+  if (menu) {
+    fitMenu();
+    if (narrow.addEventListener) { narrow.addEventListener('change', fitMenu); }
+    menu.addEventListener('click', function (event) {
+      if (event.target.closest('a') && narrow.matches) { menu.open = false; }
+    });
+  }
+  var links = all('.toc a[href^="#"]');
+  function markCurrent(id) {
+    links.forEach(function (a) {
+      if (a.getAttribute('href') === '#' + id) { a.setAttribute('aria-current', 'true'); }
+      else { a.removeAttribute('aria-current'); }
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { if (entry.isIntersecting) { markCurrent(entry.target.id); } });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    links.forEach(function (a) {
+      var section = doc.getElementById(a.getAttribute('href').slice(1));
+      if (section) { spy.observe(section); }
+    });
+  }
+
+  // ------------------------------------------------------------ disclosure
+  function setAll(open) { all('main details').forEach(function (d) { d.open = open; }); }
+  var onlyBlockers = doc.querySelector('[data-action="blockers"]');
+  function toggleBlockers() {
+    var on = !doc.body.classList.contains('only-blockers');
+    doc.body.classList.toggle('only-blockers', on);
+    onlyBlockers.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { all('.sec.has-blockers > details').forEach(function (d) { d.open = true; }); }
+  }
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button[data-action]');
+    if (!button) { return; }
+    var action = button.getAttribute('data-action');
+    if (action === 'expand') { setAll(true); }
+    if (action === 'collapse') { setAll(false); }
+    if (action === 'blockers') { toggleBlockers(); }
+  });
+  var printed = [];
+  window.addEventListener('beforeprint', function () {
+    printed = all('details:not([open])');
+    printed.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function () {
+    printed.forEach(function (d) { d.open = false; });
+    printed = [];
+  });
+
+  // ------------------------------------------------------------ copy
+  function copyText(text, button, done) {
+    function report(ok) {
+      var label = button.getAttribute('data-label') || button.textContent;
+      button.setAttribute('data-label', label);
+      button.textContent = ok ? (done || 'Copied') : 'Copy failed: select the text';
+      setTimeout(function () { button.textContent = label; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { report(true); }, function () { report(false); });
+      return;
+    }
+    var area = doc.createElement('textarea');
+    area.value = text;
+    doc.body.appendChild(area);
+    area.select();
+    var ok = false;
+    try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+    doc.body.removeChild(area);
+    report(ok);
+  }
+  window.planCopy = copyText;
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button.copy[data-copy-from]');
+    if (!button || button.disabled) { return; }
+    var source = doc.getElementById(button.getAttribute('data-copy-from'));
+    if (source) { copyText(source.textContent, button); }
+  });
+
+  // ------------------------------------------------------------ review
+  var panel = doc.getElementById('review');
+  var cards = all('.review[data-review]');
+  if (panel && cards.length) {
+    var spec = panel.getAttribute('data-spec');
+    var sha = panel.getAttribute('data-sha');
+    var store = planReview.openStore(function () { return window.localStorage; }, planReview.key(sha, spec));
+    var state = store.load();
+    var status = doc.getElementById('review-status');
+    if (!store.ok) {
+      status.textContent = 'Browser storage is unavailable: review marks will not persist past this page.';
+    }
+    var showMark = function (box, mark) {
+      all('button[data-mark]', box).forEach(function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-mark') === mark ? 'true' : 'false');
+      });
+    };
+    cards.forEach(function (box) {
+      var saved = state[box.getAttribute('data-review')] || {};
+      showMark(box, saved.mark);
+      all('[data-field]', box).forEach(function (f) { f.value = saved[f.getAttribute('data-field')] || ''; });
+    });
+    var update = function (box, change) {
+      var id = box.getAttribute('data-review');
+      var entry = state[id] || {};
+      Object.keys(change).forEach(function (k) { entry[k] = change[k]; });
+      state[id] = entry;
+      store.save(state);
+    };
+    doc.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('.review button[data-mark]');
+      if (!button) { return; }
+      var box = button.closest('.review');
+      var mark = button.getAttribute('aria-pressed') === 'true' ? '' : button.getAttribute('data-mark');
+      showMark(box, mark);
+      update(box, { mark: mark });
+    });
+    doc.addEventListener('input', function (event) {
+      var field = event.target.closest && event.target.closest('.review [data-field]');
+      if (!field) { return; }
+      var change = {};
+      change[field.getAttribute('data-field')] = field.value;
+      update(field.closest('.review'), change);
+    });
+    var exportButton = panel.querySelector('[data-action="export-review"]');
+    exportButton.addEventListener('click', function () {
+      var items = cards.map(function (box) {
+        var id = box.getAttribute('data-review');
+        return [id, state[id]];
+      });
+      var text = planReview.format(spec, sha, items);
+      doc.getElementById('review-export').textContent = text;
+      copyText(text, exportButton, 'Review copied');
+    });
+  }
+
+  openTo(location.hash);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1372 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>Helix loop — architecture review</title><style>
+:root{color-scheme:light;--canvas:#f7f6f2;--paper:#fffefa;--ink:#202521;--muted:#5f6860;--line:#d6d9d1;--line-soft:#e8e9e2;--accent:#285a47;--accent-wash:#e8f0e9;--code:#f1f2ed;--warn:#784d21}
+[data-theme=dark]{color-scheme:dark;--canvas:#141a17;--paper:#1b231e;--ink:#f2f2e9;--muted:#bac4ba;--line:#465249;--line-soft:#354037;--accent:#9cdbb7;--accent-wash:#243d2e;--code:#172019;--warn:#e6bd84}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--canvas);color:var(--ink);font:16px/1.65 'SF Pro Display','Helvetica Neue',Arial,sans-serif}button,a,summary{outline-offset:3px}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent)}a{color:var(--accent);text-underline-offset:3px}button{font:inherit;cursor:pointer}.topbar{position:sticky;top:0;z-index:10;background:var(--canvas);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px clamp(16px,3vw,48px)}.brand{font:700 12px/1.2 'SF Mono',Consolas,monospace;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;color:var(--ink)}.top-actions{display:flex;gap:14px;align-items:center}.top-actions a{font-size:13px}.theme-toggle{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:6px 11px;font-size:13px}.layout{max-width:1540px;margin:auto;display:grid;grid-template-columns:224px minmax(0,1fr);gap:clamp(20px,4vw,72px);padding:0 clamp(16px,3vw,48px)}.side{position:sticky;top:77px;align-self:start;padding:30px 0;height:calc(100vh - 77px);overflow:auto}.side-title,.eyebrow,.section-index,.mini-label{font:700 11px/1.3 'SF Mono',Consolas,monospace;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}.side nav{display:grid;gap:4px;margin:18px 0 32px}.side nav a{display:block;padding:7px 11px;text-decoration:none;color:var(--muted);border-left:2px solid transparent;font-size:14px}.side nav a:hover,.side nav a.active{color:var(--ink);border-color:var(--accent);background:var(--accent-wash)}.side-note{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:15px}.content{min-width:0;max-width:1120px;padding:46px 0 96px}.hero{padding:0 0 34px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--accent);margin:0 0 16px}.hero h1{font:400 clamp(42px,6vw,76px)/1.02 Georgia,'Times New Roman',serif;letter-spacing:-.045em;max-width:14ch;margin:0 0 22px}.hero .intro{font-size:clamp(17px,1.9vw,21px);line-height:1.45;max-width:70ch;color:var(--muted);margin:0}.hero-meta{display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:25px;font-size:12px;color:var(--muted)}.hero-meta strong{color:var(--ink)}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);margin:30px 0 28px;background:var(--paper)}.metric{padding:19px 22px;border-right:1px solid var(--line)}.metric:last-child{border-right:0}.metric strong{display:block;font:400 36px/1.05 Georgia,serif;color:var(--ink)}.metric span{display:block;margin-top:7px;font-size:12px;color:var(--muted)}.flow-panel{border:1px solid var(--line);background:var(--paper);padding:24px;margin-bottom:55px}.flow-panel h2{font:600 16px/1.3 'SF Pro Display','Helvetica Neue',Arial,sans-serif;margin:0 0 5px}.flow-panel p{font-size:13px;color:var(--muted);margin:0 0 19px}.flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;list-style:none;padding:0;margin:0}.flow li{position:relative;border-top:3px solid var(--accent);padding:12px 10px 0 0;min-width:0}.flow li+li{padding-left:12px}.flow li+li:before{content:'→';position:absolute;left:-9px;top:10px;color:var(--accent);background:var(--paper);font-size:14px}.flow strong{display:block;font-size:13px;line-height:1.3}.flow small{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:3px}.group{margin:0 0 52px}.doc-section{padding:36px 0;border-top:1px solid var(--line);scroll-margin-top:75px}.group .doc-section:first-child{border-top:2px solid var(--ink)}.section-head{display:grid;grid-template-columns:68px minmax(0,1fr);gap:10px;align-items:baseline;margin-bottom:21px}.section-head h2{font:400 clamp(26px,3vw,39px)/1.12 Georgia,serif;letter-spacing:-.025em;margin:0}.section-lede{font-size:17px;max-width:70ch;color:var(--muted);margin:0 0 22px}.prose{max-width:100%;overflow-wrap:anywhere}.prose>p,.prose>ul,.prose>ol,.prose>blockquote{max-width:77ch}.prose h3{font-size:18px;margin:32px 0 10px}.prose h4{font-size:15px;margin:24px 0 8px}.prose p{margin:0 0 18px}.prose ul,.prose ol{padding-left:23px}.prose li{margin:6px 0}.prose blockquote{margin:0;padding-left:16px;border-left:2px solid var(--accent);color:var(--muted)}.table-wrap{width:100%;max-width:100%;overflow-x:auto}.prose table{border-collapse:collapse;width:100%;font-size:13px;min-width:660px;line-height:1.4}.prose table th{text-align:left;color:var(--muted);font:700 11px/1.35 'SF Mono',Consolas,monospace;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;background:var(--canvas)}.prose table th,.prose table td{padding:11px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}.prose table td:first-child{font-weight:600;color:var(--ink)}.prose table tr:hover td{background:var(--accent-wash)}.prose table{display:table}.prose pre{background:var(--code);border:1px solid var(--line);padding:17px 19px;overflow:auto;font:12px/1.55 'SF Mono',Consolas,monospace;border-radius:5px;max-height:390px}.prose code{font:12px/1.4 'SF Mono',Consolas,monospace;background:var(--code);padding:2px 3px;border-radius:3px}.prose pre code{background:none;padding:0}.detail{border-bottom:1px solid var(--line);padding:0}.detail:first-of-type{border-top:1px solid var(--line)}.detail summary{display:flex;justify-content:space-between;gap:14px;align-items:baseline;list-style:none;padding:18px 0;cursor:pointer;font-weight:600}.detail summary::-webkit-details-marker{display:none}.detail summary:before{content:'+';color:var(--accent);font:700 18px/1 monospace;margin-right:8px}.detail[open] summary:before{content:'−'}.detail summary span:first-child{flex:1}.detail-hint{font-weight:400;font-size:12px;color:var(--muted)}.detail-body{padding:4px 0 21px 26px}.detail-body>p{max-width:78ch}.roadmap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px;list-style:none;padding:0;margin:23px 0 30px;border-top:1px solid var(--line)}.roadmap li{display:flex;gap:17px;align-items:baseline;border-bottom:1px solid var(--line);padding:13px 0;margin:0}.roadmap-n{font:700 12px/1 'SF Mono',Consolas,monospace;color:var(--accent);min-width:24px}.roadmap strong{display:block;font-size:14px;line-height:1.25}.roadmap small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.review-callout{background:var(--accent-wash);border-left:3px solid var(--accent);padding:21px 24px;margin-top:36px;max-width:760px}.review-callout h2{font:600 16px/1.3 'SF Pro Display','Helvetica Neue',Arial,sans-serif;margin:0 0 7px}.review-callout p{font-size:14px;margin:0}.footer{border-top:1px solid var(--line);padding:20px 0;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}@media(max-width:980px){.layout{display:block}.side{position:static;height:auto;padding:16px 0;border-bottom:1px solid var(--line)}.side nav{display:flex;overflow:auto;margin:9px 0 0;gap:2px}.side nav a{white-space:nowrap;border-left:0;border-bottom:2px solid transparent;padding:7px 10px}.side nav a.active,.side nav a:hover{border-color:var(--accent)}.side-note,.side-title{display:none}.content{padding-top:35px}}@media(max-width:700px){.topbar{padding:10px 16px}.top-actions a{display:none}.content{padding-top:27px}.hero h1{font-size:45px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.flow li+li{padding-left:0}.flow li+li:before{display:none}.roadmap{grid-template-columns:1fr}.section-head{grid-template-columns:1fr;gap:5px}.doc-section{padding:29px 0}.detail-hint{display:none}.detail-body{padding-left:8px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style></head><body><header class="topbar"><a class="brand" href="#top">Helix / architecture review</a><div class="top-actions"><a href="helix-checkpoint-loop.md">Source spec</a><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light and dark theme">Theme</button></div></header><div class="layout"><aside class="side" aria-label="Document navigation"><span class="side-title">Contents</span><nav aria-label="Sections"><a href="#overview-group">01 Overview</a><a href="#system-group">02 System</a><a href="#contracts-group">03 Contracts</a><a href="#evidence-group">04 Evidence</a><a href="#delivery-group">05 Delivery</a><a href="#scope-group">06 Decisions &amp; scope</a></nav><p class="side-note">The source spec is the implementation contract. This page is the review surface.</p></aside><main id="top" class="content"><header class="hero"><p class="eyebrow">Opt-in workflow proposal · October 2026</p><h1>A checkpoint at every slice.</h1><p class="intro">Helix adds a separate build route: each slice proves behavior, applicable UI, code quality and owner review before its commit can release dependent work.</p><div class="hero-meta"><span><strong>Status</strong> Revised after architecture review</span><span><strong>Source</strong> helix-checkpoint-loop.md</span><span><strong>Spec SHA-256</strong> 6f6500ac206e</span></div></header><div class="metrics" aria-label="Plan summary"><div class="metric"><strong>19</strong><span>ordered slices</span></div><div class="metric"><strong>4</strong><span>checkpoint gates</span></div><div class="metric"><strong>2</strong><span>independent reviewers</span></div><div class="metric"><strong>5</strong><span>stacked review PRs</span></div></div><section class="flow-panel" aria-labelledby="flow-title"><h2 id="flow-title">The advancement path</h2><p>Every required check binds to the current candidate. Dependents wait for the committed combined-tree barrier.</p><ol class="flow"><li><strong>Plan</strong><small>opt-in marker and slice scope</small></li><li><strong>Behavior</strong><small>red test, green candidate</small></li><li><strong>UI</strong><small>matched state or justified skip</small></li><li><strong>Code review</strong><small>existing GO / HOLD / STOP</small></li><li><strong>Owner</strong><small>slice review or scoped grant</small></li><li><strong>Commit + barrier</strong><small>integrated tree verified</small></li></ol></section><div class="group" id="overview-group"><section class="doc-section" id="problem" aria-labelledby="problem-title"><div class="section-head"><span class="section-index">01 / 09</span><h2 id="problem-title">Problem</h2></div><div class="prose"><p>Agents building features through this template currently close slices after TDD and a handover, while visual and code review evidence is collected later for the whole build. An explicit Helix route makes each slice an evidence-gated checkpoint, so dependent work starts only after that slice has passed the applicable behavior, UI, code review and human gates and has its own commit. Explicit review units can publish groups of slices as a linear stack of smaller PRs. Shopify-specific mobile tooling remains outside the first release.</p>
+</div></section><section class="doc-section" id="constraints" aria-labelledby="constraints-title"><div class="section-head"><span class="section-index">02 / 09</span><h2 id="constraints-title">Constraints</h2></div><div class="prose"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Constraint</th>
+<th>Value</th>
+<th>Source</th>
+<th>Detected by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Activation</td>
+<td>Only a plan marked <code>workflow: helix/1</code> uses checkpoint gates; plans without the marker retain current <code>/build</code> and <code>slice.py ready</code> behavior</td>
+<td>user</td>
+<td>route and legacy-plan fixture tests</td>
+</tr>
+<tr>
+<td>Source of truth</td>
+<td>The spec owns scope and Build Order, <code>tasks/todo.md</code> owns task status, per-slice files under <code>tasks/helix/&lt;feature&gt;/</code> own gate facts, and <code>run.json</code> owns activation/final review; no <code>.helix/</code> plan or flat learnings copy</td>
+<td>user</td>
+<td>evidence and duplicate-state fixture tests</td>
+</tr>
+<tr>
+<td>Advancement</td>
+<td>A completed Helix header releases dependents only when its evidence is valid and committed; the gate checker refuses missing, stale, malformed or unknown-version evidence</td>
+<td>user</td>
+<td><code>slice.py ready</code> negative fixtures</td>
+</tr>
+<tr>
+<td>Gate order</td>
+<td>Behavior → applicable UI → independent code reviews → human decision; a changed candidate invalidates downstream evidence that examined older bytes</td>
+<td>user</td>
+<td>transition and stale-tree tests</td>
+</tr>
+<tr>
+<td>Review policy</td>
+<td>Use the existing four-axis Finding Model and GO/HOLD/STOP derivation; a STOP blocks, and a HOLD advances only through the existing explicit approval contract</td>
+<td>user</td>
+<td>receipt integration tests</td>
+</tr>
+<tr>
+<td>Human cadence</td>
+<td>Review each slice by default; an explicit owner message may authorize the next N named slices; after all slices, final integrated human review remains required before wrap-up</td>
+<td>user</td>
+<td>grant-scope, final-review and no-self-approval tests</td>
+</tr>
+<tr>
+<td>Retry bound</td>
+<td>Use <code>/build</code>'s existing two Builder plus two Reviewer attempts, then block that slice with evidence; unrelated ready slices may continue</td>
+<td>user</td>
+<td>retry and ready-set fixtures</td>
+</tr>
+<tr>
+<td>Commit boundary</td>
+<td>One commit per cleared slice, with source, plan status and evidence together; one PR when no review units are declared, or one PR per declared review unit in a linear stack</td>
+<td>user</td>
+<td>single-PR and stacked-PR closure fixtures</td>
+</tr>
+<tr>
+<td>Review units</td>
+<td>A stack is explicit and groups contiguous slices into independently green, reviewable PRs; every slice belongs to exactly one unit. A unit must not be one PR per slice merely because slices exist</td>
+<td>user</td>
+<td>coverage, ordering and independent-PR fixture tests</td>
+</tr>
+<tr>
+<td>Stack merge policy</td>
+<td>A stacked run never rewrites published slice commits. Parent PRs use merge commits; squash/rebase merge, force push, unavailable merge-commit policy or unverifiable ancestry blocks stack advancement</td>
+<td>inferred</td>
+<td>merge-strategy, rewritten-SHA and ancestry fixtures</td>
+</tr>
+<tr>
+<td>Parallel work</td>
+<td>Disjoint ready slices may implement in separate worktrees; the orchestrator integrates them in table order and records a barrier for the exact merged slice set and combined source tree before dependent work advances</td>
+<td>inferred</td>
+<td>two-worktree merge and stale-barrier fixtures</td>
+</tr>
+<tr>
+<td>Shared run writes</td>
+<td>Workers edit only their declared source Surface and produce private evidence drafts. The orchestrator alone writes <code>tasks/todo.md</code>, <code>run.json</code>, final slice evidence and commits on the integration branch</td>
+<td>inferred</td>
+<td>parallel shared-file collision fixture</td>
+</tr>
+<tr>
+<td>Worker backend</td>
+<td><code>/build --worker-backend</code> accepts <code>auto</code>, <code>native</code> or <code>orca</code> and selects execution transport, not a gate policy. <code>auto</code> prefers a verified Orca orchestration runtime for this worktree, then a capable host-native dispatch; explicit <code>orca</code> refuses when unavailable. No selection weakens isolation, review or evidence rules</td>
+<td>user</td>
+<td>capability, selection and refusal fixtures</td>
+</tr>
+<tr>
+<td>Runtime portability</td>
+<td>Planning works without a worker runtime. Building requires repository write access, Git, test execution, isolated reviewer contexts and a supported worker backend; a host lacking these blocks the build with missing capabilities rather than pretending Helix ran</td>
+<td>inferred</td>
+<td>no-runtime and partial-capability fixtures</td>
+</tr>
+<tr>
+<td>Owner authority</td>
+<td>A next-N grant comes from a role-tagged owner turn exposed by the active host; an agent-authored record or unverified imported transcript cannot create one. Across sessions, a grant needs host-verifiable provenance or the owner must reissue it</td>
+<td>inferred</td>
+<td>role/provenance and resume fixtures</td>
+</tr>
+<tr>
+<td>UI reference</td>
+<td>A migration uses the existing app; a visually significant new feature uses an approved interactive prototype; a localized UI change may use the approved <code>DESIGN.md</code> and concept; logic-only slices record a UI skip reason</td>
+<td>user</td>
+<td>prototype and visual-gate fixtures</td>
+</tr>
+<tr>
+<td>UI evidence retention</td>
+<td>Gate 2 keeps capture hashes and local paths per candidate; wrap-up publishes the retained captures with the existing PR visual-evidence mechanism, or leaves the UI task open when publication is unavailable</td>
+<td>inferred</td>
+<td>publication fixture with two slice captures</td>
+</tr>
+<tr>
+<td>Harness support</td>
+<td>Gate advancement is host-neutral where the host exposes repository, Git and test tools; Claude Code, Codex and Pi use the local CLI without a Stop hook, while Claude Desktop or claude.ai may build only when their connected tools meet the same capability contract. A Claude Stop hook may prompt continuation but permits <code>waiting_human</code> and <code>blocked</code> stops</td>
+<td>user</td>
+<td>CLI, capability and Stop-hook fixtures</td>
+</tr>
+<tr>
+<td>Test economy</td>
+<td>Each review unit uses affected tests at slice/integration checkpoints and the existing cached full suite before its PR push; the final integrated tree is checked again after retargeting the last PR</td>
+<td>user</td>
+<td>per-unit command-count and retarget fixtures</td>
+</tr>
+</tbody>
+</table></div>
+</div></section></div>
+<div class="group" id="system-group"><section class="doc-section" id="system-design" aria-labelledby="system-design-title"><div class="section-head"><span class="section-index">03 / 09</span><h2 id="system-design-title">System design</h2></div><div class="prose"><h3>Current state</h3>
+<pre><code class="language-text">spec § Build Order ──► slice.py ready ──► [x] header + done blockers
+                                                 │
+                            /build closes after affected tests + handover
+                                                 │
+                       whole-build quality receipt → wrap-up → one commit/PR
+</code></pre>
+<p><code>slice.py ready</code> currently reads header status and blockers without evidence (<code>.agents/skills/slice/scripts/slice.py:386-428</code>). <code>/build</code> writes the handover after its informational surface check (<code>.agents/skills/build/SKILL.md:281-321</code>), then runs the quality gate after all tasks (<code>.agents/skills/build/SKILL.md:408-417</code>). The quality receipt is tied to the reviewed tree and excludes <code>tasks/**</code> (<code>.agents/skills/quality-gate/scripts/receipt.py:1-19</code>); wrap-up performs final receipt, suite and single-PR closure (<code>.agents/skills/wrap-up-session/SKILL.md:140-225</code>).</p>
+<h3>Ownership</h3>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Owns (source of truth for)</th>
+<th>Reads</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>specs/&lt;feature&gt;.md</code></td>
+<td>Helix activation, acceptance criteria, reference/prototype digest and Build Order</td>
+<td>Design brief and approved concept</td>
+</tr>
+<tr>
+<td><code>tasks/todo.md</code></td>
+<td>Slice task status and handovers</td>
+<td>Spec and registry task IDs</td>
+</tr>
+<tr>
+<td><code>tasks/helix/&lt;feature&gt;/run.json</code>, <strong>NEW</strong></td>
+<td>Run activation, owner grants and final integrated review</td>
+<td>Spec digest and host role-tagged owner turns</td>
+</tr>
+<tr>
+<td>Git common dir <code>helix-worker-attempts/</code>, <strong>NEW</strong></td>
+<td>Local attempt identity, chosen backend and result acceptance; operational state, never a gate receipt</td>
+<td>Run/slice IDs and backend observations</td>
+</tr>
+<tr>
+<td><code>tasks/helix/&lt;feature&gt;/barriers/&lt;id&gt;.json</code>, <strong>NEW</strong></td>
+<td>Exact merged-set integration result for one combined candidate</td>
+<td>Integrated commits, affected tests and quality receipt</td>
+</tr>
+<tr>
+<td>Spec § Build Order <code>Review units</code>, <strong>NEW</strong></td>
+<td>Ordered unit IDs, exact slice ranges and parent unit relation; absent means one PR</td>
+<td>Slice table and owner-selected review boundaries</td>
+</tr>
+<tr>
+<td>GitHub PRs</td>
+<td>Live PR number, base/head, draft/merge state, checks and review history</td>
+<td>The declared unit chain; never inferred from a stale local cache</td>
+</tr>
+<tr>
+<td>Helix gate CLI, <strong>NEW</strong></td>
+<td>Versioned per-slice evidence, gate transitions, grant scope and closed-slice verification</td>
+<td>Run, spec, todo, test output, UI manifest and quality receipt</td>
+</tr>
+<tr>
+<td><code>/slice</code></td>
+<td>Dependency graph, surface validation and ready set</td>
+<td>Todo statuses and Helix gate verification for marked plans</td>
+</tr>
+<tr>
+<td><code>/build</code></td>
+<td>Fresh test-planner and implementer dispatch, repair loop, one commit per cleared slice and review-unit boundary</td>
+<td>Ready set, gate outcomes, reviewer findings and declared unit mapping</td>
+</tr>
+<tr>
+<td>Worker backend adapter, <strong>NEW</strong></td>
+<td>Capability probing and supervised slice-attempt lifecycle for <code>native</code> or optional <code>orca</code>; never gate verdicts</td>
+<td>Pinned integration SHA, slice ID, Surface, task/spec digest, backend preference and local attempt record</td>
+</tr>
+<tr>
+<td>Orca orchestration, optional</td>
+<td>Live Dispatch, request and worker liveness when Orca was selected; its state is re-queried after timeouts</td>
+<td>Dispatch/request IDs from the local attempt record</td>
+</tr>
+<tr>
+<td><code>/quality-gate</code></td>
+<td>Existing GO/HOLD/STOP policy and tree-bound review receipt</td>
+<td>Changed code and reviewer evidence</td>
+</tr>
+<tr>
+<td><code>prototype</code> skill, <strong>NEW</strong></td>
+<td>Interactive reference HTML and declared UI states before implementation</td>
+<td><code>DESIGN.md</code>, approved concept and spec</td>
+</tr>
+<tr>
+<td><code>tasks/solutions/</code></td>
+<td>Reusable corrections and decisions</td>
+<td>Slice feedback and source evidence</td>
+</tr>
+<tr>
+<td><code>/wrap-up-session</code></td>
+<td>Per-unit quality/full-suite/PR/CI closure and final integrated closure after human acceptance</td>
+<td>Slice commits, unit mapping, live PR state, final review and final tree receipt</td>
+</tr>
+</tbody>
+</table></div>
+<h3>Interaction</h3>
+<pre><code class="language-text">owner ──explicit Helix request──► /go Helix lane (NEW)
+                                  │ sync: plan/spec + /slice
+                                  ▼
+                        spec workflow: helix/1
+                                  │ fresh build prompt
+                                  ▼
+             /build ──ready──► /slice ──verify done blockers──► Helix gate CLI (NEW)
+               │                                 │
+               ├─ tests ─► behavior evidence ────┤
+               ├─ UI reference + captures ───────┤
+               ├─ two isolated reviewers ────────┤
+               └─ owner review/grant ─────────────┤
+                                                 close + commit
+                                                      │
+                                  merged tree integration barrier
+                                                      │
+                                   review unit complete? ──yes──► PR to parent unit branch
+                                                      │                        │
+                                           next ready set           parent merges; retarget + recheck
+                                                                               │
+                                                                    final integrated review + wrap-up
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Arrow</th>
+<th>Mode</th>
+<th>On timeout or failure</th>
+<th>On duplicate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/build</code> → gate CLI</td>
+<td>sync, local</td>
+<td>Refuse the current slice; preserve recorded evidence for resume</td>
+<td>Recheck the same evidence, never add a second approval</td>
+</tr>
+<tr>
+<td>Gate CLI → tests</td>
+<td>sync, local</td>
+<td>Record command and nonzero exit; gate stays open</td>
+<td>Same command and candidate tree may reuse a green cached run</td>
+</tr>
+<tr>
+<td><code>/build</code> → reviewer agents</td>
+<td>async dispatch</td>
+<td>Mark <code>blocked</code> after the existing retry ladder; no fabricated verdict</td>
+<td>A reviewer ID and candidate fingerprint identify one verdict</td>
+</tr>
+<tr>
+<td><code>/build</code> → worker backend</td>
+<td>async attempt, private checkout</td>
+<td>On unknown liveness retain and re-query the same attempt; no retry or backend switch until failure/stop is positively settled; terminal exit alone never clears a gate</td>
+<td>Stable run/slice/attempt ID and pinned base SHA prevent duplicate editing</td>
+</tr>
+<tr>
+<td>Owner → human gate</td>
+<td>async conversation</td>
+<td><code>waiting_human</code>; the session may end without advancing</td>
+<td>The same grant ID applies only to its named slices once</td>
+</tr>
+<tr>
+<td>Worktree → integration branch</td>
+<td>sync Git operation, serialized by orchestrator</td>
+<td>Merge conflict or failed central test blocks dependent slices</td>
+<td>Reapplying a merged slice is refused by its stable slice/task ID</td>
+</tr>
+<tr>
+<td>Unit branch → GitHub PR</td>
+<td>async network call</td>
+<td><code>unknown</code>: re-query by head/base before retry; leave this unit and descendants draft/blocked if state remains unknown</td>
+<td>Find the existing PR by exact head/base and unit ID; never create a second PR</td>
+</tr>
+<tr>
+<td>Parent PR → child PR</td>
+<td>async merge observation then sync Git merge/retarget</td>
+<td>A changed or unmerged parent keeps the child based on the parent branch and invalidates its combined barrier/CI claim</td>
+<td>Re-query parent merge commit and child base before any merge or retarget</td>
+</tr>
+</tbody>
+</table></div>
+<h3>Failure unit</h3>
+<ul>
+<li>A gate failure blocks its slice and descendants, while unrelated ready slices may continue.</li>
+<li>A missing reviewer, browser or UI reference blocks only slices that require that gate; it does not turn a failed check into a skip.</li>
+<li>An invalid Helix evidence record makes <code>ready</code> fail closed for the marked plan; legacy plans are unaffected.</li>
+<li>A combined-tree integration failure blocks the next dependency wave and final wrap-up, including slices whose isolated worktree tests passed.</li>
+<li>An unavailable screenshot publication path leaves the UI task open under the existing visual-evidence policy, even if local comparison passed.</li>
+<li>An upstream PR change blocks this unit's ready-for-review state until the parent is merged into its branch and its combined-tree checks rerun. A blocked unit does not erase already valid slice receipts on preserved commits.</li>
+<li>A failed, unknown or non-preserving PR merge blocks descendants; unrelated slices already under development can retain drafts, but no dependent PR is reported merge-ready.</li>
+<li>Orca absence before dispatch selects <code>native</code> only in <code>auto</code> mode and only when native capabilities pass. An explicit <code>orca</code> request refuses. A launched worker with unknown or unverifiable liveness is never retried or replaced; a positively confirmed stop/failure and inspection of private changes are required before a new attempt.</li>
+</ul>
+</div></section></div>
+<div class="group" id="contracts-group"><section class="doc-section" id="component-contracts" aria-labelledby="component-contracts-title"><div class="section-head"><span class="section-index">04 / 09</span><h2 id="component-contracts-title">Component contracts</h2></div><div class="prose"><p class="section-lede">Open a boundary to inspect its inputs, outcomes, failure behavior and versioning.</p>
+<details class="detail"><summary><span>Helix route and plan marker</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><pre><code class="language-text">/go &lt;goal containing an explicit Helix request&gt; -&gt; helix lane | ordinary lane
+spec frontmatter: workflow: helix/1
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inputs</td>
+<td>Explicit user request; <code>workflow: helix/1</code> copied into the spec and fresh build prompt</td>
+</tr>
+<tr>
+<td>Outcomes</td>
+<td>Helix plan with gated build prompt, or the existing route with unchanged plan format</td>
+</tr>
+<tr>
+<td>Raises</td>
+<td>Unknown workflow version is a planning/build refusal, never a fallback to ordinary build</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>Replanning the same spec updates its Build Order and plan block in place</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td>Missing marker means legacy; <code>helix/1</code> is the first supported opt-in version</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Slice worker execution</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><pre><code class="language-text">/build --worker-backend auto|native|orca
+dispatch(slice_id, pinned_base_sha, Surface, task_digest, timeout) -&gt; attempt_id
+observe(attempt_id) -&gt; running | reported | failed | stopped | unknown
+collect(attempt_id) -&gt; source_delta, draft_evidence, bounded_log_pointer | refused
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inputs</td>
+<td>The build prompt or <code>/build</code> argument chooses <code>auto</code> (default), <code>native</code> or <code>orca</code>; each attempt receives exact run/slice IDs, immutable base SHA, declared Surface, task/spec digest, role and bounded work budget. The selector is execution configuration, never part of <code>workflow: helix/1</code> or a second gate policy.</td>
+</tr>
+<tr>
+<td>Outcomes</td>
+<td><code>native</code> uses the host's existing isolated subagent/worktree path. <code>orca</code> uses supervised Orca orchestration with a distinct child worktree and a Dispatch ID, addressing the worker through orchestration rather than a terminal handle; a user launch setting may create a PTY or no terminal. <code>auto</code> chooses Orca only after a read-only probe confirms a running matching Orca worktree and the ability to start a worker in a separately verified checkout; otherwise it chooses capable native dispatch and reports the choice.</td>
+</tr>
+<tr>
+<td>Raises</td>
+<td>Explicit <code>orca</code> with unavailable runtime or mismatched repository refuses before dispatch. <code>auto</code> with neither capable backend blocks and lists missing capabilities. A host without repository write, Git, tests or independent reviewer contexts may plan and inspect evidence but cannot claim a completed build. A process exit, <code>worker_done</code> report or worker-supplied evidence is never a Helix gate verdict.</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>The orchestrator persists an attempt ID, backend identity, pinned SHA, backend request/Dispatch ID, lifecycle state and bounded log/result pointers under the Git common dir, outside worker checkouts. The attempt ID is the retry key; only the current attempt's result can be accepted for a slice. A new attempt is permitted only after the prior worker is positively confirmed failed or stopped and its private changes are inspected. Orca request lookup resolves ambiguous network results before mutation is repeated; contact loss or <code>unverifiable</code> is never proof of stop.</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td>Worker transport contract <code>helix-worker/1</code> is independent of evidence schema <code>helix-evidence/1</code>; a backend can be added without changing slice receipts. An ordinary build without the Helix marker retains its existing dispatch behavior unless the user explicitly invokes a supported backend.</td>
+</tr>
+</tbody>
+</table></div>
+<p>The orchestrator writes a <code>created</code> attempt and stable request ID before calling an external launcher; if it crashes between the local write and Orca's response, it queries that request ID before retrying. The local record owns result acceptance, while Orca owns live Dispatch state; an old local observation never proves a worker stopped. The orchestrator pins all parallel workers in a wave to the same integration commit and verifies each returned delta against that SHA and Surface before serial integration. Orca <code>--base-branch</code> chooses a ref but does not prove the exact SHA. Because <code>worker-start --spec</code> creates the worktree and sends the task in one operation, the adapter must create and verify the child worktree at the pinned SHA <strong>before</strong> starting a worker in that exact checkout; if the installed runtime cannot target the verified checkout, the Orca backend refuses before dispatch. It verifies the returned delta's base independently. Only the orchestrator writes shared plan/run state, authoritative evidence, commits and barriers. Reviewer contexts and owner-role checks remain separate from implementer worker transport. A host-native backend may run slices sequentially when it cannot provide safe parallel worktrees, but it must still provide the required independent reviewers and tests. No host is assumed to expose local terminals merely because it can display the spec; this includes Claude Desktop and claude.ai configurations.</p>
+</div></details>
+<details class="detail"><summary><span>Gate evidence and advancement</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><pre><code class="language-text">helix.py record --spec PATH --slice N --gate GATE --evidence PATH -&gt; recorded | invalid | stale
+helix.py close --spec PATH --index PATH --slice N -&gt; ready_to_commit | refused
+helix.py verify --spec PATH --index PATH --slice N -&gt; valid | missing | stale | invalid
+helix.py barrier --spec PATH --index PATH --slices IDS --evidence PATH -&gt; recorded | refused
+helix.py verify-barrier --spec PATH --index PATH --slices IDS -&gt; valid | missing | stale | invalid
+slice.py ready --index PATH --spec PATH -&gt; ready set | refusal
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inputs</td>
+<td>Stable slice ID, digest of that slice's ACs, surface, reference and gate policy, candidate fingerprint of the declared Surface, gate-specific evidence and a human decision/grant; stored at <code>tasks/helix/&lt;feature&gt;/&lt;slice-id&gt;.json</code> with activation/final review in <code>run.json</code></td>
+</tr>
+<tr>
+<td>Outcomes</td>
+<td><code>record</code> persists validated evidence; <code>close</code> validates every gate on the slice candidate, then the orchestrator writes receipt and <code>[x]</code> status in one slice commit; <code>ready</code> releases a dependent only after <code>verify</code> confirms that historical committed candidate and <code>verify-barrier</code> confirms the latest combined tree</td>
+</tr>
+<tr>
+<td>Raises</td>
+<td>I/O and unexpected Git errors are explicit; malformed/unknown schemas return a refusal with file and reason</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>Repeating <code>record</code>, <code>close</code> or <code>verify</code> with identical input preserves one receipt; a changed slice contract or Surface candidate is stale, while appending an unrelated correction slice leaves older receipts valid. Barrier IDs derive from sorted merged slice IDs and the combined candidate fingerprint</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td>Evidence schema <code>helix-evidence/1</code>; readers refuse unknown versions and retain old files for audit</td>
+</tr>
+</tbody>
+</table></div>
+<p>The slice candidate is a sorted manifest of Git eligible regular files and symlinks matching its declared Surface, including tracked files and new files not ignored by Git. Each entry records path, mode and SHA-256 of bytes (or symlink target). The manifest hash excludes <code>tasks/**</code> status, receipts, captures and logs, which are checked through their own hashes. The slice contract digest separately covers its ACs, Surface, dependencies, applicable gate policy and approved UI reference. Gate 1, Gate 2 and both reviewers record this candidate hash. Any Surface edit after a gate invalidates that gate and later gates. The orchestrator validates the manifest against the integration branch immediately before the slice commit; workers' private drafts never become authoritative evidence.</p>
+<p>After commit, <code>verify</code> recomputes the same manifest from that recorded commit's tree using the recorded Surface, and checks that the receipt and done header occur in the commit. It does <strong>not</strong> compare old slice receipts with today's source tree: later slices may change other paths. A missing or unreachable commit fails verification. The combined candidate uses the same manifest algorithm over every Git eligible path outside <code>tasks/**</code>; its barrier additionally binds the sorted merged slice IDs, ordered slice commit IDs known before the final wave commit, affected-test command/result and quality receipt fingerprint. <code>barrier</code> writes <code>tasks/helix/&lt;feature&gt;/barriers/&lt;id&gt;.json</code> only after central affected tests and the existing quality gate pass on that combined candidate. The orchestrator includes this record in the final slice commit of the wave; its own commit ID is derived from Git during verification, not stored inside itself. <code>verify-barrier</code> requires that committed record, the exact completed slice set, reachable slice commits and the current combined manifest hash; any new source edit invalidates it. <code>ready</code> checks the latest barrier for all completed blockers before releasing a dependent, and wrap-up checks the final barrier.</p>
+<p>For a parallel wave, workers return source changes and private evidence drafts only. The orchestrator integrates source in Build Order order, rejects paths outside each Surface, reruns gates invalidated by the combined candidate, and serializes <code>close</code>, todo handovers/status, final evidence and one commit per slice on the integration branch. No worker commits shared plan or run files. A merge conflict blocks the affected slice, while completed independent slices retain their commits; dependents wait for a valid barrier covering the merged set.</p>
+</div></details>
+<details class="detail"><summary><span>Prototype and UI comparison</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><pre><code class="language-text">/prototype &lt;spec&gt; -&gt; design/prototypes/&lt;feature&gt;.html + &lt;feature&gt;.states.json
+ui-review(reference, implementation, state_manifest, slice_scope) -&gt; PASS | FAIL | INVALID
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inputs</td>
+<td>Existing app reference or approved prototype digest; named states, viewport, fixture data and slice-specific visual scope</td>
+</tr>
+<tr>
+<td>Outcomes</td>
+<td>Matched captures plus located/severity-ranked differences and hashes/paths for later publication; <code>INVALID</code> means recapture the same state and viewport, not a pass or product defect</td>
+</tr>
+<tr>
+<td>Raises</td>
+<td>Missing reference, stale digest or unavailable full-fidelity browser blocks a UI slice</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>The same reference/implementation/tree/state tuple yields one comparison record; a changed prototype invalidates affected comparisons and grants</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td>Prototype state manifest v1; existing <code>DESIGN.md</code> and concept approval remain authoritative for style</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Code and human review</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><pre><code class="language-text">review_slice(slice_diff, architecture_spec, policy) -&gt; two independent verdicts + quality receipt
+authorize_slices(host_owner_turn, spec_digest, next_n) -&gt; grant(named_slice_ids) | rejected | waiting_owner
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inputs</td>
+<td>Two separately dispatched read-only reviewers receive the seven-item review contract and no peer findings; a role-tagged owner turn in the active host supplies human authority</td>
+</tr>
+<tr>
+<td>Outcomes</td>
+<td>Existing GO/HOLD/STOP receipt rules decide code review; human gate records <code>reviewed</code> or <code>delegated</code> with exact grant ID and slice scope</td>
+</tr>
+<tr>
+<td>Raises</td>
+<td>Missing independent verdict, unapproved HOLD, STOP or an owner turn whose role cannot be checked blocks close</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>Reviewer verdicts are keyed by reviewer dispatch and candidate fingerprint; a grant names exact slices and cannot expand after creation</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td>Finding Model and quality receipt policy remain canonical; no second severity taxonomy or competing approval policy</td>
+</tr>
+</tbody>
+</table></div>
+<p>The host conversation role, not a digest supplied by the agent, establishes who spoke. For Claude Code, Codex and Pi, the orchestrator may accept a grant only from a new user-role message delivered through that host's conversation channel while this run is active; it records the host name, session/message reference where exposed, role, exact message hash, spec/prototype digests and named slice IDs. It refuses a tool result, repository file, assistant text or copied transcript as a grant source. The CLI can verify scope and integrity of this record, but cannot independently authenticate a role label written by the agent. Therefore a persisted next-N grant is usable only while the originating host session can verify that message; on a resumed session or a host without stable role/message lookup, the owner reissues the grant in a fresh user turn. This is the cross-harness trust limit; no record is treated as cryptographic proof of owner intent. Per-slice review likewise requires a fresh user turn. The final integrated acceptance always requires its own fresh user turn, even when a batch grant remains valid.</p>
+</div></details>
+<details class="detail"><summary><span>Review units and stacked PRs</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><pre><code class="language-text">stack.py validate --spec PATH --index PATH -&gt; units | invalid
+stack.py inspect --spec PATH --unit ID -&gt; planned | draft | ready | merged | stale | blocked | unknown
+wrap-up-unit(spec, unit_id, expected_parent) -&gt; PR(number, head, base) | blocked | unknown
+</code></pre>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inputs</td>
+<td>Explicit ordered <code>Review units</code> in the spec's Build Order, each naming a contiguous slice range; run ID from <code>run.json</code>; default branch; preserved slice commits and latest combined barrier; live GitHub PR observations</td>
+</tr>
+<tr>
+<td>Outcomes</td>
+<td>With no units, existing one-PR closure. With units, one branch and one PR per unit: <code>helix/&lt;feature&gt;/&lt;run-id&gt;/u&lt;ID&gt;</code> targets the preceding unit branch, or the default branch for the first. The PR diff covers only that unit; a child stays draft while its parent is unmerged.</td>
+</tr>
+<tr>
+<td>Raises</td>
+<td>A missing GitHub remote/authentication, disabled merge-commit strategy, rewritten slice SHA, duplicate head/base PR, changed base without revalidation, noncontiguous unit coverage or ambiguous remote state blocks stacked closure. No automatic fallback to one PR after a stack is published.</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>Unit ID plus run ID fixes the branch name; inspect exact head/base and existing PR before create or edit. On network timeout return <code>unknown</code>, then re-query; never issue a second create from a timeout alone. Repeated sync of an unchanged unit updates the same PR body.</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td><code>Review units</code> grammar v1 is accepted only for <code>workflow: helix/1</code>; absent units mean single-PR mode. Current branch-local <code>closure.py</code> state remains a retry cache; GitHub is authoritative for PR state. Unknown grammar or mutation of a published unit's ID, start, end or base is refused.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Grammar v1 is a <code>### Review units</code> subsection of § Build Order with one bullet per unit: <code>- U&lt;n&gt;: slices &lt;start&gt;-&lt;end&gt;; base: &lt;default|U&lt;n&gt;&gt;; &lt;short purpose&gt;</code>. IDs start at U1 and increase without gaps; ranges use ASCII hyphens and cover slice numbers once in table order; each base is the preceding unit except U1, whose base is <code>default</code>. The purpose is display text, never a parser input. A missing subsection means single-PR mode. A present but empty or malformed subsection is an error, not a fallback. The plan block mirrors the IDs and ranges for the builder, but the spec is authoritative.</p>
+<p><code>/slice</code> validates that units cover every slice exactly once, in table order, with no gaps or overlaps, and that each unit's last slice has a valid combined barrier before its PR opens. Publication freezes that unit's ID, range and base. A correction to a slice in an open unit reopens that slice under the same ID: append a linked correction commit on that unit branch, supersede its candidate evidence, rerun its gates and unit checks, and propagate the new parent head to descendants. A merged unit cannot be edited. New scope, including changes requested at final integrated review, becomes new numbered slices in an appended tail unit; previously published ranges never move. Unpublished suffix units may be regenerated to preserve contiguous coverage, but publication freezes each in turn. If a correction to a merged unit cannot be expressed as a tail slice without invalidating an ancestor's merge, stop for an explicit recovery plan. A unit can group multiple slice commits; an initial slice closure creates one commit, while a reopened slice may add linked correction commits without rewriting history.</p>
+<p>The first unit branches from the default branch before its first slice; every next unit branches from its predecessor's published head before its first slice. Each unit carries its own GO or approved-HOLD quality receipt, cached full-suite run, CI result, handovers and visual evidence, with intermediate PRs using <code>Refs</code> and only the final PR allowed to use <code>Closes</code> issue linkage. For unit-local spec reconciliation, affected tests, quality receipt fingerprint and PR body, the explicit base is the parent unit branch (default for the first), never the single-PR default. Unit-scoped <code>/quality-gate --spec PATH --unit ID --base REF</code> is permitted when <strong>that unit's</strong> slices and combined barrier are done; it runs the existing six phases and Finding Model against the unit diff, writes an immutable receipt keyed by run, unit, base and fingerprint, and leaves later units pending. Slice 3 introduces one shared review-unit reader for this boundary check; <code>/slice</code> reuses and extends that reader for full coverage validation in slice 14. <code>receipt.py fingerprint</code> and <code>check</code> already accept <code>--base</code>; <code>write</code> gains the same argument, and every gate caller uses the identical resolved base. A changed unit head/base invalidates that unit receipt and any descendant receipt until the same gate reruns. The combined barrier and final owner review additionally cover the integrated source tree.</p>
+<p>Published branch histories are never rebased or force-pushed. When a parent changes, merge its new head into the child, rerun candidate-sensitive gates, central affected tests, the quality receipt, the cached suite and child CI, and keep the child draft until clean. After a parent PR is merged with a <strong>merge commit</strong> into the default branch, verify every recorded slice commit remains an ancestor, explicitly retarget the child PR to the default branch, merge the updated default branch into the child if needed, and verify that the resulting PR diff contains only that child's declared unit changes. Then rerun the combined barrier, receipt, suite and CI on the new head/base before making that child ready. Squash or rebase merge cannot preserve the per-slice commit identity required by <code>verify</code>; if observed, stop stack advancement and report recovery as a human decision instead of accepting a rewritten history. No agent auto-merges a PR.</p>
+<p>Intermediate unit PRs can be reviewed while later units are built. The final unit remains draft until every parent has merged, the last branch has passed integrated checks against the default branch, and a fresh owner turn accepts the integrated feature. A failed or unknown merge, retarget, check or publication leaves the affected and descendant PRs draft with evidence. Ordinary builds and one-PR Helix runs retain the current wrap-up contract.</p>
+</div></details></div></section></div>
+<div class="group" id="evidence-group"><section class="doc-section" id="data-models" aria-labelledby="data-models-title"><div class="section-head"><span class="section-index">05 / 09</span><h2 id="data-models-title">Data models</h2></div><div class="prose"><p class="section-lede">Receipts bind each slice to its candidate. The combined-tree barrier releases dependents only for the exact merged set.</p>
+<details class="detail" open><summary><span>Entities</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Invariant</th>
+<th>Enforced by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>workflow</code></td>
+<td><code>helix/1</code> or absent</td>
+<td>An active Helix run never silently downgrades when the marker disappears</td>
+<td>gate CLI activation check</td>
+</tr>
+<tr>
+<td><code>run</code></td>
+<td><code>tasks/helix/&lt;feature&gt;/run.json</code></td>
+<td>Holds activation and final review only; slice completion remains in todo and proof remains in slice files</td>
+<td>versioned run validator</td>
+</tr>
+<tr>
+<td><code>worker_attempt</code></td>
+<td>Git common dir <code>helix-worker-attempts/&lt;run&gt;/&lt;slice&gt;/&lt;attempt&gt;.json</code>, schema <code>helix-worker/1</code>: IDs, backend, pinned SHA, Surface/task digests, backend Dispatch/request ID, state and bounded pointers</td>
+<td>Operational state survives a local orchestrator restart without becoming gate evidence; only the current settled attempt's result may be accepted</td>
+<td>backend adapter and resume preflight</td>
+</tr>
+<tr>
+<td><code>slice_id</code></td>
+<td>stable task ID plus slice number</td>
+<td>Matches spec Build Order and todo heading</td>
+<td><code>slice.py</code> validation and gate CLI</td>
+</tr>
+<tr>
+<td><code>candidate</code></td>
+<td>Surface manifest hash + slice-contract/prototype/policy digests</td>
+<td>Evidence refers to the code and requirements each gate examined; <code>tasks/**</code> bookkeeping cannot stale it</td>
+<td>gate CLI fingerprint validation</td>
+</tr>
+<tr>
+<td><code>gate</code></td>
+<td>behavior, UI, review, human</td>
+<td>Every required gate has producer, outcome, evidence path/hash and timestamp</td>
+<td><code>helix-evidence/1</code> validator</td>
+</tr>
+<tr>
+<td><code>grant</code></td>
+<td>ID, host/session/message reference, owner role, message digest, full-plan digest, exact slice IDs</td>
+<td>Only a host-verified owner turn may authorize named slices; changed plan or lost provenance revokes applicability</td>
+<td>host role check and grant validator</td>
+</tr>
+<tr>
+<td><code>commit</code></td>
+<td>Git commit containing code, status and receipt</td>
+<td>A done header is not ready until committed evidence is reachable; a stack merge preserves each slice commit ID</td>
+<td><code>ready</code> and post-merge ancestry verification</td>
+</tr>
+<tr>
+<td><code>barrier</code></td>
+<td>version, sorted merged slice IDs, combined manifest hash, prior ordered slice commit IDs, test and quality evidence</td>
+<td>A dependent can start only from the exact merged set and combined source tree that passed central checks; the final commit ID is derived from Git</td>
+<td><code>verify-barrier</code></td>
+</tr>
+<tr>
+<td><code>review_unit</code></td>
+<td>stable ID, ordered inclusive slice range, predecessor ID</td>
+<td>Exact one-time coverage of the Build Order; source of truth is spec § Build Order, not PR titles</td>
+<td><code>stack.py validate</code></td>
+</tr>
+<tr>
+<td><code>unit_pr</code></td>
+<td>observed head/base SHA, branch, PR number, draft/ready/merged state, checks and merge method</td>
+<td>GitHub owns live values; local closure cache never overrides a fresh observation</td>
+<td><code>stack.py inspect</code>, wrap-up and Git ancestry check</td>
+</tr>
+<tr>
+<td><code>final_review</code></td>
+<td><code>waiting</code> / <code>accepted</code> / <code>changes_requested</code></td>
+<td>A next-N grant does not count as final acceptance</td>
+<td>wrap-up preflight</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Illegal states</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Illegal combination</th>
+<th>Made unrepresentable by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[x]</code> Helix header with no valid committed receipt</td>
+<td><code>slice.py ready</code> refusal and gate CLI close/commit contract</td>
+</tr>
+<tr>
+<td>UI <code>skipped</code> on a UI slice, or UI <code>passed</code> from mismatched states</td>
+<td>applicability validator and <code>INVALID</code> comparison outcome</td>
+</tr>
+<tr>
+<td>Review <code>passed</code> from one context or an unapproved HOLD</td>
+<td>two dispatch IDs and existing receipt verdict check</td>
+</tr>
+<tr>
+<td>Human <code>approved</code> produced by the agent or a grant outside its exact slice set</td>
+<td>host owner-role check and grant-scope validation; unverifiable resumed grants expire</td>
+</tr>
+<tr>
+<td>New candidate bytes with old behavior, UI or reviewer evidence</td>
+<td>candidate fingerprint check and downstream invalidation</td>
+</tr>
+<tr>
+<td>Complete slice with failed test, missing handover, or unmerged parallel integration</td>
+<td>close/ready and committed integration-barrier validation</td>
+</tr>
+<tr>
+<td>Two live attempts edit one slice, or a worker report closes a gate</td>
+<td>one unsettled attempt per slice; orchestrator-only evidence and close validation</td>
+</tr>
+<tr>
+<td>Two PRs for one unit, a child PR based on the wrong parent, or a unit missing a slice</td>
+<td>stable branch/PR lookup and review-unit coverage validation</td>
+</tr>
+<tr>
+<td>Child PR ready while parent is unmerged or parent head changed</td>
+<td>draft-state and base/head checks before ready transition</td>
+</tr>
+<tr>
+<td>Stack marked merged after squash/rebase rewrote slice commit IDs</td>
+<td>post-merge ancestry verification; stop descendant advancement</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Transitions — worker attempt</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>created</code></td>
+<td><code>running</code></td>
+<td>Backend returns a confirmed Dispatch/worker identity and the private checkout matches the pinned SHA</td>
+</tr>
+<tr>
+<td><code>created</code> / <code>running</code></td>
+<td><code>unknown</code></td>
+<td>Startup, observation or network call times out; retain request ID and re-query before any retry</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td><code>running</code> / <code>reported</code> / <code>failed</code> / <code>stopped</code></td>
+<td>Backend observation resolves the exact attempt</td>
+</tr>
+<tr>
+<td><code>running</code></td>
+<td><code>reported</code> / <code>failed</code> / <code>stopped</code></td>
+<td>Worker reports a source result or backend proves failure/stop</td>
+</tr>
+<tr>
+<td><code>reported</code></td>
+<td><code>accepted</code> / <code>failed</code></td>
+<td>Orchestrator validates base SHA, Surface and current attempt ID; acceptance only admits source for integration, never closes gates</td>
+</tr>
+<tr>
+<td><code>accepted</code> / <code>failed</code> / <code>stopped</code></td>
+<td><code>released</code></td>
+<td>Result is integrated or rejected, logs remain at a bounded pointer, and backend resources are cleaned up</td>
+</tr>
+</tbody>
+</table></div>
+<p>A retry creates a new attempt ID only after the prior worker is positively confirmed failed or stopped, its private changes are inspected and the prior record is released; it does not move that record back to <code>created</code>. A resumed host reads the local attempt record and re-queries the backend before deciding whether it may start another attempt. Cross-host continuation requires transfer of the original Git common-dir attempt record and confirmation that every prior attempt is settled; without that record the new host refuses to dispatch on the same run, even at a committed slice boundary. A new independent run may start after the old host's worker resources are positively shut down. An imported transcript cannot establish liveness.</p>
+</div></details>
+<details class="detail"><summary><span>Transitions — gate outcome</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pending</code></td>
+<td><code>passed</code> / <code>failed</code></td>
+<td>Evidence producer runs on current candidate</td>
+</tr>
+<tr>
+<td><code>pending</code></td>
+<td><code>skipped</code></td>
+<td>Only UI gate on a non-UI slice with recorded reason</td>
+</tr>
+<tr>
+<td><code>pending</code> / <code>failed</code></td>
+<td><code>invalid</code></td>
+<td>UI captures represent different states or viewports</td>
+</tr>
+<tr>
+<td><code>failed</code> / <code>invalid</code></td>
+<td><code>passed</code></td>
+<td>Repair or recapture, followed by a fresh check</td>
+</tr>
+<tr>
+<td><code>passed</code> / <code>skipped</code></td>
+<td><code>stale</code></td>
+<td>Candidate, this slice's contract, its prototype or the gate policy changes</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td><code>passed</code> / <code>failed</code></td>
+<td>Gate reruns on the new candidate</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Transitions — slice progress</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>open</code></td>
+<td><code>implementing</code></td>
+<td>Failing test recorded before implementation</td>
+</tr>
+<tr>
+<td><code>implementing</code></td>
+<td><code>waiting_human</code></td>
+<td>Behavior, applicable UI and review gates clear</td>
+</tr>
+<tr>
+<td><code>implementing</code></td>
+<td><code>blocked</code></td>
+<td>Existing retry ladder exhausted or required capability unavailable</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td><code>implementing</code></td>
+<td>A later correction or restored capability starts a fresh attempt</td>
+</tr>
+<tr>
+<td><code>waiting_human</code></td>
+<td><code>closed</code></td>
+<td>Owner reviews the slice or an applicable named-slice grant is used; close writes receipt and status</td>
+</tr>
+<tr>
+<td><code>closed</code></td>
+<td><code>committed</code></td>
+<td>Git commit contains source, handover, <code>[x]</code> header and evidence</td>
+</tr>
+<tr>
+<td><code>committed</code></td>
+<td><code>ready_for_dependents</code></td>
+<td>The combined-tree integration barrier passes</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Transitions — review verdict and grant</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Review <code>pending</code></td>
+<td><code>GO</code> / <code>HOLD</code> / <code>STOP</code></td>
+<td>Two independent verdicts are recorded and the existing receipt policy derives the result</td>
+</tr>
+<tr>
+<td>Review <code>HOLD</code></td>
+<td><code>HOLD-approved</code></td>
+<td>Existing human approval contract records the exact receipt fingerprint</td>
+</tr>
+<tr>
+<td>Review <code>GO</code> / <code>HOLD-approved</code></td>
+<td><code>stale</code></td>
+<td>Candidate or review policy changes</td>
+</tr>
+<tr>
+<td>Grant <code>issued</code></td>
+<td><code>used</code></td>
+<td>A named slice closes under the grant; other named slices remain eligible</td>
+</tr>
+<tr>
+<td>Grant <code>issued</code> / <code>used</code></td>
+<td><code>stale</code></td>
+<td>Full plan or approved prototype digest changes, or the owner revokes the grant</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Transitions — final review</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>waiting</code></td>
+<td><code>accepted</code></td>
+<td>Owner tests the integrated feature and accepts it</td>
+</tr>
+<tr>
+<td><code>waiting</code></td>
+<td><code>changes_requested</code></td>
+<td>Owner requests a correction; the request becomes a new gated slice</td>
+</tr>
+<tr>
+<td><code>changes_requested</code></td>
+<td><code>waiting</code></td>
+<td>Correction slice closes and integrated checks rerun</td>
+</tr>
+<tr>
+<td><code>accepted</code></td>
+<td><code>waiting</code></td>
+<td>Source tree or spec changes before wrap-up</td>
+</tr>
+<tr>
+<td><code>accepted</code></td>
+<td><code>waiting</code></td>
+<td>A stacked PR is retargeted or its parent/default base changes before final closure</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Transitions — integration barrier</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>absent</code></td>
+<td><code>passed</code></td>
+<td>Central affected tests and quality gate pass on the exact combined candidate; record is committed with the final slice of the wave</td>
+</tr>
+<tr>
+<td><code>absent</code></td>
+<td><code>failed</code></td>
+<td>Merge, test or quality check fails; retain command/result and block dependents</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td><code>passed</code></td>
+<td>Repair and rerun both central checks on the new combined candidate</td>
+</tr>
+<tr>
+<td><code>passed</code></td>
+<td><code>stale</code></td>
+<td>Completed slice set or combined source manifest changes</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td><code>passed</code> / <code>failed</code></td>
+<td>Rerun central checks and commit a new barrier record</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Transitions — review unit PR</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>planned</code></td>
+<td><code>branch</code></td>
+<td>The declared base exists; create the stable branch before implementing this unit's first slice</td>
+</tr>
+<tr>
+<td><code>branch</code></td>
+<td><code>draft</code></td>
+<td>Every unit slice closes and its combined barrier passes; push, query exact head/base, then create or reuse the draft PR</td>
+</tr>
+<tr>
+<td><code>draft</code></td>
+<td><code>ready</code></td>
+<td>Parent is merged or this is the first unit; current head/base, quality receipt, full suite, CI and required owner review pass</td>
+</tr>
+<tr>
+<td><code>draft</code> / <code>ready</code></td>
+<td><code>stale</code></td>
+<td>Parent head/base, unit source or policy changes; return to draft and invalidate affected barrier/receipt/CI</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td><code>draft</code></td>
+<td>Merge parent without rewriting history, retarget if merged, rerun affected gates and central checks</td>
+</tr>
+<tr>
+<td><code>draft</code> / <code>ready</code></td>
+<td><code>merged</code></td>
+<td>Remote says merged with a merge commit and recorded slice SHAs are ancestors of the default branch</td>
+</tr>
+<tr>
+<td><code>planned</code> / <code>branch</code> / <code>draft</code> / <code>ready</code></td>
+<td><code>unknown</code></td>
+<td>GitHub create, query, retarget or merge observation times out; never infer success or retry creation blindly</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td>observed state</td>
+<td>Query exact branch, PR and base/head after service recovers</td>
+</tr>
+<tr>
+<td><code>draft</code> / <code>ready</code> / <code>stale</code></td>
+<td><code>blocked</code></td>
+<td>CI, conflict, unavailable merge policy or rewritten commit fails verification; retain evidence and keep descendants draft</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td><code>draft</code></td>
+<td>Correct the cause and rerun the unit checks on the current candidate</td>
+</tr>
+</tbody>
+</table></div>
+</div></details>
+<details class="detail"><summary><span>Migration and compatibility</span><span class="detail-hint">Read contract</span></summary><div class="detail-body"><ul>
+<li>Existing specs without <code>workflow: helix/1</code> and their flat or sliced plan blocks follow the current route, build and ready behavior without new evidence files.</li>
+<li>An active run's evidence remains discoverable if its marker is removed; removal produces a refusal, not a downgrade. Cancelling a run is an explicit recorded action, after which ordinary planning may start a new spec revision.</li>
+<li>Evidence records are retained when superseded. New readers validate <code>helix-evidence/1</code>; unknown versions fail closed only for Helix plans. A reopened or appended correction slice changes the plan digest and grants; prior receipts remain historical evidence, and affected unit and descendant receipts are revalidated.</li>
+<li>Rollback disables the opt-in route for new plans while active Helix plans remain gated or explicitly cancelled. No existing task, quality receipt or E2E log format is migrated.</li>
+<li>Plans without explicit <code>Review units</code> keep one PR and the existing closure contract. A declared stack is linear and cannot silently downgrade once its first PR exists. Existing <code>closure.py</code> state stays branch-local; live PR facts are re-queried from GitHub on resume.</li>
+<li>Stack mode requires a GitHub remote and a merge-commit path that preserves published slice SHAs. Projects that permit only squash/rebase merges use one-PR mode until they change that policy. A wrong-method merge stops descendants for explicit recovery; old evidence remains auditable but is never rebound to a different commit silently.</li>
+<li>Worker backend selection is independent of stack mode and Helix evidence. <code>auto</code> records its choice at each attempt; Orca is used only when its supervised orchestration runtime matches this worktree. Hosts without Orca use native dispatch when capable. A missing execution or reviewer capability blocks the build, while planning and evidence inspection remain available.</li>
+<li>Disabling the Orca adapter prevents new Orca attempts but retains local <code>helix-worker/1</code> records under the Git common dir for recovery. Existing native and evidence readers ignore those records; an active Orca attempt must be positively settled before native work resumes on that slice. Unknown future attempt schemas are refused for that slice, not interpreted as stopped. Cross-host transfer requires the original attempt record and positive settlement of every attempt; without the record, continuing the same run is refused.</li>
+<li>The Claude Stop reminder checks whether the run may pause before the existing session-stop cleanup; a blocked continuation keeps the session-active sentinel intact.</li>
+</ul>
+</div></details></div></section></div>
+<div class="group" id="delivery-group"><section class="doc-section" id="build-order" aria-labelledby="build-order-title"><div class="section-head"><span class="section-index">06 / 09</span><h2 id="build-order-title">Build Order</h2></div><div class="prose"><p class="section-lede">Nineteen slices form five review units. Each unit has a smaller PR and its own quality receipt; a final review checks the integrated tree.</p><ol class="roadmap"><li><span class="roadmap-n">01</span><div><strong>Evidence kernel</strong><small>AC 4 · starts first</small></div></li><li><span class="roadmap-n">02</span><div><strong>Prototype reference</strong><small>AC 7 · after 1</small></div></li><li><span class="roadmap-n">03</span><div><strong>Readiness and unit gate</strong><small>AC 5, 23 · after 1</small></div></li><li><span class="roadmap-n">04</span><div><strong>Behavior and UI gates</strong><small>AC 6, 9 · after 2, 3</small></div></li><li><span class="roadmap-n">05</span><div><strong>Review and human gates</strong><small>AC 10, 11, 12 · after 4</small></div></li><li><span class="roadmap-n">06</span><div><strong>Build checkpoints</strong><small>AC 13, 14, 15 · after 3, 5</small></div></li><li><span class="roadmap-n">07</span><div><strong>Single-PR closure</strong><small>AC 18 · after 6</small></div></li><li><span class="roadmap-n">08</span><div><strong>Helix plan marker</strong><small>AC 3 · after 2, 7</small></div></li><li><span class="roadmap-n">09</span><div><strong>Prototype digest prompt</strong><small>AC 8 · after 2, 8</small></div></li><li><span class="roadmap-n">10</span><div><strong>Checkpoint viewer</strong><small>AC 16 · after 9</small></div></li><li><span class="roadmap-n">11</span><div><strong>Stop reminder</strong><small>AC 17 · after 6</small></div></li><li><span class="roadmap-n">12</span><div><strong>Helix lane</strong><small>AC 1 · after 7, 9, 10, 11</small></div></li><li><span class="roadmap-n">13</span><div><strong>Route selection</strong><small>AC 2 · after 12</small></div></li><li><span class="roadmap-n">14</span><div><strong>Review-unit plan contract</strong><small>AC 19 · after 7, 9, 13</small></div></li><li><span class="roadmap-n">15</span><div><strong>Stack branch lifecycle</strong><small>AC 20 · after 14</small></div></li><li><span class="roadmap-n">16</span><div><strong>Build unit boundaries</strong><small>AC 21 · after 15</small></div></li><li><span class="roadmap-n">17</span><div><strong>Stacked closure</strong><small>AC 22 · after 16</small></div></li><li><span class="roadmap-n">18</span><div><strong>Worker backend selector</strong><small>AC 24 · after 17</small></div></li><li><span class="roadmap-n">19</span><div><strong>Orca supervised worker</strong><small>AC 25 · after 18</small></div></li></ol><details class="detail full-table"><summary><span>Full Build Order and review units</span><span class="detail-hint">19 slices, 5 PRs, surfaces and checks</span></summary><div class="detail-body"><p>Sizing: 19 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 1: the new skill inventory, plugin pin and gate tests must ship together; slice 12: the lane declaration and canonical lane catalogue must agree in one change; slice 14: the review-unit schema and its <code>/slice</code> consumer must validate one shared grammar.</p>
+<div class='table-wrap'><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Slice</th>
+<th>Delivers</th>
+<th>Surface</th>
+<th>Blocked by</th>
+<th>ACs</th>
+<th>Verify</th>
+<th>Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Evidence kernel</td>
+<td>Versioned evidence validates Surface manifests, historical commit identity, barrier records, gate order, staleness and idempotence without enabling a route.</td>
+<td><code>.agents/skills/helix/**</code>, <code>README.md</code>, <code>.claude-plugin/plugin.json</code>, <code>tests/test-helix-gates.sh</code></td>
+<td>—</td>
+<td>4</td>
+<td><code>bash tests/test-helix-gates.sh</code></td>
+<td>4 planned files · 3 systems · 1 AC</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Prototype reference</td>
+<td>A design-grounded clickable HTML reference exposes named, reachable UI states.</td>
+<td><code>.agents/skills/prototype/**</code>, <code>README.md</code>, <code>tests/test-helix-prototype.sh</code></td>
+<td>1</td>
+<td>7</td>
+<td><code>bash tests/test-helix-prototype.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Readiness and unit gate</td>
+<td><code>slice.py ready</code> refuses unproved Helix blockers and stale barriers while legacy readiness stays stable; <code>/quality-gate</code> uses a shared review-unit reader to review a completed unit against its parent base and retain its receipt while later units remain pending.</td>
+<td><code>.agents/skills/helix/**</code>, <code>.agents/skills/slice/scripts/slice.py</code>, <code>.agents/skills/quality-gate/SKILL.md</code>, <code>.agents/skills/quality-gate/scripts/receipt.py</code>, <code>tests/test-slice.sh</code>, <code>tests/test-helix-unit-gate.sh</code></td>
+<td>1</td>
+<td>5, 23</td>
+<td><code>bash tests/test-slice.sh &amp;&amp; bash tests/test-helix-unit-gate.sh</code></td>
+<td>6 files · 3 systems · 2 ACs</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Behavior and UI gates</td>
+<td>Fresh test planning proves behavior first; matched-state visual review records PASS, FAIL or INVALID.</td>
+<td><code>.agents/skills/helix/**</code>, <code>tests/test-helix-behavior.sh</code>, <code>tests/test-helix-ui.sh</code></td>
+<td>2, 3</td>
+<td>6, 9</td>
+<td><code>bash tests/test-helix-behavior.sh &amp;&amp; bash tests/test-helix-ui.sh</code></td>
+<td>4 planned files · 2 systems · 2 ACs</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Review and human gates</td>
+<td>Independent reviewers use the existing receipt policy; host-role-checked exact-scope grants and bounded retries control advancement.</td>
+<td><code>.agents/skills/helix/**</code>, <code>tests/test-helix-review.sh</code>, <code>tests/test-helix-human.sh</code></td>
+<td>4</td>
+<td>10, 11, 12</td>
+<td><code>bash tests/test-helix-review.sh &amp;&amp; bash tests/test-helix-human.sh</code></td>
+<td>4 planned files · 2 systems · 3 ACs</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Build checkpoints</td>
+<td><code>/build</code> serializes shared writes and one commit per proved slice, merges disjoint source work, records the exact combined-tree barrier and passes feedback forward.</td>
+<td><code>.agents/skills/build/SKILL.md</code>, <code>tests/test-helix-build.sh</code>, <code>tests/test-helix-parallel.sh</code></td>
+<td>3, 5</td>
+<td>13, 14, 15</td>
+<td><code>bash tests/test-helix-build.sh &amp;&amp; bash tests/test-helix-parallel.sh</code></td>
+<td>3 planned files · 2 systems · 3 ACs</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Single-PR closure</td>
+<td>Wrap-up requires final human acceptance, checks every slice receipt, publishes captures and keeps the final suite and one PR.</td>
+<td><code>.agents/skills/wrap-up-session/**</code>, <code>tests/test-helix-wrapup.sh</code></td>
+<td>6</td>
+<td>18</td>
+<td><code>bash tests/test-helix-wrapup.sh</code></td>
+<td>4 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Helix plan marker</td>
+<td>Helix planning records the workflow marker, reference and checkpoint gate contract.</td>
+<td><code>.agents/skills/helix/**</code>, <code>tests/test-helix-plan.sh</code></td>
+<td>2, 7</td>
+<td>3</td>
+<td><code>bash tests/test-helix-plan.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Prototype digest prompt</td>
+<td>The fresh build prompt carries the approved prototype digest and invalidates stale visual authority.</td>
+<td><code>.agents/skills/slice/SKILL.md</code>, <code>.agents/skills/slice/references/build-prompt.md</code>, <code>tests/test-helix-plan.sh</code></td>
+<td>2, 8</td>
+<td>8</td>
+<td><code>bash tests/test-helix-plan.sh</code></td>
+<td>3 files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Checkpoint viewer</td>
+<td>An HTML view reads the canonical plan and evidence to show order, statuses and review links.</td>
+<td><code>.agents/skills/helix/**</code>, <code>tests/test-helix-view.sh</code></td>
+<td>9</td>
+<td>16</td>
+<td><code>bash tests/test-helix-view.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Stop reminder</td>
+<td>The existing Claude Stop hook reports open gates but permits human waits and blocked exits.</td>
+<td><code>.agents/hooks/session-stop.sh</code>, <code>tests/test-helix-stop.sh</code></td>
+<td>6</td>
+<td>17</td>
+<td><code>bash tests/test-helix-stop.sh</code></td>
+<td>2 files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Helix lane</td>
+<td>The lane catalogue registers an explicit Helix route without changing ordinary cues.</td>
+<td><code>.agents/skills/task-registry/lanes/helix.md</code>, <code>specs/lane-catalogue.md</code>, <code>tests/test-lane-catalogue.sh</code></td>
+<td>7, 9, 10, 11</td>
+<td>1</td>
+<td><code>bash tests/test-lane-catalogue.sh</code></td>
+<td>3 planned files · 3 systems · 1 AC</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Route selection</td>
+<td><code>/go</code> chooses the Helix lane only on an explicit build request.</td>
+<td><code>.agents/skills/go/SKILL.md</code>, <code>tests/test-go-lanes.sh</code></td>
+<td>12</td>
+<td>2</td>
+<td><code>bash tests/test-go-lanes.sh</code></td>
+<td>2 files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Review-unit plan contract</td>
+<td>The planner validates exact ordered slice coverage and records optional review units without changing single-PR plans.</td>
+<td><code>.agents/skills/helix/**</code>, <code>.agents/skills/slice/**</code>, <code>tests/test-helix-stack-plan.sh</code></td>
+<td>7, 9, 13</td>
+<td>19</td>
+<td><code>bash tests/test-helix-stack-plan.sh</code></td>
+<td>4 planned files · 3 systems · 1 AC</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Stack branch lifecycle</td>
+<td>Stable unit branches and PRs track explicit parent bases, preserved commits, remote outcomes and stale parents.</td>
+<td><code>.agents/skills/helix/**</code>, <code>tests/test-helix-stack-branch.sh</code></td>
+<td>14</td>
+<td>20</td>
+<td><code>bash tests/test-helix-stack-branch.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Build unit boundaries</td>
+<td><code>/build</code> publishes a proved unit, creates the next branch from its head and carries handovers and barriers across the boundary.</td>
+<td><code>.agents/skills/build/SKILL.md</code>, <code>tests/test-helix-stack-build.sh</code></td>
+<td>15</td>
+<td>21</td>
+<td><code>bash tests/test-helix-stack-build.sh</code></td>
+<td>2 files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Stacked closure</td>
+<td>Wrap-up checks each unit's retained receipt, suite, CI, merge ancestry and retargeted diff; final PR waits for integrated owner acceptance.</td>
+<td><code>.agents/skills/wrap-up-session/**</code>, <code>tests/test-helix-stack-wrapup.sh</code></td>
+<td>16</td>
+<td>22</td>
+<td><code>bash tests/test-helix-stack-wrapup.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Worker backend selector</td>
+<td><code>/build</code> accepts <code>--worker-backend</code> values <code>auto</code>, <code>native</code> or <code>orca</code>, probes capabilities without mutation, records each attempt and preserves native behavior when Orca is absent.</td>
+<td><code>.agents/skills/build/SKILL.md</code>, <code>.agents/skills/build/scripts/worker-backend.py</code>, <code>tests/test-helix-worker-selector.sh</code></td>
+<td>17</td>
+<td>24</td>
+<td><code>bash tests/test-helix-worker-selector.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Orca supervised worker</td>
+<td>The optional Orca adapter starts a slice in a child worktree, supervises its Dispatch ID and settles failures before retry/fallback.</td>
+<td><code>.agents/skills/build/scripts/worker-backend.py</code>, <code>.agents/skills/build/scripts/orca-worker.py</code>, <code>tests/test-helix-orca-worker.sh</code></td>
+<td>18</td>
+<td>25</td>
+<td><code>bash tests/test-helix-orca-worker.sh</code></td>
+<td>3 planned files · 2 systems · 1 AC</td>
+</tr>
+</tbody>
+</table></div>
+<h3>Review units</h3>
+<ul>
+<li>U1: slices 1-3; base: default; evidence kernel and readiness.</li>
+<li>U2: slices 4-7; base: U1; behavior, UI, human gates and single-PR compatibility.</li>
+<li>U3: slices 8-13; base: U2; planning, viewer, reminder and explicit route.</li>
+<li>U4: slices 14-17; base: U3; stacked-PR contract, branch lifecycle and closure.</li>
+<li>U5: slices 18-19; base: U4; portable worker selection and optional Orca supervision.</li>
+</ul>
+<p>These are the review boundaries for implementing this spec. This implementation is an <strong>ordinary <code>/build</code> bootstrap</strong>, not a Helix run: before U1, record a provisional bootstrap ID and default-branch SHA in the first build handover, and create <code>helix/helix-checkpoint-loop/&lt;bootstrap-id&gt;/u1</code>. Its ID is never rebound to a <code>run.json</code> ID. Before each next unit, branch <code>u&lt;n&gt;</code> from the preceding published unit head. Until the stack helper exists, use explicit Git and <code>gh pr create --draft --base &lt;parent&gt;</code>; inspect the exact remote head/base before creation and after timeouts.</p>
+<p>Run <code>/build</code> only through the current unit boundary in a fresh session, closing that unit's slices and combined barrier; the user-supplied per-unit prompt authorizes this bootstrap boundary even though ordinary <code>/build</code> normally runs the whole plan. Slice 3 adds unit-scoped <code>/quality-gate</code>, so U1 can run it at its boundary. Run that gate with the parent base, save its immutable receipt, run the cached full suite, push the unit branch, open its draft PR, and wait for CI and review before marking it ready. Record the PR, receipt fingerprint, base/head SHAs and next-unit branch in the handover. Do not invoke the existing terminal one-PR <code>/wrap-up-session</code> for U1–U3; the manual steps above are their interim closure. Resume the next unit from the preceding published head while the parent PR is under review. After each parent merge, apply the retarget, ancestry, diff and recheck procedure above. U4 uses the finished stacked closure for an intermediate PR; U5 is the final PR and receives the integrated owner review. The Helix stack contract is available to downstream runs after U4 merges; native worker execution remains functional without U5, while <code>--worker-backend orca</code> is available only after U5 lands.</p>
+</div></details><details class="detail build-prompt"><summary><span>Fresh-session build prompt</span><span class="detail-hint">Copy after review</span></summary><div class="detail-body"><p>Build prompt:</p>
+<pre><code>Invoke `/build` for `specs/helix-checkpoint-loop.md`.
+Plan: `## Plan: helix-checkpoint-loop` in `tasks/todo.md`, 19 slices, ready set 1.
+Files: .agents/skills/helix/**, .agents/skills/prototype/**, .agents/skills/go/SKILL.md, .agents/skills/task-registry/lanes/helix.md, .agents/skills/slice/**, .agents/skills/build/**, .agents/skills/wrap-up-session/**, .agents/skills/quality-gate/**, .agents/hooks/session-stop.sh, .claude-plugin/plugin.json, README.md, specs/lane-catalogue.md, tests/**.
+Instructions:
+1. `/build`'s pre-flight files the slices: `/slice specs/helix-checkpoint-loop.md --file --approve`. The planning session filed nothing. This bootstrap starts on U1; record a provisional bootstrap ID and base SHA before slice 1 and branch as § Review units specifies.
+2. Build only slices 1–3 in the first fresh session. At each later fresh session, build only the next unit's declared range. A slice edits only its Surface in § Build Order. This explicit bootstrap boundary overrides ordinary `/build`'s all-task continuation.
+3. At every unit boundary, run the unit-scoped existing quality gate with the exact parent base, cached full suite and CI; preserve the receipt and follow the interim publication/handover runbook in § Review units. Keep child PRs draft until their parent merges. Do not invoke terminal one-PR `/wrap-up-session` for U1–U3.
+4. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user. Reopen a slice for an in-unit correction or append a tail unit for new scope; do not change published ranges.
+5. Close every slice with a `&gt; Handover:` line; after U5 and integrated owner acceptance, run the new stacked closure in `/wrap-up-session`.
+Constraints: Helix is opt-in and this integration is built through ordinary `/build`; use the current Finding Model and GO/HOLD policy; default human review is per slice with explicit next-N delegation; one commit per initial slice closure and linked commits for reopened slices; explicit linear review units U1–U5 use smaller stacked PRs with preserved slice SHAs and no history rewrite; absent review units keep one PR; bounded retries block without bypass; a transition CLI enforces gates across harnesses. Bootstrap U1–U4 with the existing native dispatch. After U5, worker execution defaults to `--worker-backend auto`, selecting verified Orca when available and capable native execution otherwise; explicit `orca` refuses when unavailable and no backend switch bypasses an unsettled attempt.
+</code></pre>
+</div></details></div></section></div>
+<div class="group" id="scope-group"><section class="doc-section" id="decisions" aria-labelledby="decisions-title"><div class="section-head"><span class="section-index">07 / 09</span><h2 id="decisions-title">Decisions</h2></div><div class="prose"><div class='table-wrap'><table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Options</th>
+<th>Recommended</th>
+<th>Wrong when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Activation</td>
+<td>Opt-in route / replace ordinary build</td>
+<td><strong>Opt-in</strong>, source: user</td>
+<td>Replacement is justified only after real downstream runs establish parity</td>
+</tr>
+<tr>
+<td>Approval cadence</td>
+<td>Per slice / batches / final only</td>
+<td><strong>Per slice</strong>, with explicit next-N grants, source: user</td>
+<td>A human cannot inspect each slice; they may then delegate named slices</td>
+</tr>
+<tr>
+<td>UI reference</td>
+<td>Prototype for significant new UI / every UI / docs alone</td>
+<td><strong>Approved prototype when significant</strong>, existing reference for migrations and <code>DESIGN.md</code>/concept for localized UI, source: user</td>
+<td>A prototype would merely duplicate an already runnable reference</td>
+</tr>
+<tr>
+<td>Review verdict</td>
+<td>New all-findings-fixed rule / existing GO-HOLD-STOP</td>
+<td><strong>Existing receipt policy</strong>, with two independent verdicts, source: user</td>
+<td>The current policy cannot represent a proven blocker; fix that policy rather than fork it</td>
+</tr>
+<tr>
+<td>Commit/PR shape</td>
+<td>One PR per feature / one PR per slice / grouped linear stack</td>
+<td><strong>Grouped linear stack when review units are declared; otherwise one PR</strong>, source: user</td>
+<td>A project disallows merge commits or lacks a GitHub remote; use one PR before publishing a stack</td>
+</tr>
+<tr>
+<td>Stack merge strategy</td>
+<td>Merge commits / squash / rebase merge</td>
+<td><strong>Merge commits preserve slice SHAs</strong>, source: inferred</td>
+<td>Commit identity ceases to be part of evidence; that would require a separately reviewed migration of the receipt contract</td>
+</tr>
+<tr>
+<td>Worker execution</td>
+<td>Native only / Orca mandatory / backend selector</td>
+<td><strong><code>auto</code> prefers verified Orca, else capable native; <code>native</code> and <code>orca</code> may be forced</strong>, source: user</td>
+<td>A host cannot provide Git, tests, repository writes or independent reviewers; report missing capabilities instead of claiming a Helix build</td>
+</tr>
+<tr>
+<td>Unknown worker liveness</td>
+<td>Retry after timeout / wait for positive settlement</td>
+<td><strong>Wait for positive stop/failure before retry or fallback</strong>, source: Orca recovery contract and architecture review</td>
+<td>A future sandbox can enforce exclusive, revocable shared-write authority and prove old results cannot be integrated</td>
+</tr>
+<tr>
+<td>Orca base pinning</td>
+<td>Atomic new-child start / verified child checkout before dispatch</td>
+<td><strong>Create and verify the child checkout first</strong>, source: architecture review</td>
+<td>The installed Orca runtime cannot launch a supervised worker in an existing verified checkout; then explicit Orca mode refuses</td>
+</tr>
+<tr>
+<td>Cross-host continuation</td>
+<td>Infer quiescence / transfer attempt records</td>
+<td><strong>Require original local attempt records and positive settlement</strong>, source: architecture review</td>
+<td>A durable shared coordinator store later provides authoritative attempt identity and liveness</td>
+</tr>
+<tr>
+<td>Retry</td>
+<td>Unlimited / bounded and blocked</td>
+<td><strong>Existing bounded escalation</strong>, source: user</td>
+<td>A recoverable environment issue is resolved; resume from retained evidence</td>
+</tr>
+<tr>
+<td>Enforcement</td>
+<td>Agent-written Stop state / validated transition CLI</td>
+<td><strong>Validated advancement</strong>, source: conversation</td>
+<td>A harness supplies a stronger trusted gate without trapping legitimate pauses</td>
+</tr>
+<tr>
+<td>Evidence identity</td>
+<td>Current HEAD / explicit candidate fingerprint</td>
+<td><strong>Explicit fingerprint</strong>, source: inferred</td>
+<td>A later commit or worktree merge otherwise makes <code>HEAD</code> refer to different bytes</td>
+</tr>
+</tbody>
+</table></div>
+</div></section><section class="doc-section" id="acceptance-criteria" aria-labelledby="acceptance-criteria-title"><div class="section-head"><span class="section-index">08 / 09</span><h2 id="acceptance-criteria-title">Acceptance Criteria</h2></div><div class="prose"><details class="detail"><summary><span>All 25 acceptance criteria</span><span class="detail-hint">Open checklist</span></summary><div class="detail-body"><ul>
+<li>The lane catalogue registers a distinct Helix route with explicit cues and no fallback from ordinary requests.</li>
+<li><code>/go</code> selects that route only for an explicit Helix build request; ordinary requests retain their current lane and no unmarked plan changes behavior.</li>
+<li>Helix planning marks the spec <code>workflow: helix/1</code>, carries that mode into the fresh build prompt, and records each checkpoint's reference, applicable gates and done criteria in the Build Order.</li>
+<li>The versioned gate CLI refuses malformed, missing, stale or wrong-slice evidence and refuses an active run whose marker disappears; repeated identical records are idempotent. A slice candidate hashes declared Surface bytes and mode while excluding <code>tasks/**</code>, and old receipts verify against their recorded commit tree.</li>
+<li>A done Helix header without valid committed evidence and a committed barrier for the exact merged slice set and current combined tree cannot release a dependent slice; valid proof can. Legacy <code>slice.py ready</code> fixtures remain unchanged.</li>
+<li>A fresh test-planner context expands each checkpoint's user-perspective behavior cases before a separate implementer writes code, and Gate 1 records a failing test followed by a passing affected-test run on the candidate tree.</li>
+<li>The prototype skill produces a self-contained interactive HTML reference and explicit reachable-state manifest from approved design inputs before implementation.</li>
+<li>Helix planning carries the approved prototype path and digest in the spec and fresh build prompt; a changed prototype invalidates affected UI evidence and grants.</li>
+<li>UI slices compare real app and reference captures for the same state, viewport and slice scope; state mismatch is <code>INVALID</code>, fixable visual differences block, and only non-UI slices may skip with a reason; capture hashes and paths remain available for PR publication.</li>
+<li>Two context-isolated reviewers check each candidate independently using the review dispatch contract; existing GO/HOLD/STOP policy controls Gate 3, and fixes rerun affected tests and changed UI comparisons.</li>
+<li>Each slice waits for owner review by default; an explicit next-N grant from a host role-tagged owner turn applies only to the exact named slices and is recorded as delegated, never as personal approval. Agent-authored or unverifiable resumed grants are refused.</li>
+<li>Exhausted repair attempts or unavailable required capabilities block the affected slice with evidence without releasing descendants; unrelated ready slices can continue.</li>
+<li>Closing a slice records its evidence and handover, marks its header done, and produces one orchestrator-owned commit before its dependents become ready; a failed commit cannot release them.</li>
+<li>Disjoint ready slices may implement in isolated worktrees without writing shared status; the orchestrator integrates source in table order, then dependent slices wait for central affected-test and quality checks recorded in a committed barrier bound to the exact merged slice set and combined tree.</li>
+<li>Human corrections are captured in relevant typed learnings and the next slice's handover/context without a second flat memory store.</li>
+<li>The Helix route renders a reviewable checkpoint view with statuses and evidence links from the canonical spec, todo and receipts.</li>
+<li>A Claude Stop hook reports open gates yet permits human waits and blocked exits, while Codex and Pi use the same gate CLI for advancement.</li>
+<li>In single-PR mode, after all slices the owner reviews the integrated feature; requested changes become gated slices, and final <code>/wrap-up-session</code> waits for acceptance before checking every slice and integrated quality receipt, running the cached full suite, publishing captures, pushing the slice-commit branch and maintaining one PR; ordinary-build closure still works.</li>
+<li>A Helix plan may declare contiguous review units that cover every slice exactly once. Without them it keeps one PR; with them <code>/slice</code> rejects gaps, overlaps, reordered slices or mutation of a published unit's ID, range or base. A reopened slice preserves its ID; new scope appends numbered slices in a tail unit while unpublished suffix units may be regenerated. The build prompt and task index carry the reviewed unit boundaries.</li>
+<li>In stack mode, each unit uses a stable branch and one PR against its predecessor, or the default branch for the first unit. Creating or resuming a PR re-queries the remote head/base; a timeout is <code>unknown</code>, never permission to create a duplicate. Parent changes merge into descendants without rewriting published slice commits and invalidate affected evidence and checks.</li>
+<li><code>/build</code> changes branches only at declared review-unit boundaries after the unit's slices and combined barrier pass; later units can build while parent PRs are under review, and blocked or stale ancestors keep descendant PRs draft.</li>
+<li>Each unit PR has its own existing GO/HOLD quality receipt, cached full-suite proof, CI, handovers and visual evidence. Intermediate PRs refer to the issue; only the final PR closes it. After each parent merges with a merge commit, descendants retarget to the default branch, prove their slice SHAs are still ancestors, verify the diff contains only their review unit, and rerun changed barriers, receipts, suite and CI. Squash/rebase merge, unknown state or failed checks block advancement. The final PR becomes ready only after all parents merge and the owner accepts the integrated feature; one-PR and ordinary-build closure remain unchanged.</li>
+<li>Unit-scoped <code>/quality-gate</code> runs the existing six phases once a unit's own slices and barrier are done, with later units still pending. It uses one explicit parent base for diff, affected tests, fingerprint and receipt write; it retains an immutable receipt per unit and invalidates that receipt on head/base changes without changing ordinary end-of-build gate behavior.</li>
+<li><code>/build --worker-backend</code> accepts <code>auto</code>, <code>native</code> and <code>orca</code>, defaults to <code>auto</code>, and records the selected backend for each attempt. <code>auto</code> chooses verified Orca orchestration for this worktree when available, otherwise a capable native worker; explicit <code>orca</code> refuses before dispatch when unavailable, and hosts missing essential build capabilities block rather than weakening gates. Existing ordinary-build dispatch remains unchanged.</li>
+<li>The optional Orca backend creates and checks a child worktree at the pinned integration SHA before dispatch, then starts a supervised worker in that exact checkout; it refuses when the installed runtime cannot target the verified checkout. It supervises a Dispatch ID rather than a terminal handle and returns only source changes and draft evidence. Unknown or unverifiable liveness blocks retry and native fallback until positive stop/failure, private-change inspection and release. Orchestrator-only Surface checks, integration, receipts, commits, barriers, independent reviewers and host owner grants remain authoritative.</li>
+</ul>
+</div></details></div></section><section class="doc-section" id="implementation-paths" aria-labelledby="implementation-paths-title"><div class="section-head"><span class="section-index">09 / 09</span><h2 id="implementation-paths-title">Implementation Paths</h2></div><div class="prose"><details class="detail"><summary><span>Planned file surfaces</span><span class="detail-hint">Open paths</span></summary><div class="detail-body"><ul>
+<li><code>.agents/skills/helix/**</code> — opt-in gate contract, versioned evidence validation, grant scope, advancement and cross-harness orchestration.</li>
+<li><code>.agents/skills/prototype/**</code> — interactive reference authoring and state manifest validation.</li>
+<li><code>.agents/skills/go/SKILL.md</code>, <code>.agents/skills/task-registry/lanes/helix.md</code>, <code>specs/lane-catalogue.md</code> — explicit Helix route without changing ordinary route precedence.</li>
+<li><code>.agents/skills/slice/**</code> — prototype digest in the build prompt, ready-set gate check and optional review-unit coverage validation.</li>
+<li><code>.agents/skills/build/**</code> — fresh test-planning and implementation contexts, per-slice gates, commit and unit branch boundary; runtime-neutral worker selector, persistent attempts and optional supervised Orca adapter.</li>
+<li><code>.agents/skills/quality-gate/SKILL.md</code>, <code>.agents/skills/quality-gate/scripts/receipt.py</code> — optional unit-scoped invocation and base-bound retained receipts using the existing gate phases and policy.</li>
+<li><code>.agents/skills/wrap-up-session/**</code> — single-PR compatibility and per-unit stacked closure over preserved slice commits and retained visual evidence.</li>
+<li><code>.agents/hooks/session-stop.sh</code> — optional Claude Stop reminder without replacing the transition gate.</li>
+<li><code>.claude-plugin/plugin.json</code>, <code>README.md</code>, <code>tests/**</code> — plugin version, skills table and focused cross-harness, legacy and failure fixtures.</li>
+</ul>
+</div></details></div></section></div><section class="review-callout" aria-labelledby="review-title"><h2 id="review-title">Review the architecture before building</h2><p>Reply with a finding in <code>[constraints|system-design|contracts|data-models|build-order] finding — evidence</code> form, or start the fresh build session using the prompt in Build Order when the design is accepted.</p></section><footer class="footer"><span>Helix architecture review · generated 2026-10-16</span><span>Source: <a href="helix-checkpoint-loop.md">specs/helix-checkpoint-loop.md</a> · SHA-256 6f6500ac206e</span></footer></main></div><script>
+(function(){
+  const root=document.documentElement,button=document.getElementById('theme-toggle');
+  let saved=null;try{saved=localStorage.getItem('helix-plan-theme')}catch(e){}
+  if(saved==='dark'||saved==='light') root.dataset.theme=saved;
+  else if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches) root.dataset.theme='dark';
+  button.addEventListener('click',function(){const next=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=next;button.setAttribute('aria-label','Switch to '+(next==='dark'?'light':'dark')+' theme');try{localStorage.setItem('helix-plan-theme',next)}catch(e){}});
+  const links=[...document.querySelectorAll('.side nav a')];
+  if('IntersectionObserver' in window){const observer=new IntersectionObserver(function(entries){for(const entry of entries){if(entry.isIntersecting){links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+entry.target.id));}}},{rootMargin:'-15% 0px -72% 0px'});for(const link of links){const target=document.querySelector(link.getAttribute('href'));if(target)observer.observe(target)}}
+})();
+</script></body></html>

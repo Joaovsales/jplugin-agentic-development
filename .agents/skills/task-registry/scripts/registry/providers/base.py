@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence
 
 from ..model import ExternalRef, Task
 
@@ -163,14 +163,20 @@ class TrackerProvider(abc.ABC):
     def list_tasks(self) -> List[Task]:
         ...
 
-    def list_tasks_with_linked_prs(self) -> List[Task]:
-        """`list_tasks`, plus what each open task's linked pull requests say about it.
+    def linked_pr_state(self, task: Task) -> Optional[Dict[str, str]]:
+        """What this task's linked pull requests say about it, or None when unknown.
 
-        Only `select` needs those facts, and reading them can cost a tracker
-        extra calls that can fail, so the plain reads leave them out. A tracker
-        with no pull requests has nothing to add.
+        Only `select` asks, and only for a routine's own candidates: the read
+        can cost a tracker one call per task, so the plain reads never pay it.
+        The answer carries `unresolved_linked_pr` ("true" while any pull
+        request for the task is open) and, when none is open,
+        `merged_linked_pr` naming a pull request of this repository that merged
+        with a closing keyword and left the task open. None means the state
+        could not be read this run, and the caller refuses rather than treat it
+        as clean. A tracker whose `linked_pr_exclusion_available()` is None is
+        never asked.
         """
-        return self.list_tasks()
+        return None
 
     @abc.abstractmethod
     def get_task(self, ref: ExternalRef) -> Task:

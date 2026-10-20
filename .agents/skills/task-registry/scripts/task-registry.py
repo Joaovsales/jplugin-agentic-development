@@ -61,7 +61,10 @@ from registry.detail import Registry  # noqa: E402
 from registry.escalation import EscalationError, EscalationRequest, escalate_task  # noqa: E402
 from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
+    LinkedPrStateUnknown,
     is_escalated,
+    routine_pool,
+    with_linked_pr_state,
     matched_label,
     missing_routine_labels,
     routine_for_label,
@@ -529,7 +532,7 @@ def _select(registry: Registry, routine):
     if code:
         return verdict, code
 
-    tasks = registry.provider.list_tasks_with_linked_prs()
+    tasks = registry.provider.list_tasks()
 
     if registry.provider.result_truncated:
         return (
@@ -538,23 +541,43 @@ def _select(registry: Registry, routine):
             "would be indistinguishable from 'there were more'"
         ), 1
 
-    # Checked AFTER the read: a provider only learns its own degradations by querying.
-    if registry.provider.linked_pr_exclusion_available() is False:
+    # A tracker with pull requests that cannot say which are open must refuse:
+    # an unanswered exclusion reads as a clean backlog.
+    exclusion = registry.provider.linked_pr_exclusion_available()
+    if exclusion is False:
         return (
             f"task-registry: refusing to select — {registry.provider.name} could not "
-            "report linked pull request state (`closedByPullRequestsReferences` and "
-            "`stateReason` need gh >= 2.73.0), so the in-flight exclusion cannot be "
+            "report linked pull request state, so the in-flight exclusion cannot be "
             "evaluated. Selecting anyway re-picks every issue already under review and "
             "races on its branch."
         ), 1
 
+    # The linked-PR read costs one tracker call per task, so it runs for the
+    # routine's own pool only -- after the kind and claim filters -- and the
+    # stranded backstop covers that same pool (another routine's stranded issue
+    # is named when that routine runs).
+    pool = routine_pool(tasks, config, routine)
     lines = [f"unclassified:  {len(unclassified(tasks, config))} open issue(s) carry no kind label"]
-    for task, pull in stranded(tasks):
+    if exclusion:
+        try:
+            pool = with_linked_pr_state(pool, registry.provider.linked_pr_state)
+        except LinkedPrStateUnknown as exc:
+            reference = (
+                registry.provider.reference_label(exc.task.external) if exc.task.external else exc.task.id
+            )
+            return (
+                f"task-registry: refusing to select — {registry.provider.name} could not read "
+                f"the linked pull request state of {reference} this run, so the in-flight "
+                "exclusion cannot be evaluated for it. Selecting anyway could re-pick an issue "
+                "already under review."
+            ), 1
+        lines.append(f"checked:       {len(pool)} candidate(s) for linked pull requests")
+    for task, pull in stranded(pool):
         lines.append(
             f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
             f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"
         )
-    candidates = select_candidates(tasks, config, routine)
+    candidates = select_candidates(pool, config, routine)
     if not candidates:
         lines.append(f"candidate:     none — {routine} has nothing to claim")
         return "\n".join(lines), 0
