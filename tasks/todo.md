@@ -2118,6 +2118,9 @@ Filed this sweep:
 ### Slice 14/14 — Build A/B eval
 - [ ] Build A/B eval <!-- task-id: plan.specs-aposd-first-build-md.build-a-b-eval --> — Slice 14/14: two seeded features with an answer key; a Mode B `/eval` compares master `/build` with design-mode `/build… ([#324](https://github.com/Joaovsales/jplugin-agentic-development/issues/324)) (blocked-by: plan.specs-aposd-first-build-md.gate-fixes)
   [ ] TDD: manual — tests/fixtures/build-eval/ holds two seeded features and an answer key; `/eval` Mode B, N ≥ 2 per arm, arm A master `/build` on a legacy plan, arm B design-mode `/build`; scores AC coverage, freeze violations, design findings and cost; reports the keep-or-revert rule result; report path in the PR body -> fixtures and eval run (AC 17)
+> Handover: unfinished: the Mode B runs and the keep-or-revert report — landed 630838f, `tests/fixtures/build-eval/` (seeds `retrykit/`, `confkit/` with legacy and design plans; operator `README.md`; `answer-key.md` with the 5-criterion rubric, per-AC probes, pitfall lists, freeze-violation detection).
+> Do not re-derive: candidates run `claude -p --plugin-dir <checkout> --model sonnet` (the inline plugin replaces the installed jplugin); agents load from `~/.claude/agents`, so each run dir gets its arm's `.claude/agents/` copied in, or arm B has no `test-engineer`; checkouts `.claude/worktrees/kit-m` (master b2b5634) and `kit-d` (630838f); runner and run map in the session scratchpad (`run_one.sh`, `runs.map`, 8 runs = 2 per arm per feature).
+> Open: wave 1 failed before any work — `Failed to authenticate: OAuth session expired` from headless `claude`; the user must re-login, then the 8 runs and the judge pass follow.
 
 ## Plan: diagram-skill
 > Spec: specs/diagram-skill.md
