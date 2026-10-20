@@ -182,6 +182,15 @@ blocker between them is a plan defect — serialized in table order and
 reported, never guessed. Re-run `ready` after every slice closes to pick up
 the next batch.
 
+**Design-mode slices** (`mode=design`) are never in parallel and never
+worktree-isolated: design-mode slices run one at a time in the main tree, in
+table order, each as three dispatches — stubs, a `test-engineer` Write job, and
+the implementation. The loop is stubs → Write → red tests committed →
+`> Frozen:` → implement → depth pass → `check --index` → handover with a
+`> Interface:` line; its steps, dispatch inputs and resume rules are
+`.agents/skills/build/references/design-mode.md`. Tdd-mode slices follow the
+rest of this section.
+
 **If 2+ ready slices are disjoint**:
 1. Dispatch one sub-agent per slice, passing
    `isolation: "worktree"` on each `Agent` call **when the slice writes files**.
@@ -277,14 +286,16 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 When a slice's last `TDD:` row passes:
 
 ```bash
-python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha>
+python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha> --index tasks/todo.md
 ```
 
 This matches `git diff --name-only <base>..HEAD` against the slice's
 declared surface and prints `undeclared: <paths>` and `untouched: <globs>`,
 exiting 0 only when both are empty. Informational — nothing stops on a
 non-empty report; fold the result into the handover below and the Phase 4.5
-batch.
+batch. On a design-mode slice `--index` also checks the freeze: exit 3 stops the
+build (`frozen-edited:`, `amended-unknown:` or `missing freeze commit`); on a
+tdd-mode slice it changes nothing.
 
 Write a `> Handover:` blockquote under the slice heading, after its rows —
 one to four blockquote lines, each with its own prefix:
@@ -294,6 +305,7 @@ one to four blockquote lines, each with its own prefix:
 > Do not re-derive: the facts the next slice must not rediscover
 > Surface: the `check` report (`undeclared:` / `untouched:`, or none)
 > Open: one open question (optional)
+> Interface: <path> — <entry points> (design-mode slices only)
 ```
 
 The first two lines are required; the blockquote is the unit every reader

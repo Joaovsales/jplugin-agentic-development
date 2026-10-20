@@ -1783,4 +1783,50 @@ for command in 'bash scripts/install-codex.sh --preview' \
     "Codex guide: README documents $command"
 done
 
+# specs/aposd-first-build.md AC11: /build runs each design-mode slice as three
+# dispatches, one at a time in the main tree, in a fixed order.
+DM_REF=".agents/skills/build/references/design-mode.md"
+assert_file_contains "$BUILD_SKILL" "references/design-mode.md" \
+  "design-mode: SKILL.md points at references/design-mode.md"
+assert_prose_contains "$BUILD_SKILL" "design-mode slices run one at a time in the main tree" \
+  "design-mode: SKILL.md runs design-mode slices one at a time in the main tree"
+assert_prose_contains "$BUILD_SKILL" "never in parallel" \
+  "design-mode: SKILL.md never runs a design-mode slice in parallel"
+assert_prose_contains "$DM_REF" "never worktree-isolated" \
+  "design-mode: reference never isolates a design-mode slice in a worktree"
+assert_prose_contains "$BUILD_SKILL" "--index tasks/todo.md" \
+  "design-mode: Slice Close passes --index to slice.py check"
+assert_prose_contains "$BUILD_SKILL" "exit 3 stops the build" \
+  "design-mode: Slice Close stops on exit 3"
+assert_prose_contains "$BUILD_SKILL" "> Interface:" \
+  "design-mode: the handover carries a > Interface: line"
+flat_dm="$(flatten "$DM_REF")"
+prev=-1; order_ok=yes
+for step in "1. Stubs" "2. Write" "3. Red" "4. Freeze" "5. Implement" "6. Depth pass" "7. Check" "8. Handover"; do
+  pos=$(printf '%s' "$flat_dm" | grep -bo -- "$step" | head -1 | cut -d: -f1)
+  if [ -z "${pos:-}" ] || [ "$pos" -le "$prev" ]; then order_ok="no ($step)"; break; fi
+  prev=$pos
+done
+assert_eq "yes" "$order_ok" "design-mode: the eight steps appear in order"
+for token in "§ Acceptance Criteria" "§ Interfaces" "§ Edge Cases" "§ Component contracts" \
+             "§ Data models" "the stub paths" "model \`sonnet\`" "test-engineer" \
+             "> Frozen: <S>..<F> — red: <failing summary> — context: <fresh, forked or inline>" \
+             "> Test amended: <path> — <reason>" "check --spec <spec> --slice <n> --base <sha> --index tasks/todo.md" \
+             "stop on exit 3" "frozen-edited:" "amended-unknown:" "missing freeze commit" \
+             "forked" "Q1" "existing code is never replaced by a stub" "uncommitted tests" \
+             "no \`> Frozen:\` line"; do
+  assert_prose_contains "$DM_REF" "$token" "design-mode: reference contains '$token'"
+done
+assert_prose_contains "$DM_REF" "carries no implementation" \
+  "design-mode: the Write prompt carries no implementation"
+assert_prose_contains ".agents/skills/build/references/harness-dispatch.md" "context: \"fresh\"" \
+  "design-mode: harness-dispatch notes Pi dispatches the writer fresh"
+assert_prose_contains ".agents/skills/build/references/harness-dispatch.md" "Codex records \`forked\`" \
+  "design-mode: harness-dispatch notes Codex records forked until Q1"
+assert_file_contains "tasks/concepts.md" "**design mode**" "design-mode: concepts.md defines design mode"
+assert_file_contains "tasks/concepts.md" "**test freeze**" "design-mode: concepts.md defines test freeze"
+assert_file_contains "AGENTS.md" "stub → Write → freeze → implement" \
+  "design-mode: AGENTS.md Workflow step 4 names the design-mode loop"
+assert_file_contains "AGENTS.md" "\`test-engineer\`" "design-mode: AGENTS.md § Agents names test-engineer"
+
 finish
