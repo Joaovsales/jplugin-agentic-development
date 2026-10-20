@@ -2025,9 +2025,12 @@ Filed this sweep:
 > Surface: none (check exit 0)
 
 ### Slice 2/14 — Interfaces section and mode
-- [ ] Interfaces section and mode <!-- task-id: plan.specs-aposd-first-build-md.interfaces-section-and-mode --> — Slice 2/14: both spec templates carry `## Interfaces`; `slice.py ready` prints `mode=design` or `mode=tdd`; `validate`… ([#312](https://github.com/Joaovsales/jplugin-agentic-development/issues/312)) (blocked-by: plan.specs-aposd-first-build-md.plan-block-of-slice-headers)
-  [ ] TDD: tests/test-slice.sh § mode — a new block whose spec § Interfaces `Path:` matches slice 1 prints `ready: 1 <name> mode=design`, slice 2 `mode=tdd`, every legacy slice `mode=tdd`; an entry with no `Path:` fails `validate` -> interfaces parser and mode in `ready` (AC 3)
-  [ ] TDD: tests/test-doc-conventions.sh § templates — both templates carry `## Interfaces` with the five fields, and the architecture heading list at :146-149 includes it -> template sections (AC 9)
+- [x] Interfaces section and mode <!-- task-id: plan.specs-aposd-first-build-md.interfaces-section-and-mode --> — Slice 2/14: both spec templates carry `## Interfaces`; `slice.py ready` prints `mode=design` or `mode=tdd`; `validate`… ([#312](https://github.com/Joaovsales/jplugin-agentic-development/issues/312)) (blocked-by: plan.specs-aposd-first-build-md.plan-block-of-slice-headers)
+  [x] TDD: tests/test-slice.sh § mode — a new block whose spec § Interfaces `Path:` matches slice 1 prints `ready: 1 <name> mode=design`, slice 2 `mode=tdd`, every legacy slice `mode=tdd`; an entry with no `Path:` fails `validate` -> interfaces parser and mode in `ready` (AC 3)
+  [x] TDD: tests/test-doc-conventions.sh § templates — both templates carry `## Interfaces` with the five fields, and the architecture heading list at :146-149 includes it -> template sections (AC 9)
+> Handover: landed 72b9aa3..1e9380c — `slice.py` gains `parse_interfaces`, `_interfaces_problems`, `_slice_mode`, `_block_is_legacy`; `ready` prints `ready: <n> <name> mode=<design|tdd>`; `validate` exits 1 on an § Interfaces entry with no `Path:`; both spec templates carry an optional `## Interfaces` with the five fields (plan template before `## Risks`, architecture template between Data models and Risks)
+> Do not re-derive: a block is legacy when any slice header row carries `task-id:` → always `mode=tdd`; a Path is matched literally against Surface globs via the existing `match_path`; no spec § Interfaces → every slice tdd; no strict parser of the `ready:` line exists (tests match substrings); fixtures in `tests/fixtures/slice/mode/`
+> Surface: none (check exit 0)
 
 ### Slice 3/14 — Feature issue in build
 - [ ] Feature issue in build <!-- task-id: plan.specs-aposd-first-build-md.feature-issue-in-build --> — Slice 3/14: `/slice --file` is gone; `/build` pre-flight upserts the feature row once; every slice is dispatched to a s… ([#313](https://github.com/Joaovsales/jplugin-agentic-development/issues/313)) (blocked-by: plan.specs-aposd-first-build-md.interfaces-section-and-mode)
