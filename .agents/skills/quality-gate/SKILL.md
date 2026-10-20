@@ -104,7 +104,7 @@ For each file in scope:
 
 ### 1.2 Clean Code
 - A function doing **several unrelated jobs** → split by job; never by line count, and never into helpers that exist only to make it shorter
-- Functions with **>3 parameters** → use options object/dataclass
+- A long parameter list signals a shallow interface → fix the interface (hide what callers need not pass), not the call site
 - **Poor naming**: generic names (`data`, `info`, `tmp`, `result`) → rename to reveal intent
 - **Dead code**: unreachable branches, unused imports → remove
 
@@ -127,6 +127,8 @@ For each file in scope:
 **Mandate**: "Does this code contain AI behavioral artifacts?" — hedge words, filler, over-engineering.
 
 **Iron law: deletion over rewriting.**
+
+**Keep these comments, whatever their length or shape:** an interface comment (what a function, class or field promises its callers), and a comment stating a decision or a hidden assumption (why this way, what the code silently relies on). A comment that **contradicts the code beside it** is flagged as a finding, never silently deleted or reworded: one of the two is wrong, and only the author knows which.
 
 **Never delete `TODO`, `FIXME`, or `TODO(shortcut):` markers.** They record a known
 limitation and its upgrade path, so they must survive this phase even when the

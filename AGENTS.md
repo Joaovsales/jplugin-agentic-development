@@ -33,7 +33,7 @@ Every finding any layer emits carries the four axes of the *Finding Model* — `
 
 **Code Graph First.** Prefer the per-project code graph (`graphify-out/graph.json`) over blind grep/read sweeps: `graphify query "<question>"` to explore, `graphify explain "<symbol>"` for one node, `graphify path "A" "B"` for how two things connect. Optional — a missing `graphify` or graph is not an error, fall back to normal search. A stale graph is worse than none: `graphify hook install` re-indexes on commit and checkout.
 
-**Clean Code** — a function doing several unrelated jobs is split by job, never by line count and never into helpers that exist only to shorten it; ≤3 parameters, one abstraction level, meaningful names, DRY and KISS — is the standard `/quality-gate` Phase 1 checks.
+**Clean Code** — a function doing several unrelated jobs is split by job, never by line count and never into helpers that exist only to shorten it; a long parameter list signals a shallow interface; fix the interface, not the call site; one abstraction level, meaningful names, DRY and KISS — is the standard `/quality-gate` Phase 1 checks.
 
 **APOSD Design.** Hide information behind simple interfaces. Pull complexity downward — callers never learn internal state machines, lock types or schemas. Prefer deep modules over shallow ones. Prefer general-purpose over special-case when it costs no complexity. Define errors out of existence rather than handling them.
 
@@ -53,7 +53,7 @@ Before marking any task complete, confirm:
 - All relevant tests pass, and new code has ≥80% test coverage
 - Every user-facing acceptance criterion has an e2e walkthrough in `tasks/e2e-log.md` (`/verify-evidence --scope e2e`)
 - No linting or type errors
-- Code passes the Clean Code and SOLID review, and introduces no security vulnerability
+- Code passes the Clean Code and SOLID review (`/quality-gate` Phase 1), the design review (Phase 4), and introduces no security vulnerability
 
 ## Key Directories
 

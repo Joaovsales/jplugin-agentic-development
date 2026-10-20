@@ -1505,7 +1505,7 @@ for body in "$CLEAN_QG" "$AGENTS_CORE"; do
   case "$body" in "$CLEAN_QG") where="/quality-gate Phase 1.2" ;; *) where="AGENTS.md § Core Principles" ;; esac
   assert_contains "$body" 'split by job' "split by job: $where says split by job"
   assert_contains "$body" 'never by line count' "split by job: $where says never by line count"
-  assert_contains "$body" '3 parameters' "split by job: $where keeps the 3-parameter rule"
+  assert_contains "$body" 'long parameter list' "split by job: $where keeps the parameter rule"
   assert_not_contains "$body" '20 LOC' "split by job: $where no longer carries a 20-LOC rule"
 done
 
@@ -1837,5 +1837,18 @@ for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected
 done
 assert_file_contains ".agents/references/review-dispatch-contract.md" "test-engineer" \
   "review-dispatch-contract: names test-engineer among dispatched reviewers"
+
+# --- slice 13: gate fixes (AC15, AC16, D17) ----------------------------------
+P1="$(qg_section '## Phase 1 — Structural Quality (simplify)')"
+P2="$(qg_section '## Phase 2 — AI Anti-Patterns (deslop)')"
+assert_not_contains "$P1" 'options object' "gate fixes: Phase 1 no longer says 'options object'"
+assert_contains "$P1" 'long parameter list signals a shallow interface' "gate fixes: Phase 1 says a long parameter list signals a shallow interface"
+for token in 'interface comment' 'decision' 'hidden assumption' 'contradicts the code'; do
+  assert_contains "$P2" "$token" "gate fixes: Phase 2 mentions '$token'"
+done
+assert_contains "$AGENTS_CORE" 'a long parameter list signals a shallow interface; fix the interface, not the call site' "gate fixes: AGENTS.md Clean Code carries the D17 parameter rule"
+assert_not_contains "$AGENTS_CORE" '≤3 parameters' "gate fixes: AGENTS.md drops the 3-parameter cap"
+assert_contains "$(section_body AGENTS.md '## Quality Gate')" 'Phase 4' "gate fixes: AGENTS.md § Quality Gate names /quality-gate Phase 4"
+assert_contains "$(flatten .agents/references/finding-model.md)" 'moves a module boundary is never `gated_auto`' "gate fixes: finding-model § Gates says a boundary-moving fix is never gated_auto"
 
 finish
