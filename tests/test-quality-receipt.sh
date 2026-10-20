@@ -177,6 +177,14 @@ BRANCH_SAN="$(cd "$REPO2" && git rev-parse --abbrev-ref HEAD | tr '/' '-')"
 assert_eq "1" "$( [ -f "$STORE2/branch-$BRANCH_SAN.json" ] && echo 1 || echo 0 )" "write: stores the branch pointer"
 assert_file_contains "$STORE2/branch-$BRANCH_SAN.json" "\"fingerprint\": \"$FP2\"" "write: pointer names this fingerprint"
 
+# --- a phase-5 reviewer entry (the test-engineer Review job) is accepted and recorded
+awk '{ if ($0 ~ /"phase": 4/) { print $0 ","; print "    {\"phase\": 5, \"lens\": \"test-engineer\", \"dispatch\": \"dispatched\"}" } else print $0 }'   "$BOX/outcome-go.json" > "$BOX/outcome-phase5.json"
+OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-phase5.json")"
+CODE=$?
+assert_eq "0" "$CODE" "write: an outcome with a phase-5 reviewer entry is accepted"
+assert_file_contains "$STORE2/$FP2.json" "\"lens\": \"test-engineer\"" "write: the phase-5 test-engineer reviewer is recorded in the receipt"
+assert_file_contains ".agents/skills/quality-gate/scripts/receipt.py" "agents\", \"test-engineer.md\""   "write: POLICY_FILES includes the test-engineer persona"
+
 # --- MUST-FIX forces STOP regardless of a supplied verdict -----------------
 make_outcome "$BOX/outcome-mustfix.json" "$TREE2" yes 0 GO 0 '"full"' "GO"
 OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-mustfix.json")"
@@ -368,6 +376,18 @@ OUT="$(cd "$REPO3" && "$PY" "$RECEIPT_COPY" check --base main)"
 CODE=$?
 assert_eq "3" "$CODE" "check: an edited policy file is stale"
 assert_contains "$OUT" "receipt: stale policy-changed" "check: names the reason policy-changed"
+
+# --- policy-changed: editing the test-engineer persona alone stales a receipt
+COPY_ROOT2="$BOX/policy-copy-persona"
+mkdir -p "$COPY_ROOT2"
+cp -r "$REPO/.agents" "$COPY_ROOT2/.agents"
+printf '
+<!-- test edit -->
+' >> "$COPY_ROOT2/.agents/agents/test-engineer.md"
+OUT="$(cd "$REPO3" && "$PY" "$COPY_ROOT2/.agents/skills/quality-gate/scripts/receipt.py" check --base main)"
+CODE=$?
+assert_eq "3" "$CODE" "check: an edited test-engineer persona is stale"
+assert_contains "$OUT" "receipt: stale policy-changed" "check: the test-engineer persona edit names policy-changed"
 
 # --- parent-invalid: corrupt a chain ancestor's policy ---------------------
 REPO4="$BOX/repo4"

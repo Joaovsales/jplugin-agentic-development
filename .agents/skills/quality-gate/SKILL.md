@@ -264,8 +264,8 @@ prompt verbatim. When all three are missing, stop before dispatch:
 
 ## Phase 5 — Tests
 
-**Mandate**: "Is the reviewed tree green?" — evidence for the receipt, run once
-after every fix has landed.
+**Mandate**: "Is the reviewed tree green, and do its tests test the right
+things?" — evidence for the receipt, run once after every fix has landed.
 
 Run the project's `Affected tests:` command (below the `AGENTS.md` end marker,
 `{base}` replaced by the merge-base from *Scope*) through the cache:
@@ -278,6 +278,32 @@ A failure here is a red `tests` record that the receipt turns into STOP —
 never a silent fix. Fixing it is a new edit, and a new edit means a new gate
 run on the new tree. This phase never runs the full suite: `/wrap-up-session`
 § *Full suite* owns that, through the same cache.
+
+### 5.1 Test adequacy review
+
+Dispatch the `test-engineer` Review job after the affected tests pass (Reviewer
+tier: on Claude Code pass model `sonnet`). It is the same agent that wrote the
+slice's tests in design mode, now reading them instead. The dispatch follows
+`.agents/references/review-dispatch-contract.md` § *The seven items* and carries:
+
+- the diff and the test files;
+- the spec's path with its acceptance criteria verbatim, or
+  `no spec — <reason>`: with no spec it reviews against the interfaces in the diff;
+- every `> Frozen:` and `> Test amended:` line of the build, copied verbatim from
+  `tasks/todo.md` (none when the build was not in design mode: say so);
+- the deferral list (`[AMBIGUITY]` batch, `TODO(shortcut):` markers) or `deferrals: none`;
+- the introduced-only boundary, and `.agents/references/finding-model.md` § *Emission format* pasted verbatim
+  (resolved as *Claude Code Enhancements* describes).
+
+Withhold the findings of Phases 1–4. Share intent, never conclusions.
+
+When the writer's `context:` on the `> Frozen:` line is not `fresh` (or the line is
+missing), the Review job raises every test that reaches past the interface to at
+least SHOULD-FIX. Its findings are report-only: it never edits the tree, and Phase
+5 applies nothing. Each unresolved SHOULD-FIX goes in `unresolved`: an unresolved SHOULD-FIX counts toward
+HOLD under the receipt's rule; a MUST-FIX makes the receipt STOP. Record a phase 5
+reviewer entry (`lens: test-engineer`, `dispatch: dispatched`). When no dispatch is
+possible, record nothing and name the lost review in the output.
 
 ## Phase 6 — Receipt
 
@@ -294,7 +320,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome "$outcome
 
 | Outcome field | Value |
 |---------------|-------|
-| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it |
+| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it, plus the phase 5 `test-engineer` entry when it was dispatched |
 | `unresolved` | every finding in `Reported, not applied`, four-axis, with `location` (`file:line`) and `summary` |
 | `design_verdict` | Phase 4's GO / HOLD / STOP |
 | `tests` | Phase 5's record |

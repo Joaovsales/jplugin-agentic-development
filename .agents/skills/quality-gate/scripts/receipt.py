@@ -63,6 +63,7 @@ POLICY_FILES = (
     os.path.join(_SCRIPTS_DIR, "..", "..", "security-scan", "SKILL.md"),
     os.path.join(_SCRIPTS_DIR, "..", "..", "software-design-expert-review", "SKILL.md"),
     os.path.join(_SCRIPTS_DIR, "..", "..", "..", "agents", "software-design-expert-review.md"),
+    os.path.join(_SCRIPTS_DIR, "..", "..", "..", "agents", "test-engineer.md"),
     os.path.join(_SCRIPTS_DIR, "..", "..", "..", "references", "finding-model.md"),
     os.path.join(_SCRIPTS_DIR, "..", "..", "..", "references", "review-dispatch-contract.md"),
 )

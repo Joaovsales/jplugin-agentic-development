@@ -1829,4 +1829,13 @@ assert_file_contains "AGENTS.md" "stub → Write → freeze → implement" \
   "design-mode: AGENTS.md Workflow step 4 names the design-mode loop"
 assert_file_contains "AGENTS.md" "\`test-engineer\`" "design-mode: AGENTS.md § Agents names test-engineer"
 
+# --- slice 12: Phase 5 test adequacy review (AC14) ---------------------------
+P5="$(qg_section '## Phase 5 — Tests')"
+for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected tests pass"              "every \`> Frozen:\` and \`> Test amended:\` line" "context" "fresh"              "at least SHOULD-FIX" "no spec — <reason>" "report-only" "deferrals: none"              "unresolved SHOULD-FIX counts toward HOLD" "phase 5" "review-dispatch-contract.md"              "finding-model.md" "never edits the tree"; do
+  found=no; printf '%s' "$P5" | grep -qF -- "$token" && found=yes
+  assert_eq "yes" "$found" "quality-gate Phase 5: mentions '$token'"
+done
+assert_file_contains ".agents/references/review-dispatch-contract.md" "test-engineer" \
+  "review-dispatch-contract: names test-engineer among dispatched reviewers"
+
 finish
