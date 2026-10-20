@@ -1,4 +1,4 @@
-import { atom, read, update } from 'claude-code'
+import { atom, read } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import { AgentsSection, DrillDown, registerAgents } from './agents'
@@ -9,7 +9,6 @@ import { PlanSection, registerPlan } from './plan'
 import {
   INITIAL_AGENTS,
   INITIAL_ASKING,
-  INITIAL_MEASURE,
   INITIAL_PHASE,
   INITIAL_PLAN,
   INITIAL_SELECTED,
@@ -18,6 +17,7 @@ import {
   WIDE_COLUMNS,
   emptyGates,
   refreshStatus,
+  updateStatus,
 } from './state'
 import type { Draw } from './state'
 
@@ -27,7 +27,6 @@ const asking = atom({ plugin: 'session-viz', key: 'asking' } as const, INITIAL_A
 const selected = atom({ plugin: 'session-viz', key: 'selected' } as const, INITIAL_SELECTED)
 const plan = atom({ plugin: 'session-viz', key: 'plan' } as const, INITIAL_PLAN)
 const gates = atom({ plugin: 'session-viz', key: 'gates' } as const, emptyGates())
-const measure = atom({ plugin: 'session-viz', key: 'measure' } as const, INITIAL_MEASURE)
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -48,11 +47,10 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    await update($, measure, current => ({
+    await updateStatus($, 'measure', current => ({
       percent: e.context.percent ?? current.percent,
       usd: e.cost?.usd ?? current.usd,
     }))
-    await refreshStatus($)
 
     return next(e)
   })

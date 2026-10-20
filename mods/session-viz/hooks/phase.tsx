@@ -2,7 +2,7 @@ import { atom, update } from 'claude-code'
 import type { On, RenderElement } from 'claude-code'
 
 import type { Phase, PhaseState } from '../types'
-import { INITIAL_PHASE, fit, lastSegment, refreshStatus } from './state'
+import { INITIAL_PHASE, fit, lastSegment, updateStatus } from './state'
 import type { Draw } from './state'
 
 const phase = atom({ plugin: 'session-viz', key: 'phase' } as const, INITIAL_PHASE)
@@ -45,8 +45,7 @@ export function registerPhase(on: On): void {
     const result = await next(e)
     const skill = lastSegment(e.skill)
     const nextPhase = phaseOfSkill(e.skill)
-    await update($, phase, current => ({ ...current, skill, phase: nextPhase ?? current.phase }))
-    await refreshStatus($)
+    await updateStatus($, 'phase', current => ({ ...current, skill, phase: nextPhase ?? current.phase }))
 
     return result
   })

@@ -1,4 +1,4 @@
-import { atom, read } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 import type { Elements, EngineInterface } from 'claude-code'
 
 import type { AgentRow, FindingCounts, Gates, Measure, PhaseState, PlanProgress, Severity, Toasted } from '../types'
@@ -99,8 +99,46 @@ export function statusLine(ph: PhaseState, pl: PlanProgress | null, me: Measure,
   return parts.filter((part): part is string => part !== undefined).join(' · ')
 }
 
-/** Rebuilds the status line from the atoms; called by every hook that changes one of its fields. */
+/** Rebuilds the status line from the atoms: the shell's first draw at session.start; every later redraw comes through `updateStatus`. */
 export async function refreshStatus($: EngineInterface): Promise<void> {
   const [ph, pl, me, ag] = await Promise.all([read($, phase), read($, plan), read($, measure), read($, agents)])
   $.ui.status(statusLine(ph, pl, me, ag))
+}
+
+/** The atoms the status line draws from, by key. */
+type StatusKey = 'phase' | 'agents' | 'plan' | 'measure'
+
+/**
+ * Updates one of the status line's atoms and redraws the line when the value changed (an updater
+ * returning `current` draws nothing): the one way a section writes a status-line field. Each atom is
+ * named at its own `update` call because the engine's scan lists what the module writes from them.
+ */
+export async function updateStatus($: EngineInterface, key: 'phase', change: (current: PhaseState) => PhaseState): Promise<void>
+export async function updateStatus($: EngineInterface, key: 'agents', change: (current: AgentRow[]) => AgentRow[]): Promise<void>
+export async function updateStatus($: EngineInterface, key: 'plan', change: (current: PlanProgress | null) => PlanProgress | null): Promise<void>
+export async function updateStatus($: EngineInterface, key: 'measure', change: (current: Measure) => Measure): Promise<void>
+export async function updateStatus($: EngineInterface, key: StatusKey, change: (current: never) => unknown): Promise<void> {
+  let changed = false
+  const tracked =
+    <T>(apply: (current: T) => T) =>
+    (current: T): T => {
+      const next = apply(current)
+      changed = next !== current
+      return next
+    }
+  switch (key) {
+    case 'phase':
+      await update($, phase, tracked(change as (current: PhaseState) => PhaseState))
+      break
+    case 'agents':
+      await update($, agents, tracked(change as (current: AgentRow[]) => AgentRow[]))
+      break
+    case 'plan':
+      await update($, plan, tracked(change as (current: PlanProgress | null) => PlanProgress | null))
+      break
+    case 'measure':
+      await update($, measure, tracked(change as (current: Measure) => Measure))
+      break
+  }
+  if (changed) await refreshStatus($)
 }

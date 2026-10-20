@@ -2,10 +2,9 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { PlanProgress, SliceRow } from '../types'
-import { EVERY, INITIAL_PHASE, INITIAL_PLAN, SPEC_PATH, fit, refreshStatus } from './state'
+import { EVERY, INITIAL_PHASE, SPEC_PATH, fit, updateStatus } from './state'
 import type { Draw } from './state'
 
-const plan = atom({ plugin: 'session-viz', key: 'plan' } as const, INITIAL_PLAN)
 const phase = atom({ plugin: 'session-viz', key: 'phase' } as const, INITIAL_PHASE)
 
 const TODO = 'tasks/todo.md'
@@ -98,8 +97,7 @@ async function reload($: EngineInterface): Promise<void> {
     text => parsePlan(text, spec),
     () => null,
   )
-  await update($, plan, () => parsed)
-  await refreshStatus($)
+  await updateStatus($, 'plan', () => parsed)
 }
 
 export function registerPlan(on: On): void {

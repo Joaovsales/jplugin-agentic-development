@@ -45,6 +45,8 @@ function world(on: On, options: { answer?: string } = {}) {
   on('skill.prompt', ($, e) => ({ text: e.text }))
   on('prompt.submit', ($, e) => ({ text: e.text }))
   on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('agent.spawn', ($, e) => ({ model: 'claude-sonnet-5-5', agentId: `agent-${e.description}` }))
+  on('turn.complete', () => ({ text: '' }))
   on('turn.step', async function* ($, e) {
     return {
       turnId: e.turnId,
@@ -142,4 +144,19 @@ test('status line: session.measure writes viz · BUILD · build · ctx 42% · $1
   })
   await w.clock.settle()
   expect(w.statuses.at(-1)).toBe('viz · BUILD · build · ctx 42% · $1.23')
+
+  // Every writer of a status-line field redraws the line: a spawn adds the agents count, its answer moves it.
+  await $.agent.spawn({
+    tool_use_id: 'tu-1',
+    prompt: 'Review slice 3.',
+    description: 'cr',
+    subagentType: 'code-reviewer',
+    provider: { plugin: 'engine', tier: 'core' },
+    parentModel: 'claude-sonnet-5-5',
+    background: true,
+    fork: false,
+  })
+  expect(w.statuses.at(-1)).toBe('viz · BUILD · build · ctx 42% · $1.23 · agents 1/1')
+  await $.turn.complete({ answer: 'Done.', durationMs: 1000, isAborted: false, turnId: 'turn-1', agentId: 'agent-cr', reason: 'answer' })
+  expect(w.statuses.at(-1)).toBe('viz · BUILD · build · ctx 42% · $1.23 · agents 0/1')
 })

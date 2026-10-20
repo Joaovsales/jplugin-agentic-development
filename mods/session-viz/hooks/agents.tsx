@@ -2,7 +2,7 @@ import { atom, update } from 'claude-code'
 import type { AgentInfo, EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { AgentRow, Footprint, FootprintList } from '../types'
-import { EMPTY_FINDINGS, EVERY, INITIAL_AGENTS, INITIAL_ASKING, INITIAL_SELECTED, MAIN, fit, refreshStatus, seconds } from './state'
+import { EMPTY_FINDINGS, EVERY, INITIAL_AGENTS, INITIAL_ASKING, INITIAL_SELECTED, MAIN, fit, seconds, updateStatus } from './state'
 import type { Draw } from './state'
 
 const agents = atom({ plugin: 'session-viz', key: 'agents' } as const, INITIAL_AGENTS)
@@ -148,13 +148,7 @@ export function registerAgents(on: On): void {
   on('session.start', { cwd: EVERY }, async ($, e, next) => {
     const sync = async () => {
       const live = await $.agent.list()
-      let changed = false
-      await update($, agents, known => {
-        const merged = merge(known, live)
-        changed = merged !== known
-        return merged
-      })
-      if (changed) await refreshStatus($)
+      await updateStatus($, 'agents', known => merge(known, live))
     }
     await sync()
     $.clock.every(SYNC_MS, () => {
@@ -183,8 +177,7 @@ export function registerAgents(on: On): void {
       findings: { ...EMPTY_FINDINGS },
       footprint: emptyFootprint(),
     }
-    await update($, agents, list => capped([...list.filter(one => one.agentId !== row.agentId), row]))
-    await refreshStatus($)
+    await updateStatus($, 'agents', list => capped([...list.filter(one => one.agentId !== row.agentId), row]))
 
     return started
   })
@@ -209,12 +202,11 @@ export function registerAgents(on: On): void {
   on('turn.complete', { agentId: /./ }, async ($, e, next) => {
     if (e.agentId !== undefined) {
       const status: AgentRow['status'] = e.reason === 'answer' ? 'done' : 'failed'
-      await update(
+      await updateStatus(
         $,
-        agents,
+        'agents',
         updateRow(e.agentId, row => ({ ...row, status, outcome: e.reason, durationMs: e.durationMs })),
       )
-      await refreshStatus($)
     }
 
     return next(e)
