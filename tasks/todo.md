@@ -2227,3 +2227,4 @@ Filed this sweep:
 ### Slice 19/19 — Orca supervised worker
 - [ ] Orca supervised worker <!-- task-id: plan.specs-helix-checkpoint-loop-md.orca-supervised-worker --> — The optional Orca adapter runs slices in child worktrees and supervises Dispatch IDs, retries and cleanup. (blocked-by: plan.specs-helix-checkpoint-loop-md.worker-backend-selector)
   [ ] TDD: tests/test-helix-orca-worker.sh § lifecycle — child worktree HEAD is verified before worker dispatch; exact base and Surface are checked on return; unknown liveness blocks retry/native fallback; positive stop, private-change inspection and release permit a new attempt; cross-host resume without original record refuses -> Orca worker adapter (AC 25)
+- [ ] citation-drift in .agents/skills/brainstorm/SKILL.md <!-- task-id: simplify.agents-skills-brainstorm-skill-md.citation-drift-in-agents-skills-brainstorm-skill-md --> ([#326](https://github.com/Joaovsales/jplugin-agentic-development/issues/326))
