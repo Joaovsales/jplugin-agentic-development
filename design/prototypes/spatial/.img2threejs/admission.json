@@ -1,0 +1,14 @@
+{
+  "admitted": true,
+  "reasons": [],
+  "provenance": {
+    "viewpoint": "reference",
+    "sourcePath": "design/prototypes/spatial/assets/routing-instrument-reference.png",
+    "width": 1400,
+    "height": 850,
+    "foregroundCoverage": 0.4364,
+    "largestComponentFraction": 1.0,
+    "pHash": 12303459221309270036,
+    "duplicateOfHash": null
+  }
+}

@@ -4,7 +4,8 @@
 # signals.py rank runs inside a temporary `git init` repository built from
 # tests/fixtures/make-it-simpler/, so the fixtures are tracked there and never
 # rank here (D18). Each fixture file seeds exactly one signal; the expected
-# order below is the score formula applied by hand:
+# order below is the score formula applied by hand (a code-red-flag cue
+# saves 1 line: splitting a script moves lines, it saves none):
 # score = lines_saved × max(callers, 1) × (5 if always_loaded else 1).
 . "$(dirname "$0")/lib.sh"
 
@@ -57,13 +58,23 @@ assert_not_contains "$CHECK" " False" "AC 1: every row quotes its line verbatim 
 assert_contains "$CHECK" "sorted True" "AC 1: sorted by score desc, then key asc"
 assert_contains "$CHECK" "head True" "AC 1: the output names the head commit"
 assert_eq "order over-budget in AGENTS.md 201 25
-order code-red-flag in tools/big.py 501 10
 order orphan-or-overlap in skills/demo/references/unused.md 1 3
 order citation-drift in docs/c.md 3 2
+order code-red-flag in tools/big.py 501 1
 order doc-script-contradiction in docs/d.md 3 1
 order duplicate-rule in docs/a.md 3 1
 order enforced-prose in docs/e.md 3 1" "$(printf '%s\n' "$CHECK" | grep '^order ' | tr -d '\r')" \
   "AC 1: the fixture ranks in the hand-computed order (W = 5 for always-loaded AGENTS.md)"
+
+# A SKILL.md over budget loads only when invoked: moving its body to references/
+# moves lines, it saves none, so it is a cue worth 1 line. AGENTS.md above is
+# always loaded and keeps lines - budget.
+BUDGET="$BOX/budget"
+mkdir -p "$BUDGET/skills/big"
+{ printf -- '---\nname: big\n---\n'; seq -f 'line %g' 1 160; } > "$BUDGET/skills/big/SKILL.md"
+fixture_repo "$BUDGET" ""
+BUDGET_OUT="$(rank "$BUDGET")"
+assert_contains "$BUDGET_OUT" '"lines_saved": 1,' "AC 1: an over-budget SKILL.md that is not always loaded is a cue saving 1 line"
 
 # --- AC 2: deterministic, read-only, empty tree is success --------------------
 BEFORE="$(git -C "$SEVEN" status --porcelain)"
@@ -93,6 +104,10 @@ enforced-prose in docs/e.md" "$(printf '%s\n' "$OUT" | sed -n 's/.*"key": "\(.*\
   "AC 3: --path docs keeps only the candidates under docs/"
 OUT="$(rank "$SEVEN" --limit 50)"
 assert_not_contains "$OUT" '"path": "tests/fixtures/' "AC 3: no candidate is ever under tests/fixtures/"
+assert_not_contains "$OUT" '"path": "tasks/' "AC 3: no candidate is ever under tasks/ (append-only logs and registers)"
+# tasks/history.md and specs/design.md repeat docs/a.md's rule and tasks/ also
+# names tools/big.py: were tasks/ read or specs/ counted as a home, AC 1's order
+# would change (duplicate-rule would score 3, big.py's callers would rise).
 # The fixture repo's own tests/fixtures/dup/ copies docs/a.md's rule and holds
 # an uncited references/ file: were it read, AC 1's hand-computed order above
 # would change (duplicate-rule would score 2, lost.md would rank).
@@ -138,6 +153,10 @@ for pin in '^W = 5[[:space:]]*$|`W` — the always-loaded weight, **5**' \
   assert_file_contains "$LENS" "${pin#*|}" "AC 5: lens.md states the same value — ${pin#*|}"
 done
 assert_file_contains "$LENS" "**\`tests/fixtures/\`** — never read and never ranked" "AC 5: lens.md states the fixtures exclusion"
+assert_file_contains "$LENS" "**\`tasks/\`** — never read and never ranked" "AC 5: lens.md states the tasks/ exclusion"
+assert_file_matches "$SIGNALS" '^EXCLUDED_PREFIXES = \("tests/fixtures/", "tasks/"\)' "AC 5: signals.py excludes the same prefixes"
+assert_file_matches "$SIGNALS" '^DESIGN_RECORDS = \("specs/",\)' "AC 5: signals.py holds DESIGN_RECORDS = specs/"
+assert_file_contains "$LENS" "**\`specs/\` as a duplicate home**" "AC 5: lens.md states specs/ is never a duplicate home"
 assert_prose_contains "$LENS" "its nine checks: \`suite\`, \`inventory\`, \`retired\`,
   \`installed\`, \`refs\`, \`worktrees\`, \`strays\`, \`graph\`, \`registers\`" \
   "AC 5: lens.md names the nine /tidy checks it excludes"
@@ -174,6 +193,8 @@ done
 for row in '| `#N` or a registry id |' '| a tracked path prefix |' '| any other text |' '| nothing |'; do
   assert_file_contains "$SKILL" "$row" "AC 9: the argument grammar has the row $row"
 done
+assert_file_contains "$SKILL" "claim <ref> --routine simplify --apply --approve" \
+  "AC 9: an interactive pick is claimed with --routine (the CLI refuses claim without it)"
 assert_prose_contains "$SKILL" "its signal, a \`file:line\` evidence quote, the estimated lines saved, the callers touched, and minor/significant" \
   "AC 9: each of the top 3 carries signal, evidence, lines saved, callers, classification"
 assert_file_contains "$SKILL" "**none today writes nothing**" "AC 9: none today writes nothing"

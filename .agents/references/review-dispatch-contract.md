@@ -24,9 +24,9 @@ Every dispatch of `code-reviewer`, `critic`, `security-reviewer`, or
 | 2 | **Every spec relevant to this session** — each spec's path **and** the AC list verbatim, with the checkbox state stripped | nothing in a diff names the spec it implements |
 | 3 | The `tasks/todo.md` entries completed this run | separates "not implemented" from "next task, deliberately" |
 | 4 | The `[AMBIGUITY]` lines emitted this run | a decision already made and recorded reads as a defect |
-| 5 | The `TODO(shortcut):` markers touching changed files | same: a documented limit with an upgrade path is not a finding |
+| 5 | The `TODO(shortcut):` markers touching changed files | same: a documented limit is a decision, not a finding, except as `finding-model.md` § *Deferrals* says |
 | 6 | The boundary — review issues **introduced** by this session; pre-existing patterns are out of scope | today this is stated to the orchestrator and never to the agent |
-| 7 | The output format — four axes, `evidence` required at `75` or above | a persona drifts from the gate that consumes it |
+| 7 | The output format — four axes, `evidence` required at `75` or above, `failure:` on every finding | a persona drifts from the gate that consumes it |
 
 Item 2 is plural because a session is. One shared module can belong to several
 features, so a change routinely touches more than one spec — and a reviewer handed

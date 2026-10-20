@@ -1523,3 +1523,67 @@ Spec: `specs/codex-scout-routing.md`. Driver: real `scripts/install-codex.sh` an
 - The conformance commands `bash tests/test-agent-policy.sh` (105 assertions) and `bash tests/test-codex-install.sh` (52 assertions) covered floor dispatch, precedence, shadowing, legacy adoption and backups, personal conflicts, repeat install, and unknown provenance. Both exited 0 on this worktree.
 
 Result: PASS for the CLI behavior in ACs 1–3 and 6–8. ACs 4–5 are dispatch instructions checked by `tests/test-how-why-skills.sh`, `tests/test-model-tiers.sh`, and `tests/test-doc-conventions.sh`; no live child spawn was attempted because model entitlement and MCP availability depend on the user's Codex account.
+
+---
+
+## E2E Walkthrough — Readable visual plans — 2026-10-08 76bedc8
+
+Spec: specs/readable-visual-plans.md
+Commit: 76bedc8 (branch claude/visual-plans-design-a2ddcd)
+Browser: Playwright 1.63 (Python) driving Microsoft Edge (`--channel msedge`), full-fidelity
+Suite: `REQUIRE_BROWSER=1 PLAN_PAGE_CHANNEL=msedge bash tests/test-plan-page.sh` — 15/15 passed
+
+Every non-`fail-*` fixture plus a ready variant of `full.md`, served from a loopback origin,
+at 1440×900 and 390×844 in light and dark; one PNG per view.
+
+### AC12 / AC13 — disclosures, deep links, mobile menu
+Tier: DOM-FUNCTIONAL
+Steps executed: Expand all opens every `main details`, Collapse all closes them ✓;
+`#<id>` inside a closed disclosure opens every ancestor ✓; below 768 px the contents
+menu starts closed and closes after a link is chosen ✓; first Tab stop is the skip link,
+Enter on a summary toggles it ✓
+Negative: sabotage pages are caught (see AC14)
+Result: PASS
+
+### AC14 — no page-level overflow at 390 px
+Tier: VISUAL
+Steps executed: `scrollWidth <= innerWidth` on every view ✓ (long-choice fixture regresses the old CSS)
+Negative: a 3000 px element injected into full.plan.html fails with "390 light: page overflows horizontally" ✓
+Screenshot: tasks/e2e-artifacts/76bedc8/AC14 — no page-level overflow at 390 px.png
+Result: PASS (behaviour); visual disposition — owner screenshot review in the PR
+
+### AC15 / AC16 — build prompt copy and Not ready
+Tier: DOM-FUNCTIONAL
+Steps executed: on the ready variant Copy build prompt hands the clipboard exactly the
+`#build-prompt-text` text and reports "Copied" ✓; on full.md (open D2, blocking Q1) the copy
+button is disabled and the panel carries `not-ready` ✓
+Negative: a copy that appends a space is caught ("did not copy the prompt text exactly") ✓
+Result: PASS
+
+### AC17 — source link, no network
+Tier: DOM-FUNCTIONAL
+Steps executed: header source link resolves to the served spec file ✓; zero console errors
+(favicon answered 204 by the test server) ✓
+Negative: an injected `console.error("boom")` is named ✓
+Result: PASS
+
+### AC18 — review marks and export
+Tier: DOM-FUNCTIONAL
+Steps executed: marking the first review item ok, Export review lists `<ID>: ok` under
+`Review of …` ✓; a `jplugin-plan-review:` key lands in localStorage ✓; throwing-storage path
+covered in tests/test-plan-render.sh § review (node) ✓
+Result: PASS
+
+### AC20 / AC23 — theme and screenshots
+Tier: VISUAL
+Steps executed: 4 screenshots per page written (count asserted) ✓; 8 committed under
+design/plan-theme/screenshots/
+Result: BLOCKED for visual approval — the owner's screenshot review in the PR is the pass, never self-declared
+
+### AC25 — dogfood
+Tier: VISUAL
+Steps executed: upgraded copy of snow-mcp `oauth-identity-source` renders and passes every
+browser check; before/after captures kept locally in design/plan-theme/dogfood/ (git-ignored,
+the repo is public); the original spec fails the new renderer at :432 (3-cell Decisions rows)
+Result: BLOCKED — the render passes; the before/after comparison is the owner's review in the PR,
+and its captures stay local (they show an internal service's design, the repo is public)

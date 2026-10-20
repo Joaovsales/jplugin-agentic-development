@@ -20,12 +20,14 @@ make_source taste skills/taste/SKILL.md
 make_source impeccable .agent/skills/impeccable/SKILL.md
 make_source references design-md/example/DESIGN.md
 make_source three SKILL.md
+make_source hyperframes skills/hyperframes/SKILL.md
 
 export HOME="$box/home" DESIGN_STACK_HOME="$box/home/.local/share/jplugin/design-stack"
 export DESIGN_STACK_TASTE_URL="$box/upstreams/taste"
 export DESIGN_STACK_IMPECCABLE_URL="$box/upstreams/impeccable"
 export DESIGN_STACK_REFERENCES_URL="$box/upstreams/references"
 export DESIGN_STACK_THREE_URL="$box/upstreams/three"
+export DESIGN_STACK_HYPERFRAMES_URL="$box/upstreams/hyperframes"
 export DESIGN_STACK_INSTALL_LOG="$box/install.log"
 cat > "$box/npx" <<'SH'
 #!/bin/sh
@@ -48,21 +50,41 @@ CLI="$REPO/.agents/skills/design-stack/scripts/design_stack.py"
 run_cli() { "$TEST_PYTHON" "$CLI" "$@" 2>&1; }
 current() { "$TEST_PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["current"])' "$DESIGN_STACK_HOME/manifest.json"; }
 
+# A post-checkout hook from a template dir records the environment each clone ran
+# under; GIT_TRACE records its arguments (a local clone ignores --depth on disk).
+mkdir -p "$box/template/hooks"
+cat > "$box/template/hooks/post-checkout" <<'SH'
+#!/bin/sh
+printf '%s lfs=%s\n' "$(basename "$PWD")" "${GIT_LFS_SKIP_SMUDGE:-unset}" >> "$DESIGN_STACK_CLONE_LOG"
+SH
+chmod +x "$box/template/hooks/post-checkout"
+export GIT_TEMPLATE_DIR="$box/template" DESIGN_STACK_CLONE_LOG="$box/clone.log" GIT_TRACE="$box/git-trace.log"
+
 printf '\n--- first setup and offline reuse ---\n'
 out="$(cd "$box/project" && run_cli setup)"; code=$?
-assert_eq 0 "$code" "setup succeeds from four local official-source fixtures"
+assert_eq 0 "$code" "setup succeeds from five local official-source fixtures"
 assert_contains "$out" 'Ready' "setup reports readiness"
 assert_file_contains "$DESIGN_STACK_HOME/manifest.json" '"schema_version": 1' "manifest is versioned"
 assert_file_contains "$DESIGN_STACK_INSTALL_LOG" 'skills add' "Taste official installer was invoked"
 assert_file_contains "$DESIGN_STACK_INSTALL_LOG" 'impeccable install' "Impeccable official installer was invoked"
 assert_eq 0 "$([ ! -d "$box/project/.agents" ]; echo $?)" "installers write no project payload"
+unset GIT_TEMPLATE_DIR GIT_TRACE
+printf '\n--- hyperframes source ---\n'
+clones="$(grep 'built-in: git clone' "$box/git-trace.log")"
+assert_eq 5 "$(printf '%s\n' "$clones" | wc -l | tr -d ' ')" "setup clones five sources"
+assert_eq 1 "$(printf '%s\n' "$clones" | grep -c -- '--depth 1')" "exactly one clone is shallow"
+assert_contains "$(printf '%s\n' "$clones" | grep -- '--depth 1')" 'upstreams/hyperframes' "the shallow clone is hyperframes"
+assert_eq 1 "$(grep -c 'lfs=1' "$box/clone.log")" "exactly one clone skips the LFS smudge"
+assert_file_contains "$box/clone.log" 'hyperframes lfs=1' "the hyperframes clone skips the LFS smudge"
+assert_file_contains "$box/clone.log" 'taste lfs=unset' "the other clones keep the inherited environment"
+assert_file_contains "$DESIGN_STACK_HOME/manifest.json" '"hyperframes"' "hyperframes revision recorded in the manifest"
 calls_before="$(wc -l < "$DESIGN_STACK_INSTALL_LOG")"
 export DESIGN_STACK_TASTE_URL="$box/missing-taste"
 out="$(cd "$box/project" && run_cli status)"; code=$?
 assert_eq 0 "$code" "status reads verified release offline"
 assert_eq "$calls_before" "$(wc -l < "$DESIGN_STACK_INSTALL_LOG")" "status invokes no installer"
 release="$DESIGN_STACK_HOME/releases/$(current)"
-for name in taste impeccable references three; do
+for name in taste impeccable references three hyperframes; do
   assert_file_contains "$DESIGN_STACK_HOME/manifest.json" "\"$name\"" "$name revision recorded"
   [ -d "$release/sources/$name" ]
   assert_eq 0 "$?" "$name is available in the verified release"
@@ -126,6 +148,24 @@ assert_eq 0 "$code" "valid update succeeds"
 assert_contains "$out" 'Ready' "successful update reports readiness"
 assert_eq 0 "$([ "$before" != "$(current)" ]; echo $?)" "successful update switches release"
 assert_file_contains "$DESIGN_STACK_HOME/releases/$(current)/sources/taste/skills/taste/SKILL.md" 'changed' "new content is available"
+
+printf '\n--- executable resolution ---\n'
+# Windows resolves `npx` to npx.cmd only through PATHEXT, which subprocess
+# without a shell ignores; run() must hand subprocess the which() result.
+out="$("$TEST_PYTHON" - "$(dirname "$CLI")" <<'PY' 2>&1
+import shutil, subprocess, sys
+sys.path.insert(0, sys.argv[1])
+import design_stack
+shutil.which = lambda name: {"npx": "C:/nodejs/npx.cmd"}.get(name)
+seen = []
+subprocess.run = lambda command, **_: seen.append(command) or subprocess.CompletedProcess(command, 0, "")
+design_stack.run("npx", "--yes")
+design_stack.run("unresolvable", "--yes")
+print(seen)
+PY
+)"
+assert_contains "$out" "('C:/nodejs/npx.cmd', '--yes')" "run resolves a bare command through PATH and PATHEXT"
+assert_contains "$out" "('unresolvable', '--yes')" "an unresolvable command keeps its name so the error stays explicit"
 
 printf '\n--- distribution ---\n'
 assert_file_contains "$REPO/README.md" '/design-stack' "README names the adapter"

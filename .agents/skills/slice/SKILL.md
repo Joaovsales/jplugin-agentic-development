@@ -33,7 +33,11 @@ python3 .agents/skills/slice/scripts/slice.py validate --spec <spec>
 
 Refuses, naming the slices or the path, on: two slices whose surfaces
 intersect with no blocker between them (directly or transitively), a cycle,
-or a surface path outside `implementation_paths`. `/slice` writes nothing on
+or a surface path outside `implementation_paths`. Once a `## Plan:` block
+already exists for the spec (a re-run), it also refuses an open `[ ] TDD:
+tests/… § …` row whose test file no pattern in its slice's Surface matches,
+naming the slice and the path — the agent a slice dispatches edits only its
+Surface, so the test it must write has to be inside it. `/slice` writes nothing on
 a refusal — fix the spec's table or paths and re-run.
 
 ### 2. Size the slices
@@ -95,6 +99,21 @@ must stay byte-for-byte identical to
 
 ### 5. Print the build prompt and stop
 
+First the readiness gate — a build started while a decision is open just
+guesses it:
+
+```bash
+python3 .agents/skills/slice/scripts/slice.py readiness --spec <spec>
+```
+
+Silent and exit 0 when every § Decisions row is settled and no open question
+blocks a slice. Otherwise it prints `not ready: <ids>` — the open decisions,
+then the questions whose `Blocks` names a slice — and exits 1: `/slice` prints
+that line in place of the prompt, writes no prompt fence, and exits non-zero.
+A question whose `Blocks` is `none` never gates. Exit 2 names a malformed
+section as `<spec>:<line>: <reason>`. The visual plan page reads the spec the
+same way and shows the same ids as **Not ready** with copy disabled.
+
 The closing fenced block of § Build Order. Template must stay byte-for-byte
 identical to `.agents/skills/slice/references/build-prompt.md`.
 
@@ -107,7 +126,7 @@ Files: <implementation_paths, comma-separated>.
 Instructions:
 1. `/build`'s pre-flight files the slices: `/slice specs/<feature>.md --file --approve`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
-3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
 Constraints: <one line per § Decisions row the builder must keep; omit the field when none>
 ```
@@ -122,6 +141,14 @@ The instruction lines are fixed text; `Constraints:` is the one free slot.
 ✓ Plan written: <abs todo path>
 Spec and plan are ready to be built. Start a fresh session with this prompt:
 <build prompt, verbatim>
+```
+
+or, when the readiness gate refuses:
+
+```
+✓ Build Order written: <abs spec path>
+✓ Plan written: <abs todo path>
+not ready: <ids>
 ```
 
 `/slice` never files anything itself; the caller relays the prompt as the
@@ -178,7 +205,7 @@ One line per slice: `✓ Filed: <id> → <#N | local, publication pending>`.
 
 - **Called by**: `/plan` Step 3, `/system-design-planning` Step 3.5, and
   `/build`'s pre-flight (`--file --approve`, or `--file` alone from
-  `/yolo`).
+  `/yolo` or an unattended lane run).
 - **Calls**: `/task-registry` (`upsert`, dry run then `--apply`).
 - **Precedes**: `/build`, which reads the plan block's slice rows and the
   Build Order's Surface column, one slice at a time.

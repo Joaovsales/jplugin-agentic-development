@@ -1,6 +1,6 @@
 ---
 name: design-stack
-description: Set up, update, and browse the shared UI design sources used by jplugin. Installs Taste, Impeccable, design references, and img2threejs once in user scope.
+description: Set up, update, and browse the shared UI design sources used by jplugin. Installs Taste, Impeccable, design references, img2threejs and HyperFrames once in user scope.
 harness: universal
 ---
 
@@ -15,7 +15,7 @@ projects do not need this setup.
 
 Run `python3 .agents/skills/design-stack/scripts/design_stack.py setup` once on
 the user's machine. A verified release contains Taste skills, Impeccable commands,
-awesome-design-md references, and img2threejs. Setup reads the current release
+awesome-design-md references, img2threejs and HyperFrames. Setup reads the current release
 offline if it already exists. `status` is also offline. If the first setup cannot
 reach or validate the sources, report `SetupRequired` and stop UI setup.
 
@@ -28,6 +28,7 @@ latest upstream content is installed. The source paths are:
 - `sources/impeccable/.agent/skills/impeccable/SKILL.md` — Impeccable command skill.
 - `sources/references/design-md/*/DESIGN.md` — design references.
 - `sources/three/SKILL.md` — img2threejs capability, used only on request.
+- `sources/hyperframes/skills/*/SKILL.md` — HyperFrames video skills, used only on request.
 
 Taste's upstream installation uses `npx skills add`; Impeccable's uses
 `npx impeccable install`. The adapter invokes these official CLIs against a
@@ -35,13 +36,20 @@ cloned revision in an isolated staging directory with a staging HOME and project
 cwd, then validates their staged skill/command outputs before promotion. Installed
 entrypoints live under the release's staging home in `.agent/`, `.agents/`, or
 `.claude/`; read them from the verified release, never from the current project.
-The references and 3D source use their official Git repositories. The project
-never receives installer output.
+The references and 3D source use their official Git repositories. HyperFrames is
+the fifth source, cloned shallow from `https://github.com/heygen-com/hyperframes.git`
+(override `DESIGN_STACK_HYPERFRAMES_URL`) with LFS media skipped. It has no
+installer: its skills are read in place and nothing is written to the live Claude
+config. The project never receives installer output.
+
+An install that predates HyperFrames keeps working offline. `status` prints
+`Ready <id> (offline; update adds: hyperframes)`, and only an explicit `update`
+adds the source.
 
 ## Update
 
 Run `python3 .agents/skills/design-stack/scripts/design_stack.py update` only
-after an explicit update request. The adapter stages all four sources, compares
+after an explicit update request. The adapter stages all five sources, compares
 their revisions, runs the installers on a changed set, validates entrypoints,
 and atomically promotes the release pointer. A failed or timed-out update reports
 `UpdateRejected` and leaves the previous release usable. An unchanged revision
@@ -58,8 +66,13 @@ kinds, source revisions, fit descriptions and local source paths for tooling.
 This scan is local and read-only: a new installed Taste skill, archetype, or
 awesome-design-md reference appears without changing a count in the adapter.
 Taste style skills and their nested archetypes are both selectable directions;
-`spatial` and `custom` are built in. Impeccable commands and img2threejs appear
+`spatial` and `custom` are built in. Impeccable commands, img2threejs and HyperFrames appear
 as tools, never as primary directions.
+
+HyperFrames entries are kind `tool` with IDs `hyperframes:<skill>`, one per
+`sources/hyperframes/skills/*/SKILL.md` (title from its frontmatter `name`, fit
+from its `description`). The router is `hyperframes:hyperframes`. A `hyperframes:` ID is a tool,
+never a primary direction or a reference; `select` and `brief` refuse it.
 
 Use `design_stack.py select --direction <id> [--reference <id> ...]
 [--custom-brief <text>] [--use-case <description>]` to validate one primary
@@ -111,3 +124,25 @@ the later forge completion must also pass. Record evidence paths and the
 result of every required gate. A failed, missing or unverified strict spec or
 forge gate blocks production completion. Keep the result labeled `prototype`
 and list failed/open gates until both stages pass.
+
+## Opt-in video
+
+Use HyperFrames only when the task explicitly requests a video, an MP4, motion
+graphics or an explainer video, or when the brief's Motion rule names HyperFrames.
+A negation such as "remove the video", a bare `render` ("fix the re-render
+flicker") and a Motion rule that only describes UI easing or an existing video
+element are not an opt-in. The
+`scripts/hyperframes.py` guard reports this through
+`should_run_hyperframes(task, brief_motion)`. Read the verified release's
+`sources/hyperframes/skills/hyperframes/SKILL.md` router and the skill it names;
+never infer the process from memory.
+
+Run the CLI as `npx hyperframes@<version>`, where `cli_version(release)` reads
+`<version>` from the release's `packages/cli/package.json`. Never run a floating
+`latest`. Author the composition, then run `npx hyperframes@<version> check`
+(`hyperframes check`) and `npx hyperframes@<version> render` for the MP4.
+
+`production_status(gates)` needs two gates, `check` (the composition passes
+`hyperframes check`) and `render` (an MP4 was rendered). Until both are true the
+result stays labeled `prototype` and lists the open gates. The guard never runs the CLI or
+touches the network: record each gate fact yourself after running the command.

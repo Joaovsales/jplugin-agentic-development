@@ -32,6 +32,16 @@ expansion the same way.) The literal-grep sweep stays allowlist-free — any
 new literal reference anywhere in either skill tree fails the suite — while
 the detection logic keeps working.
 
+## Same pattern, another sweep
+
+The `/wrap-up-session` § *Shortcut ledger* grep sweeps the whole repository
+for `TODO(shortcut):` comment markers. A test that writes literal sample
+markers (a hash comment followed by the tag) to check the pattern becomes a ledger row
+itself, tagged `no-trigger`. tests/test-doc-conventions.sh:1428-1429 avoids that
+in two ways. It builds the samples from `tag='TODO(shortcut):'`, and it runs
+them through the pattern extracted from the skill's own line instead of a copy.
+That way the test checks the regex that ships (2026-10-09).
+
 ## Trade-off
 
 The rejected alternative (literal paths + a sweep allowlist) is more

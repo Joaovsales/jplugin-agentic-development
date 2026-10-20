@@ -1,7 +1,7 @@
 ---
 name: task-registry
 description: Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine.
-argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|lanes [<lane>]|upsert <task-id>|escalate <task-reference>]"
+argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|lanes [<lane>]|upsert <task-id>|escalate <task-reference>|closes <pull-request>]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -54,6 +54,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py escalate '#42' \
   --reason execution-blocked --reproduction-state unverified \
   --run-at 2026-09-12T15:00:00Z --repro-command 'make test' \
   --observed 'runner cannot load its fixture' --evidence tasks/routine-runs/run.md
+python3 .agents/skills/task-registry/scripts/task-registry.py closes '#141' --apply --approve
 ```
 
 | Command | Reads | Local writes | External writes |
@@ -67,6 +68,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py escalate '#42' \
 | `workflow` | one task | no | no |
 | `lanes` | the lane catalogue (+ config, non-strict) | no | no |
 | `escalate` | parent + optional blocker | run artifact with `--apply` | hold, optional blocker, comment (`--apply` + approval) |
+| `closes` | one merged PR + the issues it links | no | close each still-open one (`--apply` + approval) |
 
 Exit codes: `0` success · `1` failure or partial failure · `2` usage error.
 
@@ -85,6 +87,27 @@ files one validated blocker, and posts a safe JSON report to the parent in that
 order. Dry-run previews all stages without writes. An applied run always exits 1
 to stop the fix pipeline and retains its stage record under `tasks/routine-runs/`.
 Do not pass secrets: evidence files are referenced, never uploaded automatically.
+
+### `closes` — close what a merged PR's closing keywords left open
+
+A merge made with a workflow's `GITHUB_TOKEN` fires no closing keyword, so the
+automation that merged runs `closes '#<pr>' --apply --approve` right after its
+merge call. It closes each issue the PR's `Closes #N` lines name that is still
+open, through the same gated close as every other write, and prints one line per
+issue it closed. Nothing left open exits `0` with `nothing to do`. An issue it
+could not close — a refused write, a failed `gh` call, a dry run — is named and
+exits `1`, as does a PR that is not merged or that links an issue in another
+repository. The workflow token needs `issues: write`.
+
+`select` catches a merge nobody ran `closes` after: an open issue whose closing
+PR merged is never a candidate, and each one gets a line naming the repair —
+
+```
+stranded:      #155 — #189 merged and left it open; close it with `task-registry closes '#189' --apply --approve`
+```
+
+An issue a human reopened after its PR merged is not stranded and stays
+selectable.
 
 ### `workflow` — which routine owns one issue
 

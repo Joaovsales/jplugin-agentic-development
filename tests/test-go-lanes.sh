@@ -92,8 +92,33 @@ $tokens
 EOF
 done
 
+# --- AC3 (lane-plan-handover): /go crosses the plan handover by citation -------
+for tree in $TREES; do
+  f="$tree/skills/go/SKILL.md"
+  [ -f "$f" ] || continue
+  assert_prose_contains "$f" "Crossing the plan handover" \
+    "GoLanes: $f cites the routines.md section that owns the handover rule"
+  assert_prose_contains "$f" "handed over: build prompt" \
+    "GoLanes: $f names the handed-over append as its second block edit"
+  assert_prose_contains "$f" "the reply precedes the build prompt" \
+    "GoLanes: $f puts its reply before the build prompt"
+  assert_file_not_matches "$f" "Confirm with 'y'" \
+    "GoLanes: $f no longer names \"Confirm with 'y'\" as /plan's gate"
+done
+
+# --- AC4 (lane-plan-handover): the ownerless lanes cite the handover section ----
+for lane in improve refactor babysit; do
+  f="$LANES_DIR/$lane.md"
+  [ -f "$f" ] || { assert_eq "present" "missing" "GoLanes: $f exists"; continue; }
+  assert_prose_contains "$f" "Crossing the plan handover" \
+    "GoLanes: $f cites the routines.md section that owns the handover rule"
+  assert_file_not_matches "$f" "where the human is asked before code changes" \
+    "GoLanes: $f no longer says where the human is asked before code changes"
+done
+
 # --- AC7: the interactive lanes /go picks reach a human gate before /build -----
-# /plan asks "Confirm with 'y'"; /debug's prelude stops before any edit. Nothing
+# /plan ends at the build prompt, which a human crosses by starting a fresh
+# session; /debug's prelude stops before any edit. Nothing
 # else in these chains asks, so one of them must come first. The lane files are
 # the registry's, pinned in full by tests/test-lane-catalogue.sh; this is the one
 # property /go's own contract depends on.

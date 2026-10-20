@@ -1,0 +1,42 @@
+diff --git a/app/reports.py b/app/reports.py
+index 71c04ae..e52b9f1 100644
+--- a/app/reports.py
++++ b/app/reports.py
+@@ -1,8 +1,37 @@
+ import csv
+ import io
+ 
+ from app.crm import crm_client
+ from app.db import db
+ from app.models import Order
+ 
+ 
++def order_summary(account_id, limit=50):
++    orders = (
++        db.query(Order)
++        .filter_by(account_id=account_id)
++        .order_by(Order.placed_at.desc())
++        .limit(limit)
++        .all()
++    )
++    rows = []
++    for order in orders:
++        customer = crm_client.get_customer(order.customer_id)
++        rows.append(
++            {
++                "order_id": order.id,
++                "customer": customer["display_name"],
++                "email": customer["email"],
++                "total_cents": order.total_cents,
++                "placed_at": order.placed_at.isoformat(),
++            }
++        )
++    return rows
++
++
++def summary_csv(rows):
++    buf = io.StringIO()
++    writer = csv.DictWriter(buf, fieldnames=list(rows[0]) if rows else [])
++    writer.writeheader()
++    writer.writerows(rows)
++    return buf.getvalue()

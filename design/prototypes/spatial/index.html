@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A spatial architecture review of Codex Scout routing, issue 158.">
+  <title>Scout routing | Architecture exhibit</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="vendor/three.min.js"></script>
+  <script defer src="model.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to architecture review</a>
+  <div class="layout">
+    <aside class="rail" aria-label="Exhibit navigation">
+      <a class="mark" href="#top" aria-label="Back to top"><span class="mark-core"></span><span>J / D</span></a>
+      <div class="rail-rule"></div>
+      <nav>
+        <a href="#instrument">01 <span>Instrument</span></a>
+        <a href="#routing">02 <span>Routing</span></a>
+        <a href="#contracts">03 <span>Contracts</span></a>
+        <a href="#build">04 <span>Build order</span></a>
+        <a href="#review">05 <span>Review record</span></a>
+      </nav>
+      <span class="rail-bottom">DESIGN STUDY · 2026</span>
+    </aside>
+    <div class="page" id="top">
+      <header class="masthead">
+        <span>jplugin / architecture review</span>
+        <span>Issue <a href="https://github.com/Joaovsales/jplugin-agentic-development/issues/158">#158</a> · child of #157</span>
+        <span class="draft">Draft for review</span>
+      </header>
+      <main id="main">
+        <section class="opening" aria-labelledby="page-title">
+          <div class="opening-copy">
+            <p class="edition">A routing system, made legible</p>
+            <h1 id="page-title">Give exploration<br>its own route.</h1>
+            <p class="lead">Codex explorer children currently inherit the parent model and effort. The proposal gives read-heavy work a named, bounded Scout profile while preserving inheritance for high-stakes roles.</p>
+            <div class="opening-actions">
+              <a class="action" href="#instrument">Inspect the instrument <span aria-hidden="true">↗</span></a>
+              <a class="quiet-link" href="#build">Follow the six slices</a>
+            </div>
+          </div>
+          <div class="opening-art" aria-hidden="true">
+            <img src="assets/routing-instrument-reference.png" alt="" width="1400" height="850">
+            <div class="art-annotation art-a">03 INPUTS</div>
+            <div class="art-annotation art-b">NAMED SELECTOR</div>
+            <div class="art-annotation art-c">01 OUTPUT</div>
+          </div>
+          <div class="opening-foot">
+            <span>01 / architecture in review</span>
+            <span>Scout → gpt-6-luna</span>
+            <span>Ceiling → parent model</span>
+          </div>
+        </section>
+
+        <section id="instrument" class="instrument section" aria-labelledby="instrument-title">
+          <div class="section-head">
+            <h2 id="instrument-title">The routing instrument</h2>
+            <p>A stylized object study makes the policy distinction visible. Its form is authored, not a proposed hardware product.</p>
+          </div>
+          <div class="compare">
+            <figure>
+              <div class="figure-stage"><img src="assets/routing-instrument-reference.png" alt="Raster reference: a charcoal enclosure with three inset input lanes converging on a copper selector and one output lane." width="1400" height="850"></div>
+              <figcaption><strong>A · Source image</strong><span>Original raster illustration · single viewpoint</span></figcaption>
+            </figure>
+            <figure>
+              <div class="figure-stage" id="model-canvas" role="img" aria-label="Interactive procedural 3D reconstruction of the routing instrument. A shallow charcoal enclosure has three input tracks, a raised copper selector, one output track, and four front sockets."></div>
+              <figcaption><strong>B · Reconstructed volume</strong><span>Procedural Three.js geometry · approximate</span></figcaption>
+            </figure>
+          </div>
+          <div class="viewbar">
+            <div class="view-controls" role="group" aria-label="3D viewing angle">
+              <button type="button" data-view="reference" aria-pressed="true">Reference angle</button>
+              <button type="button" data-view="front" aria-pressed="false">Front face</button>
+              <button type="button" data-view="top" aria-pressed="false">Top deck</button>
+            </div>
+            <p id="model-status" role="status">Loading the live model…</p>
+          </div>
+          <p class="figure-note">The image admits a single visible silhouette; the model infers hidden depth and material response. Compare the three converging tracks, raised selector, and 3+1 sockets. The rear, exact dimensions, and inner channels cannot be verified from one image.</p>
+        </section>
+
+        <section id="routing" class="routing section" aria-labelledby="routing-title">
+          <div class="section-head wide-head">
+            <h2 id="routing-title">Separate the cheap read from the consequential judgment.</h2>
+            <p>The distinction is a policy contract. The installer creates named routes; the host then selects those roles through native Codex configuration.</p>
+          </div>
+          <div class="route-diagram" aria-label="Scout route is pinned to Luna. Ceiling roles inherit the parent model; Planner, Builder, and Reviewer use explicit tier mappings.">
+            <div class="route-origin"><span>Skill or routine</span><strong>Dispatch intent</strong></div>
+            <div class="route-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="route-destinations">
+              <div class="route scout"><span>Read-heavy investigation</span><strong>Scout <em>gpt-6-luna</em></strong><small>Named explorer is read-only · MCP-capable Scout supports /why</small></div>
+              <div class="route routine"><span>Routine implementation</span><strong>Explicit tiers</strong><small>Planner: gpt-6-astra / high · Builder &amp; Reviewer: gpt-6.1-sol / medium</small></div>
+              <div class="route ceiling"><span>High-stakes review</span><strong>Ceiling <em>inherits</em></strong><small>Documented floors may escalate; no global Scout default may cap it</small></div>
+            </div>
+          </div>
+          <div class="constraint-strip">
+            <p><strong>Three child threads maximum by default.</strong> A user override remains theirs; doctor diagnoses any excess.</p>
+            <p><strong>Personal configuration remains personal.</strong> Ambiguous legacy agents are reported, while known generated shapes require preview, opt-in adoption, and a backup.</p>
+          </div>
+        </section>
+
+        <section id="contracts" class="contracts section" aria-labelledby="contracts-title">
+          <div class="section-head">
+            <h2 id="contracts-title">Three contracts hold the route.</h2>
+            <p>Each boundary has a specific result and failure behavior, so “installed” does not masquerade as “effective.”</p>
+          </div>
+          <div class="contract-list">
+            <article><span class="contract-index">01 / Resolve</span><div><h3>Semantic intent → native route</h3><code>resolve(policy, harness, lane, role, parent_model)</code><p>Pure and repeatable. Unknown roles, unsupported effort, or an unknown schema version return an explicit error before file access.</p></div></article>
+            <article><span class="contract-index">02 / Inspect</span><div><h3>Desired files → actual precedence</h3><code>inspect(desired, context)</code><p>Classifies managed drift, legacy candidates, personal conflict, invalid files, and unknown layers. Project shadows and CLI/cloud/session overrides remain visible as provenance limits.</p></div></article>
+            <article><span class="contract-index">03 / Apply</span><div><h3>Preview → guarded change</h3><code>apply(plan, codex_home, explicit_opt_in)</code><p>Names creates, updates, migrations, and backup paths. Ambiguous conflicts refuse apply; changed user-owned content is backed up; repeat installs make no new change.</p></div></article>
+          </div>
+          <div class="flow-caption">Policy validation and preview can fail independently of a Codex session. A missing route affects one delegated investigation; the parent can still report the gap.</div>
+        </section>
+
+        <section id="build" class="build section" aria-labelledby="build-title">
+          <div class="section-head">
+            <h2 id="build-title">Build order</h2>
+            <p>Six bounded slices. Slice 1 creates the shared #157 foundation; the remaining work follows explicit blockers.</p>
+          </div>
+          <ol class="slice-list">
+            <li><span class="slice-number">01</span><div><h3>Policy contract and resolver</h3><p>Versioned policy resolves Codex lanes and roles, or explains unsupported mappings.</p></div><span class="slice-dep">Ready first</span></li>
+            <li><span class="slice-number">02</span><div><h3>Managed Codex role rendering</h3><p>Native TOML covers canonical roles and named Scout profiles with Ceiling and floor outcomes.</p></div><span class="slice-dep">After 01</span></li>
+            <li><span class="slice-number">03</span><div><h3>Safe install and migration</h3><p>Concurrency default, previewed legacy adoption, backups, and repeatable install.</p></div><span class="slice-dep">After 02</span></li>
+            <li><span class="slice-number">04</span><div><h3>How and why dispatch</h3><p>/how uses a managed explorer then Ceiling synthesis; /why retains MCP access for investigation.</p></div><span class="slice-dep">After 02</span></li>
+            <li><span class="slice-number">05</span><div><h3>Other Scout dispatch</h3><p>Remaining read-heavy skills, Codex floor guidance, and install documentation name effective roles.</p></div><span class="slice-dep">After 04</span></li>
+            <li><span class="slice-number">06</span><div><h3>Doctor and conformance</h3><p>Read-only traces expose inherited expense, missing caps, drift, and unknown provenance.</p></div><span class="slice-dep">After 03 + 05</span></li>
+          </ol>
+        </section>
+
+        <section id="review" class="review section" aria-labelledby="review-title">
+          <div class="section-head">
+            <h2 id="review-title">What the review must settle</h2>
+            <p>The spec records six choices, including two assumed choices that deserve explicit review.</p>
+          </div>
+          <div class="review-columns">
+            <div>
+              <h3>Decisions in the draft</h3>
+              <dl class="decisions">
+                <div><dt>Scope</dt><dd>Full #158, including installation; guidance alone would leave inherited-model behavior.</dd></div>
+                <div><dt>Scout model</dt><dd><code>gpt-6-luna</code>; entitlement needs a live spawn to confirm.</dd></div>
+                <div><dt>Global default <span>assumed</span></dt><dd>Pin named Scout roles; do not set global Luna where Ceiling should inherit.</dd></div>
+                <div><dt>#157 relationship <span>assumed</span></dt><dd>Ship minimal policy foundation here; Claude/Pi emitters remain #159.</dd></div>
+                <div><dt>Other Codex tiers <span>assumed</span></dt><dd>Planner Astra/high; Builder and Reviewer Sol/medium.</dd></div>
+                <div><dt>Legacy files</dt><dd>Adopt exact old generated shapes only after preview and backup.</dd></div>
+              </dl>
+            </div>
+            <div>
+              <h3>Acceptance checkpoints</h3>
+              <ol class="criteria">
+                <li>Versioned policy resolves every lane and role with a full trace.</li>
+                <li>Managed TOML pins Scout and read-only explorer to Luna.</li>
+                <li>Ceiling inheritance survives native precedence and floors.</li>
+                <li>/how and /why select the right named roles without model IDs in prose.</li>
+                <li>Other Scout skills use named roles; Claude/Pi routes remain intact.</li>
+                <li>Concurrency has a conservative default or diagnosis and override.</li>
+                <li>Migration preserves personal config, backs up changes, and is idempotent.</li>
+                <li>Doctor names expensive inheritance, missing caps, and provenance limits.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="source-line">Review the <a href="../../../specs/codex-scout-routing.md">source specification</a> for file surfaces, fixtures, and exact acceptance wording. This exhibit is a prototype of the review surface; it does not implement the routing policy.</div>
+        </section>
+      </main>
+      <footer><span>Scout routing / spatial study</span><span>Prototype · no policy changes</span><a href="#top">Return to top ↑</a></footer>
+    </div>
+  </div>
+</body>
+</html>

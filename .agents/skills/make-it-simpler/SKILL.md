@@ -55,9 +55,9 @@ estimated lines saved, the callers touched, and minor/significant. The operator
 picks one or declines: **none today writes nothing** — no task, no spec, no branch.
 
 A pick is filed and claimed (§ *Unattended* step b's commands, then
-`task-registry claim <ref> --apply --approve`). A significant pick is handed to
-`/plan`, or to `/system-design-planning` when it crosses its bar, and this skill
-stops. A minor pick goes to `/grilling` with four seeds, then the frontier:
+`task-registry claim <ref> --routine simplify --apply --approve`). A significant
+pick is handed to `/plan`, or to `/system-design-planning` when it crosses its
+bar, and this skill stops. A minor pick goes to `/grilling` with four seeds, then the frontier:
 
 1. Scope — what is in and what is out.
 2. What stays byte-identical (outputs, exit codes, headings callers cite).

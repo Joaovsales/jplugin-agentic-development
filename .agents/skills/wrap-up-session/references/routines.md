@@ -184,6 +184,33 @@ four problems at once:
 - "PR created but close failed" stops existing as a failure mode.
 - An abandoned PR no longer leaves a closed issue with no fix.
 
+The tracker keeps that promise only for some mergers. GitHub closes the issue
+when a person merges, but a merge made with a workflow's `GITHUB_TOKEN` — an
+auto-merge job running `gh pr merge` as the `github-actions` app — fires no
+closing keyword, and granting the token `issues: write` does not change that
+(#146). Whatever performs such a merge runs the registry's post-merge check
+right after its merge call:
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py closes "#$n" --apply --approve
+```
+
+`task-registry closes` closes each issue the merged PR links and left open,
+through the registry's gated write, and exits 1 naming any it could not close,
+so the miss fails the run instead of waiting for someone to notice. It refuses
+a PR that has not merged yet, so a job that only enables auto-merge
+(`gh pr merge --auto`) has no "right after" and must run it once the merge has
+landed. The workflow's token needs `issues: write` for the close. Routines
+still close nothing themselves: the check belongs to the merger, not to the
+routine that opened the PR.
+
+`select` is the backstop for a merger that skipped the check. An open issue
+whose closing PR in this repository merged, with no other PR in flight and no
+human reopening it, is never a candidate — picking it would redo merged work — and `select` prints
+a `stranded:` line for each one, carrying the `closes` command that finishes
+the job. `gh` lists an issue's closing PRs without their state, so the registry
+reads the states in one GraphQL call; an unreadable state counts as in flight.
+
 ## Step ledger
 
 Each routine below names an ordered, **mandatory** step list. The routine writes
@@ -226,6 +253,32 @@ the retained non-zero result opens no PR and creates no PR-ledger row.
 
 Each consumer routine below gives **only** its step 4 and any gate the spine
 does not already carry.
+
+### Crossing the plan handover
+
+`/plan` and `/system-design-planning` end the planning session with a build
+prompt and never build. A lane that chains a planner into `/build` crosses that
+handover one of three ways:
+
+- **A skill that owns a Step 6 override** — `/auto-push`, `/yolo`,
+  `/make-it-simpler` — crosses on its own terms; none is restated here.
+  `simplify` crosses through `/make-it-simpler` § *Overrides*, in every mode.
+- **An unattended lane run with no owning skill** — the ownerless lanes are
+  `improve`, `refactor` and `babysit`; unattended is § *Unattended detection*.
+  The run prints no build prompt and `/build` runs in place, in the same
+  session; its pre-flight runs `/slice <spec> --file` with no `--approve`, so
+  the project's approval floor decides, as for `/yolo`. The same override
+  covers `/system-design-planning`'s hand-over. It is one of the named
+  exceptions to the fresh-session rule (`AGENTS.md` step 3).
+- **An interactive lane run with no owning skill** — the handover is honoured:
+  the build prompt stays the session's last message, the `go` skill appends
+  ` — handed over: build prompt` to each lane line after the planner step, and
+  its reply precedes the prompt. The build session runs those steps.
+
+An in-place build still gets a fresh context for the code: `/build` (§ *Parallel
+Dispatch Assessment*) dispatches every slice to a sub-agent when it runs in the
+session that planned it. The `plan` lane stops at its planner, so none of this
+applies to it.
 
 ### `plan` — steps
 

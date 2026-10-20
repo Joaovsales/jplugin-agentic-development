@@ -1200,7 +1200,7 @@ Filed this sweep:
 - Completed: 11 tasks (Grilling Adoption plan: 7 TDD + suite task + 2 e2e + 1 eval; all 13 ACs evidenced)
 - Pending: 1 task (the unrelated `tidy` cloud-routine row above; whole file 158 [x])
 - Carry-forward: six `manual`/`advisory` design-review findings on brainstorm Step 3 and `references/domain-modeling.md` (rhythm rule stated in two files, callee format restated in the caller, undeclared seed frontier, glossary rule stated three times, `/learn` overlap rule bug-track shaped, `harness: universal` proven on Claude Code only) — reported in the PR, not applied; the `/plan` Step 1 / `/prd` / `/system-design-planning` follow-up is filed through `/task-registry` only after confirmation (spec § Out of Scope)
-- [ ] /learn overlap dimensions are bug-track shaped, so knowledge-track decisions cannot reach the update-in-place branch <!-- task-id: learn.agents-skills-learn-skill-md --> — The five overlap dimensions in /learn Step 4 (problem, root cause, solution, files touched, prevention rule) describe a… ([#168](https://github.com/Joaovsales/jplugin-agentic-development/issues/168))
+- [x] /learn overlap dimensions are bug-track shaped, so knowledge-track decisions cannot reach the update-in-place branch <!-- task-id: learn.agents-skills-learn-skill-md --> — The five overlap dimensions in /learn Step 4 (problem, root cause, solution, files touched, prevention rule) describe a… ([#168](https://github.com/Joaovsales/jplugin-agentic-development/issues/168))
 
 ## Plan: single-instruction-file
 > Spec: specs/single-instruction-file.md
@@ -1430,11 +1430,588 @@ Filed this sweep:
 - Completed: wrap-up-phases slices 1–7 (specs/wrap-up-phases.md); quality-gate fixes (1b116e8, c1c3133); spec reconciliation of 4 specs that cited wrap-up by step number
 - Pending: none in this plan
 - Carry-forward: README's flow still lists /security-scan as its own step before wrap-up, although /quality-gate phase 3 now runs it; specs outside the reconciliation candidates (lightpanda-browser-adoption, omc-practices-adoption, workflow-insights-improvements, wrap-up-gate-and-tdd-fold) still cite old wrap-up step numbers in historical context
+
+## Plan: codex-scout-routing
+> Spec: specs/codex-scout-routing.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/158
+
+### Slice 1/6 — Policy contract and resolver
+- [x] Policy contract and resolver <!-- task-id: plan.specs-codex-scout-routing-md.policy-contract-and-resolver --> — Slice 1/6 of #158: Versioned #157 policy foundation resolves Codex lanes and roles and explains unsupported mappings ([#224](https://github.com/Joaovsales/jplugin-agentic-development/issues/224))
+  [x] TDD: policy fixtures reject unknown schema versions, duplicate role routes, unsupported model/effort pairs, and ambiguous lanes; known Codex roles resolve to semantic tiers with a complete explanation (AC 1) -> add `config/agent-policy.toml`, parser/resolver, and `scripts/agent-policy explain`
+
+> Handover: landed uncommitted from b2b5634 — versioned Codex policy, pure resolver, explain CLI; 54 policy assertions and 20 affected test files pass.
+> Do not re-derive: `load_policy` and `resolve` in `scripts/agent_policy/policy.py` own role, lane, floor, model, effort, permission and child-limit resolution; `explorer` and `scout` are Scout profiles.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree paths are within the declared surface.
+
+### Slice 2/6 — Managed Codex role rendering
+- [x] Managed Codex role rendering <!-- task-id: plan.specs-codex-scout-routing-md.managed-codex-role-rendering --> — Slice 2/6 of #158: Native TOML covers canonical roles plus Scout, with correct Ceiling and floor outcomes ([#225](https://github.com/Joaovsales/jplugin-agentic-development/issues/225)) (blocked-by: plan.specs-codex-scout-routing-md.policy-contract-and-resolver)
+  [x] TDD: rendered Codex TOML pins `explorer` to Scout `gpt-6-luna` and emits every canonical workflow role with intended effort and permissions (AC 2) -> add Codex emitter behind the policy façade and keep `render-codex.py` as compatibility entry
+  [x] TDD: effective-route fixtures prove Ceiling inherits without a global model default and documented floors escalate only when needed (AC 3) -> resolve Codex precedence before rendering or dispatch
+
+> Handover: landed uncommitted from b2b5634 — policy-backed Codex TOML for canonical roles, explorer, scout, and debug-escalation; 58 policy and 23 install assertions pass, with 22 affected test files green.
+> Do not re-derive: `debug-escalation` needs its separate model-free profile because `code-debugger.toml` pins Builder and wins over spawn values; inherited Ceiling routes refuse a global default. Slice 3 must preflight Python 3.11 before copying files.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 3/6 — Safe Codex install and migration
+- [x] Safe Codex install and migration <!-- task-id: plan.specs-codex-scout-routing-md.safe-codex-install-and-migration --> — Slice 3/6 of #158: Concurrency default, previewed legacy adoption, backups, and repeatable install ([#226](https://github.com/Joaovsales/jplugin-agentic-development/issues/226)) (blocked-by: plan.specs-codex-scout-routing-md.managed-codex-role-rendering)
+  [x] TDD: isolated Codex config gains a three-child concurrency default while a user override and unrelated keys survive; missing or excess caps are diagnosed (AC 6) -> merge the native `[agents]` setting through the Codex adapter
+  [x] TDD: exact old generated shape previews and migrates with backup only on opt-in; personal and invalid TOML stay byte-identical; a second install changes nothing (AC 7) -> add classification, preview, safe apply, and installer handoff
+
+> Handover: landed uncommitted from b2b5634 — read-only preview, exact legacy adoption with backup, native three-child cap, personal conflict refusal, Python 3.11 preflight; 49 installer assertions and 27 affected test files pass.
+> Do not re-derive: `scripts/agent_policy/install.py` plans and applies changes; `--adopt-legacy` is required for an exact old shape, and both native and legacy cap keys preserve personal overrides. A global subagent default conflicts with Ceiling inheritance.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 4/6 — How and why Scout dispatch
+- [x] How and why Scout dispatch <!-- task-id: plan.specs-codex-scout-routing-md.how-and-why-scout-dispatch --> — Slice 4/6 of #158: `/how` uses managed explorer; `/why` uses an MCP-capable Scout investigator ([#227](https://github.com/Joaovsales/jplugin-agentic-development/issues/227)) (blocked-by: plan.specs-codex-scout-routing-md.managed-codex-role-rendering)
+  [x] TDD: static and fixture checks distinguish Codex `/how` explorer from `/why` MCP investigator, retain Claude/Pi wording, and find no concrete Codex model ID in skill prose (AC 4) -> update both skills and the shared routing reference
+
+> Handover: landed uncommitted from b2b5634 — `/how` names managed read-only `explorer` and Ceiling explainer; `/why` names MCP-capable `scout` and Ceiling synthesizer; 59 how/why and 76 model-tier assertions pass, with 27 affected test files green.
+> Do not re-derive: the routing reference owns Codex dispatch guidance and points concrete provider mapping to `config/agent-policy.toml`; preserve its fixed `##` headings, keeping Codex detail under `### Codex dispatch`.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 5/6 — Other Scout dispatch and guidance
+- [x] Other Scout dispatch and guidance <!-- task-id: plan.specs-codex-scout-routing-md.other-scout-dispatch-and-guidance --> — Slice 5/6 of #158: Remaining Scout skills and Codex floor dispatch name the effective roles; the install guide shows ro… ([#228](https://github.com/Joaovsales/jplugin-agentic-development/issues/228)) (blocked-by: plan.specs-codex-scout-routing-md.how-and-why-scout-dispatch)
+  [x] TDD: plan, build, prd, grilling, and system-design-planning dispatch text follows the shared Codex Scout and floor rules; README shows install, preview, and explain without changing Claude/Pi contracts (AC 5) -> update dispatch guidance and docs
+
+> Handover: landed uncommitted from b2b5634 — Scout dispatch guidance in five skills, strict debugger floor instructions, and README install/preview/adopt/explain/doctor commands; 92 model-tier and 810 doc-convention assertions pass, with 35 affected test files green.
+> Do not re-derive: `debug-escalation` is the model-free Codex profile; request Planner on Builder-or-weaker parents and inherit above Builder. `config/agent-policy.toml` owns concrete Codex model IDs; doctor is documented but implemented in slice 6.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+### Slice 6/6 — Codex doctor and conformance
+- [x] Codex doctor and conformance <!-- task-id: plan.specs-codex-scout-routing-md.codex-doctor-and-conformance --> — Slice 6/6 of #158: Read-only doctor reports effective routes, inherited expense, and missing caps with fixture-backed t… ([#229](https://github.com/Joaovsales/jplugin-agentic-development/issues/229)) (blocked-by: plan.specs-codex-scout-routing-md.safe-codex-install-and-migration, plan.specs-codex-scout-routing-md.other-scout-dispatch-and-guidance)
+  [x] TDD: `doctor --harness codex` identifies inherited expensive roles and missing caps with the winning config layer or project agent file, or reports unknown provenance; fixtures cover project agent shadows, project/profile/CLI precedence, render, migration, drift, repeat install, and personal preservation (AC 8) -> add layered installed-config inspection and conformance matrix
+
+> Handover: landed uncommitted from b2b5634 — read-only doctor with layered model/cap provenance, project agent shadows, drift, inherited cost and unknown-layer reporting; 100 policy assertions and 35 affected test files pass.
+> Do not re-derive: trusted closest project config beats selected profile and user config; doctor derives visible parent model only when higher layers are known, shows a global child default as the actual Ceiling source, and reports unknown project trust when agent files alone may shadow.
+> Surface: `slice.py check` reports all patterns untouched because it examines committed `base..HEAD` only; working-tree changes match the slice surface.
+
+## Session Summary — 2026-09-30 [b2b5634..b2b5634]
+- Completed: six `codex-scout-routing` slices (#224–#229), policy-backed Codex Scout rendering, safe install migration, dispatch guidance, and doctor.
+- Pending: push, pull request, and CI closure after verification.
+- Carry-forward: Claude/Pi emitters and usage receipts remain #159/#164.
+
+## Plan: make-it-simpler
+> Spec: specs/make-it-simpler.md
+
+### Slice 1/9 — Rank the seven signals
+- [x] Rank the seven signals <!-- task-id: plan.specs-make-it-simpler-md.rank-the-seven-signals --> — Slice 1/9: `signals.py rank` emits the seven signals over a temporary fixture repository, scored and sorted, determinis… ([#212](https://github.com/Joaovsales/jplugin-agentic-development/issues/212))
+  [x] TDD: seven-signal fixture repo; assert seven candidates with path, line, verbatim evidence, score formula, sort order (AC 1) -> signals.py rank, one detector per signal
+  [x] TDD: rank twice and diff; git status unchanged; empty repo prints candidates [] exit 0 (AC 2) -> sorted, pure output
+> Handover: landed 5c60fd1 — `signals.py rank` with seven detectors, `W = 5`, one candidate per (signal, path), fixture repo `tests/fixtures/make-it-simpler/seven/`
+> Do not re-derive: the expected order in the test is the score formula by hand; a mutation W=1 fails 2 assertions; byte-identical mirror files count as one home for `duplicate-rule`
+
+### Slice 2/9 — Signal boundaries
+- [x] Signal boundaries <!-- task-id: plan.specs-make-it-simpler-md.signal-boundaries --> — Slice 2/9: `--path` matching nothing exits 2; `tests/fixtures/` and `/tidy`-owned findings never surface ([#213](https://github.com/Joaovsales/jplugin-agentic-development/issues/213)) (blocked-by: plan.specs-make-it-simpler-md.rank-the-seven-signals)
+  [x] TDD: rank --path matching nothing exits 2 naming it; nothing under tests/fixtures/ ranks (AC 3) -> ls-files check and exclusion
+  [x] TDD: unresolved backticked path and retired-skill reference yield no candidate (AC 4) -> exclude /tidy-owned patterns
+> Handover: landed 6d06af0 — `--path` refusal, `tests/fixtures/` exclusion and the /tidy skips were built in slice 1's detectors; slice 2 added fixture `docs/f.md` and a nested `tests/fixtures/dup/` plus their pins
+> Do not re-derive: mutations (empty EXCLUDED_PREFIXES; an unresolved citation resolved) each fail AC 1 and AC 3 pins
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 3/9 — Lens references
+- [x] Lens references <!-- task-id: plan.specs-make-it-simpler-md.lens-references --> — Slice 3/9: `references/lens.md` (signals, `W`, exclusions) and `references/safe-moves.md` (five practices) ([#214](https://github.com/Joaovsales/jplugin-agentic-development/issues/214)) (blocked-by: plan.specs-make-it-simpler-md.signal-boundaries)
+  [x] TDD: lens.md names seven signals, W, the fixtures exclusion and nine /tidy checks (AC 5) -> write references/lens.md
+  [x] TDD: safe-moves.md states the five practices (AC 6) -> write references/safe-moves.md
+> Handover: landed 6d06af0 — `references/lens.md` (signals table, score, `W`, exclusions) and `references/safe-moves.md` (five numbered practices)
+> Do not re-derive: the lens test reads `SIGNALS` from signals.py by AST, so a new signal fails until lens.md defines it
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 4/9 — Skill body
+- [x] Skill body <!-- task-id: plan.specs-make-it-simpler-md.skill-body --> — Slice 4/9: `SKILL.md`: grammar, top-3 fields, significance citation, grilling seeds, safe-moves seeding, unattended seq… ([#215](https://github.com/Joaovsales/jplugin-agentic-development/issues/215)) (blocked-by: plan.specs-make-it-simpler-md.lens-references)
+  [x] TDD: frontmatter, <=150 lines, section order; README row (AC 7) -> write SKILL.md, render-skills-table
+  [x] TDD: cites the /system-design-planning bar, no restated list (AC 8) -> citation line
+  [x] TDD: grammar, top-3 fields, none-today, four seeds, safe-moves seeding (AC 9) -> interactive process
+  [x] TDD: unattended sequence, three ends, scope stop (AC 10) -> unattended process
+> Handover: landed 6d06af0 — SKILL.md (131 lines with slice 5's section), README row via render-skills-table.py, a ≤150 pin in test-instruction-budget.sh
+> Do not re-derive: citations into routines.md use the full `.agents/skills/wrap-up-session/references/routines.md` path so test-citations resolves them
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 5/9 — Pipeline overrides
+- [x] Pipeline overrides <!-- task-id: plan.specs-make-it-simpler-md.pipeline-overrides --> — Slice 5/9: `SKILL.md` owns the `/plan` Step 1, Step 6 and `/build` pre-flight filing overrides; `AGENTS.md` names the t… ([#216](https://github.com/Joaovsales/jplugin-agentic-development/issues/216)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+  [x] TDD: override table rows for /plan Step 1, Step 6 and /build pre-flight filing; fresh-session rule named; AGENTS.md names /make-it-simpler (AC 11) -> overrides + AGENTS.md sentence
+  [x] TDD: yolo, auto-push, task-registry.py and upsert.py unchanged against master (AC 12) -> surface check
+> Handover: landed 53fe5d8 — `### 7. Overrides` table in SKILL.md; AGENTS.md step 3 names three exceptions; pins in test-doc-conventions.sh § pipelines
+> Do not re-derive: `git diff --quiet master` over yolo, auto-push, task-registry.py and upsert.py is clean
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 6/9 — Register the simplify routine
+- [x] Register the simplify routine <!-- task-id: plan.specs-make-it-simpler-md.register-the-simplify-routine --> — Slice 6/9: Lane file; `kind_precedence`, selector and chain in `config.py`, the template and `docs/task-tracking.md`; t… ([#217](https://github.com/Joaovsales/jplugin-agentic-development/issues/217)) (blocked-by: plan.specs-make-it-simpler-md.skill-body)
+  [x] TDD: task-registry lanes simplify: consumer, selects simplify, chain, step 5 PR-body text; catalogue counts (AC 13) -> lanes/simplify.md
+  [x] TDD: precedence, selector, chain in config.py, template, docs and routines.md block; selector test pins (AC 14) -> config edits
+  [x] TDD: routines.md table row, CONTRACT_ROUTINES, format/parse routine/simplify/12-trim-agents (AC 15) -> routine_branch.py + table row
+> Handover: landed 4b785c5 — lanes/simplify.md; `simplify` ranked after design-decision in config.py, docs, template (with the upgrade note) and routines.md; CONTRACT_ROUTINES; the routines table row
+> Do not re-derive: test-routine-selectors and test-task-registry fail the same 60 and 39 names as baseline on Windows (gh mock, #129) — the label-fixture pins need Linux CI
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+> Open: `task-registry selectors` upstream check names `simplify` missing on GitHub — the operator creates the label
+
+### Slice 7/9 — Routine wrap-up rules
+- [x] Routine wrap-up rules <!-- task-id: plan.specs-make-it-simpler-md.routine-wrap-up-rules --> — Slice 7/9: `routines.md` gains the `simplify` steps section, the two branch rows, and the scope stop in § *Fix-escalati… ([#218](https://github.com/Joaovsales/jplugin-agentic-development/issues/218)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: simplify steps section with pre-spine discovery; two branch rows (AC 16) -> routines.md sections
+  [x] TDD: Fix-escalation terminal names the simplify scope stop (AC 17) -> routines.md sentence
+> Handover: landed 4b785c5 (with slice 6 — shared routines.md hunks) — `### simplify — steps`, two branch rows, the scope stop under § Fix-escalation terminal
+> Do not re-derive: the branch rows live in § Draft and linkage, the table under § What the branch tells you (see the [AMBIGUITY] line)
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 8/9 — Selection precedence
+- [x] Selection precedence <!-- task-id: plan.specs-make-it-simpler-md.selection-precedence --> — Slice 8/9: Pins: `simplify`+`tech-debt` → `simplify`; `design-decision`+`simplify` → `plan` ([#219](https://github.com/Joaovsales/jplugin-agentic-development/issues/219)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: simplify+tech-debt selects simplify; design-decision+simplify selects plan (AC 18) -> selector test cases
+> Handover: landed 4b785c5 (with slice 6 — shared test file) — `simplify-beats-debt=simplify`, `decision-beats-simplify=plan` in select_routine cases
+> Do not re-derive: those two cases are pure Python and pass on Windows
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+### Slice 9/9 — Go routing
+- [x] Go routing <!-- task-id: plan.specs-make-it-simpler-md.go-routing --> — Slice 9/9: `/go` states `fix` > `perf` > `simplify` > `refactor`, pinned ([#220](https://github.com/Joaovsales/jplugin-agentic-development/issues/220)) (blocked-by: plan.specs-make-it-simpler-md.register-the-simplify-routine)
+  [x] TDD: go precedence sentence fix > perf > simplify > refactor pinned (AC 19) -> go/SKILL.md sentence
+> Handover: landed ebf3826 — /go precedence sentence `fix` > `perf` > `simplify` > `refactor`, pinned in test-go-lanes.sh
+> Do not re-derive: the pin is a static doc test; routing itself is not claimed
+> Surface: every path lies in a declared slice surface; `slice.py check` against the shared base 76d1f97 lists only other slices' files
+
+## Session Summary — 2026-09-29 [76d1f97..bcd2562]
+- Completed: `/make-it-simpler` built from specs/make-it-simpler.md, all nine slices (#212–#220): signals.py rank, lens and safe-moves references, SKILL.md with its overrides, the `simplify` consumer routine (lane, precedence, selector, chain, branch rows, scope stop), and /go precedence.
+- Pending: the GitHub `simplify` label (the operator creates it; `task-registry selectors` names it missing); the HOLD receipt f8a98438 needs a human approval before push.
+- Carry-forward: four advisory SHOULD-FIX items in the receipt: the `orphan-or-overlap` name before the first filing, a release note for downstream `kind_precedence` configs, no callee pointer in /plan and /build to named exceptions, and code-red-flag cues dominating the ranking on this repository (D24).
+
+## Plan: visual-e2e-evidence
+> Spec: specs/visual-e2e-evidence.md
+
+### Slice 1/5 — Playwright CLI backend
+- [x] Playwright CLI backend <!-- task-id: plan.specs-visual-e2e-evidence-md.playwright-cli-backend --> — Slice 1/5: the Playwright CLI runbook, backend order Playwright CLI → Chrome MCP → Lightpanda, and the Chrome-only VISU… ([#205](https://github.com/Joaovsales/jplugin-agentic-development/issues/205))
+  [x] TDD: tests/test-e2e-classifier.sh § resolution order — Playwright CLI is order 1 detected by `command -v playwright-cli`, Chrome MCP 2, Lightpanda 3 -> rewrite verify-evidence § Backend resolution (AC 1)
+  [x] TDD: tests/test-browser-runbook.sh — loops every `.claude/browsers/*.md`; playwright-cli declares name, fidelity full, screenshot file, detect_command, pinned version, platforms, and the command crib -> write `.claude/browsers/playwright-cli.md` (AC 2)
+  [x] TDD: tests/test-e2e-classifier.sh § outcome matrix — row "Chrome MCP only | VISUAL | BLOCKED" and never PASS -> add the matrix row and Failure Handling line (AC 3)
+> Handover: landed da65d47 — `.claude/browsers/playwright-cli.md` (pinned 0.1.22, `screenshot: file`, crib smoke-tested headless 2026-09-29); verify-evidence § Backend resolution is Playwright CLI → Chrome MCP → Lightpanda → none with Detected-by and Screenshot columns; matrix row and Failure Handling line for Chrome-only VISUAL → `BLOCKED`
+> Do not re-derive: every runbook now declares `screenshot: file|session|none` (lightpanda is `none`); the crib's screenshot is `playwright-cli screenshot --filename=tasks/e2e-artifacts/<short-sha>/<AC-id>.png`; `playwright-cli` writes `.playwright-cli/` in the CWD on every command; Playwright MCP is gone from the order, not demoted
+> Surface: undeclared `.claude/browsers/lightpanda.md` (stale "behind Chrome MCP and Playwright MCP" prose + the new `screenshot: none` key the shared contract requires)
+
+### Slice 2/5 — Screenshot evidence check
+- [x] Screenshot evidence check <!-- task-id: plan.specs-visual-e2e-evidence-md.screenshot-evidence-check --> — Slice 2/5: the Screenshot: line and "no file, no PASS" in Evidence Format and Iron Law 5, e2e_evidence.py check, and th… ([#206](https://github.com/Joaovsales/jplugin-agentic-development/issues/206)) (blocked-by: plan.specs-visual-e2e-evidence-md.playwright-cli-backend)
+  [x] TDD: tests/test-e2e-evidence.sh § prose — Evidence Format carries `Screenshot: tasks/e2e-artifacts/<short-sha>/<AC-id>.png` and Iron Law 5 names "without its PNG" -> edit verify-evidence § Evidence Format and Iron Laws (AC 4)
+  [x] TDD: tests/test-e2e-evidence.sh § check — fixture logs: all present → exit 0 silently; missing line / missing file → non-zero naming entry + AC; DOM-FUNCTIONAL and BLOCKED ignored -> `scripts/e2e_evidence.py check [--log]` (AC 5)
+  [x] TDD: tests/test-e2e-evidence.sh § gitignore — both .gitignore files carry `tasks/e2e-artifacts/` and `.playwright-cli/` -> add the entries (AC 12)
+> Handover: landed b1bec22 — `verify-evidence/scripts/e2e_evidence.py check [--log PATH] [--sha SHORT ...]`; Evidence Format gains the VISUAL PASS example with `Screenshot:`; Iron Law 5 extended; both .gitignore files ignore `tasks/e2e-artifacts/` and `.playwright-cli/`
+> Do not re-derive: exit 0 silent / 1 one stderr line per entry (`<log>:<line>: <entry heading> — <AC>: <reason>`) / 2 missing log; paths resolve from CWD (run from repo root); `--sha` matches the trailing short-sha of the `## ` heading — pass it at wrap-up, because older VISUAL PASS entries predate screenshots; the real log passes unscoped today
+> Surface: none (per-commit); the base-relative `check` lists other slices' files
+
+### Slice 3/5 — Evidence branch publisher
+- [x] Evidence branch publisher <!-- task-id: plan.specs-visual-e2e-evidence-md.evidence-branch-publisher --> — Slice 3/5: publish_evidence.py pushes PNGs to the orphan e2e-evidence branch and prints the PR section, with opt-out, n… ([#207](https://github.com/Joaovsales/jplugin-agentic-development/issues/207))
+  [x] TDD: tests/test-publish-evidence.sh § publish — bare-repo remote: first run creates the orphan branch, a second run adds a child commit, no force-push, feature HEAD and tree untouched, one commit-pinned `?raw=true` image per PNG -> `publish_evidence.py` via a temporary GIT_INDEX_FILE + commit-tree + push (AC 7)
+  [x] TDD: tests/test-publish-evidence.sh § skip paths — no PNGs → no output, no push; `E2E evidence: local` or a non-GitHub origin → local paths only, no push -> config and remote parsing (AC 8)
+  [x] TDD: tests/test-publish-evidence.sh § race — remote advanced between fetch and push → one rebuild + retry succeeds; a second rejection → non-zero exit and `evidence: publish failed` -> retry-once loop (AC 9)
+> Handover: landed 244d83b — `wrap-up-session/scripts/publish_evidence.py [--repo DIR] [--sha SHORT ...]` (default HEAD short-sha); stdout = PR-body section only (`## Visual evidence` / `## Visual evidence (local only)` / empty); stderr = one `evidence:` line (`published <n> to <o/r>[ — public repo]`, `local <n>`, `none`, `publish failed (<git error>)`); exit 1 only on publish failed
+> Do not re-derive: plumbing via temp GIT_INDEX_FILE, never touches the feature branch; retry once from a fresh fetch; no force-push anywhere; public marker from `gh api repos/<o/r> --jq .private`
+> Surface: none
+> Open: [AMBIGUITY] publishes every PNG under tasks/e2e-artifacts/<sha>/ for --sha, not every Screenshot: path in the log (picked A — the log is append-only across sessions)
+
+### Slice 4/5 — Wrap-up wiring
+- [x] Wrap-up wiring <!-- task-id: plan.specs-visual-e2e-evidence-md.wrap-up-wiring --> — Slice 4/5: § E2E coverage runs the check; § The Pull Request embeds the evidence section and reports evidence: ([#208](https://github.com/Joaovsales/jplugin-agentic-development/issues/208)) (blocked-by: plan.specs-visual-e2e-evidence-md.screenshot-evidence-check, plan.specs-visual-e2e-evidence-md.evidence-branch-publisher)
+  [x] TDD: tests/test-e2e-evidence.sh § wrap-up — § E2E coverage names `e2e_evidence.py check` and routes a failure to the run/acknowledge prompt -> edit wrap-up § E2E coverage (AC 6)
+  [x] TDD: tests/test-publish-evidence.sh § wrap-up — § The Pull Request runs the publisher before `gh pr create` and on re-sync, and the report has an `evidence:` line with a public-repo marker -> edit wrap-up § The Pull Request and the report template (AC 10)
+  [x] Verify: affected tests green at the slice checkpoint; the full suite (AC 13) is `/wrap-up-session` § *Full suite*, never re-run here
+> Handover: landed f678ff6 — § E2E coverage step 1 runs `e2e_evidence.py check --sha <short-sha>` and a named entry counts as missing (existing run/acknowledge prompt); § The Pull Request puts `publish_evidence.py` stdout in the body before the PR is created and on every re-sync, a publish failure never blocks the PR; the Report gains `- Evidence:`
+> Do not re-derive: wrap-up SKILL.md sits at its 300-line budget (test-instruction-budget) — the `gh pr create` fence was inlined to pay for the additions, and `gh pr create` must still appear exactly once (test-routine-wrapup AC7); `references/closure-actions.md` § PR re-sync was not edited
+> Surface: [SURFACE] +tests/test-e2e-evidence.sh, +tests/test-publish-evidence.sh | reason: the slice's own TDD rows pin AC 6 and AC 10 there; AC 13's full suite belongs to /wrap-up-session § Full suite
+
+### Slice 5/5 — Optional Playwright install
+- [x] Optional Playwright install <!-- task-id: plan.specs-visual-e2e-evidence-md.optional-playwright-install --> — Slice 5/5: install.sh installs the pinned @playwright/cli and Chromium, or prints a NOTE when npm is missing ([#209](https://github.com/Joaovsales/jplugin-agentic-development/issues/209))
+  [x] TDD: tests/test-install-sh.sh § playwright — stubbed npm on PATH: installs the pinned @playwright/cli, then runs install-browser chromium; no npm → NOTE and exit 0 -> new optional install.sh step (AC 11)
+> Handover: landed 91098b8 — install.sh step 6b installs `@playwright/cli@0.1.22` then `playwright-cli install-browser chromium`; no npm / npm failure / browser failure → NOTE, exit 0
+> Do not re-derive: `PLAYWRIGHT_CLI_VERSION` in install.sh and `pinned_version` in the runbook must move together; tests/test-install-sh.sh `SAFE_PATH` is now a symlink farm excluding npm/npx/node/playwright-cli because `/usr/bin/npm` exists on this machine — any new functional case inherits that guard
+> Surface: none
+
+
+## Session Summary — 2026-09-29 [b2b5634..51045d1]
+- Completed: 5 slices / 14 TDD rows of `## Plan: visual-e2e-evidence` (#205–#209); design-review fixes 05c7234, 204992e, 51045d1
+- Pending: none in this plan
+- Carry-forward: receipt 964a2096 GO with two NITPICKs (END_MARKER duplicated from session-start.sh; visibility_marker mixes query and punctuation). No real VISUAL walkthrough with playwright-cli yet — the smoke test covered the crib, not a spec AC.
+
+## Plan: plugin-staleness-check
+> Spec: specs/plugin-staleness-check.md
+
+### Slice 1/2 — Stale plugin banner block
+- [x] Stale plugin banner block <!-- task-id: plan.specs-plugin-staleness-check-md.stale-plugin-banner-block --> — Slice 1/2: the banner prints the update commands for every stale relevant record, silent otherwise ([#210](https://github.com/Joaovsales/jplugin-agentic-development/issues/210))
+  [x] TDD: Stale plugin: user record behind the marketplace clone prints headline, marketplace update and plugin update once each -> record parser + clone-HEAD comparison (AC 1)
+  [x] TDD: Stale plugin: project record for this path prints --scope project; another path's record prints nothing -> projectPath normalisation (AC 2)
+  [x] TDD: Stale plugin: clone current but matching remote ref ahead prints the block -> remote-ref ancestry check (AC 3)
+  [x] TDD: Stale plugin: current, sha-less, missing, malformed, non-adopting all silent and banner completes -> guards (AC 4, 5)
+  [x] TDD: Stale plugin: same version at the newer template prints the not-bumped note and user reinstall, no update line -> version comparison (AC 6)
+  [x] TDD: Stale plugin: the block adds no fetch/ls-remote/curl -> structural assertion (AC 7)
+
+> Handover: landed 83954b1..378f169 — `# ── Stale Plugin Install Check` block in .agents/hooks/session-start.sh (before Code Graph Check) + 36 fixture assertions in tests/test-session-start.sh; 172/172 pass
+> Do not re-derive: records are parsed in ONE awk pass (`relevant_records`) because per-field sed cost ~8 s of banner on Windows (7 worktree records in the real file); the block now adds ~2 s here. `git show <ref>:<path>` needs `MSYS_NO_PATHCONV=1` under Git Bash or the version reads empty. When several templates are ahead the highest `version` is named
+> Surface: none (slice.py check rc 0)
+> Open: this clone's `origin` is the pre-rename slug `coding-agent-workflow`, so per the spec's input rule only the marketplace clone is consulted here until `git remote set-url` (README already says to)
+
+### Slice 2/2 — Plugin version bump guard
+- [x] Plugin version bump guard <!-- task-id: plan.specs-plugin-staleness-check-md.plugin-version-bump-guard --> — Slice 2/2: the suite fails a payload change without a version bump; README states the measured rule ([#211](https://github.com/Joaovsales/jplugin-agentic-development/issues/211))
+  [x] TDD: Version guard: payload diff without an increase fails, with an increase passes, no base skips -> base resolution + semver compare in test-plugin-manifest.sh; bump plugin.json (AC 8)
+  [x] TDD: Version guard: README § Releasing skills names the measured no-op and the enforced bump -> README edit (AC 9)
+
+> Handover: landed 378f169..a7c2f10 — § 10 version guard in tests/test-plugin-manifest.sh (7 fixture cases + this tree + 3 README prose checks, 38/38), plugin.json 1.1.0 -> 1.2.0, README § Releasing skills
+> Do not re-derive: base = $PLUGIN_VERSION_BASE, else HEAD^1 when HEAD is on origin/master, else merge-base; CI has fetch-depth 0 so origin/master exists there. Mutation probe (version back to 1.1.0) makes the real-tree assertion fail — the guard bites. Every future payload PR must bump
+> Surface: none (slice.py check rc 0)
+
+## Session Summary — 2026-09-29 [b2b5634..bfeed2b]
+- Completed: plugin-staleness-check slices 1–2 (#210 stale-plugin banner block, #211 version bump guard + 1.2.0); quality-gate fixes 0cd8495 (hex-only sha), bfeed2b (.agents/references in the payload, one marketplace name, drift branch reused)
+- Pending: none in this plan
+- Carry-forward: this clone's `origin` still uses the pre-rename slug `coding-agent-workflow`, so the banner's remote-ref check does not fire here until `git remote set-url origin https://github.com/Joaovsales/jplugin-agentic-development.git`; unresolved SHOULD-FIX: the stale block's helpers talk through STALE_* globals (session-start.sh newest_behind/note_stale_record); payload coverage scan does not yet include plugin.json-declared paths
+- [x] duplicate-rule in .agents/skills/tidy/SKILL.md <!-- task-id: simplify.agents-skills-tidy-skill-md.duplicate-rule-in-agents-skills-tidy-skill-md --> ([#231](https://github.com/Joaovsales/jplugin-agentic-development/issues/231))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-tidy-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-tidy-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/231
+
+### Slice 1/1 — tidy cites sweep dedupe set
+- [x] tidy cites sweep dedupe set <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-tidy-skill-md-md.tidy-cites-sweep-dedupe-set --> — `/tidy` cites `/sweep` § *2. Read the backlog* instead of restating it
+  [x] TDD: the escalation-label sentence appears in exactly one skill, and tidy/SKILL.md cites `/sweep` § *2. Read the backlog* -> replace tidy's dedupe paragraph with the citation (AC 1, 2)
+  [x] TDD: `bash tests/test-citations.sh` and `bash tests/affected.sh --run origin/master` match the before-proof -> no further edit (AC 3)
+> Handover: landed 6313da7 — `/tidy` § *Filing a Tier 2 finding* cites `.agents/skills/sweep/SKILL.md` § *2. Read the backlog* for the dedupe set; the escalation sentence has one home (sweep:73). Before/after proofs identical: citations 6/6; affected 8/40 red on Windows, the same 152 assertion names.
+> Do not re-derive: tidy § *Outputs*' six record sections are pinned by order in tests/test-doc-conventions.sh (tidy AC-11) and stay; sweep § 2 still says "at step 5" and "sweep record" (advisory, out of scope).
+> Surface: none
+
+## Session Summary — 2026-09-30 [a849698..6313da7]
+- Completed: first `/make-it-simpler` run (interactive): #231, `/tidy` cites `/sweep` § *2. Read the backlog* for the dedupe-set rule (-4 lines, behavior changes: none). Created the GitHub `simplify` label.
+- Pending: GitHub labels `design-decision`, `in-progress`, `needs-investigation`, `tech-debt` are missing, so `select`/`claim`/`workflow` refuse on this repo (claim of #231 skipped); installed jplugin 1.1.0 has no `/make-it-simpler`; no `routine-prompts/simplify.md`.
+- Carry-forward: ranking is dominated by `code-red-flag` (evidence is just line 501), and `tasks/` logs and specs quoting their skill produce false duplicate-rule/citation-drift hits; `/make-it-simpler` § *Offer the top 3* documents `claim` without the required `--routine`; the `/sweep` § *File* citation in tidy is not checked by either citation checker.
+- [ ] closure loop cannot leave ci when the base moves after CI passed <!-- task-id: tech-debt.agents-skills-wrap-up-session-scripts-closure-py.closure-loop-cannot-leave-ci-when-the-base-moves-after-ci-passed --> — Once closure.py reaches watch-ci, a late merge conflict (master moved after CI went green) has no transition: {"mergeab… ([#234](https://github.com/Joaovsales/jplugin-agentic-development/issues/234))
+- [ ] skill-form citations are never resolved <!-- task-id: tech-debt.tests-test-citations-sh.skill-form-citations-are-never-resolved --> — tests/test-citations.sh resolves only `<path>.md` § *Heading* citations. A `/skill` § *Heading* citation is never check… ([#235](https://github.com/Joaovsales/jplugin-agentic-development/issues/235))
+
+## Session Summary — 2026-10-01 [94d9c99..94d9c99]
+- Completed: #232 re-merged with master (#230), plugin 1.3.1; GitHub labels design-decision, in-progress, needs-investigation, tech-debt created; #231 claimed. Follow-ups on `claude/simplify-followups`: signals.py size hits become 1-line cues outside always-loaded files, `tasks/` excluded, `specs/` never a duplicate home (D27); the `claim` command gains `--routine simplify`; `routine-prompts/simplify.md` and its README row (consumer, Planner, daily); plugin 1.3.2.
+- Pending: #234 (closure.py cannot leave phase ci on a late base move), #235 (`/skill` § citations unresolved); the app's pinned origin is the repository's old name (the operator re-pins it in the app).
+- Carry-forward: sweep § 2 says "at step 5" and "sweep record" though /tidy now cites it (advisory from #232).
+
 ## Session Summary — [2026-10-01] [1d7c57a..c2426f5]
 - Completed: nine UI design stack slices (#237–#245), their tests, handovers, and independent design review.
 - Pending: main repository PR and checks; the private fixture PR CI run and artifact proof passed.
 - Carry-forward: downstream UI projects commit their own visual script and generated workflow before their PR publication gate can pass.
 
+## Session Summary — [2026-10-02] [9f192dd..7e9cb22]
+- Completed: sanitized and committed three standalone visual-plan design studies; six Playwright browser checks, privacy review, and the full suite passed.
+- Pending: PR #248 CI and merge.
+- Carry-forward: the studies are comparison artifacts; production visual-plan rendering remains unchanged.
+
+## Plan: lane-plan-handover
+> Spec: specs/lane-plan-handover.md
+
+### Slice 1/5 — Rule home in routines
+- [x] Rule home in routines <!-- task-id: plan.specs-lane-plan-handover-md.rule-home-in-routines --> — Slice 1/5: § Crossing the plan handover in routines.md maps every crossing; the improve routine prompt cites it ([#250](https://github.com/Joaovsales/jplugin-agentic-development/issues/250))
+  [x] TDD: test-routines-contract pins the section naming /auto-push, /yolo, /make-it-simpler as owners and simplify through § Overrides; the ownerless lanes improve/refactor/babysit; the unattended override (no prompt, /build in place, --file without --approve, /system-design-planning too); the interactive handover line; the /build fresh-context citation (AC 1) -> write § Crossing the plan handover next to § The shared spine
+  [x] TDD: test-routines-contract pins routine-prompts/improve.md citing the section and not saying "confirm the plan yourself" (AC 2) -> rewrite its step 3 to cite the section
+
+> Handover: landed 1753538 — `### Crossing the plan handover` in routines.md (after § The shared spine) maps all crossings; routine-prompts/improve.md step 3 cites it; 20 AC1/AC2 pins in test-routines-contract.sh
+> Do not re-derive: routines.md lives under a `/go`-free host root (test-go-lanes.sh § AC3 host sweep) — name it "the `go` skill", never `/go`; citations must use the full `.agents/skills/wrap-up-session/references/routines.md` path or test-citations.sh cannot resolve them
+> Surface: per-commit inside the surface; `check` against base lists the other parallel slices' files
+
+### Slice 2/5 — Go honours the handover
+- [x] Go honours the handover <!-- task-id: plan.specs-lane-plan-handover-md.go-honours-the-handover --> — Slice 2/5: /go cites the rule, appends ' — handed over: build prompt', replies before the prompt ([#251](https://github.com/Joaovsales/jplugin-agentic-development/issues/251))
+  [x] TDD: test-go-lanes pins go/SKILL.md citing § Crossing the plan handover, the handed-over append, reply-before-prompt, and no "Confirm with 'y'"; AC7 comment names the build prompt (AC 3) -> edit § Overview, § 2 Record, § 3 Run the chain, § 4 Reply
+
+> Handover: landed b5b1264 — go/SKILL.md cites the section in § Overview and § 3, names ` — handed over: build prompt` as the second block edit, § 4 reply precedes the build prompt; "Confirm with 'y'" gone
+> Do not re-derive: test-go-lanes.sh AC3 (lane-plan-handover) block loops `$TREES` with `assert_prose_contains`; the AC7 comment now names the build prompt as /plan's gate
+> Surface: per-commit inside the surface (the test-go-lanes.sh pins landed with slice 3's commit)
+
+### Slice 3/5 — Lane planner steps cite the rule
+- [x] Lane planner steps cite the rule <!-- task-id: plan.specs-lane-plan-handover-md.lane-planner-steps-cite-the-rule --> — Slice 3/5: improve, refactor, babysit planner steps cite the rule ([#252](https://github.com/Joaovsales/jplugin-agentic-development/issues/252)) (blocked-by: plan.specs-lane-plan-handover-md.go-honours-the-handover)
+  [x] TDD: test-go-lanes pins each of improve/refactor/babysit citing § Crossing the plan handover and none saying "where the human is asked before code changes" (AC 4) -> edit each planner step; test-lane-catalogue chains unchanged
+
+> Handover: landed 6212e45 — improve/refactor/babysit planner steps cite § *Crossing the plan handover* (full path); "where the human is asked" wording gone; chains unchanged (test-lane-catalogue.sh 247 ok)
+> Do not re-derive: lanes.py reads only each step's leading `/skill` token, so step tails are free prose; the citation must not restate the rule (parentheticals were cut per D3)
+> Surface: per-commit inside the surface
+
+### Slice 4/5 — Fourth named exception
+- [x] Fourth named exception <!-- task-id: plan.specs-lane-plan-handover-md.fourth-named-exception --> — Slice 4/5: AGENTS.md step 3 names four exceptions; the make-it-simpler pin follows the new sentence ([#253](https://github.com/Joaovsales/jplugin-agentic-development/issues/253))
+  [x] TDD: test-doc-conventions § pipelines pins AGENTS.md step 3 naming /auto-push, /yolo, /make-it-simpler and an unattended lane run citing the section (AC 5) -> rewrite the named-exceptions sentence; update the existing make-it-simpler pin; instruction budget stays green
+  [x] TDD: git diff --quiet master -- .agents/skills/plan .agents/skills/yolo .agents/skills/auto-push .agents/skills/make-it-simpler (AC 7) -> no edit
+
+> Handover: landed 09d56d1 — AGENTS.md step 3 names four exceptions, the fourth an unattended lane run citing the section; AGENTS.md 14856/16384 bytes
+> Do not re-derive: the make-it-simpler named-exceptions pin in test-doc-conventions.sh § pipelines matches the new sentence from `/yolo` onward, plus a five-token loop; AC7 holds (`git diff --quiet` on plan/yolo/auto-push/make-it-simpler)
+> Surface: per-commit inside the surface (its pins landed with slice 5's commit, which shares the file)
+
+### Slice 5/5 — In-place build dispatches every slice
+- [x] In-place build dispatches every slice <!-- task-id: plan.specs-lane-plan-handover-md.in-place-build-dispatches-every-slice --> — Slice 5/5: /build dispatches every slice to a sub-agent when built in the planning session; /build and /slice name the… ([#254](https://github.com/Joaovsales/jplugin-agentic-development/issues/254)) (blocked-by: plan.specs-lane-plan-handover-md.fourth-named-exception)
+  [x] TDD: test-doc-conventions § pipelines pins build/SKILL.md pre-flight and slice/SKILL.md § Integration naming an unattended lane run alongside /yolo (AC 6) -> one clause each
+  [x] TDD: test-doc-conventions § build pins § Parallel Dispatch Assessment: built in the planning session, every slice (lone or serialized) dispatches to a sub-agent, verification stays central, no sub-agents means inline plus one line; build-prompt sessions unchanged (AC 8) -> one paragraph before the "Otherwise" branch
+> Handover: landed fbce2a9 — build/SKILL.md pre-flight and slice/SKILL.md § Integration name an unattended lane run alongside `/yolo` as omitting `--approve`; § Parallel Dispatch Assessment gains the "Built in the session that planned it" paragraph before **Otherwise**
+> Do not re-derive: the plugin payload changed, so `.claude-plugin/plugin.json` went 1.4.1 -> 1.4.2 (test-plugin-manifest.sh version guard); slice/SKILL.md § File still says only "`/yolo` omits it" — out of AC6's scope
+> Surface: [SURFACE] +.claude-plugin/plugin.json | reason: the version guard fails any payload change without a bump
+
+## Session Summary — [2026-10-06] [2509fa2..984b263]
+- Completed: lane-plan-handover, 5/5 slices (#250–#254) with handovers. The quality gate dispatched Phase 4 (verdict GO), and receipt a08fce98 is GO on a WSL affected run of 37/37.
+- Pending: the PR's Linux CI run. Reported, not applied: the ownerless-lane list is repeated in go/SKILL.md and AGENTS.md step 3 (SHOULD-FIX, manual), and the AC1 pins in test-routines-contract.sh are scoped to the section, not the bullet (NITPICK, advisory).
+- Carry-forward: routine-prompts/plan.md still says "confirm the plan yourself", and slice/SKILL.md § File still names only `/yolo` as omitting `--approve`. Both are outside this spec's ACs.
+
+## Plan: readable-visual-plans
+> Spec: specs/readable-visual-plans.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/233
+
+### Slice 1/13 — Renderer core
+- [x] Renderer core <!-- task-id: plan.specs-readable-visual-plans-md.renderer-core --> — Slice 1/13 of #233: A stdlib markdown-subset renderer that turns any spec into a self-contained page with generic secti… ([#256](https://github.com/Joaovsales/jplugin-agentic-development/issues/256))
+  [x] TDD: tests/test-plan-render.sh § failures — a malformed Decisions row, Risks value, duplicate ID and bad diagram line each exit 1 with `<spec>:<line>: <reason>` and write no file -> parser with section validators (AC 2)
+  [x] TDD: tests/test-plan-render.sh § tables — fixture tables render as `<table>` with `<th>`, wide tables sit in a scroll container -> markdown table renderer (AC 14)
+  [x] TDD: tests/test-plan-render.sh § legacy — a pre-change fixture spec (no IDs, no Summary, ASCII diagram) renders with auto IDs, summary fallback and a collapsed text diagram -> generic section and fallback rules (AC 21)
+> Handover: landed b8dec43..c304218 — `plan_render.py` CLI over `plan_md.py` (block parser + inline + generic render), `plan_sections.py` (typed parsers: decisions in both shapes, criteria, build order + prompt, risks, questions), `plan_diagrams.py` (strict flow/sequence parsers, no SVG yet), `plan_model.py` (`analyse` → `Plan`), `plan_page.py` (page assembly, `TYPED` section registry, minimal BASE_CSS); 59 assertions in tests/test-plan-render.sh.
+> Do not re-derive: every known section is parsed and validated in slice 1 — later slices only render from `Plan`; `Plan.diagrams` is keyed by fence line; the renderer reconfigures stdout/stderr to UTF-8 (cp1252 consoles); 46/47 existing specs render, and `specs/claude-plugin-manifest.md:477` fails on a genuinely ragged Decisions row (D11), accepted legacy dialects are `AC-1.1`, `AC-2 —`, `1–7` ranges and `settled (<note>)`.
+> Surface: none
+
+### Slice 2/13 — Plan theme
+- [x] Plan theme <!-- task-id: plan.specs-readable-visual-plans-md.plan-theme --> — Slice 2/13 of #233: The jplugin plan theme, authored with Taste and Impeccable from the minimalist prototype, recorded… ([#257](https://github.com/Joaovsales/jplugin-agentic-development/issues/257)) (blocked-by: plan.specs-readable-visual-plans-md.renderer-core)
+  [x] TDD: tests/test-plan-render.sh § theme — the page inlines `design/plan-theme` CSS with light and dark tokens and reads no design-stack path or project DESIGN.md; `design/plan-theme/DESIGN.md` has palette, typography, layout, motion, accessibility and component vocabulary sections -> author the theme with Taste and Impeccable, inline at render (AC 20)
+> Handover: landed c304218..eff78db — `design/plan-theme/plan.css` (light/dark/print tokens and the whole component vocabulary) and `DESIGN.md` (palette, typography, layout, motion, accessibility, vocabulary, authoring record); `plan_page.theme_css()` inlines it from `<plugin root>/design/plan-theme/plan.css` and fails loudly when absent.
+> Do not re-derive: later slices cannot edit `design/plan-theme/**` until slice 12, so build against the class names already in plan.css — `.card .card-<type>` with `.card-head > .card-icon[aria-hidden] .card-label .card-id .chip`, `details.card-more > dl`, `.chosen`, `.callout-wrong`, `.lvl-H/M/L`, `.cards`, `.ac-list`, `.strip > a.stat`, `.blockers`, `.shell > nav.toc > details.toc-menu`, `.controls .btn[aria-pressed]`, `figure.diagram > .diagram-scroll > svg` (`.node/.node-new/.node-changed/.node-blocked`, `.edge`, `.lane`, `.lifeline`, `.msg/.msg-reply`, `.frame`), `.card-prompt.not-ready`, `.review`, `body.only-blockers` with `.has-blockers`/`.is-blocker`; every hue clears 4.5:1 on every background in both themes (calculated).
+> Surface: undeclared tasks/todo.md — the slice-1 close commit, plan bookkeeping only
+> Open: Taste/Impeccable were not installed here, so no fresh detector pass ran ([AMBIGUITY] logged); the owner's screenshot review is the gate.
+
+### Slice 3/13 — Decision and criteria cards
+- [x] Decision and criteria cards <!-- task-id: plan.specs-readable-visual-plans-md.decision-and-criteria-cards --> — Slice 3/13 of #233: Decision cards in both table shapes, the AC checklist with slice coverage, the lead summary, the su… ([#258](https://github.com/Joaovsales/jplugin-agentic-development/issues/258)) (blocked-by: plan.specs-readable-visual-plans-md.plan-theme)
+  [x] TDD: tests/test-plan-render.sh § decisions — both Decisions shapes render cards with ID, status chip and chosen option visible and the body in a disclosure; no-ID tables auto-number as settled -> decision parser and card (AC 4)
+  [x] TDD: tests/test-plan-render.sh § criteria — each AC shows its covering slices; an unnamed AC carries `uncovered` -> AC parser joined with the Build Order ACs column (AC 5)
+  [x] TDD: tests/test-plan-render.sh § blockers — Blockers lists exactly open decisions, blocking questions, uncovered ACs and unmitigated high risks; strip counts link to sections -> computed panel (AC 8)
+> Handover: landed b6a41a5..5b027b1 — `plan_cards.py` (the `COMPONENTS` icon/label registry, `head`/`chip`, decision and criterion cards, lead, strip, Blockers); `plan_model.py` gains `Blocker`, `anchor()`, `coverage()`, `blockers()`; `plan_page.py` assigns section ids once (`section_slugs`, `RESERVED`) and renders `## Summary` only as the lead; fixtures `full.md` (every component type) and `plan-shape.md`.
+> Do not re-derive: card ids come from `anchor(id)` (`D2`→`d2`, `AC1.1`→`ac1-1`); slice cards must use `id="slice-<n>"` because AC coverage already links there; `full.md` Blockers are exactly D2, Q1, AC3, R2; an unsliced spec (no Build Order) marks no AC uncovered and says it has not been sliced; open items = open decisions + all live questions; assertions on class names must match the card markup, not the bare class, since the inlined CSS names every class too.
+> Surface: none
+
+### Slice 4/13 — Diagrams
+- [x] Diagrams <!-- task-id: plan.specs-readable-visual-plans-md.diagrams --> — Slice 4/13 of #233: Inline SVG for the Build Order dependency DAG and for `flow` and `sequence` fences, with strict DSL… ([#259](https://github.com/Joaovsales/jplugin-agentic-development/issues/259)) (blocked-by: plan.specs-readable-visual-plans-md.decision-and-criteria-cards)
+  [x] TDD: tests/test-plan-render.sh § dag — Build Order renders an SVG with one linked, named node per slice in dependency layers -> layered DAG generator (AC 9)
+  [x] TDD: tests/test-plan-render.sh § flow-sequence — flow and sequence fixtures render SVG with caption, title, desc, new/changed styling and alt frames, source in a collapsed disclosure, no script src -> DSL parsers and SVG emitters (AC 10)
+> Handover: landed 41e58bd..6546beb — `plan_svg.py` (layered DAG, flow with lanes and new/changed nodes, sequence with lifelines and alt/else frames; `<title>`/`<desc>` on every SVG), `plan_figures.py` (`figure`, `dsl_figure`, `dag_figure`, `diagram_hook`), `plan_build.py` (Build Order section: intro, DAG, `article.card-slice#slice-<n>` cards with a collapsed `Slice details` body, prompt still a plain `<pre>`); `render_blocks(blocks, hook)` lets a hook claim a fence.
+> Do not re-derive: slice cards were not assigned to any slice, so they landed here with the DAG; `plan_build.blocked_slices()` and the `blocked` argument of `dag_svg` already exist for slice 5 (blocked nodes get `node-blocked` plus a `blocked` text label, cards get `is-blocked is-blocker` and a chip); slice 7 replaces the `<pre>` prompt in `render_build_order`; the flow gap between layers widens to fit edge labels; the DAG svg is `role="group"` (its nodes are links), flow and sequence are `role="img"`.
+> Surface: none
+
+### Slice 5/13 — Risk and question cards
+- [x] Risk and question cards <!-- task-id: plan.specs-readable-visual-plans-md.risk-and-question-cards --> — Slice 5/13 of #233: `## Risks` and `## Open questions` cards, their Blockers entries and blocked-slice marks in the DAG. ([#260](https://github.com/Joaovsales/jplugin-agentic-development/issues/260)) (blocked-by: plan.specs-readable-visual-plans-md.diagrams)
+  [x] TDD: tests/test-plan-render.sh § risks — risks sort by impact then likelihood with text labels; an unmitigated high risk is in Blockers; `None identified` renders one line -> risk section and card (AC 6)
+  [x] TDD: tests/test-plan-render.sh § questions — a blocking question marks its slices in the DAG and appears in Blockers -> question section and DAG mark (AC 7)
+> Handover: landed 0ef0b67..d769c2d — `plan_cards.render_risks` (sorted by impact then likelihood, `Likelihood X` / `Impact X` text labels, `No mitigation yet`, slice links, `p.risks-none` single line) and `render_questions` (ringed `?`, `Blocks slice n` / `Blocks nothing` and `Needed from` tags, `blocking` chip); both registered in `plan_page.TYPED`; `full.md` risks now sit in reverse source order so the sort is exercised.
+> Do not re-derive: the DAG and slice-card blocked marks already came from slice 4's `blocked_slices`; every blocker card carries `is-blocker` (decisions, ACs, risks, questions, slices) — slice 6's Show only blockers keys on that class plus a section-level `has-blockers`; tag spans use `.meta` styling (no `.tag` rule exists in plan.css).
+> Surface: none
+
+### Slice 6/13 — Disclosure and navigation
+- [x] Disclosure and navigation <!-- task-id: plan.specs-readable-visual-plans-md.disclosure-and-navigation --> — Slice 6/13 of #233: Open and collapsed defaults, Expand all, Collapse all, Show only blockers, deep links into collapse… ([#261](https://github.com/Joaovsales/jplugin-agentic-development/issues/261)) (blocked-by: plan.specs-readable-visual-plans-md.risk-and-question-cards)
+  [x] TDD: tests/test-plan-render.sh § disclosure — approval content has `open`, reference content does not; controls are buttons with accessible names -> disclosure defaults and controls script (AC 12)
+  [x] TDD: tests/test-plan-render.sh § deep-links — the page script opens collapsed ancestors on hash and closes the mobile menu on selection -> hash handler and nav script (AC 13)
+> Handover: landed befbe6e..d8e4da9 — `plan_page.js` (inlined page script: `openTo` deep links on load/hashchange/same-link click, mobile menu fit and dismissal at 767 px, IntersectionObserver scrollspy with `aria-current`, Expand/Collapse all, Show only blockers, print opens all, `window.planCopy` + `button.copy[data-copy-from]`); `plan_reference.py` (constraint cards with `verify` for inferred sources, contract cards with new/changed chips and copy buttons, data-model cards, reference items); `plan_page.py` rewritten around `body_sections`, `render_toc`, `render_controls`, `COLLAPSED`, `has-blockers`.
+> Do not re-derive: constraints, contracts, data models and references were assigned to no slice, so they landed here with their collapsed defaults; Constraints stays tolerant of ragged rows (not a strict AC2 section); copy buttons read `textContent` of the element named by `data-copy-from`, so slice 7's prompt panel only needs `<pre><code id=…>` plus that button; browser spot-check: a `#contract-exporter` deep link opens its collapsed section, controls work, no console errors, no page overflow.
+> Surface: untouched tests/fixtures/plan-render/** — full.md from slice 3 already carried every section this slice renders
+
+### Slice 7/13 — Build prompt panel
+- [x] Build prompt panel <!-- task-id: plan.specs-readable-visual-plans-md.build-prompt-panel --> — Slice 7/13 of #233: A first-screen build-prompt panel with exact copy, and the source line naming the spec and its hash. ([#262](https://github.com/Joaovsales/jplugin-agentic-development/issues/262)) (blocked-by: plan.specs-readable-visual-plans-md.disclosure-and-navigation)
+  [x] TDD: tests/test-plan-render.sh § prompt — the panel is linked from the first screen and the TOC and its copy payload equals the Build Order prompt bytes -> prompt extraction and panel (AC 15)
+  [x] TDD: tests/test-plan-render.sh § source — the header links the spec by relative path with its SHA-256 prefix, the page holds no embedded markdown copy, and no src or href attribute names an external URL -> source line (AC 17)
+> Handover: landed 789fb28..0b086e2 — `plan_build.prompt_panel` (`section.card-prompt#build-prompt` with `<code id="build-prompt-text">` and `Copy build prompt` over its exact text); `plan_page.render_masthead` (folio with the `#build-prompt` first-screen link, `Source: <a href=relpath>spec</a> · sha256 <code>prefix</code>`); TOC entry for the panel; `plan_model.spec_sha256` and `plan_render.py --hash <spec>` (12-char prefix).
+> Do not re-derive: the hash covers the spec text with line endings normalised to LF ([AMBIGUITY] logged) — `/plan` must call `plan_render.py --hash`, never hash the file itself; the copy payload is `textContent` of `#build-prompt-text`, byte-equal to the Build Order fence (tested); external anchors in spec text stay, while every resource-loading attribute or API is forbidden ([AMBIGUITY] logged); slice 8 disables the button and swaps the panel to `.not-ready`.
+> Surface: untouched tests/fixtures/plan-render/** — full.md already carried a prompt with characters that need escaping
+
+### Slice 8/13 — Readiness gate
+- [x] Readiness gate <!-- task-id: plan.specs-readable-visual-plans-md.readiness-gate --> — Slice 8/13 of #233: `/slice` refuses a build prompt while a decision is open or a question blocks a slice, and the page… ([#263](https://github.com/Joaovsales/jplugin-agentic-development/issues/263)) (blocked-by: plan.specs-readable-visual-plans-md.build-prompt-panel)
+  [x] TDD: tests/test-slice.sh § readiness and tests/test-plan-render.sh § not-ready — an open decision or blocking question makes `slice.py` print `not ready: <ids>` and exit non-zero and the page show `Not ready: <ids>` with copy disabled; a non-blocking question passes -> slice.py readiness check, SKILL and build-prompt reference update, panel state (AC 16)
+> Handover: landed 28a3ec6..bcbb765 — `slice.py readiness --spec` (silent exit 0; `not ready: <ids>` exit 1; `slice: spec:line: reason` exit 2) reusing the visual-plan parser via `_use_visual_plan_parser`; `/slice` step 5 refuses the prompt while ids exist and build-prompt line 3 now reads "every row is settled"; the page's prompt panel gains `.not-ready is-blocker`, a linked `Not ready:` list, the stale prompt in collapsed `details.prompt-stale` and a `disabled` copy button; the masthead folio says `Not ready: <ids>`.
+> Do not re-derive: `plan_model.not_ready_ids` is the single readiness rule (open decisions, then questions whose Blocks names a slice) shared by `/slice` and the page — uncovered ACs and unmitigated risks are blockers on the page but do not refuse the prompt; the build-prompt template stays byte-identical across `slice/SKILL.md` and `references/build-prompt.md` (test-doc-conventions pins it, 837 green).
+> Surface: none
+
+### Slice 9/13 — Review export
+- [x] Review export <!-- task-id: plan.specs-readable-visual-plans-md.review-export --> — Slice 9/13 of #233: Hash-keyed review state on every card, the export block, and `/plan`'s change-request path that app… ([#264](https://github.com/Joaovsales/jplugin-agentic-development/issues/264)) (blocked-by: plan.specs-readable-visual-plans-md.readiness-gate)
+  [x] TDD: tests/test-plan-render.sh § review — cards carry review controls, the storage key includes the spec hash, the export matches the Behavior block format, a throwing storage path is handled -> review-state script (AC 18)
+  [x] TDD: tests/test-plan-render.sh § plan-consumer — `/plan` SKILL.md applies an export block (answers, picks, questioned), refuses a hash mismatch naming both hashes, then re-runs `/slice` -> change-request path text (AC 19)
+> Handover: landed bdfcfd6..191e8b4 — `plan_review.py` (`review_controls` on AC, decision, risk, question and slice cards: ok / questioned + note, an answer field on questions, a lettered `select` picker on open decisions; `render_review_panel` `section#review` with `data-spec`/`data-sha`, status line, Export review); `plan_page.js` `planReview` pure helpers (`key`, `openStore` that never throws, `line`, `format`, exported to node) plus DOM wiring; `/plan` SKILL.md applies an export after comparing `plan_render.py --hash`.
+> Do not re-derive: the storage key is `jplugin-plan-review:<sha12>:<spec>`; picks are letters in the order the Options cell lists them (`option_labels`: lettered `A)` markers, else split on , ; or vs); one export line per item, pick > answer > mark, whitespace flattened; the node check in test-plan-render.sh SKIPs loudly without node; tests were written after the code in this slice, so three mutations of plan_page.js were run and caught; browser spot-check confirmed persistence across reload and no overflow.
+> Surface: none
+
+### Slice 10/13 — Fidelity checks
+- [x] Fidelity checks <!-- task-id: plan.specs-readable-visual-plans-md.fidelity-checks --> — Slice 10/13 of #233: Fixture checks that every component type is visually distinct and that every AC sentence, decision… ([#265](https://github.com/Joaovsales/jplugin-agentic-development/issues/265)) (blocked-by: plan.specs-readable-visual-plans-md.review-export)
+  [x] TDD: tests/test-plan-render.sh § distinct — every component type appears in the full fixture and no two share icon and label -> component registry check (AC 3)
+  [x] TDD: tests/test-plan-render.sh § preservation — every AC sentence, decision row, signature, numeric limit and table row of each fixture appears in its HTML -> source-to-render checker (AC 22)
+> Handover: landed 8ee230b..cef73f6 — § distinct (every `COMPONENTS` kind renders as `card-<kind>` with its own icon + label, no icon or label shared) and § preservation (AC sentences, table cells, code lines, numeric limits of all six fixtures found in the page text, typed sections compared through their parsers); fixes they forced: the strip carries its icon/label, text diagrams are `card-text-diagram` with the registry icon (`plan_md.TEXT_DIAGRAM` is the single source), a decision's status note (`settled (operator pick)`) shows in its chip, and `plain()` no longer strips `_`/`*` inside code spans (`team_id`, `src/**` were mangled).
+> Do not re-derive: the preservation checker strips <style>/<script>, squeezes whitespace on both sides, skips typed-table header rows, and reads Build Order blocked-by/AC cells as the slice card's links (S<n>, AC ids); 46/47 repo specs still render, claude-plugin-manifest.md:477 stays a genuine failure.
+> Surface: untouched tests/fixtures/plan-render/** — the existing six fixtures already exercised every component
+
+### Slice 11/13 — Planner wiring
+- [x] Planner wiring <!-- task-id: plan.specs-readable-visual-plans-md.planner-wiring --> — Slice 11/13 of #233: `/visual-plan` and `/system-design-planning` call the new renderer; the system-design template and… ([#266](https://github.com/Joaovsales/jplugin-agentic-development/issues/266)) (blocked-by: plan.specs-readable-visual-plans-md.fidelity-checks)
+  [x] TDD: tests/test-plan-render.sh § wiring — both skills invoke `plan_render.py`; `content-model.json` and the text-fence rule are gone -> SKILL.md edits and template removal (AC 1)
+  [x] TDD: tests/test-plan-render.sh § template — the system-design template has ID and Status columns, Summary, Risks, Open questions and the flow and sequence requirement -> template and step text (AC 11)
+  [x] TDD: tests/test-doc-conventions.sh § editorial — `/plan` and `/system-design-planning` carry the editorial guidance -> guidance paragraph (AC 24)
+> Handover: landed e3de15c..84a7529 — `/visual-plan` and `/system-design-planning` Step 6 run `plan_render.py specs/<feature>.md -o specs/<feature>.plan.html`; `content-model.json` and the text-fence rule are gone; the architecture template has Summary, a `flow` interaction diagram, a `sequence` contract diagram, Risks, ID/Status Decisions and Open questions, `AC1:` ids; `/plan`'s template offers optional Summary/Risks/Open questions with `AC1:` ids; both planners carry the "write it to be read" editorial paragraph; an empty `## Build order` renders as not sliced yet.
+> Do not re-derive: the template renders as-is once its HTML comments are stripped (tested), so a template edit that breaks the renderer fails test-plan-render.sh; the editorial pin lives in test-plan-render.sh, not test-doc-conventions.sh ([AMBIGUITY] logged); `Chain: build/wrap-up maintains before e2e` failures in test-skill-invocation-chain.sh pre-date this branch (present at b8dec43).
+> Surface: undeclared: plan_build.py, plan_model.py, tests/test-doc-conventions.sh, tests/test-skill-invocation-chain.sh, tests/test-visual-render.sh, README.md — each a [SURFACE] line (retired pins moved, empty Build order fix, stale README row)
+
+### Slice 12/13 — Browser proof
+- [x] Browser proof <!-- task-id: plan.specs-readable-visual-plans-md.browser-proof --> — Slice 12/13 of #233: A Playwright check over every fixture page at 1440 and 390 px in both themes, with screenshots for… ([#267](https://github.com/Joaovsales/jplugin-agentic-development/issues/267)) (blocked-by: plan.specs-readable-visual-plans-md.planner-wiring)
+  [x] TDD: tests/test-plan-page.sh — disclosures, keyboard, deep links, menu dismissal, prompt copy bytes, source link, review export, no console errors and no overflow at 1440 and 390 px in light and dark; screenshots written; a loud SKIP without Playwright unless REQUIRE_BROWSER=1 -> check_plan_page.py (AC 23)
+> Handover: landed 232c5f3..a42502d — `check_plan_page.py` (serves a dir on loopback, drives every `*.plan.html` at 1440/390 × light/dark: one h1, no overflow, Expand/Collapse all, Tab→skip link, Enter toggles a summary, deep link opens ancestors, mobile menu closes on choice, prompt copy hands `writeText` the exact `#build-prompt-text`, source link resolves, review export + storage, no console errors; screenshot per view; exit 3 without playwright); `tests/test-plan-page.sh` (renders every non-fail fixture plus a ready variant, loud SKIP unless REQUIRE_BROWSER=1, three sabotages prove overflow, console errors and copy drift are caught); plan.css `.strip-label` spans the strip row and `.review label` is styled; 8 owner-review screenshots (full + ready) in `design/plan-theme/screenshots/`.
+> Do not re-derive: on this machine run it with `PLAN_PAGE_PYTHON=<venv with playwright> PLAN_PAGE_CHANNEL=msedge` — pip playwright 1.63 needs a newer bundled Chromium than the installed one; the copy check records `writeText`'s argument because Windows reads the clipboard back with CRLF; the test server answers `/favicon.ico` with 204 (a disk-opened page never asks); visual approval is still the owner's screenshot review in the PR, nothing here declares it.
+> Surface: none
+
+### Slice 13/13 — Dogfood comparison
+- [x] Dogfood comparison <!-- task-id: plan.specs-readable-visual-plans-md.dogfood-comparison --> — Slice 13/13 of #233: The upgraded snow-mcp OAuth plan re-rendered outside the repo, with before and after screenshots k… ([#268](https://github.com/Joaovsales/jplugin-agentic-development/issues/268)) (blocked-by: plan.specs-readable-visual-plans-md.browser-proof)
+  [x] Verify: the upgraded snow-mcp `oauth-identity-source` spec renders without error and before and after screenshots sit in `design/plan-theme/dogfood/` for the owner's review (AC 25)
+> Handover: landed 70765a5..64dd681 — snow-mcp `oauth-identity-source` upgraded on a scratch copy (Summary, D1–D18 with ID/Status, R1–R4, a `flow` and a `sequence` diagram, AC1–AC16) renders without error and passes every browser check; before/after captures, both pages, the upgraded spec and the upgrade script sit git-ignored in `design/plan-theme/dogfood/` for the owner's review; the dogfood found and fixed a 390 px overflow (`.chosen` was flex, so each inline code span was a non-wrapping item), pinned by the generic `long-choice.md` fixture (fails on the old CSS, passes now).
+> Do not re-derive: the original snow-mcp spec does NOT render with the new renderer — its `decided`/`open` Decisions rows have 3 cells under a 4-column header (`:432`), a genuine D11 refusal; the upgraded copy reports `not ready: D18` (`PUBLIC_URL` per environment is genuinely open); the snow-mcp working tree was not touched and the repo is public, so no capture is committed.
+> Surface: undeclared: tests/fixtures/plan-render/long-choice.md ([SURFACE] logged)
+
+## Session Summary — [2026-10-08] [b8dec43..76bedc8]
+- Completed: readable-visual-plans, 13/13 slices (#256–#268), each with a handover. Quality gate: Phases 1–3 inline, Phase 4 dispatched (HOLD). Four fixes applied in 76bedc8: one Blocked by grammar shared with /slice, empty flow node refused with spec:line, shared slice links, prompt label dropped in the parser. Plugin bumped to 1.5.0. Receipt c743aa3e is STOP on the Windows affected run (9/38, all baseline). WSL at the same tree passed 38/38 with the gh wrapper. The owner overrode STOP to push.
+- Pending: the owner's screenshot review (AC23) and the before/after dogfood comparison (AC25) in the PR, then the PR's Linux CI run. Reported, not applied (5 SHOULD-FIX, manual): pick text in the review export, has-blockers substring check, blocker predicates restated per card, no single section registry, ids not de-duplicated across modules.
+- Carry-forward: design-stack setup needs DESIGN_STACK_NPX=npx.cmd on Windows (bug doc open, follow-up suggested). The snow-mcp spec itself still fails the new renderer at :432.
+
+## Plan: Review load and failure cases
+> Spec: specs/review-load-and-failure-cases.md
+
+### Slice 1/8 — Failure line
+- [x] Failure line <!-- task-id: plan.specs-review-load-and-failure-cases-md.failure-line --> — Slice 1/8: failure: in the emission format with its confidence cap, and the version bump ([#273](https://github.com/Joaovsales/jplugin-agentic-development/issues/273))
+  [x] TDD: tests/test-review-context.sh § failure — finding-model.md shows `failure:` under `evidence:` and caps a finding without it at `50` -> emission format and § Gates edit; plugin.json minor bump (AC 1)
+> Handover: landed 232c173 — finding-model.md § Emission format carries `failure:` under `evidence:` with a paragraph on what it holds per finding kind; § Gates caps a finding with no `failure:` at `50`; plugin.json 1.5.1 -> 1.6.0
+> Do not re-derive: the cap mirrors the evidence demotion exactly (reported, never auto-applied, never dropped); every receipt minted before this goes stale once (policy hash, R1)
+> Surface: none
+
+### Slice 2/8 — Deferrals and load home
+- [x] Deferrals and load home <!-- task-id: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home --> — Slice 2/8: § Deferrals and § Expected load, cited by the dispatch contract and three personas ([#274](https://github.com/Joaovsales/jplugin-agentic-development/issues/274)) (blocked-by: plan.specs-review-load-and-failure-cases-md.failure-line)
+  [x] TDD: tests/test-agents.sh § deferrals — the combined shortcut rule names both exceptions, lives in one file, and critic, security-reviewer, software-design-expert-review (both trees) and dispatch item 5 cite it -> § Deferrals plus citations (AC 2)
+  [x] TDD: tests/test-agents.sh § load — § Expected load defines `Load assumed:`, lookup order, no-source default and six scale patterns; the three personas reference it and the skill's dispatch instruction asks for `failure:` -> § Expected load plus references (AC 3)
+> Handover: landed 674b4a5, c75a3ad — finding-model.md § Expected load (Load assumed: line, lookup order, no-source default, six patterns) and § Deferrals (the one shortcut rule, exceptions (a) load and (b) never-cut list) plus a ponytail provenance line; dispatch contract item 5 cites § Deferrals, item 7 adds `failure:`; critic, security-reviewer, software-design-expert-review (both trees) and the sder skill cite both sections and show `failure:`
+> Do not re-derive: 'load already crosses' must stay in finding-model.md alone — tests/test-agents.sh § 6 counts files; security-reviewer writes `**failure**:` in its template, so its rule sentence carries the literal `failure:`
+> Surface: undeclared: tests/test-citations.sh — its fixed ## heading list for finding-model.md now names Expected load and Deferrals
+
+### Slice 3/8 — Code reviewer rewrite
+- [x] Code reviewer rewrite <!-- task-id: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite --> — Slice 3/8: the human layer and the bans in code-reviewer ([#275](https://github.com/Joaovsales/jplugin-agentic-development/issues/275)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [x] TDD: tests/test-agents.sh § code-reviewer — no Strengths, persona prose or Recommendations; template has `What this change does:`, `Load assumed:`, numbered findings with `failure:`, `Verdict:`, `Lean:`, `Not checked:`; bans "consider"; both trees byte-identical -> rewrite code-reviewer.md (AC 4)
+> Handover: landed 5e48ef3 — code-reviewer.md rewritten (both trees, byte-identical): Context Intake kept, What you check (correctness, security, scale, design, lean), What you never emit, human-layer Output with numbered findings, `failure:`, Verdict/Lean/Not checked
+> Do not re-derive: Verdict: names MUST-FIX numbers and decides nothing (D15); `What this tree does:` for repo surveys; the template's four example findings are the A/B's 'updated' arm
+> Surface: none
+
+### Slice 4/8 — Gate load lens
+- [x] Gate load lens <!-- task-id: plan.specs-review-load-and-failure-cases-md.gate-load-lens --> — Slice 4/8: Phase 3 Security and Load and the human-layer § Output ([#276](https://github.com/Joaovsales/jplugin-agentic-development/issues/276)) (blocked-by: plan.specs-review-load-and-failure-cases-md.deferrals-and-load-home)
+  [x] TDD: tests/test-doc-conventions.sh § gate load — `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens with `What this change does:` and `Load assumed:`, numbered `Reported, not applied` with `failure:`, ends with `Lean:` and `Not checked:`; test-quality-receipt.sh green -> quality-gate SKILL.md edit (AC 5)
+> Handover: landed 0e1075c — /quality-gate `## Phase 3 — Security and Load`, lens `security-scan+load`, Output opens What this change does: / Load assumed:, numbered Reported-not-applied with failure:, then Receipt, Verdict (restated), Lean, Not checked
+> Do not re-derive: the old test prefix `## Phase 3 — Security` still matches; test-quality-receipt.sh's fixture lens `security-scan` is free text in receipt.py and stays valid
+> Surface: none
+
+### Slice 5/8 — Split by job
+- [x] Split by job <!-- task-id: plan.specs-review-load-and-failure-cases-md.split-by-job --> — Slice 5/8: the function-size rule in AGENTS.md and Phase 1.2 ([#277](https://github.com/Joaovsales/jplugin-agentic-development/issues/277)) (blocked-by: plan.specs-review-load-and-failure-cases-md.gate-load-lens)
+  [x] TDD: tests/test-doc-conventions.sh § split by job — AGENTS.md and Phase 1.2 say "split by job" and "never by line count", no "20 LOC"; budget and managed-block tests green -> two rule edits (AC 6)
+> Handover: landed b3f6651 — AGENTS.md § Core Principles and /quality-gate Phase 1.2 say split by job, never by line count, never into shorten-only helpers; ≤3 parameters kept
+> Do not re-derive: AGENTS.md is 14963 bytes of the 16 KiB budget; the managed-block test needs no change
+> Surface: none
+
+### Slice 6/8 — Shortcut ledger on demand
+- [x] Shortcut ledger on demand <!-- task-id: plan.specs-review-load-and-failure-cases-md.shortcut-ledger-on-demand --> — Slice 6/8: the wider ledger pattern and /tidy --check shortcuts ([#278](https://github.com/Joaovsales/jplugin-agentic-development/issues/278)) (blocked-by: plan.specs-review-load-and-failure-cases-md.split-by-job)
+  [x] TDD: tests/test-doc-conventions.sh § shortcuts — the wrap-up ledger pattern matches C-block and HTML comment prefixes with wrap-up still 300 lines; /tidy lists check `shortcuts` citing § Shortcut ledger, `no-trigger` Tier 1 -> pattern edit and tidy check row (AC 7)
+> Handover: landed 0acd572 — wrap-up § Shortcut ledger pattern is `(#|//|--|/\*|<!--) ?TODO\(shortcut\):` in place (still 300 lines); /tidy gains a `shortcuts` table row citing that section, `no-trigger` as Tier 1, never filed; heading 1–10
+> Do not re-derive: /tidy cites the command and never restates the grep (pinned)
+> Surface: none
+> Open: make-it-simpler/references/lens.md still says /tidy has nine checks (outside this surface; follow-up)
+
+### Slice 7/8 — Seeded review fixtures
+- [x] Seeded review fixtures <!-- task-id: plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures --> — Slice 7/8: four seeded diffs and their answer key ([#279](https://github.com/Joaovsales/jplugin-agentic-development/issues/279))
+  [x] Verify: tests/fixtures/review-eval/ holds a race, an N+1 call, a time-zone off-by-one and a harmless decoy, each a diff, plus an answer key; no name hints at an eval (AC 8)
+> Handover: landed d27d85b — four Python diffs under tests/fixtures/review-eval/ (invite-redeem race, order-summary N+1, billing-cutoff UTC-vs-local off-by-one, settings-merge decoy with no defect) and `expected.md`, the key with diff-line anchors, failure cases, severities and a Grading section
+> Do not re-derive: the A/B hands candidates the four `.diff` files only, copied into a neutrally named sandbox — never `expected.md` and never the `review-eval` directory name (/eval blinding bans `eval` in anything a candidate sees); recall = location plus class, any finding on the decoy line or an unlisted MUST/SHOULD-FIX is a false positive
+> Surface: none (only `tests/fixtures/review-eval/**` touched)
+
+### Slice 8/8 — Reviewer A/B
+- [ ] Reviewer A/B <!-- task-id: plan.specs-review-load-and-failure-cases-md.reviewer-a-b --> — Slice 8/8: the Mode B /eval report, linked from the PR body ([#280](https://github.com/Joaovsales/jplugin-agentic-development/issues/280)) (blocked-by: plan.specs-review-load-and-failure-cases-md.code-reviewer-rewrite, plan.specs-review-load-and-failure-cases-md.seeded-review-fixtures)
+  [ ] Verify: `/eval` Mode B, N >= 2 per arm, current vs updated code-reviewer vs ponytail-review on the seeded diffs: recall and false positives against the key, readability by a blinded Ceiling judge, cost; report path in the PR body — manual gate (AC 9)
+
+## Session Summary — [2026-10-09] [3e71e95..882927f]
+- Completed: review-load-and-failure-cases slices 1–7 (#273–#279), each with a handover. The quality gate ran Phase 4 dispatched (HOLD, then GO after 6 fixes). Receipt f6760ca5 is STOP on the Windows affected run, where all 199 failing assertions are also failing at the base. The spec's § Behavior was reconciled for the narrower-real-limit clause.
+- Pending: slice 8 (#280), the Mode B /eval A/B of current code-reviewer vs updated vs ponytail-review over tests/fixtures/review-eval/. It is manual, needs the pushed branch and ponytail's prompt, and its report path goes in the PR body. Reported, not applied: critic's AC-failing-deferral exception is critic-only (add (c) to § Deferrals?); no lookup source states this repo's concurrent-session load (a [NON-FUNCTIONAL] line in tasks/project-context.md); `Verdict:` carries three meanings across personas (AC4 fixes the label).
+- Carry-forward: make-it-simpler/references/lens.md still says /tidy has nine checks; it now has ten, with `shortcuts`.
+
+## Lane: fix — #168
+1. `/debug #168` — root cause before code; the prelude stops before any edit until a candidate is confirmed, and a constraint in the goal ("don't change code yet", "repro first") is part of its problem statement. Reproduced and progressable work continues; an inconclusive or blocked investigation is held and reported by the canonical escalation owner
+2. `/build` — TDD against the reproduced failure; no fix ships without a failing test that now passes — **non-skippable**
+3. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
+4. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
+
+## Fix: #168 — /learn overlap dimensions are bug-track shaped
+- [x] TDD: tests/test-solutions-schema.sh § overlap dimensions — `/learn` Step 4 carries a `| bug |` and a `| knowledge |` dimension row; `tasks/solutions/README.md` and `project-template/tasks/solutions/README.md` carry the same two rows byte for byte -> per-track dimension table in `learn/SKILL.md` Step 4 and in both READMEs' Writing rules (AC 1)
+- [x] TDD: tests/test-grilling-adoption.sh § AC 5 — `domain-modeling.md` scores an architecture decision with the knowledge-track set -> name the set in domain-modeling § Offer an architecture decision sparingly (AC 1)
+
+## Session Summary — [2026-10-14] [e461b5a..5178b2a]
+- Completed: #168 through the fix lane. The /debug prelude picked the issue's proposed fix after disconfirming two alternatives. 2 TDD rows: red at 237bedd, 13 assertions failing; green at 4264aa8. Plugin bumped to 1.6.2. The quality gate ran Phases 1–3 inline and Phase 4 dispatched (GO; both SHOULD-FIX fixed and re-verified). Receipt d032d845 is GO from a WSL clean clone at the same tree (22/22). On Windows, 104 assertions failed, all also failing at base e461b5a.
+- Pending: none for #168.
+- Carry-forward: `/memory-maintain`'s merge test (`memory-maintain/SKILL.md:98`, "same problem, same root cause") is still bug-shaped. A separate session was started for it. `/quality-gate` Phase 6 still names one shared `outcome.json` (`quality-gate/SKILL.md:291`); see process/name-the-gate-outcome-file-per-session-in-the-shared-receipt-store.md.
+- [ ] Reconcile specs/compound-engineering-adoption.md with current learning-store, review and guard behavior <!-- task-id: spec-reconciliation.specs-compound-engineering-adoption-md --> — The legacy spec was updated for per-track overlap scoring (#168), which triggers its migration (implementation_paths, I… ([spec-reconciliation.specs-compound-engineering-adoption-md](tasks/details/spec-reconciliation.specs-compound-engineering-adoption-md.md))
+
+## Lane: fix — /memory-maintain duplicate-merge criterion is bug-track shaped (stacked on #168)
+1. `/debug /memory-maintain duplicate-merge criterion is bug-track shaped (stacked on #168)` — root cause before code; the prelude stops before any edit until a candidate is confirmed, and a constraint in the goal ("don't change code yet", "repro first") is part of its problem statement. Reproduced and progressable work continues; an inconclusive or blocked investigation is held and reported by the canonical escalation owner
+2. `/build` — TDD against the reproduced failure; no fix ships without a failing test that now passes — **non-skippable**
+3. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
+4. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
+
+## Fix: /memory-maintain duplicate-merge criterion is bug-track shaped
+- [x] TDD: tests/test-memory-maintain-doc.sh § merge test — `memory-maintain/SKILL.md` no longer carries "same root cause" or "semantic overlap"; Phase 2 scores a pair on `/learn` Step 4 (§ 4. Score Overlap Before Writing) and merges only on a High score (4–5 of the track's five dimensions, the >70% threshold restated); the light pass applies the Phase 2 merge test; a cross-track pair never merges -> Phase 2 and the light pass reference `/learn` Step 4 instead of restating a bug-track test
+- [x] TDD: none (store doc) -> `tasks/solutions/bugs/learn-overlap-dimensions-only-fit-the-bug-track.md` drops its "Not changed: `/memory-maintain`'s merge test" line and records this fix and its pin (High overlap with #168's document: same problem, root cause, solution and prevention rule)
+- [x] TDD: tests/test-plugin-manifest.sh § 10 version guard — the payload change carries a bump -> `.claude-plugin/plugin.json` 1.6.2 -> 1.6.3 (master carries #286's 1.6.2)
+- [x] TDD: tests/test-memory-maintain-doc.sh § merge test — the High band and each track's dimension count are read from `/learn` Step 4's tables, so changing the band or the scale fails the pin -> Phase 2 restates the band verbatim (`High is 4–5 of the five dimensions`) instead of `4 or 5` (review finding 1, and the dimension-count finding the re-review raised)
+- [x] TDD: tests/test-memory-maintain-doc.sh § merge test — Phase 2 carries no category boundary of its own, so Step 4's cross-track cap governs both passes -> Phase 2's `same category` pair filter is dropped and the cross-track sentence states Step 4's cap, pinned with its other copies in `tests/test-solutions-schema.sh` § Overlap dimensions (review finding 2; the re-review showed the category condition diverged from `/learn`'s write-time rule)
+
+## Session Summary — [2026-10-14] [a7a6723..a7bfc3f]
+- Completed: `/memory-maintain` scores a duplicate pair through `/learn` Step 4 and merges only on High, in both the light pass and Phase 2. High is 4–5 of five, which restates the >70% threshold. Step 4's cross-track cap is the only merge boundary, so a pair on different tracks never merges. `tests/test-memory-maintain-doc.sh` § Merge test reads Step 4's heading, High band and per-track dimension count from `/learn` itself (17/17 GREEN; master's wording fails 7). Both PR #287 review findings were fixed: the band, the dimension count and the cross-track cap are no longer unpinned copies, and Phase 2's same-category filter, which made the cross-track sentence unreachable, is gone. Plugin bumped to 1.6.3.
+- Pending: none.
+- Carry-forward: the light pass's merge procedure is a shorter copy of Phase 2's (no `[merged from <slug>]`, no delete-after-absorb, no cross-link fix); pre-existing, reported by the re-review, not changed. The `/memory-maintain` heavy pass the session banner reported due was not run; `/memory-maintain --force` in its own session runs it.
+
+## Lane: fix — #146
+1. `/debug #146` — root cause before code; the prelude stops before any edit until a candidate is confirmed, and a constraint in the goal ("don't change code yet", "repro first") is part of its problem statement. Reproduced and progressable work continues; an inconclusive or blocked investigation is held and reported by the canonical escalation owner
+2. `/build` — TDD against the reproduced failure; no fix ships without a failing test that now passes — **non-skippable**
+3. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
+4. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
+
+## Fix: #146 — Verify issue closure after a PR merged by the GitHub Actions app
+> Root cause (debug prelude, 2026-10-13): GitHub does not fire closing keywords for a `GITHUB_TOKEN` merge, and `issues: write` does not restore it — 0/47 bot-merged links closed by their PR vs 102/103 human-merged; pix #532 (token had `issues: write`) still open 4 s after merge. Bug doc: tasks/solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md
+
+- [x] Verify: the merger-identity hypothesis is confirmed with recorded evidence — the natural experiment (0/47 vs 102/103 across three repos) and the pix #532 permission test are in the bug doc; the user chose recorded evidence over a new controlled merge (AC 1)
+- [x] TDD: tests/test-task-closes.sh § provider — `GitHubProvider.closing_references('#141')` sends `gh pr view --repo R --json state,closingIssuesReferences -- 141` and returns this repository's references; refuses a PR that is not MERGED, a reference that is not a number (before any gh call), and a closing reference in another repository; the local provider refuses -> `closing_references` on TrackerProvider (default refusal) and GitHubProvider (AC 2)
+- [x] TDD: tests/test-task-closes.sh § command — `closes '#141' --apply --approve` closes each still-open linked issue through `close_task` and leaves closed ones alone, one line per closed issue; every reference already closed prints `nothing to do` and exits 0; a failed close names the issue, still attempts the rest, and exits 1; a dry run exits 1 naming each open issue and calls no `issue close`; no reference is a usage error (2) -> registry/closure.py + `closes` in COMMANDS and `_dispatch` (AC 2). The CLI runs in-process with `GitHubProvider._run` stubbed — the bash gh mock is unreachable from Python on Windows
+- [x] TDD: tests/test-routines-contract.sh § closure — routines.md § Issue closure happens on merge says a `GITHUB_TOKEN` merge does not fire closing keywords and names `task-registry closes` after the merge call with `issues: write`, still without `gh issue`; task-registry SKILL.md lists `closes` in the argument hint, the command table and its own section -> doc edits (AC 2)
+- [x] Verify: live, read-only — `task-registry closes '#189'` (dry run) against Joaovsales/image-video-generation-pipeline names #155 and #156 and exits 1; `closes '#141'` exits 0 with nothing to do (AC 2)
+- [x] TDD: tests/test-task-closes.sh § select — an open issue whose closing PR merged (no other PR in flight, not REOPENED) is never a candidate and gets a `stranded:` line with `task-registry closes '#<pr>' --apply --approve`; a closed-unmerged PR no longer holds its issue; an unreadable PR state counts as in flight; a failed lookup exits 1 -> `_linked_pr_states` (one `gh api graphql` nodes(ids:) read per 100 PRs — gh lists closing PRs without their state) + `merged_linked_pr` in `_linked_pr_state`, `stranded` in routines.py, the line in `_select` (design review MUST-FIX, user-approved 2026-10-13). Live read: ivgp stranded #94 #101 #155 #156, pkb #86
+- [x] Fix: the design review of 8975c8a (HOLD — 2 MUST-FIX, 3 SHOULD-FIX) is applied in 7756cee. (1) The PR-state lookup runs only on `select`'s read (`list_tasks_with_linked_prs`, base default `list_tasks()`), not on `get_task` or plain `list_tasks`. (2) `_issue_json` drops each rejected optional field in turn, and the exclusion is unavailable without either field. (3) Only a same-repo merged PR strands an issue, and `stranded()` returns (task, pr). (4) The states and facts are computed in one method, with one `_is_open`. (5) Routing goes through `_node_repo`. Pinned in tests/test-task-closes.sh § command and § select, and tests/test-task-registry.sh § old gh
+- [x] Verify: the provider-coupling guards in tests/test-doc-conventions.sh and tests/test-routines-contract.sh still pass — no skill outside /task-registry calls `gh issue` (AC 3). On tree b126845e test-doc-conventions passed 866/866 and test-routines-contract 124/124
+- [x] Follow-up: file one issue each in image-video-generation-pipeline and private-knowledge-base to run `task-registry closes '#<pr>' --apply --approve` after the auto-merge call and grant `issues: write` (user-approved 2026-10-13); list their stranded open issues. Filed through `task-registry upsert` as Joaovsales/image-video-generation-pipeline [#191](https://github.com/Joaovsales/image-video-generation-pipeline/issues/191) (stranded #94 #101 #155 #156) and [Joaovsales/private-knowledge-base#146](https://github.com/Joaovsales/private-knowledge-base/issues/146) (stranded #86). The image-video index has 70 legacy rows the registry refuses, so its issue was filed from a scratch clone with a fresh index
+
+## Session Summary — [2026-10-13] [e461b5a..d5eee1b]
+- Completed: #146 fix lane — `task-registry closes '#<pr>'`, the routines.md post-merge contract, and the `select` stranded backstop with its GraphQL PR-state read. Two design-review rounds (HOLD → GO). AC1 by recorded evidence, AC2 and AC3 met in this repository. Receipt aa5f1c97 is STOP from the Windows baseline (104 failing assertions, 0 new); WSL ran 25/25 affected files at the same tree.
+- Pending: the follow-up issues in image-video-generation-pipeline and private-knowledge-base, to run `closes` after auto-merge, grant `issues: write`, and close the stranded #94, #101, #155, #156 and #86. Reported, not applied: (1) a merged closing PR in another repository leaves its issue selectable, because `closes` cannot reach it; (2) `select_candidates` and `stranded` are correct only on `list_tasks_with_linked_prs()`, so a plain `list_tasks()` caller would fail open.
+- Carry-forward: none.
+
+## Session Summary — [2026-10-16] [080484d..02c761a] — closure repair 1
+- Completed: `/yolo` iteration — the factory-board mod (`specs/factory-board.md`) and HyperFrames as a fifth `/design-stack` source (`specs/design-stack-hyperframes.md`, four slices, all `[x]`); quality receipt GO 481e85d3; PR #289. CI round 1 failed the plugin version guard (payload changed since 080484d without a bump); this repair bumps `.claude-plugin/plugin.json` to 1.6.5.
+- Pending: none.
+- Carry-forward: the gate's unresolved SHOULD-FIX — `cli_version(release)` makes the caller know the design-stack store layout (`hyperframes.py:30`); a validator for TDD-row test files outside their slice Surface runs as a separate session (chip).
+
+## Plan: design-stack-hyperframes
+> Spec: specs/design-stack-hyperframes.md
+
+### Slice 1/4 — HyperFrames source and catalog
+- [x] HyperFrames source and catalog <!-- task-id: plan.specs-design-stack-hyperframes-md.hyperframes-source-and-catalog --> — Slice 1/4: The fifth source is staged shallow, its skills are catalog tools and never a direction or reference ([plan.specs-design-stack-hyperframes-md.hyperframes-source-and-catalog](tasks/details/plan.specs-design-stack-hyperframes-md.hyperframes-source-and-catalog.md))
+  [x] TDD: tests/test-design-stack-install.sh § hyperframes — setup from five local fixture repositories records a `hyperframes` revision in the manifest and `sources/hyperframes` in the release; the clone log shows `--depth 1` under `GIT_LFS_SKIP_SMUDGE=1` for hyperframes only -> `SOURCES["hyperframes"]`, a shallow-clone rule in `stage_release` (AC 1)
+  [x] TDD: tests/test-design-stack-catalog.sh § hyperframes — fixture skills `hyperframes` and `motion-graphics` list as `hyperframes:<name>` tools with frontmatter title and fit; a third fixture skill adds exactly one entry -> `hyperframes_entries` in catalog.py, optional fifth source path in `source_paths` (AC 2)
+  [x] TDD: tests/test-design-stack-catalog.sh § hyperframes-select and tests/test-design-stack-brief.sh § hyperframes — `select` refuses a `hyperframes:` primary and a `hyperframes:` reference with `SelectionRejected`; `validated_choice` rejects a `hyperframes:` direction -> `hyperframes:` in brief.py's rejected-primary prefixes (AC 3)
+> Handover: landed 59e1d4c..9916099 — `SOURCES["hyperframes"]` (default `https://github.com/heygen-com/hyperframes.git`, env `DESIGN_STACK_HYPERFRAMES_URL`), `SHALLOW_NO_LFS_SOURCES = ("hyperframes",)` cloned `--depth 1` under `GIT_LFS_SKIP_SMUDGE=1`; `catalog.source_paths(release, installed)` takes the installed source names (the manifest's `sources` or the staged `revisions`) and returns a 5-tuple whose fifth item is the sorted list of `sources/hyperframes/skills/*/SKILL.md` (empty when `hyperframes` is not installed; the router skill is required through `safe_file` when it is); `validate(release, installed)` passes the names through; `skill_entry(path, prefix, kind, revision, release)` is the one per-SKILL.md entry builder (title = frontmatter `name`, fallback dirname; fit = `description`, fallback empty) that `taste_entries` and `hyperframes_entries` share; `brief.validated_choice` accepts only `spatial`, `custom` or a `taste:` direction (an allow-list, so a `hyperframes:` ID is refused); (facts revised by the quality gate in 8502d78) `select_direction` needed no change (a `tool` kind is already refused as direction and reference).
+> Do not re-derive: `build_catalog` reads `revisions["hyperframes"]` only when entries exist, so a four-source `revisions` dict already works against a release without `sources/hyperframes` — slice 3's remaining work is `current_manifest` (still raises on the missing key) and the `status` line. The install test proves `--depth 1` through `GIT_TRACE` (a local-path clone ignores depth on disk) and the LFS flag through a `GIT_TEMPLATE_DIR` `post-checkout` hook writing to `DESIGN_STACK_CLONE_LOG`; the catalog growth assertion is now `len(entries) + 4` (fixture `bare-skill` has no frontmatter). The install, catalog and brief tests cannot run natively on Windows (the fake `npx` fails with WinError 193, pre-existing); verify on a CR-stripped copy under WSL Ubuntu.
+> Surface: none for the slice's own commit (9916099 touches only the six declared files); `slice.py check` against base..HEAD lists slice 2's two files as undeclared because both slices landed on the same range.
+
+### Slice 2/4 — Video guard
+- [x] Video guard <!-- task-id: plan.specs-design-stack-hyperframes-md.video-guard --> — Slice 2/4: Opt-in, production-label and pinned-CLI-version answers for video tasks ([plan.specs-design-stack-hyperframes-md.video-guard](tasks/details/plan.specs-design-stack-hyperframes-md.video-guard.md))
+  [x] TDD: tests/test-design-stack-video.sh § guard — `should_run_hyperframes` is true for an explicit video request, false for a UI easing rule and for "remove the video"; `production_status` labels `prototype` until `check` and `render` are both true; `cli_version` reads a fixture `packages/cli/package.json` -> new `scripts/hyperframes.py` shaped like `three.py` (AC 5)
+> Handover: landed 59e1d4c..3336618 — `.agents/skills/design-stack/scripts/hyperframes.py` (stdlib only, never runs the CLI or touches the network): `should_run_hyperframes(task, brief_motion) -> bool` opts in on `video|mp4|motion graphics|explainer (video|clip|animation)|hyperframes` (word-boundary, case-insensitive) in the task unless `remove|disable|avoid|no|without|drop` appears within 20 characters before the term, and on a Motion rule only when it names `hyperframes` (a bare `render` or `explainer` never opts in — revised by the quality gate in 8502d78, spec D10); `production_status(gates)` requires `("check", "render")` and returns `{"label", "open_gates"}` like the 3D guard; `cli_version(release)` returns `version` from `<release>/sources/hyperframes/packages/cli/package.json` and raises `ValueError` (message names hyperframes) on a missing or unreadable file, invalid JSON, or a missing/empty version.
+> Do not re-derive: `tests/test-design-stack-video.sh` is executable (`100755` set with `update-index --chmod=+x`), sources `tests/lib.sh`, sets `$tmp` with an EXIT trap, and is laid out as `§ guard` (built), then comment-only placeholders `§ stale-manifest` and `§ docs` reading "(appended by a later slice)", then `finish`. Slices 3 and 4 fill those placeholders above `finish`; `tests/run.sh` discovers the file by glob, so no runner edit is needed.
+> Surface: none for the slice's own commit (3336618 touches only the two declared files); the base..HEAD check lists slice 1's six files for the same reason as above.
+
+### Slice 3/4 — Stale-manifest compatibility
+- [x] Stale-manifest compatibility <!-- task-id: plan.specs-design-stack-hyperframes-md.stale-manifest-compatibility --> — Slice 3/4: A four-source manifest keeps working offline and status names what update adds ([plan.specs-design-stack-hyperframes-md.stale-manifest-compatibility](tasks/details/plan.specs-design-stack-hyperframes-md.stale-manifest-compatibility.md)) (blocked-by: plan.specs-design-stack-hyperframes-md.hyperframes-source-and-catalog, plan.specs-design-stack-hyperframes-md.video-guard)
+  [x] TDD: tests/test-design-stack-video.sh § stale-manifest — a four-source manifest over a four-source release answers `status` with `Ready <id> (offline; update adds: hyperframes)` and `catalog` with no `hyperframes:` entry, exit 0; a manifest naming an unknown source still fails -> `current_manifest` checks only the manifest's known sources, `build_catalog` skips an absent source (AC 4)
+> Handover: landed 7d7d1c6..f0e3f24 — `current_manifest` raises `ValueError("unsupported design-stack manifest source: <sorted names>")` for a source `SOURCES` does not know (before validation) and verifies revisions only for the sources the manifest lists; `status` on a manifest missing known sources prints `Ready <id> (offline; update adds: <names in SOURCES order>)` and exits 0, `Ready <id> (offline)` when nothing is missing. `catalog.py` needed no change (slice 1 already made `sources/hyperframes` optional) and `update` needed none (`install_command` compares `previous["sources"] == revisions`, false for a four-key manifest, so a five-revision release is produced).
+> Do not re-derive: `tests/test-design-stack-video.sh` § stale-manifest (lines ~41–99) builds a four-source fixture under `$tmp/stale/home` (git-init'd `taste`, `impeccable`, `references`, `three`, two installed `SKILL.md` entrypoints, no `npx`) with helpers `write_manifest four|unknown`, `$home`, `$release_id`, `$CLI`, and exports `DESIGN_STACK_HOME` and `DESIGN_STACK_RELEASE_ID` that later sections inherit; the `# ---- § docs` placeholder follows it, above `finish`. The video test runs natively on Windows (8 assertions); install and catalog still need WSL. From Git Bash, call WSL with `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'` or `/var/tmp/...` is rewritten to a `C:/Program Files/Git/` path.
+> Surface: `untouched: .agents/skills/design-stack/scripts/catalog.py` (declared, needed no edit); nothing undeclared.
+
+### Slice 4/4 — Skill text and table
+- [x] Skill text and table <!-- task-id: plan.specs-design-stack-hyperframes-md.skill-text-and-table --> — Slice 4/4: The skill, the build phase and the README row describe the new source and guard ([plan.specs-design-stack-hyperframes-md.skill-text-and-table](tasks/details/plan.specs-design-stack-hyperframes-md.skill-text-and-table.md)) (blocked-by: plan.specs-design-stack-hyperframes-md.hyperframes-source-and-catalog, plan.specs-design-stack-hyperframes-md.video-guard, plan.specs-design-stack-hyperframes-md.stale-manifest-compatibility)
+  [x] TDD: tests/test-design-stack-video.sh § docs — design-stack SKILL.md names `sources/hyperframes/skills/*/SKILL.md`, the `hyperframes:` tool rule, `npx hyperframes@`, `hyperframes check` and `prototype`; build SKILL.md names the video guard beside the 3D guard; `python3 scripts/render-skills-table.py --check` is silent -> SKILL.md sections, build Phase 2 paragraph, regenerated README row (AC 6)
+  [x] Verify: `bash tests/test-design-stack-install.sh`, `test-design-stack-catalog.sh`, `test-design-stack-brief.sh`, `test-design-stack-3d.sh` and `test-design-stack-video.sh` all pass on the final tree (AC 7)
+> Handover: landed f26a13b..c1570c5 — `design-stack/SKILL.md` names HyperFrames in its description and source list (clone URL, `DESIGN_STACK_HYPERFRAMES_URL`, shallow with LFS skipped, no installer), the offline `status` wording and the "only `update` adds it" rule, the `hyperframes:<skill>` tool rule (router `hyperframes:hyperframes`, refused by `select` and `brief`) and a new `## Opt-in video` section (opt-in terms and negations, `npx hyperframes@<version>` from `cli_version`, gates `check` and `render`, `prototype` until both); `build/SKILL.md` Phase 2 gains one paragraph naming the design-stack video guard beside the 3D guard; the README `/design-stack` row was regenerated by `scripts/render-skills-table.py`.
+> Do not re-derive: `tests/test-design-stack-video.sh` § docs asserts the needles `sources/hyperframes/skills/*/SKILL.md`, ``A `hyperframes:` ID is a tool``, `npx hyperframes@`, `hyperframes check`, `prototype` in the design-stack skill, `design-stack video guard` and `design-stack 3D guard` in the build skill, and `render-skills-table.py --repo "$repo" --check` exit 0 (16 assertions in all). AC7 verified centrally on the final tree: install 54, catalog 17, brief 2, 3D 3, video 16 assertions passed under WSL Ubuntu; video, skills-table (79) and doc-conventions (866) pass natively.
+> Surface: none undeclared, none untouched (`slice.py check --slice 4 --base f26a13b` exit 0).
 ## Plan: helix-checkpoint-loop
 > Spec: specs/helix-checkpoint-loop.md
 > Review units: U1 1–3 → U2 4–7 → U3 8–13 → U4 14–17 → U5 18–19

@@ -21,7 +21,7 @@ import json
 import re
 import subprocess
 import urllib.parse
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..model import (
     BLOCK_STATE_NOTES,
@@ -50,14 +50,21 @@ REQUIRED_ISSUE_FIELDS = (
     "number", "title", "body", "labels", "state", "url",
     "createdAt", "updatedAt", "assignees",
 )
-#: Fields a recent `gh` exposes and an older one does not.
-#: `closedByPullRequestsReferences` arrived in gh 2.73.0, and `gh` validates
-#: `--json` names client-side — so asking an older one for it fails the whole
-#: query rather than omitting the field. Absent it, `_linked_pr_state` already
-#: reports linked-PR state as unknown, and `linked_pr_exclusion_available()`
-#: turns that into a loud refusal in `select` rather than a silent clean read.
-#: That is the correct degradation; dying is not.
-OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences",)
+#: Fields the linked-PR exclusion needs, which a recent `gh` exposes and an
+#: older one does not: `closedByPullRequestsReferences` (gh 2.73.0) names an
+#: issue's closing pull requests, and `stateReason` tells a reopened issue from
+#: one its merged pull request never closed. `gh` validates `--json` names
+#: client-side, so asking an older one for either fails the whole query rather
+#: than omitting the field. Each rejected field is dropped and the read retried;
+#: `linked_pr_exclusion_available()` then turns the gap into a loud refusal in
+#: `select` rather than a silent clean read. That is the correct degradation;
+#: dying is not.
+OPTIONAL_ISSUE_FIELDS = ("closedByPullRequestsReferences", "stateReason")
+#: `gh` lists an issue's closing pull requests without their state, so the
+#: states come from one GraphQL read per batch of node ids; `nodes(ids:)`
+#: accepts at most 100.
+PR_STATE_QUERY = "query($ids: [ID!]!) { nodes(ids: $ids) { ... on PullRequest { id state } } }"
+PR_STATE_BATCH = 100
 UNKNOWN_FIELD_RE = re.compile(r'Unknown JSON field: "([^"]+)"')
 #: `gh` paginates internally up to this many issues. Reaching it exactly is
 #: indistinguishable from "there were more", so it is treated as truncation.
@@ -119,6 +126,14 @@ class GitHubProvider(TrackerProvider):
 
     # -------------------------------------------------------------------- reads
     def list_tasks(self) -> List[Task]:
+        return [self._to_task(issue) for issue in self._list_issues()]
+
+    def list_tasks_with_linked_prs(self) -> List[Task]:
+        issues = self._list_issues()
+        pr_states = self._read_pr_states(issues)
+        return [self._to_task(issue, self._linked_pr_state(issue, pr_states)) for issue in issues]
+
+    def _list_issues(self) -> List[Dict]:
         payload = self._issue_json(
             lambda fields: [
                 "gh", "issue", "list",
@@ -135,7 +150,7 @@ class GitHubProvider(TrackerProvider):
                 "has not seen every issue — publishing now could duplicate the ones past "
                 "the cut; narrow the repository or raise LIST_LIMIT"
             )
-        return [self._to_task(issue) for issue in payload]
+        return payload
 
     def get_task(self, ref: ExternalRef) -> Task:
         payload = self._issue_json(
@@ -160,14 +175,44 @@ class GitHubProvider(TrackerProvider):
     def _url_reference(self, candidate: str) -> Optional[ExternalRef]:
         parsed = urllib.parse.urlsplit(candidate)
         parts = [part for part in parsed.path.split("/") if part]
-        expected_repo = self._repo().lower().split("/")
         if parsed.hostname != "github.com" or len(parts) != 4 or parts[2] != "issues":
             raise ProviderError(f"github: {candidate!r} is not a canonical GitHub issue URL")
-        if [part.lower() for part in parts[:2]] != expected_repo:
+        if not self._is_this_repo(parts[0], parts[1]):
             raise ProviderError(
                 f"github: issue URL belongs to {'/'.join(parts[:2])}, not {self._repo()}"
             )
         return ExternalRef("github", parts[3], candidate) if parts[3].isdigit() else None
+
+    def closing_references(self, raw: str) -> List[ExternalRef]:
+        """The issues a merged PR's closing keywords name, whatever their state.
+
+        GitHub fires those keywords only for some mergers: a merge made with a
+        workflow's GITHUB_TOKEN closes nothing (#146), so this read is how the
+        merger finds out what the merge still owes.
+        """
+        number = self._number(ExternalRef("github", str(raw)))
+        payload = self._json(
+            ["gh", "pr", "view", "--repo", self._repo(),
+             "--json", "state,closingIssuesReferences", "--", number]
+        )
+        state = payload.get("state") or "unknown"
+        if state != "MERGED":
+            raise ProviderError(
+                f"github: #{number} is not merged (state {state}) — run this after the merge"
+            )
+        here, elsewhere = [], []
+        for issue in payload.get("closingIssuesReferences") or []:
+            owner, name = self._node_repo(issue)
+            if self._is_this_repo(owner, name):
+                here.append(ExternalRef("github", str(issue.get("number")), issue.get("url", "")))
+            else:
+                elsewhere.append(f"{owner}/{name}#{issue.get('number')}")
+        if elsewhere:
+            raise ProviderError(
+                f"github: #{number} closes {', '.join(elsewhere)}, outside {self._repo()} — "
+                "close those there; nothing was closed"
+            )
+        return here
 
     # ------------------------------------------------------------------- writes
     def create_task(self, task: Task) -> Task:
@@ -275,7 +320,7 @@ class GitHubProvider(TrackerProvider):
         return LinkResult("dependency", task.id, depends_on.id, native=False, detail=detail)
 
     # ------------------------------------------------- normalization (read-only)
-    def _to_task(self, issue: Dict) -> Task:
+    def _to_task(self, issue: Dict, linked_prs: Optional[Dict[str, str]] = None) -> Task:
         labels = tuple(label["name"] for label in issue.get("labels", []))
         state = (issue.get("state") or "OPEN").lower()
         status = self._status_for(state, labels, issue)
@@ -294,7 +339,7 @@ class GitHubProvider(TrackerProvider):
             area=self._area_for(labels),
             created_at=issue.get("createdAt"),
             updated_at=issue.get("updatedAt"),
-            extra=self._linked_pr_state(issue),
+            extra=dict(linked_prs or {}),
         )
 
     def _note_block_state(self, number: str, body: str) -> None:
@@ -302,16 +347,51 @@ class GitHubProvider(TrackerProvider):
         if note:
             self._note(f"issue #{number}: {note}")
 
-    @staticmethod
-    def _linked_pr_state(issue: Dict) -> Dict[str, str]:
-        if "closedByPullRequestsReferences" not in issue:
+    def _linked_pr_state(self, issue: Dict, pr_states: Dict[str, str]) -> Dict[str, str]:
+        """What an open issue's closing pull requests say about it, given their states.
+
+        A pull request whose state could not be read counts as open: assuming it
+        resolved would re-pick an issue that may still be under review.
+        """
+        if not self._is_open(issue) or "closedByPullRequestsReferences" not in issue:
             return {}
         references = issue.get("closedByPullRequestsReferences") or []
-        unresolved = any(
-            str(reference.get("state", "")).upper() not in ("MERGED", "CLOSED")
-            for reference in references
-        )
-        return {"unresolved_linked_pr": "true" if unresolved else "false"}
+        states = [pr_states.get(reference.get("id"), "UNKNOWN") for reference in references]
+        unresolved = any(state not in ("MERGED", "CLOSED") for state in states)
+        extra = {"unresolved_linked_pr": "true" if unresolved else "false"}
+        # Open after its closing PR here merged, with nothing else in flight and
+        # no human reopening it: the merge fired no closing keyword (#146). A PR
+        # in another repository is out of `closes`' reach, so it never counts.
+        merged = [
+            reference for reference, state in zip(references, states)
+            if state == "MERGED" and self._is_this_repo(*self._node_repo(reference))
+        ]
+        if merged and not unresolved and issue.get("stateReason") != "REOPENED":
+            extra["merged_linked_pr"] = f"#{merged[0].get('number')}"
+        return extra
+
+    def _read_pr_states(self, issues: Sequence[Dict]) -> Dict[str, str]:
+        """The state of every open issue's closing pull requests, by node id."""
+        ids = sorted({
+            reference["id"]
+            for issue in issues
+            if self._is_open(issue)
+            for reference in issue.get("closedByPullRequestsReferences") or []
+            if reference.get("id")
+        })
+        states: Dict[str, str] = {}
+        for start in range(0, len(ids), PR_STATE_BATCH):
+            command = ["gh", "api", "graphql", "-f", f"query={PR_STATE_QUERY}"]
+            for node_id in ids[start:start + PR_STATE_BATCH]:
+                command += ["-f", f"ids[]={node_id}"]
+            for node in (self._json(command).get("data") or {}).get("nodes") or []:
+                if node and node.get("id"):
+                    states[node["id"]] = str(node.get("state") or "")
+        return states
+
+    @staticmethod
+    def _is_open(issue: Dict) -> bool:
+        return (issue.get("state") or "OPEN").upper() == "OPEN"
 
     def _kind_for(self, labels: Sequence[str]) -> str:
         for label in labels:
@@ -467,11 +547,11 @@ class GitHubProvider(TrackerProvider):
 
     def linked_pr_exclusion_available(self) -> Optional[bool]:
         """False once `gh` has proved too old to answer -- see OPTIONAL_ISSUE_FIELDS."""
-        return "closedByPullRequestsReferences" not in self._unsupported_fields
+        return not self._unsupported_fields.intersection(OPTIONAL_ISSUE_FIELDS)
 
     # ------------------------------------------------------------- gh plumbing
     def _number(self, ref: ExternalRef) -> str:
-        """The issue number as a positional argument, or a refusal.
+        """The issue or pull request number as a positional argument, or a refusal.
 
         Every call site also passes `--` before its positionals; this is the other
         half of the same guard, because a value that is not a number has no
@@ -480,9 +560,20 @@ class GitHubProvider(TrackerProvider):
         number = str(ref.id).lstrip("#").strip()
         if not REF_RE.match(number):
             raise ProviderError(
-                f"github: {ref.id!r} is not an issue number — refusing to pass it to gh"
+                f"github: {ref.id!r} is not an issue or pull request number — "
+                "refusing to pass it to gh"
             )
         return number
+
+    def _is_this_repo(self, owner: str, name: str) -> bool:
+        """GitHub owner and repository names are case-insensitive."""
+        return f"{owner}/{name}".lower() == self._repo().lower()
+
+    @staticmethod
+    def _node_repo(node: Dict) -> Tuple[str, str]:
+        """The (owner, name) of the repository an issue or pull request node lives in."""
+        repository = node.get("repository") or {}
+        return (repository.get("owner") or {}).get("login", ""), repository.get("name", "")
 
     def _repo(self) -> str:
         """The `owner/name` every gh call targets, discovered from the remote on demand.
@@ -538,26 +629,28 @@ class GitHubProvider(TrackerProvider):
         return ",".join(list(REQUIRED_ISSUE_FIELDS) + optional)
 
     def _issue_json(self, build):
-        """Read issues, degrading once if this `gh` predates an optional field.
+        """Read issues, dropping each optional field this `gh` predates.
 
-        `build(fields)` returns the argv for the read. A required field that `gh`
-        rejects is still a hard failure: dropping it would hand the caller a task
-        with a silently missing identity, which is worse than the refusal.
+        `build(fields)` returns the argv for the read. `gh` names one unknown
+        field per refusal, so the read is retried once per rejected optional
+        field. A required field that `gh` rejects is still a hard failure:
+        dropping it would hand the caller a task with a silently missing
+        identity, which is worse than the refusal.
         """
-        try:
-            return self._json(build(self._issue_fields()))
-        except ProviderError as exc:
-            match = UNKNOWN_FIELD_RE.search(str(exc))
-            field = match.group(1) if match else ""
-            if field not in OPTIONAL_ISSUE_FIELDS or field in self._unsupported_fields:
-                raise
-            self._unsupported_fields.add(field)
-            self._note(
-                f"this gh does not support the `{field}` issue field, so linked pull "
-                "request state is unknown for every issue this run; upgrade to gh 2.73.0 "
-                "or newer to restore it"
-            )
-            return self._json(build(self._issue_fields()))
+        while True:
+            try:
+                return self._json(build(self._issue_fields()))
+            except ProviderError as exc:
+                match = UNKNOWN_FIELD_RE.search(str(exc))
+                field = match.group(1) if match else ""
+                if field not in OPTIONAL_ISSUE_FIELDS or field in self._unsupported_fields:
+                    raise
+                self._unsupported_fields.add(field)
+                self._note(
+                    f"this gh does not support the `{field}` issue field, so linked pull "
+                    "request state is unknown for every issue this run; upgrade to gh 2.73.0 "
+                    "or newer to restore it"
+                )
 
     def _json(self, command: Sequence[str]):
         _, output = self._run(command)

@@ -1,6 +1,6 @@
 ---
 title: A derived receipt verdict on Windows needs its test phase run under Linux
-date: 2026-09-23
+date: 2026-10-16
 problem_type: process
 module: .agents/skills/quality-gate/scripts/receipt.py § derive_verdict; /quality-gate phase 5
 tags: [quality-receipt, windows, wsl, baseline-failures, tests, verdict]
@@ -39,5 +39,34 @@ missing binary, not `no repository configured`. Put a two-line wrapper on PATH
 that execs the real Windows binary, `/mnt/c/Program Files/GitHub CLI/gh.exe`.
 With it, the same clean clone ran 44/44 affected and 60/60 full.
 
+Confirmed again on 2026-10-16 (HyperFrames build): without the wrapper the
+same control assertion was the one failure in 40 affected files; with
+`/var/tmp/bin/gh` on PATH and `TEST_JOBS=6` the 40 files passed in about 50 s.
+Write the wrapper through a file piped into `wsl -- bash -c 'cat > …'`: a
+`printf` from the Bash tool loses the `"$@"` and Git Bash expands `$PATH`
+on the Windows side. See also
+[cached-suite-keys-on-the-verbatim-command-so-parallelism-comes-from-the-environment](../tooling/cached-suite-keys-on-the-verbatim-command-so-parallelism-comes-from-the-environment.md).
+
+Confirmed again on 2026-10-06 (lane-plan-handover). The Windows affected run
+failed 166 assertions, all also failing on the base SHA, and minted `STOP`. A
+WSL clone fetched from the local repository path at the same tree passed
+37/37. Fetching from the local path needs no push, so this check never has to
+publish the branch before the gate.
+
 Related: [../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md](../bugs/test-python-shim-execd-itself-on-linux-and-hung-ci.md)
 (the same WSL reproduction recipe).
+
+Confirmed again on 2026-10-08 (readable-visual-plans). The Windows affected run had
+9/38 files failing, every one in the base baseline, and minted `STOP`. A WSL clone at
+the same tree (`99744b0`) failed only lane-catalogue AC4 without `gh`, and passed
+38/38 in 83 s with the `gh` wrapper. Run the WSL check *before* writing the receipt:
+re-minting a receipt over an existing one was refused as audit tampering by the
+auto-mode classifier, so the first `write` is the one that stands.
+
+Confirmed again on 2026-10-14 (#168). On Windows, 6/22 affected files failed,
+104 assertions, every one also failing at the base. A WSL clone at the same tree
+passed 22/22 in 76 s, against about 40 minutes on Windows. `receipt.py` stores
+the `tests` object as given (`receipt.py:388`), so that session's outcome
+recorded the WSL exit and kept the Windows run next to it as `host`,
+`windows_exit` and `windows_note`. The receipt shows both runs and never hides
+the Windows exit.

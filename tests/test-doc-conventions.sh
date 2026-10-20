@@ -74,8 +74,8 @@ done
 for f in .agents/skills/visual-plan/SKILL.md; do
   for token in "name: visual-plan" "argument-hint:" "Skip when trivial" \
                "read-only" "specs/" ".plan.html" \
-               ".agents/skills/visual-recap/scripts/visual-render.py" "file map" \
-               "open questions" "wireframe" "NEW"; do
+               ".agents/skills/visual-plan/scripts/plan_render.py" "Open questions" \
+               "<spec>:<line>: <reason>"; do
     assert_file_contains "$f" "$token" "visual-plan: $f contains '$token'"
   done
 done
@@ -91,9 +91,8 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
                "disable-model-invocation: false" \
                "Skipping system-design-planning:" \
                "task-registry.py show" \
-               ".agents/skills/visual-recap/scripts/visual-render.py" ".plan.html" \
+               ".agents/skills/visual-plan/scripts/plan_render.py" ".plan.html" \
                "references/review-card.md" "templates/architecture-spec-template.md" \
-               "templates/content-model.json" \
                "[ ] TDD:" "### Slice" "UNVERIFIED"; do
     assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
   done
@@ -145,9 +144,9 @@ done
 # pinned by the smallest falsifiable unit — heading order and question ids —
 # never by prose.
 tmpl=.agents/skills/system-design-planning/templates/architecture-spec-template.md
-assert_eq "Problem Constraints System design Component contracts Data models Build order Decisions Acceptance Criteria Implementation Paths" \
+assert_eq "Summary Problem Constraints System design Component contracts Data models Risks Build order Decisions Open questions Acceptance Criteria Implementation Paths" \
   "$(grep '^## ' "$tmpl" | tr -d '\r' | sed 's/^## //' | paste -sd ' ' -)" \
-  "system-design-planning: spec template carries the nine sections in order"
+  "system-design-planning: spec template carries the twelve sections in order"
 card=.agents/skills/system-design-planning/references/review-card.md
 assert_eq "C1 C2 C3 C4 C5 S1 S2 S3 S4 S5 K1 K2 K3 K4 K5 D1 D2 D3 D4 D5 B1 B2 B3 B4 B5" \
   "$(grep -oE '^\| [CSKDB][1-5] ' "$card" | tr -d '| ' | paste -sd ' ' -)" \
@@ -1010,8 +1009,13 @@ assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — filing \| no `
   "pipelines: make-it-simpler's /build pre-flight row files no slices and claims no header"
 assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
   "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
-assert_prose_contains AGENTS.md '`/yolo` (unattended) and `/make-it-simpler` (one simplification sized to one review) are the three named exceptions that build in the planning session' \
+assert_prose_contains AGENTS.md '`/yolo` (unattended), `/make-it-simpler` (one simplification sized to one review) and an unattended lane run (a routine with no owning skill — `improve`, `refactor`, `babysit`; `.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan handover*) are the four named exceptions that build in the planning session' \
   "pipelines: AGENTS.md's named-exceptions sentence names /make-it-simpler"
+# specs/lane-plan-handover.md AC5: step 3 names all four exceptions and cites the section.
+for token in '`/auto-push`' '`/yolo`' '`/make-it-simpler`' "unattended lane run" "Crossing the plan handover"; do
+  assert_prose_contains AGENTS.md "$token" \
+    "pipelines: AGENTS.md step 3 names $token among the named exceptions"
+done
 
 # --- design-planning: /system-design-planning interviews and hands off instead of filing ---
 # specs/plan-slices-and-handover.md AC10. Step 1 reads a settled § Decisions
@@ -1084,16 +1088,6 @@ assert_file_contains "$SDP_TEMPLATE" "## Build order" \
 assert_prose_contains "$SDP_TEMPLATE" "/slice fills this section's table" \
   "design-planning: template says /slice fills the Build order table"
 
-# The rendered document's reflection line is what the reviewer reads last;
-# an approval word there would reintroduce the gate Step 7 retired.
-SDP_MODEL=.agents/skills/system-design-planning/templates/content-model.json
-assert_file_not_matches "$SDP_MODEL" ', or approved' \
-  "design-planning: content-model.json reflection no longer offers the approval word"
-assert_file_contains "$SDP_MODEL" "starting a fresh session with the build prompt" \
-  "design-planning: content-model.json reflection points at the build session"
-assert_file_not_matches "$SDP_MODEL" 'Contract exposed        Size' \
-  "design-planning: content-model.json build-order example is /slice's table, not the retired one"
-
 # --- brainstorm: Step 6's template carries § Decisions with a Source column ---
 # specs/plan-slices-and-handover.md AC11. /plan Step 1 carries a settled tree
 # forward only when it can read a § Decisions table -- Step 6 must write one,
@@ -1138,7 +1132,7 @@ for token in "--file --approve" "lacks a provider link" "implicit slice" \
              "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
              "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
              "forbidden state" "Use in the session the build prompt starts" \
-             "slice header" "\`/yolo\` omits \`--approve\`"; do
+             "slice header" "omit \`--approve\`"; do
   assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
 done
 
@@ -1160,6 +1154,23 @@ assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
   "build: SKILL.md no longer says 'after /plan is confirmed'"
 assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
   "build: SKILL.md no longer assesses independence from prose"
+
+# specs/lane-plan-handover.md AC6: an unattended lane run omits --approve
+# alongside /yolo, in both /build's pre-flight and /slice's Integration.
+assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (\`.agents/skills/wrap-up-session/references/routines.md\` § *Crossing the plan handover*) omit \`--approve\`" \
+  "build: pre-flight names an unattended lane run alongside /yolo"
+assert_prose_contains .agents/skills/slice/SKILL.md "or \`--file\` alone from \`/yolo\` or an unattended lane run" \
+  "slice: Integration names an unattended lane run alongside /yolo"
+
+# specs/lane-plan-handover.md AC8: built in the planning session, every slice
+# dispatches to a sub-agent (lone or serialized), verification stays central,
+# no sub-agents runs inline and says so; build-prompt sessions are unchanged.
+for token in "in the session that planned it" "every slice dispatches to a sub-agent" \
+             "lone ready slice" "serialized pair" "Verification stays central" \
+             "runs inline and says so in one line" "started by a build prompt dispatches as below"; do
+  assert_prose_contains "$BUILD_SKILL" "$token" \
+    "build: Parallel Dispatch Assessment contains '$token'"
+done
 
 # --- wrap-up: PR body gains a Handovers section before the linkage check ---
 # specs/plan-slices-and-handover.md AC13. Step 7's Pull Request section
@@ -1359,6 +1370,79 @@ assert_contains "$OUTPUT_QG" "Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx
   "quality receipt: the Output block carries the Receipt line"
 assert_contains "$OUTPUT_QG" "Receipt: none — <receipt.py stderr>" \
   "quality receipt: the Output block carries the refusal form"
+
+# --- gate load: Phase 3 judges scale against a stated load ------------------
+# specs/review-load-and-failure-cases.md AC5. The gate had no scale lens at all.
+# It lives inside Phase 3 (D8): phases 1-4 are pinned in receipt.py and above,
+# so a new phase number would break every receipt reader. The Output's human
+# layer is presentation only (D15) — its Verdict: is the receipt's, never a new one.
+assert_file_matches "$QG_SKILL" '^## Phase 3 — Security and Load$' \
+  "gate load: Phase 3 is headed Security and Load"
+LOAD_QG="$(qg_section "## Phase 3 — Security and Load")"
+for token in '"lens": "security-scan+load"' 'Load assumed:' 'finding-model.md` § *Expected load*' \
+             'scale patterns'; do
+  assert_contains "$LOAD_QG" "$token" "gate load: phase 3 names '$token'"
+done
+assert_not_contains "$LOAD_QG" '"lens": "security-scan",' \
+  "gate load: phase 3 no longer records the security-only lens"
+for token in 'What this change does:' 'Load assumed:' 'Reported, not applied:' '1. [' \
+             'failure:' 'Lean: -<N> lines possible' 'Not checked:'; do
+  assert_contains "$OUTPUT_QG" "$token" "gate load: the Output block carries '$token'"
+done
+assert_precedes "$OUTPUT_QG" 'What this change does:' 'Phase 1 — Structural Quality' \
+  "gate load: the Output opens with What this change does:"
+assert_precedes "$OUTPUT_QG" 'Receipt: <GO|HOLD|STOP>' 'Lean: -<N> lines possible' \
+  "gate load: Lean: follows the receipt line"
+assert_precedes "$OUTPUT_QG" 'Lean: -<N> lines possible' 'Not checked:' \
+  "gate load: the Output ends with Lean: then Not checked:"
+assert_contains "$OUTPUT_QG" 'Verdict: <GO|HOLD|STOP> — the receipt verdict' \
+  "gate load: the Output's Verdict: line is the receipt verdict"
+
+# --- split by job: function size is a job count, not a line count -------------
+# specs/review-load-and-failure-cases.md AC6. "Functions >20 LOC -> split" pushed
+# toward shallow helpers that exist only to make a function shorter — the APOSD
+# red flag the same gate reports in Phase 4. Both homes of the rule are pinned,
+# because the gate reads Phase 1.2 and every session reads AGENTS.md.
+CLEAN_QG="$(section_body "$QG_SKILL" '### 1.2 Clean Code' '^#')"
+AGENTS_CORE="$(section_body AGENTS.md '## Core Principles')"
+for body in "$CLEAN_QG" "$AGENTS_CORE"; do
+  case "$body" in "$CLEAN_QG") where="/quality-gate Phase 1.2" ;; *) where="AGENTS.md § Core Principles" ;; esac
+  assert_contains "$body" 'split by job' "split by job: $where says split by job"
+  assert_contains "$body" 'never by line count' "split by job: $where says never by line count"
+  assert_contains "$body" '3 parameters' "split by job: $where keeps the 3-parameter rule"
+  assert_not_contains "$body" '20 LOC' "split by job: $where no longer carries a 20-LOC rule"
+done
+
+# --- shortcuts: the ledger, on demand -----------------------------------------
+# specs/review-load-and-failure-cases.md AC7. /wrap-up-session § Shortcut ledger
+# stays the one home of the command and format; /tidy cites it rather than
+# restating the grep, so the two cannot drift. The pattern now matches C-block
+# and HTML comment markers too; tests/test-instruction-budget.sh holds wrap-up
+# to its 300 lines.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+ledger="$(grep -F 'TODO\(shortcut\):' "$WRAP_SKILL")"
+assert_contains "$ledger" "(#|//|--|/\\*|<!--) ?TODO\\(shortcut\\):" \
+  "shortcuts: the ledger pattern matches #, //, --, /* and <!-- prefixes"
+# The samples run through the pattern the skill actually prints. They are built
+# from a variable so this file never becomes a ledger row itself.
+pattern="$(printf '%s' "$ledger" | sed -n "s/.*grep -rnE '\([^']*\)'.*/\1/p")"
+tag='TODO(shortcut):'
+for marker in "# $tag x" "// $tag x" "/* $tag x */" "<!-- $tag x -->"; do
+  hit="$(printf '%s\n' "$marker" | grep -cE "$pattern" || true)"
+  assert_eq "1" "$hit" "shortcuts: the ledger pattern matches '$marker'"
+done
+assert_eq "0" "$(printf 'a `%s` marker in prose\n' "$tag" | grep -cE "$pattern" || true)" \
+  "shortcuts: a marker mentioned in prose is not a ledger row"
+TIDY_SKILL=.agents/skills/tidy/SKILL.md
+shortcuts_row="$(grep '^| `shortcuts` |' "$TIDY_SKILL")"
+assert_contains "$shortcuts_row" '`/wrap-up-session` § *Shortcut ledger*' \
+  "shortcuts: /tidy's shortcuts check cites the ledger's one home"
+assert_contains "$shortcuts_row" '`no-trigger`' \
+  "shortcuts: /tidy's shortcuts check reports no-trigger markers"
+assert_contains "$shortcuts_row" 'Tier 1' \
+  "shortcuts: a no-trigger marker is Tier 1"
+assert_not_contains "$shortcuts_row" 'grep -rnE' \
+  "shortcuts: /tidy cites the ledger command instead of restating it"
 
 # --- no wrap-up reviewer: wrap-up dispatches no reviewer of its own ----------
 # specs/quality-receipt-closure.md AC7. Before #188, wrap-up ran 4 dispatched

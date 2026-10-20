@@ -99,6 +99,36 @@ assert_eq "1" "$CODE" "validate: a surface outside implementation_paths exits 1"
 assert_contains "$OUT" "src/other/thing.py" "validate: names the offending path"
 assert_contains "$OUT" "outside implementation_paths" "validate: says why the path was refused"
 
+printf '\n--- validate and ready: a TDD row whose test file is outside its slice surface ---\n'
+
+# Found live on specs/design-stack-hyperframes.md: slice 4's row targeted
+# tests/test-design-stack-video.sh while its Surface named only skill text, so
+# the build noticed only when slice 4 became ready and widened the surface by
+# hand. Only an open row whose token before ` § ` is a `tests/...` path is
+# checked: slice 2's open row matches its surface, its `t3 -> impl3` row
+# carries no path, its `[x]` row's test is already written, and the session
+# summary after the last heading is not slice 2's span (the live todo.md
+# attributed every later `## Fix:` row to the last slice before the `##` stop).
+TDD_FIX="$FIXTURES/validate-tdd-outside-surface"
+OUT="$("$PY" "$SLICE" validate --spec "$TDD_FIX/spec.md" --index "$TDD_FIX/todo.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "validate: a TDD row naming a test file outside its slice's surface exits 1"
+assert_contains "$OUT" "slice 1 (one): TDD row names tests/test-one.sh, which no surface pattern matches" "validate: names the slice and the test path"
+assert_not_contains "$OUT" "slice 2" "validate: a matched tests/ path and a row with no tests/ path both pass"
+assert_not_contains "$OUT" "tests/test-done.sh" "validate: a done [x] row outside the surface is history, not a refusal"
+assert_not_contains "$OUT" "tests/test-later.sh" "validate: a row after the next ## heading is not the last slice's"
+
+OUT="$("$PY" "$SLICE" validate --spec "$TDD_FIX/spec.md" --index "$TDD_FIX/no-such-todo.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "validate: with no plan block written yet (Propose step 1) the TDD check is skipped"
+assert_eq "" "$OUT" "validate: a missing index is not reported"
+
+OUT="$("$PY" "$SLICE" ready --index "$TDD_FIX/todo.md" --spec "$TDD_FIX/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "ready: the same plan block is refused before any slice is named ready, exit 2"
+assert_contains "$OUT" "slice 1 (one): TDD row names tests/test-one.sh, which no surface pattern matches" "ready: names the slice and the test path"
+assert_not_contains "$OUT" "ready: 1 one" "ready: no ready set is printed on the refusal"
+
 printf '\n--- ready: a three-slice index, 2 blocked by 1 ---\n'
 
 OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-open.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
@@ -297,5 +327,64 @@ assert_contains "$INTERSECT_JSON" '"different-extensions": false' \
   "globs: two wildcards with different literal tails do not intersect"
 assert_contains "$INTERSECT_JSON" '"match-star-stays-in-segment": false' \
   "globs: match_path's * stops at /"
+
+printf '\n--- readiness: an open decision or a blocking question refuses the build prompt ---\n'
+# specs/readable-visual-plans.md AC16 (D23, D26): `/slice` runs `readiness`
+# before printing a build prompt. The ids it names are the ones the visual
+# plan page shows as `Not ready:`, because both read the spec the same way.
+READY_TMP="$(mktemp -d)"; TMP_DIRS+=("$READY_TMP")
+readiness_spec() {  # <file> <D2 status> <Q1 Blocks>
+  cat > "$1" <<SPEC
+# Spec: Readiness fixture
+
+## Decisions
+
+| ID | Decision | Options | Recommended | Wrong when | Status |
+|---|---|---|---|---|---|
+| D1 | Format | CSV, JSON | CSV | A consumer needs nesting | settled |
+| D2 | Threshold | 50000, 100000 | 50000 | Rows grow | $2 |
+
+## Open questions
+
+| ID | Question | Blocks | Needed from |
+|---|---|---|---|
+| Q1 | Which region? | $3 | platform |
+| Q2 | Add a BOM? | none | data |
+
+## Build Order
+
+| # | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size |
+|---|-------|----------|---------|------------|-----|--------|------|
+| 1 | Writer | CSV | \`src/a/**\` | — | 1 | \`make\` | 1 file |
+| 2 | Splitter | Parts | \`src/b/**\` | 1 | 2 | \`make\` | 1 file |
+SPEC
+}
+readiness_spec "$READY_TMP/open.md" open 2
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/open.md" 2>&1)"; CODE=$?
+assert_eq "1" "$CODE" "readiness: an open decision and a blocking question exit 1"
+assert_eq "not ready: D2, Q1" "$OUT" "readiness: prints not ready with the decision and question ids"
+readiness_spec "$READY_TMP/question.md" settled 2
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/question.md" 2>&1)"; CODE=$?
+assert_eq "1" "$CODE" "readiness: a blocking question alone exits 1"
+assert_eq "not ready: Q1" "$OUT" "readiness: names only the blocking question"
+readiness_spec "$READY_TMP/ready.md" settled none
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/ready.md" 2>&1)"; CODE=$?
+assert_eq "0" "$CODE" "readiness: settled decisions and non-blocking questions exit 0"
+assert_eq "" "$OUT" "readiness: a ready spec prints nothing"
+printf '# Spec: Broken\n\n## Decisions\n\n| ID | Decision | Status |\n|---|---|---|\n| D1 | Format |\n' > "$READY_TMP/broken.md"
+OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/broken.md" 2>&1)"; CODE=$?
+assert_eq "2" "$CODE" "readiness: a malformed Decisions table exits 2"
+assert_contains "$OUT" "broken.md:7: " "readiness: the failure names <spec>:<line>"
+if find "$REPO/.agents/skills/visual-plan/scripts" -name __pycache__ | grep -q .; then
+  assert_eq "no __pycache__" "__pycache__ written" "readiness: importing the renderer's parser writes no bytecode"
+else
+  assert_eq "no __pycache__" "no __pycache__" "readiness: importing the renderer's parser writes no bytecode"
+fi
+SLICE_DOC="$REPO/.agents/skills/slice/SKILL.md"
+assert_file_contains "$SLICE_DOC" "slice.py readiness --spec" "readiness: /slice runs the readiness check before the build prompt"
+assert_file_contains "$SLICE_DOC" "not ready: <ids>" "readiness: /slice documents the not-ready output"
+assert_file_contains "$REPO/.agents/skills/slice/references/build-prompt.md" "slice.py readiness" "readiness: the build-prompt reference names the gate"
+assert_file_not_matches "$SLICE_DOC" 'An `open` row is an `\[AMBIGUITY\]` line' "readiness: the retired open-row [AMBIGUITY] rule is gone (D26)"
+assert_file_not_matches "$REPO/.agents/skills/slice/references/build-prompt.md" 'An `open` row is an `\[AMBIGUITY\]` line' "readiness: the retired rule is gone from the reference too"
 
 finish

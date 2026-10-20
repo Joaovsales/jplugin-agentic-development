@@ -113,7 +113,10 @@ It does four things, in order, and nothing else.
    (`/debug`, `/plan`, `/build`, `/quality-gate`, `/receive-review`,
    `/wrap-up-session`, ...) as the playbook names them. `/go` adds no review,
    build, verification, or confirmation logic of its own. Every gate the human
-   meets is one an invoked skill already owns: `/plan`'s "Confirm with 'y'",
+   meets is one an invoked skill already owns: `/plan`'s build prompt, which a
+   human crosses by starting a fresh session (an ownerless lane honours it per
+   `.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan
+   handover*, specs/lane-plan-handover.md),
    `/debug`'s root-cause prelude that stops before touching a file,
    `/system-design-planning`'s **approved** against the rendered document. Every
    code-changing lane below passes through exactly one of them by construction.
@@ -236,7 +239,8 @@ exists.
   `^\s*\[ \]` and `^\s*\[~\]`, and `/build` executes every `[ ]` row; a lane
   block matches neither, by design. `/wrap-up-session` folds the block into
   `tasks/history.md` with the rest of the file as it does today. The
-  ` — skip: <reason>` append is the one edit `/go` makes to a block after
+  ` — skip: <reason>` append and the ` — handed over: build prompt` append
+  (specs/lane-plan-handover.md) are the two edits `/go` makes to a block after
   writing it; it never reorders, deletes, or rewrites a line.
 - The chain's own artifacts (specs, `[ ] TDD:` rows, PRs, debug documents)
   unchanged and owned by the skills that write them.

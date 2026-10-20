@@ -318,7 +318,7 @@ Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `
 | `/checkpoint` | Snapshot current session progress to tasks/checkpoint.md for handoff or pause. |  |
 | `/create-verification-skill` | Generate a project-local verification skill that drives the real app through its user surface. Use when a repository has no grounded way to prove UI, CLI, desktop, API, mobile, or library behavior. |  |
 | `/debug` | Systematically investigate, diagnose, and fix bugs using root cause analysis. Use when debugging errors, test failures, runtime issues, or when the user reports a bug. Integrates with the typed learning store (tasks/solutions/). |  |
-| `/design-stack` | Set up, update, and browse the shared UI design sources used by jplugin. Installs Taste, Impeccable, design references, and img2threejs once in user scope. |  |
+| `/design-stack` | Set up, update, and browse the shared UI design sources used by jplugin. Installs Taste, Impeccable, design references, img2threejs and HyperFrames once in user scope. |  |
 | `/eval` | Blinded A/B evaluation of a skill, prompt, or workflow change before promoting it. Candidates run in sanitized worktrees on organic prompts and never learn they are being measured; grading comes from session transcripts, not self-report. Two runnable modes: triggerability (does the harness route to this skill at all) and variant lift (does variant A beat variant B). Use before merging a skill edit, when a skill seems never to fire, or when deciding whether a rewrite actually helped. Triggers on: 'does this skill even fire', 'A/B this prompt', 'did the rewrite improve anything', 'evaluate my skills', 'run an eval'. |  |
 | `/folder-context-optimization` | Sweep a folder to identify legacy/unused files, propose archival, and update docs. Use when a directory feels bloated or disorganized. |  |
 | `/go` | Natural-language front door for interactive work. Give it a goal in plain words — a question about the code, a defect, a rename, a slowness, an open PR to drive green, or a feature — and it picks one lane from the shared lane catalogue, prints a [ROUTE] line, records the lane's steps in tasks/todo.md, and runs the existing skills that lane names. Use when starting any interactive task and the right slash command is not obvious. Triggers on: 'how does X work', 'this is broken', 'rename/extract/dedupe', 'this is slow', 'get PR #N green', 'add support for'. |  |
@@ -349,7 +349,7 @@ Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `
 | `/verify-deployment` | Wait for post-push deployment builds to resolve, fetch logs on failure, and loop a code-debugger fix cycle up to 3 iterations before escalating. Service-agnostic — driven by runbook files in .claude/deployments/. | claude |
 | `/verify-evidence` | Enforce evidence-based verification before any completion claims. Supports --scope deployment and --scope e2e. Use before committing, creating PRs, marking tasks done, or claiming success. |  |
 | `/verify-task-registry` | Verify this repository's task-registry CLI through isolated local task creation, reading, and routine selection with retained PTY evidence. |  |
-| `/visual-plan` | Turn an existing text spec into a rich, self-contained HTML visual plan — narrative, file map, architecture sketch, and open questions — for review before implementation. Use after /plan has already written specs/<feature>.md. |  |
+| `/visual-plan` | Render an existing text spec into a self-contained HTML visual plan — typed cards for decisions, criteria, risks, open questions and slices, real diagrams, a blockers panel, the build prompt and a review export — for approval before implementation. Use after /plan has already written specs/<feature>.md. |  |
 | `/visual-recap` | Turn a completed branch's git diff into a self-contained HTML visual recap — narrative, file-tree, and annotated key changes. Use after implementation to produce a richer review artifact than a plain diff. |  |
 | `/why` | Use for 'why does X work this way', 'why we picked Y', design rationale, regressions, postmortems, or data-backed thresholds. Discovers available MCPs and queries each evidence category (source control, issue tracker, long-form docs, real-time chat, infrastructure observability, error tracking, product analytics warehouse) in parallel, then returns a cited read on decisions and tradeoffs. Use how for runtime behavior. |  |
 | `/wrap-up-session` | Close the session — learnings, spec reconciliation, the quality-receipt check, the full suite, then a clean commit, push and pull request. Use at the end of any coding session. |  |
@@ -432,6 +432,8 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │   ├── AGENTS.md                    ← Agent reference documentation
 │   ├── settings.json                ← env + plugin declaration (no hooks — see hooks/hooks.json)
 │   └── agents/                      ← 8 specialized subagents
+├── mods/
+│   └── factory-board/               ← Claude Code mod: Kanban pane of the session's sub-agents (see its README)
 ├── tasks/
 │   ├── todo.md                      ← Active task plan
 │   ├── history.md                   ← Session narrative log

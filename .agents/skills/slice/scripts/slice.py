@@ -8,11 +8,15 @@ mechanical questions a human should never have to hold in their head:
 
   * **validate** — does the Build Order actually describe a buildable plan?
     Every surface inside `implementation_paths`, no cycle in `Blocked by`, and
-    no pair of slices that overlap without an ordering between them.
+    no pair of slices that overlap without an ordering between them. Once the
+    `## Plan:` block exists, every open `TDD:` row's `tests/...` file inside
+    its slice's surface too.
   * **ready** — which slices can be dispatched right now, given which plan-block
     headers are already `[x]`?
   * **check** — after a slice closes, did its diff actually stay inside the
     surface it declared?
+  * **readiness** — may a build prompt be printed at all? Not while a decision
+    is `open` or an open question blocks a slice (specs/readable-visual-plans.md).
 
 The glob matcher (`match_path`, `patterns_intersect`, `pattern_covered_by`) and
 the `implementation_paths` frontmatter reader live in `registry/globs.py`,
@@ -52,6 +56,10 @@ BUILD_ORDER_HEADING = "## Build Order"
 PLAN_HEADING_RE = re.compile(r"^##\s*Plan:\s*(?P<name>.+?)\s*$")
 SPEC_LINE_RE = re.compile(r"^>\s*Spec:\s*(?P<path>\S+)\s*$")
 SLICE_HEADING_RE = re.compile(r"^###\s*Slice\s+(?P<number>\d+)/(?P<total>\d+)\s+—\s+(?P<name>.+?)\s*$")
+# Only an open row whose test file is a `tests/...` path before ` § ` is
+# checked against its slice's surface: `<test name> -> <impl>` rows carry no
+# path, and a `[x]` row's test is already written, so its mismatch blocks no agent.
+OPEN_TDD_ROW_RE = re.compile(r"^\s*(?:-\s*)?\[ \]\s*TDD:\s*(?P<path>tests/\S+)\s+§\s")
 H2_RE = re.compile(r"^##\s")
 
 
@@ -322,10 +330,49 @@ def cmd_validate(args: argparse.Namespace) -> int:
         return 2
 
     slices = {row.number: row for row in rows}
-    problems = _surface_problems(rows, implementation_paths) + _ordering_problems(slices)
+    problems = (
+        _surface_problems(rows, implementation_paths)
+        + _ordering_problems(slices)
+        + _plan_block_problems(args.index, spec_path, slices)
+    )
     for problem in problems:
         print(f"slice: {problem}", file=sys.stderr)
     return 1 if problems else 0
+
+
+# -------------------------------------------------------------- readiness
+
+# The visual plan renderer owns the spec parser; the readiness gate reads the
+# spec through it so `/slice` and the page's disabled copy name the same ids.
+_VISUAL_PLAN_SCRIPTS = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "visual-plan", "scripts")
+)
+
+
+def _use_visual_plan_parser() -> None:
+    sys.dont_write_bytecode = True  # importing the renderer must leave no __pycache__ in its skill
+    if _VISUAL_PLAN_SCRIPTS not in sys.path:
+        sys.path.insert(0, _VISUAL_PLAN_SCRIPTS)
+
+
+def cmd_readiness(args: argparse.Namespace) -> int:
+    """Exit 0 silently when a build prompt may be printed, 1 with `not ready: <ids>`, 2 when unreadable."""
+    _use_visual_plan_parser()
+    from plan_md import SpecError  # noqa: E402  (path set up above)
+    from plan_model import not_ready_ids, read_plan  # noqa: E402
+
+    try:
+        ids = not_ready_ids(read_plan(args.spec))
+    except SpecError as exc:
+        print(f"slice: {args.spec}:{exc.line}: {exc.reason}", file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"slice: {exc}", file=sys.stderr)
+        return 2
+    if ids:
+        print("not ready: " + ", ".join(ids))
+        return 1
+    return 0
 
 
 # ------------------------------------------------------------------ ready
@@ -361,6 +408,60 @@ def _slice_headings(lines: Sequence[str], start_line: int, end_line: int) -> Lis
     return headings
 
 
+def _heading_spans(
+    headings: Sequence[Tuple[int, int, str]], end_line: int
+) -> List[Tuple[int, int, str, int]]:
+    """Each heading with the last 1-based line it owns: up to the next heading, else the block's end."""
+    boundaries = [heading[0] - 1 for heading in headings[1:]] + [end_line]
+    return [(line, number, name, boundary) for (line, number, name), boundary in zip(headings, boundaries)]
+
+
+def _tdd_surface_problems(
+    prose: Sequence[str], headings: Sequence[Tuple[int, int, str]], end_line: int, slices: Dict[int, SliceRow]
+) -> List[str]:
+    """Every open `TDD:` row's test file must be matched by its slice's surface.
+
+    The agent a slice dispatches may edit only that surface, so a row naming a
+    test outside it is a slice that cannot write its own test. Found live on
+    specs/design-stack-hyperframes.md slice 4, whose surface named only skill
+    text while its row targeted `tests/test-design-stack-video.sh`. The last
+    heading's span ends at the next `##` heading: the block runs on to the
+    next `## Plan:`, and the session summaries between carry rows of their own.
+    """
+    problems = []
+    for heading_line, number, _name, boundary in _heading_spans(headings, end_line):
+        if number not in slices:
+            continue
+        for line_number in range(heading_line + 1, boundary + 1):
+            line = prose[line_number - 1]
+            if H2_RE.match(line):
+                break
+            match = OPEN_TDD_ROW_RE.match(line)
+            if match and not any(match_path(pattern, match.group("path")) for pattern in slices[number].surface):
+                problems.append(
+                    f"slice {number} ({slices[number].name}): TDD row names {match.group('path')}, "
+                    "which no surface pattern matches"
+                )
+    return problems
+
+
+def _plan_block_problems(index_path: str, spec_path: str, slices: Dict[int, SliceRow]) -> List[str]:
+    """`validate`'s view of the plan block: TDD-row problems when the index already holds one.
+
+    Propose step 1 validates before the block is written, so a missing index
+    or block is nothing to report here; `ready` requires the block and refuses.
+    """
+    if not os.path.isfile(index_path):
+        return []
+    todo_text = _without_fences(read_text(index_path))
+    block = _find_plan_block(todo_text, spec_path)
+    if block is None:
+        return []
+    start_line, end_line, _name = block
+    prose = todo_text.splitlines()
+    return _tdd_surface_problems(prose, _slice_headings(prose, start_line, end_line), end_line, slices)
+
+
 def _row_after(
     rows: Sequence[IndexRow], line_number: int, boundary: int, prose: Sequence[str]
 ) -> Optional[IndexRow]:
@@ -388,9 +489,8 @@ def _done_by_slice(
     rows: Sequence[IndexRow], headings: Sequence[Tuple[int, int, str]], end_line: int, prose: Sequence[str]
 ) -> Dict[int, bool]:
     """Whether each `### Slice` heading's header row is `[x]`, keyed by slice number."""
-    boundaries = [heading[0] - 1 for heading in headings[1:]] + [end_line]
     done: Dict[int, bool] = {}
-    for (heading_line, number, _name), boundary in zip(headings, boundaries):
+    for heading_line, number, _name, boundary in _heading_spans(headings, end_line):
         row = _row_after(rows, heading_line, boundary, prose)
         if row is None:
             raise SliceError(f"no task row found under `### Slice {number}` heading")
@@ -467,6 +567,9 @@ def cmd_ready(args: argparse.Namespace) -> int:
         slices = {row.number: row for row in parse_build_order(read_text(args.spec), args.spec)}
         done = _done_by_slice(index.rows, headings, end_line, prose)
         _refuse_plan_drift(slices, done, args.spec, args.index)
+        problems = _tdd_surface_problems(prose, headings, end_line, slices)
+        if problems:
+            raise SliceError("; ".join(problems))
     except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
@@ -533,10 +636,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_parser = sub.add_parser("validate", help="Refuse a Build Order that cannot be built as written.")
     validate_parser.add_argument("--spec", required=True, help="path to the spec")
+    validate_parser.add_argument(
+        "--index", default="tasks/todo.md",
+        help="path to tasks/todo.md; its `## Plan:` block's TDD rows are checked when it already exists",
+    )
 
     ready_parser = sub.add_parser("ready", help="List the slices ready to dispatch right now.")
     ready_parser.add_argument("--index", required=True, help="path to tasks/todo.md")
     ready_parser.add_argument("--spec", required=True, help="path to the spec")
+
+    readiness_parser = sub.add_parser(
+        "readiness", help="Refuse a build prompt while a decision is open or a question blocks a slice.")
+    readiness_parser.add_argument("--spec", required=True, help="path to the spec")
 
     check_parser = sub.add_parser("check", help="Check a closed slice's diff against its declared surface.")
     check_parser.add_argument("--spec", required=True, help="path to the spec")
@@ -553,6 +664,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return cmd_validate(args)
     if args.command == "ready":
         return cmd_ready(args)
+    if args.command == "readiness":
+        return cmd_readiness(args)
     return cmd_check(args)
 
 

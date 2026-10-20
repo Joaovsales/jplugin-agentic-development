@@ -5,7 +5,6 @@ implementation_paths:
   - .agents/skills/plan/SKILL.md
   - .agents/skills/system-design-planning/SKILL.md
   - .agents/skills/system-design-planning/templates/architecture-spec-template.md
-  - .agents/skills/system-design-planning/templates/content-model.json
   - .agents/skills/brainstorm/SKILL.md
   - .agents/skills/build/SKILL.md
   - .agents/skills/wrap-up-session/SKILL.md
