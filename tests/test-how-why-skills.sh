@@ -5,7 +5,10 @@
 # that makes them run in this harness. Four things are pinned:
 #
 #   1. FIDELITY — every reference file is upstream's, byte for byte: its git blob
-#      matches the blob at the adapted revision. Only SKILL.md is adapted.
+#      matches the blob at the adapted revision. Only SKILL.md is adapted, with
+#      one pinned exception: how/references/explainer-prompt.md drops upstream's
+#      Mermaid/ASCII diagram instruction (specs/diagram-skill.md D18), so its
+#      blob below is the adapted one, not the upstream's.
 #   2. HARNESS — no Cursor-only mechanism survives in SKILL.md (the models rule
 #      file, the Task tool's subagent types and readonly flag, the mcps/
 #      directory); the dispatches name this harness's tiers instead.
@@ -34,9 +37,9 @@ while read -r blob path; do
   [ -n "$blob" ] || continue
   f=".agents/skills/$path"
   assert_eq "$blob" "$(git hash-object "$f" 2>/dev/null)" \
-    "HowWhy: $f is upstream's file at $REVISION, unmodified"
+    "HowWhy: $f is the pinned reference blob (upstream's at $REVISION, except the adapted explainer prompt)"
 done <<'EOF'
-3a36fb6736c5b74ac2774350841e332a019dec94 how/references/explainer-prompt.md
+97a0b3d33f02c361334fbf10597a9fcc42c4a62d how/references/explainer-prompt.md
 9b4b0594bfd779015616e9d280369aba939583b4 how/references/explorer-prompt.md
 3732bf6881b60d1337fa3498574452a85d33ba30 why/references/epistemics.md
 3b56af44c589833508f4605cfdd4432b39a16739 why/references/investigator-prompt.md

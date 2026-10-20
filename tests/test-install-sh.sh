@@ -725,4 +725,87 @@ for variant in missing empty; do
   rm -rf "$box"
 done
 
+# ── § archify: optional pinned Archify tool (AC 6) ───────────────────────────
+# Archify is cloned to $ARCHIFY_HOME only when node >= 18 exists. node is never on
+# SAFE_PATH, so each case plants a stub that answers `--version`; ARCHIFY_URL is the
+# clone-source seam, so only case (e) touches the real upstream.
+# The registry is the oracle for the pin: a bump edits install.sh and the
+# registry, never a test literal.
+ARCHIFY_PIN_COMMIT="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["baseline"])')"
+ARCHIFY_PIN_TAG="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["ref"].rsplit("/", 1)[-1])')"
+assert_eq "40" "${#ARCHIFY_PIN_COMMIT}" "archify: the registry baseline is a full commit (oracle is not empty)"
+ARCHIFY_INSTALL_CMD="git clone --depth 1 --branch $ARCHIFY_PIN_TAG --filter=blob:none --sparse https://github.com/tt-a1i/archify"
+INSTALL_SH_TEXT="$(cat "$INSTALL")"
+assert_contains "$INSTALL_SH_TEXT" "ARCHIFY_COMMIT=\"$ARCHIFY_PIN_COMMIT\"" "archify: install.sh pins the commit"
+assert_contains "$INSTALL_SH_TEXT" "ARCHIFY_TAG=\"$ARCHIFY_PIN_TAG\"" "archify: install.sh pins the registry's tag"
+
+make_node_stub() { # <bin dir> <version>
+  printf '#!/usr/bin/env bash\n[ "${1:-}" = "--version" ] && echo "v%s"\nexit 0\n' "$2" > "$1/node"
+  chmod +x "$1/node"
+}
+
+# (a) no node on PATH: a NOTE with the install command, exit 0, nothing cloned
+box="$(new_playwright_box)"; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
+run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
+assert_contains "$(cat "$box/out.log")" "exit=0" "archify: no node still exits 0"
+assert_contains "$(cat "$box/out.log")" "NOTE: node not found" "archify: no node prints a NOTE"
+assert_contains "$(cat "$box/out.log")" "$ARCHIFY_INSTALL_CMD" "archify: no node NOTE carries the install command"
+assert_eq "missing" "$(exists "$ARCHIFY_HOME")" "archify: no node clones nothing"
+rm -rf "$box"
+
+# (b) node older than 18: a NOTE naming the requirement, exit 0, nothing cloned
+box="$(new_playwright_box)"; make_node_stub "$box/bin" 16.20.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
+run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
+assert_contains "$(cat "$box/out.log")" "exit=0" "archify: node 16 still exits 0"
+assert_contains "$(cat "$box/out.log")" "Node >= 18" "archify: node 16 NOTE names Node >= 18"
+assert_contains "$(cat "$box/out.log")" "$ARCHIFY_INSTALL_CMD" "archify: node 16 NOTE carries the install command"
+assert_eq "missing" "$(exists "$ARCHIFY_HOME")" "archify: node 16 clones nothing"
+rm -rf "$box"
+
+# (c) the tag resolves to a commit other than the pin: removed, expected and actual named
+box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
+git init -q "$box/fixture"
+git -C "$box/fixture" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m fixture
+git -C "$box/fixture" -c user.name=t -c user.email=t@t -c tag.gpgsign=false tag "$ARCHIFY_PIN_TAG"
+FIXTURE_SHA="$(git -C "$box/fixture" rev-parse HEAD)"
+run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME" ARCHIFY_URL="$box/fixture"
+assert_contains "$(cat "$box/out.log")" "exit=0" "archify: a mismatched tag still exits 0"
+assert_contains "$(cat "$box/out.log")" "$FIXTURE_SHA" "archify: a mismatched tag NOTE names the actual commit"
+assert_contains "$(cat "$box/out.log")" "$ARCHIFY_PIN_COMMIT" "archify: a mismatched tag NOTE names the pinned commit"
+assert_eq "missing" "$(exists "$ARCHIFY_HOME")" "archify: a mismatched clone is not installed"
+assert_eq "none" "$(ls -d "$ARCHIFY_HOME".tmp.* 2> /dev/null | head -n 1 | grep . || echo none)" "archify: a mismatched clone leaves no temp directory"
+rm -rf "$box"
+
+# (d) an existing checkout at another commit is reported and left untouched
+box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
+mkdir -p "$ARCHIFY_HOME"; git init -q "$ARCHIFY_HOME"
+git -C "$ARCHIFY_HOME" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m other
+OTHER_SHA="$(git -C "$ARCHIFY_HOME" rev-parse HEAD)"
+run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
+assert_contains "$(cat "$box/out.log")" "exit=0" "archify: a checkout at another commit still exits 0"
+assert_contains "$(cat "$box/out.log")" "left untouched" "archify: a checkout at another commit is left untouched"
+assert_contains "$(cat "$box/out.log")" "rm -rf" "archify: a checkout at another commit prints the re-install remedy"
+assert_eq "absent" "$(grep -q 'present' "$box/out.log" && echo found || echo absent)" "archify: a checkout at another commit is not reported present"
+assert_eq "$OTHER_SHA" "$(git -C "$ARCHIFY_HOME" rev-parse HEAD)" "archify: a checkout at another commit keeps its HEAD"
+rm -rf "$box"
+
+# (e) the real pin: installed, then present offline. Needs the upstream to be reachable.
+if git ls-remote --exit-code https://github.com/tt-a1i/archify "refs/tags/$ARCHIFY_PIN_TAG" > /dev/null 2>&1; then
+  box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
+  run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
+  assert_contains "$(cat "$box/out.log")" "exit=0" "archify: first run exits 0"
+  assert_contains "$(cat "$box/out.log")" "Archify $ARCHIFY_PIN_TAG installed" "archify: first run reports installed"
+  assert_eq "$ARCHIFY_PIN_COMMIT" "$(git -C "$ARCHIFY_HOME" rev-parse HEAD)" "archify: the checkout is at the pinned commit"
+  assert_eq "present" "$(exists "$ARCHIFY_HOME/archify/bin/archify.mjs")" "archify: the checkout holds the CLI"
+  assert_eq "present" "$(exists "$ARCHIFY_HOME/archify/SKILL.md")" "archify: the checkout holds SKILL.md"
+  assert_eq "present" "$(exists "$ARCHIFY_HOME/LICENSE")" "archify: the checkout holds LICENSE"
+  # A bogus clone source proves the second run never reaches for the network.
+  run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME" ARCHIFY_URL="$box/no-such-repo"
+  assert_contains "$(cat "$box/out.log")" "exit=0" "archify: second run exits 0"
+  assert_contains "$(cat "$box/out.log")" "Archify $ARCHIFY_PIN_TAG present" "archify: second run reports present without cloning"
+  rm -rf "$box"
+else
+  printf '  note archify: upstream unreachable from this machine; the installed/present cases did not run\n'
+fi
+
 finish

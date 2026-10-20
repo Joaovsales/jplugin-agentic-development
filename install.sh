@@ -14,6 +14,7 @@
 #   5. Configures Pi (~/.pi/agent/settings.json) if installed
 #   6. Wires graphify into this project if the CLI is present (optional)
 #   6b. Installs the pinned @playwright/cli + Chromium if npm is present (optional)
+#   6c. Clones the pinned Archify diagram tool for /diagram if node >= 18 is present (optional)
 #   7. Sets up a git template dir so new repos receive the pre-push hook
 #   8. Installs project-template/ + a global `git scaffold` alias that copies it
 #      into any repo (git has no post-init hook, so bootstrap is explicit)
@@ -582,6 +583,59 @@ else
     else
       echo "  NOTE: browser download failed — run: playwright-cli install-browser chromium"
     fi
+  fi
+fi
+
+# ── 6c. Archify — pinned diagram tool for /diagram (optional) ────────────────
+# /diagram renders architecture diagrams through Archify (tt-a1i/archify), cloned once
+# at a pinned tag and verified against the pinned commit, since a tag can be moved. The
+# sparse clone keeps only the `archify/` skill package and LICENSE (~25 MB, not ~140 MB).
+# Optional like Playwright: no node, node < 18 or a failed clone prints a NOTE with the
+# install command and never changes the exit code, and there is no prompt. An existing
+# $ARCHIFY_HOME is never re-cloned or modified here — a mismatch only prints the remedy.
+# ARCHIFY_URL overrides the clone source (the test seam).
+ARCHIFY_REPO="https://github.com/tt-a1i/archify"
+ARCHIFY_TAG="v3.2.0"
+ARCHIFY_COMMIT="208acba8d412335185b2056fedf54b3405df43fb"
+ARCHIFY_HOME="${ARCHIFY_HOME:-$HOME/.local/share/jplugin/archify}"
+ARCHIFY_URL="${ARCHIFY_URL:-$ARCHIFY_REPO}"
+ARCHIFY_INSTALL_CMD="git clone --depth 1 --branch $ARCHIFY_TAG --filter=blob:none --sparse $ARCHIFY_REPO \"$ARCHIFY_HOME\" && git -C \"$ARCHIFY_HOME\" sparse-checkout set --no-cone /archify/ /LICENSE"
+ARCHIFY_TMP="$ARCHIFY_HOME.tmp.$$"
+ARCHIFY_NODE_VERSION=""
+if command -v node > /dev/null 2>&1; then ARCHIFY_NODE_VERSION="$(node --version 2> /dev/null || true)"; fi
+ARCHIFY_NODE_MAJOR="$(printf %s "$ARCHIFY_NODE_VERSION" | sed -n 's/^v\{0,1\}\([0-9]\{1,\}\)\..*/\1/p')"
+step "Installing Archify $ARCHIFY_TAG → $ARCHIFY_HOME (optional)"
+if ! command -v node > /dev/null 2>&1; then
+  echo "  NOTE: node not found — Archify (the /diagram tool) skipped. Install it later with:"
+  echo "    $ARCHIFY_INSTALL_CMD"
+elif [ "${ARCHIFY_NODE_MAJOR:-0}" -lt 18 ]; then
+  echo "  NOTE: node ${ARCHIFY_NODE_VERSION:-(unknown version)} is older than 18 — Archify requires Node >= 18; skipped. Install it later with:"
+  echo "    $ARCHIFY_INSTALL_CMD"
+elif [ -e "$ARCHIFY_HOME" ]; then
+  ARCHIFY_HEAD="$(git -C "$ARCHIFY_HOME" rev-parse HEAD 2> /dev/null || true)"
+  if [ "$ARCHIFY_HEAD" = "$ARCHIFY_COMMIT" ]; then
+    ok "present" "Archify $ARCHIFY_TAG present ($ARCHIFY_HOME)"
+  else
+    echo "  NOTE: $ARCHIFY_HOME holds ${ARCHIFY_HEAD:-not a git checkout}, not the pinned $ARCHIFY_COMMIT — left untouched. To re-install:"
+    echo "    rm -rf \"$ARCHIFY_HOME\" && $ARCHIFY_INSTALL_CMD"
+  fi
+else
+  rm -rf "$ARCHIFY_TMP"
+  mkdir -p "$(dirname "$ARCHIFY_HOME")"
+  if git clone --quiet --depth 1 --branch "$ARCHIFY_TAG" --filter=blob:none --sparse -- "$ARCHIFY_URL" "$ARCHIFY_TMP" > /dev/null 2>&1 \
+    && git -C "$ARCHIFY_TMP" sparse-checkout set --no-cone /archify/ /LICENSE > /dev/null 2>&1; then
+    ARCHIFY_HEAD="$(git -C "$ARCHIFY_TMP" rev-parse HEAD 2> /dev/null || true)"
+    if [ "$ARCHIFY_HEAD" = "$ARCHIFY_COMMIT" ]; then
+      mv "$ARCHIFY_TMP" "$ARCHIFY_HOME"
+      ok "installed" "Archify $ARCHIFY_TAG installed → $ARCHIFY_HOME"
+    else
+      rm -rf "$ARCHIFY_TMP"
+      echo "  NOTE: tag $ARCHIFY_TAG resolved to ${ARCHIFY_HEAD:-an unreadable commit}, pinned $ARCHIFY_COMMIT — not installed."
+    fi
+  else
+    rm -rf "$ARCHIFY_TMP"
+    echo "  NOTE: git clone $ARCHIFY_URL failed — optional, skipped. Install it later with:"
+    echo "    $ARCHIFY_INSTALL_CMD"
   fi
 fi
 
