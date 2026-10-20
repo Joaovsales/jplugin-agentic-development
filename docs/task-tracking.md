@@ -50,4 +50,4 @@ build = /build, /quality-gate, /wrap-up-session
 
 ## Credentials
 
-None are read from this file. GitHub uses whatever `gh auth status` reports.
+None are read from this file. GitHub uses whatever credential `gh api user` succeeds with.

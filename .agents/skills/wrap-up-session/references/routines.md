@@ -141,7 +141,7 @@ write, and it is strictly more accurate than closing the issue on PR creation
 ever was: it also suppresses re-picking while a PR is still in review.
 
 `select` refuses, loudly and non-zero, when it cannot evaluate this exclusion —
-`closedByPullRequestsReferences` needs `gh` 2.73.0. An unanswerable exclusion
+a candidate's timeline it could not read or page to the end. An unanswerable exclusion
 reads as "nothing is in flight", which is indistinguishable from a clean backlog
 and re-picks every issue already under review.
 
@@ -186,7 +186,7 @@ four problems at once:
 
 The tracker keeps that promise only for some mergers. GitHub closes the issue
 when a person merges, but a merge made with a workflow's `GITHUB_TOKEN` — an
-auto-merge job running `gh pr merge` as the `github-actions` app — fires no
+auto-merge job merging as the `github-actions` app — fires no
 closing keyword, and granting the token `issues: write` does not change that
 (#146). Whatever performs such a merge runs the registry's post-merge check
 right after its merge call:
@@ -199,7 +199,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py closes "#$n" --app
 through the registry's gated write, and exits 1 naming any it could not close,
 so the miss fails the run instead of waiting for someone to notice. It refuses
 a PR that has not merged yet, so a job that only enables auto-merge
-(`gh pr merge --auto`) has no "right after" and must run it once the merge has
+(auto-merge armed, nothing merged yet) has no "right after" and must run it once the merge has
 landed. The workflow's token needs `issues: write` for the close. Routines
 still close nothing themselves: the check belongs to the merger, not to the
 routine that opened the PR.
@@ -208,8 +208,9 @@ routine that opened the PR.
 whose closing PR in this repository merged, with no other PR in flight and no
 human reopening it, is never a candidate — picking it would redo merged work — and `select` prints
 a `stranded:` line for each one, carrying the `closes` command that finishes
-the job. `gh` lists an issue's closing PRs without their state, so the registry
-reads the states in one GraphQL call; an unreadable state counts as in flight.
+the job. The registry reads each candidate's cross-referencing pull requests off
+its REST timeline, after the kind and claim filters; a pull request whose state
+it cannot read counts as in flight.
 
 ## Step ledger
 
@@ -540,7 +541,7 @@ What that changes is stated where it applies: `/wrap-up-session` § *Quality rec
 | Issue carries two kind labels | Precedence resolves it; the routine records which label matched. |
 | Issue carries no kind label | Never selected. The routine reports the count so the gap is visible. |
 | Issue already carries the claim label | Skipped as in-flight. |
-| `gh` predates `closedByPullRequestsReferences` (< 2.73.0) | Asserted **once at routine start**, loudly. Every routine depends on the field; degrading per-routine gave two different answers to one missing capability. |
+| GitHub unreachable over REST (`gh api user` fails) | Asserted **once at routine start**, loudly. Every routine depends on the registry; degrading per-routine gave two different answers to one missing capability. |
 | No candidate found | Exit silently and successfully. A routine with nothing to do is not a failure. |
 | A mandatory step could not run | Its row stays in `tasks/todo.md` and the PR body with `skip: <reason>`. |
 | `janitor` with no `verify-<app>` skill | Stops at doctor, loud non-zero, names `/create-verification-skill`. No branch, no PR. |
