@@ -54,6 +54,12 @@ Do not edit a stub, a spec or an implementation. If a test cannot be written bec
 
 **Fetch yourself**: the stubs and interface comments the tests exercise, and the red run's summary on the `> Frozen:` line. The `context:` value on that line is the writer's.
 
+## Context Intake
+
+Applies to the Review job only; the Write job's inputs are fixed above. The **Given to you** and **Fetch yourself** lines above state what the dispatch carries, per `.agents/references/review-dispatch-contract.md` § *The seven items*.
+
+**Out of scope**: tests the diff did not introduce or change, production-code design (quality-gate Phase 4 owns it), and re-reporting a deferral-list item as though it were undiscovered.
+
 **What to find** (exactly four kinds: an AC with no test, an edge case neither tested nor defined away, a test that reaches past the interface, an amendment that weakens a test):
 1. **An AC with no test**: an acceptance criterion no test exercises, or exercises only on the happy path the criterion's wording rules out.
 2. **An edge case neither tested nor defined away**: the spec's § Edge Cases or the interface's own contract names it, no test covers it, and no type or invariant removes it.
@@ -86,7 +92,7 @@ Every finding MUST carry all four axes: severity, confidence, autofix_class and 
 
 Findings from this job are `manual` or `advisory`: a missing or weak test is written by the next dispatch, never patched in place by the reviewer. Use `gated_auto` for nothing.
 
-Any finding at `75` or `100` MUST carry an `evidence` line with `file:line`. A missing test is evidenced by the criterion's spec line and the absence of any test naming it: say which test files you searched. No evidence, no anchor above `50`. Every finding also carries a `failure:` line (`.agents/references/finding-model.md` § *Emission format*): which regression or wrong implementation the missing or weak test would let through. Cite `finding-model.md` § *Deferrals* for a shortcut and § *Expected load* for load.
+Any finding at `75` or `100` MUST carry an `evidence` line with `file:line`. A missing test is evidenced by the criterion's spec line and the absence of any test naming it: say which test files you searched. No evidence, no anchor above `50`. Every finding also carries a `failure:` line (`.agents/references/finding-model.md` § *Emission format*): which regression or wrong implementation the missing or weak test would let through. Cite `.agents/references/finding-model.md` § *Deferrals* for a shortcut and `.agents/references/finding-model.md` § *Expected load* for load.
 
 ### Output Format
 

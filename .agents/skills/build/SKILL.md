@@ -34,7 +34,7 @@ concrete provider model IDs live in `PI_SETUP.md` § Sub-Agent Routing for Pi an
 Steps 1 and 2 must never resolve to the same model. If they do, the ladder has no middle rung and the first genuine escalation is the circuit breaker — four failed attempts later than intended.
 
 On Codex, dispatch the managed `debug-escalation` role for attempts 3–4; the rule is
-`.agents/skills/build/references/harness-dispatch.md` § *Codex: debugger escalation*.
+`.agents/skills/build/references/harness-dispatch.md` § *Codex: debugger escalation (Model Routing)*.
 
 > **For Pi + OpenRouter users:** see `.agents/skills/build/references/harness-dispatch.md`.
 
@@ -80,7 +80,7 @@ progress and drift further before finding out. Merge `main` in frequently.
 2. Read the spec from `specs/` that matches the current plan
    - If no spec found: **STOP** — run `/plan` first
    - For UI work, run the UI brief and concept-approval checks in
-     `.agents/skills/build/references/design-stack-gates.md` § *Pre-Flight* before any source edit.
+     `.agents/skills/build/references/design-stack-gates.md` § *Pre-Flight: UI brief and concept approval* before any source edit.
 3. **Link the feature issue** when the `## Plan:` block's feature row has no
    provider link — see *Pre-Flight: Link the Feature Issue* below. Do this
    before the green baseline.
