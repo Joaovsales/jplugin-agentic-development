@@ -19,6 +19,9 @@ export type Severity = 'MUST-FIX' | 'SHOULD-FIX' | 'NITPICK'
 
 export type FindingCounts = Record<Severity, number>
 
+/** The four capped lists of a footprint. */
+export type FootprintList = 'read' | 'edited' | 'grepped' | 'commands'
+
 /** What one sub-agent touched, from its `tool.call`s and `turn.step`s (spec D16). */
 export type Footprint = {
   /** Files Read or Globbed, newest last, at most 40. */
@@ -29,6 +32,8 @@ export type Footprint = {
   grepped: string[]
   /** The first 80 characters of each Bash command, at most 40. */
   commands: string[]
+  /** How many entries each list has dropped past its cap, the oldest first; a list that dropped none is absent. */
+  dropped?: Partial<Record<FootprintList, number>>
   toolCalls: number
   steps: number
   messages: number

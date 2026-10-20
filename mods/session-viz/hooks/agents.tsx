@@ -1,7 +1,7 @@
 import { atom, update } from 'claude-code'
 import type { AgentInfo, EngineInterface, On, RenderElement } from 'claude-code'
 
-import type { AgentRow, Footprint } from '../types'
+import type { AgentRow, Footprint, FootprintList } from '../types'
 import { EMPTY_FINDINGS, EVERY, INITIAL_AGENTS, INITIAL_ASKING, INITIAL_SELECTED, MAIN, fit, refreshStatus, seconds } from './state'
 import type { Draw } from './state'
 
@@ -16,11 +16,7 @@ const MAX_COMMAND = 80
 const MAX_PROMPT = 2000
 const UNKNOWN_PROMPT = '(spawned before session-viz loaded)'
 
-type ListName = 'read' | 'edited' | 'grepped' | 'commands'
-const LISTS: readonly ListName[] = ['read', 'edited', 'grepped', 'commands']
-
-/** An agent row plus how many entries each footprint list dropped past its cap (the contract keeps only the lists). */
-type Tracked = AgentRow & { dropped?: Partial<Record<ListName, number>> }
+const LISTS: readonly FootprintList[] = ['read', 'edited', 'grepped', 'commands']
 
 /** Which factory stage an agent definition works in, by its name (factory-board's derivation). */
 function stageOfType(type: string): 'plan' | 'build' | 'review' {
@@ -58,7 +54,7 @@ function field(call: object, name: string): string | undefined {
 }
 
 /** Which footprint list a tool call lands in, and what it records there. */
-function footprintEntry(call: object, tool: string): { list: ListName; entry: string } | undefined {
+function footprintEntry(call: object, tool: string): { list: FootprintList; entry: string } | undefined {
   switch (tool) {
     case 'Read':
     case 'Glob': {
@@ -88,14 +84,14 @@ function footprintEntry(call: object, tool: string): { list: ListName; entry: st
 }
 
 /** Counts one tool call and adds its entry, keeping the newest MAX_ENTRIES and counting what fell off. */
-function withEntry(row: Tracked, found: { list: ListName; entry: string } | undefined): Tracked {
-  const footprint = { ...row.footprint, toolCalls: row.footprint.toolCalls + 1 }
+function withEntry(row: AgentRow, found: { list: FootprintList; entry: string } | undefined): AgentRow {
+  const footprint: Footprint = { ...row.footprint, toolCalls: row.footprint.toolCalls + 1 }
   if (found === undefined) return { ...row, footprint }
   const grown = [...footprint[found.list], found.entry]
   const overflow = Math.max(0, grown.length - MAX_ENTRIES)
   footprint[found.list] = grown.slice(overflow)
-  const dropped = { ...row.dropped, [found.list]: (row.dropped?.[found.list] ?? 0) + overflow }
-  return { ...row, footprint, dropped }
+  if (overflow > 0) footprint.dropped = { ...footprint.dropped, [found.list]: (footprint.dropped?.[found.list] ?? 0) + overflow }
+  return { ...row, footprint }
 }
 
 /** Keeps at most MAX_AGENTS rows: the oldest finished rows leave first, then the oldest running. */
@@ -144,7 +140,7 @@ function merge(known: AgentRow[], live: AgentInfo[]): AgentRow[] {
 }
 
 /** Applies `change` to the row of `agentId`, if it is tracked. */
-function updateRow(agentId: string, change: (row: Tracked) => Tracked): (list: AgentRow[]) => AgentRow[] {
+function updateRow(agentId: string, change: (row: AgentRow) => AgentRow): (list: AgentRow[]) => AgentRow[] {
   return list => list.map(row => (row.agentId === agentId ? change(row) : row))
 }
 
@@ -317,10 +313,10 @@ export function AgentsSection($: EngineInterface, d: Draw, rows: AgentRow[], ope
 }
 
 /** `read [a.md, b.md] +2 more`, cut to `width` before the `+n more` so the count stays visible; undefined for an empty list. */
-function listLine(row: Tracked, list: ListName, width: number): string | undefined {
-  const entries = row.footprint[list]
+function listLine(footprint: Footprint, list: FootprintList, width: number): string | undefined {
+  const entries = footprint[list]
   if (entries.length === 0) return undefined
-  const more = row.dropped?.[list] ?? 0
+  const more = footprint.dropped?.[list] ?? 0
   const suffix = more > 0 ? ` +${more} more` : ''
   return fit(`${list} [${entries.join(', ')}]`, width - suffix.length) + suffix
 }
@@ -331,7 +327,7 @@ function promptLines(prompt: string): string[] {
   return prompt.length > MAX_PROMPT ? [...lines, `… +${prompt.length - MAX_PROMPT} chars`] : lines
 }
 
-function detailLines(row: Tracked, width: number): string[] {
+function detailLines(row: AgentRow, width: number): string[] {
   const { footprint } = row
   const counts = Object.entries(row.findings)
     .filter(([, count]) => count > 0)
@@ -351,7 +347,7 @@ function detailLines(row: Tracked, width: number): string[] {
       .filter(part => part !== undefined && part !== '')
       .join(' · '),
     ...promptLines(row.prompt),
-    ...LISTS.map(list => listLine(row, list, width)).filter((line): line is string => line !== undefined),
+    ...LISTS.map(list => listLine(footprint, list, width)).filter((line): line is string => line !== undefined),
     ...row.ambiguities,
     ...row.surfaces,
     ...(counts.length === 0 ? [] : [`findings ${counts.join(' · ')}`]),
