@@ -1,7 +1,7 @@
 ---
 name: slice
-description: Break a spec's acceptance criteria and implementation paths into session-sized slices — a Build Order table, a plan block in tasks/todo.md, and a build prompt — then, in a later session, file one task per slice through /task-registry. Use after a spec carries § Decisions and § Acceptance Criteria, or to refresh the Build Order and plan block after the spec changes.
-argument-hint: "<spec path> [--issue #N] [--file [--approve]]"
+description: Break a spec's acceptance criteria and implementation paths into session-sized slices — a Build Order table, a plan block in tasks/todo.md, and a build prompt — and the one dry-run that mints the feature row's id. Use after a spec carries § Decisions and § Acceptance Criteria, or to refresh the Build Order and plan block after the spec changes.
+argument-hint: "<spec path> [--issue #N]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -15,8 +15,8 @@ acceptance criteria and `implementation_paths`. Neither planner owns sizing,
 ordering, filing or the handover message — `/slice` does, once, and both
 call it the way every planner calls `/task-registry`. `/slice <spec>`
 **proposes**: it writes § Build Order and the plan block, prints the build
-prompt, and stops. `/slice <spec> --file` **files**: it runs in the session
-the build prompt started, never in the planning session that printed it.
+prompt, and stops. It files nothing; `/build`'s pre-flight makes the one
+feature upsert, in the session the build prompt started.
 
 ## Inputs
 
@@ -124,7 +124,7 @@ Invoke `/build` for `specs/<feature>.md`.
 Plan: `## Plan: <feature>` in `tasks/todo.md`, <N> slices, ready set <1, 2>.
 Files: <implementation_paths, comma-separated>.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/<feature>.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when the plan's feature row has no link. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -154,70 +154,25 @@ not ready: <ids>
 `/slice` never files anything itself; the caller relays the prompt as the
 last thing its session says.
 
-## File: `/slice <spec> --file [--approve]`
-
-Invoked from `/build`'s pre-flight, in the session the build prompt started.
-It files only a legacy block, whose header rows carry task ids; a block
-written by Step 4 has none to file.
-
-Refuses, naming the spec, when `tasks/todo.md` has no `## Plan:` block for
-it: there is nothing to file before a proposal.
-
-One `upsert` per slice, in build order, dry run first, then `--apply`:
-
-```bash
-python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
-  --derive-id plan --spec specs/<feature>.md --fold-title \
-  --title '<slice name>' --kind <feature|task> \
-  --summary 'Slice <n>/<N> of #<issue>: <delivers>' \
-  --criterion '<AC text>' \
-  --evidence 'design: specs/<feature>.md § Build Order, slice <n>' \
-  --parent '#<issue>'
-```
-
-- `--parent '#<issue>'` is passed only when the plan block carries a
-  `> Issue:` line.
-- `--approve` is passed exactly as the caller passed it: the build prompt a
-  human typed is the reviewer's word, so `/build` passes it by default;
-  `/yolo` omits it, so its slices land `local-pending` like every other
-  unattended write on a project with `require_write_approval = true`.
-- The seeded row is refreshed in place and its `(blocked-by:)` marker is
-  carried from the row, so a second run after an interrupted filing is
-  safe — filing is idempotent.
-- Every write honours the project's approval floor; an unreachable tracker
-  reports `local-pending` and is never retried silently.
-
-### Required output
-
-One line per slice: `✓ Filed: <id> → <#N | local, publication pending>`.
-
 ## Edge Cases
 
-- **`--file` before any proposal.** Refused, naming the spec: no plan
-  block, nothing to file.
 - **Spec changed after the prompt was printed.** Re-run `/slice <spec>`:
   the Build Order, the plan block and the prompt are all replaced in place.
-- **Build session resumed after an interrupted filing.** Pre-flight sees a
-  header without a provider link and re-runs `--file`; linked rows are
-  refreshed, never duplicated.
 - **Hand-edited plan with an unordered overlap.** `slice.py ready` reports
   the pair; `/build` serializes it in table order instead of guessing.
 
 ## Integration
 
-- **Called by**: `/plan` Step 3, `/system-design-planning` Step 3.5, and
-  `/build`'s pre-flight (`--file --approve`, or `--file` alone from
-  `/yolo` or an unattended lane run).
-- **Calls**: `/task-registry` (`upsert`, dry run then `--apply`).
+- **Called by**: `/plan` Step 3 and `/system-design-planning` Step 3.5.
+- **Calls**: `/task-registry` (one dry-run `upsert` to mint the feature id).
 - **Precedes**: `/build`, which reads the plan block's slice rows and the
   Build Order's Surface column, one slice at a time.
 
 ## Key Principles
 
-- Callers pass a spec path and know nothing about sizing, ordering or
-  filing.
-- Nothing is filed in a session nobody approved by starting it with the
-  build prompt.
+- Callers pass a spec path and know nothing about sizing or ordering.
+- `/slice` files nothing: the one feature upsert belongs to `/build`'s
+  pre-flight, in a session a human started with the build prompt.
 - One ceiling, stated once, in `references/sizing.md`.
 - The plan block's `- [ ]` row is the registry's row; the surface lives
   once, in the spec's § Build Order table.

@@ -99,9 +99,9 @@ progress and drift further before finding out. Merge `main` in frequently.
      neither the spec nor a prior agent message can create this receipt.
      Recheck the receipt and concept digest before dispatch. A localized UI
      change uses the brief and needs no concept receipt.
-3. **File the slices** when any slice header of the `## Plan:` block lacks a
-   provider link — see *Pre-Flight: File the Slices* below. Do this before
-   the green baseline.
+3. **Link the feature issue** when the `## Plan:` block's feature row has no
+   provider link — see *Pre-Flight: Link the Feature Issue* below. Do this
+   before the green baseline.
 4. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
 5. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
 6. Identify the project's test runner (check `package.json`, `Makefile`, `pyproject.toml`, etc.)
@@ -150,18 +150,27 @@ own background job, wait for its completion notification and run again; when
 it belongs to another session or worktree, report the pid and start time the
 line names and stop, rather than wait on a job this session cannot see finish.
 
-### Pre-Flight: File the Slices
+### Pre-Flight: Link the Feature Issue
 
 This session exists because a human started it with the build prompt, which
-is the authorization the planning session did not have. When any slice
-header of the `## Plan:` block in `tasks/todo.md` lacks a provider link:
+is the authorization the planning session did not have. Run one upsert, only
+when the plan block's feature row has no provider link (a `> Issue:` line or
+an already linked row means there is nothing to do):
 
-Invoke `/slice specs/<feature>.md --file --approve`. The dry run is shown,
-then the apply. `/yolo` and an unattended lane run
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply --approve
+```
+
+`--approve` is passed when the build prompt authorized the build; `/yolo` and
+an unattended lane run
 (`.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan
-handover*) omit `--approve`, so their slices land like every
-other unattended write on a project that requires approval. With no tracker
-the rows link to `tasks/details/`.
+handover*) omit `--approve`, so the write lands like every other unattended
+write on a project that requires approval. A result of `local-pending` prints
+`feature issue pending: <reason>`; a failure prints
+`feature issue not filed: <reason>`; the build continues on both.
+
+A legacy block, whose slice header rows carry task ids, was filed per slice:
+pre-flight files nothing new for it and says so in one line.
 
 A `## Plan:` block with no `### Slice` headings is one **implicit slice**
 whose surface is the spec's `implementation_paths` frontmatter, so every
@@ -173,7 +182,7 @@ Process every `[ ]` task in `tasks/todo.md` without pausing for user confirmatio
 
 A `[ ]` row whose indented children are `[ ] TDD:` rows is a **slice header**
 (written by `/slice`): the registry's row for that slice, not a task of its
-own. Claim it through `/task-registry` when its first child starts, mark it
+own. Mark it
 `[x]` when its last child passes, and never dispatch a coder against it.
 
 ### Parallel Dispatch Assessment
@@ -207,16 +216,12 @@ the next batch.
    for no added signal and is a known way to lose a whole fleet to autocompact
    thrashing. Isolate the *edits*, centralise the *verification*.
 
-**Built in the session that planned it** (any of the named exceptions in
-`AGENTS.md` step 3): every slice dispatches to a sub-agent — a lone ready slice
-and each slice of a serialized pair included — carrying only what a dispatched
-slice already carries (its rows, the spec, its blockers' handovers).
-Verification stays central. Where the harness has no sub-agents, `/build` runs
-inline and says so in one line. A session started by a build prompt dispatches
-as below.
-
-**Otherwise** — one ready slice, or an intersecting pair with no blocker:
-process slices one at a time, in table order (Steps 1–4 below).
+In every session, every slice dispatches to a sub-agent: `/build`
+implements nothing itself. A lone ready slice, and each slice of a serialized
+pair (an intersecting pair with no blocker between them), runs one at a time
+in table order through Steps 1–4 below, in the main tree. Verification stays
+central. Where the harness has no sub-agents, `/build` runs inline and says so
+in one line.
 
 ### Step 1 — Implement the Task
 
@@ -226,10 +231,11 @@ Choose the agent or approach based on task type:
 |-----------|-------|
 | API, database, auth, business logic | `backend-developer` |
 | UI components, styling, client state | `frontend-developer` |
-| Cross-cutting or unclear | Main context directly |
+| Cross-cutting or unclear | `backend-developer` |
 
 **Delegation prompt must include**:
-- The exact task description from `tasks/todo.md`
+- The slice's Delivers (§ Build Order) and the acceptance criteria its row
+  lists, copied from the spec — a legacy block's `[ ] TDD:` rows ride along
 - The relevant spec section from `specs/`
 - Paths to related source files
 - Instruction: "Follow TDD — write failing test first, then minimal implementation, then refactor"

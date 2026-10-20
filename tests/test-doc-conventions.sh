@@ -93,7 +93,7 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
                "task-registry.py show" \
                ".agents/skills/visual-plan/scripts/plan_render.py" ".plan.html" \
                "references/review-card.md" "templates/architecture-spec-template.md" \
-               "[ ] TDD:" "### Slice" "UNVERIFIED"; do
+               "### Slice" "UNVERIFIED"; do
     assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
   done
   # The four elements plus the build order, in the order the spec table lists them.
@@ -840,8 +840,7 @@ for token in "name: slice" "disable-model-invocation: false" "harness: universal
              "argument-hint:" "slice.py validate" \
              "✓ Build Order written:" "✓ Plan written:" \
              "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
-             "--derive-id plan" "--fold-title" "never start with \`/\`" \
-             "--parent" "local-pending" "✓ Filed:"; do
+             "--derive-id plan" "never start with \`/\`"; do
   assert_file_contains "$SLICE_SKILL" "$token" "slice: SKILL.md contains '$token'"
 done
 
@@ -860,12 +859,6 @@ assert_contains "$flat_slice" "replaced section by section, in place" \
   "slice: SKILL.md states the in-place plan-block replacement rule"
 assert_contains "$flat_slice" "Never two blocks for one feature" \
   "slice: SKILL.md states the one-block-per-feature rule"
-assert_contains "$flat_slice" "there is nothing to file before a proposal" \
-  "slice: SKILL.md states the no-plan-block refusal"
-assert_contains "$flat_slice" "filing is idempotent" \
-  "slice: SKILL.md states the idempotent re-run rule"
-assert_contains "$flat_slice" "the build prompt a human typed is the reviewer's word" \
-  "slice: SKILL.md states the --approve rule the /build and /yolo callers follow"
 
 # Negative pins: the ceremony this spec removed must not reappear here.
 assert_file_not_matches "$SLICE_SKILL" "Invoke /build" \
@@ -875,9 +868,9 @@ assert_file_not_matches "$SLICE_SKILL" "meet your requirements" \
 assert_file_not_matches "$SLICE_SKILL" "> Approved" \
   "slice: SKILL.md carries no approval-word line"
 if grep -qF -- "--depends-on" "$SLICE_SKILL" 2>/dev/null; then
-  assert_eq "absent" "present" "slice: the --file upsert invocation names no --depends-on flag"
+  assert_eq "absent" "present" "slice: the upsert invocation names no --depends-on flag"
 else
-  assert_eq "absent" "absent" "slice: the --file upsert invocation names no --depends-on flag"
+  assert_eq "absent" "absent" "slice: the upsert invocation names no --depends-on flag"
 fi
 
 # Registration in the one listing a new skill must appear in (the AGENTS.md
@@ -935,7 +928,7 @@ build_prompt_skill="$(extract_build_prompt "$SLICE_SKILL")"
 build_prompt_ref="$(extract_build_prompt .agents/skills/slice/references/build-prompt.md)"
 assert_eq "$build_prompt_ref" "$build_prompt_skill" \
   "slice: build-prompt template in SKILL.md matches references/build-prompt.md verbatim"
-for token in "--file --approve" "Surface" "§ Decisions" "[AMBIGUITY]" "> Handover:" "/wrap-up-session"; do
+for token in "Surface" "§ Decisions" "[AMBIGUITY]" "> Handover:" "/wrap-up-session"; do
   assert_contains "$build_prompt_skill" "$token" \
     "slice: build prompt instruction lines name '$token'"
 done
@@ -1085,6 +1078,9 @@ step1_sdp="$(awk '/^### 1\. Intake/{p=1} /^### 2\. Recon/{p=0} p' "$SDP_SKILL")"
 assert_contains "$step1_sdp" "§ Decisions" \
   "design-planning: Step 1 names § Decisions"
 
+assert_not_contains "$(awk '/^### 9\. Hand off/{p=1} /^## Common Rationalizations/{p=0} p' "$SDP_SKILL")" "--file" \
+  "one-issue: system-design-planning § Hand off names no /slice --file"
+
 # §2.5 carries the mandatory /grilling invocation, at column 0 so the
 # chain test can pin it beside /brainstorm's and /grill-me's.
 assert_file_matches "$SDP_SKILL" '^Invoke `/grilling' \
@@ -1166,7 +1162,7 @@ fi
 # Pinned by the smallest falsifiable unit: the literal flags and phrases,
 # plus the negative pins that keep the retired prose from creeping back.
 BUILD_SKILL=.agents/skills/build/SKILL.md
-for token in "--file --approve" "lacks a provider link" "implicit slice" \
+for token in "upsert --derive-id plan" "no provider link" "implicit slice" \
              "implementation_paths" "slice.py ready" "intersecting pair" \
              "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
              "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
@@ -1194,21 +1190,44 @@ assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
 assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
   "build: SKILL.md no longer assesses independence from prose"
 
-# specs/lane-plan-handover.md AC6: an unattended lane run omits --approve
-# alongside /yolo, in both /build's pre-flight and /slice's Integration.
+# specs/aposd-first-build.md AC4 (one-issue): /slice has no --file mode; /build
+# pre-flight makes the one feature upsert; every slice is dispatched.
+# An unattended lane run omits --approve alongside /yolo.
 assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (\`.agents/skills/wrap-up-session/references/routines.md\` § *Crossing the plan handover*) omit \`--approve\`" \
-  "build: pre-flight names an unattended lane run alongside /yolo"
-assert_prose_contains .agents/skills/slice/SKILL.md "or \`--file\` alone from \`/yolo\` or an unattended lane run" \
-  "slice: Integration names an unattended lane run alongside /yolo"
-
-# specs/lane-plan-handover.md AC8: built in the planning session, every slice
-# dispatches to a sub-agent (lone or serialized), verification stays central,
-# no sub-agents runs inline and says so; build-prompt sessions are unchanged.
-for token in "in the session that planned it" "every slice dispatches to a sub-agent" \
-             "lone ready slice" "serialized pair" "Verification stays central" \
-             "runs inline and says so in one line" "started by a build prompt dispatches as below"; do
+  "one-issue: pre-flight names an unattended lane run alongside /yolo"
+assert_file_not_matches "$SLICE_SKILL" '--file' \
+  "one-issue: slice/SKILL.md has no --file mode"
+assert_file_not_matches .agents/skills/slice/references/build-prompt.md '--file' \
+  "one-issue: build-prompt.md names no /slice --file"
+assert_file_not_matches "$BUILD_SKILL" '--file' \
+  "one-issue: build/SKILL.md names no /slice --file"
+assert_file_contains "$BUILD_SKILL" 'upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply' \
+  "one-issue: pre-flight runs one upsert --derive-id plan with --apply"
+for token in "only when the plan block's feature row has no provider link" \
+             "feature issue pending: <reason>" "feature issue not filed: <reason>" \
+             "\`local-pending\`" "legacy block" "files nothing new"; do
   assert_prose_contains "$BUILD_SKILL" "$token" \
-    "build: Parallel Dispatch Assessment contains '$token'"
+    "one-issue: build pre-flight contains '$token'"
+done
+assert_eq "1" "$(grep -c 'task-registry.py upsert' "$BUILD_SKILL" | tr -d ' ')" \
+  "one-issue: build/SKILL.md names exactly one upsert"
+
+# The delegation prompt carries Delivers and the acceptance criteria, names no claim.
+deleg_build="$(awk '/^\*\*Delegation prompt must include\*\*/{p=1} /^\*\*Role-based context injection/{p=0} p' "$BUILD_SKILL")"
+assert_contains "$deleg_build" "Delivers" "one-issue: delegation prompt carries the slice's Delivers"
+assert_contains "$deleg_build" "acceptance criteria" "one-issue: delegation prompt carries the acceptance criteria"
+assert_not_contains "$deleg_build" "claim" "one-issue: delegation prompt names no per-slice claim"
+assert_not_contains "$deleg_build" "exact task description" "one-issue: delegation prompt no longer carries plan rows"
+
+# D22: every slice dispatches, a lone one included; one rule, no in-place variant.
+assert_file_not_matches "$BUILD_SKILL" 'Main context directly' \
+  "one-issue: Step 1 has no 'Main context directly' row"
+assert_file_not_matches "$BUILD_SKILL" 'Built in the session that planned' \
+  "one-issue: no separate in-place dispatch rule"
+for token in "every slice dispatches to a sub-agent" "lone ready slice" "serialized pair" \
+             "Verification stays central" "runs inline and says so in one line"; do
+  assert_prose_contains "$BUILD_SKILL" "$token" \
+    "one-issue: build dispatch rule contains '$token'"
 done
 
 # --- wrap-up: PR body gains a Handovers section before the linkage check ---
@@ -1242,10 +1261,12 @@ WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' AGENTS.md)"
 for token in "/grill-me" "/brainstorm" "DECISIONS CARRIED" "/grilling" \
              "/system-design-planning" "/slice" "build prompt" "fresh session" \
              "> Handover:" "never builds and never files" \
-             "Spec and plan are ready to be built" "--file --approve" \
+             "Spec and plan are ready to be built" "upsert --derive-id plan" \
              "slice.py ready" "/auto-push" "/yolo"; do
   assert_contains "$WORKFLOW" "$token" "workflow: AGENTS.md § Workflow names '$token'"
 done
+assert_not_contains "$WORKFLOW" "--file" \
+  "one-issue: AGENTS.md § Workflow names no /slice --file"
 assert_not_contains "$WORKFLOW" "Confirm with 'y' to begin" \
   "workflow: the y gate is gone from AGENTS.md § Workflow"
 assert_not_contains "$WORKFLOW" "**approved**" \

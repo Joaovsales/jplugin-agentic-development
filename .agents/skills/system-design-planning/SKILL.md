@@ -278,15 +278,16 @@ files nothing and builds nothing either way.
 
 ### 9. Hand off
 
-The build session files the slices first, through `/build`'s pre-flight
-(`/slice specs/<feature>.md --file --approve`) — this planning session filed
-nothing. `/build` then runs the plan block `/slice` wrote top to bottom: the
-`- [ ]` row under each `### Slice` heading is a slice header, claimed
-through `/task-registry` when its first `TDD:` child starts and closed when
-the last one passes, never dispatched to a coder directly — see
-`.agents/skills/slice/SKILL.md` for the plan block's grammar. `/build` does
-not read the filed task body, so the plan block is self-sufficient: every
-`[ ] TDD:` row names the criterion it pins. When an implementation
+The build session links the feature issue first, through `/build`'s
+pre-flight (one `upsert --derive-id plan`, only when the plan's feature row
+has no link) — this planning session filed nothing. `/build` then runs the
+plan block `/slice` wrote top to bottom, dispatching every slice to a
+sub-agent: the `- [ ]` row under each `### Slice` heading is a slice header,
+closed when the slice's criteria pass, never dispatched to a coder directly —
+see `.agents/skills/slice/SKILL.md` for the plan block's grammar. `/build`
+does not read the filed task body, so the spec and the plan block are
+self-sufficient: each slice's Delivers and acceptance criteria come from
+§ Build Order. When an implementation
 contradicts the spec, `/build` stops and the change comes back here — the
 spec is the contract, and `/wrap-up-session` reconciles it when the
 implementation surface moves.
