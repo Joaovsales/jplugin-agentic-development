@@ -1,10 +1,11 @@
 #!/bin/bash
 . "$(dirname "$0")/lib.sh"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
-box="$(mktemp -d)"
-trap 'rm -rf "$box"' EXIT
-export DESIGN_STACK_REPO="$repo" DESIGN_STACK_FIXTURE="$box"
-out="$("$TEST_PYTHON" - <<'PY' 2>&1
+py_module .agents/skills/verify-evidence/scripts
+box="$(fixture_dir)"
+export DESIGN_STACK_REPO="$repo" DESIGN_STACK_FIXTURE="$box" DESIGN_STACK_PROJECT="$(fixture_repo)"
+evidence_contract() {
+"$TEST_PYTHON" - <<'PY'
 import json
 import hashlib
 import os
@@ -21,7 +22,7 @@ from e2e_evidence import check as check_e2e
 from ui_publication import append_ui_entry, artifact_review_link, install_workflow, validate_artifact
 import ui_publication
 
-project = root / "project"
+project = Path(os.environ["DESIGN_STACK_PROJECT"])
 def png_chunk(kind, payload):
     return struct.pack("!I", len(payload)) + kind + payload + struct.pack("!I", zlib.crc32(kind + payload))
 
@@ -46,7 +47,6 @@ cat > "$JPLUGIN_UI_OUTPUT/manifest.json" <<'JSON'
 JSON
 ''')
 script.chmod(0o755)
-subprocess.run(["git", "init", "-q", str(project)], check=True)
 subprocess.run(["git", "-C", str(project), "add", "tests/visual/feature.sh"], check=True)
 subprocess.run(["git", "-C", str(project), "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "visual"], check=True)
 bin_dir = root / "bin"
@@ -173,8 +173,9 @@ assert check_e2e(log, ["a" * 12], project) == 0
 assert check_e2e(log, ["a" * 12], project) == 1
 print("append-only visual log and 30-day CI artifact contract passed")
 PY
-)"; code=$?
-assert_eq 0 "$code" "$out"
+}
+run evidence_contract
+assert_exit 0 "design-stack evidence: visual check, workflow install and e2e log contract"
 assert_file_contains "$repo/.agents/skills/verify-evidence/SKILL.md" 'run_visual_check' 'visual check in verifier contract'
 assert_file_contains "$repo/.agents/skills/wrap-up-session/SKILL.md" 'PublicationUnavailable' 'UI closure blocks missing publication'
 finish

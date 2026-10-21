@@ -8,12 +8,12 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-SKILL=.agents/skills/diagram/SKILL.md
-RESOLVER=.agents/skills/diagram/scripts/archify.sh
+DIAGRAM="$(under_test .agents/skills/diagram)"
+SKILL="$DIAGRAM/SKILL.md"
+RESOLVER="$DIAGRAM/scripts/archify.sh"
 BASH_BIN="$(command -v bash)"
 
-box="$(mktemp -d)"
-trap 'rm -rf "$box"' EXIT
+box="$(fixture_dir)"
 
 frontmatter() {
   awk 'NR == 1 && /^---$/ { fm = 1; next } fm && /^---$/ { exit } fm { print }' "$1" 2>/dev/null
@@ -28,10 +28,10 @@ for phrase in diagram draw visualize archify; do
   assert_contains "$desc" "$phrase" "frontmatter: the description triggers on '$phrase'"
 done
 assert_file_matches README.md '^\| `/diagram` \|' "README: the skills table carries the /diagram row"
-assert_eq "0" "$(PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" scripts/render-skills-table.py --check >/dev/null 2>&1; echo $?)" \
-  "README: render-skills-table.py --check is silent with the /diagram row"
-assert_eq "0" "$(bash tests/test-skill-frontmatter.sh >/dev/null 2>&1; echo $?)" \
-  "frontmatter: tests/test-skill-frontmatter.sh passes with the new skill"
+assert_exit 0 "README: render-skills-table.py --check is silent with the /diagram row" -- \
+  "$TEST_PYTHON" scripts/render-skills-table.py --check
+assert_exit 0 "frontmatter: tests/test-skill-frontmatter.sh passes with the new skill" -- \
+  bash tests/test-skill-frontmatter.sh
 
 # ── Resolver harness ─────────────────────────────────────────────────────────
 # A PATH holding only what each case puts there, so the machine's own node and
@@ -47,35 +47,37 @@ make_fixture_install() { # <home>
   : > "$1/archify/bin/archify.mjs"
   : > "$1/archify/SKILL.md"
 }
-# run_resolver <ARCHIFY_HOME> <PATH> [ENV=VAL...] — stdout in $RES_OUT, stderr
-# in $RES_ERR, exit status in $RES_STATUS (set in this shell, never echoed from
-# a subshell). Runs from a scratch cwd so a stray write shows.
-run_resolver() {
+# _resolver <ARCHIFY_HOME> <PATH> [ENV=VAL...] — the resolver under a clean env,
+# stdout and stderr as the process leaves them. Runs from a scratch cwd so a
+# stray write shows. Judge it with `assert_refused ... -- _resolver ...`.
+_resolver() {
   local home="$1" path="$2"; shift 2
   mkdir -p "$box/work"
   ( cd "$box/work" && env -i HOME="$box/home" PATH="$path" ARCHIFY_HOME="$home" "$@" \
-      "$BASH_BIN" "$REPO/$RESOLVER" resolve ) > "$box/out" 2> "$box/err"
-  RES_STATUS=$?
-  RES_OUT="$(cat "$box/out")"; RES_ERR="$(cat "$box/err")"
+      "$BASH_BIN" "$RESOLVER" resolve )
 }
+# resolve — _resolver with stderr kept in $box/err, so `output` after
+# `run resolve ...` is stdout alone (the export lines) and stderr is read
+# from the file by assert_file_contains.
+resolve() { _resolver "$@" 2> "$box/err"; }
 html_written() { find "$box" -name '*.html' 2>/dev/null | wc -l | tr -d ' '; }
 
 # ── § resolver (AC 2) ────────────────────────────────────────────────────────
 # Tool absent: exactly one install command, nothing exported, no HTML, non-zero.
 mkdir -p "$box/empty-home" "$box/bin-a"
 make_node_stub "$box/bin-a" "20.11.0"
-run_resolver "$box/empty-home" "$box/bin-a"
-assert_eq "1" "$RES_STATUS" "resolver: an empty ARCHIFY_HOME exits non-zero"
-assert_eq "1" "$(printf '%s\n' "$RES_ERR" | grep -c '^git clone ')" \
+assert_refused 1 "git clone " "resolver: an empty ARCHIFY_HOME exits non-zero" -- _resolver "$box/empty-home" "$box/bin-a"
+run resolve "$box/empty-home" "$box/bin-a"
+assert_eq "1" "$(grep -c '^git clone ' "$box/err")" \
   "resolver: exactly one install command is printed"
-install_line="$(printf '%s\n' "$RES_ERR" | grep '^git clone ')"
+install_line="$(grep '^git clone ' "$box/err")"
 # The registry is the oracle for the pin: a bump edits the consumer files, never a test literal.
 ARCHIFY_TAG="$("$TEST_PYTHON" -c 'import json; s=[x for x in json.load(open(".github/upstreams.json"))["sources"] if x["id"]=="archify"][0]; print(s["ref"].rsplit("/", 1)[-1])')"
 assert_eq "v" "${ARCHIFY_TAG:0:1}" "resolver: the registry names the pinned tag (oracle is not empty)"
 assert_contains "$install_line" "--branch $ARCHIFY_TAG" "resolver: the install command pins the registry's tag"
 assert_contains "$install_line" "https://github.com/tt-a1i/archify" "resolver: the install command names upstream"
 assert_contains "$install_line" "$box/empty-home" "resolver: the install command targets the resolved ARCHIFY_HOME"
-assert_eq "" "$RES_OUT" "resolver: a missing tool exports nothing"
+assert_eq "" "$output" "resolver: a missing tool exports nothing"
 assert_eq "0" "$(html_written)" "resolver: a missing tool writes no HTML"
 # The same command lives in install.sh step 6c; a user who follows either must
 # land on the same checkout. Evaluate install.sh's template with the same home
@@ -87,17 +89,16 @@ assert_eq "$installer_cmd" "$install_line" "resolver: the install command is ins
 mkdir -p "$box/bin-b"
 make_fixture_install "$box/fixture-home"
 make_node_stub "$box/bin-b" "16.20.2"
-run_resolver "$box/fixture-home" "$box/bin-b"
-assert_eq "1" "$RES_STATUS" "resolver: node v16 exits non-zero"
-assert_contains "$RES_ERR" "Node >= 18" "resolver: node v16 names the Node >= 18 requirement"
-assert_eq "" "$RES_OUT" "resolver: an old node exports nothing"
+assert_refused 1 "Node >= 18" "resolver: node v16 exits non-zero" -- _resolver "$box/fixture-home" "$box/bin-b"
+run resolve "$box/fixture-home" "$box/bin-b"
+assert_file_contains "$box/err" "Node >= 18" "resolver: node v16 names the Node >= 18 requirement"
+assert_eq "" "$output" "resolver: an old node exports nothing"
 assert_eq "0" "$(html_written)" "resolver: an old node writes no HTML"
 
 # Node absent: named too — the tool cannot run without it (D3).
 mkdir -p "$box/bin-empty"
-run_resolver "$box/fixture-home" "$box/bin-empty"
-assert_eq "1" "$RES_STATUS" "resolver: no node exits non-zero"
-assert_contains "$RES_ERR" "Node >= 18" "resolver: no node names the Node >= 18 requirement"
+assert_refused 1 "Node >= 18" "resolver: no node exits non-zero" -- _resolver "$box/fixture-home" "$box/bin-empty"
+assert_contains "$output" "Node >= 18" "resolver: no node names the Node >= 18 requirement"
 
 # ── § browser (AC 3) ─────────────────────────────────────────────────────────
 # No browser on PATH, but playwright-cli installed one: ARCHIFY_CHROME is exported
@@ -105,34 +106,34 @@ assert_contains "$RES_ERR" "Node >= 18" "resolver: no node names the Node >= 18 
 mkdir -p "$box/pw/chromium-1100/chrome-linux" "$box/pw/chromium-1194/chrome-linux"
 : > "$box/pw/chromium-1100/chrome-linux/chrome"; chmod +x "$box/pw/chromium-1100/chrome-linux/chrome"
 : > "$box/pw/chromium-1194/chrome-linux/chrome"; chmod +x "$box/pw/chromium-1194/chrome-linux/chrome"
-run_resolver "$box/fixture-home" "$box/bin-a" PLAYWRIGHT_BROWSERS_PATH="$box/pw"
-assert_eq "0" "$RES_STATUS" "browser: a fixture install with node >= 18 resolves"
-assert_contains "$RES_OUT" "export ARCHIFY_CHROME=$box/pw/chromium-1194/chrome-linux/chrome" \
+run resolve "$box/fixture-home" "$box/bin-a" PLAYWRIGHT_BROWSERS_PATH="$box/pw"
+assert_exit 0 "browser: a fixture install with node >= 18 resolves"
+assert_contains "$output" "export ARCHIFY_CHROME=$box/pw/chromium-1194/chrome-linux/chrome" \
   "browser: playwright-cli's newest Chromium is exported when PATH has none"
-assert_contains "$RES_OUT" "export ARCHIFY_BIN=$box/fixture-home/archify/bin/archify.mjs" \
+assert_contains "$output" "export ARCHIFY_BIN=$box/fixture-home/archify/bin/archify.mjs" \
   "browser: the CLI entry point is exported"
-assert_contains "$RES_OUT" "export ARCHIFY_SKILL=$box/fixture-home/archify/SKILL.md" \
+assert_contains "$output" "export ARCHIFY_SKILL=$box/fixture-home/archify/SKILL.md" \
   "browser: upstream's SKILL.md path is exported for the run-time read"
 assert_eq "chrome=$box/pw/chromium-1194/chrome-linux/chrome" \
-  "$(eval "$RES_OUT"; echo "chrome=$ARCHIFY_CHROME")" "browser: stdout is eval-safe export lines"
+  "$(eval "$output"; echo "chrome=$ARCHIFY_CHROME")" "browser: stdout is eval-safe export lines"
 
 # A Chrome on PATH wins over playwright-cli's copy (resolution order).
 mkdir -p "$box/bin-c"; make_node_stub "$box/bin-c" "20.11.0"
 : > "$box/bin-c/chromium"; chmod +x "$box/bin-c/chromium"
-run_resolver "$box/fixture-home" "$box/bin-c" PLAYWRIGHT_BROWSERS_PATH="$box/pw"
-assert_contains "$RES_OUT" "export ARCHIFY_CHROME=$box/bin-c/chromium" \
+run resolve "$box/fixture-home" "$box/bin-c" PLAYWRIGHT_BROWSERS_PATH="$box/pw"
+assert_contains "$output" "export ARCHIFY_CHROME=$box/bin-c/chromium" \
   "browser: a Chromium on PATH is preferred to playwright-cli's"
 
 # An existing ARCHIFY_CHROME is kept as given.
-run_resolver "$box/fixture-home" "$box/bin-c" ARCHIFY_CHROME=/opt/chrome/custom
-assert_contains "$RES_OUT" "export ARCHIFY_CHROME=/opt/chrome/custom" \
+run resolve "$box/fixture-home" "$box/bin-c" ARCHIFY_CHROME=/opt/chrome/custom
+assert_contains "$output" "export ARCHIFY_CHROME=/opt/chrome/custom" \
   "browser: a preset ARCHIFY_CHROME is kept"
 
 # Neither: nothing is exported for the browser and the marker the reply must carry is printed.
-run_resolver "$box/fixture-home" "$box/bin-a"
-assert_eq "0" "$RES_STATUS" "browser: no browser still resolves — the non-browser gates run"
-assert_not_contains "$RES_OUT" "ARCHIFY_CHROME" "browser: no browser exports no ARCHIFY_CHROME"
-assert_contains "$RES_ERR" "without browser evidence" \
+run resolve "$box/fixture-home" "$box/bin-a"
+assert_exit 0 "browser: no browser still resolves — the non-browser gates run"
+assert_not_contains "$output" "ARCHIFY_CHROME" "browser: no browser exports no ARCHIFY_CHROME"
+assert_file_contains "$box/err" "without browser evidence" \
   "browser: no browser prints the without-browser-evidence marker"
 # The marker is a contract between the resolver (prints it) and the reply (must
 # carry it), so the page's copy is pinned to the resolver's constant.
@@ -176,12 +177,11 @@ assert_prose_contains "$SKILL" 'except `finalize`, which always goes through Ste
   "evidence: the run-upstream-commands rule exempts finalize, so the check cannot be bypassed"
 
 if command -v node > /dev/null 2>&1; then
-  mkdir -p "$box/repo"
-  git -C "$box/repo" init -q
-  mkdir -p "$box/repo/src"; printf 'echo a\n' > "$box/repo/src/a.sh"
-  git -C "$box/repo" add src/a.sh
-  git -C "$box/repo" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm a
-  REV="$(git -C "$box/repo" rev-parse HEAD)"
+  FIXTURE_REPO="$(fixture_repo)"
+  mkdir -p "$FIXTURE_REPO/src"; printf 'echo a\n' > "$FIXTURE_REPO/src/a.sh"
+  git -C "$FIXTURE_REPO" add src/a.sh
+  git -C "$FIXTURE_REPO" commit -qm a
+  REV="$(git -C "$FIXTURE_REPO" rev-parse HEAD)"
   write_candidate() { # <file> <revision-json-or-empty-meta> <components-json>
     printf '{"schema_version":1,"diagram_type":"architecture","meta":{"title":"t"%s},"components":%s}\n' "$2" "$3" > "$1"
   }
@@ -191,71 +191,64 @@ if command -v node > /dev/null 2>&1; then
   mkdir -p "$box/fixture-home/archify/schemas"
   printf '{"properties":{"components":{"type":"array","items":{"properties":{"id":{},"sources":{}}}},"cards":{"$ref":"common.schema.json#/$defs/cards"}}}\n' \
     > "$box/fixture-home/archify/schemas/architecture.schema.json"
-  run_check() { # <candidate> → CHK_STATUS, CHK_OUT, CHK_ERR
-    ARCHIFY_HOME="$box/fixture-home" bash "$RESOLVER" check-candidate "$1" --repo-root "$box/repo" > "$box/chk.out" 2> "$box/chk.err"
-    CHK_STATUS=$?; CHK_OUT="$(cat "$box/chk.out")"; CHK_ERR="$(cat "$box/chk.err")"
+  check_candidate() { # <candidate> — judge with `run check_candidate` or assert_refused
+    ARCHIFY_HOME="$box/fixture-home" bash "$RESOLVER" check-candidate "$1" --repo-root "$FIXTURE_REPO"
   }
   REPO_META=",\"repository\":{\"url\":\"https://example.test/r.git\",\"revision\":\"$REV\"}"
   CITED='{"id":"a","label":"A","sources":[{"path":"src/a.sh","line":1}]}'
   write_candidate "$box/uncited.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\"}]"
-  run_check "$box/uncited.json"
-  assert_eq "1" "$CHK_STATUS" "evidence: a component without sources is rejected"
-  assert_contains "$CHK_ERR" '"b" has no sources' "evidence: the rejection names the uncited component and the missing field"
+  assert_refused 1 '"b" has no sources' "evidence: a component without sources is rejected" -- check_candidate "$box/uncited.json"
+  assert_contains "$output" '"b" has no sources' "evidence: the rejection names the uncited component and the missing field"
 
   # A path with no line is not a citation: --refresh has no range to re-read.
   write_candidate "$box/lineless.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\",\"sources\":[{\"path\":\"src/a.sh\"}]}]"
-  run_check "$box/lineless.json"
-  assert_eq "1" "$CHK_STATUS" "evidence: a source without a line is rejected"
-  assert_contains "$CHK_ERR" '"b" has no sources' "evidence: the line-less rejection names the component as uncited"
+  assert_refused 1 '"b" has no sources' "evidence: a source without a line is rejected" -- check_candidate "$box/lineless.json"
+  assert_contains "$output" '"b" has no sources' "evidence: the line-less rejection names the component as uncited"
 
   write_candidate "$box/cited.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\",\"sources\":[{\"path\":\"src/a.sh\",\"line\":1}]}]"
-  run_check "$box/cited.json"
-  assert_eq "0" "$CHK_STATUS" "evidence: a fully cited candidate at HEAD passes"
-  assert_eq "" "$CHK_OUT$CHK_ERR" "evidence: a passing check is silent"
+  run check_candidate "$box/cited.json"
+  assert_exit 0 "evidence: a fully cited candidate at HEAD passes"
+  assert_eq "" "$output" "evidence: a passing check is silent"
 
   STALE=",\"repository\":{\"url\":\"https://example.test/r.git\",\"revision\":\"0000000000000000000000000000000000000000\"}"
   write_candidate "$box/stale.json" "$STALE" "[$CITED]"
-  run_check "$box/stale.json"
-  assert_eq "1" "$CHK_STATUS" "evidence: a revision other than HEAD is rejected"
-  assert_contains "$CHK_ERR" "$REV" "evidence: the rejection names the repository HEAD"
+  assert_refused 1 "$REV" "evidence: a revision other than HEAD is rejected" -- check_candidate "$box/stale.json"
+  assert_contains "$output" "$REV" "evidence: the rejection names the repository HEAD"
 
   write_candidate "$box/freehand.json" "" "[$CITED]"
-  run_check "$box/freehand.json"
-  assert_eq "1" "$CHK_STATUS" "evidence: a codebase candidate without meta.repository is rejected"
-  assert_contains "$CHK_ERR" "meta.repository" "evidence: the rejection names meta.repository"
+  assert_refused 1 "meta.repository" "evidence: a codebase candidate without meta.repository is rejected" -- check_candidate "$box/freehand.json"
+  assert_contains "$output" "meta.repository" "evidence: the rejection names meta.repository"
 
   # A type the install has no schema for is upstream's to add, not this check's to guess.
   sed 's/"diagram_type":"architecture"/"diagram_type":"c4"/' "$box/cited.json" > "$box/c4.json"
-  run_check "$box/c4.json"
-  assert_eq "1" "$CHK_STATUS" "evidence: a diagram_type without a schema in the install is rejected"
-  assert_contains "$CHK_ERR" '"c4"' "evidence: the rejection names the unknown type"
+  assert_refused 1 'is not a diagram type name' "evidence: a diagram_type without a schema in the install is rejected" -- check_candidate "$box/c4.json"
+  assert_contains "$output" '"c4"' "evidence: the rejection names the unknown type"
 
   # `finalize` is upstream's command forwarded unchanged, after the check
   # whenever --repo-root is present — the order D8 rests on is structural.
   # The fixture CLI records the arguments it received instead of drawing.
   printf 'import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.ARGV_LOG, process.argv.slice(2).join(" "));\n' \
     > "$box/fixture-home/archify/bin/archify.mjs"
-  run_finalize() { # <candidate> [args…] → FIN_STATUS, FIN_ERR; the forwarded argv in $box/argv
+  finalize() { # <candidate> [args…] — the forwarded argv lands in $box/argv
     rm -f "$box/argv"
-    ARCHIFY_HOME="$box/fixture-home" ARGV_LOG="$box/argv" bash "$RESOLVER" finalize architecture "$@" > /dev/null 2> "$box/fin.err"
-    FIN_STATUS=$?; FIN_ERR="$(cat "$box/fin.err")"
+    ARCHIFY_HOME="$box/fixture-home" ARGV_LOG="$box/argv" bash "$RESOLVER" finalize architecture "$@" > /dev/null
   }
-  run_finalize "$box/uncited.json" "$box/out.html" --repo-root "$box/repo" --out-dir "$box/review-1"
-  assert_eq "1" "$FIN_STATUS" "finalize: an uncited codebase candidate stops before upstream runs"
-  assert_contains "$FIN_ERR" '"b" has no sources' "finalize: the refusal names the uncited component"
-  assert_eq "missing" "$([ -e "$box/argv" ] && echo present || echo missing)" "finalize: upstream never received the uncited candidate"
-  run_finalize "$box/cited.json" "$box/out.html" --repo-root "$box/repo" --out-dir "$box/review-1"
-  assert_eq "0" "$FIN_STATUS" "finalize: a cited candidate passes the check and runs upstream"
+  assert_refused 1 '"b" has no sources' "finalize: an uncited codebase candidate stops before upstream runs" -- \
+    finalize "$box/uncited.json" "$box/out.html" --repo-root "$FIXTURE_REPO" --out-dir "$box/review-1"
+  assert_contains "$output" '"b" has no sources' "finalize: the refusal names the uncited component"
+  assert_file_absent "$box/argv" "finalize: upstream never received the uncited candidate"
+  run finalize "$box/cited.json" "$box/out.html" --repo-root "$FIXTURE_REPO" --out-dir "$box/review-1"
+  assert_exit 0 "finalize: a cited candidate passes the check and runs upstream"
   assert_file_exists "$box/argv" "finalize: upstream ran and recorded the arguments it received"
-  assert_eq "finalize architecture $box/cited.json $box/out.html --repo-root $box/repo --out-dir $box/review-1" \
+  assert_eq "finalize architecture $box/cited.json $box/out.html --repo-root $FIXTURE_REPO --out-dir $box/review-1" \
     "$(<"$box/argv")" "finalize: upstream's arguments are forwarded unchanged"
-  run_finalize "$box/freehand.json" "$box/out.html" --out-dir "$box/review-1"
-  assert_eq "0" "$FIN_STATUS" "finalize: a described system (no --repo-root) skips the check"
+  run finalize "$box/freehand.json" "$box/out.html" --out-dir "$box/review-1"
+  assert_exit 0 "finalize: a described system (no --repo-root) skips the check"
   assert_file_exists "$box/argv" "finalize: upstream ran for the freehand candidate"
   assert_contains "$(<"$box/argv")" "freehand.json" "finalize: a freehand candidate reaches upstream"
   assert_eq "0" "$(html_written)" "finalize: the fixture run wrote no HTML"
 else
-  printf '  note evidence: node is absent on this machine; the candidate-check cases did not run\n'
+  skip "evidence: node is absent on this machine; the candidate-check cases did not run"
 fi
 
 # ── § refresh (AC 14) ────────────────────────────────────────────────────────

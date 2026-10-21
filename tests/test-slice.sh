@@ -14,16 +14,14 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
-SLICE="$REPO/.agents/skills/slice/scripts/slice.py"
-GLOBS_ROOT="$REPO/.agents/skills/task-registry/scripts"
+SLICE="$(under_test .agents/skills/slice/scripts)/slice.py"
+GLOBS_ROOT="$(under_test .agents/skills/task-registry/scripts)"
+RENDER_SCRIPTS="$(under_test .agents/skills/visual-plan/scripts)"
 # Relative to $REPO (the cwd below): `ready`'s plan-block match compares the
 # `--spec` argument against the fixture's own `> Spec:` line, which is written
 # relative -- exactly as a real `## Plan:` block always is.
 FIXTURES="tests/fixtures/slice"
 
-TMP_DIRS=()
-cleanup() { for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
 
 printf '\n--- validate: a clean Build Order passes all three checks ---\n'
 
@@ -187,11 +185,7 @@ assert_contains "$OUT" "no such index file" "ready: names the missing index"
 
 printf '\n--- check: a clean diff exits 0 and prints nothing ---\n'
 
-D1="$(mktemp -d)"
-TMP_DIRS+=("$D1")
-git -C "$D1" init -q -b main
-git -C "$D1" config user.email t@example.com
-git -C "$D1" config user.name Test
+D1="$(fixture_repo)"
 mkdir -p "$D1/src/feature" "$D1/tests"
 printf 'one\n' > "$D1/src/feature/a.py"
 printf 'test\n' > "$D1/tests/test-feature.sh"
@@ -219,11 +213,7 @@ assert_eq "" "$OUT" "check: a legacy spec's clean diff prints nothing"
 
 printf '\n--- check: an undeclared path and an untouched pattern ---\n'
 
-D2="$(mktemp -d)"
-TMP_DIRS+=("$D2")
-git -C "$D2" init -q -b main
-git -C "$D2" config user.email t@example.com
-git -C "$D2" config user.name Test
+D2="$(fixture_repo)"
 mkdir -p "$D2/src/feature" "$D2/tests"
 printf 'one\n' > "$D2/src/feature/a.py"
 printf 'test\n' > "$D2/tests/test-feature.sh"
@@ -332,7 +322,7 @@ printf '\n--- readiness: an open decision or a blocking question refuses the bui
 # specs/readable-visual-plans.md AC16 (D23, D26): `/slice` runs `readiness`
 # before printing a build prompt. The ids it names are the ones the visual
 # plan page shows as `Not ready:`, because both read the spec the same way.
-READY_TMP="$(mktemp -d)"; TMP_DIRS+=("$READY_TMP")
+READY_TMP="$(fixture_dir)"
 readiness_spec() {  # <file> <D2 status> <Q1 Blocks>
   cat > "$1" <<SPEC
 # Spec: Readiness fixture
@@ -375,16 +365,57 @@ printf '# Spec: Broken\n\n## Decisions\n\n| ID | Decision | Status |\n|---|---|-
 OUT="$("$PY" "$SLICE" readiness --spec "$READY_TMP/broken.md" 2>&1)"; CODE=$?
 assert_eq "2" "$CODE" "readiness: a malformed Decisions table exits 2"
 assert_contains "$OUT" "broken.md:7: " "readiness: the failure names <spec>:<line>"
-if find "$REPO/.agents/skills/visual-plan/scripts" -name __pycache__ | grep -q .; then
-  assert_eq "no __pycache__" "__pycache__ written" "readiness: importing the renderer's parser writes no bytecode"
-else
-  assert_eq "no __pycache__" "no __pycache__" "readiness: importing the renderer's parser writes no bytecode"
-fi
+assert_eq "" "$(find "$RENDER_SCRIPTS" -name __pycache__)" "readiness: importing the renderer's parser writes no bytecode"
 SLICE_DOC="$REPO/.agents/skills/slice/SKILL.md"
 assert_file_contains "$SLICE_DOC" "slice.py readiness --spec" "readiness: /slice runs the readiness check before the build prompt"
 assert_file_contains "$SLICE_DOC" "not ready: <ids>" "readiness: /slice documents the not-ready output"
 assert_file_contains "$REPO/.agents/skills/slice/references/build-prompt.md" "slice.py readiness" "readiness: the build-prompt reference names the gate"
 assert_file_not_matches "$SLICE_DOC" 'An `open` row is an `\[AMBIGUITY\]` line' "readiness: the retired open-row [AMBIGUITY] rule is gone (D26)"
 assert_file_not_matches "$REPO/.agents/skills/slice/references/build-prompt.md" 'An `open` row is an `\[AMBIGUITY\]` line' "readiness: the retired rule is gone from the reference too"
+
+printf '\n--- primitives: the skill-script tests keep no private harness (specs/test-suite-aposd.md AC 13) ---\n'
+# The fourteen skill-script files say what they check and let tests/lib.sh own
+# the how. Each pattern is written with a one-character class so this file never
+# matches its own source, and the positive control is built from split strings
+# for the same reason. The control is one file holding every form swept for.
+SKILL_SCRIPT_FILES=(
+  tests/test-slice.sh tests/test-plan-render.sh tests/test-agent-policy.sh
+  tests/test-make-it-simpler.sh tests/test-visual-render.sh tests/test-html-presentation.sh
+  tests/test-e2e-evidence.sh tests/test-eval-skill.sh tests/test-diagram-skill.sh
+  tests/test-design-stack-brief.sh tests/test-design-stack-catalog.sh
+  tests/test-design-stack-evidence.sh tests/test-design-stack-install.sh
+  tests/test-design-stack-video.sh
+)
+PRIM_CONTROL="$(fixture_dir)/forms.txt"
+{
+  printf '%s%s\n' 'x="$(mktemp -' 'd)"'
+  printf '%s%s\n' 'tr' 'ap cleanup EXIT'
+  printf '%s%s\n' 'git i' 'nit -q "$d"'
+  printf '%s%s\n' 'new_fi' 'xture() { :; }'
+  printf '%s%s\n' 'fixture_re' 'po() { :; }'
+  printf '%s%s\n' 'run_ch' 'eck() { :; }'
+  printf '%s%s\n' '_TES' 'TS=$((_TES''TS + 1))'
+  printf '%s%s\n' 'export PA' 'TH="$stub:$PATH"'
+  printf '%s%s\n' 'PYTHONDONTWRITEBYTE' 'CODE=1 python3 x.py'
+  printf '%s%s\n' 'export LC_AL' 'L=C'
+  printf '%s%s\n' 'PYTHONUTF' '8=1'
+  printf '%s%s%s\n' 'echo pres' 'ent || echo go' 'ne'
+  printf '%s%s\n' '# cove' 'rs: scripts/x.sh'
+} > "$PRIM_CONTROL"
+assert_sweep_empty "primitives: no private fixture, repo or run helper in a skill-script test" "$PRIM_CONTROL" -- \
+  grep -nE '(mktemp -[d]|^[[:space:]]*tr[a]p [^ ]|git [i]nit|^(cleanup|new_fixtur[e]|new_rep[o]|pyre[g]|fixture_rep[o]|fixture_di[r]|assert_exi[t]|ru[n])\(\)|^run_[a-z_]+\(\))' \
+  "${SKILL_SCRIPT_FILES[@]}"
+assert_sweep_empty "primitives: no counter arithmetic or export of its own in a skill-script test" "$PRIM_CONTROL" -- \
+  grep -nE '(_[T]ESTS|_[F]AILS|export PAT[H]=|PYTHONDONTWRITEBYTECOD[E]=|PYTHONUTF[8]=|LC_AL[L]=)' \
+  "${SKILL_SCRIPT_FILES[@]}"
+assert_sweep_empty "primitives: no present/gone encoding in a skill-script test" "$PRIM_CONTROL" -- \
+  grep -nE 'echo (presen[t]|gon[e]|missin[g]|absen[t])' \
+  "${SKILL_SCRIPT_FILES[@]}"
+assert_sweep_empty "primitives: no covers header in a skill-script test (under_test declares the artefact)" "$PRIM_CONTROL" -- \
+  grep -nE '# cover[s]:' \
+  "${SKILL_SCRIPT_FILES[@]}"
+for f in "${SKILL_SCRIPT_FILES[@]}"; do
+  assert_file_matches "$f" '(under_test|py_module)[[:space:]]+[.a-z]' "primitives: $f names the artefact it covers through under_test"
+done
 
 finish

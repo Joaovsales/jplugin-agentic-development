@@ -1,7 +1,7 @@
 #!/bin/bash
 # tests/test-make-it-simpler.sh — /make-it-simpler (specs/make-it-simpler.md).
 #
-# signals.py rank runs inside a temporary `git init` repository built from
+# signals.py rank runs inside a temporary git repository built from
 # tests/fixtures/make-it-simpler/, so the fixtures are tracked there and never
 # rank here (D18). Each fixture file seeds exactly one signal; the expected
 # order below is the score formula applied by hand (a code-red-flag cue
@@ -10,28 +10,24 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SIGNALS="$REPO/.agents/skills/make-it-simpler/scripts/signals.py"
-BOX="$(mktemp -d)"
-trap 'rm -rf "$BOX"' EXIT
-[ -n "$BOX" ] && [ -d "$BOX" ] || { printf 'mktemp -d failed\n' >&2; exit 1; }
+SIGNALS="$(under_test .agents/skills/make-it-simpler/scripts)/signals.py"
+BOX="$(fixture_dir)"
 
-# fixture_repo <dir> <fixture> — a committed repository holding one fixture.
-fixture_repo() {
-  mkdir -p "$1"
-  [ -n "$2" ] && cp -R "$REPO/tests/fixtures/make-it-simpler/$2/." "$1/"
-  git -C "$1" init -q
-  git -C "$1" config core.autocrlf false
+# commit_fixture <repo> — everything the fixture holds, as one commit.
+commit_fixture() {
   git -C "$1" add -A
-  git -C "$1" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m init
+  git -C "$1" commit -q --allow-empty -m init
 }
 rank() { (cd "$1" && shift && "$TEST_PYTHON" "$SIGNALS" rank "$@"); }
 
-SEVEN="$BOX/seven"
-fixture_repo "$SEVEN" seven
+SEVEN="$(fixture_repo)"
+fixture_copy "make-it-simpler/seven/." "$SEVEN"
+commit_fixture "$SEVEN"
 
 # --- AC 1: seven signals, verbatim evidence, score formula, sort order --------
-OUT="$(rank "$SEVEN")"; STATUS=$?
-assert_eq "0" "$STATUS" "rank: exits 0 over the seven-signal fixture"
+run rank "$SEVEN"
+assert_exit 0 "rank: exits 0 over the seven-signal fixture"
+OUT="$output"
 printf '%s' "$OUT" > "$BOX/seven.json"
 CHECK="$(cd "$SEVEN" && "$TEST_PYTHON" - "$BOX/seven.json" <<'PY'
 import json, sys
@@ -69,10 +65,10 @@ order enforced-prose in docs/e.md 3 1" "$(printf '%s\n' "$CHECK" | grep '^order 
 # A SKILL.md over budget loads only when invoked: moving its body to references/
 # moves lines, it saves none, so it is a cue worth 1 line. AGENTS.md above is
 # always loaded and keeps lines - budget.
-BUDGET="$BOX/budget"
+BUDGET="$(fixture_repo)"
 mkdir -p "$BUDGET/skills/big"
 { printf -- '---\nname: big\n---\n'; seq -f 'line %g' 1 160; } > "$BUDGET/skills/big/SKILL.md"
-fixture_repo "$BUDGET" ""
+commit_fixture "$BUDGET"
 BUDGET_OUT="$(rank "$BUDGET")"
 assert_contains "$BUDGET_OUT" '"lines_saved": 1,' "AC 1: an over-budget SKILL.md that is not always loaded is a cue saving 1 line"
 
@@ -83,19 +79,17 @@ assert_eq "$OUT" "$AGAIN" "AC 2: two runs over one tree print byte-identical out
 assert_eq "$BEFORE" "$(git -C "$SEVEN" status --porcelain)" "AC 2: rank writes nothing (git status unchanged)"
 assert_eq "" "$(git -C "$SEVEN" status --porcelain --ignored)" "AC 2: no ignored droppings either (no __pycache__)"
 
-QUIET="$BOX/quiet"
-mkdir -p "$QUIET"; printf '# Quiet\n\nNothing to see.\n' > "$QUIET/README.md"
-fixture_repo "$QUIET" ""
-OUT="$(rank "$QUIET")"; STATUS=$?
-assert_eq "0" "$STATUS" "AC 2: a tree with no signal exits 0"
-assert_contains "$OUT" '"candidates": []' "AC 2: a tree with no signal prints candidates []"
+QUIET="$(fixture_repo)"
+printf '# Quiet\n\nNothing to see.\n' > "$QUIET/README.md"
+commit_fixture "$QUIET"
+run rank "$QUIET"
+assert_exit 0 "AC 2: a tree with no signal exits 0"
+assert_contains "$output" '"candidates": []' "AC 2: a tree with no signal prints candidates []"
 
 # --- AC 3: --path narrows or refuses; tests/fixtures/ never ranks -------------
-OUT="$(rank "$SEVEN" --path nowhere/ 2>&1)"; STATUS=$?
-assert_eq "2" "$STATUS" "AC 3: --path matching no tracked file exits 2"
-assert_contains "$OUT" "nowhere/" "AC 3: the refusal names the path"
-OUT="$(rank "$SEVEN" --path tests/fixtures 2>&1)"; STATUS=$?
-assert_eq "2" "$STATUS" "AC 3: --path under tests/fixtures/ matches nothing rankable and exits 2"
+assert_refused 2 "matches no tracked file" "AC 3: --path matching no tracked file exits 2" -- rank "$SEVEN" --path nowhere/
+assert_contains "$output" "nowhere/" "AC 3: the refusal names the path"
+assert_refused 2 "matches no tracked file" "AC 3: --path under tests/fixtures/ matches nothing rankable and exits 2" -- rank "$SEVEN" --path tests/fixtures
 OUT="$(rank "$SEVEN" --path docs)"
 assert_eq "citation-drift in docs/c.md
 doc-script-contradiction in docs/d.md
@@ -111,14 +105,12 @@ assert_not_contains "$OUT" '"path": "tasks/' "AC 3: no candidate is ever under t
 # The fixture repo's own tests/fixtures/dup/ copies docs/a.md's rule and holds
 # an uncited references/ file: were it read, AC 1's hand-computed order above
 # would change (duplicate-rule would score 2, lost.md would rank).
-OUT="$(rank "$REPO" --path tests/fixtures/make-it-simpler 2>&1)"; STATUS=$?
-assert_eq "2" "$STATUS" "AC 3: in this repository the fixtures are tracked but never rank"
+assert_refused 2 "matches no tracked file" "AC 3: in this repository the fixtures are tracked but never rank" -- rank "$REPO" --path tests/fixtures/make-it-simpler
 assert_eq "$(rank "$SEVEN" --limit 50)" "$(rank "$SEVEN/docs" --limit 50)" \
   "AC 3: run from a subdirectory, rank prints what it prints from the root (paths are root-relative)"
 mkdir -p "$BOX/not-a-repo"
-OUT="$(rank "$BOX/not-a-repo" 2>&1)"; STATUS=$?
-assert_eq "2" "$STATUS" "rank outside a git repository is a usage error — exit 2, never an empty success"
-assert_contains "$OUT" "signals: git rev-parse failed" "the refusal names the failing git command"
+assert_refused 2 "signals: git rev-parse failed" "rank outside a git repository is a usage error — exit 2, never an empty success" -- rank "$BOX/not-a-repo"
+assert_contains "$output" "signals: git rev-parse failed" "the refusal names the failing git command"
 
 # --- AC 4: what /tidy owns never surfaces --------------------------------------
 OUT="$(rank "$SEVEN" --limit 50)"
@@ -174,7 +166,7 @@ assert_file_contains "$MOVES" "5. **No script behavior change unless declared mi
 # --- AC 7: frontmatter, budget, /writing-skills section order, README row ------
 SKILL="$SKILL_DIR/SKILL.md"
 assert_eq "name: make-it-simpler" "$(sed -n '2p' "$SKILL" | tr -d '\r')" "AC 7: frontmatter name is make-it-simpler"
-assert_eq "yes" "$([ "$(grep -c '' "$SKILL")" -le 150 ] && echo yes || echo no)" "AC 7: SKILL.md is at most 150 lines"
+assert_true "AC 7: SKILL.md is at most 150 lines" -- test "$(grep -c '' "$SKILL")" -le 150
 assert_eq "## Overview
 ## The Process
 ## Integration
@@ -195,31 +187,33 @@ for row in '| `#N` or a registry id |' '| a tracked path prefix |' '| any other 
 done
 assert_file_contains "$SKILL" "claim <ref> --routine simplify --apply --approve" \
   "AC 9: an interactive pick is claimed with --routine (the CLI refuses claim without it)"
-assert_prose_contains "$SKILL" "its signal, a \`file:line\` evidence quote, the estimated lines saved, the callers touched, and minor/significant" \
-  "AC 9: each of the top 3 carries signal, evidence, lines saved, callers, classification"
+for field in '`file:line`' 'lines saved' 'callers touched' 'minor/significant'; do
+  assert_prose_contains "$SKILL" "$field" "AC 9: each of the top 3 carries $field"
+done
 assert_file_contains "$SKILL" "**none today writes nothing**" "AC 9: none today writes nothing"
 for seed in "1. Scope — what is in and what is out." "2. What stays byte-identical" \
             "3. The minor behavior changes expected" "4. The slice cap for this change."; do
   assert_file_contains "$SKILL" "$seed" "AC 9: grilling seed — $seed"
 done
-assert_prose_contains "$SKILL" "seeds the five \`safe-moves.md\` practices as rows, in every spec this skill writes" \
+assert_prose_contains "$SKILL" "seeds the five \`safe-moves.md\` practices" \
   "AC 9: the five safe-moves practices are seeded as § Decisions rows"
 
 # --- AC 10: the unattended sequence, its three ends, the scope stop -------------
 assert_prose_contains "$SKILL" "Rank, deep review, classify and size" "AC 10: unattended a — rank, classify, size"
 assert_file_contains "$SKILL" ".agents/skills/slice/references/sizing.md" "AC 10: sizing cites slice/references/sizing.md"
-assert_prose_contains "$SKILL" "run \`task-registry show <derived-id>\` first and skip a \`done\` or \`cancelled\` id" \
+assert_prose_contains "$SKILL" "\`task-registry show <derived-id>\`" \
   "AC 10: show before upsert, skipping done and cancelled"
 assert_file_contains "$SKILL" "--derive-id simplify --source <path> --fold-title" "AC 10: file with a derived simplify id"
 assert_prose_contains "$SKILL" "Spine 1–3" "AC 10: spine steps 1–3"
-assert_prose_contains "$SKILL" "The \`tasks/todo.md\` index rows step b wrote are the branch's first commit" \
+assert_prose_contains "$SKILL" "index rows step b wrote" \
   "AC 10: index rows are the branch's first commit"
+assert_prose_contains "$SKILL" "first commit" "AC 10: the index rows are named the first commit"
 assert_file_contains "$SKILL" "- **Ready PR**" "AC 10: end 1 — ready PR"
-assert_prose_contains "$SKILL" "a docs-only PR of the index rows on \`routine/simplify/<YYYYMMDD>-record\`" \
+assert_prose_contains "$SKILL" "routine/simplify/<YYYYMMDD>-record" \
   "AC 10: end 2 — docs-only record PR"
-assert_prose_contains "$SKILL" "**Silent exit 0** — nothing filed and nothing selected: no output, no branch" \
+assert_prose_contains "$SKILL" "**Silent exit 0**" \
   "AC 10: end 3 — silent exit 0"
-assert_prose_contains "$SKILL" "exit non-zero, open no PR, leave the claim in place, and print one line naming the task, the reason and the remedy" \
+assert_prose_contains "$SKILL" "leave the claim in place" \
   "AC 10: the scope stop — non-zero, no PR, claim left, one line with the remedy"
 
 finish

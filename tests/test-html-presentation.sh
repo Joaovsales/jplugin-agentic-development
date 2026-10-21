@@ -15,21 +15,15 @@ set -u
 . "$(dirname "$0")/lib.sh"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CANONICAL="$REPO_ROOT/.agents/skills/html-presentation/scripts/generate-presentation.py"
+CANONICAL="$(under_test .agents/skills/html-presentation/scripts)/generate-presentation.py"
 
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
 
-# Runs the generator under the hostile default encoding, piping $2 in on stdin.
-# Dumps the child's own output when it exits non-zero, so a red CI run carries
-# the traceback instead of a bare exit code. Sets $RC; never aborts under set -u.
-run_stdin() {
-  local script="$1" input="$2" out="$3" log="$TMP/run.log"
-  PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$script" --markdown - -o "$out" \
-    <"$input" >"$log" 2>&1
-  RC=$?
-  [ "$RC" -eq 0 ] || { printf '       --- generator output ---\n'; sed 's/^/       /' "$log"; }
-  LOG_TEXT="$(cat "$log")"
+# The generator under the hostile default encoding, <input> piped in on stdin:
+# `run gen_stdin <script> <input> <out>`, then judge it with assert_exit, which
+# prints the child's own output when it fails.
+gen_stdin() {
+  PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$1" --markdown - -o "$3" <"$2"
 }
 
 # --- 0. The method itself, asserted -------------------------------------------
@@ -59,8 +53,8 @@ MD_EOF
 # plugin, so this run is what catches a drift in generate-presentation.py's output.
 for TREE in ".agents"; do
   OUT="$TMP/stdin-$TREE.html"
-  run_stdin "$REPO_ROOT/$TREE/skills/html-presentation/scripts/generate-presentation.py" "$MD" "$OUT"
-  assert_eq "0" "$RC" "($TREE) stdin path exits 0 under a non-UTF-8 default encoding"
+  run gen_stdin "$REPO_ROOT/$TREE/skills/html-presentation/scripts/generate-presentation.py" "$MD" "$OUT"
+  assert_exit 0 "($TREE) stdin path exits 0 under a non-UTF-8 default encoding"
 
   assert_file_contains "$OUT" "┌──────────────┐" "($TREE) stdin: box rule survives verbatim"
   assert_file_contains "$OUT" "stdin → HTML" "($TREE) stdin: arrow survives verbatim"
@@ -72,10 +66,8 @@ done
 # needle that stopped rendering at all would satisfy the absence check in § 2 for
 # the wrong reason.
 FILE_OUT="$TMP/file.html"
-PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$CANONICAL" --markdown "$MD" -o "$FILE_OUT" >"$TMP/file.log" 2>&1
-FILE_RC=$?
-[ "$FILE_RC" -eq 0 ] || sed 's/^/       /' "$TMP/file.log"
-assert_eq "0" "$FILE_RC" "file path exits 0 under a non-UTF-8 default encoding"
+assert_exit 0 "file path exits 0 under a non-UTF-8 default encoding" -- \
+  env PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$CANONICAL" --markdown "$MD" -o "$FILE_OUT"
 assert_file_contains "$FILE_OUT" "┌──────────────┐" "file path: box rule survives verbatim"
 assert_file_contains "$FILE_OUT" "stdin → HTML" "file path: arrow survives verbatim"
 
@@ -87,8 +79,8 @@ assert_file_contains "$FILE_OUT" "stdin → HTML" "file path: arrow survives ver
 MOJI="$TMP/moji.md"
 printf '# Pr\xc3\xaat \xc3\xa0 rendre\n\nUn tiret \xe2\x80\x94 cadratin.\n' >"$MOJI"
 MOJI_OUT="$TMP/moji.html"
-run_stdin "$CANONICAL" "$MOJI" "$MOJI_OUT"
-assert_eq "0" "$RC" "mojibake fixture: exits 0"
+run gen_stdin "$CANONICAL" "$MOJI" "$MOJI_OUT"
+assert_exit 0 "mojibake fixture: exits 0"
 assert_file_contains "$MOJI_OUT" "Prêt à rendre" "mojibake fixture: accented text survives verbatim"
 assert_file_contains "$MOJI_OUT" "tiret — cadratin" "mojibake fixture: em-dash survives verbatim"
 assert_not_contains "$(cat "$MOJI_OUT")" "Ãª" "mojibake fixture: no cp1252-mangled ê in output"
@@ -100,8 +92,8 @@ assert_not_contains "$(cat "$MOJI_OUT")" "â€" "mojibake fixture: no cp1252-ma
 BOM="$TMP/bom.md"
 printf '\xef\xbb\xbf# Titre avec BOM\n\nCorps du document.\n\n## Section Un\n\nContenu.\n' >"$BOM"
 BOM_OUT="$TMP/bom.html"
-run_stdin "$CANONICAL" "$BOM" "$BOM_OUT"
-assert_eq "0" "$RC" "BOM fixture: exits 0"
+run gen_stdin "$CANONICAL" "$BOM" "$BOM_OUT"
+assert_exit 0 "BOM fixture: exits 0"
 assert_file_contains "$BOM_OUT" "<title>Titre avec BOM</title>" "BOM fixture: BOM'd H1 becomes the title"
 assert_file_contains "$BOM_OUT" "Section Un" "BOM fixture: sections after a BOM'd H1 survive"
 assert_not_contains "$(cat "$BOM_OUT")" "<title>Presentation</title>" \
@@ -114,13 +106,10 @@ assert_not_contains "$(cat "$BOM_OUT")" "<title>Presentation</title>" \
 BAD="$TMP/bad.md"
 printf '# Titre\n\nCaf\xe9 en latin-1.\n' >"$BAD"
 BAD_OUT="$TMP/bad.html"
-PYTHONIOENCODING=cp1252 "$TEST_PYTHON" "$CANONICAL" --markdown - -o "$BAD_OUT" \
-  <"$BAD" >"$TMP/bad.log" 2>&1
-BAD_RC=$?
-assert_eq "1" "$BAD_RC" "invalid UTF-8 on stdin: exits non-zero rather than mangling"
-assert_contains "$(cat "$TMP/bad.log")" "UnicodeDecodeError" \
+assert_refused 1 "UnicodeDecodeError" "invalid UTF-8 on stdin: exits non-zero rather than mangling" -- \
+  gen_stdin "$CANONICAL" "$BAD" "$BAD_OUT"
+assert_contains "$output" "UnicodeDecodeError" \
   "invalid UTF-8 on stdin: failure names the decoding problem"
-if [ -f "$BAD_OUT" ]; then BAD_ARTIFACT="present"; else BAD_ARTIFACT="absent"; fi
-assert_eq "absent" "$BAD_ARTIFACT" "invalid UTF-8 on stdin: wrote no artifact"
+assert_file_absent "$BAD_OUT" "invalid UTF-8 on stdin: wrote no artifact"
 
 finish

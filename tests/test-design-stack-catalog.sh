@@ -3,8 +3,8 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-box="$(mktemp -d)"
-trap 'rm -rf "$box"' EXIT
+py_module .agents/skills/design-stack/scripts
+box="$(fixture_dir)"
 mkdir -p "$box/sources/taste/skills/soft-skill" \
   "$box/sources/taste/skills/new-style" \
   "$box/sources/references/design-md/example" \
@@ -53,7 +53,8 @@ JSON
 
 printf '\n--- dynamic catalog and selection ---\n'
 export DESIGN_STACK_FIXTURE="$box" DESIGN_STACK_REPO="$REPO"
-out="$("$TEST_PYTHON" - <<'PY' 2>&1
+catalog_contract() {
+"$TEST_PYTHON" - <<'PY'
 import importlib.util
 import json
 import os
@@ -172,8 +173,9 @@ else:
     raise AssertionError("a HyperFrames tool was accepted as a reference")
 print("catalog and selection passed")
 PY
-)"; code=$?
-assert_eq 0 "$code" "$out"
+}
+run catalog_contract
+assert_exit 0 "catalog and selection: build_catalog and select_direction contract"
 
 printf '\n--- offline browsable CLI ---\n'
 release_id="$(printf '%064d' 0)"
@@ -185,9 +187,9 @@ cp -a "$box/.agents/skills/impeccable" "$release/.agents/skills/"
 printf 'Taste\n' > "$release/.agents/skills/taste/SKILL.md"
 printf 'Impeccable\n' > "$release/.agent/skills/impeccable/SKILL.md"
 for source in taste impeccable references three hyperframes; do
-  git -C "$release/sources/$source" init -q
+  cp -a "$(fixture_repo)/.git" "$release/sources/$source/"
   git -C "$release/sources/$source" add .
-  git -C "$release/sources/$source" -c user.name=Test -c user.email=test@example.invalid commit -qm fixture
+  git -C "$release/sources/$source" commit -qm fixture
 done
 export DESIGN_STACK_HOME="$box/home" DESIGN_STACK_RELEASE_ID="$release_id"
 "$TEST_PYTHON" - <<'PY'
@@ -205,34 +207,33 @@ sources = {name: subprocess.check_output(
     "catalog_path": str(release / "sources"), "sources": sources}))
 PY
 export DESIGN_STACK_TASTE_URL="$box/no-network-source"
-CLI="$REPO/.agents/skills/design-stack/scripts/design_stack.py"
-out="$("$TEST_PYTHON" "$CLI" catalog 2>&1)"; code=$?
-assert_eq 0 "$code" "catalog command reads the verified release offline"
-assert_contains "$out" 'taste:future-style:ribbon-columns' "new archetype is browsable"
-assert_contains "$out" 'reference:future' "new reference is browsable"
-assert_contains "$out" 'impeccable:critique' "installed Impeccable command is a tool"
-assert_contains "$out" 'hyperframes:motion-graphics' "HyperFrames skill is a browsable tool"
-out="$("$TEST_PYTHON" "$CLI" catalog --json 2>&1)"; code=$?
-assert_eq 0 "$code" "JSON catalog is available for tooling"
-assert_contains "$out" '"source_revision"' "JSON entries carry source revisions"
-out="$("$TEST_PYTHON" "$CLI" select --direction taste:new-style \
+CLI="$(under_test .agents/skills/design-stack/scripts)/design_stack.py"
+run "$TEST_PYTHON" "$CLI" catalog
+assert_exit 0 "catalog command reads the verified release offline"
+assert_contains "$output" 'taste:future-style:ribbon-columns' "new archetype is browsable"
+assert_contains "$output" 'reference:future' "new reference is browsable"
+assert_contains "$output" 'impeccable:critique' "installed Impeccable command is a tool"
+assert_contains "$output" 'hyperframes:motion-graphics' "HyperFrames skill is a browsable tool"
+run "$TEST_PYTHON" "$CLI" catalog --json
+assert_exit 0 "JSON catalog is available for tooling"
+assert_contains "$output" '"source_revision"' "JSON entries carry source revisions"
+run "$TEST_PYTHON" "$CLI" select --direction taste:new-style \
   --reference reference:future --custom-brief 'Keep current typography' \
-  --use-case dashboard 2>&1)"; code=$?
-assert_eq 0 "$code" "owner selection accepts one direction, a reference and custom text"
-assert_contains "$out" 'Keep current typography' "custom brief is retained"
-out="$("$TEST_PYTHON" "$CLI" select --direction taste:soft-skill \
-  --use-case 'financial dashboard' 2>&1)"; code=$?
-assert_eq 1 "$code" "unsuitable choice shows a fit warning"
-assert_contains "$out" 'Fit warning' "warning names the mismatch"
-out="$("$TEST_PYTHON" "$CLI" select --direction taste:soft-skill \
-  --use-case 'financial dashboard' --override-fit 2>&1)"; code=$?
-assert_eq 0 "$code" "owner override accepts the warned choice"
+  --use-case dashboard
+assert_exit 0 "owner selection accepts one direction, a reference and custom text"
+assert_contains "$output" 'Keep current typography' "custom brief is retained"
+assert_refused 1 'Fit warning' "unsuitable choice shows a fit warning" -- \
+  "$TEST_PYTHON" "$CLI" select --direction taste:soft-skill --use-case 'financial dashboard'
+assert_contains "$output" 'Fit warning' "warning names the mismatch"
+run "$TEST_PYTHON" "$CLI" select --direction taste:soft-skill \
+  --use-case 'financial dashboard' --override-fit
+assert_exit 0 "owner override accepts the warned choice"
 
 printf '\n--- hyperframes-select ---\n'
-out="$("$TEST_PYTHON" "$CLI" select --direction hyperframes:motion-graphics 2>&1)"; code=$?
-assert_eq 1 "$code" "a HyperFrames tool is refused as the primary direction"
-assert_contains "$out" 'SelectionRejected' "the direction refusal is named"
-out="$("$TEST_PYTHON" "$CLI" select --direction custom --reference hyperframes:hyperframes 2>&1)"; code=$?
-assert_eq 1 "$code" "a HyperFrames tool is refused as a reference"
-assert_contains "$out" 'SelectionRejected' "the reference refusal is named"
+assert_refused 1 'SelectionRejected' "a HyperFrames tool is refused as the primary direction" -- \
+  "$TEST_PYTHON" "$CLI" select --direction hyperframes:motion-graphics
+assert_contains "$output" 'SelectionRejected' "the direction refusal is named"
+assert_refused 1 'SelectionRejected' "a HyperFrames tool is refused as a reference" -- \
+  "$TEST_PYTHON" "$CLI" select --direction custom --reference hyperframes:hyperframes
+assert_contains "$output" 'SelectionRejected' "the reference refusal is named"
 finish

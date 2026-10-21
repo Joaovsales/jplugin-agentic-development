@@ -2,8 +2,8 @@
 . "$(dirname "$0")/lib.sh"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 export DESIGN_STACK_REPO="$repo"
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+py_module .agents/skills/design-stack/scripts
+tmp="$(fixture_dir)"
 
 # ---------------------------------------------------------------- § guard
 mkdir -p "$tmp/release/sources/hyperframes/packages/cli"
@@ -11,7 +11,8 @@ printf '{"name": "hyperframes", "version": "1.2.3"}\n' > "$tmp/release/sources/h
 mkdir -p "$tmp/broken/sources/hyperframes/packages/cli"
 printf '{"name": "hyperframes"}\n' > "$tmp/broken/sources/hyperframes/packages/cli/package.json"
 export VIDEO_RELEASE="$tmp/release" VIDEO_BROKEN="$tmp/broken" VIDEO_MISSING="$tmp/missing"
-out="$("$TEST_PYTHON" - <<'PY' 2>&1
+video_guard() {
+"$TEST_PYTHON" - <<'PY'
 import os
 import sys
 from pathlib import Path
@@ -47,8 +48,9 @@ for bad in (os.environ["VIDEO_BROKEN"], os.environ["VIDEO_MISSING"]):
         raise AssertionError("cli_version must raise on a broken release")
 print("video opt-in, production gates and CLI pin passed")
 PY
-)"; code=$?
-assert_eq 0 "$code" "$out"
+}
+run video_guard
+assert_exit 0 "video guard: opt-in, production gates and CLI pin"
 
 # ---------------------------------------------------------------- § stale-manifest
 # A four-source manifest over a four-source release stays valid offline; an unknown source does not.
@@ -65,9 +67,9 @@ printf 'Three\n' > "$release/sources/three/SKILL.md"
 printf 'Taste\n' > "$release/.agents/skills/taste/SKILL.md"
 printf 'Impeccable\n' > "$release/.agent/skills/impeccable/SKILL.md"
 for source in taste impeccable references three; do
-  git -C "$release/sources/$source" init -q
+  cp -a "$(fixture_repo)/.git" "$release/sources/$source/"
   git -C "$release/sources/$source" add .
-  git -C "$release/sources/$source" -c user.name=Test -c user.email=test@example.invalid commit -qm fixture
+  git -C "$release/sources/$source" commit -qm fixture
 done
 export DESIGN_STACK_HOME="$home" DESIGN_STACK_RELEASE_ID="$release_id"
 write_manifest() {
@@ -89,19 +91,18 @@ if sys.argv[1] == "unknown":
     "catalog_path": str(release / "sources"), "sources": sources}))
 PY
 }
-CLI="$repo/.agents/skills/design-stack/scripts/design_stack.py"
+CLI="$(under_test .agents/skills/design-stack/scripts)/design_stack.py"
 write_manifest four
-out="$("$TEST_PYTHON" "$CLI" status 2>&1)"; code=$?
-assert_eq 0 "$code" "status accepts a four-source manifest: $out"
-assert_eq "Ready $release_id (offline; update adds: hyperframes)" "$out" "status names the source update adds"
-out="$("$TEST_PYTHON" "$CLI" catalog 2>&1)"; code=$?
-assert_eq 0 "$code" "catalog reads a four-source release offline: $out"
-assert_contains "$out" 'impeccable:impeccable' "four-source catalog lists the installed sources"
-assert_not_contains "$out" 'hyperframes:' "four-source catalog has no hyperframes entry"
+run "$TEST_PYTHON" "$CLI" status
+assert_exit 0 "status accepts a four-source manifest"
+assert_eq "Ready $release_id (offline; update adds: hyperframes)" "$output" "status names the source update adds"
+run "$TEST_PYTHON" "$CLI" catalog
+assert_exit 0 "catalog reads a four-source release offline"
+assert_contains "$output" 'impeccable:impeccable' "four-source catalog lists the installed sources"
+assert_not_contains "$output" 'hyperframes:' "four-source catalog has no hyperframes entry"
 write_manifest unknown
-out="$("$TEST_PYTHON" "$CLI" status 2>&1)"; code=$?
-assert_eq 1 "$code" "status refuses a manifest naming an unknown source"
-assert_contains "$out" 'unsupported design-stack manifest' "unknown source is named an unsupported manifest"
+assert_refused 1 'unsupported design-stack manifest' "status refuses a manifest naming an unknown source" -- "$TEST_PYTHON" "$CLI" status
+assert_contains "$output" 'unsupported design-stack manifest' "unknown source is named an unsupported manifest"
 
 # ---------------------------------------------------------------- § docs
 DS="$repo/.agents/skills/design-stack/SKILL.md"
@@ -113,7 +114,6 @@ assert_file_contains "$DS" 'hyperframes check' 'skill names the check gate comma
 assert_file_contains "$DS" 'prototype' 'skill names the prototype label'
 assert_file_contains "$BUILD" 'design-stack video guard' 'build names the video guard'
 assert_file_contains "$BUILD" 'design-stack 3D guard' 'build still names the 3D guard'
-"$TEST_PYTHON" "$repo/scripts/render-skills-table.py" --repo "$repo" --check > /dev/null 2>&1; code=$?
-assert_eq 0 "$code" 'README skills table is current'
+assert_exit 0 'README skills table is current' -- "$TEST_PYTHON" "$repo/scripts/render-skills-table.py" --repo "$repo" --check
 
 finish
