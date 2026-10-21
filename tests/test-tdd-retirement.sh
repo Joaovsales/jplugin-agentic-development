@@ -83,11 +83,7 @@ assert_file_contains "$LEARN" "skills/build" \
 
 # ── The skill is gone from both trees ────────────────────────────────────────
 for tree in $TREES; do
-  if [ -e "$tree/skills/tdd" ]; then
-    assert_eq "removed" "present" "Retire: $tree/skills/tdd removed"
-  else
-    assert_eq "removed" "removed" "Retire: $tree/skills/tdd removed"
-  fi
+  assert_file_absent "$tree/skills/tdd" "Retire: $tree/skills/tdd removed"
 done
 
 # ── /sync retires it downstream ──────────────────────────────────────────────

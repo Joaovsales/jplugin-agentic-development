@@ -13,20 +13,15 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 HOOK="$REPO/.agents/git-hooks/pre-push"
 ZERO="0000000000000000000000000000000000000000"
 
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
-
-# new_repo <name> — an initialised repo with one base commit on master.
+# new_repo <label> — an initialised repo with one base commit on master.
 # Ships a tracked tasks/todo.md carrying no session summary: this is a repo that
 # uses the workflow and simply has not wrapped up. A repo that does *not* use the
 # workflow is modelled by deleting that file (see the noworkflow fixture), which
 # is the signal the gate keys on.
 new_repo() {
-  d="$WORK/$1"
+  d="$(fixture_repo)"
   mkdir -p "$d/tasks"
-  git -C "$d" init -q -b master
-  git -C "$d" config user.email t@t.t
-  git -C "$d" config user.name t
+  git -C "$d" symbolic-ref HEAD refs/heads/master
   echo base > "$d/base.txt"
   printf '# Tasks\n\n## Plan: something\n' > "$d/tasks/todo.md"
   git -C "$d" add -A
@@ -59,11 +54,7 @@ commit_wrapup() {
 
 # assert_no_ledger <dir> <message> — the gate wrote no tasks/wrap-up-debt.md.
 assert_no_ledger() {
-  if [ -f "$1/tasks/wrap-up-debt.md" ]; then
-    assert_eq "absent" "present" "$2"
-  else
-    assert_eq "absent" "absent" "$2"
-  fi
+  assert_file_absent "$1/tasks/wrap-up-debt.md" "$2"
 }
 
 # run_hook <dir> <local-sha> <remote-sha> — drive the hook.
@@ -246,7 +237,7 @@ cp "$HOOK" "$D/hook"; chmod +x "$D/hook"
 if [ -f "$D/.invoked" ]; then
   assert_eq "none" "$(tr '\n' ' ' < "$D/.invoked")" "Hook: no network or tracker command invoked"
 else
-  assert_eq "none" "none" "Hook: no network or tracker command invoked"
+  pass "Hook: no network or tracker command invoked"
 fi
 
 # ── session-start surfaces the ledger for a human to file ────────────────────
@@ -295,7 +286,7 @@ if [ -d "$SLUGGY" ]; then
 fi
 
 # A heading carrying a single quote must not break the command the banner prints.
-QD="$(mktemp -d)"; mkdir -p "$QD/tasks"
+QD="$(fixture_dir)"; mkdir -p "$QD/tasks"
 cp "$REPO/.agents/hooks/session-start.sh" "$QD/session-start.sh"
 printf "# Wrap-Up Debt\n\n## feat/o'brien abc1234..def5678\n- Recorded: 2026-09-08\n" \
   > "$QD/tasks/wrap-up-debt.md"
@@ -319,11 +310,7 @@ assert_file_contains "$REPO/.agents/skills/sync/SKILL.md" \
 
 # The deprecated second pre-push script is gone: two pre-push scripts in one
 # tree is an invitation to edit the dormant one.
-if [ -f "$REPO/.agents/hooks/pre-push-guard.sh" ]; then
-  assert_eq "removed" "present" "Deprecated pre-push-guard.sh removed"
-else
-  assert_eq "removed" "removed" "Deprecated pre-push-guard.sh removed"
-fi
+assert_file_absent "$REPO/.agents/hooks/pre-push-guard.sh" "Deprecated pre-push-guard.sh removed"
 
 # ── Hostile fingerprint: option-shaped endpoint never reaches git ────────────
 # tasks/todo.md is attacker-controllable in a cloned repo. An endpoint starting

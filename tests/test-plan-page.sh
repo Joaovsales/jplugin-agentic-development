@@ -21,8 +21,7 @@ PY="${PLAN_PAGE_PYTHON:-$TEST_PYTHON}"
 CHANNEL=()
 [ -n "${PLAN_PAGE_CHANNEL:-}" ] && CHANNEL=(--channel "$PLAN_PAGE_CHANNEL")
 
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
 SHOTS="${PLAN_PAGE_SHOTS:-$TMP/shots}"
 
 if ! "$PY" -c 'import playwright' >/dev/null 2>&1; then

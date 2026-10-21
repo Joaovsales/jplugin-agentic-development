@@ -8,15 +8,11 @@
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="$REPO/.agents/skills/build/scripts/cached-suite.sh"
-BOX="$(mktemp -d)"
-trap 'rm -rf "$BOX"' EXIT
-[ -n "$BOX" ] && [ -d "$BOX" ] || { printf 'mktemp -d failed\n' >&2; exit 1; }
+BOX="$(fixture_dir)"
 
 # A fixture repository with one committed file and one ignored path. The
 # command under test lives outside it, so running it never changes the tree.
-FIX="$BOX/repo"
-mkdir -p "$FIX"
-git -C "$FIX" init -q
+FIX="$(fixture_repo)"
 printf 'one\n' > "$FIX/file.txt"
 printf 'ignored.txt\n' > "$FIX/.gitignore"
 git -C "$FIX" add -A
@@ -151,7 +147,7 @@ assert_contains "$OUT" "since " "concurrent: names when it started"
 assert_eq "$BEFORE" "$(runs)" "concurrent: the second command started nothing"
 : > "$BOX/release"
 wait "$SLOW"
-assert_eq "no" "$([ -e "$COMMON/cached-suite/lock" ] && echo yes || echo no)" \
+assert_file_absent "$COMMON/cached-suite/lock" \
   "concurrent: the lock is removed when the run exits"
 
 DEAD="$(bash -c 'printf %s $$')"
@@ -160,7 +156,7 @@ printf '%s 2026-01-01T00:00:00Z\n' "$DEAD" > "$COMMON/cached-suite/lock/owner"
 OUT="$(cached reclaimed)"; STATUS=$?
 assert_eq "0" "$STATUS" "stale lock: a dead pid's lock is reclaimed"
 assert_contains "$OUT" "ran reclaimed" "stale lock: the command runs"
-assert_eq "no" "$([ -e "$COMMON/cached-suite/lock" ] && echo yes || echo no)" \
+assert_file_absent "$COMMON/cached-suite/lock" \
   "stale lock: the reclaimed lock is removed on exit"
 
 # A lock with no owner yet is a run between mkdir and its owner write: fresh,

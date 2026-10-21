@@ -89,7 +89,7 @@ print(" ".join(re.findall(r"\"([a-z]+)\"", re.search(r"COMMANDS = \((.*?)\)", sr
 ')"
 for sub in $(grep -oE 'task-registry [a-z]+' "$SWEEP" | awk '{print $2}' | sort -u); do
   case " $commands " in
-    *" $sub "*) assert_eq "$sub" "$sub" "AC3: /sweep names a real subcommand: $sub" ;;
+    *" $sub "*) pass "AC3: /sweep names a real subcommand: $sub" ;;
     *) assert_eq "one of: $commands" "$sub" "AC3: /sweep names a real subcommand: $sub" ;;
   esac
 done

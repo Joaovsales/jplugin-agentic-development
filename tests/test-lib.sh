@@ -254,6 +254,102 @@ assert_file_matches "$REPO/AGENTS.md" '^Expected failures: tests/expected-failur
 assert_precedes "$(flatten "$REPO/AGENTS.md")" "Affected tests: " "Expected failures: " \
   "baseline: the pointer sits with the other test lines below the end marker"
 
+# --- § cases: begin_case, end_case and TEST_CASE (D4) ------------------------
+# A case is a named run of assertions inside one file. begin_case prints a
+# header and starts a count; end_case prints the count; TEST_CASE=<glob> keeps
+# only the cases whose name matches. No setup or teardown belongs to a case.
+CASE_ALPHA=('begin_case "alpha"' 'assert_eq a a "alpha one"' 'assert_eq a b "alpha two"' 'end_case')
+CASE_BETA=('begin_case "beta"' 'assert_eq a a "beta one"' 'end_case')
+run_case cases.sh "${CASE_ALPHA[@]}" "${CASE_BETA[@]}" 'assert_eq a a "after"' 'finish'
+assert_contains "$out" "== case: alpha" "cases: begin_case prints a header naming the case"
+assert_contains "$out" "== alpha: 1 passed, 1 failed" "cases: end_case prints the case's own count"
+assert_contains "$out" "== beta: 1 passed, 0 failed" "cases: the next case starts its own count"
+assert_contains "$out" "  -> 3 passed, 1 failed, 0 xfail, 0 skipped" "cases: the trailer still counts every assertion of the file"
+assert_contains "$out" "[case: alpha]" "cases: a failure inside a case names the case"
+assert_eq "1" "$st" "cases: a failed assertion inside a case fails the file"
+
+TEST_CASE=beta run_case cases-beta.sh "${CASE_ALPHA[@]}" "${CASE_BETA[@]}" 'assert_eq a a "after"' 'finish'
+assert_eq "0" "$st" "TEST_CASE: a case whose name does not match is not run, so its failure is not one"
+assert_contains "$out" "== alpha: filtered out by TEST_CASE=beta" "TEST_CASE: a filtered case says so"
+assert_not_contains "$out" "alpha two" "TEST_CASE: a filtered case's assertion prints nothing"
+assert_contains "$out" "  -> 2 passed, 0 failed, 0 xfail, 0 skipped" "TEST_CASE: the matching case and an assertion outside any case are counted"
+
+TEST_CASE='al*' run_case cases-glob.sh "${CASE_ALPHA[@]}" "${CASE_BETA[@]}" 'finish'
+assert_contains "$out" "== beta: filtered out by TEST_CASE=al*" "TEST_CASE: the filter is a glob, not a literal"
+assert_contains "$out" "== alpha: 1 passed, 1 failed" "TEST_CASE: a glob that matches keeps the case"
+
+# begin_case returns 1 for a filtered case, so a file can wrap a case's whole
+# body in `if` and the work of an unselected case is never done.
+WRAPPED=('if begin_case "alpha"; then' ": > \"$BOX/ran-alpha\"" 'assert_eq a a "wrapped"' 'fi' 'end_case')
+TEST_CASE=beta run_case cases-wrapped.sh "${WRAPPED[@]}" "${CASE_BETA[@]}" 'finish'
+assert_file_absent "$BOX/ran-alpha" "TEST_CASE: the body of a wrapped, unselected case does not run"
+run_case cases-wrapped.sh "${WRAPPED[@]}" "${CASE_BETA[@]}" 'finish'
+assert_file_exists "$BOX/ran-alpha" "cases: the body of a wrapped case runs when no filter is set"
+
+# Nothing matched: the file asserted nothing on purpose, which is not a failure.
+TEST_CASE=nothing-matches run_case cases-none.sh "${CASE_ALPHA[@]}" 'finish'
+assert_eq "0" "$st" "TEST_CASE: a file in which no case matches exits 0"
+assert_contains "$out" "TEST_CASE=nothing-matches matched no case" "TEST_CASE: the output names the filter that kept every case out"
+TEST_CASE=beta run_case cases-after.sh "${WRAPPED[@]}" 'assert_eq a a "after a filtered case"' "${CASE_BETA[@]}" 'finish'
+assert_contains "$out" "after a filtered case" "TEST_CASE: end_case after the fi returns the file to its own level, so a later assertion counts"
+run_case cases-unfiltered.sh 'finish'
+assert_eq "1" "$st" "TEST_CASE unset: a file with no assertions still fails"
+
+# A case never ended is closed by the next begin_case and by finish.
+run_case cases-open.sh 'begin_case "one"' 'assert_eq a a "x"' 'begin_case "two"' 'assert_eq a a "y"' 'finish'
+assert_contains "$out" "== one: 1 passed, 0 failed" "cases: begin_case closes a case that was never ended"
+assert_contains "$out" "== two: 1 passed, 0 failed" "cases: finish closes the last open case"
+
+# The trailer is the only line run.sh tallies, and it starts with two spaces and
+# an arrow; no case line may.
+run_case cases-lines.sh "${CASE_ALPHA[@]}" 'finish'
+assert_eq "1" "$(printf '%s\n' "$out" | grep -c '^  -> ')" "cases: exactly one line of the output is a trailer"
+
+# --- § invariants: the suite-wide rules (AC 17) ------------------------------
+# A test file states WHAT it checks and leaves HOW to the library, so no file of
+# tests/ keeps counter arithmetic of its own, a present/gone encoding, a literal
+# assert_eq pair, a temp directory it made itself or a repository it initialised
+# itself. Each sweep runs against a control line that carries its pattern, so an
+# empty sweep cannot be a pattern that stopped matching. The patterns put one
+# character in a bracket so this file does not match itself.
+TEST_FILES=("$REPO"/tests/test-*.sh)
+INV_CONTROL="$(fixture_dir)/control.sh"
+assert_invariant() {  # <label> <control line> <ERE pattern> <root>...
+  local label="$1" control="$2" pattern="$3"; shift 3
+  printf '%s\n' "$control" > "$INV_CONTROL"
+  assert_sweep_empty "invariant: $label" "$INV_CONTROL" -- grep -nE -e "$pattern" "$@"
+}
+assert_invariant "no counter arithmetic outside the library" \
+  '_TES''TS=$((_TES''TS + 1))' '_(TEST[S]|FAIL[S])=[$][(][(]' "${TEST_FILES[@]}"
+assert_invariant "no present/gone encoding" \
+  '[ -f x ] && ec''ho present || ec''ho absent' 'echo presen[t] [|][|] echo|&& echo [a-z]+ [|][|] echo [a-z]+' "${TEST_FILES[@]}"
+assert_invariant "no literal assert_eq pair" \
+  'assert_e''q "valid" "valid" "msg"' 'assert_e[q] "([^"]+)" "\1"' "${TEST_FILES[@]}"
+assert_invariant "no temp directory made outside the library" \
+  'BOX="$(mkt''emp -d)"' 'mktem[p] -d' "${TEST_FILES[@]}"
+
+# Initialising a repository belongs to the library's fixture_repo. The four files
+# below are tests OF git behaviour, so each keeps the repository it creates itself:
+GIT_SUBJECT_TESTS=(
+  test-codex-install.sh      # the installer scaffolds a project from a checkout
+  test-install-sh.sh         # the scaffold fixtures whose paths contain spaces
+  test-publish-evidence.sh   # a bare remote the evidence is published to
+  test-session-stop.sh       # a bare remote the unpushed-commit warning reads
+)
+GIT_INIT='(git|GIT")( -C [^ ]+)? ini[t]'
+OTHER_TESTS=()
+for f in "${TEST_FILES[@]}"; do
+  keep=1
+  for g in "${GIT_SUBJECT_TESTS[@]}"; do [ "$g" = "${f##*/}" ] && keep=0; done
+  [ "$keep" -eq 0 ] || OTHER_TESTS+=("$f")
+done
+assert_invariant "a repository is initialised only inside a test of git behaviour" \
+  'git -C "$d" ini''t -q' "$GIT_INIT" "${OTHER_TESTS[@]}"
+for g in "${GIT_SUBJECT_TESTS[@]}"; do
+  assert_true "invariant: $g still initialises a repository itself, so its allowlist entry is needed" -- \
+    grep -qE -e "$GIT_INIT" "$REPO/tests/$g"
+done
+
 # The counters are written in exactly two places: pass and fail. Every other
 # line of the library that names them only reads.
 WRITERS="$(awk '

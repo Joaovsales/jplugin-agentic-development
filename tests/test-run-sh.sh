@@ -6,8 +6,7 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-BOX="$(mktemp -d)"
-trap 'rm -rf "$BOX"' EXIT
+BOX="$(fixture_dir)"
 
 # A miniature repo: the real runner and library plus three one-line test files.
 mkdir -p "$BOX/tests"
@@ -181,7 +180,7 @@ echo py
 ' > "$FAKE/bin/py"; chmod +x "$FAKE/bin/py"; rm -f "$FAKE/bin/python3"
 assert_eq "py" "$(resolve_with "$FAKE/bin:$FAKE/WindowsApps" "$BOX/nowhere")" \
   "TEST_PYTHON: the py launcher is the last resort before the plain name"
-case "$(now_ms)" in ''|*[!0-9]*) assert_eq "digits" "$(now_ms)" "now_ms: returns milliseconds as digits" ;;
-  *) assert_eq "digits" "digits" "now_ms: returns milliseconds as digits" ;; esac
+case "$(now_ms)" in ''|*[!0-9]*) fail "now_ms: returns milliseconds as digits" "$(now_ms)" ;;
+  *) pass "now_ms: returns milliseconds as digits" ;; esac
 
 finish

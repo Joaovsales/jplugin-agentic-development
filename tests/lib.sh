@@ -28,6 +28,9 @@
 #                                      an absence sweep with a positive control
 #   pass <msg> / fail <msg> [actual]   a verdict reached by hand
 #   skip <reason>                      the file cannot run here; counted
+#   begin_case <name> / end_case       a named run of assertions: a header, a
+#                                      count, and TEST_CASE=<glob> to keep only
+#                                      the matching cases
 #   finish                             trailer and exit status
 #
 # Every failure prints the assertion's file:line and the actual value, the
@@ -39,6 +42,14 @@ _TESTS=0
 _FAILS=0
 _XFAIL=0
 _SKIPPED=0
+# Case state (begin_case below): the open case's name, whether its verdicts
+# count (0 while TEST_CASE keeps it out), how many cases were kept out or
+# selected in this file, and the counters at the case's start.
+_CASE=""
+_CASE_ON=1
+_CASE_OUT=0
+_CASE_IN=0
+_CASE_BASE=(0 0 0 0)
 
 case "${BASH_SOURCE[0]}" in
   */*) _LIB_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)" ;;
@@ -199,6 +210,7 @@ _expected_failure() {
 
 # pass <message>
 pass() {
+  [ "$_CASE_ON" -eq 1 ] || return 0
   _TESTS=$((_TESTS + 1))
   if _expected_failure "$1"; then
     _FAILS=$((_FAILS + 1))
@@ -215,6 +227,7 @@ pass() {
 # "actual:"; an empty label suppresses the value). A test file calls it as
 # `fail <message> [<actual>]`; the assertions below fill the other two.
 fail() {
+  [ "$_CASE_ON" -eq 1 ] || return 0
   _TESTS=$((_TESTS + 1))
   if _expected_failure "$1"; then
     _XFAIL=$((_XFAIL + 1))
@@ -222,7 +235,7 @@ fail() {
     return 0
   fi
   _FAILS=$((_FAILS + 1))
-  printf '  FAIL %s\n       at %s\n' "$1" "$(_where)"
+  printf '  FAIL %s\n       at %s%s\n' "$1" "$(_where)" "${_CASE:+  [case: $_CASE]}"
   [ -z "${4:-}" ] || printf '       %s\n' "$4"
   if [ $# -ge 2 ] && [ -n "${3-actual:}" ]; then _print_actual "${3:-actual:}" "$2"; fi
   return 0
@@ -232,9 +245,59 @@ fail() {
 # failure of the file under REQUIRE_ALL=1 (CI sets it), so a skipped check is
 # visible there and never silently green.
 skip() {
+  [ "$_CASE_ON" -eq 1 ] || return 0
   _SKIPPED=$((_SKIPPED + 1))
   printf '  SKIP %s\n' "$1"
 }
+
+# ---------------------------------------------------------------------------
+# Cases (specs/test-suite-aposd.md D4). A case is a named run of assertions
+# inside one file: begin_case prints a header and starts a count, end_case
+# prints the count. TEST_CASE=<glob> keeps only the cases whose name matches the
+# glob; a filtered case's verdicts are neither run nor counted, and begin_case
+# returns 1 for it, so a file that wraps the case's body in
+#   if begin_case "name"; then ...; fi; end_case
+# also skips the work (end_case sits after the fi, so it runs either way and
+# the file's own level resumes). A case that was never ended is closed by the
+# next begin_case and by finish. A case owns no setup or teardown and no counter of
+# its own: it reads the file's, which pass and fail alone write.
+
+# _case_close — print the open case's count and leave it.
+_case_close() {
+  [ -n "$_CASE" ] || return 0
+  if [ "$_CASE_ON" -eq 1 ]; then
+    local line failed=$((_FAILS - _CASE_BASE[1])) xfail=$((_XFAIL - _CASE_BASE[2])) skipped=$((_SKIPPED - _CASE_BASE[3]))
+    line="$((_TESTS - _FAILS - _XFAIL - _CASE_BASE[0] + _CASE_BASE[1] + _CASE_BASE[2])) passed, $failed failed"
+    [ "$xfail" -eq 0 ] || line="$line, $xfail xfail"
+    [ "$skipped" -eq 0 ] || line="$line, $skipped skipped"
+    printf '  == %s: %s\n' "$_CASE" "$line"
+  fi
+  _CASE=""
+  _CASE_ON=1
+}
+
+# begin_case <name> — returns 0 when the case runs, 1 when TEST_CASE filters it.
+begin_case() {
+  [ -n "${1:-}" ] || _abort "begin_case: a case needs a name"
+  _case_close
+  _CASE="$1"
+  if [ -n "${TEST_CASE:-}" ]; then
+    # shellcheck disable=SC2254 — TEST_CASE is a glob by contract.
+    case "$1" in
+      $TEST_CASE) ;;
+      *)
+        _CASE_ON=0; _CASE_OUT=$((_CASE_OUT + 1))
+        printf '  == %s: filtered out by TEST_CASE=%s\n' "$1" "$TEST_CASE"
+        return 1 ;;
+    esac
+  fi
+  _CASE_IN=$((_CASE_IN + 1))
+  _CASE_BASE=("$_TESTS" "$_FAILS" "$_XFAIL" "$_SKIPPED")
+  printf '  == case: %s\n' "$1"
+}
+
+# end_case — print the open case's count and return to the file's own level.
+end_case() { _case_close; }
 
 # ---------------------------------------------------------------------------
 # Setup primitives. These stop the file when they cannot do their job: a
@@ -548,7 +611,10 @@ assert_precedes() {
 # iterated zero times is not a pass), and on a skip under REQUIRE_ALL=1.
 finish() {
   local rc=0
-  if [ "$_TESTS" -eq 0 ] && [ "$_SKIPPED" -eq 0 ]; then
+  _case_close
+  if [ "$_CASE_OUT" -gt 0 ] && [ "$_CASE_IN" -eq 0 ]; then
+    printf '  TEST_CASE=%s matched no case in this file\n' "$TEST_CASE"
+  elif [ "$_TESTS" -eq 0 ] && [ "$_SKIPPED" -eq 0 ]; then
     printf '  FAIL no assertions ran — a file that checks nothing cannot pass (call skip <reason> to skip on purpose)\n'
     rc=1
   fi

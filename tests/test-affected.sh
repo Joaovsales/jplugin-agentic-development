@@ -7,11 +7,9 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-BOX="$(mktemp -d)"
-trap 'rm -rf "$BOX"' EXIT
-[ -n "$BOX" ] && [ -d "$BOX" ] || { printf 'mktemp -d failed\n' >&2; exit 1; }
+BOX="$(fixture_dir)"
 
-FIX="$BOX/repo"
+FIX="$(fixture_repo)"
 mkdir -p "$FIX/tests" "$FIX/src"
 cp "$REPO/tests/run.sh" "$REPO/tests/lib.sh" "$REPO/tests/affected.sh" "$FIX/tests/" 2>/dev/null
 passing_test() { printf '%s\n' ". \"\$(dirname \"\$0\")/lib.sh\"" "# $1" 'assert_eq a a "holds"' 'finish' > "$FIX/tests/$2"; }
@@ -20,7 +18,6 @@ passing_test "covers nothing in particular" test-b.sh
 passing_test "covers src/baz.txt" test-c.sh
 printf 'foo\n' > "$FIX/src/foo.txt"
 printf 'bar\n' > "$FIX/src/bar.txt"
-git -C "$FIX" init -q
 git -C "$FIX" add -A
 commit() { git -C "$FIX" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q -m "$1"; }
 commit init

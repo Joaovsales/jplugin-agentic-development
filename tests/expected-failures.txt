@@ -222,110 +222,120 @@ tests/test-task-escalation.sh msys* AC9: artifact confinement failure is reporte
 tests/test-verification-skill-integration.sh msys* create-verification-skill: bundled license matches the complete repository notice
 tests/test-verification-skill-integration.sh msys* maintain-verification-skill: bundled license matches the complete repository notice
 
-# tests/test-task-registry.sh: doctor prints the pointer path with a backslash on Windows — #203
-tests/test-task-registry.sh msys* Config: the AGENTS.md pointer redirects discovery away from the default path
-tests/test-task-registry.sh msys* Pointer states: pointer to an existing file — that file is loaded
-tests/test-task-registry.sh msys* Pointer states: the prose mention resolves to the file it names
-tests/test-task-registry.sh msys* Config: the project-owned pointer wins over the template-managed one
+# tests/test-task-registry-config.sh: doctor prints the pointer path with a backslash on Windows — #203
+tests/test-task-registry-config.sh msys* Config: the AGENTS.md pointer redirects discovery away from the default path
+tests/test-task-registry-config.sh msys* Pointer states: pointer to an existing file — that file is loaded
+tests/test-task-registry-config.sh msys* Pointer states: the prose mention resolves to the file it names
+# tests/test-task-registry-regressions.sh: doctor prints the pointer path with a backslash on Windows — #203
+tests/test-task-registry-regressions.sh msys* Config: the project-owned pointer wins over the template-managed one
 
-# tests/test-task-registry.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
-tests/test-task-registry.sh msys* Selection: a GitHub remote plus authenticated gh selects github
-tests/test-task-registry.sh msys* Selection: github selection states its reason
-tests/test-task-registry.sh msys* Selection (AC1): doctor reports the remote-resolved repository reachable
-tests/test-task-registry.sh msys* Selection (AC1): reachability is probed with gh api user
-tests/test-task-registry.sh msys* Selection (AC1): gh auth status never runs -- it fails in the sandbox while REST works
-tests/test-task-registry.sh msys* Selection (#124): the upstream label check ran against the discovered repository
-tests/test-task-registry.sh msys* Selection (#124): workflow on a remote-resolved github provider exits 0
-tests/test-task-registry.sh msys* GitHub: 'enhancement'->feature, 'now'->high, area/* read, unmapped 'tech-debt' preserved
-tests/test-task-registry.sh msys* GitHub: 'bug'->bug, closed->done, no queue label leaves priority unset
-tests/test-task-registry.sh msys* GitHub: 'design-decision'->decision, 'next'->medium, open->open
-tests/test-task-registry.sh msys* GitHub: identity comes from the body metadata, never from the issue number
-tests/test-task-registry.sh msys* GitHub (AC4): an issues entry carrying a pull_request key is a pull request, not a task
-tests/test-task-registry.sh msys* GitHub (AC4): issues are listed through the REST issues route, paged
-tests/test-task-registry.sh msys* GitHub: an unreachable provider does not lose the local record
-tests/test-task-registry.sh msys* GitHub: the record is marked as not yet published
-tests/test-task-registry.sh msys* GitHub: the unpublished half is reported, never silently dropped
-tests/test-task-registry.sh msys* Migrate: an unreadable spec must not report success (exit was 0)
-tests/test-task-registry.sh msys* Migrate: the unreadable spec is named in the report, not just on stderr
-tests/test-task-registry.sh msys* upsert --parent: a resolvable GitHub parent link exits clean
-tests/test-task-registry.sh msys* upsert --parent: GitHub reports the degraded link with the existing disclosure line
-tests/test-task-registry.sh msys* upsert --parent: the child issue's body gains parent: metadata naming the resolved parent
-tests/test-task-registry.sh msys* GitHub: a legitimate issue number is still fetched after the guard
-tests/test-task-registry.sh msys* GitHub: an unknown label is reported and omitted while creation is off
-tests/test-task-registry.sh msys* GitHub: one issue is read through the REST issues route, the number in the path
-tests/test-task-registry.sh msys* GitHub (AC3): an issue is created through POST /issues, the payload on stdin
-tests/test-task-registry.sh msys* GitHub (AC7): an unknown label is filtered before the write reaches the API
-tests/test-task-registry.sh msys* GitHub (AC5): the refusal names the truncated read
-tests/test-task-registry.sh msys* GitHub (AC5): the issue list is paged from page 1, 100 per page
-tests/test-task-registry.sh msys* GitHub (AC5): the read pages up to the LIST_LIMIT-th entry
-tests/test-task-registry.sh msys* GitHub (AC5): the read stops at the cap instead of paging past it
-tests/test-task-registry.sh msys* GitHub: allow_label_creation actually creates the missing label
-tests/test-task-registry.sh msys* GitHub (AC3): label creation is POST /labels with the name on stdin, not a silent skip
-tests/test-task-registry.sh msys* GitHub: the created label is really added to the repository vocabulary
-tests/test-task-registry.sh msys* GitHub (AC8): a label add that fails after the PATCH names the body as already written
-tests/test-task-registry.sh msys* GitHub (AC8): the body goes first, through PATCH /issues/{n} with the payload on stdin
-tests/test-task-registry.sh msys* GitHub (AC8): the new label follows, through POST /issues/{n}/labels
-tests/test-task-registry.sh msys* GitHub (AC8): an update is exactly those two writes
-tests/test-task-registry.sh msys* GitHub (AC3): close_task answers the terminal status
-tests/test-task-registry.sh msys* GitHub (AC3): a comment is POST /issues/{n}/comments, the body on stdin
-tests/test-task-registry.sh msys* GitHub (AC3): a cancelled close is PATCH /issues/{n} with state closed and state_reason not_planned
-tests/test-task-registry.sh msys* GitHub (AC3): an update with nothing new to label makes no label write
-tests/test-task-registry.sh msys* Migrate: the rewritten dependency is the minted id, not the original prose
-tests/test-task-registry.sh msys* GitHub: hierarchy is declared non-native rather than silently claimed
-tests/test-task-registry.sh msys* GitHub: dependencies are declared non-native rather than silently claimed
-tests/test-task-registry.sh msys* GitHub: a degraded link renders as inferred, naming where the relationship went
-tests/test-task-registry.sh msys* GitHub: the rendered link names both ends of the relationship
-tests/test-task-registry.sh msys* GitHub: the limitation is surfaced, not swallowed
-tests/test-task-registry.sh msys* offline_reads=fail: the reason is named under failures:, not degraded:
-tests/test-task-registry.sh msys* Show: an answer assembled without the provider says so rather than reading as complete
+# tests/test-task-registry-cli.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-task-registry-cli.sh msys* Migrate: an unreadable spec must not report success (exit was 0)
+tests/test-task-registry-cli.sh msys* Migrate: the unreadable spec is named in the report, not just on stderr
+tests/test-task-registry-cli.sh msys* upsert --parent: a resolvable GitHub parent link exits clean
+tests/test-task-registry-cli.sh msys* upsert --parent: GitHub reports the degraded link with the existing disclosure line
+tests/test-task-registry-cli.sh msys* upsert --parent: the child issue's body gains parent: metadata naming the resolved parent
+# tests/test-task-registry-config.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-task-registry-config.sh msys* Selection: a GitHub remote plus authenticated gh selects github
+tests/test-task-registry-config.sh msys* Selection: github selection states its reason
+tests/test-task-registry-config.sh msys* Selection (AC1): doctor reports the remote-resolved repository reachable
+tests/test-task-registry-config.sh msys* Selection (AC1): reachability is probed with gh api user
+tests/test-task-registry-config.sh msys* Selection (AC1): gh auth status never runs -- it fails in the sandbox while REST works
+tests/test-task-registry-config.sh msys* Selection (#124): the upstream label check ran against the discovered repository
+tests/test-task-registry-config.sh msys* Selection (#124): workflow on a remote-resolved github provider exits 0
+# tests/test-task-registry-providers.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-task-registry-providers.sh msys* GitHub: 'enhancement'->feature, 'now'->high, area/* read, unmapped 'tech-debt' preserved
+tests/test-task-registry-providers.sh msys* GitHub: 'bug'->bug, closed->done, no queue label leaves priority unset
+tests/test-task-registry-providers.sh msys* GitHub: 'design-decision'->decision, 'next'->medium, open->open
+tests/test-task-registry-providers.sh msys* GitHub: identity comes from the body metadata, never from the issue number
+tests/test-task-registry-providers.sh msys* GitHub (AC4): an issues entry carrying a pull_request key is a pull request, not a task
+tests/test-task-registry-providers.sh msys* GitHub (AC4): issues are listed through the REST issues route, paged
+tests/test-task-registry-providers.sh msys* GitHub: an unreachable provider does not lose the local record
+tests/test-task-registry-providers.sh msys* GitHub: the record is marked as not yet published
+tests/test-task-registry-providers.sh msys* GitHub: the unpublished half is reported, never silently dropped
+# tests/test-task-registry-regressions-github.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-task-registry-regressions-github.sh msys* GitHub: a legitimate issue number is still fetched after the guard
+tests/test-task-registry-regressions-github.sh msys* GitHub: an unknown label is reported and omitted while creation is off
+tests/test-task-registry-regressions-github.sh msys* GitHub: one issue is read through the REST issues route, the number in the path
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC3): an issue is created through POST /issues, the payload on stdin
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC7): an unknown label is filtered before the write reaches the API
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC5): the refusal names the truncated read
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC5): the issue list is paged from page 1, 100 per page
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC5): the read pages up to the LIST_LIMIT-th entry
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC5): the read stops at the cap instead of paging past it
+tests/test-task-registry-regressions-github.sh msys* GitHub: allow_label_creation actually creates the missing label
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC3): label creation is POST /labels with the name on stdin, not a silent skip
+tests/test-task-registry-regressions-github.sh msys* GitHub: the created label is really added to the repository vocabulary
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC8): a label add that fails after the PATCH names the body as already written
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC8): the body goes first, through PATCH /issues/{n} with the payload on stdin
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC8): the new label follows, through POST /issues/{n}/labels
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC8): an update is exactly those two writes
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC3): close_task answers the terminal status
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC3): a comment is POST /issues/{n}/comments, the body on stdin
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC3): a cancelled close is PATCH /issues/{n} with state closed and state_reason not_planned
+tests/test-task-registry-regressions-github.sh msys* GitHub (AC3): an update with nothing new to label makes no label write
+tests/test-task-registry-regressions-github.sh msys* Migrate: the rewritten dependency is the minted id, not the original prose
+tests/test-task-registry-regressions-github.sh msys* GitHub: hierarchy is declared non-native rather than silently claimed
+tests/test-task-registry-regressions-github.sh msys* GitHub: dependencies are declared non-native rather than silently claimed
+tests/test-task-registry-regressions-github.sh msys* GitHub: a degraded link renders as inferred, naming where the relationship went
+tests/test-task-registry-regressions-github.sh msys* GitHub: the rendered link names both ends of the relationship
+tests/test-task-registry-regressions-github.sh msys* GitHub: the limitation is surfaced, not swallowed
+# tests/test-task-registry-structure.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-task-registry-structure.sh msys* offline_reads=fail: the reason is named under failures:, not degraded:
+tests/test-task-registry-structure.sh msys* Show: an answer assembled without the provider says so rather than reading as complete
 
-# tests/test-sync-retirement.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
-tests/test-sync-retirement.sh msys* the header names the template source
-tests/test-sync-retirement.sh msys* bootstrap under --apply still succeeds
-tests/test-sync-retirement.sh msys* bootstrap --apply writes the candidate allowlist
-tests/test-sync-retirement.sh msys* the candidate lists the project-only paths
-tests/test-sync-retirement.sh msys* promoting the candidate leaves bootstrap
-tests/test-sync-retirement.sh msys* a promoted candidate keeps every path it named
-tests/test-sync-retirement.sh msys* F1: first bootstrap --apply writes the candidate
-tests/test-sync-retirement.sh msys* F6: the script's root list equals the drift test's directory subset
-tests/test-sync-retirement.sh msys* bootstrap succeeds even with an unexpressible path
-tests/test-sync-retirement.sh msys* an ordinary path is emitted as a usable pattern
-tests/test-sync-retirement.sh msys* a path with glob metacharacters is commented out, not emitted as a pattern
-tests/test-sync-retirement.sh msys* and protects what it names
-tests/test-sync-retirement.sh msys* the outcome counts what happened, not what was planned
-tests/test-sync-retirement.sh msys* the path that could not be deleted is named
-tests/test-sync-retirement.sh msys* the undeletable path really did survive
-tests/test-sync-retirement.sh msys* the directory that could not be pruned is named
-tests/test-sync-retirement.sh msys* a path the reader would strip is commented out, not offered as a pattern
-tests/test-sync-retirement.sh msys* an expressible sibling is still written as a live pattern
-tests/test-sync-retirement.sh msys* the unexpressible path is never emitted as an uncommented rule
-tests/test-sync-retirement.sh msys* bootstrap writes a candidate
-tests/test-sync-retirement.sh msys* while the expressible sibling still protects its file
-tests/test-sync-retirement.sh msys* the directory named is the one that actually failed
-tests/test-sync-retirement.sh msys* and that directory is genuinely still on disk
-tests/test-sync-retirement.sh msys* and says so
-tests/test-sync-retirement.sh msys* the candidate offers only what provenance could not settle
-tests/test-sync-retirement.sh msys* and never offers to keep something the template already retired
-tests/test-sync-retirement.sh msys* a shallow template still produces a plan
-tests/test-sync-retirement.sh msys* with no stale candidate the same run succeeds
-tests/test-sync-retirement.sh msys* and reports having destroyed it
-tests/test-sync-retirement.sh msys* so retirement still happens in the mode SKILL.md prescribes
-tests/test-sync-retirement.sh msys* an unprunable directory is a non-zero outcome
-tests/test-sync-retirement.sh msys* but the file it destroyed is still reported by path
-tests/test-sync-retirement.sh msys* and the directory it could not remove is named separately
-tests/test-sync-retirement.sh msys* the piped dry run exits zero
-tests/test-sync-retirement.sh msys* and reaches the same conclusion as the on-disk invocation
-tests/test-sync-retirement.sh msys* reading the program from stdin does not imply --apply
-tests/test-sync-retirement.sh msys* the piped --apply exits zero
-tests/test-sync-retirement.sh msys* the retired path is deleted through the prescribed pipeline
-tests/test-sync-retirement.sh msys* the candidate is written for the human to promote
-tests/test-sync-retirement.sh msys* and the file it destroyed is still reported by path
-tests/test-sync-retirement.sh msys* alongside what it could not write, named separately
-tests/test-sync-retirement.sh msys* the failure is reported, not raised through the accounting
-tests/test-sync-retirement.sh msys* the refusal names the path it will not write
-tests/test-sync-retirement.sh msys* and the refusal is a non-zero outcome
-tests/test-sync-retirement.sh msys* the report says why it refused, naming the mechanism
-tests/test-sync-retirement.sh msys* the newline is escaped into the path field rather than ending the line
+# tests/test-sync-retirement-apply.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
+tests/test-sync-retirement-apply.sh msys* bootstrap under --apply still succeeds
+tests/test-sync-retirement-apply.sh msys* bootstrap --apply writes the candidate allowlist
+tests/test-sync-retirement-apply.sh msys* the candidate lists the project-only paths
+tests/test-sync-retirement-apply.sh msys* promoting the candidate leaves bootstrap
+tests/test-sync-retirement-apply.sh msys* a promoted candidate keeps every path it named
+# tests/test-sync-retirement-defects.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
+tests/test-sync-retirement-defects.sh msys* the directory that could not be pruned is named
+tests/test-sync-retirement-defects.sh msys* a path the reader would strip is commented out, not offered as a pattern
+tests/test-sync-retirement-defects.sh msys* an expressible sibling is still written as a live pattern
+tests/test-sync-retirement-defects.sh msys* the unexpressible path is never emitted as an uncommented rule
+tests/test-sync-retirement-defects.sh msys* bootstrap writes a candidate
+tests/test-sync-retirement-defects.sh msys* while the expressible sibling still protects its file
+tests/test-sync-retirement-defects.sh msys* the directory named is the one that actually failed
+tests/test-sync-retirement-defects.sh msys* and that directory is genuinely still on disk
+tests/test-sync-retirement-defects.sh msys* and says so
+tests/test-sync-retirement-defects.sh msys* the candidate offers only what provenance could not settle
+tests/test-sync-retirement-defects.sh msys* and never offers to keep something the template already retired
+tests/test-sync-retirement-defects.sh msys* a shallow template still produces a plan
+# tests/test-sync-retirement-guards.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
+tests/test-sync-retirement-guards.sh msys* F1: first bootstrap --apply writes the candidate
+tests/test-sync-retirement-guards.sh msys* F6: the script's root list equals the drift test's directory subset
+tests/test-sync-retirement-guards.sh msys* bootstrap succeeds even with an unexpressible path
+tests/test-sync-retirement-guards.sh msys* an ordinary path is emitted as a usable pattern
+tests/test-sync-retirement-guards.sh msys* a path with glob metacharacters is commented out, not emitted as a pattern
+tests/test-sync-retirement-guards.sh msys* and protects what it names
+tests/test-sync-retirement-guards.sh msys* the outcome counts what happened, not what was planned
+tests/test-sync-retirement-guards.sh msys* the path that could not be deleted is named
+tests/test-sync-retirement-guards.sh msys* the undeletable path really did survive
+# tests/test-sync-retirement-patterns.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
+tests/test-sync-retirement-patterns.sh msys* the header names the template source
+# tests/test-sync-retirement-records.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
+tests/test-sync-retirement-records.sh msys* with no stale candidate the same run succeeds
+tests/test-sync-retirement-records.sh msys* and reports having destroyed it
+tests/test-sync-retirement-records.sh msys* so retirement still happens in the mode SKILL.md prescribes
+tests/test-sync-retirement-records.sh msys* an unprunable directory is a non-zero outcome
+tests/test-sync-retirement-records.sh msys* but the file it destroyed is still reported by path
+tests/test-sync-retirement-records.sh msys* and the directory it could not remove is named separately
+tests/test-sync-retirement-records.sh msys* the piped dry run exits zero
+tests/test-sync-retirement-records.sh msys* and reaches the same conclusion as the on-disk invocation
+tests/test-sync-retirement-records.sh msys* reading the program from stdin does not imply --apply
+tests/test-sync-retirement-records.sh msys* the piped --apply exits zero
+tests/test-sync-retirement-records.sh msys* the retired path is deleted through the prescribed pipeline
+tests/test-sync-retirement-records.sh msys* the candidate is written for the human to promote
+tests/test-sync-retirement-records.sh msys* and the file it destroyed is still reported by path
+tests/test-sync-retirement-records.sh msys* alongside what it could not write, named separately
+tests/test-sync-retirement-records.sh msys* the failure is reported, not raised through the accounting
+tests/test-sync-retirement-records.sh msys* the refusal names the path it will not write
+# tests/test-sync-retirement-security.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
+tests/test-sync-retirement-security.sh msys* and the refusal is a non-zero outcome
+tests/test-sync-retirement-security.sh msys* the report says why it refused, naming the mechanism
+tests/test-sync-retirement-security.sh msys* the newline is escaped into the path field rather than ending the line
 
 # tests/test-install-sh.sh: ln -s creates a real file on this host, so the dangling-symlink case cannot be set up — #203
 tests/test-install-sh.sh msys* git scaffold: a dangling symlink at a template path is kept, not written through

@@ -114,19 +114,19 @@ for tree in $TREES; do
     assert_file_matches "$f" '`blocked`.*STOP' \
       "Chain: $tree/$skill stops when maintenance is blocked"
     if [ -n "${maintain_line:-}" ] && [ -n "${verify_line:-}" ] && [ "$maintain_line" -lt "$verify_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before e2e"
+      pass "Chain: $tree/$skill maintains before e2e"
     else
       assert_eq "maintenance before e2e" "${maintain_line:-missing} / ${verify_line:-missing}" \
         "Chain: $tree/$skill maintains before e2e"
     fi
     if [ -n "${maintain_line:-}" ] && [ -n "${full_test_line:-}" ] && [ "$maintain_line" -lt "$full_test_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before full tests"
+      pass "Chain: $tree/$skill maintains before full tests"
     else
       assert_eq "maintenance before full tests" "${maintain_line:-missing} / ${full_test_line:-missing}" \
         "Chain: $tree/$skill maintains before full tests"
     fi
     if [ -n "${maintain_line:-}" ] && [ -n "${review_line:-}" ] && [ "$maintain_line" -lt "$review_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before review"
+      pass "Chain: $tree/$skill maintains before review"
     else
       assert_eq "maintenance before review" "${maintain_line:-missing} / ${review_line:-missing}" \
         "Chain: $tree/$skill maintains before review"
@@ -145,7 +145,7 @@ for tree in $TREES; do
                 "### Quality receipt" "### Full suite"; do
     line=$(grep -nF -- "$anchor" "$f" | head -1 | cut -d: -f1)
     if [ -n "${line:-}" ] && [ "$line" -gt "$prev" ]; then
-      assert_eq "ordered" "ordered" "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
+      pass "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
       prev=$line
     else
       assert_eq "after line $prev" "${line:-missing}" \
