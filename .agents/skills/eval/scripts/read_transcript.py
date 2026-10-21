@@ -279,6 +279,100 @@ def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) ->
                 len(file_block["content"].encode("utf-8")), total_lines)
 
 
+SHELL_READERS = frozenset({"cat", "head", "tail", "less", "more"})
+_SEGMENT_SPLITTERS = (";", "&&", "||", "\n")
+_NOT_BARE = ("|", ">", "<", "$(", "`")
+_COUNT_OPTIONS = frozenset({"-n", "-c", "-b", "-s"})
+
+
+def _split_segments(command: str) -> List[str]:
+    """Split on `;`, `&&`, `||` and newlines outside quotes; `|` stays inside its segment."""
+    segments, buf, quote, i = [], [], None, 0
+    while i < len(command):
+        ch = command[i]
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch in ("'", '"'):
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        for sep in _SEGMENT_SPLITTERS:
+            if command.startswith(sep, i):
+                segments.append("".join(buf))
+                buf = []
+                i += len(sep)
+                break
+        else:
+            buf.append(ch)
+            i += 1
+    segments.append("".join(buf))
+    return [s.strip() for s in segments if s.strip()]
+
+
+def _words(segment: str) -> List[str]:
+    """Whitespace split that honours quotes and keeps backslashes literal (Windows paths)."""
+    words, buf, quote = [], [], None
+    for ch in segment:
+        if quote:
+            if ch == quote:
+                quote = None
+            else:
+                buf.append(ch)
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch.isspace():
+            if buf:
+                words.append("".join(buf))
+                buf = []
+        else:
+            buf.append(ch)
+    if buf:
+        words.append("".join(buf))
+    return words
+
+
+def _is_print_range(script: str) -> bool:
+    body = script[:-1] if script.endswith("p") else ""
+    return bool(body) and all(c.isdigit() or c in ",$" for c in body)
+
+
+def bare_shell_reads(command: str) -> List[str]:
+    """The files a Bash command prints whole into the context, one entry per file.
+
+    `cat f`, `head f`, `tail f`, `less f`, `more f` and `sed -n '1,$p' f` count;
+    every file of a chained command (`cat a; cat b`) counts. A segment that is
+    piped, redirected, substituted or fed a heredoc delivers nothing to the
+    context and is skipped (specs/read-shunt-baseline.md § Behavior, AC3).
+    """
+    files: List[str] = []
+    for segment in _split_segments(command):
+        if any(marker in segment for marker in _NOT_BARE):
+            continue
+        words = _words(segment)
+        if not words:
+            continue
+        name = os.path.basename(words[0])
+        if name == "sed":
+            rest = [w for w in words[1:] if w != "-n"]
+            if rest and _is_print_range(rest[0]):
+                files.extend(rest[1:])
+            continue
+        if name not in SHELL_READERS:
+            continue
+        rest = words[1:]
+        while rest and rest[0].startswith("-"):
+            opt = rest.pop(0)
+            if opt in _COUNT_OPTIONS and rest:
+                rest.pop(0)
+        files.extend(rest)
+    return files
+
+
 def run(main: Callable[[], object]) -> int:
     """Run a CLI body; a TranscriptError is reported on stderr and becomes exit 2."""
     try:
