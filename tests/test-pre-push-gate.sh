@@ -1,7 +1,8 @@
-# tests/test-pre-push-gate.sh — the wrap-up coverage gate in .agents/git-hooks/pre-push.
+# tests/test-pre-push-gate.sh — the wrap-up coverage gate in .agents/git-hooks/pre-push,
+# and the hook's two blocking branches (typecheck and lint failures, § exit-branches).
 #
-# The gate warns and records; it never blocks. Every case therefore asserts
-# exit 0, and the real signal is stderr plus the tasks/wrap-up-debt.md ledger.
+# The wrap-up gate warns and records; it never blocks, so those cases assert
+# exit 0 and the real signal is stderr plus the tasks/wrap-up-debt.md ledger.
 #
 # Fixtures are throwaway git repos under a temp dir. The hook is copied in and
 # driven exactly as git drives it: argv is `<remote-name> <remote-url>` and the
@@ -338,5 +339,53 @@ run_hook "$D" "$(sha "$D")" "$BASE"
 assert_eq "0" "$HOOK_RC" "Hostile fingerprint: exits zero"
 assert_contains "$OUT" "unparseable" "Hostile fingerprint: rejected as unparseable"
 assert_contains "$OUT" "$CODE" "Hostile fingerprint: does not widen coverage"
+
+# ── § exit-branches: typecheck and lint failures block the push (exit 1) ─────
+# The hook runs `npm run typecheck` then `npm run lint` when package.json
+# declares them (it needs jq to read the scripts). A failing script is the one
+# thing it blocks on, so both exit-1 branches are driven by a fixture
+# package.json whose scripts print a marker and exit 1 or 0.
+if command -v jq >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  # scripts_repo <name> <typecheck-script> <lint-script> — a repo declaring both scripts.
+  scripts_repo() {
+    _d="$(new_repo "$1")"
+    printf '{"name":"fx","version":"1.0.0","scripts":{"typecheck":"%s","lint":"%s"}}\n' "$2" "$3" \
+      > "$_d/package.json"
+    printf '%s' "$_d"
+  }
+
+  D="$(scripts_repo typecheckfails "echo TYPE-ERR && exit 1" "exit 0")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Typecheck fails: blocks the push with exit 1"
+  assert_contains "$OUT" "BLOCKED: npm run typecheck failed" "Typecheck fails: names the failing script"
+  assert_contains "$OUT" "TYPE-ERR" "Typecheck fails: shows the tail of the script's own output"
+  assert_not_contains "$OUT" "npm run lint" "Typecheck fails: stops before lint runs"
+
+  D="$(scripts_repo lintfails "exit 0" "echo LINT-ERR && exit 1")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Lint fails: blocks the push with exit 1"
+  assert_contains "$OUT" "BLOCKED: npm run lint failed" "Lint fails: names the failing script"
+  assert_contains "$OUT" "LINT-ERR" "Lint fails: shows the tail of the script's own output"
+  assert_not_contains "$OUT" "npm run typecheck" "Lint fails: typecheck had passed, so it is not blamed"
+
+  D="$(scripts_repo bothfail "echo TYPE-ERR && exit 1" "echo LINT-ERR && exit 1")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "Both fail: blocks the push with exit 1"
+  assert_contains "$OUT" "npm run typecheck failed" "Both fail: typecheck is reported first"
+  assert_not_contains "$OUT" "npm run lint" "Both fail: lint is never reached"
+
+  D="$(scripts_repo bothpass "exit 0" "exit 0")"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "Both pass: the push is allowed"
+  assert_eq "" "$OUT" "Both pass: nothing on stderr"
+
+  D="$(scripts_repo killed "echo TYPE-ERR && exit 1" "exit 1")"
+  cp "$HOOK" "$D/hook"; chmod +x "$D/hook"
+  OUT="$( cd "$D" && printf 'refs/heads/master %s refs/heads/master %s\n' "$(sha "$D")" "$(sha "$D")" \
+          | SKIP_PREPUSH=1 ./hook origin url 2>&1 )"
+  assert_eq "" "$OUT" "SKIP_PREPUSH=1: failing scripts are not run"
+else
+  skip "typecheck/lint exit branches need jq and npm on PATH"
+fi
 
 finish
