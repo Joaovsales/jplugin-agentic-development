@@ -212,6 +212,48 @@ assert_contains "$out" "beta at 6, alpha at 0" "assert_precedes: reports both of
 assert_contains "$out" "gamma missing" "assert_precedes: names the absent needle"
 assert_not_contains "$out" "ordered" "assert_precedes: the ordered/ordered emulation is gone"
 
+# --- § xfail: the platform baseline (D2) -------------------------------------
+# tests/expected-failures.txt rows are `<file> <platform-glob> <message>`; the
+# library loads the rows for its own file on a matching platform, prints
+# XFAIL for a listed failure without counting it as failed, and fails the file
+# on an XPASS so the list can only shrink. TEST_EXPECTED_FAILURES and
+# TEST_PLATFORM override the file and the platform string for this test.
+XF="$BOX/expected.txt"
+printf '%s\n' '# file platform message' \
+  'xfail.sh fake-os* known broken here' \
+  'xfail.sh fake-os* now fixed' \
+  'xfail.sh fake-os* path-bearing * message' \
+  'other.sh fake-os* a row for another file' > "$XF"
+TEST_EXPECTED_FAILURES="$XF" TEST_PLATFORM=fake-os-11 run_case xfail.sh \
+  'assert_eq a b "known broken here"' 'assert_eq a a "unrelated pass"' \
+  'assert_eq a b "path-bearing /tmp/x.123 message"' 'assert_eq a b "a row for another file"' 'finish'
+assert_eq "1" "$st" "xfail: a listed failure is not a failure, an unlisted one still is"
+assert_contains "$out" "XFAIL known broken here" "xfail: the listed failure prints XFAIL"
+assert_not_contains "$out" "  FAIL known broken here" "xfail: the listed failure is not printed as FAIL"
+assert_contains "$out" "XFAIL path-bearing /tmp/x.123 message" "xfail: a row's message is a glob, so a path-bearing message matches"
+assert_contains "$out" "FAIL a row for another file" "xfail: another file's row does not load here"
+assert_contains "$out" "1 passed, 1 failed, 2 xfail, 0 skipped" "xfail: the trailer counts xfail apart from failed"
+
+TEST_EXPECTED_FAILURES="$XF" TEST_PLATFORM=fake-os-11 run_case xfail.sh \
+  'assert_eq a b "known broken here"' 'assert_eq a a "now fixed"' 'finish'
+assert_eq "1" "$st" "xpass: a listed message that passes fails the file"
+assert_contains "$out" "XPASS now fixed" "xpass: prints XPASS"
+assert_contains "$out" "remove its row" "xpass: tells the reader what to do"
+assert_contains "$out" "0 passed, 1 failed, 1 xfail, 0 skipped" "xpass: counted as failed"
+
+TEST_EXPECTED_FAILURES="$XF" TEST_PLATFORM=linux-gnu run_case xfail.sh 'assert_eq a b "known broken here"' 'finish'
+with_rows="$out"; with_st="$st"
+TEST_EXPECTED_FAILURES="$BOX/no-such-file.txt" TEST_PLATFORM=linux-gnu run_case xfail.sh 'assert_eq a b "known broken here"' 'finish'
+assert_eq "1" "$with_st" "other platform: no row loads and the failure fails the file"
+assert_eq "$out" "$with_rows" "other platform: output is byte-identical to a run with no baseline file at all"
+assert_contains "$with_rows" "FAIL known broken here" "other platform: the failure is printed as FAIL"
+
+assert_file_exists "$REPO/tests/expected-failures.txt" "baseline: tests/expected-failures.txt exists"
+assert_file_matches "$REPO/AGENTS.md" '^Expected failures: tests/expected-failures\.txt$' \
+  "baseline: AGENTS.md names the file in one line below the end marker"
+assert_precedes "$(flatten "$REPO/AGENTS.md")" "Affected tests: " "Expected failures: " \
+  "baseline: the pointer sits with the other test lines below the end marker"
+
 # The counters are written in exactly two places: pass and fail. Every other
 # line of the library that names them only reads.
 WRITERS="$(awk '

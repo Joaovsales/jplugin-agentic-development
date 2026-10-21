@@ -1,0 +1,14 @@
+# tests/expected-failures.txt — the platform baseline (specs/test-suite-aposd.md D2).
+#
+# One row per assertion that fails on a platform for a cause this repository
+# knows and has not fixed: `<test file> <platform-glob> <message-glob>`, with
+# the message as the assertion prints it after `FAIL ` (a `*` stands for a
+# path, pid or other run-specific text). tests/lib.sh loads the rows for its
+# own file whose platform glob matches $OSTYPE (`msys` is Git Bash on Windows,
+# `linux-gnu` is CI), prints XFAIL for a listed failure instead of counting it,
+# and fails the file with XPASS when a listed message passes: a row is removed
+# the moment its cause is fixed, never before, so this list can only shrink.
+# Linux CI matches no row. Every group names the issue that tracks its cause.
+#
+# Captured from a clean-HEAD run at 14f1cf9 on the Windows dev host
+# (tasks/baseline-14f1cf9.log), 2026-10-21.

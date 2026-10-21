@@ -165,9 +165,46 @@ _print_actual() {
 }
 _clip() { if [ "${#1}" -gt 300 ]; then printf '%s…' "${1:0:300}"; else printf '%s' "$1"; fi; }
 
+# The platform baseline (specs/test-suite-aposd.md D2). tests/expected-failures.txt
+# lists `<file> <platform-glob> <message-glob>` rows; the rows for this file
+# whose platform glob matches $OSTYPE (TEST_PLATFORM overrides it) load here.
+# A listed failure prints XFAIL and is not counted as failed; a listed message
+# that passes is an XPASS and fails the file, so the list can only shrink.
+# Linux CI matches no row and runs exactly as without the file.
+_XFAIL_ROWS=()
+_load_expected_failures() {
+  local file="${TEST_EXPECTED_FAILURES:-$_LIB_DIR/expected-failures.txt}" me="${0##*/}"
+  local line f rest p
+  [ -f "$file" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in ''|'#'*) continue ;; esac
+    f="${line%% *}"; rest="${line#* }"; p="${rest%% *}"
+    [ "${f##*/}" = "$me" ] || continue
+    # shellcheck disable=SC2254 — the platform column is a glob by contract.
+    case "${TEST_PLATFORM:-$OSTYPE}" in $p) _XFAIL_ROWS+=("${rest#* }") ;; esac
+  done < "$file"
+}
+_load_expected_failures
+# _expected_failure <message> — listed for this file, literally or by glob.
+_expected_failure() {
+  local r
+  for r in ${_XFAIL_ROWS[@]+"${_XFAIL_ROWS[@]}"}; do
+    [ "$r" = "$1" ] && return 0
+    # shellcheck disable=SC2254
+    case "$1" in $r) return 0 ;; esac
+  done
+  return 1
+}
+
 # pass <message>
 pass() {
   _TESTS=$((_TESTS + 1))
+  if _expected_failure "$1"; then
+    _FAILS=$((_FAILS + 1))
+    printf '  XPASS %s\n       listed in tests/expected-failures.txt but passed here — remove its row\n' "$1"
+    return 0
+  fi
   printf '  ok   %s\n' "$1"
   return 0
 }
@@ -179,6 +216,11 @@ pass() {
 # `fail <message> [<actual>]`; the assertions below fill the other two.
 fail() {
   _TESTS=$((_TESTS + 1))
+  if _expected_failure "$1"; then
+    _XFAIL=$((_XFAIL + 1))
+    printf '  XFAIL %s\n' "$1"
+    return 0
+  fi
   _FAILS=$((_FAILS + 1))
   printf '  FAIL %s\n       at %s\n' "$1" "$(_where)"
   [ -z "${4:-}" ] || printf '       %s\n' "$4"
