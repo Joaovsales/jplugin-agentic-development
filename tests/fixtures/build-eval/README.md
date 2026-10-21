@@ -42,6 +42,10 @@ cd "$RUN"
 mkdir -p tasks
 { echo "# Tasks"; echo; cat plans/$ARM.md; } > tasks/todo.md
 rm -rf plans                       # the candidate must not see either plan file
+# install the arm's skills as /sync would: the skills call .agents/... scripts
+# by project-relative path, so without this /build runs inline with no slice.py,
+# no sub-agents and no /quality-gate, and the arms cannot differ
+git -C "$PLUGIN" archive HEAD .agents .claude/agents | tar -x -C "$RUN"
 git init -q && git add -A && git commit -qm "Initial project" && git tag base
 python scripts/run_tests.py        # seed state: 4 passing tests, exit 0
 ```
