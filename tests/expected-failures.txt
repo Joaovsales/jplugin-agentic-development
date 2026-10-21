@@ -279,10 +279,6 @@ tests/test-task-registry.sh msys* GitHub: the limitation is surfaced, not swallo
 tests/test-task-registry.sh msys* offline_reads=fail: the reason is named under failures:, not degraded:
 tests/test-task-registry.sh msys* Show: an answer assembled without the provider says so rather than reading as complete
 
-# tests/test-session-start.sh: the TEMPLATE DRIFT line is not produced on this host — #203
-tests/test-session-start.sh msys* Drift: a template commit changing the block produces the drift line
-tests/test-session-start.sh msys* Drift: the block counts as one item
-
 # tests/test-sync-retirement.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
 tests/test-sync-retirement.sh msys* the header names the template source
 tests/test-sync-retirement.sh msys* bootstrap under --apply still succeeds
