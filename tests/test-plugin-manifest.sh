@@ -9,7 +9,7 @@
 # skill for every Claude Code user and nothing else notices: Pi and Codex never
 # read it, and the suite otherwise only ever looks at the skill bodies. This
 # file is the pre-commit guard for the contract in the spec's § Component
-# contracts — one plugin, one marketplace entry, one skills path, and the
+# contracts — one plugin, its marketplace entry at the root (the mods follow), one skills path, and the
 # invariants that keep the skill bodies harness-neutral.
 . "$(dirname "$0")/lib.sh"
 
@@ -71,10 +71,14 @@ assert_eq "jplugin" "$(json_get "$PLUGIN" name)" \
   "plugin.json: name is jplugin (the typed prefix)"
 assert_eq "jplugin" "$(json_get "$MARKETPLACE" plugins.0.name)" \
   "marketplace.json: plugins[0].name equals the plugin name"
-assert_eq "1" "$(json_get "$MARKETPLACE" plugins | "$TEST_PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0)" \
-  "marketplace.json: exactly one plugin entry"
 assert_eq "./" "$(json_get "$MARKETPLACE" plugins.0.source)" \
   "marketplace.json: the plugin is the marketplace root (source ./)"
+assert_eq "session-viz" "$(json_get "$MARKETPLACE" plugins.1.name)" \
+  "marketplace.json: plugins[1] is the session-viz mod, so the install id is session-viz@jplugin-agentic-development"
+assert_eq "./mods/session-viz" "$(json_get "$MARKETPLACE" plugins.1.source)" \
+  "marketplace.json: the session-viz mod is read from its folder under mods/"
+assert_eq "session-viz" "$(json_get mods/session-viz/.claude-plugin/plugin.json name)" \
+  "marketplace.json: the session-viz entry names the mod's own manifest name"
 assert_eq "jplugin-agentic-development" "$(json_get "$MARKETPLACE" name)" \
   "marketplace.json: name is the GitHub slug, so the install id is jplugin@jplugin-agentic-development"
 

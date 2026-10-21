@@ -258,6 +258,18 @@ rm -rf "$box"
 # ── Case 3: legacy ~/.claude/skills/ copies — listed, deleted only on y ──────
 # Three entries: a name the template never carried, a current template skill and
 # a skill retired in template history. Only the last two are candidates (#52).
+# A shallow checkout of this repository cannot name retired template skills —
+# Case 3b pins that install.sh says so — so the assertions that need `deslop` to
+# come out of git history skip there instead of failing: a routine's cloud
+# container clones with --depth 1.
+REPO_SHALLOW="$(git -C "$REPO" rev-parse --is-shallow-repository 2>/dev/null)"
+unless_shallow() {  # unless_shallow <assert> <args…> — the last arg is the label
+  if [ "$REPO_SHALLOW" = "true" ]; then
+    printf '  skip  %s (shallow checkout: retired template names are unknown)\n' "${@: -1}"
+  else
+    "$@"
+  fi
+}
 plant_legacy() {
   mkdir -p "$1/.claude/skills/aws-saml2aws-auth" "$1/.claude/skills/plan" "$1/.claude/skills/deslop"
   touch "$1/.claude/skills/aws-saml2aws-auth/SKILL.md" "$1/.claude/skills/plan/SKILL.md" "$1/.claude/skills/deslop/SKILL.md"
@@ -268,7 +280,7 @@ for answer in "" "N"; do
   label="answered '${answer:-EOF}'"
   assert_contains "$(cat "$box/legacy.log")" "plan" \
     "legacy copies ($label): current template name is listed"
-  assert_contains "$(cat "$box/legacy.log")" "deslop" \
+  unless_shallow assert_contains "$(cat "$box/legacy.log")" "deslop" \
     "legacy copies ($label): retired template name is listed"
   assert_eq "present" "$(exists "$h/.claude/skills/plan")" \
     "legacy copies ($label): current template name kept"
@@ -286,13 +298,13 @@ box="$(run_install "" --with-claude)"; h="$box/home"; plant_legacy "$h"
 # stays beside its replacement for Pi and Codex: named, never deleted.
 mkdir -p "$h/.agents/skills/deslop"; touch "$h/.agents/skills/deslop/SKILL.md"
 rerun_install "$box" "y" legacy.log
-assert_contains "$(cat "$box/legacy.log")" "retired template skills: deslop" \
+unless_shallow assert_contains "$(cat "$box/legacy.log")" "retired template skills: deslop" \
   "~/.agents/skills/: a retired template skill left there is named"
 assert_eq "present" "$(exists "$h/.agents/skills/deslop")" \
   "~/.agents/skills/: ... and never deleted"
 assert_eq "missing" "$(exists "$h/.claude/skills/plan")" \
   "legacy copies (answered y): current template name deleted"
-assert_eq "missing" "$(exists "$h/.claude/skills/deslop")" \
+unless_shallow assert_eq "missing" "$(exists "$h/.claude/skills/deslop")" \
   "legacy copies (answered y): retired template name deleted"
 assert_eq "present" "$(exists "$h/.claude/skills/aws-saml2aws-auth")" \
   "legacy copies (answered y): never-carried name is never a candidate"

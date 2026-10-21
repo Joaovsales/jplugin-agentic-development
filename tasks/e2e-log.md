@@ -1587,3 +1587,60 @@ browser check; before/after captures kept locally in design/plan-theme/dogfood/ 
 the repo is public); the original spec fails the new renderer at :432 (3-cell Decisions rows)
 Result: BLOCKED — the render passes; the before/after comparison is the owner's review in the PR,
 and its captures stay local (they show an internal service's design, the repo is public)
+
+## Pane walkthrough — session-viz mod — 2026-10-19 6c44f8f
+
+Spec: specs/session-viz-mod.md (AC1–AC12, all `user-facing`: every criterion is a line the pane draws, a toast, or the status line)
+Commits: 19e974d (slice 1), 001a1a2 (slice 2), d995ece (slice 3), 2a5a29e (slice 4), f8dc7bf (slice 5), 6c44f8f (plan index); the quality-gate Phase 1 fixes land in the commit after this entry.
+Engine: `claude --version` → `2.1.303 (Claude Code)` (spec D14 asks 2.1.299+).
+
+The mod draws a Claude Code pane, not a web page, so the walkthrough driver is the
+engine's own plugin test harness: `claude plugin test` loads the real hooks module,
+raises the events through `$`, mounts the `Pane` component on the `terminal` and the
+`desktop` surface and reads the drawn tree back. Every AC below was asserted on both
+surfaces unless noted. The merged mod was also hot-reloaded into this session from
+`~/.claude/dev-mods/<session>/session-viz` (the engine's notice: the mods under that
+folder loaded) — the pane exists in the live session, but this session has no terminal
+of its own to screenshot it, so the drawn text is evidenced through the harness.
+
+### Fresh run (same message as these claims)
+
+```
+$ claude plugin validate mods/session-viz
+  ❯ ./register.tsx hooks: session.start, command.run{command=session-viz}, session.measure, ui.render{component=Pane, requestId=?}, skill.prompt, turn.step, prompt.submit, session.start{cwd=?}, tool.call{tool=/"^(?:Edit|Write|MultiEdit)$"/, file_path=...}, prompt.submit{text=?}, session.start{cwd=?}, agent.spawn, turn.step{agentId=/"."/}, turn.complete{agentId=/"."/}, tool.call{agentId=/"."/}, tool.call{tool=AskUserQuestion}, session.start{cwd=?}, turn.complete{answer=?}, tool.call{tool=Bash}, agent.spawn{subagentType=/"."/}
+  ❯ ./register.tsx state writes: session-viz.agents, session-viz.asking, session-viz.gates, session-viz.measure, session-viz.phase, session-viz.plan, session-viz.selected, session-viz.toasted
+✔ Validation passed
+
+$ claude plugin test mods/session-viz
+ 16 pass
+ 0 fail
+Ran 16 tests across 5 files. [9.59s]
+```
+
+| AC | Walkthrough (test name → what the harness read on the pane) | Result |
+|----|-------------------------------------------------------------|--------|
+| AC1 | register.test.ts § shell — `session.start` opens pane `session-viz`; `$.command.run({ command: 'session-viz' })` answers `Session pane opened.` and opens it focused; on `terminal` and `desktop` at 200 and 80 body columns every section draws its empty line (`idle · no skill running`, `no plan block`, `no sub-agents yet`, `no receipt yet`, `no agent selected`); a Bash `tool.call` returns the bottom's `{ stdout: 'ok' }` unchanged; no toast | pass |
+| AC2 | register.test.ts § phase — `skill.prompt` `jplugin:build` → Text `BUILD · build`; main-loop `turn.step` with the `[ROUTE]` answer → `route fix · debug, quality-gate`; `prompt.submit` naming `specs/x.md` → `spec specs/x.md`; a sub-agent's `[ROUTE]` is ignored | pass |
+| AC3 | register.test.ts § status line — `$.ui.status` received `viz · BUILD · build` then, after `session.measure` (percent 42, usd 1.2345), `viz · BUILD · build · ctx 42% · $1.23` | pass |
+| AC4 | agents.test.ts § tree — the `code-reviewer` row under `general-purpose` starts with two spaces and holds `◐`, `review`, `code-reviewer`; after `turn.complete` (answer, 12 000 ms) it holds `✓` and `12s`; the `killed` agent from `$.agent.list()` (after `clock.advance(5000)`) is a root holding `✗` and `orphan` | pass |
+| AC5 | agents.test.ts § footprint — drill-down lines `read [a.md]`, `edited [b.ts]`, `grepped [foo in src]`, `commands [npm test]`, `4 tool calls · 2 steps · 7 messages`; after 40 more reads the read line starts `read [f0.md, f1.md`, lacks `a.md` and ends `+1 more` | pass |
+| AC6 | agents.test.ts § drill-down — `ui.press({ key: 'agent:agent-cr' })` resolves `{ element: 'agent:agent-cr' }`; the press asked `$.ui.scroll` for `tu-1` (the harness answers no scroll, so the `.catch` debug line `scroll to tu-1 failed` is the evidence); lines `code-reviewer · cr`, `requested sonnet · resolved claude-sonnet-5-5`, `parent claude-sonnet-5-5 · under agent-gp`, `running · 0 tool calls · 0 steps · 0 messages`, `… +n chars` for a 2 100-character prompt; a second press restores `no agent selected`; `$.session.messages` was called 0 times | pass |
+| AC7 | plan.test.ts § parse — with the recorded spec `specs/alpha.md`: `alpha · slice 1/4 · rows 3/7`, `1/4 First · rows 2/2 · ✓ handover`, `2/4 Second · rows 1/2`, …, exactly one `handover` line; with no spec recorded: `beta · slice 0/1 · rows 0/1` (the last block with an open row). Also run over this repository's real `tasks/todo.md` (parser compiled to JS in the scratchpad): `session-viz-mod · slice 5/5 · rows 12/12`, five slice lines each `✓ handover` — the same run earlier read `slice 0/5` with no handover on slice 1 and exposed the slice-1 handover sitting in the wrong plan block, fixed in 6c44f8f | pass |
+| AC8 | plan.test.ts § re-read — one `fs.read` at `session.start`; an Edit of `C:/repo/src/a.ts` does not re-read; an Edit of `C:\repo\tasks\todo.md` re-reads and the section changes to `one · slice 1/2 · rows 1/2`; a Write of `tasks/todo.md` re-reads again; with the file missing the section reads `no plan block` and the Write's result comes back as the bottom gave it | pass |
+| AC9 | gates.test.ts § findings — after spawning `code-reviewer` (agent-cr) and its `turn.complete` with the five-line answer: `MUST-FIX 2 · NITPICK 1`, `⚑ code-reviewer: [AMBIGUITY] which config | options: A) root B) pkg …`, `code-reviewer: [SURFACE] +x.py | reason: y` | pass |
+| AC10 | gates.test.ts § receipt — pointer `branch-feat-x.json` → `ab12cd34…` STOP receipt: one toast `session-viz: quality gate STOP (ab12cd34)` at `session.start`, none on a second read after a `receipt.py write` Bash call; the HOLD receipt `ee55ff66…` toasts nothing and draws `receipt HOLD ee55ff66 · tests exit 0 · unresolved 0`; the STOP line drew `receipt STOP ab12cd34 · tests exit 1 · unresolved 1`; the main-loop answer `Receipt: STOP deadbeef policy qg1-00000000` toasts once for turn-3 (a repeat of turn-3 is silent) and once more for turn-4; `verdict STOP` drawn. § no pointer → `no receipt yet`; malformed JSON → `receipt unreadable`, no toast | pass |
+| AC11 | dispatch.test.ts § tiers — toasts exactly `backend-developer dispatched on opus (planner); model-routing says builder`, `code-reviewer dispatched on sonnet (builder); model-routing says inherit`, `critic dispatched on sonnet (builder); model-routing says inherit`; `critic` on `opus` under `claude-sonnet-5-5`, `planner` on `opus`, `general-purpose` on `haiku`, `backend-developer` with no model or on `sonnet` are silent; each toast is a `⚠ …` row under Gates on both surfaces | pass |
+| AC12 | dispatch.test.ts § contract — the seven-marker prompt on `code-reviewer` and a marker-less `general-purpose` toast nothing; the prompt without `deferrals: none` and the boundary words toasts `session-viz: code-reviewer dispatch missing contract item(s) 5, 6` once, drawn under Gates | pass |
+
+Not evidenced here: a screenshot of the pane in an interactive terminal (this session has
+no terminal of its own); the live `$.ui.scroll` to a transcript row (the harness answers no
+scroll). Both are exercised by the live hot-reload in this session and by any session started
+with `claude --plugin-dir mods/session-viz`.
+
+### Addendum — 9065640 (quality-gate fixes)
+
+The refactors of 9065640 (shared constants in state.ts, the guarded agent sync, the once-only STOP toast, the folded severities) change no drawn text. Fresh run on that tree, same message as this claim: `claude plugin validate mods/session-viz` → `✔ Validation passed`; `claude plugin test mods/session-viz` → `16 pass / 0 fail / Ran 16 tests across 5 files`; the AC1–AC12 table above holds for 9065640 unchanged.
+
+### Addendum — gate re-entry (uncommitted dispatch fix)
+
+The wrap-up gate re-entry stored the dispatch issue text without the `session-viz: ` prefix and adds the prefix in `raise` (`mods/session-viz/hooks/dispatch.tsx`). Toast text and the `⚠ …` rows read exactly as before, so AC11 and AC12 hold; fresh run on that tree: `claude plugin validate mods/session-viz` → `✔ Validation passed`; `claude plugin test mods/session-viz` → `16 pass / 0 fail / Ran 16 tests across 5 files`.

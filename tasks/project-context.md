@@ -12,6 +12,7 @@
 - `.claude/hooks/` — lifecycle automation
 - `.github/upstreams.json` — registered upstream sources and pinned baselines
 - `.github/workflows/` — repository automation, including upstream drift checks
+- `mods/` — Claude Code mods (function-hook plugins validated by `claude plugin validate`): `factory-board`, `session-viz`
 - `scripts/` — standard-library and shell maintenance utilities
 - `specs/` — feature specifications and acceptance criteria
 - `tasks/solutions/` — typed, grep-first learning store
