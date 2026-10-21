@@ -520,13 +520,24 @@ for f in "$VP_SKILL" "$SDP_SKILL"; do
   assert_file_not_matches "$f" '```text blocks' "wiring: $name no longer requires text fences for diagrams and tables"
 done
 assert_file_absent "$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json" "wiring: content-model.json is removed"
+# The render lives in /slice's propose phase, not in the planner that calls
+# it: a standalone `/slice <spec>` -- the change-request loop, or a button
+# that re-runs it -- used to leave the page absent or trailing the spec,
+# because only /plan Step 3 rendered. /plan Step 3 is the call alone.
+SLICE_SKILL="$REPO_ROOT/.agents/skills/slice/SKILL.md"
+SLICE_PROPOSE="$(awk '/^## Propose:/{on=1;next} /^## File:/{on=0} on' "$SLICE_SKILL")"
+assert_contains "$SLICE_PROPOSE" 'python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html' "wiring: /slice's propose phase renders the visual plan"
+assert_contains "$SLICE_PROPOSE" '✓ Visual written: /absolute/path/specs/<feature>.plan.html' "wiring: /slice prints the Visual written line"
+assert_contains "$SLICE_PROPOSE" '§ *Skip when trivial*' "wiring: /slice applies /visual-plan's skip gate by reference"
+assert_contains "$SLICE_PROPOSE" 'Skipping visual-plan: <reason>' "wiring: /slice prints the skip line when the gate skips"
+assert_contains "$SLICE_PROPOSE" 'Every re-run re-renders' "wiring: /slice re-renders on every re-run, so the page never trails the spec"
+assert_eq "after" "$(printf '%s\n' "$SLICE_PROPOSE" | awk '/slice.py readiness --spec/{s=NR} /plan_render\.py specs/{r=NR} END{print (s && r>s) ? "after" : "before"}')" "wiring: /slice renders after the readiness gate, so the page carries the prompt fence or the Not ready ids"
+assert_file_contains "$SLICE_SKILL" '✓ Visual written: <abs page path>' "wiring: /slice's required output names the page path"
 PLAN_SKILL="$REPO_ROOT/.agents/skills/plan/SKILL.md"
-PLAN_STEP3="$(awk '/^### 3\. Slice and Render/{on=1;next} /^### /{on=0} on' "$PLAN_SKILL")"
-assert_contains "$PLAN_STEP3" 'python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html' "wiring: /plan Step 3 renders the visual plan after /slice"
-assert_contains "$PLAN_STEP3" '✓ Visual written: /absolute/path/specs/<feature>.plan.html' "wiring: /plan Step 3 prints the Visual written line"
-assert_contains "$PLAN_STEP3" '§ *Skip when trivial*' "wiring: /plan Step 3 applies /visual-plan's skip gate by reference"
-assert_contains "$PLAN_STEP3" 'Every re-run of this step re-renders' "wiring: /plan re-renders whenever a change request re-runs Step 3"
-assert_eq "after" "$(printf '%s\n' "$PLAN_STEP3" | awk '/^Invoke `\/slice/{s=NR} /plan_render\.py specs/{r=NR} END{print (s && r>s) ? "after" : "before"}')" "wiring: /plan renders after /slice writes the Build Order"
+PLAN_STEP3="$(awk '/^### 3\. Slice$/{on=1;next} /^### /{on=0} on' "$PLAN_SKILL")"
+assert_contains "$PLAN_STEP3" 'Invoke `/slice specs/<feature-name>.md' "wiring: /plan Step 3 is the /slice call"
+assert_not_contains "$PLAN_STEP3" 'plan_render.py specs/<feature>.md -o' "wiring: /plan Step 3 renders nothing itself -- /slice does"
+assert_file_not_matches "$PLAN_SKILL" '^### 3\. Slice and Render' "wiring: the Slice and Render heading is gone from /plan"
 
 printf '\n--- template: the system-design template carries what the renderer types ---\n'
 SDP_TMPL="$REPO_ROOT/.agents/skills/system-design-planning/templates/architecture-spec-template.md"
