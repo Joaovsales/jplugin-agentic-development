@@ -2264,3 +2264,18 @@ Step ledger (routine `simplify`):
 - Completed: 3 rows — the regression tests, the hook fix, the quality gate
 - Pending: none for this fix. `/memory-maintain` was due (40 sessions) and not run here: a store sweep is its own task, not part of a one-hook bug fix
 - Carry-forward: the Session Summary heading grammar is written in four places (`wrap-up-session/SKILL.md:57` bracketed date, `closure-actions.md:149` bare date with trailing text, the hook header, the live `tasks/todo.md` bare) — the next change to the heading should pick one and have the hook extract only the `[hex..hex]` group
+
+## Tidy: 2026-10-21
+> Record: `tasks/sweeps/2026-10-21-tidy.md`, swept at `f27a6c1` on `routine/tidy/20261021-sweep`.
+
+- [x] 1 — `suite`: clean (76/76 files)
+- [x] 2 — `inventory`: clean (AGENTS.md table skipped: absent by design)
+- [x] 3 — `retired`: inconclusive (shallow clone)
+- [x] 4 — `installed`: inconclusive (`install.sh` never ran on this host)
+- [x] 5 — `refs`: clean (unresolved paths are expected-to-be-created; Unverified)
+- [x] 6 — `worktrees`: clean for worktrees; local-branch half inconclusive (shallow clone)
+- [x] 7 — `strays`: clean after deleting 7 untracked `__pycache__/` dirs this run's own Python wrote
+- [x] 8 — `graph`: skipped (no graphify on this machine; no graph by design)
+- [x] 9 — `registers`: 2 Tier 1 findings (34 closed plan blocks, tracked by #143; checkpoint older than newest summary)
+- [x] 10 — `shortcuts`: clean (4 markers, all with a trigger)
+- [x] 11 — `tools`: inconclusive (archify not installed)
