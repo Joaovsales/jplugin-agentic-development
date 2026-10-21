@@ -2279,3 +2279,14 @@ Step ledger (routine `simplify`):
 - [x] 9 — `registers`: 2 Tier 1 findings (34 closed plan blocks, tracked by #143; checkpoint older than newest summary)
 - [x] 10 — `shortcuts`: clean (4 markers, all with a trigger)
 - [x] 11 — `tools`: inconclusive (archify not installed)
+
+### Routine: tidy 20261021 — steps
+- [x] 1 — `task-registry doctor`: provider `github`, reachable, write approval not required
+- [x] 2 — branch `routine/tidy/20261021-sweep` created (did not exist)
+- [x] 3 — `/tidy`: 11 checks, 0 Tier 0 commits, 3 Tier 1 remedies, 0 filed; record `tasks/sweeps/2026-10-21-tidy.md`
+- [x] 4 — `/wrap-up-session`
+
+## Session Summary — 2026-10-21 [f27a6c1..e2441cd]
+- Completed: weekly `tidy` sweep — suite green (76/76), no Tier 0 repair needed, nothing new to file; record `tasks/sweeps/2026-10-21-tidy.md`
+- Pending: Tier 1 remedies for a human — 34 closed plan blocks (#143), stale `tasks/checkpoint.md`, the #142 index row still `[ ]` though the issue is done. `/learn`: no patterns captured. `/memory-maintain` heavy pass not run: a producer PR carries only Tier 0 repairs and the record
+- Carry-forward: `retired`, `installed` and `tools` stay inconclusive on the cloud routine host (shallow clone, no `install.sh`, no archify)
