@@ -47,6 +47,24 @@ commit_docs() {
   git -C "$1" commit -qm "docs: $2"
 }
 
+# commit_wrapup <dir> <heading> [bullet...] — the wrap-up commit: tasks/todo.md
+# replaced by one `## Session Summary` heading and its bullets.
+commit_wrapup() {
+  _d="$1"; shift
+  printf '%s\n' "$@" > "$_d/tasks/todo.md"
+  git -C "$_d" add -A
+  git -C "$_d" commit -qm "chore: wrap up"
+}
+
+# assert_no_ledger <dir> <message> — the gate wrote no tasks/wrap-up-debt.md.
+assert_no_ledger() {
+  if [ -f "$1/tasks/wrap-up-debt.md" ]; then
+    assert_eq "absent" "present" "$2"
+  else
+    assert_eq "absent" "absent" "$2"
+  fi
+}
+
 # run_hook <dir> <local-sha> <remote-sha> — drive the hook.
 # Sets OUT (stderr) and HOOK_RC. Deliberately not used inside a command
 # substitution: that runs the function in a subshell and the exit code never
@@ -88,28 +106,55 @@ D="$(new_repo covered)"
 BASE="$(sha "$D")"
 commit_code "$D" src.py
 CODE="$(sha "$D")"
-{
-  echo "## Session Summary — 2026-09-02 [$(git -C "$D" rev-parse --short "$BASE")..$(git -C "$D" rev-parse --short "$CODE")]"
-  echo "- Completed: 1 task"
-} > "$D/tasks/todo.md"
-git -C "$D" add -A
-git -C "$D" commit -qm "chore: wrap up"
+commit_wrapup "$D" \
+  "## Session Summary — 2026-09-02 [$(short "$D" "$BASE")..$(short "$D" "$CODE")]" \
+  "- Completed: 1 task"
 TIP="$(sha "$D")"
 run_hook "$D" "$TIP" "$BASE"
 
 assert_eq "0" "$HOOK_RC" "Covered: exits zero"
 assert_eq "" "$OUT" "Covered: prints nothing"
-if [ -f "$D/tasks/wrap-up-debt.md" ]; then
-  assert_eq "absent" "present" "Covered: writes no ledger entry"
-else
-  assert_eq "absent" "absent" "Covered: writes no ledger entry"
-fi
+assert_no_ledger "$D" "Covered: writes no ledger entry"
 
 # ── The wrap-up commit itself is covered (Contract clause 2) ─────────────────
 # TIP above is the commit that *introduced* the session-summary line; it is not
 # inside the range it records. It must not be reported.
 assert_not_contains "not-empty:$OUT" "$(short "$D" "$TIP")" \
   "Wrap-up commit: not reported as uncovered"
+
+# ── Covered range of several commits: silent ─────────────────────────────────
+# `git rev-list` prints one SHA per line. The one-commit range above never
+# exercised that: a command substitution strips the single trailing newline.
+# Two or more commits put newlines inside the covered list, and the
+# space-delimited membership test must still find every one of them.
+D="$(new_repo multicovered)"
+BASE="$(sha "$D")"
+commit_code "$D" a.py
+commit_code "$D" b.py
+commit_code "$D" c.py
+CODE="$(sha "$D")"
+commit_wrapup "$D" \
+  "## Session Summary — 2026-10-20 [$(short "$D" "$BASE")..$(short "$D" "$CODE")]" \
+  "- Completed: 3 tasks"
+run_hook "$D" "$(sha "$D")" "$BASE"
+
+assert_eq "0" "$HOOK_RC" "Multi-commit range: exits zero"
+assert_eq "" "$OUT" "Multi-commit range: every commit in the range is covered"
+assert_no_ledger "$D" "Multi-commit range: writes no ledger entry"
+
+# ── Bracketed date in the heading is not a fingerprint ───────────────────────
+# /wrap-up-session documents the heading as `## Session Summary — [YYYY-MM-DD]
+# [a..b]`. The date group is skipped, not named as an unparseable fingerprint
+# on every push, and the range beside it still covers the commit.
+D="$(new_repo bracketdate)"
+BASE="$(sha "$D")"
+commit_code "$D" src.py
+CODE="$(sha "$D")"
+commit_wrapup "$D" "## Session Summary — [2026-10-20] [$(short "$D" "$BASE")..$(short "$D" "$CODE")]"
+run_hook "$D" "$(sha "$D")" "$BASE"
+
+assert_eq "0" "$HOOK_RC" "Bracketed date: exits zero"
+assert_eq "" "$OUT" "Bracketed date: neither reported as unparseable nor a gap"
 
 # ── Docs-only push: silent, no ledger ────────────────────────────────────────
 D="$(new_repo docsonly)"
@@ -119,11 +164,7 @@ run_hook "$D" "$(sha "$D")" "$BASE"
 
 assert_eq "0" "$HOOK_RC" "Docs-only: exits zero"
 assert_eq "" "$OUT" "Docs-only: prints nothing"
-if [ -f "$D/tasks/wrap-up-debt.md" ]; then
-  assert_eq "absent" "present" "Docs-only: writes no ledger entry"
-else
-  assert_eq "absent" "absent" "Docs-only: writes no ledger entry"
-fi
+assert_no_ledger "$D" "Docs-only: writes no ledger entry"
 
 # ── Repo not using the workflow (no tasks/todo.md): silent ───────────────────
 D="$(new_repo noworkflow)"
@@ -179,9 +220,7 @@ D="$(new_repo malformed)"
 BASE="$(sha "$D")"
 commit_code "$D" src.py
 CODE="$(short "$D")"
-echo "## Session Summary — 2026-09-01 [907ac6d..worktree]" > "$D/tasks/todo.md"
-git -C "$D" add -A
-git -C "$D" commit -qm "chore: malformed summary"
+commit_wrapup "$D" "## Session Summary — 2026-09-01 [907ac6d..worktree]"
 run_hook "$D" "$(sha "$D")" "$BASE"
 
 assert_eq "0" "$HOOK_RC" "Malformed: exits zero"
@@ -293,9 +332,7 @@ D="$(new_repo hostile)"
 BASE="$(sha "$D")"
 commit_code "$D" src.py
 CODE="$(short "$D")"
-echo "## Session Summary — 2026-09-02 [--upload-pack=touch /tmp/pwned..HEAD]" > "$D/tasks/todo.md"
-git -C "$D" add -A
-git -C "$D" commit -qm "chore: hostile summary"
+commit_wrapup "$D" "## Session Summary — 2026-09-02 [--upload-pack=touch /tmp/pwned..HEAD]"
 run_hook "$D" "$(sha "$D")" "$BASE"
 
 assert_eq "0" "$HOOK_RC" "Hostile fingerprint: exits zero"
