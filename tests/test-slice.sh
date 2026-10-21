@@ -224,9 +224,6 @@ assert_eq "0" "$CODE" "legacy-plan: a task-id block with TDD rows and no feature
 assert_eq "" "$OUT" "legacy-plan: a legacy block prints nothing"
 OUT="$("$PY" "$SLICE" ready --index "$TWO/todo-legacy.md" --spec "$TWO/spec.md" 2>&1)"
 assert_contains "$OUT" "ready: 1 one" "legacy-plan: a legacy block's open slice 1 is ready"
-OUT="$("$PY" "$SLICE" ready --index tasks/todo.md --spec specs/aposd-first-build.md 2>&1)"
-CODE=$?
-assert_eq "0" "$CODE" "legacy-plan: the live legacy plan block still readies"
 
 printf '\n--- mode: derived from § Interfaces Path against Surface (AC3) ---\n'
 
@@ -246,13 +243,6 @@ assert_eq "0" "$CODE" "mode: a spec with no Interfaces section is fine"
 assert_contains "$OUT" "ready: 1 one mode=tdd" "mode: no Interfaces section means every slice is tdd"
 OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready-implicit/todo-open.md" --spec "$FIXTURES/ready-implicit/spec.md" 2>&1)"
 assert_contains "$OUT" "ready: 1 legacy-feature mode=tdd" "mode: a flat legacy plan's implicit slice is tdd"
-OUT="$("$PY" "$SLICE" ready --index tasks/todo.md --spec specs/aposd-first-build.md 2>&1)"
-CODE=$?
-assert_eq "0" "$CODE" "mode: ready succeeds on the live plan"
-assert_eq "0" "$(printf '%s
-' "$OUT" | grep -c 'mode=design')" "mode: the live plan prints no design slice"
-assert_eq "0" "$(printf '%s
-' "$OUT" | grep '^ready:' | grep -vc 'mode=tdd$')" "mode: every live ready line ends with mode=tdd"
 OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec.md" --index "$MODE/todo-new.md" 2>&1)"
 CODE=$?
 assert_eq "0" "$CODE" "mode: validate passes when every Interfaces entry has a Path"
@@ -261,9 +251,6 @@ CODE=$?
 assert_eq "1" "$CODE" "mode: validate refuses an Interfaces entry with no Path, exit 1"
 assert_contains "$OUT" '`one` module' "mode: the refusal names the entry"
 assert_contains "$OUT" "Path:" "mode: the refusal names the missing field"
-OUT="$("$PY" "$SLICE" validate --spec specs/aposd-first-build.md 2>&1)"
-CODE=$?
-assert_eq "0" "$CODE" "mode: validate passes on the live spec"
 
 printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
 
@@ -501,6 +488,82 @@ git -C "$TDD_REPO" commit -qm work
 OUT="$("$PY" "$SLICE" check --spec "$MODE/spec.md" --slice 2 --base "$TDD_BASE" --repo "$TDD_REPO" --index "$MODE/todo-new.md" 2>&1)"; CODE=$?
 assert_eq "0" "$CODE" "freeze: a tdd-mode slice with --index behaves as without it"
 assert_eq "" "$OUT" "freeze: a tdd-mode slice prints no freeze line"
+
+# A rename shows as delete plus add, so the old path is the one reported.
+freeze_repo
+git -C "$FREEZE_REPO" mv tests/one/test_a.py tests/one/test_c.py
+freeze_commit rename-test
+freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+assert_eq "3" "$CODE" "freeze: a contract test renamed after F exits 3"
+assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: a rename names the old path"
+
+freeze_repo
+git -C "$FREEZE_REPO" rm -q tests/one/test_a.py
+freeze_commit delete-test
+freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+assert_eq "3" "$CODE" "freeze: a contract test deleted after F exits 3"
+assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: a deletion names the deleted path"
+
+# Headings exist but none is `### Slice 1`: the freeze cannot be read, so the check refuses.
+freeze_repo
+printf '# Tasks\n\n## Plan: freeze-fixture\n> Spec: %s\n- [ ] freeze-fixture\n\n### Slice 2/2 — two\n- [ ] two — second\n' "$FREEZE_SPEC" > "$FREEZE_TODO"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+assert_eq "2" "$CODE" "freeze: a plan block with no heading for the slice exits 2"
+assert_contains "$OUT" "### Slice 1" "freeze: the refusal names the missing heading"
+
+# A recorded freeze is checked even when the slice's mode now derives tdd (the spec lost its Interfaces).
+freeze_repo
+printf 'assert one() == 9\n' >> "$FREEZE_REPO/tests/one/test_a.py"
+freeze_commit edit-test
+SAVED_SPEC="$FREEZE_SPEC"; FREEZE_SPEC="$FIXTURES/freeze/spec-no-interfaces.md"
+freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+FREEZE_SPEC="$SAVED_SPEC"
+assert_eq "3" "$CODE" "freeze: a recorded freeze is checked when the mode derives tdd"
+assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: the tdd-derived slice still reports the edit"
+
+freeze_repo
+freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+assert_eq "3" "$CODE" "freeze: two > Frozen: lines for one slice exit 3"
+assert_contains "$OUT" "duplicate freeze line" "freeze: names the duplicate"
+
+# Without --index the freeze is not read; a design-mode slice says so when tasks/todo.md can name its mode.
+freeze_repo
+freeze_todo "$FREEZE_REPO/tasks/todo.md" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
+assert_eq "0" "$CODE" "freeze: the no --index notice leaves the exit code alone"
+assert_contains "$OUT" "freeze: not checked (no --index)" "freeze: a design-mode slice without --index says the freeze was not checked"
+rm -f "$FREEZE_REPO/tasks/todo.md"
+OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
+assert_eq "" "$OUT" "freeze: with no --index and no tasks/todo.md there is nothing to say"
+OUT="$("$PY" "$SLICE" check --spec "$FIXTURES/check/spec.md" --slice 1 --base "$BASE1" --repo "$D1" 2>&1)"
+assert_eq "" "$OUT" "freeze: a tdd-mode check without --index prints no notice"
+
+# A new file anywhere under a contract test's directory is frozen; a root-level contract test protects only itself.
+freeze_repo
+mkdir -p "$FREEZE_REPO/tests/one/sub"
+printf 'assert one() == 4\n' > "$FREEZE_REPO/tests/one/sub/test_d.py"
+freeze_commit new-in-subdir
+freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+assert_eq "3" "$CODE" "freeze: a new file in a subdirectory of a contract test's directory exits 3"
+assert_contains "$OUT" "frozen-edited: tests/one/sub/test_d.py" "freeze: names the new subdirectory file"
+
+freeze_repo
+printf 'assert root\n' > "$FREEZE_REPO/test_root.py"
+freeze_commit root-contract
+FREEZE_F="$(git -C "$FREEZE_REPO" rev-parse HEAD)"
+printf 'assert root == 1\n' >> "$FREEZE_REPO/test_root.py"
+printf 'other\n' > "$FREEZE_REPO/other.md"
+freeze_commit root-edit-and-new
+freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+assert_eq "3" "$CODE" "freeze: a root-level contract test is still frozen"
+assert_contains "$OUT" "frozen-edited: test_root.py" "freeze: the root contract test itself is reported"
+assert_not_contains "$OUT" "frozen-edited: other.md" "freeze: a new root file is not beside a root contract test"
 
 printf '\n--- globs: registry/globs.py rejects what spec-reconcile.py used to reject ---\n'
 

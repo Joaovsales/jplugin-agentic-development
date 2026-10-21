@@ -27,6 +27,8 @@ the spec against what was built.
 - `> Spec:` stands alone on its line. An existing `## Plan: <feature>`
   block with `[ ]` rows is replaced section by section, in place; a
   different feature is appended. Never two blocks for one feature.
-- A block whose slice header rows carry `<!-- task-id: … -->` ids and
-  `[ ] TDD:` children is **legacy**: `slice.py` still validates and readies
-  it, and no new block is written in that form.
+- A block is **legacy** when any slice header row carries a `task-id:` marker
+  (`<!-- task-id: … -->`); `slice.py` tests only for that text on the header
+  row, never for `TDD:` children. It still validates and readies a legacy
+  block, every slice in it is tdd mode, and no new block is written in that
+  form.

@@ -33,8 +33,10 @@ python3 .agents/skills/slice/scripts/slice.py validate --spec <spec>
 
 Refuses, naming the slices or the path, on: two slices whose surfaces
 intersect with no blocker between them (directly or transitively), a cycle,
-or a surface path outside `implementation_paths`. Once a `## Plan:` block
-already exists for the spec (a re-run), it also refuses an open `[ ] TDD:
+a surface path outside `implementation_paths`, or a § Interfaces entry with
+no `Path:`. Once a `## Plan:` block already exists for the spec (a re-run),
+it also refuses two feature links in one block (a `> Issue:` line and a
+feature row, or two of either) and an open `[ ] TDD:
 tests/… § …` row whose test file no pattern in its slice's Surface matches,
 naming the slice and the path — the agent a slice dispatches edits only its
 Surface, so the test it must write has to be inside it. `/slice` writes nothing on
