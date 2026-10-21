@@ -14,10 +14,10 @@
 # (tasks/baseline-14f1cf9.log), 2026-10-21.
 
 # tests/test-design-stack-evidence.sh: git cat-file receives a backslash pathspec — #269
-tests/test-design-stack-evidence.sh msys* fatal: path '*' exists on disk, but not in 'HEAD'*
+tests/test-design-stack-evidence.sh msys* design-stack evidence: visual check, workflow install and e2e log contract
 
 # tests/test-design-stack-catalog.sh: symlinks into the sources tree need SeCreateSymbolicLinkPrivilege (WinError 1314) — #269
-tests/test-design-stack-catalog.sh msys* Traceback (most recent call last):*
+tests/test-design-stack-catalog.sh msys* catalog and selection: build_catalog and select_direction contract
 
 # tests/test-e2e-evidence.sh: the drive prefix is prepended to an MSYS path (FileNotFoundError) — #269
 tests/test-e2e-evidence.sh msys* layout: artifact_path spells the PNG location
