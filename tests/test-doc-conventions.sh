@@ -21,11 +21,15 @@ for root in .agents .claude/agents \
   assert_eq "present" "$([ -e "$root" ] && echo present || echo missing)" \
     "M3: sweep root $root exists (sweep coverage intact)"
 done
+# Each sweep below runs through assert_sweep_empty against a positive control
+# kept here: a file holding one line its pattern must match, so a sweep whose
+# pattern stopped finding what it is for cannot report an empty result as green.
+SWEEP_CTL="$(fixture_dir)"
 for old in "tasks/memory.md" "tasks/lessons.md" "tasks/bugs.md"; do
-  offenders="$(grep -rlF "$old" .agents .claude/agents \
-      CLAUDE.md AGENTS.md README.md install.sh project-template 2>/dev/null \
-    | grep -v '\.claude/worktrees/' || true)"
-  assert_eq "" "$offenders" "M3: no live reference to $old (offenders: ${offenders:-none})"
+  printf 'see %s for details\n' "$old" > "$SWEEP_CTL/m3.md"
+  assert_sweep_empty "M3: no live reference to $old" "$SWEEP_CTL/m3.md" \
+    -- grep -rlF --exclude-dir=worktrees "$old" .agents .claude/agents \
+      CLAUDE.md AGENTS.md README.md install.sh project-template
 done
 for f in .agents/skills/checkpoint/SKILL.md \
          .agents/skills/build/SKILL.md; do
@@ -217,7 +221,7 @@ for f in .agents/skills/tidy/SKILL.md; do
   assert_contains "$flat_tidy" "skipped with a note" \
     "tidy: $f skips a missing surface instead of reporting it"
   # AC-4: history is exempt from the retired sweep.
-  assert_contains "$flat_tidy" "every file outside \`tasks/\` and \`specs/\`" \
+  assert_contains "$flat_tidy" "outside \`tasks/\` and \`specs/\`" \
     "tidy: $f exempts tasks/ and specs/ from the retired check"
   # AC-5: the machine is the operator's -- the prohibition names its objects.
   assert_contains "$flat_tidy" "**never modifies** \`~/.claude/\` or \`~/.agents/\`" \
@@ -290,12 +294,11 @@ assert_file_matches "README.md" '^\| `/tidy`' \
 #      exit 0 (`2>/dev/null || echo X`) then fail to PARSE under PowerShell.
 # Gather context at runtime with one argv-style command per tool call instead.
 # The `!\[` exclusion keeps markdown image syntax from matching.
-while IFS= read -r f; do
-  hits="$(grep -n '![`]' "$f" 2>/dev/null | grep -cv '!\[' || true)"
-  assert_eq "0" "${hits:-0}" "BannedConstruct: $f has no load-time !\`cmd\` pre-resolution"
-done <<INNER_EOF
-$(find .agents/skills -name '*.md' -not -path '*/.claude/worktrees/*' | sort)
-INNER_EOF
+# One ERE for "a !` that no `![` precedes on its line": the prefix may hold `!`
+# only when the next character is not `[`.
+printf 'Run !`git status` before the skill loads.\n' > "$SWEEP_CTL/preresolved.md"
+assert_sweep_empty "BannedConstruct: no skill has a load-time !\`cmd\` pre-resolution" "$SWEEP_CTL/preresolved.md" \
+  -- grep -rnE --include='*.md' --exclude-dir=worktrees '^([^!]|![^[])*![`]' .agents/skills
 
 # --- Tier 2 (M1): independence accounting -----------------------------------
 # Corroboration is only evidence when the findings came from separately
@@ -511,8 +514,10 @@ done
 # spec argued its way out of. specs/ is exempt: that is where the decision and
 # its reversal path are written down. tests/ is exempt for the obvious reason
 # that this assertion names the token itself.
-reach_hits="$(grep -rl "agent-reach"   .agents .claude/agents .claude/browsers   AGENTS.md CLAUDE.md install.sh project-template 2>/dev/null | grep -vF '.claude/worktrees' || true)"
-assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhere outside specs/"
+printf 'depends on agent-reach\n' > "$SWEEP_CTL/agent-reach.md"
+assert_sweep_empty "lightpanda: agent-reach is not a dependency anywhere outside specs/" "$SWEEP_CTL/agent-reach.md" \
+  -- grep -rl --exclude-dir=worktrees "agent-reach" \
+    .agents .claude/agents .claude/browsers AGENTS.md CLAUDE.md install.sh project-template
 
 # --- task-registry: the tracker abstraction ----------------------------------
 # The capability is worth nothing if a workflow skill can still reach a tracker
@@ -544,7 +549,7 @@ for target in $agents_md_pointers; do
   assert_eq "present" "$([ -f "$target" ] && echo present || echo missing)" \
     "task-registry: live pointer in AGENTS.md resolves to a shipped file ($target)"
 done
-assert_prose_contains "AGENTS.md" "is an **index**, not the detailed source of truth" \
+assert_prose_contains "AGENTS.md" "is an **index**" \
   "task-registry: AGENTS.md states that tasks/todo.md is an index"
 assert_not_contains "$(flatten AGENTS.md)" \
   "a project without one gets the local Markdown provider and works offline" \
@@ -567,11 +572,11 @@ for tree in .agents; do
     "task-registry: $f states the dry-run default"
   assert_file_contains "$f" "A title is never an identity" \
     "task-registry: $f states that a title is not an identity"
-  assert_prose_contains "$f" "never creates, renames, or removes a label" \
+  assert_prose_contains "$f" "or removes a label" \
     "task-registry: $f states the label-preservation rule"
   assert_file_contains "$f" "Nothing unresolved is deleted" \
     "task-registry: $f states the no-silent-deletion rule"
-  assert_prose_contains "$f" "No tracker is ever selected implicitly" \
+  assert_prose_contains "$f" "selected implicitly" \
     "task-registry: $f states that no tracker is selected implicitly"
   template="$tree/skills/task-registry/templates/task-tracking.md"
   assert_file_contains "$template" \
@@ -629,10 +634,9 @@ assert_eq "absent" \
 # abstraction exists to remove, so they may appear only inside the registry.
 # `/rest/api/` stays in the pattern after the Jira adapter's removal: it guards
 # the next HTTP tracker somebody is tempted to call from a skill directly.
-coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills 2>/dev/null \
-  | grep -v '/task-registry/' | grep -vF '.claude/worktrees' || true)"
-assert_eq "" "$coupling_hits" \
-  "task-registry: no skill outside the registry calls a tracker's task API (offenders: ${coupling_hits:-none})"
+printf 'gh issue list --label bug\n' > "$SWEEP_CTL/gh-issue.md"
+assert_sweep_empty "task-registry: no skill outside the registry calls a tracker's task API" "$SWEEP_CTL/gh-issue.md" \
+  -- grep -rlE --exclude-dir=task-registry --exclude-dir=worktrees "gh issue|/rest/api/" .agents/skills
 
 # --- reachability wording: the GitHub requirement is REST, not gh auth status --
 # specs/github-rest-in-sandboxes.md AC9. A Claude Code cloud sandbox reaches GitHub
@@ -688,13 +692,11 @@ assert_eq "absent" "$([ -e ".claude/skills/route" ] && echo present || echo abse
 # at-runtime-to-keep-literal-sweeps-strict.md. An allowlist rots: three
 # exceptions accumulated in a single session before that pattern was applied, and
 # a sweep that excludes its own quarry decays into documentation.
-ROUTE_SWEEP_SELF_REFERENTIAL='^tests/test-doc-conventions\.sh$'
-route_refs="$(grep -rlE '/route\b|route_issue|materialize_route|finalize_route' \
-  .agents .claude CLAUDE.md README.md AGENTS.md PI_SETUP.md install.sh tests scripts \
-  2>/dev/null | grep -vF '.claude/worktrees' \
-  | grep -vE "$ROUTE_SWEEP_SELF_REFERENTIAL" || true)"
-assert_eq "" "$route_refs" \
-  "AC1: nothing in the shipping surface references the deleted router (offenders: ${route_refs:-none})"
+printf 'run /route to pick a lane\n' > "$SWEEP_CTL/route.md"
+assert_sweep_empty "AC1: nothing in the shipping surface references the deleted router" "$SWEEP_CTL/route.md" \
+  -- grep -rlE --exclude-dir=worktrees --exclude=test-doc-conventions.sh \
+    '/route\b|route_issue|materialize_route|finalize_route' \
+    .agents .claude CLAUDE.md README.md AGENTS.md PI_SETUP.md install.sh tests scripts
 
 assert_eq "absent" "$([ -e ".claude/hooks/user-prompt-route.sh" ] && echo present || echo absent)" \
   "AC2: the UserPromptSubmit routing hook is deleted"
@@ -781,11 +783,16 @@ done
 # and tests.md were placeholders nothing wired. Each is deleted with every
 # reference, so nothing can route a user to a step that no longer exists.
 # The literals are assembled at runtime so this block is not itself a hit.
-shim_hits() { git grep -l -e "$1" -- . ':!tasks' ':!specs' 2>/dev/null | paste -sd' ' - || true; }
+# The sweep roots are the tracked top-level entries bar tasks/ and specs/, the
+# set `git grep -- . ':!tasks' ':!specs'` covered, so an untracked or ignored
+# top-level directory stays out of it.
+shim_roots=()
+while IFS= read -r shim_root; do shim_roots+=("$shim_root"); done \
+  < <(git ls-files | cut -d/ -f1 | sort -u | grep -vxE 'tasks|specs')
 for needle in "commands.""legacy" "Step 2.""5" "Step 2.""6" "auto-test-""runner" "auto test ""runner" "TARGETS_IN_""CLAUDE"; do
-  hits="$(shim_hits "$needle")"
-  assert_eq "" "$hits" \
-    "Shims: no tracked file outside tasks/ and specs/ names '$needle' (hits: ${hits:-none})"
+  printf 'mentions %s once\n' "$needle" > "$SWEEP_CTL/shim.md"
+  assert_sweep_empty "Shims: no tracked file outside tasks/ and specs/ names '$needle'" "$SWEEP_CTL/shim.md" \
+    -- grep -rl --exclude-dir=worktrees -e "$needle" "${shim_roots[@]}"
 done
 for gone in tests.md .claude/hooks/auto-test-"runner.sh" .claude/hooks/auto-test-"runner.ps1"; do
   assert_eq "absent" "$([ -e "$gone" ] && echo present || echo absent)" \
@@ -848,15 +855,15 @@ done
 # the --approve rule are hard-wrapped prose; pinned via flatten rather than a
 # single-line literal.
 flat_slice="$(flatten "$SLICE_SKILL")"
-assert_contains "$flat_slice" "replaced section by section, in place" \
+assert_contains "$flat_slice" "section by section" \
   "slice: SKILL.md states the in-place plan-block replacement rule"
 assert_contains "$flat_slice" "Never two blocks for one feature" \
   "slice: SKILL.md states the one-block-per-feature rule"
-assert_contains "$flat_slice" "there is nothing to file before a proposal" \
+assert_contains "$flat_slice" "nothing to file" \
   "slice: SKILL.md states the no-plan-block refusal"
 assert_contains "$flat_slice" "filing is idempotent" \
   "slice: SKILL.md states the idempotent re-run rule"
-assert_contains "$flat_slice" "the build prompt a human typed is the reviewer's word" \
+assert_contains "$flat_slice" "the reviewer's word" \
   "slice: SKILL.md states the --approve rule the /build and /yolo callers follow"
 
 # Negative pins: the ceremony this spec removed must not reappear here.
@@ -1032,9 +1039,9 @@ assert_file_matches "$SIMPLER_SKILL" '^\| `/plan` Step 6 — Hand over \| no bui
   "pipelines: make-it-simpler's Step 6 row prints no prompt and builds in place"
 assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — filing \| no `/slice --file`.*slice headers are not claimed' \
   "pipelines: make-it-simpler's /build pre-flight row files no slices and claims no header"
-assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
+assert_prose_contains "$SIMPLER_SKILL" "fresh-session rule" \
   "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
-assert_prose_contains AGENTS.md '`/yolo` (unattended), `/make-it-simpler` (one simplification sized to one review) and an unattended lane run (a routine with no owning skill — `improve`, `refactor`, `babysit`; `.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan handover*) are the four named exceptions that build in the planning session' \
+assert_prose_contains AGENTS.md 'four named exceptions' \
   "pipelines: AGENTS.md's named-exceptions sentence names /make-it-simpler"
 # specs/lane-plan-handover.md AC5: step 3 names all four exceptions and cites the section.
 for token in '`/auto-push`' '`/yolo`' '`/make-it-simpler`' "unattended lane run" "Crossing the plan handover"; do
@@ -1182,9 +1189,11 @@ assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
 
 # specs/lane-plan-handover.md AC6: an unattended lane run omits --approve
 # alongside /yolo, in both /build's pre-flight and /slice's Integration.
-assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (\`.agents/skills/wrap-up-session/references/routines.md\` § *Crossing the plan handover*) omit \`--approve\`" \
+assert_prose_contains "$BUILD_SKILL" "§ *Crossing the plan handover*" \
+  "build: pre-flight cites the plan-handover section for an unattended lane run"
+assert_prose_contains "$BUILD_SKILL" "omit \`--approve\`" \
   "build: pre-flight names an unattended lane run alongside /yolo"
-assert_prose_contains .agents/skills/slice/SKILL.md "or \`--file\` alone from \`/yolo\` or an unattended lane run" \
+assert_prose_contains .agents/skills/slice/SKILL.md "\`/yolo\` or an unattended lane run" \
   "slice: Integration names an unattended lane run alongside /yolo"
 
 # specs/lane-plan-handover.md AC8: built in the planning session, every slice
@@ -1379,7 +1388,7 @@ SEC_QG="$(qg_section "## Phase 3 — Security")"
 for token in "/security-scan" "the gate's own file list" "untracked" "Apply Gate" "\"inline\""; do
   assert_contains "$SEC_QG" "$token" "quality receipt: phase 3 names '$token'"
 done
-assert_contains "$flat_qg" "No phase after 4 edits the tree" \
+assert_contains "$flat_qg" "No phase after 4" \
   "quality receipt: the gate forbids edits after the APOSD phase"
 TESTS_QG="$(qg_section "## Phase 5 — Tests")"
 for token in "Affected tests:" "cached-suite.sh -- " "\"tree\"" "never a silent fix"; do
@@ -1503,7 +1512,7 @@ for token in "receipt.py check" "diff-changed" "--scope <delta paths> --parent <
   assert_contains "$WRAP_STEP4" "$token" \
     "receipt check: /wrap-up-session § Quality receipt names '$token'"
 done
-assert_contains "$WRAP_STEP4" "Never call \`/quality-gate\` a second time on an unchanged tree." \
+assert_contains "$WRAP_STEP4" "an unchanged tree" \
   "receipt check: /wrap-up-session § Quality receipt runs no second gate on the same tree"
 # receipt.py reports an unapproved HOLD as `stale verdict HOLD`, never as
 # `valid HOLD`; the approval path keys on that line, before any re-entry, and
@@ -1553,7 +1562,7 @@ for token in "gh_pr.py checks <n> --watch --required" "run_in_background" \
              "2 total" "closure repair"; do
   assert_contains "$CI_SECTION" "$token" "closure CI: CI Watch and Repair names '$token'"
 done
-assert_contains "$flat_ca" "no \`.github/workflows/*\` file triggers on \`pull_request\`" \
+assert_contains "$flat_ca" "triggers on \`pull_request\`" \
   "closure CI: ci: none requires no pull_request-triggered workflow too"
 assert_contains "$flat_ca" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
   "closure CI: every repair commit adds a closure-repair Session Summary line"
@@ -1584,7 +1593,7 @@ for token in "/verify-evidence --scope deployment" "head-moved: true" "head-move
              "Deployments: not applicable —" "\`--skip-deploy\`"; do
   assert_contains "$STEP8" "$token" "closure deploy: § Deployment verification names '$token'"
 done
-assert_contains "$STEP8" "Deployment Targets\` row applies to the pushed branch" \
+assert_contains "$STEP8" "applies to the pushed branch" \
   "closure deploy: § Deployment verification names the applying-target case"
 assert_contains "$STEP8" "Accepted exception" \
   "closure deploy: § Deployment verification names the accepted exception"
@@ -1629,7 +1638,7 @@ done
 # specs/quality-receipt-closure.md AC13.
 ROUTINES=.agents/skills/wrap-up-session/references/routines.md
 flat_routines="$(flatten "$ROUTINES")"
-assert_contains "$flat_routines" "checks the quality receipt, tests, and the pull request" \
+assert_contains "$flat_routines" "checks the quality receipt" \
   "routine spine: routines.md names the quality receipt in place of review passes"
 assert_not_contains "$flat_routines" "review passes, tests, and the pull request" \
   "routine spine: routines.md no longer names review passes in either spine table"

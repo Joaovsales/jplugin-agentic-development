@@ -1452,7 +1452,7 @@ gh_parent_dry="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata"
   run upsert recipe.morph-live-grid --repo "$F_GH" --title 'Morph live grid recipe' --parent '#44' 2>&1)"
 assert_contains "$gh_parent_dry" "upsert: would link parent #44 (parent: metadata on github)" \
   "upsert --parent: a GitHub dry run names the degraded link without --apply"
-assert_not_contains "$(cat "$F_GH/gh-parent-dry.log")X" "44" \
+assert_not_contains "$(cat "$F_GH/gh-parent-dry.log")X" "issues/44" \
   "upsert --parent: a dry run never resolves the parent reference through gh"
 
 gh_parent_apply="$(cd "$F_GH" && PATH="$F_GH/bin:$PATH" GH_MOCK_DIR="$F_GH/ghdata" \
@@ -2561,7 +2561,16 @@ bad_gh="$(cd "$F_BADGH" && PATH="$F_BADGH/bin:$PATH" GH_MOCK_DIR="$F_BADGH/ghdat
   GH_MOCK_LOG="$F_BADGH/gh-bad.log" \
   run upsert brand.new --repo "$F_BADGH" --title 'Brand new' --apply --approve 2>&1)"; bad_gh_code=$?
 assert_eq "1" "$bad_gh_code" "Malformed index: upsert refuses on the GitHub path too"
-assert_eq "" "$(cat "$F_BADGH/gh-bad.log" 2>/dev/null)" \
+assert_contains "$bad_gh" "unbalanced HTML comment" \
+  "Malformed index: the GitHub-path refusal names the malformed row, not some other guard"
+# The mock creates its log on start, so "no log" is only evidence once a control
+# call shows the mock on PATH leaves one -- a mock that never ran (the Windows
+# gh.exe PATHEXT case) would otherwise satisfy the absence just as well.
+(cd "$F_BADGH" && PATH="$F_BADGH/bin:$PATH" GH_MOCK_DIR="$F_BADGH/ghdata" \
+  GH_MOCK_LOG="$F_BADGH/gh-control.log" gh api user) >/dev/null 2>&1
+assert_file_exists "$F_BADGH/gh-control.log" \
+  "Malformed index: control -- the mock on PATH creates its log when it is called"
+assert_file_absent "$F_BADGH/gh-bad.log" \
   "Malformed index: no provider call is made at all before the refusal (AC-19 ordering)"
 
 # `offline_reads = fail` is the other half of the same policy: degrade is the

@@ -221,7 +221,7 @@ assert_prose_contains "$readme" "require_write_approval = false" \
   "AC8: the README checklist names the first write switch"
 assert_prose_contains "$readme" "TASK_REGISTRY_TRUSTED_CONFIG=1" \
   "AC8: the README checklist names the second write switch"
-assert_file_contains "$readme" "gh" "AC8: the README checklist requires an authenticated gh"
+assert_file_contains "$readme" 'authenticated `gh`' "AC8: the README checklist requires an authenticated gh"
 assert_file_contains "$readme" "allow_label_creation" \
   "AC8: the README checklist covers pre-existing labels"
 assert_file_contains "$readme" "verify-<app>" \
@@ -272,7 +272,7 @@ assert_contains "$unattended" "require_write_approval = false" \
   "AC10: the section names the first write switch"
 assert_contains "$unattended" "TASK_REGISTRY_TRUSTED_CONFIG=1" \
   "AC10: the section names the second write switch"
-assert_contains "$unattended" "gh" "AC10: the section names gh"
+assert_contains "$unattended" 'authenticated `gh`' "AC10: the section names gh"
 assert_contains "$unattended" "allow_label_creation" \
   "AC10: the section names allow_label_creation"
 

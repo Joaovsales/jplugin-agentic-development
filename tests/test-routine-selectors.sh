@@ -354,7 +354,7 @@ run_select() {
 
 fix_out="$(run_select "$F_SEL" --routine fix)"; fix_code=$?
 assert_eq "0" "$fix_code" "select: a routine with a candidate exits 0"
-assert_contains "$fix_out" "11" \
+assert_contains "$fix_out" "candidate:     11 —" \
   "select: priority orders WITHIN the pool — now (#11) beats next (#10)"
 assert_not_contains "$fix_out" "Already claimed" \
   "select: an issue carrying the claim label is skipped as in-flight"
@@ -365,7 +365,7 @@ assert_contains "$fix_out" "remaining:     1 other candidate(s)" \
 assert_contains "$fix_out" "bug" "select: the matched label is reported"
 
 plan_out="$(run_select "$F_SEL" --routine plan)"
-assert_contains "$plan_out" "14" "select: plan selects the design-decision issue"
+assert_contains "$plan_out" "candidate:     14 —" "select: plan selects the design-decision issue"
 
 # An unclassified issue belongs to nobody, and the gap must stay visible.
 assert_contains "$fix_out" "unclassified" \
@@ -528,7 +528,7 @@ PY
 )"
 assert_contains "$claim_blank" "'in-progress'" \
   "AC12: an empty or whitespace claim label falls back — it never resolves to ''"
-assert_not_contains "$claim_blank" "''" \
+assert_eq "$(printf "'in-progress'\n'in-progress'")" "${claim_blank//$'\r'/}" \
   "AC12: no blank claim label survives, which would disable the overlap guard"
 
 escalation_config="$("$PY" - "$SCRIPTS" <<'PY'
@@ -1017,7 +1017,7 @@ assert_eq "1" "$wf_closed_code" \
   "workflow: a closed issue exits non-zero — there is no routine to start"
 assert_not_contains "$wf_closed_out" "chain:" \
   "workflow: a closed issue is not handed a skill chain to run"
-assert_contains "$wf_closed_out" "31" \
+assert_contains "$wf_closed_out" "task-registry: 31 is " \
   "workflow: the closed-issue refusal names the issue"
 
 # The same issue REOPENED must route. Without this pair the assertion above

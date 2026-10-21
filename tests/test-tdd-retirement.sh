@@ -17,6 +17,8 @@ REPO="$(cd "$(dirname "$0")" && cd .. && pwd)"
 cd "$REPO"
 
 TREES=".agents"
+# One scratch directory for the positive controls the absence sweeps run against.
+SWEEP_CTL="$(fixture_dir)"
 
 # ── The doctrine survived the fold ───────────────────────────────────────────
 for tree in $TREES; do
@@ -39,9 +41,10 @@ done
 # whole wrap-up gate is pointless if this survives anywhere.
 # .claude/worktrees/ holds other checkouts (git-excluded, frozen at older
 # commits), not this tree, so it is skipped.
-hits="$(grep -rn "or at minimum" --exclude-dir=worktrees --include='*.md' \
-        .agents .claude CLAUDE.md README.md project-template 2>/dev/null || true)"
-assert_eq "" "$hits" "Retire: no 'or at minimum' commit escape hatch anywhere"
+printf 'Run /wrap-up-session or at minimum commit.\n' > "$SWEEP_CTL/escape-hatch.md"
+assert_sweep_empty "Retire: no 'or at minimum' commit escape hatch anywhere" "$SWEEP_CTL/escape-hatch.md" \
+  -- grep -rn --exclude-dir=worktrees --include='*.md' "or at minimum" \
+        .agents .claude CLAUDE.md README.md project-template
 
 # ── Every reference repointed ────────────────────────────────────────────────
 for tree in $TREES; do

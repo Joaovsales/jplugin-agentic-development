@@ -200,14 +200,13 @@ if command -v node > /dev/null 2>&1; then
   write_candidate "$box/uncited.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\"}]"
   run_check "$box/uncited.json"
   assert_eq "1" "$CHK_STATUS" "evidence: a component without sources is rejected"
-  assert_contains "$CHK_ERR" "b" "evidence: the rejection names the uncited component"
-  assert_contains "$CHK_ERR" "sources" "evidence: the rejection names the missing field"
+  assert_contains "$CHK_ERR" '"b" has no sources' "evidence: the rejection names the uncited component and the missing field"
 
   # A path with no line is not a citation: --refresh has no range to re-read.
   write_candidate "$box/lineless.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\",\"sources\":[{\"path\":\"src/a.sh\"}]}]"
   run_check "$box/lineless.json"
   assert_eq "1" "$CHK_STATUS" "evidence: a source without a line is rejected"
-  assert_contains "$CHK_ERR" "b" "evidence: the line-less rejection names the component"
+  assert_contains "$CHK_ERR" '"b" has no sources' "evidence: the line-less rejection names the component as uncited"
 
   write_candidate "$box/cited.json" "$REPO_META" "[$CITED,{\"id\":\"b\",\"label\":\"B\",\"sources\":[{\"path\":\"src/a.sh\",\"line\":1}]}]"
   run_check "$box/cited.json"
@@ -243,15 +242,17 @@ if command -v node > /dev/null 2>&1; then
   }
   run_finalize "$box/uncited.json" "$box/out.html" --repo-root "$box/repo" --out-dir "$box/review-1"
   assert_eq "1" "$FIN_STATUS" "finalize: an uncited codebase candidate stops before upstream runs"
-  assert_contains "$FIN_ERR" "b" "finalize: the refusal names the uncited component"
+  assert_contains "$FIN_ERR" '"b" has no sources' "finalize: the refusal names the uncited component"
   assert_eq "missing" "$([ -e "$box/argv" ] && echo present || echo missing)" "finalize: upstream never received the uncited candidate"
   run_finalize "$box/cited.json" "$box/out.html" --repo-root "$box/repo" --out-dir "$box/review-1"
   assert_eq "0" "$FIN_STATUS" "finalize: a cited candidate passes the check and runs upstream"
+  assert_file_exists "$box/argv" "finalize: upstream ran and recorded the arguments it received"
   assert_eq "finalize architecture $box/cited.json $box/out.html --repo-root $box/repo --out-dir $box/review-1" \
-    "$(cat "$box/argv" 2>/dev/null)" "finalize: upstream's arguments are forwarded unchanged"
+    "$(<"$box/argv")" "finalize: upstream's arguments are forwarded unchanged"
   run_finalize "$box/freehand.json" "$box/out.html" --out-dir "$box/review-1"
   assert_eq "0" "$FIN_STATUS" "finalize: a described system (no --repo-root) skips the check"
-  assert_contains "$(cat "$box/argv" 2>/dev/null)" "freehand.json" "finalize: a freehand candidate reaches upstream"
+  assert_file_exists "$box/argv" "finalize: upstream ran for the freehand candidate"
+  assert_contains "$(<"$box/argv")" "freehand.json" "finalize: a freehand candidate reaches upstream"
   assert_eq "0" "$(html_written)" "finalize: the fixture run wrote no HTML"
 else
   printf '  note evidence: node is absent on this machine; the candidate-check cases did not run\n'

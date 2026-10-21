@@ -103,8 +103,8 @@ case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) root_for_env="$(cygpath -w "$plugin_root" 2>/dev/null || printf '%s' "$plugin_root")" ;;
   *) root_for_env="$plugin_root" ;;
 esac
-assert_contains "$root_for_env" " " \
-  "hooks.json fixture: the plugin root used for the run contains a space (non-vacuity)"
+assert_true "hooks.json fixture: the plugin root used for the run contains a space (non-vacuity)" \
+  -- [ "${root_for_env#* }" != "$root_for_env" ]
 
 while IFS=$'\t' read -r event command; do
   out="$( cd "$project" \

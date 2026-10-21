@@ -170,18 +170,21 @@ done
 # per-file loop this replaces spawned three processes per skill and cost ~35s of
 # suite time on Windows, and a glob that matched nothing would have reported zero
 # assertions as a pass.
+SWEEP_CTL="$(fixture_dir)"
+printf '| Design review | **Sonnet** (floor) | x |\n' > "$SWEEP_CTL/pinned-row.md"
 for tree in .agents; do
-  hits="$(grep -rlE '^\|[^|]*([Rr]eview|[Aa]dversarial|[Cc]ritic|[Aa]udit)[^|]*\|.*([Ss]onnet|[Oo]pus|[Hh]aiku)' \
-    "$tree/skills" 2>/dev/null || true)"
-  assert_eq "" "$hits" "ModelTier: no review role pinned in a table cell under $tree/skills"
+  assert_sweep_empty "ModelTier: no review role pinned in a table cell under $tree/skills" "$SWEEP_CTL/pinned-row.md" \
+    -- grep -rlE '^\|[^|]*([Rr]eview|[Aa]dversarial|[Cc]ritic|[Aa]udit)[^|]*\|.*([Ss]onnet|[Oo]pus|[Hh]aiku)' \
+      "$tree/skills"
 done
 
 # --- 9. No concrete provider ID anywhere in the skill tree ------------------
 # Section 7 names the two routing tables; this sweeps every skill, because a
 # hardcoded ID goes stale in a prose paragraph exactly as fast as in a table.
+printf 'model: anthropic/claude-sonnet\n' > "$SWEEP_CTL/provider-id.md"
 for tree in .agents; do
-  hits="$(grep -rlE 'moonshotai/|qwen/|z-ai/|deepseek/|anthropic/claude' "$tree/skills" 2>/dev/null || true)"
-  assert_eq "" "$hits" "ModelTier: no concrete provider model ID under $tree/skills"
+  assert_sweep_empty "ModelTier: no concrete provider model ID under $tree/skills" "$SWEEP_CTL/provider-id.md" \
+    -- grep -rlE 'moonshotai/|qwen/|z-ai/|deepseek/|anthropic/claude' "$tree/skills"
 done
 
 # --- 10. critic's floor is stated where critic is dispatched ------------------
