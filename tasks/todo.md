@@ -1070,7 +1070,7 @@ reverse.
 
 Filed this sweep:
 
-- [ ] Permission-contract assertions cannot pass when the suite runs as uid 0 <!-- task-id: tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0 --> — Eleven assertions across two test files encode "the OS refuses this write/read"; uid 0 holds CAP_DAC_OVERRIDE, so they… ([#141](https://github.com/Joaovsales/jplugin-agentic-development/issues/141))
+- [x] Permission-contract assertions cannot pass when the suite runs as uid 0 <!-- task-id: tidy.tests-test-sync-retirement-sh.permission-contract-assertions-cannot-pass-when-the-suite-runs-as-uid-0 --> — Eleven assertions across two test files encode "the OS refuses this write/read"; uid 0 holds CAP_DAC_OVERRIDE, so they… ([#141](https://github.com/Joaovsales/jplugin-agentic-development/issues/141))
 - [ ] verify-task-registry is absent from every skills inventory surface <!-- task-id: tidy.claude-md.verify-task-registry-is-absent-from-every-skills-inventory-surface --> — The skill ships in both trees but appears in no skills table and not in the session-start banner, so it is invisible to… ([#142](https://github.com/Joaovsales/jplugin-agentic-development/issues/142))
 - [ ] Sixteen closed plan blocks are still in the todo index <!-- task-id: tidy.tasks-todo-md.sixteen-closed-plan-blocks-are-still-in-the-todo-index --> — tasks/todo.md is specified as an index but carries 16 fully-checked plan blocks older than the last two session summari… ([#143](https://github.com/Joaovsales/jplugin-agentic-development/issues/143))
 - [ ] Verify issue closure after a PR merged by the GitHub Actions app <!-- task-id: issue-linkage.agents-skills-wrap-up-session-references-routines-md --> — A PR whose body carried a single, correctly linked Closes #N merged into the default branch and the issue stayed open.… ([#146](https://github.com/Joaovsales/jplugin-agentic-development/issues/146))
@@ -1979,6 +1979,11 @@ Filed this sweep:
 - Pending: none.
 - Carry-forward: the gate's unresolved SHOULD-FIX — `cli_version(release)` makes the caller know the design-stack store layout (`hyperframes.py:30`); a validator for TDD-row test files outside their slice Surface runs as a separate session (chip).
 
+## Session Summary — [2026-10-19] [77cd01a..9065640]
+- Completed: the session-viz mod (`specs/session-viz-mod.md`, #299–#303) — all five slices built from the build prompt, slices 2–5 in parallel from per-slice scratchpad copies and merged centrally; `claude plugin validate` and `claude plugin test` (16 tests) green on 2.1.303; AC1–AC12 walked through in tasks/e2e-log.md; the quality gate applied nine fixes (shared SPEC_PATH/EVERY/SEVERITIES/GATES_KEPT in state.ts, a guarded agent sync, a once-only STOP toast) with the design review at GO.
+- Pending: the quality receipt ac52a67b is STOP because the Windows-local affected run exits 1 on the same 111 pre-existing assertions as the pre-build baseline (gh mock, symlinks); nothing was pushed — the push and the Linux CI run are the owner's call. The wrap-up's gate re-entry (receipt bdeeb22c, design HOLD with five SHOULD-FIX refactors, tests exit 1 on the same 111) applied one gated fix (dispatch issue text stored bare, prefix added in `raise`) that is uncommitted with this bookkeeping.
+- Carry-forward: the two unresolved gate findings — move the `dropped` overflow count into the Footprint contract (agents.tsx `Tracked`), and a parity test between receipt.py's layout and gates.tsx's reader; the README should say that `skill.prompt` hooks do not run under an organization-managed Claude Code; the spec's D13 now reads "initials in state.ts, atoms declared per file".
+
 ## Plan: design-stack-hyperframes
 > Spec: specs/design-stack-hyperframes.md
 
@@ -2272,3 +2277,40 @@ Filed this sweep:
 ### Slice 19/19 — Orca supervised worker
 - [ ] Orca supervised worker <!-- task-id: plan.specs-helix-checkpoint-loop-md.orca-supervised-worker --> — The optional Orca adapter runs slices in child worktrees and supervises Dispatch IDs, retries and cleanup. (blocked-by: plan.specs-helix-checkpoint-loop-md.worker-backend-selector)
   [ ] TDD: tests/test-helix-orca-worker.sh § lifecycle — child worktree HEAD is verified before worker dispatch; exact base and Surface are checked on return; unknown liveness blocks retry/native fallback; positive stop, private-change inspection and release permit a new attempt; cross-host resume without original record refuses -> Orca worker adapter (AC 25)
+- [x] citation-drift in .agents/skills/brainstorm/SKILL.md <!-- task-id: simplify.agents-skills-brainstorm-skill-md.citation-drift-in-agents-skills-brainstorm-skill-md --> ([#326](https://github.com/Joaovsales/jplugin-agentic-development/issues/326))
+
+## Plan: simplify-citation-drift-in-agents-skills-brainstorm-skill-md
+
+> Routine: `simplify` #326 · branch `routine/simplify/326-citation-drift-in-agents-skills-brainstorm-skill-md` · spec `specs/simplify-citation-drift-in-agents-skills-brainstorm-skill-md.md`
+
+### Slice 1/1 — brainstorm cites plan by its heading
+[x] TDD: `signals.py rank --path .agents/skills/brainstorm` reports `citation-drift` before and none after; `bash tests/test-citations.sh` green both times -> cite `/plan` § *2. Write the Spec (MUST persist to disk)* (AC 1, 2, 3)
+
+> Handover: one citation corrected at `.agents/skills/brainstorm/SKILL.md:142`; `/plan` untouched. Line count 187 -> 187.
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #326 (filed this run by `/make-it-simpler --unattended` discovery)
+- [x] 2. `task-registry claim 326 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/326-citation-drift-in-agents-skills-brainstorm-skill-md`
+- [x] 4.1 `/make-it-simpler #326` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place
+- [x] 4.4 `/quality-gate` — Phases 1–4 inline, no findings; receipt GO 235a124a policy qg1-b8f4dc32
+- [x] 5. `/wrap-up-session`
+
+## Session Summary — [2026-10-20] [2da4eab..63c9812]
+- Completed: #326 — `/brainstorm` cites `/plan` § *2. Write the Spec (MUST persist to disk)* by its real heading (simplify routine).
+- Pending: none from this run.
+- Carry-forward: the top-ranked `enforced-prose` and `duplicate-rule` cues are test pins, dropped at deep review (tasks/solutions/process/an-enforced-prose-cue-on-a-test-pinned-line-is-a-pin-not-bulk.md).
+
+# Fix: pre-push wrap-up gate never matches a multi-commit covered range
+> No issue, no spec — bug brief from a downstream project (`Joaovsales/personal-website`, 2026-10-20); learning in `tasks/solutions/bugs/pre-push-wrap-up-gate-never-matches-a-multi-commit-range.md`.
+
+- [x] TDD: tests/test-pre-push-gate.sh § Covered range of several commits — three code commits under one `## Session Summary — <date> [a..b]` range: exit 0, no stderr, no ledger (fails on the previous hook: `WRAP-UP GAP`, ledger written) -> word-split the covered list in the membership test (`.agents/git-hooks/pre-push:141`); the `case` pattern over the whole list never field-split `git rev-list`'s newlines
+- [x] TDD: tests/test-pre-push-gate.sh § Bracketed date in the heading is not a fingerprint — `## Session Summary — [YYYY-MM-DD] [a..b]`, the form `/wrap-up-session` documents: neither `unparseable session fingerprint` nor a gap -> skip a bracket group that is a date before validation (`.agents/git-hooks/pre-push:118`)
+- [x] Quality gate: Phases 1–3 inline, no findings; Phase 4 dispatched GO with 3 SHOULD-FIX applied (consumer-side membership test, `assert_no_ledger`, `commit_wrapup`) and 1 NITPICK reported (the heading grammar now lives in four places — pick one canonical form when the heading is next touched); receipt 01d33db6 GO policy qg1-b803d96b; affected tests 55/55
+
+## Session Summary — 2026-10-21 [2da4eab..37e11f4]
+- Completed: 3 rows — the regression tests, the hook fix, the quality gate
+- Pending: none for this fix. `/memory-maintain` was due (40 sessions) and not run here: a store sweep is its own task, not part of a one-hook bug fix
+- Carry-forward: the Session Summary heading grammar is written in four places (`wrap-up-session/SKILL.md:57` bracketed date, `closure-actions.md:149` bare date with trailing text, the hook header, the live `tasks/todo.md` bare) — the next change to the heading should pick one and have the hook extract only the `[hex..hex]` group

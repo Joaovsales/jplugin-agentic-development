@@ -46,13 +46,13 @@ export function tierOf(model: string): Tier | undefined {
   return undefined
 }
 
-/** The off-tier toast text for one spawn, undefined when the dispatch follows model-routing (spec D11). */
+/** The off-tier issue text for one spawn (toasted with the mod's prefix), undefined when the dispatch follows model-routing (spec D11). */
 export function offTier(e: { subagentType: string; model?: string; parentModel: string }): string | undefined {
   const type = lastSegment(e.subagentType)
   const routing = ROUTING[type]
   if (routing === undefined || e.model === undefined) return undefined
   const tier = tierOf(e.model)
-  const says = (expected: string): string => `session-viz: ${type} dispatched on ${e.model} (${tier ?? 'unknown'}); model-routing says ${expected}`
+  const says = (expected: string): string => `${type} dispatched on ${e.model} (${tier ?? 'unknown'}); model-routing says ${expected}`
   if (routing === 'inherit') return says('inherit')
   if (routing === 'planner-floor') {
     const parent = tierOf(e.parentModel)
@@ -71,7 +71,7 @@ export function missingContractItems(subagentType: string, prompt: string): numb
 /** Toasts each dispatch issue of one spawn and records it as a row under Gates. */
 async function raise($: EngineInterface, issues: DispatchIssue[]): Promise<void> {
   for (const issue of issues) {
-    $.ui.toast(issue.text)
+    $.ui.toast(`session-viz: ${issue.text}`)
     await update($, gates, current => ({ ...current, dispatch: [...current.dispatch, issue].slice(-GATES_KEPT) }))
   }
 }
@@ -86,7 +86,7 @@ export function registerDispatch(on: On): void {
     if (tierText !== undefined) issues.push({ kind: 'off-tier', type, text: tierText })
     const missing = missingContractItems(e.subagentType, e.prompt)
     if (missing.length > 0) {
-      issues.push({ kind: 'contract', type, text: `session-viz: ${type} dispatch missing contract item(s) ${missing.join(', ')}` })
+      issues.push({ kind: 'contract', type, text: `${type} dispatch missing contract item(s) ${missing.join(', ')}` })
     }
     await raise($, issues)
 
@@ -103,7 +103,7 @@ export function DispatchIssues(d: Draw, issues: DispatchIssue[]): RenderElement 
     <Box flexDirection="column" marginBottom={1}>
       {issues.map((issue, index) => (
         <Text key={String(index)} color="yellow">
-          {fit(`⚠ ${issue.text.replace(/^session-viz: /, '')}`, d.width)}
+          {fit(`⚠ ${issue.text}`, d.width)}
         </Text>
       ))}
     </Box>

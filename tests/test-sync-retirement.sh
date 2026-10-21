@@ -1029,28 +1029,32 @@ assert_contains "$RUN_OUTPUT" "kept:   .agents/skills/plain.md" "and protects wh
 
 printf '\n-- 16. partial deletion leaves a record --\n'
 
-P16="$FIXTURE_ROOT/p16"; T16="$FIXTURE_ROOT/t16"
-make_project "$P16"; make_template "$T16"
-_f "$P16/.agents/skills/a-first/SKILL.md"  "retired, deletable"
-_f "$P16/.agents/skills/z-locked/SKILL.md" "retired, in a directory made read-only"
-commit_all "$P16"; write_keep "$P16"
-chmod a-w "$P16/.agents/skills/z-locked"
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  skip  16 needs an unprivileged user (root ignores permission bits)\n'
+else
+  P16="$FIXTURE_ROOT/p16"; T16="$FIXTURE_ROOT/t16"
+  make_project "$P16"; make_template "$T16"
+  _f "$P16/.agents/skills/a-first/SKILL.md"  "retired, deletable"
+  _f "$P16/.agents/skills/z-locked/SKILL.md" "retired, in a directory made read-only"
+  commit_all "$P16"; write_keep "$P16"
+  chmod a-w "$P16/.agents/skills/z-locked"
 
-run_retire --repo "$P16" --from-dir "$T16" --apply
-chmod u+w "$P16/.agents/skills/z-locked"
+  run_retire --repo "$P16" --from-dir "$T16" --apply
+  chmod u+w "$P16/.agents/skills/z-locked"
 
-assert_eq "1" "$RUN_STATUS" "a deletion failure exits non-zero"
-assert_contains "$RUN_OUTPUT" "mode:   applied (1 deleted, 1 failed)" \
-  "the outcome counts what happened, not what was planned"
-assert_contains "$RUN_OUTPUT" "FAILED: .agents/skills/z-locked/SKILL.md" \
-  "the path that could not be deleted is named"
-assert_eq "gone" "$([ -e "$P16/.agents/skills/a-first/SKILL.md" ] && echo present || echo gone)" \
-  "the deletable path really was deleted"
-assert_eq "present" "$([ -f "$P16/.agents/skills/z-locked/SKILL.md" ] && echo present || echo gone)" \
-  "the undeletable path really did survive"
-# The record must match the disk: exactly the paths reported deleted are gone.
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/a-first/SKILL.md" \
-  "the full plan is still printed before the outcome"
+  assert_eq "1" "$RUN_STATUS" "a deletion failure exits non-zero"
+  assert_contains "$RUN_OUTPUT" "mode:   applied (1 deleted, 1 failed)" \
+    "the outcome counts what happened, not what was planned"
+  assert_contains "$RUN_OUTPUT" "FAILED: .agents/skills/z-locked/SKILL.md" \
+    "the path that could not be deleted is named"
+  assert_eq "gone" "$([ -e "$P16/.agents/skills/a-first/SKILL.md" ] && echo present || echo gone)" \
+    "the deletable path really was deleted"
+  assert_eq "present" "$([ -f "$P16/.agents/skills/z-locked/SKILL.md" ] && echo present || echo gone)" \
+    "the undeletable path really did survive"
+  # The record must match the disk: exactly the paths reported deleted are gone.
+  assert_contains "$RUN_OUTPUT" "retire: .agents/skills/a-first/SKILL.md" \
+    "the full plan is still printed before the outcome"
+fi
 
 # ====================== 17. second-review defects: exec, records, round-trips
 #
@@ -1066,26 +1070,30 @@ assert_contains "$RUN_OUTPUT" "retire: .agents/skills/a-first/SKILL.md" \
 # follows it was not, so an OSError there propagated out and the operator was
 # shown an errno instead of the list of files already gone.
 
-P17="$FIXTURE_ROOT/p17"; T17="$FIXTURE_ROOT/t17"
-make_project "$P17"; make_template "$T17"
-# Nested deliberately: os.remove needs write on the file's own directory, so
-# locking that would block the *deletion*. Locking the grandparent leaves the
-# delete free and makes only the rmdir above it fail -- the prune path.
-_f "$P17/.agents/skills/orphan/sub/SKILL.md" "retired; its grandparent resists rmdir"
-commit_all "$P17"; write_keep "$P17"
-chmod a-w "$P17/.agents/skills/orphan"
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  skip  17.1 needs an unprivileged user (root ignores permission bits)\n'
+else
+  P17="$FIXTURE_ROOT/p17"; T17="$FIXTURE_ROOT/t17"
+  make_project "$P17"; make_template "$T17"
+  # Nested deliberately: os.remove needs write on the file's own directory, so
+  # locking that would block the *deletion*. Locking the grandparent leaves the
+  # delete free and makes only the rmdir above it fail -- the prune path.
+  _f "$P17/.agents/skills/orphan/sub/SKILL.md" "retired; its grandparent resists rmdir"
+  commit_all "$P17"; write_keep "$P17"
+  chmod a-w "$P17/.agents/skills/orphan"
 
-run_retire --repo "$P17" --from-dir "$T17" --apply
-chmod u+w "$P17/.agents/skills/orphan"
+  run_retire --repo "$P17" --from-dir "$T17" --apply
+  chmod u+w "$P17/.agents/skills/orphan"
 
-assert_contains "$RUN_OUTPUT" "applied (1 deleted" \
-  "a prune failure still reports the deletion that succeeded"
-assert_contains "$RUN_OUTPUT" "1 not pruned" \
-  "the unprunable directory is counted separately from a failed deletion"
-assert_contains "$RUN_OUTPUT" "UNPRUNED: .agents/skills/orphan/sub" \
-  "the directory that could not be pruned is named"
-assert_eq "gone" "$([ -e "$P17/.agents/skills/orphan/sub/SKILL.md" ] && echo present || echo gone)" \
-  "the file really was deleted, which is why the record must survive"
+  assert_contains "$RUN_OUTPUT" "applied (1 deleted" \
+    "a prune failure still reports the deletion that succeeded"
+  assert_contains "$RUN_OUTPUT" "1 not pruned" \
+    "the unprunable directory is counted separately from a failed deletion"
+  assert_contains "$RUN_OUTPUT" "UNPRUNED: .agents/skills/orphan/sub" \
+    "the directory that could not be pruned is named"
+  assert_eq "gone" "$([ -e "$P17/.agents/skills/orphan/sub/SKILL.md" ] && echo present || echo gone)" \
+    "the file really was deleted, which is why the record must survive"
+fi
 
 # --- 17.2 an untrusted template checkout cannot choose what git executes ------
 #
@@ -1246,23 +1254,27 @@ assert_eq "present" "$([ -d "$P23/.claude/hooks" ] && echo present || echo gone)
 
 # --- 18.3 a partial run reports what it destroyed, and names the right dir ----
 
-P24="$FIXTURE_ROOT/p24"; T24="$FIXTURE_ROOT/t24"
-make_project "$P24"; make_template "$T24"
-_f "$P24/.agents/skills/gamma/deep/deeper/y.md" "retired; a parent will resist rmdir"
-commit_all "$P24"; write_keep "$P24"
-chmod a-w "$P24/.agents/skills/gamma"   # deeper prunes fine; gamma/deep cannot
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  skip  18.3 needs an unprivileged user (root ignores permission bits)\n'
+else
+  P24="$FIXTURE_ROOT/p24"; T24="$FIXTURE_ROOT/t24"
+  make_project "$P24"; make_template "$T24"
+  _f "$P24/.agents/skills/gamma/deep/deeper/y.md" "retired; a parent will resist rmdir"
+  commit_all "$P24"; write_keep "$P24"
+  chmod a-w "$P24/.agents/skills/gamma"   # deeper prunes fine; gamma/deep cannot
 
-run_retire --repo "$P24" --from-dir "$T24" --apply
-chmod u+w "$P24/.agents/skills/gamma"
+  run_retire --repo "$P24" --from-dir "$T24" --apply
+  chmod u+w "$P24/.agents/skills/gamma"
 
-assert_contains "$RUN_OUTPUT" "deleted: .agents/skills/gamma/deep/deeper/y.md" \
-  "a partial run prints the record of what it destroyed, not just a count"
-# Pruning walks upward, so the directory it STARTED at is usually removed fine.
-# Reporting that one names a path that no longer exists.
-assert_contains "$RUN_OUTPUT" "UNPRUNED: .agents/skills/gamma/deep " \
-  "the directory named is the one that actually failed"
-assert_eq "present" "$([ -d "$P24/.agents/skills/gamma/deep" ] && echo present || echo gone)" \
-  "and that directory is genuinely still on disk"
+  assert_contains "$RUN_OUTPUT" "deleted: .agents/skills/gamma/deep/deeper/y.md" \
+    "a partial run prints the record of what it destroyed, not just a count"
+  # Pruning walks upward, so the directory it STARTED at is usually removed fine.
+  # Reporting that one names a path that no longer exists.
+  assert_contains "$RUN_OUTPUT" "UNPRUNED: .agents/skills/gamma/deep " \
+    "the directory named is the one that actually failed"
+  assert_eq "present" "$([ -d "$P24/.agents/skills/gamma/deep" ] && echo present || echo gone)" \
+    "and that directory is genuinely still on disk"
+fi
 
 # --- 18.4 sync-keep states: absent, empty, and unusable are three things ------
 

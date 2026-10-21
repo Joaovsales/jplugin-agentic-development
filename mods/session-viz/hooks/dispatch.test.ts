@@ -80,9 +80,7 @@ test('tiers: a pinned persona on another tier toasts, a ceiling persona on any m
   expect(offTier({ ...critic, parentModel: 'claude-sonnet-5-5' })).toBeUndefined()
   expect(offTier({ ...critic, parentModel: 'claude-haiku-5' })).toBeUndefined()
   expect(offTier({ ...critic, parentModel: 'a-custom-model' })).toBeUndefined()
-  expect(offTier({ ...critic, parentModel: 'claude-opus-5-5' })).toBe(
-    'session-viz: critic dispatched on opus (planner); model-routing says inherit',
-  )
+  expect(offTier({ ...critic, parentModel: 'claude-opus-5-5' })).toBe('critic dispatched on opus (planner); model-routing says inherit')
   expect(tierOf('Claude-Opus-5-5')).toBe('planner')
   expect(tierOf('haiku')).toBe('scout')
   expect(tierOf('gpt-x')).toBeUndefined()

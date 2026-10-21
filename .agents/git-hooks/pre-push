@@ -113,6 +113,9 @@ wrapup_gate() {
                  | grep -oE '^## Session Summary.*\[[^]]*\]' \
                  | grep -oE '\[[^]]*\]'); do
     _fp=${_fp#[}; _fp=${_fp%]}
+    # The heading carries the date in its own brackets (`— [YYYY-MM-DD] [a..b]`):
+    # not a fingerprint, and not a typo worth naming on every push.
+    case "$_fp" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) continue ;; esac
     _start=${_fp%%..*}; _end=${_fp##*..}
     # Endpoints must be bare hex before they reach git. tasks/todo.md is
     # attacker-controllable in any repo you clone, and an endpoint beginning
@@ -131,7 +134,11 @@ wrapup_gate() {
 
   _uncovered=""
   for _c in $_code; do
-    case " $_covered " in *" $_c "*) continue ;; esac
+    # Word-split, never a `case` pattern over the whole list: rev-list's
+    # newlines and the spaces between fingerprints both delimit here, so no
+    # producer has to know the delimiter. (A `case` word is not field-split,
+    # and a space-bounded pattern missed every commit of a multi-commit range.)
+    for _k in $_covered; do [ "$_k" = "$_c" ] && continue 2; done
     _uncovered="$_uncovered $(git rev-parse --short "$_c")"
   done
   [ -n "$_uncovered" ] || return 0

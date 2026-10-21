@@ -1636,3 +1636,11 @@ Not evidenced here: a screenshot of the pane in an interactive terminal (this se
 no terminal of its own); the live `$.ui.scroll` to a transcript row (the harness answers no
 scroll). Both are exercised by the live hot-reload in this session and by any session started
 with `claude --plugin-dir mods/session-viz`.
+
+### Addendum — 9065640 (quality-gate fixes)
+
+The refactors of 9065640 (shared constants in state.ts, the guarded agent sync, the once-only STOP toast, the folded severities) change no drawn text. Fresh run on that tree, same message as this claim: `claude plugin validate mods/session-viz` → `✔ Validation passed`; `claude plugin test mods/session-viz` → `16 pass / 0 fail / Ran 16 tests across 5 files`; the AC1–AC12 table above holds for 9065640 unchanged.
+
+### Addendum — gate re-entry (uncommitted dispatch fix)
+
+The wrap-up gate re-entry stored the dispatch issue text without the `session-viz: ` prefix and adds the prefix in `raise` (`mods/session-viz/hooks/dispatch.tsx`). Toast text and the `⚠ …` rows read exactly as before, so AC11 and AC12 hold; fresh run on that tree: `claude plugin validate mods/session-viz` → `✔ Validation passed`; `claude plugin test mods/session-viz` → `16 pass / 0 fail / Ran 16 tests across 5 files`.
