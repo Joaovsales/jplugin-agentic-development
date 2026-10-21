@@ -2,10 +2,9 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { PlanProgress, SliceRow } from '../types'
-import { EVERY, INITIAL_PHASE, INITIAL_PLAN, SPEC_PATH, fit, refreshStatus } from './state'
+import { EVERY, INITIAL_PHASE, SPEC_PATH, fit, updateStatus } from './state'
 import type { Draw } from './state'
 
-const plan = atom({ plugin: 'session-viz', key: 'plan' } as const, INITIAL_PLAN)
 const phase = atom({ plugin: 'session-viz', key: 'phase' } as const, INITIAL_PHASE)
 
 const TODO = 'tasks/todo.md'
@@ -91,15 +90,14 @@ export function parsePlan(text: string, spec?: string): PlanProgress | null {
   return chosen === undefined ? null : toProgress(chosen)
 }
 
-/** Reads tasks/todo.md, parses it against `named` or else the recorded spec and stores the result; a missing file stores null. */
-async function reload($: EngineInterface, named?: string): Promise<void> {
-  const spec = named ?? (await read($, phase)).spec
+/** Reads tasks/todo.md, parses it against the recorded spec and stores the result; a missing file stores null. */
+async function reload($: EngineInterface): Promise<void> {
+  const { spec } = await read($, phase)
   const parsed = await $.fs.read(TODO).then(
     text => parsePlan(text, spec),
     () => null,
   )
-  await update($, plan, () => parsed)
-  await refreshStatus($)
+  await updateStatus($, 'plan', () => parsed)
 }
 
 export function registerPlan(on: On): void {
@@ -117,9 +115,12 @@ export function registerPlan(on: On): void {
     return ran
   })
 
+  // The one writer of the recorded spec (spec D9): the Phase section draws it, and the plan is re-read against it here, in order.
   on('prompt.submit', { text: SPEC_PATH }, async ($, e, next) => {
     const result = await next(e)
-    await reload($, SPEC_PATH.exec(e.text)?.[0])
+    const spec = SPEC_PATH.exec(e.text)?.[0]
+    if (spec !== undefined) await update($, phase, current => ({ ...current, spec }))
+    await reload($)
 
     return result
   })

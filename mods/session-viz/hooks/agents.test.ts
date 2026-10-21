@@ -152,8 +152,18 @@ test('footprint: Read, Edit, Grep, Bash and two steps give the lists and counts;
   const read = (await ui.find({ type: 'Text', text: /^read \[/ }))?.text ?? ''
   expect(read).not.toContain('a.md')
   expect(read.startsWith('read [f0.md, f1.md')).toBe(true)
-  expect(read).toContain('+1 more')
+  expect(read.endsWith(' +1 more')).toBe(true)
   await ui.unmount()
+
+  // The count accumulates per list: one more read drops f0.md and says +2; the other lists are still whole.
+  await calledBy($, agentId, { tool: 'Read', file_path: 'f40.md' })
+  const again = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const more = (await again.find({ type: 'Text', text: /^read \[/ }))?.text ?? ''
+  expect(more.startsWith('read [f1.md, f2.md')).toBe(true)
+  expect(more.endsWith(' +2 more')).toBe(true)
+  expect(await again.find({ type: 'Text', text: /^edited \[b\.ts\]$/ })).toBeDefined()
+  expect(await again.find({ type: 'Text', text: /45 tool calls · 2 steps · 7 messages/ })).toBeDefined()
+  await again.unmount()
   expect(w.messageCalls()).toBe(0)
 })
 

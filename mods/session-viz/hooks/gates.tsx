@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
-import type { FindingCounts, Gates, Receipt, Severity } from '../types'
+import type { FindingCounts, Gates, ReceiptState, Severity } from '../types'
 import { EMPTY_FINDINGS, EVERY, GATES_KEPT, INITIAL_AGENTS, INITIAL_TOASTED, SEVERITIES, emptyGates, findingCounts, fit } from './state'
 import type { Draw } from './state'
 
@@ -97,27 +97,31 @@ async function currentBranch($: EngineInterface, cwd: string): Promise<string | 
   return head === undefined ? undefined : HEAD_REF.exec(head)?.[1]
 }
 
-/** The quality receipt of the current branch (spec D12): null for none, `'unreadable'` for a malformed one. */
-async function readReceipt($: EngineInterface): Promise<Receipt | 'unreadable' | null> {
+/**
+ * What the current branch's pointer location holds (spec D12): no pointer, a pointer or receipt that cannot be read
+ * (a dangling pointer included), or the receipt; undefined when no repo or branch resolves, so no location could be read.
+ */
+async function readReceipt($: EngineInterface): Promise<ReceiptState | undefined> {
   const repo = await $.session.repo()
-  if (repo === null) return null
+  if (repo === null) return undefined
   const branch = await currentBranch($, await $.session.cwd())
-  if (branch === undefined) return null
+  if (branch === undefined) return undefined
 
   const dir = `${repo.root}/.git/quality-receipts`
   const pointerText = await readText($, `${dir}/branch-${branch.replace(/[^A-Za-z0-9_.-]/g, '-')}.json`)
-  if (pointerText === undefined) return null
+  if (pointerText === undefined) return { state: 'none' }
   const fingerprint = parseObject(pointerText)?.fingerprint
-  if (typeof fingerprint !== 'string' || !FINGERPRINT.test(fingerprint)) return 'unreadable'
+  if (typeof fingerprint !== 'string' || !FINGERPRINT.test(fingerprint)) return { state: 'unreadable' }
 
   const receiptText = await readText($, `${dir}/${fingerprint}.json`)
-  if (receiptText === undefined) return null
+  if (receiptText === undefined) return { state: 'unreadable' }
   const receipt = parseObject(receiptText)
-  if (receipt === undefined || typeof receipt.verdict !== 'string') return 'unreadable'
+  if (receipt === undefined || typeof receipt.verdict !== 'string') return { state: 'unreadable' }
 
   const tests = receipt.tests
   const testsExit = typeof tests === 'object' && tests !== null ? (tests as Record<string, unknown>).exit : undefined
   return {
+    state: 'ok',
     verdict: receipt.verdict,
     fp8: fingerprint.slice(0, 8),
     testsExit: typeof testsExit === 'number' ? testsExit : undefined,
@@ -138,11 +142,15 @@ async function toastStop($: EngineInterface, kind: keyof typeof INITIAL_TOASTED,
   if (fresh) $.ui.toast(`session-viz: quality gate STOP${fp8 === undefined ? '' : ` (${fp8})`}`)
 }
 
-/** Re-reads the receipt files into the section; a STOP toasts once per fingerprint. A missing receipt leaves what a main-loop line set. */
+/**
+ * Re-reads the receipt files into the section; a STOP toasts once per fingerprint. Whatever the pointer
+ * location holds replaces what is shown; only when no repo or branch resolves does a main-loop line's receipt stay.
+ */
 async function refreshReceipt($: EngineInterface): Promise<void> {
-  const fresh = await readReceipt($)
-  await update($, gates, current => ({ ...current, receipt: fresh ?? current.receipt }))
-  if (fresh !== null && fresh !== 'unreadable' && fresh.verdict === 'STOP') await toastStop($, 'fingerprints', fresh.fp8, fresh.fp8)
+  const found = await readReceipt($)
+  if (found === undefined) return
+  await update($, gates, current => ({ ...current, receipt: found }))
+  if (found.state === 'ok' && found.verdict === 'STOP') await toastStop($, 'fingerprints', found.fp8, found.fp8)
 }
 
 /** What a sub-agent's answer adds: its parsed lines go on its row and into the section. */
@@ -160,6 +168,11 @@ async function recordAgentAnswer($: EngineInterface, agentId: string, answer: st
   }))
 }
 
+/** A main-loop `Receipt:` line's verdict and fingerprint laid over the receipt the files last gave, when they gave one. */
+function fromLine(current: ReceiptState, line: { verdict: string; fp8: string }): ReceiptState {
+  return current.state === 'ok' ? { ...current, ...line } : { state: 'ok', ...line }
+}
+
 /** What the main loop's answer adds: its Verdict and Receipt lines, a STOP toast once per turn, then the files re-read. */
 async function recordMainAnswer($: EngineInterface, turnId: string, answer: string): Promise<void> {
   const verdict = parseVerdict(answer)
@@ -167,10 +180,7 @@ async function recordMainAnswer($: EngineInterface, turnId: string, answer: stri
   await update($, gates, current => ({
     ...current,
     verdict: verdict ?? current.verdict,
-    receipt:
-      line === undefined
-        ? current.receipt
-        : { ...(typeof current.receipt === 'object' && current.receipt !== null ? current.receipt : {}), ...line },
+    receipt: line === undefined ? current.receipt : fromLine(current.receipt, line),
   }))
   if (line?.verdict === 'STOP' || verdict === 'STOP') {
     const fp8 = line?.verdict === 'STOP' ? line.fp8 : undefined
@@ -205,9 +215,9 @@ export function registerGates(on: On): void {
   })
 }
 
-function receiptLine(receipt: Receipt | 'unreadable' | null): string {
-  if (receipt === 'unreadable') return 'receipt unreadable'
-  if (receipt === null) return 'no receipt yet'
+function receiptLine(receipt: ReceiptState): string {
+  if (receipt.state === 'unreadable') return 'receipt unreadable'
+  if (receipt.state === 'none') return 'no receipt yet'
   const parts = [
     `receipt ${receipt.verdict} ${receipt.fp8}`,
     receipt.testsExit === undefined ? undefined : `tests exit ${receipt.testsExit}`,
@@ -218,7 +228,7 @@ function receiptLine(receipt: Receipt | 'unreadable' | null): string {
 
 export function GatesSection(d: Draw, state: Gates): RenderElement {
   const { Box, Text } = d.t
-  const isDim = typeof state.receipt !== 'object' || state.receipt === null
+  const isDim = state.receipt.state !== 'ok'
   const counts = SEVERITIES.filter(severity => state.findings[severity] > 0)
     .map(severity => `${severity} ${state.findings[severity]}`)
     .join(' · ')

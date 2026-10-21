@@ -19,6 +19,9 @@ export type Severity = 'MUST-FIX' | 'SHOULD-FIX' | 'NITPICK'
 
 export type FindingCounts = Record<Severity, number>
 
+/** The four capped lists of a footprint. */
+export type FootprintList = 'read' | 'edited' | 'grepped' | 'commands'
+
 /** What one sub-agent touched, from its `tool.call`s and `turn.step`s (spec D16). */
 export type Footprint = {
   /** Files Read or Globbed, newest last, at most 40. */
@@ -29,6 +32,8 @@ export type Footprint = {
   grepped: string[]
   /** The first 80 characters of each Bash command, at most 40. */
   commands: string[]
+  /** How many entries each list has dropped past its cap, the oldest first; a list that dropped none is absent. */
+  dropped?: Partial<Record<FootprintList, number>>
   toolCalls: number
   steps: number
   messages: number
@@ -95,6 +100,9 @@ export type Receipt = {
   designVerdict?: string
 }
 
+/** What the Gates section knows of the branch's receipt: none yet, a pointer or receipt it could not read, or the receipt itself. */
+export type ReceiptState = { state: 'none' } | { state: 'unreadable' } | ({ state: 'ok' } & Receipt)
+
 /** One dispatch check that toasted: off-tier (spec D11) or a missing contract item (spec D10). */
 export type DispatchIssue = {
   kind: 'off-tier' | 'contract'
@@ -104,8 +112,7 @@ export type DispatchIssue = {
 
 /** Everything the Gates section draws. */
 export type Gates = {
-  /** The receipt, `'unreadable'` for a malformed one, null for none. */
-  receipt: Receipt | 'unreadable' | null
+  receipt: ReceiptState
   /** The last `Verdict:` line seen on a main-loop answer. */
   verdict?: string
   findings: FindingCounts

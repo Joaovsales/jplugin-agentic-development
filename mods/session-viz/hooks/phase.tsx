@@ -2,7 +2,7 @@ import { atom, update } from 'claude-code'
 import type { On, RenderElement } from 'claude-code'
 
 import type { Phase, PhaseState } from '../types'
-import { INITIAL_PHASE, SPEC_PATH, fit, lastSegment, refreshStatus } from './state'
+import { INITIAL_PHASE, fit, lastSegment, updateStatus } from './state'
 import type { Draw } from './state'
 
 const phase = atom({ plugin: 'session-viz', key: 'phase' } as const, INITIAL_PHASE)
@@ -40,17 +40,12 @@ export function parseRoute(text: string): { lane: string; chain: string } | unde
   return found === null ? undefined : { lane: found[1]!.trim(), chain: found[2]!.trim() }
 }
 
-export function parseSpec(text: string): string | undefined {
-  return SPEC_PATH.exec(text)?.[0]
-}
-
 export function registerPhase(on: On): void {
   on('skill.prompt', async ($, e, next) => {
     const result = await next(e)
     const skill = lastSegment(e.skill)
     const nextPhase = phaseOfSkill(e.skill)
-    await update($, phase, current => ({ ...current, skill, phase: nextPhase ?? current.phase }))
-    await refreshStatus($)
+    await updateStatus($, 'phase', current => ({ ...current, skill, phase: nextPhase ?? current.phase }))
 
     return result
   })
@@ -64,14 +59,6 @@ export function registerPhase(on: On): void {
       const route = parseRoute(result.answer)
       if (route !== undefined) await update($, phase, current => ({ ...current, ...route }))
     }
-
-    return result
-  })
-
-  on('prompt.submit', async ($, e, next) => {
-    const result = await next(e)
-    const spec = parseSpec(e.text)
-    if (spec !== undefined) await update($, phase, current => ({ ...current, spec }))
 
     return result
   })
