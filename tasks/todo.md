@@ -2319,3 +2319,41 @@ Step ledger (routine `simplify`):
 - Completed: the visual-plan render moved into `/slice`'s propose phase (Step 6, after the readiness gate); `/plan` Step 3 reduced to the `/slice` call; wiring pins moved to `/slice` in `tests/test-plan-render.sh`; `specs/readable-visual-plans.md` D5 and `specs/plan-slices-and-handover.md` D2 revised; plugin 1.7.2.
 - Pending: the PR's Linux CI run of the full suite (the local Windows run carries the pre-existing baseline failures).
 - Carry-forward: the installed jplugin on this machine is at 1.6.2; update it after this merges so sessions pick up the new wiring.
+
+## Plan: read-shunt-baseline
+> Spec: specs/read-shunt-baseline.md
+
+### Slice 1/8 — Transcript parser
+- [ ] Transcript parser <!-- task-id: plan.specs-read-shunt-baseline-md.transcript-parser --> — Slice 1/8: One parser reads a session JSONL's tool uses, results, usage, sidechain and sub-agent markers, classifies re… ([#348](https://github.com/Joaovsales/jplugin-agentic-development/issues/348))
+  [ ] TDD: tests/test-read-incidence.sh § parser — fixtures: whole-file large, ranged large, truncated (numLines < totalLines, no limit), non-text result, sidechain line, subagents/ transcript -> read_transcript.py classifies each read (whole-file, ranged, truncated, excluded, sub-agent) from tool_use input plus toolUseResult.file (AC2)
+  [ ] TDD: tests/test-read-incidence.sh § drift — an empty root exits 2 naming it; a Read block with an unknown shape exits 2 naming file and line; a malformed line is skipped and counted under malformed -> explicit shape checks with exit 2, never a silent zero (AC4)
+
+### Slice 2/8 — Incidence report
+- [ ] Incidence report <!-- task-id: plan.specs-read-shunt-baseline-md.incidence-report --> — Slice 2/8: The baseline report over a transcript root, Markdown or JSON, with shell reads counted and paths hidden by d… ([#349](https://github.com/Joaovsales/jplugin-agentic-development/issues/349)) (blocked-by: plan.specs-read-shunt-baseline-md.transcript-parser)
+  [ ] TDD: tests/test-read-incidence.sh § report — over the fixture root the Markdown table carries per-session and aggregate reads, whole-file large reads, bytes and share, shell reads, largest result, re-reads, final context size and sub-agent reads; --json carries the same keys; basenames unless --paths -> read-incidence.py over read_transcript.py, --root/--bytes/--lines/--json/--paths (AC1)
+  [ ] TDD: tests/test-read-incidence.sh § shell — cat f, head f, tail f, sed -n '1,$p' f and cat a; cat b counted with result bytes; cat f | grep x and cat f > g not counted -> bare-read classifier over every file in a chained Bash command (AC3)
+
+### Slice 3/8 — Baseline report
+- [ ] Baseline report <!-- task-id: plan.specs-read-shunt-baseline-md.baseline-report --> — Slice 3/8: The committed baseline over the real transcript root with the go rule's verdict in one line. ([#350](https://github.com/Joaovsales/jplugin-agentic-development/issues/350)) (blocked-by: plan.specs-read-shunt-baseline-md.incidence-report)
+  [ ] TDD: tasks/eval-results/read-shunt/baseline-<date>.md exists with the aggregate table and one verdict line applying the go rule (10% median share or 25% in a quarter of sessions) -> run read-incidence.py --root ~/.claude/projects, commit the report (AC5)
+
+### Slice 4/8 — Read-shunt grader
+- [ ] Read-shunt grader <!-- task-id: plan.specs-read-shunt-baseline-md.read-shunt-grader --> — Slice 4/8: Per-run metrics and paired per-task means over an eval results directory, through the shared parser. ([#351](https://github.com/Joaovsales/jplugin-agentic-development/issues/351)) (blocked-by: plan.specs-read-shunt-baseline-md.transcript-parser, plan.specs-read-shunt-baseline-md.incidence-report)
+  [ ] TDD: tests/test-read-shunt-grader.sh § rows — over a fixture results dir with two arms, one row per run with parent bulk reads, routing-around, bytes into parent, largest result, final context, compactions, sub-agent tokens, wall time, re-read rate and outcome; paired per-task means per arm; one arm prints rows and no means; a shunt log beside a transcript adds the hook-decision and repeated-deny columns -> grade-read-shunt.py over read_transcript.py (AC7)
+  [ ] TDD: tests/test-read-shunt-grader.sh § shared parser — both CLIs import read_transcript.py and neither re-extracts Read, Bash, Agent or usage blocks -> grep-pinned import and no second extractor (AC6)
+
+### Slice 5/8 — Eval suite cases
+- [ ] Eval suite cases <!-- task-id: plan.specs-read-shunt-baseline-md.eval-suite-cases --> — Slice 5/8: Eleven cases with prompts, seeded scaffold generators, graders and the judge rubric, with a test that checks… ([#352](https://github.com/Joaovsales/jplugin-agentic-development/issues/352))
+  [ ] TDD: tests/test-read-shunt-evals.sh — eleven cases under evals/read-shunt/; every prompt, case name and scaffold path free of the /eval blinding words; each scaffold run into a temp dir yields a fixture over 32 KB for the eight large cases and under for the three controls; the judge rubric file exists -> cases authored from `claude plugin eval init --bare`, seeded generators, rubric.md (AC8)
+
+### Slice 6/8 — Eval Mode C docs
+- [ ] Eval Mode C docs <!-- task-id: plan.specs-read-shunt-baseline-md.eval-mode-c-docs --> — Slice 6/8: /eval documents Mode C: the two scripts, the metrics table and the thresholds; the test pins the section and… ([#353](https://github.com/Joaovsales/jplugin-agentic-development/issues/353)) (blocked-by: plan.specs-read-shunt-baseline-md.incidence-report, plan.specs-read-shunt-baseline-md.read-shunt-grader)
+  [ ] TDD: tests/test-eval-skill.sh § mode C — SKILL.md carries "Mode C — behavioural lift with cost", names read-incidence.py and grade-read-shunt.py, the metrics table and the thresholds; the "What is measurable here" table gains the row; both scripts exist -> edit .agents/skills/eval/SKILL.md (AC9)
+
+### Slice 7/8 — Supersede PR 128
+- [ ] Supersede PR 128 <!-- task-id: plan.specs-read-shunt-baseline-md.supersede-pr-128 --> — Slice 7/8: PR #128's three learnings ported, its protocol, results, prompts and blind grades copied under prior-128, th… ([#354](https://github.com/Joaovsales/jplugin-agentic-development/issues/354))
+  [ ] TDD: the three learning documents exist under tasks/solutions/ with this tree's frontmatter; tasks/eval-results/read-shunt/prior-128/ holds protocol.md, results.md, prompts.json and blind-grades.json; `gh pr view 128` reports CLOSED with a comment linking specs/read-shunt-baseline.md and specs/read-shunt.md; origin/worktree-bulk-read-gate and .claude/worktrees/bulk-read-gate unchanged -> git show from origin/worktree-bulk-read-gate, gh pr comment, gh pr close (AC10)
+
+### Slice 8/8 — Suite smoke run
+- [ ] Suite smoke run <!-- task-id: plan.specs-read-shunt-baseline-md.suite-smoke-run --> — Slice 8/8: One control case run through claude plugin eval under a cost ceiling, its transcripts graded into one row. ([#355](https://github.com/Joaovsales/jplugin-agentic-development/issues/355)) (blocked-by: plan.specs-read-shunt-baseline-md.read-shunt-grader, plan.specs-read-shunt-baseline-md.eval-suite-cases)
+  [ ] TDD: `claude plugin eval evals/read-shunt --case <control> --runs 1 --max-cost-usd 1 --json` completes and grade-read-shunt.py parses the run's transcripts into one row, recorded in tasks/eval-results/read-shunt/smoke-<date>.md -> the smoke run (AC11)
