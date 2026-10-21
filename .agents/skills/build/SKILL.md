@@ -162,10 +162,11 @@ plan written before this spec still builds.
 
 Process every `[ ]` task in `tasks/todo.md` without pausing for user confirmation between tasks.
 
-A `[ ]` row whose indented children are `[ ] TDD:` rows is a **slice header**
-(written by `/slice`): the registry's row for that slice, not a task of its
-own. Mark it
-`[x]` when its last child passes, and never dispatch a coder against it.
+The `- [ ]` row under each `### Slice n/N` heading (written by `/slice`) is the
+**slice header**: the registry's row for that slice, not a task of its own.
+Mark it `[x]` at Slice Close and never dispatch a coder against it. A legacy
+block (`.agents/skills/slice/references/plan-block.md`) also nests `[ ] TDD:`
+rows under the header.
 
 ### Parallel Dispatch Assessment
 
@@ -237,8 +238,8 @@ Choose the agent or approach based on task type:
 - For frontend implementation and `frontend-design-validator`: the context in
   `.agents/skills/build/references/design-stack-gates.md` § *Delegation context*
 - The tool-call budget and escape hatch from `subagent-resilience.md` Rule
-  1, and the instruction to list unfinished `TDD:` rows under
-  `## Not finished`
+  1, and the instruction to list unfinished acceptance criteria (a legacy
+  block's `TDD:` rows) under `## Not finished`
 
 **Role-based context injection from `tasks/project-context.md`** (if it exists):
 
@@ -271,19 +272,23 @@ If mismatches found: send feedback to the implementing agent for fixes, then re-
 
 ### Step 4 — Mark Complete and Continue
 
-- Change `[ ]` to `[x]` in `tasks/todo.md`
+- Change a legacy `TDD:` row `[ ]` to `[x]` in `tasks/todo.md`; a new block's
+  header closes at Slice Close
 - Log: `✓ [Test Name] — [one-line summary]`
 - **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the shared flush (`bash .agents/hooks/pre-compact.sh </dev/null`) — no prompt, no commit. This keeps on-disk state current at each semantic (task) boundary, so a context compaction or `/refresh` loses at most one task of work.
-- **Task status**: when the project tracks tasks externally, claim the task and
-  update its status through `/task-registry` (never by calling `gh` or a
-  tracker API directly). Status writes are gated the same way every other external write is —
+- **Task status**: a new block's header carries no task id; its status lives in
+  the one feature issue (pre-flight links it, `/wrap-up-session` closes it).
+  Only a legacy block's rows are claimed, through `/task-registry` (never by
+  calling `gh` or a tracker API directly). Status writes are gated the same way every other external write is —
   dry-run unless `--apply` and the project's approval setting allow it.
 - Move to the next `[ ]` task immediately (no user prompt)
 - If a task is blocked by a previous failure, note it and skip to the next unblocked task
 
 ### Slice Close
 
-When a slice's last `TDD:` row passes:
+Slice Close fires when the dispatch returns with every acceptance criterion of
+the slice green through `/tdd` (tdd mode), after the design-mode loop's step 6
+(design mode), or, for a legacy block, when its last `TDD:` row passes:
 
 ```bash
 python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha> --index tasks/todo.md
@@ -313,13 +318,14 @@ consumes — the delegation prompt and `/wrap-up-session` § Handovers carry
 the whole blockquote, never the `> Handover:` line alone. Write it for a
 one-slice plan too: it is what an interrupted build's next session reads.
 
-**Unfinished slice**: when the agent returns rows under `## Not finished`
-or the escape hatch fired, mark the finished rows `[x]`, leave the header
-and the remaining rows `[ ]`, write `unfinished: <rows>` in the handover,
-and leave the slice in the next `ready` set. Never renumber and never open
-a remainder slice. A header marked `[x]` with a `[ ]` child row is the
-**forbidden state** — Phase 6 counts nested rows and reports it as a build
-failure.
+**Unfinished slice**: when the agent returns criteria under `## Not finished`
+or the escape hatch fired, leave the header `[ ]`, write
+`unfinished: <AC ids>` in the handover, and leave the slice in the next
+`ready` set. Never renumber and never open a remainder slice. A legacy block
+marks its finished `TDD:` rows `[x]` and writes `unfinished: <rows>`. A header
+marked `[x]` with no `> Handover:` (a legacy block adds: or with a `[ ]` child
+row) is the **forbidden state** — Phase 6 checks every `[x]` header for its
+handover and reports a miss as a build failure.
 
 The slice boundary is the checkpoint: run the affected-test command once, centrally;
 write the handover; flush the task-boundary checkpoint
@@ -459,8 +465,8 @@ End your turn with this report populated from **real command output**:
 2. `git log --oneline <base>..HEAD`
 3. `ls specs/ | grep <feature>`
 4. `grep -cE '^\s*(- )?\[x\]' tasks/todo.md` vs `grep -cE '^\s*(- )?\[ \]' tasks/todo.md` —
-   counted with leading whitespace so nested `TDD:` rows are counted, not
-   just top-level rows
+   counted with leading whitespace so a legacy block's nested `TDD:` rows are
+   counted too; then confirm every `[x]` slice header has its `> Handover:`
 
 ```
 ══════════════════════════════════════
@@ -496,8 +502,8 @@ Next: /wrap-up-session
 - Claiming "build complete" without the persistence proof block
 - Stating a file was "created" or "updated" without showing its absolute path
 - Omitting the `Pushed:` line
-- A slice header marked `[x]` while any of its child rows stay `[ ]` — the
-  **forbidden state** Slice Close defines; report it as a build failure,
+- A slice header marked `[x]` with no `> Handover:` (legacy: or any child row
+  still `[ ]`) — the **forbidden state** Slice Close defines; report it as a build failure,
   never as a cosmetic mismatch
 
 ## Error Handling

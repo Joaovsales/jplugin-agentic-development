@@ -40,7 +40,8 @@ Record the slice base `<sha>` (`git rev-parse HEAD`) before step 1.
    `context:` is the writer's own value. Claude Code (`Agent`) and Pi dispatch
    fresh. Codex writes `forked` unless Q1 of the spec is answered fresh (see
    `harness-dispatch.md`). At most one `> Frozen:` line per slice: a second
-   freeze for the same slice is refused.
+   freeze for the same slice is refused: `slice.py check --index` exits 3
+   with `duplicate freeze line`.
 5. Implement — dispatch the implementer to make the frozen tests green without
    editing them. A test that must change is a `> Test amended:` line, never a
    silent edit:

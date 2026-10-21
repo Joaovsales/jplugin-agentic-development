@@ -299,9 +299,9 @@ slice's tests in design mode, now reading them instead. The dispatch follows
 
 Withhold the findings of Phases 1–4. Share intent, never conclusions.
 
-When the writer's `context:` on the `> Frozen:` line is not `fresh` (or the line is
-missing), the Review job raises every test that reaches past the interface to at
-least SHOULD-FIX. Its findings are report-only: it never edits the tree, and Phase
+The persona's independence rule reads the `context:` value on the `> Frozen:` line
+and sets the severity of past-interface tests; this phase does not restate it.
+Its findings are report-only: it never edits the tree, and Phase
 5 applies nothing. Each unresolved SHOULD-FIX goes in `unresolved`: an unresolved SHOULD-FIX counts toward
 HOLD under the receipt's rule; a MUST-FIX makes the receipt STOP. Record a phase 5
 reviewer entry (`lens: test-engineer`, `dispatch: dispatched`). When no dispatch is

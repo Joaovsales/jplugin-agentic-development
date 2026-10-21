@@ -254,7 +254,7 @@ def _upsert_task_result(registry, task: Task, apply: bool, preserve_existing: bo
     # is skipped on the external path, the other runs after `_persist`. Loading
     # here is what makes the guarantee unconditional -- and makes the dry run
     # refuse identically, so the preview describes the run `--apply` performs.
-    index = load_index_strict(config.path(config.index_path), config.index_path)
+    load_index_strict(config.path(config.index_path), config.index_path)
     try:
         status = provider.discover()
         destination = resolve_destination(provider.name, gate, status.available)

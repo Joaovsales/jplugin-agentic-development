@@ -1202,6 +1202,37 @@ done
 build_lines="$(wc -l < "$BUILD_SKILL" | tr -d ' ')"
 assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_lines lines)")" \
   "build: SKILL.md is at most 600 lines"
+
+# Slice Close and the forbidden state hold for both plan grammars: the header is
+# the row under each ### Slice heading, Slice Close fires on the dispatch's
+# return (tdd), step 6 (design) or the last TDD: row (legacy), unfinished work
+# is recorded in the handover, and a header [x] without a handover is forbidden.
+for token in 'The `- [ ]` row under each `### Slice n/N` heading' \
+             'Slice Close fires when the dispatch returns with every acceptance criterion' \
+             "after the design-mode loop's step 6" 'when its last `TDD:` row passes' \
+             'leave the header `[ ]`, write `unfinished: <AC ids>`' \
+             'marked `[x]` with no `> Handover:`' \
+             'confirm every `[x]` slice header has its `> Handover:`' \
+             'a new block'"'"'s header carries no task id' \
+             'its status lives in the one feature issue'; do
+  assert_prose_contains "$BUILD_SKILL" "$token" "slice close: SKILL.md contains '$token'"
+done
+assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md' \
+  "slice close: legacy is defined by pointing at plan-block.md"
+assert_file_not_matches "$BUILD_SKILL" '^When a slice.s last `TDD:` row passes' \
+  "slice close: the last TDD: row is no longer the only trigger"
+assert_file_not_matches "$BUILD_SKILL" 'while any of its child rows stay' \
+  "slice close: the forbidden state is not defined by child rows alone"
+assert_prose_contains .agents/skills/task-registry/SKILL.md 'a new block'"'"'s status lives in its one feature issue' \
+  "task-registry: /build claims only a legacy block's task"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  'only when every slice header in the block is `[x]`' "closure-actions: Closes #N only when every slice is done"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  'A PR that lands some of the slices writes `Refs #N` instead' "closure-actions: a partial PR writes Refs #N"
+assert_prose_contains .agents/skills/build/references/design-mode.md \
+  '`slice.py check --index` exits 3 with `duplicate freeze line`' "design-mode: the duplicate-freeze refusal names its mechanism"
+assert_file_matches .agents/skills/task-registry/scripts/registry/upsert.py '^    load_index_strict\(config\.path' \
+  "upsert: the refusal-only index load keeps no unused binding"
 for ref in design-stack-gates harness-dispatch; do
   assert_file_contains "$BUILD_SKILL" "references/$ref.md" \
     "build: SKILL.md points at references/$ref.md"
@@ -1831,19 +1862,30 @@ assert_file_contains "AGENTS.md" "\`test-engineer\`" "design-mode: AGENTS.md § 
 
 # --- slice 12: Phase 5 test adequacy review (AC14) ---------------------------
 P5="$(qg_section '## Phase 5 — Tests')"
-for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected tests pass"              "every \`> Frozen:\` and \`> Test amended:\` line" "context" "fresh"              "at least SHOULD-FIX" "no spec — <reason>" "report-only" "deferrals: none"              "unresolved SHOULD-FIX counts toward HOLD" "phase 5" "review-dispatch-contract.md"              "finding-model.md" "never edits the tree"; do
+for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected tests pass"              "every \`> Frozen:\` and \`> Test amended:\` line" "context"             "no spec — <reason>" "report-only" "deferrals: none"              "unresolved SHOULD-FIX counts toward HOLD" "phase 5" "review-dispatch-contract.md"              "finding-model.md" "never edits the tree"; do
   found=no; printf '%s' "$P5" | grep -qF -- "$token" && found=yes
   assert_eq "yes" "$found" "quality-gate Phase 5: mentions '$token'"
 done
 assert_file_contains ".agents/references/review-dispatch-contract.md" "test-engineer" \
   "review-dispatch-contract: names test-engineer among dispatched reviewers"
+# The independence rule has one home: the persona. Phase 5 points at it.
+assert_contains "$P5" "persona's independence rule" "independence rule: Phase 5 references the persona's rule"
+assert_not_contains "$P5" "at least SHOULD-FIX" "independence rule: Phase 5 does not restate the severity rule"
+for f in .agents/agents/test-engineer.md .claude/agents/test-engineer.md; do
+  assert_prose_contains "$f" "**The independence rule**" "independence rule: $f owns the rule"
+  assert_prose_contains "$f" "or the line is missing, every test that touches more than the interface is at least SHOULD-FIX" \
+    "independence rule: $f states the severity floor for a non-fresh or missing context"
+done
+# Review-job tier on Pi: the one-line note names the agentOverrides model.
+assert_prose_contains ".agents/references/model-routing.md" 'On Pi the `test-engineer` Review job runs at the `agentOverrides` model' \
+  "model-routing: Pi runs the test-engineer Review job at the agentOverrides model"
 
 # --- slice 13: gate fixes (AC15, AC16, D17) ----------------------------------
 P1="$(qg_section '## Phase 1 — Structural Quality (simplify)')"
 P2="$(qg_section '## Phase 2 — AI Anti-Patterns (deslop)')"
 assert_not_contains "$P1" 'options object' "gate fixes: Phase 1 no longer says 'options object'"
 assert_contains "$P1" 'long parameter list signals a shallow interface' "gate fixes: Phase 1 says a long parameter list signals a shallow interface"
-for token in 'interface comment' 'decision' 'hidden assumption' 'contradicts the code'; do
+for token in 'interface comment' 'a comment stating a decision or a hidden assumption' 'hidden assumption' 'contradicts the code'; do
   assert_contains "$P2" "$token" "gate fixes: Phase 2 mentions '$token'"
 done
 assert_contains "$AGENTS_CORE" 'a long parameter list signals a shallow interface; fix the interface, not the call site' "gate fixes: AGENTS.md Clean Code carries the D17 parameter rule"

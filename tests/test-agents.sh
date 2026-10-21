@@ -385,7 +385,7 @@ done
 
 # --- 10. software-design-expert-review: R2 and R10 follow the book (AC16) ------
 for f in "$CANONICAL/software-design-expert-review.md" "$CLAUDE/software-design-expert-review.md"; do
-  assert_prose_contains "$f" 'R2 (Pass-Through — a method that adds no abstraction' "AC16: $f rates R2 pass-through SHOULD-FIX"
+  assert_file_matches "$f" '^\| \*\*MEDIUM\*\*[^|]*\| `SHOULD-FIX` \|[^|]*R2 \(Pass-Through' "AC16: $f rates R2 pass-through SHOULD-FIX in the severity-mapping row"
   assert_prose_contains "$f" 'cannot be understood apart' "AC16: $f defines R10 as conjoined methods that cannot be understood apart"
 done
 

@@ -45,7 +45,9 @@ section lands in the commit message instead.
 
 A plan block links one feature issue, so the body carries one `Closes #N` for
 the feature issue: the `> Issue:` line's issue, or the feature row's linked
-issue. A legacy block, whose slice header rows carry task ids and their own
+issue — only when every slice header in the block is `[x]`. A PR that lands
+some of the slices writes `Refs #N` instead, so a partial PR never closes the
+feature. A legacy block, whose slice header rows carry task ids and their own
 links, keeps the per-row path below.
 
 When a PR resolves several issues, the body repeats the keyword per issue —

@@ -49,10 +49,14 @@ assert_file_not_matches "$BUILD" '\| *Excuse *\|' "Only: /build carries no ratio
 assert_file_not_matches "$BUILD" '^#+ *TDD Discipline' "Only: /build has no TDD Discipline section"
 
 # ── /build calls /tdd ────────────────────────────────────────────────────────
-assert_file_matches "$BUILD" '/tdd' "Call: /build invokes /tdd for tdd-mode slices"
+assert_prose_contains "$BUILD" 'through `/tdd`: failing test first, then minimal implementation, then refactor' \
+  "Call: /build delegates each acceptance criterion to /tdd for tdd-mode slices"
 
 # ── /debug runs its fix rows through /tdd; no writer emits a TDD: row ────────
-assert_file_matches ".agents/skills/debug/SKILL.md" '/tdd' "Debug: /debug invokes /tdd"
+assert_prose_contains ".agents/skills/debug/SKILL.md" '`/debug` then runs the rows through `/tdd` itself' \
+  "Debug: /debug runs the fix rows through /tdd itself"
+assert_prose_contains ".agents/skills/task-registry/lanes/fix.md" 'run the fix through `/tdd`' \
+  "Writers: the fix lane says /debug runs the fix through /tdd"
 assert_file_contains ".agents/skills/debug/SKILL.md" "- [ ] <criterion" \
   "Debug: /debug writes plain criterion rows"
 hits="$(grep -rlF 'TDD:' .agents/skills/debug .agents/skills/task-registry/lanes \

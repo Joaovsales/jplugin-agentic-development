@@ -241,7 +241,7 @@ No workflow skill talks to a tracker about task state. They go through here.
 |-------|------------------|
 | `/plan` | after the plan is approved, offer to record tasks (`upsert`) |
 | `/system-design-planning` | read the issue (`show`) at intake; the feature issue is filed by `/build`'s pre-flight in the build session |
-| `/build` | claim a task and update status at task boundaries |
+| `/build` | claim a legacy block's task and update status at task boundaries; a new block's status lives in its one feature issue |
 | `/verify-evidence` | attach evidence links to the task |
 | `/quality-gate` | report findings against the task |
 | `/wrap-up-session` | record deferred work (`upsert`) before the commit |
