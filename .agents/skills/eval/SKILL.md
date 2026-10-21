@@ -166,7 +166,7 @@ paired per-task means per arm:
 | Outcome | `outcome.json` — the runner's grade, never the candidate's claim |
 
 **Thresholds** (candidate vs control, `specs/read-shunt.md` § *Success
-thresholds*): compliance ≥ 95% of runs with zero parent bulk reads and ≤ 1
+thresholds (arm B vs arm A)*): compliance ≥ 95% of runs with zero parent bulk reads and ≤ 1
 routing attempt, and any run with ≥ 3 identical denied calls fails; paired
 outcome CI not excluding zero and no task down by more than one run in five;
 parent end-context −30% or better; total cost not worse than control; re-read

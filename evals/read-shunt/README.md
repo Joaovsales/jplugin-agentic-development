@@ -40,16 +40,21 @@ rubric.md                  judge axes, written before any run
 ## Run
 
 `--scaffold` is mandatory (without it no fixture exists), and every run
-carries a cost ceiling. Start with one control and one run:
+carries a cost ceiling. The grant lists `Edit Write` only: a `Bash` grant
+needs a sandbox backend the runner can confine, which Windows lacks — the
+run is refused rather than run unconfined (`tasks/eval-results/read-shunt/
+smoke-2026-10-21.md`); add `Bash` on a Linux or macOS host with the backend
+installed, or the large cases cannot show shell routing-around. Start with
+one control and one run:
 
 ```
-claude plugin eval . --eval-dir evals/read-shunt --scaffold --allow-tools Bash Edit Write --runs 1 --max-cost-usd 2 --case 'readme-typo' --json
+claude plugin eval . --eval-dir evals/read-shunt --scaffold --allow-tools Edit Write --runs 1 --max-cost-usd 2 --case 'readme-typo' --json
 ```
 
 Full suite, one run per case:
 
 ```
-claude plugin eval . --eval-dir evals/read-shunt --scaffold --allow-tools Bash Edit Write --runs 1 --max-cost-usd <n> --json
+claude plugin eval . --eval-dir evals/read-shunt --scaffold --allow-tools Edit Write --runs 1 --max-cost-usd <n> --json
 ```
 
 Results land in `evals/read-shunt/results/<timestamp>/`. Grade them from the

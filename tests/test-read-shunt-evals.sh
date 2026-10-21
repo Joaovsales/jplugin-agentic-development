@@ -120,7 +120,8 @@ assert_eq "present" "$([ -f "$SUITE/fixture_gen.py" ] && echo present || echo mi
 assert_eq "present" "$([ -f "$SUITE/rubric.md" ] && echo present || echo missing)" "the judge rubric file exists"
 assert_eq "present" "$([ -f "$SUITE/README.md" ] && echo present || echo missing)" "the run instructions exist"
 
-found="$(find "$SUITE" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort | tr '\n' ' ')"
+# `results/` is where `claude plugin eval` writes each run (gitignored), not a case.
+found="$(find "$SUITE" -mindepth 1 -maxdepth 1 -type d ! -name results -exec basename {} \; 2>/dev/null | sort | tr '\n' ' ')"
 want="$(printf '%s\n' $ALL_CASES | sort | tr '\n' ' ')"
 assert_eq "$want" "$found" "exactly the eleven named case directories"
 
