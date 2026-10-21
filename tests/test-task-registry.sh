@@ -2712,7 +2712,7 @@ assert_contains "$structured_upsert" "labels-preserved: ('bug', 'area/test', 'ne
 # The twelve registry-area files share one harness. None keeps a private
 # cleanup, fixture or repository constructor, a Python wrapper that re-exports
 # the interpreter environment, counter arithmetic, a present/gone encoding, a
-# PATH export, a temp directory of its own or a `git init`; every one names its
+# PATH export, a temp directory of its own or a hand-made repository; every one names its
 # artefact through the library, so tests/affected.sh selects it on a change to
 # the registry's model. Each sweep is run against a control line that carries
 # the pattern, so an empty sweep cannot be a pattern that stopped matching.
@@ -2738,14 +2738,14 @@ assert_area_sweep "no counter arithmetic" \
   '_TES''TS=$((_TES''TS + 1))' '_(TESTS|FAILS)='
 assert_area_sweep "no present/gone encoding" \
   '[ -f x ] && ec''ho present || ec''ho absent' '&& echo [a-z]+ \|\| echo [a-z]+'
-assert_area_sweep "no export PATH=" \
+assert_area_sweep "no PATH exported by the file" \
   'ex''port PATH="$d/bin:$PATH"' '[e]xport PATH='
 assert_area_sweep "no per-file bytecode or locale environment" \
   'PYTHONDONTWRITE''BYTECODE=1 python3 x' 'PYTHONDONTWRITEBYT[E]CODE|PYTHONUTF[8]=|LC_AL[L]='
 assert_area_sweep "no temp directory of its own" \
   'd="$(mkt''emp -d)"' 'mktem[p] -d'
-assert_area_sweep "no git init outside a test of git behaviour" \
-  'gi''t init -q' 'git [i]nit'
+assert_area_sweep "no repository initialised by hand outside a test of git behaviour" \
+  'gi''t -C "$d" init -q' 'git (-C [^ ]+ )?[i]nit'
 
 # Selection by artefact path: a change to registry/model.py must reach every
 # file, so each declares a path that contains it.
