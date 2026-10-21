@@ -166,11 +166,7 @@ Mark it `[x]` at Slice Close and never dispatch a coder against it. For an
 older plan block see *Legacy block* at the end of this phase.
 
 **Route every slice before its first dispatch** — one slice or many: run
-`slice.py ready` (below) first. Its `mode=` picks the loop. `mode=design` runs
-`.agents/skills/build/references/design-mode.md`, whose first dispatch is the
-stubs, never an implementer; design-mode slices run one at a time in the main
-tree, in table order, never in parallel and never worktree-isolated.
-`mode=tdd` runs Steps 1–3. `.agents/` is a dot-directory that a bare `ls`
+`slice.py ready` (below) first. `.agents/` is a dot-directory that a bare `ls`
 hides: a script `test -f` cannot find stops the build, never a reason to skip
 the step it serves.
 
@@ -188,7 +184,7 @@ blocker between them is a plan defect — serialized in table order and
 reported, never guessed. Re-run `ready` after every slice closes to pick up
 the next batch.
 
-**If 2+ ready tdd-mode slices are disjoint**:
+**If 2+ ready slices are disjoint**:
 1. Dispatch one sub-agent per slice, passing
    `isolation: "worktree"` on each `Agent` call **when the slice writes files**.
    Independence assessed at plan time is a prediction; worktree isolation makes
@@ -270,20 +266,17 @@ Slice Close, the only place a header is marked `[x]`.
 ### Slice Close
 
 Slice Close fires when the dispatch returns with every acceptance criterion of
-the slice green through `/tdd` (tdd mode) or after the design-mode loop's step 6 (design mode):
+the slice green through `/tdd`:
 
 ```bash
-python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha> --index tasks/todo.md
+python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha>
 ```
 
 This matches `git diff --name-only <base>..HEAD` against the slice's
 declared surface and prints `undeclared: <paths>` and `untouched: <globs>`,
 exiting 0 only when both are empty. Informational — nothing stops on a
 non-empty report; fold the result into the handover below and the Phase 4.5
-batch. Beyond that, exit 3 stops the build on any freeze problem `check --index`
-prints (any slice with a recorded `> Frozen:` line, or a design-mode slice
-without one): report the line, write no handover; exit 2 is bad input.
-`.agents/skills/slice/scripts/slice.py` documents the problem lines.
+batch; exit 2 is bad input.
 
 Write a `> Handover:` blockquote under the slice heading, after its rows —
 one to four blockquote lines, each with its own prefix:
@@ -293,7 +286,6 @@ one to four blockquote lines, each with its own prefix:
 > Do not re-derive: the facts the next slice must not rediscover
 > Surface: the `check` report (`undeclared:` / `untouched:`, or none)
 > Open: one open question (optional)
-> Interface: <path> — <entry points> (design-mode slices only)
 ```
 
 The first two lines are required; the blockquote is the unit every reader

@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Red-green-refactor for a list of acceptance criteria or a bug's expected behaviour, with Prove-It for bugs (reproduce with a failing test first). Called by /build for tdd-mode slices and by /debug for its fix step; use directly when asked to do TDD or to write the test first.
+description: Red-green-refactor for a list of acceptance criteria or a bug's expected behaviour, with Prove-It for bugs (reproduce with a failing test first). Called by /build for each slice and by /debug for its fix step; use directly when asked to do TDD or to write the test first.
 argument-hint: "<criteria: AC ids | expected behaviour> [surface: globs]"
 disable-model-invocation: false
 harness: universal

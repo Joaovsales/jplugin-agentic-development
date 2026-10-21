@@ -346,7 +346,7 @@ Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `
 | `/sync` | Pull latest skills, hooks, agents, and config from the jplugin-agentic-development template repo. |  |
 | `/system-design-planning` | Turn an issue or a feature idea into an upstream architecture review — system design, component contracts, data models, constraints, and a dependency-ordered build plan — rendered as a self-contained HTML document, then ends with a build prompt for a fresh session. Nothing is filed and nothing is built in this session; the reviewer approves by starting the build session with that prompt. Use instead of /brainstorm + /plan when the change crosses a component boundary, adds or changes a persisted data model, or introduces or changes an external contract. |  |
 | `/task-registry` | Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine. |  |
-| `/tdd` | Red-green-refactor for a list of acceptance criteria or a bug's expected behaviour, with Prove-It for bugs (reproduce with a failing test first). Called by /build for tdd-mode slices and by /debug for its fix step; use directly when asked to do TDD or to write the test first. |  |
+| `/tdd` | Red-green-refactor for a list of acceptance criteria or a bug's expected behaviour, with Prove-It for bugs (reproduce with a failing test first). Called by /build for each slice and by /debug for its fix step; use directly when asked to do TDD or to write the test first. |  |
 | `/tidy` | Harness hygiene sweep for a jplugin-agentic-development repository — the template, its mirror, and any project that vendored the harness through /sync. Nine checks over the surfaces that duplicate by design (skills tables, retired skills, installed copies under ~/.claude and ~/.agents, backticked paths, worktrees, stray files, the task registers, the code graph). Mechanical drift is fixed and committed one concern per commit, machine-side remedies are printed as commands and never run, larger drift is filed through /task-registry. Use by hand after a retirement or rename, or from a scheduled routine; --report sweeps without writing anything. |  |
 | `/verify-deployment` | Wait for post-push deployment builds to resolve, fetch logs on failure, and loop a code-debugger fix cycle up to 3 iterations before escalating. Service-agnostic — driven by runbook files in .claude/deployments/. | claude |
 | `/verify-evidence` | Enforce evidence-based verification before any completion claims. Supports --scope deployment and --scope e2e. Use before committing, creating PRs, marking tasks done, or claiming success. |  |
@@ -396,7 +396,7 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 | `critic` | Adversarial quality gate for plans, code, specs |
 | `context-document-optimizer` | Compress large docs for token efficiency |
 | `software-design-expert-review` | Read-only APOSD design audit — depth, leakage, error design |
-| `test-engineer` | Writes contract tests from the spec and stubs before implementation (Write job); reviews test adequacy against the freeze lines (Review job) |
+| `test-engineer` | Read-only review of test adequacy against the spec's acceptance criteria and interface (Review job) |
 
 ---
 

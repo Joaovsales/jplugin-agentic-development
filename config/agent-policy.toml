@@ -89,12 +89,11 @@ name = "software-design-expert-review"
 tier = "Ceiling"
 permission = "read-only"
 
-# One persona, two jobs. The Write job is Builder tier; the Review job is Reviewer tier
-# and is dispatched with that tier's model, read-only, by the caller.
+# One persona, one Review job at Reviewer tier, dispatched read-only by the caller.
 [[roles]]
 name = "test-engineer"
-tier = "Builder"
-permission = "workspace-write"
+tier = "Reviewer"
+permission = "read-only"
 
 [[roles]]
 name = "critic"

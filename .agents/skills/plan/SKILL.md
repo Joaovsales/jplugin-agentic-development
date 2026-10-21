@@ -150,7 +150,7 @@ implementation_paths:
 - [Edge case 2 and expected behavior]
 
 ## Interfaces
-[Optional: one entry per module whose interface the change creates or reshapes; `slice.py ready` prints `mode=design` for a slice whose Surface matches an entry's `Path:`]
+[Optional: one entry per module whose interface the change creates or reshapes]
 
 ### <module or entry point>
 

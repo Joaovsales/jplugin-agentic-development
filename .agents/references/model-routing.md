@@ -77,9 +77,7 @@ Canonical persona definitions live in `.agents/agents/` (model-agnostic — neve
 | `critic` | *ceiling (planner floor)* | Adversarial quality gate for plans, code, specs |
 | `context-document-optimizer` | `sonnet` | Compress large docs for token efficiency |
 | `software-design-expert-review` | *ceiling* | Read-only APOSD design audit — depth, leakage, error design (dispatched by `/quality-gate`) |
-| `test-engineer` | Builder (Write job) / Reviewer (Review job), model passed per dispatch | Contract tests from spec and stubs before implementation (Write); test adequacy review against the freeze lines (Review) |
-
-On Pi the `test-engineer` Review job runs at the `agentOverrides` model for `test-engineer` (Builder tier) until a second policy role exists, because Pi never takes per-call model params.
+| `test-engineer` | Reviewer, model passed per dispatch | Read-only test adequacy review against the spec's acceptance criteria and the interface (Review job, dispatched by `/quality-gate`) |
 
 **Rule**: One focused task per subagent. Resolve each agent's model through the
 tier in *Tiers* above — on Claude Code pass `model` explicitly for the

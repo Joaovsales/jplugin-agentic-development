@@ -236,37 +236,24 @@ assert_eq "" "$OUT" "legacy-plan: a legacy block prints nothing"
 OUT="$("$PY" "$SLICE" ready --index "$TWO/todo-legacy.md" --spec "$TWO/spec.md" 2>&1)"
 assert_contains "$OUT" "ready: 1 one" "legacy-plan: a legacy block's open slice 1 is ready"
 
-printf '\n--- mode: derived from § Interfaces Path against Surface (AC3) ---\n'
+printf '\n--- interfaces: ready names no mode; validate still refuses an entry with no Path (AC9) ---\n'
 
 MODE="$FIXTURES/mode"
 OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-new.md" --spec "$MODE/spec.md" 2>&1)"
 CODE=$?
-assert_eq "0" "$CODE" "mode: a new block exits 0"
-assert_contains "$OUT" "ready: 1 one mode=design" "mode: a slice whose Surface matches an Interfaces Path is design"
-assert_contains "$OUT" "ready: 2 two mode=tdd" "mode: a slice matching no Interfaces Path is tdd"
-assert_contains "$OUT" "  surface: src/one/**" "mode: the surface line still follows"
-# A run that read mode=design and dispatched an implementer anyway is the failure
-# the eval found, so the ready line itself names the loop the slice must run.
-assert_contains "$OUT" "  loop: .agents/skills/build/references/design-mode.md — first dispatch is the stubs, never an implementer" \
-  "mode: a design-mode slice names its loop on the ready output"
-assert_eq "1" "$(printf '%s\n' "$OUT" | grep -c '  loop: ')" "mode: only the design-mode slice gets a loop line"
-OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-legacy.md" --spec "$MODE/spec.md" 2>&1)"
-assert_contains "$OUT" "ready: 1 one mode=tdd" "mode: a legacy block's slice is tdd even when its Surface matches"
-assert_contains "$OUT" "ready: 2 two mode=tdd" "mode: every legacy slice is tdd"
-OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-new-no-interfaces.md" --spec "$MODE/spec-no-interfaces.md" 2>&1)"
-CODE=$?
-assert_eq "0" "$CODE" "mode: a spec with no Interfaces section is fine"
-assert_contains "$OUT" "ready: 1 one mode=tdd" "mode: no Interfaces section means every slice is tdd"
-OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready-implicit/todo-open.md" --spec "$FIXTURES/ready-implicit/spec.md" 2>&1)"
-assert_contains "$OUT" "ready: 1 legacy-feature mode=tdd" "mode: a flat legacy plan's implicit slice is tdd"
+assert_eq "0" "$CODE" "interfaces: a new block exits 0"
+assert_contains "$OUT" "ready: 1 one" "interfaces: a slice whose Surface matches an Interfaces Path is ready"
+assert_contains "$OUT" "ready: 2 two" "interfaces: a slice matching no Interfaces Path is ready"
+assert_not_contains "$OUT" "mode=" "interfaces: ready prints no mode"
+assert_not_contains "$OUT" "loop:" "interfaces: ready prints no loop line"
 OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec.md" --index "$MODE/todo-new.md" 2>&1)"
 CODE=$?
-assert_eq "0" "$CODE" "mode: validate passes when every Interfaces entry has a Path"
+assert_eq "0" "$CODE" "interfaces: validate passes when every Interfaces entry has a Path"
 OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec-no-path.md" --index "$MODE/todo-new.md" 2>&1)"
 CODE=$?
-assert_eq "1" "$CODE" "mode: validate refuses an Interfaces entry with no Path, exit 1"
-assert_contains "$OUT" '`one` module' "mode: the refusal names the entry"
-assert_contains "$OUT" "Path:" "mode: the refusal names the missing field"
+assert_eq "1" "$CODE" "interfaces: validate refuses an Interfaces entry with no Path, exit 1"
+assert_contains "$OUT" '`one` module' "interfaces: the refusal names the entry"
+assert_contains "$OUT" "Path:" "interfaces: the refusal names the missing field"
 
 printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
 
@@ -352,268 +339,6 @@ OUT="$("$PY" "$SLICE" check --spec "$FIXTURES/check/spec.md" --slice 9 --base "$
 CODE=$?
 assert_eq "2" "$CODE" "check: a slice number the table lacks exits 2"
 assert_contains "$OUT" "no slice 9 in" "check: names the missing slice number"
-
-printf '\n--- freeze: check --index reads > Frozen: and > Test amended: (AC10) ---\n'
-
-FREEZE_SPEC="$FIXTURES/freeze/spec.md"
-FREEZE_REPO=""
-FREEZE_BASE=""
-FREEZE_TODO=""
-FREEZE_S=""
-FREEZE_F=""
-
-# Builds a fresh fixture repo in its own temp dir: base B, stub commit S, then
-# the contract commit F (a test plus a `tasks/` file). Every git call names
-# $FREEZE_REPO, which is set before the first one -- an empty `-C` argument
-# would fall back to the cwd and commit the real repo.
-freeze_repo() {
-  FREEZE_REPO="$(mktemp -d)"
-  [ -n "$FREEZE_REPO" ] || { echo "freeze_repo: mktemp -d returned nothing" >&2; exit 1; }
-  TMP_DIRS+=("$FREEZE_REPO")
-  # The index lives outside the repo, so `git add -A` never commits it.
-  FREEZE_TODO="$(mktemp -d)/todo.md"
-  TMP_DIRS+=("$(dirname "$FREEZE_TODO")")
-  git -C "$FREEZE_REPO" init -q -b main
-  git -C "$FREEZE_REPO" config user.email t@example.com
-  git -C "$FREEZE_REPO" config user.name Test
-  mkdir -p "$FREEZE_REPO/src/one" "$FREEZE_REPO/tests/one" "$FREEZE_REPO/tasks"
-  printf 'base\n' > "$FREEZE_REPO/README.md"
-  git -C "$FREEZE_REPO" add -A >/dev/null
-  git -C "$FREEZE_REPO" commit -qm base
-  FREEZE_BASE="$(git -C "$FREEZE_REPO" rev-parse HEAD)"
-  printf 'def one(): ...\n' > "$FREEZE_REPO/src/one/mod.py"
-  git -C "$FREEZE_REPO" add -A >/dev/null
-  git -C "$FREEZE_REPO" commit -qm stub
-  FREEZE_S="$(git -C "$FREEZE_REPO" rev-parse HEAD)"
-  printf 'assert one()\n' > "$FREEZE_REPO/tests/one/test_a.py"
-  printf 'note\n' > "$FREEZE_REPO/tasks/notes.md"
-  git -C "$FREEZE_REPO" add -A >/dev/null
-  git -C "$FREEZE_REPO" commit -qm tests
-  FREEZE_F="$(git -C "$FREEZE_REPO" rev-parse HEAD)"
-}
-
-freeze_commit() {  # <message>
-  git -C "$FREEZE_REPO" add -A >/dev/null
-  git -C "$FREEZE_REPO" commit -qm "$1"
-}
-
-# freeze_todo <file> [frozen line] [amended line]... -- a plan block the way /build leaves it.
-freeze_todo() {
-  local file="$1"; shift
-  {
-    printf '# Tasks\n\n## Plan: freeze-fixture\n> Spec: %s\n- [ ] freeze-fixture <!-- task-id: plan.freeze-fixture -->\n\n' "$FREEZE_SPEC"
-    printf '### Slice 1/1 — one\n- [ ] one — first\n'
-    for line in "$@"; do printf '%s\r\n' "$line"; done
-  } > "$file"
-}
-
-freeze_check() {  # <index file>
-  "$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" --index "$1" 2>&1
-}
-
-FROZEN_TAIL=" — red: 1 failed — context: fresh"
-
-freeze_repo
-printf 'def one(): return 1\n' > "$FREEZE_REPO/src/one/mod.py"
-freeze_commit impl
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "0" "$CODE" "freeze: contract tests untouched after F exit 0"
-assert_eq "" "$OUT" "freeze: a clean frozen slice prints nothing"
-
-OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
-assert_eq "0" "$CODE" "freeze: without --index check behaves as before"
-
-printf 'assert one() == 1\n' >> "$FREEZE_REPO/tests/one/test_a.py"
-freeze_commit edit-test
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: a contract test edited after F exits 3"
-assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: names the edited contract test"
-
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL" "> Test amended: tests/one/test_a.py — the contract changed"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "0" "$CODE" "freeze: a matching > Test amended: line lets the edit through"
-assert_eq "" "$OUT" "freeze: an amended edit prints nothing"
-
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL" "> Test amended: tests/one/other.py — wrong file"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: an amendment naming another file exits 3"
-assert_contains "$OUT" "amended-unknown: tests/one/other.py" "freeze: names the unknown amendment"
-assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: the edit it did not cover is still reported"
-
-freeze_repo
-printf 'assert one() == 2\n' > "$FREEZE_REPO/tests/one/test_b.py"
-printf 'def one(): return 1\n' > "$FREEZE_REPO/src/one/mod.py"
-freeze_commit impl-and-new-test
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: a new file beside a contract test exits 3"
-assert_contains "$OUT" "frozen-edited: tests/one/test_b.py" "freeze: names the new file in a contract test's directory"
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL" "> Test amended: tests/one/test_b.py — one more case"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "0" "$CODE" "freeze: an amendment covers a new file beside a contract test"
-
-freeze_repo
-printf 'def one(): return 1\n' > "$FREEZE_REPO/src/one/mod.py"
-freeze_commit impl
-freeze_todo "$FREEZE_TODO"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: no > Frozen: line on a design-mode slice exits 3"
-assert_contains "$OUT" "missing freeze commit" "freeze: names the missing freeze commit"
-
-freeze_repo
-printf 'def one(): return 1\n' > "$FREEZE_REPO/src/one/mod.py"
-printf 'later\n' > "$FREEZE_REPO/tasks/notes.md"
-freeze_commit impl-and-notes
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "0" "$CODE" "freeze: a file under tasks/ is never a contract test"
-assert_eq "" "$OUT" "freeze: a tasks/ edit is not reported"
-
-freeze_repo
-printf 'stray\n' > "$FREEZE_REPO/src/stray.py"
-freeze_commit stray
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "1" "$CODE" "freeze: surface drift alone still exits 1"
-assert_contains "$OUT" "undeclared: src/stray.py" "freeze: the drift line is printed"
-
-freeze_repo
-printf 'stray\n' > "$FREEZE_REPO/src/stray.py"
-printf 'assert one() == 3\n' >> "$FREEZE_REPO/tests/one/test_a.py"
-freeze_commit stray-and-edit
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: a freeze problem outranks surface drift"
-assert_contains "$OUT" "undeclared: src/stray.py" "freeze: surface drift lines are still printed beside it"
-
-# A tdd-mode slice reads no freeze state, even with an index and no > Frozen: line.
-TDD_REPO="$(mktemp -d)"
-TMP_DIRS+=("$TDD_REPO")
-git -C "$TDD_REPO" init -q -b main
-git -C "$TDD_REPO" config user.email t@example.com
-git -C "$TDD_REPO" config user.name Test
-mkdir -p "$TDD_REPO/src/two"
-printf 'x\n' > "$TDD_REPO/README.md"
-git -C "$TDD_REPO" add -A >/dev/null
-git -C "$TDD_REPO" commit -qm base
-TDD_BASE="$(git -C "$TDD_REPO" rev-parse HEAD)"
-printf 'y\n' > "$TDD_REPO/src/two/a.py"
-git -C "$TDD_REPO" add -A >/dev/null
-git -C "$TDD_REPO" commit -qm work
-OUT="$("$PY" "$SLICE" check --spec "$MODE/spec.md" --slice 2 --base "$TDD_BASE" --repo "$TDD_REPO" --index "$MODE/todo-new.md" 2>&1)"; CODE=$?
-assert_eq "0" "$CODE" "freeze: a tdd-mode slice with --index behaves as without it"
-assert_eq "" "$OUT" "freeze: a tdd-mode slice prints no freeze line"
-
-# A rename shows as delete plus add, so the old path is the one reported.
-freeze_repo
-git -C "$FREEZE_REPO" mv tests/one/test_a.py tests/one/test_c.py
-freeze_commit rename-test
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: a contract test renamed after F exits 3"
-assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: a rename names the old path"
-
-freeze_repo
-git -C "$FREEZE_REPO" rm -q tests/one/test_a.py
-freeze_commit delete-test
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: a contract test deleted after F exits 3"
-assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: a deletion names the deleted path"
-
-# Headings exist but none is `### Slice 1`: the freeze cannot be read, so the check refuses.
-freeze_repo
-printf '# Tasks\n\n## Plan: freeze-fixture\n> Spec: %s\n- [ ] freeze-fixture\n\n### Slice 2/2 — two\n- [ ] two — second\n' "$FREEZE_SPEC" > "$FREEZE_TODO"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "2" "$CODE" "freeze: a plan block with no heading for the slice exits 2"
-assert_contains "$OUT" "### Slice 1" "freeze: the refusal names the missing heading"
-
-# A recorded freeze is checked even when the slice's mode now derives tdd (the spec lost its Interfaces).
-freeze_repo
-printf 'assert one() == 9\n' >> "$FREEZE_REPO/tests/one/test_a.py"
-freeze_commit edit-test
-SAVED_SPEC="$FREEZE_SPEC"; FREEZE_SPEC="$FIXTURES/freeze/spec-no-interfaces.md"
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-FREEZE_SPEC="$SAVED_SPEC"
-assert_eq "3" "$CODE" "freeze: a recorded freeze is checked when the mode derives tdd"
-assert_contains "$OUT" "frozen-edited: tests/one/test_a.py" "freeze: the tdd-derived slice still reports the edit"
-
-freeze_repo
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: two > Frozen: lines for one slice exit 3"
-assert_contains "$OUT" "duplicate freeze line" "freeze: names the duplicate"
-
-# Without --index the freeze is not read; a design-mode slice says so when tasks/todo.md can name its mode.
-freeze_repo
-freeze_todo "$FREEZE_REPO/tasks/todo.md" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
-assert_eq "0" "$CODE" "freeze: the no --index notice leaves the exit code alone"
-assert_contains "$OUT" "freeze: not checked (no --index)" "freeze: a design-mode slice without --index says the freeze was not checked"
-rm -f "$FREEZE_REPO/tasks/todo.md"
-OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
-assert_eq "" "$OUT" "freeze: with no --index and no tasks/todo.md there is nothing to say"
-# A tdd-mode block in the repo's own tasks/todo.md reaches the mode branch and says nothing.
-SAVED_SPEC="$FREEZE_SPEC"; FREEZE_SPEC="$FIXTURES/freeze/spec-no-interfaces.md"
-freeze_todo "$FREEZE_REPO/tasks/todo.md"
-OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
-FREEZE_SPEC="$SAVED_SPEC"
-assert_eq "0" "$CODE" "freeze: a tdd-mode check without --index exits 0"
-assert_eq "" "$OUT" "freeze: a tdd-mode check without --index prints no notice"
-
-# A todo.md that is not UTF-8 cannot name a mode: no traceback, the exit code stays the surface result.
-printf '# Tasks
-ÿ
-' > "$FREEZE_REPO/tasks/todo.md"
-OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
-assert_eq "0" "$CODE" "freeze: a non-UTF-8 tasks/todo.md leaves the exit code alone"
-assert_eq "" "$OUT" "freeze: a non-UTF-8 tasks/todo.md prints no traceback"
-rm -f "$FREEZE_REPO/tasks/todo.md"
-
-# The surface check keeps git's default rename detection: only the new path of a rename is changed.
-freeze_repo
-git -C "$FREEZE_REPO" config diff.renames true
-git -C "$FREEZE_REPO" mv README.md src/one/readme.py
-freeze_commit rename-into-surface
-OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
-assert_eq "0" "$CODE" "check: a rename from outside the surface into it exits 0"
-assert_eq "" "$OUT" "check: the rename's old path is not reported as undeclared"
-
-# AC10: a new file after F in a contract test's own directory is frozen; a subdirectory, a prefix-sibling
-# directory and the repo root are not beside it.
-freeze_repo
-mkdir -p "$FREEZE_REPO/tests/one/sub"
-printf 'assert one() == 4
-' > "$FREEZE_REPO/tests/one/sub/test_d.py"
-freeze_commit new-in-subdir
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "0" "$CODE" "freeze: a new file in a subdirectory of a contract test's directory is not frozen"
-assert_eq "" "$OUT" "freeze: the subdirectory file is not reported"
-
-freeze_repo
-mkdir -p "$FREEZE_REPO/tests/oneother"
-printf 'assert one() == 5
-' > "$FREEZE_REPO/tests/oneother/test_x.py"
-freeze_commit new-in-prefix-sibling
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_not_contains "$OUT" "frozen-edited" "freeze: a new file in a prefix-sibling directory is not frozen"
-
-freeze_repo
-printf 'assert root\n' > "$FREEZE_REPO/test_root.py"
-freeze_commit root-contract
-FREEZE_F="$(git -C "$FREEZE_REPO" rev-parse HEAD)"
-printf 'assert root == 1\n' >> "$FREEZE_REPO/test_root.py"
-printf 'other\n' > "$FREEZE_REPO/other.md"
-freeze_commit root-edit-and-new
-freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
-OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: a root-level contract test is still frozen"
-assert_contains "$OUT" "frozen-edited: test_root.py" "freeze: the root contract test itself is reported"
-assert_not_contains "$OUT" "frozen-edited: other.md" "freeze: a new root file is not beside a root contract test"
 
 printf '\n--- globs: registry/globs.py rejects what spec-reconcile.py used to reject ---\n'
 

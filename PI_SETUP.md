@@ -214,7 +214,7 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, wi
     "security-reviewer":  { "model": "z-ai/glm-4.7" },
     "software-design-expert-review": { "model": "z-ai/glm-4.7" },
     "critic":             { "model": "moonshotai/kimi-k3" },
-    "test-engineer":      { "model": "qwen/qwen3-coder-next", "fallbackModels": ["z-ai/glm-4.7"] },
+    "test-engineer":      { "model": "z-ai/glm-4.7" },
     "scout":              { "model": "deepseek/deepseek-v4-flash", "thinking": "off" },
     "context-builder":    { "model": "deepseek/deepseek-v4-flash" },
     "context-document-optimizer": { "model": "deepseek/deepseek-v4-flash" },

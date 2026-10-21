@@ -50,7 +50,7 @@ assert_file_not_matches "$BUILD" '^#+ *TDD Discipline' "Only: /build has no TDD 
 
 # ── /build calls /tdd ────────────────────────────────────────────────────────
 assert_prose_contains "$BUILD" 'through `/tdd`: failing test first, then minimal implementation, then refactor' \
-  "Call: /build delegates each acceptance criterion to /tdd for tdd-mode slices"
+  "Call: /build delegates each acceptance criterion to /tdd"
 
 # ── /debug runs its fix rows through /tdd; no writer emits a TDD: row ────────
 assert_prose_contains ".agents/skills/debug/SKILL.md" '`/debug` then runs the rows through `/tdd` itself' \

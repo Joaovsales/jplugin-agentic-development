@@ -6,7 +6,8 @@ Windows Git Bash, candidates on Sonnet (`claude -p --model sonnet`), judge on Op
 **Rule result: revert slices 9 and 11.** Round 1 failed on AC coverage and design
 findings, with routing the main cause. The owner chose to fix the routing
 (`e95d17f`) and re-run. Round 2, the deciding round, gives equal AC coverage, but
-design findings are not fewer and the cost is 3.09× (limit 2×). The user makes the call.
+design findings are not fewer and the cost is 3.09× (limit 2×). **Owner's call
+(2026-10-21): revert** — spec D23 records what was removed and what stays.
 
 ## Round 2 — after the routing fix (deciding)
 

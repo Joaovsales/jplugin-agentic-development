@@ -13,25 +13,9 @@ mechanical questions a human should never have to hold in their head:
     links its feature once and every open `TDD:` row's `tests/...` file is
     inside its slice's surface too.
   * **ready** — which slices can be dispatched right now, given which plan-block
-    headers are already `[x]`, and in which `mode=` (design when a § Interfaces
-    `Path:` falls inside the slice's surface, else tdd)?
+    headers are already `[x]`?
   * **check** — after a slice closes, did its diff actually stay inside the
-    surface it declared? Exit 1 on surface drift. With `--index` the freeze is
-    checked too; every freeze problem prints one line and exits 3:
-
-      - `frozen-edited: <path>` — a contract test (a non-`tasks/` path changed
-        in `S..F`) or a file added after `F` in a contract test's own
-        directory (that exact directory, never a subdirectory; a root-level
-        test protects only itself) changed after `F` with no `> Test amended:`.
-      - `amended-unknown: <path>` — a `> Test amended:` line names a file that
-        is no contract test.
-      - `duplicate freeze line` — two `> Frozen:` lines under one slice.
-      - `missing freeze commit` — a design-mode slice with no `> Frozen:` line.
-
-    A slice with a recorded `> Frozen:` line is checked whatever mode it
-    derives now. A plan block with `### Slice` headings but none for the slice
-    exits 2. Without `--index` the freeze is not read, and a design-mode slice
-    says so on stderr.
+    surface it declared? Exit 1 on surface drift.
   * **readiness** — may a build prompt be printed at all? Not while a decision
     is `open` or an open question blocks a slice (specs/readable-visual-plans.md).
 
@@ -50,7 +34,7 @@ import sys
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import combinations
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 # `registry` lives under the task-registry skill, not this one. Resolved
 # relative to this file so the script works from any cwd.
@@ -82,8 +66,6 @@ H2_RE = re.compile(r"^##\s")
 # A plan block's feature link: the `> Issue:` line, or the one `- [ ]` row above the first slice heading.
 ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
 FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
-FROZEN_LINE_RE = re.compile(r"^>\s*Frozen:\s*(?P<s>[0-9A-Za-z]+)\.\.(?P<f>[0-9A-Za-z]+)(?:\s|$)")
-AMENDED_LINE_RE = re.compile(r"^>\s*Test amended:\s*(?P<path>\S+)")
 INTERFACES_HEADING = "## Interfaces"
 INTERFACE_ENTRY_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$", re.MULTILINE)
 INTERFACE_PATH_RE = re.compile(r"^\s*-\s*\*\*Path:\*\*\s*(?P<path>.*?)\s*$", re.MULTILINE)
@@ -346,10 +328,6 @@ def _interfaces_problems(spec_text: str) -> List[str]:
     ]
 
 
-def _interface_paths(spec_text: str) -> List[str]:
-    return [path for _title, path in parse_interfaces(spec_text) if path]
-
-
 # --------------------------------------------------------------- validate
 
 
@@ -470,7 +448,7 @@ def _slice_headings(lines: Sequence[str], start_line: int, end_line: int) -> Lis
 class PlanBlock:
     """One `## Plan:` block of the index: where it is, its rows, and what they mean.
 
-    Callers ask it for a slice's mode and lines; none re-derive either from
+    Callers ask it for the slice rows and open work; none re-derive them from
     the heading list.
     """
 
@@ -489,35 +467,6 @@ class PlanBlock:
         it at load time, so `ready` and `check` fail there, not at a later access.
         """
         return load_index_strict(self.index_path, self.index_path).rows
-
-    @property
-    def legacy(self) -> bool:
-        """Legacy when any slice header row carries a `task-id` marker.
-
-        Raises IndexUnreadable when the rows were not read yet and the index is malformed.
-        """
-        for heading_line, _number, _name, boundary in _heading_spans(self.headings, self.end_line):
-            row = _row_after(self.rows, heading_line, boundary, self.prose)
-            if row is not None and "task-id:" in self.prose[row.line - 1]:
-                return True
-        return False
-
-    def mode(self, row: SliceRow, interface_paths: Sequence[str]) -> str:
-        """`design` when a § Interfaces `Path:` falls inside the slice's Surface and the block is new.
-
-        Raises IndexUnreadable, as `legacy` does.
-        """
-        if self.legacy:
-            return "tdd"
-        hit = any(match_path(pattern, path) for pattern in row.surface for path in interface_paths)
-        return "design" if hit else "tdd"
-
-    def slice_lines(self, number: int) -> Optional[List[str]]:
-        """The lines under slice `number`'s heading, or None when it has no heading."""
-        for heading_line, heading_number, _title, boundary in _heading_spans(self.headings, self.end_line):
-            if heading_number == number:
-                return self.prose[heading_line:boundary]
-        return None
 
     def has_open_row(self) -> bool:
         """Whether any task row inside the block is still open."""
@@ -643,11 +592,9 @@ def _row_after(
     return min(candidates, key=lambda row: row.line) if candidates else None
 
 
-def _print_ready(number: int, name: str, surface: Sequence[str], mode: str = "tdd") -> None:
-    print(f"ready: {number} {name} mode={mode}")
+def _print_ready(number: int, name: str, surface: Sequence[str]) -> None:
+    print(f"ready: {number} {name}")
     print(f"  surface: {', '.join(surface)}")
-    if mode == "design":
-        print("  loop: .agents/skills/build/references/design-mode.md — first dispatch is the stubs, never an implementer")
 
 
 def _refuse_plan_drift(
@@ -680,15 +627,13 @@ def _ready_numbers(slices: Dict[int, SliceRow], done: Dict[int, bool]) -> List[i
     ]
 
 
-def _print_ready_set(
-    slices: Dict[int, SliceRow], ready_numbers: Sequence[int], interface_paths: Sequence[str], block: PlanBlock
-) -> None:
+def _print_ready_set(slices: Dict[int, SliceRow], ready_numbers: Sequence[int]) -> None:
     for number in ready_numbers:
         row = slices[number]
-        _print_ready(number, row.name, row.surface, block.mode(row, interface_paths))
+        _print_ready(number, row.name, row.surface)
     for a, b in combinations(ready_numbers, 2):
         if _surfaces_intersect(slices[a].surface, slices[b].surface) and not _ordered(slices, a, b):
-            print(f"intersects: {a} \u2194 {b} (no blocker; serialize in table order)")
+            print(f"intersects: {a} ↔ {b} (no blocker; serialize in table order)")
 
 
 def _implicit_slice_ready(args: argparse.Namespace, block: PlanBlock) -> int:
@@ -718,7 +663,7 @@ def cmd_ready(args: argparse.Namespace) -> int:
     except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
-    _print_ready_set(slices, _ready_numbers(slices, done), _interface_paths(spec_text), block)
+    _print_ready_set(slices, _ready_numbers(slices, done))
     return 0
 
 
@@ -729,11 +674,9 @@ def _git_changed_paths(repo: str, base: str) -> List[str]:
     return _git_paths(repo, f"{base}..HEAD")
 
 
-def _git_paths(repo: str, *diff_args: str, renames: bool = True) -> List[str]:
-    """Paths `git diff` names. `renames=False` lists a rename as delete plus add: the freeze check needs the old path."""
-    rename_flag = () if renames else ("--no-renames",)
+def _git_paths(repo: str, *diff_args: str) -> List[str]:
     result = subprocess.run(
-        ("git", "-C", repo, "diff", "--name-only", *rename_flag, *diff_args),
+        ("git", "-C", repo, "diff", "--name-only", *diff_args),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -744,77 +687,8 @@ def _git_paths(repo: str, *diff_args: str, renames: bool = True) -> List[str]:
     return [line for line in result.stdout.splitlines() if line]
 
 
-class SlicePlan(NamedTuple):
-    """What `check` reads of one slice's plan: the lines under its heading and its mode."""
-
-    lines: List[str]
-    mode: str
-
-
-def _slice_plan(index_path: str, spec_path: str, row: SliceRow) -> Optional[SlicePlan]:
-    """The slice's plan lines and mode, or None for a flat plan with no headings."""
-    block = _load_plan_block(index_path, spec_path)
-    if not block.headings:
-        return None
-    lines = block.slice_lines(row.number)
-    if lines is None:
-        raise SliceError(f"{index_path} has no `### Slice {row.number}` heading under its `## Plan:` block")
-    return SlicePlan(lines, block.mode(row, _interface_paths(read_text(spec_path))))
-
-
-def _freeze_problems(args: argparse.Namespace, repo: str, row: SliceRow) -> List[str]:
-    """`frozen-edited:`, `amended-unknown:`, `duplicate freeze line` and `missing freeze commit`.
-
-    The freeze lives in the plan block, never in `/build`'s context, so it
-    survives compaction. A recorded freeze is always checked, whatever mode the
-    slice derives now; a design-mode slice with none is missing it. Contract
-    tests are what `S..F` changed outside `tasks/`.
-    """
-    plan = _slice_plan(args.index, args.spec, row)
-    if plan is None:
-        return []
-    lines = plan.lines
-    frozen_lines = [m for m in map(FROZEN_LINE_RE.match, lines) if m]
-    if not frozen_lines:
-        return ["missing freeze commit"] if plan.mode == "design" else []
-    frozen = frozen_lines[0]
-    problems = ["duplicate freeze line"] if len(frozen_lines) > 1 else []
-    def paths(*diff_args: str) -> List[str]:
-        return _git_paths(repo, *diff_args, renames=False)
-
-    contract = [p for p in paths(f"{frozen.group('s')}..{frozen.group('f')}") if not p.startswith("tasks/")]
-    after = paths(f"{frozen.group('f')}..HEAD")
-    added = paths("--diff-filter=A", f"{frozen.group('f')}..HEAD")
-    # AC10: a new file in a contract test's own directory, not a subdirectory.
-    # A root-level contract test protects only itself: "" would freeze every new root file.
-    directories = {os.path.dirname(path) for path in contract} - {""}
-    new_beside = [p for p in added if not p.startswith("tasks/") and os.path.dirname(p) in directories]
-    amended = [m.group("path") for m in map(AMENDED_LINE_RE.match, lines) if m]
-    known = set(contract) | set(new_beside)
-    edited = [p for p in after if p in known and p not in amended]
-    unknown = [p for p in amended if p not in known]
-    return problems + [f"frozen-edited: {p}" for p in edited] + [f"amended-unknown: {p}" for p in unknown]
-
-
-def _warn_freeze_unchecked(args: argparse.Namespace, repo: str, row: SliceRow) -> None:
-    """Say so on stderr when a design-mode slice runs `check` without `--index`.
-
-    Best effort: the mode is read from the repo's own `tasks/todo.md`; a missing
-    file, block or heading means there is nothing to say, never a failure.
-    """
-    index_path = os.path.join(repo, "tasks", "todo.md")
-    if not os.path.isfile(index_path):
-        return
-    try:
-        plan = _slice_plan(index_path, args.spec, row)
-    except (SliceError, IndexUnreadable, OSError, ValueError):
-        return
-    if plan is not None and plan.mode == "design":
-        print("freeze: not checked (no --index)", file=sys.stderr)
-
-
 def cmd_check(args: argparse.Namespace) -> int:
-    """Exit 0 when the diff stayed inside the slice's surface, 1 when it did not, 3 on a freeze problem, 2 on bad input."""
+    """Exit 0 when the diff stayed inside the slice's surface, 1 when it did not, 2 on bad input."""
     implicit_name = os.path.splitext(os.path.basename(args.spec))[0]
     try:
         slices = resolve_slices(args.spec, implicit_name)
@@ -835,16 +709,6 @@ def cmd_check(args: argparse.Namespace) -> int:
     undeclared = [path for path in changed if not any(match_path(pattern, path) for pattern in row.surface)]
     untouched = [pattern for pattern in row.surface if not any(match_path(pattern, path) for path in changed)]
 
-    freeze: List[str] = []
-    if args.index:
-        try:
-            freeze = _freeze_problems(args, args.repo or ".", row)
-        except (SliceError, IndexUnreadable, OSError) as exc:
-            print(f"slice: {exc}", file=sys.stderr)
-            return 2
-    else:
-        _warn_freeze_unchecked(args, args.repo or ".", row)
-
     exit_code = 0
     if undeclared:
         print("undeclared: " + ", ".join(undeclared))
@@ -852,9 +716,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     if untouched:
         print("untouched: " + ", ".join(untouched))
         exit_code = 1
-    for problem in freeze:
-        print(problem)
-    return 3 if freeze else exit_code
+    return exit_code
 
 
 # --------------------------------------------------------------------- CLI
@@ -886,10 +748,6 @@ def build_parser() -> argparse.ArgumentParser:
     check_parser.add_argument("--slice", required=True, type=int, help="slice number")
     check_parser.add_argument("--base", required=True, help="base revision to diff against")
     check_parser.add_argument("--repo", default=None, help="repository to diff (default: cwd)")
-    check_parser.add_argument(
-        "--index", default=None,
-        help="path to tasks/todo.md; a design-mode slice's `> Frozen:` and `> Test amended:` lines are checked",
-    )
 
     return parser
 

@@ -30,5 +30,4 @@ the spec against what was built.
 - A block is **legacy** when any slice header row carries a `task-id:` marker
   (`<!-- task-id: … -->`); `slice.py` tests only for that text on the header
   row, never for `TDD:` children. It still validates and readies a legacy
-  block, every slice in it is tdd mode, and no new block is written in that
-  form.
+  block, and no new block is written in that form.

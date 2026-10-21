@@ -58,6 +58,7 @@ implementation_paths:
 
 > Origin: "prompt" — the APOSD vs Clean Code review of this harness · Designed 2026-10-19 · Review status: **draft** · critic: 25 findings, 25 applied, 0 declined
 > Visual: specs/aposd-first-build.plan.html
+> Reverted 2026-10-21: design mode (slices 9 and 11) — the AC17 eval (`tasks/eval-aposd-first-build.md`) met equal AC coverage at 3.09× cost with no fewer design findings, and the owner chose revert (D23). AC10 and AC11 are withdrawn; AC3, AC13 and AC14 keep only what is listed under D23. The design-mode text below is kept as the record of what was tried.
 
 ## Summary
 
@@ -388,6 +389,7 @@ Constraints:
 | D21 | How the writer's independence is held across harnesses | A) enforce timing and prompt inputs, disclose context freshness on `> Frozen:`; Claude Code and Pi dispatch fresh (`Agent`, `pi-subagents` default `context: "fresh"`); Codex discloses `forked` until Q1 shows its spawn starts fresh, B) a detached `codex exec` process for every Codex Write job, C) trust the persona's instructions alone | A | Q1 shows a Codex spawn inherits implementation reasoning; it cannot today, because the orchestrator writes no implementation | settled |
 | D22 | Who implements a slice | A) always a dispatched sub-agent, in every session, a lone slice included; tdd mode one dispatch, design mode three, B) today's split: parallel slices dispatch, a lone or serialized slice may run in the main context | A | a slice is so small the dispatch costs more than it saves; sizing keeps slices above that line | settled |
 | D20 | Design mode for a module that already exists | A) stubs and red tests cover only new or changed entry points; existing tests cover the rest, B) stub the whole module | A | — | settled |
+| D23 | Keep or revert design mode after the AC17 eval | A) revert slices 9 and 11 and what they orphan: the freeze check, the design-mode loop, `ready`'s `mode=` (AC3's validate rule stays), the `test-engineer` Write job (AC13 keeps the persona with its Review job), Phase 5's freeze-line inputs (AC14 keeps the Review job); B) keep; C) keep behind an opt-in spec flag | A | a larger, interface-heavy feature shows an independent test writer catching what the implementer's tests miss; re-run `tests/fixtures/build-eval/` with such a feature before bringing it back | settled |
 
 ## Open questions
 

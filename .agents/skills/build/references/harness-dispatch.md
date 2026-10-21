@@ -34,16 +34,3 @@ it can cap Ceiling roles. For `critic`, resolve the parent tier against its
 planner floor and request the policy's planner model and effort only when
 the parent falls below that floor.
 
-## Design-mode Write dispatch: the writer's `context:`
-
-The `test-engineer` Write job records how it was dispatched on the `> Frozen:` line
-(`.agents/skills/build/references/design-mode.md` step 4).
-
-- Claude Code: `Agent` starts a fresh context; write `context: fresh`.
-- Pi: `pi-subagents` defaults to `context: "fresh"`; write `context: fresh`.
-- Codex: Codex records `forked` until Q1 of `specs/aposd-first-build.md` shows a
-  `spawn_agent` child starts with only its message (probe: the parent states a
-  marker phrase, spawns the `test-engineer` role and asks it to repeat the phrase;
-  a repeat means forked). When Q1 is answered fresh, record that here and write
-  `context: fresh`.
-- No sub-agents (inline run): write `context: inline`.

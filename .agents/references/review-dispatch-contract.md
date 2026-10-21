@@ -17,8 +17,7 @@ worth.
 
 Every dispatch of `code-reviewer`, `critic`, `security-reviewer`,
 `software-design-expert-review`, or the `test-engineer` Review job must carry all seven
-(the `test-engineer` also takes the test files and the build's `> Frozen:` and
-`> Test amended:` lines alongside item 2):
+(the `test-engineer` also takes the test files alongside item 2):
 
 | # | Item | Why the reviewer cannot supply it itself |
 |---|------|------------------------------------------|

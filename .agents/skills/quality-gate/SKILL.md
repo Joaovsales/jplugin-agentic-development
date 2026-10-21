@@ -284,23 +284,18 @@ run on the new tree. This phase never runs the full suite: `/wrap-up-session`
 ### 5.1 Test adequacy review
 
 Dispatch the `test-engineer` Review job after the affected tests pass (Reviewer
-tier: on Claude Code pass model `sonnet`). It is the same agent that wrote the
-slice's tests in design mode, now reading them instead. The dispatch follows
+tier: on Claude Code pass model `sonnet`). The dispatch follows
 `.agents/references/review-dispatch-contract.md` § *The seven items* and carries:
 
 - the diff and the test files;
 - the spec's path with its acceptance criteria verbatim, or
   `no spec — <reason>`: with no spec it reviews against the interfaces in the diff;
-- every `> Frozen:` and `> Test amended:` line of the build, copied verbatim from
-  `tasks/todo.md` (none when the build was not in design mode: say so);
 - the deferral list (`[AMBIGUITY]` batch, `TODO(shortcut):` markers) or `deferrals: none`;
 - the introduced-only boundary, and `.agents/references/finding-model.md` § *Emission format* pasted verbatim
   (resolved as *Claude Code Enhancements* describes).
 
 Withhold the findings of Phases 1–4. Share intent, never conclusions.
 
-The persona's independence rule reads the `context:` value on the `> Frozen:` line
-and sets the severity of past-interface tests; this phase does not restate it.
 Its findings are report-only: it never edits the tree, and Phase
 5 applies nothing. Each unresolved SHOULD-FIX goes in `unresolved`: an unresolved SHOULD-FIX counts toward
 HOLD under the receipt's rule; a MUST-FIX makes the receipt STOP. Record a phase 5

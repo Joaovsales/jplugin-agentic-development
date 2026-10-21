@@ -1196,8 +1196,7 @@ for token in "upsert --derive-id plan" "no provider link" "implicit slice" \
   assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
 done
 
-# build/SKILL.md stays under a line budget so the design-mode loop (a later
-# slice) has room; the design-stack gates and harness dispatch notes live in
+# build/SKILL.md stays under a line budget; the design-stack gates and harness dispatch notes live in
 # build/references/ and SKILL.md points at them.
 build_lines="$(wc -l < "$BUILD_SKILL" | tr -d ' ')"
 assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_lines lines)")" \
@@ -1205,11 +1204,11 @@ assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_li
 
 # Slice Close and the forbidden state hold for both plan grammars: the header is
 # the row under each ### Slice heading, Slice Close fires on the dispatch's
-# return (tdd), step 6 (design) or the last TDD: row (legacy), unfinished work
+# return (new block) or the last TDD: row (legacy), unfinished work
 # is recorded in the handover, and a header [x] without a handover is forbidden.
 for token in 'The `- [ ]` row under each `### Slice n/N` heading' \
              'Slice Close fires when the dispatch returns with every acceptance criterion' \
-             "after the design-mode loop's step 6" 'when its last `TDD:` row passes' \
+             'when its last `TDD:` row passes' \
              'leave the header `[ ]`, write `unfinished: <AC ids>`' \
              'marked `[x]` with no `> Handover:`' \
              'confirm every `[x]` slice header has its `> Handover:`' \
@@ -1229,8 +1228,6 @@ assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.
   'only when every slice header in the block is `[x]`' "closure-actions: Closes #N only when every slice is done"
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
   'A PR that lands some of the slices writes `Refs #N` instead' "closure-actions: a partial PR writes Refs #N"
-assert_prose_contains .agents/skills/build/references/design-mode.md \
-  '`slice.py check --index` exits 3 with `duplicate freeze line`' "design-mode: the duplicate-freeze refusal names its mechanism"
 assert_file_matches .agents/skills/task-registry/scripts/registry/upsert.py '^    load_index_strict\(config\.path' \
   "upsert: the refusal-only index load keeps no unused binding"
 for ref in design-stack-gates harness-dispatch; do
@@ -1820,81 +1817,40 @@ for command in 'bash scripts/install-codex.sh --preview' \
     "Codex guide: README documents $command"
 done
 
-# specs/aposd-first-build.md AC11: /build runs each design-mode slice as three
-# dispatches, one at a time in the main tree, in a fixed order.
-DM_REF=".agents/skills/build/references/design-mode.md"
-assert_file_contains "$BUILD_SKILL" "references/design-mode.md" \
-  "design-mode: SKILL.md points at references/design-mode.md"
-assert_prose_contains "$BUILD_SKILL" "design-mode slices run one at a time in the main tree" \
-  "design-mode: SKILL.md runs design-mode slices one at a time in the main tree"
-assert_prose_contains "$BUILD_SKILL" "never in parallel" \
-  "design-mode: SKILL.md never runs a design-mode slice in parallel"
-assert_prose_contains "$DM_REF" "never worktree-isolated" \
-  "design-mode: reference never isolates a design-mode slice in a worktree"
-# The A/B eval (tasks/eval-aposd-first-build.md) found runs that dispatched an
-# implementer before reading mode=, and one that took a hidden .agents/ for a
-# missing one; routing therefore opens Phase 1, ahead of every dispatch rule.
+# specs/aposd-first-build.md D23: design mode is reverted from /build; /build runs the tdd loop only.
+assert_eq "absent" "$([ -e .agents/skills/build/references/design-mode.md ] && echo present || echo absent)" \
+  "revert: design-mode.md is gone"
 PHASE1_INTRO="$(build_section "## Phase 1 —")"
-for token in "Route every slice before its first dispatch" "one slice or many" \
-             "mode=design" "never an implementer" "mode=tdd" "Steps 1–3" \
-             "dot-directory" "stops the build"; do
-  assert_contains "$PHASE1_INTRO" "$token" "design-mode: Phase 1 opens with routing that names '$token'"
+for token in "Route every slice before its first dispatch" "one slice or many" "dot-directory" "stops the build"; do
+  assert_contains "$PHASE1_INTRO" "$token" "build: Phase 1 opens with routing that names '$token'"
 done
-assert_file_not_matches "$BUILD_SKILL" 'Steps 1–4' "design-mode: no stale Steps 1–4 reference"
-assert_prose_contains "$BUILD_SKILL" "--index tasks/todo.md" \
-  "design-mode: Slice Close passes --index to slice.py check"
-assert_prose_contains "$BUILD_SKILL" "exit 3 stops the build" \
-  "design-mode: Slice Close stops on exit 3"
-assert_prose_contains "$BUILD_SKILL" "> Interface:" \
-  "design-mode: the handover carries a > Interface: line"
-flat_dm="$(flatten "$DM_REF")"
-prev=-1; order_ok=yes
-for step in "1. Stubs" "2. Write" "3. Red" "4. Freeze" "5. Implement" "6. Depth pass" "7. Check" "8. Handover"; do
-  pos=$(printf '%s' "$flat_dm" | grep -bo -- "$step" | head -1 | cut -d: -f1)
-  if [ -z "${pos:-}" ] || [ "$pos" -le "$prev" ]; then order_ok="no ($step)"; break; fi
-  prev=$pos
+BUILD_TEXT="$(cat "$BUILD_SKILL")"
+for token in "mode=design" "mode=tdd" "design-mode" "> Frozen:" "> Interface:" "exit 3 stops the build" "--base <sha> --index"; do
+  assert_not_contains "$BUILD_TEXT" "$token" "revert: build SKILL.md carries no '$token'"
 done
-assert_eq "yes" "$order_ok" "design-mode: the eight steps appear in order"
-for token in "§ Acceptance Criteria" "§ Interfaces" "§ Edge Cases" "§ Component contracts" \
-             "§ Data models" "the stub paths" "model \`sonnet\`" "test-engineer" \
-             "> Frozen: <S>..<F> — red: <failing summary> — context: <fresh, forked or inline>" \
-             "> Test amended: <path> — <reason>" "check --spec <spec> --slice <n> --base <sha> --index tasks/todo.md" \
-             "stop on exit 3" "any freeze problem \`check --index\` prints" ".agents/skills/slice/scripts/slice.py\` documents the problem lines" \
-             "forked" "Q1" "existing code is never replaced by a stub" "uncommitted tests" \
-             "no \`> Frozen:\` line"; do
-  assert_prose_contains "$DM_REF" "$token" "design-mode: reference contains '$token'"
-done
-assert_prose_contains "$DM_REF" "carries no implementation" \
-  "design-mode: the Write prompt carries no implementation"
-assert_prose_contains ".agents/skills/build/references/harness-dispatch.md" "context: \"fresh\"" \
-  "design-mode: harness-dispatch notes Pi dispatches the writer fresh"
-assert_prose_contains ".agents/skills/build/references/harness-dispatch.md" "Codex records \`forked\`" \
-  "design-mode: harness-dispatch notes Codex records forked until Q1"
-assert_file_contains "tasks/concepts.md" "**design mode**" "design-mode: concepts.md defines design mode"
-assert_file_contains "tasks/concepts.md" "**test freeze**" "design-mode: concepts.md defines test freeze"
-assert_file_contains "AGENTS.md" "stub → Write → freeze → implement" \
-  "design-mode: AGENTS.md Workflow step 4 names the design-mode loop"
-assert_file_contains "AGENTS.md" "\`test-engineer\`" "design-mode: AGENTS.md § Agents names test-engineer"
+assert_file_not_matches "$BUILD_SKILL" 'Steps 1–4' "build: no stale Steps 1–4 reference"
+assert_not_contains "$(cat .agents/skills/build/references/harness-dispatch.md)" "Design-mode" \
+  "revert: harness-dispatch carries no design-mode section"
+assert_file_contains "AGENTS.md" "\`test-engineer\`" "AGENTS.md § Agents names test-engineer"
+assert_not_contains "$(cat AGENTS.md)" "stub → Write → freeze → implement" \
+  "revert: AGENTS.md Workflow step 4 names no design-mode loop"
 
 # --- slice 12: Phase 5 test adequacy review (AC14) ---------------------------
 P5="$(qg_section '## Phase 5 — Tests')"
-for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected tests pass"              "every \`> Frozen:\` and \`> Test amended:\` line" "context"             "no spec — <reason>" "report-only" "deferrals: none"              "unresolved SHOULD-FIX counts toward HOLD" "phase 5" "review-dispatch-contract.md"              "finding-model.md" "never edits the tree"; do
+for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected tests pass"              "no spec — <reason>" "report-only" "deferrals: none"              "unresolved SHOULD-FIX counts toward HOLD" "phase 5" "review-dispatch-contract.md"              "finding-model.md" "never edits the tree"; do
   found=no; printf '%s' "$P5" | grep -qF -- "$token" && found=yes
   assert_eq "yes" "$found" "quality-gate Phase 5: mentions '$token'"
 done
 assert_file_contains ".agents/references/review-dispatch-contract.md" "test-engineer" \
   "review-dispatch-contract: names test-engineer among dispatched reviewers"
-# The independence rule has one home: the persona. Phase 5 points at it.
-assert_contains "$P5" "persona's independence rule" "independence rule: Phase 5 references the persona's rule"
-assert_not_contains "$P5" "at least SHOULD-FIX" "independence rule: Phase 5 does not restate the severity rule"
+# The Write job and its freeze inputs are reverted: one persona, one Review job.
+assert_not_contains "$P5" "> Frozen:" "revert: Phase 5 carries no freeze line input"
+assert_not_contains "$P5" "independence rule" "revert: Phase 5 carries no independence rule"
 for f in .agents/agents/test-engineer.md .claude/agents/test-engineer.md; do
-  assert_prose_contains "$f" "**The independence rule**" "independence rule: $f owns the rule"
-  assert_prose_contains "$f" "or the line is missing, every test that touches more than the interface is at least SHOULD-FIX" \
-    "independence rule: $f states the severity floor for a non-fresh or missing context"
+  TE_TEXT="$(cat "$f")"
+  assert_not_contains "$TE_TEXT" "Write job" "revert: $f has no Write job"
+  assert_not_contains "$TE_TEXT" "> Frozen:" "revert: $f reads no freeze line"
 done
-# Review-job tier on Pi: the one-line note names the agentOverrides model.
-assert_prose_contains ".agents/references/model-routing.md" 'On Pi the `test-engineer` Review job runs at the `agentOverrides` model' \
-  "model-routing: Pi runs the test-engineer Review job at the agentOverrides model"
 
 # --- slice 13: gate fixes (AC15, AC16, D17) ----------------------------------
 P1="$(qg_section '## Phase 1 — Structural Quality (simplify)')"
