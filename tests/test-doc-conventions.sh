@@ -1017,8 +1017,8 @@ assert_file_matches "$YOLO_SKILL" 'no prompt.*in place' \
   "pipelines: yolo Step 6 row invokes /build in place"
 assert_prose_contains "$YOLO_SKILL" 'pre-flight runs without `--approve`' \
   "filing-callers: yolo Phase B runs the pre-flight without --approve"
-assert_prose_contains "$YOLO_SKILL" 'an open slice header or a legacy `TDD:` row' \
-  "filing-callers: yolo resumes an open slice header or a legacy TDD: row"
+assert_prose_contains "$YOLO_SKILL" 'slice.py link --index tasks/todo.md --spec <spec>` prints `done: no`' \
+  "filing-callers: yolo resumes a plan block that slice.py link reports not done"
 assert_file_not_matches "$YOLO_SKILL" '--file' \
   "filing-callers: yolo names no /slice --file"
 assert_file_contains "$YOLO_SKILL" "fresh session" \
@@ -1058,7 +1058,7 @@ assert_not_contains "$crossing_fc" '--file' \
 CA_FC=.agents/skills/wrap-up-session/references/closure-actions.md
 assert_prose_contains "$CA_FC" 'one `Closes #N` for the feature issue' \
   "filing-callers: closure-actions writes one Closes #N for a new block"
-assert_prose_contains "$CA_FC" 'legacy block' \
+assert_prose_contains "$CA_FC" 'A `legacy` block keeps the per-row path' \
   "filing-callers: closure-actions keeps the legacy per-row path"
 assert_file_contains "$CA_FC" 'Closes #A, closes #B' \
   "filing-callers: closure-actions keeps Closes #A, closes #B for legacy rows"
@@ -1187,7 +1187,7 @@ fi
 # Pinned by the smallest falsifiable unit: the literal flags and phrases,
 # plus the negative pins that keep the retired prose from creeping back.
 BUILD_SKILL=.agents/skills/build/SKILL.md
-for token in "upsert --derive-id plan" "no provider link" "implicit slice" \
+for token in "upsert --derive-id plan" "unlinked <id>" "implicit slice" \
              "implementation_paths" "slice.py ready" "intersecting pair" \
              "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
              "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
@@ -1225,7 +1225,7 @@ assert_file_not_matches "$BUILD_SKILL" 'while any of its child rows stay' \
 assert_prose_contains .agents/skills/task-registry/SKILL.md 'a new block'"'"'s status lives in its one feature issue' \
   "task-registry: /build claims only a legacy block's task"
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
-  'only when every slice header in the block is `[x]`' "closure-actions: Closes #N only when every slice is done"
+  'only when `done: yes`' "closure-actions: Closes #N only when slice.py link prints done: yes"
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
   'A PR that lands some of the slices writes `Refs #N` instead' "closure-actions: a partial PR writes Refs #N"
 assert_file_matches .agents/skills/task-registry/scripts/registry/upsert.py '^    load_index_strict\(config\.path' \
@@ -1267,7 +1267,7 @@ assert_file_not_matches "$BUILD_SKILL" '--file' \
   "one-issue: build/SKILL.md names no /slice --file"
 assert_file_contains "$BUILD_SKILL" 'upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply' \
   "one-issue: pre-flight runs one upsert --derive-id plan with --apply"
-for token in "only when the plan block's feature row has no provider link" \
+for token in "Only \`unlinked <id>\` runs one upsert" \
              "feature issue pending: <reason>" "feature issue not filed: <reason>" \
              "\`local-pending\`"; do
   assert_prose_contains "$BUILD_SKILL" "$token" \
@@ -1275,10 +1275,13 @@ for token in "only when the plan block's feature row has no provider link" \
 done
 # The legacy-block skip lives in the Pre-Flight section itself, not elsewhere in the file.
 preflight_build="$(awk '/^## Pre-Flight Checks/{f=1} /^## Phase 1 /{f=0} f' "$BUILD_SKILL" | tr -s '[:space:]' ' ')"
-assert_contains "$preflight_build" 'or a legacy block' \
+assert_contains "$preflight_build" '`issue`, `linked`, `legacy` and `none` mean there is nothing to do' \
   "one-issue: build pre-flight skips a legacy block"
-assert_contains "$preflight_build" 'slice/references/plan-block.md' \
-  "one-issue: build pre-flight points a legacy block at plan-block.md"
+assert_contains "$preflight_build" 'slice.py link --index tasks/todo.md --spec specs/<feature>.md' \
+  "one-issue: build pre-flight classifies the block with slice.py link"
+for f in "$BUILD_SKILL" .agents/skills/wrap-up-session/references/closure-actions.md "$YOLO_SKILL"; do
+  assert_file_contains "$f" 'slice.py link' "link: $f names slice.py link"
+done
 assert_eq "1" "$(grep -c 'task-registry.py upsert' "$BUILD_SKILL" | tr -d ' ')" \
   "one-issue: build/SKILL.md names exactly one upsert"
 

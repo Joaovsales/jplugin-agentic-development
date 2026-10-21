@@ -21,7 +21,7 @@ Invoke `/build` for `specs/<feature>.md`.
 Plan: `## Plan: <feature>` in `tasks/todo.md`, <N> slices, ready set <1, 2>.
 Files: <implementation_paths, comma-separated>.
 Instructions:
-1. `/build`'s pre-flight links the feature issue: one upsert, only when the plan's feature row has no link. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

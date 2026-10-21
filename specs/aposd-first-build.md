@@ -90,7 +90,7 @@ unchanged.
 | Tracker writes per feature | at most one registry write per feature, made by `/build` pre-flight, and only when the plan's feature row has no provider link | user | `tests/test-doc-conventions.sh`: `build/SKILL.md` names one `upsert`; `slice/SKILL.md` has no `--file` mode |
 | No new `TDD:` rows | `/slice`, `/debug`, the routine prompts, the lanes and the `planner` persona never write a `[ ] TDD:` row | user | `tests/test-slice.sh` asserts a fresh block holds none; `tests/test-doc-conventions.sh` and `tests/test-sweep-routines.sh` grep the writers |
 | One home for the TDD rules | red-green-refactor and Prove-It are defined only in `.agents/skills/tdd/SKILL.md`; no file names the "or at minimum" commit escape | user | `tests/test-tdd-retirement.sh`, rewritten as an invariant test |
-| In-flight plans keep working | an existing `## Plan:` block with task ids and `[ ] TDD:` rows still validates, readies, builds in tdd mode and closes its per-slice issues | inferred | `tests/test-slice.sh` legacy fixtures; `tests/test-doc-conventions.sh` pins the legacy closing path in `closure-actions.md` |
+| In-flight plans keep working | an existing `## Plan:` block with task ids and `[ ] TDD:` rows still validates, readies, builds through `/tdd` and closes its per-slice issues | inferred | `tests/test-slice.sh` legacy fixtures; `tests/test-doc-conventions.sh` pins the legacy closing path in `closure-actions.md` |
 | `/build` gets thinner | `build/SKILL.md` is at most 600 lines | user | a line-budget assertion in `tests/test-doc-conventions.sh` |
 | The orchestrator implements nothing | every slice, a lone ready slice included, is dispatched to a sub-agent; on a harness with no sub-agents `/build` runs inline and says so in one line | user | `tests/test-doc-conventions.sh`: `build/SKILL.md` has no "Main context directly" row and one dispatch rule for every session |
 | Agent trees stay identical | `.agents/agents/` and `.claude/agents/` copies of every changed persona stay byte-identical apart from the allowed `model:` line | issue | `tests/test-agents.sh` parity |
@@ -181,7 +181,7 @@ dispatch and `/debug`'s fix step. The feature-issue upsert failing or going
 | Outcomes | header `[ ]` open, `[x]` done; under a closed heading `/build` writes `> Handover:` |
 | Raises | `slice.py validate` refuses, with `<path>:<line>: <reason>`, a block whose slice count or names disagree with § Build Order, or that holds two `> Issue:` lines, two feature rows, or both |
 | Idempotency | `/slice` re-run on an unchanged spec rewrites the same block; it never overwrites a block with a `[x]` header and stops naming it |
-| Versioning | a block whose slice header rows carry task ids is **legacy**: read as today, always tdd mode, its `TDD:` rows run through `/tdd`, and its per-row issues are each closed by `/wrap-up-session`. No new block is written in that form |
+| Versioning | a block whose slice header rows carry task ids is **legacy**: read as today, built through `/tdd`, its `TDD:` rows run through it, and its per-row issues are each closed by `/wrap-up-session`. No new block is written in that form |
 
 ### `/build` pre-flight, feature issue
 
@@ -252,7 +252,7 @@ keeps its one index-backed path for both forms.
 | R3 | Removing `/slice --file` breaks a caller still naming it | L | M | slice 4 rewrites every caller found: `routines.md`, `/yolo`, `/make-it-simpler`, `task-registry/SKILL.md` | 4 |
 | R4 | Re-creating `skills/tdd` collides with the retirement machinery | M | M | `/sync` retires only byte-identical template history (`sync/SKILL.md:494-500`); slice 6 updates `sync/SKILL.md:391` and `:557` and moves `tests/test-install-sh.sh` to another retired name | 6 |
 | R5 | Every quality receipt goes stale, because the policy hash gains the `test-engineer` persona | H | L | expected and one-off; the next `/quality-gate` mints a fresh receipt | 12 |
-| R6 | This spec is itself built by the current `/build`, which files per slice and reads `TDD:` rows | H | L | its plan block is legacy: tdd mode throughout, per-row issues closed by the legacy path slice 4 keeps | 1, 4 |
+| R6 | This spec is itself built by the current `/build`, which files per slice and reads `TDD:` rows | H | L | its plan block is legacy: built through `/tdd` throughout, per-row issues closed by the legacy path slice 4 keeps | 1, 4 |
 
 ## Build Order
 
@@ -308,7 +308,7 @@ Constraints:
 | D7 | `/debug` fix block | A) plain criterion rows that `/debug` runs through `/tdd`, B) no block | A | — | settled |
 | D8 | Test personas | A) one `test-engineer`, two dispatches at two tiers, B) two personas | A | the two jobs need different tool permissions; both need read and write of test files only | settled |
 | D9 | Test freeze | A) a `> Frozen:` plan line, exit 3 on a violation, a `> Test amended:` escape the Review job reads, B) report-only | A | — | settled |
-| D10 | Legacy plan blocks | A) keep reading, building in tdd mode and closing them, remove later, B) migrate now | A | — | settled |
+| D10 | Legacy plan blocks | A) keep reading, building through `/tdd` and closing them, remove later, B) migrate now | A | — | settled |
 | D11 | Where adequacy review runs | A) `/quality-gate` Phase 5 Tests, B) inside Phase 4 | A | `receipt.py` rejects a Phase 5 reviewer entry; it does not (`receipt.py:218` checks only that `phase` is an int, `:228` requires phases 1-4) | settled |
 | D12 | Name of the TDD skill | A) reuse `/tdd`, rewrite the retirement test as an invariant, B) a new name | A | — | settled |
 | D13 | Measure before merge | A) a manual `/eval` Mode B slice with a keep-or-revert rule, B) suite only | A | — | settled |

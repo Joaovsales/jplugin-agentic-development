@@ -43,12 +43,13 @@ section lands in the commit message instead.
 
 ## Issue linkage
 
-A plan block links one feature issue, so the body carries one `Closes #N` for
-the feature issue: the `> Issue:` line's issue, or the feature row's linked
-issue — only when every slice header in the block is `[x]`. A PR that lands
-some of the slices writes `Refs #N` instead, so a partial PR never closes the
-feature. A legacy block, whose slice header rows carry task ids and their own
-links, keeps the per-row path below.
+A plan block links one feature issue. Run
+`python3 .agents/skills/slice/scripts/slice.py link --index tasks/todo.md --spec <spec>`
+and act on it: `issue <ref>` or `linked <id>` names the feature issue, and the
+body carries one `Closes #N` for the feature issue only when `done: yes`. A PR
+that lands some of the slices writes `Refs #N` instead (`done: no`), so a
+partial PR never closes the feature. A `legacy` block keeps the per-row path
+below, each slice header row carrying its own task id and link.
 
 When a PR resolves several issues, the body repeats the keyword per issue —
 `Closes #A, closes #B` — rather than trailing the rest after a single keyword.

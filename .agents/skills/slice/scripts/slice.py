@@ -80,7 +80,7 @@ class SliceError(Exception):
 
 
 class MissingBuildOrder(SliceError):
-    """The spec has no `## Build Order` section at all — a legacy, one-slice plan."""
+    """The spec has no `## Build Order` section at all — a one-slice plan."""
 
 
 @dataclass(frozen=True)
@@ -238,7 +238,7 @@ def resolve_slices(spec_path: str, implicit_name: str) -> Dict[int, SliceRow]:
 
     A plan written before § Build Order existed is one slice whose surface is
     the spec's whole `implementation_paths`; `ready` and `check` both read that
-    definition from here so a legacy plan still builds and still checks.
+    definition from here so a one-slice plan still builds and still checks.
     """
     try:
         rows = parse_build_order(read_text(spec_path), spec_path)
@@ -508,21 +508,57 @@ class PlanBlock:
                     )
         return problems
 
-    def feature_link_problems(self) -> List[str]:
-        """A block links its feature once: one `> Issue:` line or one feature row, never two.
+    def _feature_link_lines(self) -> List[int]:
+        """1-based lines of the feature links: `> Issue:` lines and feature rows above the first `### Slice`.
 
-        The feature link sits between the `## Plan:` heading and the first
-        `### Slice` heading; a slice's own header row is not one. The refusal names
-        the second link, the line a human deletes. A flat legacy plan has no
-        headings, so its rows are tasks, not links.
+        A slice's own header row is not one. A flat block has no headings, so
+        its rows are tasks, not links.
         """
         if not self.headings:
             return []
-        links = [
+        return [
             line_number
             for line_number in range(self.start_line + 1, self.headings[0][0])
             if ISSUE_LINE_RE.match(self.prose[line_number - 1]) or FEATURE_ROW_RE.match(self.prose[line_number - 1])
         ]
+
+    def is_legacy(self) -> bool:
+        """Whether any slice header row carries a `task-id:` marker (`<!-- task-id: … -->`)."""
+        for heading_line, _number, _name, boundary in _heading_spans(self.headings, self.end_line):
+            row = _row_after(self.rows, heading_line, boundary, self.prose)
+            if row is not None and not row.legacy:
+                return True
+        return False
+
+    def link_state(self) -> str:
+        """How the block links its feature: `legacy`, `issue <ref>`, `linked <id>`, `unlinked <id>` or `none`.
+
+        `legacy` wins; a flat block (no `### Slice` headings) is `none`. The first
+        feature link decides: a block holding two is refused by `feature_link_problems`.
+        """
+        if self.is_legacy():
+            return "legacy"
+        links = self._feature_link_lines()
+        if not links:
+            return "none"
+        line = self.prose[links[0] - 1]
+        if ISSUE_LINE_RE.match(line):
+            return "issue " + line.split("Issue:", 1)[1].strip()
+        row = next(row for row in self.rows if row.line == links[0])
+        return f"{'linked' if row.task.external else 'unlinked'} {row.task.id or row.task.title}"
+
+    def is_done(self) -> bool:
+        """Whether every `### Slice` header row is `[x]`; a flat block, whether no row is open."""
+        if not self.headings:
+            return not self.has_open_row()
+        return all(self.done_by_slice().values())
+
+    def feature_link_problems(self) -> List[str]:
+        """A block links its feature once: one `> Issue:` line or one feature row, never two.
+
+        The refusal names the second link, the line a human deletes.
+        """
+        links = self._feature_link_lines()
         return [
             f"{self.index_path}:{line_number}: two feature links in one plan block "
             "(one `> Issue:` line or one feature row)"
@@ -637,7 +673,7 @@ def _print_ready_set(slices: Dict[int, SliceRow], ready_numbers: Sequence[int]) 
 
 
 def _implicit_slice_ready(args: argparse.Namespace, block: PlanBlock) -> int:
-    """Edge Case: a flat legacy plan predates `### Slice` headings.
+    """Edge Case: a flat block predates `### Slice` headings.
 
     It is one implicit slice whose surface is the spec's whole implementation_paths.
     """
@@ -667,23 +703,32 @@ def cmd_ready(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_link(args: argparse.Namespace) -> int:
+    """Print `link: <state>` and `done: <yes|no>`; exit 0, or 2 when the index or block cannot be read."""
+    try:
+        block = _load_plan_block(args.index, args.spec)
+        state, done = block.link_state(), block.is_done()
+    except (SliceError, IndexUnreadable, OSError) as exc:
+        print(f"slice: {exc}", file=sys.stderr)
+        return 2
+    print(f"link: {state}")
+    print(f"done: {'yes' if done else 'no'}")
+    return 0
+
+
 # ------------------------------------------------------------------ check
 
 
 def _git_changed_paths(repo: str, base: str) -> List[str]:
-    return _git_paths(repo, f"{base}..HEAD")
-
-
-def _git_paths(repo: str, *diff_args: str) -> List[str]:
     result = subprocess.run(
-        ("git", "-C", repo, "diff", "--name-only", *diff_args),
+        ("git", "-C", repo, "diff", "--name-only", f"{base}..HEAD"),
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
     )
     if result.returncode != 0:
-        raise SliceError(f"git diff --name-only {' '.join(diff_args)} failed: {result.stderr.strip()}")
+        raise SliceError(f"git diff --name-only {base}..HEAD failed: {result.stderr.strip()}")
     return [line for line in result.stdout.splitlines() if line]
 
 
@@ -739,6 +784,10 @@ def build_parser() -> argparse.ArgumentParser:
     ready_parser.add_argument("--index", required=True, help="path to tasks/todo.md")
     ready_parser.add_argument("--spec", required=True, help="path to the spec")
 
+    link_parser = sub.add_parser("link", help="Print how the plan block links its feature, and whether every slice is done.")
+    link_parser.add_argument("--index", required=True, help="path to tasks/todo.md")
+    link_parser.add_argument("--spec", required=True, help="path to the spec")
+
     readiness_parser = sub.add_parser(
         "readiness", help="Refuse a build prompt while a decision is open or a question blocks a slice.")
     readiness_parser.add_argument("--spec", required=True, help="path to the spec")
@@ -760,6 +809,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return cmd_ready(args)
     if args.command == "readiness":
         return cmd_readiness(args)
+    if args.command == "link":
+        return cmd_link(args)
     return cmd_check(args)
 
 

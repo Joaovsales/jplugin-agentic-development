@@ -81,9 +81,8 @@ progress and drift further before finding out. Merge `main` in frequently.
    - If no spec found: **STOP** — run `/plan` first
    - For UI work, run the UI brief and concept-approval checks in
      `.agents/skills/build/references/design-stack-gates.md` § *Pre-Flight: UI brief and concept approval* before any source edit.
-3. **Link the feature issue** when the `## Plan:` block's feature row has no
-   provider link and the block is not legacy — see *Pre-Flight: Link the Feature Issue* below. Do this
-   before the green baseline.
+3. **Link the feature issue** when `slice.py link` prints `unlinked <id>` — see
+   *Pre-Flight: Link the Feature Issue* below. Do this before the green baseline.
 4. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
 5. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
 6. Identify the project's test runner (check `package.json`, `Makefile`, `pyproject.toml`, etc.)
@@ -135,10 +134,10 @@ line names and stop, rather than wait on a job this session cannot see finish.
 ### Pre-Flight: Link the Feature Issue
 
 This session exists because a human started it with the build prompt, which
-is the authorization the planning session did not have. Run one upsert, only
-when the plan block's feature row has no provider link (a `> Issue:` line,
-an already linked row, or a legacy block — see
-`.agents/skills/slice/references/plan-block.md` — means there is nothing to do):
+is the authorization the planning session did not have. Run
+`python3 .agents/skills/slice/scripts/slice.py link --index tasks/todo.md --spec specs/<feature>.md`
+and act on the first word of its `link:` line. Only `unlinked <id>` runs one
+upsert; `issue`, `linked`, `legacy` and `none` mean there is nothing to do:
 
 ```bash
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply --approve
@@ -317,7 +316,8 @@ Never call `gh` or a tracker API directly; any status write goes through
 
 ### Legacy block
 
-A legacy block (`.agents/skills/slice/references/plan-block.md`) has task ids
+A block `slice.py link` classifies as `legacy`
+(`.agents/skills/slice/references/plan-block.md`) has task ids
 on its slice headers and nested `[ ] TDD:` rows, and was filed per slice, so
 pre-flight skips it. Its
 `TDD:` rows ride in the delegation prompt, run through `/tdd` and, when
@@ -373,7 +373,7 @@ environment as broken product code.
 Invoke `/quality-gate` on all files changed during this build:
 
 1. Identify changed files via `git diff --name-only` (against baseline before build started)
-2. Run `/quality-gate` — this executes all 3 phases (structural, AI anti-patterns, APOSD design)
+2. Run `/quality-gate` on those files
 3. Re-run the affected-test command after quality gate completes to confirm no regressions
 
 ## Phase 4 — Spec Validation (Persistence Loop)
@@ -587,4 +587,4 @@ See `.agents/skills/build/references/harness-dispatch.md` § *Pi Dispatch* and �
 Phase 1 Step 2 remains inline (no agent). Spec compliance check is a read + compare, not a coding task.
 
 ### Quality Gate
-In Phase 3, invoke `/quality-gate` normally. The quality-gate skill dispatches `software-design-expert-review` for Phase 3 on Claude Code.
+In Phase 3, invoke `/quality-gate` normally. The quality-gate skill dispatches `software-design-expert-review` on Claude Code.

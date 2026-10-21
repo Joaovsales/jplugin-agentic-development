@@ -255,6 +255,34 @@ assert_eq "1" "$CODE" "interfaces: validate refuses an Interfaces entry with no 
 assert_contains "$OUT" '`one` module' "interfaces: the refusal names the entry"
 assert_contains "$OUT" "Path:" "interfaces: the refusal names the missing field"
 
+printf '\n--- link: one classification of how a plan block links its feature ---\n'
+
+LINKF="$FIXTURES/link"
+link_case() {  # <label> <index> <spec> <expected link> <expected done>
+  OUT="$("$PY" "$SLICE" link --index "$2" --spec "$3" 2>&1)"
+  CODE=$?
+  OUT="${OUT//$'\r'/}"
+  assert_eq "0" "$CODE" "link: $1 exits 0"
+  assert_eq "link: $4
+done: $5" "$OUT" "link: $1 prints link and done"
+}
+link_case "a task-id on a slice header" "$TWO/todo-legacy.md" "$TWO/spec.md" "legacy" "no"
+link_case "an Issue line above a feature row" "$TWO/todo-both.md" "$TWO/spec.md" "issue https://github.com/o/r/issues/7" "no"
+link_case "a > Issue: line" "$TWO/todo-one-issue.md" "$TWO/spec.md" "issue https://github.com/o/r/issues/7" "no"
+link_case "a feature row with no provider link" "$TWO/todo-one-row.md" "$TWO/spec.md" "unlinked plan.two-links" "no"
+link_case "a feature row with a provider link" "$LINKF/todo-linked.md" "$FIXTURES/ready/spec.md" "linked plan.ready-fixture" "no"
+link_case "no feature link" "$LINKF/todo-none.md" "$FIXTURES/ready/spec.md" "none" "no"
+link_case "a flat block" "$FIXTURES/ready-implicit/todo-open.md" "$FIXTURES/ready-implicit/spec.md" "none" "no"
+link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue https://github.com/o/r/issues/42" "yes"
+link_case "one header [x] of three" "$FIXTURES/ready/todo-header-slice1-done.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: a missing index exits 2"
+assert_contains "$OUT" "slice: " "link: a missing index is a slice: refusal"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-none.md" --spec "$LINKF/other-spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: a spec the index has no block for exits 2"
+
 printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
 
 PLAN_REF="$REPO/.agents/skills/slice/references/plan-block.md"
