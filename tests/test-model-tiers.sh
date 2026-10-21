@@ -15,6 +15,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 ROUTING=.agents/references/model-routing.md
+under_test .agents/references/model-routing.md >/dev/null
 
 CEILING_AGENTS="code-reviewer security-reviewer software-design-expert-review critic"
 
@@ -95,11 +96,11 @@ done
 # the cap in documentation even when the agent file is clean.
 for f in "$ROUTING" .agents/skills/build/SKILL.md; do
   for agent in $CEILING_AGENTS; do
-    if grep -E "^\|.*\`$agent\`" "$f" | grep -qE '`(sonnet|haiku|opus)`'; then
-      _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-      printf '  FAIL ModelTier: %s routes %s to a concrete model\n' "$f" "$agent"
+    pinned_rows="$(grep -E "^\|.*\`$agent\`" "$f" | grep -E '`(sonnet|haiku|opus)`' || true)"
+    if [ -n "$pinned_rows" ]; then
+      fail "ModelTier: $f routes $agent to a concrete model" "$pinned_rows" "pinned rows:"
     else
-      assert_eq "unpinned" "unpinned" "ModelTier: $f does not pin $agent in a table"
+      pass "ModelTier: $f does not pin $agent in a table"
     fi
   done
 done

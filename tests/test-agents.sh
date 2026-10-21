@@ -16,6 +16,7 @@ cd "$REPO"
 
 CANONICAL=".agents/agents"
 CLAUDE=".claude/agents"
+under_test .agents/agents >/dev/null
 
 # Report frontmatter constructs that abort the YAML parse and so silently
 # deregister a persona. Emits one `<problem> <key>` line per hazard, or the bare
@@ -95,18 +96,14 @@ for f in "$CANONICAL"/*.md; do
   [ "$base" = "README.md" ] && continue
   assert_file_contains "$f" "name:" "Agents: $base has name frontmatter"
   assert_file_contains "$f" "description:" "Agents: $base has description frontmatter"
-  if grep -qE '^model: ' "$f"; then
-    _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-    printf '  FAIL Agents: %s must not pin a model (routing lives in per-harness settings)\n' "$base"
-  else
-    _TESTS=$((_TESTS + 1)); printf '  ok   Agents: %s is model-agnostic\n' "$base"
-  fi
+  # Routing lives in per-harness settings, so a canonical persona pins no model.
+  assert_file_not_matches "$f" '^model: ' "Agents: $base is model-agnostic"
 done
 
 # 2. Every Claude agent persona has a canonical counterpart
 for f in "$CLAUDE"/*.md; do
   base="$(basename "$f")"
-  assert_eq "present" "$([ -f "$CANONICAL/$base" ] && echo present || echo missing)" \
+  assert_file_exists "$CANONICAL/$base" \
     "Agents: canonical counterpart exists for .claude/agents/$base"
 done
 
@@ -147,8 +144,7 @@ done
 # 4a. Self-test the detector against fixtures, so it can catch its OWN
 # regression. Without this every assertion below is an `ok` on a healthy file,
 # and a detector quietly reduced to a no-op would still report a green suite.
-FIXDIR="$(mktemp -d)"
-trap 'rm -rf "$FIXDIR"' EXIT
+FIXDIR="$(fixture_dir)"
 
 fixture() { printf '%s' "$2" > "$FIXDIR/$1"; }
 # Each hazardous fixture is a shape verified to break a real YAML load, or (for
@@ -200,26 +196,25 @@ description: Context: this must not read as clean.'
 for case in clean:0 quoted:0 colon:1 trailing:1 unbalanced:1 indicator:1 comment:1 mismatch:1 nofm:1; do
   name="${case%%:*}"; want="${case##*:}"
   got="$(frontmatter_hazards "$FIXDIR/$name.md" "$name")"
-  assert_eq "$want" "$([ -n "$got" ] && echo 1 || echo 0)" \
-    "Agents: detector self-test — $name.md $([ "$want" = 1 ] && echo 'is flagged' || echo 'is clean')"
+  if [ "$want" = 1 ]; then
+    assert_true "Agents: detector self-test — $name.md is flagged" -- test -n "$got"
+  else
+    assert_true "Agents: detector self-test — $name.md is clean" -- test -z "$got"
+  fi
 done
 
 # 4b. Sweep the real personas.
 for f in "$CANONICAL"/*.md "$CLAUDE"/*.md; do
   base="$(basename "$f")"
   [ "$base" = "README.md" ] && continue
-  _TESTS=$((_TESTS + 1))
   # An unreadable file makes awk exit non-zero and print nothing; without this
   # branch that is indistinguishable from "clean".
   if ! hazards="$(frontmatter_hazards "$f" "${base%.md}")"; then
-    _FAILS=$((_FAILS + 1))
-    printf '  FAIL Agents: %s could not be scanned for frontmatter\n' "$f"
+    fail "Agents: $f could not be scanned for frontmatter"
   elif [ -n "$hazards" ]; then
-    _FAILS=$((_FAILS + 1))
-    printf '  FAIL Agents: %s has frontmatter the harness cannot register (%s)\n' \
-      "$f" "$(printf '%s' "$hazards" | tr '\n' ';')"
+    fail "Agents: $f has frontmatter the harness cannot register" "$hazards" "hazards:"
   else
-    printf '  ok   Agents: %s frontmatter is registerable\n' "$f"
+    pass "Agents: $f frontmatter is registerable"
   fi
 done
 
@@ -240,26 +235,15 @@ CLAUDE_MD_AGENTS="$(claude_md_agent_names)"
 CLAUDE_MD_AGENT_COUNT="$(printf '%s\n' "$CLAUDE_MD_AGENTS" | grep -c '[^[:space:]]' || true)"
 CANONICAL_AGENT_COUNT="$(ls "$CANONICAL"/*.md | grep -vc '/README\.md$' || true)"
 
-# Floor first. A zero-iteration loop registers zero assertions and still exits
-# 0, so if the extractor stops matching -- heading renamed, table columns
-# reordered, pipe spacing reflowed by a formatter -- the whole check deletes
-# itself silently. Pin the count to the files on disk so drift is loud.
-if [ "$CLAUDE_MD_AGENT_COUNT" -lt "$CANONICAL_AGENT_COUNT" ]; then
-  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-  printf '  FAIL Agents: model-routing.md §%s Agents yielded %s names but %s persona files exist — table or heading drifted\n' \
-    ' ' "$CLAUDE_MD_AGENT_COUNT" "$CANONICAL_AGENT_COUNT"
-else
-  _TESTS=$((_TESTS + 1))
-  printf '  ok   Agents: model-routing.md Agents table yields %s names (>= %s on disk)\n' \
-    "$CLAUDE_MD_AGENT_COUNT" "$CANONICAL_AGENT_COUNT"
-fi
+# The table must name at least as many personas as there are files, so a heading
+# renamed or a column reordered cannot leave the loop below with nothing to walk.
+# (A file that asserts nothing at all is lib.sh's finish to catch, not this one.)
+assert_true "Agents: model-routing.md Agents table yields $CLAUDE_MD_AGENT_COUNT names (>= $CANONICAL_AGENT_COUNT on disk)" \
+  -- test "$CLAUDE_MD_AGENT_COUNT" -ge "$CANONICAL_AGENT_COUNT"
 
 for agent in $CLAUDE_MD_AGENTS; do
   for tree in "$CANONICAL" "$CLAUDE"; do
-    # Plain `if` rather than a $(...) subshell per assertion: process spawn
-    # dominates this suite's runtime on Windows (see test-skill-frontmatter.sh).
-    if [ -f "$tree/$agent.md" ]; then found=present; else found=missing; fi
-    assert_eq "present" "$found" \
+    assert_file_exists "$tree/$agent.md" \
       "Agents: model-routing.md routes to \`$agent\` and $tree/$agent.md exists"
   done
 done
@@ -368,5 +352,20 @@ assert_prose_contains "$CR" 'a summary for the orchestrator' \
 assert_prose_contains "$CR" 'No "consider…"' "AC4: code-reviewer bans 'consider'"
 assert_prose_contains "$CR" 'no style taste' "AC4: code-reviewer bans style taste"
 assert_prose_contains "$CR" 'no vague worry' "AC4: code-reviewer bans vague worries"
+
+# --- floor: the doc guards count through the library only (AC 12) --------------
+# pass and fail in lib.sh are the only writers of the counters, and finish fails a
+# file that asserted nothing, so the hand-rolled counter bookkeeping and the
+# assertion floor it fed are gone from all eight doc-guard files. lib.sh is the
+# positive control: it is where the arithmetic legitimately lives.
+DOC_GUARDS="tests/test-agents.sh tests/test-model-tiers.sh tests/test-skill-frontmatter.sh
+            tests/test-skill-references.sh tests/test-skills-table.sh tests/test-instruction-budget.sh
+            tests/test-grilling-adoption.sh tests/test-doc-conventions.sh"
+# shellcheck disable=SC2086 -- the list is words by construction.
+assert_sweep_empty "floor: no doc-guard test does its own counter arithmetic" tests/lib.sh \
+  -- grep -nE '_(TESTS|FAILS)=\$\(\(' $DOC_GUARDS
+# shellcheck disable=SC2086
+assert_sweep_empty "floor: no doc-guard test makes its own scratch directory" tests/lib.sh \
+  -- grep -nE 'mktemp [-]d' $DOC_GUARDS
 
 finish
