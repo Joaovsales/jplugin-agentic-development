@@ -50,7 +50,7 @@ import sys
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import combinations
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 # `registry` lives under the task-registry skill, not this one. Resolved
 # relative to this file so the script works from any cwd.
@@ -441,7 +441,7 @@ def _normalize_spec_path(path: str) -> str:
     return normalized[2:] if normalized.startswith("./") else normalized
 
 
-def _find_plan_block(todo_text: str, spec_path: str) -> Optional[Tuple[int, int, str]]:
+def _plan_block_span(todo_text: str, spec_path: str) -> Optional[Tuple[int, int, str]]:
     """1-based (start_line, end_line, plan_name) of the `## Plan:` block naming `spec_path`."""
     lines = todo_text.splitlines()
     target = _normalize_spec_path(spec_path)
@@ -483,12 +483,19 @@ class PlanBlock:
 
     @cached_property
     def rows(self) -> List[IndexRow]:
-        """The index's rows, parsed on first use: `validate` never needs them and must not refuse over them."""
+        """The index's rows, parsed on first use: `validate` never needs them and must not refuse over them.
+
+        Raises IndexUnreadable on a malformed index. `_load_plan_block` reads
+        it at load time, so `ready` and `check` fail there, not at a later access.
+        """
         return load_index_strict(self.index_path, self.index_path).rows
 
     @property
     def legacy(self) -> bool:
-        """Legacy when any slice header row carries a `task-id` marker."""
+        """Legacy when any slice header row carries a `task-id` marker.
+
+        Raises IndexUnreadable when the rows were not read yet and the index is malformed.
+        """
         for heading_line, _number, _name, boundary in _heading_spans(self.headings, self.end_line):
             row = _row_after(self.rows, heading_line, boundary, self.prose)
             if row is not None and "task-id:" in self.prose[row.line - 1]:
@@ -496,7 +503,10 @@ class PlanBlock:
         return False
 
     def mode(self, row: SliceRow, interface_paths: Sequence[str]) -> str:
-        """`design` when a § Interfaces `Path:` falls inside the slice's Surface and the block is new."""
+        """`design` when a § Interfaces `Path:` falls inside the slice's Surface and the block is new.
+
+        Raises IndexUnreadable, as `legacy` does.
+        """
         if self.legacy:
             return "tdd"
         hit = any(match_path(pattern, path) for pattern in row.surface for path in interface_paths)
@@ -509,27 +519,93 @@ class PlanBlock:
                 return self.prose[heading_line:boundary]
         return None
 
+    def has_open_row(self) -> bool:
+        """Whether any task row inside the block is still open."""
+        return any(self.start_line <= row.line <= self.end_line and row.task.status == "open" for row in self.rows)
 
-def _find_loaded_block(index_path: str, spec_path: str) -> Optional[PlanBlock]:
+    def done_by_slice(self) -> Dict[int, bool]:
+        """Whether each `### Slice` heading's header row is `[x]`, keyed by slice number."""
+        done: Dict[int, bool] = {}
+        for heading_line, number, _name, boundary in _heading_spans(self.headings, self.end_line):
+            row = _row_after(self.rows, heading_line, boundary, self.prose)
+            if row is None:
+                raise SliceError(f"no task row found under `### Slice {number}` heading")
+            done[number] = row.task.status == "done"
+        return done
+
+    def tdd_surface_problems(self, slices: Dict[int, SliceRow]) -> List[str]:
+        """Every open `TDD:` row's test file must be matched by its slice's surface.
+
+        The agent a slice dispatches may edit only that surface, so a row naming a
+        test outside it is a slice that cannot write its own test. Found live on
+        specs/design-stack-hyperframes.md slice 4, whose surface named only skill
+        text while its row targeted `tests/test-design-stack-video.sh`. The last
+        heading's span ends at the next `##` heading: the block runs on to the
+        next `## Plan:`, and the session summaries between carry rows of their own.
+        """
+        problems = []
+        for heading_line, number, _name, boundary in _heading_spans(self.headings, self.end_line):
+            if number not in slices:
+                continue
+            for line_number in range(heading_line + 1, boundary + 1):
+                line = self.prose[line_number - 1]
+                if H2_RE.match(line):
+                    break
+                match = OPEN_TDD_ROW_RE.match(line)
+                if match and not any(match_path(pattern, match.group("path")) for pattern in slices[number].surface):
+                    problems.append(
+                        f"slice {number} ({slices[number].name}): TDD row names {match.group('path')}, "
+                        "which no surface pattern matches"
+                    )
+        return problems
+
+    def feature_link_problems(self) -> List[str]:
+        """A block links its feature once: one `> Issue:` line or one feature row, never two.
+
+        The feature link sits between the `## Plan:` heading and the first
+        `### Slice` heading; a slice's own header row is not one. The refusal names
+        the second link, the line a human deletes. A flat legacy plan has no
+        headings, so its rows are tasks, not links.
+        """
+        if not self.headings:
+            return []
+        links = [
+            line_number
+            for line_number in range(self.start_line + 1, self.headings[0][0])
+            if ISSUE_LINE_RE.match(self.prose[line_number - 1]) or FEATURE_ROW_RE.match(self.prose[line_number - 1])
+        ]
+        return [
+            f"{self.index_path}:{line_number}: two feature links in one plan block "
+            "(one `> Issue:` line or one feature row)"
+            for line_number in links[1:2]
+        ]
+
+
+def _plan_block_or_none(index_path: str, spec_path: str) -> Optional[PlanBlock]:
     """The `## Plan:` block of `index_path` naming `spec_path`, or None when the file or block is absent."""
     if not os.path.isfile(index_path):
         return None
     todo_text = _without_fences(read_text(index_path))
-    block = _find_plan_block(todo_text, spec_path)
-    if block is None:
+    span = _plan_block_span(todo_text, spec_path)
+    if span is None:
         return None
-    start_line, end_line, name = block
+    start_line, end_line, name = span
     prose = todo_text.splitlines()
     return PlanBlock(prose, start_line, end_line, name, _slice_headings(prose, start_line, end_line), index_path)
 
 
 def _load_plan_block(index_path: str, spec_path: str) -> PlanBlock:
-    """The `## Plan:` block of `index_path` naming `spec_path`, or SliceError."""
-    if not os.path.isfile(index_path):
-        raise SliceError(f"no such index file: {index_path}")
-    block = _find_loaded_block(index_path, spec_path)
+    """The `## Plan:` block of `index_path` naming `spec_path`, rows already read.
+
+    Raises SliceError when the file or block is absent and IndexUnreadable when
+    the index is malformed, both here and not at a later access.
+    """
+    block = _plan_block_or_none(index_path, spec_path)
     if block is None:
+        if not os.path.isfile(index_path):
+            raise SliceError(f"no such index file: {index_path}")
         raise SliceError(f"{index_path} has no `## Plan:` block naming {spec_path!r}")
+    block.rows  # noqa: B018  (forces the index load so a malformed index fails at load)
     return block
 
 
@@ -541,70 +617,16 @@ def _heading_spans(
     return [(line, number, name, boundary) for (line, number, name), boundary in zip(headings, boundaries)]
 
 
-def _tdd_surface_problems(
-    prose: Sequence[str], headings: Sequence[Tuple[int, int, str]], end_line: int, slices: Dict[int, SliceRow]
-) -> List[str]:
-    """Every open `TDD:` row's test file must be matched by its slice's surface.
-
-    The agent a slice dispatches may edit only that surface, so a row naming a
-    test outside it is a slice that cannot write its own test. Found live on
-    specs/design-stack-hyperframes.md slice 4, whose surface named only skill
-    text while its row targeted `tests/test-design-stack-video.sh`. The last
-    heading's span ends at the next `##` heading: the block runs on to the
-    next `## Plan:`, and the session summaries between carry rows of their own.
-    """
-    problems = []
-    for heading_line, number, _name, boundary in _heading_spans(headings, end_line):
-        if number not in slices:
-            continue
-        for line_number in range(heading_line + 1, boundary + 1):
-            line = prose[line_number - 1]
-            if H2_RE.match(line):
-                break
-            match = OPEN_TDD_ROW_RE.match(line)
-            if match and not any(match_path(pattern, match.group("path")) for pattern in slices[number].surface):
-                problems.append(
-                    f"slice {number} ({slices[number].name}): TDD row names {match.group('path')}, "
-                    "which no surface pattern matches"
-                )
-    return problems
-
-
-def _feature_link_problems(
-    index_path: str, prose: Sequence[str], start_line: int, headings: Sequence[Tuple[int, int, str]]
-) -> List[str]:
-    """A block links its feature once: one `> Issue:` line or one feature row, never two.
-
-    The feature link sits between the `## Plan:` heading and the first
-    `### Slice` heading; a slice's own header row is not one. The refusal names
-    the second link, the line a human deletes. A flat legacy plan has no
-    headings, so its rows are tasks, not links.
-    """
-    if not headings:
-        return []
-    links = [
-        line_number
-        for line_number in range(start_line + 1, headings[0][0])
-        if ISSUE_LINE_RE.match(prose[line_number - 1]) or FEATURE_ROW_RE.match(prose[line_number - 1])
-    ]
-    return [
-        f"{index_path}:{line_number}: two feature links in one plan block (one `> Issue:` line or one feature row)"
-        for line_number in links[1:2]
-    ]
-
-
 def _plan_block_problems(index_path: str, spec_path: str, slices: Dict[int, SliceRow]) -> List[str]:
     """`validate`'s view of the plan block: feature-link and TDD-row problems when the index already holds one.
 
     Propose step 1 validates before the block is written, so a missing index
     or block is nothing to report here; `ready` requires the block and refuses.
     """
-    block = _find_loaded_block(index_path, spec_path)
+    block = _plan_block_or_none(index_path, spec_path)
     if block is None:
         return []
-    return _feature_link_problems(index_path, block.prose, block.start_line, block.headings) + _tdd_surface_problems(
-        block.prose, block.headings, block.end_line, slices
-    )
+    return block.feature_link_problems() + block.tdd_surface_problems(slices)
 
 
 def _row_after(
@@ -621,26 +643,9 @@ def _row_after(
     return min(candidates, key=lambda row: row.line) if candidates else None
 
 
-def _block_has_open_row(rows: Sequence[IndexRow], start_line: int, end_line: int) -> bool:
-    return any(start_line <= row.line <= end_line and row.task.status == "open" for row in rows)
-
-
 def _print_ready(number: int, name: str, surface: Sequence[str], mode: str = "tdd") -> None:
     print(f"ready: {number} {name} mode={mode}")
     print(f"  surface: {', '.join(surface)}")
-
-
-def _done_by_slice(
-    rows: Sequence[IndexRow], headings: Sequence[Tuple[int, int, str]], end_line: int, prose: Sequence[str]
-) -> Dict[int, bool]:
-    """Whether each `### Slice` heading's header row is `[x]`, keyed by slice number."""
-    done: Dict[int, bool] = {}
-    for heading_line, number, _name, boundary in _heading_spans(headings, end_line):
-        row = _row_after(rows, heading_line, boundary, prose)
-        if row is None:
-            raise SliceError(f"no task row found under `### Slice {number}` heading")
-        done[number] = row.task.status == "done"
-    return done
 
 
 def _refuse_plan_drift(
@@ -689,7 +694,7 @@ def _implicit_slice_ready(args: argparse.Namespace, block: PlanBlock) -> int:
 
     It is one implicit slice whose surface is the spec's whole implementation_paths.
     """
-    if not _block_has_open_row(block.rows, block.start_line, block.end_line):
+    if not block.has_open_row():
         return 0
     _print_ready(1, block.name, read_implementation_paths(args.spec))
     return 0
@@ -703,9 +708,9 @@ def cmd_ready(args: argparse.Namespace) -> int:
             return _implicit_slice_ready(args, block)
         spec_text = read_text(args.spec)
         slices = {row.number: row for row in parse_build_order(spec_text, args.spec)}
-        done = _done_by_slice(block.rows, block.headings, block.end_line, block.prose)
+        done = block.done_by_slice()
         _refuse_plan_drift(slices, done, args.spec, args.index)
-        problems = _tdd_surface_problems(block.prose, block.headings, block.end_line, slices)
+        problems = block.tdd_surface_problems(slices)
         if problems:
             raise SliceError("; ".join(problems))
     except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
@@ -737,15 +742,22 @@ def _git_paths(repo: str, *diff_args: str, renames: bool = True) -> List[str]:
     return [line for line in result.stdout.splitlines() if line]
 
 
-def _slice_plan(index_path: str, spec_path: str, row: SliceRow) -> Optional[Tuple[List[str], str]]:
-    """(the lines under the slice's heading, its mode), or None for a flat plan with no headings."""
+class SlicePlan(NamedTuple):
+    """What `check` reads of one slice's plan: the lines under its heading and its mode."""
+
+    lines: List[str]
+    mode: str
+
+
+def _slice_plan(index_path: str, spec_path: str, row: SliceRow) -> Optional[SlicePlan]:
+    """The slice's plan lines and mode, or None for a flat plan with no headings."""
     block = _load_plan_block(index_path, spec_path)
     if not block.headings:
         return None
     lines = block.slice_lines(row.number)
     if lines is None:
         raise SliceError(f"{index_path} has no `### Slice {row.number}` heading under its `## Plan:` block")
-    return lines, block.mode(row, _interface_paths(read_text(spec_path)))
+    return SlicePlan(lines, block.mode(row, _interface_paths(read_text(spec_path))))
 
 
 def _freeze_problems(args: argparse.Namespace, repo: str, row: SliceRow) -> List[str]:
@@ -759,10 +771,10 @@ def _freeze_problems(args: argparse.Namespace, repo: str, row: SliceRow) -> List
     plan = _slice_plan(args.index, args.spec, row)
     if plan is None:
         return []
-    lines, mode = plan
+    lines = plan.lines
     frozen_lines = [m for m in map(FROZEN_LINE_RE.match, lines) if m]
     if not frozen_lines:
-        return ["missing freeze commit"] if mode == "design" else []
+        return ["missing freeze commit"] if plan.mode == "design" else []
     frozen = frozen_lines[0]
     problems = ["duplicate freeze line"] if len(frozen_lines) > 1 else []
     def paths(*diff_args: str) -> List[str]:
@@ -795,7 +807,7 @@ def _warn_freeze_unchecked(args: argparse.Namespace, repo: str, row: SliceRow) -
         plan = _slice_plan(index_path, args.spec, row)
     except (SliceError, IndexUnreadable, OSError, ValueError):
         return
-    if plan is not None and plan[1] == "design":
+    if plan is not None and plan.mode == "design":
         print("freeze: not checked (no --index)", file=sys.stderr)
 
 

@@ -185,6 +185,17 @@ CODE=$?
 assert_eq "2" "$CODE" "ready: a missing index exits 2"
 assert_contains "$OUT" "no such index file" "ready: names the missing index"
 
+printf '\n--- ready: a malformed index fails at load ---\n'
+
+DM="$(mktemp -d)"
+TMP_DIRS+=("$DM")
+{ cat "$FIXTURES/ready/todo-header-open.md"; printf '\n- [ ] broken row <!-- never closed\n'; } > "$DM/todo.md"
+OUT="$("$PY" "$SLICE" ready --index "$DM/todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "ready: a malformed index exits 2"
+assert_contains "$OUT" "slice: refusing to act on a malformed index" "ready: a malformed index is a slice: refusal"
+assert_not_contains "$OUT" "Traceback" "ready: a malformed index is not a traceback"
+
 printf '\n--- header-plan: bare slice headers under one feature row ---\n'
 
 # specs/aposd-first-build.md AC1/AC2: a block `/slice` writes carries no task id,
