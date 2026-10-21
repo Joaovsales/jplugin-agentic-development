@@ -2,34 +2,40 @@
 # Local-only contract tests for the general-purpose upstream drift checker.
 . "$(dirname "$0")/lib.sh"
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-CHECKER="$REPO/scripts/check-upstream-drift.py"
-FIXTURE_ROOT="$(mktemp -d)"
-trap 'rm -rf "$FIXTURE_ROOT"' EXIT
+CHECKER="$(under_test scripts/check-upstream-drift.py)"
+# The repo-relative pins below (.github/, install.sh, README.md) resolve from
+# the repository the checker lives in.
+REPO="${CHECKER%/scripts/check-upstream-drift.py}"
+cd "$REPO" || exit 1
+FX="$(fixture_dir)"
+OUT_FILE="$FX/stdout"
+ERR_FILE="$FX/stderr"
 
-new_repo() {
-  _repo="$1"
-  git init -q --initial-branch=main "$_repo"
-  git -C "$_repo" config user.name fixture
-  git -C "$_repo" config user.email fixture@example.test
+# upstream_repo — a fixture repo whose branch is `main`, the ref the registries
+# below track.
+upstream_repo() {
+  local repo
+  repo="$(fixture_repo)" || exit 143
+  git -C "$repo" symbolic-ref HEAD refs/heads/main
+  printf '%s\n' "$repo"
 }
 
 commit_file() {
-  _repo="$1" _path="$2" _content="$3"
-  mkdir -p "$_repo/$(dirname "$_path")"
-  printf '%s\n' "$_content" > "$_repo/$_path"
-  git -C "$_repo" add "$_path"
-  git -C "$_repo" commit -qm "update $_path"
+  local repo="$1" path="$2" content="$3"
+  mkdir -p "$repo/$(dirname "$path")"
+  printf '%s\n' "$content" > "$repo/$path"
+  git -C "$repo" add "$path"
+  git -C "$repo" commit -qm "update $path"
 }
 
-run_checker() {
-  _registry="$1"
-  shift
-  CHECK_STDOUT="$FIXTURE_ROOT/stdout"
-  CHECK_STDERR="$FIXTURE_ROOT/stderr"
-  "$TEST_PYTHON" "$CHECKER" --registry "$_registry" "$@" >"$CHECK_STDOUT" 2>"$CHECK_STDERR"
-  CHECK_STATUS=$?
-  CHECK_OUTPUT="$(cat "$CHECK_STDOUT"; cat "$CHECK_STDERR")"
+# check <registry> [checker args...] — run the checker. The status is judged by
+# assert_exit; `output` is stdout then stderr, and the two streams stay apart in
+# $OUT_FILE / $ERR_FILE for the checks that need them separately.
+check() {
+  local registry="$1"; shift
+  run bash -c 'out=$1; err=$2; shift 2; "$@" >"$out" 2>"$err"' _ "$OUT_FILE" "$ERR_FILE" \
+    "$TEST_PYTHON" "$CHECKER" --registry "$registry" "$@"
+  output="$(<"$OUT_FILE")$(<"$ERR_FILE")"
 }
 
 # Static distribution and least-privilege workflow contract.
@@ -76,69 +82,63 @@ assert_file_not_matches "$WORKFLOW" 'checkout.*upstream|git[[:space:]]+checkout|
   "workflow: does not apply upstream content"
 
 # Build two local upstreams. One is path-scoped; one monitors the whole repo.
-SCOPED_REPO="$FIXTURE_ROOT/scoped"
-WHOLE_REPO="$FIXTURE_ROOT/whole"
-new_repo "$SCOPED_REPO"
+SCOPED_REPO="$(upstream_repo)"
+WHOLE_REPO="$(upstream_repo)"
 commit_file "$SCOPED_REPO" "tracked/skill.md" "reviewed"
 SCOPED_BASELINE="$(git -C "$SCOPED_REPO" rev-parse HEAD)"
 commit_file "$SCOPED_REPO" "unrelated/readme.md" "monorepo churn"
 
-new_repo "$WHOLE_REPO"
 commit_file "$WHOLE_REPO" "notice.txt" "reviewed"
 WHOLE_BASELINE="$(git -C "$WHOLE_REPO" rev-parse HEAD)"
 
-CLEAN_REGISTRY="$FIXTURE_ROOT/clean.json"
+CLEAN_REGISTRY="$FX/clean.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"scoped\",\"url\":\"$SCOPED_REPO\",\"ref\":\"refs/heads/main\",\"baseline\":\"$SCOPED_BASELINE\",\"paths\":[\"tracked\"],\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}," \
   "{\"id\":\"whole\",\"url\":\"$WHOLE_REPO\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$CLEAN_REGISTRY"
 
-run_checker "$CLEAN_REGISTRY"
-assert_eq "0" "$CHECK_STATUS" "clean: multiple sources succeed"
-assert_eq "" "$(cat "$CHECK_STDOUT")" "clean: stdout is silent"
-assert_eq "" "$(cat "$CHECK_STDERR")" "clean: stderr is silent"
+check "$CLEAN_REGISTRY"
+assert_exit 0 "clean: multiple sources succeed"
+assert_eq "" "$(<"$OUT_FILE")" "clean: stdout is silent"
+assert_eq "" "$(<"$ERR_FILE")" "clean: stderr is silent"
 
 # A failing remote helper can be noisy, but its bounded diagnostic remains actionable.
-NOISY_BIN="$FIXTURE_ROOT/noisy-bin"
+NOISY_BIN="$FX/noisy-bin"
 mkdir -p "$NOISY_BIN"
 printf '#!/bin/sh\nprintf "distinctive remote failure\\n" >&2\ni=0; while [ "$i" -lt 2000 ]; do printf "noise-%04d xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n" "$i" >&2; i=$((i + 1)); done\nexit 1\n' \
   > "$NOISY_BIN/git-remote-noisy"
 chmod +x "$NOISY_BIN/git-remote-noisy"
-NOISY_REGISTRY="$FIXTURE_ROOT/noisy.json"
+NOISY_REGISTRY="$FX/noisy.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"noisy\",\"url\":\"noisy::target\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$NOISY_REGISTRY"
 NOISY_STARTED_MS="$(now_ms)"
-PATH="$NOISY_BIN:$PATH" run_checker "$NOISY_REGISTRY"
+PATH="$NOISY_BIN:$PATH" check "$NOISY_REGISTRY"
 NOISY_ELAPSED_MS="$(( $(now_ms) - NOISY_STARTED_MS ))"
-assert_eq "1" "$CHECK_STATUS" "bounded diagnostic: failing helper is unavailable"
-assert_contains "$CHECK_OUTPUT" "distinctive remote failure" \
+assert_exit 1 "bounded diagnostic: failing helper is unavailable"
+assert_contains "$output" "distinctive remote failure" \
   "bounded diagnostic: useful fetch evidence survives"
-if [ "$(wc -c < "$CHECK_STDERR")" -le 1000 ]; then
-  assert_eq "bounded" "bounded" "bounded diagnostic: noisy helper cannot flood output"
-else
-  assert_eq "at-most-1000" "$(wc -c < "$CHECK_STDERR")" \
-    "bounded diagnostic: noisy helper cannot flood output"
-fi
+assert_true "bounded diagnostic: noisy helper cannot flood output" -- \
+  [ "$(wc -c < "$ERR_FILE")" -le 1000 ]
 
 # A remote helper that outlives Git must not keep the stderr reader past the deadline.
 # The helper sleeps far longer than any plausible spawn latency: a killed helper
 # costs nothing extra, and one that outlives the kill must still be alive when
 # the liveness check below runs, not exited on its own.
-printf '#!/bin/sh\nprintf "%s" "$$" > "%s"\nsleep 30\nexit 1\n' '%s' "$FIXTURE_ROOT/hanging-helper.pid" \
+printf '#!/bin/sh\nprintf "%s" "$$" > "%s"\nsleep 30\nexit 1\n' '%s' "$FX/hanging-helper.pid" \
   > "$NOISY_BIN/git-remote-hanging"
 chmod +x "$NOISY_BIN/git-remote-hanging"
-HANGING_REGISTRY="$FIXTURE_ROOT/hanging.json"
+HANGING_REGISTRY="$FX/hanging.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"hanging\",\"url\":\"hanging::target\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$HANGING_REGISTRY"
 HANGING_STARTED_MS="$(now_ms)"
-PATH="$NOISY_BIN:$PATH" run_checker "$HANGING_REGISTRY" --deadline-seconds 0.1
+PATH="$NOISY_BIN:$PATH" check "$HANGING_REGISTRY" --deadline-seconds 0.1
 HANGING_ELAPSED_MS="$(( $(now_ms) - HANGING_STARTED_MS ))"
-assert_eq "1" "$CHECK_STATUS" "process tree: hanging helper is unavailable"
+assert_exit 1 "process tree: hanging helper is unavailable"
 
 # The wall-clock bound is relative, not absolute. The noisy run above walked the
 # same python + git path with a helper that exits at once, so it measures this
@@ -147,12 +147,8 @@ assert_eq "1" "$CHECK_STATUS" "process tree: hanging helper is unavailable"
 # checker's one-second reader join. On Windows a single spawn can cost a
 # second, so the old absolute "under 2 s" read as a failure there (#136).
 HANGING_BUDGET_MS="$(( NOISY_ELAPSED_MS + 1500 ))"
-if [ "$HANGING_ELAPSED_MS" -le "$HANGING_BUDGET_MS" ]; then
-  assert_eq "bounded" "bounded" "process tree: helper cannot outlive the checker deadline"
-else
-  assert_eq "within ${HANGING_BUDGET_MS} ms (no-op helper run + 1500)" "${HANGING_ELAPSED_MS} ms" \
-    "process tree: helper cannot outlive the checker deadline"
-fi
+assert_true "process tree: helper cannot outlive the checker deadline" -- \
+  [ "$HANGING_ELAPSED_MS" -le "$HANGING_BUDGET_MS" ]
 
 # The direct evidence: a helper that started recorded its pid, and it must be
 # gone once the checker has returned. When the 0.1 s deadline expires before Git
@@ -167,50 +163,46 @@ helper_running() {
   kill -0 "$1" 2>/dev/null || return 1
   [ "$(ps -o stat= -p "$1" 2>/dev/null | cut -c1)" != "Z" ]
 }
-if [ -f "$FIXTURE_ROOT/hanging-helper.pid" ]; then
-  HELPER_PID="$(cat "$FIXTURE_ROOT/hanging-helper.pid")"
-  _waited=0
-  while helper_running "$HELPER_PID" && [ "$_waited" -lt 20 ]; do
-    sleep 0.05; _waited=$((_waited + 1))
+if [ -f "$FX/hanging-helper.pid" ]; then
+  HELPER_PID="$(<"$FX/hanging-helper.pid")"
+  waited=0
+  while helper_running "$HELPER_PID" && [ "$waited" -lt 20 ]; do
+    sleep 0.05; waited=$((waited + 1))
   done
-  if helper_running "$HELPER_PID"; then
-    assert_eq "gone" "alive (pid $HELPER_PID)" "process tree: the helper is dead once the checker returns"
-  else
-    assert_eq "gone" "gone" "process tree: the helper is dead once the checker returns"
-  fi
+  assert_false "process tree: the helper is dead once the checker returns" -- helper_running "$HELPER_PID"
 else
   printf '  note process tree: the deadline expired before Git spawned the helper; timing bound only\n'
 fi
 
 # Relevant scoped drift and an unavailable ref are both reported in one run.
 commit_file "$SCOPED_REPO" "tracked/skill.md" "changed upstream"
-AGGREGATE_REGISTRY="$FIXTURE_ROOT/aggregate.json"
+AGGREGATE_REGISTRY="$FX/aggregate.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"scoped\",\"url\":\"$SCOPED_REPO\",\"ref\":\"refs/heads/main\",\"baseline\":\"$SCOPED_BASELINE\",\"paths\":[\"tracked\"],\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}," \
   "{\"id\":\"missing-ref\",\"url\":\"$WHOLE_REPO\",\"ref\":\"refs/heads/absent\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}," \
-  "{\"id\":\"missing-remote\",\"url\":\"$FIXTURE_ROOT/absent-repo\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
+  "{\"id\":\"missing-remote\",\"url\":\"$FX/absent-repo\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$AGGREGATE_REGISTRY"
 
-run_checker "$AGGREGATE_REGISTRY"
-assert_eq "1" "$CHECK_STATUS" "aggregate: any non-clean source fails"
-assert_contains "$CHECK_OUTPUT" "drift: scoped" "aggregate: reports scoped drift"
-assert_contains "$CHECK_OUTPUT" "tracked/skill.md" "drift: reports the changed registered path"
-assert_contains "$CHECK_OUTPUT" "$SCOPED_BASELINE" "drift: reports the reviewed baseline"
-assert_contains "$CHECK_OUTPUT" "unavailable: missing-ref" "aggregate: later source failure is not hidden"
-assert_contains "$CHECK_OUTPUT" "unavailable: missing-remote" "aggregate: reports an unavailable remote"
-assert_not_contains "$CHECK_OUTPUT" "unrelated/readme.md" "drift: omits monorepo churn outside the scope"
+check "$AGGREGATE_REGISTRY"
+assert_exit 1 "aggregate: any non-clean source fails"
+assert_contains "$output" "drift: scoped" "aggregate: reports scoped drift"
+assert_contains "$output" "tracked/skill.md" "drift: reports the changed registered path"
+assert_contains "$output" "$SCOPED_BASELINE" "drift: reports the reviewed baseline"
+assert_contains "$output" "unavailable: missing-ref" "aggregate: later source failure is not hidden"
+assert_contains "$output" "unavailable: missing-remote" "aggregate: reports an unavailable remote"
+assert_not_contains "$output" "unrelated/readme.md" "drift: omits monorepo churn outside the scope"
 
 # Omitting paths makes any repository change load-bearing.
-WHOLE_DRIFT_REGISTRY="$FIXTURE_ROOT/whole-drift.json"
+WHOLE_DRIFT_REGISTRY="$FX/whole-drift.json"
 commit_file "$WHOLE_REPO" "anywhere.txt" "whole repository drift"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"whole\",\"url\":\"$WHOLE_REPO\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$WHOLE_DRIFT_REGISTRY"
-run_checker "$WHOLE_DRIFT_REGISTRY"
-assert_eq "1" "$CHECK_STATUS" "whole repository: drift fails"
-assert_contains "$CHECK_OUTPUT" "anywhere.txt" "whole repository: reports changes with paths omitted"
+check "$WHOLE_DRIFT_REGISTRY"
+assert_exit 1 "whole repository: drift fails"
+assert_contains "$output" "anywhere.txt" "whole repository: reports changes with paths omitted"
 
 # Large diffs remain actionable without flooding CI logs or the workflow summary.
 for number in $(seq 1 25); do
@@ -219,113 +211,95 @@ for number in $(seq 1 25); do
 done
 git -C "$SCOPED_REPO" add tracked
 git -C "$SCOPED_REPO" commit -qm "many upstream changes"
-run_checker "$AGGREGATE_REGISTRY"
-CHANGED_LINES="$(grep -c '^  changed:' "$CHECK_STDERR")"
+check "$AGGREGATE_REGISTRY"
+CHANGED_LINES="$(grep -c '^  changed:' "$ERR_FILE")"
 assert_eq "21" "$CHANGED_LINES" "bounded report: caps paths and adds one omission line"
-assert_contains "$CHECK_OUTPUT" "more path(s) omitted" "bounded report: explains truncated evidence"
+assert_contains "$output" "more path(s) omitted" "bounded report: explains truncated evidence"
 
 # Both commits remain fetchable, but the tracked ref no longer descends from the baseline.
-DIVERGED_REPO="$FIXTURE_ROOT/diverged"
-new_repo "$DIVERGED_REPO"
+DIVERGED_REPO="$(upstream_repo)"
 commit_file "$DIVERGED_REPO" "old.txt" "old history"
 DIVERGED_BASELINE="$(git -C "$DIVERGED_REPO" rev-parse HEAD)"
 git -C "$DIVERGED_REPO" checkout -q --orphan rewritten
 git -C "$DIVERGED_REPO" rm -q -rf .
 commit_file "$DIVERGED_REPO" "new.txt" "rewritten history"
 git -C "$DIVERGED_REPO" branch -M main
-DIVERGED_REGISTRY="$FIXTURE_ROOT/diverged.json"
+DIVERGED_REGISTRY="$FX/diverged.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"rewritten\",\"url\":\"$DIVERGED_REPO\",\"ref\":\"refs/heads/main\",\"baseline\":\"$DIVERGED_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$DIVERGED_REGISTRY"
-run_checker "$DIVERGED_REGISTRY"
-assert_eq "1" "$CHECK_STATUS" "rewritten history: fails"
-assert_contains "$CHECK_OUTPUT" "history-diverged: rewritten" "rewritten history: requires manual review"
+check "$DIVERGED_REGISTRY"
+assert_exit 1 "rewritten history: fails"
+assert_contains "$output" "history-diverged: rewritten" "rewritten history: requires manual review"
 
 # The entire registry is rejected before the first Git invocation.
-INVALID_REGISTRY="$FIXTURE_ROOT/invalid.json"
+INVALID_REGISTRY="$FX/invalid.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"duplicate\",\"url\":\"never-contact-one\",\"ref\":\"main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"NOTICE.md\"}," \
   "{\"id\":\"duplicate\",\"url\":\"never-contact-two\",\"ref\":\"main\",\"baseline\":\"not-a-commit\",\"paths\":[\"../escape\"],\"source_notice\":\"/absolute\"}" \
   ']}' > "$INVALID_REGISTRY"
 
-FAKE_BIN="$FIXTURE_ROOT/bin"
-GIT_MARKER="$FIXTURE_ROOT/git-was-called"
+FAKE_BIN="$FX/bin"
+GIT_MARKER="$FX/git-was-called"
 mkdir -p "$FAKE_BIN"
 printf '#!/bin/sh\nprintf called > "%s"\nexit 99\n' "$GIT_MARKER" > "$FAKE_BIN/git"
 chmod +x "$FAKE_BIN/git"
-CHECK_STDOUT="$FIXTURE_ROOT/invalid-stdout"
-CHECK_STDERR="$FIXTURE_ROOT/invalid-stderr"
-PATH="$FAKE_BIN:$PATH" "$TEST_PYTHON" "$CHECKER" --registry "$INVALID_REGISTRY" >"$CHECK_STDOUT" 2>"$CHECK_STDERR"
-CHECK_STATUS=$?
-CHECK_OUTPUT="$(cat "$CHECK_STDOUT"; cat "$CHECK_STDERR")"
-assert_eq "2" "$CHECK_STATUS" "invalid registry: uses configuration-error status"
-assert_contains "$CHECK_OUTPUT" "invalid registry" "invalid registry: labels the failure"
-assert_contains "$CHECK_OUTPUT" "duplicate" "invalid registry: names the duplicate ID"
-assert_contains "$CHECK_OUTPUT" "baseline" "invalid registry: names malformed fields"
-if [ -e "$GIT_MARKER" ]; then
-  assert_eq "not-called" "called" "invalid registry: validates everything before Git/network"
-else
-  assert_eq "not-called" "not-called" "invalid registry: validates everything before Git/network"
-fi
+PATH="$FAKE_BIN:$PATH" check "$INVALID_REGISTRY"
+assert_exit 2 "invalid registry: uses configuration-error status"
+assert_contains "$output" "invalid registry" "invalid registry: labels the failure"
+assert_contains "$output" "duplicate" "invalid registry: names the duplicate ID"
+assert_contains "$output" "baseline" "invalid registry: names malformed fields"
+assert_file_absent "$GIT_MARKER" "invalid registry: validates everything before Git/network"
 
-INVALID_REF_REGISTRY="$FIXTURE_ROOT/invalid-ref.json"
+INVALID_REF_REGISTRY="$FX/invalid-ref.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"invalid-ref\",\"url\":\"never-contact\",\"ref\":\"refs/heads/bad ref\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$INVALID_REF_REGISTRY"
 rm -f "$GIT_MARKER"
-PATH="$FAKE_BIN:$PATH" run_checker "$INVALID_REF_REGISTRY"
-assert_eq "2" "$CHECK_STATUS" "invalid ref: uses configuration-error status"
-assert_contains "$CHECK_OUTPUT" "ref" "invalid ref: names the malformed field"
-if [ -e "$GIT_MARKER" ]; then
-  assert_eq "not-called" "called" "invalid ref: rejected before Git/network"
-else
-  assert_eq "not-called" "not-called" "invalid ref: rejected before Git/network"
-fi
+PATH="$FAKE_BIN:$PATH" check "$INVALID_REF_REGISTRY"
+assert_exit 2 "invalid ref: uses configuration-error status"
+assert_contains "$output" "ref" "invalid ref: names the malformed field"
+assert_file_absent "$GIT_MARKER" "invalid ref: rejected before Git/network"
 
 # Control characters fail validation instead of reaching subprocess as invalid arguments.
-CONTROL_REGISTRY="$FIXTURE_ROOT/control.json"
+CONTROL_REGISTRY="$FX/control.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"control\",\"url\":\"bad\\u0000url\",\"ref\":\"main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
   ']}' > "$CONTROL_REGISTRY"
-run_checker "$CONTROL_REGISTRY"
-assert_eq "2" "$CHECK_STATUS" "control character: invalid registry status"
-assert_contains "$CHECK_OUTPUT" "bounded string" "control character: actionable field error"
-assert_not_contains "$CHECK_OUTPUT" "Traceback" "control character: no uncaught subprocess error"
+check "$CONTROL_REGISTRY"
+assert_exit 2 "control character: invalid registry status"
+assert_contains "$output" "bounded string" "control character: actionable field error"
+assert_not_contains "$output" "Traceback" "control character: no uncaught subprocess error"
 
 # Attribution paths are part of registry validity, not passive metadata.
-MISSING_NOTICE_REGISTRY="$FIXTURE_ROOT/missing-notice.json"
+MISSING_NOTICE_REGISTRY="$FX/missing-notice.json"
 printf '%s\n' \
   '{"version":1,"sources":[' \
   "{\"id\":\"missing-notice\",\"url\":\"$WHOLE_REPO\",\"ref\":\"refs/heads/main\",\"baseline\":\"$WHOLE_BASELINE\",\"source_notice\":\"missing-notice.md\"}" \
   ']}' > "$MISSING_NOTICE_REGISTRY"
-run_checker "$MISSING_NOTICE_REGISTRY"
-assert_eq "2" "$CHECK_STATUS" "missing notice: invalid registry status"
-assert_contains "$CHECK_OUTPUT" "existing file" "missing notice: actionable path error"
+check "$MISSING_NOTICE_REGISTRY"
+assert_exit 2 "missing notice: invalid registry status"
+assert_contains "$output" "existing file" "missing notice: actionable path error"
 
 # A standard absolute registry path resolves repository-relative notices even outside the repo.
-OUTSIDE_STDOUT="$FIXTURE_ROOT/outside-stdout"
-OUTSIDE_STDERR="$FIXTURE_ROOT/outside-stderr"
-(cd "$FIXTURE_ROOT" && "$TEST_PYTHON" "$CHECKER" \
-  --registry "$REPO/.github/upstreams.json" --deadline-seconds 0.000001 \
-  >"$OUTSIDE_STDOUT" 2>"$OUTSIDE_STDERR")
-OUTSIDE_STATUS=$?
-OUTSIDE_OUTPUT="$(cat "$OUTSIDE_STDOUT"; cat "$OUTSIDE_STDERR")"
-assert_eq "1" "$OUTSIDE_STATUS" "repository root: absolute standard registry validates outside repo"
-assert_not_contains "$OUTSIDE_OUTPUT" "existing file" "repository root: notice resolves against registry repo"
+run bash -c 'cd "$1" && shift && exec "$@"' _ "$FX" \
+  "$TEST_PYTHON" "$CHECKER" --registry "$REPO/.github/upstreams.json" --deadline-seconds 0.000001
+assert_exit 1 "repository root: absolute standard registry validates outside repo"
+assert_not_contains "$output" "existing file" "repository root: notice resolves against registry repo"
 
 # An exhausted total deadline still reports every source instead of timing out in CI.
-run_checker "$AGGREGATE_REGISTRY" --deadline-seconds 0.000001
-assert_eq "1" "$CHECK_STATUS" "deadline: non-clean status"
-assert_contains "$CHECK_OUTPUT" "unavailable: scoped" "deadline: reports first source"
-assert_contains "$CHECK_OUTPUT" "unavailable: missing-remote" "deadline: reports later sources"
+check "$AGGREGATE_REGISTRY" --deadline-seconds 0.000001
+assert_exit 1 "deadline: non-clean status"
+assert_contains "$output" "unavailable: scoped" "deadline: reports first source"
+assert_contains "$output" "unavailable: missing-remote" "deadline: reports later sources"
 
 for invalid_deadline in nan inf; do
-  run_checker "$CLEAN_REGISTRY" --deadline-seconds "$invalid_deadline"
-  assert_eq "2" "$CHECK_STATUS" "deadline: rejects $invalid_deadline"
+  check "$CLEAN_REGISTRY" --deadline-seconds "$invalid_deadline"
+  assert_exit 2 "deadline: rejects $invalid_deadline"
 done
 
 # An installed source is a tool pinned at a tag, never a vendored copy: it has no `paths`.
@@ -344,9 +318,9 @@ assert_file_contains ".github/upstreams.json" "\"ref\": \"refs/tags/$ARCHIFY_TAG
   "installed: the Archify entry tracks its pinned tag"
 assert_file_contains ".github/upstreams.json" "$ARCHIFY_COMMIT" \
   "installed: the baseline is the tag's dereferenced commit"
-run_checker "$REPO/.github/upstreams.json" --validate
-assert_eq "0" "$CHECK_STATUS" "installed: --validate passes on the real registry"
-assert_eq "" "$CHECK_OUTPUT" "installed: --validate is silent on success"
+check "$REPO/.github/upstreams.json" --validate
+assert_exit 0 "installed: --validate passes on the real registry"
+assert_eq "" "$output" "installed: --validate is silent on success"
 # One pin, three homes (D16): the registry baseline is the commit install.sh
 # verifies the clone against, and the tag install.sh and the /diagram resolver
 # clone is the tag the registry tracks. A bump that moves one and not the others
@@ -359,8 +333,7 @@ assert_file_contains ".agents/skills/diagram/scripts/archify.sh" "ARCHIFY_TAG=\"
   "installed: the /diagram resolver prints the install command for the same tag"
 
 # Installed fixture: a local upstream with a commit tagged v3.2.0.
-TOOL_REPO="$FIXTURE_ROOT/tool"
-new_repo "$TOOL_REPO"
+TOOL_REPO="$(upstream_repo)"
 commit_file "$TOOL_REPO" "tool.txt" "pinned"
 git -C "$TOOL_REPO" tag v3.2.0
 TOOL_BASELINE="$(git -C "$TOOL_REPO" rev-parse HEAD)"
@@ -370,54 +343,46 @@ write_tool_registry() {
     "{\"id\":\"tool\",$1\"url\":\"$TOOL_REPO\",\"ref\":\"refs/tags/v3.2.0\",\"baseline\":\"$TOOL_BASELINE\",\"source_notice\":\"THIRD_PARTY_NOTICES.md\"}" \
     ']}' > "$2"
 }
-TOOL_REGISTRY="$FIXTURE_ROOT/tool.json"
+TOOL_REGISTRY="$FX/tool.json"
 write_tool_registry '"kind":"installed",' "$TOOL_REGISTRY"
-run_checker "$TOOL_REGISTRY"
-assert_eq "0" "$CHECK_STATUS" "installed: an unmoved tag is clean"
-assert_eq "" "$CHECK_OUTPUT" "installed: a clean check is silent"
+check "$TOOL_REGISTRY"
+assert_exit 0 "installed: an unmoved tag is clean"
+assert_eq "" "$output" "installed: a clean check is silent"
 
 # --validate never contacts Git, even when the upstream is unreachable.
 rm -f "$GIT_MARKER"
-PATH="$FAKE_BIN:$PATH" run_checker "$TOOL_REGISTRY" --validate
-assert_eq "0" "$CHECK_STATUS" "installed: --validate accepts a well-formed entry"
-if [ -e "$GIT_MARKER" ]; then
-  assert_eq "not-called" "called" "installed: --validate never reaches Git/network"
-else
-  assert_eq "not-called" "not-called" "installed: --validate never reaches Git/network"
-fi
+PATH="$FAKE_BIN:$PATH" check "$TOOL_REGISTRY" --validate
+assert_exit 0 "installed: --validate accepts a well-formed entry"
+assert_file_absent "$GIT_MARKER" "installed: --validate never reaches Git/network"
 
 # Moving the tag is drift, reported exactly like a vendored source without paths.
 commit_file "$TOOL_REPO" "tool.txt" "retagged"
 git -C "$TOOL_REPO" tag -f v3.2.0 >/dev/null
-run_checker "$TOOL_REGISTRY"
-assert_eq "1" "$CHECK_STATUS" "installed: a moved tag fails"
-assert_contains "$CHECK_OUTPUT" "drift: tool" "installed: a moved tag is reported as drift"
+check "$TOOL_REGISTRY"
+assert_exit 1 "installed: a moved tag fails"
+assert_contains "$output" "drift: tool" "installed: a moved tag is reported as drift"
 
 # An installed tool is not path-scoped: `paths` is rejected before Git/network.
-TOOL_PATHS_REGISTRY="$FIXTURE_ROOT/tool-paths.json"
+TOOL_PATHS_REGISTRY="$FX/tool-paths.json"
 write_tool_registry '"kind":"installed","paths":["x"],' "$TOOL_PATHS_REGISTRY"
 rm -f "$GIT_MARKER"
-PATH="$FAKE_BIN:$PATH" run_checker "$TOOL_PATHS_REGISTRY"
-assert_eq "2" "$CHECK_STATUS" "installed with paths: invalid registry status"
-assert_contains "$CHECK_OUTPUT" "invalid registry" "installed with paths: labels the failure"
-assert_contains "$CHECK_OUTPUT" "paths" "installed with paths: names the forbidden field"
-if [ -e "$GIT_MARKER" ]; then
-  assert_eq "not-called" "called" "installed with paths: rejected before Git/network"
-else
-  assert_eq "not-called" "not-called" "installed with paths: rejected before Git/network"
-fi
+PATH="$FAKE_BIN:$PATH" check "$TOOL_PATHS_REGISTRY"
+assert_exit 2 "installed with paths: invalid registry status"
+assert_contains "$output" "invalid registry" "installed with paths: labels the failure"
+assert_contains "$output" "paths" "installed with paths: names the forbidden field"
+assert_file_absent "$GIT_MARKER" "installed with paths: rejected before Git/network"
 
-TOOL_BOGUS_REGISTRY="$FIXTURE_ROOT/tool-bogus.json"
+TOOL_BOGUS_REGISTRY="$FX/tool-bogus.json"
 write_tool_registry '"kind":"bogus",' "$TOOL_BOGUS_REGISTRY"
-run_checker "$TOOL_BOGUS_REGISTRY"
-assert_eq "2" "$CHECK_STATUS" "unknown kind: invalid registry status"
-assert_contains "$CHECK_OUTPUT" "kind" "unknown kind: names the field"
+check "$TOOL_BOGUS_REGISTRY"
+assert_exit 2 "unknown kind: invalid registry status"
+assert_contains "$output" "kind" "unknown kind: names the field"
 
 # Omitting `kind` keeps today's vendored semantics, where `paths` stays valid.
-TOOL_VENDORED_REGISTRY="$FIXTURE_ROOT/tool-vendored.json"
+TOOL_VENDORED_REGISTRY="$FX/tool-vendored.json"
 write_tool_registry '"paths":["tool.txt"],' "$TOOL_VENDORED_REGISTRY"
-run_checker "$TOOL_VENDORED_REGISTRY" --validate
-assert_eq "0" "$CHECK_STATUS" "vendored default: an entry without kind keeps paths valid"
+check "$TOOL_VENDORED_REGISTRY" --validate
+assert_exit 0 "vendored default: an entry without kind keeps paths valid"
 
 # Provenance reaches the distribution surfaces: ignore rule, MIT notice, Sources entry.
 assert_file_contains ".gitignore" '.archify/' \
