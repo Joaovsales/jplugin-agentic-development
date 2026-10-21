@@ -12,3 +12,332 @@
 #
 # Captured from a clean-HEAD run at 14f1cf9 on the Windows dev host
 # (tasks/baseline-14f1cf9.log), 2026-10-21.
+
+# tests/test-design-stack-evidence.sh: git cat-file receives a backslash pathspec — #269
+tests/test-design-stack-evidence.sh msys* fatal: path '*' exists on disk, but not in 'HEAD'*
+
+# tests/test-design-stack-catalog.sh: symlinks into the sources tree need SeCreateSymbolicLinkPrivilege (WinError 1314) — #269
+tests/test-design-stack-catalog.sh msys* Traceback (most recent call last):*
+
+# tests/test-e2e-evidence.sh: the drive prefix is prepended to an MSYS path (FileNotFoundError) — #269
+tests/test-e2e-evidence.sh msys* layout: artifact_path spells the PNG location
+tests/test-e2e-evidence.sh msys* check: names the missing log
+
+# tests/test-design-stack-install.sh: symlinks into the sources tree need SeCreateSymbolicLinkPrivilege (WinError 1314) — #269
+tests/test-design-stack-install.sh msys* setup succeeds from five local official-source fixtures
+tests/test-design-stack-install.sh msys* setup reports readiness
+tests/test-design-stack-install.sh msys* manifest is versioned
+tests/test-design-stack-install.sh msys* Taste official installer was invoked
+tests/test-design-stack-install.sh msys* Impeccable official installer was invoked
+tests/test-design-stack-install.sh msys* hyperframes revision recorded in the manifest
+tests/test-design-stack-install.sh msys* status reads verified release offline
+tests/test-design-stack-install.sh msys* taste revision recorded
+tests/test-design-stack-install.sh msys* taste is available in the verified release
+tests/test-design-stack-install.sh msys* impeccable revision recorded
+tests/test-design-stack-install.sh msys* impeccable is available in the verified release
+tests/test-design-stack-install.sh msys* references revision recorded
+tests/test-design-stack-install.sh msys* references is available in the verified release
+tests/test-design-stack-install.sh msys* three revision recorded
+tests/test-design-stack-install.sh msys* three is available in the verified release
+tests/test-design-stack-install.sh msys* hyperframes revision recorded
+tests/test-design-stack-install.sh msys* hyperframes is available in the verified release
+tests/test-design-stack-install.sh msys* second setup works offline
+tests/test-design-stack-install.sh msys* offline setup retains the release
+tests/test-design-stack-install.sh msys* same-revision update succeeds
+tests/test-design-stack-install.sh msys* same-revision update is a no-op
+tests/test-design-stack-install.sh msys* failed update has a named outcome
+tests/test-design-stack-install.sh msys* old command remains readable
+tests/test-design-stack-install.sh msys* validation failure is named
+tests/test-design-stack-install.sh msys* missing installed entrypoint is named
+tests/test-design-stack-install.sh msys* timeout has a named outcome
+tests/test-design-stack-install.sh msys* valid update succeeds
+tests/test-design-stack-install.sh msys* successful update reports readiness
+tests/test-design-stack-install.sh msys* successful update switches release
+tests/test-design-stack-install.sh msys* new content is available
+
+# tests/test-codex-install.sh: Windows-only codex install failure (legacy-adoption backup paths) — #269
+tests/test-codex-install.sh msys* preview: exact old planner shape identified
+tests/test-codex-install.sh msys* preview: planned backup named
+tests/test-codex-install.sh msys* install: explicit legacy adoption succeeds
+tests/test-codex-install.sh msys* adoption: original bytes backed up
+tests/test-codex-install.sh msys* adoption: new managed shape installed
+
+# tests/test-diagram-skill.sh: MSYS /tmp paths in the wrapper's output differ from the Windows path forms the assertions expect — #203
+tests/test-diagram-skill.sh msys* browser: playwright-cli's newest Chromium is exported when PATH has none
+tests/test-diagram-skill.sh msys* browser: stdout is eval-safe export lines
+tests/test-diagram-skill.sh msys* finalize: upstream's arguments are forwarded unchanged
+
+# tests/test-gh-pr.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-gh-pr.sh msys* create: a created pull request exits 0
+tests/test-gh-pr.sh msys* create: the pull request URL is printed
+tests/test-gh-pr.sh msys* create (AC10): POST /pulls carries head, base, title, body and draft on stdin
+tests/test-gh-pr.sh msys* create: without --draft the pull request is ready for review
+tests/test-gh-pr.sh msys* view: an existing pull request exits 0
+tests/test-gh-pr.sh msys* view: number is read
+tests/test-gh-pr.sh msys* view: url is html_url
+tests/test-gh-pr.sh msys* view: body is the pull request body verbatim
+tests/test-gh-pr.sh msys* view: REST true reads MERGEABLE, the word the closure prose uses
+tests/test-gh-pr.sh msys* view: headSha is head.sha
+tests/test-gh-pr.sh msys* view (AC10): a number is GET /pulls/{n}
+tests/test-gh-pr.sh msys* view: -q .field prints the bare value and nothing else
+tests/test-gh-pr.sh msys* view: a branch resolves to its newest pull request, open or closed
+tests/test-gh-pr.sh msys* view (AC10): a branch is GET /pulls?head=owner:branch&state=all
+tests/test-gh-pr.sh msys* view: an unknown field is refused
+tests/test-gh-pr.sh msys* view: the refusal names the field
+tests/test-gh-pr.sh msys* view (AC10): a branch with no pull request exits 1
+tests/test-gh-pr.sh msys* view: the no-PR message names the branch
+tests/test-gh-pr.sh msys* view: gh's stderr is quoted so the caller reports UNKNOWN
+tests/test-gh-pr.sh msys* view: a gh that answers something other than JSON is could-not-ask, exit 2
+tests/test-gh-pr.sh msys* view: the non-JSON answer is named
+tests/test-gh-pr.sh msys* guard: a leading # on the number is accepted, the way gh takes it
+tests/test-gh-pr.sh msys* guard: a branch name is URL-quoted into the head query, slashes kept
+tests/test-gh-pr.sh msys* edit: a redrafted body exits 0
+tests/test-gh-pr.sh msys* edit (AC10): PATCH /pulls/{n} carries the body on stdin
+tests/test-gh-pr.sh msys* edit: the mock persisted the new body, so a later view reads it
+tests/test-gh-pr.sh msys* ready: marking ready exits 0
+tests/test-gh-pr.sh msys* ready (AC10): ready posts to pulls/{n}/ccr/ready_for_review
+tests/test-gh-pr.sh msys* ready: the path taken is reported
+tests/test-gh-pr.sh msys* ready (AC10): --undo posts to pulls/{n}/ccr/convert_to_draft
+tests/test-gh-pr.sh msys* ready (Decision 9): a 404 from the ccr route falls back to gh pr ready --undo
+tests/test-gh-pr.sh msys* ready: a successful gh pr ready fallback exits 0
+tests/test-gh-pr.sh msys* ready: the fallback path is reported
+tests/test-gh-pr.sh msys* ready: a 403 is not a 404 -- no fallback to GraphQL on a refused write
+tests/test-gh-pr.sh msys* checks: each check run is listed with its conclusion
+tests/test-gh-pr.sh msys* checks: the failing run is listed
+tests/test-gh-pr.sh msys* checks: commit statuses are listed beside check runs
+tests/test-gh-pr.sh msys* checks: the summary names what failed
+tests/test-gh-pr.sh msys* checks (AC10): check runs are GET /commits/{sha}/check-runs
+tests/test-gh-pr.sh msys* checks (AC10): statuses are GET /commits/{sha}/status
+tests/test-gh-pr.sh msys* checks --required: only the required checks decide
+tests/test-gh-pr.sh msys* checks (AC10): --required reads the base branch's required status checks
+tests/test-gh-pr.sh msys* checks --required: lint is not required, so it does not fail the watch
+tests/test-gh-pr.sh msys* checks --required: a 404 Branch not protected falls back to all checks and says so
+tests/test-gh-pr.sh msys* checks: an in-progress run is pending
+tests/test-gh-pr.sh msys* checks: pending without --watch is reported and exits 1
+tests/test-gh-pr.sh msys* checks --watch: past the budget the summary is timeout
+tests/test-gh-pr.sh msys* checks: a commit with no checks says none
+tests/test-gh-pr.sh msys* checks: no checks is not a failure
+tests/test-gh-pr.sh msys* mergeable: true is clean, exit 0
+tests/test-gh-pr.sh msys* mergeable: false is conflicting with the base branch, exit 1
+tests/test-gh-pr.sh msys* mergeable: null is unknown
+tests/test-gh-pr.sh msys* mergeable: a null is re-read three times before it is reported unknown
+
+# tests/test-routine-skills.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-routine-skills.sh msys* AC7: doctor reports this project's configured path
+
+# tests/test-publish-evidence.sh: Windows-only publish-evidence failures (git push race fixture and status line) — #269
+tests/test-publish-evidence.sh msys* stderr is exactly one status line
+tests/test-publish-evidence.sh msys* public repo is never silent
+tests/test-publish-evidence.sh msys* the competing publisher really pushed first
+tests/test-publish-evidence.sh msys* the competitor's file survived
+tests/test-publish-evidence.sh msys* our commit sits on the competitor's tip
+tests/test-publish-evidence.sh msys* a second rejection exits non-zero
+tests/test-publish-evidence.sh msys* and says publish failed on stderr
+tests/test-publish-evidence.sh msys* and prints no evidence section
+tests/test-publish-evidence.sh msys* every push ran with LC_ALL=C, twice for one retried race
+tests/test-publish-evidence.sh msys* a broken remote is not retried
+tests/test-publish-evidence.sh msys* layout: importing the publisher loads nothing
+
+# tests/test-skill-invocation-chain.sh: Windows-only chain ordering failure recorded in PR #128 — #129
+tests/test-skill-invocation-chain.sh msys* Chain: .agents/build maintains before e2e
+tests/test-skill-invocation-chain.sh msys* Chain: .agents/wrap-up-session maintains before e2e
+
+# tests/test-routine-selectors.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-routine-selectors.sh msys* AC12: a repository carrying every routine label exits 0
+tests/test-routine-selectors.sh msys* AC12: the failure names the missing label tech-debt
+tests/test-routine-selectors.sh msys* AC12: the failure names the missing label documentation
+tests/test-routine-selectors.sh msys* AC12: the failure names the missing CLAIM label -- the same-routine overlap guard
+tests/test-routine-selectors.sh msys* AC12: the verdict names only the absent labels, not every configured one
+tests/test-routine-selectors.sh msys* select: a routine with a candidate exits 0
+tests/test-routine-selectors.sh msys* select: priority orders WITHIN the pool — now (#11) beats next (#10)
+tests/test-routine-selectors.sh msys* select: the pool size pins BOTH exclusions -- 4 fix issues in, 2 candidates out
+tests/test-routine-selectors.sh msys* select: the matched label is reported
+tests/test-routine-selectors.sh msys* select: plan selects the design-decision issue
+tests/test-routine-selectors.sh msys* select: the count of issues with no kind label is reported
+tests/test-routine-selectors.sh msys* select: no candidate exits 0 — a routine with nothing to do is not a failure
+tests/test-routine-selectors.sh msys* select: an empty pool says so in words rather than printing nothing
+tests/test-routine-selectors.sh msys* AC10: a dry run reaches the tracker with no label write at all
+tests/test-routine-selectors.sh msys* AC10: the dry-run refusal names --apply as the way to proceed
+tests/test-routine-selectors.sh msys* claim: the refusal names the owning routine
+tests/test-routine-selectors.sh msys* claim: writes the claim label for the owning routine
+tests/test-routine-selectors.sh msys* claim: the write is reported
+tests/test-routine-selectors.sh msys* claim: the label reaches the tracker — the read half is not the whole guard
+tests/test-routine-selectors.sh msys* claim: re-claiming an already-claimed issue is not an error
+tests/test-routine-selectors.sh msys* claim: idempotent, and says so
+tests/test-routine-selectors.sh msys* AC3: claim explains that a human must re-triage the held issue
+tests/test-routine-selectors.sh msys* AC4: refusing held claims makes no tracker mutation
+tests/test-routine-selectors.sh msys* AC3: the authoritative readback prevents stale selection from bypassing the hold
+tests/test-routine-selectors.sh msys* AC8: explicit human removal of hold and stale claim permits later claiming
+tests/test-routine-selectors.sh msys* AC12: select's refusal names the missing label
+tests/test-routine-selectors.sh msys* AC6: select with timeline-read candidates exits 0
+tests/test-routine-selectors.sh msys* AC6: merged-without-keyword and closed-unmerged references keep the candidate
+tests/test-routine-selectors.sh msys* AC6: a merged PR of this repository whose body closes the issue strands it
+tests/test-routine-selectors.sh msys* AC6: the pool is #22, #24 (reopened) and #25 (mentioned by an issue, closed elsewhere)
+tests/test-routine-selectors.sh msys* AC6: select reports how many candidates it read the timeline for
+tests/test-routine-selectors.sh msys* AC6: linked-PR state is read from the REST timeline, paged
+tests/test-routine-selectors.sh msys* AC6 (Decision 7): the timeline is read after the kind filter -- another routine's issue costs nothing
+tests/test-routine-selectors.sh msys* AC6 (Decision 7): the timeline is read after the claim filter -- a claimed issue costs nothing
+tests/test-routine-selectors.sh msys* AC6: no GraphQL anywhere
+tests/test-routine-selectors.sh msys* AC6: the refusal names the issue whose state is unknown
+tests/test-routine-selectors.sh msys* AC6: the refusal says what could not be read
+tests/test-routine-selectors.sh msys* workflow: an issue a routine owns exits 0
+tests/test-routine-selectors.sh msys* workflow: the routine is labelled in the output
+tests/test-routine-selectors.sh msys* AC1: the skill chain is printed, not just the routine name
+tests/test-routine-selectors.sh msys* workflow: the label that won precedence is named
+tests/test-routine-selectors.sh msys* workflow: a design-decision issue exits 0
+tests/test-routine-selectors.sh msys* workflow: #14 resolves to the plan routine
+tests/test-routine-selectors.sh msys* AC1: plan's chain is its own, not a shared default
+tests/test-routine-selectors.sh msys* AC2: a deferred routine is an ANSWER, not a failure — it exits 0
+tests/test-routine-selectors.sh msys* AC2: the deferred routine's chain is still printed
+tests/test-routine-selectors.sh msys* AC2: the output says build is deferred rather than presenting it as runnable
+tests/test-routine-selectors.sh msys* AC2: the deferral names the issue tracking it, so the reader can check the status
+tests/test-routine-selectors.sh msys* AC2: an untriaged issue is a real answer — 'nobody owns it' exits 0
+tests/test-routine-selectors.sh msys* AC2: the untriaged outcome says WHY no routine matched
+tests/test-routine-selectors.sh msys* AC2: the untriaged outcome names the labels that WOULD route it
+tests/test-routine-selectors.sh msys* AC2: an in-flight issue is a real answer and exits 0
+tests/test-routine-selectors.sh msys* AC2: the in-flight outcome names the claim label it found
+tests/test-routine-selectors.sh msys* AC2: the in-flight outcome names the CLAIMANT — which routine holds it
+tests/test-routine-selectors.sh msys* AC3: workflow names the held state
+tests/test-routine-selectors.sh msys* AC8: workflow requires explicit human re-triage to resume
+tests/test-routine-selectors.sh msys* AC2: the refusal names the reference that did not resolve
+tests/test-routine-selectors.sh msys* workflow: the '#11' form resolves — the same issue as the bare 11
+tests/test-routine-selectors.sh msys* workflow: '#11' and '11' are the same issue, so they get the same answer
+tests/test-routine-selectors.sh msys* workflow: the closed-issue refusal names the issue
+tests/test-routine-selectors.sh msys* workflow: the SAME issue reopened routes — the guard reads state, not the fixture
+tests/test-routine-selectors.sh msys* workflow: the reopened issue is handed its chain
+tests/test-routine-selectors.sh msys* workflow: the refusal says the pool was partial — not that the task is absent
+tests/test-routine-selectors.sh msys* workflow: an untruncated miss IS a confirmed absence, and says so
+tests/test-routine-selectors.sh msys* AC2/AC6: a selector label missing upstream is a misconfiguration — exit 2
+tests/test-routine-selectors.sh msys* AC2/AC6: the refusal names the label the tracker does not have
+tests/test-routine-selectors.sh msys* AC3: an ordered pool selects successfully
+tests/test-routine-selectors.sh msys* AC3: equal priority ties break on ASCENDING ISSUE NUMBER, not the title slug
+tests/test-routine-selectors.sh msys* AC3: a shuffled provider response yields the same head
+tests/test-routine-selectors.sh msys* AC3: editing an issue title does not reshuffle the queue
+tests/test-routine-selectors.sh msys* AC3: priority rank outranks the number — now (#42) beats unset (#40)
+
+# tests/test-task-escalation.sh: ln -s creates a real directory on this host, so the confinement fixture cannot be set up — #203
+tests/test-task-escalation.sh msys* AC9: artifact confinement failure is reported explicitly
+
+# tests/test-verification-skill-integration.sh: CRLF checkout bytes compared with the LF repository notice — #203
+tests/test-verification-skill-integration.sh msys* create-verification-skill: bundled license matches the complete repository notice
+tests/test-verification-skill-integration.sh msys* maintain-verification-skill: bundled license matches the complete repository notice
+
+# tests/test-task-registry.sh: doctor prints the pointer path with a backslash on Windows — #203
+tests/test-task-registry.sh msys* Config: the AGENTS.md pointer redirects discovery away from the default path
+tests/test-task-registry.sh msys* Pointer states: pointer to an existing file — that file is loaded
+tests/test-task-registry.sh msys* Pointer states: the prose mention resolves to the file it names
+tests/test-task-registry.sh msys* Config: the project-owned pointer wins over the template-managed one
+
+# tests/test-task-registry.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
+tests/test-task-registry.sh msys* Selection: a GitHub remote plus authenticated gh selects github
+tests/test-task-registry.sh msys* Selection: github selection states its reason
+tests/test-task-registry.sh msys* Selection (AC1): doctor reports the remote-resolved repository reachable
+tests/test-task-registry.sh msys* Selection (AC1): reachability is probed with gh api user
+tests/test-task-registry.sh msys* Selection (AC1): gh auth status never runs -- it fails in the sandbox while REST works
+tests/test-task-registry.sh msys* Selection (#124): the upstream label check ran against the discovered repository
+tests/test-task-registry.sh msys* Selection (#124): workflow on a remote-resolved github provider exits 0
+tests/test-task-registry.sh msys* GitHub: 'enhancement'->feature, 'now'->high, area/* read, unmapped 'tech-debt' preserved
+tests/test-task-registry.sh msys* GitHub: 'bug'->bug, closed->done, no queue label leaves priority unset
+tests/test-task-registry.sh msys* GitHub: 'design-decision'->decision, 'next'->medium, open->open
+tests/test-task-registry.sh msys* GitHub: identity comes from the body metadata, never from the issue number
+tests/test-task-registry.sh msys* GitHub (AC4): an issues entry carrying a pull_request key is a pull request, not a task
+tests/test-task-registry.sh msys* GitHub (AC4): issues are listed through the REST issues route, paged
+tests/test-task-registry.sh msys* GitHub: an unreachable provider does not lose the local record
+tests/test-task-registry.sh msys* GitHub: the record is marked as not yet published
+tests/test-task-registry.sh msys* GitHub: the unpublished half is reported, never silently dropped
+tests/test-task-registry.sh msys* Migrate: an unreadable spec must not report success (exit was 0)
+tests/test-task-registry.sh msys* Migrate: the unreadable spec is named in the report, not just on stderr
+tests/test-task-registry.sh msys* upsert --parent: a resolvable GitHub parent link exits clean
+tests/test-task-registry.sh msys* upsert --parent: GitHub reports the degraded link with the existing disclosure line
+tests/test-task-registry.sh msys* upsert --parent: the child issue's body gains parent: metadata naming the resolved parent
+tests/test-task-registry.sh msys* GitHub: a legitimate issue number is still fetched after the guard
+tests/test-task-registry.sh msys* GitHub: an unknown label is reported and omitted while creation is off
+tests/test-task-registry.sh msys* GitHub: one issue is read through the REST issues route, the number in the path
+tests/test-task-registry.sh msys* GitHub (AC3): an issue is created through POST /issues, the payload on stdin
+tests/test-task-registry.sh msys* GitHub (AC7): an unknown label is filtered before the write reaches the API
+tests/test-task-registry.sh msys* GitHub (AC5): the refusal names the truncated read
+tests/test-task-registry.sh msys* GitHub (AC5): the issue list is paged from page 1, 100 per page
+tests/test-task-registry.sh msys* GitHub (AC5): the read pages up to the LIST_LIMIT-th entry
+tests/test-task-registry.sh msys* GitHub (AC5): the read stops at the cap instead of paging past it
+tests/test-task-registry.sh msys* GitHub: allow_label_creation actually creates the missing label
+tests/test-task-registry.sh msys* GitHub (AC3): label creation is POST /labels with the name on stdin, not a silent skip
+tests/test-task-registry.sh msys* GitHub: the created label is really added to the repository vocabulary
+tests/test-task-registry.sh msys* GitHub (AC8): a label add that fails after the PATCH names the body as already written
+tests/test-task-registry.sh msys* GitHub (AC8): the body goes first, through PATCH /issues/{n} with the payload on stdin
+tests/test-task-registry.sh msys* GitHub (AC8): the new label follows, through POST /issues/{n}/labels
+tests/test-task-registry.sh msys* GitHub (AC8): an update is exactly those two writes
+tests/test-task-registry.sh msys* GitHub (AC3): close_task answers the terminal status
+tests/test-task-registry.sh msys* GitHub (AC3): a comment is POST /issues/{n}/comments, the body on stdin
+tests/test-task-registry.sh msys* GitHub (AC3): a cancelled close is PATCH /issues/{n} with state closed and state_reason not_planned
+tests/test-task-registry.sh msys* GitHub (AC3): an update with nothing new to label makes no label write
+tests/test-task-registry.sh msys* Migrate: the rewritten dependency is the minted id, not the original prose
+tests/test-task-registry.sh msys* GitHub: hierarchy is declared non-native rather than silently claimed
+tests/test-task-registry.sh msys* GitHub: dependencies are declared non-native rather than silently claimed
+tests/test-task-registry.sh msys* GitHub: a degraded link renders as inferred, naming where the relationship went
+tests/test-task-registry.sh msys* GitHub: the rendered link names both ends of the relationship
+tests/test-task-registry.sh msys* GitHub: the limitation is surfaced, not swallowed
+tests/test-task-registry.sh msys* offline_reads=fail: the reason is named under failures:, not degraded:
+tests/test-task-registry.sh msys* Show: an answer assembled without the provider says so rather than reading as complete
+
+# tests/test-session-start.sh: the TEMPLATE DRIFT line is not produced on this host — #203
+tests/test-session-start.sh msys* Drift: a template commit changing the block produces the drift line
+tests/test-session-start.sh msys* Drift: the block counts as one item
+
+# tests/test-sync-retirement.sh: MSYS /tmp paths in sync-retire.py's output differ from the Windows path forms the assertions expect — #203
+tests/test-sync-retirement.sh msys* the header names the template source
+tests/test-sync-retirement.sh msys* bootstrap under --apply still succeeds
+tests/test-sync-retirement.sh msys* bootstrap --apply writes the candidate allowlist
+tests/test-sync-retirement.sh msys* the candidate lists the project-only paths
+tests/test-sync-retirement.sh msys* promoting the candidate leaves bootstrap
+tests/test-sync-retirement.sh msys* a promoted candidate keeps every path it named
+tests/test-sync-retirement.sh msys* F1: first bootstrap --apply writes the candidate
+tests/test-sync-retirement.sh msys* F6: the script's root list equals the drift test's directory subset
+tests/test-sync-retirement.sh msys* bootstrap succeeds even with an unexpressible path
+tests/test-sync-retirement.sh msys* an ordinary path is emitted as a usable pattern
+tests/test-sync-retirement.sh msys* a path with glob metacharacters is commented out, not emitted as a pattern
+tests/test-sync-retirement.sh msys* and protects what it names
+tests/test-sync-retirement.sh msys* the outcome counts what happened, not what was planned
+tests/test-sync-retirement.sh msys* the path that could not be deleted is named
+tests/test-sync-retirement.sh msys* the undeletable path really did survive
+tests/test-sync-retirement.sh msys* the directory that could not be pruned is named
+tests/test-sync-retirement.sh msys* a path the reader would strip is commented out, not offered as a pattern
+tests/test-sync-retirement.sh msys* an expressible sibling is still written as a live pattern
+tests/test-sync-retirement.sh msys* the unexpressible path is never emitted as an uncommented rule
+tests/test-sync-retirement.sh msys* bootstrap writes a candidate
+tests/test-sync-retirement.sh msys* while the expressible sibling still protects its file
+tests/test-sync-retirement.sh msys* the directory named is the one that actually failed
+tests/test-sync-retirement.sh msys* and that directory is genuinely still on disk
+tests/test-sync-retirement.sh msys* and says so
+tests/test-sync-retirement.sh msys* the candidate offers only what provenance could not settle
+tests/test-sync-retirement.sh msys* and never offers to keep something the template already retired
+tests/test-sync-retirement.sh msys* a shallow template still produces a plan
+tests/test-sync-retirement.sh msys* with no stale candidate the same run succeeds
+tests/test-sync-retirement.sh msys* and reports having destroyed it
+tests/test-sync-retirement.sh msys* so retirement still happens in the mode SKILL.md prescribes
+tests/test-sync-retirement.sh msys* an unprunable directory is a non-zero outcome
+tests/test-sync-retirement.sh msys* but the file it destroyed is still reported by path
+tests/test-sync-retirement.sh msys* and the directory it could not remove is named separately
+tests/test-sync-retirement.sh msys* the piped dry run exits zero
+tests/test-sync-retirement.sh msys* and reaches the same conclusion as the on-disk invocation
+tests/test-sync-retirement.sh msys* reading the program from stdin does not imply --apply
+tests/test-sync-retirement.sh msys* the piped --apply exits zero
+tests/test-sync-retirement.sh msys* the retired path is deleted through the prescribed pipeline
+tests/test-sync-retirement.sh msys* the candidate is written for the human to promote
+tests/test-sync-retirement.sh msys* and the file it destroyed is still reported by path
+tests/test-sync-retirement.sh msys* alongside what it could not write, named separately
+tests/test-sync-retirement.sh msys* the failure is reported, not raised through the accounting
+tests/test-sync-retirement.sh msys* the refusal names the path it will not write
+tests/test-sync-retirement.sh msys* and the refusal is a non-zero outcome
+tests/test-sync-retirement.sh msys* the report says why it refused, naming the mechanism
+tests/test-sync-retirement.sh msys* the newline is escaped into the path field rather than ending the line
+
+# tests/test-install-sh.sh: ln -s creates a real file on this host, so the dangling-symlink case cannot be set up — #203
+tests/test-install-sh.sh msys* git scaffold: a dangling symlink at a template path is kept, not written through
+
+# tests/test-install-sh.sh: the pinned archify clone does not land on this host — #203
+tests/test-install-sh.sh msys* archify: first run reports installed
+tests/test-install-sh.sh msys* archify: the checkout is at the pinned commit
+tests/test-install-sh.sh msys* archify: the checkout holds the CLI
+tests/test-install-sh.sh msys* archify: the checkout holds SKILL.md
+tests/test-install-sh.sh msys* archify: the checkout holds LICENSE
+tests/test-install-sh.sh msys* archify: second run reports present without cloning
