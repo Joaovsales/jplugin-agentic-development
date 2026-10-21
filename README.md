@@ -434,7 +434,8 @@ Claude delegates to these automatically (or you can invoke them via the Agent to
 │   ├── settings.json                ← env + plugin declaration (no hooks — see hooks/hooks.json)
 │   └── agents/                      ← 8 specialized subagents
 ├── mods/
-│   └── factory-board/               ← Claude Code mod: Kanban pane of the session's sub-agents (see its README)
+│   ├── factory-board/               ← Claude Code mod: Kanban pane of the session's sub-agents (see its README)
+│   └── session-viz/                 ← Claude Code mod: the Session pane — phase, plan, agents, gates (install id session-viz@jplugin-agentic-development)
 ├── tasks/
 │   ├── todo.md                      ← Active task plan
 │   ├── history.md                   ← Session narrative log
