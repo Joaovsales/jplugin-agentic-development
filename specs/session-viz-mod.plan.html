@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Spec: session-viz</title>
+<style>/* jplugin plan theme — inlined into every visual plan by
+   .agents/skills/visual-plan/scripts/plan_render.py. Rules: design/plan-theme/DESIGN.md.
+   Derived from the minimal technical journal prototype (design/prototypes/minimalist/). */
+
+:root {
+  color-scheme: light;
+  --paper: #f7f7f4; --surface: #ffffff; --ink: #26251e; --body: #4f4e48; --muted: #6b675f;
+  --line: #dcdad2; --strong: #b9b7ac; --code: #f0f0ea; --wash: #f1ebe5; --accent: #b93f18;
+  --c-decision: #1f5fa8; --c-criterion: #2d6a35; --c-risk: #8a5300; --c-question: #6a3d9a;
+  --c-blocker: #b3261e; --c-constraint: #4a5868; --c-contract: #0f6b6b; --c-model: #7a4b2a;
+  --c-slice: #3b4cc0; --c-prompt: #b93f18; --c-diagram: #50504a; --c-reference: #5f5c55;
+  --t-decision: #eaf1fa; --t-criterion: #ebf4ec; --t-risk: #f8f0e2; --t-question: #f2edf8;
+  --t-blocker: #fbeceb; --t-slice: #eeeffb; --t-prompt: #f8ece6;
+  --display: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+    --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+    --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+    --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+    --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+    --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+    --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+  --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+  --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+  --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+  --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+  --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+  --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+}
+
+/* ---------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.62 var(--sans); overflow-wrap: break-word; }
+a { color: inherit; text-underline-offset: .2em; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { background: var(--wash); color: var(--ink); }
+p, li { color: var(--body); max-width: var(--measure); }
+code { font: .88em/1.4 var(--mono); background: var(--code); padding: .08em .3em; border-radius: 3px; overflow-wrap: anywhere; }
+pre { margin: 16px 0 24px; background: var(--code); padding: 18px 20px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--ink); max-width: 100%; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+blockquote { margin: 0 0 20px; padding: 2px 0 2px 16px; border-left: 2px solid var(--strong); color: var(--muted); }
+h1, h2, h3 { color: var(--ink); }
+h3 { font: 600 17px/1.3 var(--sans); letter-spacing: -.01em; margin: 26px 0 10px; }
+ul, ol { padding-left: 22px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+.skip { position: absolute; left: 10px; top: -60px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 30; }
+.skip:focus { top: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ------------------------------------------------------------- layout */
+.masthead { max-width: 1440px; margin: 0 auto; padding: clamp(36px, 6vw, 84px) clamp(16px, 4vw, 64px) 26px; border-bottom: 1px solid var(--line); }
+.folio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin: 0 0 22px; color: var(--muted); font: 12px/1.5 var(--mono); max-width: none; }
+.masthead h1 { font: 400 clamp(36px, 6vw, 76px)/1.02 var(--display); letter-spacing: -.035em; margin: 0 0 18px; max-width: 22ch; }
+.source { margin: 0; font: 13px/1.5 var(--mono); color: var(--muted); max-width: none; }
+.source a { color: var(--ink); }
+.shell { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 0 clamp(16px, 4vw, 64px); }
+main { min-width: 0; padding-bottom: 80px; }
+
+/* ----------------------------------------------------------- navigation */
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 26px 0; font-size: 14px; }
+.toc-menu > summary { list-style: none; cursor: pointer; font: 12px/1.4 var(--mono); color: var(--muted); padding: 6px 0; }
+.toc-menu > summary::-webkit-details-marker { display: none; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; }
+.toc li { margin: 0; max-width: none; }
+.toc a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--line); text-decoration: none; color: var(--body); line-height: 1.35; }
+.toc a:hover { color: var(--ink); border-left-color: var(--strong); }
+.toc a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); font-weight: 600; }
+.toc .toc-prompt { margin-top: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.btn, .copy, .review button { font: 600 13px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--strong); border-radius: 4px; padding: 9px 12px; cursor: pointer; min-height: 36px; }
+.btn:hover, .copy:hover, .review button:hover { border-color: var(--ink); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ------------------------------------------------- lead, strip, blockers */
+.lead { margin: 30px 0 26px; }
+.lead p { font: 400 clamp(20px, 2.2vw, 27px)/1.42 var(--display); color: var(--ink); max-width: 40ch; margin: 0 0 14px; }
+.lead .lead-label, .card-label { font: 600 11px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.lead .lead-label { color: var(--muted); display: block; margin-bottom: 10px; }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); margin: 0 0 26px; }
+.stat { display: block; padding: 14px 14px 14px 0; text-decoration: none; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 14px; }
+.stat-n { display: block; font: 400 30px/1.1 var(--display); color: var(--ink); }
+.stat-l { display: block; font: 12px/1.3 var(--mono); color: var(--muted); }
+.stat-alert .stat-n { color: var(--c-blocker); }
+.strip-label { grid-column: 1 / -1; display: flex; gap: 4px; align-items: baseline; padding: 8px 0 0; color: var(--muted); }
+.strip-label + .stat { border-left: 0; padding-left: 0; }
+.blockers { border: 1px solid var(--c-blocker); border-left-width: 6px; background: var(--t-blocker); padding: 16px 20px; margin: 0 0 30px; }
+.blockers h2 { font: 600 18px/1.3 var(--sans); margin: 0 0 8px; color: var(--c-blocker); }
+.blockers ul { margin: 0; padding-left: 0; list-style: none; }
+.blockers li { padding: 4px 0; max-width: none; }
+.blockers .none { color: var(--body); margin: 0; }
+
+/* ------------------------------------------------------------- sections */
+.sec { scroll-margin-top: 12px; border-bottom: 1px solid var(--line); }
+.sec > details > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; padding: 30px 0 18px; }
+.sec > details > summary::-webkit-details-marker { display: none; }
+.sec > details > summary::after { content: "+"; margin-left: auto; font: 400 22px/1 var(--mono); color: var(--muted); }
+.sec > details[open] > summary::after { content: "\2212"; }
+.sec h2 { font: 400 clamp(28px, 3.4vw, 44px)/1.08 var(--display); letter-spacing: -.03em; margin: 0; }
+.sec-count { font: 12px/1 var(--mono); color: var(--muted); }
+.sec > details > :not(summary) { margin-left: 0; }
+.sec > details { padding-bottom: 26px; }
+.table-scroll { overflow-x: auto; max-width: 100%; margin: 14px 0 22px; border-top: 1px solid var(--ink); }
+.table-scroll:focus-visible { outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { position: sticky; top: 0; background: var(--paper); text-align: left; font: 600 12px/1.35 var(--mono); color: var(--muted); padding: 10px 12px 8px 0; border-bottom: 1px solid var(--strong); vertical-align: bottom; }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); min-width: 9ch; }
+
+/* ---------------------------------------------------------------- cards */
+.cards { display: grid; gap: 12px; margin: 6px 0 18px; padding: 0; list-style: none; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; max-width: none; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-head h3 { margin: 0; font: 600 16px/1.35 var(--sans); flex: 1 1 18ch; min-width: 0; }
+.card-icon { font: 700 14px/1 var(--mono); width: 1.5em; text-align: center; flex: none; }
+.card-id { font: 600 12px/1 var(--mono); color: var(--ink); background: var(--code); padding: 4px 6px; border-radius: 3px; }
+.card p { margin: 8px 0 0; }
+.card-body { margin-top: 8px; }
+.card-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.card-more > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.card-more dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; }
+.card-more dt { font: 600 12px/1.6 var(--mono); color: var(--muted); }
+.card-more dd { margin: 0; color: var(--body); }
+.chosen { position: relative; padding-left: 26px; color: var(--ink); overflow-wrap: anywhere; }
+.chosen::before { position: absolute; left: 0; top: .2em; }
+.chosen::before { content: "\2713"; font: 700 12px/1 var(--mono); color: var(--c-criterion); border: 1px solid currentColor; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; flex: none; }
+.callout-wrong { border-left: 3px solid var(--c-blocker); padding: 6px 10px; background: var(--t-blocker); color: var(--ink); }
+.meta { font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: none; }
+
+/* chips: text labels first, colour second */
+.chip { font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip-settled { color: var(--c-criterion); }
+.chip-open, .chip-uncovered, .chip-blocked { color: var(--c-blocker); border-style: dashed; }
+.chip-new { color: var(--c-contract); }
+.chip-changed { color: var(--c-risk); }
+.chip-verify { color: var(--c-question); border-style: dashed; }
+.lvl { font: 600 11px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--strong); border-radius: 3px; color: var(--ink); }
+.lvl-H { border-color: var(--c-blocker); color: var(--c-blocker); border-width: 2px; }
+.lvl-M { border-color: var(--c-risk); color: var(--c-risk); }
+.lvl-L { color: var(--muted); }
+
+/* one colour, icon, label and border shape per component type */
+.card-decision { border-color: var(--c-decision); border-style: solid; }
+.card-decision .card-icon, .card-decision .card-label { color: var(--c-decision); }
+.card-decision.is-open { background: var(--t-decision); }
+.card-criterion { border: 0; border-left: 3px solid var(--c-criterion); background: transparent; padding: 8px 12px; }
+.card-criterion .card-icon, .card-criterion .card-label { color: var(--c-criterion); }
+.card-criterion.is-uncovered { border-left-color: var(--c-blocker); border-left-style: dashed; background: var(--t-blocker); }
+.card-risk { border: 3px double var(--c-risk); }
+.card-risk .card-icon, .card-risk .card-label { color: var(--c-risk); }
+.card-question { border: 2px dashed var(--c-question); background: var(--t-question); }
+.card-question .card-icon { color: var(--c-question); border: 2px solid currentColor; border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; }
+.card-question .card-label { color: var(--c-question); }
+.card-constraint { border: 1px dotted var(--c-constraint); }
+.card-constraint .card-icon, .card-constraint .card-label { color: var(--c-constraint); }
+.card-contract { border: 1px solid var(--line); border-left: 6px solid var(--c-contract); }
+.card-contract .card-icon, .card-contract .card-label { color: var(--c-contract); }
+.card-contract pre { margin: 10px 0 0; }
+.card-model { border: 1px solid var(--line); border-top: 4px solid var(--c-model); }
+.card-model .card-icon, .card-model .card-label { color: var(--c-model); }
+.card-slice { border: 2px solid var(--c-slice); border-radius: 0 12px 12px 0; }
+.card-slice .card-icon, .card-slice .card-label { color: var(--c-slice); }
+.card-slice.is-blocked { background: var(--t-blocker); border-style: dashed; }
+.card-prompt { border: 2px solid var(--c-prompt); background: var(--t-prompt); padding: 18px 20px; }
+.card-prompt .card-icon, .card-prompt .card-label { color: var(--c-prompt); }
+.card-prompt pre { background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-prompt.not-ready { border-style: dashed; border-color: var(--c-blocker); background: var(--t-blocker); }
+.not-ready-msg { font-weight: 700; color: var(--c-blocker); }
+.card-reference { border: 0; border-top: 1px dotted var(--c-reference); background: transparent; padding: 10px 0; }
+.card-reference .card-icon, .card-reference .card-label { color: var(--c-reference); }
+.card-blockers .card-icon, .card-blockers .card-label { color: var(--c-blocker); }
+.card-strip .card-label { color: var(--muted); }
+.card-lead .card-label { color: var(--muted); }
+
+/* ------------------------------------------------------------- diagrams */
+.diagram { margin: 18px 0 24px; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.diagram .card-icon, .diagram .card-label { color: var(--c-diagram); }
+.diagram-scroll { overflow-x: auto; max-width: 100%; margin-top: 8px; }
+.diagram svg { display: block; max-width: none; height: auto; font-family: var(--sans); }
+.diagram figcaption { font: 13px/1.5 var(--sans); color: var(--body); margin-top: 8px; }
+.diagram-source, .text-diagram { margin-top: 10px; }
+.diagram-source > summary, .text-diagram > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.text-diagram { border: 1px dashed var(--strong); padding: 8px 12px; margin: 12px 0 20px; }
+svg .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+svg .node text { fill: var(--ink); font-size: 13px; }
+svg .node .node-sub { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .node-new rect { stroke: var(--c-contract); stroke-width: 2.4; }
+svg .node-changed rect { stroke: var(--c-risk); stroke-width: 2.4; stroke-dasharray: 6 3; }
+svg .node-blocked rect { stroke: var(--c-blocker); stroke-width: 2.4; stroke-dasharray: 3 3; fill: var(--t-blocker); }
+svg a:focus-visible rect, svg a:hover rect { stroke: var(--accent); stroke-width: 2.6; }
+svg .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .edge-dashed { stroke-dasharray: 5 4; }
+svg .arrow { fill: var(--muted); }
+svg .edge-label { fill: var(--body); font-size: 11px; font-family: var(--mono); }
+svg .label-bg { fill: var(--surface); }
+svg .lane { fill: var(--code); stroke: var(--line); }
+svg .lane-label { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .lifeline { stroke: var(--strong); stroke-dasharray: 4 4; }
+svg .actor rect { fill: var(--surface); stroke: var(--ink); }
+svg .actor text { fill: var(--ink); font-size: 13px; }
+svg .msg { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .msg-reply { stroke-dasharray: 5 4; }
+svg .msg-label { fill: var(--ink); font-size: 12px; }
+svg .frame { fill: none; stroke: var(--c-question); stroke-width: 1.2; }
+svg .frame-label { fill: var(--c-question); font-size: 11px; font-family: var(--mono); font-weight: 600; }
+svg .frame-tab { fill: var(--t-question); stroke: var(--c-question); }
+svg .frame-divider { stroke: var(--c-question); stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 12px/1.4 var(--mono); color: var(--muted); margin-top: 8px; padding: 0; list-style: none; }
+.legend li { max-width: none; }
+
+/* -------------------------------------------------------------- review */
+.review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.review button { padding: 6px 9px; min-height: 30px; font-size: 12px; }
+.review button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.review label { display: flex; align-items: center; gap: 6px; flex: 1 1 16ch; min-width: 0; font: 12px/1.3 var(--mono); color: var(--muted); }
+.review textarea, .review select, .review input { font: 13px/1.4 var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--strong); border-radius: 4px; padding: 6px 8px; flex: 1 1 16ch; min-width: 0; }
+.review-status { font: 12px/1.4 var(--mono); color: var(--muted); margin: 8px 0 0; max-width: none; }
+.review-panel { border: 1px solid var(--strong); padding: 16px 18px; margin: 26px 0; }
+.review-panel pre { white-space: pre-wrap; }
+
+/* ------------------------------------------------------- blockers-only */
+body.only-blockers main .sec:not(.has-blockers),
+body.only-blockers main .cards > :not(.is-blocker),
+body.only-blockers main .ac-list > :not(.is-blocker) { display: none; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 767px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: sticky; top: 0; z-index: 20; max-height: none; overflow: visible; background: var(--paper); border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .toc-menu > summary { font-size: 14px; color: var(--ink); padding: 10px 0; }
+  .toc-menu > summary::before { content: "\2630  "; }
+  .toc-menu[open] ol { max-height: 70vh; overflow-y: auto; padding-bottom: 10px; }
+  .masthead h1 { font-size: clamp(32px, 10vw, 48px); }
+  .stat + .stat { border-left: 0; padding-left: 0; }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card-more dl { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 768px) {
+  .toc-menu > summary { pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  :root { --paper: #fff; --surface: #fff; }
+  .toc, .controls, .review, .copy, .skip, .review-panel { display: none !important; }
+  .shell { display: block; padding: 0; }
+  .sec > details > summary::after { content: ""; }
+  .card, .diagram { break-inside: avoid; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 10px; color: var(--muted); }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body class="plan">
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead"><p class="folio"><span>Visual plan</span><span><a href="#build-prompt">Build prompt ↓</a></span></p><h1>Spec: session-viz</h1><p class="source">Source: <a href="session-viz-mod.md">specs/session-viz-mod.md</a> · sha256 <code>fcbc7e3e9bff</code></p></header>
+<div class="shell"><nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary><ol><li><a href="#summary-lead">Summary</a></li><li><a href="#blockers">Blockers</a></li><li><a href="#behavior">Behavior</a></li><li><a href="#inputs">Inputs</a></li><li><a href="#outputs">Outputs</a></li><li><a href="#edge-cases">Edge Cases</a></li><li><a href="#risks">Risks</a></li><li><a href="#decisions">Decisions</a></li><li><a href="#acceptance-criteria">Acceptance Criteria</a></li><li><a href="#implementation-paths">Implementation Paths</a></li><li><a href="#build-order">Build Order</a></li><li><a href="#build-prompt">Build prompt</a></li><li><a href="#review">Review</a></li></ol></details></nav><main id="main">
+<blockquote>Origin: conversation (2026-10-19) · Review status: <strong>planned</strong><br>Prior art: <code>mods/factory-board/</code> (#289) — the sub-agent Kanban this mod absorbs (D5).</blockquote>
+<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label"><span class="card-icon" aria-hidden="true">¶</span> <span class="card-label">Summary</span></span><p>A Claude Code mod (a plugin of function hooks) that shows how a jplugin session is going, in one docked pane: the workflow phase and the running skill, slice progress read from <code>tasks/todo.md</code>, the sub-agent tree with each agent&#x27;s brief and footprint, and the quality gates — findings, the quality receipt, ambiguities, surface reports and dispatch checks. It observes and never intervenes. It is a standalone mod at <code>mods/session-viz/</code>, beside <code>mods/factory-board/</code>, whose Kanban it supersedes.</p></section>
+<nav class="strip card-strip" aria-label="At a glance"><span class="strip-label"><span class="card-icon" aria-hidden="true">#</span><span class="card-label">At a glance</span></span><a class="stat" href="#build-order"><span class="stat-n">5</span><span class="stat-l">slices</span></a><a class="stat" href="#acceptance-criteria"><span class="stat-n">12</span><span class="stat-l">criteria</span></a><a class="stat" href="#decisions"><span class="stat-n">16</span><span class="stat-l">decisions</span></a><a class="stat" href="#risks"><span class="stat-n">3</span><span class="stat-l">risks</span></a><a class="stat" href="#decisions"><span class="stat-n">0</span><span class="stat-l">open items</span></a><a class="stat" href="#blockers"><span class="stat-n">0</span><span class="stat-l">blockers</span></a></nav>
+<section class="blockers card-blockers" id="blockers" aria-labelledby="blockers-h"><h2 id="blockers-h"><span class="card-icon" aria-hidden="true">!</span><span class="card-label">Blockers</span> <span class="sec-count">0</span></h2><p class="none">No blockers: no open decision, blocking question, uncovered criterion or unmitigated high-impact risk.</p></section>
+<div class="controls" role="toolbar" aria-label="Disclosure"><button type="button" class="btn" data-action="expand">Expand all</button><button type="button" class="btn" data-action="collapse">Collapse all</button><button type="button" class="btn" data-action="blockers" aria-pressed="false">Show only blockers</button></div>
+<section class="sec sec-generic" id="behavior" data-kind="generic"><details class="sec-body" open><summary><h2>Behavior</h2></summary><p>The pane <code>session-viz</code>, titled <code>Session</code>, opens at <code>session.start</code> where the surface docks panes and on <code>/session-viz</code> (focused). Its body is one column of stacked sections, in this order:</p>
+<ol><li><strong>Phase</strong> — the phase (<code>PLAN</code>, <code>BUILD</code>, <code>GATE</code>, <code>WRAP-UP</code>, or <code>idle</code>), the skill running now, and the <code>/go</code> route (<code>lane</code>, <code>chain</code>) when one was printed.</li><li><strong>Plan</strong> — the active <code>## Plan:</code> block of <code>tasks/todo.md</code>: feature, spec, <code>slice k/N</code> closed (a slice is closed once its <code>&gt; Handover:</code> blockquote exists), rows done over rows total, and one line per slice (<code>n/N name · rows d/t · ✓ handover</code>).</li><li><strong>Agents</strong> — every sub-agent of the session as a tree indented by parent, in spawn order, one Button row each: a glyph (<code>◐</code> running, <code>✓</code> answered, <code>✗</code> failed or killed, <code>⚑</code> an open <code>AskUserQuestion</code> or <code>[AMBIGUITY]</code> lines in its answer), the factory stage (<code>plan</code>, <code>build</code>, <code>review</code> from the agent type&#x27;s name, as factory-board derives it), the type, the description, and its status or duration.</li><li><strong>Gates</strong> — the quality receipt (<code>verdict fp8 · tests exit N · unresolved N</code>, or <code>no receipt yet</code>), the last <code>Verdict:</code> line seen, finding counts by severity, every <code>[AMBIGUITY]</code> line with its agent, every <code>[SURFACE] +path</code> report, and the dispatch issues (off-tier and missing-contract-item) the toasts announced.</li><li><strong>Drill-down</strong> — the pressed agent&#x27;s brief and footprint: description, type, requested and resolved model, parent model and parent agent, the spawn prompt (first 2000 characters, then <code>… +n chars</code>), files read, files edited, patterns grepped, commands run, tool-call count, step count, message count, outcome and duration, <code>[AMBIGUITY]</code> and <code>[SURFACE]</code> lines, finding counts. Pressing the row again closes it. Pressing also scrolls the transcript to the Agent tool row that spawned the agent. No transcript is read or shown.</li></ol>
+<p>From 120 body columns the drill-down is a right column beside sections 1–4; below that it is the last section. Every section shows one dim line when it has nothing.</p>
+<p>The status line reads <code>viz · &lt;PHASE&gt; · &lt;skill&gt; · slice k/N · ctx NN% · $X.XX · agents R/T</code> with every unknown field left out.</p>
+<p>Three toasts, and no others:</p>
+<ul><li><code>session-viz: quality gate STOP (&lt;fp8&gt;)</code> — a receipt whose verdict is <code>STOP</code>, once per fingerprint, or a main-loop answer line <code>Receipt: STOP …</code> or <code>Verdict: … STOP</code>, once per turn. <code>HOLD</code> never toasts.</li><li><code>session-viz: &lt;type&gt; dispatched on &lt;model&gt; (&lt;tier&gt;); model-routing says &lt;tier | inherit&gt;</code> — an <code>agent.spawn</code> whose model tier disagrees with <code>.agents/references/model-routing.md</code> (D11).</li><li><code>session-viz: &lt;type&gt; dispatch missing contract item(s) &lt;n, …&gt;</code> — a reviewer spawn whose prompt lacks the marker of any of the seven items of <code>.agents/references/review-dispatch-contract.md</code> (D10).</li></ul>
+<p>Observe-only: every hook passes <code>e</code> to <code>next</code> unchanged and returns what <code>next</code> resolved; no hook returns <code>deny</code>, rewrites a field, or answers for the engine. The pane, the status line and the toasts are the only outputs.</p></details></section>
+<section class="sec sec-generic" id="inputs" data-kind="generic"><details class="sec-body" open><summary><h2>Inputs</h2></summary><p>Engine events (names as <code>on(...)</code> takes them, fields as <code>types/claude-code.d.ts</code> declares them):</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table: Event, Fields read, Feeds"><table><thead><tr><th scope="col">Event</th><th scope="col">Fields read</th><th scope="col">Feeds</th></tr></thead><tbody><tr><td><code>session.start</code></td><td>—</td><td>registers <code>/session-viz</code>, opens the pane, starts the 5 s <code>$.agent.list()</code> sync, reads <code>tasks/todo.md</code> once</td></tr><tr><td><code>command.run</code> <code>{ command: &#x27;session-viz&#x27; }</code></td><td>—</td><td>opens the pane with <code>focus</code></td></tr><tr><td><code>agent.spawn</code></td><td><code>prompt</code>, <code>description</code>, <code>subagentType</code>, <code>model</code>, <code>parentModel</code>, <code>parentAgentId</code>, <code>tool_use_id</code>; result <code>agentId</code>, <code>model</code></td><td>a tree row and its brief; the two dispatch checks</td></tr><tr><td><code>turn.step</code> (async generator, <code>yield* next(e)</code>)</td><td><code>agentId</code>, <code>index</code>, <code>messageCount</code>; result <code>answer</code></td><td>step and message counts; <code>[ROUTE]</code> lines on the main loop</td></tr><tr><td><code>turn.complete</code></td><td><code>agentId</code>, <code>reason</code>, <code>durationMs</code>, <code>answer</code>, <code>usage</code></td><td>status, outcome, <code>[AMBIGUITY]</code>, <code>[SURFACE]</code>, four-axis findings, <code>Verdict:</code> and <code>Receipt:</code> lines; a receipt re-read on the main loop</td></tr><tr><td><code>tool.call</code></td><td><code>tool</code>, <code>agentId</code>, and per tool <code>file_path</code> (Read, Edit, Write, MultiEdit, NotebookEdit), <code>pattern</code> and <code>path</code> (Glob, Grep), <code>command</code> (Bash); <code>AskUserQuestion</code> open or answered</td><td>footprints; <code>⚑</code> while a dialog is open; a <code>tasks/todo.md</code> re-read after an Edit or Write of it; a receipt re-read after a Bash <code>receipt.py write</code></td></tr><tr><td><code>skill.prompt</code></td><td><code>skill</code></td><td>the running skill and the phase (D8)</td></tr><tr><td><code>prompt.submit</code></td><td><code>text</code></td><td>the spec path a build prompt names (D9)</td></tr><tr><td><code>session.measure</code></td><td><code>context.percent</code>, <code>cost.usd</code></td><td>the status line</td></tr><tr><td><code>ui.render</code> <code>{ component: &#x27;Pane&#x27;, requestId: &#x27;session-viz&#x27; }</code></td><td><code>surface</code>, <code>props.bodyColumns</code>, <code>props.view.agentId</code></td><td>the drawing</td></tr></tbody></table></div>
+<p>Engine calls: <code>$.agent.list()</code> (ids, types, descriptions, parents, statuses), <code>$.fs.read</code> and <code>$.fs.stat</code> (<code>tasks/todo.md</code>, <code>.git</code>, the receipt files), <code>$.session.repo()</code> (the main working tree&#x27;s root), <code>$.ui.open</code>, <code>$.ui.status</code>, <code>$.ui.toast</code>, <code>$.ui.scroll</code>, <code>$.ui.resolve(e)</code>, <code>$.command.register</code>, <code>$.clock.every</code>, and <code>$.state</code> through <code>atom</code>, <code>read</code> and <code>update</code> from <code>&#x27;claude-code&#x27;</code>.</p>
+<p>Files and text conventions parsed:</p>
+<ul><li><code>tasks/todo.md</code> — <code>## Plan: &lt;feature&gt;</code>, <code>&gt; Spec: specs/&lt;x&gt;.md</code>, <code>### Slice n/N — &lt;name&gt;</code>, <code>- [ ]</code>/<code>- [x]</code> header rows, indented <code>[ ] TDD:</code>, <code>[x] TDD:</code> and <code>[ ] Verify:</code> rows, <code>&gt; Handover:</code> blockquotes. <code>\r</code> is stripped first.</li><li><code>[ROUTE] lane=&lt;lane&gt; | chain=&lt;skill, …&gt; | reason: …</code></li><li><code>[AMBIGUITY] &lt;text&gt; | options: … | picked: &lt;letter&gt; | reason: …</code></li><li><code>[SURFACE] +&lt;path&gt; | reason: &lt;sentence&gt;</code></li><li><code>[MUST-FIX | confidence: N | autofix_class: … | owner: …]</code>, with an optional <code>&lt;n&gt;.</code> prefix, as <code>.agents/references/finding-model.md</code> § <em>Emission format</em> spells it; severities <code>MUST-FIX</code>, <code>SHOULD-FIX</code>, <code>NITPICK</code>.</li><li><code>Receipt: &lt;GO|HOLD|STOP&gt; &lt;fp8&gt; …</code> and <code>Verdict: &lt;glyph&gt;? &lt;GO|HOLD|STOP&gt;</code> lines.</li><li>The quality receipt: <code>&lt;repo root&gt;/.git/quality-receipts/branch-&lt;branch&gt;.json</code> (<code>{ fingerprint }</code>) then <code>&lt;fingerprint&gt;.json</code> (<code>schema</code>, <code>verdict</code>, <code>tests.exit</code>, <code>unresolved[]</code>, <code>design_verdict</code>), <code>&lt;branch&gt;</code> sanitized as <code>receipt.py</code> does (<code>[^A-Za-z0-9_.-]</code> → <code>-</code>). The branch comes from <code>.git/HEAD</code> (a file <code>.git</code> in a worktree is <code>gitdir: &lt;path&gt;</code>; HEAD is read there).</li></ul></details></section>
+<section class="sec sec-generic" id="outputs" data-kind="generic"><details class="sec-body" open><summary><h2>Outputs</h2></summary><ul><li>The pane <code>session-viz</code> and its tree, validating on the <code>terminal</code> and <code>desktop</code> surfaces.</li><li>One status line entry, replaced on every change.</li><li>The three toasts above, and nothing on <code>HOLD</code>, <code>GO</code>, a finished agent or an <code>[AMBIGUITY]</code> line.</li><li>Session state under <code>$.state</code> for the plugin <code>session-viz</code>: <code>phase</code>, <code>agents</code>, <code>asking</code>, <code>selected</code>, <code>plan</code>, <code>gates</code>, <code>measure</code>, <code>toasted</code> — declared in <code>types/index.d.ts</code> (§ Implementation Paths), nothing in <code>$.store</code>.</li><li><code>$.ui.scroll({ to: { requestId: &lt;toolUseId&gt; } })</code> on a row press.</li></ul></details></section>
+<section class="sec sec-generic" id="edge-cases" data-kind="generic"><details class="sec-body" open><summary><h2>Edge Cases</h2></summary><ul><li><strong>Hot reload.</strong> <code>register</code> runs again and module variables start over: every value a drawing or a toast decision reads is in <code>$.state</code>, the set of fingerprints and turns already toasted included, so a reload neither empties the pane nor repeats a toast.</li><li><strong>An agent the hooks never saw</strong> (spawned before the mod loaded): the sync adds it from <code>$.agent.list()</code> with no <code>toolUseId</code>, the prompt <code>(spawned before session-viz loaded)</code> and an empty footprint; its press opens the drill-down without scrolling.</li><li><strong>An agent whose parent is unknown</strong> is drawn as a root.</li><li><strong><code>e.skill</code> with a plugin prefix</strong> (<code>jplugin:build</code>): the phase map matches the segment after the last <code>:</code>.</li><li><strong><code>[ROUTE]</code> printed mid-turn</strong>: it is read off every main-loop <code>turn.step</code> result, not only the turn&#x27;s final answer.</li><li><strong>No recorded spec</strong>: the Plan section shows the last <code>## Plan:</code> block holding an open <code>[ ]</code> row, else the last block, else <code>no plan block</code>.</li><li><strong><code>tasks/todo.md</code> missing or unparseable</strong>: the Plan section reads <code>no plan block</code>; nothing is logged to the model and no hook fails.</li><li><strong>Detached HEAD, no <code>.git</code>, or a receipt file missing or malformed</strong>: the Gates section reads <code>no receipt yet</code> or <code>receipt unreadable</code>; no toast.</li><li><strong>No surface</strong> (<code>claude -p</code>, a desktop session before a page attaches): <code>$.ui.open</code> resolves <code>isPlaced: false</code> and the pane waits; the status line and the toasts are still set and do no harm.</li><li><strong>Narrow pane</strong>: below 120 body columns the drill-down is the last section; every row is truncated to the body width with <code>…</code>.</li><li><strong>Caps</strong>: 200 agents (the oldest finished rows leave first), 40 entries per footprint list (the drill-down says <code>+n more</code>), 2000 characters of spawn prompt drawn, 50 ambiguity and 50 surface lines kept.</li><li><strong>Tool names differ per build</strong> (a native build registers no Glob or Grep): the footprint compares <code>String(e.tool)</code> and reads the fields by name.</li><li><strong>The <code>turn.step</code> hook</strong> is an async generator (<code>async function* ($, e, next) { const result = yield* next(e); …; return result }</code>); a plain function there is a type error and loads nothing.</li><li><strong>The CLI on PATH</strong> may be older than the engine that runs the session (2.1.277 here, against a 2.1.299 engine): <code>claude plugin validate</code> there refuses the <code>update($, …)</code> helper and has no <code>plugin test</code>. The build checks <code>claude --version</code> is 2.1.299 or later before the first validate and upgrades it when it is not (D15).</li><li><strong>Load</strong>: one person, one session, at most a few hundred agents and a <code>tasks/todo.md</code> of a few thousand lines; every parse is linear and runs on a change, never on a timer.</li></ul></details></section>
+<section class="sec sec-risks" id="risks" data-kind="risks"><details class="sec-body" open><summary><h2>Risks</h2></summary><div class="cards"><article class="card card-risk" id="r1"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R1</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-H">Impact H</span><h3>The function-hooks API is early access and moves between releases</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>The types laid in <code>.claude-plugin/types/</code> at the first load are the authority; every event field the mod reads is one those types declare today</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R1" role="group" aria-label="Review R1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R1 note"></textarea></label></div></article><article class="card card-risk" id="r2"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R2</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-M">Impact M</span><h3>A jplugin text convention changes shape and a parser goes quiet</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>Each convention&#x27;s regex lives in one function with a test pinning the current format; a miss shows an empty section, never a failure</dd><dt>Slice</dt><dd><a href="#slice-2">slice 2</a>, <a href="#slice-3">slice 3</a>, <a href="#slice-4">slice 4</a>, <a href="#slice-5">slice 5</a></dd></dl><div class="review" data-review="R2" role="group" aria-label="Review R2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R2 note"></textarea></label></div></article><article class="card card-risk" id="r3"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R3</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-L">Impact L</span><h3>The seven-item contract check is heuristic and toasts on a hand-written dispatch</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>The markers are the contract&#x27;s own words (D10); the toast names the missing items so the person can judge, and the row stays under Gates</dd><dt>Slice</dt><dd><a href="#slice-5">slice 5</a></dd></dl><div class="review" data-review="R3" role="group" aria-label="Review R3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R3 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-decisions" id="decisions" data-kind="decisions"><details class="sec-body" open><summary><h2>Decisions</h2></summary><div class="cards"><article class="card card-decision" id="d1"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D1</span><span class="chip chip-settled">settled</span><h3>Does v1 intervene?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Observe only: no <code>deny</code>, no rewrite, every hook passes <code>e</code> on unchanged</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Settled in the prior session; a visualizer that can refuse a tool call is a different, riskier mod</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D1" role="group" aria-label="Review D1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D1 note"></textarea></label></div></article><article class="card card-decision" id="d2"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D2</span><span class="chip chip-settled">settled</span><h3>Where does the mod live?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>A standalone mod at <code>mods/session-viz/</code>, not a module of the jplugin plugin&#x27;s <code>hooks/hooks.json</code>; during the build it is hot-reloaded by copying the folder into the session&#x27;s <code>~/.claude/dev-mods/&lt;session&gt;/</code> folder or by <code>claude --plugin-dir mods/session-viz</code>, the repo copy being the source of truth</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Settled as &quot;standalone first, into jplugin later&quot;; placing the source in the repo (the interview&#x27;s refinement) lets <code>/slice</code> size its surface and the build commit it, which a folder outside the repo cannot</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D2" role="group" aria-label="Review D2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D2 note"></textarea></label></div></article><article class="card card-decision" id="d3"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D3</span><span class="chip chip-settled">settled</span><h3>What does the per-agent drill-down show?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Brief plus footprint — description, spawn prompt, files read, edited and grepped, commands, step count, outcome — and no transcript</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Settled in the prior session; the transcript is the engine&#x27;s tasks list&#x27;s job</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D3" role="group" aria-label="Review D3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D3 note"></textarea></label></div></article><article class="card card-decision" id="d4"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D4</span><span class="chip chip-settled">settled</span><h3>Where is state kept?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Everything in <code>$.state</code>, session-scoped; nothing in <code>$.store</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Settled; nothing here is worth carrying across sessions</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D4" role="group" aria-label="Review D4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D4 note"></textarea></label></div></article><article class="card card-decision" id="d5"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D5</span><span class="chip chip-settled">settled</span><h3>How does it relate to <code>mods/factory-board</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>A superset: the Agents section carries the tree plus factory-board&#x27;s stage derivation, glyphs, dialog mark and press-to-scroll; factory-board is untouched now and retired when session-viz moves into jplugin</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Two panes tracking the same agents is noise; retiring now would widen this spec&#x27;s surface</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D5" role="group" aria-label="Review D5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D5 note"></textarea></label></div></article><article class="card card-decision" id="d6"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D6</span><span class="chip chip-settled">settled</span><h3>Pane layout?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>One column of stacked sections — Phase, Plan, Agents, Gates, Drill-down; from 120 body columns the drill-down is a right column</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Everything is visible at once; tabs hide the gates while agents run</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D6" role="group" aria-label="Review D6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D6 note"></textarea></label></div></article><article class="card card-decision" id="d7"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D7</span><span class="chip chip-settled">settled</span><h3>Toast conditions?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Strict, <code>HOLD</code> silent: STOP from a receipt (once per fingerprint) or a <code>Receipt:</code>/<code>Verdict:</code> line (once per turn); off-tier per D11; a missing contract item per D10, one toast per spawn naming the items</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd><code>HOLD</code> already waits on the person through the gate&#x27;s own output; a toast would double it</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D7" role="group" aria-label="Review D7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D7 note"></textarea></label></div></article><article class="card card-decision" id="d8"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D8</span><span class="chip chip-settled">settled</span><h3>How is the phase known?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>From <code>skill.prompt</code>, by the skill name&#x27;s last <code>:</code> segment: <code>prd</code>, <code>grill-me</code>, <code>grilling</code>, <code>brainstorm</code>, <code>plan</code>, <code>system-design-planning</code>, <code>slice</code>, <code>visual-plan</code> → <code>PLAN</code>; <code>build</code>, <code>yolo</code>, <code>auto-push</code>, <code>make-it-simpler</code> → <code>BUILD</code>; <code>quality-gate</code>, <code>software-design-expert-review</code>, <code>security-scan</code>, <code>verify-evidence</code> → <code>GATE</code>; <code>wrap-up-session</code> → <code>WRAP-UP</code>; any other skill is shown as running and leaves the phase</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd><code>AGENTS.md</code> § Workflow names these as the phases&#x27; owning skills; a <code>[ROUTE]</code> line adds the lane and chain</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D8" role="group" aria-label="Review D8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D8 note"></textarea></label></div></article><article class="card card-decision" id="d9"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D9</span><span class="chip chip-settled">settled</span><h3>Which <code>## Plan:</code> block is active?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>The one whose <code>&gt; Spec:</code> names the spec path the most recent <code>prompt.submit</code> text named (<code>specs/&lt;x&gt;.md</code>, the build prompt&#x27;s <code>Invoke \</code>/build\<code>for …</code> line); otherwise the last block with an open <code>[ ]</code> row; otherwise the last block</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>The build prompt is the one place a session states which plan it builds</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D9" role="group" aria-label="Review D9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D9 note"></textarea></label></div></article><article class="card card-decision" id="d10"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D10</span><span class="chip chip-settled">settled</span><h3>What counts as a contract item present?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>A case-insensitive marker per item, in the reviewer prompt: 1 <code>diff --git</code>, <code>...HEAD</code> or <code>git diff</code>; 2 <code>specs/&lt;x&gt;.md</code> or <code>no spec —</code>; 3 <code>tasks/todo.md</code>; 4 <code>[AMBIGUITY]</code> or <code>ambiguit</code>; 5 <code>TODO(shortcut)</code> or <code>deferrals: none</code>; 6 <code>introduced</code>, <code>pre-existing</code> or <code>boundary</code>; 7 both <code>confidence</code> and <code>autofix_class</code>, or <code>failure:</code>. Checked for <code>code-reviewer</code>, <code>critic</code>, <code>security-reviewer</code>, <code>software-design-expert-review</code> (last <code>:</code> segment of <code>subagentType</code>)</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>The contract is prose with two canonical empty forms; its own words are the only stable markers</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D10" role="group" aria-label="Review D10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D10 note"></textarea></label></div></article><article class="card card-decision" id="d11"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D11</span><span class="chip chip-settled">settled</span><h3>What is off-tier?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Tier of a model string: contains <code>opus</code> → planner, <code>sonnet</code> → builder (Reviewer resolves to the same alias), <code>haiku</code> → scout. Pinned personas: <code>planner</code> → planner; <code>backend-developer</code>, <code>frontend-developer</code>, <code>frontend-design-validator</code>, <code>code-debugger</code>, <code>context-document-optimizer</code> → builder. Ceiling personas (<code>code-reviewer</code>, <code>security-reviewer</code>, <code>software-design-expert-review</code>) toast on any explicit <code>model</code>; <code>critic</code> toasts on an explicit model unless it is planner tier and <code>parentModel</code> is below planner. Unlisted types are never checked</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Verbatim from <code>.agents/references/model-routing.md</code> § Agents and § Floors</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D11" role="group" aria-label="Review D11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D11 note"></textarea></label></div></article><article class="card card-decision" id="d12"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D12</span><span class="chip chip-settled">settled</span><h3>How is the receipt located without <code>$.process.run</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>$.session.repo().root</code> is the main working tree&#x27;s root, so the receipts are under <code>&lt;root&gt;/.git/quality-receipts/</code>; the branch is read from <code>.git/HEAD</code>, following a <code>gitdir:</code> file in a worktree</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd><code>$.process</code> is CLI-only and this session is desktop-hosted; the files are enough</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D12" role="group" aria-label="Review D12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D12 note"></textarea></label></div></article><article class="card card-decision" id="d13"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D13</span><span class="chip chip-settled">settled</span><h3>How is the module split?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>hooks/register.tsx</code> wires the shell and composes the pane from section modules — <code>phase.tsx</code>, <code>plan.tsx</code>, <code>agents.tsx</code>, <code>gates.tsx</code>, <code>dispatch.tsx</code> — each exporting its <code>register&lt;Section&gt;(on)</code> and <code>&lt;Section&gt;</code> render; <code>hooks/state.ts</code> holds every atom; slice 1 lays the section files as stubs so slices 2–5 edit disjoint files</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Disjoint surfaces let the ready set dispatch in parallel; one 600-line module would serialize every slice</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D13" role="group" aria-label="Review D13"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D13 note"></textarea></label></div></article><article class="card card-decision" id="d14"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D14</span><span class="chip chip-settled">settled</span><h3>Which engine runs <code>validate</code> and <code>test</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Claude Code 2.1.299 or later (2.1.303 is published); the build&#x27;s pre-flight runs <code>claude --version</code> and upgrades with <code>npm i -g @anthropic-ai/claude-code@latest</code> when older</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>The 2.1.277 CLI on this PATH fails on the <code>update</code> import and lacks <code>plugin test</code></dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D14" role="group" aria-label="Review D14"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D14 note"></textarea></label></div></article><article class="card card-decision" id="d15"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D15</span><span class="chip chip-settled">settled</span><h3>Pane id, title, command?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>session-viz</code>, <code>Session</code>, <code>/session-viz</code></p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>One word the status line and the toasts share</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D15" role="group" aria-label="Review D15"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D15 note"></textarea></label></div></article><article class="card card-decision" id="d16"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D16</span><span class="chip chip-settled">settled</span><h3>Footprint capture?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>tool.call</code> with <code>agentId</code>: Read, Glob → read; Edit, Write, MultiEdit, NotebookEdit → edited; Grep → <code>&lt;pattern&gt; in &lt;path&gt;</code>; Bash → the command&#x27;s first 80 characters; every call counts; <code>turn.step</code> with <code>agentId</code> → steps (<code>index + 1</code>, max) and the last <code>messageCount</code>; <code>turn.complete</code> → outcome, duration, usage</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>These are the four footprint kinds decision 3 names, read from the events that carry them</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D16" role="group" aria-label="Review D16"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D16 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-acceptance-criteria" id="acceptance-criteria" data-kind="acceptance-criteria"><details class="sec-body" open><summary><h2>Acceptance Criteria</h2></summary><ol class="ac-list cards"><li class="card card-criterion" id="ac1"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC1</span></div><p><code>claude plugin validate mods/session-viz</code> and <code>claude plugin test mods/session-viz</code> pass on Claude Code 2.1.299 or later; the pane <code>session-viz</code> opens at <code>session.start</code> and on <code>/session-viz</code>; the same tree mounts on the <code>terminal</code> and <code>desktop</code> surfaces; with nothing observed each section draws its one empty line; a <code>tool.call</code> result passes through the mod&#x27;s hooks unchanged.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC1" role="group" aria-label="Review AC1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC1 note"></textarea></label></div></li><li class="card card-criterion" id="ac2"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC2</span></div><p>a <code>skill.prompt</code> for <code>jplugin:build</code> makes the Phase section read <code>BUILD · build</code>; a main-loop <code>turn.step</code> whose answer carries <code>[ROUTE] lane=fix | chain=debug, quality-gate | reason: a defect</code> sets lane <code>fix</code> and chain <code>debug, quality-gate</code>; a <code>prompt.submit</code> whose text names <code>specs/x.md</code> records that spec.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC2" role="group" aria-label="Review AC2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC2 note"></textarea></label></div></li><li class="card card-criterion" id="ac3"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC3</span></div><p>after a <code>session.measure</code> with <code>context.percent</code> 42 and <code>cost.usd</code> 1.2345 the status line reads <code>viz · BUILD · build · ctx 42% · $1.23</code> with the agents count appended once agents exist, and no field it does not know.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC3" role="group" aria-label="Review AC3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC3 note"></textarea></label></div></li><li class="card card-criterion" id="ac4"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC4</span></div><p>a <code>code-reviewer</code> spawned with the <code>parentAgentId</code> of a running <code>general-purpose</code> agent is drawn indented under it with <code>◐</code> and stage <code>review</code>; after its <code>turn.complete</code> with reason <code>answer</code> and <code>durationMs</code> 12000 it reads <code>✓ … 12s</code>; an agent only <code>$.agent.list()</code> reports, with status <code>killed</code>, is drawn <code>✗</code> as a root.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC4" role="group" aria-label="Review AC4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC4 note"></textarea></label></div></li><li class="card card-criterion" id="ac5"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC5</span></div><p><code>tool.call</code>s with <code>agentId</code> X — Read <code>a.md</code>, Edit <code>b.ts</code>, Grep <code>foo</code> in <code>src</code>, Bash <code>npm test</code> — and two <code>turn.step</code>s (<code>index</code> 0 and 1, <code>messageCount</code> 7) give X the footprint read <code>[a.md]</code>, edited <code>[b.ts]</code>, grepped <code>[foo in src]</code>, commands <code>[npm test]</code>, 4 tool calls, 2 steps, 7 messages; a 41st read entry drops the oldest and the drill-down says <code>+1 more</code>.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC5" role="group" aria-label="Review AC5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC5 note"></textarea></label></div></li><li class="card card-criterion" id="ac6"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC6</span></div><p>pressing <code>agent:X</code> answers <code>{ element: &#x27;agent:X&#x27; }</code>, scrolls to X&#x27;s spawning <code>tool_use_id</code>, and opens the drill-down with X&#x27;s description, type, requested and resolved model, parent model, parent agent, spawn prompt, footprint lists and counts, outcome and duration; pressing again closes it; <code>$.session.messages</code> is never called.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC6" role="group" aria-label="Review AC6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC6 note"></textarea></label></div></li><li class="card card-criterion" id="ac7"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC7</span></div><p>with a <code>tasks/todo.md</code> holding two <code>## Plan:</code> blocks and a recorded spec matching the first, the Plan section reads <code>slice 1/4 · rows 3/7</code> with one line per slice and <code>✓ handover</code> on the closed one; without a recorded spec the last block holding an open <code>[ ]</code> row is shown.</p><p class="meta">covered by <a href="#slice-3">slice 3</a></p><div class="review" data-review="AC7" role="group" aria-label="Review AC7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC7 note"></textarea></label></div></li><li class="card card-criterion" id="ac8"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC8</span></div><p>a <code>tool.call</code> Edit or Write whose <code>file_path</code> ends with <code>tasks/todo.md</code> re-reads the file after the call completes and the Plan section changes; a missing file reads <code>no plan block</code> and no hook fails.</p><p class="meta">covered by <a href="#slice-3">slice 3</a></p><div class="review" data-review="AC8" role="group" aria-label="Review AC8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC8 note"></textarea></label></div></li><li class="card card-criterion" id="ac9"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC9</span></div><p>a reviewer&#x27;s <code>turn.complete</code> answer with two <code>[MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent]</code> findings (one <code>1.</code>-prefixed), one <code>[NITPICK | …]</code>, one <code>[AMBIGUITY] …</code> line and one <code>[SURFACE] +x.py | reason: y</code> line gives Gates <code>MUST-FIX 2 · NITPICK 1</code>, the ambiguity listed with the agent&#x27;s type, and the surface report listed.</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC9" role="group" aria-label="Review AC9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC9 note"></textarea></label></div></li><li class="card card-criterion" id="ac10"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC10</span></div><p>a <code>branch-&lt;branch&gt;.json</code> pointer naming a <code>&lt;fingerprint&gt;.json</code> whose <code>verdict</code> is <code>STOP</code> toasts <code>session-viz: quality gate STOP (&lt;fp8&gt;)</code> once (a second read of the same fingerprint is silent); a <code>HOLD</code> receipt toasts nothing; a main-loop answer line <code>Receipt: STOP &lt;fp8&gt; policy qg1-00000000</code> toasts once per turn; the Gates section reads <code>receipt STOP &lt;fp8&gt; · tests exit 1 · unresolved N</code>.</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC10" role="group" aria-label="Review AC10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC10 note"></textarea></label></div></li><li class="card card-criterion" id="ac11"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC11</span></div><p><code>backend-developer</code> spawned with <code>model</code> <code>opus</code> toasts off-tier; <code>code-reviewer</code> spawned with <code>model</code> <code>sonnet</code> toasts; <code>critic</code> with <code>opus</code> under <code>parentModel</code> <code>claude-sonnet-5-5</code> is silent; <code>planner</code> with <code>opus</code> is silent; <code>general-purpose</code> with any model is silent; each toast is also a row under Gates.</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC11" role="group" aria-label="Review AC11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC11 note"></textarea></label></div></li><li class="card card-criterion" id="ac12"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC12</span></div><p>a <code>code-reviewer</code> spawned with a prompt carrying all seven markers is silent; the same prompt without <code>deferrals: none</code> and without the boundary words toasts <code>session-viz: code-reviewer dispatch missing contract item(s) 5, 6</code> once; a <code>general-purpose</code> spawn with no markers is silent.</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC12" role="group" aria-label="Review AC12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC12 note"></textarea></label></div></li></ol></details></section>
+<section class="sec sec-generic" id="implementation-paths" data-kind="generic"><details class="sec-body" open><summary><h2>Implementation Paths</h2></summary><ul><li><code>mods/session-viz/.claude-plugin/plugin.json</code> — manifest: <code>name</code> <code>session-viz</code>, <code>version</code> <code>0.1.0</code>, <code>description</code>, <code>&quot;types&quot;: &quot;./types/index.d.ts&quot;</code>.</li><li><code>mods/session-viz/hooks/hooks.json</code> — <code>{ &quot;modules&quot;: [&quot;./register.tsx&quot;] }</code>.</li><li><code>mods/session-viz/hooks/register.tsx</code> — <code>export const register: Register</code>: <code>session.start</code> (command, pane, sync timer, first <code>tasks/todo.md</code> read), <code>command.run</code>, <code>prompt.submit</code>, <code>session.measure</code>, <code>skill.prompt</code>, the <code>ui.render</code> Pane hook composing the sections and the status line builder; calls each section&#x27;s <code>register&lt;Section&gt;(on)</code>.</li><li><code>mods/session-viz/hooks/state.ts</code> — every <code>atom({ plugin: &#x27;session-viz&#x27;, key })</code> and shared helpers (<code>fit</code>, <code>seconds</code>, <code>lastSegment</code>).</li><li><code>mods/session-viz/hooks/phase.tsx</code> — the skill-to-phase map (D8), the <code>[ROUTE]</code> parser, <code>PhaseSection</code>.</li><li><code>mods/session-viz/hooks/plan.tsx</code> — <code>parsePlan(text, spec?)</code> over <code>tasks/todo.md</code> (D9), the re-read triggers, <code>PlanSection</code>.</li><li><code>mods/session-viz/hooks/agents.tsx</code> — <code>agent.spawn</code>, <code>turn.step</code> (generator), <code>turn.complete</code>, <code>tool.call</code> footprints and <code>AskUserQuestion</code> marks, the <code>$.agent.list()</code> merge, <code>AgentsSection</code> and <code>DrillDown</code>.</li><li><code>mods/session-viz/hooks/gates.tsx</code> — finding, ambiguity, surface, <code>Verdict:</code> and <code>Receipt:</code> parsers; the receipt reader (D12); the STOP toast; <code>GatesSection</code>.</li><li><code>mods/session-viz/hooks/dispatch.tsx</code> — the tier table and off-tier rule (D11), the seven-item markers (D10), their toasts, <code>DispatchIssues</code> drawn under Gates.</li><li><code>mods/session-viz/hooks/*.test.ts</code> — <code>claude plugin test</code> files, one per section plus <code>register.test.ts</code> for the shell; each UI assertion loops over <code>[&#x27;terminal&#x27;, &#x27;desktop&#x27;] as const</code>.</li><li><code>mods/session-viz/types/index.d.ts</code> — <code>Phase</code>, <code>AgentRow</code>, <code>Footprint</code>, <code>PlanProgress</code>, <code>SliceRow</code>, <code>Gates</code>, <code>DispatchIssue</code>, and <code>declare module &#x27;claude-code&#x27; { interface PluginState { &#x27;session-viz&#x27;: { phase, agents, asking, selected, plan, gates, measure, toasted } } }</code>.</li><li><code>mods/session-viz/README.md</code> — what the pane shows, the layout, how to run it (<code>--plugin-dir</code>, the dev-mods copy), <code>validate</code> and <code>test</code>.</li></ul></details></section>
+<section class="sec sec-build-order" id="build-order" data-kind="build-order"><details class="sec-body" open><summary><h2>Build Order</h2></summary><p>Sizing: 5 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 1: 12 files — four of them (<code>agents.tsx</code>, <code>plan.tsx</code>, <code>gates.tsx</code>, <code>dispatch.tsx</code>) are one-export stubs the wiring imports, laid here so slices 2–5 own disjoint files and dispatch in parallel.</p><figure class="diagram card-diagram dag" id="slice-graph"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">dag</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="Slices in dependency order: a slice starts when every slice it is blocked by is done."><svg viewBox="0 0 484 362" width="484" height="362" role="group" aria-labelledby="dag-t dag-d"><title id="dag-t">Slice dependency graph</title><desc id="dag-d">Slice 1 (Shell, phase and status line) has no blocker. Slice 2 (Agents tree and drill-down) is blocked by slice 1. Slice 3 (Plan progress) is blocked by slice 1. Slice 4 (Findings and receipt) is blocked by slice 1. Slice 5 (Dispatch checks) is blocked by slice 1.</desc><defs><marker id="dag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,64.0 274.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,138.0 274.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,212.0 274.0,212.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,286.0 274.0,286.0" marker-end="url(#dag-arrow)"/><a href="#slice-1" aria-label="Slice 1: Shell, phase and status line" class="node" data-layer="0"><title>Slice 1: Shell, phase and status line</title><rect x="20.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="57.0">S1</text><text x="30.0" y="77.0">Shell, phase and status…</text></a><a href="#slice-2" aria-label="Slice 2: Agents tree and drill-down" class="node" data-layer="1"><title>Slice 2: Agents tree and drill-down</title><rect x="274.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="57.0">S2</text><text x="284.0" y="77.0">Agents tree and drill-d…</text></a><a href="#slice-3" aria-label="Slice 3: Plan progress" class="node" data-layer="1"><title>Slice 3: Plan progress</title><rect x="274.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="131.0">S3</text><text x="284.0" y="151.0">Plan progress</text></a><a href="#slice-4" aria-label="Slice 4: Findings and receipt" class="node" data-layer="1"><title>Slice 4: Findings and receipt</title><rect x="274.0" y="186.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="205.0">S4</text><text x="284.0" y="225.0">Findings and receipt</text></a><a href="#slice-5" aria-label="Slice 5: Dispatch checks" class="node" data-layer="1"><title>Slice 5: Dispatch checks</title><rect x="274.0" y="260.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="279.0">S5</text><text x="284.0" y="299.0">Dispatch checks</text></a></svg></div><figcaption>Slices in dependency order: a slice starts when every slice it is blocked by is done.</figcaption></figure><div class="cards slice-cards"><article class="card card-slice" id="slice-1"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S1</span><h3>Shell, phase and status line</h3></div><p>The manifest, the $.state contract, the pane shell composing five section slots, the phase and [ROUTE] reader, the recorded spec and the status line</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>The manifest, the <code>$.state</code> contract, the pane shell composing five section slots, the phase and <code>[ROUTE]</code> reader, the recorded spec and the status line</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac1">AC1</a>, <a href="#ac2">AC2</a>, <a href="#ac3">AC3</a></dd><dt>Surface</dt><dd><code>mods/session-viz/.claude-plugin/plugin.json</code>, <code>mods/session-viz/hooks/hooks.json</code>, <code>mods/session-viz/hooks/register.tsx</code>, <code>mods/session-viz/hooks/state.ts</code>, <code>mods/session-viz/hooks/phase.tsx</code>, <code>mods/session-viz/hooks/agents.tsx</code>, <code>mods/session-viz/hooks/plan.tsx</code>, <code>mods/session-viz/hooks/gates.tsx</code>, <code>mods/session-viz/hooks/dispatch.tsx</code>, <code>mods/session-viz/hooks/register.test.ts</code>, <code>mods/session-viz/types/index.d.ts</code>, <code>mods/session-viz/README.md</code></dd><dt>Verify</dt><dd><code>claude plugin validate mods/session-viz &amp;&amp; claude plugin test mods/session-viz</code></dd><dt>Size</dt><dd>12 files · 1 system · 3 ACs</dd></dl></details><div class="review" data-review="S1" role="group" aria-label="Review S1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S1 note"></textarea></label></div></article><article class="card card-slice" id="slice-2"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S2</span><h3>Agents tree and drill-down</h3></div><p>The sub-agent tree with stage glyphs and statuses, per-agent footprints from tool calls and steps, and the press-to-open brief-plus-footprint drill-down</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>The sub-agent tree with stage glyphs and statuses, per-agent footprints from tool calls and steps, and the press-to-open brief-plus-footprint drill-down</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac4">AC4</a>, <a href="#ac5">AC5</a>, <a href="#ac6">AC6</a></dd><dt>Surface</dt><dd><code>mods/session-viz/hooks/agents.tsx</code>, <code>mods/session-viz/hooks/agents.test.ts</code></dd><dt>Verify</dt><dd><code>claude plugin validate mods/session-viz &amp;&amp; claude plugin test mods/session-viz</code></dd><dt>Size</dt><dd>2 files · 1 system · 3 ACs</dd></dl></details><div class="review" data-review="S2" role="group" aria-label="Review S2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S2 note"></textarea></label></div></article><article class="card card-slice" id="slice-3"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S3</span><h3>Plan progress</h3></div><p>The tasks/todo.md plan-block parser, the active-block choice and the re-read triggers behind the Plan section</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>The <code>tasks/todo.md</code> plan-block parser, the active-block choice and the re-read triggers behind the Plan section</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac7">AC7</a>, <a href="#ac8">AC8</a></dd><dt>Surface</dt><dd><code>mods/session-viz/hooks/plan.tsx</code>, <code>mods/session-viz/hooks/plan.test.ts</code></dd><dt>Verify</dt><dd><code>claude plugin validate mods/session-viz &amp;&amp; claude plugin test mods/session-viz</code></dd><dt>Size</dt><dd>2 files · 1 system · 2 ACs</dd></dl></details><div class="review" data-review="S3" role="group" aria-label="Review S3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S3 note"></textarea></label></div></article><article class="card card-slice" id="slice-4"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S4</span><h3>Findings and receipt</h3></div><p>Four-axis finding, ambiguity, surface and verdict parsing, the quality-receipt reader and the STOP toast behind the Gates section</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>Four-axis finding, ambiguity, surface and verdict parsing, the quality-receipt reader and the STOP toast behind the Gates section</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac9">AC9</a>, <a href="#ac10">AC10</a></dd><dt>Surface</dt><dd><code>mods/session-viz/hooks/gates.tsx</code>, <code>mods/session-viz/hooks/gates.test.ts</code></dd><dt>Verify</dt><dd><code>claude plugin validate mods/session-viz &amp;&amp; claude plugin test mods/session-viz</code></dd><dt>Size</dt><dd>2 files · 1 system · 2 ACs</dd></dl></details><div class="review" data-review="S4" role="group" aria-label="Review S4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S4 note"></textarea></label></div></article><article class="card card-slice" id="slice-5"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S5</span><h3>Dispatch checks</h3></div><p>The off-tier and missing-contract-item checks on every agent.spawn, their toasts and their rows under Gates</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>The off-tier and missing-contract-item checks on every <code>agent.spawn</code>, their toasts and their rows under Gates</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac11">AC11</a>, <a href="#ac12">AC12</a></dd><dt>Surface</dt><dd><code>mods/session-viz/hooks/dispatch.tsx</code>, <code>mods/session-viz/hooks/dispatch.test.ts</code></dd><dt>Verify</dt><dd><code>claude plugin validate mods/session-viz &amp;&amp; claude plugin test mods/session-viz</code></dd><dt>Size</dt><dd>2 files · 1 system · 2 ACs</dd></dl></details><div class="review" data-review="S5" role="group" aria-label="Review S5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S5 note"></textarea></label></div></article></div><section class="card card-prompt" id="build-prompt" aria-label="Build prompt"><div class="card-head"><span class="card-icon" aria-hidden="true">▶</span><span class="card-label">Build prompt</span></div><pre><code id="build-prompt-text">Invoke `/build` for `specs/session-viz-mod.md`.
+Plan: `## Plan: session-viz-mod` in `tasks/todo.md`, 5 slices, ready set &lt;1&gt;.
+Files: mods/session-viz/**.
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/session-viz-mod.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints:
+- D14: run `claude --version` before the first validate; `claude plugin validate` and `claude plugin test` need Claude Code 2.1.299 or later — upgrade with `npm i -g @anthropic-ai/claude-code@latest` when older.
+- D1: observe only — no hook returns `deny`, rewrites `e`, or answers for the engine.
+- D4: every value a drawing or a toast decision reads lives in `$.state`; nothing in `$.store`.
+- D5: `mods/factory-board/` is not edited.
+- D2: hot-reload during the build from a copy in the session&#x27;s `~/.claude/dev-mods/&lt;session&gt;/` folder (load the bundled `plugin-authoring` skill first) or with `claude --plugin-dir mods/session-viz`; the repo folder is the source of truth.
+- D13: slice 1 lays `agents.tsx`, `plan.tsx`, `gates.tsx` and `dispatch.tsx` as stubs exporting `register&lt;Section&gt;(on)` and the section&#x27;s render; slices 2–5 fill their own file only.</code></pre><button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button></section></details></section>
+<section class="review-panel" id="review" aria-labelledby="review-h" data-spec="specs/session-viz-mod.md" data-sha="fcbc7e3e9bff"><h2 id="review-h">Review</h2><p class="meta">Mark cards ok or questioned, answer questions and pick open decisions, then paste the export into the planning session: <code>/plan</code> applies it and re-runs <code>/slice</code>.</p><p class="review-status" id="review-status" role="status">Marks are saved in this browser for sha256 fcbc7e3e9bff.</p><button type="button" class="btn" data-action="export-review">Export review</button><pre><code id="review-export"></code></pre></section>
+</main>
+</div>
+<script>/* Visual plan page script: disclosure controls, deep links, navigation, copy.
+   Inlined by plan_render.py. No network, no dependencies; every feature
+   degrades to the plain <details> page when the script cannot run. */
+
+// Review state: pure helpers, kept apart from the DOM so they can be tested alone.
+var planReview = (function () {
+  'use strict';
+  function key(sha, spec) { return 'jplugin-plan-review:' + sha + ':' + spec; }
+  // A store that never throws: `ok` is false when the browser refuses storage.
+  function openStore(getStorage, name) {
+    var storage = null;
+    try {
+      storage = getStorage();
+      storage.setItem(name + ':probe', '1');
+      storage.removeItem(name + ':probe');
+    } catch (err) { storage = null; }
+    return {
+      ok: storage !== null,
+      load: function () {
+        if (!storage) { return {}; }
+        try { return JSON.parse(storage.getItem(name) || '{}') || {}; } catch (err) { return {}; }
+      },
+      save: function (state) {
+        if (!storage) { return false; }
+        try { storage.setItem(name, JSON.stringify(state)); return true; } catch (err) { return false; }
+      }
+    };
+  }
+  function flat(text) { return String(text || '').replace(/\s+/g, ' ').trim(); }
+  // One export line per item: a pick or an answer wins over the bare mark.
+  function line(id, s) {
+    var note = flat(s.note) ? ' — ' + flat(s.note) : '';
+    if (flat(s.pick)) { return id + ': pick ' + flat(s.pick) + note; }
+    if (flat(s.answer)) { return id + ': answer — ' + flat(s.answer) + note; }
+    if (s.mark) { return id + ': ' + s.mark + note; }
+    return null;
+  }
+  function format(spec, sha, items) {
+    var lines = ['Review of ' + spec + ' @ ' + sha];
+    items.forEach(function (item) {
+      var text = line(item[0], item[1] || {});
+      if (text) { lines.push(text); }
+    });
+    return lines.join('\n');
+  }
+  return { key: key, openStore: openStore, line: line, format: format };
+})();
+if (typeof module === 'object' && module.exports) { module.exports = planReview; }
+
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') { return; }
+  var doc = document;
+  var all = function (sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); };
+
+  // ------------------------------------------------------------ deep links
+  function openTo(hash) {
+    if (!hash || hash.length < 2) { return null; }
+    var target = doc.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!target) { return null; }
+    if (target.tagName === 'DETAILS') { target.open = true; }
+    var node = target.parentElement && target.parentElement.closest('details');
+    while (node) {
+      node.open = true;
+      node = node.parentElement && node.parentElement.closest('details');
+    }
+    var inner = target.querySelector(':scope > details');
+    if (inner) { inner.open = true; }
+    target.scrollIntoView({ block: 'start' });
+    return target;
+  }
+  window.addEventListener('hashchange', function () { openTo(location.hash); });
+  doc.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href^="#"]');
+    if (link && link.getAttribute('href') === location.hash) { openTo(location.hash); }
+  });
+
+  // ------------------------------------------------------------ navigation
+  var menu = doc.querySelector('.toc-menu');
+  var narrow = window.matchMedia('(max-width: 767px)');
+  function fitMenu() { if (menu) { menu.open = !narrow.matches; } }
+  if (menu) {
+    fitMenu();
+    if (narrow.addEventListener) { narrow.addEventListener('change', fitMenu); }
+    menu.addEventListener('click', function (event) {
+      if (event.target.closest('a') && narrow.matches) { menu.open = false; }
+    });
+  }
+  var links = all('.toc a[href^="#"]');
+  function markCurrent(id) {
+    links.forEach(function (a) {
+      if (a.getAttribute('href') === '#' + id) { a.setAttribute('aria-current', 'true'); }
+      else { a.removeAttribute('aria-current'); }
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { if (entry.isIntersecting) { markCurrent(entry.target.id); } });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    links.forEach(function (a) {
+      var section = doc.getElementById(a.getAttribute('href').slice(1));
+      if (section) { spy.observe(section); }
+    });
+  }
+
+  // ------------------------------------------------------------ disclosure
+  function setAll(open) { all('main details').forEach(function (d) { d.open = open; }); }
+  var onlyBlockers = doc.querySelector('[data-action="blockers"]');
+  function toggleBlockers() {
+    var on = !doc.body.classList.contains('only-blockers');
+    doc.body.classList.toggle('only-blockers', on);
+    onlyBlockers.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { all('.sec.has-blockers > details').forEach(function (d) { d.open = true; }); }
+  }
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button[data-action]');
+    if (!button) { return; }
+    var action = button.getAttribute('data-action');
+    if (action === 'expand') { setAll(true); }
+    if (action === 'collapse') { setAll(false); }
+    if (action === 'blockers') { toggleBlockers(); }
+  });
+  var printed = [];
+  window.addEventListener('beforeprint', function () {
+    printed = all('details:not([open])');
+    printed.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function () {
+    printed.forEach(function (d) { d.open = false; });
+    printed = [];
+  });
+
+  // ------------------------------------------------------------ copy
+  function copyText(text, button, done) {
+    function report(ok) {
+      var label = button.getAttribute('data-label') || button.textContent;
+      button.setAttribute('data-label', label);
+      button.textContent = ok ? (done || 'Copied') : 'Copy failed: select the text';
+      setTimeout(function () { button.textContent = label; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { report(true); }, function () { report(false); });
+      return;
+    }
+    var area = doc.createElement('textarea');
+    area.value = text;
+    doc.body.appendChild(area);
+    area.select();
+    var ok = false;
+    try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+    doc.body.removeChild(area);
+    report(ok);
+  }
+  window.planCopy = copyText;
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button.copy[data-copy-from]');
+    if (!button || button.disabled) { return; }
+    var source = doc.getElementById(button.getAttribute('data-copy-from'));
+    if (source) { copyText(source.textContent, button); }
+  });
+
+  // ------------------------------------------------------------ review
+  var panel = doc.getElementById('review');
+  var cards = all('.review[data-review]');
+  if (panel && cards.length) {
+    var spec = panel.getAttribute('data-spec');
+    var sha = panel.getAttribute('data-sha');
+    var store = planReview.openStore(function () { return window.localStorage; }, planReview.key(sha, spec));
+    var state = store.load();
+    var status = doc.getElementById('review-status');
+    if (!store.ok) {
+      status.textContent = 'Browser storage is unavailable: review marks will not persist past this page.';
+    }
+    var showMark = function (box, mark) {
+      all('button[data-mark]', box).forEach(function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-mark') === mark ? 'true' : 'false');
+      });
+    };
+    cards.forEach(function (box) {
+      var saved = state[box.getAttribute('data-review')] || {};
+      showMark(box, saved.mark);
+      all('[data-field]', box).forEach(function (f) { f.value = saved[f.getAttribute('data-field')] || ''; });
+    });
+    var update = function (box, change) {
+      var id = box.getAttribute('data-review');
+      var entry = state[id] || {};
+      Object.keys(change).forEach(function (k) { entry[k] = change[k]; });
+      state[id] = entry;
+      store.save(state);
+    };
+    doc.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('.review button[data-mark]');
+      if (!button) { return; }
+      var box = button.closest('.review');
+      var mark = button.getAttribute('aria-pressed') === 'true' ? '' : button.getAttribute('data-mark');
+      showMark(box, mark);
+      update(box, { mark: mark });
+    });
+    doc.addEventListener('input', function (event) {
+      var field = event.target.closest && event.target.closest('.review [data-field]');
+      if (!field) { return; }
+      var change = {};
+      change[field.getAttribute('data-field')] = field.value;
+      update(field.closest('.review'), change);
+    });
+    var exportButton = panel.querySelector('[data-action="export-review"]');
+    exportButton.addEventListener('click', function () {
+      var items = cards.map(function (box) {
+        var id = box.getAttribute('data-review');
+        return [id, state[id]];
+      });
+      var text = planReview.format(spec, sha, items);
+      doc.getElementById('review-export').textContent = text;
+      copyText(text, exportButton, 'Review copied');
+    });
+  }
+
+  openTo(location.hash);
+})();
+</script>
+</body>
+</html>
