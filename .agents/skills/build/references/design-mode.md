@@ -41,7 +41,8 @@ Record the slice base `<sha>` (`git rev-parse HEAD`) before step 1.
    fresh. Codex writes `forked` unless Q1 of the spec is answered fresh (see
    `harness-dispatch.md`). At most one `> Frozen:` line per slice: a second
    freeze for the same slice is refused: `slice.py check --index` exits 3
-   with `duplicate freeze line`.
+   with `duplicate freeze line` (the freeze contract is documented once, in
+   `slice.py`).
 5. Implement — dispatch the implementer to make the frozen tests green without
    editing them. A test that must change is a `> Test amended:` line, never a
    silent edit:
@@ -61,10 +62,11 @@ Record the slice base `<sha>` (`git rev-parse HEAD`) before step 1.
    python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha> --index tasks/todo.md
    ```
 
-   Exit 3 prints `frozen-edited: <path>`, `amended-unknown: <path>` or
-   `missing freeze commit`: stop on exit 3 — end the build, report the line,
-   and write no handover. Exit 1 is surface drift, informational; 0 is clean;
-   2 is bad input.
+   Exit 3 is any freeze problem `check --index` prints (any slice with a
+   recorded `> Frozen:` line, or a design-mode slice without one): stop on
+   exit 3 — end the build, report the line, and write no handover. Exit 1 is
+   surface drift, informational; 0 is clean; 2 is bad input.
+   `.agents/skills/slice/scripts/slice.py` documents the problem lines.
 8. Handover — write the `> Handover:` blockquote and add one line naming the
    interface the slice landed, so later slices do not re-derive it:
 

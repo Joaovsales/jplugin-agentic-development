@@ -1843,7 +1843,7 @@ for token in "§ Acceptance Criteria" "§ Interfaces" "§ Edge Cases" "§ Compon
              "§ Data models" "the stub paths" "model \`sonnet\`" "test-engineer" \
              "> Frozen: <S>..<F> — red: <failing summary> — context: <fresh, forked or inline>" \
              "> Test amended: <path> — <reason>" "check --spec <spec> --slice <n> --base <sha> --index tasks/todo.md" \
-             "stop on exit 3" "frozen-edited:" "amended-unknown:" "missing freeze commit" \
+             "stop on exit 3" "any freeze problem \`check --index\` prints" ".agents/skills/slice/scripts/slice.py\` documents the problem lines" \
              "forked" "Q1" "existing code is never replaced by a stub" "uncommitted tests" \
              "no \`> Frozen:\` line"; do
   assert_prose_contains "$DM_REF" "$token" "design-mode: reference contains '$token'"
