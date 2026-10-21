@@ -2077,7 +2077,7 @@ issues = [
 io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
 PY
 page_out="$(cd "$F_PAGE" && PATH="$F_PAGE/bin:$PATH" GH_MOCK_DIR="$F_PAGE/ghdata" \
-  GH_MOCK_LOG="$F_PAGE/gh.log" run select --routine fix --repo "$F_PAGE" 2>&1)"; page_code=$?
+  GH_MOCK_LOG="$F_PAGE/gh.log" reg select --routine fix --repo "$F_PAGE" 2>&1)"; page_code=$?
 assert_eq "1" "$page_code" \
   "GitHub (AC5): a read of exactly LIST_LIMIT issues makes select refuse"
 assert_contains "$page_out" "truncated read" \
