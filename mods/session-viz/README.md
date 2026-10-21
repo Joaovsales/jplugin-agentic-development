@@ -78,6 +78,15 @@ reload keeps the pane and repeats no toast; nothing is kept in `$.store`.
 
 Needs Claude Code 2.1.299 or later (`claude --version`).
 
+Installed from the repository's marketplace, the pane opens in every session:
+
+```bash
+claude plugin marketplace update jplugin-agentic-development
+claude plugin install session-viz@jplugin-agentic-development
+```
+
+For one session from a checkout, without installing:
+
 ```bash
 claude --plugin-dir "$(pwd)/mods/session-viz"
 ```
