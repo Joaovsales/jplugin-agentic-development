@@ -831,6 +831,7 @@ SLICE_SKILL=.agents/skills/slice/SKILL.md
 for token in "name: slice" "disable-model-invocation: false" "harness: universal" \
              "argument-hint:" "slice.py validate" \
              "✓ Build Order written:" "✓ Plan written:" \
+             "✓ Visual written:" "Skipping visual-plan:" \
              "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
              "--derive-id plan" "--fold-title" "never start with \`/\`" \
              "--parent" "local-pending" "✓ Filed:"; do

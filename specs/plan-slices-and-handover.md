@@ -55,7 +55,7 @@ table before it interviews and asks only about `open` rows.
 | # | Question | Decision | Source | Why |
 |---|---|---|---|---|
 | 1 | Where the shared "spec to slices" step lives | A new skill, `/slice`, that both planners invoke the way every skill invokes `/task-registry` | user | One owner; callers pass a spec path and know nothing about sizing, ordering or filing |
-| 2 | What the module owns | Sizing, dependency order and its validation, the surface per slice, the plan-block grammar, the build prompt, filing through the registry, the handover schema. Callers own the interview, the spec depth, the review loop, and for the design skill the render and critic pass | user | The module runs on any spec with acceptance criteria and `implementation_paths`, whichever planner wrote it |
+| 2 | What the module owns | Sizing, dependency order and its validation, the surface per slice, the plan-block grammar, the build prompt, the visual plan render under `/visual-plan`'s skip gate, filing through the registry, the handover schema. Callers own the interview, the spec depth, the review loop, and for the design skill the critic pass and its re-render after those edits | user | The module runs on any spec with acceptance criteria and `implementation_paths`, whichever planner wrote it. Revised 2026-10-21: the render joined the module because a standalone `/slice` re-run (the change-request loop) left the page absent while only `/plan` Step 3 rendered |
 | 3 | Human gates | None in the planning session. The planner ends with the spec, the Build Order and a **build prompt**; the human reviews them and approves by starting a fresh session with that prompt. No planner asks for `y` or invokes `/build`. TDD rows are a mechanical expansion of each slice's criteria and are not reviewed separately | user | Reverses the one-gate decision of 2026-09-21 and the two-gate decision of 2026-09-16: a build that starts in the planning context inherits the interview, and a `y` typed into it is a weaker review than a prompt carried into a clean one |
 | 4 | Handover | Kept, with two required facts: what landed, what the next slice must not re-derive | user | #106's third gap; a task record with criteria but no closing note does not fill it |
 | 5 | Simplifications | No sizing floor, no size labels or per-size budgets, no overrun split into remainder slices, no parallel-conflict STOP, no per-criterion testing tags | user | Each was machinery for a case the review or the plan-time refusal already covers |
@@ -327,9 +327,9 @@ a fresh session, and both say so.
 - **Step 3**: the architecture template's own build-order table and "Slice
   criteria" list are removed; "contract exposed" is stated in the Delivers
   text of `/slice`'s table.
-- **Step 3.5**: `Invoke /slice specs/<feature>.md --issue #N` before the
-  render, so the HTML the reviewer reads carries § Build Order and the build
-  prompt.
+- **Step 3.5**: `Invoke /slice specs/<feature>.md --issue #N`; `/slice`
+  renders the page as part of its output, and Step 6 re-renders after the
+  self-review and critic edits.
 - **Step 7: Review loop, no approval word.** Prints both paths, the findings
   format (`[constraints|system-design|contracts|data-models|build-order]
   <finding> — <evidence>`, unchanged) and then `Spec and plan are ready to be

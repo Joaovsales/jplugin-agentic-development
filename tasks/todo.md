@@ -2314,3 +2314,8 @@ Step ledger (routine `simplify`):
 - Completed: 3 rows — the regression tests, the hook fix, the quality gate
 - Pending: none for this fix. `/memory-maintain` was due (40 sessions) and not run here: a store sweep is its own task, not part of a one-hook bug fix
 - Carry-forward: the Session Summary heading grammar is written in four places (`wrap-up-session/SKILL.md:57` bracketed date, `closure-actions.md:149` bare date with trailing text, the hook header, the live `tasks/todo.md` bare) — the next change to the heading should pick one and have the hook extract only the `[hex..hex]` group
+
+## Session Summary — 2026-10-21 [cd420d2..ec4e547]
+- Completed: the visual-plan render moved into `/slice`'s propose phase (Step 6, after the readiness gate); `/plan` Step 3 reduced to the `/slice` call; wiring pins moved to `/slice` in `tests/test-plan-render.sh`; `specs/readable-visual-plans.md` D5 and `specs/plan-slices-and-handover.md` D2 revised; plugin 1.7.2.
+- Pending: the PR's Linux CI run of the full suite (the local Windows run carries the pre-existing baseline failures).
+- Carry-forward: the installed jplugin on this machine is at 1.6.2; update it after this merges so sessions pick up the new wiring.
