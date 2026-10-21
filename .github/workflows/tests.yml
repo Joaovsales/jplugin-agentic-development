@@ -6,6 +6,12 @@ name: tests
 # from a dirty local tree: the local suite reads the working tree, so an
 # untracked-but-load-bearing file keeps local runs green while the pushed
 # commit is broken — CI runs from a clean checkout and catches exactly that.
+#
+# REQUIRE_ALL=1 turns any skipped check into a failure, so CI is never green
+# on a check that did not run. The plan page's browser check
+# (tests/test-plan-page.sh) needs playwright and chromium, hence the install
+# steps and REQUIRE_BROWSER=1. TEST_JOBS=4 runs four test files at once; the
+# suite command itself stays verbatim so the cached-suite key does not move.
 
 on:
   pull_request:
@@ -16,11 +22,29 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PLAYWRIGHT_VERSION: "1.48.0"
     steps:
       - uses: actions/checkout@v4
         with:
           # install.sh computes retired template skill names from history, and
           # tests/test-install-sh.sh asserts on them; a depth-1 checkout has none.
           fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cache the chromium download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+      - name: Install playwright and chromium
+        run: |
+          python -m pip install playwright==${PLAYWRIGHT_VERSION}
+          python -m playwright install --with-deps chromium
       - name: Run test suite
+        env:
+          TEST_JOBS: "4"
+          REQUIRE_ALL: "1"
+          REQUIRE_BROWSER: "1"
         run: bash tests/run.sh

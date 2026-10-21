@@ -93,6 +93,58 @@ bash "$BOX/tests/run.sh" tests/test-missing.sh </dev/null >"$BOX/bad.out" 2>&1
 assert_eq "2" "$?" "named: a missing named path exits 2"
 assert_file_contains "$BOX/bad.out" "tests/test-missing.sh" "named: the missing path is named"
 
+# --- timeout: a hung file is failed, named and bounded (AC 7) -----------------
+# A file that outlives TEST_FILE_TIMEOUT is killed and reported as a failure,
+# serial and --jobs alike, instead of consuming the CI job (PR #177).
+TBOX="$BOX/timeout"
+mkdir -p "$TBOX/tests"
+cp "$REPO/tests/run.sh" "$REPO/tests/lib.sh" "$TBOX/tests/"
+# The limit is generous for the quick file: a spawn costs seconds on Windows.
+printf '%s\n' 'sleep 60' 'printf "  ok   never reached\n"' > "$TBOX/tests/test-hang.sh"
+printf '%s\n' 'printf "  ok   quick file holds\n  -> 1 passed, 0 failed, 0 xfail, 0 skipped\n"' > "$TBOX/tests/test-quick.sh"
+TOUT="$(TEST_FILE_TIMEOUT=4 TEST_JOBS=1 bash "$TBOX/tests/run.sh" </dev/null 2>&1)"; TSTATUS=$?
+assert_eq "1" "$TSTATUS" "timeout: serial run exits 1 when a file times out"
+assert_contains "$TOUT" "FAIL tests/test-hang.sh timed out after 4 s" "timeout: serial run names the file and the limit"
+assert_contains "$TOUT" "RESULT: 1/2 test files FAILED" "timeout: the timed-out file is counted as failed"
+assert_contains "$TOUT" "ok   quick file holds" "timeout: the other file still runs"
+assert_not_contains "$TOUT" "never reached" "timeout: the hung file stops where it hung"
+HUNG_S="$(printf '%s\n' "$TOUT" | sed -n 's/^--- tests\/test-hang\.sh: \([0-9]*\) s ---$/\1/p')"
+assert_true "timeout: the file is stopped at the limit, not after its 60 s sleep (took ${HUNG_S:-?} s)" -- test "${HUNG_S:-99}" -lt 60
+TPOUT="$(TEST_FILE_TIMEOUT=4 bash "$TBOX/tests/run.sh" --jobs 2 </dev/null 2>&1)"; TPSTATUS=$?
+assert_eq "1" "$TPSTATUS" "timeout: --jobs run exits 1 when a file times out"
+assert_contains "$TPOUT" "FAIL tests/test-hang.sh timed out after 4 s" "timeout: --jobs run names the file and the limit"
+assert_contains "$TPOUT" "RESULT: 1/2 test files FAILED" "timeout: --jobs run counts the timed-out file as failed"
+for bad_timeout in 0 abc; do
+  TEST_FILE_TIMEOUT="$bad_timeout" bash "$TBOX/tests/run.sh" </dev/null >"$BOX/bad.out" 2>&1
+  assert_eq "2" "$?" "timeout: TEST_FILE_TIMEOUT='$bad_timeout' is refused with exit 2"
+  assert_file_contains "$BOX/bad.out" "TEST_FILE_TIMEOUT wants a positive integer" "timeout: TEST_FILE_TIMEOUT='$bad_timeout' names the rule"
+done
+rm -f "$TBOX/tests/test-hang.sh"
+assert_eq "0" "$(TEST_FILE_TIMEOUT=4 bash "$TBOX/tests/run.sh" </dev/null >/dev/null 2>&1; echo $?)" \
+  "timeout: a file inside the limit is untouched"
+
+# --- skip protocol and CI settings (AC 7, AC 8, D6, D9) -----------------------
+# tests/test-plan-page.sh under a Python without playwright prints SKIP and
+# passes; with REQUIRE_ALL=1 the skip is a failure, so CI can never go green
+# without the browser check.
+printf '#!/bin/sh\nexit 1\n' > "$BOX/py-no-playwright"
+chmod +x "$BOX/py-no-playwright"
+PP_OUT="$(env -u REQUIRE_ALL -u REQUIRE_BROWSER PLAN_PAGE_PYTHON="$BOX/py-no-playwright" bash "$REPO/tests/test-plan-page.sh" </dev/null 2>&1)"; PP_STATUS=$?
+assert_eq "0" "$PP_STATUS" "skip: the plan-page file passes when playwright is missing"
+assert_contains "$PP_OUT" "SKIP browser: " "skip: the missing browser is announced as a SKIP"
+assert_contains "$PP_OUT" "1 skipped" "skip: the trailer counts the skip"
+PP_OUT="$(env -u REQUIRE_BROWSER REQUIRE_ALL=1 PLAN_PAGE_PYTHON="$BOX/py-no-playwright" bash "$REPO/tests/test-plan-page.sh" </dev/null 2>&1)"; PP_STATUS=$?
+assert_eq "1" "$PP_STATUS" "skip: REQUIRE_ALL=1 turns the missing-browser skip into a failure"
+assert_contains "$PP_OUT" "REQUIRE_ALL=1 and 1 skipped" "skip: the failure names REQUIRE_ALL"
+WORKFLOW="$REPO/.github/workflows/tests.yml"
+assert_file_contains "$WORKFLOW" 'REQUIRE_ALL: "1"' "ci: tests.yml sets REQUIRE_ALL=1"
+assert_file_contains "$WORKFLOW" 'REQUIRE_BROWSER: "1"' "ci: tests.yml sets REQUIRE_BROWSER=1 (D9)"
+assert_file_contains "$WORKFLOW" 'TEST_JOBS: "4"' "ci: tests.yml runs with TEST_JOBS=4 (D6)"
+assert_file_contains "$WORKFLOW" 'pip install playwright' "ci: tests.yml installs the playwright package"
+assert_file_contains "$WORKFLOW" 'playwright install --with-deps chromium' "ci: tests.yml installs chromium"
+assert_file_contains "$WORKFLOW" '~/.cache/ms-playwright' "ci: tests.yml caches the chromium download"
+assert_file_contains "$WORKFLOW" 'run: bash tests/run.sh' "ci: the suite command is verbatim, parallelism comes from the environment"
+
 # --- TEST_PYTHON resolution ---------------------------------------------------
 LIB="$REPO/tests/lib.sh"
 assert_eq "/preset/python" "$(TEST_PYTHON=/preset/python "$BASH" -c '. "$1"; printf %s "$TEST_PYTHON"' _ "$LIB")" \

@@ -111,6 +111,27 @@ assert_contains "$OUT" "cached-suite: the working tree changed during the run, n
   "mid-run edit: the green run is not recorded"
 rm -f "$FIX/made-during-run.txt"
 
+# --- environment in the key (AC 7) ------------------------------------------
+# A green record is evidence for the platform, interpreter and tooling it ran
+# on; another platform's record must not stand in for this one's run.
+mkdir -p "$BOX/envbin"
+printf '#!/bin/sh\necho "Python 9.1.1"\n' > "$BOX/py-a"
+printf '#!/bin/sh\necho "Python 9.2.2"\n' > "$BOX/py-b"
+printf '#!/bin/sh\necho FakeOS-A\n' > "$BOX/envbin/uname"
+chmod +x "$BOX/py-a" "$BOX/py-b" "$BOX/envbin/uname"
+env_cached() { (cd "$FIX" && TEST_PYTHON="$BOX/py-a" bash "$SCRIPT" -- bash "$BOX/count.sh" env "$@") 2>&1; }
+OUT="$(env_cached)"
+assert_contains "$OUT" "ran env" "environment: the first run in an environment runs"
+OUT="$(env_cached)"
+assert_contains "$OUT" "cached-suite: reused green run" "environment: the same environment reuses its record"
+OUT="$( (cd "$FIX" && TEST_PYTHON="$BOX/py-b" bash "$SCRIPT" -- bash "$BOX/count.sh" env) 2>&1)"
+assert_contains "$OUT" "ran env" "environment: another interpreter version is not a reuse"
+OUT="$( (cd "$FIX" && PATH="$BOX/envbin:$PATH" TEST_PYTHON="$BOX/py-a" bash "$SCRIPT" -- bash "$BOX/count.sh" env) 2>&1)"
+assert_contains "$OUT" "ran env" "environment: another uname -s is not a reuse"
+OUT="$( (cd "$FIX" && TEST_PYTHON="$BOX/no-such-python" bash "$SCRIPT" -- bash "$BOX/count.sh" env) 2>&1)"
+assert_contains "$OUT" "ran env" "environment: a missing interpreter keys as none and still runs"
+assert_file_contains "$SCRIPT" 'command -v gh' "environment: the key includes whether gh is present"
+
 # --- lock (AC 2) ----------------------------------------------------------
 cat > "$BOX/slow.sh" <<'EOF'
 : > "$BOX/started"

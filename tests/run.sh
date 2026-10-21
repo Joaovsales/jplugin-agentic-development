@@ -13,6 +13,11 @@
 # from stdin must not inherit an agent shell's open pipe
 # (tasks/solutions/bugs/test-suite-hangs-when-stdin-is-an-open-pipe.md).
 #
+# Every file also runs under `timeout "${TEST_FILE_TIMEOUT:-300}"` (coreutils): a
+# hung file is killed with its whole process group and reported as
+# `FAIL <file> timed out after N s`, counted as failed, so one hang cannot
+# consume the CI job (PR #177).
+#
 # Elapsed seconds are printed after each file and summarised at the end. On
 # Windows every process spawn costs a large fraction of a second, so the suite
 # is process-bound and a slow file has to be visible, not inferred (#136).
@@ -52,6 +57,13 @@ case "$jobs" in
     printf 'tests/run.sh: --jobs wants a positive integer, got %s\n' "${jobs:-nothing}" >&2
     exit 2 ;;
 esac
+file_timeout="${TEST_FILE_TIMEOUT:-300}"
+case "$file_timeout" in
+  ''|*[!0-9]*|0)
+    printf 'tests/run.sh: TEST_FILE_TIMEOUT wants a positive integer of seconds, got %s\n' "${file_timeout:-nothing}" >&2
+    exit 2 ;;
+esac
+command -v timeout >/dev/null 2>&1 || { printf 'tests/run.sh: needs coreutils timeout on PATH (macOS: brew install coreutils)\n' >&2; exit 2; }
 if [ "$jobs" -gt 1 ] && { [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 3 ]; }; }; then
   printf 'tests/run.sh: --jobs needs bash 4.3+ (wait -n); this is %s\n' "$BASH_VERSION" >&2
   exit 2
@@ -74,16 +86,21 @@ sum_passed=0; sum_failed=0; sum_xfail=0; sum_skipped=0
 
 # run_file <file> <output-path>: run one test file with stdin closed, output
 # to <output-path> and, when <stream> is 1, to the terminal as it is produced.
-# Sets status and elapsed.
+# A file over TEST_FILE_TIMEOUT is killed (timeout's exit 124) and a FAIL line
+# naming the limit is appended to its output. Sets status and elapsed.
 run_file() {
   started="$(now_ms)"
   if [ "${3:-0}" -eq 1 ]; then
-    bash "$1" </dev/null 2>&1 | tee "$2"
+    timeout "$file_timeout" bash "$1" </dev/null 2>&1 | tee "$2"
   else
-    bash "$1" </dev/null >"$2" 2>&1
+    timeout "$file_timeout" bash "$1" </dev/null >"$2" 2>&1
   fi
   status=$?
   elapsed=$(( ($(now_ms) - started + 500) / 1000 ))
+  if [ "$status" -eq 124 ]; then
+    printf '  FAIL %s timed out after %s s\n' "$1" "$file_timeout" >>"$2"
+    [ "${3:-0}" -eq 1 ] && printf '  FAIL %s timed out after %s s\n' "$1" "$file_timeout"
+  fi
 }
 
 # tally <output-path>: add the file's trailer to the suite-wide assertion
