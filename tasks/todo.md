@@ -2252,3 +2252,15 @@ Step ledger (routine `simplify`):
 - Completed: #326 — `/brainstorm` cites `/plan` § *2. Write the Spec (MUST persist to disk)* by its real heading (simplify routine).
 - Pending: none from this run.
 - Carry-forward: the top-ranked `enforced-prose` and `duplicate-rule` cues are test pins, dropped at deep review (tasks/solutions/process/an-enforced-prose-cue-on-a-test-pinned-line-is-a-pin-not-bulk.md).
+
+# Fix: pre-push wrap-up gate never matches a multi-commit covered range
+> No issue, no spec — bug brief from a downstream project (`Joaovsales/personal-website`, 2026-10-20); learning in `tasks/solutions/bugs/pre-push-wrap-up-gate-never-matches-a-multi-commit-range.md`.
+
+- [x] TDD: tests/test-pre-push-gate.sh § Covered range of several commits — three code commits under one `## Session Summary — <date> [a..b]` range: exit 0, no stderr, no ledger (fails on the previous hook: `WRAP-UP GAP`, ledger written) -> word-split the covered list in the membership test (`.agents/git-hooks/pre-push:141`); the `case` pattern over the whole list never field-split `git rev-list`'s newlines
+- [x] TDD: tests/test-pre-push-gate.sh § Bracketed date in the heading is not a fingerprint — `## Session Summary — [YYYY-MM-DD] [a..b]`, the form `/wrap-up-session` documents: neither `unparseable session fingerprint` nor a gap -> skip a bracket group that is a date before validation (`.agents/git-hooks/pre-push:118`)
+- [x] Quality gate: Phases 1–3 inline, no findings; Phase 4 dispatched GO with 3 SHOULD-FIX applied (consumer-side membership test, `assert_no_ledger`, `commit_wrapup`) and 1 NITPICK reported (the heading grammar now lives in four places — pick one canonical form when the heading is next touched); receipt 01d33db6 GO policy qg1-b803d96b; affected tests 55/55
+
+## Session Summary — 2026-10-21 [2da4eab..37e11f4]
+- Completed: 3 rows — the regression tests, the hook fix, the quality gate
+- Pending: none for this fix. `/memory-maintain` was due (40 sessions) and not run here: a store sweep is its own task, not part of a one-hook bug fix
+- Carry-forward: the Session Summary heading grammar is written in four places (`wrap-up-session/SKILL.md:57` bracketed date, `closure-actions.md:149` bare date with trailing text, the hook header, the live `tasks/todo.md` bare) — the next change to the heading should pick one and have the hook extract only the `[hex..hex]` group
