@@ -146,29 +146,32 @@ run_retire --repo "$P1" --from-dir "$T1"
 assert_eq "0" "$RUN_STATUS" "comments and blank lines in sync-keep are ignored"
 assert_contains "$RUN_OUTPUT" "kept:" "the surviving path is reported as kept"
 
-# Each invalid pattern: non-zero, names the offending pattern AND its line, and
-# deletes nothing. The line number matters — an allowlist is edited by hand and
-# "some pattern is bad" is not an actionable message.
+# Each invalid pattern: exits 1, names the guard that refused it (the reason
+# fragment), the offending pattern AND its line, and deletes nothing. The
+# fragment is what keeps a later guard from satisfying the row: with the
+# absolute-path check removed, `_reaches_a_root` still refuses "/etc/passwd"
+# by naming the same pattern and line. The line number matters -- an allowlist
+# is edited by hand and "some pattern is bad" is not an actionable message.
 assert_invalid_pattern() {
-  _pattern="$1" _label="$2"
+  _pattern="$1" _reason="$2" _label="$3"
   write_keep "$P1" "# leading comment" "$_pattern"
-  run_retire --repo "$P1" --from-dir "$T1" --apply
-  assert_eq "1" "$RUN_STATUS" "invalid pattern ($_label): exits non-zero"
-  assert_contains "$RUN_OUTPUT" "$_pattern" "invalid pattern ($_label): names the pattern"
-  assert_contains "$RUN_OUTPUT" "line 2" "invalid pattern ($_label): names the line"
+  assert_refused 1 "$_reason" "invalid pattern ($_label): exits 1 naming the guard that refused it" \
+    -- "$TEST_PYTHON" "$RETIRE" --repo "$P1" --from-dir "$T1" --apply
+  assert_contains "$output" "$_pattern" "invalid pattern ($_label): names the pattern"
+  assert_contains "$output" "line 2" "invalid pattern ($_label): names the line"
   assert_eq "present" \
     "$([ -f "$P1/.agents/skills/local-only/SKILL.md" ] && echo present || echo gone)" \
     "invalid pattern ($_label): --apply deleted nothing"
 }
 
-assert_invalid_pattern "/etc/passwd"                      "absolute"
-assert_invalid_pattern ".agents/skills/../../etc"         "parent traversal"
-assert_invalid_pattern '.agents\skills\x'                 "backslash separators"
-assert_invalid_pattern '.agents/skills/[ab]/SKILL.md'     "unsupported [] glob"
-assert_invalid_pattern '.agents/skills/{a,b}/SKILL.md'    "unsupported {} brace expansion"
-assert_invalid_pattern '.agents/skills/!a/SKILL.md'       "unsupported ! negation"
-assert_invalid_pattern 'C:/agents/skills/x.md'            "windows drive letter is absolute"
-assert_invalid_pattern 'tasks/**'                         "outside every syncable root"
+assert_invalid_pattern "/etc/passwd"                      "absolute path not allowed"      "absolute"
+assert_invalid_pattern ".agents/skills/../../etc"         "traversal not allowed"          "parent traversal"
+assert_invalid_pattern '.agents\skills\x'                 "use POSIX separators"           "backslash separators"
+assert_invalid_pattern '.agents/skills/[ab]/SKILL.md'     "unsupported glob syntax"        "unsupported [] glob"
+assert_invalid_pattern '.agents/skills/{a,b}/SKILL.md'    "unsupported glob syntax"        "unsupported {} brace expansion"
+assert_invalid_pattern '.agents/skills/!a/SKILL.md'       "unsupported glob syntax"        "unsupported ! negation"
+assert_invalid_pattern 'C:/agents/skills/x.md'            "absolute path not allowed"      "windows drive letter is absolute"
+assert_invalid_pattern 'tasks/**'                         "outside every syncable root"    "outside every syncable root"
 
 # An empty pattern cannot be written as a bare line (it would be a blank line,
 # which is ignored), so it arrives as whitespace that survives a comment strip.
