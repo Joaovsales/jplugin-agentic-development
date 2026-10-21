@@ -4,36 +4,27 @@
 # store to the typed tasks/solutions/<category>/<slug>.md store.
 #
 # Zero external dependencies beyond git + python. Builds throwaway fixture
-# repos under a temp dir per scenario and cleans them up on exit.
+# repos under a temp dir per scenario; the library removes them on exit.
 . "$(dirname "$0")/lib.sh"
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT="$REPO/scripts/migrate-learning-store.py"
+SCRIPT="$(under_test scripts/migrate-learning-store.py)"
 
 PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
 
-TMP_DIRS=()
-cleanup() {
-  local d
-  for d in "${TMP_DIRS[@]:-}"; do
-    [ -n "$d" ] && rm -rf "$d"
-  done
-}
-trap cleanup EXIT
-
+# new_fixture -> a scratch project with tasks/; new_repo_fixture -> the same
+# inside a git repository, for the scenarios that exercise the git behaviour.
 new_fixture() {
   local d
-  d="$(mktemp -d "${TMPDIR:-/tmp}/migrate-test.XXXXXX")"
-  TMP_DIRS+=("$d")
+  d="$(fixture_dir)"
   mkdir -p "$d/tasks"
   printf '%s' "$d"
 }
 
-git_init() {
-  local d="$1"
-  git -C "$d" init -q
-  git -C "$d" config user.email "test@example.com"
-  git -C "$d" config user.name "Test"
+new_repo_fixture() {
+  local d
+  d="$(fixture_repo)"
+  mkdir -p "$d/tasks"
+  printf '%s' "$d"
 }
 
 git_commit_all() {
@@ -54,7 +45,7 @@ out1="$(run_migrate --repo "$F1" 2>&1)"
 code1=$?
 assert_eq "0" "$code1" "Scenario 1: absent inputs exits 0"
 assert_contains "$out1" "Nothing to migrate" "Scenario 1: reports nothing to migrate"
-assert_eq "no" "$([ -d "$F1/tasks/solutions" ] && echo yes || echo no)" \
+assert_file_absent "$F1/tasks/solutions" \
   "Scenario 1: no tasks/solutions/ created"
 
 # ---------------------------------------------------------------------------
@@ -137,9 +128,9 @@ EOF
 out5="$(run_migrate --repo "$F5" --apply 2>&1)"
 code5=$?
 assert_eq "0" "$code5" "Scenario 5: slug collision migration exits 0"
-assert_eq "yes" "$([ -f "$F5/tasks/solutions/bugs/duplicate-error.md" ] && echo yes || echo no)" \
+assert_file_exists "$F5/tasks/solutions/bugs/duplicate-error.md" \
   "Scenario 5: first document uses base slug"
-assert_eq "yes" "$([ -f "$F5/tasks/solutions/bugs/duplicate-error-2.md" ] && echo yes || echo no)" \
+assert_file_exists "$F5/tasks/solutions/bugs/duplicate-error-2.md" \
   "Scenario 5: second document gets -2 suffix"
 
 # ---------------------------------------------------------------------------
@@ -179,7 +170,7 @@ assert_eq "$listing_before" "$listing_after" "Scenario 7: second run changes not
 # ---------------------------------------------------------------------------
 # 8. Dirty-tree refusal
 # ---------------------------------------------------------------------------
-F8="$(new_fixture)"
+F8="$(new_repo_fixture)"
 cat > "$F8/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -187,18 +178,17 @@ cat > "$F8/tasks/bugs.md" <<'EOF'
 |----|------|-------------|------------|-----|-------|--------|-----------------|
 | BUG-6 | 2026-01-06 | Dirty tree check | Some cause | Some fix | src/d.py | Fixed | tests/d.sh |
 EOF
-git_init "$F8"
 git_commit_all "$F8" "init"
 printf 'scratch\n' > "$F8/scratch.txt"
 out8a="$(run_migrate --repo "$F8" --apply 2>&1)"
 code8a=$?
 assert_eq "1" "$code8a" "Scenario 8: dirty tree without --force exits non-zero"
-assert_eq "no" "$([ -d "$F8/tasks/solutions" ] && echo yes || echo no)" \
+assert_file_absent "$F8/tasks/solutions" \
   "Scenario 8: dirty tree without --force writes nothing"
 out8b="$(run_migrate --repo "$F8" --apply --force 2>&1)"
 code8b=$?
 assert_eq "0" "$code8b" "Scenario 8: dirty tree with --force exits 0"
-assert_eq "yes" "$([ -d "$F8/tasks/solutions/bugs" ] && echo yes || echo no)" \
+assert_file_exists "$F8/tasks/solutions/bugs" \
   "Scenario 8: dirty tree with --force proceeds and writes"
 
 # ---------------------------------------------------------------------------
@@ -250,8 +240,8 @@ code10=$?
 assert_eq "0" "$code10" "Scenario 10: unrecognized section still exits 0"
 assert_contains "$out10" "UNMIGRATED SECTION" "Scenario 10: unrecognized section flagged"
 assert_contains "$out10" "Random Notes" "Scenario 10: unrecognized section named"
-assert_eq "yes" "$(find "$F10/tasks/archive" -name memory.md 2>/dev/null | grep -q . && echo yes || echo no)" \
-  "Scenario 10: source file archived despite unrecognized section"
+assert_true "Scenario 10: source file archived despite unrecognized section" \
+  -- test -n "$(find "$F10/tasks/archive" -name memory.md 2>/dev/null)"
 
 # ---------------------------------------------------------------------------
 # 11. Dry-run default — writes nothing
@@ -271,9 +261,9 @@ code11=$?
 assert_eq "0" "$code11" "Scenario 11: dry run exits 0"
 assert_contains "$out11" "WOULD WRITE" "Scenario 11: dry run names target documents"
 assert_contains "$out11" "tasks/solutions/architecture/" "Scenario 11: dry run names the target path"
-assert_eq "no" "$([ -d "$F11/tasks/solutions" ] && echo yes || echo no)" \
+assert_file_absent "$F11/tasks/solutions" \
   "Scenario 11: dry run creates no tasks/solutions/"
-assert_eq "yes" "$([ -f "$F11/tasks/memory.md" ] && echo yes || echo no)" \
+assert_file_exists "$F11/tasks/memory.md" \
   "Scenario 11: dry run leaves source file in place"
 
 # ---------------------------------------------------------------------------
@@ -292,10 +282,10 @@ EOF
 out12="$(run_migrate --repo "$F12" --apply 2>&1)"
 code12=$?
 assert_eq "0" "$code12" "Scenario 12: --apply exits 0"
-assert_eq "no" "$([ -f "$F12/tasks/memory.md" ] && echo yes || echo no)" \
+assert_file_absent "$F12/tasks/memory.md" \
   "Scenario 12: original memory.md gone from tasks/"
-assert_eq "yes" "$(find "$F12/tasks/archive" -name memory.md 2>/dev/null | grep -q . && echo yes || echo no)" \
-  "Scenario 12: original memory.md moved under tasks/archive/<stamp>/"
+assert_true "Scenario 12: original memory.md moved under tasks/archive/<stamp>/" \
+  -- test -n "$(find "$F12/tasks/archive" -name memory.md 2>/dev/null)"
 
 # ---------------------------------------------------------------------------
 # 13. Full memory.md conversion — all five section kinds
@@ -344,8 +334,8 @@ arch13_review_count="$(grep -l 'needs_review: true' "$F13"/tasks/solutions/archi
 assert_eq "2" "$arch13_review_count" "Scenario 13: architecture rows flagged needs_review"
 
 pattern13_entry_file="$(grep -l 'Validate and normalize at the edge' "$F13"/tasks/solutions/patterns/*.md 2>/dev/null | head -n1)"
-assert_eq "yes" "$([ -n "$pattern13_entry_file" ] && echo yes || echo no)" \
-  "Scenario 13: Patterns & Lessons entry migrated to patterns/"
+assert_true "Scenario 13: Patterns & Lessons entry migrated to patterns/" \
+  -- test -n "$pattern13_entry_file"
 if [ -n "$pattern13_entry_file" ]; then
   assert_not_contains "$(cat "$pattern13_entry_file")" "needs_review" \
     "Scenario 13: Patterns & Lessons entry NOT flagged needs_review (explicit applies_when)"
@@ -353,10 +343,10 @@ fi
 
 pattern13_bullet1_file="$(grep -l 'Prefer table-driven fixtures' "$F13"/tasks/solutions/patterns/*.md 2>/dev/null | head -n1)"
 pattern13_bullet2_file="$(grep -l 'Always assert on aggregated directory' "$F13"/tasks/solutions/patterns/*.md 2>/dev/null | head -n1)"
-assert_eq "yes" "$([ -n "$pattern13_bullet1_file" ] && echo yes || echo no)" \
-  "Scenario 13: first leaked Pattern bullet extracted to its own document"
-assert_eq "yes" "$([ -n "$pattern13_bullet2_file" ] && echo yes || echo no)" \
-  "Scenario 13: second leaked Pattern bullet extracted to its own document"
+assert_true "Scenario 13: first leaked Pattern bullet extracted to its own document" \
+  -- test -n "$pattern13_bullet1_file"
+assert_true "Scenario 13: second leaked Pattern bullet extracted to its own document" \
+  -- test -n "$pattern13_bullet2_file"
 if [ -n "$pattern13_bullet1_file" ]; then
   assert_file_contains "$pattern13_bullet1_file" "needs_review: true" \
     "Scenario 13: first extracted bullet flagged needs_review"
@@ -426,7 +416,7 @@ assert_file_contains "$F15/tasks/solutions/bugs/second-table-bug.md" "Cause two"
 # ---------------------------------------------------------------------------
 # 16. (review round) Dry run allowed on a dirty tree; exact no-write proof
 # ---------------------------------------------------------------------------
-F16="$(new_fixture)"
+F16="$(new_repo_fixture)"
 cat > "$F16/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -436,7 +426,6 @@ cat > "$F16/tasks/memory.md" <<'EOF'
 |----------|-----------|
 | Dry run safety | Preview must never need --force |
 EOF
-git_init "$F16"
 git_commit_all "$F16" "init"
 printf 'scratch\n' > "$F16/scratch.txt"
 before16="$(cd "$F16" && find . -type f | sort)"
@@ -460,7 +449,7 @@ assert_contains "$out17" "tasks/memory.md" "Scenario 17: failure message names t
 # ---------------------------------------------------------------------------
 # 18. (review round) git-log date fallback + --report file
 # ---------------------------------------------------------------------------
-F18="$(new_fixture)"
+F18="$(new_repo_fixture)"
 cat > "$F18/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -471,7 +460,6 @@ cat > "$F18/tasks/memory.md" <<'EOF'
 **Pattern**: fall back to the source file's last-commit date
 **Evidence**: this fixture
 EOF
-git_init "$F18"
 git_commit_all "$F18" "init"
 out18="$(run_migrate --repo "$F18" --apply --report "$F18/report.txt" 2>&1)"
 assert_file_contains "$F18/tasks/solutions/patterns/dated-by-git-history.md" "date_source: git-log" \
@@ -562,8 +550,8 @@ assert_contains "$hist21" "Closing prose after the bullets." \
   "Scenario 21: trailing prose survives into history"
 bullet_ln="$(grep -n 'bullet one' "$F21/tasks/history.md" | head -1 | cut -d: -f1)"
 prose_ln="$(grep -n 'Closing prose' "$F21/tasks/history.md" | head -1 | cut -d: -f1)"
-assert_eq "after" "$([ "${prose_ln:-0}" -gt "${bullet_ln:-0}" ] && echo after || echo before)" \
-  "Scenario 21: trailing prose renders after the bullets"
+assert_true "Scenario 21: trailing prose renders after the bullets" \
+  -- test "${prose_ln:-0}" -gt "${bullet_ln:-0}"
 
 # ---------------------------------------------------------------------------
 # 22. Diversion-target collision — refuse instead of clobber

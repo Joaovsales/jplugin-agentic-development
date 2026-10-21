@@ -23,48 +23,18 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-RETIRE="$REPO/.agents/skills/sync/scripts/sync-retire.py"
-FIXTURE_ROOT="$(mktemp -d)"
-trap 'rm -rf "$FIXTURE_ROOT"' EXIT
+RETIRE="$(under_test .agents/skills/sync/scripts/sync-retire.py)"
+FIXTURE_ROOT="$(fixture_dir)"
 
 # ---------------------------------------------------------------- fixtures
-
-# The doc block the script parses for its root list. Kept in the same shape as
-# the real § Syncable Paths fence (`path   → description`) so a fixture cannot
-# pass against a parser that the real block would defeat. $1, when given, is an
-# extra root line appended inside the fence.
-write_skill_md() {
-  _dir="$1" _extra="${2:-}"
-  [ -d "$_dir/.agents/skills/sync" ] || mkdir -p "$_dir/.agents/skills/sync"
-  {
-    printf '## Syncable Paths\n\n```\n'
-    printf 'CLAUDE.md             → Shared rules\n'
-    printf '.agents/skills/       → Canonical skills\n'
-    printf '.agents/agents/       → Canonical personas\n'
-    printf '.claude/skills/       → Compat copy\n'
-    printf '.claude/hooks/        → Lifecycle hooks\n'
-    printf '.claude/settings.json → Hook configuration\n'
-    [ -n "$_extra" ] && printf '%s\n' "$_extra"
-    printf '```\n\n## Next Section\n'
-  } > "$_dir/.agents/skills/sync/SKILL.md"
-}
-
-# A template checkout: the doc block plus one file under every directory root,
-# so no root is "absent from the template" unless a test says so.
-make_template() {
-  _dir="$1" _extra="${2:-}"
-  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks"
-  write_skill_md "$_dir" "$_extra"
-  _f "$_dir/.agents/skills/build/SKILL.md"   "build skill"
-  _f "$_dir/.agents/agents/planner.md"       "planner"
-  _f "$_dir/.claude/skills/build/SKILL.md"   "build skill"
-  _f "$_dir/.claude/hooks/session-start.sh"  "hook"
-  _f "$_dir/CLAUDE.md"                       "rules"
-  _f "$_dir/.claude/settings.json"           "{}"
-}
+#
+# One template, one project and one empty repository are built here, once; every
+# scenario below takes a copy (`cp -R`, no process spawned per fixture file) and
+# changes only what its row is about. 61 identical repositories at three spawns
+# each was a third of this file's Windows runtime (specs/test-suite-aposd.md F14).
 
 # Write one fixture file, creating its directory when needed. The builders
-# above pre-create every directory in one mkdir, so the common path here is two
+# below pre-create every directory in one mkdir, so the common path here is two
 # builtins and no process; a path outside those directories still gets its own.
 # On Windows a process costs 100-500 ms and this file writes ~900 fixture files,
 # so `mkdir -p "$(dirname ...)"` per file was a third of its runtime (#136).
@@ -73,28 +43,41 @@ _f() {
   printf '%s\n' "$2" > "$1"
 }
 
-# Identity for fixture commits, written straight into the repo's config file:
-# the same two lines `git config user.name` / `user.email` would write, minus
-# two git processes per fixture.
-fixture_identity() {
-  printf '[user]\n    name = fixture\n    email = fixture@example.test\n' >> "$1/.git/config"
+# The doc block the script parses for its root list: the seed under
+# tests/fixtures/sync/, in the same shape as the real § Syncable Paths fence
+# (`path   → description`) so a fixture cannot pass against a parser that the
+# real block would defeat. $2, when given, is an extra root line appended inside
+# the fence.
+write_skill_md() {
+  _dir="$1" _extra="${2:-}"
+  fixture_copy sync/syncable-paths.md "$_dir/.agents/skills/sync/SKILL.md"
+  [ -z "$_extra" ] || add_root_row "$_dir/.agents/skills/sync/SKILL.md" "$_extra"
 }
 
-# A project: a git repo, because the project inventory is the set of *tracked*
-# files. Untracked build residue was never synced in, so it is never retired.
-make_project() {
-  _dir="$1"
-  mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks"
-  git init -q --initial-branch=main "$_dir"
-  fixture_identity "$_dir"
-  write_skill_md "$_dir"
-  _f "$_dir/.agents/skills/build/SKILL.md"   "build skill"
-  _f "$_dir/.agents/agents/planner.md"       "planner"
-  _f "$_dir/.claude/skills/build/SKILL.md"   "build skill"
-  _f "$_dir/.claude/hooks/session-start.sh"  "hook"
-  _f "$_dir/CLAUDE.md"                       "rules"
-  _f "$_dir/.claude/settings.json"           "{}"
-  commit_all "$_dir"
+# add_root_row <skill-md> <row> — the row goes before the fence's closing line.
+add_root_row() {
+  EXTRA_ROW="$2" awk '/^```/ && ++_fences == 2 { print ENVIRON["EXTRA_ROW"] } { print }' "$1" > "$1.new" \
+    && mv "$1.new" "$1"
+}
+
+# The one template checkout: the doc block plus one file under every directory
+# root, so no root is "absent from the template" unless a test says so.
+BASE_TEMPLATE="$(fixture_dir)"
+write_skill_md "$BASE_TEMPLATE"
+mkdir -p "$BASE_TEMPLATE/.agents/skills/build" "$BASE_TEMPLATE/.agents/agents" "$BASE_TEMPLATE/.claude/skills/build" "$BASE_TEMPLATE/.claude/hooks"
+_f "$BASE_TEMPLATE/.agents/skills/build/SKILL.md"   "build skill"
+_f "$BASE_TEMPLATE/.agents/agents/planner.md"       "planner"
+_f "$BASE_TEMPLATE/.claude/skills/build/SKILL.md"   "build skill"
+_f "$BASE_TEMPLATE/.claude/hooks/session-start.sh"  "hook"
+_f "$BASE_TEMPLATE/CLAUDE.md"                       "rules"
+_f "$BASE_TEMPLATE/.claude/settings.json"           "{}"
+
+# make_template <dir> [extra-root-row]
+make_template() {
+  _dir="$1" _extra="${2:-}"
+  mkdir -p "$_dir"
+  cp -R "$BASE_TEMPLATE/." "$_dir/"
+  [ -z "$_extra" ] || add_root_row "$_dir/.agents/skills/sync/SKILL.md" "$_extra"
 }
 
 commit_all() {
@@ -102,18 +85,33 @@ commit_all() {
   git -C "$1" commit -qm "state" 2>/dev/null || true
 }
 
-# Run the script; capture stdout+stderr and status into RUN_OUTPUT/RUN_STATUS.
+# A project: a git repo, because the project inventory is the set of *tracked*
+# files. Untracked build residue was never synced in, so it is never retired.
+# It starts as the template's tree, committed once.
+BASE_PROJECT="$(fixture_repo)"
+git -C "$BASE_PROJECT" symbolic-ref HEAD refs/heads/main
+cp -R "$BASE_TEMPLATE/." "$BASE_PROJECT/"
+commit_all "$BASE_PROJECT"
+
+make_project() {
+  _dir="$1"
+  mkdir -p "$_dir"
+  cp -R "$BASE_PROJECT/." "$_dir/"
+}
+
+# An empty repository with identity, for the scenarios whose template needs
+# git history of its own: git_here <dir> makes <dir> a repository on `main`.
+EMPTY_GIT="$(fixture_repo)"
+git -C "$EMPTY_GIT" symbolic-ref HEAD refs/heads/main
+git_here() {
+  mkdir -p "$1"
+  cp -R "$EMPTY_GIT/.git" "$1/.git"
+}
+
+# Run the script through the library's `run`: stdout and stderr land in `output`,
+# the exit code in `status`.
 run_retire() {
-  "$TEST_PYTHON" "$RETIRE" "$@" >"$FIXTURE_ROOT/out" 2>"$FIXTURE_ROOT/err"
-  RUN_STATUS=$?
-  # stdout then stderr, trailing newlines stripped -- exactly what
-  # `$(cat out; cat err)` produced. bash reads `$(<file)` without spawning cat,
-  # so the two-file form is kept only for the runs that wrote to stderr.
-  if [ -s "$FIXTURE_ROOT/err" ]; then
-    RUN_OUTPUT="$(cat "$FIXTURE_ROOT/out" "$FIXTURE_ROOT/err")"
-  else
-    RUN_OUTPUT="$(<"$FIXTURE_ROOT/out")"
-  fi
+  run "$TEST_PYTHON" "$RETIRE" "$@"
 }
 
 # Write a .claude/sync-keep from the remaining arguments, one pattern per line.
@@ -143,8 +141,8 @@ commit_all "$P1"
 # Blank lines and comments are ignored, not treated as patterns.
 write_keep "$P1" "# a comment" "" "   " ".agents/skills/local-only/**"
 run_retire --repo "$P1" --from-dir "$T1"
-assert_eq "0" "$RUN_STATUS" "comments and blank lines in sync-keep are ignored"
-assert_contains "$RUN_OUTPUT" "kept:" "the surviving path is reported as kept"
+assert_exit 0 "comments and blank lines in sync-keep are ignored"
+assert_contains "$output" "kept:" "the surviving path is reported as kept"
 
 # Each invalid pattern: exits 1, names the guard that refused it (the reason
 # fragment), the offending pattern AND its line, and deletes nothing. The
@@ -159,8 +157,7 @@ assert_invalid_pattern() {
     -- "$TEST_PYTHON" "$RETIRE" --repo "$P1" --from-dir "$T1" --apply
   assert_contains "$output" "$_pattern" "invalid pattern ($_label): names the pattern"
   assert_contains "$output" "line 2" "invalid pattern ($_label): names the line"
-  assert_eq "present" \
-    "$([ -f "$P1/.agents/skills/local-only/SKILL.md" ] && echo present || echo gone)" \
+  assert_file_exists "$P1/.agents/skills/local-only/SKILL.md" \
     "invalid pattern ($_label): --apply deleted nothing"
 }
 
@@ -177,7 +174,7 @@ assert_invalid_pattern 'tasks/**'                         "outside every syncabl
 # which is ignored), so it arrives as whitespace that survives a comment strip.
 write_keep "$P1" '"'
 run_retire --repo "$P1" --from-dir "$T1" --apply
-assert_eq "1" "$RUN_STATUS" "a pattern matching no syncable root is rejected"
+assert_exit 1 "a pattern matching no syncable root is rejected"
 
 # ========================================================== 2. syncable roots
 #
@@ -203,20 +200,20 @@ make_template "$T2X" ".claude/browsers/     → Browser runbooks"
 _f "$T2X/.claude/browsers/chrome.md" "chrome runbook"
 
 run_retire --repo "$P2" --from-dir "$T2"
-assert_eq "0" "$RUN_STATUS" "undeclared root: run succeeds"
-assert_not_contains "$RUN_OUTPUT" ".claude/browsers/local.md" \
+assert_exit 0 "undeclared root: run succeeds"
+assert_not_contains "$output" ".claude/browsers/local.md" \
   "a path under a root the doc block does not declare is never scanned"
 
 run_retire --repo "$P2" --from-dir "$T2X"
-assert_eq "0" "$RUN_STATUS" "declared root: run succeeds"
-assert_contains "$RUN_OUTPUT" "retire: .claude/browsers/local.md" \
+assert_exit 0 "declared root: run succeeds"
+assert_contains "$output" "retire: .claude/browsers/local.md" \
   "adding a root to the doc block puts its project-only paths in scope"
 
 # Root counts track the block, so the header cannot silently disagree with it.
 run_retire --repo "$P2" --from-dir "$T2"
-assert_contains "$RUN_OUTPUT" "roots: 4" "header reports the 4 directory roots in the block"
+assert_contains "$output" "roots: 4" "header reports the 4 directory roots in the block"
 run_retire --repo "$P2" --from-dir "$T2X"
-assert_contains "$RUN_OUTPUT" "roots: 5" "header reports 5 once a root is added"
+assert_contains "$output" "roots: 5" "header reports 5 once a root is added"
 
 # File roots are excluded. Retirement is undefined for a file — it has no
 # project-only paths inside it — and CLAUDE.md is already handled by the
@@ -225,11 +222,11 @@ P2F="$FIXTURE_ROOT/p2f"; T2F="$FIXTURE_ROOT/t2f"
 make_project "$P2F"; write_keep "$P2F"
 make_template "$T2F"; rm -f "$T2F/CLAUDE.md" "$T2F/.claude/settings.json"
 run_retire --repo "$P2F" --from-dir "$T2F" --apply
-assert_eq "0" "$RUN_STATUS" "file roots absent from the template are not an error"
-assert_not_contains "$RUN_OUTPUT" "retire: CLAUDE.md" "CLAUDE.md is excluded from retirement"
-assert_eq "present" "$([ -f "$P2F/CLAUDE.md" ] && echo present || echo gone)" \
+assert_exit 0 "file roots absent from the template are not an error"
+assert_not_contains "$output" "retire: CLAUDE.md" "CLAUDE.md is excluded from retirement"
+assert_file_exists "$P2F/CLAUDE.md" \
   "--apply leaves the CLAUDE.md file root on disk"
-assert_eq "present" "$([ -f "$P2F/.claude/settings.json" ] && echo present || echo gone)" \
+assert_file_exists "$P2F/.claude/settings.json" \
   "--apply leaves the .claude/settings.json file root on disk"
 
 # A root absent from the PROJECT is empty, not an error: a project that never
@@ -239,7 +236,7 @@ make_project "$P2E"; write_keep "$P2E"
 git -C "$P2E" rm -rq .claude/skills; commit_all "$P2E"
 make_template "$T2E"
 run_retire --repo "$P2E" --from-dir "$T2E"
-assert_eq "0" "$RUN_STATUS" "a syncable root absent from the project is treated as empty"
+assert_exit 0 "a syncable root absent from the project is treated as empty"
 
 # A root absent from the TEMPLATE is not scanned. Retiring from it would compute
 # "everything the project has" minus "nothing" and delete the project's whole
@@ -255,12 +252,12 @@ _f "$P2M/.agents/skills/gone/SKILL.md" "retired upstream, under a root that IS v
 commit_all "$P2M"
 make_template "$T2M"; rm -rf "$T2M/.claude/hooks"
 run_retire --repo "$P2M" --from-dir "$T2M" --apply
-assert_eq "0" "$RUN_STATUS" "one empty template root does not abort the run"
-assert_contains "$RUN_OUTPUT" "skipped: .claude/hooks/" "the unvouched root is named"
-assert_eq "present" "$([ -f "$P2M/.claude/hooks/session-start.sh" ] && echo present || echo gone)" \
+assert_exit 0 "one empty template root does not abort the run"
+assert_contains "$output" "skipped: .claude/hooks/" "the unvouched root is named"
+assert_file_exists "$P2M/.claude/hooks/session-start.sh" \
   "and nothing under it is deleted"
 # The point of scoping: unrelated roots still work.
-assert_eq "gone" "$([ -e "$P2M/.agents/skills/gone/SKILL.md" ] && echo present || echo gone)" \
+assert_file_absent "$P2M/.agents/skills/gone/SKILL.md" \
   "while a root the template does vouch for still retires normally"
 
 # SEVERAL empty roots is a different claim: a truncated checkout, not an upstream
@@ -278,10 +275,10 @@ make_template "$T2Z"
 rm -rf "$T2Z/.agents/agents" "$T2Z/.claude/skills" "$T2Z/.claude/hooks"
 rm -rf "$T2Z/.agents/skills/build"
 run_retire --repo "$P2Z" --from-dir "$T2Z" --apply
-assert_eq "1" "$RUN_STATUS" "a source missing several roots exits non-zero"
-assert_contains "$RUN_OUTPUT" "refusing a source this incomplete" \
+assert_exit 1 "a source missing several roots exits non-zero"
+assert_contains "$output" "refusing a source this incomplete" \
   "and says the source is too incomplete to retire against"
-assert_eq "present" "$([ -f "$P2Z/.agents/skills/victim/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P2Z/.agents/skills/victim/SKILL.md" \
   "deleting nothing -- including under the root the doc block itself lives in"
 
 # ======================================================== 3. template sources
@@ -316,14 +313,14 @@ git -C "$P3" checkout -q main
 # project's own record, never synced), so a checkout would not restore it.
 write_keep "$P3" ".agents/agents/local-agent.md"
 
-retire_lines() { printf '%s\n' "$RUN_OUTPUT" | grep '^  retire:' | sort; }
+retire_lines() { printf '%s\n' "$output" | grep '^  retire:' | sort; }
 
 run_retire --repo "$P3" --from-ref template
-assert_eq "0" "$RUN_STATUS" "--from-ref succeeds"
+assert_exit 0 "--from-ref succeeds"
 FROM_REF="$(retire_lines)"
 
 run_retire --repo "$P3" --from-dir "$T3"
-assert_eq "0" "$RUN_STATUS" "--from-dir succeeds"
+assert_exit 0 "--from-dir succeeds"
 FROM_DIR="$(retire_lines)"
 
 assert_contains "$FROM_REF" ".agents/skills/local-only/SKILL.md" \
@@ -333,34 +330,34 @@ assert_eq "$FROM_REF" "$FROM_DIR" \
 
 # The allowlist is read once, from the project, so it applies to both modes.
 run_retire --repo "$P3" --from-ref template
-assert_contains "$RUN_OUTPUT" "kept:   .agents/agents/local-agent.md" \
+assert_contains "$output" "kept:   .agents/agents/local-agent.md" \
   "--from-ref honours the project's sync-keep"
 
 # Usage errors are exit 2, distinct from the exit 1 of a real failure: one means
 # the operator typed the command wrong, the other means the run found a problem.
 run_retire --repo "$P3"
-assert_eq "2" "$RUN_STATUS" "neither --from-ref nor --from-dir is a usage error"
+assert_exit 2 "neither --from-ref nor --from-dir is a usage error"
 run_retire --repo "$P3" --from-ref template --from-dir "$T3"
-assert_eq "2" "$RUN_STATUS" "supplying both sources is a usage error"
+assert_exit 2 "supplying both sources is a usage error"
 run_retire --repo "$FIXTURE_ROOT/does-not-exist" --from-dir "$T3"
-assert_eq "2" "$RUN_STATUS" "a --repo that is not a directory is a usage error"
+assert_exit 2 "a --repo that is not a directory is a usage error"
 # --from-ref reaches `git ls-tree <ref>` and `git show <ref>:<path>`, so a value
 # that looks like an option is argument injection, not a bad ref.
 run_retire --repo "$P3" --from-ref "--upload-pack=touch $FIXTURE_ROOT/OWNED"
-assert_eq "2" "$RUN_STATUS" "a --from-ref beginning with - is a usage error"
-assert_eq "absent" "$([ -e "$FIXTURE_ROOT/OWNED" ] && echo present || echo absent)" \
+assert_exit 2 "a --from-ref beginning with - is a usage error"
+assert_file_absent "$FIXTURE_ROOT/OWNED" \
   "and it never reached git"
 # An option supplied but empty means the caller's variable was unset. Treating it
 # as absent is what let an empty --from-dir read roots from the project tree.
 run_retire --repo "$P3" --from-ref template --from-dir ""
-assert_eq "2" "$RUN_STATUS" "an empty --from-dir is a usage error, not an absent one"
+assert_exit 2 "an empty --from-dir is a usage error, not an absent one"
 run_retire --repo "$P3" --from-dir "   "
-assert_eq "2" "$RUN_STATUS" "a whitespace-only source is likewise refused"
+assert_exit 2 "a whitespace-only source is likewise refused"
 
 # An unreadable ref is a failure, not a usage error, and retires nothing.
 run_retire --repo "$P3" --from-ref no-such-ref --apply
-assert_eq "1" "$RUN_STATUS" "an unreadable ref exits 1"
-assert_eq "present" "$([ -f "$P3/.agents/skills/local-only/SKILL.md" ] && echo present || echo gone)" \
+assert_exit 1 "an unreadable ref exits 1"
+assert_file_exists "$P3/.agents/skills/local-only/SKILL.md" \
   "an unreadable ref deletes nothing"
 
 # ====================================================== 4. the retirement set
@@ -391,25 +388,25 @@ commit_all "$P4"
 write_keep "$P4"
 
 run_retire --repo "$P4" --from-dir "$T4"
-assert_eq "0" "$RUN_STATUS" "default run succeeds"
+assert_exit 0 "default run succeeds"
 
-RETIRE_COUNT="$(printf '%s\n' "$RUN_OUTPUT" | grep -c '^  retire:')"
+RETIRE_COUNT="$(printf '%s\n' "$output" | grep -c '^  retire:')"
 assert_eq "25" "$RETIRE_COUNT" "every project-only path is listed — no truncation"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/retired-1/SKILL.md" "first path listed"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/retired-25/SKILL.md" "last path listed"
-assert_not_contains "$RUN_OUTPUT" "retire: .agents/skills/build/SKILL.md" \
+assert_contains "$output" "retire: .agents/skills/retired-1/SKILL.md" "first path listed"
+assert_contains "$output" "retire: .agents/skills/retired-25/SKILL.md" "last path listed"
+assert_not_contains "$output" "retire: .agents/skills/build/SKILL.md" \
   "a path the template still ships is never retired, even when it differs"
-assert_not_contains "$RUN_OUTPUT" "..." "the report carries no truncation marker"
+assert_not_contains "$output" "..." "the report carries no truncation marker"
 
 # The default run is a dry run. Reporting and destroying are separate acts, and
 # the operator sees the list before either.
-assert_contains "$RUN_OUTPUT" "mode:   dry-run (no changes written)" "default run reports itself as a dry run"
+assert_contains "$output" "mode:   dry-run (no changes written)" "default run reports itself as a dry run"
 SURVIVORS="$(find "$P4/.agents/skills" -name 'SKILL.md' | wc -l | tr -d ' ')"
 assert_eq "27" "$SURVIVORS" "the default run deleted nothing (25 retired + build + sync)"
 
 # The header names the source, so a report pasted into a review says which
 # template revision produced it.
-assert_contains "$RUN_OUTPUT" "sync retirement — source: $T4" "the header names the template source"
+assert_contains "$output" "sync retirement — source: $T4" "the header names the template source"
 
 # ================================================================= 5. --apply
 #
@@ -429,59 +426,59 @@ commit_all "$P5"
 write_keep "$P5" ".agents/skills/keepme/**"
 
 run_retire --repo "$P5" --from-dir "$T5" --apply
-assert_eq "0" "$RUN_STATUS" "--apply succeeds"
+assert_exit 0 "--apply succeeds"
 
 # The same full list is printed before deleting, so the record of what was
 # destroyed survives in the transcript.
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/retired/SKILL.md" "--apply prints the list it deletes"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/retired/scripts/helper.sh" "--apply lists nested paths"
-assert_contains "$RUN_OUTPUT" "retire: .claude/hooks/retired-hook.sh" "--apply lists every root's paths"
-assert_contains "$RUN_OUTPUT" "mode:   applied" "--apply reports itself as applied, not dry-run"
+assert_contains "$output" "retire: .agents/skills/retired/SKILL.md" "--apply prints the list it deletes"
+assert_contains "$output" "retire: .agents/skills/retired/scripts/helper.sh" "--apply lists nested paths"
+assert_contains "$output" "retire: .claude/hooks/retired-hook.sh" "--apply lists every root's paths"
+assert_contains "$output" "mode:   applied" "--apply reports itself as applied, not dry-run"
 
-assert_eq "gone" "$([ -e "$P5/.agents/skills/retired/SKILL.md" ] && echo present || echo gone)" \
+assert_file_absent "$P5/.agents/skills/retired/SKILL.md" \
   "--apply deleted the retired skill file"
-assert_eq "gone" "$([ -e "$P5/.claude/hooks/retired-hook.sh" ] && echo present || echo gone)" \
+assert_file_absent "$P5/.claude/hooks/retired-hook.sh" \
   "--apply deleted the retired hook"
 
 # Directories emptied by the deletions are pruned, so a sync does not leave a
 # tree full of empty husks that later reads as "the skill is still installed".
-assert_eq "gone" "$([ -d "$P5/.agents/skills/retired" ] && echo present || echo gone)" \
+assert_file_absent "$P5/.agents/skills/retired" \
   "--apply pruned the directory its deletions emptied"
-assert_eq "gone" "$([ -d "$P5/.agents/skills/retired/scripts" ] && echo present || echo gone)" \
+assert_file_absent "$P5/.agents/skills/retired/scripts" \
   "--apply pruned nested emptied directories"
 
 # The syncable root itself survives even when everything under it went, because
 # an absent root and an empty one are different states to every other reader.
-assert_eq "present" "$([ -d "$P5/.agents/skills" ] && echo present || echo gone)" \
+assert_file_exists "$P5/.agents/skills" \
   "--apply keeps the syncable root directory itself"
 
 # Nothing outside the retirement set is touched.
-assert_eq "present" "$([ -f "$P5/.agents/skills/keepme/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P5/.agents/skills/keepme/SKILL.md" \
   "--apply left the allowlisted path alone"
-assert_eq "present" "$([ -f "$P5/.agents/skills/build/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P5/.agents/skills/build/SKILL.md" \
   "--apply left a path the template still ships alone"
-assert_eq "present" "$([ -f "$P5/CLAUDE.md" ] && echo present || echo gone)" \
+assert_file_exists "$P5/CLAUDE.md" \
   "--apply left the file roots alone"
-assert_eq "present" "$([ -f "$P5/.claude/sync-keep" ] && echo present || echo gone)" \
+assert_file_exists "$P5/.claude/sync-keep" \
   "--apply left the allowlist itself alone"
 
 # Untracked files under a root were never synced in, so they are not this
 # program's to delete — the project inventory is the tracked set.
 _f "$P5/.claude/hooks/scratch.sh" "untracked local scratch"
 run_retire --repo "$P5" --from-dir "$T5" --apply
-assert_eq "present" "$([ -f "$P5/.claude/hooks/scratch.sh" ] && echo present || echo gone)" \
+assert_file_exists "$P5/.claude/hooks/scratch.sh" \
   "--apply never deletes an untracked file"
-assert_not_contains "$RUN_OUTPUT" "scratch.sh" "an untracked file is not even reported"
+assert_not_contains "$output" "scratch.sh" "an untracked file is not even reported"
 
 # A second --apply before the deletions are staged must not re-list them. The
 # project inventory reads the git *index*, which still names a file this script
 # deleted a moment ago; an unfiltered read would compute it as project-only
 # again and fail on the missing file, turning a no-op re-run into a crash.
 run_retire --repo "$P5" --from-dir "$T5" --apply
-assert_eq "0" "$RUN_STATUS" "a second --apply with the deletions unstaged succeeds"
-assert_not_contains "$RUN_OUTPUT" "retire: .agents/skills/retired/SKILL.md" \
+assert_exit 0 "a second --apply with the deletions unstaged succeeds"
+assert_not_contains "$output" "retire: .agents/skills/retired/SKILL.md" \
   "an already-deleted path is not re-listed from the index"
-assert_not_contains "$RUN_OUTPUT" "deletion failed" "the re-run does not fail on a missing file"
+assert_not_contains "$output" "deletion failed" "the re-run does not fail on a missing file"
 
 # =============================================================== 6. allowlist
 #
@@ -505,35 +502,35 @@ commit_all "$P6"
 # separators, would silently widen every entry written here.
 write_keep "$P6" ".agents/skills/mine/**" ".claude/hooks/*.sh"
 run_retire --repo "$P6" --from-dir "$T6"
-assert_eq "0" "$RUN_STATUS" "allowlisted run succeeds"
-assert_contains "$RUN_OUTPUT" "kept:   .agents/skills/mine/SKILL.md (matched .agents/skills/mine/**)" \
+assert_exit 0 "allowlisted run succeeds"
+assert_contains "$output" "kept:   .agents/skills/mine/SKILL.md (matched .agents/skills/mine/**)" \
   "a kept path names the pattern that matched it"
-assert_contains "$RUN_OUTPUT" "kept:   .agents/skills/mine/scripts/deep.sh (matched .agents/skills/mine/**)" \
+assert_contains "$output" "kept:   .agents/skills/mine/scripts/deep.sh (matched .agents/skills/mine/**)" \
   "** matches across directory separators"
-assert_contains "$RUN_OUTPUT" "kept:   .claude/hooks/one.sh (matched .claude/hooks/*.sh)" \
+assert_contains "$output" "kept:   .claude/hooks/one.sh (matched .claude/hooks/*.sh)" \
   "* matches within a single path segment"
-assert_contains "$RUN_OUTPUT" "retire: .agents/agents/unprotected.md" \
+assert_contains "$output" "retire: .agents/agents/unprotected.md" \
   "a path no pattern matches is still retired"
 
 # `*` must not cross a separator: a pattern written for one directory level
 # must not silently protect everything beneath it.
 write_keep "$P6" ".agents/skills/*"
 run_retire --repo "$P6" --from-dir "$T6"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/mine/SKILL.md" \
+assert_contains "$output" "retire: .agents/skills/mine/SKILL.md" \
   "* does not cross a directory separator"
 
 # `?` is exactly one character, also non-crossing.
 write_keep "$P6" ".claude/hooks/???.sh"
 run_retire --repo "$P6" --from-dir "$T6"
-assert_contains "$RUN_OUTPUT" "kept:   .claude/hooks/one.sh (matched .claude/hooks/???.sh)" \
+assert_contains "$output" "kept:   .claude/hooks/one.sh (matched .claude/hooks/???.sh)" \
   "? matches exactly one character"
-assert_contains "$RUN_OUTPUT" "kept:   .claude/hooks/two.sh (matched .claude/hooks/???.sh)" \
+assert_contains "$output" "kept:   .claude/hooks/two.sh (matched .claude/hooks/???.sh)" \
   "? applies to every path of the right shape"
 # Non-crossing, the same property `*` is pinned for above: widening `?` to `.`
 # would silently widen every allowlist entry containing one.
 write_keep "$P6" ".agents/skills/mine?SKILL.md"
 run_retire --repo "$P6" --from-dir "$T6"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/mine/SKILL.md" \
+assert_contains "$output" "retire: .agents/skills/mine/SKILL.md" \
   "? does not cross a directory separator either"
 
 # An EMPTY sync-keep is a recorded, deliberate "nothing here is
@@ -546,9 +543,9 @@ _f "$P6E/.agents/skills/retired/SKILL.md" "retired upstream"
 commit_all "$P6E"
 write_keep "$P6E"
 run_retire --repo "$P6E" --from-dir "$T6E" --apply
-assert_eq "0" "$RUN_STATUS" "an empty sync-keep is a valid recorded intent"
-assert_not_contains "$RUN_OUTPUT" "bootstrap" "an empty sync-keep is not bootstrap"
-assert_eq "gone" "$([ -e "$P6E/.agents/skills/retired/SKILL.md" ] && echo present || echo gone)" \
+assert_exit 0 "an empty sync-keep is a valid recorded intent"
+assert_not_contains "$output" "bootstrap" "an empty sync-keep is not bootstrap"
+assert_file_absent "$P6E/.agents/skills/retired/SKILL.md" \
   "an empty sync-keep permits deletion"
 
 # =============================================================== 7. bootstrap
@@ -572,24 +569,24 @@ commit_all "$P7"
 # Deliberately NO write_keep: this is the unconfigured state.
 
 run_retire --repo "$P7" --from-dir "$T7"
-assert_eq "0" "$RUN_STATUS" "bootstrap is a normal outcome, not a failure"
-assert_contains "$RUN_OUTPUT" "bootstrap: required" "bootstrap is announced"
-assert_contains "$RUN_OUTPUT" ".claude/sync-keep" "the report names the file to create"
-assert_contains "$RUN_OUTPUT" "candidate: .agents/skills/mine/SKILL.md" "every project-only path is a candidate"
-assert_contains "$RUN_OUTPUT" "candidate: .claude/hooks/retired-hook.sh" "candidates span every root"
-assert_not_contains "$RUN_OUTPUT" "retire:" "bootstrap proposes no retirements"
+assert_exit 0 "bootstrap is a normal outcome, not a failure"
+assert_contains "$output" "bootstrap: required" "bootstrap is announced"
+assert_contains "$output" ".claude/sync-keep" "the report names the file to create"
+assert_contains "$output" "candidate: .agents/skills/mine/SKILL.md" "every project-only path is a candidate"
+assert_contains "$output" "candidate: .claude/hooks/retired-hook.sh" "candidates span every root"
+assert_not_contains "$output" "retire:" "bootstrap proposes no retirements"
 
 run_retire --repo "$P7" --from-dir "$T7" --apply
-assert_eq "0" "$RUN_STATUS" "bootstrap under --apply still succeeds"
-assert_eq "present" "$([ -f "$P7/.agents/skills/mine/SKILL.md" ] && echo present || echo gone)" \
+assert_exit 0 "bootstrap under --apply still succeeds"
+assert_file_exists "$P7/.agents/skills/mine/SKILL.md" \
   "bootstrap --apply deletes nothing"
-assert_eq "present" "$([ -f "$P7/.claude/hooks/retired-hook.sh" ] && echo present || echo gone)" \
+assert_file_exists "$P7/.claude/hooks/retired-hook.sh" \
   "bootstrap --apply deletes nothing, not even an upstream-retired path"
 
 # The candidate file is written; the real allowlist is not.
-assert_eq "present" "$([ -f "$P7/.claude/sync-keep.candidate" ] && echo present || echo gone)" \
+assert_file_exists "$P7/.claude/sync-keep.candidate" \
   "bootstrap --apply writes the candidate allowlist"
-assert_eq "gone" "$([ -f "$P7/.claude/sync-keep" ] && echo present || echo gone)" \
+assert_file_absent "$P7/.claude/sync-keep" \
   "bootstrap --apply never writes .claude/sync-keep itself"
 assert_file_contains "$P7/.claude/sync-keep.candidate" ".agents/skills/mine/SKILL.md" \
   "the candidate lists the project-only paths"
@@ -598,8 +595,8 @@ assert_file_contains "$P7/.claude/sync-keep.candidate" ".agents/skills/mine/SKIL
 # the next run keeps exactly what it names.
 cp "$P7/.claude/sync-keep.candidate" "$P7/.claude/sync-keep"
 run_retire --repo "$P7" --from-dir "$T7"
-assert_not_contains "$RUN_OUTPUT" "bootstrap" "promoting the candidate leaves bootstrap"
-assert_contains "$RUN_OUTPUT" "retire: (none)" \
+assert_not_contains "$output" "bootstrap" "promoting the candidate leaves bootstrap"
+assert_contains "$output" "retire: (none)" \
   "a promoted candidate keeps every path it named"
 
 # A dry run must not write the candidate either — a dry run writes nothing.
@@ -607,7 +604,7 @@ P7D="$FIXTURE_ROOT/p7d"; T7D="$FIXTURE_ROOT/t7d"
 make_project "$P7D"; make_template "$T7D"
 _f "$P7D/.agents/skills/mine/SKILL.md" "project specific"; commit_all "$P7D"
 run_retire --repo "$P7D" --from-dir "$T7D"
-assert_eq "gone" "$([ -f "$P7D/.claude/sync-keep.candidate" ] && echo present || echo gone)" \
+assert_file_absent "$P7D/.claude/sync-keep.candidate" \
   "a dry run writes no candidate file"
 
 # ============================================================= 8. idempotency
@@ -624,7 +621,7 @@ printf '\n-- 8. two runs converge --\n'
 tree_hash() {
   # One sha256sum over every file (paths relative to the root, sorted) instead
   # of a process per file; only equality between two calls matters.
-  ( cd "$1" && find . -name .git -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum ) \
+  ( cd "$1" && find . -name .git -prune -o -type f -print0 | sort -z | xargs -0 -r sha256sum ) \
     | sha256sum | cut -d' ' -f1
 }
 
@@ -638,14 +635,14 @@ commit_all "$P8"
 write_keep "$P8" ".agents/agents/mine.md"
 
 run_retire --repo "$P8" --from-dir "$T8" --apply
-assert_eq "0" "$RUN_STATUS" "first --apply succeeds"
-FIRST_COUNT="$(printf '%s\n' "$RUN_OUTPUT" | grep -c '^  retire:')"
+assert_exit 0 "first --apply succeeds"
+FIRST_COUNT="$(printf '%s\n' "$output" | grep -c '^  retire:')"
 assert_eq "3" "$FIRST_COUNT" "first run retires the three upstream-retired paths"
 HASH_AFTER_FIRST="$(tree_hash "$P8")"
 
 run_retire --repo "$P8" --from-dir "$T8" --apply
-assert_eq "0" "$RUN_STATUS" "second --apply succeeds"
-assert_contains "$RUN_OUTPUT" "retire: (none)" "the second run reports zero retirements"
+assert_exit 0 "second --apply succeeds"
+assert_contains "$output" "retire: (none)" "the second run reports zero retirements"
 assert_eq "$HASH_AFTER_FIRST" "$(tree_hash "$P8")" \
   "the second run leaves a byte-identical tree"
 
@@ -653,7 +650,7 @@ assert_eq "$HASH_AFTER_FIRST" "$(tree_hash "$P8")" \
 commit_all "$P8"
 HASH_COMMITTED="$(tree_hash "$P8")"
 run_retire --repo "$P8" --from-dir "$T8" --apply
-assert_contains "$RUN_OUTPUT" "retire: (none)" "a third run after committing still reports zero"
+assert_contains "$output" "retire: (none)" "a third run after committing still reports zero"
 assert_eq "$HASH_COMMITTED" "$(tree_hash "$P8")" "a third run leaves the tree untouched"
 
 # Non-vacuity: the hash must actually respond to a change, or every comparison
@@ -691,7 +688,7 @@ commit_all "$P9"
 
 harness_paths() {
   find "$1/.agents/skills" "$1/.agents/agents" "$1/.claude/skills" "$1/.claude/hooks" \
-    -type f 2>/dev/null | sed "s|^$1/||" | LC_ALL=C sort
+    -type f 2>/dev/null | sed "s|^$1/||" | sort
 }
 
 # The allowlist is the project's, not the branch's: written once, honoured from
@@ -699,12 +696,12 @@ harness_paths() {
 write_keep "$P9" ".agents/agents/shared-project-agent.md"
 
 run_retire --repo "$P9" --from-dir "$T9" --apply
-assert_eq "0" "$RUN_STATUS" "sync from the feature branch succeeds"
+assert_exit 0 "sync from the feature branch succeeds"
 FEATURE_PATHS="$(harness_paths "$P9")"
 
 git -C "$P9" checkout -q main
 run_retire --repo "$P9" --from-dir "$T9" --apply
-assert_eq "0" "$RUN_STATUS" "sync from main succeeds"
+assert_exit 0 "sync from main succeeds"
 MAIN_PATHS="$(harness_paths "$P9")"
 
 assert_contains "$MAIN_PATHS" ".agents/agents/shared-project-agent.md" \
@@ -772,11 +769,11 @@ make_project "$P11"; make_template "$T11"
 _f "$P11/.agents/skills/mine/SKILL.md" "project specific"; commit_all "$P11"
 
 run_retire --repo "$P11" --from-dir "$T11" --apply
-assert_eq "0" "$RUN_STATUS" "F1: first bootstrap --apply writes the candidate"
+assert_exit 0 "F1: first bootstrap --apply writes the candidate"
 printf '%s\n' "# reviewed by a human" ".agents/skills/mine/SKILL.md" > "$P11/.claude/sync-keep.candidate"
 run_retire --repo "$P11" --from-dir "$T11" --apply
-assert_eq "1" "$RUN_STATUS" "F1: a second bootstrap --apply refuses rather than overwriting"
-assert_contains "$RUN_OUTPUT" "sync-keep.candidate" "F1: the refusal names the file"
+assert_exit 1 "F1: a second bootstrap --apply refuses rather than overwriting"
+assert_contains "$output" "sync-keep.candidate" "F1: the refusal names the file"
 assert_file_contains "$P11/.claude/sync-keep.candidate" "# reviewed by a human" \
   "F1: the human's edits survive the second run"
 
@@ -785,9 +782,9 @@ assert_file_contains "$P11/.claude/sync-keep.candidate" "# reviewed by a human" 
 # file and stopped, and carried no mode line at all.
 rm -f "$P11/.claude/sync-keep.candidate"
 run_retire --repo "$P11" --from-dir "$T11"
-assert_contains "$RUN_OUTPUT" "next:" "F7: the bootstrap dry run says what to do next"
-assert_contains "$RUN_OUTPUT" "--apply" "F7: the instruction names the flag that writes the candidate"
-assert_contains "$RUN_OUTPUT" "mode:   dry-run" "F7: bootstrap reports the same mode line as every other path"
+assert_contains "$output" "next:" "F7: the bootstrap dry run says what to do next"
+assert_contains "$output" "--apply" "F7: the instruction names the flag that writes the candidate"
+assert_contains "$output" "mode:   dry-run" "F7: bootstrap reports the same mode line as every other path"
 
 # F2 — the mode line was printed before any deletion ran, so a mid-loop failure
 # left stdout asserting N files were deleted when fewer were. For a tool whose
@@ -797,10 +794,10 @@ make_project "$P11B"; make_template "$T11B"
 _f "$P11B/.agents/skills/gone-a/SKILL.md" "retired"; _f "$P11B/.agents/skills/gone-b/SKILL.md" "retired"
 commit_all "$P11B"; write_keep "$P11B"
 run_retire --repo "$P11B" --from-dir "$T11B" --apply
-assert_contains "$RUN_OUTPUT" "mode:   applied (2 deleted)" "F2: the count reports what was actually removed"
+assert_contains "$output" "mode:   applied (2 deleted)" "F2: the count reports what was actually removed"
 # The list still precedes the act; only the outcome line follows it.
-assert_eq "0" "$(printf '%s\n' "$RUN_OUTPUT" | grep -n 'mode:' | cut -d: -f1 | \
-  { read -r m; printf '%s\n' "$RUN_OUTPUT" | grep -n 'retire:' | cut -d: -f1 | \
+assert_eq "0" "$(printf '%s\n' "$output" | grep -n 'mode:' | cut -d: -f1 | \
+  { read -r m; printf '%s\n' "$output" | grep -n 'retire:' | cut -d: -f1 | \
     while read -r r; do [ "$r" -lt "$m" ] || echo late; done; } | grep -c late)" \
   "F2: every retire line is printed before the outcome line"
 
@@ -812,13 +809,13 @@ make_project "$P11C"; make_template "$T11C"
 _f "$P11C/.claude/hooks/mine.sh" "project specific"; commit_all "$P11C"
 write_keep "$P11C" ".claude/**"
 run_retire --repo "$P11C" --from-dir "$T11C"
-assert_eq "0" "$RUN_STATUS" "F3: a pattern whose glob reaches into a root is accepted"
-assert_contains "$RUN_OUTPUT" "kept:   .claude/hooks/mine.sh (matched .claude/**)" \
+assert_exit 0 "F3: a pattern whose glob reaches into a root is accepted"
+assert_contains "$output" "kept:   .claude/hooks/mine.sh (matched .claude/**)" \
   "F3: and it actually protects the path it reaches"
 # The check still rejects a pattern that reaches no root at all.
 write_keep "$P11C" "tasks/**"
 run_retire --repo "$P11C" --from-dir "$T11C"
-assert_eq "1" "$RUN_STATUS" "F3: a pattern reaching no root is still rejected"
+assert_exit 1 "F3: a pattern reaching no root is still rejected"
 
 # F5 — the project inventory is the tracked set and --from-ref is the committed
 # tree, but --from-dir walked the filesystem, so gitignored residue counted as
@@ -827,8 +824,7 @@ assert_eq "1" "$RUN_STATUS" "F3: a pattern reaching no root is still rejected"
 P11D="$FIXTURE_ROOT/p11d"; T11D="$FIXTURE_ROOT/t11d"
 make_project "$P11D"; write_keep "$P11D"
 make_template "$T11D"
-git init -q --initial-branch=main "$T11D"
-git -C "$T11D" config user.name fixture; git -C "$T11D" config user.email fixture@example.test
+git_here "$T11D"
 printf '__pycache__/\n' > "$T11D/.gitignore"
 git -C "$T11D" add -A >/dev/null 2>&1; git -C "$T11D" commit -qm template
 # Residue that exists on disk but was never committed.
@@ -841,8 +837,8 @@ printf '__pycache__/\n' > "$P11D/.gitignore"
 _f "$P11D/.agents/skills/residue/x.md" "project-only, tracked, under a real root"
 commit_all "$P11D"
 run_retire --repo "$P11D" --from-dir "$T11D"
-assert_eq "0" "$RUN_STATUS" "F5: a git template checkout is read the same way as a ref"
-assert_not_contains "$RUN_OUTPUT" ".pyc" \
+assert_exit 0 "F5: a git template checkout is read the same way as a ref"
+assert_not_contains "$output" ".pyc" \
   "F5: gitignored residue is not template content, and is not project content either"
 
 # F6 — a trailing slash in a Markdown table decides whether a root is scanned by
@@ -850,7 +846,7 @@ assert_not_contains "$RUN_OUTPUT" ".pyc" \
 # which entries are directories.
 AWK_DIRS="$(awk '/^## Syncable Paths/ { b = 1; next }
                  b && /^## / { exit }
-                 b && /→/ { print $1 }' .agents/skills/sync/SKILL.md | grep '/$' | LC_ALL=C sort)"
+                 b && /→/ { print $1 }' .agents/skills/sync/SKILL.md | grep '/$' | sort)"
 PY_DIRS="$("$TEST_PYTHON" - <<'PYX'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("sr", ".agents/skills/sync/scripts/sync-retire.py")
@@ -884,14 +880,14 @@ make_project "$P12"; write_keep "$P12"
 # Layer 1 — a root the template declares but cannot vouch for is refused.
 make_template "$T12" "../victim-outside/   → traversal"
 run_retire --repo "$P12" --from-dir "$T12" --apply
-assert_eq "1" "$RUN_STATUS" "a traversing root the template cannot vouch for is refused"
-assert_contains "$RUN_OUTPUT" "../victim-outside/" "the refusal names the traversing root"
+assert_exit 1 "a traversing root the template cannot vouch for is refused"
+assert_contains "$output" "../victim-outside/" "the refusal names the traversing root"
 
 # Layer 2 — even when the template DOES carry files under that root, so a
 # contents check would be satisfied, the root is still refused on its shape.
 mkdir -p "$FIXTURE_ROOT/victim-outside"; printf 'decoy\n' > "$T12/../victim-outside/decoy.txt"
 run_retire --repo "$P12" --from-dir "$T12" --apply
-assert_eq "1" "$RUN_STATUS" "a traversing root backed by real template files is still refused"
+assert_exit 1 "a traversing root backed by real template files is still refused"
 assert_file_contains "$OUTSIDE/secret.txt" "precious" \
   "a file outside the project is never touched"
 
@@ -900,8 +896,8 @@ P12A="$FIXTURE_ROOT/p12a"; T12A="$FIXTURE_ROOT/t12a"
 make_project "$P12A"; write_keep "$P12A"
 make_template "$T12A" "/etc/                → absolute"
 run_retire --repo "$P12A" --from-dir "$T12A" --apply
-assert_eq "1" "$RUN_STATUS" "an absolute root in the doc block is refused"
-assert_eq "present" "$([ -f "$P12A/.agents/skills/build/SKILL.md" ] && echo present || echo gone)" \
+assert_exit 1 "an absolute root in the doc block is refused"
+assert_file_exists "$P12A/.agents/skills/build/SKILL.md" \
   "the refused run deleted nothing"
 
 # ================================== 13. the template cannot widen the blast radius
@@ -929,8 +925,8 @@ commit_all "$P13"; write_keep "$P13"
 make_template "$T13" "src/                  → hostile"
 _f "$T13/src/decoy.py" "decoy so a contents check would pass"
 run_retire --repo "$P13" --from-dir "$T13" --apply
-assert_eq "1" "$RUN_STATUS" "a root outside the harness directories is refused"
-assert_contains "$RUN_OUTPUT" "src/" "the refusal names the offending root"
+assert_exit 1 "a root outside the harness directories is refused"
+assert_contains "$output" "src/" "the refusal names the offending root"
 assert_file_contains "$P13/src/app.py" "production code" "project source is untouched"
 
 # `.claude/` itself — one segment — would sweep in the never-sync files,
@@ -941,10 +937,10 @@ write_keep "$P13B"
 make_template "$T13B" ".claude/              → hostile"
 _f "$T13B/.claude/decoy.md" "decoy"
 run_retire --repo "$P13B" --from-dir "$T13B" --apply
-assert_eq "1" "$RUN_STATUS" "a bare top-level harness directory is refused as a root"
+assert_exit 1 "a bare top-level harness directory is refused as a root"
 assert_file_contains "$P13B/.claude/project.md" "project config" \
   "the project's never-sync config is untouched"
-assert_eq "present" "$([ -f "$P13B/.claude/sync-keep" ] && echo present || echo gone)" \
+assert_file_exists "$P13B/.claude/sync-keep" \
   "the allowlist itself survives"
 
 # The nine real roots (seven live, two retired — .claude/skills/ and .claude/hooks/) still parse — the constraint must not break the tool.
@@ -978,19 +974,19 @@ commit_all "$P14"
 # A directory pattern is rejected outright, and the message names the fix.
 write_keep "$P14" ".agents/skills/mine/"
 run_retire --repo "$P14" --from-dir "$T14" --apply
-assert_eq "1" "$RUN_STATUS" "a trailing-slash directory pattern is refused"
-assert_contains "$RUN_OUTPUT" ".agents/skills/mine/**" "the refusal names the pattern that would work"
-assert_eq "present" "$([ -f "$P14/.agents/skills/mine/SKILL.md" ] && echo present || echo gone)" \
+assert_exit 1 "a trailing-slash directory pattern is refused"
+assert_contains "$output" ".agents/skills/mine/**" "the refusal names the pattern that would work"
+assert_file_exists "$P14/.agents/skills/mine/SKILL.md" \
   "nothing is deleted when a pattern is refused"
 
 # A pattern that is well-formed but matched nothing this run is reported, not
 # silently ignored — a stale allowlist entry is how a path starts being deleted.
 write_keep "$P14" ".agents/skills/mine/**" ".agents/skills/typo-never-matches/**"
 run_retire --repo "$P14" --from-dir "$T14"
-assert_eq "0" "$RUN_STATUS" "a pattern matching nothing is a warning, not a failure"
-assert_contains "$RUN_OUTPUT" "unmatched: .agents/skills/typo-never-matches/**" \
+assert_exit 0 "a pattern matching nothing is a warning, not a failure"
+assert_contains "$output" "unmatched: .agents/skills/typo-never-matches/**" \
   "the unmatched pattern is named"
-assert_not_contains "$RUN_OUTPUT" "unmatched: .agents/skills/mine/**" \
+assert_not_contains "$output" "unmatched: .agents/skills/mine/**" \
   "a pattern that did match is not reported as unmatched"
 
 # ================================ 15. candidates must be patterns, not paths
@@ -1010,7 +1006,7 @@ _f "$P15/.agents/skills/plain.md"   "ordinary project-only path"
 commit_all "$P15"
 
 run_retire --repo "$P15" --from-dir "$T15" --apply
-assert_eq "0" "$RUN_STATUS" "bootstrap succeeds even with an unexpressible path"
+assert_exit 0 "bootstrap succeeds even with an unexpressible path"
 assert_file_contains "$P15/.claude/sync-keep.candidate" ".agents/skills/plain.md" \
   "an ordinary path is emitted as a usable pattern"
 assert_file_contains "$P15/.claude/sync-keep.candidate" "# UNEXPRESSIBLE" \
@@ -1020,8 +1016,8 @@ assert_file_contains "$P15/.claude/sync-keep.candidate" "# UNEXPRESSIBLE" \
 # is a sync that exits 1 on a line the tool itself wrote.
 cp "$P15/.claude/sync-keep.candidate" "$P15/.claude/sync-keep"
 run_retire --repo "$P15" --from-dir "$T15"
-assert_eq "0" "$RUN_STATUS" "the promoted candidate validates"
-assert_contains "$RUN_OUTPUT" "kept:   .agents/skills/plain.md" "and protects what it names"
+assert_exit 0 "the promoted candidate validates"
+assert_contains "$output" "kept:   .agents/skills/plain.md" "and protects what it names"
 
 # ============================== 16. a deletion that fails part-way still reports
 #
@@ -1045,17 +1041,17 @@ else
   run_retire --repo "$P16" --from-dir "$T16" --apply
   chmod u+w "$P16/.agents/skills/z-locked"
 
-  assert_eq "1" "$RUN_STATUS" "a deletion failure exits non-zero"
-  assert_contains "$RUN_OUTPUT" "mode:   applied (1 deleted, 1 failed)" \
+  assert_exit 1 "a deletion failure exits non-zero"
+  assert_contains "$output" "mode:   applied (1 deleted, 1 failed)" \
     "the outcome counts what happened, not what was planned"
-  assert_contains "$RUN_OUTPUT" "FAILED: .agents/skills/z-locked/SKILL.md" \
+  assert_contains "$output" "FAILED: .agents/skills/z-locked/SKILL.md" \
     "the path that could not be deleted is named"
-  assert_eq "gone" "$([ -e "$P16/.agents/skills/a-first/SKILL.md" ] && echo present || echo gone)" \
+  assert_file_absent "$P16/.agents/skills/a-first/SKILL.md" \
     "the deletable path really was deleted"
-  assert_eq "present" "$([ -f "$P16/.agents/skills/z-locked/SKILL.md" ] && echo present || echo gone)" \
+  assert_file_exists "$P16/.agents/skills/z-locked/SKILL.md" \
     "the undeletable path really did survive"
   # The record must match the disk: exactly the paths reported deleted are gone.
-  assert_contains "$RUN_OUTPUT" "retire: .agents/skills/a-first/SKILL.md" \
+  assert_contains "$output" "retire: .agents/skills/a-first/SKILL.md" \
     "the full plan is still printed before the outcome"
 fi
 
@@ -1088,13 +1084,13 @@ else
   run_retire --repo "$P17" --from-dir "$T17" --apply
   chmod u+w "$P17/.agents/skills/orphan"
 
-  assert_contains "$RUN_OUTPUT" "applied (1 deleted" \
+  assert_contains "$output" "applied (1 deleted" \
     "a prune failure still reports the deletion that succeeded"
-  assert_contains "$RUN_OUTPUT" "1 not pruned" \
+  assert_contains "$output" "1 not pruned" \
     "the unprunable directory is counted separately from a failed deletion"
-  assert_contains "$RUN_OUTPUT" "UNPRUNED: .agents/skills/orphan/sub" \
+  assert_contains "$output" "UNPRUNED: .agents/skills/orphan/sub" \
     "the directory that could not be pruned is named"
-  assert_eq "gone" "$([ -e "$P17/.agents/skills/orphan/sub/SKILL.md" ] && echo present || echo gone)" \
+  assert_file_absent "$P17/.agents/skills/orphan/sub/SKILL.md" \
     "the file really was deleted, which is why the record must survive"
 fi
 
@@ -1106,9 +1102,7 @@ fi
 
 P18="$FIXTURE_ROOT/p18"; T18="$FIXTURE_ROOT/t18"
 make_project "$P18"; make_template "$T18"
-git init -q --initial-branch=main "$T18"
-git -C "$T18" config user.name fixture
-git -C "$T18" config user.email fixture@example.test
+git_here "$T18"
 commit_all "$T18"
 write_keep "$P18"
 git -C "$T18" config core.fsmonitor "touch $FIXTURE_ROOT/PWNED; false"
@@ -1116,11 +1110,11 @@ rm -f "$FIXTURE_ROOT/PWNED"
 
 run_retire --repo "$P18" --from-dir "$T18"
 
-assert_eq "absent" "$([ -e "$FIXTURE_ROOT/PWNED" ] && echo present || echo absent)" \
+assert_file_absent "$FIXTURE_ROOT/PWNED" \
   "a template's core.fsmonitor is not executed during the dry run"
 
 run_retire --repo "$P18" --from-dir "$T18" --apply
-assert_eq "absent" "$([ -e "$FIXTURE_ROOT/PWNED" ] && echo present || echo absent)" \
+assert_file_absent "$FIXTURE_ROOT/PWNED" \
   "nor under --apply"
 
 # --- 17.3 a candidate the reader would strip is written as a comment ---------
@@ -1160,14 +1154,14 @@ for _bad in '.claude/../' '.claude/./' '.claude/*/'; do
   make_project "$P20"; make_template "$T20" "$_bad          → hostile root"
   write_keep "$P20"
   run_retire --repo "$P20" --from-dir "$T20"
-  assert_eq "1" "$RUN_STATUS" "a root segment of '$_bad' is refused"
-  assert_contains "$RUN_OUTPUT" "$_bad" "the refusal names the offending root"
+  assert_exit 1 "a root segment of '$_bad' is refused"
+  assert_contains "$output" "$_bad" "the refusal names the offending root"
   # Which guard rejected it matters. assert_roots_present also refuses these,
   # incidentally, because git normalises its output -- so asserting only "exit 1"
   # stays green with the traversal hole wide open. Pin the *designated* guard by
   # its own message, or a later change to the reachability check silently
   # reopens whole-repo deletion.
-  assert_contains "$RUN_OUTPUT" "is not a syncable root" \
+  assert_contains "$output" "is not a syncable root" \
     "the root-shape validator is what rejects '$_bad', not a downstream accident"
 done
 
@@ -1192,10 +1186,10 @@ commit_all "$P21"; write_keep "$P21"
 
 run_retire --repo "$P21" --from-dir "$T21"
 
-assert_eq "0" "$RUN_STATUS" "a sub-heading closes the block rather than erroring"
+assert_exit 0 "a sub-heading closes the block rather than erroring"
 # If the block had stayed open, .claude/smuggled/ would be a scanned root and
 # its project-only file would appear as a retire candidate.
-assert_not_contains "$RUN_OUTPUT" "smuggled" \
+assert_not_contains "$output" "smuggled" \
   "a root declared after a sub-heading is not read as a syncable root"
 
 # ============== 18. third-review defects: seams, records and round-trips
@@ -1219,23 +1213,23 @@ commit_all "$P22"
 rm -f "$P22/.claude/sync-keep"
 
 run_retire --repo "$P22" --from-dir "$T22" --apply
-assert_eq "0" "$RUN_STATUS" "bootstrap writes a candidate"
+assert_exit 0 "bootstrap writes a candidate"
 
 # Promote the tool's own output verbatim: it must be readable by its own reader.
 cp "$P22/.claude/sync-keep.candidate" "$P22/.claude/sync-keep"
 run_retire --repo "$P22" --from-dir "$T22"
-assert_eq "0" "$RUN_STATUS" \
+assert_exit 0 \
   "the candidate this tool wrote is accepted verbatim by its own reader"
-assert_not_contains "$RUN_OUTPUT" "use POSIX separators" \
+assert_not_contains "$output" "use POSIX separators" \
   "a backslash path is commented out, not emitted as a rule that fails every later sync"
-assert_not_contains "$RUN_OUTPUT" "is outside every syncable root" \
+assert_not_contains "$output" "is outside every syncable root" \
   "and a newline does not split into a second, live rule at column 0"
 # Structural form of the same claim: every non-blank candidate line is either a
 # comment or a pattern the reader accepts. A continuation line is neither.
 assert_eq "0" "$(grep -vE '^#|^[[:space:]]*$' "$P22/.claude/sync-keep.candidate" \
   | grep -cvE '^\.(agents|claude)/' || true)" \
   "no candidate line is a bare fragment of a path"
-assert_contains "$RUN_OUTPUT" "kept:   .agents/skills/mine/plain.md" \
+assert_contains "$output" "kept:   .agents/skills/mine/plain.md" \
   "while the expressible sibling still protects its file"
 
 # --- 18.2 pruning stops at the syncable root even when the root empties -------
@@ -1250,9 +1244,9 @@ _f "$P23/.claude/hooks/old-hook.sh" "retired upstream; the root's entire content
 commit_all "$P23"; write_keep "$P23"
 
 run_retire --repo "$P23" --from-dir "$T23" --apply
-assert_eq "gone" "$([ -e "$P23/.claude/hooks/old-hook.sh" ] && echo present || echo gone)" \
+assert_file_absent "$P23/.claude/hooks/old-hook.sh" \
   "the root's last file is retired"
-assert_eq "present" "$([ -d "$P23/.claude/hooks" ] && echo present || echo gone)" \
+assert_file_exists "$P23/.claude/hooks" \
   "but the syncable root itself survives being emptied"
 
 # --- 18.3 a partial run reports what it destroyed, and names the right dir ----
@@ -1269,13 +1263,13 @@ else
   run_retire --repo "$P24" --from-dir "$T24" --apply
   chmod u+w "$P24/.agents/skills/gamma"
 
-  assert_contains "$RUN_OUTPUT" "deleted: .agents/skills/gamma/deep/deeper/y.md" \
+  assert_contains "$output" "deleted: .agents/skills/gamma/deep/deeper/y.md" \
     "a partial run prints the record of what it destroyed, not just a count"
   # Pruning walks upward, so the directory it STARTED at is usually removed fine.
   # Reporting that one names a path that no longer exists.
-  assert_contains "$RUN_OUTPUT" "UNPRUNED: .agents/skills/gamma/deep " \
+  assert_contains "$output" "UNPRUNED: .agents/skills/gamma/deep " \
     "the directory named is the one that actually failed"
-  assert_eq "present" "$([ -d "$P24/.agents/skills/gamma/deep" ] && echo present || echo gone)" \
+  assert_file_exists "$P24/.agents/skills/gamma/deep" \
     "and that directory is genuinely still on disk"
 fi
 
@@ -1289,18 +1283,18 @@ commit_all "$P25"
 rm -f "$P25/.claude/sync-keep"
 ln -s /nonexistent-target "$P25/.claude/sync-keep"
 run_retire --repo "$P25" --from-dir "$T25" --apply
-assert_eq "1" "$RUN_STATUS" "a sync-keep that is not a regular file is an error"
-assert_contains "$RUN_OUTPUT" "not a regular file" "and says so"
-assert_eq "absent" "$([ -e "$P25/.claude/sync-keep.candidate" ] && echo present || echo absent)" \
+assert_exit 1 "a sync-keep that is not a regular file is an error"
+assert_contains "$output" "not a regular file" "and says so"
+assert_file_absent "$P25/.claude/sync-keep.candidate" \
   "it is not mistaken for bootstrap, so no candidate is written over it"
 
 rm -f "$P25/.claude/sync-keep"
 printf '.agents/skills/x\xff\xfe.md\n' > "$P25/.claude/sync-keep"
 run_retire --repo "$P25" --from-dir "$T25" --apply
-assert_eq "1" "$RUN_STATUS" "an undecodable sync-keep exits 1"
-assert_contains "$RUN_OUTPUT" "sync-retire: cannot read" \
+assert_exit 1 "an undecodable sync-keep exits 1"
+assert_contains "$output" "sync-retire: cannot read" \
   "reported on the tool's own channel, not as a traceback"
-assert_not_contains "$RUN_OUTPUT" "Traceback" "specifically, not as a traceback"
+assert_not_contains "$output" "Traceback" "specifically, not as a traceback"
 
 # --- 18.5 a .git FILE must not redirect the inventory to another repository ---
 #
@@ -1317,8 +1311,8 @@ commit_all "$P26"; write_keep "$P26"
 printf 'gitdir: %s/.git\n' "$OTHER" > "$T26/.git"
 
 run_retire --repo "$P26" --from-dir "$T26"
-assert_eq "0" "$RUN_STATUS" "a .git file is treated as a plain directory, not a repo"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/beta/SKILL.md" \
+assert_exit 0 "a .git file is treated as a plain directory, not a repo"
+assert_contains "$output" "retire: .agents/skills/beta/SKILL.md" \
   "the inventory comes from the directory on disk, not from the repo its .git file names"
 
 # --- 18.6 a template checkout without the doc block is an error --------------
@@ -1328,8 +1322,8 @@ make_project "$P27"; make_template "$T27"; write_keep "$P27"
 rm -f "$T27/.agents/skills/sync/SKILL.md"
 
 run_retire --repo "$P27" --from-dir "$T27" --apply
-assert_eq "1" "$RUN_STATUS" "a template checkout with no SKILL.md exits 1"
-assert_contains "$RUN_OUTPUT" "template checkout has no" "and names what is missing"
+assert_exit 1 "a template checkout with no SKILL.md exits 1"
+assert_contains "$output" "template checkout has no" "and names what is missing"
 
 # --- 18.7 git config from outside the repo cannot choose what runs -----------
 #
@@ -1349,7 +1343,7 @@ GIT_CONFIG_GLOBAL="$FIXTURE_ROOT/evil-global-config" \
 # GIT_CONFIG_NOSYSTEM/GIT_CONFIG_GLOBAL suppression leaves this green. The env
 # hardening is defence-in-depth behind the `-c` pin, not an independently
 # observable behaviour -- recorded here as a smoke test, not as proof of it.
-assert_eq "absent" "$([ -e "$FIXTURE_ROOT/PWNED_GLOBAL" ] && echo present || echo absent)" \
+assert_file_absent "$FIXTURE_ROOT/PWNED_GLOBAL" \
   "git config from outside the repo does not name a command this tool executes"
 
 # ================= 19. bootstrap still removes what the template retired
@@ -1366,9 +1360,7 @@ assert_eq "absent" "$([ -e "$FIXTURE_ROOT/PWNED_GLOBAL" ] && echo present || ech
 P29="$FIXTURE_ROOT/p29"; T29="$FIXTURE_ROOT/t29"
 make_project "$P29"
 # A git template WITH history: it once shipped `legacy`, then retired it.
-git init -q --initial-branch=main "$T29"
-git -C "$T29" config user.name fixture
-git -C "$T29" config user.email fixture@example.test
+git_here "$T29"
 write_skill_md "$T29"
 _f "$T29/.agents/skills/build/SKILL.md"  "build skill"
 _f "$T29/.agents/agents/planner.md"      "planner"
@@ -1388,19 +1380,19 @@ commit_all "$P29"
 rm -f "$P29/.claude/sync-keep"            # bootstrap: no allowlist recorded
 
 run_retire --repo "$P29" --from-dir "$T29"
-assert_eq "0" "$RUN_STATUS" "bootstrap with template history succeeds"
-assert_contains "$RUN_OUTPUT" "bootstrap: required" "it is still bootstrap"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md (was template content" \
+assert_exit 0 "bootstrap with template history succeeds"
+assert_contains "$output" "bootstrap: required" "it is still bootstrap"
+assert_contains "$output" "retire: .agents/skills/legacy/SKILL.md (was template content" \
   "a path the template retired upstream is retired without a human classifying it"
-assert_contains "$RUN_OUTPUT" "candidate: .agents/skills/ours/SKILL.md" \
+assert_contains "$output" "candidate: .agents/skills/ours/SKILL.md" \
   "while a path the template never carried stays a candidate for the human"
-assert_not_contains "$RUN_OUTPUT" "retire: .agents/skills/ours/SKILL.md" \
+assert_not_contains "$output" "retire: .agents/skills/ours/SKILL.md" \
   "project-specific paths are never retired on provenance alone"
 
 run_retire --repo "$P29" --from-dir "$T29" --apply
-assert_eq "gone" "$([ -e "$P29/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_absent "$P29/.agents/skills/legacy/SKILL.md" \
   "--apply removes the retired-upstream path in bootstrap"
-assert_eq "present" "$([ -f "$P29/.agents/skills/ours/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P29/.agents/skills/ours/SKILL.md" \
   "and leaves the project's own file untouched"
 assert_contains "$(cat "$P29/.claude/sync-keep.candidate")" ".agents/skills/ours/SKILL.md" \
   "the candidate offers only what provenance could not settle"
@@ -1420,10 +1412,10 @@ commit_all "$P30"
 rm -f "$P30/.claude/sync-keep"
 
 run_retire --repo "$P30" --from-dir "$T30" --apply
-assert_eq "0" "$RUN_STATUS" "a shallow template still produces a plan"
-assert_contains "$RUN_OUTPUT" "provenance: unavailable" \
+assert_exit 0 "a shallow template still produces a plan"
+assert_contains "$output" "provenance: unavailable" \
   "and says provenance could not be established"
-assert_eq "present" "$([ -f "$P30/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P30/.agents/skills/legacy/SKILL.md" \
   "retiring nothing rather than guessing"
 
 # =========================================== 20. wrap-up review regressions
@@ -1442,8 +1434,7 @@ printf '\n-- 20. record-loss and provenance regressions --\n'
 make_history_template() {
   _dir="$1"
   mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/hooks" "$_dir/.agents/skills/legacy"
-  git init -q --initial-branch=main "$_dir"
-  fixture_identity "$_dir"
+  git_here "$_dir"
   write_skill_md "$_dir"
   _f "$_dir/.agents/skills/build/SKILL.md"  "build skill"
   _f "$_dir/.agents/agents/planner.md"      "planner"
@@ -1474,13 +1465,12 @@ rm -f "$P31/.claude/sync-keep"
 _f "$P31/.claude/sync-keep.candidate" "# generated earlier, not yet promoted"
 
 run_retire --repo "$P31" --from-dir "$T31" --apply
-assert_eq "1" "$RUN_STATUS" "bootstrap --apply refuses an existing candidate"
-assert_contains "$RUN_OUTPUT" "sync-keep.candidate already exists" \
+assert_exit 1 "bootstrap --apply refuses an existing candidate"
+assert_contains "$output" "sync-keep.candidate already exists" \
   "and says which file it will not overwrite"
-assert_eq "present" \
-  "$([ -f "$P31/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P31/.agents/skills/legacy/SKILL.md" \
   "the refusal happens before any deletion, not after it"
-assert_not_contains "$RUN_OUTPUT" "deleted:" \
+assert_not_contains "$output" "deleted:" \
   "so there is no destruction to report"
 assert_file_contains "$P31/.claude/sync-keep.candidate" "not yet promoted" \
   "and the human's file is left exactly as they left it"
@@ -1490,13 +1480,12 @@ assert_file_contains "$P31/.claude/sync-keep.candidate" "not yet promoted" \
 # against a program that had simply stopped retiring in bootstrap.
 rm -f "$P31/.claude/sync-keep.candidate"
 run_retire --repo "$P31" --from-dir "$T31" --apply
-assert_eq "0" "$RUN_STATUS" "with no stale candidate the same run succeeds"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md" \
+assert_exit 0 "with no stale candidate the same run succeeds"
+assert_contains "$output" "retire: .agents/skills/legacy/SKILL.md" \
   "and the same run names the path it is about to destroy"
-assert_contains "$RUN_OUTPUT" "applied (1 deleted)" \
+assert_contains "$output" "applied (1 deleted)" \
   "and reports having destroyed it"
-assert_eq "gone" \
-  "$([ -e "$P31/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_absent "$P31/.agents/skills/legacy/SKILL.md" \
   "so the guard was a precondition, not a permanent refusal to retire"
 
 # --- 20.2 every git failure is not "the clone was shallow" ------------------
@@ -1507,9 +1496,7 @@ assert_eq "gone" \
 
 P32="$FIXTURE_ROOT/p32"; T32="$FIXTURE_ROOT/t32"
 make_project "$P32"
-git init -q --initial-branch=main "$T32"
-git -C "$T32" config user.name fixture
-git -C "$T32" config user.email fixture@example.test
+git_here "$T32"
 make_template "$T32"
 commit_all "$T32"                          # one commit: no history to read
 _f "$P32/.agents/skills/legacy/SKILL.md" "unclassifiable without provenance"
@@ -1517,9 +1504,9 @@ commit_all "$P32"
 rm -f "$P32/.claude/sync-keep"
 
 run_retire --repo "$P32" --from-dir "$T32"
-assert_not_contains "$RUN_OUTPUT" "provenance: unavailable" \
+assert_not_contains "$output" "provenance: unavailable" \
   "one commit is a complete history, not an unreadable one"
-assert_contains "$RUN_OUTPUT" "candidate: .agents/skills/legacy/SKILL.md" \
+assert_contains "$output" "candidate: .agents/skills/legacy/SKILL.md" \
   "it simply never retired anything, so nothing has provenance to retire"
 
 # The truncation that *does* hide a retirement is a clone shallower than it.
@@ -1540,12 +1527,12 @@ commit_all "$P32C"
 rm -f "$P32C/.claude/sync-keep"
 
 run_retire --repo "$P32C" --from-dir "$T32C"
-assert_eq "0" "$RUN_STATUS" "a shallow-but-not-single-commit template produces a plan"
-assert_contains "$RUN_OUTPUT" "provenance: unavailable" \
+assert_exit 0 "a shallow-but-not-single-commit template produces a plan"
+assert_contains "$output" "provenance: unavailable" \
   "a clone truncated below the retirement is detected at any depth"
-assert_contains "$RUN_OUTPUT" "truncated history" \
+assert_contains "$output" "truncated history" \
   "and named as truncation rather than as a missing ref"
-assert_not_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md" \
+assert_not_contains "$output" "retire: .agents/skills/legacy/SKILL.md" \
   "so it never concludes a retirement from history it cannot see"
 
 # The other way this probe fails is a git error, and it used to be reported with
@@ -1557,26 +1544,26 @@ assert_not_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md" \
 P32B="$FIXTURE_ROOT/p32b"; T32B="$FIXTURE_ROOT/t32b"
 make_project "$P32B"
 make_template "$T32B"
-git init -q --initial-branch=main "$T32B"
+git_here "$T32B"
 git -C "$T32B" add -A                      # staged, never committed: no HEAD
 _f "$P32B/.agents/skills/legacy/SKILL.md" "unclassifiable without provenance"
 commit_all "$P32B"
 rm -f "$P32B/.claude/sync-keep"
 
 run_retire --repo "$P32B" --from-dir "$T32B"
-assert_eq "0" "$RUN_STATUS" "an unreadable revision still produces a plan"
-assert_contains "$RUN_OUTPUT" "unknown revision" \
+assert_exit 0 "an unreadable revision still produces a plan"
+assert_contains "$output" "unknown revision" \
   "and the reason is the one git gave, carried out of the probe"
-assert_not_contains "$RUN_OUTPUT" "single commit" \
+assert_not_contains "$output" "single commit" \
   "not the shallow-clone wording every failure used to borrow"
 # git's fatals run to three lines with a usage hint. The report is read one
 # item per line, so the reason has to arrive as one item.
 assert_eq "0" \
-  "$(printf '%s\n' "$RUN_OUTPUT" | tail -n +2 | grep -cv '^  ' || true)" \
+  "$(printf '%s\n' "$output" | tail -n +2 | grep -cv '^  ' || true)" \
   "and it stays a single report line, however many lines git used to say it"
-assert_contains "$RUN_OUTPUT" "candidate: .agents/skills/legacy/SKILL.md" \
+assert_contains "$output" "candidate: .agents/skills/legacy/SKILL.md" \
   "unknown provenance holds the path for a human rather than deleting it"
-assert_not_contains "$RUN_OUTPUT" "a full clone" \
+assert_not_contains "$output" "a full clone" \
   "and it does not advise deepening a clone whose depth was never the problem"
 
 # --- 20.3 shallowness is a property of the revision, not the repository -----
@@ -1604,12 +1591,12 @@ git -C "$P33" fetch -q workflow main
 git -C "$P33" tag -f workflow-main FETCH_HEAD >/dev/null 2>&1
 
 run_retire --repo "$P33" --from-ref workflow-main
-assert_eq "0" "$RUN_STATUS" "a shallow project reads the template ref's history"
-assert_not_contains "$RUN_OUTPUT" "provenance: unavailable" \
+assert_exit 0 "a shallow project reads the template ref's history"
+assert_not_contains "$output" "provenance: unavailable" \
   "the project's own clone depth does not suppress the template's provenance"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md" \
+assert_contains "$output" "retire: .agents/skills/legacy/SKILL.md" \
   "so retirement still happens in the mode SKILL.md prescribes"
-assert_contains "$RUN_OUTPUT" "candidate: .agents/skills/ours/SKILL.md" \
+assert_contains "$output" "candidate: .agents/skills/ours/SKILL.md" \
   "and the project's own file is still only a candidate"
 
 # --- 20.4 a directory it cannot read is reported, not raised ----------------
@@ -1631,12 +1618,12 @@ else
 
   run_retire --repo "$P34" --from-dir "$T34" --apply
   chmod 700 "$P34/.agents/skills/gone" 2>/dev/null || true
-  assert_eq "1" "$RUN_STATUS" "an unprunable directory is a non-zero outcome"
-  assert_contains "$RUN_OUTPUT" "deleted: .agents/skills/gone/SKILL.md" \
+  assert_exit 1 "an unprunable directory is a non-zero outcome"
+  assert_contains "$output" "deleted: .agents/skills/gone/SKILL.md" \
     "but the file it destroyed is still reported by path"
-  assert_contains "$RUN_OUTPUT" "UNPRUNED: .agents/skills/gone" \
+  assert_contains "$output" "UNPRUNED: .agents/skills/gone" \
     "and the directory it could not remove is named separately"
-  assert_contains "$RUN_OUTPUT" "mode:   applied" \
+  assert_contains "$output" "mode:   applied" \
     "the accounting ran at all — the OSError did not escape past it"
 fi
 
@@ -1657,20 +1644,20 @@ commit_all "$P35"
 write_keep "$P35" ".claude/hooks/local.sh"
 
 run_retire --repo "$P35" --from-dir "$T35"
-assert_eq "0" "$RUN_STATUS" \
+assert_exit 0 \
   "a sync-keep entry under an emptied root does not abort the run"
-assert_contains "$RUN_OUTPUT" "skipped: .claude/hooks/" \
+assert_contains "$output" "skipped: .claude/hooks/" \
   "the emptied root is skipped and said so"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/gone/SKILL.md" \
+assert_contains "$output" "retire: .agents/skills/gone/SKILL.md" \
   "and retirement under every other root still proceeds"
 
-assert_contains "$RUN_OUTPUT" "dormant: .claude/hooks/local.sh" \
+assert_contains "$output" "dormant: .claude/hooks/local.sh" \
   "the pattern is reported as dormant, not as one that matched nothing"
-assert_not_contains "$RUN_OUTPUT" "unmatched: .claude/hooks/local.sh" \
+assert_not_contains "$output" "unmatched: .claude/hooks/local.sh" \
   "because unmatched reads as an invitation to delete the only protection"
 
 run_retire --repo "$P35" --from-dir "$T35" --apply
-assert_eq "present" "$([ -f "$P35/.claude/hooks/local.sh" ] && echo present || echo gone)" \
+assert_file_exists "$P35/.claude/hooks/local.sh" \
   "nothing under a skipped root is deleted"
 
 # --- 20.6 the two readers of the doc block agree at every heading depth -----
@@ -1695,10 +1682,10 @@ io.open(path, "w", encoding="utf-8").write(
 EOF_PY
 
 run_retire --repo "$P36" --from-dir "$T36"
-assert_eq "0" "$RUN_STATUS" "a 7-hash heading after the fence is not a parse error"
-assert_contains "$RUN_OUTPUT" "roots: 4" \
+assert_exit 0 "a 7-hash heading after the fence is not a parse error"
+assert_contains "$output" "roots: 4" \
   "it closes the block, so the line beneath it is not read as a root"
-assert_not_contains "$RUN_OUTPUT" "/etc/" \
+assert_not_contains "$output" "/etc/" \
   "and the absolute path below it never reaches the root validator"
 
 # ======================================= 21. the invocations SKILL.md prescribes
@@ -1740,7 +1727,7 @@ assert_contains "$PIPED_OUT" "retire: .agents/skills/legacy/SKILL.md" \
   "and reaches the same conclusion as the on-disk invocation"
 assert_contains "$PIPED_OUT" "dry-run (no changes written)" \
   "reading the program from stdin does not imply --apply"
-assert_eq "present" "$([ -f "$P37/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P37/.agents/skills/legacy/SKILL.md" \
   "and the dry run deletes nothing"
 
 # --- 21.2 pipefail is load-bearing, not decoration --------------------------
@@ -1767,9 +1754,9 @@ APPLY_OUT="$(cd "$P37" && set -o pipefail && \
   | "$TEST_PYTHON" - --from-ref "workflow/main" --apply 2>&1)"
 APPLY_STATUS=$?
 assert_eq "0" "$APPLY_STATUS" "the piped --apply exits zero"
-assert_eq "gone" "$([ -e "$P37/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_absent "$P37/.agents/skills/legacy/SKILL.md" \
   "the retired path is deleted through the prescribed pipeline"
-assert_eq "present" "$([ -f "$P37/.agents/skills/ours/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P37/.agents/skills/ours/SKILL.md" \
   "and the project's own file survives it"
 assert_contains "$APPLY_OUT" "wrote:  .claude/sync-keep.candidate" \
   "the candidate is written for the human to promote"
@@ -1808,20 +1795,20 @@ rm -f "$P38/.claude/sync-keep"
 git -C "$T38" log --oneline >/dev/null 2>&1
 
 run_retire --repo "$P38" --from-dir "$T38"
-assert_eq "0" "$RUN_STATUS" "the mixed bootstrap produces a plan"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md" \
+assert_exit 0 "the mixed bootstrap produces a plan"
+assert_contains "$output" "retire: .agents/skills/legacy/SKILL.md" \
   "a byte-identical copy of retired template content is retired"
-assert_not_contains "$RUN_OUTPUT" "retire: .claude/skills/legacy/SKILL.md" \
+assert_not_contains "$output" "retire: .claude/skills/legacy/SKILL.md" \
   "a copy this project edited after syncing is not"
-assert_contains "$RUN_OUTPUT" "candidate: .claude/skills/legacy/SKILL.md" \
+assert_contains "$output" "candidate: .claude/skills/legacy/SKILL.md" \
   "it goes to the human, because the edit is what makes it theirs"
-assert_not_contains "$RUN_OUTPUT" "retire: .claude/hooks/session-start.sh" \
+assert_not_contains "$output" "retire: .claude/hooks/session-start.sh" \
   "a file this project wrote at a path the template once used is never retired"
-assert_contains "$RUN_OUTPUT" "candidate: .claude/hooks/session-start.sh" \
+assert_contains "$output" "candidate: .claude/hooks/session-start.sh" \
   "a shared filename is a collision, not provenance"
 
 run_retire --repo "$P38" --from-dir "$T38" --apply
-assert_eq "gone" "$([ -e "$P38/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_absent "$P38/.agents/skills/legacy/SKILL.md" \
   "--apply removes only the pristine copy"
 assert_file_contains "$P38/.claude/skills/legacy/SKILL.md" "this project added" \
   "the customised copy survives with its edit intact"
@@ -1844,11 +1831,11 @@ printf 'shipped once, retired later\nlocal edit not yet committed\n' \
   > "$P39/.agents/skills/legacy/SKILL.md"
 
 run_retire --repo "$P39" --from-dir "$T39" --apply
-assert_eq "present" "$([ -f "$P39/.agents/skills/legacy/SKILL.md" ] && echo present || echo gone)" \
+assert_file_exists "$P39/.agents/skills/legacy/SKILL.md" \
   "a file with uncommitted edits is never deleted"
 assert_file_contains "$P39/.agents/skills/legacy/SKILL.md" "local edit not yet committed" \
   "and the edit git could not restore is still there"
-assert_contains "$RUN_OUTPUT" "candidate: .agents/skills/legacy/SKILL.md" \
+assert_contains "$output" "candidate: .agents/skills/legacy/SKILL.md" \
   "it is offered to the human instead"
 
 # --- 22.3 a candidate write that fails after deleting still reports ---------
@@ -1870,12 +1857,12 @@ else
 
   run_retire --repo "$P40" --from-dir "$T40" --apply
   chmod 700 "$P40/.claude" 2>/dev/null || true
-  assert_eq "1" "$RUN_STATUS" "an unwritable candidate is a non-zero outcome"
-  assert_contains "$RUN_OUTPUT" "deleted: .agents/skills/legacy/SKILL.md" \
+  assert_exit 1 "an unwritable candidate is a non-zero outcome"
+  assert_contains "$output" "deleted: .agents/skills/legacy/SKILL.md" \
     "and the file it destroyed is still reported by path"
-  assert_contains "$RUN_OUTPUT" "FAILED: cannot write .claude/sync-keep.candidate" \
+  assert_contains "$output" "FAILED: cannot write .claude/sync-keep.candidate" \
     "alongside what it could not write, named separately"
-  assert_not_contains "$RUN_OUTPUT" "Traceback" \
+  assert_not_contains "$output" "Traceback" \
     "the failure is reported, not raised through the accounting"
 fi
 
@@ -1895,10 +1882,10 @@ rm -f "$VICTIM41"
 ln -s "$VICTIM41" "$P41/.claude/sync-keep.candidate"
 
 run_retire --repo "$P41" --from-dir "$T41" --apply
-assert_eq "1" "$RUN_STATUS" "a dangling symlink at the candidate path is refused"
-assert_eq "absent" "$([ -e "$VICTIM41" ] && echo created || echo absent)" \
+assert_exit 1 "a dangling symlink at the candidate path is refused"
+assert_file_absent "$VICTIM41" \
   "and the tool never writes through it to create the target"
-assert_contains "$RUN_OUTPUT" "sync-keep.candidate already exists" \
+assert_contains "$output" "sync-keep.candidate already exists" \
   "the refusal names the path it will not write"
 
 # ==================================== 23. security review regressions (round 3)
@@ -1932,12 +1919,12 @@ ln -s "$OUTSIDE42" "$P42/.agents/skills/sub"
 write_keep "$P42" ".agents/skills/nothing-at-all/**"
 
 run_retire --repo "$P42" --from-dir "$T42" --apply
-assert_eq "present" "$([ -f "$OUTSIDE42/victim.sh" ] && echo present || echo gone)" \
+assert_file_exists "$OUTSIDE42/victim.sh" \
   "a file outside the repository is never deleted through a symlinked directory"
-assert_eq "1" "$RUN_STATUS" "and the refusal is a non-zero outcome"
-assert_contains "$RUN_OUTPUT" "resolves outside the repository" \
+assert_exit 1 "and the refusal is a non-zero outcome"
+assert_contains "$output" "resolves outside the repository" \
   "the report says why it refused, naming the mechanism"
-assert_not_contains "$RUN_OUTPUT" "deleted: .agents/skills/sub/victim.sh" \
+assert_not_contains "$output" "deleted: .agents/skills/sub/victim.sh" \
   "and never claims to have deleted it"
 
 # --- 23.2 a filename cannot forge a line in the record ----------------------
@@ -1958,14 +1945,14 @@ write_keep "$P43" ".claude/hooks/nothing-at-all/**"
 run_retire --repo "$P43" --from-dir "$T43"
 # The payload text still appears — inside the escaped path, on the retire line,
 # which is the point. What must not exist is a *line* that reads as a kept entry.
-assert_eq "0" "$(printf '%s\n' "$RUN_OUTPUT" | grep -c '^  kept:' || true)" \
+assert_eq "0" "$(printf '%s\n' "$output" | grep -c '^  kept:' || true)" \
   "a newline in a filename cannot inject a kept: line into the record"
-assert_contains "$RUN_OUTPUT" "\\n  kept:" \
+assert_contains "$output" "\\n  kept:" \
   "the newline is escaped into the path field rather than ending the line"
 assert_eq "0" \
-  "$(printf '%s\n' "$RUN_OUTPUT" | tail -n +2 | grep -cv '^  ' || true)" \
+  "$(printf '%s\n' "$output" | tail -n +2 | grep -cv '^  ' || true)" \
   "every report line still starts as a report line"
-assert_contains "$RUN_OUTPUT" "retire: .claude/hooks/audit.sh" \
+assert_contains "$output" "retire: .claude/hooks/audit.sh" \
   "and the file the forgery lied about is correctly listed for retirement"
 
 # --- 23.3 the template's git config must not steer the deletion set --------
@@ -1977,9 +1964,7 @@ assert_contains "$RUN_OUTPUT" "retire: .claude/hooks/audit.sh" \
 
 P44="$FIXTURE_ROOT/p44"; T44="$FIXTURE_ROOT/t44"
 make_project "$P44"
-git init -q --initial-branch=main "$T44"
-git -C "$T44" config user.name fixture
-git -C "$T44" config user.email fixture@example.test
+git_here "$T44"
 make_template "$T44"
 _f "$T44/.claude/hooks/café.sh" "shipped once, retired later"
 commit_all "$T44"
@@ -1991,10 +1976,10 @@ rm -f "$P44/.claude/sync-keep"
 
 git -C "$T44" config core.quotePath true
 run_retire --repo "$P44" --from-dir "$T44"
-QUOTED44="$(printf '%s\n' "$RUN_OUTPUT" | grep -c 'retire:' || true)"
+QUOTED44="$(printf '%s\n' "$output" | grep -c 'retire:' || true)"
 git -C "$T44" config core.quotePath false
 run_retire --repo "$P44" --from-dir "$T44"
-UNQUOTED44="$(printf '%s\n' "$RUN_OUTPUT" | grep -c 'retire:' || true)"
+UNQUOTED44="$(printf '%s\n' "$output" | grep -c 'retire:' || true)"
 assert_eq "$QUOTED44" "$UNQUOTED44" \
   "the template's core.quotePath does not change what gets retired"
 assert_eq "1" "$QUOTED44" \
@@ -2009,9 +1994,7 @@ assert_eq "1" "$QUOTED44" \
 
 P45="$FIXTURE_ROOT/p45"; T45="$FIXTURE_ROOT/t45"
 make_project "$P45"
-git init -q --initial-branch=main "$T45"
-git -C "$T45" config user.name fixture
-git -C "$T45" config user.email fixture@example.test
+git_here "$T45"
 make_template "$T45"
 _f "$T45/.agents/skills/legacy/SKILL.md" "shipped once, retired later"
 git -C "$T45" add -A
@@ -2023,9 +2006,9 @@ commit_all "$P45"
 rm -f "$P45/.claude/sync-keep"
 
 run_retire --repo "$P45" --from-dir "$T45"
-assert_not_contains "$RUN_OUTPUT" "provenance: unavailable" \
+assert_not_contains "$output" "provenance: unavailable" \
   "a root commit whose message contains a 'parent ' line is not a graft"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/legacy/SKILL.md" \
+assert_contains "$output" "retire: .agents/skills/legacy/SKILL.md" \
   "so provenance still resolves and the retired path is still retired"
 
 # --- 23.5 option interpretation is refused at the sink, not only in main ----
@@ -2056,8 +2039,7 @@ except Exception as exc:
     print(type(exc).__name__)
 PYX
 )"
-assert_eq "absent" \
-  "$([ -e "$INJECT45:.agents/skills/sync/SKILL.md" ] && echo created || echo absent)" \
+assert_file_absent "$INJECT45:.agents/skills/sync/SKILL.md" \
   "a ref that looks like an option never becomes one at the git show sink"
 assert_contains "$INJECT_OUT" "RetireError" \
   "it is refused as a bad revision, through the module's own error type"
@@ -2080,17 +2062,7 @@ JPLUGIN_ID="jplugin@jplugin-agentic-development"
 # two-column shape and trailing slash as the live rows: the marker is the only
 # thing the parser may key on.
 write_retired_skill_md() {
-  [ -d "$1/.agents/skills/sync" ] || mkdir -p "$1/.agents/skills/sync"
-  {
-    printf '## Syncable Paths\n\n```\n'
-    printf 'CLAUDE.md             → Shared rules\n'
-    printf '.agents/skills/       → Canonical skills\n'
-    printf '.agents/agents/       → Canonical personas\n'
-    printf '.claude/skills/       → RETIRED — the plugin reads .agents/skills/\n'
-    printf '.claude/hooks/        → Lifecycle hooks\n'
-    printf '.claude/settings.json → Hook configuration\n'
-    printf '```\n\n## Next Section\n'
-  } > "$1/.agents/skills/sync/SKILL.md"
+  fixture_copy sync/syncable-paths-retired.md "$1/.agents/skills/sync/SKILL.md"
 }
 
 # A template that shipped `plan` and `build` under .claude/skills/ and later
@@ -2101,8 +2073,7 @@ make_retired_template() {
   _dir="$1"
   # No .claude/hooks here: the template's hooks root is deliberately absent.
   mkdir -p "$_dir/.agents/skills/sync" "$_dir/.agents/skills/build" "$_dir/.agents/agents" "$_dir/.claude/skills/build" "$_dir/.claude/skills/plan"
-  git init -q --initial-branch=main "$_dir"
-  fixture_identity "$_dir"
+  git_here "$_dir"
   write_retired_skill_md "$_dir"
   _f "$_dir/.agents/skills/build/SKILL.md"  "build skill"
   _f "$_dir/.agents/agents/planner.md"      "planner"
@@ -2150,56 +2121,56 @@ assert_not_contains "$(printf '%s\n' "$PARSED" | grep '^live=')" ".claude/skills
 # Step 5 has written the declaration, so a refusal would exit 1 on every
 # downstream project's first sync and drop the live-root list from the summary.
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "0" "$RUN_STATUS" \
+assert_exit 0 \
   "24.2: settings without enabledPlugins still produce a plan -- Step 3 previews before Step 5 writes them"
-assert_contains "$RUN_OUTPUT" ".claude/settings.json" \
+assert_contains "$output" ".claude/settings.json" \
   "24.2: the report names the file that must enable the plugin"
-assert_contains "$RUN_OUTPUT" "$JPLUGIN_ID" \
+assert_contains "$output" "$JPLUGIN_ID" \
   "24.2: ... and the plugin id it must enable"
-assert_contains "$RUN_OUTPUT" "Step 5" \
+assert_contains "$output" "Step 5" \
   "24.2: ... and the /sync step that writes it"
-assert_not_contains "$RUN_OUTPUT" "retire: .claude/skills/" \
+assert_not_contains "$output" "retire: .claude/skills/" \
   "24.2: nothing under the retired root enters the plan without the declaration"
-assert_contains "$RUN_OUTPUT" "retire: .agents/skills/stale/SKILL.md" \
+assert_contains "$output" "retire: .agents/skills/stale/SKILL.md" \
   "24.2: live-root retirement is unaffected, so the preview the user approves is complete"
 
 _f "$P50/.claude/settings.json" "{ not json"
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "1" "$RUN_STATUS" "24.3: unreadable settings JSON is a refusal, not a traceback"
-assert_contains "$RUN_OUTPUT" "cannot parse .claude/settings.json" \
+assert_exit 1 "24.3: unreadable settings JSON is a refusal, not a traceback"
+assert_contains "$output" "cannot parse .claude/settings.json" \
   "24.3: the error names the file"
-assert_not_contains "$RUN_OUTPUT" "Traceback" "24.3: ... through RetireError"
+assert_not_contains "$output" "Traceback" "24.3: ... through RetireError"
 
 # --- 24.3b a shape Claude Code cannot read is a refusal too; absent and false hold back ---
 _f "$P50/.claude/settings.json" '{"enabledPlugins": []}'
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "1" "$RUN_STATUS" "24.3b: enabledPlugins that is not an object is refused, not read as empty"
-assert_contains "$RUN_OUTPUT" "enabledPlugins" "24.3b: the error names the key"
+assert_exit 1 "24.3b: enabledPlugins that is not an object is refused, not read as empty"
+assert_contains "$output" "enabledPlugins" "24.3b: the error names the key"
 _f "$P50/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": false}}'
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "0" "$RUN_STATUS" "24.3b: a project that set the plugin to false still gets a plan"
-assert_contains "$RUN_OUTPUT" "does not enable" "24.3b: ... held back with the same reason"
-assert_not_contains "$RUN_OUTPUT" "retire: .claude/skills/" "24.3b: ... and nothing under the retired root enters it"
+assert_exit 0 "24.3b: a project that set the plugin to false still gets a plan"
+assert_contains "$output" "does not enable" "24.3b: ... held back with the same reason"
+assert_not_contains "$output" "retire: .claude/skills/" "24.3b: ... and nothing under the retired root enters it"
 rm -f "$P50/.claude/settings.json"
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "0" "$RUN_STATUS" "24.3b: a project with no settings file at all still gets a plan"
-assert_contains "$RUN_OUTPUT" "does not enable" "24.3b: ... held back the same way"
+assert_exit 0 "24.3b: a project with no settings file at all still gets a plan"
+assert_contains "$output" "does not enable" "24.3b: ... held back the same way"
 
 # --- 24.4 with the plugin enabled, history decides ----------------------------
 _f "$P50/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}'
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "0" "$RUN_STATUS" "24.4: with the plugin enabled the plan is produced"
-assert_contains "$RUN_OUTPUT" "retired root: .claude/skills/" \
+assert_exit 0 "24.4: with the plugin enabled the plan is produced"
+assert_contains "$output" "retired root: .claude/skills/" \
   "24.4: the report names the retired root"
-assert_contains "$RUN_OUTPUT" "skipped: .claude/hooks/" \
+assert_contains "$output" "skipped: .claude/hooks/" \
   "24.4: the one empty LIVE root is skipped as before"
-assert_contains "$RUN_OUTPUT" "roots: 2" \
+assert_contains "$output" "roots: 2" \
   "24.4: the retired root is not counted among the scanned roots"
-assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
+assert_contains "$output" "retire: .claude/skills/plan/SKILL.md" \
   "24.4: a byte-identical copy of a file the template once shipped there is retired"
-assert_contains "$RUN_OUTPUT" "retire: .claude/skills/build/SKILL.md" \
+assert_contains "$output" "retire: .claude/skills/build/SKILL.md" \
   "24.4: so is a copy of one the template still ships under its live root"
-assert_not_contains "$RUN_OUTPUT" "verify-myapp" \
+assert_not_contains "$output" "verify-myapp" \
   "24.4: a project-local skill under the retired root is listed under nothing"
 
 # --- 24.5 sync-keep still reaches a retired root -----------------------------
@@ -2208,10 +2179,10 @@ assert_not_contains "$RUN_OUTPUT" "verify-myapp" \
 # stay a valid pattern, or every such project's allowlist becomes a usage error.
 write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/build/**"
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "0" "$RUN_STATUS" "24.5: a sync-keep pattern under a retired root is still valid"
-assert_contains "$RUN_OUTPUT" "kept:   .claude/skills/build/SKILL.md" \
+assert_exit 0 "24.5: a sync-keep pattern under a retired root is still valid"
+assert_contains "$output" "kept:   .claude/skills/build/SKILL.md" \
   "24.5: and it protects the copy it names"
-assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
+assert_contains "$output" "retire: .claude/skills/plan/SKILL.md" \
   "24.5: without protecting its neighbour"
 
 # --- 24.5b ... and a pattern guarding a project-local file there is not stale ---
@@ -2219,19 +2190,19 @@ assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
 # `unmatched` would tell the operator it is about to stop protecting something.
 write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/verify-myapp/**"
 run_retire --repo "$P50" --from-dir "$T50"
-assert_eq "0" "$RUN_STATUS" "24.5b: a sync-keep pattern for a project-local skill under the retired root is valid"
-assert_not_contains "$RUN_OUTPUT" "unmatched: .claude/skills/verify-myapp" \
+assert_exit 0 "24.5b: a sync-keep pattern for a project-local skill under the retired root is valid"
+assert_not_contains "$output" "unmatched: .claude/skills/verify-myapp" \
   "24.5b: it is not reported as matching nothing"
 write_keep "$P50" ".agents/skills/mine/**" ".claude/skills/build/**"
 
 # --- 24.6 --apply deletes only the history-matched, unprotected copies -------
 run_retire --repo "$P50" --from-dir "$T50" --apply
-assert_eq "0" "$RUN_STATUS" "24.6: --apply succeeds"
-assert_eq "gone" "$([ -e "$P50/.claude/skills/plan/SKILL.md" ] && echo present || echo gone)" \
+assert_exit 0 "24.6: --apply succeeds"
+assert_file_absent "$P50/.claude/skills/plan/SKILL.md" \
   "24.6: the history-matched copy is deleted"
-assert_eq "gone" "$([ -d "$P50/.claude/skills/plan" ] && echo present || echo gone)" \
+assert_file_absent "$P50/.claude/skills/plan" \
   "24.6: its emptied directory is pruned"
-assert_eq "present" "$([ -d "$P50/.claude/skills" ] && echo present || echo gone)" \
+assert_file_exists "$P50/.claude/skills" \
   "24.6: the retired root itself is the prune boundary"
 assert_file_contains "$P50/.claude/skills/verify-myapp/SKILL.md" "own verification" \
   "24.6: the project-local skill is untouched"
@@ -2249,10 +2220,10 @@ commit_all "$P51"
 rm -f "$P51/.claude/sync-keep"
 _f "$P51/.claude/settings.json" '{"enabledPlugins": {"jplugin@jplugin-agentic-development": true}}'
 run_retire --repo "$P51" --from-dir "$T50"
-assert_eq "0" "$RUN_STATUS" "24.7: bootstrap against a template with a retired root produces a plan"
-assert_contains "$RUN_OUTPUT" "retire: .claude/skills/plan/SKILL.md" \
+assert_exit 0 "24.7: bootstrap against a template with a retired root produces a plan"
+assert_contains "$output" "retire: .claude/skills/plan/SKILL.md" \
   "24.7: bootstrap retires the history-proven copy under the retired root"
-assert_not_contains "$RUN_OUTPUT" "candidate: .claude/skills" \
+assert_not_contains "$output" "candidate: .claude/skills" \
   "24.7: nothing under a retired root is sent to the human -- history already answered"
 
 finish

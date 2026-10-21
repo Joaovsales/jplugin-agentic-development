@@ -9,7 +9,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-INSTALL="$REPO/install.sh"
+INSTALL="$(under_test install.sh)"
 USER_SKILL="my-personal-skill"
 
 # ── Static checks ────────────────────────────────────────────────────────────
@@ -71,8 +71,8 @@ assert_not_contains "$src" 'jplugin-agentic-development/project-template' \
   "install.sh: no hardcoded clone path for the template"
 assert_contains "$src" 'git scaffold' \
   "install.sh: newproject and existing-repo guidance call git scaffold"
-assert_eq "present" "$([ -x scripts/scaffold-project.sh ] && echo present || echo missing)" \
-  "scripts/scaffold-project.sh: exists and is executable"
+assert_true "scripts/scaffold-project.sh: exists and is executable" \
+  -- test -x scripts/scaffold-project.sh
 assert_file_not_matches scripts/scaffold-project.sh '\$HOME/jplugin-agentic-development' \
   "scaffold-project.sh: resolves the template relative to itself, not a clone path"
 assert_file_not_matches README.md 'post-init.? hook (fires|runs|triggers)' \
@@ -85,12 +85,12 @@ assert_eq "0" "$(sed -n '/^## Adding to an Existing Project/,/^---/p' README.md 
 # M3/M4: the typed store and glossary are seeded through the template inventory.
 for seed in tasks/solutions/README.md tasks/history.md tasks/concepts.md tasks/todo.md \
             CLAUDE.md AGENTS.md .ignore .gitignore .gitattributes; do
-  assert_eq "present" "$([ -e "project-template/$seed" ] && echo present || echo missing)" \
+  assert_file_exists "project-template/$seed" \
     "project-template: carries $seed"
 done
-assert_eq "missing" "$([ -e "project-template/tasks/lessons.md" ] && echo present || echo missing)" \
+assert_file_absent "project-template/tasks/lessons.md" \
   "project-template: lessons.md seed retired"
-assert_eq "missing" "$([ -e "project-template/tasks/bugs.md" ] && echo present || echo missing)" \
+assert_file_absent "project-template/tasks/bugs.md" \
   "project-template: bugs.md seed retired"
 
 # ── Functional harness ───────────────────────────────────────────────────────
@@ -104,8 +104,7 @@ GIT_BIN_DIR="$(dirname "$(command -v git)")"
 # therefore a directory of symlinks to everything those dirs hold EXCEPT npm, npx,
 # node and playwright-cli, so no case can reach a real npm; cases that exercise the
 # step put a stub npm in the sandbox bin/ instead.
-SAFE_PATH="$(mktemp -d)"
-trap 'rm -rf "$SAFE_PATH"' EXIT
+SAFE_PATH="$(fixture_dir)"
 for src_dir in "$GIT_BIN_DIR" /bin /usr/bin; do
   for exe in "$src_dir"/*; do
     name="${exe##*/}"
@@ -149,7 +148,7 @@ run_install() {
   local with_claude=0
   if [ "${1:-}" = "--with-claude" ]; then with_claude=1; shift; fi
   local sandbox home
-  sandbox="$(mktemp -d)"
+  sandbox="$(fixture_dir)"
   home="$sandbox/home"
   mkdir -p "$home/.claude/skills/$USER_SKILL" "$sandbox/bin"
   printf 'name: %s\n' "$USER_SKILL" > "$home/.claude/skills/$USER_SKILL/SKILL.md"
@@ -183,7 +182,6 @@ rerun_install() {
   echo "exit=$?" >> "$1/$3"
 }
 
-exists() { [ -e "$1" ] && echo present || echo missing; }
 
 # ── Case 1: no `claude` on PATH — the plugin step is skipped, nothing touched ─
 box="$(run_install "")"
@@ -192,21 +190,20 @@ assert_contains "$(cat "$box/out.log")" "exit=0" \
   "no claude: install.sh still exits 0"
 assert_contains "$(cat "$box/out.log")" "claude CLI not found" \
   "no claude: the skipped plugin step prints a NOTE naming the missing CLI"
-assert_eq "present" "$(exists "$h/.claude/skills/$USER_SKILL/SKILL.md")" \
+assert_file_exists "$h/.claude/skills/$USER_SKILL/SKILL.md" \
   "no claude: user's own skill survives installation"
-assert_eq "missing" "$(exists "$h/.claude/skills/build/SKILL.md")" \
+assert_file_absent "$h/.claude/skills/build/SKILL.md" \
   "no claude: template skills are no longer copied into ~/.claude/skills/"
-assert_eq "missing" "$(exists "$h/.claude/plugins")" \
+assert_file_absent "$h/.claude/plugins" \
   "no claude: no plugin state is written without the CLI"
-assert_eq "missing" "$(exists "$h/.claude/settings.json")" \
+assert_file_absent "$h/.claude/settings.json" \
   "no claude: install.sh writes no ~/.claude/settings.json — the plugin's hooks/hooks.json registers the session hook"
-assert_eq "missing" "$(exists "$h/.claude/hooks")" \
+assert_file_absent "$h/.claude/hooks" \
   "no claude: no copy of session-start.sh lands in ~/.claude/hooks/"
-assert_eq "present" "$(exists "$h/.agents/skills/build/SKILL.md")" \
+assert_file_exists "$h/.agents/skills/build/SKILL.md" \
   "no claude: step 2 still delivers ~/.agents/skills/ for Pi and Codex"
-assert_eq "missing" "$(exists "$h/.claude/CLAUDE.md")" \
+assert_file_absent "$h/.claude/CLAUDE.md" \
   "no claude: install.sh writes no ~/.claude/CLAUDE.md (D17 — a personal one there is the user's own)"
-rm -rf "$box"
 
 # ── Case 2: with `claude` — one marketplace add, one install, then `already` ─
 box="$(run_install "" --with-claude)"
@@ -218,9 +215,9 @@ assert_contains "$log" "plugin marketplace add $REPO" \
   "first run: the marketplace source is the checkout directory"
 assert_eq "1" "$(grep -c "^plugin install jplugin@jplugin-agentic-development --scope user$" <<< "$log")" \
   "first run: exactly one user-scope plugin install"
-assert_eq "missing" "$(exists "$h/.claude/skills/build/SKILL.md")" \
+assert_file_absent "$h/.claude/skills/build/SKILL.md" \
   "first run: no skill copy lands in ~/.claude/skills/"
-assert_eq "present" "$(exists "$h/.claude/skills/$USER_SKILL/SKILL.md")" \
+assert_file_exists "$h/.claude/skills/$USER_SKILL/SKILL.md" \
   "first run: user's own skill survives"
 assert_contains "$(cat "$box/out.log")" "skills source: plugin" \
   "first run: reports the derived machine state"
@@ -234,7 +231,6 @@ assert_eq "0" "$(grep -c "^plugin install " <<< "$log")" \
   "second run: no second plugin install"
 assert_contains "$(cat "$box/out2.log")" "already" \
   "second run: reports the marketplace and plugin as already present"
-rm -rf "$box"
 
 # ── Case 1b: no `claude`, copies present — kept, not even listed, state reported ─
 box="$(run_install "")"; h="$box/home"
@@ -244,16 +240,14 @@ assert_contains "$(cat "$box/nocli.log")" "skills source: legacy-copy" \
   "no claude, copies present: the derived state is legacy-copy"
 assert_not_contains "$(cat "$box/nocli.log")" "Delete them?" \
   "no claude, copies present: the removal prompt is not offered — the copies are all this machine has"
-assert_eq "present" "$(exists "$h/.claude/skills/plan")" "no claude, copies present: current template name kept"
-assert_eq "present" "$(exists "$h/.claude/skills/tdd")" "no claude, copies present: retired template name kept"
-rm -rf "$box"
+assert_file_exists "$h/.claude/skills/plan" "no claude, copies present: current template name kept"
+assert_file_exists "$h/.claude/skills/tdd" "no claude, copies present: retired template name kept"
 
 # ── Case 2b: the CLI failing aborts the run loudly and touches no skill copy ──
 box="$(CLAUDE_STUB_FAIL=install run_install "" --with-claude)"; h="$box/home"
 assert_contains "$(cat "$box/out.log")" "exit=1" "cli failure: install.sh exits 1"
 assert_contains "$(cat "$box/out.log")" "ERROR: 'claude plugin install" "cli failure: the ERROR line names the failed command"
-assert_eq "present" "$(exists "$h/.claude/skills/$USER_SKILL/SKILL.md")" "cli failure: user's own skill untouched"
-rm -rf "$box"
+assert_file_exists "$h/.claude/skills/$USER_SKILL/SKILL.md" "cli failure: user's own skill untouched"
 
 # ── Case 3: legacy ~/.claude/skills/ copies — listed, deleted only on y ──────
 # Three entries: a name the template never carried, a current template skill and
@@ -265,7 +259,7 @@ rm -rf "$box"
 REPO_SHALLOW="$(git -C "$REPO" rev-parse --is-shallow-repository 2>/dev/null)"
 unless_shallow() {  # unless_shallow <assert> <args…> — the last arg is the label
   if [ "$REPO_SHALLOW" = "true" ]; then
-    printf '  skip  %s (shallow checkout: retired template names are unknown)\n' "${@: -1}"
+    skip "${@: -1} (shallow checkout: retired template names are unknown)"
   else
     "$@"
   fi
@@ -282,15 +276,14 @@ for answer in "" "N"; do
     "legacy copies ($label): current template name is listed"
   unless_shallow assert_contains "$(cat "$box/legacy.log")" "tdd" \
     "legacy copies ($label): retired template name is listed"
-  assert_eq "present" "$(exists "$h/.claude/skills/plan")" \
+  assert_file_exists "$h/.claude/skills/plan" \
     "legacy copies ($label): current template name kept"
-  assert_eq "present" "$(exists "$h/.claude/skills/tdd")" \
+  assert_file_exists "$h/.claude/skills/tdd" \
     "legacy copies ($label): retired template name kept"
-  assert_eq "present" "$(exists "$h/.claude/skills/aws-saml2aws-auth")" \
+  assert_file_exists "$h/.claude/skills/aws-saml2aws-auth" \
     "legacy copies ($label): never-carried name kept"
   assert_contains "$(cat "$box/legacy.log")" "rm -rf" \
     "legacy copies ($label): the manual removal command is printed"
-  rm -rf "$box"
 done
 
 box="$(run_install "" --with-claude)"; h="$box/home"; plant_legacy "$h"
@@ -300,19 +293,18 @@ mkdir -p "$h/.agents/skills/tdd"; touch "$h/.agents/skills/tdd/SKILL.md"
 rerun_install "$box" "y" legacy.log
 unless_shallow assert_contains "$(cat "$box/legacy.log")" "retired template skills: tdd" \
   "~/.agents/skills/: a retired template skill left there is named"
-assert_eq "present" "$(exists "$h/.agents/skills/tdd")" \
+assert_file_exists "$h/.agents/skills/tdd" \
   "~/.agents/skills/: ... and never deleted"
-assert_eq "missing" "$(exists "$h/.claude/skills/plan")" \
+assert_file_absent "$h/.claude/skills/plan" \
   "legacy copies (answered y): current template name deleted"
-unless_shallow assert_eq "missing" "$(exists "$h/.claude/skills/tdd")" \
+unless_shallow assert_file_absent "$h/.claude/skills/tdd" \
   "legacy copies (answered y): retired template name deleted"
-assert_eq "present" "$(exists "$h/.claude/skills/aws-saml2aws-auth")" \
+assert_file_exists "$h/.claude/skills/aws-saml2aws-auth" \
   "legacy copies (answered y): never-carried name is never a candidate"
-assert_eq "present" "$(exists "$h/.claude/skills/$USER_SKILL")" \
+assert_file_exists "$h/.claude/skills/$USER_SKILL" \
   "legacy copies (answered y): user's own skill is never a candidate"
 assert_contains "$(cat "$box/legacy.log")" "skills source: plugin" \
   "legacy copies (answered y): state reported as plugin"
-rm -rf "$box"
 
 # ── Case 3b: a shallow checkout cannot name retired skills, and says so ───────
 box="$(run_install "" --with-claude)"; h="$box/home"; plant_legacy "$h"
@@ -325,7 +317,6 @@ assert_contains "$(cat "$box/shallow.log")" "    - plan" \
   "shallow checkout: current template names are still candidates"
 assert_not_contains "$(cat "$box/shallow.log")" "    - tdd" \
   "shallow checkout: a retired name is not guessed"
-rm -rf "$box"
 
 # ── Case 9: copies an earlier install.sh wrote are listed, deleted only on y ──
 # (specs/single-instruction-file.md slice 5). Three kinds: the template-headed
@@ -368,12 +359,11 @@ for answer in "" "N"; do
     "stale copies ($label): the summary reports Kept(3)"
   assert_contains "$(cat "$box/stale.log")" "the kept SessionStart entry still fires the old banner alongside the plugin's" \
     "stale copies ($label): the summary names the double banner"
-  assert_eq "present" "$(exists "$h/.claude/CLAUDE.md")" "stale copies ($label): CLAUDE.md kept"
-  assert_eq "present" "$(exists "$h/.claude/hooks/session-start.sh")" "stale copies ($label): hook copy kept"
+  assert_file_exists "$h/.claude/CLAUDE.md" "stale copies ($label): CLAUDE.md kept"
+  assert_file_exists "$h/.claude/hooks/session-start.sh" "stale copies ($label): hook copy kept"
   assert_file_contains "$h/.claude/settings.json" "hooks/session-start.sh" \
     "stale copies ($label): SessionStart entry kept with its script"
   assert_file_contains "$h/.codex/AGENTS.md" "OLD BLOCK" "stale copies ($label): Codex block kept"
-  rm -rf "$box"
 done
 
 box="$(run_install "" --with-claude)"; h="$box/home"; plant_stale "$h"
@@ -382,13 +372,13 @@ assert_contains "$(cat "$box/stale.log")" "Removed(3)" \
   "stale copies (answered y): the summary reports Removed(3)"
 assert_not_contains "$(cat "$box/stale.log")" "still fires the old banner" \
   "stale copies (answered y): no double-banner note once the entry is gone"
-assert_eq "missing" "$(exists "$h/.claude/CLAUDE.md")" \
+assert_file_absent "$h/.claude/CLAUDE.md" \
   "stale copies (answered y): template-headed CLAUDE.md no longer loaded"
 assert_file_contains "$h/.claude/CLAUDE.md.pre-plugin.bak" "Template-managed" \
   "stale copies (answered y): the file is moved aside as CLAUDE.md.pre-plugin.bak, not deleted"
 assert_contains "$(cat "$box/stale.log")" "moved aside as CLAUDE.md.pre-plugin.bak" \
   "stale copies (answered y): the listing says the file is moved aside"
-assert_eq "missing" "$(exists "$h/.claude/hooks/session-start.sh")" \
+assert_file_absent "$h/.claude/hooks/session-start.sh" \
   "stale copies (answered y): hook copy deleted"
 assert_not_contains "$(cat "$h/.claude/settings.json")" ".claude/hooks/session-start.sh" \
   "stale copies (answered y): the SessionStart entry goes with its script"
@@ -405,7 +395,6 @@ assert_not_contains "$(cat "$box/stale2.log")" "Delete them?" \
   "stale copies (second run): nothing left to list"
 assert_contains "$(cat "$box/stale2.log")" "earlier install.sh: Clean" \
   "stale copies (second run): the summary reports Clean"
-rm -rf "$box"
 
 # The pointer step 1 wrote between slices 2 and 5 is stale too (D17); a personal
 # file — no template header, not the pointer — is never listed (D9).
@@ -414,7 +403,7 @@ printf '@AGENTS.md\n' > "$h/.claude/CLAUDE.md"
 rerun_install "$box" "y" pointer.log
 assert_contains "$(cat "$box/pointer.log")" "Removed(1)" \
   "pointer-only CLAUDE.md: listed and removed on y"
-assert_eq "missing" "$(exists "$h/.claude/CLAUDE.md")" "pointer-only CLAUDE.md: deleted"
+assert_file_absent "$h/.claude/CLAUDE.md" "pointer-only CLAUDE.md: deleted"
 printf '# My own global rules\n\nAlways answer in Portuguese.\n' > "$h/.claude/CLAUDE.md"
 rerun_install "$box" "y" personal.log
 assert_not_contains "$(cat "$box/personal.log")" "Delete them?" \
@@ -433,7 +422,6 @@ assert_files_identical "$box/codex.before" "$h/.codex/AGENTS.md" \
   "malformed Codex file: byte-identical after the run"
 assert_contains "$(cat "$box/malformed.log")" "has 1 begin / 0 end marker(s) — left untouched" \
   "malformed Codex file: the NOTE reports the marker counts instead of Clean"
-rm -rf "$box"
 
 # The exact path named outside a SessionStart entry (here under Stop): no
 # SessionStart entry matches, so nothing is rewritten — settings.json stays
@@ -448,11 +436,10 @@ assert_contains "$(cat "$box/outside.log")" "outside a SessionStart entry — no
   "hook entry outside SessionStart: the NOTE says nothing was rewritten"
 assert_files_identical "$box/settings.before" "$h/.claude/settings.json" \
   "hook entry outside SessionStart: settings.json byte-identical"
-assert_eq "present" "$(exists "$h/.claude/hooks/session-start.sh")" \
+assert_file_exists "$h/.claude/hooks/session-start.sh" \
   "hook entry outside SessionStart: the script stays with its reference"
 assert_contains "$(cat "$box/outside.log")" "Kept(1)" \
   "hook entry outside SessionStart: counted as kept"
-rm -rf "$box"
 
 # Without the plugin the old copy is the only banner this machine has, so the
 # hook item is not offered — the other two kinds still are.
@@ -460,11 +447,10 @@ box="$(run_install "")"; h="$box/home"; plant_stale "$h"
 rerun_install "$box" "y" nocli-stale.log
 assert_not_contains "$(cat "$box/nocli-stale.log")" "session-start.sh and its SessionStart entry" \
   "no claude, stale copies: the hook copy is not listed — it is the only banner without the plugin"
-assert_eq "present" "$(exists "$h/.claude/hooks/session-start.sh")" \
+assert_file_exists "$h/.claude/hooks/session-start.sh" \
   "no claude, stale copies: hook copy kept"
 assert_contains "$(cat "$box/nocli-stale.log")" "Removed(2)" \
   "no claude, stale copies: CLAUDE.md and the Codex block are still removed on y"
-rm -rf "$box"
 
 # ── Case 4: the removed flag is a usage error, not a silent no-op ─────────────
 box="$(run_install "" --prune-skills)"
@@ -472,32 +458,30 @@ assert_contains "$(cat "$box/out.log")" "exit=1" \
   "--prune-skills: exits 1 now that the flag is gone"
 assert_contains "$(cat "$box/out.log")" "Usage:" \
   "--prune-skills: prints the usage text"
-rm -rf "$box"
 
 # ── Case 5: unknown flags are rejected, not ignored ──────────────────────────
-box="$(mktemp -d)"
+box="$(fixture_dir)"
 ( cd "$box" && HOME="$box/home" CLAUDE_CONFIG_DIR="$box/home/.claude" PATH="$SAFE_PATH" bash "$INSTALL" --bogus ) > "$box/out.log" 2>&1 < /dev/null
 assert_eq "1" "$?" "unknown flag: exits non-zero instead of installing"
-rm -rf "$box"
 
 # ── Case 6: scaffold works from a checkout path with spaces, anywhere on disk ─
 # Install via a symlinked checkout whose path contains spaces, with an isolated
 # HOME. Nothing may depend on the clone living at ~/jplugin-agentic-development.
-box="$(mktemp -d)"
+box="$(fixture_dir)"
 h="$box/home"
 mkdir -p "$h"
 ln -s "$REPO" "$box/src with spaces"
 ( cd "$box" && HOME="$h" CLAUDE_CONFIG_DIR="$h/.claude" PATH="$SAFE_PATH" bash "$box/src with spaces/install.sh" ) > "$box/out.log" 2>&1 < /dev/null
 assert_eq "0" "$?" "spaced checkout: install.sh succeeds"
-assert_eq "present" "$(exists "$h/.agents/project-template/.gitattributes")" \
+assert_file_exists "$h/.agents/project-template/.gitattributes" \
   "spaced checkout: template copied to ~/.agents/project-template (dotfiles included)"
-assert_eq "present" "$(exists "$h/.agents/bin/scaffold-project.sh")" \
+assert_file_exists "$h/.agents/bin/scaffold-project.sh" \
   "spaced checkout: scaffold script installed to ~/.agents/bin"
 assert_contains "$(HOME="$h" git config --global --get alias.scaffold)" "scaffold-project.sh" \
   "spaced checkout: git scaffold alias registered globally"
 assert_not_contains "$(cat "$box/out.log")" "runs on every git init" \
   "spaced checkout: installer no longer claims a hook runs on git init"
-assert_eq "missing" "$(exists "$h/.git-templates/hooks/post-init")" \
+assert_file_absent "$h/.git-templates/hooks/post-init" \
   "spaced checkout: no dead post-init hook is written into the template dir"
 
 # Re-install over an earlier install: the installer-owned copy is replaced wholesale
@@ -505,9 +489,9 @@ assert_eq "missing" "$(exists "$h/.git-templates/hooks/post-init")" \
 touch "$h/.agents/project-template/STALE.md" "$h/.git-templates/hooks/post-init"
 ( cd "$box" && HOME="$h" PATH="$SAFE_PATH" bash "$box/src with spaces/install.sh" ) > "$box/out2.log" 2>&1 < /dev/null
 assert_eq "0" "$?" "re-install: succeeds over an existing install"
-assert_eq "missing" "$(exists "$h/.agents/project-template/STALE.md")" \
+assert_file_absent "$h/.agents/project-template/STALE.md" \
   "re-install: stale file in the installed template is gone"
-assert_eq "missing" "$(exists "$h/.git-templates/hooks/post-init")" \
+assert_file_absent "$h/.git-templates/hooks/post-init" \
   "re-install: dead post-init hook from an earlier version is removed"
 
 # A fresh repo whose path also contains spaces; bootstrap through the alias only.
@@ -525,35 +509,33 @@ assert_contains "$(cat "$box/scaffold.log")" "scaffold: $count created, 0 kept" 
   "git scaffold: summary line counts every template file as created"
 assert_eq "$inventory" "$(cd "$repo" && find . -type f -not -path './.git/*' | sed 's|^\./||' | sort)" \
   "git scaffold: generated output equals the template inventory exactly"
-assert_eq "present" "$([ -d "$repo/specs" ] && echo present || echo missing)" \
+assert_file_exists "$repo/specs" \
   "git scaffold: creates specs/"
 
 # From a subdirectory the scaffold still lands at the repository root.
-nested="$box/nested"
-git init -q "$nested"
+nested="$(fixture_repo)"
 mkdir -p "$nested/deep/er"
 ( cd "$nested/deep/er" && HOME="$h" git scaffold ) > /dev/null 2>&1
 assert_eq "0" "$?" "git scaffold from a subdirectory: exits 0"
-assert_eq "present" "$(exists "$nested/CLAUDE.md")" \
+assert_file_exists "$nested/CLAUDE.md" \
   "git scaffold from a subdirectory: files land at the repo root"
-assert_eq "missing" "$(exists "$nested/deep/er/CLAUDE.md")" \
+assert_file_absent "$nested/deep/er/CLAUDE.md" \
   "git scaffold from a subdirectory: nothing is written into the cwd"
 
 # ── Case 7: existing files are preserved byte-for-byte; re-runs are no-ops ────
-repo2="$box/existing"
-git init -q "$repo2"
+repo2="$(fixture_repo)"
 printf '# mine, do not touch\n' > "$repo2/CLAUDE.md"
 ln -s /nonexistent/target "$repo2/.ignore"     # dangling symlink: still the user's file
 mkdir "$repo2/AGENTS.md"                        # a directory where the template has a file
 ( cd "$repo2" && HOME="$h" git scaffold ) > "$box/scaffold2.log" 2>&1
 assert_eq "0" "$?" "git scaffold: exits 0 when files already exist"
-assert_eq "present" "$([ -L "$repo2/.ignore" ] && echo present || echo missing)" \
-  "git scaffold: a dangling symlink at a template path is kept, not written through"
-assert_eq "present" "$([ -d "$repo2/AGENTS.md" ] && echo present || echo missing)" \
+assert_true "git scaffold: a dangling symlink at a template path is kept, not written through" \
+  -- test -L "$repo2/.ignore"
+assert_file_exists "$repo2/AGENTS.md" \
   "git scaffold: a directory at a template path is kept"
 assert_eq "# mine, do not touch" "$(cat "$repo2/CLAUDE.md")" \
   "git scaffold: existing CLAUDE.md is byte-identical after bootstrap"
-assert_eq "present" "$(exists "$repo2/tasks/todo.md")" \
+assert_file_exists "$repo2/tasks/todo.md" \
   "git scaffold: missing files are still added around the preserved ones"
 assert_contains "$(cat "$box/scaffold2.log")" "kept" \
   "git scaffold: reports preserved files"
@@ -580,21 +562,19 @@ git init -q "$empty"
 assert_eq "1" "$?" "git scaffold with an empty template: exits non-zero"
 assert_contains "$(cat "$box/empty.log")" "holds no files" \
   "git scaffold with an empty template: says the template is empty"
-assert_eq "missing" "$(exists "$empty/specs")" \
+assert_file_absent "$empty/specs" \
   "git scaffold with an empty template: writes nothing"
 
 rm -rf "$h/.agents/project-template"
-repo3="$box/orphan"
-git init -q "$repo3"
+repo3="$(fixture_repo)"
 ( cd "$repo3" && HOME="$h" git scaffold ) > "$box/missing.log" 2>&1
 assert_eq "1" "$?" "git scaffold with the template missing: exits non-zero"
 assert_contains "$(cat "$box/missing.log")" "$h/.agents/project-template" \
   "git scaffold with the template missing: names the expected path"
 assert_contains "$(cat "$box/missing.log")" "install.sh" \
   "git scaffold with the template missing: names the fix"
-assert_eq "missing" "$(exists "$repo3/CLAUDE.md")" \
+assert_file_absent "$repo3/CLAUDE.md" \
   "git scaffold with the template missing: writes nothing"
-rm -rf "$box"
 
 # ── Case 9: the printed newproject function does what the docs say ───────────
 # Eval the function exactly as install.sh printed it, so the documented path is
@@ -611,9 +591,9 @@ assert_contains "$fn" "git scaffold" "newproject: printed function bootstraps vi
   newproject "my app" > "$box/newproject.log" 2>&1
 )
 assert_eq "0" "$?" "newproject: succeeds"
-assert_eq "present" "$(exists "$box/my app/AGENTS.md")" "newproject: AGENTS.md scaffolded"
-assert_eq "present" "$(exists "$box/my app/tasks/todo.md")" "newproject: tasks/todo.md scaffolded"
-assert_eq "present" "$(exists "$box/my app/.gitattributes")" "newproject: .gitattributes scaffolded"
+assert_file_exists "$box/my app/AGENTS.md" "newproject: AGENTS.md scaffolded"
+assert_file_exists "$box/my app/tasks/todo.md" "newproject: tasks/todo.md scaffolded"
+assert_file_exists "$box/my app/.gitattributes" "newproject: .gitattributes scaffolded"
 assert_contains "$(cd "$box/my app" && HOME="$h" git log --oneline -1)" "scaffold" \
   "newproject: initial commit made"
 assert_contains "$(cd "$box/my app" && HOME="$h" git ls-files)" "CLAUDE.md" \
@@ -631,9 +611,8 @@ rm -rf "$h/.agents/project-template"
 assert_eq "1" "$?" "newproject: fails loudly when git scaffold fails"
 assert_contains "$(cat "$box/broken.log")" "install.sh" \
   "newproject: failure names the fix"
-assert_eq "missing" "$(cd "$box/broken app" && HOME="$h" git rev-parse --verify -q HEAD >/dev/null 2>&1 && echo present || echo missing)" \
-  "newproject: no commit is made when bootstrap fails"
-rm -rf "$box"
+assert_false "newproject: no commit is made when bootstrap fails" \
+  -- bash -c 'HOME="$1" git -C "$2" rev-parse --verify -q HEAD >/dev/null 2>&1' _ "$h" "$box/broken app"
 
 # ── § playwright: optional pinned @playwright/cli install (AC 11) ────────────
 # Stubs append to one call log so the ORDER npm-install -> install-browser is
@@ -663,39 +642,36 @@ run_playwright_case() {
     > "$1/out.log" 2>&1 < /dev/null
   echo "exit=$?" >> "$1/out.log"
 }
-new_playwright_box() { local b; b="$(mktemp -d)"; mkdir -p "$b/home" "$b/bin"; echo "$b"; }
+new_playwright_box() { local b; b="$(fixture_dir)"; mkdir -p "$b/home" "$b/bin"; echo "$b"; }
 
 box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
 run_playwright_case "$box"
 # The real runbook: npm is asked for a semver, whatever the current pin is.
 PINNED="$(sed -n 's/^npm install -g @playwright\/cli@//p' "$box/bin/calls.log" | head -n 1)"
-assert_eq "semver" "$(printf %s "$PINNED" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && echo semver || echo "not-semver")" "playwright: the real runbook's pin reaches npm as a semver"
+assert_true "playwright: the real runbook's pin reaches npm as a semver" \
+  -- grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' <<<"$PINNED"
 assert_eq "npm install -g @playwright/cli@$PINNED
 playwright-cli install-browser chromium" "$(cat "$box/bin/calls.log")" \
   "playwright: npm install -g <version from the runbook> runs, then install-browser chromium (in order)"
 assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: install.sh exits 0"
-rm -rf "$box"
 
 box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
 run_playwright_case "$box" NPM_STUB_FAIL=1
 assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: npm failure still exits 0"
 assert_contains "$(cat "$box/out.log")" "NOTE: npm install -g @playwright/cli" \
   "playwright: npm failure prints a NOTE"
-rm -rf "$box"
 
 box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
 run_playwright_case "$box" CLI_STUB_FAIL=1
 assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: browser failure still exits 0"
 assert_contains "$(cat "$box/out.log")" "run: playwright-cli install-browser chromium" \
   "playwright: browser failure NOTE names the command"
-rm -rf "$box"
 
 box="$(new_playwright_box)"
 run_playwright_case "$box"
 assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: no npm still exits 0"
 assert_contains "$(cat "$box/out.log")" "NOTE: npm not found — optional @playwright/cli" \
   "playwright: no npm prints a NOTE naming @playwright/cli"
-rm -rf "$box"
 
 # A checkout whose runbook is missing or has no pin: NOTE, exit 0, npm untouched.
 # The checkout is a tree of symlinks so only the runbook differs.
@@ -723,7 +699,6 @@ for spelling in '"0.1.23"' "'0.1.23'" '0.1.23'; do
     > "$box/out.log" 2>&1 < /dev/null
   assert_eq "npm install -g @playwright/cli@0.1.23
 playwright-cli install-browser chromium" "$(cat "$box/bin/calls.log")" "playwright: pinned_version: $spelling installs 0.1.23"
-  rm -rf "$box"
 done
 for variant in missing empty; do
   box="$(new_playwright_box)"; make_playwright_stubs "$box/bin"
@@ -733,8 +708,7 @@ for variant in missing empty; do
   echo "exit=$?" >> "$box/out.log"
   assert_contains "$(cat "$box/out.log")" "exit=0" "playwright: a $variant runbook still exits 0"
   assert_contains "$(cat "$box/out.log")" "NOTE: no pinned_version" "playwright: a $variant runbook prints a NOTE"
-  assert_eq "false" "$([ -e "$box/bin/calls.log" ] && echo true || echo false)" "playwright: a $variant runbook never calls npm"
-  rm -rf "$box"
+  assert_file_absent "$box/bin/calls.log" "playwright: a $variant runbook never calls npm"
 done
 
 # ── § archify: optional pinned Archify tool (AC 6) ───────────────────────────
@@ -762,8 +736,7 @@ run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
 assert_contains "$(cat "$box/out.log")" "exit=0" "archify: no node still exits 0"
 assert_contains "$(cat "$box/out.log")" "NOTE: node not found" "archify: no node prints a NOTE"
 assert_contains "$(cat "$box/out.log")" "$ARCHIFY_INSTALL_CMD" "archify: no node NOTE carries the install command"
-assert_eq "missing" "$(exists "$ARCHIFY_HOME")" "archify: no node clones nothing"
-rm -rf "$box"
+assert_file_absent "$ARCHIFY_HOME" "archify: no node clones nothing"
 
 # (b) node older than 18: a NOTE naming the requirement, exit 0, nothing cloned
 box="$(new_playwright_box)"; make_node_stub "$box/bin" 16.20.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
@@ -771,35 +744,32 @@ run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
 assert_contains "$(cat "$box/out.log")" "exit=0" "archify: node 16 still exits 0"
 assert_contains "$(cat "$box/out.log")" "Node >= 18" "archify: node 16 NOTE names Node >= 18"
 assert_contains "$(cat "$box/out.log")" "$ARCHIFY_INSTALL_CMD" "archify: node 16 NOTE carries the install command"
-assert_eq "missing" "$(exists "$ARCHIFY_HOME")" "archify: node 16 clones nothing"
-rm -rf "$box"
+assert_file_absent "$ARCHIFY_HOME" "archify: node 16 clones nothing"
 
 # (c) the tag resolves to a commit other than the pin: removed, expected and actual named
 box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
-git init -q "$box/fixture"
-git -C "$box/fixture" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m fixture
-git -C "$box/fixture" -c user.name=t -c user.email=t@t -c tag.gpgsign=false tag "$ARCHIFY_PIN_TAG"
-FIXTURE_SHA="$(git -C "$box/fixture" rev-parse HEAD)"
-run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME" ARCHIFY_URL="$box/fixture"
+FIXTURE_REPO="$(fixture_repo)"
+git -C "$FIXTURE_REPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m fixture
+git -C "$FIXTURE_REPO" -c user.name=t -c user.email=t@t -c tag.gpgsign=false tag "$ARCHIFY_PIN_TAG"
+FIXTURE_SHA="$(git -C "$FIXTURE_REPO" rev-parse HEAD)"
+run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME" ARCHIFY_URL="$FIXTURE_REPO"
 assert_contains "$(cat "$box/out.log")" "exit=0" "archify: a mismatched tag still exits 0"
 assert_contains "$(cat "$box/out.log")" "$FIXTURE_SHA" "archify: a mismatched tag NOTE names the actual commit"
 assert_contains "$(cat "$box/out.log")" "$ARCHIFY_PIN_COMMIT" "archify: a mismatched tag NOTE names the pinned commit"
-assert_eq "missing" "$(exists "$ARCHIFY_HOME")" "archify: a mismatched clone is not installed"
-assert_eq "none" "$(ls -d "$ARCHIFY_HOME".tmp.* 2> /dev/null | head -n 1 | grep . || echo none)" "archify: a mismatched clone leaves no temp directory"
-rm -rf "$box"
+assert_file_absent "$ARCHIFY_HOME" "archify: a mismatched clone is not installed"
+assert_false "archify: a mismatched clone leaves no temp directory" \
+  -- compgen -G "$ARCHIFY_HOME.tmp.*"
 
 # (d) an existing checkout at another commit is reported and left untouched
-box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$box/home/.local/share/jplugin/archify"
-mkdir -p "$ARCHIFY_HOME"; git init -q "$ARCHIFY_HOME"
+box="$(new_playwright_box)"; make_node_stub "$box/bin" 20.11.0; ARCHIFY_HOME="$(fixture_repo)"
 git -C "$ARCHIFY_HOME" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m other
 OTHER_SHA="$(git -C "$ARCHIFY_HOME" rev-parse HEAD)"
 run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME"
 assert_contains "$(cat "$box/out.log")" "exit=0" "archify: a checkout at another commit still exits 0"
 assert_contains "$(cat "$box/out.log")" "left untouched" "archify: a checkout at another commit is left untouched"
 assert_contains "$(cat "$box/out.log")" "rm -rf" "archify: a checkout at another commit prints the re-install remedy"
-assert_eq "absent" "$(grep -q 'present' "$box/out.log" && echo found || echo absent)" "archify: a checkout at another commit is not reported present"
+assert_file_not_matches "$box/out.log" 'present' "archify: a checkout at another commit is not reported present"
 assert_eq "$OTHER_SHA" "$(git -C "$ARCHIFY_HOME" rev-parse HEAD)" "archify: a checkout at another commit keeps its HEAD"
-rm -rf "$box"
 
 # (e) the real pin: installed, then present offline. Needs the upstream to be reachable.
 if git ls-remote --exit-code https://github.com/tt-a1i/archify "refs/tags/$ARCHIFY_PIN_TAG" > /dev/null 2>&1; then
@@ -808,16 +778,15 @@ if git ls-remote --exit-code https://github.com/tt-a1i/archify "refs/tags/$ARCHI
   assert_contains "$(cat "$box/out.log")" "exit=0" "archify: first run exits 0"
   assert_contains "$(cat "$box/out.log")" "Archify $ARCHIFY_PIN_TAG installed" "archify: first run reports installed"
   assert_eq "$ARCHIFY_PIN_COMMIT" "$(git -C "$ARCHIFY_HOME" rev-parse HEAD)" "archify: the checkout is at the pinned commit"
-  assert_eq "present" "$(exists "$ARCHIFY_HOME/archify/bin/archify.mjs")" "archify: the checkout holds the CLI"
-  assert_eq "present" "$(exists "$ARCHIFY_HOME/archify/SKILL.md")" "archify: the checkout holds SKILL.md"
-  assert_eq "present" "$(exists "$ARCHIFY_HOME/LICENSE")" "archify: the checkout holds LICENSE"
+  assert_file_exists "$ARCHIFY_HOME/archify/bin/archify.mjs" "archify: the checkout holds the CLI"
+  assert_file_exists "$ARCHIFY_HOME/archify/SKILL.md" "archify: the checkout holds SKILL.md"
+  assert_file_exists "$ARCHIFY_HOME/LICENSE" "archify: the checkout holds LICENSE"
   # A bogus clone source proves the second run never reaches for the network.
   run_playwright_case "$box" ARCHIFY_HOME="$ARCHIFY_HOME" ARCHIFY_URL="$box/no-such-repo"
   assert_contains "$(cat "$box/out.log")" "exit=0" "archify: second run exits 0"
   assert_contains "$(cat "$box/out.log")" "Archify $ARCHIFY_PIN_TAG present" "archify: second run reports present without cloning"
-  rm -rf "$box"
 else
-  printf '  note archify: upstream unreachable from this machine; the installed/present cases did not run\n'
+  skip "archify: upstream unreachable from this machine; the installed/present cases did not run"
 fi
 
 finish

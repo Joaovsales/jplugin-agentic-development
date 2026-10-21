@@ -8,6 +8,9 @@ set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 cd "$(dirname "$0")/.."
 
+# The store this file validates; the literal is what affected.sh selects on.
+STORE="$(under_test tasks/solutions)"
+
 # validate_doc <file> — print one violation per line; silent when valid.
 validate_doc() {
   local f="$1" base fm pt expected_dir track dir key
@@ -18,12 +21,14 @@ validate_doc() {
   esac
   fm="$(awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$f")"
   if [ -z "$fm" ]; then echo "$f: missing frontmatter block"; return; fi
-  printf '%s\n' "$fm" | grep -Eq '^title: *[^ ]'  || echo "$f: missing title"
-  printf '%s\n' "$fm" | grep -Eq '^module: *[^ ]' || echo "$f: missing module"
-  printf '%s\n' "$fm" | grep -Eq '^date: *[0-9]{4}-[0-9]{2}-[0-9]{2}' \
+  # Here-strings, not `printf | grep -q`: grep -q exits at its first match, and
+  # under pipefail the SIGPIPE printf then takes reports a valid key as missing.
+  grep -Eq '^title: *[^ ]'  <<<"$fm" || echo "$f: missing title"
+  grep -Eq '^module: *[^ ]' <<<"$fm" || echo "$f: missing module"
+  grep -Eq '^date: *[0-9]{4}-[0-9]{2}-[0-9]{2}' <<<"$fm" \
     || echo "$f: missing or malformed date (YYYY-MM-DD)"
-  printf '%s\n' "$fm" | grep -Eq '^tags: *\[[^]]+\]' || echo "$f: missing or empty tags"
-  pt="$(printf '%s\n' "$fm" | sed -n 's/^problem_type: *//p' | head -1)"
+  grep -Eq '^tags: *\[[^]]+\]' <<<"$fm" || echo "$f: missing or empty tags"
+  pt="$(sed -n 's/^problem_type: *//p' <<<"$fm" | head -1)"
   case "$pt" in
     bug|build-failure|test-failure|runtime-error) expected_dir=bugs;         track=bug ;;
     performance)                                  expected_dir=performance;  track=bug ;;
@@ -39,10 +44,10 @@ validate_doc() {
   [ "$dir" = "$expected_dir" ] || echo "$f: category dir '$dir' does not match problem_type '$pt' (expected $expected_dir)"
   if [ "$track" = bug ]; then
     for key in symptoms root_cause resolution; do
-      printf '%s\n' "$fm" | grep -q "^$key:" || echo "$f: bug track missing $key"
+      grep -q "^$key:" <<<"$fm" || echo "$f: bug track missing $key"
     done
   else
-    printf '%s\n' "$fm" | grep -q '^applies_when:' || echo "$f: knowledge track missing applies_when"
+    grep -q '^applies_when:' <<<"$fm" || echo "$f: knowledge track missing applies_when"
   fi
 }
 
@@ -56,8 +61,7 @@ validate_store() {
 }
 
 # --- Self-test: the validator must reject each violation kind ---------------
-FIX="$(mktemp -d "${TMPDIR:-/tmp}/solutions-schema.XXXXXX")"
-trap 'rm -rf "$FIX"' EXIT
+FIX="$(fixture_dir)"
 mkdir -p "$FIX/patterns" "$FIX/bugs"
 
 cat > "$FIX/patterns/unknown-type.md" <<'EOF'
@@ -207,7 +211,7 @@ assert_prose_contains .agents/skills/memory-maintain/SKILL.md "$CROSS_TRACK_CAP"
 
 # --- Real store: every document in tasks/solutions/ must validate -----------
 if [ -d tasks/solutions ]; then
-  REAL="$(validate_store tasks/solutions)"
+  REAL="$(validate_store "$STORE")"
   assert_eq "" "$REAL" "real store documents all validate (violations: ${REAL:-none})"
   assert_file_contains tasks/solutions/README.md "problem_type" \
     "store README documents the schema"
