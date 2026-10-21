@@ -1,0 +1,38 @@
+{
+  "A": {
+    "factual": 2,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "All requested names and boundaries are present, but cited exception rows and late functions are wrong; one unbounded read only.",
+    "total": 5
+  },
+  "B": {
+    "factual": 1,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "First-marker mechanism and both consumers named; line anchors are wrong and proposed quote/line-start filter does not reliably select the authoritative complete block.",
+    "total": 4
+  },
+  "C": {
+    "factual": 1,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "First-marker mechanism and both consumers named; proposed line-start filter cannot reject an unfinished quoted marker on its own line; no direct ranged inspection.",
+    "total": 4
+  },
+  "D": {
+    "factual": 2,
+    "coverage": 1,
+    "direct_verification": 0,
+    "dependencies": 2,
+    "unknowns": 0,
+    "notes": "Requested names, bands, exceptions, and consumers are correct, but late-function source lines are wrong; one unbounded read only.",
+    "total": 5
+  }
+}
