@@ -58,22 +58,19 @@ implementation_paths:
 
 > Origin: "prompt" — the APOSD vs Clean Code review of this harness · Designed 2026-10-19 · Review status: **draft** · critic: 25 findings, 25 applied, 0 declined
 > Visual: specs/aposd-first-build.plan.html
-> Reverted 2026-10-21: design mode (slices 9 and 11) — the AC17 eval (`tasks/eval-aposd-first-build.md`) met equal AC coverage at 3.09× cost with no fewer design findings, and the owner chose revert (D23). AC10 and AC11 are withdrawn; AC3, AC13 and AC14 keep only what is listed under D23. The design-mode text below is kept as the record of what was tried.
 
 ## Summary
 
-`/build` becomes design-first. A slice that touches a module named in the spec's
-new § Interfaces is built interface-first: stubs with interface comments, then
-contract tests written by a separate `test-engineer` dispatch that sees only the
-spec and the stubs, then the implementation, then a depth pass. Every other slice
-runs red-green-refactor, which now lives in one place, a re-created `/tdd` skill
-that `/build` and `/debug` both call. Tracking gets simpler at the same time: one
-issue per feature, no per-slice filing, no task ids on slice rows and no `TDD:`
-rows, and `/build` implements nothing itself: every slice is dispatched to a
-sub-agent. The decision the reviewer must not miss is the **test freeze**: the freeze
-commit is recorded in the plan as a `> Frozen:` line, and a contract test edited
-after it stops the slice with its own exit code unless a `> Test amended:` line
-says why.
+`/build` runs every slice through one loop: a sub-agent per slice, each running
+red-green-refactor through one `/tdd` skill that `/build` and `/debug` both call.
+Tracking is one issue per feature: no per-slice filing, no task ids on slice
+rows and no `TDD:` rows, and `/build` implements nothing itself, so every slice
+is dispatched to a sub-agent. A spec may carry an optional § Interfaces section
+naming each module whose interface the change creates or reshapes, and
+`/quality-gate` Phase 5 dispatches a `test-engineer` Review job that checks a
+slice's tests against its acceptance criteria, its edge cases and its interface.
+The decision the reviewer must not miss is that `/slice` no longer files:
+`/build` pre-flight makes the one feature upsert.
 
 ## Problem
 
@@ -90,14 +87,12 @@ unchanged.
 
 | Constraint | Value | Source | Detected by |
 |------------|-------|--------|-------------|
-| Contract tests exist before implementation | in design mode, the contract tests are committed after the stubs and before any implementation commit, and their run at the freeze commit fails | user | `slice.py check` refuses a design-mode slice with no `> Frozen:` line (exit 3); the red run's summary is on the `> Frozen:` line, which the Phase 5 adequacy review reads; the ordering itself is enforced by `/build` text, pinned in `tests/test-doc-conventions.sh` |
-| Test-writer independence | **enforced:** the Write dispatch runs after the stub commit and before any implementation commit, so the tree holds no implementation to read, and its prompt carries only § Acceptance Criteria, § Interfaces, § Edge Cases (in an architecture spec, § Component contracts and § Data models instead) and the stub paths. **Disclosed, not enforced:** whether the dispatch started from an empty context, because no harness sandboxes a sub-agent's file reads and Codex does not document whether a spawned agent inherits the parent's history | user | `tests/test-doc-conventions.sh` pins the dispatch timing and inputs in `build/SKILL.md`; the `> Frozen:` line carries `context: fresh`, `forked` or `inline`, which the Phase 5 Review job reads |
 | Tracker writes per feature | at most one registry write per feature, made by `/build` pre-flight, and only when the plan's feature row has no provider link | user | `tests/test-doc-conventions.sh`: `build/SKILL.md` names one `upsert`; `slice/SKILL.md` has no `--file` mode |
 | No new `TDD:` rows | `/slice`, `/debug`, the routine prompts, the lanes and the `planner` persona never write a `[ ] TDD:` row | user | `tests/test-slice.sh` asserts a fresh block holds none; `tests/test-doc-conventions.sh` and `tests/test-sweep-routines.sh` grep the writers |
 | One home for the TDD rules | red-green-refactor and Prove-It are defined only in `.agents/skills/tdd/SKILL.md`; no file names the "or at minimum" commit escape | user | `tests/test-tdd-retirement.sh`, rewritten as an invariant test |
 | In-flight plans keep working | an existing `## Plan:` block with task ids and `[ ] TDD:` rows still validates, readies, builds in tdd mode and closes its per-slice issues | inferred | `tests/test-slice.sh` legacy fixtures; `tests/test-doc-conventions.sh` pins the legacy closing path in `closure-actions.md` |
-| `/build` gets thinner | `build/SKILL.md` is at most 600 lines, and stays there after the design-mode loop lands | user | a line-budget assertion in `tests/test-doc-conventions.sh` |
-| The orchestrator implements nothing | every slice, a lone ready slice included, is dispatched to a sub-agent; on a harness with no sub-agents `/build` runs inline, says so in one line, and a design-mode writer records `context: inline` | user | `tests/test-doc-conventions.sh`: `build/SKILL.md` has no "Main context directly" row and one dispatch rule for every session |
+| `/build` gets thinner | `build/SKILL.md` is at most 600 lines | user | a line-budget assertion in `tests/test-doc-conventions.sh` |
+| The orchestrator implements nothing | every slice, a lone ready slice included, is dispatched to a sub-agent; on a harness with no sub-agents `/build` runs inline and says so in one line | user | `tests/test-doc-conventions.sh`: `build/SKILL.md` has no "Main context directly" row and one dispatch rule for every session |
 | Agent trees stay identical | `.agents/agents/` and `.claude/agents/` copies of every changed persona stay byte-identical apart from the allowed `model:` line | issue | `tests/test-agents.sh` parity |
 | Payload version | `.claude-plugin/plugin.json` bumps its minor version in the same PR (#221) | issue | `tests/test-plugin-manifest.sh` |
 | `AGENTS.md` budget | `AGENTS.md` stays within its byte budget | issue | `tests/test-instruction-budget.sh` |
@@ -110,76 +105,44 @@ unchanged.
 | Component | Owns (source of truth for) | Reads |
 |-----------|----------------------------|-------|
 | Spec `specs/<feature>.md` | acceptance criteria, edge cases, § Interfaces, § Build Order (slices, surfaces, blockers) | — |
-| `tasks/todo.md` plan block | the feature row or `> Issue:` link, each slice's done state (its header checkbox), and under each slice heading its `> Frozen:`, `> Test amended:`, `> Handover:` and `> Interface:` lines | the spec path |
-| `slice.py` | the ready set, each slice's mode, the surface check and the freeze check, all derived and never stored | the spec, the plan block, git |
+| `tasks/todo.md` plan block | the feature row or `> Issue:` link, each slice's done state (its header checkbox), and under each slice heading its `> Handover:` line | the spec path |
+| `slice.py` | the ready set, the surface check and the § Interfaces `Path:` validation, all derived and never stored | the spec, the plan block, git |
 | `/tdd` | the red-green-refactor and Prove-It rules | the criteria it is handed |
-| `/build` | orchestration: pre-flight, one dispatch per slice (three, in order, for a design-mode slice), slice close, central verification, Phases 1.5-6; it writes no implementation itself, so a forked Write dispatch inherits planning context only | `slice.py` output, the plan block |
-| `test-engineer` | the contract tests it writes; its adequacy findings | spec sections and stubs (Write), the diff, spec and freeze lines (Review) |
+| `/build` | orchestration: pre-flight, one dispatch per slice, slice close, central verification, Phases 1.5-6; it writes no implementation itself | `slice.py` output, the plan block |
+| `test-engineer` | its test-adequacy findings (Review job) | the diff, the spec and the test files |
 | Tracker, through `/task-registry` | the one feature issue | — |
 
 ### Interaction
 
 ```flow
-caption: one design-mode slice from ready to closed, always in the main tree
-build -> slice.py (changed) : (1) ready, prints mode=design
-build -> implementer : (2) stubs and interface comments, commit S
-build -> test-engineer (new) : (3) Write job, spec sections and stub paths
-test-engineer --> build : (4) test files, committed F, run red
-build -> todo.md : (5) Frozen S..F with the red summary and the writer's context
-build -> implementer : (6) implement to green, then depth pass
-build -> slice.py (changed) : (7) check surface and freeze, reads Frozen and Test amended
-build -> todo.md : (8) header [x], Handover and Interface lines
-```
-
-| Arrow | Mode | On timeout | On duplicate |
-|-------|------|------------|--------------|
-| (1) | sync, local process | n/a, a local script; a non-zero exit stops pre-flight with its message | idempotent, derives from files |
-| (2) | sync sub-agent, no worktree isolation | `subagent-resilience.md` stall rules: retry once, then the circuit breaker | a resumed slice with commits after the slice base and no `> Frozen:` line re-dispatches (3) against the existing stubs |
-| (3) | sync sub-agent, no worktree isolation | same stall rules; nothing is implemented without the `> Frozen:` line | uncommitted tests from a stalled run are discarded before re-dispatch |
-| (4) | sync | — | — |
-| (5) | local file write | n/a | written once; a second freeze for the same slice is refused by `/build` text |
-| (6) | sync sub-agent, no worktree isolation | same stall rules | the implementer resumes from the working tree |
-| (7) | sync, local process | n/a | idempotent |
-| (8) | local file write | n/a | the handover is written once; the forbidden state (`[x]` with no handover) stays refused |
-
-```flow
-caption: one tdd-mode slice, and /debug
-build -> slice.py (changed) : (1) ready, prints mode=tdd
+caption: one slice from ready to closed, and /debug
+build -> slice.py : (1) ready
 build -> implementer : (2) one dispatch per slice, worktree-isolated when run in parallel
 implementer -> tdd (new) : (3) red-green-refactor per acceptance criterion of the slice
-debug (changed) -> tdd (new) : (4) Prove-It per Fix row, reproduction first
+build -> slice.py : (4) check the surface against the slice base
+debug (changed) -> tdd (new) : (5) Prove-It per Fix row, reproduction first
 ```
 
 ### Failure unit
 
-`slice.py` failing stops every `/build` run, as today. Design-mode slices run one
-at a time in the main tree, so a failed `test-engineer` dispatch stops only that
-slice and the tdd-mode slices dispatched beside it continue in their worktrees.
-`/tdd` failing to load stops tdd-mode slices and `/debug`'s fix step, never a
-design-mode slice. The feature-issue upsert failing or going `local-pending`
-leaves the feature row unlinked and the build continues; `/wrap-up-session`
-reports the missing link.
+`slice.py` failing stops every `/build` run. `/tdd` failing to load stops slice
+dispatch and `/debug`'s fix step. The feature-issue upsert failing or going
+`local-pending` leaves the feature row unlinked and the build continues;
+`/wrap-up-session` reports the missing link.
 
 ## Interfaces
 
 <!-- The section this spec adds to /plan's and the architecture template. One
      entry per module whose interface the change creates or reshapes. -->
 
-### `slice.py ready`
+### `slice.py validate` and `slice.py ready`
 
 - **Path:** `.agents/skills/slice/scripts/slice.py`
-- **Hides:** how a slice's done state is read and how its mode is derived.
-- **Interface:** `slice.py ready --index tasks/todo.md --spec <spec>` prints, per ready slice, `ready: <n> <name> mode=<design|tdd>` then `  surface: <globs>`. A slice is design mode when any § Interfaces `Path:` matches its Surface and its plan block is not legacy; a legacy block's slices are always tdd mode.
-- **Alternative considered:** a `Mode` column in § Build Order. Rejected: a column the planner fills by hand can disagree with § Interfaces.
-- **Depth:** one command answers "what can start, and how is it built" without the caller reading the plan grammar.
+- **Hides:** how a spec's § Build Order, its § Interfaces and the plan block are cross-checked, and how a slice's done state is read from a new or a legacy block.
+- **Interface:** `slice.py validate --spec <spec> [--index tasks/todo.md]` refuses, with `<path>:<line>: <reason>`, a § Interfaces entry with no `Path:`, a block whose slice count or names disagree with § Build Order, and a block with two feature links. `slice.py ready --index tasks/todo.md --spec <spec>` prints `ready: <n> <name>` then `  surface: <globs>` per ready slice.
+- **Alternative considered:** deriving a per-slice mode from § Interfaces `Path:` against the Surface. Not built (D23).
+- **Depth:** one command answers "what can start" without the caller reading the plan grammar.
 
-### `slice.py check`
-
-- **Path:** `.agents/skills/slice/scripts/slice.py`
-- **Hides:** which files are contract tests, how amendments are matched, and which failures block.
-- **Interface:** `slice.py check --spec <spec> --slice <n> --base <sha> [--index tasks/todo.md]`. The surface check is unchanged and exits 1 on drift, which `/build` treats as information. With `--index` on a design-mode slice it also reads the slice's `> Frozen: <S>..<F>` line: the contract tests are the files changed in `S..F` outside `tasks/`; each one changed in `F..HEAD`, and each new file after `F` in a contract test's directory, prints `frozen-edited: <path>` unless the slice holds `> Test amended: <path> — <reason>`; an amendment naming any other path prints `amended-unknown: <path>`; no `> Frozen:` line prints `missing freeze commit`. Any of those three exits 3, which stops `/build`.
-- **Alternative considered:** a freeze SHA held only in the orchestrator's context, or a commit-message tag. Rejected: context does not survive compaction, and a message convention is one more grammar to parse.
-- **Depth:** the caller passes the slice and the index; the freeze rule, the contract set and the exit code that blocks stay inside.
 
 ### `/tdd`
 
@@ -193,9 +156,10 @@ reports the missing link.
 
 - **Path:** `.agents/agents/test-engineer.md`
 - **Hides:** how scenarios are enumerated from criteria, edge cases, contracts and interface comments.
-- **Interface:** two jobs, each its own dispatch. **Write** (Builder tier) receives spec sections and stub paths and returns test files that exercise only the interface, plus one line `context: fresh | forked | inline` naming how it was dispatched. **Review** (Reviewer tier) receives the diff, the spec, the test files and the slice's `> Frozen:` and `> Test amended:` lines and emits four-axis findings: an AC with no test, an edge case neither tested nor defined away, a test that reaches past the interface, an amendment that weakens a test. For a slice whose writer was not `fresh`, every test that touches more than the interface is at least SHOULD-FIX.
-- **Alternative considered:** two personas, `test-writer` and `test-engineer`. Rejected: one more persona to register for the same knowledge; a fresh dispatch already gives the review its independence.
-- **Depth:** one persona, two entry points, one scenario model.
+- **Interface:** one job, **Review** (Reviewer tier, model passed per dispatch). It receives the diff, the spec's path with its acceptance criteria, the test files, the deferral list and the scope boundary, and emits four-axis findings of three kinds: an AC with no test, an edge case neither tested nor defined away, a test that reaches past the interface. It is read-only.
+- **Alternative considered:** a second persona that writes the tests. Not built (D23).
+- **Depth:** one persona, one entry point, one scenario model.
+
 
 ## Component contracts
 
@@ -214,7 +178,7 @@ reports the missing link.
 | Aspect | Contract |
 |--------|----------|
 | Inputs | either a `> Issue:` line, written when `--issue` is given or the spec's `> Origin:` names an issue, or one feature row with the id `/slice` mints by a single dry-run `upsert --derive-id plan --spec <spec>`; never both. Then one `### Slice n/N — <name>` heading per § Build Order row, each with one header row carrying no task id and no `(blocked-by:)`; blockers live only in § Build Order |
-| Outcomes | header `[ ]` open, `[x]` done; under an open heading `/build` may write `> Frozen:` and `> Test amended:`; under a closed heading `> Handover:` and, in design mode, `> Interface:` |
+| Outcomes | header `[ ]` open, `[x]` done; under a closed heading `/build` writes `> Handover:` |
 | Raises | `slice.py validate` refuses, with `<path>:<line>: <reason>`, a block whose slice count or names disagree with § Build Order, or that holds two `> Issue:` lines, two feature rows, or both |
 | Idempotency | `/slice` re-run on an unchanged spec rewrites the same block; it never overwrites a block with a `[x]` header and stops naming it |
 | Versioning | a block whose slice header rows carry task ids is **legacy**: read as today, always tdd mode, its `TDD:` rows run through `/tdd`, and its per-row issues are each closed by `/wrap-up-session`. No new block is written in that form |
@@ -245,22 +209,6 @@ python3 .agents/skills/task-registry/scripts/task-registry.py upsert --derive-id
 | Outcomes | `/debug` itself runs the rows through `/tdd` with Prove-It and ticks each row when its test passes; `/build` is not involved |
 | Versioning | an open `## Fix:` block with `[ ] TDD:` rows still runs the same way |
 
-```sequence
-caption: a contract test edited during implementation
-participant build
-participant implementer
-participant slicepy
-build -> implementer : implement slice n, Frozen S..F recorded
-implementer --> build : green, edited tests/test_x.py
-build -> slicepy : check --slice n --base B --index tasks/todo.md
-alt slice holds Test amended for tests/test_x.py
-slicepy --> build : exit 0, or 1 for surface drift only
-else no amendment line
-slicepy --> build : frozen-edited tests/test_x.py, exit 3
-build -> implementer : revert the test edit, or write the amendment and re-check
-end
-```
-
 ## Data models
 
 ### Entities
@@ -269,9 +217,6 @@ end
 |-------|------|-----------|-------------|
 | slice header row | `- [ ] <name> — <delivers>` | exactly one per `### Slice` heading | `slice.py validate` |
 | feature link | `> Issue: <url>` or one feature row | exactly one of the two per new block | `slice.py validate` |
-| `> Frozen:` | `<S>..<F> — red: <failing summary> — context: <fresh, forked or inline>` | at most one per slice; written before any implementation commit | `/build` text; `slice.py check` exits 3 without it in design mode |
-| `> Test amended:` | `<path> — <reason>` | `<path>` is a contract test of that slice | `slice.py check` prints `amended-unknown:` and exits 3 otherwise |
-| slice mode | `design` or `tdd` | derived, never written down; `tdd` for every legacy block | `slice.py ready` computes it on every call |
 | § Interfaces entry | heading plus `Path:`, `Hides:`, `Interface:`, `Alternative considered:`, `Depth:` | every entry has a `Path:` | `slice.py validate` refuses an entry with none |
 
 ### Illegal states
@@ -279,25 +224,16 @@ end
 | Illegal combination | Made unrepresentable by |
 |---------------------|-------------------------|
 | header `[x]` with no `> Handover:` | the existing forbidden-state rule (`build/SKILL.md:323-326`), unchanged |
-| a design-mode slice closed with no freeze | `check` exits 3 with `missing freeze commit`, and `/build` stops on 3 |
-| a slice whose mode disagrees with § Interfaces | the mode has no stored form |
 | a new plan block holding `TDD:` rows | `/slice` has no code path that writes one; `tests/test-slice.sh` pins it |
 | two feature links in one block | `slice.py validate` |
 
-### Transitions — a design-mode slice
+### Transitions — a slice
 
 | From | To | Trigger |
 |------|----|---------|
-| open | stubbed | the stub commit `S` lands: new or changed entry points only, with interface comments; existing code is never replaced by a stub |
-| stubbed | frozen | the contract-test commit `F` lands, its run fails for the new or changed behaviour, and `/build` writes `> Frozen: S..F — red: <summary> — context: <how the writer was dispatched>` |
-| frozen | frozen | `/build` writes a `> Test amended:` line for a justified test change |
-| frozen | done | green, depth pass done, `check` exits 0 or 1, handover written, header `[x]` |
+| open | done | every criterion passes through `/tdd`, `check` exits 0 or 1, the handover is written and the header is `[x]` |
 | done | open | never; a change request edits the spec and re-runs `/slice` on the open slices |
 
-A tdd-mode slice goes from open to done when every criterion passes through
-`/tdd` and `check` exits 0 or 1. An interrupted design-mode slice resumes from
-its plan lines: with `> Frozen:` it resumes implementation; without it, commits
-after the slice base are the stubs and the Write job is dispatched again.
 
 ### Migration and compatibility
 
@@ -313,8 +249,6 @@ keeps its one index-backed path for both forms.
 
 | ID | Risk | Likelihood | Impact | Mitigation | Slice |
 |----|------|------------|--------|------------|-------|
-| R1 | Design mode costs more tokens and wall-clock than the TDD loop, and design-mode slices no longer run in parallel | M | M | the eval measures cost against a stated keep-or-revert rule; a slice with no § Interfaces entry stays in tdd mode and parallel | 14 |
-| R2 | The contract writer, seeing only stubs, writes tests that pin an interface the implementer must bend, and the orchestrator self-certifies the amendment | M | M | amendments and new test-support files after `F` are visible to `check`, and the Review job reads every amendment | 9, 12 |
 | R3 | Removing `/slice --file` breaks a caller still naming it | L | M | slice 4 rewrites every caller found: `routines.md`, `/yolo`, `/make-it-simpler`, `task-registry/SKILL.md` | 4 |
 | R4 | Re-creating `skills/tdd` collides with the retirement machinery | M | M | `/sync` retires only byte-identical template history (`sync/SKILL.md:494-500`); slice 6 updates `sync/SKILL.md:391` and `:557` and moves `tests/test-install-sh.sh` to another retired name | 6 |
 | R5 | Every quality receipt goes stale, because the policy hash gains the `test-engineer` persona | H | L | expected and one-off; the next `/quality-gate` mints a fresh receipt | 12 |
@@ -327,19 +261,19 @@ Sizing: 14 slices. Ceiling: per `slice/references/sizing.md`. Over: slices 3, 4 
 | # | Slice | Delivers | Surface | Blocked by | ACs | Verify | Size |
 |---|-------|----------|---------|------------|-----|--------|------|
 | 1 | Plan block of slice headers | `/slice` writes slice headers with no task id, no blocker marker and no `TDD:` child, plus one `> Issue:` line or one feature row; `slice.py` validates and readies new and legacy blocks | `.agents/skills/slice/SKILL.md`, `.agents/skills/slice/references/plan-block.md`, `.agents/skills/slice/scripts/slice.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**`, `tests/test-doc-conventions.sh`, `.claude-plugin/plugin.json` | — | 1, 2 | `bash tests/test-slice.sh && bash tests/test-doc-conventions.sh` | 7 files · 1 system · 2 ACs |
-| 2 | Interfaces section and mode | both spec templates carry `## Interfaces`; `slice.py ready` prints `mode=design` or `mode=tdd`; `validate` refuses an entry with no `Path:` | `.agents/skills/slice/scripts/slice.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**`, `.agents/skills/plan/SKILL.md`, `.agents/skills/system-design-planning/templates/architecture-spec-template.md`, `tests/test-doc-conventions.sh` | 1 | 3, 9 | `bash tests/test-slice.sh && bash tests/test-doc-conventions.sh` | 6 files · 2 systems · 2 ACs |
+| 2 | Interfaces section and mode | both spec templates carry `## Interfaces`; `validate` refuses an entry with no `Path:` (the `mode=` output was withdrawn, D23) | `.agents/skills/slice/scripts/slice.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**`, `.agents/skills/plan/SKILL.md`, `.agents/skills/system-design-planning/templates/architecture-spec-template.md`, `tests/test-doc-conventions.sh` | 1 | 3, 9 | `bash tests/test-slice.sh && bash tests/test-doc-conventions.sh` | 6 files · 2 systems · 2 ACs |
 | 3 | Feature issue in build | `/slice --file` is gone; `/build` pre-flight upserts the feature row once; every slice is dispatched to a sub-agent; the build prompt and the delegation prompt name no per-slice filing, rows or claims | `.agents/skills/slice/SKILL.md`, `.agents/skills/slice/references/build-prompt.md`, `.agents/skills/build/SKILL.md`, `.agents/skills/system-design-planning/SKILL.md`, `AGENTS.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 2 | 4 | `bash tests/test-doc-conventions.sh && bash tests/test-skill-invocation-chain.sh && bash tests/test-instruction-budget.sh` | 7 files · 4 systems · 1 AC |
 | 4 | Callers of the old filing | routines use their claimed issue; wrap-up closes one feature issue and keeps the legacy per-row path; `/yolo`, `/make-it-simpler` and the registry skill name no `/slice --file` | `.agents/skills/wrap-up-session/references/routines.md`, `.agents/skills/wrap-up-session/references/closure-actions.md`, `.agents/skills/yolo/SKILL.md`, `.agents/skills/make-it-simpler/SKILL.md`, `.agents/skills/task-registry/SKILL.md`, `tests/test-doc-conventions.sh` | 3 | 5 | `bash tests/test-doc-conventions.sh && bash tests/test-instruction-budget.sh`; `grep -rn -- "slice.*--file" .agents` is empty | 6 files · 4 systems · 1 AC |
 | 5 | Remove orphaned parent links | `upsert --parent` and `_seeded_from_row` are deleted with their tests and backlog items; a pre-written feature row refreshes in place | `.agents/skills/task-registry/scripts/registry/upsert.py`, `.agents/skills/task-registry/SKILL.md`, `tests/test-task-registry.sh`, `tasks/backlog.md` | 4 | 6 | `bash tests/test-task-registry.sh` | 4 files · 1 system · 1 AC |
 | 6 | One home for TDD | `/tdd` holds red-green-refactor and Prove-It; `/build` calls it and loses § TDD Discipline; the retirement test pins the invariant | `.agents/skills/tdd/SKILL.md`, `.agents/skills/build/SKILL.md`, `.agents/skills/sync/SKILL.md`, `README.md`, `tests/test-tdd-retirement.sh`, `tests/test-install-sh.sh`, `tests/test-doc-conventions.sh` | 4 | 7 | `bash tests/test-tdd-retirement.sh && bash tests/test-install-sh.sh && bash tests/test-doc-conventions.sh` | 7 files · 3 systems · 1 AC |
 | 7 | Writers stop emitting TDD rows | `/debug` writes plain criterion rows and runs them through `/tdd`; the lanes, routine prompts and `planner` persona name no `TDD:` row | `.agents/skills/debug/SKILL.md`, `.agents/skills/task-registry/lanes/*.md`, `.agents/skills/wrap-up-session/references/routine-prompts/*.md`, `.agents/agents/planner.md`, `.claude/agents/planner.md`, `tests/test-agents.sh`, `tests/test-sweep-routines.sh`, `tests/test-tdd-retirement.sh`, `tests/test-doc-conventions.sh` | 6 | 8 | `bash tests/test-tdd-retirement.sh && bash tests/test-sweep-routines.sh && bash tests/test-agents.sh && bash tests/test-doc-conventions.sh` | 9 files · 4 systems · 1 AC |
 | 8 | Thinner build | the design-stack gates and harness dispatch notes move to `build/references/`; a budget pins `build/SKILL.md` at 600 lines or fewer | `.agents/skills/build/SKILL.md`, `.agents/skills/build/references/**`, `tests/test-design-stack-*.sh`, `tests/test-doc-conventions.sh` | 7 | 12 | `bash tests/test-doc-conventions.sh && bash tests/test-model-tiers.sh`, then each `tests/test-design-stack-*.sh` | 4 files · 1 system · 1 AC |
-| 9 | Test freeze check | `slice.py check --index` reads `> Frozen:` and `> Test amended:` and exits 3 on `frozen-edited:`, `amended-unknown:` or `missing freeze commit` | `.agents/skills/slice/scripts/slice.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**` | 2 | 10 | `bash tests/test-slice.sh` | 3 files · 1 system · 1 AC |
-| 10 | Test-engineer persona | the persona exists in both trees with its Write and Review jobs and is registered everywhere agents are listed | `.agents/agents/test-engineer.md`, `.claude/agents/test-engineer.md`, `.agents/references/model-routing.md`, `config/agent-policy.toml`, `README.md`, `PI_SETUP.md`, `.claude/AGENTS.md`, `tests/test-agents.sh`, `tests/test-model-tiers.sh` | 8 | 13 | `bash tests/test-agents.sh && bash tests/test-model-tiers.sh` | 9 files · 3 systems · 1 AC |
-| 11 | Design-mode loop | `/build` runs design-mode slices one at a time in the main tree: stubs, Write dispatch, red tests and `> Frozen:`, implementation, depth pass, `check --index`, `> Interface:` handover | `.agents/skills/build/SKILL.md`, `.agents/skills/build/references/**`, `tests/test-doc-conventions.sh`, `tasks/concepts.md`, `AGENTS.md` | 8, 9, 10 | 11 | `bash tests/test-doc-conventions.sh && bash tests/test-instruction-budget.sh` | 5 files · 2 systems · 1 AC |
-| 12 | Test adequacy review | `/quality-gate` Phase 5 dispatches the `test-engineer` Review job with the freeze lines; findings count toward HOLD; the persona joins the policy hash | `.agents/skills/quality-gate/SKILL.md`, `.agents/skills/quality-gate/scripts/receipt.py`, `.agents/references/review-dispatch-contract.md`, `tests/test-quality-receipt.sh`, `tests/test-doc-conventions.sh` | 11 | 14 | `bash tests/test-quality-receipt.sh && bash tests/test-doc-conventions.sh` | 5 files · 2 systems · 1 AC |
+| 9 | Test freeze check | withdrawn (D23): `slice.py check` stays the surface check | `.agents/skills/slice/scripts/slice.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**` | 2 | 10 | `bash tests/test-slice.sh` | 3 files · 1 system · 1 AC |
+| 10 | Test-engineer persona | the persona exists in both trees with its Review job and is registered everywhere agents are listed | `.agents/agents/test-engineer.md`, `.claude/agents/test-engineer.md`, `.agents/references/model-routing.md`, `config/agent-policy.toml`, `README.md`, `PI_SETUP.md`, `.claude/AGENTS.md`, `tests/test-agents.sh`, `tests/test-model-tiers.sh` | 8 | 13 | `bash tests/test-agents.sh && bash tests/test-model-tiers.sh` | 9 files · 3 systems · 1 AC |
+| 11 | Design-mode loop | withdrawn (D23): `/build` runs the one tdd loop for every slice | `.agents/skills/build/SKILL.md`, `.agents/skills/build/references/**`, `tests/test-doc-conventions.sh`, `tasks/concepts.md`, `AGENTS.md` | 8, 9, 10 | 11 | `bash tests/test-doc-conventions.sh && bash tests/test-instruction-budget.sh` | 5 files · 2 systems · 1 AC |
+| 12 | Test adequacy review | `/quality-gate` Phase 5 dispatches the `test-engineer` Review job; findings count toward HOLD; the persona joins the policy hash | `.agents/skills/quality-gate/SKILL.md`, `.agents/skills/quality-gate/scripts/receipt.py`, `.agents/references/review-dispatch-contract.md`, `tests/test-quality-receipt.sh`, `tests/test-doc-conventions.sh` | 11 | 14 | `bash tests/test-quality-receipt.sh && bash tests/test-doc-conventions.sh` | 5 files · 2 systems · 1 AC |
 | 13 | Gate fixes | deslop keeps decision comments and flags contradicting ones; the parameter rule names shallow interfaces; boundary-moving fixes never auto-apply; R2 and R10 follow the book | `.agents/skills/quality-gate/SKILL.md`, `.agents/references/finding-model.md`, `.agents/agents/software-design-expert-review.md`, `.claude/agents/software-design-expert-review.md`, `AGENTS.md`, `tests/test-agents.sh`, `tests/test-doc-conventions.sh` | 12 | 15, 16 | `bash tests/test-agents.sh && bash tests/test-doc-conventions.sh && bash tests/test-quality-receipt.sh && bash tests/test-instruction-budget.sh` | 7 files · 3 systems · 2 ACs |
-| 14 | Build A/B eval | two seeded features with an answer key; a Mode B `/eval` compares master `/build` with design-mode `/build` and states the keep-or-revert result | `tests/fixtures/build-eval/**` | 13 | 17 | manual: `/eval` Mode B, N ≥ 2 per arm, keep-or-revert result and report path in the PR body | 1 file · 1 system · 1 AC |
+| 14 | Build A/B eval | two seeded features with an answer key; a Mode B `/eval` compares master `/build` with the design-mode `/build` and states the keep-or-revert result (`tasks/eval-aposd-first-build.md`) | `tests/fixtures/build-eval/**` | 13 | 17 | manual: `/eval` Mode B, N ≥ 2 per arm, keep-or-revert result and report path in the PR body | 1 file · 1 system · 1 AC |
 
 Build prompt:
 
@@ -348,19 +282,17 @@ Invoke `/build` for `specs/aposd-first-build.md`.
 Plan: `## Plan: aposd-first-build` in `tasks/todo.md`, 14 slices, ready set <1>.
 Files: AGENTS.md, README.md, PI_SETUP.md, .claude/AGENTS.md, .claude-plugin/plugin.json, tasks/concepts.md, tasks/backlog.md, .agents/skills/slice/SKILL.md, .agents/skills/slice/references/plan-block.md, .agents/skills/slice/references/build-prompt.md, .agents/skills/slice/scripts/slice.py, .agents/skills/build/SKILL.md, .agents/skills/build/references/**, .agents/skills/tdd/SKILL.md, .agents/skills/debug/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/yolo/SKILL.md, .agents/skills/make-it-simpler/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/system-design-planning/templates/architecture-spec-template.md, .agents/skills/task-registry/SKILL.md, .agents/skills/task-registry/scripts/registry/upsert.py, .agents/skills/task-registry/lanes/*.md, .agents/skills/wrap-up-session/references/closure-actions.md, .agents/skills/wrap-up-session/references/routines.md, .agents/skills/wrap-up-session/references/routine-prompts/*.md, .agents/skills/sync/SKILL.md, .agents/skills/quality-gate/SKILL.md, .agents/skills/quality-gate/scripts/receipt.py, .agents/references/finding-model.md, .agents/references/model-routing.md, .agents/references/review-dispatch-contract.md, .agents/agents/planner.md, .agents/agents/test-engineer.md, .agents/agents/software-design-expert-review.md, .claude/agents/planner.md, .claude/agents/test-engineer.md, .claude/agents/software-design-expert-review.md, config/agent-policy.toml, tests/test-slice.sh, tests/fixtures/slice/**, tests/test-task-registry.sh, tests/test-tdd-retirement.sh, tests/test-install-sh.sh, tests/test-sweep-routines.sh, tests/test-doc-conventions.sh, tests/test-skill-invocation-chain.sh, tests/test-agents.sh, tests/test-model-tiers.sh, tests/test-quality-receipt.sh, tests/test-design-stack-*.sh, tests/fixtures/build-eval/**.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/aposd-first-build.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when the plan's feature row has no link. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
 Constraints:
-- D3: a slice's mode is derived from § Interfaces `Path:` against its Surface; never add a Mode column, and legacy blocks are always tdd mode.
+- D3, D23: no slice mode: no Mode column, no `mode=` output, no freeze check; legacy blocks keep building through the tdd loop.
 - D4, D6, D16: one tracker issue per feature, upserted by `/build` pre-flight only for an unlinked feature row; `/slice --file` is deleted, not kept as a one-issue mode.
 - D5, D10: no writer emits a new `TDD:` row, and legacy blocks with task ids and `TDD:` rows keep validating, readying, building and closing, this plan block included.
-- D9, D19: the freeze is a `> Frozen:` plan line and exit 3; design-mode slices run one at a time in the main tree.
 - D22: `/build` implements nothing itself; every slice is dispatched to a sub-agent, a lone ready slice included.
-- D21: the Write dispatch runs before any implementation exists and records its `context:` on `> Frozen:`; Codex records `forked` until Q1 is answered.
 - D12: the skill is named `/tdd`; the retirement test is rewritten as an invariant, and "or at minimum" appears nowhere.
-- D15: the `test-engineer` persona lands in slice 10, before the `/build` loop that dispatches it.
+- D15: the `test-engineer` persona lands in slice 10, before the `/quality-gate` Phase 5 that dispatches it.
 ```
 
 ## Decisions
@@ -393,34 +325,32 @@ Constraints:
 
 ## Open questions
 
-| ID | Question | Blocks | Needed from |
-|----|----------|--------|-------------|
-| Q1 | Does a Codex `spawn_agent` child start with only its message? Probe: the parent states a marker phrase, spawns the `test-engineer` role, and asks it to repeat the phrase; a repeat means forked. Neither Codex nor Pi is installed on the planning machine | none | the user, on a machine with Codex |
+None.
 
 ## Acceptance Criteria
 
 - AC1: A plan block `/slice` writes holds either a `> Issue:` line (from `--issue` or the spec's `> Origin:`) or one feature row carrying the id of a single dry-run `upsert --derive-id plan --spec`, then one `### Slice n/N — <name>` heading per § Build Order row, each with one header row carrying no task id, no `(blocked-by:)` and no `TDD:` child. `slice/references/plan-block.md` states that grammar.
 - AC2: `slice.py validate` and `ready` accept the new block and still accept a legacy block; `ready` reads both through its existing index path; `validate` refuses a block with two feature links. `tests/test-slice.sh` covers new and legacy fixtures.
-- AC3: `slice.py ready` prints `mode=design` for a slice of a new block whose Surface matches a § Interfaces `Path:`, `mode=tdd` otherwise and for every legacy slice; `slice.py validate` refuses a § Interfaces entry with no `Path:`.
+- AC3: `slice.py validate` refuses a § Interfaces entry with no `Path:`.
 - AC4: `/slice` has no `--file` mode. `/build` pre-flight runs one `upsert --derive-id plan --spec … --apply`, with `--approve` when the build prompt authorized it, only when the feature row has no link, and continues on `local-pending` or failure with a printed line. The build prompt's first instruction names no `/slice --file`. `/build`'s slice delegation prompt carries the slice's Delivers and acceptance criteria from the spec instead of plan rows, and names no per-slice claim. `/build` dispatches every slice to a sub-agent in every session, a lone ready slice and each slice of a serialized pair included; the Step 1 "Main context directly" row and the separate in-place dispatch rule are gone, and a harness with no sub-agents runs inline and says so in one line.
 - AC5: `routines.md` § *Crossing the plan handover* writes the routine's claimed issue as `> Issue:` and files nothing. `closure-actions.md` writes one `Closes #N` for a new block's feature issue and keeps the per-row `Closes #A, closes #B` path for legacy blocks. `/yolo` resumes an open slice header or a legacy `TDD:` row and runs pre-flight without `--approve`. `/make-it-simpler` and `task-registry/SKILL.md` name no `/slice --file`; `grep -rn -- "slice.*--file" .agents` finds nothing.
 - AC6: `upsert.py` has no `--parent` flag and no `_seeded_from_row`; their tests are gone; the pending-link items under *From #106* in `tasks/backlog.md` are removed; a pre-written feature row is refreshed in place, not duplicated, by `tests/test-task-registry.sh`.
 - AC7: `.agents/skills/tdd/SKILL.md` holds red-green-refactor, Prove-It, the anti-pattern reference and the rationalization table. `build/SKILL.md` has no § TDD Discipline and calls `/tdd` for tdd-mode slices. `tests/test-tdd-retirement.sh` asserts the rules appear only in `tdd/SKILL.md`, that `/build` invokes `/tdd`, and that "or at minimum" appears nowhere. `sync/SKILL.md` no longer cites `tdd` as retired, and `tests/test-install-sh.sh` uses another retired name as its fixture.
 - AC8: `/debug` writes `## Fix: #N — <title>` with plain `- [ ] <criterion>` rows and runs them through `/tdd` itself. The lane files, the routine prompts and the `planner` persona (both trees) name no `TDD:` row and say `/debug` runs the fix through `/tdd`. `tests/test-tdd-retirement.sh` asserts `/debug` invokes `/tdd`, and `tests/test-sweep-routines.sh` asserts the plain-row form.
 - AC9: `/plan`'s spec template and the architecture template carry an optional `## Interfaces` section with the five fields `Path:`, `Hides:`, `Interface:`, `Alternative considered:`, `Depth:`; the template heading list pinned in `tests/test-doc-conventions.sh` includes it.
-- AC10: `slice.py check --index` on a design-mode slice reads `> Frozen: S..F`; it prints `frozen-edited: <path>` for each contract test changed after `F`, and for each new file after `F` in a contract test's directory, with no matching `> Test amended:` line; `amended-unknown: <path>` for an amendment naming another file; `missing freeze commit` when the line is absent. Each exits 3; surface drift alone still exits 1; files under `tasks/` are never contract tests.
-- AC11: `/build` runs each design-mode slice as three dispatches, one at a time in the main tree, in this order: stubs of new or changed entry points with interface comments committed; a `test-engineer` Write dispatch whose prompt carries only § Acceptance Criteria, § Interfaces, § Edge Cases or, in an architecture spec, § Component contracts and § Data models, and the stub paths; the tests committed and run red; `> Frozen:` written with the red summary and the writer's `context:` value (Claude Code and Pi dispatch fresh; Codex writes `forked` unless Q1 is answered fresh, recorded in `build/references/`); implementation to green; a depth pass; `check --index`, stopping on exit 3; a handover with a `> Interface:` line. `tests/test-doc-conventions.sh` pins the order and the dispatch inputs.
+- AC10: withdrawn (D23); `slice.py check` stays the surface check, exit 0 or 1.
+- AC11: withdrawn (D23); `/build` runs the tdd loop for every slice.
 - AC12: `build/SKILL.md` is at most 600 lines, pinned by a budget assertion in `tests/test-doc-conventions.sh`. The design-stack 3D and video gates and the harness dispatch notes live in `build/references/`, the design-stack tests read them there, and the Ceiling-tier sentence `tests/test-model-tiers.sh` pins stays in `build/SKILL.md`.
-- AC13: `.agents/agents/test-engineer.md` and its `.claude/agents/` copy exist, byte-identical, with no `model:`, describing the Write job (Builder tier) and the Review job (Reviewer tier, model passed per dispatch). `model-routing.md` § Agents, `config/agent-policy.toml`, the README agent table, `PI_SETUP.md` and `.claude/AGENTS.md` list it; `tests/test-agents.sh` includes it in the four-axis list.
-- AC14: `/quality-gate` Phase 5 dispatches the `test-engineer` Review job after the affected tests pass, passing every `> Frozen:` and `> Test amended:` line of the build, and raises any test reaching past the interface to at least SHOULD-FIX when its writer's context was not `fresh`; with no spec it reviews against the diff's interfaces and states `no spec — <reason>`. Its findings are report-only, each unresolved SHOULD-FIX counts toward HOLD, the receipt records a phase-5 reviewer entry, and `receipt.py` POLICY_FILES includes the persona. `tests/test-quality-receipt.sh` stays green.
+- AC13: `.agents/agents/test-engineer.md` and its `.claude/agents/` copy exist, byte-identical, with no `model:`, describing the Review job (Reviewer tier, model passed per dispatch). `model-routing.md` § Agents, `config/agent-policy.toml`, the README agent table, `PI_SETUP.md` and `.claude/AGENTS.md` list it; `tests/test-agents.sh` includes it in the four-axis list.
+- AC14: `/quality-gate` Phase 5 dispatches the `test-engineer` Review job after the affected tests pass, with the diff, the test files, the spec's acceptance criteria or `no spec — <reason>`, the deferral list and the introduced-only boundary. Its findings are report-only, each unresolved SHOULD-FIX counts toward HOLD, the receipt records a phase-5 reviewer entry, and `receipt.py` POLICY_FILES includes the persona. `tests/test-quality-receipt.sh` stays green.
 - AC15: `/quality-gate` Phase 2 keeps interface comments and comments stating a decision or a hidden assumption, and flags a comment that contradicts the code beside it. Phase 1 no longer says "options object"; it says a long parameter list signals a shallow interface. `AGENTS.md` matches D17.
 - AC16: `finding-model.md` § *Gates* states that a fix moving a module boundary is never `gated_auto`. `software-design-expert-review.md` (both trees) rates R2 pass-through methods SHOULD-FIX and defines R10 as conjoined methods that cannot be understood apart, as the book does.
-- AC17: `tests/fixtures/build-eval/` holds two seeded features with an answer key. A Mode B `/eval` run (N ≥ 2 per arm) compares arm A, master's `/build` on a legacy plan of the same features, with arm B, the design-mode `/build`, on AC coverage, test-freeze violations, `/quality-gate` design findings and cost. The report states the rule's result: keep design mode when arm B's AC coverage is at least arm A's, its design findings are fewer, and its cost is at most twice arm A's; otherwise recommend reverting slices 9 and 11. The user makes the call, and the report path is in the PR body.
+- AC17: `tests/fixtures/build-eval/` holds two seeded features with an answer key. A Mode B `/eval` run (N ≥ 2 per arm) compares arm A, master's `/build` on a legacy plan of the same features, with arm B, the design-mode `/build`, on AC coverage, test-freeze violations, `/quality-gate` design findings and cost. The report (`tasks/eval-aposd-first-build.md`) states the rule's result: keep design mode when arm B's AC coverage is at least arm A's, its design findings are fewer, and its cost is at most twice arm A's; otherwise recommend reverting slices 9 and 11. The report's result was revert (D23).
 
 ## Implementation Paths
 
 - `.agents/skills/slice/**` — plan-block grammar, build prompt, `slice.py` ready, validate and check
-- `.agents/skills/build/SKILL.md`, `.agents/skills/build/references/**` — thin orchestration, the feature upsert, the design-mode loop, moved gates
+- `.agents/skills/build/SKILL.md`, `.agents/skills/build/references/**` — thin orchestration, the feature upsert, the moved design-stack gates and harness dispatch notes
 - `.agents/skills/tdd/SKILL.md` — the one home of red-green-refactor and Prove-It
 - `.agents/skills/debug/SKILL.md`, `.agents/skills/task-registry/lanes/*.md`, `.agents/skills/wrap-up-session/references/routine-prompts/*.md`, `.agents/agents/planner.md`, `.claude/agents/planner.md` — writers that stop emitting `TDD:` rows
 - `.agents/skills/yolo/SKILL.md`, `.agents/skills/make-it-simpler/SKILL.md`, `.agents/skills/wrap-up-session/references/*.md`, `.agents/skills/task-registry/SKILL.md` — callers of the old per-slice filing and closing

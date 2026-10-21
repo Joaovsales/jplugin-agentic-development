@@ -2126,7 +2126,13 @@ Filed this sweep:
 > Handover: landed 630838f..1833af2 — `tests/fixtures/build-eval/` seeds, runbook and answer key; 8 Mode B runs (2 per arm per feature) and one blind Opus judge pass; report `tasks/eval-aposd-first-build.md`: the rule says revert slices 9 and 11 (AC coverage A 1.000 vs B 0.833; transcript design findings A 2.0 vs B 4.0; cost A 0.63 vs B 1.09, 1.74×, holds).
 > Do not re-derive: each run dir needs its arm's `.agents/` and `.claude/agents/` (`git archive`), or `/build` runs inline with no `slice.py` and the arms cannot differ; arm A is the merge-base 4c2f3c2, arm B b2504fe; probes, freeze check, judge inputs and scores live in the session scratchpad and `~/work-logs/`.
 > Surface: none outside the fixtures (runbook fix `1833af2`).
-> Open: arm B routed into design mode in only 1 of 4 runs (r2 and r6 were stopped by `check --index` exit 3, r7 never ran `slice.py`); the user decides keep or revert.
+> Open: none — round 2 (after routing fix e95d17f) met equal AC coverage at 3.09× cost with no fewer design findings; the owner chose revert, landed in 66dba11 (spec D23)
+
+## Session Summary — [2026-10-21] [4c2f3c2..19bb9af]
+- Completed: aposd-first-build slices 1–14 (#311–#324); AC17 eval in two rounds (`tasks/eval-aposd-first-build.md`); design mode reverted by the owner's call (66dba11, spec D23); master merged (19bb9af); tech debt filed as #328–#331.
+- Pending: none in this plan. #331 (design mode untested on Codex and Pi) is moot after the revert.
+- Carry-forward: pre-existing Windows-only failures accepted by the owner (#328, #129, #203, #269); `link_parent` has no production caller (#329); two test gaps (#330).
+
 ## Plan: session-viz-mod
 > Spec: specs/session-viz-mod.md
 

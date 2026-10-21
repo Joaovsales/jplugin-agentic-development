@@ -55,22 +55,22 @@ table before it interviews and asks only about `open` rows.
 | # | Question | Decision | Source | Why |
 |---|---|---|---|---|
 | 1 | Where the shared "spec to slices" step lives | A new skill, `/slice`, that both planners invoke the way every skill invokes `/task-registry` | user | One owner; callers pass a spec path and know nothing about sizing, ordering or filing |
-| 2 | What the module owns | Sizing, dependency order and its validation, the surface per slice, the plan-block grammar, the build prompt, filing through the registry, the handover schema. Callers own the interview, the spec depth, the review loop, and for the design skill the render and critic pass | user | The module runs on any spec with acceptance criteria and `implementation_paths`, whichever planner wrote it |
-| 3 | Human gates | None in the planning session. The planner ends with the spec, the Build Order and a **build prompt**; the human reviews them and approves by starting a fresh session with that prompt. No planner asks for `y` or invokes `/build`. TDD rows are a mechanical expansion of each slice's criteria and are not reviewed separately | user | Reverses the one-gate decision of 2026-09-21 and the two-gate decision of 2026-09-16: a build that starts in the planning context inherits the interview, and a `y` typed into it is a weaker review than a prompt carried into a clean one |
+| 2 | What the module owns | Sizing, dependency order and its validation, the surface per slice, the plan-block grammar, the build prompt, the one dry-run that mints the feature row's id, the handover schema. Callers own the interview, the spec depth, the review loop, and for the design skill the render and critic pass | user | The module runs on any spec with acceptance criteria and `implementation_paths`, whichever planner wrote it |
+| 3 | Human gates | None in the planning session. The planner ends with the spec, the Build Order and a **build prompt**; the human reviews them and approves by starting a fresh session with that prompt. No planner asks for `y` or invokes `/build`. A slice's acceptance criteria come from § Build Order; no `TDD:` row is written | user | Reverses the one-gate decision of 2026-09-21 and the two-gate decision of 2026-09-16: a build that starts in the planning context inherits the interview, and a `y` typed into it is a weaker review than a prompt carried into a clean one |
 | 4 | Handover | Kept, with two required facts: what landed, what the next slice must not re-derive | user | #106's third gap; a task record with criteria but no closing note does not fill it |
 | 5 | Simplifications | No sizing floor, no size labels or per-size budgets, no overrun split into remainder slices, no parallel-conflict STOP, no per-criterion testing tags | user | Each was machinery for a case the review or the plan-time refusal already covers |
 | 6 | Where the handover lives | A `> Handover:` blockquote under the slice heading in the plan block, written and read by `/build` | user | Its only reader is the next slice, dispatched from the same file. Reverses the task-record decision of 2026-09-16 |
-| 7 | `/slice` phases | `/slice <spec>` proposes, prints the build prompt and stops; `/slice <spec> --file` files, and is invoked by `/build`'s pre-flight in the session the build prompt started | user, filing site assumed | Nothing is filed in a session nobody approved; the build session exists only because a human started it with the prompt, so its first act is the filing the plan session withheld |
+| 7 | `/slice` phases | `/slice <spec>` proposes, prints the build prompt and stops; it files nothing. `/build`'s pre-flight makes the one feature upsert in the session the build prompt started | user, filing site assumed | Nothing is filed in a session nobody approved; the build session exists only because a human started it with the prompt, so its first act is the one link the plan session withheld |
 | 8 | Routing between the two front doors | `/plan` escalates to `/system-design-planning` when one of its three criteria holds; the design skill keeps its off-ramp | user | The criteria are stated once, and the information to decide first appears in `/plan`'s interview |
-| 9 | `--parent` on `upsert` | Added now, through the existing `link_parent` | user | #97 flips it native later without touching callers |
-| 10 | Name and shape | `/slice <spec> [--issue #N] [--file]` | user | Matches the unit's name; reads as a verb in the caller's text |
+| 9 | Tracker granularity | One issue per feature; `upsert` has no `--parent` flag | user | Slice issues are gone, so nothing has a parent to link |
+| 10 | Name and shape | `/slice <spec> [--issue #N]` | user | Matches the unit's name; reads as a verb in the caller's text |
 | 11 | How handovers reach the parent issue | A `## Handovers` section in the PR body that closes the issue, written by `/wrap-up-session` before its linkage check | assumed | The user asked for the handovers on the issue's closing record; the PR body is the write wrap-up already makes and the linkage check already guards, and it degrades to the commit message with no tracker |
 | 12 | Interviews and their reuse | `/plan` does not invoke `/grilling`; `/grill-me` and `/brainstorm` are the user's choice before planning. `/plan` asks its own six questions, and when a spec already carries this table, or the conversation already ran `/grilling` to an empty frontier for this feature, it asks only the `open` rows and the gaps. `/system-design-planning` interviews through `/grilling`, mandatorily, with the same carry-forward, so grilling may come before or inside it | user | A feature may be grilled or brainstormed and never built, or planned without ceremony; the architecture bar is where the extra rigor pays for itself |
 | 13 | Where assumptions and open questions go | This table, through the `Source` column, instead of separate Assumptions and Open Questions sections | assumed | One table serves the human reviewing the spec, `/plan`'s carry-forward and `/yolo`'s unattended picks; three sections would say the same thing three ways |
-| 14 | What the build prompt says | "Spec and plan are ready to be built. Start a fresh session with this prompt:", then a prompt that invokes `/build` on the spec, names the plan block, the slice count and the ready set, lists the files (`implementation_paths`) and the instructions the builder follows: file first, build in ready-set order inside each slice's surface, honour § Decisions, hand over per slice, wrap up | user, wording assumed | The user asked for "invoke the build skill and build the file paths x, y, z following instructions a, b, c"; everything in it is derivable from the spec and the plan block, so `/slice` writes it once, into § Build Order, and the callers relay it |
+| 14 | What the build prompt says | "Spec and plan are ready to be built. Start a fresh session with this prompt:", then a prompt that invokes `/build` on the spec, names the plan block, the slice count and the ready set, lists the files (`implementation_paths`) and the instructions the builder follows: link the feature issue first, build in ready-set order inside each slice's surface, honour § Decisions, hand over per slice, wrap up | user, wording assumed | The user asked for "invoke the build skill and build the file paths x, y, z following instructions a, b, c"; everything in it is derivable from the spec and the plan block, so `/slice` writes it once, into § Build Order, and the callers relay it |
 | 15 | `/system-design-planning`'s approval word | Gone. Step 7 keeps its findings loop against the rendered document and ends with the build prompt; Step 8 (file) is removed because filing moved to `/build`; Step 9 is the prompt. The Iron Law becomes "nothing is filed and nothing is built in the planning session" | user (both planners), shape assumed | The user asked that neither planner prompt for a word and start the build; the findings format is the part of Step 7 worth keeping, the word was only ever there to start filing |
 | 16 | In-session pipelines | `/auto-push` owns the `y` sentence as an override on `/plan`'s handover step, since its one gate is now its own; `/yolo` skips the handover and invokes `/build` in place. Both are the named exceptions to "build in a fresh session", and both are unattended by design | assumed | `/auto-push` exists to run plan → push on one approval, so the sentence moves rather than dies; `/yolo` never had a gate |
-| 17 | `--approve` on `--file` | `/build` passes it when a human started the session with the build prompt (the default); `/yolo`'s Phase B omits it, so on a project with `require_write_approval = true` its slices land `local-pending` as every unattended write does today | assumed | The prompt typed by a human is the reviewer's word; an unattended loop has none to carry |
+| 17 | `--approve` on the feature upsert | `/build` passes it when a human started the session with the build prompt (the default); `/yolo`'s Phase B omits it, so on a project with `require_write_approval = true` the feature link lands `local-pending` as every unattended write does today | assumed | The prompt typed by a human is the reviewer's word; an unattended loop has none to carry |
 
 ## Problem
 
@@ -98,9 +98,9 @@ reviewed on its own.
 | Task template: Acceptance, Verify, Files, Dependencies, Scope | One row of § Build Order: ACs, Verify, Surface, Blocked by, Size |
 | "Completable in one session", "break down when" | § Sizing: one ceiling |
 | Checkpoints | A slice boundary: suite, surface check, handover, flush |
-| External tracker: one item per task, plan doc keeps the ids | One `upsert` per slice through `/slice --file`; ids on the plan-block rows |
+| External tracker: one item per task, plan doc keeps the ids | One feature issue, linked once by `/build`'s pre-flight; slice rows carry no ids |
 | Human review per phase | The spec and its Build Order, reviewed at the end of the planning session; the human approves by starting the build session with the build prompt |
-| Context engineering: load the slice's sections and files | `/build`'s delegation prompt: the slice's rows, surface, and its blockers' handovers |
+| Context engineering: load the slice's sections and files | `/build`'s delegation prompt: the slice's Delivers and criteria, surface, and its blockers' handovers |
 
 ## Vocabulary
 
@@ -166,9 +166,9 @@ Sizing: <N> slices. Ceiling: files > 8, systems > 2, ACs > 3. Over: <none | slic
   Plan: `## Plan: <feature>` in `tasks/todo.md`, <N> slices, ready set <1, 2>.
   Files: <implementation_paths, comma-separated>.
   Instructions:
-  1. `/build`'s pre-flight files the slices: `/slice specs/<feature>.md --file --approve`. The planning session filed nothing.
+  1. `/build`'s pre-flight links the feature issue: one upsert, only when the plan's feature row has no link. The planning session filed nothing.
   2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
-  3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
+  3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
   4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
   Constraints: <one line per § Decisions row the builder must keep; omit the field when none>
   ```
@@ -182,61 +182,33 @@ Sizing: <N> slices. Ceiling: files > 8, systems > 2, ACs > 3. Over: <none | slic
 ```markdown
 ## Plan: <feature>
 > Spec: specs/<feature>.md
-> Issue: https://github.com/<owner>/<repo>/issues/<N>
+- [ ] <feature> <!-- task-id: plan.<spec-id> -->
 
 ### Slice 1/<N> — <name>
-- [ ] <name> <!-- task-id: plan.<id> --> — <delivers> (blocked-by: plan.<id>)
-  [ ] TDD: <test that pins AC n> -> <minimal implementation>
-  [ ] TDD: <test that pins AC m> -> <minimal implementation>
+- [ ] <name> — <delivers>
 ```
 
-- The `- [ ]` row is the registry's row: compact fields only, `(blocked-by:)`
-  in the form the index parses, no surface. The surface lives once, in the
-  spec's table, and `/build` reads it there by slice number and name.
-- Ids are minted by a dry-run `upsert --derive-id plan --spec <spec>
-  --fold-title --title '<slice name>'`, so the `--file` phase refreshes the
-  seeded row in place instead of appending. Slice names never start with `/`
-  (Git Bash on Windows rewrites a leading `/name` into a path).
-- The `[ ] TDD:` rows are written here, one or more per AC the slice carries.
-  They are not what the human reviews; the Build Order is.
+- The block links its feature exactly once: a `> Issue:` line, written when
+  `--issue` is given or the spec's origin line names an issue, or one feature
+  row whose id is minted by a single dry-run `upsert --derive-id plan --spec
+  <spec>`. The example shows the feature row; with an issue, the `> Issue:`
+  line replaces it. Never both, never two of either.
+- A slice's `- [ ]` header row carries a name and what it delivers: no task
+  id, no `(blocked-by:)`, no `TDD:` child. The surface and the blockers live
+  once, in the spec's table, and `/build` reads them there by slice number
+  and name. Slice names never start with `/` (Git Bash on Windows rewrites a
+  leading `/name` into a path).
 - `> Spec:` stands alone on its line. An existing `## Plan: <feature>` block
-  with `[ ]` rows is replaced section by section; a different feature is
-  appended. Never two blocks for one feature.
-- `> Issue:` is written when `--issue` is given or the spec's origin line names
-  one.
+  is replaced section by section; a different feature is appended. Never two
+  blocks for one feature.
+- A block whose slice header rows carry task ids is legacy: it still
+  validates, readies, builds and closes.
 
 Required output: `✓ Build Order written: <abs spec path>`,
 `✓ Plan written: <abs todo path>`, then the line `Spec and plan are ready to
 be built. Start a fresh session with this prompt:` followed by the build
 prompt verbatim. `/slice` never files and never invokes `/build`; the caller
 relays the prompt as the last thing its session says.
-
-### `/slice <spec> --file [--approve]`: file
-
-Invoked by `/build`'s pre-flight, in the session the build prompt started.
-Refuses, naming the spec, when `tasks/todo.md` has no `## Plan:` block for it:
-there is nothing to file before a proposal. Then one `upsert` per slice in
-build order:
-
-```bash
-python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
-  --derive-id plan --spec specs/<feature>.md --fold-title \
-  --title '<slice name>' --kind <feature|task> \
-  --summary 'Slice <n>/<N> of #<issue>: <delivers>' \
-  --criterion '<AC text>' \
-  --evidence 'design: specs/<feature>.md § Build Order, slice <n>' \
-  --parent '#<issue>'
-```
-
-Dry run first, then `--apply`; `--approve` only when the caller passed it. The
-build prompt a human typed is the reviewer's word, so `/build` passes it by
-default and `/yolo` does not. `--parent` is passed when the block has a
-`> Issue:` line. The seeded row is refreshed in place; when the task is
-created, its status box and its `(blocked-by:)` marker are carried from the
-row, so a slice built before it was filed stays `[x]` and a second run after
-an interrupted filing is safe. Every write honours the project's approval floor; an unreachable
-tracker reports `local-pending` and is never retried silently. Output: one
-`✓ Filed: <id> → <#N | local, publication pending>` line per slice.
 
 ### `/plan`
 
@@ -293,13 +265,13 @@ registration rule are removed.
 **In-session pipelines.** `/yolo`'s override table changes three rows: Step 1
 runs no interview and every gap becomes an `assumed` row in § Decisions
 (`open` rows are answered conservatively and recorded the same way); Step 6
-prints no prompt and Phase B invokes `/build` in place; `/build`'s pre-flight
-filing runs without `--approve` (unattended: the approval floor decides).
+prints no prompt and Phase B invokes `/build` in place; `/build`'s feature upsert
+runs without `--approve` (unattended: the approval floor decides).
 `/auto-push` keeps its one gate by owning the sentence: its Phase A overrides
 Step 6 to ask "Does this spec and plan meet your requirements? Once you
 confirm with **'y'**, I'll build, wrap up and push in this session." instead
 of printing the prompt, and its Phase B runs `/build` in place with the
-filing `--approve`d by that `y`. Both are the named exceptions to building in
+feature upsert `--approve`d by that `y`. Both are the named exceptions to building in
 a fresh session, and both say so.
 
 ### `/system-design-planning`
@@ -340,7 +312,7 @@ a fresh session, and both say so.
 - **Step 8 (file slices)** is removed: filing is `/build`'s pre-flight. Its
   `upsert` invocation, the `> Approved` line and the `TODO(shortcut)` about
   ordering go with it. **Step 9: Hand off** keeps its heading and says what the
-  build session does first (file), then how `/build` reads the block.
+  build session does first (link the feature issue), then how `/build` reads the block.
 - The **Iron Law** becomes `NOTHING IS FILED AND NOTHING IS BUILT IN THE
   PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD
   PROMPT.`; the Red Flag "filed before the word approved" becomes "filed in
@@ -354,15 +326,16 @@ every row `user`. That is what lets `/plan` Step 1 carry them forward.
 
 ### `/build`
 
-- **Pre-flight files.** After the plan and spec checks and before the green
-  baseline: when any slice header of the block lacks a provider link,
-  `Invoke /slice specs/<feature>.md --file --approve`; the dry run is shown,
-  then the apply. This session exists because a human started it with the
-  build prompt, which is the authorization the plan session did not have.
-  `/yolo` omits `--approve`. With no tracker the rows link to
-  `tasks/details/`. The description's "Use after `/plan` is confirmed" becomes
-  "Use in the session the build prompt starts".
-- **Pre-flight**: a `## Plan:` block with no `### Slice` headings is one
+- **Pre-flight links the feature issue.** After the plan and spec checks and
+  before the green baseline: when the plan block's feature row has no
+  provider link (a `> Issue:` line, an already linked row or a legacy block
+  needs nothing), one `upsert --derive-id plan --spec <spec> --apply
+  --approve`. This session exists because a human started it with the build
+  prompt, which is the authorization the plan session did not have; `/yolo`
+  and unattended lanes omit `--approve`. `local-pending` or a failure prints
+  one line and the build continues. The description's "Use after `/plan` is
+  confirmed" becomes "Use in the session the build prompt starts".
+- **Implicit slice**: a `## Plan:` block with no `### Slice` headings is one
   implicit slice whose surface is the spec's `implementation_paths`, so every
   plan written before this spec still builds.
 - **Ready set replaces the independence guess.** Before dispatch and after
@@ -372,14 +345,15 @@ every row `user`. That is what lets `/plan` Step 1 carry them forward.
   them. Disjoint ready slices dispatch in parallel with `isolation:
   "worktree"` when they write files. An intersecting pair without a blocker is
   a plan defect: serialized in table order and reported, never guessed.
-- **Delegation prompt** carries, beyond today's four items: (5) the slice's
+- **Delegation prompt** carries the slice's Delivers and criteria, the spec
+  section, related paths and the `/tdd` instruction, plus: (5) the slice's
   surface, with the rule *edit only inside it; a file you must touch outside
   it is reported as `[SURFACE] +<path> | reason: <one sentence>` and the work
   continues*; (6) the `> Handover:` lines of every slice this one is blocked
   by, verbatim; (7) the tool-call budget and escape hatch from
   `subagent-resilience.md` Rule 1, and the instruction to list unfinished
-  `TDD:` rows under `## Not finished`.
-- **Surface check** when the slice's last `TDD:` row passes:
+  acceptance criteria under `## Not finished`.
+- **Surface check** when every criterion of the slice passes through `/tdd`:
   `python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha>`
   matches `git diff --name-only <base>..HEAD` against the declared surface and
   prints `undeclared: <paths>` and `untouched: <globs>`, exit 0 only when both
@@ -390,13 +364,11 @@ every row `user`. That is what lets `/plan` Step 1 carry them forward.
   (`<short-sha>..<short-sha>`), what the next slice must not re-derive, then
   optionally the surface report and one open question. It is written for a
   one-slice plan too: it is what an interrupted build's next session reads.
-- **Unfinished slice**: when the agent returns rows under `## Not finished` or
-  the escape hatch fired, finished rows are marked `[x]`, the header and the
-  remaining rows stay `[ ]`, the handover says `unfinished: <rows>`, and the
-  slice is in the next `ready` set. No renumbering, no remainder slice. A
-  header `[x]` with a `[ ]` child is the forbidden state; Phase 6 counts rows
-  with leading whitespace before `[x]` so nested rows are counted, and reports
-  the forbidden state as a build failure.
+- **Unfinished slice**: when the agent returns criteria under `## Not finished`
+  or the escape hatch fired, the header stays `[ ]`, the handover says
+  `unfinished: <AC ids>`, and the slice is in the next `ready` set. No
+  renumbering, no remainder slice. A header `[x]` with no `> Handover:` is the
+  forbidden state; Phase 6 reports it as a build failure.
 - **Slice boundary is the checkpoint**: the affected-test command once,
   centrally (`specs/fewer-full-suite-runs.md`); the
   handover; the task-boundary flush (`bash .agents/hooks/pre-compact.sh
@@ -411,13 +383,10 @@ section lands in the commit message.
 
 ### `/task-registry`
 
-`--parent <ref>` on `upsert`: records the origin through the provider's
-`link_parent`, native where the provider reports `native_hierarchy`, `parent:`
-metadata otherwise, with the existing disclosure line. Dry run by default,
-`--apply` and the approval floor as for every write. `registry/globs.py` holds
-the `implementation_paths` matcher that `spec-reconcile.py` carries today;
-`slice.py` imports it. Repointing `spec-reconcile.py` and `sync-retire.py` to
-it is the open task `glob-matcher-shared-module`.
+`registry/globs.py` holds the `implementation_paths` matcher that
+`spec-reconcile.py` carries today; `slice.py` imports it. Repointing
+`spec-reconcile.py` and `sync-retire.py` to it is the open task
+`glob-matcher-shared-module`.
 
 ## Inputs
 
@@ -436,8 +405,8 @@ it is the open task `glob-matcher-shared-module`.
 |---|---|---|
 | Spec with § Decisions and § Build Order | `specs/<feature>.md` | the human reviewing it, `/build`, `/wrap-up-session` reconciliation |
 | Build prompt | § Build Order, and the planning session's last message | the human; the build session |
-| Plan block with `### Slice` sections and seeded rows | `tasks/todo.md` | `/build`, the session banner |
-| One task per slice with `parent` | local `tasks/details/` or the tracker | humans; the `build` routine when #98 lands |
+| Plan block with `### Slice` sections and one feature link | `tasks/todo.md` | `/build`, the session banner |
+| One feature issue | local `tasks/details/` or the tracker | humans; `/wrap-up-session` closes it |
 | Ready set and overlap report | stdout of `slice.py ready` | `/build` dispatch |
 | Surface report | stdout of `slice.py check`; the handover | `/build` Phase 4.5 |
 | `> Handover:` per closed slice | `tasks/todo.md` | the slices it blocks; `/wrap-up-session` |
@@ -445,21 +414,17 @@ it is the open task `glob-matcher-shared-module`.
 
 ## Edge Cases
 
-- **No tracker.** `--file` records locally; `ready`, `check`, dispatch and
-  handovers all work from `tasks/todo.md`. No parent link; #106 AC8 holds.
+- **No tracker.** The feature upsert records locally; `ready`, `check`, dispatch and
+  handovers all work from `tasks/todo.md`.
 - **Tracker unreachable.** `local-pending`, reported, never retried silently.
-- **GitHub without native links** (every `gh` today). `parent:` is body
-  metadata with the disclosure line; #97 makes it native without touching this
-  spec.
 - **Flat legacy plan.** One implicit slice; handover written at the end.
 - **One-slice plan.** A one-row table; the handover is still written.
-- **`--file` before any proposal.** Refused, naming the spec: no plan block.
 - **Build prompt lost.** It is in § Build Order; the spec is the durable copy.
 - **Spec changed after the prompt was printed.** Re-run `/slice <spec>`: the
   Build Order, the block and the prompt are replaced in place.
-- **Build session resumed after an interrupted filing.** Pre-flight sees a
-  header without a link and re-runs `--file`; linked rows are refreshed, not
-  duplicated.
+- **Build session resumed after an interrupted link.** Pre-flight sees a
+  feature row without a link and re-runs the upsert, which refreshes the same
+  row and issue instead of adding one.
 - **`/auto-push` and `/yolo`.** Build in the planning session, on purpose;
   the first behind its own `y`, the second unattended.
 - **Hand-edited plan with an unordered overlap.** `ready` reports the pair and
@@ -507,20 +472,16 @@ it is the open task `glob-matcher-shared-module`.
    or size label appears.
 5. `/slice <spec>` documents writing § Build Order in place with the build
    prompt as its closing fenced block, the plan block per the grammar, minting
-   ids by dry-run upsert, writing TDD rows under each slice, refusing on a
+   the feature row's id by one dry-run upsert, writing slice header rows with no `TDD:` child, refusing on a
    `validate` failure, and ending with `Spec and plan are ready to be built.
    Start a fresh session with this prompt:` and the prompt; the prompt
    template in `SKILL.md` and `references/build-prompt.md` compare equal, and
-   its instruction lines name `--file --approve`, `Surface`, `§ Decisions`,
+   its instruction lines name the feature-issue link, `Surface`, `§ Decisions`,
    `[AMBIGUITY]`, `> Handover:` and `/wrap-up-session`. `SKILL.md` contains no
    `Invoke /build` line and no `y` gate sentence.
-6. `/slice --file` documents the no-plan-block refusal, one upsert per slice
-   in build order with `--parent` when `> Issue:` is present, `--approve` as
-   passed by the caller with the `/build` and `/yolo` rule, idempotent
-   re-runs, and the `✓ Filed:` line; no `> Approved` remains.
-7. `upsert --parent '#N'` records a native parent on the local fixture and
-   `parent:` metadata plus the disclosure line on the GitHub fixture; dry run
-   by default; `SKILL.md` documents the flag.
+6. `/slice` has no `--file` mode; the plan block carries one feature link,
+   and `slice.py validate` refuses a block with two.
+7. `upsert` has no `--parent` flag.
 8. `/plan` Step 1 keeps its six questions, contains no `Invoke /grilling`
    line, names `/grill-me` and `/brainstorm` as the user's optional
    precursors, and states the `DECISIONS CARRIED` rule; Step 1.5 has the
@@ -532,7 +493,7 @@ it is the open task `glob-matcher-shared-module`.
    prompt, and `/plan` contains no `Invoke /build`, no `upsert` invocation and
    no `> Approved`.
 9. `/yolo`'s override table carries the three rows (`assumed` rows; no prompt,
-   `/build` in place; filing without `--approve`); `/auto-push` Phase A carries
+   `/build` in place; the feature upsert without `--approve`); `/auto-push` Phase A carries
    the `y` sentence as its own override on `/plan` Step 6 and Phase B names
    `--approve`.
 10. `/system-design-planning` Step 1 names § Decisions; Step 2.5 has an
@@ -548,7 +509,7 @@ it is the open task `glob-matcher-shared-module`.
     skill to `slice/SKILL.md`.
 11. `/brainstorm` Step 6's template carries § Decisions with the `Source`
     column.
-12. `/build` documents the pre-flight `Invoke /slice … --file --approve` with
+12. `/build` documents the pre-flight feature `upsert --derive-id plan` with
     the missing-link condition and the `/yolo` exception, the implicit slice,
     the `ready` call replacing the independence assessment, delegation items
     5 to 7, the `check` call at slice close, the `> Handover:` write with its
@@ -566,7 +527,7 @@ it is the open task `glob-matcher-shared-module`.
     and build prompt; `bash tests/run.sh` is green on CI.
 15. One live two-slice run across two sessions: a `/plan` session that ends
     with the build prompt and files nothing, then a fresh session started
-    with that prompt whose pre-flight files the slices and whose build shows
+    with that prompt whose pre-flight links the feature issue and whose build shows
     `DECISIONS CARRIED`, parallel dispatch of two disjoint slices, a handover
     read by a blocked slice and a surface report, recorded in
     `tasks/e2e-log.md` with the commit sha.
@@ -582,10 +543,10 @@ are one contract a reviewer reads together).
 |---|-------|----------|---------|------------|-----|--------|------|
 | 1 | slice script and shared glob matcher | `slice.py validate`, `ready`, `check`; `registry/globs.py` extracted from `spec-reconcile.py`; fixtures | `.agents/skills/slice/scripts/slice.py`, `.agents/skills/task-registry/scripts/registry/globs.py`, `.agents/skills/wrap-up-session/scripts/spec-reconcile.py`, `tests/test-slice.sh`, `tests/fixtures/slice/**` | — | 1, 2, 3 | `bash tests/test-slice.sh tests/test-living-spec-reconciliation.sh` | 5 files + fixtures · 3 systems (one file each in registry and wrap-up) · 3 ACs |
 | 2 | slice skill | `SKILL.md`, `references/plan-block.md`, `references/sizing.md`, `references/build-prompt.md`, the README inventory row | `.agents/skills/slice/SKILL.md`, `.agents/skills/slice/references/**`, `README.md`, `tests/test-doc-conventions.sh` | — | 4, 5, 6 | `bash tests/test-doc-conventions.sh` | 6 files · 1 system + inventory · 3 ACs |
-| 3 | upsert parent flag | `--parent` through `link_parent`, disclosure, docs | `.agents/skills/task-registry/scripts/task-registry.py`, `.agents/skills/task-registry/scripts/registry/upsert.py`, `.agents/skills/task-registry/SKILL.md`, `tests/test-task-registry.sh` | — | 7 | `bash tests/test-task-registry.sh` | 4 files · 1 system · 1 AC |
+| 3 | upsert parent flag | removed: `upsert` has no `--parent` | `.agents/skills/task-registry/scripts/task-registry.py`, `.agents/skills/task-registry/scripts/registry/upsert.py`, `.agents/skills/task-registry/SKILL.md`, `tests/test-task-registry.sh` | — | 7 | `bash tests/test-task-registry.sh` | 4 files · 1 system · 1 AC |
 | 4 | plan skill calls slice | Step 1 carry-forward without `/grilling`, Step 1.5 escalation, § Decisions template, `Invoke /slice` in Step 3, Step 4 without a question, Step 6 handover with the build prompt, no filing; `/yolo` rows; `/auto-push` owns the `y` sentence | `.agents/skills/plan/SKILL.md`, `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 2 | 8, 9 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 5 files · 3 systems (over, see above) · 2 ACs |
 | 5 | design planning and brainstorm call slice | Step 1 reads § Decisions, Step 2.5 interviews through `/grilling`, template trimmed, Step 3.5 invokes `/slice`, Step 7 loses the approval word and ends with the build prompt, Step 8 removed, Iron Law and Red Flag reworded; `/brainstorm` Step 6 § Decisions | `.agents/skills/system-design-planning/SKILL.md`, `.agents/skills/system-design-planning/templates/architecture-spec-template.md`, `.agents/skills/brainstorm/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 4 | 10, 11 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh tests/test-grilling-adoption.sh` | 5 files · 2 systems · 2 ACs |
-| 6 | build and wrap-up on slices | pre-flight filing through `/slice --file`, implicit slice, `ready`, delegation items, `check`, handover write, unfinished rule, Phase 6 count; `## Handovers` | `.agents/skills/build/SKILL.md`, `.agents/skills/wrap-up-session/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 1, 5 | 12, 13 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 4 files · 2 systems · 2 ACs |
+| 6 | build and wrap-up on slices | pre-flight feature upsert, implicit slice, `ready`, delegation items, `check`, handover write, unfinished rule, Phase 6 count; `## Handovers` | `.agents/skills/build/SKILL.md`, `.agents/skills/wrap-up-session/SKILL.md`, `tests/test-doc-conventions.sh`, `tests/test-skill-invocation-chain.sh` | 1, 5 | 12, 13 | `bash tests/test-doc-conventions.sh tests/test-skill-invocation-chain.sh` | 4 files · 2 systems · 2 ACs |
 | 7 | workflow text and live run | `AGENTS.md` § Workflow with the build prompt replacing the `y` gate, glossary terms through `/learn`, the two-session e2e run | `AGENTS.md`, `tasks/concepts.md`, `tasks/e2e-log.md`, `tests/test-doc-conventions.sh` | 2, 3, 6 | 14, 15 | `bash tests/run.sh` | 4 files · docs · 2 ACs |
 
 Slices 1, 2 and 3 have disjoint surfaces and no blockers: they are the first
@@ -599,16 +560,16 @@ Invoke `/build` for `specs/plan-slices-and-handover.md`.
 Plan: `## Plan: plan-slices-and-handover` in `tasks/todo.md`, 7 slices, ready set 1, 2, 3.
 Files: .agents/skills/slice/**, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/system-design-planning/templates/architecture-spec-template.md, .agents/skills/brainstorm/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/scripts/spec-reconcile.py, .agents/skills/task-registry/SKILL.md, .agents/skills/task-registry/scripts/task-registry.py, .agents/skills/task-registry/scripts/registry/upsert.py, .agents/skills/task-registry/scripts/registry/globs.py, .agents/skills/yolo/SKILL.md, .agents/skills/auto-push/SKILL.md, CLAUDE.md, README.md, tests/test-slice.sh, tests/fixtures/slice/**, tests/test-doc-conventions.sh, tests/test-skill-invocation-chain.sh, tests/test-task-registry.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/plan-slices-and-handover.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when the plan's feature row has no link. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
-3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
-Constraints: work in the worktree `.claude/worktrees/106` on branch `feat/106-plan-slices-and-handover`, rebased on `origin/master`; `/slice` does not exist yet, so instruction 1 is done by hand with the `upsert` command from the spec's `--file` section, one per slice, dry run then `--apply --approve`, with `--parent '#106'`; skill bodies never contain `jplugin:`; slice titles never start with `/`; on Windows export `MSYS_NO_PATHCONV=1` and `PYTHONUTF8=1`.
+Constraints: work in the worktree `.claude/worktrees/106` on branch `feat/106-plan-slices-and-handover`, rebased on `origin/master`; skill bodies never contain `jplugin:`; slice titles never start with `/`; on Windows export `MSYS_NO_PATHCONV=1` and `PYTHONUTF8=1`.
 ```
 
 ## Implementation Paths
 
-- `.agents/skills/slice/SKILL.md`: propose and `--file`, the refusals, the outputs, the ready line
+- `.agents/skills/slice/SKILL.md`: propose, the refusals, the outputs, the ready line
 - `.agents/skills/slice/references/plan-block.md`: the one plan-block grammar
 - `.agents/skills/slice/references/sizing.md`: the ceiling and the counting rule
 - `.agents/skills/slice/references/build-prompt.md`: the one build-prompt template
@@ -618,9 +579,9 @@ Constraints: work in the worktree `.claude/worktrees/106` on branch `feat/106-pl
 - `.agents/skills/plan/SKILL.md`: Steps 1, 1.5, 2, 3, 4, 6 as specified; Step 7 removed
 - `.agents/skills/system-design-planning/SKILL.md` and `templates/architecture-spec-template.md`: Steps 1, 2.5, 3, 3.5, 7, 9; Step 8 removed; Iron Law, Red Flags, description; the trimmed template; `templates/content-model.json`: the rendered document's build-order example and reflection line lose the old slice table and the approval word
 - `.agents/skills/brainstorm/SKILL.md`: Step 6 § Decisions
-- `.agents/skills/build/SKILL.md`: pre-flight filing, ready set, delegation items 5 to 7, surface check, handover, unfinished slice, Phase 6 count
+- `.agents/skills/build/SKILL.md`: pre-flight feature upsert, ready set, delegation items 5 to 7, surface check, handover, unfinished slice, Phase 6 count
 - `.agents/skills/wrap-up-session/SKILL.md`: `## Handovers`
-- `.agents/skills/task-registry/SKILL.md`, `scripts/task-registry.py`, `scripts/registry/upsert.py`: `--parent`
+- `.agents/skills/task-registry/SKILL.md`, `scripts/task-registry.py`, `scripts/registry/upsert.py`: the feature upsert
 - `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md`: the override rows; `/auto-push` owns the `y` sentence
 - `README.md`: the inventory row; `AGENTS.md` § Workflow steps 2 to 4
 - `tests/test-slice.sh`, `tests/fixtures/slice/**`: `validate`, `ready`, `check` over fixtures

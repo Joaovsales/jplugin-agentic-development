@@ -69,7 +69,7 @@ first line of every finding, so the parsers and the Apply Gate are unchanged.
 The layer adds no human-in-the-loop step. Nothing waits for an answer, nothing
 asks "which should I fix?", and `/build` still runs with no prompts between
 tasks. What gets applied, reported or escalated is decided exactly as today: by
-the Apply Gate (`gated_auto` at confidence `75` or higher) and by the `owner`
+the Apply Gate (`gated_auto` at confidence `75` or higher, never for a fix that moves a module boundary) and by the `owner`
 axis. `Verdict:` restates a decision that already exists and never makes a new
 one. In `/quality-gate` it is the receipt verdict `receipt.py` derives (GO / HOLD
 / STOP). In a dispatched persona it is a summary for the orchestrator, naming
@@ -84,8 +84,9 @@ comment that contradicts the code).
 **Split by job, never by line count.** The Clean Code rule in `AGENTS.md` and
 `/quality-gate` Phase 1.2 no longer says "functions ≤20 LOC → split". It says:
 split a function that does several unrelated jobs, by job; never split by line
-count, and never into helpers that exist only to make a function shorter. The
-≤3-parameter rule stays.
+count, and never into helpers that exist only to make a function shorter. A long
+parameter list signals a shallow interface: the fix is the interface, not the
+call site.
 
 **One shortcut rule.** A `TODO(shortcut):` marker that names its limit is a
 decision, not a finding, unless either (a) the assumed load already crosses the
@@ -161,7 +162,7 @@ reports `no-trigger` markers as Tier 1.
 | 2 | Require a concrete failure case? | Yes: a `failure:` line beside `evidence:`; missing caps at `50` | user | the anchors prove a line was read, not that it fails |
 | 3 | Human-friendly output? | A human layer (opener, numbering, skip consequence, Verdict / Lean / Not checked) on top of unchanged four-axis lines | user | readable for humans, still parseable for the Apply Gate |
 | 4 | Ban filler? | Drop Strengths, persona prose and Recommendations; no "consider", taste or vague worries | user | noise that the finding model cannot gate |
-| 5 | Function-size rule? | Split by job, never by line count, never into shorten-only helpers; keep ≤3 parameters | user | APOSD-aligned; the 20-LOC rule pushed toward shallow helpers |
+| 5 | Function-size rule? | Split by job, never by line count, never into shorten-only helpers; a long parameter list signals a shallow interface, fixed at the interface | user | APOSD-aligned; the 20-LOC rule pushed toward shallow helpers |
 | 6 | Debt reporting? | Keep `/wrap-up-session` § *Shortcut ledger* as home (it already scans the whole repo and tags `no-trigger`); widen the pattern and expose it as `/tidy --check shortcuts` | user | the earlier gap claim was wrong; the real delta is on-demand access |
 | 7 | Shortcut rule? | Decision unless the load crosses its limit **or** it opens a never-cut hole; one home in `finding-model.md` § *Deferrals* | user | merges ponytail's load clause with this harness's security clause |
 | 8 | Where does the scale check live in `/quality-gate`? | Inside Phase 3, renamed `Security and Load`; no new phase number | assumed | phases 1–4 are pinned in `receipt.py` and tests; both lenses ask "what breaks in production" |
