@@ -32,6 +32,10 @@ assert_contains "$OUT" "SLOWEST:" "serial: the slowest files are listed"
 assert_contains "$OUT" "ok   stdin is closed for the file []" "serial: each file runs with stdin closed"
 assert_eq "tests/test-alpha.sh" "$(printf '%s\n' "$OUT" | grep -m1 '^=== ' | cut -d' ' -f2)" \
   "serial: files run in discovery order"
+# The summary sums every file's trailer: two passing assertions (alpha, stdin),
+# one failing (beta), nothing expected to fail or skipped.
+assert_contains "$OUT" "ASSERTIONS: 2 passed, 1 failed, 0 xfail, 0 skipped" \
+  "serial: the summary sums passed, failed, xfail and skipped across files"
 
 # --- --jobs N: same verdict, whole blocks, no interleaving -------------------
 POUT="$(bash "$BOX/tests/run.sh" --jobs 3 < <(sleep 2; echo leaked) 2>&1)"; PSTATUS=$?
@@ -49,6 +53,17 @@ BLOCKS_OK="$(printf '%s\n' "$POUT" | awk '
   END { print (bad ? "interleaved" : "whole") }')"
 assert_eq "whole" "$BLOCKS_OK" "jobs: each file's output is printed as one block"
 assert_contains "$POUT" "ok   stdin is closed for the file []" "jobs: files still run with stdin closed"
+assert_contains "$POUT" "ASSERTIONS: 2 passed, 1 failed, 0 xfail, 0 skipped" \
+  "jobs: the summary sums the trailers the same way"
+
+# A skipped file and a file with the older `N assertions passed` trailer (the
+# two in-process Python files print it) both reach the sum.
+printf '%s\n' '. "$(dirname "$0")/lib.sh"' 'skip "nothing to run here"' 'finish' > "$BOX/tests/test-skipper.sh"
+printf '%s\n' 'printf "  ok   old style\n  -> 4 assertions passed\n"' > "$BOX/tests/test-old.sh"
+SKOUT="$(TEST_JOBS=1 bash "$BOX/tests/run.sh" </dev/null 2>&1)"
+assert_contains "$SKOUT" "ASSERTIONS: 6 passed, 1 failed, 0 xfail, 1 skipped" \
+  "summary: a skip and an old-style trailer are summed"
+rm -f "$BOX/tests/test-skipper.sh" "$BOX/tests/test-old.sh"
 
 ENV_OUT="$(TEST_JOBS=2 bash "$BOX/tests/run.sh" </dev/null 2>&1)"
 assert_contains "$ENV_OUT" "(jobs=2)" "TEST_JOBS: the environment sets the job count"

@@ -70,25 +70,49 @@ failed=0
 timings=""
 pending=""
 running=0
+sum_passed=0; sum_failed=0; sum_xfail=0; sum_skipped=0
 
 # run_file <file> <output-path>: run one test file with stdin closed, output
-# to <output-path> (or the terminal when empty). Sets status and elapsed.
+# to <output-path> and, when <stream> is 1, to the terminal as it is produced.
+# Sets status and elapsed.
 run_file() {
   started="$(now_ms)"
-  if [ -n "$2" ]; then
-    bash "$1" </dev/null >"$2" 2>&1
+  if [ "${3:-0}" -eq 1 ]; then
+    bash "$1" </dev/null 2>&1 | tee "$2"
   else
-    bash "$1" </dev/null
+    bash "$1" </dev/null >"$2" 2>&1
   fi
   status=$?
   elapsed=$(( ($(now_ms) - started + 500) / 1000 ))
 }
 
-# record <file> <status> <elapsed-seconds>: print the trailer and count.
+# tally <output-path>: add the file's trailer to the suite-wide assertion
+# counts. tests/lib.sh prints `-> P passed, F failed, X xfail, S skipped`; the
+# two in-process Python files print the older `-> N assertions passed` or
+# `-> F/N assertions FAILED`, read the same way so the sum is whole.
+tally() {
+  local trailer p f x s
+  trailer="$(grep -E '^  -> ' "$1" | tail -1)"
+  case "$trailer" in
+    *" passed, "*" failed, "*" xfail, "*" skipped")
+      read -r _ p _ f _ x _ s _ <<<"$trailer" ;;
+    *"/"*" assertions FAILED")
+      f="${trailer#  -> }"; f="${f%%/*}"; p="${trailer#*/}"; p="${p%% *}"; p=$((p - f)); x=0; s=0 ;;
+    *" assertions passed")
+      p="${trailer#  -> }"; p="${p%% *}"; f=0; x=0; s=0 ;;
+    *) return ;;
+  esac
+  sum_passed=$((sum_passed + p)); sum_failed=$((sum_failed + f))
+  sum_xfail=$((sum_xfail + x)); sum_skipped=$((sum_skipped + s))
+}
+
+# record <file> <status> <elapsed-seconds> <output-path>: print the trailer
+# and count.
 record() {
   [ "$2" -eq 0 ] || failed=$((failed + 1))
   printf -- '--- %s: %d s ---\n' "$1" "$3"
   timings="$timings$3 $1"$'\n'
+  [ -f "$4" ] && tally "$4"
 }
 
 launch() {
@@ -109,7 +133,7 @@ collect() {
       read -r status elapsed <"$SCRATCH/${f##*/}.meta"
       printf '\n=== %s ===\n' "$f"
       cat "$SCRATCH/${f##*/}.out"
-      record "$f" "$status" "$elapsed"
+      record "$f" "$status" "$elapsed" "$SCRATCH/${f##*/}.out"
     else
       still="$still $f"
     fi
@@ -124,8 +148,8 @@ for test_file in ${named[@]+"${named[@]}"}; do
   total=$((total + 1))
   if [ "$jobs" -eq 1 ]; then
     printf '\n=== %s ===\n' "$test_file"
-    run_file "$test_file" ""
-    record "$test_file" "$status" "$elapsed"
+    run_file "$test_file" "$SCRATCH/${test_file##*/}.out" 1
+    record "$test_file" "$status" "$elapsed" "$SCRATCH/${test_file##*/}.out"
     continue
   fi
   if [ "$running" -ge "$jobs" ]; then
@@ -143,7 +167,7 @@ done
 # A file whose runner died before it could report is a failure, never a pass.
 for f in $pending; do
   printf '\n=== %s ===\n  FAIL the runner for this file exited without a result\n' "$f"
-  record "$f" 1 0
+  record "$f" 1 0 ""
 done
 wall=$(( ($(now_ms) - wall_started + 500) / 1000 ))
 
@@ -153,6 +177,8 @@ if [ "$total" -eq 0 ]; then
   exit 1
 fi
 printf 'TOTAL: %d files, wall %d s (jobs=%d)\n' "$total" "$wall" "$jobs"
+printf 'ASSERTIONS: %d passed, %d failed, %d xfail, %d skipped\n' \
+  "$sum_passed" "$sum_failed" "$sum_xfail" "$sum_skipped"
 printf 'SLOWEST:\n'
 printf '%s' "$timings" | sort -nr | head -5 | while read -r seconds file; do
   printf '  %5d s  %s\n' "$seconds" "$file"
