@@ -84,6 +84,67 @@ printf '%s\n' ". \"\$(dirname \"\$0\")/lib.sh\"" "# covers src/bar.txt" 'assert_
 RUN="$(affected --run "$BASE2")"; RSTATUS=$?
 assert_eq "1" "$RSTATUS" "--run: a failing selected file's status passes through"
 
+# under-test: a test naming an artefact through under_test (or py_module) is
+# selected by a change to that path or to anything under it; verbatim inference
+# still selects beside it (spec test-suite-aposd D1, AC 4).
+mkdir -p "$FIX/.agents/skills/x/scripts" "$FIX/.agents/skills/x/scripts-old" "$FIX/lib/pkg"
+printf 'v1
+' > "$FIX/.agents/skills/x/scripts/y.py"
+printf 'v1
+' > "$FIX/.agents/skills/x/scripts-old/z.py"
+printf 'v1
+' > "$FIX/.agents/skills/x/SKILL.md"
+printf 'v1
+' > "$FIX/lib/pkg/mod.py"
+printf '%s
+' ". \"\$(dirname \"\$0\")/lib.sh\"" 'S="$(under_test .agents/skills/x/scripts/)"' 'assert_eq a a "holds"' 'finish' > "$FIX/tests/test-f.sh"
+printf '%s
+' ". \"\$(dirname \"\$0\")/lib.sh\"" 'under_test ".agents/skills/x/SKILL.md"' 'py_module lib/pkg' 'assert_eq a a "holds"' 'finish' > "$FIX/tests/test-g.sh"
+printf '%s
+' ". \"\$(dirname \"\$0\")/lib.sh\"" 'assert_eq a a "holds"' 'finish' > "$FIX/tests/test-h.sh"
+git -C "$FIX" add -A
+commit "under_test fixtures"
+BASE3="$(git -C "$FIX" rev-parse HEAD)"
+
+printf 'v2
+' > "$FIX/.agents/skills/x/scripts/y.py"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-f.sh" "$OUT" "under_test: a directory literal selects the test for a change to a file under it"
+git -C "$FIX" checkout -q -- .agents/skills/x/scripts/y.py
+
+printf 'v2
+' > "$FIX/.agents/skills/x/scripts-old/z.py"
+OUT="$(affected "$BASE3")"
+assert_eq "affected: none" "$OUT" "under_test: a sibling sharing the name prefix is not covered"
+git -C "$FIX" checkout -q -- .agents/skills/x/scripts-old/z.py
+
+printf 'v2
+' > "$FIX/.agents/skills/x/SKILL.md"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-g.sh" "$OUT" "under_test: a quoted file literal selects on equality"
+git -C "$FIX" checkout -q -- .agents/skills/x/SKILL.md
+
+printf 'v2
+' > "$FIX/lib/pkg/mod.py"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-g.sh" "$OUT" "py_module: its directory argument is declared like under_test"
+git -C "$FIX" checkout -q -- lib/pkg/mod.py
+
+printf 'v2
+' > "$FIX/.agents/skills/x/scripts/y.py"
+printf 'v2
+' > "$FIX/src/foo.txt"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-a.sh
+tests/test-f.sh" "$OUT" "under_test and verbatim inference select as a union"
+git -C "$FIX" checkout -q -- .agents/skills/x/scripts/y.py src/foo.txt
+
+printf '# touched
+' >> "$FIX/tests/lib.sh"
+OUT="$(affected "$BASE3")"
+assert_contains "$OUT" "tests/test-h.sh" "under_test: a runner change still selects a test that declares nothing"
+git -C "$FIX" checkout -q -- tests/lib.sh
+
 (cd "$FIX" && bash tests/affected.sh </dev/null >"$BOX/usage.out" 2>&1)
 assert_eq "2" "$?" "usage: no base exits 2"
 (cd "$FIX" && bash tests/affected.sh no-such-ref </dev/null >"$BOX/usage.out" 2>&1)
