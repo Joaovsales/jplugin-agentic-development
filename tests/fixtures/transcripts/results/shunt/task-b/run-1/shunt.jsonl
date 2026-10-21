@@ -1,0 +1,1 @@
+{"decision": "allow", "tool": "Read", "input": {"file_path": "C:\\work\\small.txt"}, "bytes": 200, "lines": 10}
