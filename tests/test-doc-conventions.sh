@@ -1272,10 +1272,16 @@ assert_file_contains "$BUILD_SKILL" 'upsert --derive-id plan --spec specs/<featu
   "one-issue: pre-flight runs one upsert --derive-id plan with --apply"
 for token in "only when the plan block's feature row has no provider link" \
              "feature issue pending: <reason>" "feature issue not filed: <reason>" \
-             "\`local-pending\`" "legacy block" "files nothing new"; do
+             "\`local-pending\`"; do
   assert_prose_contains "$BUILD_SKILL" "$token" \
     "one-issue: build pre-flight contains '$token'"
 done
+# The legacy-block skip lives in the Pre-Flight section itself, not elsewhere in the file.
+preflight_build="$(awk '/^## Pre-Flight Checks/{f=1} /^## Phase 1 /{f=0} f' "$BUILD_SKILL" | tr -s '[:space:]' ' ')"
+assert_contains "$preflight_build" 'or a legacy block' \
+  "one-issue: build pre-flight skips a legacy block"
+assert_contains "$preflight_build" 'slice/references/plan-block.md' \
+  "one-issue: build pre-flight points a legacy block at plan-block.md"
 assert_eq "1" "$(grep -c 'task-registry.py upsert' "$BUILD_SKILL" | tr -d ' ')" \
   "one-issue: build/SKILL.md names exactly one upsert"
 
@@ -1361,12 +1367,12 @@ PREFLIGHT="$(build_section "## Pre-Flight Checks")"
 for token in "cached-suite.sh -- " "base SHA" "Affected tests:" "{base}" "declares none"; do
   assert_contains "$PREFLIGHT" "$token" "fewer full runs: /build pre-flight names '$token'"
 done
-for heading in "### Parallel Dispatch Assessment" "### Step 3 — Run Tests" "### Slice Close" \
+for heading in "### Parallel Dispatch Assessment" "### Slice Close" \
                "## Phase 2 —" "## Phase 3 — Quality Gate"; do
   assert_contains "$(build_section "$heading")" "affected-test command" \
     "fewer full runs: /build '$heading' runs the affected-test command"
 done
-for heading in "### Step 3 — Run Tests" "### Slice Close" "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+for heading in "### Step 3 — Fix Failures" "### Slice Close" "## Phase 2 —" "## Phase 3 — Quality Gate"; do
   body="$(build_section "$heading")"
   for retired in "full test suite" "complete test suite" "run the full suite"; do
     assert_not_contains "$body" "$retired" \

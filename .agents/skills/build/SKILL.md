@@ -82,7 +82,7 @@ progress and drift further before finding out. Merge `main` in frequently.
    - For UI work, run the UI brief and concept-approval checks in
      `.agents/skills/build/references/design-stack-gates.md` § *Pre-Flight: UI brief and concept approval* before any source edit.
 3. **Link the feature issue** when the `## Plan:` block's feature row has no
-   provider link — see *Pre-Flight: Link the Feature Issue* below. Do this
+   provider link and the block is not legacy — see *Pre-Flight: Link the Feature Issue* below. Do this
    before the green baseline.
 4. Grep `tasks/solutions/` frontmatter (`problem_type`, `module`, `tags`) for learnings relevant to the plan's target area
 5. Load `tasks/project-context.md` if it exists (architecture, protection list, conventions)
@@ -136,8 +136,9 @@ line names and stop, rather than wait on a job this session cannot see finish.
 
 This session exists because a human started it with the build prompt, which
 is the authorization the planning session did not have. Run one upsert, only
-when the plan block's feature row has no provider link (a `> Issue:` line or
-an already linked row means there is nothing to do):
+when the plan block's feature row has no provider link (a `> Issue:` line,
+an already linked row, or a legacy block — see
+`.agents/skills/slice/references/plan-block.md` — means there is nothing to do):
 
 ```bash
 python3 .agents/skills/task-registry/scripts/task-registry.py upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply --approve
@@ -259,25 +260,13 @@ After implementation, run this check inline in the main context:
 
 If mismatches found: send feedback to the implementing agent for fixes, then re-check.
 
-### Step 3 — Run Tests
+### Step 3 — Fix Failures
 
-1. Run the new test — confirm it **passes**
-2. Run the **affected-test command** against the base SHA — confirm no regressions
-3. If failures: fix with `code-debugger` agent and full failure context
-4. Repeat until green
-
-### Step 4 — Mark Complete and Continue
-
-- Mark the slice header `[x]` in `tasks/todo.md` after the handover is written
-- Log: `✓ [Test Name] — [one-line summary]`
-- **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the shared flush (`bash .agents/hooks/pre-compact.sh </dev/null`) — no prompt, no commit. This keeps on-disk state current at each semantic (slice) boundary, so a context compaction or `/refresh` loses at most one slice of work.
-- **Slice status**: a new block's header carries no task id; its status lives in
-  the one feature issue (pre-flight links it, `/wrap-up-session` closes it).
-  Never call `gh` or a tracker API directly; any status write goes through
-  `/task-registry`, gated like every other external write — dry-run unless
-  `--apply` and the project's approval setting allow it.
-- Move to the next open slice immediately (no user prompt)
-- If a slice is blocked by a previous failure, note it and skip to the next unblocked slice
+If the dispatch reports a failing criterion, fix it with the `code-debugger`
+agent and the full failure context; repeat until the slice's criteria are green.
+The affected-test command runs once, at Slice Close. A slice blocked by a
+previous failure is noted and skipped for the next unblocked one. Then go to
+Slice Close, the only place a header is marked `[x]`.
 
 ### Slice Close
 
@@ -320,18 +309,28 @@ or the escape hatch fired, leave the header `[ ]`, write
 marked `[x]` with no `> Handover:` is the **forbidden state** — Phase 6 checks
 every `[x]` header for its handover and reports a miss as a build failure.
 
-The slice boundary is the checkpoint: run the affected-test command once, centrally;
-write the handover; flush the slice-boundary checkpoint
-(`bash .agents/hooks/pre-compact.sh </dev/null`); then call `slice.py ready`
-again for the next batch.
+The slice boundary is the checkpoint, in this order: run the affected-test
+command once against the base SHA, centrally; write the handover; mark the
+header `[x]`; log `✓ slice <n> — <one-line summary>`.
+**Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the
+shared flush (`bash .agents/hooks/pre-compact.sh </dev/null`) — no prompt, no
+commit — so a context compaction or `/refresh` loses at most one slice of
+work. Then call
+`slice.py ready` again and start the next batch immediately, with no user prompt.
+
+**Slice status**: a new block's header carries no task id; its status lives in
+the one feature issue (pre-flight links it, `/wrap-up-session` closes it).
+Never call `gh` or a tracker API directly; any status write goes through
+`/task-registry`, gated like every other external write — dry-run unless
+`--apply` and the project's approval setting allow it.
 
 ### Legacy block
 
 A legacy block (`.agents/skills/slice/references/plan-block.md`) has task ids
 on its slice headers and nested `[ ] TDD:` rows, and was filed per slice, so
-pre-flight files nothing new for it and says so in one line. Otherwise: the
+pre-flight skips it. Its
 `TDD:` rows ride in the delegation prompt, run through `/tdd` and, when
-unfinished, go under `## Not finished`; Step 4 marks each `[x]` as it passes
+unfinished, go under `## Not finished`; each row is marked `[x]` as it passes
 and only its rows are claimed, through `/task-registry`; Slice Close fires when
 its last `TDD:` row passes, and an unfinished slice writes `unfinished: <rows>`;
 the forbidden state also covers a header `[x]` with a `[ ]` child row, and
@@ -339,7 +338,7 @@ Phase 6 counts nested rows.
 
 ## Phase 1.5 — Changed Verification Map
 
-After all tasks are `[x]`, classify the completed work. If ANY acceptance
+After every slice header is `[x]`, classify the completed work. If ANY acceptance
 criterion is `user-facing`:
 
 1. Invoke `/maintain-verification-skill --scope changed` with the session intent,
@@ -361,7 +360,7 @@ UI tasks with 3D or video deliverables run the design-stack gates in
 `.agents/skills/build/references/design-stack-gates.md` § *Phase 2: 3D and video gates*
 before the steps below.
 
-After all tasks are `[x]`:
+After every slice header is `[x]`:
 
 1. Run the **affected-test command** against the base SHA — every test file the
    build touched, in one run. The pre-push full run is `/wrap-up-session` § *Full suite*.
