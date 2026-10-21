@@ -1831,6 +1831,16 @@ assert_prose_contains "$BUILD_SKILL" "never in parallel" \
   "design-mode: SKILL.md never runs a design-mode slice in parallel"
 assert_prose_contains "$DM_REF" "never worktree-isolated" \
   "design-mode: reference never isolates a design-mode slice in a worktree"
+# The A/B eval (tasks/eval-aposd-first-build.md) found runs that dispatched an
+# implementer before reading mode=, and one that took a hidden .agents/ for a
+# missing one; routing therefore opens Phase 1, ahead of every dispatch rule.
+PHASE1_INTRO="$(build_section "## Phase 1 —")"
+for token in "Route every slice before its first dispatch" "one slice or many" \
+             "mode=design" "never an implementer" "mode=tdd" "Steps 1–3" \
+             "dot-directory" "stops the build"; do
+  assert_contains "$PHASE1_INTRO" "$token" "design-mode: Phase 1 opens with routing that names '$token'"
+done
+assert_file_not_matches "$BUILD_SKILL" 'Steps 1–4' "design-mode: no stale Steps 1–4 reference"
 assert_prose_contains "$BUILD_SKILL" "--index tasks/todo.md" \
   "design-mode: Slice Close passes --index to slice.py check"
 assert_prose_contains "$BUILD_SKILL" "exit 3 stops the build" \

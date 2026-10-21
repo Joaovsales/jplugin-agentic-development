@@ -245,6 +245,11 @@ assert_eq "0" "$CODE" "mode: a new block exits 0"
 assert_contains "$OUT" "ready: 1 one mode=design" "mode: a slice whose Surface matches an Interfaces Path is design"
 assert_contains "$OUT" "ready: 2 two mode=tdd" "mode: a slice matching no Interfaces Path is tdd"
 assert_contains "$OUT" "  surface: src/one/**" "mode: the surface line still follows"
+# A run that read mode=design and dispatched an implementer anyway is the failure
+# the eval found, so the ready line itself names the loop the slice must run.
+assert_contains "$OUT" "  loop: .agents/skills/build/references/design-mode.md — first dispatch is the stubs, never an implementer" \
+  "mode: a design-mode slice names its loop on the ready output"
+assert_eq "1" "$(printf '%s\n' "$OUT" | grep -c '  loop: ')" "mode: only the design-mode slice gets a loop line"
 OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-legacy.md" --spec "$MODE/spec.md" 2>&1)"
 assert_contains "$OUT" "ready: 1 one mode=tdd" "mode: a legacy block's slice is tdd even when its Surface matches"
 assert_contains "$OUT" "ready: 2 two mode=tdd" "mode: every legacy slice is tdd"

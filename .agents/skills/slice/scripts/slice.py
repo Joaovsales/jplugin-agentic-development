@@ -646,6 +646,8 @@ def _row_after(
 def _print_ready(number: int, name: str, surface: Sequence[str], mode: str = "tdd") -> None:
     print(f"ready: {number} {name} mode={mode}")
     print(f"  surface: {', '.join(surface)}")
+    if mode == "design":
+        print("  loop: .agents/skills/build/references/design-mode.md — first dispatch is the stubs, never an implementer")
 
 
 def _refuse_plan_drift(
