@@ -91,6 +91,8 @@ class RunDir:
 def discover(results: str) -> List[RunDir]:
     """<results>/<arm>/<task>/<run>/ with at least one *.jsonl at the run level."""
     runs: List[RunDir] = []
+    if not os.path.isdir(results):
+        raise rt.EmptyRoot(results)
     for arm in sorted(os.listdir(results)):
         arm_dir = os.path.join(results, arm)
         if not os.path.isdir(arm_dir):
@@ -181,14 +183,14 @@ def grade_run(run: RunDir, bytes_t: int, lines_t: int) -> RunRow:
                 large_paths.add(read.norm_path)
                 if read.kind == "whole":
                     row.whole_large += 1
-            rereads += _names(read.norm_path, named)
+            rereads += _was_named(read.norm_path, named)
         elif use.name == "Bash":
             files = rt.bare_shell_reads(str(use.input.get("command", "")))
             if files and result is not None:
                 norms = [rt.normalize_path(f) for f in files]
                 if result.bytes >= bytes_t or any(n in large_paths for n in norms):
                     row.routing_around += 1
-                rereads += sum(_names(n, named) for n in norms)
+                rereads += sum(_was_named(n, named) for n in norms)
         elif use.name == "Grep":
             target = rt.normalize_path(str(use.input.get("path", "")))
             if _is_routing_grep(use) and (target in large_paths or (result is not None and result.bytes >= bytes_t)):
@@ -213,11 +215,11 @@ def grade_run(run: RunDir, bytes_t: int, lines_t: int) -> RunRow:
     return row
 
 
-def _names(norm: str, named: Set[str]) -> int:
-    """1 when a named token is this path, or shares its basename — a prompt that
-    says `big_module.py` names the parent's full-path read of it."""
+def _was_named(norm: str, named: Set[str]) -> bool:
+    """A named token is this path, or shares its basename — a prompt that says
+    `big_module.py` names the parent's full-path read of it."""
     base = norm.rsplit("/", 1)[-1]
-    return 1 if norm in named or any(n.rsplit("/", 1)[-1] == base for n in named) else 0
+    return norm in named or any(n.rsplit("/", 1)[-1] == base for n in named)
 
 
 def _outcome(run_dir: str) -> Optional[float]:
@@ -225,13 +227,16 @@ def _outcome(run_dir: str) -> Optional[float]:
     if not os.path.exists(path):
         return None
     with open(path, encoding="utf-8") as fh:
-        data = json.load(fh)
+        try:
+            data = json.load(fh)
+        except ValueError:
+            raise rt.TranscriptError(f"{path}:1: outcome.json is not JSON")
     if isinstance(data, dict):
         if isinstance(data.get("score"), (int, float)):
             return float(data["score"])
         if isinstance(data.get("pass"), bool):
             return 1.0 if data["pass"] else 0.0
-    raise rt.TranscriptDrift(path, 1, "outcome.json has neither score nor pass")
+    raise rt.TranscriptError(f"{path}:1: outcome.json has neither score nor pass")
 
 
 def _hook_columns(row: RunRow, run_dir: str) -> None:
@@ -247,10 +252,10 @@ def _hook_columns(row: RunRow, run_dir: str) -> None:
             try:
                 entry = json.loads(line)
             except ValueError:
-                raise rt.TranscriptDrift(path, line_no, "shunt log line is not JSON")
+                raise rt.TranscriptError(f"{path}:{line_no}: shunt log line is not JSON")
             decision = entry.get("decision") if isinstance(entry, dict) else None
             if not isinstance(decision, str):
-                raise rt.TranscriptDrift(path, line_no, "shunt log entry has no decision")
+                raise rt.TranscriptError(f"{path}:{line_no}: shunt log entry has no decision")
             decisions[decision] = decisions.get(decision, 0) + 1
             if decision == "deny":
                 key = json.dumps([entry.get("tool"), entry.get("input")], sort_keys=True)

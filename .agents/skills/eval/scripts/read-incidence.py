@@ -165,7 +165,8 @@ def _cell(row: Row, key: str, full_paths: bool) -> str:
     return str(getattr(row, key))
 
 
-def render_markdown(rows: List[Row], agg: Dict[str, object], full_paths: bool, args: argparse.Namespace) -> str:
+def render_markdown(rows: List[Row], agg: Dict[str, object], args: argparse.Namespace) -> str:
+    full_paths = args.paths
     header = "| " + " | ".join(label for _, label in COLUMNS) + " |"
     rule = "|" + "|".join("---" for _ in COLUMNS) + "|"
     lines = [f"# Read incidence over `{args.root}` (bytes >= {args.bytes}, lines >= {args.lines})", "",
@@ -181,11 +182,11 @@ def render_markdown(rows: List[Row], agg: Dict[str, object], full_paths: bool, a
     return "\n".join(lines)
 
 
-def render_json(rows: List[Row], agg: Dict[str, object], full_paths: bool, args: argparse.Namespace) -> str:
+def render_json(rows: List[Row], agg: Dict[str, object], args: argparse.Namespace) -> str:
     def row_dict(r: Row) -> Dict[str, object]:
         d = asdict(r)
         d["share"] = r.share
-        d["largest_path"] = _display_path(r.largest_path, full_paths)
+        d["largest_path"] = _display_path(r.largest_path, args.paths)
         return d
     out = {
         "root": args.root, "bytes": args.bytes, "lines": args.lines,
@@ -209,7 +210,7 @@ def main() -> int:
     rows = [measure_session(s, args.bytes, args.lines) for s in rt.iter_sessions(args.root)]
     agg = aggregate(rows)
     render = render_json if args.json else render_markdown
-    sys.stdout.buffer.write((render(rows, agg, args.paths, args) + "\n").encode("utf-8"))
+    sys.stdout.buffer.write((render(rows, agg, args) + "\n").encode("utf-8"))
     return 0
 
 

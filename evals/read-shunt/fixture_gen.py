@@ -18,21 +18,6 @@ import os
 import sys
 import random
 
-SEEDS = {
-    "billing-client-zero-total": 11,
-    "nightly-pipeline-failure": 12,
-    "catalog-currency-field": 13,
-    "orders-extract-tax": 14,
-    "pipeline-checks-intermittent": 15,
-    "settings-loader-port": 16,
-    "load-record-callers": 17,
-    "changelog-release-notes": 18,
-    "readme-typo": 19,
-    "timeparse-coverage": 20,
-    "ratelimit-clock-skew": 21,
-}
-
-
 def write(out, rel, text):
     """Write text (LF endings, UTF-8) under out, creating parent directories."""
     path = os.path.join(out, *rel.split("/"))
@@ -1249,28 +1234,30 @@ def gen_ratelimit(out, rng):
     write(out, "ratelimit.py", text)
 
 
-GENERATORS = {
-    "billing-client-zero-total": gen_billing,
-    "nightly-pipeline-failure": gen_log,
-    "catalog-currency-field": gen_catalog,
-    "orders-extract-tax": gen_orders,
-    "pipeline-checks-intermittent": gen_checks,
-    "settings-loader-port": gen_settings,
-    "load-record-callers": gen_svc,
-    "changelog-release-notes": gen_changelog,
-    "readme-typo": gen_readme,
-    "timeparse-coverage": gen_timeparse,
-    "ratelimit-clock-skew": gen_ratelimit,
+# case name -> (seed, generator); one table so a case cannot have one without the other
+CASES = {
+    "billing-client-zero-total": (11, gen_billing),
+    "nightly-pipeline-failure": (12, gen_log),
+    "catalog-currency-field": (13, gen_catalog),
+    "orders-extract-tax": (14, gen_orders),
+    "pipeline-checks-intermittent": (15, gen_checks),
+    "settings-loader-port": (16, gen_settings),
+    "load-record-callers": (17, gen_svc),
+    "changelog-release-notes": (18, gen_changelog),
+    "readme-typo": (19, gen_readme),
+    "timeparse-coverage": (20, gen_timeparse),
+    "ratelimit-clock-skew": (21, gen_ratelimit),
 }
 
 
 def main(argv):
     parser = argparse.ArgumentParser(description="Generate one fixture workspace.")
-    parser.add_argument("case", choices=sorted(GENERATORS))
+    parser.add_argument("case", choices=sorted(CASES))
     parser.add_argument("--out", required=True, help="directory to write the fixture into")
     args = parser.parse_args(argv)
     os.makedirs(args.out, exist_ok=True)
-    GENERATORS[args.case](args.out, random.Random(SEEDS[args.case]))
+    seed, generate = CASES[args.case]
+    generate(args.out, random.Random(seed))
     return 0
 
 
