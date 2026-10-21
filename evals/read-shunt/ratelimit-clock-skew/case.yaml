@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: ratelimit-clock-skew
+description: Explain how a token bucket handles clock skew.
+tags: [control]
+context:
+  scaffold_script: fixture.sh
