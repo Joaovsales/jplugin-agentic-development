@@ -539,18 +539,52 @@ assert_contains "$OUT" "freeze: not checked (no --index)" "freeze: a design-mode
 rm -f "$FREEZE_REPO/tasks/todo.md"
 OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
 assert_eq "" "$OUT" "freeze: with no --index and no tasks/todo.md there is nothing to say"
-OUT="$("$PY" "$SLICE" check --spec "$FIXTURES/check/spec.md" --slice 1 --base "$BASE1" --repo "$D1" 2>&1)"
+# A tdd-mode block in the repo's own tasks/todo.md reaches the mode branch and says nothing.
+SAVED_SPEC="$FREEZE_SPEC"; FREEZE_SPEC="$FIXTURES/freeze/spec-no-interfaces.md"
+freeze_todo "$FREEZE_REPO/tasks/todo.md"
+OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
+FREEZE_SPEC="$SAVED_SPEC"
+assert_eq "0" "$CODE" "freeze: a tdd-mode check without --index exits 0"
 assert_eq "" "$OUT" "freeze: a tdd-mode check without --index prints no notice"
 
-# A new file anywhere under a contract test's directory is frozen; a root-level contract test protects only itself.
+# A todo.md that is not UTF-8 cannot name a mode: no traceback, the exit code stays the surface result.
+printf '# Tasks
+ÿ
+' > "$FREEZE_REPO/tasks/todo.md"
+OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
+assert_eq "0" "$CODE" "freeze: a non-UTF-8 tasks/todo.md leaves the exit code alone"
+assert_eq "" "$OUT" "freeze: a non-UTF-8 tasks/todo.md prints no traceback"
+rm -f "$FREEZE_REPO/tasks/todo.md"
+
+# The surface check keeps git's default rename detection: only the new path of a rename is changed.
+freeze_repo
+git -C "$FREEZE_REPO" config diff.renames true
+git -C "$FREEZE_REPO" mv README.md src/one/readme.py
+freeze_commit rename-into-surface
+OUT="$("$PY" "$SLICE" check --spec "$FREEZE_SPEC" --slice 1 --base "$FREEZE_BASE" --repo "$FREEZE_REPO" 2>&1)"; CODE=$?
+assert_eq "0" "$CODE" "check: a rename from outside the surface into it exits 0"
+assert_eq "" "$OUT" "check: the rename's old path is not reported as undeclared"
+
+# AC10: a new file after F in a contract test's own directory is frozen; a subdirectory, a prefix-sibling
+# directory and the repo root are not beside it.
 freeze_repo
 mkdir -p "$FREEZE_REPO/tests/one/sub"
-printf 'assert one() == 4\n' > "$FREEZE_REPO/tests/one/sub/test_d.py"
+printf 'assert one() == 4
+' > "$FREEZE_REPO/tests/one/sub/test_d.py"
 freeze_commit new-in-subdir
 freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
 OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
-assert_eq "3" "$CODE" "freeze: a new file in a subdirectory of a contract test's directory exits 3"
-assert_contains "$OUT" "frozen-edited: tests/one/sub/test_d.py" "freeze: names the new subdirectory file"
+assert_eq "0" "$CODE" "freeze: a new file in a subdirectory of a contract test's directory is not frozen"
+assert_eq "" "$OUT" "freeze: the subdirectory file is not reported"
+
+freeze_repo
+mkdir -p "$FREEZE_REPO/tests/oneother"
+printf 'assert one() == 5
+' > "$FREEZE_REPO/tests/oneother/test_x.py"
+freeze_commit new-in-prefix-sibling
+freeze_todo "$FREEZE_TODO" "> Frozen: $FREEZE_S..$FREEZE_F$FROZEN_TAIL"
+OUT="$(freeze_check "$FREEZE_TODO")"; CODE=$?
+assert_not_contains "$OUT" "frozen-edited" "freeze: a new file in a prefix-sibling directory is not frozen"
 
 freeze_repo
 printf 'assert root\n' > "$FREEZE_REPO/test_root.py"

@@ -7,16 +7,31 @@ with one `### Slice n/N` heading per row. This script answers the three
 mechanical questions a human should never have to hold in their head:
 
   * **validate** — does the Build Order actually describe a buildable plan?
-    Every surface inside `implementation_paths`, no cycle in `Blocked by`, no pair of slices that
-    overlap without an ordering between them, and no § Interfaces entry without
-    a `Path:`. Once the `## Plan:` block exists, it links its feature once and
-    every open `TDD:` row's `tests/...` file is inside its slice's surface too.
+    Every surface inside `implementation_paths`, no cycle in `Blocked by`, no
+    pair of slices that overlap without an ordering between them, and no
+    § Interfaces entry without a `Path:`. Once the `## Plan:` block exists, it
+    links its feature once and every open `TDD:` row's `tests/...` file is
+    inside its slice's surface too.
   * **ready** — which slices can be dispatched right now, given which plan-block
     headers are already `[x]`, and in which `mode=` (design when a § Interfaces
     `Path:` falls inside the slice's surface, else tdd)?
   * **check** — after a slice closes, did its diff actually stay inside the
-    surface it declared? With `--index`, a design-mode slice's `> Frozen:` and
-    `> Test amended:` lines are checked too, and a freeze problem exits 3.
+    surface it declared? Exit 1 on surface drift. With `--index` the freeze is
+    checked too; every freeze problem prints one line and exits 3:
+
+      - `frozen-edited: <path>` — a contract test (a non-`tasks/` path changed
+        in `S..F`) or a file added after `F` in a contract test's own
+        directory (that exact directory, never a subdirectory; a root-level
+        test protects only itself) changed after `F` with no `> Test amended:`.
+      - `amended-unknown: <path>` — a `> Test amended:` line names a file that
+        is no contract test.
+      - `duplicate freeze line` — two `> Frozen:` lines under one slice.
+      - `missing freeze commit` — a design-mode slice with no `> Frozen:` line.
+
+    A slice with a recorded `> Frozen:` line is checked whatever mode it
+    derives now. A plan block with `### Slice` headings but none for the slice
+    exits 2. Without `--index` the freeze is not read, and a design-mode slice
+    says so on stderr.
   * **readiness** — may a build prompt be printed at all? Not while a decision
     is `open` or an open question blocks a slice (specs/readable-visual-plans.md).
 
@@ -33,8 +48,9 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from functools import cached_property
 from itertools import combinations
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 # `registry` lives under the task-registry skill, not this one. Resolved
 # relative to this file so the script works from any cwd.
@@ -334,14 +350,6 @@ def _interface_paths(spec_text: str) -> List[str]:
     return [path for _title, path in parse_interfaces(spec_text) if path]
 
 
-def _slice_mode(row: SliceRow, interface_paths: Sequence[str], legacy: bool) -> str:
-    """`design` when a § Interfaces `Path:` falls inside the slice's Surface and the block is new."""
-    if legacy:
-        return "tdd"
-    hit = any(match_path(pattern, path) for pattern in row.surface for path in interface_paths)
-    return "design" if hit else "tdd"
-
-
 # --------------------------------------------------------------- validate
 
 
@@ -458,25 +466,71 @@ def _slice_headings(lines: Sequence[str], start_line: int, end_line: int) -> Lis
     return headings
 
 
-class PlanBlock(NamedTuple):
+@dataclass(frozen=True)
+class PlanBlock:
+    """One `## Plan:` block of the index: where it is, its rows, and what they mean.
+
+    Callers ask it for a slice's mode and lines; none re-derive either from
+    the heading list.
+    """
+
     prose: List[str]  # the index with every fenced line blanked
     start_line: int
     end_line: int
     name: str
     headings: List[Tuple[int, int, str]]
+    index_path: str
+
+    @cached_property
+    def rows(self) -> List[IndexRow]:
+        """The index's rows, parsed on first use: `validate` never needs them and must not refuse over them."""
+        return load_index_strict(self.index_path, self.index_path).rows
+
+    @property
+    def legacy(self) -> bool:
+        """Legacy when any slice header row carries a `task-id` marker."""
+        for heading_line, _number, _name, boundary in _heading_spans(self.headings, self.end_line):
+            row = _row_after(self.rows, heading_line, boundary, self.prose)
+            if row is not None and "task-id:" in self.prose[row.line - 1]:
+                return True
+        return False
+
+    def mode(self, row: SliceRow, interface_paths: Sequence[str]) -> str:
+        """`design` when a § Interfaces `Path:` falls inside the slice's Surface and the block is new."""
+        if self.legacy:
+            return "tdd"
+        hit = any(match_path(pattern, path) for pattern in row.surface for path in interface_paths)
+        return "design" if hit else "tdd"
+
+    def slice_lines(self, number: int) -> Optional[List[str]]:
+        """The lines under slice `number`'s heading, or None when it has no heading."""
+        for heading_line, heading_number, _title, boundary in _heading_spans(self.headings, self.end_line):
+            if heading_number == number:
+                return self.prose[heading_line:boundary]
+        return None
+
+
+def _find_loaded_block(index_path: str, spec_path: str) -> Optional[PlanBlock]:
+    """The `## Plan:` block of `index_path` naming `spec_path`, or None when the file or block is absent."""
+    if not os.path.isfile(index_path):
+        return None
+    todo_text = _without_fences(read_text(index_path))
+    block = _find_plan_block(todo_text, spec_path)
+    if block is None:
+        return None
+    start_line, end_line, name = block
+    prose = todo_text.splitlines()
+    return PlanBlock(prose, start_line, end_line, name, _slice_headings(prose, start_line, end_line), index_path)
 
 
 def _load_plan_block(index_path: str, spec_path: str) -> PlanBlock:
     """The `## Plan:` block of `index_path` naming `spec_path`, or SliceError."""
     if not os.path.isfile(index_path):
         raise SliceError(f"no such index file: {index_path}")
-    todo_text = _without_fences(read_text(index_path))
-    block = _find_plan_block(todo_text, spec_path)
+    block = _find_loaded_block(index_path, spec_path)
     if block is None:
         raise SliceError(f"{index_path} has no `## Plan:` block naming {spec_path!r}")
-    start_line, end_line, name = block
-    prose = todo_text.splitlines()
-    return PlanBlock(prose, start_line, end_line, name, _slice_headings(prose, start_line, end_line))
+    return block
 
 
 def _heading_spans(
@@ -545,17 +599,11 @@ def _plan_block_problems(index_path: str, spec_path: str, slices: Dict[int, Slic
     Propose step 1 validates before the block is written, so a missing index
     or block is nothing to report here; `ready` requires the block and refuses.
     """
-    if not os.path.isfile(index_path):
-        return []
-    todo_text = _without_fences(read_text(index_path))
-    block = _find_plan_block(todo_text, spec_path)
+    block = _find_loaded_block(index_path, spec_path)
     if block is None:
         return []
-    start_line, end_line, _name = block
-    prose = todo_text.splitlines()
-    headings = _slice_headings(prose, start_line, end_line)
-    return _feature_link_problems(index_path, prose, start_line, headings) + _tdd_surface_problems(
-        prose, headings, end_line, slices
+    return _feature_link_problems(index_path, block.prose, block.start_line, block.headings) + _tdd_surface_problems(
+        block.prose, block.headings, block.end_line, slices
     )
 
 
@@ -625,58 +673,45 @@ def _ready_numbers(slices: Dict[int, SliceRow], done: Dict[int, bool]) -> List[i
     ]
 
 
-def _block_is_legacy(
-    rows: Sequence[IndexRow], headings: Sequence[Tuple[int, int, str]], end_line: int, prose: Sequence[str]
-) -> bool:
-    """A block is legacy when any slice header row carries a `task-id` marker."""
-    for heading_line, _number, _name, boundary in _heading_spans(headings, end_line):
-        row = _row_after(rows, heading_line, boundary, prose)
-        if row is not None and "task-id:" in prose[row.line - 1]:
-            return True
-    return False
-
-
 def _print_ready_set(
-    slices: Dict[int, SliceRow], ready_numbers: Sequence[int], interface_paths: Sequence[str], legacy: bool
+    slices: Dict[int, SliceRow], ready_numbers: Sequence[int], interface_paths: Sequence[str], block: PlanBlock
 ) -> None:
     for number in ready_numbers:
         row = slices[number]
-        _print_ready(number, row.name, row.surface, _slice_mode(row, interface_paths, legacy))
+        _print_ready(number, row.name, row.surface, block.mode(row, interface_paths))
     for a, b in combinations(ready_numbers, 2):
         if _surfaces_intersect(slices[a].surface, slices[b].surface) and not _ordered(slices, a, b):
             print(f"intersects: {a} \u2194 {b} (no blocker; serialize in table order)")
 
 
-def _implicit_slice_ready(args: argparse.Namespace, index, start_line: int, end_line: int, plan_name: str) -> int:
+def _implicit_slice_ready(args: argparse.Namespace, block: PlanBlock) -> int:
     """Edge Case: a flat legacy plan predates `### Slice` headings.
 
     It is one implicit slice whose surface is the spec's whole implementation_paths.
     """
-    if not _block_has_open_row(index.rows, start_line, end_line):
+    if not _block_has_open_row(block.rows, block.start_line, block.end_line):
         return 0
-    _print_ready(1, plan_name, read_implementation_paths(args.spec))
+    _print_ready(1, block.name, read_implementation_paths(args.spec))
     return 0
 
 
 def cmd_ready(args: argparse.Namespace) -> int:
     """Exit 0 with the ready set on stdout; 2 when the index, block or spec cannot be read."""
     try:
-        prose, start_line, end_line, plan_name, headings = _load_plan_block(args.index, args.spec)
-        index = load_index_strict(args.index, args.index)
-        if not headings:
-            return _implicit_slice_ready(args, index, start_line, end_line, plan_name)
+        block = _load_plan_block(args.index, args.spec)
+        if not block.headings:
+            return _implicit_slice_ready(args, block)
         spec_text = read_text(args.spec)
         slices = {row.number: row for row in parse_build_order(spec_text, args.spec)}
-        done = _done_by_slice(index.rows, headings, end_line, prose)
+        done = _done_by_slice(block.rows, block.headings, block.end_line, block.prose)
         _refuse_plan_drift(slices, done, args.spec, args.index)
-        problems = _tdd_surface_problems(prose, headings, end_line, slices)
+        problems = _tdd_surface_problems(block.prose, block.headings, block.end_line, slices)
         if problems:
             raise SliceError("; ".join(problems))
     except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
-    legacy = _block_is_legacy(index.rows, headings, end_line, prose)
-    _print_ready_set(slices, _ready_numbers(slices, done), _interface_paths(spec_text), legacy)
+    _print_ready_set(slices, _ready_numbers(slices, done), _interface_paths(spec_text), block)
     return 0
 
 
@@ -687,9 +722,11 @@ def _git_changed_paths(repo: str, base: str) -> List[str]:
     return _git_paths(repo, f"{base}..HEAD")
 
 
-def _git_paths(repo: str, *diff_args: str) -> List[str]:
+def _git_paths(repo: str, *diff_args: str, renames: bool = True) -> List[str]:
+    """Paths `git diff` names. `renames=False` lists a rename as delete plus add: the freeze check needs the old path."""
+    rename_flag = () if renames else ("--no-renames",)
     result = subprocess.run(
-        ("git", "-C", repo, "diff", "--name-only", "--no-renames", *diff_args),
+        ("git", "-C", repo, "diff", "--name-only", *rename_flag, *diff_args),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -702,15 +739,13 @@ def _git_paths(repo: str, *diff_args: str) -> List[str]:
 
 def _slice_plan(index_path: str, spec_path: str, row: SliceRow) -> Optional[Tuple[List[str], str]]:
     """(the lines under the slice's heading, its mode), or None for a flat plan with no headings."""
-    prose, _start, end_line, _name, headings = _load_plan_block(index_path, spec_path)
-    if not headings:
+    block = _load_plan_block(index_path, spec_path)
+    if not block.headings:
         return None
-    legacy = _block_is_legacy(load_index_strict(index_path, index_path).rows, headings, end_line, prose)
-    for heading_line, number, _title, boundary in _heading_spans(headings, end_line):
-        if number == row.number:
-            mode = _slice_mode(row, _interface_paths(read_text(spec_path)), legacy)
-            return prose[heading_line:boundary], mode
-    raise SliceError(f"{index_path} has no `### Slice {row.number}` heading under its `## Plan:` block")
+    lines = block.slice_lines(row.number)
+    if lines is None:
+        raise SliceError(f"{index_path} has no `### Slice {row.number}` heading under its `## Plan:` block")
+    return lines, block.mode(row, _interface_paths(read_text(spec_path)))
 
 
 def _freeze_problems(args: argparse.Namespace, repo: str, row: SliceRow) -> List[str]:
@@ -730,15 +765,16 @@ def _freeze_problems(args: argparse.Namespace, repo: str, row: SliceRow) -> List
         return ["missing freeze commit"] if mode == "design" else []
     frozen = frozen_lines[0]
     problems = ["duplicate freeze line"] if len(frozen_lines) > 1 else []
-    contract = [p for p in _git_paths(repo, f"{frozen.group('s')}..{frozen.group('f')}") if not p.startswith("tasks/")]
-    after = _git_paths(repo, f"{frozen.group('f')}..HEAD")
-    added = _git_paths(repo, "--diff-filter=A", f"{frozen.group('f')}..HEAD")
+    def paths(*diff_args: str) -> List[str]:
+        return _git_paths(repo, *diff_args, renames=False)
+
+    contract = [p for p in paths(f"{frozen.group('s')}..{frozen.group('f')}") if not p.startswith("tasks/")]
+    after = paths(f"{frozen.group('f')}..HEAD")
+    added = paths("--diff-filter=A", f"{frozen.group('f')}..HEAD")
+    # AC10: a new file in a contract test's own directory, not a subdirectory.
     # A root-level contract test protects only itself: "" would freeze every new root file.
     directories = {os.path.dirname(path) for path in contract} - {""}
-    new_beside = [
-        p for p in added
-        if not p.startswith("tasks/") and any(p.startswith(d + "/") for d in directories)
-    ]
+    new_beside = [p for p in added if not p.startswith("tasks/") and os.path.dirname(p) in directories]
     amended = [m.group("path") for m in map(AMENDED_LINE_RE.match, lines) if m]
     known = set(contract) | set(new_beside)
     edited = [p for p in after if p in known and p not in amended]
@@ -757,7 +793,7 @@ def _warn_freeze_unchecked(args: argparse.Namespace, repo: str, row: SliceRow) -
         return
     try:
         plan = _slice_plan(index_path, args.spec, row)
-    except (SliceError, IndexUnreadable, OSError):
+    except (SliceError, IndexUnreadable, OSError, ValueError):
         return
     if plan is not None and plan[1] == "design":
         print("freeze: not checked (no --index)", file=sys.stderr)
