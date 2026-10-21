@@ -2314,3 +2314,69 @@ Step ledger (routine `simplify`):
 - Completed: 3 rows — the regression tests, the hook fix, the quality gate
 - Pending: none for this fix. `/memory-maintain` was due (40 sessions) and not run here: a store sweep is its own task, not part of a one-hook bug fix
 - Carry-forward: the Session Summary heading grammar is written in four places (`wrap-up-session/SKILL.md:57` bracketed date, `closure-actions.md:149` bare date with trailing text, the hook header, the live `tasks/todo.md` bare) — the next change to the heading should pick one and have the hook extract only the `[hex..hex]` group
+
+## Plan: test-suite-aposd
+> Spec: specs/test-suite-aposd.md
+
+### Slice 1/12 — Deep lib
+- [ ] Deep lib <!-- task-id: plan.specs-test-suite-aposd-md.deep-lib --> — Slice 1/12: the new primitives, `file:line` and actual-value failures, zero-assertion `finish`, `skip`, `pass`/`fail`,… ([#336](https://github.com/Joaovsales/jplugin-agentic-development/issues/336))
+  [ ] TDD: tests/test-lib.sh § finish — a file with zero assertions and no skip exits non-zero; skip prints SKIP and counts; under REQUIRE_ALL=1 a skipped file fails; the trailer prints passed, failed, xfail and skipped -> finish, skip and the counted trailer (AC 1)
+  [ ] TDD: tests/test-run-sh.sh § trailer — run.sh sums passed, failed, xfail and skipped across files in its summary -> run.sh summary (AC 1)
+  [ ] TDD: tests/test-lib.sh § failure-output — every assert_* failure prints BASH_SOURCE:LINENO and up to 20 lines of the actual value with a truncation pointer; assert_file_contains matches with builtins on a file read once -> failure printer and builtin match (AC 2)
+  [ ] TDD: tests/test-lib.sh § primitives — fixture_dir, fixture_repo, fixture_copy, run, assert_exit, assert_refused (a fragment under 6 characters fails), assert_true, assert_false, assert_file_exists, assert_file_absent, assert_sweep_empty, under_test (a missing path fails at source), py_module, pass and fail each behave as documented -> the deep interface (AC 2)
+  [ ] TDD: tests/test-lib.sh § environment — LC_ALL=C and PYTHONDONTWRITEBYTECODE=1 are exported beside PYTHONUTF8=1; assert_precedes reports offsets without the ordered/ordered emulation; _TESTS and _FAILS change only through pass and fail -> exports and single-writer counters (AC 3)
+
+### Slice 2/12 — Selection by declaration
+- [ ] Selection by declaration <!-- task-id: plan.specs-test-suite-aposd-md.selection-by-declaration --> — Slice 2/12: `affected.sh` prefix-matches `under_test` literals beside verbatim inference ([#337](https://github.com/Joaovsales/jplugin-agentic-development/issues/337)) (blocked-by: plan.specs-test-suite-aposd-md.deep-lib)
+  [ ] TDD: tests/test-affected.sh § under-test — a fixture test naming under_test .agents/skills/x/scripts/ is selected by a change to .agents/skills/x/scripts/y.py; verbatim inference still selects; a runner change still selects every file -> prefix match in affected.sh (AC 4)
+
+### Slice 3/12 — Vacuity closures
+- [ ] Vacuity closures <!-- task-id: plan.specs-test-suite-aposd-md.vacuity-closures --> — Slice 3/12: `assert_refused` at every refusal site, `assert_sweep_empty` at every sweep, the mock log created on start,… ([#338](https://github.com/Joaovsales/jplugin-agentic-development/issues/338)) (blocked-by: plan.specs-test-suite-aposd-md.deep-lib)
+  [ ] TDD: tests/test-sync-retirement.sh § invalid-pattern — each assert_invalid_pattern row names its reason fragment through assert_refused, so removing the absolute-path guard in sync-retire.py fails the absolute and drive-letter rows -> reason-pinned refusals (AC 5)
+  [ ] TDD: tests/test-task-registry.sh § provider-log — the malformed-index GitHub case asserts the refusal message and reads a log the mock created on start, never cat 2>/dev/null -> mock log on start and message pin (AC 5)
+  [ ] TDD: tests/test-doc-conventions.sh § sweeps — every absence sweep runs through assert_sweep_empty with a positive control that must match -> guarded sweeps in doc-conventions, model-tiers and tdd-retirement (AC 5)
+  [ ] TDD: tests/test-diagram-skill.sh § needles — the uncited-component rejection is pinned as "b" has no sources, never the letter b; no needle under 3 characters remains in tests/ -> load-bearing needles (AC 6)
+  [ ] TDD: tests/test-doc-conventions.sh § contract-pins — sentence pins that are not contracts per D3 are replaced by marker or heading pins and the replaced count is recorded in the PR body -> marker pins (AC 6)
+
+### Slice 4/12 — Runtime
+- [ ] Runtime <!-- task-id: plan.specs-test-suite-aposd-md.runtime --> — Slice 4/12: `TEST_JOBS=4` and `REQUIRE_ALL=1` in CI, the per-file timeout, the cached-suite key, the `playwright` insta… ([#339](https://github.com/Joaovsales/jplugin-agentic-development/issues/339)) (blocked-by: plan.specs-test-suite-aposd-md.deep-lib)
+  [ ] TDD: tests/test-run-sh.sh § timeout — a file that exceeds TEST_FILE_TIMEOUT (default 300 s) is reported as FAIL … timed out after N s and counted as failed -> per-file timeout in run_file (AC 7)
+  [ ] TDD: tests/test-cached-suite.sh § key — the record key includes uname -s, the interpreter version and gh presence, so a green record from another platform is not reused -> environment in the cache key (AC 7)
+  [ ] TDD: tests/test-plan-page.sh § skip — without playwright the file prints SKIP and, under REQUIRE_ALL=1, exits non-zero; tests.yml sets REQUIRE_ALL=1, REQUIRE_BROWSER=1 and TEST_JOBS=4 and installs playwright with chromium -> skip protocol and CI settings (AC 8)
+
+### Slice 5/12 — Registry area
+- [ ] Registry area <!-- task-id: plan.specs-test-suite-aposd-md.registry-area --> — Slice 5/12: the twelve registry-area tests on the lib primitives, shared seed under `tests/fixtures/task-registry/`, se… ([#340](https://github.com/Joaovsales/jplugin-agentic-development/issues/340)) (blocked-by: plan.specs-test-suite-aposd-md.selection-by-declaration, plan.specs-test-suite-aposd-md.vacuity-closures)
+  [ ] TDD: tests/test-task-registry.sh § primitives — the registry-area files keep no private cleanup, new_fixture, new_repo, pyreg or global-setting run_* wrapper, no counter arithmetic, no present/gone encoding, no export PATH= and no per-file PYTHONDONTWRITEBYTECODE; tasks/todo.md, docs/task-tracking.md, labels.json and issues.json come from tests/fixtures/task-registry/ through fixture_copy; bash tests/affected.sh on a registry/model.py change selects all twelve -> registry-area migration (AC 9)
+
+### Slice 6/12 — Sync and install area
+- [ ] Sync and install area <!-- task-id: plan.specs-test-suite-aposd-md.sync-and-install-area --> — Slice 6/12: the nine sync-and-install tests on the lib primitives, the Syncable Paths seed under `tests/fixtures/sync/`… ([#341](https://github.com/Joaovsales/jplugin-agentic-development/issues/341)) (blocked-by: plan.specs-test-suite-aposd-md.selection-by-declaration, plan.specs-test-suite-aposd-md.vacuity-closures)
+  [ ] TDD: tests/test-sync-retirement.sh § template — make_project and make_template build one template at file start and copy it per scenario; the Syncable Paths table comes from tests/fixtures/sync/ through fixture_copy; the file's Windows wall time is at least 2 minutes under the #179 baseline; affected.sh on a sync-retire.py change selects it -> sync-area migration and template copy (AC 10)
+
+### Slice 7/12 — Hooks and wrap-up area
+- [ ] Hooks and wrap-up area <!-- task-id: plan.specs-test-suite-aposd-md.hooks-and-wrap-up-area --> — Slice 7/12: the eight hook and wrap-up tests on the lib primitives; the SessionStart hook always run in a fixture repo ([#342](https://github.com/Joaovsales/jplugin-agentic-development/issues/342)) (blocked-by: plan.specs-test-suite-aposd-md.selection-by-declaration)
+  [ ] TDD: tests/test-session-start.sh § fixture-repo — every hook invocation runs in a fixture_repo, never the live checkout, and the file keeps no private helper, counter arithmetic or present/gone encoding -> hooks-area migration (AC 11)
+
+### Slice 8/12 — Doc guard area
+- [ ] Doc guard area <!-- task-id: plan.specs-test-suite-aposd-md.doc-guard-area --> — Slice 8/12: the eight doc-guard tests on the lib primitives; `section_body` replaces the private extractors; the assert… ([#343](https://github.com/Joaovsales/jplugin-agentic-development/issues/343)) (blocked-by: plan.specs-test-suite-aposd-md.selection-by-declaration, plan.specs-test-suite-aposd-md.vacuity-closures)
+  [ ] TDD: tests/test-doc-conventions.sh § section-body — build_section, wrap_section, wrap_sub, ca_section and qg_section are gone and every caller uses section_body, including the heading-line cases -> one heading extractor (AC 12)
+  [ ] TDD: tests/test-agents.sh § floor — the hand-rolled assertion floor is removed and no _TESTS or _FAILS arithmetic remains in the doc-guard files -> doc-guard migration (AC 12)
+
+### Slice 9/12 — Skill script area
+- [ ] Skill script area <!-- task-id: plan.specs-test-suite-aposd-md.skill-script-area --> — Slice 9/12: the fourteen skill-script tests on the lib primitives; the review-eval orphan resolved ([#344](https://github.com/Joaovsales/jplugin-agentic-development/issues/344)) (blocked-by: plan.specs-test-suite-aposd-md.selection-by-declaration, plan.specs-test-suite-aposd-md.vacuity-closures)
+  [ ] TDD: tests/test-slice.sh § primitives — the skill-script files keep no private helper, counter arithmetic, present/gone encoding or export PATH=; tests/fixtures/review-eval/ is used by a test or removed with a note in specs/review-load-and-failure-cases.md; affected.sh on a visual-plan plan_*.py change selects tests/test-plan-render.sh -> skill-script migration (AC 13)
+
+### Slice 10/12 — Windows baseline
+- [ ] Windows baseline <!-- task-id: plan.specs-test-suite-aposd-md.windows-baseline --> — Slice 10/12: `tests/expected-failures.txt` from a clean-HEAD run, `XFAIL`/`XPASS` in lib.sh, the AGENTS.md pointer ([#345](https://github.com/Joaovsales/jplugin-agentic-development/issues/345)) (blocked-by: plan.specs-test-suite-aposd-md.deep-lib)
+  [ ] TDD: tests/test-lib.sh § xfail — a listed failure on the matching platform prints XFAIL and is not counted as failed; an XPASS fails the file; on a non-matching platform no row loads and the output is byte-identical; AGENTS.md names the file below the end marker -> expected-failures loader (AC 14)
+
+### Slice 11/12 — Hook coverage
+- [ ] Hook coverage <!-- task-id: plan.specs-test-suite-aposd-md.hook-coverage --> — Slice 11/12: behavioural tests for session-stop, cron-quiet-hours, bootstrap-worktree and the pre-push exit branches ([#346](https://github.com/Joaovsales/jplugin-agentic-development/issues/346)) (blocked-by: plan.specs-test-suite-aposd-md.deep-lib)
+  [ ] TDD: tests/test-session-stop.sh § sentinel — the Stop hook removes the sentinel and warns on unpushed commits -> session-stop behavioural test (AC 15)
+  [ ] TDD: tests/test-cron-quiet-hours.sh § window — cron_should_suppress answers on both sides of the quiet window and record_metric writes the documented line -> cron-quiet-hours behavioural test (AC 15)
+  [ ] TDD: tests/test-bootstrap-worktree.sh § fixture — the script runs in a fixture repo and leaves the documented layout -> bootstrap-worktree behavioural test (AC 15)
+  [ ] TDD: tests/test-pre-push-gate.sh § exit-branches — the hook's typecheck and lint failures each exit 1 -> blocking-branch coverage (AC 15)
+
+### Slice 12/12 — Case boundaries
+- [ ] Case boundaries <!-- task-id: plan.specs-test-suite-aposd-md.case-boundaries --> — Slice 12/12: `begin_case`/`end_case` with `TEST_CASE` filtering; the two 2,000-line files split at their seams; the sui… ([#347](https://github.com/Joaovsales/jplugin-agentic-development/issues/347)) (blocked-by: plan.specs-test-suite-aposd-md.registry-area, plan.specs-test-suite-aposd-md.sync-and-install-area, plan.specs-test-suite-aposd-md.hooks-and-wrap-up-area, plan.specs-test-suite-aposd-md.doc-guard-area, plan.specs-test-suite-aposd-md.skill-script-area, plan.specs-test-suite-aposd-md.windows-baseline)
+  [ ] TDD: tests/test-lib.sh § cases — begin_case prints a header and counts per case; TEST_CASE=<glob> skips the others; test-task-registry.sh and test-sync-retirement.sh are split at their section seams into files affected.sh selects on the same artefact paths -> case primitives and the split (AC 16)
+  [ ] TDD: tests/test-lib.sh § invariants — across tests/test-*.sh no counter arithmetic, present/gone encoding, literal assert_eq pair, mktemp -d outside lib.sh or git init outside a test of git remains; the Linux suite is green and a Windows run shows no failure outside tests/expected-failures.txt -> suite-wide sweep (AC 17)
