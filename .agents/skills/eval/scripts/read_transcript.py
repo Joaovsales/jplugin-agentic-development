@@ -19,7 +19,9 @@ One JSON object per line. An `assistant` record carries `message.content`
 message, `toolUseResult` — the tool's structured result. A `Read` of a text
 file puts `{"type": "text", "file": {filePath, content, numLines, startLine,
 totalLines[, truncatedByTokenCap]}}` there; an image, PDF, notebook or an
-unchanged file has another `type`; an error is a bare string. A sub-agent's
+unchanged file has another `type`; an error is a bare string; older
+transcripts have no `toolUseResult` at all and the block's numbered text is
+the only record. A sub-agent's
 lines carry `isSidechain: true` and `agentId`; older transcripts put such
 lines inline in the parent's file. A `system` record with `subtype:
 compact_boundary` marks a compaction.
@@ -40,7 +42,8 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional
+import re
+from typing import Callable, Dict, List, Optional, Tuple
 
 DEFAULT_BYTES = 32768
 DEFAULT_LINES = 800
@@ -85,10 +88,11 @@ class ToolUse:
 @dataclass
 class ToolResult:
     tool_use_id: str
-    bytes: int                 # text bytes of the tool_result block
+    bytes: int                 # text bytes of the tool_result block — what entered the context
     result: object             # the record's `toolUseResult`, or None
     is_error: bool
     line_no: int
+    numbered: Optional[Tuple[int, int]] = None   # (first line number, line count) of `cat -n` text
 
 
 @dataclass
@@ -99,7 +103,7 @@ class Read:
     path: str
     kind: str                  # whole | ranged | excluded
     truncated: bool
-    bytes: int                 # UTF-8 bytes of the file content delivered
+    bytes: int                 # UTF-8 bytes of the tool_result block the parent received
     total_lines: int
 
     @property
@@ -174,13 +178,25 @@ def iter_sessions(root: str) -> List[Session]:
     return sessions
 
 
-def _block_bytes(content: object) -> int:
+def _block_text(content: object) -> str:
     if isinstance(content, str):
-        return len(content.encode("utf-8"))
+        return content
     if isinstance(content, list):
-        return sum(len(part.get("text", "").encode("utf-8")) for part in content
-                   if isinstance(part, dict) and part.get("type") == "text")
-    return 0
+        return "".join(part.get("text", "") for part in content
+                       if isinstance(part, dict) and part.get("type") == "text")
+    return ""
+
+
+_NUMBERED_LINE = re.compile(r"^\s*(\d+)\t")
+
+
+def _numbered_lines(text: str) -> Optional[Tuple[int, int]]:
+    """(first line number, line count) when `text` is the Read tool's `cat -n` output."""
+    lines = text.split("\n")
+    first = _NUMBERED_LINE.match(lines[0]) if lines and lines[0] else None
+    if first is None or not all(_NUMBERED_LINE.match(l) for l in lines if l):
+        return None
+    return int(first.group(1)), sum(1 for l in lines if l)
 
 
 def _context_size(usage: object) -> Optional[int]:
@@ -249,8 +265,9 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
     structured = rec.get("toolUseResult") if len(results) == 1 else None
     for block in results:
         tid = str(block.get("tool_use_id"))
-        t.results[tid] = ToolResult(tid, _block_bytes(block.get("content")), structured,
-                                    block.get("is_error") is True, line_no)
+        text = _block_text(block.get("content"))
+        t.results[tid] = ToolResult(tid, len(text.encode("utf-8")), structured,
+                                    block.get("is_error") is True, line_no, _numbered_lines(text))
 
 
 def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) -> Read:
@@ -261,22 +278,29 @@ def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) ->
     excluded = Read(tool_use, file_path, "excluded", False, 0, 0)
     if result is None or result.is_error or isinstance(result.result, str):
         return excluded            # unanswered, or an error message: nothing entered the context
+    ranged = "offset" in tool_use.input or "limit" in tool_use.input
+    kind = "ranged" if ranged else "whole"
     structured = result.result
+    if structured is None:
+        # Older transcripts carry no `toolUseResult` beside a Read; the block
+        # text is the tool's `cat -n` output, so the lines are counted from it
+        # and the total is unknown — a whole-file read is taken at its line count.
+        if result.numbered is None:
+            raise TranscriptDrift(path, result.line_no, "Read result has no metadata and its text is not numbered lines")
+        return Read(tool_use, file_path, kind, False, result.bytes, result.numbered[1])
     if not isinstance(structured, dict):
-        raise TranscriptDrift(path, result.line_no, "Read result is not an object or a string")
-    kind = structured.get("type")
-    if kind in EXCLUDED_RESULT_TYPES:
+        raise TranscriptDrift(path, result.line_no, "Read result is not an object, a string or null")
+    result_type = structured.get("type")
+    if result_type in EXCLUDED_RESULT_TYPES:
         return excluded
     file_block = structured.get("file")
-    if kind != "text" or not isinstance(file_block, dict) \
+    if result_type != "text" or not isinstance(file_block, dict) \
             or any(k not in file_block for k in _TEXT_FILE_KEYS) \
             or not isinstance(file_block["content"], str):
-        raise TranscriptDrift(path, result.line_no, f"Read result of type {kind!r} has no readable file block")
-    ranged = "offset" in tool_use.input or "limit" in tool_use.input
+        raise TranscriptDrift(path, result.line_no, f"Read result of type {result_type!r} has no readable file block")
     num_lines, total_lines = int(file_block["numLines"]), int(file_block["totalLines"])
     truncated = not ranged and (num_lines < total_lines or file_block.get("truncatedByTokenCap") is True)
-    return Read(tool_use, file_path, "ranged" if ranged else "whole", truncated,
-                len(file_block["content"].encode("utf-8")), total_lines)
+    return Read(tool_use, file_path, kind, truncated, result.bytes, total_lines)
 
 
 SHELL_READERS = frozenset({"cat", "head", "tail", "less", "more"})

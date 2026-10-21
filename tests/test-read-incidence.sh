@@ -71,47 +71,52 @@ assert_eq "0" "$rc" "parser: the clean fixture root parses with exit 0"
 # Whole-file reads: no offset, no limit. Large by lines (900 >= 800) at the
 # defaults; not large by bytes (2000 < 32768). At --bytes 1000 the same read
 # is large by bytes.
-assert_contains "$out" "read whole truncated=False large=False large1k=False bytes=300 lines=20 sidechain=False small.py" \
+assert_contains "$out" "read whole truncated=False large=False large1k=False bytes=349 lines=20 sidechain=False small.py" \
   "parser: a small whole-file read is whole, not truncated, not large"
-assert_contains "$out" "read whole truncated=False large=True large1k=True bytes=2000 lines=900 sidechain=False big_module.py" \
+assert_contains "$out" "read whole truncated=False large=True large1k=True bytes=2357 lines=900 sidechain=False big_module.py" \
   "parser: a whole-file read of a 900-line file is large by lines at the defaults"
 # AC2: a ranged read is never counted as whole-file.
-assert_contains "$out" "read ranged truncated=False large=True large1k=True bytes=1000 lines=900 sidechain=False big_module.py" \
+assert_contains "$out" "read ranged truncated=False large=True large1k=True bytes=1357 lines=900 sidechain=False big_module.py" \
   "parser: offset/limit makes a read ranged whatever the file's size"
 # AC2: numLines < totalLines with no limit is a whole-file read the tool cut.
-assert_contains "$out" "read whole truncated=True large=True large1k=True bytes=4000 lines=1400 sidechain=False huge.log" \
+assert_contains "$out" "read whole truncated=True large=True large1k=True bytes=4357 lines=1400 sidechain=False huge.log" \
   "parser: a read the tool truncated at its cap is whole-file and flagged truncated"
 # AC2: non-text results are excluded, not zero-byte text reads.
 assert_contains "$out" "read excluded truncated=False large=False large1k=False bytes=0 lines=0 sidechain=False shot.png" \
   "parser: an image result is excluded"
 assert_contains "$out" "read excluded truncated=False large=False large1k=False bytes=0 lines=0 sidechain=False missing.py" \
   "parser: an error result is excluded"
-assert_eq "8" "$(printf '%s\n' "$out" | grep -c '^read ')" "parser: the root holds eight parent-file Read tool uses: six in s1, two in s3"
+assert_eq "9" "$(printf '%s\n' "$out" | grep -c '^read ')" "parser: the root holds nine parent-file Read tool uses: six in s1, three in s3"
 
 # AC2: sub-agent reads raise the sub-agent column only — a subagents/ file...
 assert_contains "$out" "agent agent-a1 subagent=True final_context=7062" \
   "parser: a subagents/ transcript is marked sub-agent with its own final context"
-assert_contains "$out" "agent-read whole large=True bytes=6000 sidechain=True big_module.py" \
+assert_contains "$out" "agent-read whole large=True bytes=6707 sidechain=True big_module.py" \
   "parser: a read inside a subagents/ transcript is a sidechain read"
 # ...and a legacy inline sidechain line in the parent's own file.
-assert_contains "$out" "read whole truncated=False large=True large1k=True bytes=1200 lines=850 sidechain=True loader.py" \
+assert_contains "$out" "read whole truncated=False large=True large1k=True bytes=1487 lines=850 sidechain=True loader.py" \
   "parser: an inline isSidechain line marks its read sidechain"
-assert_contains "$out" "read whole truncated=False large=False large1k=False bytes=50 lines=5 sidechain=False tiny.cfg" \
+assert_contains "$out" "read whole truncated=False large=False large1k=False bytes=92 lines=5 sidechain=False tiny.cfg" \
   "parser: the parent's own read beside it stays the parent's"
+# Older transcripts carry no toolUseResult beside a Read: the numbered block
+# text is the record, so its line count stands in for the total.
+assert_contains "$out" "read whole truncated=False large=False large1k=True bytes=1117 lines=31 sidechain=False legacy_reader.py" \
+  "parser: a Read with a null toolUseResult is classified from its numbered block text"
 
 # Session-level metadata the report and the grader both consume.
 assert_contains "$out" "session proj-a/s1 reads=6 malformed=1 compactions=1 final_context=51500 subagents=1" \
   "parser: s1 counts its malformed line, its compaction, its final context and its sub-agent"
 assert_contains "$out" "session proj-a/s2 reads=0 malformed=0 compactions=0 final_context=910 subagents=0" \
   "parser: a session with no tool use is a zero row, not an error"
-assert_contains "$out" "session proj-b/s3 reads=2 malformed=1 compactions=0 final_context=2505 subagents=0" \
+assert_contains "$out" "session proj-b/s3 reads=3 malformed=1 compactions=0 final_context=2505 subagents=0" \
   "parser: a JSON line that is not an object counts as malformed"
 assert_contains "$out" "norm-equal True" \
   "parser: backslash and forward-slash spellings of one path normalise equal"
 
 # Tool-result bytes are the share's denominator: text parts only, so an
-# image's base64 never enters it. s1: 300+2000+1000+4000 file contents carry
-# `cat -n` prefixes in the block; the count below is what the parser sees.
+# image's base64 never enters it. A Read's bytes are the same measure — the
+# numbered block the parent received, not the bare file content — so the share
+# divides like by like.
 assert_contains "$out" "result_bytes=" "parser: every session reports its tool-result bytes"
 s1_bytes="$(printf '%s\n' "$out" | sed -n 's/^session proj-a\/s1 .*result_bytes=\([0-9]*\)$/\1/p')"
 [ -n "$s1_bytes" ] && [ "$s1_bytes" -gt 10000 ] && [ "$s1_bytes" -lt 20000 ] \
@@ -213,24 +218,24 @@ assert_eq "0" "$rc" "report: the fixture root renders with exit 0"
 [ "$rc" = "0" ] || printf '%s\n' "$md" | head -5
 
 # s1: four text reads (small, big whole, big ranged, huge); two whole-file
-# large (big by lines, huge truncated) = 2000 + 4000 bytes; one truncated;
+# large (big by lines, huge truncated) = 2357 + 4357 block bytes; one truncated;
 # five bare shell reads (cat, head, cat, tail, sed) over four commands whose
 # results are 600 + 700 + 200 + 900 bytes; re-reads: big_module ranged after
 # whole, a.txt by tail and by sed after head = 3; one sub-agent read, large.
-assert_contains "$md" "| proj-a/s1 | 4 | 2 | 6000 |" "report: s1 reads, whole-file large reads and their bytes"
+assert_contains "$md" "| proj-a/s1 | 4 | 2 | 6714 |" "report: s1 reads, whole-file large reads and their bytes"
 assert_file_matches_text() { printf '%s\n' "$1" | grep -Eq "$2"; }
-assert_eq "yes" "$(assert_file_matches_text "$md" '^\| proj-a/s1 \| 4 \| 2 \| 6000 \| [0-9]+\.[0-9]%' && echo yes || echo no)" \
+assert_eq "yes" "$(assert_file_matches_text "$md" '^\| proj-a/s1 \| 4 \| 2 \| 6714 \| [0-9]+\.[0-9]%' && echo yes || echo no)" \
   "report: s1 carries a percentage share"
 assert_contains "$md" "| 1 | 5 | 2400 |" "report: s1's truncated count, shell reads and shell bytes"
 assert_contains "$md" "(huge.log) | 3 | 51500 | 1 | 1 | 1 | 2 | 1 |" \
   "report: s1's largest result is huge.log; re-reads, final context, compactions, sub-agent reads and large, excluded, malformed"
 assert_contains "$md" "| proj-a/s2 | 0 | 0 | 0 | 0.0% | 0 | 0 | 0 | 0 | 0 | 910 | 0 | 0 | 0 | 0 | 0 |" \
   "report: a session with no tool use is a zero row"
-assert_contains "$md" "| proj-b/s3 | 1 | 0 | 0 | 0.0% | 0 | 0 | 0 |" "report: s3's inline sidechain read is not the parent's"
-assert_contains "$md" "(tiny.cfg) | 0 | 2505 | 0 | 1 | 1 | 0 | 1 |" \
+assert_contains "$md" "| proj-b/s3 | 2 | 0 | 0 | 0.0% | 0 | 0 | 0 |" "report: s3's inline sidechain read is not the parent's"
+assert_contains "$md" "(legacy_reader.py) | 0 | 2505 | 0 | 1 | 1 | 0 | 1 |" \
   "report: s3's sidechain read lands in the sub-agent columns and its malformed line is counted"
 assert_contains "$md" "## Aggregate" "report: an aggregate section follows the per-session table"
-assert_contains "$md" "| all sessions | 5 | 2 | 6000 |" "report: the aggregate sums reads, whole-file large reads and bytes"
+assert_contains "$md" "| all sessions | 6 | 2 | 6714 |" "report: the aggregate sums reads, whole-file large reads and bytes"
 assert_contains "$md" "Sessions: 3 · median share 0.0% · quarter share" "report: the go rule's inputs are stated"
 assert_contains "$md" "Verdict: gate" "report: a quarter of fixture sessions above 25% is a gate verdict"
 assert_not_contains "$md" "C:\\work" "report: paths are basenames by default"
@@ -254,10 +259,10 @@ print("share", round(s1["share"], 3) == round(s1["whole_large_bytes"] / s1["resu
 a = d["aggregate"]
 print("agg", a["sessions"], a["reads"], a["whole_large"], a["verdict"], "median_share" in a, "quarter_share" in a)
 ')"
-assert_contains "$keys" "reads=4 whole_large=2 whole_large_bytes=6000 truncated=1 shell_reads=5 shell_bytes=2400 rereads=3 final_context=51500 compactions=1 subagent_reads=1 subagent_large=1 excluded=2 malformed=1 largest_path=huge.log" \
+assert_contains "$keys" "reads=4 whole_large=2 whole_large_bytes=6714 truncated=1 shell_reads=5 shell_bytes=2400 rereads=3 final_context=51500 compactions=1 subagent_reads=1 subagent_large=1 excluded=2 malformed=1 largest_path=huge.log" \
   "report: --json carries the same per-session keys as the table"
 assert_contains "$keys" "share True" "report: --json's share is bytes over the parent's tool-result bytes"
-assert_contains "$keys" "agg 3 5 2 gate True True" "report: --json carries the aggregate and the go rule's inputs"
+assert_contains "$keys" "agg 3 6 2 gate True True" "report: --json carries the aggregate and the go rule's inputs"
 
 err="$("$TEST_PYTHON" "$INCIDENCE" --root "$TMP/empty-root" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "report: an empty root exits 2 through the CLI"
