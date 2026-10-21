@@ -179,13 +179,12 @@ Required output: `✓ Spec written: /absolute/path/specs/<feature>.md`
 
 ### 3.5. Slice the Spec
 
-Invoke `/slice specs/<feature>.md --issue #N`. This runs before Step 6 so the
-rendered HTML carries § Build Order and the build prompt. It sizes the
-spec's acceptance criteria into session-sized slices, writes § Build Order
-and the plan block into `tasks/todo.md` per its own grammar, and prints the
-build prompt — see `.agents/skills/slice/SKILL.md` for what each output
-means and how it is written. This skill does not size slices, write a plan
-block, or print a build prompt itself.
+Invoke `/slice specs/<feature>.md --issue #N`. Its Required output —
+§ Build Order, the plan block in `tasks/todo.md`, the rendered page and the
+build prompt — is what this step prints; `.agents/skills/slice/SKILL.md`
+§ *Required output* says what each line means. This skill does not size
+slices, write a plan block, or print a build prompt itself. Step 6 renders the
+page again, because Steps 4 and 5 edit the spec after this call.
 
 ### 4. Self-review
 

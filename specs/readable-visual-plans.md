@@ -218,7 +218,7 @@ Constraints: render only from the spec markdown, stdlib Python, no network and n
 
 ## Acceptance Criteria
 
-- AC1: `plan_render.py <spec> -o <html>` renders from the spec markdown alone, with a stdlib-only markdown subset parser; `/visual-plan` and `/system-design-planning` call it, and `/system-design-planning` no longer builds `content-model.json` or requires diagrams and tables in `text` fences.
+- AC1: `plan_render.py <spec> -o <html>` renders from the spec markdown alone, with a stdlib-only markdown subset parser; `/visual-plan`, `/slice` (so every `/plan` run) and `/system-design-planning` call it, and `/system-design-planning` no longer builds `content-model.json` or requires diagrams and tables in `text` fences.
 - AC2: Unknown `##` sections render as generic markdown; a malformed Decisions, Acceptance Criteria, Build Order, Risks or Open questions section, a duplicate ID, or an unsupported diagram line exits 1 with `<spec>:<line>: <reason>` and writes no file.
 - AC3: Each component in the § Behavior table renders with a distinct colour, icon, text label and border style; a fixture check confirms every component type is present and that no two types share the same icon and label.
 - AC4: Decisions in both shapes render as cards with ID, status chip and chosen option visible and rationale, other options and "Wrong when" inside a disclosure; specs without ID or status columns auto-number and default to `settled`.

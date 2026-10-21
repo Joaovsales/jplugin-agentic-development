@@ -207,16 +207,11 @@ behavior, not merely the files this session touched.
 
 ### 3. Slice
 
-Invoke `/slice specs/<feature-name>.md [--issue #N]`. It sizes the spec's
-acceptance criteria into session-sized slices, writes § Build Order and the
-plan block into `tasks/todo.md` per its own grammar, renders the visual plan
-from the sliced spec under `/visual-plan` § *Skip when trivial*, and prints
-the build prompt — see `.agents/skills/slice/SKILL.md` for what each output
-means and how it is written. `/plan` does not size slices, write a plan
-block, render a page or print a build prompt itself; the `✓ Visual written:`
-line `/slice` prints (or its `Skipping visual-plan: <reason>` line) is the
-path Step 4 shows. A render refusal names `<spec>:<line>: <reason>`: fix that
-line in the spec and re-run this step.
+Invoke `/slice specs/<feature-name>.md [--issue #N]`. Its Required output —
+§ Build Order, the plan block in `tasks/todo.md`, the rendered visual plan and
+the build prompt — is what this step prints; `.agents/skills/slice/SKILL.md`
+§ *Required output* says what each line means. `/plan` does not size slices,
+write a plan block, render a page or print a build prompt itself.
 
 ### 4. Present
 
@@ -256,8 +251,8 @@ nothing is applied. On a match, apply every line:
   an `open` decision row when it needs the user's call.
 - `<ID>: ok` changes nothing.
 
-Then re-run Step 3, so the Build Order, the plan block and the prompt match
-the edited spec.
+Then re-run Step 3, so the Build Order, the plan block, the page and the
+prompt match the edited spec.
 
 ### 5. Divergence Check
 

@@ -109,8 +109,9 @@ python3 .agents/skills/slice/scripts/slice.py readiness --spec <spec>
 
 Silent and exit 0 when every § Decisions row is settled and no open question
 blocks a slice. Otherwise it prints `not ready: <ids>` — the open decisions,
-then the questions whose `Blocks` names a slice — and exits 1: `/slice` prints
-that line in place of the prompt, writes no prompt fence, and exits non-zero.
+then the questions whose `Blocks` names a slice — and exits 1: `/slice` writes
+no prompt fence, still runs Step 6, then prints that line in place of the
+prompt and exits non-zero.
 A question whose `Blocks` is `none` never gates. Exit 2 names a malformed
 section as `<spec>:<line>: <reason>`. The visual plan page reads the spec the
 same way and shows the same ids as **Not ready** with copy disabled.
@@ -247,5 +248,6 @@ One line per slice: `✓ Filed: <id> → <#N | local, publication pending>`.
 - One ceiling, stated once, in `references/sizing.md`.
 - The plan block's `- [ ]` row is the registry's row; the surface lives
   once, in the spec's § Build Order table.
-- The caller never renders: the page lands with the Build Order it shows, on
-  every run, including a standalone re-run.
+- No caller renders in this step's place: the page lands with the Build Order
+  it shows on every run, including a standalone re-run. `/system-design-planning`
+  Step 6 re-renders only because its Steps 4 and 5 edit the spec afterwards.
