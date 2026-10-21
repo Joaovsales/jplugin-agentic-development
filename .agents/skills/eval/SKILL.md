@@ -1,6 +1,6 @@
 ---
 name: eval
-description: "Blinded A/B evaluation of a skill, prompt, or workflow change before promoting it. Candidates run in sanitized worktrees on organic prompts and never learn they are being measured; grading comes from session transcripts, not self-report. Two runnable modes: triggerability (does the harness route to this skill at all) and variant lift (does variant A beat variant B). Use before merging a skill edit, when a skill seems never to fire, or when deciding whether a rewrite actually helped. Triggers on: 'does this skill even fire', 'A/B this prompt', 'did the rewrite improve anything', 'evaluate my skills', 'run an eval'."
+description: "Blinded A/B evaluation of a skill, prompt, or workflow change before promoting it. Candidates run in sanitized worktrees on organic prompts and never learn they are being measured; grading comes from session transcripts, not self-report. Three runnable modes: triggerability (does the harness route to this skill at all), variant lift (does variant A beat variant B) and behavioural lift with cost (does a gate or hook change what the main loop reads, and what did it cost). Use before merging a skill edit, when a skill seems never to fire, or when deciding whether a rewrite actually helped. Triggers on: 'does this skill even fire', 'A/B this prompt', 'did the rewrite improve anything', 'evaluate my skills', 'run an eval'."
 argument-hint: "[what changed] [vs what]"
 harness: universal
 ---
@@ -29,13 +29,14 @@ THE CANDIDATE NEVER KNOWS IT IS BEING EVALUATED
 
 ## What is measurable here
 
-**Two questions, and a third this harness cannot answer.** Designing a run
-against the third produces a number that looks like lift and means nothing.
+**Three questions, and a fourth this harness cannot answer.** Designing a run
+against the fourth produces a number that looks like lift and means nothing.
 
 | Question | Mode | Status |
 |----------|------|--------|
 | Does the harness route to this skill from an organic prompt? | A — triggerability | runnable |
 | Does variant X of a skill outperform variant Y? | B — variant lift | runnable |
+| Does a gate or hook change what the main loop reads, and at what cost? | C — behavioural lift with cost | runnable |
 | Does having the skill beat not having it? | presence/absence | **not available** |
 
 Presence/absence is unavailable because a skill cannot be removed from a
@@ -109,6 +110,68 @@ removed. Use it for description rewrites and body rewrites alike.
    labels. Judge on a stronger tier than the candidates (Ceiling judging
    Builder); cross-vendor blinding is not available in-harness.
 4. Report cost beside lift. A variant that wins by 5% for 3x the tokens lost.
+
+## Mode C — behavioural lift with cost
+
+Mode B asks whether a candidate's *output* improved. Mode C asks whether its
+*behaviour* changed — what the main loop read, delegated and paid for — and is
+the mode for a hook, a gate or a reader persona, where the output can stay the
+same while the context bill halves or doubles. It is graded from transcripts by
+two scripts that share one parser, `scripts/read_transcript.py`, the one place
+that knows the session JSONL shape; a block it cannot read exits 2 with the
+file and line, never a silent zero.
+
+**First the baseline, then the eval.** A gate earns a build only when the
+behaviour it changes is common enough to measure:
+
+```
+python3 .agents/skills/eval/scripts/read-incidence.py --root ~/.claude/projects [--json] [--paths]
+```
+
+walks past sessions and prints, per session and in aggregate, whole-file large
+reads (bytes ≥ 32768 or lines ≥ 800), their share of the parent's tool-result
+bytes, bare shell reads, the largest result, re-reads, final context and
+sub-agent reads in their own column. Its `Verdict:` line applies the go rule of
+`specs/read-shunt-baseline.md` § *Go rule*; the committed run lives under
+`tasks/eval-results/read-shunt/`.
+
+**Then two arms of the same suite.** `evals/read-shunt/` is a `claude plugin
+eval` suite: eleven cases whose scaffolds generate their fixtures from a seed
+(eight large, three controls under the threshold), prompts written as a user
+types them, and a judge rubric written before any run. Run each arm — the
+control plugin and the candidate plugin — into a results directory, every paid
+run under `--max-cost-usd`:
+
+```
+claude plugin eval . --eval-dir evals/read-shunt --scaffold --runs <N> --max-cost-usd <ceiling> --json
+python3 .agents/skills/eval/scripts/grade-read-shunt.py <results-dir> [--json]
+```
+
+The results directory is runner-neutral — `<results>/<arm>/<task>/<run>/` with
+the parent transcript, `subagents/agent-*.jsonl`, the gate's `shunt.jsonl`
+when one ran, and `outcome.json` — so the Workflow-based Mode B run is the
+fallback when the runner is unavailable. The grader prints one row per run and
+paired per-task means per arm:
+
+| Metric | From |
+|--------|------|
+| Parent whole-file large reads | `Read` without `offset`/`limit` at or over the threshold |
+| Routing-around | bare shell read of a large result, or `Grep` with `-C` ≥ 50 or `head_limit: 0` on a large file |
+| Hook decisions · repeated denies | `shunt.jsonl`, when present |
+| Bytes into parent · largest result | the parent's `tool_result` blocks |
+| Final context · compactions | the last assistant `usage`; compact-boundary markers |
+| Sub-agent tokens · tool uses | `Agent` results |
+| Wall s | first to last timestamp |
+| Re-read rate | parent reads of a path an earlier `Agent` prompt or sub-agent result named |
+| Outcome | `outcome.json` — the runner's grade, never the candidate's claim |
+
+**Thresholds** (candidate vs control, `specs/read-shunt.md` § *Success
+thresholds*): compliance ≥ 95% of runs with zero parent bulk reads and ≤ 1
+routing attempt, and any run with ≥ 3 identical denied calls fails; paired
+outcome CI not excluding zero and no task down by more than one run in five;
+parent end-context −30% or better; total cost not worse than control; re-read
+rate ≤ 10%; latency +25% tolerated; controls with zero gate activations — one
+activation is a threshold defect, not noise.
 
 ## Grading — transcripts, not self-report
 

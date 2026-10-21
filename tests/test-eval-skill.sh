@@ -55,6 +55,29 @@ for tree in .agents; do
     "$md: fixture state goes in the prompt, not the repo"
   assert_file_contains "$md" "scripts/grade-skill-loads.sh" \
     "$md: grading routes through the grader"
+  # Mode C — behavioural lift with cost (specs/read-shunt-baseline.md AC9):
+  # the section, its row in the scope table, the two scripts it names and the
+  # thresholds it carries, and the scripts themselves on disk.
+  assert_file_contains "$md" "## Mode C — behavioural lift with cost" \
+    "$md: carries the Mode C section"
+  assert_file_contains "$md" "| C — behavioural lift with cost | runnable |" \
+    "$md: the scope table gains the Mode C row"
+  assert_file_contains "$md" "scripts/read-incidence.py" \
+    "$md: Mode C names the baseline report"
+  assert_file_contains "$md" "scripts/grade-read-shunt.py" \
+    "$md: Mode C names the grader"
+  assert_file_contains "$md" "scripts/read_transcript.py" \
+    "$md: Mode C names the shared parser"
+  assert_file_contains "$md" "| Re-read rate |" \
+    "$md: Mode C carries the metrics table"
+  assert_file_contains "$md" "parent end-context" \
+    "$md: Mode C carries the thresholds"
+  assert_file_contains "$md" "--max-cost-usd" \
+    "$md: every paid run carries a cost ceiling"
+  for script in read_transcript.py read-incidence.py grade-read-shunt.py; do
+    assert_eq "present" "$([ -f "$tree/skills/eval/scripts/$script" ] && echo present || echo missing)" \
+      "$tree/skills/eval: $script is on disk"
+  done
   assert_prose_contains "$tree/skills/eval/references/probe-recipe.md" \
     "don't push anything or open a PR" \
     "$tree/skills/eval: recipe carries the no-push clause"
