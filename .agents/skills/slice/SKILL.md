@@ -1,6 +1,6 @@
 ---
 name: slice
-description: Break a spec's acceptance criteria and implementation paths into session-sized slices — a Build Order table, a plan block in tasks/todo.md, and a build prompt — then, in a later session, file one task per slice through /task-registry. Use after a spec carries § Decisions and § Acceptance Criteria, or to refresh the Build Order and plan block after the spec changes.
+description: Break a spec's acceptance criteria and implementation paths into session-sized slices — a Build Order table, a plan block in tasks/todo.md, the rendered visual plan page and a build prompt — then, in a later session, file one task per slice through /task-registry. Use after a spec carries § Decisions and § Acceptance Criteria, or to refresh the Build Order and plan block after the spec changes.
 argument-hint: "<spec path> [--issue #N] [--file [--approve]]"
 disable-model-invocation: false
 harness: universal
@@ -14,9 +14,10 @@ harness: universal
 acceptance criteria and `implementation_paths`. Neither planner owns sizing,
 ordering, filing or the handover message — `/slice` does, once, and both
 call it the way every planner calls `/task-registry`. `/slice <spec>`
-**proposes**: it writes § Build Order and the plan block, prints the build
-prompt, and stops. `/slice <spec> --file` **files**: it runs in the session
-the build prompt started, never in the planning session that printed it.
+**proposes**: it writes § Build Order and the plan block, renders the visual
+plan page, prints the build prompt, and stops. `/slice <spec> --file`
+**files**: it runs in the session the build prompt started, never in the
+planning session that printed it.
 
 ## Inputs
 
@@ -97,7 +98,7 @@ must stay byte-for-byte identical to
 - The `[ ] TDD:` rows are written here, one or more per AC the slice
   carries. They are not what the human reviews; the Build Order is.
 
-### 5. Print the build prompt and stop
+### 5. Gate readiness and write the build prompt
 
 First the readiness gate — a build started while a decision is open just
 guesses it:
@@ -134,11 +135,32 @@ Constraints: <one line per § Decisions row the builder must keep; omit the fiel
 Everything in it is read off the spec and the plan block; nothing is asked.
 The instruction lines are fixed text; `Constraints:` is the one free slot.
 
+### 6. Render the visual plan and stop
+
+The page is rendered here, not by the caller, so a standalone re-run after a
+change request lands the Build Order and the page that shows it together.
+Before rendering, apply `/visual-plan` § *Skip when trivial*; when it skips,
+print its `Skipping visual-plan: <reason>` line instead of running the command:
+
+```bash
+python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html
+```
+
+Required output: `✓ Visual written: /absolute/path/specs/<feature>.plan.html`
+
+It runs after the readiness gate, so the page carries the prompt fence Step 5
+wrote, or shows the same ids as **Not ready** when the gate refused. A refusal
+prints `<spec>:<line>: <reason>` and writes no page: fix that line in the spec
+and re-run `/slice`. Every re-run re-renders, so the page and its spec hash
+never trail the spec a change request edited. The page is committed beside
+the spec, not gitignored — approval attaches to it.
+
 ### Required output
 
 ```
 ✓ Build Order written: <abs spec path>
 ✓ Plan written: <abs todo path>
+✓ Visual written: <abs page path>
 Spec and plan are ready to be built. Start a fresh session with this prompt:
 <build prompt, verbatim>
 ```
@@ -148,8 +170,12 @@ or, when the readiness gate refuses:
 ```
 ✓ Build Order written: <abs spec path>
 ✓ Plan written: <abs todo path>
+✓ Visual written: <abs page path>
 not ready: <ids>
 ```
+
+When the skip gate skips, the `✓ Visual written:` line is
+`Skipping visual-plan: <reason>` instead.
 
 `/slice` never files anything itself; the caller relays the prompt as the
 last thing its session says.
@@ -194,7 +220,8 @@ One line per slice: `✓ Filed: <id> → <#N | local, publication pending>`.
 - **`--file` before any proposal.** Refused, naming the spec: no plan
   block, nothing to file.
 - **Spec changed after the prompt was printed.** Re-run `/slice <spec>`:
-  the Build Order, the plan block and the prompt are all replaced in place.
+  the Build Order, the plan block and the prompt are all replaced in place
+  and the page is re-rendered.
 - **Build session resumed after an interrupted filing.** Pre-flight sees a
   header without a provider link and re-runs `--file`; linked rows are
   refreshed, never duplicated.
@@ -206,7 +233,8 @@ One line per slice: `✓ Filed: <id> → <#N | local, publication pending>`.
 - **Called by**: `/plan` Step 3, `/system-design-planning` Step 3.5, and
   `/build`'s pre-flight (`--file --approve`, or `--file` alone from
   `/yolo` or an unattended lane run).
-- **Calls**: `/task-registry` (`upsert`, dry run then `--apply`).
+- **Calls**: `/task-registry` (`upsert`, dry run then `--apply`) and
+  `/visual-plan`'s renderer, `plan_render.py`, under its skip gate.
 - **Precedes**: `/build`, which reads the plan block's slice rows and the
   Build Order's Surface column, one slice at a time.
 
@@ -219,3 +247,5 @@ One line per slice: `✓ Filed: <id> → <#N | local, publication pending>`.
 - One ceiling, stated once, in `references/sizing.md`.
 - The plan block's `- [ ]` row is the registry's row; the surface lives
   once, in the spec's § Build Order table.
+- The caller never renders: the page lands with the Build Order it shows, on
+  every run, including a standalone re-run.
