@@ -93,6 +93,7 @@ class ToolResult:
     is_error: bool
     line_no: int
     numbered: Optional[Tuple[int, int]] = None   # (first line number, line count) of `cat -n` text
+    non_file: bool = False     # a note in place of file text: unchanged, empty, PDF, image
 
 
 @dataclass
@@ -188,11 +189,26 @@ def _block_text(content: object) -> str:
 
 
 _NUMBERED_LINE = re.compile(r"^\s*(\d+)\t")
+# The harness prefixes some Read results (memory files, stale-file notes) with one
+# or more <system-reminder> blocks before the numbered text.
+_LEADING_REMINDERS = re.compile(r"^(?:\s*<system-reminder>.*?</system-reminder>)+\s*", re.DOTALL)
+
+
+# What a null-result Read block says when no file text entered the context.
+_NON_FILE_NOTES = ("Wasted call", "PDF file read:")
+
+
+def _is_non_file_note(text: str) -> bool:
+    """True when a block without metadata carries a note instead of file text:
+    an empty file or an offset past its end (a bare reminder), an unchanged
+    file ("Wasted call"), a PDF summary line, or nothing at all (an image)."""
+    rest = _LEADING_REMINDERS.sub("", text, count=1).strip()
+    return rest == "" or rest.startswith(_NON_FILE_NOTES)
 
 
 def _numbered_lines(text: str) -> Optional[Tuple[int, int]]:
     """(first line number, line count) when `text` is the Read tool's `cat -n` output."""
-    lines = text.split("\n")
+    lines = _LEADING_REMINDERS.sub("", text, count=1).split("\n")
     first = _NUMBERED_LINE.match(lines[0]) if lines and lines[0] else None
     if first is None or not all(_NUMBERED_LINE.match(l) for l in lines if l):
         return None
@@ -267,17 +283,20 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         tid = str(block.get("tool_use_id"))
         text = _block_text(block.get("content"))
         t.results[tid] = ToolResult(tid, len(text.encode("utf-8")), structured,
-                                    block.get("is_error") is True, line_no, _numbered_lines(text))
+                                    block.get("is_error") is True, line_no, _numbered_lines(text),
+                                    _is_non_file_note(text))
 
 
 def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) -> Read:
     """Whole-file, ranged or excluded, from the input plus `toolUseResult.file`."""
     file_path = tool_use.input.get("file_path")
+    if result is None or result.is_error or isinstance(result.result, str):
+        # Unanswered, or an error message — nothing entered the context. A call
+        # the harness could not parse (`__unparsedToolInput`) has no file_path.
+        return Read(tool_use, file_path if isinstance(file_path, str) else "", "excluded", False, 0, 0)
     if not isinstance(file_path, str):
         raise TranscriptDrift(path, tool_use.line_no, "Read input has no file_path")
     excluded = Read(tool_use, file_path, "excluded", False, 0, 0)
-    if result is None or result.is_error or isinstance(result.result, str):
-        return excluded            # unanswered, or an error message: nothing entered the context
     ranged = "offset" in tool_use.input or "limit" in tool_use.input
     kind = "ranged" if ranged else "whole"
     structured = result.result
@@ -286,6 +305,8 @@ def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) ->
         # text is the tool's `cat -n` output, so the lines are counted from it
         # and the total is unknown — a whole-file read is taken at its line count.
         if result.numbered is None:
+            if result.non_file:
+                return excluded    # unchanged, empty, PDF or image: no file text entered
             raise TranscriptDrift(path, result.line_no, "Read result has no metadata and its text is not numbered lines")
         return Read(tool_use, file_path, kind, False, result.bytes, result.numbered[1])
     if not isinstance(structured, dict):

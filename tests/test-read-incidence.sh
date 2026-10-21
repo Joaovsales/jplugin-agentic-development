@@ -86,7 +86,7 @@ assert_contains "$out" "read excluded truncated=False large=False large1k=False 
   "parser: an image result is excluded"
 assert_contains "$out" "read excluded truncated=False large=False large1k=False bytes=0 lines=0 sidechain=False missing.py" \
   "parser: an error result is excluded"
-assert_eq "9" "$(printf '%s\n' "$out" | grep -c '^read ')" "parser: the root holds nine parent-file Read tool uses: six in s1, three in s3"
+assert_eq "13" "$(printf '%s\n' "$out" | grep -c '^read ')" "parser: the root holds thirteen parent-file Read tool uses: six in s1, seven in s3"
 
 # AC2: sub-agent reads raise the sub-agent column only — a subagents/ file...
 assert_contains "$out" "agent agent-a1 subagent=True final_context=7062" \
@@ -102,13 +102,29 @@ assert_contains "$out" "read whole truncated=False large=False large1k=False byt
 # text is the record, so its line count stands in for the total.
 assert_contains "$out" "read whole truncated=False large=False large1k=True bytes=1117 lines=31 sidechain=False legacy_reader.py" \
   "parser: a Read with a null toolUseResult is classified from its numbered block text"
+# The harness prefixes some of those blocks (memory files) with a
+# <system-reminder>; the numbered text behind it is still the record, and the
+# bytes stay what entered the context, reminder included.
+assert_contains "$out" "read whole truncated=False large=False large1k=False bytes=120 lines=4 sidechain=False memo.md" \
+  "parser: a reminder-prefixed null-result Read is classified from the numbered text behind the reminder"
+# A Read the harness could not parse (`__unparsedToolInput`, an error result)
+# never ran: it has no file_path and is excluded, not drift.
+assert_eq "1" "$(printf '%s\n' "$out" | grep -c 'read excluded truncated=False large=False large1k=False bytes=0 lines=0 sidechain=False $')" \
+  "parser: an unparsed-input Read is excluded, with no path, rather than reported as drift"
+# Two more null-result notes the harness writes in place of file text: the
+# unchanged-file note and a bare reminder for an empty file. Nothing of the
+# file entered the context, so both are excluded.
+assert_contains "$out" "read excluded truncated=False large=False large1k=False bytes=0 lines=0 sidechain=False memo.md" \
+  "parser: the unchanged-file note is excluded, not drift"
+assert_contains "$out" "read excluded truncated=False large=False large1k=False bytes=0 lines=0 sidechain=False empty.md" \
+  "parser: a bare empty-file reminder is excluded, not drift"
 
 # Session-level metadata the report and the grader both consume.
 assert_contains "$out" "session proj-a/s1 reads=6 malformed=1 compactions=1 final_context=51500 subagents=1" \
   "parser: s1 counts its malformed line, its compaction, its final context and its sub-agent"
 assert_contains "$out" "session proj-a/s2 reads=0 malformed=0 compactions=0 final_context=910 subagents=0" \
   "parser: a session with no tool use is a zero row, not an error"
-assert_contains "$out" "session proj-b/s3 reads=3 malformed=1 compactions=0 final_context=2505 subagents=0" \
+assert_contains "$out" "session proj-b/s3 reads=7 malformed=1 compactions=0 final_context=2505 subagents=0" \
   "parser: a JSON line that is not an object counts as malformed"
 assert_contains "$out" "norm-equal True" \
   "parser: backslash and forward-slash spellings of one path normalise equal"
@@ -231,11 +247,11 @@ assert_contains "$md" "(huge.log) | 3 | 51500 | 1 | 1 | 1 | 2 | 1 |" \
   "report: s1's largest result is huge.log; re-reads, final context, compactions, sub-agent reads and large, excluded, malformed"
 assert_contains "$md" "| proj-a/s2 | 0 | 0 | 0 | 0.0% | 0 | 0 | 0 | 0 | 0 | 910 | 0 | 0 | 0 | 0 | 0 |" \
   "report: a session with no tool use is a zero row"
-assert_contains "$md" "| proj-b/s3 | 2 | 0 | 0 | 0.0% | 0 | 0 | 0 |" "report: s3's inline sidechain read is not the parent's"
-assert_contains "$md" "(legacy_reader.py) | 0 | 2505 | 0 | 1 | 1 | 0 | 1 |" \
+assert_contains "$md" "| proj-b/s3 | 3 | 0 | 0 | 0.0% | 0 | 0 | 0 |" "report: s3's inline sidechain read is not the parent's"
+assert_contains "$md" "(legacy_reader.py) | 0 | 2505 | 0 | 1 | 1 | 3 | 1 |" \
   "report: s3's sidechain read lands in the sub-agent columns and its malformed line is counted"
 assert_contains "$md" "## Aggregate" "report: an aggregate section follows the per-session table"
-assert_contains "$md" "| all sessions | 6 | 2 | 6714 |" "report: the aggregate sums reads, whole-file large reads and bytes"
+assert_contains "$md" "| all sessions | 7 | 2 | 6714 |" "report: the aggregate sums reads, whole-file large reads and bytes"
 assert_contains "$md" "Sessions: 3 · median share 0.0% · quarter share" "report: the go rule's inputs are stated"
 assert_contains "$md" "Verdict: gate" "report: a quarter of fixture sessions above 25% is a gate verdict"
 assert_not_contains "$md" "C:\\work" "report: paths are basenames by default"
@@ -262,7 +278,7 @@ print("agg", a["sessions"], a["reads"], a["whole_large"], a["verdict"], "median_
 assert_contains "$keys" "reads=4 whole_large=2 whole_large_bytes=6714 truncated=1 shell_reads=5 shell_bytes=2400 rereads=3 final_context=51500 compactions=1 subagent_reads=1 subagent_large=1 excluded=2 malformed=1 largest_path=huge.log" \
   "report: --json carries the same per-session keys as the table"
 assert_contains "$keys" "share True" "report: --json's share is bytes over the parent's tool-result bytes"
-assert_contains "$keys" "agg 3 6 2 gate True True" "report: --json carries the aggregate and the go rule's inputs"
+assert_contains "$keys" "agg 3 7 2 gate True True" "report: --json carries the aggregate and the go rule's inputs"
 
 err="$("$TEST_PYTHON" "$INCIDENCE" --root "$TMP/empty-root" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "report: an empty root exits 2 through the CLI"
