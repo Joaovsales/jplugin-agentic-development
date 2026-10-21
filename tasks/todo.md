@@ -2227,3 +2227,28 @@ Filed this sweep:
 ### Slice 19/19 — Orca supervised worker
 - [ ] Orca supervised worker <!-- task-id: plan.specs-helix-checkpoint-loop-md.orca-supervised-worker --> — The optional Orca adapter runs slices in child worktrees and supervises Dispatch IDs, retries and cleanup. (blocked-by: plan.specs-helix-checkpoint-loop-md.worker-backend-selector)
   [ ] TDD: tests/test-helix-orca-worker.sh § lifecycle — child worktree HEAD is verified before worker dispatch; exact base and Surface are checked on return; unknown liveness blocks retry/native fallback; positive stop, private-change inspection and release permit a new attempt; cross-host resume without original record refuses -> Orca worker adapter (AC 25)
+- [x] citation-drift in .agents/skills/brainstorm/SKILL.md <!-- task-id: simplify.agents-skills-brainstorm-skill-md.citation-drift-in-agents-skills-brainstorm-skill-md --> ([#326](https://github.com/Joaovsales/jplugin-agentic-development/issues/326))
+
+## Plan: simplify-citation-drift-in-agents-skills-brainstorm-skill-md
+
+> Routine: `simplify` #326 · branch `routine/simplify/326-citation-drift-in-agents-skills-brainstorm-skill-md` · spec `specs/simplify-citation-drift-in-agents-skills-brainstorm-skill-md.md`
+
+### Slice 1/1 — brainstorm cites plan by its heading
+[x] TDD: `signals.py rank --path .agents/skills/brainstorm` reports `citation-drift` before and none after; `bash tests/test-citations.sh` green both times -> cite `/plan` § *2. Write the Spec (MUST persist to disk)* (AC 1, 2, 3)
+
+> Handover: one citation corrected at `.agents/skills/brainstorm/SKILL.md:142`; `/plan` untouched. Line count 187 -> 187.
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #326 (filed this run by `/make-it-simpler --unattended` discovery)
+- [x] 2. `task-registry claim 326 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/326-citation-drift-in-agents-skills-brainstorm-skill-md`
+- [x] 4.1 `/make-it-simpler #326` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place
+- [x] 4.4 `/quality-gate` — Phases 1–4 inline, no findings; receipt GO 235a124a policy qg1-b8f4dc32
+- [x] 5. `/wrap-up-session`
+
+## Session Summary — [2026-10-20] [2da4eab..63c9812]
+- Completed: #326 — `/brainstorm` cites `/plan` § *2. Write the Spec (MUST persist to disk)* by its real heading (simplify routine).
+- Pending: none from this run.
+- Carry-forward: the top-ranked `enforced-prose` and `duplicate-rule` cues are test pins, dropped at deep review (tasks/solutions/process/an-enforced-prose-cue-on-a-test-pinned-line-is-a-pin-not-bulk.md).
