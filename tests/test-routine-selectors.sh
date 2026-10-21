@@ -22,25 +22,21 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
+py_module .agents/skills/task-registry/scripts
+SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
 CLI="$SCRIPTS/task-registry.py"
-FIXTURES="$REPO/tests/fixtures/task-registry"
 PY="$TEST_PYTHON"
 
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
-
-new_fixture() {
+# A project with the gh mock first on its PATH and an empty issue list.
+gh_project() {
   local d
-  d="$(mktemp -d "${TMPDIR:-/tmp}/routine-selectors.XXXXXX")"
-  TMP_DIRS+=("$d")
+  d="$(fixture_dir)"
   mkdir -p "$d/tasks" "$d/docs" "$d/bin" "$d/ghdata"
-  printf '[ ] placeholder\n' > "$d/tasks/todo.md"
-  cp "$FIXTURES/gh" "$d/bin/gh"
+  fixture_copy task-registry/todo-placeholder.md "$d/tasks/todo.md"
+  fixture_copy task-registry/gh "$d/bin/gh"
   chmod +x "$d/bin/gh"
-  printf '[]\n' > "$d/ghdata/issues.json"
-  printf '100\n' > "$d/ghdata/next-number"
+  fixture_copy task-registry/issues-empty.json "$d/ghdata/issues.json"
+  fixture_copy task-registry/next-number "$d/ghdata/next-number"
   printf '%s' "$d"
 }
 
@@ -59,12 +55,11 @@ write_labels() {
   } > "$d/ghdata/labels.json"
 }
 
+# The shared github config, its closing fence replaced by the case's stanzas.
 write_config() {
-  { printf '# Task tracking\n\n```ini\n[tracker]\nprovider = github\n'
-    printf 'repository = fixture-owner/fixture-repo\nrequire_write_approval = false\n'
-    cat
-    printf '```\n'
-  } > "$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking.md "$1/docs/task-tracking.md"
+  sed -i '$d' "$1/docs/task-tracking.md"
+  { cat; printf '```\n'; } >> "$1/docs/task-tracking.md"
 }
 
 run_selectors() {
@@ -73,12 +68,10 @@ run_selectors() {
       "$PY" "$CLI" selectors --repo "$d" "$@" 2>&1 )
 }
 
-pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -; }
-
 # ============================================================================
 # 1. The shipped default covers the whole precedence chain
 # ============================================================================
-defaults="$(pyreg <<'PY'
+defaults="$("$PY" - <<'PY'
 from registry.config import (
     Config,
     DEFAULT_KIND_LABELS,
@@ -129,7 +122,7 @@ assert_contains "$defaults" "kinds-mapping-to-task: none" \
 # ============================================================================
 # 2. select_routine — precedence, claim skip, unclassified
 # ============================================================================
-picks="$(pyreg <<'PY'
+picks="$("$PY" - <<'PY'
 from registry.config import Config
 from registry.routines import select_routine
 
@@ -184,7 +177,7 @@ assert_contains "$picks" "escalated=None" \
 # ============================================================================
 # 3. Configuration overrides the shipped vocabulary
 # ============================================================================
-custom="$(pyreg <<'PY'
+custom="$("$PY" - <<'PY'
 import os, pathlib, tempfile
 from registry.config import load_config
 from registry.routines import select_routine
@@ -219,7 +212,7 @@ assert_contains "$custom" "stale-default: None" \
 # ============================================================================
 # 4. A configured selector label absent upstream fails LOUDLY
 # ============================================================================
-F_OK="$(new_fixture)"
+F_OK="$(gh_project)"
 write_config "$F_OK" <<'EOF'
 EOF
 write_labels "$F_OK" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -228,7 +221,7 @@ assert_eq "0" "$ok_code" "AC12: a repository carrying every routine label exits 
 assert_contains "$ok_out" "design-decision" "AC12: the report names plan's selector"
 assert_contains "$ok_out" "in-progress" "AC12: the report names the claim label"
 
-F_MISSING="$(new_fixture)"
+F_MISSING="$(gh_project)"
 write_config "$F_MISSING" <<'EOF'
 EOF
 write_labels "$F_MISSING" bug enhancement design-decision now next
@@ -247,7 +240,7 @@ assert_not_contains "$miss_verdict" "design-decision" \
 # two runs of one routine picking the same issue, and `select_routine` excludes on
 # its PRESENCE -- so a claim label the tracker never created is written, silently
 # dropped, and read back as a clean backlog.
-F_NOCLAIM="$(new_fixture)"
+F_NOCLAIM="$(gh_project)"
 write_config "$F_NOCLAIM" <<'EOF'
 EOF
 write_labels "$F_NOCLAIM" bug enhancement design-decision simplify tech-debt documentation now next
@@ -258,7 +251,7 @@ assert_contains "$noclaim_out" "in-progress" "AC12: the refusal names the absent
 
 # A project that configures a label its tracker has never had gets the same loud
 # failure — this is the exact halt in the spec's problem table.
-F_TYPO="$(new_fixture)"
+F_TYPO="$(gh_project)"
 write_config "$F_TYPO" <<'EOF'
 [labels.kind]
 techdebt = task
@@ -275,7 +268,7 @@ assert_contains "$typo_out" "techdebt" "AC12: the failure names the mistyped lab
 # ============================================================================
 # 5. Configuration that cannot describe a total selection is refused
 # ============================================================================
-F_SPLIT="$(new_fixture)"
+F_SPLIT="$(gh_project)"
 write_config "$F_SPLIT" <<'EOF'
 [routines]
 kind_precedence = bug, enhancement
@@ -291,7 +284,7 @@ assert_contains "$split_out" "documentation" \
   "AC12: the refusal names the label that no precedence rank can order"
 
 # Two routines claiming one label makes selection non-deterministic.
-F_DUP="$(new_fixture)"
+F_DUP="$(gh_project)"
 write_config "$F_DUP" <<'EOF'
 [routines]
 kind_precedence = bug
@@ -312,7 +305,7 @@ assert_contains "$dup_out" "bug" "AC12: the refusal names the contested label"
 # would be re-implemented per host, in whatever language, drifting from the
 # in-tree copy with no failing test anywhere to notice.
 
-F_SEL="$(new_fixture)"
+F_SEL="$(gh_project)"
 write_config "$F_SEL" <<'EOF'
 EOF
 write_labels "$F_SEL" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -372,11 +365,11 @@ assert_contains "$fix_out" "unclassified" \
   "select: the count of issues with no kind label is reported"
 
 # Nothing to do is a success, and it is silent.
-F_EMPTY="$(new_fixture)"
+F_EMPTY="$(gh_project)"
 write_config "$F_EMPTY" <<'EOF'
 EOF
 write_labels "$F_EMPTY" bug enhancement design-decision simplify tech-debt documentation in-progress
-printf '[]\n' > "$F_EMPTY/ghdata/issues.json"
+fixture_copy task-registry/issues-empty.json "$F_EMPTY/ghdata/issues.json"
 empty_out="$(run_select "$F_EMPTY" --routine fix)"; empty_code=$?
 assert_eq "0" "$empty_code" \
   "select: no candidate exits 0 — a routine with nothing to do is not a failure"
@@ -386,7 +379,7 @@ assert_contains "$empty_out" "none — fix has nothing to claim" \
 # A routine nobody can branch for is a configuration error. `format_routine_branch`
 # refuses it at spine step 3 -- after the claim label is written -- so the refusal
 # has to happen at load time instead.
-F_UNKNOWN="$(new_fixture)"
+F_UNKNOWN="$(gh_project)"
 write_config "$F_UNKNOWN" <<'EOF'
 [routines]
 kind_precedence = bug, perf
@@ -419,7 +412,7 @@ done
 # members (so their branches format and parse) but not selectors: `select` and
 # `claim` refuse them with a distinct message, and a [routines.selectors] key
 # naming one is refused at load like any routine outside the contract.
-producers="$(pyreg <<'PY'
+producers="$("$PY" - <<'PY'
 from registry.config import CONTRACT_ROUTINES, PRODUCER_ROUTINES, DEFAULT_SELECTORS
 print("producers:", ",".join(PRODUCER_ROUTINES))
 print("in-contract:", all(name in CONTRACT_ROUTINES for name in PRODUCER_ROUTINES))
@@ -433,7 +426,7 @@ assert_contains "$producers" "in-contract: True" \
 assert_contains "$producers" "selectable: none" \
   "AC2: no producer ships a selector"
 
-F_PRODUCER="$(new_fixture)"
+F_PRODUCER="$(gh_project)"
 write_config "$F_PRODUCER" <<'EOF'
 [routines.selectors]
 fix = bug
@@ -451,9 +444,8 @@ assert_contains "$producer_out" "producer" "AC2: the refusal says WHY — it is 
 
 # A provider that cannot enumerate its vocabulary is "not checked", never "nothing
 # missing" -- and NOT RUN is the branch every local-provider project takes.
-F_LOCAL="$(new_fixture)"
-{ printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n```\n'; } \
-  > "$F_LOCAL/docs/task-tracking.md"
+F_LOCAL="$(gh_project)"
+fixture_copy task-registry/task-tracking-local.md "$F_LOCAL/docs/task-tracking.md"
 local_out="$(run_selectors "$F_LOCAL")"; local_code=$?
 assert_eq "0" "$local_code" \
   "AC12: a provider that cannot enumerate labels does not fail the check"
@@ -499,7 +491,7 @@ assert_contains "$wf_local_absent" "no-such-task" \
 
 # `doctor` is the command you run BECAUSE configuration is broken. Hoisting
 # validate_selectors into load_config must not make the diagnostic unreachable.
-F_BROKEN="$(new_fixture)"
+F_BROKEN="$(gh_project)"
 { printf '# Task tracking\n\n```ini\n[routines]\nkind_precedence = bug, tech-debt\n```\n'; } \
   > "$F_BROKEN/docs/task-tracking.md"
 broken_doctor="$( cd "$F_BROKEN" && "$PY" "$CLI" doctor --repo "$F_BROKEN" 2>&1 )"
@@ -576,7 +568,7 @@ run_claim() {
       "$PY" "$CLI" claim "$ref" --repo "$d" "$@" 2>&1 )
 }
 
-F_CLAIM="$(new_fixture)"
+F_CLAIM="$(gh_project)"
 write_config "$F_CLAIM" <<'EOF'
 EOF
 write_labels "$F_CLAIM" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -643,7 +635,7 @@ assert_contains "$claim_again" "already carries" "claim: idempotent, and says so
 claim_missing="$(run_claim "$F_CLAIM" 999 --routine fix --apply --approve)"; missing_code=$?
 assert_eq "1" "$missing_code" "claim: an unknown issue exits non-zero"
 
-F_HELD="$(new_fixture)"
+F_HELD="$(gh_project)"
 write_config "$F_HELD" <<'EOF'
 EOF
 write_labels "$F_HELD" bug enhancement design-decision simplify tech-debt documentation in-progress
@@ -684,7 +676,7 @@ resumed_claim="$(run_claim "$F_HELD" 53 --routine fix --apply --approve)"; resum
 assert_eq "0" "$resumed_claim_code" \
   "AC8: explicit human removal of hold and stale claim permits later claiming"
 
-F_NO_HOLD_LABEL="$(new_fixture)"
+F_NO_HOLD_LABEL="$(gh_project)"
 write_config "$F_NO_HOLD_LABEL" <<'EOF'
 EOF
 write_labels "$F_NO_HOLD_LABEL" bug enhancement design-decision simplify tech-debt documentation in-progress
@@ -700,11 +692,11 @@ assert_contains "$missing_hold" "needs-investigation" \
 
 # `select` IS routine start. A vocabulary gap must halt it, not quietly under-select:
 # the missing label makes the pool empty, and an empty pool is a normal day.
-F_SEL_GAP="$(new_fixture)"
+F_SEL_GAP="$(gh_project)"
 write_config "$F_SEL_GAP" <<'EOF'
 EOF
 write_labels "$F_SEL_GAP" bug enhancement design-decision now next in-progress
-printf '[]\n' > "$F_SEL_GAP/ghdata/issues.json"
+fixture_copy task-registry/issues-empty.json "$F_SEL_GAP/ghdata/issues.json"
 gap_out="$(run_select "$F_SEL_GAP" --routine fix)"; gap_code=$?
 assert_eq "1" "$gap_code" \
   "AC12: select REFUSES when a configured selector label is absent upstream"
@@ -717,7 +709,7 @@ assert_not_contains "$gap_out" "nothing to claim" \
 # cross-referencing pull request excludes; with none open, a merged PR of this
 # repository whose body closes the issue by keyword strands it unless a human
 # reopened it; an issue that merely mentions the candidate counts for nothing.
-F_LINK="$(new_fixture)"
+F_LINK="$(gh_project)"
 write_config "$F_LINK" <<'EOF'
 EOF
 write_labels "$F_LINK" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -809,7 +801,7 @@ assert_file_not_matches "$F_LINK/gh.log" "graphql" "AC6: no GraphQL anywhere"
 
 # A timeline past the read cap leaves the state unknown. Proceeding would
 # re-pick an issue that may be under review, so select refuses and names it.
-F_CAP="$(new_fixture)"
+F_CAP="$(gh_project)"
 write_config "$F_CAP" <<'EOF'
 EOF
 write_labels "$F_CAP" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -922,7 +914,7 @@ assert_contains "$wf_plan_out" "/plan -> /wrap-up-session" \
 # -- outcome 2: resolves to the deferred `build` routine ----------------------
 # Reachable only by configuration: `build` ships no selector, because a selector
 # for a routine nobody runs would let a deferred capability fail a live gate.
-F_BUILD="$(new_fixture)"
+F_BUILD="$(gh_project)"
 write_config "$F_BUILD" <<'EOF'
 [routines]
 kind_precedence = bug, design-decision, enhancement, documentation, tech-debt, question
@@ -1003,7 +995,7 @@ assert_eq "$wf_fix_out" "$wf_hash_out" \
 # A closed issue keeps its kind label, so every selector still matches it and
 # the report reads as a runnable routine. An unattended caller acting on that
 # starts work on something already finished.
-F_WF_CLOSED="$(new_fixture)"
+F_WF_CLOSED="$(gh_project)"
 write_config "$F_WF_CLOSED" <<'EOF'
 EOF
 write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation simplify tech-debt now next in-progress
@@ -1036,7 +1028,7 @@ assert_contains "$wf_reopened_out" "chain:" \
 # -- an outage is not a misconfiguration -------------------------------------
 # Both used to exit 2, the code a nightly wrapper pages a human on. A tracker
 # that did not answer needs a retry, and no file edit would fix it.
-F_WF_OUTAGE="$(new_fixture)"
+F_WF_OUTAGE="$(gh_project)"
 write_config "$F_WF_OUTAGE" <<'EOF'
 EOF
 rm -f "$F_WF_OUTAGE/ghdata/labels.json"   # `gh label list` now fails like an outage
@@ -1055,7 +1047,7 @@ assert_contains "$wf_outage_out" "COULD NOT RUN" \
 # The scan fallback reads the whole backlog, and `gh issue list` silently caps
 # at its page limit. A miss past the cut is indistinguishable from an absent
 # task, so the pool being partial has to be refused rather than searched.
-F_WF_TRUNC="$(new_fixture)"
+F_WF_TRUNC="$(gh_project)"
 write_config "$F_WF_TRUNC" <<'EOF'
 EOF
 write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation simplify tech-debt now next in-progress
@@ -1099,7 +1091,7 @@ assert_contains "$wf_short_out" "no backlog task carries that id" \
 # -- outcome 6: config fault, exit 2 -----------------------------------------
 # Distinct from exit 1 on purpose: a wrapper retries a missing issue and pages a
 # human for a broken configuration. Sharing a code makes both the wrong response.
-F_WF_BADCFG="$(new_fixture)"
+F_WF_BADCFG="$(gh_project)"
 write_config "$F_WF_BADCFG" <<'EOF'
 [routines]
 kind_precedence = bug
@@ -1117,7 +1109,7 @@ assert_contains "$wf_badcfg_out" "bug" \
 # -- outcome 6b: upstream label fault, exit 2 --------------------------------
 # A selector label the tracker never created makes every routine find nothing
 # and exit 0. That silent halt is the one this check exists to make loud.
-F_WF_GAP="$(new_fixture)"
+F_WF_GAP="$(gh_project)"
 write_config "$F_WF_GAP" <<'EOF'
 EOF
 write_labels "$F_WF_GAP" bug design-decision enhancement documentation now next in-progress
@@ -1183,7 +1175,7 @@ order_issue() {  # <number> <title> [extra-label]
 }
 
 new_order_fixture() {  # writes issues from stdin-ordered args
-  local d; d="$(new_fixture)"
+  local d; d="$(gh_project)"
   write_config "$d" <<'EOF'
 EOF
   write_labels "$d" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -1229,7 +1221,7 @@ assert_contains "$ranked_out" "candidate:     42 —" \
 
 # A task with no numeric external id sorts last rather than crashing the sort.
 # The local provider has no issue numbers at all, so this is its whole world.
-mixed_head="$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" - <<'PYEOF'
+mixed_head="$("$PY" - <<'PYEOF'
 from registry.model import ExternalRef, Task, by_priority
 
 # Ids chosen so ALPHABETICAL order (aaa, mmm, zzz) is the exact reverse of the

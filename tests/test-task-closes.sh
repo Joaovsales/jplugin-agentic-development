@@ -15,26 +15,15 @@
 # PATH, it is reachable from Python on Windows.
 . "$(dirname "$0")/lib.sh"
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
+py_module .agents/skills/task-registry/scripts
+SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
 CLI="$SCRIPTS/task-registry.py"
 PY="$TEST_PYTHON"
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
 
-F="$(mktemp -d)"; TMP_DIRS+=("$F")
-mkdir -p "$F/tasks" "$F/docs" "$F/stub"
+F="$(fixture_dir)"
+mkdir -p "$F/tasks" "$F/stub"
 printf '# Tasks\n' > "$F/tasks/todo.md"
-cat > "$F/docs/task-tracking.md" <<'EOF'
-# Tracking
-
-```ini
-[tracker]
-provider = github
-repository = fixture-owner/fixture-repo
-```
-EOF
+fixture_copy task-registry/task-tracking.md "$F/docs/task-tracking.md"
 
 # The scenario is JSON: `prs` maps a PR number to its state and either the
 # [repository, issue] pairs its body closes (rendered as `closes <ref>` clauses)
@@ -182,7 +171,7 @@ EOF
 # naming `owner/repo` looks like one.
 registry() {
   printf '%s' "$1" > "$F/scenario.json"; shift
-  (cd "$F" && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" \
+  (cd "$F" && \
     "$PY" "$F/stub/closes_stub.py" "$CLI" "$F/scenario.json" "$@" 2>&1)
 }
 closes() { local scenario="$1"; shift; registry "$scenario" closes "$@"; }
@@ -342,7 +331,7 @@ assert_contains "$out" "timeline" "select: the failed timeline read is named"
 assert_not_contains "$out" "candidate:" "select: no candidate is offered when linked PR state is unknown"
 
 # --- the skill documents the command ----------------------------------------
-SKILL_MD="$REPO/.agents/skills/task-registry/SKILL.md"
+SKILL_MD="${SCRIPTS%/scripts}/SKILL.md"
 assert_file_contains "$SKILL_MD" "closes <pull-request>" \
   "skill: the argument hint names closes"
 assert_file_contains "$SKILL_MD" '| `closes` |' \

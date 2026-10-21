@@ -16,6 +16,10 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 TREES=".agents"
+# The registry skill — its lane catalogue and the CLI that serves it — is the
+# artefact; relative paths keep every message below stable.
+under_test .agents/skills/task-registry >/dev/null
+under_test .agents/skills/go >/dev/null
 LANES_DIR=".agents/skills/task-registry/lanes"
 
 # Every `/skill` token in a file, first appearance first, one per line. A slash
@@ -31,7 +35,7 @@ skill_tokens() {
 # --- AC1: the skill and its contract ------------------------------------------
 for tree in $TREES; do
   f="$tree/skills/go/SKILL.md"
-  assert_eq "present" "$([ -f "$f" ] && echo present || echo missing)" \
+  assert_file_exists "$f" \
     "GoLanes: $f exists"
   assert_file_contains "$f" '[ROUTE] lane=<lane> | chain=<skill, skill, ...> | reason: <one sentence>' \
     "GoLanes: $f states the [ROUTE] emission format"
@@ -72,7 +76,7 @@ for tree in $TREES; do
     "GoLanes: $f names no playbook file of its own"
   assert_file_not_matches "$f" 'TODO\(shortcut\)' \
     "GoLanes: $f carries no TODO(shortcut) — the catalogue was the upgrade path"
-  assert_eq "absent" "$([ -d "$tree/skills/go/lanes" ] && echo present || echo absent)" \
+  assert_file_absent "$tree/skills/go/lanes" \
     "GoLanes: $tree/skills/go/lanes/ no longer exists"
 done
 
@@ -81,11 +85,11 @@ for tree in $TREES; do
   f="$tree/skills/go/SKILL.md"
   [ -f "$f" ] || continue
   tokens="$(skill_tokens "$f")"
-  assert_eq "yes" "$([ -n "$tokens" ] && echo yes || echo no)" \
-    "GoLanes: $f names at least one skill (extractor is not a no-op)"
+  assert_true "GoLanes: $f names at least one skill (extractor is not a no-op)" -- \
+    test -n "$tokens"
   while IFS= read -r tok; do
     [ -n "$tok" ] || continue
-    assert_eq "present" "$([ -f ".agents/skills/${tok#/}/SKILL.md" ] && echo present || echo missing)" \
+    assert_file_exists ".agents/skills/${tok#/}/SKILL.md" \
       "GoLanes: $f names $tok and .agents/skills/${tok#/}/SKILL.md exists"
   done <<EOF
 $tokens
@@ -109,7 +113,8 @@ done
 # --- AC4 (lane-plan-handover): the ownerless lanes cite the handover section ----
 for lane in improve refactor babysit; do
   f="$LANES_DIR/$lane.md"
-  [ -f "$f" ] || { assert_eq "present" "missing" "GoLanes: $f exists"; continue; }
+  assert_file_exists "$f" "GoLanes: $f exists"
+  [ -f "$f" ] || continue
   assert_prose_contains "$f" "Crossing the plan handover" \
     "GoLanes: $f cites the routines.md section that owns the handover rule"
   assert_file_not_matches "$f" "where the human is asked before code changes" \
@@ -124,7 +129,8 @@ done
 # property /go's own contract depends on.
 for lane in fix improve refactor perf babysit; do
   f="$LANES_DIR/$lane.md"
-  [ -f "$f" ] || { assert_eq "present" "missing" "GoLanes: $f exists"; continue; }
+  assert_file_exists "$f" "GoLanes: $f exists"
+  [ -f "$f" ] || continue
   flat="$(flatten "$f")"
   gate='/plan'
   pos_plan="$(first_pos "$flat" '/plan')"
@@ -148,14 +154,15 @@ HOST_ROOTS=".agents/skills/sweep .agents/skills/tidy .agents/skills/yolo .agents
 # A negative sweep passes on nothing if a root moved or the regex is dead, so
 # every root is asserted present and the skill's own file is the positive
 # control: the same regex must hit it before the sweep's empty result counts.
+# assert_sweep_empty enforces both; the per-root and control checks stay as
+# named assertions so a failure says which half broke.
 for root in $HOST_ROOTS; do
-  assert_eq "present" "$([ -d "$root" ] && echo present || echo missing)" \
-    "GoLanes: host sweep root $root exists"
+  assert_file_exists "$root" "GoLanes: host sweep root $root exists"
 done
-assert_eq "yes" "$(grep -qE "$GO_INVOCATION" .agents/skills/go/SKILL.md && echo yes || echo no)" \
-  "GoLanes: host sweep regex matches /go in the skill's own file (positive control)"
-host_hits="$(grep -rnE "$GO_INVOCATION" $HOST_ROOTS || true)"
-assert_eq "" "$host_hits" \
-  "GoLanes: no routine host, lane file, or hook invokes /go (offenders: ${host_hits:-none})"
+assert_true "GoLanes: host sweep regex matches /go in the skill's own file (positive control)" -- \
+  grep -qE "$GO_INVOCATION" .agents/skills/go/SKILL.md
+# shellcheck disable=SC2086 — HOST_ROOTS is a word list on purpose.
+assert_sweep_empty "GoLanes: no routine host, lane file, or hook invokes /go" \
+  .agents/skills/go/SKILL.md -- grep -rnE "$GO_INVOCATION" $HOST_ROOTS
 
 finish

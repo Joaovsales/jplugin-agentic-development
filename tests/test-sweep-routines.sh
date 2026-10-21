@@ -18,6 +18,10 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 TREES=".agents"
+# The registry skill (the subcommands /sweep names are read from its CLI) and
+# the skill under review; relative paths keep every message below stable.
+under_test .agents/skills/task-registry >/dev/null
+under_test .agents/skills/sweep >/dev/null
 WRAP=".agents/skills/wrap-up-session"
 CONTRACT="$WRAP/references/routines.md"
 PROMPTS="$WRAP/references/routine-prompts"
@@ -61,7 +65,7 @@ assert_prose_contains "$CONTRACT" "run stamp" \
 # AC3 — /sweep and its two lens files exist
 # ============================================================================
 for f in SKILL.md references/lens-janitor.md references/lens-architect.md; do
-  assert_eq "present" "$([ -f ".agents/skills/sweep/$f" ] && echo present || echo missing)" \
+  assert_file_exists ".agents/skills/sweep/$f" \
     "AC3: sweep/$f exists"
 done
 
@@ -199,11 +203,10 @@ done
 declare -A PROMPT_SKILL=([janitor]="/sweep" [architect]="/sweep" [tidy]="/tidy" [fix]="/debug" [improve]="/plan" [plan]="/plan" [simplify]="/make-it-simpler")
 for name in janitor architect tidy fix improve plan simplify; do
   p="$PROMPTS/$name.md"
-  assert_eq "present" "$([ -f "$p" ] && echo present || echo missing)" \
+  assert_file_exists "$p" \
     "AC8: routine prompt $name.md exists"
   lines="$(wc -l < "$p" 2>/dev/null || echo 999)"
-  assert_eq "under" "$([ "$lines" -lt 25 ] && echo under || echo "over ($lines)")" \
-    "AC8: $name.md is under 25 lines"
+  assert_true "AC8: $name.md is under 25 lines" -- test "$lines" -lt 25
   assert_file_contains "$p" "${PROMPT_SKILL[$name]}" \
     "AC8: $name.md names the skill it invokes"
   assert_file_contains "$p" "$name" "AC8: $name.md names its routine"
@@ -238,19 +241,20 @@ assert_file_matches "$readme" '^\| `tidy` \| producer \| `tidy.md` \| `/tidy` \|
 # not match its own sweep -- see
 # tasks/solutions/patterns/construct-retired-paths-at-runtime-to-keep-literal-sweeps-strict.md
 retired="auto""-improve"
-# `--` must come last: it ends option parsing, so an --exclude-dir after it is a
-# (nonexistent) file operand and the sweep silently loses its exclusions.
-hits="$(grep -rlF \
+# The positive control is a file holding the needle: the sweep's pattern must
+# find it before an empty sweep of the repository counts for anything.
+retired_control="$(fixture_dir)/control.txt"
+printf 'mentions %s\n' "$retired" > "$retired_control"
+assert_sweep_empty "AC9: no file outside tasks/ and specs/ mentions the retired skill" \
+  "$retired_control" -- grep -rlF \
   --exclude-dir=.git --exclude-dir=tasks --exclude-dir=specs \
   --exclude-dir=node_modules --exclude-dir=worktrees --exclude-dir=graphify-out \
-  -- "$retired" . 2>/dev/null || true)"
-assert_eq "" "$hits" \
-  "AC9: no file outside tasks/ and specs/ mentions the retired skill (offenders: ${hits:-none})"
+  -e "$retired" .
 for tree in $TREES; do
-  assert_eq "absent" "$([ -e "$tree/skills/$retired" ] && echo present || echo absent)" \
+  assert_file_absent "$tree/skills/$retired" \
     "AC9: $tree/skills/$retired is deleted"
 done
-assert_eq "absent" "$([ -e "tests/test-$retired-rewire.sh" ] && echo present || echo absent)" \
+assert_file_absent "tests/test-$retired-rewire.sh" \
   "AC9: the retired skill's rewire test is deleted"
 
 survey="$(awk '/repo-survey dispatch has no session/{f=1} f{print} f&&/^$/{exit}' .agents/references/review-dispatch-contract.md)"
