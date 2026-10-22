@@ -95,13 +95,13 @@ def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
     reads = rt.parse_session(session.path, session.subagent_paths)
     parent = reads.parent
     row = Row(f"{session.project}/{parent.session_id}" if session.project else parent.session_id)
-    row.result_bytes = parent.tool_result_bytes()
+    row.result_bytes = parent.own_result_bytes()
     row.final_context = parent.final_context
     row.compactions = parent.compactions
     row.malformed = reads.malformed
-    row.largest, row.largest_path = parent.largest_parent_result()
+    row.largest, row.largest_path = parent.largest_own_result()
     seen: set = set()
-    for call in parent.parent_calls():
+    for call in parent.own_calls():
         if isinstance(call, rt.Read):
             _count_read(row, call, seen, th)
         elif isinstance(call, rt.ShellRead):

@@ -54,7 +54,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 import re
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 DEFAULT_BYTES = 32768
 DEFAULT_LINES = 800
@@ -117,7 +117,6 @@ class ToolResult:
     line_no: int
     numbered: Optional[Tuple[int, int]] = None   # (first line number, line count) of `cat -n` text
     non_file: bool = False     # a note in place of file text: unchanged, empty, PDF, image
-    sidechain: bool = False    # the result entered a sub-agent's context, not the parent's
 
 
 @dataclass(frozen=True)
@@ -205,26 +204,28 @@ class Transcript:
     final_context: Optional[int] = None
     first_timestamp: Optional[str] = None
     last_timestamp: Optional[str] = None
+    _use_ids: Set[str] = field(default_factory=set, init=False, repr=False)
     _reads: Tuple[Read, ...] = field(default=(), init=False, repr=False)
     _shell_reads: Tuple[ShellRead, ...] = field(default=(), init=False, repr=False)
     _grep_calls: Tuple[GrepCall, ...] = field(default=(), init=False, repr=False)
     _agent_calls: Tuple[AgentCall, ...] = field(default=(), init=False, repr=False)
-    _parent_calls: Tuple[Call, ...] = field(default=(), init=False, repr=False)
-    _largest_parent_result: Tuple[int, str] = field(default=(0, ""), init=False, repr=False)
+    _own_calls: Tuple[Call, ...] = field(default=(), init=False, repr=False)
+    _largest_own_result: Tuple[int, str] = field(default=(0, ""), init=False, repr=False)
 
     def tool_uses_named(self, name: str) -> List[ToolUse]:
         return [t for t in self.tool_uses if t.name == name]
 
-    def parent_tool_uses(self) -> List[ToolUse]:
-        """The tool uses of the parent loop: every one that is not a sub-agent's sidechain."""
-        return [t for t in self.tool_uses if not t.sidechain]
+    def own_tool_uses(self) -> List[ToolUse]:
+        """The tool uses of this file's own context: every one but an inline sidechain's.
+        A `subagents/` file is its own context, so all of its uses are its own."""
+        return [t for t in self.tool_uses if self.is_subagent or not t.sidechain]
 
     def reads(self) -> Tuple[Read, ...]:
         """Every Read, the parent's and an inline sidechain's; a `subagents/` file's are all sidechain."""
         return self._reads
 
-    def parent_reads(self) -> List[Read]:
-        return [r for r in self._reads if not r.tool_use.sidechain]
+    def own_reads(self) -> List[Read]:
+        return [r for r in self._reads if self.is_subagent or not r.tool_use.sidechain]
 
     def sidechain_reads(self) -> List[Read]:
         return [r for r in self._reads if r.tool_use.sidechain]
@@ -233,9 +234,9 @@ class Transcript:
         """The sidechain reads whose file text entered a context — every one but the excluded."""
         return [r for r in self.sidechain_reads() if not r.is_excluded]
 
-    def parent_calls(self) -> Tuple[Call, ...]:
-        """The parent's Read, shell-read, Grep and Agent calls in call order."""
-        return self._parent_calls
+    def own_calls(self) -> Tuple[Call, ...]:
+        """This file's own Read, shell-read, Grep and Agent calls in call order."""
+        return self._own_calls
 
     def shell_reads(self) -> Tuple[ShellRead, ...]:
         """The parent's `Bash` uses that printed whole files, in call order."""
@@ -247,13 +248,13 @@ class Transcript:
     def agent_calls(self) -> Tuple[AgentCall, ...]:
         return self._agent_calls
 
-    def tool_result_bytes(self) -> int:
-        """The bytes the parent's own tool results put into its context."""
-        return sum(r.bytes for r in self.results.values() if not r.sidechain)
+    def own_result_bytes(self) -> int:
+        """The bytes the results of this file's own tool uses put into its context."""
+        return sum(self.results[u.id].bytes for u in self.own_tool_uses() if u.id in self.results)
 
-    def largest_parent_result(self) -> Tuple[int, str]:
-        """(bytes, subject) of the biggest result a parent tool use received; (0, "") when none."""
-        return self._largest_parent_result
+    def largest_own_result(self) -> Tuple[int, str]:
+        """(bytes, subject) of the biggest result an own tool use received; (0, "") when none."""
+        return self._largest_own_result
 
 
 @dataclass
@@ -425,17 +426,17 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
                 continue
             _absorb(t, rec, line_no)
     t._reads = tuple(classify_read(u, t.results.get(u.id), path) for u in t.tool_uses_named("Read"))
-    parent = t.parent_tool_uses()
+    own = t.own_tool_uses()
     t._shell_reads = tuple(s for s in (classify_shell_read(u, t.results.get(u.id))
-                                       for u in parent if u.name == "Bash") if s is not None)
-    t._grep_calls = tuple(classify_grep(u, t.results.get(u.id)) for u in parent if u.name == "Grep")
-    t._agent_calls = tuple(classify_agent(u, t.results.get(u.id), path) for u in parent if u.name == "Agent")
-    by_id = {c.tool_use.id: c for c in [*t.parent_reads(), *t._shell_reads, *t._grep_calls, *t._agent_calls]}
-    t._parent_calls = tuple(by_id[u.id] for u in parent if u.id in by_id)
-    for use in parent:
+                                       for u in own if u.name == "Bash") if s is not None)
+    t._grep_calls = tuple(classify_grep(u, t.results.get(u.id)) for u in own if u.name == "Grep")
+    t._agent_calls = tuple(classify_agent(u, t.results.get(u.id), path) for u in own if u.name == "Agent")
+    by_id = {c.tool_use.id: c for c in [*t.own_reads(), *t._shell_reads, *t._grep_calls, *t._agent_calls]}
+    t._own_calls = tuple(by_id[u.id] for u in own if u.id in by_id)
+    for use in own:
         result = t.results.get(use.id)
-        if result is not None and result.bytes > t._largest_parent_result[0]:
-            t._largest_parent_result = (result.bytes, use.subject)
+        if result is not None and result.bytes > t._largest_own_result[0]:
+            t._largest_own_result = (result.bytes, use.subject)
     return t
 
 
@@ -453,6 +454,8 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         t.first_timestamp = t.first_timestamp or ts
         t.last_timestamp = ts    # every line, sidechain included: wall time
     kind = rec.get("type")
+    if kind not in ("assistant", "user", "system"):
+        return    # an api-request-blob copies the request, uuid-less and with no isSidechain
     sidechain = t.is_subagent or rec.get("isSidechain") is True
     inline_sidechain = sidechain and not t.is_subagent
     if kind == "system":
@@ -473,19 +476,23 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
     for block in content:
         if not isinstance(block, dict):
             continue
-        if block.get("type") == "tool_use":
+        if block.get("type") == "tool_use" and str(block.get("id")) not in t._use_ids:
+            t._use_ids.add(str(block.get("id")))    # a resumed session re-logs a record: first wins
             t.tool_uses.append(ToolUse(str(block.get("id")), str(block.get("name")),
                                        block.get("input") if isinstance(block.get("input"), dict) else {},
                                        line_no, ts if isinstance(ts, str) else None, sidechain))
-    # `toolUseResult` sits beside the message, one per record; with several
-    # result blocks on one line it cannot be attributed and is left out.
-    structured = rec.get("toolUseResult") if len(results) == 1 else None
+    # `toolUseResult` sits beside the message, one per record, so it belongs to a
+    # record with one result block; several blocks never carry one (a record
+    # that did would be drift), and their Reads fall back to the block text.
+    structured = rec.get("toolUseResult")
+    if len(results) > 1 and structured is not None:
+        raise TranscriptDrift(t.path, line_no, "several tool_result blocks share one toolUseResult")
     for block in results:
         tid = str(block.get("tool_use_id"))
         text = _block_text(block.get("content"))
         t.results[tid] = ToolResult(tid, len(text.encode("utf-8")), structured,
                                     block.get("is_error") is True, line_no, _numbered_lines(text),
-                                    _is_non_file_note(text), sidechain)
+                                    _is_non_file_note(text))
 
 
 def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) -> Read:

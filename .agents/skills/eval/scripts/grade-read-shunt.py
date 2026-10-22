@@ -40,7 +40,7 @@ import re
 import sys
 from dataclasses import MISSING, dataclass, field, fields
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Set, Tuple, Union
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
@@ -154,15 +154,15 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     session = rt.parse_session(run.transcript, run.subagents)
     parent, agents = session.parent, session.agents
     row = RunRow(run.arm, run.task, run.run)
-    row.parent_bytes = parent.tool_result_bytes()
+    row.parent_bytes = parent.own_result_bytes()
     row.final_context = parent.final_context
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
-    row.largest = parent.largest_parent_result()[0]
+    row.largest = parent.largest_own_result()[0]
     large_paths: Set[str] = {r.norm_path for r in session.counted_sidechain_reads if r.is_large(th)}
     named: Set[str] = {r.norm_path for r in session.counted_sidechain_reads}
     rereads = 0
-    for call in parent.parent_calls():
+    for call in parent.own_calls():
         if isinstance(call, rt.Read):
             if call.is_excluded:
                 continue
@@ -181,7 +181,7 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     counted_tokens = [c.total_tokens for c in parent.agent_calls() if c.total_tokens is not None]
     counted = [c.tool_use_count for c in parent.agent_calls() if c.tool_use_count is not None]
     row.subagent_tokens = sum(counted_tokens) if counted_tokens else None
-    row.subagent_tool_uses = sum(counted) if counted else sum(len(a.tool_uses) for a in agents)
+    row.subagent_tool_uses = sum(counted) if counted else sum(len(a.own_tool_uses()) for a in agents)
     row.reread_rate = round(rereads / len(named), 3) if named else None
     row.outcome = rt.read_outcome(run.path)
     if run.has_shunt_log:
@@ -247,12 +247,12 @@ def _fmt(value: object) -> str:
     return str(value)
 
 
-def render_markdown(rows: List[RunRow], means: List[Dict[str, object]], columns: list) -> str:
+def render_markdown(rows: List[RunRow], means: List[Dict[str, object]],
+                    columns: Sequence[Tuple[str, str, bool]], numeric: Sequence[Tuple[str, str]]) -> str:
     out = ["## Runs", "",
            rt.markdown_table([h for _, h, _ in columns],
                              [[_fmt(getattr(r, k)) for k, _, _ in columns] for r in rows])]
     if means:
-        numeric = [(k, h) for k, h, n in columns if n]
         out += ["", "## Paired per-task means", "",
                 rt.markdown_table(["Arm", "Task", "Runs"] + [h for _, h in numeric],
                                   [[str(m["arm"]), str(m["task"]), str(m["runs"])]
@@ -271,15 +271,15 @@ def main() -> int:
     runs = discover(args.results)
     rows = [grade_run(r, th) for r in runs]
     columns = COLUMNS + (HOOK_COLUMNS if any(r.has_shunt_log for r in runs) else [])
-    numeric = [k for k, _, n in columns if n]
-    means = paired_means(rows, numeric)
+    numeric = [(k, h) for k, h, n in columns if n]
+    means = paired_means(rows, [k for k, _ in numeric])
     if args.json:
         payload = {"results": args.results, "bytes": args.bytes, "lines": args.lines,
                    "runs": [{f.name: getattr(r, f.name) for f in fields(RunRow)} for r in rows],
                    "paired_means": means}
         text = json.dumps(payload, indent=2)
     else:
-        text = render_markdown(rows, means, columns)
+        text = render_markdown(rows, means, columns, numeric)
     sys.stdout.buffer.write((text + "\n").encode("utf-8"))
     return 0
 

@@ -51,7 +51,7 @@ for s in rt.iter_sessions(sys.argv[2]):
     reads = t.reads()
     print(f"session {s.project}/{t.session_id} reads={len(reads)} malformed={t.malformed} "
           f"compactions={t.compactions} final_context={t.final_context} subagents={len(s.subagent_paths)} "
-          f"result_bytes={t.tool_result_bytes()}")
+          f"result_bytes={t.own_result_bytes()}")
     for r in reads:
         print(f"read {r.kind} truncated={r.truncated} large={r.is_large(rt.Thresholds())} "
               f"large1k={r.is_large(rt.Thresholds(1000, 10000))} bytes={r.bytes} lines={r.total_lines} "
@@ -157,6 +157,23 @@ PY
 assert_contains "$out" "tail compactions=1 final_context=1200 last=2026-10-20T11:00:03.000Z" \
   "parser: an inline sidechain turn leaves the parent's final context and compactions alone, and still moves wall time"
 
+# A request blob (no uuid, no isSidechain) and a resumed session's re-logged
+# record repeat tool uses: each id counts once, as the live record's.
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/repeated-uses/proj-f/s8.jsonl" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+t = rt.parse_transcript(sys.argv[2])
+print(f"uses={len(t.tool_uses)} own={len(t.own_tool_uses())} reads={len(t.own_reads())} "
+      f"sidechain={len(t.sidechain_reads())} bytes={t.own_result_bytes()}")
+PY
+)"
+assert_contains "$out" "uses=2 own=1 reads=1 sidechain=1 bytes=140" \
+  "parser: a request blob and a re-logged record repeat no tool use, and a sidechain use stays the sub-agent's"
+out="$("$TEST_PYTHON" "$SCRIPTS/read-incidence.py" --root "$FIX/repeated-uses" 2>&1)"
+assert_contains "$out" "| proj-f/s8 | 1 | 0 | 0 | 0.0% |" "report: s8's repeated parent use is one Read"
+assert_contains "$out" "| 140 (parent.cfg) | 0 | 902 | 0 | 1 | 0 | 0 | 0 |"   "report: s8's repeated sidechain use is one sub-agent read and its result is counted once"
+
 # --- § drift ---------------------------------------------------------------
 printf '\n--- drift: exit 2 names the root or the file and line; never a silent zero ---\n'
 
@@ -259,6 +276,45 @@ sys.exit(rt.run(lambda: rt.parse_transcript(sys.argv[2])))
 PY
 )"; rc=$?
 assert_eq "0" "$rc" "drift: an Agent call with no result is not drift"
+
+# One `toolUseResult` sits beside one result block: a record with several
+# blocks and a `toolUseResult` cannot be attributed, so it is drift; the same
+# record without one still reads from its block text.
+MULTI_SHARED="$TMP/multi-shared.jsonl"
+MULTI_BARE="$TMP/multi-bare.jsonl"
+"$TEST_PYTHON" - "$MULTI_SHARED" "$MULTI_BARE" <<'PY'
+import json, sys
+def line(**rec): return json.dumps(rec)
+use = line(type="assistant", message={"role": "assistant", "content": [
+    {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/w/a.py"}},
+    {"type": "tool_use", "id": "t2", "name": "Read", "input": {"file_path": "/w/b.py"}}]})
+user = line(type="user", message={"role": "user", "content": "go"})
+blocks = [{"type": "tool_result", "tool_use_id": "t1", "content": "     1\tfoo\n     2\tbar"},
+          {"type": "tool_result", "tool_use_id": "t2", "content": "     1\tbaz"}]
+shared = line(type="user", message={"role": "user", "content": blocks},
+              toolUseResult={"type": "text", "file": {"filePath": "/w/a.py", "content": "foo", "numLines": 2,
+                                                      "startLine": 1, "totalLines": 2}})
+bare = line(type="user", message={"role": "user", "content": blocks})
+open(sys.argv[1], "w").write("\n".join([user, use, shared]) + "\n")
+open(sys.argv[2], "w").write("\n".join([user, use, bare]) + "\n")
+PY
+err="$("$TEST_PYTHON" - "$SCRIPTS" "$MULTI_SHARED" <<'PY' 2>&1 >/dev/null
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+sys.exit(rt.run(lambda: rt.parse_transcript(sys.argv[2])))
+PY
+)"; rc=$?
+assert_eq "2" "$rc" "drift: several tool_result blocks sharing one toolUseResult exit 2"
+assert_contains "$err" "multi-shared.jsonl:3" "drift: the shared-toolUseResult message names the file and the line"
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$MULTI_BARE" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+print("multi-bare", [(r.kind, r.total_lines) for r in rt.parse_transcript(sys.argv[2]).reads()])
+PY
+)"
+assert_contains "$out" "multi-bare [('whole', 2), ('whole', 1)]"   "drift: several tool_result blocks with no toolUseResult are read from their block text"
 
 # --- § shell --------------------------------------------------------------
 printf '\n--- shell: a bare read delivers the file; a pipe or a redirect does not ---\n'
@@ -417,7 +473,7 @@ done
 
 # Bash, Grep and Agent uses are classified at parse time beside Read, for the
 # parent loop only: one definition of the parent serves both CLIs.
-out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" "$FIX/results/shunt/task-a/run-1/transcript.jsonl" "$FIX/root/proj-b/s3.jsonl" "$TMP/agent-unanswered.jsonl" <<'PY'
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" "$FIX/results/shunt/task-a/run-1/transcript.jsonl" "$FIX/root/proj-b/s3.jsonl" "$TMP/agent-unanswered.jsonl" "$FIX/root/proj-a/s1/subagents/agent-a1.jsonl" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
@@ -429,10 +485,12 @@ print("immutable", *(type(c()) is tuple for c in (s1.shell_reads, s1.grep_calls,
 shunt = rt.parse_transcript(sys.argv[3])
 print("completed", [(a.total_tokens, a.tool_use_count, "big.py:120-160" in a.named_text) for a in shunt.agent_calls()])
 s3 = rt.parse_transcript(sys.argv[4])
-print("parent-uses", len(s3.tool_uses), len(s3.parent_tool_uses()),
-      all(not u.sidechain for u in s3.parent_tool_uses()))
-print("largest", s1.largest_parent_result(), s3.largest_parent_result(),
-      rt.parse_transcript(sys.argv[5]).largest_parent_result())
+print("parent-uses", len(s3.tool_uses), len(s3.own_tool_uses()),
+      all(not u.sidechain for u in s3.own_tool_uses()))
+a1 = rt.parse_transcript(sys.argv[6], is_subagent=True)
+print("agent-own", len(a1.tool_uses), len(a1.own_tool_uses()), all(u.sidechain for u in a1.tool_uses))
+print("largest", s1.largest_own_result(), s3.largest_own_result(),
+      rt.parse_transcript(sys.argv[5]).largest_own_result())
 PY
 )"
 assert_contains "$out" "shell [(('c:/work/app/notes.txt',), 600), (('c:/work/app/a.txt', 'c:/work/app/b.txt'), 700), (('c:/work/app/a.txt',), 200), (('c:/work/app/a.txt',), 900)]" \
@@ -444,9 +502,10 @@ assert_contains "$out" "agent [(None, None, True)]" \
 assert_contains "$out" "completed [(12000, 7, True)]" \
   "structure: a completed Agent carries its counters and the paths its result text names"
 assert_contains "$out" "immutable True True True" "structure: the three classifications are made at parse time and handed out as tuples"
-assert_contains "$out" "parent-uses 7 6 True" "structure: parent_tool_uses() leaves out the inline sidechain use"
+assert_contains "$out" "parent-uses 7 6 True" "structure: own_tool_uses() leaves out the inline sidechain use"
+assert_contains "$out" "agent-own 1 1 True"   "structure: own_tool_uses() on a sub-agent file is all of its uses, sidechain-marked or not"
 assert_contains "$out" "largest (4357, 'C:\\\\work\\\\app\\\\huge.log') (1117, 'C:\\\\work\\\\lib\\\\legacy_reader.py') (0, '')" \
-  "structure: largest_parent_result() is the parent's biggest result and its subject, (0, '') when nothing was answered"
+  "structure: largest_own_result() is the parent's biggest result and its subject, (0, '') when nothing was answered"
 
 # The parent/sidechain split and the call order are the parser's, so neither
 # CLI re-derives them.
@@ -456,25 +515,25 @@ sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
 s1 = rt.parse_transcript(sys.argv[2])
 s3 = rt.parse_transcript(sys.argv[3])
-print("s1-split", len(s1.reads()), len(s1.parent_reads()), len(s1.sidechain_reads()))
-print("s3-split", len(s3.reads()), len(s3.parent_reads()), len(s3.sidechain_reads()),
+print("s1-split", len(s1.reads()), len(s1.own_reads()), len(s1.sidechain_reads()))
+print("s3-split", len(s3.reads()), len(s3.own_reads()), len(s3.sidechain_reads()),
       [r.norm_path.rsplit("/", 1)[-1] for r in s3.sidechain_reads()])
 print("counted-sidechain", len(s1.counted_sidechain_reads()), [r.norm_path.rsplit("/", 1)[-1] for r in s3.counted_sidechain_reads()],
       all(not r.is_excluded and r.tool_use.sidechain for r in s3.counted_sidechain_reads()))
-print("order", [type(c).__name__ for c in s1.parent_calls()])
-lines = [c.tool_use.line_no for c in s1.parent_calls()]
+print("order", [type(c).__name__ for c in s1.own_calls()])
+lines = [c.tool_use.line_no for c in s1.own_calls()]
 print("order-ids", len(lines), lines == sorted(lines))
-print("parent-calls-s3", len(s3.parent_calls()), all(not c.tool_use.sidechain for c in s3.parent_calls()))
-print("immutable", type(s1.parent_calls()) is tuple)
+print("parent-calls-s3", len(s3.own_calls()), all(not c.tool_use.sidechain for c in s3.own_calls()))
+print("immutable", type(s1.own_calls()) is tuple)
 PY
 )"
 assert_contains "$out" "s1-split 6 6 0" "structure: s1 has no sidechain read, so its parent reads are all its reads"
 assert_contains "$out" "s3-split 7 6 1 ['loader.py']" \
-  "structure: s3's inline sidechain read is in sidechain_reads() and out of parent_reads(); reads() stays the union"
+  "structure: s3's inline sidechain read is in sidechain_reads() and out of own_reads(); reads() stays the union"
 assert_contains "$out" "counted-sidechain 0 ['loader.py'] True" "structure: counted_sidechain_reads() is the sidechain reads that entered a context"
-assert_contains "$out" "order-ids 12 True" "structure: parent_calls() follows the order of the tool uses"
-assert_contains "$out" "parent-calls-s3 6 True" "structure: parent_calls() leaves out the inline sidechain read"
-assert_contains "$out" "immutable True" "structure: parent_calls() is built at parse time and handed out as a tuple"
+assert_contains "$out" "order-ids 12 True" "structure: own_calls() follows the order of the tool uses"
+assert_contains "$out" "parent-calls-s3 6 True" "structure: own_calls() leaves out the inline sidechain read"
+assert_contains "$out" "immutable True" "structure: own_calls() is built at parse time and handed out as a tuple"
 
 # A session is its parent transcript plus its sub-agent files: parse_session
 # is the one place that assembles it, so both CLIs count the same sidechain.

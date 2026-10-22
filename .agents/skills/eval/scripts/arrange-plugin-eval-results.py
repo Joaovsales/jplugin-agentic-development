@@ -105,12 +105,11 @@ def plan(keep_temp: str, aggregate_path: str, side: str) -> List[ArrangedRun]:
 
 
 def write(arranged: List[ArrangedRun], arm: str, out: str) -> None:
-    for run in arranged:
-        dest = os.path.join(out, arm, run.case, f"run-{run.number}")
+    dests = [(run, os.path.join(out, arm, run.case, f"run-{run.number}")) for run in arranged]
+    for _, dest in dests:
         if os.path.exists(dest):
             raise rt.TranscriptError(f"{dest}: run directory exists — refusing to mix two runs")
-    for run in arranged:
-        dest = os.path.join(out, arm, run.case, f"run-{run.number}")
+    for run, dest in dests:
         os.makedirs(dest)
         shutil.copyfile(run.transcript, os.path.join(dest, rt.TRANSCRIPT_FILE))
         agents = rt.session_subagents_dir(run.transcript)
