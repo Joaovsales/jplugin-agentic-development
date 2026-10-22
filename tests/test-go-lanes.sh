@@ -122,7 +122,10 @@ done
 # else in these chains asks, so one of them must come first. The lane files are
 # the registry's, pinned in full by tests/test-lane-catalogue.sh; this is the one
 # property /go's own contract depends on.
-for lane in fix improve refactor perf babysit; do
+# fix has no /build step: /debug owns the fix end to end, so its gate precedes /quality-gate.
+assert_precedes "$(flatten "$LANES_DIR/fix.md")" '/debug' '/quality-gate' \
+  "GoLanes: $LANES_DIR/fix.md names /debug before /quality-gate"
+for lane in improve refactor perf babysit; do
   f="$LANES_DIR/$lane.md"
   [ -f "$f" ] || { assert_eq "present" "missing" "GoLanes: $f exists"; continue; }
   flat="$(flatten "$f")"
