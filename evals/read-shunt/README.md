@@ -54,11 +54,16 @@ claude plugin eval . --eval-dir evals/read-shunt --scaffold --allow-tools Edit W
 Full suite, one run per case:
 
 ```
-claude plugin eval . --eval-dir evals/read-shunt --scaffold --allow-tools Edit Write --runs 1 --max-cost-usd <n> --json
+claude plugin eval . --eval-dir evals/read-shunt --scaffold --allow-tools Edit Write --runs 1 --max-cost-usd <n> --keep-temp --json
+python3 .agents/skills/eval/scripts/arrange-plugin-eval-results.py <TEMP> evals/read-shunt/results/<timestamp>/aggregate-result.json --arm <name> --out <results-dir>
+python3 .agents/skills/eval/scripts/grade-read-shunt.py <results-dir>
 ```
 
-Results land in `evals/read-shunt/results/<timestamp>/`. Grade them from the
-transcripts with `grade-read-shunt.py`, not from what the run said.
+The runner leaves only `aggregate-result.json` and `report.html` under
+`evals/read-shunt/results/<timestamp>/`; the session transcripts survive only
+under `--keep-temp`, and the arrange step copies them into the grader's
+layout. Grade from the transcripts with `grade-read-shunt.py`, not from what
+the run said.
 
 Before any paid run: `bash tests/test-read-shunt-evals.sh` checks the case
 shapes, the blinding words and the promised fixture sizes.

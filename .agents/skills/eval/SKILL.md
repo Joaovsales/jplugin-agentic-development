@@ -143,13 +143,22 @@ control plugin and the candidate plugin — into a results directory, every paid
 run under `--max-cost-usd`:
 
 ```
-claude plugin eval . --eval-dir evals/read-shunt --scaffold --runs <N> --max-cost-usd <ceiling> --json
+claude plugin eval . --eval-dir evals/read-shunt --scaffold --runs <N> --max-cost-usd <ceiling> --keep-temp --json
+python3 .agents/skills/eval/scripts/arrange-plugin-eval-results.py <TEMP> <aggregate-result.json> --arm <name> --out <results-dir>
 python3 .agents/skills/eval/scripts/grade-read-shunt.py <results-dir> [--json]
 ```
 
-The results directory is runner-neutral — `<results>/<arm>/<task>/<run>/` with
-the parent transcript, `subagents/agent-*.jsonl`, the gate's `shunt.jsonl`
-when one ran, and `outcome.json` — so the Workflow-based Mode B run is the
+The runner's own results directory holds only `aggregate-result.json` and
+`report.html`; a run's session transcript survives only under `--keep-temp`, in
+`<TEMP>/claude-eval-<id>/config/projects/<cwd>/<session>.jsonl`.
+`scripts/arrange-plugin-eval-results.py` turns those homes and the aggregate
+into the grader's layout — `<results>/<arm>/<task>/run-<n>/` with
+`transcript.jsonl`, `subagents/agent-*.jsonl` when the session had any, and
+`outcome.json` (`{"score": …}` or `{"pass": …}` from the runner's per-run
+record) — one call per arm, `--arm` naming the plugin build the runs carried
+(`--side without` takes the runner's plugin-less ablation arm). The layout is
+runner-neutral, and a gate's `shunt.jsonl` sits beside a run's transcript when
+one ran, so a Workflow-based Mode B run that writes the same layout is the
 fallback when the runner is unavailable. The grader prints one row per run and
 paired per-task means per arm:
 

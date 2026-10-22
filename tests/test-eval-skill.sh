@@ -68,13 +68,19 @@ for tree in .agents; do
     "$md: Mode C names the grader"
   assert_file_contains "$md" "scripts/read_transcript.py" \
     "$md: Mode C names the shared parser"
+  assert_file_contains "$md" "scripts/arrange-plugin-eval-results.py" \
+    "$md: Mode C names the step that arranges the runner's kept transcripts"
+  assert_file_contains "$md" "--keep-temp" \
+    "$md: Mode C says the transcript survives only under --keep-temp"
+  assert_file_not_matches "$md" "runner-neutral — .<results>" \
+    "$md: Mode C does not claim the runner leaves the grader layout"
   assert_file_contains "$md" "| Re-read rate |" \
     "$md: Mode C carries the metrics table"
   assert_file_contains "$md" "parent end-context" \
     "$md: Mode C carries the thresholds"
   assert_file_contains "$md" "--max-cost-usd" \
     "$md: every paid run carries a cost ceiling"
-  for script in read_transcript.py read-incidence.py grade-read-shunt.py; do
+  for script in read_transcript.py read-incidence.py grade-read-shunt.py arrange-plugin-eval-results.py; do
     assert_eq "present" "$([ -f "$tree/skills/eval/scripts/$script" ] && echo present || echo missing)" \
       "$tree/skills/eval: $script is on disk"
   done

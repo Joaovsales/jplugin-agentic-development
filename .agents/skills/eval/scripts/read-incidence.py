@@ -28,8 +28,8 @@ import json
 import math
 import os
 import sys
-from dataclasses import asdict, dataclass, field
-from typing import Dict, List, Optional
+from dataclasses import asdict, dataclass, field, fields
+from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
@@ -37,42 +37,55 @@ import read_transcript as rt  # noqa: E402
 GO_MEDIAN_SHARE = 0.10
 GO_QUARTER_SHARE = 0.25
 
-COLUMNS = [
-    ("session", "Session"), ("reads", "Reads"), ("whole_large", "Whole-file large"),
-    ("whole_large_bytes", "Bytes"), ("share", "Share"), ("truncated", "Truncated"),
-    ("shell_reads", "Shell reads"), ("shell_bytes", "Shell bytes"), ("largest", "Largest result"),
-    ("rereads", "Re-reads"), ("final_context", "Final context"), ("compactions", "Compactions"),
-    ("subagent_reads", "Sub-agent reads"), ("subagent_large", "Sub-agent large"),
-    ("excluded", "Excluded"), ("malformed", "Malformed"),
-]
+
+def _metric(label: Optional[str], *, summable: bool = True, default: object = 0,
+            derived: Optional[Tuple[str, str]] = None):
+    """A Row field and everything the report knows about it: its column label
+    (`None` for a field that is no column), whether the aggregate sums it, and a
+    derived column that follows it."""
+    return field(default=default, metadata={"label": label, "summable": summable, "derived": derived})
 
 
 @dataclass
 class Row:
-    session: str
-    reads: int = 0
-    whole_large: int = 0
-    whole_large_bytes: int = 0
-    result_bytes: int = 0
-    truncated: int = 0
-    shell_reads: int = 0
-    shell_bytes: int = 0
-    largest: int = 0
-    largest_path: str = ""
-    rereads: int = 0
-    final_context: Optional[int] = None
-    compactions: int = 0
-    subagent_reads: int = 0
-    subagent_large: int = 0
-    excluded: int = 0
-    malformed: int = 0
+    session: str = field(metadata={"label": "Session", "summable": False, "derived": None})
+    reads: int = _metric("Reads")
+    whole_large: int = _metric("Whole-file large")
+    whole_large_bytes: int = _metric("Bytes", derived=("share", "Share"))
+    result_bytes: int = _metric(None)
+    truncated: int = _metric("Truncated")
+    shell_reads: int = _metric("Shell reads")
+    shell_bytes: int = _metric("Shell bytes")
+    largest: int = _metric("Largest result", summable=False)
+    largest_path: str = _metric(None, summable=False, default="")
+    rereads: int = _metric("Re-reads")
+    final_context: Optional[int] = _metric("Final context", summable=False, default=None)
+    compactions: int = _metric("Compactions")
+    subagent_reads: int = _metric("Sub-agent reads")
+    subagent_large: int = _metric("Sub-agent large")
+    excluded: int = _metric("Excluded")
+    malformed: int = _metric("Malformed")
 
     @property
     def share(self) -> float:
         return self.whole_large_bytes / self.result_bytes if self.result_bytes else 0.0
 
 
-def measure_session(session: rt.Session, bytes_t: int, lines_t: int) -> Row:
+def _columns() -> List[Tuple[str, str]]:
+    columns: List[Tuple[str, str]] = []
+    for f in fields(Row):
+        if f.metadata["label"]:
+            columns.append((f.name, f.metadata["label"]))
+        if f.metadata["derived"]:
+            columns.append(f.metadata["derived"])
+    return columns
+
+
+COLUMNS = _columns()
+SUMMED = [f.name for f in fields(Row) if f.metadata["summable"]]
+
+
+def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
     parent = rt.parse_transcript(session.path)
     row = Row(f"{session.project}/{parent.session_id}" if session.project else parent.session_id)
     row.result_bytes = parent.tool_result_bytes()
@@ -84,7 +97,7 @@ def measure_session(session: rt.Session, bytes_t: int, lines_t: int) -> Row:
     for use in parent.tool_uses:
         result = parent.results.get(use.id)
         if use.name == "Read":
-            _count_read(row, reads_by_id[use.id], seen, bytes_t, lines_t)
+            _count_read(row, reads_by_id[use.id], seen, th)
         elif use.name == "Bash" and not use.sidechain and result is not None:
             files = rt.bare_shell_reads(str(use.input.get("command", "")))
             if files:
@@ -98,17 +111,18 @@ def measure_session(session: rt.Session, bytes_t: int, lines_t: int) -> Row:
     for path in session.subagent_paths:
         agent = rt.parse_transcript(path, is_subagent=True)
         row.malformed += agent.malformed
-        for read in agent.reads():
-            _count_subagent_read(row, read, bytes_t, lines_t)
+        for read in agent.counted_reads():
+            _count_subagent_read(row, read, th)
     return row
 
 
-def _count_read(row: Row, read: rt.Read, seen: set, bytes_t: int, lines_t: int) -> None:
-    if read.tool_use.sidechain:
-        _count_subagent_read(row, read, bytes_t, lines_t)
+def _count_read(row: Row, read: rt.Read, seen: set, th: rt.Thresholds) -> None:
+    if read.is_excluded:
+        if not read.tool_use.sidechain:
+            row.excluded += 1
         return
-    if read.kind == "excluded":
-        row.excluded += 1
+    if read.tool_use.sidechain:
+        _count_subagent_read(row, read, th)
         return
     row.reads += 1
     if read.norm_path in seen:
@@ -116,25 +130,21 @@ def _count_read(row: Row, read: rt.Read, seen: set, bytes_t: int, lines_t: int) 
     seen.add(read.norm_path)
     if read.truncated:
         row.truncated += 1
-    if read.kind == "whole" and read.is_large(bytes_t, lines_t):
+    if read.is_whole_large(th):
         row.whole_large += 1
         row.whole_large_bytes += read.bytes
 
 
-def _count_subagent_read(row: Row, read: rt.Read, bytes_t: int, lines_t: int) -> None:
-    if read.kind == "excluded":
-        return
+def _count_subagent_read(row: Row, read: rt.Read, th: rt.Thresholds) -> None:
     row.subagent_reads += 1
-    if read.kind == "whole" and read.is_large(bytes_t, lines_t):
+    if read.is_whole_large(th):
         row.subagent_large += 1
 
 
 def aggregate(rows: List[Row]) -> Dict[str, object]:
     total = Row("all sessions")
     for r in rows:
-        for key in ("reads", "whole_large", "whole_large_bytes", "result_bytes", "truncated", "shell_reads",
-                    "shell_bytes", "rereads", "compactions", "subagent_reads", "subagent_large",
-                    "excluded", "malformed"):
+        for key in SUMMED:
             setattr(total, key, getattr(total, key) + getattr(r, key))
         if r.largest > total.largest:
             total.largest, total.largest_path = r.largest, r.largest_path
@@ -207,7 +217,8 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--paths", action="store_true", help="full paths instead of basenames")
     args = parser.parse_args()
-    rows = [measure_session(s, args.bytes, args.lines) for s in rt.iter_sessions(args.root)]
+    th = rt.Thresholds(args.bytes, args.lines)
+    rows = [measure_session(s, th) for s in rt.iter_sessions(args.root)]
     agg = aggregate(rows)
     render = render_json if args.json else render_markdown
     sys.stdout.buffer.write((render(rows, agg, args) + "\n").encode("utf-8"))

@@ -53,14 +53,14 @@ for s in rt.iter_sessions(sys.argv[2]):
           f"compactions={t.compactions} final_context={t.final_context} subagents={len(s.subagent_paths)} "
           f"result_bytes={t.tool_result_bytes()}")
     for r in reads:
-        print(f"read {r.kind} truncated={r.truncated} large={r.is_large(rt.DEFAULT_BYTES, rt.DEFAULT_LINES)} "
-              f"large1k={r.is_large(1000, 10000)} bytes={r.bytes} lines={r.total_lines} "
+        print(f"read {r.kind} truncated={r.truncated} large={r.is_large(rt.Thresholds())} "
+              f"large1k={r.is_large(rt.Thresholds(1000, 10000))} bytes={r.bytes} lines={r.total_lines} "
               f"sidechain={r.tool_use.sidechain} {r.norm_path.rsplit('/', 1)[-1]}")
     for p in s.subagent_paths:
         a = rt.parse_transcript(p, is_subagent=True)
         print(f"agent {a.session_id} subagent={a.is_subagent} final_context={a.final_context}")
         for r in a.reads():
-            print(f"agent-read {r.kind} large={r.is_large(rt.DEFAULT_BYTES, rt.DEFAULT_LINES)} "
+            print(f"agent-read {r.kind} large={r.is_large(rt.Thresholds())} "
                   f"bytes={r.bytes} sidechain={r.tool_use.sidechain} {r.norm_path.rsplit('/', 1)[-1]}")
 print("norm-equal", rt.normalize_path(r"C:\work\app\Big_Module.py") == rt.normalize_path("C:/work/app/big_module.py"))
 PY
@@ -176,6 +176,28 @@ PY
 assert_eq "2" "$rc" "drift: a Read input without file_path exits 2"
 assert_contains "$err" "s8.jsonl:2" "drift: the input-shape message names the file and the line"
 
+# parse_transcript returning is proof the transcript is readable: Reads are
+# classified at parse time, so drift raises there and `reads()` is free after.
+err="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/drift/proj-d/s9.jsonl" <<'PY' 2>&1 >/dev/null
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+sys.exit(rt.run(lambda: rt.parse_transcript(sys.argv[2])))
+PY
+)"; rc=$?
+assert_eq "2" "$rc" "drift: parse_transcript alone raises on a Read result whose file block moved"
+assert_contains "$err" "s9.jsonl:3" "drift: the parse-time message names the file and the line"
+
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+t = rt.parse_transcript(sys.argv[2])
+print("cached", t.reads() is t.reads())
+PY
+)"
+assert_contains "$out" "cached True" "parser: reads() classifies once, not on every call"
+
 # A clean run through the same guard is exit 0 and silent on stderr.
 err="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" <<'PY' 2>&1 >/dev/null
 import sys
@@ -286,5 +308,79 @@ assert_contains "$err" "empty-root" "report: the CLI names the empty root"
 err="$("$TEST_PYTHON" "$INCIDENCE" --root "$FIX/drift" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "report: a drifted Read block exits 2 through the CLI"
 assert_contains "$err" "s9.jsonl:3" "report: the CLI names the file and line"
+
+# --- § structure ----------------------------------------------------------
+printf '\n--- structure: one declaration per fact, so none can be left out ---\n'
+
+# The parser owns the gate-log name: a shunt.jsonl beside a transcript is a
+# decision log, not a zero-read session.
+SHUNTROOT="$TMP/shunt-root"; mkdir -p "$SHUNTROOT"
+cp -r "$FIX/root/." "$SHUNTROOT/"
+printf '%s\n' '{"decision":"allow","tool":"Read","input":{}}' > "$SHUNTROOT/proj-a/shunt.jsonl"
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$SHUNTROOT" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+names = sorted(s.path.replace("\\", "/").rsplit("/", 1)[-1] for s in rt.iter_sessions(sys.argv[2]))
+print("log-name", rt.SHUNT_LOG)
+print("sessions", " ".join(names))
+PY
+)"
+assert_contains "$out" "log-name shunt.jsonl" "structure: the parser exports the gate-log name"
+assert_contains "$out" "sessions s1.jsonl s2.jsonl s3.jsonl" "structure: iter_sessions skips a shunt.jsonl beside a transcript"
+assert_eq "$("$TEST_PYTHON" "$INCIDENCE" --root "$FIX/root" --json 2>&1 | sed 's/"root": .*/"root"/')" \
+  "$("$TEST_PYTHON" "$INCIDENCE" --root "$SHUNTROOT" --json 2>&1 | sed 's/"root": .*/"root"/')" \
+  "structure: the report is the same with a gate log beside a transcript"
+assert_eq "0" "$(grep -c 'SHUNT_LOG = ' "$SCRIPTS/grade-read-shunt.py")" \
+  "structure: the grader imports the gate-log name instead of spelling its own"
+
+# The parser's predicates replace the kind comparisons at every call site.
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+t = rt.parse_transcript(sys.argv[2])
+th = rt.Thresholds()
+reads = t.reads()
+print("defaults", th.bytes, th.lines)
+print("whole", sum(r.is_whole for r in reads), "excluded", sum(r.is_excluded for r in reads),
+      "whole-large", sum(r.is_whole_large(th) for r in reads),
+      "counted", len(t.counted_reads()), "of", len(reads))
+print("counted-clean", all(not r.is_excluded for r in t.counted_reads()))
+PY
+)"
+assert_contains "$out" "defaults 32768 800" "structure: Thresholds defaults to the spec's 32768 bytes and 800 lines"
+assert_contains "$out" "whole 3 excluded 2 whole-large 2 counted 4 of 6" \
+  "structure: s1's reads split into whole, excluded and whole-large through the Read predicates"
+assert_contains "$out" "counted-clean True" "structure: counted_reads() yields no excluded read"
+for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
+  assert_eq "0" "$(grep -cE '\.kind (==|!=)' "$cli")" "$cli: no call site compares Read.kind — the predicates own that"
+done
+
+# One Row declaration drives the columns and the aggregate: a field added to
+# it is a column and summed unless it is declared otherwise.
+out="$("$TEST_PYTHON" - "$INCIDENCE" <<'PY'
+import importlib.util, sys
+from dataclasses import fields
+spec = importlib.util.spec_from_file_location("read_incidence", sys.argv[1])
+ri = importlib.util.module_from_spec(spec)
+sys.modules["read_incidence"] = ri
+spec.loader.exec_module(ri)
+names = {f.name for f in fields(ri.Row)}
+print("columns-known", all(key in names or key == "share" for key, _ in ri.COLUMNS))
+rows = [ri.Row("a"), ri.Row("b")]
+summable = [f.name for f in fields(ri.Row) if f.metadata["summable"]]
+for i, row in enumerate(rows, 1):
+    for name in summable:
+        setattr(row, name, i)
+total = ri.aggregate(rows)["total"]
+print("summed", all(getattr(total, name) == 3 for name in summable), len(summable))
+print("unsummed", sorted(names - set(summable)))
+PY
+)"
+assert_contains "$out" "columns-known True" "structure: every column is a Row field or the derived share"
+assert_contains "$out" "summed True 13" "structure: aggregate() sums every summable Row field"
+assert_contains "$out" "unsummed ['final_context', 'largest', 'largest_path', 'session']" \
+  "structure: the fields that are not summed are the ones declared so"
 
 finish

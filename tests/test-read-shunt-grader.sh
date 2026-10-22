@@ -119,6 +119,63 @@ err="$("$TEST_PYTHON" "$GRADER" "$TMP/badlog" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "grader: a shunt log entry without a decision exits 2"
 assert_contains "$err" "shunt.jsonl:1" "grader: the shunt-log message names the file and line"
 
+# --- § arranging -------------------------------------------------------------
+printf '\n--- arranging: a kept `claude plugin eval` temp tree becomes the grader layout ---\n'
+
+ARRANGE="$SCRIPTS/arrange-plugin-eval-results.py"
+assert_eq "present" "$([ -f "$ARRANGE" ] && echo present || echo missing)" "arrange: arrange-plugin-eval-results.py exists"
+
+# What the runner leaves: <TEMP>/claude-eval-<id>/{out/trace.jsonl,config/projects/<cwd>/<session>.jsonl}
+# beside an aggregate-result.json whose runs name their trace by absolute path.
+KEPT="$TMP/kept"
+mkdir -p "$KEPT/claude-eval-AAA/out" "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1/subagents" \
+         "$KEPT/claude-eval-BBB/out" "$KEPT/claude-eval-BBB/config/projects/-enc-cwd"
+printf '%s\n' '{"type":"result"}' > "$KEPT/claude-eval-AAA/out/trace.jsonl"
+cp "$RESULTS/shunt/task-a/run-1/transcript.jsonl" "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1.jsonl"
+cp "$RESULTS/shunt/task-a/run-1/subagents/agent-s1.jsonl" "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1/subagents/"
+printf '%s\n' '{"type":"result"}' > "$KEPT/claude-eval-BBB/out/trace.jsonl"
+cp "$RESULTS/control/task-b/run-1/transcript.jsonl" "$KEPT/claude-eval-BBB/config/projects/-enc-cwd/sess2.jsonl"
+AGG="$TMP/aggregate-result.json"
+"$TEST_PYTHON" - "$AGG" <<'PY'
+import json, sys
+def run(score, passed, trace):
+    return {"score": score, "passed": passed, "turns": 3, "error": None, "tracePath": trace, "graders": []}
+agg = {"schemaVersion": 1, "cases": [{"name": "task-a", "arms": {"with": [
+    run(1, True, "C:\\Users\\dev\\AppData\\Local\\Temp\\claude-eval-AAA\\out\\trace.jsonl"),
+    run(None, False, "/tmp/claude-eval-BBB/out/trace.jsonl"),
+]}}]}
+json.dump(agg, open(sys.argv[1], "w"))
+PY
+ARRANGED="$TMP/arranged"
+arr="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm gated --out "$ARRANGED" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "arrange: a kept temp tree and its aggregate arrange with exit 0"
+[ "$rc" = "0" ] || printf '%s\n' "$arr" | head -5
+assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/transcript.jsonl" ] && echo present || echo missing)" \
+  "arrange: run 1's session transcript lands at <arm>/<task>/run-1/transcript.jsonl"
+assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/subagents/agent-s1.jsonl" ] && echo present || echo missing)" \
+  "arrange: the session's sub-agent transcripts travel with it"
+assert_eq '{"score": 1}' "$(cat "$ARRANGED/gated/task-a/run-1/outcome.json")" "arrange: outcome.json carries the runner's score"
+assert_eq '{"pass": false}' "$(cat "$ARRANGED/gated/task-a/run-2/outcome.json")" \
+  "arrange: a run with no score carries the runner's pass verdict"
+graded="$("$TEST_PYTHON" "$GRADER" "$ARRANGED" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "arrange: the grader reads the arranged directory"
+assert_contains "$graded" "| gated | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 1 | 1 |" \
+  "arrange: run 1 grades to the row its transcript gives"
+assert_contains "$graded" "| gated | task-a | run-2 | 0 | 1 | 1317 | 717 | 20000 | 0 | - | 0 | 90 | - | 0 |" \
+  "arrange: run 2 grades with the pass verdict as outcome 0"
+
+err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm gated --out "$ARRANGED" 2>&1 >/dev/null)"; rc=$?
+assert_eq "2" "$rc" "arrange: arranging over an existing run directory exits 2"
+assert_contains "$err" "run-1" "arrange: the message names the run directory it would overwrite"
+
+rm -rf "$KEPT/claude-eval-BBB"
+err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm other --out "$TMP/arranged-2" 2>&1 >/dev/null)"; rc=$?
+assert_eq "2" "$rc" "arrange: a run whose temp home was not kept exits 2"
+assert_contains "$err" "claude-eval-BBB" "arrange: the message names the missing temp home"
+assert_contains "$err" "--keep-temp" "arrange: the message says how to keep it"
+assert_eq "missing" "$([ -e "$TMP/arranged-2" ] && echo present || echo missing)" \
+  "arrange: nothing is written when any run cannot be arranged"
+
 # --- § shared parser ----------------------------------------------------------
 printf '\n--- shared parser: both CLIs import read_transcript.py and extract nothing themselves ---\n'
 for cli in "$GRADER" "$INCIDENCE"; do

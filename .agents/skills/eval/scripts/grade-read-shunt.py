@@ -14,8 +14,11 @@ run, each holding the run's main-loop transcript and what sat beside it —
         shunt.jsonl              the gate's decision log, when a gate ran
         outcome.json             {"score": 0..1} or {"pass": true|false}
 
-`claude plugin eval` and the Workflow-based /eval Mode B both leave those
-files; the arm is the plugin build the run carried, the task is the case.
+`claude plugin eval` does not leave that layout: its results directory holds
+only `aggregate-result.json` and `report.html`, and a run's session transcript
+survives only under `--keep-temp`. `arrange-plugin-eval-results.py` builds the
+layout from the kept temp homes and the aggregate; the arm is the plugin build
+the run carried, the task is the case.
 
 One row per run: parent whole-file large reads; routing-around attempts (a
 bare shell read of a large result, or a `Grep` with `-C` >= 50 or
@@ -37,45 +40,49 @@ import re
 import sys
 from dataclasses import dataclass, field, fields
 from datetime import datetime
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
 
 GREP_CONTEXT_FLOOR = 50
-SHUNT_LOG = "shunt.jsonl"
 OUTCOME_FILE = "outcome.json"
 
-# (field, header, numeric). Hook columns are appended only when a shunt log exists.
-COLUMNS = [
-    ("arm", "Arm", False), ("task", "Task", False), ("run", "Run", False),
-    ("whole_large", "Parent whole-file large", True), ("routing_around", "Routing-around", True),
-    ("parent_bytes", "Bytes into parent", True), ("largest", "Largest result", True),
-    ("final_context", "Final context", True), ("compactions", "Compactions", True),
-    ("subagent_tokens", "Sub-agent tokens", True), ("subagent_tool_uses", "Sub-agent tool uses", True),
-    ("wall_seconds", "Wall s", True), ("reread_rate", "Re-read rate", True), ("outcome", "Outcome", True),
-]
-HOOK_COLUMNS = [("hook_decisions", "Hook decisions", False), ("repeated_denies", "Repeated denies", True)]
+
+def _column(label: str, numeric: bool = True, hook: bool = False, default: object = None):
+    """A RunRow field and its table column: header, whether the paired means
+    average it, and whether it only appears when a shunt log exists."""
+    return field(default=default, metadata={"label": label, "numeric": numeric, "hook": hook})
 
 
 @dataclass
 class RunRow:
-    arm: str
-    task: str
-    run: str
-    whole_large: int = 0
-    routing_around: int = 0
-    parent_bytes: int = 0
-    largest: int = 0
-    final_context: Optional[int] = None
-    compactions: int = 0
-    subagent_tokens: Optional[int] = None
-    subagent_tool_uses: int = 0
-    wall_seconds: Optional[float] = None
-    reread_rate: Optional[float] = None
-    outcome: Optional[float] = None
-    hook_decisions: Optional[str] = None
-    repeated_denies: Optional[int] = None
+    arm: str = field(metadata={"label": "Arm", "numeric": False, "hook": False})
+    task: str = field(metadata={"label": "Task", "numeric": False, "hook": False})
+    run: str = field(metadata={"label": "Run", "numeric": False, "hook": False})
+    whole_large: int = _column("Parent whole-file large", default=0)
+    routing_around: int = _column("Routing-around", default=0)
+    parent_bytes: int = _column("Bytes into parent", default=0)
+    largest: int = _column("Largest result", default=0)
+    final_context: Optional[int] = _column("Final context")
+    compactions: int = _column("Compactions", default=0)
+    subagent_tokens: Optional[int] = _column("Sub-agent tokens")
+    subagent_tool_uses: int = _column("Sub-agent tool uses", default=0)
+    wall_seconds: Optional[float] = _column("Wall s")
+    reread_rate: Optional[float] = _column("Re-read rate")
+    outcome: Optional[float] = _column("Outcome")
+    hook_decisions: Optional[str] = _column("Hook decisions", numeric=False, hook=True)
+    repeated_denies: Optional[int] = _column("Repeated denies", hook=True)
+
+
+def _columns(hook: bool) -> List[Tuple[str, str, bool]]:
+    return [(f.name, f.metadata["label"], f.metadata["numeric"]) for f in fields(RunRow)
+            if f.metadata["hook"] == hook]
+
+
+# (field, header, numeric). Hook columns are appended only when a shunt log exists.
+COLUMNS = _columns(hook=False)
+HOOK_COLUMNS = _columns(hook=True)
 
 
 @dataclass
@@ -105,7 +112,7 @@ def discover(results: str) -> List[RunDir]:
                 run_dir = os.path.join(task_dir, run)
                 if not os.path.isdir(run_dir):
                     continue
-                transcripts = sorted(f for f in os.listdir(run_dir) if f.endswith(".jsonl") and f != SHUNT_LOG)
+                transcripts = sorted(f for f in os.listdir(run_dir) if f.endswith(".jsonl") and f != rt.SHUNT_LOG)
                 if not transcripts:
                     continue
                 agents_dir = os.path.join(run_dir, rt.SUBAGENTS_DIR)
@@ -155,7 +162,7 @@ def _is_routing_grep(use: rt.ToolUse) -> bool:
     return (isinstance(context, int) and context >= GREP_CONTEXT_FLOOR) or use.input.get("head_limit") == 0
 
 
-def grade_run(run: RunDir, bytes_t: int, lines_t: int) -> RunRow:
+def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     parent = rt.parse_transcript(run.transcript, is_subagent=False)
     row = RunRow(run.arm, run.task, run.run)
     row.parent_bytes = parent.tool_result_bytes()
@@ -163,7 +170,7 @@ def grade_run(run: RunDir, bytes_t: int, lines_t: int) -> RunRow:
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
     agents = [rt.parse_transcript(p, is_subagent=True) for p in run.subagents]
-    large_paths: Set[str] = {r.norm_path for a in agents for r in a.reads() if r.is_large(bytes_t, lines_t)}
+    large_paths: Set[str] = {r.norm_path for a in agents for r in a.reads() if r.is_large(th)}
     named: Set[str] = set()
     rereads = 0
     tokens: Optional[int] = None
@@ -177,23 +184,23 @@ def grade_run(run: RunDir, bytes_t: int, lines_t: int) -> RunRow:
             row.largest = result.bytes
         if use.name == "Read":
             read = reads[use.id]
-            if read.kind == "excluded":
+            if read.is_excluded:
                 continue
-            if read.is_large(bytes_t, lines_t):
+            if read.is_large(th):
                 large_paths.add(read.norm_path)
-                if read.kind == "whole":
-                    row.whole_large += 1
+            if read.is_whole_large(th):
+                row.whole_large += 1
             rereads += _was_named(read.norm_path, named)
         elif use.name == "Bash":
             files = rt.bare_shell_reads(str(use.input.get("command", "")))
             if files and result is not None:
                 norms = [rt.normalize_path(f) for f in files]
-                if result.bytes >= bytes_t or any(n in large_paths for n in norms):
+                if result.bytes >= th.bytes or any(n in large_paths for n in norms):
                     row.routing_around += 1
                 rereads += sum(_was_named(n, named) for n in norms)
         elif use.name == "Grep":
             target = rt.normalize_path(str(use.input.get("path", "")))
-            if _is_routing_grep(use) and (target in large_paths or (result is not None and result.bytes >= bytes_t)):
+            if _is_routing_grep(use) and (target in large_paths or (result is not None and result.bytes >= th.bytes)):
                 row.routing_around += 1
         elif use.name == "Agent":
             named |= _paths_in(_agent_text(use, result))
@@ -203,7 +210,7 @@ def grade_run(run: RunDir, bytes_t: int, lines_t: int) -> RunRow:
                 if isinstance(result.result.get("totalToolUseCount"), int):
                     tool_uses += result.result["totalToolUseCount"]
     for agent in agents:
-        named |= {r.norm_path for r in agent.reads() if r.kind != "excluded"}
+        named |= {r.norm_path for r in agent.counted_reads()}
         if not tool_uses:
             tool_uses += len(agent.tool_uses)
     row.subagent_tokens = tokens
@@ -240,7 +247,7 @@ def _outcome(run_dir: str) -> Optional[float]:
 
 
 def _hook_columns(row: RunRow, run_dir: str) -> None:
-    path = os.path.join(run_dir, SHUNT_LOG)
+    path = os.path.join(run_dir, rt.SHUNT_LOG)
     if not os.path.exists(path):
         return
     decisions: Dict[str, int] = {}
@@ -312,7 +319,8 @@ def main() -> int:
     parser.add_argument("--lines", type=int, default=rt.DEFAULT_LINES)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    rows = [grade_run(r, args.bytes, args.lines) for r in discover(args.results)]
+    th = rt.Thresholds(args.bytes, args.lines)
+    rows = [grade_run(r, th) for r in discover(args.results)]
     columns = COLUMNS + (HOOK_COLUMNS if any(r.repeated_denies is not None for r in rows) else [])
     numeric = [k for k, _, n in columns if n]
     means = paired_means(rows, numeric)

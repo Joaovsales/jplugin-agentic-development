@@ -13,6 +13,9 @@ tests/fixtures/transcripts/:
   <root>/<project>/<session>.jsonl                      the main loop
   <root>/<project>/<session>/subagents/agent-<id>.jsonl  one per sub-agent
 
+A `shunt.jsonl` gate log beside a transcript is not a session; `iter_sessions`
+skips it by the name `SHUNT_LOG`.
+
 One JSON object per line. An `assistant` record carries `message.content`
 (a list of blocks; a `tool_use` block has `id`, `name`, `input`) and
 `message.usage`; a `user` record carries `tool_result` blocks and, beside the
@@ -48,6 +51,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 DEFAULT_BYTES = 32768
 DEFAULT_LINES = 800
 SUBAGENTS_DIR = "subagents"
+# The gate's decision log, written beside a transcript; it is JSONL but not a session.
+SHUNT_LOG = "shunt.jsonl"
 
 # `toolUseResult.type` values that are not text and therefore not a read into
 # the parent's context. Anything else that is not `text` is drift, not a new
@@ -96,6 +101,14 @@ class ToolResult:
     non_file: bool = False     # a note in place of file text: unchanged, empty, PDF, image
 
 
+@dataclass(frozen=True)
+class Thresholds:
+    """When a read is large: at `bytes` or `lines` (specs/read-shunt-baseline.md D3)."""
+
+    bytes: int = DEFAULT_BYTES
+    lines: int = DEFAULT_LINES
+
+
 @dataclass
 class Read:
     """One `Read` tool use, classified from its input and its result."""
@@ -111,10 +124,21 @@ class Read:
     def norm_path(self) -> str:
         return normalize_path(self.path)
 
-    def is_large(self, bytes_threshold: int = DEFAULT_BYTES, lines_threshold: int = DEFAULT_LINES) -> bool:
-        if self.kind == "excluded":
+    @property
+    def is_whole(self) -> bool:
+        return self.kind == "whole"
+
+    @property
+    def is_excluded(self) -> bool:
+        return self.kind == "excluded"
+
+    def is_large(self, th: Thresholds = Thresholds()) -> bool:
+        if self.is_excluded:
             return False
-        return self.bytes >= bytes_threshold or self.total_lines >= lines_threshold
+        return self.bytes >= th.bytes or self.total_lines >= th.lines
+
+    def is_whole_large(self, th: Thresholds = Thresholds()) -> bool:
+        return self.is_whole and self.is_large(th)
 
 
 @dataclass
@@ -129,12 +153,17 @@ class Transcript:
     final_context: Optional[int] = None
     first_timestamp: Optional[str] = None
     last_timestamp: Optional[str] = None
+    _reads: List[Read] = field(default_factory=list, init=False, repr=False)
 
     def tool_uses_named(self, name: str) -> List[ToolUse]:
         return [t for t in self.tool_uses if t.name == name]
 
     def reads(self) -> List[Read]:
-        return [classify_read(t, self.results.get(t.id), self.path) for t in self.tool_uses_named("Read")]
+        return self._reads
+
+    def counted_reads(self) -> List[Read]:
+        """The reads whose file text entered the context — every read but the excluded."""
+        return [r for r in self._reads if not r.is_excluded]
 
     def tool_result_bytes(self) -> int:
         return sum(r.bytes for r in self.results.values())
@@ -162,7 +191,7 @@ def iter_sessions(root: str) -> List[Session]:
         if SUBAGENTS_DIR in dirnames:
             dirnames.remove(SUBAGENTS_DIR)
         for name in sorted(filenames):
-            if not name.endswith(".jsonl"):
+            if not name.endswith(".jsonl") or name == SHUNT_LOG:
                 continue
             path = os.path.join(dirpath, name)
             rel = os.path.relpath(dirpath, root)
@@ -226,7 +255,10 @@ def _context_size(usage: object) -> Optional[int]:
 
 
 def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcript:
-    """Stream one JSONL transcript into its metadata."""
+    """Stream one JSONL transcript into its metadata, its Reads classified.
+
+    A Read block the module cannot read raises `TranscriptDrift` here, so a
+    returned `Transcript` is a readable one."""
     if is_subagent is None:
         is_subagent = SUBAGENTS_DIR in path.replace("\\", "/").split("/")
     t = Transcript(path, os.path.splitext(os.path.basename(path))[0], is_subagent)
@@ -244,6 +276,7 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
                 t.malformed += 1
                 continue
             _absorb(t, rec, line_no)
+    t._reads = [classify_read(u, t.results.get(u.id), path) for u in t.tool_uses_named("Read")]
     return t
 
 
