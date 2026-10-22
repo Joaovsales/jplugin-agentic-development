@@ -212,7 +212,7 @@ class Transcript:
     _own_calls: Tuple[Call, ...] = field(default=(), init=False, repr=False)
     _largest_own_result: Tuple[int, str] = field(default=(0, ""), init=False, repr=False)
 
-    def tool_uses_named(self, name: str) -> List[ToolUse]:
+    def _tool_uses_named(self, name: str) -> List[ToolUse]:
         return [t for t in self.tool_uses if t.name == name]
 
     def own_tool_uses(self) -> List[ToolUse]:
@@ -428,7 +428,7 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
                 t.malformed += 1
                 continue
             _absorb(t, rec, line_no)
-    t._reads = tuple(classify_read(u, t.results.get(u.id), path) for u in t.tool_uses_named("Read"))
+    t._reads = tuple(classify_read(u, t.results.get(u.id), path) for u in t._tool_uses_named("Read"))
     own = t.own_tool_uses()
     t._shell_reads = tuple(s for s in (classify_shell_read(u, t.results.get(u.id))
                                        for u in own if u.name == "Bash") if s is not None)
