@@ -73,7 +73,7 @@ CONFIDENCES = (50, 75, 100)
 AUTOFIX_CLASSES = ("gated_auto", "manual", "advisory")
 OWNERS = ("agent", "human", "release")
 VERDICTS = ("GO", "HOLD", "STOP")
-DISPATCHES = ("dispatched", "inline")
+DISPATCHES = ("dispatched", "inline", "lost")
 
 
 class ReceiptError(Exception):

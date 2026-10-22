@@ -1064,6 +1064,10 @@ assert_file_contains "$CA_FC" 'Closes #A, closes #B' \
   "filing-callers: closure-actions keeps Closes #A, closes #B for legacy rows"
 fc_left="$(grep -rn -e 'slice.*--file' .agents --exclude=upsert.py || true)"
 assert_eq "" "$fc_left" "filing-callers: no /slice --file under .agents (other than upsert.py)"
+# specs/ too: a closed spec's build prompt must not tell a reader to run the removed mode. The two
+# excluded files record the removal itself (aposd-first-build D16; plan-slices-and-handover's decision row).
+fc_specs="$(grep -rn -e 'slice.*--file' specs --exclude='aposd-first-build.*' --exclude=plan-slices-and-handover.md || true)"
+assert_eq "" "$fc_specs" "filing-callers: no build prompt under specs/ names the removed /slice --file"
 assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
   "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
 assert_prose_contains AGENTS.md '`/yolo` (unattended), `/make-it-simpler` (one simplification sized to one review) and an unattended lane run (a routine with no owning skill — `improve`, `refactor`, `babysit`; `.agents/skills/wrap-up-session/references/routines.md` § *Crossing the plan handover*) are the four named exceptions that build in the planning session' \

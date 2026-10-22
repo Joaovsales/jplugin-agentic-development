@@ -259,7 +259,7 @@ Invoke `/build` for `specs/ui-design-stack.md`.
 Plan: `## Plan: ui-design-stack` in `tasks/todo.md`, 9 slices, ready set 1.
 Files: .agents/skills/design-stack/**, .agents/skills/prd/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/verify-evidence/**, .agents/skills/wrap-up-session/SKILL.md, .agents/agents/frontend-developer.md, .agents/agents/frontend-design-validator.md, .claude/agents/frontend-developer.md, .claude/agents/frontend-design-validator.md, README.md, tests/test-design-stack-install.sh, tests/test-design-stack-catalog.sh, tests/test-design-stack-brief.sh, tests/test-design-stack-workflow.sh, tests/test-design-stack-evidence.sh, tests/test-design-stack-3d.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/ui-design-stack.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

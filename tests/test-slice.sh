@@ -236,7 +236,7 @@ assert_eq "" "$OUT" "legacy-plan: a legacy block prints nothing"
 OUT="$("$PY" "$SLICE" ready --index "$TWO/todo-legacy.md" --spec "$TWO/spec.md" 2>&1)"
 assert_contains "$OUT" "ready: 1 one" "legacy-plan: a legacy block's open slice 1 is ready"
 
-printf '\n--- interfaces: ready names no mode; validate still refuses an entry with no Path (AC9) ---\n'
+printf '\n--- interfaces: ready names no mode; validate no longer requires a Path (AC3 withdrawn) ---\n'
 
 MODE="$FIXTURES/mode"
 OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-new.md" --spec "$MODE/spec.md" 2>&1)"
@@ -251,9 +251,7 @@ CODE=$?
 assert_eq "0" "$CODE" "interfaces: validate passes when every Interfaces entry has a Path"
 OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec-no-path.md" --index "$MODE/todo-new.md" 2>&1)"
 CODE=$?
-assert_eq "1" "$CODE" "interfaces: validate refuses an Interfaces entry with no Path, exit 1"
-assert_contains "$OUT" '`one` module' "interfaces: the refusal names the entry"
-assert_contains "$OUT" "Path:" "interfaces: the refusal names the missing field"
+assert_eq "0" "$CODE" "interfaces: validate accepts an Interfaces entry with no Path, exit 0"
 
 printf '\n--- link: one classification of how a plan block links its feature ---\n'
 

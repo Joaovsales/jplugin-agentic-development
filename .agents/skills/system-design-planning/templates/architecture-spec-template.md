@@ -147,7 +147,7 @@ end
 ## Interfaces
 
 <!-- Optional. One entry per module whose interface the change creates or
-     reshapes; every entry names a `Path:`. -->
+     reshapes; every entry names a `Path:` (guidance for readers; no tool checks it). -->
 
 ### <module or entry point>
 

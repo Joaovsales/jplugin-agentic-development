@@ -8,8 +8,7 @@ mechanical questions a human should never have to hold in their head:
 
   * **validate** — does the Build Order actually describe a buildable plan?
     Every surface inside `implementation_paths`, no cycle in `Blocked by`, no
-    pair of slices that overlap without an ordering between them, and no
-    § Interfaces entry without a `Path:`. Once the `## Plan:` block exists, it
+    pair of slices that overlap without an ordering between them. Once the `## Plan:` block exists, it
     links its feature once and every open `TDD:` row's `tests/...` file is
     inside its slice's surface too.
   * **ready** — which slices can be dispatched right now, given which plan-block
@@ -32,7 +31,6 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from functools import cached_property
 from itertools import combinations
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -66,9 +64,6 @@ H2_RE = re.compile(r"^##\s")
 # A plan block's feature link: the `> Issue:` line, or the one `- [ ]` row above the first slice heading.
 ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
 FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
-INTERFACES_HEADING = "## Interfaces"
-INTERFACE_ENTRY_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$", re.MULTILINE)
-INTERFACE_PATH_RE = re.compile(r"^\s*-\s*\*\*Path:\*\*\s*(?P<path>.*?)\s*$", re.MULTILINE)
 
 
 class SliceError(Exception):
@@ -302,32 +297,6 @@ def find_cycle(slices: Dict[int, SliceRow]) -> Optional[List[int]]:
     return None
 
 
-# ------------------------------------------------------------- Interfaces
-
-
-def parse_interfaces(spec_text: str) -> List[Tuple[str, Optional[str]]]:
-    """(title, Path or None) per `### ` entry of the spec's optional `## Interfaces` section."""
-    body = _section_body(_without_fences(spec_text), INTERFACES_HEADING)
-    if body is None:
-        return []
-    entries = list(INTERFACE_ENTRY_RE.finditer(body))
-    parsed: List[Tuple[str, Optional[str]]] = []
-    for position, entry in enumerate(entries):
-        end = entries[position + 1].start() if position + 1 < len(entries) else len(body)
-        path = INTERFACE_PATH_RE.search(body, entry.end(), end)
-        value = path.group("path").strip("`").strip() if path else ""
-        parsed.append((entry.group("title"), value or None))
-    return parsed
-
-
-def _interfaces_problems(spec_text: str) -> List[str]:
-    return [
-        f"§ Interfaces entry {title} has no `Path:`"
-        for title, path in parse_interfaces(spec_text)
-        if path is None
-    ]
-
-
 # --------------------------------------------------------------- validate
 
 
@@ -366,8 +335,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
     slices = {row.number: row for row in rows}
     problems = (
-        _interfaces_problems(spec_text)
-        + _surface_problems(rows, implementation_paths)
+        _surface_problems(rows, implementation_paths)
         + _ordering_problems(slices)
         + _plan_block_problems(args.index, spec_path, slices)
     )
@@ -458,15 +426,7 @@ class PlanBlock:
     name: str
     headings: List[Tuple[int, int, str]]
     index_path: str
-
-    @cached_property
-    def rows(self) -> List[IndexRow]:
-        """The index's rows, parsed on first use: `validate` never needs them and must not refuse over them.
-
-        Raises IndexUnreadable on a malformed index. `_load_plan_block` reads
-        it at load time, so `ready` and `check` fail there, not at a later access.
-        """
-        return load_index_strict(self.index_path, self.index_path).rows
+    rows: List[IndexRow]  # the index's parsed rows, read when the block is built
 
     def has_open_row(self) -> bool:
         """Whether any task row inside the block is still open."""
@@ -567,7 +527,11 @@ class PlanBlock:
 
 
 def _plan_block_or_none(index_path: str, spec_path: str) -> Optional[PlanBlock]:
-    """The `## Plan:` block of `index_path` naming `spec_path`, or None when the file or block is absent."""
+    """The `## Plan:` block of `index_path` naming `spec_path`, or None when the file or block is absent.
+
+    The one place a PlanBlock is built, rows included. Raises IndexUnreadable
+    when the index is malformed, so every caller fails here, not at a later access.
+    """
     if not os.path.isfile(index_path):
         return None
     todo_text = _without_fences(read_text(index_path))
@@ -576,21 +540,17 @@ def _plan_block_or_none(index_path: str, spec_path: str) -> Optional[PlanBlock]:
         return None
     start_line, end_line, name = span
     prose = todo_text.splitlines()
-    return PlanBlock(prose, start_line, end_line, name, _slice_headings(prose, start_line, end_line), index_path)
+    rows = load_index_strict(index_path, index_path).rows
+    return PlanBlock(prose, start_line, end_line, name, _slice_headings(prose, start_line, end_line), index_path, rows)
 
 
 def _load_plan_block(index_path: str, spec_path: str) -> PlanBlock:
-    """The `## Plan:` block of `index_path` naming `spec_path`, rows already read.
-
-    Raises SliceError when the file or block is absent and IndexUnreadable when
-    the index is malformed, both here and not at a later access.
-    """
+    """`_plan_block_or_none`, refusing with SliceError when the file or block is absent."""
     block = _plan_block_or_none(index_path, spec_path)
     if block is None:
         if not os.path.isfile(index_path):
             raise SliceError(f"no such index file: {index_path}")
         raise SliceError(f"{index_path} has no `## Plan:` block naming {spec_path!r}")
-    block.rows  # noqa: B018  (forces the index load so a malformed index fails at load)
     return block
 
 
@@ -608,7 +568,10 @@ def _plan_block_problems(index_path: str, spec_path: str, slices: Dict[int, Slic
     Propose step 1 validates before the block is written, so a missing index
     or block is nothing to report here; `ready` requires the block and refuses.
     """
-    block = _plan_block_or_none(index_path, spec_path)
+    try:
+        block = _plan_block_or_none(index_path, spec_path)
+    except IndexUnreadable as exc:
+        return [str(exc)]
     if block is None:
         return []
     return block.feature_link_problems() + block.tdd_surface_problems(slices)

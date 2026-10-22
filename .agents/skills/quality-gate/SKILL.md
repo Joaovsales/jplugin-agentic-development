@@ -238,6 +238,10 @@ Per `.agents/references/finding-model.md` § *Independence Accounting*, agreemen
 two witnesses. An inline run is a complete run — it reports and applies under the
 Apply Gate — but it may never report a promoted confidence.
 
+A third value, `lost`, is for a review that was required but could not be
+dispatched (Phase 5's `test-engineer`): it is recorded, not omitted, and carries
+no findings and no promotion.
+
 **No phase after 4 edits the tree.** Phase 4's applied fixes are the last edit;
 Phases 5 and 6 only observe, so the receipt describes exactly the tree that was
 reviewed.
@@ -300,7 +304,9 @@ Its findings are report-only: it never edits the tree, and Phase
 5 applies nothing. Each unresolved SHOULD-FIX goes in `unresolved`: an unresolved SHOULD-FIX counts toward
 HOLD under the receipt's rule; a MUST-FIX makes the receipt STOP. Record a phase 5
 reviewer entry (`lens: test-engineer`, `dispatch: dispatched`). When no dispatch is
-possible, record nothing and name the lost review in the output.
+possible, record `{"phase": 5, "lens": "test-engineer", "dispatch": "lost"}` and name
+the lost review in `Not checked:` — a lost review and a clean one never leave the same
+receipt. `lost` is disclosed, not weighed: it does not change the derived verdict.
 
 ## Phase 6 — Receipt
 
@@ -317,7 +323,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome "$outcome
 
 | Outcome field | Value |
 |---------------|-------|
-| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it, plus the phase 5 `test-engineer` entry when it was dispatched |
+| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it, plus the phase 5 `test-engineer` entry — `dispatched`, or `lost` when the review could not be dispatched (disclosed, verdict unchanged) |
 | `unresolved` | every finding in `Reported, not applied`, four-axis, with `location` (`file:line`) and `summary` |
 | `design_verdict` | Phase 4's GO / HOLD / STOP |
 | `tests` | Phase 5's record |

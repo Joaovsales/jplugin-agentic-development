@@ -185,6 +185,17 @@ assert_eq "0" "$CODE" "write: an outcome with a phase-5 reviewer entry is accept
 assert_file_contains "$STORE2/$FP2.json" "\"lens\": \"test-engineer\"" "write: the phase-5 test-engineer reviewer is recorded in the receipt"
 assert_file_contains ".agents/skills/quality-gate/scripts/receipt.py" "agents\", \"test-engineer.md\""   "write: POLICY_FILES includes the test-engineer persona"
 
+# --- a required but undispatchable review is recorded as lost, and still validated
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost.json"
+OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost.json")"
+CODE=$?
+assert_eq "0" "$CODE" "write: a reviewer entry with dispatch lost is accepted"
+assert_file_contains "$STORE2/$FP2.json" "\"dispatch\": \"lost\"" "write: the lost dispatch is carried in the receipt"
+sed 's/"dispatch": "dispatched"}$/"dispatch": "skipped"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-skipped.json"
+OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-skipped.json" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "write: an unknown dispatch value is still refused"
+
 # --- MUST-FIX forces STOP regardless of a supplied verdict -----------------
 make_outcome "$BOX/outcome-mustfix.json" "$TREE2" yes 0 GO 0 '"full"' "GO"
 OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-mustfix.json")"
