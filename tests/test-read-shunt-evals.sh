@@ -19,8 +19,9 @@
 #
 #   3. PROMISED SIZES — a "large" case whose generated fixture falls under 32 KB
 #      measures nothing, and a control that creeps over it makes a gate that
-#      fires on it look correct. Each scaffold is run into its own temp dir and
-#      measured, so the size a case promises is the size it produces.
+#      fires on it look correct. Each case's sizes are one Promise row in
+#      fixture_gen.CASES, checked by the generator against what it wrote; the
+#      suite runs every scaffold into its own temp dir, so exit 0 is a met row.
 #
 #   4. DETERMINISM — fixtures come from a fixed seed. Two runs of one scaffold
 #      must be byte-identical, or two arms of the suite read different inputs.
@@ -46,22 +47,8 @@ TMP="$(mktemp -d)"
 [ -n "$TMP" ] && [ -d "$TMP" ] || { printf '  FAIL could not create fixture dir\n'; exit 1; }
 trap 'rm -rf "$TMP"' EXIT
 
-# measure DIR — print "<total bytes> <max line count in one file> <file count>".
-measure() {
-  "$TEST_PYTHON" - "$1" <<'PY'
-import os, sys
-root = sys.argv[1]
-total = maxlines = files = 0
-for d, _, names in os.walk(root):
-    for n in names:
-        p = os.path.join(d, n)
-        data = open(p, "rb").read()
-        total += len(data)
-        files += 1
-        maxlines = max(maxlines, data.count(b"\n"))
-print(total, maxlines, files)
-PY
-}
+# count_files DIR — print the number of files under DIR.
+count_files() { find "$1" -type f | wc -l | tr -d ' '; }
 
 # blind_hits DIR — one line per blinding word found in a generated path or file.
 blind_hits() {
@@ -164,36 +151,37 @@ for c in $ALL_CASES; do
     assert_eq "exit 0" "scaffold failed" "$c: scaffold exits 0"
     continue
   fi
-  read -r bytes maxlines files <<EOF
-$(measure "$out")
-EOF
-  assert_eq "yes" "$([ "${files:-0}" -ge 1 ] && echo yes || echo no)" "$c: scaffold wrote at least one file"
-  case " $LARGE_CASES " in
-    *" $c "*)
-      assert_eq "yes" "$([ "${bytes:-0}" -gt 32768 ] && echo yes || echo no)" "$c: fixture over 32 KB (got ${bytes:-0})"
-      ;;
-    *)
-      assert_eq "yes" "$([ "${bytes:-999999}" -lt 32768 ] && echo yes || echo no)" "$c: control fixture under 32 KB (got ${bytes:-?})"
-      assert_eq "yes" "$([ "${maxlines:-999999}" -lt 800 ] && echo yes || echo no)" "$c: control file under 800 lines (got ${maxlines:-?})"
-      ;;
-  esac
+  assert_eq "yes" "$([ "$(count_files "$out")" -ge 1 ] && echo yes || echo no)" "$c: scaffold wrote at least one file"
   assert_eq "" "$(blind_hits "$out")" "$c: no blinding word in a generated path or file"
 done
 
-# Per-case promises the spec makes in prose.
-sz() { wc -c < "$1" | tr -d ' '; }
-nlines() { wc -l < "$1" | tr -d ' '; }
-assert_eq "yes" "$([ "$(nlines "$TMP/nightly-pipeline-failure/ci-run-48213.log")" -ge 20000 ] && echo yes || echo no)" "nightly log has 20K+ lines"
-assert_eq "yes" "$([ "$(sz "$TMP/catalog-currency-field/fixtures/catalog.json")" -gt 262144 ] && echo yes || echo no)" "catalog.json over 256 KB"
-assert_eq "yes" "$([ "$(nlines "$TMP/billing-client-zero-total/billing_client.py")" -ge 4000 ] && echo yes || echo no)" "billing client is ~5000 lines"
-assert_eq "yes" "$([ "$(nlines "$TMP/orders-extract-tax/orders.py")" -ge 2500 ] && echo yes || echo no)" "orders module is ~3000 lines"
-assert_eq "yes" "$([ "$(nlines "$TMP/pipeline-checks-intermittent/verify_pipeline.py")" -ge 1800 ] && echo yes || echo no)" "pipeline checks are ~2000 lines"
-assert_eq "yes" "$([ "$(nlines "$TMP/settings-loader-port/reference/settings_loader.js")" -ge 1300 ] && echo yes || echo no)" "settings loader is ~1500 lines"
-assert_eq "yes" "$([ "$(nlines "$TMP/changelog-release-notes/CHANGELOG.md")" -ge 800 ] && echo yes || echo no)" "changelog is ~900 lines"
+# The sizes each case promises are the Promise rows of fixture_gen.CASES; a
+# scaffold that exits 0 has met its row. A row its output breaks must fail the
+# scaffold, naming the case and the bound.
+err="$("$TEST_PYTHON" - "$SUITE" "$TMP/broken-promise" <<'PY' 2>&1
+import sys
+sys.path.insert(0, sys.argv[1])
+import fixture_gen as fg
+seed, generate, _ = fg.CASES["readme-typo"]
+fg.CASES["readme-typo"] = (seed, generate, fg.Promise(max_bytes=100))
+sys.exit(fg.main(["readme-typo", "--out", sys.argv[2]]))
+PY
+)"; rc=$?
+assert_eq "1" "$rc" "promise: a scaffold whose output breaks its row exits 1"
+assert_contains "$err" "readme-typo" "promise: the message names the case"
+assert_contains "$err" "max_bytes" "promise: the message names the broken bound"
+bad="$("$TEST_PYTHON" - "$SUITE" "$LARGE_CASES" "$CONTROL_CASES" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import fixture_gen as fg
+bad = [c for c in sys.argv[2].split() if not (fg.CASES[c][2].min_bytes or 0) > fg.LARGE_BYTES]
+bad += [c for c in sys.argv[3].split() if not (fg.CASES[c][2].max_bytes or fg.LARGE_BYTES) < fg.LARGE_BYTES]
+print(" ".join(bad))
+PY
+)"
+assert_eq "" "$bad" "promise: every large case's row floors above the threshold and every control's caps below it"
 assert_eq "40" "$(ls "$TMP/load-record-callers/svc" | grep -c '^mod_[0-9][0-9]\.py$')" "forty svc modules"
 assert_eq "23" "$(grep -l 'fetch_record' "$TMP"/load-record-callers/svc/mod_*.py | wc -l | tr -d ' ')" "23 modules still call the old name"
-assert_eq "yes" "$([ "$(sz "$TMP/ratelimit-clock-skew/ratelimit.py")" -ge 20000 ] && echo yes || echo no)" "ratelimit.py is ~25 KB"
-assert_eq "60" "$(nlines "$TMP/readme-typo/README.md")" "README has 60 lines"
 assert_file_contains "$TMP/readme-typo/README.md" "recieve" "README carries the typo"
 assert_file_contains "$TMP/nightly-pipeline-failure/ci-run-48213.log" "KeyError: 'release_tag'" "the log carries its one traceback"
 assert_eq "1" "$(grep -c '^Traceback' "$TMP/nightly-pipeline-failure/ci-run-48213.log")" "exactly one traceback in the log"

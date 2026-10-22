@@ -93,21 +93,21 @@ def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
     row.compactions = parent.compactions
     row.malformed = parent.malformed
     seen: set = set()
-    reads_by_id = {r.tool_use.id: r for r in parent.reads()}
+    calls = {c.tool_use.id: c for c in [*parent.reads(), *parent.shell_reads()]}
     for use in parent.tool_uses:
+        call = calls.get(use.id)
+        if isinstance(call, rt.Read):
+            _count_read(row, call, seen, th)
+        elif isinstance(call, rt.ShellRead):
+            row.shell_reads += len(call.paths)
+            row.shell_bytes += call.bytes
+            row.rereads += sum(1 for p in call.paths if p in seen)
+            seen.update(call.paths)
+    for use in parent.parent_tool_uses():
         result = parent.results.get(use.id)
-        if use.name == "Read":
-            _count_read(row, reads_by_id[use.id], seen, th)
-        elif use.name == "Bash" and not use.sidechain and result is not None:
-            files = rt.bare_shell_reads(str(use.input.get("command", "")))
-            if files:
-                row.shell_reads += len(files)
-                row.shell_bytes += result.bytes
-                row.rereads += sum(1 for f in files if rt.normalize_path(f) in seen)
-                seen.update(rt.normalize_path(f) for f in files)
-        if result is not None and result.bytes > row.largest and not use.sidechain:
+        if result is not None and result.bytes > row.largest:
             row.largest = result.bytes
-            row.largest_path = str(use.input.get("file_path") or use.input.get("command") or use.name)
+            row.largest_path = use.subject
     for path in session.subagent_paths:
         agent = rt.parse_transcript(path, is_subagent=True)
         row.malformed += agent.malformed

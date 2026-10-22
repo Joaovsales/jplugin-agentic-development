@@ -179,6 +179,43 @@ assert_contains "$err" "../escape" "arrange: the message names the offending cas
 assert_eq "missing" "$([ -e "$TMP/arranged-3" ] && echo present || echo missing)" \
   "arrange: nothing is written under --out for it"
 
+# `<keep-temp>` may be one home. It is taken as that run's home only when it is
+# the home the run's tracePath names.
+"$TEST_PYTHON" - "$TMP/aggregate-one.json" <<'PY'
+import json, sys
+run = {"score": 1, "passed": True, "tracePath": "/tmp/claude-eval-AAA/out/trace.jsonl"}
+json.dump({"cases": [{"name": "task-a", "arms": {"with": [run]}}]}, open(sys.argv[1], "w"))
+PY
+one="$("$TEST_PYTHON" "$ARRANGE" "$KEPT/claude-eval-AAA" "$TMP/aggregate-one.json" --arm solo --out "$TMP/arranged-one" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "arrange: <keep-temp> naming the one home a single-run aggregate points at arranges with exit 0"
+[ "$rc" = "0" ] || printf '%s\n' "$one" | head -5
+assert_eq '{"score": 1}' "$(cat "$TMP/arranged-one/solo/task-a/run-1/outcome.json" 2>/dev/null)" \
+  "arrange: the one-home form writes the run's outcome from its own record"
+assert_eq "$(cat "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1.jsonl")" \
+  "$(cat "$TMP/arranged-one/solo/task-a/run-1/transcript.jsonl" 2>/dev/null)" \
+  "arrange: the one-home form copies that home's own transcript"
+
+err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT/claude-eval-AAA" "$AGG" --arm mixed --out "$TMP/arranged-mixed" 2>&1 >/dev/null)"; rc=$?
+assert_eq "2" "$rc" "arrange: a two-run aggregate pointed at one home exits 2 instead of reading that home twice"
+assert_contains "$err" "claude-eval-BBB" "arrange: the message names the home the second run needs"
+assert_eq "missing" "$([ -e "$TMP/arranged-mixed" ] && echo present || echo missing)" \
+  "arrange: nothing is written for a mismatched home"
+
+# A runner score that is a bool is not a score — here and in the grader.
+"$TEST_PYTHON" - "$TMP/aggregate-boolscore.json" <<'PY'
+import json, sys
+run = {"score": True, "passed": None, "tracePath": "/tmp/claude-eval-AAA/out/trace.jsonl"}
+json.dump({"cases": [{"name": "task-a", "arms": {"with": [run]}}]}, open(sys.argv[1], "w"))
+PY
+err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$TMP/aggregate-boolscore.json" --arm bool --out "$TMP/arranged-bool" 2>&1 >/dev/null)"; rc=$?
+assert_eq "2" "$rc" "arrange: a run whose score is a bool and which has no pass verdict exits 2"
+BOOLRUN="$TMP/boolscore/arm/task/run"; mkdir -p "$BOOLRUN"
+cp "$RESULTS/shunt/task-b/run-1/transcript.jsonl" "$BOOLRUN/"
+printf '%s' '{"score": true}' > "$BOOLRUN/outcome.json"
+err="$("$TEST_PYTHON" "$GRADER" "$TMP/boolscore" 2>&1 >/dev/null)"; rc=$?
+assert_eq "2" "$rc" "grader: an outcome.json whose score is a bool exits 2, as arrange refuses to write it"
+assert_contains "$err" "outcome.json:1" "grader: the message names the outcome file and line"
+
 rm -rf "$KEPT/claude-eval-BBB"
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm other --out "$TMP/arranged-2" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "arrange: a run whose temp home was not kept exits 2"

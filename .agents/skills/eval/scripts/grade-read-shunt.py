@@ -9,7 +9,7 @@ The results directory is runner-neutral: one directory per arm, per task, per
 run, each holding the run's main-loop transcript and what sat beside it —
 
     <results>/<arm>/<task>/<run>/
-        *.jsonl                  the parent transcript (the first one, sorted)
+        transcript.jsonl         the parent transcript
         subagents/agent-*.jsonl  sub-agent transcripts, when any
         shunt.jsonl              the gate's decision log, when a gate ran
         outcome.json             {"score": 0..1} or {"pass": true|false}
@@ -46,7 +46,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
 
 GREP_CONTEXT_FLOOR = 50
-OUTCOME_FILE = "outcome.json"
 
 
 def _column(label: str, numeric: bool = True, hook: bool = False, default: object = None):
@@ -96,7 +95,7 @@ class RunDir:
 
 
 def discover(results: str) -> List[RunDir]:
-    """<results>/<arm>/<task>/<run>/ with at least one *.jsonl at the run level."""
+    """<results>/<arm>/<task>/<run>/ holding a transcript.jsonl."""
     runs: List[RunDir] = []
     if not os.path.isdir(results):
         raise rt.EmptyRoot(results)
@@ -112,13 +111,10 @@ def discover(results: str) -> List[RunDir]:
                 run_dir = os.path.join(task_dir, run)
                 if not os.path.isdir(run_dir):
                     continue
-                transcripts = sorted(f for f in os.listdir(run_dir) if f.endswith(".jsonl") and f != rt.SHUNT_LOG)
-                if not transcripts:
+                transcript = os.path.join(run_dir, rt.TRANSCRIPT_FILE)
+                if not os.path.isfile(transcript):
                     continue
-                agents_dir = os.path.join(run_dir, rt.SUBAGENTS_DIR)
-                agents = sorted(os.path.join(agents_dir, a) for a in os.listdir(agents_dir)
-                                if a.endswith(".jsonl")) if os.path.isdir(agents_dir) else []
-                runs.append(RunDir(arm, task, run, run_dir, os.path.join(run_dir, transcripts[0]), agents))
+                runs.append(RunDir(arm, task, run, run_dir, transcript, rt.subagent_transcripts(run_dir)))
     if not runs:
         raise rt.EmptyRoot(results)
     return runs
@@ -135,17 +131,6 @@ def _paths_in(text: str) -> Set[str]:
             for token in _PATH_TOKEN.findall(text)}
 
 
-def _agent_text(use: rt.ToolUse, result: Optional[rt.ToolResult]) -> str:
-    parts = [str(use.input.get("prompt", ""))]
-    if result is not None and isinstance(result.result, dict):
-        content = result.result.get("content")
-        if isinstance(content, list):
-            parts += [str(p.get("text", "")) for p in content if isinstance(p, dict)]
-        elif isinstance(content, str):
-            parts.append(content)
-    return "\n".join(parts)
-
-
 def _seconds_between(first: Optional[str], last: Optional[str]) -> Optional[float]:
     if not first or not last:
         return None
@@ -157,9 +142,9 @@ def _seconds_between(first: Optional[str], last: Optional[str]) -> Optional[floa
     return round((b - a).total_seconds(), 1)
 
 
-def _is_routing_grep(use: rt.ToolUse) -> bool:
-    context = use.input.get("-C")
-    return (isinstance(context, int) and context >= GREP_CONTEXT_FLOOR) or use.input.get("head_limit") == 0
+def _is_routing_grep(grep: rt.GrepCall) -> bool:
+    context = grep.context_lines
+    return (context is not None and context >= GREP_CONTEXT_FLOOR) or grep.head_limit == 0
 
 
 def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
@@ -175,49 +160,43 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     rereads = 0
     tokens: Optional[int] = None
     tool_uses = 0
-    reads = {r.tool_use.id: r for r in parent.reads()}
-    for use in parent.tool_uses:
+    calls = {c.tool_use.id: c for c in
+             [*parent.reads(), *parent.shell_reads(), *parent.grep_calls(), *parent.agent_calls()]}
+    for use in parent.parent_tool_uses():
         result = parent.results.get(use.id)
-        if use.sidechain:
-            continue
         if result is not None and result.bytes > row.largest:
             row.largest = result.bytes
-        if use.name == "Read":
-            read = reads[use.id]
-            if read.is_excluded:
+        call = calls.get(use.id)
+        if isinstance(call, rt.Read):
+            if call.is_excluded:
                 continue
-            if read.is_large(th):
-                large_paths.add(read.norm_path)
-            if read.is_whole_large(th):
+            if call.is_large(th):
+                large_paths.add(call.norm_path)
+            if call.is_whole_large(th):
                 row.whole_large += 1
-            rereads += _was_named(read.norm_path, named)
-        elif use.name == "Bash":
-            files = rt.bare_shell_reads(str(use.input.get("command", "")))
-            if files and result is not None:
-                norms = [rt.normalize_path(f) for f in files]
-                if result.bytes >= th.bytes or any(n in large_paths for n in norms):
-                    row.routing_around += 1
-                rereads += sum(_was_named(n, named) for n in norms)
-        elif use.name == "Grep":
-            target = rt.normalize_path(str(use.input.get("path", "")))
-            if _is_routing_grep(use) and (target in large_paths or (result is not None and result.bytes >= th.bytes)):
+            rereads += _was_named(call.norm_path, named)
+        elif isinstance(call, rt.ShellRead):
+            if call.bytes >= th.bytes or any(n in large_paths for n in call.paths):
                 row.routing_around += 1
-        elif use.name == "Agent":
-            named |= _paths_in(_agent_text(use, result))
-            if result is not None and isinstance(result.result, dict):
-                if isinstance(result.result.get("totalTokens"), int):
-                    tokens = (tokens or 0) + result.result["totalTokens"]
-                if isinstance(result.result.get("totalToolUseCount"), int):
-                    tool_uses += result.result["totalToolUseCount"]
+            rereads += sum(_was_named(n, named) for n in call.paths)
+        elif isinstance(call, rt.GrepCall):
+            if _is_routing_grep(call) and (call.target in large_paths
+                                           or (call.bytes is not None and call.bytes >= th.bytes)):
+                row.routing_around += 1
+        elif isinstance(call, rt.AgentCall):
+            named |= _paths_in(call.named_text)
+            if call.total_tokens is not None:
+                tokens = (tokens or 0) + call.total_tokens
+            if call.tool_use_count is not None:
+                tool_uses += call.tool_use_count
     for agent in agents:
         named |= {r.norm_path for r in agent.counted_reads()}
         if not tool_uses:
             tool_uses += len(agent.tool_uses)
     row.subagent_tokens = tokens
     row.subagent_tool_uses = tool_uses
-    files_named = {n for n in named if "/" in n or "." in n}
-    row.reread_rate = round(rereads / len(files_named), 3) if files_named else None
-    row.outcome = _outcome(run.path)
+    row.reread_rate = round(rereads / len(named), 3) if named else None
+    row.outcome = rt.read_outcome(run.path)
     _hook_columns(row, run.path)
     return row
 
@@ -227,23 +206,6 @@ def _was_named(norm: str, named: Set[str]) -> bool:
     `big_module.py` names the parent's full-path read of it."""
     base = norm.rsplit("/", 1)[-1]
     return norm in named or any(n.rsplit("/", 1)[-1] == base for n in named)
-
-
-def _outcome(run_dir: str) -> Optional[float]:
-    path = os.path.join(run_dir, OUTCOME_FILE)
-    if not os.path.exists(path):
-        return None
-    with open(path, encoding="utf-8") as fh:
-        try:
-            data = json.load(fh)
-        except ValueError:
-            raise rt.TranscriptError(f"{path}:1: outcome.json is not JSON")
-    if isinstance(data, dict):
-        if isinstance(data.get("score"), (int, float)):
-            return float(data["score"])
-        if isinstance(data.get("pass"), bool):
-            return 1.0 if data["pass"] else 0.0
-    raise rt.TranscriptError(f"{path}:1: outcome.json has neither score nor pass")
 
 
 def _hook_columns(row: RunRow, run_dir: str) -> None:

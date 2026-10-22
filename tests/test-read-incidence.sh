@@ -209,6 +209,39 @@ PY
 assert_eq "0" "$rc" "drift: the guard returns 0 on a readable transcript"
 assert_eq "" "$err" "drift: the guard prints nothing on success"
 
+# A completed Agent result without the counters the grader sums is drift; an
+# unanswered Agent call is not.
+AGENT_DRIFT="$TMP/agent-drift.jsonl"
+"$TEST_PYTHON" - "$AGENT_DRIFT" "$TMP/agent-unanswered.jsonl" <<'PY'
+import json, sys
+def line(**rec): return json.dumps(rec)
+use = line(type="assistant", message={"role": "assistant", "content": [
+    {"type": "tool_use", "id": "t1", "name": "Agent", "input": {"prompt": "read big.py"}}]})
+user = line(type="user", message={"role": "user", "content": "go"})
+done = line(type="user", message={"role": "user", "content": [
+    {"type": "tool_result", "tool_use_id": "t1", "content": "done"}]},
+    toolUseResult={"status": "completed", "content": [{"type": "text", "text": "done"}]})
+open(sys.argv[1], "w").write("\n".join([user, use, done]) + "\n")
+open(sys.argv[2], "w").write("\n".join([user, use]) + "\n")
+PY
+err="$("$TEST_PYTHON" - "$SCRIPTS" "$AGENT_DRIFT" <<'PY' 2>&1 >/dev/null
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+sys.exit(rt.run(lambda: rt.parse_transcript(sys.argv[2])))
+PY
+)"; rc=$?
+assert_eq "2" "$rc" "drift: a completed Agent result without totalTokens and totalToolUseCount exits 2"
+assert_contains "$err" "agent-drift.jsonl:3" "drift: the Agent message names the file and the line"
+err="$("$TEST_PYTHON" - "$SCRIPTS" "$TMP/agent-unanswered.jsonl" <<'PY' 2>&1 >/dev/null
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+sys.exit(rt.run(lambda: rt.parse_transcript(sys.argv[2])))
+PY
+)"; rc=$?
+assert_eq "0" "$rc" "drift: an Agent call with no result is not drift"
+
 # --- § shell --------------------------------------------------------------
 printf '\n--- shell: a bare read delivers the file; a pipe or a redirect does not ---\n'
 
@@ -221,6 +254,7 @@ cases = [
     "cat a; cat b", "head -n 20 a && tail -c 100 b", "cat f | grep x", "cat f > g", "cat < f",
     "echo $(cat f)", "cat <<'EOF'\nf\nEOF", "sed -i 's/a/b/' f", "sed -n '1,$p' f | head",
     'cat "C:\\work\\my file.txt"', "python3 -c 'print(open(\"f\").read())'",
+    "cat -n f", "cat -s a b", "tail -n 5 f", "head -c 10 f",
 ]
 for c in cases:
     print(repr(c.replace("\n", " NL ")), "->", rt.bare_shell_reads(c))
@@ -236,6 +270,10 @@ assert_contains "$out" "\"sed -n '1,\$p' f\" -> ['f']" "shell: sed -n with a pri
 assert_contains "$out" "'sed -n 1,200p f' -> ['f']" "shell: an unquoted sed print range is a bare read"
 assert_contains "$out" "'cat a; cat b' -> ['a', 'b']" "shell: every file in a chained command counts"
 assert_contains "$out" "'head -n 20 a && tail -c 100 b' -> ['a', 'b']" "shell: count options do not swallow the file"
+assert_contains "$out" "'cat -n f' -> ['f']" "shell: cat's -n is a bare flag, so the file stays"
+assert_contains "$out" "'cat -s a b' -> ['a', 'b']" "shell: cat's -s is a bare flag, so both files stay"
+assert_contains "$out" "'tail -n 5 f' -> ['f']" "shell: tail's -n takes the count"
+assert_contains "$out" "'head -c 10 f' -> ['f']" "shell: head's -c takes the count"
 assert_contains "$out" "'cat f | grep x' -> []" "shell: a piped read is not a read into the context"
 assert_contains "$out" "'cat f > g' -> []" "shell: a redirected read is not a read into the context"
 assert_contains "$out" "'cat < f' -> []" "shell: an input redirect is not a bare read"
@@ -355,7 +393,38 @@ assert_contains "$out" "whole 3 excluded 2 whole-large 2 counted 4 of 6" \
 assert_contains "$out" "counted-clean True" "structure: counted_reads() yields no excluded read"
 for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
   assert_eq "0" "$(grep -cE '\.kind (==|!=)' "$cli")" "$cli: no call site compares Read.kind — the predicates own that"
+  assert_eq "0" "$(grep -cE 'input\.get|\.result\.get|result\.result|bare_shell_reads' "$cli")" \
+    "$cli: reads no tool input or result shape — the parser classifies Bash, Grep and Agent calls"
 done
+
+# Bash, Grep and Agent uses are classified at parse time beside Read, for the
+# parent loop only: one definition of the parent serves both CLIs.
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" "$FIX/results/shunt/task-a/run-1/transcript.jsonl" "$FIX/root/proj-b/s3.jsonl" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+s1 = rt.parse_transcript(sys.argv[2])
+print("shell", [(s.paths, s.bytes) for s in s1.shell_reads()])
+print("grep", [(g.target, g.context_lines, g.head_limit, g.bytes) for g in s1.grep_calls()])
+print("agent", [(a.total_tokens, a.tool_use_count, "big_module.py" in a.named_text) for a in s1.agent_calls()])
+print("cached", s1.shell_reads() is s1.shell_reads(), s1.grep_calls() is s1.grep_calls(), s1.agent_calls() is s1.agent_calls())
+shunt = rt.parse_transcript(sys.argv[3])
+print("completed", [(a.total_tokens, a.tool_use_count, "big.py:120-160" in a.named_text) for a in shunt.agent_calls()])
+s3 = rt.parse_transcript(sys.argv[4])
+print("parent-uses", len(s3.tool_uses), len(s3.parent_tool_uses()),
+      all(not u.sidechain for u in s3.parent_tool_uses()))
+PY
+)"
+assert_contains "$out" "shell [(('c:/work/app/notes.txt',), 600), (('c:/work/app/a.txt', 'c:/work/app/b.txt'), 700), (('c:/work/app/a.txt',), 200), (('c:/work/app/a.txt',), 900)]" \
+  "structure: shell_reads() keeps the bare reads only, paths normalized, one entry per command with its result bytes"
+assert_contains "$out" "grep [('c:/work/app/big_module.py', 60, None, 800)]" \
+  "structure: grep_calls() carries the normalized target, -C, head_limit and result bytes"
+assert_contains "$out" "agent [(None, None, True)]" \
+  "structure: an async-launched Agent has the prompt's text and no counters, and that is not drift"
+assert_contains "$out" "completed [(12000, 7, True)]" \
+  "structure: a completed Agent carries its counters and the paths its result text names"
+assert_contains "$out" "cached True True True" "structure: the three classifications are made once, at parse time"
+assert_contains "$out" "parent-uses 7 6 True" "structure: parent_tool_uses() leaves out the inline sidechain use"
 
 # One Row declaration drives the columns and the aggregate: a field added to
 # it is a column and summed unless it is declared otherwise.

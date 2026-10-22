@@ -17,6 +17,8 @@ import json
 import os
 import sys
 import random
+from dataclasses import dataclass
+from typing import Optional
 
 def write(out, rel, text):
     """Write text (LF endings, UTF-8) under out, creating parent directories."""
@@ -803,11 +805,7 @@ def svc_module(rng, index, mode):
             lines += ["    record = store.get(key, {})"]
         lines += ['    value = record.get("%s", "")' % action, "    if not value:", '        return "%s unavailable"' % action,
                   "    return str(value).strip()", "", ""]
-    text = "\n".join(lines).rstrip("\n") + "\n"
-    n_lines = text.count("\n")
-    if not 40 <= n_lines <= 80:
-        raise SystemExit("svc module %d has %d lines" % (index, n_lines))
-    return text
+    return "\n".join(lines).rstrip("\n") + "\n"
 
 
 def gen_svc(out, rng):
@@ -879,8 +877,6 @@ def gen_readme(out, rng):
     for cmd in commands[:need]:
         lines.append("- `parcel %s` %s" % (cmd, rng.choice(["works on the current folder.", "accepts --quiet.", "prints one line per note.", "returns 0 on success."])))
     lines += fixed_tail
-    if len(lines) != 60:
-        raise SystemExit("readme has %d lines" % len(lines))
     write(out, "README.md", "\n".join(lines))
 
 
@@ -1228,26 +1224,66 @@ def gen_ratelimit(out, rng):
                   '    name="%s", rate=%.1f, burst=%d, scope="%s",' % (name, rng.choice([0.5, 1.0, 2.0, 5.0, 10.0, 20.0]), rng.choice([5, 10, 20, 50, 100]), rng.choice(RL_SCOPES)),
                   '    note="%s",' % rng.choice(RL_NOTES), ")"]
     lines += ["", "", "def preset(name):", '    """Return a named preset or raise KeyError."""', "    return PRESETS[name]"]
-    text = "\n".join(lines) + "\n"
-    if len(text.encode("utf-8")) >= 30000:
-        raise SystemExit("ratelimit.py is %d bytes" % len(text))
-    write(out, "ratelimit.py", text)
+    write(out, "ratelimit.py", "\n".join(lines) + "\n")
 
 
-# case name -> (seed, generator); one table so a case cannot have one without the other
+LARGE_BYTES = 32768  # specs/read-shunt-baseline.md D3
+LARGE_LINES = 800
+
+
+@dataclass(frozen=True)
+class Promise:
+    """The size a case's output must have: total bytes under `out`, and the line
+    count of its longest file. `None` leaves a side unbounded."""
+
+    min_bytes: Optional[int] = None
+    max_bytes: Optional[int] = None
+    min_lines: Optional[int] = None
+    max_lines: Optional[int] = None
+
+
+def large(min_bytes: int = LARGE_BYTES + 1, **bounds: int) -> Promise:
+    return Promise(min_bytes=min_bytes, **bounds)
+
+
+def control(max_lines: int = LARGE_LINES - 1, **bounds: int) -> Promise:
+    return Promise(max_bytes=LARGE_BYTES - 1, max_lines=max_lines, **bounds)
+
+
+# case name -> (seed, generator, promise); one table so a case cannot have one without the others
 CASES = {
-    "billing-client-zero-total": (11, gen_billing),
-    "nightly-pipeline-failure": (12, gen_log),
-    "catalog-currency-field": (13, gen_catalog),
-    "orders-extract-tax": (14, gen_orders),
-    "pipeline-checks-intermittent": (15, gen_checks),
-    "settings-loader-port": (16, gen_settings),
-    "load-record-callers": (17, gen_svc),
-    "changelog-release-notes": (18, gen_changelog),
-    "readme-typo": (19, gen_readme),
-    "timeparse-coverage": (20, gen_timeparse),
-    "ratelimit-clock-skew": (21, gen_ratelimit),
+    "billing-client-zero-total": (11, gen_billing, large(min_lines=4000)),
+    "nightly-pipeline-failure": (12, gen_log, large(min_lines=20000)),
+    "catalog-currency-field": (13, gen_catalog, large(min_bytes=262145)),
+    "orders-extract-tax": (14, gen_orders, large(min_lines=2500)),
+    "pipeline-checks-intermittent": (15, gen_checks, large(min_lines=1800)),
+    "settings-loader-port": (16, gen_settings, large(min_lines=1300)),
+    "load-record-callers": (17, gen_svc, large(max_lines=80)),
+    "changelog-release-notes": (18, gen_changelog, large(min_lines=800)),
+    "readme-typo": (19, gen_readme, control(min_lines=60, max_lines=60)),
+    "timeparse-coverage": (20, gen_timeparse, control()),
+    "ratelimit-clock-skew": (21, gen_ratelimit, control(min_bytes=20000)),
 }
+
+
+def measure(out):
+    """(total bytes, lines of the longest file) of every file under `out`."""
+    total = longest = 0
+    for directory, _, names in os.walk(out):
+        for name in names:
+            with open(os.path.join(directory, name), "rb") as fh:
+                data = fh.read()
+            total += len(data)
+            longest = max(longest, data.count(b"\n"))
+    return total, longest
+
+
+def broken_bounds(promise, total_bytes, longest_lines):
+    """One line per bound of `promise` the measured output breaks."""
+    checks = [("min_bytes", total_bytes, promise.min_bytes, True), ("max_bytes", total_bytes, promise.max_bytes, False),
+              ("min_lines", longest_lines, promise.min_lines, True), ("max_lines", longest_lines, promise.max_lines, False)]
+    return ["%s %d, measured %d" % (name, bound, value) for name, value, bound, is_floor in checks
+            if bound is not None and (value < bound if is_floor else value > bound)]
 
 
 def main(argv):
@@ -1256,9 +1292,12 @@ def main(argv):
     parser.add_argument("--out", required=True, help="directory to write the fixture into")
     args = parser.parse_args(argv)
     os.makedirs(args.out, exist_ok=True)
-    seed, generate = CASES[args.case]
+    seed, generate, promise = CASES[args.case]
     generate(args.out, random.Random(seed))
-    return 0
+    broken = broken_bounds(promise, *measure(args.out))
+    for line in broken:
+        print("fixture_gen: %s breaks its promise: %s" % (args.case, line), file=sys.stderr)
+    return 1 if broken else 0
 
 
 if __name__ == "__main__":
