@@ -86,12 +86,14 @@ SUMMED = [f.name for f in fields(Row) if f.metadata["summable"]]
 
 
 def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
-    parent = rt.parse_transcript(session.path)
+    reads = rt.parse_session(session.path, session.subagent_paths)
+    parent = reads.parent
     row = Row(f"{session.project}/{parent.session_id}" if session.project else parent.session_id)
     row.result_bytes = parent.tool_result_bytes()
     row.final_context = parent.final_context
     row.compactions = parent.compactions
-    row.malformed = parent.malformed
+    row.malformed = reads.malformed
+    row.largest, row.largest_path = parent.largest_parent_result()
     seen: set = set()
     for call in parent.parent_calls():
         if isinstance(call, rt.Read):
@@ -101,19 +103,8 @@ def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
             row.shell_bytes += call.bytes
             row.rereads += sum(1 for p in call.paths if p in seen)
             seen.update(call.paths)
-    for use in parent.parent_tool_uses():
-        result = parent.results.get(use.id)
-        if result is not None and result.bytes > row.largest:
-            row.largest = result.bytes
-            row.largest_path = use.subject
-    sidechain = parent.sidechain_reads()
-    for path in session.subagent_paths:
-        agent = rt.parse_transcript(path, is_subagent=True)
-        row.malformed += agent.malformed
-        sidechain += agent.sidechain_reads()
-    for read in sidechain:
-        if not read.is_excluded:
-            _count_subagent_read(row, read, th)
+    for read in reads.sidechain_reads:
+        _count_subagent_read(row, read, th)
     return row
 
 
@@ -138,7 +129,16 @@ def _count_subagent_read(row: Row, read: rt.Read, th: rt.Thresholds) -> None:
         row.subagent_large += 1
 
 
-def aggregate(rows: List[Row]) -> Dict[str, object]:
+@dataclass
+class Aggregate:
+    total: Row
+    sessions: int
+    median_share: float
+    quarter_share: float
+    verdict: str
+
+
+def aggregate(rows: List[Row]) -> Aggregate:
     total = Row("all sessions")
     for r in rows:
         for key in SUMMED:
@@ -150,10 +150,7 @@ def aggregate(rows: List[Row]) -> Dict[str, object]:
     median = shares[n // 2] if n % 2 else (shares[n // 2 - 1] + shares[n // 2]) / 2
     quarter = shares[n - math.ceil(n / 4)]
     gate = median >= GO_MEDIAN_SHARE or quarter >= GO_QUARTER_SHARE
-    return {
-        "sessions": n, "total": total, "median_share": median, "quarter_share": quarter,
-        "verdict": "gate" if gate else "not worth gating",
-    }
+    return Aggregate(total, n, median, quarter, "gate" if gate else "not worth gating")
 
 
 def _display_path(path: str, full: bool) -> str:
@@ -172,24 +169,23 @@ def _cell(row: Row, key: str, full_paths: bool) -> str:
     return str(getattr(row, key))
 
 
-def render_markdown(rows: List[Row], agg: Dict[str, object], args: argparse.Namespace) -> str:
+def render_markdown(rows: List[Row], agg: Aggregate, args: argparse.Namespace) -> str:
     full_paths = args.paths
     header = "| " + " | ".join(label for _, label in COLUMNS) + " |"
     rule = "|" + "|".join("---" for _ in COLUMNS) + "|"
     lines = [f"# Read incidence over `{args.root}` (bytes >= {args.bytes}, lines >= {args.lines})", "",
              "## Per session", "", header, rule]
     lines += ["| " + " | ".join(_cell(r, key, full_paths) for key, _ in COLUMNS) + " |" for r in rows]
-    total: Row = agg["total"]  # type: ignore[assignment]
     lines += ["", "## Aggregate", "", header, rule,
-              "| " + " | ".join(_cell(total, key, full_paths) for key, _ in COLUMNS) + " |", "",
-              f"Sessions: {agg['sessions']} · median share {agg['median_share']:.1%} · "
-              f"quarter share {agg['quarter_share']:.1%}",
-              f"Verdict: {agg['verdict']} — gate when the median share is at least {GO_MEDIAN_SHARE:.0%} "
+              "| " + " | ".join(_cell(agg.total, key, full_paths) for key, _ in COLUMNS) + " |", "",
+              f"Sessions: {agg.sessions} · median share {agg.median_share:.1%} · "
+              f"quarter share {agg.quarter_share:.1%}",
+              f"Verdict: {agg.verdict} — gate when the median share is at least {GO_MEDIAN_SHARE:.0%} "
               f"or a quarter of sessions reach {GO_QUARTER_SHARE:.0%}"]
     return "\n".join(lines)
 
 
-def render_json(rows: List[Row], agg: Dict[str, object], args: argparse.Namespace) -> str:
+def render_json(rows: List[Row], agg: Aggregate, args: argparse.Namespace) -> str:
     def row_dict(r: Row) -> Dict[str, object]:
         d = asdict(r)
         d["share"] = r.share
@@ -198,10 +194,10 @@ def render_json(rows: List[Row], agg: Dict[str, object], args: argparse.Namespac
     out = {
         "root": args.root, "bytes": args.bytes, "lines": args.lines,
         "sessions": [row_dict(r) for r in rows],
-        "aggregate": {**row_dict(agg["total"]), "sessions": agg["sessions"],  # type: ignore[arg-type]
-                      "median_share": agg["median_share"], "quarter_share": agg["quarter_share"],
+        "aggregate": {**row_dict(agg.total), "sessions": agg.sessions,
+                      "median_share": agg.median_share, "quarter_share": agg.quarter_share,
                       "go_median_share": GO_MEDIAN_SHARE, "go_quarter_share": GO_QUARTER_SHARE,
-                      "verdict": agg["verdict"]},
+                      "verdict": agg.verdict},
     }
     return json.dumps(out, indent=2)
 

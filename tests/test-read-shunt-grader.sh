@@ -97,6 +97,21 @@ assert_contains "$keys" "run 0 0 1115 12000 7 1.0 1.0 annotate:1 deny:2 1" "grad
 assert_contains "$keys" "counts 5 4" "grader: --json carries five runs and four paired means"
 assert_contains "$keys" "mean 2 1.5 0.5 None" "grader: --json means skip missing values"
 
+printf '\n--- rows: a run knows whether a shunt log sits beside its transcript ---\n'
+out="$("$TEST_PYTHON" - "$GRADER" "$RESULTS" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("grade_read_shunt", sys.argv[1])
+grader = importlib.util.module_from_spec(spec)
+sys.modules["grade_read_shunt"] = grader
+spec.loader.exec_module(grader)
+print("has-log", [(r.arm, r.task, r.run, r.has_shunt_log) for r in grader.discover(sys.argv[2])])
+PY
+)"
+assert_contains "$out" "has-log [('control', 'task-a', 'run-1', False), ('control', 'task-a', 'run-2', False), ('control', 'task-b', 'run-1', False), ('shunt', 'task-a', 'run-1', True), ('shunt', 'task-b', 'run-1', True)]" \
+  "grader: discover() flags the runs that have a shunt log"
+assert_eq "0" "$(grep -c 'repeated_denies is not None' "$GRADER")" \
+  "grader: the hook columns key on the run's shunt log, not on a sentinel in its row"
+
 printf '\n--- rows: thresholds and drift ---\n'
 hi="$("$TEST_PYTHON" "$GRADER" "$RESULTS" --bytes 100000 --lines 100000 2>&1)"
 assert_contains "$hi" "| control | task-a | run-1 | 0 | 0 | 8340 |" "grader: --bytes/--lines move the large threshold for reads and routing alike"
@@ -136,6 +151,14 @@ out="$("$TEST_PYTHON" "$GRADER" "$TMP/async" --json 2>&1)"; rc=$?
 assert_eq "0" "$rc" "grader: an async-launched run with two sub-agent transcripts grades with exit 0"
 assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; print("uses", json.load(sys.stdin)["runs"][0]["subagent_tool_uses"])')" \
   "uses 7" "grader: with no Agent counters the column sums every sub-agent transcript's tool uses"
+
+printf '\n--- rows: bytes into the parent leave out an inline sidechain result ---\n'
+INLINE="$TMP/inline/arm/task/run"; mkdir -p "$INLINE"
+cp tests/fixtures/transcripts/root/proj-b/s3.jsonl "$INLINE/transcript.jsonl"
+out="$("$TEST_PYTHON" "$GRADER" "$TMP/inline" --json 2>&1)"; rc=$?
+assert_eq "0" "$rc" "grader: a transcript with an inline sidechain grades with exit 0"
+assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; print("bytes", json.load(sys.stdin)["runs"][0]["parent_bytes"])')" \
+  "bytes 1613" "grader: the sidechain's 1487-byte result is not the parent's"
 
 # --- § arranging -------------------------------------------------------------
 printf '\n--- arranging: a kept `claude plugin eval` temp tree becomes the grader layout ---\n'
@@ -181,6 +204,9 @@ assert_contains "$graded" "| gated | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000
   "arrange: run 1 grades to the row its transcript gives"
 assert_contains "$graded" "| gated | task-a | run-2 | 0 | 1 | 1317 | 717 | 20000 | 0 | - | 0 | 90 | - | 0 |" \
   "arrange: run 2 grades with the pass verdict as outcome 0"
+
+# Where a session's sub-agents live is the parser's rule, used by the reader and the copier alike.
+assert_eq "0" "$(grep -c 'splitext' "$ARRANGE")" "arrange: finds a session's sub-agent directory through the parser, not by its own path rule"
 
 # The outcome is validated once, in plan, and the record it made is what write stores.
 out="$("$TEST_PYTHON" - "$ARRANGE" "$SCRIPTS" "$TMP" <<'PY'

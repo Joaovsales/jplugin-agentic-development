@@ -39,9 +39,20 @@ export PYTHONUTF8=1
 
 SUITE="$REPO/evals/read-shunt"
 
-LARGE_CASES="billing-client-zero-total nightly-pipeline-failure catalog-currency-field orders-extract-tax pipeline-checks-intermittent settings-loader-port load-record-callers changelog-release-notes"
-CONTROL_CASES="readme-typo timeparse-coverage ratelimit-clock-skew"
-ALL_CASES="$LARGE_CASES $CONTROL_CASES"
+ALL_CASES="billing-client-zero-total nightly-pipeline-failure catalog-currency-field orders-extract-tax pipeline-checks-intermittent settings-loader-port load-record-callers changelog-release-notes readme-typo timeparse-coverage ratelimit-clock-skew"
+
+# A case's arm is its Promise row's: a floor above the threshold is a large case.
+arm_cases() {
+  "$TEST_PYTHON" - "$SUITE" "$1" <<'PY' | tr -d '\r'
+import sys
+sys.path.insert(0, sys.argv[1])
+import fixture_gen as fg
+arm = lambda promise: "large" if (promise.min_total_bytes or 0) > fg.LARGE_BYTES else "control"
+print(" ".join(sorted(c for c, (_, _, promise) in fg.CASES.items() if arm(promise) == sys.argv[2])))
+PY
+}
+LARGE_CASES="$(arm_cases large)"
+CONTROL_CASES="$(arm_cases control)"
 
 TMP="$(mktemp -d)"
 [ -n "$TMP" ] && [ -d "$TMP" ] || { printf '  FAIL could not create fixture dir\n'; exit 1; }
@@ -111,6 +122,7 @@ assert_eq "present" "$([ -f "$SUITE/README.md" ] && echo present || echo missing
 found="$(find "$SUITE" -mindepth 1 -maxdepth 1 -type d ! -name results -exec basename {} \; 2>/dev/null | sort | tr '\n' ' ')"
 want="$(printf '%s\n' $ALL_CASES | sort | tr '\n' ' ')"
 assert_eq "$want" "$found" "exactly the eleven named case directories"
+assert_eq "$want" "$(printf '%s\n' $LARGE_CASES $CONTROL_CASES | sort | tr '\n' ' ')" "fixture_gen.CASES names exactly those eleven cases"
 
 for c in $ALL_CASES; do
   d="$SUITE/$c"
@@ -163,23 +175,21 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import fixture_gen as fg
 seed, generate, _ = fg.CASES["readme-typo"]
-fg.CASES["readme-typo"] = (seed, generate, fg.Promise(max_bytes=100))
+fg.CASES["readme-typo"] = (seed, generate, fg.Promise(max_total_bytes=100))
 sys.exit(fg.main(["readme-typo", "--out", sys.argv[2]]))
 PY
 )"; rc=$?
 assert_eq "1" "$rc" "promise: a scaffold whose output breaks its row exits 1"
 assert_contains "$err" "readme-typo" "promise: the message names the case"
-assert_contains "$err" "max_bytes" "promise: the message names the broken bound"
-bad="$("$TEST_PYTHON" - "$SUITE" "$LARGE_CASES" "$CONTROL_CASES" <<'PY'
+assert_contains "$err" "max_total_bytes" "promise: the message names the broken bound"
+bad="$("$TEST_PYTHON" - "$SUITE" "$CONTROL_CASES" <<'PY' | tr -d '\r'
 import sys
 sys.path.insert(0, sys.argv[1])
 import fixture_gen as fg
-bad = [c for c in sys.argv[2].split() if not (fg.CASES[c][2].min_bytes or 0) > fg.LARGE_BYTES]
-bad += [c for c in sys.argv[3].split() if not (fg.CASES[c][2].max_bytes or fg.LARGE_BYTES) < fg.LARGE_BYTES]
-print(" ".join(bad))
+print(" ".join(c for c in sys.argv[2].split() if not (fg.CASES[c][2].max_total_bytes or fg.LARGE_BYTES) < fg.LARGE_BYTES))
 PY
 )"
-assert_eq "" "$bad" "promise: every large case's row floors above the threshold and every control's caps below it"
+assert_eq "" "$bad" "promise: every control's row caps its total below the threshold"
 assert_eq "40" "$(ls "$TMP/load-record-callers/svc" | grep -c '^mod_[0-9][0-9]\.py$')" "forty svc modules"
 assert_eq "23" "$(grep -l 'fetch_record' "$TMP"/load-record-callers/svc/mod_*.py | wc -l | tr -d ' ')" "23 modules still call the old name"
 assert_file_contains "$TMP/readme-typo/README.md" "recieve" "README carries the typo"

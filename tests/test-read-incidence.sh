@@ -138,6 +138,10 @@ s1_bytes="$(printf '%s\n' "$out" | sed -n 's/^session proj-a\/s1 .*result_bytes=
 [ -n "$s1_bytes" ] && [ "$s1_bytes" -gt 10000 ] && [ "$s1_bytes" -lt 20000 ] \
   && big_ok=in-range || big_ok="out-of-range:$s1_bytes"
 assert_eq "in-range" "$big_ok" "parser: s1's tool-result bytes are the text parts of every result block"
+# The denominator is the parent's bytes: s3's inline sidechain result (toolu_w1,
+# 1487 bytes) is the sub-agent's, so the parent's 3100 - 1487 = 1613.
+assert_eq "1613" "$(printf '%s\n' "$out" | sed -n 's/^session proj-b\/s3 .*result_bytes=\([0-9]*\)$/\1/p')" \
+  "parser: s3's tool-result bytes leave out its inline sidechain result"
 
 # --- § drift ---------------------------------------------------------------
 printf '\n--- drift: exit 2 names the root or the file and line; never a silent zero ---\n'
@@ -193,10 +197,10 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
 t = rt.parse_transcript(sys.argv[2])
-print("cached", t.reads() is t.reads())
+print("immutable", type(t.reads()) is tuple, len(t.reads()))
 PY
 )"
-assert_contains "$out" "cached True" "parser: reads() classifies once, not on every call"
+assert_contains "$out" "immutable True 6" "parser: reads() hands out what parse time classified, in a tuple a caller cannot extend"
 
 # A clean run through the same guard is exit 0 and silent on stderr.
 err="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" <<'PY' 2>&1 >/dev/null
@@ -332,12 +336,14 @@ d = json.load(sys.stdin)
 s1 = [s for s in d["sessions"] if s["session"] == "proj-a/s1"][0]
 print(" ".join(f"{k}={s1[k]}" for k in ("reads", "whole_large", "whole_large_bytes", "truncated", "shell_reads", "shell_bytes", "rereads", "final_context", "compactions", "subagent_reads", "subagent_large", "excluded", "malformed", "largest_path")))
 print("share", round(s1["share"], 3) == round(s1["whole_large_bytes"] / s1["result_bytes"], 3))
+print("s3-denominator", [s for s in d["sessions"] if s["session"] == "proj-b/s3"][0]["result_bytes"])
 a = d["aggregate"]
 print("agg", a["sessions"], a["reads"], a["whole_large"], a["verdict"], "median_share" in a, "quarter_share" in a)
 ')"
 assert_contains "$keys" "reads=4 whole_large=2 whole_large_bytes=6714 truncated=1 shell_reads=5 shell_bytes=2400 rereads=3 final_context=51500 compactions=1 subagent_reads=1 subagent_large=1 excluded=2 malformed=1 largest_path=huge.log" \
   "report: --json carries the same per-session keys as the table"
 assert_contains "$keys" "share True" "report: --json's share is bytes over the parent's tool-result bytes"
+assert_contains "$keys" "s3-denominator 1613" "report: the share's denominator leaves out a sidechain result"
 assert_contains "$keys" "agg 3 7 2 gate True True" "report: --json carries the aggregate and the go rule's inputs"
 
 err="$("$TEST_PYTHON" "$INCIDENCE" --root "$TMP/empty-root" 2>&1 >/dev/null)"; rc=$?
@@ -399,7 +405,7 @@ done
 
 # Bash, Grep and Agent uses are classified at parse time beside Read, for the
 # parent loop only: one definition of the parent serves both CLIs.
-out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" "$FIX/results/shunt/task-a/run-1/transcript.jsonl" "$FIX/root/proj-b/s3.jsonl" <<'PY'
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" "$FIX/results/shunt/task-a/run-1/transcript.jsonl" "$FIX/root/proj-b/s3.jsonl" "$TMP/agent-unanswered.jsonl" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
@@ -407,12 +413,14 @@ s1 = rt.parse_transcript(sys.argv[2])
 print("shell", [(s.paths, s.bytes) for s in s1.shell_reads()])
 print("grep", [(g.target, g.context_lines, g.head_limit, g.bytes) for g in s1.grep_calls()])
 print("agent", [(a.total_tokens, a.tool_use_count, "big_module.py" in a.named_text) for a in s1.agent_calls()])
-print("cached", s1.shell_reads() is s1.shell_reads(), s1.grep_calls() is s1.grep_calls(), s1.agent_calls() is s1.agent_calls())
+print("immutable", *(type(c()) is tuple for c in (s1.shell_reads, s1.grep_calls, s1.agent_calls)))
 shunt = rt.parse_transcript(sys.argv[3])
 print("completed", [(a.total_tokens, a.tool_use_count, "big.py:120-160" in a.named_text) for a in shunt.agent_calls()])
 s3 = rt.parse_transcript(sys.argv[4])
 print("parent-uses", len(s3.tool_uses), len(s3.parent_tool_uses()),
       all(not u.sidechain for u in s3.parent_tool_uses()))
+print("largest", s1.largest_parent_result(), s3.largest_parent_result(),
+      rt.parse_transcript(sys.argv[5]).largest_parent_result())
 PY
 )"
 assert_contains "$out" "shell [(('c:/work/app/notes.txt',), 600), (('c:/work/app/a.txt', 'c:/work/app/b.txt'), 700), (('c:/work/app/a.txt',), 200), (('c:/work/app/a.txt',), 900)]" \
@@ -423,8 +431,10 @@ assert_contains "$out" "agent [(None, None, True)]" \
   "structure: an async-launched Agent has the prompt's text and no counters, and that is not drift"
 assert_contains "$out" "completed [(12000, 7, True)]" \
   "structure: a completed Agent carries its counters and the paths its result text names"
-assert_contains "$out" "cached True True True" "structure: the three classifications are made once, at parse time"
+assert_contains "$out" "immutable True True True" "structure: the three classifications are made at parse time and handed out as tuples"
 assert_contains "$out" "parent-uses 7 6 True" "structure: parent_tool_uses() leaves out the inline sidechain use"
+assert_contains "$out" "largest (4357, 'C:\\\\work\\\\app\\\\huge.log') (1117, 'C:\\\\work\\\\lib\\\\legacy_reader.py') (0, '')" \
+  "structure: largest_parent_result() is the parent's biggest result and its subject, (0, '') when nothing was answered"
 
 # The parent/sidechain split and the call order are the parser's, so neither
 # CLI re-derives them.
@@ -441,7 +451,7 @@ print("order", [type(c).__name__ for c in s1.parent_calls()])
 lines = [c.tool_use.line_no for c in s1.parent_calls()]
 print("order-ids", len(lines), lines == sorted(lines))
 print("parent-calls-s3", len(s3.parent_calls()), all(not c.tool_use.sidechain for c in s3.parent_calls()))
-print("cached", s1.parent_calls() is s1.parent_calls())
+print("immutable", type(s1.parent_calls()) is tuple)
 PY
 )"
 assert_contains "$out" "s1-split 6 6 0" "structure: s1 has no sidechain read, so its parent reads are all its reads"
@@ -449,9 +459,40 @@ assert_contains "$out" "s3-split 7 6 1 ['loader.py']" \
   "structure: s3's inline sidechain read is in sidechain_reads() and out of parent_reads(); reads() stays the union"
 assert_contains "$out" "order-ids 12 True" "structure: parent_calls() follows the order of the tool uses"
 assert_contains "$out" "parent-calls-s3 6 True" "structure: parent_calls() leaves out the inline sidechain read"
-assert_contains "$out" "cached True" "structure: parent_calls() is built once, at parse time"
+assert_contains "$out" "immutable True" "structure: parent_calls() is built at parse time and handed out as a tuple"
+
+# A session is its parent transcript plus its sub-agent files: parse_session
+# is the one place that assembles it, so both CLIs count the same sidechain.
+SESSROOT="$TMP/session-root"; mkdir -p "$SESSROOT/proj/s1/subagents"
+cp "$FIX/root/proj-a/s1.jsonl" "$SESSROOT/proj/s1.jsonl"
+cp "$FIX/root/proj-a/s1/subagents/agent-a1.jsonl" "$SESSROOT/proj/s1/subagents/"
+cp "$FIX/root/proj-b/s3.jsonl" "$SESSROOT/proj/s3.jsonl"
+"$TEST_PYTHON" - "$SESSROOT/proj/s1/subagents/agent-e1.jsonl" <<'PY'
+import json, sys
+use = {"type": "assistant", "isSidechain": True, "message": {"content": [
+    {"type": "tool_use", "id": "r1", "name": "Read", "input": {"file_path": "/work/missing.py"}}]}}
+err = {"type": "user", "isSidechain": True, "message": {"content": [
+    {"type": "tool_result", "tool_use_id": "r1", "is_error": True, "content": "File does not exist."}]}}
+open(sys.argv[1], "w").write("not json\n" + "\n".join(json.dumps(r) for r in (use, err)) + "\n")
+PY
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$SESSROOT" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+for s in rt.iter_sessions(sys.argv[2]):
+    ss = rt.parse_session(s.path, s.subagent_paths)
+    print("session", ss.parent.session_id, len(ss.agents), all(a.is_subagent for a in ss.agents), ss.malformed,
+          [r.norm_path.rsplit("/", 1)[-1] for r in ss.sidechain_reads])
+PY
+)"
+assert_contains "$out" "session s1 2 True 2 ['big_module.py']" \
+  "structure: parse_session parses every sub-agent file, sums malformed lines, and drops an excluded sidechain read"
+assert_contains "$out" "session s3 0 True 1 ['loader.py']" \
+  "structure: parse_session counts the parent's inline sidechain reads beside the agents'"
 for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
-  assert_eq "0" "$(grep -cE 'tool_use\.(id|sidechain)' "$cli")" "$cli: no join on tool-use ids and no sidechain branch — the parser owns the split and the order"
+  assert_eq "0" "$(grep -cE 'tool_use\.(id|sidechain)|\.results(\.get|\[)' "$cli")" "$cli: no join on tool-use ids and no sidechain branch — the parser owns the split and the order"
+  assert_eq "0" "$(grep -c 'parse_transcript' "$cli")" "$cli: reads a session through parse_session, never assembling one from per-file transcripts"
+  assert_eq "0" "$(grep -c 'type: ignore' "$cli")" "$cli: needs no type ignore"
   assert_eq "0" "$(grep -cE 'field\(metadata=' "$cli")" "$cli: every column is declared through its one column helper, key columns included"
 done
 
@@ -471,7 +512,7 @@ summable = [f.name for f in fields(ri.Row) if f.metadata["summable"]]
 for i, row in enumerate(rows, 1):
     for name in summable:
         setattr(row, name, i)
-total = ri.aggregate(rows)["total"]
+total = ri.aggregate(rows).total
 print("summed", all(getattr(total, name) == 3 for name in summable), len(summable))
 print("unsummed", sorted(names - set(summable)))
 PY

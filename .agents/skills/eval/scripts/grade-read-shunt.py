@@ -92,6 +92,13 @@ class RunDir:
     path: str
     transcript: str
     subagents: List[str] = field(default_factory=list)
+    has_shunt_log: bool = False
+
+
+def _subdirs(path: str) -> List[Tuple[str, str]]:
+    """(name, path) of each subdirectory of `path`, sorted by name."""
+    return [(name, os.path.join(path, name)) for name in sorted(os.listdir(path))
+            if os.path.isdir(os.path.join(path, name))]
 
 
 def discover(results: str) -> List[RunDir]:
@@ -99,22 +106,14 @@ def discover(results: str) -> List[RunDir]:
     runs: List[RunDir] = []
     if not os.path.isdir(results):
         raise rt.EmptyRoot(results)
-    for arm in sorted(os.listdir(results)):
-        arm_dir = os.path.join(results, arm)
-        if not os.path.isdir(arm_dir):
-            continue
-        for task in sorted(os.listdir(arm_dir)):
-            task_dir = os.path.join(arm_dir, task)
-            if not os.path.isdir(task_dir):
-                continue
-            for run in sorted(os.listdir(task_dir)):
-                run_dir = os.path.join(task_dir, run)
-                if not os.path.isdir(run_dir):
-                    continue
+    for arm, arm_dir in _subdirs(results):
+        for task, task_dir in _subdirs(arm_dir):
+            for run, run_dir in _subdirs(task_dir):
                 transcript = os.path.join(run_dir, rt.TRANSCRIPT_FILE)
                 if not os.path.isfile(transcript):
                     continue
-                runs.append(RunDir(arm, task, run, run_dir, transcript, rt.subagent_transcripts(run_dir)))
+                runs.append(RunDir(arm, task, run, run_dir, transcript, rt.subagent_transcripts(run_dir),
+                                   os.path.exists(os.path.join(run_dir, rt.SHUNT_LOG))))
     if not runs:
         raise rt.EmptyRoot(results)
     return runs
@@ -148,22 +147,18 @@ def _is_routing_grep(grep: rt.GrepCall) -> bool:
 
 
 def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
-    parent = rt.parse_transcript(run.transcript, is_subagent=False)
+    session = rt.parse_session(run.transcript, run.subagents)
+    parent, agents = session.parent, session.agents
     row = RunRow(run.arm, run.task, run.run)
     row.parent_bytes = parent.tool_result_bytes()
     row.final_context = parent.final_context
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
-    agents = [rt.parse_transcript(p, is_subagent=True) for p in run.subagents]
-    sidechain_reads = [*parent.sidechain_reads(), *(r for a in agents for r in a.sidechain_reads())]
-    large_paths: Set[str] = {r.norm_path for r in sidechain_reads if r.is_large(th)}
+    row.largest = parent.largest_parent_result()[0]
+    large_paths: Set[str] = {r.norm_path for r in session.sidechain_reads if r.is_large(th)}
     named: Set[str] = set()
     rereads = 0
     tokens: Optional[int] = None
-    for use in parent.parent_tool_uses():
-        result = parent.results.get(use.id)
-        if result is not None and result.bytes > row.largest:
-            row.largest = result.bytes
     for call in parent.parent_calls():
         if isinstance(call, rt.Read):
             if call.is_excluded:
@@ -185,13 +180,14 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
             named |= _paths_in(call.named_text)
             if call.total_tokens is not None:
                 tokens = (tokens or 0) + call.total_tokens
-    named |= {r.norm_path for r in sidechain_reads if not r.is_excluded}
+    named |= {r.norm_path for r in session.sidechain_reads}
     counted = [c.tool_use_count for c in parent.agent_calls() if c.tool_use_count is not None]
     row.subagent_tokens = tokens
     row.subagent_tool_uses = sum(counted) if counted else sum(len(a.tool_uses) for a in agents)
     row.reread_rate = round(rereads / len(named), 3) if named else None
     row.outcome = rt.read_outcome(run.path)
-    _hook_columns(row, run.path)
+    if run.has_shunt_log:
+        _hook_columns(row, run.path)
     return row
 
 
@@ -204,8 +200,6 @@ def _was_named(norm: str, named: Set[str]) -> bool:
 
 def _hook_columns(row: RunRow, run_dir: str) -> None:
     path = os.path.join(run_dir, rt.SHUNT_LOG)
-    if not os.path.exists(path):
-        return
     decisions: Dict[str, int] = {}
     denied: Dict[str, int] = {}
     with open(path, encoding="utf-8") as fh:
@@ -276,8 +270,9 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     th = rt.Thresholds(args.bytes, args.lines)
-    rows = [grade_run(r, th) for r in discover(args.results)]
-    columns = COLUMNS + (HOOK_COLUMNS if any(r.repeated_denies is not None for r in rows) else [])
+    runs = discover(args.results)
+    rows = [grade_run(r, th) for r in runs]
+    columns = COLUMNS + (HOOK_COLUMNS if any(r.has_shunt_log for r in runs) else [])
     numeric = [k for k, _, n in columns if n]
     means = paired_means(rows, numeric)
     if args.json:

@@ -113,7 +113,7 @@ def write(arranged: List[ArrangedRun], arm: str, out: str) -> None:
         dest = os.path.join(out, arm, run.case, f"run-{run.number}")
         os.makedirs(dest)
         shutil.copyfile(run.transcript, os.path.join(dest, rt.TRANSCRIPT_FILE))
-        agents = os.path.join(os.path.splitext(run.transcript)[0], rt.SUBAGENTS_DIR)
+        agents = rt.session_subagents_dir(run.transcript)
         if os.path.isdir(agents):
             shutil.copytree(agents, os.path.join(dest, rt.SUBAGENTS_DIR))
         rt.write_outcome(dest, run.outcome)

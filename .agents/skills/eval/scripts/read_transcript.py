@@ -117,6 +117,7 @@ class ToolResult:
     line_no: int
     numbered: Optional[Tuple[int, int]] = None   # (first line number, line count) of `cat -n` text
     non_file: bool = False     # a note in place of file text: unchanged, empty, PDF, image
+    sidechain: bool = False    # the result entered a sub-agent's context, not the parent's
 
 
 @dataclass(frozen=True)
@@ -204,11 +205,12 @@ class Transcript:
     final_context: Optional[int] = None
     first_timestamp: Optional[str] = None
     last_timestamp: Optional[str] = None
-    _reads: List[Read] = field(default_factory=list, init=False, repr=False)
-    _shell_reads: List[ShellRead] = field(default_factory=list, init=False, repr=False)
-    _grep_calls: List[GrepCall] = field(default_factory=list, init=False, repr=False)
-    _agent_calls: List[AgentCall] = field(default_factory=list, init=False, repr=False)
-    _parent_calls: List[Call] = field(default_factory=list, init=False, repr=False)
+    _reads: Tuple[Read, ...] = field(default=(), init=False, repr=False)
+    _shell_reads: Tuple[ShellRead, ...] = field(default=(), init=False, repr=False)
+    _grep_calls: Tuple[GrepCall, ...] = field(default=(), init=False, repr=False)
+    _agent_calls: Tuple[AgentCall, ...] = field(default=(), init=False, repr=False)
+    _parent_calls: Tuple[Call, ...] = field(default=(), init=False, repr=False)
+    _largest_parent_result: Tuple[int, str] = field(default=(0, ""), init=False, repr=False)
 
     def tool_uses_named(self, name: str) -> List[ToolUse]:
         return [t for t in self.tool_uses if t.name == name]
@@ -217,7 +219,7 @@ class Transcript:
         """The tool uses of the parent loop: every one that is not a sub-agent's sidechain."""
         return [t for t in self.tool_uses if not t.sidechain]
 
-    def reads(self) -> List[Read]:
+    def reads(self) -> Tuple[Read, ...]:
         """Every Read, the parent's and an inline sidechain's; a `subagents/` file's are all sidechain."""
         return self._reads
 
@@ -227,18 +229,18 @@ class Transcript:
     def sidechain_reads(self) -> List[Read]:
         return [r for r in self._reads if r.tool_use.sidechain]
 
-    def parent_calls(self) -> List[Call]:
+    def parent_calls(self) -> Tuple[Call, ...]:
         """The parent's Read, shell-read, Grep and Agent calls in call order."""
         return self._parent_calls
 
-    def shell_reads(self) -> List[ShellRead]:
+    def shell_reads(self) -> Tuple[ShellRead, ...]:
         """The parent's `Bash` uses that printed whole files, in call order."""
         return self._shell_reads
 
-    def grep_calls(self) -> List[GrepCall]:
+    def grep_calls(self) -> Tuple[GrepCall, ...]:
         return self._grep_calls
 
-    def agent_calls(self) -> List[AgentCall]:
+    def agent_calls(self) -> Tuple[AgentCall, ...]:
         return self._agent_calls
 
     def counted_reads(self) -> List[Read]:
@@ -246,7 +248,12 @@ class Transcript:
         return [r for r in self._reads if not r.is_excluded]
 
     def tool_result_bytes(self) -> int:
-        return sum(r.bytes for r in self.results.values())
+        """The bytes the parent's own tool results put into its context."""
+        return sum(r.bytes for r in self.results.values() if not r.sidechain)
+
+    def largest_parent_result(self) -> Tuple[int, str]:
+        """(bytes, subject) of the biggest result a parent tool use received; (0, "") when none."""
+        return self._largest_parent_result
 
 
 @dataclass
@@ -254,6 +261,16 @@ class Session:
     path: str
     project: str
     subagent_paths: List[str]
+
+
+@dataclass
+class SessionReads:
+    """A session assembled from its main-loop transcript and its sub-agent files."""
+
+    parent: Transcript
+    agents: List[Transcript]
+    sidechain_reads: List[Read]    # the parent's inline ones and every agent's, excluded dropped
+    malformed: int                 # unreadable lines, summed over every file
 
 
 def normalize_path(path: str) -> str:
@@ -276,16 +293,24 @@ def iter_sessions(root: str) -> List[Session]:
             path = os.path.join(dirpath, name)
             rel = os.path.relpath(dirpath, root)
             project = rel.replace("\\", "/").split("/")[0] if rel != "." else ""
-            agents = subagent_transcripts(os.path.join(dirpath, name[: -len(".jsonl")]))
-            sessions.append(Session(path, project, agents))
+            sessions.append(Session(path, project, _agent_files(session_subagents_dir(path))))
     if not sessions:
         raise EmptyRoot(root)
     return sessions
 
 
+def session_subagents_dir(transcript_path: str) -> str:
+    """Where Claude Code keeps a session's sub-agent files: beside its transcript,
+    under the transcript's name without `.jsonl`."""
+    return os.path.join(os.path.splitext(transcript_path)[0], SUBAGENTS_DIR)
+
+
 def subagent_transcripts(session_dir: str) -> List[str]:
     """The sub-agent transcripts under `<session_dir>/subagents/`, sorted."""
-    agents_dir = os.path.join(session_dir, SUBAGENTS_DIR)
+    return _agent_files(os.path.join(session_dir, SUBAGENTS_DIR))
+
+
+def _agent_files(agents_dir: str) -> List[str]:
     if not os.path.isdir(agents_dir):
         return []
     return sorted(os.path.join(agents_dir, a) for a in os.listdir(agents_dir) if a.endswith(".jsonl"))
@@ -399,15 +424,27 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
                 t.malformed += 1
                 continue
             _absorb(t, rec, line_no)
-    t._reads = [classify_read(u, t.results.get(u.id), path) for u in t.tool_uses_named("Read")]
+    t._reads = tuple(classify_read(u, t.results.get(u.id), path) for u in t.tool_uses_named("Read"))
     parent = t.parent_tool_uses()
-    t._shell_reads = [s for s in (classify_shell_read(u, t.results.get(u.id))
-                                  for u in parent if u.name == "Bash") if s is not None]
-    t._grep_calls = [classify_grep(u, t.results.get(u.id)) for u in parent if u.name == "Grep"]
-    t._agent_calls = [classify_agent(u, t.results.get(u.id), path) for u in parent if u.name == "Agent"]
+    t._shell_reads = tuple(s for s in (classify_shell_read(u, t.results.get(u.id))
+                                       for u in parent if u.name == "Bash") if s is not None)
+    t._grep_calls = tuple(classify_grep(u, t.results.get(u.id)) for u in parent if u.name == "Grep")
+    t._agent_calls = tuple(classify_agent(u, t.results.get(u.id), path) for u in parent if u.name == "Agent")
     by_id = {c.tool_use.id: c for c in [*t.parent_reads(), *t._shell_reads, *t._grep_calls, *t._agent_calls]}
-    t._parent_calls = [by_id[u.id] for u in parent if u.id in by_id]
+    t._parent_calls = tuple(by_id[u.id] for u in parent if u.id in by_id)
+    for use in parent:
+        result = t.results.get(use.id)
+        if result is not None and result.bytes > t._largest_parent_result[0]:
+            t._largest_parent_result = (result.bytes, use.subject)
     return t
+
+
+def parse_session(parent_path: str, subagent_paths: List[str]) -> SessionReads:
+    """A main-loop transcript and its sub-agent files, parsed and assembled once."""
+    parent = parse_transcript(parent_path, is_subagent=False)
+    agents = [parse_transcript(p, is_subagent=True) for p in subagent_paths]
+    sidechain = [r for t in (parent, *agents) for r in t.sidechain_reads() if not r.is_excluded]
+    return SessionReads(parent, agents, sidechain, parent.malformed + sum(a.malformed for a in agents))
 
 
 def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
@@ -447,7 +484,7 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         text = _block_text(block.get("content"))
         t.results[tid] = ToolResult(tid, len(text.encode("utf-8")), structured,
                                     block.get("is_error") is True, line_no, _numbered_lines(text),
-                                    _is_non_file_note(text))
+                                    _is_non_file_note(text), sidechain)
 
 
 def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) -> Read:

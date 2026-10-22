@@ -1236,33 +1236,33 @@ class Promise:
     """The size a case's output must have: total bytes under `out`, and the line
     count of its longest file. `None` leaves a side unbounded."""
 
-    min_bytes: Optional[int] = None
-    max_bytes: Optional[int] = None
-    min_lines: Optional[int] = None
-    max_lines: Optional[int] = None
+    min_total_bytes: Optional[int] = None
+    max_total_bytes: Optional[int] = None
+    min_longest_lines: Optional[int] = None
+    max_longest_lines: Optional[int] = None
 
 
-def large(min_bytes: int = LARGE_BYTES + 1, **bounds: int) -> Promise:
-    return Promise(min_bytes=min_bytes, **bounds)
+def large(min_total_bytes: int = LARGE_BYTES + 1, **bounds: int) -> Promise:
+    return Promise(min_total_bytes=min_total_bytes, **bounds)
 
 
-def control(max_lines: int = LARGE_LINES - 1, **bounds: int) -> Promise:
-    return Promise(max_bytes=LARGE_BYTES - 1, max_lines=max_lines, **bounds)
+def control(max_longest_lines: int = LARGE_LINES - 1, **bounds: int) -> Promise:
+    return Promise(max_total_bytes=LARGE_BYTES - 1, max_longest_lines=max_longest_lines, **bounds)
 
 
 # case name -> (seed, generator, promise); one table so a case cannot have one without the others
 CASES = {
-    "billing-client-zero-total": (11, gen_billing, large(min_lines=4000)),
-    "nightly-pipeline-failure": (12, gen_log, large(min_lines=20000)),
-    "catalog-currency-field": (13, gen_catalog, large(min_bytes=262145)),
-    "orders-extract-tax": (14, gen_orders, large(min_lines=2500)),
-    "pipeline-checks-intermittent": (15, gen_checks, large(min_lines=1800)),
-    "settings-loader-port": (16, gen_settings, large(min_lines=1300)),
-    "load-record-callers": (17, gen_svc, large(max_lines=80)),
-    "changelog-release-notes": (18, gen_changelog, large(min_lines=800)),
-    "readme-typo": (19, gen_readme, control(min_lines=60, max_lines=60)),
+    "billing-client-zero-total": (11, gen_billing, large(min_longest_lines=4000)),
+    "nightly-pipeline-failure": (12, gen_log, large(min_longest_lines=20000)),
+    "catalog-currency-field": (13, gen_catalog, large(min_total_bytes=262145)),
+    "orders-extract-tax": (14, gen_orders, large(min_longest_lines=2500)),
+    "pipeline-checks-intermittent": (15, gen_checks, large(min_longest_lines=1800)),
+    "settings-loader-port": (16, gen_settings, large(min_longest_lines=1300)),
+    "load-record-callers": (17, gen_svc, large(max_longest_lines=80)),
+    "changelog-release-notes": (18, gen_changelog, large(min_longest_lines=800)),
+    "readme-typo": (19, gen_readme, control(min_longest_lines=60, max_longest_lines=60)),
     "timeparse-coverage": (20, gen_timeparse, control()),
-    "ratelimit-clock-skew": (21, gen_ratelimit, control(min_bytes=20000)),
+    "ratelimit-clock-skew": (21, gen_ratelimit, control(min_total_bytes=20000)),
 }
 
 
@@ -1280,8 +1280,10 @@ def measure(out):
 
 def broken_bounds(promise, total_bytes, longest_lines):
     """One line per bound of `promise` the measured output breaks."""
-    checks = [("min_bytes", total_bytes, promise.min_bytes, True), ("max_bytes", total_bytes, promise.max_bytes, False),
-              ("min_lines", longest_lines, promise.min_lines, True), ("max_lines", longest_lines, promise.max_lines, False)]
+    checks = [("min_total_bytes", total_bytes, promise.min_total_bytes, True),
+              ("max_total_bytes", total_bytes, promise.max_total_bytes, False),
+              ("min_longest_lines", longest_lines, promise.min_longest_lines, True),
+              ("max_longest_lines", longest_lines, promise.max_longest_lines, False)]
     return ["%s %d, measured %d" % (name, bound, value) for name, value, bound, is_floor in checks
             if bound is not None and (value < bound if is_floor else value > bound)]
 
