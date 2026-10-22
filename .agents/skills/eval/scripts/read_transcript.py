@@ -291,6 +291,7 @@ def iter_sessions(root: str) -> List[Session]:
     for dirpath, dirnames, filenames in os.walk(root):
         if SUBAGENTS_DIR in dirnames:
             dirnames.remove(SUBAGENTS_DIR)
+        dirnames.sort()    # os.walk descends in listing order, which Linux leaves unsorted
         for name in sorted(filenames):
             if not name.endswith(".jsonl") or name == SHUNT_LOG:
                 continue
