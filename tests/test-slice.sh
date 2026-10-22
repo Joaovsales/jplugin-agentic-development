@@ -265,13 +265,16 @@ link_case() {  # <label> <index> <spec> <expected link> <expected done>
 done: $5" "$OUT" "link: $1 prints link and done"
 }
 link_case "a task-id on a slice header" "$TWO/todo-legacy.md" "$TWO/spec.md" "legacy" "no"
-link_case "an Issue line above a feature row" "$TWO/todo-both.md" "$TWO/spec.md" "issue https://github.com/o/r/issues/7" "no"
-link_case "a > Issue: line" "$TWO/todo-one-issue.md" "$TWO/spec.md" "issue https://github.com/o/r/issues/7" "no"
+link_case "an Issue line above a feature row" "$TWO/todo-both.md" "$TWO/spec.md" "issue #7" "no"
+link_case "a > Issue: line" "$TWO/todo-one-issue.md" "$TWO/spec.md" "issue #7" "no"
 link_case "a feature row with no provider link" "$TWO/todo-one-row.md" "$TWO/spec.md" "unlinked plan.two-links" "no"
-link_case "a feature row with a provider link" "$LINKF/todo-linked.md" "$FIXTURES/ready/spec.md" "linked plan.ready-fixture" "no"
+link_case "a feature row with a provider link" "$LINKF/todo-linked.md" "$FIXTURES/ready/spec.md" "linked plan.ready-fixture #42" "no"
 link_case "no feature link" "$LINKF/todo-none.md" "$FIXTURES/ready/spec.md" "none" "no"
 link_case "a flat block" "$FIXTURES/ready-implicit/todo-open.md" "$FIXTURES/ready-implicit/spec.md" "none" "no"
-link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue https://github.com/o/r/issues/42" "yes"
+link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue #42" "yes"
+link_case "an Issue ref already #N" "$LINKF/todo-issue-ref.md" "$FIXTURES/ready/spec.md" "issue #9" "no"
+link_case "an Issue ref no parser knows stays verbatim" "$LINKF/todo-issue-odd.md" "$FIXTURES/ready/spec.md" "issue PROJ-7" "no"
+link_case "a feature row with no task-id is no link" "$LINKF/todo-feature-no-id.md" "$FIXTURES/ready/spec.md" "none" "no"
 link_case "one header [x] of three" "$FIXTURES/ready/todo-header-slice1-done.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
 CODE=$?
@@ -280,6 +283,21 @@ assert_contains "$OUT" "slice: " "link: a missing index is a slice: refusal"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-none.md" --spec "$LINKF/other-spec.md" 2>&1)"
 CODE=$?
 assert_eq "2" "$CODE" "link: a spec the index has no block for exits 2"
+assert_contains "$OUT" "has no \`## Plan:\` block naming" "link: a spec the index has no block for says why"
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-feature-no-id.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "link: a feature row with no task-id fails validate"
+assert_contains "$OUT" "todo-feature-no-id.md:5: " "link: the no-id feature row is named by <path>:<line>"
+assert_contains "$OUT" "no task-id" "link: the no-id feature row refusal says why"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-multi.md" 2>&1)"
+CODE=$?
+OUT="${OUT//$'\r'/}"
+assert_eq "0" "$CODE" "link: without --spec exits 0"
+assert_eq "tests/fixtures/slice/ready/spec.md link: issue #42 done: yes
+tests/fixtures/slice/link/other-spec.md link: linked plan.second-fixture #43 done: no" "$OUT" "link: without --spec prints one line per block that names a spec"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec a missing index exits 2"
 
 printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
 

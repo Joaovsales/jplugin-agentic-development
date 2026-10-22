@@ -11,7 +11,7 @@ harness: universal
 The one definition of the TDD rules. `/build` and `/debug` call it; nothing else
 restates it.
 
-**Called with** a list of criteria (an AC id, a legacy `TDD:` row, or a bug's
+**Called with** a list of criteria (an AC id, a legacy `TDD:` row (`slice/references/plan-block.md` § *Legacy block*), or a bug's
 expected behaviour) and a surface (the files you may edit). **Returns** when every
 criterion has a test that failed first and now passes, or stops naming the
 criterion it could not make fail. The loop, the order and the evidence rules below

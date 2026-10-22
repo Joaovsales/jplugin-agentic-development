@@ -106,7 +106,7 @@ assert_contains "$defaults" "declared: False" \
   "default: an unconfigured project is recorded as having declared nothing"
 assert_contains "$defaults" "chain plan: /plan -> /wrap-up-session" \
   "AC12: plan's default chain is references/routines.md step 4 + the spine's step 5"
-assert_contains "$defaults" "chain fix: /debug -> /build -> /quality-gate -> /wrap-up-session" \
+assert_contains "$defaults" "chain fix: /debug -> /quality-gate -> /wrap-up-session" \
   "AC12: fix's default chain is routines.md steps 4a-4c + step 5"
 assert_contains "$defaults" "chain improve: /plan -> /build -> /quality-gate -> /wrap-up-session" \
   "AC12: improve's default chain is routines.md steps 4a-4c + step 5"
@@ -147,7 +147,7 @@ write_config "$undeclared" "design-decision" <<'INI'
 plan = design-decision
 INI
 undeclared_out="$(load_report "$undeclared")"
-assert_contains "$undeclared_out" "chain fix: /debug -> /build -> /quality-gate -> /wrap-up-session" \
+assert_contains "$undeclared_out" "chain fix: /debug -> /quality-gate -> /wrap-up-session" \
   "AC4 scope: a configured project with no [routines.skills] keeps the defaults"
 assert_not_contains "$undeclared_out" "REFUSED:" \
   "AC4 scope: shipped defaults are not checked against a project with no skills tree"
@@ -546,7 +546,7 @@ assert_not_contains "$project_chains" "REFUSED:" \
   "AC4 live: every skill this project's chains name is installed in this repository"
 assert_contains "$project_chains" "routines: build,fix,improve,plan" \
   "AC9 live: this project declares a chain for every routine it selects with"
-assert_contains "$project_chains" "chain fix: /debug -> /build -> /quality-gate -> /wrap-up-session" \
+assert_contains "$project_chains" "chain fix: /debug -> /quality-gate -> /wrap-up-session" \
   "AC12 live: the fix chain is read from docs/task-tracking.md"
 assert_contains "$project_chains" "declared: True" \
   "AC8/AC12 live: the chains come from the file, not from the shipped defaults"

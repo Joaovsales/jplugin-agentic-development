@@ -123,7 +123,7 @@ Order of preference:
 1. **First iteration only**: use the idea from `tasks/yolo-idea.md`.
 2. **Subsequent iterations**:
    - If `tasks/backlog.md` exists and has `[ ]` items → take the top one.
-   - Else if `slice.py link --index tasks/todo.md --spec <spec>` prints `done: no` for a plan block left over → resume it (re-enter `/build` directly, skip plan phase).
+   - Else if `slice.py link --index tasks/todo.md` (no `--spec`: one `<spec> link: <state> done: <yes|no>` line per plan block) prints `done: no` for a plan block left over → resume it (re-enter `/build` directly, skip plan phase).
    - Else → EXIT loop (no work left).
 
 If no backlog exists and the user's idea is a single feature, the loop is expected to run **once** and exit. That's fine — it's still yolo mode, just short.

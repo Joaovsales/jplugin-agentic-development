@@ -27,7 +27,27 @@ the spec against what was built.
 - `> Spec:` stands alone on its line. An existing `## Plan: <feature>`
   block with `[ ]` rows is replaced section by section, in place; a
   different feature is appended. Never two blocks for one feature.
-- A block is **legacy** when any slice header row carries a `task-id:` marker
-  (`<!-- task-id: … -->`); `slice.py link` classifies it, testing only for
-  that text on the header row, never for `TDD:` children. It still validates and readies a legacy
-  block, and no new block is written in that form.
+- A block with a `task-id:` marker on a slice header row is **legacy**: see
+  § *Legacy block* below. No new block is written in that form.
+
+## Legacy block
+
+The one place this is stated; every other skill links here and keeps only the
+action it performs itself.
+
+A block is **legacy** when any slice header row carries a `task-id:` marker
+(`<!-- task-id: … -->`): the slices were filed per row. `slice.py link` prints
+`legacy` for it, testing only for that text on the header row, never for `TDD:`
+children. `slice.py link --index tasks/todo.md` (no `--spec`) lists the state
+of every block that names a spec.
+
+| Step | Treatment |
+|------|-----------|
+| `/slice` | `validate` and `ready` accept it unchanged; no new block is written in this form |
+| `/build` | pre-flight files nothing; each slice's `TDD:` rows ride in the delegation prompt and run through `/tdd`; only its rows are claimed through `/task-registry`; Slice Close fires when the last `TDD:` row passes |
+| `/debug`, `/tdd` | an open block whose rows carry a `TDD:` prefix runs like criterion rows |
+| `/wrap-up-session` | keeps the per-row closure path: each slice header row carries its own task id and link |
+| `/yolo` | resumes a legacy `TDD:` row like an open slice header |
+
+**Sunset:** retire this section, the `legacy` link state and the per-row paths
+above when no open `## Plan:` block in `tasks/todo.md` classifies as legacy.

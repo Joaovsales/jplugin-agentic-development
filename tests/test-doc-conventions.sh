@@ -1017,7 +1017,7 @@ assert_file_matches "$YOLO_SKILL" 'no prompt.*in place' \
   "pipelines: yolo Step 6 row invokes /build in place"
 assert_prose_contains "$YOLO_SKILL" 'pre-flight runs without `--approve`' \
   "filing-callers: yolo Phase B runs the pre-flight without --approve"
-assert_prose_contains "$YOLO_SKILL" 'slice.py link --index tasks/todo.md --spec <spec>` prints `done: no`' \
+assert_prose_contains "$YOLO_SKILL" 'slice.py link --index tasks/todo.md` (no `--spec`: one `<spec> link: <state> done: <yes|no>` line per plan block) prints `done: no`' \
   "filing-callers: yolo resumes a plan block that slice.py link reports not done"
 assert_file_not_matches "$YOLO_SKILL" '--file' \
   "filing-callers: yolo names no /slice --file"
@@ -1220,6 +1220,9 @@ for token in 'The `- [ ]` row under each `### Slice n/N` heading' \
              'its status lives in the one feature issue'; do
   assert_prose_contains "$BUILD_SKILL" "$token" "slice close: SKILL.md contains '$token'"
 done
+assert_file_contains .agents/skills/slice/references/plan-block.md '## Legacy block' "legacy: plan-block.md holds the one definition"
+assert_prose_contains .agents/skills/slice/references/plan-block.md 'when no open `## Plan:` block in `tasks/todo.md` classifies as legacy' "legacy: plan-block.md names the sunset condition"
+assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md` § *Legacy block*' "slice close: legacy is defined by pointing at plan-block.md § Legacy block"
 assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md' \
   "slice close: legacy is defined by pointing at plan-block.md"
 assert_file_not_matches "$BUILD_SKILL" '^When a slice.s last `TDD:` row passes' \
@@ -1277,6 +1280,8 @@ for token in "Only \`unlinked <id>\` runs one upsert" \
   assert_prose_contains "$BUILD_SKILL" "$token" \
     "one-issue: build pre-flight contains '$token'"
 done
+assert_prose_contains "$BUILD_SKILL" '`--approve` is passed when the build prompt authorized the build' "one-issue: build pre-flight adds --approve when the build prompt authorized it (AC4)"
+assert_prose_contains "$BUILD_SKILL" 'omit `--approve`' "one-issue: build pre-flight omits --approve for /yolo and unattended runs (AC4)"
 # The legacy-block skip lives in the Pre-Flight section itself, not elsewhere in the file.
 preflight_build="$(awk '/^## Pre-Flight Checks/{f=1} /^## Phase 1 /{f=0} f' "$BUILD_SKILL" | tr -s '[:space:]' ' ')"
 assert_contains "$preflight_build" '`issue`, `linked`, `legacy` and `none` mean there is nothing to do' \

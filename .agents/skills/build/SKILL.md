@@ -136,7 +136,8 @@ line names and stop, rather than wait on a job this session cannot see finish.
 This session exists because a human started it with the build prompt, which
 is the authorization the planning session did not have. Run
 `python3 .agents/skills/slice/scripts/slice.py link --index tasks/todo.md --spec specs/<feature>.md`
-and act on the first word of its `link:` line. Only `unlinked <id>` runs one
+and act on the first word of its `link:` line (`issue #N`, `linked <id> #N`,
+`unlinked <id>`, `legacy` or `none`). Only `unlinked <id>` runs one
 upsert; `issue`, `linked`, `legacy` and `none` mean there is nothing to do:
 
 ```bash
@@ -316,13 +317,10 @@ Never call `gh` or a tracker API directly; any status write goes through
 
 ### Legacy block
 
-A block `slice.py link` classifies as `legacy`
-(`.agents/skills/slice/references/plan-block.md`) has task ids
-on its slice headers and nested `[ ] TDD:` rows, and was filed per slice, so
-pre-flight skips it. Its
-`TDD:` rows ride in the delegation prompt, run through `/tdd` and, when
-unfinished, go under `## Not finished`; each row is marked `[x]` as it passes
-and only its rows are claimed, through `/task-registry`; Slice Close fires when
+A block `slice.py link` classifies as `legacy` is defined in
+`.agents/skills/slice/references/plan-block.md` § *Legacy block*. Its `TDD:`
+rows run through `/tdd` and, when unfinished, go under `## Not finished`; each
+row is marked `[x]` as it passes; Slice Close fires when
 its last `TDD:` row passes, and an unfinished slice writes `unfinished: <rows>`;
 the forbidden state also covers a header `[x]` with a `[ ]` child row, and
 Phase 6 counts nested rows.

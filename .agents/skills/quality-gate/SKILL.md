@@ -239,7 +239,7 @@ two witnesses. An inline run is a complete run — it reports and applies under 
 Apply Gate — but it may never report a promoted confidence.
 
 A third value, `lost`, is for a review that was required but could not be
-dispatched (Phase 5's `test-engineer`): it is recorded, not omitted, and carries
+dispatched (Phase 5's `test-engineer` only; `receipt.py` refuses it elsewhere): it is recorded, not omitted, and carries
 no findings and no promotion.
 
 **No phase after 4 edits the tree.** Phase 4's applied fixes are the last edit;
@@ -303,7 +303,8 @@ Withhold the findings of Phases 1–4. Share intent, never conclusions.
 Its findings are report-only: it never edits the tree, and Phase
 5 applies nothing. Each unresolved SHOULD-FIX goes in `unresolved`: an unresolved SHOULD-FIX counts toward
 HOLD under the receipt's rule; a MUST-FIX makes the receipt STOP. Record a phase 5
-reviewer entry (`lens: test-engineer`, `dispatch: dispatched`). When no dispatch is
+reviewer entry (`lens: test-engineer`, `dispatch: dispatched`) — always written, dispatched
+or lost; `receipt.py` refuses `lost` on any other entry. When no dispatch is
 possible, record `{"phase": 5, "lens": "test-engineer", "dispatch": "lost"}` and name
 the lost review in `Not checked:` — a lost review and a clean one never leave the same
 receipt. `lost` is disclosed, not weighed: it does not change the derived verdict.

@@ -162,6 +162,13 @@ last thing its session says.
 - **Hand-edited plan with an unordered overlap.** `slice.py ready` reports
   the pair; `/build` serializes it in table order instead of guessing.
 
+- **How callers read a block's link.** `slice.py link --index tasks/todo.md --spec <spec>`
+  prints `link: <state>` and `done: <yes|no>`; `<state>` is `legacy`, `issue #N`,
+  `linked <id> #N` (the `#N` is what a PR writes after `Closes`), `unlinked <id>`
+  or `none` (also a feature row with no task-id, which `validate` refuses).
+  Without `--spec` it prints one `<spec> link: <state> done: <yes|no>` line per
+  plan block that names a spec.
+
 ## Integration
 
 - **Called by**: `/plan` Step 3 and `/system-design-planning` Step 3.5.

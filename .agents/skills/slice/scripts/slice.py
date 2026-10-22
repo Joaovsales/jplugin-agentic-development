@@ -66,6 +66,17 @@ ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
 FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
 
 
+ISSUE_URL_RE = re.compile(r"/issues/(?P<number>\d+)")
+
+
+def _closable_reference(ref: str) -> str:
+    """`ref` as a PR closing keyword takes it: `#N` for an issue URL, a bare number or `#N`; anything else verbatim."""
+    url = ISSUE_URL_RE.search(ref)
+    if url:
+        return "#" + url.group("number")
+    return "#" + ref if ref.isdigit() else ref
+
+
 class SliceError(Exception):
     """A spec's § Build Order, or a plan block, does not read as this format expects.
 
@@ -327,8 +338,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     spec_path = args.spec
     try:
         implementation_paths = read_implementation_paths(spec_path)
-        spec_text = read_text(spec_path)
-        rows = parse_build_order(spec_text, spec_path)
+        rows = parse_build_order(read_text(spec_path), spec_path)
     except (SpecPathError, SliceError, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
@@ -482,8 +492,8 @@ class PlanBlock:
             if ISSUE_LINE_RE.match(self.prose[line_number - 1]) or FEATURE_ROW_RE.match(self.prose[line_number - 1])
         ]
 
-    def is_legacy(self) -> bool:
-        """Whether any slice header row carries a `task-id:` marker (`<!-- task-id: … -->`)."""
+    def slices_filed_per_row(self) -> bool:
+        """Whether any slice header row carries a `task-id:` marker (`<!-- task-id: … -->`): the per-slice filing a legacy block has."""
         for heading_line, _number, _name, boundary in _heading_spans(self.headings, self.end_line):
             row = _row_after(self.rows, heading_line, boundary, self.prose)
             if row is not None and not row.legacy:
@@ -491,21 +501,28 @@ class PlanBlock:
         return False
 
     def link_state(self) -> str:
-        """How the block links its feature: `legacy`, `issue <ref>`, `linked <id>`, `unlinked <id>` or `none`.
+        """How the block links its feature: `legacy`, `issue #N`, `linked <id> #N`, `unlinked <id>` or `none`.
 
-        `legacy` wins; a flat block (no `### Slice` headings) is `none`. The first
+        `legacy` wins; a flat block (no `### Slice` headings) is `none`, and so is
+        a feature row with no task-id (`feature_link_problems` refuses it: an
+        `unlinked` state must carry a real id). The `#N` is the reference a PR
+        writes as `Closes #N`, normalised here so no caller does it. The first
         feature link decides: a block holding two is refused by `feature_link_problems`.
         """
-        if self.is_legacy():
+        if self.slices_filed_per_row():
             return "legacy"
         links = self._feature_link_lines()
         if not links:
             return "none"
         line = self.prose[links[0] - 1]
         if ISSUE_LINE_RE.match(line):
-            return "issue " + line.split("Issue:", 1)[1].strip()
+            return "issue " + _closable_reference(line.split("Issue:", 1)[1].strip())
         row = next(row for row in self.rows if row.line == links[0])
-        return f"{'linked' if row.task.external else 'unlinked'} {row.task.id or row.task.title}"
+        if row.legacy:
+            return "none"
+        if row.task.external:
+            return f"linked {row.task.id} {_closable_reference(row.task.external.id)}"
+        return f"unlinked {row.task.id}"
 
     def is_done(self) -> bool:
         """Whether every `### Slice` header row is `[x]`; a flat block, whether no row is open."""
@@ -519,11 +536,15 @@ class PlanBlock:
         The refusal names the second link, the line a human deletes.
         """
         links = self._feature_link_lines()
-        return [
+        problems = [
             f"{self.index_path}:{line_number}: two feature links in one plan block "
             "(one `> Issue:` line or one feature row)"
             for line_number in links[1:2]
         ]
+        for row in self.rows:
+            if row.line in links and row.legacy and not self.slices_filed_per_row():
+                problems.append(f"{self.index_path}:{row.line}: feature row has no task-id (`<!-- task-id: … -->`)")
+        return problems
 
 
 def _plan_block_or_none(index_path: str, spec_path: str) -> Optional[PlanBlock]:
@@ -652,8 +673,7 @@ def cmd_ready(args: argparse.Namespace) -> int:
         block = _load_plan_block(args.index, args.spec)
         if not block.headings:
             return _implicit_slice_ready(args, block)
-        spec_text = read_text(args.spec)
-        slices = {row.number: row for row in parse_build_order(spec_text, args.spec)}
+        slices = {row.number: row for row in parse_build_order(read_text(args.spec), args.spec)}
         done = block.done_by_slice()
         _refuse_plan_drift(slices, done, args.spec, args.index)
         problems = block.tdd_surface_problems(slices)
@@ -666,9 +686,32 @@ def cmd_ready(args: argparse.Namespace) -> int:
     return 0
 
 
+def _plan_block_spec_paths(index_path: str) -> List[str]:
+    """The spec path each `## Plan:` block of `index_path` names, in file order; a block naming none is skipped."""
+    if not os.path.isfile(index_path):
+        raise SliceError(f"no such index file: {index_path}")
+    lines = _without_fences(read_text(index_path)).splitlines()
+    starts = [index for index, line in enumerate(lines) if PLAN_HEADING_RE.match(line)]
+    ends = starts[1:] + [len(lines)]
+    paths = []
+    for start, end in zip(starts, ends):
+        match = next((m for m in map(SPEC_LINE_RE.match, lines[start:end]) if m), None)
+        if match:
+            paths.append(match.group("path"))
+    return paths
+
+
 def cmd_link(args: argparse.Namespace) -> int:
-    """Print `link: <state>` and `done: <yes|no>`; exit 0, or 2 when the index or block cannot be read."""
+    """Print `link: <state>` and `done: <yes|no>`; exit 0, or 2 when the index or block cannot be read.
+
+    Without `--spec`, one `<spec> link: <state> done: <yes|no>` line per plan block that names a spec.
+    """
     try:
+        if args.spec is None:
+            for spec_path in _plan_block_spec_paths(args.index):
+                block = _load_plan_block(args.index, spec_path)
+                print(f"{spec_path} link: {block.link_state()} done: {'yes' if block.is_done() else 'no'}")
+            return 0
         block = _load_plan_block(args.index, args.spec)
         state, done = block.link_state(), block.is_done()
     except (SliceError, IndexUnreadable, OSError) as exc:
@@ -749,7 +792,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     link_parser = sub.add_parser("link", help="Print how the plan block links its feature, and whether every slice is done.")
     link_parser.add_argument("--index", required=True, help="path to tasks/todo.md")
-    link_parser.add_argument("--spec", required=True, help="path to the spec")
+    link_parser.add_argument("--spec", help="path to the spec; omitted, every plan block that names a spec is listed")
 
     readiness_parser = sub.add_parser(
         "readiness", help="Refuse a build prompt while a decision is open or a question blocks a slice.")

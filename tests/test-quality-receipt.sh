@@ -191,6 +191,11 @@ OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost.json")"
 CODE=$?
 assert_eq "0" "$CODE" "write: a reviewer entry with dispatch lost is accepted"
 assert_file_contains "$STORE2/$FP2.json" "\"dispatch\": \"lost\"" "write: the lost dispatch is carried in the receipt"
+sed '/"phase": 4/ s/"dispatch": "[a-z]*"/"dispatch": "lost"/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-phase4.json"
+OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost-phase4.json" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "write: dispatch lost on a phase 1-4 entry is refused"
+assert_contains "$OUT" "lost is only for the phase 5 test-engineer" "write: the lost-on-phase-4 refusal says where lost is allowed"
 sed 's/"dispatch": "dispatched"}$/"dispatch": "skipped"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-skipped.json"
 OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-skipped.json" 2>&1)"
 CODE=$?

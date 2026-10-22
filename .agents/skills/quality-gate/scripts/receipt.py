@@ -219,6 +219,10 @@ def validate_reviewer(reviewer: Dict, index: int) -> None:
     _require(isinstance(reviewer.get("phase"), int), f"reviewers[{index}].phase: required")
     _require(isinstance(reviewer.get("lens"), str) and reviewer["lens"], f"reviewers[{index}].lens: required")
     _require(reviewer.get("dispatch") in DISPATCHES, f"reviewers[{index}].dispatch: must be one of {DISPATCHES}")
+    _require(
+        reviewer["dispatch"] != "lost" or (reviewer["phase"] == 5 and reviewer["lens"] == "test-engineer"),
+        f"reviewers[{index}].dispatch: lost is only for the phase 5 test-engineer entry",
+    )
 
 
 def validate_reviewers(reviewers: object) -> None:

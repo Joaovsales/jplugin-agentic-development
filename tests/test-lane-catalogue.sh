@@ -104,7 +104,7 @@ assert_contains "$views" "selects plan: design-decision" "AC1: plan selects desi
 assert_not_contains "$views" "selects build" "AC1: build has no label selector"
 assert_contains "$views" "chain build: /build -> /quality-gate -> /wrap-up-session" \
   "AC1: build's chain"
-assert_contains "$views" "chain fix: /debug -> /build -> /quality-gate -> /wrap-up-session" \
+assert_contains "$views" "chain fix: /debug -> /quality-gate -> /wrap-up-session" \
   "AC1: fix's chain"
 assert_contains "$views" "chain improve: /plan -> /build -> /quality-gate -> /wrap-up-session" \
   "AC1: improve's chain"
@@ -145,7 +145,7 @@ assert_contains "$lazy" "producers: architect,janitor,tidy" "AC1: PRODUCER_ROUTI
 assert_contains "$lazy" "deferred: build" "AC1: DEFERRED_ROUTINES from the catalogue"
 assert_contains "$lazy" "selectors: fix=bug,tech-debt;improve=enhancement,documentation;plan=design-decision;simplify=simplify" \
   "AC1: DEFAULT_SELECTORS from the catalogue"
-assert_contains "$lazy" "skills: build=/build,/quality-gate,/wrap-up-session;fix=/debug,/build,/quality-gate,/wrap-up-session;improve=/plan,/build,/quality-gate,/wrap-up-session;plan=/plan,/wrap-up-session;simplify=/make-it-simpler,/plan,/build,/quality-gate,/wrap-up-session" \
+assert_contains "$lazy" "skills: build=/build,/quality-gate,/wrap-up-session;fix=/debug,/quality-gate,/wrap-up-session;improve=/plan,/build,/quality-gate,/wrap-up-session;plan=/plan,/wrap-up-session;simplify=/make-it-simpler,/plan,/build,/quality-gate,/wrap-up-session" \
   "AC1: DEFAULT_ROUTINE_SKILLS from the catalogue"
 assert_contains "$lazy" "after-access: 1" "AC1: the catalogue is read once, on first access"
 
@@ -363,7 +363,7 @@ assert_eq "0" "$code" "AC4: lanes exits 0 on this repository"
 for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy; do
   assert_contains "$table" "$lane" "AC4: the table has a $lane row"
 done
-assert_contains "$table" "/debug -> /build -> /quality-gate -> /wrap-up-session" \
+assert_contains "$table" "/debug -> /quality-gate -> /wrap-up-session" \
   "AC4: fix's row prints the effective chain"
 assert_contains "$table" "deferred" "AC4: build's row says it is deferred"
 assert_contains "$table" "broken, fails" "AC4: cues are printed for matching"
@@ -475,7 +475,7 @@ broken_table="$(run_cli lanes --repo "$p" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes prints on a configuration that cannot be read"
 assert_contains "$broken_table" "configuration could not be read" \
   "AC4: routine rows say the configuration could not be read"
-assert_contains "$broken_table" "/debug -> /build" \
+assert_contains "$broken_table" "/debug -> /quality-gate" \
   "AC4: routine rows fall back to the shipped chain"
 broken_inv="$(run_cli lanes investigate --repo "$p" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes investigate exits 0 on a broken configuration"

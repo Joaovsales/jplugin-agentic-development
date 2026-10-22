@@ -205,9 +205,12 @@ for routine in plan fix improve simplify janitor architect tidy; do
     "Contract: lane file $LANES/$routine.md exists"
 done
 
-# The routines that produce code reach /build and /quality-gate; both are gates.
+# The routines that produce code reach /quality-gate; both are gates. improve
+# builds through /build; fix builds inside /debug, which runs its rows through /tdd.
+assert_file_contains "$LANES/fix.md" "/tdd" "Contract: fix's lane builds through /debug's /tdd run"
+assert_file_not_matches "$LANES/fix.md" '^[0-9]+\. `/build`' "Contract: fix's lane has no /build step"
 for routine in fix improve; do
-  assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
+  [ "$routine" = improve ] && assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
   assert_file_contains "$LANES/$routine.md" "/quality-gate" \
     "Contract: $routine's lane reaches /quality-gate"
   assert_file_contains "$LANES/$routine.md" "non-skippable" \

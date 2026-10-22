@@ -249,8 +249,8 @@ The proposed fix is decomposed as the prelude confirmed it, not as the issue
 wrote it: where Phase 1 disproved a step, the row states the criterion the
 replacing step satisfies. `/debug` then runs the rows through `/tdd` itself
 (Prove-It: the test fails first, then passes) and ticks each row when its test
-passes; `/build` is not involved. An open legacy block whose rows
-carry a `TDD` prefix runs the same way.
+passes; `/build` is not involved. A legacy block's `TDD` rows run the same
+way (`.agents/skills/slice/references/plan-block.md` § *Legacy block*).
 
 ### Capture Lesson
 

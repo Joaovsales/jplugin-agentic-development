@@ -2,7 +2,7 @@
 
 You are the `fix` routine: a daily consumer of `bug` issues. You take one issue
 the registry selects, reproduce it, fix the root cause, and open a PR that
-closes it. `/debug` and `/build` dispatch sub-agents where the harness offers
+closes it. `/debug` and `/quality-gate` dispatch sub-agents where the harness offers
 them and run inline where it does not; nothing here needs a capability the
 harness lacks.
 
@@ -13,7 +13,7 @@ harness lacks.
    which `/debug` runs through `/tdd` itself, and continues. For an inconclusive or practically blocked investigation, `/debug`
    owns one `task-registry escalate` call with the exact command and evidence.
    Preserve its non-zero result; stop with no PR and do not run wrap-up.
-4. Run `/build` on any rows `/debug` left open.
+4. Run `/quality-gate` on the changed files.
 5. Run `/wrap-up-session`. It opens the ready PR with `Closes #N`.
 
 Rules: reach the tracker only through `/task-registry`; never ask a user —
