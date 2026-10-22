@@ -168,6 +168,17 @@ err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm gated --out "$ARRANGED" 2>
 assert_eq "2" "$rc" "arrange: arranging over an existing run directory exits 2"
 assert_contains "$err" "run-1" "arrange: the message names the run directory it would overwrite"
 
+"$TEST_PYTHON" - "$TMP/aggregate-escape.json" <<'PY'
+import json, sys
+run = {"score": 1, "passed": True, "tracePath": "/tmp/claude-eval-AAA/out/trace.jsonl"}
+json.dump({"cases": [{"name": "../escape", "arms": {"with": [run]}}]}, open(sys.argv[1], "w"))
+PY
+err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$TMP/aggregate-escape.json" --arm other --out "$TMP/arranged-3" 2>&1 >/dev/null)"; rc=$?
+assert_eq "2" "$rc" "arrange: a case name that is not a plain directory name exits 2"
+assert_contains "$err" "../escape" "arrange: the message names the offending case"
+assert_eq "missing" "$([ -e "$TMP/arranged-3" ] && echo present || echo missing)" \
+  "arrange: nothing is written under --out for it"
+
 rm -rf "$KEPT/claude-eval-BBB"
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm other --out "$TMP/arranged-2" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "arrange: a run whose temp home was not kept exits 2"

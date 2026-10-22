@@ -91,6 +91,8 @@ def _outcome(run: dict, where: str) -> Dict[str, object]:
 def plan(keep_temp: str, aggregate_path: str, side: str) -> List[ArrangedRun]:
     arranged: List[ArrangedRun] = []
     for case, runs in _runs(aggregate_path, side):
+        if not case or "/" in case or "\\" in case or case in (".", ".."):
+            raise rt.TranscriptError(f"{aggregate_path}: case name {case!r} is not a directory name")
         for number, run in enumerate(runs, 1):
             where = f"{aggregate_path}: {case} run-{number}"
             trace = run.get("tracePath")
