@@ -218,14 +218,17 @@ class Transcript:
     def own_tool_uses(self) -> List[ToolUse]:
         """The tool uses of this file's own context: every one but an inline sidechain's.
         A `subagents/` file is its own context, so all of its uses are its own."""
-        return [t for t in self.tool_uses if self.is_subagent or not t.sidechain]
+        return [t for t in self.tool_uses if self._is_own(t)]
+
+    def _is_own(self, use: ToolUse) -> bool:
+        return self.is_subagent or not use.sidechain
 
     def reads(self) -> Tuple[Read, ...]:
         """Every Read, the parent's and an inline sidechain's; a `subagents/` file's are all sidechain."""
         return self._reads
 
     def own_reads(self) -> List[Read]:
-        return [r for r in self._reads if self.is_subagent or not r.tool_use.sidechain]
+        return [r for r in self._reads if self._is_own(r.tool_use)]
 
     def sidechain_reads(self) -> List[Read]:
         return [r for r in self._reads if r.tool_use.sidechain]
@@ -270,7 +273,7 @@ class SessionReads:
 
     parent: Transcript
     agents: List[Transcript]
-    counted_sidechain_reads: List[Read]    # the parent's inline ones and every agent's, excluded dropped
+    session_sidechain_reads: List[Read]    # the parent's inline ones and every agent's, excluded dropped
     malformed: int                 # unreadable lines, summed over every file
 
 
@@ -477,7 +480,7 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         if not isinstance(block, dict):
             continue
         if block.get("type") == "tool_use" and str(block.get("id")) not in t._use_ids:
-            t._use_ids.add(str(block.get("id")))    # a resumed session re-logs a record: first wins
+            t._use_ids.add(str(block.get("id")))    # a resumed session re-logs a record: first wins, use and result
             t.tool_uses.append(ToolUse(str(block.get("id")), str(block.get("name")),
                                        block.get("input") if isinstance(block.get("input"), dict) else {},
                                        line_no, ts if isinstance(ts, str) else None, sidechain))
@@ -489,6 +492,8 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         raise TranscriptDrift(t.path, line_no, "several tool_result blocks share one toolUseResult")
     for block in results:
         tid = str(block.get("tool_use_id"))
+        if tid in t.results:
+            continue
         text = _block_text(block.get("content"))
         t.results[tid] = ToolResult(tid, len(text.encode("utf-8")), structured,
                                     block.get("is_error") is True, line_no, _numbered_lines(text),

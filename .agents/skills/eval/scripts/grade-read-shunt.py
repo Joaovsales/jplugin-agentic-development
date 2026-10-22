@@ -159,8 +159,8 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
     row.largest = parent.largest_own_result()[0]
-    large_paths: Set[str] = {r.norm_path for r in session.counted_sidechain_reads if r.is_large(th)}
-    named: Set[str] = {r.norm_path for r in session.counted_sidechain_reads}
+    large_paths: Set[str] = {r.norm_path for r in session.session_sidechain_reads if r.is_large(th)}
+    named: Set[str] = {r.norm_path for r in session.session_sidechain_reads}
     rereads = 0
     for call in parent.own_calls():
         if isinstance(call, rt.Read):

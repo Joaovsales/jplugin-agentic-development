@@ -158,17 +158,18 @@ assert_contains "$out" "tail compactions=1 final_context=1200 last=2026-10-20T11
   "parser: an inline sidechain turn leaves the parent's final context and compactions alone, and still moves wall time"
 
 # A request blob (no uuid, no isSidechain) and a resumed session's re-logged
-# record repeat tool uses: each id counts once, as the live record's.
+# record repeat tool uses and results: each id counts once, as the first record's.
 out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/repeated-uses/proj-f/s8.jsonl" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
 t = rt.parse_transcript(sys.argv[2])
 print(f"uses={len(t.tool_uses)} own={len(t.own_tool_uses())} reads={len(t.own_reads())} "
-      f"sidechain={len(t.sidechain_reads())} bytes={t.own_result_bytes()}")
+      f"sidechain={len(t.sidechain_reads())} bytes={t.own_result_bytes()} "
+      f"kind={t.own_reads()[0].kind} lines={t.own_reads()[0].total_lines}")
 PY
 )"
-assert_contains "$out" "uses=2 own=1 reads=1 sidechain=1 bytes=140" \
+assert_contains "$out" "uses=2 own=1 reads=1 sidechain=1 bytes=140 kind=whole lines=5" \
   "parser: a request blob and a re-logged record repeat no tool use, and a sidechain use stays the sub-agent's"
 out="$("$TEST_PYTHON" "$SCRIPTS/read-incidence.py" --root "$FIX/repeated-uses" 2>&1)"
 assert_contains "$out" "| proj-f/s8 | 1 | 0 | 0 | 0.0% |" "report: s8's repeated parent use is one Read"
@@ -556,7 +557,7 @@ import read_transcript as rt
 for s in rt.iter_sessions(sys.argv[2]):
     ss = rt.parse_session(s.path, s.subagent_paths)
     print("session", ss.parent.session_id, len(ss.agents), all(a.is_subagent for a in ss.agents), ss.malformed,
-          [r.norm_path.rsplit("/", 1)[-1] for r in ss.counted_sidechain_reads])
+          [r.norm_path.rsplit("/", 1)[-1] for r in ss.session_sidechain_reads])
 PY
 )"
 assert_contains "$out" "session s1 2 True 2 ['big_module.py']" \

@@ -109,7 +109,7 @@ def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
             row.shell_bytes += call.bytes
             row.rereads += sum(1 for p in call.paths if p in seen)
             seen.update(call.paths)
-    for read in reads.counted_sidechain_reads:
+    for read in reads.session_sidechain_reads:
         _count_subagent_read(row, read, th)
     return row
 
