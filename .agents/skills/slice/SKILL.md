@@ -164,12 +164,13 @@ last thing its session says.
 
 - **How callers read a block's link.** `slice.py link --index tasks/todo.md --spec <spec>`
   prints `link: <state>` and `done: <yes|no>`; `<state>` is `legacy`, `issue <ref>`,
-  `linked <id> <ref>` (the `<ref>` is what a PR writes after `Closes`: `#N`, or
-  `owner/repo#N` when the link names another repo), `unlinked <id>` (a feature
+  `linked <id> <ref>` (the `<ref>` is what a PR writes after `Closes`: `owner/repo#N`
+  for a URL or a qualified ref, `#N` for a bare number), `unlinked <id>` (a feature
   row whose tracker closes nothing from a PR, a local task, reads `unlinked` too: the
   upsert is idempotent and no keyword is written) or `none`
   (no feature link). A malformed link (two feature links, a feature row with no
-  task-id) or an unparsable row inside the block exits 2 with the problem, as `ready`
+  task-id, an `> Issue:` ref no provider can turn into a closing reference, two
+  plan blocks naming one spec) or an unparsable row inside the block exits 2 with the problem, as `ready`
   does; `validate` reports it with exit 1. A malformed row in another spec's block
   refuses nothing here.
   Without `--spec` it prints one `<spec> link: <state> done: <yes|no>` line per

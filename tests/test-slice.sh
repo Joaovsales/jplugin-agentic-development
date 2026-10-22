@@ -272,7 +272,6 @@ link_case "no feature link" "$LINKF/todo-none.md" "$FIXTURES/ready/spec.md" "non
 link_case "a flat block" "$FIXTURES/ready-implicit/todo-open.md" "$FIXTURES/ready-implicit/spec.md" "none" "no"
 link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue o/r#42" "yes"
 link_case "an Issue ref already #N" "$LINKF/todo-issue-ref.md" "$FIXTURES/ready/spec.md" "issue #9" "no"
-link_case "an Issue ref no parser knows stays verbatim" "$LINKF/todo-issue-odd.md" "$FIXTURES/ready/spec.md" "issue PROJ-7" "no"
 link_case "an Issue URL in another repo keeps its repo" "$LINKF/todo-issue-cross-repo.md" "$FIXTURES/ready/spec.md" "issue other/repo#213" "no"
 link_case "one header [x] of three" "$FIXTURES/ready/todo-header-slice1-done.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
@@ -307,10 +306,39 @@ OUT="${OUT//$'\r'/}"
 assert_eq "0" "$CODE" "link: without --spec exits 0"
 assert_eq "tests/fixtures/slice/ready/spec.md link: issue o/r#42 done: yes
 tests/fixtures/slice/link/other-spec.md link: linked plan.second-fixture o/r#43 done: no" "$OUT" "link: without --spec prints one line per block that names a spec"
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-issue-odd.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "link: an Issue ref no provider can close fails validate"
+assert_contains "$OUT" "todo-issue-odd.md:5: " "link: the unclosable Issue line is named by <path>:<line>"
+assert_contains "$OUT" "closing reference" "link: the unclosable Issue refusal says why"
+for verb in link ready; do
+  OUT="$("$PY" "$SLICE" "$verb" --index "$LINKF/todo-issue-odd.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "link: $verb refuses an Issue ref no provider can close, exit 2"
+  assert_contains "$OUT" "closing reference" "link: $verb says why"
+done
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-same-spec.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "link: two blocks naming one spec fail validate"
+assert_contains "$OUT" "more than one plan block" "link: the duplicate-spec refusal says why"
+for verb in link ready; do
+  OUT="$("$PY" "$SLICE" "$verb" --index "$LINKF/todo-same-spec.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "link: $verb --spec refuses a spec two blocks name, exit 2"
+  assert_contains "$OUT" "more than one plan block" "link: $verb --spec says why"
+done
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-two-done.md" 2>&1)"
+CODE=$?
+assert_not_contains "$OUT" "more than one plan block" "link: two finished blocks for one spec are history, validate says nothing of it"
+for mode in "--spec $FIXTURES/ready/spec.md" ""; do
+  OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-two-done.md" $mode 2>&1)"
+  CODE=$?
+  assert_eq "0" "$CODE" "link: two finished blocks for one spec exit 0 (${mode:-no --spec})"
+done
 OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-same-spec.md" 2>&1)"
-OUT="${OUT//$'\r'/}"
-assert_eq "tests/fixtures/slice/ready/spec.md link: issue #7 done: no
-tests/fixtures/slice/ready/spec.md link: issue other/repo#8 done: no" "$OUT" "link: two blocks naming one spec print one line each"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec two blocks naming one spec exit 2"
+assert_contains "$OUT" "more than one plan block" "link: without --spec the duplicate-spec refusal says why"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" 2>&1)"
 CODE=$?
 assert_eq "2" "$CODE" "link: without --spec a missing index exits 2"

@@ -5,7 +5,7 @@
 > Issue: #7
 
 ### Slice 1/1 — one
-- [ ] one — first
+- [x] one — first
 
 ## Plan: second-plan
 > Spec: tests/fixtures/slice/ready/spec.md

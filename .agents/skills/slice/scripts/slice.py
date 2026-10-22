@@ -30,7 +30,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -51,7 +51,7 @@ from registry.globs import (  # noqa: E402  (path must be set up first)
     validate_pattern,
 )
 from registry.index import IndexRow, IndexUnreadable, Problem, load_index, read_text  # noqa: E402
-from registry.providers import closing_reference  # noqa: E402
+from registry.providers import keyword_reference  # noqa: E402
 
 BUILD_ORDER_HEADING = "## Build Order"
 PLAN_HEADING_RE = re.compile(r"^##\s*Plan:\s*(?P<name>.+?)\s*$")
@@ -414,6 +414,7 @@ class PlanBlock:
     rows: List[IndexRow]  # the index's parsed rows, read when the block is built
     index_problems: Tuple[Problem, ...]  # unparsed rows whose line falls inside this block
     spec_path: str  # the path its `> Spec:` line names
+    peer_lines: Tuple[int, ...] = ()  # start lines of the other blocks naming the same spec
 
     def has_open_row(self) -> bool:
         """Whether any task row inside the block is still open."""
@@ -485,7 +486,9 @@ class PlanBlock:
 
         `legacy` wins; a flat block (no `### Slice` headings) is `none`. The `#N`
         is the reference a PR writes after `Closes`, normalised here so no caller
-        does it: `owner/repo#N` when the link names another repo. A feature row
+        does it: `owner/repo#N` for a URL or a qualified ref, `#N` for a bare number;
+        an `> Issue:` ref no provider can turn into one is refused by
+        `feature_link_problems`, so every printed `issue <ref>` is closable. A feature row
         whose tracker closes nothing from a PR (a local task) is `unlinked`:
         pre-flight's upsert is idempotent, closure writes no keyword. Callers reach
         a block through `_load_plan_block`, which refuses two feature links and a
@@ -500,10 +503,10 @@ class PlanBlock:
         line = self.prose[links[0] - 1]
         if ISSUE_LINE_RE.match(line):
             raw = line.split("Issue:", 1)[1].strip()
-            return "issue " + (closing_reference(raw) or raw)
+            return "issue " + keyword_reference(raw)
         row = next(row for row in self.rows if row.line == links[0])
         external = row.task.external
-        closing = closing_reference(external.url or external.id, external.provider) if external else None
+        closing = keyword_reference(external.url or external.id, external.provider) if external else None
         return f"linked {row.task.id} {closing}" if closing else f"unlinked {row.task.id}"
 
     def is_done(self) -> bool:
@@ -523,12 +526,32 @@ class PlanBlock:
             "(one `> Issue:` line or one feature row)"
             for line_number in links[1:2]
         ]
+        for line_number in links:
+            line = self.prose[line_number - 1]
+            if ISSUE_LINE_RE.match(line) and keyword_reference(line.split("Issue:", 1)[1].strip()) is None:
+                problems.append(
+                    f"{self.index_path}:{line_number}: `> Issue:` ref no provider can turn into a closing reference "
+                    "(a URL, `owner/repo#N`, `#N` or a bare number)"
+                )
+        if self.peer_lines:
+            problems.append(
+                f"{self.index_path}:{self.start_line}: more than one plan block names {self.spec_path} "
+                f"(also at line {', '.join(map(str, self.peer_lines))}); keep one"
+            )
         filed_per_row = self.slices_filed_per_row()
         for row in self.rows:
             has_task_id = not row.legacy
             if row.line in links and not has_task_id and not filed_per_row:
                 problems.append(f"{self.index_path}:{row.line}: feature row has no task-id (`<!-- task-id: … -->`)")
         return problems
+
+
+def _is_finished(block: PlanBlock) -> bool:
+    """`block.is_done()`, where a block with a heading and no row counts as open: its own refusal names it, other blocks stay readable."""
+    try:
+        return block.is_done()
+    except SliceError:
+        return False
 
 
 def _plan_blocks(index_path: str) -> List[PlanBlock]:
@@ -543,7 +566,7 @@ def _plan_blocks(index_path: str) -> List[PlanBlock]:
         raise SliceError(f"no such index file: {index_path}")
     prose = _without_fences(read_text(index_path)).splitlines()
     index = load_index(index_path, index_path)
-    starts = [index for index, line in enumerate(prose) if PLAN_HEADING_RE.match(line)]
+    starts = [line_number for line_number, line in enumerate(prose) if PLAN_HEADING_RE.match(line)]
     blocks = []
     for start, end in zip(starts, starts[1:] + [len(prose)]):
         spec = next((m for m in map(SPEC_LINE_RE.match, prose[start:end]) if m), None)
@@ -553,7 +576,18 @@ def _plan_blocks(index_path: str) -> List[PlanBlock]:
         headings = _slice_headings(prose, start + 1, end)
         inside = tuple(problem for problem in index.problems if start < problem.line <= end)
         blocks.append(PlanBlock(prose, start + 1, end, name, headings, index_path, index.rows, inside, spec.group("path")))
-    return blocks
+    named = [_normalize_spec_path(block.spec_path) for block in blocks]
+    finished = [_is_finished(block) for block in blocks]
+    # Blocks sharing a spec are history while all are finished; one still open makes every sharer a problem.
+    sharing = [
+        [i for i, other_spec in enumerate(named) if other_spec == spec] for spec in named
+    ]
+    return [
+        replace(block, peer_lines=tuple(blocks[i].start_line for i in group if blocks[i] is not block))
+        if not all(finished[i] for i in group)
+        else block
+        for block, group in zip(blocks, sharing)
+    ]
 
 
 def _plan_block_or_none(index_path: str, spec_path: str) -> Optional[PlanBlock]:

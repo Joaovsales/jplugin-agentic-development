@@ -48,14 +48,14 @@ def reference_label(ref) -> str:
     return provider_class.reference_label(ref) if provider_class else ref.id
 
 
-def closing_reference(raw: str, provider: Optional[str] = None) -> Optional[str]:
+def keyword_reference(raw: str, provider: Optional[str] = None) -> Optional[str]:
     """The reference a PR writes after `Closes` for `raw`, or None when no tracker closes it.
 
     Names a provider when the caller knows the owner (an external reference);
     otherwise the first provider whose grammar reads `raw` answers.
     """
     classes = [PROVIDER_CLASSES[provider]] if provider in PROVIDER_CLASSES else PROVIDER_CLASSES.values()
-    return next((ref for ref in (c.closing_reference(raw) for c in classes) if ref), None)
+    return next((ref for ref in (c.keyword_reference(raw) for c in classes) if ref), None)
 
 
 def build_provider(name: str, config, gate: Optional[WriteGate] = None) -> TrackerProvider:
@@ -81,7 +81,7 @@ __all__ = [
     "WriteGate",
     "WriteNotAuthorized",
     "build_provider",
-    "closing_reference",
+    "keyword_reference",
     "preserve_labels",
     "provider_for_url",
     "reference_label",

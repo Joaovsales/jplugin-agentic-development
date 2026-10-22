@@ -340,12 +340,12 @@ EOF
 )"
 
 closing_out="$(pyreg <<'EOF'
-from registry.providers import closing_reference
-print("github-url=" + str(closing_reference("https://github.com/o/r/issues/42", "github")))
-print("github-bare=" + str(closing_reference("42", "github")))
-print("github-qualified=" + str(closing_reference("o/r#7")))
-print("local-path=" + str(closing_reference("tasks/local-1.md", "local")))
-print("unknown=" + str(closing_reference("PROJ-7")))
+from registry.providers import keyword_reference
+print("github-url=" + str(keyword_reference("https://github.com/o/r/issues/42", "github")))
+print("github-bare=" + str(keyword_reference("42", "github")))
+print("github-qualified=" + str(keyword_reference("o/r#7")))
+print("local-path=" + str(keyword_reference("tasks/local-1.md", "local")))
+print("unknown=" + str(keyword_reference("PROJ-7")))
 EOF
 )"
 assert_contains "$closing_out" "github-url=o/r#42" "Closing reference: a GitHub issue URL reads owner/repo#N"

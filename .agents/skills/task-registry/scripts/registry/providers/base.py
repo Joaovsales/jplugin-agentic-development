@@ -140,7 +140,7 @@ class TrackerProvider(abc.ABC):
         return ref.id
 
     @classmethod
-    def closing_reference(cls, raw: str) -> Optional[str]:
+    def keyword_reference(cls, raw: str) -> Optional[str]:
         """`raw` as a PR's `Closes` keyword takes it, or None: only a tracker that closes issues from a PR body has one."""
         return None
 

@@ -18,7 +18,8 @@ the spec against what was built.
   row carrying the id of a single dry-run `upsert --derive-id plan --spec
   <spec>`. The example shows the feature row; with an issue, the `> Issue:`
   line replaces it. Never both, never two of either, and the feature row
-  always carries its id: `validate` reports a breach (exit 1), and `link` and
+  always carries its id, and an `> Issue:` ref is one a provider can turn into
+  a closing reference (a URL, `owner/repo#N`, `#N` or a bare number): `validate` reports a breach (exit 1), and `link` and
   `ready` refuse it (exit 2).
 - The `- [ ]` row under each `### Slice` heading is the slice's header row:
   a name and what it delivers, no task id, no `(blocked-by:)`, no `TDD:`
@@ -28,7 +29,8 @@ the spec against what was built.
   `/name` into a path.
 - `> Spec:` stands alone on its line. An existing `## Plan: <feature>`
   block with `[ ]` rows is replaced section by section, in place; a
-  different feature is appended. Never two blocks for one feature.
+  different feature is appended. Never two blocks for one feature:
+  while one of them is open, `validate` reports a spec two blocks name (exit 1), and `link` and `ready` refuse it (exit 2); finished blocks are history.
 - A block with a `task-id:` marker on a slice header row is **legacy**: see
   § *Legacy block* below. No new block is written in that form.
 
