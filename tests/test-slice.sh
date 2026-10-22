@@ -272,6 +272,7 @@ link_case "no feature link" "$LINKF/todo-none.md" "$FIXTURES/ready/spec.md" "non
 link_case "a flat block" "$FIXTURES/ready-implicit/todo-open.md" "$FIXTURES/ready-implicit/spec.md" "none" "no"
 link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue o/r#42" "yes"
 link_case "an Issue ref already #N" "$LINKF/todo-issue-ref.md" "$FIXTURES/ready/spec.md" "issue #9" "no"
+link_case "a bare-number Issue ref closes as #N" "$LINKF/todo-issue-bare.md" "$FIXTURES/ready/spec.md" "issue #9" "no"
 link_case "an Issue URL in another repo keeps its repo" "$LINKF/todo-issue-cross-repo.md" "$FIXTURES/ready/spec.md" "issue other/repo#213" "no"
 link_case "one header [x] of three" "$FIXTURES/ready/todo-header-slice1-done.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
@@ -295,10 +296,12 @@ for verb in link ready; do
   assert_contains "$OUT" "no task-id" "link: $verb says why"
 done
 for bad in todo-both todo-two-issues todo-two-rows; do
-  OUT="$("$PY" "$SLICE" link --index "$TWO/$bad.md" --spec "$TWO/spec.md" 2>&1)"
-  CODE=$?
-  assert_eq "2" "$CODE" "link: $bad holds two feature links, exit 2"
-  assert_contains "$OUT" "two feature links" "link: $bad says why"
+  for verb in link ready; do
+    OUT="$("$PY" "$SLICE" "$verb" --index "$TWO/$bad.md" --spec "$TWO/spec.md" 2>&1)"
+    CODE=$?
+    assert_eq "2" "$CODE" "link: $verb on $bad holds two feature links, exit 2"
+    assert_contains "$OUT" "two feature links" "link: $verb on $bad says why"
+  done
 done
 OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-multi.md" 2>&1)"
 CODE=$?
@@ -349,6 +352,13 @@ assert_eq "2" "$CODE" "link: without --spec an open block then a malformed one e
 assert_eq "" "$OUT" "link: without --spec a malformed block mid-file leaves stdout empty"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-open-then-malformed.md" 2>&1 >/dev/null)"
 assert_contains "$OUT" "no task-id" "link: without --spec the refusal goes to stderr"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-two-refusals.md" 2>/dev/null)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec two refusing blocks exit 2"
+assert_eq "" "$OUT" "link: without --spec two refusing blocks leave stdout empty"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-two-refusals.md" 2>&1 >/dev/null)"
+assert_contains "$OUT" "closing reference" "link: without --spec the first refusing block is named on stderr"
+assert_contains "$OUT" "no task-id" "link: without --spec the second refusing block is named on stderr too"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-bad-row-in-x.md" --spec "$LINKF/other-spec.md" 2>&1)"
 CODE=$?
 OUT="${OUT//$'\r'/}"

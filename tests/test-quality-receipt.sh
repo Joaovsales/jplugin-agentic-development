@@ -196,6 +196,11 @@ OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost-phase4.json" 2>
 CODE=$?
 assert_eq "2" "$CODE" "write: dispatch lost on a phase 1-4 entry is refused"
 assert_contains "$OUT" "lost is only for the phase 5 test-engineer" "write: the lost-on-phase-4 refusal says where lost is allowed"
+sed 's/"lens": "test-engineer", "dispatch": "dispatched"}$/"lens": "other", "dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-other-lens.json"
+OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost-other-lens.json" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "write: dispatch lost on a phase 5 entry with another lens is refused"
+assert_contains "$OUT" "lost is only for the phase 5 test-engineer" "write: the lost-on-another-lens refusal says where lost is allowed"
 sed 's/"dispatch": "dispatched"}$/"dispatch": "skipped"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-skipped.json"
 OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-skipped.json" 2>&1)"
 CODE=$?
