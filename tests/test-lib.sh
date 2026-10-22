@@ -23,10 +23,14 @@ case_file() {
   { printf '. "%s"\n' "$LIB"; printf '%s\n' "$@"; } > "$BOX/$name"
   printf '%s\n' "$BOX/$name"
 }
-# run_case <name> <line>... — write the file, run it, set out and st.
+# run_case [VAR=value]... <name> <line>... — write the file, run it with the
+# library's CI knobs (REQUIRE_ALL, REQUIRE_BROWSER) unset — CI exports them, and
+# a case that wants one sets it through a leading VAR=value — and set out and st.
 run_case() {
+  local -a case_env=()
+  while [[ "${1-}" == *=* ]]; do case_env+=("$1"); shift; done
   local f; f="$(case_file "$@")"
-  st=0; out="$(cd "$BOX" && bash "$f" </dev/null 2>&1)" || st=$?
+  st=0; out="$(cd "$BOX" && env -u REQUIRE_ALL -u REQUIRE_BROWSER "${case_env[@]}" bash "$f" </dev/null 2>&1)" || st=$?
 }
 # --- § finish: zero assertions, skip, REQUIRE_ALL, the trailer ---------------
 run_case zero.sh 'finish'
@@ -38,7 +42,7 @@ assert_eq "0" "$st" "skip: a skipped file exits 0 without REQUIRE_ALL"
 assert_contains "$out" "SKIP playwright is not importable" "skip: prints SKIP and the reason"
 assert_contains "$out" "0 passed, 0 failed, 0 xfail, 1 skipped" "skip: the trailer counts the skip"
 
-REQUIRE_ALL=1 run_case required.sh 'skip "no browser"' 'assert_eq a a "still asserts"' 'finish'
+run_case REQUIRE_ALL=1 required.sh 'skip "no browser"' 'assert_eq a a "still asserts"' 'finish'
 assert_eq "1" "$st" "REQUIRE_ALL=1: a skipped file fails"
 assert_contains "$out" "REQUIRE_ALL=1" "REQUIRE_ALL=1: the failure names the setting"
 assert_contains "$out" "1 passed, 0 failed, 0 xfail, 1 skipped" "REQUIRE_ALL=1: the trailer still counts"
