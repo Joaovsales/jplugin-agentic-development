@@ -1,10 +1,10 @@
 ---
 title: Four unresolved SHOULD-FIX make a HOLD, and a delta receipt inherits its parent's
-date: 2026-10-19
+date: 2026-10-22
 problem_type: process
 module: .agents/skills/quality-gate/scripts/receipt.py derive_verdict, chain_should_fix_carry; /quality-gate phases 4-6
 tags: [quality-receipt, should-fix, hold, delta-scope, follow-up, apply-gate]
-applies_when: a quality-gate pass ends GO from the design reviewer but leaves several `manual` or `advisory` SHOULD-FIX findings reported, and the session wants to act on some of them before wrap-up
+applies_when: a quality-gate pass ends GO from the design reviewer but leaves several `manual` or `advisory` SHOULD-FIX findings reported, and the session wants to act on some of them before wrap-up; or wrap-up stands at `approve-hold` and the findings are to be fixed rather than approved
 ---
 
 ## The claim
@@ -44,3 +44,25 @@ the count of reported findings ends without a push. Three full-scope passes
 (HOLD → HOLD-by-count → GO) cost three Ceiling-tier reviews here; knowing the
 threshold up front would have folded the second pass's follow-ups into the
 first. Sibling: [name-the-gate-outcome-file-per-session-in-the-shared-receipt-store.md](name-the-gate-outcome-file-per-session-in-the-shared-receipt-store.md).
+
+## 2026-10-22 — fixing a HOLD's findings from the approve-hold step
+
+The read-shunt build reached wrap-up's `approve-hold` with receipt 96f14a60
+(HOLD, six SHOULD-FIX) and chose to fix rather than approve. Two things the
+rule above did not say:
+
+- **`check` routes the fixed tree to full scope by itself.** The branch pointer
+  names the HOLD receipt; `_chain_valid` rejects an unapproved HOLD, so
+  `stale_against_pointer` returns `missing`, not `diff-changed`
+  (`receipt.py:455-463`). Wrap-up's table then says one full-scope gate, and no
+  `--parent` carry can occur. Do not hand-build a delta call.
+- **Each full pass finds new things.** The second pass's Ceiling reviewer
+  returned one MUST-FIX (an argument probe that could pair one run's
+  transcript with another's outcome) and four SHOULD-FIX on the code the first
+  pass's fixes touched; a third pass followed. Fixing by a Builder-tier
+  sub-agent with the reviewer's own fix directions pasted verbatim kept each
+  round to one dispatch, and the fixes should land as one commit per round so
+  the next reviewer's delta log is one range.
+- The closure state cannot express "fix instead": observe `approve: declined`
+  (terminal `stopped`), remove the branch's state file, and the next
+  `closure.py step` starts run 2 at `receipt`.
