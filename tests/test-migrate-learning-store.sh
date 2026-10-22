@@ -11,16 +11,16 @@ SCRIPT="$(under_test scripts/migrate-learning-store.py)"
 
 PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
 
-# new_fixture -> a scratch project with tasks/; new_repo_fixture -> the same
+# store_project -> a scratch project with tasks/; store_repo -> the same
 # inside a git repository, for the scenarios that exercise the git behaviour.
-new_fixture() {
+store_project() {
   local d
   d="$(fixture_dir)"
   mkdir -p "$d/tasks"
   printf '%s' "$d"
 }
 
-new_repo_fixture() {
+store_repo() {
   local d
   d="$(fixture_repo)"
   mkdir -p "$d/tasks"
@@ -40,7 +40,7 @@ run_migrate() {
 # ---------------------------------------------------------------------------
 # 1. Absent inputs — nothing to migrate
 # ---------------------------------------------------------------------------
-F1="$(new_fixture)"
+F1="$(store_project)"
 out1="$(run_migrate --repo "$F1" 2>&1)"
 code1=$?
 assert_eq "0" "$code1" "Scenario 1: absent inputs exits 0"
@@ -51,7 +51,7 @@ assert_file_absent "$F1/tasks/solutions" \
 # ---------------------------------------------------------------------------
 # 2. 8-column bugs.md — fully mapped row
 # ---------------------------------------------------------------------------
-F2="$(new_fixture)"
+F2="$(store_project)"
 cat > "$F2/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -75,7 +75,7 @@ assert_not_contains "$bugs2_agg" 'needs_review' "Scenario 2: fully-mapped row is
 # ---------------------------------------------------------------------------
 # 3. 5-column bugs.md — needs_review stamped
 # ---------------------------------------------------------------------------
-F3="$(new_fixture)"
+F3="$(store_project)"
 cat > "$F3/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -96,7 +96,7 @@ assert_contains "$out3" "needs_review" "Scenario 3: needs_review listed in repor
 # ---------------------------------------------------------------------------
 # 4. Free-form lessons.md — blank-line blocks, all needs_review
 # ---------------------------------------------------------------------------
-F4="$(new_fixture)"
+F4="$(store_project)"
 cat > "$F4/tasks/lessons.md" <<'EOF'
 Always write a regression test before closing a bug. It prevents silent reintroduction.
 
@@ -116,7 +116,7 @@ assert_eq "2" "$review_count4" "Scenario 4: both blocks flagged needs_review"
 # ---------------------------------------------------------------------------
 # 5. Slug collision — numeric suffix
 # ---------------------------------------------------------------------------
-F5="$(new_fixture)"
+F5="$(store_project)"
 cat > "$F5/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -136,7 +136,7 @@ assert_file_exists "$F5/tasks/solutions/bugs/duplicate-error-2.md" \
 # ---------------------------------------------------------------------------
 # 6. Missing date, non-git fixture — date_source: today
 # ---------------------------------------------------------------------------
-F6="$(new_fixture)"
+F6="$(store_project)"
 cat > "$F6/tasks/lessons.md" <<'EOF'
 A single unsplittable lesson block with no heading and no blank-line breaks
 still becomes exactly one document.
@@ -150,7 +150,7 @@ assert_contains "$lessons6_agg" 'date_source: today' "Scenario 6: date_source re
 # ---------------------------------------------------------------------------
 # 7. Re-run idempotency
 # ---------------------------------------------------------------------------
-F7="$(new_fixture)"
+F7="$(store_project)"
 cat > "$F7/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -170,7 +170,7 @@ assert_eq "$listing_before" "$listing_after" "Scenario 7: second run changes not
 # ---------------------------------------------------------------------------
 # 8. Dirty-tree refusal
 # ---------------------------------------------------------------------------
-F8="$(new_repo_fixture)"
+F8="$(store_repo)"
 cat > "$F8/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -194,7 +194,7 @@ assert_file_exists "$F8/tasks/solutions/bugs" \
 # ---------------------------------------------------------------------------
 # 9. Existing tasks/project-context.md — conflict
 # ---------------------------------------------------------------------------
-F9="$(new_fixture)"
+F9="$(store_project)"
 printf 'EXISTING PROJECT CONTEXT MARKER\n' > "$F9/tasks/project-context.md"
 cat > "$F9/tasks/memory.md" <<'EOF'
 # Project Memory
@@ -221,7 +221,7 @@ assert_file_contains "$F9/tasks/project-context.migrated.md" "NEW CONTEXT FROM M
 # ---------------------------------------------------------------------------
 # 10. Unrecognized ## section — archived verbatim, reported unmigrated
 # ---------------------------------------------------------------------------
-F10="$(new_fixture)"
+F10="$(store_project)"
 cat > "$F10/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -246,7 +246,7 @@ assert_true "Scenario 10: source file archived despite unrecognized section" \
 # ---------------------------------------------------------------------------
 # 11. Dry-run default — writes nothing
 # ---------------------------------------------------------------------------
-F11="$(new_fixture)"
+F11="$(store_project)"
 cat > "$F11/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -269,7 +269,7 @@ assert_file_exists "$F11/tasks/memory.md" \
 # ---------------------------------------------------------------------------
 # 12. Archive on --apply
 # ---------------------------------------------------------------------------
-F12="$(new_fixture)"
+F12="$(store_project)"
 cat > "$F12/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -290,7 +290,7 @@ assert_true "Scenario 12: original memory.md moved under tasks/archive/<stamp>/"
 # ---------------------------------------------------------------------------
 # 13. Full memory.md conversion — all five section kinds
 # ---------------------------------------------------------------------------
-F13="$(new_fixture)"
+F13="$(store_project)"
 cat > "$F13/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -369,7 +369,7 @@ assert_eq "2" "$extracted_link_count" "Scenario 13: both leaked bullets cross-li
 # ---------------------------------------------------------------------------
 # 14. (review round) Existing tasks/history.md — divert, never overwrite
 # ---------------------------------------------------------------------------
-F14="$(new_fixture)"
+F14="$(store_project)"
 printf '# Session History\n\nPRE-EXISTING HISTORY THAT MUST NOT VANISH\n' > "$F14/tasks/history.md"
 cat > "$F14/tasks/memory.md" <<'EOF'
 # Project Memory
@@ -391,7 +391,7 @@ assert_contains "$out14" "history.migrated.md" "Scenario 14: conflict named in r
 # ---------------------------------------------------------------------------
 # 15. (review round) Multiple tables in bugs.md — all rows migrated
 # ---------------------------------------------------------------------------
-F15="$(new_fixture)"
+F15="$(store_project)"
 cat > "$F15/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -416,7 +416,7 @@ assert_file_contains "$F15/tasks/solutions/bugs/second-table-bug.md" "Cause two"
 # ---------------------------------------------------------------------------
 # 16. (review round) Dry run allowed on a dirty tree; exact no-write proof
 # ---------------------------------------------------------------------------
-F16="$(new_repo_fixture)"
+F16="$(store_repo)"
 cat > "$F16/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -439,7 +439,7 @@ assert_eq "$before16" "$after16" "Scenario 16: dry run writes nothing (file list
 # ---------------------------------------------------------------------------
 # 17. (review round) Failure names the failing source, exits non-zero
 # ---------------------------------------------------------------------------
-F17="$(new_fixture)"
+F17="$(store_project)"
 mkdir -p "$F17/tasks/memory.md"   # a directory where a file is expected
 out17="$(run_migrate --repo "$F17" --apply 2>&1)"
 code17=$?
@@ -449,7 +449,7 @@ assert_contains "$out17" "tasks/memory.md" "Scenario 17: failure message names t
 # ---------------------------------------------------------------------------
 # 18. (review round) git-log date fallback + --report file
 # ---------------------------------------------------------------------------
-F18="$(new_repo_fixture)"
+F18="$(store_repo)"
 cat > "$F18/tasks/memory.md" <<'EOF'
 # Project Memory
 
@@ -471,7 +471,7 @@ assert_contains "$out18" "date_source=git-log" "Scenario 18: report names the da
 # ---------------------------------------------------------------------------
 # 19. Heading-structured lessons.md — the ##/### parser branch
 # ---------------------------------------------------------------------------
-F19="$(new_fixture)"
+F19="$(store_project)"
 cat > "$F19/tasks/lessons.md" <<'EOF'
 > Template preamble that belongs to no entry.
 
@@ -498,7 +498,7 @@ assert_not_contains "$lessons19_agg" 'Template preamble' \
 # ---------------------------------------------------------------------------
 # 20. Free-form lessons.md with template boilerplate — no junk documents
 # ---------------------------------------------------------------------------
-F20="$(new_fixture)"
+F20="$(store_project)"
 cat > "$F20/tasks/lessons.md" <<'EOF'
 > Self-improvement notes. One lesson per block.
 > Appended by /learn.
@@ -519,7 +519,7 @@ assert_not_contains "$lessons20_agg" 'Append entries below' \
 # ---------------------------------------------------------------------------
 # 21. memory.md: colon title (yaml quoting), no-Context flag, trailing prose
 # ---------------------------------------------------------------------------
-F21="$(new_fixture)"
+F21="$(store_project)"
 cat > "$F21/tasks/memory.md" <<'EOF'
 # Memory
 
@@ -556,7 +556,7 @@ assert_true "Scenario 21: trailing prose renders after the bullets" \
 # ---------------------------------------------------------------------------
 # 22. Diversion-target collision — refuse instead of clobber
 # ---------------------------------------------------------------------------
-F22="$(new_fixture)"
+F22="$(store_project)"
 cat > "$F22/tasks/memory.md" <<'EOF'
 # Memory
 
@@ -573,7 +573,7 @@ assert_contains "$out22" "project-context.migrated.md already exists" \
 assert_contains "$(cat "$F22/tasks/project-context.migrated.md")" "must not be clobbered" \
   "Scenario 22: pending divert file untouched"
 
-F22b="$(new_fixture)"
+F22b="$(store_project)"
 cat > "$F22b/tasks/memory.md" <<'EOF'
 # Memory
 
@@ -593,7 +593,7 @@ assert_contains "$out22b" "history.migrated.md already exists" \
 # ---------------------------------------------------------------------------
 # 23. Malformed inputs — bad Date cell, separator-less table, no Description
 # ---------------------------------------------------------------------------
-F23="$(new_fixture)"
+F23="$(store_project)"
 cat > "$F23/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -615,7 +615,7 @@ assert_contains "$bugs23_agg" 'date_source: today' \
 assert_contains "$out23" "bug table without a Description column" \
   "Scenario 23: description-less table reported, not silently dropped"
 
-F23b="$(new_fixture)"
+F23b="$(store_project)"
 cat > "$F23b/tasks/bugs.md" <<'EOF'
 # Bug Register
 
@@ -631,7 +631,7 @@ assert_contains "$bugs23b_agg" 'symptoms: First row kept' \
 # ---------------------------------------------------------------------------
 # 24. Symlink source — refused (skipped where symlinks are unavailable)
 # ---------------------------------------------------------------------------
-F24="$(new_fixture)"
+F24="$(store_project)"
 printf 'SECRET OUTSIDE CONTENT\n' > "$F24/outside.txt"
 if ln -s "$F24/outside.txt" "$F24/tasks/lessons.md" 2>/dev/null \
    && [ -L "$F24/tasks/lessons.md" ]; then

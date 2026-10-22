@@ -1,4 +1,3 @@
-# tests/expected-failures.txt — the platform baseline (specs/test-suite-aposd.md D2).
 #
 # One row per assertion that fails on a platform for a cause this repository
 # knows and has not fixed: `<test file> <platform-glob> <message-glob>`, with
@@ -201,7 +200,6 @@ tests/test-routine-selectors.sh msys* AC3: workflow names the held state
 tests/test-routine-selectors.sh msys* AC8: workflow requires explicit human re-triage to resume
 tests/test-routine-selectors.sh msys* AC2: the refusal names the reference that did not resolve
 tests/test-routine-selectors.sh msys* workflow: the '#11' form resolves — the same issue as the bare 11
-tests/test-routine-selectors.sh msys* workflow: '#11' and '11' are the same issue, so they get the same answer
 tests/test-routine-selectors.sh msys* workflow: the closed-issue refusal names the issue
 tests/test-routine-selectors.sh msys* workflow: the SAME issue reopened routes — the guard reads state, not the fixture
 tests/test-routine-selectors.sh msys* workflow: the reopened issue is handed its chain
@@ -236,13 +234,15 @@ tests/test-task-registry-cli.sh msys* upsert --parent: a resolvable GitHub paren
 tests/test-task-registry-cli.sh msys* upsert --parent: GitHub reports the degraded link with the existing disclosure line
 tests/test-task-registry-cli.sh msys* upsert --parent: the child issue's body gains parent: metadata naming the resolved parent
 # tests/test-task-registry-config.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
-tests/test-task-registry-config.sh msys* Selection: a GitHub remote plus authenticated gh selects github
-tests/test-task-registry-config.sh msys* Selection: github selection states its reason
-tests/test-task-registry-config.sh msys* Selection (AC1): doctor reports the remote-resolved repository reachable
 tests/test-task-registry-config.sh msys* Selection (AC1): reachability is probed with gh api user
 tests/test-task-registry-config.sh msys* Selection (AC1): gh auth status never runs -- it fails in the sandbox while REST works
 tests/test-task-registry-config.sh msys* Selection (#124): the upstream label check ran against the discovered repository
 tests/test-task-registry-config.sh msys* Selection (#124): workflow on a remote-resolved github provider exits 0
+# tests/test-task-registry-config.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe), so these rows depend on the host's gh auth state: captured with gh logged in; a logged-out host flips them — #129
+tests/test-task-registry-config.sh msys* Selection: a GitHub remote with unauthenticated gh falls back to local
+tests/test-task-registry-config.sh msys* Selection: the unauthenticated fallback names the cause
+tests/test-task-registry-config.sh msys* Selection (#124): select on a remote-resolved github provider exits 0 without a repository line
+tests/test-task-registry-config.sh msys* Selection (#124): select reached the candidate pool
 # tests/test-task-registry-providers.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
 tests/test-task-registry-providers.sh msys* GitHub: 'enhancement'->feature, 'now'->high, area/* read, unmapped 'tech-debt' preserved
 tests/test-task-registry-providers.sh msys* GitHub: 'bug'->bug, closed->done, no queue label leaves priority unset

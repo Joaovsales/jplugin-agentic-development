@@ -84,13 +84,13 @@ pending=""
 running=0
 sum_passed=0; sum_failed=0; sum_xfail=0; sum_skipped=0
 
-# run_file <file> <output-path>: run one test file with stdin closed, output
-# to <output-path> and, when <stream> is 1, to the terminal as it is produced.
+# run_file <file> <output-path> [--stream]: run one test file with stdin closed, output
+# to <output-path> and, with --stream, to the terminal as it is produced.
 # A file over TEST_FILE_TIMEOUT is killed (timeout's exit 124) and a FAIL line
 # naming the limit is appended to its output. Sets status and elapsed.
 run_file() {
   started="$(now_ms)"
-  if [ "${3:-0}" -eq 1 ]; then
+  if [ "${3:-}" = "--stream" ]; then
     timeout "$file_timeout" bash "$1" </dev/null 2>&1 | tee "$2"
   else
     timeout "$file_timeout" bash "$1" </dev/null >"$2" 2>&1
@@ -99,7 +99,7 @@ run_file() {
   elapsed=$(( ($(now_ms) - started + 500) / 1000 ))
   if [ "$status" -eq 124 ]; then
     printf '  FAIL %s timed out after %s s\n' "$1" "$file_timeout" >>"$2"
-    [ "${3:-0}" -eq 1 ] && printf '  FAIL %s timed out after %s s\n' "$1" "$file_timeout"
+    [ "${3:-}" = "--stream" ] && printf '  FAIL %s timed out after %s s\n' "$1" "$file_timeout"
   fi
 }
 
@@ -165,7 +165,7 @@ for test_file in ${named[@]+"${named[@]}"}; do
   total=$((total + 1))
   if [ "$jobs" -eq 1 ]; then
     printf '\n=== %s ===\n' "$test_file"
-    run_file "$test_file" "$SCRATCH/${test_file##*/}.out" 1
+    run_file "$test_file" "$SCRATCH/${test_file##*/}.out" --stream
     record "$test_file" "$status" "$elapsed" "$SCRATCH/${test_file##*/}.out"
     continue
   fi

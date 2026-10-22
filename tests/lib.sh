@@ -262,12 +262,12 @@ skip() {
 # next begin_case and by finish. A case owns no setup or teardown and no counter of
 # its own: it reads the file's, which pass and fail alone write.
 
-# _case_close — print the open case's count and leave it.
-_case_close() {
+# end_case — print the open case's count and return to the file's own level.
+end_case() {
   [ -n "$_CASE" ] || return 0
   if [ "$_CASE_ON" -eq 1 ]; then
-    local line failed=$((_FAILS - _CASE_BASE[1])) xfail=$((_XFAIL - _CASE_BASE[2])) skipped=$((_SKIPPED - _CASE_BASE[3]))
-    line="$((_TESTS - _FAILS - _XFAIL - _CASE_BASE[0] + _CASE_BASE[1] + _CASE_BASE[2])) passed, $failed failed"
+    local line tests=$((_TESTS - _CASE_BASE[0])) failed=$((_FAILS - _CASE_BASE[1])) xfail=$((_XFAIL - _CASE_BASE[2])) skipped=$((_SKIPPED - _CASE_BASE[3]))
+    line="$((tests - failed - xfail)) passed, $failed failed"
     [ "$xfail" -eq 0 ] || line="$line, $xfail xfail"
     [ "$skipped" -eq 0 ] || line="$line, $skipped skipped"
     printf '  == %s: %s\n' "$_CASE" "$line"
@@ -279,7 +279,7 @@ _case_close() {
 # begin_case <name> — returns 0 when the case runs, 1 when TEST_CASE filters it.
 begin_case() {
   [ -n "${1:-}" ] || _abort "begin_case: a case needs a name"
-  _case_close
+  end_case
   _CASE="$1"
   if [ -n "${TEST_CASE:-}" ]; then
     # shellcheck disable=SC2254 — TEST_CASE is a glob by contract.
@@ -295,9 +295,6 @@ begin_case() {
   _CASE_BASE=("$_TESTS" "$_FAILS" "$_XFAIL" "$_SKIPPED")
   printf '  == case: %s\n' "$1"
 }
-
-# end_case — print the open case's count and return to the file's own level.
-end_case() { _case_close; }
 
 # ---------------------------------------------------------------------------
 # Setup primitives. These stop the file when they cannot do their job: a
@@ -611,7 +608,7 @@ assert_precedes() {
 # iterated zero times is not a pass), and on a skip under REQUIRE_ALL=1.
 finish() {
   local rc=0
-  _case_close
+  end_case
   if [ "$_CASE_OUT" -gt 0 ] && [ "$_CASE_IN" -eq 0 ]; then
     printf '  TEST_CASE=%s matched no case in this file\n' "$TEST_CASE"
   elif [ "$_TESTS" -eq 0 ] && [ "$_SKIPPED" -eq 0 ]; then
