@@ -143,6 +143,20 @@ assert_eq "in-range" "$big_ok" "parser: s1's tool-result bytes are the text part
 assert_eq "1613" "$(printf '%s\n' "$out" | sed -n 's/^session proj-b\/s3 .*result_bytes=\([0-9]*\)$/\1/p')" \
   "parser: s3's tool-result bytes leave out its inline sidechain result"
 
+# A trailing inline sidechain turn is the sub-agent's context, and its
+# compaction the sub-agent's: neither replaces the parent's final context
+# nor counts as the parent's compaction.
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/sidechain-tail/proj-e/s7.jsonl" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+t = rt.parse_transcript(sys.argv[2])
+print(f"tail compactions={t.compactions} final_context={t.final_context} last={t.last_timestamp}")
+PY
+)"
+assert_contains "$out" "tail compactions=1 final_context=1200 last=2026-10-20T11:00:03.000Z" \
+  "parser: an inline sidechain turn leaves the parent's final context and compactions alone, and still moves wall time"
+
 # --- § drift ---------------------------------------------------------------
 printf '\n--- drift: exit 2 names the root or the file and line; never a silent zero ---\n'
 
@@ -517,7 +531,7 @@ ri = importlib.util.module_from_spec(spec)
 sys.modules["read_incidence"] = ri
 spec.loader.exec_module(ri)
 names = {f.name for f in fields(ri.Row)}
-print("columns-known", all(key in names or key == "share" for key, _ in ri.COLUMNS))
+print("columns-known", all(key in names or key == "share" for key, _, _ in ri.COLUMNS))
 rows = [ri.Row("a"), ri.Row("b")]
 summable = [f.name for f in fields(ri.Row) if f.metadata["summable"]]
 for i, row in enumerate(rows, 1):

@@ -298,6 +298,18 @@ assert_eq "$(cat "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1.jsonl")" 
   "$(cat "$TMP/arranged-one/solo/task-a/run-1/transcript.jsonl" 2>/dev/null)" \
   "arrange: the one-home form copies that home's own transcript"
 
+# A shunt log beside the session transcript is not a second session: the
+# parser's own definition of a session skips it.
+LOGHOME="$TMP/kept-log/claude-eval-AAA"
+mkdir -p "$LOGHOME/out" "$LOGHOME/config/projects/-enc-cwd"
+cp "$KEPT/claude-eval-AAA/out/trace.jsonl" "$LOGHOME/out/"
+cp "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1.jsonl" "$LOGHOME/config/projects/-enc-cwd/"
+printf '%s\n' '{"decision":"deny","tool":"Read","input":{}}' > "$LOGHOME/config/projects/-enc-cwd/shunt.jsonl"
+err="$("$TEST_PYTHON" "$ARRANGE" "$TMP/kept-log" "$TMP/aggregate-one.json" --arm logged --out "$TMP/arranged-log" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "arrange: a shunt.jsonl beside the session transcript is not a second session"
+assert_eq "present" "$([ -f "$TMP/arranged-log/logged/task-a/run-1/transcript.jsonl" ] && echo present || echo missing)" \
+  "arrange: the session transcript is still arranged beside a shunt log"
+
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT/claude-eval-AAA" "$AGG" --arm mixed --out "$TMP/arranged-mixed" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "arrange: a two-run aggregate pointed at one home exits 2 instead of reading that home twice"
 assert_contains "$err" "claude-eval-BBB" "arrange: the message names the home the second run needs"

@@ -451,18 +451,19 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
     ts = rec.get("timestamp")
     if isinstance(ts, str):
         t.first_timestamp = t.first_timestamp or ts
-        t.last_timestamp = ts
+        t.last_timestamp = ts    # every line, sidechain included: wall time
     kind = rec.get("type")
+    sidechain = t.is_subagent or rec.get("isSidechain") is True
+    inline_sidechain = sidechain and not t.is_subagent
     if kind == "system":
-        if rec.get("subtype") == "compact_boundary":
+        if rec.get("subtype") == "compact_boundary" and not inline_sidechain:
             t.compactions += 1
         return
     message = rec.get("message")
     if not isinstance(message, dict):
         return
     content = message.get("content")
-    sidechain = t.is_subagent or rec.get("isSidechain") is True
-    if kind == "assistant":
+    if kind == "assistant" and not inline_sidechain:
         size = _context_size(message.get("usage"))
         if size is not None:
             t.final_context = size

@@ -28,7 +28,6 @@ exists.
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
 import shutil
@@ -71,13 +70,14 @@ def _home(keep_temp: str, trace_path: str) -> str:
 
 
 def _session(home: str) -> str:
-    found = sorted(glob.glob(os.path.join(home, "config", "projects", "*", "*.jsonl")))
-    if not found:
+    try:
+        found = rt.iter_sessions(os.path.join(home, "config", "projects"))
+    except rt.EmptyRoot:
         raise rt.TranscriptError(f"{home}: no session transcript under config/projects — "
                                  "was the suite run with --keep-temp?")
     if len(found) > 1:
         raise rt.TranscriptError(f"{home}: {len(found)} session transcripts under config/projects, expected one")
-    return found[0]
+    return found[0].path
 
 
 def plan(keep_temp: str, aggregate_path: str, side: str) -> List[ArrangedRun]:

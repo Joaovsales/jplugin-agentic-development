@@ -40,7 +40,7 @@ import re
 import sys
 from dataclasses import MISSING, dataclass, field, fields
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
@@ -141,9 +141,13 @@ def _seconds_between(first: Optional[str], last: Optional[str]) -> Optional[floa
     return round((b - a).total_seconds(), 1)
 
 
-def _is_routing_grep(grep: rt.GrepCall) -> bool:
-    context = grep.context_lines
-    return (context is not None and context >= GREP_CONTEXT_FLOOR) or grep.head_limit == 0
+def _is_routing_around(call: Union[rt.ShellRead, rt.GrepCall], large_paths: Set[str], th: rt.Thresholds) -> bool:
+    if isinstance(call, rt.ShellRead):
+        return call.bytes >= th.bytes or any(n in large_paths for n in call.paths)
+    context = call.context_lines
+    if not ((context is not None and context >= GREP_CONTEXT_FLOOR) or call.head_limit == 0):
+        return False
+    return call.target in large_paths or (call.bytes is not None and call.bytes >= th.bytes)
 
 
 def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
@@ -168,13 +172,10 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
                 row.whole_large += 1
             rereads += _was_named(call.norm_path, named)
         elif isinstance(call, rt.ShellRead):
-            if call.bytes >= th.bytes or any(n in large_paths for n in call.paths):
-                row.routing_around += 1
+            row.routing_around += _is_routing_around(call, large_paths, th)
             rereads += sum(_was_named(n, named) for n in call.paths)
         elif isinstance(call, rt.GrepCall):
-            if _is_routing_grep(call) and (call.target in large_paths
-                                           or (call.bytes is not None and call.bytes >= th.bytes)):
-                row.routing_around += 1
+            row.routing_around += _is_routing_around(call, large_paths, th)
         elif isinstance(call, rt.AgentCall):
             named |= _paths_in(call.named_text)
     counted_tokens = [c.total_tokens for c in parent.agent_calls() if c.total_tokens is not None]

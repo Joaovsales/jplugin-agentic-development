@@ -29,7 +29,7 @@ import math
 import os
 import sys
 from dataclasses import MISSING, asdict, dataclass, field, fields
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
@@ -38,12 +38,15 @@ GO_MEDIAN_SHARE = 0.10
 GO_QUARTER_SHARE = 0.25
 
 
+Cell = Callable[..., str]    # (row, full_paths) -> the cell's text
+
+
 def _metric(label: Optional[str], *, summable: bool = True, default: object = 0,
-            derived: Optional[Tuple[str, str]] = None):
+            derived: Optional[Tuple[str, str, Cell]] = None, fmt: Optional[Cell] = None):
     """A Row field and everything the report knows about it: its column label
-    (`None` for a field that is no column), whether the aggregate sums it, and a
-    derived column that follows it."""
-    return field(default=default, metadata={"label": label, "summable": summable, "derived": derived})
+    (`None` for a field that is no column), whether the aggregate sums it, a
+    derived column that follows it, and how its cell reads (`str` when unset)."""
+    return field(default=default, metadata={"label": label, "summable": summable, "derived": derived, "fmt": fmt})
 
 
 @dataclass
@@ -51,15 +54,17 @@ class Row:
     session: str = _metric("Session", summable=False, default=MISSING)
     reads: int = _metric("Reads")
     whole_large: int = _metric("Whole-file large")
-    whole_large_bytes: int = _metric("Bytes", derived=("share", "Share"))
+    whole_large_bytes: int = _metric("Bytes", derived=("share", "Share", lambda row, _: f"{row.share:.1%}"))
     result_bytes: int = _metric(None)
     truncated: int = _metric("Truncated")
     shell_reads: int = _metric("Shell reads")
     shell_bytes: int = _metric("Shell bytes")
-    largest: int = _metric("Largest result", summable=False)
+    largest: int = _metric("Largest result", summable=False, fmt=lambda row, full_paths: (
+        f"{row.largest} ({_display_path(row.largest_path, full_paths)})" if row.largest else "0"))
     largest_path: str = _metric(None, summable=False, default="")
     rereads: int = _metric("Re-reads")
-    final_context: Optional[int] = _metric("Final context", summable=False, default=None)
+    final_context: Optional[int] = _metric("Final context", summable=False, default=None,
+                                           fmt=lambda row, _: "-" if row.final_context is None else str(row.final_context))
     compactions: int = _metric("Compactions")
     subagent_reads: int = _metric("Sub-agent reads")
     subagent_large: int = _metric("Sub-agent large")
@@ -71,11 +76,12 @@ class Row:
         return self.whole_large_bytes / self.result_bytes if self.result_bytes else 0.0
 
 
-def _columns() -> List[Tuple[str, str]]:
-    columns: List[Tuple[str, str]] = []
+def _columns() -> List[Tuple[str, str, Cell]]:
+    columns: List[Tuple[str, str, Cell]] = []
     for f in fields(Row):
         if f.metadata["label"]:
-            columns.append((f.name, f.metadata["label"]))
+            columns.append((f.name, f.metadata["label"],
+                            f.metadata["fmt"] or (lambda row, _, name=f.name: str(getattr(row, name)))))
         if f.metadata["derived"]:
             columns.append(f.metadata["derived"])
     return columns
@@ -159,22 +165,12 @@ def _display_path(path: str, full: bool) -> str:
     return path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
 
 
-def _cell(row: Row, key: str, full_paths: bool) -> str:
-    if key == "share":
-        return f"{row.share:.1%}"
-    if key == "largest":
-        return f"{row.largest} ({_display_path(row.largest_path, full_paths)})" if row.largest else "0"
-    if key == "final_context":
-        return "-" if row.final_context is None else str(row.final_context)
-    return str(getattr(row, key))
-
-
 def render_markdown(rows: List[Row], agg: Aggregate, args: argparse.Namespace) -> str:
     full_paths = args.paths
-    headers = [label for _, label in COLUMNS]
+    headers = [label for _, label, _ in COLUMNS]
 
     def cells(row: Row) -> List[str]:
-        return [_cell(row, key, full_paths) for key, _ in COLUMNS]
+        return [fmt(row, full_paths) for _, _, fmt in COLUMNS]
     lines = [f"# Read incidence over `{args.root}` (bytes >= {args.bytes}, lines >= {args.lines})", "",
              "## Per session", "", rt.markdown_table(headers, [cells(r) for r in rows]),
              "", "## Aggregate", "", rt.markdown_table(headers, [cells(agg.total)]), "",
