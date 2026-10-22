@@ -2071,7 +2071,7 @@ Filed this sweep:
 - [x] Writers stop emitting TDD rows <!-- task-id: plan.specs-aposd-first-build-md.writers-stop-emitting-tdd-rows --> — Slice 7/14: `/debug` writes plain criterion rows and runs them through `/tdd`; the lanes, routine prompts and `planner`… ([#317](https://github.com/Joaovsales/jplugin-agentic-development/issues/317)) (blocked-by: plan.specs-aposd-first-build-md.one-home-for-tdd)
   [x] TDD: tests/test-tdd-retirement.sh § debug and tests/test-sweep-routines.sh — debug/SKILL.md writes `## Fix: #N — <title>` with plain `- [ ] <criterion>` rows and invokes `/tdd`; lanes, routine prompts and both planner copies contain no `TDD:` and say `/debug` runs the fix through `/tdd`; test-sweep-routines.sh:136 asserts the plain-row form; agent parity green -> text edits (AC 8)
 > Handover: landed 00db657..a595979 — `/debug` writes `## Fix: #N — <title>` with plain `- [ ] <criterion>` rows and runs them through `/tdd` (Prove-It) itself; lanes fix/refactor/simplify, routine prompts fix/improve/plan and both planner.md copies name no `TDD:` row; test-sweep-routines.sh pins the plain-row form; test-tdd-retirement.sh pins `/debug` → `/tdd` and scopes its historic-copy check to copies up to the retirement commit 7148020 (32/32).
-> Do not re-derive: the fix lane keeps its `/build` step, reworded "builds any rows `/debug` left open", because tests/test-lane-catalogue.sh pins the chain `/debug -> /build -> /quality-gate -> /wrap-up-session`; remaining `TDD:` mentions (build/SKILL.md legacy headers, slice.py, plan-block.md, yolo, index.py, README, fixtures) are legacy readers, not writers (D10).
+> Do not re-derive: the fix lane kept its `/build` step here; the pre-push review removed it (a538aeb: `/debug` owns the fix end to end, chain `/debug -> /quality-gate -> /wrap-up-session`); remaining `TDD:` mentions (build/SKILL.md legacy headers, slice.py, plan-block.md, yolo, index.py, README, fixtures) are legacy readers, not writers (D10).
 > Surface: untouched: tests/test-agents.sh, tests/test-doc-conventions.sh
 
 ### Slice 8/14 — Thinner build
@@ -2131,6 +2131,7 @@ Filed this sweep:
 ## Session Summary — [2026-10-21] [4c2f3c2..19bb9af]
 - Completed: aposd-first-build slices 1–14 (#311–#324); AC17 eval in two rounds (`tasks/eval-aposd-first-build.md`); design mode reverted by the owner's call (66dba11, spec D23); master merged (19bb9af); tech debt filed as #328–#331.
 - Pending: none in this plan. #331 (design mode untested on Codex and Pi) is moot after the revert.
+- Pre-push review (2026-10-22): the owner asked for every gate finding to be fixed and the receipt turned GO; six design-review rounds (f626495..24a22d6) ended GO, the test-engineer review ran at Phase 5.1, and the affected tests were run on Linux (WSL clean clone) because the Windows failures below are platform-only.
 - Carry-forward: pre-existing Windows-only failures accepted by the owner (#328, #129, #203, #269); `link_parent` has no production caller (#329); two test gaps (#330).
 
 ## Plan: session-viz-mod
