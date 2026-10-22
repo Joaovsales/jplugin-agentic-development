@@ -319,6 +319,18 @@ assert_contains "$ptrdots_out" "configuration:  none (defaults + local fallback)
 fi
 end_case
 
+# gh_mock_reachable <fixture repo> — whether Python runs the mock when it runs
+# `gh`: the mock creates $GH_MOCK_LOG on start, the host's CLI never does. On
+# Windows, CreateProcess resolves `gh` through PATHEXT to the host's gh.exe and
+# never sees the extensionless mock (#129), so the rows that need the mock would
+# follow the host's gh auth state there; they are skipped instead of baselined.
+gh_mock_reachable() {
+  local probe="$1/probe.log"
+  PATH="$1/bin:$PATH" GH_MOCK_DIR="$1/ghdata" GH_MOCK_LOG="$probe" \
+    "$PY" -c 'import subprocess; subprocess.run(["gh", "--version"], capture_output=True)'
+  [ -e "$probe" ]
+}
+
 # =============================================================================
 # 4. Provider selection precedence
 # =============================================================================
@@ -349,6 +361,7 @@ F_SEL_GH="$(registry_repo)"
 write_index "$F_SEL_GH"
 git_init_github_remote "$F_SEL_GH"
 install_gh_mock "$F_SEL_GH"
+if gh_mock_reachable "$F_SEL_GH"; then
 sel_gh="$(
   PATH="$F_SEL_GH/bin:$PATH" GH_MOCK_DIR="$F_SEL_GH/ghdata" GH_MOCK_LOG="$F_SEL_GH/gh.log" \
     reg doctor --repo "$F_SEL_GH" 2>&1
@@ -414,6 +427,9 @@ assert_eq "0" "$sel_gh_workflow_code" \
   "Selection (#124): workflow on a remote-resolved github provider exits 0"
 assert_not_contains "$sel_gh_workflow" "no repository configured" \
   "Selection (#124): workflow does not refuse on the repository doctor already resolved"
+else
+  skip "Selection: Python runs the host's gh, not the mock (#129) — the github selection rows did not run"
+fi
 fi
 end_case
 

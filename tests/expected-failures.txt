@@ -233,16 +233,6 @@ tests/test-task-registry-cli.sh msys* Migrate: the unreadable spec is named in t
 tests/test-task-registry-cli.sh msys* upsert --parent: a resolvable GitHub parent link exits clean
 tests/test-task-registry-cli.sh msys* upsert --parent: GitHub reports the degraded link with the existing disclosure line
 tests/test-task-registry-cli.sh msys* upsert --parent: the child issue's body gains parent: metadata naming the resolved parent
-# tests/test-task-registry-config.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
-tests/test-task-registry-config.sh msys* Selection (AC1): reachability is probed with gh api user
-tests/test-task-registry-config.sh msys* Selection (AC1): gh auth status never runs -- it fails in the sandbox while REST works
-tests/test-task-registry-config.sh msys* Selection (#124): the upstream label check ran against the discovered repository
-tests/test-task-registry-config.sh msys* Selection (#124): workflow on a remote-resolved github provider exits 0
-# tests/test-task-registry-config.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe), so these rows depend on the host's gh auth state: captured with gh logged in; a logged-out host flips them — #129
-tests/test-task-registry-config.sh msys* Selection: a GitHub remote with unauthenticated gh falls back to local
-tests/test-task-registry-config.sh msys* Selection: the unauthenticated fallback names the cause
-tests/test-task-registry-config.sh msys* Selection (#124): select on a remote-resolved github provider exits 0 without a repository line
-tests/test-task-registry-config.sh msys* Selection (#124): select reached the candidate pool
 # tests/test-task-registry-providers.sh: the GitHub mock is unreachable from Python on Windows (PATHEXT resolves the real gh.exe) — #129
 tests/test-task-registry-providers.sh msys* GitHub: 'enhancement'->feature, 'now'->high, area/* read, unmapped 'tech-debt' preserved
 tests/test-task-registry-providers.sh msys* GitHub: 'bug'->bug, closed->done, no queue label leaves priority unset
