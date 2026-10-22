@@ -38,7 +38,7 @@ import json
 import os
 import re
 import sys
-from dataclasses import dataclass, field, fields
+from dataclasses import MISSING, dataclass, field, fields
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -48,7 +48,7 @@ import read_transcript as rt  # noqa: E402
 GREP_CONTEXT_FLOOR = 50
 
 
-def _column(label: str, numeric: bool = True, hook: bool = False, default: object = None):
+def _column(label: str, numeric: bool = True, hook: bool = False, default: object = MISSING):
     """A RunRow field and its table column: header, whether the paired means
     average it, and whether it only appears when a shunt log exists."""
     return field(default=default, metadata={"label": label, "numeric": numeric, "hook": hook})
@@ -56,22 +56,22 @@ def _column(label: str, numeric: bool = True, hook: bool = False, default: objec
 
 @dataclass
 class RunRow:
-    arm: str = field(metadata={"label": "Arm", "numeric": False, "hook": False})
-    task: str = field(metadata={"label": "Task", "numeric": False, "hook": False})
-    run: str = field(metadata={"label": "Run", "numeric": False, "hook": False})
+    arm: str = _column("Arm", numeric=False)
+    task: str = _column("Task", numeric=False)
+    run: str = _column("Run", numeric=False)
     whole_large: int = _column("Parent whole-file large", default=0)
     routing_around: int = _column("Routing-around", default=0)
     parent_bytes: int = _column("Bytes into parent", default=0)
     largest: int = _column("Largest result", default=0)
-    final_context: Optional[int] = _column("Final context")
+    final_context: Optional[int] = _column("Final context", default=None)
     compactions: int = _column("Compactions", default=0)
-    subagent_tokens: Optional[int] = _column("Sub-agent tokens")
+    subagent_tokens: Optional[int] = _column("Sub-agent tokens", default=None)
     subagent_tool_uses: int = _column("Sub-agent tool uses", default=0)
-    wall_seconds: Optional[float] = _column("Wall s")
-    reread_rate: Optional[float] = _column("Re-read rate")
-    outcome: Optional[float] = _column("Outcome")
-    hook_decisions: Optional[str] = _column("Hook decisions", numeric=False, hook=True)
-    repeated_denies: Optional[int] = _column("Repeated denies", hook=True)
+    wall_seconds: Optional[float] = _column("Wall s", default=None)
+    reread_rate: Optional[float] = _column("Re-read rate", default=None)
+    outcome: Optional[float] = _column("Outcome", default=None)
+    hook_decisions: Optional[str] = _column("Hook decisions", numeric=False, hook=True, default=None)
+    repeated_denies: Optional[int] = _column("Repeated denies", hook=True, default=None)
 
 
 def _columns(hook: bool) -> List[Tuple[str, str, bool]]:
@@ -155,18 +155,16 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
     agents = [rt.parse_transcript(p, is_subagent=True) for p in run.subagents]
-    large_paths: Set[str] = {r.norm_path for a in agents for r in a.reads() if r.is_large(th)}
+    sidechain_reads = [*parent.sidechain_reads(), *(r for a in agents for r in a.sidechain_reads())]
+    large_paths: Set[str] = {r.norm_path for r in sidechain_reads if r.is_large(th)}
     named: Set[str] = set()
     rereads = 0
     tokens: Optional[int] = None
-    tool_uses = 0
-    calls = {c.tool_use.id: c for c in
-             [*parent.reads(), *parent.shell_reads(), *parent.grep_calls(), *parent.agent_calls()]}
     for use in parent.parent_tool_uses():
         result = parent.results.get(use.id)
         if result is not None and result.bytes > row.largest:
             row.largest = result.bytes
-        call = calls.get(use.id)
+    for call in parent.parent_calls():
         if isinstance(call, rt.Read):
             if call.is_excluded:
                 continue
@@ -187,14 +185,10 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
             named |= _paths_in(call.named_text)
             if call.total_tokens is not None:
                 tokens = (tokens or 0) + call.total_tokens
-            if call.tool_use_count is not None:
-                tool_uses += call.tool_use_count
-    for agent in agents:
-        named |= {r.norm_path for r in agent.counted_reads()}
-        if not tool_uses:
-            tool_uses += len(agent.tool_uses)
+    named |= {r.norm_path for r in sidechain_reads if not r.is_excluded}
+    counted = [c.tool_use_count for c in parent.agent_calls() if c.tool_use_count is not None]
     row.subagent_tokens = tokens
-    row.subagent_tool_uses = tool_uses
+    row.subagent_tool_uses = sum(counted) if counted else sum(len(a.tool_uses) for a in agents)
     row.reread_rate = round(rereads / len(named), 3) if named else None
     row.outcome = rt.read_outcome(run.path)
     _hook_columns(row, run.path)

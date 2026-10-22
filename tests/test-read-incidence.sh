@@ -426,6 +426,35 @@ assert_contains "$out" "completed [(12000, 7, True)]" \
 assert_contains "$out" "cached True True True" "structure: the three classifications are made once, at parse time"
 assert_contains "$out" "parent-uses 7 6 True" "structure: parent_tool_uses() leaves out the inline sidechain use"
 
+# The parent/sidechain split and the call order are the parser's, so neither
+# CLI re-derives them.
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1.jsonl" "$FIX/root/proj-b/s3.jsonl" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+s1 = rt.parse_transcript(sys.argv[2])
+s3 = rt.parse_transcript(sys.argv[3])
+print("s1-split", len(s1.reads()), len(s1.parent_reads()), len(s1.sidechain_reads()))
+print("s3-split", len(s3.reads()), len(s3.parent_reads()), len(s3.sidechain_reads()),
+      [r.norm_path.rsplit("/", 1)[-1] for r in s3.sidechain_reads()])
+print("order", [type(c).__name__ for c in s1.parent_calls()])
+lines = [c.tool_use.line_no for c in s1.parent_calls()]
+print("order-ids", len(lines), lines == sorted(lines))
+print("parent-calls-s3", len(s3.parent_calls()), all(not c.tool_use.sidechain for c in s3.parent_calls()))
+print("cached", s1.parent_calls() is s1.parent_calls())
+PY
+)"
+assert_contains "$out" "s1-split 6 6 0" "structure: s1 has no sidechain read, so its parent reads are all its reads"
+assert_contains "$out" "s3-split 7 6 1 ['loader.py']" \
+  "structure: s3's inline sidechain read is in sidechain_reads() and out of parent_reads(); reads() stays the union"
+assert_contains "$out" "order-ids 12 True" "structure: parent_calls() follows the order of the tool uses"
+assert_contains "$out" "parent-calls-s3 6 True" "structure: parent_calls() leaves out the inline sidechain read"
+assert_contains "$out" "cached True" "structure: parent_calls() is built once, at parse time"
+for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
+  assert_eq "0" "$(grep -cE 'tool_use\.(id|sidechain)' "$cli")" "$cli: no join on tool-use ids and no sidechain branch — the parser owns the split and the order"
+  assert_eq "0" "$(grep -cE 'field\(metadata=' "$cli")" "$cli: every column is declared through its one column helper, key columns included"
+done
+
 # One Row declaration drives the columns and the aggregate: a field added to
 # it is a column and summed unless it is declared otherwise.
 out="$("$TEST_PYTHON" - "$INCIDENCE" <<'PY'

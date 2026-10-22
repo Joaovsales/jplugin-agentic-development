@@ -34,7 +34,7 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
@@ -45,8 +45,7 @@ class ArrangedRun:
     case: str
     number: int
     transcript: str
-    score: object
-    passed: object
+    outcome: Dict[str, object]
 
 
 def _runs(aggregate_path: str, side: str) -> List[Tuple[str, List[dict]]]:
@@ -96,10 +95,10 @@ def plan(keep_temp: str, aggregate_path: str, side: str) -> List[ArrangedRun]:
                 raise rt.TranscriptError(f"{where}: temp home {home} is gone — "
                                          "was the suite run with --keep-temp?")
             try:
-                rt.outcome_record(score=run.get("score"), passed=run.get("passed"))
+                outcome = rt.outcome_record(score=run.get("score"), passed=run.get("passed"))
             except rt.TranscriptError as exc:
                 raise rt.TranscriptError(f"{where}: {exc}")
-            arranged.append(ArrangedRun(case, number, _session(home), run.get("score"), run.get("passed")))
+            arranged.append(ArrangedRun(case, number, _session(home), outcome))
     if not arranged:
         raise rt.EmptyRoot(aggregate_path)
     return arranged
@@ -117,7 +116,7 @@ def write(arranged: List[ArrangedRun], arm: str, out: str) -> None:
         agents = os.path.join(os.path.splitext(run.transcript)[0], rt.SUBAGENTS_DIR)
         if os.path.isdir(agents):
             shutil.copytree(agents, os.path.join(dest, rt.SUBAGENTS_DIR))
-        rt.write_outcome(dest, score=run.score, passed=run.passed)
+        rt.write_outcome(dest, run.outcome)
 
 
 def main() -> int:

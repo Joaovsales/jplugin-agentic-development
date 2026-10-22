@@ -119,6 +119,24 @@ err="$("$TEST_PYTHON" "$GRADER" "$TMP/badlog" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "grader: a shunt log entry without a decision exits 2"
 assert_contains "$err" "shunt.jsonl:1" "grader: the shunt-log message names the file and line"
 
+printf '\n--- rows: sub-agent tool uses come from one source per run ---\n'
+# Async-launched Agent results carry no counters, so the column is the sum of
+# every subagents/ transcript's own tool uses — all of them, not the first.
+ASYNC="$TMP/async/arm/task/run"; mkdir -p "$ASYNC/subagents"
+cp tests/fixtures/transcripts/root/proj-a/s1.jsonl "$ASYNC/transcript.jsonl"
+"$TEST_PYTHON" - "$ASYNC/subagents" <<'PY'
+import json, os, sys
+for name, uses in (("agent-x1.jsonl", 3), ("agent-x2.jsonl", 4)):
+    with open(os.path.join(sys.argv[1], name), "w", encoding="utf-8") as fh:
+        for i in range(uses):
+            block = {"type": "tool_use", "id": f"{name}-{i}", "name": "Bash", "input": {"command": "ls"}}
+            fh.write(json.dumps({"type": "assistant", "isSidechain": True, "message": {"content": [block]}}) + "\n")
+PY
+out="$("$TEST_PYTHON" "$GRADER" "$TMP/async" --json 2>&1)"; rc=$?
+assert_eq "0" "$rc" "grader: an async-launched run with two sub-agent transcripts grades with exit 0"
+assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; print("uses", json.load(sys.stdin)["runs"][0]["subagent_tool_uses"])')" \
+  "uses 7" "grader: with no Agent counters the column sums every sub-agent transcript's tool uses"
+
 # --- § arranging -------------------------------------------------------------
 printf '\n--- arranging: a kept `claude plugin eval` temp tree becomes the grader layout ---\n'
 
@@ -163,6 +181,27 @@ assert_contains "$graded" "| gated | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000
   "arrange: run 1 grades to the row its transcript gives"
 assert_contains "$graded" "| gated | task-a | run-2 | 0 | 1 | 1317 | 717 | 20000 | 0 | - | 0 | 90 | - | 0 |" \
   "arrange: run 2 grades with the pass verdict as outcome 0"
+
+# The outcome is validated once, in plan, and the record it made is what write stores.
+out="$("$TEST_PYTHON" - "$ARRANGE" "$SCRIPTS" "$TMP" <<'PY'
+import importlib.util, json, os, sys
+from dataclasses import fields
+sys.path.insert(0, sys.argv[2])
+import read_transcript as rt
+spec = importlib.util.spec_from_file_location("arrange_results", sys.argv[1])
+arrange = importlib.util.module_from_spec(spec)
+sys.modules["arrange_results"] = arrange
+spec.loader.exec_module(arrange)
+print("fields", [f.name for f in fields(arrange.ArrangedRun)])
+dest = os.path.join(sys.argv[3], "outcome-probe")
+os.makedirs(dest)
+rt.write_outcome(dest, {"pass": False})
+print("written", open(os.path.join(dest, rt.OUTCOME_FILE), encoding="utf-8").read())
+PY
+)"
+assert_contains "$out" "fields ['case', 'number', 'transcript', 'outcome']" \
+  "arrange: an arranged run carries the outcome record plan validated, not the raw score and passed"
+assert_contains "$out" 'written {"pass": false}' "arrange: write_outcome stores the record it is given"
 
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm gated --out "$ARRANGED" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "arrange: arranging over an existing run directory exits 2"

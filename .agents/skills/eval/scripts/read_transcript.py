@@ -54,7 +54,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 import re
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 DEFAULT_BYTES = 32768
 DEFAULT_LINES = 800
@@ -189,6 +189,9 @@ class AgentCall:
     tool_use_count: Optional[int]
 
 
+Call = Union[Read, ShellRead, GrepCall, AgentCall]
+
+
 @dataclass
 class Transcript:
     path: str
@@ -205,6 +208,7 @@ class Transcript:
     _shell_reads: List[ShellRead] = field(default_factory=list, init=False, repr=False)
     _grep_calls: List[GrepCall] = field(default_factory=list, init=False, repr=False)
     _agent_calls: List[AgentCall] = field(default_factory=list, init=False, repr=False)
+    _parent_calls: List[Call] = field(default_factory=list, init=False, repr=False)
 
     def tool_uses_named(self, name: str) -> List[ToolUse]:
         return [t for t in self.tool_uses if t.name == name]
@@ -214,7 +218,18 @@ class Transcript:
         return [t for t in self.tool_uses if not t.sidechain]
 
     def reads(self) -> List[Read]:
+        """Every Read, the parent's and an inline sidechain's; a `subagents/` file's are all sidechain."""
         return self._reads
+
+    def parent_reads(self) -> List[Read]:
+        return [r for r in self._reads if not r.tool_use.sidechain]
+
+    def sidechain_reads(self) -> List[Read]:
+        return [r for r in self._reads if r.tool_use.sidechain]
+
+    def parent_calls(self) -> List[Call]:
+        """The parent's Read, shell-read, Grep and Agent calls in call order."""
+        return self._parent_calls
 
     def shell_reads(self) -> List[ShellRead]:
         """The parent's `Bash` uses that printed whole files, in call order."""
@@ -291,9 +306,10 @@ def outcome_record(*, score: object = None, passed: object = None) -> Dict[str, 
     raise TranscriptError("run has neither score nor passed")
 
 
-def write_outcome(run_dir: str, *, score: object = None, passed: object = None) -> None:
+def write_outcome(run_dir: str, record: Dict[str, object]) -> None:
+    """Write a record `outcome_record` made."""
     with open(os.path.join(run_dir, OUTCOME_FILE), "w", encoding="utf-8") as fh:
-        json.dump(outcome_record(score=score, passed=passed), fh)
+        json.dump(record, fh)
 
 
 def read_outcome(run_dir: str) -> Optional[float]:
@@ -389,6 +405,8 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
                                   for u in parent if u.name == "Bash") if s is not None]
     t._grep_calls = [classify_grep(u, t.results.get(u.id)) for u in parent if u.name == "Grep"]
     t._agent_calls = [classify_agent(u, t.results.get(u.id), path) for u in parent if u.name == "Agent"]
+    by_id = {c.tool_use.id: c for c in [*t.parent_reads(), *t._shell_reads, *t._grep_calls, *t._agent_calls]}
+    t._parent_calls = [by_id[u.id] for u in parent if u.id in by_id]
     return t
 
 

@@ -28,7 +28,7 @@ import json
 import math
 import os
 import sys
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import MISSING, asdict, dataclass, field, fields
 from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -48,7 +48,7 @@ def _metric(label: Optional[str], *, summable: bool = True, default: object = 0,
 
 @dataclass
 class Row:
-    session: str = field(metadata={"label": "Session", "summable": False, "derived": None})
+    session: str = _metric("Session", summable=False, default=MISSING)
     reads: int = _metric("Reads")
     whole_large: int = _metric("Whole-file large")
     whole_large_bytes: int = _metric("Bytes", derived=("share", "Share"))
@@ -93,9 +93,7 @@ def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
     row.compactions = parent.compactions
     row.malformed = parent.malformed
     seen: set = set()
-    calls = {c.tool_use.id: c for c in [*parent.reads(), *parent.shell_reads()]}
-    for use in parent.tool_uses:
-        call = calls.get(use.id)
+    for call in parent.parent_calls():
         if isinstance(call, rt.Read):
             _count_read(row, call, seen, th)
         elif isinstance(call, rt.ShellRead):
@@ -108,21 +106,20 @@ def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
         if result is not None and result.bytes > row.largest:
             row.largest = result.bytes
             row.largest_path = use.subject
+    sidechain = parent.sidechain_reads()
     for path in session.subagent_paths:
         agent = rt.parse_transcript(path, is_subagent=True)
         row.malformed += agent.malformed
-        for read in agent.counted_reads():
+        sidechain += agent.sidechain_reads()
+    for read in sidechain:
+        if not read.is_excluded:
             _count_subagent_read(row, read, th)
     return row
 
 
 def _count_read(row: Row, read: rt.Read, seen: set, th: rt.Thresholds) -> None:
     if read.is_excluded:
-        if not read.tool_use.sidechain:
-            row.excluded += 1
-        return
-    if read.tool_use.sidechain:
-        _count_subagent_read(row, read, th)
+        row.excluded += 1
         return
     row.reads += 1
     if read.norm_path in seen:
