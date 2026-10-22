@@ -163,9 +163,11 @@ last thing its session says.
   the pair; `/build` serializes it in table order instead of guessing.
 
 - **How callers read a block's link.** `slice.py link --index tasks/todo.md --spec <spec>`
-  prints `link: <state>` and `done: <yes|no>`; `<state>` is `legacy`, `issue #N`,
-  `linked <id> #N` (the `#N` is what a PR writes after `Closes`), `unlinked <id>`
-  or `none` (also a feature row with no task-id, which `validate` refuses).
+  prints `link: <state>` and `done: <yes|no>`; `<state>` is `legacy`, `issue <ref>`,
+  `linked <id> <ref>` (the `<ref>` is what a PR writes after `Closes`: `#N`, or
+  `owner/repo#N` when the link names another repo), `unlinked <id>` or `none`
+  (no feature link). A malformed link (two feature links, a feature row with no
+  task-id) exits 2 with the problem, as `ready` does; `validate` reports it with exit 1.
   Without `--spec` it prints one `<spec> link: <state> done: <yes|no>` line per
   plan block that names a spec.
 

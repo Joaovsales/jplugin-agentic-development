@@ -17,7 +17,9 @@ the spec against what was built.
   `--issue` is given or the spec's origin line names an issue, or one feature
   row carrying the id of a single dry-run `upsert --derive-id plan --spec
   <spec>`. The example shows the feature row; with an issue, the `> Issue:`
-  line replaces it. Never both, never two of either.
+  line replaces it. Never both, never two of either, and the feature row
+  always carries its id: `validate` reports a breach (exit 1), and `link` and
+  `ready` refuse it (exit 2).
 - The `- [ ]` row under each `### Slice` heading is the slice's header row:
   a name and what it delivers, no task id, no `(blocked-by:)`, no `TDD:`
   child. Blockers and the surface live once, in the spec's § Build Order

@@ -186,14 +186,14 @@ dispatch and `/debug`'s fix step. The feature-issue upsert failing or going
 ### `/build` pre-flight, feature issue
 
 ```
-python3 .agents/skills/task-registry/scripts/task-registry.py upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply --approve
+python3 .agents/skills/task-registry/scripts/task-registry.py upsert <id> --spec specs/<feature>.md --title "<feature>" --apply --approve
 ```
 
 | Aspect | Contract |
 |--------|----------|
 | Inputs | runs only when the plan block holds a feature row with no provider link; `--approve` is passed when the build prompt authorized the build, omitted by `/yolo` and unattended lanes |
 | Outcomes | `created` or `updated` with a link: the registry refreshes the feature row in place (`upsert.py` `_sync_index`, which replaces an existing row and appends none). `local-pending`: the row stays unlinked, `/build` prints `feature issue pending: <reason>` and continues. Failure: `/build` prints `feature issue not filed: <reason>` and continues |
-| Idempotency | `--derive-id plan --spec` derives the same id from the same spec, so a re-run refreshes the same row and issue |
+| Idempotency | `/slice` derives the id once (`--derive-id plan --spec`); pre-flight upserts the `<id>` that `slice.py link` prints, so a re-run refreshes the same row and issue |
 | Versioning | n/a, internal |
 
 ### `/debug` fix block
@@ -332,7 +332,7 @@ None.
 - AC1: A plan block `/slice` writes holds either a `> Issue:` line (from `--issue` or the spec's `> Origin:`) or one feature row carrying the id of a single dry-run `upsert --derive-id plan --spec`, then one `### Slice n/N — <name>` heading per § Build Order row, each with one header row carrying no task id, no `(blocked-by:)` and no `TDD:` child. `slice/references/plan-block.md` states that grammar.
 - AC2: `slice.py validate` and `ready` accept the new block and still accept a legacy block; `ready` reads both through its existing index path; `validate` refuses a block with two feature links. `tests/test-slice.sh` covers new and legacy fixtures.
 - AC3: withdrawn (D23); nothing reads § Interfaces `Path:`, so `slice.py validate` does not check it.
-- AC4: `/slice` has no `--file` mode. `/build` pre-flight runs one `upsert --derive-id plan --spec … --apply`, with `--approve` when the build prompt authorized it, only when the feature row has no link, and continues on `local-pending` or failure with a printed line. The build prompt's first instruction names no `/slice --file`. `/build`'s slice delegation prompt carries the slice's Delivers and acceptance criteria from the spec instead of plan rows, and names no per-slice claim. `/build` dispatches every slice to a sub-agent in every session, a lone ready slice and each slice of a serialized pair included; the Step 1 "Main context directly" row and the separate in-place dispatch rule are gone, and a harness with no sub-agents runs inline and says so in one line.
+- AC4: `/slice` has no `--file` mode. `/build` pre-flight runs one `upsert <id> --spec … --apply`, `<id>` being the one `slice.py link` prints, with `--approve` when the build prompt authorized it, only when the feature row has no link, and continues on `local-pending` or failure with a printed line. The build prompt's first instruction names no `/slice --file`. `/build`'s slice delegation prompt carries the slice's Delivers and acceptance criteria from the spec instead of plan rows, and names no per-slice claim. `/build` dispatches every slice to a sub-agent in every session, a lone ready slice and each slice of a serialized pair included; the Step 1 "Main context directly" row and the separate in-place dispatch rule are gone, and a harness with no sub-agents runs inline and says so in one line.
 - AC5: `routines.md` § *Crossing the plan handover* writes the routine's claimed issue as `> Issue:` and files nothing. `closure-actions.md` writes one `Closes #N` for a new block's feature issue and keeps the per-row `Closes #A, closes #B` path for legacy blocks. `/yolo` resumes an open slice header or a legacy `TDD:` row and runs pre-flight without `--approve`. `/make-it-simpler` and `task-registry/SKILL.md` name no `/slice --file`; `grep -rn -- "slice.*--file" .agents` finds nothing.
 - AC6: `upsert.py` has no `--parent` flag and no `_seeded_from_row`; their tests are gone; the pending-link items under *From #106* in `tasks/backlog.md` are removed; a pre-written feature row is refreshed in place, not duplicated, by `tests/test-task-registry.sh`.
 - AC7: `.agents/skills/tdd/SKILL.md` holds red-green-refactor, Prove-It, the anti-pattern reference and the rationalization table. `build/SKILL.md` has no § TDD Discipline and calls `/tdd` for tdd-mode slices. `tests/test-tdd-retirement.sh` asserts the rules appear only in `tdd/SKILL.md`, that `/build` invokes `/tdd`, and that "or at minimum" appears nowhere. `sync/SKILL.md` no longer cites `tdd` as retired, and `tests/test-install-sh.sh` uses another retired name as its fixture.

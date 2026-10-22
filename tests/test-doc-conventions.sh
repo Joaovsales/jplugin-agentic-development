@@ -1056,8 +1056,8 @@ assert_contains "$crossing_fc" 'files nothing' \
 assert_not_contains "$crossing_fc" '--file' \
   "filing-callers: routines.md crossing names no /slice --file"
 CA_FC=.agents/skills/wrap-up-session/references/closure-actions.md
-assert_prose_contains "$CA_FC" 'one `Closes #N` for the feature issue' \
-  "filing-callers: closure-actions writes one Closes #N for a new block"
+assert_prose_contains "$CA_FC" 'one `Closes <ref>` for the feature issue' \
+  "filing-callers: closure-actions writes one Closes <ref> for a new block"
 assert_prose_contains "$CA_FC" 'A `legacy` block keeps the per-row path' \
   "filing-callers: closure-actions keeps the legacy per-row path"
 assert_file_contains "$CA_FC" 'Closes #A, closes #B' \
@@ -1191,7 +1191,7 @@ fi
 # Pinned by the smallest falsifiable unit: the literal flags and phrases,
 # plus the negative pins that keep the retired prose from creeping back.
 BUILD_SKILL=.agents/skills/build/SKILL.md
-for token in "upsert --derive-id plan" "unlinked <id>" "implicit slice" \
+for token in "upsert <id> --spec" "unlinked <id>" "implicit slice" \
              "implementation_paths" "slice.py ready" "intersecting pair" \
              "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
              "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
@@ -1234,7 +1234,7 @@ assert_prose_contains .agents/skills/task-registry/SKILL.md 'a new block'"'"'s s
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
   'only when `done: yes`' "closure-actions: Closes #N only when slice.py link prints done: yes"
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
-  'A PR that lands some of the slices writes `Refs #N` instead' "closure-actions: a partial PR writes Refs #N"
+  'A PR that lands some of the slices writes `Refs <ref>` instead' "closure-actions: a partial PR writes Refs <ref>"
 assert_file_matches .agents/skills/task-registry/scripts/registry/upsert.py '^    load_index_strict\(config\.path' \
   "upsert: the refusal-only index load keeps no unused binding"
 for ref in design-stack-gates harness-dispatch; do
@@ -1272,8 +1272,10 @@ assert_file_not_matches .agents/skills/slice/references/build-prompt.md '--file'
   "one-issue: build-prompt.md names no /slice --file"
 assert_file_not_matches "$BUILD_SKILL" '--file' \
   "one-issue: build/SKILL.md names no /slice --file"
-assert_file_contains "$BUILD_SKILL" 'upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply' \
-  "one-issue: pre-flight runs one upsert --derive-id plan with --apply"
+assert_file_contains "$BUILD_SKILL" 'upsert <id> --spec specs/<feature>.md --title "<feature>" --apply' \
+  "one-issue: pre-flight upserts the id link printed, with --apply"
+assert_file_not_matches "$BUILD_SKILL" 'derive-id' \
+  "one-issue: pre-flight never re-derives the id link printed"
 for token in "Only \`unlinked <id>\` runs one upsert" \
              "feature issue pending: <reason>" "feature issue not filed: <reason>" \
              "\`local-pending\`"; do
@@ -1343,7 +1345,7 @@ WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' AGENTS.md)"
 for token in "/grill-me" "/brainstorm" "DECISIONS CARRIED" "/grilling" \
              "/system-design-planning" "/slice" "build prompt" "fresh session" \
              "> Handover:" "never builds and never files" \
-             "Spec and plan are ready to be built" "upsert --derive-id plan" \
+             "Spec and plan are ready to be built" "upsert <id>" \
              "slice.py ready" "/auto-push" "/yolo"; do
   assert_contains "$WORKFLOW" "$token" "workflow: AGENTS.md § Workflow names '$token'"
 done

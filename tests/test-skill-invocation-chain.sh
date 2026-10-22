@@ -220,7 +220,7 @@ done
 # planning session never had. /slice has no --file mode to invoke.
 for tree in $TREES; do
   f="$tree/skills/build/SKILL.md"
-  assert_file_contains "$f" "task-registry.py upsert --derive-id plan" \
+  assert_file_contains "$f" "task-registry.py upsert <id>" \
     "Chain: $tree/build's pre-flight upserts the feature row through task-registry"
   assert_file_not_matches "$f" '^Invoke `/slice' \
     "Chain: $tree/build no longer invokes /slice"

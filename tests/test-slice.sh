@@ -265,16 +265,15 @@ link_case() {  # <label> <index> <spec> <expected link> <expected done>
 done: $5" "$OUT" "link: $1 prints link and done"
 }
 link_case "a task-id on a slice header" "$TWO/todo-legacy.md" "$TWO/spec.md" "legacy" "no"
-link_case "an Issue line above a feature row" "$TWO/todo-both.md" "$TWO/spec.md" "issue #7" "no"
-link_case "a > Issue: line" "$TWO/todo-one-issue.md" "$TWO/spec.md" "issue #7" "no"
+link_case "a > Issue: line" "$TWO/todo-one-issue.md" "$TWO/spec.md" "issue o/r#7" "no"
 link_case "a feature row with no provider link" "$TWO/todo-one-row.md" "$TWO/spec.md" "unlinked plan.two-links" "no"
-link_case "a feature row with a provider link" "$LINKF/todo-linked.md" "$FIXTURES/ready/spec.md" "linked plan.ready-fixture #42" "no"
+link_case "a feature row with a provider link" "$LINKF/todo-linked.md" "$FIXTURES/ready/spec.md" "linked plan.ready-fixture o/r#42" "no"
 link_case "no feature link" "$LINKF/todo-none.md" "$FIXTURES/ready/spec.md" "none" "no"
 link_case "a flat block" "$FIXTURES/ready-implicit/todo-open.md" "$FIXTURES/ready-implicit/spec.md" "none" "no"
-link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue #42" "yes"
+link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue o/r#42" "yes"
 link_case "an Issue ref already #N" "$LINKF/todo-issue-ref.md" "$FIXTURES/ready/spec.md" "issue #9" "no"
 link_case "an Issue ref no parser knows stays verbatim" "$LINKF/todo-issue-odd.md" "$FIXTURES/ready/spec.md" "issue PROJ-7" "no"
-link_case "a feature row with no task-id is no link" "$LINKF/todo-feature-no-id.md" "$FIXTURES/ready/spec.md" "none" "no"
+link_case "an Issue URL in another repo keeps its repo" "$LINKF/todo-issue-cross-repo.md" "$FIXTURES/ready/spec.md" "issue other/repo#213" "no"
 link_case "one header [x] of three" "$FIXTURES/ready/todo-header-slice1-done.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
 CODE=$?
@@ -289,12 +288,29 @@ CODE=$?
 assert_eq "1" "$CODE" "link: a feature row with no task-id fails validate"
 assert_contains "$OUT" "todo-feature-no-id.md:5: " "link: the no-id feature row is named by <path>:<line>"
 assert_contains "$OUT" "no task-id" "link: the no-id feature row refusal says why"
+for verb in link ready; do
+  OUT="$("$PY" "$SLICE" "$verb" --index "$LINKF/todo-feature-no-id.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "link: $verb refuses a feature row with no task-id, exit 2"
+  assert_contains "$OUT" "todo-feature-no-id.md:5: " "link: $verb names the no-id feature row by <path>:<line>"
+  assert_contains "$OUT" "no task-id" "link: $verb says why"
+done
+for bad in todo-both todo-two-issues todo-two-rows; do
+  OUT="$("$PY" "$SLICE" link --index "$TWO/$bad.md" --spec "$TWO/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "link: $bad holds two feature links, exit 2"
+  assert_contains "$OUT" "two feature links" "link: $bad says why"
+done
 OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-multi.md" 2>&1)"
 CODE=$?
 OUT="${OUT//$'\r'/}"
 assert_eq "0" "$CODE" "link: without --spec exits 0"
-assert_eq "tests/fixtures/slice/ready/spec.md link: issue #42 done: yes
-tests/fixtures/slice/link/other-spec.md link: linked plan.second-fixture #43 done: no" "$OUT" "link: without --spec prints one line per block that names a spec"
+assert_eq "tests/fixtures/slice/ready/spec.md link: issue o/r#42 done: yes
+tests/fixtures/slice/link/other-spec.md link: linked plan.second-fixture o/r#43 done: no" "$OUT" "link: without --spec prints one line per block that names a spec"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-same-spec.md" 2>&1)"
+OUT="${OUT//$'\r'/}"
+assert_eq "tests/fixtures/slice/ready/spec.md link: issue #7 done: no
+tests/fixtures/slice/ready/spec.md link: issue other/repo#8 done: no" "$OUT" "link: two blocks naming one spec print one line each"
 OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" 2>&1)"
 CODE=$?
 assert_eq "2" "$CODE" "link: without --spec a missing index exits 2"

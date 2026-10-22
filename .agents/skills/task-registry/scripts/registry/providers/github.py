@@ -649,6 +649,23 @@ def closing_references_in(body: str) -> List[Tuple[str, str]]:
     return references
 
 
+def closable_reference(raw: str) -> str:
+    """`raw` as a closing keyword takes it: `owner/repo#N` for a URL or qualified reference, `#N` for a bare number or `#N`; anything else verbatim.
+
+    One reference grammar for `Closes <ref>` writers and readers alike: a URL
+    into another repo keeps its repo, so the keyword cannot close this repo's
+    issue of the same number.
+    """
+    raw = raw.strip()
+    if raw.isdigit():
+        return "#" + raw
+    references = closing_references_in("Closes " + raw) if len(raw.split()) == 1 else []
+    if not references:
+        return raw
+    repo, number = references[0]
+    return f"{repo}#{number}"
+
+
 def _describe(command: Sequence[str]) -> str:
     """`gh api <METHOD> <path>` for a REST call; the first three words otherwise."""
     words = list(command)

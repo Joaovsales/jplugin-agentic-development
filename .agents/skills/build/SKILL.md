@@ -136,12 +136,15 @@ line names and stop, rather than wait on a job this session cannot see finish.
 This session exists because a human started it with the build prompt, which
 is the authorization the planning session did not have. Run
 `python3 .agents/skills/slice/scripts/slice.py link --index tasks/todo.md --spec specs/<feature>.md`
-and act on the first word of its `link:` line (`issue #N`, `linked <id> #N`,
-`unlinked <id>`, `legacy` or `none`). Only `unlinked <id>` runs one
-upsert; `issue`, `linked`, `legacy` and `none` mean there is nothing to do:
+and act on the first word of its `link:` line (`issue <ref>`, `linked <id> <ref>`,
+`unlinked <id>`, `legacy` or `none`; `<ref>` is `#N`, or `owner/repo#N` for
+another repo). A malformed link (two feature links, a feature row with no
+task-id) exits 2 with the refusal: stop and report it. Only `unlinked <id>` runs
+one upsert, of the `<id>` the line printed, never one re-derived from the spec;
+`issue`, `linked`, `legacy` and `none` mean there is nothing to do:
 
 ```bash
-python3 .agents/skills/task-registry/scripts/task-registry.py upsert --derive-id plan --spec specs/<feature>.md --title "<feature>" --apply --approve
+python3 .agents/skills/task-registry/scripts/task-registry.py upsert <id> --spec specs/<feature>.md --title "<feature>" --apply --approve
 ```
 
 `--approve` is passed when the build prompt authorized the build; `/yolo` and
