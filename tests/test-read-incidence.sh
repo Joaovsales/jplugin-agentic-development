@@ -349,6 +349,7 @@ assert_contains "$keys" "agg 3 7 2 gate True True" "report: --json carries the a
 err="$("$TEST_PYTHON" "$INCIDENCE" --root "$TMP/empty-root" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "report: an empty root exits 2 through the CLI"
 assert_contains "$err" "empty-root" "report: the CLI names the empty root"
+assert_contains "$err" "read-incidence: " "report: an error names the CLI that raised it"
 err="$("$TEST_PYTHON" "$INCIDENCE" --root "$FIX/drift" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "report: a drifted Read block exits 2 through the CLI"
 assert_contains "$err" "s9.jsonl:3" "report: the CLI names the file and line"
@@ -388,15 +389,12 @@ th = rt.Thresholds()
 reads = t.reads()
 print("defaults", th.bytes, th.lines)
 print("whole", sum(r.is_whole for r in reads), "excluded", sum(r.is_excluded for r in reads),
-      "whole-large", sum(r.is_whole_large(th) for r in reads),
-      "counted", len(t.counted_reads()), "of", len(reads))
-print("counted-clean", all(not r.is_excluded for r in t.counted_reads()))
+      "whole-large", sum(r.is_whole_large(th) for r in reads))
 PY
 )"
 assert_contains "$out" "defaults 32768 800" "structure: Thresholds defaults to the spec's 32768 bytes and 800 lines"
-assert_contains "$out" "whole 3 excluded 2 whole-large 2 counted 4 of 6" \
+assert_contains "$out" "whole 3 excluded 2 whole-large 2" \
   "structure: s1's reads split into whole, excluded and whole-large through the Read predicates"
-assert_contains "$out" "counted-clean True" "structure: counted_reads() yields no excluded read"
 for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
   assert_eq "0" "$(grep -cE '\.kind (==|!=)' "$cli")" "$cli: no call site compares Read.kind — the predicates own that"
   assert_eq "0" "$(grep -cE 'input\.get|\.result\.get|result\.result|bare_shell_reads' "$cli")" \
@@ -447,6 +445,8 @@ s3 = rt.parse_transcript(sys.argv[3])
 print("s1-split", len(s1.reads()), len(s1.parent_reads()), len(s1.sidechain_reads()))
 print("s3-split", len(s3.reads()), len(s3.parent_reads()), len(s3.sidechain_reads()),
       [r.norm_path.rsplit("/", 1)[-1] for r in s3.sidechain_reads()])
+print("counted-sidechain", len(s1.counted_sidechain_reads()), [r.norm_path.rsplit("/", 1)[-1] for r in s3.counted_sidechain_reads()],
+      all(not r.is_excluded and r.tool_use.sidechain for r in s3.counted_sidechain_reads()))
 print("order", [type(c).__name__ for c in s1.parent_calls()])
 lines = [c.tool_use.line_no for c in s1.parent_calls()]
 print("order-ids", len(lines), lines == sorted(lines))
@@ -457,6 +457,7 @@ PY
 assert_contains "$out" "s1-split 6 6 0" "structure: s1 has no sidechain read, so its parent reads are all its reads"
 assert_contains "$out" "s3-split 7 6 1 ['loader.py']" \
   "structure: s3's inline sidechain read is in sidechain_reads() and out of parent_reads(); reads() stays the union"
+assert_contains "$out" "counted-sidechain 0 ['loader.py'] True" "structure: counted_sidechain_reads() is the sidechain reads that entered a context"
 assert_contains "$out" "order-ids 12 True" "structure: parent_calls() follows the order of the tool uses"
 assert_contains "$out" "parent-calls-s3 6 True" "structure: parent_calls() leaves out the inline sidechain read"
 assert_contains "$out" "immutable True" "structure: parent_calls() is built at parse time and handed out as a tuple"
@@ -482,7 +483,7 @@ import read_transcript as rt
 for s in rt.iter_sessions(sys.argv[2]):
     ss = rt.parse_session(s.path, s.subagent_paths)
     print("session", ss.parent.session_id, len(ss.agents), all(a.is_subagent for a in ss.agents), ss.malformed,
-          [r.norm_path.rsplit("/", 1)[-1] for r in ss.sidechain_reads])
+          [r.norm_path.rsplit("/", 1)[-1] for r in ss.counted_sidechain_reads])
 PY
 )"
 assert_contains "$out" "session s1 2 True 2 ['big_module.py']" \
@@ -492,9 +493,19 @@ assert_contains "$out" "session s3 0 True 1 ['loader.py']" \
 for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
   assert_eq "0" "$(grep -cE 'tool_use\.(id|sidechain)|\.results(\.get|\[)' "$cli")" "$cli: no join on tool-use ids and no sidechain branch — the parser owns the split and the order"
   assert_eq "0" "$(grep -c 'parse_transcript' "$cli")" "$cli: reads a session through parse_session, never assembling one from per-file transcripts"
+  assert_eq "0" "$(grep -c -- '---' "$cli")" "$cli: builds no Markdown rule — the parser module's table helper owns it"
   assert_eq "0" "$(grep -c 'type: ignore' "$cli")" "$cli: needs no type ignore"
   assert_eq "0" "$(grep -cE 'field\(metadata=' "$cli")" "$cli: every column is declared through its one column helper, key columns included"
 done
+
+out="$("$TEST_PYTHON" - "$SCRIPTS" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+print(rt.markdown_table(["A", "B"], [["1", "2"], ["3", "4"]]).replace("\n", "/"))
+PY
+)"
+assert_contains "$out" "| A | B |/|---|---|/| 1 | 2 |/| 3 | 4 |" "structure: markdown_table() is a header line, a rule line and the rows"
 
 # One Row declaration drives the columns and the aggregate: a field added to
 # it is a column and summed unless it is declared otherwise.

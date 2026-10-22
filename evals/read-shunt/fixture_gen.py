@@ -17,7 +17,7 @@ import json
 import os
 import sys
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Optional
 
 def write(out, rel, text):
@@ -1280,12 +1280,14 @@ def measure(out):
 
 def broken_bounds(promise, total_bytes, longest_lines):
     """One line per bound of `promise` the measured output breaks."""
-    checks = [("min_total_bytes", total_bytes, promise.min_total_bytes, True),
-              ("max_total_bytes", total_bytes, promise.max_total_bytes, False),
-              ("min_longest_lines", longest_lines, promise.min_longest_lines, True),
-              ("max_longest_lines", longest_lines, promise.max_longest_lines, False)]
-    return ["%s %d, measured %d" % (name, bound, value) for name, value, bound, is_floor in checks
-            if bound is not None and (value < bound if is_floor else value > bound)]
+    measured = {"total_bytes": total_bytes, "longest_lines": longest_lines}
+    broken = []
+    for f in fields(Promise):
+        side, _, quantity = f.name.partition("_")
+        bound, value = getattr(promise, f.name), measured[quantity]
+        if bound is not None and (value < bound if side == "min" else value > bound):
+            broken.append("%s %d, measured %d" % (f.name, bound, value))
+    return broken
 
 
 def main(argv):

@@ -100,7 +100,7 @@ def plan(keep_temp: str, aggregate_path: str, side: str) -> List[ArrangedRun]:
                 raise rt.TranscriptError(f"{where}: {exc}")
             arranged.append(ArrangedRun(case, number, _session(home), outcome))
     if not arranged:
-        raise rt.EmptyRoot(aggregate_path)
+        raise rt.TranscriptError(f"{aggregate_path}: no runs on side {side!r}")
     return arranged
 
 

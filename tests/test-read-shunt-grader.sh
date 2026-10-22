@@ -54,10 +54,11 @@ assert_contains "$out" "| control | task-b | run-1 | 0 | 1 | 1317 | 717 | 20000 
   "grader: a ranged read is not whole-file and a sed window on the large file is routing-around"
 # shunt/task-a/run-1: the parent windows big.py twice (717 + 362) around a
 # completed Agent whose result (36 bytes) names big.py:120-160; the second
-# window follows it — one re-read over one named file; sub-agent totals come
-# from the Agent result; the shunt log holds one annotate and one deny issued
-# twice with an identical input.
-assert_contains "$out" "| shunt | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 1 | 1 | annotate:1 deny:2 | 1 |" \
+# window follows it, and the sub-agent's own read of big.py names the path for
+# both windows — two re-reads over one named file; sub-agent totals come from
+# the Agent result; the shunt log holds one annotate and one deny issued twice
+# with an identical input.
+assert_contains "$out" "| shunt | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 2 | 1 | annotate:1 deny:2 | 1 |" \
   "grader: shunt/task-a/run-1 — sub-agent tokens and tool uses from the Agent result, hook decisions and one repeated deny"
 assert_contains "$out" "| shunt | task-b | run-1 | 0 | 0 | 277 | 277 | 9000 | 0 | - | 0 | 45 | - | 1 | allow:1 | 0 |" \
   "grader: a control-sized run under the gate shows allow:1 and no repeated deny"
@@ -66,7 +67,7 @@ assert_eq "5" "$(printf '%s\n' "$out" | grep -c '^| \(control\|shunt\) | task-[a
 assert_contains "$out" "## Paired per-task means" "grader: two arms produce paired per-task means"
 assert_contains "$out" "| control | task-a | 2 | 1.5 | 1 | 5593.5 | 2847 | 35600 | 0.5 | - | 0 | 195 | 1 | 0.5 | - |" \
   "grader: control/task-a means average the two runs and skip missing values"
-assert_contains "$out" "| shunt | task-a | 1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 1 | 1 | 1 |" \
+assert_contains "$out" "| shunt | task-a | 1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 2 | 1 | 1 |" \
   "grader: shunt/task-a means sit beside control/task-a as a paired row"
 assert_contains "$out" "| control | task-b | 1 |" "grader: task-b has a control mean row"
 assert_contains "$out" "| shunt | task-b | 1 |" "grader: task-b has a shunt mean row"
@@ -93,7 +94,7 @@ print("counts", len(d["runs"]), len(d["paired_means"]))
 m = [x for x in d["paired_means"] if x["arm"] == "control" and x["task"] == "task-a"][0]
 print("mean", m["runs"], m["whole_large"], m["outcome"], m["subagent_tokens"])
 ')"
-assert_contains "$keys" "run 0 0 1115 12000 7 1.0 1.0 annotate:1 deny:2 1" "grader: --json carries the per-run metrics"
+assert_contains "$keys" "run 0 0 1115 12000 7 2.0 1.0 {'annotate': 1, 'deny': 2} 1" "grader: --json carries the per-run metrics, hook decisions as counts"
 assert_contains "$keys" "counts 5 4" "grader: --json carries five runs and four paired means"
 assert_contains "$keys" "mean 2 1.5 0.5 None" "grader: --json means skip missing values"
 
@@ -133,6 +134,15 @@ printf '%s\n' '{"tool":"Read","input":{}}' > "$BADLOG/shunt.jsonl"
 err="$("$TEST_PYTHON" "$GRADER" "$TMP/badlog" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "grader: a shunt log entry without a decision exits 2"
 assert_contains "$err" "shunt.jsonl:1" "grader: the shunt-log message names the file and line"
+assert_contains "$err" "grade-read-shunt: " "grader: an error names the CLI that raised it"
+
+# A shunt log with no decisions is an empty count in JSON and `none` in the table.
+NODEC="$TMP/nodec/arm/task/run"; mkdir -p "$NODEC"
+cp "$RESULTS/shunt/task-b/run-1/transcript.jsonl" "$NODEC/"
+: > "$NODEC/shunt.jsonl"
+assert_contains "$("$TEST_PYTHON" "$GRADER" "$TMP/nodec" 2>&1)" "| none | 0 |" "grader: a shunt log with no decisions renders none"
+assert_contains "$("$TEST_PYTHON" "$GRADER" "$TMP/nodec" --json 2>&1 | "$TEST_PYTHON" -c 'import json, sys; print("hooks", json.load(sys.stdin)["runs"][0]["hook_decisions"])')" \
+  "hooks {}" "grader: --json carries an empty count when the log had no decisions"
 
 printf '\n--- rows: sub-agent tool uses come from one source per run ---\n'
 # Async-launched Agent results carry no counters, so the column is the sum of
@@ -159,6 +169,34 @@ out="$("$TEST_PYTHON" "$GRADER" "$TMP/inline" --json 2>&1)"; rc=$?
 assert_eq "0" "$rc" "grader: a transcript with an inline sidechain grades with exit 0"
 assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; print("bytes", json.load(sys.stdin)["runs"][0]["parent_bytes"])')" \
   "bytes 1613" "grader: the sidechain's 1487-byte result is not the parent's"
+
+printf '\n--- rows: a sub-agent'"'"'s read names its path before the parent reads it ---\n'
+# The sub-agent reads helper.py; no Agent text names it. The parent's later read
+# of helper.py is the one re-read of the one path a sub-agent result named.
+SIDENAMED="$TMP/sidenamed/arm/task/run"; mkdir -p "$SIDENAMED/subagents"
+"$TEST_PYTHON" - "$SIDENAMED" <<'PY'
+import json, os, sys
+def use(uid, name, inp, sidechain):
+    rec = {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": uid, "name": name, "input": inp}]}}
+    return {**rec, "isSidechain": True} if sidechain else rec
+def result(uid, structured, text, sidechain):
+    rec = {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": uid, "content": text}]},
+           "toolUseResult": structured}
+    return {**rec, "isSidechain": True} if sidechain else rec
+def read(uid, sidechain):
+    block = {"type": "text", "file": {"filePath": "/work/app/helper.py", "content": "x = 1", "numLines": 1,
+                                      "startLine": 1, "totalLines": 1}}
+    return [use(uid, "Read", {"file_path": "/work/app/helper.py"}, sidechain), result(uid, block, "     1\tx = 1", sidechain)]
+agent = {"status": "completed", "content": [{"type": "text", "text": "done"}], "totalTokens": 10, "totalToolUseCount": 1}
+parent = [use("a1", "Agent", {"prompt": "go look around"}, False), result("a1", agent, "done", False), *read("r1", False)]
+write = lambda path, recs: open(path, "w", encoding="utf-8").write("".join(json.dumps(r) + "\n" for r in recs))
+write(os.path.join(sys.argv[1], "transcript.jsonl"), parent)
+write(os.path.join(sys.argv[1], "subagents", "agent-h1.jsonl"), read("r2", True))
+PY
+out="$("$TEST_PYTHON" "$GRADER" "$TMP/sidenamed" --json 2>&1)"; rc=$?
+assert_eq "0" "$rc" "grader: a run whose sub-agent read a file the parent then read grades with exit 0"
+assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; print("rate", json.load(sys.stdin)["runs"][0]["reread_rate"])')" \
+  "rate 1.0" "grader: a sub-agent's read names its path, so the parent's read of it is one re-read of one named path"
 
 # --- § arranging -------------------------------------------------------------
 printf '\n--- arranging: a kept `claude plugin eval` temp tree becomes the grader layout ---\n'
@@ -200,7 +238,7 @@ assert_eq '{"pass": false}' "$(cat "$ARRANGED/gated/task-a/run-2/outcome.json")"
   "arrange: a run with no score carries the runner's pass verdict"
 graded="$("$TEST_PYTHON" "$GRADER" "$ARRANGED" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "arrange: the grader reads the arranged directory"
-assert_contains "$graded" "| gated | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 1 | 1 |" \
+assert_contains "$graded" "| gated | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 2 | 1 |" \
   "arrange: run 1 grades to the row its transcript gives"
 assert_contains "$graded" "| gated | task-a | run-2 | 0 | 1 | 1317 | 717 | 20000 | 0 | - | 0 | 90 | - | 0 |" \
   "arrange: run 2 grades with the pass verdict as outcome 0"
@@ -280,6 +318,12 @@ printf '%s' '{"score": true}' > "$BOOLRUN/outcome.json"
 err="$("$TEST_PYTHON" "$GRADER" "$TMP/boolscore" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "grader: an outcome.json whose score is a bool exits 2, as arrange refuses to write it"
 assert_contains "$err" "outcome.json:1" "grader: the message names the outcome file and line"
+
+printf '%s' '{"cases": []}' > "$TMP/aggregate-empty.json"
+err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$TMP/aggregate-empty.json" --arm none --out "$TMP/arranged-none" 2>&1 >/dev/null)"; rc=$?
+assert_eq "2" "$rc" "arrange: an aggregate with no runs exits 2"
+assert_contains "$err" "aggregate-empty.json: no runs on side 'with'" "arrange: the message names the aggregate and the side, not a transcript root"
+assert_contains "$err" "arrange-plugin-eval-results: " "arrange: an error names the CLI that raised it"
 
 rm -rf "$KEPT/claude-eval-BBB"
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm other --out "$TMP/arranged-2" 2>&1 >/dev/null)"; rc=$?

@@ -54,7 +54,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 import re
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 DEFAULT_BYTES = 32768
 DEFAULT_LINES = 800
@@ -229,6 +229,10 @@ class Transcript:
     def sidechain_reads(self) -> List[Read]:
         return [r for r in self._reads if r.tool_use.sidechain]
 
+    def counted_sidechain_reads(self) -> List[Read]:
+        """The sidechain reads whose file text entered a context — every one but the excluded."""
+        return [r for r in self.sidechain_reads() if not r.is_excluded]
+
     def parent_calls(self) -> Tuple[Call, ...]:
         """The parent's Read, shell-read, Grep and Agent calls in call order."""
         return self._parent_calls
@@ -242,10 +246,6 @@ class Transcript:
 
     def agent_calls(self) -> Tuple[AgentCall, ...]:
         return self._agent_calls
-
-    def counted_reads(self) -> List[Read]:
-        """The reads whose file text entered the context — every read but the excluded."""
-        return [r for r in self._reads if not r.is_excluded]
 
     def tool_result_bytes(self) -> int:
         """The bytes the parent's own tool results put into its context."""
@@ -269,7 +269,7 @@ class SessionReads:
 
     parent: Transcript
     agents: List[Transcript]
-    sidechain_reads: List[Read]    # the parent's inline ones and every agent's, excluded dropped
+    counted_sidechain_reads: List[Read]    # the parent's inline ones and every agent's, excluded dropped
     malformed: int                 # unreadable lines, summed over every file
 
 
@@ -443,7 +443,7 @@ def parse_session(parent_path: str, subagent_paths: List[str]) -> SessionReads:
     """A main-loop transcript and its sub-agent files, parsed and assembled once."""
     parent = parse_transcript(parent_path, is_subagent=False)
     agents = [parse_transcript(p, is_subagent=True) for p in subagent_paths]
-    sidechain = [r for t in (parent, *agents) for r in t.sidechain_reads() if not r.is_excluded]
+    sidechain = [r for t in (parent, *agents) for r in t.counted_sidechain_reads()]
     return SessionReads(parent, agents, sidechain, parent.malformed + sum(a.malformed for a in agents))
 
 
@@ -660,11 +660,20 @@ def bare_shell_reads(command: str) -> List[str]:
     return files
 
 
+def markdown_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
+    """A header line, its rule line and one line per row."""
+    def line(cells: Sequence[str]) -> str:
+        return "| " + " | ".join(cells) + " |"
+    rule = "|" + "|".join("---" for _ in headers) + "|"
+    return "\n".join([line(headers), rule, *(line(row) for row in rows)])
+
+
 def run(main: Callable[[], object]) -> int:
-    """Run a CLI body; a TranscriptError is reported on stderr and becomes exit 2."""
+    """Run a CLI body; a TranscriptError is reported on stderr, prefixed with the CLI's name, and becomes exit 2."""
     try:
         code = main()
     except TranscriptError as exc:
-        print(f"read-transcript: {exc}", file=sys.stderr)
+        name = os.path.basename(sys.argv[0])
+        print(f"{name[:-3] if name.endswith('.py') else name}: {exc}", file=sys.stderr)
         return exc.exit_code
     return code if isinstance(code, int) else 0

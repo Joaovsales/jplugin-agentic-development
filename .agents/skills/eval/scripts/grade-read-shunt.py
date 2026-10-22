@@ -70,7 +70,7 @@ class RunRow:
     wall_seconds: Optional[float] = _column("Wall s", default=None)
     reread_rate: Optional[float] = _column("Re-read rate", default=None)
     outcome: Optional[float] = _column("Outcome", default=None)
-    hook_decisions: Optional[str] = _column("Hook decisions", numeric=False, hook=True, default=None)
+    hook_decisions: Optional[Dict[str, int]] = _column("Hook decisions", numeric=False, hook=True, default=None)
     repeated_denies: Optional[int] = _column("Repeated denies", hook=True, default=None)
 
 
@@ -155,10 +155,9 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
     row.largest = parent.largest_parent_result()[0]
-    large_paths: Set[str] = {r.norm_path for r in session.sidechain_reads if r.is_large(th)}
-    named: Set[str] = set()
+    large_paths: Set[str] = {r.norm_path for r in session.counted_sidechain_reads if r.is_large(th)}
+    named: Set[str] = {r.norm_path for r in session.counted_sidechain_reads}
     rereads = 0
-    tokens: Optional[int] = None
     for call in parent.parent_calls():
         if isinstance(call, rt.Read):
             if call.is_excluded:
@@ -178,11 +177,9 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
                 row.routing_around += 1
         elif isinstance(call, rt.AgentCall):
             named |= _paths_in(call.named_text)
-            if call.total_tokens is not None:
-                tokens = (tokens or 0) + call.total_tokens
-    named |= {r.norm_path for r in session.sidechain_reads}
+    counted_tokens = [c.total_tokens for c in parent.agent_calls() if c.total_tokens is not None]
     counted = [c.tool_use_count for c in parent.agent_calls() if c.tool_use_count is not None]
-    row.subagent_tokens = tokens
+    row.subagent_tokens = sum(counted_tokens) if counted_tokens else None
     row.subagent_tool_uses = sum(counted) if counted else sum(len(a.tool_uses) for a in agents)
     row.reread_rate = round(rereads / len(named), 3) if named else None
     row.outcome = rt.read_outcome(run.path)
@@ -217,7 +214,7 @@ def _hook_columns(row: RunRow, run_dir: str) -> None:
             if decision == "deny":
                 key = json.dumps([entry.get("tool"), entry.get("input")], sort_keys=True)
                 denied[key] = denied.get(key, 0) + 1
-    row.hook_decisions = " ".join(f"{k}:{v}" for k, v in sorted(decisions.items())) or "none"
+    row.hook_decisions = decisions
     row.repeated_denies = sum(v - 1 for v in denied.values() if v > 1)
 
 
@@ -244,21 +241,21 @@ def _fmt(value: object) -> str:
         return "-"
     if isinstance(value, float):
         return f"{value:g}"
+    if isinstance(value, dict):
+        return " ".join(f"{k}:{v}" for k, v in sorted(value.items())) or "none"
     return str(value)
 
 
 def render_markdown(rows: List[RunRow], means: List[Dict[str, object]], columns: list) -> str:
-    header = "| " + " | ".join(h for _, h, _ in columns) + " |"
-    rule = "|" + "|".join("---" for _ in columns) + "|"
-    out = ["## Runs", "", header, rule]
-    out += ["| " + " | ".join(_fmt(getattr(r, k)) for k, _, _ in columns) + " |" for r in rows]
+    out = ["## Runs", "",
+           rt.markdown_table([h for _, h, _ in columns],
+                             [[_fmt(getattr(r, k)) for k, _, _ in columns] for r in rows])]
     if means:
         numeric = [(k, h) for k, h, n in columns if n]
         out += ["", "## Paired per-task means", "",
-                "| Arm | Task | Runs | " + " | ".join(h for _, h in numeric) + " |",
-                "|---|---|---|" + "|".join("---" for _ in numeric) + "|"]
-        out += ["| " + " | ".join([str(m["arm"]), str(m["task"]), str(m["runs"])]
-                                   + [_fmt(m.get(k)) for k, _ in numeric]) + " |" for m in means]
+                rt.markdown_table(["Arm", "Task", "Runs"] + [h for _, h in numeric],
+                                  [[str(m["arm"]), str(m["task"]), str(m["runs"])]
+                                   + [_fmt(m.get(k)) for k, _ in numeric] for m in means])]
     return "\n".join(out)
 
 

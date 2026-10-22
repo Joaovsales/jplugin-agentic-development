@@ -103,7 +103,7 @@ def measure_session(session: rt.Session, th: rt.Thresholds) -> Row:
             row.shell_bytes += call.bytes
             row.rereads += sum(1 for p in call.paths if p in seen)
             seen.update(call.paths)
-    for read in reads.sidechain_reads:
+    for read in reads.counted_sidechain_reads:
         _count_subagent_read(row, read, th)
     return row
 
@@ -171,14 +171,14 @@ def _cell(row: Row, key: str, full_paths: bool) -> str:
 
 def render_markdown(rows: List[Row], agg: Aggregate, args: argparse.Namespace) -> str:
     full_paths = args.paths
-    header = "| " + " | ".join(label for _, label in COLUMNS) + " |"
-    rule = "|" + "|".join("---" for _ in COLUMNS) + "|"
+    headers = [label for _, label in COLUMNS]
+
+    def cells(row: Row) -> List[str]:
+        return [_cell(row, key, full_paths) for key, _ in COLUMNS]
     lines = [f"# Read incidence over `{args.root}` (bytes >= {args.bytes}, lines >= {args.lines})", "",
-             "## Per session", "", header, rule]
-    lines += ["| " + " | ".join(_cell(r, key, full_paths) for key, _ in COLUMNS) + " |" for r in rows]
-    lines += ["", "## Aggregate", "", header, rule,
-              "| " + " | ".join(_cell(agg.total, key, full_paths) for key, _ in COLUMNS) + " |", "",
-              f"Sessions: {agg.sessions} · median share {agg.median_share:.1%} · "
+             "## Per session", "", rt.markdown_table(headers, [cells(r) for r in rows]),
+             "", "## Aggregate", "", rt.markdown_table(headers, [cells(agg.total)]), "",
+             f"Sessions: {agg.sessions} · median share {agg.median_share:.1%} · "
               f"quarter share {agg.quarter_share:.1%}",
               f"Verdict: {agg.verdict} — gate when the median share is at least {GO_MEDIAN_SHARE:.0%} "
               f"or a quarter of sessions reach {GO_QUARTER_SHARE:.0%}"]
