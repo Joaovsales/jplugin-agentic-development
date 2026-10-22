@@ -1,6 +1,6 @@
 ---
 title: A derived receipt verdict on Windows needs its test phase run under Linux
-date: 2026-10-16
+date: 2026-10-21
 problem_type: process
 module: .agents/skills/quality-gate/scripts/receipt.py § derive_verdict; /quality-gate phase 5
 tags: [quality-receipt, windows, wsl, baseline-failures, tests, verdict]
@@ -70,3 +70,31 @@ the `tests` object as given (`receipt.py:388`), so that session's outcome
 recorded the WSL exit and kept the Windows run next to it as `host`,
 `windows_exit` and `windows_note`. The receipt shows both runs and never hides
 the Windows exit.
+
+## 2026-10-21 — the read-shunt build
+
+Same shape, two refinements. The Windows affected run (46 files) failed 13, and
+every failing assertion name also failed on the untouched merge-base — proved by
+running the same files in a detached worktree at that commit and diffing the
+`FAIL` lines with `comm`, never by count. Three names that first appeared only
+on the branch (two template-drift assertions in `tests/test-session-start.sh`,
+one marketplace-add assertion in `tests/test-install-sh.sh`) did not recur on
+the next Windows run: load artifacts, which is why the diff must be by name and
+the long files are worth the hours (1.3–3.5 h each under load).
+
+Under WSL the identical tree ran 46/46 affected files in 99 s and the full
+79-file suite in 105 s. Two things make that run count:
+
+- **Keep the logs outside the clone.** A log written into the clone root is part
+  of the tree the tests inspect: `tests/test-sweep-routines.sh` AC9 greps every
+  file outside `tasks/` and `specs/` for the retired skill's name and reported
+  `./affected.log` as an offender.
+- **Do not run the real-store schema check at full parallelism.** At
+  `TEST_JOBS=12` `tests/test-solutions-schema.sh`'s "real store documents all
+  validate" failed naming a different, valid document each time — a sibling
+  test rewriting the store while it read. At 4 jobs it passed, as it does
+  serially on Windows.
+
+Commit the bookkeeping first so the Windows working tree is clean: the receipt's
+`tests.tree` is the full tree hash, `tasks/**` included, and only a clean tree
+equals the clone's `HEAD^{tree}`.
