@@ -17,7 +17,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-py_module .agents/skills/task-registry/scripts
+py_module .agents/skills/task-registry/scripts >/dev/null
 
 CANON=".agents/skills/wrap-up-session/references/routines.md"
 

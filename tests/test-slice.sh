@@ -375,9 +375,13 @@ assert_file_not_matches "$REPO/.agents/skills/slice/references/build-prompt.md" 
 
 printf '\n--- primitives: the skill-script tests keep no private harness (specs/test-suite-aposd.md AC 13) ---\n'
 # The fourteen skill-script files say what they check and let tests/lib.sh own
-# the how. Each pattern is written with a one-character class so this file never
-# matches its own source, and the positive control is built from split strings
-# for the same reason. The control is one file holding every form swept for.
+# the how. The suite-wide rules (counter arithmetic, present/gone, PATH,
+# interpreter environment, temp directory, repository init, artefact header) are swept
+# once, over every file, in tests/test-lib.sh § invariants; this one keeps the
+# private-helper names these files used to define, and the check that each names
+# its artefact. The pattern is written with a one-character class so this file
+# never matches its own source, and the positive control is built from split
+# strings for the same reason.
 SKILL_SCRIPT_FILES=(
   tests/test-slice.sh tests/test-plan-render.sh tests/test-agent-policy.sh
   tests/test-make-it-simpler.sh tests/test-visual-render.sh tests/test-html-presentation.sh
@@ -388,34 +392,17 @@ SKILL_SCRIPT_FILES=(
 )
 PRIM_CONTROL="$(fixture_dir)/forms.txt"
 {
-  printf '%s%s\n' 'x="$(mktemp -' 'd)"'
   printf '%s%s\n' 'tr' 'ap cleanup EXIT'
-  printf '%s%s\n' 'git i' 'nit -q "$d"'
   printf '%s%s\n' 'new_fi' 'xture() { :; }'
   printf '%s%s\n' 'fixture_re' 'po() { :; }'
   printf '%s%s\n' 'run_ch' 'eck() { :; }'
-  printf '%s%s\n' '_TES' 'TS=$((_TES''TS + 1))'
-  printf '%s%s\n' 'export PA' 'TH="$stub:$PATH"'
-  printf '%s%s\n' 'PYTHONDONTWRITEBYTE' 'CODE=1 python3 x.py'
-  printf '%s%s\n' 'export LC_AL' 'L=C'
-  printf '%s%s\n' 'PYTHONUTF' '8=1'
-  printf '%s%s%s\n' 'echo pres' 'ent || echo go' 'ne'
-  printf '%s%s\n' '# cove' 'rs: scripts/x.sh'
 } > "$PRIM_CONTROL"
-assert_sweep_empty "primitives: no private fixture, repo or run helper in a skill-script test" "$PRIM_CONTROL" -- \
-  grep -nE '(mktemp -[d]|^[[:space:]]*tr[a]p [^ ]|git [i]nit|^(cleanup|new_fixtur[e]|new_rep[o]|pyre[g]|fixture_rep[o]|fixture_di[r]|assert_exi[t]|ru[n])\(\)|^run_[a-z_]+\(\))' \
+assert_sweep_empty "primitives: no private cleanup, fixture, repo or run helper in a skill-script test" "$PRIM_CONTROL" -- \
+  grep -nE '(^[[:space:]]*tr[a]p [^ ]|^(cleanup|new_fixtur[e]|new_rep[o]|pyre[g]|fixture_rep[o]|fixture_di[r]|assert_exi[t]|ru[n])\(\)|^run_[a-z_]+\(\))' -- \
   "${SKILL_SCRIPT_FILES[@]}"
-assert_sweep_empty "primitives: no counter arithmetic or export of its own in a skill-script test" "$PRIM_CONTROL" -- \
-  grep -nE '(_[T]ESTS|_[F]AILS|export PAT[H]=|PYTHONDONTWRITEBYTECOD[E]=|PYTHONUTF[8]=|LC_AL[L]=)' \
-  "${SKILL_SCRIPT_FILES[@]}"
-assert_sweep_empty "primitives: no present/gone encoding in a skill-script test" "$PRIM_CONTROL" -- \
-  grep -nE 'echo (presen[t]|gon[e]|missin[g]|absen[t])' \
-  "${SKILL_SCRIPT_FILES[@]}"
-assert_sweep_empty "primitives: no covers header in a skill-script test (under_test declares the artefact)" "$PRIM_CONTROL" -- \
-  grep -nE '# cover[s]:' \
-  "${SKILL_SCRIPT_FILES[@]}"
+DECLARED_BY="$(bash tests/affected.sh --declared "${SKILL_SCRIPT_FILES[@]}")"
 for f in "${SKILL_SCRIPT_FILES[@]}"; do
-  assert_file_matches "$f" '(under_test|py_module)[[:space:]]+[.a-z]' "primitives: $f names the artefact it covers through under_test"
+  assert_contains $'\n'"$DECLARED_BY" $'\n'"$f " "primitives: $f names the artefact it covers through under_test"
 done
 
 finish

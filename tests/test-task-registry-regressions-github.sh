@@ -11,8 +11,7 @@
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SKILL="$REPO/.agents/skills/task-registry"
-py_module .agents/skills/task-registry/scripts
-SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
 
 PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
@@ -45,9 +44,7 @@ write_index() {
 
 # The shared GitHub config plus the `[status]` stanza this file adds to it.
 write_github_config() {
-  fixture_copy task-registry/task-tracking.md "$1/docs/task-tracking.md"
-  sed -i '$d' "$1/docs/task-tracking.md"
-  printf '\n[status]\nin_progress = label:now\n```\n' >> "$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking-status.md "$1/docs/task-tracking.md"
 }
 
 # The gh mock first on PATH, with the shared labels and issues. The issue list

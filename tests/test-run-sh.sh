@@ -55,14 +55,29 @@ assert_contains "$POUT" "ok   stdin is closed for the file []" "jobs: files stil
 assert_contains "$POUT" "ASSERTIONS: 2 passed, 1 failed, 0 xfail, 0 skipped" \
   "jobs: the summary sums the trailers the same way"
 
-# A skipped file and a file with the older `N assertions passed` trailer (the
-# two in-process Python files print it) both reach the sum.
+# A skipped file reaches the sum. The trailer has one grammar, the library's: a
+# file that exits 0 without it (the legacy `N assertions passed` form, or no
+# trailer at all) is counted as failed and named, never silently left out of the sum.
 printf '%s\n' '. "$(dirname "$0")/lib.sh"' 'skip "nothing to run here"' 'finish' > "$BOX/tests/test-skipper.sh"
 printf '%s\n' 'printf "  ok   old style\n  -> 4 assertions passed\n"' > "$BOX/tests/test-old.sh"
 SKOUT="$(TEST_JOBS=1 bash "$BOX/tests/run.sh" </dev/null 2>&1)"
-assert_contains "$SKOUT" "ASSERTIONS: 6 passed, 1 failed, 0 xfail, 1 skipped" \
-  "summary: a skip and an old-style trailer are summed"
+assert_contains "$SKOUT" "ASSERTIONS: 2 passed, 1 failed, 0 xfail, 1 skipped" \
+  "summary: a skip is summed and a legacy-trailer file adds nothing"
+assert_contains "$SKOUT" "FAIL tests/test-old.sh: no assertion trailer" \
+  "summary: a file whose trailer is not the library's is named as a failure"
+assert_contains "$SKOUT" "RESULT: 2/5 test files FAILED" \
+  "summary: the file without a trailer is counted as a failed file"
+POUT_OLD="$(bash "$BOX/tests/run.sh" --jobs 3 </dev/null 2>&1)"
+assert_contains "$POUT_OLD" "FAIL tests/test-old.sh: no assertion trailer" \
+  "jobs: a file without the library's trailer is named as a failure too"
+assert_contains "$POUT_OLD" "RESULT: 2/5 test files FAILED" \
+  "jobs: the file without a trailer is counted as a failed file"
 rm -f "$BOX/tests/test-skipper.sh" "$BOX/tests/test-old.sh"
+printf '%s\n' 'printf "  ok   says nothing\n"' > "$BOX/tests/test-silent.sh"
+SIOUT="$(TEST_JOBS=1 bash "$BOX/tests/run.sh" tests/test-silent.sh </dev/null 2>&1)"; SISTATUS=$?
+assert_eq "1" "$SISTATUS" "summary: a file that exits 0 with no trailer fails the run"
+assert_contains "$SIOUT" "FAIL tests/test-silent.sh: no assertion trailer" "summary: the silent file is named"
+rm -f "$BOX/tests/test-silent.sh"
 
 ENV_OUT="$(TEST_JOBS=2 bash "$BOX/tests/run.sh" </dev/null 2>&1)"
 assert_contains "$ENV_OUT" "(jobs=2)" "TEST_JOBS: the environment sets the job count"

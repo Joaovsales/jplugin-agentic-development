@@ -3,7 +3,7 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-py_module .agents/skills/design-stack/scripts
+py_module .agents/skills/design-stack/scripts >/dev/null
 box="$(fixture_dir)"
 mkdir -p "$box/sources/taste/skills/soft-skill" \
   "$box/sources/taste/skills/new-style" \

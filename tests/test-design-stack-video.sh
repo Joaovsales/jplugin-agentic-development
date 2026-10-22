@@ -2,7 +2,7 @@
 . "$(dirname "$0")/lib.sh"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 export DESIGN_STACK_REPO="$repo"
-py_module .agents/skills/design-stack/scripts
+py_module .agents/skills/design-stack/scripts >/dev/null
 tmp="$(fixture_dir)"
 
 # ---------------------------------------------------------------- § guard

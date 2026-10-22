@@ -28,7 +28,7 @@ SWEEP_CTL="$(fixture_dir)"
 for old in "tasks/memory.md" "tasks/lessons.md" "tasks/bugs.md"; do
   printf 'see %s for details\n' "$old" > "$SWEEP_CTL/m3.md"
   assert_sweep_empty "M3: no live reference to $old" "$SWEEP_CTL/m3.md" \
-    -- grep -rlF --exclude-dir=worktrees "$old" .agents .claude/agents \
+    -- grep -rlF --exclude-dir=worktrees "$old" -- .agents .claude/agents \
       CLAUDE.md AGENTS.md README.md install.sh project-template
 done
 for f in .agents/skills/checkpoint/SKILL.md \
@@ -279,7 +279,7 @@ assert_file_matches "README.md" '^\| `/tidy`' \
 # only when the next character is not `[`.
 printf 'Run !`git status` before the skill loads.\n' > "$SWEEP_CTL/preresolved.md"
 assert_sweep_empty "BannedConstruct: no skill has a load-time !\`cmd\` pre-resolution" "$SWEEP_CTL/preresolved.md" \
-  -- grep -rnE --include='*.md' --exclude-dir=worktrees '^([^!]|![^[])*![`]' .agents/skills
+  -- grep -rnE --include='*.md' --exclude-dir=worktrees '^([^!]|![^[])*![`]' -- .agents/skills
 
 # --- Tier 2 (M1): independence accounting -----------------------------------
 # Corroboration is only evidence when the findings came from separately
@@ -486,7 +486,7 @@ done
 # that this assertion names the token itself.
 printf 'depends on agent-reach\n' > "$SWEEP_CTL/agent-reach.md"
 assert_sweep_empty "lightpanda: agent-reach is not a dependency anywhere outside specs/" "$SWEEP_CTL/agent-reach.md" \
-  -- grep -rl --exclude-dir=worktrees "agent-reach" \
+  -- grep -rl --exclude-dir=worktrees "agent-reach" -- \
     .agents .claude/agents .claude/browsers AGENTS.md CLAUDE.md install.sh project-template
 
 # --- task-registry: the tracker abstraction ----------------------------------
@@ -602,7 +602,7 @@ assert_file_absent "tests/fixtures/task-registry/fake-jira.py" \
 # the next HTTP tracker somebody is tempted to call from a skill directly.
 printf 'gh issue list --label bug\n' > "$SWEEP_CTL/gh-issue.md"
 assert_sweep_empty "task-registry: no skill outside the registry calls a tracker's task API" "$SWEEP_CTL/gh-issue.md" \
-  -- grep -rlE --exclude-dir=task-registry --exclude-dir=worktrees "gh issue|/rest/api/" .agents/skills
+  -- grep -rlE --exclude-dir=task-registry --exclude-dir=worktrees "gh issue|/rest/api/" -- .agents/skills
 
 # --- reachability wording: the GitHub requirement is REST, not gh auth status --
 # specs/github-rest-in-sandboxes.md AC9. A Claude Code cloud sandbox reaches GitHub
@@ -659,7 +659,7 @@ assert_file_absent ".claude/skills/route" "AC1: .claude/skills/route/ is deleted
 printf 'run /route to pick a lane\n' > "$SWEEP_CTL/route.md"
 assert_sweep_empty "AC1: nothing in the shipping surface references the deleted router" "$SWEEP_CTL/route.md" \
   -- grep -rlE --exclude-dir=worktrees --exclude=test-doc-conventions.sh \
-    '/route\b|route_issue|materialize_route|finalize_route' \
+    '/route\b|route_issue|materialize_route|finalize_route' -- \
     .agents .claude CLAUDE.md README.md AGENTS.md PI_SETUP.md install.sh tests scripts
 
 assert_file_absent ".claude/hooks/user-prompt-route.sh" \
@@ -755,7 +755,7 @@ while IFS= read -r shim_root; do shim_roots+=("$shim_root"); done \
 for needle in "commands.""legacy" "Step 2.""5" "Step 2.""6" "auto-test-""runner" "auto test ""runner" "TARGETS_IN_""CLAUDE"; do
   printf 'mentions %s once\n' "$needle" > "$SWEEP_CTL/shim.md"
   assert_sweep_empty "Shims: no tracked file outside tasks/ and specs/ names '$needle'" "$SWEEP_CTL/shim.md" \
-    -- grep -rl --exclude-dir=worktrees -e "$needle" "${shim_roots[@]}"
+    -- grep -rl --exclude-dir=worktrees -e "$needle" -- "${shim_roots[@]}"
 done
 for gone in tests.md .claude/hooks/auto-test-"runner.sh" .claude/hooks/auto-test-"runner.ps1"; do
   assert_file_absent "$gone" "Shims: $gone is deleted"
@@ -1630,6 +1630,6 @@ for stem in "build_""section" "wrap_""section" "wrap_""sub" "ca_""section" "qg_"
     "section-body: $stem is gone — section_body is the one heading extractor"
 done
 assert_sweep_empty "section-body: no private awk heading extractor remains in this file" tests/lib.sh \
-  -- grep -nE 'index\(\$0, h\) == 1' "$SELF"
+  -- grep -nE 'index\(\$0, h\) == 1' -- "$SELF"
 
 finish

@@ -104,32 +104,33 @@ run_file() {
 }
 
 # tally <output-path>: add the file's trailer to the suite-wide assertion
-# counts. tests/lib.sh prints `-> P passed, F failed, X xfail, S skipped`; the
-# two in-process Python files print the older `-> N assertions passed` or
-# `-> F/N assertions FAILED`, read the same way so the sum is whole.
+# counts. The one grammar is tests/lib.sh's
+# `-> P passed, F failed, X xfail, S skipped`; returns 1 when the file printed
+# no trailer in it, which record turns into a failure.
 tally() {
   local trailer p f x s
   trailer="$(grep -E '^  -> ' "$1" | tail -1)"
   case "$trailer" in
     *" passed, "*" failed, "*" xfail, "*" skipped")
       read -r _ p _ f _ x _ s _ <<<"$trailer" ;;
-    *"/"*" assertions FAILED")
-      f="${trailer#  -> }"; f="${f%%/*}"; p="${trailer#*/}"; p="${p%% *}"; p=$((p - f)); x=0; s=0 ;;
-    *" assertions passed")
-      p="${trailer#  -> }"; p="${p%% *}"; f=0; x=0; s=0 ;;
-    *) return ;;
+    *) return 1 ;;
   esac
   sum_passed=$((sum_passed + p)); sum_failed=$((sum_failed + f))
   sum_xfail=$((sum_xfail + x)); sum_skipped=$((sum_skipped + s))
 }
 
 # record <file> <status> <elapsed-seconds> <output-path>: print the trailer
-# and count.
+# and count. A file that exits 0 without a trailer in the library's grammar is
+# a failure, named: an unread file would otherwise be undercounted in silence.
 record() {
-  [ "$2" -eq 0 ] || failed=$((failed + 1))
+  local rc="$2"
+  if [ -f "$4" ] && ! tally "$4" && [ "$rc" -eq 0 ]; then
+    printf '  FAIL %s: no assertion trailer\n' "$1"
+    rc=1
+  fi
+  [ "$rc" -eq 0 ] || failed=$((failed + 1))
   printf -- '--- %s: %d s ---\n' "$1" "$3"
   timings="$timings$3 $1"$'\n'
-  [ -f "$4" ] && tally "$4"
 }
 
 launch() {

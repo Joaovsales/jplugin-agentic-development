@@ -6,7 +6,7 @@
 # the actual value, truncated at 20 lines; the fixture, capture, verdict and
 # declaration primitives behave as documented; the library exports LC_ALL=C,
 # PYTHONDONTWRITEBYTECODE=1 and PYTHONUTF8=1 and writes its counters only
-# through pass and fail.
+# through pass and the failure recorder behind fail.
 #
 # Each case writes a tiny test file that sources the library, runs it in a
 # fresh bash with stdin closed and asserts on its output and exit status, so
@@ -166,26 +166,52 @@ assert_contains "$out" "FAIL hand failure" "fail: counts and prints FAIL"
 assert_contains "$out" "the actual thing" "fail: prints the actual value it was given"
 assert_contains "$out" "1 passed, 1 failed" "pass/fail: both reach the trailer"
 
+# fail is `fail <message> [<actual>]`: an empty value is still a value, and a
+# label or detail line is not the test file's to pass — it stops the file.
+run_case fail-empty.sh 'fail "no value given"' 'fail "empty value given" ""' 'finish'
+assert_contains "$out" "FAIL no value given
+       at $BOX/fail-empty.sh:2
+  FAIL empty value given" "fail: with no value, no value line is printed"
+assert_contains "$out" "at $BOX/fail-empty.sh:3
+       actual: (empty)" "fail: an empty value prints its value line, marked empty"
+run_case fail-label.sh 'fail "labelled" "value" "my label:"' 'assert_eq a a "never reached"' 'finish'
+assert_true "fail: a third argument stops the file" -- test "$st" -ne 0
+assert_contains "$out" "fail takes <message> [<actual>]" "fail: the refusal says what fail takes"
+assert_not_contains "$out" "never reached" "fail: nothing after the refused call runs"
+run_case fail-detail.sh 'assert_exit 0 "wanted zero" -- sh -c "echo boom; exit 2"' 'finish'
+assert_contains "$out" "exit 2, expected 0
+       output:" "failure: a library assertion prints its detail line, then the value under its label"
+
 # --- § primitives: sweeps ----------------------------------------------------
 mkdir -p "$BOX/tree/sub"
 printf 'clean line\n' > "$BOX/tree/a.md"
 printf 'also clean\n' > "$BOX/tree/sub/b.md"
 printf 'the needle is here\n' > "$BOX/control.md"
-run_case sweep.sh "assert_sweep_empty 'no needles' '$BOX/control.md' -- grep -rn needle '$BOX/tree'" 'finish'
+run_case sweep.sh "assert_sweep_empty 'no needles' '$BOX/control.md' -- grep -rn needle -- '$BOX/tree'" 'finish'
 assert_eq "0" "$st" "assert_sweep_empty: a clean tree with a matching control passes"
 printf 'a needle slipped in\n' > "$BOX/tree/sub/c.md"
-run_case sweep-hit.sh "assert_sweep_empty 'no needles' '$BOX/control.md' -- grep -rn needle '$BOX/tree'" 'finish'
+run_case sweep-hit.sh "assert_sweep_empty 'no needles' '$BOX/control.md' -- grep -rn needle -- '$BOX/tree'" 'finish'
 assert_eq "1" "$st" "assert_sweep_empty: a hit fails"
 assert_contains "$out" "sub/c.md:1:a needle slipped in" "assert_sweep_empty: the hits are the actual value"
 rm "$BOX/tree/sub/c.md"
-run_case sweep-control.sh "assert_sweep_empty 'no needles' '$BOX/tree/a.md' -- grep -rn needle '$BOX/tree'" 'finish'
+run_case sweep-control.sh "assert_sweep_empty 'no needles' '$BOX/tree/a.md' -- grep -rn needle -- '$BOX/tree'" 'finish'
 assert_eq "1" "$st" "assert_sweep_empty: a control the pattern does not match fails"
 assert_contains "$out" "positive control" "assert_sweep_empty: the failed control is the stated reason"
-run_case sweep-root.sh "assert_sweep_empty 'no needles' '$BOX/control.md' -- grep -rn needle '$BOX/tree' '$BOX/missing'" 'finish'
+run_case sweep-root.sh "assert_sweep_empty 'no needles' '$BOX/control.md' -- grep -rn needle -- '$BOX/tree' '$BOX/missing'" 'finish'
 assert_eq "1" "$st" "assert_sweep_empty: a missing swept root fails"
 assert_contains "$out" "$BOX/missing" "assert_sweep_empty: the missing root is named"
-run_case sweep-opts.sh "assert_sweep_empty 'md only' '$BOX/control.md' -- grep -rnE --include='*.md' -e 'need.e' '$BOX/tree'" 'finish'
+run_case sweep-opts.sh "assert_sweep_empty 'md only' '$BOX/control.md' -- grep -rnE --include='*.md' -e 'need.e' -- '$BOX/tree'" 'finish'
 assert_eq "0" "$st" "assert_sweep_empty: -e and --include= are passed through"
+# Everything between the two `--` goes to grep verbatim, so an option the
+# library never heard of (here --max-count) needs no parsing rule.
+run_case sweep-verbatim.sh "assert_sweep_empty 'verbatim' '$BOX/control.md' -- -rn --max-count=1 -e needle -- '$BOX/tree'" 'finish'
+assert_eq "0" "$st" "assert_sweep_empty: grep's own arguments are passed verbatim, whatever they are"
+run_case sweep-nosep.sh "assert_sweep_empty 'no separator' '$BOX/control.md' -- grep -rn needle '$BOX/tree'" 'finish'
+assert_eq "1" "$st" "assert_sweep_empty: a call without the second -- fails"
+assert_contains "$out" "no -- before the roots" "assert_sweep_empty: the missing separator is the stated reason"
+run_case sweep-noroot.sh "assert_sweep_empty 'no root' '$BOX/control.md' -- grep -rn needle --" 'finish'
+assert_eq "1" "$st" "assert_sweep_empty: a call with no root after the second -- fails"
+assert_contains "$out" "names no root to search" "assert_sweep_empty: the missing root is the stated reason"
 
 # --- § primitives: declarations ----------------------------------------------
 run_case under.sh 'p="$(under_test tests/lib.sh)"' 'assert_eq "'"$REPO"'/tests/lib.sh" "$p" "absolute path"' 'finish'
@@ -197,6 +223,14 @@ assert_not_contains "$out" "never reached" "under_test: no assertion after the f
 
 run_case pymod.sh 'py_module tests/fixtures/slice' 'case ":$PYTHONPATH:" in *":'"$REPO"'/tests/fixtures/slice:"*) pass "on PYTHONPATH" ;; *) fail "on PYTHONPATH" "$PYTHONPATH" ;; esac' 'finish'
 assert_eq "0" "$st" "py_module: puts the absolute module directory on PYTHONPATH"
+assert_contains "$out" "$REPO/tests/fixtures/slice
+" "py_module: prints the absolute directory, as under_test does"
+# A command substitution cannot export, so a file that needs both the path and
+# the PYTHONPATH entry names a variable and py_module assigns it in the file's shell.
+run_case pymod-var.sh 'py_module tests/fixtures/slice MOD' 'assert_eq "'"$REPO"'/tests/fixtures/slice" "$MOD" "variable assigned"' \
+  'case ":$PYTHONPATH:" in *":$MOD:"*) pass "on PYTHONPATH" ;; *) fail "on PYTHONPATH" "$PYTHONPATH" ;; esac' 'finish'
+assert_eq "0" "$st" "py_module: a variable name receives the absolute directory and PYTHONPATH still gets it"
+assert_not_contains "$out" "$REPO/tests/fixtures/slice" "py_module: with a variable name it prints nothing"
 run_case pymod-missing.sh 'py_module tests/fixtures/none' 'assert_eq a a "never reached"' 'finish'
 assert_true "py_module: a missing directory fails the file" -- test "$st" -ne 0
 assert_not_contains "$out" "never reached" "py_module: nothing after the failed declaration runs"
@@ -258,8 +292,10 @@ assert_precedes "$(flatten "$REPO/AGENTS.md")" "Affected tests: " "Expected fail
 # A case is a named run of assertions inside one file. begin_case prints a
 # header and starts a count; end_case prints the count; TEST_CASE=<glob> keeps
 # only the cases whose name matches. No setup or teardown belongs to a case.
-CASE_ALPHA=('begin_case "alpha"' 'assert_eq a a "alpha one"' 'assert_eq a b "alpha two"' 'end_case')
-CASE_BETA=('begin_case "beta"' 'assert_eq a a "beta one"' 'end_case')
+# The one supported form wraps the body: `if begin_case "name"; then ...; fi`,
+# with end_case after the fi (or inside the body; it is a no-op with no case open).
+CASE_ALPHA=('if begin_case "alpha"; then' 'assert_eq a a "alpha one"' 'assert_eq a b "alpha two"' 'fi' 'end_case')
+CASE_BETA=('if begin_case "beta"; then' 'assert_eq a a "beta one"' 'fi' 'end_case')
 run_case cases.sh "${CASE_ALPHA[@]}" "${CASE_BETA[@]}" 'assert_eq a a "after"' 'finish'
 assert_contains "$out" "== case: alpha" "cases: begin_case prints a header naming the case"
 assert_contains "$out" "== alpha: 1 passed, 1 failed" "cases: end_case prints the case's own count"
@@ -292,6 +328,13 @@ assert_eq "0" "$st" "TEST_CASE: a file in which no case matches exits 0"
 assert_contains "$out" "TEST_CASE=nothing-matches matched no case" "TEST_CASE: the output names the filter that kept every case out"
 TEST_CASE=beta run_case cases-after.sh "${WRAPPED[@]}" 'assert_eq a a "after a filtered case"' "${CASE_BETA[@]}" 'finish'
 assert_contains "$out" "after a filtered case" "TEST_CASE: end_case after the fi returns the file to its own level, so a later assertion counts"
+# A filtered begin_case opens no case, so an end_case written inside the body
+# (which never runs for it) cannot leave the file's later verdicts muted.
+INSIDE=('if begin_case "alpha"; then' 'assert_eq a a "alpha one"' 'end_case' 'fi')
+TEST_CASE=beta run_case cases-inside.sh "${INSIDE[@]}" 'assert_eq a a "file level after"' "${CASE_BETA[@]}" 'finish'
+assert_contains "$out" "ok   file level after" "TEST_CASE: an end_case inside a filtered case's body leaves a later file-level assertion counted"
+assert_contains "$out" "  -> 2 passed, 0 failed, 0 xfail, 0 skipped" "TEST_CASE: the file-level assertion and the selected case are both in the trailer"
+assert_file_not_matches "$LIB" '_CASE_ON' "cases: no muted mode is left in the library"
 run_case cases-unfiltered.sh 'finish'
 assert_eq "1" "$st" "TEST_CASE unset: a file with no assertions still fails"
 
@@ -307,26 +350,43 @@ assert_eq "1" "$(printf '%s\n' "$out" | grep -c '^  -> ')" "cases: exactly one l
 
 # --- § invariants: the suite-wide rules (AC 17) ------------------------------
 # A test file states WHAT it checks and leaves HOW to the library, so no file of
-# tests/ keeps counter arithmetic of its own, a present/gone encoding, a literal
-# assert_eq pair, a temp directory it made itself or a repository it initialised
-# itself. Each sweep runs against a control line that carries its pattern, so an
-# empty sweep cannot be a pattern that stopped matching. The patterns put one
-# character in a bracket so this file does not match itself.
+# tests/ keeps a counter assignment of its own, a present/gone encoding, a literal
+# assert_eq pair, a temp directory it made itself, a repository it initialised
+# itself, a PATH export, a bytecode or locale environment, or a comment header
+# naming its artefact (under_test declares it). These are the suite's only copy of
+# those patterns: the area and skill-script sweeps in other files keep just
+# what is specific to them. Each sweep runs against a control line that carries
+# its pattern, so an empty sweep cannot be a pattern that stopped matching. The
+# patterns put one character in a bracket so this file does not match itself.
 TEST_FILES=("$REPO"/tests/test-*.sh)
 INV_CONTROL="$(fixture_dir)/control.sh"
 assert_invariant() {  # <label> <control line> <ERE pattern> <root>...
   local label="$1" control="$2" pattern="$3"; shift 3
   printf '%s\n' "$control" > "$INV_CONTROL"
-  assert_sweep_empty "invariant: $label" "$INV_CONTROL" -- grep -nE -e "$pattern" "$@"
+  assert_sweep_empty "invariant: $label" "$INV_CONTROL" -- grep -nE -e "$pattern" -- "$@"
 }
-assert_invariant "no counter arithmetic outside the library" \
-  '_TES''TS=$((_TES''TS + 1))' '_(TEST[S]|FAIL[S])=[$][(][(]' "${TEST_FILES[@]}"
+# tests_except <base name>... — TEST_FILES less the named files, in KEPT_TESTS.
+tests_except() {
+  local f g keep
+  KEPT_TESTS=()
+  for f in "${TEST_FILES[@]}"; do
+    keep=1
+    for g in "$@"; do [ "$g" = "${f##*/}" ] && keep=0; done
+    [ "$keep" -eq 0 ] || KEPT_TESTS+=("$f")
+  done
+}
+assert_invariant "no counter assignment outside the library" \
+  '_TES''TS=$((_TES''TS + 1))' '(^|[^A-Za-z0-9_])_(TEST[S]|FAIL[S])=' "${TEST_FILES[@]}"
 assert_invariant "no present/gone encoding" \
-  '[ -f x ] && ec''ho present || ec''ho absent' 'echo presen[t] [|][|] echo|&& echo [a-z]+ [|][|] echo [a-z]+' "${TEST_FILES[@]}"
+  '[ -f x ] && ec''ho present || ec''ho absent' 'echo (presen[t]|gon[e]|missin[g]|absen[t])|&& echo [a-z]+ [|][|] echo [a-z]+' "${TEST_FILES[@]}"
 assert_invariant "no literal assert_eq pair" \
   'assert_e''q "valid" "valid" "msg"' 'assert_e[q] "([^"]+)" "\1"' "${TEST_FILES[@]}"
 assert_invariant "no temp directory made outside the library" \
   'BOX="$(mkt''emp -d)"' 'mktem[p] -d' "${TEST_FILES[@]}"
+assert_invariant "no PATH exported by a test file" \
+  'ex''port PATH="$d/bin:$PATH"' '[e]xport PATH=' "${TEST_FILES[@]}"
+assert_invariant "no covers header (under_test declares the artefact)" \
+  '# cove''rs: scripts/x.sh' '# cover[s]:' "${TEST_FILES[@]}"
 
 # Initialising a repository belongs to the library's fixture_repo. The four files
 # below are tests OF git behaviour, so each keeps the repository it creates itself:
@@ -337,27 +397,39 @@ GIT_SUBJECT_TESTS=(
   test-session-stop.sh       # a bare remote the unpushed-commit warning reads
 )
 GIT_INIT='(git|GIT")( -C [^ ]+)? ini[t]'
-OTHER_TESTS=()
-for f in "${TEST_FILES[@]}"; do
-  keep=1
-  for g in "${GIT_SUBJECT_TESTS[@]}"; do [ "$g" = "${f##*/}" ] && keep=0; done
-  [ "$keep" -eq 0 ] || OTHER_TESTS+=("$f")
-done
+tests_except "${GIT_SUBJECT_TESTS[@]}"
 assert_invariant "a repository is initialised only inside a test of git behaviour" \
-  'git -C "$d" ini''t -q' "$GIT_INIT" "${OTHER_TESTS[@]}"
+  'git -C "$d" ini''t -q' "$GIT_INIT" "${KEPT_TESTS[@]}"
 for g in "${GIT_SUBJECT_TESTS[@]}"; do
   assert_true "invariant: $g still initialises a repository itself, so its allowlist entry is needed" -- \
     grep -qE -e "$GIT_INIT" "$REPO/tests/$g"
 done
 
-# The counters are written in exactly two places: pass and fail. Every other
-# line of the library that names them only reads.
+# The interpreter environment (PYTHONDONTWRITEBYTECODE, PYTHONUTF8, LC_ALL) is
+# exported once, by the library. The two files below talk about it on purpose:
+ENV_SUBJECT_TESTS=(
+  test-lib.sh                # asserts the environment the library exports
+  test-publish-evidence.sh   # the push under test pins LC_ALL=C itself
+)
+ENV_PATTERN='PYTHONDONTWRITEBYT[E]CODE|PYTHONUTF[8]=|LC_AL[L]='
+tests_except "${ENV_SUBJECT_TESTS[@]}"
+assert_invariant "no per-file bytecode or locale environment" \
+  'PYTHONDONTWRITE''BYTECODE=1 python3 x' "$ENV_PATTERN" "${KEPT_TESTS[@]}"
+for g in "${ENV_SUBJECT_TESTS[@]}"; do
+  assert_true "invariant: $g still names the interpreter environment, so its allowlist entry is needed" -- \
+    grep -qE -e "$ENV_PATTERN" "$REPO/tests/$g"
+done
+
+# The counters are written in exactly two places: pass and _fail_count, the one
+# recorder behind fail and the library's own failures. Every other line of the
+# library that names them only reads.
 WRITERS="$(awk '
-  /^(pass|fail)\(\)/ { inside = 1 }
+  /^(pass|_fail_count)\(\)/ { inside = 1 }
   inside && /^}/ { inside = 0; next }
   !inside && /_(TESTS|FAILS)=/ && !/^_(TESTS|FAILS)=0$/ { print FILENAME ":" FNR ": " $0 }' "$LIB")"
-assert_eq "" "$WRITERS" "counters: _TESTS and _FAILS are assigned only inside pass and fail"
+assert_eq "" "$WRITERS" "counters: _TESTS and _FAILS are assigned only inside pass and _fail_count"
 assert_file_matches "$LIB" '^pass\(\)' "counters: pass exists"
 assert_file_matches "$LIB" '^fail\(\)' "counters: fail exists"
+assert_file_matches "$LIB" '^_fail_count\(\)' "counters: the failure recorder exists"
 
 finish

@@ -3,7 +3,7 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-py_module .agents/skills/design-stack/scripts
+py_module .agents/skills/design-stack/scripts >/dev/null
 box="$(fixture_dir)"
 export DESIGN_STACK_REPO="$REPO" DESIGN_STACK_FIXTURE="$box"
 

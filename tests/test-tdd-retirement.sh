@@ -43,7 +43,7 @@ done
 # commits), not this tree, so it is skipped.
 printf 'Run /wrap-up-session or at minimum commit.\n' > "$SWEEP_CTL/escape-hatch.md"
 assert_sweep_empty "Retire: no 'or at minimum' commit escape hatch anywhere" "$SWEEP_CTL/escape-hatch.md" \
-  -- grep -rn --exclude-dir=worktrees --include='*.md' "or at minimum" \
+  -- grep -rn --exclude-dir=worktrees --include='*.md' "or at minimum" -- \
         .agents .claude CLAUDE.md README.md project-template
 
 # ── Every reference repointed ────────────────────────────────────────────────

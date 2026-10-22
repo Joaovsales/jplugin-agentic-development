@@ -163,6 +163,6 @@ assert_true "GoLanes: host sweep regex matches /go in the skill's own file (posi
   grep -qE "$GO_INVOCATION" .agents/skills/go/SKILL.md
 # shellcheck disable=SC2086 — HOST_ROOTS is a word list on purpose.
 assert_sweep_empty "GoLanes: no routine host, lane file, or hook invokes /go" \
-  .agents/skills/go/SKILL.md -- grep -rnE "$GO_INVOCATION" $HOST_ROOTS
+  .agents/skills/go/SKILL.md -- grep -rnE "$GO_INVOCATION" -- $HOST_ROOTS
 
 finish

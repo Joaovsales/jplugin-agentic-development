@@ -9,8 +9,9 @@
 #   under_test <repo-relative path>    the artefact this file covers; prints
 #                                      the absolute path and is the literal
 #                                      affected.sh prefix-matches
-#   py_module <repo-relative dir>      a Python package under test: declared
-#                                      like under_test and put on PYTHONPATH
+#   py_module <repo-relative dir> [var]  a Python package under test: declared
+#                                      like under_test, printed like it (or
+#                                      assigned to var) and put on PYTHONPATH
 #   fixture_dir / fixture_repo         a scratch directory / git repository,
 #                                      removed when the file exits
 #   fixture_copy <area/seed> <dest>    shared seed content from tests/fixtures/
@@ -24,7 +25,7 @@
 #   assert_file_matches, assert_file_not_matches, assert_prose_contains,
 #   assert_files_identical, assert_files_differ, assert_file_exists,
 #   assert_file_absent, assert_precedes
-#   assert_sweep_empty <label> <control> -- grep-args...
+#   assert_sweep_empty <label> <control> -- grep-args... -- <root>...
 #                                      an absence sweep with a positive control
 #   pass <msg> / fail <msg> [actual]   a verdict reached by hand
 #   skip <reason>                      the file cannot run here; counted
@@ -42,11 +43,10 @@ _TESTS=0
 _FAILS=0
 _XFAIL=0
 _SKIPPED=0
-# Case state (begin_case below): the open case's name, whether its verdicts
-# count (0 while TEST_CASE keeps it out), how many cases were kept out or
-# selected in this file, and the counters at the case's start.
+# Case state (begin_case below): the open case's name, how many cases
+# TEST_CASE kept out or selected in this file, and the counters at the case's
+# start.
 _CASE=""
-_CASE_ON=1
 _CASE_OUT=0
 _CASE_IN=0
 _CASE_BASE=(0 0 0 0)
@@ -210,7 +210,6 @@ _expected_failure() {
 
 # pass <message>
 pass() {
-  [ "$_CASE_ON" -eq 1 ] || return 0
   _TESTS=$((_TESTS + 1))
   if _expected_failure "$1"; then
     _FAILS=$((_FAILS + 1))
@@ -221,31 +220,48 @@ pass() {
   return 0
 }
 
-# fail <message> [<actual value>] [<label>] [<detail line>]
-# Counts the failure and prints the message, the assertion's file:line, the
-# detail line when given, then the actual value under its label (default
-# "actual:"; an empty label suppresses the value). A test file calls it as
-# `fail <message> [<actual>]`; the assertions below fill the other two.
-fail() {
-  [ "$_CASE_ON" -eq 1 ] || return 0
+# _fail_count <message> — the one recorder of a failure: counts it and prints
+# the message and the assertion's file:line. Returns 1 for a failure listed in
+# the baseline (printed as XFAIL, nothing more to say), 0 for a real one.
+_fail_count() {
   _TESTS=$((_TESTS + 1))
   if _expected_failure "$1"; then
     _XFAIL=$((_XFAIL + 1))
     printf '  XFAIL %s\n' "$1"
-    return 0
+    return 1
   fi
   _FAILS=$((_FAILS + 1))
   printf '  FAIL %s\n       at %s%s\n' "$1" "$(_where)" "${_CASE:+  [case: $_CASE]}"
+}
+
+# _fail_detail <message> <detail line> — a failure with a line of explanation
+# and no value (an empty detail prints no line).
+_fail_detail() {
+  _fail_count "$1" || return 0
+  [ -z "$2" ] || printf '       %s\n' "$2"
+}
+
+# _fail_value <message> <label> <value> [<detail line>] — a failure with the
+# actual value under its label, after the detail line when one is given.
+_fail_value() {
+  _fail_count "$1" || return 0
   [ -z "${4:-}" ] || printf '       %s\n' "$4"
-  if [ $# -ge 2 ] && [ -n "${3-actual:}" ]; then _print_actual "${3:-actual:}" "$2"; fi
-  return 0
+  _print_actual "$2" "$3"
+}
+
+# fail <message> [<actual value>] — a verdict reached by hand. Prints the
+# message, the assertion's file:line and, when given (an empty value counts),
+# the value under "actual:". Anything more stops the file: labels and detail
+# lines belong to the library's own assertions (_fail_detail, _fail_value).
+fail() {
+  { [ $# -ge 1 ] && [ $# -le 2 ]; } || _abort "fail takes <message> [<actual>], not $# arguments"
+  if [ $# -eq 2 ]; then _fail_value "$1" "actual:" "$2"; else _fail_detail "$1" ""; fi
 }
 
 # skip <reason> — this file cannot run here. Counted, printed as SKIP, and a
 # failure of the file under REQUIRE_ALL=1 (CI sets it), so a skipped check is
 # visible there and never silently green.
 skip() {
-  [ "$_CASE_ON" -eq 1 ] || return 0
   _SKIPPED=$((_SKIPPED + 1))
   printf '  SKIP %s\n' "$1"
 }
@@ -254,43 +270,42 @@ skip() {
 # Cases (specs/test-suite-aposd.md D4). A case is a named run of assertions
 # inside one file: begin_case prints a header and starts a count, end_case
 # prints the count. TEST_CASE=<glob> keeps only the cases whose name matches the
-# glob; a filtered case's verdicts are neither run nor counted, and begin_case
-# returns 1 for it, so a file that wraps the case's body in
+# glob. The one supported form wraps the case's body:
 #   if begin_case "name"; then ...; fi; end_case
-# also skips the work (end_case sits after the fi, so it runs either way and
-# the file's own level resumes). A case that was never ended is closed by the
-# next begin_case and by finish. A case owns no setup or teardown and no counter of
-# its own: it reads the file's, which pass and fail alone write.
+# begin_case returns 1 for a filtered case, prints its filtered-out line and
+# opens NO case, so the body's work is skipped and nothing is muted: the
+# file's own assertions after the fi count whatever the filter. end_case may sit
+# after the fi or inside the body; with no case open it does nothing. A case
+# that was never ended is closed by the next begin_case and by finish. A case
+# owns no setup or teardown and no counter of its own: it reads the file's,
+# which pass and the failure recorder alone write.
 
 # end_case — print the open case's count and return to the file's own level.
 end_case() {
   [ -n "$_CASE" ] || return 0
-  if [ "$_CASE_ON" -eq 1 ]; then
-    local line tests=$((_TESTS - _CASE_BASE[0])) failed=$((_FAILS - _CASE_BASE[1])) xfail=$((_XFAIL - _CASE_BASE[2])) skipped=$((_SKIPPED - _CASE_BASE[3]))
-    line="$((tests - failed - xfail)) passed, $failed failed"
-    [ "$xfail" -eq 0 ] || line="$line, $xfail xfail"
-    [ "$skipped" -eq 0 ] || line="$line, $skipped skipped"
-    printf '  == %s: %s\n' "$_CASE" "$line"
-  fi
+  local line tests=$((_TESTS - _CASE_BASE[0])) failed=$((_FAILS - _CASE_BASE[1])) xfail=$((_XFAIL - _CASE_BASE[2])) skipped=$((_SKIPPED - _CASE_BASE[3]))
+  line="$((tests - failed - xfail)) passed, $failed failed"
+  [ "$xfail" -eq 0 ] || line="$line, $xfail xfail"
+  [ "$skipped" -eq 0 ] || line="$line, $skipped skipped"
+  printf '  == %s: %s\n' "$_CASE" "$line"
   _CASE=""
-  _CASE_ON=1
 }
 
 # begin_case <name> — returns 0 when the case runs, 1 when TEST_CASE filters it.
 begin_case() {
   [ -n "${1:-}" ] || _abort "begin_case: a case needs a name"
   end_case
-  _CASE="$1"
   if [ -n "${TEST_CASE:-}" ]; then
     # shellcheck disable=SC2254 — TEST_CASE is a glob by contract.
     case "$1" in
       $TEST_CASE) ;;
       *)
-        _CASE_ON=0; _CASE_OUT=$((_CASE_OUT + 1))
+        _CASE_OUT=$((_CASE_OUT + 1))
         printf '  == %s: filtered out by TEST_CASE=%s\n' "$1" "$TEST_CASE"
         return 1 ;;
     esac
   fi
+  _CASE="$1"
   _CASE_IN=$((_CASE_IN + 1))
   _CASE_BASE=("$_TESTS" "$_FAILS" "$_XFAIL" "$_SKIPPED")
   printf '  == case: %s\n' "$1"
@@ -353,11 +368,15 @@ under_test() {
   printf '%s\n' "$_LIB_REPO/$1"
 }
 
-# py_module <repo-relative dir> — a Python package under test: declared like
-# under_test and prepended to PYTHONPATH for every "$TEST_PYTHON" the file runs.
+# py_module <repo-relative dir> [<variable>] — a Python package under test:
+# declared like under_test, which it matches in printing the absolute path, and
+# prepended to PYTHONPATH for every "$TEST_PYTHON" the file runs. A command
+# substitution would lose that export, so a file that also needs the path names
+# a variable: it is assigned here, in the file's own shell, and nothing prints.
 py_module() {
   [ -d "$_LIB_REPO/$1" ] || _abort "py_module: no such directory $1"
   export PYTHONPATH="$_LIB_REPO/$1${PYTHONPATH:+:$PYTHONPATH}"
+  if [ -n "${2:-}" ]; then printf -v "$2" '%s' "$_LIB_REPO/$1"; else printf '%s\n' "$_LIB_REPO/$1"; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -375,8 +394,8 @@ run() {
 assert_exit() {
   local want="$1" msg="$2"; shift 2
   if [ "${1:-}" = "--" ]; then shift; run "$@"; fi
-  if [ -z "${status-}" ]; then fail "$msg" "" "" "assert_exit before any run"; return; fi
-  if [ "$status" -eq "$want" ]; then pass "$msg"; else fail "$msg" "$output" "output:" "exit $status, expected $want"; fi
+  if [ -z "${status-}" ]; then _fail_detail "$msg" "assert_exit before any run"; return; fi
+  if [ "$status" -eq "$want" ]; then pass "$msg"; else _fail_value "$msg" "output:" "$output" "exit $status, expected $want"; fi
 }
 
 # assert_refused <exit> <reason-fragment> [<message>] -- cmd...
@@ -390,16 +409,16 @@ assert_refused() {
   [ "${1:-}" = "--" ] && shift
   [ -n "$msg" ] || msg="refused with exit $want naming \"$frag\": ${1:-}${2:+ $2}${3:+ $3}"
   if [ "${#frag}" -lt 6 ]; then
-    fail "$msg" "" "" "reason fragment \"$frag\" is under 6 characters — too short to pin which guard refused"
+    _fail_detail "$msg" "reason fragment \"$frag\" is under 6 characters — too short to pin which guard refused"
     return
   fi
   run "$@"
   if [ "$status" -ne "$want" ]; then
-    fail "$msg" "$output" "output:" "exit $status, expected $want"
+    _fail_value "$msg" "output:" "$output" "exit $status, expected $want"
   else
     case "$output" in
       *"$frag"*) pass "$msg" ;;
-      *) fail "$msg" "$output" "output:" "output lacks \"$frag\"" ;;
+      *) _fail_value "$msg" "output:" "$output" "output lacks \"$frag\"" ;;
     esac
   fi
 }
@@ -408,11 +427,11 @@ assert_refused() {
 # A boolean verdict on any command, for the checks no string assertion fits.
 assert_true() {
   local msg="$1"; shift; [ "${1:-}" = "--" ] && shift
-  if "$@"; then pass "$msg"; else fail "$msg" "$*" "command:"; fi
+  if "$@"; then pass "$msg"; else _fail_value "$msg" "command:" "$*"; fi
 }
 assert_false() {
   local msg="$1"; shift; [ "${1:-}" = "--" ] && shift
-  if "$@"; then fail "$msg" "$*" "command (succeeded):"; else pass "$msg"; fi
+  if "$@"; then _fail_value "$msg" "command (succeeded):" "$*"; else pass "$msg"; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -422,7 +441,7 @@ assert_false() {
 assert_contains() {
   case "$1" in
     *"$2"*) pass "$3" ;;
-    *) fail "$3" "$1" "actual:" "expected to contain: $2" ;;
+    *) _fail_value "$3" "actual:" "$1" "expected to contain: $2" ;;
   esac
 }
 
@@ -434,11 +453,11 @@ assert_not_contains() {
   # (assert_contains needs no such guard — an empty haystack cannot contain a
   # non-empty needle, so it already fails.)
   if [ -z "$1" ]; then
-    fail "$3" "" "" "haystack empty — the extraction found nothing to check"
+    _fail_detail "$3" "haystack empty — the extraction found nothing to check"
     return
   fi
   case "$1" in
-    *"$2"*) fail "$3" "$1" "actual:" "expected NOT to contain: $2" ;;
+    *"$2"*) _fail_value "$3" "actual:" "$1" "expected NOT to contain: $2" ;;
     *) pass "$3" ;;
   esac
 }
@@ -448,11 +467,11 @@ assert_not_contains() {
 # at the 600 sites that call this on Windows.
 assert_file_contains() {
   local content
-  if [ ! -f "$1" ]; then fail "$3" "" "" "file $1 is missing"; return; fi
+  if [ ! -f "$1" ]; then _fail_detail "$3" "file $1 is missing"; return; fi
   content="$(<"$1")"
   case "$content" in
     *"$2"*) pass "$3" ;;
-    *) fail "$3" "$content" "file:" "file $1 lacks: $2" ;;
+    *) _fail_value "$3" "file:" "$content" "file $1 lacks: $2" ;;
   esac
 }
 
@@ -463,12 +482,12 @@ assert_file_contains() {
 # line just defers the problem to the next reflow. Collapses all whitespace in
 # both haystack and needle to single spaces before comparing.
 assert_prose_contains() {
-  if [ ! -f "$1" ]; then fail "$3" "" "" "file $1 is missing"; return; fi
+  if [ ! -f "$1" ]; then _fail_detail "$3" "file $1 is missing"; return; fi
   _hay="$(tr -s '[:space:]' ' ' < "$1")"
   _need="$(printf '%s' "$2" | tr -s '[:space:]' ' ')"
   case "$_hay" in
     *"$_need"*) pass "$3" ;;
-    *) fail "$3" "$_hay" "file (flattened):" "file $1 lacks prose: $2" ;;
+    *) _fail_value "$3" "file (flattened):" "$_hay" "file $1 lacks prose: $2" ;;
   esac
 }
 
@@ -478,9 +497,9 @@ assert_file_matches() {
   if [ -f "$1" ] && grep -qE -- "$2" "$1"; then
     pass "$3"
   elif [ ! -f "$1" ]; then
-    fail "$3" "" "" "file $1 is missing"
+    _fail_detail "$3" "file $1 is missing"
   else
-    fail "$3" "$(<"$1")" "file:" "file $1 lacks pattern: $2"
+    _fail_value "$3" "file:" "$(<"$1")" "file $1 lacks pattern: $2"
   fi
 }
 
@@ -489,9 +508,9 @@ assert_file_matches() {
 # nothing to search, for the same reason assert_not_contains rejects empty input.
 assert_file_not_matches() {
   if [ ! -f "$1" ]; then
-    fail "$3" "" "" "file $1 is missing"
+    _fail_detail "$3" "file $1 is missing"
   elif grep -qE -- "$2" "$1"; then
-    fail "$3" "$(grep -nE -- "$2" "$1")" "matching lines:" "file $1 unexpectedly matches: $2"
+    _fail_value "$3" "matching lines:" "$(grep -nE -- "$2" "$1")" "file $1 unexpectedly matches: $2"
   else
     pass "$3"
   fi
@@ -502,16 +521,16 @@ assert_eq() {
   if [ "$1" = "$2" ]; then
     pass "$3"
   else
-    fail "$3" "$2" "actual:  " "expected: $(_clip "$1")"
+    _fail_value "$3" "actual:  " "$2" "expected: $(_clip "$1")"
   fi
 }
 
 # assert_file_exists <path> <message> / assert_file_absent <path> <message>
 assert_file_exists() {
-  if [ -e "$1" ]; then pass "$2"; else fail "$2" "$1" "missing:"; fi
+  if [ -e "$1" ]; then pass "$2"; else _fail_value "$2" "missing:" "$1"; fi
 }
 assert_file_absent() {
-  if [ -e "$1" ]; then fail "$2" "$1" "exists:"; else pass "$2"; fi
+  if [ -e "$1" ]; then _fail_value "$2" "exists:" "$1"; else pass "$2"; fi
 }
 
 # assert_files_identical <file-a> <file-b> <message>
@@ -519,7 +538,7 @@ assert_files_identical() {
   if [ -f "$1" ] && [ -f "$2" ] && diff -q "$1" "$2" >/dev/null 2>&1; then
     pass "$3"
   else
-    fail "$3" "$(diff "$1" "$2" 2>&1)" "diff:" "files differ or missing: $1 vs $2"
+    _fail_value "$3" "diff:" "$(diff "$1" "$2" 2>&1)" "files differ or missing: $1 vs $2"
   fi
 }
 
@@ -528,45 +547,41 @@ assert_files_differ() {
   if [ -f "$1" ] && [ -f "$2" ] && ! diff -q "$1" "$2" >/dev/null 2>&1; then
     pass "$3"
   else
-    fail "$3" "" "" "files are identical or missing: $1 vs $2"
+    _fail_detail "$3" "files are identical or missing: $1 vs $2"
   fi
 }
 
-# assert_sweep_empty <label> <control-file> -- grep-args...
+# assert_sweep_empty <label> <control-file> -- grep-args... -- <root>...
 # An absence sweep that cannot pass vacuously: every swept root must exist and
 # the pattern must match the control file (a positive control proving the
-# pattern still finds what it is for); only then is an empty sweep a pass. The
-# grep arguments are read as options, then the pattern (positional or -e/-f),
-# then the roots. A leading `grep` word is accepted so the call reads like the
-# other `-- cmd...` forms.
+# pattern still finds what it is for); only then is an empty sweep a pass.
+# Everything between the two `--` goes to grep verbatim, pattern included; the
+# roots follow the second `--`, and a call without it or without a root fails.
+# A leading `grep` word is accepted so the call reads like the other `-- cmd...`
+# forms.
 assert_sweep_empty() {
   local label="$1" control="$2"; shift 2; [ "${1:-}" = "--" ] && shift
   [ "${1:-}" = "grep" ] && shift
-  local -a opts=() roots=()
-  local have_pattern=0 root hits st=0
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      -e|--regexp|-f|--file) opts+=("$1" "$2"); have_pattern=1; shift 2 ;;
-      --include|--exclude|--exclude-dir|-A|-B|-C|-m) opts+=("$1" "$2"); shift 2 ;;
-      -*) opts+=("$1"); shift ;;
-      *) if [ "$have_pattern" -eq 0 ]; then opts+=(-e "$1"); have_pattern=1; else roots+=("$1"); fi; shift ;;
-    esac
-  done
-  [ "$have_pattern" -eq 1 ] || { fail "$label" "" "" "sweep has no pattern"; return; }
-  [ ${#roots[@]} -gt 0 ] || { fail "$label" "" "" "sweep names no root to search"; return; }
+  local -a args=() roots=()
+  local root hits st=0
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do args+=("$1"); shift; done
+  [ "${1:-}" = "--" ] || { _fail_detail "$label" "sweep has no -- before the roots"; return; }
+  shift; roots=("$@")
+  [ ${#args[@]} -gt 0 ] || { _fail_detail "$label" "sweep has no grep arguments"; return; }
+  [ ${#roots[@]} -gt 0 ] || { _fail_detail "$label" "sweep names no root to search"; return; }
   for root in "${roots[@]}"; do
-    [ -e "$root" ] || { fail "$label" "$root" "root:" "swept root is missing"; return; }
+    [ -e "$root" ] || { _fail_value "$label" "root:" "$root" "swept root is missing"; return; }
   done
-  [ -f "$control" ] || { fail "$label" "$control" "control:" "positive control file is missing"; return; }
-  if ! grep "${opts[@]}" "$control" >/dev/null 2>&1; then
-    fail "$label" "$control" "control:" "positive control does not match the pattern, so an empty sweep would prove nothing"
+  [ -f "$control" ] || { _fail_value "$label" "control:" "$control" "positive control file is missing"; return; }
+  if ! grep "${args[@]}" "$control" >/dev/null 2>&1; then
+    _fail_value "$label" "control:" "$control" "positive control does not match the pattern, so an empty sweep would prove nothing"
     return
   fi
-  hits="$(grep "${opts[@]}" "${roots[@]}" 2>&1)" || st=$?
+  hits="$(grep "${args[@]}" "${roots[@]}" 2>&1)" || st=$?
   case "$st" in
-    0) fail "$label" "$hits" "hits:" ;;
+    0) _fail_value "$label" "hits:" "$hits" ;;
     1) pass "$label" ;;
-    *) fail "$label" "$hits" "grep:" "grep failed with exit $st" ;;
+    *) _fail_value "$label" "grep:" "$hits" "grep failed with exit $st" ;;
   esac
 }
 
@@ -599,7 +614,7 @@ assert_precedes() {
   if [ -n "$pos_a" ] && [ -n "$pos_b" ] && [ "$pos_a" -lt "$pos_b" ]; then
     pass "$4"
   else
-    fail "$4" "$2 ${pos_a:+at }${pos_a:-missing}, $3 ${pos_b:+at }${pos_b:-missing}" "offsets:"
+    _fail_value "$4" "offsets:" "$2 ${pos_a:+at }${pos_a:-missing}, $3 ${pos_b:+at }${pos_b:-missing}"
   fi
 }
 

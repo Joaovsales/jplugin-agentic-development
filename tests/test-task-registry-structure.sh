@@ -10,8 +10,7 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-py_module .agents/skills/task-registry/scripts
-SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
 
 PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
@@ -44,9 +43,7 @@ write_index() {
 
 # The shared GitHub config plus the `[status]` stanza this file adds to it.
 write_github_config() {
-  fixture_copy task-registry/task-tracking.md "$1/docs/task-tracking.md"
-  sed -i '$d' "$1/docs/task-tracking.md"
-  printf '\n[status]\nin_progress = label:now\n```\n' >> "$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking-status.md "$1/docs/task-tracking.md"
 }
 
 # The gh mock first on PATH, with the shared labels and issues. The issue list
@@ -94,7 +91,7 @@ assert_file_absent "$SCRIPTS/registry/reconcile.py" \
 cut2_control="$(fixture_dir)/control.py"
 printf 'from .reconcile import x\n' > "$cut2_control"
 assert_sweep_empty "Cut 2: no module still imports the deleted sync engine" "$cut2_control" -- \
-  grep -rln 'from \.reconcile\|registry\.reconcile' "$SCRIPTS"
+  grep -rln 'from \.reconcile\|registry\.reconcile' -- "$SCRIPTS"
 # `index.py` outlives the cut on purpose. Two survivors read through it -- `show`
 # for the row behind a reference, and `upsert` for the external ref the local
 # store cannot remember -- so deleting it would mean deleting them. What retires
@@ -102,7 +99,7 @@ assert_sweep_empty "Cut 2: no module still imports the deleted sync engine" "$cu
 for retired in collect_problems row_text replace_line; do
   printf 'def %s(rows):\n' "$retired" > "$cut2_control"
   assert_sweep_empty "Cut 2: index.py no longer carries the sync-only helper $retired" "$cut2_control" -- \
-    grep -n "def $retired" "$SCRIPTS/registry/index.py"
+    grep -n "def $retired" -- "$SCRIPTS/registry/index.py"
 done
 # `_published_ref` reads the link row that `_sync_index` writes. Deleting the
 # write while keeping the read would re-open the duplicate-issue bug the read
@@ -440,12 +437,13 @@ end_case
 # =============================================================================
 if begin_case "14. Registry-area primitives"; then
 # The registry-area files (the seven test-task-registry-*.sh among them) share one harness. None keeps a private
-# cleanup, fixture or repository constructor, a Python wrapper that re-exports
-# the interpreter environment, counter arithmetic, a present/gone encoding, a
-# PATH export, a temp directory of its own or a hand-made repository; every one names its
-# artefact through the library, so tests/affected.sh selects it on a change to
-# the registry's model. Each sweep is run against a control line that carries
-# the pattern, so an empty sweep cannot be a pattern that stopped matching.
+# cleanup, fixture or repository constructor or Python wrapper; every one names
+# its artefact through the library, so tests/affected.sh selects it on a change to
+# the registry's model. The suite-wide rules (counter arithmetic, present/gone,
+# PATH, interpreter environment, temp directory, hand-made repository) are
+# swept once, over every file, in tests/test-lib.sh § invariants. The sweep is
+# run against a control line that carries the pattern, so an empty sweep cannot
+# be a pattern that stopped matching.
 AREA_NAMES=(test-task-registry-model test-task-registry-config test-task-registry-providers test-task-registry-cli test-task-registry-regressions test-task-registry-regressions-github test-task-registry-structure
   test-routine-selectors test-routine-skills
   test-routines-contract test-routine-reproduction-e2e test-lane-catalogue
@@ -459,39 +457,17 @@ for area_file in "${area_files[@]}"; do
 done
 
 area_control="$(fixture_dir)/control.sh"
-assert_area_sweep() {  # <label> <control line> <ERE pattern>
-  printf '%s\n' "$2" > "$area_control"
-  assert_sweep_empty "Primitives: $1" "$area_control" -- grep -nE -e "$3" "${area_files[@]}"
-}
-assert_area_sweep "no private cleanup, fixture, repository or Python wrapper" \
-  'new_fixture() { :; }' '^(cleanup|new_fixture|new_repo|new_dir|pyreg|pyreg_with|run_cli)\(\)'
-assert_area_sweep "no counter arithmetic" \
-  '_TES''TS=$((_TES''TS + 1))' '_(TESTS|FAILS)='
-assert_area_sweep "no present/gone encoding" \
-  '[ -f x ] && ec''ho present || ec''ho absent' '&& echo [a-z]+ \|\| echo [a-z]+'
-assert_area_sweep "no PATH exported by the file" \
-  'ex''port PATH="$d/bin:$PATH"' '[e]xport PATH='
-assert_area_sweep "no per-file bytecode or locale environment" \
-  'PYTHONDONTWRITE''BYTECODE=1 python3 x' 'PYTHONDONTWRITEBYT[E]CODE|PYTHONUTF[8]=|LC_AL[L]='
-assert_area_sweep "no temp directory of its own" \
-  'd="$(mkt''emp -d)"' 'mktem[p] -d'
-assert_area_sweep "no repository initialised by hand outside a test of git behaviour" \
-  'gi''t -C "$d" init -q' 'git (-C [^ ]+ )?[i]nit'
+printf '%s\n' 'new_fixture() { :; }' > "$area_control"
+assert_sweep_empty "Primitives: no private cleanup, fixture, repository or Python wrapper" "$area_control" -- \
+  grep -nE -e '^(cleanup|new_fixture|new_repo|new_dir|pyreg|pyreg_with|run_cli)\(\)' -- "${area_files[@]}"
 
 # Selection by artefact path: a change to registry/model.py must reach every
 # file, so each declares a path that contains it.
 model_py=.agents/skills/task-registry/scripts/registry/model.py
-declares_model() {  # <test file>
-  local lit
-  for lit in $(grep -hoE '(under_test|py_module)[[:space:]]+[^[:space:])"]+' "$1" | awk '{print $2}'); do
-    lit="${lit%/}"
-    case "$model_py" in "$lit" | "$lit"/*) return 0 ;; esac
-  done
-  return 1
-}
+covering_model="$(bash "$REPO/tests/affected.sh" --covering "$model_py" -- "${area_files[@]#"$REPO"/}")"
 for area_file in "${area_files[@]}"; do
-  assert_true "Primitives: ${area_file##*/} is selected by a change to registry/model.py" -- \
-    declares_model "$area_file"
+  assert_contains $'\n'"$covering_model"$'\n' $'\n'"tests/${area_file##*/}"$'\n' \
+    "Primitives: ${area_file##*/} is selected by a change to registry/model.py"
 done
 fi
 end_case

@@ -1,7 +1,7 @@
 #!/bin/bash
 . "$(dirname "$0")/lib.sh"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
-py_module .agents/skills/verify-evidence/scripts
+py_module .agents/skills/verify-evidence/scripts >/dev/null
 box="$(fixture_dir)"
 export DESIGN_STACK_REPO="$repo" DESIGN_STACK_FIXTURE="$box" DESIGN_STACK_PROJECT="$(fixture_repo)"
 evidence_contract() {

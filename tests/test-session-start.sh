@@ -13,8 +13,8 @@ ERR="$(fixture_dir)/hook.stderr"
 # checkout; anything else is a failed assertion and no hook runs.
 LIVE_CHECKOUT="${HOOK%/.agents/hooks/session-start.sh}"
 fixture_only() {
-  case "$1/" in "$LIVE_CHECKOUT"/*) fail "the hook ran against the live checkout" "$1" "dir:"; return 1 ;; esac
-  [ -e "$1/.git" ] || { fail "the hook ran outside a fixture repo" "$1" "dir:"; return 1; }
+  case "$1/" in "$LIVE_CHECKOUT"/*) fail "the hook ran against the live checkout" "$1"; return 1 ;; esac
+  [ -e "$1/.git" ] || { fail "the hook ran outside a fixture repo" "$1"; return 1; }
 }
 
 # hook_in <dir> <payload> [VAR=val...] — run the hook with <dir> as cwd and
@@ -768,10 +768,10 @@ sed 's/"[^"]*"//g' "$SWEEP/code.sh" > "$SWEEP/code-unquoted.sh"
 # empty sweep means the block is clean and not that the pattern went blind.
 printf 'git fetch origin\nthen claude plugin update x\nfoo | jq .\n' > "$SWEEP/control.sh"
 assert_sweep_empty "Stale plugin: the block makes no network call (D4)" "$SWEEP/control.sh" -- \
-  grep -E 'fetch|ls-remote|curl|wget' "$SWEEP/code.sh"
+  grep -E 'fetch|ls-remote|curl|wget' -- "$SWEEP/code.sh"
 assert_sweep_empty "Stale plugin: the block never invokes claude, only prints its commands (D1)" "$SWEEP/control.sh" -- \
-  grep -E '(^|[;&|(]|then|do)[[:space:]]*claude[[:space:]]' "$SWEEP/code-unquoted.sh"
+  grep -E '(^|[;&|(]|then|do)[[:space:]]*claude[[:space:]]' -- "$SWEEP/code-unquoted.sh"
 assert_sweep_empty "Stale plugin: the block parses JSON without jq or python (D9)" "$SWEEP/control.sh" -- \
-  grep -E '(^|[^A-Za-z_])(jq|python3?)([^A-Za-z_]|$)' "$SWEEP/code.sh"
+  grep -E '(^|[^A-Za-z_])(jq|python3?)([^A-Za-z_]|$)' -- "$SWEEP/code.sh"
 
 finish

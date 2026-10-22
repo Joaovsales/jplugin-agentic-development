@@ -142,6 +142,32 @@ OUT="$(affected "$BASE3")"
 assert_contains "$OUT" "tests/test-h.sh" "under_test: a runner change still selects a test that declares nothing"
 git -C "$FIX" checkout -q -- tests/lib.sh
 
+# The declaration grammar is spelled once, here in affected.sh; a test that needs
+# to know what a file declares, or whether a declaration covers a path, asks
+# through --declared and --covering instead of keeping a regex of its own.
+DECL="$(cd "$FIX" && bash tests/affected.sh --declared tests/test-f.sh tests/test-g.sh tests/test-h.sh 2>&1)"
+assert_eq "tests/test-f.sh .agents/skills/x/scripts/
+tests/test-g.sh .agents/skills/x/SKILL.md
+tests/test-g.sh lib/pkg" "$DECL" "--declared: prints <file> <literal> per declaration, quotes stripped, nothing for a file declaring none"
+covering() { (cd "$FIX" && bash tests/affected.sh --covering "$1" -- tests/test-f.sh tests/test-g.sh tests/test-h.sh 2>&1); }
+assert_eq "tests/test-f.sh" "$(covering .agents/skills/x/scripts/y.py)" "--covering: a directory literal covers a file under it"
+assert_eq "" "$(covering .agents/skills/x/scripts-old/z.py)" "--covering: a sibling sharing the name prefix is not covered"
+assert_eq "tests/test-g.sh" "$(covering .agents/skills/x/SKILL.md)" "--covering: a file literal covers its own path"
+assert_eq "tests/test-g.sh" "$(covering lib/pkg/mod.py)" "--covering: a py_module directory covers a file under it"
+assert_eq "" "$(covering src/foo.txt)" "--covering: a path no declaration covers names no test"
+(cd "$FIX" && bash tests/affected.sh --declared </dev/null >"$BOX/usage.out" 2>&1)
+assert_eq "2" "$?" "usage: --declared with no test file exits 2"
+(cd "$FIX" && bash tests/affected.sh --covering lib/pkg tests/test-g.sh </dev/null >"$BOX/usage.out" 2>&1)
+assert_eq "2" "$?" "usage: --covering without the -- separator exits 2"
+
+# After the move, the token regex is affected.sh's alone: no other file of tests/
+# keeps its own reading of an under_test or py_module declaration.
+GRAMMAR_CONTROL="$BOX/grammar.txt"
+printf '%s%s\n' 'x=$(grep -E "(under_te' 'st|py_module)[[:space:]]+" f)' > "$GRAMMAR_CONTROL"
+assert_sweep_empty "the declaration grammar is spelled only in tests/affected.sh" "$GRAMMAR_CONTROL" -- \
+  grep -nE '[(]under_tes[t][|]py_modul[e][)]' -- "$REPO"/tests/test-*.sh "$REPO/tests/lib.sh" "$REPO/tests/run.sh"
+assert_file_matches "$REPO/tests/affected.sh" '[(]under_tes[t][|]py_modul[e][)]' "the declaration grammar lives in tests/affected.sh"
+
 (cd "$FIX" && bash tests/affected.sh </dev/null >"$BOX/usage.out" 2>&1)
 assert_eq "2" "$?" "usage: no base exits 2"
 (cd "$FIX" && bash tests/affected.sh no-such-ref </dev/null >"$BOX/usage.out" 2>&1)

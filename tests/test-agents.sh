@@ -212,7 +212,7 @@ for f in "$CANONICAL"/*.md "$CLAUDE"/*.md; do
   if ! hazards="$(frontmatter_hazards "$f" "${base%.md}")"; then
     fail "Agents: $f could not be scanned for frontmatter"
   elif [ -n "$hazards" ]; then
-    fail "Agents: $f has frontmatter the harness cannot register" "$hazards" "hazards:"
+    fail "Agents: $f has frontmatter the harness cannot register" "$hazards"
   else
     pass "Agents: $f frontmatter is registerable"
   fi
@@ -363,9 +363,9 @@ DOC_GUARDS="tests/test-agents.sh tests/test-model-tiers.sh tests/test-skill-fron
             tests/test-grilling-adoption.sh tests/test-doc-conventions.sh"
 # shellcheck disable=SC2086 -- the list is words by construction.
 assert_sweep_empty "floor: no doc-guard test does its own counter arithmetic" tests/lib.sh \
-  -- grep -nE '_(TESTS|FAILS)=\$\(\(' $DOC_GUARDS
+  -- grep -nE '_(TESTS|FAILS)=\$\(\(' -- $DOC_GUARDS
 # shellcheck disable=SC2086
 assert_sweep_empty "floor: no doc-guard test makes its own scratch directory" tests/lib.sh \
-  -- grep -nE 'mktemp [-]d' $DOC_GUARDS
+  -- grep -nE 'mktemp [-]d' -- $DOC_GUARDS
 
 finish

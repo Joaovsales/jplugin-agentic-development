@@ -24,8 +24,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-py_module .agents/skills/task-registry/scripts
-SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
+py_module .agents/skills/task-registry/scripts SCRIPTS
 PY="$TEST_PYTHON"
 
 # A project root carrying a skills tree, so the on-disk check has something to
@@ -48,12 +47,15 @@ skill_project() {
 # five-label default in place would refuse every fixture below for THAT reason —
 # turning each new gate's test green without the gate existing.
 write_config() {
-  fixture_copy task-registry/task-tracking-local.md "$1/docs/task-tracking.md"
-  sed -i '$d' "$1/docs/task-tracking.md"
-  { printf '\n[routines]\nkind_precedence = %s\n' "$2"
+  local conf="$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking-local.ini "$conf.ini"
+  { printf '# Task tracking\n\n```ini\n'
+    cat "$conf.ini"
+    printf '\n[routines]\nkind_precedence = %s\n' "$2"
     cat
     printf '```\n'
-  } >> "$1/docs/task-tracking.md"
+  } > "$conf"
+  rm "$conf.ini"
 }
 
 # Loads the config and prints either the chains or the refusal, so every

@@ -249,7 +249,7 @@ assert_sweep_empty "AC9: no file outside tasks/ and specs/ mentions the retired 
   "$retired_control" -- grep -rlF \
   --exclude-dir=.git --exclude-dir=tasks --exclude-dir=specs \
   --exclude-dir=node_modules --exclude-dir=worktrees --exclude-dir=graphify-out \
-  -e "$retired" .
+  -e "$retired" -- .
 for tree in $TREES; do
   assert_file_absent "$tree/skills/$retired" \
     "AC9: $tree/skills/$retired is deleted"

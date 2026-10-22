@@ -144,7 +144,7 @@ printf 'a bare /verify reference\n' > "$SWEEP/bare-verify.md"
 mapfile -t TRACKED_ROOTS < <(git ls-files | cut -d/ -f1 | sort -u | grep -vxE 'tasks|specs')
 assert_sweep_empty "rename: no bare /verify reference survives in any tracked file outside tasks/ and specs/" \
   "$SWEEP/bare-verify.md" -- \
-  grep -rIE --exclude-dir=worktrees --exclude=test-plugin-manifest.sh -e "$BARE_VERIFY" "${TRACKED_ROOTS[@]}"
+  grep -rIE --exclude-dir=worktrees --exclude=test-plugin-manifest.sh -e "$BARE_VERIFY" -- "${TRACKED_ROOTS[@]}"
 
 # --- 9. one tree, one namespace sentence (spec § Decisions, AC 1, AC 9) -----
 # The byte-identical `.claude/skills/` copy is gone: Claude Code loads
@@ -154,7 +154,7 @@ assert_sweep_empty "rename: no bare /verify reference survives in any tracked fi
 assert_file_absent .claude/skills \
   "one tree: .claude/skills/ no longer exists in the template"
 assert_sweep_empty "one tree: no skill body, agent persona or PI_SETUP.md hardcodes the jplugin: namespace" \
-  AGENTS.md -- grep -rlF 'jplugin:' .agents/skills .claude/agents PI_SETUP.md
+  AGENTS.md -- grep -rlF 'jplugin:' -- .agents/skills .claude/agents PI_SETUP.md
 assert_eq "1" "$(grep -cF 'is typed `/jplugin:name`' AGENTS.md)" \
   "one tree: AGENTS.md states the namespace mapping exactly once"
 

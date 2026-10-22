@@ -22,8 +22,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-py_module .agents/skills/task-registry/scripts
-SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
 PY="$TEST_PYTHON"
 
@@ -55,11 +54,12 @@ write_labels() {
   } > "$d/ghdata/labels.json"
 }
 
-# The shared github config, its closing fence replaced by the case's stanzas.
+# The shared github config body, fenced here around the case's stanzas.
 write_config() {
-  fixture_copy task-registry/task-tracking.md "$1/docs/task-tracking.md"
-  sed -i '$d' "$1/docs/task-tracking.md"
-  { cat; printf '```\n'; } >> "$1/docs/task-tracking.md"
+  local conf="$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking.ini "$conf.ini"
+  { printf '# Task tracking\n\n```ini\n'; cat "$conf.ini"; cat; printf '```\n'; } > "$conf"
+  rm "$conf.ini"
 }
 
 run_selectors() {

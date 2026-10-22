@@ -23,8 +23,7 @@
 # TEST_CASE='<glob>' bash tests/test-task-registry-model.sh runs only the cases whose name matches.
 . "$(dirname "$0")/lib.sh"
 
-py_module .agents/skills/task-registry/scripts
-SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
 
 PY="$TEST_PYTHON"   # resolved once in tests/lib.sh

@@ -11,8 +11,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-py_module .agents/skills/task-registry/scripts
-SCRIPTS="${PYTHONPATH%%:*}"   # py_module puts the declared directory first
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
 LANES_DIR=".agents/skills/task-registry/lanes"
 PY="$TEST_PYTHON"
@@ -390,11 +389,12 @@ new_project() {
   done
   printf '%s' "$d"
 }
-# The shared local-provider config, its closing fence replaced by the case's stanzas.
+# The shared local-provider config body, fenced here around the case's stanzas.
 write_config() {
-  fixture_copy task-registry/task-tracking-local.md "$1/docs/task-tracking.md"
-  sed -i '$d' "$1/docs/task-tracking.md"
-  { cat; printf '```\n'; } >> "$1/docs/task-tracking.md"
+  local conf="$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking-local.ini "$conf.ini"
+  { printf '# Task tracking\n\n```ini\n'; cat "$conf.ini"; cat; printf '```\n'; } > "$conf"
+  rm "$conf.ini"
 }
 
 # --- override: the project replaced fix's chain --------------------------------

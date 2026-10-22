@@ -98,7 +98,7 @@ for f in "$ROUTING" .agents/skills/build/SKILL.md; do
   for agent in $CEILING_AGENTS; do
     pinned_rows="$(grep -E "^\|.*\`$agent\`" "$f" | grep -E '`(sonnet|haiku|opus)`' || true)"
     if [ -n "$pinned_rows" ]; then
-      fail "ModelTier: $f routes $agent to a concrete model" "$pinned_rows" "pinned rows:"
+      fail "ModelTier: $f routes $agent to a concrete model" "$pinned_rows"
     else
       pass "ModelTier: $f does not pin $agent in a table"
     fi
@@ -175,7 +175,7 @@ SWEEP_CTL="$(fixture_dir)"
 printf '| Design review | **Sonnet** (floor) | x |\n' > "$SWEEP_CTL/pinned-row.md"
 for tree in .agents; do
   assert_sweep_empty "ModelTier: no review role pinned in a table cell under $tree/skills" "$SWEEP_CTL/pinned-row.md" \
-    -- grep -rlE '^\|[^|]*([Rr]eview|[Aa]dversarial|[Cc]ritic|[Aa]udit)[^|]*\|.*([Ss]onnet|[Oo]pus|[Hh]aiku)' \
+    -- grep -rlE '^\|[^|]*([Rr]eview|[Aa]dversarial|[Cc]ritic|[Aa]udit)[^|]*\|.*([Ss]onnet|[Oo]pus|[Hh]aiku)' -- \
       "$tree/skills"
 done
 
@@ -185,7 +185,7 @@ done
 printf 'model: anthropic/claude-sonnet\n' > "$SWEEP_CTL/provider-id.md"
 for tree in .agents; do
   assert_sweep_empty "ModelTier: no concrete provider model ID under $tree/skills" "$SWEEP_CTL/provider-id.md" \
-    -- grep -rlE 'moonshotai/|qwen/|z-ai/|deepseek/|anthropic/claude' "$tree/skills"
+    -- grep -rlE 'moonshotai/|qwen/|z-ai/|deepseek/|anthropic/claude' -- "$tree/skills"
 done
 
 # --- 10. critic's floor is stated where critic is dispatched ------------------
