@@ -2320,6 +2320,11 @@ Step ledger (routine `simplify`):
 - Pending: the PR's Linux CI run of the full suite (the local Windows run carries the pre-existing baseline failures).
 - Carry-forward: the installed jplugin on this machine is at 1.6.2; update it after this merges so sessions pick up the new wiring.
 
+## Session Summary — 2026-10-21 [cdc4a1a..e8fa9ec]
+- Completed: the read-shunt baseline (specs/read-shunt-baseline.md, 8/8 slices): `read_transcript.py` as the one session-JSONL parser, `read-incidence.py` and the committed baseline over 296 sessions (median share 0.0%, verdict not worth gating; bare shell reads carry 28.9% of parent tool-result bytes), `grade-read-shunt.py` with paired per-task means, the eleven-case `claude plugin eval` suite from `fixture_gen.py`, /eval Mode C, PR #128 closed as superseded with its three learnings ported, the one-run smoke report; quality gate GO on design with three dispatched findings applied.
+- Pending: the receipt's test record — the Windows affected run fails 13/46 files, every name also failing on the base commit; re-run under WSL on the identical tree for the receipt. Six SHOULD-FIX design findings reported, not applied (the unscripted results-arranging step first among them).
+- Carry-forward: specs/read-shunt.md's gate waits on this baseline's verdict (not worth gating by D11); the shell-read channel is the one to measure next; `evals/read-shunt` large cases cannot run on Windows (no `Bash` grant).
+
 ## Plan: read-shunt-baseline
 > Spec: specs/read-shunt-baseline.md
 
@@ -2381,3 +2386,4 @@ Step ledger (routine `simplify`):
 > Handover: landed d05e14c (+ fff99df `.gitignore`, 8af236c README run command, skills table, plugin 1.7.3, citation) — `tasks/eval-results/read-shunt/smoke-2026-10-21.md`: attempt 1 refused on Windows (a `Bash` grant needs a sandbox backend the platform lacks; $0.0005, 0 turns), attempt 2 without the shell grant passed (score 1, 3 turns, $0.1559, 446 s); the session transcript from the kept temp home graded into one row — 0 whole-file large, 0 routing-around, 2217 bytes into the parent, largest 2033, final context 17789, no sub-agent, outcome 1
 > Do not re-derive: with `--keep-temp` the runner leaves `<TEMP>/claude-eval-<id>/out/trace.jsonl` (stream-json, `tracePath` in its JSON) and `config/projects/<encoded cwd>/<session>.jsonl` (the ordinary session shape the parser pins) — copy the latter into `<results>/<arm>/<task>/run-<n>/transcript.jsonl` with `outcome.json` from the per-run `score`, then remove the temp home; `--ablation none` keeps one paid run; `--trust-plugin` is needed from a session; `evals/*/results/` is gitignored; on Windows drop `Bash` from `--allow-tools` or the large cases' shell routing-around cannot show
 > Surface: `[SURFACE] +.gitignore | reason: the runner writes evals/read-shunt/results/ on every run` · `[SURFACE] +evals/read-shunt/README.md | reason: its run command carried the Bash grant the Windows runner refuses` (slice 5's surface)
+- [ ] Reconcile specs/read-shunt-baseline.md with the build's [AMBIGUITY] decisions <!-- task-id: spec-reconciliation.specs-read-shunt-baseline-md --> — The excluded column now also counts null-result Read notes (unchanged-file, empty-file, image, PDF); D14 sizes a shell/… ([spec-reconciliation.specs-read-shunt-baseline-md](tasks/details/spec-reconciliation.specs-read-shunt-baseline-md.md))
