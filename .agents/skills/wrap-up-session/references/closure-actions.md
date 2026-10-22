@@ -46,7 +46,7 @@ section lands in the commit message instead.
 A plan block links one feature issue. Run
 `python3 .agents/skills/slice/scripts/slice.py link --index tasks/todo.md --spec <spec>`
 and act on it: `issue <ref>` or `linked <id> <ref>` names the feature issue, and the
-body carries one `Closes <ref>` for the feature issue (the `<ref>` the line prints, `#N` or `owner/repo#N`, copied verbatim) only when `done: yes`. A PR
+body carries one `Closes <ref>` for the feature issue (the `<ref>` the line prints, `#N` or `owner/repo#N`, copied verbatim) only when `done: yes`; `unlinked <id>` (a local task has no keyword) writes none. A PR
 that lands some of the slices writes `Refs <ref>` instead (`done: no`), so a
 partial PR never closes the feature. A `legacy` block keeps the per-row path
 below, each slice header row carrying its own task id and link.

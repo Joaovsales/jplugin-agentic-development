@@ -339,6 +339,21 @@ for label, legacy_text in (
 EOF
 )"
 
+closing_out="$(pyreg <<'EOF'
+from registry.providers import closing_reference
+print("github-url=" + str(closing_reference("https://github.com/o/r/issues/42", "github")))
+print("github-bare=" + str(closing_reference("42", "github")))
+print("github-qualified=" + str(closing_reference("o/r#7")))
+print("local-path=" + str(closing_reference("tasks/local-1.md", "local")))
+print("unknown=" + str(closing_reference("PROJ-7")))
+EOF
+)"
+assert_contains "$closing_out" "github-url=o/r#42" "Closing reference: a GitHub issue URL reads owner/repo#N"
+assert_contains "$closing_out" "github-bare=#42" "Closing reference: a bare number reads #N"
+assert_contains "$closing_out" "github-qualified=o/r#7" "Closing reference: an unnamed provider is found by grammar"
+assert_contains "$closing_out" "local-path=None" "Closing reference: a local task has none"
+assert_contains "$closing_out" "unknown=None" "Closing reference: text no tracker reads has none"
+
 assert_contains "$index_out" "rows=4" "Index: four well-formed rows parse (three compact, one legacy)"
 assert_contains "$index_out" "title=Morph live grid recipe" "Index: title is separated from the summary"
 assert_contains "$index_out" "summary=ship the live grid morph" "Index: one-line summary parses"

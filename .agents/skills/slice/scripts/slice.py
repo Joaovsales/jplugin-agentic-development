@@ -50,8 +50,8 @@ from registry.globs import (  # noqa: E402  (path must be set up first)
     read_implementation_paths,
     validate_pattern,
 )
-from registry.index import IndexRow, IndexUnreadable, load_index_strict, read_text  # noqa: E402
-from registry.providers.github import closable_reference  # noqa: E402
+from registry.index import IndexRow, IndexUnreadable, Problem, load_index, read_text  # noqa: E402
+from registry.providers import closing_reference  # noqa: E402
 
 BUILD_ORDER_HEADING = "## Build Order"
 PLAN_HEADING_RE = re.compile(r"^##\s*Plan:\s*(?P<name>.+?)\s*$")
@@ -412,6 +412,7 @@ class PlanBlock:
     headings: List[Tuple[int, int, str]]
     index_path: str
     rows: List[IndexRow]  # the index's parsed rows, read when the block is built
+    index_problems: Tuple[Problem, ...]  # unparsed rows whose line falls inside this block
     spec_path: str  # the path its `> Spec:` line names
 
     def has_open_row(self) -> bool:
@@ -484,7 +485,9 @@ class PlanBlock:
 
         `legacy` wins; a flat block (no `### Slice` headings) is `none`. The `#N`
         is the reference a PR writes after `Closes`, normalised here so no caller
-        does it: `owner/repo#N` when the link names another repo. Callers reach
+        does it: `owner/repo#N` when the link names another repo. A feature row
+        whose tracker closes nothing from a PR (a local task) is `unlinked`:
+        pre-flight's upsert is idempotent, closure writes no keyword. Callers reach
         a block through `_load_plan_block`, which refuses two feature links and a
         feature row with no task-id, so the first link is the only one and an
         `unlinked` state carries a real id.
@@ -496,11 +499,12 @@ class PlanBlock:
             return "none"
         line = self.prose[links[0] - 1]
         if ISSUE_LINE_RE.match(line):
-            return "issue " + closable_reference(line.split("Issue:", 1)[1].strip())
+            raw = line.split("Issue:", 1)[1].strip()
+            return "issue " + (closing_reference(raw) or raw)
         row = next(row for row in self.rows if row.line == links[0])
-        if row.task.external:
-            return f"linked {row.task.id} {closable_reference(row.task.external.url or row.task.external.id)}"
-        return f"unlinked {row.task.id}"
+        external = row.task.external
+        closing = closing_reference(external.url or external.id, external.provider) if external else None
+        return f"linked {row.task.id} {closing}" if closing else f"unlinked {row.task.id}"
 
     def is_done(self) -> bool:
         """Whether every `### Slice` header row is `[x]`; a flat block, whether no row is open."""
@@ -530,14 +534,15 @@ class PlanBlock:
 def _plan_blocks(index_path: str) -> List[PlanBlock]:
     """Every `## Plan:` block of `index_path` that names a spec, in file order; the one place a PlanBlock is built.
 
-    Reads and parses the index once and hands every block the same rows. Raises
-    SliceError when the file is absent and IndexUnreadable when the index is
-    malformed, so every caller fails here, not at a later access.
+    Reads and parses the index once and hands every block the same rows and the
+    unparsed rows that fall inside it. Raises SliceError when the file is absent;
+    a malformed row refuses only the block that holds it (`_refuse_link_problems`),
+    so one bad row in the shared index does not deny every other spec.
     """
     if not os.path.isfile(index_path):
         raise SliceError(f"no such index file: {index_path}")
     prose = _without_fences(read_text(index_path)).splitlines()
-    rows = load_index_strict(index_path, index_path).rows
+    index = load_index(index_path, index_path)
     starts = [index for index, line in enumerate(prose) if PLAN_HEADING_RE.match(line)]
     blocks = []
     for start, end in zip(starts, starts[1:] + [len(prose)]):
@@ -546,7 +551,8 @@ def _plan_blocks(index_path: str) -> List[PlanBlock]:
             continue
         name = PLAN_HEADING_RE.match(prose[start]).group("name")
         headings = _slice_headings(prose, start + 1, end)
-        blocks.append(PlanBlock(prose, start + 1, end, name, headings, index_path, rows, spec.group("path")))
+        inside = tuple(problem for problem in index.problems if start < problem.line <= end)
+        blocks.append(PlanBlock(prose, start + 1, end, name, headings, index_path, index.rows, inside, spec.group("path")))
     return blocks
 
 
@@ -559,7 +565,12 @@ def _plan_block_or_none(index_path: str, spec_path: str) -> Optional[PlanBlock]:
 
 
 def _refuse_link_problems(block: PlanBlock) -> PlanBlock:
-    """`block`, or SliceError carrying its feature-link problems: build-time readers never guess past a malformed link."""
+    """`block`, or IndexUnreadable / SliceError carrying its malformed rows and feature-link problems: build-time readers never guess past either."""
+    if block.index_problems:
+        raise IndexUnreadable(
+            "refusing to act on a malformed index — fix these rows first:\n"
+            + "\n".join(f"  {problem.render()}" for problem in block.index_problems)
+        )
     problems = block.feature_link_problems()
     if problems:
         raise SliceError("; ".join(problems))
@@ -590,13 +601,10 @@ def _plan_block_problems(index_path: str, spec_path: str, slices: Dict[int, Slic
     Propose step 1 validates before the block is written, so a missing index
     or block is nothing to report here; `ready` requires the block and refuses.
     """
-    try:
-        block = _plan_block_or_none(index_path, spec_path)
-    except IndexUnreadable as exc:
-        return [str(exc)]
+    block = _plan_block_or_none(index_path, spec_path)
     if block is None:
         return []
-    return block.feature_link_problems() + block.tdd_surface_problems(slices)
+    return [problem.render() for problem in block.index_problems] + block.feature_link_problems() + block.tdd_surface_problems(slices)
 
 
 def _row_after(
@@ -690,13 +698,22 @@ def cmd_ready(args: argparse.Namespace) -> int:
 def cmd_link(args: argparse.Namespace) -> int:
     """Print `link: <state>` and `done: <yes|no>`; exit 0, or 2 when the index or block cannot be read.
 
-    Without `--spec`, one `<spec> link: <state> done: <yes|no>` line per plan block that names a spec.
+    Without `--spec`, one `<spec> link: <state> done: <yes|no>` line per plan block that names a spec;
+    every block is read before any line prints, so a refusal leaves stdout empty.
     """
     try:
         if args.spec is None:
+            lines, refusals = [], []
             for block in _plan_blocks(args.index):
-                _refuse_link_problems(block)
-                print(f"{block.spec_path} link: {block.link_state()} done: {'yes' if block.is_done() else 'no'}")
+                try:
+                    _refuse_link_problems(block)
+                    lines.append(f"{block.spec_path} link: {block.link_state()} done: {'yes' if block.is_done() else 'no'}")
+                except (SliceError, IndexUnreadable) as exc:
+                    refusals.append(str(exc))
+            if refusals:
+                raise SliceError("\n".join(refusals))
+            for line in lines:
+                print(line)
             return 0
         block = _load_plan_block(args.index, args.spec)
         state, done = block.link_state(), block.is_done()

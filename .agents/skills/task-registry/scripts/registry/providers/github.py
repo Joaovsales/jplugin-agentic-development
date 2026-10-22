@@ -100,6 +100,10 @@ class GitHubProvider(TrackerProvider):
     def reference_label(cls, ref: ExternalRef) -> str:
         return ref.id if ref.id.startswith("#") else f"#{ref.id}"
 
+    @classmethod
+    def closing_reference(cls, raw: str) -> Optional[str]:
+        return closable_reference(raw)
+
     def __init__(self, config, gate=None) -> None:
         super().__init__(config, gate)
         self.repository = config.repository
@@ -649,8 +653,8 @@ def closing_references_in(body: str) -> List[Tuple[str, str]]:
     return references
 
 
-def closable_reference(raw: str) -> str:
-    """`raw` as a closing keyword takes it: `owner/repo#N` for a URL or qualified reference, `#N` for a bare number or `#N`; anything else verbatim.
+def closable_reference(raw: str) -> Optional[str]:
+    """`raw` as a closing keyword takes it: `owner/repo#N` for a URL or qualified reference, `#N` for a bare number or `#N`; None for anything else.
 
     One reference grammar for `Closes <ref>` writers and readers alike: a URL
     into another repo keeps its repo, so the keyword cannot close this repo's
@@ -661,7 +665,7 @@ def closable_reference(raw: str) -> str:
         return "#" + raw
     references = closing_references_in("Closes " + raw) if len(raw.split()) == 1 else []
     if not references:
-        return raw
+        return None
     repo, number = references[0]
     return f"{repo}#{number}"
 

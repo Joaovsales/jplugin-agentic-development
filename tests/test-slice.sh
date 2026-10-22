@@ -314,6 +314,27 @@ tests/fixtures/slice/ready/spec.md link: issue other/repo#8 done: no" "$OUT" "li
 OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" 2>&1)"
 CODE=$?
 assert_eq "2" "$CODE" "link: without --spec a missing index exits 2"
+link_case "a feature row whose external is a local task has no closing reference" "$LINKF/todo-local-ref.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-open-then-malformed.md" 2>/dev/null)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec an open block then a malformed one exits 2"
+assert_eq "" "$OUT" "link: without --spec a malformed block mid-file leaves stdout empty"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-open-then-malformed.md" 2>&1 >/dev/null)"
+assert_contains "$OUT" "no task-id" "link: without --spec the refusal goes to stderr"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-bad-row-in-x.md" --spec "$LINKF/other-spec.md" 2>&1)"
+CODE=$?
+OUT="${OUT//$'\r'/}"
+assert_eq "0" "$CODE" "link: a malformed row in another plan block does not refuse this spec"
+assert_eq "link: linked plan.second-fixture o/r#43
+done: no" "$OUT" "link: this spec's block links as usual past another block's malformed row"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-bad-row-in-x.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: a malformed row inside the targeted block exits 2"
+assert_contains "$OUT" "slice: refusing to act on a malformed index" "link: the targeted block's malformed row is a slice: refusal"
+assert_contains "$OUT" "todo-bad-row-in-x.md:9" "link: the refusal names the malformed row's line"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-bad-row-in-x.md" 2>&1 >/dev/null)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec a malformed row in any block exits 2"
 
 printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
 

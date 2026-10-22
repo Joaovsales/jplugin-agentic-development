@@ -138,7 +138,7 @@ is the authorization the planning session did not have. Run
 `python3 .agents/skills/slice/scripts/slice.py link --index tasks/todo.md --spec specs/<feature>.md`
 and act on the first word of its `link:` line (`issue <ref>`, `linked <id> <ref>`,
 `unlinked <id>`, `legacy` or `none`; `<ref>` is `#N`, or `owner/repo#N` for
-another repo). A malformed link (two feature links, a feature row with no
+another repo; a feature row linked only to a local task reads `unlinked`). A malformed link (two feature links, a feature row with no
 task-id) exits 2 with the refusal: stop and report it. Only `unlinked <id>` runs
 one upsert, of the `<id>` the line printed, never one re-derived from the spec;
 `issue`, `linked`, `legacy` and `none` mean there is nothing to do:
