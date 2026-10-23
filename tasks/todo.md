@@ -2446,7 +2446,7 @@ Step ledger (routine `simplify`):
 
 ## Session Summary — 2026-10-23 [5b19905..merge] — closure repair 1
 - Completed: `origin/master` (c9f429a, the test-suite-aposd PR #356 and its closure repair) merged into `claude/read-shunt-baseline-build-27c746` after PR #361 reported `mergeable: conflicting`; the four conflicts were register appends (`tasks/checkpoint.md`, `tasks/history.md`, `tasks/todo.md`, the four-unresolved-SHOULD-FIX learning) resolved as the union of both sides, checkpoint taken from this branch.
-- Pending: the receipt check on the merged tree, the suite, the re-push.
+- Pending: none — the merged tree failed `tests/test-lib.sh` § invariants on this branch's three eval test files (rules master added in #356); they now use the library primitives (f202176). Delta receipt c9ff20b4 GO (policy qg1-b803d96b, parent 004334e8) on tree b01ff72f over the four changed test files: Phases 1–3 inline, Phase 4 the resumed reviewer's scoped re-checks (GO, one NITPICK applied on `tests/test-eval-skill.sh`; GO with no findings on the three); Linux serial affected 56/56 and full 94/94 green. Pushed; PR #361 re-synced.
 - Carry-forward: unchanged from the summary above.
 
 ## Session Summary — 2026-10-21 [e7c14eb..ae30a30]
