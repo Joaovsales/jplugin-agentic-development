@@ -2319,3 +2319,5 @@ Step ledger (routine `simplify`):
 - Completed: the visual-plan render moved into `/slice`'s propose phase (Step 6, after the readiness gate); `/plan` Step 3 reduced to the `/slice` call; wiring pins moved to `/slice` in `tests/test-plan-render.sh`; `specs/readable-visual-plans.md` D5 and `specs/plan-slices-and-handover.md` D2 revised; plugin 1.7.2.
 - Pending: the PR's Linux CI run of the full suite (the local Windows run carries the pre-existing baseline failures).
 - Carry-forward: the installed jplugin on this machine is at 1.6.2; update it after this merges so sessions pick up the new wiring.
+- [ ] citation-drift in .agents/skills/slice/SKILL.md <!-- task-id: simplify.agents-skills-slice-skill-md.citation-drift-in-agents-skills-slice-skill-md --> ([#357](https://github.com/Joaovsales/jplugin-agentic-development/issues/357))
+- [ ] duplicate-rule in .agents/skills/auto-push/SKILL.md <!-- task-id: simplify.agents-skills-auto-push-skill-md.duplicate-rule-in-agents-skills-auto-push-skill-md --> ([#358](https://github.com/Joaovsales/jplugin-agentic-development/issues/358))
