@@ -34,3 +34,6 @@ tasks/e2e-artifacts/
 
 # Archify working folder — /diagram's receipts and captures, never the diagrams themselves.
 .archify/
+
+# claude plugin eval writes each run (aggregate-result.json, report.html) here
+evals/*/results/

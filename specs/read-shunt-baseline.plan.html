@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Spec: Read-shunt baseline and eval harness</title>
+<style>/* jplugin plan theme — inlined into every visual plan by
+   .agents/skills/visual-plan/scripts/plan_render.py. Rules: design/plan-theme/DESIGN.md.
+   Derived from the minimal technical journal prototype (design/prototypes/minimalist/). */
+
+:root {
+  color-scheme: light;
+  --paper: #f7f7f4; --surface: #ffffff; --ink: #26251e; --body: #4f4e48; --muted: #6b675f;
+  --line: #dcdad2; --strong: #b9b7ac; --code: #f0f0ea; --wash: #f1ebe5; --accent: #b93f18;
+  --c-decision: #1f5fa8; --c-criterion: #2d6a35; --c-risk: #8a5300; --c-question: #6a3d9a;
+  --c-blocker: #b3261e; --c-constraint: #4a5868; --c-contract: #0f6b6b; --c-model: #7a4b2a;
+  --c-slice: #3b4cc0; --c-prompt: #b93f18; --c-diagram: #50504a; --c-reference: #5f5c55;
+  --t-decision: #eaf1fa; --t-criterion: #ebf4ec; --t-risk: #f8f0e2; --t-question: #f2edf8;
+  --t-blocker: #fbeceb; --t-slice: #eeeffb; --t-prompt: #f8ece6;
+  --display: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+    --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+    --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+    --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+    --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+    --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+    --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+  --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+  --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+  --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+  --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+  --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+  --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+}
+
+/* ---------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.62 var(--sans); overflow-wrap: break-word; }
+a { color: inherit; text-underline-offset: .2em; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { background: var(--wash); color: var(--ink); }
+p, li { color: var(--body); max-width: var(--measure); }
+code { font: .88em/1.4 var(--mono); background: var(--code); padding: .08em .3em; border-radius: 3px; overflow-wrap: anywhere; }
+pre { margin: 16px 0 24px; background: var(--code); padding: 18px 20px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--ink); max-width: 100%; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+blockquote { margin: 0 0 20px; padding: 2px 0 2px 16px; border-left: 2px solid var(--strong); color: var(--muted); }
+h1, h2, h3 { color: var(--ink); }
+h3 { font: 600 17px/1.3 var(--sans); letter-spacing: -.01em; margin: 26px 0 10px; }
+ul, ol { padding-left: 22px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+.skip { position: absolute; left: 10px; top: -60px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 30; }
+.skip:focus { top: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ------------------------------------------------------------- layout */
+.masthead { max-width: 1440px; margin: 0 auto; padding: clamp(36px, 6vw, 84px) clamp(16px, 4vw, 64px) 26px; border-bottom: 1px solid var(--line); }
+.folio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin: 0 0 22px; color: var(--muted); font: 12px/1.5 var(--mono); max-width: none; }
+.masthead h1 { font: 400 clamp(36px, 6vw, 76px)/1.02 var(--display); letter-spacing: -.035em; margin: 0 0 18px; max-width: 22ch; }
+.source { margin: 0; font: 13px/1.5 var(--mono); color: var(--muted); max-width: none; }
+.source a { color: var(--ink); }
+.shell { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 0 clamp(16px, 4vw, 64px); }
+main { min-width: 0; padding-bottom: 80px; }
+
+/* ----------------------------------------------------------- navigation */
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 26px 0; font-size: 14px; }
+.toc-menu > summary { list-style: none; cursor: pointer; font: 12px/1.4 var(--mono); color: var(--muted); padding: 6px 0; }
+.toc-menu > summary::-webkit-details-marker { display: none; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; }
+.toc li { margin: 0; max-width: none; }
+.toc a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--line); text-decoration: none; color: var(--body); line-height: 1.35; }
+.toc a:hover { color: var(--ink); border-left-color: var(--strong); }
+.toc a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); font-weight: 600; }
+.toc .toc-prompt { margin-top: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.btn, .copy, .review button { font: 600 13px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--strong); border-radius: 4px; padding: 9px 12px; cursor: pointer; min-height: 36px; }
+.btn:hover, .copy:hover, .review button:hover { border-color: var(--ink); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ------------------------------------------------- lead, strip, blockers */
+.lead { margin: 30px 0 26px; }
+.lead p { font: 400 clamp(20px, 2.2vw, 27px)/1.42 var(--display); color: var(--ink); max-width: 40ch; margin: 0 0 14px; }
+.lead .lead-label, .card-label { font: 600 11px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.lead .lead-label { color: var(--muted); display: block; margin-bottom: 10px; }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); margin: 0 0 26px; }
+.stat { display: block; padding: 14px 14px 14px 0; text-decoration: none; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 14px; }
+.stat-n { display: block; font: 400 30px/1.1 var(--display); color: var(--ink); }
+.stat-l { display: block; font: 12px/1.3 var(--mono); color: var(--muted); }
+.stat-alert .stat-n { color: var(--c-blocker); }
+.strip-label { grid-column: 1 / -1; display: flex; gap: 4px; align-items: baseline; padding: 8px 0 0; color: var(--muted); }
+.strip-label + .stat { border-left: 0; padding-left: 0; }
+.blockers { border: 1px solid var(--c-blocker); border-left-width: 6px; background: var(--t-blocker); padding: 16px 20px; margin: 0 0 30px; }
+.blockers h2 { font: 600 18px/1.3 var(--sans); margin: 0 0 8px; color: var(--c-blocker); }
+.blockers ul { margin: 0; padding-left: 0; list-style: none; }
+.blockers li { padding: 4px 0; max-width: none; }
+.blockers .none { color: var(--body); margin: 0; }
+
+/* ------------------------------------------------------------- sections */
+.sec { scroll-margin-top: 12px; border-bottom: 1px solid var(--line); }
+.sec > details > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; padding: 30px 0 18px; }
+.sec > details > summary::-webkit-details-marker { display: none; }
+.sec > details > summary::after { content: "+"; margin-left: auto; font: 400 22px/1 var(--mono); color: var(--muted); }
+.sec > details[open] > summary::after { content: "\2212"; }
+.sec h2 { font: 400 clamp(28px, 3.4vw, 44px)/1.08 var(--display); letter-spacing: -.03em; margin: 0; }
+.sec-count { font: 12px/1 var(--mono); color: var(--muted); }
+.sec > details > :not(summary) { margin-left: 0; }
+.sec > details { padding-bottom: 26px; }
+.table-scroll { overflow-x: auto; max-width: 100%; margin: 14px 0 22px; border-top: 1px solid var(--ink); }
+.table-scroll:focus-visible { outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { position: sticky; top: 0; background: var(--paper); text-align: left; font: 600 12px/1.35 var(--mono); color: var(--muted); padding: 10px 12px 8px 0; border-bottom: 1px solid var(--strong); vertical-align: bottom; }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); min-width: 9ch; }
+
+/* ---------------------------------------------------------------- cards */
+.cards { display: grid; gap: 12px; margin: 6px 0 18px; padding: 0; list-style: none; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; max-width: none; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-head h3 { margin: 0; font: 600 16px/1.35 var(--sans); flex: 1 1 18ch; min-width: 0; }
+.card-icon { font: 700 14px/1 var(--mono); width: 1.5em; text-align: center; flex: none; }
+.card-id { font: 600 12px/1 var(--mono); color: var(--ink); background: var(--code); padding: 4px 6px; border-radius: 3px; }
+.card p { margin: 8px 0 0; }
+.card-body { margin-top: 8px; }
+.card-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.card-more > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.card-more dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; }
+.card-more dt { font: 600 12px/1.6 var(--mono); color: var(--muted); }
+.card-more dd { margin: 0; color: var(--body); }
+.chosen { position: relative; padding-left: 26px; color: var(--ink); overflow-wrap: anywhere; }
+.chosen::before { position: absolute; left: 0; top: .2em; }
+.chosen::before { content: "\2713"; font: 700 12px/1 var(--mono); color: var(--c-criterion); border: 1px solid currentColor; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; flex: none; }
+.callout-wrong { border-left: 3px solid var(--c-blocker); padding: 6px 10px; background: var(--t-blocker); color: var(--ink); }
+.meta { font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: none; }
+
+/* chips: text labels first, colour second */
+.chip { font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip-settled { color: var(--c-criterion); }
+.chip-open, .chip-uncovered, .chip-blocked { color: var(--c-blocker); border-style: dashed; }
+.chip-new { color: var(--c-contract); }
+.chip-changed { color: var(--c-risk); }
+.chip-verify { color: var(--c-question); border-style: dashed; }
+.lvl { font: 600 11px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--strong); border-radius: 3px; color: var(--ink); }
+.lvl-H { border-color: var(--c-blocker); color: var(--c-blocker); border-width: 2px; }
+.lvl-M { border-color: var(--c-risk); color: var(--c-risk); }
+.lvl-L { color: var(--muted); }
+
+/* one colour, icon, label and border shape per component type */
+.card-decision { border-color: var(--c-decision); border-style: solid; }
+.card-decision .card-icon, .card-decision .card-label { color: var(--c-decision); }
+.card-decision.is-open { background: var(--t-decision); }
+.card-criterion { border: 0; border-left: 3px solid var(--c-criterion); background: transparent; padding: 8px 12px; }
+.card-criterion .card-icon, .card-criterion .card-label { color: var(--c-criterion); }
+.card-criterion.is-uncovered { border-left-color: var(--c-blocker); border-left-style: dashed; background: var(--t-blocker); }
+.card-risk { border: 3px double var(--c-risk); }
+.card-risk .card-icon, .card-risk .card-label { color: var(--c-risk); }
+.card-question { border: 2px dashed var(--c-question); background: var(--t-question); }
+.card-question .card-icon { color: var(--c-question); border: 2px solid currentColor; border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; }
+.card-question .card-label { color: var(--c-question); }
+.card-constraint { border: 1px dotted var(--c-constraint); }
+.card-constraint .card-icon, .card-constraint .card-label { color: var(--c-constraint); }
+.card-contract { border: 1px solid var(--line); border-left: 6px solid var(--c-contract); }
+.card-contract .card-icon, .card-contract .card-label { color: var(--c-contract); }
+.card-contract pre { margin: 10px 0 0; }
+.card-model { border: 1px solid var(--line); border-top: 4px solid var(--c-model); }
+.card-model .card-icon, .card-model .card-label { color: var(--c-model); }
+.card-slice { border: 2px solid var(--c-slice); border-radius: 0 12px 12px 0; }
+.card-slice .card-icon, .card-slice .card-label { color: var(--c-slice); }
+.card-slice.is-blocked { background: var(--t-blocker); border-style: dashed; }
+.card-prompt { border: 2px solid var(--c-prompt); background: var(--t-prompt); padding: 18px 20px; }
+.card-prompt .card-icon, .card-prompt .card-label { color: var(--c-prompt); }
+.card-prompt pre { background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-prompt.not-ready { border-style: dashed; border-color: var(--c-blocker); background: var(--t-blocker); }
+.not-ready-msg { font-weight: 700; color: var(--c-blocker); }
+.card-reference { border: 0; border-top: 1px dotted var(--c-reference); background: transparent; padding: 10px 0; }
+.card-reference .card-icon, .card-reference .card-label { color: var(--c-reference); }
+.card-blockers .card-icon, .card-blockers .card-label { color: var(--c-blocker); }
+.card-strip .card-label { color: var(--muted); }
+.card-lead .card-label { color: var(--muted); }
+
+/* ------------------------------------------------------------- diagrams */
+.diagram { margin: 18px 0 24px; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.diagram .card-icon, .diagram .card-label { color: var(--c-diagram); }
+.diagram-scroll { overflow-x: auto; max-width: 100%; margin-top: 8px; }
+.diagram svg { display: block; max-width: none; height: auto; font-family: var(--sans); }
+.diagram figcaption { font: 13px/1.5 var(--sans); color: var(--body); margin-top: 8px; }
+.diagram-source, .text-diagram { margin-top: 10px; }
+.diagram-source > summary, .text-diagram > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.text-diagram { border: 1px dashed var(--strong); padding: 8px 12px; margin: 12px 0 20px; }
+svg .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+svg .node text { fill: var(--ink); font-size: 13px; }
+svg .node .node-sub { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .node-new rect { stroke: var(--c-contract); stroke-width: 2.4; }
+svg .node-changed rect { stroke: var(--c-risk); stroke-width: 2.4; stroke-dasharray: 6 3; }
+svg .node-blocked rect { stroke: var(--c-blocker); stroke-width: 2.4; stroke-dasharray: 3 3; fill: var(--t-blocker); }
+svg a:focus-visible rect, svg a:hover rect { stroke: var(--accent); stroke-width: 2.6; }
+svg .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .edge-dashed { stroke-dasharray: 5 4; }
+svg .arrow { fill: var(--muted); }
+svg .edge-label { fill: var(--body); font-size: 11px; font-family: var(--mono); }
+svg .label-bg { fill: var(--surface); }
+svg .lane { fill: var(--code); stroke: var(--line); }
+svg .lane-label { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .lifeline { stroke: var(--strong); stroke-dasharray: 4 4; }
+svg .actor rect { fill: var(--surface); stroke: var(--ink); }
+svg .actor text { fill: var(--ink); font-size: 13px; }
+svg .msg { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .msg-reply { stroke-dasharray: 5 4; }
+svg .msg-label { fill: var(--ink); font-size: 12px; }
+svg .frame { fill: none; stroke: var(--c-question); stroke-width: 1.2; }
+svg .frame-label { fill: var(--c-question); font-size: 11px; font-family: var(--mono); font-weight: 600; }
+svg .frame-tab { fill: var(--t-question); stroke: var(--c-question); }
+svg .frame-divider { stroke: var(--c-question); stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 12px/1.4 var(--mono); color: var(--muted); margin-top: 8px; padding: 0; list-style: none; }
+.legend li { max-width: none; }
+
+/* -------------------------------------------------------------- review */
+.review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.review button { padding: 6px 9px; min-height: 30px; font-size: 12px; }
+.review button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.review label { display: flex; align-items: center; gap: 6px; flex: 1 1 16ch; min-width: 0; font: 12px/1.3 var(--mono); color: var(--muted); }
+.review textarea, .review select, .review input { font: 13px/1.4 var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--strong); border-radius: 4px; padding: 6px 8px; flex: 1 1 16ch; min-width: 0; }
+.review-status { font: 12px/1.4 var(--mono); color: var(--muted); margin: 8px 0 0; max-width: none; }
+.review-panel { border: 1px solid var(--strong); padding: 16px 18px; margin: 26px 0; }
+.review-panel pre { white-space: pre-wrap; }
+
+/* ------------------------------------------------------- blockers-only */
+body.only-blockers main .sec:not(.has-blockers),
+body.only-blockers main .cards > :not(.is-blocker),
+body.only-blockers main .ac-list > :not(.is-blocker) { display: none; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 767px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: sticky; top: 0; z-index: 20; max-height: none; overflow: visible; background: var(--paper); border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .toc-menu > summary { font-size: 14px; color: var(--ink); padding: 10px 0; }
+  .toc-menu > summary::before { content: "\2630  "; }
+  .toc-menu[open] ol { max-height: 70vh; overflow-y: auto; padding-bottom: 10px; }
+  .masthead h1 { font-size: clamp(32px, 10vw, 48px); }
+  .stat + .stat { border-left: 0; padding-left: 0; }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card-more dl { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 768px) {
+  .toc-menu > summary { pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  :root { --paper: #fff; --surface: #fff; }
+  .toc, .controls, .review, .copy, .skip, .review-panel { display: none !important; }
+  .shell { display: block; padding: 0; }
+  .sec > details > summary::after { content: ""; }
+  .card, .diagram { break-inside: avoid; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 10px; color: var(--muted); }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body class="plan">
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead"><p class="folio"><span>Visual plan</span><span><a href="#build-prompt">Build prompt ↓</a></span></p><h1>Spec: Read-shunt baseline and eval harness</h1><p class="source">Source: <a href="read-shunt-baseline.md">specs/read-shunt-baseline.md</a> · sha256 <code>1f164059cc87</code></p></header>
+<div class="shell"><nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary><ol><li><a href="#summary-lead">Summary</a></li><li><a href="#blockers">Blockers</a></li><li><a href="#behavior">Behavior</a></li><li><a href="#inputs">Inputs</a></li><li><a href="#outputs">Outputs</a></li><li><a href="#edge-cases">Edge Cases</a></li><li><a href="#risks">Risks</a></li><li><a href="#decisions">Decisions</a></li><li><a href="#acceptance-criteria">Acceptance Criteria</a></li><li><a href="#implementation-paths">Implementation Paths</a></li><li><a href="#build-order">Build Order</a></li><li><a href="#build-prompt">Build prompt</a></li><li><a href="#review">Review</a></li></ol></details></nav><main id="main">
+<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label"><span class="card-icon" aria-hidden="true">¶</span> <span class="card-label">Summary</span></span><p>Before any read gate ships, the repository measures how often the parent agent pulls whole files over the shunt threshold into its own context, from the session transcripts already on disk, and builds the eval harness that will judge a gate when one is built. Both tools read the same transcript format through one parser. The work supersedes PR #128, whose two gate implementations and paired eval are kept as evidence. The research, the gate design and the eval design this spec implements are <code>specs/read-shunt.md</code>; this spec covers its Tier 0 and its grader, fixtures and rubric, on Claude Code only.</p></section>
+<nav class="strip card-strip" aria-label="At a glance"><span class="strip-label"><span class="card-icon" aria-hidden="true">#</span><span class="card-label">At a glance</span></span><a class="stat" href="#build-order"><span class="stat-n">8</span><span class="stat-l">slices</span></a><a class="stat" href="#acceptance-criteria"><span class="stat-n">11</span><span class="stat-l">criteria</span></a><a class="stat" href="#decisions"><span class="stat-n">16</span><span class="stat-l">decisions</span></a><a class="stat" href="#risks"><span class="stat-n">5</span><span class="stat-l">risks</span></a><a class="stat" href="#decisions"><span class="stat-n">0</span><span class="stat-l">open items</span></a><a class="stat" href="#blockers"><span class="stat-n">0</span><span class="stat-l">blockers</span></a></nav>
+<section class="blockers card-blockers" id="blockers" aria-labelledby="blockers-h"><h2 id="blockers-h"><span class="card-icon" aria-hidden="true">!</span><span class="card-label">Blockers</span> <span class="sec-count">0</span></h2><p class="none">No blockers: no open decision, blocking question, uncovered criterion or unmitigated high-impact risk.</p></section>
+<div class="controls" role="toolbar" aria-label="Disclosure"><button type="button" class="btn" data-action="expand">Expand all</button><button type="button" class="btn" data-action="collapse">Collapse all</button><button type="button" class="btn" data-action="blockers" aria-pressed="false">Show only blockers</button></div>
+<section class="sec sec-generic" id="behavior" data-kind="generic"><details class="sec-body" open><summary><h2>Behavior</h2></summary><h3>Incidence report</h3>
+<p><code>read-incidence.py</code> walks a transcript root (default <code>~/.claude/projects</code>) and reads every main-loop session transcript, streaming one JSON line at a time so an 800 MB root finishes in minutes and nothing but metadata is held in memory. Sub-agent transcripts under each session&#x27;s <code>subagents/</code> directory are read too and reported in their own column, never mixed with the parent&#x27;s.</p>
+<p>For every <code>Read</code> tool use it records the input (<code>file_path</code>, <code>offset</code>, <code>limit</code>) and the result metadata (<code>totalLines</code>, <code>numLines</code>, <code>startLine</code>, content length in bytes). A read with neither <code>offset</code> nor <code>limit</code> is a <em>whole-file read</em>; one whose <code>numLines</code> is below <code>totalLines</code> without a <code>limit</code> is a whole-file read the tool truncated at its own cap, counted as whole-file and flagged. A read is <em>large</em> when its content is at least <code>--bytes</code> (default 32768) or its <code>totalLines</code> is at least <code>--lines</code> (default 800). A result that is not a text file (image, PDF, notebook, directory, error) is excluded from every count and tallied once as <code>excluded</code>.</p>
+<p>For every <code>Bash</code> tool use whose command is a bare shell read of one or more paths (<code>cat</code>, <code>head</code>, <code>tail</code>, <code>less</code>, <code>more</code>, <code>sed -n</code> with a print range), neither piped nor redirected, it records the result length as bytes delivered. Piped and redirected forms (<code>cat f | grep</code>, <code>cat f &gt; g</code>) are not counted; every file in a chained command (<code>cat a; cat b</code>) is.</p>
+<p>The report, as a Markdown table on stdout or JSON with <code>--json</code>, gives per session and in aggregate: reads, whole-file large reads, bytes those reads delivered, their share of all tool-result bytes in the parent loop, shell reads and their bytes, the largest single result, re-reads of a path already read in the same session, the parent&#x27;s final context size (input, cache-creation and cache-read tokens of its last assistant message), compaction markers when the transcript carries them, and sub-agent reads beside the parent&#x27;s. File paths appear as basenames unless <code>--paths</code> is passed; file contents never appear.</p>
+<h3>Go rule</h3>
+<p>The baseline run is committed as <code>tasks/eval-results/read-shunt/baseline-&lt;date&gt;.md</code> with the aggregate table and the rule applied: the gate (Tier 1 and Tier 2 of <code>specs/read-shunt.md</code>) is built only when whole-file large reads account for at least 10% of the parent&#x27;s tool-result bytes in the median session, or at least 25% in a quarter of sessions. Below that, the report records &quot;not worth gating&quot; and the brief&#x27;s remaining tiers stay unbuilt.</p>
+<h3>Eval harness</h3>
+<p><code>evals/read-shunt/</code> is a <code>claude plugin eval</code> suite under the plugin root: eleven cases, each a prompt written as a user would type it, a deterministic scaffold script that generates its fixture into the case workspace from a seed, and its graders. Eight cases force a large read (a generated client over 32 KB with a three-line bug, a CI log over 20K lines with one stack trace near the end, a fixtures JSON over 256 KB, a 3K-line module with scattered callers, a flaky 2K-line suite, a 1,500-line reference loader to port, a renamed symbol across 40 files, a 900-line changelog to summarise). Three are controls under the threshold (a typo in a 60-line file, a test for a 200-line module, a question about a file of 25 KB) where a gate must never fire. Fixtures are generated, not committed, so nothing eval-shaped sits in a candidate&#x27;s workspace, and no prompt, case name or scaffold path contains the blinding words of <code>/eval</code> § <em>Blinding non-negotiables</em>.</p>
+<p><code>grade-read-shunt.py</code> grades a run from transcripts, never from what the candidate said. Given a results directory it emits one row per run with: parent whole-file large reads; routing-around attempts (bare shell reads, <code>Grep</code> with <code>-C</code> of 50 or more or <code>head_limit: 0</code> on a large file); hook decisions and repeated identical denied inputs when a shunt log is present beside the transcript; bytes delivered into the parent; the largest single result; the parent&#x27;s final context size; compaction count; sub-agent tokens and tool uses; wall time from the first to the last timestamp; re-read rate (a parent read of a path that an earlier <code>Agent</code> prompt or sub-agent result named); and the outcome grade the runner recorded. It then prints per-task means per arm as paired rows, so two runs of the suite (control plugin, candidate plugin) compare task by task. Both scripts import <code>read_transcript.py</code>, the one place that knows the JSONL shape; a Read, Bash, Agent or usage block that shape cannot read ends the run with exit 2 and the offending line, never a silent zero.</p>
+<p>The judge rubric is written into the suite before any run: patch correctness against the reference, diff minimality, whether the parent re-derived what a reader had returned, and whether the answer makes claims nothing that reached the parent supports. <code>/eval</code> § <em>Mode C — behavioural lift with cost</em> documents the two scripts, the metrics and the thresholds from <code>specs/read-shunt.md</code>.</p>
+<h3>Supersession of PR #128</h3>
+<p>PR #128&#x27;s three learning-store documents are ported into <code>tasks/solutions/</code> under this tree&#x27;s schema, its whole-task protocol, results, prompts and blind grades are copied to <code>tasks/eval-results/read-shunt/prior-128/</code>, and the PR is closed with a comment that links this spec and the brief and states why the draft is superseded. Its branch and the <code>bulk-read-gate</code> worktree are left in place.</p></details></section>
+<section class="sec sec-generic" id="inputs" data-kind="generic"><details class="sec-body" open><summary><h2>Inputs</h2></summary><ul><li>Session transcripts: <code>&lt;root&gt;/&lt;project&gt;/&lt;session&gt;.jsonl</code> and <code>&lt;root&gt;/&lt;project&gt;/&lt;session&gt;/subagents/agent-&lt;id&gt;.jsonl</code>, one JSON object per line, with <code>tool_use</code> blocks in <code>message.content</code>, <code>toolUseResult</code> beside each <code>tool_result</code>, <code>message.usage</code> on assistant lines, <code>isSidechain</code> and <code>agentId</code> markers.</li><li>Thresholds <code>--bytes</code>, <code>--lines</code>; <code>--json</code>; <code>--paths</code>; <code>--root</code>.</li><li>An eval results directory from <code>claude plugin eval --json</code> or from the Workflow-based <code>/eval</code> Mode B, plus the transcripts those runs left.</li><li>A shunt decision log, when a later build adds the hook.</li></ul></details></section>
+<section class="sec sec-generic" id="outputs" data-kind="generic"><details class="sec-body" open><summary><h2>Outputs</h2></summary><ul><li>The incidence report on stdout, Markdown or JSON, and the committed baseline under <code>tasks/eval-results/read-shunt/</code>.</li><li>One grader row per run and paired per-task means per arm, Markdown or JSON.</li><li>The eval suite directory and its rubric.</li><li>A closed PR #128 with its evidence preserved in this tree.</li></ul></details></section>
+<section class="sec sec-generic" id="edge-cases" data-kind="generic"><details class="sec-body" open><summary><h2>Edge Cases</h2></summary><ul><li>A transcript line that is not valid JSON is skipped and counted under <code>malformed</code>; a transcript with no tool use at all yields a zero row, not an error.</li><li>A root with no transcripts, or a transcript whose Read block the parser cannot read, exits 2 with the path.</li><li>Windows paths with backslashes and drive letters are compared after normalisation, so a re-read is detected whichever spelling the model used.</li><li>A <code>Read</code> of an image, PDF or notebook has a different <code>toolUseResult</code> shape and is excluded, not misclassified as a zero-byte text read.</li><li>A Bash command with <code>cat</code> inside a pipeline, a subshell or a heredoc is not a bare read; <code>sed -n &#x27;1,$p&#x27; f</code> is.</li><li>Sub-agent reads never raise the parent&#x27;s count, including reads a forked sub-agent makes with the parent&#x27;s context.</li><li>The grader reads a results directory with one arm as readily as two; with one arm it prints rows and no paired means.</li><li>A scaffold that produces a fixture under the size its case promises fails the suite&#x27;s own test, before any paid run.</li></ul></details></section>
+<section class="sec sec-risks" id="risks" data-kind="risks"><details class="sec-body" open><summary><h2>Risks</h2></summary><div class="cards"><article class="card card-risk" id="r4"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R4</span><span class="lvl lvl-L">Likelihood L</span><span class="lvl lvl-H">Impact H</span><h3>An eval-shaped name leaks into a candidate workspace and breaks blinding</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>Generated fixtures, project-shaped case names, a test that greps prompts and scaffolds for the blinding words</dd><dt>Slice</dt><dd><a href="#slice-3">slice 3</a></dd></dl><div class="review" data-review="R4" role="group" aria-label="Review R4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R4 note"></textarea></label></div></article><article class="card card-risk" id="r2"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R2</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-M">Impact M</span><h3><code>claude plugin eval</code>&#x27;s case schema or result layout differs from what the suite assumes</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>The suite is authored from <code>claude plugin eval init --bare</code> output; the grader works from transcripts, which both runners leave</dd><dt>Slice</dt><dd><a href="#slice-3">slice 3</a></dd></dl><div class="review" data-review="R2" role="group" aria-label="Review R2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R2 note"></textarea></label></div></article><article class="card card-risk" id="r3"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R3</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-M">Impact M</span><h3>The on-disk JSONL format is documented as internal and changes</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>Fixtures pin today&#x27;s shape; the parser exits 2 on a block it cannot read</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R3" role="group" aria-label="Review R3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R3 note"></textarea></label></div></article><article class="card card-risk" id="r5"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R5</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-M">Impact M</span><h3>A full suite run costs more than expected</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd><code>--max-cost-usd</code> on every run; the smoke run is one control case with one run</dd><dt>Slice</dt><dd><a href="#slice-4">slice 4</a></dd></dl><div class="review" data-review="R5" role="group" aria-label="Review R5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R5 note"></textarea></label></div></article><article class="card card-risk" id="r1"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R1</span><span class="lvl lvl-M">Likelihood M</span><span class="lvl lvl-L">Impact L</span><h3>The baseline shows the parent already windows its reads, so no gate is worth building</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd>That is the go rule working; the brief&#x27;s later tiers stay unbuilt and the harness remains for any future gate</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R1" role="group" aria-label="Review R1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R1 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-decisions" id="decisions" data-kind="decisions"><details class="sec-body" open><summary><h2>Decisions</h2></summary><div class="cards"><article class="card card-decision" id="d1"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D1</span><span class="chip chip-settled">settled</span><h3>Enforce a read gate with a hook or with CLAUDE.md prose?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>hook</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Spotify found prose advisory and per-project</dd><dt>Source</dt><dd>specs/read-shunt.md</dd></dl></details><div class="review" data-review="D1" role="group" aria-label="Review D1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D1 note"></textarea></label></div></article><article class="card card-decision" id="d2"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D2</span><span class="chip chip-settled">settled</span><h3>Default gate action when one is built</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>cap-and-annotate (<code>allow</code> + <code>updatedInput</code> + <code>additionalContext</code>)</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the only A/B flips negative on denies of small files; denies loop</dd><dt>Source</dt><dd>specs/read-shunt.md</dd></dl></details><div class="review" data-review="D2" role="group" aria-label="Review D2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D2 note"></textarea></label></div></article><article class="card card-decision" id="d3"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D3</span><span class="chip chip-settled">settled</span><h3>Threshold</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>bytes ≥ 32768, lines ≥ 800 as fallback</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>claude-mem&#x27;s measured crossover; line count is a poor token proxy</dd><dt>Source</dt><dd>specs/read-shunt.md</dd></dl></details><div class="review" data-review="D3" role="group" aria-label="Review D3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D3 note"></textarea></label></div></article><article class="card card-decision" id="d4"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D4</span><span class="chip chip-settled">settled</span><h3>Reader output</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>anchored excerpts and a symbol map, fixed schema</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>prose summaries lose behavioural signal</dd><dt>Source</dt><dd>specs/read-shunt.md</dd></dl></details><div class="review" data-review="D4" role="group" aria-label="Review D4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D4 note"></textarea></label></div></article><article class="card card-decision" id="d5"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D5</span><span class="chip chip-settled">settled</span><h3>Sub-agent reads</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>exempt from any gate, counted separately here</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the delegate must read whole files</dd><dt>Source</dt><dd>specs/read-shunt.md</dd></dl></details><div class="review" data-review="D5" role="group" aria-label="Review D5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D5 note"></textarea></label></div></article><article class="card card-decision" id="d6"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D6</span><span class="chip chip-settled">settled</span><h3>Shell reads</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>gated when a gate exists; counted here, every file in a chain</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the replication bypass used <code>cat</code> and <code>sed -n</code></dd><dt>Source</dt><dd>specs/read-shunt.md</dd></dl></details><div class="review" data-review="D6" role="group" aria-label="Review D6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D6 note"></textarea></label></div></article><article class="card card-decision" id="d7"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D7</span><span class="chip chip-settled">settled</span><h3>Logging</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>every gate decision to a per-session JSONL</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the eval&#x27;s ground truth</dd><dt>Source</dt><dd>specs/read-shunt.md</dd></dl></details><div class="review" data-review="D7" role="group" aria-label="Review D7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D7 note"></textarea></label></div></article><article class="card card-decision" id="d8"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D8</span><span class="chip chip-settled">settled</span><h3>Relation to PR #128</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>supersede; port its learnings and evidence; close it with a comment; leave branch and worktree</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>94 commits behind and conflicting, registration predates <code>hooks/hooks.json</code>, its post-read map measured net negative on a 14 KB fixture</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D8" role="group" aria-label="Review D8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D8 note"></textarea></label></div></article><article class="card card-decision" id="d9"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D9</span><span class="chip chip-settled">settled</span><h3>First build</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>measurement from past transcripts plus the eval harness; no hook, no reader</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the gate is built only if the baseline justifies it</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D9" role="group" aria-label="Review D9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D9 note"></textarea></label></div></article><article class="card card-decision" id="d10"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D10</span><span class="chip chip-settled">settled</span><h3>Harness scope</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>Claude Code only</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>Codex is deny-only; Pi has no PreToolUse; both wait for the eval</dd><dt>Source</dt><dd>user</dd></dl></details><div class="review" data-review="D10" role="group" aria-label="Review D10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D10 note"></textarea></label></div></article><article class="card card-decision" id="d11"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D11</span><span class="chip chip-settled">settled</span><h3>Go rule</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>10% of parent tool-result bytes in the median session, or 25% in a quarter of sessions</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>a gate that touches a tenth of the parent&#x27;s input is the smallest effect the harness can show; the user reads the report and may move the bar</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D11" role="group" aria-label="Review D11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D11 note"></textarea></label></div></article><article class="card card-decision" id="d12"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D12</span><span class="chip chip-settled">settled</span><h3>Where the measurement code lives</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>.agents/skills/eval/scripts/</code>, one parser module and two CLIs</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>both tools measure transcripts, the eval skill&#x27;s domain; one parser means one place to pin the format</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D12" role="group" aria-label="Review D12"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D12 note"></textarea></label></div></article><article class="card card-decision" id="d13"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D13</span><span class="chip chip-settled">settled</span><h3>Eval runner</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span><code>claude plugin eval</code>, suite under <code>evals/read-shunt/</code>; the Workflow-based <code>/eval</code> Mode B is the fallback</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>present on this install with ablation, runs, scaffold and a cost ceiling; the grader is runner-neutral</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D13" role="group" aria-label="Review D13"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D13 note"></textarea></label></div></article><article class="card card-decision" id="d14"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D14</span><span class="chip chip-settled">settled</span><h3>Gate <code>Grep</code> with large <code>-C</code> or <code>head_limit: 0</code>?</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>measured here as routing-around; the gate decision waits for the data</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>the brief left it open; counting costs nothing</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D14" role="group" aria-label="Review D14"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D14 note"></textarea></label></div></article><article class="card card-decision" id="d15"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D15</span><span class="chip chip-settled">settled</span><h3><code>reader</code> persona and <code>/build</code> Scout dispatch</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>deferred to the gate build</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>nothing to dispatch to until a gate exists</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D15" role="group" aria-label="Review D15"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D15 note"></textarea></label></div></article><article class="card card-decision" id="d16"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D16</span><span class="chip chip-settled">settled</span><h3>In-process mod (brief Tier 3)</h3></div><p class="chosen"><span class="visually-hidden">Decision: </span>deferred; arm D only after a gate is promoted</p><details class="card-more"><summary>Options and rationale</summary><dl><dt>Why</dt><dd>PR #128&#x27;s post-read replacement is the same shape and measured net negative on small files</dd><dt>Source</dt><dd>assumed</dd></dl></details><div class="review" data-review="D16" role="group" aria-label="Review D16"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D16 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-acceptance-criteria" id="acceptance-criteria" data-kind="acceptance-criteria"><details class="sec-body" open><summary><h2>Acceptance Criteria</h2></summary><ol class="ac-list cards"><li class="card card-criterion" id="ac1"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC1</span></div><p><code>read-incidence.py</code> over <code>tests/fixtures/transcripts/</code> prints a per-session and an aggregate table with reads, whole-file large reads, their bytes and share, shell reads, largest result, re-reads, final context size and sub-agent reads; <code>--json</code> prints the same as JSON.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC1" role="group" aria-label="Review AC1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC1 note"></textarea></label></div></li><li class="card card-criterion" id="ac2"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC2</span></div><p>a ranged read is never counted as whole-file; a read with <code>numLines</code> below <code>totalLines</code> and no <code>limit</code> is counted as whole-file and flagged truncated; a non-text result is tallied under <code>excluded</code> and nowhere else; a read in a <code>subagents/</code> transcript or a sidechain line raises the sub-agent column only.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC2" role="group" aria-label="Review AC2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC2 note"></textarea></label></div></li><li class="card card-criterion" id="ac3"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC3</span></div><p><code>cat f</code>, <code>head f</code>, <code>tail f</code>, <code>sed -n &#x27;1,$p&#x27; f</code> and <code>cat a; cat b</code> are counted as shell reads with their result bytes; <code>cat f | grep x</code> and <code>cat f &gt; g</code> are not.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC3" role="group" aria-label="Review AC3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC3 note"></textarea></label></div></li><li class="card card-criterion" id="ac4"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC4</span></div><p>an empty root exits 2 naming it; a Read block the parser cannot read exits 2 naming the file and line; a malformed line is skipped and counted under <code>malformed</code>.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC4" role="group" aria-label="Review AC4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC4 note"></textarea></label></div></li><li class="card card-criterion" id="ac5"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC5</span></div><p>the baseline over the real transcript root is committed as <code>tasks/eval-results/read-shunt/baseline-&lt;date&gt;.md</code> with the aggregate table and the go rule&#x27;s verdict stated in one line.</p><p class="meta">covered by <a href="#slice-3">slice 3</a></p><div class="review" data-review="AC5" role="group" aria-label="Review AC5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC5 note"></textarea></label></div></li><li class="card card-criterion" id="ac6"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC6</span></div><p>both CLIs import <code>read_transcript.py</code>; no second extraction of Read, Bash, Agent or usage blocks exists in either CLI.</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC6" role="group" aria-label="Review AC6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC6 note"></textarea></label></div></li><li class="card card-criterion" id="ac7"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC7</span></div><p><code>grade-read-shunt.py</code> over a fixture results directory holding two arms prints one row per run with every metric in § Behavior and paired per-task means per arm; over one arm it prints rows and no means; a shunt log beside a transcript adds the hook-decision and repeated-deny columns.</p><p class="meta">covered by <a href="#slice-4">slice 4</a></p><div class="review" data-review="AC7" role="group" aria-label="Review AC7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC7 note"></textarea></label></div></li><li class="card card-criterion" id="ac8"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC8</span></div><p><code>evals/read-shunt/</code> holds eleven cases; each large case&#x27;s scaffold generates a fixture over 32 KB from a fixed seed and each control&#x27;s under; <code>tests/test-read-shunt-evals.sh</code> greps every prompt, case name and scaffold path for the blinding words and finds none, and runs every scaffold into a temp dir to check the promised sizes.</p><p class="meta">covered by <a href="#slice-5">slice 5</a></p><div class="review" data-review="AC8" role="group" aria-label="Review AC8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC8 note"></textarea></label></div></li><li class="card card-criterion" id="ac9"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC9</span></div><p><code>.agents/skills/eval/SKILL.md</code> carries § <em>Mode C — behavioural lift with cost</em> naming the two scripts, the metrics table and the thresholds, and its <em>What is measurable here</em> table gains the row; <code>tests/test-eval-skill.sh</code> pins the section and the scripts&#x27; presence.</p><p class="meta">covered by <a href="#slice-6">slice 6</a></p><div class="review" data-review="AC9" role="group" aria-label="Review AC9"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC9 note"></textarea></label></div></li><li class="card card-criterion" id="ac10"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC10</span></div><p>the three PR #128 learning documents exist under <code>tasks/solutions/</code> with this tree&#x27;s frontmatter, <code>tasks/eval-results/read-shunt/prior-128/</code> holds its protocol, results, prompts and blind grades, and PR #128 is closed with a comment linking this spec and <code>specs/read-shunt.md</code>; <code>origin/worktree-bulk-read-gate</code> and the local worktree are untouched.</p><p class="meta">covered by <a href="#slice-7">slice 7</a></p><div class="review" data-review="AC10" role="group" aria-label="Review AC10"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC10 note"></textarea></label></div></li><li class="card card-criterion" id="ac11"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC11</span></div><p><code>claude plugin eval</code> runs one control case with <code>--runs 1 --max-cost-usd 1</code> against this plugin, and <code>grade-read-shunt.py</code> parses the transcripts that run leaves into one row.</p><p class="meta">covered by <a href="#slice-8">slice 8</a></p><div class="review" data-review="AC11" role="group" aria-label="Review AC11"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC11 note"></textarea></label></div></li></ol></details></section>
+<section class="sec sec-generic" id="implementation-paths" data-kind="generic"><details class="sec-body" open><summary><h2>Implementation Paths</h2></summary><ul><li><code>.agents/skills/eval/scripts/read_transcript.py</code> — the one parser of the session JSONL shape: tool uses, results, usage, sidechain and sub-agent markers; exits 2 on drift.</li><li><code>.agents/skills/eval/scripts/read-incidence.py</code> — the baseline report over a transcript root.</li><li><code>.agents/skills/eval/scripts/grade-read-shunt.py</code> — per-run metrics and paired per-task means over an eval results directory.</li><li><code>.agents/skills/eval/SKILL.md</code> — Mode C documentation.</li><li><code>evals/read-shunt/**</code> — the eleven cases, their scaffold generators and the judge rubric.</li><li><code>tests/fixtures/transcripts/**</code> — hand-made transcripts pinning today&#x27;s JSONL shape: whole-file large, ranged, truncated, non-text, sub-agent, bare and piped shell reads, malformed line.</li><li><code>tests/test-read-incidence.sh</code>, <code>tests/test-read-shunt-grader.sh</code>, <code>tests/test-read-shunt-evals.sh</code>, <code>tests/test-eval-skill.sh</code> — the contract above.</li><li><code>tasks/eval-results/read-shunt/**</code> — the committed baseline and PR #128&#x27;s prior evidence.</li><li><code>tasks/solutions/patterns/cross-harness-hook-by-input-shape-not-tool-name.md</code>, <code>tasks/solutions/process/bash-and-sub-agents-read-the-shared-checkout.md</code>, <code>tasks/solutions/architecture/subagents-for-research.md</code> — the ported learnings.</li><li><code>specs/read-shunt.md</code> — the research brief, gate design and eval design this spec implements the first part of.</li></ul></details></section>
+<section class="sec sec-build-order" id="build-order" data-kind="build-order"><details class="sec-body" open><summary><h2>Build Order</h2></summary><p>Sizing: 8 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 1: the fixture transcripts are many one-screen files that pin one format and belong with the parser that reads them; slice 5: eleven cases each need a prompt, a case file and a scaffold, and the suite is one unit of blinding.</p><figure class="diagram card-diagram dag" id="slice-graph"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">dag</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="Slices in dependency order: a slice starts when every slice it is blocked by is done."><svg viewBox="0 0 992 288" width="992" height="288" role="group" aria-labelledby="dag-t dag-d"><title id="dag-t">Slice dependency graph</title><desc id="dag-d">Slice 1 (Transcript parser) has no blocker. Slice 2 (Incidence report) is blocked by slice 1. Slice 3 (Baseline report) is blocked by slice 2. Slice 4 (Read-shunt grader) is blocked by slice 1, slice 2. Slice 5 (Eval suite cases) has no blocker. Slice 6 (Eval Mode C docs) is blocked by slice 2, slice 4. Slice 7 (Supersede PR 128) has no blocker. Slice 8 (Suite smoke run) is blocked by slice 4, slice 5.</desc><defs><marker id="dag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,64.0 274.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,64.0 C496.0,64.0 496.0,64.0 528.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,64.0 C369.0,64.0 369.0,138.0 528.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,64.0 C496.0,64.0 496.0,138.0 528.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M464.0,64.0 C623.0,64.0 623.0,64.0 782.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M718.0,138.0 C750.0,138.0 750.0,64.0 782.0,64.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M718.0,138.0 C750.0,138.0 750.0,138.0 782.0,138.0" marker-end="url(#dag-arrow)"/><path class="edge" d="M210.0,138.0 C496.0,138.0 496.0,138.0 782.0,138.0" marker-end="url(#dag-arrow)"/><a href="#slice-1" aria-label="Slice 1: Transcript parser" class="node" data-layer="0"><title>Slice 1: Transcript parser</title><rect x="20.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="57.0">S1</text><text x="30.0" y="77.0">Transcript parser</text></a><a href="#slice-2" aria-label="Slice 2: Incidence report" class="node" data-layer="1"><title>Slice 2: Incidence report</title><rect x="274.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="57.0">S2</text><text x="284.0" y="77.0">Incidence report</text></a><a href="#slice-3" aria-label="Slice 3: Baseline report" class="node" data-layer="2"><title>Slice 3: Baseline report</title><rect x="528.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="538.0" y="57.0">S3</text><text x="538.0" y="77.0">Baseline report</text></a><a href="#slice-4" aria-label="Slice 4: Read-shunt grader" class="node" data-layer="2"><title>Slice 4: Read-shunt grader</title><rect x="528.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="538.0" y="131.0">S4</text><text x="538.0" y="151.0">Read-shunt grader</text></a><a href="#slice-5" aria-label="Slice 5: Eval suite cases" class="node" data-layer="0"><title>Slice 5: Eval suite cases</title><rect x="20.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="131.0">S5</text><text x="30.0" y="151.0">Eval suite cases</text></a><a href="#slice-6" aria-label="Slice 6: Eval Mode C docs" class="node" data-layer="3"><title>Slice 6: Eval Mode C docs</title><rect x="782.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="792.0" y="57.0">S6</text><text x="792.0" y="77.0">Eval Mode C docs</text></a><a href="#slice-7" aria-label="Slice 7: Supersede PR 128" class="node" data-layer="0"><title>Slice 7: Supersede PR 128</title><rect x="20.0" y="186.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="205.0">S7</text><text x="30.0" y="225.0">Supersede PR 128</text></a><a href="#slice-8" aria-label="Slice 8: Suite smoke run" class="node" data-layer="3"><title>Slice 8: Suite smoke run</title><rect x="782.0" y="112.0" width="190" height="52" rx="6"/><text class="node-sub" x="792.0" y="131.0">S8</text><text x="792.0" y="151.0">Suite smoke run</text></a></svg></div><figcaption>Slices in dependency order: a slice starts when every slice it is blocked by is done.</figcaption></figure><div class="cards slice-cards"><article class="card card-slice" id="slice-1"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S1</span><h3>Transcript parser</h3></div><p>One parser reads a session JSONL&#x27;s tool uses, results, usage, sidechain and sub-agent markers, classifies reads, and exits 2 on a block it cannot read.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>One parser reads a session JSONL&#x27;s tool uses, results, usage, sidechain and sub-agent markers, classifies reads, and exits 2 on a block it cannot read.</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac2">AC2</a>, <a href="#ac4">AC4</a></dd><dt>Surface</dt><dd><code>.agents/skills/eval/scripts/read_transcript.py</code>, <code>tests/fixtures/transcripts/**</code>, <code>tests/test-read-incidence.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-read-incidence.sh</code></dd><dt>Size</dt><dd>~10 planned files · 2 systems · 2 ACs</dd></dl></details><div class="review" data-review="S1" role="group" aria-label="Review S1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S1 note"></textarea></label></div></article><article class="card card-slice" id="slice-2"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S2</span><h3>Incidence report</h3></div><p>The baseline report over a transcript root, Markdown or JSON, with shell reads counted and paths hidden by default.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>The baseline report over a transcript root, Markdown or JSON, with shell reads counted and paths hidden by default.</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac1">AC1</a>, <a href="#ac3">AC3</a></dd><dt>Surface</dt><dd><code>.agents/skills/eval/scripts/read-incidence.py</code>, <code>tests/test-read-incidence.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-read-incidence.sh</code></dd><dt>Size</dt><dd>2 planned files · 2 systems · 2 ACs</dd></dl></details><div class="review" data-review="S2" role="group" aria-label="Review S2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S2 note"></textarea></label></div></article><article class="card card-slice" id="slice-3"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S3</span><h3>Baseline report</h3></div><p>The committed baseline over the real transcript root with the go rule&#x27;s verdict in one line.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>The committed baseline over the real transcript root with the go rule&#x27;s verdict in one line.</dd><dt>Blocked by</dt><dd><a href="#slice-2">slice 2</a></dd><dt>Criteria</dt><dd><a href="#ac5">AC5</a></dd><dt>Surface</dt><dd><code>tasks/eval-results/read-shunt/baseline-*.md</code></dd><dt>Verify</dt><dd><code>python3 .agents/skills/eval/scripts/read-incidence.py --root ~/.claude/projects</code></dd><dt>Size</dt><dd>1 planned file · 1 system · 1 AC</dd></dl></details><div class="review" data-review="S3" role="group" aria-label="Review S3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S3 note"></textarea></label></div></article><article class="card card-slice" id="slice-4"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S4</span><h3>Read-shunt grader</h3></div><p>Per-run metrics and paired per-task means over an eval results directory, through the shared parser.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>Per-run metrics and paired per-task means over an eval results directory, through the shared parser.</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a>, <a href="#slice-2">slice 2</a></dd><dt>Criteria</dt><dd><a href="#ac6">AC6</a>, <a href="#ac7">AC7</a></dd><dt>Surface</dt><dd><code>.agents/skills/eval/scripts/grade-read-shunt.py</code>, <code>tests/fixtures/transcripts/**</code>, <code>tests/test-read-shunt-grader.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-read-shunt-grader.sh</code></dd><dt>Size</dt><dd>~6 planned files · 2 systems · 2 ACs</dd></dl></details><div class="review" data-review="S4" role="group" aria-label="Review S4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S4 note"></textarea></label></div></article><article class="card card-slice" id="slice-5"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S5</span><h3>Eval suite cases</h3></div><p>Eleven cases with prompts, seeded scaffold generators, graders and the judge rubric, with a test that checks fixture sizes and blinding.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>Eleven cases with prompts, seeded scaffold generators, graders and the judge rubric, with a test that checks fixture sizes and blinding.</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac8">AC8</a></dd><dt>Surface</dt><dd><code>evals/read-shunt/**</code>, <code>tests/test-read-shunt-evals.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-read-shunt-evals.sh</code></dd><dt>Size</dt><dd>~25 planned files · 2 systems · 1 AC</dd></dl></details><div class="review" data-review="S5" role="group" aria-label="Review S5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S5 note"></textarea></label></div></article><article class="card card-slice" id="slice-6"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S6</span><h3>Eval Mode C docs</h3></div><p>/eval documents Mode C: the two scripts, the metrics table and the thresholds; the test pins the section and the scripts.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>/eval</code> documents Mode C: the two scripts, the metrics table and the thresholds; the test pins the section and the scripts.</dd><dt>Blocked by</dt><dd><a href="#slice-2">slice 2</a>, <a href="#slice-4">slice 4</a></dd><dt>Criteria</dt><dd><a href="#ac9">AC9</a></dd><dt>Surface</dt><dd><code>.agents/skills/eval/SKILL.md</code>, <code>tests/test-eval-skill.sh</code></dd><dt>Verify</dt><dd><code>bash tests/test-eval-skill.sh</code></dd><dt>Size</dt><dd>2 files · 2 systems · 1 AC</dd></dl></details><div class="review" data-review="S6" role="group" aria-label="Review S6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S6 note"></textarea></label></div></article><article class="card card-slice" id="slice-7"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S7</span><h3>Supersede PR 128</h3></div><p>PR #128&#x27;s three learnings ported, its protocol, results, prompts and blind grades copied under prior-128, the PR closed with a comment; branch and worktree untouched.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>PR #128&#x27;s three learnings ported, its protocol, results, prompts and blind grades copied under prior-128, the PR closed with a comment; branch and worktree untouched.</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac10">AC10</a></dd><dt>Surface</dt><dd><code>tasks/solutions/patterns/cross-harness-hook-by-input-shape-not-tool-name.md</code>, <code>tasks/solutions/process/bash-and-sub-agents-read-the-shared-checkout.md</code>, <code>tasks/solutions/architecture/subagents-for-research.md</code>, <code>tasks/eval-results/read-shunt/prior-128/**</code></dd><dt>Verify</dt><dd><code>gh pr view 128 --json state,comments</code></dd><dt>Size</dt><dd>~8 planned files · 2 systems · 1 AC</dd></dl></details><div class="review" data-review="S7" role="group" aria-label="Review S7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S7 note"></textarea></label></div></article><article class="card card-slice" id="slice-8"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S8</span><h3>Suite smoke run</h3></div><p>One control case run through claude plugin eval under a cost ceiling, its transcripts graded into one row.</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd>One control case run through <code>claude plugin eval</code> under a cost ceiling, its transcripts graded into one row.</dd><dt>Blocked by</dt><dd><a href="#slice-4">slice 4</a>, <a href="#slice-5">slice 5</a></dd><dt>Criteria</dt><dd><a href="#ac11">AC11</a></dd><dt>Surface</dt><dd><code>tasks/eval-results/read-shunt/smoke-*.md</code></dd><dt>Verify</dt><dd><code>claude plugin eval evals/read-shunt --case &lt;control&gt; --runs 1 --max-cost-usd 1 --json</code></dd><dt>Size</dt><dd>1 planned file · 1 system · 1 AC</dd></dl></details><div class="review" data-review="S8" role="group" aria-label="Review S8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S8 note"></textarea></label></div></article></div><section class="card card-prompt" id="build-prompt" aria-label="Build prompt"><div class="card-head"><span class="card-icon" aria-hidden="true">▶</span><span class="card-label">Build prompt</span></div><pre><code id="build-prompt-text">Invoke `/build` for `specs/read-shunt-baseline.md`.
+Plan: `## Plan: read-shunt-baseline` in `tasks/todo.md`, 8 slices, ready set &lt;1, 5, 7&gt;.
+Files: .agents/skills/eval/SKILL.md, .agents/skills/eval/scripts/read_transcript.py, .agents/skills/eval/scripts/read-incidence.py, .agents/skills/eval/scripts/grade-read-shunt.py, evals/read-shunt/**, tests/test-read-incidence.sh, tests/test-read-shunt-grader.sh, tests/test-read-shunt-evals.sh, tests/test-eval-skill.sh, tests/fixtures/transcripts/**, tasks/eval-results/read-shunt/**, tasks/solutions/patterns/cross-harness-hook-by-input-shape-not-tool-name.md, tasks/solutions/process/bash-and-sub-agents-read-the-shared-checkout.md, tasks/solutions/architecture/subagents-for-research.md, specs/read-shunt.md.
+Instructions:
+1. `/build`&#x27;s pre-flight files the slices: `/slice specs/read-shunt-baseline.md --file --approve`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints:
+- Claude Code only; no Codex or Pi adapter (D10).
+- No hook, no reader persona, no mod in this build; the gate waits for the baseline&#x27;s verdict (D9, D15, D16).
+- Go rule: whole-file large reads at or above 10% of the parent&#x27;s tool-result bytes in the median session, or 25% in a quarter of sessions (D11).
+- Thresholds: bytes ≥ 32768, lines ≥ 800; sub-agent reads in their own column, never the parent&#x27;s (D3, D5).
+- Runner is `claude plugin eval`, the suite authored from `claude plugin eval init --bare`; the Workflow-based `/eval` Mode B is the fallback (D13).
+- Count `Grep` with `-C` ≥ 50 or `head_limit: 0` on a large file as routing-around; gate nothing (D14).
+- PR #128: close it with a comment linking both specs; port its learnings; leave `origin/worktree-bulk-read-gate` and the `bulk-read-gate` worktree untouched (D8).
+- Every paid run carries `--max-cost-usd`; the smoke run is one control case, one run.</code></pre><button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button></section></details></section>
+<section class="review-panel" id="review" aria-labelledby="review-h" data-spec="specs/read-shunt-baseline.md" data-sha="1f164059cc87"><h2 id="review-h">Review</h2><p class="meta">Mark cards ok or questioned, answer questions and pick open decisions, then paste the export into the planning session: <code>/plan</code> applies it and re-runs <code>/slice</code>.</p><p class="review-status" id="review-status" role="status">Marks are saved in this browser for sha256 1f164059cc87.</p><button type="button" class="btn" data-action="export-review">Export review</button><pre><code id="review-export"></code></pre></section>
+</main>
+</div>
+<script>/* Visual plan page script: disclosure controls, deep links, navigation, copy.
+   Inlined by plan_render.py. No network, no dependencies; every feature
+   degrades to the plain <details> page when the script cannot run. */
+
+// Review state: pure helpers, kept apart from the DOM so they can be tested alone.
+var planReview = (function () {
+  'use strict';
+  function key(sha, spec) { return 'jplugin-plan-review:' + sha + ':' + spec; }
+  // A store that never throws: `ok` is false when the browser refuses storage.
+  function openStore(getStorage, name) {
+    var storage = null;
+    try {
+      storage = getStorage();
+      storage.setItem(name + ':probe', '1');
+      storage.removeItem(name + ':probe');
+    } catch (err) { storage = null; }
+    return {
+      ok: storage !== null,
+      load: function () {
+        if (!storage) { return {}; }
+        try { return JSON.parse(storage.getItem(name) || '{}') || {}; } catch (err) { return {}; }
+      },
+      save: function (state) {
+        if (!storage) { return false; }
+        try { storage.setItem(name, JSON.stringify(state)); return true; } catch (err) { return false; }
+      }
+    };
+  }
+  function flat(text) { return String(text || '').replace(/\s+/g, ' ').trim(); }
+  // One export line per item: a pick or an answer wins over the bare mark.
+  function line(id, s) {
+    var note = flat(s.note) ? ' — ' + flat(s.note) : '';
+    if (flat(s.pick)) { return id + ': pick ' + flat(s.pick) + note; }
+    if (flat(s.answer)) { return id + ': answer — ' + flat(s.answer) + note; }
+    if (s.mark) { return id + ': ' + s.mark + note; }
+    return null;
+  }
+  function format(spec, sha, items) {
+    var lines = ['Review of ' + spec + ' @ ' + sha];
+    items.forEach(function (item) {
+      var text = line(item[0], item[1] || {});
+      if (text) { lines.push(text); }
+    });
+    return lines.join('\n');
+  }
+  return { key: key, openStore: openStore, line: line, format: format };
+})();
+if (typeof module === 'object' && module.exports) { module.exports = planReview; }
+
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') { return; }
+  var doc = document;
+  var all = function (sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); };
+
+  // ------------------------------------------------------------ deep links
+  function openTo(hash) {
+    if (!hash || hash.length < 2) { return null; }
+    var target = doc.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!target) { return null; }
+    if (target.tagName === 'DETAILS') { target.open = true; }
+    var node = target.parentElement && target.parentElement.closest('details');
+    while (node) {
+      node.open = true;
+      node = node.parentElement && node.parentElement.closest('details');
+    }
+    var inner = target.querySelector(':scope > details');
+    if (inner) { inner.open = true; }
+    target.scrollIntoView({ block: 'start' });
+    return target;
+  }
+  window.addEventListener('hashchange', function () { openTo(location.hash); });
+  doc.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href^="#"]');
+    if (link && link.getAttribute('href') === location.hash) { openTo(location.hash); }
+  });
+
+  // ------------------------------------------------------------ navigation
+  var menu = doc.querySelector('.toc-menu');
+  var narrow = window.matchMedia('(max-width: 767px)');
+  function fitMenu() { if (menu) { menu.open = !narrow.matches; } }
+  if (menu) {
+    fitMenu();
+    if (narrow.addEventListener) { narrow.addEventListener('change', fitMenu); }
+    menu.addEventListener('click', function (event) {
+      if (event.target.closest('a') && narrow.matches) { menu.open = false; }
+    });
+  }
+  var links = all('.toc a[href^="#"]');
+  function markCurrent(id) {
+    links.forEach(function (a) {
+      if (a.getAttribute('href') === '#' + id) { a.setAttribute('aria-current', 'true'); }
+      else { a.removeAttribute('aria-current'); }
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { if (entry.isIntersecting) { markCurrent(entry.target.id); } });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    links.forEach(function (a) {
+      var section = doc.getElementById(a.getAttribute('href').slice(1));
+      if (section) { spy.observe(section); }
+    });
+  }
+
+  // ------------------------------------------------------------ disclosure
+  function setAll(open) { all('main details').forEach(function (d) { d.open = open; }); }
+  var onlyBlockers = doc.querySelector('[data-action="blockers"]');
+  function toggleBlockers() {
+    var on = !doc.body.classList.contains('only-blockers');
+    doc.body.classList.toggle('only-blockers', on);
+    onlyBlockers.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { all('.sec.has-blockers > details').forEach(function (d) { d.open = true; }); }
+  }
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button[data-action]');
+    if (!button) { return; }
+    var action = button.getAttribute('data-action');
+    if (action === 'expand') { setAll(true); }
+    if (action === 'collapse') { setAll(false); }
+    if (action === 'blockers') { toggleBlockers(); }
+  });
+  var printed = [];
+  window.addEventListener('beforeprint', function () {
+    printed = all('details:not([open])');
+    printed.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function () {
+    printed.forEach(function (d) { d.open = false; });
+    printed = [];
+  });
+
+  // ------------------------------------------------------------ copy
+  function copyText(text, button, done) {
+    function report(ok) {
+      var label = button.getAttribute('data-label') || button.textContent;
+      button.setAttribute('data-label', label);
+      button.textContent = ok ? (done || 'Copied') : 'Copy failed: select the text';
+      setTimeout(function () { button.textContent = label; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { report(true); }, function () { report(false); });
+      return;
+    }
+    var area = doc.createElement('textarea');
+    area.value = text;
+    doc.body.appendChild(area);
+    area.select();
+    var ok = false;
+    try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+    doc.body.removeChild(area);
+    report(ok);
+  }
+  window.planCopy = copyText;
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button.copy[data-copy-from]');
+    if (!button || button.disabled) { return; }
+    var source = doc.getElementById(button.getAttribute('data-copy-from'));
+    if (source) { copyText(source.textContent, button); }
+  });
+
+  // ------------------------------------------------------------ review
+  var panel = doc.getElementById('review');
+  var cards = all('.review[data-review]');
+  if (panel && cards.length) {
+    var spec = panel.getAttribute('data-spec');
+    var sha = panel.getAttribute('data-sha');
+    var store = planReview.openStore(function () { return window.localStorage; }, planReview.key(sha, spec));
+    var state = store.load();
+    var status = doc.getElementById('review-status');
+    if (!store.ok) {
+      status.textContent = 'Browser storage is unavailable: review marks will not persist past this page.';
+    }
+    var showMark = function (box, mark) {
+      all('button[data-mark]', box).forEach(function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-mark') === mark ? 'true' : 'false');
+      });
+    };
+    cards.forEach(function (box) {
+      var saved = state[box.getAttribute('data-review')] || {};
+      showMark(box, saved.mark);
+      all('[data-field]', box).forEach(function (f) { f.value = saved[f.getAttribute('data-field')] || ''; });
+    });
+    var update = function (box, change) {
+      var id = box.getAttribute('data-review');
+      var entry = state[id] || {};
+      Object.keys(change).forEach(function (k) { entry[k] = change[k]; });
+      state[id] = entry;
+      store.save(state);
+    };
+    doc.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('.review button[data-mark]');
+      if (!button) { return; }
+      var box = button.closest('.review');
+      var mark = button.getAttribute('aria-pressed') === 'true' ? '' : button.getAttribute('data-mark');
+      showMark(box, mark);
+      update(box, { mark: mark });
+    });
+    doc.addEventListener('input', function (event) {
+      var field = event.target.closest && event.target.closest('.review [data-field]');
+      if (!field) { return; }
+      var change = {};
+      change[field.getAttribute('data-field')] = field.value;
+      update(field.closest('.review'), change);
+    });
+    var exportButton = panel.querySelector('[data-action="export-review"]');
+    exportButton.addEventListener('click', function () {
+      var items = cards.map(function (box) {
+        var id = box.getAttribute('data-review');
+        return [id, state[id]];
+      });
+      var text = planReview.format(spec, sha, items);
+      doc.getElementById('review-export').textContent = text;
+      copyText(text, exportButton, 'Review copied');
+    });
+  }
+
+  openTo(location.hash);
+})();
+</script>
+</body>
+</html>

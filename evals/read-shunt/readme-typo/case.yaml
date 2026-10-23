@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: readme-typo
+description: Fix a spelling mistake in a short README.
+tags: [control]
+context:
+  scaffold_script: fixture.sh

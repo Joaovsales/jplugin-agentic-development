@@ -1,0 +1,3 @@
+{"decision": "annotate", "tool": "Read", "input": {"file_path": "C:\\work\\big.py"}, "bytes": 61440, "lines": 900}
+{"decision": "deny", "tool": "Bash", "input": {"command": "cat C:/work/big.py"}, "reason": "bare read of a 900-line file"}
+{"decision": "deny", "tool": "Bash", "input": {"command": "cat C:/work/big.py"}, "reason": "bare read of a 900-line file"}
