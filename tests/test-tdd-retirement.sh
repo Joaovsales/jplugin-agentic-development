@@ -33,7 +33,7 @@ assert_file_contains "$TDD" "testing-anti-patterns.md" \
   "Home: /tdd links the testing anti-patterns reference"
 assert_file_contains ".agents/skills/tdd/references/testing-anti-patterns.md" "mock" \
   "Home: tdd/references/testing-anti-patterns.md exists"
-assert_eq "gone" "$([ -e .agents/skills/build/references/testing-anti-patterns.md ] && echo present || echo gone)" \
+assert_file_absent .agents/skills/build/references/testing-anti-patterns.md \
   "Home: the anti-pattern reference moved out of build/references"
 
 # ── ... and only there ───────────────────────────────────────────────────────

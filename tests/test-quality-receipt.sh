@@ -171,32 +171,27 @@ assert_file_contains "$STORE2/branch-$BRANCH_SAN.json" "\"fingerprint\": \"$FP2\
 
 # --- a phase-5 reviewer entry (the test-engineer Review job) is accepted and recorded
 awk '{ if ($0 ~ /"phase": 4/) { print $0 ","; print "    {\"phase\": 5, \"lens\": \"test-engineer\", \"dispatch\": \"dispatched\"}" } else print $0 }'   "$BOX/outcome-go.json" > "$BOX/outcome-phase5.json"
-OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-phase5.json")"
-CODE=$?
-assert_eq "0" "$CODE" "write: an outcome with a phase-5 reviewer entry is accepted"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-phase5.json"
+assert_exit 0 "write: an outcome with a phase-5 reviewer entry is accepted"
 assert_file_contains "$STORE2/$FP2.json" "\"lens\": \"test-engineer\"" "write: the phase-5 test-engineer reviewer is recorded in the receipt"
 assert_file_contains ".agents/skills/quality-gate/scripts/receipt.py" "agents\", \"test-engineer.md\""   "write: POLICY_FILES includes the test-engineer persona"
 
 # --- a required but undispatchable review is recorded as lost, and still validated
 sed 's/"dispatch": "dispatched"}$/"dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost.json"
-OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost.json")"
-CODE=$?
-assert_eq "0" "$CODE" "write: a reviewer entry with dispatch lost is accepted"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost.json"
+assert_exit 0 "write: a reviewer entry with dispatch lost is accepted"
 assert_file_contains "$STORE2/$FP2.json" "\"dispatch\": \"lost\"" "write: the lost dispatch is carried in the receipt"
 sed '/"phase": 4/ s/"dispatch": "[a-z]*"/"dispatch": "lost"/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-phase4.json"
-OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost-phase4.json" 2>&1)"
-CODE=$?
-assert_eq "2" "$CODE" "write: dispatch lost on a phase 1-4 entry is refused"
-assert_contains "$OUT" "lost is only for the phase 5 test-engineer" "write: the lost-on-phase-4 refusal says where lost is allowed"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-phase4.json"
+assert_exit 2 "write: dispatch lost on a phase 1-4 entry is refused"
+assert_contains "$output" "lost is only for the phase 5 test-engineer" "write: the lost-on-phase-4 refusal says where lost is allowed"
 sed 's/"lens": "test-engineer", "dispatch": "dispatched"}$/"lens": "other", "dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-other-lens.json"
-OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-lost-other-lens.json" 2>&1)"
-CODE=$?
-assert_eq "2" "$CODE" "write: dispatch lost on a phase 5 entry with another lens is refused"
-assert_contains "$OUT" "lost is only for the phase 5 test-engineer" "write: the lost-on-another-lens refusal says where lost is allowed"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-other-lens.json"
+assert_exit 2 "write: dispatch lost on a phase 5 entry with another lens is refused"
+assert_contains "$output" "lost is only for the phase 5 test-engineer" "write: the lost-on-another-lens refusal says where lost is allowed"
 sed 's/"dispatch": "dispatched"}$/"dispatch": "skipped"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-skipped.json"
-OUT="$(cd "$REPO2" && receipt write --outcome "$BOX/outcome-skipped.json" 2>&1)"
-CODE=$?
-assert_eq "2" "$CODE" "write: an unknown dispatch value is still refused"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-skipped.json"
+assert_exit 2 "write: an unknown dispatch value is still refused"
 
 # --- MUST-FIX forces STOP regardless of a supplied verdict -----------------
 make_outcome "$BOX/outcome-mustfix.json" "$TREE2" yes 0 GO 0 '"full"' "GO"
