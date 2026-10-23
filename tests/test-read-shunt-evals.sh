@@ -33,10 +33,6 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-# Python probes must not leave __pycache__ in the tree (tests/ checks parity).
-export PYTHONDONTWRITEBYTECODE=1
-export PYTHONUTF8=1
-
 SUITE="$REPO/evals/read-shunt"
 
 ALL_CASES="billing-client-zero-total nightly-pipeline-failure catalog-currency-field orders-extract-tax pipeline-checks-intermittent settings-loader-port load-record-callers changelog-release-notes readme-typo timeparse-coverage ratelimit-clock-skew"
@@ -54,9 +50,7 @@ PY
 LARGE_CASES="$(arm_cases large)"
 CONTROL_CASES="$(arm_cases control)"
 
-TMP="$(mktemp -d)"
-[ -n "$TMP" ] && [ -d "$TMP" ] || { printf '  FAIL could not create fixture dir\n'; exit 1; }
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
 
 # count_files DIR — print the number of files under DIR.
 count_files() { find "$1" -type f | wc -l | tr -d ' '; }
@@ -113,10 +107,10 @@ PY
 }
 
 # --- 1. shape ----------------------------------------------------------------
-assert_eq "present" "$([ -d "$SUITE" ] && echo present || echo missing)" "evals/read-shunt exists"
-assert_eq "present" "$([ -f "$SUITE/fixture_gen.py" ] && echo present || echo missing)" "the shared seeded generator exists"
-assert_eq "present" "$([ -f "$SUITE/rubric.md" ] && echo present || echo missing)" "the judge rubric file exists"
-assert_eq "present" "$([ -f "$SUITE/README.md" ] && echo present || echo missing)" "the run instructions exist"
+assert_file_exists "$SUITE" "evals/read-shunt exists"
+assert_file_exists "$SUITE/fixture_gen.py" "the shared seeded generator exists"
+assert_file_exists "$SUITE/rubric.md" "the judge rubric file exists"
+assert_file_exists "$SUITE/README.md" "the run instructions exist"
 
 # `results/` is where `claude plugin eval` writes each run (gitignored), not a case.
 found="$(find "$SUITE" -mindepth 1 -maxdepth 1 -type d ! -name results -exec basename {} \; 2>/dev/null | sort | tr '\n' ' ')"
@@ -127,11 +121,11 @@ assert_eq "$want" "$(printf '%s\n' $LARGE_CASES $CONTROL_CASES | sort | tr '\n' 
 for c in $ALL_CASES; do
   d="$SUITE/$c"
   for f in prompt.md case.yaml fixture.sh; do
-    assert_eq "present" "$([ -f "$d/$f" ] && echo present || echo missing)" "$c: $f exists"
+    assert_file_exists "$d/$f" "$c: $f exists"
   done
   graders="$(find "$d/graders" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
-  assert_eq "yes" "$([ "${graders:-0}" -ge 1 ] && echo yes || echo no)" "$c: at least one grader (a case without one fails to load)"
-  assert_eq "present" "$([ -f "$d/graders/judge.md" ] && echo present || echo missing)" "$c: carries the llm grader"
+  assert_true "$c: at least one grader (a case without one fails to load)" -- [ "${graders:-0}" -ge 1 ]
+  assert_file_exists "$d/graders/judge.md" "$c: carries the llm grader"
   assert_file_contains "$d/graders/judge.md" "type: llm" "$c: judge.md is an llm grader"
   assert_file_contains "$d/case.yaml" "scaffold_script: fixture.sh" "$c: case.yaml names its scaffold"
   assert_file_contains "$d/case.yaml" "name: $c" "$c: case.yaml name matches the directory"
@@ -163,7 +157,7 @@ for c in $ALL_CASES; do
     assert_eq "exit 0" "scaffold failed" "$c: scaffold exits 0"
     continue
   fi
-  assert_eq "yes" "$([ "$(count_files "$out")" -ge 1 ] && echo yes || echo no)" "$c: scaffold wrote at least one file"
+  assert_true "$c: scaffold wrote at least one file" -- [ "$(count_files "$out")" -ge 1 ]
   assert_eq "" "$(blind_hits "$out")" "$c: no blinding word in a generated path or file"
 done
 
@@ -209,8 +203,8 @@ assert_eq "0" "$(grep -c 'total_cents' "$TMP/billing-client-zero-total/billing_c
 assert_eq "0" "$(grep -c 'currency' "$TMP/catalog-currency-field/models.py")" "models.py has no currency field yet"
 assert_eq "0" "$(grep -c 'tax_for' "$TMP/orders-extract-tax/orders.py")" "orders.py has no tax_for yet"
 assert_eq "0" "$(grep -c 'checks' "$TMP/timeparse-coverage/timeparse.py")" "timeparse fixture ships no checks yet"
-assert_eq "no" "$([ -e "$TMP/settings-loader-port/settings_loader.py" ] && echo yes || echo no)" "no Python port ships with the loader"
-assert_eq "no" "$([ -e "$TMP/changelog-release-notes/RELEASE_NOTES.md" ] && echo yes || echo no)" "no release notes ship with the changelog"
+assert_file_absent "$TMP/settings-loader-port/settings_loader.py" "no Python port ships with the loader"
+assert_file_absent "$TMP/changelog-release-notes/RELEASE_NOTES.md" "no release notes ship with the changelog"
 assert_eq "1" "$(grep -c 'fetch_record' "$TMP/load-record-callers/svc/mod_07.py" | awk '{print ($1>0)}')" "mod_07.py still uses the old name"
 assert_eq "0" "$(grep -c 'fetch_record' "$TMP/load-record-callers/svc/mod_12.py")" "mod_12.py does not use the old name"
 

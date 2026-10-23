@@ -19,16 +19,12 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-export PYTHONDONTWRITEBYTECODE=1
-
 SCRIPTS=".agents/skills/eval/scripts"
 GRADER="$SCRIPTS/grade-read-shunt.py"
 INCIDENCE="$SCRIPTS/read-incidence.py"
 RESULTS="tests/fixtures/transcripts/results"
 
-TMP="$(mktemp -d)"
-[ -n "$TMP" ] && [ -d "$TMP" ] || { printf '  FAIL could not create fixture dir\n'; exit 1; }
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
 
 # --- § rows ------------------------------------------------------------------
 printf '\n--- rows: one row per run, every metric, paired means per arm ---\n'
@@ -208,7 +204,7 @@ assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; p
 printf '\n--- arranging: a kept `claude plugin eval` temp tree becomes the grader layout ---\n'
 
 ARRANGE="$SCRIPTS/arrange-plugin-eval-results.py"
-assert_eq "present" "$([ -f "$ARRANGE" ] && echo present || echo missing)" "arrange: arrange-plugin-eval-results.py exists"
+assert_file_exists "$ARRANGE" "arrange: arrange-plugin-eval-results.py exists"
 
 # What the runner leaves: <TEMP>/claude-eval-<id>/{out/trace.jsonl,config/projects/<cwd>/<session>.jsonl}
 # beside an aggregate-result.json whose runs name their trace by absolute path.
@@ -239,13 +235,13 @@ ARRANGED="$TMP/arranged"
 arr="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm gated --out "$ARRANGED" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "arrange: a kept temp tree and its aggregate arrange with exit 0"
 [ "$rc" = "0" ] || printf '%s\n' "$arr" | head -5
-assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/transcript.jsonl" ] && echo present || echo missing)" \
+assert_file_exists "$ARRANGED/gated/task-a/run-1/transcript.jsonl" \
   "arrange: run 1's session transcript lands at <arm>/<task>/run-1/transcript.jsonl"
-assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/subagents/agent-s1.jsonl" ] && echo present || echo missing)" \
+assert_file_exists "$ARRANGED/gated/task-a/run-1/subagents/agent-s1.jsonl" \
   "arrange: the session's sub-agent transcripts travel with it"
-assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/shunt.jsonl" ] && echo present || echo missing)" \
+assert_file_exists "$ARRANGED/gated/task-a/run-1/shunt.jsonl" \
   "arrange: the hook's tasks/.shunt/<session>.jsonl under the home's project lands as shunt.jsonl beside the transcript"
-assert_eq "missing" "$([ -e "$ARRANGED/gated/task-a/run-2/shunt.jsonl" ] && echo present || echo missing)" \
+assert_file_absent "$ARRANGED/gated/task-a/run-2/shunt.jsonl" \
   "arrange: a session whose home holds no hook log gets no shunt.jsonl"
 assert_eq '{"score": 1}' "$(cat "$ARRANGED/gated/task-a/run-1/outcome.json")" "arrange: outcome.json carries the runner's score"
 assert_eq '{"pass": false}' "$(cat "$ARRANGED/gated/task-a/run-2/outcome.json")" \
@@ -293,7 +289,7 @@ PY
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$TMP/aggregate-escape.json" --arm other --out "$TMP/arranged-3" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "arrange: a case name that is not a plain directory name exits 2"
 assert_contains "$err" "../escape" "arrange: the message names the offending case"
-assert_eq "missing" "$([ -e "$TMP/arranged-3" ] && echo present || echo missing)" \
+assert_file_absent "$TMP/arranged-3" \
   "arrange: nothing is written under --out for it"
 
 # `<keep-temp>` may be one home. It is taken as that run's home only when it is
@@ -321,13 +317,13 @@ cp "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1.jsonl" "$LOGHOME/config
 printf '%s\n' '{"decision":"deny","tool":"Read","input":{}}' > "$LOGHOME/config/projects/-enc-cwd/shunt.jsonl"
 err="$("$TEST_PYTHON" "$ARRANGE" "$TMP/kept-log" "$TMP/aggregate-one.json" --arm logged --out "$TMP/arranged-log" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "arrange: a shunt.jsonl beside the session transcript is not a second session"
-assert_eq "present" "$([ -f "$TMP/arranged-log/logged/task-a/run-1/transcript.jsonl" ] && echo present || echo missing)" \
+assert_file_exists "$TMP/arranged-log/logged/task-a/run-1/transcript.jsonl" \
   "arrange: the session transcript is still arranged beside a shunt log"
 
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT/claude-eval-AAA" "$AGG" --arm mixed --out "$TMP/arranged-mixed" 2>&1 >/dev/null)"; rc=$?
 assert_eq "2" "$rc" "arrange: a two-run aggregate pointed at one home exits 2 instead of reading that home twice"
 assert_contains "$err" "claude-eval-BBB" "arrange: the message names the home the second run needs"
-assert_eq "missing" "$([ -e "$TMP/arranged-mixed" ] && echo present || echo missing)" \
+assert_file_absent "$TMP/arranged-mixed" \
   "arrange: nothing is written for a mismatched home"
 
 # A runner score that is a bool is not a score — here and in the grader.
@@ -356,7 +352,7 @@ err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm other --out "$TMP/arranged
 assert_eq "2" "$rc" "arrange: a run whose temp home was not kept exits 2"
 assert_contains "$err" "claude-eval-BBB" "arrange: the message names the missing temp home"
 assert_contains "$err" "--keep-temp" "arrange: the message says how to keep it"
-assert_eq "missing" "$([ -e "$TMP/arranged-2" ] && echo present || echo missing)" \
+assert_file_absent "$TMP/arranged-2" \
   "arrange: nothing is written when any run cannot be arranged"
 
 # --- § shared parser ----------------------------------------------------------

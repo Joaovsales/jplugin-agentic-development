@@ -25,18 +25,13 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-# Importing the module from a probe must not drop __pycache__ into the tree.
-export PYTHONDONTWRITEBYTECODE=1
-
 SCRIPTS=".agents/skills/eval/scripts"
 FIX="tests/fixtures/transcripts"
 PARSER="$SCRIPTS/read_transcript.py"
 
-TMP="$(mktemp -d)"
-[ -n "$TMP" ] && [ -d "$TMP" ] || { printf '  FAIL could not create fixture dir\n'; exit 1; }
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
 
-assert_eq "present" "$([ -f "$PARSER" ] && echo present || echo missing)" "parser: read_transcript.py exists"
+assert_file_exists "$PARSER" "parser: read_transcript.py exists"
 
 # --- § parser --------------------------------------------------------------
 printf '\n--- parser: every fixture read classified from tool_use input plus toolUseResult.file ---\n'
@@ -402,9 +397,9 @@ assert_eq "0" "$rc" "report: the fixture root renders with exit 0"
 # results are 600 + 700 + 200 + 900 bytes; re-reads: big_module ranged after
 # whole, a.txt by tail and by sed after head = 3; one sub-agent read, large.
 assert_contains "$md" "| proj-a/s1 | 4 | 2 | 6714 |" "report: s1 reads, whole-file large reads and their bytes"
-assert_file_matches_text() { printf '%s\n' "$1" | grep -Eq "$2"; }
-assert_eq "yes" "$(assert_file_matches_text "$md" '^\| proj-a/s1 \| 4 \| 2 \| 6714 \| [0-9]+\.[0-9]%' && echo yes || echo no)" \
-  "report: s1 carries a percentage share"
+text_matches() { printf '%s\n' "$1" | grep -Eq "$2"; }
+assert_true "report: s1 carries a percentage share" -- \
+  text_matches "$md" '^\| proj-a/s1 \| 4 \| 2 \| 6714 \| [0-9]+\.[0-9]%'
 assert_contains "$md" "| 1 | 5 | 2400 |" "report: s1's truncated count, shell reads and shell bytes"
 assert_contains "$md" "(huge.log) | 3 | 51500 | 1 | 1 | 1 | 2 | 1 |" \
   "report: s1's largest result is huge.log; re-reads, final context, compactions, sub-agent reads and large, excluded, malformed"
