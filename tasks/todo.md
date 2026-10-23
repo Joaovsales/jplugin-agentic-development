@@ -2319,5 +2319,30 @@ Step ledger (routine `simplify`):
 - Completed: the visual-plan render moved into `/slice`'s propose phase (Step 6, after the readiness gate); `/plan` Step 3 reduced to the `/slice` call; wiring pins moved to `/slice` in `tests/test-plan-render.sh`; `specs/readable-visual-plans.md` D5 and `specs/plan-slices-and-handover.md` D2 revised; plugin 1.7.2.
 - Pending: the PR's Linux CI run of the full suite (the local Windows run carries the pre-existing baseline failures).
 - Carry-forward: the installed jplugin on this machine is at 1.6.2; update it after this merges so sessions pick up the new wiring.
-- [ ] citation-drift in .agents/skills/slice/SKILL.md <!-- task-id: simplify.agents-skills-slice-skill-md.citation-drift-in-agents-skills-slice-skill-md --> ([#357](https://github.com/Joaovsales/jplugin-agentic-development/issues/357))
+- [x] citation-drift in .agents/skills/slice/SKILL.md <!-- task-id: simplify.agents-skills-slice-skill-md.citation-drift-in-agents-skills-slice-skill-md --> ([#357](https://github.com/Joaovsales/jplugin-agentic-development/issues/357))
 - [ ] duplicate-rule in .agents/skills/auto-push/SKILL.md <!-- task-id: simplify.agents-skills-auto-push-skill-md.duplicate-rule-in-agents-skills-auto-push-skill-md --> ([#358](https://github.com/Joaovsales/jplugin-agentic-development/issues/358))
+
+## Plan: simplify-citation-drift-in-agents-skills-slice-skill-md
+
+> Routine: `simplify` #357 · branch `routine/simplify/357-citation-drift-in-slice-skill-md` · spec `specs/simplify-citation-drift-in-agents-skills-slice-skill-md.md`
+
+### Slice 1/1 — visual-plan heading is a name only
+[x] TDD: `signals.py rank --path .agents/skills/slice` reports `citation-drift` before and none after; `bash tests/test-citations.sh` green both times -> rename `/visual-plan` § *Skip when trivial (gate)* to § *Skip when trivial* (AC 1, 2, 3)
+
+> Handover: one heading renamed at `.agents/skills/visual-plan/SKILL.md:31`; `/slice` and every test untouched. Line count 105 -> 105. #358 (the sub-agent callout copied into three skills) is filed `design-decision` for `plan` — over the one-area unattended cap.
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #357 (filed this run by `/make-it-simpler --unattended` discovery, with #358 as a decision)
+- [x] 2. `task-registry claim 357 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/357-citation-drift-in-slice-skill-md`
+- [x] 4.1 `/make-it-simpler #357` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place
+- [x] 4.4 `/quality-gate` — Phases 1–4 inline, no findings; receipt GO 87b2863e policy qg1-b8f4dc32
+- [x] 5. `/wrap-up-session`
+- [ ] test-solutions-schema.sh reports a false missing field when grep -q wins the SIGPIPE race under pipefail <!-- task-id: discovered.tests-test-solutions-schema-sh.test-solutions-schema-sh-reports-a-false-missing-field-when-grep-q-wins-the-sigpipe-race-under-pipefail --> ([#359](https://github.com/Joaovsales/jplugin-agentic-development/issues/359))
+
+## Session Summary — [2026-10-23] [e7c14eb..ca67ce1]
+- Completed: #357 — `/visual-plan` § *Skip when trivial* is a name-only heading, so `/slice`'s citation resolves (simplify routine).
+- Pending: #358 filed `design-decision` for `plan` (one home for the sub-agent callout in three skills); #359 filed `bug` (flaky `tests/test-solutions-schema.sh` under pipefail).
+- Carry-forward: in a routine clone, fast-forward local `master` to `origin/master` before the first fingerprint (tasks/solutions/tooling/a-routine-clone-can-carry-a-stale-local-master-that-skews-every-merge-base.md).

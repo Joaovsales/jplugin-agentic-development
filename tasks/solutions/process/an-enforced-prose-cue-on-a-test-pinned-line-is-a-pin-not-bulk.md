@@ -28,3 +28,8 @@ system-design-planning, software-design-expert-review) and for
 file on purpose (`tests/test-review-context.sh` § 8, D19;
 `tests/test-doc-conventions.sh`). None was filed. The run shipped the one
 fact-signal candidate instead: a `citation-drift` in `/brainstorm` (#326).
+
+The 2026-10-23 run ranked the same pins at the top again (`AGENTS.md:16` at
+1980, the finding-model resolution paragraph as `duplicate-rule` in
+quality-gate). Reading this document first would have saved the re-derivation;
+the run again shipped a `citation-drift` fact (#357).
