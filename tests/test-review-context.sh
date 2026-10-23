@@ -27,7 +27,7 @@ cd "$REPO"
 # describe -- never to stating them.
 DISPATCH_SITE_FILES="skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/system-design-planning/SKILL.md"
 
-REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
+REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review test-engineer"
 
 # --- 1. The contract exists, in one place ------------------------------------
 # Canonical rather than copied into each skill: #61 removed four model IDs that

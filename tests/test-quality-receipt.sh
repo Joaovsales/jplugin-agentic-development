@@ -169,6 +169,30 @@ BRANCH_SAN="$(git -C "$REPO2" rev-parse --abbrev-ref HEAD | tr '/' '-')"
 assert_file_exists "$STORE2/branch-$BRANCH_SAN.json" "write: stores the branch pointer"
 assert_file_contains "$STORE2/branch-$BRANCH_SAN.json" "\"fingerprint\": \"$FP2\"" "write: pointer names this fingerprint"
 
+# --- a phase-5 reviewer entry (the test-engineer Review job) is accepted and recorded
+awk '{ if ($0 ~ /"phase": 4/) { print $0 ","; print "    {\"phase\": 5, \"lens\": \"test-engineer\", \"dispatch\": \"dispatched\"}" } else print $0 }'   "$BOX/outcome-go.json" > "$BOX/outcome-phase5.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-phase5.json"
+assert_exit 0 "write: an outcome with a phase-5 reviewer entry is accepted"
+assert_file_contains "$STORE2/$FP2.json" "\"lens\": \"test-engineer\"" "write: the phase-5 test-engineer reviewer is recorded in the receipt"
+assert_file_contains ".agents/skills/quality-gate/scripts/receipt.py" "agents\", \"test-engineer.md\""   "write: POLICY_FILES includes the test-engineer persona"
+
+# --- a required but undispatchable review is recorded as lost, and still validated
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost.json"
+assert_exit 0 "write: a reviewer entry with dispatch lost is accepted"
+assert_file_contains "$STORE2/$FP2.json" "\"dispatch\": \"lost\"" "write: the lost dispatch is carried in the receipt"
+sed '/"phase": 4/ s/"dispatch": "[a-z]*"/"dispatch": "lost"/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-phase4.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-phase4.json"
+assert_exit 2 "write: dispatch lost on a phase 1-4 entry is refused"
+assert_contains "$output" "lost is only for the phase 5 test-engineer" "write: the lost-on-phase-4 refusal says where lost is allowed"
+sed 's/"lens": "test-engineer", "dispatch": "dispatched"}$/"lens": "other", "dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-other-lens.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-other-lens.json"
+assert_exit 2 "write: dispatch lost on a phase 5 entry with another lens is refused"
+assert_contains "$output" "lost is only for the phase 5 test-engineer" "write: the lost-on-another-lens refusal says where lost is allowed"
+sed 's/"dispatch": "dispatched"}$/"dispatch": "skipped"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-skipped.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-skipped.json"
+assert_exit 2 "write: an unknown dispatch value is still refused"
+
 # --- MUST-FIX forces STOP regardless of a supplied verdict -----------------
 make_outcome "$BOX/outcome-mustfix.json" "$TREE2" yes 0 GO 0 '"full"' "GO"
 OUT="$(receipt_in "$REPO2" write --outcome "$BOX/outcome-mustfix.json")"
@@ -336,6 +360,18 @@ RECEIPT_COPY="$COPY_ROOT/.agents/skills/quality-gate/scripts/receipt.py"
 printf '\n<!-- test edit -->\n' >> "$COPY_ROOT/.agents/skills/quality-gate/SKILL.md"
 assert_refused 3 "receipt: stale policy-changed" "check: an edited policy file is stale, reason policy-changed" -- \
   bash -c 'cd "$1" && shift && "$@"' _ "$REPO3" "$PY" "$RECEIPT_COPY" check --base main
+
+# --- policy-changed: editing the test-engineer persona alone stales a receipt
+COPY_ROOT2="$BOX/policy-copy-persona"
+mkdir -p "$COPY_ROOT2"
+cp -r "$REPO/.agents" "$COPY_ROOT2/.agents"
+printf '
+<!-- test edit -->
+' >> "$COPY_ROOT2/.agents/agents/test-engineer.md"
+OUT="$(cd "$REPO3" && "$PY" "$COPY_ROOT2/.agents/skills/quality-gate/scripts/receipt.py" check --base main)"
+CODE=$?
+assert_eq "3" "$CODE" "check: an edited test-engineer persona is stale"
+assert_contains "$OUT" "receipt: stale policy-changed" "check: the test-engineer persona edit names policy-changed"
 
 # --- parent-invalid: corrupt a chain ancestor's policy ---------------------
 REPO4="$(feature_repo)"

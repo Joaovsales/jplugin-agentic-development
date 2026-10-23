@@ -24,6 +24,7 @@
 | `code-debugger` | Root-cause analysis for errors, test failures, runtime bugs |
 | `security-reviewer` | OWASP checks, injection vectors, auth flows, data exposure |
 | `software-design-expert-review` | Read-only APOSD structural review — depth, leakage, coupling, unknown unknowns, error design |
+| `test-engineer` | Read-only test adequacy review against the spec's acceptance criteria and interface (Review job) |
 
 ### Utilities
 | Agent | Purpose |

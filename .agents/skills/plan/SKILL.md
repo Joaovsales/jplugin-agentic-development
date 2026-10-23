@@ -149,6 +149,17 @@ implementation_paths:
 - [Edge case 1 and expected behavior]
 - [Edge case 2 and expected behavior]
 
+## Interfaces
+[Optional: one entry per module whose interface the change creates or reshapes]
+
+### <module or entry point>
+
+- **Path:** `<file the change creates or reshapes>`
+- **Hides:** <the decision or state callers never learn>
+- **Interface:** <the signature or command, in one line>
+- **Alternative considered:** <the other shape, and why it lost>
+- **Depth:** <what one call does so the caller need not>
+
 ## Risks
 [Optional]
 

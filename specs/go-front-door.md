@@ -145,7 +145,7 @@ opens on the first of those.
 
 `fix` is the `fix` routine's chain, so an issue-referenced defect and a typed
 one run identically. `refactor` goes through `/plan` because nothing else in its
-chain writes the `[ ] TDD:` rows `/build` consumes, and `/plan` is where the
+chain writes the spec and plan block `/build` consumes, and `/plan` is where the
 harness already asks the human before code changes. `babysit`'s first steps are
 read-only; the moment it needs a code change it hands to `/debug` or `/plan`,
 whose own rules apply.
@@ -242,7 +242,7 @@ exists.
   ` — skip: <reason>` append and the ` — handed over: build prompt` append
   (specs/lane-plan-handover.md) are the two edits `/go` makes to a block after
   writing it; it never reorders, deletes, or rewrites a line.
-- The chain's own artifacts (specs, `[ ] TDD:` rows, PRs, debug documents)
+- The chain's own artifacts (specs, plan blocks, PRs, debug documents)
   unchanged and owned by the skills that write them.
 - The closing reply described in *Behavior* step 4.
 

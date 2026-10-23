@@ -114,7 +114,7 @@ done
 # a finding with no confidence downstream, where it degrades to anchor 50 and is
 # never applied -- so a silently dropped axis reads as "reviewer found nothing
 # actionable". Pinned per axis and per enum value in BOTH trees.
-for base in code-reviewer critic security-reviewer software-design-expert-review; do
+for base in code-reviewer critic security-reviewer software-design-expert-review test-engineer; do
   for f in "$CANONICAL/$base.md" "$CLAUDE/$base.md"; do
     for axis in severity confidence autofix_class owner; do
       assert_file_contains "$f" "$axis" "Findings: $f emits the $axis axis"
@@ -352,6 +352,29 @@ assert_prose_contains "$CR" 'a summary for the orchestrator' \
 assert_prose_contains "$CR" 'No "consider…"' "AC4: code-reviewer bans 'consider'"
 assert_prose_contains "$CR" 'no style taste' "AC4: code-reviewer bans style taste"
 assert_prose_contains "$CR" 'no vague worry' "AC4: code-reviewer bans vague worries"
+
+# --- 9. test-engineer: one persona, one Review job (AC13) ---------------------
+# Unlike the other .claude/agents copies it pins no model: the tier rides each
+# dispatch from model-routing.md, so a pinned alias would fix it silently.
+TE="$CANONICAL/test-engineer.md"
+assert_files_identical "$TE" "$CLAUDE/test-engineer.md"   "AC13: test-engineer.md is byte-identical in both trees"
+assert_file_not_matches "$CLAUDE/test-engineer.md" '^model:'   "AC13: the .claude copy of test-engineer pins no model"
+for needle in '## Review job' 'Reviewer tier' 'an AC with no test' 'an edge case neither tested nor defined away'               'a test that reaches past the interface' 'no spec — '; do
+  assert_prose_contains "$TE" "$needle" "AC13: test-engineer names '$needle'"
+done
+TE_TEXT="$(cat "$TE")"
+for needle in '## Write job' 'Builder tier' 'context: fresh' 'an amendment that weakens a test' '> Frozen:' '> Test amended:'; do
+  assert_not_contains "$TE_TEXT" "$needle" "revert: test-engineer carries no '$needle'"
+done
+for tree_file in .agents/references/model-routing.md config/agent-policy.toml README.md                  PI_SETUP.md .claude/AGENTS.md; do
+  assert_file_contains "$tree_file" 'test-engineer' "AC13: $tree_file lists test-engineer"
+done
+
+# --- 10. software-design-expert-review: R2 and R10 follow the book (AC16) ------
+for f in "$CANONICAL/software-design-expert-review.md" "$CLAUDE/software-design-expert-review.md"; do
+  assert_file_matches "$f" '^\| \*\*MEDIUM\*\*[^|]*\| `SHOULD-FIX` \|[^|]*R2 \(Pass-Through' "AC16: $f rates R2 pass-through SHOULD-FIX in the severity-mapping row"
+  assert_prose_contains "$f" 'cannot be understood apart' "AC16: $f defines R10 as conjoined methods that cannot be understood apart"
+done
 
 # --- floor: the doc guards count through the library only (AC 12) --------------
 # pass and fail in lib.sh are the only writers of the counters, and finish fails a

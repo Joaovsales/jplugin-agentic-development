@@ -135,7 +135,7 @@ simplify = simplify
 ; write a `skip:` row on every single run.
 [routines.skills]
 plan = /plan, /wrap-up-session
-fix = /debug, /build, /quality-gate, /wrap-up-session
+fix = /debug, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
 simplify = /make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session

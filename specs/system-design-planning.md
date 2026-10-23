@@ -23,18 +23,18 @@ implementation_paths:
 `/brainstorm` → `/plan` pair for architecture-shaped changes. It takes an issue
 reference or a free-text idea, reads the real codebase, and writes one
 architecture spec in a fixed section order: constraints, system design,
-component contracts, data models, build order, decisions, acceptance criteria,
-implementation paths. It renders that spec to a self-contained HTML document and
+component contracts, data models, an optional interfaces section, build order,
+decisions, acceptance criteria, implementation paths. It renders that spec to a self-contained HTML document and
 stops at a human review loop: change requests are applied to the spec in place
 and the document is re-rendered. When the reviewer has nothing left, the skill
 invokes `/slice`, which writes § Build Order into the spec and a `## Plan:` block
-of `[ ] TDD:` rows to `tasks/todo.md`, grouped under `### Slice` headings whose
-header row is the registry's row for that slice, and the skill ends with the
-build prompt for a fresh session. Nothing is filed and nothing is built in the
-planning session; the build session started with that prompt files one task per
-slice in `/build`'s pre-flight and then consumes the block. The slice header is
-the one row `/build` reads differently — claimed and closed with its children,
-never built on its own.
+to `tasks/todo.md`: one feature link, then one `### Slice` heading per slice
+with a header row that carries a name and what it delivers, and the skill ends
+with the build prompt for a fresh session. Nothing is filed and nothing is built
+in the planning session; the build session started with that prompt links the
+one feature issue in `/build`'s pre-flight and then consumes the block,
+dispatching every slice to a sub-agent. The slice header row is closed when the
+slice's criteria pass and is never built on its own.
 
 The skill never edits source, never files before approval, and never talks to a
 tracker except through `task-registry.py`.
@@ -55,8 +55,8 @@ tracker except through `task-registry.py`.
 |--------|------|----------|
 | Architecture spec, living-contract format | `specs/<feature>.md` | `/build` pre-flight, `/wrap-up-session` reconciliation, `/verify-evidence` |
 | Rendered review document | `specs/<feature>.plan.html` | the human reviewer; the approval attaches to this file |
-| One task per build slice | tracker via `task-registry.py upsert --derive-id design --spec specs/<feature>.md --fold-title` | `/build` claims and reads criteria with `show` |
-| TDD plan block | appended to `tasks/todo.md`, one `### Slice n/total` heading per slice, `[ ] TDD:` rows beneath | `/build` Phase 1 |
+| One feature issue | tracker via `task-registry.py upsert --derive-id plan --spec specs/<feature>.md`, run by `/build`'s pre-flight | `/wrap-up-session` closes it |
+| Plan block | appended to `tasks/todo.md`: one feature link, one `### Slice n/total` heading per slice with a header row beneath | `/build` Phase 1 |
 
 ## Edge Cases
 
@@ -93,9 +93,9 @@ tracker except through `task-registry.py`.
   headings of the spec it writes, in the order constraints, system design,
   component contracts, data models, build order.
 - The skill reads issue references only through `task-registry.py show` and
-  files nothing itself: `/slice <spec> --file` mints and files one task per
-  slice with `task-registry.py upsert --derive-id plan` in the session the
-  build prompt starts.
+  files nothing itself: `/build`'s pre-flight links the one feature issue with
+  `task-registry.py upsert --derive-id plan` in the session the build prompt
+  starts.
 - The skill renders the spec markdown alone through `.agents/skills/visual-plan/scripts/plan_render.py`
   to `specs/<feature>.plan.html` and prints that path before asking for review
   (specs/readable-visual-plans.md; the content model is retired).
@@ -103,7 +103,7 @@ tracker except through `task-registry.py`.
   session, that the review loop attaches to the rendered document, and that
   the build prompt a human starts the build session with is the authorization
   `/build`'s pre-flight passes to the write gate as `--approve`.
-- Through `/slice`, `[ ] TDD:` rows grouped under `### Slice` headings reach
+- Through `/slice`, slice header rows under `### Slice` headings reach
   `tasks/todo.md` with `> Spec:` alone on its line, and the skill ends with
   `Spec and plan are ready to be built. Start a fresh session with this
   prompt:` followed by the build prompt; `/build` names the slice header row it

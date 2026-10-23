@@ -146,8 +146,12 @@ for tree in $TREES; do
     "AC5: $tree/debug invokes the unattended escalation owner"
   assert_prose_contains "$f" "non-zero" \
     "AC5: $tree/debug exits non-zero when blocked"
-  assert_file_contains "$f" "[ ] TDD:" \
-    "AC5: $tree/debug writes TDD tasks from the issue's proposed fix and criteria"
+  assert_file_contains "$f" "## Fix: #N" \
+    "AC8: $tree/debug writes the Fix block from the issue's criteria"
+  assert_file_contains "$f" '- [ ] <criterion' \
+    "AC8: $tree/debug writes plain criterion rows"
+  assert_file_not_matches "$f" '\[ \] TDD:' \
+    "AC8: $tree/debug writes no TDD: row"
 done
 # The step rows live in the lane file (specs/lane-catalogue.md); `<ref>` is `#N`
 # on a scheduled run and the goal text when /go picked the lane.

@@ -182,7 +182,7 @@ Invoke `/build` for `specs/codex-scout-routing.md`.
 Plan: `## Plan: codex-scout-routing` in `tasks/todo.md`, 6 slices, ready set 1.
 Files: config/agent-policy.toml, scripts/agent-policy, scripts/agent_policy/**, scripts/render-codex.py, scripts/install-codex.sh, .agents/references/model-routing.md, .agents/skills/how/SKILL.md, .agents/skills/why/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/prd/SKILL.md, .agents/skills/grilling/SKILL.md, .agents/skills/system-design-planning/SKILL.md, tests/test-agent-policy.sh, tests/test-codex-install.sh, tests/test-model-tiers.sh, tests/test-how-why-skills.sh, tests/test-doc-conventions.sh, tests/fixtures/agent-policy/**, README.md.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/codex-scout-routing.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

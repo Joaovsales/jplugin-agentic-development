@@ -80,13 +80,16 @@ Write the implementation plan to `tasks/todo.md`:
 > Spec: specs/[feature-name].md
 > Status: Pending user approval
 
-[ ] TDD: [test name — what behavior is verified] -> [minimal impl detail]
-[ ] TDD: [test name] -> [impl detail]
-[ ] TDD: [test name] -> [impl detail]
+### Slice 1/[N] — [name]
+- [ ] [name] — [what the slice delivers]
 ```
 
-Rules for tasks:
-- Each task must map to exactly one testable behavior
+Slice rows are headers only; the tests are written later, when `/build` runs
+each slice's criteria through `/tdd`. A bug's fix block is plain `- [ ]`
+criterion rows that `/debug` runs through `/tdd` itself.
+
+Rules for slices:
+- Each slice must map to testable behavior
 - Order by dependency (prerequisites first)
 - No task should take more than 30 minutes to implement
 - If a task feels large, split it

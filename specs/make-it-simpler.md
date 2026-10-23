@@ -77,7 +77,7 @@ change, changing `/yolo` or `/auto-push`, and new `task-registry` verbs.
  lanes today: fix(bug,tech-debt) improve(enhancement,documentation) plan(design-decision)
               producers janitor/architect/tidy · interactive refactor/perf/investigate/babysit/none
  /plan Step 6 prints a build prompt and stops; only /yolo and /auto-push override it (AGENTS.md:16)
- /build pre-flight files one issue per slice (/slice --file)
+ /build pre-flight links one feature issue (upsert --derive-id plan)
  upsert writes tasks/todo.md on every --apply (upsert.py:242) and reopens a closed id (upsert.py:166)
  task-registry has no release or close verb; escalate takes investigation reasons only (escalation.py:20)
 ```
@@ -112,7 +112,7 @@ change, changing `/yolo` or `/auto-push`, and new `task-registry` verbs.
                                  nothing filed, nothing selected: exit 0, silent, no branch
  preview:      operator  ─(1)► /make-it-simpler --prepare   (steps a–b only; the operator commits the index rows)
 
- lane steps 2–5:  /plan <spec> (Step 6: no prompt, /build in place) ─► /build (pre-flight: no slice filing)
+ lane steps 2–5:  /plan <spec> (Step 6: no prompt, /build in place) ─► /build (pre-flight: files nothing)
                   ─► /quality-gate ─► /wrap-up-session
 ```
 
@@ -181,7 +181,7 @@ Each candidate shown interactively carries its signal, a `file:line` evidence qu
 |---|---|
 | `/plan` Step 1 — Interview | the spec the skill wrote carries § Decisions; `/plan` prints `DECISIONS CARRIED` and asks nothing unattended. Interactive runs already grilled |
 | `/plan` Step 6 — Hand over | prints no prompt; `/build` runs in place |
-| `/build` pre-flight — filing | no `/slice --file`: the `simplify` task is the tracked unit, the slices stay plan-block rows, and slice headers are not claimed |
+| `/build` pre-flight — feature issue | files nothing: the claimed `simplify` task is the plan's `> Issue:`, the slices stay plan-block rows, and slice headers are not claimed |
 
 ### `task-registry` — as called
 
@@ -282,7 +282,7 @@ Sizing: 9 slices. Ceiling: per `slice/references/sizing.md`. Over: slices 1–3:
 | 2 | Signal boundaries | `--path` matching nothing exits 2; `tests/fixtures/` and `/tidy`-owned findings never surface | `.agents/skills/make-it-simpler/scripts/signals.py`, `tests/fixtures/make-it-simpler/**`, `tests/test-make-it-simpler.sh` | 1 | 3, 4 | `bash tests/test-make-it-simpler.sh` | 3 files · 3 systems · 2 ACs |
 | 3 | Lens references | `references/lens.md` (signals, `W`, exclusions) and `references/safe-moves.md` (five practices) | `.agents/skills/make-it-simpler/references/lens.md`, `.agents/skills/make-it-simpler/references/safe-moves.md`, `tests/test-make-it-simpler.sh` | 2 | 5, 6 | `bash tests/test-make-it-simpler.sh && bash tests/test-citations.sh` | 3 files · 2 systems · 2 ACs |
 | 4 | Skill body | `SKILL.md`: grammar, top-3 fields, significance citation, grilling seeds, safe-moves seeding, unattended sequence and its ends, scope stop; README row | `.agents/skills/make-it-simpler/SKILL.md`, `README.md`, `tests/test-make-it-simpler.sh`, `tests/test-instruction-budget.sh` | 3 | 7, 8, 9, 10 | `bash tests/test-make-it-simpler.sh && bash tests/test-instruction-budget.sh && bash tests/test-skills-table.sh && bash tests/test-skill-frontmatter.sh` | 4 files · 3 systems · 4 ACs |
-| 5 | Pipeline overrides | `SKILL.md` owns the `/plan` Step 1, Step 6 and `/build` pre-flight filing overrides; `AGENTS.md` names the third exception; `/yolo`, `/auto-push` and the registry CLI untouched | `.agents/skills/make-it-simpler/SKILL.md`, `AGENTS.md`, `tests/test-doc-conventions.sh` | 4 | 11, 12 | `bash tests/test-doc-conventions.sh && bash tests/test-instruction-budget.sh && git diff --quiet master -- .agents/skills/yolo .agents/skills/auto-push .agents/skills/task-registry/scripts/task-registry.py .agents/skills/task-registry/scripts/registry/upsert.py` | 3 files · 3 systems · 2 ACs |
+| 5 | Pipeline overrides | `SKILL.md` owns the `/plan` Step 1, Step 6 and `/build` pre-flight feature-issue overrides; `AGENTS.md` names the third exception; `/yolo`, `/auto-push` and the registry CLI untouched | `.agents/skills/make-it-simpler/SKILL.md`, `AGENTS.md`, `tests/test-doc-conventions.sh` | 4 | 11, 12 | `bash tests/test-doc-conventions.sh && bash tests/test-instruction-budget.sh && git diff --quiet master -- .agents/skills/yolo .agents/skills/auto-push .agents/skills/task-registry/scripts/task-registry.py .agents/skills/task-registry/scripts/registry/upsert.py` | 3 files · 3 systems · 2 ACs |
 | 6 | Register the simplify routine | Lane file; `kind_precedence`, selector and chain in `config.py`, the template and `docs/task-tracking.md`; the `routines.md` table row and precedence block; `CONTRACT_ROUTINES`; and every test that mirrors them | `.agents/skills/task-registry/lanes/simplify.md`, `.agents/skills/task-registry/scripts/registry/config.py`, `.agents/skills/task-registry/templates/task-tracking.md`, `docs/task-tracking.md`, `.agents/skills/wrap-up-session/references/routines.md`, `.agents/skills/wrap-up-session/scripts/routine_branch.py`, `tests/test-lane-catalogue.sh`, `tests/test-routines-contract.sh`, `tests/test-routine-branch.sh`, `tests/test-routine-selectors.sh` | 4 | 13, 14, 15 | `bash tests/test-lane-catalogue.sh && bash tests/test-routines-contract.sh && bash tests/test-routine-branch.sh && bash tests/test-routine-selectors.sh && bash tests/test-task-registry.sh && bash tests/test-go-lanes.sh` | 10 files · 8 systems · 3 ACs |
 | 7 | Routine wrap-up rules | `routines.md` gains the `simplify` steps section, the two branch rows, and the scope stop in § *Fix-escalation terminal* | `.agents/skills/wrap-up-session/references/routines.md`, `tests/test-routine-wrapup.sh`, `tests/test-routines-contract.sh` | 6 | 16, 17 | `bash tests/test-routine-wrapup.sh && bash tests/test-routines-contract.sh && bash tests/test-citations.sh` | 3 files · 3 systems · 2 ACs |
 | 8 | Selection precedence | Pins: `simplify`+`tech-debt` → `simplify`; `design-decision`+`simplify` → `plan` | `tests/test-routine-selectors.sh` | 6 | 18 | `bash tests/test-routine-selectors.sh` | 1 file · 1 system · 1 AC |
@@ -297,7 +297,7 @@ Invoke `/build` for `specs/make-it-simpler.md`.
 Plan: `## Plan: make-it-simpler` in `tasks/todo.md`, 9 slices, ready set <1>.
 Files: .agents/skills/make-it-simpler/**, .agents/skills/task-registry/lanes/simplify.md, .agents/skills/task-registry/scripts/registry/config.py, .agents/skills/task-registry/templates/task-tracking.md, .agents/skills/wrap-up-session/scripts/routine_branch.py, .agents/skills/wrap-up-session/references/routines.md, .agents/skills/go/SKILL.md, docs/task-tracking.md, AGENTS.md, README.md, tests/test-make-it-simpler.sh, tests/test-lane-catalogue.sh, tests/test-routines-contract.sh, tests/test-routine-selectors.sh, tests/test-routine-branch.sh, tests/test-routine-wrapup.sh, tests/test-go-lanes.sh, tests/test-instruction-budget.sh, tests/test-doc-conventions.sh, tests/fixtures/make-it-simpler/**.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/make-it-simpler.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when the plan's feature row has no link. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -338,7 +338,7 @@ Constraints: The GitHub simplify label is created by the operator, never by a te
 | D23 | Declined PR → cancelled | automatic · by hand | by hand; no registry verb exists (C15) | user (Q28) | a `close` verb lands |
 | D24 | `signals.py` weight `W` for always-loaded | 3 · 5 · 10 | 5 | assumed | pick history shows always-loaded candidates dominate or never surface |
 | D25 | Where the index rows go | same PR · producer record PR · operator | the unattended run commits them on its routine branch; decisions-only days get a docs-only PR on `routine/simplify/<YYYYMMDD>-record` | user (Q29) | — |
-| D26 | Slice issues | file per slice · skip | skip: `/build` pre-flight filing is overridden; the `simplify` task is the tracked unit | user (Q30) | a build ever needs per-slice tracking (then pass `--parent #N`) |
+| D26 | Slice issues | file per slice · skip | skip: `/build` pre-flight files nothing; the `simplify` task is the tracked unit | user (Q30) | a build ever needs per-slice tracking |
 | D27 | Size signals and noisy paths (from the first run, #231) | keep · cue-weight size hits · exclude logs | `code-red-flag`, and `over-budget` outside always-loaded files, save 1 line (a cue: moving or splitting lines saves none); `tasks/` is excluded like `tests/fixtures/`; `specs/` is never a `duplicate-rule` home | user (2026-10-01, after the first run ranked 8 size hits in the top 10 and 36th-place real duplicates) | a size hit the deep review confirms keeps ranking below the prose signals it should beat |
 
 ## Acceptance Criteria
@@ -353,7 +353,7 @@ Constraints: The GitHub simplify label is created by the operator, never by a te
 - `SKILL.md` cites `/system-design-planning` § *When to Use / When Not* as the significance bar and does not restate its list.
 - `SKILL.md` states the argument grammar (`#N`/registry id, tracked path, free text, nothing), the top-3 fields (signal, `file:line` evidence, lines saved, callers, minor/significant), "none today writes nothing", the four grilling seeds, and that the five `safe-moves.md` practices are seeded as § Decisions rows in every spec it writes.
 - `SKILL.md` states the unattended sequence — rank, classify, size against `slice/references/sizing.md`, `show` before `upsert` skipping `done`/`cancelled`, file, spine 1–3, index rows as the branch's first commit — its three ends (ready PR; docs-only record PR on `routine/simplify/<YYYYMMDD>-record`; silent exit 0), and the scope stop (non-zero, no PR, claim left, one line with the remedy).
-- `SKILL.md` owns an override table with `/plan` Step 1, `/plan` Step 6 (no prompt, `/build` in place) and `/build` pre-flight filing (no `/slice --file`, slice headers unclaimed) rows, and names the fresh-session rule it is excepted from; `AGENTS.md`'s named-exceptions sentence names `/make-it-simpler`.
+- `SKILL.md` owns an override table with `/plan` Step 1, `/plan` Step 6 (no prompt, `/build` in place) and `/build` pre-flight feature-issue (files nothing, slice headers unclaimed) rows, and names the fresh-session rule it is excepted from; `AGENTS.md`'s named-exceptions sentence names `/make-it-simpler`.
 - `.agents/skills/yolo/SKILL.md`, `.agents/skills/auto-push/SKILL.md` and the `task-registry` CLI and `upsert` modules are unchanged.
 - `task-registry lanes simplify` prints a consumer lane selecting `simplify` whose chain is `/make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session`, and whose step 5 requires the PR body to quote the before- and after-proof, a `Behavior changes:` section (a list or `none`) and a `Simplified:` line; `tests/test-lane-catalogue.sh` passes with the lane counted.
 - `kind_precedence` is `bug, design-decision, simplify, tech-debt, enhancement, documentation` in `config.py`, `docs/task-tracking.md`, the template and the `routines.md` § *Kind precedence* block; `docs/task-tracking.md` and the template declare `simplify = simplify` and its chain; `task-registry selectors` validates, and `tests/test-routine-selectors.sh`'s default-chain, selector-union and label-fixture pins include `simplify`.

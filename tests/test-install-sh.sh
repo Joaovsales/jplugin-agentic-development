@@ -234,14 +234,14 @@ assert_contains "$(cat "$box/out2.log")" "already" \
 
 # ── Case 1b: no `claude`, copies present — kept, not even listed, state reported ─
 box="$(run_install "")"; h="$box/home"
-mkdir -p "$h/.claude/skills/plan" "$h/.claude/skills/tdd"; touch "$h/.claude/skills/plan/SKILL.md" "$h/.claude/skills/tdd/SKILL.md"
+mkdir -p "$h/.claude/skills/plan" "$h/.claude/skills/deslop"; touch "$h/.claude/skills/plan/SKILL.md" "$h/.claude/skills/deslop/SKILL.md"
 rerun_install "$box" "" nocli.log
 assert_contains "$(cat "$box/nocli.log")" "skills source: legacy-copy" \
   "no claude, copies present: the derived state is legacy-copy"
 assert_not_contains "$(cat "$box/nocli.log")" "Delete them?" \
   "no claude, copies present: the removal prompt is not offered — the copies are all this machine has"
 assert_file_exists "$h/.claude/skills/plan" "no claude, copies present: current template name kept"
-assert_file_exists "$h/.claude/skills/tdd" "no claude, copies present: retired template name kept"
+assert_file_exists "$h/.claude/skills/deslop" "no claude, copies present: retired template name kept"
 
 # ── Case 2b: the CLI failing aborts the run loudly and touches no skill copy ──
 box="$(CLAUDE_STUB_FAIL=install run_install "" --with-claude)"; h="$box/home"
@@ -253,7 +253,7 @@ assert_file_exists "$h/.claude/skills/$USER_SKILL/SKILL.md" "cli failure: user's
 # Three entries: a name the template never carried, a current template skill and
 # a skill retired in template history. Only the last two are candidates (#52).
 # A shallow checkout of this repository cannot name retired template skills —
-# Case 3b pins that install.sh says so — so the assertions that need `tdd` to
+# Case 3b pins that install.sh says so — so the assertions that need `deslop` to
 # come out of git history skip there instead of failing: a routine's cloud
 # container clones with --depth 1.
 REPO_SHALLOW="$(git -C "$REPO" rev-parse --is-shallow-repository 2>/dev/null)"
@@ -265,8 +265,8 @@ unless_shallow() {  # unless_shallow <assert> <args…> — the last arg is the 
   fi
 }
 plant_legacy() {
-  mkdir -p "$1/.claude/skills/aws-saml2aws-auth" "$1/.claude/skills/plan" "$1/.claude/skills/tdd"
-  touch "$1/.claude/skills/aws-saml2aws-auth/SKILL.md" "$1/.claude/skills/plan/SKILL.md" "$1/.claude/skills/tdd/SKILL.md"
+  mkdir -p "$1/.claude/skills/aws-saml2aws-auth" "$1/.claude/skills/plan" "$1/.claude/skills/deslop"
+  touch "$1/.claude/skills/aws-saml2aws-auth/SKILL.md" "$1/.claude/skills/plan/SKILL.md" "$1/.claude/skills/deslop/SKILL.md"
 }
 for answer in "" "N"; do
   box="$(run_install "" --with-claude)"; h="$box/home"; plant_legacy "$h"
@@ -274,11 +274,11 @@ for answer in "" "N"; do
   label="answered '${answer:-EOF}'"
   assert_contains "$(cat "$box/legacy.log")" "plan" \
     "legacy copies ($label): current template name is listed"
-  unless_shallow assert_contains "$(cat "$box/legacy.log")" "tdd" \
+  unless_shallow assert_contains "$(cat "$box/legacy.log")" "deslop" \
     "legacy copies ($label): retired template name is listed"
   assert_file_exists "$h/.claude/skills/plan" \
     "legacy copies ($label): current template name kept"
-  assert_file_exists "$h/.claude/skills/tdd" \
+  assert_file_exists "$h/.claude/skills/deslop" \
     "legacy copies ($label): retired template name kept"
   assert_file_exists "$h/.claude/skills/aws-saml2aws-auth" \
     "legacy copies ($label): never-carried name kept"
@@ -289,15 +289,15 @@ done
 box="$(run_install "" --with-claude)"; h="$box/home"; plant_legacy "$h"
 # A retired template skill copied into ~/.agents/skills/ by an earlier install
 # stays beside its replacement for Pi and Codex: named, never deleted.
-mkdir -p "$h/.agents/skills/tdd"; touch "$h/.agents/skills/tdd/SKILL.md"
+mkdir -p "$h/.agents/skills/deslop"; touch "$h/.agents/skills/deslop/SKILL.md"
 rerun_install "$box" "y" legacy.log
-unless_shallow assert_contains "$(cat "$box/legacy.log")" "retired template skills: tdd" \
+unless_shallow assert_contains "$(cat "$box/legacy.log")" "retired template skills: deslop" \
   "~/.agents/skills/: a retired template skill left there is named"
-assert_file_exists "$h/.agents/skills/tdd" \
+assert_file_exists "$h/.agents/skills/deslop" \
   "~/.agents/skills/: ... and never deleted"
 assert_file_absent "$h/.claude/skills/plan" \
   "legacy copies (answered y): current template name deleted"
-unless_shallow assert_file_absent "$h/.claude/skills/tdd" \
+unless_shallow assert_file_absent "$h/.claude/skills/deslop" \
   "legacy copies (answered y): retired template name deleted"
 assert_file_exists "$h/.claude/skills/aws-saml2aws-auth" \
   "legacy copies (answered y): never-carried name is never a candidate"
@@ -315,7 +315,7 @@ assert_contains "$(cat "$box/shallow.log")" "shallow clone" \
   "shallow checkout: the NOTE says retired names are unknown"
 assert_contains "$(cat "$box/shallow.log")" "    - plan" \
   "shallow checkout: current template names are still candidates"
-assert_not_contains "$(cat "$box/shallow.log")" "    - tdd" \
+assert_not_contains "$(cat "$box/shallow.log")" "    - deslop" \
   "shallow checkout: a retired name is not guessed"
 
 # ── Case 9: copies an earlier install.sh wrote are listed, deleted only on y ──

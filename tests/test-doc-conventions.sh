@@ -97,7 +97,7 @@ for f in .agents/skills/system-design-planning/SKILL.md; do
                "task-registry.py show" \
                ".agents/skills/visual-plan/scripts/plan_render.py" ".plan.html" \
                "references/review-card.md" "templates/architecture-spec-template.md" \
-               "[ ] TDD:" "### Slice" "UNVERIFIED"; do
+               "### Slice" "UNVERIFIED"; do
     assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
   done
   # The four elements plus the build order, in the order the spec table lists them.
@@ -137,9 +137,17 @@ done
 # pinned by the smallest falsifiable unit — heading order and question ids —
 # never by prose.
 tmpl=.agents/skills/system-design-planning/templates/architecture-spec-template.md
-assert_eq "Summary Problem Constraints System design Component contracts Data models Risks Build order Decisions Open questions Acceptance Criteria Implementation Paths" \
+assert_eq "Summary Problem Constraints System design Component contracts Data models Interfaces Risks Build order Decisions Open questions Acceptance Criteria Implementation Paths" \
   "$(grep '^## ' "$tmpl" | tr -d '\r' | sed 's/^## //' | paste -sd ' ' -)" \
-  "system-design-planning: spec template carries the twelve sections in order"
+  "system-design-planning: spec template carries the thirteen sections in order"
+# specs/aposd-first-build.md AC9: both templates carry the optional § Interfaces
+# section with its five fields.
+for f in "$tmpl" .agents/skills/plan/SKILL.md; do
+  assert_file_contains "$f" "## Interfaces" "interfaces: $f carries the section"
+  for field in "Path:" "Hides:" "Interface:" "Alternative considered:" "Depth:"; do
+    assert_file_contains "$f" "**$field**" "interfaces: $f carries the $field field"
+  done
+done
 card=.agents/skills/system-design-planning/references/review-card.md
 assert_eq "C1 C2 C3 C4 C5 S1 S2 S3 S4 S5 K1 K2 K3 K4 K5 D1 D2 D3 D4 D5 B1 B2 B3 B4 B5" \
   "$(grep -oE '^\| [CSKDB][1-5] ' "$card" | tr -d '| ' | paste -sd ' ' -)" \
@@ -802,8 +810,7 @@ for token in "name: slice" "disable-model-invocation: false" "harness: universal
              "✓ Build Order written:" "✓ Plan written:" \
              "✓ Visual written:" "Skipping visual-plan:" \
              "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
-             "--derive-id plan" "--fold-title" "never start with \`/\`" \
-             "--parent" "local-pending" "✓ Filed:"; do
+             "--derive-id plan" "never start with \`/\`"; do
   assert_file_contains "$SLICE_SKILL" "$token" "slice: SKILL.md contains '$token'"
 done
 
@@ -820,12 +827,6 @@ assert_contains "$flat_slice" "section by section" \
   "slice: SKILL.md states the in-place plan-block replacement rule"
 assert_contains "$flat_slice" "Never two blocks for one feature" \
   "slice: SKILL.md states the one-block-per-feature rule"
-assert_contains "$flat_slice" "nothing to file" \
-  "slice: SKILL.md states the no-plan-block refusal"
-assert_contains "$flat_slice" "filing is idempotent" \
-  "slice: SKILL.md states the idempotent re-run rule"
-assert_contains "$flat_slice" "the reviewer's word" \
-  "slice: SKILL.md states the --approve rule the /build and /yolo callers follow"
 
 # Negative pins: the ceremony this spec removed must not reappear here.
 assert_file_not_matches "$SLICE_SKILL" "Invoke /build" \
@@ -834,7 +835,7 @@ assert_file_not_matches "$SLICE_SKILL" "meet your requirements" \
   "slice: SKILL.md carries no 'y' gate sentence"
 assert_file_not_matches "$SLICE_SKILL" "> Approved" \
   "slice: SKILL.md carries no approval-word line"
-assert_false "slice: the --file upsert invocation names no --depends-on flag" \
+assert_false "slice: the upsert invocation names no --depends-on flag" \
   -- grep -qF -- "--depends-on" "$SLICE_SKILL"
 
 # Registration in the one listing a new skill must appear in (the AGENTS.md
@@ -866,8 +867,14 @@ plan_block_skill="$(extract_markdown_fence "$SLICE_SKILL" | tr '\n' ' ' | tr -s 
 plan_block_ref="$(extract_markdown_fence .agents/skills/slice/references/plan-block.md | tr '\n' ' ' | tr -s ' ')"
 assert_eq "$plan_block_ref" "$plan_block_skill" \
   "slice: plan-block example in SKILL.md matches references/plan-block.md (flattened)"
-assert_contains "$plan_block_skill" "task-id: plan." \
-  "slice: plan-block example carries the plan.<id> task-id form"
+assert_contains "$plan_block_skill" "task-id: plan.<spec-id>" \
+  "slice: plan-block example carries the feature row's plan.<spec-id> task-id"
+assert_not_contains "$plan_block_skill" "TDD:" \
+  "slice: plan-block example holds no TDD row"
+assert_not_contains "$plan_block_skill" "blocked-by" \
+  "slice: plan-block example's slice rows carry no blocker marker"
+assert_eq "1" "$(printf '%s' "$plan_block_skill" | grep -o 'task-id' | wc -l | tr -d ' ')" \
+  "slice: plan-block example's one task id is the feature row's, never a slice row's"
 
 # The build-prompt template: the fenced block following the literal
 # "Build prompt:" marker, byte-identical between SKILL.md and its reference.
@@ -882,7 +889,7 @@ build_prompt_skill="$(extract_build_prompt "$SLICE_SKILL")"
 build_prompt_ref="$(extract_build_prompt .agents/skills/slice/references/build-prompt.md)"
 assert_eq "$build_prompt_ref" "$build_prompt_skill" \
   "slice: build-prompt template in SKILL.md matches references/build-prompt.md verbatim"
-for token in "--file --approve" "Surface" "§ Decisions" "[AMBIGUITY]" "> Handover:" "/wrap-up-session"; do
+for token in "Surface" "§ Decisions" "[AMBIGUITY]" "> Handover:" "/wrap-up-session"; do
   assert_contains "$build_prompt_skill" "$token" \
     "slice: build prompt instruction lines name '$token'"
 done
@@ -961,8 +968,12 @@ assert_file_matches "$YOLO_SKILL" 'Step 6.*no prompt' \
   "pipelines: yolo Step 6 row prints no prompt"
 assert_file_matches "$YOLO_SKILL" 'no prompt.*in place' \
   "pipelines: yolo Step 6 row invokes /build in place"
-assert_prose_contains "$YOLO_SKILL" 'runs `--file` without `--approve`' \
-  "pipelines: yolo Phase B files with --file and no --approve"
+assert_prose_contains "$YOLO_SKILL" 'pre-flight runs without `--approve`' \
+  "filing-callers: yolo Phase B runs the pre-flight without --approve"
+assert_prose_contains "$YOLO_SKILL" 'slice.py link --index tasks/todo.md` (no `--spec`: one `<spec> link: <state> done: <yes|no>` line per plan block) prints `done: no`' \
+  "filing-callers: yolo resumes a plan block that slice.py link reports not done"
+assert_file_not_matches "$YOLO_SKILL" '--file' \
+  "filing-callers: yolo names no /slice --file"
 assert_file_contains "$YOLO_SKILL" "fresh session" \
   "pipelines: yolo names the fresh-session rule it is excepted from"
 
@@ -983,9 +994,34 @@ assert_file_contains "$SIMPLER_SKILL" '| `/plan` Step 1 — Interview |' \
   "pipelines: make-it-simpler overrides /plan Step 1"
 assert_file_matches "$SIMPLER_SKILL" '^\| `/plan` Step 6 — Hand over \| no build prompt is printed; `/build` runs in place' \
   "pipelines: make-it-simpler's Step 6 row prints no prompt and builds in place"
-assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — filing \| no `/slice --file`.*slice headers are not claimed' \
-  "pipelines: make-it-simpler's /build pre-flight row files no slices and claims no header"
-assert_prose_contains "$SIMPLER_SKILL" "fresh-session rule" \
+assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — feature issue \| files nothing.*slice headers are not claimed' \
+  "filing-callers: make-it-simpler's /build pre-flight row files nothing and claims no header"
+assert_file_not_matches "$SIMPLER_SKILL" '--file' \
+  "filing-callers: make-it-simpler names no /slice --file"
+assert_file_not_matches .agents/skills/task-registry/SKILL.md '--file' \
+  "filing-callers: task-registry/SKILL.md names no /slice --file"
+ROUTINES_REF=.agents/skills/wrap-up-session/references/routines.md
+crossing_fc="$(awk '/^### Crossing the plan handover/{f=1;next} f&&/^##/{exit} f' "$ROUTINES_REF" | tr -s '[:space:]' ' ')"
+assert_contains "$crossing_fc" '`> Issue:`' \
+  "filing-callers: routines.md crossing writes the claimed issue as > Issue:"
+assert_contains "$crossing_fc" 'files nothing' \
+  "filing-callers: routines.md crossing files nothing"
+assert_not_contains "$crossing_fc" '--file' \
+  "filing-callers: routines.md crossing names no /slice --file"
+CA_FC=.agents/skills/wrap-up-session/references/closure-actions.md
+assert_prose_contains "$CA_FC" 'one `Closes <ref>` for the feature issue' \
+  "filing-callers: closure-actions writes one Closes <ref> for a new block"
+assert_prose_contains "$CA_FC" 'A `legacy` block keeps the per-row path' \
+  "filing-callers: closure-actions keeps the legacy per-row path"
+assert_file_contains "$CA_FC" 'Closes #A, closes #B' \
+  "filing-callers: closure-actions keeps Closes #A, closes #B for legacy rows"
+fc_left="$(grep -rn -e 'slice.*--file' .agents --exclude=upsert.py || true)"
+assert_eq "" "$fc_left" "filing-callers: no /slice --file under .agents (other than upsert.py)"
+# specs/ too: a closed spec's build prompt must not tell a reader to run the removed mode. The two
+# excluded files record the removal itself (aposd-first-build D16; plan-slices-and-handover's decision row).
+fc_specs="$(grep -rn -e 'slice.*--file' specs --exclude='aposd-first-build.*' --exclude=plan-slices-and-handover.md || true)"
+assert_eq "" "$fc_specs" "filing-callers: no build prompt under specs/ names the removed /slice --file"
+assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
   "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
 assert_prose_contains AGENTS.md 'four named exceptions' \
   "pipelines: AGENTS.md's named-exceptions sentence names /make-it-simpler"
@@ -1023,6 +1059,9 @@ done
 step1_sdp="$(section_body "$SDP_SKILL" '### 1. Intake' '^### 2[.] Recon')"
 assert_contains "$step1_sdp" "§ Decisions" \
   "design-planning: Step 1 names § Decisions"
+
+assert_not_contains "$(awk '/^### 9\. Hand off/{p=1} /^## Common Rationalizations/{p=0} p' "$SDP_SKILL")" "--file" \
+  "one-issue: system-design-planning § Hand off names no /slice --file"
 
 # §2.5 carries the mandatory /grilling invocation, at column 0 so the
 # chain test can pin it beside /brainstorm's and /grill-me's.
@@ -1091,13 +1130,55 @@ assert_precedes "$flat_brainstorm" '## Decisions' '## Acceptance Criteria' \
 # Pinned by the smallest falsifiable unit: the literal flags and phrases,
 # plus the negative pins that keep the retired prose from creeping back.
 BUILD_SKILL=.agents/skills/build/SKILL.md
-for token in "--file --approve" "lacks a provider link" "implicit slice" \
+for token in "upsert <id> --spec" "unlinked <id>" "implicit slice" \
              "implementation_paths" "slice.py ready" "intersecting pair" \
              "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
              "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
              "forbidden state" "Use in the session the build prompt starts" \
              "slice header" "omit \`--approve\`"; do
   assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
+done
+
+# build/SKILL.md stays under a line budget; the design-stack gates and harness dispatch notes live in
+# build/references/ and SKILL.md points at them.
+build_lines="$(wc -l < "$BUILD_SKILL" | tr -d ' ')"
+assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_lines lines)")" \
+  "build: SKILL.md is at most 600 lines"
+
+# Slice Close and the forbidden state hold for both plan grammars: the header is
+# the row under each ### Slice heading, Slice Close fires on the dispatch's
+# return (new block) or the last TDD: row (legacy), unfinished work
+# is recorded in the handover, and a header [x] without a handover is forbidden.
+for token in 'The `- [ ]` row under each `### Slice n/N` heading' \
+             'Slice Close fires when the dispatch returns with every acceptance criterion' \
+             'when its last `TDD:` row passes' \
+             'leave the header `[ ]`, write `unfinished: <AC ids>`' \
+             'marked `[x]` with no `> Handover:`' \
+             'confirm every `[x]` slice header has its `> Handover:`' \
+             'a new block'"'"'s header carries no task id' \
+             'its status lives in the one feature issue'; do
+  assert_prose_contains "$BUILD_SKILL" "$token" "slice close: SKILL.md contains '$token'"
+done
+assert_file_contains .agents/skills/slice/references/plan-block.md '## Legacy block' "legacy: plan-block.md holds the one definition"
+assert_prose_contains .agents/skills/slice/references/plan-block.md 'when no open `## Plan:` block in `tasks/todo.md` classifies as legacy' "legacy: plan-block.md names the sunset condition"
+assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md` § *Legacy block*' "slice close: legacy is defined by pointing at plan-block.md § Legacy block"
+assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md' \
+  "slice close: legacy is defined by pointing at plan-block.md"
+assert_file_not_matches "$BUILD_SKILL" '^When a slice.s last `TDD:` row passes' \
+  "slice close: the last TDD: row is no longer the only trigger"
+assert_file_not_matches "$BUILD_SKILL" 'while any of its child rows stay' \
+  "slice close: the forbidden state is not defined by child rows alone"
+assert_prose_contains .agents/skills/task-registry/SKILL.md 'a new block'"'"'s status lives in its one feature issue' \
+  "task-registry: /build claims only a legacy block's task"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  'only when `done: yes`' "closure-actions: Closes #N only when slice.py link prints done: yes"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  'A PR that lands some of the slices writes `Refs <ref>` instead' "closure-actions: a partial PR writes Refs <ref>"
+assert_file_matches .agents/skills/task-registry/scripts/registry/upsert.py '^    load_index_strict\(config\.path' \
+  "upsert: the refusal-only index load keeps no unused binding"
+for ref in design-stack-gates harness-dispatch; do
+  assert_file_contains "$BUILD_SKILL" "references/$ref.md" \
+    "build: SKILL.md points at references/$ref.md"
 done
 
 # The ready call is described before the delegation prompt items -- a
@@ -1113,23 +1194,57 @@ assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
 assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
   "build: SKILL.md no longer assesses independence from prose"
 
-# specs/lane-plan-handover.md AC6: an unattended lane run omits --approve
-# alongside /yolo, in both /build's pre-flight and /slice's Integration.
-assert_prose_contains "$BUILD_SKILL" "§ *Crossing the plan handover*" \
-  "build: pre-flight cites the plan-handover section for an unattended lane run"
-assert_prose_contains "$BUILD_SKILL" "omit \`--approve\`" \
-  "build: pre-flight names an unattended lane run alongside /yolo"
-assert_prose_contains .agents/skills/slice/SKILL.md "\`/yolo\` or an unattended lane run" \
-  "slice: Integration names an unattended lane run alongside /yolo"
-
-# specs/lane-plan-handover.md AC8: built in the planning session, every slice
-# dispatches to a sub-agent (lone or serialized), verification stays central,
-# no sub-agents runs inline and says so; build-prompt sessions are unchanged.
-for token in "in the session that planned it" "every slice dispatches to a sub-agent" \
-             "lone ready slice" "serialized pair" "Verification stays central" \
-             "runs inline and says so in one line" "started by a build prompt dispatches as below"; do
+# specs/aposd-first-build.md AC4 (one-issue): /slice has no --file mode; /build
+# pre-flight makes the one feature upsert; every slice is dispatched.
+# An unattended lane run omits --approve alongside /yolo.
+assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (\`.agents/skills/wrap-up-session/references/routines.md\` § *Crossing the plan handover*) omit \`--approve\`" \
+  "one-issue: pre-flight names an unattended lane run alongside /yolo"
+assert_file_not_matches "$SLICE_SKILL" '--file' \
+  "one-issue: slice/SKILL.md has no --file mode"
+assert_file_not_matches .agents/skills/slice/references/build-prompt.md '--file' \
+  "one-issue: build-prompt.md names no /slice --file"
+assert_file_not_matches "$BUILD_SKILL" '--file' \
+  "one-issue: build/SKILL.md names no /slice --file"
+assert_file_contains "$BUILD_SKILL" 'upsert <id> --spec specs/<feature>.md --title "<feature>" --apply' \
+  "one-issue: pre-flight upserts the id link printed, with --apply"
+assert_file_not_matches "$BUILD_SKILL" 'derive-id' \
+  "one-issue: pre-flight never re-derives the id link printed"
+for token in "Only \`unlinked <id>\` runs one upsert" \
+             "feature issue pending: <reason>" "feature issue not filed: <reason>" \
+             "\`local-pending\`"; do
   assert_prose_contains "$BUILD_SKILL" "$token" \
-    "build: Parallel Dispatch Assessment contains '$token'"
+    "one-issue: build pre-flight contains '$token'"
+done
+assert_prose_contains "$BUILD_SKILL" '`--approve` is passed when the build prompt authorized the build' "one-issue: build pre-flight adds --approve when the build prompt authorized it (AC4)"
+assert_prose_contains "$BUILD_SKILL" 'omit `--approve`' "one-issue: build pre-flight omits --approve for /yolo and unattended runs (AC4)"
+# The legacy-block skip lives in the Pre-Flight section itself, not elsewhere in the file.
+preflight_build="$(awk '/^## Pre-Flight Checks/{f=1} /^## Phase 1 /{f=0} f' "$BUILD_SKILL" | tr -s '[:space:]' ' ')"
+assert_contains "$preflight_build" '`issue`, `linked`, `legacy` and `none` mean there is nothing to do' \
+  "one-issue: build pre-flight skips a legacy block"
+assert_contains "$preflight_build" 'slice.py link --index tasks/todo.md --spec specs/<feature>.md' \
+  "one-issue: build pre-flight classifies the block with slice.py link"
+for f in "$BUILD_SKILL" .agents/skills/wrap-up-session/references/closure-actions.md "$YOLO_SKILL"; do
+  assert_file_contains "$f" 'slice.py link' "link: $f names slice.py link"
+done
+assert_eq "1" "$(grep -c 'task-registry.py upsert' "$BUILD_SKILL" | tr -d ' ')" \
+  "one-issue: build/SKILL.md names exactly one upsert"
+
+# The delegation prompt carries Delivers and the acceptance criteria, names no claim.
+deleg_build="$(awk '/^\*\*Delegation prompt must include\*\*/{p=1} /^\*\*Role-based context injection/{p=0} p' "$BUILD_SKILL")"
+assert_contains "$deleg_build" "Delivers" "one-issue: delegation prompt carries the slice's Delivers"
+assert_contains "$deleg_build" "acceptance criteria" "one-issue: delegation prompt carries the acceptance criteria"
+assert_not_contains "$deleg_build" "claim" "one-issue: delegation prompt names no per-slice claim"
+assert_not_contains "$deleg_build" "exact task description" "one-issue: delegation prompt no longer carries plan rows"
+
+# D22: every slice dispatches, a lone one included; one rule, no in-place variant.
+assert_file_not_matches "$BUILD_SKILL" 'Main context directly' \
+  "one-issue: Step 1 has no 'Main context directly' row"
+assert_file_not_matches "$BUILD_SKILL" 'Built in the session that planned' \
+  "one-issue: no separate in-place dispatch rule"
+for token in "every slice dispatches to a sub-agent" "lone ready slice" "serialized pair" \
+             "Verification stays central" "runs inline and says so in one line"; do
+  assert_prose_contains "$BUILD_SKILL" "$token" \
+    "one-issue: build dispatch rule contains '$token'"
 done
 
 # --- wrap-up: PR body gains a Handovers section before the linkage check ---
@@ -1157,10 +1272,12 @@ WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' AGENTS.md)"
 for token in "/grill-me" "/brainstorm" "DECISIONS CARRIED" "/grilling" \
              "/system-design-planning" "/slice" "build prompt" "fresh session" \
              "> Handover:" "never builds and never files" \
-             "Spec and plan are ready to be built" "--file --approve" \
+             "Spec and plan are ready to be built" "upsert <id>" \
              "slice.py ready" "/auto-push" "/yolo"; do
   assert_contains "$WORKFLOW" "$token" "workflow: AGENTS.md § Workflow names '$token'"
 done
+assert_not_contains "$WORKFLOW" "--file" \
+  "one-issue: AGENTS.md § Workflow names no /slice --file"
 assert_not_contains "$WORKFLOW" "Confirm with 'y' to begin" \
   "workflow: the y gate is gone from AGENTS.md § Workflow"
 assert_not_contains "$WORKFLOW" "**approved**" \
@@ -1184,12 +1301,12 @@ PREFLIGHT="$(section_body "$BUILD_SKILL" "## Pre-Flight Checks" '^##')"
 for token in "cached-suite.sh -- " "base SHA" "Affected tests:" "{base}" "declares none"; do
   assert_contains "$PREFLIGHT" "$token" "fewer full runs: /build pre-flight names '$token'"
 done
-for heading in "### Parallel Dispatch Assessment" "### Step 3 — Run Tests" "### Slice Close" \
+for heading in "### Parallel Dispatch Assessment" "### Slice Close" \
                "## Phase 2 —" "## Phase 3 — Quality Gate"; do
   assert_contains "$(section_body "$BUILD_SKILL" "$heading" '^##')" "affected-test command" \
     "fewer full runs: /build '$heading' runs the affected-test command"
 done
-for heading in "### Step 3 — Run Tests" "### Slice Close" "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+for heading in "### Step 3 — Fix Failures" "### Slice Close" "## Phase 2 —" "## Phase 3 — Quality Gate"; do
   body="$(section_body "$BUILD_SKILL" "$heading" '^##')"
   for retired in "full test suite" "complete test suite" "run the full suite"; do
     assert_not_contains "$body" "$retired" \
@@ -1341,7 +1458,7 @@ for body in "$CLEAN_QG" "$AGENTS_CORE"; do
   case "$body" in "$CLEAN_QG") where="/quality-gate Phase 1.2" ;; *) where="AGENTS.md § Core Principles" ;; esac
   assert_contains "$body" 'split by job' "split by job: $where says split by job"
   assert_contains "$body" 'never by line count' "split by job: $where says never by line count"
-  assert_contains "$body" '3 parameters' "split by job: $where keeps the 3-parameter rule"
+  assert_contains "$body" 'long parameter list' "split by job: $where keeps the parameter rule"
   assert_not_contains "$body" '20 LOC' "split by job: $where no longer carries a 20-LOC rule"
 done
 
@@ -1619,6 +1736,52 @@ for command in 'bash scripts/install-codex.sh --preview' \
     "Codex guide: README documents $command"
 done
 
+# specs/aposd-first-build.md D23: design mode is reverted from /build; /build runs the tdd loop only.
+assert_file_absent .agents/skills/build/references/design-mode.md \
+  "revert: design-mode.md is gone"
+PHASE1_INTRO="$(section_body "$BUILD_SKILL" "## Phase 1 —" '^##')"
+for token in "Route every slice before its first dispatch" "one slice or many" "dot-directory" "stops the build"; do
+  assert_contains "$PHASE1_INTRO" "$token" "build: Phase 1 opens with routing that names '$token'"
+done
+BUILD_TEXT="$(cat "$BUILD_SKILL")"
+for token in "mode=design" "mode=tdd" "design-mode" "> Frozen:" "> Interface:" "exit 3 stops the build" "--base <sha> --index"; do
+  assert_not_contains "$BUILD_TEXT" "$token" "revert: build SKILL.md carries no '$token'"
+done
+assert_file_not_matches "$BUILD_SKILL" 'Steps 1–4' "build: no stale Steps 1–4 reference"
+assert_not_contains "$(cat .agents/skills/build/references/harness-dispatch.md)" "Design-mode" \
+  "revert: harness-dispatch carries no design-mode section"
+assert_file_contains "AGENTS.md" "\`test-engineer\`" "AGENTS.md § Agents names test-engineer"
+assert_not_contains "$(cat AGENTS.md)" "stub → Write → freeze → implement" \
+  "revert: AGENTS.md Workflow step 4 names no design-mode loop"
+
+# --- slice 12: Phase 5 test adequacy review (AC14) ---------------------------
+P5="$(section_body "$QG_SKILL" '## Phase 5 — Tests')"
+for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected tests pass"              "no spec — <reason>" "report-only" "deferrals: none"              "unresolved SHOULD-FIX counts toward HOLD" "phase 5" "review-dispatch-contract.md"              "finding-model.md" "never edits the tree"; do
+  assert_contains "$P5" "$token" "quality-gate Phase 5: mentions '$token'"
+done
+assert_file_contains ".agents/references/review-dispatch-contract.md" "test-engineer" \
+  "review-dispatch-contract: names test-engineer among dispatched reviewers"
+# The Write job and its freeze inputs are reverted: one persona, one Review job.
+assert_not_contains "$P5" "> Frozen:" "revert: Phase 5 carries no freeze line input"
+assert_not_contains "$P5" "independence rule" "revert: Phase 5 carries no independence rule"
+for f in .agents/agents/test-engineer.md .claude/agents/test-engineer.md; do
+  TE_TEXT="$(cat "$f")"
+  assert_not_contains "$TE_TEXT" "Write job" "revert: $f has no Write job"
+  assert_not_contains "$TE_TEXT" "> Frozen:" "revert: $f reads no freeze line"
+done
+
+# --- slice 13: gate fixes (AC15, AC16, D17) ----------------------------------
+P1="$(section_body "$QG_SKILL" '## Phase 1 — Structural Quality (simplify)')"
+P2="$(section_body "$QG_SKILL" '## Phase 2 — AI Anti-Patterns (deslop)')"
+assert_not_contains "$P1" 'options object' "gate fixes: Phase 1 no longer says 'options object'"
+assert_contains "$P1" 'long parameter list signals a shallow interface' "gate fixes: Phase 1 says a long parameter list signals a shallow interface"
+for token in 'interface comment' 'a comment stating a decision or a hidden assumption' 'hidden assumption' 'contradicts the code'; do
+  assert_contains "$P2" "$token" "gate fixes: Phase 2 mentions '$token'"
+done
+assert_contains "$AGENTS_CORE" 'a long parameter list signals a shallow interface; fix the interface, not the call site' "gate fixes: AGENTS.md Clean Code carries the D17 parameter rule"
+assert_not_contains "$AGENTS_CORE" '≤3 parameters' "gate fixes: AGENTS.md drops the 3-parameter cap"
+assert_contains "$(section_body AGENTS.md '## Quality Gate')" 'Phase 4' "gate fixes: AGENTS.md § Quality Gate names /quality-gate Phase 4"
+assert_contains "$(flatten .agents/references/finding-model.md)" 'moves a module boundary is never `gated_auto`' "gate fixes: finding-model § Gates says a boundary-moving fix is never gated_auto"
 # --- section-body: one heading extractor (AC 12) -----------------------------
 # lib.sh's section_body is the only way this file reads a heading's body. The five
 # private functions that each re-implemented it are gone, and with them the awk

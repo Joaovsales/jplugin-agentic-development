@@ -2,6 +2,7 @@
 implementation_paths:
   - .agents/skills/design-stack/**
   - .agents/skills/build/SKILL.md
+  - .agents/skills/build/references/design-stack-gates.md
   - README.md
   - tests/test-design-stack-install.sh
   - tests/test-design-stack-catalog.sh
@@ -80,8 +81,8 @@ no `hyperframes:` entries, and `status` names the source an `update` would add.
 - `status` on a four-source manifest prints `Ready <id> (offline; update adds:
   hyperframes)`.
 - `/design-stack` SKILL.md documents the source path, the opt-in rule, the
-  pinned-version rule and the prototype label; `/build` names the video guard
-  beside the 3D guard; the README skills table row follows the new
+  pinned-version rule and the prototype label; `/build`'s design-stack gates
+  name the video guard beside the 3D guard; the README skills table row follows the new
   description.
 
 ## Edge Cases
@@ -148,7 +149,7 @@ Invoke `/build` for `specs/design-stack-hyperframes.md`.
 Plan: `## Plan: design-stack-hyperframes` in `tasks/todo.md`, 4 slices, ready set <1, 2>.
 Files: .agents/skills/design-stack/**, .agents/skills/build/SKILL.md, README.md, tests/test-design-stack-install.sh, tests/test-design-stack-catalog.sh, tests/test-design-stack-brief.sh, tests/test-design-stack-video.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/design-stack-hyperframes.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -188,7 +189,7 @@ Constraints:
   `packages/cli/package.json`.
 - AC6: `.agents/skills/design-stack/SKILL.md` names `sources/hyperframes/skills/*/SKILL.md`,
   the `hyperframes:` tool rule, `npx hyperframes@`, `hyperframes check` and the
-  `prototype` label; `.agents/skills/build/SKILL.md` names the video guard
+  `prototype` label; `.agents/skills/build/references/design-stack-gates.md` names the video guard
   beside the 3D guard; `python3 scripts/render-skills-table.py --check` is
   silent.
 - AC7: `bash tests/test-design-stack-install.sh`, `tests/test-design-stack-catalog.sh`,
@@ -206,7 +207,7 @@ Constraints:
   and pinned-version guard.
 - `.agents/skills/design-stack/SKILL.md` — source path, opt-in video section,
   updated description.
-- `.agents/skills/build/SKILL.md` — the Phase 2 guard paragraph.
+- `.agents/skills/build/references/design-stack-gates.md` — the § *Phase 2: 3D and video gates* guard paragraph, which `.agents/skills/build/SKILL.md` points to.
 - `README.md` — the generated skills-table row.
 - `tests/test-design-stack-install.sh` — fifth fixture source, clone flags.
 - `tests/test-design-stack-catalog.sh` — fixture skills, entry kinds, selection refusals.
