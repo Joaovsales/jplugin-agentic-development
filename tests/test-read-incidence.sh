@@ -175,6 +175,34 @@ out="$("$TEST_PYTHON" "$SCRIPTS/read-incidence.py" --root "$FIX/repeated-uses" 2
 assert_contains "$out" "| proj-f/s8 | 1 | 0 | 0 | 0.0% |" "report: s8's repeated parent use is one Read"
 assert_contains "$out" "| 140 (parent.cfg) | 0 | 902 | 0 | 1 | 0 | 0 | 0 |"   "report: s8's repeated sidechain use is one sub-agent read and its result is counted once"
 
+# A result logged before its use is held until the use arrives: the Read is
+# classified from it, not left unanswered, and a use with no result at all is
+# neither a call nor a Read.
+LATE="$TMP/result-first.jsonl"
+"$TEST_PYTHON" - "$LATE" <<'PY'
+import json, sys
+def line(**rec): return json.dumps(rec)
+result = line(type="user", message={"role": "user", "content": [
+    {"type": "tool_result", "tool_use_id": "t1", "content": "x" * 32}]},
+    toolUseResult={"type": "text", "file": {"filePath": "C:/w/a.py", "content": "ab\ncd", "numLines": 2,
+                                            "startLine": 1, "totalLines": 2}})
+use = line(type="assistant", message={"role": "assistant", "content": [
+    {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "C:/w/a.py"}},
+    {"type": "tool_use", "id": "t2", "name": "Edit", "input": {"file_path": "C:/w/a.py"}}]})
+open(sys.argv[1], "w").write("\n".join([result, use]) + "\n")
+PY
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$LATE" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+t = rt.parse_transcript(sys.argv[2])
+r = t.reads()[0]
+print("late", len(t.reads()), r.kind, r.bytes, len(t.own_calls()), t.results["t1"].bytes, t._pending)
+PY
+)"
+assert_contains "$out" "late 1 whole 32 1 32 {}" \
+  "parser: a result logged before its use classifies the Read, and a use with no result is not an own call"
+
 # --- § drift ---------------------------------------------------------------
 printf '\n--- drift: exit 2 names the root or the file and line; never a silent zero ---\n'
 
@@ -580,6 +608,7 @@ assert_contains "$out" "tokens 67 132" \
 # The gate's log is read here, and found where its hook writes it.
 LOGS="$TMP/shunt-logs"
 mkdir -p "$LOGS/home-a/ws/tasks/.shunt" "$LOGS/home-b/one/tasks/.shunt" "$LOGS/home-b/two/tasks/.shunt" "$LOGS/home-c/config/projects/p"
+mkdir -p "$LOGS/home-d/mytasks/.shunt" "$LOGS/home-e/workspace/tasks/.shunt" "$LOGS/home-e/mytasks/.shunt"
 printf '%s\n' '{"decision":"annotate","tool":"Read","input":{"file_path":"a.py"}}' '' \
                '{"decision":"deny","tool":"Read","input":{"file_path":"b.py"}}' \
                '{"decision":"deny","tool":"Read","input":{"file_path":"b.py"}}' > "$LOGS/home-a/ws/tasks/.shunt/s9.jsonl"
@@ -587,6 +616,7 @@ printf '%s\n' '{"tool":"Read"}' > "$LOGS/nodecision.jsonl"
 printf '%s\n' 'nope' > "$LOGS/notjson.jsonl"
 : > "$LOGS/home-b/one/tasks/.shunt/s9.jsonl"; : > "$LOGS/home-b/two/tasks/.shunt/s9.jsonl"
 : > "$LOGS/home-c/config/projects/p/s9.jsonl"
+: > "$LOGS/home-d/mytasks/.shunt/s9.jsonl"; : > "$LOGS/home-e/workspace/tasks/.shunt/s9.jsonl"; : > "$LOGS/home-e/mytasks/.shunt/s9.jsonl"
 out="$("$TEST_PYTHON" - "$SCRIPTS" "$LOGS" <<'PY'
 import os, sys
 sys.path.insert(0, sys.argv[1])
@@ -603,6 +633,8 @@ for name in ("nodecision", "notjson"):
 found = rt.find_shunt_log(os.path.join(L, "home-a"), "s9")
 print("found", found is not None and found.replace(os.sep, "/").endswith("home-a/ws/tasks/.shunt/s9.jsonl"))
 print("none", rt.find_shunt_log(os.path.join(L, "home-c"), "s9"), rt.find_shunt_log(os.path.join(L, "home-a"), "s8"))
+print("boundary", rt.find_shunt_log(os.path.join(L, "home-d"), "s9"),
+      rt.find_shunt_log(os.path.join(L, "home-e"), "s9").replace(os.sep, "/").endswith("home-e/workspace/tasks/.shunt/s9.jsonl"))
 try:
     rt.find_shunt_log(os.path.join(L, "home-b"), "s9")
     print("two accepted")
@@ -617,6 +649,7 @@ assert_contains "$out" "notjson L/notjson.jsonl:1: shunt log line is not JSON" "
 assert_contains "$out" "found True" "parser: find_shunt_log() locates tasks/.shunt/<session>.jsonl under whichever project the session ran in"
 assert_contains "$out" "none None None" "parser: a transcript under config/projects is no shunt log, and another session's log is not this one's"
 assert_contains "$out" "two True" "parser: two logs for one session are drift"
+assert_contains "$out" "boundary None True" \n  "parser: find_shunt_log() matches tasks/.shunt as whole directory names — mytasks/.shunt is no gate log and does not make a second candidate"
 
 # A session is its parent transcript plus its sub-agent files: parse_session
 # is the one place that assembles it, so both CLIs count the same sidechain.
@@ -639,13 +672,53 @@ import read_transcript as rt
 for s in rt.iter_sessions(sys.argv[2]):
     ss = rt.parse_session(s.path, s.subagent_paths)
     print("session", ss.parent.session_id, len(ss.agents), all(a.is_subagent for a in ss.agents), ss.malformed,
-          [r.norm_path.rsplit("/", 1)[-1] for r in ss.subagent_reads])
+          [r.norm_path.rsplit("/", 1)[-1] for r in ss.counted_subagent_reads])
 PY
 )"
 assert_contains "$out" "session s1 2 True 2 ['big_module.py']" \
   "structure: parse_session parses every sub-agent file, sums malformed lines, and drops an excluded sidechain read"
 assert_contains "$out" "session s3 0 True 1 ['loader.py']" \
   "structure: parse_session counts the parent's inline sidechain reads beside the agents'"
+# The sub-agent total is summed per Agent call: a call's own counters when it
+# carries them, else the transcript its `agentId` names, else unknown — so one
+# call with counters never hides another call's transcript.
+TOT="$TMP/totals"; mkdir -p "$TOT/proj/p1/subagents" "$TOT/proj/p2/subagents"
+"$TEST_PYTHON" - "$TOT" <<'PY'
+import json, os, sys
+root = sys.argv[1]
+def rec(**r): return json.dumps(r)
+def agent_use(i): return rec(type="assistant", message={"role": "assistant", "content": [
+    {"type": "tool_use", "id": i, "name": "Agent", "input": {"prompt": "go " + i}}]})
+def agent_result(i, **result): return rec(type="user", message={"role": "user", "content": [
+    {"type": "tool_result", "tool_use_id": i, "content": "ok"}]}, toolUseResult=result)
+parent = [agent_use("a1"),
+          agent_result("a1", status="completed", agentId="x1", totalTokens=1000, totalToolUseCount=3,
+                       content=[{"type": "text", "text": "ok"}]),
+          agent_use("a2"),
+          agent_result("a2", status="async_launched", agentId="x2")]
+child = [rec(type="assistant", isSidechain=True, agentId="x2", message={"id": "m1", "role": "assistant",
+          "usage": {"input_tokens": 300, "output_tokens": 200},
+          "content": [{"type": "tool_use", "id": "c1", "name": "Bash", "input": {"command": "ls"}},
+                      {"type": "tool_use", "id": "c2", "name": "Bash", "input": {"command": "pwd"}}]})]
+for name, with_child in (("p1", True), ("p2", False)):
+    open(os.path.join(root, "proj", name + ".jsonl"), "w").write("\n".join(parent) + "\n")
+    if with_child:
+        open(os.path.join(root, "proj", name, "subagents", "agent-x2.jsonl"), "w").write("\n".join(child) + "\n")
+PY
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$TOT" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+for s in rt.iter_sessions(sys.argv[2]):
+    ss = rt.parse_session(s.path, s.subagent_paths)
+    print("totals", ss.parent.session_id, [c.agent_id for c in ss.parent.agent_calls()], ss.subagent_totals())
+PY
+)"
+assert_contains "$out" "totals p1 ['x1', 'x2'] (1500, 5)" \
+  "structure: subagent_totals() sums a call's counters or, without them, the transcript its agentId names"
+assert_contains "$out" "totals p2 ['x1', 'x2'] (None, None)" \
+  "structure: subagent_totals() is unknown for a call with neither counters nor a transcript"
+
 for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
   assert_eq "0" "$(grep -cE 'tool_use\.(id|sidechain)|\.results(\.get|\[)' "$cli")" "$cli: no join on tool-use ids and no sidechain branch — the parser owns the split and the order"
   assert_eq "0" "$(grep -cE 'sidechain_reads|toolUseResult|"decision"' "$cli")" "$cli: speaks the parser's names — no sidechain accessor, no JSONL field, no shunt-log field"

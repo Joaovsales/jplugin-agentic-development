@@ -18,7 +18,7 @@ import os
 import sys
 import random
 from dataclasses import dataclass, fields
-from typing import Optional
+from typing import Optional, Tuple
 
 def write(out, rel, text):
     """Write text (LF endings, UTF-8) under out, creating parent directories."""
@@ -1238,12 +1238,12 @@ class Bound:
     min: Optional[int] = None
     max: Optional[int] = None
 
-    def broken_side(self, value: int) -> Optional[str]:
-        """The side `value` falls outside, as `min 4000` / `max 80`, or None."""
+    def broken_side(self, value: int) -> Optional[Tuple[str, int]]:
+        """The side `value` falls outside and its bound, as `("min", 4000)` / `("max", 80)`, or None."""
         if self.min is not None and value < self.min:
-            return "min %d" % self.min
+            return ("min", self.min)
         if self.max is not None and value > self.max:
-            return "max %d" % self.max
+            return ("max", self.max)
         return None
 
 
@@ -1298,9 +1298,10 @@ def broken_bounds(promise, measured):
     """One line per quantity of `promise` the measured output falls outside."""
     broken = []
     for f in fields(Promise):
-        side = getattr(promise, f.name).broken_side(measured[f.name])
-        if side is not None:
-            broken.append("%s %s, measured %d" % (f.name, side, measured[f.name]))
+        broken_side = getattr(promise, f.name).broken_side(measured[f.name])
+        if broken_side is not None:
+            side, bound = broken_side
+            broken.append("%s %s %d, measured %d" % (f.name, side, bound, measured[f.name]))
     return broken
 
 

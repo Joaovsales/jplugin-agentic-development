@@ -25,9 +25,11 @@ bare shell read of a large result, or a `Grep` with `-C` >= 50 or
 `head_limit: 0` on a large file — D14); hook decisions and repeated identical
 denied inputs when `shunt.jsonl` is present; bytes delivered into the parent;
 the largest single result; the parent's final context; compactions; sub-agent
-tokens and tool uses (0 when nothing was delegated; the Agent results'
-counters, else the sub-agent transcripts' own usage and uses; `-` only for a
-dispatched Agent with neither); wall time; re-read rate (parent reads of a path an
+tokens and tool uses (0 when nothing was delegated; summed per Agent call —
+the call's own counters, else its sub-agent transcript's own usage and uses;
+`-` when any call has neither; a transcript-summed figure counts input,
+cache-creation, cache-read and output tokens, the harness's `totalTokens` is
+used as written); wall time; re-read rate (parent reads of a path an
 earlier `Agent` prompt or sub-agent result named); and the outcome the runner
 recorded. Then per-task means per arm as paired rows, when more than one arm
 is present. Exit 2 on a transcript the shared parser cannot read.
@@ -68,7 +70,7 @@ class RunRow:
     final_context: Optional[int] = _column("Final context", default=None)
     compactions: int = _column("Compactions", default=0)
     subagent_tokens: Optional[int] = _column("Sub-agent tokens", default=None)
-    subagent_tool_uses: int = _column("Sub-agent tool uses", default=0)
+    subagent_tool_uses: Optional[int] = _column("Sub-agent tool uses", default=0)
     wall_seconds: Optional[float] = _column("Wall s", default=None)
     reread_rate: Optional[float] = _column("Re-read rate", default=None)
     outcome: Optional[float] = _column("Outcome", default=None)
@@ -154,15 +156,15 @@ def _is_routing_around(call: Union[rt.ShellRead, rt.GrepCall], large_paths: Set[
 
 def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     session = rt.parse_session(run.transcript, run.subagents)
-    parent, agents = session.parent, session.agents
+    parent = session.parent
     row = RunRow(run.arm, run.task, run.run)
     row.parent_bytes = parent.own_result_bytes()
     row.final_context = parent.final_context
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
     row.largest = parent.largest_own_result()[0]
-    large_paths: Set[str] = {r.norm_path for r in session.subagent_reads if r.is_large(th)}
-    named: Set[str] = {r.norm_path for r in session.subagent_reads}
+    large_paths: Set[str] = {r.norm_path for r in session.counted_subagent_reads if r.is_large(th)}
+    named: Set[str] = {r.norm_path for r in session.counted_subagent_reads}
     rereads = 0
     for call in parent.own_calls():
         if isinstance(call, rt.Read):
@@ -180,28 +182,12 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
             row.routing_around += _is_routing_around(call, large_paths, th)
         elif isinstance(call, rt.AgentCall):
             named |= _paths_in(call.named_text)
-    row.subagent_tokens, row.subagent_tool_uses = _subagent_totals(parent, agents)
+    row.subagent_tokens, row.subagent_tool_uses = session.subagent_totals()
     row.reread_rate = round(rereads / len(named), 3) if named else None
     row.outcome = rt.read_outcome(run.path)
     if run.has_shunt_log:
         _hook_columns(row, run.path)
     return row
-
-
-def _subagent_totals(parent: rt.Transcript, agents: List[rt.Transcript]) -> Tuple[Optional[int], int]:
-    """(tokens, tool uses) of the run's sub-agents: the Agent results' counters
-    when they carry them, else the sub-agent transcripts' own totals. Tokens are
-    0 when no Agent was dispatched and None only for a dispatched Agent with
-    neither counters nor a transcript — a true zero and an unknown apart, so a
-    paired mean averages both columns over the same runs."""
-    counted_tokens = [c.total_tokens for c in parent.agent_calls() if c.total_tokens is not None]
-    counted_uses = [c.tool_use_count for c in parent.agent_calls() if c.tool_use_count is not None]
-    tool_uses = sum(counted_uses) if counted_uses else sum(len(a.own_tool_uses()) for a in agents)
-    if counted_tokens:
-        return sum(counted_tokens), tool_uses
-    if agents or not parent.agent_calls():
-        return sum(a.total_tokens for a in agents), tool_uses
-    return None, tool_uses
 
 
 def _was_named(norm: str, named: Set[str]) -> bool:

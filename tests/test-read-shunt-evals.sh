@@ -182,6 +182,14 @@ PY
 assert_eq "1" "$rc" "promise: a scaffold whose output breaks its row exits 1"
 assert_contains "$err" "readme-typo" "promise: the message names the case"
 assert_contains "$err" "total_bytes max 100" "promise: the message names the quantity, the broken side and its bound"
+out="$("$TEST_PYTHON" - "$SUITE" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import fixture_gen as fg
+print("sides", fg.Bound(max=100).broken_side(150), fg.Bound(min=4).broken_side(4), fg.Bound(min=4000).broken_side(3))
+PY
+)"
+assert_contains "$out" "sides ('max', 100) None ('min', 4000)" "promise: Bound.broken_side() names the side and its bound as data, and None inside the interval"
 bad="$("$TEST_PYTHON" - "$SUITE" "$CONTROL_CASES" <<'PY' | tr -d '\r'
 import sys
 sys.path.insert(0, sys.argv[1])

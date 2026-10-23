@@ -44,8 +44,8 @@ assert_contains "$out" "| Arm | Task | Run | Parent whole-file large | Routing-a
 # small cat); bytes = 2847*2 + 500 + 2000 + 100 + 46; the second Read follows
 # an Agent prompt naming big.py, so one re-read over one named path; the
 # outcome file says score 1; 10:00:00 -> 10:05:30 is 330 s.
-assert_contains "$out" "| control | task-a | run-1 | 2 | 2 | 8340 | 2847 | 41200 | 1 | - | 0 | 330 | 1 | 1 | - | - |" \
-  "grader: control/task-a/run-1 — whole-file large, routing-around, bytes, largest, context, compactions, no sub-agent, wall, re-read rate, outcome, no hook log"
+assert_contains "$out" "| control | task-a | run-1 | 2 | 2 | 8340 | 2847 | 41200 | 1 | - | - | 330 | 1 | 1 | - | - |" \
+  "grader: control/task-a/run-1 — whole-file large, routing-around, bytes, largest, context, compactions, unknown sub-agent totals, wall, re-read rate, outcome, no hook log"
 assert_contains "$out" "| control | task-a | run-2 | 1 | 0 | 2847 | 2847 | 30000 | 0 | 0 | 0 | 60 | - | 0 | - | - |" \
   "grader: a run with no Agent dispatch has no re-read rate and pass:false is outcome 0"
 # A ranged read of the large file is not whole-file; a windowed sed of a file
@@ -148,14 +148,15 @@ assert_contains "$("$TEST_PYTHON" "$GRADER" "$TMP/nodec" 2>&1)" "| none | 0 |" "
 assert_contains "$("$TEST_PYTHON" "$GRADER" "$TMP/nodec" --json 2>&1 | "$TEST_PYTHON" -c 'import json, sys; print("hooks", json.load(sys.stdin)["runs"][0]["hook_decisions"])')" \
   "hooks {}" "grader: --json carries an empty count when the log had no decisions"
 
-printf '\n--- rows: sub-agent tool uses come from one source per run ---\n'
-# Async-launched Agent results carry no counters, so the columns are the sum of
-# every subagents/ transcript's own tool uses and usage — all of them, not the first.
+printf '\n--- rows: sub-agent totals are summed per Agent call ---\n'
+# An async-launched Agent result carries no counters, so the call's totals are
+# its own transcript's — the one its agentId names (s1's call is agent a1). A
+# transcript no call names is attributed to nothing.
 ASYNC="$TMP/async/arm/task/run"; mkdir -p "$ASYNC/subagents"
 cp tests/fixtures/transcripts/root/proj-a/s1.jsonl "$ASYNC/transcript.jsonl"
 "$TEST_PYTHON" - "$ASYNC/subagents" <<'PY'
 import json, os, sys
-for name, uses in (("agent-x1.jsonl", 3), ("agent-x2.jsonl", 4)):
+for name, uses in (("agent-a1.jsonl", 3), ("agent-x2.jsonl", 4)):
     with open(os.path.join(sys.argv[1], name), "w", encoding="utf-8") as fh:
         for i in range(uses):
             block = {"type": "tool_use", "id": f"{name}-{i}", "name": "Bash", "input": {"command": "ls"}}
@@ -165,7 +166,7 @@ PY
 out="$("$TEST_PYTHON" "$GRADER" "$TMP/async" --json 2>&1)"; rc=$?
 assert_eq "0" "$rc" "grader: an async-launched run with two sub-agent transcripts grades with exit 0"
 assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; r = json.load(sys.stdin)["runs"][0]; print("uses", r["subagent_tool_uses"], r["subagent_tokens"])')" \
-  "uses 7 770" "grader: with no Agent counters the columns sum every sub-agent transcript's tool uses and usage"
+  "uses 3 330" "grader: with no Agent counters the call's totals are the transcript its agentId names, and an unnamed transcript counts for nothing"
 
 printf '\n--- rows: bytes into the parent leave out an inline sidechain result ---\n'
 INLINE="$TMP/inline/arm/task/run"; mkdir -p "$INLINE"
