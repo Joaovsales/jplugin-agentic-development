@@ -236,7 +236,7 @@ Feature Request
 /brainstorm ──► explore options → multi-option proposals → design approval
     │
     ▼
-/plan ──► interviews you → writes spec → /slice → § Build Order + plan block → build prompt
+/plan ──► interviews you → writes spec → /slice → § Build Order + plan block + visual plan → build prompt
     │
     ▼  (fresh session started with the build prompt)
 /build ──► pre-flight files the slices → ready set → TDD + sub-agents → handovers → quality-gate → spec validation
@@ -338,7 +338,7 @@ Invoke with `/skill-name` in any session (Claude Code: `/jplugin:<name>`; bare `
 | `/refresh` | Context reset for a session running out of room: snapshot working state to disk, then continue the work in a fresh context rebuilt from that snapshot. Distinct from /checkpoint, which saves progress and stops — reach for /refresh when the work continues but the context must be recycled. Triggers on: 'this conversation is getting too long', 'you are losing track', 'start clean and keep going', 'context is full', 'reset and continue', or when /build's architectural circuit breaker trips. |  |
 | `/security-scan` | OWASP-focused security audit scoped to the files changed in this session, worked through an explicit per-category checklist (input validation, authn/authz, secrets, crypto, dependencies, error handling). Use before committing or deploying changed code. Triggers on: 'security scan', 'check for vulnerabilities', 'any security issues in what I changed', 'is this safe to ship', 'OWASP audit'. |  |
 | `/setup-deployment` | One-time interactive bootstrap for deployment verification. Scans the project for deployment signal files, asks the user to confirm detected services and project IDs, and writes the routing table into AGENTS.md below the managed block. | claude |
-| `/slice` | Break a spec's acceptance criteria and implementation paths into session-sized slices — a Build Order table, a plan block in tasks/todo.md, and a build prompt — and the one dry-run that mints the feature row's id. Use after a spec carries § Decisions and § Acceptance Criteria, or to refresh the Build Order and plan block after the spec changes. |  |
+| `/slice` | Break a spec's acceptance criteria and implementation paths into session-sized slices — a Build Order table, a plan block in tasks/todo.md, the rendered visual plan page and a build prompt — and the one dry-run that mints the feature row's id. Use after a spec carries § Decisions and § Acceptance Criteria, or to refresh the Build Order and plan block after the spec changes. |  |
 | `/software-design-expert-learn` | End-of-session code review and design tutorial based on 'A Philosophy of Software Design' by John Ousterhout. Use when the user wants to review all code written in the current session, understand design trade-offs, learn software design principles, or improve code review skills. Triggers on: 'review my code', 'explain the design', 'why did we do it this way', 'session review', 'code critique', 'design critique', or explicit /skill:software-design-expert-learn invocation. |  |
 | `/software-design-expert-review` | Run a focused APOSD design review on recently changed files. Scans for the 10 red flags from 'A Philosophy of Software Design' plus Error Design (R11), emits four-axis findings (severity, confidence, autofix_class, owner), and produces a GO / HOLD / STOP verdict. Can be invoked manually or called by /build Phase 3.5. |  |
 | `/start-qa` | Discover project config, restart app, and launch browser for manual QA testing. |  |

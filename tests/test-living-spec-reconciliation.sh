@@ -102,22 +102,15 @@ assert_prose_contains specs/README.md 'Frontmatter is the matching contract' \
 # dir and removes it on exit, so nothing here can touch this repository's specs.
 # ---------------------------------------------------------------------------
 
-HELPER="$REPO/$CANON/wrap-up-session/scripts/spec-reconcile.py"
+HELPER="$(under_test .agents/skills/wrap-up-session/scripts/spec-reconcile.py)"
 
 PY="$TEST_PYTHON"   # resolved once in tests/lib.sh
-
-TMP_DIRS=()
-cleanup() { for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
 
 # make_repo -> prints the path of a fresh repo with `main` holding one commit.
 make_repo() {
   local d
-  d="$(mktemp -d)"
-  TMP_DIRS+=("$d")
-  git -C "$d" init -q -b main
-  git -C "$d" config user.email t@example.com
-  git -C "$d" config user.name  Test
+  d="$(fixture_repo)"
+  git -C "$d" symbolic-ref HEAD refs/heads/main
   mkdir -p "$d/src" "$d/specs" "$d/tasks"
   printf 'one\n'   > "$d/src/kept.py"
   printf 'two\n'   > "$d/src/renamed_from.py"
@@ -648,7 +641,7 @@ assert_contains "$IDS" '"valid": true' \
 
 # A fixture project with no tracker configured -- the offline default, and the
 # case every downstream repository hits before it configures anything.
-P="$(mktemp -d)"; TMP_DIRS+=("$P")
+P="$(fixture_dir)"
 mkdir -p "$P/tasks" "$P/specs"
 printf '# Tasks\n\n## Plan: Existing\n\n[x] TDD: done -> done\n' > "$P/tasks/todo.md"
 printf '# Spec: Feature C\n' > "$P/specs/feature-c.md"
@@ -677,7 +670,7 @@ DRY="$("$PY" "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo "$
   "${DEFER_ARGS[@]}" 2>&1)"; DRY_RC=$?
 assert_eq "0" "$DRY_RC" "upsert: dry-run exits 0"
 assert_contains "$DRY" "would" "upsert: dry-run says what it would do"
-assert_eq "absent" "$([ -f "$P/tasks/details/spec-reconciliation.specs-feature-c-md.md" ] && echo present || echo absent)" \
+assert_file_absent "$P/tasks/details/spec-reconciliation.specs-feature-c-md.md" \
   "upsert: dry-run writes no detail file"
 assert_not_contains "$(cat "$P/tasks/todo.md")" "spec-reconciliation" \
   "upsert: dry-run writes no index row"
@@ -687,7 +680,7 @@ APPLY="$("$PY" "$REGISTRY" upsert spec-reconciliation.specs-feature-c-md --repo 
   "${DEFER_ARGS[@]}" 2>&1)"; APPLY_RC=$?
 assert_eq "0" "$APPLY_RC" "upsert --apply exits 0"
 DETAIL="$P/tasks/details/spec-reconciliation.specs-feature-c-md.md"
-assert_eq "present" "$([ -f "$DETAIL" ] && echo present || echo absent)" \
+assert_file_exists "$DETAIL" \
   "upsert: --apply writes the canonical local record"
 
 # Every field the spec requires a deferred task to carry. Each is separately
@@ -856,18 +849,18 @@ for f in "$WU"; do
   LINE_REV="$(heading_line "$f" 'Quality receipt')"
   LINE_TEST="$(heading_line "$f" 'Full suite')"
   LINE_PUSH="$(heading_line "$f" 'Commit and push')"
-  assert_eq "present" "$([ -n "$LINE_REC" ] && echo present || echo missing)" \
-    "placement ($f): a Spec reconciliation section exists"
-  assert_eq "after" "$([ "${LINE_REC:-0}" -gt "${LINE_REG:-0}" ] && echo after || echo before)" \
-    "placement ($f): reconciliation runs AFTER the task register"
-  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_MAP:-0}" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE verification-map maintenance"
-  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_REV:-0}" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE the quality receipt check"
-  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_TEST:-0}" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE the test run"
-  assert_eq "before" "$([ "${LINE_REC:-0}" -lt "${LINE_PUSH:-0}" ] && echo before || echo after)" \
-    "placement ($f): reconciliation runs BEFORE commit and push"
+  assert_true "placement ($f): a Spec reconciliation section exists" \
+  -- test -n "$LINE_REC"
+  assert_true "placement ($f): reconciliation runs AFTER the task register" \
+  -- test "${LINE_REC:-0}" -gt "${LINE_REG:-0}"
+  assert_true "placement ($f): reconciliation runs BEFORE verification-map maintenance" \
+  -- test "${LINE_REC:-0}" -lt "${LINE_MAP:-0}"
+  assert_true "placement ($f): reconciliation runs BEFORE the quality receipt check" \
+  -- test "${LINE_REC:-0}" -lt "${LINE_REV:-0}"
+  assert_true "placement ($f): reconciliation runs BEFORE the test run" \
+  -- test "${LINE_REC:-0}" -lt "${LINE_TEST:-0}"
+  assert_true "placement ($f): reconciliation runs BEFORE commit and push" \
+  -- test "${LINE_REC:-0}" -lt "${LINE_PUSH:-0}"
 
   # The snapshot must precede the writes, or the step reads its own edits.
   assert_prose_contains "$f" 'before any spec is written' \
@@ -937,9 +930,9 @@ done
 
 # The helper must be reachable from where the skill says it is.
 for tree in "$CANON"; do
-  assert_eq "present" "$([ -f "$tree/wrap-up-session/scripts/spec-reconcile.py" ] && echo present || echo absent)" \
+  assert_file_exists "$tree/wrap-up-session/scripts/spec-reconcile.py" \
     "distribution ($tree): the discovery helper ships inside the skill directory"
-  assert_eq "present" "$([ -f "$tree/task-registry/scripts/registry/upsert.py" ] && echo present || echo absent)" \
+  assert_file_exists "$tree/task-registry/scripts/registry/upsert.py" \
     "distribution ($tree): the upsert module ships inside the skill directory"
 done
 

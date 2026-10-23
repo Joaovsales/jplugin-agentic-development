@@ -135,6 +135,7 @@ Task tracking instructions: docs/task-tracking.md
 
 Full suite: bash tests/run.sh
 Affected tests: bash tests/affected.sh --run {base}
+Expected failures: tests/expected-failures.txt
 
 ### Code Graph
 

@@ -221,9 +221,9 @@ for caller in yolo auto-push; do
     while IFS= read -r name; do
       [ -n "$name" ] || continue
       if grep -qxF "### $name" "$f" || grep -qxF "## $name" "$ca"; then
-        assert_eq "resolves" "resolves" "wrap-up phases: $tree/$caller cites § $name"
+        pass "wrap-up phases: $tree/$caller cites § $name"
       else
-        assert_eq "resolves" "no such section" "wrap-up phases: $tree/$caller cites § $name"
+        fail "wrap-up phases: $tree/$caller cites § $name" "no such section"
       fi
     done <<< "$(printf '%s\n' "$rows" | sed -nE 's/^\| [^|]*§ \*([^*]+)\*.*/\1/p')"
   done

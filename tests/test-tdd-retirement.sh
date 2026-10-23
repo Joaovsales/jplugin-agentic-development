@@ -20,6 +20,7 @@ cd "$REPO"
 
 TDD=".agents/skills/tdd/SKILL.md"
 BUILD=".agents/skills/build/SKILL.md"
+SWEEP_CTL="$(fixture_dir)"
 
 # ── The doctrine lives in /tdd ───────────────────────────────────────────────
 assert_file_matches "$TDD" '^name: tdd$' "Home: tdd/SKILL.md is the skill named tdd"
@@ -71,9 +72,10 @@ done
 # ── The escape hatch is nowhere ──────────────────────────────────────────────
 # .claude/worktrees/ holds other checkouts (git-excluded, frozen at older
 # commits), not this tree, so it is skipped.
-hits="$(grep -rn "or at minimum" --exclude-dir=worktrees --include='*.md' \
-        .agents .claude CLAUDE.md AGENTS.md README.md project-template 2>/dev/null || true)"
-assert_eq "" "$hits" "Escape: no 'or at minimum' commit escape hatch anywhere"
+printf 'Run /wrap-up-session or at minimum commit.\n' > "$SWEEP_CTL/escape-hatch.md"
+assert_sweep_empty "Escape: no 'or at minimum' commit escape hatch anywhere" "$SWEEP_CTL/escape-hatch.md" \
+  -- grep -rn --exclude-dir=worktrees --include='*.md' "or at minimum" -- \
+        .agents .claude CLAUDE.md AGENTS.md README.md project-template
 
 # ── Other entry points still hand off to /build, not /tdd ────────────────────
 assert_file_not_matches ".agents/skills/plan/SKILL.md" '/tdd' \
@@ -99,9 +101,9 @@ assert_file_matches "README.md" '^\| `/tdd` \|' "Catalog: README skills table ha
 # shipped at that path. The new tdd/SKILL.md must differ from every historic one.
 # A shallow clone cannot answer, so it is skipped rather than guessed.
 if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
-  assert_eq "skipped" "skipped" "Retire: shallow clone — history check skipped"
+  skip "Retire: shallow clone — history check skipped"
 elif [ -z "$(git log --all --diff-filter=D --format=%H -1 -- "$TDD")" ]; then
-  assert_eq "skipped" "skipped" "Retire: no deletion commit in history — history check skipped"
+  skip "Retire: no deletion commit in history — history check skipped"
 else
   # Only copies shipped before the retirement count: the commit that re-created
   # the file is not history, and the live file always matches itself.

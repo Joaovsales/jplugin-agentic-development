@@ -96,7 +96,10 @@ edits from this skill.
 ## Integration
 
 - **Calls**: `.agents/skills/visual-plan/scripts/plan_render.py` (shared with
+  `/slice` Step 6, which renders for every `/plan` run, and
   `/system-design-planning` Step 6).
-- **Follows**: `/plan` (consumes its `specs/<feature>.md` output).
+- **Follows**: `/plan` (consumes its `specs/<feature>.md` output). A `/plan`
+  run already renders through `/slice`; a direct invocation is for a spec
+  whose page is missing or stale.
 - **Precedes**: implementation (`/build`) — the visual plan is the approval
   checkpoint before code is written. A review export goes back to `/plan`.

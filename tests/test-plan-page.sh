@@ -21,15 +21,14 @@ PY="${PLAN_PAGE_PYTHON:-$TEST_PYTHON}"
 CHANNEL=()
 [ -n "${PLAN_PAGE_CHANNEL:-}" ] && CHANNEL=(--channel "$PLAN_PAGE_CHANNEL")
 
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
 SHOTS="${PLAN_PAGE_SHOTS:-$TMP/shots}"
 
 if ! "$PY" -c 'import playwright' >/dev/null 2>&1; then
   if [ "${REQUIRE_BROWSER:-0}" = "1" ]; then
     assert_eq "playwright importable" "missing" "browser: REQUIRE_BROWSER=1 but $PY cannot import playwright"
   else
-    printf '\n  SKIP browser: %s cannot import playwright — the page is NOT browser-checked (set PLAN_PAGE_PYTHON, or REQUIRE_BROWSER=1 to fail)\n\n' "$PY"
+    skip "browser: $PY cannot import playwright — the page is NOT browser-checked (set PLAN_PAGE_PYTHON, or REQUIRE_BROWSER=1 to fail)"
   fi
   finish
   exit $?

@@ -7,11 +7,9 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-BOX="$(mktemp -d)"
-trap 'rm -rf "$BOX"' EXIT
-[ -n "$BOX" ] && [ -d "$BOX" ] || { printf 'mktemp -d failed\n' >&2; exit 1; }
+BOX="$(fixture_dir)"
 
-FIX="$BOX/repo"
+FIX="$(fixture_repo)"
 mkdir -p "$FIX/tests" "$FIX/src"
 cp "$REPO/tests/run.sh" "$REPO/tests/lib.sh" "$REPO/tests/affected.sh" "$FIX/tests/" 2>/dev/null
 passing_test() { printf '%s\n' ". \"\$(dirname \"\$0\")/lib.sh\"" "# $1" 'assert_eq a a "holds"' 'finish' > "$FIX/tests/$2"; }
@@ -20,7 +18,6 @@ passing_test "covers nothing in particular" test-b.sh
 passing_test "covers src/baz.txt" test-c.sh
 printf 'foo\n' > "$FIX/src/foo.txt"
 printf 'bar\n' > "$FIX/src/bar.txt"
-git -C "$FIX" init -q
 git -C "$FIX" add -A
 commit() { git -C "$FIX" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q -m "$1"; }
 commit init
@@ -83,6 +80,93 @@ printf '%s\n' ". \"\$(dirname \"\$0\")/lib.sh\"" "# covers src/bar.txt" 'assert_
   > "$FIX/tests/test-e.sh"
 RUN="$(affected --run "$BASE2")"; RSTATUS=$?
 assert_eq "1" "$RSTATUS" "--run: a failing selected file's status passes through"
+
+# under-test: a test naming an artefact through under_test (or py_module) is
+# selected by a change to that path or to anything under it; verbatim inference
+# still selects beside it (spec test-suite-aposd D1, AC 4).
+mkdir -p "$FIX/.agents/skills/x/scripts" "$FIX/.agents/skills/x/scripts-old" "$FIX/lib/pkg"
+printf 'v1
+' > "$FIX/.agents/skills/x/scripts/y.py"
+printf 'v1
+' > "$FIX/.agents/skills/x/scripts-old/z.py"
+printf 'v1
+' > "$FIX/.agents/skills/x/SKILL.md"
+printf 'v1
+' > "$FIX/lib/pkg/mod.py"
+printf '%s
+' ". \"\$(dirname \"\$0\")/lib.sh\"" 'S="$(under_test .agents/skills/x/scripts/)"' 'assert_eq a a "holds"' 'finish' > "$FIX/tests/test-f.sh"
+printf '%s
+' ". \"\$(dirname \"\$0\")/lib.sh\"" 'under_test ".agents/skills/x/SKILL.md"' 'py_module lib/pkg' 'assert_eq a a "holds"' 'finish' > "$FIX/tests/test-g.sh"
+printf '%s
+' ". \"\$(dirname \"\$0\")/lib.sh\"" 'assert_eq a a "holds"' 'finish' > "$FIX/tests/test-h.sh"
+git -C "$FIX" add -A
+commit "under_test fixtures"
+BASE3="$(git -C "$FIX" rev-parse HEAD)"
+
+printf 'v2
+' > "$FIX/.agents/skills/x/scripts/y.py"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-f.sh" "$OUT" "under_test: a directory literal selects the test for a change to a file under it"
+git -C "$FIX" checkout -q -- .agents/skills/x/scripts/y.py
+
+printf 'v2
+' > "$FIX/.agents/skills/x/scripts-old/z.py"
+OUT="$(affected "$BASE3")"
+assert_eq "affected: none" "$OUT" "under_test: a sibling sharing the name prefix is not covered"
+git -C "$FIX" checkout -q -- .agents/skills/x/scripts-old/z.py
+
+printf 'v2
+' > "$FIX/.agents/skills/x/SKILL.md"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-g.sh" "$OUT" "under_test: a quoted file literal selects on equality"
+git -C "$FIX" checkout -q -- .agents/skills/x/SKILL.md
+
+printf 'v2
+' > "$FIX/lib/pkg/mod.py"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-g.sh" "$OUT" "py_module: its directory argument is declared like under_test"
+git -C "$FIX" checkout -q -- lib/pkg/mod.py
+
+printf 'v2
+' > "$FIX/.agents/skills/x/scripts/y.py"
+printf 'v2
+' > "$FIX/src/foo.txt"
+OUT="$(affected "$BASE3")"
+assert_eq "tests/test-a.sh
+tests/test-f.sh" "$OUT" "under_test and verbatim inference select as a union"
+git -C "$FIX" checkout -q -- .agents/skills/x/scripts/y.py src/foo.txt
+
+printf '# touched
+' >> "$FIX/tests/lib.sh"
+OUT="$(affected "$BASE3")"
+assert_contains "$OUT" "tests/test-h.sh" "under_test: a runner change still selects a test that declares nothing"
+git -C "$FIX" checkout -q -- tests/lib.sh
+
+# The declaration grammar is spelled once, here in affected.sh; a test that needs
+# to know what a file declares, or whether a declaration covers a path, asks
+# through --declared and --covering instead of keeping a regex of its own.
+DECL="$(cd "$FIX" && bash tests/affected.sh --declared tests/test-f.sh tests/test-g.sh tests/test-h.sh 2>&1)"
+assert_eq "tests/test-f.sh .agents/skills/x/scripts/
+tests/test-g.sh .agents/skills/x/SKILL.md
+tests/test-g.sh lib/pkg" "$DECL" "--declared: prints <file> <literal> per declaration, quotes stripped, nothing for a file declaring none"
+covering() { (cd "$FIX" && bash tests/affected.sh --covering "$1" -- tests/test-f.sh tests/test-g.sh tests/test-h.sh 2>&1); }
+assert_eq "tests/test-f.sh" "$(covering .agents/skills/x/scripts/y.py)" "--covering: a directory literal covers a file under it"
+assert_eq "" "$(covering .agents/skills/x/scripts-old/z.py)" "--covering: a sibling sharing the name prefix is not covered"
+assert_eq "tests/test-g.sh" "$(covering .agents/skills/x/SKILL.md)" "--covering: a file literal covers its own path"
+assert_eq "tests/test-g.sh" "$(covering lib/pkg/mod.py)" "--covering: a py_module directory covers a file under it"
+assert_eq "" "$(covering src/foo.txt)" "--covering: a path no declaration covers names no test"
+(cd "$FIX" && bash tests/affected.sh --declared </dev/null >"$BOX/usage.out" 2>&1)
+assert_eq "2" "$?" "usage: --declared with no test file exits 2"
+(cd "$FIX" && bash tests/affected.sh --covering lib/pkg tests/test-g.sh </dev/null >"$BOX/usage.out" 2>&1)
+assert_eq "2" "$?" "usage: --covering without the -- separator exits 2"
+
+# After the move, the token regex is affected.sh's alone: no other file of tests/
+# keeps its own reading of an under_test or py_module declaration.
+GRAMMAR_CONTROL="$BOX/grammar.txt"
+printf '%s%s\n' 'x=$(grep -E "(under_te' 'st|py_module)[[:space:]]+" f)' > "$GRAMMAR_CONTROL"
+assert_sweep_empty "the declaration grammar is spelled only in tests/affected.sh" "$GRAMMAR_CONTROL" -- \
+  grep -nE '[(]under_tes[t][|]py_modul[e][)]' -- "$REPO"/tests/test-*.sh "$REPO/tests/lib.sh" "$REPO/tests/run.sh"
+assert_file_matches "$REPO/tests/affected.sh" '[(]under_tes[t][|]py_modul[e][)]' "the declaration grammar lives in tests/affected.sh"
 
 (cd "$FIX" && bash tests/affected.sh </dev/null >"$BOX/usage.out" 2>&1)
 assert_eq "2" "$?" "usage: no base exits 2"

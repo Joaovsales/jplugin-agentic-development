@@ -17,9 +17,11 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
+py_module .agents/skills/task-registry/scripts >/dev/null
+
 CANON=".agents/skills/wrap-up-session/references/routines.md"
 
-assert_eq "present" "$([ -f "$CANON" ] && echo present || echo missing)" \
+assert_file_exists "$CANON" \
   "Contract: $CANON exists"
 
 # --- the four routines, three active and one deferred ------------------------
@@ -201,7 +203,7 @@ for routine in plan fix improve simplify janitor architect tidy; do
     "Contract: $routine's section names its lane file"
   assert_eq "0" "$(printf '%s\n' "$section" | grep -cE '^\| [0-9]' || true)" \
     "Contract: $routine's section carries no step rows of its own"
-  assert_eq "present" "$([ -f "$LANES/$routine.md" ] && echo present || echo missing)" \
+  assert_file_exists "$LANES/$routine.md" \
     "Contract: lane file $LANES/$routine.md exists"
 done
 
@@ -230,8 +232,7 @@ assert_contains "$plan_section" "deliberately absent" \
 # the table stays because it is what a human reads first, and this is what keeps
 # it honest.
 table_names="$(sed -nE 's/^\| `([a-z-]+)` \|.*/\1/p' "$CANON" | sort | paste -sd' ' -)"
-catalogue_view="$(PYTHONDONTWRITEBYTECODE=1 \
-  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -B -c '
+catalogue_view="$("$TEST_PYTHON" -c '
 from registry.lanes import catalogue
 c = catalogue()
 print(" ".join(c.routines))
@@ -301,8 +302,7 @@ contract_deferred="$(sed -nE 's/^\| `([a-z-]+)` \|.*\|[^|]*deferred[^|]*\|[[:spa
 assert_eq "build" "$contract_deferred" \
   "Contract: the Status column marks exactly one routine deferred"
 
-config_deferred="$(PYTHONDONTWRITEBYTECODE=1 \
-  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" "$TEST_PYTHON" -c '
+config_deferred="$("$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(sorted(DEFERRED_ROUTINES)))')"
 assert_eq "$contract_deferred" "$config_deferred" \
@@ -313,8 +313,7 @@ assert_eq "$contract_deferred" "$config_deferred" \
 for issue in 97 98; do
   assert_file_contains "$CANON" "#$issue" \
     "Contract: the deferral section cites #$issue"
-  assert_contains "$(PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" "$TEST_PYTHON" -c '
+  assert_contains "$("$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(DEFERRED_ROUTINES.values()))')" "#$issue" \
     "Contract: the deferral message workflow prints cites #$issue too"

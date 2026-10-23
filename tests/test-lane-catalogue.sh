@@ -11,26 +11,13 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
 LANES_DIR=".agents/skills/task-registry/lanes"
-PY=python3
+PY="$TEST_PYTHON"
 
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
-
-# `-B` keeps every probe from writing __pycache__ into the canonical tree, which
-# every downstream /sync would then carry as an untracked change.
-pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -B -; }
-run_cli() { PYTHONDONTWRITEBYTECODE=1 "$PY" -B "$CLI" "$@"; }
-
-new_dir() {
-  local d
-  d="$(mktemp -d "${TMPDIR:-/tmp}/lane-catalogue.XXXXXX")"
-  TMP_DIRS+=("$d")
-  printf '%s' "$d"
-}
+# The CLI the way a skill calls it.
+reg() { "$PY" "$CLI" "$@"; }
 
 # A lane file in $1 named $2, frontmatter from $3 (newline-separated key: value
 # lines), steps from stdin. `ends:` is always present unless the caller says
@@ -48,11 +35,9 @@ write_lane() {
 # Fixture paths travel as ARGUMENTS, never inside the Python text: on Windows
 # the shell converts an argument's /tmp/... to a native path and leaves a string
 # literal alone, so an embedded path is "not a directory" to Python.
-pyreg_with() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -B - "$@"; }
-
 # The refusal a fixture directory produces, or "LOADED" when it did not refuse.
 refusal_of() {
-  pyreg_with "$1" <<'PY'
+  "$PY" - "$1" <<'PY'
 import sys
 from registry.lanes import LaneCatalogueError, load_catalogue
 try:
@@ -67,7 +52,7 @@ PY
 # 1. AC1 — the shipped catalogue, read through its views
 # ============================================================================
 printf '\n-- shipped catalogue --\n'
-views="$(pyreg <<'PY'
+views="$("$PY" - <<'PY'
 from registry.lanes import catalogue
 c = catalogue()
 print("names:", ",".join(c.names))
@@ -125,7 +110,7 @@ assert_contains "$views" "babysit-chain: /receive-review -> /debug -> /plan -> /
 assert_contains "$views" "none-chain: /brainstorm" "AC1: none routes to /brainstorm"
 
 # --- AC1: config.py resolves its five names from the catalogue, lazily --------
-lazy="$(pyreg <<'PY'
+lazy="$("$PY" - <<'PY'
 import registry.config as config
 from registry import lanes
 print("after-import:", lanes.catalogue.cache_info().currsize)
@@ -159,14 +144,14 @@ done
 # 2. AC2 — the grammar, and every refusal names the file
 # ============================================================================
 printf '\n-- grammar --\n'
-g="$(new_dir)"
+g="$(fixture_dir)"
 write_lane "$g" "alpha" "$(printf 'ends: something\ncues: alpha, first')" <<'EOF'
 1. `/first <ref>` — opens the chain
 2. Prose that mentions `/never` in passing
 3. `/optional-thing` — only if asked — optional
 4. `/wrap-up-session` — closes
 EOF
-grammar="$(pyreg_with "$g" <<'PY'
+grammar="$("$PY" - "$g" <<'PY'
 import sys
 from registry.lanes import load_catalogue
 lane = load_catalogue(sys.argv[1]).lane("alpha")
@@ -183,12 +168,12 @@ assert_contains "$grammar" "routine: None" "AC2: a lane without routine: is inte
 assert_contains "$grammar" "reply: What to say." "AC2: the Reply section is read"
 
 printf '\n-- refusals --\n'
-r="$(new_dir)"; write_lane "$r" "Bad_Name" "ends: x" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "Bad_Name" "ends: x" <<'EOF'
 1. `/wrap-up-session` — x
 EOF
 assert_contains "$(refusal_of "$r")" "Bad_Name" "AC2: a stem outside [a-z][a-z-]* is refused by file"
 
-r="$(new_dir)"; write_lane "$r" "beta" "$(printf 'ends: x\nselcts: bug')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "beta" "$(printf 'ends: x\nselcts: bug')" <<'EOF'
 1. `/wrap-up-session` — x
 EOF
 out="$(refusal_of "$r")"
@@ -196,22 +181,22 @@ assert_contains "$out" "REFUSED:" "AC2: an unknown frontmatter key is refused, n
 assert_contains "$out" "selcts" "AC2: the refusal names the unknown key"
 assert_contains "$out" "beta.md" "AC2: the refusal names the file"
 
-r="$(new_dir)"; write_lane "$r" "gamma" "$(printf 'ends: x\nselects: bug')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "gamma" "$(printf 'ends: x\nselects: bug')" <<'EOF'
 1. `/wrap-up-session` — x
 EOF
 assert_contains "$(refusal_of "$r")" "selects" "AC2: selects without routine: consumer is refused"
 
-r="$(new_dir)"; write_lane "$r" "delta" "$(printf 'ends: x\nroutine: producer\nselects: bug')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "delta" "$(printf 'ends: x\nroutine: producer\nselects: bug')" <<'EOF'
 1. `/wrap-up-session` — x
 EOF
 assert_contains "$(refusal_of "$r")" "selects" "AC2: selects on a producer is refused"
 
-r="$(new_dir)"; write_lane "$r" "epsilon" "$(printf 'ends: x\ndeferred: not yet')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "epsilon" "$(printf 'ends: x\ndeferred: not yet')" <<'EOF'
 1. `/wrap-up-session` — x
 EOF
 assert_contains "$(refusal_of "$r")" "deferred" "AC2: deferred without routine is refused"
 
-r="$(new_dir)"; write_lane "$r" "zeta" "$(printf 'ends: x\nroutine: consumer')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "zeta" "$(printf 'ends: x\nroutine: consumer')" <<'EOF'
 1. `/build` — x
 2. `/wrap-up-session` — y
 3. `/extra` — after the gate
@@ -220,49 +205,49 @@ out="$(refusal_of "$r")"
 assert_contains "$out" "/wrap-up-session" "AC2: a routine chain not ending at /wrap-up-session is refused"
 assert_contains "$out" "zeta.md" "AC2: the terminal refusal names the file"
 
-r="$(new_dir)"; write_lane "$r" "eta" "$(printf 'ends: x\ncues: eta')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "eta" "$(printf 'ends: x\ncues: eta')" <<'EOF'
 1. `/build` — x
 2. `/extra` — no gate needed
 EOF
 assert_eq "LOADED" "$(refusal_of "$r")" \
   "AC2: an interactive-only lane carries no terminal rule"
 
-r="$(new_dir)"; write_lane "$r" "theta" "ends: x" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "theta" "ends: x" <<'EOF'
 1. `/build` — x
 3. `/wrap-up-session` — a gap before me
 EOF
 assert_contains "$(refusal_of "$r")" "theta.md" "AC2: a step gap is refused by file"
 
-r="$(new_dir)"; write_lane "$r" "iota" "ends: x" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "iota" "ends: x" <<'EOF'
 1. `/build` — x
 - [ ] TDD: a checkbox row /build would dispatch
 2. `/wrap-up-session` — y
 EOF
 assert_contains "$(refusal_of "$r")" "iota.md" "AC2: a checkbox row is refused by file"
 
-r="$(new_dir)"; write_lane "$r" "kappa" "" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "kappa" "" <<'EOF'
 1. `/wrap-up-session` — x
 EOF
 assert_contains "$(refusal_of "$r")" "ends" "AC2: a lane without ends: is refused"
 
-r="$(new_dir)"; write_lane "$r" "lambda" "$(printf 'ends: x\nroutine: sometimes')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "lambda" "$(printf 'ends: x\nroutine: sometimes')" <<'EOF'
 1. `/wrap-up-session` — x
 EOF
 assert_contains "$(refusal_of "$r")" "sometimes" "AC2: routine: outside consumer|producer is refused by value"
 
-r="$(new_dir)"; write_lane "$r" "mu" "ends: x" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "mu" "ends: x" <<'EOF'
 No numbered steps at all.
 EOF
 assert_contains "$(refusal_of "$r")" "mu.md" "AC2: a lane with no steps is refused by file"
 
-r="$(new_dir)"; write_lane "$r" "nu" "ends: x" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "nu" "ends: x" <<'EOF'
 1. `/build` — x
 EOF
 out="$(refusal_of "$r")"
 assert_contains "$out" "cues" "AC2: a lane with neither routine: nor cues: is refused — no router reaches it"
 assert_contains "$out" "nu.md" "AC2: the ghost-lane refusal names the file"
 
-r="$(new_dir)"; write_lane "$r" "xi" "$(printf 'ends: x\ncues: xi')" <<'EOF'
+r="$(fixture_dir)"; write_lane "$r" "xi" "$(printf 'ends: x\ncues: xi')" <<'EOF'
 1. `/build` — a long step that an editor
    wrapped onto a second line — optional
 EOF
@@ -270,14 +255,14 @@ out="$(refusal_of "$r")"
 assert_contains "$out" "wraps" "AC2: a step wrapped onto an indented line is refused, not truncated"
 assert_contains "$out" "xi.md" "AC2: the wrapped-step refusal names the file"
 
-r="$(new_dir)"
+r="$(fixture_dir)"
 printf -- '---\nends: x\ncues: omicron\n---\n# Lane: omicron\n\n1. `/build` — x\n' > "$r/omicron.md"
 out="$(refusal_of "$r")"
 assert_contains "$out" "Reply" "AC2: a lane with no ## Reply section is refused"
 assert_contains "$out" "omicron.md" "AC2: the missing-Reply refusal names the file"
 
 # --- AC2: LaneCatalogueError is a ConfigError, so it flows through load_config -
-assert_contains "$(pyreg <<'PY'
+assert_contains "$("$PY" - <<'PY'
 from registry.config import ConfigError
 from registry.lanes import LaneCatalogueError
 print("subclass:", issubclass(LaneCatalogueError, ConfigError))
@@ -291,16 +276,16 @@ printf '\n-- files --\n'
 for tree in .agents; do
   for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy; do
     f="$tree/skills/task-registry/lanes/$lane.md"
-    assert_eq "present" "$([ -f "$f" ] && echo present || echo missing)" "AC3: $f exists"
+    assert_file_exists "$f" "AC3: $f exists"
     [ -f "$f" ] || continue
-    assert_eq "yes" "$(head -1 "$f" | tr -d '\r' | grep -q '^---$' && echo yes || echo no)" \
-      "AC3: $f opens with frontmatter"
+    assert_true "AC3: $f opens with frontmatter" -- \
+      bash -c 'head -1 "$1" | tr -d "\r" | grep -q "^---$"' _ "$f"
     assert_file_matches "$f" "^# Lane: $lane\$" "AC3: $f heading names its lane"
     assert_file_matches "$f" "^## Reply" "AC3: $f has a Reply section"
     assert_file_not_matches "$f" '^[[:space:]]*-?[[:space:]]*\[[ ~x]\]' "AC3: $f has no checkbox rows"
   done
 done
-assert_eq "absent" "$([ -d .agents/skills/go/lanes ] && echo present || echo absent)" \
+assert_file_absent .agents/skills/go/lanes \
   "AC3: .agents/skills/go/lanes/ no longer exists"
 
 # Every `/skill` token anywhere in a lane file — head, prose, or optional step —
@@ -313,7 +298,7 @@ skill_tokens() {
 for f in "$LANES_DIR"/*.md; do
   while IFS= read -r tok; do
     [ -n "$tok" ] || continue
-    assert_eq "present" "$([ -f ".agents/skills/${tok#/}/SKILL.md" ] && echo present || echo missing)" \
+    assert_file_exists ".agents/skills/${tok#/}/SKILL.md" \
       "AC3: $f names $tok and .agents/skills/${tok#/}/SKILL.md exists"
   done <<EOF
 $(skill_tokens "$f")
@@ -344,7 +329,7 @@ printf '\n-- template pin --\n'
 template=".agents/skills/task-registry/templates/task-tracking.md"
 template_chains="$(awk '/^\[routines.skills\]/{f=1;next} f&&/^\[/{exit} f&&/^[a-z]+ *=/' "$template" \
   | sed -E 's/ *= */=/; s/, */,/g' | sort | paste -sd';' -)"
-catalogue_chains="$(pyreg <<'PY'
+catalogue_chains="$("$PY" - <<'PY'
 from registry.lanes import catalogue
 print(";".join(f"{k}={','.join(v)}" for k, v in sorted(catalogue().chains.items())))
 PY
@@ -358,7 +343,7 @@ assert_file_contains "$template" "lanes/" \
 # 5. AC4 — the `lanes` command
 # ============================================================================
 printf '\n-- lanes command --\n'
-table="$(run_cli lanes --repo "$REPO" 2>&1)"; code=$?
+table="$(reg lanes --repo "$REPO" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes exits 0 on this repository"
 for lane in architect babysit build fix improve investigate janitor none perf plan refactor simplify tidy; do
   assert_contains "$table" "$lane" "AC4: the table has a $lane row"
@@ -368,14 +353,14 @@ assert_contains "$table" "/debug -> /quality-gate -> /wrap-up-session" \
 assert_contains "$table" "deferred" "AC4: build's row says it is deferred"
 assert_contains "$table" "broken, fails" "AC4: cues are printed for matching"
 
-one="$(run_cli lanes fix --repo "$REPO" 2>&1)"; code=$?
+one="$(reg lanes fix --repo "$REPO" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes fix exits 0"
 assert_contains "$one" "1. \`/debug <ref>\`" "AC4: lanes fix prints the numbered steps verbatim"
 assert_contains "$one" "## Reply" "AC4: lanes fix prints the Reply section"
 assert_contains "$one" "chain:" "AC4: lanes fix prints the effective chain"
 
 # specs/make-it-simpler.md AC13 — the simplify consumer lane.
-one="$(run_cli lanes simplify --repo "$REPO" 2>&1)"; code=$?
+one="$(reg lanes simplify --repo "$REPO" 2>&1)"; code=$?
 assert_eq "0" "$code" "make-it-simpler AC13: lanes simplify exits 0"
 assert_contains "$one" "/make-it-simpler -> /plan -> /build -> /quality-gate -> /wrap-up-session" \
   "make-it-simpler AC13: simplify's chain"
@@ -387,7 +372,7 @@ assert_contains "$views" "chain simplify: /make-it-simpler -> /plan -> /build ->
   "make-it-simpler AC13: simplify is a consumer with a chain"
 assert_not_contains "$one" "note:" "AC4: no note when the chain is not overridden"
 
-unknown="$(run_cli lanes nope --repo "$REPO" 2>&1)"; code=$?
+unknown="$(reg lanes nope --repo "$REPO" 2>&1)"; code=$?
 assert_eq "2" "$code" "AC4: an unknown lane exits 2"
 assert_contains "$unknown" "investigate" "AC4: the unknown-lane refusal lists the known lanes"
 
@@ -395,18 +380,21 @@ assert_contains "$unknown" "investigate" "AC4: the unknown-lane refusal lists th
 # [routines] block the case needs.
 new_project() {
   local d name
-  d="$(new_dir)"
+  d="$(fixture_dir)"
   mkdir -p "$d/tasks" "$d/docs"
-  printf '[ ] placeholder\n' > "$d/tasks/todo.md"
+  fixture_copy task-registry/todo-placeholder.md "$d/tasks/todo.md"
   for name in "$@"; do
     mkdir -p "$d/.agents/skills/$name"
     printf -- '---\nname: %s\n---\n' "$name" > "$d/.agents/skills/$name/SKILL.md"
   done
   printf '%s' "$d"
 }
+# The shared local-provider config body, fenced here around the case's stanzas.
 write_config() {
-  { printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n'; cat; printf '```\n'; } \
-    > "$1/docs/task-tracking.md"
+  local conf="$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking-local.ini "$conf.ini"
+  { printf '# Task tracking\n\n```ini\n'; cat "$conf.ini"; cat; printf '```\n'; } > "$conf"
+  rm "$conf.ini"
 }
 
 # --- override: the project replaced fix's chain --------------------------------
@@ -427,12 +415,12 @@ fix = /debug, /security-scan, /build, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session
 EOF
-over="$(run_cli lanes fix --repo "$p" 2>&1)"; code=$?
+over="$(reg lanes fix --repo "$p" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: an overridden lane still prints"
 assert_contains "$over" "/security-scan" "AC4: the effective chain is the project's"
 assert_contains "$over" "note:" "AC4: a configured override prints the note line"
 assert_contains "$over" "[routines.skills]" "AC4: the note names the section that replaced the chain"
-over_table="$(run_cli lanes --repo "$p" 2>&1)"
+over_table="$(reg lanes --repo "$p" 2>&1)"
 assert_contains "$over_table" "/debug -> /security-scan -> /build" \
   "AC4: the table prints the effective chain too"
 
@@ -443,7 +431,7 @@ write_config "$p" <<'EOF'
 [routines.skills]
 janitor = /sweep, /wrap-up-session
 EOF
-prod="$(run_cli lanes janitor --repo "$p" 2>&1)"; code=$?
+prod="$(reg lanes janitor --repo "$p" 2>&1)"; code=$?
 assert_eq "2" "$code" "AC4: a [routines.skills] key naming a producer is refused"
 assert_contains "$prod" "producer" "AC4: the refusal says janitor is a producer"
 assert_contains "$prod" "[routines.skills]" "AC4: the refusal names the section"
@@ -452,11 +440,11 @@ assert_contains "$prod" "[routines.skills]" "AC4: the refusal names the section"
 p="$(new_project build quality-gate wrap-up-session)"
 write_config "$p" <<'EOF'
 EOF
-missing="$(run_cli lanes fix --repo "$p" 2>&1)"; code=$?
+missing="$(reg lanes fix --repo "$p" 2>&1)"; code=$?
 assert_eq "2" "$code" "AC4: a chain skill absent from disk exits 2"
 assert_contains "$missing" "/debug" "AC4: the refusal names the missing skill"
 assert_contains "$missing" "fix" "AC4: the refusal names the lane"
-listing="$(run_cli lanes --repo "$p" 2>&1)"; code=$?
+listing="$(reg lanes --repo "$p" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: the table does not check disk — it is for matching, not running"
 
 # --- unreadable configuration: interactive lanes are never blocked -------------
@@ -471,27 +459,28 @@ plan = design-decision, bug
 fix = bug, tech-debt
 improve = enhancement, documentation
 EOF
-broken_table="$(run_cli lanes --repo "$p" 2>&1)"; code=$?
+broken_table="$(reg lanes --repo "$p" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes prints on a configuration that cannot be read"
 assert_contains "$broken_table" "configuration could not be read" \
   "AC4: routine rows say the configuration could not be read"
 assert_contains "$broken_table" "/debug -> /quality-gate" \
   "AC4: routine rows fall back to the shipped chain"
-broken_inv="$(run_cli lanes investigate --repo "$p" 2>&1)"; code=$?
+broken_inv="$(reg lanes investigate --repo "$p" 2>&1)"; code=$?
 assert_eq "0" "$code" "AC4: lanes investigate exits 0 on a broken configuration"
-broken_fix="$(run_cli lanes fix --repo "$p" 2>&1)"; code=$?
+broken_fix="$(reg lanes fix --repo "$p" 2>&1)"; code=$?
 assert_eq "2" "$code" "AC4: lanes fix exits 2 on a broken configuration"
 assert_contains "$broken_fix" "same label" "AC4: the refusal is the configuration's own error"
-wf="$(run_cli workflow '#1' --repo "$p" 2>&1)"; code=$?
+wf="$(reg workflow '#1' --repo "$p" 2>&1)"; code=$?
 assert_eq "2" "$code" "AC4 control: workflow still exits 2 on the same configuration"
 
 # --- no provider: a github declaration with no repository blocks workflow, not lanes
 p="$(new_project debug build quality-gate wrap-up-session plan)"
-{ printf '# Task tracking\n\n```ini\n[tracker]\nprovider = github\n```\n'; } > "$p/docs/task-tracking.md"
-nogh_wf="$(run_cli workflow '#1' --repo "$p" 2>&1)"; wf_code=$?
-nogh_lanes="$(run_cli lanes --repo "$p" 2>&1)"; lanes_code=$?
-assert_eq "yes" "$([ "$wf_code" -ne 0 ] && echo yes || echo no)" \
-  "AC4 control: workflow needs the provider and fails without a repository"
+fixture_copy task-registry/task-tracking.md "$p/docs/task-tracking.md"
+sed -i '/^repository = /d;/^require_write_approval = /d' "$p/docs/task-tracking.md"
+nogh_wf="$(reg workflow '#1' --repo "$p" 2>&1)"; wf_code=$?
+nogh_lanes="$(reg lanes --repo "$p" 2>&1)"; lanes_code=$?
+assert_true "AC4 control: workflow needs the provider and fails without a repository" -- \
+  test "$wf_code" -ne 0
 assert_contains "$nogh_wf" "no repository configured" \
   "AC4 control: workflow's failure is the provider's"
 assert_eq "0" "$lanes_code" "AC4: lanes selects no provider, so the same project prints its table"
@@ -505,11 +494,11 @@ assert_precedes "$cli_flat" 'command == "lanes"' 'select_provider(config)' \
 # --- doctor survives a broken shipped catalogue ---------------------------------
 # The catalogue is package data, so a broken one is simulated by pointing the
 # reader at a fixture directory through the same loader load_config uses.
-bad="$(new_dir)"
+bad="$(fixture_dir)"
 write_lane "$bad" "broken" "$(printf 'ends: x\nroutine: consumer')" <<'EOF'
 1. `/build` — never wraps up
 EOF
-doctor_out="$(pyreg_with "$bad" "$REPO" <<'PY'
+doctor_out="$("$PY" - "$bad" "$REPO" <<'PY'
 import sys
 from registry import lanes, config as cfg
 lanes.catalogue.cache_clear()
@@ -532,7 +521,7 @@ assert_not_contains "$doctor_out" "lenient-fault: none" \
 p="$(new_project)"
 write_config "$p" <<'EOF'
 EOF
-doctor_cli="$(pyreg_with "$bad" "$p" "$CLI" <<'PY'
+doctor_cli="$("$PY" - "$bad" "$p" "$CLI" <<'PY'
 import importlib.util, io, sys
 from contextlib import redirect_stdout
 from registry import lanes

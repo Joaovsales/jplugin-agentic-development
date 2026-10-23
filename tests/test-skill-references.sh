@@ -46,6 +46,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 TREES=".agents/skills"
+under_test .agents/skills >/dev/null
 
 # Emit "<lineno>|<executable>|<token>" per candidate path token.
 #
@@ -83,11 +84,6 @@ is_glob() {
   case "$1" in *"*"*|*"?"*) return 0 ;; *) return 1 ;; esac
 }
 
-fail() {
-  _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-  printf '  FAIL %s\n' "$1"
-}
-
 for tree in $TREES; do
   [ -d "$tree" ] || continue
   while IFS= read -r md; do
@@ -106,7 +102,7 @@ for tree in $TREES; do
           if [ "$executable" = "1" ]; then
             fail "SelfContain: $md:$lineno executes escaping path $tok"
           else
-            assert_eq "exists" "$([ -e "$skill_dir/$tok" ] && echo exists || echo missing)" \
+            assert_file_exists "$skill_dir/$tok" \
               "RefInt: $md:$lineno prose ref $tok resolves"
           fi
           ;;
@@ -114,18 +110,18 @@ for tree in $TREES; do
           if [ "$executable" = "1" ]; then
             fail "SelfContain: $md:$lineno executes compat-copy path $tok (use .agents/skills/)"
           else
-            assert_eq "exists" "$([ -e "$tok" ] && echo exists || echo missing)" \
+            assert_file_exists "$tok" \
               "RefInt: $md:$lineno cited path $tok exists"
           fi
           ;;
         .agents/skills/*|.agents/references/*)
           # Canonical tree: allowed in executed commands, must still exist.
-          assert_eq "exists" "$([ -e "$tok" ] && echo exists || echo missing)" \
+          assert_file_exists "$tok" \
             "RefInt: $md:$lineno canonical path $tok exists"
           ;;
         *)
           if [ -e "$skill_dir/$tok" ] || [ -e "$tok" ]; then
-            assert_eq "resolved" "resolved" "RefInt: $md:$lineno $tok resolves"
+            pass "RefInt: $md:$lineno $tok resolves"
           else
             fail "RefInt: $md:$lineno names $tok — not in $skill_dir/ nor at repo root"
           fi
