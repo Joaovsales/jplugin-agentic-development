@@ -11,7 +11,11 @@
 #   .agents/skills/build/scripts/cached-suite.sh -- <command> [args...]
 #
 # The key is the working tree — tracked and untracked files, not ignored ones —
-# hashed through a temporary index, plus the command. Records and the lock live
+# hashed through a temporary index, plus the command and the environment it ran
+# in: `uname -s`, the `${TEST_PYTHON:-python3} --version` line (`none` when the
+# interpreter is missing) and whether `gh` is on PATH. A green record from
+# another platform or toolchain is not evidence for this one, so it is not
+# reused. Records and the lock live
 # under `$(git rev-parse --git-common-dir)/cached-suite/`, shared by every
 # worktree of the repository and never committed.
 #
@@ -102,7 +106,13 @@ take_lock() {
 
 take_lock
 TREE="$(working_tree_hash)" || die "could not hash the working tree"
-COMMAND_HASH="$(printf '%s\0' "$@" | git hash-object --stdin)"
+# environment_key: the facts about this machine a green run depends on.
+environment_key() {
+  printf '%s\n' "$(uname -s)"
+  "${TEST_PYTHON:-python3}" --version 2>/dev/null || printf 'none\n'
+  if command -v gh >/dev/null 2>&1; then printf 'gh present\n'; else printf 'gh absent\n'; fi
+}
+COMMAND_HASH="$( { environment_key; printf '%s\0' "$@"; } | git hash-object --stdin)"
 RECORD="$STORE/$TREE-$COMMAND_HASH"
 
 if [ -f "$RECORD" ]; then

@@ -9,30 +9,28 @@ set -u
 . "$(dirname "$0")/lib.sh"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RENDER="$REPO_ROOT/.agents/skills/visual-plan/scripts/plan_render.py"
+RENDER="$(under_test .agents/skills/visual-plan/scripts)/plan_render.py"
 FIX="$REPO_ROOT/tests/fixtures/plan-render"
 
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
+
+# in_dir <dir> <cmd...> — run a command from <dir>; a spec is named relative to
+# it, so the <spec>:<line> in a refusal stays the fixture's own name.
+in_dir() { ( cd "$1" && shift && "$@" ); }
 
 # render <fixture-name> — renders tests/fixtures/plan-render/<name>.md into
-# $TMP/<name>.html and leaves OUT (stdout+stderr) and CODE behind.
+# $TMP/<name>.html and leaves output (stdout+stderr) and status behind.
 render() {
-  OUT="$(cd "$FIX" && "$TEST_PYTHON" "$RENDER" "$1.md" -o "$TMP/$1.html" 2>&1)"
-  CODE=$?
+  run in_dir "$FIX" "$TEST_PYTHON" "$RENDER" "$1.md" -o "$TMP/$1.html"
 }
 
 printf '\n--- failures: a malformed known section exits 1 with <spec>:<line>: <reason> ---\n'
 assert_failure() {  # <fixture> <line> <reason-needle>
   render "$1"
-  assert_eq "1" "$CODE" "failures: $1 exits 1"
-  assert_contains "$OUT" "$1.md:$2: " "failures: $1 names <spec>:<line>"
-  assert_contains "$OUT" "$3" "failures: $1 names the reason"
-  if [ -e "$TMP/$1.html" ]; then
-    assert_eq "absent" "present" "failures: $1 writes no file"
-  else
-    assert_eq "absent" "absent" "failures: $1 writes no file"
-  fi
+  assert_eq "1" "$status" "failures: $1 exits 1"
+  assert_contains "$output" "$1.md:$2: " "failures: $1 names <spec>:<line>"
+  assert_contains "$output" "$3" "failures: $1 names the reason"
+  assert_file_absent "$TMP/$1.html" "failures: $1 writes no file"
 }
 assert_failure fail-decision-cell 8 "Decisions"
 assert_failure fail-risk-value 8 "H/M/L"
@@ -47,8 +45,8 @@ assert_failure fail-blocked-by 8 "Blocked by"
 assert_failure fail-flow-empty 7 "empty node name"
 
 render legacy
-assert_eq "0" "$CODE" "render: legacy exits 0"
-assert_contains "$OUT" "✓ Visual written: " "render: prints the written path"
+assert_eq "0" "$status" "render: legacy exits 0"
+assert_contains "$output" "✓ Visual written: " "render: prints the written path"
 PAGE="$(cat "$TMP/legacy.html" 2>/dev/null)"
 
 printf '\n--- tables: markdown tables are semantic and scroll in their own container ---\n'
@@ -77,7 +75,7 @@ assert_contains "$PAGE" 'none — written before visual plans had typed sections
 assert_not_contains "$PAGE" 'implementation_paths' "legacy: the frontmatter is not rendered"
 
 render legacy-dialects
-assert_eq "0" "$CODE" "legacy: older dialects (AC-1.1 ids, 1–2 ranges, 'settled (operator pick)') render"
+assert_eq "0" "$status" "legacy: older dialects (AC-1.1 ids, 1–2 ranges, 'settled (operator pick)') render"
 PAGE="$(cat "$TMP/legacy-dialects.html" 2>/dev/null)"
 assert_contains "$PAGE" '>AC1.1<' "legacy: a dotted AC-1.1 id normalises to AC1.1"
 assert_contains "$PAGE" '>AC2<' "legacy: an 'AC-2 —' prefix normalises to AC2"
@@ -102,21 +100,17 @@ assert_eq "$(md5sum < "$TMP/bare/page.html")" "$(md5sum < "$TMP/project/page.htm
 # Lowercased through tr: `grep -i` aborts on multibyte input under Git Bash.
 SCRIPTS_LC="$(cat "$REPO_ROOT"/.agents/skills/visual-plan/scripts/*.py | tr 'A-Z' 'a-z')"
 for scripts_needle in 'design.md' 'design-stack' '.claude/skills' 'impeccable' 'taste'; do
-  if printf '%s' "$SCRIPTS_LC" | grep -qF -- "$scripts_needle"; then
-    assert_eq "unread" "read" "theme: the renderer never names $scripts_needle"
-  else
-    assert_eq "unread" "unread" "theme: the renderer never names $scripts_needle"
-  fi
+  assert_not_contains "$SCRIPTS_LC" "$scripts_needle" "theme: the renderer never names $scripts_needle"
 done
 # between <start-needle> <end-needle> <haystack> — the text from the first start
 # needle up to the next end needle, so an assertion reads one card, not the page.
 between() { printf '%s' "$3" | tr -d '\n' | awk -v s="$1" -v e="$2" '{i=index($0,s); if(!i) exit; r=substr($0,i); j=index(substr(r,length(s)+1),e); print (j ? substr(r,1,length(s)+j-1) : r)}'; }
 
 render full
-assert_eq "0" "$CODE" "render: full fixture exits 0"
+assert_eq "0" "$status" "render: full fixture exits 0"
 FULL="$(cat "$TMP/full.html" 2>/dev/null)"
 render plan-shape
-assert_eq "0" "$CODE" "render: plan-shape fixture exits 0"
+assert_eq "0" "$status" "render: plan-shape fixture exits 0"
 PSHAPE="$(cat "$TMP/plan-shape.html" 2>/dev/null)"
 
 printf '\n--- decisions: both table shapes render as cards ---\n'
@@ -219,7 +213,7 @@ assert_eq "5" "$(printf '%s' "$SEQ" | grep -o 'class="lifeline"' | wc -l | tr -d
 assert_not_contains "$FULL" '<script src' "flow-sequence: the page loads no diagram library"
 assert_not_contains "$FULL" 'mermaid' "flow-sequence: no Mermaid runtime is referenced"
 render diagram-escape
-assert_eq "0" "$CODE" "flow-sequence: untrusted diagram text renders"
+assert_eq "0" "$status" "flow-sequence: untrusted diagram text renders"
 ESC="$(cat "$TMP/diagram-escape.html" 2>/dev/null)"
 assert_not_contains "$ESC" 'Client <script>' "flow-sequence: a <script> node name is escaped in the SVG"
 assert_not_contains "$ESC" '<b>now</b>' "flow-sequence: markup in an edge label is escaped"
@@ -242,7 +236,7 @@ assert_contains "$R1" '<dt>Mitigation</dt><dd>Read in pages of 5000 rows</dd>' "
 assert_contains "$R1" '<dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd>' "risks: the slice links its card"
 assert_not_contains "$R1" 'is-blocker' "risks: a mitigated risk is not a blocker"
 render risks-none
-assert_eq "0" "$CODE" "risks: 'None identified — <why>' renders"
+assert_eq "0" "$status" "risks: 'None identified — <why>' renders"
 NONE="$(between '<section class="sec sec-risks' '</section>' "$(cat "$TMP/risks-none.html")")"
 assert_contains "$NONE" '<p class="risks-none">None identified — a read-only report with no external writes.</p>' "risks: None identified renders as a single line"
 assert_not_contains "$NONE" '<article' "risks: None identified renders no cards"
@@ -405,7 +399,7 @@ denied false {} false
 full false {}"
   assert_eq "$EXPECTED" "$(cd "$TMP" && node review-check.js | tr -d '\r')" "review: the export matches the § Behavior block, and a throwing storage is handled"
 else
-  printf '  SKIP review: node is not installed — the export format and storage fallback are unchecked\n'
+  skip "review: node is not installed — the export format and storage fallback are unchecked"
 fi
 assert_contains "$FULL" 'review marks will not persist' "review: a failing localStorage says marks will not persist"
 
@@ -525,7 +519,7 @@ for f in "$VP_SKILL" "$SDP_SKILL"; do
   assert_file_not_matches "$f" 'content-model.json' "wiring: $name builds no content model"
   assert_file_not_matches "$f" '```text blocks' "wiring: $name no longer requires text fences for diagrams and tables"
 done
-assert_eq "absent" "$([ -e "$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json" ] && echo present || echo absent)" "wiring: content-model.json is removed"
+assert_file_absent "$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json" "wiring: content-model.json is removed"
 # The render lives in /slice's propose phase, not in the planner that calls
 # it: a standalone `/slice <spec>` -- the change-request loop, or a button
 # that re-runs it -- used to leave the page absent or trailing the spec,
@@ -542,7 +536,7 @@ assert_file_contains "$SLICE_SKILL" '✓ Visual written: <abs page path>' "wirin
 PLAN_SKILL="$REPO_ROOT/.agents/skills/plan/SKILL.md"
 PLAN_STEP3="$(awk '/^### 3\. Slice$/{on=1;next} /^### /{on=0} on' "$PLAN_SKILL")"
 assert_contains "$PLAN_STEP3" 'Invoke `/slice specs/<feature-name>.md' "wiring: /plan Step 3 is the /slice call"
-assert_eq "" "$(printf '%s\n' "$PLAN_STEP3" | grep -F 'plan_render.py specs/<feature>.md -o' || true)" "wiring: /plan Step 3 renders nothing itself -- /slice does"
+assert_not_contains "$PLAN_STEP3" 'plan_render.py specs/<feature>.md -o' "wiring: /plan Step 3 renders nothing itself -- /slice does"
 assert_file_not_matches "$PLAN_SKILL" '^### 3\. Slice and Render' "wiring: the Slice and Render heading is gone from /plan"
 
 printf '\n--- template: the system-design template carries what the renderer types ---\n'
@@ -558,7 +552,8 @@ assert_file_contains "$SDP_TMPL" '```sequence' "template: a contract shows a seq
 assert_file_contains "$SDP_TMPL" '- AC1:' "template: criteria carry AC ids"
 SDP_TMPL_SPEC="$TMP/template-spec.md"
 sed '/^<!--/,/-->$/d' "$SDP_TMPL" > "$SDP_TMPL_SPEC"
-assert_eq "0" "$(cd "$TMP" && "$TEST_PYTHON" "$RENDER" template-spec.md -o template-spec.html >/dev/null 2>&1; echo $?)" "template: the template itself renders"
+run in_dir "$TMP" "$TEST_PYTHON" "$RENDER" template-spec.md -o template-spec.html
+assert_exit 0 "template: the template itself renders"
 assert_contains "$(cat "$TMP/template-spec.html" 2>/dev/null)" 'has not been sliced' "template: an empty Build order renders as a spec not sliced yet, not a failure"
 assert_file_contains "$SDP_SKILL" 'at least one `flow` diagram under § System design' "template: /system-design-planning requires a flow diagram"
 assert_file_contains "$SDP_SKILL" 'a `sequence` diagram for each changed external contract or cross-component failure path' "template: /system-design-planning requires sequence diagrams"

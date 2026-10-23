@@ -2,8 +2,8 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-INSTALL="$REPO/scripts/install-codex.sh"
-RENDERER="$REPO/scripts/render-codex.py"
+INSTALL="$(under_test scripts/install-codex.sh)"
+RENDERER="$(under_test scripts/render-codex.py)"
 
 # specs/single-instruction-file.md slice 5: the shared rules reach Codex through
 # the managed block /sync writes into each project's AGENTS.md, so the renderer
@@ -29,7 +29,7 @@ assert_file_contains "$REPO/README.md" "project-template/AGENTS.md" \
 assert_file_contains "$REPO/README.md" "scripts/scaffold-project.sh" \
   "README: Codex users scaffold through the checkout script, not an alias the adapter never installs"
 
-BOX="$(mktemp -d)"
+BOX="$(fixture_dir)"
 HOME_DIR="$BOX/home"
 CODEX_HOME="$HOME_DIR/.codex"
 PROJECT="$BOX/project"
@@ -63,19 +63,19 @@ JSON
 ( cd "$PROJECT" && HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" bash "$INSTALL" ) \
   > "$BOX/install.log" 2>&1
 
-assert_eq "present" "$([ -f "$HOME_DIR/.agents/skills/build/SKILL.md" ] && echo present || echo missing)" \
+assert_file_exists "$HOME_DIR/.agents/skills/build/SKILL.md" \
   "install: canonical skills are available to Codex"
-assert_eq "missing" "$([ -f "$CODEX_HOME/AGENTS.md" ] && echo present || echo missing)" \
+assert_file_absent "$CODEX_HOME/AGENTS.md" \
   "install: no global AGENTS.md is created — the rules live in each project's AGENTS.md block (slice 5)"
 assert_not_contains "$(cat "$BOX/install.log")" "rendered shared workflow rules" \
   "install: the adapter no longer reports rendering a global file"
-assert_eq "present" "$([ -f "$CODEX_HOME/agents/planner.toml" ] && echo present || echo missing)" \
+assert_file_exists "$CODEX_HOME/agents/planner.toml" \
   "install: canonical agents become Codex TOML"
 assert_file_contains "$CODEX_HOME/config.toml" 'max_concurrent_threads_per_session = 3' \
   "install: native three-child default lands in Codex config"
-assert_eq "present" "$([ -f "$CODEX_HOME/agents/personal-agent.toml" ] && echo present || echo missing)" \
+assert_file_exists "$CODEX_HOME/agents/personal-agent.toml" \
   "install: unrelated personal agent is preserved"
-assert_eq "present" "$([ -f "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py" ] && echo present || echo missing)" \
+assert_file_exists "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py" \
   "install: SessionStart adapter is installed"
 assert_contains "$(cat "$BOX/install.log")" "Review installed hooks with /hooks" \
   "install: hook trust remains an explicit user action"
@@ -129,7 +129,7 @@ PY
 then
   :
 else
-  assert_eq "0" "1" "install: generated Codex configuration validates"
+  fail "install: generated Codex configuration validates"
 fi
 
 cp "$CODEX_HOME/hooks.json" "$BOX/hooks.before"
@@ -173,7 +173,7 @@ PY
 then
   :
 else
-  assert_eq "0" "1" "hook: SessionStart output validates as Codex JSON"
+  fail "hook: SessionStart output validates as Codex JSON"
 fi
 assert_contains "$HOOK_RESULT_AGAIN" '"hookEventName": "SessionStart"' \
   "hook: repeat invocation still emits context"
@@ -206,7 +206,7 @@ assert_contains "$(cat "$MIG/preview.log")" 'backup' "preview: planned backup na
 assert_contains "$(cat "$MIG/preview.log")" 'exceeds policy' "preview: excess user cap diagnosed"
 assert_files_identical "$MIG/legacy.before" "$MIG_HOME/agents/planner.toml" "preview: legacy file unchanged"
 if HOME="$MIG/home" CODEX_HOME="$MIG_HOME" AGENTS_HOME="$MIG_AGENTS" bash "$INSTALL" > "$MIG/refused.log" 2>&1; then
-  assert_eq "refused" "applied" "install: legacy adoption needs opt-in"
+  fail "install: legacy adoption needs opt-in"
 else
   assert_files_identical "$MIG/legacy.before" "$MIG_HOME/agents/planner.toml" "install: legacy remains before opt-in"
 fi
@@ -222,9 +222,9 @@ if os.name != "nt":
     assert stat.S_IMODE(Path(sys.argv[1]).stat().st_mode) == 0o600
 PY
 then
-  assert_eq "0" "0" "adoption: backup is private under a permissive umask"
+  pass "adoption: backup is private under a permissive umask"
 else
-  assert_eq "0" "1" "adoption: backup is private under a permissive umask"
+  fail "adoption: backup is private under a permissive umask"
 fi
 assert_file_contains "$MIG_HOME/agents/planner.toml" 'jplugin-agentic-development:managed' "adoption: new managed shape installed"
 assert_files_identical "$MIG/config.before" "$MIG_HOME/config.toml" "adoption: user cap and unrelated config survive byte-identical"
@@ -252,9 +252,9 @@ assert config["agents"]["max_concurrent_threads_per_session"] == 3
 assert config["notice"]["hide_full_access_warning"] is True
 PY
 then
-  assert_eq "0" "0" "config apply: native cap and unrelated keys survive"
+  pass "config apply: native cap and unrelated keys survive"
 else
-  assert_eq "0" "1" "config apply: native cap and unrelated keys survive"
+  fail "config apply: native cap and unrelated keys survive"
 fi
 cp "$CONFIG_CASE/home/.codex/config.toml" "$CONFIG_CASE/applied.before"
 HOME="$CONFIG_CASE/home" CODEX_HOME="$CONFIG_CASE/home/.codex" bash "$INSTALL" > "$CONFIG_CASE/repeat.log" 2>&1
@@ -277,7 +277,7 @@ cp "$DEFAULT_CASE/home/.codex/config.toml" "$DEFAULT_CASE/before"
 HOME="$DEFAULT_CASE/home" CODEX_HOME="$DEFAULT_CASE/home/.codex" bash "$INSTALL" --preview > "$DEFAULT_CASE/preview.log" 2>&1
 assert_contains "$(cat "$DEFAULT_CASE/preview.log")" 'agents.default_subagent_model' "default preview: Ceiling conflict named"
 if HOME="$DEFAULT_CASE/home" CODEX_HOME="$DEFAULT_CASE/home/.codex" bash "$INSTALL" > "$DEFAULT_CASE/install.log" 2>&1; then
-  assert_eq "refused" "applied" "default apply: global model cap refused"
+  fail "default apply: global model cap refused"
 else
   assert_files_identical "$DEFAULT_CASE/before" "$DEFAULT_CASE/home/.codex/config.toml" "default apply: personal config unchanged"
 fi
@@ -289,7 +289,7 @@ cp "$EFFORT_CASE/home/.codex/config.toml" "$EFFORT_CASE/before"
 HOME="$EFFORT_CASE/home" CODEX_HOME="$EFFORT_CASE/home/.codex" bash "$INSTALL" --preview > "$EFFORT_CASE/preview.log" 2>&1
 assert_contains "$(cat "$EFFORT_CASE/preview.log")" 'agents.default_subagent_reasoning_effort' "effort preview: Ceiling conflict named"
 if HOME="$EFFORT_CASE/home" CODEX_HOME="$EFFORT_CASE/home/.codex" bash "$INSTALL" > "$EFFORT_CASE/install.log" 2>&1; then
-  assert_eq "refused" "applied" "effort apply: global reasoning cap refused"
+  fail "effort apply: global reasoning cap refused"
 else
   assert_files_identical "$EFFORT_CASE/before" "$EFFORT_CASE/home/.codex/config.toml" "effort apply: personal config unchanged"
 fi
@@ -299,7 +299,7 @@ mkdir -p "$CONFLICT/home/.codex/agents"
 printf 'name = "planner"\ndescription = "mine"\ndeveloper_instructions = "personal"\n' > "$CONFLICT/home/.codex/agents/planner.toml"
 cp "$CONFLICT/home/.codex/agents/planner.toml" "$CONFLICT/personal.before"
 if HOME="$CONFLICT/home" CODEX_HOME="$CONFLICT/home/.codex" bash "$INSTALL" --adopt-legacy > "$CONFLICT/result.log" 2>&1; then
-  assert_eq "refused" "applied" "install: personal role conflict is refused"
+  fail "install: personal role conflict is refused"
 else
   assert_files_identical "$CONFLICT/personal.before" "$CONFLICT/home/.codex/agents/planner.toml" "install: personal conflict stays byte-identical"
 fi
@@ -309,7 +309,7 @@ mkdir -p "$INVALID/home/.codex/agents"
 printf 'this is not toml = [\n' > "$INVALID/home/.codex/agents/planner.toml"
 cp "$INVALID/home/.codex/agents/planner.toml" "$INVALID/before"
 if HOME="$INVALID/home" CODEX_HOME="$INVALID/home/.codex" bash "$INSTALL" --adopt-legacy > "$INVALID/result.log" 2>&1; then
-  assert_eq "refused" "applied" "install: invalid TOML is refused"
+  fail "install: invalid TOML is refused"
 else
   assert_files_identical "$INVALID/before" "$INVALID/home/.codex/agents/planner.toml" "install: invalid TOML stays byte-identical"
 fi
@@ -319,10 +319,10 @@ mkdir -p "$LINK_CASE/home/.codex/agents"
 ln -s "$LINK_CASE/missing-personal-target" "$LINK_CASE/home/.codex/agents/planner.toml"
 if [ -L "$LINK_CASE/home/.codex/agents/planner.toml" ]; then
   if HOME="$LINK_CASE/home" CODEX_HOME="$LINK_CASE/home/.codex" bash "$INSTALL" --adopt-legacy > "$LINK_CASE/result.log" 2>&1; then
-    assert_eq "refused" "applied" "install: dangling personal link is refused"
+    fail "install: dangling personal link is refused"
   else
-    assert_eq "present" "$([ -L "$LINK_CASE/home/.codex/agents/planner.toml" ] && echo present || echo missing)" \
-      "install: dangling personal link remains"
+    assert_true "install: dangling personal link remains" \
+      -- test -L "$LINK_CASE/home/.codex/agents/planner.toml"
   fi
 fi
 
@@ -331,7 +331,7 @@ mkdir -p "$WRONG/home/.codex/agents"
 printf '# jplugin-agentic-development:managed\nname = "another-agent"\ndescription = "mine"\ndeveloper_instructions = "keep"\n' > "$WRONG/home/.codex/agents/planner.toml"
 cp "$WRONG/home/.codex/agents/planner.toml" "$WRONG/before"
 if HOME="$WRONG/home" CODEX_HOME="$WRONG/home/.codex" bash "$INSTALL" > "$WRONG/result.log" 2>&1; then
-  assert_eq "refused" "applied" "install: marked wrong-identity file is refused"
+  fail "install: marked wrong-identity file is refused"
 else
   assert_files_identical "$WRONG/before" "$WRONG/home/.codex/agents/planner.toml" \
     "install: marked wrong-identity file stays byte-identical"
@@ -342,10 +342,10 @@ mkdir -p "$OLD_PY/bin"
 printf '#!/bin/sh\nexit 1\n' > "$OLD_PY/bin/python3"
 chmod +x "$OLD_PY/bin/python3"
 if PATH="$OLD_PY/bin:$PATH" HOME="$OLD_PY/home" CODEX_HOME="$OLD_PY/home/.codex" bash "$INSTALL" > "$OLD_PY/result.log" 2>&1; then
-  assert_eq "refused" "applied" "installer: unsupported Python refused"
+  fail "installer: unsupported Python refused"
 else
   assert_contains "$(cat "$OLD_PY/result.log")" 'Python 3.11 or newer' "installer: minimum runtime diagnosed"
-  assert_eq "missing" "$([ -e "$OLD_PY/home/.codex" ] && echo present || echo missing)" \
+  assert_file_absent "$OLD_PY/home/.codex" \
     "installer: runtime preflight wrote no files"
 fi
 
@@ -353,11 +353,10 @@ BAD="$BOX/bad-agents"
 mkdir -p "$BAD"
 printf '# malformed\n' > "$BAD/broken.md"
 if "$TEST_PYTHON" "$RENDERER" --agents "$BAD" "$BOX/bad-output" > "$BOX/bad.log" 2>&1; then
-  assert_eq "failure" "success" "renderer: malformed agent input is rejected"
+  fail "renderer: malformed agent input is rejected"
 else
   assert_contains "$(cat "$BOX/bad.log")" "broken.md" \
     "renderer: malformed input identifies the source file"
 fi
 
-rm -rf "$BOX"
 finish

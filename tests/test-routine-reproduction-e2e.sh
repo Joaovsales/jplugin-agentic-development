@@ -1,17 +1,13 @@
 #!/bin/bash
 . "$(dirname "$0")/lib.sh"
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-CLI="$REPO/.agents/skills/task-registry/scripts/task-registry.py"
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do rm -rf "$d"; done; }
-trap cleanup EXIT
+CLI="$(under_test .agents/skills/task-registry/scripts)/task-registry.py"
 
-new_repo() {
-  local target="$1" root
-  root="$(mktemp -d)"; TMP_DIRS+=("$root")
+seed_repo() {
+  local root
+  root="$(fixture_dir)"
   mkdir -p "$root/tasks"; printf '# Tasks\n' > "$root/tasks/todo.md"
-  printf -v "$target" '%s' "$root"
+  printf '%s' "$root"
 }
 
 create_parent() {
@@ -23,19 +19,19 @@ create_parent() {
 
 # Reproduced and progressable: the real workflow/selector surface keeps the
 # issue on the ordinary fix path, and no escalation artifact exists.
-new_repo FIXABLE; create_parent "$FIXABLE"
+FIXABLE="$(seed_repo)"; create_parent "$FIXABLE"
 workflow="$("$TEST_PYTHON" "$CLI" workflow parent.bug --repo "$FIXABLE" 2>&1)"; workflow_code=$?
 selected="$("$TEST_PYTHON" "$CLI" select --routine fix --repo "$FIXABLE" 2>&1)"; select_code=$?
 assert_eq "0" "$workflow_code" "AC14: reproduced/fixable parent resolves normally"
 assert_contains "$workflow" "fix" "AC1: reproduced/fixable parent stays on the fix workflow"
 assert_eq "0" "$select_code" "AC1: reproduced/fixable parent remains selectable"
 assert_contains "$selected" "parent.bug" "AC1: selector returns the progressable parent"
-assert_eq "absent" "$([ -d "$FIXABLE/tasks/routine-runs" ] && echo present || echo absent)" \
+assert_file_absent "$FIXABLE/tasks/routine-runs" \
   "AC1: progressable work creates no escalation artifact"
 
 # Inconclusive reproduction: apply a real escalation and prove subsequent
 # selection excludes the held parent.
-new_repo INCONCLUSIVE; create_parent "$INCONCLUSIVE"
+INCONCLUSIVE="$(seed_repo)"; create_parent "$INCONCLUSIVE"
 inconclusive="$("$TEST_PYTHON" "$CLI" escalate parent.bug --repo "$INCONCLUSIVE" \
   --reason inconclusive --reproduction-state not-reproduced \
   --run-at 2026-09-12T12:00:00-03:00 --repro-command 'run focused reproduction' \
@@ -51,7 +47,7 @@ assert_eq "1" "$(find "$INCONCLUSIVE/tasks/routine-runs" -type f | wc -l)" \
 
 # The test cannot start: a valid routine blocker is created and remains eligible
 # while the originating parent is held.
-new_repo EXECUTION; create_parent "$EXECUTION"
+EXECUTION="$(seed_repo)"; create_parent "$EXECUTION"
 cat > "$EXECUTION/blocker.json" <<'JSON'
 {"version":1,"source":"tests/runner.sh","title":"Restore test runtime","summary":"The runtime executable is missing","handling":"routine","reproduction":["run focused reproduction"],"proposed_fix":["restore the declared runtime"],"criteria":["reproduction reaches its assertion"]}
 JSON
@@ -82,7 +78,7 @@ assert_eq "1" "$(grep -c '^- labels: .*needs-investigation' "$EXECUTION/tasks/de
 
 # Reproduction succeeded, then verification could not run: the request carries
 # the reproduced state and the parent is held without inventing another defect.
-new_repo VERIFY; create_parent "$VERIFY"
+VERIFY="$(seed_repo)"; create_parent "$VERIFY"
 verification="$("$TEST_PYTHON" "$CLI" escalate parent.bug --repo "$VERIFY" \
   --reason verification-blocked --reproduction-state reproduced \
   --run-at 2026-09-12T14:00:00-03:00 --repro-command 'run full verification' \

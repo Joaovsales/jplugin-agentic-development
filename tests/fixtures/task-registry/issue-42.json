@@ -1,0 +1,5 @@
+{"number":42,"title":"Morph live grid recipe","state":"open",
+ "html_url":"https://github.com/fixture-owner/fixture-repo/issues/42",
+ "labels":[{"name":"enhancement"},{"name":"now"},{"name":"area/render"},{"name":"tech-debt"}],
+ "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z",
+ "body":"Ship the live grid morph.\n\n<!-- task-registry:begin -->\ntask-id: recipe.morph-live-grid\nkind: feature\ndepends-on: recipe.color-lut\n<!-- task-registry:end -->\n"}

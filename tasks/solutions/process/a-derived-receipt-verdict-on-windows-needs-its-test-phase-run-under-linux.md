@@ -7,6 +7,45 @@ tags: [quality-receipt, windows, wsl, baseline-failures, tests, verdict]
 applies_when: /quality-gate phase 5 (or wrap-up § Full suite) runs on this Windows machine and the affected or full test set includes files already in the Windows failure baseline
 ---
 
+> **Correction (2026-10-21).** Since `specs/test-suite-aposd.md` D2 landed
+> (#345, in the #336–#347 build), the Windows run itself exits 0: every known
+> Windows-only failure is a row of `tests/expected-failures.txt`, `tests/lib.sh`
+> prints `XFAIL` for it and `tests/run.sh` reports `0 failed`, so the recipe
+> below is no longer needed to get a green `tests.exit` on this machine — the
+> 2026-10-21 gate ran `bash tests/affected.sh --run <base>` on Windows (91 files,
+> 6885 passed, 0 failed, 289 xfail, 2218 s with `TEST_JOBS=6
+> TEST_FILE_TIMEOUT=10800`) and minted its receipt from that. The WSL recipe
+> still serves two purposes: proving a Linux-only behaviour, and checking a new
+> failure that is *not* a baseline row before adding one.
+>
+> Two facts about that Windows run. (1) When `tests/lib.sh`, `run.sh` or
+> `affected.sh` changed, `tests/affected.sh` prints every test file
+> (`tests/affected.sh:70`), so the gate's Phase 5 is the whole suite — under a
+> different cache key than the wrap-up's `bash tests/run.sh`
+> (`.agents/skills/build/scripts/cached-suite.sh:109-115` keys on the verbatim
+> command plus `uname -s`, the Python version and `gh` presence), so Windows
+> pays both runs. (2) Some rows are host-state rows, not platform rows: the
+> `test-task-registry-config.sh` "Selection" group depends on the host's
+> `gh auth status` (the mock `gh` is unreachable from Python on Windows, #129).
+> The shipped rows were captured with `gh` logged in and the group comment says
+> so; a host in the other state flips four of them to `XPASS` and three others
+> to `FAIL`, the run goes red, `receipt.py write` mints `STOP`, and
+> `receipt.py check` then says `stale missing` (a STOP receipt is no parent), so
+> the sequence is: mint the red receipt, reconcile the rows under the gh-auth
+> comment, re-run Phase 5 at full scope, mint again. Check `gh auth status`
+> against that comment **before** Phase 5 and reconcile first.
+>
+> **Update (2026-10-22).** The gh-auth rows are gone from the baseline. A second
+> Windows Phase 5 run went red in the logged-out pattern while `gh auth status`
+> said logged in before and after — under a 95-minute load `gh`'s network check
+> itself failed — which proves the point: a row whose outcome follows host state
+> cannot be a baseline row in either direction. `tests/test-task-registry-config.sh`
+> now probes whether a Python-launched `gh --version` leaves the mock's log and
+> `skip`s the fifteen github selection rows when it does not (8fb5bf9); the eight
+> config rows left `tests/expected-failures.txt` (289 → 281). Linux reaches the
+> mock and runs them. The rule: a platform cause → a baseline row; a host-state
+> cause → a runtime probe and `skip`.
+
 `receipt.py` derives the verdict from the recorded test exit and never accepts a
 verdict as input. Any non-zero `tests.exit` is `STOP`
 (`.agents/skills/quality-gate/scripts/receipt.py:342`). On this Windows machine,

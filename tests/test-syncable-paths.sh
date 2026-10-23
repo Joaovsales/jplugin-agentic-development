@@ -47,6 +47,8 @@
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
+# The sync skill owns the doc block every list below is pinned to.
+under_test .agents/skills/sync >/dev/null
 
 # Normalise one path per line: strip a trailing slash, drop blanks, sort unique.
 # `.claude/settings.json` is a file and the rest are directories; both compare
@@ -141,8 +143,8 @@ assert_not_contains "$EXPECTED" ".claude/hooks" \
   "doc block: the RETIRED .claude/hooks row is not in the checkout set the lists above are pinned to"
 assert_contains "$EXPECTED" ".agents/hooks" \
   "doc block: .agents/hooks is a live root — the hook scripts /build and /refresh name are delivered by /sync"
-assert_eq "absent" "$(ls .claude/hooks/*.sh 2>/dev/null | grep -q . && echo present || echo absent)" \
-  "retired root: .claude/hooks/ holds no scripts in the template"
+assert_false "retired root: .claude/hooks/ holds no scripts in the template" \
+  -- compgen -G ".claude/hooks/*.sh"
 assert_file_not_matches "$WORKFLOW" 'mirror "\.claude/hooks"' \
   "sync-template.yml: the CI mirror no longer copies .claude/hooks"
 assert_file_matches "$WORKFLOW" '^ *mirror "\.agents/hooks"' \
@@ -177,7 +179,8 @@ assert_contains "$step5" "sync-managed-block.py" \
   "canonical /sync: Step 5 writes the block through the script"
 assert_contains "$step5" "--target AGENTS.md --claude-md CLAUDE.md" \
   "canonical /sync: Step 5 writes the pointer in the same run as the block"
-assert_eq "" "$(printf '%s\n' "$step5" | grep 'git checkout' | grep -F 'CLAUDE.md' || true)" \
+step5_checkouts="$(grep 'git checkout' <<<"$step5" || true)"
+assert_not_contains "$step5_checkouts" "CLAUDE.md" \
   "canonical /sync: Step 5 names CLAUDE.md in no git checkout"
 
 # --- invariant 2: skill assets resolve inside a syncable path ---------------
@@ -224,16 +227,14 @@ while IFS= read -r hit; do
   fi
   checked=$((checked + 1))
   if ! is_syncable "$resolved"; then
-    _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-    printf '  FAIL Distribution: %s names %s -> %s, outside every syncable path\n' \
-      "$md" "$tok" "$resolved"
+    fail "Distribution: $md names $tok -> $resolved, outside every syncable path"
   fi
 done <<EOF
 $(scan_all_asset_tokens)
 EOF
 
-assert_eq "yes" "$([ "$checked" -gt 0 ] && echo yes || echo no)" \
-  "asset scan resolved at least one token (sanity: scanner is not a no-op)"
+assert_true "asset scan resolved at least one token (sanity: scanner is not a no-op)" \
+  -- test "$checked" -gt 0
 
 # The regression this test was written for: four skills execute this script, so
 # it has to ship. Mode is read from the git index, not the filesystem — Windows
