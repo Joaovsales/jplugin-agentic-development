@@ -1232,42 +1232,58 @@ LARGE_LINES = 800
 
 
 @dataclass(frozen=True)
+class Bound:
+    """A closed interval on one quantity; `None` leaves that side open."""
+
+    min: Optional[int] = None
+    max: Optional[int] = None
+
+    def broken_side(self, value: int) -> Optional[str]:
+        """The side `value` falls outside, as `min 4000` / `max 80`, or None."""
+        if self.min is not None and value < self.min:
+            return "min %d" % self.min
+        if self.max is not None and value > self.max:
+            return "max %d" % self.max
+        return None
+
+
+@dataclass(frozen=True)
 class Promise:
     """The size a case's output must have: total bytes under `out`, and the line
-    count of its longest file. `None` leaves a side unbounded."""
+    count of its longest file. Each field is the Bound on the quantity `measure`
+    reports under the same name."""
 
-    min_total_bytes: Optional[int] = None
-    max_total_bytes: Optional[int] = None
-    min_longest_lines: Optional[int] = None
-    max_longest_lines: Optional[int] = None
-
-
-def large(min_total_bytes: int = LARGE_BYTES + 1, **bounds: int) -> Promise:
-    return Promise(min_total_bytes=min_total_bytes, **bounds)
+    total_bytes: Bound = Bound()
+    longest_lines: Bound = Bound()
 
 
-def control(max_longest_lines: int = LARGE_LINES - 1, **bounds: int) -> Promise:
-    return Promise(max_total_bytes=LARGE_BYTES - 1, max_longest_lines=max_longest_lines, **bounds)
+def large(total_bytes: Bound = Bound(min=LARGE_BYTES + 1), longest_lines: Bound = Bound()) -> Promise:
+    return Promise(total_bytes, longest_lines)
+
+
+def control(total_bytes: Bound = Bound(max=LARGE_BYTES - 1),
+            longest_lines: Bound = Bound(max=LARGE_LINES - 1)) -> Promise:
+    return Promise(total_bytes, longest_lines)
 
 
 # case name -> (seed, generator, promise); one table so a case cannot have one without the others
 CASES = {
-    "billing-client-zero-total": (11, gen_billing, large(min_longest_lines=4000)),
-    "nightly-pipeline-failure": (12, gen_log, large(min_longest_lines=20000)),
-    "catalog-currency-field": (13, gen_catalog, large(min_total_bytes=262145)),
-    "orders-extract-tax": (14, gen_orders, large(min_longest_lines=2500)),
-    "pipeline-checks-intermittent": (15, gen_checks, large(min_longest_lines=1800)),
-    "settings-loader-port": (16, gen_settings, large(min_longest_lines=1300)),
-    "load-record-callers": (17, gen_svc, large(max_longest_lines=80)),
-    "changelog-release-notes": (18, gen_changelog, large(min_longest_lines=800)),
-    "readme-typo": (19, gen_readme, control(min_longest_lines=60, max_longest_lines=60)),
+    "billing-client-zero-total": (11, gen_billing, large(longest_lines=Bound(min=4000))),
+    "nightly-pipeline-failure": (12, gen_log, large(longest_lines=Bound(min=20000))),
+    "catalog-currency-field": (13, gen_catalog, large(total_bytes=Bound(min=262145))),
+    "orders-extract-tax": (14, gen_orders, large(longest_lines=Bound(min=2500))),
+    "pipeline-checks-intermittent": (15, gen_checks, large(longest_lines=Bound(min=1800))),
+    "settings-loader-port": (16, gen_settings, large(longest_lines=Bound(min=1300))),
+    "load-record-callers": (17, gen_svc, large(longest_lines=Bound(max=80))),
+    "changelog-release-notes": (18, gen_changelog, large(longest_lines=Bound(min=800))),
+    "readme-typo": (19, gen_readme, control(longest_lines=Bound(60, 60))),
     "timeparse-coverage": (20, gen_timeparse, control()),
-    "ratelimit-clock-skew": (21, gen_ratelimit, control(min_total_bytes=20000)),
+    "ratelimit-clock-skew": (21, gen_ratelimit, control(total_bytes=Bound(20000, LARGE_BYTES - 1))),
 }
 
 
 def measure(out):
-    """(total bytes, lines of the longest file) of every file under `out`."""
+    """Every file under `out`, as the quantities `Promise` bounds, keyed by its field names."""
     total = longest = 0
     for directory, _, names in os.walk(out):
         for name in names:
@@ -1275,18 +1291,16 @@ def measure(out):
                 data = fh.read()
             total += len(data)
             longest = max(longest, data.count(b"\n"))
-    return total, longest
+    return {"total_bytes": total, "longest_lines": longest}
 
 
-def broken_bounds(promise, total_bytes, longest_lines):
-    """One line per bound of `promise` the measured output breaks."""
-    measured = {"total_bytes": total_bytes, "longest_lines": longest_lines}
+def broken_bounds(promise, measured):
+    """One line per quantity of `promise` the measured output falls outside."""
     broken = []
     for f in fields(Promise):
-        side, _, quantity = f.name.partition("_")
-        bound, value = getattr(promise, f.name), measured[quantity]
-        if bound is not None and (value < bound if side == "min" else value > bound):
-            broken.append("%s %d, measured %d" % (f.name, bound, value))
+        side = getattr(promise, f.name).broken_side(measured[f.name])
+        if side is not None:
+            broken.append("%s %s, measured %d" % (f.name, side, measured[f.name]))
     return broken
 
 
@@ -1298,7 +1312,7 @@ def main(argv):
     os.makedirs(args.out, exist_ok=True)
     seed, generate, promise = CASES[args.case]
     generate(args.out, random.Random(seed))
-    broken = broken_bounds(promise, *measure(args.out))
+    broken = broken_bounds(promise, measure(args.out))
     for line in broken:
         print("fixture_gen: %s breaks its promise: %s" % (args.case, line), file=sys.stderr)
     return 1 if broken else 0

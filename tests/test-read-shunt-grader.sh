@@ -46,11 +46,11 @@ assert_contains "$out" "| Arm | Task | Run | Parent whole-file large | Routing-a
 # outcome file says score 1; 10:00:00 -> 10:05:30 is 330 s.
 assert_contains "$out" "| control | task-a | run-1 | 2 | 2 | 8340 | 2847 | 41200 | 1 | - | 0 | 330 | 1 | 1 | - | - |" \
   "grader: control/task-a/run-1 — whole-file large, routing-around, bytes, largest, context, compactions, no sub-agent, wall, re-read rate, outcome, no hook log"
-assert_contains "$out" "| control | task-a | run-2 | 1 | 0 | 2847 | 2847 | 30000 | 0 | - | 0 | 60 | - | 0 | - | - |" \
+assert_contains "$out" "| control | task-a | run-2 | 1 | 0 | 2847 | 2847 | 30000 | 0 | 0 | 0 | 60 | - | 0 | - | - |" \
   "grader: a run with no Agent dispatch has no re-read rate and pass:false is outcome 0"
 # A ranged read of the large file is not whole-file; a windowed sed of a file
 # known large in the run is a routing-around attempt; score 0.5 passes through.
-assert_contains "$out" "| control | task-b | run-1 | 0 | 1 | 1317 | 717 | 20000 | 0 | - | 0 | 90 | - | 0.5 | - | - |" \
+assert_contains "$out" "| control | task-b | run-1 | 0 | 1 | 1317 | 717 | 20000 | 0 | 0 | 0 | 90 | - | 0.5 | - | - |" \
   "grader: a ranged read is not whole-file and a sed window on the large file is routing-around"
 # shunt/task-a/run-1: the parent windows big.py twice (717 + 362) around a
 # completed Agent whose result (36 bytes) names big.py:120-160; the second
@@ -60,12 +60,12 @@ assert_contains "$out" "| control | task-b | run-1 | 0 | 1 | 1317 | 717 | 20000 
 # with an identical input.
 assert_contains "$out" "| shunt | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 2 | 1 | annotate:1 deny:2 | 1 |" \
   "grader: shunt/task-a/run-1 — sub-agent tokens and tool uses from the Agent result, hook decisions and one repeated deny"
-assert_contains "$out" "| shunt | task-b | run-1 | 0 | 0 | 277 | 277 | 9000 | 0 | - | 0 | 45 | - | 1 | allow:1 | 0 |" \
+assert_contains "$out" "| shunt | task-b | run-1 | 0 | 0 | 277 | 277 | 9000 | 0 | 0 | 0 | 45 | - | 1 | allow:1 | 0 |" \
   "grader: a control-sized run under the gate shows allow:1 and no repeated deny"
 assert_eq "5" "$(printf '%s\n' "$out" | grep -c '^| \(control\|shunt\) | task-[ab] | run-')" "grader: five runs, five rows"
 
 assert_contains "$out" "## Paired per-task means" "grader: two arms produce paired per-task means"
-assert_contains "$out" "| control | task-a | 2 | 1.5 | 1 | 5593.5 | 2847 | 35600 | 0.5 | - | 0 | 195 | 1 | 0.5 | - |" \
+assert_contains "$out" "| control | task-a | 2 | 1.5 | 1 | 5593.5 | 2847 | 35600 | 0.5 | 0 | 0 | 195 | 1 | 0.5 | - |" \
   "grader: control/task-a means average the two runs and skip missing values"
 assert_contains "$out" "| shunt | task-a | 1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 2 | 1 | 1 |" \
   "grader: shunt/task-a means sit beside control/task-a as a paired row"
@@ -96,7 +96,9 @@ print("mean", m["runs"], m["whole_large"], m["outcome"], m["subagent_tokens"])
 ')"
 assert_contains "$keys" "run 0 0 1115 12000 7 2.0 1.0 {'annotate': 1, 'deny': 2} 1" "grader: --json carries the per-run metrics, hook decisions as counts"
 assert_contains "$keys" "counts 5 4" "grader: --json carries five runs and four paired means"
-assert_contains "$keys" "mean 2 1.5 0.5 None" "grader: --json means skip missing values"
+# control/task-a/run-1 dispatched an Agent that never answered and left no
+# transcript (unknown, `-`); run-2 delegated nothing (a true 0): the mean averages the 0.
+assert_contains "$keys" "mean 2 1.5 0.5 0.0" "grader: --json means skip an unknown and average a true zero"
 
 printf '\n--- rows: a run knows whether a shunt log sits beside its transcript ---\n'
 out="$("$TEST_PYTHON" - "$GRADER" "$RESULTS" <<'PY'
@@ -108,6 +110,8 @@ spec.loader.exec_module(grader)
 print("has-log", [(r.arm, r.task, r.run, r.has_shunt_log) for r in grader.discover(sys.argv[2])])
 PY
 )"
+assert_eq "0" "$(grep -c '"decision"' "$GRADER")" \
+  "grader: the shunt log's shape is the parser's — the grader counts ShuntDecision records, it reads no field"
 assert_contains "$out" "has-log [('control', 'task-a', 'run-1', False), ('control', 'task-a', 'run-2', False), ('control', 'task-b', 'run-1', False), ('shunt', 'task-a', 'run-1', True), ('shunt', 'task-b', 'run-1', True)]" \
   "grader: discover() flags the runs that have a shunt log"
 assert_eq "0" "$(grep -c 'repeated_denies is not None' "$GRADER")" \
@@ -145,8 +149,8 @@ assert_contains "$("$TEST_PYTHON" "$GRADER" "$TMP/nodec" --json 2>&1 | "$TEST_PY
   "hooks {}" "grader: --json carries an empty count when the log had no decisions"
 
 printf '\n--- rows: sub-agent tool uses come from one source per run ---\n'
-# Async-launched Agent results carry no counters, so the column is the sum of
-# every subagents/ transcript's own tool uses — all of them, not the first.
+# Async-launched Agent results carry no counters, so the columns are the sum of
+# every subagents/ transcript's own tool uses and usage — all of them, not the first.
 ASYNC="$TMP/async/arm/task/run"; mkdir -p "$ASYNC/subagents"
 cp tests/fixtures/transcripts/root/proj-a/s1.jsonl "$ASYNC/transcript.jsonl"
 "$TEST_PYTHON" - "$ASYNC/subagents" <<'PY'
@@ -155,12 +159,13 @@ for name, uses in (("agent-x1.jsonl", 3), ("agent-x2.jsonl", 4)):
     with open(os.path.join(sys.argv[1], name), "w", encoding="utf-8") as fh:
         for i in range(uses):
             block = {"type": "tool_use", "id": f"{name}-{i}", "name": "Bash", "input": {"command": "ls"}}
-            fh.write(json.dumps({"type": "assistant", "isSidechain": True, "message": {"content": [block]}}) + "\n")
+            msg = {"id": f"msg-{name}-{i}", "content": [block], "usage": {"input_tokens": 100, "output_tokens": 10}}
+            fh.write(json.dumps({"type": "assistant", "isSidechain": True, "message": msg}) + "\n")
 PY
 out="$("$TEST_PYTHON" "$GRADER" "$TMP/async" --json 2>&1)"; rc=$?
 assert_eq "0" "$rc" "grader: an async-launched run with two sub-agent transcripts grades with exit 0"
-assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; print("uses", json.load(sys.stdin)["runs"][0]["subagent_tool_uses"])')" \
-  "uses 7" "grader: with no Agent counters the column sums every sub-agent transcript's tool uses"
+assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; r = json.load(sys.stdin)["runs"][0]; print("uses", r["subagent_tool_uses"], r["subagent_tokens"])')" \
+  "uses 7 770" "grader: with no Agent counters the columns sum every sub-agent transcript's tool uses and usage"
 
 printf '\n--- rows: bytes into the parent leave out an inline sidechain result ---\n'
 INLINE="$TMP/inline/arm/task/run"; mkdir -p "$INLINE"
@@ -212,6 +217,10 @@ mkdir -p "$KEPT/claude-eval-AAA/out" "$KEPT/claude-eval-AAA/config/projects/-enc
 printf '%s\n' '{"type":"result"}' > "$KEPT/claude-eval-AAA/out/trace.jsonl"
 cp "$RESULTS/shunt/task-a/run-1/transcript.jsonl" "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1.jsonl"
 cp "$RESULTS/shunt/task-a/run-1/subagents/agent-s1.jsonl" "$KEPT/claude-eval-AAA/config/projects/-enc-cwd/sess1/subagents/"
+# The gate's hook writes tasks/.shunt/<session>.jsonl under the project the case ran in (specs/read-shunt.md § Tier 0).
+mkdir -p "$KEPT/claude-eval-AAA/workspace/tasks/.shunt"
+printf '%s\n' '{"decision":"deny","tool":"Read","input":{"file_path":"big.py"}}' \
+               '{"decision":"deny","tool":"Read","input":{"file_path":"big.py"}}' > "$KEPT/claude-eval-AAA/workspace/tasks/.shunt/sess1.jsonl"
 printf '%s\n' '{"type":"result"}' > "$KEPT/claude-eval-BBB/out/trace.jsonl"
 cp "$RESULTS/control/task-b/run-1/transcript.jsonl" "$KEPT/claude-eval-BBB/config/projects/-enc-cwd/sess2.jsonl"
 AGG="$TMP/aggregate-result.json"
@@ -233,14 +242,18 @@ assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/transcript.jsonl" ] &&
   "arrange: run 1's session transcript lands at <arm>/<task>/run-1/transcript.jsonl"
 assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/subagents/agent-s1.jsonl" ] && echo present || echo missing)" \
   "arrange: the session's sub-agent transcripts travel with it"
+assert_eq "present" "$([ -f "$ARRANGED/gated/task-a/run-1/shunt.jsonl" ] && echo present || echo missing)" \
+  "arrange: the hook's tasks/.shunt/<session>.jsonl under the home's project lands as shunt.jsonl beside the transcript"
+assert_eq "missing" "$([ -e "$ARRANGED/gated/task-a/run-2/shunt.jsonl" ] && echo present || echo missing)" \
+  "arrange: a session whose home holds no hook log gets no shunt.jsonl"
 assert_eq '{"score": 1}' "$(cat "$ARRANGED/gated/task-a/run-1/outcome.json")" "arrange: outcome.json carries the runner's score"
 assert_eq '{"pass": false}' "$(cat "$ARRANGED/gated/task-a/run-2/outcome.json")" \
   "arrange: a run with no score carries the runner's pass verdict"
 graded="$("$TEST_PYTHON" "$GRADER" "$ARRANGED" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "arrange: the grader reads the arranged directory"
-assert_contains "$graded" "| gated | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 2 | 1 |" \
-  "arrange: run 1 grades to the row its transcript gives"
-assert_contains "$graded" "| gated | task-a | run-2 | 0 | 1 | 1317 | 717 | 20000 | 0 | - | 0 | 90 | - | 0 |" \
+assert_contains "$graded" "| gated | task-a | run-1 | 0 | 0 | 1115 | 717 | 15000 | 0 | 12000 | 7 | 120 | 2 | 1 | deny:2 | 1 |" \
+  "arrange: run 1 grades to the row its transcript gives, hook columns from the arranged log"
+assert_contains "$graded" "| gated | task-a | run-2 | 0 | 1 | 1317 | 717 | 20000 | 0 | 0 | 0 | 90 | - | 0 |" \
   "arrange: run 2 grades with the pass verdict as outcome 0"
 
 # Where a session's sub-agents live is the parser's rule, used by the reader and the copier alike.
@@ -263,8 +276,8 @@ rt.write_outcome(dest, {"pass": False})
 print("written", open(os.path.join(dest, rt.OUTCOME_FILE), encoding="utf-8").read())
 PY
 )"
-assert_contains "$out" "fields ['case', 'number', 'transcript', 'outcome']" \
-  "arrange: an arranged run carries the outcome record plan validated, not the raw score and passed"
+assert_contains "$out" "fields ['case', 'number', 'transcript', 'shunt_log', 'outcome']" \
+  "arrange: an arranged run carries the outcome record plan validated, not the raw score and passed, and the hook log plan found"
 assert_contains "$out" 'written {"pass": false}' "arrange: write_outcome stores the record it is given"
 
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm gated --out "$ARRANGED" 2>&1 >/dev/null)"; rc=$?

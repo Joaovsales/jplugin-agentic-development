@@ -14,7 +14,11 @@ tests/fixtures/transcripts/:
   <root>/<project>/<session>/subagents/agent-<id>.jsonl  one per sub-agent
 
 A `shunt.jsonl` gate log beside a transcript is not a session; `iter_sessions`
-skips it by the name `SHUNT_LOG`.
+skips it by the name `SHUNT_LOG`. The log's shape — one `{decision, tool,
+input}` object per line — is read here too (`read_shunt_log`, `ShuntDecision`),
+and `find_shunt_log` locates the one the gate's hook writes under the project
+it ran in, `tasks/.shunt/<session>.jsonl` (specs/read-shunt.md § Tier 0), so a
+kept eval home's log can be arranged beside its transcript.
 
 One JSON object per line. An `assistant` record carries `message.content`
 (a list of blocks; a `tool_use` block has `id`, `name`, `input`) and
@@ -37,8 +41,11 @@ The results layout the eval CLIs share (`TRANSCRIPT_FILE`, `OUTCOME_FILE`,
 `subagent_transcripts`, `write_outcome`, `read_outcome`) lives here too, so the
 writer and the reader of a results directory cannot name or validate it apart.
 
-Everything streams: one line is parsed at a time and only metadata is kept,
-so an 800 MB root is a few minutes, not a few gigabytes.
+Everything streams: one line is parsed at a time, a tool use is classified
+the moment its result arrives (uses precede results), and only the
+classification and the result's size are kept — a Read's file content is
+dropped with its line — so an 800 MB root is a few minutes, not a few
+gigabytes, and a session costs its line count, not its read volume.
 
 A block this module cannot read raises `TranscriptDrift` with the file and
 line; a root with no transcripts raises `EmptyRoot`. Both are
@@ -61,6 +68,9 @@ DEFAULT_LINES = 800
 SUBAGENTS_DIR = "subagents"
 # The gate's decision log, written beside a transcript; it is JSONL but not a session.
 SHUNT_LOG = "shunt.jsonl"
+# Where the gate's hook writes a session's log, under the project it ran in
+# (specs/read-shunt.md § Tier 0): <project>/tasks/.shunt/<session>.jsonl.
+SHUNT_SOURCE_DIR = os.path.join("tasks", ".shunt")
 # The runner-neutral results layout `arrange-plugin-eval-results.py` writes and
 # `grade-read-shunt.py` reads: <results>/<arm>/<task>/<run>/{TRANSCRIPT_FILE,
 # SUBAGENTS_DIR/agent-*.jsonl, SHUNT_LOG, OUTCOME_FILE}.
@@ -110,13 +120,50 @@ class ToolUse:
 
 @dataclass
 class ToolResult:
+    """What a transcript keeps of a tool_result block: its size and whether it erred."""
+
     tool_use_id: str
     bytes: int                 # text bytes of the tool_result block — what entered the context
-    result: object             # the record's `toolUseResult`, or None
     is_error: bool
     line_no: int
-    numbered: Optional[Tuple[int, int]] = None   # (first line number, line count) of `cat -n` text
-    non_file: bool = False     # a note in place of file text: unchanged, empty, PDF, image
+
+
+@dataclass
+class RawResult:
+    """One tool_result block with the record's `toolUseResult`, alive only while
+    the use it answers is classified; `kept()` is what the transcript retains."""
+
+    tool_use_id: str
+    text: str                  # the block's text
+    structured: object         # the record's `toolUseResult`, or None
+    is_error: bool
+    line_no: int
+    bytes: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.bytes = len(self.text.encode("utf-8"))
+
+    def kept(self) -> ToolResult:
+        return ToolResult(self.tool_use_id, self.bytes, self.is_error, self.line_no)
+
+
+@dataclass(frozen=True)
+class ShuntDecision:
+    """One line of the gate's log: what it decided about one tool input."""
+
+    decision: str              # the hook's word — allow, annotate, deny — counted as written
+    tool: Optional[str]
+    input: object
+    line_no: int
+
+    @property
+    def denied(self) -> bool:
+        return self.decision == "deny"
+
+    @property
+    def input_key(self) -> str:
+        """One spelling for (tool, input), so two denials of the same call compare equal."""
+        return json.dumps([self.tool, self.input], sort_keys=True)
 
 
 @dataclass(frozen=True)
@@ -204,7 +251,10 @@ class Transcript:
     final_context: Optional[int] = None
     first_timestamp: Optional[str] = None
     last_timestamp: Optional[str] = None
-    _use_ids: Set[str] = field(default_factory=set, init=False, repr=False)
+    total_tokens: int = 0      # the usage of this file's own turns summed, one count per API message
+    _uses_by_id: Dict[str, ToolUse] = field(default_factory=dict, init=False, repr=False)
+    _calls: Dict[str, Call] = field(default_factory=dict, init=False, repr=False)
+    _message_ids: Set[str] = field(default_factory=set, init=False, repr=False)
     _reads: Tuple[Read, ...] = field(default=(), init=False, repr=False)
     _shell_reads: Tuple[ShellRead, ...] = field(default=(), init=False, repr=False)
     _grep_calls: Tuple[GrepCall, ...] = field(default=(), init=False, repr=False)
@@ -215,27 +265,35 @@ class Transcript:
     def _tool_uses_named(self, name: str) -> List[ToolUse]:
         return [t for t in self.tool_uses if t.name == name]
 
+    # Two frames of reference. The *file frame* (`own_*`) asks what this file's
+    # own context did: a parent file's uses minus an inline sidechain's, all of
+    # a `subagents/` file's. The *session frame* (`ToolUse.sidechain`,
+    # `subagent_*`) asks which context of the session made a call: a
+    # sub-agent's, inline or in its own file. On a `subagents/` file the two
+    # coincide; `SessionReads.subagent_reads` is the session frame across files.
+
     def own_tool_uses(self) -> List[ToolUse]:
-        """The tool uses of this file's own context: every one but an inline sidechain's.
-        A `subagents/` file is its own context, so all of its uses are its own."""
+        """File frame: the tool uses of this file's own context."""
         return [t for t in self.tool_uses if self._is_own(t)]
 
     def _is_own(self, use: ToolUse) -> bool:
         return self.is_subagent or not use.sidechain
 
     def reads(self) -> Tuple[Read, ...]:
-        """Every Read, the parent's and an inline sidechain's; a `subagents/` file's are all sidechain."""
+        """Every Read in the file, whichever context made it, in call order."""
         return self._reads
 
     def own_reads(self) -> List[Read]:
+        """File frame: the Reads of this file's own context."""
         return [r for r in self._reads if self._is_own(r.tool_use)]
 
-    def sidechain_reads(self) -> List[Read]:
+    def subagent_reads(self) -> List[Read]:
+        """Session frame: the Reads a sub-agent made — inline in a parent file, or all of a `subagents/` file's."""
         return [r for r in self._reads if r.tool_use.sidechain]
 
-    def counted_sidechain_reads(self) -> List[Read]:
-        """The sidechain reads whose file text entered a context — every one but the excluded."""
-        return [r for r in self.sidechain_reads() if not r.is_excluded]
+    def counted_subagent_reads(self) -> List[Read]:
+        """The sub-agent reads whose file text entered a context — every one but the excluded."""
+        return [r for r in self.subagent_reads() if not r.is_excluded]
 
     def own_calls(self) -> Tuple[Call, ...]:
         """This file's own Read, shell-read, Grep and Agent calls in call order."""
@@ -273,7 +331,7 @@ class SessionReads:
 
     parent: Transcript
     agents: List[Transcript]
-    session_sidechain_reads: List[Read]    # the parent's inline ones and every agent's, excluded dropped
+    subagent_reads: List[Read]     # session frame: the parent's inline ones and every agent's, excluded dropped
     malformed: int                 # unreadable lines, summed over every file
 
 
@@ -304,6 +362,11 @@ def iter_sessions(root: str) -> List[Session]:
     return sessions
 
 
+def session_id(transcript_path: str) -> str:
+    """A session's id is its transcript's name without `.jsonl`."""
+    return os.path.splitext(os.path.basename(transcript_path))[0]
+
+
 def session_subagents_dir(transcript_path: str) -> str:
     """Where Claude Code keeps a session's sub-agent files: beside its transcript,
     under the transcript's name without `.jsonl`."""
@@ -319,6 +382,42 @@ def _agent_files(agents_dir: str) -> List[str]:
     if not os.path.isdir(agents_dir):
         return []
     return sorted(os.path.join(agents_dir, a) for a in os.listdir(agents_dir) if a.endswith(".jsonl"))
+
+
+def read_shunt_log(path: str) -> List[ShuntDecision]:
+    """Every decision in a gate log; a line that is not JSON or has no decision is drift."""
+    decisions: List[ShuntDecision] = []
+    with open(path, encoding="utf-8") as fh:
+        for line_no, line in enumerate(fh, 1):
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                raise TranscriptError(f"{path}:{line_no}: shunt log line is not JSON")
+            decision = entry.get("decision") if isinstance(entry, dict) else None
+            if not isinstance(decision, str):
+                raise TranscriptError(f"{path}:{line_no}: shunt log entry has no decision")
+            tool = entry.get("tool")
+            decisions.append(ShuntDecision(decision, tool if isinstance(tool, str) else None,
+                                           entry.get("input"), line_no))
+    return decisions
+
+
+def find_shunt_log(home: str, session: str) -> Optional[str]:
+    """The log the gate's hook wrote for `session` somewhere under `home` —
+    `<project>/tasks/.shunt/<session>.jsonl`, the project being wherever the
+    session ran. None when no gate ran; two candidates are drift."""
+    wanted = normalize_path(os.path.join(SHUNT_SOURCE_DIR, f"{session}.jsonl"))
+    found: List[str] = []
+    for dirpath, dirnames, filenames in os.walk(home):
+        dirnames[:] = sorted(d for d in dirnames if d not in (".git", "node_modules"))
+        candidate = os.path.join(dirpath, f"{session}.jsonl")
+        if f"{session}.jsonl" in filenames and normalize_path(candidate).endswith(wanted):
+            found.append(candidate)
+    if len(found) > 1:
+        raise TranscriptError(f"{home}: {len(found)} shunt logs for session {session}: " + ", ".join(found))
+    return found[0] if found else None
 
 
 def _is_score(value: object) -> bool:
@@ -414,7 +513,7 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
     `TranscriptDrift` here, so a returned `Transcript` is a readable one."""
     if is_subagent is None:
         is_subagent = SUBAGENTS_DIR in path.replace("\\", "/").split("/")
-    t = Transcript(path, os.path.splitext(os.path.basename(path))[0], is_subagent)
+    t = Transcript(path, session_id(path), is_subagent)
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line_no, line in enumerate(fh, 1):
             line = line.strip()
@@ -429,14 +528,15 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
                 t.malformed += 1
                 continue
             _absorb(t, rec, line_no)
-    t._reads = tuple(classify_read(u, t.results.get(u.id), path) for u in t._tool_uses_named("Read"))
+    for use in t.tool_uses:
+        if use.id not in t._calls:
+            _classify(t, use, None)    # unanswered: the session ended, or the harness never replied
+    t._reads = tuple(t._calls[u.id] for u in t._tool_uses_named("Read"))
     own = t.own_tool_uses()
-    t._shell_reads = tuple(s for s in (classify_shell_read(u, t.results.get(u.id))
-                                       for u in own if u.name == "Bash") if s is not None)
-    t._grep_calls = tuple(classify_grep(u, t.results.get(u.id)) for u in own if u.name == "Grep")
-    t._agent_calls = tuple(classify_agent(u, t.results.get(u.id), path) for u in own if u.name == "Agent")
-    by_id = {c.tool_use.id: c for c in [*t.own_reads(), *t._shell_reads, *t._grep_calls, *t._agent_calls]}
-    t._own_calls = tuple(by_id[u.id] for u in own if u.id in by_id)
+    t._own_calls = tuple(t._calls[u.id] for u in own if u.id in t._calls)
+    t._shell_reads = tuple(c for c in t._own_calls if isinstance(c, ShellRead))
+    t._grep_calls = tuple(c for c in t._own_calls if isinstance(c, GrepCall))
+    t._agent_calls = tuple(c for c in t._own_calls if isinstance(c, AgentCall))
     for use in own:
         result = t.results.get(use.id)
         if result is not None and result.bytes > t._largest_own_result[0]:
@@ -448,8 +548,27 @@ def parse_session(parent_path: str, subagent_paths: List[str]) -> SessionReads:
     """A main-loop transcript and its sub-agent files, parsed and assembled once."""
     parent = parse_transcript(parent_path, is_subagent=False)
     agents = [parse_transcript(p, is_subagent=True) for p in subagent_paths]
-    sidechain = [r for t in (parent, *agents) for r in t.counted_sidechain_reads()]
-    return SessionReads(parent, agents, sidechain, parent.malformed + sum(a.malformed for a in agents))
+    subagent = [r for t in (parent, *agents) for r in t.counted_subagent_reads()]
+    return SessionReads(parent, agents, subagent, parent.malformed + sum(a.malformed for a in agents))
+
+
+def _classify(t: Transcript, use: ToolUse, raw: Optional[RawResult]) -> None:
+    """Classify one tool use from its input and (when answered) its result, and keep the call.
+
+    Every Read is kept, whichever context made it; a Bash, Grep or Agent use
+    only when it is this file's own. A Bash that printed no file whole is no call."""
+    if use.name == "Read":
+        t._calls[use.id] = classify_read(use, raw, t.path)
+    elif not t._is_own(use):
+        return
+    elif use.name == "Bash":
+        shell = classify_shell_read(use, raw)
+        if shell is not None:
+            t._calls[use.id] = shell
+    elif use.name == "Grep":
+        t._calls[use.id] = classify_grep(use, raw)
+    elif use.name == "Agent":
+        t._calls[use.id] = classify_agent(use, raw, t.path)
 
 
 def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
@@ -471,20 +590,30 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         return
     content = message.get("content")
     if kind == "assistant" and not inline_sidechain:
-        size = _context_size(message.get("usage"))
+        usage = message.get("usage")
+        size = _context_size(usage)
         if size is not None:
             t.final_context = size
+        # One API message is logged as several assistant records, one per content
+        # block, each carrying the whole message's usage: count a message id once.
+        message_id = message.get("id")
+        if not isinstance(message_id, str) or message_id not in t._message_ids:
+            if isinstance(message_id, str):
+                t._message_ids.add(message_id)
+            t.total_tokens += _turn_tokens(usage)
     if not isinstance(content, list):
         return
     results = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_result"]
     for block in content:
         if not isinstance(block, dict):
             continue
-        if block.get("type") == "tool_use" and str(block.get("id")) not in t._use_ids:
-            t._use_ids.add(str(block.get("id")))    # a resumed session re-logs a record: first wins, use and result
-            t.tool_uses.append(ToolUse(str(block.get("id")), str(block.get("name")),
-                                       block.get("input") if isinstance(block.get("input"), dict) else {},
-                                       line_no, ts if isinstance(ts, str) else None, sidechain))
+        if block.get("type") == "tool_use" and str(block.get("id")) not in t._uses_by_id:
+            # a resumed session re-logs a record: first wins, use and result
+            use = ToolUse(str(block.get("id")), str(block.get("name")),
+                          block.get("input") if isinstance(block.get("input"), dict) else {},
+                          line_no, ts if isinstance(ts, str) else None, sidechain)
+            t._uses_by_id[use.id] = use
+            t.tool_uses.append(use)
     # `toolUseResult` sits beside the message, one per record, so it belongs to a
     # record with one result block; several blocks never carry one (a record
     # that did would be drift), and their Reads fall back to the block text.
@@ -495,16 +624,25 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         tid = str(block.get("tool_use_id"))
         if tid in t.results:
             continue
-        text = _block_text(block.get("content"))
-        t.results[tid] = ToolResult(tid, len(text.encode("utf-8")), structured,
-                                    block.get("is_error") is True, line_no, _numbered_lines(text),
-                                    _is_non_file_note(text))
+        raw = RawResult(tid, _block_text(block.get("content")), structured, block.get("is_error") is True, line_no)
+        t.results[tid] = raw.kept()
+        use = t._uses_by_id.get(tid)
+        if use is not None:
+            _classify(t, use, raw)    # the block text and toolUseResult go out of scope with this line
 
 
-def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) -> Read:
+def _turn_tokens(usage: object) -> int:
+    """Every token an API message was billed: its input, cache writes and reads, and output."""
+    if not isinstance(usage, dict):
+        return 0
+    return sum(v for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
+               for v in [usage.get(k, 0)] if isinstance(v, int))
+
+
+def classify_read(tool_use: ToolUse, result: Optional[RawResult], path: str) -> Read:
     """Whole-file, ranged or excluded, from the input plus `toolUseResult.file`."""
     file_path = tool_use.input.get("file_path")
-    if result is None or result.is_error or isinstance(result.result, str):
+    if result is None or result.is_error or isinstance(result.structured, str):
         # Unanswered, or an error message — nothing entered the context. A call
         # the harness could not parse (`__unparsedToolInput`) has no file_path.
         return Read(tool_use, file_path if isinstance(file_path, str) else "", "excluded", False, 0, 0)
@@ -513,16 +651,17 @@ def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) ->
     excluded = Read(tool_use, file_path, "excluded", False, 0, 0)
     ranged = "offset" in tool_use.input or "limit" in tool_use.input
     kind = "ranged" if ranged else "whole"
-    structured = result.result
+    structured = result.structured
     if structured is None:
         # Older transcripts carry no `toolUseResult` beside a Read; the block
         # text is the tool's `cat -n` output, so the lines are counted from it
         # and the total is unknown — a whole-file read is taken at its line count.
-        if result.numbered is None:
-            if result.non_file:
+        numbered = _numbered_lines(result.text)
+        if numbered is None:
+            if _is_non_file_note(result.text):
                 return excluded    # unchanged, empty, PDF or image: no file text entered
             raise TranscriptDrift(path, result.line_no, "Read result has no metadata and its text is not numbered lines")
-        return Read(tool_use, file_path, kind, False, result.bytes, result.numbered[1])
+        return Read(tool_use, file_path, kind, False, result.bytes, numbered[1])
     if not isinstance(structured, dict):
         raise TranscriptDrift(path, result.line_no, "Read result is not an object, a string or null")
     result_type = structured.get("type")
@@ -538,7 +677,7 @@ def classify_read(tool_use: ToolUse, result: Optional[ToolResult], path: str) ->
     return Read(tool_use, file_path, kind, truncated, result.bytes, total_lines)
 
 
-def classify_grep(tool_use: ToolUse, result: Optional[ToolResult]) -> GrepCall:
+def classify_grep(tool_use: ToolUse, result: Optional[RawResult]) -> GrepCall:
     context, head_limit = tool_use.input.get("-C"), tool_use.input.get("head_limit")
     return GrepCall(tool_use, normalize_path(str(tool_use.input.get("path", ""))),
                     context if isinstance(context, int) else None,
@@ -546,7 +685,7 @@ def classify_grep(tool_use: ToolUse, result: Optional[ToolResult]) -> GrepCall:
                     result.bytes if result is not None else None)
 
 
-def classify_agent(tool_use: ToolUse, result: Optional[ToolResult], path: str) -> AgentCall:
+def classify_agent(tool_use: ToolUse, result: Optional[RawResult], path: str) -> AgentCall:
     """The text an Agent call named paths in, and the counters its result carries.
 
     An async launch has an object result with no counters; a `completed` result
@@ -554,7 +693,7 @@ def classify_agent(tool_use: ToolUse, result: Optional[ToolResult], path: str) -
     parts = [str(tool_use.input.get("prompt", ""))]
     tokens: Optional[int] = None
     tool_uses: Optional[int] = None
-    structured = result.result if result is not None else None
+    structured = result.structured if result is not None else None
     if isinstance(structured, dict):
         content = structured.get("content")
         if isinstance(content, list):
@@ -569,7 +708,7 @@ def classify_agent(tool_use: ToolUse, result: Optional[ToolResult], path: str) -
     return AgentCall(tool_use, "\n".join(parts), tokens, tool_uses)
 
 
-def classify_shell_read(tool_use: ToolUse, result: Optional[ToolResult]) -> Optional[ShellRead]:
+def classify_shell_read(tool_use: ToolUse, result: Optional[RawResult]) -> Optional[ShellRead]:
     """The files a `Bash` use printed whole, or None when it printed none or never answered."""
     files = bare_shell_reads(str(tool_use.input.get("command", "")))
     if not files or result is None:

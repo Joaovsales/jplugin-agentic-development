@@ -17,6 +17,8 @@ For every run of every case on the chosen side of the ablation (default
 
     <out>/<arm>/<case>/run-<n>/transcript.jsonl
                               subagents/agent-*.jsonl   when the session had any
+                              shunt.jsonl               the gate's log, when its hook wrote one
+                                                        (tasks/.shunt/<session>.jsonl under the project)
                               outcome.json              {"score": …} or {"pass": …}
 
 from the run's own record: its `score`, else its `passed`. Every run is
@@ -33,7 +35,7 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import read_transcript as rt  # noqa: E402
@@ -44,6 +46,7 @@ class ArrangedRun:
     case: str
     number: int
     transcript: str
+    shunt_log: Optional[str]
     outcome: Dict[str, object]
 
 
@@ -98,7 +101,9 @@ def plan(keep_temp: str, aggregate_path: str, side: str) -> List[ArrangedRun]:
                 outcome = rt.outcome_record(score=run.get("score"), passed=run.get("passed"))
             except rt.TranscriptError as exc:
                 raise rt.TranscriptError(f"{where}: {exc}")
-            arranged.append(ArrangedRun(case, number, _session(home), outcome))
+            transcript = _session(home)
+            arranged.append(ArrangedRun(case, number, transcript, rt.find_shunt_log(home, rt.session_id(transcript)),
+                                        outcome))
     if not arranged:
         raise rt.TranscriptError(f"{aggregate_path}: no runs on side {side!r}")
     return arranged
@@ -115,6 +120,8 @@ def write(arranged: List[ArrangedRun], arm: str, out: str) -> None:
         agents = rt.session_subagents_dir(run.transcript)
         if os.path.isdir(agents):
             shutil.copytree(agents, os.path.join(dest, rt.SUBAGENTS_DIR))
+        if run.shunt_log is not None:
+            shutil.copyfile(run.shunt_log, os.path.join(dest, rt.SHUNT_LOG))
         rt.write_outcome(dest, run.outcome)
 
 

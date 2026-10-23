@@ -159,6 +159,14 @@ place.
   arm it prints rows and no paired means.
 - A scaffold that produces a fixture under the size its case promises fails the
   suite's own test, before any paid run.
+- A real root repeats a tool use: an `api-request-blob` record copies the
+  request's `tool_use` blocks (no `uuid`, no `isSidechain`) and a resumed
+  session re-logs its assistant records verbatim. The parser reads only
+  `assistant`, `user` and `system` records and absorbs a tool-use id — and
+  its result — once, first record wins.
+- The grader's sub-agent tokens are `0` for a run that dispatched no Agent and
+  unknown (`-`) only for a dispatched Agent with neither counters nor a
+  transcript, so the paired means average both columns over one denominator.
 
 ## Risks
 
@@ -180,7 +188,7 @@ place.
 | 4 | Reader output | anchored excerpts and a symbol map, fixed schema | specs/read-shunt.md | prose summaries lose behavioural signal |
 | 5 | Sub-agent reads | exempt from any gate, counted separately here | specs/read-shunt.md | the delegate must read whole files |
 | 6 | Shell reads | gated when a gate exists; counted here, every file in a chain | specs/read-shunt.md | the replication bypass used `cat` and `sed -n` |
-| 7 | Logging | every gate decision to a per-session JSONL | specs/read-shunt.md | the eval's ground truth |
+| 7 | Logging | every gate decision to a per-session JSONL; the parser module owns its reader (`ShuntDecision`, `read_shunt_log`) and the arranging step copies `tasks/.shunt/<session>.jsonl` beside the transcript | specs/read-shunt.md | the eval's ground truth, read in one place |
 | 8 | Relation to PR #128 | supersede; port its learnings and evidence; close it with a comment; leave branch and worktree | user | 94 commits behind and conflicting, registration predates `hooks/hooks.json`, its post-read map measured net negative on a 14 KB fixture |
 | 9 | First build | measurement from past transcripts plus the eval harness; no hook, no reader | user | the gate is built only if the baseline justifies it |
 | 10 | Harness scope | Claude Code only | user | Codex is deny-only; Pi has no PreToolUse; both wait for the eval |

@@ -25,7 +25,9 @@ bare shell read of a large result, or a `Grep` with `-C` >= 50 or
 `head_limit: 0` on a large file — D14); hook decisions and repeated identical
 denied inputs when `shunt.jsonl` is present; bytes delivered into the parent;
 the largest single result; the parent's final context; compactions; sub-agent
-tokens and tool uses; wall time; re-read rate (parent reads of a path an
+tokens and tool uses (0 when nothing was delegated; the Agent results'
+counters, else the sub-agent transcripts' own usage and uses; `-` only for a
+dispatched Agent with neither); wall time; re-read rate (parent reads of a path an
 earlier `Agent` prompt or sub-agent result named); and the outcome the runner
 recorded. Then per-task means per arm as paired rows, when more than one arm
 is present. Exit 2 on a transcript the shared parser cannot read.
@@ -159,8 +161,8 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
     row.compactions = parent.compactions
     row.wall_seconds = _seconds_between(parent.first_timestamp, parent.last_timestamp)
     row.largest = parent.largest_own_result()[0]
-    large_paths: Set[str] = {r.norm_path for r in session.session_sidechain_reads if r.is_large(th)}
-    named: Set[str] = {r.norm_path for r in session.session_sidechain_reads}
+    large_paths: Set[str] = {r.norm_path for r in session.subagent_reads if r.is_large(th)}
+    named: Set[str] = {r.norm_path for r in session.subagent_reads}
     rereads = 0
     for call in parent.own_calls():
         if isinstance(call, rt.Read):
@@ -178,15 +180,28 @@ def grade_run(run: RunDir, th: rt.Thresholds) -> RunRow:
             row.routing_around += _is_routing_around(call, large_paths, th)
         elif isinstance(call, rt.AgentCall):
             named |= _paths_in(call.named_text)
-    counted_tokens = [c.total_tokens for c in parent.agent_calls() if c.total_tokens is not None]
-    counted = [c.tool_use_count for c in parent.agent_calls() if c.tool_use_count is not None]
-    row.subagent_tokens = sum(counted_tokens) if counted_tokens else None
-    row.subagent_tool_uses = sum(counted) if counted else sum(len(a.own_tool_uses()) for a in agents)
+    row.subagent_tokens, row.subagent_tool_uses = _subagent_totals(parent, agents)
     row.reread_rate = round(rereads / len(named), 3) if named else None
     row.outcome = rt.read_outcome(run.path)
     if run.has_shunt_log:
         _hook_columns(row, run.path)
     return row
+
+
+def _subagent_totals(parent: rt.Transcript, agents: List[rt.Transcript]) -> Tuple[Optional[int], int]:
+    """(tokens, tool uses) of the run's sub-agents: the Agent results' counters
+    when they carry them, else the sub-agent transcripts' own totals. Tokens are
+    0 when no Agent was dispatched and None only for a dispatched Agent with
+    neither counters nor a transcript — a true zero and an unknown apart, so a
+    paired mean averages both columns over the same runs."""
+    counted_tokens = [c.total_tokens for c in parent.agent_calls() if c.total_tokens is not None]
+    counted_uses = [c.tool_use_count for c in parent.agent_calls() if c.tool_use_count is not None]
+    tool_uses = sum(counted_uses) if counted_uses else sum(len(a.own_tool_uses()) for a in agents)
+    if counted_tokens:
+        return sum(counted_tokens), tool_uses
+    if agents or not parent.agent_calls():
+        return sum(a.total_tokens for a in agents), tool_uses
+    return None, tool_uses
 
 
 def _was_named(norm: str, named: Set[str]) -> bool:
@@ -197,24 +212,12 @@ def _was_named(norm: str, named: Set[str]) -> bool:
 
 
 def _hook_columns(row: RunRow, run_dir: str) -> None:
-    path = os.path.join(run_dir, rt.SHUNT_LOG)
     decisions: Dict[str, int] = {}
     denied: Dict[str, int] = {}
-    with open(path, encoding="utf-8") as fh:
-        for line_no, line in enumerate(fh, 1):
-            if not line.strip():
-                continue
-            try:
-                entry = json.loads(line)
-            except ValueError:
-                raise rt.TranscriptError(f"{path}:{line_no}: shunt log line is not JSON")
-            decision = entry.get("decision") if isinstance(entry, dict) else None
-            if not isinstance(decision, str):
-                raise rt.TranscriptError(f"{path}:{line_no}: shunt log entry has no decision")
-            decisions[decision] = decisions.get(decision, 0) + 1
-            if decision == "deny":
-                key = json.dumps([entry.get("tool"), entry.get("input")], sort_keys=True)
-                denied[key] = denied.get(key, 0) + 1
+    for entry in rt.read_shunt_log(os.path.join(run_dir, rt.SHUNT_LOG)):
+        decisions[entry.decision] = decisions.get(entry.decision, 0) + 1
+        if entry.denied:
+            denied[entry.input_key] = denied.get(entry.input_key, 0) + 1
     row.hook_decisions = decisions
     row.repeated_denies = sum(v - 1 for v in denied.values() if v > 1)
 

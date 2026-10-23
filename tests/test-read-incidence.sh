@@ -165,11 +165,11 @@ sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
 t = rt.parse_transcript(sys.argv[2])
 print(f"uses={len(t.tool_uses)} own={len(t.own_tool_uses())} reads={len(t.own_reads())} "
-      f"sidechain={len(t.sidechain_reads())} bytes={t.own_result_bytes()} "
+      f"subagent={len(t.subagent_reads())} bytes={t.own_result_bytes()} "
       f"kind={t.own_reads()[0].kind} lines={t.own_reads()[0].total_lines}")
 PY
 )"
-assert_contains "$out" "uses=2 own=1 reads=1 sidechain=1 bytes=140 kind=whole lines=5" \
+assert_contains "$out" "uses=2 own=1 reads=1 subagent=1 bytes=140 kind=whole lines=5" \
   "parser: a request blob and a re-logged record repeat no tool use, and a sidechain use stays the sub-agent's"
 out="$("$TEST_PYTHON" "$SCRIPTS/read-incidence.py" --root "$FIX/repeated-uses" 2>&1)"
 assert_contains "$out" "| proj-f/s8 | 1 | 0 | 0 | 0.0% |" "report: s8's repeated parent use is one Read"
@@ -516,11 +516,11 @@ sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
 s1 = rt.parse_transcript(sys.argv[2])
 s3 = rt.parse_transcript(sys.argv[3])
-print("s1-split", len(s1.reads()), len(s1.own_reads()), len(s1.sidechain_reads()))
-print("s3-split", len(s3.reads()), len(s3.own_reads()), len(s3.sidechain_reads()),
-      [r.norm_path.rsplit("/", 1)[-1] for r in s3.sidechain_reads()])
-print("counted-sidechain", len(s1.counted_sidechain_reads()), [r.norm_path.rsplit("/", 1)[-1] for r in s3.counted_sidechain_reads()],
-      all(not r.is_excluded and r.tool_use.sidechain for r in s3.counted_sidechain_reads()))
+print("s1-split", len(s1.reads()), len(s1.own_reads()), len(s1.subagent_reads()))
+print("s3-split", len(s3.reads()), len(s3.own_reads()), len(s3.subagent_reads()),
+      [r.norm_path.rsplit("/", 1)[-1] for r in s3.subagent_reads()])
+print("counted-subagent", len(s1.counted_subagent_reads()), [r.norm_path.rsplit("/", 1)[-1] for r in s3.counted_subagent_reads()],
+      all(not r.is_excluded and r.tool_use.sidechain for r in s3.counted_subagent_reads()))
 print("order", [type(c).__name__ for c in s1.own_calls()])
 lines = [c.tool_use.line_no for c in s1.own_calls()]
 print("order-ids", len(lines), lines == sorted(lines))
@@ -530,11 +530,93 @@ PY
 )"
 assert_contains "$out" "s1-split 6 6 0" "structure: s1 has no sidechain read, so its parent reads are all its reads"
 assert_contains "$out" "s3-split 7 6 1 ['loader.py']" \
-  "structure: s3's inline sidechain read is in sidechain_reads() and out of own_reads(); reads() stays the union"
-assert_contains "$out" "counted-sidechain 0 ['loader.py'] True" "structure: counted_sidechain_reads() is the sidechain reads that entered a context"
+  "structure: s3's inline sidechain read is in subagent_reads() and out of own_reads(); reads() stays the union"
+assert_contains "$out" "counted-subagent 0 ['loader.py'] True" "structure: counted_subagent_reads() is the sub-agent reads that entered a context"
 assert_contains "$out" "order-ids 12 True" "structure: own_calls() follows the order of the tool uses"
 assert_contains "$out" "parent-calls-s3 6 True" "structure: own_calls() leaves out the inline sidechain read"
 assert_contains "$out" "immutable True" "structure: own_calls() is built at parse time and handed out as a tuple"
+
+# The two frames are named apart: `own_*` is the file's context, `subagent_*`
+# the session's sub-agents, and on a sub-agent file they coincide. A result
+# keeps its size only — the file text a Read delivered is classified and dropped.
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1/subagents/agent-a1.jsonl" <<'PY'
+import sys
+from dataclasses import fields
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+a1 = rt.parse_transcript(sys.argv[2], is_subagent=True)
+print("frames", a1.own_reads() == a1.subagent_reads(), len(a1.own_reads()) > 0)
+print("kept", [f.name for f in fields(rt.ToolResult)])
+print("names", [n for n in dir(rt.Transcript) if "sidechain" in n])
+PY
+)"
+assert_contains "$out" "frames True True" "structure: on a sub-agent file own_reads() and subagent_reads() are one list — the two frames coincide there"
+assert_contains "$out" "kept ['tool_use_id', 'bytes', 'is_error', 'line_no']" \
+  "structure: a kept ToolResult is the block's size and error flag — no toolUseResult, no Read-only fields"
+assert_contains "$out" "names []" "structure: Transcript names no accessor after the sidechain flag — the session frame is subagent_*"
+
+# A turn's usage counts once per API message: Claude Code logs one assistant
+# record per content block, each repeating the message's usage.
+"$TEST_PYTHON" - "$TMP/tokens.jsonl" <<'PY'
+import json, sys
+def rec(mid, usage, sidechain=False):
+    r = {"type": "assistant", "message": {"id": mid, "content": [{"type": "text", "text": "x"}], "usage": usage}}
+    return {**r, "isSidechain": True} if sidechain else r
+u = {"input_tokens": 10, "cache_creation_input_tokens": 20, "cache_read_input_tokens": 30, "output_tokens": 5}
+recs = [rec("m1", u), rec("m1", u), rec("m2", {"input_tokens": 1, "output_tokens": 1}), rec("m3", u, True),
+        {"type": "api-request-blob", "message": {"id": "m4", "usage": u}}]
+open(sys.argv[1], "w").write("\n".join(json.dumps(r) for r in recs) + "\n")
+PY
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$TMP/tokens.jsonl" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+print("tokens", rt.parse_transcript(sys.argv[2]).total_tokens, rt.parse_transcript(sys.argv[2], is_subagent=True).total_tokens)
+PY
+)"
+assert_contains "$out" "tokens 67 132" \
+  "parser: total_tokens counts each API message once, leaves out an inline sidechain's and a request blob's; a sub-agent file's turns are all its own"
+
+# The gate's log is read here, and found where its hook writes it.
+LOGS="$TMP/shunt-logs"
+mkdir -p "$LOGS/home-a/ws/tasks/.shunt" "$LOGS/home-b/one/tasks/.shunt" "$LOGS/home-b/two/tasks/.shunt" "$LOGS/home-c/config/projects/p"
+printf '%s\n' '{"decision":"annotate","tool":"Read","input":{"file_path":"a.py"}}' '' \
+               '{"decision":"deny","tool":"Read","input":{"file_path":"b.py"}}' \
+               '{"decision":"deny","tool":"Read","input":{"file_path":"b.py"}}' > "$LOGS/home-a/ws/tasks/.shunt/s9.jsonl"
+printf '%s\n' '{"tool":"Read"}' > "$LOGS/nodecision.jsonl"
+printf '%s\n' 'nope' > "$LOGS/notjson.jsonl"
+: > "$LOGS/home-b/one/tasks/.shunt/s9.jsonl"; : > "$LOGS/home-b/two/tasks/.shunt/s9.jsonl"
+: > "$LOGS/home-c/config/projects/p/s9.jsonl"
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$LOGS" <<'PY'
+import os, sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+L = sys.argv[2]
+d = rt.read_shunt_log(os.path.join(L, "home-a", "ws", "tasks", ".shunt", "s9.jsonl"))
+print("decisions", [(x.decision, x.denied, x.line_no) for x in d], len({x.input_key for x in d if x.denied}))
+for name in ("nodecision", "notjson"):
+    try:
+        rt.read_shunt_log(os.path.join(L, name + ".jsonl"))
+        print(name, "accepted")
+    except rt.TranscriptError as exc:
+        print(name, str(exc).replace(L, "L").replace(os.sep, "/"))
+found = rt.find_shunt_log(os.path.join(L, "home-a"), "s9")
+print("found", found is not None and found.replace(os.sep, "/").endswith("home-a/ws/tasks/.shunt/s9.jsonl"))
+print("none", rt.find_shunt_log(os.path.join(L, "home-c"), "s9"), rt.find_shunt_log(os.path.join(L, "home-a"), "s8"))
+try:
+    rt.find_shunt_log(os.path.join(L, "home-b"), "s9")
+    print("two accepted")
+except rt.TranscriptError as exc:
+    print("two", "2 shunt logs" in str(exc))
+PY
+)"
+assert_contains "$out" "decisions [('annotate', False, 1), ('deny', True, 3), ('deny', True, 4)] 1" \
+  "parser: read_shunt_log() keeps each decision with its line, skips blank lines, and two denials of one input share a key"
+assert_contains "$out" "nodecision L/nodecision.jsonl:1: shunt log entry has no decision" "parser: a log entry without a decision is drift, named by file and line"
+assert_contains "$out" "notjson L/notjson.jsonl:1: shunt log line is not JSON" "parser: a log line that is not JSON is drift"
+assert_contains "$out" "found True" "parser: find_shunt_log() locates tasks/.shunt/<session>.jsonl under whichever project the session ran in"
+assert_contains "$out" "none None None" "parser: a transcript under config/projects is no shunt log, and another session's log is not this one's"
+assert_contains "$out" "two True" "parser: two logs for one session are drift"
 
 # A session is its parent transcript plus its sub-agent files: parse_session
 # is the one place that assembles it, so both CLIs count the same sidechain.
@@ -557,7 +639,7 @@ import read_transcript as rt
 for s in rt.iter_sessions(sys.argv[2]):
     ss = rt.parse_session(s.path, s.subagent_paths)
     print("session", ss.parent.session_id, len(ss.agents), all(a.is_subagent for a in ss.agents), ss.malformed,
-          [r.norm_path.rsplit("/", 1)[-1] for r in ss.session_sidechain_reads])
+          [r.norm_path.rsplit("/", 1)[-1] for r in ss.subagent_reads])
 PY
 )"
 assert_contains "$out" "session s1 2 True 2 ['big_module.py']" \
@@ -566,6 +648,7 @@ assert_contains "$out" "session s3 0 True 1 ['loader.py']" \
   "structure: parse_session counts the parent's inline sidechain reads beside the agents'"
 for cli in "$INCIDENCE" "$SCRIPTS/grade-read-shunt.py"; do
   assert_eq "0" "$(grep -cE 'tool_use\.(id|sidechain)|\.results(\.get|\[)' "$cli")" "$cli: no join on tool-use ids and no sidechain branch — the parser owns the split and the order"
+  assert_eq "0" "$(grep -cE 'sidechain_reads|toolUseResult|"decision"' "$cli")" "$cli: speaks the parser's names — no sidechain accessor, no JSONL field, no shunt-log field"
   assert_eq "0" "$(grep -c 'parse_transcript' "$cli")" "$cli: reads a session through parse_session, never assembling one from per-file transcripts"
   assert_eq "0" "$(grep -c -- '---' "$cli")" "$cli: builds no Markdown rule — the parser module's table helper owns it"
   assert_eq "0" "$(grep -c 'type: ignore' "$cli")" "$cli: needs no type ignore"

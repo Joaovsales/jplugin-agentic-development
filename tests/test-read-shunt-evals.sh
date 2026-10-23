@@ -47,7 +47,7 @@ arm_cases() {
 import sys
 sys.path.insert(0, sys.argv[1])
 import fixture_gen as fg
-arm = lambda promise: "large" if (promise.min_total_bytes or 0) > fg.LARGE_BYTES else "control"
+arm = lambda promise: "large" if (promise.total_bytes.min or 0) > fg.LARGE_BYTES else "control"
 print(" ".join(sorted(c for c, (_, _, promise) in fg.CASES.items() if arm(promise) == sys.argv[2])))
 PY
 }
@@ -175,18 +175,18 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import fixture_gen as fg
 seed, generate, _ = fg.CASES["readme-typo"]
-fg.CASES["readme-typo"] = (seed, generate, fg.Promise(max_total_bytes=100))
+fg.CASES["readme-typo"] = (seed, generate, fg.Promise(total_bytes=fg.Bound(max=100)))
 sys.exit(fg.main(["readme-typo", "--out", sys.argv[2]]))
 PY
 )"; rc=$?
 assert_eq "1" "$rc" "promise: a scaffold whose output breaks its row exits 1"
 assert_contains "$err" "readme-typo" "promise: the message names the case"
-assert_contains "$err" "max_total_bytes" "promise: the message names the broken bound"
+assert_contains "$err" "total_bytes max 100" "promise: the message names the quantity, the broken side and its bound"
 bad="$("$TEST_PYTHON" - "$SUITE" "$CONTROL_CASES" <<'PY' | tr -d '\r'
 import sys
 sys.path.insert(0, sys.argv[1])
 import fixture_gen as fg
-print(" ".join(c for c in sys.argv[2].split() if not (fg.CASES[c][2].max_total_bytes or fg.LARGE_BYTES) < fg.LARGE_BYTES))
+print(" ".join(c for c in sys.argv[2].split() if not (fg.CASES[c][2].total_bytes.max or fg.LARGE_BYTES) < fg.LARGE_BYTES))
 PY
 )"
 assert_eq "" "$bad" "promise: every control's row caps its total below the threshold"
