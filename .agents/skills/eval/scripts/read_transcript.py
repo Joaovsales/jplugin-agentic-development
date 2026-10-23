@@ -236,7 +236,7 @@ class AgentCall:
     named_text: str            # the prompt, then the result's text
     total_tokens: Optional[int]
     tool_use_count: Optional[int]
-    agent_id: Optional[str]    # `toolUseResult.agentId`: names `subagents/agent-<id>.jsonl`
+    agent_id: Optional[str]    # `toolUseResult.agentId`; `subagent_session_id` names its file
 
 
 Call = Union[Read, ShellRead, GrepCall, AgentCall]
@@ -350,7 +350,7 @@ class SessionReads:
             if call.total_tokens is not None and call.tool_use_count is not None:
                 call_tokens, call_uses = call.total_tokens, call.tool_use_count
             else:
-                agent = by_session.get(f"agent-{call.agent_id}") if call.agent_id else None
+                agent = by_session.get(subagent_session_id(call.agent_id)) if call.agent_id else None
                 if agent is None:
                     return None, None
                 call_tokens, call_uses = agent.total_tokens, len(agent.own_tool_uses())
@@ -388,6 +388,11 @@ def iter_sessions(root: str) -> List[Session]:
 def session_id(transcript_path: str) -> str:
     """A session's id is its transcript's name without `.jsonl`."""
     return os.path.splitext(os.path.basename(transcript_path))[0]
+
+
+def subagent_session_id(agent_id: str) -> str:
+    """The session id of a sub-agent's file: `agent-<id>` (its `agent-<id>.jsonl` under `subagents/`)."""
+    return f"agent-{agent_id}"
 
 
 def session_subagents_dir(transcript_path: str) -> str:

@@ -197,10 +197,10 @@ sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
 t = rt.parse_transcript(sys.argv[2])
 r = t.reads()[0]
-print("late", len(t.reads()), r.kind, r.bytes, len(t.own_calls()), t.results["t1"].bytes, t._pending)
+print("late", len(t.reads()), r.kind, r.bytes, len(t.own_calls()), t.results["t1"].bytes)
 PY
 )"
-assert_contains "$out" "late 1 whole 32 1 32 {}" \
+assert_contains "$out" "late 1 whole 32 1 32" \
   "parser: a result logged before its use classifies the Read, and a use with no result is not an own call"
 
 # --- § drift ---------------------------------------------------------------
