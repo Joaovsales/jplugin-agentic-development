@@ -597,7 +597,7 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         # One API message is logged as several assistant records, one per content
         # block, each carrying the whole message's usage: count a message id once.
         message_id = message.get("id")
-        if not isinstance(message_id, str) or message_id not in t._message_ids:
+        if message_id not in t._message_ids:    # an id-less record counts on its own
             if isinstance(message_id, str):
                 t._message_ids.add(message_id)
             t.total_tokens += _turn_tokens(usage)
