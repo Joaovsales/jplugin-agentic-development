@@ -195,7 +195,7 @@ for diff in invite-redeem order-summary billing-cutoff settings-merge; do
   assert_file_contains "$REVIEW_EVAL/expected.md" "## $diff.diff" "review fixture: the key has a section for $diff.diff"
   assert_file_not_matches "$REVIEW_EVAL/$diff.diff" '\beval\b' "review fixture: $diff.diff gives a candidate no hint that it is an eval"
 done
-cited=0
+declare -A cited=()
 section=""
 while IFS= read -r line; do
   line="${line%$'\r'}"
@@ -205,9 +205,11 @@ while IFS= read -r line; do
       n="${line#*(diff line }"; n="${n%%,*}"
       cited_text="${line#*): \`}"; cited_text="${cited_text%%\`*}"
       assert_eq "$cited_text" "$(diff_line "$section" "$n")" "review fixture: $section line $n is the line the key cites"
-      cited=$((cited + 1)) ;;
+      cited[$section]=$(( ${cited[$section]:-0} + 1 )) ;;
   esac
 done < "$REVIEW_EVAL/expected.md"
-assert_true "review fixture: the key cites at least one line per diff" -- [ "$cited" -ge 4 ]
+for diff in invite-redeem order-summary billing-cutoff settings-merge; do
+  assert_true "review fixture: the key cites at least one line of $diff.diff" -- [ "${cited[$diff.diff]:-0}" -ge 1 ]
+done
 
 finish
