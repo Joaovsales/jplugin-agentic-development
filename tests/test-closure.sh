@@ -12,19 +12,20 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 PY="$TEST_PYTHON"
-CLOSURE="$REPO/.agents/skills/wrap-up-session/scripts/closure.py"
+CLOSURE="$(under_test .agents/skills/wrap-up-session/scripts/closure.py)"
+# specs/test-suite-aposd.md AC 9 lists this file in the registry area, so it is
+# selected with the registry skill as well; closure.py itself never calls it.
+under_test .agents/skills/task-registry >/dev/null
 SCENARIOS="$REPO/tests/fixtures/closure/scenarios.json"
 
-TMP="$(mktemp -d)"
-cleanup() { rm -rf "$TMP"; }
-trap cleanup EXIT
+TMP="$(fixture_dir)"
 
 # run_case <name> <state-json> <observe-json> <expected-line> [expected-exit]
 # Writes <state-json> verbatim as the state file, calls `step`, and asserts
 # both the exit code and the single printed line.
 run_case() {
-  _name="$1"; _state="$2"; _observe="$3"; _expect="$4"; _exit="${5:-0}"
-  _state_file="$TMP/state_$_name.json"
+  local _name="$1" _state="$2" _observe="$3" _expect="$4" _exit="${5:-0}"
+  local _state_file="$TMP/state_$_name.json" _out _code
   printf '%s' "$_state" > "$_state_file"
   _out="$("$PY" "$CLOSURE" step --state "$_state_file" --observe "$_observe" 2>&1)"
   _code=$?

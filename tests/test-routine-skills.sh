@@ -24,23 +24,16 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
+py_module .agents/skills/task-registry/scripts SCRIPTS
 PY="$TEST_PYTHON"
-
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
-
-pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -; }
 
 # A project root carrying a skills tree, so the on-disk check has something to
 # read. Named skills exist; anything else deliberately does not.
-new_fixture() {
+skill_project() {
   local d name
-  d="$(mktemp -d "${TMPDIR:-/tmp}/routine-skills.XXXXXX")"
-  TMP_DIRS+=("$d")
+  d="$(fixture_dir)"
   mkdir -p "$d/tasks" "$d/docs"
-  printf '[ ] placeholder\n' > "$d/tasks/todo.md"
+  fixture_copy task-registry/todo-placeholder.md "$d/tasks/todo.md"
   for name in "$@"; do
     mkdir -p "$d/.agents/skills/$name"
     printf -- '---\nname: %s\n---\n' "$name" > "$d/.agents/skills/$name/SKILL.md"
@@ -54,11 +47,15 @@ new_fixture() {
 # five-label default in place would refuse every fixture below for THAT reason —
 # turning each new gate's test green without the gate existing.
 write_config() {
-  { printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n'
+  local conf="$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking-local.ini "$conf.ini"
+  { printf '# Task tracking\n\n```ini\n'
+    cat "$conf.ini"
     printf '\n[routines]\nkind_precedence = %s\n' "$2"
     cat
     printf '```\n'
-  } > "$1/docs/task-tracking.md"
+  } > "$conf"
+  rm "$conf.ini"
 }
 
 # Loads the config and prints either the chains or the refusal, so every
@@ -70,7 +67,7 @@ write_config() {
 # leave the assertion green. Empty output fails `assert_contains` by
 # construction, so a load that did not refuse cannot pass silently.
 load_report() {
-  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" - "$1" <<'PY'
+  "$PY" - "$1" <<'PY'
 import sys
 from registry.config import ConfigError, load_config
 
@@ -97,7 +94,7 @@ refusal_of() { load_report "$1" | grep '^REFUSED:' || true; }
 # 1. The shipped default — chains without configuration, matching the contract
 # ============================================================================
 printf '\n-- shipped defaults --\n'
-bare="$(new_fixture)"
+bare="$(skill_project)"
 defaults="$(load_report "$bare")"
 
 assert_contains "$defaults" "routines: build,fix,improve,plan" \
@@ -118,7 +115,7 @@ assert_not_contains "$defaults" "chain plan: /plan -> /build" \
 # The defaults name skills that must actually exist in THIS template. Declared
 # chains are checked against the project's own disk (AC4 below); the shipped
 # defaults are checked here, so neither layer is unverified.
-missing_default_skills="$(pyreg <<'PY'
+missing_default_skills="$("$PY" - <<'PY'
 import os
 from registry.config import DEFAULT_ROUTINE_SKILLS
 
@@ -141,7 +138,7 @@ assert_contains "$missing_default_skills" "missing: none" \
 # project never wrote. The bare fixture above cannot pin this -- with no config
 # file at all, `load_config` returns before any validator runs.
 printf '\n-- defaults are not held against a project that declared none --\n'
-undeclared="$(new_fixture)"
+undeclared="$(skill_project)"
 write_config "$undeclared" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -156,7 +153,7 @@ assert_not_contains "$undeclared_out" "REFUSED:" \
 # 2. AC4 — a declared chain naming a skill absent from disk is refused, naming it
 # ============================================================================
 printf '\n-- AC4: unknown skill --\n'
-ghost="$(new_fixture plan debug build quality-gate wrap-up-session)"
+ghost="$(skill_project plan debug build quality-gate wrap-up-session)"
 write_config "$ghost" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -177,7 +174,7 @@ assert_contains "$ghost_refusal" "plan" \
 # The same chain with every skill present must load, or the assertion above
 # would pass for a project that simply cannot load any configuration.
 printf '\n-- AC4 control: same shape, skill present --\n'
-present="$(new_fixture plan debug build quality-gate wrap-up-session summon-the-kraken)"
+present="$(skill_project plan debug build quality-gate wrap-up-session summon-the-kraken)"
 write_config "$present" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -193,10 +190,9 @@ assert_contains "$present_out" "chain plan: /plan -> /summon-the-kraken -> /wrap
 # exists only under .claude/skills/ is a pre-plugin leftover, not an installation,
 # so the loader looks in the canonical tree alone and says so.
 printf '\n-- AC4: .claude/skills alone is not on disk --\n'
-claude_only="$(mktemp -d "${TMPDIR:-/tmp}/routine-skills.XXXXXX")"
-TMP_DIRS+=("$claude_only")
+claude_only="$(fixture_dir)"
 mkdir -p "$claude_only/tasks" "$claude_only/docs" "$claude_only/.agents/skills"
-printf '[ ] placeholder\n' > "$claude_only/tasks/todo.md"
+fixture_copy task-registry/todo-placeholder.md "$claude_only/tasks/todo.md"
 for name in plan wrap-up-session; do
   mkdir -p "$claude_only/.claude/skills/$name"
   printf -- '---\nname: %s\n---\n' "$name" > "$claude_only/.claude/skills/$name/SKILL.md"
@@ -228,7 +224,7 @@ assert_contains "$(refusal_of "$claude_only")" "Looked in .agents/skills" \
 # produces this one.
 printf '\n-- AC4: a chain step may not be a path --\n'
 for hostile in "/../../etc" "/../wrap-up-session" "/.." "/nested/name"; do
-  trav="$(new_fixture plan wrap-up-session)"
+  trav="$(skill_project plan wrap-up-session)"
   # The literal, unnormalized path config.py probes. Creating it is what makes
   # the assertion below falsifiable.
   bait="$trav/.agents/skills/${hostile#/}/SKILL.md"
@@ -253,7 +249,7 @@ done
 
 # A step that IS a name and simply is not installed keeps the other message, so
 # the pair above is pinned on the shape rule rather than on any refusal at all.
-absent="$(new_fixture plan wrap-up-session)"
+absent="$(skill_project plan wrap-up-session)"
 write_config "$absent" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -266,7 +262,7 @@ assert_contains "$(refusal_of "$absent")" "not installed" \
 
 # An empty chain is a declaration, not an absence. Dropping the key made
 # `plan =` indistinguishable from a project that never mentioned plan.
-empty_chain="$(new_fixture plan wrap-up-session)"
+empty_chain="$(skill_project plan wrap-up-session)"
 write_config "$empty_chain" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -280,7 +276,7 @@ assert_contains "$empty_refusal" "plan is empty" \
 
 # A step that renders as an installed skill without being one. `/build` here
 # carries a Cyrillic 'е'; a reviewer reading the file cannot see the difference.
-homoglyph="$(new_fixture plan wrap-up-session)"
+homoglyph="$(skill_project plan wrap-up-session)"
 write_config "$homoglyph" "design-decision" <<INI
 [routines.selectors]
 plan = design-decision
@@ -302,7 +298,7 @@ assert_contains "$(refusal_of "$homoglyph")" "not skill" \
 # The ESC must be a REAL 0x1b byte: writing the four characters `\x1b` into the
 # file makes the needle match whether or not repr is applied, and the assertion
 # cannot fail. Built with printf for that reason.
-esc="$(new_fixture plan wrap-up-session)"
+esc="$(skill_project plan wrap-up-session)"
 { printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n'
   printf '\n[routines]\nkind_precedence = design-decision\n'
   printf '\n[routines.selectors]\nplan = design-decision\n'
@@ -323,7 +319,7 @@ assert_not_contains "$esc_refusal" "$(printf '\033')" \
 # 3. AC5 — every chain ends at /wrap-up-session
 # ============================================================================
 printf '\n-- AC5: terminal step --\n'
-unterminated="$(new_fixture plan build wrap-up-session)"
+unterminated="$(skill_project plan build wrap-up-session)"
 write_config "$unterminated" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -344,7 +340,7 @@ assert_contains "$unterminated_refusal" "plan" \
 # /wrap-up-session present but not last is still a refusal: the gate has to be
 # terminal, not merely mentioned.
 printf '\n-- AC5: present but not last --\n'
-midchain="$(new_fixture plan build wrap-up-session)"
+midchain="$(skill_project plan build wrap-up-session)"
 write_config "$midchain" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -359,7 +355,7 @@ assert_contains "$(load_report "$midchain")" "REFUSED:" \
 # 4. AC8 — [routines.skills] replaces wholesale, it does not merge per key
 # ============================================================================
 printf '\n-- AC8: wholesale replace --\n'
-sole="$(new_fixture plan wrap-up-session)"
+sole="$(skill_project plan wrap-up-session)"
 write_config "$sole" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -380,7 +376,7 @@ assert_not_contains "$sole_out" "chain build:" \
 # 5. AC9 — a routine with a selector and no chain is refused, naming it
 # ============================================================================
 printf '\n-- AC9: selector without chain --\n'
-orphan="$(new_fixture plan debug build quality-gate wrap-up-session)"
+orphan="$(skill_project plan debug build quality-gate wrap-up-session)"
 write_config "$orphan" "bug, design-decision, tech-debt" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -400,7 +396,7 @@ assert_contains "$orphan_refusal" "fix" \
 # The reverse is legal and must stay legal: `build` ships a chain and no
 # selector, because it is deferred behind #97/#98. AC9 is one-directional.
 printf '\n-- AC9 is one-directional --\n'
-chain_only="$(new_fixture plan build quality-gate wrap-up-session)"
+chain_only="$(skill_project plan build quality-gate wrap-up-session)"
 write_config "$chain_only" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -416,7 +412,7 @@ assert_contains "$(load_report "$chain_only")" "chain build: /build -> /quality-
 # 6. AC12 — reconfiguring an EXISTING routine is one file and no code
 # ============================================================================
 printf '\n-- AC12: reconfigure without code --\n'
-recfg="$(new_fixture debug build quality-gate wrap-up-session brainstorm)"
+recfg="$(skill_project debug build quality-gate wrap-up-session brainstorm)"
 write_config "$recfg" "bug, tech-debt" <<'INI'
 [routines.selectors]
 fix = bug, tech-debt
@@ -430,7 +426,7 @@ assert_contains "$(load_report "$recfg")" "chain fix: /brainstorm -> /build -> /
 # Inventing a routine name stays a deliberate contract edit — AC12 is scoped to
 # reconfiguring an existing one, and CONTRACT_ROUTINES is explicitly kept.
 printf '\n-- AC12: inventing a routine is still refused --\n'
-invented="$(new_fixture plan wrap-up-session)"
+invented="$(skill_project plan wrap-up-session)"
 write_config "$invented" "design-decision, question" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -451,7 +447,7 @@ assert_contains "$invented_refusal" "triage" \
 # check fires and the skills arm never runs. A chain-only invention is the arm
 # that had no coverage — and it is the reachable one, since a project can add a
 # chain without a selector.
-skills_only="$(new_fixture plan wrap-up-session)"
+skills_only="$(skill_project plan wrap-up-session)"
 write_config "$skills_only" "design-decision" <<'INI'
 [routines.selectors]
 plan = design-decision
@@ -482,7 +478,7 @@ assert_contains "$skills_only_refusal" "triage" \
 # project.
 printf '\n-- this project is configured, and the configuration is where /sync cannot reach --\n'
 
-assert_eq "present" "$([ -f docs/task-tracking.md ] && echo present || echo missing)" \
+assert_file_exists docs/task-tracking.md \
   "AC7: this project ships its own docs/task-tracking.md"
 
 # The pointer, and the file it names. A declaration whose target is missing is
@@ -494,7 +490,7 @@ project_pointer="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]
   | sed -E 's/^[^:]*:[[:space:]]*//' | head -1)"
 assert_eq "docs/task-tracking.md" "$project_pointer" \
   "AC7: the declaration names this project's configuration file"
-assert_eq "present" "$([ -f "$project_pointer" ] && echo present || echo missing)" \
+assert_file_exists "$project_pointer" \
   "AC7: the declared target exists — the project is configured, not broken"
 
 # Every harness reads the same file, so one pointer configures all of them —
@@ -531,7 +527,7 @@ assert_not_contains "$sync_roots" "AGENTS.md" \
 # `doctor` is what a human runs to ask "am I configured?". It must name the file,
 # not report `none`. Pinned against the local provider so the answer does not
 # depend on the network or on `gh` being authenticated.
-doctor_out="$(PYTHONDONTWRITEBYTECODE=1 "$PY" \
+doctor_out="$("$PY" \
   "$SCRIPTS/task-registry.py" doctor --repo "$REPO" --provider local 2>&1)"
 assert_contains "$doctor_out" "configuration:  docs/task-tracking.md" \
   "AC7: doctor reports this project's configured path"
