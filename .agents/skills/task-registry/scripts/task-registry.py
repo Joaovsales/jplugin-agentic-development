@@ -858,7 +858,10 @@ def _upstream_verdict(registry: Registry):
         "upstream check: FAILED — these configured routine labels do not exist in "
         f"{registry.provider.name}: {', '.join(missing)}\n"
         "  A routine selecting on a label the tracker does not have finds nothing "
-        "and exits 0. That is the halt this check exists to make loud."
+        "and exits 0. That is the halt this check exists to make loud.\n"
+        "  Fix: create them in the tracker, or drop them from the routine "
+        "configuration ([routines.selectors], kind_precedence, claim_label, "
+        "escalation_label)."
     ), 1, UPSTREAM_MISCONFIGURED
 
 
