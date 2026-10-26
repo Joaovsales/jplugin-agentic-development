@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: orders-extract-tax
+description: Extract tax arithmetic from an order module into its own function.
+tags: [large]
+context:
+  scaffold_script: fixture.sh

@@ -1,0 +1,4 @@
+{
+  "broad": "Use the native read tool exactly once on ledger.py with path only, no offset or limit. Then list every public function, the four rule-band names and numeric boundaries, the five exception rule IDs with their labels, and the two metadata consumers. Cite exact source lines and directly inspect the cited ranges before concluding. Answer only; make no edits.",
+  "bug": "Use the native read tool exactly once on ledger.py with path only, no offset or limit. Diagnose how a quoted unfinished [[ledger-meta]] marker before the real block can affect parse_metadata. Check render_metadata and both consumer functions, directly inspect cited ranges before concluding, and state the smallest shared fix direction. Cite exact lines. Answer only; make no edits."
+}
