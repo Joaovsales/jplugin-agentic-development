@@ -2443,3 +2443,21 @@ Step ledger (routine `simplify`):
 - Completed: PR #356's first `test` run failed three assertions (7220 passed) because CI exports `REQUIRE_ALL=1` and three fixture sub-runs in `tests/test-lib.sh` and `tests/test-run-sh.sh` asserted the unset behaviour with the variable inherited — green on every developer host, red only in CI. The repair makes the environment contract one helper's job: `run_case [VAR=value]... <name> <lines>` and a new `run_box [VAR=value]... <command>` unset the library's CI knobs (`REQUIRE_ALL`, `REQUIRE_BROWSER`) for every fixture sub-run (19 sites), and the two cases that want the CI setting ask for it through the helper (`run_case REQUIRE_ALL=1 …`, `run_box REQUIRE_ALL=1 …`). Both files are green with `REQUIRE_ALL=1 REQUIRE_BROWSER=1` exported locally. Delta receipt 1e5819b9 GO (policy qg1-b803d96b, parent 032af75c); Phase 4 dispatched: GO, its one SHOULD-FIX (the per-site `env -u` spellings) applied, its NITPICK (`REQUIRE_ALL=0` encoding `finish`'s comparison) dissolved by the same change.
 - Pending: CI's second `test` run; the app's PR monitor is watching PR #356.
 - Carry-forward: unchanged from the previous summary.
+- [x] duplicate-rule in .agents/skills/how/SKILL.md <!-- task-id: simplify.agents-skills-how-skill-md.duplicate-rule-in-agents-skills-how-skill-md --> ([#363](https://github.com/Joaovsales/jplugin-agentic-development/issues/363))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-how-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-how-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/363
+
+### Slice 1/1 — how and why cite Codex dispatch
+- [x] how and why cite Codex dispatch <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-how-skill-md-md.how-and-why-cite-codex-dispatch --> — `/how` and `/why` cite `model-routing.md` § *Codex dispatch* instead of restating it
+  [x] TDD: the "On Codex, use the named roles" sentence appears in no skill, both skills cite `.agents/references/model-routing.md` § *Codex dispatch*, and signals.py reports no duplicate-rule on those lines -> replace the three lines in each skill with a one-line citation naming its role (AC 1, 2)
+  [x] TDD: `bash tests/test-citations.sh` and `bash tests/affected.sh --run master` match the before-proof -> no further edit (AC 3)
+> Handover: landed on routine/simplify/363-how-why-codex-dispatch — each skill names its managed role (`explorer` for `/how`, `scout` for `/why`) and cites `.agents/references/model-routing.md` § *Codex dispatch*; -4 lines. Before/after: citations 6/6 both; affected 26/26 before, 30/30 after (the set grew by the four files covering how/why).
+> Do not re-derive: the citation lines differ on purpose; one shared line would be a new duplicate-rule hit. The other `how/SKILL.md` duplicate-rule hit (line 68, § *Provenance*) is a different rule.
+> Surface: none
+
+## Session Summary — 2026-10-25 [c9f429a..HEAD]
+- Completed: `simplify` routine run: #363, `/how` and `/why` cite `model-routing.md` § *Codex dispatch* for the Codex role rule (-4 lines, behavior changes: none).
+- Pending: none in this plan
+- Carry-forward: unchanged from the previous summary.
