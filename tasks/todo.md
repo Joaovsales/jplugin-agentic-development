@@ -2461,3 +2461,13 @@ Step ledger (routine `simplify`):
 - [x] `registers` — 1 finding (Tier 1): 48 closed plan blocks older than the last two session summaries (already tracked by #143); checkpoint current
 - [x] `shortcuts` — clean, 4 markers, all with an upgrade trigger
 - [x] `tools` — inconclusive, archify not installed under `$ARCHIFY_HOME`
+
+Routine `tidy` step list:
+
+- [x] 1 — `/tidy`: record `tasks/sweeps/2026-10-26-tidy.md`; Tier 0 commits: none; Filed: none
+- [x] 2 — `/wrap-up-session`: quality receipt, full suite, commit, push, ready PR
+
+## Session Summary — 2026-10-26 [e9d6ad1..84dd3bb]
+- Completed: scheduled `tidy` sweep at `e9d6ad1`. Suite green (91/91). No Tier 0 repair. No Tier 2 filing. One Tier 1 remedy (`registers`: 48 closed plan blocks, already tracked by #143). `installed` and `tools` inconclusive on the ephemeral container. Record at `tasks/sweeps/2026-10-26-tidy.md`.
+- Pending: a human should archive the closed plan blocks (#143) and decide whether #142 can close (its README row now exists).
+- Carry-forward: none.
