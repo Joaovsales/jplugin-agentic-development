@@ -21,6 +21,15 @@ python3 .agents/skills/wrap-up-session/scripts/spec-reconcile.py discover \
   --base <base-branch> --json
 ```
 
+**`<base-branch>` must resolve to a remote-tracking ref.** It is the authority for
+"already on the target branch"; a local branch is a cache nothing keeps fresh, and the
+candidate set grows by however far it lags. On 2026-10-25 a local `master` 192 commits
+behind `origin/master` turned a 10-commit branch into a 184-commit one and returned 22
+candidates that all belonged to earlier sessions. `git fetch` before resolving. The same
+fallback order is implemented by `resolve_base()` in `.agents/git-hooks/pre-push`, which
+feeds the coverage range and the debt ledger — keep the two in step. Full account:
+`tasks/solutions/bugs/a-stale-local-base-branch-inflates-every-range-the-harness-derives.md`.
+
 When discovery selects something surprising, `changeset` prints the same snapshot
 without the matching step, which separates "the change set is wrong" from "the
 patterns are wrong":

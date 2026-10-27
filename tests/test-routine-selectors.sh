@@ -235,6 +235,10 @@ assert_contains "$miss_verdict" "in-progress" \
   "AC12: the failure names the missing CLAIM label -- the same-routine overlap guard"
 assert_not_contains "$miss_verdict" "design-decision" \
   "AC12: the verdict names only the absent labels, not every configured one"
+assert_contains "$miss_out" "create them in the tracker" \
+  "AC12: the failure names the first remedy -- create the missing labels upstream"
+assert_contains "$miss_out" "[routines.selectors]" \
+  "AC12: the failure names the second remedy -- the configuration that declares them"
 
 # The claim label alone, with every selector present. It is the only guard against
 # two runs of one routine picking the same issue, and `select_routine` excludes on
