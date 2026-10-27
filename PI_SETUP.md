@@ -261,7 +261,7 @@ Dispatch is natural language ("Have backend-developer implement this task") or t
 runs inside `discoverAgents` the throw takes the whole agent list down — every dispatch in the session
 fails, not just the one override. A provider error (HTTP 429 included) is returned from the model that
 resolved, and `pi-subagents` does not select another. Escalation is therefore always a *dispatch* decision;
-see `/build` § *Escalation ladder for test regressions* for the per-run override that raises the debugger's
+see `.agents/skills/build/references/harness-dispatch.md` § *Pi + OpenRouter routing (Model Routing)* for the per-run override that raises the debugger's
 second rung.
 
 Valid override keys are `description`, `advertise`, `output`, `outputMode`, `model`, `fast`, `thinking`,

@@ -1,6 +1,6 @@
 # Harness dispatch notes for /build
 
-Per-harness dispatch rules (Codex, Pi, Pi + OpenRouter) moved verbatim from `SKILL.md`.
+Per-harness dispatch rules (Codex, Pi, Pi + OpenRouter) moved from `SKILL.md`, plus the Pi debugger-escalation rule.
 Claude Code dispatch and the Ceiling-tier rule stay in `SKILL.md`.
 
 ## Codex: debugger escalation (Model Routing)
@@ -29,7 +29,7 @@ identical attempts.
 
 - Requires the `pi-subagents` extension (`pi install npm:pi-subagents`). Workflow agents come from `.agents/agents/` (auto-discovered per project); the extension adds `scout`, `oracle`, `researcher`, `context-builder` for roles the workflow does not define.
 - Dispatch with natural language or the `subagent` tool — e.g. "Have backend-developer implement this task" or `subagent({ agent: "backend-developer", task: "..." })`. Use `scout` for recon before planning, `oracle` for a second opinion on risky decisions.
-- Do NOT pass per-call model params on Pi for routine routing — it comes from `subagents.agentOverrides` in `~/.pi/agent/settings.json`. The one exception is § *Escalation ladder for test regressions*, which raises the debugger's second rung with a per-run `model`. There is no fallback field to do it for you: `fallbackModels` was removed and now throws, disabling every subagent in the session.
+- Do NOT pass per-call model params on Pi for routine routing — it comes from `subagents.agentOverrides` in `~/.pi/agent/settings.json`. The one exception is the per-run debugger override above (§ *Pi + OpenRouter routing (Model Routing)*), used only by `/build` § *Escalation ladder for test regressions* (in `.agents/skills/build/SKILL.md`), which raises the debugger's second rung with a per-run `model`. There is no fallback field to do it for you: `fallbackModels` was removed and now throws, disabling every subagent in the session.
 - For 2+ independent tasks: ask for a parallel run ("run backend-developer and frontend-developer in parallel for tasks A and B") and respect `globalConcurrencyLimit`.
 - If the extension is not installed, run Phase 1 inline in the main context (single-agent).
 

@@ -36,7 +36,8 @@ Steps 1 and 2 must never resolve to the same model. If they do, the ladder has n
 On Codex, dispatch the managed `debug-escalation` role for attempts 3–4; the rule is
 `.agents/skills/build/references/harness-dispatch.md` § *Codex: debugger escalation (Model Routing)*.
 
-> **For Pi + OpenRouter users:** see `.agents/skills/build/references/harness-dispatch.md`.
+> **For Pi + OpenRouter users:** attempts 3–4 dispatch `code-debugger` with a per-run `model`; the rule is
+> `.agents/skills/build/references/harness-dispatch.md` § *Pi + OpenRouter routing (Model Routing)*.
 
 ## Step 0.5 — Isolation
 
