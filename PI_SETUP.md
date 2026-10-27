@@ -182,7 +182,7 @@ Disable the overlapping builtins so the fleet stays unambiguous: `worker` (≈ b
 
 ### Settings
 
-Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, with `fallbackModels` for provider failures and hard caps against runaway fan-out):
+Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, plus hard caps against runaway fan-out):
 
 > **`defaultModel` is an enforcement surface, not a convenience.** It applies to *every*
 > agent without a model in frontmatter or an override. Point it at the cheapest routed
@@ -208,9 +208,9 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, wi
   "agentOverrides": {
     "planner":            { "model": "openrouter/deepseek/deepseek-v4-pro", "thinking": "high" },
     "oracle":             { "model": "openrouter/deepseek/deepseek-v4-pro", "thinking": "high" },
-    "backend-developer":  { "model": "openrouter/deepseek/deepseek-v4-flash", "fallbackModels": ["openrouter/deepseek/deepseek-v4-pro"] },
-    "frontend-developer": { "model": "openrouter/deepseek/deepseek-v4-flash", "fallbackModels": ["openrouter/deepseek/deepseek-v4-pro"] },
-    "code-debugger":      { "model": "openrouter/deepseek/deepseek-v4-flash", "fallbackModels": ["openrouter/deepseek/deepseek-v4-pro"] },
+    "backend-developer":  { "model": "openrouter/deepseek/deepseek-v4-flash" },
+    "frontend-developer": { "model": "openrouter/deepseek/deepseek-v4-flash" },
+    "code-debugger":      { "model": "openrouter/deepseek/deepseek-v4-flash" },
     "code-reviewer":      { "model": "inherit", "thinking": "high" },
     "security-reviewer":  { "model": "inherit", "thinking": "high" },
     "software-design-expert-review": { "model": "inherit", "thinking": "high" },
@@ -253,7 +253,19 @@ block. A floor is a dispatch rule, not a directive, so the pin is satisfied unco
 > prompt — not from different model priors. See § *Tier rationale* for what was traded and how to
 > restore it.
 
-Dispatch is natural language ("Have backend-developer implement this task") or the `subagent` tool. Do NOT pass per-call model params — `agentOverrides` resolves each agent's model automatically, and `fallbackModels` absorbs provider errors/rate-limits.
+Dispatch is natural language ("Have backend-developer implement this task") or the `subagent` tool. Do NOT pass per-call model params for routine routing — `agentOverrides` resolves each agent's model automatically.
+
+**There is no fallback model, and the field that used to hold one is now a hard error.**
+`fallbackModels` was removed from `pi-subagents`: `parseBuiltinOverrideEntry` throws on it, and because that
+runs inside `discoverAgents` the throw takes the whole agent list down — every dispatch in the session
+fails, not just the one override. A provider error (HTTP 429 included) is returned from the model that
+resolved, and `pi-subagents` does not select another. Escalation is therefore always a *dispatch* decision;
+see `/build` § *Escalation ladder for test regressions* for the per-run override that raises the debugger's
+second rung.
+
+Valid override keys are `description`, `advertise`, `output`, `outputMode`, `model`, `fast`, `thinking`,
+`systemPromptMode`, `inheritProjectContext`, `tools`, `defaultProvider`, `disabled` and `machine`.
+`launcher` is rejected here too — it belongs in a user agent file.
 
 ### Tier rationale
 

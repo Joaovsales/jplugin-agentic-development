@@ -19,3 +19,7 @@
 ## Joaovsales/jev-routing 98d77e3..77e257b
 - Recorded: 2026-10-25
 - Uncovered commits: 3
+
+## Joaovsales/jev-routing 4ff3c23..4ff3c23
+- Recorded: 2026-10-27
+- Uncovered commits: 1
