@@ -2443,6 +2443,25 @@ Step ledger (routine `simplify`):
 - Completed: PR #356's first `test` run failed three assertions (7220 passed) because CI exports `REQUIRE_ALL=1` and three fixture sub-runs in `tests/test-lib.sh` and `tests/test-run-sh.sh` asserted the unset behaviour with the variable inherited — green on every developer host, red only in CI. The repair makes the environment contract one helper's job: `run_case [VAR=value]... <name> <lines>` and a new `run_box [VAR=value]... <command>` unset the library's CI knobs (`REQUIRE_ALL`, `REQUIRE_BROWSER`) for every fixture sub-run (19 sites), and the two cases that want the CI setting ask for it through the helper (`run_case REQUIRE_ALL=1 …`, `run_box REQUIRE_ALL=1 …`). Both files are green with `REQUIRE_ALL=1 REQUIRE_BROWSER=1` exported locally. Delta receipt 1e5819b9 GO (policy qg1-b803d96b, parent 032af75c); Phase 4 dispatched: GO, its one SHOULD-FIX (the per-site `env -u` spellings) applied, its NITPICK (`REQUIRE_ALL=0` encoding `finish`'s comparison) dissolved by the same change.
 - Pending: CI's second `test` run; the app's PR monitor is watching PR #356.
 - Carry-forward: unchanged from the previous summary.
+- [x] duplicate-rule in .agents/skills/how/SKILL.md <!-- task-id: simplify.agents-skills-how-skill-md.duplicate-rule-in-agents-skills-how-skill-md --> ([#363](https://github.com/Joaovsales/jplugin-agentic-development/issues/363))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-how-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-how-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/363
+
+### Slice 1/1 — how and why cite Codex dispatch
+- [x] how and why cite Codex dispatch <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-how-skill-md-md.how-and-why-cite-codex-dispatch --> — `/how` and `/why` cite `model-routing.md` § *Codex dispatch* instead of restating it
+  [x] TDD: the "On Codex, use the named roles" sentence appears in no skill, both skills cite `.agents/references/model-routing.md` § *Codex dispatch*, and signals.py reports no duplicate-rule on those lines -> replace the three lines in each skill with a one-line citation naming its role (AC 1, 2)
+  [x] TDD: `bash tests/test-citations.sh` and `bash tests/affected.sh --run master` match the before-proof -> no further edit (AC 3)
+> Handover: landed on routine/simplify/363-how-why-codex-dispatch — each skill names its managed role (`explorer` for `/how`, `scout` for `/why`) and cites `.agents/references/model-routing.md` § *Codex dispatch*; -4 lines. Before/after: citations 6/6 both; affected 26/26 before, 30/30 after (the set grew by the four files covering how/why).
+> Do not re-derive: the citation lines differ on purpose; one shared line would be a new duplicate-rule hit. The other `how/SKILL.md` duplicate-rule hit (line 68, § *Provenance*) is a different rule.
+> Surface: none
+
+## Session Summary — 2026-10-25 [c9f429a..HEAD]
+- Completed: `simplify` routine run: #363, `/how` and `/why` cite `model-routing.md` § *Codex dispatch* for the Codex role rule (-4 lines, behavior changes: none).
+- Pending: none in this plan
+- Carry-forward: unchanged from the previous summary.
+
 
 ## Session Summary — 2026-10-25 [ba11f75..77e257b]
 - Completed: the model fleet was repointed from OpenAI to DeepSeek on Pi and the Ceiling tier was migrated to the `"model": "inherit"` directive. `~/.pi/agent/settings.json` and `presets.json` now route the session default and scout/context roles to `deepseek-v4.1-flash` (cheapest input), builders and the debugger to `deepseek-v4-flash` with a `deepseek-v4-pro` fallback, and planner/oracle/critic to `deepseek-v4-pro`; the three plain-Ceiling reviewers carry `"model": "inherit"`. `critic` keeps a concrete pin because a directive cannot express its planner floor. `PI_SETUP.md` (settings block, Ceiling section, tier and model tables, cost estimate), `.agents/references/model-routing.md` § Ceiling/§ Rules and the user-level `~/.pi/agent/AGENTS.md` were rewritten to match; `tests/test-model-tiers.sh` § 11 was replaced with assertions for the directive, the `critic` counter-pin and an absence sweep under `.agents/`. `specs/model-tier-ceiling-gaps.md` reconciled (`updated`), `specs/codex-scout-routing.md` and `specs/single-instruction-file.md` `unchanged`. Cost estimate per build ~$0.74 → ~$0.16. `.agents/references/model-routing.md` is plugin payload, so `.claude-plugin/plugin.json` went 1.7.3 → 1.7.4 in the same commit — the version guard compares against the merge base, so it passed while the change was uncommitted and failed once committed. Receipt 6988ef57 GO (policy qg1-b8f4dc32, delta `.claude-plugin/plugin.json`, parent 2e57f465); Phase 4 inline, Phases 1–3 inline, no promotion. Full suite and affected tests both 91 files, 7226 passed, 0 failed.
