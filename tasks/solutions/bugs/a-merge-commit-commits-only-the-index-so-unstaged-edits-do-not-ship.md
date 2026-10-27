@@ -23,6 +23,6 @@ The wider rule: **a commit message is a claim about the index, and the index is 
 the working tree.** Every "and then I fixed X" paragraph written before `git add -A`
 is a hypothesis until `git status` is empty.
 
-Related: `../../process/spec-reconcile-on-a-long-lived-branch-selects-every-prior-sessions-specs.md`
+Related: `a-stale-local-base-branch-inflates-every-range-the-harness-derives.md`
 is the same session's other bookkeeping defect — both are cases where the recorded
 account and the artifact diverged, and only a direct read of the artifact caught it.
