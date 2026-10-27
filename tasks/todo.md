@@ -2461,3 +2461,4 @@ Step ledger (routine `simplify`):
 - Completed: `simplify` routine run: #363, `/how` and `/why` cite `model-routing.md` § *Codex dispatch* for the Codex role rule (-4 lines, behavior changes: none).
 - Pending: none in this plan
 - Carry-forward: unchanged from the previous summary.
+- [ ] duplicate-rule in .agents/skills/build/SKILL.md <!-- task-id: simplify.agents-skills-build-skill-md.duplicate-rule-in-agents-skills-build-skill-md --> ([#368](https://github.com/Joaovsales/jplugin-agentic-development/issues/368))
