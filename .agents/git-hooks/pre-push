@@ -83,10 +83,12 @@ introduces_summary() {
 # is recorded as uncovered debt. Observed 2026-10-25: a local master 192 commits
 # behind origin/master turned a 10-commit branch into a 76-commit debt entry.
 #
-# Still no network: this reads whatever origin/<base> already points at, so a
-# remote-tracking ref left stale under-reports coverage rather than over-reporting
-# debt — the safe direction for a gate that only warns. `git fetch` before pushing
-# is what keeps it current, and nothing here can do that for you.
+# Still no network: this reads whatever origin/<base> already points at. A stale
+# remote-tracking ref names an older base, which *widens* the range and over-reports
+# debt rather than missing it — the safe direction for a gate that only warns, though
+# still noise someone has to clear. Measured 2026-10-27: a ref 192 commits behind
+# gave 204 commits for a 12-commit branch. `git fetch` before pushing is what keeps it
+# current, and nothing here can do that for you.
 resolve_base() {
   for _b in master main develop; do
     if git show-ref --verify --quiet "refs/remotes/origin/$_b"; then
