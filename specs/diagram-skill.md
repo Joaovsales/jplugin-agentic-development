@@ -294,7 +294,7 @@ Invoke `/build` for `specs/diagram-skill.md`.
 Plan: `## Plan: diagram-skill` in `tasks/todo.md`, 7 slices, ready set <1, 3>.
 Files: .agents/skills/diagram/**, .agents/skills/how/SKILL.md, .agents/skills/how/references/explainer-prompt.md, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/tidy/SKILL.md, .github/upstreams.json, scripts/check-upstream-drift.py, install.sh, .gitignore, THIRD_PARTY_NOTICES.md, README.md, tests/test-diagram-skill.sh, tests/test-upstream-drift.sh, tests/test-install-sh.sh
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/diagram-skill.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

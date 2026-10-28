@@ -49,7 +49,7 @@ cheaper model can work it cold, and this skill is where that pays off:
 |---|---|
 | *Reproduction* (numbered steps; last line `observed: … / expected: …`) | the reproduction step of Phase 1 — run it verbatim before anything else |
 | *Proposed fix* | **candidate one** in the Phase 0.5 prelude — a hypothesis to be confirmed by disconfirming evidence, never assumed correct because a sweep wrote it |
-| *Acceptance Criteria* | the pass condition for Phase 3, and the `[ ] TDD:` tasks Phase 4 writes |
+| *Acceptance Criteria* | the pass condition for Phase 3, and the `- [ ]` criterion rows Phase 4 writes and runs through `/tdd` |
 | *Evidence* (four-axis tag, `file:line`, `discovered:` stamp) | the prior for the prelude's ranking; a `75` names what it turns on and the prelude reads that first |
 
 A `tech-debt` task read this way has no reproduction: its proposed fix and
@@ -232,22 +232,25 @@ Create or update a bug-track document using the
 for this bug already exists (found in Pre-Flight), update it in place — never
 create a sibling. Create `tasks/solutions/bugs/` if absent.
 
-### Write the build tasks (issue intake only)
+### Write the fix block and run it through `/tdd` (issue intake only)
 
 When the bug came in as an issue that carries a *Proposed fix* and acceptance
-criteria, this phase also writes the plan `/build` will execute — one row per
-criterion, in the standard shape, under a heading naming the issue:
+criteria, this phase also writes the fix block — one plain row per criterion,
+under a heading naming the issue:
 
 ```
 ## Fix: #N — <title>
 
-- [ ] TDD: <test that pins criterion 1> -> <the proposed-fix step that satisfies it>
-- [ ] TDD: <test that pins criterion 2> -> <step>
+- [ ] <criterion the fix must make true>
+- [ ] <criterion the fix must make true>
 ```
 
 The proposed fix is decomposed as the prelude confirmed it, not as the issue
-wrote it: where Phase 1 disproved a step, the row states the step that replaced
-it. The `fix` routine's next step is `/build`, which reads exactly these rows.
+wrote it: where Phase 1 disproved a step, the row states the criterion the
+replacing step satisfies. `/debug` then runs the rows through `/tdd` itself
+(Prove-It: the test fails first, then passes) and ticks each row when its test
+passes; `/build` is not involved. A legacy block's `TDD` rows run the same
+way (`.agents/skills/slice/references/plan-block.md` § *Legacy block*).
 
 ### Capture Lesson
 

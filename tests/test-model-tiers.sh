@@ -277,23 +277,35 @@ for skill in plan prd grilling system-design-planning; do
   assert_prose_contains ".agents/skills/$skill/SKILL.md" 'managed `explorer` role' \
     "ModelTier: $skill names Codex's read-only explorer"
 done
-assert_prose_contains .agents/skills/build/SKILL.md 'managed `explorer` role' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'managed `explorer` role' \
   "ModelTier: build names Codex's read-only explorer"
-assert_prose_contains .agents/skills/build/SKILL.md 'managed `scout` role' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'managed `scout` role' \
   "ModelTier: build names Codex's MCP-capable Scout"
-assert_prose_contains .agents/skills/build/SKILL.md 'managed `debug-escalation` role' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'managed `debug-escalation` role' \
   "ModelTier: debugger escalation uses its separate Codex profile"
-assert_prose_contains .agents/skills/build/SKILL.md 'Resolve the parent tier before dispatch' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'Resolve the parent tier before dispatch' \
   "ModelTier: Codex floor dispatch checks the parent tier"
-assert_prose_contains .agents/skills/build/SKILL.md "For a Builder-or-weaker parent, request the policy's Planner model and effort" \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md "For a Builder-or-weaker parent, request the policy's Planner model and effort" \
   "ModelTier: Codex debugger escalation rises above a Builder parent"
-assert_prose_contains .agents/skills/build/SKILL.md 'Inherit only when the parent is above Builder' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'Inherit only when the parent is above Builder' \
   "ModelTier: Codex debugger escalation inherits only from a stronger parent"
-assert_prose_contains .agents/skills/build/SKILL.md 'the `code-debugger` agent file pins Builder' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'the `code-debugger` agent file pins Builder' \
   "ModelTier: Codex escalation does not reuse the Builder-pinned agent"
 for skill in plan build prd grilling system-design-planning; do
   assert_file_not_matches ".agents/skills/$skill/SKILL.md" 'gpt-[0-9]' \
     "ModelTier: $skill keeps Codex model IDs in policy"
 done
+
+# --- 13. test-engineer routes at Reviewer tier, never by a pinned alias (AC13) -
+# The model is passed per dispatch, so neither tree pins one and the routing
+# row names the Reviewer tier only.
+for f in .agents/agents/test-engineer.md .claude/agents/test-engineer.md; do
+  assert_file_not_matches "$f" '^model:' "ModelTier: $f pins no model"
+done
+te_row="$(grep -E '^\|.*`test-engineer`' "$ROUTING")"
+assert_contains "$te_row" 'Reviewer' "ModelTier: model-routing.md routes the test-engineer Review job at Reviewer"
+assert_not_contains "$te_row" 'Builder' "ModelTier: model-routing.md routes no test-engineer job at Builder"
+assert_file_matches config/agent-policy.toml 'name = "test-engineer"'   "ModelTier: agent-policy.toml defines the test-engineer role"
+assert_file_matches PI_SETUP.md '"test-engineer":'   "ModelTier: PI_SETUP.md pins test-engineer on Pi"
 
 finish

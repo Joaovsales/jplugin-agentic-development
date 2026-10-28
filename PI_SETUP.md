@@ -167,7 +167,7 @@ pi install npm:pi-subagents
 
 ### Agents: workflow personas + builtin gap-fillers
 
-The workflow's own agents live in `.agents/agents/` (canonical, model-agnostic) and are auto-discovered per project: `planner`, `backend-developer`, `frontend-developer`, `code-reviewer`, `code-debugger`, `security-reviewer`, `critic`, `frontend-design-validator`, `context-document-optimizer`, `software-design-expert-review`.
+The workflow's own agents live in `.agents/agents/` (canonical, model-agnostic) and are auto-discovered per project: `planner`, `backend-developer`, `frontend-developer`, `code-reviewer`, `code-debugger`, `security-reviewer`, `critic`, `frontend-design-validator`, `context-document-optimizer`, `software-design-expert-review`, `test-engineer`.
 
 The extension's builtins fill roles the workflow does not define — keep these enabled:
 
@@ -215,6 +215,7 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, pl
     "security-reviewer":  { "model": "inherit", "thinking": "high" },
     "software-design-expert-review": { "model": "inherit", "thinking": "high" },
     "critic":             { "model": "openrouter/deepseek/deepseek-v4-pro", "thinking": "high" },
+    "test-engineer":      { "model": "openrouter/deepseek/deepseek-v4-flash" },
     "scout":              { "model": "openrouter/deepseek/deepseek-v4.1-flash", "thinking": "off" },
     "context-builder":    { "model": "openrouter/deepseek/deepseek-v4.1-flash" },
     "context-document-optimizer": { "model": "openrouter/deepseek/deepseek-v4.1-flash" },
@@ -260,7 +261,7 @@ Dispatch is natural language ("Have backend-developer implement this task") or t
 runs inside `discoverAgents` the throw takes the whole agent list down — every dispatch in the session
 fails, not just the one override. A provider error (HTTP 429 included) is returned from the model that
 resolved, and `pi-subagents` does not select another. Escalation is therefore always a *dispatch* decision;
-see `/build` § *Escalation ladder for test regressions* for the per-run override that raises the debugger's
+see `.agents/skills/build/references/harness-dispatch.md` § *Pi + OpenRouter routing (Model Routing)* for the per-run override that raises the debugger's
 second rung.
 
 Valid override keys are `description`, `advertise`, `output`, `outputMode`, `model`, `fast`, `thinking`,

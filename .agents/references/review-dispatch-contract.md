@@ -15,8 +15,9 @@ This contract governs what crosses a **dispatch boundary**. An inline run alread
 holds all of it in context; *Dispatch Disclosure* governs what its agreement is
 worth.
 
-Every dispatch of `code-reviewer`, `critic`, `security-reviewer`, or
-`software-design-expert-review` must carry all seven:
+Every dispatch of `code-reviewer`, `critic`, `security-reviewer`,
+`software-design-expert-review`, or the `test-engineer` Review job must carry all seven
+(the `test-engineer` also takes the test files alongside item 2):
 
 | # | Item | Why the reviewer cannot supply it itself |
 |---|------|------------------------------------------|

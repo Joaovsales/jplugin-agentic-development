@@ -123,7 +123,7 @@ Order of preference:
 1. **First iteration only**: use the idea from `tasks/yolo-idea.md`.
 2. **Subsequent iterations**:
    - If `tasks/backlog.md` exists and has `[ ]` items → take the top one.
-   - Else if `tasks/todo.md` has `[ ] TDD:` tasks left over → resume those (re-enter `/build` directly, skip plan phase).
+   - Else if `slice.py link --index tasks/todo.md` (no `--spec`: one `<spec> link: <state> done: <yes|no>` line per plan block) prints `done: no` for a plan block left over → resume it (re-enter `/build` directly, skip plan phase). Exit 2 means a plan block is malformed and stdout is empty: stop and report the stderr refusals, never resume.
    - Else → EXIT loop (no work left).
 
 If no backlog exists and the user's idea is a single feature, the loop is expected to run **once** and exit. That's fine — it's still yolo mode, just short.
@@ -153,9 +153,9 @@ After Phase A: `specs/<feature>.md` and `tasks/todo.md` must exist on disk with 
 
 Invoke `/build` in place, in this same session — `/yolo` is a named exception
 to building in a fresh session, and it is unattended by design. It is already
-autonomous. Run it to completion. Its pre-flight filing runs `--file` without
-`--approve`: unattended, the project's approval floor decides whether the
-slices land or go `local-pending`.
+autonomous. Run it to completion. Its pre-flight runs without `--approve`:
+unattended, the project's approval floor decides whether the feature issue
+lands or goes `local-pending`.
 
 - Phases 1–5 run as normal (TDD, quality gate, spec validation, backlog update).
 - Phase 6 (build report) is required — paste it into `tasks/yolo-log.md`.

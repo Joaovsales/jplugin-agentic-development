@@ -92,6 +92,8 @@ load than the stated one is not emitted.
   `autofix_class`. It never widens.
 - A finding is auto-applied only when it is `gated_auto` **and**
   `confidence >= 75`. Everything else is reported, never silently dropped.
+- A fix that moves a module boundary is never `gated_auto`, whatever its
+  confidence: it changes who owns what, so it is `manual` and waits on a human.
 - A finding arriving with no `confidence` — an older single-axis reviewer — is
   read as `50` / `autofix_class: manual`: reported, never auto-applied, never
   discarded.

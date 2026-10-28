@@ -11,7 +11,7 @@ where it does not; nothing here needs a capability the harness lacks.
 2. Create the branch `routine_branch.py format improve <N> <title>` gives you.
 3. Run `task-registry show <N>` and hand its output — proposed fix, evidence,
    acceptance criteria — to `/plan` as the interview input. It writes the
-   `[ ] TDD:` tasks. Nobody is watching, so cross its handover as
+   slice rows `/build` runs through `/tdd`. Nobody is watching, so cross its handover as
    `.agents/skills/wrap-up-session/references/routines.md` §
    *Crossing the plan handover* says: print no build prompt.
 4. Run `/build` on those tasks in this session.

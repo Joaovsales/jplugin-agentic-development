@@ -1009,7 +1009,7 @@ once. That matches today&#x27;s cost, less the four extra reviewers. A receipt w
 Plan: `## Plan: quality-receipt-closure` in `tasks/todo.md`, 6 slices, ready set 1, 3.
 Files: .agents/skills/quality-gate/scripts/receipt.py, .agents/skills/quality-gate/SKILL.md, .agents/skills/wrap-up-session/scripts/closure.py, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/references/routines.md, tests/test-quality-receipt.sh, tests/test-closure.sh, tests/fixtures/closure/scenarios.json, tests/test-review-context.sh, tests/test-model-tiers.sh, tests/test-living-spec-reconciliation.sh, tests/test-routine-wrapup.sh, tests/test-routine-step-ledger.sh, tests/test-doc-conventions.sh, AGENTS.md.
 Instructions:
-1. `/build`&#x27;s pre-flight files the slices: `/slice specs/quality-receipt-closure.md --file --approve`. The planning session filed nothing.
+1. `/build`&#x27;s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.

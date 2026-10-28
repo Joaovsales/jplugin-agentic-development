@@ -146,10 +146,10 @@ for lane in improve refactor babysit; do
 done
 assert_contains "$crossing" "Unattended detection" \
   "AC1: the unattended rule keys on § Unattended detection"
-assert_contains "$crossing" "--file" \
-  "AC1: an unattended pre-flight files with --file"
-assert_contains "$crossing" "with no \`--approve\`" \
-  "AC1: the crossing section says the pre-flight passes no --approve"
+assert_contains "$crossing" '`> Issue:`' \
+  "AC1: an unattended run writes the claimed issue as > Issue:"
+assert_contains "$(printf '%s' "$crossing" | tr -s '[:space:]' ' ')" "files nothing" \
+  "AC1: the crossing section says the unattended run files nothing"
 assert_contains "$crossing" "no build prompt" \
   "AC1: an unattended run prints no build prompt"
 assert_contains "$crossing" "in place" \
@@ -207,9 +207,12 @@ for routine in plan fix improve simplify janitor architect tidy; do
     "Contract: lane file $LANES/$routine.md exists"
 done
 
-# The routines that produce code reach /build and /quality-gate; both are gates.
+# The routines that produce code reach /quality-gate; both are gates. improve
+# builds through /build; fix builds inside /debug, which runs its rows through /tdd.
+assert_file_contains "$LANES/fix.md" "/tdd" "Contract: fix's lane builds through /debug's /tdd run"
+assert_file_not_matches "$LANES/fix.md" '^[0-9]+\. `/build`' "Contract: fix's lane has no /build step"
 for routine in fix improve; do
-  assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
+  [ "$routine" = improve ] && assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
   assert_file_contains "$LANES/$routine.md" "/quality-gate" \
     "Contract: $routine's lane reaches /quality-gate"
   assert_file_contains "$LANES/$routine.md" "non-skippable" \

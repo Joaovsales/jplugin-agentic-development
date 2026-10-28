@@ -183,6 +183,203 @@ CODE=$?
 assert_eq "2" "$CODE" "ready: a missing index exits 2"
 assert_contains "$OUT" "no such index file" "ready: names the missing index"
 
+printf '\n--- ready: a malformed index fails at load ---\n'
+
+DM="$(fixture_dir)"
+{ cat "$FIXTURES/ready/todo-header-open.md"; printf '\n- [ ] broken row <!-- never closed\n'; } > "$DM/todo.md"
+OUT="$("$PY" "$SLICE" ready --index "$DM/todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "ready: a malformed index exits 2"
+assert_contains "$OUT" "slice: refusing to act on a malformed index" "ready: a malformed index is a slice: refusal"
+assert_not_contains "$OUT" "Traceback" "ready: a malformed index is not a traceback"
+
+printf '\n--- header-plan: bare slice headers under one feature row ---\n'
+
+# specs/aposd-first-build.md AC1/AC2: a block `/slice` writes carries no task id,
+# no `(blocked-by:)` and no `TDD:` child on a slice row; `ready` reads it through
+# the same index path as a legacy block.
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-header-open.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "header-plan: a block of bare slice headers exits 0"
+assert_contains "$OUT" "ready: 1 one" "header-plan: slice 1 (no blockers) is ready"
+assert_not_contains "$OUT" "ready: 2 two" "header-plan: slice 2 waits on slice 1, whose blocker lives only in the Build Order"
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-header-slice1-done.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 2 two" "header-plan: slice 2 is ready once its header is [x]"
+assert_not_contains "$OUT" "ready: 1 one" "header-plan: a done header is absent from the ready set"
+
+TWO="$FIXTURES/validate-two-links"
+for ok in todo-one-row todo-one-issue; do
+  OUT="$("$PY" "$SLICE" validate --spec "$TWO/spec.md" --index "$TWO/$ok.md" 2>&1)"
+  CODE=$?
+  assert_eq "0" "$CODE" "header-plan: $ok holds one feature link and validates"
+  assert_eq "" "$OUT" "header-plan: $ok prints nothing"
+done
+for bad in todo-both todo-two-issues todo-two-rows; do
+  OUT="$("$PY" "$SLICE" validate --spec "$TWO/spec.md" --index "$TWO/$bad.md" 2>&1)"
+  CODE=$?
+  assert_eq "1" "$CODE" "header-plan: $bad holds two feature links, exit 1"
+  assert_contains "$OUT" "$TWO/$bad.md:6: " "header-plan: $bad names <path>:<line> of the second link"
+  assert_contains "$OUT" "two feature links" "header-plan: $bad says why"
+done
+
+printf '\n--- legacy-plan: task-id blocks still validate and ready unchanged ---\n'
+
+OUT="$("$PY" "$SLICE" ready --index "$FIXTURES/ready/todo-slice1-done.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 2 two" "legacy-plan: a task-id block still readies slice 2 after slice 1 is [x]"
+OUT="$("$PY" "$SLICE" validate --spec "$TWO/spec.md" --index "$TWO/todo-legacy.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "legacy-plan: a task-id block with TDD rows and no feature link still validates"
+assert_eq "" "$OUT" "legacy-plan: a legacy block prints nothing"
+OUT="$("$PY" "$SLICE" ready --index "$TWO/todo-legacy.md" --spec "$TWO/spec.md" 2>&1)"
+assert_contains "$OUT" "ready: 1 one" "legacy-plan: a legacy block's open slice 1 is ready"
+
+printf '\n--- interfaces: ready names no mode; validate no longer requires a Path (AC3 withdrawn) ---\n'
+
+MODE="$FIXTURES/mode"
+OUT="$("$PY" "$SLICE" ready --index "$MODE/todo-new.md" --spec "$MODE/spec.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "interfaces: a new block exits 0"
+assert_contains "$OUT" "ready: 1 one" "interfaces: a slice whose Surface matches an Interfaces Path is ready"
+assert_contains "$OUT" "ready: 2 two" "interfaces: a slice matching no Interfaces Path is ready"
+assert_not_contains "$OUT" "mode=" "interfaces: ready prints no mode"
+assert_not_contains "$OUT" "loop:" "interfaces: ready prints no loop line"
+OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec.md" --index "$MODE/todo-new.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "interfaces: validate passes when every Interfaces entry has a Path"
+OUT="$("$PY" "$SLICE" validate --spec "$MODE/spec-no-path.md" --index "$MODE/todo-new.md" 2>&1)"
+CODE=$?
+assert_eq "0" "$CODE" "interfaces: validate accepts an Interfaces entry with no Path, exit 0"
+
+printf '\n--- link: one classification of how a plan block links its feature ---\n'
+
+LINKF="$FIXTURES/link"
+link_case() {  # <label> <index> <spec> <expected link> <expected done>
+  OUT="$("$PY" "$SLICE" link --index "$2" --spec "$3" 2>&1)"
+  CODE=$?
+  OUT="${OUT//$'\r'/}"
+  assert_eq "0" "$CODE" "link: $1 exits 0"
+  assert_eq "link: $4
+done: $5" "$OUT" "link: $1 prints link and done"
+}
+link_case "a task-id on a slice header" "$TWO/todo-legacy.md" "$TWO/spec.md" "legacy" "no"
+link_case "a > Issue: line" "$TWO/todo-one-issue.md" "$TWO/spec.md" "issue o/r#7" "no"
+link_case "a feature row with no provider link" "$TWO/todo-one-row.md" "$TWO/spec.md" "unlinked plan.two-links" "no"
+link_case "a feature row with a provider link" "$LINKF/todo-linked.md" "$FIXTURES/ready/spec.md" "linked plan.ready-fixture o/r#42" "no"
+link_case "no feature link" "$LINKF/todo-none.md" "$FIXTURES/ready/spec.md" "none" "no"
+link_case "a flat block" "$FIXTURES/ready-implicit/todo-open.md" "$FIXTURES/ready-implicit/spec.md" "none" "no"
+link_case "every header [x]" "$LINKF/todo-done.md" "$FIXTURES/ready/spec.md" "issue o/r#42" "yes"
+link_case "an Issue ref already #N" "$LINKF/todo-issue-ref.md" "$FIXTURES/ready/spec.md" "issue #9" "no"
+link_case "a bare-number Issue ref closes as #N" "$LINKF/todo-issue-bare.md" "$FIXTURES/ready/spec.md" "issue #9" "no"
+link_case "an Issue URL in another repo keeps its repo" "$LINKF/todo-issue-cross-repo.md" "$FIXTURES/ready/spec.md" "issue other/repo#213" "no"
+link_case "one header [x] of three" "$FIXTURES/ready/todo-header-slice1-done.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: a missing index exits 2"
+assert_contains "$OUT" "slice: " "link: a missing index is a slice: refusal"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-none.md" --spec "$LINKF/other-spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: a spec the index has no block for exits 2"
+assert_contains "$OUT" "has no \`## Plan:\` block naming" "link: a spec the index has no block for says why"
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-feature-no-id.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "link: a feature row with no task-id fails validate"
+assert_contains "$OUT" "todo-feature-no-id.md:5: " "link: the no-id feature row is named by <path>:<line>"
+assert_contains "$OUT" "no task-id" "link: the no-id feature row refusal says why"
+for verb in link ready; do
+  OUT="$("$PY" "$SLICE" "$verb" --index "$LINKF/todo-feature-no-id.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "link: $verb refuses a feature row with no task-id, exit 2"
+  assert_contains "$OUT" "todo-feature-no-id.md:5: " "link: $verb names the no-id feature row by <path>:<line>"
+  assert_contains "$OUT" "no task-id" "link: $verb says why"
+done
+for bad in todo-both todo-two-issues todo-two-rows; do
+  for verb in link ready; do
+    OUT="$("$PY" "$SLICE" "$verb" --index "$TWO/$bad.md" --spec "$TWO/spec.md" 2>&1)"
+    CODE=$?
+    assert_eq "2" "$CODE" "link: $verb on $bad holds two feature links, exit 2"
+    assert_contains "$OUT" "two feature links" "link: $verb on $bad says why"
+  done
+done
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-multi.md" 2>&1)"
+CODE=$?
+OUT="${OUT//$'\r'/}"
+assert_eq "0" "$CODE" "link: without --spec exits 0"
+assert_eq "tests/fixtures/slice/ready/spec.md link: issue o/r#42 done: yes
+tests/fixtures/slice/link/other-spec.md link: linked plan.second-fixture o/r#43 done: no" "$OUT" "link: without --spec prints one line per block that names a spec"
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-issue-odd.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "link: an Issue ref no provider can close fails validate"
+assert_contains "$OUT" "todo-issue-odd.md:5: " "link: the unclosable Issue line is named by <path>:<line>"
+assert_contains "$OUT" "closing reference" "link: the unclosable Issue refusal says why"
+for verb in link ready; do
+  OUT="$("$PY" "$SLICE" "$verb" --index "$LINKF/todo-issue-odd.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "link: $verb refuses an Issue ref no provider can close, exit 2"
+  assert_contains "$OUT" "closing reference" "link: $verb says why"
+done
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-same-spec.md" 2>&1)"
+CODE=$?
+assert_eq "1" "$CODE" "link: two blocks naming one spec fail validate"
+assert_contains "$OUT" "more than one plan block" "link: the duplicate-spec refusal says why"
+for verb in link ready; do
+  OUT="$("$PY" "$SLICE" "$verb" --index "$LINKF/todo-same-spec.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+  CODE=$?
+  assert_eq "2" "$CODE" "link: $verb --spec refuses a spec two blocks name, exit 2"
+  assert_contains "$OUT" "more than one plan block" "link: $verb --spec says why"
+done
+OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/ready/spec.md" --index "$LINKF/todo-two-done.md" 2>&1)"
+CODE=$?
+assert_not_contains "$OUT" "more than one plan block" "link: two finished blocks for one spec are history, validate says nothing of it"
+for mode in "--spec $FIXTURES/ready/spec.md" ""; do
+  OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-two-done.md" $mode 2>&1)"
+  CODE=$?
+  assert_eq "0" "$CODE" "link: two finished blocks for one spec exit 0 (${mode:-no --spec})"
+done
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-same-spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec two blocks naming one spec exit 2"
+assert_contains "$OUT" "more than one plan block" "link: without --spec the duplicate-spec refusal says why"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/no-such-todo.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec a missing index exits 2"
+link_case "a feature row whose external is a local task has no closing reference" "$LINKF/todo-local-ref.md" "$FIXTURES/ready/spec.md" "unlinked plan.ready-fixture" "no"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-open-then-malformed.md" 2>/dev/null)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec an open block then a malformed one exits 2"
+assert_eq "" "$OUT" "link: without --spec a malformed block mid-file leaves stdout empty"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-open-then-malformed.md" 2>&1 >/dev/null)"
+assert_contains "$OUT" "no task-id" "link: without --spec the refusal goes to stderr"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-two-refusals.md" 2>/dev/null)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec two refusing blocks exit 2"
+assert_eq "" "$OUT" "link: without --spec two refusing blocks leave stdout empty"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-two-refusals.md" 2>&1 >/dev/null)"
+assert_contains "$OUT" "closing reference" "link: without --spec the first refusing block is named on stderr"
+assert_contains "$OUT" "no task-id" "link: without --spec the second refusing block is named on stderr too"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-bad-row-in-x.md" --spec "$LINKF/other-spec.md" 2>&1)"
+CODE=$?
+OUT="${OUT//$'\r'/}"
+assert_eq "0" "$CODE" "link: a malformed row in another plan block does not refuse this spec"
+assert_eq "link: linked plan.second-fixture o/r#43
+done: no" "$OUT" "link: this spec's block links as usual past another block's malformed row"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-bad-row-in-x.md" --spec "$FIXTURES/ready/spec.md" 2>&1)"
+CODE=$?
+assert_eq "2" "$CODE" "link: a malformed row inside the targeted block exits 2"
+assert_contains "$OUT" "slice: refusing to act on a malformed index" "link: the targeted block's malformed row is a slice: refusal"
+assert_contains "$OUT" "todo-bad-row-in-x.md:9" "link: the refusal names the malformed row's line"
+OUT="$("$PY" "$SLICE" link --index "$LINKF/todo-bad-row-in-x.md" 2>&1 >/dev/null)"
+CODE=$?
+assert_eq "2" "$CODE" "link: without --spec a malformed row in any block exits 2"
+
+printf '\n--- plan-block.md: the grammar a fresh block follows ---\n'
+
+PLAN_REF="$REPO/.agents/skills/slice/references/plan-block.md"
+PLAN_FENCE="$(awk '/^```markdown$/{c=1;next} c&&/^```$/{exit} c' "$PLAN_REF" | tr -d '\r')"
+assert_contains "$PLAN_FENCE" "### Slice 1/<N>" "plan-block.md: the example holds slice headings"
+assert_not_contains "$PLAN_FENCE" "blocked-by" "plan-block.md: no slice row carries a blocker marker"
+assert_not_contains "$PLAN_FENCE" "TDD:" "plan-block.md: the example holds no TDD row"
+assert_eq "1" "$(printf '%s\n' "$PLAN_FENCE" | grep -c 'task-id')" "plan-block.md: the one task id is the feature row's"
+
 printf '\n--- check: a clean diff exits 0 and prints nothing ---\n'
 
 D1="$(fixture_repo)"
