@@ -252,7 +252,8 @@ Dispatch the `software-design-expert-review` skill (invokes the `software-design
 
 The dispatch carries the full payload in `.agents/references/review-dispatch-contract.md` —
 diff, every relevant spec's path plus its acceptance criteria verbatim (or `no spec — <reason>`), the closed
-`tasks/todo.md` entries, the `[AMBIGUITY]` batch and `TODO(shortcut):` markers (or
+`tasks/todo.md` entries, the `[AMBIGUITY]` batch (the plan block's `> [AMBIGUITY]` lines
+in `tasks/todo.md` when a build persisted them, else this run's lines) and `TODO(shortcut):` markers (or
 `deferrals: none`), the introduced-only boundary, and the four-axis format. A design
 reviewer told only *what* changed reports structural debt the spec deliberately
 accepted; the deferral list is what makes an accepted trade-off distinguishable from
@@ -294,7 +295,7 @@ tier: on Claude Code pass model `sonnet`). The dispatch follows
 - the diff and the test files;
 - the spec's path with its acceptance criteria verbatim, or
   `no spec — <reason>`: with no spec it reviews against the interfaces in the diff;
-- the deferral list (`[AMBIGUITY]` batch, `TODO(shortcut):` markers) or `deferrals: none`;
+- the deferral list (`[AMBIGUITY]` batch from the same source as Phase 4's, `TODO(shortcut):` markers) or `deferrals: none`;
 - the introduced-only boundary, and `.agents/references/finding-model.md` § *Emission format* pasted verbatim
   (resolved as *Claude Code Enhancements* describes).
 

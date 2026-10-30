@@ -1247,6 +1247,35 @@ for token in "every slice dispatches to a sub-agent" "lone ready slice" "seriali
     "one-issue: build dispatch rule contains '$token'"
 done
 
+# [AMBIGUITY] lines are written to tasks/todo.md the moment a dispatch returns,
+# and Phase 4.5 reads them from there: a compaction (auto, manual, or idle while
+# a background suite runs) summarises agent output in context away.
+assert_prose_contains "$BUILD_SKILL" 'copy every line of its output that starts with `[AMBIGUITY]` verbatim into `tasks/todo.md`' \
+  "ambiguity: a returning dispatch's [AMBIGUITY] lines are persisted to tasks/todo.md"
+assert_precedes "$flat_build" 'starts with `[AMBIGUITY]` verbatim' 'Step 2 — Per-Slice Spec Compliance Check' \
+  "ambiguity: the persist rule sits with the dispatch, before the compliance check"
+assert_prose_contains "$BUILD_SKILL" 'above any `> [AMBIGUITY]` lines already there' \
+  "ambiguity: Slice Close keeps > Handover: as the blockquote's first line"
+ambiguity_phase="$(section_body "$BUILD_SKILL" "## Phase 4.5 —" '^##')"
+assert_contains "$ambiguity_phase" 'for lines starting with `> [AMBIGUITY]`' \
+  "ambiguity: Phase 4.5 greps the persisted lines"
+assert_contains "$ambiguity_phase" 'tasks/todo.md' \
+  "ambiguity: Phase 4.5 reads tasks/todo.md"
+assert_file_not_matches "$BUILD_SKILL" 'Grep every agent output captured this build' \
+  "ambiguity: Phase 4.5 no longer greps agent output held in context"
+assert_prose_contains "$BUILD_SKILL" '`> [AMBIGUITY] …` line after the last `>` line (else the rows)' \
+  "ambiguity: the writer appends after the last > line, so > Handover: stays first after a slice closed"
+assert_prose_contains "$BUILD_SKILL" 'the `### Slice N/N` heading once every slice has closed' \
+  "ambiguity: a post-close repair files under the Slice N/N heading, not 'the last one'"
+assert_not_contains "$ambiguity_phase" 'Touched: <file paths>' \
+  "ambiguity: the batch states only what the persisted line records (no Touched: paths)"
+assert_prose_contains .agents/skills/quality-gate/SKILL.md 'the plan block'"'"'s `> [AMBIGUITY]` lines in `tasks/todo.md` when a build persisted them, else this run'"'"'s lines' \
+  "ambiguity: /quality-gate's deferral list reads the persisted lines, falling back to this run's"
+assert_prose_contains .agents/skills/quality-gate/SKILL.md '`[AMBIGUITY]` batch from the same source as Phase 4'"'"'s' \
+  "ambiguity: the test-engineer dispatch takes its deferral list from the same source"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md 'then any `> [AMBIGUITY]` lines below them' \
+  "ambiguity: the PR body's Handovers section carries the persisted lines"
+
 # --- wrap-up: PR body gains a Handovers section before the linkage check ---
 # specs/plan-slices-and-handover.md AC13. Step 7's Pull Request section
 # writes a `## Handovers` block -- one `### Slice n/N` heading per slice,
