@@ -26,7 +26,7 @@ concrete provider model IDs live in `PI_SETUP.md` § Sub-Agent Routing for Pi an
 | Search / recon | `scout` (extension builtin) | Scout | `haiku` |
 | Context / docs | `context-builder` (builtin), `context-document-optimizer` | Scout | `haiku` |
 
-**Escalation ladder for test regressions:**
+**Escalation ladder for test regressions.**
 1. 2 attempts at builder tier
 2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `.agents/references/model-routing.md` § *Floors*.
 3. Circuit breaker — `planner` at planner tier analyzes all 4 attempts; then halt and escalate to user
@@ -247,6 +247,12 @@ Choose the agent or approach based on the slice's work type:
 
 Do not pass the full project-context to every agent — extract only relevant sections. For bulk artifacts (logs, long command output), follow `AGENTS.md` § *Large-Artifact Handoff* — truncate-with-pointer, never inline.
 
+**Ambiguities go to disk as they arrive.** When any dispatch returns (coder, `code-debugger`, a Phase 2–4 repair),
+first copy every line of its output that starts with `[AMBIGUITY]` verbatim into `tasks/todo.md`, as a
+`> [AMBIGUITY] …` line after the last `>` line (else the rows) under this plan block's heading for the slice it
+served — the `### Slice N/N` heading once every slice has closed. A compaction (auto, manual, or idle while a
+background suite runs) summarises agent output away, so every later reader — Phase 3's deferral list, Phase 4.5 — reads only the file.
+
 ### Step 2 — Per-Slice Spec Compliance Check (inline, no agent)
 
 After implementation, run this check inline in the main context:
@@ -282,8 +288,8 @@ exiting 0 only when both are empty. Informational — nothing stops on a
 non-empty report; fold the result into the handover below and the Phase 4.5
 batch; exit 2 is bad input.
 
-Write a `> Handover:` blockquote under the slice heading, after its rows —
-one to four blockquote lines, each with its own prefix:
+Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
+(they stay its last lines, outside the four) — one to four blockquote lines, each with its own prefix:
 
 ```markdown
 > Handover: landed <short-sha>..<short-sha> — what landed
@@ -428,7 +434,7 @@ when they hit a question whose answer changes the implementation:
 
 After Phase 4 passes:
 
-1. **Grep every agent output captured this build** for lines starting with `[AMBIGUITY]`.
+1. **Grep this build's `## Plan:` block in `tasks/todo.md`** for lines starting with `> [AMBIGUITY]` (Step 1), never context.
 2. If zero hits: skip this phase silently.
 3. If one or more hits: surface them to the user as a single batch in this format:
 
@@ -438,7 +444,7 @@ After Phase 4 passes:
    1. <description>
       Picked: <letter> (<reason>)
       Alternatives: <other options>
-      Touched: <file paths>
+      Slice: <n/N — the heading the line sits under>
    2. ...
    ```
 

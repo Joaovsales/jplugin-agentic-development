@@ -36,7 +36,8 @@ When the branch's `## Plan:` block carries `> Handover:` blockquotes, the PR
 body gains a `## Handovers` section: one `### Slice n/N — <name>` heading per
 slice, followed by that slice's whole blockquote verbatim — the `> Handover:`,
 `> Do not re-derive:`, `> Surface:` and `> Open:` lines `/build` § Slice Close
-defines. Write this section
+defines, then any `> [AMBIGUITY]` lines below them, so a reviewer sees each pick
+made inside the slice. Write this section
 before the linkage check below runs on the body — the check has to read the
 body as it will actually ship. With no tracker to host a PR, the same
 section lands in the commit message instead.
