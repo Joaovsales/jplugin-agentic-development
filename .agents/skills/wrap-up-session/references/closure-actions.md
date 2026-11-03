@@ -36,12 +36,21 @@ When the branch's `## Plan:` block carries `> Handover:` blockquotes, the PR
 body gains a `## Handovers` section: one `### Slice n/N — <name>` heading per
 slice, followed by that slice's whole blockquote verbatim — the `> Handover:`,
 `> Do not re-derive:`, `> Surface:` and `> Open:` lines `/build` § Slice Close
-defines. Write this section
+defines, then any `> [AMBIGUITY]` lines below them, so a reviewer sees each pick
+made inside the slice. Write this section
 before the linkage check below runs on the body — the check has to read the
 body as it will actually ship. With no tracker to host a PR, the same
 section lands in the commit message instead.
 
 ## Issue linkage
+
+A plan block links one feature issue. Run
+`python3 .agents/skills/slice/scripts/slice.py link --index tasks/todo.md --spec <spec>`
+and act on it: `issue <ref>` or `linked <id> <ref>` names the feature issue, and the
+body carries one `Closes <ref>` for the feature issue (the `<ref>` the line prints, `#N` or `owner/repo#N`, copied verbatim) only when `done: yes`; `unlinked <id>` (a local task has no keyword) writes none. A PR
+that lands some of the slices writes `Refs <ref>` instead (`done: no`), so a
+partial PR never closes the feature. A `legacy` block keeps the per-row path
+below, each slice header row carrying its own task id and link.
 
 When a PR resolves several issues, the body repeats the keyword per issue —
 `Closes #A, closes #B` — rather than trailing the rest after a single keyword.

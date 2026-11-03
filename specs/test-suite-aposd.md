@@ -335,7 +335,7 @@ Invoke `/build` for `specs/test-suite-aposd.md`.
 Plan: `## Plan: test-suite-aposd` in `tasks/todo.md`, 12 slices, ready set <1>.
 Files: tests/lib.sh, tests/run.sh, tests/affected.sh, tests/expected-failures.txt, tests/fixtures/**, tests/test-*.sh, .agents/skills/build/scripts/cached-suite.sh, .agents/hooks/session-stop.sh, .agents/hooks/cron-quiet-hours.sh, .github/workflows/tests.yml, AGENTS.md, specs/review-load-and-failure-cases.md.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/test-suite-aposd.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

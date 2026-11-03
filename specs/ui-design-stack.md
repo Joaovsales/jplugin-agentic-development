@@ -5,6 +5,7 @@ implementation_paths:
   - .agents/skills/plan/SKILL.md
   - .agents/skills/system-design-planning/SKILL.md
   - .agents/skills/build/SKILL.md
+  - .agents/skills/build/references/design-stack-gates.md
   - .agents/skills/verify-evidence/**
   - .agents/skills/wrap-up-session/SKILL.md
   - .agents/agents/frontend-developer.md
@@ -258,7 +259,7 @@ Invoke `/build` for `specs/ui-design-stack.md`.
 Plan: `## Plan: ui-design-stack` in `tasks/todo.md`, 9 slices, ready set 1.
 Files: .agents/skills/design-stack/**, .agents/skills/prd/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/verify-evidence/**, .agents/skills/wrap-up-session/SKILL.md, .agents/agents/frontend-developer.md, .agents/agents/frontend-design-validator.md, .claude/agents/frontend-developer.md, .claude/agents/frontend-design-validator.md, README.md, tests/test-design-stack-install.sh, tests/test-design-stack-catalog.sh, tests/test-design-stack-brief.sh, tests/test-design-stack-workflow.sh, tests/test-design-stack-evidence.sh, tests/test-design-stack-3d.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/ui-design-stack.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -298,7 +299,7 @@ Constraints: UI projects only; spatial is a new-project default; existing visual
 
 - `.agents/skills/design-stack/**` — canonical design adapter, shared setup/update/catalog tooling and references, distributed by the existing plugin/install/sync paths.
 - `.agents/skills/prd/SKILL.md`, `.agents/skills/plan/SKILL.md`, `.agents/skills/system-design-planning/SKILL.md` — project choice and concept before build.
-- `.agents/skills/build/SKILL.md`, `.agents/agents/frontend-developer.md`, `.agents/agents/frontend-design-validator.md`, `.claude/agents/frontend-developer.md`, `.claude/agents/frontend-design-validator.md` — implementation and design review context.
+- `.agents/skills/build/SKILL.md`, `.agents/skills/build/references/design-stack-gates.md` (the UI pre-flight and the 3D and video gates), `.agents/agents/frontend-developer.md`, `.agents/agents/frontend-design-validator.md`, `.claude/agents/frontend-developer.md`, `.claude/agents/frontend-design-validator.md` — implementation and design review context.
 - `.agents/skills/verify-evidence/**`, `.agents/skills/wrap-up-session/SKILL.md` — Playwright evidence and UI completion gate after CLI merge.
 - `README.md` — discoverability; the brief template lives inside the design skill and is written only for UI projects.
 - `tests/test-design-stack-install.sh`, `tests/test-design-stack-catalog.sh`, `tests/test-design-stack-brief.sh`, `tests/test-design-stack-workflow.sh`, `tests/test-design-stack-evidence.sh`, `tests/test-design-stack-3d.sh` — behavioral and integration checks.

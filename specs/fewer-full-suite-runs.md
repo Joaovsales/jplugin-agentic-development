@@ -233,7 +233,7 @@ Invoke `/build` for `specs/fewer-full-suite-runs.md`.
 Plan: `## Plan: fewer-full-suite-runs` in `tasks/todo.md`, 4 slices, ready set 1, 2.
 Files: .agents/skills/build/scripts/cached-suite.sh, .agents/skills/build/SKILL.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/yolo/SKILL.md, .agents/skills/auto-push/SKILL.md, AGENTS.md, tests/run.sh, tests/affected.sh, tests/test-cached-suite.sh, tests/test-affected.sh, tests/test-run-sh.sh, tests/test-doc-conventions.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/fewer-full-suite-runs.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

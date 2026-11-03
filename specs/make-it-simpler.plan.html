@@ -321,7 +321,7 @@ change, changing <code>/yolo</code> or <code>/auto-push</code>, and new <code>ta
  lanes today: fix(bug,tech-debt) improve(enhancement,documentation) plan(design-decision)
               producers janitor/architect/tidy · interactive refactor/perf/investigate/babysit/none
  /plan Step 6 prints a build prompt and stops; only /yolo and /auto-push override it (AGENTS.md:16)
- /build pre-flight files one issue per slice (/slice --file)
+ /build pre-flight links one feature issue (upsert --derive-id plan)
  upsert writes tasks/todo.md on every --apply (upsert.py:242) and reopens a closed id (upsert.py:166)
  task-registry has no release or close verb; escalate takes investigation reasons only (escalation.py:20)
 </code></pre>
@@ -420,7 +420,7 @@ change, changing <code>/yolo</code> or <code>/auto-push</code>, and new <code>ta
 <ul>
 <li><strong><code>/plan</code> Step 1 — Interview</strong> — <em>Override:</em> the spec the skill wrote carries § Decisions; <code>/plan</code> prints <code>DECISIONS CARRIED</code> and asks nothing unattended. Interactive runs already grilled</li>
 <li><strong><code>/plan</code> Step 6 — Hand over</strong> — <em>Override:</em> prints no prompt; <code>/build</code> runs in place</li>
-<li><strong><code>/build</code> pre-flight — filing</strong> — <em>Override:</em> no <code>/slice --file</code>: the <code>simplify</code> task is the tracked unit, the slices stay plan-block rows, and slice headers are not claimed</li>
+<li><strong><code>/build</code> pre-flight — filing</strong> — <em>Override:</em> files nothing: the <code>simplify</code> task is the tracked unit, the slices stay plan-block rows, and slice headers are not claimed</li>
 </ul>
 
 <h3><code>task-registry</code> — as called</h3>
@@ -528,7 +528,7 @@ naming it, until then.</p></section>
 Plan: `## Plan: make-it-simpler` in `tasks/todo.md`, 9 slices, ready set &lt;1&gt;.
 Files: .agents/skills/make-it-simpler/**, .agents/skills/task-registry/lanes/simplify.md, .agents/skills/task-registry/scripts/registry/config.py, .agents/skills/task-registry/templates/task-tracking.md, .agents/skills/wrap-up-session/scripts/routine_branch.py, .agents/skills/wrap-up-session/references/routines.md, .agents/skills/go/SKILL.md, docs/task-tracking.md, AGENTS.md, README.md, tests/test-make-it-simpler.sh, tests/test-lane-catalogue.sh, tests/test-routines-contract.sh, tests/test-routine-selectors.sh, tests/test-routine-branch.sh, tests/test-routine-wrapup.sh, tests/test-go-lanes.sh, tests/test-instruction-budget.sh, tests/test-doc-conventions.sh, tests/fixtures/make-it-simpler/**.
 Instructions:
-1. `/build`&#x27;s pre-flight files the slices: `/slice specs/make-it-simpler.md --file --approve`. The planning session filed nothing.
+1. `/build`&#x27;s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
@@ -580,7 +580,7 @@ Constraints: The GitHub simplify label is created by the operator, never by a te
 <li><code>SKILL.md</code> cites <code>/system-design-planning</code> § <em>When to Use / When Not</em> as the significance bar and does not restate its list.</li>
 <li><code>SKILL.md</code> states the argument grammar (<code>#N</code>/registry id, tracked path, free text, nothing), the top-3 fields (signal, <code>file:line</code> evidence, lines saved, callers, minor/significant), &quot;none today writes nothing&quot;, the four grilling seeds, and that the five <code>safe-moves.md</code> practices are seeded as § Decisions rows in every spec it writes.</li>
 <li><code>SKILL.md</code> states the unattended sequence — rank, classify, size against <code>slice/references/sizing.md</code>, <code>show</code> before <code>upsert</code> skipping <code>done</code>/<code>cancelled</code>, file, spine 1–3, index rows as the branch&#x27;s first commit — its three ends (ready PR; docs-only record PR on <code>routine/simplify/&lt;YYYYMMDD&gt;-record</code>; silent exit 0), and the scope stop (non-zero, no PR, claim left, one line with the remedy).</li>
-<li><code>SKILL.md</code> owns an override table with <code>/plan</code> Step 1, <code>/plan</code> Step 6 (no prompt, <code>/build</code> in place) and <code>/build</code> pre-flight filing (no <code>/slice --file</code>, slice headers unclaimed) rows, and names the fresh-session rule it is excepted from; <code>AGENTS.md</code>&#x27;s named-exceptions sentence names <code>/make-it-simpler</code>.</li>
+<li><code>SKILL.md</code> owns an override table with <code>/plan</code> Step 1, <code>/plan</code> Step 6 (no prompt, <code>/build</code> in place) and <code>/build</code> pre-flight feature-issue (files nothing, slice headers unclaimed) rows, and names the fresh-session rule it is excepted from; <code>AGENTS.md</code>&#x27;s named-exceptions sentence names <code>/make-it-simpler</code>.</li>
 <li><code>.agents/skills/yolo/SKILL.md</code>, <code>.agents/skills/auto-push/SKILL.md</code> and the <code>task-registry</code> CLI and <code>upsert</code> modules are unchanged.</li>
 <li><code>task-registry lanes simplify</code> prints a consumer lane selecting <code>simplify</code> whose chain is <code>/make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session</code>, and whose step 5 requires the PR body to quote the before- and after-proof, a <code>Behavior changes:</code> section (a list or <code>none</code>) and a <code>Simplified:</code> line; <code>tests/test-lane-catalogue.sh</code> passes with the lane counted.</li>
 <li><code>kind_precedence</code> is <code>bug, design-decision, simplify, tech-debt, enhancement, documentation</code> in <code>config.py</code>, <code>docs/task-tracking.md</code>, the template and the <code>routines.md</code> § <em>Kind precedence</em> block; <code>docs/task-tracking.md</code> and the template declare <code>simplify = simplify</code> and its chain; <code>task-registry selectors</code> validates, and <code>tests/test-routine-selectors.sh</code>&#x27;s default-chain, selector-union and label-fixture pins include <code>simplify</code>.</li>

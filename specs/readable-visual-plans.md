@@ -176,7 +176,7 @@ Invoke `/build` for `specs/readable-visual-plans.md`.
 Plan: `## Plan: readable-visual-plans` in `tasks/todo.md`, 13 slices, ready set 1.
 Files: .agents/skills/visual-plan/**, .agents/skills/system-design-planning/SKILL.md, .agents/skills/system-design-planning/templates/**, .agents/skills/plan/SKILL.md, .agents/skills/slice/SKILL.md, .agents/skills/slice/scripts/slice.py, .agents/skills/slice/references/**, tests/test-plan-render.sh, tests/test-plan-page.sh, tests/test-slice.sh, tests/fixtures/plan-render/**, design/plan-theme/**.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/readable-visual-plans.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
