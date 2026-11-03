@@ -305,7 +305,7 @@ Invoke `/build` for `specs/github-rest-in-sandboxes.md`.
 Plan: `## Plan: github-rest-in-sandboxes` in `tasks/todo.md`, 7 slices, ready set <1, 5>.
 Files: .agents/skills/task-registry/scripts/registry/providers/github.py, .agents/skills/task-registry/scripts/registry/providers/base.py, .agents/skills/task-registry/scripts/registry/config.py, .agents/skills/task-registry/scripts/registry/routines.py, .agents/skills/task-registry/scripts/task-registry.py, .agents/skills/task-registry/references/configuration.md, .agents/skills/task-registry/templates/task-tracking.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/references/closure-actions.md, .agents/skills/wrap-up-session/references/routines.md, .agents/skills/wrap-up-session/references/routine-prompts/README.md, .agents/skills/wrap-up-session/scripts/gh_pr.py, .agents/skills/wrap-up-session/scripts/pr_linkage.py, docs/task-tracking.md, tests/fixtures/task-registry/gh, tests/test-task-registry.sh, tests/test-routine-selectors.sh, tests/test-routine-wrapup.sh, tests/test-doc-conventions.sh, tests/test-gh-pr.sh, tests/test-task-closes.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/github-rest-in-sandboxes.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

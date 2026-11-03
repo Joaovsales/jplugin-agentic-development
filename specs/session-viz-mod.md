@@ -242,7 +242,7 @@ Invoke `/build` for `specs/session-viz-mod.md`.
 Plan: `## Plan: session-viz-mod` in `tasks/todo.md`, 5 slices, ready set <1>.
 Files: mods/session-viz/**.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/session-viz-mod.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

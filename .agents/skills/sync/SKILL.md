@@ -388,11 +388,9 @@ enabling an id that no longer resolves.
 
 A sync copies files in; it never deletes. A project that installed a skill the
 template has since retired keeps running the stale copy indefinitely, and the
-retired copy still carries whatever rule got it retired. `tdd` is the live
-example: it offered committing with a `/learn` run as a sanctioned substitute
-for `/wrap-up-session` — the only written authorization in the workflow to commit
-code without wrapping up,
-which is exactly what the pre-push wrap-up gate exists to catch.
+retired copy still carries whatever rule got it retired. `deslop` is the live
+example: it was folded into `/quality-gate` and deleted, yet a project that
+installed it keeps running the stale copy.
 
 Which paths are retired is **recorded, not judged**. A path that exists in the
 project but not in the template is either retired upstream or project-specific;
@@ -554,9 +552,8 @@ scan. It never deletes an untracked file, and it fails loudly — deleting
 nothing — on an invalid `sync-keep` pattern or a syncable root the template
 cannot vouch for.
 
-Retired content was folded into surviving skills, not dropped: `tdd` → `/build`
-Phase 1 § *TDD Discipline*; `simplify` and `deslop` → `/quality-gate` Phase 1
-and Phase 2; `verify-e2e` → `/verify-evidence --scope e2e`; `route` → the routine contract
+Retired content was folded into surviving skills, not dropped: `simplify` and
+`deslop` → `/quality-gate` Phase 1 and Phase 2; `verify-e2e` → `/verify-evidence --scope e2e`; `route` → the routine contract
 at `.agents/skills/wrap-up-session/references/routines.md`, plus
 `task-registry select`/`claim` and `/wrap-up-session` § *The Pull Request*.
 
