@@ -248,7 +248,7 @@ Invoke `/build` for `specs/read-shunt-baseline.md`.
 Plan: `## Plan: read-shunt-baseline` in `tasks/todo.md`, 8 slices, ready set <1, 5, 7>.
 Files: .agents/skills/eval/SKILL.md, .agents/skills/eval/scripts/read_transcript.py, .agents/skills/eval/scripts/read-incidence.py, .agents/skills/eval/scripts/grade-read-shunt.py, evals/read-shunt/**, tests/test-read-incidence.sh, tests/test-read-shunt-grader.sh, tests/test-read-shunt-evals.sh, tests/test-eval-skill.sh, tests/fixtures/transcripts/**, tasks/eval-results/read-shunt/**, tasks/solutions/patterns/cross-harness-hook-by-input-shape-not-tool-name.md, tasks/solutions/process/bash-and-sub-agents-read-the-shared-checkout.md, tasks/solutions/architecture/subagents-for-research.md, specs/read-shunt.md.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/read-shunt-baseline.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight upserts the feature issue once (`upsert <id>` with the id `slice.py link` prints, only for an unlinked feature row); the build prompt is that authorization. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
