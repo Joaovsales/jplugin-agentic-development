@@ -2591,6 +2591,35 @@ Step ledger (routine `simplify`):
 - Completed: the stale-base defect behind this session's wrong commit count, found by asking what the PR's "other 184 commits" were. PR #366 carries 10 commits and 15 files (+455/−98); the count came from measuring against a local `master` 192 commits behind `origin/master`. `resolve_base()` in `.agents/git-hooks/pre-push` and the `<base-branch>` definition in `wrap-up-session/SKILL.md` § No-change exit now try `refs/remotes/origin/<base>` before `refs/heads/<base>`, matching `receipt.py`'s `DEFAULT_BASE_CANDIDATES`, which was already remote-first; the skill says to `git fetch` first and the hook still performs no network I/O. `tests/test-pre-push-gate.sh` gains a fixture whose local `master` sits at the base while `origin/master` already carries the pushed commit — it fails 2 assertions against the old resolver and passes after. The record was corrected too: `tasks/todo.md`'s first summary no longer claims 184 commits, the learning that blamed a "long-lived branch" is deleted in favour of `bugs/a-stale-local-base-branch-inflates-every-range-the-harness-derives.md`, and the two ledger rows this defect produced are voided in place. Receipt 3090d211 GO (policy qg1-b8f4dc32, parent 2d8dc9d5); affected 54 files 5005 passed, full suite 91 files 7233 passed.
 - Pending: the PR's CI run and its merge decision. PR #366 is `MERGEABLE`/`CLEAN` and is small: 10 commits, 5 harness files, 1 spec, 6 learnings, 4 bookkeeping files.
 - Carry-forward: the installed `.git/hooks/pre-push` was updated to the fixed resolver on 2026-10-27 (backup `pre-push.bak-20261027`) — other clones of this repository still run the old one until `/sync` reinstalls it; `config/agent-policy.toml` deliberately still maps Codex onto `gpt-6-*`; the fleet is single-family, so the review gate is independent by role only.
+- [x] citation-drift in .agents/skills/build/references/harness-dispatch.md <!-- task-id: simplify.agents-skills-build-references-harness-dispatch-md.citation-drift-in-agents-skills-build-references-harness-dispatch-md --> ([#378](https://github.com/Joaovsales/jplugin-agentic-development/issues/378))
+
+## Plan: simplify-citation-drift-in-agents-skills-build-references-harness-dispatch-md
+
+> Routine: `simplify` #378 · branch `routine/simplify/378-citation-drift-in-harness-dispatch` · spec `specs/simplify-citation-drift-in-agents-skills-build-references-harness-dispatch-md.md`
+
+### Slice 1/1 — harness-dispatch cites the ladder by a resolvable name
+[x] TDD: `signals.py rank --path .agents/skills/build` reports `citation-drift` before and none after; `bash tests/test-citations.sh` green both times and red when the label's colon is restored (mutation check) -> label `**Escalation ladder for test regressions.**`, citation in the checked `<path>.md` § form (AC 1, 2, 3)
+
+> Handover: `.agents/skills/build/SKILL.md:29` label colon -> period; `harness-dispatch.md:32` citation moved to the path form and lost its parenthetical. Line counts 592 -> 592 and unchanged. The design reviewer noted two more colon-ended bold labels in `build/SKILL.md` (lines 47, 545) that nothing cites today — not drift, not touched.
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #378 (filed this run by `/make-it-simpler --unattended` discovery; #357 and #309 skipped as in flight on open PRs #360 and #310)
+- [x] 2. `task-registry claim 378 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/378-citation-drift-in-harness-dispatch`
+- [x] 4.1 `/make-it-simpler #378` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place, inline (a two-line edit; no builder dispatch)
+- [x] 4.4 `/quality-gate` — Phases 1–3 inline, Phase 4 and the test-engineer dispatched, both GO; 1 advisory NITPICK reported; receipt GO 22f58ae2 policy qg1-27cce9ed
+- [x] 5. `/wrap-up-session`
+
+## Session Summary — [2026-11-02] [3c49472..ddee472]
+- Completed: #378 — `harness-dispatch.md` cites `/build`'s escalation ladder by a name both citation resolvers find, in the form `tests/test-citations.sh` checks (simplify routine).
+- Pending: none from this run.
+- Carry-forward: earlier simplify PRs #360 and #310 are still open, along with three record PRs (#369, #373, #376); #357 and #309 stay in flight until they merge.
+## Session Summary — 2026-10-30 [3c49472..3c49472]
+- Completed: `/build` writes every `[AMBIGUITY]` line a returning dispatch reports into `tasks/todo.md` under the slice heading it served (below the `> Handover:` lines, outside their four-line cap), and Phase 4.5 greps this build's plan block rather than agent output in context, which idle compaction can summarise away while a turn waits on a background suite. Six assertions in `tests/test-doc-conventions.sh` pin it (red 886/6 before, green 892/0 after); `build/SKILL.md` is 598 lines against its 600-line budget.
+- Pending: none in this session.
+- Carry-forward: `.agents/hooks/pre-compact.sh`'s header still says auto-compaction fires "at ~75% utilisation" and does not mention idle compaction; `tests/test-install-sh.sh` needs more than the default 300 s `TEST_FILE_TIMEOUT` on this host (passed at 1500 s).
 
 ## Tidy: 2026-11-02
 - [x] suite
