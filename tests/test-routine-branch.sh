@@ -13,7 +13,10 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 export ROOT
 
-"$TEST_PYTHON" - <<'PY'
+# The cases are a unittest module, run by `run_unittest_lines` below; its Python
+# source goes to a file because `run` closes stdin.
+PYFILE="$(fixture_dir)/unittests.py"
+cat > "$PYFILE" <<'PY'
 import importlib.util
 import os
 import pathlib
@@ -220,11 +223,79 @@ class ContractAgreementTests(unittest.TestCase):
         self.assertEqual(documented, set(CONTRACT_ROUTINES))
 
 
-runner = unittest.TextTestRunner(verbosity=0, stream=sys.stderr)
-result = runner.run(unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]))
-count = result.testsRun
-if not result.wasSuccessful():
-    print(f"  -> {len(result.failures) + len(result.errors)}/{count} assertions FAILED")
-    sys.exit(1)
-print(f"  -> {count} assertions passed")
+class LineResult(unittest.TestResult):
+    """One verdict line per case, for the bash side to fold through pass/fail.
+
+    `ok <Class.test>`, or `FAIL <Class.test><TAB><failure text>` with the text's
+    newlines written as \x1f. A failure outside any case (a broken fixture) is
+    one FAIL line too. `lines` counts what was printed, for the closing sentinel.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.lines = 0
+        self._running = False
+        self._mark = (0, 0)
+
+    def emit(self, verdict, test, text=""):
+        self.lines += 1
+        name = test.id().replace("__main__.", "", 1)
+        detail = "\t" + text.strip().replace("\n", "\x1f") if text else ""
+        print(f"{verdict} {name}{detail}", flush=True)
+
+    def startTest(self, test):
+        super().startTest(test)
+        self._running = True
+        self._mark = (len(self.failures), len(self.errors))
+
+    def stopTest(self, test):
+        super().stopTest(test)
+        self._running = False
+        failed, errored = self._mark
+        problems = self.failures[failed:] + self.errors[errored:]
+        if problems:
+            self.emit("FAIL", test, "\n".join(text for _, text in problems))
+        else:
+            self.emit("ok", test)
+
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        if not self._running:
+            self.emit("FAIL", test, self.failures[-1][1])
+
+    def addError(self, test, err):
+        super().addError(test, err)
+        if not self._running:
+            self.emit("FAIL", test, self.errors[-1][1])
+
+
+sys.stdout.reconfigure(newline="\n")
+result = LineResult()
+unittest.defaultTestLoader.loadTestsFromModule(sys.modules[__name__]).run(result)
+print(f"done {result.lines}")
 PY
+
+# Fold the runner's lines through pass/fail in this shell. A runner that died
+# before or during the run prints no `done <n>` (or an n that is not what was
+# folded), and stray output is a failure too, so a crash cannot pass silently.
+run_unittest_lines() {
+  local line name text folded=0 sentinel=""
+  run "$TEST_PYTHON" "$1"
+  while IFS= read -r line; do
+    case "$line" in
+      "") ;;
+      "ok "*)   pass "${line#ok }"; folded=$((folded + 1)) ;;
+      "FAIL "*) name="${line#FAIL }"; text="${name#*$'\t'}"
+                fail "${name%%$'\t'*}" "${text//$'\037'/$'\n'}"
+                folded=$((folded + 1)) ;;
+      "done "*) sentinel="${line#done }" ;;
+      *)        fail "the unittest runner printed an unexpected line" "$line" ;;
+    esac
+  done <<< "$output"
+  [ "$status" -eq 0 ] || fail "the unittest runner exited $status" "$output"
+  [ "$sentinel" = "$folded" ] \
+    || fail "the unittest runner's closing line says ${sentinel:-nothing}; $folded verdict lines were folded" "$output"
+}
+
+run_unittest_lines "$PYFILE"
+finish

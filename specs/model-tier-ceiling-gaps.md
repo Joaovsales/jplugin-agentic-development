@@ -71,8 +71,11 @@ It also corrects a #53 rule that was simply wrong: `CLAUDE.md` said *"leave
 ceiling-tier agents out of `agentOverrides` so they inherit"*. On Pi, omitting an
 agent falls through to `subagents.defaultModel` — a fixed builder-tier model — so
 omission there **downgrades** rather than inherits. Ceiling-by-omission is a
-Claude Code property. Pi expresses the same intent with explicit pins, and `critic`
-pins to the planner model because a static config cannot make a floor conditional.
+Claude Code property. Pi expresses the same intent with the literal
+`"model": "inherit"` in `agentOverrides` — the Pi spelling of "pass nothing",
+resolved by `pi-subagents` 0.82.1 and later to the parent session model — and
+`critic` keeps a concrete planner-tier pin because a directive cannot make a floor
+conditional.
 
 This was found only because a review challenged it; the first version of this
 branch deleted those four Pi entries and would have had every Pi user's code
@@ -120,9 +123,9 @@ Read from disk on current `master` (`7c3dc74`), not assumed:
 | `.claude/agents/software-design-expert-review.md` | delete the `model:` line |
 | `.agents/skills/build/SKILL.md` + `.claude/` copy | Tier column replaces Model ID column; ladder and circuit breaker name tiers; debugger attempts 3–4 → `ceiling (builder floor)`, plus the no-collapsed-rung invariant |
 | `.agents/skills/{quality-gate,software-design-expert-review}/SKILL.md` + copies | dispatch at Ceiling, no `model` |
-| `PI_SETUP.md` | named single source; Ceiling rows; the four Pi pins **kept**, with why omission downgrades on Pi |
+| `PI_SETUP.md` | named single source; Ceiling rows; the three plain-Ceiling Pi entries carry `"model": "inherit"`, `critic` keeps a concrete pin, with why omission downgrades on Pi |
 | `tests/lib.sh` | empty-haystack guard; `assert_file_matches`, `assert_file_not_matches`, `assert_prose_contains` |
-| `tests/test-model-tiers.sh` | `CEILING_AGENTS` gains the design reviewer; `PINNED_AGENTS` → `context-document-optimizer`; sections 6–12 added; §1–3 collapsed onto the new helpers |
+| `tests/test-model-tiers.sh` | `CEILING_AGENTS` gains the design reviewer; `PINNED_AGENTS` → `context-document-optimizer`; sections 6–13 added; §1–3 collapsed onto the new helpers; §11 pins the Pi `inherit` directive, the `critic` counter-pin, and an absence sweep for the directive under `.agents/` |
 
 ### 5. Debugger attempts 3–4 gain a builder floor
 
@@ -155,7 +158,9 @@ back; the rule explains why it cannot be.
 - **The floor is unenforceable.** Stated in `CLAUDE.md` and in this spec.
 - **Pi cannot express a floor declaratively.** So `critic` is pinned to the planner
   model unconditionally on Pi — the floor is satisfied at all times rather than
-  conditionally. Documented in `PI_SETUP.md`.
+  conditionally. Documented in `PI_SETUP.md`. Ceiling itself is expressible there
+  (`"model": "inherit"`), so the asymmetry is the *floor* alone: a directive
+  resolves the session model, never a minimum.
 - **Markdown reflow.** Prose assertions use `assert_prose_contains`, so rewrapping
   a paragraph does not break the suite.
 
@@ -172,7 +177,8 @@ back; the rule explains why it cannot be.
 - [x] `assert_not_contains` fails on an empty haystack, with no sibling test broken
 - [x] `tests/test-skill-parity.sh` green over every edited skill
 - [x] critic's floor is stated at every site that dispatches critic, not only in `CLAUDE.md`
-- [x] Pi keeps explicit review pins; the test fails if any is deleted
+- [x] Pi's three plain-Ceiling roles carry `"model": "inherit"` and `critic` keeps a concrete planner-tier pin; the test fails if a directive is replaced, an entry is deleted, or the directive leaks into a harness-neutral tree
+- [x] `CLAUDE.md`/`.claude/agents/` and the Codex policy express Ceiling their own way and are unchanged by the Pi directive: no `model:` pin in the Claude Code tree, `inherit_model = true` in `config/agent-policy.toml`
 - [x] Debugger attempts 3–4 resolve to `ceiling (builder floor)` in `CLAUDE.md` and both `/build` copies, and the test fails if the rung collapses back onto builder tier
 - [x] `tests/test-model-tiers.sh` §1–3 use the shared helpers rather than hand-rolled `grep` plus raw counter arithmetic
 - [x] Seven mutations that previously stayed green now fail (2–10 assertions each)

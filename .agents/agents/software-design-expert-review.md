@@ -79,7 +79,7 @@ where a shortcut is itself the finding are `.agents/references/finding-model.md`
 | R7 | **High Cognitive Load** | Caller needs to know lock states, async internals, DB schema to use the API. |
 | R8 | **Unknown Unknowns** | Hidden side effects, implicit ordering contracts, mutable shared state. |
 | R9 | **Shallow Module** | Simple functionality with a complex interface (many params, many preconditions). |
-| R10 | **Conjoined Methods** | Methods that must be called in a specific order; state machine by convention. |
+| R10 | **Conjoined Methods** | Two methods that cannot be understood apart: reading one forces you to read the other to follow it. Must-call-in-order protocols are R8 (implicit ordering contract). |
 | R11 | **Errors Not Defined Away** | Exception handlers, validation checks, or error returns for conditions that better design would prevent. |
 
 ---
@@ -112,10 +112,10 @@ Every finding MUST use exactly one of these tags. Map the intrinsic APOSD severi
 
 | APOSD Severity | Tag | When to assign |
 |---------------|-----|----------------|
-| **CRITICAL** — could cause production bugs or silent failures | `MUST-FIX` | R8 (Unknown Unknowns) with hidden side effects; R10 (Conjoined Methods) with no structural enforcement; R3 (Information Leakage) exposing security-sensitive internals; R11 race conditions masked by exception handling. |
+| **CRITICAL** — could cause production bugs or silent failures | `MUST-FIX` | R8 (Unknown Unknowns) with hidden side effects; R10 (Conjoined Methods) whose coupling is hidden and unenforced; R3 (Information Leakage) exposing security-sensitive internals; R11 race conditions masked by exception handling. |
 | **HIGH** — fundamental structural flaw | `MUST-FIX` | R5 (Temporal Decomposition); R6 (Change Amplification); R9 (Shallow Module). |
-| **MEDIUM** — abstraction, naming, or error-design gap | `SHOULD-FIX` | R1 (Repetition ≥3×); R7 (High Cognitive Load — caller must know internals); R11 (errors not defined away). |
-| **LOW** — minor cosmetic or cosmetic-adjacent | `NITPICK` | R2 (Pass-Through); R4 (Vague Names on local variables). |
+| **MEDIUM** — abstraction, naming, or error-design gap | `SHOULD-FIX` | R1 (Repetition ≥3×); R2 (Pass-Through — a method that adds no abstraction of its own); R7 (High Cognitive Load — caller must know internals); R11 (errors not defined away). |
+| **LOW** — minor cosmetic or cosmetic-adjacent | `NITPICK` | R4 (Vague Names on local variables). |
 
 **Classification rules:**
 - `NITPICK` is ONLY for cosmetic issues with zero logic/behavior impact. Any finding involving architecture, hidden state, structural coupling, or error design MUST be `SHOULD-FIX` or `MUST-FIX`.

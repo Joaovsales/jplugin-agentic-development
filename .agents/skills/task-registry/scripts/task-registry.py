@@ -156,13 +156,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--label", action="append", default=[], help="label (upsert); repeatable"
     )
     parser.add_argument(
-        "--parent",
-        metavar="REF",
-        help="link a parent (upsert), e.g. '#42' or a local task id; native where "
-        "the provider supports it, `parent:` metadata with a disclosure line "
-        "otherwise. Dry run by default, like every other write",
-    )
-    parser.add_argument(
         "--derive-id",
         metavar="NAMESPACE",
         help="derive the task id as NAMESPACE.<normalized --source or --spec path> "
@@ -227,9 +220,6 @@ def _run(argv, redact) -> int:
         if not args.title:
             print("task-registry: `upsert` requires --title", file=sys.stderr)
             return 2
-    elif args.parent:
-        print("task-registry: `--parent` is only valid with `upsert`", file=sys.stderr)
-        return 2
     if args.command == "escalate":
         if args.report:
             print("task-registry: `escalate` does not accept --report", file=sys.stderr)
@@ -341,7 +331,7 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
             )
         except TaskModelError as exc:
             return (f"task-registry: {exc}", 2)
-        lines, code = upsert_task(registry, task, apply_writes, parent_ref=args.parent)
+        lines, code = upsert_task(registry, task, apply_writes)
         return ("\n".join(lines), code)
     if command == "doctor":
         return _doctor(registry, args.config_fault), (1 if args.config_fault else 0)
@@ -858,7 +848,10 @@ def _upstream_verdict(registry: Registry):
         "upstream check: FAILED — these configured routine labels do not exist in "
         f"{registry.provider.name}: {', '.join(missing)}\n"
         "  A routine selecting on a label the tracker does not have finds nothing "
-        "and exits 0. That is the halt this check exists to make loud."
+        "and exits 0. That is the halt this check exists to make loud.\n"
+        "  Fix: create them in the tracker, or drop them from the routine "
+        "configuration ([routines.selectors], kind_precedence, claim_label, "
+        "escalation_label)."
     ), 1, UPSTREAM_MISCONFIGURED
 
 

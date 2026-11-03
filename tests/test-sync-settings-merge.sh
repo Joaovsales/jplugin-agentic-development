@@ -22,7 +22,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-SYNC=".agents/skills/sync/SKILL.md"
+SYNC="$(under_test .agents/skills/sync/SKILL.md)"
 
 # The heredoc body between `python3 - "$(git show …settings.json)" <<'PY'` and the
 # closing `PY`, exactly as the skill prints it.
@@ -36,11 +36,11 @@ assert_contains "$snippet" '.claude/hooks/' \
 
 TEMPLATE_JSON='{"extraKnownMarketplaces": {"jplugin-agentic-development": {"source": {"source": "github", "repo": "Joaovsales/jplugin-agentic-development"}}}, "enabledPlugins": {"jplugin@jplugin-agentic-development": true}}'
 
-box="$(mktemp -d)"
+box="$(fixture_dir)"
 mkdir -p "$box/.claude"
 # A downstream file as the pre-slice-3 /sync left it, plus the project's own
 # additions: a SessionStart hook of its own, a permissions block, an env block.
-PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" - "$box/.claude/settings.json" <<'PY'
+"$TEST_PYTHON" - "$box/.claude/settings.json" <<'PY'
 import json, sys
 settings = {
     "permissions": {"allow": ["Bash(npm test:*)"]},
@@ -61,12 +61,11 @@ PY
 cp "$box/.claude/settings.json" "$box/before.json"
 
 run_merge() {  # run_merge -> exit code; runs the documented snippet in the fixture
-  ( cd "$box" && printf '%s\n' "$snippet" | PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" - "$TEMPLATE_JSON" )
+  ( cd "$box" && printf '%s\n' "$snippet" | "$TEST_PYTHON" - "$TEMPLATE_JSON" )
 }
-run_merge
-assert_eq "0" "$?" "Step 5 merge: the snippet exits 0 on the downstream fixture"
+assert_exit 0 "Step 5 merge: the snippet exits 0 on the downstream fixture" -- run_merge
 
-report="$(PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" - "$box/before.json" "$box/.claude/settings.json" <<'PY'
+report="$("$TEST_PYTHON" - "$box/before.json" "$box/.claude/settings.json" <<'PY'
 import json, sys
 before = json.load(open(sys.argv[1], encoding="utf-8"))
 after = json.load(open(sys.argv[2], encoding="utf-8"))
@@ -110,7 +109,7 @@ assert_files_identical "$box/once.json" "$box/.claude/settings.json" \
   "Step 5 merge: a second run leaves the file byte-identical"
 
 # A file whose only hooks were the retired ones ends with no hooks key at all.
-PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" - "$box/.claude/settings.json" <<'PY'
+"$TEST_PYTHON" - "$box/.claude/settings.json" <<'PY'
 import json, sys
 settings = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "bash .claude/hooks/session-stop.sh"}]}]}}
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
@@ -118,16 +117,13 @@ with open(sys.argv[1], "w", encoding="utf-8") as handle:
     handle.write("\n")
 PY
 run_merge
-assert_eq "absent" "$(PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" -c \
-  'import json,sys; print("present" if "hooks" in json.load(open(sys.argv[1])) else "absent")' "$box/.claude/settings.json")" \
-  "Step 5 merge: no empty hooks object is left behind"
+assert_false "Step 5 merge: no empty hooks object is left behind" \
+  -- "$TEST_PYTHON" -c 'import json,sys; sys.exit(0 if "hooks" in json.load(open(sys.argv[1])) else 1)' "$box/.claude/settings.json"
 
 # A file with no hooks key at all is left without one — the merge adds nothing.
 printf '{"env": {"A": "1"}}\n' > "$box/.claude/settings.json"
 run_merge
-assert_eq "absent" "$(PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" -c \
-  'import json,sys; print("present" if "hooks" in json.load(open(sys.argv[1])) else "absent")' "$box/.claude/settings.json")" \
-  "Step 5 merge: a file without hooks gains none"
+assert_false "Step 5 merge: a file without hooks gains none" \
+  -- "$TEST_PYTHON" -c 'import json,sys; sys.exit(0 if "hooks" in json.load(open(sys.argv[1])) else 1)' "$box/.claude/settings.json"
 
-rm -rf "$box"
 finish

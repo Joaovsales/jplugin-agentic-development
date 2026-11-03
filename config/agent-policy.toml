@@ -89,6 +89,12 @@ name = "software-design-expert-review"
 tier = "Ceiling"
 permission = "read-only"
 
+# One persona, one Review job at Reviewer tier, dispatched read-only by the caller.
+[[roles]]
+name = "test-engineer"
+tier = "Reviewer"
+permission = "read-only"
+
 [[roles]]
 name = "critic"
 tier = "Ceiling"

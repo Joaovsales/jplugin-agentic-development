@@ -9,20 +9,15 @@
 # short title so a second sweep updates the same issue instead of filing twice.
 . "$(dirname "$0")/lib.sh"
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
 PY="$TEST_PYTHON"
 
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
-
-pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -; }
-run() { "$PY" "$CLI" "$@"; }
+# The CLI the way a skill calls it.
+reg() { "$PY" "$CLI" "$@"; }
 
 # ---------------------------------------------------------------- 1. in-process
-py_out="$(pyreg <<'PY' 2>&1
+py_out="$("$PY" - <<'PY' 2>&1
 import sys, unittest
 from registry.model import (Task, TaskModelError, render_metadata_block, parse_metadata_block,
                             task_from_metadata, _first_prose_line)
@@ -167,7 +162,7 @@ assert_eq "0" "$py_rc" "AC4 python: model, metadata block, seed bodies, derive_i
 assert_contains "$py_out" "PYRESULT ran=15 failed=0" "AC4 python: all 15 cases ran green"
 
 # ---------------------------------------------------------------- 2. through the CLI
-P="$(mktemp -d)"; TMP_DIRS+=("$P")
+P="$(fixture_dir)"
 mkdir -p "$P/tasks" "$P/src"
 printf '# Tasks\n\n## Plan: Existing\n\n[x] TDD: done -> done\n' > "$P/tasks/todo.md"
 printf 'rows = sorted(x)\n' > "$P/src/export.py"
@@ -185,12 +180,12 @@ FILE_ARGS=(
   --evidence 'discovered: sweep/janitor 2026-09-07 @ abc1234'
 )
 
-out="$(run upsert --repo "$P" --apply "${FILE_ARGS[@]}" 2>&1)"; rc=$?
+out="$(reg upsert --repo "$P" --apply "${FILE_ARGS[@]}" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "CLI: upsert --apply with --reproduction/--proposed-fix/--source/--fold-title exits 0 ($out)"
 assert_contains "$out" "sweep.src-export-py.ordering-drift" \
   "CLI: the derived id folds namespace, primary file, and short title"
 DETAIL="$P/tasks/details/sweep.src-export-py.ordering-drift.md"
-assert_eq "present" "$([ -f "$DETAIL" ] && echo present || echo absent)" \
+assert_file_exists "$DETAIL" \
   "CLI: --apply writes the local record under the derived id"
 assert_file_contains "$DETAIL" "reproduction: observed: exit 1 / expected: exit 0" \
   "local: metadata block carries each reproduction line whole"
@@ -207,7 +202,7 @@ assert_file_contains "$DETAIL" "1. run \`make check\` on a clean tree, twice" \
   "local: reproduction steps are numbered"
 assert_file_contains "$DETAIL" "## Proposed fix" "local: proposed fix is rendered as a section"
 
-show_out="$(run show sweep.src-export-py.ordering-drift --repo "$P" 2>&1)"; show_rc=$?
+show_out="$(reg show sweep.src-export-py.ordering-drift --repo "$P" 2>&1)"; show_rc=$?
 assert_eq "0" "$show_rc" "CLI: show exits 0 for the filed record"
 assert_contains "$show_out" "reproduction:" "show: renders the reproduction"
 assert_contains "$show_out" "observed: exit 1 / expected: exit 0" "show: renders every reproduction line"
@@ -216,7 +211,7 @@ assert_contains "$show_out" "pin the fixture ordering" "show: renders the propos
 
 # Same file + title on a later run addresses the SAME task, and the managed
 # sections are replaced rather than accreted beside the first copy.
-again="$(run upsert --repo "$P" --apply "${FILE_ARGS[@]}" \
+again="$(reg upsert --repo "$P" --apply "${FILE_ARGS[@]}" \
   --evidence 'discovered: sweep/janitor 2026-09-08 @ def5678' 2>&1)"; again_rc=$?
 assert_eq "0" "$again_rc" "CLI: re-filing the same finding exits 0 ($again)"
 assert_contains "$again" "updated" "CLI: re-filing updates the existing task instead of minting a second"
@@ -231,7 +226,7 @@ assert_eq "1" "$(grep -c 'discovered: sweep/janitor 2026-09-07 @ abc1234' "$DETA
   "local: the first run's sighting survives the second run, once"
 
 # A record re-read from disk with no new reproduction keeps the one it had.
-quiet="$(run upsert sweep.src-export-py.ordering-drift --repo "$P" --apply \
+quiet="$(reg upsert sweep.src-export-py.ordering-drift --repo "$P" --apply \
   --title 'Ordering drift' --kind bug 2>&1)"; quiet_rc=$?
 assert_eq "0" "$quiet_rc" "CLI: a field-less upsert of the same id exits 0 ($quiet)"
 assert_file_contains "$DETAIL" "reproduction: observed: exit 1 / expected: exit 0" \
@@ -244,7 +239,7 @@ assert_file_contains "$DETAIL" "## Proposed fix" \
 # edit reverted by the next registry write from the metadata block's stale copy.
 sed -i 's/^- pin the fixture ordering/- pin the fixture ordering (hand-edited)/' "$DETAIL"
 sed -i 's/^1\. run /1. by hand: run /' "$DETAIL"
-edited="$(run upsert sweep.src-export-py.ordering-drift --repo "$P" --apply \
+edited="$(reg upsert sweep.src-export-py.ordering-drift --repo "$P" --apply \
   --title 'Ordering drift' --kind bug 2>&1)"; edited_rc=$?
 assert_eq "0" "$edited_rc" "CLI: a bare upsert after a hand edit exits 0 ($edited)"
 assert_file_contains "$DETAIL" "- pin the fixture ordering (hand-edited)" \
@@ -255,25 +250,25 @@ assert_file_contains "$DETAIL" "1. by hand: run " \
   "local: a hand-edited reproduction step survives the next write"
 assert_file_contains "$DETAIL" "reproduction: by hand: run " \
   "local: the metadata block carries the edited reproduction step"
-edited_show="$(run show sweep.src-export-py.ordering-drift --repo "$P" 2>&1)"
+edited_show="$(reg show sweep.src-export-py.ordering-drift --repo "$P" 2>&1)"
 assert_contains "$edited_show" "(hand-edited)" "show: renders the hand-edited step"
 
 # --derive-id still needs a path to derive from; --source satisfies it, --fold-title alone does not.
-nopath="$(run upsert --repo "$P" --derive-id sweep --fold-title --title 'x' 2>&1)"; nopath_rc=$?
+nopath="$(reg upsert --repo "$P" --derive-id sweep --fold-title --title 'x' 2>&1)"; nopath_rc=$?
 assert_eq "2" "$nopath_rc" "CLI: --derive-id without --spec or --source is a usage error"
 assert_contains "$nopath" "--source" "CLI: the usage error names --source as an accepted path"
 # --fold-title only means something under --derive-id; alone it was silently ignored.
-fold="$(run upsert x.y --repo "$P" --fold-title --title 'x' 2>&1)"; fold_rc=$?
+fold="$(reg upsert x.y --repo "$P" --fold-title --title 'x' 2>&1)"; fold_rc=$?
 assert_eq "2" "$fold_rc" "CLI: --fold-title without --derive-id is a usage error"
 assert_contains "$fold" "--derive-id" "CLI: the usage error names --derive-id"
 # Two paths under --derive-id would derive from whichever won silently.
-both="$(run upsert --repo "$P" --derive-id sweep --source src/export.py --spec specs/x.md --title 'x' 2>&1)"; both_rc=$?
+both="$(reg upsert --repo "$P" --derive-id sweep --source src/export.py --spec specs/x.md --title 'x' 2>&1)"; both_rc=$?
 assert_eq "2" "$both_rc" "CLI: --derive-id with both --source and --spec is a usage error"
 # A newline inside a step would end it early in the metadata block; refused before any write.
-nl="$(run upsert x.y --repo "$P" --apply --title 'x' --reproduction $'one\nkind: bug' 2>&1)"; nl_rc=$?
+nl="$(reg upsert x.y --repo "$P" --apply --title 'x' --reproduction $'one\nkind: bug' 2>&1)"; nl_rc=$?
 assert_eq "2" "$nl_rc" "CLI: a reproduction step containing a newline is refused"
 assert_contains "$nl" "reproduction" "CLI: the refusal names the field"
-assert_eq "absent" "$([ -f "$P/tasks/details/x.y.md" ] && echo present || echo absent)" \
+assert_file_absent "$P/tasks/details/x.y.md" \
   "CLI: the refused upsert wrote nothing"
 
 finish

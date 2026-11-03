@@ -1,0 +1,23 @@
+[
+ {"number":42,"title":"Morph live grid recipe","state":"open",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/issues/42",
+  "labels":[{"name":"enhancement"},{"name":"now"},{"name":"area/render"},{"name":"tech-debt"}],
+  "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-02T00:00:00Z",
+  "body":"Ship the live grid morph.\n\n<!-- task-registry:begin -->\ntask-id: recipe.morph-live-grid\nkind: feature\ndepends-on: recipe.color-lut\n<!-- task-registry:end -->\n"},
+ {"number":43,"title":"Colour LUT loader crashes on 8-bit input","state":"closed","state_reason":"completed",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/issues/43",
+  "labels":[{"name":"bug"},{"name":"area/color"}],
+  "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-03T00:00:00Z",
+  "body":"<!-- task-registry:begin -->\ntask-id: recipe.color-lut\nkind: bug\n<!-- task-registry:end -->\n"},
+ {"number":44,"title":"Decide on dither strategy","state":"open",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/issues/44",
+  "labels":[{"name":"design-decision"},{"name":"next"},{"name":"area/render"}],
+  "assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-04T00:00:00Z",
+  "body":"Which dither?\n\n<!-- task-registry:begin -->\ntask-id: render.dither-strategy\nkind: decision\n<!-- task-registry:end -->\n"},
+ {"number":45,"title":"Fix the colour LUT loader","state":"open",
+  "html_url":"https://github.com/fixture-owner/fixture-repo/pull/45",
+  "pull_request":{"url":"https://api.github.com/repos/fixture-owner/fixture-repo/pulls/45"},
+  "labels":[{"name":"bug"}],
+  "assignees":[],"created_at":"2026-08-05T00:00:00Z","updated_at":"2026-08-05T00:00:00Z",
+  "body":"Closes #43\n\n<!-- task-registry:begin -->\ntask-id: recipe.color-lut-pr\nkind: bug\n<!-- task-registry:end -->\n"}
+]

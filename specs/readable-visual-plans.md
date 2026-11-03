@@ -176,7 +176,7 @@ Invoke `/build` for `specs/readable-visual-plans.md`.
 Plan: `## Plan: readable-visual-plans` in `tasks/todo.md`, 13 slices, ready set 1.
 Files: .agents/skills/visual-plan/**, .agents/skills/system-design-planning/SKILL.md, .agents/skills/system-design-planning/templates/**, .agents/skills/plan/SKILL.md, .agents/skills/slice/SKILL.md, .agents/skills/slice/scripts/slice.py, .agents/skills/slice/references/**, tests/test-plan-render.sh, tests/test-plan-page.sh, tests/test-slice.sh, tests/fixtures/plan-render/**, design/plan-theme/**.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/readable-visual-plans.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -191,7 +191,7 @@ Constraints: render only from the spec markdown, stdlib Python, no network and n
 | D2 | Content source for the page | Deterministic spec→HTML renderer; no agent-built JSON model | user | One source of truth; the "render dropped a row" defect class disappears and source-to-render checks become mechanical |
 | D3 | Role of the design harness | One jplugin-owned plan theme authored with Taste/Impeccable; no runtime dependency | user | Reviewers learn the shapes once across projects; backend projects have no `DESIGN.md` |
 | D4 | Diagram production | Deterministic Python → inline SVG for DAG, `flow`, `sequence` | user | Themeable, accessible, clickable, no binary or 600 KB bundle; DSL source stays diffable |
-| D5 | Entry points | `/visual-plan`, `/system-design-planning`, and `/plan` Step 3 after `/slice`, under `/visual-plan`'s skip gate; `/visual-recap` stays on the old generator for now | user | Revised 2026-10-09: with no render step, `/plan` described an Export review on a page it never wrote; recap moves in a later change |
+| D5 | Entry points | `/visual-plan`, `/system-design-planning` Step 6, and `/slice`'s propose phase — so `/plan` Step 3 and every standalone `/slice` re-run render — under `/visual-plan`'s skip gate; `/visual-recap` stays on the old generator for now | user | Revised 2026-10-09: with no render step, `/plan` described an Export review on a page it never wrote. Revised 2026-10-21: the render moved from `/plan` Step 3 into `/slice`, because a standalone `/slice` run (the change-request loop) left the page absent or trailing the spec |
 | D6 | Default disclosure | Approval content open; reference content collapsed | user | NN/g and GOV.UK guidance: what the reviewer must approve stays visible |
 | D7 | Interactivity | Read-only controls plus local review state and export | user | Turns the page into the place blockers are cleared |
 | D8 | Decisions shape | Add `ID` and `Status` columns; rows render as cards | user | Smallest format change; "Wrong when" is the reviewer's objection trigger |
@@ -218,7 +218,7 @@ Constraints: render only from the spec markdown, stdlib Python, no network and n
 
 ## Acceptance Criteria
 
-- AC1: `plan_render.py <spec> -o <html>` renders from the spec markdown alone, with a stdlib-only markdown subset parser; `/visual-plan` and `/system-design-planning` call it, and `/system-design-planning` no longer builds `content-model.json` or requires diagrams and tables in `text` fences.
+- AC1: `plan_render.py <spec> -o <html>` renders from the spec markdown alone, with a stdlib-only markdown subset parser; `/visual-plan`, `/slice` (so every `/plan` run) and `/system-design-planning` call it, and `/system-design-planning` no longer builds `content-model.json` or requires diagrams and tables in `text` fences.
 - AC2: Unknown `##` sections render as generic markdown; a malformed Decisions, Acceptance Criteria, Build Order, Risks or Open questions section, a duplicate ID, or an unsupported diagram line exits 1 with `<spec>:<line>: <reason>` and writes no file.
 - AC3: Each component in the § Behavior table renders with a distinct colour, icon, text label and border style; a fixture check confirms every component type is present and that no two types share the same icon and label.
 - AC4: Decisions in both shapes render as cards with ID, status chip and chosen option visible and rationale, other options and "Wrong when" inside a disclosure; specs without ID or status columns auto-number and default to `settled`.

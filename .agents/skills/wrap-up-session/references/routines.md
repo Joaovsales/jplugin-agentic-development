@@ -267,9 +267,10 @@ handover one of three ways:
 - **An unattended lane run with no owning skill** — the ownerless lanes are
   `improve`, `refactor` and `babysit`; unattended is § *Unattended detection*.
   The run prints no build prompt and `/build` runs in place, in the same
-  session; its pre-flight runs `/slice <spec> --file` with no `--approve`, so
-  the project's approval floor decides, as for `/yolo`. The same override
-  covers `/system-design-planning`'s hand-over. It is one of the named
+  session. The routine's claimed issue is the plan's feature issue: `/slice`
+  writes it as the block's `> Issue:` line, so `slice.py link` prints
+  `issue <ref>` and the pre-flight files nothing.
+  The same override covers `/system-design-planning`'s hand-over. It is one of the named
   exceptions to the fresh-session rule (`AGENTS.md` step 3).
 - **An interactive lane run with no owning skill** — the handover is honoured:
   the build prompt stays the session's last message, the `go` skill appends
