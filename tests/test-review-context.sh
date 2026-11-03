@@ -27,7 +27,7 @@ cd "$REPO"
 # describe -- never to stating them.
 DISPATCH_SITE_FILES="skills/quality-gate/SKILL.md skills/software-design-expert-review/SKILL.md skills/system-design-planning/SKILL.md"
 
-REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review"
+REVIEW_PERSONAS="code-reviewer critic security-reviewer software-design-expert-review test-engineer"
 
 # --- 1. The contract exists, in one place ------------------------------------
 # Canonical rather than copied into each skill: #61 removed four model IDs that
@@ -198,5 +198,21 @@ for f in $DISPATCH_SITE_FILES skills/sweep/SKILL.md; do
   assert_eq "yes" "$([ "${plugin_at:-0}" -lt "${home_at:-0}" ] && [ "${home_at:-0}" -lt "${refuse_at:-0}" ] && echo yes || echo "no ($plugin_at/$home_at/$refuse_at)")" \
     "D19: $f states the order plugin -> installed copy -> refusal"
 done
+
+# --- 9. Every finding carries a failure case (AC1) ---------------------------
+# `evidence:` proves the reviewer read a line; it does not prove the line fails.
+# `failure:` names the input and the wrong result, so a finding with no failure
+# case is capped the same way one with no evidence is. The emission format is
+# pinned as adjacent lines: a `failure:` line that drifts away from `evidence:`
+# is one a parser reading the block in order no longer sees.
+fm=.agents/references/finding-model.md
+fm_flat="$(tr -s '[:space:]' ' ' < "$fm")"
+assert_eq "1" "$(grep -A1 '^  evidence: ' "$fm" | grep -c '^  failure: ')" \
+  "AC1: finding-model.md emission format shows failure: directly under evidence:"
+assert_contains "$fm_flat" 'A finding with no `failure:` line is capped at `50`' \
+  "AC1: finding-model.md § Gates caps a finding with no failure: at 50"
+gates="$(section_body "$fm" '## Gates')"
+assert_contains "$gates" '`failure:`' \
+  "AC1: the failure: cap lives in § Gates"
 
 finish

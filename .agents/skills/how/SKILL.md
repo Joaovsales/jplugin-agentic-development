@@ -10,9 +10,7 @@ harness: universal
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
 Each spawn below names a tier from `.agents/references/model-routing.md`. Explorers are Scout tier. The explainer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params; `subagents.agentOverrides` resolves them.
-On Codex, use the named roles from `config/agent-policy.toml`; the policy owns
-their model and effort settings. Check the effective route if a local or project
-configuration shadows a managed role.
+On Codex, spawn the managed `explorer` role; `.agents/references/model-routing.md` § *Codex dispatch* owns its route.
 
 ## Step 1. Assess Complexity
 
@@ -58,12 +56,16 @@ Present the explainer's output to the user. Light edits for clarity or context f
 
 The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.
 
+End every answer with one line offering a diagram of the flow just explained — `/diagram <the subsystem or flow>` — and render nothing until the user says yes. The explanation itself carries no Mermaid or ASCII diagram; the standalone diagram is `/diagram`'s job.
+
 ## Provenance
 
 Adapted from pstack's `how` skill — `pstack/skills/how/` in `cursor/plugins`,
-revision `12d587dfb20741cafc376c42c696c5f6e2a64487`. The references are
-upstream's, unmodified. SKILL.md changes only what this harness needs: the
+revision `12d587dfb20741cafc376c42c696c5f6e2a64487`. `explorer-prompt.md` is
+upstream's, unmodified; `explainer-prompt.md` drops upstream's Mermaid / ASCII
+diagram instruction, because `/diagram` draws the standalone diagram on request
+(specs/diagram-skill.md D18). SKILL.md changes only what this harness needs: the
 model-routing tiers replace the models rule file and the per-spawn Task
-settings, and `disable-model-invocation` is `false` so `/go`'s investigate lane
-can run it. The upstream MIT notice is bundled as `LICENSE.pstack`;
+settings, `disable-model-invocation` is `false` so `/go`'s investigate lane
+can run it, and every answer ends with the one-line diagram offer. The upstream MIT notice is bundled as `LICENSE.pstack`;
 repository-level provenance is in `THIRD_PARTY_NOTICES.md`.

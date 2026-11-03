@@ -1,0 +1,37 @@
+diff --git a/app/settings.py b/app/settings.py
+index 5e2a90d..b7f34c1 100644
+--- a/app/settings.py
++++ b/app/settings.py
+@@ -1,6 +1,32 @@
+ import json
+ from pathlib import Path
+ 
+ DEFAULTS_PATH = Path(__file__).with_name("defaults.json")
+ 
+ 
++def load_defaults():
++    with DEFAULTS_PATH.open() as fh:
++        return json.load(fh)
++
++
++def merge_settings(defaults, overrides):
++    merged = dict(defaults)
++    for key, value in overrides.items():
++        if isinstance(value, dict) and isinstance(merged.get(key), dict):
++            merged[key] = merge_settings(merged[key], value)
++        else:
++            merged[key] = value
++    return merged
++
++
++def read_setting(settings, path, default=None):
++    """Look up a dotted path. Stored settings are sparse, so a missing key yields default."""
++    node = settings
++    for part in path.split("."):
++        if not isinstance(node, dict):
++            return default
++        try:
++            node = node[part]
++        except KeyError:
++            return default
++    return node

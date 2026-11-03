@@ -60,10 +60,10 @@ Offer to record a decision only when all three gates hold at once:
 
 The offer is a frontier question with a ➡️ recommendation; the user decides.
 When a gate fails, say which one and write nothing. On yes, score overlap
-against the existing documents first (`/learn` § Score Overlap Before Writing:
-4 to 5 dimensions matched updates the existing document in place, never a
-sibling), then write `tasks/solutions/architecture/<slug>.md` on the knowledge
-track:
+against the existing documents first, with the knowledge-track dimensions
+(`/learn` § Score Overlap Before Writing: 4 to 5 dimensions matched updates the
+existing document in place, never a sibling), then write
+`tasks/solutions/architecture/<slug>.md` on the knowledge track:
 
 ```yaml
 ---
@@ -77,7 +77,9 @@ applies_when: <the situation in which this decision should be recalled>
 ```
 
 The body is at least one to three sentences stating the context, the decision
-and the reason, in that order. Slug rules are the store's
+and the reason, in that order. For overlap scoring the context is the situation,
+the decision is both the claim and the rule, and the reason is the consequence.
+Slug rules are the store's
 (`tasks/solutions/README.md`): a stable ASCII kebab-case slug from the title,
 the date in frontmatter only.
 

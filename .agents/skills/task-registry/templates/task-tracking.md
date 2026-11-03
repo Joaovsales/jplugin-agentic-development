@@ -135,7 +135,7 @@ simplify = simplify
 ; write a `skip:` row on every single run.
 [routines.skills]
 plan = /plan, /wrap-up-session
-fix = /debug, /build, /quality-gate, /wrap-up-session
+fix = /debug, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
 simplify = /make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session
@@ -155,7 +155,7 @@ build = /build, /quality-gate, /wrap-up-session
 ## Credentials
 
 Never in this file, and no shipped provider needs one here. GitHub uses whatever
-`gh auth status` reports; the local Markdown store has no credential at all. A
+`gh api user` succeeds with; the local Markdown store has no credential at all. A
 tracker added later reads its own from the environment, never from this file.
 
 ## Naming conventions

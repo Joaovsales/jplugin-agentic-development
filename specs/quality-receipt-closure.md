@@ -146,11 +146,11 @@ Facts the design rests on:
    quality-gate  ──(4) sync──► /quality-gate [--scope <delta> --parent <fp>]   (§ Quality receipt)
    run-suite     ── full suite through cached-suite.sh, #178                   (§ Full suite)
                               ▼
-            wrap-up performs the action:  commit · push · pr-sync · mergeability ──(6) gh pr view
-                                          watch-ci ──(7) async── gh pr checks --watch (background)
+            wrap-up performs the action:  commit · push · pr-sync · mergeability ──(6) gh_pr.py mergeable
+                                          watch-ci ──(7) async── gh_pr.py checks --watch (background)
                                           debug-ci ── /debug   merge-base ── git merge origin/<base>
                                           verify-deploy ── /verify-evidence --scope deployment
-                                          re-gate ── back to § Quality receipt   mark-draft ── gh pr ready --undo
+                                          re-gate ── back to § Quality receipt   mark-draft ── gh_pr.py ready --undo
 ```
 
 | Arrow | Mode | On timeout | On duplicate |
@@ -240,7 +240,7 @@ Sets `hold_approved_by` on a HOLD receipt; exit 0. Refuses a GO or STOP receipt 
 
 | Aspect | Contract |
 |--------|----------|
-| Phases | 1 simplify · 2 deslop · **3 security**: the `/security-scan` checklist, run inline over **the gate's own file list** (untracked files included, `--scope` honoured), not the skill's `git diff --name-only`. Its MUST-FIX fixes are applied under the Apply Gate · **4 APOSD**: dispatched `software-design-expert-review`, unchanged, and now after every edit phase, so it reviews the security fixes too · **5 tests**: the `Affected tests:` command through `cached-suite.sh` (or the covering test files when none is declared), run after every fix and recorded as `tests` · **6 receipt**: `receipt.py write`. No phase after 4 edits the tree. A phase-5 failure is a red `tests` record, never a silent fix (critic C7) |
+| Phases | 1 simplify · 2 deslop · **3 security**: the `/security-scan` checklist, run inline over **the gate's own file list** (untracked files included, `--scope` honoured), not the skill's `git diff --name-only`. Its MUST-FIX fixes are applied under the Apply Gate · **4 APOSD**: dispatched `software-design-expert-review`, unchanged, and now after every edit phase, so it reviews the security fixes too · **5 tests**: the `Affected tests:` command through `cached-suite.sh` (or the covering test files when none is declared), run after every fix and recorded as `tests`, then the `test-engineer` Review job checks the tests' adequacy against the spec's acceptance criteria and interface, report-only, each unresolved SHOULD-FIX counting toward HOLD · **6 receipt**: `receipt.py write`. No phase after 4 edits the tree. A phase-5 failure is a red `tests` record, never a silent fix (critic C7) |
 | Outcomes | report as today plus the line `Receipt: <verdict> <fp8> policy <v> [parent <fp8>]` |
 | On a `receipt.py write` refusal | the gate reports `Receipt: none — <stderr>`, and the caller treats that as a stale receipt. It is never reported as GO |
 | Callers | `/build` Phase 3 (full scope, unchanged call) and `/wrap-up-session` § *Quality receipt* (delta scope on `diff-changed`, full scope on every other reason) |
@@ -272,10 +272,10 @@ python3 .agents/skills/wrap-up-session/scripts/closure.py step --state <state.js
 | `base` | 40-hex | the merge-base at write time | computed |
 | `head` | 40-hex | `HEAD` at write time; provenance only, not a validity key (the fingerprint subsumes it and survives the `/wrap-up-session` § *Commit and push* commit) | computed |
 | `tree` | 40-hex | the working-tree object that was reviewed | computed |
-| `policy` | `qg1-<8 hex>` | sha256 of every file that decides a verdict: `receipt.py` itself (the verdict rule), `quality-gate/SKILL.md`, `security-scan/SKILL.md`, `software-design-expert-review/SKILL.md`, `.agents/agents/software-design-expert-review.md`, `references/finding-model.md` and `references/review-dispatch-contract.md`. All are resolved relative to `receipt.py`, and a missing one is hashed as its path plus `<missing>` (critic C12) | computed |
+| `policy` | `qg1-<8 hex>` | sha256 of every file that decides a verdict: `receipt.py` itself (the verdict rule), `quality-gate/SKILL.md`, `security-scan/SKILL.md`, `software-design-expert-review/SKILL.md`, `.agents/agents/software-design-expert-review.md`, `.agents/agents/test-engineer.md`, `references/finding-model.md` and `references/review-dispatch-contract.md`. All are resolved relative to `receipt.py`, and a missing one is hashed as its path plus `<missing>` (critic C12) | computed |
 | `scope` | `"full"` or a non-empty path list | a path list requires `parent` | schema check in `write` |
 | `parent` | null or 64-hex | non-null iff `scope` is a list; names a stored receipt | schema check + store lookup |
-| `reviewers` | list of `{phase, lens, dispatch: "dispatched"\|"inline", verdict?}` | non-empty; phases 1–4 each present | schema check |
+| `reviewers` | list of `{phase, lens, dispatch: "dispatched"\|"inline", verdict?}` | non-empty; phases 1–4 each present; a phase 5 `test-engineer` entry when its Review job was dispatched | schema check |
 | `tests` | `{command, exit, tree}` | `tree` is the tree the tests ran on, and equals the receipt's `tree` | `write` refuses a mismatch (exit 2) |
 | `unresolved` | list of four-axis findings `{severity, confidence, autofix_class, owner, location, summary}` | every field in its enum | schema check |
 | `design_verdict` | `GO`\|`HOLD`\|`STOP` | Phase 3's own verdict | schema check |
@@ -389,7 +389,7 @@ Invoke `/build` for `specs/quality-receipt-closure.md`.
 Plan: `## Plan: quality-receipt-closure` in `tasks/todo.md`, 6 slices, ready set 1, 3.
 Files: .agents/skills/quality-gate/scripts/receipt.py, .agents/skills/quality-gate/SKILL.md, .agents/skills/wrap-up-session/scripts/closure.py, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/references/routines.md, tests/test-quality-receipt.sh, tests/test-closure.sh, tests/fixtures/closure/scenarios.json, tests/test-review-context.sh, tests/test-model-tiers.sh, tests/test-living-spec-reconciliation.sh, tests/test-routine-wrapup.sh, tests/test-routine-step-ledger.sh, tests/test-doc-conventions.sh, AGENTS.md.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/quality-receipt-closure.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -447,10 +447,10 @@ Constraints: the PR body carries `Closes #163` and `Refs #162`, never `Closes #1
 7. `/wrap-up-session` dispatches no reviewer and runs no `/security-scan`. The review payload, the Step 5 apply and reconciliation loop and the *Parallel Code Review* enhancement are gone. `tests/test-review-context.sh` no longer lists wrap-up as a dispatch site and asserts it has none, and `tests/test-model-tiers.sh` no longer expects critic's floor there. `AGENTS.md`'s Layer 3 line names the receipt, not reviewer passes (`tests/test-review-context.sh`, `tests/test-model-tiers.sh`, `tests/test-doc-conventions.sh`).
 8. `/wrap-up-session` § *Quality receipt* runs `receipt.py check`. On `valid` it reuses the receipt. On `diff-changed` it invokes `/quality-gate --scope <delta> --parent <fp>` once, on any other stale reason `/quality-gate` once at full scope, and it proceeds only on GO or approved HOLD. It approves a HOLD only after a human answer in an interactive run. It still reconciles specs before § *Quality receipt* and runs § *Full suite* through `cached-suite.sh`. § *Terminal PR assertion*'s exit table names the receipt stop, and every closure end routes through § *Terminal PR assertion* (`tests/test-living-spec-reconciliation.sh`, `tests/test-routine-wrapup.sh`, `tests/test-doc-conventions.sh`).
 9. Wrap-up commits with hooks enabled (no `--no-verify`), pushes, and creates or re-syncs the PR with the existing linkage check. The body carries the `Quality receipt:` line and a `## Closure` section. From § *Quality receipt* on, wrap-up performs the actions `closure.py step` prints, with its state file under the git common dir (`tests/test-doc-conventions.sh`, `tests/test-routine-step-ledger.sh`).
-10. Wrap-up checks mergeability with `gh pr view --json mergeable` and watches checks with `gh pr checks <n> --watch --required` as a background task (all checks when none are required), with a 30-min budget. A failed check's log (`gh run view --log-failed`) goes to `/debug`. The fix re-enters § *Quality receipt* and § *Full suite* before the push, for at most 2 rounds. `ci: none` is reported only when the 2-min registration window saw no checks and no workflow triggers on `pull_request`. Every repair commit adds a `## Session Summary … — closure repair <n>` line so the pre-push gate counts it covered (`tests/test-doc-conventions.sh`).
+10. Wrap-up checks mergeability with `gh_pr.py mergeable <n>` and watches checks with `gh_pr.py checks <n> --watch --required` as a background task (all checks when none are required), with a 30-min budget. A failed check's log (`gh run view --log-failed`) goes to `/debug`. The fix re-enters § *Quality receipt* and § *Full suite* before the push, for at most 2 rounds. `ci: none` is reported only when the 2-min registration window saw no checks and no workflow triggers on `pull_request`. Every repair commit adds a `## Session Summary … — closure repair <n>` line so the pre-push gate counts it covered (`tests/test-doc-conventions.sh`).
 11. On `CONFLICTING`, or on a non-fast-forward push, wrap-up merges the base (or the remote branch) with no rebase and no force-push, for at most 1 round. A clean resolution re-enters § *Quality receipt*. An unresolved merge is aborted and the run goes partial (`tests/test-doc-conventions.sh`).
 12. When a `## Deployment Targets` row applies to the pushed branch, wrap-up invokes `/verify-evidence --scope deployment` and records its evidence. Otherwise it records `Deployments: not applicable — <reason>`. A deployment fix that moved HEAD re-enters § *Quality receipt* once (`tests/test-doc-conventions.sh`).
-13. `tasks/history.md` and `tasks/todo.md` record only facts known before the push. CI, conflict and deployment outcomes go in the PR body's `## Closure` and the Done report's `Closure: <complete|partial — state>` line. A partial run marks the PR draft with `gh pr ready --undo`. `routines.md` names the receipt in place of review passes (`tests/test-doc-conventions.sh`).
+13. `tasks/history.md` and `tasks/todo.md` record only facts known before the push. CI, conflict and deployment outcomes go in the PR body's `## Closure` and the Done report's `Closure: <complete|partial — state>` line. A partial run marks the PR draft with `gh_pr.py ready <n> --undo`. `routines.md` names the receipt in place of review passes (`tests/test-doc-conventions.sh`).
 
 ## Implementation Paths
 

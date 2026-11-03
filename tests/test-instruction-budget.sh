@@ -43,6 +43,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
+under_test AGENTS.md >/dev/null
 BEGIN='<!-- jplugin-agentic-development:begin -->'
 END='<!-- jplugin-agentic-development:end -->'
 
@@ -63,16 +64,15 @@ assert_eq "1" "$(printf '%s\n' "$agents" | grep -cxF -- "$END")" \
   "Budget: AGENTS.md has exactly one end marker"
 begin_line="$(printf '%s\n' "$agents" | grep -nxF -- "$BEGIN" | cut -d: -f1)"
 end_line="$(printf '%s\n' "$agents" | grep -nxF -- "$END" | cut -d: -f1)"
-assert_eq "yes" "$([ "${begin_line:-0}" -lt "${end_line:-0}" ] && echo yes || echo no)" \
-  "Budget: the begin marker precedes the end marker"
+assert_true "Budget: the begin marker precedes the end marker" \
+  -- test "${begin_line:-0}" -lt "${end_line:-0}"
 
 # --- size --------------------------------------------------------------------
 block_lines="$(printf '%s\n' "$block" | grep -c '' || true)"
-assert_eq "yes" "$([ "$block_lines" -gt 50 ] && [ "$block_lines" -le 200 ] && echo yes || echo "no ($block_lines lines)")" \
-  "Budget: the managed block is between 51 and 200 lines (non-vacuous, within budget)"
+assert_true "Budget: the managed block is between 51 and 200 lines (non-vacuous, within budget)" \
+  -- test "$block_lines" -gt 50 -a "$block_lines" -le 200
 file_bytes="$(wc -c < AGENTS.md | tr -d ' ')"
-assert_eq "yes" "$([ "$file_bytes" -le 16384 ] && echo yes || echo "no ($file_bytes bytes)")" \
-  "Budget: AGENTS.md is at most 16 KiB"
+assert_true "Budget: AGENTS.md is at most 16 KiB" -- test "$file_bytes" -le 16384
 
 # --- CLAUDE.md is the import line, nothing else -------------------------------
 assert_eq "@AGENTS.md" "$(tr -d '\r' < CLAUDE.md)" \
@@ -103,8 +103,8 @@ assert_eq "" "$(printf '%s\n' "$block" | grep -n '^@' || true)" \
   "Budget: no line in the block starts with @"
 assert_eq "" "$(printf '%s\n' "$block" | grep -n '^# ' || true)" \
   "Budget: the block carries no H1"
-assert_eq "yes" "$([ "$(printf '%s\n' "$agents" | unfenced | grep -c '^# ')" -le 1 ] && echo yes || echo no)" \
-  "Budget: AGENTS.md has at most one H1"
+agents_h1="$(printf '%s\n' "$agents" | unfenced | grep -c '^# ' || true)"
+assert_true "Budget: AGENTS.md has at most one H1" -- test "$agents_h1" -le 1
 
 # --- the pointer convention is documented, not exercised, inside the block ---
 POINTER_RE='Task tracking instructions:[[:space:]]*[^[:space:]`<>]+'
@@ -124,8 +124,7 @@ assert_eq "1" "$(printf '%s\n' "$block" | grep -cF 'is typed `/jplugin:name`')" 
   "Budget: the block states the plugin namespace mapping exactly once"
 
 # --- .claude/project.md is gone; only the notice-bearing readers name it -----
-assert_eq "absent" "$([ -e .claude/project.md ] && echo present || echo absent)" \
-  "Budget: .claude/project.md no longer exists"
+assert_file_absent .claude/project.md "Budget: .claude/project.md no longer exists"
 # The readers that keep an unmigrated project working (D3), the two docs
 # that describe that state, and the /sync script that moves the file's
 # sections into AGENTS.md (--migrate, slice 4), and the CI mirror whose PR body
@@ -148,8 +147,8 @@ assert_file_contains .agents/skills/task-registry/scripts/registry/config.py \
 # gone for good: they forced renumbering on every insertion (Decision 5).
 WRAP=.agents/skills/wrap-up-session/SKILL.md
 wrap_lines="$(grep -c '' "$WRAP")"
-assert_eq "yes" "$([ "$wrap_lines" -gt 100 ] && [ "$wrap_lines" -le 300 ] && echo yes || echo "no ($wrap_lines lines)")" \
-  "Budget: /wrap-up-session SKILL.md is at most 300 lines (and non-vacuous)"
+assert_true "Budget: /wrap-up-session SKILL.md is at most 300 lines (and non-vacuous)" \
+  -- test "$wrap_lines" -gt 100 -a "$wrap_lines" -le 300
 assert_eq "$(printf '%s\n' '## Bookkeeping' '## Reconcile' '## Gate' '## Ship' '## Done')" \
   "$(tr -d '\r' < "$WRAP" | unfenced | grep '^## ')" \
   "Budget: /wrap-up-session has exactly the five phase headings, in order"
@@ -162,8 +161,8 @@ done
 
 SIMPLER=.agents/skills/make-it-simpler/SKILL.md
 simpler_lines="$(grep -c '' "$SIMPLER")"
-assert_eq "yes" "$([ "$simpler_lines" -gt 50 ] && [ "$simpler_lines" -le 150 ] && echo yes || echo "no ($simpler_lines lines)")" \
-  "Budget: /make-it-simpler SKILL.md is at most 150 lines — it passes its own lens (D19)"
+assert_true "Budget: /make-it-simpler SKILL.md is at most 150 lines — it passes its own lens (D19)" \
+  -- test "$simpler_lines" -gt 50 -a "$simpler_lines" -le 150
 
 # --- scaffold seeds -----------------------------------------------------------
 assert_eq "@AGENTS.md" "$(tr -d '\r' < project-template/CLAUDE.md)" \

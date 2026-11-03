@@ -22,25 +22,20 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
+py_module .agents/skills/task-registry/scripts SCRIPTS
 CLI="$SCRIPTS/task-registry.py"
-FIXTURES="$REPO/tests/fixtures/task-registry"
 PY="$TEST_PYTHON"
 
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
-
-new_fixture() {
+# A project with the gh mock first on its PATH and an empty issue list.
+gh_project() {
   local d
-  d="$(mktemp -d "${TMPDIR:-/tmp}/routine-selectors.XXXXXX")"
-  TMP_DIRS+=("$d")
+  d="$(fixture_dir)"
   mkdir -p "$d/tasks" "$d/docs" "$d/bin" "$d/ghdata"
-  printf '[ ] placeholder\n' > "$d/tasks/todo.md"
-  cp "$FIXTURES/gh" "$d/bin/gh"
+  fixture_copy task-registry/todo-placeholder.md "$d/tasks/todo.md"
+  fixture_copy task-registry/gh "$d/bin/gh"
   chmod +x "$d/bin/gh"
-  printf '[]\n' > "$d/ghdata/issues.json"
-  printf '100\n' > "$d/ghdata/next-number"
+  fixture_copy task-registry/issues-empty.json "$d/ghdata/issues.json"
+  fixture_copy task-registry/next-number "$d/ghdata/next-number"
   printf '%s' "$d"
 }
 
@@ -59,12 +54,12 @@ write_labels() {
   } > "$d/ghdata/labels.json"
 }
 
+# The shared github config body, fenced here around the case's stanzas.
 write_config() {
-  { printf '# Task tracking\n\n```ini\n[tracker]\nprovider = github\n'
-    printf 'repository = fixture-owner/fixture-repo\nrequire_write_approval = false\n'
-    cat
-    printf '```\n'
-  } > "$1/docs/task-tracking.md"
+  local conf="$1/docs/task-tracking.md"
+  fixture_copy task-registry/task-tracking.ini "$conf.ini"
+  { printf '# Task tracking\n\n```ini\n'; cat "$conf.ini"; cat; printf '```\n'; } > "$conf"
+  rm "$conf.ini"
 }
 
 run_selectors() {
@@ -73,12 +68,10 @@ run_selectors() {
       "$PY" "$CLI" selectors --repo "$d" "$@" 2>&1 )
 }
 
-pyreg() { PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" -; }
-
 # ============================================================================
 # 1. The shipped default covers the whole precedence chain
 # ============================================================================
-defaults="$(pyreg <<'PY'
+defaults="$("$PY" - <<'PY'
 from registry.config import (
     Config,
     DEFAULT_KIND_LABELS,
@@ -129,7 +122,7 @@ assert_contains "$defaults" "kinds-mapping-to-task: none" \
 # ============================================================================
 # 2. select_routine — precedence, claim skip, unclassified
 # ============================================================================
-picks="$(pyreg <<'PY'
+picks="$("$PY" - <<'PY'
 from registry.config import Config
 from registry.routines import select_routine
 
@@ -184,7 +177,7 @@ assert_contains "$picks" "escalated=None" \
 # ============================================================================
 # 3. Configuration overrides the shipped vocabulary
 # ============================================================================
-custom="$(pyreg <<'PY'
+custom="$("$PY" - <<'PY'
 import os, pathlib, tempfile
 from registry.config import load_config
 from registry.routines import select_routine
@@ -219,7 +212,7 @@ assert_contains "$custom" "stale-default: None" \
 # ============================================================================
 # 4. A configured selector label absent upstream fails LOUDLY
 # ============================================================================
-F_OK="$(new_fixture)"
+F_OK="$(gh_project)"
 write_config "$F_OK" <<'EOF'
 EOF
 write_labels "$F_OK" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -228,7 +221,7 @@ assert_eq "0" "$ok_code" "AC12: a repository carrying every routine label exits 
 assert_contains "$ok_out" "design-decision" "AC12: the report names plan's selector"
 assert_contains "$ok_out" "in-progress" "AC12: the report names the claim label"
 
-F_MISSING="$(new_fixture)"
+F_MISSING="$(gh_project)"
 write_config "$F_MISSING" <<'EOF'
 EOF
 write_labels "$F_MISSING" bug enhancement design-decision now next
@@ -242,12 +235,16 @@ assert_contains "$miss_verdict" "in-progress" \
   "AC12: the failure names the missing CLAIM label -- the same-routine overlap guard"
 assert_not_contains "$miss_verdict" "design-decision" \
   "AC12: the verdict names only the absent labels, not every configured one"
+assert_contains "$miss_out" "create them in the tracker" \
+  "AC12: the failure names the first remedy -- create the missing labels upstream"
+assert_contains "$miss_out" "[routines.selectors]" \
+  "AC12: the failure names the second remedy -- the configuration that declares them"
 
 # The claim label alone, with every selector present. It is the only guard against
 # two runs of one routine picking the same issue, and `select_routine` excludes on
 # its PRESENCE -- so a claim label the tracker never created is written, silently
 # dropped, and read back as a clean backlog.
-F_NOCLAIM="$(new_fixture)"
+F_NOCLAIM="$(gh_project)"
 write_config "$F_NOCLAIM" <<'EOF'
 EOF
 write_labels "$F_NOCLAIM" bug enhancement design-decision simplify tech-debt documentation now next
@@ -258,7 +255,7 @@ assert_contains "$noclaim_out" "in-progress" "AC12: the refusal names the absent
 
 # A project that configures a label its tracker has never had gets the same loud
 # failure — this is the exact halt in the spec's problem table.
-F_TYPO="$(new_fixture)"
+F_TYPO="$(gh_project)"
 write_config "$F_TYPO" <<'EOF'
 [labels.kind]
 techdebt = task
@@ -275,7 +272,7 @@ assert_contains "$typo_out" "techdebt" "AC12: the failure names the mistyped lab
 # ============================================================================
 # 5. Configuration that cannot describe a total selection is refused
 # ============================================================================
-F_SPLIT="$(new_fixture)"
+F_SPLIT="$(gh_project)"
 write_config "$F_SPLIT" <<'EOF'
 [routines]
 kind_precedence = bug, enhancement
@@ -291,7 +288,7 @@ assert_contains "$split_out" "documentation" \
   "AC12: the refusal names the label that no precedence rank can order"
 
 # Two routines claiming one label makes selection non-deterministic.
-F_DUP="$(new_fixture)"
+F_DUP="$(gh_project)"
 write_config "$F_DUP" <<'EOF'
 [routines]
 kind_precedence = bug
@@ -312,37 +309,38 @@ assert_contains "$dup_out" "bug" "AC12: the refusal names the contested label"
 # would be re-implemented per host, in whatever language, drifting from the
 # in-tree copy with no failing test anywhere to notice.
 
-F_SEL="$(new_fixture)"
+F_SEL="$(gh_project)"
 write_config "$F_SEL" <<'EOF'
 EOF
 write_labels "$F_SEL" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 cat > "$F_SEL/ghdata/issues.json" <<'EOF'
 [
- {"number":10,"title":"Crash on load","state":"OPEN","url":"https://github.com/o/r/issues/10",
+ {"number":10,"title":"Crash on load","state":"open","html_url":"https://github.com/o/r/issues/10",
   "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":11,"title":"Urgent crash","state":"OPEN","url":"https://github.com/o/r/issues/11",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":11,"title":"Urgent crash","state":"open","html_url":"https://github.com/o/r/issues/11",
   "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":12,"title":"Already claimed","state":"OPEN","url":"https://github.com/o/r/issues/12",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":12,"title":"Already claimed","state":"open","html_url":"https://github.com/o/r/issues/12",
   "labels":[{"name":"bug"},{"name":"now"},{"name":"in-progress"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":13,"title":"Has an open routine PR","state":"OPEN","url":"https://github.com/o/r/issues/13",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":13,"title":"Has an open routine PR","state":"open","html_url":"https://github.com/o/r/issues/13",
   "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[{"state":"OPEN"}]},
- {"number":14,"title":"Decide the thing","state":"OPEN","url":"https://github.com/o/r/issues/14",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":14,"title":"Decide the thing","state":"open","html_url":"https://github.com/o/r/issues/14",
   "labels":[{"name":"design-decision"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":15,"title":"Untriaged","state":"OPEN","url":"https://github.com/o/r/issues/15",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":15,"title":"Untriaged","state":"open","html_url":"https://github.com/o/r/issues/15",
   "labels":[{"name":"area/render"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
+EOF
+
+# #13's open routine PR is a REST timeline fact: a `cross-referenced` event whose
+# source is a pull request that is still open.
+cat > "$F_SEL/ghdata/timeline-13.json" <<'EOF'
+[{"event":"cross-referenced","source":{"type":"issue","issue":{"number":130,"state":"open","body":"Fixes #13",
+  "repository_url":"https://api.github.com/repos/fixture-owner/fixture-repo","pull_request":{"merged_at":null}}}}]
 EOF
 
 run_select() {
@@ -353,7 +351,7 @@ run_select() {
 
 fix_out="$(run_select "$F_SEL" --routine fix)"; fix_code=$?
 assert_eq "0" "$fix_code" "select: a routine with a candidate exits 0"
-assert_contains "$fix_out" "11" \
+assert_contains "$fix_out" "candidate:     11 —" \
   "select: priority orders WITHIN the pool — now (#11) beats next (#10)"
 assert_not_contains "$fix_out" "Already claimed" \
   "select: an issue carrying the claim label is skipped as in-flight"
@@ -364,18 +362,18 @@ assert_contains "$fix_out" "remaining:     1 other candidate(s)" \
 assert_contains "$fix_out" "bug" "select: the matched label is reported"
 
 plan_out="$(run_select "$F_SEL" --routine plan)"
-assert_contains "$plan_out" "14" "select: plan selects the design-decision issue"
+assert_contains "$plan_out" "candidate:     14 —" "select: plan selects the design-decision issue"
 
 # An unclassified issue belongs to nobody, and the gap must stay visible.
 assert_contains "$fix_out" "unclassified" \
   "select: the count of issues with no kind label is reported"
 
 # Nothing to do is a success, and it is silent.
-F_EMPTY="$(new_fixture)"
+F_EMPTY="$(gh_project)"
 write_config "$F_EMPTY" <<'EOF'
 EOF
 write_labels "$F_EMPTY" bug enhancement design-decision simplify tech-debt documentation in-progress
-printf '[]\n' > "$F_EMPTY/ghdata/issues.json"
+fixture_copy task-registry/issues-empty.json "$F_EMPTY/ghdata/issues.json"
 empty_out="$(run_select "$F_EMPTY" --routine fix)"; empty_code=$?
 assert_eq "0" "$empty_code" \
   "select: no candidate exits 0 — a routine with nothing to do is not a failure"
@@ -385,7 +383,7 @@ assert_contains "$empty_out" "none — fix has nothing to claim" \
 # A routine nobody can branch for is a configuration error. `format_routine_branch`
 # refuses it at spine step 3 -- after the claim label is written -- so the refusal
 # has to happen at load time instead.
-F_UNKNOWN="$(new_fixture)"
+F_UNKNOWN="$(gh_project)"
 write_config "$F_UNKNOWN" <<'EOF'
 [routines]
 kind_precedence = bug, perf
@@ -418,7 +416,7 @@ done
 # members (so their branches format and parse) but not selectors: `select` and
 # `claim` refuse them with a distinct message, and a [routines.selectors] key
 # naming one is refused at load like any routine outside the contract.
-producers="$(pyreg <<'PY'
+producers="$("$PY" - <<'PY'
 from registry.config import CONTRACT_ROUTINES, PRODUCER_ROUTINES, DEFAULT_SELECTORS
 print("producers:", ",".join(PRODUCER_ROUTINES))
 print("in-contract:", all(name in CONTRACT_ROUTINES for name in PRODUCER_ROUTINES))
@@ -432,7 +430,7 @@ assert_contains "$producers" "in-contract: True" \
 assert_contains "$producers" "selectable: none" \
   "AC2: no producer ships a selector"
 
-F_PRODUCER="$(new_fixture)"
+F_PRODUCER="$(gh_project)"
 write_config "$F_PRODUCER" <<'EOF'
 [routines.selectors]
 fix = bug
@@ -450,9 +448,8 @@ assert_contains "$producer_out" "producer" "AC2: the refusal says WHY — it is 
 
 # A provider that cannot enumerate its vocabulary is "not checked", never "nothing
 # missing" -- and NOT RUN is the branch every local-provider project takes.
-F_LOCAL="$(new_fixture)"
-{ printf '# Task tracking\n\n```ini\n[tracker]\nprovider = local\n```\n'; } \
-  > "$F_LOCAL/docs/task-tracking.md"
+F_LOCAL="$(gh_project)"
+fixture_copy task-registry/task-tracking-local.md "$F_LOCAL/docs/task-tracking.md"
 local_out="$(run_selectors "$F_LOCAL")"; local_code=$?
 assert_eq "0" "$local_code" \
   "AC12: a provider that cannot enumerate labels does not fail the check"
@@ -498,7 +495,7 @@ assert_contains "$wf_local_absent" "no-such-task" \
 
 # `doctor` is the command you run BECAUSE configuration is broken. Hoisting
 # validate_selectors into load_config must not make the diagnostic unreachable.
-F_BROKEN="$(new_fixture)"
+F_BROKEN="$(gh_project)"
 { printf '# Task tracking\n\n```ini\n[routines]\nkind_precedence = bug, tech-debt\n```\n'; } \
   > "$F_BROKEN/docs/task-tracking.md"
 broken_doctor="$( cd "$F_BROKEN" && "$PY" "$CLI" doctor --repo "$F_BROKEN" 2>&1 )"
@@ -527,7 +524,7 @@ PY
 )"
 assert_contains "$claim_blank" "'in-progress'" \
   "AC12: an empty or whitespace claim label falls back — it never resolves to ''"
-assert_not_contains "$claim_blank" "''" \
+assert_eq "$(printf "'in-progress'\n'in-progress'")" "${claim_blank//$'\r'/}" \
   "AC12: no blank claim label survives, which would disable the overlap guard"
 
 escalation_config="$("$PY" - "$SCRIPTS" <<'PY'
@@ -575,16 +572,15 @@ run_claim() {
       "$PY" "$CLI" claim "$ref" --repo "$d" "$@" 2>&1 )
 }
 
-F_CLAIM="$(new_fixture)"
+F_CLAIM="$(gh_project)"
 write_config "$F_CLAIM" <<'EOF'
 EOF
 write_labels "$F_CLAIM" bug enhancement design-decision simplify tech-debt documentation now next in-progress
 cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
 [
- {"number":42,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/42",
+ {"number":42,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/42",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
 EOF
 printf '{"number":42,"title":"Crash","body":"","labels":[{"name":"bug"}]}\n' \
@@ -605,7 +601,7 @@ assert_not_contains "$claim_dry" "wrote in-progress" "claim: a dry run writes no
 # implementation that printed nothing and wrote anyway passes both. gh.log is the
 # tracker-side evidence, and it is the same log the apply path asserts against
 # below, so the two directions are pinned with one mechanism.
-assert_file_not_matches "$F_CLAIM/gh.log" "add-label" \
+assert_file_not_matches "$F_CLAIM/gh.log" "--method" \
   "AC10: a dry run reaches the tracker with no label write at all"
 # "...and says so": the refusal has to name the flag that would proceed, or the
 # operator learns only that something was refused.
@@ -620,19 +616,18 @@ assert_contains "$claim_wrong" "belongs to fix" "claim: the refusal names the ow
 claim_out="$(run_claim "$F_CLAIM" 42 --routine fix --apply --approve)"; claim_code=$?
 assert_eq "0" "$claim_code" "claim: writes the claim label for the owning routine"
 assert_contains "$claim_out" "wrote in-progress to 42" "claim: the write is reported"
-assert_file_contains "$F_CLAIM/gh.log" "--add-label in-progress" \
+assert_file_contains "$F_CLAIM/gh.log" 'issues/42/labels --input - {"labels": ["in-progress"]}' \
   "claim: the label reaches the tracker — the read half is not the whole guard"
 
 # A retried routine must not need to know whether its first attempt got through.
-# The label is set directly here because the gh mock does not persist `issue edit`
+# The label is set directly here because the gh mock does not persist a label write
 # back into its issue list -- the property under test is how claim reads an issue
 # that ALREADY carries the label, not whether the mock round-trips a write.
 cat > "$F_CLAIM/ghdata/issues.json" <<'EOF'
 [
- {"number":42,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/42",
+ {"number":42,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/42",
   "labels":[{"name":"bug"},{"name":"in-progress"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
 EOF
 printf '{"number":42,"title":"Crash","body":"","labels":[{"name":"bug"},{"name":"in-progress"}]}' \
@@ -644,24 +639,21 @@ assert_contains "$claim_again" "already carries" "claim: idempotent, and says so
 claim_missing="$(run_claim "$F_CLAIM" 999 --routine fix --apply --approve)"; missing_code=$?
 assert_eq "1" "$missing_code" "claim: an unknown issue exits non-zero"
 
-F_HELD="$(new_fixture)"
+F_HELD="$(gh_project)"
 write_config "$F_HELD" <<'EOF'
 EOF
 write_labels "$F_HELD" bug enhancement design-decision simplify tech-debt documentation in-progress
 cat > "$F_HELD/ghdata/issues.json" <<'EOF'
 [
- {"number":51,"title":"Needs investigation","state":"OPEN","url":"https://github.com/o/r/issues/51",
+ {"number":51,"title":"Needs investigation","state":"open","html_url":"https://github.com/o/r/issues/51",
   "labels":[{"name":"bug"},{"name":"needs-investigation"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":52,"title":"Claimed then held","state":"OPEN","url":"https://github.com/o/r/issues/52",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":52,"title":"Claimed then held","state":"open","html_url":"https://github.com/o/r/issues/52",
   "labels":[{"name":"bug"},{"name":"in-progress"},{"name":"needs-investigation"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]},
- {"number":53,"title":"Held after selection","state":"OPEN","url":"https://github.com/o/r/issues/53",
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":53,"title":"Held after selection","state":"open","html_url":"https://github.com/o/r/issues/53",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
 EOF
 for number in 51 52 53; do
@@ -675,7 +667,7 @@ assert_contains "$held_claim" "human investigation" \
 held_claimed="$(run_claim "$F_HELD" 52 --routine fix --apply --approve)"; held_claimed_code=$?
 assert_eq "1" "$held_claimed_code" \
   "AC3: escalation is checked before already-claimed idempotence"
-assert_file_not_matches "$F_HELD/gh.log" "add-label" \
+assert_file_not_matches "$F_HELD/gh.log" "--method" \
   "AC4: refusing held claims makes no tracker mutation"
 fresh_hold="$(run_claim "$F_HELD" 53 --routine fix --apply --approve)"; fresh_hold_code=$?
 assert_eq "1" "$fresh_hold_code" \
@@ -688,7 +680,7 @@ resumed_claim="$(run_claim "$F_HELD" 53 --routine fix --apply --approve)"; resum
 assert_eq "0" "$resumed_claim_code" \
   "AC8: explicit human removal of hold and stale claim permits later claiming"
 
-F_NO_HOLD_LABEL="$(new_fixture)"
+F_NO_HOLD_LABEL="$(gh_project)"
 write_config "$F_NO_HOLD_LABEL" <<'EOF'
 EOF
 write_labels "$F_NO_HOLD_LABEL" bug enhancement design-decision simplify tech-debt documentation in-progress
@@ -704,11 +696,11 @@ assert_contains "$missing_hold" "needs-investigation" \
 
 # `select` IS routine start. A vocabulary gap must halt it, not quietly under-select:
 # the missing label makes the pool empty, and an empty pool is a normal day.
-F_SEL_GAP="$(new_fixture)"
+F_SEL_GAP="$(gh_project)"
 write_config "$F_SEL_GAP" <<'EOF'
 EOF
 write_labels "$F_SEL_GAP" bug enhancement design-decision now next in-progress
-printf '[]\n' > "$F_SEL_GAP/ghdata/issues.json"
+fixture_copy task-registry/issues-empty.json "$F_SEL_GAP/ghdata/issues.json"
 gap_out="$(run_select "$F_SEL_GAP" --routine fix)"; gap_code=$?
 assert_eq "1" "$gap_code" \
   "AC12: select REFUSES when a configured selector label is absent upstream"
@@ -716,25 +708,125 @@ assert_contains "$gap_out" "tech-debt" "AC12: select's refusal names the missing
 assert_not_contains "$gap_out" "nothing to claim" \
   "AC12: a vocabulary gap never masquerades as an empty backlog"
 
-# A `gh` too old for closedByPullRequestsReferences cannot answer the in-flight
-# exclusion. Proceeding would re-pick every issue already under review.
-F_OLDGH="$(new_fixture)"
-write_config "$F_OLDGH" <<'EOF'
+# The in-flight exclusion and the stranded backstop are read off each
+# candidate's REST timeline (specs/github-rest-in-sandboxes.md, AC6): any open
+# cross-referencing pull request excludes; with none open, a merged PR of this
+# repository whose body closes the issue by keyword strands it unless a human
+# reopened it; an issue that merely mentions the candidate counts for nothing.
+F_LINK="$(gh_project)"
+write_config "$F_LINK" <<'EOF'
 EOF
-write_labels "$F_OLDGH" bug enhancement design-decision simplify tech-debt documentation now next in-progress
-cat > "$F_OLDGH/ghdata/issues.json" <<'EOF'
+write_labels "$F_LINK" bug enhancement design-decision simplify tech-debt documentation now next in-progress
+cat > "$F_LINK/ghdata/issues.json" <<'EOF'
 [
- {"number":21,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/21",
+ {"number":21,"title":"Open PR mentions it","state":"open","html_url":"https://github.com/o/r/issues/21",
   "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":""}
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":22,"title":"Only settled PRs","state":"open","html_url":"https://github.com/o/r/issues/22",
+  "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":23,"title":"Merge left it open","state":"open","html_url":"https://github.com/o/r/issues/23",
+  "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":24,"title":"Reopened after the merge","state":"open","state_reason":"reopened","html_url":"https://github.com/o/r/issues/24",
+  "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":25,"title":"An issue mentions it","state":"open","html_url":"https://github.com/o/r/issues/25",
+  "labels":[{"name":"bug"},{"name":"next"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":28,"title":"Another routine's issue","state":"open","html_url":"https://github.com/o/r/issues/28",
+  "labels":[{"name":"enhancement"},{"name":"now"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""},
+ {"number":29,"title":"Already claimed","state":"open","html_url":"https://github.com/o/r/issues/29",
+  "labels":[{"name":"bug"},{"name":"now"},{"name":"in-progress"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
 ]
 EOF
-printf 'closedByPullRequestsReferences\n' > "$F_OLDGH/ghdata/unknown-fields"
-old_out="$(run_select "$F_OLDGH" --routine fix)"; old_code=$?
-assert_eq "1" "$old_code" \
-  "select: REFUSES when gh cannot report linked pull request state"
-assert_contains "$old_out" "closedByPullRequestsReferences" \
-  "select: the refusal names the field it could not read"
+"$PY" - "$F_LINK/ghdata" <<'LINK_PY'
+import io, json, os, sys
+HERE = "https://api.github.com/repos/fixture-owner/fixture-repo"
+ELSEWHERE = "https://api.github.com/repos/other-owner/other-repo"
+
+
+def pull(number, state, body, merged=False, repo=HERE):
+    return {"event": "cross-referenced", "source": {"type": "issue", "issue": {
+        "number": number, "state": state, "body": body, "repository_url": repo,
+        "pull_request": {"merged_at": "2026-08-02T00:00:00Z" if merged else None}}}}
+
+
+def issue(number, body):
+    return {"event": "cross-referenced", "source": {"type": "issue", "issue": {
+        "number": number, "state": "open", "body": body, "repository_url": HERE}}}
+
+
+timelines = {
+    # mentions only, no closing keyword -- open, so it still excludes (R2)
+    21: [pull(210, "open", "See #21 for context")],
+    # merged without a keyword and closed unmerged: nothing in flight, nothing stranded
+    22: [pull(220, "closed", "Related to #22", merged=True), pull(221, "closed", "Closes #22"),
+         {"event": "labeled", "label": {"name": "bug"}}],
+    # merged in this repository with a closing keyword naming it, nothing open
+    23: [pull(230, "closed", "Fixes #23 by rewriting the loader", merged=True)],
+    # the same, but a human reopened the issue since
+    24: [pull(240, "closed", "Resolves: #24", merged=True)],
+    # an issue (no pull_request key) and a merged PR elsewhere that closes it
+    25: [issue(250, "Closes #25"), pull(251, "closed", "Closes fixture-owner/fixture-repo#25", merged=True, repo=ELSEWHERE)],
+    # another routine's issue and a claimed one: open PRs that select must never read
+    28: [pull(280, "open", "Fixes #28")],
+    29: [pull(290, "open", "Fixes #29")],
+}
+for number, events in timelines.items():
+    io.open(os.path.join(sys.argv[1], f"timeline-{number}.json"), "w", encoding="utf-8", newline="\n").write(json.dumps(events))
+LINK_PY
+link_out="$(run_select "$F_LINK" --routine fix)"; link_code=$?
+assert_eq "0" "$link_code" "AC6: select with timeline-read candidates exits 0"
+assert_not_contains "$link_out" "candidate:     21 —" \
+  "AC6: a cross-reference from an open PR excludes the candidate, keyword or not"
+assert_contains "$link_out" "candidate:     22 —" \
+  "AC6: merged-without-keyword and closed-unmerged references keep the candidate"
+assert_contains "$link_out" "stranded:      #23 — #230 merged and left it open; close it with \`task-registry closes '#230' --apply --approve\`" \
+  "AC6: a merged PR of this repository whose body closes the issue strands it"
+assert_not_contains "$link_out" "candidate:     23 —" "AC6: a stranded issue is never the candidate"
+assert_not_contains "$link_out" "stranded:      #24" \
+  "AC6: an issue reopened after its PR merged is not stranded"
+assert_not_contains "$link_out" "stranded:      #25" \
+  "AC6: a merged PR in another repository strands nothing -- closes cannot reach it"
+assert_contains "$link_out" "remaining:     2 other candidate(s)" \
+  "AC6: the pool is #22, #24 (reopened) and #25 (mentioned by an issue, closed elsewhere)"
+assert_contains "$link_out" "checked:       5 candidate(s) for linked pull requests" \
+  "AC6: select reports how many candidates it read the timeline for"
+assert_file_contains "$F_LINK/gh.log" "api repos/fixture-owner/fixture-repo/issues/21/timeline?per_page=100&page=1" \
+  "AC6: linked-PR state is read from the REST timeline, paged"
+assert_file_not_matches "$F_LINK/gh.log" "issues/28/timeline" \
+  "AC6 (Decision 7): the timeline is read after the kind filter -- another routine's issue costs nothing"
+assert_file_not_matches "$F_LINK/gh.log" "issues/29/timeline" \
+  "AC6 (Decision 7): the timeline is read after the claim filter -- a claimed issue costs nothing"
+assert_file_not_matches "$F_LINK/gh.log" "graphql" "AC6: no GraphQL anywhere"
+
+# A timeline past the read cap leaves the state unknown. Proceeding would
+# re-pick an issue that may be under review, so select refuses and names it.
+F_CAP="$(gh_project)"
+write_config "$F_CAP" <<'EOF'
+EOF
+write_labels "$F_CAP" bug enhancement design-decision simplify tech-debt documentation now next in-progress
+cat > "$F_CAP/ghdata/issues.json" <<'EOF'
+[
+ {"number":26,"title":"Noisy issue","state":"open","html_url":"https://github.com/o/r/issues/26",
+  "labels":[{"name":"bug"},{"name":"now"}],"assignees":[],
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}
+]
+EOF
+"$PY" - "$F_CAP/ghdata/timeline-26.json" <<'CAP_PY'
+import io, json, sys
+events = [{"event": "labeled", "label": {"name": "bug"}} for _ in range(300)]
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(events))
+CAP_PY
+cap_out="$(run_select "$F_CAP" --routine fix)"; cap_code=$?
+assert_eq "1" "$cap_code" "AC6: select REFUSES when a candidate's timeline exceeds the read cap"
+assert_contains "$cap_out" "#26" "AC6: the refusal names the issue whose state is unknown"
+assert_contains "$cap_out" "linked pull request state" "AC6: the refusal says what could not be read"
+assert_not_contains "$cap_out" "candidate:" "AC6: no candidate is offered while a state is unknown"
+assert_not_contains "$cap_out" "gh >= " "AC6: the refusal no longer cites a gh version"
 
 # An unknown routine name is a configuration error, not an empty result.
 bad_out="$(run_select "$F_SEL" --routine nonesuch)"; bad_code=$?
@@ -813,7 +905,7 @@ wf_fix_out="$(run_workflow "$F_SEL" 11)"; wf_fix_code=$?
 assert_eq "0" "$wf_fix_code" "workflow: an issue a routine owns exits 0"
 assert_contains "$wf_fix_out" "routine:" "workflow: the routine is labelled in the output"
 assert_contains "$wf_fix_out" "fix" "workflow: #11 (bug) resolves to the fix routine"
-assert_contains "$wf_fix_out" "/debug -> /build -> /quality-gate -> /wrap-up-session" \
+assert_contains "$wf_fix_out" "/debug -> /quality-gate -> /wrap-up-session" \
   "AC1: the skill chain is printed, not just the routine name"
 assert_contains "$wf_fix_out" "bug" "workflow: the label that won precedence is named"
 
@@ -826,7 +918,7 @@ assert_contains "$wf_plan_out" "/plan -> /wrap-up-session" \
 # -- outcome 2: resolves to the deferred `build` routine ----------------------
 # Reachable only by configuration: `build` ships no selector, because a selector
 # for a routine nobody runs would let a deferred capability fail a live gate.
-F_BUILD="$(new_fixture)"
+F_BUILD="$(gh_project)"
 write_config "$F_BUILD" <<'EOF'
 [routines]
 kind_precedence = bug, design-decision, enhancement, documentation, tech-debt, question
@@ -838,10 +930,9 @@ build = question
 EOF
 write_labels "$F_BUILD" bug design-decision enhancement documentation tech-debt question in-progress
 cat > "$F_BUILD/ghdata/issues.json" <<'EOF'
-[{"number":20,"title":"Ship the thing","state":"OPEN","url":"https://github.com/o/r/issues/20",
+[{"number":20,"title":"Ship the thing","state":"open","html_url":"https://github.com/o/r/issues/20",
   "labels":[{"name":"question"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_build_out="$(run_workflow "$F_BUILD" 20)"; wf_build_code=$?
 assert_eq "0" "$wf_build_code" \
@@ -908,31 +999,29 @@ assert_eq "$wf_fix_out" "$wf_hash_out" \
 # A closed issue keeps its kind label, so every selector still matches it and
 # the report reads as a runnable routine. An unattended caller acting on that
 # starts work on something already finished.
-F_WF_CLOSED="$(new_fixture)"
+F_WF_CLOSED="$(gh_project)"
 write_config "$F_WF_CLOSED" <<'EOF'
 EOF
 write_labels "$F_WF_CLOSED" bug design-decision enhancement documentation simplify tech-debt now next in-progress
 cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
-[{"number":31,"title":"Long since fixed","state":"CLOSED","url":"https://github.com/o/r/issues/31",
+[{"number":31,"title":"Long since fixed","state":"CLOSED","html_url":"https://github.com/o/r/issues/31",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_closed_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_closed_code=$?
 assert_eq "1" "$wf_closed_code" \
   "workflow: a closed issue exits non-zero — there is no routine to start"
 assert_not_contains "$wf_closed_out" "chain:" \
   "workflow: a closed issue is not handed a skill chain to run"
-assert_contains "$wf_closed_out" "31" \
+assert_contains "$wf_closed_out" "task-registry: 31 is " \
   "workflow: the closed-issue refusal names the issue"
 
 # The same issue REOPENED must route. Without this pair the assertion above
 # passes for an implementation that refuses every issue in this fixture.
 cat > "$F_WF_CLOSED/ghdata/issues.json" <<'EOF'
-[{"number":31,"title":"Long since fixed","state":"OPEN","url":"https://github.com/o/r/issues/31",
+[{"number":31,"title":"Long since fixed","state":"open","html_url":"https://github.com/o/r/issues/31",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_reopened_out="$(run_workflow "$F_WF_CLOSED" 31)"; wf_reopened_code=$?
 assert_eq "0" "$wf_reopened_code" \
@@ -943,15 +1032,14 @@ assert_contains "$wf_reopened_out" "chain:" \
 # -- an outage is not a misconfiguration -------------------------------------
 # Both used to exit 2, the code a nightly wrapper pages a human on. A tracker
 # that did not answer needs a retry, and no file edit would fix it.
-F_WF_OUTAGE="$(new_fixture)"
+F_WF_OUTAGE="$(gh_project)"
 write_config "$F_WF_OUTAGE" <<'EOF'
 EOF
 rm -f "$F_WF_OUTAGE/ghdata/labels.json"   # `gh label list` now fails like an outage
 cat > "$F_WF_OUTAGE/ghdata/issues.json" <<'EOF'
-[{"number":32,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/32",
+[{"number":32,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/32",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_outage_out="$(run_workflow "$F_WF_OUTAGE" 32)"; wf_outage_code=$?
 assert_eq "1" "$wf_outage_code" \
@@ -963,18 +1051,18 @@ assert_contains "$wf_outage_out" "COULD NOT RUN" \
 # The scan fallback reads the whole backlog, and `gh issue list` silently caps
 # at its page limit. A miss past the cut is indistinguishable from an absent
 # task, so the pool being partial has to be refused rather than searched.
-F_WF_TRUNC="$(new_fixture)"
+F_WF_TRUNC="$(gh_project)"
 write_config "$F_WF_TRUNC" <<'EOF'
 EOF
 write_labels "$F_WF_TRUNC" bug design-decision enhancement documentation simplify tech-debt now next in-progress
 "$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'TRUNC_PY'
 import io, json, sys
 issues = [
-    {"number": n, "title": "Filler %d" % n, "state": "OPEN",
-     "url": "https://github.com/o/r/issues/%d" % n,
+    {"number": n, "title": "Filler %d" % n, "state": "open",
+     "html_url": "https://github.com/o/r/issues/%d" % n,
      "labels": [{"name": "bug"}], "assignees": [],
-     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
-     "body": "", "closedByPullRequestsReferences": []}
+     "created_at": "2026-08-01T00:00:00Z", "updated_at": "2026-08-01T00:00:00Z",
+     "body": ""}
     for n in range(1, 501)
 ]
 io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
@@ -993,11 +1081,11 @@ assert_not_contains "$wf_trunc_out" "no backlog task carries that id" \
 "$PY" - "$F_WF_TRUNC/ghdata/issues.json" <<'SHORT_PY'
 import io, json, sys
 io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps([
-    {"number": 1, "title": "Filler", "state": "OPEN",
-     "url": "https://github.com/o/r/issues/1",
+    {"number": 1, "title": "Filler", "state": "open",
+     "html_url": "https://github.com/o/r/issues/1",
      "labels": [{"name": "bug"}], "assignees": [],
-     "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z",
-     "body": "", "closedByPullRequestsReferences": []}]))
+     "created_at": "2026-08-01T00:00:00Z", "updated_at": "2026-08-01T00:00:00Z",
+     "body": ""}]))
 SHORT_PY
 wf_short_out="$(run_workflow "$F_WF_TRUNC" T-9)"; wf_short_code=$?
 assert_eq "1" "$wf_short_code" "workflow: an id nothing carries still exits 1"
@@ -1007,7 +1095,7 @@ assert_contains "$wf_short_out" "no backlog task carries that id" \
 # -- outcome 6: config fault, exit 2 -----------------------------------------
 # Distinct from exit 1 on purpose: a wrapper retries a missing issue and pages a
 # human for a broken configuration. Sharing a code makes both the wrong response.
-F_WF_BADCFG="$(new_fixture)"
+F_WF_BADCFG="$(gh_project)"
 write_config "$F_WF_BADCFG" <<'EOF'
 [routines]
 kind_precedence = bug
@@ -1025,15 +1113,14 @@ assert_contains "$wf_badcfg_out" "bug" \
 # -- outcome 6b: upstream label fault, exit 2 --------------------------------
 # A selector label the tracker never created makes every routine find nothing
 # and exit 0. That silent halt is the one this check exists to make loud.
-F_WF_GAP="$(new_fixture)"
+F_WF_GAP="$(gh_project)"
 write_config "$F_WF_GAP" <<'EOF'
 EOF
 write_labels "$F_WF_GAP" bug design-decision enhancement documentation now next in-progress
 cat > "$F_WF_GAP/ghdata/issues.json" <<'EOF'
-[{"number":30,"title":"Crash","state":"OPEN","url":"https://github.com/o/r/issues/30",
+[{"number":30,"title":"Crash","state":"open","html_url":"https://github.com/o/r/issues/30",
   "labels":[{"name":"bug"}],"assignees":[],
-  "createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"",
-  "closedByPullRequestsReferences":[]}]
+  "created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}]
 EOF
 wf_gap_out="$(run_workflow "$F_WF_GAP" 30)"; wf_gap_code=$?
 assert_eq "2" "$wf_gap_code" \
@@ -1087,12 +1174,12 @@ done
 order_issue() {  # <number> <title> [extra-label]
   local extra=""
   if [ -n "${3:-}" ]; then extra=",{\"name\":\"$3\"}"; fi
-  printf '{"number":%s,"title":"%s","state":"OPEN","url":"https://github.com/o/r/issues/%s","labels":[{"name":"bug"}%s],"assignees":[],"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z","body":"","closedByPullRequestsReferences":[]}' \
+  printf '{"number":%s,"title":"%s","state":"open","html_url":"https://github.com/o/r/issues/%s","labels":[{"name":"bug"}%s],"assignees":[],"created_at":"2026-08-01T00:00:00Z","updated_at":"2026-08-01T00:00:00Z","body":""}' \
     "$1" "$2" "$1" "$extra"
 }
 
 new_order_fixture() {  # writes issues from stdin-ordered args
-  local d; d="$(new_fixture)"
+  local d; d="$(gh_project)"
   write_config "$d" <<'EOF'
 EOF
   write_labels "$d" bug enhancement design-decision simplify tech-debt documentation now next in-progress
@@ -1138,7 +1225,7 @@ assert_contains "$ranked_out" "candidate:     42 —" \
 
 # A task with no numeric external id sorts last rather than crashing the sort.
 # The local provider has no issue numbers at all, so this is its whole world.
-mixed_head="$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$SCRIPTS" "$PY" - <<'PYEOF'
+mixed_head="$("$PY" - <<'PYEOF'
 from registry.model import ExternalRef, Task, by_priority
 
 # Ids chosen so ALPHABETICAL order (aaa, mmm, zzz) is the exact reverse of the

@@ -9,7 +9,7 @@ sub-agent dispatch is required; every step runs inline.
    `claim` the candidate it returns. No candidate: stop, exit zero, no branch.
 2. Create the branch `routine_branch.py format plan <N> <title>` gives you.
 3. Run `task-registry show <N>` and hand its output to `/plan` as the interview
-   input. It writes `specs/<name>.md` and the `[ ] TDD:` tasks in
+   input. It writes `specs/<name>.md` and the slice rows in
    `tasks/todo.md`; confirm the plan yourself — nobody is watching.
 4. Run `/wrap-up-session`. It opens a **draft** PR with `Refs #N`, leaving the
    issue open for the routine that builds it.

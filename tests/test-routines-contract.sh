@@ -17,9 +17,11 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
+py_module .agents/skills/task-registry/scripts >/dev/null
+
 CANON=".agents/skills/wrap-up-session/references/routines.md"
 
-assert_eq "present" "$([ -f "$CANON" ] && echo present || echo missing)" \
+assert_file_exists "$CANON" \
   "Contract: $CANON exists"
 
 # --- the four routines, three active and one deferred ------------------------
@@ -79,6 +81,18 @@ assert_prose_contains "$CANON" "Closes #N" \
   "Contract: fix/improve PR bodies carry Closes #N"
 assert_prose_contains "$CANON" "draft" \
   "Contract: plan's terminal artifact is a draft PR"
+# A GITHUB_TOKEN merge fires no closing keyword (#146), so "the tracker closes the
+# issue when the PR merges" holds only for a human merge. The contract names the
+# registry's post-merge check and the permission it needs.
+CLOSURE="$(section_body "$CANON" "## Issue closure happens on merge")"
+assert_contains "$CLOSURE" "GITHUB_TOKEN" \
+  "Contract: closure names the GITHUB_TOKEN merge that fires no closing keyword"
+assert_contains "$CLOSURE" "task-registry closes" \
+  "Contract: closure names the registry's post-merge check"
+assert_contains "$CLOSURE" "stranded" \
+  "routines: a merge nobody ran closes after is caught by select's stranded line"
+assert_contains "$CLOSURE" "issues: write" \
+  "Contract: closure names the permission the check needs"
 
 # --- step lists: one shared spine, per-routine differences only --------------
 # The substance of AC8. Each active routine names an ordered, mandatory step list
@@ -132,10 +146,10 @@ for lane in improve refactor babysit; do
 done
 assert_contains "$crossing" "Unattended detection" \
   "AC1: the unattended rule keys on § Unattended detection"
-assert_contains "$crossing" "--file" \
-  "AC1: an unattended pre-flight files with --file"
-assert_contains "$crossing" "with no \`--approve\`" \
-  "AC1: the crossing section says the pre-flight passes no --approve"
+assert_contains "$crossing" '`> Issue:`' \
+  "AC1: an unattended run writes the claimed issue as > Issue:"
+assert_contains "$(printf '%s' "$crossing" | tr -s '[:space:]' ' ')" "files nothing" \
+  "AC1: the crossing section says the unattended run files nothing"
 assert_contains "$crossing" "no build prompt" \
   "AC1: an unattended run prints no build prompt"
 assert_contains "$crossing" "in place" \
@@ -189,13 +203,16 @@ for routine in plan fix improve simplify janitor architect tidy; do
     "Contract: $routine's section names its lane file"
   assert_eq "0" "$(printf '%s\n' "$section" | grep -cE '^\| [0-9]' || true)" \
     "Contract: $routine's section carries no step rows of its own"
-  assert_eq "present" "$([ -f "$LANES/$routine.md" ] && echo present || echo missing)" \
+  assert_file_exists "$LANES/$routine.md" \
     "Contract: lane file $LANES/$routine.md exists"
 done
 
-# The routines that produce code reach /build and /quality-gate; both are gates.
+# The routines that produce code reach /quality-gate; both are gates. improve
+# builds through /build; fix builds inside /debug, which runs its rows through /tdd.
+assert_file_contains "$LANES/fix.md" "/tdd" "Contract: fix's lane builds through /debug's /tdd run"
+assert_file_not_matches "$LANES/fix.md" '^[0-9]+\. `/build`' "Contract: fix's lane has no /build step"
 for routine in fix improve; do
-  assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
+  [ "$routine" = improve ] && assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
   assert_file_contains "$LANES/$routine.md" "/quality-gate" \
     "Contract: $routine's lane reaches /quality-gate"
   assert_file_contains "$LANES/$routine.md" "non-skippable" \
@@ -215,8 +232,7 @@ assert_contains "$plan_section" "deliberately absent" \
 # the table stays because it is what a human reads first, and this is what keeps
 # it honest.
 table_names="$(sed -nE 's/^\| `([a-z-]+)` \|.*/\1/p' "$CANON" | sort | paste -sd' ' -)"
-catalogue_view="$(PYTHONDONTWRITEBYTECODE=1 \
-  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -B -c '
+catalogue_view="$("$TEST_PYTHON" -c '
 from registry.lanes import catalogue
 c = catalogue()
 print(" ".join(c.routines))
@@ -286,8 +302,7 @@ contract_deferred="$(sed -nE 's/^\| `([a-z-]+)` \|.*\|[^|]*deferred[^|]*\|[[:spa
 assert_eq "build" "$contract_deferred" \
   "Contract: the Status column marks exactly one routine deferred"
 
-config_deferred="$(PYTHONDONTWRITEBYTECODE=1 \
-  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" "$TEST_PYTHON" -c '
+config_deferred="$("$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(sorted(DEFERRED_ROUTINES)))')"
 assert_eq "$contract_deferred" "$config_deferred" \
@@ -298,8 +313,7 @@ assert_eq "$contract_deferred" "$config_deferred" \
 for issue in 97 98; do
   assert_file_contains "$CANON" "#$issue" \
     "Contract: the deferral section cites #$issue"
-  assert_contains "$(PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" "$TEST_PYTHON" -c '
+  assert_contains "$("$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(DEFERRED_ROUTINES.values()))')" "#$issue" \
     "Contract: the deferral message workflow prints cites #$issue too"

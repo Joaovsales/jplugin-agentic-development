@@ -5,6 +5,7 @@ implementation_paths:
   - .agents/skills/plan/SKILL.md
   - .agents/skills/system-design-planning/SKILL.md
   - .agents/skills/build/SKILL.md
+  - .agents/skills/build/references/design-stack-gates.md
   - .agents/skills/verify-evidence/**
   - .agents/skills/wrap-up-session/SKILL.md
   - .agents/agents/frontend-developer.md
@@ -18,11 +19,12 @@ implementation_paths:
   - tests/test-design-stack-workflow.sh
   - tests/test-design-stack-evidence.sh
   - tests/test-design-stack-3d.sh
+  - tests/test-design-stack-video.sh
 ---
 
 # Spec: UI design stack for projects built with jplugin
 
-> Origin: user discussion · Designed 2026-10-01 · Status: implemented
+> Origin: user discussion · Designed 2026-10-01 · Status: implemented · Extended 2026-10-16 by specs/design-stack-hyperframes.md (HyperFrames as a fifth source)
 > Visual: specs/ui-design-stack.plan.html
 
 ## Problem
@@ -38,7 +40,7 @@ People building visual products with jplugin need a project-chosen design direct
 | Existing project | A project without `DESIGN.md` keeps its current visual language until its owner selects a direction; unattended work cannot silently apply spatial. | user | Existing-project fixture in `tests/test-design-stack-brief.sh` |
 | Distribution | Upstream packages install once at user scope; no upstream repository is copied into each project and normal design runs make no network fetch. | user | Setup/update tests with isolated home and offline run |
 | Updates | A deliberate update checks current upstream, records revisions, validates the candidate, and preserves the last working installation on failure. Existing project rules never change solely because tools update. | user | Failed-update and stable-brief fixtures |
-| Project choice | The project owner can browse all installed Taste styles/archetypes and awesome-design-md references, choose custom, and override a suitability warning. Impeccable commands and img2threejs are capabilities, not style entries. | user | Catalog enumeration and suitability fixtures |
+| Project choice | The project owner can browse all installed Taste styles/archetypes and awesome-design-md references, choose custom, and override a suitability warning. Impeccable commands, img2threejs and HyperFrames skills are capabilities, not style entries. | user | Catalog enumeration and suitability fixtures |
 | Major UI review | A new screen/route or a substantial redesign has a reviewable concept before build; a localized UI change follows the approved brief. | user | Planning-skill contract tests and concept fixture |
 | Concept approval | A major-UI build starts only from an owner-started build prompt that names the reviewed concept digest; build records a receipt tied to that digest, and unattended runs wait for owner approval. | user | Concept-digest and approval-receipt fixture |
 | Production 3D | img2threejs runs only when requested or called for by the brief; production image-to-3D output passes its strict gates, while incomplete work is labeled prototype. | user | 3D gate fixture and skill contract test |
@@ -109,7 +111,7 @@ design-stack setup|update -> Ready(revisions, catalog_path)
 
 | Aspect | Contract |
 |--------|----------|
-| Inputs | User-scope install path, official Taste/Impeccable installers, shared awesome-design-md and img2threejs sources; `update` is explicit. |
+| Inputs | User-scope install path, official Taste/Impeccable installers, shared awesome-design-md, img2threejs and HyperFrames sources (HyperFrames cloned shallow, read in place); `update` is explicit. |
 | Outcomes | A verified revision set becomes current, or the prior current set remains intact with a named reason. First-time offline setup reports `SetupRequired`. |
 | Raises | Programmer/configuration faults; expected network and validation failures are outcomes. |
 | Idempotency | The upstream revision set is the key; an already-current set is a no-op. |
@@ -126,7 +128,7 @@ select(project, direction_id, reference_ids) -> Brief(path) | SelectionRejected(
 | Aspect | Contract |
 |--------|----------|
 | Inputs | Installed Taste skill frontmatter/archetypes, installed awesome-design-md `DESIGN.md` files, local spatial/custom recipes; explicit owner selection. |
-| Outcomes | All discovered options appear in a browsable catalog. A fit warning is advisory and overrideable. Impeccable commands and img2threejs are listed as tools, not directions. |
+| Outcomes | All discovered options appear in a browsable catalog. A fit warning is advisory and overrideable. Impeccable commands, img2threejs and HyperFrames skills are listed as tools, not directions. |
 | Raises | Invalid catalog schema or unsafe path outside the shared install. |
 | Idempotency | Listing is read-only; selection of an unchanged brief is a no-op. |
 | Versioning | `DESIGN.md` carries a v1 heading/field contract; later readers keep accepting v1. |
@@ -182,7 +184,7 @@ publish_ui_evidence(task_id, commit_sha, review_context) -> Published(url, expir
 | Field | Type | Invariant | Enforced by |
 |-------|------|-----------|-------------|
 | `id` | stable namespaced string | Unique within installed catalog | Catalog validator |
-| `kind` | `direction`, `archetype`, `reference`, `tool` | Impeccable commands and img2threejs are tools, not primary directions | Catalog constructor |
+| `kind` | `direction`, `archetype`, `reference`, `tool` | Impeccable commands, img2threejs and HyperFrames skills (`hyperframes:<skill>`) are tools, not primary directions or references | Catalog constructor |
 | `source_revision` | revision string | Matches the manifest source | Catalog validator |
 | `fit` | use-case description | Warning never silently removes an owner-selectable direction | Selection flow |
 
@@ -257,7 +259,7 @@ Invoke `/build` for `specs/ui-design-stack.md`.
 Plan: `## Plan: ui-design-stack` in `tasks/todo.md`, 9 slices, ready set 1.
 Files: .agents/skills/design-stack/**, .agents/skills/prd/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/verify-evidence/**, .agents/skills/wrap-up-session/SKILL.md, .agents/agents/frontend-developer.md, .agents/agents/frontend-design-validator.md, .claude/agents/frontend-developer.md, .claude/agents/frontend-design-validator.md, README.md, tests/test-design-stack-install.sh, tests/test-design-stack-catalog.sh, tests/test-design-stack-brief.sh, tests/test-design-stack-workflow.sh, tests/test-design-stack-evidence.sh, tests/test-design-stack-3d.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/ui-design-stack.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
@@ -280,9 +282,9 @@ Constraints: UI projects only; spatial is a new-project default; existing visual
 
 ## Acceptance Criteria
 
-- AC 1. A one-time user-scope setup makes the upstream Taste and Impeccable skills/commands, awesome-design-md references, and img2threejs capability available through jplugin without copying upstream repositories into projects; normal UI runs work offline after setup.
+- AC 1. A one-time user-scope setup makes the upstream Taste and Impeccable skills/commands, awesome-design-md references, img2threejs and HyperFrames capabilities available through jplugin without copying upstream repositories into projects; normal UI runs work offline after setup, and a manifest written before a source was added stays valid offline until an explicit `update`.
 - AC 2. An explicit update discovers upstream revisions, validates a candidate installation and catalog, records the revisions, and keeps the prior verified installation usable when the candidate fails or times out.
-- AC 3. The catalog lists every installed Taste style and archetype plus every installed awesome-design-md reference without a fixed three-prototype or reference count; `spatial` and `custom` are available; Impeccable commands and img2threejs are tools rather than primary styles.
+- AC 3. The catalog lists every installed Taste style and archetype plus every installed awesome-design-md reference without a fixed three-prototype or reference count; `spatial` and `custom` are available; Impeccable commands, img2threejs and HyperFrames skills are tools rather than primary styles.
 - AC 4. A project owner can select one direction, optional references and a custom brief from the browsable catalog; unsuitable combinations show an overrideable fit warning.
 - AC 5. New UI projects save their choice in `DESIGN.md` with spatial preselected; existing UI projects without a brief retain their current look and require one owner choice before UI planning; backend/CLI projects do not enter the design flow.
 - AC 6. A project's approved palette, type, layout and motion rules remain in `DESIGN.md` across tool updates; a design refresh changes them only through an explicit owner choice.
@@ -297,7 +299,7 @@ Constraints: UI projects only; spatial is a new-project default; existing visual
 
 - `.agents/skills/design-stack/**` — canonical design adapter, shared setup/update/catalog tooling and references, distributed by the existing plugin/install/sync paths.
 - `.agents/skills/prd/SKILL.md`, `.agents/skills/plan/SKILL.md`, `.agents/skills/system-design-planning/SKILL.md` — project choice and concept before build.
-- `.agents/skills/build/SKILL.md`, `.agents/agents/frontend-developer.md`, `.agents/agents/frontend-design-validator.md`, `.claude/agents/frontend-developer.md`, `.claude/agents/frontend-design-validator.md` — implementation and design review context.
+- `.agents/skills/build/SKILL.md`, `.agents/skills/build/references/design-stack-gates.md` (the UI pre-flight and the 3D and video gates), `.agents/agents/frontend-developer.md`, `.agents/agents/frontend-design-validator.md`, `.claude/agents/frontend-developer.md`, `.claude/agents/frontend-design-validator.md` — implementation and design review context.
 - `.agents/skills/verify-evidence/**`, `.agents/skills/wrap-up-session/SKILL.md` — Playwright evidence and UI completion gate after CLI merge.
 - `README.md` — discoverability; the brief template lives inside the design skill and is written only for UI projects.
 - `tests/test-design-stack-install.sh`, `tests/test-design-stack-catalog.sh`, `tests/test-design-stack-brief.sh`, `tests/test-design-stack-workflow.sh`, `tests/test-design-stack-evidence.sh`, `tests/test-design-stack-3d.sh` — behavioral and integration checks.

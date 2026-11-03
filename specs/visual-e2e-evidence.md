@@ -191,7 +191,7 @@ This works in every project the harness runs in. Nothing is specific to one app.
    wrap-up still creates the PR. Pinned by a fixture that advances the remote
    between fetch and push.
 10. `/wrap-up-session` § *The Pull Request* inserts the publisher's section into
-    the PR body before `gh pr create` and on every re-sync, passing the
+    the PR body before `gh_pr.py create` and on every re-sync, passing the
     short-sha § *E2E coverage* checked. The wrap-up report carries an
     `Evidence:` line (`published <n> to <owner/repo>` plus a `public repo` or
     `visibility unknown` marker, or `local <n>`, `none`, or `publish failed`).
@@ -240,7 +240,7 @@ Invoke `/build` for `specs/visual-e2e-evidence.md`.
 Plan: `## Plan: visual-e2e-evidence` in `tasks/todo.md`, 5 slices, ready set 1, 3, 5.
 Files: .claude/browsers/playwright-cli.md, .agents/skills/verify-evidence/SKILL.md, .agents/skills/verify-evidence/scripts/e2e_evidence.py, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/scripts/publish_evidence.py, install.sh, .gitignore, project-template/.gitignore, tests/test-browser-runbook.sh, tests/test-e2e-classifier.sh, tests/test-e2e-evidence.sh, tests/test-publish-evidence.sh, tests/test-install-sh.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/visual-e2e-evidence.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

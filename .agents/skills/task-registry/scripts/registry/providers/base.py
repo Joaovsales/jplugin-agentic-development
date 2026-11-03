@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence
 
 from ..model import ExternalRef, Task
 
@@ -139,6 +139,11 @@ class TrackerProvider(abc.ABC):
         """How this tracker's reference is written in prose. `PROJ-7`, `#42`, ..."""
         return ref.id
 
+    @classmethod
+    def keyword_reference(cls, raw: str) -> Optional[str]:
+        """`raw` as a PR's `Closes` keyword takes it, or None: only a tracker that closes issues from a PR body has one."""
+        return None
+
     def __init__(self, config, gate: Optional[WriteGate] = None) -> None:
         self.config = config
         self.gate = gate or WriteGate()
@@ -163,6 +168,21 @@ class TrackerProvider(abc.ABC):
     def list_tasks(self) -> List[Task]:
         ...
 
+    def linked_pr_state(self, task: Task) -> Optional[Dict[str, str]]:
+        """What this task's linked pull requests say about it, or None when unknown.
+
+        Only `select` asks, and only for a routine's own candidates: the read
+        can cost a tracker one call per task, so the plain reads never pay it.
+        The answer carries `unresolved_linked_pr` ("true" while any pull
+        request for the task is open) and, when none is open,
+        `merged_linked_pr` naming a pull request of this repository that merged
+        with a closing keyword and left the task open. None means the state
+        could not be read this run, and the caller refuses rather than treat it
+        as clean. A tracker whose `linked_pr_exclusion_available()` is None is
+        never asked.
+        """
+        return None
+
     @abc.abstractmethod
     def get_task(self, ref: ExternalRef) -> Task:
         ...
@@ -170,6 +190,16 @@ class TrackerProvider(abc.ABC):
     @abc.abstractmethod
     def resolve_reference(self, raw: str) -> Optional[ExternalRef]:
         """Turn '#42', 'PROJ-7', or a URL into a reference this provider owns."""
+
+    def closing_references(self, raw: str) -> Sequence[ExternalRef]:
+        """The tasks a merged pull request links with a closing keyword, open or closed.
+
+        Not abstract: only a tracker with pull requests can answer, the same way
+        `add_labels` is optional. Raises when `raw` is not a merged pull request,
+        or when it links a task this tracker cannot write, so a caller never
+        closes a subset believing it closed them all.
+        """
+        raise ProviderError(f"{self.name}: has no pull requests, so no merge closes a task here")
 
     # -- writes --------------------------------------------------------------
     @abc.abstractmethod

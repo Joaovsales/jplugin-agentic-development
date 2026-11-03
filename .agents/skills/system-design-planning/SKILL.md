@@ -144,12 +144,15 @@ checked against them:
 
 | Section | Must contain | Question it answers for the reviewer |
 |---|---|---|
+| Summary | two to four sentences: what changes, for whom, and the one decision the reviewer must not miss | what am I approving? |
 | Constraints | one row per constraint: value, source (`issue` / `user` / `inferred`), how a violation would be detected | which correct designs are wrong here? |
 | System design | ownership table (component → the facts it is the source of truth for); interaction sketch with sync/async and the failure unit per arrow | who owns what, and what fails together? |
 | Component contracts | per boundary: signature in the project's language, outcomes vs exceptions, idempotency, versioning | can the caller ignore a case it must handle? |
 | Data models | entities with invariants; illegal-state list with the construct that forbids each; a transition table for every status field; migration and compatibility | which field combinations are nonsense, and does the type forbid them? |
+| Risks | one row per risk: `ID`, likelihood and impact as H/M/L, mitigation, the slice that carries it — or `None identified — <why>` | what could still go wrong, and who catches it? |
 | Build order | left empty here — `/slice` fills it in Step 3.5; its Delivers text is where "contract exposed" lives, since its table has no separate column for it | can each slice ship alone, and is the riskiest unknown first? |
-| Decisions | hard-to-reverse choices, recommended option, what makes each option wrong | what is expensive to change later? |
+| Decisions | hard-to-reverse choices with `ID` and `Status` (`settled` / `open`), recommended option, what makes each option wrong | what is expensive to change later? |
+| Open questions | `ID`, the question, the slices it `Blocks` (or `none`), who it is needed from | what must be answered before which slice? |
 | Acceptance Criteria, Implementation Paths | the `/plan` living-contract format, present tense, plain bullets, `implementation_paths` frontmatter | — |
 
 Rules that make the spec reviewable rather than readable:
@@ -159,20 +162,29 @@ Rules that make the spec reviewable rather than readable:
   an external call can time out.
 - Every cross-boundary call states its behaviour on timeout and on duplicate
   delivery.
+- The spec carries at least one `flow` diagram under § System design and
+  a `sequence` diagram for each changed external contract or cross-component failure path,
+  both as fenced `flow` / `sequence` blocks the renderer draws, never as ASCII art.
+- An `open` decision or a question that `Blocks` a slice keeps `/slice` from
+  printing a build prompt: settle it, or it stays the reviewer's blocker.
 - Build order is `/slice`'s job (Step 3.5), not this one's — sizing and
   ordering rules live in `.agents/skills/slice/references/sizing.md`.
+
+**Write it to be read:** remove repetition, empty qualifiers and workflow
+narration from the spec — it states the design, not how the session reached
+it — and write connected sentences, not slash-packed shorthand: "the relay
+retries until the outbox row is acknowledged" over "relay/retry/ack".
 
 Required output: `✓ Spec written: /absolute/path/specs/<feature>.md`
 
 ### 3.5. Slice the Spec
 
-Invoke `/slice specs/<feature>.md --issue #N`. This runs before Step 6 so the
-rendered HTML carries § Build Order and the build prompt. It sizes the
-spec's acceptance criteria into session-sized slices, writes § Build Order
-and the plan block into `tasks/todo.md` per its own grammar, and prints the
-build prompt — see `.agents/skills/slice/SKILL.md` for what each output
-means and how it is written. This skill does not size slices, write a plan
-block, or print a build prompt itself.
+Invoke `/slice specs/<feature>.md --issue #N`. Its Required output —
+§ Build Order, the plan block in `tasks/todo.md`, the rendered page and the
+build prompt — is what this step prints; `.agents/skills/slice/SKILL.md`
+§ *Required output* says what each line means. This skill does not size
+slices, write a plan block, or print a build prompt itself. Step 6 renders the
+page again, because Steps 4 and 5 edit the spec after this call.
 
 ### 4. Self-review
 
@@ -208,31 +220,41 @@ saying the pass was skipped and why.
 
 ### 6. Render (MUST persist)
 
-Build the content model from `templates/content-model.json`: the same sections
-in the same order; summary cards for components touched, contracts new or
-changed, entities new or changed, slices, and open decisions. Diagrams and
-tables go in fenced ```text blocks — the generator escapes raw HTML and does
-not render markdown tables. Write the model to the session scratchpad, never
-into `specs/`: it is rebuilt from the spec on every render, and only the spec
-and the HTML persist. Reference URLs are relative to `specs/`, where the HTML
-lives: the spec is `<feature>.md`, and a path into the skill tree climbs one
-level first.
-
-Before rendering, check the model against the spec: every `## ` heading,
-every contract signature and every *Decisions* row in the spec appears in
-the model. Approval attaches to the HTML, so a row the render dropped is a
-defect in the render, and the reviewer never sees the contract `/build` holds.
+Render the page from the spec itself — no content model, no copy of the
+sections, nothing written to the scratchpad:
 
 ```bash
-python3 .agents/skills/visual-recap/scripts/visual-render.py \
-    --input <model.json> \
-    -o specs/<feature>.plan.html
+python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html
 ```
+
+The renderer types the known sections (Summary, Decisions, Acceptance
+Criteria, Risks, Open questions, Constraints, Component contracts, Data
+models, Build Order), turns `flow` and `sequence` fences into SVG diagrams and
+renders tables as tables, so diagrams and tables are written as ordinary
+markdown. A malformed known section fails the render with `<spec>:<line>:
+<reason>` and writes no page: fix that line in the spec and render again,
+because approval attaches to a page that shows every row the spec holds.
 
 The render is committed beside the spec, not gitignored: approval attaches to
 it, so the reviewed document must survive in history the way the spec does.
 
 Required output: `✓ Visual written: /absolute/path/specs/<feature>.plan.html`
+
+Then the architecture diagram, part of the deliverable when the tool is
+installed: invoke `/diagram` for the spec's § System design, so it lands
+beside the spec as `specs/<feature>.architecture.html` (candidate
+`specs/<feature>.architecture.json`) and is committed with it. The spec's
+fenced `flow` / `sequence` blocks are unchanged — the renderer still draws
+them inline. When `/diagram`'s resolver exits non-zero — the tool absent
+(its note carries the install command), or `node` missing or older than 18 —
+relay its note as one line and go on: the spec and its rendered plan are the
+deliverable either way, and the session continues to Step 7. When `finalize`
+fails and upstream's repair is exhausted, report the failing gate the same way
+and continue.
+
+Required output: `✓ Diagram written: /absolute/path/specs/<feature>.architecture.html`,
+`○ Diagram skipped: <the resolver's note, verbatim>`, or
+`○ Diagram failed: <the failing gate>`
 
 ### 7. Review Loop
 
@@ -255,15 +277,16 @@ files nothing and builds nothing either way.
 
 ### 9. Hand off
 
-The build session files the slices first, through `/build`'s pre-flight
-(`/slice specs/<feature>.md --file --approve`) — this planning session filed
-nothing. `/build` then runs the plan block `/slice` wrote top to bottom: the
-`- [ ]` row under each `### Slice` heading is a slice header, claimed
-through `/task-registry` when its first `TDD:` child starts and closed when
-the last one passes, never dispatched to a coder directly — see
-`.agents/skills/slice/SKILL.md` for the plan block's grammar. `/build` does
-not read the filed task body, so the plan block is self-sufficient: every
-`[ ] TDD:` row names the criterion it pins. When an implementation
+The build session links the feature issue first, through `/build`'s
+pre-flight (one `upsert --derive-id plan`, only when the plan's feature row
+has no link) — this planning session filed nothing. `/build` then runs the
+plan block `/slice` wrote top to bottom, dispatching every slice to a
+sub-agent: the `- [ ]` row under each `### Slice` heading is a slice header,
+closed when the slice's criteria pass, never dispatched to a coder directly —
+see `.agents/skills/slice/SKILL.md` for the plan block's grammar. `/build`
+does not read the filed task body, so the spec and the plan block are
+self-sufficient: each slice's Delivers and acceptance criteria come from
+§ Build Order. When an implementation
 contradicts the spec, `/build` stops and the change comes back here — the
 spec is the contract, and `/wrap-up-session` reconciles it when the
 implementation surface moves.
@@ -297,7 +320,7 @@ implementation surface moves.
   bar. Not a replacement for `/debug` (bugs) or `/prd` (greenfield projects).
 - **Calls**: `task-registry show` (intake, Step 1); `/grilling` (§2.5);
   `/slice` (Step 3.5, which owns sizing, the plan block and filing);
-  `.agents/skills/visual-recap/scripts/visual-render.py` (render); `critic` (Step 5).
+  `.agents/skills/visual-plan/scripts/plan_render.py` (render, Step 6); `critic` (Step 5).
 - **Precedes**: `/build`, which a fresh session starts with the build prompt
   this skill prints; that session, not this one, files the plan block and the
   slice tasks. `/auto-push` and `/yolo` still start from `/plan`; this skill is

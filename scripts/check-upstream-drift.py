@@ -32,6 +32,7 @@ MAX_GIT_FILE_BYTES = 512 * 1024 * 1024
 MAX_GIT_MEMORY_BYTES = 1024 * 1024 * 1024
 COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
+SOURCE_KINDS = ("vendored", "installed")
 CHECK_DEADLINE = float("inf")
 
 
@@ -40,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--registry", default=".github/upstreams.json")
     parser.add_argument("--repository-root")
     parser.add_argument("--deadline-seconds", type=float, default=CHECK_DEADLINE_SECONDS)
+    parser.add_argument("--validate", action="store_true", help="validate the registry only; no Git or network")
     return parser.parse_args()
 
 
@@ -80,6 +82,15 @@ def validate_paths(source: dict[str, Any], index: int) -> list[str]:
     return errors
 
 
+def validate_kind(source: dict[str, Any], index: int) -> list[str]:
+    kind = source.get("kind", "vendored")
+    if kind not in SOURCE_KINDS:
+        return [f'sources[{index}].kind must be "vendored" or "installed"']
+    if kind == "installed" and "paths" in source:
+        return [f'sources[{index}].paths is not allowed when kind is "installed"']
+    return []
+
+
 def validate_identity(fields: dict[str, str], index: int, seen: set[str]) -> list[str]:
     errors = []
     source_id = fields["id"]
@@ -117,6 +128,7 @@ def validate_source(source: object, index: int, seen: set[str]) -> list[str]:
     notice = source.get("source_notice")
     if not safe_relative(notice):
         errors.append(f"sources[{index}].source_notice must be a safe relative path")
+    errors.extend(validate_kind(source, index))
     errors.extend(validate_paths(source, index))
     return errors
 
@@ -394,6 +406,8 @@ def main() -> int:
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 2
+    if arguments.validate:
+        return 0
     failures = []
     for source in registry["sources"]:
         failures.extend(check_source(source))

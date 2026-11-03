@@ -13,7 +13,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 SETTINGS="$REPO/.claude/settings.json"
 
-report="$(PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" - "$SETTINGS" <<'PY'
+report="$("$TEST_PYTHON" - "$SETTINGS" <<'PY'
 import json, sys
 try:
     data = json.load(open(sys.argv[1], encoding="utf-8"))

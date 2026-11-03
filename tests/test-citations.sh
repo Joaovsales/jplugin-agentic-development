@@ -96,8 +96,8 @@ check_headings() {  # check_headings <file> <heading>...
   assert_eq "$expected" "$actual" "Citations: $f carries its fixed ## headings in order"
 }
 check_headings .agents/references/finding-model.md \
-  "Four axes" "Emission format" "Confidence anchors" "Gates" \
-  "Resolving an anchor-75 finding" "Independence Accounting"
+  "Four axes" "Emission format" "Expected load" "Confidence anchors" "Gates" \
+  "Deferrals" "Resolving an anchor-75 finding" "Independence Accounting"
 check_headings .agents/references/review-dispatch-contract.md \
   "The seven items" "Empty is not absent" "Bounded items" "Repo-survey dispatch" \
   "Share intent, withhold conclusions"

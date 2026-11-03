@@ -49,15 +49,15 @@ for book in $RUNBOOKS; do
   # `fidelity` is the field the classifier gates on. Anything outside the
   # enumeration would route ACs by an unrecognised value.
   case "$(field "$fm" fidelity)" in
-    dom|full) assert_eq "valid" "valid" "$book: fidelity is dom|full" ;;
-    *)        assert_eq "valid" "invalid: '$(field "$fm" fidelity)'" "$book: fidelity is dom|full" ;;
+    dom|full) pass "$book: fidelity is dom|full" ;;
+    *)        fail "$book: fidelity is dom|full" "invalid: '$(field "$fm" fidelity)'" ;;
   esac
 
   # `screenshot` says whether a VISUAL PASS can have its PNG on disk: only
   # `file` can. `session` (an id in the harness) and `none` cannot.
   case "$(field "$fm" screenshot)" in
-    file|session|none) assert_eq "valid" "valid" "$book: screenshot is file|session|none" ;;
-    *)                 assert_eq "valid" "invalid: '$(field "$fm" screenshot)'" "$book: screenshot is file|session|none" ;;
+    file|session|none) pass "$book: screenshot is file|session|none" ;;
+    *)                 fail "$book: screenshot is file|session|none" "invalid: '$(field "$fm" screenshot)'" ;;
   esac
 done
 

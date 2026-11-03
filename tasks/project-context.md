@@ -6,11 +6,13 @@
 **Structure**:
 - `.agents/skills/` — canonical, harness-neutral skills
 - `.agents/skills/design-stack/` — shared UI source setup, dynamic catalog, and project-owned `DESIGN.md` adapter
+- `.agents/skills/diagram/` — `/diagram` over Archify, a tool pinned under `$ARCHIFY_HOME` by `install.sh` and the `installed` entry of `.github/upstreams.json`; never vendored
 - `.claude/agents/` — specialized subagents
 - `.claude-plugin/` — plugin manifest: the canonical tree ships to Claude Code as the `jplugin` plugin
 - `.claude/hooks/` — lifecycle automation
 - `.github/upstreams.json` — registered upstream sources and pinned baselines
 - `.github/workflows/` — repository automation, including upstream drift checks
+- `mods/` — Claude Code mods (function-hook plugins validated by `claude plugin validate`): `factory-board`, `session-viz`
 - `scripts/` — standard-library and shell maintenance utilities
 - `specs/` — feature specifications and acceptance criteria
 - `tasks/solutions/` — typed, grep-first learning store

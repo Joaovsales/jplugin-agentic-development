@@ -3,12 +3,13 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-box="$(mktemp -d)"
-trap 'rm -rf "$box"' EXIT
+py_module .agents/skills/design-stack/scripts >/dev/null
+box="$(fixture_dir)"
 export DESIGN_STACK_REPO="$REPO" DESIGN_STACK_FIXTURE="$box"
 
 printf '\n--- stable project brief ---\n'
-out="$("$TEST_PYTHON" - <<'PY' 2>&1
+lifecycle() {
+"$TEST_PYTHON" - <<'PY'
 import contextlib
 import io
 import os
@@ -36,7 +37,7 @@ old = {"schema_version": 1, "sources": {"taste": "old"}, "current": "old"}
 design_stack.current_manifest = lambda: old
 design_stack.stage_release = lambda stage: {"taste": "new"}
 design_stack.install_skills = lambda stage: None
-design_stack.validate = lambda stage: None
+design_stack.validate = lambda stage, installed: None
 design_stack.build_catalog = lambda stage, revisions: []
 design_stack.promote = lambda stage, revisions: {"current": "new"}
 sys.argv = ["design_stack.py", "update"]
@@ -133,9 +134,19 @@ else:
 assert not (existing / "DESIGN.md").exists()
 assert onboard_project(root / "backend", "backend") is None
 assert not (root / "backend/DESIGN.md").exists()
+from brief import validated_choice
+for rejected_choice in ({"direction": "hyperframes:motion-graphics", "references": []},
+                        {"direction": "spatial", "references": ["hyperframes:hyperframes"]}):
+    try:
+        validated_choice(rejected_choice)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(f"HyperFrames tool accepted in a brief: {rejected_choice}")
 print("brief stable across update; refresh requires owner choice")
 PY
-)"; status=$?
-assert_eq 0 "$status" "brief lifecycle"
-assert_contains "$out" "brief stable across update" "brief lifecycle evidence"
+}
+run lifecycle
+assert_exit 0 "brief lifecycle"
+assert_contains "$output" "brief stable across update" "brief lifecycle evidence"
 finish

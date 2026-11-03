@@ -1,0 +1,7 @@
+{
+  "name": "session-viz",
+  "version": "0.1.0",
+  "author": { "name": "jplugin-agentic-development maintainers" },
+  "description": "One docked pane showing how a jplugin session is going: the workflow phase and /go route, slice progress from tasks/todo.md, the sub-agent tree with a brief-plus-footprint drill-down, and the quality gates. Observe-only.",
+  "types": "./types/index.d.ts"
+}

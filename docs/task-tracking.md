@@ -42,7 +42,7 @@ simplify = simplify
 ; that should not send a correctly labelled issue back to triage.
 [routines.skills]
 plan = /plan, /wrap-up-session
-fix = /debug, /build, /quality-gate, /wrap-up-session
+fix = /debug, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
 simplify = /make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session
@@ -50,4 +50,4 @@ build = /build, /quality-gate, /wrap-up-session
 
 ## Credentials
 
-None are read from this file. GitHub uses whatever `gh auth status` reports.
+None are read from this file. GitHub uses whatever credential `gh api user` succeeds with.

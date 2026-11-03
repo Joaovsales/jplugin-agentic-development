@@ -45,21 +45,21 @@ for tree in $TREES; do
     "Chain: $tree/quality-gate dispatches software-design-expert-review"
 done
 
-# ── /system-design-planning -> /grilling, /slice, visual-render.py, /build ───
+# ── /system-design-planning -> /grilling, /slice, plan_render.py, /build ─────
 # The supervised architecture entry point. It is interchangeable with /plan
 # downstream only while these handoffs stay written: intake reads through the
 # registry (never a tracker CLI), §2.5 interviews through /grilling, Step
 # 3.5 sizes and files through /slice (which now owns the upsert call this pin
-# used to sit on), the review document renders through the shared
-# post-processor, and the plan /slice writes lands where /build reads it.
+# used to sit on), the review document renders through the visual-plan
+# renderer, and the plan /slice writes lands where /build reads it.
 for tree in $TREES; do
   f="$tree/skills/system-design-planning/SKILL.md"
   assert_file_contains "$f" "task-registry.py show" \
     "Chain: $tree/system-design-planning reads issues through task-registry"
   assert_file_matches "$f" '^Invoke `/slice' \
     "Chain: $tree/system-design-planning invokes /slice"
-  assert_file_contains "$f" ".agents/skills/visual-recap/scripts/visual-render.py" \
-    "Chain: $tree/system-design-planning renders through visual-render.py"
+  assert_file_contains "$f" ".agents/skills/visual-plan/scripts/plan_render.py" \
+    "Chain: $tree/system-design-planning renders through plan_render.py"
   assert_file_contains "$f" "### 9. Hand off" \
     "Chain: $tree/system-design-planning hands off to /build"
   assert_file_contains "$f" "tasks/todo.md" \
@@ -114,19 +114,19 @@ for tree in $TREES; do
     assert_file_matches "$f" '`blocked`.*STOP' \
       "Chain: $tree/$skill stops when maintenance is blocked"
     if [ -n "${maintain_line:-}" ] && [ -n "${verify_line:-}" ] && [ "$maintain_line" -lt "$verify_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before e2e"
+      pass "Chain: $tree/$skill maintains before e2e"
     else
       assert_eq "maintenance before e2e" "${maintain_line:-missing} / ${verify_line:-missing}" \
         "Chain: $tree/$skill maintains before e2e"
     fi
     if [ -n "${maintain_line:-}" ] && [ -n "${full_test_line:-}" ] && [ "$maintain_line" -lt "$full_test_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before full tests"
+      pass "Chain: $tree/$skill maintains before full tests"
     else
       assert_eq "maintenance before full tests" "${maintain_line:-missing} / ${full_test_line:-missing}" \
         "Chain: $tree/$skill maintains before full tests"
     fi
     if [ -n "${maintain_line:-}" ] && [ -n "${review_line:-}" ] && [ "$maintain_line" -lt "$review_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before review"
+      pass "Chain: $tree/$skill maintains before review"
     else
       assert_eq "maintenance before review" "${maintain_line:-missing} / ${review_line:-missing}" \
         "Chain: $tree/$skill maintains before review"
@@ -145,7 +145,7 @@ for tree in $TREES; do
                 "### Quality receipt" "### Full suite"; do
     line=$(grep -nF -- "$anchor" "$f" | head -1 | cut -d: -f1)
     if [ -n "${line:-}" ] && [ "$line" -gt "$prev" ]; then
-      assert_eq "ordered" "ordered" "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
+      pass "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
       prev=$line
     else
       assert_eq "after line $prev" "${line:-missing}" \
@@ -214,16 +214,16 @@ for tree in $TREES; do
     "Chain: $tree/plan never itself invokes /build"
 done
 
-# ── /build -> /slice ──────────────────────────────────────────────────────
-# specs/plan-slices-and-handover.md AC12. /build's pre-flight files any
-# unlinked slice header through /slice --file --approve, in the session the
-# build prompt started -- the authorization the planning session never had.
+# ── /build -> task-registry upsert ────────────────────────────────────────
+# specs/aposd-first-build.md AC4. /build's pre-flight upserts the feature row
+# once, in the session the build prompt started -- the authorization the
+# planning session never had. /slice has no --file mode to invoke.
 for tree in $TREES; do
   f="$tree/skills/build/SKILL.md"
-  assert_file_matches "$f" '^Invoke `/slice' \
-    "Chain: $tree/build invokes /slice"
-  assert_file_contains "$f" "--file --approve" \
-    "Chain: $tree/build's /slice invocation carries --file --approve"
+  assert_file_contains "$f" "task-registry.py upsert <id>" \
+    "Chain: $tree/build's pre-flight upserts the feature row through task-registry"
+  assert_file_not_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/build no longer invokes /slice"
 done
 
 # ── /brainstorm -> /grilling, /grill-me -> /grilling, /system-design-planning -> /grilling ───

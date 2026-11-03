@@ -48,6 +48,14 @@
         "skills/engineering/domain-modeling/SKILL.md"
       ],
       "source_notice": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "id": "archify",
+      "kind": "installed",
+      "url": "https://github.com/tt-a1i/archify.git",
+      "ref": "refs/tags/v3.2.0",
+      "baseline": "208acba8d412335185b2056fedf54b3405df43fb",
+      "source_notice": "THIRD_PARTY_NOTICES.md"
     }
   ]
 }

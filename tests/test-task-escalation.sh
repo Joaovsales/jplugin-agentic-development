@@ -1,15 +1,11 @@
 #!/bin/bash
 . "$(dirname "$0")/lib.sh"
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPTS="$REPO/.agents/skills/task-registry/scripts"
+SCRIPTS="$(under_test .agents/skills/task-registry/scripts)"
 CLI="$SCRIPTS/task-registry.py"
 PY="$TEST_PYTHON"
-TMP_DIRS=()
-cleanup() { local d; for d in "${TMP_DIRS[@]:-}"; do [ -n "$d" ] && rm -rf "$d"; done; }
-trap cleanup EXIT
 
-P="$(mktemp -d)"; TMP_DIRS+=("$P")
+P="$(fixture_dir)"
 mkdir -p "$P/tasks"
 printf '# Tasks\n' > "$P/tasks/todo.md"
 PYTHONPATH="$SCRIPTS" "$PY" - "$P" <<'PY'
@@ -37,7 +33,7 @@ assert_contains "$dry" "hold: preview" "AC10: preview names the intended hold st
 
 report_refusal="$("$PY" "$CLI" "${COMMON[@]}" --report "$P/report.md" 2>&1)"; report_code=$?
 assert_eq "2" "$report_code" "AC10: escalate rejects the shared --report option as usage"
-assert_eq "absent" "$([ -e "$P/report.md" ] && echo present || echo absent)" \
+assert_file_absent "$P/report.md" \
   "AC10: rejected --report never reaches the shared output writer"
 
 bad_pair="$("$PY" "$CLI" escalate parent.bug --repo "$P" --reason verification-blocked \
@@ -129,7 +125,7 @@ assert_eq "$blocker_files_before" "$(find "$P/tasks/details" -name 'routine-bloc
 assert_eq "$blocker_rows_before" "$(grep -c 'routine-blocker\.' "$P/tasks/todo.md")" \
   "AC10: escaping blocker source writes no index row"
 
-outside_runs="$(mktemp -d)"; TMP_DIRS+=("$outside_runs")
+outside_runs="$(fixture_dir)"
 rm -rf "$P/tasks/routine-runs"
 ln -s "$outside_runs" "$P/tasks/routine-runs"
 artifact_failure="$("$PY" "$CLI" "${COMMON[@]}" --apply 2>&1)"; artifact_failure_code=$?

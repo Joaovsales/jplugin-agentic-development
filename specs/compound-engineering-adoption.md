@@ -86,8 +86,10 @@ relevant to what it is doing. This is the point of the whole change: today
 `session-start.sh` dumps all of `tasks/memory.md` into context on every session,
 and that cost grows monotonically with the project's age.
 
-Before writing, `/learn` scores overlap against existing documents across five
-dimensions (problem, root cause, solution, files touched, prevention rule):
+Before writing, `/learn` scores overlap against existing documents across the
+five dimensions of the candidate's track — `/learn` Step 4 lists the bug-track
+and knowledge-track sets — and a document on the other track scores Moderate at
+most:
 
 | Score | Dimensions matched | Action |
 |-------|-------------------|--------|

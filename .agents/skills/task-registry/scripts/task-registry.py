@@ -9,6 +9,7 @@
     task-registry lanes [<lane>]        every lane, or one lane's playbook — what /go matches and records
     task-registry claim <ref> --routine R  write the claim label onto one issue
     task-registry escalate <ref> ...    hold an unresolved investigation and report it
+    task-registry closes <pr>           close what a merged PR's closing keywords left open
 
 Dry-run is the default for every command. `--apply` is the only way anything is
 written, and external writes additionally honour `require_write_approval`.
@@ -44,6 +45,7 @@ from registry.config import (  # noqa: E402
     select_provider,
     skill_on_disk,
 )
+from registry.closure import close_merged  # noqa: E402
 from registry.lanes import LaneCatalogueError, catalogue  # noqa: E402
 from registry.providers import build_provider  # noqa: E402
 from registry.providers.base import (  # noqa: E402
@@ -59,12 +61,16 @@ from registry.detail import Registry  # noqa: E402
 from registry.escalation import EscalationError, EscalationRequest, escalate_task  # noqa: E402
 from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
+    LinkedPrStateUnknown,
     is_escalated,
+    routine_pool,
+    with_linked_pr_state,
     matched_label,
     missing_routine_labels,
     routine_for_label,
     select_candidates,
     select_routine,
+    stranded,
     unclassified,
 )
 from registry.redaction import Redactor, redactor_for  # noqa: E402
@@ -72,7 +78,7 @@ from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
     "show", "doctor", "upsert", "selectors", "select", "claim", "workflow", "escalate",
-    "lanes",
+    "lanes", "closes",
 )
 
 
@@ -85,7 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("command", choices=COMMANDS)
     parser.add_argument(
         "task_id", nargs="?",
-        help="task id, required by `show`; issue ref for `claim` and `workflow`; lane name for `lanes`"
+        help="task id, required by `show`; issue ref for `claim` and `workflow`; lane name "
+        "for `lanes`; merged pull request for `closes`"
     )
     parser.add_argument("--repo", default=".", help="project root (default: cwd)")
     parser.add_argument(
@@ -147,13 +154,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--label", action="append", default=[], help="label (upsert); repeatable"
-    )
-    parser.add_argument(
-        "--parent",
-        metavar="REF",
-        help="link a parent (upsert), e.g. '#42' or a local task id; native where "
-        "the provider supports it, `parent:` metadata with a disclosure line "
-        "otherwise. Dry run by default, like every other write",
     )
     parser.add_argument(
         "--derive-id",
@@ -220,9 +220,6 @@ def _run(argv, redact) -> int:
         if not args.title:
             print("task-registry: `upsert` requires --title", file=sys.stderr)
             return 2
-    elif args.parent:
-        print("task-registry: `--parent` is only valid with `upsert`", file=sys.stderr)
-        return 2
     if args.command == "escalate":
         if args.report:
             print("task-registry: `escalate` does not accept --report", file=sys.stderr)
@@ -334,7 +331,7 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
             )
         except TaskModelError as exc:
             return (f"task-registry: {exc}", 2)
-        lines, code = upsert_task(registry, task, apply_writes, parent_ref=args.parent)
+        lines, code = upsert_task(registry, task, apply_writes)
         return ("\n".join(lines), code)
     if command == "doctor":
         return _doctor(registry, args.config_fault), (1 if args.config_fault else 0)
@@ -348,6 +345,8 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _workflow(registry, args.task_id)
     if command == "escalate":
         return escalate_task(registry, args.escalation_request, apply_writes)
+    if command == "closes":
+        return close_merged(registry, args.task_id)
     # argparse's `choices` already refuses anything outside COMMANDS, so this is
     # unreachable from the CLI. It exists so that adding a command to COMMANDS
     # and forgetting to dispatch it fails by name instead of unpacking None.
@@ -532,17 +531,43 @@ def _select(registry: Registry, routine):
             "would be indistinguishable from 'there were more'"
         ), 1
 
-    # Checked AFTER the read: a provider only learns its own degradations by querying.
-    if registry.provider.linked_pr_exclusion_available() is False:
+    # A tracker with pull requests that cannot say which are open must refuse:
+    # an unanswered exclusion reads as a clean backlog.
+    exclusion = registry.provider.linked_pr_exclusion_available()
+    if exclusion is False:
         return (
             f"task-registry: refusing to select — {registry.provider.name} could not "
-            "report linked pull request state (`closedByPullRequestsReferences` needs "
-            "gh >= 2.73.0), so the in-flight exclusion cannot be evaluated. Selecting "
-            "anyway re-picks every issue already under review and races on its branch."
+            "report linked pull request state, so the in-flight exclusion cannot be "
+            "evaluated. Selecting anyway re-picks every issue already under review and "
+            "races on its branch."
         ), 1
 
+    # The linked-PR read costs one tracker call per task, so it runs for the
+    # routine's own pool only -- after the kind and claim filters -- and the
+    # stranded backstop covers that same pool (another routine's stranded issue
+    # is named when that routine runs).
+    pool = routine_pool(tasks, config, routine)
     lines = [f"unclassified:  {len(unclassified(tasks, config))} open issue(s) carry no kind label"]
-    candidates = select_candidates(tasks, config, routine)
+    if exclusion:
+        try:
+            pool = with_linked_pr_state(pool, registry.provider.linked_pr_state)
+        except LinkedPrStateUnknown as exc:
+            reference = (
+                registry.provider.reference_label(exc.task.external) if exc.task.external else exc.task.id
+            )
+            return (
+                f"task-registry: refusing to select — {registry.provider.name} could not read "
+                f"the linked pull request state of {reference} this run, so the in-flight "
+                "exclusion cannot be evaluated for it. Selecting anyway could re-pick an issue "
+                "already under review."
+            ), 1
+        lines.append(f"checked:       {len(pool)} candidate(s) for linked pull requests")
+    for task, pull in stranded(pool):
+        lines.append(
+            f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
+            f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"
+        )
+    candidates = select_candidates(pool, config, routine)
     if not candidates:
         lines.append(f"candidate:     none — {routine} has nothing to claim")
         return "\n".join(lines), 0
@@ -823,7 +848,10 @@ def _upstream_verdict(registry: Registry):
         "upstream check: FAILED — these configured routine labels do not exist in "
         f"{registry.provider.name}: {', '.join(missing)}\n"
         "  A routine selecting on a label the tracker does not have finds nothing "
-        "and exits 0. That is the halt this check exists to make loud."
+        "and exits 0. That is the halt this check exists to make loud.\n"
+        "  Fix: create them in the tracker, or drop them from the routine "
+        "configuration ([routines.selectors], kind_precedence, claim_label, "
+        "escalation_label)."
     ), 1, UPSTREAM_MISCONFIGURED
 
 

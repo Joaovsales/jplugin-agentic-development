@@ -202,8 +202,8 @@ issue.
   reproduce" invokes the single `task-registry escalate` owner, adds the
   configured `needs-investigation` hold after authoritative readback, exits
   non-zero, and opens no PR; it never asks the user. When the issue carries a proposed fix
-  and criteria, `/debug`'s final phase writes the `[ ] TDD:` tasks for `/build`
-  from them.
+  and criteria, `/debug`'s final phase writes a `## Fix:` block of plain `- [ ]`
+  criterion rows from them and runs each through `/tdd`.
 - The `fix` routine's step 4a row becomes `/debug #N`; for `tech-debt` it reads
   the proposed fix and evidence through `show`.
 
@@ -295,7 +295,7 @@ template's history record; no allowlist entry is needed.
   them. Pinned by a Python test in `tests/test-sweep-handoff.sh`.
 - AC5 — `/debug` documents issue-reference intake via `task-registry show`, the
   candidate-one rule, the unattended registry escalation path with non-zero exit
-  and no user prompt, and writing `[ ] TDD:` tasks from the issue; `routines.md`
+  and no user prompt, and writing a `## Fix:` block of plain criterion rows from the issue and running it through `/tdd`; `routines.md`
   `fix` step 4a reads `/debug #N`.
 - AC6 — `/maintain-verification-skill` states the inline source-wave fallback
   and sweep-owned shipping; `/software-design-expert-review` documents

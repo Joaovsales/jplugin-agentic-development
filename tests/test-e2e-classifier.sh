@@ -93,7 +93,7 @@ for f in "$CANONICAL"; do
   # the other, and PASS is the dangerous direction.
   assert_file_contains "$f" "BLOCKED" \
     "$f: defines the BLOCKED outcome for unrunnable ACs"
-  assert_prose_contains "$f" "never" \
+  assert_prose_contains "$f" '`BLOCKED` — **never** `PASS`' \
     "$f: BLOCKED is stated as never a PASS"
 
   # A run containing any BLOCKED AC must not report overall success, or partial
