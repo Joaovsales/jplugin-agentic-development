@@ -1,5 +1,5 @@
 # tests/test-pre-push-gate.sh — the wrap-up coverage gate in .agents/git-hooks/pre-push,
-# and the hook's two blocking branches (typecheck and lint failures, § exit-branches).
+# and the hook's blocking gate-script branches (§ exit-branches).
 #
 # The wrap-up gate warns and records; it never blocks, so those cases assert
 # exit 0 and the real signal is stderr plus the tasks/wrap-up-debt.md ledger.
@@ -349,52 +349,77 @@ assert_eq "0" "$HOOK_RC" "Hostile fingerprint: exits zero"
 assert_contains "$OUT" "unparseable" "Hostile fingerprint: rejected as unparseable"
 assert_contains "$OUT" "$CODE" "Hostile fingerprint: does not widen coverage"
 
-# ── § exit-branches: typecheck and lint failures block the push (exit 1) ─────
-# The hook runs `npm run typecheck` then `npm run lint` when package.json
-# declares them (it needs jq to read the scripts). A failing script is the one
-# thing it blocks on, so both exit-1 branches are driven by a fixture
+# ── § exit-branches: a failing gate script blocks the push (exit 1) ─────────
+# The hook runs the package.json gate scripts in order: the names listed in
+# `config.prepush`, or, with none listed, type-check (or typecheck) then lint.
+# A failing script is what it blocks on, so each branch is driven by a fixture
 # package.json whose scripts print a marker and exit 1 or 0.
-if command -v jq >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
-  # scripts_repo <name> <typecheck-script> <lint-script> — a repo declaring both scripts.
-  scripts_repo() {
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  # pkg_repo <name> <package.json body> — a repo with that package.json.
+  pkg_repo() {
     _d="$(new_repo "$1")"
-    printf '{"name":"fx","version":"1.0.0","scripts":{"typecheck":"%s","lint":"%s"}}\n' "$2" "$3" \
-      > "$_d/package.json"
+    printf '%s\n' "$2" > "$_d/package.json"
     printf '%s' "$_d"
   }
+  # scripts_repo <name> <type-check-name> <type-check-script> <lint-script>
+  scripts_repo() {
+    pkg_repo "$1" "{\"name\":\"fx\",\"version\":\"1.0.0\",\"scripts\":{\"$2\":\"$3\",\"lint\":\"$4\"}}"
+  }
 
-  D="$(scripts_repo typecheckfails "echo TYPE-ERR && exit 1" "exit 0")"
-  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
-  assert_eq "1" "$HOOK_RC" "Typecheck fails: blocks the push with exit 1"
-  assert_contains "$OUT" "BLOCKED: npm run typecheck failed" "Typecheck fails: names the failing script"
-  assert_contains "$OUT" "TYPE-ERR" "Typecheck fails: shows the tail of the script's own output"
-  assert_not_contains "$OUT" "npm run lint" "Typecheck fails: stops before lint runs"
+  for TC in typecheck type-check; do
+    D="$(scripts_repo "tcfails-$TC" "$TC" "echo TYPE-ERR && exit 1" "exit 0")"
+    run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+    assert_eq "1" "$HOOK_RC" "$TC fails: blocks the push with exit 1"
+    assert_contains "$OUT" "BLOCKED: npm run $TC failed" "$TC fails: names the failing script"
+    assert_contains "$OUT" "TYPE-ERR" "$TC fails: shows the tail of the script's own output"
+    assert_not_contains "$OUT" "npm run lint" "$TC fails: stops before lint runs"
+  done
 
-  D="$(scripts_repo lintfails "exit 0" "echo LINT-ERR && exit 1")"
+  D="$(scripts_repo lintfails typecheck "exit 0" "echo LINT-ERR && exit 1")"
   run_hook "$D" "$(sha "$D")" "$(sha "$D")"
   assert_eq "1" "$HOOK_RC" "Lint fails: blocks the push with exit 1"
   assert_contains "$OUT" "BLOCKED: npm run lint failed" "Lint fails: names the failing script"
   assert_contains "$OUT" "LINT-ERR" "Lint fails: shows the tail of the script's own output"
-  assert_not_contains "$OUT" "npm run typecheck" "Lint fails: typecheck had passed, so it is not blamed"
+  assert_not_contains "$OUT" "npm run typecheck failed" "Lint fails: typecheck had passed, so it is not blamed"
 
-  D="$(scripts_repo bothfail "echo TYPE-ERR && exit 1" "echo LINT-ERR && exit 1")"
+  D="$(scripts_repo bothfail typecheck "echo TYPE-ERR && exit 1" "echo LINT-ERR && exit 1")"
   run_hook "$D" "$(sha "$D")" "$(sha "$D")"
   assert_eq "1" "$HOOK_RC" "Both fail: blocks the push with exit 1"
   assert_contains "$OUT" "npm run typecheck failed" "Both fail: typecheck is reported first"
   assert_not_contains "$OUT" "npm run lint" "Both fail: lint is never reached"
 
-  D="$(scripts_repo bothpass "exit 0" "exit 0")"
+  D="$(scripts_repo bothpass type-check "exit 0" "exit 0")"
   run_hook "$D" "$(sha "$D")" "$(sha "$D")"
   assert_eq "0" "$HOOK_RC" "Both pass: the push is allowed"
   assert_eq "" "$OUT" "Both pass: nothing on stderr"
 
-  D="$(scripts_repo killed "echo TYPE-ERR && exit 1" "exit 1")"
+  D="$(pkg_repo nolint '{"name":"fx","scripts":{"type-check":"exit 0"}}')"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "Undeclared, no lint script: the push is allowed"
+  assert_contains "$OUT" "WARNING: no lint script" "Undeclared, no lint script: warns that the gate is not running"
+
+  D="$(pkg_repo declared '{"name":"fx","config":{"prepush":["lint","test:fast"]},"scripts":{"typecheck":"echo TYPE-ERR && exit 1","lint":"exit 0","test:fast":"echo TEST-ERR && exit 1"}}')"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "config.prepush: a listed gate that fails blocks"
+  assert_contains "$OUT" "npm run test:fast failed" "config.prepush: runs a listed script beyond the defaults"
+  assert_not_contains "$OUT" "TYPE-ERR" "config.prepush: an unlisted script is not run"
+
+  D="$(pkg_repo renamed '{"name":"fx","config":{"prepush":["typecheck","lint"]},"scripts":{"type-check":"exit 0","lint":"exit 0"}}')"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "config.prepush: a listed name with no script blocks"
+  assert_contains "$OUT" "declares \"typecheck\", but no script has that name" "config.prepush: names the missing script"
+
+  D="$(pkg_repo badlist '{"name":"fx","config":{"prepush":[]},"scripts":{"lint":"exit 0"}}')"
+  run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "1" "$HOOK_RC" "config.prepush: an empty list blocks"
+
+  D="$(scripts_repo killed typecheck "echo TYPE-ERR && exit 1" "exit 1")"
   cp "$HOOK" "$D/hook"; chmod +x "$D/hook"
   OUT="$( cd "$D" && printf 'refs/heads/master %s refs/heads/master %s\n' "$(sha "$D")" "$(sha "$D")" \
           | SKIP_PREPUSH=1 ./hook origin url 2>&1 )"
   assert_eq "" "$OUT" "SKIP_PREPUSH=1: failing scripts are not run"
 else
-  skip "typecheck/lint exit branches need jq and npm on PATH"
+  skip "gate exit branches need node and npm on PATH"
 fi
 
 finish

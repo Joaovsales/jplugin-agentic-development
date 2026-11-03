@@ -68,7 +68,7 @@ assert_contains "$OUT" "slice 2 (two) is blocked by 9, which names no slice" "va
 printf '\n--- validate: a surface with an unsupported glob token ---\n'
 
 # Surfaces go through the same validator as implementation_paths; without it
-# `[ab]` reaches `check` as a literal that matches nothing and `ready` as a
+# `x[ab].py` reaches `check` as a literal that matches nothing and `ready` as a
 # pattern that intersects nothing.
 OUT="$("$PY" "$SLICE" validate --spec "$FIXTURES/validate-bad-surface-glob/spec.md" 2>&1)"
 CODE=$?
@@ -459,7 +459,12 @@ cases = {
     "absolute": "/etc/passwd",
     "traversal": "../secret",
     "backslash": "src\\thing.py",
-    "unsupported": "src/[ab]/**",
+    "unsupported": "src/x[ab].py",
+    "bracket-class-segment": "src/[!a]/**",
+    "dynamic-id": "app/payments/[id]/page.tsx",
+    "dynamic-catchall": "app/[...slug]/page.tsx",
+    "dynamic-optional-catchall": "app/[[...slug]]/page.tsx",
+    "dynamic-beside-bad-segment": "app/[id]/x[ab].ts",
 }
 results = {}
 for name, value in cases.items():
@@ -480,6 +485,35 @@ assert_contains "$GLOBS_JSON" "specs/x.md: use POSIX separators, not backslashes
   "globs: a backslash is rejected, naming the spec and the value"
 assert_contains "$GLOBS_JSON" "specs/x.md: unsupported glob syntax" \
   "globs: an unsupported glob character is rejected, naming the spec and the value"
+assert_contains "$GLOBS_JSON" '"unsupported": "specs/x.md: unsupported glob syntax' \
+  "globs: brackets inside a segment are glob syntax, rejected"
+assert_contains "$GLOBS_JSON" '"bracket-class-segment": "specs/x.md: unsupported glob syntax' \
+  "globs: a negated bracket class is rejected even as a whole segment"
+assert_contains "$GLOBS_JSON" '"dynamic-id": null' \
+  "globs: a Next.js [id] segment is a literal directory name, accepted"
+assert_contains "$GLOBS_JSON" '"dynamic-catchall": null' \
+  "globs: a Next.js [...slug] segment is accepted"
+assert_contains "$GLOBS_JSON" '"dynamic-optional-catchall": null' \
+  "globs: a Next.js [[...slug]] segment is accepted"
+assert_contains "$GLOBS_JSON" '"dynamic-beside-bad-segment": "specs/x.md: unsupported glob syntax' \
+  "globs: a valid [id] does not excuse a bad segment beside it"
+
+DYNAMIC_JSON="$("$PY" - "$GLOBS_ROOT" <<'PYEOF'
+import sys, json
+sys.path.insert(0, sys.argv[1])
+from registry.globs import match_path
+
+spec = "app/payments/[id]/**"
+print(json.dumps({
+    "literal": match_path(spec, "app/payments/[id]/edit/page.tsx"),
+    "not-a-class": match_path(spec, "app/payments/i/edit/page.tsx"),
+}))
+PYEOF
+)"
+assert_contains "$DYNAMIC_JSON" '"literal": true' \
+  "globs: an [id] pattern matches the bracketed directory literally"
+assert_contains "$DYNAMIC_JSON" '"not-a-class": false' \
+  "globs: an [id] pattern is not a character class, so i/ does not match"
 
 printf '\n--- globs: patterns_intersect is decided per segment, not by literalizing one side ---\n'
 
