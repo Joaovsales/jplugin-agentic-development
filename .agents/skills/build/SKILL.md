@@ -26,7 +26,7 @@ concrete provider model IDs live in `PI_SETUP.md` § Sub-Agent Routing for Pi an
 | Search / recon | `scout` (extension builtin) | Scout | `haiku` |
 | Context / docs | `context-builder` (builtin), `context-document-optimizer` | Scout | `haiku` |
 
-**Escalation ladder for test regressions:**
+**Escalation ladder for test regressions.**
 1. 2 attempts at builder tier
 2. 2 attempts at reviewer tier — on Claude Code that resolves to `ceiling (builder floor)`, because Reviewer and Builder both map to `sonnet` there, so a plain reviewer-tier retry would re-run the model that just failed twice. The floor makes this rung strictly stronger than step 1 on every session. See `.agents/references/model-routing.md` § *Floors*.
 3. Circuit breaker — `planner` at planner tier analyzes all 4 attempts; then halt and escalate to user
