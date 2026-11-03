@@ -2620,3 +2620,31 @@ Step ledger (routine `simplify`):
 - Completed: `/build` writes every `[AMBIGUITY]` line a returning dispatch reports into `tasks/todo.md` under the slice heading it served (below the `> Handover:` lines, outside their four-line cap), and Phase 4.5 greps this build's plan block rather than agent output in context, which idle compaction can summarise away while a turn waits on a background suite. Six assertions in `tests/test-doc-conventions.sh` pin it (red 886/6 before, green 892/0 after); `build/SKILL.md` is 598 lines against its 600-line budget.
 - Pending: none in this session.
 - Carry-forward: `.agents/hooks/pre-compact.sh`'s header still says auto-compaction fires "at ~75% utilisation" and does not mention idle compaction; `tests/test-install-sh.sh` needs more than the default 300 s `TEST_FILE_TIMEOUT` on this host (passed at 1500 s).
+
+## Tidy: 2026-10-26
+
+> Record: `tasks/sweeps/2026-10-26-tidy.md`, swept at `e9d6ad1` on
+> `routine/tidy/20261026-sweep`. Outcome: **findings** (Tier 1 only). Tier 0
+> applied: **0**, nothing mechanical to repair. Tier 2 filed: **0**.
+
+- [x] `suite` — clean, 91/91 test files passed
+- [x] `inventory` — clean, 44 skill directories ↔ 44 README rows; `render-skills-table.py --check` exit 0
+- [x] `retired` — clean, 9 retired names, none named as live (clone unshallowed first)
+- [x] `installed` — inconclusive, ephemeral cloud container: `~/.claude/` belongs to the runtime and `~/.agents/` is absent
+- [x] `refs` — clean, no moved reference; unresolved tokens are runtime or project-created paths (Unverified)
+- [x] `worktrees` — clean, one worktree; the only non-default branch is this run's own
+- [x] `strays` — clean, no untracked or ignored files
+- [x] `graph` — skipped, no `graphify` on this machine (shell-and-markdown tree, no graph by design)
+- [x] `registers` — 1 finding (Tier 1): 48 closed plan blocks older than the last two session summaries (already tracked by #143); checkpoint current
+- [x] `shortcuts` — clean, 4 markers, all with an upgrade trigger
+- [x] `tools` — inconclusive, archify not installed under `$ARCHIFY_HOME`
+
+Routine `tidy` step list:
+
+- [x] 1 — `/tidy`: record `tasks/sweeps/2026-10-26-tidy.md`; Tier 0 commits: none; Filed: none
+- [x] 2 — `/wrap-up-session`: quality receipt, full suite, commit, push, ready PR
+
+## Session Summary — 2026-10-26 [e9d6ad1..84dd3bb]
+- Completed: scheduled `tidy` sweep at `e9d6ad1`. Suite green (91/91). No Tier 0 repair. No Tier 2 filing. One Tier 1 remedy (`registers`: 48 closed plan blocks, already tracked by #143). `installed` and `tools` inconclusive on the ephemeral container. Record at `tasks/sweeps/2026-10-26-tidy.md`.
+- Pending: a human should archive the closed plan blocks (#143) and decide whether #142 can close (its README row now exists).
+- Carry-forward: none.
