@@ -1,0 +1,20 @@
+---
+routine: consumer
+selects: bug, tech-debt
+cues: broken, fails, wrong output, regression, error text pasted
+ends: ready PR
+---
+# Lane: fix
+
+Runs when an issue carries a `bug` or `tech-debt` label, or the goal reports
+something broken, failing, wrong, or regressed, or pastes error text. A typed
+defect and a labelled issue run identically; only `<ref>` differs.
+
+1. `/debug <ref>` — root cause before code; the prelude stops before any edit until a candidate is confirmed, and a constraint in the goal ("don't change code yet", "repro first") is part of its problem statement. Reproduced and progressable work continues; an inconclusive or blocked investigation is held and reported by the canonical escalation owner
+2. `/quality-gate` — structural, anti-pattern, and APOSD passes on the changed files; `/debug` has already run the fix through `/tdd`, so no fix ships without a failing test that now passes — **non-skippable**
+3. `/wrap-up-session` — checks the quality receipt, tests, commit, push, and the pull request — **non-skippable**
+
+## Reply
+
+The root cause with its `file:line`, the failing test that now passes, and the
+PR URL. Name every step skipped and why.

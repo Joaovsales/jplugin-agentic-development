@@ -1,15 +1,10 @@
 ---
 implementation_paths:
   - .agents/skills/wrap-up-session/**
-  - .claude/skills/wrap-up-session/**
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - .agents/skills/debug/SKILL.md
-  - .claude/skills/debug/SKILL.md
   - .agents/skills/build/SKILL.md
-  - .claude/skills/build/SKILL.md
-  - .agents/skills/verify/SKILL.md
-  - .claude/skills/verify/SKILL.md
+  - .agents/skills/verify-evidence/SKILL.md
   - tests/test-routine-branch.sh
   - tests/test-routines-contract.sh
   - tests/test-routine-selectors.sh
@@ -83,9 +78,8 @@ ends at a pull request a human reviews.
 
 `build` is specified here but **not implemented in the first change**. Its
 selector needs `blockedBy` read through `/task-registry`, and the GitHub provider
-does not request that field: `OPTIONAL_ISSUE_FIELDS` is
-`("closedByPullRequestsReferences",)`, and `capabilities` hardcodes
-`native_dependencies=False` on the deliberate grounds (`github.py:60-63`) that
+reads no dependency field off the REST issue, and `capabilities` hardcodes
+`native_dependencies=False` on the deliberate grounds (`GitHubProvider.capabilities`) that
 claiming an inferred link as native is the one thing capability degradation must
 never do. Issue #97 revisits that with a runtime probe; #98 tracks `build` itself.
 
@@ -125,7 +119,7 @@ An issue may carry more than one kind label (#95 in the pipeline repo carries
 `documentation` and `tech-debt`). Precedence is a fixed order, first match wins:
 
 ```
-bug > design-decision > tech-debt > enhancement > documentation
+bug > design-decision > simplify > tech-debt > enhancement > documentation
 ```
 
 **The chain orders provider label names — the left-hand keys of `[labels.kind]` —
@@ -161,21 +155,20 @@ default vocabulary is extended to cover the chain, and the precedence order itse
 is configurable alongside it.
 
 A configured selector label that does not exist upstream is a **loud** failure:
-non-zero exit naming the label. Per `CLAUDE.md` § Observability Discipline,
+non-zero exit naming the label. Per `AGENTS.md` § Observability Discipline,
 "nothing matched" and "the vocabulary is wrong" are different outcomes and must
 not share an exit code.
 
 ### Where the contract document lives
 
-Not `docs/routines.md`. `/sync` ships `CLAUDE.md`, `.agents/skills/`,
-`.agents/agents/`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`,
-`.claude/browsers/`, `.claude/settings.json` and `.agents/git-hooks/`, and
-`install.sh` copies only `.claude/skills/` and `.agents/`. A `docs/` path is in
-neither set, so the contract would reach no consumer — while this spec's blast
+Not `docs/routines.md`. `/sync` ships the `AGENTS.md` managed block, `.agents/skills/`,
+`.agents/agents/`, `.agents/references/`, `.agents/hooks/`, `.claude/agents/`,
+`.claude/browsers/`, `.claude/settings.json` and `.agents/git-hooks/`. A `docs/`
+path is not in that set, so the contract would reach no consumer — while this spec's blast
 radius line promises it ships to every one of them. The contract is pure
 convention with no project-specific content, so it belongs inside the syncable
-tree: `.agents/skills/wrap-up-session/references/routines.md`, with the
-byte-identical `.claude/` copy that `tests/test-skill-parity.sh` requires.
+tree: `.agents/skills/wrap-up-session/references/routines.md`, which Claude Code
+loads through the `jplugin` plugin.
 
 Wrap-up owns it because wrap-up is the skill that parses the branch convention and
 opens the PR; `routine_branch.py` already lands in the same skill.
@@ -223,7 +216,12 @@ so `build`, which selects open issues with a merged linked plan, could never fir
 and its silence was indistinguishable from "nothing to do."
 
 Instead the PR body carries `Closes #N` (or `Refs #N` for `plan`) and GitHub
-closes the issue when the PR merges. This dissolves four problems at once:
+closes the issue when the PR merges. GitHub keeps that promise only for some
+mergers: a merge made with a workflow's `GITHUB_TOKEN` fires no closing keyword,
+whatever the token's permissions (#146). Whatever merges that way runs
+`task-registry closes '#<pr>' --apply --approve` right after its merge call,
+which closes each linked issue still open or exits 1 naming it. Routines still
+close nothing themselves. This dissolves four problems at once:
 
 - The `plan` → `build` handoff becomes possible: a merged plan PR leaves the issue
   open, now carrying a merged linked plan, which is exactly `build`'s selector.
@@ -238,7 +236,9 @@ The requirement closure was meant to serve — *don't pick the same issue again
 tomorrow* — is served instead by every routine's selector excluding issues that
 already have an open linked PR from a `routine/` branch. That is a read, not a
 write, and it is strictly more accurate: it also suppresses re-picking while a PR
-is still in review, which closing-on-create did not.
+is still in review, which closing-on-create did not. An issue whose closing PR in
+this repository merged without closing it is excluded too, and `select` names it
+in a `stranded:` line carrying the `closes` command.
 
 ### Concurrency
 
@@ -289,7 +289,7 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 |---|---|---|
 | Candidate issues, labels, claim | `/task-registry` | title/body untrusted, labels trusted |
 | Dependency state (`build` only — deferred, #97) | `gh --json blockedBy` via the registry | trusted; **not yet supplied** |
-| Linked PR state | `gh --json closedByPullRequestsReferences` via the registry | trusted; asserted at start |
+| Linked PR state | each candidate's cross-referencing pull requests, read off its REST timeline through the registry after the kind and claim filters (payload shape: `specs/github-rest-in-sandboxes.md` § Design) | trusted; a timeline that cannot be read or paged to the end fails `select` |
 | Kind/priority/claim vocabulary | project `task-tracking.md` | trusted |
 | Routine + issue number | current branch name | trusted |
 
@@ -312,11 +312,17 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
 - **Issue carries no kind label** — never selected. The routine reports the count
   of such issues so the gap is visible.
 - **Issue already carries the claim label** — skipped as in-flight.
-- **`gh` predates `closedByPullRequestsReferences`** (< 2.73.0) — asserted **once
-  at routine start**, loudly. Every routine depends on the field to exclude issues
-  with an open linked routine PR, and degrading per-routine gave two different
-  answers to one missing capability; `build`, when it lands, would have skipped
-  every issue nightly and exited 0.
+- **A candidate's timeline runs past the registry's timeline page cap** — `select` exits 1 naming the
+  candidate. Guessing would re-pick work under review, so the whole run refuses rather
+  than one routine degrading differently from another.
+- **Closing PR merged, issue still open** — a `GITHUB_TOKEN` merge the merger did
+  not follow with `closes`. Never selected while nothing else is in flight and
+  the issue was not reopened (`state_reason` `reopened`); `select` prints a
+  `stranded:` line with `task-registry closes '#<pr>' --apply --approve`. A
+  merged closing PR in another repository is out of `closes`' reach and counts as
+  resolved, like any other merge.
+- **A closing PR's state cannot be read** — it counts as in flight. A failed state
+  lookup fails `select` with exit 1.
 - **`blockedBy` non-empty** — `build` skips and names the blocker. Deferred with
   `build` itself (#98); no active routine reads dependency state.
 - **No candidate found** — exit silently and successfully. A routine with nothing
@@ -360,8 +366,8 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
       documents the four routines, their kind selectors, the precedence order, the
       branch convention, **and each routine's mandatory step list with its
       non-skippable gates**; `build` is marked deferred, naming #97 and #98, so a
-      reader cannot mistake it for available. Ships byte-identically to
-      `.claude/skills/wrap-up-session/references/routines.md`.
+      reader cannot mistake it for available. Claude Code loads it through
+      the `jplugin` plugin; no copy is shipped.
 - AC9 — A routine's executed step list, with skipped rows and reasons, appears
       in `tasks/todo.md` and in the PR body.
 - AC10 — `/auto-improve` Phases 3, 4, and 5 name no routing engine and no
@@ -396,6 +402,6 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
   claim-label read/write, upstream label-existence check; `KINDS` unchanged
 - `.agents/skills/task-registry/templates/task-tracking.md` — default kind
   vocabulary extended to cover the precedence chain; claim label documented
-- `.agents/skills/wrap-up-session/references/routines.md` — new, the routine contract and step lists (+ `.claude` parity copy)
+- `.agents/skills/wrap-up-session/references/routines.md` — new, the routine contract and step lists
 - `CLAUDE.md`, `README.md` — table rows
 - `tasks/solutions/**` — two documents reconciled

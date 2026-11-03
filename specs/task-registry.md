@@ -1,7 +1,6 @@
 ---
 implementation_paths:
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - tests/test-task-registry.sh
   - tests/test-task-escalation.sh
   - tests/test-routine-selectors.sh
@@ -91,8 +90,9 @@ copied into `tasks/todo.md`.
 
 - `docs/task-tracking.md` — the project configuration contract (an ```ini fenced
   block parsed with `configparser`). Discovered directly, or through a
-  `Task tracking instructions: <path>` pointer in `AGENTS.md`, `CLAUDE.md`, or
-  `.claude/project.md`. A pointer whose target is missing is refused, naming
+  `Task tracking instructions: <path>` pointer in `AGENTS.md` (a pointer still in
+  `.claude/project.md` is read with a one-line notice until `/sync` moves it). A
+  pointer whose target is missing is refused, naming
   the declaring file and the path (#82) — only "no pointer, no default file"
   is silent.
 - `tasks/todo.md` — the compact local index.
@@ -213,7 +213,7 @@ copied into `tasks/todo.md`.
       *acts* on the index refuses a half-parsed one, because a row that failed to
       parse is absent from `by_id` and would turn an `upsert` update into a
       second row carrying the same id.
-- AC-20 — Workflow skills (`/plan`, `/build`, `/verify`, `/quality-gate`,
+- AC-20 — Workflow skills (`/plan`, `/build`, `/verify-evidence`, `/quality-gate`,
       `/wrap-up-session`) reach tracking only through this capability — no direct
       `gh` or tracker-API calls for task state.
 - AC-21 — An approval-gated local-pending upsert preserves an existing external
@@ -229,7 +229,7 @@ copied into `tasks/todo.md`.
 
 ## Implementation Paths
 
-- `.agents/skills/task-registry/SKILL.md` — the skill (canonical), parity-copied.
+- `.agents/skills/task-registry/SKILL.md` — the skill (canonical).
 - `.agents/skills/task-registry/scripts/task-registry.py` — CLI entrypoint.
 - `.agents/skills/task-registry/scripts/registry/` — model, config, index,
   detail, upsert, providers.
@@ -241,4 +241,4 @@ copied into `tasks/todo.md`.
 - `tests/test-task-registry.sh`, `tests/test-task-escalation.sh`,
   `tests/test-routine-selectors.sh`, `tests/fixtures/task-registry/` — contract
   and escalation tests.
-- `CLAUDE.md`, `README.md`, `.claude/hooks/session-start.sh` — registration.
+- `README.md` — registration (generated skills table).

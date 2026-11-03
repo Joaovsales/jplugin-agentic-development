@@ -10,7 +10,8 @@ import uuid
 from dataclasses import dataclass, replace
 from typing import Optional, Tuple
 
-from .config import ConfigError, DEFERRED_ROUTINES, confine
+from . import config as registry_config
+from .config import ConfigError, confine
 from .index import load_index_strict
 from .model import METADATA_BEGIN, METADATA_END, Task
 from .providers.base import ProviderError, ProviderUnavailable, has_label
@@ -232,7 +233,7 @@ def _file_blocker(registry, parent, request, blocker: BlockerRequest) -> UpsertR
     parent_ref = parent.external.display() if parent.external else parent.id
     if blocker.handling == "routine":
         labels = tuple(label for label, kind in registry.config.kind_labels.items() if kind == "bug")[:1]
-        if not labels or routine_for_label(labels[0], registry.config) in (None, *DEFERRED_ROUTINES):
+        if not labels or routine_for_label(labels[0], registry.config) in (None, *registry_config.DEFERRED_ROUTINES):
             return UpsertResult(
                 UpsertDisposition.FAILED,
                 detail="routine blocker has no runnable bug selector",

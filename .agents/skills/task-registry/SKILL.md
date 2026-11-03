@@ -1,7 +1,7 @@
 ---
 name: task-registry
 description: Resolve one task against an external tracker (GitHub Issues) or a local Markdown store. Use when reading a task's full record, recording discovered work as a task, checking which tracker is configured, or selecting and claiming the next issue for a routine.
-argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|upsert <task-id>|escalate <task-reference>]"
+argument-hint: "[show <task-reference>|doctor|selectors|select|claim|workflow <task-reference>|lanes [<lane>]|upsert <task-id>|escalate <task-reference>|closes <pull-request>]"
 disable-model-invocation: false
 harness: universal
 ---
@@ -54,6 +54,7 @@ python3 .agents/skills/task-registry/scripts/task-registry.py escalate '#42' \
   --reason execution-blocked --reproduction-state unverified \
   --run-at 2026-09-12T15:00:00Z --repro-command 'make test' \
   --observed 'runner cannot load its fixture' --evidence tasks/routine-runs/run.md
+python3 .agents/skills/task-registry/scripts/task-registry.py closes '#141' --apply --approve
 ```
 
 | Command | Reads | Local writes | External writes |
@@ -65,7 +66,9 @@ python3 .agents/skills/task-registry/scripts/task-registry.py escalate '#42' \
 | `select` | provider | no | no |
 | `claim` | one task | no | `--apply` (+ approval) |
 | `workflow` | one task | no | no |
+| `lanes` | the lane catalogue (+ config, non-strict) | no | no |
 | `escalate` | parent + optional blocker | run artifact with `--apply` | hold, optional blocker, comment (`--apply` + approval) |
+| `closes` | one merged PR + the issues it links | no | close each still-open one (`--apply` + approval) |
 
 Exit codes: `0` success · `1` failure or partial failure · `2` usage error.
 
@@ -85,6 +88,27 @@ order. Dry-run previews all stages without writes. An applied run always exits 1
 to stop the fix pipeline and retains its stage record under `tasks/routine-runs/`.
 Do not pass secrets: evidence files are referenced, never uploaded automatically.
 
+### `closes` — close what a merged PR's closing keywords left open
+
+A merge made with a workflow's `GITHUB_TOKEN` fires no closing keyword, so the
+automation that merged runs `closes '#<pr>' --apply --approve` right after its
+merge call. It closes each issue the PR's `Closes #N` lines name that is still
+open, through the same gated close as every other write, and prints one line per
+issue it closed. Nothing left open exits `0` with `nothing to do`. An issue it
+could not close — a refused write, a failed `gh` call, a dry run — is named and
+exits `1`, as does a PR that is not merged or that links an issue in another
+repository. The workflow token needs `issues: write`.
+
+`select` catches a merge nobody ran `closes` after: an open issue whose closing
+PR merged is never a candidate, and each one gets a line naming the repair —
+
+```
+stranded:      #155 — #189 merged and left it open; close it with `task-registry closes '#189' --apply --approve`
+```
+
+An issue a human reopened after its PR merged is not stranded and stays
+selectable.
+
 ### `workflow` — which routine owns one issue
 
 ```bash
@@ -96,6 +120,33 @@ which routine's selector matches it, which skill chain that routine runs, and
 whether anything makes it unrunnable right now. `select_routine` collapses five
 distinct situations into a bare `None`; this command gives each its own sentence,
 so "nobody owns it" and "somebody already claimed it" stop looking alike.
+
+### `lanes` — every lane, or one lane's playbook
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py lanes
+python3 .agents/skills/task-registry/scripts/task-registry.py lanes fix
+```
+
+A **lane** is one markdown file under `lanes/` — the routine the scheduler runs
+on a labelled issue and the route `/go` picks from a goal are the same
+definition (specs/lane-catalogue.md). The registry derives every routine
+attribute from those files: which lanes are routines, what each selects on,
+which are producers or deferred, and what each runs. `workflow` answers with a
+lane's chain; `lanes` prints the whole catalogue so `/go` can match a goal
+against each lane's `cues:` and copy its steps into `tasks/todo.md`.
+
+The chain printed is the **effective** one — the project's `[routines.skills]`
+entry for a consumer lane, the shipped chain otherwise — so `lanes` and
+`workflow` never disagree. `lanes <name>` also checks that every chain skill is
+installed under `.agents/skills/` and exits `2` naming the
+missing one, so a lane is refused before a step is recorded, not at the step.
+
+`lanes` reads no tracker: it selects no provider and loads the configuration
+non-strictly. A configuration that cannot be read still prints the table (routine
+rows carry the shipped chain and the error), `lanes investigate` still exits `0`,
+and only `lanes <routine lane>` exits `2` — the one case where the chain a project
+may have replaced is about to run.
 
 ### `upsert` — record one task, addressed by its ID
 
@@ -153,8 +204,10 @@ credentials are not consent to write to a company tracker. A tracker is added by
 declaring `provider =`, never by being detectable.
 
 The configuration document is `docs/task-tracking.md`, or wherever a
-`Task tracking instructions: <path>` line in `AGENTS.md`, `CLAUDE.md`, or
-`.claude/project.md` points. Copy `templates/task-tracking.md` to start one. A
+`Task tracking instructions: <path>` line in `AGENTS.md`, below the managed
+block, points (a pointer still in the pre-migration project file is read too,
+with a `doctor` notice — `references/configuration.md` § *Discovery and
+selection*). Copy `templates/task-tracking.md` to start one. A
 pointer whose target is missing is refused, naming the path — never defaulted.
 Full field reference, provider examples, and troubleshooting:
 `references/configuration.md`.
@@ -187,9 +240,9 @@ No workflow skill talks to a tracker about task state. They go through here.
 | Skill | Point of contact |
 |-------|------------------|
 | `/plan` | after the plan is approved, offer to record tasks (`upsert`) |
-| `/system-design-planning` | read the issue (`show`) at intake; after approval, one `upsert` per build slice |
-| `/build` | claim a task and update status at task boundaries |
-| `/verify` | attach evidence links to the task |
+| `/system-design-planning` | read the issue (`show`) at intake; the feature issue is filed by `/build`'s pre-flight in the build session |
+| `/build` | claim a legacy block's task and update status at task boundaries; a new block's status lives in its one feature issue |
+| `/verify-evidence` | attach evidence links to the task |
 | `/quality-gate` | report findings against the task |
 | `/wrap-up-session` | record deferred work (`upsert`) before the commit |
 

@@ -2,8 +2,8 @@
 
 > Copy this file to `docs/task-tracking.md` in your project and edit the block
 > below. Discovery finds it there automatically; to keep it elsewhere, add a line
-> `Task tracking instructions: <path>` to `.claude/project.md` (Claude Code) or
-> `AGENTS.md` (Pi) — never to `CLAUDE.md`, which `/sync` overwrites.
+> `Task tracking instructions: <path>` to `AGENTS.md` below the managed block's
+> end marker — never inside the block, which `/sync` replaces.
 >
 > Read by `/task-registry`. Everything is optional — without configuration,
 > selection still prefers GitHub when a GitHub remote and an authenticated `gh`
@@ -89,7 +89,11 @@ escalation_label = needs-investigation
 ; not canonical kinds. Every label ranked here must be selected by exactly one
 ; routine below, and every label a routine selects must be ranked here — the two
 ; sets are checked against each other and a mismatch is refused.
-kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
+; Upgrading from a release without `simplify`: a project that declares
+; kind_precedence, [routines.selectors] or [routines.skills] adds `simplify`
+; here ahead of `tech-debt`, `simplify = simplify` to the selectors and the
+; simplify chain to the skills — load_config refuses the mismatch until then.
+kind_precedence = bug, design-decision, simplify, tech-debt, enhancement, documentation
 
 ; Routine -> the labels it selects. Declared entries REPLACE this default rather
 ; than layering over it, so renaming your vocabulary does not leave the English
@@ -105,6 +109,7 @@ kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
 plan = design-decision
 fix = bug, tech-debt
 improve = enhancement, documentation
+simplify = simplify
 
 ; Routine -> the ordered skills it runs, once selection has told it WHICH issue.
 ; Like [routines.selectors] and unlike [labels.kind], declared entries REPLACE
@@ -116,20 +121,23 @@ improve = enhancement, documentation
 ;
 ; Three rules, all checked at load rather than at step 4 with the claim label
 ; already written:
-;   * every skill named must exist in .agents/skills/ or .claude/skills/
+;   * every skill named must exist in .agents/skills/
 ;   * every chain must END at /wrap-up-session — it is the review gate, and a
 ;     chain that runs it anywhere but last can still ship work after it
-;   * the routine names are the contract's four; inventing one is a deliberate
-;     edit to CONTRACT_ROUTINES, not a configuration key
+;   * the routine names are the lane catalogue's consumer lanes; inventing one
+;     is a new lane file with `routine:` set, not a configuration key
 ;
-; Defaults shown, transcribed from the routine contract at
-; .agents/skills/wrap-up-session/references/routines.md. `plan` omits /build
-; and /quality-gate on purpose: it produces a spec and no implementation, so
-; requiring them would write a `skip:` row on every single run.
+; Defaults shown, transcribed from the lane catalogue — one file per lane under
+; .agents/skills/task-registry/lanes/, the same files `/go` matches and records
+; from; `task-registry lanes` prints them. tests/test-lane-catalogue.sh pins
+; this block equal to the catalogue. `plan` omits /build and /quality-gate on
+; purpose: it produces a spec and no implementation, so requiring them would
+; write a `skip:` row on every single run.
 [routines.skills]
 plan = /plan, /wrap-up-session
-fix = /debug, /build, /quality-gate, /wrap-up-session
+fix = /debug, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
+simplify = /make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session
 
 ; ---------------------------------------------------------------------------
@@ -147,7 +155,7 @@ build = /build, /quality-gate, /wrap-up-session
 ## Credentials
 
 Never in this file, and no shipped provider needs one here. GitHub uses whatever
-`gh auth status` reports; the local Markdown store has no credential at all. A
+`gh api user` succeeds with; the local Markdown store has no credential at all. A
 tracker added later reads its own from the environment, never from this file.
 
 ## Naming conventions

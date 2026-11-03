@@ -1,7 +1,6 @@
 ---
 implementation_paths:
   - .agents/skills/sync/**
-  - .claude/skills/sync/**
   - tests/test-sync-retirement.sh
 ---
 
@@ -54,7 +53,7 @@ deleting it needs no human classification. That is a record, not a judgement,
 which is the same standard the `sync-keep` arithmetic meets.
 
 The comparison is on **content, not on the path**, and the difference is not
-academic. `.claude/hooks/` is a syncable root and `pre-commit.sh` is a name a
+academic. `.agents/hooks/` is a syncable root and `pre-commit.sh` is a name a
 template and a project both reach for, so path membership alone would delete a
 file this project wrote itself and never synced. It also protects the case git
 cannot: a synced file the project later **edited** hashes to something no
@@ -95,6 +94,16 @@ by `sync-keep`, not by picking; a user who wants to keep a path adds it to
 `sync-keep`, which is the entire point of the mechanism. *Preview only* and
 *abort* apply nothing.
 
+### Retired roots
+
+A root marked `RETIRED` in the Syncable Paths block — `.claude/skills/` since the
+`jplugin` plugin replaced the copy — is scanned for candidates and never checked
+out. Its template-history files are retired only when the project's
+`.claude/settings.json` enables `jplugin@jplugin-agentic-development`; without
+that key the plan reports them as kept and deletes nothing. Contract and
+criteria: `specs/claude-plugin-manifest.md` § `sync-retire.py` — retired roots
+and the project guard.
+
 ## Inputs
 
 - `--from-ref <ref>` — template inventory read from a git ref
@@ -114,7 +123,7 @@ by `sync-keep`, not by picking; a user who wants to keep a path adds it to
   already pins, not an eighth hand-maintained duplicate of it.
 
 A syncable root must be a direct subdirectory of `.agents/` or `.claude/` —
-`.agents/skills/`, `.claude/hooks/`, and so on. The doc block is read from the
+`.agents/skills/`, `.agents/hooks/`, and so on. The doc block is read from the
 template, which is a remote repository or a local directory, so it is untrusted
 input to a file-deleting operation: an unconstrained block naming `src/` would
 delete the project's source, and `.claude/` would sweep in the never-sync files
@@ -326,8 +335,6 @@ global config.
   list, and adds the retirement pass to the procedure.
 - `.agents/skills/sync/scripts/sync-retire.py` — the mechanism. Stdlib-only
   Python 3; computes, reports, and applies the retirement set.
-- `.claude/skills/sync/**` — byte-identical Claude Code compatibility copy of the
-  above, pinned by `tests/test-skill-parity.sh`.
 - `tests/test-sync-retirement.sh` — the behavioral suite for every criterion
   above.
 

@@ -4,8 +4,6 @@ implementation_paths:
   - .agents/skills/task-registry/scripts/registry/upsert.py
   - .agents/skills/task-registry/SKILL.md
   - .agents/skills/system-design-planning/SKILL.md
-  - .claude/skills/task-registry/**
-  - .claude/skills/system-design-planning/**
   - tests/test-task-registry.sh
   - tests/fixtures/task-registry/**
   - tests/test-doc-conventions.sh
@@ -53,9 +51,8 @@ AC-18), `select --routine build` (#98), and clearing a dependency (D8).
 | Index row shape is unchanged | the row ends `(blocked-by: a, b)` exactly as `render_row` emits today and `DEPS_RE` parses | `registry/index.py:51`, `:352-353` | `tests/test-task-registry.sh:353` (canonical row) keeps passing |
 | Every dependency is a valid task id | each `--depends-on` value passes `is_valid_id` (`registry/model.py:148`); a task never depends on itself | inferred | usage error, exit 2, message names the offending value, **before configuration is loaded** (D3) |
 | Every dependency names an index row | each value is the id of a row already in `tasks/todo.md` | inferred — **question for the reviewer**, see D2 | exit 2 before any provider call, message names the missing id and the two ways to create the row |
-| No silent replacement | when the flag replaces a non-empty existing set with a different one, the preview and applied lines show `blocked-by: <old> → <new>` | `CLAUDE.md` § No Silent Failures; hand-typed blockers exist in this index (`tasks/todo.md:467`) | new assertion: re-file over a hand-typed row and read the arrow |
+| No silent replacement | when the flag replaces a non-empty existing set with a different one, the preview and applied lines show `blocked-by: <old> → <new>` | `AGENTS.md` § No Silent Failures; hand-typed blockers exist in this index (`tasks/todo.md:467`) | new assertion: re-file over a hand-typed row and read the arrow |
 | Legacy rows keep parsing | a hand-typed row such as `(blocked-by: Beta work)` still loads; validation is a CLI concern, not a model one | `tests/test-task-registry.sh:1774-1785` | that test keeps passing |
-| Both trees stay identical after every slice | each slice copies its files to `.claude/skills/**` | `tests/test-skill-parity.sh:40` walks every canonical file | parity test green after slice 1, 2 and 3 separately |
 | Rollback | removing the flag leaves every written record readable: all three consumers already parse `depends-on` today | `registry/model.py:265`, `providers/local.py:176`, `registry/index.py:241-247` | no migration step exists to undo |
 
 ## System design
@@ -80,7 +77,7 @@ Nothing new owns anything. The change moves one fact — *who sets `depends_on`*
    │ (1) upsert         │                          │                                  │
    │  --depends-on a ──►│ (2) validate ids NEW     │                                  │
    │                    │   pre-config block :180  │                                  │
-   │                    │ load_config, select_provider (unchanged; may call gh auth status :216)
+   │                    │ load_config, select_provider (unchanged; may call gh api user)
    │                    │ Task(depends_on=(a,))    │                                  │
    │                    │ owned={"depends_on"} ───►│ (3) load_index_strict            │
    │                    │                    NEW   │     every dep id in index?  NEW  │
@@ -97,9 +94,9 @@ Nothing new owns anything. The change moves one fact — *who sets `depends_on`*
 
 | Arrow | Mode | On failure | On duplicate run |
 |-------|------|------------|------------------|
-| (2) | sync, in-process, before `load_config` | exit 2; no config read, no `gh auth status`, nothing written | same answer |
+| (2) | sync, in-process, before `load_config` | exit 2; no config read, no `gh api user` probe, nothing written | same answer |
 | (3) | sync, local file | missing id → exit 2 before any provider call, in dry run and in apply alike | same answer |
-| (4)–(6) | sync, subprocess for github | `ProviderError` → `upsert: could not persist …`, exit 1, index untouched (`upsert.py:214-219`, unchanged). In-doubt case, pre-existing: `gh issue create` succeeds but its URL cannot be parsed (`github.py:180-184`) — the issue exists, the command reports failure, and the next run finds it only if the index already holds the reference | `_existing` finds the record → `updated`; `_merge` replaces `depends_on` because it is owned |
+| (4)–(6) | sync, subprocess for github | `ProviderError` → `upsert: could not persist …`, exit 1, index untouched (`upsert.py:214-219`, unchanged). In-doubt case, pre-existing: the `POST /issues` write succeeds but its response carries no issue URL (`create_task`) — the issue exists, the command reports failure, and the next run finds it only if the index already holds the reference | `_existing` finds the record → `updated`; `_merge` replaces `depends_on` because it is owned |
 | (7) | sync, local file | as today | row refreshed in place, not appended |
 
 ### Failure unit
@@ -118,7 +115,7 @@ upsert (<task-id> | --derive-id NS (--spec P | --source P) [--fold-title]) --tit
 | Aspect | Contract |
 |--------|----------|
 | Inputs | each `ID` passes `is_valid_id`; `ID` ≠ the task's own id (positional, or `_derived_id(args)`, which needs only `args`) |
-| Placement | validated in the pre-configuration usage block (`task-registry.py:180-199`), so an invalid value never reaches `load_config` or `select_provider` — the latter shells out to `gh auth status` on a repo with a GitHub remote and no `provider =` line (`config.py:748, :765`) |
+| Placement | validated in the pre-configuration usage block (`task-registry.py:180-199`), so an invalid value never reaches `load_config` or `select_provider` — the latter shells out to `gh api user` (`select_provider` → `gh_authenticated`) on a repo with a GitHub remote and no `provider =` line |
 | Outcomes | exit 2 `task-registry: --depends-on <value> is not a valid task id` · exit 2 `task-registry: <id> cannot depend on itself` · otherwise the record carries `depends_on` and `owned` contains `"depends_on"` |
 | Raises | nothing new |
 | Idempotency | the flag is part of the command, so re-running the same command is a no-op update |
@@ -215,7 +212,7 @@ Slice 1 first because slice 2 cannot set the field without it, and it is a pure-
 |---|----------|---------|-------------|------------|
 | D1 | Flag given on an existing record | replace / union | **replace, disclosed** — the caller owns what it passes; union makes a dependency impossible to remove; the `<old> → <new>` line keeps a hand-typed blocker from vanishing silently | several independent filers add blockers to one task; then union |
 | D2 | `--depends-on` names an id with no index row | refuse in dry run and apply / accept and report / refuse on apply only | **refuse in both** — preview fidelity is a stated property of `upsert` (`:189-197`), and a dangling blocker would make a future consumer skip the task forever. Consequence: Step 8 must file **sequentially** (slice 3), because slice *n*'s row exists only after slice *n−1* is applied (`:221`). A reviewer who wants every preview before any write cannot have it; the rendered document is that review. **Open — needs the reviewer** | a project files from several machines whose indexes diverge; or the blocker is a GitHub issue never `upsert`ed here (#97, #98 today) — the refusal names both remedies, and a provider-known second rung is the upgrade path (D7) |
-| D3 | Where ids are validated | pre-config CLI block / beside `Task(...)` / `Task.__post_init__` | **pre-config CLI block** — the model also parses hand-typed rows and legacy prose blockers (`tests/test-task-registry.sh:1774`), which must load and be reported, not raise; and `_dispatch` runs after `select_provider`, which may call `gh auth status` | the model is only ever built from the CLI |
+| D3 | Where ids are validated | pre-config CLI block / beside `Task(...)` / `Task.__post_init__` | **pre-config CLI block** — the model also parses hand-typed rows and legacy prose blockers (`tests/test-task-registry.sh:1774`), which must load and be reported, not raise; and `_dispatch` runs after `select_provider`, which may call `gh api user` | the model is only ever built from the CLI |
 | D4 | Flag name | `--depends-on` / `--blocked-by` | **`--depends-on`** — matches the metadata key and the model field; `DEPS_RE` accepts both spellings on read | never — the reader is symmetric |
 | D5 | Native GitHub link | now / after #97 | **after #97** — the disclosure reads `native_dependencies` from the configured provider, so when #97 flips it the line disappears with no change here | #97 is abandoned; then the metadata form is permanent and the line stays |
 | D6 | Provider record and index row are two writes (`upsert.py:212-221`) | leave as is / make atomic | **leave as is** — pre-existing, self-repairing on the next run, outside this change under the orphan rule | a consumer starts trusting the index alone for dependency state |
@@ -244,7 +241,6 @@ Review-card questions that do not apply: D3 (no amounts or timestamps on this pa
 - `.agents/skills/task-registry/scripts/registry/upsert.py` — `owned` in `upsert_task` and `_merge`; the existence check; the preview, replacement and capability disclosure lines
 - `.agents/skills/task-registry/SKILL.md` — the `--depends-on` line and its refusals in *Commands*
 - `.agents/skills/system-design-planning/SKILL.md` — Step 8 files sequentially with the flag; `After:` and the shortcut marker are removed
-- `.claude/skills/task-registry/**`, `.claude/skills/system-design-planning/**` — byte-identical copies, synced in every slice
 - `tests/test-task-registry.sh` — the slice 1 and 2 criteria, in the existing file per *Right-Sizing Mechanical Guards*
 - `tests/fixtures/task-registry/**` — the authenticated-gh `upsert --apply` fixture slice 2 needs
 - `tests/test-doc-conventions.sh` — the pin moves from `TODO(shortcut)` to `--depends-on` for the planning skill

@@ -1,12 +1,16 @@
 ---
 title: Enforce canonical and compatibility skill parity
-date: 2026-07-08
+date: 2026-09-21
 problem_type: pattern
 module: tests/test-skill-parity.sh, .agents/skills, .claude/skills
 tags: [skill-parity, canonical-tree, compatibility-mirror, tests]
 applies_when: Adding or editing a harness-neutral skill or any file owned by that skill
 migrated_from: tasks/memory.md
 ---
+
+> **Correction 2026-09-21:** #156 retired the `.claude/skills/` compatibility copy and
+> `tests/test-skill-parity.sh`; `.agents/skills/` is now the only skill tree, shipped to
+> Claude Code as the `jplugin` plugin (`.claude-plugin/`). The parity mechanics below are historical record; the surviving guards are `tests/test-skill-frontmatter.sh`, `tests/test-skill-references.sh` and `tests/test-plugin-manifest.sh`, which now read one tree.
 
 ## Enforce canonical and compatibility skill parity
 

@@ -1,0 +1,36 @@
+diff --git a/app/billing.py b/app/billing.py
+index a84d7b3..0c19e6f 100644
+--- a/app/billing.py
++++ b/app/billing.py
+@@ -1,9 +1,31 @@
+ from datetime import datetime, timedelta, timezone
+ from zoneinfo import ZoneInfo
+ 
+ from app.models import Subscription
+ 
+ 
+ INTERVAL_DEFAULT_DAYS = 30
+ 
+ 
++def next_charge_date(sub):
++    tz = ZoneInfo(sub.account.timezone)
++    anchor = sub.last_charged_at.astimezone(tz).date()
++    return anchor + timedelta(days=sub.interval_days or INTERVAL_DEFAULT_DAYS)
++
++
++def is_due(sub, now=None):
++    now = now or datetime.now(timezone.utc)
++    today = now.date()
++    return today >= next_charge_date(sub)
++
++
++def due_subscriptions(now=None):
++    active = Subscription.query.filter_by(status="active").all()
++    return [sub for sub in active if is_due(sub, now)]
++
++
++def charge_amount_cents(sub):
++    base = sub.plan.price_cents
++    if sub.discount_pct:
++        base = base * (100 - sub.discount_pct) // 100
++    return base

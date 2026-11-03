@@ -7,11 +7,9 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RENDER_SCRIPT="$REPO_ROOT/.claude/skills/visual-recap/scripts/visual-render.py"
+RENDER_SCRIPT="$(under_test .agents/skills/visual-recap/scripts)/visual-render.py"
 
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+TMP="$(fixture_dir)"
 
 FIXTURE="$TMP/model.json"
 OUT="$TMP/out.html"
@@ -55,9 +53,7 @@ cat >"$FIXTURE" <<'JSON'
 }
 JSON
 
-python3 "$RENDER_SCRIPT" --input "$FIXTURE" -o "$OUT" >"$TMP/render.log" 2>&1
-RENDER_STATUS=$?
-assert_eq "0" "$RENDER_STATUS" "visual-render.py exits 0"
+assert_exit 0 "visual-render.py exits 0" -- "$TEST_PYTHON" "$RENDER_SCRIPT" --input "$FIXTURE" -o "$OUT"
 
 HEAD="$(sed '/<\/head>/q' "$OUT" 2>/dev/null)"
 
@@ -119,8 +115,7 @@ cat >"$PLAN_FIXTURE" <<'JSON'
 }
 JSON
 
-python3 "$RENDER_SCRIPT" --input "$PLAN_FIXTURE" -o "$PLAN_OUT" >"$TMP/plan-render.log" 2>&1
-assert_eq "0" "$?" "(AC1) plan fixture renders exit 0"
+assert_exit 0 "(AC1) plan fixture renders exit 0" -- "$TEST_PYTHON" "$RENDER_SCRIPT" --input "$PLAN_FIXTURE" -o "$PLAN_OUT"
 assert_file_contains "$PLAN_OUT" "CSV export button to the widget dashboard" "(AC1) narrative text present"
 assert_file_contains "$PLAN_OUT" "src/widgets/export.py" "(AC1) file-map filename present"
 assert_file_contains "$PLAN_OUT" "NEW" "(AC1) file-map NEW marker present"
@@ -154,8 +149,7 @@ cat >"$RECAP_FIXTURE" <<'JSON'
 }
 JSON
 
-python3 "$RENDER_SCRIPT" --input "$RECAP_FIXTURE" -o "$RECAP_OUT" >"$TMP/recap-render.log" 2>&1
-assert_eq "0" "$?" "(AC3/AC7) recap fixture renders exit 0"
+assert_exit 0 "(AC3/AC7) recap fixture renders exit 0" -- "$TEST_PYTHON" "$RENDER_SCRIPT" --input "$RECAP_FIXTURE" -o "$RECAP_OUT"
 assert_file_contains "$RECAP_OUT" "src/added.py" "(AC3/AC7) added file present"
 assert_file_contains "$RECAP_OUT" "src/changed.py" "(AC3/AC7) changed file present"
 assert_file_contains "$RECAP_OUT" "src/removed.py" "(AC3/AC7) removed file present"
@@ -163,37 +157,16 @@ assert_not_contains "$(cat "$RECAP_OUT")" "src/PHANTOM_NOT_IN_DIFF.py" \
   "(AC3/AC7) renderer invents no entries not in the diff"
 
 # (AC6) checksum guard: the base generator is untouched by post-processor renders.
-GEN_CLAUDE="$REPO_ROOT/.claude/skills/html-presentation/scripts/generate-presentation.py"
-GEN_AGENTS="$REPO_ROOT/.agents/skills/html-presentation/scripts/generate-presentation.py"
-CKSUM_CLAUDE_BEFORE="$(cksum "$GEN_CLAUDE")"
+GEN_AGENTS="$(under_test .agents/skills/html-presentation/scripts)/generate-presentation.py"
 CKSUM_AGENTS_BEFORE="$(cksum "$GEN_AGENTS")"
 
-python3 "$RENDER_SCRIPT" --input "$FIXTURE" -o "$TMP/cksum-guard-out.html" >"$TMP/cksum-render.log" 2>&1
+run "$TEST_PYTHON" "$RENDER_SCRIPT" --input "$FIXTURE" -o "$TMP/cksum-guard-out.html"
 
-CKSUM_CLAUDE_AFTER="$(cksum "$GEN_CLAUDE")"
 CKSUM_AGENTS_AFTER="$(cksum "$GEN_AGENTS")"
-assert_eq "$CKSUM_CLAUDE_BEFORE" "$CKSUM_CLAUDE_AFTER" "(AC6) .claude generate-presentation.py untouched by render"
 assert_eq "$CKSUM_AGENTS_BEFORE" "$CKSUM_AGENTS_AFTER" "(AC6) .agents generate-presentation.py untouched by render"
 
 # Regression: pin the base generator's </head> contract that the splice relies on.
-python3 "$REPO_ROOT/.claude/skills/html-presentation/scripts/generate-presentation.py" \
-  --input "$FIXTURE" -o "$TMP/base_only.html" >"$TMP/base-only.log" 2>&1
+run "$TEST_PYTHON" "$GEN_AGENTS" --input "$FIXTURE" -o "$TMP/base_only.html"
 assert_file_contains "$TMP/base_only.html" "</head>" "base generator still emits </head> (splice contract)"
-
-# --- Group F: system-design-planning content-model template renders ---
-# The skill's Step 6 renders templates/content-model.json through this script;
-# a template the renderer rejects is a skill whose Step 6 cannot run. The
-# generator appends its own reflection/references sections after the authored
-# ones, so those are filtered out and the whole remaining list is compared —
-# an eighth authored section would fail this, where a head -7 would not.
-SDP_MODEL="$REPO_ROOT/.agents/skills/system-design-planning/templates/content-model.json"
-SDP_OUT="$TMP/sdp-out.html"
-python3 "$RENDER_SCRIPT" --input "$SDP_MODEL" -o "$SDP_OUT" >"$TMP/sdp-render.log" 2>&1
-SDP_STATUS=$?
-[ "$SDP_STATUS" -eq 0 ] || cat "$TMP/sdp-render.log"
-assert_eq "0" "$SDP_STATUS" "(system-design-planning) content-model.json renders exit 0"
-SDP_IDS="$(grep -o 'section id="[a-z-]*"' "$SDP_OUT" | sed 's/section id="//; s/"//' | grep -vE '^(reflection|references|code-blocks)$' | paste -sd ' ' -)"
-assert_eq "problem constraints system-design contracts data-models build-order decisions" "$SDP_IDS" \
-  "(system-design-planning) rendered sections are the seven authored ones, in order"
 
 finish

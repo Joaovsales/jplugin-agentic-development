@@ -11,7 +11,7 @@
 The workflow touches a browser in exactly two places today:
 
 - `.agents/skills/start-qa/SKILL.md:90` — launches `/chrome` for **human** manual QA.
-- `.agents/skills/verify/SKILL.md:105` — `--scope e2e`, which requires a real browser MCP
+- `.agents/skills/verify-evidence/SKILL.md:105` — `--scope e2e`, which requires a real browser MCP
   (Chrome or Playwright) and hard-STOPs rather than falling back.
 
 Unattended runs (`/auto-improve`, `/yolo`, worktree runs) execute in environments with no

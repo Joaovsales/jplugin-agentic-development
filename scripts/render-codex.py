@@ -7,13 +7,28 @@ import argparse
 import ast
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import NoReturn, Optional
 
-BEGIN = "<!-- coding-agent-workflow:begin -->"
-END = "<!-- coding-agent-workflow:end -->"
-MANAGED = "# coding-agent-workflow:managed"
+from agent_policy import PolicyError, load_policy
+from agent_policy.codex import EXTRA_AGENTS, render_agent
+from agent_policy.install import apply, describe, plan_agent, plan_config
+
+SLUG = "jplugin-agentic-development"
+MANAGED = f"# {SLUG}:managed"
+# Files written before the repository rename carry the old slug in the same
+# marker and in the hook file names. Assembled at runtime so the identity sweep
+# (tests/test-repo-identity.sh) does not read this module as a live reference.
+# The shared rules are not rendered here any more: each project reads them from
+# the managed block /sync writes into its AGENTS.md (sync-managed-block.py owns
+# those markers).
+LEGACY_SLUG = "coding-agent" + "-workflow"
+LEGACY_MANAGED = MANAGED.replace(SLUG, LEGACY_SLUG)
+LEGACY_HOOK_FILES = tuple(
+    f"{LEGACY_SLUG}-{name}" for name in ("session-start.py", "pre-compact.sh", "session-end.sh")
+)
 
 
 def fail(message: str) -> NoReturn:
@@ -87,47 +102,76 @@ def parse_agent(path: Path) -> tuple[str, str, str]:
     return fields["name"], fields["description"], body
 
 
-def render_global(source: Path, destination: Path) -> None:
-    source_text = source.read_text(encoding="utf-8")
-    marker = "## Session Start Checklist"
-    if marker not in source_text:
-        fail(f"{source}: shared rules marker not found")
-    body = source_text[source_text.index(marker) :]
-    body = "\n".join(line for line in body.splitlines() if not line.startswith("@"))
-    managed = (
-        f"{BEGIN}\n"
-        "# Shared Coding Agent Workflow\n"
-        "> Project-specific instructions belong in the project's AGENTS.md.\n\n"
-        f"{body.rstrip()}\n"
-        f"{END}\n"
-    )
-    existing = destination.read_text(encoding="utf-8") if destination.exists() else ""
-    if BEGIN in existing and END in existing:
-        before = existing.split(BEGIN, 1)[0]
-        after = existing.split(END, 1)[1].lstrip("\n")
-        result = before + managed + after
-    else:
-        result = existing.rstrip() + ("\n\n" if existing.strip() else "") + managed
-    write_text(destination, result)
+def _legacy_agent(name: str, description: str, instructions: str) -> str:
+    fields = {"name": name, "description": description, "developer_instructions": instructions}
+    return "".join(f"{key} = {json.dumps(value, ensure_ascii=False)}\n" for key, value in fields.items())
 
 
-def render_agents(source_dir: Path, destination_dir: Path) -> None:
-    destination_dir.mkdir(parents=True, exist_ok=True)
+def render_agents(source_dir: Path, destination_dir: Path, config: Optional[Path] = None,
+                  preview: bool = False, adopt_legacy: bool = False) -> None:
+    try:
+        policy = load_policy()
+    except PolicyError as exc:
+        fail(str(exc))
+    agents = {}
     for source in sorted(source_dir.glob("*.md")):
         if source.name == "README.md":
             continue
         name, description, instructions = parse_agent(source)
-        destination = destination_dir / f"{source.stem}.toml"
-        if destination.exists() and MANAGED not in destination.read_text(encoding="utf-8"):
-            print(f"kept personal agent: {destination}")
+        agents[name] = (description, instructions, None)
+    agents.update({name: (*details, None) for name, details in EXTRA_AGENTS.items()})
+    role_tiers = {role["name"]: role["tier"] for role in policy["roles"]}
+    for lane in policy["lanes"]:
+        if lane.get("tier") == "Ceiling" and role_tiers[lane["role"]] != "Ceiling":
+            agents[lane["name"]] = (*agents[lane["role"]][:2], lane["name"])
+    plan = []
+    for name, (description, instructions, lane) in sorted(agents.items()):
+        destination = destination_dir / f"{name}.toml"
+        content = render_agent(policy, name, description, instructions, MANAGED, lane)
+        legacy = None if name in EXTRA_AGENTS or lane else _legacy_agent(name, description, instructions)
+        plan.append(plan_agent(destination, content, legacy, (MANAGED, LEGACY_MANAGED)))
+    if config is not None:
+        plan.append(plan_config(config, policy["limits"]["codex"]["max_children"]))
+    if preview:
+        for line in describe(plan):
+            print(line)
+        return
+    try:
+        apply(plan, adopt_legacy)
+    except (OSError, ValueError) as exc:
+        fail(str(exc))
+
+
+def _is_legacy_adapter(hook: object) -> bool:
+    """Only this adapter's three pre-rename hook files — matched as whole path
+    components, so a user hook whose path merely contains the old slug survives.
+    """
+    if not isinstance(hook, dict):
+        return False
+    command = str(hook.get("command", ""))
+    return any(
+        re.search(rf"(^|[\\/\s]){re.escape(name)}(\s|$)", command) for name in LEGACY_HOOK_FILES
+    )
+
+
+def _drop_legacy_adapter(groups: list) -> None:
+    """Remove this adapter's pre-rename registration for one event, in place.
+
+    A machine installed before the repository rename holds the same hook under
+    the old file name; left alone, a re-run would register the renamed file
+    beside it and the event would fire the adapter twice.
+    """
+    for group in groups:
+        if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
             continue
-        content = (
-            f"{MANAGED}\n"
-            f"name = {json.dumps(name, ensure_ascii=False)}\n"
-            f"description = {json.dumps(description, ensure_ascii=False)}\n"
-            f"developer_instructions = {json.dumps(instructions, ensure_ascii=False)}\n"
-        )
-        write_text(destination, content)
+        kept = []
+        for hook in group["hooks"]:
+            if _is_legacy_adapter(hook):
+                print(f"replaced legacy hook: {hook.get('command')}")
+            else:
+                kept.append(hook)
+        group["hooks"] = kept
+    groups[:] = [g for g in groups if not (isinstance(g, dict) and g.get("hooks") == [])]
 
 
 def merge_hooks(destination: Path, commands: list[str]) -> None:
@@ -148,6 +192,7 @@ def merge_hooks(destination: Path, commands: list[str]) -> None:
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):
             fail(f"{destination}: {event} must be an array")
+        _drop_legacy_adapter(groups)
         registered = any(
             isinstance(group, dict)
             and any(
@@ -163,8 +208,10 @@ def merge_hooks(destination: Path, commands: list[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--global", dest="global_args", nargs=2, metavar=("SOURCE", "DEST"))
     parser.add_argument("--agents", dest="agents_args", nargs=2, metavar=("SOURCE", "DEST"))
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--preview", action="store_true")
+    parser.add_argument("--adopt-legacy", action="store_true")
     parser.add_argument(
         "--merge-hooks",
         dest="hooks_args",
@@ -172,13 +219,12 @@ def main() -> None:
         metavar=("DEST", "SESSION_START", "PRE_COMPACT", "SESSION_END"),
     )
     args = parser.parse_args()
-    selected = [args.global_args, args.agents_args, args.hooks_args]
+    selected = [args.agents_args, args.hooks_args]
     if sum(value is not None for value in selected) != 1:
         parser.error("choose exactly one rendering operation")
-    if args.global_args:
-        render_global(Path(args.global_args[0]), Path(args.global_args[1]))
-    elif args.agents_args:
-        render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]))
+    if args.agents_args:
+        render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]), args.config,
+                      args.preview, args.adopt_legacy)
     else:
         merge_hooks(Path(args.hooks_args[0]), args.hooks_args[1:])
 

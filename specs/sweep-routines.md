@@ -13,13 +13,12 @@ implementation_paths:
   - .agents/skills/wrap-up-session/scripts/routine_branch.py
   - .agents/skills/wrap-up-session/SKILL.md
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - .agents/skills/debug/SKILL.md
   - .agents/skills/maintain-verification-skill/SKILL.md
   - .agents/skills/software-design-expert-review/SKILL.md
   - CLAUDE.md
   - README.md
-  - .claude/hooks/session-start.sh
+  - .agents/hooks/session-start.sh
   - tests/test-sweep-routines.sh
   - tests/test-sweep-handoff.sh
   - tests/test-routine-branch.sh
@@ -68,7 +67,7 @@ steps or the proposed fix that a cheaper model would need to work cold.
 
 | Routine | Lens | Engine | Files as | Terminal artifact |
 |---|---|---|---|---|
-| `janitor` | bugs | full test suite + `/maintain-verification-skill` full pass (live pass drives every mapped feature under `/verify --scope e2e` rules) | `bug` | ready, docs-only PR carrying `Refs #N` per filed issue |
+| `janitor` | bugs | full test suite + `/maintain-verification-skill` full pass (live pass drives every mapped feature under `/verify-evidence --scope e2e` rules) | `bug` | ready, docs-only PR carrying `Refs #N` per filed issue |
 | `architect` | design | `/software-design-expert-review --scope tree` (APOSD red flags over the whole tree) | `task` + `tech-debt`, or `design-decision` when the fix needs a human decision | same |
 
 Producers run on the **Planner** tier; consumers (`fix`, `improve`) on the
@@ -203,8 +202,8 @@ issue.
   reproduce" invokes the single `task-registry escalate` owner, adds the
   configured `needs-investigation` hold after authoritative readback, exits
   non-zero, and opens no PR; it never asks the user. When the issue carries a proposed fix
-  and criteria, `/debug`'s final phase writes the `[ ] TDD:` tasks for `/build`
-  from them.
+  and criteria, `/debug`'s final phase writes a `## Fix:` block of plain `- [ ]`
+  criterion rows from them and runs each through `/tdd`.
 - The `fix` routine's step 4a row becomes `/debug #N`; for `tech-debt` it reads
   the proposed fix and evidence through `show`.
 
@@ -239,7 +238,7 @@ Both trees deleted, `tests/test-auto-improve-rewire.sh` deleted, and every
 reference outside `tasks/` and `specs/` history repointed: `CLAUDE.md` skills
 table and the repo-survey exception in *Review Dispatch Contract* (now `/sweep
 --routine architect`), `README.md`, `session-start.sh`, `/build` and
-`subagent-resilience.md`, the `/wrap-up-session` Step 8.5 caller list, and the
+`subagent-resilience.md`, the `/wrap-up-session` § *Terminal PR assertion* caller list, and the
 test loops in `test-doc-conventions.sh`, `test-model-tiers.sh`,
 `test-review-context.sh`, `test-skill-invocation-chain.sh`,
 `test-routines-contract.sh`, `test-routine-wrapup.sh` (`/sweep` runs on a
@@ -296,7 +295,7 @@ template's history record; no allowlist entry is needed.
   them. Pinned by a Python test in `tests/test-sweep-handoff.sh`.
 - AC5 — `/debug` documents issue-reference intake via `task-registry show`, the
   candidate-one rule, the unattended registry escalation path with non-zero exit
-  and no user prompt, and writing `[ ] TDD:` tasks from the issue; `routines.md`
+  and no user prompt, and writing a `## Fix:` block of plain criterion rows from the issue and running it through `/tdd`; `routines.md`
   `fix` step 4a reads `/debug #N`.
 - AC6 — `/maintain-verification-skill` states the inline source-wave fallback
   and sweep-owned shipping; `/software-design-expert-review` documents
@@ -311,7 +310,7 @@ template's history record; no allowlist entry is needed.
   `session-start.sh` list `/sweep` in its place.
 - AC10 — `task-registry/references/configuration.md` has an "Unattended
   routines" section naming both switches, `gh`, and `allow_label_creation`.
-- AC11 — `tests/test-skill-parity.sh` and `bash tests/run.sh` are fully green.
+- AC11 — `bash tests/run.sh` is fully green.
 
 ## Out of scope
 

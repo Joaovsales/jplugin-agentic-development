@@ -1,9 +1,9 @@
 # Task tracking
 
 > This project's configuration contract, read by `/task-registry`. Declared from
-> `.claude/project.md` (Claude Code) and `AGENTS.md` (Pi) — never from
-> `CLAUDE.md`, which `/sync` overwrites wholesale. `docs/` is outside every
-> syncable root, so what is chosen here survives a template update.
+> `AGENTS.md` below the managed block's end marker — never inside the block,
+> which `/sync` replaces wholesale. `docs/` is outside every syncable root, so
+> what is chosen here survives a template update.
 >
 > Only the keys this project actually decides are listed. Everything omitted
 > takes the shipped default; start from
@@ -27,12 +27,13 @@ require_write_approval = false
 [routines]
 claim_label = in-progress
 escalation_label = needs-investigation
-kind_precedence = bug, design-decision, tech-debt, enhancement, documentation
+kind_precedence = bug, design-decision, simplify, tech-debt, enhancement, documentation
 
 [routines.selectors]
 plan = design-decision
 fix = bug, tech-debt
 improve = enhancement, documentation
+simplify = simplify
 
 ; What each routine RUNS. Replaces wholesale, so every selected routine needs a
 ; chain here. `build` carries one though it is deferred (#97/#98), so
@@ -41,11 +42,12 @@ improve = enhancement, documentation
 ; that should not send a correctly labelled issue back to triage.
 [routines.skills]
 plan = /plan, /wrap-up-session
-fix = /debug, /build, /quality-gate, /wrap-up-session
+fix = /debug, /quality-gate, /wrap-up-session
 improve = /plan, /build, /quality-gate, /wrap-up-session
+simplify = /make-it-simpler, /plan, /build, /quality-gate, /wrap-up-session
 build = /build, /quality-gate, /wrap-up-session
 ```
 
 ## Credentials
 
-None are read from this file. GitHub uses whatever `gh auth status` reports.
+None are read from this file. GitHub uses whatever credential `gh api user` succeeds with.

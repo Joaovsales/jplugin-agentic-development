@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code plugin manifest over the canonical skill tree — Architecture Review</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #21262d;
+  --border: #30363d; --text: #c9d1d9; --text-secondary: #8b949e;
+  --accent: #58a6ff; --accent-2: #3fb950; --warn: #f85149;
+  --warn-bg: rgba(248,81,73,0.12); --code-bg: #1e1e1e;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4); --radius: 10px;
+}
+[data-theme="light"] {
+  --bg: #ffffff; --surface: #f6f8fa; --surface-2: #eaeef2;
+  --border: #d0d7de; --text: #1f2328; --text-secondary: #57606a;
+  --accent: #0969da; --accent-2: #1a7f37; --warn: #cf222e;
+  --warn-bg: rgba(207,34,46,0.08); --code-bg: #f6f8fa;
+  --shadow: 0 4px 20px rgba(31,35,40,0.08);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.65; font-size: 16px;
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+@media (min-width: 1100px) { .container { max-width: 920px; } }
+
+/* Hero */
+.hero { padding: 3rem 0 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 0.5rem; letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle { color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; }
+.hero .takeaway {
+  font-size: 1.15rem; line-height: 1.5; padding: 1rem 1.2rem;
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 1.2rem 0;
+}
+.hero .meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem;
+  color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;
+}
+.hero .meta span strong { color: var(--text); margin-right: 0.25rem; }
+
+/* Summary cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-secondary); margin-bottom: 0.25rem; }
+.card .value { font-size: 1.6rem; font-weight: 600; color: var(--accent); line-height: 1.1; }
+.card .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+/* Sections */
+section { margin: 2.5rem 0; scroll-margin-top: 1.5rem; }
+section > h2 {
+  font-size: 1.45rem; margin: 0 0 1rem; padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--accent); display: flex; gap: 0.5rem; align-items: baseline;
+}
+section h3 { font-size: 1.1rem; margin: 1.4rem 0 0.5rem; }
+section p { margin: 0.7rem 0; }
+section ul { padding-left: 1.4rem; margin: 0.5rem 0; }
+section li { margin: 0.3rem 0; }
+
+/* Sidebar nav */
+.nav-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  padding: 1.5rem 0.8rem; overflow-y: auto;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transform: translateX(0); transition: transform 0.25s; z-index: 100;
+}
+.nav-sidebar.hidden { transform: translateX(-100%); }
+.nav-sidebar h3 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-secondary); margin: 1rem 0.5rem 0.4rem;
+}
+.nav-sidebar a {
+  display: block; padding: 0.4rem 0.6rem; border-radius: 6px;
+  color: var(--text); font-size: 0.9rem; line-height: 1.35;
+}
+.nav-sidebar a:hover { background: var(--surface-2); text-decoration: none; }
+.nav-sidebar a.active { background: var(--surface-2); color: var(--accent); font-weight: 600; }
+.layout { display: flex; }
+.layout main { flex: 1; margin-left: 240px; min-width: 0; }
+@media (max-width: 900px) {
+  .nav-sidebar { transform: translateX(-100%); }
+  .nav-sidebar.open { transform: translateX(0); box-shadow: var(--shadow); }
+  .layout main { margin-left: 0; }
+}
+
+/* Toolbar buttons (theme, nav toggle) */
+.toolbar { position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.4rem; z-index: 200; }
+.toolbar button, .nav-toggle {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.toolbar button:hover, .nav-toggle:hover { background: var(--surface-2); }
+.nav-toggle { position: fixed; top: 1rem; left: 1rem; z-index: 200; }
+
+/* Code */
+pre {
+  margin: 0.5rem 0; padding: 1rem 1.1rem; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow-x: auto; font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace;
+  font-size: 0.85rem; line-height: 1.55;
+}
+code { font-family: "SF Mono", Monaco, Consolas, "Fira Code", monospace; font-size: 0.9em; }
+p code, li code {
+  padding: 0.1rem 0.35rem; background: var(--surface-2);
+  border-radius: 4px; font-size: 0.85em;
+}
+.code-block { margin: 1rem 0; }
+.code-block .caption {
+  font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.code-block .caption .lang { font-family: monospace; font-size: 0.75rem;
+  padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--surface-2); }
+
+/* Collapsible */
+details {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.6rem 1rem; margin: 0.8rem 0;
+}
+details summary { cursor: pointer; font-weight: 600; }
+details[open] { padding-bottom: 1rem; }
+
+/* References footer */
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+.refs a {
+  display: block; padding: 0.8rem 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.9rem;
+}
+.refs a:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Reflection */
+.reflection {
+  background: linear-gradient(135deg, rgba(88,166,255,0.10), rgba(63,185,80,0.10));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.3rem 1.5rem; margin: 2rem 0;
+}
+.reflection h3 { margin-top: 0; color: var(--accent); }
+
+footer {
+  margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.85rem; text-align: center;
+}
+
+/* Slides mode */
+body.mode-slides { overflow: hidden; }
+body.mode-slides .layout main { margin-left: 0; }
+body.mode-slides .nav-sidebar, body.mode-slides .nav-toggle { display: none; }
+body.mode-slides .container { max-width: none; padding: 0; }
+body.mode-slides .slide {
+  width: 100vw; height: 100vh; padding: 4rem 6rem; display: none;
+  flex-direction: column; justify-content: center;
+}
+body.mode-slides .slide.active { display: flex; }
+body.mode-slides .slide h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
+body.mode-slides .slide h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); border: none; }
+body.mode-slides .slide-counter {
+  position: fixed; bottom: 1rem; right: 1.5rem; color: var(--text-secondary);
+  font-size: 0.85rem; font-family: monospace;
+}
+</style>
+<style>
+.diff-add { color: var(--accent-2); }
+.diff-del { color: var(--warn); }
+.diff-ctx { color: var(--text-secondary); }
+
+.tabset { margin: 1rem 0; }
+.tab-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.tab-btn {
+  background: none; cursor: pointer; border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.4rem 0.9rem; color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.tab-btn.active { color: var(--accent); border-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  colorDiffBlocks();
+  buildKeychangeTabs();
+});
+
+function colorDiffBlocks() {
+  document.querySelectorAll('pre code.lang-diff').forEach(function (block) {
+    var lines = block.textContent.split('\n');
+    block.textContent = '';
+    lines.forEach(function (line, i) {
+      var span = document.createElement('span');
+      if (line.startsWith('+')) {
+        span.className = 'diff-add';
+      } else if (line.startsWith('-')) {
+        span.className = 'diff-del';
+      } else {
+        span.className = 'diff-ctx';
+      }
+      span.textContent = line;
+      block.appendChild(span);
+      if (i < lines.length - 1) {
+        block.appendChild(document.createTextNode('\n'));
+      }
+    });
+  });
+}
+
+function buildKeychangeTabs() {
+  var sections = Array.from(document.querySelectorAll('main section[id]'));
+  var i = 0;
+  while (i < sections.length) {
+    if (!sections[i].id.startsWith('keychange-')) {
+      i += 1;
+      continue;
+    }
+    var group = [];
+    while (i < sections.length && sections[i].id.startsWith('keychange-')) {
+      group.push(sections[i]);
+      i += 1;
+    }
+    wrapGroupInTabset(group);
+  }
+}
+
+function wrapGroupInTabset(group) {
+  var tabset = document.createElement('div');
+  tabset.className = 'tabset';
+  var tabBtns = document.createElement('div');
+  tabBtns.className = 'tab-btns';
+  tabset.appendChild(tabBtns);
+
+  group[0].parentNode.insertBefore(tabset, group[0]);
+
+  group.forEach(function (section, idx) {
+    var heading = section.querySelector('h2');
+    var label = heading ? heading.textContent.trim() : section.id;
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+    btn.textContent = label;
+    tabBtns.appendChild(btn);
+
+    section.classList.add('tab-panel');
+    if (idx === 0) {
+      section.classList.add('active');
+    }
+    tabset.appendChild(section);
+
+    btn.addEventListener('click', function () {
+      tabBtns.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      tabset.querySelectorAll('.tab-panel').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      section.classList.add('active');
+    });
+  });
+}
+</script>
+</head>
+<body class="mode-report" data-theme="dark">
+<div class="toolbar"><button onclick="toggleTheme()" aria-label="Toggle theme">🌓 Theme</button></div><button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">☰</button>
+<div class="layout">
+<nav class="nav-sidebar" id="navSidebar"><h3>Contents</h3><a href="#problem">One tree, one namespace, one name</a><a href="#constraints">Constraints — which correct designs are wrong here</a><a href="#system-design">System design — who owns what, and what fails together</a><a href="#contracts">Component contracts — can the caller ignore a case it must handle</a><a href="#data-models">Data models — which combinations are nonsense, and does the type forbid them</a><a href="#build-order">Build order — each slice ships alone, riskiest unknown first</a><a href="#decisions">Decisions — expensive to change later</a><a href="#reflection">Reflect</a><a href="#references">References</a></nav>
+<main><div class="container"><header class="hero"><h1>Claude Code plugin manifest over the canonical skill tree — Architecture Review</h1><p class="subtitle">jplugin-agentic-development · prompt · 2026-09-16 · critic pass: 12/12 applied · reviewer round 1: 2 applied</p><p class="takeaway">Claude Code stops reading a byte copy in .claude/skills/ and loads the canonical .agents/skills/ tree through a plugin named jplugin, declared in each project&#x27;s synced settings file. The repository adopts its current identity (jplugin-agentic-development) everywhere, and the compatibility shims that only served the two-tree layout or pre-rename projects are deleted. Approving this document closes the plugin name as jplugin.</p><div class="meta"><span><strong>Origin:</strong>prompt</span><span><strong>Spec:</strong>specs/claude-plugin-manifest.md</span><span><strong>Status:</strong>awaiting review (round 2)</span></div></header><div class="cards"><div class="card"><div class="label">Components touched</div><div class="value">14</div><div class="hint">manifests, settings.json, install.sh, sync + sync-retire.py, CI mirror, session-start.sh, codex installer, tidy, CLAUDE.md, README, deployments README, hooks, tests</div></div><div class="card"><div class="label">Contracts</div><div class="value">6 new · 7 changed</div><div class="hint">plugin.json, marketplace.json, settings declaration, 2 install.sh fns, sync-retire guard · Syncable Paths, /sync steps 2.5–2.6 removed, sync-template.yml, identity, deprecated hook, CLAUDE.md sentence, project-local skills</div></div><div class="card"><div class="label">Entities</div><div class="value">2 new · 0 changed</div><div class="hint">project plugin declaration, machine skills_source</div></div><div class="card"><div class="label">Build slices</div><div class="value">7</div><div class="hint">spike S1–S4 first; slice 6 gated on S2; legacy retirement last</div></div><div class="card"><div class="label">Open decisions</div><div class="value">1 open · 1 closed by approval</div><div class="hint">RETIRED-row lifetime · plugin name jplugin</div></div></div><section id="problem"><h2>One tree, one namespace, one name</h2><p>Claude Code users of this workflow read skills from <code>.claude/skills/</code>, a byte-identical copy of the canonical <code>.agents/skills/</code> tree that a convention, an allowlist and <code>tests/test-skill-parity.sh</code> keep aligned; installed copies are already drifting (<code>~/.claude/skills/</code> still carries <code>deslop</code>, <code>simplify</code>, <code>tdd</code> and <code>verify-e2e</code>, which the repository no longer ships). This change ships the repository as a Claude Code plugin named <code>jplugin</code> whose manifest points at <code>.agents/skills/</code>, declares that plugin in the one settings file <code>/sync</code> already delivers to every project, removes the template&#x27;s <code>.claude/skills/</code> copy, adopts the repository&#x27;s current identity <code>jplugin-agentic-development</code> wherever the old name still appears, and retires the compatibility shims that only existed for the two-tree layout or for projects synced before earlier renames.</p>
+
+<p><strong>Out of scope:</strong> moving agents or hooks into the plugin, renaming any skill, project-local skills a project writes into its own <code>.claude/skills/</code> (<code>verify-&lt;app&gt;</code> stays as it is), and the Pi and Codex install paths, which read <code>~/.agents/skills/</code> and do not change.</p>
+
+<p><strong>Current state</strong> — every path below was read; nothing is UNVERIFIED.</p>
+
+<pre><code class="lang-text"> .agents/skills/&lt;name&gt;/SKILL.md  (canonical, 33 skills)
+        │
+        ├─ cp ─► .claude/skills/&lt;name&gt;/SKILL.md   byte copy + README.md,
+        │        setup-deployment, verify-deployment (tests/test-skill-parity.sh:16)
+        │              │
+        │              └─ Claude Code project scan   (.claude/skills only)
+        │
+        ├─ install.sh:107  cp .claude/skills/. ─► ~/.claude/skills/     (Claude Code, user scope)
+        ├─ install.sh:123  cp .agents/*       ─► ~/.agents/            (Pi: PI_SETUP.md:18)
+        └─ scripts/install-codex.sh:50        ─► ~/.agents/skills/     (Codex)
+
+ /sync  ── Syncable Paths block (sync/SKILL.md:99-108) lists BOTH trees + .claude/settings.json
+        ── sync-retire.py:604 parses roots; :533 tolerates ONE empty root, but an empty root
+           is SKIPPED (:615 project_only over `scanned`; :624 history over `scanned`)
+        ── .github/workflows/sync-template.yml:56 mirrors .claude/skills, never deletes
+        ── session-start.sh:356 drift check diffs the same list
+        ── tests/test-syncable-paths.sh:88-113 pins 7 copies, one is .claude/skills/sync/SKILL.md
+
+ identity  ── GitHub repo is Joaovsales/jplugin-agentic-development; 87 occurrences of the old
+              name remain in 17 tracked files; local `origin` still points at coding-agent-workflow.git
+ legacy    ── retired skills in history: auto-improve, route, tdd, deslop, simplify, verify-e2e, aposd-guardrail
+           ── .claude/hooks/auto-test-runner.{sh,ps1} header says DEPRECATED; README.md:345,369 list it as live
+           ── sync SKILL.md:195-262 Steps 2.5 (.claude/commands/ migration) and 2.6 (CLAUDE.md
+              Deployment Targets migration); session-start.sh:275 CLAUDE.md fallback; deployments/README.md:151
+           ── install.sh:57-92 --prune-skills flag; tests.md root placeholder (README.md:376 only)
+</code></pre>
+
+<p><strong>Two pinning models exist today.</strong> Claude Code is <em>project-pinned</em> (the project&#x27;s <code>.claude/skills/</code> shadows <code>~/.claude/skills/</code>). Pi and Codex are <em>machine-pinned</em> (<code>~/.agents/skills/</code> prose, project-relative scripts). This spec keeps Claude Code project-pinned, which rules out a machine-level plugin as the only delivery path.</p>
+
+<p><strong>Verified outside the repo (Claude Code 2.1.227):</strong> plugin skills are always namespaced <code>/plugin:skill</code>; <code>plugin.json</code> <code>skills</code> accepts a <code>./</code>-relative path and adds to the default scan; a marketplace added from a local directory with <code>source: &quot;./&quot;</code> loads in place; project <code>.claude/agents</code> override plugin agents; <code>enabledPlugins</code> is honoured from project settings; Claude Code never scans <code>.agents/skills</code>.</p></section>
+<section id="constraints"><h2>Constraints — which correct designs are wrong here</h2><p>An <code>inferred</code> row is a question for you, not a fact.</p>
+
+<pre><code class="lang-text">Constraint                              Value                                                             Source    Detected by
+──────────────────────────────────────  ────────────────────────────────────────────────────────────────  ────────  ─────────────────────────────────────
+Pi and Codex keep working               install.sh step 3 and install-codex.sh:50 unchanged (name only)   user      test-install-sh.sh, test-codex-install.sh
+Every canonical skill loads             `claude plugin details jplugin@jplugin-agentic-development`         user      e2e-log live proof; test-plugin-manifest.sh
+                                        lists basename(.agents/skills/*)
+Bare /name prose routes to jplugin:name /eval triggerability PASS for /quality-gate, /verify,              user      /eval transcript in e2e-log; slice 6 gated
+                                        /task-registry with NO un-namespaced copy present
+Fresh clone has skills on Claude Code   .claude/settings.json declares marketplace + enables plugin;       user      live proof on scratch clone; test-plugin-manifest
+                                        Claude Code offers the install on first open
+Claude Code stays project-pinned        settings `ref` == the template ref /sync checked out               user      test-sync-retirement.sh fixture
+Skill names stay harness-neutral        zero `jplugin:` literals in skills, agents, AGENTS.md, PI_SETUP;   inferred  test-plugin-manifest.sh
+                                        CLAUDE.md carries the mapping sentence exactly once
+Old repository name is gone             zero `coding-agent-workflow` literals in tracked files outside     user      test-repo-identity.sh
+                                        tasks/ and specs/; hook ids renamed with their consumers
+Never delete a never-carried entry      prune candidates = current names ∪ history-retired names           user      test-install-sh.sh (lesson #52)
+Legacy copies removed by default        one y/N prompt; N or EOF deletes nothing; --prune-skills is gone   user      test-install-sh.sh
+/sync never strands Claude Code         retire under .claude/skills/ only when the PROJECT&#x27;s               inferred  test-sync-retirement.sh
+                                        settings.json enables jplugin@jplugin-agentic-development
+Project-local skills survive            a file history never carried is never a candidate                  user      test-sync-retirement.sh
+No retired skill is named as live       the seven retired names appear in no banner, table, hook or list   user      /tidy --report; test-doc-conventions.sh
+Suite green after every slice           bash tests/run.sh exits 0                                         user      tests/run.sh
+Minimum Claude Code version             2.1.227 proven; skills path written ./.agents/skills, not .        inferred  README prerequisite; live proof
+Rollback                                git revert · plugin uninstall + marketplace remove ·               inferred  README runbook step
+                                        /sync previous ref restores copy, settings and name
+</code></pre>
+
+<p>Consistency is per project, not per machine: within one project every clone reads the same ref because <code>settings.json</code> is committed. Two projects may run different refs, as they do today.</p></section>
+<section id="system-design"><h2>System design — who owns what, and what fails together</h2><p><strong>Ownership.</strong> One source of truth per fact; a cache is a reader.</p>
+
+<pre><code class="lang-text">Component                              Owns                                                      Reads
+─────────────────────────────────────  ────────────────────────────────────────────────────────  ──────────────────────────────────────────
+.agents/skills/                        every skill body, for every harness                       —
+.claude-plugin/plugin.json      NEW    plugin identity (name, version), skills path               —
+.claude-plugin/marketplace.json NEW    marketplace name, the one plugin entry (source &quot;./&quot;)      plugin name
+.claude/settings.json (all projects)   which marketplace ref and plugin a PROJECT uses            —
+install.sh                             developer registration; legacy-copy removal (one y/N)     .agents/skills names, history, ~/.claude/plugins
+sync/SKILL.md § Syncable Paths         the list of roots, including which one is RETIRED         —
+sync-retire.py                         which downstream files are retired                        Syncable Paths, history, project settings.json
+.github/workflows/sync-template.yml    the CI mirror list                                        —
+session-start.sh                       banner, drift notice                                      Syncable Paths (pinned copy), project settings
+README.md                              the repository&#x27;s name and install path as users see them  —
+tests/                                 the pins                                                  all of the above
+Claude Code ~/.claude/plugins/         known_marketplaces, installed_plugins, cache/              manifest, marketplace, project settings
+Pi, Codex                              —                                                         ~/.agents/skills/ (unchanged)
+</code></pre>
+
+<p><strong>Interaction.</strong> Every arrow is sync and states its behaviour on failure. NEW marks what this change adds.</p>
+
+<pre><code class="lang-text"> developer            install.sh              claude CLI                 ~/.claude/plugins            Claude Code session
+    │ (1) bash ───────►  │                        │                              │                            │
+    │                    │ (2) marketplace add ──► │ ── known_marketplaces ─────► │  NEW (directory source)    │
+    │                    │ (3) plugin install ───► │ ── installed_plugins ──────► │  NEW (installPath = checkout)
+    │                    │ (4) list legacy ~/.claude/skills copies, ask y/N once, delete on y  │  NEW          │
+    │                    │                        │                              │ ◄── (5) load manifest ──── │
+    │                    │                        │                              │     scan ./.agents/skills   │  NEW
+ teammate (fresh clone) Claude Code session       ~/.claude/plugins
+    │ (6) open project ► │ reads .claude/settings.json: extraKnownMarketplaces + enabledPlugins    NEW
+    │                    │ (7) offers marketplace install; on yes: github source @ ref ─► cache/  NEW
+ downstream project     /sync                    sync-retire.py                 template ref
+    │ (8) /sync ───────►  │ (9) checkout .agents/skills, settings.json (ref R) ◄─────────────────── │
+    │                    │ (10) roots ◄─────────── │ ◄── Syncable Paths block ─── │
+    │                    │                        │ (11) guard: project settings enable jplugin@?   NEW
+    │                    │                        │ (12) retire .claude/skills/** under the RETIRED root ─► fs  NEW
+ CI (sync-template.yml)  mirror list drops .claude/skills; PR body names the retirement               NEW
+</code></pre>
+
+<pre><code class="lang-text">Arrow    Mode              On failure                                                          On duplicate
+───────  ────────────────  ──────────────────────────────────────────────────────────────────  ──────────────────────────────────
+(2)      sync, CLI         no `claude` on PATH → NOTE and skip (shape of the Pi step :186)      marketplace known → ok &quot;already&quot;
+(3)      sync, CLI         CLI exit ≠ 0 → step fails loudly, exit non-zero                     plugin id installed → ok &quot;already&quot;
+(4)      sync, fs, prompt  N, EOF or non-interactive → nothing deleted; list + manual command    idempotent
+(5)      session           invalid manifest → plugin skipped; test-plugin-manifest.sh guards    one marketplace name → one plugin id
+(6)–(7)  session           user declines → no jplugin: skills until accepted; banner is loud    already installed → nothing
+(9)      sync, git         existing /sync failure handling                                     idempotent
+(10)     sync, git         template unreadable → RetireError (sync-retire.py:536-546)           n/a
+(11)     sync, fs          settings unreadable → refuse naming the file; key absent → refuse    n/a
+                           naming the /sync step that writes it
+(12)     sync, fs          PruneError (sync-retire.py:54)                                       already gone → filtered by isfile (:454)
+</code></pre>
+
+<p>Arrows (2) and (3) are two writes to <code>~/.claude/plugins/</code>; a crash between them is recovered by idempotency on the next run, so no transaction is needed.</p>
+
+<p><strong>Marketplace-name collision (spike question S3).</strong> A developer machine holds the directory-source marketplace from <code>install.sh</code>; a downstream project&#x27;s <code>settings.json</code> declares a github-source marketplace. If both must share the name <code>jplugin-agentic-development</code>, Claude Code&#x27;s behaviour on the second registration is unverified. Slice 1 answers it; the fallback is a second marketplace name for the directory source (<code>jplugin-agentic-development-dev</code>) with the plugin enabled from exactly one of them per machine.</p>
+
+<p><strong>Failure unit.</strong> A broken manifest stops every <code>jplugin:</code> skill for Claude Code users and nothing else — Pi and Codex never read it. A refused retirement guard stops <code>/sync</code> Step 6 for that project only; the checkout step has landed and the project still has both <code>/name</code> and <code>/jplugin:name</code>. A failed plugin install leaves the machine on its previous state, because step 4 never runs after a failed or skipped install. A declined marketplace prompt on a fresh clone leaves that clone without <code>jplugin:</code> skills; the banner line in (6)–(7) is the only signal, and it is loud on purpose. Removing the legacy migrations from <code>/sync</code> stops nothing: a project that still carries <code>.claude/commands/</code> or a <code>## Deployment Targets</code> section in <code>CLAUDE.md</code> keeps them, and the tooling simply no longer looks there.</p></section>
+<section id="contracts"><h2>Component contracts — can the caller ignore a case it must handle</h2><h3><code>.claude-plugin/plugin.json</code> (Claude Code reads)</h3>
+
+<pre><code class="lang-json">{
+  &quot;name&quot;: &quot;jplugin&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;description&quot;: &quot;Spec → plan → TDD build → review → wrap-up workflow skills for coding agents.&quot;,
+  &quot;author&quot;: { &quot;name&quot;: &quot;jplugin-agentic-development maintainers&quot; },
+  &quot;repository&quot;: &quot;https://github.com/Joaovsales/jplugin-agentic-development&quot;,
+  &quot;license&quot;: &quot;MIT&quot;,
+  &quot;skills&quot;: &quot;./.agents/skills&quot;
+}
+</code></pre>
+
+<ul>
+<li><strong>Outcomes</strong>: Claude Code registers every <code>SKILL.md</code> under the path as <code>jplugin:&lt;name&gt;</code>, typed <code>/jplugin:&lt;name&gt;</code></li>
+<li><strong>Invariants</strong>: no <code>commands</code>, <code>agents</code> or <code>hooks</code> key; <code>name</code> equals <code>plugins[0].name</code> in <code>marketplace.json</code>; <code>version</code> is semver</li>
+<li><strong>Versioning</strong>: <code>version</code> bumps per release; a github install at a pinned <code>ref</code> ignores it; a directory marketplace loads in place</li>
+</ul>
+
+<h3><code>.claude-plugin/marketplace.json</code> (Claude Code reads)</h3>
+
+<pre><code class="lang-json">{
+  &quot;name&quot;: &quot;jplugin-agentic-development&quot;,
+  &quot;owner&quot;: { &quot;name&quot;: &quot;jplugin-agentic-development maintainers&quot; },
+  &quot;plugins&quot;: [ { &quot;name&quot;: &quot;jplugin&quot;, &quot;source&quot;: &quot;./&quot;, &quot;description&quot;: &quot;…&quot; } ]
+}
+</code></pre>
+
+<ul>
+<li><strong>Outcomes</strong>: added from a local directory → loads in place; added from GitHub at a <code>ref</code> → copied to <code>~/.claude/plugins/cache/</code></li>
+<li><strong>Invariants</strong>: exactly one plugin entry; its <code>name</code> equals <code>plugin.json</code> <code>name</code>; the marketplace <code>name</code> is the install-id suffix <code>jplugin@jplugin-agentic-development</code> and never changes</li>
+</ul>
+
+<h3><code>.claude/settings.json</code> — plugin declaration (synced to every project)</h3>
+
+<pre><code class="lang-json">{
+  &quot;extraKnownMarketplaces&quot;: {
+    &quot;jplugin-agentic-development&quot;: {
+      &quot;source&quot;: { &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;Joaovsales/jplugin-agentic-development&quot;, &quot;ref&quot;: &quot;&lt;sha /sync checked out&gt;&quot; }
+    }
+  },
+  &quot;enabledPlugins&quot;: { &quot;jplugin@jplugin-agentic-development&quot;: true }
+}
+</code></pre>
+
+<ul>
+<li><strong>Inputs</strong>: <code>ref</code> is the template commit <code>/sync</code> Step 5 checked out; the template repo itself omits it</li>
+<li><strong>Outcomes</strong>: Claude Code offers the marketplace on first open of a clone and enables the plugin; <code>sync-retire.py</code> reads <code>enabledPlugins</code> as its guard</li>
+<li><strong>Invariants</strong>: the existing <code>hooks</code> and <code>env</code> blocks are untouched — <code>/sync</code> merges these two keys (existing merge rule, <code>sync/SKILL.md:601</code>)</li>
+<li><strong>Idempotency</strong>: <code>/sync</code> rewrites <code>ref</code> to the checked-out sha on every run</li>
+<li><strong>Versioning</strong>: whether <code>ref</code> is honoured for github marketplace sources is spike question S4; the fallback is no <code>ref</code> (pinned at install time), recorded in <em>Decisions</em> if it lands</li>
+</ul>
+
+<h3><code>install.sh</code> — <code>install_claude_plugin</code></h3>
+
+<pre><code class="lang-bash">install_claude_plugin REPO_DIR   # -&gt; Installed | Already | Skipped(no claude CLI)
+</code></pre>
+
+<ul>
+<li><strong>Outcomes</strong>: <code>Installed</code> · <code>Already</code> (marketplace known and plugin present) · <code>Skipped</code> (no <code>claude</code> on PATH, NOTE printed)</li>
+<li><strong>Raises</strong>: a non-zero CLI exit on <code>marketplace add</code> or <code>plugin install</code> aborts the step with the CLI output; never silently continues</li>
+<li><strong>Idempotency</strong>: marketplace detected by name in <code>claude plugin marketplace list</code>; plugin by id in <code>installed_plugins.json</code></li>
+<li><strong>Versioning</strong>: replaces step 2 (<code>install.sh:98-118</code>); steps 3–9 unchanged apart from the repository name</li>
+</ul>
+
+<h3><code>install.sh</code> — <code>remove_legacy_skill_copies</code></h3>
+
+<pre><code class="lang-bash">remove_legacy_skill_copies REPO_DIR CLAUDE_HOME   # -&gt; Clean | Kept(n) | Removed(n)
+</code></pre>
+
+<ul>
+<li><strong>Inputs</strong>: candidate = entry under <code>~/.claude/skills/</code> whose basename is a current template skill <strong>or</strong> a name the template once shipped and deleted (<code>git log --diff-filter=D --name-only</code> over both trees — the computation <code>/tidy</code> already uses)</li>
+<li><strong>Outcomes</strong>: <code>Clean</code> · <code>Kept(n)</code> (list printed, prompt answered <code>N</code> or EOF, plus the one-line manual command) · <code>Removed(n)</code> (prompt answered <code>y</code>)</li>
+<li><strong>Raises</strong>: never deletes a non-candidate; never runs after a <code>Skipped</code> or failed install</li>
+<li><strong>Versioning</strong>: replaces <code>extra_global_skills</code> / <code>prune_extra_skills</code> and the <code>--prune-skills</code> flag (<code>install.sh:17-92</code>); the old predicate (&quot;not in the template&quot;) becomes the protected set; an unknown flag is still a usage error</li>
+</ul>
+
+<h3><code>sync-retire.py</code> — retired roots and the project guard</h3>
+
+<pre><code class="lang-python"># Syncable Paths row:   .claude/skills/       → RETIRED — &lt;reason&gt;
+def parse_syncable_roots(text, origin) -&gt; Tuple[List[str], List[str]]:   # (live_roots, retired_roots)
+def retired_root_candidates(repo, retired_roots, history) -&gt; List[str]:
+    &quot;&quot;&quot;Tracked, on-disk project files under a retired root whose bytes match
+    a path template history once carried. Files history never carried are
+    project-local and are never returned.&quot;&quot;&quot;
+def require_project_plugin(retire, repo) -&gt; None:
+    &quot;&quot;&quot;Raise RetireError when any retire path is under a retired root and the
+    project&#x27;s .claude/settings.json does not enable &#x27;jplugin@jplugin-agentic-development&#x27;.&quot;&quot;&quot;
+</code></pre>
+
+<ul>
+<li><strong>Outcomes</strong>: retired-root candidates join <code>retire</code> when the guard passes · <code>RetireError</code> naming <code>.claude/settings.json</code> and the <code>/sync</code> step that writes it when it does not</li>
+<li><strong>Raises</strong>: also when <code>.claude/settings.json</code> exists but is unreadable JSON</li>
+<li><strong>Versioning</strong>: a retired root is <strong>not</strong> counted by <code>usable_roots</code> (<code>sync-retire.py:533</code>), so the one-empty-root budget is untouched; <code>SYNCABLE_ROOT_PATTERN</code> (<code>:50</code>) still validates the path shape</li>
+</ul>
+
+<h3>Syncable Paths block (<code>sync/SKILL.md:99-108</code>)</h3>
+
+<ul>
+<li>The <code>.claude/skills/</code> row <strong>stays</strong>, right-hand column <code>RETIRED — the jplugin plugin reads .agents/skills/; kept so /sync retires downstream copies</code>; the <code>.claude/settings.json</code> row gains <code>+ plugin declaration</code></li>
+<li>A <code>RETIRED</code> root is scanned for retirement only, never checked out; the two-column shape and trailing slash are unchanged so both existing parsers keep working</li>
+<li>The six remaining copies are re-pinned by <code>tests/test-syncable-paths.sh</code> with <code>SYNC_COPY</code> removed</li>
+</ul>
+
+<h3><code>/sync</code> — Steps 2.5 and 2.6 removed</h3>
+
+<ul>
+<li><code>sync/SKILL.md:195-262</code> (the <code>.claude/commands/</code> migration and the <code>CLAUDE.md</code> Deployment Targets migration) are deleted; Step 2 flows into Step 3</li>
+<li><code>session-start.sh:275-285</code> drops the <code>CLAUDE.md</code> fallback and reads <code>.claude/project.md</code> only; <code>.claude/deployments/README.md:151</code> drops the legacy sentence; <code>verify/SKILL.md:65</code> drops &quot;primary&quot;</li>
+<li>Invariant: no test or skill names <code>.claude/commands/</code> or <code>commands.legacy</code> afterwards</li>
+</ul>
+
+<h3><code>.github/workflows/sync-template.yml</code></h3>
+
+<ul>
+<li><code>mirror &quot;.claude/skills&quot;</code> (line 56) removed; header comment (lines 7–8) and PR body (line 81) name <code>.claude/skills/</code> as retired and point at <code>/sync</code> for the deletion, because the workflow never deletes by design; every old-name literal becomes <code>jplugin-agentic-development</code></li>
+<li><code>.claude/settings.json</code> stays in the mirror list, so CI-synced downstreams receive the plugin declaration</li>
+</ul>
+
+<h3>Repository identity (<code>README.md</code>, <code>install.sh</code>, hooks, tests)</h3>
+
+<ul>
+<li>Every <code>coding-agent-workflow</code> / <code>Coding Agent Workflow</code> literal in tracked files outside <code>tasks/</code> and <code>specs/</code> becomes <code>jplugin-agentic-development</code> / <code>jplugin for agentic development</code>; the install path becomes <code>~/jplugin-agentic-development</code></li>
+<li>Hook ids <code>coding-agent-workflow-session-start</code>, <code>-session-end</code>, <code>-pre-compact</code> (<code>scripts/install-codex.sh</code>, <code>scripts/render-codex.py</code>, <code>codex/hooks/session_start.py</code>, <code>tests/test-codex-install.sh</code>) are renamed together with <code>install-codex.sh</code>&#x27;s idempotency check, so a re-run replaces the old entries rather than adding duplicates</li>
+<li>The git remote name <code>workflow</code> and the <code>WORKFLOW_BRANCH</code> variable are internal identifiers and stay; README gains the one-line <code>git remote set-url origin https://github.com/Joaovsales/jplugin-agentic-development.git</code> step for existing clones</li>
+<li>Detected by <code>tests/test-repo-identity.sh</code> (zero matches) and <code>tests/test-codex-install.sh</code> (a second run against a <code>hooks.json</code> holding the old ids leaves exactly one set of hooks)</li>
+</ul>
+
+<h3>Deprecated hook and placeholder removed</h3>
+
+<ul>
+<li><code>.claude/hooks/auto-test-runner.sh</code> and <code>.ps1</code> (header: <code>DEPRECATED — no longer registered in settings.json</code>) are deleted with <code>README.md:345,369</code>; <code>tests.md</code> (root placeholder referenced only by <code>README.md:376</code>) is deleted with that line</li>
+<li><code>install.sh</code> and <code>install-codex.sh</code> never copied either, so no machine step follows</li>
+</ul>
+
+<h3><code>CLAUDE.md</code> — namespace sentence (both harnesses read it)</h3>
+
+<p>One sentence under <code>## Skills</code>: <em>On Claude Code the skills are installed as the <code>jplugin</code> plugin, so a <code>/name</code> in this file is typed <code>/jplugin:name</code> and appears to the Skill tool as <code>jplugin:name</code>; Pi and Codex invoke <code>/name</code> directly.</em> Every other reference in the repository stays <code>/name</code>.</p>
+
+<h3>Project-local skills (<code>create-verification-skill</code>, <code>maintain-verification-skill</code>, <code>verify</code>)</h3>
+
+<p>Unchanged in behaviour: a project&#x27;s own Claude Code skill still lives in the project&#x27;s <code>.claude/skills/&lt;name&gt;/</code> (mirrored from <code>.agents/skills/&lt;name&gt;/</code> for Pi), because Claude Code scans no other project directory. Their prose stops calling <code>.claude/skills/</code> &quot;the compatibility copy of the template&quot; and calls it &quot;the project&#x27;s Claude Code skill directory&quot;. <code>tests/test-skill-references.sh:15-19</code> keeps forbidding executed <code>.claude/skills/</code> paths inside template skills, with its premise reworded: the template ships nothing there. <code>.agents/agents/README.md:11</code> stops calling <code>.claude/agents/</code> a &quot;backwards-compat copy&quot;: it is the Claude Code copy that carries model pins, and it stays.</p></section>
+<section id="data-models"><h2>Data models — which combinations are nonsense, and does the type forbid them</h2><h3>Project plugin declaration (<code>.claude/settings.json</code>)</h3>
+
+<pre><code class="lang-text">Field                                                          Type              Invariant                                        Enforced by
+─────────────────────────────────────────────────────────────  ────────────────  ───────────────────────────────────────────────  ──────────────────────────────
+extraKnownMarketplaces[&quot;jplugin-agentic-development&quot;]           git sha | absent  == the template ref /sync checked out this run;  test-sync-retirement.sh fixture;
+  .source.ref                                                                    absent only in the template repo                 test-plugin-manifest.sh
+enabledPlugins[&quot;jplugin@jplugin-agentic-development&quot;]           true | absent     present in every synced project and template     test-plugin-manifest.sh
+</code></pre>
+
+<h3>Claude Code machine state (<code>install.sh</code> moves it)</h3>
+
+<pre><code class="lang-text">Field               Type                                   Invariant                                                  Enforced by
+──────────────────  ─────────────────────────────────────  ─────────────────────────────────────────────────────────  ──────────────────────────
+skills_source       enum legacy-copy · both · plugin       plugin iff jplugin@jplugin-agentic-development in           install.sh step 4 print
+                                                           installed_plugins and no template-named or -retired
+                                                           entry in ~/.claude/skills
+marketplace_source  enum directory · github                directory after install.sh; github after accepting a       known_marketplaces.json,
+                                                           project&#x27;s declaration                                      test-install-sh.sh fixture
+</code></pre>
+
+<p><strong>Illegal states</strong></p>
+
+<ul>
+<li>retirement of <code>.claude/skills/**</code> committed in a project whose <code>settings.json</code> does not enable the plugin — <code>require_project_plugin</code> refuses before the plan is returned</li>
+<li>a retired-root file deleted that template history never carried (a project-local skill) — <code>retired_root_candidates</code> intersects with history by construction</li>
+<li><code>plugin</code> state with <code>install.sh</code> still copying to <code>~/.claude/skills/</code> — step 2 is deleted, not conditional</li>
+<li>a never-carried <code>~/.claude/skills/</code> entry deleted by <code>install.sh</code> — the candidate predicate is current ∪ retired template names; the old &quot;not in the template&quot; set is exactly what is protected</li>
+<li>a skill body valid only under one namespace — <code>tests/test-plugin-manifest.sh</code> fails on any <code>jplugin:</code> literal outside <code>CLAUDE.md</code></li>
+<li>the old repository name reappearing in a tracked file — <code>tests/test-repo-identity.sh</code></li>
+<li>two marketplaces named <code>jplugin-agentic-development</code> with different sources on one machine — unverified; spike question S3 decides whether the CLI refuses it or the fallback name is needed</li>
+</ul>
+
+<p><strong>Transitions — <code>skills_source</code></strong></p>
+
+<pre><code class="lang-text">From          To            Trigger
+────────────  ────────────  ─────────────────────────────────────────────────────────────────────────
+legacy-copy   plugin        install.sh, prompt answered y
+legacy-copy   both          install.sh, prompt answered N or run non-interactively — list + command printed
+both          plugin        a later install.sh answered y, or manual deletion
+legacy-copy   legacy-copy   install.sh without `claude` on PATH (Skipped) — nothing removed
+plugin        both          never — no step writes ~/.claude/skills/ any more
+</code></pre>
+
+<p><strong>Transitions — downstream <code>compat_copy</code></strong> (template files under <code>.claude/skills/</code> in a synced project)</p>
+
+<pre><code class="lang-text">From      To        Trigger
+────────  ────────  ───────────────────────────────────────────────────────────────────────────
+present   absent    /sync Step 6: settings.json enables the plugin AND the file matches history
+present   present   guard refused — /sync prints the settings path and stops Step 6
+present   present   CI sync-template.yml run — it never deletes; its PR body says so
+absent    present   never from the template; a project&#x27;s own skill there is outside this table
+</code></pre>
+
+<p>Units, zones and tenant scoping are n/a — no amounts, no timestamps, every entity is per-project or per-machine by construction.</p>
+
+<p><strong>Migration and compatibility.</strong> Forward: slice 1 proves routing with the fallback removed before anything is deleted; slice 2 renames the repository identity so every later slice pins the new name; slice 5 lands the settings declaration and the retired-root logic while the template still ships <code>.claude/skills/</code>, so a project that syncs between slices 5 and 6 gains the declaration and retires nothing; slice 6 deletes the copy, and the next <code>/sync</code> retires the downstream files under the guard; slice 7 removes the legacy shims, which no live path depends on. A machine re-running <code>install.sh</code> from any commit in between is in <code>both</code> at worst, never skill-less. Reverse: <code>git revert</code> restores <code>.claude/skills/</code>, the old <code>settings.json</code> and the old name; <code>claude plugin uninstall</code> plus <code>marketplace remove</code> clear the machine; a downstream <code>/sync</code> against the previous ref checks <code>.claude/skills/</code> back out. Until a project&#x27;s next <code>/sync</code>, both <code>/plan</code> and <code>/jplugin:plan</code> resolve there — noisy, not broken.</p></section>
+<section id="build-order"><h2>Build order — each slice ships alone, riskiest unknown first</h2><pre><code class="lang-text">#  Slice                                Delivers                                                            Depends       Contract exposed                    Size
+─  ───────────────────────────────────  ──────────────────────────────────────────────────────────────────  ────────────  ──────────────────────────────────  ────
+1  Spike: manifest, routing,            plugin.json, marketplace.json, test-plugin-manifest.sh; four live   —             plugin + marketplace manifests      M
+   declaration                          answers in tasks/e2e-log.md:
+                                        S1 all 33 skills load as jplugin:&lt;name&gt; in place (--plugin-dir .)
+                                        S2 /eval triggerability PASS for /quality-gate, /verify,
+                                           /task-registry with ~/.claude/skills copies removed and the
+                                           project .claude/skills moved aside
+                                        S3 directory-source + github-source marketplace under one name:
+                                           refused, replaced, or coexisting
+                                        S4 scratch clone whose settings.json declares the marketplace at
+                                           a ref is offered the install and loads that ref
+2  Repository identity                  every old-name literal replaced; hook ids renamed with              1             identity contract                   M
+                                        install-codex.sh idempotency; README remote step;
+                                        tests/test-repo-identity.sh
+3  Canonical extras                     setup-deployment, verify-deployment → .agents/skills (harness:      1             —                                   S
+                                        claude); parity allowlist = README.md; writing-skills updated
+4  Installer                            install_claude_plugin, remove_legacy_skill_copies (current ∪        2             the two install.sh functions        M
+                                        retired names, one y/N); step 2 and --prune-skills removed;
+                                        /tidy installed check
+5  Sync contract                        settings.json declaration in the template; Syncable Paths RETIRED   2             require_project_plugin,             L
+                                        row; sync-retire.py retired roots + project guard; /sync Step 5                   settings declaration
+                                        writes ref; sync-template.yml; session-start.sh drift list +
+                                        enabled-but-uninstalled line; test-syncable-paths.sh to six copies
+6  Remove the copy                      delete .claude/skills/ and test-skill-parity.sh; rewrite the 25     3, 4, 5,      —                                   L
+                                        two-tree tests; CLAUDE.md, README, agents README, concepts, tidy;   S2 PASS
+                                        task-registry SKILL_ROOTS comment + task-tracking.md:119;
+                                        project-local-skill prose; test-skill-references.sh premise
+7  Retire legacy shims                  /sync Steps 2.5 + 2.6 deleted; session-start.sh CLAUDE.md          6             —                                   M
+                                        fallback deleted; deployments/README.md:151; verify/SKILL.md:65;
+                                        auto-test-runner.{sh,ps1} + tests.md deleted with README rows;
+                                        /tidy --report shows the seven retired names nowhere as live
+</code></pre>
+
+<p><strong>Slice criteria</strong> — each one a test can pin.</p>
+
+<ul>
+<li>Slice 1: both manifests parse as JSON; <code>plugin.json.skills == &quot;./.agents/skills&quot;</code> and the directory exists; <code>plugin.json.name == marketplace.plugins[0].name == &quot;jplugin&quot;</code>; no <code>commands</code>/<code>agents</code>/<code>hooks</code> key; <code>tasks/e2e-log.md</code> has one entry each for S1–S4 with the command, the transcript or output path, and PASS/FAIL; an S2 or S4 FAIL stops the plan here and reopens <em>Decisions</em>.</li>
+<li>Slice 2: <code>grep -rIl &#x27;coding-agent-workflow\|Coding Agent Workflow&#x27;</code> over tracked files outside <code>tasks/</code> and <code>specs/</code> is empty; <code>test-codex-install.sh</code> fixture with a <code>hooks.json</code> carrying the three old hook ids ends with exactly three hooks, all new ids; <code>README.md</code> contains the <code>git remote set-url</code> line; <code>bash tests/run.sh</code> green.</li>
+<li>Slice 3: <code>.agents/skills/setup-deployment/SKILL.md</code> and <code>.agents/skills/verify-deployment/SKILL.md</code> exist with <code>harness: claude</code>; <code>test-skill-parity.sh</code> <code>ALLOWLIST</code> is <code>README.md</code>; <code>bash tests/run.sh</code> green.</li>
+<li>Slice 4: fixture run of <code>install.sh</code> with a stub <code>claude</code> on PATH records one <code>marketplace add &lt;REPO_DIR&gt;</code> and one <code>plugin install jplugin@jplugin-agentic-development --scope user</code>; a second run records neither and prints <code>already</code>; without <code>claude</code> prints the NOTE and touches nothing; <code>~/.claude/skills/aws-saml2aws-auth</code> survives a <code>y</code>; <code>~/.claude/skills/plan</code> (current) and <code>~/.claude/skills/tdd</code> (retired) are listed and deleted on <code>y</code>, kept on <code>N</code> and on EOF with the manual command printed; <code>install.sh --prune-skills</code> exits 1 with the usage text.</li>
+<li>Slice 5: <code>parse_syncable_roots</code> returns <code>.claude/skills/</code> in <code>retired_roots</code> and not in <code>live_roots</code>; a fixture whose <code>settings.json</code> lacks <code>enabledPlugins[&quot;jplugin@jplugin-agentic-development&quot;]</code> and holds a history-known <code>.claude/skills/plan/SKILL.md</code> exits non-zero naming <code>.claude/settings.json</code>; with the key present the path is listed under <code>retire</code>; a project-local <code>.claude/skills/verify-myapp/SKILL.md</code> is listed under neither; the template&#x27;s own <code>settings.json</code> has <code>enabledPlugins</code> and no <code>ref</code>; <code>sync-template.yml</code> contains no <code>mirror &quot;.claude/skills&quot;</code>; <code>test-syncable-paths.sh</code> passes with six copies and the <code>RETIRED</code> row present.</li>
+<li>Slice 6: <code>.claude/skills/</code> absent from the template tree; <code>grep -rl &#x27;jplugin:&#x27; .agents/skills .claude/agents AGENTS.md PI_SETUP.md</code> empty; <code>CLAUDE.md</code> has the namespace sentence once; <code>git grep -l &#x27;test-skill-parity&#x27;</code> empty; <code>bash tests/run.sh</code> green.</li>
+<li>Slice 7: <code>git grep -l &#x27;commands.legacy\|Step 2.5\|Step 2.6\|auto-test-runner&#x27;</code> empty; <code>tests.md</code> absent; <code>session-start.sh</code> contains no <code>TARGETS_IN_CLAUDE</code>; <code>/tidy --report</code> <code>retired</code> check lists zero live references for <code>auto-improve route tdd deslop simplify verify-e2e aposd-guardrail</code>; <code>bash tests/run.sh</code> green.</li>
+</ul></section>
+<section id="decisions"><h2>Decisions — expensive to change later</h2><pre><code class="lang-text">Decision                                  Options                                        Recommended                                 Wrong when
+────────────────────────────────────────  ─────────────────────────────────────────────  ──────────────────────────────────────────  ──────────────────────────────────────────────
+Plugin name (typed prefix)                jplugin / jp                                   jplugin — the repository&#x27;s own name, so     four extra characters per invocation outweigh
+  CLOSED BY APPROVAL OF THIS DOCUMENT                                                    /jplugin:plan reads as &quot;the jplugin plan     the clarity; say `jp` in the review and the id
+                                                                                         skill&quot;; hardcoded everywhere after slice 4  is renamed before slice 1
+Marketplace name                          jplugin-agentic-development / jplugin          jplugin-agentic-development — the GitHub    the repo is renamed again
+                                                                                         slug, so gh, marketplace and docs agree
+Pinning model for Claude Code             project-pinned via settings ref /              project-pinned — what Claude Code users     S4 shows `ref` is not honoured; fallback is
+                                          machine-pinned via install.sh only             have today; prose and scripts from one ref  &quot;pinned at install time&quot;, row rewritten before slice 5
+Home of the Claude-only extras            move to .agents/skills (harness: claude) /     move — one tree, one namespace;             a Pi or Codex user invokes one and it fails on
+                                          keep a two-skill .claude/skills                TODO(shortcut): installers do not filter    .claude/project.md — then the installer filter is due
+                                                                                         harness: claude yet
+Skill references in shared prose          keep /name + one CLAUDE.md sentence /          keep /name — Pi and Codex read the same     S2 FAILs — then harness-specific wrapper commands
+                                          rewrite to /jplugin:name                       files; S2 falsifies this before deletion    (Addy Osmani&#x27;s .claude/commands/ pattern) or the rewrite
+Agents and hooks                          stay project-level / move into plugin          stay — plugin agents are namespaced too     all agent dispatches are rewritten to namespaced
+                                                                                         and project agents override them            names in a later change
+Legacy ~/.claude/skills copies            remove by default after one y/N /              remove by default — the reviewer asked for  a machine holds a renamed fork of a template skill
+                                          report only, prune behind a flag               the old copies to go; the predicate         under a template name — N is the only protection
+                                                                                         (current ∪ retired names) keeps #52&#x27;s lesson
+Retirement of downstream copies           explicit RETIRED root scanned against          RETIRED root — an empty live root is        a project needs .claude/skills retired without
+                                          history / sentinel file / never retire         SKIPPED (sync-retire.py:615,624); a         adopting the plugin — it edits its allowlist by hand
+                                                                                         sentinel contradicts &quot;no longer exists&quot;
+Legacy /sync migrations (2.5, 2.6) and    delete / keep                                  delete — they serve projects synced before  a downstream still has ## Deployment Targets in
+  the CLAUDE.md fallback                                                                 two earlier renames; the reviewer owns      CLAUDE.md: its verification silently stops until
+                                                                                         every downstream and asked for this         moved by hand — /tidy there reports it
+Scope of the identity rename              prose + user-facing paths only /               prose, paths and hook ids; the remote name  the remote name is ever shown to users as the
+                                          also internal identifiers                      and variables stay — they name a role       repository&#x27;s name
+Lifetime of the RETIRED row      OPEN     drop after one release / keep indefinitely     drop once every known downstream has        never — a stale row documents a deletion nobody
+                                                                                         synced past slice 6; costs nothing          can see
+                                                                                         meanwhile (outside the empty-root budget)
+</code></pre>
+
+<p><strong>Open</strong> — needs the reviewer:</p>
+
+<ul>
+<li><strong>RETIRED-row lifetime.</strong> Name the release or date after which the <code>.claude/skills/</code> row is dropped, or accept &quot;after every known downstream has synced&quot;.</li>
+</ul>
+
+<p><strong>Closed by your approval:</strong> the plugin name <code>jplugin</code> and the marketplace name <code>jplugin-agentic-development</code>. If you want the shorter <code>jp</code> prefix, reply with a finding now — after slice 4 the id is on every machine.</p></section><section id="reflection"><div class="reflection"><h3>Reflect</h3><p>Reply with findings as [constraints|system-design|contracts|data-models|build-order] &lt;finding&gt; — &lt;evidence&gt;, or approved.</p></div></section><section id="references"><h2>📚 References</h2><div class="refs"><a href="claude-plugin-manifest.md" target="_blank" rel="noopener">Spec (the contract /build holds)</a><a href="../.agents/skills/system-design-planning/references/review-card.md" target="_blank" rel="noopener">Review card</a><a href="https://github.com/addyosmani/agent-skills" target="_blank" rel="noopener">addyosmani/agent-skills — the single-tree layout this follows</a></div></section><footer>Generated 2026-09-16 16:48 — html-presentation skill</footer></div></main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const saved = localStorage.getItem('html-presentation-theme');
+  if (saved) document.body.dataset.theme = saved;
+  else if (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) {
+    document.body.dataset.theme = 'light';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  window.toggleTheme = function () {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.body.dataset.theme = next;
+    localStorage.setItem('html-presentation-theme', next);
+  };
+  window.toggleNav = function () {
+    document.querySelector('.nav-sidebar').classList.toggle('open');
+  };
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav-sidebar a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Active section on scroll
+  const sections = document.querySelectorAll('main section[id]');
+  const links = new Map();
+  document.querySelectorAll('.nav-sidebar a[href^="#"]').forEach(a => {
+    links.set(a.getAttribute('href').slice(1), a);
+  });
+  if (sections.length && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(a => a.classList.remove('active'));
+          const link = links.get(entry.target.id);
+          if (link) link.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    sections.forEach(s => io.observe(s));
+  }
+
+  // Slides keyboard nav
+  if (document.body.classList.contains('mode-slides')) {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    let idx = 0;
+    const counter = document.querySelector('.slide-counter');
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    }
+    show(0);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') show(idx + 1);
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') show(idx - 1);
+      else if (e.key === 'Home') show(0);
+      else if (e.key === 'End') show(slides.length - 1);
+    });
+  }
+})();
+</script>
+</body>
+</html>

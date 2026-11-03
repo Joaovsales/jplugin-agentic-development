@@ -4,9 +4,9 @@
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
+under_test .agents/skills >/dev/null
 
-# One flattening pipeline for every whole-file order check below.
-flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
+# `flatten`, `first_pos` and `section_body` for the whole-file order and section checks below come from lib.sh.
 
 # --- M3: retired store — the old monolith files have no live references ------
 # INVERTED from the pre-M3 assertion that /build and /checkpoint reference
@@ -17,46 +17,48 @@ flatten() { tr -d '\r' < "$1" | tr '\n' ' ' | tr -s ' '; }
 # Every swept root must exist — the `|| true` below absorbs grep's no-match
 # exit, but it would also absorb a missing-path error, letting a renamed root
 # silently shrink the sweep's coverage.
-for root in .agents .claude/skills .claude/agents .claude/hooks \
-            CLAUDE.md AGENTS.md .claude/project.md README.md install.sh project-template; do
-  assert_eq "present" "$([ -e "$root" ] && echo present || echo missing)" \
-    "M3: sweep root $root exists (sweep coverage intact)"
+for root in .agents .claude/agents \
+            CLAUDE.md AGENTS.md README.md install.sh project-template; do
+  assert_file_exists "$root" "M3: sweep root $root exists (sweep coverage intact)"
 done
+# Each sweep below runs through assert_sweep_empty against a positive control
+# kept here: a file holding one line its pattern must match, so a sweep whose
+# pattern stopped finding what it is for cannot report an empty result as green.
+SWEEP_CTL="$(fixture_dir)"
 for old in "tasks/memory.md" "tasks/lessons.md" "tasks/bugs.md"; do
-  offenders="$(grep -rlF "$old" .agents .claude/skills .claude/agents .claude/hooks \
-      CLAUDE.md AGENTS.md .claude/project.md README.md install.sh project-template 2>/dev/null \
-    | grep -v '\.claude/worktrees/' || true)"
-  assert_eq "" "$offenders" "M3: no live reference to $old (offenders: ${offenders:-none})"
+  printf 'see %s for details\n' "$old" > "$SWEEP_CTL/m3.md"
+  assert_sweep_empty "M3: no live reference to $old" "$SWEEP_CTL/m3.md" \
+    -- grep -rlF --exclude-dir=worktrees "$old" -- .agents .claude/agents \
+      CLAUDE.md AGENTS.md README.md install.sh project-template
 done
-for f in .claude/skills/checkpoint/SKILL.md .agents/skills/checkpoint/SKILL.md \
-         .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md; do
+for f in .agents/skills/checkpoint/SKILL.md \
+         .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "tasks/solutions" "M3: $f references the typed store"
 done
 
 # --- Task 5 (P2): both build copies checkpoint at task boundaries ---
-for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md; do
+for f in .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "Task-boundary checkpoint" "Task5: $f checkpoints at task boundary"
   assert_file_contains "$f" "pre-compact.sh" "Task5: $f reuses the shared PreCompact flush"
 done
 
 # --- Task 7 (P3): circuit breaker auto-invokes /refresh before escalating ---
-for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md; do
+for f in .agents/skills/build/SKILL.md; do
   assert_file_contains "$f" "Backstop first" "Task7: $f circuit breaker runs /refresh backstop"
 done
 
-# --- Task 6 (P3): /refresh registered in CLAUDE.md table + session-start banner ---
-assert_file_contains "CLAUDE.md" "\`/refresh\`" "Task6: CLAUDE.md skills table lists /refresh"
-assert_file_contains ".claude/hooks/session-start.sh" "/refresh" "Task6: session-start banner lists /refresh"
+# --- Task 6 (P3): /refresh registered in the README table (the one skills catalog) ---
+assert_file_contains "README.md" "\`/refresh\`" "Task6: README skills table lists /refresh"
 
 # --- Task 9 (P5): Large-Artifact Handoff convention + references ---
-assert_file_contains ".claude/project.md" "Large-Artifact Handoff" "Task9: project.md defines the convention"
-assert_file_contains ".claude/project.md" "truncate with a" "Task9: project.md states truncate-with-pointer"
-for f in .claude/skills/build/SKILL.md .agents/skills/build/SKILL.md .claude/skills/verify-deployment/SKILL.md; do
+assert_file_contains "AGENTS.md" "Large-Artifact Handoff" "Task9: AGENTS.md defines the convention"
+assert_file_contains "AGENTS.md" "truncate with a" "Task9: AGENTS.md states truncate-with-pointer"
+for f in .agents/skills/build/SKILL.md .agents/skills/verify-deployment/SKILL.md; do
   assert_file_contains "$f" "Large-Artifact Handoff" "Task9: $f references the convention"
 done
 
 # --- visual-recap: documentation contract present in both tree copies ---
-for f in .claude/skills/visual-recap/SKILL.md .agents/skills/visual-recap/SKILL.md; do
+for f in .agents/skills/visual-recap/SKILL.md; do
   for token in "name: visual-recap" "argument-hint:" "Skip when trivial" \
                "true by construction" "git diff" "--name-status" "--stat" \
                "data-model" "api-endpoint" "file-tree" "keychange-" \
@@ -73,11 +75,11 @@ done
 # test-visual-render.sh invokes the script by an explicit absolute path -- a green
 # suite over a broken skill. The pin is updated to the canonical-tree path that
 # actually resolves; it is not relaxed.
-for f in .claude/skills/visual-plan/SKILL.md .agents/skills/visual-plan/SKILL.md; do
+for f in .agents/skills/visual-plan/SKILL.md; do
   for token in "name: visual-plan" "argument-hint:" "Skip when trivial" \
                "read-only" "specs/" ".plan.html" \
-               ".agents/skills/visual-recap/scripts/visual-render.py" "file map" \
-               "open questions" "wireframe" "NEW"; do
+               ".agents/skills/visual-plan/scripts/plan_render.py" "Open questions" \
+               "<spec>:<line>: <reason>"; do
     assert_file_contains "$f" "$token" "visual-plan: $f contains '$token'"
   done
 done
@@ -88,54 +90,43 @@ done
 # pins are the handoffs that make it interchangeable with /plan downstream: the
 # fixed section order of the spec it writes, the registry-only intake and filing,
 # the shared renderer, the approval gate wording, and the plan block /build reads.
-for f in .claude/skills/system-design-planning/SKILL.md .agents/skills/system-design-planning/SKILL.md; do
+for f in .agents/skills/system-design-planning/SKILL.md; do
   for token in "name: system-design-planning" "argument-hint:" \
                "disable-model-invocation: false" \
                "Skipping system-design-planning:" \
-               "task-registry.py show" "task-registry.py upsert" "--derive-id design" \
-               ".agents/skills/visual-recap/scripts/visual-render.py" ".plan.html" \
+               "task-registry.py show" \
+               ".agents/skills/visual-plan/scripts/plan_render.py" ".plan.html" \
                "references/review-card.md" "templates/architecture-spec-template.md" \
-               "templates/content-model.json" \
-               "[ ] TDD:" "### Slice" "TODO(shortcut)" "UNVERIFIED" \
-               "--apply --approve" "> Visual: specs/<feature>.plan.html"; do
+               "### Slice" "UNVERIFIED"; do
     assert_file_contains "$f" "$token" "system-design-planning: $f contains '$token'"
   done
   # The four elements plus the build order, in the order the spec table lists them.
   # Pinned by ORDER, not by count: a reflow that swaps constraints below data
   # models silently changes what the reviewer reads first.
   flat_sdp="$(flatten "$f")"
-  pos_c=$(printf '%s' "$flat_sdp" | grep -bo '| Constraints |' | head -1 | cut -d: -f1)
-  pos_s=$(printf '%s' "$flat_sdp" | grep -bo '| System design |' | head -1 | cut -d: -f1)
-  pos_k=$(printf '%s' "$flat_sdp" | grep -bo '| Component contracts |' | head -1 | cut -d: -f1)
-  pos_d=$(printf '%s' "$flat_sdp" | grep -bo '| Data models |' | head -1 | cut -d: -f1)
-  pos_b=$(printf '%s' "$flat_sdp" | grep -bo '| Build order |' | head -1 | cut -d: -f1)
-  if [ -n "${pos_c:-}" ] && [ -n "${pos_s:-}" ] && [ -n "${pos_k:-}" ] && [ -n "${pos_d:-}" ] && [ -n "${pos_b:-}" ] \
-     && [ "$pos_c" -lt "$pos_s" ] && [ "$pos_s" -lt "$pos_k" ] && [ "$pos_k" -lt "$pos_d" ] && [ "$pos_d" -lt "$pos_b" ]; then
-    assert_eq "ordered" "ordered" "system-design-planning: $f lists the elements in dependency order"
-  else
-    assert_eq "constraints < system design < contracts < data models < build order" \
-      "${pos_c:-missing} ${pos_s:-missing} ${pos_k:-missing} ${pos_d:-missing} ${pos_b:-missing}" \
-      "system-design-planning: $f lists the elements in dependency order"
-  fi
-  # The gate: approval attaches to the rendered document, and filing waits for it.
-  assert_contains "$flat_sdp" "NOTHING IS FILED AND NOTHING IS BUILT UNTIL A HUMAN HAS APPROVED" \
+  prev=""
+  for needle in '| Constraints |' '| System design |' '| Component contracts |' '| Data models |' '| Build order |'; do
+    if [ -n "$prev" ]; then
+      assert_precedes "$flat_sdp" "$prev" "$needle" \
+        "system-design-planning: $f lists the elements in dependency order ($prev before $needle)"
+    fi
+    prev="$needle"
+  done
+  # The gate: nothing is filed or built in this session; the reviewer approves
+  # by starting the build session with the printed prompt instead.
+  assert_contains "$flat_sdp" \
+    "NOTHING IS FILED AND NOTHING IS BUILT IN THE PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD PROMPT." \
     "system-design-planning: $f carries the approval iron law"
-  assert_file_contains "$f" "after approval only" \
-    "system-design-planning: $f files slices only after approval"
+  assert_file_contains "$f" "filed in the planning session" \
+    "system-design-planning: $f's Red Flag names filing in the planning session"
   # The path is printed before the gate asks, so the reviewer opens the file
   # the approval attaches to. Pinned by ORDER: the line must precede Step 7.
-  pos_v=$(printf '%s' "$flat_sdp" | grep -bo '✓ Visual written:' | head -1 | cut -d: -f1)
-  pos_g=$(printf '%s' "$flat_sdp" | grep -bo '### 7. Human review gate' | head -1 | cut -d: -f1)
-  if [ -n "${pos_v:-}" ] && [ -n "${pos_g:-}" ] && [ "$pos_v" -lt "$pos_g" ]; then
-    assert_eq "ordered" "ordered" "system-design-planning: $f prints the render path before the gate"
-  else
-    assert_eq "visual written < review gate" "${pos_v:-missing} ${pos_g:-missing}" \
-      "system-design-planning: $f prints the render path before the gate"
-  fi
+  assert_precedes "$flat_sdp" '✓ Visual written:' '### 7. Review Loop' \
+    "system-design-planning: $f prints the render path before the gate"
   # Every intake form the skill accepts is in the hint, so a caller sees them.
   assert_file_contains "$f" 'argument-hint: "[#issue | task-id | feature idea or problem statement]"' \
     "system-design-planning: $f advertises every intake form"
-  # Tracker access is registry-only (CLAUDE.md § Task Tracking); a direct gh
+  # Tracker access is registry-only (AGENTS.md § Task Tracking); a direct gh
   # call is the regression this pin exists to catch.
   assert_file_not_matches "$f" '\bgh (issue|api|pr)\b' \
     "system-design-planning: $f never calls gh directly"
@@ -146,26 +137,32 @@ done
 # pinned by the smallest falsifiable unit — heading order and question ids —
 # never by prose.
 tmpl=.agents/skills/system-design-planning/templates/architecture-spec-template.md
-assert_eq "Problem Constraints System design Component contracts Data models Build order Decisions Acceptance Criteria Implementation Paths" \
+assert_eq "Summary Problem Constraints System design Component contracts Data models Interfaces Risks Build order Decisions Open questions Acceptance Criteria Implementation Paths" \
   "$(grep '^## ' "$tmpl" | tr -d '\r' | sed 's/^## //' | paste -sd ' ' -)" \
-  "system-design-planning: spec template carries the nine sections in order"
+  "system-design-planning: spec template carries the thirteen sections in order"
+# specs/aposd-first-build.md AC9: both templates carry the optional § Interfaces
+# section with its five fields.
+for f in "$tmpl" .agents/skills/plan/SKILL.md; do
+  assert_file_contains "$f" "## Interfaces" "interfaces: $f carries the section"
+  for field in "Path:" "Hides:" "Interface:" "Alternative considered:" "Depth:"; do
+    assert_file_contains "$f" "**$field**" "interfaces: $f carries the $field field"
+  done
+done
 card=.agents/skills/system-design-planning/references/review-card.md
 assert_eq "C1 C2 C3 C4 C5 S1 S2 S3 S4 S5 K1 K2 K3 K4 K5 D1 D2 D3 D4 D5 B1 B2 B3 B4 B5" \
   "$(grep -oE '^\| [CSKDB][1-5] ' "$card" | tr -d '| ' | paste -sd ' ' -)" \
   "system-design-planning: review card carries the 25 questions in dependency order"
 # The plan block nests TDD rows under a registry row; /build must know not to
 # build that row, or the first design plan dispatches a coder against a title.
-for tree in .claude .agents; do
+for tree in .agents; do
   assert_file_contains "$tree/skills/build/SKILL.md" "slice header" \
     "system-design-planning: $tree/build names the slice header row it must not build"
 done
-# Registration in the three listings a new skill must appear in.
-assert_file_contains "CLAUDE.md" "\`/system-design-planning\`" \
-  "system-design-planning: CLAUDE.md skills table lists it"
+# Registration in the one listing a new skill must appear in (the AGENTS.md
+# managed block carries no skills table and the banner lists none — README is
+# the one catalog).
 assert_file_contains "README.md" "\`/system-design-planning\`" \
   "system-design-planning: README skills table lists it"
-assert_file_contains ".claude/hooks/session-start.sh" "/system-design-planning" \
-  "system-design-planning: session-start banner lists it"
 
 # --- tidy: harness-hygiene contract present in both tree copies ---
 # specs/tidy-skill.md. /tidy is neither a producer nor a consumer under the
@@ -176,13 +173,13 @@ assert_file_contains ".claude/hooks/session-start.sh" "/system-design-planning" 
 # worktree removed without forge evidence -- plus the filing block the consumer
 # routines' selectors depend on. Pinned by the smallest falsifiable unit: a
 # frontmatter key, a table row, a flag, a section heading order.
-for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
+for f in .agents/skills/tidy/SKILL.md; do
   for token in "name: tidy" 'argument-hint: "[--report] [--check <name>[,<name>]]"' \
                "disable-model-invocation: false" "harness: universal" \
                "neither a producer nor a consumer" \
                "Tier 0" "Tier 1" "Tier 2" \
-               "git log --diff-filter=D" \
-               "bash install.sh" "--prune-skills" \
+               "git log --no-renames --diff-filter=D" \
+               "bash install.sh" "installed_plugins.json" \
                "never executed by the skill" "Never delete unmerged work" "forge evidence" \
                "squash-merge" "git branch --merged" \
                "task-registry.py upsert" "--derive-id tidy --source" "--fold-title" \
@@ -204,20 +201,24 @@ for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
     assert_file_contains "$f" "$token" "tidy: $f contains '$token'"
   done
   flat_tidy="$(flatten "$f")"
-  # AC-2: eight checks, each a table row naming the surfaces it reads, and a
+  # AC-2: nine checks, each a table row naming the surfaces it reads, and a
   # surface the host repository lacks is skipped rather than reported.
-  for check in suite inventory retired installed refs worktrees strays registers; do
+  for check in suite inventory retired installed refs worktrees strays registers graph; do
     assert_file_matches "$f" "^\| \`$check\` \|" \
       "tidy: $f defines the \`$check\` check as a table row"
   done
-  assert_file_matches "$f" '^\| `inventory` \| .*SKILLS AVAILABLE' \
-    "tidy: $f inventory reads the session-start banner"
+  # The banner lists no skills since specs/single-instruction-file.md slice 3, so
+  # it is not an inventory surface any more.
+  assert_file_not_matches "$f" 'SKILLS AVAILABLE' \
+    "tidy: $f inventory no longer reads a banner skills list"
+  assert_file_matches "$f" '^\| `graph` \| `command -v graphify`' \
+    "tidy: $f graph check reads graphify and the graph file"
   assert_file_matches "$f" '^\| `registers` \| `tasks/todo.md`, `tasks/checkpoint.md` \|' \
     "tidy: $f registers reads the two task registers"
   assert_contains "$flat_tidy" "skipped with a note" \
     "tidy: $f skips a missing surface instead of reporting it"
   # AC-4: history is exempt from the retired sweep.
-  assert_contains "$flat_tidy" "every file outside \`tasks/\` and \`specs/\`" \
+  assert_contains "$flat_tidy" "outside \`tasks/\` and \`specs/\`" \
     "tidy: $f exempts tasks/ and specs/ from the retired check"
   # AC-5: the machine is the operator's -- the prohibition names its objects.
   assert_contains "$flat_tidy" "**never modifies** \`~/.claude/\` or \`~/.agents/\`" \
@@ -243,22 +244,14 @@ for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
     "tidy: $f names the default branches it refuses to commit on"
   # AC-11: the six session-record sections in /sweep's order. Pinned by ORDER:
   # a consumer routine reads *Filed* by position in the record, not by search.
-  pos_sc=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Scope\*\*' | head -1 | cut -d: -f1)
-  pos_cg=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Coverage gaps\*\*' | head -1 | cut -d: -f1)
-  pos_fi=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Filed\*\*' | head -1 | cut -d: -f1)
-  pos_un=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Unverified\*\*' | head -1 | cut -d: -f1)
-  pos_in=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Independence\*\*' | head -1 | cut -d: -f1)
-  pos_sl=$(printf '%s' "$flat_tidy" | grep -bo '\*\*Step ledger\*\*' | head -1 | cut -d: -f1)
-  if [ -n "${pos_sc:-}" ] && [ -n "${pos_cg:-}" ] && [ -n "${pos_fi:-}" ] && [ -n "${pos_un:-}" ] \
-     && [ -n "${pos_in:-}" ] && [ -n "${pos_sl:-}" ] \
-     && [ "$pos_sc" -lt "$pos_cg" ] && [ "$pos_cg" -lt "$pos_fi" ] && [ "$pos_fi" -lt "$pos_un" ] \
-     && [ "$pos_un" -lt "$pos_in" ] && [ "$pos_in" -lt "$pos_sl" ]; then
-    assert_eq "ordered" "ordered" "tidy: $f lists the six record sections in /sweep's order"
-  else
-    assert_eq "scope < coverage gaps < filed < unverified < independence < step ledger" \
-      "${pos_sc:-missing} ${pos_cg:-missing} ${pos_fi:-missing} ${pos_un:-missing} ${pos_in:-missing} ${pos_sl:-missing}" \
-      "tidy: $f lists the six record sections in /sweep's order"
-  fi
+  prev=""
+  for needle in '**Scope**' '**Coverage gaps**' '**Filed**' '**Unverified**' '**Independence**' '**Step ledger**'; do
+    if [ -n "$prev" ]; then
+      assert_precedes "$flat_tidy" "$prev" "$needle" \
+        "tidy: $f lists the six record sections in /sweep's order ($prev before $needle)"
+    fi
+    prev="$needle"
+  done
   # Law 8: every allowlist entry carries a reason. An entry is a non-blank line
   # inside the fence under the Allowlist heading; a bare path is not an entry.
   bare_entries="$(awk '
@@ -270,15 +263,12 @@ for f in .claude/skills/tidy/SKILL.md .agents/skills/tidy/SKILL.md; do
   ' "$f")"
   assert_eq "0" "$bare_entries" "tidy: $f allowlist entries all carry a reason"
 done
-# Registration in the three listings a new skill must appear in. AGENTS.md
-# carries no skills table at this baseline, so it is not a listing here -- the
-# same rule the skill's own `inventory` check applies to a missing surface.
-assert_file_matches "CLAUDE.md" '^\| `/tidy`' \
-  "tidy: CLAUDE.md skills table lists it"
+# Registration in the one listing a new skill must appear in. AGENTS.md
+# carries no skills table and the banner lists none, so neither is a listing
+# here -- the same rule the skill's own `inventory` check applies to a missing
+# surface.
 assert_file_matches "README.md" '^\| `/tidy`' \
   "tidy: README skills table lists it"
-assert_file_contains ".claude/hooks/session-start.sh" "/tidy" \
-  "tidy: session-start banner lists it"
 
 # --- Banned construct: load-time shell pre-resolution in skill bodies ---
 # A SKILL.md line of the form  !`cmd`  runs cmd when the SKILL LOADS and inlines
@@ -293,12 +283,11 @@ assert_file_contains ".claude/hooks/session-start.sh" "/tidy" \
 #      exit 0 (`2>/dev/null || echo X`) then fail to PARSE under PowerShell.
 # Gather context at runtime with one argv-style command per tool call instead.
 # The `!\[` exclusion keeps markdown image syntax from matching.
-while IFS= read -r f; do
-  hits="$(grep -n '![`]' "$f" 2>/dev/null | grep -cv '!\[' || true)"
-  assert_eq "0" "${hits:-0}" "BannedConstruct: $f has no load-time !\`cmd\` pre-resolution"
-done <<INNER_EOF
-$(find .agents/skills .claude/skills -name '*.md' -not -path '*/.claude/worktrees/*' | sort)
-INNER_EOF
+# One ERE for "a !` that no `![` precedes on its line": the prefix may hold `!`
+# only when the next character is not `[`.
+printf 'Run !`git status` before the skill loads.\n' > "$SWEEP_CTL/preresolved.md"
+assert_sweep_empty "BannedConstruct: no skill has a load-time !\`cmd\` pre-resolution" "$SWEEP_CTL/preresolved.md" \
+  -- grep -rnE --include='*.md' --exclude-dir=worktrees '^([^!]|![^[])*![`]' -- .agents/skills
 
 # --- Tier 2 (M1): independence accounting -----------------------------------
 # Corroboration is only evidence when the findings came from separately
@@ -314,25 +303,26 @@ INNER_EOF
 # worktree whose files were authored with LF and fails on a fresh clone of the same
 # commit -- which is exactly what it did.
 
-assert_file_contains "CLAUDE.md" "### Independence Accounting" \
-  "M1: CLAUDE.md has an Independence Accounting subsection"
-assert_contains "$(flatten CLAUDE.md)" "separately dispatched contexts" \
-  "M1: CLAUDE.md requires separately dispatched contexts for corroboration"
+assert_file_contains ".agents/references/finding-model.md" "## Independence Accounting" \
+  "M1: finding-model.md has an Independence Accounting section"
+assert_contains "$(flatten .agents/references/finding-model.md)" "separately dispatched contexts" \
+  "M1: finding-model.md requires separately dispatched contexts for corroboration"
 
-taxonomy="$(sed -n '/^## Review Gate Taxonomy/,/^## Finding Model/p' CLAUDE.md | tr -d '\r' | tr '\n' ' ' | tr -s ' ')"
+taxonomy="$(sed -n '/^## Review Gate Taxonomy/,/^## Core Principles/p' AGENTS.md | tr -d '\r' | tr '\n' ' ' | tr -s ' ')"
 assert_contains "$taxonomy" "Independence Accounting" \
   "M1: Review Gate Taxonomy cross-references Independence Accounting"
 assert_contains "$taxonomy" "Finding Model" \
   "M1: Review Gate Taxonomy cross-references the Finding Model"
 
-# --- Tier 2 (M2): four-axis findings in CLAUDE.md and both review skills -----
+# --- Tier 2 (M2): four-axis findings in the finding model and both review skills -----
 # Each axis, enum value, and confidence anchor is pinned as its own token. A
 # dropped enum value is exactly what would let an unsure finding auto-apply, and
-# it is invisible in a whole-block snapshot.
-for f in CLAUDE.md \
-         .claude/skills/quality-gate/SKILL.md .agents/skills/quality-gate/SKILL.md \
-         .claude/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/SKILL.md \
-         .claude/skills/software-design-expert-review/SKILL.md \
+# it is invisible in a whole-block snapshot. `wrap-up-session` is not among them
+# since #188: it dispatches no reviewer of its own and applies no finding, so it
+# defines none of this machinery -- `/quality-gate` is the one place a finding
+# is classified.
+for f in .agents/references/finding-model.md \
+         .agents/skills/quality-gate/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do
   flat="$(flatten "$f")"
   for axis in severity confidence autofix_class owner; do
@@ -357,10 +347,12 @@ for f in CLAUDE.md \
     "M2: $f takes the more conservative autofix_class on disagreement"
 done
 
-# Both review skills must disclose whether their passes were dispatched or ran
-# inline, and must not promote on same-context agreement.
-for f in .claude/skills/quality-gate/SKILL.md .agents/skills/quality-gate/SKILL.md \
-         .claude/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/SKILL.md; do
+# /quality-gate must disclose whether its passes were dispatched or ran inline,
+# and must not promote on same-context agreement. `wrap-up-session` carries no
+# Dispatch Disclosure requirement of its own since #188 -- it reuses the gate's
+# receipt rather than running a review pass, so there is nothing here for it to
+# disclose.
+for f in .agents/skills/quality-gate/SKILL.md; do
   assert_file_contains "$f" "Dispatch Disclosure" \
     "M1: $f carries a Dispatch Disclosure requirement"
   assert_file_contains "$f" "Review independence:" \
@@ -372,27 +364,21 @@ done
 # same file:line corroborate; two lenses inside one batch do not. It must also stop
 # telling the agent to emit the old single-axis format -- that instruction would
 # override the persona and degrade every finding to anchor 50.
-for f in .claude/skills/software-design-expert-review/SKILL.md \
-         .agents/skills/software-design-expert-review/SKILL.md; do
+for f in .agents/skills/software-design-expert-review/SKILL.md; do
   assert_file_contains "$f" "Review independence:" \
     "M1: $f emits the independence line in its output block"
   assert_contains "$(flatten "$f")" "separately dispatched" \
     "M1: $f promotes only on separately dispatched batches"
-  if grep -qF 'format only."' "$f"; then
-    assert_eq "absent" "present" \
-      "M2: $f must not instruct the agent to emit single-axis findings"
-  else
-    assert_eq "absent" "absent" \
-      "M2: $f must not instruct the agent to emit single-axis findings"
-  fi
+  assert_false "M2: $f must not instruct the agent to emit single-axis findings" \
+    -- grep -qF 'format only."' "$f"
 done
 
 # --- Tier 2 (M2): unattended loops route a non-auto-appliable MUST-FIX -------
 # The apply gate narrows what may be auto-applied, so a MUST-FIX can now be
 # unappliable. In an unattended loop that must reach the existing FAIL/STOP
 # path, never a user prompt.
-for f in .claude/skills/yolo/SKILL.md .agents/skills/yolo/SKILL.md \
-         .claude/skills/auto-push/SKILL.md .agents/skills/auto-push/SKILL.md; do
+for f in .agents/skills/yolo/SKILL.md \
+         .agents/skills/auto-push/SKILL.md; do
   assert_file_contains "$f" "gated_auto" \
     "M2: $f states how a non-gated_auto MUST-FIX is routed"
 done
@@ -403,23 +389,21 @@ done
 # that fixed it already landed -- observed on PR #55. Two things are pinned: that
 # the step exists, and that Step 7 no longer says "create if none exists" without
 # handling the update case, which is the wording the gap lived in.
-for f in .claude/skills/wrap-up-session/SKILL.md .agents/skills/wrap-up-session/SKILL.md; do
+for f in .agents/skills/wrap-up-session/SKILL.md; do
   # The sync step lives inside the one canonical PR section that
   # specs/category-routines.md AC7 converged Step 7 and Step 7.5 onto.
-  assert_file_contains "$f" "Creating and re-syncing" \
-    "PRSync: $f carries the PR description sync step"
-  assert_contains "$(flatten "$f")" "Correct, do not erase" \
+  ca=.agents/skills/wrap-up-session/references/closure-actions.md
+  assert_file_contains "$f" "§ *PR re-sync*" \
+    "PRSync: $f points at the PR description sync step"
+  assert_file_matches "$ca" "^## PR re-sync" \
+    "PRSync: $ca carries the PR description sync step"
+  assert_contains "$(flatten "$ca")" "Correct, do not erase" \
     "PRSync: $f forbids silently deleting a superseded claim"
   assert_file_contains "$f" "- PR: [" \
     "PRSync: $f reports the sync outcome on the Done report's PR line"
   # The create-only wording is the defect itself, not merely incomplete docs.
-  if grep -qF "Create PR if none exists" "$f"; then
-    assert_eq "absent" "present" \
-      "PRSync: $f must not describe PR creation as the only case"
-  else
-    assert_eq "absent" "absent" \
-      "PRSync: $f must not describe PR creation as the only case"
-  fi
+  assert_false "PRSync: $f must not describe PR creation as the only case" \
+    -- grep -qF "Create PR if none exists" "$f" "$ca"
 done
 
 # --- Tier 3.3 (M4): accreting concept glossary --------------------------------
@@ -432,8 +416,7 @@ done
 # a legal state. A loose prefix match here would stay green while the marker
 # rots into a spelling the light pass's exact grep no longer recognizes.
 for f in tasks/concepts.md project-template/tasks/concepts.md; do
-  assert_eq "present" "$([ -f "$f" ] && echo present || echo missing)" \
-    "M4: $f exists"
+  assert_file_exists "$f" "M4: $f exists"
   assert_eq "1" "$(grep -cE '^> Sweep: (pending|done [0-9]{4}-[0-9]{2}-[0-9]{2})$' "$f" 2>/dev/null || true)" \
     "M4: $f carries exactly one legal-state sweep marker"
 done
@@ -448,7 +431,7 @@ for term in tier gate register drift ceiling store; do
 done
 # /learn accretes the glossary as a side effect (no separate prompt); a file it
 # bootstraps from scratch must still carry the pending marker so the sweep fires.
-for f in .claude/skills/learn/SKILL.md .agents/skills/learn/SKILL.md; do
+for f in .agents/skills/learn/SKILL.md; do
   assert_file_contains "$f" "tasks/concepts.md" \
     "M4: $f captures concepts to the glossary"
   assert_file_contains "$f" "Sweep: pending" \
@@ -457,7 +440,7 @@ done
 # /memory-maintain owns both glossary lifecycles: the one-time bootstrap sweep
 # (keyed on the pending marker, fires from the LIGHT pass so a fresh install
 # does not wait 5 sessions) and steady-state pruning in the heavy pass.
-for f in .claude/skills/memory-maintain/SKILL.md .agents/skills/memory-maintain/SKILL.md; do
+for f in .agents/skills/memory-maintain/SKILL.md; do
   assert_file_contains "$f" "tasks/concepts.md" \
     "M4: $f maintains the glossary"
   assert_file_contains "$f" "standard industry meaning" \
@@ -474,12 +457,12 @@ for f in .claude/skills/memory-maintain/SKILL.md .agents/skills/memory-maintain/
   assert_file_contains "$f" "runs regardless" \
     "M4: $f exempts the glossary marker check from the empty-store no-op"
 done
-# Registration: the glossary is a listed register in both CLAUDE.md variants.
-keydirs="$(sed -n '/^## Key Directories/,/^## Agents/p' CLAUDE.md)"
+# Registration: the glossary is a listed register in the managed block and the seed.
+keydirs="$(sed -n '/^## Key Directories/,/^## Agents/p' AGENTS.md)"
 assert_contains "$keydirs" "tasks/concepts.md" \
-  "M4: CLAUDE.md Key Directories lists tasks/concepts.md"
-assert_file_contains "project-template/CLAUDE.md" "concepts.md" \
-  "M4: project-template CLAUDE.md lists the glossary"
+  "M4: AGENTS.md Key Directories lists tasks/concepts.md"
+assert_file_contains "project-template/AGENTS.md" "concepts.md" \
+  "M4: project-template AGENTS.md lists the glossary"
 
 # --- lightpanda: JS-capable page reads offered as an OPTIONAL research fallback ---
 # WebFetch returns the empty shell for a JS-rendered page and gives no signal that
@@ -487,8 +470,8 @@ assert_file_contains "project-template/CLAUDE.md" "concepts.md" \
 # `lightpanda fetch` executes the scripts. It is optional everywhere: the machines
 # running this workflow differ (no Windows build exists), so each mention must say
 # absence is not an error, or a skill turns a missing optional tool into a blocker.
-for f in .agents/skills/prd/SKILL.md .claude/skills/prd/SKILL.md \
-         .agents/skills/brainstorm/SKILL.md .claude/skills/brainstorm/SKILL.md; do
+for f in .agents/skills/prd/SKILL.md \
+         .agents/skills/brainstorm/SKILL.md; do
   assert_file_contains "$f" "lightpanda fetch" \
     "lightpanda: $f offers the JS-capable fetch fallback"
   assert_prose_contains "$f" "not an error" \
@@ -500,18 +483,19 @@ done
 # rendering path, so routing manual QA to it would hand the user a browser that
 # cannot show them anything. This is not a preference — it is the one place the
 # tier is categorically wrong, so it is pinned rather than left to judgement.
-for f in .agents/skills/start-qa/SKILL.md .claude/skills/start-qa/SKILL.md; do
+for f in .agents/skills/start-qa/SKILL.md; do
   assert_file_not_matches "$f" "lightpanda"     "lightpanda: $f does NOT route manual QA to the DOM tier"
 done
-assert_files_identical .agents/skills/start-qa/SKILL.md .claude/skills/start-qa/SKILL.md   "lightpanda: start-qa stays byte-identical across both trees"
 
 # --- agent-reach was evaluated and declined ----------------------------------
 # Recorded as a guard so a later session does not quietly add the dependency the
 # spec argued its way out of. specs/ is exempt: that is where the decision and
 # its reversal path are written down. tests/ is exempt for the obvious reason
 # that this assertion names the token itself.
-reach_hits="$(grep -rl "agent-reach"   .agents .claude/skills .claude/agents .claude/hooks .claude/browsers   CLAUDE.md install.sh project-template 2>/dev/null | grep -vF '.claude/worktrees' || true)"
-assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhere outside specs/"
+printf 'depends on agent-reach\n' > "$SWEEP_CTL/agent-reach.md"
+assert_sweep_empty "lightpanda: agent-reach is not a dependency anywhere outside specs/" "$SWEEP_CTL/agent-reach.md" \
+  -- grep -rl --exclude-dir=worktrees "agent-reach" -- \
+    .agents .claude/agents .claude/browsers AGENTS.md CLAUDE.md install.sh project-template
 
 # --- task-registry: the tracker abstraction ----------------------------------
 # The capability is worth nothing if a workflow skill can still reach a tracker
@@ -520,56 +504,57 @@ assert_eq "" "$reach_hits"   "lightpanda: agent-reach is not a dependency anywhe
 # registered where agents look for it, the configuration contract is
 # discoverable, the five workflow skills route through it, and nothing outside
 # the registry itself names a provider's task API.
-assert_file_contains "CLAUDE.md" '`/task-registry`' \
-  "task-registry: CLAUDE.md skills table lists the skill"
-assert_file_contains "CLAUDE.md" "## Task Tracking" \
-  "task-registry: CLAUDE.md defines the task-tracking section"
-# The convention is documented, but CLAUDE.md must not itself emit a live
-# pointer. It is template-managed and ships to every consumer, while `docs/` is
-# outside every syncable root — so a bare `Task tracking instructions: <file>`
-# here is a pointer whose target the template can never deliver, and the loader
+assert_file_contains "README.md" '`/task-registry`' \
+  "task-registry: README skills table lists the skill"
+assert_file_contains "AGENTS.md" "## Task Tracking" \
+  "task-registry: AGENTS.md defines the task-tracking section"
+# The convention is documented in the managed block, which must not itself emit
+# a live pointer. The block ships to every consumer, while `docs/` is outside
+# every syncable root — so a bare `Task tracking instructions: <file>` inside it
+# is a pointer whose target the template can never deliver, and the loader
 # refuses a pointer with no target (#82). The loader's POINTER_RE stops at a
 # backtick or `<` but does not require one, so a backticked concrete path still
-# matches: only the `<path>` placeholder is inert. Any live pointer that does
-# appear must resolve to a file this repository ships.
-assert_file_contains "CLAUDE.md" '`Task tracking instructions: <path>`' \
-  "task-registry: CLAUDE.md documents the pointer convention"
-assert_file_contains "CLAUDE.md" "templates/task-tracking.md" \
-  "task-registry: CLAUDE.md names the template a project starts its configuration from"
-claude_md_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' CLAUDE.md \
+# matches: only the `<path>` placeholder is inert. The live pointer this
+# repository does carry sits below the end marker and must resolve to a file
+# this repository ships (tests/test-instruction-budget.sh pins the placement).
+assert_file_contains "AGENTS.md" '`Task tracking instructions: <path>`' \
+  "task-registry: AGENTS.md documents the pointer convention"
+assert_file_contains "AGENTS.md" "templates/task-tracking.md" \
+  "task-registry: AGENTS.md names the template a project starts its configuration from"
+agents_md_pointers="$(grep -oiE 'Task tracking instructions:[[:space:]]*[^[:space:]`<>]+' AGENTS.md \
   | sed -E 's/^[^:]*:[[:space:]]*//' || true)"
-for target in $claude_md_pointers; do
-  assert_eq "present" "$([ -f "$target" ] && echo present || echo missing)" \
-    "task-registry: live pointer in CLAUDE.md resolves to a shipped file ($target)"
+for target in $agents_md_pointers; do
+  assert_file_exists "$target" \
+    "task-registry: live pointer in AGENTS.md resolves to a shipped file ($target)"
 done
-assert_prose_contains "CLAUDE.md" "is an **index**, not the detailed source of truth" \
-  "task-registry: CLAUDE.md states that tasks/todo.md is an index"
-assert_not_contains "$(flatten CLAUDE.md)" \
+assert_prose_contains "AGENTS.md" "is an **index**" \
+  "task-registry: AGENTS.md states that tasks/todo.md is an index"
+assert_not_contains "$(flatten AGENTS.md)" \
   "a project without one gets the local Markdown provider and works offline" \
   "task-registry: absent configuration does not erase GitHub auto-selection"
-assert_prose_contains "CLAUDE.md" \
-  "without one, provider selection still prefers GitHub when a GitHub remote and an authenticated \`gh\` both exist, then falls back to local Markdown" \
-  "task-registry: CLAUDE.md pins GitHub-before-local auto-selection"
+assert_prose_contains "AGENTS.md" \
+  "else GitHub when a GitHub remote and an authenticated \`gh\` both exist, else local Markdown" \
+  "task-registry: AGENTS.md pins GitHub-before-local auto-selection"
 wrap_up_gate_spec="$(flatten specs/wrap-up-gate-and-tdd-fold.md)"
 assert_not_contains "$wrap_up_gate_spec" \
   "no \`docs/task-tracking.md\`, so the registry resolves to the offline local provider regardless" \
   "task-registry: wrap-up spec does not claim absent configuration forces local"
 assert_contains "$wrap_up_gate_spec" "hook never invokes \`/task-registry\`" \
   "task-registry: wrap-up spec gives the real reason the hook cannot reach a tracker"
-assert_file_contains ".claude/hooks/session-start.sh" "/task-registry" \
-  "task-registry: the session-start banner lists the skill"
+assert_file_matches "README.md" '^\| `/task-registry`' \
+  "task-registry: the README skills table lists the skill"
 
-for tree in .agents .claude; do
+for tree in .agents; do
   f="$tree/skills/task-registry/SKILL.md"
   assert_file_contains "$f" "Dry-run is the default" \
     "task-registry: $f states the dry-run default"
   assert_file_contains "$f" "A title is never an identity" \
     "task-registry: $f states that a title is not an identity"
-  assert_prose_contains "$f" "never creates, renames, or removes a label" \
+  assert_prose_contains "$f" "or removes a label" \
     "task-registry: $f states the label-preservation rule"
   assert_file_contains "$f" "Nothing unresolved is deleted" \
     "task-registry: $f states the no-silent-deletion rule"
-  assert_prose_contains "$f" "No tracker is ever selected implicitly" \
+  assert_prose_contains "$f" "selected implicitly" \
     "task-registry: $f states that no tracker is selected implicitly"
   template="$tree/skills/task-registry/templates/task-tracking.md"
   assert_file_contains "$template" \
@@ -581,8 +566,7 @@ for tree in .agents .claude; do
   # The two companion documents the skill points at must exist, or the
   # progressive-disclosure promise ("detail on demand") has nowhere to land.
   for ref in configuration progressive-disclosure; do
-    assert_eq "present" \
-      "$([ -f "$tree/skills/task-registry/references/$ref.md" ] && echo present || echo missing)" \
+    assert_file_exists "$tree/skills/task-registry/references/$ref.md" \
       "task-registry: $tree/skills/task-registry/references/$ref.md exists"
   done
   # AC14's absence half (specs/workflow-routing.md). Cut 1 retired these; nothing
@@ -593,28 +577,30 @@ for tree in .agents .claude; do
       scripts/registry/providers/jira.py \
       scripts/registry/migrate.py \
       references/migration.md; do
-    assert_eq "absent" \
-      "$([ -e "$tree/skills/task-registry/$retired" ] && echo present || echo absent)" \
+    assert_file_absent "$tree/skills/task-registry/$retired" \
       "task-registry: $tree/skills/task-registry/$retired stays retired (AC14)"
   done
-  assert_eq "present" \
-    "$([ -f "$tree/skills/task-registry/templates/task-tracking.md" ] && echo present || echo missing)" \
+  assert_file_exists "$tree/skills/task-registry/templates/task-tracking.md" \
     "task-registry: $tree ships the docs/task-tracking.md template"
   assert_prose_contains "$tree/skills/task-registry/references/configuration.md" \
     "nothing — configuration defaults apply; provider auto-selection still follows the table below" \
     "task-registry: $tree configuration guide separates discovery from provider selection"
 done
 
-# The five workflow skills reach tracking only through the registry.
-for tree in .agents .claude; do
-  for skill in plan build verify quality-gate wrap-up-session; do
+# The five workflow skills reach tracking only through the registry. /plan
+# is not one of them any more: specs/plan-slices-and-handover.md AC8 moved
+# filing to /slice, so /plan reaches tracking transitively and is asserted
+# separately below rather than dropped from coverage.
+for tree in .agents; do
+  for skill in slice build verify-evidence quality-gate wrap-up-session; do
     assert_file_contains "$tree/skills/$skill/SKILL.md" "/task-registry" \
       "task-registry: $tree/$skill routes task state through the registry"
   done
+  assert_file_matches "$tree/skills/plan/SKILL.md" '^Invoke `/slice' \
+    "task-registry: $tree/plan reaches tracking transitively, through /slice"
 done
 
-assert_eq "absent" \
-  "$([ -e "tests/fixtures/task-registry/fake-jira.py" ] && echo present || echo absent)" \
+assert_file_absent "tests/fixtures/task-registry/fake-jira.py" \
   "task-registry: the Jira fixture retires with the adapter it served (AC14)"
 
 # Provider coupling guard. `gh pr` is fine — /wrap-up-session opens PRs, which is
@@ -622,10 +608,34 @@ assert_eq "absent" \
 # abstraction exists to remove, so they may appear only inside the registry.
 # `/rest/api/` stays in the pattern after the Jira adapter's removal: it guards
 # the next HTTP tracker somebody is tempted to call from a skill directly.
-coupling_hits="$(grep -rlE "gh issue|/rest/api/" .agents/skills .claude/skills 2>/dev/null \
-  | grep -v '/task-registry/' | grep -vF '.claude/worktrees' || true)"
-assert_eq "" "$coupling_hits" \
-  "task-registry: no skill outside the registry calls a tracker's task API (offenders: ${coupling_hits:-none})"
+printf 'gh issue list --label bug\n' > "$SWEEP_CTL/gh-issue.md"
+assert_sweep_empty "task-registry: no skill outside the registry calls a tracker's task API" "$SWEEP_CTL/gh-issue.md" \
+  -- grep -rlE --exclude-dir=task-registry --exclude-dir=worktrees "gh issue|/rest/api/" -- .agents/skills
+
+# --- reachability wording: the GitHub requirement is REST, not gh auth status --
+# specs/github-rest-in-sandboxes.md AC9. A Claude Code cloud sandbox reaches GitHub
+# through a proxy that accepts REST and refuses GraphQL, and `gh auth status` exits
+# non-zero there although every REST call succeeds. The provider therefore probes
+# `gh api user`, and the four documents that state the environment requirement say
+# the same thing: `gh api user` succeeding, never `gh auth status`.
+for doc in .agents/skills/task-registry/references/configuration.md \
+           .agents/skills/task-registry/templates/task-tracking.md \
+           docs/task-tracking.md \
+           .agents/skills/wrap-up-session/references/routine-prompts/README.md; do
+  assert_file_contains "$doc" 'gh api user' \
+    "reachability (AC9): $doc states the requirement as \`gh api user\`"
+  assert_file_not_matches "$doc" 'gh auth status' \
+    "reachability (AC9): $doc no longer names \`gh auth status\`"
+done
+
+# The routines contract describes the in-flight exclusion as the registry reads
+# it now -- each candidate's REST timeline -- and no longer gates a routine on a
+# `gh` version or a GraphQL field (specs/github-rest-in-sandboxes.md AC11).
+ROUTINES_MD=.agents/skills/wrap-up-session/references/routines.md
+assert_file_not_matches "$ROUTINES_MD" 'closedByPullRequestsReferences|2\.73|GraphQL' \
+  "routines (AC11): no gh version floor and no GraphQL read in routines.md"
+assert_prose_contains "$ROUTINES_MD" "REST timeline" \
+  "routines (AC11): the exclusion is described as a timeline read"
 
 # --- /route is gone, and nothing in the shipping surface still names it ------
 # specs/category-routines.md AC1/AC2. The issue router computed how much autonomy
@@ -645,10 +655,8 @@ assert_eq "" "$coupling_hits" \
 #     documents that CITE deleted paths, which is citation hygiene, not erasure.
 #   * specs/ records the design. specs/category-routines.md must name what it
 #     removed to be readable at all.
-assert_eq "absent" "$([ -e ".agents/skills/route" ] && echo present || echo absent)" \
-  "AC1: .agents/skills/route/ is deleted"
-assert_eq "absent" "$([ -e ".claude/skills/route" ] && echo present || echo absent)" \
-  "AC1: .claude/skills/route/ is deleted"
+assert_file_absent ".agents/skills/route" "AC1: .agents/skills/route/ is deleted"
+assert_file_absent ".claude/skills/route" "AC1: .claude/skills/route/ is deleted"
 
 # Only this file is excluded, and only because it holds the pattern itself. Every
 # other absence-asserting test builds the retired token at runtime instead of
@@ -656,26 +664,23 @@ assert_eq "absent" "$([ -e ".claude/skills/route" ] && echo present || echo abse
 # at-runtime-to-keep-literal-sweeps-strict.md. An allowlist rots: three
 # exceptions accumulated in a single session before that pattern was applied, and
 # a sweep that excludes its own quarry decays into documentation.
-ROUTE_SWEEP_SELF_REFERENTIAL='^tests/test-doc-conventions\.sh$'
-route_refs="$(grep -rlE '/route\b|route_issue|materialize_route|finalize_route' \
-  .agents .claude CLAUDE.md README.md AGENTS.md PI_SETUP.md install.sh tests scripts \
-  2>/dev/null | grep -vF '.claude/worktrees' \
-  | grep -vE "$ROUTE_SWEEP_SELF_REFERENTIAL" || true)"
-assert_eq "" "$route_refs" \
-  "AC1: nothing in the shipping surface references the deleted router (offenders: ${route_refs:-none})"
+printf 'run /route to pick a lane\n' > "$SWEEP_CTL/route.md"
+assert_sweep_empty "AC1: nothing in the shipping surface references the deleted router" "$SWEEP_CTL/route.md" \
+  -- grep -rlE --exclude-dir=worktrees --exclude=test-doc-conventions.sh \
+    '/route\b|route_issue|materialize_route|finalize_route' -- \
+    .agents .claude CLAUDE.md README.md AGENTS.md PI_SETUP.md install.sh tests scripts
 
-assert_eq "absent" "$([ -e ".claude/hooks/user-prompt-route.sh" ] && echo present || echo absent)" \
+assert_file_absent ".claude/hooks/user-prompt-route.sh" \
   "AC2: the UserPromptSubmit routing hook is deleted"
 assert_file_not_matches ".claude/settings.json" "user-prompt-route" \
   "AC2: settings.json no longer registers the routing hook"
-assert_file_not_matches ".claude/hooks/session-start.sh" "/route" \
+assert_file_not_matches ".agents/hooks/session-start.sh" "/route" \
   "AC2: the session-start banner no longer advertises the router"
 
 # The routines that replaced it must be reachable from the skill that implements
 # the branch convention, in both trees.
-for tree in .agents .claude; do
-  assert_eq "present" \
-    "$([ -f "$tree/skills/wrap-up-session/references/routines.md" ] && echo present || echo missing)" \
+for tree in .agents; do
+  assert_file_exists "$tree/skills/wrap-up-session/references/routines.md" \
     "AC1: $tree ships the routine contract that replaced the router"
 done
 
@@ -688,7 +693,7 @@ done
 #
 # Your own merged work is the highest-priority prior art AND the one category an
 # outward search structurally cannot find. It goes first.
-for tree in .agents .claude; do
+for tree in .agents; do
   P="$tree/skills/plan/SKILL.md"
   assert_prose_contains "$P" 'Check this repository first' \
     "PlanReuse($tree): pre-flight opens with the inward check"
@@ -700,5 +705,1123 @@ for tree in .agents .claude; do
     "PlanReuse($tree): inward-before-outward ordering is stated"
 done
 
+# --- /go is the interactive entry point, and the listings say so -------------
+# specs/go-front-door.md AC4. AC5's banner listing went with the plugin (#156:
+# the hook lists no skills) and CLAUDE.md is a pointer since #177, so the two
+# surfaces left are AGENTS.md § Workflow, which names /go before step 1, and the
+# README skills table, rendered from the skill's own frontmatter. Pinned by
+# token and by ORDER, never by the sentence's wording beyond the command.
+assert_prose_contains "AGENTS.md" 'Interactive work starts with `/go <goal>`' \
+  "go: AGENTS.md § Workflow names /go as the interactive entry point"
+flat_agents="$(flatten AGENTS.md)"
+assert_precedes "$flat_agents" '## Workflow: PRD' 'Interactive work starts with `/go <goal>`' \
+  "go: the /go sentence sits inside § Workflow, not earlier in the file"
+assert_precedes "$flat_agents" 'Interactive work starts with `/go <goal>`' '1. **PRD**' \
+  "go: AGENTS.md names /go before Workflow step 1"
+assert_file_matches "README.md" '^\| `/go` \|' \
+  "go: the rendered README skills table lists /go"
+
+# --- sync: the plugin declaration and the retired root -----------------------
+# specs/claude-plugin-manifest.md § /sync. Step 5 merges the two plugin keys
+# into the project's settings.json instead of overwriting it and writes no
+# `ref` (a sha does not clone; plugin.json version pins — Spike S4); Step 6.4
+# keeps the .claude/skills/ copies of a project that has not enabled the plugin
+# out of the plan. Pinned by the smallest falsifiable unit: the marker, the two
+# keys, the no-ref sentence, the guard's own wording.
+for f in .agents/skills/sync/SKILL.md; do
+  for token in "RETIRED —" "extraKnownMarketplaces" "enabledPlugins" "writes no \`ref\`" \
+               "jplugin@jplugin-agentic-development" "rather than overwriting" \
+               "does not enable" "\`version\` pins" "never in \`<selected-files>\`"; do
+    assert_file_contains "$f" "$token" "sync: $f contains '$token'"
+  done
+  assert_file_matches "$f" '^\.claude/skills/ +→ RETIRED — ' \
+    "sync: $f marks .claude/skills/ RETIRED in the doc block's right-hand column"
+done
+# session-start.sh: one line when the project enables the plugin and the
+# machine has no record of installing it. A settings-driven install is recorded
+# only by the versioned cache directory (Spike S4), install.sh's user-scope
+# install by installed_plugins.json; the hook has to accept either.
+for token in "enabledPlugins" "installed_plugins.json" "cache/jplugin-agentic-development/jplugin" "PLUGIN NOT INSTALLED"; do
+  assert_file_contains .agents/hooks/session-start.sh "$token" \
+    "session-start: names '$token' for the enabled-but-uninstalled line"
+done
+
+# --- the legacy shims are gone (specs/claude-plugin-manifest.md, slice 7) ------
+# /sync Steps 2.5 and 2.6 migrated `.claude/commands/` and a CLAUDE.md
+# `## Deployment Targets` section for projects synced years ago; the
+# session-start hook, /verify-evidence, /verify-deployment and /setup-deployment all
+# read CLAUDE.md as a fallback for the same section; the auto test-runner hook
+# and tests.md were placeholders nothing wired. Each is deleted with every
+# reference, so nothing can route a user to a step that no longer exists.
+# The literals are assembled at runtime so this block is not itself a hit.
+# The sweep roots are the tracked top-level entries bar tasks/ and specs/, the
+# set `git grep -- . ':!tasks' ':!specs'` covered, so an untracked or ignored
+# top-level directory stays out of it.
+shim_roots=()
+while IFS= read -r shim_root; do shim_roots+=("$shim_root"); done \
+  < <(git ls-files | cut -d/ -f1 | sort -u | grep -vxE 'tasks|specs')
+for needle in "commands.""legacy" "Step 2.""5" "Step 2.""6" "auto-test-""runner" "auto test ""runner" "TARGETS_IN_""CLAUDE"; do
+  printf 'mentions %s once\n' "$needle" > "$SWEEP_CTL/shim.md"
+  assert_sweep_empty "Shims: no tracked file outside tasks/ and specs/ names '$needle'" "$SWEEP_CTL/shim.md" \
+    -- grep -rl --exclude-dir=worktrees -e "$needle" -- "${shim_roots[@]}"
+done
+for gone in tests.md .claude/hooks/auto-test-"runner.sh" .claude/hooks/auto-test-"runner.ps1"; do
+  assert_file_absent "$gone" "Shims: $gone is deleted"
+done
+assert_file_not_matches README.md 'tests\.md' \
+  "Shims: the README directory tree no longer lists tests.md"
+for f in .agents/skills/verify-deployment/SKILL.md \
+         .agents/skills/verify-evidence/SKILL.md \
+         .agents/skills/setup-deployment/SKILL.md \
+         .claude/deployments/README.md .agents/hooks/session-start.sh; do
+  assert_file_not_matches "$f" \
+    '[Ll]egacy (fallback|location|section|projects|Deployment Targets|`CLAUDE\.md`)|auto-migrat|Deprecation' \
+    "Shims: $f no longer reads or migrates a CLAUDE.md Deployment Targets section"
+done
+for f in .claude/deployments/README.md .claude/deployments/github-actions.md \
+         .claude/deployments/railway.md .claude/deployments/vercel.md \
+         .agents/skills/verify-deployment/SKILL.md .agents/skills/setup-deployment/SKILL.md; do
+  assert_file_not_matches "$f" 'CLAUDE\.md` § Deployment Targets|CLAUDE\.md § Deployment Targets' \
+    "Shims: $f points at AGENTS.md, not CLAUDE.md, for the Deployment Targets table"
+done
+assert_file_contains .agents/hooks/session-start.sh 'grep -qE "$TARGETS_REGEX" AGENTS.md' \
+  "Shims: session-start reads AGENTS.md for the section (non-vacuity)"
+# The pre-single-file location is still read, second, with a notice — a
+# declined migration must not silence deployment verification
+# (specs/single-instruction-file.md, D3).
+assert_file_contains .agents/hooks/session-start.sh 'Deployment Targets found in .claude/project.md — /sync will move them to AGENTS.md' \
+  "Shims: session-start prints the one-line notice for a table still in .claude/project.md"
+assert_file_contains .agents/skills/sync/SKILL.md "### Step 2 — Detect Remote Default Branch" \
+  "Shims: /sync Step 2 survives the deletion of its two legacy sub-steps (non-vacuity)"
+
+# --- slice: spec to session-sized slices, documentation contract ------------
+# specs/plan-slices-and-handover.md AC4-6. /slice is the one owner of sizing,
+# ordering, filing and the build-prompt handover that both /plan and
+# /system-design-planning call. Pinned by the smallest falsifiable unit: the
+# frontmatter, the three references' existence, the two fenced templates
+# compared byte-for-byte between SKILL.md and their references (the build
+# prompt verbatim, the plan block after flattening), the required output
+# lines, the refusal conditions, and the negative pins that keep the removed
+# ceremony (a build invocation, a 'y' gate, an approval word, a dependency
+# flag `upsert` does not have) from creeping back in.
+SLICE_SKILL=.agents/skills/slice/SKILL.md
+for token in "name: slice" "disable-model-invocation: false" "harness: universal" \
+             "argument-hint:" "slice.py validate" \
+             "✓ Build Order written:" "✓ Plan written:" \
+             "✓ Visual written:" "Skipping visual-plan:" \
+             "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
+             "--derive-id plan" "never start with \`/\`"; do
+  assert_file_contains "$SLICE_SKILL" "$token" "slice: SKILL.md contains '$token'"
+done
+
+# The three references exist.
+for ref in plan-block sizing build-prompt; do
+  assert_file_exists ".agents/skills/slice/references/$ref.md" "slice: references/$ref.md exists"
+done
+
+# In-place replacement, the no-plan-block refusal, the idempotent re-run and
+# the --approve rule are hard-wrapped prose; pinned via flatten rather than a
+# single-line literal.
+flat_slice="$(flatten "$SLICE_SKILL")"
+assert_contains "$flat_slice" "section by section" \
+  "slice: SKILL.md states the in-place plan-block replacement rule"
+assert_contains "$flat_slice" "Never two blocks for one feature" \
+  "slice: SKILL.md states the one-block-per-feature rule"
+
+# Negative pins: the ceremony this spec removed must not reappear here.
+assert_file_not_matches "$SLICE_SKILL" "Invoke /build" \
+  "slice: SKILL.md never itself invokes /build"
+assert_file_not_matches "$SLICE_SKILL" "meet your requirements" \
+  "slice: SKILL.md carries no 'y' gate sentence"
+assert_file_not_matches "$SLICE_SKILL" "> Approved" \
+  "slice: SKILL.md carries no approval-word line"
+assert_false "slice: the upsert invocation names no --depends-on flag" \
+  -- grep -qF -- "--depends-on" "$SLICE_SKILL"
+
+# Registration in the one listing a new skill must appear in (the AGENTS.md
+# managed block carries no skills table and the banner lists none — README is
+# the one catalog, rendered from SKILL.md frontmatter).
+assert_file_matches "README.md" '^\| `/slice`' \
+  "slice: README skills table lists it"
+
+# sizing.md: the one ceiling, no floor, no size labels/buckets.
+SIZING=.agents/skills/slice/references/sizing.md
+for token in "files > 8" "systems > 2" "ACs > 3"; do
+  assert_file_contains "$SIZING" "$token" "slice: sizing.md states '$token'"
+done
+for absent in "floor" "S (" "M (" "L ("; do
+  assert_false "slice: sizing.md must not contain '$absent'" -- grep -qF -- "$absent" "$SIZING"
+done
+
+# The plan-block example: the fenced ```markdown block that carries
+# "## Plan:", byte-identical between SKILL.md and its reference after
+# flattening.
+extract_markdown_fence() {
+  awk '
+    /^```markdown$/ { capturing=1; buffer=""; next }
+    capturing && /^```$/ { if (buffer ~ /## Plan:/) { printf "%s", buffer; exit } else { capturing=0 } }
+    capturing { buffer = buffer $0 "\n" }
+  ' "$1" | tr -d '\r'
+}
+plan_block_skill="$(extract_markdown_fence "$SLICE_SKILL" | tr '\n' ' ' | tr -s ' ')"
+plan_block_ref="$(extract_markdown_fence .agents/skills/slice/references/plan-block.md | tr '\n' ' ' | tr -s ' ')"
+assert_eq "$plan_block_ref" "$plan_block_skill" \
+  "slice: plan-block example in SKILL.md matches references/plan-block.md (flattened)"
+assert_contains "$plan_block_skill" "task-id: plan.<spec-id>" \
+  "slice: plan-block example carries the feature row's plan.<spec-id> task-id"
+assert_not_contains "$plan_block_skill" "TDD:" \
+  "slice: plan-block example holds no TDD row"
+assert_not_contains "$plan_block_skill" "blocked-by" \
+  "slice: plan-block example's slice rows carry no blocker marker"
+assert_eq "1" "$(printf '%s' "$plan_block_skill" | grep -o 'task-id' | wc -l | tr -d ' ')" \
+  "slice: plan-block example's one task id is the feature row's, never a slice row's"
+
+# The build-prompt template: the fenced block following the literal
+# "Build prompt:" marker, byte-identical between SKILL.md and its reference.
+extract_build_prompt() {
+  awk '
+    /Build prompt:/ { seen=1 }
+    seen && /^```$/ { if (infence) { exit } else { infence=1; next } }
+    infence { print }
+  ' "$1" | tr -d '\r'
+}
+build_prompt_skill="$(extract_build_prompt "$SLICE_SKILL")"
+build_prompt_ref="$(extract_build_prompt .agents/skills/slice/references/build-prompt.md)"
+assert_eq "$build_prompt_ref" "$build_prompt_skill" \
+  "slice: build-prompt template in SKILL.md matches references/build-prompt.md verbatim"
+for token in "Surface" "§ Decisions" "[AMBIGUITY]" "> Handover:" "/wrap-up-session"; do
+  assert_contains "$build_prompt_skill" "$token" \
+    "slice: build prompt instruction lines name '$token'"
+done
+
+# --- plan: /plan calls /slice instead of writing the plan block itself ------
+# specs/plan-slices-and-handover.md AC8. /plan keeps its six-question
+# interview and the carry-forward rule, escalates to /system-design-planning
+# on its own § When to Use bar, and hands off to /slice for sizing, the plan
+# block and the build prompt -- so the pins are the carry-forward vocabulary,
+# the seven-section spec template in order, the `Invoke /slice` line, and the
+# negative pins that keep the retired ceremony (a hand-written plan block, a
+# 'y' gate, a build invocation, an upsert call) from creeping back in.
+PLAN_SKILL=.agents/skills/plan/SKILL.md
+for token in "DECISIONS CARRIED" "/grill-me" "/brainstorm" \
+             "Escalating to /system-design-planning" \
+             "What is the desired behavior?" "What are the inputs and outputs?" \
+             "What are the edge cases and failure modes?" \
+             "What constraints exist" \
+             "Which existing files/components are likely involved?" \
+             "What does \"done\" look like?" \
+             "Spec and plan are ready to be built" \
+             "references/build-prompt.md"; do
+  assert_file_contains "$PLAN_SKILL" "$token" "plan: SKILL.md contains '$token'"
+done
+
+# The spec template's seven sections, in order. Pinned by ORDER, not count:
+# a reflow that moves Decisions above Edge Cases silently changes what
+# /slice reads as settled versus what the human still has to answer.
+flat_plan="$(flatten "$PLAN_SKILL")"
+prev=""
+for needle in '## Behavior' '## Inputs' '## Outputs' '## Edge Cases' '## Decisions' \
+              '## Acceptance Criteria' '## Implementation Paths'; do
+  if [ -n "$prev" ]; then
+    assert_precedes "$flat_plan" "$prev" "$needle" \
+      "plan: spec template lists the seven sections in order ($prev before $needle)"
+  fi
+  prev="$needle"
+done
+
+# § Decisions' three sources, in the prose that explains the column.
+assert_contains "$flat_plan" '`user` for an answer the user gave' \
+  "plan: SKILL.md defines Source \`user\`"
+assert_contains "$flat_plan" '`assumed` for one `/plan` picked without asking' \
+  "plan: SKILL.md defines Source \`assumed\`"
+assert_contains "$flat_plan" '`open` for one nobody has decided yet' \
+  "plan: SKILL.md defines Source \`open\`"
+
+# Negative pins: the ceremony this spec removed must not reappear here.
+assert_file_not_matches "$PLAN_SKILL" 'Invoke `/grilling' \
+  "plan: SKILL.md never itself invokes /grilling"
+assert_file_not_matches "$PLAN_SKILL" 'Invoke `/build' \
+  "plan: SKILL.md never itself invokes /build"
+assert_file_not_matches "$PLAN_SKILL" "Does this spec and plan meet your requirements" \
+  "plan: SKILL.md carries no 'y' gate sentence"
+assert_file_not_matches "$PLAN_SKILL" "upsert" \
+  "plan: SKILL.md never calls upsert itself"
+assert_file_not_matches "$PLAN_SKILL" "> Approved" \
+  "plan: SKILL.md carries no approval-word line"
+assert_file_not_matches "$PLAN_SKILL" '^## Plan:' \
+  "plan: SKILL.md no longer carries a hand-written plan-block template"
+assert_file_not_matches "$PLAN_SKILL" "Hand Off to TDD" \
+  "plan: SKILL.md no longer hands off to TDD directly"
+assert_file_not_matches "$PLAN_SKILL" "Register the Tasks" \
+  "plan: SKILL.md no longer registers tasks itself"
+
+# --- pipelines: /yolo and /auto-push after /plan's handover rewrite ---------
+# specs/plan-slices-and-handover.md AC9 ("In-session pipelines"). Both are
+# named exceptions to building in a fresh session -- /yolo because it is
+# unattended end to end, /auto-push because its one gate is now its own,
+# owned as an override on /plan's Step 6 instead of /plan's default handover.
+YOLO_SKILL=.agents/skills/yolo/SKILL.md
+AUTO_PUSH_SKILL=.agents/skills/auto-push/SKILL.md
+assert_file_contains "$YOLO_SKILL" '`assumed` row' \
+  "pipelines: yolo Step 1 override records gaps as \`assumed\` rows"
+assert_file_matches "$YOLO_SKILL" 'Step 6.*no prompt' \
+  "pipelines: yolo Step 6 row prints no prompt"
+assert_file_matches "$YOLO_SKILL" 'no prompt.*in place' \
+  "pipelines: yolo Step 6 row invokes /build in place"
+assert_prose_contains "$YOLO_SKILL" 'pre-flight runs without `--approve`' \
+  "filing-callers: yolo Phase B runs the pre-flight without --approve"
+assert_prose_contains "$YOLO_SKILL" 'slice.py link --index tasks/todo.md` (no `--spec`: one `<spec> link: <state> done: <yes|no>` line per plan block) prints `done: no`' \
+  "filing-callers: yolo resumes a plan block that slice.py link reports not done"
+assert_file_not_matches "$YOLO_SKILL" '--file' \
+  "filing-callers: yolo names no /slice --file"
+assert_file_contains "$YOLO_SKILL" "fresh session" \
+  "pipelines: yolo names the fresh-session rule it is excepted from"
+
+assert_file_contains "$AUTO_PUSH_SKILL" \
+  "Does this spec and plan meet your requirements? Once you confirm with **'y'**, I'll build, wrap up and push in this session." \
+  "pipelines: auto-push Phase A owns the 'y' sentence as its own override on /plan Step 6"
+assert_file_contains "$AUTO_PUSH_SKILL" "Step 6" \
+  "pipelines: auto-push Phase A names /plan's Step 6 as the overridden step"
+assert_file_contains "$AUTO_PUSH_SKILL" "--approve" \
+  "pipelines: auto-push Phase B names --approve"
+assert_file_contains "$AUTO_PUSH_SKILL" "fresh session" \
+  "pipelines: auto-push names the fresh-session rule it is excepted from"
+
+# specs/make-it-simpler.md AC11: the third named exception owns its overrides
+# the way /yolo Phase A does, and AGENTS.md names it beside the other two.
+SIMPLER_SKILL=.agents/skills/make-it-simpler/SKILL.md
+assert_file_contains "$SIMPLER_SKILL" '| `/plan` Step 1 — Interview |' \
+  "pipelines: make-it-simpler overrides /plan Step 1"
+assert_file_matches "$SIMPLER_SKILL" '^\| `/plan` Step 6 — Hand over \| no build prompt is printed; `/build` runs in place' \
+  "pipelines: make-it-simpler's Step 6 row prints no prompt and builds in place"
+assert_file_matches "$SIMPLER_SKILL" '^\| `/build` pre-flight — feature issue \| files nothing.*slice headers are not claimed' \
+  "filing-callers: make-it-simpler's /build pre-flight row files nothing and claims no header"
+assert_file_not_matches "$SIMPLER_SKILL" '--file' \
+  "filing-callers: make-it-simpler names no /slice --file"
+assert_file_not_matches .agents/skills/task-registry/SKILL.md '--file' \
+  "filing-callers: task-registry/SKILL.md names no /slice --file"
+ROUTINES_REF=.agents/skills/wrap-up-session/references/routines.md
+crossing_fc="$(awk '/^### Crossing the plan handover/{f=1;next} f&&/^##/{exit} f' "$ROUTINES_REF" | tr -s '[:space:]' ' ')"
+assert_contains "$crossing_fc" '`> Issue:`' \
+  "filing-callers: routines.md crossing writes the claimed issue as > Issue:"
+assert_contains "$crossing_fc" 'files nothing' \
+  "filing-callers: routines.md crossing files nothing"
+assert_not_contains "$crossing_fc" '--file' \
+  "filing-callers: routines.md crossing names no /slice --file"
+CA_FC=.agents/skills/wrap-up-session/references/closure-actions.md
+assert_prose_contains "$CA_FC" 'one `Closes <ref>` for the feature issue' \
+  "filing-callers: closure-actions writes one Closes <ref> for a new block"
+assert_prose_contains "$CA_FC" 'A `legacy` block keeps the per-row path' \
+  "filing-callers: closure-actions keeps the legacy per-row path"
+assert_file_contains "$CA_FC" 'Closes #A, closes #B' \
+  "filing-callers: closure-actions keeps Closes #A, closes #B for legacy rows"
+fc_left="$(grep -rn -e 'slice.*--file' .agents --exclude=upsert.py || true)"
+assert_eq "" "$fc_left" "filing-callers: no /slice --file under .agents (other than upsert.py)"
+# specs/ too: a closed spec's build prompt must not tell a reader to run the removed mode. The two
+# excluded files record the removal itself (aposd-first-build D16; plan-slices-and-handover's decision row).
+fc_specs="$(grep -rn -e 'slice.*--file' specs --exclude='aposd-first-build.*' --exclude=plan-slices-and-handover.md || true)"
+assert_eq "" "$fc_specs" "filing-callers: no build prompt under specs/ names the removed /slice --file"
+assert_prose_contains "$SIMPLER_SKILL" "the third named exception to the fresh-session rule" \
+  "pipelines: make-it-simpler names the fresh-session rule it is excepted from"
+assert_prose_contains AGENTS.md 'four named exceptions' \
+  "pipelines: AGENTS.md's named-exceptions sentence names /make-it-simpler"
+# specs/lane-plan-handover.md AC5: step 3 names all four exceptions and cites the section.
+for token in '`/auto-push`' '`/yolo`' '`/make-it-simpler`' "unattended lane run" "Crossing the plan handover"; do
+  assert_prose_contains AGENTS.md "$token" \
+    "pipelines: AGENTS.md step 3 names $token among the named exceptions"
+done
+
+# --- design-planning: /system-design-planning interviews and hands off instead of filing ---
+# specs/plan-slices-and-handover.md AC10. Step 1 reads a settled § Decisions
+# tree instead of re-asking; the new §2.5 runs the mandatory /grilling
+# interview with its own seed frontier and carry-forward rule; the template's
+# build-order table and "Slice criteria" are gone because /slice now owns
+# sizing (Step 3.5); Step 7 ends with the build prompt instead of an approval
+# word; Step 8 (filing) is deleted outright; Step 9 (hand off) stays. The
+# negative pins are the retired ceremony this rewrite removes -- a pin on
+# retired text is replaced by a pin on the new contract, never silently
+# dropped.
+SDP_SKILL=.agents/skills/system-design-planning/SKILL.md
+for token in "§ Decisions" "DECISIONS CARRIED" "frontier is empty" \
+             "how a violation would be detected" \
+             "who owns each fact a boundary crosses" \
+             "outcomes and its failure unit" \
+             "illegal states and transitions a status field must forbid" \
+             "Spec and plan are ready to be built" \
+             "[constraints|system-design|contracts|data-models|build-order]" \
+             "### 9. Hand off" "references/build-prompt.md" \
+             "NOTHING IS FILED AND NOTHING IS BUILT IN THE PLANNING SESSION. THE REVIEWER STARTS THE BUILD SESSION WITH THE BUILD PROMPT." \
+             "filed in the planning session"; do
+  assert_file_contains "$SDP_SKILL" "$token" "design-planning: SKILL.md contains '$token'"
+done
+
+# Step 1 names § Decisions specifically as what it reads from a prior spec.
+step1_sdp="$(section_body "$SDP_SKILL" '### 1. Intake' '^### 2[.] Recon')"
+assert_contains "$step1_sdp" "§ Decisions" \
+  "design-planning: Step 1 names § Decisions"
+
+assert_not_contains "$(awk '/^### 9\. Hand off/{p=1} /^## Common Rationalizations/{p=0} p' "$SDP_SKILL")" "--file" \
+  "one-issue: system-design-planning § Hand off names no /slice --file"
+
+# §2.5 carries the mandatory /grilling invocation, at column 0 so the
+# chain test can pin it beside /brainstorm's and /grill-me's.
+assert_file_matches "$SDP_SKILL" '^Invoke `/grilling' \
+  "design-planning: §2.5 invokes /grilling"
+
+# Step 3.5 carries the /slice invocation, same column-0 convention.
+assert_file_matches "$SDP_SKILL" '^Invoke `/slice' \
+  "design-planning: Step 3.5 invokes /slice"
+
+# Negative pins: the retired filing ceremony must not reappear. A bare
+# "upsert" pin would false-flag the pre-existing worked example
+# specs/upsert-depends-on.md, so these target the actual invocation and
+# markers that made up Step 8 instead of the substring.
+for absent in "task-registry.py upsert" "--derive-id design" "--apply --approve" \
+              "> Approved" "TODO(shortcut)" "File slices" \
+              "after approval only"; do
+  assert_false "design-planning: SKILL.md must not contain '$absent'" -- grep -qF -- "$absent" "$SDP_SKILL"
+done
+assert_file_not_matches "$SDP_SKILL" '"approved"' \
+  "design-planning: SKILL.md no longer treats the bare word approved as approval"
+
+# The template's build-order table and Slice criteria list are gone; /slice
+# owns sizing now.
+SDP_TEMPLATE=.agents/skills/system-design-planning/templates/architecture-spec-template.md
+for absent in "| # | Slice |" "### Slice criteria"; do
+  assert_false "design-planning: template must not contain '$absent'" -- grep -qF -- "$absent" "$SDP_TEMPLATE"
+done
+# The Build order heading survives -- it is one of the nine pinned headings --
+# with one line saying /slice fills it, not the table itself.
+assert_file_contains "$SDP_TEMPLATE" "## Build order" \
+  "design-planning: template keeps the Build order heading"
+assert_prose_contains "$SDP_TEMPLATE" "/slice fills this section's table" \
+  "design-planning: template says /slice fills the Build order table"
+
+# --- brainstorm: Step 6's template carries § Decisions with a Source column ---
+# specs/plan-slices-and-handover.md AC11. /plan Step 1 carries a settled tree
+# forward only when it can read a § Decisions table -- Step 6 must write one,
+# every row `user`, so a brainstormed spec is on equal terms with a planned
+# one.
+BRAINSTORM_SKILL=.agents/skills/brainstorm/SKILL.md
+assert_file_contains "$BRAINSTORM_SKILL" "## Decisions" \
+  "brainstorm: Step 6 template carries a Decisions section"
+assert_file_contains "$BRAINSTORM_SKILL" "| Source |" \
+  "brainstorm: Step 6 template's Decisions table carries a Source column"
+
+# Decisions sits between the free-form design section and Acceptance
+# Criteria -- the template has no Edge Cases heading of its own, so the
+# order check degrades to Decisions-before-Acceptance-Criteria only.
+flat_brainstorm="$(flatten "$BRAINSTORM_SKILL")"
+assert_precedes "$flat_brainstorm" '## Decisions' '## Acceptance Criteria' \
+  "brainstorm: template lists Decisions before Acceptance Criteria"
+
+# --- build: /build files slices, reads the ready set, closes with a handover ---
+# specs/plan-slices-and-handover.md AC12. Pre-flight files an unlinked slice
+# header through /slice --file --approve (/yolo omits --approve); a plan
+# with no ### Slice headings is one implicit slice over implementation_paths,
+# so every plan written before this spec still builds; Parallel Dispatch
+# Assessment reads slice.py ready instead of guessing independence from
+# prose; the delegation prompt carries the slice's Surface (with the
+# [SURFACE] + escape), the blocking slices' handovers, and the tool-call
+# budget with the ## Not finished list; Slice Close runs slice.py check
+# (undeclared:/untouched:), writes the > Handover: blockquote, and records
+# an interrupted slice as unfinished: rather than renumbering; Phase 6
+# counts nested rows and calls a header/child mismatch the forbidden state.
+# Pinned by the smallest falsifiable unit: the literal flags and phrases,
+# plus the negative pins that keep the retired prose from creeping back.
+BUILD_SKILL=.agents/skills/build/SKILL.md
+for token in "upsert <id> --spec" "unlinked <id>" "implicit slice" \
+             "implementation_paths" "slice.py ready" "intersecting pair" \
+             "[SURFACE] +" "> Handover:" "## Not finished" "slice.py check" \
+             "undeclared:" "untouched:" "unfinished:" "<short-sha>..<short-sha>" \
+             "forbidden state" "Use in the session the build prompt starts" \
+             "slice header" "omit \`--approve\`"; do
+  assert_file_contains "$BUILD_SKILL" "$token" "build: SKILL.md contains '$token'"
+done
+
+# build/SKILL.md stays under a line budget; the design-stack gates and harness dispatch notes live in
+# build/references/ and SKILL.md points at them.
+build_lines="$(wc -l < "$BUILD_SKILL" | tr -d ' ')"
+assert_eq "yes" "$([ "$build_lines" -le 600 ] && echo yes || echo "no ($build_lines lines)")" \
+  "build: SKILL.md is at most 600 lines"
+
+# Slice Close and the forbidden state hold for both plan grammars: the header is
+# the row under each ### Slice heading, Slice Close fires on the dispatch's
+# return (new block) or the last TDD: row (legacy), unfinished work
+# is recorded in the handover, and a header [x] without a handover is forbidden.
+for token in 'The `- [ ]` row under each `### Slice n/N` heading' \
+             'Slice Close fires when the dispatch returns with every acceptance criterion' \
+             'when its last `TDD:` row passes' \
+             'leave the header `[ ]`, write `unfinished: <AC ids>`' \
+             'marked `[x]` with no `> Handover:`' \
+             'confirm every `[x]` slice header has its `> Handover:`' \
+             'a new block'"'"'s header carries no task id' \
+             'its status lives in the one feature issue'; do
+  assert_prose_contains "$BUILD_SKILL" "$token" "slice close: SKILL.md contains '$token'"
+done
+assert_file_contains .agents/skills/slice/references/plan-block.md '## Legacy block' "legacy: plan-block.md holds the one definition"
+assert_prose_contains .agents/skills/slice/references/plan-block.md 'when no open `## Plan:` block in `tasks/todo.md` classifies as legacy' "legacy: plan-block.md names the sunset condition"
+assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md` § *Legacy block*' "slice close: legacy is defined by pointing at plan-block.md § Legacy block"
+assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md' \
+  "slice close: legacy is defined by pointing at plan-block.md"
+assert_file_not_matches "$BUILD_SKILL" '^When a slice.s last `TDD:` row passes' \
+  "slice close: the last TDD: row is no longer the only trigger"
+assert_file_not_matches "$BUILD_SKILL" 'while any of its child rows stay' \
+  "slice close: the forbidden state is not defined by child rows alone"
+assert_prose_contains .agents/skills/task-registry/SKILL.md 'a new block'"'"'s status lives in its one feature issue' \
+  "task-registry: /build claims only a legacy block's task"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  'only when `done: yes`' "closure-actions: Closes #N only when slice.py link prints done: yes"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  'A PR that lands some of the slices writes `Refs <ref>` instead' "closure-actions: a partial PR writes Refs <ref>"
+assert_file_matches .agents/skills/task-registry/scripts/registry/upsert.py '^    load_index_strict\(config\.path' \
+  "upsert: the refusal-only index load keeps no unused binding"
+for ref in design-stack-gates harness-dispatch; do
+  assert_file_contains "$BUILD_SKILL" "references/$ref.md" \
+    "build: SKILL.md points at references/$ref.md"
+done
+
+# The ready call is described before the delegation prompt items -- a
+# reflow that moves it after would have the assessment re-derive
+# independence before it ever runs the command that replaced the guess.
+flat_build="$(flatten "$BUILD_SKILL")"
+assert_precedes "$flat_build" 'slice.py ready' 'Delegation prompt must include' \
+  "build: the ready call is described before the delegation prompt items"
+
+# Negative pins: the retired ceremony this spec removed must not reappear.
+assert_file_not_matches "$BUILD_SKILL" "after /plan is confirmed" \
+  "build: SKILL.md no longer says 'after /plan is confirmed'"
+assert_file_not_matches "$BUILD_SKILL" "Tasks are independent when" \
+  "build: SKILL.md no longer assesses independence from prose"
+
+# specs/aposd-first-build.md AC4 (one-issue): /slice has no --file mode; /build
+# pre-flight makes the one feature upsert; every slice is dispatched.
+# An unattended lane run omits --approve alongside /yolo.
+assert_prose_contains "$BUILD_SKILL" "\`/yolo\` and an unattended lane run (\`.agents/skills/wrap-up-session/references/routines.md\` § *Crossing the plan handover*) omit \`--approve\`" \
+  "one-issue: pre-flight names an unattended lane run alongside /yolo"
+assert_file_not_matches "$SLICE_SKILL" '--file' \
+  "one-issue: slice/SKILL.md has no --file mode"
+assert_file_not_matches .agents/skills/slice/references/build-prompt.md '--file' \
+  "one-issue: build-prompt.md names no /slice --file"
+assert_file_not_matches "$BUILD_SKILL" '--file' \
+  "one-issue: build/SKILL.md names no /slice --file"
+assert_file_contains "$BUILD_SKILL" 'upsert <id> --spec specs/<feature>.md --title "<feature>" --apply' \
+  "one-issue: pre-flight upserts the id link printed, with --apply"
+assert_file_not_matches "$BUILD_SKILL" 'derive-id' \
+  "one-issue: pre-flight never re-derives the id link printed"
+for token in "Only \`unlinked <id>\` runs one upsert" \
+             "feature issue pending: <reason>" "feature issue not filed: <reason>" \
+             "\`local-pending\`"; do
+  assert_prose_contains "$BUILD_SKILL" "$token" \
+    "one-issue: build pre-flight contains '$token'"
+done
+assert_prose_contains "$BUILD_SKILL" '`--approve` is passed when the build prompt authorized the build' "one-issue: build pre-flight adds --approve when the build prompt authorized it (AC4)"
+assert_prose_contains "$BUILD_SKILL" 'omit `--approve`' "one-issue: build pre-flight omits --approve for /yolo and unattended runs (AC4)"
+# The legacy-block skip lives in the Pre-Flight section itself, not elsewhere in the file.
+preflight_build="$(awk '/^## Pre-Flight Checks/{f=1} /^## Phase 1 /{f=0} f' "$BUILD_SKILL" | tr -s '[:space:]' ' ')"
+assert_contains "$preflight_build" '`issue`, `linked`, `legacy` and `none` mean there is nothing to do' \
+  "one-issue: build pre-flight skips a legacy block"
+assert_contains "$preflight_build" 'slice.py link --index tasks/todo.md --spec specs/<feature>.md' \
+  "one-issue: build pre-flight classifies the block with slice.py link"
+for f in "$BUILD_SKILL" .agents/skills/wrap-up-session/references/closure-actions.md "$YOLO_SKILL"; do
+  assert_file_contains "$f" 'slice.py link' "link: $f names slice.py link"
+done
+assert_eq "1" "$(grep -c 'task-registry.py upsert' "$BUILD_SKILL" | tr -d ' ')" \
+  "one-issue: build/SKILL.md names exactly one upsert"
+
+# The delegation prompt carries Delivers and the acceptance criteria, names no claim.
+deleg_build="$(awk '/^\*\*Delegation prompt must include\*\*/{p=1} /^\*\*Role-based context injection/{p=0} p' "$BUILD_SKILL")"
+assert_contains "$deleg_build" "Delivers" "one-issue: delegation prompt carries the slice's Delivers"
+assert_contains "$deleg_build" "acceptance criteria" "one-issue: delegation prompt carries the acceptance criteria"
+assert_not_contains "$deleg_build" "claim" "one-issue: delegation prompt names no per-slice claim"
+assert_not_contains "$deleg_build" "exact task description" "one-issue: delegation prompt no longer carries plan rows"
+
+# D22: every slice dispatches, a lone one included; one rule, no in-place variant.
+assert_file_not_matches "$BUILD_SKILL" 'Main context directly' \
+  "one-issue: Step 1 has no 'Main context directly' row"
+assert_file_not_matches "$BUILD_SKILL" 'Built in the session that planned' \
+  "one-issue: no separate in-place dispatch rule"
+for token in "every slice dispatches to a sub-agent" "lone ready slice" "serialized pair" \
+             "Verification stays central" "runs inline and says so in one line"; do
+  assert_prose_contains "$BUILD_SKILL" "$token" \
+    "one-issue: build dispatch rule contains '$token'"
+done
+
+# [AMBIGUITY] lines are written to tasks/todo.md the moment a dispatch returns,
+# and Phase 4.5 reads them from there: a compaction (auto, manual, or idle while
+# a background suite runs) summarises agent output in context away.
+assert_prose_contains "$BUILD_SKILL" 'copy every line of its output that starts with `[AMBIGUITY]` verbatim into `tasks/todo.md`' \
+  "ambiguity: a returning dispatch's [AMBIGUITY] lines are persisted to tasks/todo.md"
+assert_precedes "$flat_build" 'starts with `[AMBIGUITY]` verbatim' 'Step 2 — Per-Slice Spec Compliance Check' \
+  "ambiguity: the persist rule sits with the dispatch, before the compliance check"
+assert_prose_contains "$BUILD_SKILL" 'above any `> [AMBIGUITY]` lines already there' \
+  "ambiguity: Slice Close keeps > Handover: as the blockquote's first line"
+ambiguity_phase="$(section_body "$BUILD_SKILL" "## Phase 4.5 —" '^##')"
+assert_contains "$ambiguity_phase" 'for lines starting with `> [AMBIGUITY]`' \
+  "ambiguity: Phase 4.5 greps the persisted lines"
+assert_contains "$ambiguity_phase" 'tasks/todo.md' \
+  "ambiguity: Phase 4.5 reads tasks/todo.md"
+assert_file_not_matches "$BUILD_SKILL" 'Grep every agent output captured this build' \
+  "ambiguity: Phase 4.5 no longer greps agent output held in context"
+assert_prose_contains "$BUILD_SKILL" '`> [AMBIGUITY] …` line after the last `>` line (else the rows)' \
+  "ambiguity: the writer appends after the last > line, so > Handover: stays first after a slice closed"
+assert_prose_contains "$BUILD_SKILL" 'the `### Slice N/N` heading once every slice has closed' \
+  "ambiguity: a post-close repair files under the Slice N/N heading, not 'the last one'"
+assert_not_contains "$ambiguity_phase" 'Touched: <file paths>' \
+  "ambiguity: the batch states only what the persisted line records (no Touched: paths)"
+assert_prose_contains .agents/skills/quality-gate/SKILL.md 'the plan block'"'"'s `> [AMBIGUITY]` lines in `tasks/todo.md` when a build persisted them, else this run'"'"'s lines' \
+  "ambiguity: /quality-gate's deferral list reads the persisted lines, falling back to this run's"
+assert_prose_contains .agents/skills/quality-gate/SKILL.md '`[AMBIGUITY]` batch from the same source as Phase 4'"'"'s' \
+  "ambiguity: the test-engineer dispatch takes its deferral list from the same source"
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md 'then any `> [AMBIGUITY]` lines below them' \
+  "ambiguity: the PR body's Handovers section carries the persisted lines"
+
+# --- wrap-up: PR body gains a Handovers section before the linkage check ---
+# specs/plan-slices-and-handover.md AC13. Step 7's Pull Request section
+# writes a `## Handovers` block -- one `### Slice n/N` heading per slice,
+# its lines verbatim -- before the linkage check reads the body, and falls
+# back to the commit message when there is no tracker to host a PR.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+CA_FILE=.agents/skills/wrap-up-session/references/closure-actions.md
+for token in "## Handovers" "### Slice n/N" "commit message"; do
+  assert_file_contains "$CA_FILE" "$token" "wrap-up: closure-actions.md contains '$token'"
+done
+assert_file_contains "$WRAP_SKILL" "§ *Handovers*" "wrap-up: SKILL.md points at the Handovers section"
+
+flat_handovers="$(flatten "$CA_FILE")"
+assert_precedes "$flat_handovers" '## Handovers' 'pr_linkage.py check' \
+  "wrap-up: ## Handovers section appears before the linkage check"
+
+# --- workflow: AGENTS.md § Workflow steps 2-4 after the build prompt replaced the y gate
+# specs/plan-slices-and-handover.md AC14. The planner interviews, slices and
+# hands over; the fresh session the build prompt starts files and builds. The
+# pins are the vocabulary a reader needs to find the skills, the two retired
+# gates as negative pins, and the five glossary terms in tasks/concepts.md.
+WORKFLOW="$(awk '/^## Workflow/{p=1} p&&/^## Review Gate/{exit} p' AGENTS.md)"
+for token in "/grill-me" "/brainstorm" "DECISIONS CARRIED" "/grilling" \
+             "/system-design-planning" "/slice" "build prompt" "fresh session" \
+             "> Handover:" "never builds and never files" \
+             "Spec and plan are ready to be built" "upsert <id>" \
+             "slice.py ready" "/auto-push" "/yolo"; do
+  assert_contains "$WORKFLOW" "$token" "workflow: AGENTS.md § Workflow names '$token'"
+done
+assert_not_contains "$WORKFLOW" "--file" \
+  "one-issue: AGENTS.md § Workflow names no /slice --file"
+assert_not_contains "$WORKFLOW" "Confirm with 'y' to begin" \
+  "workflow: the y gate is gone from AGENTS.md § Workflow"
+assert_not_contains "$WORKFLOW" "**approved**" \
+  "workflow: the approved parenthetical is gone from AGENTS.md § Workflow"
+assert_not_contains "$WORKFLOW" "Do not proceed without user confirmation" \
+  "workflow: the planning session no longer waits for a confirmation word"
+
+for term in "build prompt" "handover" "ready set" "slice" "surface"; do
+  assert_file_contains tasks/concepts.md "- **$term** —" \
+    "workflow: tasks/concepts.md defines '$term'"
+done
+
+# --- fewer full runs (build): the full suite only at the cached baseline -----
+# specs/fewer-full-suite-runs.md AC4. The pre-flight baseline goes through
+# cached-suite.sh and records the base SHA; the pre-flight also resolves the
+# project's `Affected tests:` command (with `{base}`) and the fallback when a
+# project declares none. Every other checkpoint -- Step 3, the parallel
+# barrier, the slice close, Phase 2 and the post-quality-gate run -- names the
+# affected-test command instead of the full suite.
+PREFLIGHT="$(section_body "$BUILD_SKILL" "## Pre-Flight Checks" '^##')"
+for token in "cached-suite.sh -- " "base SHA" "Affected tests:" "{base}" "declares none"; do
+  assert_contains "$PREFLIGHT" "$token" "fewer full runs: /build pre-flight names '$token'"
+done
+for heading in "### Parallel Dispatch Assessment" "### Slice Close" \
+               "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+  assert_contains "$(section_body "$BUILD_SKILL" "$heading" '^##')" "affected-test command" \
+    "fewer full runs: /build '$heading' runs the affected-test command"
+done
+for heading in "### Step 3 — Fix Failures" "### Slice Close" "## Phase 2 —" "## Phase 3 — Quality Gate"; do
+  body="$(section_body "$BUILD_SKILL" "$heading" '^##')"
+  for retired in "full test suite" "complete test suite" "run the full suite"; do
+    assert_not_contains "$body" "$retired" \
+      "fewer full runs: /build '$heading' no longer says '$retired'"
+  done
+done
+assert_file_not_matches "$BUILD_SKILL" "Full test suite after every task" \
+  "fewer full runs: Key Principles no longer says 'Full test suite after every task'"
+
+# --- affected declaration: this repository's `Affected tests:` line ----------
+# specs/fewer-full-suite-runs.md AC7. Below the end marker, so /sync keeps it.
+BELOW_END="$(awk '/<!-- jplugin-agentic-development:end -->/{p=1; next} p' AGENTS.md)"
+assert_contains "$BELOW_END" "Affected tests: bash tests/affected.sh --run {base}" \
+  "affected declaration: AGENTS.md declares the command below the end marker"
+# The cache key hashes the command, so every skill that runs the full suite
+# reads it from one declaration instead of spelling it itself.
+assert_contains "$BELOW_END" "Full suite: bash tests/run.sh" \
+  "affected declaration: AGENTS.md declares the full-suite command below the end marker"
+for skill in build yolo auto-push wrap-up-session; do
+  assert_file_contains ".agents/skills/$skill/SKILL.md" "\`Full suite:" \
+    "affected declaration: /$skill reads the declared full-suite command"
+done
+assert_contains "$PREFLIGHT" "cached-suite.sh -- <affected-test command>" \
+  "affected declaration: /build runs the affected-test command through the lock"
+
+# --- fewer full runs (wrap-up, pipelines): every full run goes through the cache
+# specs/fewer-full-suite-runs.md AC5. /wrap-up-session Step 6 and the Step 7.5
+# merged-result run, and the /yolo and /auto-push pre-flight baselines, so
+# /build's baseline and a Step 6 on a proven-green tree reuse the record.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+# The closure actions after pr-sync live in their own reference file, $CA_FILE.
+assert_contains "$(section_body "$WRAP_SKILL" "### Full suite" '^###? ')" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session § Full suite runs the full suite through cached-suite.sh"
+assert_contains "$(section_body "$CA_FILE" "## Local worktree merge")" "cached-suite.sh -- " \
+  "fewer full runs: /wrap-up-session's local worktree merge run goes through cached-suite.sh"
+for pipeline in yolo auto-push; do
+  baseline_line="$(grep -F '**Test baseline**' ".agents/skills/$pipeline/SKILL.md")"
+  assert_contains "$baseline_line" "cached-suite.sh -- " \
+    "fewer full runs: /$pipeline pre-flight baseline goes through cached-suite.sh"
+  # /plan and the pre-flight write to the tree before /build starts, so a
+  # baseline run here would hash a tree /build never sees.
+  assert_contains "$baseline_line" "Do not run a baseline here" \
+    "fewer full runs: /$pipeline leaves its baseline to /build's pre-flight"
+done
+assert_contains "$(flatten AGENTS.md)" "Every slice closes with the affected-test command" \
+  "fewer full runs: AGENTS.md § Workflow closes a slice with the affected-test command"
+assert_not_contains "$(flatten AGENTS.md)" "closes with the full suite" \
+  "fewer full runs: AGENTS.md § Workflow no longer closes a slice with the full suite"
+BLOCK="$(awk '/jplugin-agentic-development:begin/{p=1} p; /jplugin-agentic-development:end/{exit}' AGENTS.md)"
+for token in "Full suite: <command>" "Affected tests: <command with {base}>"; do
+  assert_contains "$BLOCK" "$token" "fewer full runs: the managed block tells every project to declare '$token'"
+done
+
+# --- one suite, no polling: no test run beside a suite, no poll loops --------
+# specs/fewer-full-suite-runs.md AC6. The load-contention cost came from
+# targeted loops beside a running suite; the lock only covers full runs, so
+# the rest of the rule lives in the prose of both skills.
+for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
+  flat="$(flatten "$skill")"
+  for token in "One suite at a time, no polling." "no test run starts while a suite is running" \
+               "run_in_background" "completion notification" "foreground \`sleep\`" "poll loop" \
+               "leaves the working tree alone" "A refusal is not a test result." \
+               "never count it as a fix attempt"; do
+    assert_contains "$flat" "$token" "one suite: $skill names '$token'"
+  done
+done
+
+# --- quality receipt (gate): /quality-gate owns the one review pass and mints its receipt
+# specs/quality-receipt-closure.md AC4. Security runs as phase 3 over the
+# gate's own file list, before the dispatched APOSD phase 4 so the design
+# reviewer sees the security fixes; nothing edits the tree after phase 4; the
+# affected tests run through the cache as phase 5 and receipt.py write mints
+# the receipt as phase 6. A write refusal is `Receipt: none`, never GO.
+QG_SKILL=.agents/skills/quality-gate/SKILL.md
+assert_file_matches "$QG_SKILL" '^argument-hint: .*--scope <path>.*--parent <fingerprint>' \
+  "quality receipt: /quality-gate's argument hint takes --scope and --parent <fingerprint>"
+flat_qg="$(flatten "$QG_SKILL")"
+prev=""
+for heading in "## Phase 1 — " "## Phase 2 — " "## Phase 3 — Security" "## Phase 4 — Design Quality (APOSD)" \
+               "## Phase 5 — Tests" "## Phase 6 — Receipt" "## Output"; do
+  if [ -n "$prev" ]; then
+    assert_precedes "$flat_qg" "$prev" "$heading" \
+      "quality receipt: '$heading' follows the phase before it"
+  fi
+  prev="$heading"
+done
+SCOPE_QG="$(section_body "$QG_SKILL" "## Scope")"
+for token in "receipt.py fingerprint" "untracked" "tasks/**" "--scope"; do
+  assert_contains "$SCOPE_QG" "$token" "quality receipt: the gate's Scope names '$token'"
+done
+assert_not_contains "$SCOPE_QG" "git diff --name-only <base>..HEAD" \
+  "quality receipt: the gate's file list is no longer the committed diff alone"
+SEC_QG="$(section_body "$QG_SKILL" "## Phase 3 — Security")"
+for token in "/security-scan" "the gate's own file list" "untracked" "Apply Gate" "\"inline\""; do
+  assert_contains "$SEC_QG" "$token" "quality receipt: phase 3 names '$token'"
+done
+assert_contains "$flat_qg" "No phase after 4" \
+  "quality receipt: the gate forbids edits after the APOSD phase"
+TESTS_QG="$(section_body "$QG_SKILL" "## Phase 5 — Tests")"
+for token in "Affected tests:" "cached-suite.sh -- " "\"tree\"" "never a silent fix"; do
+  assert_contains "$TESTS_QG" "$token" "quality receipt: phase 5 names '$token'"
+done
+RECEIPT_QG="$(section_body "$QG_SKILL" "## Phase 6 — Receipt")"
+for token in "receipt.py write --outcome" "--parent <fingerprint>" "--git-common-dir" \
+             "never supplies a verdict" "Receipt: none —"; do
+  assert_contains "$RECEIPT_QG" "$token" "quality receipt: phase 6 names '$token'"
+done
+OUTPUT_QG="$(section_body "$QG_SKILL" "## Output")"
+assert_contains "$OUTPUT_QG" "Receipt: <GO|HOLD|STOP> <fp8> policy <qg1-xxxxxxxx> [parent <fp8>]" \
+  "quality receipt: the Output block carries the Receipt line"
+assert_contains "$OUTPUT_QG" "Receipt: none — <receipt.py stderr>" \
+  "quality receipt: the Output block carries the refusal form"
+
+# --- gate load: Phase 3 judges scale against a stated load ------------------
+# specs/review-load-and-failure-cases.md AC5. The gate had no scale lens at all.
+# It lives inside Phase 3 (D8): phases 1-4 are pinned in receipt.py and above,
+# so a new phase number would break every receipt reader. The Output's human
+# layer is presentation only (D15) — its Verdict: is the receipt's, never a new one.
+assert_file_matches "$QG_SKILL" '^## Phase 3 — Security and Load$' \
+  "gate load: Phase 3 is headed Security and Load"
+LOAD_QG="$(section_body "$QG_SKILL" "## Phase 3 — Security and Load")"
+for token in '"lens": "security-scan+load"' 'Load assumed:' 'finding-model.md` § *Expected load*' \
+             'scale patterns'; do
+  assert_contains "$LOAD_QG" "$token" "gate load: phase 3 names '$token'"
+done
+assert_not_contains "$LOAD_QG" '"lens": "security-scan",' \
+  "gate load: phase 3 no longer records the security-only lens"
+for token in 'What this change does:' 'Load assumed:' 'Reported, not applied:' '1. [' \
+             'failure:' 'Lean: -<N> lines possible' 'Not checked:'; do
+  assert_contains "$OUTPUT_QG" "$token" "gate load: the Output block carries '$token'"
+done
+assert_precedes "$OUTPUT_QG" 'What this change does:' 'Phase 1 — Structural Quality' \
+  "gate load: the Output opens with What this change does:"
+assert_precedes "$OUTPUT_QG" 'Receipt: <GO|HOLD|STOP>' 'Lean: -<N> lines possible' \
+  "gate load: Lean: follows the receipt line"
+assert_precedes "$OUTPUT_QG" 'Lean: -<N> lines possible' 'Not checked:' \
+  "gate load: the Output ends with Lean: then Not checked:"
+assert_contains "$OUTPUT_QG" 'Verdict: <GO|HOLD|STOP> — the receipt verdict' \
+  "gate load: the Output's Verdict: line is the receipt verdict"
+
+# --- split by job: function size is a job count, not a line count -------------
+# specs/review-load-and-failure-cases.md AC6. "Functions >20 LOC -> split" pushed
+# toward shallow helpers that exist only to make a function shorter — the APOSD
+# red flag the same gate reports in Phase 4. Both homes of the rule are pinned,
+# because the gate reads Phase 1.2 and every session reads AGENTS.md.
+CLEAN_QG="$(section_body "$QG_SKILL" '### 1.2 Clean Code' '^#')"
+AGENTS_CORE="$(section_body AGENTS.md '## Core Principles')"
+for body in "$CLEAN_QG" "$AGENTS_CORE"; do
+  case "$body" in "$CLEAN_QG") where="/quality-gate Phase 1.2" ;; *) where="AGENTS.md § Core Principles" ;; esac
+  assert_contains "$body" 'split by job' "split by job: $where says split by job"
+  assert_contains "$body" 'never by line count' "split by job: $where says never by line count"
+  assert_contains "$body" 'long parameter list' "split by job: $where keeps the parameter rule"
+  assert_not_contains "$body" '20 LOC' "split by job: $where no longer carries a 20-LOC rule"
+done
+
+# --- shortcuts: the ledger, on demand -----------------------------------------
+# specs/review-load-and-failure-cases.md AC7. /wrap-up-session § Shortcut ledger
+# stays the one home of the command and format; /tidy cites it rather than
+# restating the grep, so the two cannot drift. The pattern now matches C-block
+# and HTML comment markers too; tests/test-instruction-budget.sh holds wrap-up
+# to its 300 lines.
+WRAP_SKILL=.agents/skills/wrap-up-session/SKILL.md
+ledger="$(grep -F 'TODO\(shortcut\):' "$WRAP_SKILL")"
+assert_contains "$ledger" "(#|//|--|/\\*|<!--) ?TODO\\(shortcut\\):" \
+  "shortcuts: the ledger pattern matches #, //, --, /* and <!-- prefixes"
+# The samples run through the pattern the skill actually prints. They are built
+# from a variable so this file never becomes a ledger row itself.
+pattern="$(printf '%s' "$ledger" | sed -n "s/.*grep -rnE '\([^']*\)'.*/\1/p")"
+tag='TODO(shortcut):'
+for marker in "# $tag x" "// $tag x" "/* $tag x */" "<!-- $tag x -->"; do
+  hit="$(printf '%s\n' "$marker" | grep -cE "$pattern" || true)"
+  assert_eq "1" "$hit" "shortcuts: the ledger pattern matches '$marker'"
+done
+assert_eq "0" "$(printf 'a `%s` marker in prose\n' "$tag" | grep -cE "$pattern" || true)" \
+  "shortcuts: a marker mentioned in prose is not a ledger row"
+TIDY_SKILL=.agents/skills/tidy/SKILL.md
+shortcuts_row="$(grep '^| `shortcuts` |' "$TIDY_SKILL")"
+assert_contains "$shortcuts_row" '`/wrap-up-session` § *Shortcut ledger*' \
+  "shortcuts: /tidy's shortcuts check cites the ledger's one home"
+assert_contains "$shortcuts_row" '`no-trigger`' \
+  "shortcuts: /tidy's shortcuts check reports no-trigger markers"
+assert_contains "$shortcuts_row" 'Tier 1' \
+  "shortcuts: a no-trigger marker is Tier 1"
+assert_not_contains "$shortcuts_row" 'grep -rnE' \
+  "shortcuts: /tidy cites the ledger command instead of restating it"
+
+# --- no wrap-up reviewer: wrap-up dispatches no reviewer of its own ----------
+# specs/quality-receipt-closure.md AC7. Before #188, wrap-up ran 4 dispatched
+# review passes (Step 4) plus an inline /security-scan (Step 3.5). Both are
+# gone: /quality-gate is the one review pass per diff, and wrap-up only checks
+# its receipt.
+flat_wrap="$(flatten "$WRAP_SKILL")"
+# Targets the dispatch machinery itself, not the disclaimer sentence in Step 4
+# that names these personas on purpose to say wrap-up dispatches none of them.
+for token in "Review Payload" "Parallel Code Review" "Dispatch Disclosure" \
+             "Finding Classification" "Agent assignments:"; do
+  assert_not_contains "$flat_wrap" "$token" \
+    "no wrap-up reviewer: $WRAP_SKILL no longer carries '$token'"
+done
+assert_file_not_matches "$WRAP_SKILL" '^### Pass [0-9]' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer defines its own review passes"
+assert_file_not_matches "$WRAP_SKILL" '^## Step 3\.5' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 3.5 security scan"
+assert_file_not_matches "$WRAP_SKILL" '^## Step 5 —' \
+  "no wrap-up reviewer: $WRAP_SKILL no longer has a Step 5 apply-and-reconcile"
+assert_file_not_matches "$WRAP_SKILL" '^#+ Step ' \
+  "wrap-up phases: $WRAP_SKILL has no numbered step heading"
+
+# --- receipt check: wrap-up § Quality receipt reuses the gate's receipt --------------
+# specs/quality-receipt-closure.md AC8. On `valid` it reuses the receipt; on
+# `diff-changed` it re-enters the gate at delta scope with --parent; on any
+# other stale reason, at full scope, once. It approves a HOLD only after a
+# human answer in an interactive run, and never on an unattended one.
+WRAP_STEP4="$(section_body "$WRAP_SKILL" "### Quality receipt" '^###? ')"
+for token in "receipt.py check" "diff-changed" "--scope <delta paths> --parent <fp>" \
+             "at full scope" "Quality receipt:" "receipt.py approve --fingerprint" \
+             "Interactive run" "Unattended run" "never approves" "Terminal PR assertion"; do
+  assert_contains "$WRAP_STEP4" "$token" \
+    "receipt check: /wrap-up-session § Quality receipt names '$token'"
+done
+assert_contains "$WRAP_STEP4" "an unchanged tree" \
+  "receipt check: /wrap-up-session § Quality receipt runs no second gate on the same tree"
+# receipt.py reports an unapproved HOLD as `stale verdict HOLD`, never as
+# `valid HOLD`; the approval path keys on that line, before any re-entry, and
+# takes the fingerprint from `receipt.py fingerprint` (check prints none there).
+assert_contains "$WRAP_STEP4" "stale verdict HOLD" \
+  "receipt check: /wrap-up-session § Quality receipt keys the approval path on 'stale verdict HOLD'"
+assert_contains "$WRAP_STEP4" "receipt.py fingerprint" \
+  "receipt check: /wrap-up-session § Quality receipt reads the HOLD's fingerprint from receipt.py fingerprint"
+assert_not_contains "$WRAP_STEP4" "\`valid HOLD\` (not yet approved)" \
+  "receipt check: /wrap-up-session § Quality receipt names no 'valid HOLD' line receipt.py never prints"
+
+# --- closure PR: § The closure loop is rewritten around the closure engine -------------
+# specs/quality-receipt-closure.md AC9. From § Quality receipt on, wrap-up performs the
+# actions closure.py step prints, with its state file under the git common
+# dir, never --no-verify, and the PR body carries the receipt line and a
+# Closure section while still passing the linkage check.
+STEP7="$(section_body "$WRAP_SKILL" "### The closure loop" '^###? ')"
+for token in "closure.py step" "git-common-dir" "action <name>" "terminal"; do
+  assert_contains "$STEP7" "$token" "closure PR: § The closure loop names '$token'"
+done
+assert_contains "$flat_wrap" "closure/<sanitized branch>.json" \
+  "closure PR: the closure state path lives under the git common dir"
+assert_not_contains "$flat_wrap" "--no-verify" \
+  "closure PR: wrap-up commits never pass --no-verify"
+flat_ca="$(flatten "$CA_FILE")"
+assert_not_contains "$flat_ca" "--no-verify" \
+  "closure PR: closure-action commits never pass --no-verify"
+assert_contains "$flat_wrap" "the \`Quality receipt: <verdict> · <fp8> · policy <v>\` line" \
+  "closure PR: the PR body carries the Quality receipt line from § Quality receipt"
+assert_contains "$flat_wrap" "a \`## Closure\` section" \
+  "closure PR: the PR body carries a ## Closure section"
+PR_SECTION="$(section_body "$WRAP_SKILL" '### The Pull Request' '^###? ')"
+assert_contains "$PR_SECTION" "pr_linkage.py" \
+  "closure PR: the PR section still runs the linkage check"
+assert_contains "$PR_SECTION" "pr-sync" \
+  "closure PR: the pull-request section is the pr-sync action"
+
+# --- closure CI: mergeability, CI watch and bounded repair ------------------
+# specs/quality-receipt-closure.md AC10.
+CI_SECTION="$(section_body "$CA_FILE" "## CI watch and repair")"
+MERGE_SECTION="$(section_body "$CA_FILE" "## Mergeability")"
+assert_contains "$MERGE_SECTION" "gh_pr.py mergeable <n>" \
+  "closure CI: mergeability names 'gh_pr.py mergeable <n>' (REST, specs/github-rest-in-sandboxes.md AC11)"
+for token in "gh_pr.py checks <n> --watch --required" "run_in_background" \
+             "gh_pr.py checks <n> --watch" "30 minutes" "2-minute registration window" \
+             "gh run view <run-id> --log-failed" "/debug" "re-enters \`/wrap-up-session\` § *Quality receipt*" "§ *Full suite*" \
+             "2 total" "closure repair"; do
+  assert_contains "$CI_SECTION" "$token" "closure CI: CI Watch and Repair names '$token'"
+done
+assert_contains "$flat_ca" "triggers on \`pull_request\`" \
+  "closure CI: ci: none requires no pull_request-triggered workflow too"
+assert_contains "$flat_ca" "closure repair <n>\` line to \`tasks/todo.md\` in that same commit" \
+  "closure CI: every repair commit adds a closure-repair Session Summary line"
+assert_contains "$flat_ca" "introduces_summary" \
+  "closure CI: the repair-commit line is named against the pre-push hook's check"
+
+# --- closure conflicts: merge, never rebase, never force ---------------------
+# specs/quality-receipt-closure.md AC11.
+CONFLICT_SECTION="$(section_body "$CA_FILE" "## Conflict repair")"
+for token in "git merge origin/<base>" "git merge origin/<branch>" \
+             "never \`rebase\`" "never \`--force\`" "git merge --abort" \
+             "merge: unresolved" "at most 1 round"; do
+  assert_contains "$CONFLICT_SECTION" "$token" "closure conflicts: Conflict Repair names '$token'"
+done
+assert_not_contains "$flat_wrap" "pull --rebase" \
+  "closure conflicts: wrap-up no longer resolves a non-fast-forward push with pull --rebase"
+assert_not_contains "$flat_ca" "pull --rebase" \
+  "closure conflicts: closure-actions.md never resolves a non-fast-forward push with pull --rebase"
+PUSH_FAILURE="$(section_body "$CA_FILE" "## Push failures")"
+assert_contains "$PUSH_FAILURE" "Conflict repair" \
+  "closure conflicts: the non-fast-forward row routes to Conflict Repair"
+
+# --- closure deploy: verify-deploy runs when a target applies, else n/a -----
+# specs/quality-receipt-closure.md AC12. A moved HEAD re-enters § Quality receipt once.
+STEP8="$(section_body "$CA_FILE" "## Deployment verification")"
+for token in "/verify-evidence --scope deployment" "head-moved: true" "head-moved: false" \
+             "re-enters \`/wrap-up-session\` § *Quality receipt*" "deploy_reentries" "at most once" \
+             "Deployments: not applicable —" "\`--skip-deploy\`"; do
+  assert_contains "$STEP8" "$token" "closure deploy: § Deployment verification names '$token'"
+done
+assert_contains "$STEP8" "applies to the pushed branch" \
+  "closure deploy: § Deployment verification names the applying-target case"
+assert_contains "$STEP8" "Accepted exception" \
+  "closure deploy: § Deployment verification names the accepted exception"
+
+# --- closure record: record-closure and mark-draft are described, and the ---
+# Done report carries a Closure line. specs/quality-receipt-closure.md AC13.
+DONE_SECTION="$(section_body "$WRAP_SKILL" "## Done")"
+RECORD_SECTION="$(section_body "$CA_FILE" "## Recording the closure") $(section_body "$CA_FILE" "## Marking a partial PR draft")"
+for token in "record-closure" "gh_pr.py edit <n> --body-file" "record: recorded" "record: record-failed" \
+             "mark-draft" "gh_pr.py ready <n> --undo" "partial: drafted" "partial: draft-failed" \
+             "partial: no-pr" "facts known before the push"; do
+  assert_contains "$RECORD_SECTION" "$token" "closure record: closure-actions.md names '$token'"
+done
+for token in "Closure: [complete / partial" "closure engine failed"; do
+  assert_contains "$DONE_SECTION" "$token" "closure record: the Done section names '$token'"
+done
+assert_contains "$flat_ca" "closure repair" \
+  "closure record: closure repair commits stay named in the wrap-up flow"
+
+# --- closure loop table: the three pointers now name real sections ----------
+LOOP_TABLE="$(section_body "$CA_FILE" "## Action map")"
+assert_contains "$LOOP_TABLE" "§ *Deployment verification*" \
+  "closure loop table: verify-deploy points at its own section"
+assert_contains "$LOOP_TABLE" "Recording the closure" \
+  "closure loop table: record-closure points at its own section"
+assert_contains "$LOOP_TABLE" "Marking a partial PR draft" \
+  "closure loop table: mark-draft points at its own section"
+# An unapproved HOLD is its own observation and action, so the engine and
+# Step 4 route it the same way; a terminal line ends the run for good.
+for token in "approve-hold" "receipt: hold" "approve: approved" "starts a fresh run"; do
+  assert_contains "$LOOP_TABLE" "$token" "closure loop table: names '$token'"
+done
+
+# --- closure history: § Task register states the pre-push-only recording rule --------
+STEP2="$(section_body "$WRAP_SKILL" "### Task register" '^###? ')"
+for token in "facts known" "before" "the push" "CI, conflict-repair and deployment outcomes" \
+             "never written here"; do
+  assert_contains "$STEP2" "$token" "closure history: § Task register names '$token'"
+done
+
+# --- routine spine: step 5/4 name the receipt, not review passes ------------
+# specs/quality-receipt-closure.md AC13.
+ROUTINES=.agents/skills/wrap-up-session/references/routines.md
+flat_routines="$(flatten "$ROUTINES")"
+assert_contains "$flat_routines" "checks the quality receipt" \
+  "routine spine: routines.md names the quality receipt in place of review passes"
+assert_not_contains "$flat_routines" "review passes, tests, and the pull request" \
+  "routine spine: routines.md no longer names review passes in either spine table"
+# specs/wrap-up-phases.md AC10: the same ban reaches every lane file and the
+# README's flow line, which described wrap-up as running review passes.
+for lane in .agents/skills/task-registry/lanes/*.md; do
+  assert_file_not_matches "$lane" 'wrap-up-session` — review passes' \
+    "routine spine: $lane no longer says wrap-up runs review passes"
+done
+for lane in architect build fix improve janitor plan tidy; do
+  assert_file_contains ".agents/skills/task-registry/lanes/$lane.md" \
+    "\`/wrap-up-session\` — checks the quality receipt, tests" \
+    "routine spine: lanes/$lane.md names the quality receipt check"
+done
+assert_file_not_matches README.md 'wrap-up-session.*(code review|review agents|parallel review)' \
+  "routine spine: README describes wrap-up without its retired review passes"
+assert_file_contains README.md "/wrap-up-session ──► sync learnings → reconcile specs → quality receipt" \
+  "routine spine: README's flow line names the quality receipt"
+
+# --- verify-deployment merges, never rebases (specs/wrap-up-phases.md AC8) --
+# Its fix loop pushes the same way wrap-up's closure loop does, so its
+# non-fast-forward row follows closure-actions.md § Conflict repair.
+VD=.agents/skills/verify-deployment/SKILL.md
+assert_file_not_matches "$VD" 'pull --rebase|git rebase' \
+  "verify-deployment: never resolves a non-fast-forward push with a rebase"
+vd_nonff="$(grep '^| Non-fast-forward' "$VD")"
+for token in "git merge origin/<branch>" "Conflict repair" "never" "--force"; do
+  assert_contains "$vd_nonff" "$token" "verify-deployment: the non-fast-forward row names '$token'"
+done
+
+# --- wrap-up phases: callers cite wrap-up by section name, and it resolves --
+# specs/wrap-up-phases.md AC6 and Decision 1. A step number is a pointer that
+# every insertion renumbers; a § name is one tests/test-citations.sh-style check
+# can resolve. Files are flattened first, because a citation hard-wrapped
+# across a line break ("`/wrap-up-session`\nStep 6") is still a citation.
+cite_report="$("$TEST_PYTHON" - <<'PY'
+import re, subprocess
+from pathlib import Path
+
+files = subprocess.run(
+    ["git", "ls-files", "--", ".agents", ".claude/agents", ".claude/AGENTS.md", "README.md", "AGENTS.md"],
+    capture_output=True, text=True, check=True).stdout.split()
+# A `/wrap-up-session` § citation names a SKILL.md section. A section of a
+# reference file is cited by its path, which tests/test-citations.sh resolves;
+# one flat namespace would let a caller send the reader to the wrong file.
+heading = re.compile(r"^#{2,3} (.+?)\s*$", re.M)
+skill = Path(".agents/skills/wrap-up-session/SKILL.md").read_text(encoding="utf-8")
+names = {re.sub(r"\s+", " ", h) for h in heading.findall(skill)}
+step = re.compile(r"wrap-up\S* \(?(§ 5\.1|Step [0-9])")
+cite = re.compile(r"`/wrap-up-session` § \*([^*]+?)\*")
+count = 0
+for f in files:
+    if not f.endswith((".md", ".py", ".sh")) and "/git-hooks/" not in f:
+        continue
+    flat = re.sub(r"\s+", " ", Path(f).read_text(encoding="utf-8", errors="replace"))
+    for m in step.finditer(flat):
+        print(f"STEP {f}: ...{flat[max(0, m.start() - 30):m.end() + 10]}...")
+    for m in cite.finditer(flat):
+        count += 1
+        if m.group(1) not in names:
+            print(f"UNRESOLVED {f}: § *{m.group(1)}*")
+print(f"COUNT {count}")
+PY
+)"
+assert_eq "" "$(printf '%s\n' "$cite_report" | grep '^STEP' || true)" \
+  "wrap-up phases: no caller cites wrap-up by step number"
+assert_eq "" "$(printf '%s\n' "$cite_report" | grep '^UNRESOLVED' || true)" \
+  "wrap-up phases: every \`/wrap-up-session\` § citation names a real section"
+cite_count="$(printf '%s\n' "$cite_report" | sed -n 's/^COUNT //p')"
+assert_true "wrap-up phases: the scan saw the section citations it exists to check (non-vacuous)" \
+  -- test "${cite_count:-0}" -ge 8
+
+# Codex installation and route inspection are discoverable without touching
+# personal configuration. The doctor command is implemented in the next slice.
+for command in 'bash scripts/install-codex.sh --preview' \
+               'bash scripts/install-codex.sh --adopt-legacy' \
+               'python3 scripts/agent-policy explain --harness codex' \
+               'python3 scripts/agent-policy doctor --harness codex'; do
+  assert_file_contains README.md "$command" \
+    "Codex guide: README documents $command"
+done
+
+# specs/aposd-first-build.md D23: design mode is reverted from /build; /build runs the tdd loop only.
+assert_file_absent .agents/skills/build/references/design-mode.md \
+  "revert: design-mode.md is gone"
+PHASE1_INTRO="$(section_body "$BUILD_SKILL" "## Phase 1 —" '^##')"
+for token in "Route every slice before its first dispatch" "one slice or many" "dot-directory" "stops the build"; do
+  assert_contains "$PHASE1_INTRO" "$token" "build: Phase 1 opens with routing that names '$token'"
+done
+BUILD_TEXT="$(cat "$BUILD_SKILL")"
+for token in "mode=design" "mode=tdd" "design-mode" "> Frozen:" "> Interface:" "exit 3 stops the build" "--base <sha> --index"; do
+  assert_not_contains "$BUILD_TEXT" "$token" "revert: build SKILL.md carries no '$token'"
+done
+assert_file_not_matches "$BUILD_SKILL" 'Steps 1–4' "build: no stale Steps 1–4 reference"
+assert_not_contains "$(cat .agents/skills/build/references/harness-dispatch.md)" "Design-mode" \
+  "revert: harness-dispatch carries no design-mode section"
+assert_file_contains "AGENTS.md" "\`test-engineer\`" "AGENTS.md § Agents names test-engineer"
+assert_not_contains "$(cat AGENTS.md)" "stub → Write → freeze → implement" \
+  "revert: AGENTS.md Workflow step 4 names no design-mode loop"
+
+# --- slice 12: Phase 5 test adequacy review (AC14) ---------------------------
+P5="$(section_body "$QG_SKILL" '## Phase 5 — Tests')"
+for token in "test-engineer" "Review job" "model \`sonnet\`" "after the affected tests pass"              "no spec — <reason>" "report-only" "deferrals: none"              "unresolved SHOULD-FIX counts toward HOLD" "phase 5" "review-dispatch-contract.md"              "finding-model.md" "never edits the tree"; do
+  assert_contains "$P5" "$token" "quality-gate Phase 5: mentions '$token'"
+done
+assert_file_contains ".agents/references/review-dispatch-contract.md" "test-engineer" \
+  "review-dispatch-contract: names test-engineer among dispatched reviewers"
+# The Write job and its freeze inputs are reverted: one persona, one Review job.
+assert_not_contains "$P5" "> Frozen:" "revert: Phase 5 carries no freeze line input"
+assert_not_contains "$P5" "independence rule" "revert: Phase 5 carries no independence rule"
+for f in .agents/agents/test-engineer.md .claude/agents/test-engineer.md; do
+  TE_TEXT="$(cat "$f")"
+  assert_not_contains "$TE_TEXT" "Write job" "revert: $f has no Write job"
+  assert_not_contains "$TE_TEXT" "> Frozen:" "revert: $f reads no freeze line"
+done
+
+# --- slice 13: gate fixes (AC15, AC16, D17) ----------------------------------
+P1="$(section_body "$QG_SKILL" '## Phase 1 — Structural Quality (simplify)')"
+P2="$(section_body "$QG_SKILL" '## Phase 2 — AI Anti-Patterns (deslop)')"
+assert_not_contains "$P1" 'options object' "gate fixes: Phase 1 no longer says 'options object'"
+assert_contains "$P1" 'long parameter list signals a shallow interface' "gate fixes: Phase 1 says a long parameter list signals a shallow interface"
+for token in 'interface comment' 'a comment stating a decision or a hidden assumption' 'hidden assumption' 'contradicts the code'; do
+  assert_contains "$P2" "$token" "gate fixes: Phase 2 mentions '$token'"
+done
+assert_contains "$AGENTS_CORE" 'a long parameter list signals a shallow interface; fix the interface, not the call site' "gate fixes: AGENTS.md Clean Code carries the D17 parameter rule"
+assert_not_contains "$AGENTS_CORE" '≤3 parameters' "gate fixes: AGENTS.md drops the 3-parameter cap"
+assert_contains "$(section_body AGENTS.md '## Quality Gate')" 'Phase 4' "gate fixes: AGENTS.md § Quality Gate names /quality-gate Phase 4"
+assert_contains "$(flatten .agents/references/finding-model.md)" 'moves a module boundary is never `gated_auto`' "gate fixes: finding-model § Gates says a boundary-moving fix is never gated_auto"
+# --- section-body: one heading extractor (AC 12) -----------------------------
+# lib.sh's section_body is the only way this file reads a heading's body. The five
+# private functions that each re-implemented it are gone, and with them the awk
+# that opened a section by matching the heading prefix. The stems are joined at
+# runtime so this block is not itself a hit; lib.sh is the control for the awk sweep.
+SELF="$REPO/tests/${0##*/}"
+for stem in "build_""section" "wrap_""section" "wrap_""sub" "ca_""section" "qg_""section"; do
+  assert_file_not_matches "$SELF" "\\b$stem\\b" \
+    "section-body: $stem is gone — section_body is the one heading extractor"
+done
+assert_sweep_empty "section-body: no private awk heading extractor remains in this file" tests/lib.sh \
+  -- grep -nE 'index\(\$0, h\) == 1' -- "$SELF"
 
 finish

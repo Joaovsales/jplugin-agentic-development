@@ -38,12 +38,21 @@ PR because human review *is* the gate.
 | `plan` | `design-decision` | **draft** PR carrying a spec | `Refs #N` | active |
 | `fix` | `bug`, `tech-debt` | ready PR | `Closes #N` | active |
 | `improve` | `enhancement`, `documentation` | ready PR | `Closes #N` | active |
+| `simplify` | `simplify` | ready PR | `Closes #N` | active |
 | `build` | any kind, **and** a merged linked plan, **and** no open blockers | ready PR | `Closes #N` | **deferred — see below** |
 | `janitor` | — (producer; **files** `bug`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
 | `architect` | — (producer; **files** `task` + `tech-debt`, or `design-decision`) | ready, docs-only PR carrying the session record | `Refs #N` per filed issue | active |
 | `tidy` | — (producer; **files** `documentation`, or `task` + `tech-debt`; commits Tier 0 repairs) | ready PR carrying the session record and the Tier 0 repair commits | `Refs #N` per filed issue | active |
 
-`plan`, `fix`, `improve` and `build` are consumers. `janitor`, `architect` and
+Every row is a **lane** — one file under `.agents/skills/task-registry/lanes/`
+whose frontmatter carries the selector, the producer flag and the deferral, and
+whose numbered steps are the routine's step 4. This table is a pinned mirror of
+those files (`tests/test-routines-contract.sh`); `task-registry lanes` prints the
+live one. The same files are what the interactive front door (the `go` skill)
+matches a goal against, so a labelled issue and a typed goal that name the same
+work run the same steps.
+
+`plan`, `fix`, `improve`, `simplify` and `build` are consumers. `janitor`, `architect` and
 `tidy` are producers — see *Producers* below. Consumers run on the **Builder** tier,
 producers on the **Planner** tier; cadence is the operator's call, typically
 daily for consumers and weekly for producers.
@@ -61,9 +70,12 @@ link as native is the one thing capability degradation must never do.
 Until both land, a `routine/build/...` branch parses and round-trips correctly
 but no scheduler fires it. The branch parser is general over routine names, so
 adding `build` never touches the regex — but it is not a documentation-only
-change either. A new routine edits `DEFAULT_SELECTORS`, `CONTRACT_ROUTINES`, the
-`[routines.selectors]` template block, and this document's step table. The regex
-is general; the vocabulary is not, and the vocabulary is where the work is.
+change either. A new routine is a new lane file with `routine:` set in
+`.agents/skills/task-registry/lanes/` (specs/lane-catalogue.md), plus
+`DEFAULT_KIND_PRECEDENCE` for any new selector label, this document's routine
+table, `routine_branch.CONTRACT_ROUTINES`, and the template's `[routines.skills]`
+block — each of the last three a mirror pinned to the catalogue by test. The
+regex is general; the vocabulary is not, and the vocabulary is where the work is.
 
 ## Selecting an issue
 
@@ -73,7 +85,7 @@ An issue may carry more than one kind label. Precedence is a fixed order, first
 match wins:
 
 ```
-bug > design-decision > tech-debt > enhancement > documentation
+bug > design-decision > simplify > tech-debt > enhancement > documentation
 ```
 
 **The chain orders provider label names — the left-hand keys of `[labels.kind]`
@@ -129,7 +141,7 @@ write, and it is strictly more accurate than closing the issue on PR creation
 ever was: it also suppresses re-picking while a PR is still in review.
 
 `select` refuses, loudly and non-zero, when it cannot evaluate this exclusion —
-`closedByPullRequestsReferences` needs `gh` 2.73.0. An unanswerable exclusion
+a candidate's timeline it could not read or page to the end. An unanswerable exclusion
 reads as "nothing is in flight", which is indistinguishable from a clean backlog
 and re-picks every issue already under review.
 
@@ -172,6 +184,34 @@ four problems at once:
 - "PR created but close failed" stops existing as a failure mode.
 - An abandoned PR no longer leaves a closed issue with no fix.
 
+The tracker keeps that promise only for some mergers. GitHub closes the issue
+when a person merges, but a merge made with a workflow's `GITHUB_TOKEN` — an
+auto-merge job merging as the `github-actions` app — fires no
+closing keyword, and granting the token `issues: write` does not change that
+(#146). Whatever performs such a merge runs the registry's post-merge check
+right after its merge call:
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py closes "#$n" --apply --approve
+```
+
+`task-registry closes` closes each issue the merged PR links and left open,
+through the registry's gated write, and exits 1 naming any it could not close,
+so the miss fails the run instead of waiting for someone to notice. It refuses
+a PR that has not merged yet, so a job that only enables auto-merge
+(auto-merge armed, nothing merged yet) has no "right after" and must run it once the merge has
+landed. The workflow's token needs `issues: write` for the close. Routines
+still close nothing themselves: the check belongs to the merger, not to the
+routine that opened the PR.
+
+`select` is the backstop for a merger that skipped the check. An open issue
+whose closing PR in this repository merged, with no other PR in flight and no
+human reopening it, is never a candidate — picking it would redo merged work — and `select` prints
+a `stranded:` line for each one, carrying the `closes` command that finishes
+the job. The registry reads each candidate's cross-referencing pull requests off
+its REST timeline, after the kind and claim filters; a pull request whose state
+it cannot read counts as in flight.
+
 ## Step ledger
 
 Each routine below names an ordered, **mandatory** step list. The routine writes
@@ -205,7 +245,7 @@ ledger exists to prevent, reproduced in the document that prevents it.
 | 2 | Claim it: `task-registry claim <issue> --routine <name> --apply --approve`. Idempotent, and it refuses an issue belonging to another routine | — |
 | 3 | Create the branch: `routine_branch.py format <name> <issue> <slug>` | — |
 | 4 | **The routine-specific work.** See each routine below | — |
-| 5 | `/wrap-up-session` — review passes, tests, and the pull request | **non-skippable** |
+| 5 | `/wrap-up-session` — checks the quality receipt, tests, and the pull request | **non-skippable** |
 
 Step 5 is non-skippable for every progressable routine run: it is the review
 gate whose omission shipped #93 green. The one terminal before it is a fix
@@ -215,14 +255,41 @@ the retained non-zero result opens no PR and creates no PR-ledger row.
 Each consumer routine below gives **only** its step 4 and any gate the spine
 does not already carry.
 
+### Crossing the plan handover
+
+`/plan` and `/system-design-planning` end the planning session with a build
+prompt and never build. A lane that chains a planner into `/build` crosses that
+handover one of three ways:
+
+- **A skill that owns a Step 6 override** — `/auto-push`, `/yolo`,
+  `/make-it-simpler` — crosses on its own terms; none is restated here.
+  `simplify` crosses through `/make-it-simpler` § *Overrides*, in every mode.
+- **An unattended lane run with no owning skill** — the ownerless lanes are
+  `improve`, `refactor` and `babysit`; unattended is § *Unattended detection*.
+  The run prints no build prompt and `/build` runs in place, in the same
+  session. The routine's claimed issue is the plan's feature issue: `/slice`
+  writes it as the block's `> Issue:` line, so `slice.py link` prints
+  `issue <ref>` and the pre-flight files nothing.
+  The same override covers `/system-design-planning`'s hand-over. It is one of the named
+  exceptions to the fresh-session rule (`AGENTS.md` step 3).
+- **An interactive lane run with no owning skill** — the handover is honoured:
+  the build prompt stays the session's last message, the `go` skill appends
+  ` — handed over: build prompt` to each lane line after the planner step, and
+  its reply precedes the prompt. The build session runs those steps.
+
+An in-place build still gets a fresh context for the code: `/build` (§ *Parallel
+Dispatch Assessment*) dispatches every slice to a sub-agent when it runs in the
+session that planned it. The `plan` lane stops at its planner, so none of this
+applies to it.
+
 ### `plan` — steps
 
 Selector: `design-decision`. Terminal artifact: a **draft** PR whose body carries
 `Refs #N` and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 4 | `/plan` — write `specs/<feature>.md` and the task breakdown | **non-skippable** — the spec is the routine's entire artifact |
+Step 4 is the lane file `plan.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+plan` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 `/build` and `/quality-gate` are deliberately absent. `plan` produces a spec and
 no implementation, so requiring them here would write a `skip:` row on every
@@ -234,22 +301,37 @@ which is exactly the failure this ledger exists to prevent.
 Selector: `bug`, `tech-debt`. Terminal artifact: a ready PR whose body carries
 `Closes #N` and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 4a | `/debug #N` — root cause before code; reproduced and progressable work continues, while an inconclusive or practically blocked investigation is held and reported by the canonical escalation owner | — |
-| 4b | `/build` — TDD against the issue's acceptance criteria | **non-skippable** — no fix ships without a failing test that now passes |
-| 4c | `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside `/build` Phase 3; the row records where it ran) | **non-skippable** |
+Step 4 is the lane file `fix.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+fix` prints it. The rows are not restated here (specs/lane-catalogue.md).
+Its first step is `/debug <ref>`: `<ref>` is `#N` on a scheduled run and the goal
+text when the interactive front door picked the lane — the only thing that differs between them.
 
 ### `improve` — steps
 
 Selector: `enhancement`, `documentation`. Terminal artifact: a ready PR whose body
 carries `Closes #N` and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 4a | `/plan` — write or extend the spec, unless the issue already links a merged one | — |
-| 4b | `/build` — TDD against the acceptance criteria | **non-skippable** |
-| 4c | `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside `/build` Phase 3; the row records where it ran) | **non-skippable** |
+Step 4 is the lane file `improve.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+improve` prints it. The rows are not restated here (specs/lane-catalogue.md).
+
+### `simplify` — steps
+
+Selector: `simplify`. Terminal artifact: a ready PR whose body carries
+`Closes #N`, this step list, the before- and after-proof, `Behavior changes:`
+and `Simplified:`.
+
+Step 4 is the lane file `simplify.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+simplify` prints it. The rows are not restated here (specs/lane-catalogue.md).
+Unlike the other consumers, the scheduled entry is `/make-it-simpler
+--unattended`, and its **discovery precedes the spine**: it ranks, classifies
+and sizes candidates and files them through `task-registry upsert` before spine
+step 1 selects one, so the index rows that filing wrote are the routine
+branch's first commit. A day that files only decisions and selects nothing
+opens the docs-only record PR below instead; a day that files and selects
+nothing exits 0 silently, with no branch.
 
 ### `build` — steps (deferred, #98)
 
@@ -272,10 +354,10 @@ every issue in the record's *Filed* section. Never `Closes`: nothing was fixed.
 The branch number is a **run stamp** (`YYYYMMDD`), not an issue. The formatter
 and parser treat it as any other positive integer; `/wrap-up-session` does not
 look it up. `CONTRACT_ROUTINES` in `routine_branch.py` carries both names so the
-branch formats, and `PRODUCER_ROUTINES` in the registry's `config.py` carries
-them so `task-registry select` and `task-registry claim` refuse a producer with
-exit 2 — it files issues, it does not select them — and a `[routines.selectors]`
-key naming one is refused at load like any unknown routine.
+branch formats, and the registry reads them as `routine: producer` lanes from the
+lane catalogue, so `task-registry select` and `task-registry claim` refuse a
+producer with exit 2 — it files issues, it does not select them — and a
+`[routines.selectors]` key naming one is refused at load like any unknown routine.
 
 ### Producer spine
 
@@ -286,7 +368,7 @@ Stated once, like the consumer spine, and for the same reason.
 | 1 | `task-registry doctor` — records the destination policy the findings will take (local canonical, external issue, or publication pending). `janitor` additionally requires exactly one project-local `verify-<app>` skill: missing → loud non-zero naming `/create-verification-skill`, no branch, no PR | — |
 | 2 | Create the branch: `routine_branch.py format <name> <YYYYMMDD> sweep`. A branch that already exists is a second run the same day: loud non-zero, no second branch | — |
 | 3 | `/sweep --routine <name>` (`/tidy` for the `tidy` routine) — read the backlog, run the engine, verify, file, write the session record | **non-skippable** — the sweep is the routine's entire artifact |
-| 4 | `/wrap-up-session` — review passes, tests, and the pull request | **non-skippable** |
+| 4 | `/wrap-up-session` — checks the quality receipt, tests, and the pull request | **non-skippable** |
 
 A clean sweep still writes the record and still opens the PR: the record is the
 only place "every mapped feature was driven and nothing failed" is stated.
@@ -294,13 +376,13 @@ only place "every mapped feature was driven and nothing failed" is stated.
 ### `janitor` — steps
 
 Lens: bugs. Engine: the full test suite plus `/maintain-verification-skill`'s
-full pass, whose live pass drives every mapped feature under `/verify --scope
+full pass, whose live pass drives every mapped feature under `/verify-evidence --scope
 e2e` rules. Files as `bug`. Terminal artifact: a ready, docs-only PR whose body
 carries `Refs #N` per filed issue and this step list.
 
-| # | Step | Gate |
-|---|---|---|
-| 3 | `/sweep --routine janitor` — the bar to file is a reproduction **executed this run** (command, observed, expected) at confidence `75` or above; a failing or flaky test is filed with the test command as its reproduction | **non-skippable** |
+Step 3 is the lane file `janitor.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+janitor` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 ### `architect` — steps
 
@@ -309,9 +391,9 @@ red flags over the whole tree, not a diff. Files as `task` + `tech-debt`, or
 `design-decision` when the proposed fix is a choice between designs. Terminal
 artifact: as `janitor`.
 
-| # | Step | Gate |
-|---|---|---|
-| 3 | `/sweep --routine architect` — the bar to file is an `evidence` line quoting the motivating code with `file:line` at confidence `75` or above; `NITPICK` is never filed | **non-skippable** |
+Step 3 is the lane file `architect.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+architect` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 ### `tidy` — steps
 
@@ -328,9 +410,128 @@ Tier 0 commits by check name, and this step list. No `verify-<app>` skill is
 required; step 1 is `task-registry doctor` alone, and in a fresh checkout the
 `installed` and `worktrees` checks report *skipped* with a note, never clean.
 
-| # | Step | Gate |
-|---|---|---|
-| 3 | `/tidy` — the bar to repair is Tier 0 (the correct text is fully determined by the tree); the bar to file is a finding the report names with its surface and remedy; `--report` never commits | **non-skippable** |
+Step 3 is the lane file `tidy.md` in `.agents/skills/task-registry/lanes/`: its numbered steps are this
+routine's step list, its chain is derived from them, and `task-registry lanes
+tidy` prints it. The rows are not restated here (specs/lane-catalogue.md).
+
+## Wrap-up on a routine branch
+
+Everything the wrap-up skill does only on a `routine/` branch or for an
+unattended caller. An interactive session on an ordinary branch never reads
+this section.
+
+### Fix-escalation terminal
+
+If a `routine/fix/` caller supplies a completed investigation escalation result,
+preserve that non-zero terminal result and STOP: open no PR, write no PR ledger,
+and do not repeat the registry command. Do not run the terminal PR assertion
+(`/wrap-up-session` § *Terminal PR assertion*); the escalation is already the
+retained, loud no-PR result. This exception applies only to the fix
+routine's investigation path. Interactive wrap-up and deployment verification
+keep their existing contracts.
+
+The `simplify` routine's **scope stop** is the same kind of terminal: when
+`/make-it-simpler <ref>` finds the claimed task significant, over the cap, or
+no longer reproducing, it stops before any edit, non-zero, with the claim left
+in place. Open no PR, write no PR ledger, and do not run the terminal PR
+assertion; the one scope-stop line is the retained result.
+
+### Step-ledger rows
+
+Write the routine's executed step list into `tasks/todo.md`, one row per
+mandatory step. A step that could not run **keeps its row**, carrying
+`skip: <reason>` — retained, never deleted. Silent omission is the one thing
+that is never allowed here, because a deleted row reads as a routine that never
+had that gate, and an absent gate leaves no trace in the diff a reviewer reads.
+Each routine's list is in § *Step ledger* above.
+
+The same step list goes in the PR body — every mandatory step, and every
+skipped one retained with `skip: <reason>`.
+
+### What the branch tells you
+
+A routine encodes the routine name and the issue number in the branch, under a
+reserved namespace, because wrap-up runs in a context that never saw the issue:
+
+```bash
+python3 .agents/skills/wrap-up-session/scripts/routine_branch.py parse "$(git branch --show-current)"
+```
+
+Exit 0 prints `<routine> <issue>`. **Exit 3** means the branch is **outside the
+`routine/` namespace** — no routine, no issue, and wrap-up behaves exactly as it
+does today. That is the ordinary case and not an error; the convention is opt-in
+by shape, so no existing workflow changes behavior.
+
+Treat only 3 that way. Any other non-zero code is the script failing to run, and
+reading that as "not a routine branch" is how a routine silently ships a PR with
+no `Closes #N` and no `--draft`.
+
+### Draft and linkage
+
+| Branch | Flags | Title | Body carries |
+|---|---|---|---|
+| `routine/plan/<n>-<slug>` | `--draft` | conventional | `Refs #N` |
+| `routine/janitor/<YYYYMMDD>-sweep` | none | `chore(sweep): janitor <YYYY-MM-DD>` (`— clean` suffix when nothing was filed) | step ledger, the record path `tasks/sweeps/<YYYY-MM-DD>-janitor.md`, and `Refs #N` for **every** issue in the record's *Filed* section — never `Closes` |
+| `routine/architect/<YYYYMMDD>-sweep` | none | `chore(sweep): architect <YYYY-MM-DD>`, same suffix rule | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-architect.md` |
+| `routine/tidy/<YYYYMMDD>-sweep` | none | `chore(tidy): <YYYY-MM-DD>` (`— clean` suffix only when nothing was filed **and** no Tier 0 repair was committed) | as `janitor`, with the record at `tasks/sweeps/<YYYY-MM-DD>-tidy.md` and the Tier 0 repair commits listed by check name |
+| `routine/simplify/<n>-<slug>` | none | conventional | `Closes #N`, the before- and after-proof, `Behavior changes:` and `Simplified:` |
+| `routine/simplify/<YYYYMMDD>-record` | none | `chore(simplify): record <YYYY-MM-DD>` | docs-only: the `tasks/todo.md` index rows, and `Refs #N` per filed issue — never `Closes` |
+| any other `routine/<name>/<n>-<slug>` | none | conventional | `Closes #N` |
+| outside `routine/` | none | conventional | whatever the session warrants |
+
+A producer branch's number is a **run stamp** (`YYYYMMDD`), not an issue. It is
+never looked up as one, so the "issue is missing or closed" report below does
+not apply to it; the issues a producer PR references are the ones the session
+record's *Filed* section lists, read from that file. When the record says
+`Filed: none`, the body carries no `Refs` line and says so.
+
+`--draft` is passed **when and only when the routine is `plan`**. A plan is a
+proposal, so it opens as a draft; every other routine ends at a ready PR because
+human review *is* the gate that the deleted policy lattice tried to compute.
+
+The body carries the linkage and the tracker closes the issue **on merge**. No
+step here closes an issue itself: that keeps the provider coupling guard intact
+so every tracker keeps working, removes "PR created but close failed" as a
+failure mode, and stops an abandoned PR from leaving a closed issue with no fix.
+`plan` uses `Refs #N` rather than `Closes #N` precisely so a merged plan leaves
+the issue open for the routine that builds it.
+
+**If the branch is a routine branch but the issue is missing or closed**: report
+it loudly, non-zero, naming the issue — and **open the PR anyway**. A bad link
+must not discard the session's work.
+
+### E2E handoff on `routine/fix`
+
+On a `routine/fix/` branch, if `/verify-evidence --scope e2e` returns a structured blocked
+outcome, return its exact command, evidence, and reproduction state to `/debug`'s
+§ *Canonical unattended escalation owner*. That owner invokes the registry once;
+the escalation is terminal for this run, so do not offer acknowledgement or
+continue to the PR assertion.
+
+### Unattended detection
+
+The terminal PR assertion runs on unattended runs only. A run is unattended
+when either holds:
+
+1. The branch is a routine branch. Exit 0 means yes; exit 3 means no.
+   `routine/` is a prefix, but only the parser knows which names under it are
+   real — `routine/plna/90-x` is nobody's branch, and matching the prefix
+   would read it as a routine run.
+
+   ```bash
+   python3 .agents/skills/wrap-up-session/scripts/routine_branch.py \
+     parse "$(git branch --show-current)"
+   ```
+
+2. The caller declared it. `/yolo` and `/auto-push` each carry a
+   **Terminal PR assertion — unattended** row in the override table they pass
+   to wrap-up.
+   Their branches are ordinary feature branches, so nothing about the branch name
+   says a human stopped watching; only the caller knows, so only the caller can
+   say.
+
+What that changes is stated where it applies: `/wrap-up-session` § *Quality receipt*
+(*Approving a HOLD*) and § *Terminal PR assertion*.
 
 ## Edge cases
 
@@ -341,7 +542,7 @@ required; step 1 is `task-registry doctor` alone, and in a fresh checkout the
 | Issue carries two kind labels | Precedence resolves it; the routine records which label matched. |
 | Issue carries no kind label | Never selected. The routine reports the count so the gap is visible. |
 | Issue already carries the claim label | Skipped as in-flight. |
-| `gh` predates `closedByPullRequestsReferences` (< 2.73.0) | Asserted **once at routine start**, loudly. Every routine depends on the field; degrading per-routine gave two different answers to one missing capability. |
+| GitHub unreachable over REST (`gh api user` fails) | Asserted **once at routine start**, loudly. Every routine depends on the registry; degrading per-routine gave two different answers to one missing capability. |
 | No candidate found | Exit silently and successfully. A routine with nothing to do is not a failure. |
 | A mandatory step could not run | Its row stays in `tasks/todo.md` and the PR body with `skip: <reason>`. |
 | `janitor` with no `verify-<app>` skill | Stops at doctor, loud non-zero, names `/create-verification-skill`. No branch, no PR. |

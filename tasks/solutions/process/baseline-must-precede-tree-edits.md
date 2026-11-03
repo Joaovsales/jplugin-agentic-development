@@ -43,6 +43,11 @@ and the pre-existing breakage would have been easy to write off as self-inflicte
 - When a baseline is red, prove *whose* red it is before deciding anything — a
   detached worktree at the base commit (`git worktree add --detach <path> origin/master`)
   answers it in one run and costs nothing.
+- To edit while the baseline runs, run the baseline itself from that detached
+  worktree and keep the edits in your own. Run the RED test first: the
+  `cached-suite.sh` lock is shared by every worktree of the clone, so no test
+  runs anywhere until the baseline returns (this session, 2026-10-13: a ~30-minute
+  Windows baseline overlapped the whole fix edit with no mixture).
 
 Related: `../bugs/codex-session-start-hook-emits-nothing.md` — the real failure this
 nearly masked.

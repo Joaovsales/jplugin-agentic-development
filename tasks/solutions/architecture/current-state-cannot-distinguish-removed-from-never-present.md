@@ -1,6 +1,6 @@
 ---
 title: Current state cannot distinguish removed-upstream from never-present
-date: 2026-09-04
+date: 2026-09-30
 problem_type: architecture-decision
 module: .agents/skills/sync/scripts/sync-retire.py
 tags: [provenance, git-history, set-arithmetic, sync, determinism]
@@ -27,7 +27,7 @@ retired file forever. The mechanism being replaced — a hardcoded
 unconditionally, so the new design was *strictly weaker* for exactly the projects
 least likely to notice.
 
-## The fix
+## The first fix, and its correction
 
 The template's git history answers the narrower question on its own:
 
@@ -35,20 +35,24 @@ The template's git history answers the narrower question on its own:
 retire (bootstrap) = (project − template) ∩ (paths the template has ever carried)
 ```
 
-A path the template once shipped and no longer does was template content by
-provenance. Verified end-to-end on a real clone: 5 retired paths removed in
-bootstrap with no human classification, the project-local skill kept, and the
-candidate holding only the path provenance could not settle.
+History narrows the candidate set, but a path the template once shipped is not
+proof that the project's current file came from the template. A project may
+have written its own file at that path or edited a synced copy. The current
+bootstrap compares the on-disk file's blob with blobs the template held at that
+path (`.agents/skills/sync/scripts/sync-retire.py:338-349`,
+`:352-397`, `:802-810`). The original path-only rule was corrected after the
+initial end-to-end run; see [path membership is not proof of provenance](path-membership-is-not-proof-of-provenance.md).
 
 ## What generalises
 
-- Provenance is **per-path, not per-name**. A retired skill sitting at a path the
-  template never used has no provenance and stays a candidate. Conservative and
-  correct — do not match on names.
+- History is **per-path, not per-name**, and a matching content blob supplies
+  the proof needed for automatic deletion. A retired skill sitting at a path
+  the template never used stays a candidate.
 - History must actually be present. A shallow clone's history *is* its current
   state, which would silently classify every retired path as project-specific.
-  Detect it (`git rev-parse --is-shallow-repository`) and say "unknown" rather
-  than concluding. `/sync` clones `--filter=blob:none` so the question stays
-  answerable cheaply.
+  Check whether the fetched template revision's apparent roots have missing
+  parents and say "unknown" when they do (`.agents/skills/sync/scripts/sync-retire.py:311-335`).
+  The earlier repository-wide `--is-shallow-repository` check was replaced;
+  see [a repository-level flag does not describe one revision](a-repository-level-flag-does-not-describe-one-revision.md).
 - "Unknown" needs to be a distinct third state from "yes" and "no", in the return
   type as well as the report.

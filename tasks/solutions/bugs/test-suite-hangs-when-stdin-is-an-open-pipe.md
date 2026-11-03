@@ -1,15 +1,15 @@
 ---
 title: tests/run.sh hangs at test-pre-push-gate when stdin is an open pipe
-date: 2026-09-07
+date: 2026-09-30
 problem_type: test-failure
 module: tests/test-pre-push-gate.sh
 tags: [tests, hooks, stdin, bash, session-start]
 symptoms: "`bash tests/run.sh` launched from an agent shell printed nothing after tests/test-pre-push-gate.sh and never exited; `ps` showed a `cat` child under a copied session-start.sh. Two such hung runs were found in the same session"
 root_cause: "tests/test-pre-push-gate.sh copies .claude/hooks/session-start.sh into a temp repo and runs it (tests/test-pre-push-gate.sh:217-218). The hook reads its JSON payload with `HOOK_INPUT=$(cat 2>/dev/null || true)` (.claude/hooks/session-start.sh:42), which blocks until stdin reaches EOF. An agent shell leaves stdin as an open pipe, so EOF never comes"
-resolution: "run the suite as `bash tests/run.sh </dev/null`; the same redirect applies to any single test that exercises session-start.sh. No code change — the hook must read stdin because Claude Code delivers the hook payload there"
+resolution: "Initially run the suite with `</dev/null`; the later test fix redirected both hook invocations themselves, so the suite no longer depends on its launcher's stdin"
 ---
 
-**Status**: fixed — 2026-09-07
+**Status**: superseded by the test-level fix on 2026-09-21; see [the follow-up](test-inherits-open-stdin-and-the-hook-reads-it-to-eof.md).
 
 ## Symptoms
 
@@ -30,16 +30,19 @@ The pre-push-gate test runs the real hook to check that the banner surfaces the
 shortcut ledger (`tests/test-pre-push-gate.sh:217-218`), so it inherits the
 hook's stdin contract.
 
-## Resolution
+## Initial workaround and later fix
 
-Close stdin at the suite boundary:
+The initial workaround closed stdin at the suite boundary:
 
 ```bash
 bash tests/run.sh </dev/null
 ```
 
-The build and wrap-up skills already invoke the pre-compact flush this way
-(`bash .claude/hooks/pre-compact.sh </dev/null`); the suite needs the same.
+The two test invocations now each use `</dev/null`
+(`tests/test-pre-push-gate.sh:218`, `:224`), so launching the suite with an open
+stdin no longer hangs here. The [follow-up](test-inherits-open-stdin-and-the-hook-reads-it-to-eof.md)
+records the reproducer and the test-level correction. The underlying lesson is
+to close stdin at the call site that executes a hook when its payload is irrelevant.
 
 ## Prevention
 

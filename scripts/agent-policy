@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""Explain the canonical policy route selected for a Codex child."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+
+from agent_policy import DEFAULT_POLICY, PolicyError, load_policy, resolve
+from agent_policy.doctor import Context, inspect
+
+
+def _doctor_parser(subcommands: argparse._SubParsersAction) -> None:
+    doctor = subcommands.add_parser("doctor")
+    doctor.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
+    doctor.add_argument("--harness", default="codex")
+    doctor.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")))
+    doctor.add_argument("--project-dir", type=Path, default=Path.cwd())
+    doctor.add_argument("--trust", choices=("trusted", "untrusted", "unknown"), default="unknown")
+    doctor.add_argument("--profile")
+    doctor.add_argument("--parent-model")
+    doctor.add_argument("--cli-model")
+    doctor.add_argument("--cli-max-threads", type=int)
+    doctor.add_argument("--cli-default-subagent-model")
+    for layer in ("cli", "cloud", "session"):
+        doctor.add_argument(f"--{layer}-known", action="store_true")
+
+
+def _make_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    subcommands = parser.add_subparsers(dest="command", required=True)
+    explain = subcommands.add_parser("explain")
+    explain.add_argument("--policy", type=Path, default=DEFAULT_POLICY)
+    explain.add_argument("--harness", default="codex")
+    explain.add_argument("--lane")
+    explain.add_argument("--role")
+    explain.add_argument("--parent-model")
+    _doctor_parser(subcommands)
+    return parser
+
+
+def main() -> int:
+    parser = _make_parser()
+    args = parser.parse_args()
+    try:
+        policy = load_policy(args.policy)
+        if args.harness != "codex":
+            raise PolicyError(f"unsupported harness: {args.harness}")
+        if args.command == "explain":
+            route = resolve(policy, args.harness, args.lane, args.role, args.parent_model)
+        else:
+            context = Context(args.codex_home, args.project_dir, args.trust, args.profile,
+                              args.parent_model, args.cli_model, args.cli_max_threads,
+                              args.cli_default_subagent_model, args.cli_known,
+                              args.cloud_known, args.session_known)
+            route = inspect(policy, context)
+    except PolicyError as exc:
+        parser.exit(2, f"agent-policy: {exc}\n")
+    print(json.dumps(route, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

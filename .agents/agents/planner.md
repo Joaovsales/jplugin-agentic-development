@@ -80,13 +80,16 @@ Write the implementation plan to `tasks/todo.md`:
 > Spec: specs/[feature-name].md
 > Status: Pending user approval
 
-[ ] TDD: [test name — what behavior is verified] -> [minimal impl detail]
-[ ] TDD: [test name] -> [impl detail]
-[ ] TDD: [test name] -> [impl detail]
+### Slice 1/[N] — [name]
+- [ ] [name] — [what the slice delivers]
 ```
 
-Rules for tasks:
-- Each task must map to exactly one testable behavior
+Slice rows are headers only; the tests are written later, when `/build` runs
+each slice's criteria through `/tdd`. A bug's fix block is plain `- [ ]`
+criterion rows that `/debug` runs through `/tdd` itself.
+
+Rules for slices:
+- Each slice must map to testable behavior
 - Order by dependency (prerequisites first)
 - No task should take more than 30 minutes to implement
 - If a task feels large, split it
@@ -99,17 +102,16 @@ If the feature involves non-trivial architecture, add an **Architecture Notes** 
 - Key design decisions and alternatives considered
 - Performance and security implications
 
-### Phase 5 — Present & Confirm
+### Phase 5 — Present & Hand Over
 
 Show the user:
 1. The completed spec
 2. The task plan in `tasks/todo.md`
 
-Ask:
-> "Does this spec and plan meet your requirements?
-> Confirm with **'y'** and I'll hand off to the TDD loop."
-
-Do not proceed to implementation without explicit confirmation.
+Then return to the invoking skill, which owns the handover: the planning
+session ends with `Spec and plan are ready to be built. Start a fresh session
+with this prompt:` and the build prompt. Ask no confirmation question; nothing
+is filed and nothing is built in the planning session.
 
 ## Output Standards
 

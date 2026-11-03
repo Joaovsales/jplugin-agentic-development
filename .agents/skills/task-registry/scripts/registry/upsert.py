@@ -315,7 +315,7 @@ def _upsert_task_result(registry, task: Task, apply: bool, preserve_existing: bo
             f"{'is unreachable' if not status.available else 'requires approval'}; "
             "the local record is canonical until it is published"
         )
-    return UpsertResult(UpsertDisposition(destination), task=written, readback=written, lines=tuple(lines))
+    return UpsertResult(UpsertDisposition(destination), task=written, readback=written, lines=tuple(lines), code=0)
 
 
 def _preserved_result(existing: Optional[Task], config) -> Optional[UpsertResult]:

@@ -1,13 +1,9 @@
 ---
 implementation_paths:
   - .agents/skills/wrap-up-session/**
-  - .claude/skills/wrap-up-session/**
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - .agents/skills/plan/SKILL.md
-  - .claude/skills/plan/SKILL.md
   - .agents/skills/brainstorm/SKILL.md
-  - .claude/skills/brainstorm/SKILL.md
   - specs/README.md
   - CLAUDE.md
   - tests/test-living-spec-reconciliation.sh
@@ -299,7 +295,6 @@ modifying real project specs:
 - ordinary-bullet Acceptance Criteria in newly generated spec templates
 - all updated specs entering downstream review context
 - failure of tests or quality gates preventing commit and push
-- canonical `.agents/skills/` and compatibility `.claude/skills/` parity
 
 Semantic fixture scenarios pin the required outcomes: behavior change updates a
 spec, unrelated shared-file change leaves it byte-identical, and insufficient
@@ -360,4 +355,3 @@ to replace agent reasoning with a keyword heuristic.
   relevant to a session.
 - `tests/test-living-spec-reconciliation.sh` — the deterministic guards and the
   fixture scenarios.
-- `.claude/skills/**` — byte-identical compatibility mirrors of the above.

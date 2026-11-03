@@ -100,8 +100,16 @@ nothing is dropped.
 
 ## Writing rules (`/learn`)
 
-Before creating a document, score overlap against existing documents across five
-dimensions: problem, root cause, solution, files touched, prevention rule.
+Before creating a document, score overlap against existing documents across the
+five dimensions of the candidate's track (`/learn` Step 4 defines each):
+
+| Track | Dimensions |
+|-------|------------|
+| bug | problem, root cause, solution, files touched, prevention rule |
+| knowledge | situation (`applies_when`), claim, files or module, rule, consequence |
+
+A document on the other track scores Moderate at most: cross-link it, never
+merge across tracks.
 
 | Score | Dimensions matched | Action |
 |-------|--------------------|--------|

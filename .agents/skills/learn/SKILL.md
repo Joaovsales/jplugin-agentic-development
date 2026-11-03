@@ -38,8 +38,18 @@ attributed to the session rather than stated as fact.
 
 ### 4. Score Overlap Before Writing
 For each candidate, compare against existing documents (grep
-`tasks/solutions/` frontmatter: `problem_type`, `module`, `tags`) across five
-dimensions: **problem, root cause, solution, files touched, prevention rule**.
+`tasks/solutions/` frontmatter: `problem_type`, `module`, `tags`) across the
+five dimensions of the candidate's track:
+
+| Track | Dimensions |
+|-------|------------|
+| bug | problem, root cause, solution, files touched, prevention rule |
+| knowledge | situation (`applies_when`), claim, files or module, rule, consequence |
+
+On the knowledge track the claim is what the document asserts (the decision,
+pattern or convention), the rule is what to do when the situation recurs, and
+the consequence is what ignoring it costs. A document on the other track scores
+Moderate at most: cross-link it, never merge across tracks.
 
 | Score | Dimensions matched | Action |
 |-------|--------------------|--------|

@@ -79,3 +79,12 @@ for a reason unrelated to the fix.
 - `../process/baseline-must-precede-tree-edits.md` -- the same sweep also showed
   that piping `tests/run.sh` into `tail` reports `tail`'s exit status, so a red
   suite reads as green. Read the `RESULT:` line, or run it unpiped.
+
+## Recurrence — 2026-09-22
+
+`slice.py ready` printed `intersects: a ↔ b` and died with `UnicodeEncodeError`
+under `tests/run.sh`, which does not export `PYTHONUTF8`; the same command passed
+from a shell that did. Fixed by `stream.reconfigure(encoding="utf-8")` on stdout
+and stderr at entry (`.agents/skills/slice/scripts/slice.py`, `__main__`). A new
+script that prints anything outside cp1252 must pin its stdio encoding itself
+rather than rely on the caller's environment.

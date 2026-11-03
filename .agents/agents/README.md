@@ -17,8 +17,8 @@ plus a system-prompt body.
    per-harness, per-user concern (see `PI_SETUP.md`). The `.claude/agents/`
    copies may pin Claude built-in aliases for Claude Code users.
 2. Edits to a persona (system prompt, description) go here first, then get
-   copied to `.claude/agents/` — mirroring the `.agents/skills/` →
-   `.claude/skills/` convention.
+   copied to `.claude/agents/`. Skills need no copy: Claude Code loads
+   `.agents/skills/` through the `jplugin` plugin.
 3. `pi-subagents` explicitly skips `.agents/skills/**` during agent
    discovery, so skills and agents can coexist under `.agents/`.
 4. Extension builtin agents fill roles this directory does **not** define

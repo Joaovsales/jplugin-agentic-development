@@ -9,7 +9,7 @@
 # producers: read the backlog, run an engine, file verified findings through the
 # registry, commit a session record, hand off to /wrap-up-session.
 #
-# These are static assertions over both skill trees. AC2 (the Python surface)
+# These are static assertions over the skill tree. AC2 (the Python surface)
 # lives in test-routine-branch.sh / test-routine-selectors.sh; AC4 (the handoff
 # schema) lives in test-sweep-handoff.sh.
 . "$(dirname "$0")/lib.sh"
@@ -17,7 +17,11 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-TREES=".agents .claude"
+TREES=".agents"
+# The registry skill (the subcommands /sweep names are read from its CLI) and
+# the skill under review; relative paths keep every message below stable.
+under_test .agents/skills/task-registry >/dev/null
+under_test .agents/skills/sweep >/dev/null
 WRAP=".agents/skills/wrap-up-session"
 CONTRACT="$WRAP/references/routines.md"
 PROMPTS="$WRAP/references/routine-prompts"
@@ -58,11 +62,11 @@ assert_prose_contains "$CONTRACT" "run stamp" \
   "AC1: the producer branch number is described as a run stamp, not an issue"
 
 # ============================================================================
-# AC3 — /sweep and its two lens files, byte-identical in both trees
+# AC3 — /sweep and its two lens files exist
 # ============================================================================
 for f in SKILL.md references/lens-janitor.md references/lens-architect.md; do
-  assert_files_identical ".agents/skills/sweep/$f" ".claude/skills/sweep/$f" \
-    "AC3: sweep/$f ships byte-identically to the .claude parity copy"
+  assert_file_exists ".agents/skills/sweep/$f" \
+    "AC3: sweep/$f exists"
 done
 
 SWEEP=".agents/skills/sweep/SKILL.md"
@@ -78,14 +82,14 @@ for flag in --reproduction --proposed-fix --criterion --evidence --summary --der
   assert_file_contains "$SWEEP" "$flag" "AC3: /sweep passes $flag"
 done
 # Every subcommand the skill names must exist: `task-registry sync` once did not.
-commands="$(python3 -c '
+commands="$("$TEST_PYTHON" -c '
 import re, pathlib
 src = pathlib.Path(".agents/skills/task-registry/scripts/task-registry.py").read_text()
 print(" ".join(re.findall(r"\"([a-z]+)\"", re.search(r"COMMANDS = \((.*?)\)", src, re.S).group(1))))
 ')"
 for sub in $(grep -oE 'task-registry [a-z]+' "$SWEEP" | awk '{print $2}' | sort -u); do
   case " $commands " in
-    *" $sub "*) assert_eq "$sub" "$sub" "AC3: /sweep names a real subcommand: $sub" ;;
+    *" $sub "*) pass "AC3: /sweep names a real subcommand: $sub" ;;
     *) assert_eq "one of: $commands" "$sub" "AC3: /sweep names a real subcommand: $sub" ;;
   esac
 done
@@ -142,12 +146,20 @@ for tree in $TREES; do
     "AC5: $tree/debug invokes the unattended escalation owner"
   assert_prose_contains "$f" "non-zero" \
     "AC5: $tree/debug exits non-zero when blocked"
-  assert_file_contains "$f" "[ ] TDD:" \
-    "AC5: $tree/debug writes TDD tasks from the issue's proposed fix and criteria"
+  assert_file_contains "$f" "## Fix: #N" \
+    "AC8: $tree/debug writes the Fix block from the issue's criteria"
+  assert_file_contains "$f" '- [ ] <criterion' \
+    "AC8: $tree/debug writes plain criterion rows"
+  assert_file_not_matches "$f" '\[ \] TDD:' \
+    "AC8: $tree/debug writes no TDD: row"
 done
+# The step rows live in the lane file (specs/lane-catalogue.md); `<ref>` is `#N`
+# on a scheduled run and the goal text when /go picked the lane.
+assert_file_contains ".agents/skills/task-registry/lanes/fix.md" '`/debug <ref>`' \
+  "AC5: the fix lane's first step reads /debug <ref>"
 fix_section="$(awk 'index($0, "### `fix` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CONTRACT")"
-assert_contains "$fix_section" "/debug #N" \
-  "AC5: the fix routine's step 4a reads /debug #N"
+assert_contains "$fix_section" '`#N`' \
+  "AC5: the contract states that <ref> is #N on a scheduled run"
 
 # ============================================================================
 # AC6 — engine amendments
@@ -171,7 +183,8 @@ done
 # AC7 — wrap-up's linkage table has the producer row
 # ============================================================================
 for tree in $TREES; do
-  w="$tree/skills/wrap-up-session/SKILL.md"
+  # The linkage table lives in the contract's wrap-up section.
+  w="$tree/skills/wrap-up-session/references/routines.md"
   assert_file_matches "$w" '^\| `routine/(janitor|architect|\(janitor\|architect\))/' \
     "AC7: $tree/wrap-up-session linkage table has a producer row"
   assert_file_matches "$w" '^\| `routine/tidy/<YYYYMMDD>-sweep` \|' \
@@ -189,16 +202,15 @@ for tree in $TREES; do
 done
 
 # ============================================================================
-# AC8 — six routine prompts, each short and project-agnostic
+# AC8 — seven routine prompts, each short and project-agnostic
 # ============================================================================
-declare -A PROMPT_SKILL=([janitor]="/sweep" [architect]="/sweep" [tidy]="/tidy" [fix]="/debug" [improve]="/plan" [plan]="/plan")
-for name in janitor architect tidy fix improve plan; do
+declare -A PROMPT_SKILL=([janitor]="/sweep" [architect]="/sweep" [tidy]="/tidy" [fix]="/debug" [improve]="/plan" [plan]="/plan" [simplify]="/make-it-simpler")
+for name in janitor architect tidy fix improve plan simplify; do
   p="$PROMPTS/$name.md"
-  assert_eq "present" "$([ -f "$p" ] && echo present || echo missing)" \
+  assert_file_exists "$p" \
     "AC8: routine prompt $name.md exists"
   lines="$(wc -l < "$p" 2>/dev/null || echo 999)"
-  assert_eq "under" "$([ "$lines" -lt 25 ] && echo under || echo "over ($lines)")" \
-    "AC8: $name.md is under 25 lines"
+  assert_true "AC8: $name.md is under 25 lines" -- test "$lines" -lt 25
   assert_file_contains "$p" "${PROMPT_SKILL[$name]}" \
     "AC8: $name.md names the skill it invokes"
   assert_file_contains "$p" "$name" "AC8: $name.md names its routine"
@@ -206,8 +218,6 @@ for name in janitor architect tidy fix improve plan; do
     "AC8: $name.md says sub-agent dispatch is not required"
   assert_file_not_matches "$p" 'jplugin|agentic-development|github\.com/' \
     "AC8: $name.md carries no repository name"
-  assert_files_identical "$p" ".claude/skills/wrap-up-session/references/routine-prompts/$name.md" \
-    "AC8: $name.md ships byte-identically to the .claude parity copy"
 done
 readme="$PROMPTS/README.md"
 assert_prose_contains "$readme" "Planner" "AC8: the README states the producer tier"
@@ -218,7 +228,7 @@ assert_prose_contains "$readme" "require_write_approval = false" \
   "AC8: the README checklist names the first write switch"
 assert_prose_contains "$readme" "TASK_REGISTRY_TRUSTED_CONFIG=1" \
   "AC8: the README checklist names the second write switch"
-assert_file_contains "$readme" "gh" "AC8: the README checklist requires an authenticated gh"
+assert_file_contains "$readme" 'authenticated `gh`' "AC8: the README checklist requires an authenticated gh"
 assert_file_contains "$readme" "allow_label_creation" \
   "AC8: the README checklist covers pre-existing labels"
 assert_file_contains "$readme" "verify-<app>" \
@@ -235,30 +245,29 @@ assert_file_matches "$readme" '^\| `tidy` \| producer \| `tidy.md` \| `/tidy` \|
 # not match its own sweep -- see
 # tasks/solutions/patterns/construct-retired-paths-at-runtime-to-keep-literal-sweeps-strict.md
 retired="auto""-improve"
-# `--` must come last: it ends option parsing, so an --exclude-dir after it is a
-# (nonexistent) file operand and the sweep silently loses its exclusions.
-hits="$(grep -rlF \
+# The positive control is a file holding the needle: the sweep's pattern must
+# find it before an empty sweep of the repository counts for anything.
+retired_control="$(fixture_dir)/control.txt"
+printf 'mentions %s\n' "$retired" > "$retired_control"
+assert_sweep_empty "AC9: no file outside tasks/ and specs/ mentions the retired skill" \
+  "$retired_control" -- grep -rlF \
   --exclude-dir=.git --exclude-dir=tasks --exclude-dir=specs \
   --exclude-dir=node_modules --exclude-dir=worktrees --exclude-dir=graphify-out \
-  -- "$retired" . 2>/dev/null || true)"
-assert_eq "" "$hits" \
-  "AC9: no file outside tasks/ and specs/ mentions the retired skill (offenders: ${hits:-none})"
+  -e "$retired" -- .
 for tree in $TREES; do
-  assert_eq "absent" "$([ -e "$tree/skills/$retired" ] && echo present || echo absent)" \
+  assert_file_absent "$tree/skills/$retired" \
     "AC9: $tree/skills/$retired is deleted"
 done
-assert_eq "absent" "$([ -e "tests/test-$retired-rewire.sh" ] && echo present || echo absent)" \
+assert_file_absent "tests/test-$retired-rewire.sh" \
   "AC9: the retired skill's rewire test is deleted"
 
-survey="$(awk '/repo-survey dispatch has no session/{f=1} f{print} f&&/^$/{exit}' CLAUDE.md)"
+survey="$(awk '/repo-survey dispatch has no session/{f=1} f{print} f&&/^$/{exit}' .agents/references/review-dispatch-contract.md)"
 assert_contains "$survey" "/sweep" \
-  "AC9: CLAUDE.md's repo-survey exception names /sweep"
-assert_file_matches CLAUDE.md '^\| `/sweep' \
-  "AC9: CLAUDE.md's skills table lists /sweep"
+  "AC9: the review dispatch contract's repo-survey exception names /sweep"
+assert_file_matches README.md '^\| `/sweep' \
+  "AC9: the README skills table lists /sweep"
 assert_file_matches README.md '^\| `/sweep' \
   "AC9: README.md's skills table lists /sweep"
-assert_file_contains .claude/hooks/session-start.sh "/sweep" \
-  "AC9: session-start.sh lists /sweep"
 
 # ============================================================================
 # AC10 — configuration.md has the unattended-routines checklist
@@ -271,10 +280,8 @@ assert_contains "$unattended" "require_write_approval = false" \
   "AC10: the section names the first write switch"
 assert_contains "$unattended" "TASK_REGISTRY_TRUSTED_CONFIG=1" \
   "AC10: the section names the second write switch"
-assert_contains "$unattended" "gh" "AC10: the section names gh"
+assert_contains "$unattended" 'authenticated `gh`' "AC10: the section names gh"
 assert_contains "$unattended" "allow_label_creation" \
   "AC10: the section names allow_label_creation"
-assert_files_identical "$CONF" ".claude/skills/task-registry/references/configuration.md" \
-  "AC10: configuration.md ships byte-identically to the .claude parity copy"
 
 finish

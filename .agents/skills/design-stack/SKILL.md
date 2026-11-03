@@ -1,0 +1,148 @@
+---
+name: design-stack
+description: Set up, update, and browse the shared UI design sources used by jplugin. Installs Taste, Impeccable, design references, img2threejs and HyperFrames once in user scope.
+harness: universal
+---
+
+# /design-stack — Shared UI design sources
+
+Use this skill for UI project design setup. The adapter lives in jplugin; upstream
+sources live in one user-scoped verified release. Never copy those repositories
+into a project or fetch them during an ordinary UI plan/build. Backend and CLI
+projects do not need this setup.
+
+## Setup and status
+
+Run `python3 .agents/skills/design-stack/scripts/design_stack.py setup` once on
+the user's machine. A verified release contains Taste skills, Impeccable commands,
+awesome-design-md references, img2threejs and HyperFrames. Setup reads the current release
+offline if it already exists. `status` is also offline. If the first setup cannot
+reach or validate the sources, report `SetupRequired` and stop UI setup.
+
+The default shared root is `~/.local/share/jplugin/design-stack`. The manifest
+records one SHA per source and points to a release in `releases/`. Read the
+manifest's `catalog_path` to browse installed sources; do not infer that the
+latest upstream content is installed. The source paths are:
+
+- `sources/taste/skills/*/SKILL.md` — Taste directions and archetypes.
+- `sources/impeccable/.agent/skills/impeccable/SKILL.md` — Impeccable command skill.
+- `sources/references/design-md/*/DESIGN.md` — design references.
+- `sources/three/SKILL.md` — img2threejs capability, used only on request.
+- `sources/hyperframes/skills/*/SKILL.md` — HyperFrames video skills, used only on request.
+
+Taste's upstream installation uses `npx skills add`; Impeccable's uses
+`npx impeccable install`. The adapter invokes these official CLIs against a
+cloned revision in an isolated staging directory with a staging HOME and project
+cwd, then validates their staged skill/command outputs before promotion. Installed
+entrypoints live under the release's staging home in `.agent/`, `.agents/`, or
+`.claude/`; read them from the verified release, never from the current project.
+The references and 3D source use their official Git repositories. HyperFrames is
+the fifth source, cloned shallow from `https://github.com/heygen-com/hyperframes.git`
+(override `DESIGN_STACK_HYPERFRAMES_URL`) with LFS media skipped. It has no
+installer: its skills are read in place and nothing is written to the live Claude
+config. The project never receives installer output.
+
+An install that predates HyperFrames keeps working offline. `status` prints
+`Ready <id> (offline; update adds: hyperframes)`, and only an explicit `update`
+adds the source.
+
+## Update
+
+Run `python3 .agents/skills/design-stack/scripts/design_stack.py update` only
+after an explicit update request. The adapter stages all five sources, compares
+their revisions, runs the installers on a changed set, validates entrypoints,
+and atomically promotes the release pointer. A failed or timed-out update reports
+`UpdateRejected` and leaves the previous release usable. An unchanged revision
+set skips installation.
+
+Never edit a project's `DESIGN.md` as part of shared setup or update. Its visual
+rules change only through an owner-selected project refresh.
+
+## Browse and choose
+
+Run `python3 .agents/skills/design-stack/scripts/design_stack.py catalog` to show
+every entry in the current verified release. `catalog --json` prints stable IDs,
+kinds, source revisions, fit descriptions and local source paths for tooling.
+This scan is local and read-only: a new installed Taste skill, archetype, or
+awesome-design-md reference appears without changing a count in the adapter.
+Taste style skills and their nested archetypes are both selectable directions;
+`spatial` and `custom` are built in. Impeccable commands, img2threejs and HyperFrames appear
+as tools, never as primary directions.
+
+HyperFrames entries are kind `tool` with IDs `hyperframes:<skill>`, one per
+`sources/hyperframes/skills/*/SKILL.md` (title from its frontmatter `name`, fit
+from its `description`). The router is `hyperframes:hyperframes`. A `hyperframes:` ID is a tool,
+never a primary direction or a reference; `select` and `brief` refuse it.
+
+Use `design_stack.py select --direction <id> [--reference <id> ...]
+[--custom-brief <text>] [--use-case <description>]` to validate one primary
+choice and optional references. The command prints the selection as JSON for
+the project brief writer. If the chosen direction's fit description has no
+overlap with the named use case, it returns a fit warning. Show that warning
+to the owner; `--override-fit` accepts their deliberate choice. A tool or
+reference cannot be selected as the primary direction. A catalog or selection
+read does not write `DESIGN.md` or contact upstream.
+
+## Project brief
+
+The small v1 template at `templates/DESIGN.md` contains usable spatial palette,
+typography, layout, motion and accessibility rules. After the owner reviews the
+selection, run `design_stack.py brief --project <path> --direction <id>
+--owner-choice` to create that project's `DESIGN.md` once. Add `--reference
+<reference:id>` for each selected reference. A non-spatial direction requires
+authored `--rule section=text` values for palette, typography, layout, motion,
+and accessibility. Use the same
+flag to replace spatial defaults with owner-authored rules. Valid sections are
+`palette`, `typography`, `layout`, `motion`, `accessibility`, `3d intent`, and
+`custom brief`. A 3D intent in the brief opts the project into the 3D pipeline;
+the default template states no 3D intent.
+
+Run `design_stack.py read-brief --project <path>` to read and validate the
+versioned brief as JSON. A second `brief` call refuses to overwrite it. Only an
+explicit owner-requested `design_stack.py refresh --project <path> --direction
+<id> --owner-choice [--rule section=text ...]` changes it; omitted rule sections
+retain their previously approved text. Shared setup and update do not touch any
+project `DESIGN.md`. Existing UI projects without a brief wait for owner
+selection before this create command; never create a spatial brief for them
+without that choice.
+
+## Opt-in 3D
+
+Use img2threejs only when the task explicitly requests a 3D model or the
+approved brief's `3D Intent` calls for one. The default `No 3D intent.` is
+not an opt-in. The `scripts/three.py` guard reports whether the task or brief
+enables the pipeline and labels any incomplete result `prototype` with its
+open gates. Read the verified release's `sources/three/SKILL.md` and run its
+commands from that release; never infer the process from memory.
+
+Start with `forge/next.py --state .img2threejs/state.json` and obey a hard
+stop. Before generating code, run `forge/stage2_spec/validate_sculpt_spec.py`
+on the saved sculpt spec, then rerun it with `--strict-quality`. The strict
+result must pass. Continue through the installed forge state machine and its
+required off-axis, placement, deterministic render, vision and domain gates;
+the later forge completion must also pass. Record evidence paths and the
+result of every required gate. A failed, missing or unverified strict spec or
+forge gate blocks production completion. Keep the result labeled `prototype`
+and list failed/open gates until both stages pass.
+
+## Opt-in video
+
+Use HyperFrames only when the task explicitly requests a video, an MP4, motion
+graphics or an explainer video, or when the brief's Motion rule names HyperFrames.
+A negation such as "remove the video", a bare `render` ("fix the re-render
+flicker") and a Motion rule that only describes UI easing or an existing video
+element are not an opt-in. The
+`scripts/hyperframes.py` guard reports this through
+`should_run_hyperframes(task, brief_motion)`. Read the verified release's
+`sources/hyperframes/skills/hyperframes/SKILL.md` router and the skill it names;
+never infer the process from memory.
+
+Run the CLI as `npx hyperframes@<version>`, where `cli_version(release)` reads
+`<version>` from the release's `packages/cli/package.json`. Never run a floating
+`latest`. Author the composition, then run `npx hyperframes@<version> check`
+(`hyperframes check`) and `npx hyperframes@<version> render` for the MP4.
+
+`production_status(gates)` needs two gates, `check` (the composition passes
+`hyperframes check`) and `render` (an MP4 was rendered). Until both are true the
+result stays labeled `prototype` and lists the open gates. The guard never runs the CLI or
+touches the network: record each gate fact yourself after running the command.

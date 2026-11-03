@@ -1,0 +1,4 @@
+# Dogfood captures render a downstream project's spec: kept local for the owner's
+# review, never committed (this repository is public).
+*
+!.gitignore

@@ -59,6 +59,6 @@ The index is the summary, so its length is the repository's own. In order:
 - Read the index row first; reach for `show` only when a decision turns on the body.
 - Never inline a `show` result into a plan, a commit message, or `tasks/todo.md`.
 - When reporting to a sub-agent, pass the summary plus the task IDs — not the
-  full output. This is `.claude/project.md` § *Large-Artifact Handoff* applied to
+  full output. This is `AGENTS.md` § *Large-Artifact Handoff* applied to
   task state: truncate with a pointer, because the pointer (`show <task-id>`)
   actually resolves.

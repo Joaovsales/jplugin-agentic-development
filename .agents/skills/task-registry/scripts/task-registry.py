@@ -6,8 +6,10 @@
     task-registry selectors             routine selector vocabulary, checked upstream
     task-registry select --routine R    the next issue routine R may claim
     task-registry workflow <ref>        which routine owns one issue, and what it runs
+    task-registry lanes [<lane>]        every lane, or one lane's playbook — what /go matches and records
     task-registry claim <ref> --routine R  write the claim label onto one issue
     task-registry escalate <ref> ...    hold an unresolved investigation and report it
+    task-registry closes <pr>           close what a merged PR's closing keywords left open
 
 Dry-run is the default for every command. `--apply` is the only way anything is
 written, and external writes additionally honour `require_write_approval`.
@@ -26,22 +28,25 @@ import traceback
 from typing import Optional
 
 # Set before the package is imported, and deliberately: this package lives inside
-# a *skills tree*, where `.agents/skills/` and `.claude/skills/` are pinned
-# byte-identical by tests/test-skill-parity.sh. Bytecode written next to the
-# source would appear in one tree and not the other and fail that guard, and
-# would litter every downstream checkout besides.
+# a *skills tree* that /sync checks out wholesale into every downstream
+# project. Bytecode written next to the source would litter every one of
+# those checkouts and show up as an untracked change on the next sync.
 sys.dont_write_bytecode = True
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from registry import config as registry_config  # noqa: E402
 from registry.config import (  # noqa: E402
-    DEFERRED_ROUTINES,
+    LEGACY_POINTER_FILE,
+    LEGACY_POINTER_NOTICE,
     ConfigError,
     ConfigPointerError,
-    PRODUCER_ROUTINES,
     load_config,
     select_provider,
+    skill_on_disk,
 )
+from registry.closure import close_merged  # noqa: E402
+from registry.lanes import LaneCatalogueError, catalogue  # noqa: E402
 from registry.providers import build_provider  # noqa: E402
 from registry.providers.base import (  # noqa: E402
     ProviderError,
@@ -56,12 +61,16 @@ from registry.detail import Registry  # noqa: E402
 from registry.escalation import EscalationError, EscalationRequest, escalate_task  # noqa: E402
 from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
+    LinkedPrStateUnknown,
     is_escalated,
+    routine_pool,
+    with_linked_pr_state,
     matched_label,
     missing_routine_labels,
     routine_for_label,
     select_candidates,
     select_routine,
+    stranded,
     unclassified,
 )
 from registry.redaction import Redactor, redactor_for  # noqa: E402
@@ -69,6 +78,7 @@ from registry.upsert import derive_id, upsert_task  # noqa: E402
 
 COMMANDS = (
     "show", "doctor", "upsert", "selectors", "select", "claim", "workflow", "escalate",
+    "lanes", "closes",
 )
 
 
@@ -81,7 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("command", choices=COMMANDS)
     parser.add_argument(
         "task_id", nargs="?",
-        help="task id, required by `show`; issue ref for `claim` and `workflow`"
+        help="task id, required by `show`; issue ref for `claim` and `workflow`; lane name "
+        "for `lanes`; merged pull request for `closes`"
     )
     parser.add_argument("--repo", default=".", help="project root (default: cwd)")
     parser.add_argument(
@@ -227,6 +238,14 @@ def _run(argv, redact) -> int:
     try:
         config = load_config(root)
     except ConfigError as exc:
+        if args.command == "lanes":
+            # A question about how the code works is not blocked by a tracker
+            # typo: `lanes` needs a directory read and, for a routine lane, one
+            # configuration block. It reads no provider, so it is dispatched
+            # here, before one is selected or built.
+            output, code = _lanes(root, args.task_id, exc)
+            print(redact(output))
+            return code
         if args.command != "doctor":
             print(f"task-registry: {exc}", file=sys.stderr)
             # `workflow` separates "the thing you named is absent" (1) from "this
@@ -237,6 +256,11 @@ def _run(argv, redact) -> int:
         config_fault = exc
         config = load_config(root, strict=False)
     redact.adopt(redactor_for(config))
+
+    if args.command == "lanes":
+        output, code = _lanes(root, args.task_id, config)
+        print(redact(output))
+        return code
 
     selection = select_provider(config)
     provider_name = args.provider or selection.provider
@@ -321,6 +345,8 @@ def _dispatch(args, config, registry: Registry, apply_writes: bool):
         return _workflow(registry, args.task_id)
     if command == "escalate":
         return escalate_task(registry, args.escalation_request, apply_writes)
+    if command == "closes":
+        return close_merged(registry, args.task_id)
     # argparse's `choices` already refuses anything outside COMMANDS, so this is
     # unreachable from the CLI. It exists so that adding a command to COMMANDS
     # and forgetting to dispatch it fails by name instead of unpacking None.
@@ -331,17 +357,22 @@ def _doctor(registry: Registry, fault: Optional[ConfigError] = None) -> str:
     """Answer 'which tracker am I talking to, and why' without touching anything.
 
     `fault` is whatever strict loading refused. A pointer fault belongs on the
-    `configuration:` line — no file loaded, so "none" would be a lie (#82); any
-    other fault is a loaded file whose [routines] block is inconsistent.
+    `configuration:` line — no file loaded, so "none" would be a lie (#82); a
+    catalogue fault belongs on the `catalogue:` line; any other fault is a
+    loaded file whose [routines] block is inconsistent. Each fault is printed
+    once, on the line that owns it.
     """
     status = registry.provider.discover()
     config = registry.config
     pointer_fault = fault if isinstance(fault, ConfigPointerError) else None
-    routine_fault = None if pointer_fault else fault
+    owned_elsewhere = isinstance(fault, (ConfigPointerError, LaneCatalogueError))
+    routine_fault = None if owned_elsewhere else fault
     lines = [
         f"provider:       {registry.provider.name}",
         f"selected because: {registry.selection_reason}",
         f"configuration:  {_configuration_line(config, pointer_fault)}",
+        *([f"notice:         {LEGACY_POINTER_NOTICE}"]
+          if config.pointer_file == LEGACY_POINTER_FILE else []),
         f"index:          {config.index_path}",
         f"capabilities:   {registry.provider.capabilities.render()}",
         f"reachable:      {'yes' if status.available else 'no'} — {status.detail}",
@@ -354,6 +385,10 @@ def _doctor(registry: Registry, fault: Optional[ConfigError] = None) -> str:
         f"label creation: {'allowed' if config.allow_label_creation else 'blocked'}",
         f"offline reads:  {config.offline_reads}",
     ]
+    if config.catalogue_fault:
+        lines.append(f"catalogue:      BROKEN — {config.catalogue_fault}")
+    else:
+        lines.append(f"catalogue:      {len(catalogue().names)} lanes")
     if routine_fault:
         lines.append(f"routines:       MISCONFIGURED — {routine_fault}")
     else:
@@ -367,6 +402,82 @@ def _configuration_line(config, pointer_fault) -> str:
     if pointer_fault:
         return f"BROKEN — {pointer_fault}"
     return config.source_path or "none (defaults + local fallback)"
+
+
+def _lanes(root: str, name, loaded):
+    """Every lane, or one lane's playbook — the table /go matches against.
+
+    `loaded` is the Config, or the ConfigError a strict load raised — one value,
+    so no caller can hand over both. Either way an interactive-only lane prints:
+    its chain is shipped, and nothing in a tracker configuration changes it. A
+    routine lane's chain is the one `[routines.skills]` may have replaced, so a
+    routine lane asked for BY NAME under a fault exits 2 with that fault — the
+    one case where the configuration is load-bearing for what would run next.
+    """
+    try:
+        lanes = catalogue()
+    except LaneCatalogueError as exc:
+        return f"task-registry: {exc}", 2
+    if not name:
+        return "\n".join(_lane_block(lanes.lane(n), loaded) for n in lanes.names), 0
+    try:
+        lane = lanes.lane(name)
+    except KeyError as exc:
+        return f"task-registry: {exc.args[0]}", 2
+    if isinstance(loaded, ConfigError) and lane.is_routine:
+        return f"task-registry: {loaded}", 2
+    missing = _not_installed(root, _effective_chain(lane, loaded)[0])
+    if missing:
+        return f"task-registry: lane {lane.name} names {missing}, not installed under " \
+            f"{' or '.join(registry_config.SKILL_ROOTS)} — nothing to run", 2
+    return _lane_playbook(lane, loaded), 0
+
+
+def _not_installed(root: str, chain) -> str:
+    """The chain's skills absent from both skill roots, comma-joined; empty when all are present."""
+    return ", ".join(skill for skill in chain if not skill_on_disk(root, skill))
+
+
+def _effective_chain(lane, loaded):
+    """(chain, note): what would run for `lane`, and why it differs from the file.
+
+    The project's `[routines.skills]` chain when it declared one, else the
+    shipped one; under a configuration fault a routine lane falls back to the
+    shipped chain and the note says so. The note is empty when nothing differs.
+    """
+    if isinstance(loaded, ConfigError):
+        note = f"shipped — configuration could not be read: {loaded}" if lane.is_routine else ""
+        return lane.chain, note
+    chain = tuple(loaded.routine_skills.get(lane.name, lane.chain))
+    if chain == lane.chain:
+        return chain, ""
+    return chain, f"[routines.skills] replaced the shipped chain ({' -> '.join(lane.chain)})"
+
+
+def _lane_block(lane, loaded) -> str:
+    kind = lane.routine if lane.is_routine else "interactive"
+    lines = [f"lane:    {lane.name} ({kind})"]
+    if lane.selects:
+        lines.append(f"  selects: {', '.join(lane.selects)}")
+    if lane.is_interactive:
+        lines.append(f"  cues:    {lane.cues}")
+    chain, note = _effective_chain(lane, loaded)
+    lines.append(f"  chain:   {' -> '.join(chain) or 'none'}")
+    if note:
+        lines.append(f"  note:    {note}")
+    lines.append(f"  ends:    {lane.ends}")
+    if lane.deferred:
+        lines.append(f"  status:  deferred — {lane.deferred}")
+    return "\n".join(lines)
+
+
+def _lane_playbook(lane, loaded) -> str:
+    """The block, then the shipped steps and Reply — what /go records."""
+    lines = [_lane_block(lane, loaded)]
+    lines.append("")
+    lines.extend(f"{index}. {text}" for index, text in enumerate(lane.steps, 1))
+    lines.extend(["", "## Reply", "", lane.reply])
+    return "\n".join(lines)
 
 
 def _selectors(registry: Registry):
@@ -394,7 +505,7 @@ def _select(registry: Registry, routine):
     config = registry.config
     if not routine:
         return "task-registry: `select` requires --routine <name>", 2
-    if routine in PRODUCER_ROUTINES:
+    if routine in registry_config.PRODUCER_ROUTINES:
         return _producer_refusal(routine, "select"), 2
     if routine not in config.routine_selectors:
         known = ", ".join(sorted(config.routine_selectors)) or "none configured"
@@ -420,17 +531,43 @@ def _select(registry: Registry, routine):
             "would be indistinguishable from 'there were more'"
         ), 1
 
-    # Checked AFTER the read: a provider only learns its own degradations by querying.
-    if registry.provider.linked_pr_exclusion_available() is False:
+    # A tracker with pull requests that cannot say which are open must refuse:
+    # an unanswered exclusion reads as a clean backlog.
+    exclusion = registry.provider.linked_pr_exclusion_available()
+    if exclusion is False:
         return (
             f"task-registry: refusing to select — {registry.provider.name} could not "
-            "report linked pull request state (`closedByPullRequestsReferences` needs "
-            "gh >= 2.73.0), so the in-flight exclusion cannot be evaluated. Selecting "
-            "anyway re-picks every issue already under review and races on its branch."
+            "report linked pull request state, so the in-flight exclusion cannot be "
+            "evaluated. Selecting anyway re-picks every issue already under review and "
+            "races on its branch."
         ), 1
 
+    # The linked-PR read costs one tracker call per task, so it runs for the
+    # routine's own pool only -- after the kind and claim filters -- and the
+    # stranded backstop covers that same pool (another routine's stranded issue
+    # is named when that routine runs).
+    pool = routine_pool(tasks, config, routine)
     lines = [f"unclassified:  {len(unclassified(tasks, config))} open issue(s) carry no kind label"]
-    candidates = select_candidates(tasks, config, routine)
+    if exclusion:
+        try:
+            pool = with_linked_pr_state(pool, registry.provider.linked_pr_state)
+        except LinkedPrStateUnknown as exc:
+            reference = (
+                registry.provider.reference_label(exc.task.external) if exc.task.external else exc.task.id
+            )
+            return (
+                f"task-registry: refusing to select — {registry.provider.name} could not read "
+                f"the linked pull request state of {reference} this run, so the in-flight "
+                "exclusion cannot be evaluated for it. Selecting anyway could re-pick an issue "
+                "already under review."
+            ), 1
+        lines.append(f"checked:       {len(pool)} candidate(s) for linked pull requests")
+    for task, pull in stranded(pool):
+        lines.append(
+            f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
+            f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"
+        )
+    candidates = select_candidates(pool, config, routine)
     if not candidates:
         lines.append(f"candidate:     none — {routine} has nothing to claim")
         return "\n".join(lines), 0
@@ -462,7 +599,7 @@ def _claim(registry: Registry, routine, task_ref, apply_writes: bool):
     config = registry.config
     if not routine:
         return "task-registry: `claim` requires --routine <name>", 2
-    if routine in PRODUCER_ROUTINES:
+    if routine in registry_config.PRODUCER_ROUTINES:
         return _producer_refusal(routine, "claim"), 2
     if routine not in config.routine_selectors:
         known = ", ".join(sorted(config.routine_selectors)) or "none configured"
@@ -636,7 +773,7 @@ def _workflow_report(task, config) -> list:
 
     lines.append(f"routine:  {routine}")
     lines.append(f"matched:  {matched}")
-    lines.append(f"chain:    {' -> '.join(config.routine_skills.get(routine, ()))}")
+    lines.append(f"chain:    {' -> '.join(_effective_chain(catalogue().lane(routine), config)[0])}")
     # One `status:` key, however many things are true of the issue. A claimed
     # issue whose routine is also deferred used to emit the key twice, and a
     # reader taking the first match got a different answer from one taking the
@@ -647,8 +784,9 @@ def _workflow_report(task, config) -> list:
             f"IN FLIGHT — it carries {config.claim_label}, so routine {routine} "
             "already holds it. Do not claim it again."
         )
-    if routine in DEFERRED_ROUTINES:
-        states.append(f"deferred — {routine} is {DEFERRED_ROUTINES[routine]}")
+    deferred = registry_config.DEFERRED_ROUTINES
+    if routine in deferred:
+        states.append(f"deferred — {routine} is {deferred[routine]}")
     if states:
         lines.append(f"status:   {'; '.join(states)}")
     return lines
@@ -710,7 +848,10 @@ def _upstream_verdict(registry: Registry):
         "upstream check: FAILED — these configured routine labels do not exist in "
         f"{registry.provider.name}: {', '.join(missing)}\n"
         "  A routine selecting on a label the tracker does not have finds nothing "
-        "and exits 0. That is the halt this check exists to make loud."
+        "and exits 0. That is the halt this check exists to make loud.\n"
+        "  Fix: create them in the tracker, or drop them from the routine "
+        "configuration ([routines.selectors], kind_precedence, claim_label, "
+        "escalation_label)."
     ), 1, UPSTREAM_MISCONFIGURED
 
 

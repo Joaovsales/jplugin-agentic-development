@@ -1,0 +1,11 @@
+{
+  "path": "design/prototypes/spatial/assets/routing-instrument-reference.png",
+  "type": "png",
+  "bytes": 65504,
+  "width": 1400,
+  "height": 850,
+  "aspectRatio": 1.6470588235294117,
+  "technicalSuitability": "pass",
+  "warnings": [],
+  "note": "This is only technical image probing. Semantic object suitability still requires visual inspection."
+}

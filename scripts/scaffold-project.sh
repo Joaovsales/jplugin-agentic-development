@@ -15,7 +15,7 @@ TEMPLATE_DIR="$SCRIPT_DIR/../project-template"
 fail() { printf 'scaffold: %s\n' "$1" >&2; exit 1; }
 
 [ -d "$TEMPLATE_DIR" ] \
-  || fail "project template not found at $(cd "$SCRIPT_DIR/.." && pwd)/project-template — re-run install.sh from the coding-agent-workflow checkout"
+  || fail "project template not found at $(cd "$SCRIPT_DIR/.." && pwd)/project-template — re-run install.sh from the jplugin-agentic-development checkout"
 TEMPLATE_DIR="$(cd "$TEMPLATE_DIR" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)" \
   || fail "needs a git work tree — run 'git init' first, then 'git scaffold'"

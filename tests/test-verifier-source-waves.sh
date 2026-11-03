@@ -4,13 +4,13 @@
 #
 # tests/test-verification-skill-integration.sh pins the batching contract on
 # the canonical tree. This file covers what it does not: the retired phrase
-# stays retired in both trees, a feature is never split across reviewers, the
-# janitor lens describes the same engine, and the compat mirror is byte-equal.
+# stays retired, a feature is never split across reviewers, and the janitor
+# lens describes the same engine.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 . tests/lib.sh
 
-TREES=".agents .claude"
+TREES=".agents"
 
 for tree in $TREES; do
   mvs="$tree/skills/maintain-verification-skill/SKILL.md"
@@ -29,10 +29,5 @@ for tree in $TREES; do
   assert_prose_contains "$lens" "bounded by the worker slots" \
     "Lens: $tree janitor names the bounded source wave"
 done
-
-assert_files_identical \
-  ".agents/skills/maintain-verification-skill/SKILL.md" \
-  ".claude/skills/maintain-verification-skill/SKILL.md" \
-  "Parity: maintain-verification-skill mirrored byte-identically"
 
 finish

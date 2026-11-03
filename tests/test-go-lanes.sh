@@ -1,0 +1,171 @@
+#!/bin/bash
+# tests/test-go-lanes.sh — /go consults the lane catalogue and carries no lanes
+# of its own.
+#
+# /go (specs/go-front-door.md, superseded in part by specs/lane-catalogue.md) is
+# a prose router: it reads a goal, picks a lane from the catalogue the registry
+# ships, prints a [ROUTE] line, and runs the skills the lane's steps name. The
+# lanes themselves are pinned by tests/test-lane-catalogue.sh; this test pins the
+# skill's side of the contract — that it reaches the catalogue through the two
+# registry commands, restates no lane table, and that no routine host invokes it.
+# A green run means the skill is written down and consistent, not that an agent
+# obeyed it; the behavioural half is the recorded live run in tasks/e2e-log.md.
+. "$(dirname "$0")/lib.sh"
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO"
+
+TREES=".agents"
+# The registry skill — its lane catalogue and the CLI that serves it — is the
+# artefact; relative paths keep every message below stable.
+under_test .agents/skills/task-registry >/dev/null
+under_test .agents/skills/go >/dev/null
+LANES_DIR=".agents/skills/task-registry/lanes"
+
+# Every `/skill` token in a file, first appearance first, one per line. A slash
+# preceded by a path character (`tasks/todo.md`, `.agents/skills/go`) is a path
+# segment, not a skill, and is excluded by the leading class.
+skill_tokens() {
+  tr -d '\r' < "$1" \
+    | grep -oE '(^|[[:space:]`(,;])/[a-z][a-z0-9-]*' \
+    | sed 's/^[^/]*//' \
+    | awk '!seen[$0]++'
+}
+
+# --- AC1: the skill and its contract ------------------------------------------
+for tree in $TREES; do
+  f="$tree/skills/go/SKILL.md"
+  assert_file_exists "$f" \
+    "GoLanes: $f exists"
+  assert_file_contains "$f" '[ROUTE] lane=<lane> | chain=<skill, skill, ...> | reason: <one sentence>' \
+    "GoLanes: $f states the [ROUTE] emission format"
+  assert_prose_contains "$f" '`fix` outranks `perf`, `perf` outranks `simplify`, `simplify` outranks `refactor`' \
+    "GoLanes: $f states the precedence rule"
+  assert_prose_contains "$f" '`investigate` is decided first' \
+    "GoLanes: $f decides investigate before the change lanes"
+  assert_file_contains "$f" "## The Iron Law" \
+    "GoLanes: $f carries one iron law"
+  assert_prose_contains "$f" "NOTHING HAPPENS BEFORE THE [ROUTE] LINE" \
+    "GoLanes: $f iron law forbids action before the route"
+  assert_prose_contains "$f" "/go ITSELF NEVER ASKS THE HUMAN A QUESTION" \
+    "GoLanes: $f iron law forbids /go asking its own question"
+  # The record shape: plain numbered lines, never the checkbox rows /build runs.
+  assert_file_contains "$f" "## Lane: " \
+    "GoLanes: $f names the lane block heading"
+  assert_prose_contains "$f" "Never checkbox rows" \
+    "GoLanes: $f forbids checkbox rows in the lane block"
+  # Both registry commands: the deterministic router for an issue reference, the
+  # catalogue for everything else. The registry wins wherever its fact exists.
+  assert_file_contains "$f" "task-registry.py workflow" \
+    "GoLanes: $f consults the registry for an issue reference"
+  assert_file_contains "$f" "task-registry.py lanes" \
+    "GoLanes: $f reads the lane catalogue through the registry"
+  assert_file_contains "$f" "task-registry.py lanes <lane>" \
+    "GoLanes: $f fetches the chosen lane's playbook by name"
+  assert_prose_contains "$f" "never routed around" \
+    "GoLanes: $f refuses a misconfigured tracker"
+  assert_prose_contains "$f" 'under `.agents/skills/`' \
+    "GoLanes: $f resolves chains against the canonical skill root"
+  assert_prose_contains "$f" "<ref>" \
+    "GoLanes: $f substitutes <ref> when recording a lane's steps"
+  # No lane of its own. A table row here would be a second statement of a lane
+  # the catalogue already defines — the drift specs/lane-catalogue.md removed.
+  assert_file_not_matches "$f" '^\| `[a-z]+` \|' \
+    "GoLanes: $f carries no lane table"
+  assert_file_not_matches "$f" 'lanes/[a-z]+\.md' \
+    "GoLanes: $f names no playbook file of its own"
+  assert_file_not_matches "$f" 'TODO\(shortcut\)' \
+    "GoLanes: $f carries no TODO(shortcut) — the catalogue was the upgrade path"
+  assert_file_absent "$tree/skills/go/lanes" \
+    "GoLanes: $tree/skills/go/lanes/ no longer exists"
+done
+
+# --- AC1: every /skill the skill names is on disk ------------------------------
+for tree in $TREES; do
+  f="$tree/skills/go/SKILL.md"
+  [ -f "$f" ] || continue
+  tokens="$(skill_tokens "$f")"
+  assert_true "GoLanes: $f names at least one skill (extractor is not a no-op)" -- \
+    test -n "$tokens"
+  while IFS= read -r tok; do
+    [ -n "$tok" ] || continue
+    assert_file_exists ".agents/skills/${tok#/}/SKILL.md" \
+      "GoLanes: $f names $tok and .agents/skills/${tok#/}/SKILL.md exists"
+  done <<EOF
+$tokens
+EOF
+done
+
+# --- AC3 (lane-plan-handover): /go crosses the plan handover by citation -------
+for tree in $TREES; do
+  f="$tree/skills/go/SKILL.md"
+  [ -f "$f" ] || continue
+  assert_prose_contains "$f" "Crossing the plan handover" \
+    "GoLanes: $f cites the routines.md section that owns the handover rule"
+  assert_prose_contains "$f" "handed over: build prompt" \
+    "GoLanes: $f names the handed-over append as its second block edit"
+  assert_prose_contains "$f" "the reply precedes the build prompt" \
+    "GoLanes: $f puts its reply before the build prompt"
+  assert_file_not_matches "$f" "Confirm with 'y'" \
+    "GoLanes: $f no longer names \"Confirm with 'y'\" as /plan's gate"
+done
+
+# --- AC4 (lane-plan-handover): the ownerless lanes cite the handover section ----
+for lane in improve refactor babysit; do
+  f="$LANES_DIR/$lane.md"
+  assert_file_exists "$f" "GoLanes: $f exists"
+  [ -f "$f" ] || continue
+  assert_prose_contains "$f" "Crossing the plan handover" \
+    "GoLanes: $f cites the routines.md section that owns the handover rule"
+  assert_file_not_matches "$f" "where the human is asked before code changes" \
+    "GoLanes: $f no longer says where the human is asked before code changes"
+done
+
+# --- AC7: the interactive lanes /go picks reach a human gate before /build -----
+# /plan ends at the build prompt, which a human crosses by starting a fresh
+# session; /debug's prelude stops before any edit. Nothing
+# else in these chains asks, so one of them must come first. The lane files are
+# the registry's, pinned in full by tests/test-lane-catalogue.sh; this is the one
+# property /go's own contract depends on.
+# fix has no /build step: /debug owns the fix end to end, so its gate precedes /quality-gate.
+assert_precedes "$(flatten "$LANES_DIR/fix.md")" '/debug' '/quality-gate' \
+  "GoLanes: $LANES_DIR/fix.md names /debug before /quality-gate"
+for lane in improve refactor perf babysit; do
+  f="$LANES_DIR/$lane.md"
+  assert_file_exists "$f" "GoLanes: $f exists"
+  [ -f "$f" ] || continue
+  flat="$(flatten "$f")"
+  gate='/plan'
+  pos_plan="$(first_pos "$flat" '/plan')"
+  pos_debug="$(first_pos "$flat" '/debug')"
+  if [ -n "$pos_debug" ] && { [ -z "$pos_plan" ] || [ "$pos_debug" -lt "$pos_plan" ]; }; then
+    gate='/debug'
+  fi
+  assert_precedes "$flat" "$gate" '/build' "GoLanes: $f names /plan or /debug before /build"
+done
+assert_file_not_matches "$LANES_DIR/investigate.md" '/wrap-up-session' \
+  "GoLanes: investigate never names /wrap-up-session"
+
+# --- AC3: no routine host invokes /go ------------------------------------------
+# The routine contract chooses the lane from the label; there is no prompt to
+# match. The session-start hook lists no skills since the plugin took over
+# (#156), so the hook root is swept like every other host: zero mentions.
+GO_INVOCATION='(^|[^A-Za-z0-9_/.-])/go([^A-Za-z0-9_/-]|$)'
+HOST_ROOTS=".agents/skills/sweep .agents/skills/tidy .agents/skills/yolo .agents/skills/auto-push
+  .agents/skills/wrap-up-session/references .agents/skills/task-registry/lanes
+  .agents/hooks"
+# A negative sweep passes on nothing if a root moved or the regex is dead, so
+# every root is asserted present and the skill's own file is the positive
+# control: the same regex must hit it before the sweep's empty result counts.
+# assert_sweep_empty enforces both; the per-root and control checks stay as
+# named assertions so a failure says which half broke.
+for root in $HOST_ROOTS; do
+  assert_file_exists "$root" "GoLanes: host sweep root $root exists"
+done
+assert_true "GoLanes: host sweep regex matches /go in the skill's own file (positive control)" -- \
+  grep -qE "$GO_INVOCATION" .agents/skills/go/SKILL.md
+# shellcheck disable=SC2086 — HOST_ROOTS is a word list on purpose.
+assert_sweep_empty "GoLanes: no routine host, lane file, or hook invokes /go" \
+  .agents/skills/go/SKILL.md -- grep -rnE "$GO_INVOCATION" -- $HOST_ROOTS
+
+finish

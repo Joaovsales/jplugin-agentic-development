@@ -667,6 +667,416 @@ back vacuous and was repaired.
   (open); `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`
   updated with the worktree-session baseline recipe.
 
+### [2026-09-16] — /go front door
+
+- Key changes: new `/go <goal>` skill — lane table (seven lanes), precedence
+  rule, `[ROUTE]` line, one Iron Law — with five frontmatter-less playbooks under
+  `lanes/`; registry consulted first for `#N`; chains resolved against either
+  skill root. `tests/test-go-lanes.sh` (187 assertions) pins the file set, skill
+  resolution, `fix` == `DEFAULT_ROUTINE_SKILLS["fix"]`, table-row chain ==
+  playbook tokens, gate-before-`/build`, and no routine host naming `/go`.
+  CLAUDE.md/README `/go` rows and the entry-point sentence; banner leads and
+  closes on `/go`. `flatten`/`first_pos` moved into `tests/lib.sh`.
+  `grade-skill-loads.sh` anchor fixed (inline tool schema false positive).
+- Verification: three live `/go` runs (investigate, untriaged `#135` exit-2
+  refusal, refactor stopping at `/plan`'s gate) and the Mode A eval (0/8 fired,
+  0 misrouted — recorded, lane table unchanged) in `tasks/e2e-log.md`; full
+  suite 8/43 files failing, all in the Windows gh-mock baseline with identical
+  counts, zero regressions; design review dispatched — HOLD cleared by applying
+  the MUST-FIX and five SHOULD-FIX. Four review passes and a security scan
+  dispatched as separate agents at wrap-up.
+- Learnings captured: [eval grader anchor matched the inline tool schema](solutions/bugs/eval-grader-anchor-matched-the-inline-tool-schema.md),
+  [pin a twice-declared contract equal by test](solutions/patterns/pin-a-twice-declared-contract-equal-by-test.md),
+  [skill description does not route organic prompts](solutions/process/skill-description-does-not-route-organic-prompts.md).
+- Glossary: `lane`, `lane block` added.
+### [2026-09-18] — plugin manifest: S4 verdict, version pinning, verify-evidence, one tree
+
+- Branch `worktree-plugin-manifest` (base master `2608d0a`), 17 commits, HEAD `35adb24`. Not pushed: two
+  human-owned MUST-FIX review findings hold the push gate (see below).
+- Spike S4 resolved PASS on 2.1.277 after a clean-trust re-run: a settings-declared plugin installs
+  when the folder is trusted and leaves only the versioned cache — never `installed_plugins.json`.
+  The first FAIL was a contaminated trust dialog (invalid `C:/` url, leftover cache).
+- User decisions: pinning = github source, no `ref`, `version` bumped per release (Addy Osmani's
+  model); `verify` → `verify-evidence` (Claude Code bundles `verify`).
+- Slices built and committed: 5b (no-`ref` pinning, cache-aware hook), 5c (rename, 24 files),
+  6 (`.claude/skills/` and the parity test deleted, 30 two-tree tests collapsed, namespace sentence).
+- Wrap-up: living-spec reconciliation over 15 specs; four dispatched review passes (45 findings,
+  0 auto-applied at 50, 31 applied or fixed deliberately); Windows suite failing names ⊆ baseline.
+- Open for the maintainer: CI-synced projects keep a frozen `.claude/skills/` (sync-template.yml
+  never deletes) — filed as an OPEN row in the spec's Decisions; and the AC3 github-source re-run
+  after merge.
+- Learnings captured: `tasks/solutions/tooling/settings-declared-plugin-installs-at-trust-and-leaves-only-the-cache.md`,
+  `tasks/solutions/process/the-trust-dialog-is-the-install-moment-so-a-contaminated-first-trust-is-a-false-negative.md`,
+  `tasks/solutions/tooling/a-marketplace-ref-must-be-a-branch-or-tag-so-the-plugin-version-is-the-pin.md`.
+
+### [2026-09-21] — grilling adoption: /grilling primitive, /grill-me front door, domain layer in /brainstorm
+- Key changes: adopted Matt Pocock's `grilling` interview primitive as `/grilling` (frontier
+  rounds in the `❓`/`➡️` format, facts via Scout tier, decisions to the user, confirmation
+  gate, opt-out line) and `grill-me` as the stateless user-only front door
+  (`disable-model-invocation: true`); `/brainstorm` Step 3 now invokes `/grilling` and carries
+  a domain-modeling layer (`references/domain-modeling.md`: glossary challenge, inline
+  `tasks/concepts.md` writes, three-gate architecture decisions); `mattpocock-skills` pinned in
+  `.github/upstreams.json` with `LICENSE.mattpocock` and a THIRD_PARTY_NOTICES section; rows in
+  CLAUDE.md, README and the session banner; `tests/test-grilling-adoption.sh` (85 assertions).
+- Built on a worktree rebased onto master after #156 landed mid-build (one canonical tree,
+  `jplugin` plugin, `/verify-evidence`).
+- E2E: `/jplugin:grill-me` routed with the flag in place, no writes; `/brainstorm` wrote the
+  sample term on run 2 after the write trigger was tightened (run 1 narrated without writing);
+  `/eval` Mode A: `grilling` 5/6 FIRED, one session ran Step 3 inline without loading it.
+- Quality gate HOLD (dispatched design review): six `manual`/`advisory` findings reported, none
+  applied — rounds-vs-opt-out rhythm rule stated in two files, callee format restated in the
+  caller, undeclared seed frontier, glossary rule stated three times, `/learn` overlap rule
+  bug-track shaped, `harness: universal` proven on Claude Code only.
+- Windows suite: 160/1400 failing across nine files, all reproduced with identical assertion
+  names at a clean base worktree (plus one second-granularity timing flake in upstream-drift).
+- Wrap-up: four dispatched review passes returned 26 findings (2 MUST-FIX, both manual: AC 4
+  claimed Step 6 unchanged while it gained the vocabulary constraint; the spec's "primitive does
+  not load" tell was disproved by the eval). Both fixed deliberately in the spec, the format
+  restatement recorded as a `TODO(shortcut)` and an OPEN decision; 7 gated_auto test-pin fixes
+  applied (98 assertions); 3 agent-owned SHOULD-FIX skipped with justification; 6 human-owned
+  findings carried to the PR. Store heavy pass ran (session 30).
+- Learnings captured: `tasks/solutions/patterns/a-skill-write-needs-a-concrete-trigger-and-a-visible-line.md`,
+  `tasks/solutions/patterns/a-caller-that-restates-its-callees-format-makes-the-callee-optional.md`,
+  `tasks/solutions/tooling/print-mode-skill-probes-on-windows-git-bash.md`; updated
+  `tasks/solutions/process/windows-suite-failures-compare-against-a-clean-head-worktree.md`;
+  glossary: **front door**, **frontier**, **round** added.
+
+## 2026-09-21 — #136 Windows suite duration (/debug) → PR #166
+- Baseline on clean HEAD 0de3f8a in a `/tmp` clone (a clone in the Claude scratch workspace is a virtualized AppData path the Store python3 cannot read): serial 3051 s, sync-retirement alone 1275 s, the known 9 environment-only failing files.
+- Root cause by timestamped xtrace: process-bound, not Python-bound — mkdir 25 %, git 26 %, python3 20 % (launcher delta 5 %), dirname + subshell 19 % of the slowest file; per-section times uniform, no pathological section.
+- Fix: tests/run.sh per-file timing, closed stdin, `--jobs N`/`TEST_JOBS`; tests/lib.sh `TEST_PYTHON` resolution and `now_ms`; sync-retirement helpers builtin-first (1275 s -> 695 s, identical results); upstream-drift bound relative to the no-op helper run plus pid liveness; codex adapter resolves bash via `shutil.which` (a bare `bash` reached WSL under a plain CPython).
+- Verification: `--jobs 4` 1404 s, `--jobs 8` 936 s, 8 files failing with the baseline's assertion names; acceptance target (<10 min) not met on this machine — carried forward.
+- Documents: tasks/solutions/performance/windows-suite-takes-20-to-38-minutes-because-every-process-spawn-costs-over-a-second.md, tasks/solutions/patterns/a-bash-suite-on-windows-is-process-bound-so-attribute-time-by-spawn-before-optimizing.md, process doc updated.
+
+### [2026-09-21] — stdin hang in the pre-push-gate Banner block
+
+- Key changes: the two Banner-block invocations of the session-start hook in
+  `tests/test-pre-push-gate.sh` (lines 218 and 224) gained `</dev/null`, matching
+  the sibling quote-safety call at line 262. Every other hook execution across
+  `tests/*.sh` already pipes stdin from `printf`, so it closes on its own. The hook
+  is unchanged. One commit, rebased onto master after #156 landed.
+- Evidence: `bash tests/test-pre-push-gate.sh < <(sleep 1000)` stopped after the
+  `Hook: no network or tracker command invoked` assertion with no output — the
+  hook's `HOOK_INPUT=$(cat ...)` at `.claude/hooks/session-start.sh:42` waits for
+  an EOF the inherited pipe never delivers.
+- Review: four passes dispatched. No defects in the diff. One corroborated
+  advisory for a human — `tests/run.sh` launched every suite file with inherited
+  stdin, so the hang class would return if a future test added an unredirected
+  hook call. Not applied here as a scope decision; resolved independently by #166,
+  which landed while this PR was open and now passes `</dev/null` to every file.
+- Verification: full Windows suite 35/44 files green; the 9 failing files fail with
+  identical assertion names on a clean detached worktree of origin/master
+  (`.claude/worktrees/base-0de3f8a`, 159 shared names), so zero regressions. The
+  one extra name in this run (`test-upstream-drift.sh` process-tree deadline) is the
+  known one-second-granularity timing assertion and passed on a solo re-run (64/64);
+  the suite had been running concurrently with four review agents.
+- Learnings captured:
+  `tasks/solutions/bugs/test-inherits-open-stdin-and-the-hook-reads-it-to-eof.md`
+  (fixed).
+
+## 2026-09-22 — #106 plan slices and handover (/build → /wrap-up-session) → PR #176
+- Built the seven slices of `specs/plan-slices-and-handover.md` in the worktree
+  `.claude/worktrees/106` on `feat/106-plan-slices-and-handover` (base 87ff22c):
+  `/slice` skill and `slice.py validate/ready/check` over a shared
+  `registry/globs.py` matcher; `upsert --parent`; `/plan`, `/system-design-planning`,
+  `/brainstorm`, `/yolo`, `/auto-push` ending with a build prompt instead of a `y`
+  gate; `/build` filing in pre-flight, dispatching from the ready set and closing
+  every slice with a check and a `> Handover:`; `/wrap-up-session` `## Handovers`;
+  `CLAUDE.md` § Workflow and five glossary terms.
+- Slices 1–3 and the quality-gate fixes ran inline; slices 4–6 were dispatched to
+  builder-tier agents with surfaces and verbatim handovers. Every slice closed with
+  a two-commit pattern (code, then plan/handover) and a checkpoint flush.
+- Quality gate: Phase 1 refactor, Phase 3 dispatched HOLD → 3 MUST-FIX applied
+  (seeded `[x]` rows kept, unknown blockers refused once, implicit slice in
+  `check`, fenced decoy rows ignored); 1 SHOULD-FIX and 1 NITPICK reported.
+- AC 15 live run in the fixture `.claude/worktrees/e2e-106`: plan session ee94098b
+  ended with the build prompt and filed nothing; build session d0ac3717 filed four
+  slices in pre-flight and closed each with a handover and a surface report.
+  Parallel dispatch and a handover crossing a dispatch boundary were not observed —
+  the slices were too small for the session to dispatch. Both sessions were routed
+  by the harness to user-scope skill copies and read the project-local ones
+  themselves.
+- Full suite at f6e9049 (`--jobs 8`, detached worktree `106-base`): 8/47 files,
+  162 failing assertions vs 159 in the baseline; the 3 new are GitHub-mock
+  `upsert --parent` pins unreachable from Python on Windows (#129).
+- Documents: tasks/solutions/bugs/upsert-re-rendered-a-seeded-done-row-from-the-provider-record-on-first-filing.md
+  (fixed), tasks/solutions/patterns/a-live-proof-of-parallel-dispatch-needs-slices-large-enough-to-earn-an-agent.md,
+  appends to tooling/print-mode-skill-probes-on-windows-git-bash.md and
+  patterns/explicit-encoding-at-every-python-io-boundary.md.
+
+## 2026-09-22 — single instruction file: merge of #176, wrap-up review, PR
+- Merged origin/master (#176 plan slices and handover, dfbbe2b) into
+  `feat/single-agents-file` as f1313a4. Three conflicts, all resolved for the
+  retired-surface design and then re-ported: `.agents/hooks/session-start.sh` and
+  `CLAUDE.md` ours; `README.md` ours re-rendered by `scripts/render-skills-table.py`
+  (the `/build`, `/plan`, `/slice`, `/system-design-planning` rows came from the
+  frontmatter #176 rewrote). #176's `CLAUDE.md` § Workflow rewrite (Specify /
+  Slice / Build in a fresh session) landed as `AGENTS.md` § Workflow steps 2 to 4
+  inside the managed block; the `/slice` registration pin moved from the three
+  inventories to the one rendered `README.md` row; `/build`'s checkpoint flush and
+  `slice/references/sizing.md` stopped naming `.claude/hooks/` and the two skills
+  tables.
+- Master's tightened contracts hit the branch too: `registry/globs.py` (#176)
+  refuses brace groups, so the spec's `implementation_paths` went from 27 brace
+  entries to 56 explicit ones before `spec-reconcile.py discover` would run.
+- Living-spec reconciliation over the merged diff: 20 candidates — 17 updated for
+  the moved surfaces (`.claude/project.md` → `AGENTS.md`, `.claude/hooks/` →
+  `.agents/hooks/`, `CLAUDE.md §` → `.agents/references/`), 3 unchanged,
+  `specs/separate-project-config.md` removed (its subject no longer exists; the one
+  remaining mention is historical in `tasks/e2e-log.md`). The three legacy-format
+  specs got factual path edits only, not a format migration.
+- Review: five passes dispatched (code-reviewer ×2 lenses, critic, design, security)
+  over the 95-file `origin/master...HEAD` diff → 38 findings. Applied: atomic
+  `settings.json` rewrite and exact-spelling hook match in `install.sh` (the old
+  `endswith("hooks/session-start.sh")` would have deleted a user's own hook), the
+  `awk` status split and symlink-safe rewrite in `strip_codex_block`, marker-count
+  NOTE for a malformed Codex file, `~/.claude/CLAUDE.md` moved aside as
+  `CLAUDE.md.pre-plugin.bak` instead of deleted, real paths in the removal prompt;
+  `sync-managed-block.py` keeps the team's text under a reused
+  `## Project-Specific Rules` heading (the old code dropped the whole segment),
+  treats padded markers as markers, refuses non-UTF-8 by file name, reads
+  `CLAUDE.md` inside the refusal try, reports every dropped or reused section and
+  every generic heading or second pointer left outside the block; the `/sync`
+  settings prune matches the three template scripts by name instead of every
+  `.claude/hooks/*.sh`; `/system-design-planning` Step 5 reads `finding-model.md`
+  before dispatch and joins the dispatch-site pins; the banner names an orphaned
+  `.claude/project.md` beside a pointer `CLAUDE.md`; the CI mirror's PR body says
+  it never migrates that file. 3 SHOULD-FIX skipped with reasons, 4 NITPICKs
+  skipped, 5 owner-human items reported (CI script pinning and `template_ref`
+  injection, the `/tmp` sentinel, the D4 `~/.claude/CLAUDE.md` overwrite policy,
+  graph staleness after pull).
+- Local harness: `tests/lib.sh` now exports `PYTHONUTF8=1` — Windows CPython wrote
+  em dashes as cp1252 bytes, so the new registry notice assertion (and a class of
+  baseline failures) could never match a UTF-8 needle.
+- Full suite on the merge (`--jobs 4`): 8/53 files, 163 failing assertions vs 159
+  in the pre-merge baseline; the 3 new are the `upsert --parent` GitHub-mock pins
+  (#129, Windows only) and the 4th was the encoding class above, now fixed.
+  Every touched test file re-run solo after the fixes; only baseline names remain.
+- Documents: tasks/solutions/patterns/port-master-edits-onto-the-successor-surface-when-a-branch-retires-one.md,
+  tasks/solutions/conventions/spec-implementation-paths-accept-only-star-question-and-double-star.md,
+  a superseded note on bugs/readme-skill-table-merge-conflict.md, and the
+  **managed block** glossary term in `tasks/concepts.md`.
+
+### [2026-09-23] — fewer full-suite runs
+- Key changes: built #178 in four slices (filed #183, #180, #181, #182) —
+  `.agents/skills/build/scripts/cached-suite.sh` reuses a green run per working
+  tree and command and refuses a second concurrent suite (exit 3);
+  `tests/affected.sh [--run] <base>` selects the test files a change touches and
+  `tests/run.sh` takes named files; `/build` runs the full suite only at its
+  cached baseline and the affected-test command at every other checkpoint;
+  `/wrap-up-session`, `/yolo` and `/auto-push` run full suites through the
+  cache; `AGENTS.md` § Test Commands declares `Full suite:` and `Affected tests:`.
+- Quality gate: GNU-only `mv -T`, bash-4 `mapfile` and a `set -u` empty-array
+  expansion replaced for macOS bash 3.2; the dispatched design review added the
+  `Full suite:` declaration (the cache key hashes argv) and put affected runs
+  behind the lock.
+- Baseline (cddf272, Windows, serial): 8/53 files, 152 failing assertions, 2085 s.
+- Learnings captured: tasks/solutions/tooling/python-exact-match-patches-miss-crlf-working-copies.md
+
+### [2026-09-23] — Quality receipt closure
+- Key changes: `receipt.py` (quality-receipt/1: fingerprint excluding `tasks/**`,
+  derived verdict, check/approve, delta chains) and `/quality-gate` phases 3–6
+  that write it; `closure.py`, the wrap-up closure state machine (receipt, gate,
+  approve, suite, push, pr, mergeable, merge, ci, repair, deploy, record,
+  partial), with every cycle bounded by a counter; `/wrap-up-session` Step 4
+  reuses the receipt in place of four review passes, and Step 7 drives the
+  closure loop (merge-only conflict repair, CI watch and repair, a partial run
+  marks the PR draft). Six slices, filed and built (#163, refs #162).
+- Quality gate: two design passes (STOP, then HOLD). Fixed: HOLD routing,
+  through a new `approve` phase that re-checks the receipt; the closure run
+  lifecycle (`done`, keeping `pr_open`); corrupt state and receipt handling.
+  Seven SHOULD-FIX items stay unresolved in the receipt, and the HOLD was
+  approved by a human.
+- Baseline (Windows): affected tests 6/31 files red with 104 assertions, none
+  new; WSL Ubuntu, clean clone at 5e00630: 31/31 green in 63 s.
+- Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md,
+  tasks/solutions/patterns/a-state-reset-must-keep-facts-about-the-world.md
+
+### [2026-09-28] — Wrap-up in five named phases
+- Key changes: `/wrap-up-session` SKILL.md rewritten from ~780 lines of numbered
+  steps into five `##` phases (Bookkeeping, Reconcile, Gate, Ship, Done) in 300
+  lines, with the lookup detail in `references/spec-reconcile.md`,
+  `references/closure-actions.md` and `references/routines.md` § Wrap-up on a
+  routine branch. E2E coverage moved into Reconcile, ahead of the receipt and the
+  suite. Every caller cites wrap-up by § name, and a test resolves each citation
+  against SKILL.md's own headings. Behavioral drift in callers fixed:
+  verify-deployment merges instead of rebasing, and the code-reviewer persona,
+  lane files and README no longer claim wrap-up runs review passes. Seven
+  slices (#200, #201), no script behavior changed.
+- Quality gate: Phases 1–3 inline (duplicate `CA_FILE`, stale step labels);
+  Phase 4 dispatched, HOLD with 5 SHOULD-FIX items and 1 NITPICK, all fixed and
+  re-verified by the same reviewer (GO). Receipt GO fd05ed85, nothing unresolved.
+- Baseline (Windows): affected tests on 1b116e8 had 9/44 files red. Two
+  failures were new: the override rows still said "MUST-FIX". c1c3133 fixed
+  them, and the two files were re-run green. WSL Ubuntu, clean clone at c1c3133 with a real `gh` on PATH: 44/44
+  affected and 60/60 full.
+- Learnings captured: tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md (WSL has no gh)
+### [2026-09-30] — Codex Scout routing
+- Key changes: six slices of `specs/codex-scout-routing.md` built on `codex-scout-routing-build`; versioned policy, managed Scout roles, safe install preview and legacy adoption, child cap, dispatch guidance, and read-only doctor. CLI walkthrough and conformance tests recorded in `tasks/e2e-log.md`.
+- Quality correction: doctor and effective-route inspection now separate required floor overrides from observed dispatch; global reasoning-effort defaults are diagnosed and refused during install.
+- Learnings captured: [A policy route is not proof of an effective Codex dispatch](solutions/bugs/policy-route-is-not-proof-of-effective-codex-dispatch.md).
+
+### [2026-09-29] — /make-it-simpler and the simplify routine
+- Key changes: new skill `/make-it-simpler` (SKILL.md 131 lines, `scripts/signals.py` ranking seven signals deterministically and read-only, `references/lens.md`, `references/safe-moves.md`); new `simplify` consumer lane, ranked ahead of `tech-debt` in `kind_precedence` across config.py, the template, docs/task-tracking.md and routines.md; `CONTRACT_ROUTINES`; routines.md steps section, two branch rows and the scope stop; `/go` precedence `fix` > `perf` > `simplify` > `refactor`; AGENTS.md names three in-session exceptions. Nine slices filed (#212–#220).
+- Quality gate: Phases 1–3 inline (a silent empty ranking when git fails, now exit 2; a 5-parameter function). Phase 4 dispatched, verdict HOLD. Fixed: ranking from a subdirectory leaked fixtures (now root-relative); the signal names now live only in one DETECTORS map; lens values are pinned; headings are names only; the PR-body contract has one home. Four advisory items stay unresolved.
+- Baseline (Windows): full suite on 76d1f97 had 7/60 files red. The affected run was 6/40 red, all matching the baseline by name. WSL Ubuntu at 13e56ec found 11 real failures hidden inside baseline files (label fixtures without `simplify`); after bcd2562: 40/40 affected and 61/61 full.
+- Learnings captured: tasks/solutions/process/a-new-default-selector-label-must-reach-every-github-label-fixture.md
+
+### [2026-09-29] — Visual e2e evidence
+- Key changes: `/verify-evidence --scope e2e` now tries the Playwright CLI first
+  (`.claude/browsers/playwright-cli.md`, pinned 0.1.22, detected with
+  `command -v playwright-cli`), then Chrome MCP, then Lightpanda. A VISUAL AC
+  checked with only Chrome MCP is `BLOCKED`. A VISUAL PASS needs a
+  `Screenshot: tasks/e2e-artifacts/<sha>/<AC-id>.png` line, which
+  `e2e_evidence.py check` enforces. `publish_evidence.py` pushes the PNGs to an
+  orphan `e2e-evidence` branch; it never force-pushes and retries once on a
+  rejection. Wrap-up embeds that section in the PR body. `install.sh` step 6b
+  optionally installs the CLI and Chromium. Five slices (#205–#209): three were
+  built in parallel (1 inline, 3 and 5 in dispatched worktrees), then 2 and 4.
+- Quality gate: Phases 1–3 inline (a leaked SAFE_PATH tmpdir; the git identity
+  probe ran in the CWD instead of the repo). Phase 4 was dispatched and returned
+  HOLD with one MUST-FIX: the publisher defaulted to HEAD's sha after the wrap-up
+  commit. That and three SHOULD-FIX items were fixed in 05c7234, and a delta
+  re-review returned GO. The four remaining SHOULD-FIX items (layout owner,
+  locale-dependent retry, no-sha message, hand-synced pin) and three follow-ups
+  from their delta review were fixed by a builder subagent in 204992e and
+  51045d1, each verified by a mutation probe. Receipt 964a2096 is GO with two
+  NITPICKs open.
+- Baseline: the full suite was 60/60 at b2b5634. Each slice checkpoint ran the
+  affected tests green (23, 27 and 29 files).
+- Learnings captured: tasks/solutions/patterns/an-artifact-keyed-by-commit-must-be-read-by-the-commit-that-produced-it.md, tasks/solutions/tooling/in-the-template-repo-follow-the-repos-skills-not-the-plugin-cache.md
+
+### [2026-09-29] — Stale plugin check
+- Key changes: session-start banner warns when the installed jplugin record is behind the marketplace clone or a matching remote ref, printing the update commands without running them (#210); tests/test-plugin-manifest.sh fails a payload change without a plugin.json version bump, and the version went to 1.2.0 (#211); README § Releasing skills states the measured `claude plugin update` behaviour.
+- Quality gate: Phases 1-3 inline (only a hex gitCommitSha reaches git argv); Phase 4 dispatched, HOLD (payload list missed .agents/references, marketplace-name literals, a second reader of the drift cache), all three fixed and re-verified GO. One SHOULD-FIX (globals in the block's helpers) and two NITPICKs reported, not applied.
+- Baseline (Windows): 8/60 files, 152 failures before the build; affected run 7/32 files red with 0 failures new by name.
+- Learnings captured: tasks/solutions/bugs/git-show-ref-colon-path-is-rewritten-by-msys-in-git-bash-hooks.md, tasks/solutions/performance/per-field-sed-parsing-in-the-session-start-banner-costs-seconds-on-windows.md, tasks/solutions/patterns/derive-plugin-payload-coverage-from-plugin-root-reads.md
+### [2026-09-30] — First /make-it-simpler run
+- Key changes: `/tidy` § *Filing a Tier 2 finding* cites `/sweep` § *2. Read the backlog* instead of restating the dedupe-set and escalated-task rule (#231, specs/simplify-duplicate-rule-in-agents-skills-tidy-skill-md.md). The GitHub `simplify` label was created.
+- Quality gate: Phases 1–3 inline with no findings. Phase 4 was dispatched: GO, one SHOULD-FIX applied (the kept clause now says an escalated task is hands-off), one advisory left about sweep § 2's sweep-only wording.
+- Evaluation: of 190 ranked candidates the top 10 were 8 `code-red-flag` hits whose evidence is line 501; the useful hits (duplicate-rule between skills) ranked 36th or lower. Four routine labels are missing on GitHub, so claim/select refuse.
+
+### [2026-10-01] — UI design stack
+- Key changes: built the shared design source installer, dynamic catalog, stable project brief, planner and frontend approval contracts, strict opt-in 3D gate, Playwright visual check, and CI artifact publication across nine slices (#237–#245).
+- Quality gate: 44 affected test files passed; structural, AI-pattern, and security phases ran inline; independent APOSD review returned GO after workflow-update and source-layout fixes; receipt 766e0c55 was GO.
+- Live fixture: private [PR #1](https://github.com/Joaovsales/jplugin-ui-evidence-fixture-20261001/pull/1) passed [Actions run 36933936242](https://github.com/Joaovsales/jplugin-ui-evidence-fixture-20261001/actions/runs/36933936242) on PR head `b3bf400`; its [artifact](https://github.com/Joaovsales/jplugin-ui-evidence-fixture-20261001/actions/runs/36933936242/artifacts/11197102413) is 11,943 bytes and expires 2026-10-31T22:16:38Z.
+- Learnings captured: tasks/solutions/bugs/new-ui-scaffold-was-mistaken-for-existing-ui.md
+
+### [2026-10-01] — /make-it-simpler follow-ups
+- Key changes: signals.py ranking (D27): `code-red-flag` and `over-budget` outside always-loaded files score as 1-line cues, `tasks/` is never read, `specs/` is never a `duplicate-rule` home. On this repository the top 10 went from 8 size hits to prose signals led by AGENTS.md. Also the `claim --routine simplify` fix and the new `routine-prompts/simplify.md`.
+- Quality gate: Phase 4 was dispatched, verdict HOLD with 1 MUST-FIX (the routine prompt re-ran the lane that `--unattended` already owns) and 5 SHOULD-FIX, all applied. Re-check verdict GO, and its last advisory (lens promised a /tidy check that doesn't exist) was applied as well.
+
+### [2026-10-02] — Visual-plan design study publication
+- Published three standalone Codex Scout Routing design studies from this repository on a separate branch, with portable source links and sanitized local paths.
+- Playwright reran desktop and mobile checks for each prototype; the full repository suite and independent privacy review passed before PR #248.
+
+### [2026-10-06] — Lane plan-handover crossing
+- Key changes: new `routines.md` § *Crossing the plan handover* maps every crossing. `/go` and the improve/refactor/babysit lanes now cite it: interactive runs stop at the build prompt, unattended runs build in place with `--file` and no `--approve`. AGENTS.md step 3 names four exceptions. In `/build`, a build run in its planning session dispatches every slice to a sub-agent. Five slices (#250–#254) were built by parallel sub-agents with central verification. Plugin bumped to 1.4.2.
+- Learnings captured: [process/a-slice-verify-command-misses-repo-wide-doc-guards.md](solutions/process/a-slice-verify-command-misses-repo-wide-doc-guards.md), [tooling/slice-check-reports-sibling-slices-in-a-parallel-build.md](solutions/tooling/slice-check-reports-sibling-slices-in-a-parallel-build.md), updated [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md)
+
+### [2026-10-08] — Readable visual plans
+- Key changes: the renderer reads the spec markdown alone (`plan_render.py`, stdlib, no network). It renders typed cards, SVG flow, sequence and DAG diagrams, Blockers, a readiness gate shared with `/slice readiness`, and a hash-keyed review export that `/plan` applies. The plan theme ships in `design/plan-theme/`. A Playwright check runs at 1440/390 px in light and dark, and 8 screenshots are committed for owner review. Both planners render through it, and `content-model.json` is retired. 13 slices (#256–#268).
+- Quality gate: Phase 4 was dispatched and returned HOLD. Four fixes were applied and 5 SHOULD-FIX were reported. Receipt c743aa3e is STOP from the Windows baseline. WSL passed 38/38 at the same tree, and the owner overrode STOP to push.
+- Design stack installed in user scope (release 7975901f) on the owner's request.
+- Learnings captured: [bugs/design-stack-setup-cannot-launch-npx-on-windows.md](solutions/bugs/design-stack-setup-cannot-launch-npx-on-windows.md), [tooling/playwright-clipboard-reads-crlf-on-windows-record-writetext.md](solutions/tooling/playwright-clipboard-reads-crlf-on-windows-record-writetext.md), updated [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md)
+
+### [2026-10-09] — Review load and failure cases
+- Key changes: `finding-model.md` gains a `failure:` line (capped at 50 when missing), § Expected load (Load assumed:, lookup order, six scale patterns) and § Deferrals (one shortcut rule: load, a narrower real limit, or a never-cut hole). The four review personas cite them. `code-reviewer` is rewritten with a human layer (opener, numbered findings, Verdict/Lean/Not checked) and no filler. /quality-gate Phase 3 becomes Security and Load (lens `security-scan+load`). Clean Code now says split by job, never by line count. `/tidy --check shortcuts` runs the wrap-up ledger, whose pattern now matches `/*` and `<!--`. Four review fixtures were added. Slices 1–7 (#273–#279); slice 8, the A/B, is open. Plugin bumped to 1.6.0.
+- Quality gate: Phases 1–3 were inline, with 4 fixes. Phase 4 was dispatched and returned HOLD with 9 findings; 6 were fixed and re-verified GO. Receipt f6760ca5 is STOP from the Windows baseline (199 failing assertions, none new).
+- Learnings captured: [patterns/merging-restated-rules-into-one-home-can-drop-a-clause.md](solutions/patterns/merging-restated-rules-into-one-home-can-drop-a-clause.md), updated [process/a-slice-verify-command-misses-repo-wide-doc-guards.md](solutions/process/a-slice-verify-command-misses-repo-wide-doc-guards.md) and [patterns/construct-retired-paths-at-runtime-to-keep-literal-sweeps-strict.md](solutions/patterns/construct-retired-paths-at-runtime-to-keep-literal-sweeps-strict.md)
+
+### [2026-10-09] — /plan renders the visual plan
+- Key changes: `/plan` Step 3, now Slice and Render, applies `/visual-plan` § Skip when trivial, runs `plan_render.py` after `/slice`, prints `✓ Visual written: <path>`, and re-renders on every re-run of Step 3; a refusal re-runs the whole step. Step 4 shows the page path. D5 in `specs/readable-visual-plans.md` is revised. Five wiring assertions in `tests/test-plan-render.sh`. Plugin bumped to 1.6.1.
+- Quality gate: Phases 1–3 were inline, with 1 reflow. Phase 4 was dispatched and returned HOLD with 3 SHOULD-FIX and 2 NITPICK; all were fixed and re-verified GO.
+- Learnings captured: [bugs/plan-described-the-visual-plan-but-never-rendered-it.md](solutions/bugs/plan-described-the-visual-plan-but-never-rendered-it.md)
+
+### [2026-10-19] — /diagram over an installed Archify tool
+- Key changes: `/build` of `specs/diagram-skill.md` on `claude/practical-knuth-31f2ht` (PR #290), seven slices, slices 3 and 4 dispatched to sub-agents in worktrees and cherry-picked back. New `/diagram` skill: a thin page over Archify installed as a pinned user-scope tool (tag v3.2.0, commit 208acba8), `scripts/archify.sh` (`resolve` with the tool, Node >= 18 and browser checks; `install-command`; `check-candidate`; `finalize` forwarding upstream's command after the evidence check), `scripts/check-candidate.mjs` (meta.repository at HEAD, `sources` with path and line on every primary element, the primary collection read from the install's schema). `install.sh` step 6c (sparse clone verified against the commit), `.github/upstreams.json` `kind: installed` + `--validate` in the drift checker, notices and README § Sources, `.archify/` ignored, offers in `/how` and `/plan`, a produced diagram in `/system-design-planning`, `/tidy`'s `tools` check, plugin 1.7.0. Triggerability eval as twelve fresh `claude -p` candidates (3/6 target prompts fired, 0/6 neighbours collided), description rewritten; report `tasks/eval-results/diagram-triggerability.md`.
+- Quality gate: three full-scope passes. Pass 1 HOLD (five findings: two applied, three fixed as follow-ups — SDP relays the resolver's note, the `finalize` wrapper, a zombie-robust helper check). Pass 2 GO with four SHOULD-FIX (receipt HOLD by count; two fixed as follow-ups — schema-derived primary key, registry-as-oracle tests). Pass 3 GO with five findings, two applied; receipt 583e5c9b GO with three reported. Tests ran as `nobody` through the cache (root passes permission-denial tests vacuously); the clone was unshallowed.
+- Learnings captured: [bugs/kill-0-counts-a-zombie-as-alive-under-a-slow-reaping-pid-1.md](solutions/bugs/kill-0-counts-a-zombie-as-alive-under-a-slow-reaping-pid-1.md), [process/a-root-container-passes-permission-denial-tests-vacuously-so-run-the-suite-unprivileged.md](solutions/process/a-root-container-passes-permission-denial-tests-vacuously-so-run-the-suite-unprivileged.md), [tooling/sub-agents-inherit-the-session-start-plugin-roster-so-eval-a-new-skill-in-fresh-processes.md](solutions/tooling/sub-agents-inherit-the-session-start-plugin-roster-so-eval-a-new-skill-in-fresh-processes.md), [process/four-unresolved-should-fix-make-a-hold-and-a-delta-receipt-inherits-them.md](solutions/process/four-unresolved-should-fix-make-a-hold-and-a-delta-receipt-inherits-them.md); updated [patterns/pin-a-twice-declared-contract-equal-by-test.md](solutions/patterns/pin-a-twice-declared-contract-equal-by-test.md) (§ The oracle is a file, not a literal)
+
+### [2026-10-16] — HyperFrames fifth source, factory-board mod
+- Key changes: `/yolo` iteration on branch `claude/mods-kanban-agent-dashboard-b0c487` (080484d..4b8f9cf). Built the `mods/factory-board/` Claude Code mod (a Kanban pane of the session's sub-agents by stage, `specs/factory-board.md`) and then, through `/plan` → `/slice` → `/build` with four slices dispatched to sub-agents, HyperFrames as a fifth `/design-stack` source (`specs/design-stack-hyperframes.md`): shallow LFS-free clone, `hyperframes:<skill>` tool entries, a four-source manifest that stays valid offline, the `hyperframes.py` opt-in/production/pinned-version guard, skill and build text, README row. The quality gate's dispatched design review returned HOLD (10 findings); eight were fixed as build work (explicit opt-in vocabulary with negation on every path, one installed-source truth through `source_paths(release, installed)`, shared `skill_entry`, a brief direction allow-list, an exhaustive engine-status mapping and an optional spawn row in the mod); the re-review returned GO. Phase 5 ran under WSL Ubuntu with the `gh` wrapper (40 affected files green).
+- Learnings captured: [tooling/agent-isolation-worktrees-start-from-master-not-the-session-branch.md](solutions/tooling/agent-isolation-worktrees-start-from-master-not-the-session-branch.md), [patterns/a-keyword-opt-in-guard-needs-negative-probes-from-the-neighbouring-vocabulary.md](solutions/patterns/a-keyword-opt-in-guard-needs-negative-probes-from-the-neighbouring-vocabulary.md), [process/a-tdd-row-test-file-must-sit-inside-its-slice-surface.md](solutions/process/a-tdd-row-test-file-must-sit-inside-its-slice-surface.md), [tooling/cached-suite-keys-on-the-verbatim-command-so-parallelism-comes-from-the-environment.md](solutions/tooling/cached-suite-keys-on-the-verbatim-command-so-parallelism-comes-from-the-environment.md); updated [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md)
+
+### [2026-10-14] — Per-track overlap dimensions (#168)
+- Key changes: `/learn` Step 4 now scores a candidate against its own track's dimension set. The bug set is unchanged. The knowledge set is situation (`applies_when`), claim, files or module, rule, consequence. A cross-track match scores Moderate at most. Both store READMEs carry the same rows, pinned by `tests/test-solutions-schema.sh` § Overlap dimensions. `domain-modeling.md` scores architecture decisions on the knowledge-track set and maps context/decision/reason onto it. `specs/compound-engineering-adoption.md` points to Step 4. Plugin bumped to 1.6.2.
+- Quality gate: Phases 1–3 were inline with no findings. Phase 4 was dispatched and returned GO with 2 SHOULD-FIX; both were fixed and re-verified GO. Receipt d032d845 is GO, recorded from a WSL clean clone at the same tree (22/22). The Windows run of the same command failed 104 assertions, all also failing at base.
+- Learnings captured: [bugs/learn-overlap-dimensions-only-fit-the-bug-track.md](solutions/bugs/learn-overlap-dimensions-only-fit-the-bug-track.md), [process/name-the-gate-outcome-file-per-session-in-the-shared-receipt-store.md](solutions/process/name-the-gate-outcome-file-per-session-in-the-shared-receipt-store.md), updated [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md)
+
+### [2026-10-14] — /memory-maintain per-track merge test
+- Key changes: built on the #168 branch, then rebased onto master once #286 merged. `/memory-maintain` Phase 2 defines the **merge test**: score the pair the way `/learn` Step 4 (§ 4. Score Overlap Before Writing) scores a candidate, on its track's five dimensions, and merge only on High, which is 4–5 and so the >70% threshold restated. The light pass applies it. Step 4's cross-track cap is the only boundary: PR #287's review dropped Phase 2's same-category filter, which made the cap unreachable there and diverged from `/learn`'s write-time rule. The old "same problem, same root cause" test could never fire for a knowledge-track pair, because none of the 82 knowledge documents carries `root_cause:`. Ten assertions in `tests/test-memory-maintain-doc.sh` § Merge test, reading Step 4's heading, High band and per-track dimension count from `/learn` itself. Plugin bumped to 1.6.3, above the 1.6.2 that #286 shipped.
+- Quality gate: on the stacked branch, Phase 4 (dispatched) returned GO with 4 SHOULD-FIX. 1 was applied: the label now opens the rule and is pinned inside Phase 2. 2 went to #168's PR. After the rebase onto a7a6723, Phases 1–3 were inline with no findings, and Phase 4, dispatched again, returned GO with 2 SHOULD-FIX, both reported. Receipt 9b51b974 is GO from a WSL clean clone at the same tree (23/23 affected, 72/72 full). The Windows run of the same command failed 104 assertions, all also failing at the baseline. On PR #287 both reported findings were fixed; Phase 4, dispatched on the first fix, returned GO with 2 SHOULD-FIX, and both were applied (the dimension count is pinned; the category filter is dropped). A fourth dispatch, on that result, returned GO with 1 SHOULD-FIX and 1 NITPICK, both applied: Phase 2's statement of the cross-track cap joins its other copies in `tests/test-solutions-schema.sh` § Overlap dimensions, and a clause about an impossible same-category cross-track pair is gone.
+- Learnings captured: updated [patterns/pin-a-twice-declared-contract-equal-by-test.md](solutions/patterns/pin-a-twice-declared-contract-equal-by-test.md) (§ A pointer is a copy too; the light pass scored the new candidate High against it, so it was folded in rather than written as a sibling), [bugs/learn-overlap-dimensions-only-fit-the-bug-track.md](solutions/bugs/learn-overlap-dimensions-only-fit-the-bug-track.md) and [process/baseline-must-precede-tree-edits.md](solutions/process/baseline-must-precede-tree-edits.md)
+
+### [2026-10-13] — Close what a bot merge left open
+- Key changes: `task-registry closes '#<pr>'` closes each issue a merged PR links and left open, through the gated `close_task`, or exits 1 naming each one it could not close. routines.md § Issue closure happens on merge tells a `GITHUB_TOKEN` merger to run it after the merge call and to grant `issues: write`. `select` is the backstop: an open issue whose closing PR in this repository merged, with nothing else in flight and not REOPENED, is never a candidate and gets a `stranded:` line carrying the `closes` command. gh lists closing PRs without their state, so `select`'s read (`list_tasks_with_linked_prs`) looks the states up with one `gh api graphql` `nodes(ids:)` call per 100 PRs. The optional-field degradation now loops, and the exclusion is unavailable when either field is missing. Root cause: GitHub fires no closing keyword for a `GITHUB_TOKEN` merge (0/47 bot-merged links closed by their PR, 102/103 human-merged), and `issues: write` does not restore it. Plugin bumped to 1.6.4, above the 1.6.3 that #287 shipped.
+- Quality gate: Phases 1–3 were inline. Phase 4 was dispatched three times. The first pass, on the `closes` command, raised the backstop as a MUST-FIX. On the backstop (8975c8a) it returned HOLD with 2 MUST-FIX and 3 SHOULD-FIX; those were fixed in 7756cee and re-verified GO, and 1 NITPICK and a docstring were then applied. Two SHOULD-FIX were reported and not applied. Receipt aa5f1c97 is STOP from the Windows baseline: 104 failing assertions, none new by name. WSL Ubuntu ran 25/25 affected files green at the same tree (b126845e).
+- Live, read-only: the backstop names the stranded issues image-video #94, #101, #155, #156 and private-knowledge-base #86.
+- Learnings captured: [tooling/gh-closing-pr-references-carry-no-pr-state.md](solutions/tooling/gh-closing-pr-references-carry-no-pr-state.md), [patterns/a-degrade-once-path-breaks-when-a-second-optional-field-joins.md](solutions/patterns/a-degrade-once-path-breaks-when-a-second-optional-field-joins.md), updated [bugs/bot-merged-pr-leaves-linked-issue-open.md](solutions/bugs/bot-merged-pr-leaves-linked-issue-open.md)
+
+### [2026-10-19] — session-viz mod built
+- Key changes: `mods/session-viz/` — a Claude Code function-hooks mod drawing one `Session` pane (Phase · Plan · Agents · Gates · drill-down) and the `viz · …` status line from `$.state` atoms, observe-only; five slices of `specs/session-viz-mod.md` (#299–#303) built in one session, slice 1 inline and slices 2–5 by four parallel `backend-developer` agents in scratchpad copies; `claude plugin validate` and 16 harness tests green on 2.1.303; the mod hot-reloaded into the build session from `~/.claude/dev-mods/`.
+- Quality gate: Phases 1–3 inline (three structural fixes), Phase 4 dispatched — HOLD with nine findings, six applied under the Apply Gate, one refuted by the engine types, two left with owners; re-verdict GO. Receipt ac52a67b STOP on tests exit 1: the affected run fails the same 111 assertions as the baseline on this Windows machine, none new. The wrap-up re-entered the gate once after spec reconciliation (receipt bdeeb22c STOP: design HOLD — the overloaded `null` in `readReceipt`, the `dropped` field outside the contract, two `prompt.submit` owners for the spec, the `Receipt | 'unreadable' | null` sentinel, the by-convention status refresh — tests exit 1 on the same 111); one gated fix applied. Not pushed.
+- Learnings captured: [tooling/declare-atoms-per-file-and-match-every-shared-event-hook-in-a-claude-code-mod.md](solutions/tooling/declare-atoms-per-file-and-match-every-shared-event-hook-in-a-claude-code-mod.md), [process/dispatch-disjoint-slices-in-scratchpad-copies-and-verify-centrally.md](solutions/process/dispatch-disjoint-slices-in-scratchpad-copies-and-verify-centrally.md), [process/anchor-plan-index-inserts-on-the-plan-block.md](solutions/process/anchor-plan-index-inserts-on-the-plan-block.md).
+
+### [2026-10-19] — GitHub over REST in sandboxes
+- Key changes: the task registry's GitHub provider and the wrap-up pull-request path call GitHub only through `gh api` REST routes (specs/github-rest-in-sandboxes.md, #292–#298). Reachability is `gh api user` succeeding; reads page `issues`, `labels` and each candidate's `issues/{n}/timeline`; writes travel as JSON on stdin (`--input -`). The linked-PR exclusion reads each candidate's `cross-referenced` timeline events after the kind and claim filters, refuses on a timeline past `TIMELINE_LIMIT`, and the stranded check and `closes '#N'` share one closing-keyword parser over the PR body — no GraphQL, no `gh` 2.73 floor. `gh_pr.py` (`create`, `view`, `edit`, `ready`, `checks`, `mergeable`) replaces every `gh pr` in the wrap-up skill; `ready` posts to the `ccr/` routes and falls back to `gh pr ready` only on a 404. The `gh` fixture mock is `gh api`-only. Five specs reconciled (`category-routines`, `quality-receipt-closure`, `upsert-depends-on`, `lane-catalogue`, `visual-e2e-evidence`).
+- Quality gate: Phases 1–3 inline (one security fix: `gh_pr.py` validates the number and quotes the branch). Phase 4 dispatched, GO; four review follow-ups applied, five findings carried to `tasks/backlog.md`. Receipt 7b3f8c4e is GO from a WSL run of the affected set (32/32 files) on the identical tree; the Windows run fails only mock-backed assertions the Python-called mock cannot reach (#129).
+- Learnings captured: updated [tooling/gh-closing-pr-references-carry-no-pr-state.md](solutions/tooling/gh-closing-pr-references-carry-no-pr-state.md), [process/a-token-rename-must-grep-every-test-that-pins-the-old-token.md](solutions/process/a-token-rename-must-grep-every-test-that-pins-the-old-token.md)
+
+### [2026-10-20] — simplify routine: brainstorm citation drift (#326)
+- Key changes: `/make-it-simpler --unattended` ranked the tree at 2da4eab. Deep review dropped every `enforced-prose`, `doc-script-contradiction` and `duplicate-rule` cue in the top ten, because each was a test pin, a flag that belongs to a skill and not to the named script, or a contract restated on purpose. It filed and built the one fact signal: `/brainstorm` cited `/plan` § *Write the Spec*, a heading that does not exist. The citation now names § *2. Write the Spec (MUST persist to disk)*. Behavior changes: none.
+- Quality gate: Phases 1–4 inline, no findings; receipt 235a124a GO; affected set 21/21 green before and after.
+- Learnings captured: [process/an-enforced-prose-cue-on-a-test-pinned-line-is-a-pin-not-bulk.md](solutions/process/an-enforced-prose-cue-on-a-test-pinned-line-is-a-pin-not-bulk.md)
+
+### [2026-10-21] — pre-push wrap-up gate false positive
+- Key changes: `.agents/git-hooks/pre-push` reported every code commit of a push as `WRAP-UP GAP` and wrote `tasks/wrap-up-debt.md` whenever a `## Session Summary — <date> [a..b]` range covered two or more commits (reported from `Joaovsales/personal-website`, 2026-10-20: 14 code commits inside a valid range, all uncovered). Root cause: the covered list was `git rev-list` output, one SHA per line, and the membership test was a `case` pattern needing a space on both sides — a `case` word is never field-split, so only a one-commit range ever matched, which is exactly the range the existing "Covered" test used. Fix: the membership test word-splits the list, so no producer has to know the delimiter. A bracket group holding a date (`[YYYY-MM-DD]`, the form the skill documents) is skipped instead of being named unparseable on every push. Two regression fixtures (a three-commit covered range; a bracketed date), both failing on the previous hook; `commit_wrapup` and `assert_no_ledger` helpers replace five and three repeated blocks. Branch `claude/pre-push-gate-covered-list-682373`.
+- Quality gate: Phases 1–3 inline with no findings. Phase 4 dispatched, GO with 3 SHOULD-FIX (all applied: the consumer-side membership test over the first draft's producer-side `tr`, and the two fixture helpers) and 1 NITPICK reported — the heading grammar is now spelled in four places that disagree on the date's brackets. A `grep -qx` pipe was rejected for the membership test: under pipefail an early `grep -q` exit can return printf's SIGPIPE once the list outgrows the pipe buffer. Receipt 01d33db6 GO, policy qg1-b803d96b; affected tests 55/55.
+- Learnings captured: [bugs/pre-push-wrap-up-gate-never-matches-a-multi-commit-range.md](solutions/bugs/pre-push-wrap-up-gate-never-matches-a-multi-commit-range.md)
+
+### [2026-10-21] — Visual plan rendered by /slice
+- Key changes: the visual-plan render moved from `/plan` Step 3 into `/slice`'s propose phase as Step 6 — after the readiness gate, under `/visual-plan`'s skip gate, with `✓ Visual written:` in the required output — so a standalone `/slice <spec>` run (the change-request loop, or a button reply that re-runs it) lands the Build Order and the page together. `/plan` Step 3 is now the `/slice` call alone; `/system-design-planning` Step 6 is unchanged, since it re-renders after the self-review and critic edits. The wiring pins in `tests/test-plan-render.sh` moved to `/slice`'s propose section with a negative pin that `/plan` renders nothing itself; the slice token list in `tests/test-doc-conventions.sh` gained the two output lines. `specs/readable-visual-plans.md` D5 and `specs/plan-slices-and-handover.md` D2 revised; README flow line and skills table; plugin 1.7.2. Found when a `/slice` run from a button reply in the test-suite-aposd planning session produced no page.
+- Learnings captured: [bugs/a-render-step-owned-by-the-caller-leaves-a-standalone-slice-run-without-its-page.md](solutions/bugs/a-render-step-owned-by-the-caller-leaves-a-standalone-slice-run-without-its-page.md); updated [bugs/plan-described-the-visual-plan-but-never-rendered-it.md](solutions/bugs/plan-described-the-visual-plan-but-never-rendered-it.md)
+
+### [2026-10-21] — test-suite-aposd build and gate
+- Key changes: `/build` for `specs/test-suite-aposd.md`, 12 slices (#336–#347) on branch `claude/test-suite-aposd-build-14b7ef`: `tests/lib.sh` as a deep module (`fixture_dir`/`fixture_repo`/`fixture_copy`, `run`, `assert_exit`/`assert_refused`/`assert_true`/`assert_false`/`assert_file_exists`/`assert_file_absent`/`assert_sweep_empty`, `under_test`/`py_module`, `skip`, `pass`/`fail` as the only counter writers, `finish` failing zero assertions, the `XFAIL`/`XPASS` platform baseline, `begin_case`/`end_case` with `TEST_CASE`); `tests/affected.sh` prefix-matches `under_test` literals; `run.sh` per-file `timeout` and the `ASSERTIONS:` summary; `cached-suite.sh` keys on the environment; `tests.yml` with `TEST_JOBS=4 REQUIRE_ALL=1 REQUIRE_BROWSER=1` and playwright+chromium; every test file migrated (29 added, 2 removed, 65 modified; `test-task-registry.sh` → 7 pieces, `test-sync-retirement.sh` → 6); `tests/expected-failures.txt` with 289 Windows rows (#129/#203/#269); plugin 1.7.3. Slices ran in parallel worktrees (sonnet agents), verified centrally on a WSL clone (final Linux run: 91 files, 7178 passed, 0 failed). `origin/master` merged mid-build (plugin 1.7.2, the `/slice` render move).
+- Quality gate: Phases 1–3 inline (applied: `end_case` pass-through inlined, `run_file` comment); Phase 4 dispatched, GO with 8 SHOULD-FIX reported and 3 NITPICK applied (case counts as deltas, `run_file --stream`, `new_fixture`→`store_project` in test-migrate-learning-store.sh); one finding (dead `|| exit 143` guards) refuted — every builder runs in a command substitution. Phase 5 on Windows: first run red on the gh-auth rows (host `gh` logged in) → STOP receipt b0ecf2d2 → baseline reconciled (4 rows out, 4 in, under a gh-auth cause comment) → second run 91 files, 6885 passed, 0 failed, 289 xfail → receipt aeaef114 **HOLD** by count (8 SHOULD-FIX), policy qg1-b803d96b. D3 replaced pins: 29.
+- Learnings captured: [conventions/a-fixture-builder-run-in-a-command-substitution-keeps-its-exit-143-guard.md](solutions/conventions/a-fixture-builder-run-in-a-command-substitution-keeps-its-exit-143-guard.md); updated [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md) (D2 correction) and [process/four-unresolved-should-fix-make-a-hold-and-a-delta-receipt-inherits-them.md](solutions/process/four-unresolved-should-fix-make-a-hold-and-a-delta-receipt-inherits-them.md)
+
+### [2026-10-21] — APOSD-first build, design mode reverted
+- Key changes: built `specs/aposd-first-build.md` slices 1–14 (#311–#324) — a plan block of bare slice headers under one feature issue upserted by `/build` pre-flight, `/slice --file` removed, every slice dispatched to a sub-agent, one home for TDD in `/tdd` (called by `/build` and `/debug`), `build/SKILL.md` held at 600 lines, the `test-engineer` persona with a `/quality-gate` Phase 5 test-adequacy review, the gate wording fixes (decision comments kept, shallow-interface parameter rule, boundary moves never `gated_auto`, R2/R10 per the book), and the `tests/fixtures/build-eval/` A/B fixtures. The AC17 Mode B eval ran two rounds (8 runs each); round 1 failed on routing (1 of 4 design runs routed), round 2 after the routing fix met equal AC coverage at 3.09× cost with no fewer design findings, so the owner chose revert: the freeze check, the design-mode loop, `ready`'s `mode=` and the persona's Write job were removed (66dba11, spec D23). Tech debt filed as #328–#331.
+- Learnings captured: [tooling/build-eval-run-directories-need-the-arms-agents-tree.md](solutions/tooling/build-eval-run-directories-need-the-arms-agents-tree.md), [patterns/a-second-skill-path-loses-to-the-default-unless-routed-first.md](solutions/patterns/a-second-skill-path-loses-to-the-default-unless-routed-first.md), [process/a-pre-registered-keep-or-revert-rule-settles-a-costly-feature.md](solutions/process/a-pre-registered-keep-or-revert-rule-settles-a-costly-feature.md)
+
+### [2026-10-22] — test-suite-aposd: design findings fixed, host-state rows skipped, re-gated
+- Key changes: the user chose "fix first" over approving receipt aeaef114 (HOLD by count). A `sonnet` `backend-developer` fixed the seven agent-owned SHOULD-FIX findings in one dispatch and two of the second pass's five in another (21dafea): a filtered `begin_case` opens no case (the `if begin_case …; then …; fi` wrap is the one form, `end_case` a no-op with no case open, `_CASE_ON` gone); one trailer grammar (`tests/run.sh` `tally` parses only the library's, a file exiting 0 without it is `FAIL <file>: no assertion trailer`; the two Python in-process files fold unittest verdicts through `pass`/`fail`); `py_module` prints the directory like `under_test`, or assigns `<var>` in the file's shell (12 files lose `${PYTHONPATH%%:*}`); the declaration grammar lives once in `tests/affected.sh`, queried through `--declared` and `--covering`; the AC-17 suite-wide sweeps live once in `tests/test-lib.sh` § invariants (four stray `PYTHONDONTWRITEBYTECODE=1` prefixes removed); `fail <message> [<actual>]` is the one public form over `_fail_count`/`_fail_detail`/`_fail_value`, a third argument stops the file; `assert_sweep_empty … -- <grep args> -- <roots>` passes grep its arguments verbatim; the seven `sed -i '$d'` seed edits became seed variants under `tests/fixtures/task-registry/`. Then the host-state rows: `test-task-registry-config.sh` probes for the gh mock and `skip`s its github rows when Python runs the host's gh (8fb5bf9); eight config rows left the baseline (289 → 281).
+- Quality gate: full scope again (an unapproved HOLD is no parent — `receipt.py` `_link_valid`); Phases 1–3 inline, Phase 4 dispatched (GO, five SHOULD-FIX: two fixed in-run, three carried); Phase 5 `bash tests/affected.sh --run e7c14eb3…` on Windows: first run red on the gh-auth rows under load (STOP receipt e93897dc), second run green after the probe-and-skip; receipt 032af75c **GO**, policy qg1-b803d96b; unresolved: 3 SHOULD-FIX (run's merged capture and the fixture primitives' wrapping idiom, owner agent; the per-piece preambles, owner human) and 3 NITPICK. Linux (WSL, 21dafea): 91 files, 7208 passed, 0 failed, 122 s.
+- Learnings captured: updated [process/four-unresolved-should-fix-make-a-hold-and-a-delta-receipt-inherits-them.md](solutions/process/four-unresolved-should-fix-make-a-hold-and-a-delta-receipt-inherits-them.md) (§ What "fix first" costs) and [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md) (host-state rows → probe and skip).
+
+### [2026-10-22] — test-suite-aposd: closure repair 1 (CI's REQUIRE_ALL reached the fixture sub-runs)
+- Key changes: PR #356's first CI run failed 3 of 7223 assertions, all of them fixture sub-runs that assert what a skipping file does *without* `REQUIRE_ALL` while inheriting CI's `REQUIRE_ALL=1`. `run_case` (test-lib.sh) now runs its case through `env -u REQUIRE_ALL -u REQUIRE_BROWSER`, taking leading `VAR=value` arguments for the cases that want a knob set; `run_box` (test-run-sh.sh) does the same for the 19 fixture-suite and plan-page sub-runs, replacing four hand-written `env -u` sites in two spellings. Nothing in `tests/lib.sh` or `tests/run.sh` changed; AC 2 and AC 14 keep their pins (`run_case REQUIRE_ALL=1 …`, `run_box REQUIRE_ALL=1 …`).
+- Quality gate: delta scope (the two test files), parent 032af75c; Phases 1–3 inline, Phase 4 dispatched (GO; one SHOULD-FIX applied in the main context, one NITPICK dissolved); Phase 5 `bash tests/affected.sh --run e7c14eb3…` (the whole suite, since the branch changes the runner); receipt 1e5819b9 **GO** (policy qg1-b803d96b) Phase 5 ran twice on Windows: the first attempt left `TEST_FILE_TIMEOUT` at its 300 s default and seven slow files were killed by the cap under the six-job load (0 assertion failures); the second, with the 10800 s cap the earlier Windows runs used, was green in 1860 s (91 files, 6909 passed, 281 xfail, 2 skipped). The same two files pass under WSL Linux with `REQUIRE_ALL=1 REQUIRE_BROWSER=1` exported.
+- Learnings captured: [bugs/fixture-sub-runs-inherit-the-ci-environment-so-the-sub-run-helper-scrubs-it.md](solutions/bugs/fixture-sub-runs-inherit-the-ci-environment-so-the-sub-run-helper-scrubs-it.md).
+
+### [2026-10-25] — Pi model fleet repointed to DeepSeek, Ceiling migrated to `"model": "inherit"`
+- Key changes: started from a question about how the Hermes `jev-*` plugins route models through OpenRouter (`~/.hermes/hermes-agent/plugin-catalog/jev-effort-router.yaml` and `kfchow-llm-value-router.yaml` rewrite an outgoing request's model and effort per turn from a `typesafe/jev` classifier call; none installed here) and ended in the project's own routing tables. The live `~/.pi/agent/settings.json` turned out to be two generations ahead of `AGENTS.md` and `PI_SETUP.md` — all OpenAI (`gpt-6-astra`/`gpt-5.6-sol`/`gpt-5.6-luna`) rather than the documented kimi/qwen/glm fleet. Repointed it (plus `presets.json`, `PI_SETUP.md`, `~/.pi/agent/AGENTS.md`) onto `deepseek-v4.1-flash` for the session default and read-heavy roles, `deepseek-v4-flash` for write-heavy builders and the debugger with a `deepseek-v4-pro` fallback, and `deepseek-v4-pro` for planner/oracle/critic: planner input cost fell 48×, output 119×. Then migrated the three plain-Ceiling reviewers to `"model": "inherit"` — `pi-subagents` 0.82.1 resolves that literal to the parent session model (`bundle/chunk-CIZQXJ5Q.js:7104`, `:7332`), so Pi finally has the real Ceiling that `.agents/references/model-routing.md` claimed only Claude Code could express; `critic` stays pinned because a directive cannot express its planner floor.
+- Quality gate: full scope; Phases 1–3 inline, Phase 4 inline (no promotion — lost corroboration: the APOSD pass shares this context's priors, so its agreement with Phases 1–3 is one perspective repeated). One Phase 1 finding applied — `SWEEP_CTL` documented as shared by § 8b/§ 9/§ 11 rather than restructured, since § 9 already consumed it from § 8b and the coupling is pre-existing. Phase 5 `bash tests/affected.sh --run ba11f75` (the declaration selects the whole suite on this branch): 91 files, 7226 passed, 0 failed, 0 xfail, 144 s. Receipt 2e57f465 **GO**, policy qg1-b8f4dc32, 2 SHOULD-FIX and 2 NITPICK unresolved. The new § 11 guard was verified by negative control: appending `model: inherit` to `.agents/agents/code-reviewer.md` fails 2 assertions, and restoring it returns 95/0. The full suite then caught what the affected run could not: `.agents/references` is one of `tests/test-plugin-manifest.sh`'s `PAYLOAD_PATHS`, so the guard demanded a version bump — and being computed against the merge base, it passed while the payload change was uncommitted and failed only once committed. `.claude-plugin/plugin.json` 1.7.3 → 1.7.4 in the same commit, the tree re-gated at delta scope on that one file: receipt 6988ef57 **GO** (policy qg1-b8f4dc32, parent 2e57f465), and the full suite green on the final tree at 91 files, 7226 passed, 0 failed.
+- Learnings captured: [conventions/pi-expresses-ceiling-as-model-inherit-not-a-pinned-model.md](solutions/conventions/pi-expresses-ceiling-as-model-inherit-not-a-pinned-model.md); [bugs/a-quote-in-a-single-quoted-grep-pattern-opens-a-string-that-never-closes.md](solutions/bugs/a-quote-in-a-single-quoted-grep-pattern-opens-a-string-that-never-closes.md); [bugs/a-stale-local-base-branch-inflates-every-range-the-harness-derives.md](solutions/bugs/a-stale-local-base-branch-inflates-every-range-the-harness-derives.md)
+
+### [2026-10-25] — jev-routing: conflict repair, and a removed config field that disabled every subagent
+- Key changes: PR #366 went `CONFLICTING` when master advanced five commits (#363/#364). One conflicted file, `tasks/todo.md`, one cause: master's `simplify` session and this one each appended a `## Session Summary` at the end, so both were kept — master's plan block and summary first, then this session's — and the merge was committed rather than rebased, because the branch is on origin and rewriting its history would break every clone that has it. The merge also carried the second problem: `~/.pi/agent/settings.json` had `fallbackModels` on `backend-developer`, `frontend-developer` and `code-debugger`, and `pi-subagents` 0.82.1 removed that field and throws on it inside `parseBuiltinOverrideEntry` — which runs in `discoverAgents`, so the throw aborted agent discovery and every dispatch in the session failed, not just the three overrides. Each override now names one model, checked against the parser's allowlist. The repository documented the field in four places and this session had added two of them, so all four are corrected and `PI_SETUP.md` now records why a provider error is returned rather than retried elsewhere. Removing the fallback also exposed a gap this session had papered over: the debugger's second rung is raised by switching models, and with no fallback field the only mechanism is a per-run `model` on the dispatch, now documented in `/build` § *Escalation ladder* and named there as the single sanctioned exception to "no per-call model params".
+- Quality gate: delta scope on `.agents/skills/build/SKILL.md` and `PI_SETUP.md` after the merge, parent 0f32acb5; receipt 2d8dc9d5 **GO** (policy qg1-b8f4dc32). Affected tests 49 files, 4758 passed, 0 failed; full suite 91 files, 7230 passed, 0 failed. CI green on `e37efca`, `mergeStateStatus=CLEAN`.
+- Defect found in the repair itself: `a0bd6ad` is a merge commit, so it committed the index — and only `tasks/todo.md` had been staged to resolve the conflict. The `fallbackModels` corrections were written before that commit and never added, so the pushed commit carried the fix in its message and not in its content, while the receipt (which hashes the working tree) reported `valid` throughout. `e37efca` ships both files unchanged from what the receipt reviewed. `git status --short` after a merge commit is the check that catches it.
+- Learnings captured: [bugs/a-merge-commit-commits-only-the-index-so-unstaged-edits-do-not-ship.md](solutions/bugs/a-merge-commit-commits-only-the-index-so-unstaged-edits-do-not-ship.md); [conventions/a-removed-pi-subagents-override-field-throws-in-discovery-and-disables-every-subagent.md](solutions/conventions/a-removed-pi-subagents-override-field-throws-in-discovery-and-disables-every-subagent.md)
+
+### [2026-10-27] — the stale-base defect behind the wrong commit count
+- Key changes: asked what the PR's "other 184 commits" were, and there were none — PR #366 carries 10 commits and 15 files (+455/−98). The count came from measuring against a **local** `master` that is 192 commits behind `origin/master`; `git log origin/master..HEAD` is 10. The same root cause produced four wrong outputs in this session: the commit count, the 22-spec `spec-reconcile` candidate set, the 76-commit ledger row, and an affected-test set of 91 files where the real diff covers ~49. Two resolvers preferred a local branch — `resolve_base()` in `.agents/git-hooks/pre-push` and the `<base-branch>` definition in `wrap-up-session/SKILL.md` § No-change exit — while `receipt.py`'s `DEFAULT_BASE_CANDIDATES` already listed `origin/*` first, so the three disagreed. Both now try `refs/remotes/origin/<base>` before `refs/heads/<base>`, the skill says to `git fetch` before resolving, and the hook still performs no network I/O. `tests/test-pre-push-gate.sh` gains a fixture whose local `master` sits at the base while `origin/master` already carries the pushed commit; it fails 2 assertions against the old resolver (70 passed / 2 failed) and passes after (72/0). The mis-diagnosed learning (`process/spec-reconcile-on-a-long-lived-branch-…`, which blamed a "long-lived branch" and prescribed filtering by staging state) was replaced by `bugs/a-stale-local-base-branch-inflates-every-range-the-harness-derives.md`; the two ledger rows computed by the defect are voided in place with a note rather than deleted, and master's genuinely uncovered `4ff3c23` is kept.
+- Quality gate: delta scope on `.agents/git-hooks/pre-push`, `wrap-up-session/SKILL.md`, its `references/spec-reconcile.md` and `tests/test-pre-push-gate.sh`, parent 2d8dc9d5; receipt 3090d211 **GO** (policy qg1-b8f4dc32). Affected tests 54 files, 5005 passed, 0 failed; full suite 91 files, 7233 passed, 0 failed. Two failures were caught on the way and fixed rather than worked around: the new `spec-reconcile.md` prose first pushed `SKILL.md` to 309 lines against its hard 300-line budget (`tests/test-instruction-budget.sh:150`), so the skill keeps the three-line rule and the explanation moved to the reference file — which is where that budget's own comment says lookup detail belongs.
+
+### [2026-10-30] — idle compaction and /build's ambiguity batch
+- Key changes: researched Claude Code's idle compaction and the one-hour prompt cache after a LinkedIn post described an "idle compact hook". It is a built-in (`idleCompaction`, on by default), and `PreCompact`/`PostCompact` already fire for it under the `auto` matcher, so `.agents/hooks/pre-compact.sh` flushes the checkpoint with no change. Reading the installed 2.1.308 binary showed the idle timer re-arms only on main-conversation requests and the host refuses only a turn in flight or a user present in the last minute — it never checks background tasks, so a `/build` turn that ends to wait on a `run_in_background` full suite (30–78 min here) can be compacted. The one state that loses is Phase 4.5's `[AMBIGUITY]` batch, which grepped agent output held in context; `/build` now copies each returning dispatch's `[AMBIGUITY]` lines under the slice heading in `tasks/todo.md` (below `> Handover:`, outside its four-line cap) and Phase 4.5 greps the plan block. `tests/test-doc-conventions.sh` gains six assertions, red before the change (886 passed / 6 failed) and green after (892/0); `build/SKILL.md` first went to 604 lines against its 600-line budget and was tightened to 598. `tests/test-install-sh.sh` timed out at the default 300 s twice and passed at 1500 s (225 passed, 0 failed, 7 xfail).
+- Learnings captured: [tooling/idle-compaction-fires-while-a-background-task-runs-so-persist-what-the-turn-collects.md](solutions/tooling/idle-compaction-fires-while-a-background-task-runs-so-persist-what-the-turn-collects.md)
+
 ## 2026-09-17 — Scheduled `tidy` routine, second run
 
 - Ran the eight `/tidy` checks inline at `2608d0a` in a dedicated worktree on

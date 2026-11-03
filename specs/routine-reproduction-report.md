@@ -1,23 +1,14 @@
 ---
 implementation_paths:
   - .agents/skills/task-registry/**
-  - .claude/skills/task-registry/**
   - .agents/skills/debug/SKILL.md
-  - .claude/skills/debug/SKILL.md
   - .agents/skills/build/SKILL.md
-  - .claude/skills/build/SKILL.md
-  - .agents/skills/verify/SKILL.md
-  - .claude/skills/verify/SKILL.md
+  - .agents/skills/verify-evidence/SKILL.md
   - .agents/skills/wrap-up-session/SKILL.md
-  - .claude/skills/wrap-up-session/SKILL.md
   - .agents/skills/sweep/SKILL.md
-  - .claude/skills/sweep/SKILL.md
   - .agents/skills/verify-task-registry/**
-  - .claude/skills/verify-task-registry/**
   - .agents/skills/wrap-up-session/references/routines.md
-  - .claude/skills/wrap-up-session/references/routines.md
   - .agents/skills/wrap-up-session/references/routine-prompts/fix.md
-  - .claude/skills/wrap-up-session/references/routine-prompts/fix.md
   - docs/task-tracking.md
   - specs/sweep-routines.md
   - specs/category-routines.md
@@ -133,7 +124,7 @@ Only this investigation stops. Other unrelated candidates remain available. The 
 
 When the defect has already been reproduced, later verification failures use the same escalation procedure only when a practical obstacle prevents further safe progress. A regression failure showing the implementation is wrong remains part of the normal debugging loop; it is not relabeled as an environment blocker to evade verification.
 
-Later failure owners are explicit: `build/SKILL.md:241,264-294` receives blocked verification, `verify/SKILL.md:194-197,243-251` reports it to the caller, and `/wrap-up-session` receives pre-PR verification results. On a fix-routine branch these callers invoke the canonical escalation procedure with the originating issue, last confirmed reproduction verdict and actual failing verification command. Add scoped handoffs to their mirrored SKILL.md files. `/verify` returns evidence and a blocked outcome; its caller files exactly once, avoiding double escalation. Ordinary interactive sessions and post-push deployment monitoring retain their existing contracts.
+Later failure owners are explicit: `build/SKILL.md:241,264-294` receives blocked verification, `verify/SKILL.md:194-197,243-251` reports it to the caller, and `/wrap-up-session` receives pre-PR verification results. On a fix-routine branch these callers invoke the canonical escalation procedure with the originating issue, last confirmed reproduction verdict and actual failing verification command. Add scoped handoffs to their mirrored SKILL.md files. `/verify-evidence` returns evidence and a blocked outcome; its caller files exactly once, avoiding double escalation. Ordinary interactive sessions and post-push deployment monitoring retain their existing contracts.
 
 ## Component contracts
 
@@ -313,14 +304,14 @@ Planning validation: all nine sections, contract signatures, fourteen acceptance
 
 ## Implementation Paths
 
-- NEW `.agents/skills/task-registry/scripts/registry/escalation.py` — validated request, hold/blocker/comment coordination, stage output; mirror under `.claude/skills/`.
+- NEW `.agents/skills/task-registry/scripts/registry/escalation.py` — validated request, hold/blocker/comment coordination, stage output.
 - `.agents/skills/task-registry/scripts/task-registry.py` — escalate flags/dispatch, explicit claim/workflow handling and preflight diagnostics.
 - `.agents/skills/task-registry/scripts/registry/config.py`, `routines.py` — configured escalation exclusion and loader validation.
 - `.agents/skills/task-registry/scripts/registry/providers/base.py`, `github.py`, `local.py` — narrow additive label seam, with local-only header update and no GitHub body replacement.
 - `.agents/skills/task-registry/scripts/registry/upsert.py` — structured result behind compatible wrapper, preserve labels and report partial publication accurately.
 - `.agents/skills/task-registry/SKILL.md`, `references/configuration.md`, `templates/task-tracking.md`, `docs/task-tracking.md` — escalation/hold/blocker policy and staged label provisioning.
 - `.agents/skills/debug/SKILL.md`, `.agents/skills/wrap-up-session/references/routines.md`, `routine-prompts/fix.md` — canonical escalation, positive continuation and all entry/stop paths; mirror every skill edit.
-- `.agents/skills/build/SKILL.md`, `.agents/skills/verify/SKILL.md`, `.agents/skills/wrap-up-session/SKILL.md` and mirrors — pass practical pre-PR verification blockers to the single canonical escalation owner on fix-routine branches.
+- `.agents/skills/build/SKILL.md`, `.agents/skills/verify-evidence/SKILL.md`, `.agents/skills/wrap-up-session/SKILL.md` and mirrors — pass practical pre-PR verification blockers to the single canonical escalation owner on fix-routine branches.
 - `.agents/skills/sweep/SKILL.md` and its mirror — retain held tasks in deduplication, skip their mutation and forbid eligible replacement clones; no expansion of producer coverage-gap filing policy.
 - `specs/sweep-routines.md`, `specs/category-routines.md`, `specs/workflow-routing.md` — reconcile existing exclusion, consumer and workflow contracts during implementation.
 - `tests/test-task-registry.sh`, `tests/test-routine-selectors.sh`, `tests/test-routine-skills.sh`, `tests/test-routines-contract.sh`, `tests/test-sweep-handoff.sh`, `tests/test-sweep-routines.sh`, `tests/fixtures/task-registry/` — behavior and failure regressions.

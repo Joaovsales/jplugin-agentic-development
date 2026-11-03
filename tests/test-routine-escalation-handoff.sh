@@ -4,10 +4,10 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-for tree in .agents .claude; do
+for tree in .agents; do
   debug="$tree/skills/debug/SKILL.md"
   build="$tree/skills/build/SKILL.md"
-  verify="$tree/skills/verify/SKILL.md"
+  verify="$tree/skills/verify-evidence/SKILL.md"
   wrap="$tree/skills/wrap-up-session/SKILL.md"
   prompt="$tree/skills/wrap-up-session/references/routine-prompts/fix.md"
 
@@ -32,13 +32,16 @@ for tree in .agents .claude; do
     "AC2: $tree/verify returns blocked evidence to its caller"
   assert_prose_contains "$verify" "must not invoke" \
     "AC9: $tree/verify does not create a second escalation"
-  assert_prose_contains "$wrap" "investigation escalation" \
+  routines="$tree/skills/wrap-up-session/references/routines.md"
+  assert_prose_contains "$wrap" "Fix-escalation terminal" \
+    "AC9: $tree/wrap-up points at the fix-escalation terminal"
+  assert_prose_contains "$routines" "investigation escalation" \
     "AC9: $tree/wrap-up recognizes the no-PR escalation terminal"
-  assert_prose_contains "$wrap" "Do not run Step 8.5" \
+  assert_prose_contains "$routines" "Do not run the terminal PR assertion" \
     "AC9: $tree/wrap-up does not replace the escalation result with a PR assertion"
-  assert_prose_contains "$wrap" "structured blocked outcome" \
+  assert_prose_contains "$routines" "structured blocked outcome" \
     "AC9: $tree/wrap-up routes its own blocked E2E result to the canonical owner"
-  assert_prose_contains "$wrap" "do not offer acknowledgement" \
+  assert_prose_contains "$routines" "do not offer acknowledgement" \
     "AC9: $tree/wrap-up cannot acknowledge past a fix-routine verification blocker"
 
   assert_contains "$(cat "$prompt")" "task-registry escalate" \
@@ -47,15 +50,6 @@ for tree in .agents .claude; do
   [ "$lines" -lt 25 ]; assert_eq "0" "$?" \
     "AC13: $tree/fix prompt remains under 25 lines"
 done
-
-assert_files_identical .agents/skills/debug/SKILL.md .claude/skills/debug/SKILL.md \
-  "AC13: debug mirrors are byte-identical"
-assert_files_identical .agents/skills/build/SKILL.md .claude/skills/build/SKILL.md \
-  "AC13: build mirrors are byte-identical"
-assert_files_identical .agents/skills/verify/SKILL.md .claude/skills/verify/SKILL.md \
-  "AC13: verify mirrors are byte-identical"
-assert_files_identical .agents/skills/wrap-up-session/SKILL.md .claude/skills/wrap-up-session/SKILL.md \
-  "AC13: wrap-up mirrors are byte-identical"
 
 contract=.agents/skills/wrap-up-session/references/routines.md
 assert_prose_contains "$contract" "investigation escalation" \

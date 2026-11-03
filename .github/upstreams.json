@@ -23,6 +23,39 @@
         "pstack/skills/poteto-mode/playbooks/eval.md"
       ],
       "source_notice": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "id": "pstack-how-why",
+      "url": "https://github.com/cursor/plugins.git",
+      "ref": "refs/heads/main",
+      "baseline": "12d587dfb20741cafc376c42c696c5f6e2a64487",
+      "paths": [
+        "pstack/LICENSE",
+        "pstack/skills/how",
+        "pstack/skills/why"
+      ],
+      "source_notice": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "id": "mattpocock-skills",
+      "url": "https://github.com/mattpocock/skills.git",
+      "ref": "refs/heads/main",
+      "baseline": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "paths": [
+        "LICENSE",
+        "skills/productivity/grilling/SKILL.md",
+        "skills/productivity/grill-me/SKILL.md",
+        "skills/engineering/domain-modeling/SKILL.md"
+      ],
+      "source_notice": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "id": "archify",
+      "kind": "installed",
+      "url": "https://github.com/tt-a1i/archify.git",
+      "ref": "refs/tags/v3.2.0",
+      "baseline": "208acba8d412335185b2056fedf54b3405df43fb",
+      "source_notice": "THIRD_PARTY_NOTICES.md"
     }
   ]
 }

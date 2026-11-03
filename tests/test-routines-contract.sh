@@ -17,13 +17,12 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-CANON=".agents/skills/wrap-up-session/references/routines.md"
-COPY=".claude/skills/wrap-up-session/references/routines.md"
+py_module .agents/skills/task-registry/scripts >/dev/null
 
-assert_eq "present" "$([ -f "$CANON" ] && echo present || echo missing)" \
+CANON=".agents/skills/wrap-up-session/references/routines.md"
+
+assert_file_exists "$CANON" \
   "Contract: $CANON exists"
-assert_files_identical "$CANON" "$COPY" \
-  "Contract: ships byte-identically to the .claude parity copy"
 
 # --- the four routines, three active and one deferred ------------------------
 for routine in plan fix improve build; do
@@ -49,7 +48,7 @@ assert_prose_contains "$CANON" "documentation" "Contract: improve selects docume
 
 # --- precedence chain, verbatim and ordered ----------------------------------
 assert_prose_contains "$CANON" \
-  "bug > design-decision > tech-debt > enhancement > documentation" \
+  "bug > design-decision > simplify > tech-debt > enhancement > documentation" \
   "Contract: the kind precedence chain is stated in order"
 
 # The chain orders PROVIDER LABEL NAMES, not canonical kinds. `tech-debt` and
@@ -82,6 +81,18 @@ assert_prose_contains "$CANON" "Closes #N" \
   "Contract: fix/improve PR bodies carry Closes #N"
 assert_prose_contains "$CANON" "draft" \
   "Contract: plan's terminal artifact is a draft PR"
+# A GITHUB_TOKEN merge fires no closing keyword (#146), so "the tracker closes the
+# issue when the PR merges" holds only for a human merge. The contract names the
+# registry's post-merge check and the permission it needs.
+CLOSURE="$(section_body "$CANON" "## Issue closure happens on merge")"
+assert_contains "$CLOSURE" "GITHUB_TOKEN" \
+  "Contract: closure names the GITHUB_TOKEN merge that fires no closing keyword"
+assert_contains "$CLOSURE" "task-registry closes" \
+  "Contract: closure names the registry's post-merge check"
+assert_contains "$CLOSURE" "stranded" \
+  "routines: a merge nobody ran closes after is caught by select's stranded line"
+assert_contains "$CLOSURE" "issues: write" \
+  "Contract: closure names the permission the check needs"
 
 # --- step lists: one shared spine, per-routine differences only --------------
 # The substance of AC8. Each active routine names an ordered, mandatory step list
@@ -108,11 +119,55 @@ assert_contains "$spine" "non-skippable" "Contract: the spine marks its non-skip
 wrapup_rows="$(grep -cE '^\| [0-9a-c]+ \| .?/wrap-up-session' "$CANON" || true)"
 assert_eq "2" "$wrapup_rows" \
   "Contract: /wrap-up-session appears as exactly two step rows, one per spine"
-for routine in plan fix improve janitor architect tidy; do
+for routine in plan fix improve simplify janitor architect tidy; do
   section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
   assert_not_contains "$section" "/wrap-up-session" \
     "Contract: $routine's own section does not restate /wrap-up-session"
 done
+
+# --- crossing the plan handover (specs/lane-plan-handover.md AC1, AC2) --------
+# A lane that chains a planner into /build crosses /plan's build-prompt handover
+# here, once. Pinned by what each reader needs: the owners, the ownerless lanes,
+# the unattended override and the interactive rule.
+assert_file_matches "$CANON" '^### Crossing the plan handover' \
+  "AC1: the plan-handover crossing map has a section of its own"
+crossing="$(awk '/^### Crossing the plan handover/{f=1;next} f&&/^##/{exit} f' "$CANON")"
+for owner in /auto-push /yolo /make-it-simpler; do
+  assert_contains "$crossing" "$owner" \
+    "AC1: the crossing section names $owner as owning its crossing"
+done
+assert_contains "$crossing" "simplify" \
+  "AC1: the crossing section names simplify"
+assert_contains "$crossing" "Overrides" \
+  "AC1: simplify crosses through /make-it-simpler § Overrides"
+for lane in improve refactor babysit; do
+  assert_contains "$crossing" "$lane" \
+    "AC1: the crossing section names ownerless lane $lane"
+done
+assert_contains "$crossing" "Unattended detection" \
+  "AC1: the unattended rule keys on § Unattended detection"
+assert_contains "$crossing" '`> Issue:`' \
+  "AC1: an unattended run writes the claimed issue as > Issue:"
+assert_contains "$(printf '%s' "$crossing" | tr -s '[:space:]' ' ')" "files nothing" \
+  "AC1: the crossing section says the unattended run files nothing"
+assert_contains "$crossing" "no build prompt" \
+  "AC1: an unattended run prints no build prompt"
+assert_contains "$crossing" "in place" \
+  "AC1: an unattended run builds in place"
+assert_contains "$crossing" "/system-design-planning" \
+  "AC1: the unattended override covers /system-design-planning's hand-over"
+assert_contains "$crossing" "last message" \
+  "AC1: an interactive build prompt stays the session's last message"
+assert_contains "$crossing" "handed over: build prompt" \
+  "AC1: interactive lane lines carry the handed-over marker"
+assert_contains "$crossing" "dispatches every slice to a sub-agent" \
+  "AC1: the crossing section cites /build for the fresh-context dispatch"
+assert_file_contains ".agents/skills/wrap-up-session/references/routine-prompts/improve.md" \
+  "Crossing the plan handover" \
+  "AC2: the improve routine prompt cites the crossing section"
+assert_file_not_matches ".agents/skills/wrap-up-session/references/routine-prompts/improve.md" \
+  "confirm the plan yourself" \
+  "AC2: the improve routine prompt no longer says to confirm the plan yourself"
 
 # --- producers: the second spine ---------------------------------------------
 for routine in janitor architect tidy; do
@@ -133,27 +188,69 @@ assert_contains "$producer_spine" "/sweep --routine" \
 assert_contains "$producer_spine" "non-skippable" \
   "Contract: the producer spine marks its gates non-skippable"
 
-for routine in plan fix improve; do
+for routine in plan fix improve simplify; do
   assert_file_matches "$CANON" "^### .$routine. — steps" \
     "Contract: $routine has a step section of its own"
 done
 
-# The routines that produce code reach /build and /quality-gate; both are gates.
-for routine in fix improve; do
+# The step rows themselves live in the lane catalogue (specs/lane-catalogue.md
+# AC6): each routine's section names its lane file and restates no row, so the
+# gates below are read from the lane file and the section is pinned row-free.
+LANES=".agents/skills/task-registry/lanes"
+for routine in plan fix improve simplify janitor architect tidy; do
   section="$(awk -v r="$routine" 'index($0, "### `" r "` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
-  assert_contains "$section" "/build" "Contract: $routine step 4 reaches /build"
-  assert_contains "$section" "/quality-gate" "Contract: $routine step 4 reaches /quality-gate"
-  assert_contains "$section" "non-skippable" \
-    "Contract: $routine marks its build and quality gates non-skippable"
+  assert_contains "$section" "$routine.md" \
+    "Contract: $routine's section names its lane file"
+  assert_eq "0" "$(printf '%s\n' "$section" | grep -cE '^\| [0-9]' || true)" \
+    "Contract: $routine's section carries no step rows of its own"
+  assert_file_exists "$LANES/$routine.md" \
+    "Contract: lane file $LANES/$routine.md exists"
+done
+
+# The routines that produce code reach /quality-gate; both are gates. improve
+# builds through /build; fix builds inside /debug, which runs its rows through /tdd.
+assert_file_contains "$LANES/fix.md" "/tdd" "Contract: fix's lane builds through /debug's /tdd run"
+assert_file_not_matches "$LANES/fix.md" '^[0-9]+\. `/build`' "Contract: fix's lane has no /build step"
+for routine in fix improve; do
+  [ "$routine" = improve ] && assert_file_contains "$LANES/$routine.md" "/build" "Contract: $routine's lane reaches /build"
+  assert_file_contains "$LANES/$routine.md" "/quality-gate" \
+    "Contract: $routine's lane reaches /quality-gate"
+  assert_file_contains "$LANES/$routine.md" "non-skippable" \
+    "Contract: $routine's lane marks its build and quality gates non-skippable"
 done
 
 # `plan` produces a spec and no implementation. Requiring /quality-gate there
 # would write a `skip:` row on every run, and a ledger that always reads `skip:`
 # teaches nobody anything -- so its absence is stated, not silent.
 plan_section="$(awk 'index($0, "### `plan` — steps") == 1 {found=1; next} found && /^### / {exit} found {print}' "$CANON")"
-assert_contains "$plan_section" "/plan" "Contract: plan's step 4 is /plan"
+assert_file_contains "$LANES/plan.md" '`/plan <ref>`' "Contract: plan's lane step is /plan"
 assert_contains "$plan_section" "deliberately absent" \
   "Contract: plan states WHY it carries no build or quality gate"
+
+# --- the routine table is a mirror of the catalogue, pinned ------------------
+# Names, selectors and the deferral all live in the lane files' frontmatter now;
+# the table stays because it is what a human reads first, and this is what keeps
+# it honest.
+table_names="$(sed -nE 's/^\| `([a-z-]+)` \|.*/\1/p' "$CANON" | sort | paste -sd' ' -)"
+catalogue_view="$("$TEST_PYTHON" -c '
+from registry.lanes import catalogue
+c = catalogue()
+print(" ".join(c.routines))
+for name, labels in sorted(c.selectors.items()):
+    print(name + ": " + " ".join(labels))' | tr -d '\r')"
+assert_eq "$(printf '%s\n' "$catalogue_view" | head -1)" "$table_names" \
+  "Contract: the routine table's rows are exactly the catalogue's routines"
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  name="${line%%:*}"
+  row="$(grep -E "^\| \`$name\` \|" "$CANON")"
+  for label in ${line#*: }; do
+    assert_contains "$row" "\`$label\`" \
+      "Contract: $name's table row carries its catalogue selector $label"
+  done
+done <<EOF
+$(printf '%s\n' "$catalogue_view" | tail -n +2)
+EOF
 
 # --- the ledger rule itself --------------------------------------------------
 assert_prose_contains "$CANON" "skip: <reason>" \
@@ -205,8 +302,7 @@ contract_deferred="$(sed -nE 's/^\| `([a-z-]+)` \|.*\|[^|]*deferred[^|]*\|[[:spa
 assert_eq "build" "$contract_deferred" \
   "Contract: the Status column marks exactly one routine deferred"
 
-config_deferred="$(PYTHONDONTWRITEBYTECODE=1 \
-  PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -c '
+config_deferred="$("$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(sorted(DEFERRED_ROUTINES)))')"
 assert_eq "$contract_deferred" "$config_deferred" \
@@ -217,8 +313,7 @@ assert_eq "$contract_deferred" "$config_deferred" \
 for issue in 97 98; do
   assert_file_contains "$CANON" "#$issue" \
     "Contract: the deferral section cites #$issue"
-  assert_contains "$(PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH="$REPO/.agents/skills/task-registry/scripts" python3 -c '
+  assert_contains "$("$TEST_PYTHON" -c '
 from registry.config import DEFERRED_ROUTINES
 print(" ".join(DEFERRED_ROUTINES.values()))')" "#$issue" \
     "Contract: the deferral message workflow prints cites #$issue too"

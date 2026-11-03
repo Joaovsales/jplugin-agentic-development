@@ -146,7 +146,7 @@ All keys except `title` and `sections` are optional.
 ## Integration
 
 - **Called by**: `software-design-expert-learn` (session design reviews). Other narrative-producing skills should call this rather than rolling their own HTML.
-- **Pairs with**: any skill that produces structured analysis and wants a polished deliverable (`/verify`, `/wrap-up-session`, `/prd`).
+- **Pairs with**: any skill that produces structured analysis and wants a polished deliverable (`/verify-evidence`, `/wrap-up-session`, `/prd`).
 - **Calls**: none — leaf skill.
 
 ## Key Principles

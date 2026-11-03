@@ -16,10 +16,14 @@ sub-agents where the harness offers them and run inline where it does not.
 | `fix` | consumer | `fix.md` | `/debug #N` | Builder | daily |
 | `improve` | consumer | `improve.md` | `/plan` from `task-registry show <N>`, then `/build` | Builder | daily |
 | `plan` | consumer | `plan.md` | `/plan` from `task-registry show <N>` | Planner | daily |
+| `simplify` | consumer | `simplify.md` | `/make-it-simpler --unattended` | Planner | daily |
 
 Producers run on the **Planner** tier because verification and design review are
 judgement; consumers `fix` and `improve` run on the **Builder** tier because the
-issue body already carries the reproduction and the proposed fix. Cadence is the
+issue body already carries the reproduction and the proposed fix. `simplify` is a
+consumer that files its own candidates first, so it runs on **Planner**: its
+rank, deep review and minor/significant call are the same judgement a producer
+makes. Cadence is the
 operator's — weekly for producers so consumers have a week of daily runs to drain
 what they filed.
 
@@ -35,12 +39,12 @@ Configure once per project:
   file **and** `TASK_REGISTRY_TRUSTED_CONFIG=1` in the routine's environment.
   With either missing the sweep still runs and files local records marked
   *publication pending*; the PR body names the switch to flip.
-- **An authenticated `gh`** — the GitHub provider is `gh`-only. `gh auth status`
+- **An authenticated `gh`** — the GitHub provider is `gh`-only. `gh api user`
   must succeed in the routine's environment, with a token that can read and
   write issues.
 - **Mapped labels pre-existing** — every label in `[labels]` and every routine
   selector (`bug`, `tech-debt`, `enhancement`, `documentation`,
-  `design-decision`, `now`, `next`, `in-progress`) must
+  `design-decision`, `simplify`, `now`, `next`, `in-progress`) must
   exist in the tracker unless `allow_label_creation = true`. A missing label is
   reported, and the issue is written without it.
 - **`janitor` only: an app that launches here.** The routine drives every mapped
@@ -49,7 +53,7 @@ Configure once per project:
   browser. A feature that cannot launch is a coverage gap, not a finding, so an
   environment that launches nothing produces a record that proves nothing.
 - **`tidy` only: an authenticated `gh` that can read pull requests.** Its
-  `worktrees` check proves a merge through `gh pr list --state merged`; without
+  `worktrees` check proves a merge by listing the merged pull requests; without
   it every worktree is report-only. A fresh checkout has no installed copies
   and no worktrees, so `installed` and `worktrees` report *skipped* there —
   those two surfaces are only ever checked by a run on the operator's machine.

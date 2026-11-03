@@ -1,0 +1,80 @@
+[
+  {
+    "variant": "brutalist",
+    "viewport": 1440,
+    "title": "Scout, with boundaries \u2014 Codex routing plan",
+    "h1": [
+      "SCOUT.\nBOUNDED."
+    ],
+    "width": 1440,
+    "anchors": 12,
+    "canvases": 0,
+    "images": [],
+    "errors": []
+  },
+  {
+    "variant": "brutalist",
+    "viewport": 390,
+    "title": "Scout, with boundaries \u2014 Codex routing plan",
+    "h1": [
+      "SCOUT.\nBOUNDED."
+    ],
+    "width": 390,
+    "anchors": 12,
+    "canvases": 0,
+    "images": [],
+    "errors": []
+  },
+  {
+    "variant": "minimalist",
+    "viewport": 1440,
+    "title": "Codex Scout Routing \u2014 Architecture Review",
+    "h1": [
+      "Codex Scout Routing."
+    ],
+    "width": 1440,
+    "anchors": 11,
+    "canvases": 0,
+    "images": [],
+    "errors": []
+  },
+  {
+    "variant": "minimalist",
+    "viewport": 390,
+    "title": "Codex Scout Routing \u2014 Architecture Review",
+    "h1": [
+      "Codex Scout Routing."
+    ],
+    "width": 390,
+    "anchors": 11,
+    "canvases": 0,
+    "images": [],
+    "errors": []
+  },
+  {
+    "variant": "spatial",
+    "viewport": 1440,
+    "title": "Scout routing | Architecture exhibit",
+    "h1": [
+      "Give exploration\nits own route."
+    ],
+    "width": 1440,
+    "anchors": 10,
+    "canvases": 1,
+    "images": [],
+    "errors": []
+  },
+  {
+    "variant": "spatial",
+    "viewport": 390,
+    "title": "Scout routing | Architecture exhibit",
+    "h1": [
+      "Give exploration\nits own route."
+    ],
+    "width": 390,
+    "anchors": 10,
+    "canvases": 1,
+    "images": [],
+    "errors": []
+  }
+]

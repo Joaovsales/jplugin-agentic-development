@@ -1,5 +1,5 @@
 #!/bin/bash
-# tests/test-skill-frontmatter.sh — frontmatter validity across both skill trees.
+# tests/test-skill-frontmatter.sh — frontmatter validity across the skill tree.
 #
 # A skill whose frontmatter is malformed does not fail loudly: the harness either
 # skips it or registers it under the wrong name, and the only symptom is that
@@ -14,13 +14,14 @@
 #   5. `description:` is present — it is the model's only signal for auto-invocation
 #   6. `description:` stays within the 1024-char skill-spec cap
 #
-# Excludes .claude/worktrees/, which holds full copies of both trees.
+# Excludes .claude/worktrees/, which holds full copies of the tree.
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 DESC_MAX=1024
+under_test .agents/skills >/dev/null
 
 # Read every frontmatter fact in ONE awk pass — three lines: has-block, name,
 # description length. One subprocess per skill rather than one per key: on Windows
@@ -45,7 +46,7 @@ scan_frontmatter() {
   ' "$1"
 }
 
-for tree in .agents/skills .claude/skills; do
+for tree in .agents/skills; do
   [ -d "$tree" ] || continue
   for dir in "$tree"/*/; do
     [ -d "$dir" ] || continue
@@ -53,8 +54,7 @@ for tree in .agents/skills .claude/skills; do
     md="$dir/SKILL.md"
 
     if [ ! -f "$md" ]; then
-      _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-      printf '  FAIL Frontmatter: %s has no SKILL.md\n' "$dir"
+      fail "Frontmatter: $dir has no SKILL.md"
       continue
     fi
 
@@ -65,19 +65,8 @@ EOF
     assert_eq "yes" "$has_fm" "Frontmatter: $tree/$skill opens with a --- block"
     assert_eq "$skill" "$name" "Frontmatter: $tree/$skill name matches its directory"
 
-    if [ "${desc_len:-0}" -gt 0 ]; then
-      assert_eq "present" "present" "Frontmatter: $tree/$skill has a description"
-      if [ "$desc_len" -le "$DESC_MAX" ]; then
-        assert_eq "within" "within" "Frontmatter: $tree/$skill description <= $DESC_MAX chars"
-      else
-        _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-        printf '  FAIL Frontmatter: %s/%s description is %s chars (max %s)\n' \
-          "$tree" "$skill" "$desc_len" "$DESC_MAX"
-      fi
-    else
-      _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-      printf '  FAIL Frontmatter: %s/%s has no description\n' "$tree" "$skill"
-    fi
+    assert_true "Frontmatter: $tree/$skill has a description" -- test "${desc_len:-0}" -gt 0
+    assert_true "Frontmatter: $tree/$skill description <= $DESC_MAX chars" -- test "${desc_len:-0}" -le "$DESC_MAX"
   done
 done
 

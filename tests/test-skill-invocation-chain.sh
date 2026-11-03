@@ -5,7 +5,7 @@
 #
 # Why this exists. A triggerability audit (2026-08-28) found that several
 # load-bearing skills never fire from an organic user request -- /quality-gate,
-# /verify, /learn and /security-scan are reached because an *upstream skill
+# /verify-evidence, /learn and /security-scan are reached because an *upstream skill
 # invokes them*, not because a user phrases a request that routes to them. That
 # makes the chain the actual delivery mechanism for those gates, and it lives
 # only in prose. Prose behavior is not mechanically enforced, so a reflow, a
@@ -28,7 +28,7 @@ cd "$(dirname "$0")/.."
 # is the byte-identical copy Claude Code actually reads, so a chain present in
 # only one of them is a real defect: the harness in use might be reading the
 # copy that lost the handoff.
-TREES=".agents .claude"
+TREES=".agents"
 
 # ── /build -> /quality-gate ───────────────────────────────────────────────────
 # The post-build review gate. /build is the only caller in the normal flow.
@@ -45,23 +45,35 @@ for tree in $TREES; do
     "Chain: $tree/quality-gate dispatches software-design-expert-review"
 done
 
-# ── /system-design-planning -> task-registry, visual-render.py, /build ────────
+# ── /system-design-planning -> /grilling, /slice, plan_render.py, /build ─────
 # The supervised architecture entry point. It is interchangeable with /plan
-# downstream only while these three handoffs stay written: intake and filing go
-# through the registry (never a tracker CLI), the review document renders through
-# the shared post-processor, and the approved plan lands where /build reads it.
+# downstream only while these handoffs stay written: intake reads through the
+# registry (never a tracker CLI), §2.5 interviews through /grilling, Step
+# 3.5 sizes and files through /slice (which now owns the upsert call this pin
+# used to sit on), the review document renders through the visual-plan
+# renderer, and the plan /slice writes lands where /build reads it.
 for tree in $TREES; do
   f="$tree/skills/system-design-planning/SKILL.md"
   assert_file_contains "$f" "task-registry.py show" \
     "Chain: $tree/system-design-planning reads issues through task-registry"
-  assert_file_contains "$f" "task-registry.py upsert" \
-    "Chain: $tree/system-design-planning files slices through task-registry"
-  assert_file_contains "$f" ".agents/skills/visual-recap/scripts/visual-render.py" \
-    "Chain: $tree/system-design-planning renders through visual-render.py"
+  assert_file_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/system-design-planning invokes /slice"
+  assert_file_contains "$f" ".agents/skills/visual-plan/scripts/plan_render.py" \
+    "Chain: $tree/system-design-planning renders through plan_render.py"
   assert_file_contains "$f" "### 9. Hand off" \
     "Chain: $tree/system-design-planning hands off to /build"
   assert_file_contains "$f" "tasks/todo.md" \
     "Chain: $tree/system-design-planning writes the plan /build reads"
+done
+
+# ── /slice -> task-registry upsert (moved from /system-design-planning) ─────
+# /slice is the one owner of filing now -- Step 3.5 hands sizing, the plan
+# block and the build prompt to it, so the "files slices through
+# task-registry" pin follows the upsert call to where it actually lives.
+for tree in $TREES; do
+  f="$tree/skills/slice/SKILL.md"
+  assert_file_contains "$f" "task-registry.py upsert" \
+    "Chain: $tree/slice files slices through task-registry"
 done
 
 # ── /wrap-up-session -> /learn ───────────────────────────────────────────────
@@ -73,15 +85,15 @@ for tree in $TREES; do
     "Chain: $tree/wrap-up-session invokes /learn"
 done
 
-# ── /wrap-up-session -> /verify --scope e2e ──────────────────────────────────
+# ── /wrap-up-session -> /verify-evidence --scope e2e ──────────────────────────────────
 # CLAUDE.md's Quality Gate requires an e2e walkthrough per user-facing AC. The
-# enforcement point is wrap-up-session, not /verify itself.
+# enforcement point is wrap-up-session, not /verify-evidence itself.
 for tree in $TREES; do
   f="$tree/skills/wrap-up-session/SKILL.md"
   assert_file_contains "$f" "/maintain-verification-skill --scope changed" \
     "Chain: $tree/wrap-up-session reconciles the feature map"
-  assert_file_contains "$f" "/verify --scope e2e" \
-    "Chain: $tree/wrap-up-session invokes /verify --scope e2e"
+  assert_file_contains "$f" "/verify-evidence --scope e2e" \
+    "Chain: $tree/wrap-up-session invokes /verify-evidence --scope e2e"
   assert_file_contains "$f" "tasks/e2e-log.md" \
     "Chain: $tree/wrap-up-session checks the e2e evidence log"
 done
@@ -94,27 +106,27 @@ for tree in $TREES; do
   for skill in build wrap-up-session; do
     f="$tree/skills/$skill/SKILL.md"
     maintain_line=$(grep -nF "/maintain-verification-skill --scope changed" "$f" | head -1 | cut -d: -f1)
-    verify_line=$(grep -niF 'invoke `/verify --scope e2e`' "$f" | head -1 | cut -d: -f1)
-    review_line=$(grep -nE '^## (Phase 3|Step 4) .*Quality Gate|^## Step 4 .*Code Review' "$f" | head -1 | cut -d: -f1)
-    full_test_line=$(grep -nE '^## Phase 2 .*Full Suite|^## Step 6 .*Run Tests' "$f" | head -1 | cut -d: -f1)
+    verify_line=$(grep -niF 'invoke `/verify-evidence --scope e2e`' "$f" | head -1 | cut -d: -f1)
+    review_line=$(grep -nE '^## Phase 3 .*Quality Gate|^### Quality receipt$' "$f" | head -1 | cut -d: -f1)
+    full_test_line=$(grep -nE '^## Phase 2 .*Validation|^### Full suite$' "$f" | head -1 | cut -d: -f1)
     assert_file_contains "$f" "/maintain-verification-skill --scope changed" \
       "Chain: $tree/$skill names changed-scope maintenance"
     assert_file_matches "$f" '`blocked`.*STOP' \
       "Chain: $tree/$skill stops when maintenance is blocked"
     if [ -n "${maintain_line:-}" ] && [ -n "${verify_line:-}" ] && [ "$maintain_line" -lt "$verify_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before e2e"
+      pass "Chain: $tree/$skill maintains before e2e"
     else
       assert_eq "maintenance before e2e" "${maintain_line:-missing} / ${verify_line:-missing}" \
         "Chain: $tree/$skill maintains before e2e"
     fi
     if [ -n "${maintain_line:-}" ] && [ -n "${full_test_line:-}" ] && [ "$maintain_line" -lt "$full_test_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before full tests"
+      pass "Chain: $tree/$skill maintains before full tests"
     else
       assert_eq "maintenance before full tests" "${maintain_line:-missing} / ${full_test_line:-missing}" \
         "Chain: $tree/$skill maintains before full tests"
     fi
     if [ -n "${maintain_line:-}" ] && [ -n "${review_line:-}" ] && [ "$maintain_line" -lt "$review_line" ]; then
-      assert_eq "before" "before" "Chain: $tree/$skill maintains before review"
+      pass "Chain: $tree/$skill maintains before review"
     else
       assert_eq "maintenance before review" "${maintain_line:-missing} / ${review_line:-missing}" \
         "Chain: $tree/$skill maintains before review"
@@ -122,14 +134,34 @@ for tree in $TREES; do
   done
 done
 
+# ── wrap-up: E2E coverage sits in Reconcile, before the receipt and the suite
+# specs/wrap-up-phases.md AC4 and Decision 2. The walkthrough can write
+# tasks/e2e-log.md or an [e2e-gap] document; run after cached-suite.sh hashed the
+# tree, those edits would be pushed without a full run.
+for tree in $TREES; do
+  f="$tree/skills/wrap-up-session/SKILL.md"
+  prev=0
+  for anchor in "/maintain-verification-skill --scope changed" 'invoke `/verify-evidence --scope e2e`' \
+                "### Quality receipt" "### Full suite"; do
+    line=$(grep -nF -- "$anchor" "$f" | head -1 | cut -d: -f1)
+    if [ -n "${line:-}" ] && [ "$line" -gt "$prev" ]; then
+      pass "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
+      prev=$line
+    else
+      assert_eq "after line $prev" "${line:-missing}" \
+        "Chain: $tree/wrap-up-session '$anchor' follows the step before it"
+    fi
+  done
+done
+
 # Stop is a shell cleanup/warning hook, not an agentic editing lifecycle.
-for hook in .claude/hooks/*stop*.sh; do
+for hook in .agents/hooks/*stop*.sh; do
   assert_file_not_matches "$hook" 'maintain-verification-skill|create-verification-skill' \
     "Chain: $hook does not invoke verification-skill maintenance"
 done
 
 # ── discoverability and two-speed maintenance --------------------------------
-for doc in README.md CLAUDE.md; do
+for doc in README.md; do
   assert_file_contains "$doc" "/create-verification-skill" \
     "Docs: $doc lists the verification-skill creator"
   assert_file_contains "$doc" "/maintain-verification-skill" \
@@ -140,12 +172,10 @@ for doc in README.md CLAUDE.md; do
     "Docs: $doc distinguishes full maintenance"
 done
 
-assert_file_contains .claude/hooks/session-start.sh "/create-verification-skill" \
-  "Banner: lists the verification-skill creator"
-assert_file_contains .claude/hooks/session-start.sh "/maintain-verification-skill" \
-  "Banner: lists verification-skill maintenance"
-assert_file_contains .claude/hooks/session-start.sh "--scope changed" \
-  "Banner: identifies incremental maintenance"
+# The banner lists no skills (specs/single-instruction-file.md: README is the
+# one catalog, and a list restated at session start loads twice).
+assert_file_not_matches .agents/hooks/session-start.sh "SKILLS AVAILABLE" \
+  "Banner: carries no skills list"
 
 # ── /auto-push and /yolo -> the phases they promise ──────────────────────────
 # Both advertise an autonomous pipeline in their own descriptions. If a stage
@@ -172,13 +202,42 @@ for tree in $TREES; do
     "Chain: $tree/wrap-up-session records deferred work as a task"
 done
 
-# ── /plan -> /task-registry, after approval and never before ────────────────
+# ── /plan -> /slice ───────────────────────────────────────────────────────
+# specs/plan-slices-and-handover.md AC8. /plan no longer writes a plan block
+# or files tasks itself -- Step 3 hands sizing, the plan block and the build
+# prompt to /slice, and /plan never invokes /build directly.
 for tree in $TREES; do
   f="$tree/skills/plan/SKILL.md"
-  assert_file_contains "$f" "/task-registry" \
-    "Chain: $tree/plan registers tasks through the registry"
-  assert_file_contains "$f" "never creates an external issue implicitly" \
-    "Chain: $tree/plan states that planning creates no external issue on its own"
+  assert_file_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/plan invokes /slice"
+  assert_file_not_matches "$f" 'Invoke `/build' \
+    "Chain: $tree/plan never itself invokes /build"
+done
+
+# ── /build -> task-registry upsert ────────────────────────────────────────
+# specs/aposd-first-build.md AC4. /build's pre-flight upserts the feature row
+# once, in the session the build prompt started -- the authorization the
+# planning session never had. /slice has no --file mode to invoke.
+for tree in $TREES; do
+  f="$tree/skills/build/SKILL.md"
+  assert_file_contains "$f" "task-registry.py upsert <id>" \
+    "Chain: $tree/build's pre-flight upserts the feature row through task-registry"
+  assert_file_not_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/build no longer invokes /slice"
+done
+
+# ── /brainstorm -> /grilling, /grill-me -> /grilling, /system-design-planning -> /grilling ───
+# The interview primitive is reached only through these three callers. Sever the
+# brainstorm handoff and Step 3 silently reverts to a question dump with no
+# recommendations; sever grill-me's and the user-typed front door does nothing;
+# sever system-design-planning's §2.5 and it stops interviewing altogether.
+for tree in $TREES; do
+  assert_file_matches "$tree/skills/brainstorm/SKILL.md" '^Invoke `/grilling`' \
+    "Chain: $tree/brainstorm invokes /grilling"
+  assert_file_matches "$tree/skills/grill-me/SKILL.md" '^Invoke `/grilling`' \
+    "Chain: $tree/grill-me invokes /grilling"
+  assert_file_matches "$tree/skills/system-design-planning/SKILL.md" '^Invoke `/grilling' \
+    "Chain: $tree/system-design-planning invokes /grilling"
 done
 
 finish

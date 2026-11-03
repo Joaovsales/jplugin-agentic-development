@@ -12,7 +12,14 @@ implementation_paths:
 <!-- Guidance comments like this one are removed before the spec is saved.
      Every section is written in the present tense: what the system does once
      the change is in, not what it will do. Ordinary bullets for acceptance
-     criteria — a checkbox records an intention, a spec records a fact. -->
+     criteria — a checkbox records an intention, a spec records a fact.
+     Write connected sentences, not slash-packed shorthand; cut repetition,
+     empty qualifiers and narration of how the session went. -->
+
+## Summary
+
+<!-- Two to four sentences: what changes, for whom, and the one decision the
+     reviewer must not miss. The visual plan opens with this as its lead. -->
 
 ## Problem
 
@@ -47,16 +54,16 @@ implementation_paths:
 
 ### Interaction
 
-<!-- Every arrow is sync or async, and every arrow states what happens on
-     timeout. Existing paths are drawn with their real file:line; paths this
-     change adds are marked NEW. -->
+<!-- At least one flow diagram. Every arrow is sync or async, and every arrow
+     states what happens on timeout. Existing paths are drawn with their real
+     file:line; components this change adds are marked (new), changed ones
+     (changed). -->
 
-```text
- caller                      ComponentA                  ComponentB
-   │  (1) sync request  ───►  │                            │
-   │                          │  (2) async event  ──────►  │  NEW
-   │  ◄──── (3) outcome ───   │                            │
-   │                          │  ◄── (4) ack / retry ────  │
+```flow
+caption: <one sentence naming the path drawn>
+caller -> ComponentA : (1) sync request
+ComponentA --> ComponentB (new) : (2) async event
+ComponentB --> ComponentA : (4) ack / retry
 ```
 
 | Arrow | Mode | On timeout | On duplicate |
@@ -87,6 +94,22 @@ def operation(request: Request, *, idempotency_key: str) -> Done | Rejected | Un
 | Raises | <only programmer errors and infrastructure faults> |
 | Idempotency | <same key within N h returns the original outcome> |
 | Versioning | <n/a — internal / envelope carries schema_version, v1 parser retained> |
+
+<!-- A sequence diagram for each changed external contract or cross-component
+     failure path. -->
+
+```sequence
+caption: <operation> when ComponentB times out
+participant caller
+caller -> ComponentA : operation(request, key)
+alt ComponentB answers
+ComponentA -> ComponentB : publish(event)
+ComponentB -->> ComponentA : ack
+ComponentA --> caller : Done(ref)
+else ComponentB times out
+ComponentA --> caller : Unknown()
+end
+```
 
 ## Data models
 
@@ -121,41 +144,60 @@ def operation(request: Request, *, idempotency_key: str) -> Done | Rejected | Un
 
 <!-- Forward migration, reverse migration, and what old rows mean to new code. -->
 
+## Interfaces
+
+<!-- Optional. One entry per module whose interface the change creates or
+     reshapes; every entry names a `Path:` (guidance for readers; no tool checks it). -->
+
+### <module or entry point>
+
+- **Path:** `<file the change creates or reshapes>`
+- **Hides:** <the decision or state callers never learn>
+- **Interface:** <the signature or command, in one line>
+- **Alternative considered:** <the other shape, and why it lost>
+- **Depth:** <what one call does so the caller need not>
+
+## Risks
+
+<!-- One row per risk; likelihood and impact are H, M or L. A high-impact risk
+     with no mitigation is a blocker on the visual plan. With nothing to list,
+     replace the table with: None identified — <why>. -->
+
+| ID | Risk | Likelihood | Impact | Mitigation | Slice |
+|----|------|------------|--------|------------|-------|
+| R1 | <the relay falls behind under peak load> | M | H | <alert on outbox age over N s> | <1> |
+
 ## Build order
 
-<!-- Slices are ordered so contracts and data models land before their
-     consumers, every slice leaves the suite green, and the largest unknown is
-     first. A slice that depends on a later slice is a defect in the order. -->
-
-| # | Slice | Delivers | Depends on | Contract exposed | Size |
-|---|-------|----------|------------|------------------|------|
-| 1 | <spike or riskiest slice> | <what is known at the end> | — | <none / a stub> | S |
-| 2 | <data model + migration> | <entities and transitions above> | 1 | <repository interface> | M |
-| 3 | <contract + component> | <ComponentA.operation> | 2 | <signature above> | M |
-| 4 | <consumer wiring> | <caller uses the outcome type> | 3 | — | S |
-
-### Slice criteria
-
-<!-- Criteria a test can pin. No "works correctly", no "handles errors". -->
-
-- Slice 1: <criterion>
-- Slice 2: <criterion>; <criterion>
-- Slice 3: <criterion>; <criterion>
-- Slice 4: <criterion>
+<!-- Left empty here. /slice fills this section's table when it sizes this
+     spec into session-sized slices — see .agents/skills/slice/SKILL.md. Its
+     table has no separate "contract exposed" column; that fact is stated in
+     each slice's Delivers text instead. -->
 
 ## Decisions
 
 <!-- Hard-to-reverse choices only. The recommended option and what makes each
-     option wrong. Open questions to the reviewer live here too, tagged open. -->
+     option wrong. A choice the reviewer has not made yet is `open`; while any
+     row is open, /slice prints no build prompt. -->
 
-| Decision | Options | Recommended | Wrong when |
-|----------|---------|-------------|------------|
-| <wire format for the event> | <A / B> | <A> | <B is right if consumers are outside this repo> |
+| ID | Decision | Options | Recommended | Wrong when | Status |
+|----|----------|---------|-------------|------------|--------|
+| D1 | <wire format for the event> | <A, B> | <A> | <B is right if consumers are outside this repo> | settled |
+
+## Open questions
+
+<!-- Facts someone outside the session must supply. `Blocks` names the slices
+     (by number, once /slice has written § Build order) that cannot start
+     without the answer, or none. -->
+
+| ID | Question | Blocks | Needed from |
+|----|----------|--------|-------------|
+| Q1 | <which region hosts the queue?> | none | <platform team> |
 
 ## Acceptance Criteria
 
-- <verifiable criterion, present tense>
-- <verifiable criterion, present tense>
+- AC1: <verifiable criterion, present tense>
+- AC2: <verifiable criterion, present tense>
 
 ## Implementation Paths
 

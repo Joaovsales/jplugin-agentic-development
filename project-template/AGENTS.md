@@ -1,13 +1,32 @@
 # Project Instructions
 
-> Project-specific rules for this repository. Global workflow rules are
-> installed by the selected coding-agent harness.
+> Project rules for this repository, read by every coding-agent harness: Claude Code
+> through the `@AGENTS.md` import in `CLAUDE.md`, Pi and Codex natively. `/sync` appends
+> the shared workflow rules as a marker-delimited block below this text on its first run
+> and rewrites only that block afterwards; everything else in this file is yours.
 
 ## Project Context
 
 **Name**: [project name]
 **Purpose**: [what this project does]
 **Stack**: [languages, frameworks, databases]
+
+## Key Directories
+
+```
+src/        → application source
+tests/      → test suite
+tasks/      → todo, solutions/ learning store, history, concepts.md glossary (workflow files)
+specs/      → feature specifications (living contracts: current behavior,
+            with implementation_paths frontmatter — see specs/README.md)
+```
+
+## Test Commands
+
+```bash
+# Fill in the project's actual test commands:
+# npm test / pytest / make test / etc.
+```
 
 ## Project-Specific Rules
 
