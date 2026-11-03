@@ -850,19 +850,25 @@ names = {f.name for f in fields(ri.Row)}
 print("columns-known", all(key in names or key == "share" for key, _, _ in ri.COLUMNS))
 rows = [ri.Row("a"), ri.Row("b")]
 summable = [f.name for f in fields(ri.Row) if f.metadata["summable"]]
+# Every unsummed field (bar the session label) gets a distinct nonzero value per
+# row, typed by its default, so an aggregate that added it would equal the sum.
+unsummed = [f for f in fields(ri.Row) if not f.metadata["summable"] and f.name != "session"]
+series = {f.name: [f"p{i}" if isinstance(f.default, str) else 10 * i for i in (1, 2)] for f in unsummed}
 for i, row in enumerate(rows, 1):
     for name in summable:
         setattr(row, name, i)
+    for name, values in series.items():
+        setattr(row, name, values[i - 1])
 total = ri.aggregate(rows).total
 print("summed", all(getattr(total, name) == 3 for name in summable), len(summable))
-unsummed = sorted(names - set(summable))
 print("declared", all(isinstance(f.metadata.get("summable"), bool) for f in fields(ri.Row)))
-print("unsummed-not-added", all(getattr(total, name) != 3 for name in unsummed), len(unsummed) > 0)
+added = {name: values[0] + values[1] for name, values in series.items()}
+print("unsummed-not-added", all(getattr(total, name) != added[name] for name in added), len(added))
 PY
 )"
 assert_contains "$out" "columns-known True" "structure: every column is a Row field or the derived share"
 assert_contains "$out" "summed True 13" "structure: aggregate() sums every summable Row field"
 assert_contains "$out" "declared True" "structure: every Row field says whether it is summed — none is left out of both"
-assert_contains "$out" "unsummed-not-added True True" "structure: a field declared not summed is not added up by aggregate()"
+assert_contains "$out" "unsummed-not-added True 3" "structure: no field declared not summed is added up by aggregate() — largest, its path and the final context"
 
 finish

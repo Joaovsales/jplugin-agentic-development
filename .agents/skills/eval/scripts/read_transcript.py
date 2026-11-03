@@ -278,10 +278,7 @@ class Transcript:
 
     def own_tool_uses(self) -> List[ToolUse]:
         """File frame: the tool uses of this file's own context."""
-        return [t for t in self.tool_uses if self._is_own(t)]
-
-    def _is_own(self, use: ToolUse) -> bool:
-        return _is_own(self.is_subagent, use)
+        return [t for t in self.tool_uses if _is_own(self.is_subagent, t)]
 
     def reads(self) -> Tuple[Read, ...]:
         """Every Read in the file, whichever context made it, in call order."""
@@ -289,7 +286,7 @@ class Transcript:
 
     def own_reads(self) -> List[Read]:
         """File frame: the Reads of this file's own context."""
-        return [r for r in self._reads if self._is_own(r.tool_use)]
+        return [r for r in self._reads if _is_own(self.is_subagent, r.tool_use)]
 
     def subagent_reads(self) -> List[Read]:
         """Session frame: the Reads a sub-agent made — inline in a parent file, or all of a `subagents/` file's."""
