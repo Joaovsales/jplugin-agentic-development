@@ -2620,3 +2620,27 @@ Step ledger (routine `simplify`):
 - Completed: `/build` writes every `[AMBIGUITY]` line a returning dispatch reports into `tasks/todo.md` under the slice heading it served (below the `> Handover:` lines, outside their four-line cap), and Phase 4.5 greps this build's plan block rather than agent output in context, which idle compaction can summarise away while a turn waits on a background suite. Six assertions in `tests/test-doc-conventions.sh` pin it (red 886/6 before, green 892/0 after); `build/SKILL.md` is 598 lines against its 600-line budget.
 - Pending: none in this session.
 - Carry-forward: `.agents/hooks/pre-compact.sh`'s header still says auto-compaction fires "at ~75% utilisation" and does not mention idle compaction; `tests/test-install-sh.sh` needs more than the default 300 s `TEST_FILE_TIMEOUT` on this host (passed at 1500 s).
+
+## Tidy: 2026-11-02
+- [x] suite
+- [x] inventory
+- [x] retired
+- [x] installed
+- [x] refs
+- [x] worktrees
+- [x] strays
+- [x] graph
+- [x] registers
+- [x] shortcuts
+- [x] tools
+
+> Routine: `tidy` 20261102 · branch `routine/tidy/20261102-sweep` · record `tasks/sweeps/2026-11-02-tidy.md`
+- [x] 1. `task-registry doctor` — provider `github`, reachable, write approval not required
+- [x] 2. Branch `routine/tidy/20261102-sweep` (new today)
+- [x] 3. `/tidy` — 11 checks; Tier 0 committed: 0; Tier 1: 2; Tier 2 filed: 0
+- [x] 4. `/wrap-up-session`
+
+## Session Summary — 2026-11-02 [3c49472..139d3ce]
+- Completed: scheduled `tidy` sweep. Suite green (91 files); `inventory`, `refs`, `strays`, `shortcuts` clean; `retired` and local-branch `worktrees` inconclusive (shallow clone); `installed` and `tools` inconclusive (no `install.sh`/archify on the cloud host); `graph` skipped. Two Tier 1 findings: 24 closed plan blocks in this index (tracked by #143) and a checkpoint older than the newest summary.
+- Pending: none from this run. `/learn` found no pattern worth a document; `/memory-maintain` skipped — out of a producer routine's diff surface.
+- Carry-forward: #142 (verify-task-registry missing from inventory surfaces) appears resolved — the README table is rendered and `inventory` is clean; needs human close.
