@@ -364,6 +364,14 @@ every row `user`. That is what lets `/plan` Step 1 carry them forward.
   (`<short-sha>..<short-sha>`), what the next slice must not re-derive, then
   optionally the surface report and one open question. It is written for a
   one-slice plan too: it is what an interrupted build's next session reads.
+- **Ambiguity lines**: when any dispatch returns, `/build` appends every
+  `[AMBIGUITY]` line of its output verbatim after the last `>` line under the
+  slice heading it served, as `> [AMBIGUITY] …` lines (the `### Slice N/N`
+  heading once every slice has closed). The handover goes above them; they stay
+  the blockquote's last lines, outside its four-line cap. `/quality-gate`'s
+  deferral list and Phase 4.5's batch read them from the plan block, never from
+  agent output in context, which a compaction summarises away; the PR body's
+  `## Handovers` carries them with the rest of the blockquote.
 - **Unfinished slice**: when the agent returns criteria under `## Not finished`
   or the escape hatch fired, the header stays `[ ]`, the handover says
   `unfinished: <AC ids>`, and the slice is in the next `ready` set. No
@@ -410,6 +418,7 @@ section lands in the commit message.
 | Ready set and overlap report | stdout of `slice.py ready` | `/build` dispatch |
 | Surface report | stdout of `slice.py check`; the handover | `/build` Phase 4.5 |
 | `> Handover:` per closed slice | `tasks/todo.md` | the slices it blocks; `/wrap-up-session` |
+| `> [AMBIGUITY]` lines per slice | `tasks/todo.md` | `/quality-gate` deferral list; `/build` Phase 4.5; the slices it blocks; `/wrap-up-session` |
 | `## Handovers` | PR body | the parent issue's readers |
 
 ## Edge Cases

@@ -147,6 +147,8 @@ tests/test-routine-selectors.sh msys* AC12: the failure names the missing label 
 tests/test-routine-selectors.sh msys* AC12: the failure names the missing label documentation
 tests/test-routine-selectors.sh msys* AC12: the failure names the missing CLAIM label -- the same-routine overlap guard
 tests/test-routine-selectors.sh msys* AC12: the verdict names only the absent labels, not every configured one
+tests/test-routine-selectors.sh msys* AC12: the failure names the first remedy -- create the missing labels upstream
+tests/test-routine-selectors.sh msys* AC12: the failure names the second remedy -- the configuration that declares them
 tests/test-routine-selectors.sh msys* select: a routine with a candidate exits 0
 tests/test-routine-selectors.sh msys* select: priority orders WITHIN the pool — now (#11) beats next (#10)
 tests/test-routine-selectors.sh msys* select: the pool size pins BOTH exclusions -- 4 fix issues in, 2 candidates out
