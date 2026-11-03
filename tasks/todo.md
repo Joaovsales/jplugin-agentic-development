@@ -2616,3 +2616,7 @@ Step ledger (routine `simplify`):
 - Completed: #378 — `harness-dispatch.md` cites `/build`'s escalation ladder by a name both citation resolvers find, in the form `tests/test-citations.sh` checks (simplify routine).
 - Pending: none from this run.
 - Carry-forward: earlier simplify PRs #360 and #310 are still open, along with three record PRs (#369, #373, #376); #357 and #309 stay in flight until they merge.
+## Session Summary — 2026-10-30 [3c49472..3c49472]
+- Completed: `/build` writes every `[AMBIGUITY]` line a returning dispatch reports into `tasks/todo.md` under the slice heading it served (below the `> Handover:` lines, outside their four-line cap), and Phase 4.5 greps this build's plan block rather than agent output in context, which idle compaction can summarise away while a turn waits on a background suite. Six assertions in `tests/test-doc-conventions.sh` pin it (red 886/6 before, green 892/0 after); `build/SKILL.md` is 598 lines against its 600-line budget.
+- Pending: none in this session.
+- Carry-forward: `.agents/hooks/pre-compact.sh`'s header still says auto-compaction fires "at ~75% utilisation" and does not mention idle compaction; `tests/test-install-sh.sh` needs more than the default 300 s `TEST_FILE_TIMEOUT` on this host (passed at 1500 s).
