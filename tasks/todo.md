@@ -2642,6 +2642,11 @@ Step ledger (routine `simplify`):
 - Carry-forward: `.agents/hooks/pre-compact.sh`'s header still says auto-compaction fires "at ~75% utilisation" and does not mention idle compaction; `tests/test-install-sh.sh` needs more than the default 300 s `TEST_FILE_TIMEOUT` on this host (passed at 1500 s).
 
 
+## Session Summary — 2026-11-03 [f899d3a..1013744] — closure repair 2
+- Completed: PR #361 reported `conflicting` against master at 91e7bbf; merged in with one `tasks/todo.md` conflict taken as the union (aeba7dd). CI on f899d3a had failed the plugin version guard (the eval scripts change the plugin payload) — version 1.8.3 (c839de7); the merged tree failed `tests/test-doc-conventions.sh` on the spec's build prompt naming the removed `/slice --file` — it names the feature-issue upsert (4f966b2). Master's policy change (finding-model, gate skill, receipt.py → qg1-0d3c344e) invalidated the receipt chain, so the whole diff was gated again: Phase 4 HOLD (two SHOULD-FIX, six NITPICK) and the new Phase 5.1 test-engineer review (three SHOULD-FIX) fixed by two sonnet builders (5f5fcb7: `Promise.arm`, `_TranscriptBuilder.finish()`, both sub-agent columns `None`, `is_large(th)`, `aggregate` refuses no sessions, `DERIVED` registry; boundary tests for Grep routing-around, the go rule's median clause, promise-level assertions instead of field lists), scoped re-checks GO after one vacuous assertion and one pass-through were fixed (1013744). Receipt 9a82ff84 GO (full scope, policy qg1-0d3c344e) on tree 038a40fc; Linux serial affected 57/57 and full 95/95 green.
+- Pending: CI on the re-pushed head; the app's PR monitor watches PR #361.
+- Carry-forward: three advisory NITPICK on the receipt — the parser module's five jobs under D12 (split `shell_reads.py` / `results_layout.py` when the hook build lands), the column registry implemented twice (lift when a third table appears), the payload walk's bytes/slots reach; `tasks/details/spec-reconciliation.specs-read-shunt-baseline-md.md` § Added 2026-11-03 records them.
+
 ## Plan: read-shunt-baseline
 > Spec: specs/read-shunt-baseline.md
 
