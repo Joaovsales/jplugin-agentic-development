@@ -2620,3 +2620,29 @@ Step ledger (routine `simplify`):
 - Completed: `/build` writes every `[AMBIGUITY]` line a returning dispatch reports into `tasks/todo.md` under the slice heading it served (below the `> Handover:` lines, outside their four-line cap), and Phase 4.5 greps this build's plan block rather than agent output in context, which idle compaction can summarise away while a turn waits on a background suite. Six assertions in `tests/test-doc-conventions.sh` pin it (red 886/6 before, green 892/0 after); `build/SKILL.md` is 598 lines against its 600-line budget.
 - Pending: none in this session.
 - Carry-forward: `.agents/hooks/pre-compact.sh`'s header still says auto-compaction fires "at ~75% utilisation" and does not mention idle compaction; `tests/test-install-sh.sh` needs more than the default 300 s `TEST_FILE_TIMEOUT` on this host (passed at 1500 s).
+
+## Tidy: 2026-10-21
+> Record: `tasks/sweeps/2026-10-21-tidy.md`, swept at `f27a6c1` on `routine/tidy/20261021-sweep`.
+
+- [x] 1 — `suite`: clean (76/76 files)
+- [x] 2 — `inventory`: clean (AGENTS.md table skipped: absent by design)
+- [x] 3 — `retired`: inconclusive (shallow clone)
+- [x] 4 — `installed`: inconclusive (`install.sh` never ran on this host)
+- [x] 5 — `refs`: clean (unresolved paths are expected-to-be-created; Unverified)
+- [x] 6 — `worktrees`: clean for worktrees; local-branch half inconclusive (shallow clone)
+- [x] 7 — `strays`: clean after deleting 7 untracked `__pycache__/` dirs this run's own Python wrote
+- [x] 8 — `graph`: skipped (no graphify on this machine; no graph by design)
+- [x] 9 — `registers`: 2 Tier 1 findings (34 closed plan blocks, tracked by #143; checkpoint older than newest summary)
+- [x] 10 — `shortcuts`: clean (4 markers, all with a trigger)
+- [x] 11 — `tools`: inconclusive (archify not installed)
+
+### Routine: tidy 20261021 — steps
+- [x] 1 — `task-registry doctor`: provider `github`, reachable, write approval not required
+- [x] 2 — branch `routine/tidy/20261021-sweep` created (did not exist)
+- [x] 3 — `/tidy`: 11 checks, 0 Tier 0 commits, 3 Tier 1 remedies, 0 filed; record `tasks/sweeps/2026-10-21-tidy.md`
+- [x] 4 — `/wrap-up-session`
+
+## Session Summary — 2026-10-21 [f27a6c1..e2441cd]
+- Completed: weekly `tidy` sweep — suite green (76/76), no Tier 0 repair needed, nothing new to file; record `tasks/sweeps/2026-10-21-tidy.md`
+- Pending: Tier 1 remedies for a human — 34 closed plan blocks (#143), stale `tasks/checkpoint.md`, the #142 index row still `[ ]` though the issue is done. `/learn`: no patterns captured. `/memory-maintain` heavy pass not run: a producer PR carries only Tier 0 repairs and the record
+- Carry-forward: `retired`, `installed` and `tools` stay inconclusive on the cloud routine host (shallow clone, no `install.sh`, no archify)
