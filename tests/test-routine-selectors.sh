@@ -235,6 +235,10 @@ assert_contains "$miss_verdict" "in-progress" \
   "AC12: the failure names the missing CLAIM label -- the same-routine overlap guard"
 assert_not_contains "$miss_verdict" "design-decision" \
   "AC12: the verdict names only the absent labels, not every configured one"
+assert_contains "$miss_out" "create them in the tracker" \
+  "AC12: the failure names the first remedy -- create the missing labels upstream"
+assert_contains "$miss_out" "[routines.selectors]" \
+  "AC12: the failure names the second remedy -- the configuration that declares them"
 
 # The claim label alone, with every selector present. It is the only guard against
 # two runs of one routine picking the same issue, and `select_routine` excludes on
@@ -901,7 +905,7 @@ wf_fix_out="$(run_workflow "$F_SEL" 11)"; wf_fix_code=$?
 assert_eq "0" "$wf_fix_code" "workflow: an issue a routine owns exits 0"
 assert_contains "$wf_fix_out" "routine:" "workflow: the routine is labelled in the output"
 assert_contains "$wf_fix_out" "fix" "workflow: #11 (bug) resolves to the fix routine"
-assert_contains "$wf_fix_out" "/debug -> /build -> /quality-gate -> /wrap-up-session" \
+assert_contains "$wf_fix_out" "/debug -> /quality-gate -> /wrap-up-session" \
   "AC1: the skill chain is printed, not just the routine name"
 assert_contains "$wf_fix_out" "bug" "workflow: the label that won precedence is named"
 

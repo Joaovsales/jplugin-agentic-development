@@ -214,16 +214,16 @@ for tree in $TREES; do
     "Chain: $tree/plan never itself invokes /build"
 done
 
-# ── /build -> /slice ──────────────────────────────────────────────────────
-# specs/plan-slices-and-handover.md AC12. /build's pre-flight files any
-# unlinked slice header through /slice --file --approve, in the session the
-# build prompt started -- the authorization the planning session never had.
+# ── /build -> task-registry upsert ────────────────────────────────────────
+# specs/aposd-first-build.md AC4. /build's pre-flight upserts the feature row
+# once, in the session the build prompt started -- the authorization the
+# planning session never had. /slice has no --file mode to invoke.
 for tree in $TREES; do
   f="$tree/skills/build/SKILL.md"
-  assert_file_matches "$f" '^Invoke `/slice' \
-    "Chain: $tree/build invokes /slice"
-  assert_file_contains "$f" "--file --approve" \
-    "Chain: $tree/build's /slice invocation carries --file --approve"
+  assert_file_contains "$f" "task-registry.py upsert <id>" \
+    "Chain: $tree/build's pre-flight upserts the feature row through task-registry"
+  assert_file_not_matches "$f" '^Invoke `/slice' \
+    "Chain: $tree/build no longer invokes /slice"
 done
 
 # ── /brainstorm -> /grilling, /grill-me -> /grilling, /system-design-planning -> /grilling ───

@@ -195,6 +195,28 @@ MERGE="$(short "$D")"
 run_hook "$D" "$(sha "$D")" "$BASE"
 assert_not_contains "not-empty:$OUT" "$MERGE" "Merge commit: exempt from coverage"
 
+# ── A stale local base does not inflate the range ────────────────────────────
+# The base is resolved against origin/<base> first. A local `master` that has not
+# been updated is not the target branch's tip, and every commit it wrongly adds to
+# the range is recorded as uncovered debt. Observed 2026-10-25: a local master 192
+# commits behind origin/master turned a 10-commit branch into a 76-commit debt
+# entry and a 22-spec reconciliation candidate set.
+#
+# The fixture is a first push of a feature branch whose commit is already on
+# origin/master (it was merged there), while local master still points at the base.
+D="$(new_repo staleremote)"
+BASE="$(sha "$D")"
+git -C "$D" checkout -qb feature
+git -C "$D" branch -q --set-upstream-to=master feature 2>/dev/null || true
+commit_code "$D" src.py
+CODE="$(sha "$D")"
+git -C "$D" update-ref refs/remotes/origin/master "$CODE"
+run_hook "$D" "$CODE" "$ZERO"
+
+assert_eq "0" "$HOOK_RC" "Stale local base: exits zero"
+assert_no_ledger "$D" "Stale local base: no debt for a commit already on origin/master"
+assert_eq "" "$OUT" "Stale local base: gate silent"
+
 # ── Kill switch ──────────────────────────────────────────────────────────────
 D="$(new_repo killswitch)"
 BASE="$(sha "$D")"
