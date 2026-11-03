@@ -422,6 +422,58 @@ big="$("$TEST_PYTHON" "$INCIDENCE" --root "$FIX/root" --bytes 100000 --lines 100
 assert_contains "$big" "| proj-a/s1 | 4 | 0 | 0 | 0.0% |" "report: --bytes and --lines move the threshold"
 assert_contains "$big" "Verdict: not worth gating" "report: nothing large is a not-worth-gating verdict"
 
+# The go rule is `median >= 10% or quarter >= 25%`. The fixture roots below hold
+# the quarter clause out (every session under 25%) and put the median a hair
+# either side of 10%, so only the median clause decides. --bytes 1000: a session
+# is one 1000-byte whole-file Read (large, the numerator) beside an unclassified
+# Glob result of F bytes, so its share is 1000 / (1000 + F); None is a session
+# that read nothing large.
+GO="$TMP/go-rule"
+"$TEST_PYTHON" - "$GO" <<'PY'
+import json, os, sys
+def use(uid, name, inp):
+    return {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": uid, "name": name, "input": inp}]}}
+def result(uid, text):
+    return {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": uid, "content": text}]}}
+def session(filler, reads_large):
+    recs = [use("f1", "Glob", {"pattern": "*"}), result("f1", "f" * filler)]
+    if reads_large:
+        recs += [use("r1", "Read", {"file_path": "/work/big.py"}), result("r1", "     1\t" + "x" * 993)]
+    return recs
+roots = {
+    # shares 0, 9.0, 10.5, 12 %: the two middle sessions average 9.75% (the upper middle alone would say 10.5%)
+    "even-median-under": [5000, 10111, 8524, 7333],
+    # shares 0, 9.5, 11, 12 %: they average 10.25% (the lower middle alone would say 9.5%)
+    "even-median-over": [5000, 9526, 8091, 7333],
+    # shares 0, 9.9, 12 %: the one middle session is under 10%
+    "odd-median-under": [5000, 9101, 7333],
+    # shares 0, exactly 10, 12 %: a median of exactly 10% is a gate
+    "odd-median-at-bar": [5000, 9000, 7333],
+}
+for name, fillers in roots.items():
+    os.makedirs(os.path.join(sys.argv[1], name, "proj"))
+    for i, filler in enumerate(fillers):
+        path = os.path.join(sys.argv[1], name, "proj", f"s{i}.jsonl")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("".join(json.dumps(r) + "\n" for r in session(filler, i > 0)))
+PY
+go_verdict() {
+  "$TEST_PYTHON" "$INCIDENCE" --root "$GO/$1" --bytes 1000 --lines 100000 --json 2>&1 | "$TEST_PYTHON" -c '
+import json, sys
+a = json.load(sys.stdin)["aggregate"]
+print(a["verdict"], "| median within 0.5 points of 10%:", abs(a["median_share"] - 0.10) < 0.005,
+      "| quarter share under 25%:", a["quarter_share"] < 0.25)
+'
+}
+assert_eq "not worth gating | median within 0.5 points of 10%: True | quarter share under 25%: True" "$(go_verdict even-median-under)" \
+  "report: an even session count whose two middle shares average 9.75% is not worth gating, the quarter clause held under 25%"
+assert_eq "gate | median within 0.5 points of 10%: True | quarter share under 25%: True" "$(go_verdict even-median-over)" \
+  "report: an even session count whose two middle shares average 10.25% is a gate on the median clause alone"
+assert_eq "not worth gating | median within 0.5 points of 10%: True | quarter share under 25%: True" "$(go_verdict odd-median-under)" \
+  "report: an odd session count whose middle share is 9.9% is not worth gating"
+assert_eq "gate | median within 0.5 points of 10%: True | quarter share under 25%: True" "$(go_verdict odd-median-at-bar)" \
+  "report: a median of exactly 10% reaches the bar and is a gate"
+
 js="$("$TEST_PYTHON" "$INCIDENCE" --root "$FIX/root" --json 2>&1)"; rc=$?
 assert_eq "0" "$rc" "report: --json renders with exit 0"
 keys="$(printf '%s\n' "$js" | "$TEST_PYTHON" -c '
@@ -562,21 +614,74 @@ assert_contains "$out" "immutable True" "structure: own_calls() is built at pars
 # The two frames are named apart: `own_*` is the file's context, `subagent_*`
 # the session's sub-agents, and on a sub-agent file they coincide. A result
 # keeps its size only — the file text a Read delivered is classified and dropped.
-out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1/subagents/agent-a1.jsonl" <<'PY'
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$FIX/root/proj-a/s1/subagents/agent-a1.jsonl" "$FIX/root/proj-b/s3.jsonl" <<'PY'
 import sys
-from dataclasses import fields
 sys.path.insert(0, sys.argv[1])
 import read_transcript as rt
 a1 = rt.parse_transcript(sys.argv[2], is_subagent=True)
 print("frames", a1.own_reads() == a1.subagent_reads(), len(a1.own_reads()) > 0)
-print("kept", [f.name for f in fields(rt.ToolResult)])
-print("names", [n for n in dir(rt.Transcript) if "sidechain" in n])
+s3 = rt.parse_transcript(sys.argv[3])
+own, sub = {id(r) for r in s3.own_reads()}, {id(r) for r in s3.subagent_reads()}
+print("partition", all((id(r) in own) != (id(r) in sub) for r in s3.reads()), len(own) > 0, len(sub) > 0)
 PY
 )"
 assert_contains "$out" "frames True True" "structure: on a sub-agent file own_reads() and subagent_reads() are one list — the two frames coincide there"
-assert_contains "$out" "kept ['tool_use_id', 'bytes', 'is_error', 'line_no']" \
-  "structure: a kept ToolResult is the block's size and error flag — no toolUseResult, no Read-only fields"
-assert_contains "$out" "names []" "structure: Transcript names no accessor after the sidechain flag — the session frame is subagent_*"
+assert_contains "$out" "partition True True True" \
+  "structure: on a parent file with an inline sidechain every read is in exactly one frame, own_reads() or subagent_reads() — a consumer needs no sidechain flag"
+
+# The memory-discipline invariant: a transcript keeps what a result weighed and
+# whether it erred, never what it said. Each tool result below carries a payload
+# marker in its block text and in its `toolUseResult`; none may survive anywhere
+# in the parsed transcript, however it is stored.
+"$TEST_PYTHON" - "$TMP/payload.jsonl" <<'PY'
+import json, sys
+def use(uid, name, inp):
+    return {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": uid, "name": name, "input": inp}]}}
+def result(uid, text, structured, is_error=False):
+    block = {"type": "tool_result", "tool_use_id": uid, "content": text}
+    if is_error:
+        block["is_error"] = True
+    return {"type": "user", "message": {"content": [block]}, "toolUseResult": structured}
+file_block = {"type": "text", "file": {"filePath": "/work/f.py", "content": "PAYLOAD-READ", "numLines": 1,
+                                       "startLine": 1, "totalLines": 1}}
+recs = [use("r1", "Read", {"file_path": "/work/f.py"}), result("r1", "     1\tPAYLOAD-READ", file_block),
+        use("b1", "Bash", {"command": "cat /work/f.py"}), result("b1", "PAYLOAD-SHELL", {"stdout": "PAYLOAD-SHELL", "stderr": ""}),
+        use("g1", "Grep", {"pattern": "x", "path": "/work/f.py"}), result("g1", "PAYLOAD-GREP", {"mode": "content", "content": "PAYLOAD-GREP"}),
+        use("e1", "Glob", {"pattern": "*"}), result("e1", "PAYLOAD-ERROR", "PAYLOAD-ERROR", is_error=True)]
+open(sys.argv[1], "w", encoding="utf-8").write("".join(json.dumps(r) + "\n" for r in recs))
+PY
+out="$("$TEST_PYTHON" - "$SCRIPTS" "$TMP/payload.jsonl" <<'PY'
+import dataclasses, sys
+sys.path.insert(0, sys.argv[1])
+import read_transcript as rt
+def strings(obj, seen):
+    if id(obj) in seen:
+        return
+    seen.add(id(obj))
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from strings(k, seen)
+            yield from strings(v, seen)
+    elif isinstance(obj, (list, tuple, set, frozenset)):
+        for item in obj:
+            yield from strings(item, seen)
+    elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        for f in dataclasses.fields(obj):
+            yield from strings(getattr(obj, f.name), seen)
+    elif hasattr(obj, "__dict__"):
+        yield from strings(vars(obj), seen)
+t = rt.parse_transcript(sys.argv[2])
+held = [s for s in strings(t, set()) if "PAYLOAD" in s]
+print("payload-held", held, "walked", "r1" in set(strings(t, set())))
+sizes = {"r1": len("     1\tPAYLOAD-READ"), "b1": len("PAYLOAD-SHELL"), "g1": len("PAYLOAD-GREP"), "e1": len("PAYLOAD-ERROR")}
+print("kept", sorted((tid, r.bytes, r.is_error) for tid, r in t.results.items()) == sorted((k, v, k == "e1") for k, v in sizes.items()))
+PY
+)"
+assert_contains "$out" "payload-held [] walked True" \
+  "structure: no tool result's text or toolUseResult survives anywhere in a parsed transcript — it keeps sizes, never file text"
+assert_contains "$out" "kept True" "structure: every kept result still carries its block's byte size and its error flag"
 
 # A turn's usage counts once per API message: Claude Code logs one assistant
 # record per content block, each repeating the message's usage.
@@ -750,12 +855,14 @@ for i, row in enumerate(rows, 1):
         setattr(row, name, i)
 total = ri.aggregate(rows).total
 print("summed", all(getattr(total, name) == 3 for name in summable), len(summable))
-print("unsummed", sorted(names - set(summable)))
+unsummed = sorted(names - set(summable))
+print("declared", all(isinstance(f.metadata.get("summable"), bool) for f in fields(ri.Row)))
+print("unsummed-not-added", all(getattr(total, name) != 3 for name in unsummed), len(unsummed) > 0)
 PY
 )"
 assert_contains "$out" "columns-known True" "structure: every column is a Row field or the derived share"
 assert_contains "$out" "summed True 13" "structure: aggregate() sums every summable Row field"
-assert_contains "$out" "unsummed ['final_context', 'largest', 'largest_path', 'session']" \
-  "structure: the fields that are not summed are the ones declared so"
+assert_contains "$out" "declared True" "structure: every Row field says whether it is summed — none is left out of both"
+assert_contains "$out" "unsummed-not-added True True" "structure: a field declared not summed is not added up by aggregate()"
 
 finish

@@ -70,7 +70,7 @@ class RunRow:
     final_context: Optional[int] = _column("Final context", default=None)
     compactions: int = _column("Compactions", default=0)
     subagent_tokens: Optional[int] = _column("Sub-agent tokens", default=None)
-    subagent_tool_uses: Optional[int] = _column("Sub-agent tool uses", default=0)
+    subagent_tool_uses: Optional[int] = _column("Sub-agent tool uses", default=None)
     wall_seconds: Optional[float] = _column("Wall s", default=None)
     reread_rate: Optional[float] = _column("Re-read rate", default=None)
     outcome: Optional[float] = _column("Outcome", default=None)

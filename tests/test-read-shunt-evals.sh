@@ -37,14 +37,13 @@ SUITE="$REPO/evals/read-shunt"
 
 ALL_CASES="billing-client-zero-total nightly-pipeline-failure catalog-currency-field orders-extract-tax pipeline-checks-intermittent settings-loader-port load-record-callers changelog-release-notes readme-typo timeparse-coverage ratelimit-clock-skew"
 
-# A case's arm is its Promise row's: a floor above the threshold is a large case.
+# A case's arm is its Promise row's `arm`, declared where the row is written.
 arm_cases() {
   "$TEST_PYTHON" - "$SUITE" "$1" <<'PY' | tr -d '\r'
 import sys
 sys.path.insert(0, sys.argv[1])
 import fixture_gen as fg
-arm = lambda promise: "large" if (promise.total_bytes.min or 0) > fg.LARGE_BYTES else "control"
-print(" ".join(sorted(c for c, (_, _, promise) in fg.CASES.items() if arm(promise) == sys.argv[2])))
+print(" ".join(sorted(c for c, (_, _, promise) in fg.CASES.items() if promise.arm == sys.argv[2])))
 PY
 }
 LARGE_CASES="$(arm_cases large)"
@@ -169,7 +168,7 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import fixture_gen as fg
 seed, generate, _ = fg.CASES["readme-typo"]
-fg.CASES["readme-typo"] = (seed, generate, fg.Promise(total_bytes=fg.Bound(max=100)))
+fg.CASES["readme-typo"] = (seed, generate, fg.Promise("control", total_bytes=fg.Bound(max=100)))
 sys.exit(fg.main(["readme-typo", "--out", sys.argv[2]]))
 PY
 )"; rc=$?

@@ -88,6 +88,7 @@ def _columns() -> List[Tuple[str, str, Cell]]:
 
 
 COLUMNS = _columns()
+DERIVED = [f.metadata["derived"] for f in fields(Row) if f.metadata["derived"]]
 SUMMED = [f.name for f in fields(Row) if f.metadata["summable"]]
 
 
@@ -145,6 +146,8 @@ class Aggregate:
 
 
 def aggregate(rows: List[Row]) -> Aggregate:
+    if not rows:
+        raise rt.TranscriptError("no sessions to aggregate")
     total = Row("all sessions")
     for r in rows:
         for key in SUMMED:
@@ -184,7 +187,7 @@ def render_markdown(rows: List[Row], agg: Aggregate, args: argparse.Namespace) -
 def render_json(rows: List[Row], agg: Aggregate, args: argparse.Namespace) -> str:
     def row_dict(r: Row) -> Dict[str, object]:
         d = asdict(r)
-        d["share"] = r.share
+        d.update({name: getattr(r, name) for name, _, _ in DERIVED})
         d["largest_path"] = _display_path(r.largest_path, args.paths)
         return d
     out = {

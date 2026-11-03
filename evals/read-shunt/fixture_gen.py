@@ -17,7 +17,7 @@ import json
 import os
 import sys
 import random
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 def write(out, rel, text):
@@ -1250,20 +1250,21 @@ class Bound:
 @dataclass(frozen=True)
 class Promise:
     """The size a case's output must have: total bytes under `out`, and the line
-    count of its longest file. Each field is the Bound on the quantity `measure`
-    reports under the same name."""
+    count of its longest file. Each Bound field is the bound on the quantity
+    `measure` reports under the same name; `arm` is the case's arm, large or control."""
 
+    arm: str
     total_bytes: Bound = Bound()
     longest_lines: Bound = Bound()
 
 
 def large(total_bytes: Bound = Bound(min=LARGE_BYTES + 1), longest_lines: Bound = Bound()) -> Promise:
-    return Promise(total_bytes, longest_lines)
+    return Promise("large", total_bytes, longest_lines)
 
 
 def control(total_bytes: Bound = Bound(max=LARGE_BYTES - 1),
             longest_lines: Bound = Bound(max=LARGE_LINES - 1)) -> Promise:
-    return Promise(total_bytes, longest_lines)
+    return Promise("control", total_bytes, longest_lines)
 
 
 # case name -> (seed, generator, promise); one table so a case cannot have one without the others
@@ -1297,11 +1298,11 @@ def measure(out):
 def broken_bounds(promise, measured):
     """One line per quantity of `promise` the measured output falls outside."""
     broken = []
-    for f in fields(Promise):
-        broken_side = getattr(promise, f.name).broken_side(measured[f.name])
+    for name, value in measured.items():
+        broken_side = getattr(promise, name).broken_side(value)
         if broken_side is not None:
             side, bound = broken_side
-            broken.append("%s %s %d, measured %d" % (f.name, side, bound, measured[f.name]))
+            broken.append("%s %s %d, measured %d" % (name, side, bound, value))
     return broken
 
 

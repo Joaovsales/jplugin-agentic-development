@@ -199,12 +199,12 @@ class Read:
     def is_excluded(self) -> bool:
         return self.kind == "excluded"
 
-    def is_large(self, th: Thresholds = Thresholds()) -> bool:
+    def is_large(self, th: Thresholds) -> bool:
         if self.is_excluded:
             return False
         return self.bytes >= th.bytes or self.total_lines >= th.lines
 
-    def is_whole_large(self, th: Thresholds = Thresholds()) -> bool:
+    def is_whole_large(self, th: Thresholds) -> bool:
         return self.is_whole and self.is_large(th)
 
 
@@ -242,32 +242,32 @@ class AgentCall:
 Call = Union[Read, ShellRead, GrepCall, AgentCall]
 
 
+def _is_own(is_subagent: bool, use: ToolUse) -> bool:
+    return is_subagent or not use.sidechain
+
+
 @dataclass
 class Transcript:
+    """A parsed transcript; only `_TranscriptBuilder.finish()` makes one, so every
+    answer below is already classified when the object exists."""
+
     path: str
     session_id: str
     is_subagent: bool
-    tool_uses: List[ToolUse] = field(default_factory=list)
-    results: Dict[str, ToolResult] = field(default_factory=dict)
-    malformed: int = 0
-    compactions: int = 0
-    final_context: Optional[int] = None
-    first_timestamp: Optional[str] = None
-    last_timestamp: Optional[str] = None
-    total_tokens: int = 0      # the usage of this file's own turns summed, one count per API message
-    _uses_by_id: Dict[str, ToolUse] = field(default_factory=dict, init=False, repr=False)
-    _pending: Dict[str, RawResult] = field(default_factory=dict, init=False, repr=False)
-    _calls: Dict[str, Call] = field(default_factory=dict, init=False, repr=False)
-    _message_ids: Set[str] = field(default_factory=set, init=False, repr=False)
-    _reads: Tuple[Read, ...] = field(default=(), init=False, repr=False)
-    _shell_reads: Tuple[ShellRead, ...] = field(default=(), init=False, repr=False)
-    _grep_calls: Tuple[GrepCall, ...] = field(default=(), init=False, repr=False)
-    _agent_calls: Tuple[AgentCall, ...] = field(default=(), init=False, repr=False)
-    _own_calls: Tuple[Call, ...] = field(default=(), init=False, repr=False)
-    _largest_own_result: Tuple[int, str] = field(default=(0, ""), init=False, repr=False)
-
-    def _tool_uses_named(self, name: str) -> List[ToolUse]:
-        return [t for t in self.tool_uses if t.name == name]
+    tool_uses: List[ToolUse]
+    results: Dict[str, ToolResult]
+    malformed: int
+    compactions: int
+    final_context: Optional[int]
+    first_timestamp: Optional[str]
+    last_timestamp: Optional[str]
+    total_tokens: int          # the usage of this file's own turns summed, one count per API message
+    _reads: Tuple[Read, ...] = field(repr=False)
+    _shell_reads: Tuple[ShellRead, ...] = field(repr=False)
+    _grep_calls: Tuple[GrepCall, ...] = field(repr=False)
+    _agent_calls: Tuple[AgentCall, ...] = field(repr=False)
+    _own_calls: Tuple[Call, ...] = field(repr=False)
+    _largest_own_result: Tuple[int, str] = field(repr=False)
 
     # Two frames of reference. The *file frame* (`own_*`) asks what this file's
     # own context did: a parent file's uses minus an inline sidechain's, all of
@@ -281,7 +281,7 @@ class Transcript:
         return [t for t in self.tool_uses if self._is_own(t)]
 
     def _is_own(self, use: ToolUse) -> bool:
-        return self.is_subagent or not use.sidechain
+        return _is_own(self.is_subagent, use)
 
     def reads(self) -> Tuple[Read, ...]:
         """Every Read in the file, whichever context made it, in call order."""
@@ -534,6 +534,49 @@ def _context_size(usage: object) -> Optional[int]:
     return total
 
 
+@dataclass
+class _TranscriptBuilder:
+    """The state one parse accumulates; `finish()` returns the `Transcript` and
+    this scratch (use index, held results, calls, seen message ids) goes with it."""
+
+    path: str
+    is_subagent: bool
+    tool_uses: List[ToolUse] = field(default_factory=list)
+    results: Dict[str, ToolResult] = field(default_factory=dict)
+    malformed: int = 0
+    compactions: int = 0
+    final_context: Optional[int] = None
+    first_timestamp: Optional[str] = None
+    last_timestamp: Optional[str] = None
+    total_tokens: int = 0
+    uses_by_id: Dict[str, ToolUse] = field(default_factory=dict)
+    pending: Dict[str, RawResult] = field(default_factory=dict)
+    calls: Dict[str, Call] = field(default_factory=dict)
+    message_ids: Set[str] = field(default_factory=set)
+
+    def finish(self) -> Transcript:
+        self.pending.clear()    # a result whose use never came is in `results` and nowhere else
+        for use in self.tool_uses:
+            if use.name in CLASSIFIED_TOOLS and use.id not in self.results:
+                _classify(self, use, None)    # unanswered: the session ended, or the harness never replied
+        own = [u for u in self.tool_uses if _is_own(self.is_subagent, u)]
+        own_calls = tuple(self.calls[u.id] for u in own if u.id in self.calls)
+        largest = (0, "")
+        for use in own:
+            result = self.results.get(use.id)
+            if result is not None and result.bytes > largest[0]:
+                largest = (result.bytes, use.subject)
+        return Transcript(
+            self.path, session_id(self.path), self.is_subagent, self.tool_uses, self.results,
+            self.malformed, self.compactions, self.final_context, self.first_timestamp,
+            self.last_timestamp, self.total_tokens,
+            _reads=tuple(self.calls[u.id] for u in self.tool_uses if u.name == "Read"),
+            _shell_reads=tuple(c for c in own_calls if isinstance(c, ShellRead)),
+            _grep_calls=tuple(c for c in own_calls if isinstance(c, GrepCall)),
+            _agent_calls=tuple(c for c in own_calls if isinstance(c, AgentCall)),
+            _own_calls=own_calls, _largest_own_result=largest)
+
+
 def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcript:
     """Stream one JSONL transcript into its metadata, its Reads, shell reads,
     Greps and Agent calls classified.
@@ -542,7 +585,7 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
     `TranscriptDrift` here, so a returned `Transcript` is a readable one."""
     if is_subagent is None:
         is_subagent = SUBAGENTS_DIR in path.replace("\\", "/").split("/")
-    t = Transcript(path, session_id(path), is_subagent)
+    b = _TranscriptBuilder(path, is_subagent)
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line_no, line in enumerate(fh, 1):
             line = line.strip()
@@ -551,27 +594,13 @@ def parse_transcript(path: str, is_subagent: Optional[bool] = None) -> Transcrip
             try:
                 rec = json.loads(line)
             except ValueError:
-                t.malformed += 1
+                b.malformed += 1
                 continue
             if not isinstance(rec, dict):
-                t.malformed += 1
+                b.malformed += 1
                 continue
-            _absorb(t, rec, line_no)
-    t._pending.clear()    # a result whose use never came is in `t.results` and nowhere else
-    for use in t.tool_uses:
-        if use.name in CLASSIFIED_TOOLS and use.id not in t.results:
-            _classify(t, use, None)    # unanswered: the session ended, or the harness never replied
-    t._reads = tuple(t._calls[u.id] for u in t._tool_uses_named("Read"))
-    own = t.own_tool_uses()
-    t._own_calls = tuple(t._calls[u.id] for u in own if u.id in t._calls)
-    t._shell_reads = tuple(c for c in t._own_calls if isinstance(c, ShellRead))
-    t._grep_calls = tuple(c for c in t._own_calls if isinstance(c, GrepCall))
-    t._agent_calls = tuple(c for c in t._own_calls if isinstance(c, AgentCall))
-    for use in own:
-        result = t.results.get(use.id)
-        if result is not None and result.bytes > t._largest_own_result[0]:
-            t._largest_own_result = (result.bytes, use.subject)
-    return t
+            _absorb(b, rec, line_no)
+    return b.finish()
 
 
 def parse_session(parent_path: str, subagent_paths: List[str]) -> SessionReads:
@@ -582,7 +611,7 @@ def parse_session(parent_path: str, subagent_paths: List[str]) -> SessionReads:
     return SessionReads(parent, agents, counted, parent.malformed + sum(a.malformed for a in agents))
 
 
-def _classify(t: Transcript, use: ToolUse, raw: Optional[RawResult]) -> None:
+def _classify(b: _TranscriptBuilder, use: ToolUse, raw: Optional[RawResult]) -> None:
     """Classify one tool use from its input and (when answered) its result, and keep the call.
 
     Every Read is kept, whichever context made it; a Bash, Grep or Agent use
@@ -590,32 +619,32 @@ def _classify(t: Transcript, use: ToolUse, raw: Optional[RawResult]) -> None:
     if use.name not in CLASSIFIED_TOOLS:
         return
     if use.name == "Read":
-        t._calls[use.id] = classify_read(use, raw, t.path)
-    elif not t._is_own(use):
+        b.calls[use.id] = classify_read(use, raw, b.path)
+    elif not _is_own(b.is_subagent, use):
         return
     elif use.name == "Bash":
         shell = classify_shell_read(use, raw)
         if shell is not None:
-            t._calls[use.id] = shell
+            b.calls[use.id] = shell
     elif use.name == "Grep":
-        t._calls[use.id] = classify_grep(use, raw)
+        b.calls[use.id] = classify_grep(use, raw)
     elif use.name == "Agent":
-        t._calls[use.id] = classify_agent(use, raw, t.path)
+        b.calls[use.id] = classify_agent(use, raw, b.path)
 
 
-def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
+def _absorb(b: _TranscriptBuilder, rec: dict, line_no: int) -> None:
     ts = rec.get("timestamp")
     if isinstance(ts, str):
-        t.first_timestamp = t.first_timestamp or ts
-        t.last_timestamp = ts    # every line, sidechain included: wall time
+        b.first_timestamp = b.first_timestamp or ts
+        b.last_timestamp = ts    # every line, sidechain included: wall time
     kind = rec.get("type")
     if kind not in ("assistant", "user", "system"):
         return    # an api-request-blob copies the request, uuid-less and with no isSidechain
-    sidechain = t.is_subagent or rec.get("isSidechain") is True
-    inline_sidechain = sidechain and not t.is_subagent
+    sidechain = b.is_subagent or rec.get("isSidechain") is True
+    inline_sidechain = sidechain and not b.is_subagent
     if kind == "system":
         if rec.get("subtype") == "compact_boundary" and not inline_sidechain:
-            t.compactions += 1
+            b.compactions += 1
         return
     message = rec.get("message")
     if not isinstance(message, dict):
@@ -625,47 +654,47 @@ def _absorb(t: Transcript, rec: dict, line_no: int) -> None:
         usage = message.get("usage")
         size = _context_size(usage)
         if size is not None:
-            t.final_context = size
+            b.final_context = size
         # One API message is logged as several assistant records, one per content
         # block, each carrying the whole message's usage: count a message id once.
         message_id = message.get("id")
-        if message_id not in t._message_ids:    # an id-less record counts on its own
+        if message_id not in b.message_ids:    # an id-less record counts on its own
             if isinstance(message_id, str):
-                t._message_ids.add(message_id)
-            t.total_tokens += _turn_tokens(usage)
+                b.message_ids.add(message_id)
+            b.total_tokens += _turn_tokens(usage)
     if not isinstance(content, list):
         return
     results = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_result"]
     for block in content:
         if not isinstance(block, dict):
             continue
-        if block.get("type") == "tool_use" and str(block.get("id")) not in t._uses_by_id:
+        if block.get("type") == "tool_use" and str(block.get("id")) not in b.uses_by_id:
             # a resumed session re-logs a record: first wins, use and result
             use = ToolUse(str(block.get("id")), str(block.get("name")),
                           block.get("input") if isinstance(block.get("input"), dict) else {},
                           line_no, ts if isinstance(ts, str) else None, sidechain)
-            t._uses_by_id[use.id] = use
-            t.tool_uses.append(use)
-            held = t._pending.pop(use.id, None)
+            b.uses_by_id[use.id] = use
+            b.tool_uses.append(use)
+            held = b.pending.pop(use.id, None)
             if held is not None:
-                _classify(t, use, held)    # its result was logged first
+                _classify(b, use, held)    # its result was logged first
     # `toolUseResult` sits beside the message, one per record, so it belongs to a
     # record with one result block; several blocks never carry one (a record
     # that did would be drift), and their Reads fall back to the block text.
     structured = rec.get("toolUseResult")
     if len(results) > 1 and structured is not None:
-        raise TranscriptDrift(t.path, line_no, "several tool_result blocks share one toolUseResult")
+        raise TranscriptDrift(b.path, line_no, "several tool_result blocks share one toolUseResult")
     for block in results:
         tid = str(block.get("tool_use_id"))
-        if tid in t.results:
+        if tid in b.results:
             continue
         raw = RawResult(tid, _block_text(block.get("content")), structured, block.get("is_error") is True, line_no)
-        t.results[tid] = raw.kept()
-        use = t._uses_by_id.get(tid)
+        b.results[tid] = raw.kept()
+        use = b.uses_by_id.get(tid)
         if use is not None:
-            _classify(t, use, raw)    # the block text and toolUseResult go out of scope with this line
+            _classify(b, use, raw)    # the block text and toolUseResult go out of scope with this line
         else:
-            t._pending[tid] = raw     # held until its use arrives
+            b.pending[tid] = raw     # held until its use arrives
 
 
 def _turn_tokens(usage: object) -> int:

@@ -200,6 +200,66 @@ assert_eq "0" "$rc" "grader: a run whose sub-agent read a file the parent then r
 assert_contains "$(printf '%s\n' "$out" | "$TEST_PYTHON" -c 'import json, sys; print("rate", json.load(sys.stdin)["runs"][0]["reread_rate"])')" \
   "rate 1.0" "grader: a sub-agent's read names its path, so the parent's read of it is one re-read of one named path"
 
+printf '\n--- rows: the routing-around rule at its edges — Grep context floor, head_limit 0, and the result-size fallback ---\n'
+# One run per case, the arm named for the case so each row is its own verdict.
+# --bytes 200 makes "large" a 200-byte block: the Read of big.py is 300 bytes
+# (large), a "g" * 200 result is exactly at the threshold, "g" * 199 one under.
+# A Grep routes around when it asks for context >= 50 lines or head_limit 0,
+# AND its path was read large in the run OR its own result is at the threshold.
+# A bare cat routes around when its path was read large OR its result is.
+ROUTING="$TMP/routing"
+"$TEST_PYTHON" - "$ROUTING" <<'PY'
+import json, os, sys
+BIG, SMALL, OTHER = "C:/work/big.py", "C:/work/small.py", "C:/work/other.py"
+def use(uid, name, inp):
+    return {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": uid, "name": name, "input": inp}]}}
+def result(uid, text):
+    return {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": uid, "content": text}]}}
+read_big = [use("r1", "Read", {"file_path": BIG}), result("r1", "     1\t" + "x" * 293)]
+def grep(extra, path, size):
+    return read_big + [use("g1", "Grep", {"pattern": "def ", "path": path, "output_mode": "content", **extra}),
+                       result("g1", "g" * size)]
+def cat(path, size):
+    return [use("b1", "Bash", {"command": "cat " + path}), result("b1", "c" * size)]
+cases = {
+    "head0-large-target": grep({"head_limit": 0}, BIG, 10),
+    "head5-large-target": grep({"head_limit": 5}, BIG, 10),
+    "no-context-large-target": grep({}, BIG, 10),
+    "ctx49-large-target": grep({"-C": 49}, BIG, 10),
+    "ctx50-large-target": grep({"-C": 50}, BIG, 10),
+    "ctx60-small-target-small-result": grep({"-C": 60}, SMALL, 199),
+    "ctx60-small-target-result-at-threshold": grep({"-C": 60}, SMALL, 200),
+    "head0-small-target-small-result": grep({"head_limit": 0}, SMALL, 199),
+    "cat-unseen-small-result": cat(OTHER, 199),
+    "cat-unseen-result-at-threshold": cat(OTHER, 200),
+}
+for name, records in cases.items():
+    run = os.path.join(sys.argv[1], name, "task", "run-1")
+    os.makedirs(run)
+    with open(os.path.join(run, "transcript.jsonl"), "w", encoding="utf-8") as fh:
+        fh.write("".join(json.dumps(r) + "\n" for r in records))
+PY
+out="$("$TEST_PYTHON" "$GRADER" "$ROUTING" --bytes 200 --lines 100000 --json 2>&1 | "$TEST_PYTHON" -c '
+import json, sys
+for r in json.load(sys.stdin)["runs"]:
+    print("routing", r["arm"], r["routing_around"])
+')"
+assert_contains "$out" "routing head0-large-target 1" "grader: head_limit 0 on a file read large is routing-around, with no -C at all"
+assert_contains "$out" "routing head5-large-target 0" "grader: a Grep on a large file with neither -C 50 nor head_limit 0 is not routing-around"
+assert_contains "$out" "routing no-context-large-target 0" "grader: a Grep with no -C and no head_limit is not routing-around, whatever it searched"
+assert_contains "$out" "routing ctx49-large-target 0" "grader: -C 49 sits one under the context floor and is not routing-around"
+assert_contains "$out" "routing ctx50-large-target 1" "grader: -C 50 is exactly the context floor and is routing-around"
+assert_contains "$out" "routing ctx60-small-target-small-result 0" \
+  "grader: -C 60 on a path never read large, with a result under the threshold, is not routing-around"
+assert_contains "$out" "routing ctx60-small-target-result-at-threshold 1" \
+  "grader: -C 60 whose own result reaches the threshold is routing-around though its path was never read large"
+assert_contains "$out" "routing head0-small-target-small-result 0" \
+  "grader: head_limit 0 on a path never read large, with a small result, is not routing-around"
+assert_contains "$out" "routing cat-unseen-small-result 0" "grader: a bare cat of a path never read large, with a small result, is not routing-around"
+assert_contains "$out" "routing cat-unseen-result-at-threshold 1" \
+  "grader: a bare cat whose own result reaches the threshold is routing-around though its path was never read large"
+assert_eq "10" "$(printf '%s\n' "$out" | grep -c '^routing ')" "grader: every routing case graded to one row"
+
 # --- § arranging -------------------------------------------------------------
 printf '\n--- arranging: a kept `claude plugin eval` temp tree becomes the grader layout ---\n'
 
@@ -257,24 +317,25 @@ assert_contains "$graded" "| gated | task-a | run-2 | 0 | 1 | 1317 | 717 | 20000
 assert_eq "0" "$(grep -c 'splitext' "$ARRANGE")" "arrange: finds a session's sub-agent directory through the parser, not by its own path rule"
 
 # The outcome is validated once, in plan, and the record it made is what write stores.
-out="$("$TEST_PYTHON" - "$ARRANGE" "$SCRIPTS" "$TMP" <<'PY'
+out="$("$TEST_PYTHON" - "$ARRANGE" "$SCRIPTS" "$TMP" "$KEPT" "$AGG" <<'PY'
 import importlib.util, json, os, sys
-from dataclasses import fields
 sys.path.insert(0, sys.argv[2])
 import read_transcript as rt
 spec = importlib.util.spec_from_file_location("arrange_results", sys.argv[1])
 arrange = importlib.util.module_from_spec(spec)
 sys.modules["arrange_results"] = arrange
 spec.loader.exec_module(arrange)
-print("fields", [f.name for f in fields(arrange.ArrangedRun)])
+planned = arrange.plan(sys.argv[4], sys.argv[5], "with")
+print("planned", [(r.case, r.number, os.path.basename(r.transcript), os.path.isfile(r.transcript),
+                   r.shunt_log is not None and os.path.isfile(r.shunt_log), r.outcome) for r in planned])
 dest = os.path.join(sys.argv[3], "outcome-probe")
 os.makedirs(dest)
 rt.write_outcome(dest, {"pass": False})
 print("written", open(os.path.join(dest, rt.OUTCOME_FILE), encoding="utf-8").read())
 PY
 )"
-assert_contains "$out" "fields ['case', 'number', 'transcript', 'shunt_log', 'outcome']" \
-  "arrange: an arranged run carries the outcome record plan validated, not the raw score and passed, and the hook log plan found"
+assert_contains "$out" "planned [('task-a', 1, 'sess1.jsonl', True, True, {'score': 1}), ('task-a', 2, 'sess2.jsonl', True, False, {'pass': False})]" \
+  "arrange: an arranged run carries its transcript path and the outcome record plan validated, not the raw score and passed, and the hook log plan found"
 assert_contains "$out" 'written {"pass": false}' "arrange: write_outcome stores the record it is given"
 
 err="$("$TEST_PYTHON" "$ARRANGE" "$KEPT" "$AGG" --arm gated --out "$ARRANGED" 2>&1 >/dev/null)"; rc=$?
