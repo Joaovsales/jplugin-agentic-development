@@ -10,7 +10,9 @@ keep two copies that could quietly drift.
 Only three tokens are glob syntax: `*`, `?` and `**`. Everything else a pattern
 contains is a literal, and anything resembling other glob dialects (`[]`, `{}`,
 `!`) is rejected outright rather than silently treated as a literal that matches
-nothing and quietly stops being maintained.
+nothing and quietly stops being maintained. The one exception is a whole path
+segment naming a Next.js dynamic route (`[id]`, `[...slug]`, `[[...slug]]`): that
+is a real directory name, so its brackets are kept as literals.
 """
 
 from __future__ import annotations
@@ -21,6 +23,9 @@ from typing import Iterator, List, Optional, Sequence
 from .index import read_text
 
 UNSUPPORTED_GLOB_CHARS = "[]{}!"
+
+# A whole segment naming a Next.js dynamic route: `[id]`, `[...slug]`, `[[...slug]]`.
+_DYNAMIC_SEGMENT = re.compile(r"\[(?:\[\.\.\.[A-Za-z0-9_-]+\]|(?:\.\.\.)?[A-Za-z0-9_-]+)\]")
 
 FRONTMATTER_KEY = "implementation_paths"
 
@@ -53,11 +58,13 @@ def validate_pattern(pattern: str, spec: str) -> str:
         raise SpecPathError(f"{spec}: use POSIX separators, not backslashes: {value!r}")
     if ".." in value.split("/"):
         raise SpecPathError(f"{spec}: `..` traversal not allowed: {value!r}")
-    bad = [c for c in UNSUPPORTED_GLOB_CHARS if c in value]
+    unbracketed = "/".join("" if _DYNAMIC_SEGMENT.fullmatch(seg) else seg for seg in value.split("/"))
+    bad = [c for c in UNSUPPORTED_GLOB_CHARS if c in unbracketed]
     if bad:
         raise SpecPathError(
             f"{spec}: unsupported glob syntax {''.join(bad)!r} in {value!r} "
-            f"— only *, ? and ** are accepted"
+            f"— only *, ? and ** are accepted, and brackets only as a whole Next.js "
+            f"dynamic segment such as [id], [...slug] or [[...slug]]"
         )
     return value
 
