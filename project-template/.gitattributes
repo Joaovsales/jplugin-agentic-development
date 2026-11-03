@@ -19,6 +19,10 @@
 # branch slug), or one-file-per-entry with a thin index — which is exactly what
 # the typed learning store (tasks/solutions/, one document per learning) does,
 # so it needs no union rule at all.
+#
+# Union also works only where git runs the merge. GitHub ignores repository
+# .gitattributes when it computes a pull request's mergeability, so the PR still
+# reports a conflict until master is merged into the branch locally.
 
 tasks/history.md     merge=union
 tasks/backlog.md     merge=union
@@ -26,8 +30,11 @@ tasks/design-debt.md merge=union
 tasks/e2e-log.md     merge=union
 
 # NOT union-merged, deliberately:
-#   tasks/todo.md      rewritten wholesale per plan, not appended. Union would
-#                      splice two unrelated plans into one incoherent list.
+#   tasks/todo.md      plan blocks and summaries are appended, but rows are
+#                      ticked [ ] -> [x] in place and /tidy deletes closed
+#                      blocks. Where one side ticked or deleted a row the other
+#                      side still carries, union keeps both copies: an open and
+#                      a closed row under one task-id, which nothing flags.
 #   tasks/solutions/   one document per learning; concurrent sessions write
 #                      different files, and /memory-maintain curates — union
 #                      would defeat the deduplication that skill performs.

@@ -1,0 +1,14 @@
+# This repository dog-foods project-template/.gitattributes: the append-only
+# registers union-merge, so `git merge origin/master` on a branch resolves their
+# append/append collisions with no markers. The rationale, and why tasks/todo.md
+# is deliberately left out, live in that file; tests/test-gitattributes.sh keeps
+# the two lists equal.
+#
+# GitHub ignores this file when it computes a pull request's mergeability, so a
+# PR still shows "This branch has conflicts" until someone merges master into it
+# locally — union only makes that local merge mechanical.
+
+tasks/history.md     merge=union
+tasks/backlog.md     merge=union
+tasks/design-debt.md merge=union
+tasks/e2e-log.md     merge=union
