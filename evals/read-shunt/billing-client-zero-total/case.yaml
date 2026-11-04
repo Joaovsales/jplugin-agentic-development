@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: billing-client-zero-total
+description: Fix a wrong invoice total in a generated API client.
+tags: [large]
+context:
+  scaffold_script: fixture.sh

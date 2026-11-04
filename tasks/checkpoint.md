@@ -1,18 +1,12 @@
-# Checkpoint — 2026-10-22T18:04:00Z
+# Checkpoint — 2026-10-21T22:18:22Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
 ## Git
-- Branch: claude/test-suite-aposd-build-14b7ef
+- Branch: claude/read-shunt-baseline-build-27c746
 
 ```
  M tasks/checkpoint.md
- M tasks/concepts.md
- M tasks/history.md
- M tasks/solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md
- M tasks/solutions/process/four-unresolved-should-fix-make-a-hold-and-a-delta-receipt-inherits-them.md
- M tasks/todo.md
-?? tasks/solutions/conventions/a-fixture-builder-run-in-a-command-substitution-keeps-its-exit-143-guard.md
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
@@ -48,7 +42,7 @@
   [ ] TDD: tests/test-helix-stack-wrapup.sh § closure — each PR has a retained unit receipt/suite/CI/evidence; intermediate uses Refs, final uses Closes; merge commit preserves slice SHAs; retarget and final acceptance recheck integrated tree; single-PR and ordinary modes stay green -> stacked wrap-up (AC 22)
 
 ## Active Spec
-- specs/test-suite-aposd.md
+- specs/read-shunt.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`
