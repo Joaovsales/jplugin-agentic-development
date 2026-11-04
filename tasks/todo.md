@@ -2620,3 +2620,24 @@ Step ledger (routine `simplify`):
 - Completed: `/build` writes every `[AMBIGUITY]` line a returning dispatch reports into `tasks/todo.md` under the slice heading it served (below the `> Handover:` lines, outside their four-line cap), and Phase 4.5 greps this build's plan block rather than agent output in context, which idle compaction can summarise away while a turn waits on a background suite. Six assertions in `tests/test-doc-conventions.sh` pin it (red 886/6 before, green 892/0 after); `build/SKILL.md` is 598 lines against its 600-line budget.
 - Pending: none in this session.
 - Carry-forward: `.agents/hooks/pre-compact.sh`'s header still says auto-compaction fires "at ~75% utilisation" and does not mention idle compaction; `tests/test-install-sh.sh` needs more than the default 300 s `TEST_FILE_TIMEOUT` on this host (passed at 1500 s).
+- [ ] Six more test files fail only on Windows hosts (design-stack, evidence, codex install) <!-- task-id: tidy.tests-test-design-stack-install-sh.six-more-test-files-fail-only-on-windows-hosts-design-stack-evidence-codex-install --> — tests/run.sh at 239edb8 fails 6 files on Windows Git Bash that Linux CI passes at the same sha and that neither #129 no… ([#269](https://github.com/Joaovsales/jplugin-agentic-development/issues/269))
+
+## Tidy: 2026-10-07
+
+- [x] suite — RED locally: 14/70 files (Linux CI green at 239edb8); Tier 0 held by Law 3
+- [x] inventory — clean
+- [x] retired — clean (9 retired names; only retirement tests and history notes name them)
+- [x] installed — findings: 4 (Tier 1)
+- [x] refs — 1 Tier 0 candidate held by Law 3; 164 Unverified
+- [x] worktrees — findings: 11 worktrees + 28 branches provably merged (Tier 1); 3 detached skipped
+- [x] strays — clean
+- [x] graph — skipped: graphify not installed
+- [x] registers — findings: 29 closed plan blocks (Tier 1, tracked as #143); checkpoint current
+- [x] Routine step 1 `/tidy` — record tasks/sweeps/2026-10-07-tidy.md
+- [x] Routine step 2 `/wrap-up-session` — push and ready PR `chore(tidy): 2026-10-07`
+
+## Session Summary — 2026-10-07 [239edb8..3c939d1]
+
+- Completed: scheduled `tidy` sweep at 239edb8; record `tasks/sweeps/2026-10-07-tidy.md`; filed #269 (six Windows-only test files).
+- Pending: Tier 0 `refs` repair at `.agents/skills/slice/SKILL.md:51` (held by Law 3: suite red on this Windows host); Tier 1 remedies printed in the record (installed copies, 11 merged worktrees + 28 branches, 29 closed plan blocks — #143).
+- Carry-forward: earlier tidy runs left `routine/tidy/20260928-sweep` (unpushed record `b3272cd`) and the `tidy-20260929` worktree; #155 is still open.
