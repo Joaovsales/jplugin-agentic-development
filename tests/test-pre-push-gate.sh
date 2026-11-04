@@ -388,6 +388,16 @@ if command -v jq >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
   assert_eq "0" "$HOOK_RC" "Both pass: the push is allowed"
   assert_eq "" "$OUT" "Both pass: nothing on stderr"
 
+  # Pushed from a linked worktree, git exports an absolute GIT_DIR to the hook. A
+  # gate that inherits it aims every git call in its test fixtures at the real
+  # repository: observed 2026-11-03, a test gate force-moved origin/main and set
+  # core.bare=true in the pushing clone's config.
+  D="$(scripts_repo gitenv "env | grep -E '^GIT_(DIR|WORK_TREE|INDEX_FILE|COMMON_DIR)=' && exit 1 || exit 0" "exit 0")"
+  GIT_DIR="$D/.git" GIT_WORK_TREE="$D" GIT_INDEX_FILE="$D/.git/index" GIT_COMMON_DIR="$D/.git" \
+    run_hook "$D" "$(sha "$D")" "$(sha "$D")"
+  assert_eq "0" "$HOOK_RC" "Pushing repo's git env: the gates do not inherit it"
+  assert_eq "" "$OUT" "Pushing repo's git env: nothing on stderr"
+
   D="$(scripts_repo killed "echo TYPE-ERR && exit 1" "exit 1")"
   cp "$HOOK" "$D/hook"; chmod +x "$D/hook"
   OUT="$( cd "$D" && printf 'refs/heads/master %s refs/heads/master %s\n' "$(sha "$D")" "$(sha "$D")" \

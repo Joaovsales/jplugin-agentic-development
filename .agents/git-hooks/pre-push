@@ -22,10 +22,14 @@ done
 # Run typecheck + lint if package.json declares them.
 if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
   SCRIPTS=$(jq -r '.scripts // {} | keys[]' package.json 2>/dev/null || true)
+  GIT_LOCAL_VARS=$(git rev-parse --local-env-vars) || exit 1
   for script in typecheck lint; do
     if printf '%s\n' "$SCRIPTS" | grep -qx "$script"; then
       echo "[pre-push] running: npm run $script"
-      if ! npm run --silent "$script" >/tmp/prepush-"$script".log 2>&1; then
+      # The subshell drops the pushing repo's GIT_DIR and friends (exported to hooks
+      # from a linked worktree): a gate that runs git — a test fixture — would
+      # otherwise write to this repository and push to its origin.
+      if ! ( unset $GIT_LOCAL_VARS; npm run --silent "$script" ) >/tmp/prepush-"$script".log 2>&1; then
         echo "BLOCKED: npm run $script failed. See /tmp/prepush-${script}.log" >&2
         tail -30 /tmp/prepush-"$script".log >&2
         exit 1
