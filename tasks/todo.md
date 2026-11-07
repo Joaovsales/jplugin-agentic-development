@@ -2729,5 +2729,10 @@ Step ledger (routine `simplify`):
 - [x] 4.1 `/make-it-simpler #384` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
 - [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
 - [x] 4.3 `/build` — the one TDD row above, in place, inline (a five-line edit; no builder dispatch)
-- [ ] 4.4 `/quality-gate`
-- [ ] 5. `/wrap-up-session`
+- [x] 4.4 `/quality-gate` — Phases 1–3 inline (no findings), Phase 4 and the test-engineer dispatched, both GO; receipt GO 589ad0f1 policy qg1-694ecceb
+- [x] 5. `/wrap-up-session` — `/learn`: one bullet added to an existing process doc; `/memory-maintain` skip: due (75 sessions), but a store sweep would put unrelated churn into a one-simplification PR
+
+## Session Summary — [2026-11-07] [4abdf40..b31f5a1]
+- Completed: #384 — `/system-design-planning` § *6. Render* cites `/visual-plan` § *Process* for the renderer's typed sections and refusal format (341 → 336 lines, behavior changes: none; simplify routine). Spec reconciliation: 11 candidates, all `unchanged` (aposd-first-build, codex-scout-routing, diagram-skill, plan-slices-and-handover, readable-visual-plans, simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md, single-instruction-file, system-design-planning, ui-design-stack, upsert-depends-on, wrap-up-phases).
+- Pending: none from this run.
+- Carry-forward: `/memory-maintain` is overdue (75 sessions) and was skipped here to keep the PR to one simplification; `tests/test-citations.sh` does not check `/<skill>` § citations (only `signals.py` citation-drift does).
