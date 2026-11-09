@@ -2709,3 +2709,21 @@ Step ledger (routine `simplify`):
 > Do not re-derive: with `--keep-temp` the runner leaves `<TEMP>/claude-eval-<id>/out/trace.jsonl` (stream-json, `tracePath` in its JSON) and `config/projects/<encoded cwd>/<session>.jsonl` (the ordinary session shape the parser pins) — copy the latter into `<results>/<arm>/<task>/run-<n>/transcript.jsonl` with `outcome.json` from the per-run `score`, then remove the temp home; `--ablation none` keeps one paid run; `--trust-plugin` is needed from a session; `evals/*/results/` is gitignored; on Windows drop `Bash` from `--allow-tools` or the large cases' shell routing-around cannot show
 > Surface: `[SURFACE] +.gitignore | reason: the runner writes evals/read-shunt/results/ on every run` · `[SURFACE] +evals/read-shunt/README.md | reason: its run command carried the Bash grant the Windows runner refuses` (slice 5's surface)
 - [ ] Reconcile specs/read-shunt-baseline.md with the build's [AMBIGUITY] decisions <!-- task-id: spec-reconciliation.specs-read-shunt-baseline-md --> — The excluded column now also counts null-result Read notes (unchanged-file, empty-file, image, PDF); D14 sizes a shell/… ([spec-reconciliation.specs-read-shunt-baseline-md](tasks/details/spec-reconciliation.specs-read-shunt-baseline-md.md))
+
+## Tidy: 2026-11-09
+
+> Record: `tasks/sweeps/2026-11-09-tidy.md`, swept at `4abdf40` on
+> `routine/tidy/20261109-sweep`. Outcome: **findings** (Tier 1 only). Tier 0
+> applied: **0** — nothing mechanical found. Tier 2 filed: **0**.
+
+- [x] `suite` — clean (95/95 test files)
+- [x] `inventory` — clean (README table ↔ `.agents/skills/`, render `--check` exit 0)
+- [x] `retired` — clean (clone unshallowed first; 8 retired names, none named as live)
+- [x] `installed` — inconclusive (cloud container; `~/.claude/` is the runtime's, `~/.agents/` absent)
+- [x] `refs` — clean (unresolved tokens all expected-to-be-created or external; see Unverified)
+- [x] `worktrees` — clean (one worktree, branches `master` + this sweep)
+- [x] `strays` — clean (no untracked or ignored files)
+- [x] `graph` — skipped (no `graphify` on this machine; no graph by design)
+- [x] `registers` — 2 findings, Tier 1 (38 closed plan blocks; checkpoint 2026-10-21 older than newest summary 2026-11-03)
+- [x] `shortcuts` — clean (4 markers, 0 `no-trigger`)
+- [x] `tools` — inconclusive (archify not installed)
