@@ -2727,3 +2727,16 @@ Step ledger (routine `simplify`):
 - [x] `registers` — 2 findings, Tier 1 (38 closed plan blocks; checkpoint 2026-10-21 older than newest summary 2026-11-03)
 - [x] `shortcuts` — clean (4 markers, 0 `no-trigger`)
 - [x] `tools` — inconclusive (archify not installed)
+
+Routine `tidy` — step ledger:
+
+- [x] 1. `task-registry doctor` — provider `github`, reachable, write approval not required
+- [x] 2. branch `routine/tidy/20261109-sweep` created (new today)
+- [x] 3. `/tidy` — record `tasks/sweeps/2026-11-09-tidy.md`; Tier 0: 0; filed: none new (evidence appended to #143)
+- [x] 4. `/wrap-up-session` — suite green, ready PR
+
+## Session Summary — 2026-11-09 [4abdf40..49bfc88]
+
+- Completed: scheduled `tidy` sweep at `4abdf40` — suite green (95/95), 11 checks run inline; no Tier 0 drift; Tier 1 `registers` (38 closed plan blocks, stale checkpoint) re-evidenced on #143.
+- Pending: `installed` and `tools` inconclusive in the cloud container; archive the closed plan blocks (#143).
+- Carry-forward: none.
