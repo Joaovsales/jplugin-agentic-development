@@ -2709,3 +2709,30 @@ Step ledger (routine `simplify`):
 > Do not re-derive: with `--keep-temp` the runner leaves `<TEMP>/claude-eval-<id>/out/trace.jsonl` (stream-json, `tracePath` in its JSON) and `config/projects/<encoded cwd>/<session>.jsonl` (the ordinary session shape the parser pins) — copy the latter into `<results>/<arm>/<task>/run-<n>/transcript.jsonl` with `outcome.json` from the per-run `score`, then remove the temp home; `--ablation none` keeps one paid run; `--trust-plugin` is needed from a session; `evals/*/results/` is gitignored; on Windows drop `Bash` from `--allow-tools` or the large cases' shell routing-around cannot show
 > Surface: `[SURFACE] +.gitignore | reason: the runner writes evals/read-shunt/results/ on every run` · `[SURFACE] +evals/read-shunt/README.md | reason: its run command carried the Bash grant the Windows runner refuses` (slice 5's surface)
 - [ ] Reconcile specs/read-shunt-baseline.md with the build's [AMBIGUITY] decisions <!-- task-id: spec-reconciliation.specs-read-shunt-baseline-md --> — The excluded column now also counts null-result Read notes (unchanged-file, empty-file, image, PDF); D14 sizes a shell/… ([spec-reconciliation.specs-read-shunt-baseline-md](tasks/details/spec-reconciliation.specs-read-shunt-baseline-md.md))
+- [ ] duplicate-rule in .agents/skills/system-design-planning/SKILL.md <!-- task-id: simplify.agents-skills-system-design-planning-skill-md.duplicate-rule-in-agents-skills-system-design-planning-skill-md --> ([#384](https://github.com/Joaovsales/jplugin-agentic-development/issues/384))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md
+
+> Routine: `simplify` #384 · branch `routine/simplify/384-sdp-render-cites-visual-plan` · spec `specs/simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md.md`
+
+### Slice 1/1 — system-design-planning cites visual-plan's Process
+[x] TDD: `signals.py rank --path .agents/skills/system-design-planning` reports the renderer-list `duplicate-rule` before and none after; a broken `/visual-plan` § *Process* pointer raises `citation-drift` (mutation check); the covering tests, `tests/test-plan-render.sh`, `tests/test-skill-invocation-chain.sh` and `tests/test-citations.sh` match the before-proof -> replace the renderer and commit paragraphs of § *6. Render* with one paragraph citing `/visual-plan` § *Process* (AC 1, 2, 3)
+
+> Handover: `system-design-planning/SKILL.md` § *6. Render* 341 -> 336 lines; it keeps the command, its own fix-and-re-render rule, the commit rule and the Required output, and cites `/visual-plan` § *Process* for the typed sections and the refusal format. Before/after are identical: doc-conventions 898, grilling-adoption 97, skill-frontmatter 180, skill-references 268, plan-render 352, invocation-chain 46, citations 6, all with 0 failed.
+> Do not re-derive: `tests/test-citations.sh` doesn't check `/<skill>` § citations; `signals.py` citation-drift does, which the mutation check showed.
+> Surface: check clean (undeclared: none, untouched: none)
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #384 (filed this run by `/make-it-simpler --unattended` discovery)
+- [x] 2. `task-registry claim 384 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/384-sdp-render-cites-visual-plan`
+- [x] 4.1 `/make-it-simpler #384` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place, inline (a five-line edit; no builder dispatch)
+- [x] 4.4 `/quality-gate` — Phases 1–3 inline (no findings), Phase 4 and the test-engineer dispatched, both GO; receipt GO 589ad0f1 policy qg1-694ecceb
+- [x] 5. `/wrap-up-session` — `/learn`: one bullet added to an existing process doc; `/memory-maintain` skip: due (75 sessions), but a store sweep would put unrelated churn into a one-simplification PR
+
+## Session Summary — [2026-11-07] [4abdf40..b31f5a1]
+- Completed: #384 — `/system-design-planning` § *6. Render* cites `/visual-plan` § *Process* for the renderer's typed sections and refusal format (341 → 336 lines, behavior changes: none; simplify routine). Spec reconciliation: 11 candidates, all `unchanged` (aposd-first-build, codex-scout-routing, diagram-skill, plan-slices-and-handover, readable-visual-plans, simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md, single-instruction-file, system-design-planning, ui-design-stack, upsert-depends-on, wrap-up-phases).
+- Pending: none from this run.
+- Carry-forward: `/memory-maintain` is overdue (75 sessions) and was skipped here to keep the PR to one simplification; `tests/test-citations.sh` does not check `/<skill>` § citations (only `signals.py` citation-drift does).
