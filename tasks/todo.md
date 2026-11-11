@@ -2710,6 +2710,7 @@ Step ledger (routine `simplify`):
 > Surface: `[SURFACE] +.gitignore | reason: the runner writes evals/read-shunt/results/ on every run` · `[SURFACE] +evals/read-shunt/README.md | reason: its run command carried the Bash grant the Windows runner refuses` (slice 5's surface)
 - [ ] Reconcile specs/read-shunt-baseline.md with the build's [AMBIGUITY] decisions <!-- task-id: spec-reconciliation.specs-read-shunt-baseline-md --> — The excluded column now also counts null-result Read notes (unchanged-file, empty-file, image, PDF); D14 sizes a shell/… ([spec-reconciliation.specs-read-shunt-baseline-md](tasks/details/spec-reconciliation.specs-read-shunt-baseline-md.md))
 - [ ] duplicate-rule in .agents/skills/system-design-planning/SKILL.md <!-- task-id: simplify.agents-skills-system-design-planning-skill-md.duplicate-rule-in-agents-skills-system-design-planning-skill-md --> ([#384](https://github.com/Joaovsales/jplugin-agentic-development/issues/384))
+- [ ] duplicate-rule in .agents/skills/learn/SKILL.md <!-- task-id: simplify.agents-skills-learn-skill-md.duplicate-rule-in-agents-skills-learn-skill-md --> ([#387](https://github.com/Joaovsales/jplugin-agentic-development/issues/387))
 
 ## Plan: simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md
 
