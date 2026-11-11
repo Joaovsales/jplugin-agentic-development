@@ -28,7 +28,7 @@ the raw markdown, before implementation starts.
 - **Don't use** to write or revise the spec itself — that's `/plan`'s job.
   This skill only renders a spec that's already on disk.
 
-## Skip when trivial (gate)
+## Skip when trivial
 
 Before rendering, check the change's actual size and risk against the spec:
 
