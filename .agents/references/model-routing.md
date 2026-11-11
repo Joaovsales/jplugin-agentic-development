@@ -23,6 +23,12 @@ Canonical tiers. Concrete provider model IDs are deliberately **not** repeated h
 session model.** It is not a model name and must never be written as one. If the
 user is running Opus, a ceiling-tier reviewer runs on Opus.
 
+Two harnesses cannot express Ceiling by omission and spell it as a directive
+instead — the directive is the tier, and `inherit` is not a model name either:
+Pi uses `"model": "inherit"` in `subagents.agentOverrides`, and Codex sets
+`inherit_model = true` on its `Ceiling` tier. Never resolve a Ceiling role to a
+concrete model to satisfy either of them.
+
 Ceiling exists because pinning a tier to a concrete model *caps* it. A rule that
 says "always pass `model` explicitly" silently downgrades the highest-stakes
 review to the pinned tier for exactly the users who chose a stronger session
@@ -77,6 +83,7 @@ Canonical persona definitions live in `.agents/agents/` (model-agnostic — neve
 | `critic` | *ceiling (planner floor)* | Adversarial quality gate for plans, code, specs |
 | `context-document-optimizer` | `sonnet` | Compress large docs for token efficiency |
 | `software-design-expert-review` | *ceiling* | Read-only APOSD design audit — depth, leakage, error design (dispatched by `/quality-gate`) |
+| `test-engineer` | Reviewer, model passed per dispatch | Read-only test adequacy review against the spec's acceptance criteria and the interface (Review job, dispatched by `/quality-gate`) |
 
 **Rule**: One focused task per subagent. Resolve each agent's model through the
 tier in *Tiers* above — on Claude Code pass `model` explicitly for the
@@ -107,8 +114,11 @@ configuration that shadows a managed role before relying on its tier.
   this tier exists to prevent. `critic` is the one exception, and only downward,
   per its floor above.
 - **Pi**: never pass per-call model params; `subagents.agentOverrides` resolves
-  them. Ceiling-tier agents stay **explicitly pinned** there. Omitting an agent
+  them. Ceiling-tier agents carry `"model": "inherit"` — the Pi spelling of
+  "pass nothing", which resolves the parent session model. Omitting an agent
   from `agentOverrides` falls through to `subagents.defaultModel` — a fixed
   builder-tier model, not the session model — so omission on Pi *downgrades*
-  rather than inherits. Ceiling-by-omission is a Claude Code property; see
-  `PI_SETUP.md` § Sub-Agent Routing for the Pi equivalent.
+  rather than inherits, and no Ceiling entry may be deleted. `critic` is the
+  exception: `inherit` cannot express a floor, so it stays pinned to the planner
+  model. The Pi equivalent of this section lives in
+  `PI_SETUP.md` § Sub-Agent Routing.

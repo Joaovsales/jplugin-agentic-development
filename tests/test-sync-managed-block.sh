@@ -19,7 +19,7 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT="$REPO/.agents/skills/sync/scripts/sync-managed-block.py"
+SCRIPT="$(under_test .agents/skills/sync/scripts/sync-managed-block.py)"
 
 SLUG="jplugin-agentic-development"
 # Assembled at runtime (not written as a literal) so test-repo-identity.sh's
@@ -30,11 +30,10 @@ END="<!-- $SLUG:end -->"
 LEGACY_BEGIN="<!-- $LEGACY_SLUG:begin -->"
 LEGACY_END="<!-- $LEGACY_SLUG:end -->"
 
-BOX="$(mktemp -d)"
-trap 'rm -rf "$BOX"' EXIT
+BOX="$(fixture_dir)"
 
 run_script() {
-  PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" "$SCRIPT" "$@"
+  "$TEST_PYTHON" "$SCRIPT" "$@"
 }
 
 # --- case 1: no markers in target -> appended -------------------------------
@@ -131,7 +130,7 @@ printf '%s\nCONTENT\n%s\n' "$BEGIN" "$END" > "$CASE7/source.md"
 
 OUT7="$(run_script --source "$CASE7/source.md" --target "$CASE7/AGENTS.md" --dry-run)"
 assert_contains "$OUT7" "would AGENTS.md: appended" "case7: dry-run prefixes the outcome with would"
-assert_eq "false" "$([ -f "$CASE7/AGENTS.md" ] && echo true || echo false)" "case7: dry-run does not create the target"
+assert_file_absent "$CASE7/AGENTS.md" "case7: dry-run does not create the target"
 
 # --- case 8: --claude-md pointer file --------------------------------------
 CASE8="$BOX/case8"; mkdir -p "$CASE8"
@@ -172,7 +171,7 @@ assert_file_contains "$CASE9/AGENTS.md" "STDIN CONTENT" "case9: stdin block cont
 # --- case 10: absent target -> created via append ---------------------------
 CASE10="$BOX/case10"; mkdir -p "$CASE10"
 printf '%s\nCONTENT10\n%s\n' "$BEGIN" "$END" > "$CASE10/source.md"
-assert_eq "false" "$([ -f "$CASE10/AGENTS.md" ] && echo true || echo false)" "case10: target absent before the run"
+assert_file_absent "$CASE10/AGENTS.md" "case10: target absent before the run"
 
 OUT10="$(run_script --source "$CASE10/source.md" --target "$CASE10/AGENTS.md")"
 assert_contains "$OUT10" "AGENTS.md: appended" "case10: absent target is created via append"
@@ -205,7 +204,7 @@ assert_eq "0" "$RC11" "case11: migration exits 0"
 assert_contains "$OUT11" "AGENTS.md: unchanged" "case11: the block itself was already current"
 assert_contains "$OUT11" "migration: moved 4 section(s), .claude/project.md deleted" \
   "case11: reports the pointer, Deployment Targets, Project-Specific Rules and Tech Stack as moved"
-assert_eq "false" "$([ -f "$CASE11/.claude/project.md" ] && echo true || echo false)" "case11: project.md deleted"
+assert_file_absent "$CASE11/.claude/project.md" "case11: project.md deleted"
 below11="$(awk -v e="$END" 'seen { print } $0 == e { seen = 1 }' "$CASE11/AGENTS.md")"
 assert_eq "Task tracking instructions: docs/tracking.md" "$(printf '%s\n' "$below11" | grep -m1 .)" \
   "case11: the pointer line is the first non-blank line below the end marker"
@@ -245,7 +244,7 @@ ERR13="$(cd "$CASE13" && run_script --source source.md --target AGENTS.md --migr
 assert_eq "2" "$RC13" "case13: a Deployment Targets table in both files exits 2"
 assert_contains "$ERR13" "'## Deployment Targets' is also below the end marker" "case13: the refusal names the collision"
 assert_contains "$ERR13" ".claude/project.md" "case13: the refusal names project.md"
-assert_eq "true" "$([ -f "$CASE13/.claude/project.md" ] && echo true || echo false)" "case13: project.md intact"
+assert_file_exists "$CASE13/.claude/project.md" "case13: project.md intact"
 assert_eq "$ORIG13" "$(cat "$CASE13/AGENTS.md")" "case13: AGENTS.md bytes unchanged — the block was not written either"
 
 # --- case 14: an existing Project-Specific Rules heading is reused ------------
@@ -284,7 +283,7 @@ ORIG15="$(cat "$CASE15/AGENTS.md")"
 OUT15="$(cd "$CASE15" && run_script --source source.md --target AGENTS.md --migrate .claude/project.md --dry-run)"
 assert_contains "$OUT15" "would AGENTS.md: replaced" "case15: dry-run reports the block write"
 assert_contains "$OUT15" "would migration: moved 3 section(s), .claude/project.md deleted" "case15: dry-run reports the migration"
-assert_eq "true" "$([ -f "$CASE15/.claude/project.md" ] && echo true || echo false)" "case15: dry-run keeps project.md"
+assert_file_exists "$CASE15/.claude/project.md" "case15: dry-run keeps project.md"
 assert_eq "$ORIG15" "$(cat "$CASE15/AGENTS.md")" "case15: dry-run writes nothing"
 OUT15B="$(cd "$CASE15" && rm .claude/project.md && run_script --source source.md --target AGENTS.md --migrate .claude/project.md --dry-run)"
 assert_contains "$OUT15B" "would migration: nothing to move" "case15b: dry-run with no project.md reports nothing to move"
@@ -305,7 +304,7 @@ OUT16="$(run_script --source "$CASE16/absent.md" --target "$CASE16/AGENTS.md" 2>
 assert_eq "2" "$RC16" "case16: a missing --source exits 2"
 assert_contains "$OUT16" "absent.md" "case16: the refusal names the missing file"
 assert_not_contains "$OUT16" "Traceback" "case16: no traceback reaches the operator"
-assert_eq "false" "$([ -f "$CASE16/AGENTS.md" ] && echo true || echo false)" "case16: nothing is written"
+assert_file_absent "$CASE16/AGENTS.md" "case16: nothing is written"
 
 # --- case 17: every malformed marker set refuses with the line, nothing written --
 CASE17="$BOX/case17"; mkdir -p "$CASE17"

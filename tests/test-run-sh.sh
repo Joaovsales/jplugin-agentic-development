@@ -6,8 +6,11 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-BOX="$(mktemp -d)"
-trap 'rm -rf "$BOX"' EXIT
+BOX="$(fixture_dir)"
+# run_box [VAR=value]... <command>... — run a fixture suite with the library's CI
+# knobs (REQUIRE_ALL, REQUIRE_BROWSER) unset; CI exports them, and a run that
+# wants one sets it back through a leading VAR=value.
+run_box() { env -u REQUIRE_ALL -u REQUIRE_BROWSER "$@"; }
 
 # A miniature repo: the real runner and library plus three one-line test files.
 mkdir -p "$BOX/tests"
@@ -20,7 +23,7 @@ printf '%s\n' '. "$(dirname "$0")/lib.sh"' 'payload="$(cat)"' \
 # --- serial run: streaming output, a trailer per file, one summary ------------
 # stdin is a pipe that stays open for a while and then delivers a token: a
 # runner that leaks its stdin into the files lets test-stdin.sh read the token.
-OUT="$(TEST_JOBS=1 bash "$BOX/tests/run.sh" < <(sleep 2; echo leaked) 2>&1)"; STATUS=$?
+OUT="$(run_box TEST_JOBS=1 bash "$BOX/tests/run.sh" < <(sleep 2; echo leaked) 2>&1)"; STATUS=$?
 assert_eq "1" "$STATUS" "serial: exit 1 when a file fails"
 assert_contains "$OUT" "RESULT: 1/3 test files FAILED" "serial: RESULT line unchanged"
 assert_contains "$OUT" "=== tests/test-alpha.sh ===" "serial: header per file is kept"
@@ -32,9 +35,13 @@ assert_contains "$OUT" "SLOWEST:" "serial: the slowest files are listed"
 assert_contains "$OUT" "ok   stdin is closed for the file []" "serial: each file runs with stdin closed"
 assert_eq "tests/test-alpha.sh" "$(printf '%s\n' "$OUT" | grep -m1 '^=== ' | cut -d' ' -f2)" \
   "serial: files run in discovery order"
+# The summary sums every file's trailer: two passing assertions (alpha, stdin),
+# one failing (beta), nothing expected to fail or skipped.
+assert_contains "$OUT" "ASSERTIONS: 2 passed, 1 failed, 0 xfail, 0 skipped" \
+  "serial: the summary sums passed, failed, xfail and skipped across files"
 
 # --- --jobs N: same verdict, whole blocks, no interleaving -------------------
-POUT="$(bash "$BOX/tests/run.sh" --jobs 3 < <(sleep 2; echo leaked) 2>&1)"; PSTATUS=$?
+POUT="$(run_box bash "$BOX/tests/run.sh" --jobs 3 < <(sleep 2; echo leaked) 2>&1)"; PSTATUS=$?
 assert_eq "1" "$PSTATUS" "jobs: exit 1 when a file fails"
 assert_contains "$POUT" "RESULT: 1/3 test files FAILED" "jobs: RESULT line identical to serial"
 assert_contains "$POUT" "(jobs=3)" "jobs: summary names the job count"
@@ -49,34 +56,112 @@ BLOCKS_OK="$(printf '%s\n' "$POUT" | awk '
   END { print (bad ? "interleaved" : "whole") }')"
 assert_eq "whole" "$BLOCKS_OK" "jobs: each file's output is printed as one block"
 assert_contains "$POUT" "ok   stdin is closed for the file []" "jobs: files still run with stdin closed"
+assert_contains "$POUT" "ASSERTIONS: 2 passed, 1 failed, 0 xfail, 0 skipped" \
+  "jobs: the summary sums the trailers the same way"
 
-ENV_OUT="$(TEST_JOBS=2 bash "$BOX/tests/run.sh" </dev/null 2>&1)"
+# A skipped file reaches the sum. The trailer has one grammar, the library's: a
+# file that exits 0 without it (the legacy `N assertions passed` form, or no
+# trailer at all) is counted as failed and named, never silently left out of the sum.
+printf '%s\n' '. "$(dirname "$0")/lib.sh"' 'skip "nothing to run here"' 'finish' > "$BOX/tests/test-skipper.sh"
+printf '%s\n' 'printf "  ok   old style\n  -> 4 assertions passed\n"' > "$BOX/tests/test-old.sh"
+SKOUT="$(run_box TEST_JOBS=1 bash "$BOX/tests/run.sh" </dev/null 2>&1)"
+assert_contains "$SKOUT" "ASSERTIONS: 2 passed, 1 failed, 0 xfail, 1 skipped" \
+  "summary: a skip is summed and a legacy-trailer file adds nothing"
+assert_contains "$SKOUT" "FAIL tests/test-old.sh: no assertion trailer" \
+  "summary: a file whose trailer is not the library's is named as a failure"
+assert_contains "$SKOUT" "RESULT: 2/5 test files FAILED" \
+  "summary: the file without a trailer is counted as a failed file"
+POUT_OLD="$(run_box bash "$BOX/tests/run.sh" --jobs 3 </dev/null 2>&1)"
+assert_contains "$POUT_OLD" "FAIL tests/test-old.sh: no assertion trailer" \
+  "jobs: a file without the library's trailer is named as a failure too"
+assert_contains "$POUT_OLD" "RESULT: 2/5 test files FAILED" \
+  "jobs: the file without a trailer is counted as a failed file"
+rm -f "$BOX/tests/test-skipper.sh" "$BOX/tests/test-old.sh"
+printf '%s\n' 'printf "  ok   says nothing\n"' > "$BOX/tests/test-silent.sh"
+SIOUT="$(run_box TEST_JOBS=1 bash "$BOX/tests/run.sh" tests/test-silent.sh </dev/null 2>&1)"; SISTATUS=$?
+assert_eq "1" "$SISTATUS" "summary: a file that exits 0 with no trailer fails the run"
+assert_contains "$SIOUT" "FAIL tests/test-silent.sh: no assertion trailer" "summary: the silent file is named"
+rm -f "$BOX/tests/test-silent.sh"
+
+ENV_OUT="$(run_box TEST_JOBS=2 bash "$BOX/tests/run.sh" </dev/null 2>&1)"
 assert_contains "$ENV_OUT" "(jobs=2)" "TEST_JOBS: the environment sets the job count"
 
 rm -f "$BOX/tests/test-beta.sh"
-GREEN="$(bash "$BOX/tests/run.sh" --jobs 2 </dev/null 2>&1)"; GSTATUS=$?
+GREEN="$(run_box bash "$BOX/tests/run.sh" --jobs 2 </dev/null 2>&1)"; GSTATUS=$?
 assert_eq "0" "$GSTATUS" "jobs: exit 0 when every file passes"
 assert_contains "$GREEN" "RESULT: all 2 test files passed" "jobs: green RESULT line unchanged"
 
 for bad_jobs in 0 abc ""; do
-  bash "$BOX/tests/run.sh" --jobs "$bad_jobs" </dev/null >"$BOX/bad.out" 2>&1; BAD=$?
+  run_box bash "$BOX/tests/run.sh" --jobs "$bad_jobs" </dev/null >"$BOX/bad.out" 2>&1; BAD=$?
   assert_eq "2" "$BAD" "usage: --jobs '$bad_jobs' is refused with exit 2"
   assert_file_contains "$BOX/bad.out" "positive integer" "usage: --jobs '$bad_jobs' names the rule"
 done
-TEST_JOBS=1 bash "$BOX/tests/run.sh" --frobnicate </dev/null >"$BOX/bad.out" 2>&1
+run_box TEST_JOBS=1 bash "$BOX/tests/run.sh" --frobnicate </dev/null >"$BOX/bad.out" 2>&1
 assert_eq "2" "$?" "usage: an unknown flag exits 2"
 
 # --- named files: only those run; a missing one is a usage error --------------
-NAMED="$(bash "$BOX/tests/run.sh" tests/test-alpha.sh </dev/null 2>&1)"; NSTATUS=$?
+NAMED="$(run_box bash "$BOX/tests/run.sh" tests/test-alpha.sh </dev/null 2>&1)"; NSTATUS=$?
 assert_eq "0" "$NSTATUS" "named: exit 0 when the named file passes"
 assert_contains "$NAMED" "=== tests/test-alpha.sh ===" "named: the named file runs"
 assert_not_contains "$NAMED" "test-stdin.sh" "named: an unnamed file does not run"
 assert_contains "$NAMED" "RESULT: all 1 test files passed" "named: the RESULT counts only named files"
-NAMED="$(bash "$BOX/tests/run.sh" --jobs 2 tests/test-alpha.sh tests/test-stdin.sh </dev/null 2>&1)"
+NAMED="$(run_box bash "$BOX/tests/run.sh" --jobs 2 tests/test-alpha.sh tests/test-stdin.sh </dev/null 2>&1)"
 assert_contains "$NAMED" "RESULT: all 2 test files passed" "named: --jobs combines with named files"
-bash "$BOX/tests/run.sh" tests/test-missing.sh </dev/null >"$BOX/bad.out" 2>&1
+run_box bash "$BOX/tests/run.sh" tests/test-missing.sh </dev/null >"$BOX/bad.out" 2>&1
 assert_eq "2" "$?" "named: a missing named path exits 2"
 assert_file_contains "$BOX/bad.out" "tests/test-missing.sh" "named: the missing path is named"
+
+# --- timeout: a hung file is failed, named and bounded (AC 7) -----------------
+# A file that outlives TEST_FILE_TIMEOUT is killed and reported as a failure,
+# serial and --jobs alike, instead of consuming the CI job (PR #177).
+TBOX="$BOX/timeout"
+mkdir -p "$TBOX/tests"
+cp "$REPO/tests/run.sh" "$REPO/tests/lib.sh" "$TBOX/tests/"
+# The limit is generous for the quick file: a spawn costs seconds on Windows.
+printf '%s\n' 'sleep 60' 'printf "  ok   never reached\n"' > "$TBOX/tests/test-hang.sh"
+printf '%s\n' 'printf "  ok   quick file holds\n  -> 1 passed, 0 failed, 0 xfail, 0 skipped\n"' > "$TBOX/tests/test-quick.sh"
+TOUT="$(run_box TEST_FILE_TIMEOUT=4 TEST_JOBS=1 bash "$TBOX/tests/run.sh" </dev/null 2>&1)"; TSTATUS=$?
+assert_eq "1" "$TSTATUS" "timeout: serial run exits 1 when a file times out"
+assert_contains "$TOUT" "FAIL tests/test-hang.sh timed out after 4 s" "timeout: serial run names the file and the limit"
+assert_contains "$TOUT" "RESULT: 1/2 test files FAILED" "timeout: the timed-out file is counted as failed"
+assert_contains "$TOUT" "ok   quick file holds" "timeout: the other file still runs"
+assert_not_contains "$TOUT" "never reached" "timeout: the hung file stops where it hung"
+HUNG_S="$(printf '%s\n' "$TOUT" | sed -n 's/^--- tests\/test-hang\.sh: \([0-9]*\) s ---$/\1/p')"
+assert_true "timeout: the file is stopped at the limit, not after its 60 s sleep (took ${HUNG_S:-?} s)" -- test "${HUNG_S:-99}" -lt 60
+TPOUT="$(run_box TEST_FILE_TIMEOUT=4 bash "$TBOX/tests/run.sh" --jobs 2 </dev/null 2>&1)"; TPSTATUS=$?
+assert_eq "1" "$TPSTATUS" "timeout: --jobs run exits 1 when a file times out"
+assert_contains "$TPOUT" "FAIL tests/test-hang.sh timed out after 4 s" "timeout: --jobs run names the file and the limit"
+assert_contains "$TPOUT" "RESULT: 1/2 test files FAILED" "timeout: --jobs run counts the timed-out file as failed"
+for bad_timeout in 0 abc; do
+  run_box TEST_FILE_TIMEOUT="$bad_timeout" bash "$TBOX/tests/run.sh" </dev/null >"$BOX/bad.out" 2>&1
+  assert_eq "2" "$?" "timeout: TEST_FILE_TIMEOUT='$bad_timeout' is refused with exit 2"
+  assert_file_contains "$BOX/bad.out" "TEST_FILE_TIMEOUT wants a positive integer" "timeout: TEST_FILE_TIMEOUT='$bad_timeout' names the rule"
+done
+rm -f "$TBOX/tests/test-hang.sh"
+assert_eq "0" "$(run_box TEST_FILE_TIMEOUT=4 bash "$TBOX/tests/run.sh" </dev/null >/dev/null 2>&1; echo $?)" \
+  "timeout: a file inside the limit is untouched"
+
+# --- skip protocol and CI settings (AC 7, AC 8, D6, D9) -----------------------
+# tests/test-plan-page.sh under a Python without playwright prints SKIP and
+# passes; with REQUIRE_ALL=1 the skip is a failure, so CI can never go green
+# without the browser check.
+printf '#!/bin/sh\nexit 1\n' > "$BOX/py-no-playwright"
+chmod +x "$BOX/py-no-playwright"
+PP_OUT="$(run_box PLAN_PAGE_PYTHON="$BOX/py-no-playwright" bash "$REPO/tests/test-plan-page.sh" </dev/null 2>&1)"; PP_STATUS=$?
+assert_eq "0" "$PP_STATUS" "skip: the plan-page file passes when playwright is missing"
+assert_contains "$PP_OUT" "SKIP browser: " "skip: the missing browser is announced as a SKIP"
+assert_contains "$PP_OUT" "1 skipped" "skip: the trailer counts the skip"
+PP_OUT="$(run_box REQUIRE_ALL=1 PLAN_PAGE_PYTHON="$BOX/py-no-playwright" bash "$REPO/tests/test-plan-page.sh" </dev/null 2>&1)"; PP_STATUS=$?
+assert_eq "1" "$PP_STATUS" "skip: REQUIRE_ALL=1 turns the missing-browser skip into a failure"
+assert_contains "$PP_OUT" "REQUIRE_ALL=1 and 1 skipped" "skip: the failure names REQUIRE_ALL"
+WORKFLOW="$REPO/.github/workflows/tests.yml"
+assert_file_contains "$WORKFLOW" 'REQUIRE_ALL: "1"' "ci: tests.yml sets REQUIRE_ALL=1"
+assert_file_contains "$WORKFLOW" 'REQUIRE_BROWSER: "1"' "ci: tests.yml sets REQUIRE_BROWSER=1 (D9)"
+assert_file_contains "$WORKFLOW" 'TEST_JOBS: "4"' "ci: tests.yml runs with TEST_JOBS=4 (D6)"
+assert_file_contains "$WORKFLOW" 'pip install playwright' "ci: tests.yml installs the playwright package"
+assert_file_contains "$WORKFLOW" 'playwright install --with-deps chromium' "ci: tests.yml installs chromium"
+assert_file_contains "$WORKFLOW" '~/.cache/ms-playwright' "ci: tests.yml caches the chromium download"
+assert_file_contains "$WORKFLOW" 'run: bash tests/run.sh' "ci: the suite command is verbatim, parallelism comes from the environment"
 
 # --- TEST_PYTHON resolution ---------------------------------------------------
 LIB="$REPO/tests/lib.sh"
@@ -114,7 +199,7 @@ echo py
 ' > "$FAKE/bin/py"; chmod +x "$FAKE/bin/py"; rm -f "$FAKE/bin/python3"
 assert_eq "py" "$(resolve_with "$FAKE/bin:$FAKE/WindowsApps" "$BOX/nowhere")" \
   "TEST_PYTHON: the py launcher is the last resort before the plain name"
-case "$(now_ms)" in ''|*[!0-9]*) assert_eq "digits" "$(now_ms)" "now_ms: returns milliseconds as digits" ;;
-  *) assert_eq "digits" "digits" "now_ms: returns milliseconds as digits" ;; esac
+case "$(now_ms)" in ''|*[!0-9]*) fail "now_ms: returns milliseconds as digits" "$(now_ms)" ;;
+  *) pass "now_ms: returns milliseconds as digits" ;; esac
 
 finish

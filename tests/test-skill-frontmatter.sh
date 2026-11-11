@@ -21,6 +21,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 DESC_MAX=1024
+under_test .agents/skills >/dev/null
 
 # Read every frontmatter fact in ONE awk pass — three lines: has-block, name,
 # description length. One subprocess per skill rather than one per key: on Windows
@@ -53,8 +54,7 @@ for tree in .agents/skills; do
     md="$dir/SKILL.md"
 
     if [ ! -f "$md" ]; then
-      _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-      printf '  FAIL Frontmatter: %s has no SKILL.md\n' "$dir"
+      fail "Frontmatter: $dir has no SKILL.md"
       continue
     fi
 
@@ -65,19 +65,8 @@ EOF
     assert_eq "yes" "$has_fm" "Frontmatter: $tree/$skill opens with a --- block"
     assert_eq "$skill" "$name" "Frontmatter: $tree/$skill name matches its directory"
 
-    if [ "${desc_len:-0}" -gt 0 ]; then
-      assert_eq "present" "present" "Frontmatter: $tree/$skill has a description"
-      if [ "$desc_len" -le "$DESC_MAX" ]; then
-        assert_eq "within" "within" "Frontmatter: $tree/$skill description <= $DESC_MAX chars"
-      else
-        _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-        printf '  FAIL Frontmatter: %s/%s description is %s chars (max %s)\n' \
-          "$tree" "$skill" "$desc_len" "$DESC_MAX"
-      fi
-    else
-      _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-      printf '  FAIL Frontmatter: %s/%s has no description\n' "$tree" "$skill"
-    fi
+    assert_true "Frontmatter: $tree/$skill has a description" -- test "${desc_len:-0}" -gt 0
+    assert_true "Frontmatter: $tree/$skill description <= $DESC_MAX chars" -- test "${desc_len:-0}" -le "$DESC_MAX"
   done
 done
 

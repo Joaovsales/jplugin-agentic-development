@@ -178,7 +178,7 @@ Invoke `/build` for `specs/wrap-up-phases.md`.
 Plan: `## Plan: wrap-up-phases` in `tasks/todo.md`, 7 slices, ready set <1>.
 Files: .agents/skills/wrap-up-session/**, .agents/skills/yolo/SKILL.md, .agents/skills/auto-push/SKILL.md, .agents/skills/build/SKILL.md, .agents/skills/quality-gate/SKILL.md, .agents/skills/tidy/SKILL.md, .agents/skills/memory-maintain/SKILL.md, .agents/skills/verify-evidence/SKILL.md, .agents/skills/verify-deployment/SKILL.md, .agents/skills/sync/SKILL.md, .agents/skills/system-design-planning/SKILL.md, .agents/skills/task-registry/lanes/*.md, .agents/git-hooks/pre-push, .agents/agents/code-reviewer.md, .claude/agents/code-reviewer.md, README.md, specs/quality-receipt-closure.md, tests/test-doc-conventions.sh, tests/test-living-spec-reconciliation.sh, tests/test-routine-wrapup.sh, tests/test-routine-step-ledger.sh, tests/test-routine-escalation-handoff.sh, tests/test-sweep-routines.sh, tests/test-skill-invocation-chain.sh, tests/test-review-context.sh, tests/test-model-tiers.sh, tests/test-instruction-budget.sh, tests/test-closure.sh, tests/test-agents.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/wrap-up-phases.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

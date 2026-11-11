@@ -139,6 +139,11 @@ class TrackerProvider(abc.ABC):
         """How this tracker's reference is written in prose. `PROJ-7`, `#42`, ..."""
         return ref.id
 
+    @classmethod
+    def keyword_reference(cls, raw: str) -> Optional[str]:
+        """`raw` as a PR's `Closes` keyword takes it, or None: only a tracker that closes issues from a PR body has one."""
+        return None
+
     def __init__(self, config, gate: Optional[WriteGate] = None) -> None:
         self.config = config
         self.gate = gate or WriteGate()

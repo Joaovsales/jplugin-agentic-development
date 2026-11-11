@@ -227,16 +227,11 @@ sections, nothing written to the scratchpad:
 python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html
 ```
 
-The renderer types the known sections (Summary, Decisions, Acceptance
-Criteria, Risks, Open questions, Constraints, Component contracts, Data
-models, Build Order), turns `flow` and `sequence` fences into SVG diagrams and
-renders tables as tables, so diagrams and tables are written as ordinary
-markdown. A malformed known section fails the render with `<spec>:<line>:
-<reason>` and writes no page: fix that line in the spec and render again,
-because approval attaches to a page that shows every row the spec holds.
-
-The render is committed beside the spec, not gitignored: approval attaches to
-it, so the reviewed document must survive in history the way the spec does.
+Diagrams and tables are written as ordinary markdown; what the renderer types
+and how it refuses are `/visual-plan` § *Process*. On a refusal, fix the named
+line in the spec and render again, because approval attaches to a page that
+shows every row the spec holds. The render is committed beside the spec, not
+gitignored, so the reviewed document survives in history the way the spec does.
 
 Required output: `✓ Visual written: /absolute/path/specs/<feature>.plan.html`
 
@@ -277,15 +272,16 @@ files nothing and builds nothing either way.
 
 ### 9. Hand off
 
-The build session files the slices first, through `/build`'s pre-flight
-(`/slice specs/<feature>.md --file --approve`) — this planning session filed
-nothing. `/build` then runs the plan block `/slice` wrote top to bottom: the
-`- [ ]` row under each `### Slice` heading is a slice header, claimed
-through `/task-registry` when its first `TDD:` child starts and closed when
-the last one passes, never dispatched to a coder directly — see
-`.agents/skills/slice/SKILL.md` for the plan block's grammar. `/build` does
-not read the filed task body, so the plan block is self-sufficient: every
-`[ ] TDD:` row names the criterion it pins. When an implementation
+The build session links the feature issue first, through `/build`'s
+pre-flight (one `upsert --derive-id plan`, only when the plan's feature row
+has no link) — this planning session filed nothing. `/build` then runs the
+plan block `/slice` wrote top to bottom, dispatching every slice to a
+sub-agent: the `- [ ]` row under each `### Slice` heading is a slice header,
+closed when the slice's criteria pass, never dispatched to a coder directly —
+see `.agents/skills/slice/SKILL.md` for the plan block's grammar. `/build`
+does not read the filed task body, so the spec and the plan block are
+self-sufficient: each slice's Delivers and acceptance criteria come from
+§ Build Order. When an implementation
 contradicts the spec, `/build` stops and the change comes back here — the
 spec is the contract, and `/wrap-up-session` reconciles it when the
 implementation surface moves.

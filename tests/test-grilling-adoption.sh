@@ -32,6 +32,7 @@ NOTICES="THIRD_PARTY_NOTICES.md"
 BASELINE="c55ee46073ed923f86ce59a5eb3b6d895095d1b7"
 UPSTREAM_BLOB="https://github.com/mattpocock/skills/blob/$BASELINE"
 MIT_LICENSE_BLOB="f1dd2c09108dde1a5f56097cee8461b3ea834499"
+under_test .agents/skills >/dev/null
 
 # ── AC 1: /grilling — the model-invoked interview primitive ──────────────────
 assert_file_matches "$GRILLING" '^name: grilling$' \
@@ -110,11 +111,13 @@ for skill in grilling grill-me; do
 done
 assert_files_identical "$SKILLS/grilling/LICENSE.mattpocock" "$SKILLS/grill-me/LICENSE.mattpocock" \
   "AC3: both bundled licenses are one text"
-assert_eq "absent" "$([ -e .claude/skills/grilling ] || [ -e .claude/skills/grill-me ] && echo present || echo absent)" \
-  "AC3: no copy under the retired .claude/skills/ root"
+for skill in grilling grill-me; do
+  assert_file_absent ".claude/skills/$skill" \
+    "AC3: no copy of $skill under the retired .claude/skills/ root"
+done
 
 # ── AC 4: /brainstorm Step 3 runs the interview through /grilling ────────────
-step3="$(awk '/^### Step 3/{p=1} /^### Step 4/{p=0} p' "$BRAINSTORM")"
+step3="$(section_body "$BRAINSTORM" '### Step 3' '^### Step 4')"
 assert_contains "$step3" 'Invoke `/grilling`' \
   "AC4: brainstorm Step 3 invokes /grilling"
 assert_contains "$step3" "references/domain-modeling.md" \
@@ -126,11 +129,11 @@ assert_file_not_matches "$BRAINSTORM" '[Oo]ne question at a time' \
 assert_file_not_matches "$BRAINSTORM" 'Do NOT dump all questions at once' \
   "AC4: brainstorm no longer forbids asking the whole frontier"
 # Step 1 reads the glossary so Step 3 can challenge terms against it.
-step1="$(awk '/^### Step 1/{p=1} /^### Step 2/{p=0} p' "$BRAINSTORM")"
+step1="$(section_body "$BRAINSTORM" '### Step 1' '^### Step 2')"
 assert_contains "$step1" "tasks/concepts.md" \
   "AC4: brainstorm Step 1 reads tasks/concepts.md"
 # Key Principles name the three replacements.
-principles="$(awk '/^## Key Principles/{p=1} p' "$BRAINSTORM")"
+principles="$(section_body "$BRAINSTORM" '## Key Principles')"
 assert_contains "$principles" "Rounds, not drips" \
   "AC4: Key Principles name rounds over drips"
 assert_contains "$principles" "Facts are the agent's job" \

@@ -26,9 +26,9 @@ assertion*** — except a completed `routine/fix` investigation escalation
 
 ### No-change exit
 
-`<base-branch>` is the first of `main`, `master`, `develop` that
-`git show-ref --verify --quiet refs/heads/<name>` finds, else
-`git merge-base HEAD origin/HEAD`; if that fails too, warn and ask the user.
+`<base-branch>` is the first of `origin/main`, `origin/master`, `origin/develop` that
+resolves, else the same names locally, else `git merge-base HEAD origin/HEAD`; if that
+fails, warn and ask. `git fetch` first — a stale local branch inflates every range here.
 When `git diff --name-only`, `git diff --name-only --cached` and
 `git log --oneline <base-branch>...HEAD` all print nothing, report
 `Session wrapped up (no changes).` — no code changes, so no review, tests,

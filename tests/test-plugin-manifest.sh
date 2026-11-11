@@ -13,8 +13,9 @@
 # invariants that keep the skill bodies harness-neutral.
 . "$(dirname "$0")/lib.sh"
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$REPO"
+# The manifests are the artefact under test; every other read below resolves
+# from the repository root they sit in.
+cd "$(under_test .claude-plugin)/.." || exit 1
 
 PLUGIN=".claude-plugin/plugin.json"
 MARKETPLACE=".claude-plugin/marketplace.json"
@@ -63,8 +64,7 @@ assert_not_contains "$(json_keys "$MARKETPLACE")" "<unreadable" \
 # --- 2. the skills path is the canonical tree, written ./-relative ----------
 assert_eq "./.agents/skills" "$(json_get "$PLUGIN" skills)" \
   "plugin.json: skills points at ./.agents/skills (never '.', which needed 2.1.221)"
-assert_eq "yes" "$([ -d .agents/skills ] && echo yes || echo no)" \
-  "plugin.json: the skills directory exists"
+assert_true "plugin.json: the skills directory exists" -- test -d .agents/skills
 
 # --- 3. one plugin name, shared by both manifests ---------------------------
 assert_eq "jplugin" "$(json_get "$PLUGIN" name)" \
@@ -91,8 +91,8 @@ done
 
 # --- 5. version is semver ---------------------------------------------------
 VERSION="$(json_get "$PLUGIN" version)"
-assert_eq "semver" "$(printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && echo semver || echo "not-semver: $VERSION")" \
-  "plugin.json: version is semver"
+assert_true "plugin.json: version is semver ($VERSION)" -- \
+  bash -c '[[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]' _ "$VERSION"
 
 # --- 6. the template's own settings.json declares the marketplace and plugin --
 # Synced to every project by /sync and the CI mirror, so a fresh clone installs
@@ -134,23 +134,27 @@ assert_file_contains README.md 'bump `version`' \
 # reference outside the historical logs follows it. This file holds the pattern
 # and is excluded; `verify-deployment`, `verify-e2e` and `verify-<app>`
 # are a different family and stay.
-assert_eq "no" "$([ -e .agents/skills/verify ] && echo yes || echo no)" \
+assert_file_absent .agents/skills/verify \
   "rename: .agents/skills/verify/ no longer exists"
 assert_file_contains .agents/skills/verify-evidence/SKILL.md "name: verify-evidence" \
   "rename: verify-evidence/SKILL.md carries its own name in the frontmatter"
 BARE_VERIFY='(^|[^A-Za-z0-9_/-])/verify([^A-Za-z0-9_-]|$)'
-assert_eq "" "$(git grep -l -E "$BARE_VERIFY" -- . ':!tasks' ':!specs' ':!tests/test-plugin-manifest.sh' 2>/dev/null | paste -sd' ' -)" \
-  "rename: no bare /verify reference survives in any tracked file outside tasks/ and specs/"
+SWEEP="$(fixture_dir)"
+printf 'a bare /verify reference\n' > "$SWEEP/bare-verify.md"
+mapfile -t TRACKED_ROOTS < <(git ls-files | cut -d/ -f1 | sort -u | grep -vxE 'tasks|specs')
+assert_sweep_empty "rename: no bare /verify reference survives in any tracked file outside tasks/ and specs/" \
+  "$SWEEP/bare-verify.md" -- \
+  grep -rIE --exclude-dir=worktrees --exclude=test-plugin-manifest.sh -e "$BARE_VERIFY" -- "${TRACKED_ROOTS[@]}"
 
 # --- 9. one tree, one namespace sentence (spec § Decisions, AC 1, AC 9) -----
 # The byte-identical `.claude/skills/` copy is gone: Claude Code loads
 # `.agents/skills/` through the plugin. Skill bodies stay harness-neutral (no
 # `jplugin:` literal — Pi and Codex have no namespace), and the AGENTS.md managed
 # block states the mapping exactly once so a reader of `/name` knows what to type.
-assert_eq "absent" "$([ -e .claude/skills ] && echo present || echo absent)" \
+assert_file_absent .claude/skills \
   "one tree: .claude/skills/ no longer exists in the template"
-assert_eq "" "$(git grep -l 'jplugin:' -- .agents/skills .claude/agents PI_SETUP.md 2>/dev/null | paste -sd' ' -)" \
-  "one tree: no skill body, agent persona or PI_SETUP.md hardcodes the jplugin: namespace"
+assert_sweep_empty "one tree: no skill body, agent persona or PI_SETUP.md hardcodes the jplugin: namespace" \
+  AGENTS.md -- grep -rlF 'jplugin:' -- .agents/skills .claude/agents PI_SETUP.md
 assert_eq "1" "$(grep -cF 'is typed `/jplugin:name`' AGENTS.md)" \
   "one tree: AGENTS.md states the namespace mapping exactly once"
 
@@ -191,42 +195,40 @@ version_verdict() {  # version_verdict -> "ok: ...", "fail: ..." or "skip: ..." 
   echo "fail: payload changed since ${base:0:7} but $PLUGIN version went '$old' -> '$new' (README § Releasing skills)"
 }
 
-F=$(mktemp -d)
+F="$(fixture_repo)"
+mkdir -p "$F/.claude-plugin" "$F/.agents/skills/x"
 fixture_commit() {  # fixture_commit <version> <skill-text> -> commits both in $F
-  ( cd "$F" && printf '{"name": "jplugin", "version": "%s"}\n' "$1" > "$PLUGIN" \
-    && printf '%s\n' "$2" > .agents/skills/x/SKILL.md && git add -A && git commit -qm "$2" )
+  printf '{"name": "jplugin", "version": "%s"}\n' "$1" > "$F/$PLUGIN"
+  printf '%s\n' "$2" > "$F/.agents/skills/x/SKILL.md"
+  git -C "$F" add -A && git -C "$F" commit -qm "$2"
 }
 verdict_in_fixture() { ( cd "$F" && version_verdict ); }
-if [ -n "$F" ] && ( cd "$F" && git init -q -b master && git config user.email t@t && git config user.name t \
-     && mkdir -p .claude-plugin .agents/skills/x ) >/dev/null 2>&1; then
-  fixture_commit 1.0.0 v1 >/dev/null 2>&1
-  ( cd "$F" && git update-ref refs/remotes/origin/master HEAD && git checkout -qb feature \
-    && printf 'docs\n' > NOTES.md && git add NOTES.md && git commit -qm docs ) >/dev/null 2>&1
-  assert_contains "$(verdict_in_fixture)" "ok: payload unchanged" \
-    "version guard: a change outside the payload needs no bump"
-  fixture_commit 1.0.0 v2 >/dev/null 2>&1
-  assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
-    "version guard: a branch that changes the payload without a bump fails"
-  fixture_commit 1.0.1 v3 >/dev/null 2>&1
-  assert_contains "$(verdict_in_fixture)" "ok: 1.0.0 -> 1.0.1" \
-    "version guard: the same branch with the version increased passes"
-  fixture_commit 0.9.0 v4 >/dev/null 2>&1
-  assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
-    "version guard: a decreased version fails"
-  ( cd "$F" && git update-ref refs/remotes/origin/master HEAD ) >/dev/null 2>&1
-  fixture_commit 0.9.0 v5 >/dev/null 2>&1
-  ( cd "$F" && git update-ref refs/remotes/origin/master HEAD ) >/dev/null 2>&1
-  assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
-    "version guard: on a push to master, HEAD^1 is the base and an unbumped payload commit fails"
-  assert_contains "$( cd "$F" && PLUGIN_VERSION_BASE=HEAD version_verdict )" "ok: payload unchanged" \
-    "version guard: PLUGIN_VERSION_BASE overrides the base"
-  ( cd "$F" && git update-ref -d refs/remotes/origin/master ) >/dev/null 2>&1
-  assert_contains "$(verdict_in_fixture)" "skip: no base resolves" \
-    "version guard: no origin/master and no PLUGIN_VERSION_BASE skips"
-else
-  assert_eq "created" "failed" "version guard: the fixture repository could not be created"
-fi
-rm -rf "$F"
+fixture_commit 1.0.0 v1 >/dev/null
+git -C "$F" update-ref refs/remotes/origin/master HEAD
+git -C "$F" checkout -qb feature
+printf 'docs\n' > "$F/NOTES.md"
+git -C "$F" add NOTES.md && git -C "$F" commit -qm docs
+assert_contains "$(verdict_in_fixture)" "ok: payload unchanged" \
+  "version guard: a change outside the payload needs no bump"
+fixture_commit 1.0.0 v2 >/dev/null
+assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+  "version guard: a branch that changes the payload without a bump fails"
+fixture_commit 1.0.1 v3 >/dev/null
+assert_contains "$(verdict_in_fixture)" "ok: 1.0.0 -> 1.0.1" \
+  "version guard: the same branch with the version increased passes"
+fixture_commit 0.9.0 v4 >/dev/null
+assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+  "version guard: a decreased version fails"
+git -C "$F" update-ref refs/remotes/origin/master HEAD
+fixture_commit 0.9.0 v5 >/dev/null
+git -C "$F" update-ref refs/remotes/origin/master HEAD
+assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+  "version guard: on a push to master, HEAD^1 is the base and an unbumped payload commit fails"
+assert_contains "$( cd "$F" && PLUGIN_VERSION_BASE=HEAD version_verdict )" "ok: payload unchanged" \
+  "version guard: PLUGIN_VERSION_BASE overrides the base"
+git -C "$F" update-ref -d refs/remotes/origin/master
+assert_contains "$(verdict_in_fixture)" "skip: no base resolves" \
+  "version guard: no origin/master and no PLUGIN_VERSION_BASE skips"
 
 RUNTIME_READS="$(git grep -hoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)?' -- "${PAYLOAD_PATHS[@]}" 2>/dev/null \
   | sed -E 's#^\$\{?CLAUDE_PLUGIN_ROOT\}?/##' | sort -u)"
@@ -244,11 +246,17 @@ assert_eq "" "$UNCOVERED" "version guard: every \${CLAUDE_PLUGIN_ROOT} read lies
 REPO_VERDICT="$(version_verdict)"
 case "$REPO_VERDICT" in skip:*) printf '  note %s\n' "version guard skipped on this checkout — $REPO_VERDICT" ;; esac
 assert_not_contains "$REPO_VERDICT" "fail:" "version guard: this tree's payload changes carry a version bump — $REPO_VERDICT"
-assert_prose_contains README.md '`claude plugin update` compares versions only' \
-  "README § Releasing skills: states that plugin update ignores an unbumped commit"
-assert_prose_contains README.md 'measured on Claude Code 2.1.277' \
+
+# README § Releasing skills is named by the hook's stale-plugin note and by the
+# fail message above, so its lead is a contract; what the section says is pinned
+# by the tokens a reader acts on — the command, the measured claim, the enforcing
+# test — not by a reflow-sensitive sentence.
+RELEASING="$(section_body README.md '**Releasing skills' '^$')"
+assert_contains "$RELEASING" '`claude plugin update`' \
+  "README § Releasing skills: names claude plugin update, the command that ignores an unbumped commit"
+assert_contains "$RELEASING" 'measured on Claude Code' \
   "README § Releasing skills: ... as a measured behaviour, not a belief"
-assert_prose_contains README.md '`tests/test-plugin-manifest.sh` fails a change to the plugin payload that does not bump it' \
+assert_contains "$RELEASING" 'tests/test-plugin-manifest.sh' \
   "README § Releasing skills: names the suite as the enforcement"
 
 finish

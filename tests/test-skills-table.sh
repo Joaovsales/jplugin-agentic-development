@@ -7,14 +7,14 @@
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
-GEN="$REPO/scripts/render-skills-table.py"
+GEN="$(under_test scripts/render-skills-table.py)"
 
-run_gen() { PYTHONDONTWRITEBYTECODE=1 "$TEST_PYTHON" "$GEN" "$@"; }
+run_gen() { "$TEST_PYTHON" "$GEN" "$@"; }
 
 # ── HEAD is current ───────────────────────────────────────────────────────────
-out="$(run_gen --check 2>&1)"; code=$?
-assert_eq "0" "$code" "--check: exits 0 on HEAD — README.md carries the table rendered from .agents/skills/*/SKILL.md"
-assert_eq "" "$out" "--check: silent when the table is current (failure-only, like the sweeps that run it)"
+run run_gen --check
+assert_exit 0 "--check: exits 0 on HEAD — README.md carries the table rendered from .agents/skills/*/SKILL.md"
+assert_eq "" "$output" "--check: silent when the table is current (failure-only, like the sweeps that run it)"
 assert_eq "1" "$(grep -c '^<!-- skills-table:begin -->$' README.md)" "README: one begin marker"
 assert_eq "1" "$(grep -c '^<!-- skills-table:end -->$' README.md)" "README: one end marker"
 for dir in .agents/skills/*/; do
@@ -28,28 +28,28 @@ assert_file_matches README.md '^\| `/build` \| .* \|  \|' \
   "README: a universal skill leaves the harness cell blank"
 
 # ── Fixture repository: two skills copied from the tree ──────────────────────
-box="$(mktemp -d)"
+box="$(fixture_dir)"
 mkdir -p "$box/.agents/skills"
 cp README.md "$box/README.md"
 cp -r .agents/skills/build .agents/skills/plan "$box/.agents/skills/"
-run_gen --repo "$box" > "$box/render.log" 2>&1
-assert_eq "0" "$?" "fixture: rendering exits 0"
-assert_contains "$(cat "$box/render.log")" "rewritten" "fixture: the rewrite is reported"
+run run_gen --repo "$box"
+assert_exit 0 "fixture: rendering exits 0"
+assert_contains "$output" "rewritten" "fixture: the rewrite is reported"
 assert_file_matches "$box/README.md" '^\| `/build` \|' "fixture: the build row is rendered"
 assert_file_matches "$box/README.md" '^\| `/plan` \|' "fixture: the plan row is rendered"
 assert_file_not_matches "$box/README.md" '^\| `/tidy` \|' \
   "fixture: rows come from the fixture's skills, not this checkout's"
 assert_eq "$(sed -n '/^## Philosophy/,$p' README.md)" "$(sed -n '/^## Philosophy/,$p' "$box/README.md")" \
   "fixture: everything outside the markers is untouched"
-run_gen --repo "$box" --check > /dev/null 2>&1
-assert_eq "0" "$?" "fixture: --check exits 0 right after a rewrite"
+run run_gen --repo "$box" --check
+assert_exit 0 "fixture: --check exits 0 right after a rewrite"
 
 # A row removed by hand: exit 1, the diff names the row, nothing is written.
 sed -i '/^| `\/plan` |/d' "$box/README.md"
-out="$(run_gen --repo "$box" --check 2>&1)"; code=$?
-assert_eq "1" "$code" "removed row: --check exits 1"
-assert_contains "$out" '+| `/plan`' "removed row: the unified diff shows the row that is missing"
-assert_contains "$out" '--- README.md' "removed row: the diff names README.md"
+run run_gen --repo "$box" --check
+assert_exit 1 "removed row: --check exits 1"
+assert_contains "$output" '+| `/plan`' "removed row: the unified diff shows the row that is missing"
+assert_contains "$output" '--- README.md' "removed row: the diff names README.md"
 assert_file_not_matches "$box/README.md" '^\| `/plan` \|' "removed row: --check writes nothing"
 
 # Non-universal harness → third column; universal → blank.
@@ -66,10 +66,9 @@ assert_file_matches "$box/README.md" '^\| `/build` \| .* \|  \|' \
 cp "$box/README.md" "$box/README.before"
 mkdir -p "$box/.agents/skills/nodesc"
 printf -- '---\nname: nodesc\n---\n# nodesc\n' > "$box/.agents/skills/nodesc/SKILL.md"
-out="$(run_gen --repo "$box" 2>&1)"; code=$?
-assert_eq "2" "$code" "missing description: exits 2"
-assert_contains "$out" "nodesc" "missing description: the message names the skill directory"
-assert_contains "$out" "description" "missing description: the message names the missing field"
+assert_refused 2 "description" "missing description: exits 2 and the message names the missing field" \
+  -- run_gen --repo "$box"
+assert_contains "$output" "nodesc" "missing description: the message names the skill directory"
 assert_files_identical "$box/README.before" "$box/README.md" "missing description: README is not written"
 rm -rf "$box/.agents/skills/nodesc"
 
@@ -96,31 +95,26 @@ sed 's/\r$//' "$box/README.md" > "$box/README.lf" && mv "$box/README.lf" "$box/R
 cp "$box/README.md" "$box/README.before"
 mkdir -p "$box/.agents/skills/latin1"
 printf -- '---\nname: latin1\ndescription: caf\351\n---\n' > "$box/.agents/skills/latin1/SKILL.md"
-out="$(run_gen --repo "$box" 2>&1)"; code=$?
-assert_eq "2" "$code" "not utf-8: exits 2"
-assert_contains "$out" "latin1: SKILL.md is not UTF-8" "not utf-8: the message names the directory"
-assert_not_contains "$out" "Traceback" "not utf-8: no traceback"
+assert_refused 2 "latin1: SKILL.md is not UTF-8" "not utf-8: exits 2 and the message names the directory" \
+  -- run_gen --repo "$box"
+assert_not_contains "$output" "Traceback" "not utf-8: no traceback"
 rm -rf "$box/.agents/skills/latin1"
 mkdir -p "$box/.agents/skills/nofm"
 printf '# no frontmatter here\n' > "$box/.agents/skills/nofm/SKILL.md"
-out="$(run_gen --repo "$box" 2>&1)"; code=$?
-assert_eq "2" "$code" "no frontmatter: exits 2"
-assert_contains "$out" "nofm: SKILL.md has no frontmatter" "no frontmatter: the message names the directory"
+assert_refused 2 "nofm: SKILL.md has no frontmatter" "no frontmatter: exits 2 and the message names the directory" \
+  -- run_gen --repo "$box"
 rm -rf "$box/.agents/skills/nofm"
 assert_files_identical "$box/README.before" "$box/README.md" "refusals: README is not written"
 
 # Exit 2 on a second marker pair.
 printf '\n<!-- skills-table:begin -->\n<!-- skills-table:end -->\n' >> "$box/README.md"
-out="$(run_gen --repo "$box" --check 2>&1)"; code=$?
-assert_eq "2" "$code" "two marker pairs: exits 2"
-assert_contains "$out" "exactly once" "two marker pairs: the message says the pair must appear exactly once"
+assert_refused 2 "exactly once" "two marker pairs: exits 2 and the message says the pair must appear exactly once" \
+  -- run_gen --repo "$box" --check
 cp "$box/README.before" "$box/README.md"
 
 # Exit 2 on a README without the marker pair.
 grep -v 'skills-table:' "$box/README.md" > "$box/README.nomarkers" && mv "$box/README.nomarkers" "$box/README.md"
-out="$(run_gen --repo "$box" --check 2>&1)"; code=$?
-assert_eq "2" "$code" "missing markers: exits 2"
-assert_contains "$out" "skills-table:begin" "missing markers: the message names the marker pair"
+assert_refused 2 "skills-table:begin" "missing markers: exits 2 and the message names the marker pair" \
+  -- run_gen --repo "$box" --check
 
-rm -rf "$box"
 finish
