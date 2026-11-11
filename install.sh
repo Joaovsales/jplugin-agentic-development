@@ -643,10 +643,10 @@ fi
 step "Setting up git template dir → $GIT_TEMPLATE_DIR"
 mkdir -p "$GIT_TEMPLATE_DIR/hooks"
 
-# pre-push hook: typecheck + lint before every git push (harness-agnostic)
+# pre-push hook: package.json gate scripts (config.prepush, else type-check + lint) before every git push (harness-agnostic)
 cp "$REPO_DIR/.agents/git-hooks/pre-push" "$GIT_TEMPLATE_DIR/hooks/pre-push"
 chmod +x "$GIT_TEMPLATE_DIR/hooks/pre-push"
-ok "installed" "pre-push hook (typecheck + lint + wrap-up gate)"
+ok "installed" "pre-push hook (type-check + lint gates + wrap-up gate)"
 
 # A git template applies only to repositories created *after* installation, so
 # every already-cloned repo — including this one — would never receive the hook.

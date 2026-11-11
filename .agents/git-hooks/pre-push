@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pre-push — runs typecheck + lint before every git push.
+# pre-push — runs the package.json gate scripts (type-check + lint) before every git push.
 # Installed by jplugin-agentic-development/install.sh into .git/hooks/pre-push.
 # Harness-agnostic: works for manual pushes, Claude Code, Pi, and CI.
 #
@@ -19,23 +19,78 @@ for arg in "$@"; do
   fi
 done
 
-# Run typecheck + lint if package.json declares them.
-if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
-  SCRIPTS=$(jq -r '.scripts // {} | keys[]' package.json 2>/dev/null || true)
+# Gate scripts. A project makes its gates mandatory by naming them in package.json:
+#   "config": { "prepush": ["type-check", "lint"] }
+# A declared gate with no script of that name BLOCKS — a rename can never quietly
+# drop a step. Undeclared, the hook probes the defaults (type-check or typecheck,
+# then lint) and warns about each one it cannot find. (Probing only
+# `typecheck` against a `type-check` script skipped type-checking on every push.)
+#
+# The resolver owns every decision: it prints the scripts to run on stdout, its
+# own BLOCKED/WARNING lines on stderr, and exits non-zero when the push must stop.
+# hasOwnProperty, not `in`: `constructor` is "in" every object.
+RESOLVE_GATES='
+const fail = (msg) => { console.error("BLOCKED: " + msg); process.exit(2); };
+let pkg;
+try { pkg = JSON.parse(require("fs").readFileSync("package.json", "utf8")); }
+catch (e) { fail("cannot read the pre-push gates from package.json: " + e.message); }
+const scripts = pkg.scripts || {};
+const has = (name) => Object.prototype.hasOwnProperty.call(scripts, name);
+const declared = pkg.config && pkg.config.prepush;
+if (declared !== undefined) {
+  if (!Array.isArray(declared) || declared.length === 0
+      || !declared.every((n) => typeof n === "string" && n !== "" && !/[\n\r]/.test(n))) {
+    fail("package.json config.prepush must be a non-empty array of script names.");
+  }
+  const missing = declared.filter((n) => !has(n));
+  for (const n of missing) {
+    console.error("BLOCKED: package.json config.prepush declares \"" + n + "\", but no script has that name. Renamed it? Rename it in config.prepush too.");
+  }
+  if (missing.length) process.exit(2);
+  declared.forEach((n) => console.log(n));
+} else {
+  for (const alts of [["type-check", "typecheck"], ["lint"]]) {
+    const hit = alts.find(has);
+    if (hit) console.log(hit);
+    else console.error("[pre-push] WARNING: no " + alts.join("/") + " script in package.json — that gate is NOT running. Declare config.prepush to make a missing gate block.");
+  }
+}'
+
+if [ -f package.json ]; then
+  if ! command -v node >/dev/null 2>&1; then
+    echo "BLOCKED: package.json is present but node is not on PATH, so the pre-push gates cannot run." >&2
+    exit 1
+  fi
+  GATES=$(node -e "$RESOLVE_GATES") || exit 1
   GIT_LOCAL_VARS=$(git rev-parse --local-env-vars) || exit 1
-  for script in typecheck lint; do
-    if printf '%s\n' "$SCRIPTS" | grep -qx "$script"; then
-      echo "[pre-push] running: npm run $script"
-      # The subshell drops the pushing repo's GIT_DIR and friends (exported to hooks
-      # from a linked worktree): a gate that runs git — a test fixture — would
-      # otherwise write to this repository and push to its origin.
-      if ! ( unset $GIT_LOCAL_VARS; npm run --silent "$script" ) >/tmp/prepush-"$script".log 2>&1; then
-        echo "BLOCKED: npm run $script failed. See /tmp/prepush-${script}.log" >&2
-        tail -30 /tmp/prepush-"$script".log >&2
-        exit 1
+
+  while IFS= read -r script; do
+    [ -n "$script" ] || continue
+    # The log path takes nothing from package.json, so no script name can steer it.
+    log=$(mktemp "${TMPDIR:-/tmp}/prepush-XXXXXX") || exit 1
+    echo "[pre-push] running: npm run $script"
+    # </dev/null: the script must not read this loop's input and swallow gates.
+    # The subshell drops the pushing repo's GIT_DIR and friends (exported to hooks
+    # from a linked worktree): a gate that runs git — a test fixture — would
+    # otherwise write to this repository and push to its origin.
+    if ! ( unset $GIT_LOCAL_VARS; npm run --silent "$script" ) </dev/null >"$log" 2>&1; then
+      echo "BLOCKED: npm run $script failed. See $log" >&2
+      tail -30 "$log" >&2
+      # A worktree sharing another checkout's node_modules gets errors from
+      # that tree's packages, not this branch's lockfile. Still a block: a
+      # stale install can hide a real error as easily as it invents one.
+      if [ -L node_modules ]; then
+        echo "  note: node_modules is a symlink to $(readlink node_modules)." >&2
+        echo "        If the errors name missing or outdated packages rather than your code, install" >&2
+        echo "        this worktree's own tree and push again: rm node_modules && npm ci" >&2
+        echo "        (rm on the symlink removes only the link, never the shared tree)." >&2
       fi
+      exit 1
     fi
-  done
+    rm -f "$log"
+  done <<GATES_EOF
+$GATES
+GATES_EOF
 fi
 
 # ── Wrap-up coverage gate — warns and records, never blocks ──────────────────
