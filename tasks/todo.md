@@ -2736,3 +2736,34 @@ Step ledger (routine `simplify`):
 - Completed: #384 — `/system-design-planning` § *6. Render* cites `/visual-plan` § *Process* for the renderer's typed sections and refusal format (341 → 336 lines, behavior changes: none; simplify routine). Spec reconciliation: 11 candidates, all `unchanged` (aposd-first-build, codex-scout-routing, diagram-skill, plan-slices-and-handover, readable-visual-plans, simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md, single-instruction-file, system-design-planning, ui-design-stack, upsert-depends-on, wrap-up-phases).
 - Pending: none from this run.
 - Carry-forward: `/memory-maintain` is overdue (75 sessions) and was skipped here to keep the PR to one simplification; `tests/test-citations.sh` does not check `/<skill>` § citations (only `signals.py` citation-drift does).
+
+## Tidy: 2026-11-09
+
+> Record: `tasks/sweeps/2026-11-09-tidy.md`, swept at `4abdf40` on
+> `routine/tidy/20261109-sweep`. Outcome: **findings** (Tier 1 only). Tier 0
+> applied: **0** — nothing mechanical found. Tier 2 filed: **0**.
+
+- [x] `suite` — clean (95/95 test files)
+- [x] `inventory` — clean (README table ↔ `.agents/skills/`, render `--check` exit 0)
+- [x] `retired` — clean (clone unshallowed first; 8 retired names, none named as live)
+- [x] `installed` — inconclusive (cloud container; `~/.claude/` is the runtime's, `~/.agents/` absent)
+- [x] `refs` — clean (unresolved tokens all expected-to-be-created or external; see Unverified)
+- [x] `worktrees` — clean (one worktree, branches `master` + this sweep)
+- [x] `strays` — clean (no untracked or ignored files)
+- [x] `graph` — skipped (no `graphify` on this machine; no graph by design)
+- [x] `registers` — 2 findings, Tier 1 (38 closed plan blocks; checkpoint 2026-10-21 older than newest summary 2026-11-03)
+- [x] `shortcuts` — clean (4 markers, 0 `no-trigger`)
+- [x] `tools` — inconclusive (archify not installed)
+
+Routine `tidy` — step ledger:
+
+- [x] 1. `task-registry doctor` — provider `github`, reachable, write approval not required
+- [x] 2. branch `routine/tidy/20261109-sweep` created (new today)
+- [x] 3. `/tidy` — record `tasks/sweeps/2026-11-09-tidy.md`; Tier 0: 0; filed: none new (evidence appended to #143)
+- [x] 4. `/wrap-up-session` — suite green, ready PR
+
+## Session Summary — 2026-11-09 [4abdf40..49bfc88]
+
+- Completed: scheduled `tidy` sweep at `4abdf40` — suite green (95/95), 11 checks run inline; no Tier 0 drift; Tier 1 `registers` (38 closed plan blocks, stale checkpoint) re-evidenced on #143.
+- Pending: `installed` and `tools` inconclusive in the cloud container; archive the closed plan blocks (#143).
+- Carry-forward: none.
