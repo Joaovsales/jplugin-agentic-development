@@ -56,6 +56,34 @@ for tree in .agents; do
     "$md: fixture state goes in the prompt, not the repo"
   assert_file_contains "$md" "scripts/grade-skill-loads.sh" \
     "$md: grading routes through the grader"
+  # Mode C — behavioural lift with cost (specs/read-shunt-baseline.md AC9):
+  # the section, its row in the scope table, the two scripts it names and the
+  # thresholds it carries, and the scripts themselves on disk.
+  assert_file_contains "$md" "## Mode C — behavioural lift with cost" \
+    "$md: carries the Mode C section"
+  assert_file_contains "$md" "| C — behavioural lift with cost | runnable |" \
+    "$md: the scope table gains the Mode C row"
+  assert_file_contains "$md" "scripts/read-incidence.py" \
+    "$md: Mode C names the baseline report"
+  assert_file_contains "$md" "scripts/grade-read-shunt.py" \
+    "$md: Mode C names the grader"
+  assert_file_contains "$md" "scripts/read_transcript.py" \
+    "$md: Mode C names the shared parser"
+  assert_file_contains "$md" "scripts/arrange-plugin-eval-results.py" \
+    "$md: Mode C names the step that arranges the runner's kept transcripts"
+  assert_file_contains "$md" "--keep-temp" \
+    "$md: Mode C says the transcript survives only under --keep-temp"
+  assert_file_not_matches "$md" "runner-neutral — .<results>" \
+    "$md: Mode C does not claim the runner leaves the grader layout"
+  assert_file_contains "$md" "| Re-read rate |" \
+    "$md: Mode C carries the metrics table"
+  assert_file_contains "$md" "parent end-context" \
+    "$md: Mode C carries the thresholds"
+  assert_file_contains "$md" "--max-cost-usd" \
+    "$md: every paid run carries a cost ceiling"
+  for script in read_transcript.py read-incidence.py grade-read-shunt.py arrange-plugin-eval-results.py; do
+    assert_file_exists "$tree/skills/eval/scripts/$script" "$tree/skills/eval: $script is on disk"
+  done
   assert_prose_contains "$tree/skills/eval/references/probe-recipe.md" \
     "don't push anything or open a PR" \
     "$tree/skills/eval: recipe carries the no-push clause"
@@ -158,18 +186,30 @@ assert_file_contains ".github/upstreams.json" "pstack/skills/poteto-mode/playboo
 # specs/review-load-and-failure-cases.md AC 8 and its pending slice 8: four
 # seeded diffs and the answer key the /eval A/B is graded against. The key names
 # lines by number, so a diff edited after the key was written would grade every
-# reviewer against the wrong line. Pin each cited line to the diff's own text.
+# reviewer against the wrong line. The key's own citations — `(diff line N, …):
+# `+text`` under a `## <name>.diff` heading — are the contract: each is read
+# from the key and checked against the diff, so an edit to either file fails here.
 diff_line() { sed -n "${2}p" "$REVIEW_EVAL/$1" | tr -d '\r'; }
 for diff in invite-redeem order-summary billing-cutoff settings-merge; do
   assert_file_exists "$REVIEW_EVAL/$diff.diff" "review fixture: $diff.diff is on disk"
   assert_file_contains "$REVIEW_EVAL/expected.md" "## $diff.diff" "review fixture: the key has a section for $diff.diff"
-  assert_not_contains "$(<"$REVIEW_EVAL/$diff.diff")" "eval" "review fixture: $diff.diff gives a candidate no hint that it is an eval"
+  assert_file_not_matches "$REVIEW_EVAL/$diff.diff" '\beval\b' "review fixture: $diff.diff gives a candidate no hint that it is an eval"
 done
-assert_eq '+    if invite.redeemed_at is not None:' "$(diff_line invite-redeem.diff 20)" "review fixture: invite-redeem diff line 20 is the check line the key names"
-assert_eq '+    invite.redeemed_at = datetime.now(timezone.utc)' "$(diff_line invite-redeem.diff 25)" "review fixture: invite-redeem diff line 25 is the write line the key names"
-assert_eq '+        customer = crm_client.get_customer(order.customer_id)' "$(diff_line order-summary.diff 24)" "review fixture: order-summary diff line 24 is the per-order call the key names"
-assert_eq '+    today = now.date()' "$(diff_line billing-cutoff.diff 23)" "review fixture: billing-cutoff diff line 23 is the UTC date line the key names"
-assert_eq '+    return today >= next_charge_date(sub)' "$(diff_line billing-cutoff.diff 24)" "review fixture: billing-cutoff diff line 24 is the related line the key names"
-assert_eq '+        except KeyError:' "$(diff_line settings-merge.diff 35)" "review fixture: settings-merge diff line 35 is the suspicious line the key names"
+declare -A cited=()
+section=""
+while IFS= read -r line; do
+  line="${line%$'\r'}"
+  case "$line" in
+    "## "*.diff) section="${line#\#\# }" ;;
+    *"(diff line "*"): \`+"*)
+      n="${line#*(diff line }"; n="${n%%,*}"
+      cited_text="${line#*): \`}"; cited_text="${cited_text%%\`*}"
+      assert_eq "$cited_text" "$(diff_line "$section" "$n")" "review fixture: $section line $n is the line the key cites"
+      cited[$section]=$(( ${cited[$section]:-0} + 1 )) ;;
+  esac
+done < "$REVIEW_EVAL/expected.md"
+for diff in invite-redeem order-summary billing-cutoff settings-merge; do
+  assert_true "review fixture: the key cites at least one line of $diff.diff" -- [ "${cited[$diff.diff]:-0}" -ge 1 ]
+done
 
 finish

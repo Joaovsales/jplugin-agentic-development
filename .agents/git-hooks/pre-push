@@ -62,6 +62,7 @@ if [ -f package.json ]; then
     exit 1
   fi
   GATES=$(node -e "$RESOLVE_GATES") || exit 1
+  GIT_LOCAL_VARS=$(git rev-parse --local-env-vars) || exit 1
 
   while IFS= read -r script; do
     [ -n "$script" ] || continue
@@ -69,7 +70,10 @@ if [ -f package.json ]; then
     log=$(mktemp "${TMPDIR:-/tmp}/prepush-XXXXXX") || exit 1
     echo "[pre-push] running: npm run $script"
     # </dev/null: the script must not read this loop's input and swallow gates.
-    if ! npm run --silent "$script" </dev/null >"$log" 2>&1; then
+    # The subshell drops the pushing repo's GIT_DIR and friends (exported to hooks
+    # from a linked worktree): a gate that runs git — a test fixture — would
+    # otherwise write to this repository and push to its origin.
+    if ! ( unset $GIT_LOCAL_VARS; npm run --silent "$script" ) </dev/null >"$log" 2>&1; then
       echo "BLOCKED: npm run $script failed. See $log" >&2
       tail -30 "$log" >&2
       # A worktree sharing another checkout's node_modules gets errors from
