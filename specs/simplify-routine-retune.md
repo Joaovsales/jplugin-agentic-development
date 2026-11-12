@@ -22,9 +22,10 @@ implementation_paths:
    same change. `references/safe-moves.md` § *Cross-area deduplication* is the one home
    of the conditions; `SKILL.md` § sizing cites it.
 2. **A § citation line is a pointer, not a second home.** `signals.py`
-   `detect_duplicate_rule` skips a line that holds a `` `<file>.md` § *<Heading>* `` or
-   `` `/<skill>` § *<Heading>* `` citation, so the line a deduplication leaves behind in
-   each copy is never re-flagged. `lens.md` § *Exclusions* states it.
+   `detect_duplicate_rule` measures a line without its `` `<file>.md` § *<Heading>* `` or
+   `` `/<skill>` § *<Heading>* `` citations, so the line a deduplication leaves behind in
+   each copy (under 60 characters besides its citations) is never re-flagged, while a
+   long rule that also cites a section still ranks. `lens.md` § *Exclusions* states it.
 
 ## Edge Cases
 
@@ -51,13 +52,13 @@ implementation_paths:
 
 ## Acceptance Criteria
 
-- [ ] AC1: in a fixture repo, two files sharing a line that is a § citation (under 60 characters besides it) rank no `duplicate-rule`; two files sharing a plain ≥60-character line, or a long rule that also cites a section, still do
-- [ ] AC2: `lens.md` § *Exclusions* states that a § citation line is a pointer, never a duplicate home
-- [ ] AC3: `safe-moves.md` § *Cross-area deduplication* names the conditions (one rule, citations only, eligible targets, personas kept, pins repointed); `SKILL.md` § sizing cites it by § name and stays within 150 lines
-- [ ] AC4: `bash tests/test-make-it-simpler.sh`, `bash tests/test-citations.sh` and `bash tests/test-plugin-manifest.sh` pass; plugin version above master's
+- [x] AC1: in a fixture repo, two files sharing a line that is a § citation (under 60 characters besides it) rank no `duplicate-rule`; two files sharing a plain ≥60-character line, or a long rule that also cites a section, still do
+- [x] AC2: `lens.md` § *Exclusions* states that a § citation line is a pointer, never a duplicate home
+- [x] AC3: `safe-moves.md` § *Cross-area deduplication* names the conditions (one rule, citations only, eligible targets, personas kept, pins repointed); `SKILL.md` § sizing cites it by § name and stays within 150 lines
+- [x] AC4: `bash tests/test-make-it-simpler.sh`, `bash tests/test-citations.sh` and `bash tests/test-plugin-manifest.sh` pass; plugin version above master's
 
 ## Implementation Paths
 
-- `.agents/skills/make-it-simpler/scripts/signals.py` — `detect_duplicate_rule` skips CITE lines
+- `.agents/skills/make-it-simpler/scripts/signals.py` — `detect_duplicate_rule` measures a line without its CITE matches
 - `.agents/skills/make-it-simpler/references/lens.md`, `safe-moves.md`, `SKILL.md`
 - `tests/test-make-it-simpler.sh` — AC1–AC3 pins
