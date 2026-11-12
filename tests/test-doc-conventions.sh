@@ -1398,7 +1398,7 @@ for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
   for token in "One suite at a time, no polling." "no test run starts while a suite is running" \
                "run_in_background" "completion notification" "foreground \`sleep\`" "poll loop" \
                "leaves the working tree alone" "A refusal is not a test result." \
-               "never count it as a fix attempt"; do
+               "never count it as a fix attempt" "already running\` on stderr means nothing ran"; do
     assert_contains "$flat" "$token" "one suite: $skill names '$token'"
   done
 done
