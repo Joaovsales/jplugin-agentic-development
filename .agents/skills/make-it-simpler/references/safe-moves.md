@@ -21,3 +21,18 @@ caught late.
    inputs, outputs and exit codes. A change the simplification needs is listed
    under the PR body's `Behavior changes:`; an undeclared one found by review is
    **STOP**.
+
+## Cross-area deduplication
+
+A `duplicate-rule` move counts as one area for the unattended cap, whatever
+skills its copies sit in, when every condition holds:
+
+- It moves one rule: each copy becomes a one-line § citation of the rule's
+  existing home, and nothing else in those files changes.
+- Every citation resolves wherever its file is read — `` `/<skill>` § *<Heading>* ``
+  or `` `.agents/references/<file>.md` § *<Heading>* ``. A home under another
+  skill's `references/` is not eligible: that path does not resolve from a plugin
+  install, and moving the rule into `.agents/references/` first is its own change.
+- A sub-agent persona under `.agents/agents/` keeps its copy: it starts in a
+  fresh context and may never open a citation.
+- Every assertion pinning a copy is repointed in the same change (practice 3).

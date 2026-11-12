@@ -46,7 +46,7 @@ top candidates: read each file, confirm or drop every **cue** (`lens.md`), and
 estimate the lines saved and the callers touched.
 
 - **Significant** when the change meets the bar in `/system-design-planning` § *When to Use / When Not*; otherwise **minor**. The bar is cited, never restated.
-- **Size** against `.agents/skills/slice/references/sizing.md`. An unattended build is at most 3 slices and one area — one skill with its `references/`, or one script with its tests.
+- **Size** against `.agents/skills/slice/references/sizing.md`. An unattended build is at most 3 slices and one area — one skill with its `references/`, or one script with its tests; a `duplicate-rule` move is one area under `references/safe-moves.md` § *Cross-area deduplication*.
 
 ### Offer the top 3
 
