@@ -1102,3 +1102,16 @@ back vacuous and was repaired.
 - Key changes: `/make-it-simpler --unattended` ranked the tree. Most top hits were the `enforced-prose` and persona-mirror cues that earlier runs had already dropped, and #372, #368, #358, #357, #308 and #309 were already filed. Deep review confirmed one new minor candidate: § *6. Render* of `/system-design-planning` restated `/visual-plan` § *Process* (the typed-section list, SVG fences and the refusal format). Filed #384, claimed it, and replaced the two paragraphs with one that cites the home. The skill's own fix-and-re-render remedy stays. 341 → 336 lines; behavior changes: none. The before-proof and after-proof are identical across 7 test files. The fresh clone's `origin/master` ref was stale (the receipt's merge-base was 3c49472, not 4abdf40), and `git fetch origin master` corrected it before the gate's Phase 5.
 - Quality gate: receipt 589ad0f1 GO (policy qg1-694ecceb). Phase 4 and the test-engineer were dispatched; both GO with no findings. Affected tests: 32 files, all green.
 - Learnings captured: bullet added to [process/a-slice-verify-command-misses-repo-wide-doc-guards.md](solutions/process/a-slice-verify-command-misses-repo-wide-doc-guards.md) — `/<skill>` § citations are guarded only by `signals.py`.
+
+### [2026-11-12] — simplify routine retune (#390), decisions recorded on the piled-up finds
+- Key changes:
+  - Owner review of open PRs and the routines.
+  - #382 and #360 were merged up to master and re-versioned (1.8.5 and 1.8.6).
+  - The `simplify` routine's silent exits were traced to `duplicate-rule` finds breaking the one-area cap and being filed `design-decision`, a label no routine consumes.
+  - #390 makes a one-rule cross-area dedupe into § citations count as one area (`safe-moves.md` § *Cross-area deduplication*; persona copies stay out of scope). It also stops `signals.py` from re-flagging a citation line, measured without its citations. Plugin 1.8.7.
+  - Decisions recorded on #387, #372, #368, #358 and #375 through the registry. #372 and #387 were re-kinded to task, with `design-decision` removed by hand. New issues: #391 (move `subagent-resilience.md` into `.agents/references/`) and #392 (thin reviewer personas that preload one review skill, from research into Pocock, Osmani and pstack).
+  - #368 alignment: `/wrap-up-session`'s refusal rule names stderr again, pinned in both skills.
+- Quality gate: receipt 543780dd GO (policy qg1-0d3c344e) before the #368 delta. Phase 4 went HOLD, then HOLD, then GO over three rounds.
+- Learnings captured:
+  - [tooling/registry-upsert-never-removes-a-label.md](solutions/tooling/registry-upsert-never-removes-a-label.md)
+  - [process/a-routine-label-with-no-consumer-is-a-dead-letter-queue.md](solutions/process/a-routine-label-with-no-consumer-is-a-dead-letter-queue.md)
