@@ -69,7 +69,8 @@ bar, and this skill stops. A minor pick goes to `/grilling` with four seeds, the
 Write `specs/simplify-<slug>.md`, the path derived from the task's slug; an
 existing spec for it is reopened, not duplicated. The registry write always
 precedes the spec write. Its § Decisions seeds the five `safe-moves.md`
-practices as rows, in every spec this skill writes, beside the grilled answers.
+practices as rows, in every spec this skill writes, beside the grilled answers;
+a task sized as one area through § *Cross-area deduplication* also seeds that section as a row.
 
 Before the first edit, record the **before-proof**: the affected-test command
 plus `bash tests/test-citations.sh`, command and result. Then run lane steps

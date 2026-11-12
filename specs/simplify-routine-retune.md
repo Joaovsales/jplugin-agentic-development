@@ -33,8 +33,11 @@ implementation_paths:
   into `.agents/references/` first is its own, larger change (#358's callout).
 - A sub-agent persona under `.agents/agents/` starts in a fresh context and may never open
   a citation; its copies are not replaced unattended.
-- A line that both restates a rule and cites a home is skipped too. Accepted: a cue
-  detector trades that miss for never flagging its own output.
+- A line that both restates a rule and cites a home still ranks: only the text besides
+  its citations is measured against the 60-character minimum (Phase 4 review, HOLD 1).
+- A persona copy is out of the move's scope, not a disqualifier, and the build sees the
+  carve-out because a cross-area task seeds § *Cross-area deduplication* as a sixth
+  § Decisions row (Phase 4 review, HOLD 2).
 
 ## Decisions
 
@@ -48,7 +51,7 @@ implementation_paths:
 
 ## Acceptance Criteria
 
-- [ ] AC1: in a fixture repo, two files sharing a ≥60-character line that holds a § citation rank no `duplicate-rule`; two files sharing a plain ≥60-character line still do
+- [ ] AC1: in a fixture repo, two files sharing a line that is a § citation (under 60 characters besides it) rank no `duplicate-rule`; two files sharing a plain ≥60-character line, or a long rule that also cites a section, still do
 - [ ] AC2: `lens.md` § *Exclusions* states that a § citation line is a pointer, never a duplicate home
 - [ ] AC3: `safe-moves.md` § *Cross-area deduplication* names the conditions (one rule, citations only, eligible targets, personas kept, pins repointed); `SKILL.md` § sizing cites it by § name and stays within 150 lines
 - [ ] AC4: `bash tests/test-make-it-simpler.sh`, `bash tests/test-citations.sh` and `bash tests/test-plugin-manifest.sh` pass; plugin version above master's

@@ -3,7 +3,8 @@
 The five practices every spec `/make-it-simpler` writes carries as § Decisions
 rows, so the build and the design review hold the simplification to them. They
 came out of the wrap-up-phases rewrite (#204), where each one was a regression
-caught late.
+caught late. § *Cross-area deduplication* is a sixth row, seeded only for a task
+sized through it.
 
 1. **Headings are names only.** A heading says what the section is, never a
    step number or a count — `## Full suite`, not `## Step 6 — Full suite (3 checks)`.
@@ -33,6 +34,9 @@ skills its copies sit in, when every condition holds:
   or `` `.agents/references/<file>.md` § *<Heading>* ``. A home under another
   skill's `references/` is not eligible: that path does not resolve from a plugin
   install, and moving the rule into `.agents/references/` first is its own change.
-- A sub-agent persona under `.agents/agents/` keeps its copy: it starts in a
-  fresh context and may never open a citation.
 - Every assertion pinning a copy is repointed in the same change (practice 3).
+
+Copies under `.agents/agents/` are out of the move's scope and stay
+byte-identical — a sub-agent persona starts in a fresh context and may never
+open a citation — and their presence does not disqualify the move. Practice 4
+yields to this rule for them.
