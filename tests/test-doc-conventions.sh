@@ -320,9 +320,10 @@ assert_contains "$taxonomy" "Finding Model" \
 # it is invisible in a whole-block snapshot. `wrap-up-session` is not among them
 # since #188: it dispatches no reviewer of its own and applies no finding, so it
 # defines none of this machinery -- `/quality-gate` is the one place a finding
-# is classified.
+# is classified. `/quality-gate` is not among them since #372 either: it reads
+# finding-model.md before Phase 1 and cites its sections instead of restating
+# them, so its pins are the citations and the apply conjunction, below.
 for f in .agents/references/finding-model.md \
-         .agents/skills/quality-gate/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do
   flat="$(flatten "$f")"
   for axis in severity confidence autofix_class owner; do
@@ -345,6 +346,33 @@ for f in .agents/references/finding-model.md \
   # Synthesis never widens the autofix class on disagreement.
   assert_contains "$flat" "more conservative" \
     "M2: $f takes the more conservative autofix_class on disagreement"
+done
+
+# /quality-gate classifies findings from the home: § Finding Model cites each
+# section it applies, reads the file before Phase 1, and keeps the apply
+# conjunction where its phases apply findings.
+QG_FM="$(section_body .agents/skills/quality-gate/SKILL.md "## Finding Model")"
+for heading in "Four axes" "Emission format" "Confidence anchors" "Gates"; do
+  assert_contains "$QG_FM" "§ *$heading*" \
+    "M2: quality-gate § Finding Model cites finding-model.md § $heading"
+done
+assert_contains "$QG_FM" ".agents/references/finding-model.md" \
+  "M2: quality-gate § Finding Model names finding-model.md as the home"
+assert_contains "$QG_FM" "Read it before Phase 1" \
+  "M2: quality-gate reads finding-model.md before Phase 1"
+assert_contains "$QG_FM" '`gated_auto` **and** `confidence >= 75`' \
+  "M2: quality-gate gates auto-apply on gated_auto and anchor 75+ together"
+assert_contains "$QG_FM" "the home holds every rule" \
+  "M2: quality-gate's Apply Gate defers to the full rule list in the home"
+assert_contains "$QG_FM" "stops before Phase 1 with the refusal" \
+  "M2: quality-gate stops before Phase 1 when finding-model.md resolves nowhere"
+assert_file_matches .agents/skills/quality-gate/SKILL.md '^## Claude Code Enhancements' \
+  "M2: the lookup order quality-gate § Finding Model points at still exists"
+# The home is not restated: no anchor-table row and no gate bullet from it.
+for copy in "| \`100\` |" "| \`75\` |" "| \`50\` |" "demotes" "more conservative" "no \`confidence\`" \
+            "capped at" "promotes" "**must** carry \`evidence\`" "| \`severity\` |"; do
+  assert_not_contains "$QG_FM" "$copy" \
+    "M2: quality-gate § Finding Model does not restate finding-model.md ('$copy')"
 done
 
 # /quality-gate must disclose whether its passes were dispatched or ran inline,
