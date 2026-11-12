@@ -76,9 +76,11 @@ LEGACY_OUTCOME=""   # Clean | Kept(n) | Removed(n)
 # CLI's own output — never silently continues.
 # register_marketplace REPO_DIR — idempotent; PLUGIN_OUTCOME=Installed when it wrote.
 register_marketplace() {
-  local repo_dir="$1"
-  if claude plugin marketplace list 2>/dev/null \
-       | grep -qE "(^|[[:space:]])$MARKETPLACE_NAME([[:space:]]|\$)"; then
+  local repo_dir="$1" listed
+  # Capture before matching: under pipefail, `list | grep -q` fails whenever grep
+  # exits at the match while the CLI is still writing (SIGPIPE), and re-adds it.
+  listed="$(claude plugin marketplace list 2>/dev/null)" || listed=""
+  if grep -qE "(^|[[:space:]])$MARKETPLACE_NAME([[:space:]]|\$)" <<< "$listed"; then
     ok "already" "marketplace $MARKETPLACE_NAME already registered"
     return 0
   fi
