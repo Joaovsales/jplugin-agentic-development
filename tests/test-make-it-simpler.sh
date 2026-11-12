@@ -192,7 +192,7 @@ assert_file_contains "$MOVES" "5. **No script behavior change unless declared mi
   "AC 6: practice 5 — no script behavior change unless declared minor"
 assert_file_contains "$MOVES" "## Cross-area deduplication" "retune AC3: safe-moves.md has § Cross-area deduplication"
 for cond in "counts as one area" "\`/<skill>\` § *<Heading>*" "\`.agents/references/<file>.md\` § *<Heading>*" \
-            "another skill's \`references/\`" "\`.agents/agents/\` are out of the move's scope" \
+            "another skill's \`references/\`" "\`.agents/agents/\` or \`.claude/agents/\` are out of the move's scope" \
             "does not disqualify the move" "repointed in the same change"; do
   assert_prose_contains "$MOVES" "$cond" "retune AC3: § Cross-area deduplication states — $cond"
 done

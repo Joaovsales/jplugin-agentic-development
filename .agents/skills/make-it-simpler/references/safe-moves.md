@@ -36,7 +36,7 @@ skills its copies sit in, when every condition holds:
   install, and moving the rule into `.agents/references/` first is its own change.
 - Every assertion pinning a copy is repointed in the same change (practice 3).
 
-Copies under `.agents/agents/` are out of the move's scope and stay
+Copies under `.agents/agents/` or `.claude/agents/` are out of the move's scope and stay
 byte-identical — a sub-agent persona starts in a fresh context and may never
 open a citation — and their presence does not disqualify the move. Practice 4
 yields to this rule for them.
