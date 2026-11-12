@@ -2790,3 +2790,30 @@ Routine `tidy` — step ledger:
   - #321, #319 and #331 look moot; closing them was denied in this session.
   - #310 is out of date: close it and drop `in-progress` from #308.
 - [ ] test-pre-push-gate.sh gitenv fixture fails on Windows: npm runs its script through cmd.exe <!-- task-id: bug.tests-test-pre-push-gate-sh --> — The 'Pushing repo's git env' case writes a POSIX script (env | grep ... && exit 1 || exit 0) into package.json; on Wind… ([#393](https://github.com/Joaovsales/jplugin-agentic-development/issues/393))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md
+
+> Routine: `simplify` #372 · branch `routine/simplify/372-dedupe-finding-model-in-quality-gate` · spec `specs/simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md.md`
+> Issue: #372
+
+### Slice 1/1 — quality-gate cites the finding model
+[x] TDD: M2 pins the gate's § *Four axes* / § *Emission format* / § *Confidence anchors* / § *Gates* citations, the home path, `before Phase 1` and `confidence >= 75`; the verbatim overlaps between the gate and finding-model.md go 5 -> 0; the covering tests and `tests/test-citations.sh` match the before-proof -> replace § *Finding Model*'s restated tables and gate bullets with citations of `.agents/references/finding-model.md`, keep the gate-specific Apply Gate rules (AC 1, 2, 3)
+
+> Handover: `quality-gate/SKILL.md` § *Finding Model* is now 26 lines (was 54) and the file 372 (was 400). It cites finding-model.md § *Four axes* / *Emission format* / *Confidence anchors* / *Gates*, reads the home before Phase 1, and stops with Item 7's refusal when the home resolves nowhere. Apply Gate keeps `gated_auto` **and** `confidence >= 75` as a floor, plus the two gate-only `MUST-FIX` rules. Verbatim overlaps with the home: 5 → 0. M2 repointed: 16 pins fail against the pre-change text. Before → after: doc-conventions 900 → 904 (−16 token pins, +20 citation, absence and stop pins); citations 6, review-context 130, invocation-chain 46, routine-wrapup 78 and agents 275 unchanged; all 0 failed.
+> Do not re-derive: the finding-model.md lookup order stays in *Claude Code Enhancements* (Item 7). That paragraph is pinned word for word in four dispatch skills by `tests/test-review-context.sh`, so consolidating it is a cross-skill change. The remaining `duplicate-rule` hit on quality-gate (line 235) is that paragraph.
+> Surface: check clean (undeclared: none, untouched: none)
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #372 (already filed; this run's discovery filed nothing new — every new cue dropped in deep review)
+- [x] 2. `task-registry claim 372 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/372-dedupe-finding-model-in-quality-gate`
+- [x] 4.1 `/make-it-simpler #372` — before-proof recorded; scope re-checked (minor, 1 slice, one skill + its test, reproduces: 5 verbatim overlaps); spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place, inline (a one-section edit; no builder dispatch)
+- [x] 4.4 `/quality-gate` — Phases 1–3 inline (no findings); Phase 4 dispatched HOLD → GO; test-engineer dispatched twice, findings applied, one NITPICK open; receipt GO 5fbe3a17 policy qg1-9478b51c (re-minted once after `git fetch` corrected a stale merge-base)
+- [x] 5. `/wrap-up-session` — `/learn`: paragraph added to an existing pattern doc; `/memory-maintain` skip: a store sweep would put unrelated churn into a one-simplification PR
+
+## Session Summary — [2026-11-12] [17a7a15..17a7a15]
+- Completed: #372 — `/quality-gate` § *Finding Model* cites `.agents/references/finding-model.md` instead of restating its anchors and gates (400 → 372 lines; minor behavior changes declared in the spec's D3; simplify routine). Spec reconciliation: 19 candidates. 1 updated: simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md (new). 18 unchanged: aposd-first-build, codex-scout-routing, context-memory-management, fewer-full-suite-runs, github-rest-in-sandboxes, go-front-door, helix-checkpoint-loop, lane-plan-handover, make-it-simpler, plan-slices-and-handover, quality-receipt-closure, review-context-contract, review-load-and-failure-cases, single-instruction-file, system-design-planning, test-suite-aposd, upsert-depends-on, wrap-up-phases.
+- Pending: none from this run.
+- Carry-forward: the finding-model.md lookup-and-refusal paragraph (Item 7) is still restated in four dispatch skills, which is the cross-skill half of this dedupe. `/memory-maintain` is still overdue.

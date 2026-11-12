@@ -1115,3 +1115,8 @@ back vacuous and was repaired.
 - Learnings captured:
   - [tooling/registry-upsert-never-removes-a-label.md](solutions/tooling/registry-upsert-never-removes-a-label.md)
   - [process/a-routine-label-with-no-consumer-is-a-dead-letter-queue.md](solutions/process/a-routine-label-with-no-consumer-is-a-dead-letter-queue.md)
+
+### [2026-11-12] — simplify routine: /quality-gate cites finding-model.md (#372)
+- Key changes: `/make-it-simpler --unattended` ranked the tree. Deep review dropped every new cue: the `enforced-prose` hits were test-pinned rule text, and the planner `duplicate-rule` was the `.claude/agents` copy, which differs only in its `model:` pin. So nothing new was filed. `select` picked #372, and the owner had already decided it should be deduplicated. § *Finding Model* now cites finding-model.md § *Four axes*, *Emission format*, *Confidence anchors* and *Gates* and reads the file before Phase 1. It keeps the gate-only Apply Gate rules. 400 → 372 lines. Verbatim overlaps with the home dropped from 5 to 0. M2 was repointed to citation and absence pins, and 16 of those pins fail against the old text.
+- Quality gate: Phase 4 went HOLD, then GO. The test-engineer's findings across two rounds were applied, and its AC2 finding was settled in the spec as command-validated. One NITPICK is open. Receipt GO.
+- Learnings captured: paragraph added to [patterns/merging-restated-rules-into-one-home-can-drop-a-clause.md](solutions/patterns/merging-restated-rules-into-one-home-can-drop-a-clause.md). A pointer followed by a short list reads as the complete rule.

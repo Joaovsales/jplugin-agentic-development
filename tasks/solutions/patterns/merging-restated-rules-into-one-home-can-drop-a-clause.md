@@ -34,3 +34,12 @@ critic-only exception (a deferral that fails an AC) and then cited the home as
 home without counting what is in it.
 
 Related: [[a-caller-that-restates-its-callees-format-makes-the-callee-optional]].
+
+The #372 consolidation (`/quality-gate` § *Finding Model* → `finding-model.md`)
+hit the same counting leak in another form. A pointer followed by a short list,
+"only when every rule in § *Gates* clears it: A **and** B", reads as the complete
+rule. The home holds seven gates. Write the list as a floor ("at the least A
+**and** B; the home holds every rule") or drop it. The run also hit the reverse
+of a dropped clause: when the copy took over the home's rule, it borrowed a
+refusal message written for a different step, so one failure would have produced
+two different refusals. Point at the existing message instead of minting a second one.
