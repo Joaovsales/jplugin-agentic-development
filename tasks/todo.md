@@ -2768,3 +2768,25 @@ Routine `tidy` — step ledger:
 - Completed: scheduled `tidy` sweep at `4abdf40` — suite green (95/95), 11 checks run inline; no Tier 0 drift; Tier 1 `registers` (38 closed plan blocks, stale checkpoint) re-evidenced on #143.
 - Pending: `installed` and `tools` inconclusive in the cloud container; archive the closed plan blocks (#143).
 - Carry-forward: none.
+- [ ] Move subagent-resilience.md into .agents/references/ so every dispatching skill can cite it <!-- task-id: tech-debt.agents-skills-build-references-subagent-resilience-md --> — Four skills restate the sub-agent dispatch checklist because its home sits under /build's references/, a path that does… ([#391](https://github.com/Joaovsales/jplugin-agentic-development/issues/391))
+- [ ] Thin reviewer personas that preload one shared review skill <!-- task-id: design.agents-agents-code-reviewer-md --> — Reviewer personas restate the dispatch contract and the finding model, and the copies drift (#375). Keep thin personas… ([#392](https://github.com/Joaovsales/jplugin-agentic-development/issues/392))
+- [ ] duplicate-rule in .agents/skills/quality-gate/SKILL.md <!-- task-id: simplify.agents-skills-quality-gate-skill-md.duplicate-rule-in-agents-skills-quality-gate-skill-md --> ([#372](https://github.com/Joaovsales/jplugin-agentic-development/issues/372))
+- [ ] duplicate-rule in .agents/skills/build/SKILL.md <!-- task-id: simplify.agents-skills-build-skill-md.duplicate-rule-in-agents-skills-build-skill-md --> ([#368](https://github.com/Joaovsales/jplugin-agentic-development/issues/368))
+- [ ] duplicate-rule in .agents/skills/auto-push/SKILL.md <!-- task-id: simplify.agents-skills-auto-push-skill-md.duplicate-rule-in-agents-skills-auto-push-skill-md --> ([#358](https://github.com/Joaovsales/jplugin-agentic-development/issues/358))
+- [ ] duplicate-rule in .agents/agents/code-reviewer.md <!-- task-id: simplify.agents-agents-code-reviewer-md.duplicate-rule-in-agents-agents-code-reviewer-md --> ([#375](https://github.com/Joaovsales/jplugin-agentic-development/issues/375))
+
+## Session Summary — [2026-11-12] [114a437..6055ff6]
+
+- Completed:
+  - `simplify` routine retune (#390, spec `specs/simplify-routine-retune.md`, AC1–AC4).
+  - #368 refusal-rule alignment.
+  - Decisions recorded on #387, #372, #368, #358 and #375; #372 and #387 re-kinded to task.
+  - Filed #391 and #392.
+- Pending:
+  - Merge #390. #382 and #360 now sit below master's version and need a re-bump before they merge.
+  - Close #368 once #390 lands.
+  - #391 (closes #358) and #392 (spike first; closes #375).
+- Carry-forward:
+  - #321, #319 and #331 look moot; closing them was denied in this session.
+  - #310 is out of date: close it and drop `in-progress` from #308.
+- [ ] test-pre-push-gate.sh gitenv fixture fails on Windows: npm runs its script through cmd.exe <!-- task-id: bug.tests-test-pre-push-gate-sh --> — The 'Pushing repo's git env' case writes a POSIX script (env | grep ... && exit 1 || exit 0) into package.json; on Wind… ([#393](https://github.com/Joaovsales/jplugin-agentic-development/issues/393))

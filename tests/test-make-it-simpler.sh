@@ -149,6 +149,34 @@ assert_file_contains "$LENS" "**\`tasks/\`** — never read and never ranked" "A
 assert_file_matches "$SIGNALS" '^EXCLUDED_PREFIXES = \("tests/fixtures/", "tasks/"\)' "AC 5: signals.py excludes the same prefixes"
 assert_file_matches "$SIGNALS" '^DESIGN_RECORDS = \("specs/",\)' "AC 5: signals.py holds DESIGN_RECORDS = specs/"
 assert_file_contains "$LENS" "**\`specs/\` as a duplicate home**" "AC 5: lens.md states specs/ is never a duplicate home"
+assert_file_contains "$LENS" "**A § citation line as a duplicate home**" "retune AC2: lens.md states a § citation line is never a duplicate home"
+
+# A § citation line is a pointer to the rule's home: the line a deduplication
+# leaves in every copy must never be flagged as the duplicate it replaced
+# (specs/simplify-routine-retune.md AC1). The plain shared line is the control.
+POINTER="$(fixture_repo)"
+mkdir -p "$POINTER/docs"
+CITED='Before any dispatch, apply `/build` § *Dispatch checklist* to every agent you start.'
+PLAIN='Before any dispatch, give every agent a budget and a stall monitor, always.'
+# Candidates group per file and quote the file's first hit, so the pointer and
+# the control sit in separate pairs of files.
+printf '# A\n\n%s\n\nOnly in a.\n' "$CITED" > "$POINTER/docs/a.md"
+printf '# B\n\n%s\n\nOnly in b.\n' "$CITED" > "$POINTER/docs/b.md"
+printf '# C\n\n%s\n\nOnly in c.\n' "$PLAIN" > "$POINTER/docs/c.md"
+printf '# D\n\n%s\n\nOnly in d.\n' "$PLAIN" > "$POINTER/docs/d.md"
+# A substantive rule that merely cites a section is still a rule: only the text
+# besides its citations is measured against the 60-character minimum.
+CITING='Every reviewer reads `/build` § *Dispatch checklist* first, then gives each agent a tool budget and arms a stall monitor.'
+printf '# E\n\n%s\n\nOnly in e.\n' "$CITING" > "$POINTER/docs/e.md"
+printf '# F\n\n%s\n\nOnly in f.\n' "$CITING" > "$POINTER/docs/f.md"
+commit_fixture "$POINTER"
+POINTER_OUT="$(rank "$POINTER" --limit 50)"
+assert_contains "$POINTER_OUT" '"key": "duplicate-rule in docs/c.md"' \
+  "retune AC1: a shared plain rule line still ranks as duplicate-rule (control)"
+assert_not_contains "$POINTER_OUT" '"key": "duplicate-rule in docs/a.md"' \
+  "retune AC1: a shared § citation line is a pointer, never a duplicate-rule"
+assert_contains "$POINTER_OUT" '"key": "duplicate-rule in docs/e.md"' \
+  "retune AC1: a shared long rule that also cites a section still ranks as duplicate-rule"
 assert_prose_contains "$LENS" "its nine checks: \`suite\`, \`inventory\`, \`retired\`,
   \`installed\`, \`refs\`, \`worktrees\`, \`strays\`, \`graph\`, \`registers\`" \
   "AC 5: lens.md names the nine /tidy checks it excludes"
@@ -162,6 +190,12 @@ assert_file_contains "$MOVES" "3. **A moved assertion is repointed, never delete
 assert_file_contains "$MOVES" "4. **One home per rule.**" "AC 6: practice 4 — one home per rule"
 assert_file_contains "$MOVES" "5. **No script behavior change unless declared minor.**" \
   "AC 6: practice 5 — no script behavior change unless declared minor"
+assert_file_contains "$MOVES" "## Cross-area deduplication" "retune AC3: safe-moves.md has § Cross-area deduplication"
+for cond in "counts as one area" "\`/<skill>\` § *<Heading>*" "\`.agents/references/<file>.md\` § *<Heading>*" \
+            "another skill's \`references/\`" "\`.agents/agents/\` or \`.claude/agents/\` are out of the move's scope" \
+            "does not disqualify the move" "repointed in the same change"; do
+  assert_prose_contains "$MOVES" "$cond" "retune AC3: § Cross-area deduplication states — $cond"
+done
 
 # --- AC 7: frontmatter, budget, /writing-skills section order, README row ------
 SKILL="$SKILL_DIR/SKILL.md"
@@ -201,6 +235,10 @@ assert_prose_contains "$SKILL" "seeds the five \`safe-moves.md\` practices" \
 # --- AC 10: the unattended sequence, its three ends, the scope stop -------------
 assert_prose_contains "$SKILL" "Rank, deep review, classify and size" "AC 10: unattended a — rank, classify, size"
 assert_file_contains "$SKILL" ".agents/skills/slice/references/sizing.md" "AC 10: sizing cites slice/references/sizing.md"
+assert_prose_contains "$SKILL" "\`references/safe-moves.md\` § *Cross-area deduplication*" \
+  "retune AC3: sizing cites safe-moves.md § Cross-area deduplication for the duplicate-rule cap"
+assert_prose_contains "$SKILL" "also seeds that section as a row" \
+  "retune AC3: a cross-area dedupe seeds § Cross-area deduplication into the spec's § Decisions"
 assert_prose_contains "$SKILL" "\`task-registry show <derived-id>\`" \
   "AC 10: show before upsert, skipping done and cancelled"
 assert_file_contains "$SKILL" "--derive-id simplify --source <path> --fold-title" "AC 10: file with a derived simplify id"

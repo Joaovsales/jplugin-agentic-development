@@ -189,11 +189,11 @@ suite is running — no targeted file, no affected-test run — because a test b
 a running suite shares its load and can fake a failure in either.
 
 **A refusal is not a test result.** Exit 3 with `cached-suite: a suite is
-already running` means nothing ran: never hand it to `code-debugger` and never
-count it as a fix attempt. Wait for this session's own job to finish and re-run;
-for another session's, report the pid and start time and stop. If tests fail,
-fix the root cause and re-run. Still failing after 2 fix attempts: report, do
-not push, and end through § *Terminal PR assertion*.
+already running` on stderr means nothing ran: never hand it to `code-debugger`
+and never count it as a fix attempt. Wait for this session's own job to finish
+and re-run; for another session's, report the pid and start time and stop. If
+tests fail, fix the root cause and re-run. Still failing after 2 fix attempts:
+report, do not push, and end through § *Terminal PR assertion*.
 
 ## Ship
 
