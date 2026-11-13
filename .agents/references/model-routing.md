@@ -115,13 +115,12 @@ configuration that shadows a managed role before relying on its tier.
   this tier exists to prevent. `critic` is the one exception, and only downward,
   per its floor above.
 - **Pi**: never pass per-call model params for routine routing;
-  `subagents.agentOverrides` resolves them. The one exception is the debugger
-  escalation ladder: `.agents/skills/build/SKILL.md` § *Escalation ladder for
-  test regressions* dispatches `code-debugger` for attempts 3–4 with a per-run
-  `model` (`.agents/skills/build/references/harness-dispatch.md` § *Pi +
-  OpenRouter routing (Model Routing)*), because the agent's pinned Builder model
-  would make the ladder's first two rungs the same model. Ceiling-tier agents carry `"model": "inherit"` — the Pi spelling of
-  "pass nothing", which resolves the parent session model. Omitting an agent
+  `subagents.agentOverrides` resolves them. The one exception is the per-run
+  `model` that `.agents/skills/build/SKILL.md` § *Escalation ladder for test
+  regressions* passes to raise its middle rung; the mechanics are
+  `.agents/skills/build/references/harness-dispatch.md` § *Pi + OpenRouter
+  routing (Model Routing)*. Ceiling-tier agents
+  carry `"model": "inherit"` — the Pi spelling of "pass nothing", which resolves the parent session model. Omitting an agent
   from `agentOverrides` falls through to `subagents.defaultModel` — a fixed
   builder-tier model, not the session model — so omission on Pi *downgrades*
   rather than inherits, and no Ceiling entry may be deleted. `critic` is the

@@ -74,7 +74,7 @@ tasks/checkpoint.md        → Session snapshots
 
 ## Agents
 
-One focused task per sub-agent. Canonical personas live in `.agents/agents/` and never pin a `model:`; `.claude/agents/` is the Claude Code copy and may pin built-in aliases. Which tier each agent runs on — Planner `opus`, Builder and Reviewer `sonnet`, Scout `haiku`, `test-engineer` (Reviewer tier), and *Ceiling* (`code-reviewer`, `security-reviewer`, `software-design-expert-review`, `critic` with a planner floor), which inherits the session model — is `.agents/references/model-routing.md`. On Claude Code pass `model` explicitly for the Planner, Builder, Reviewer and Scout tiers and pass **nothing** for Ceiling agents; on Pi, `subagents.agentOverrides` resolves them — the Pi rule and its one exception, the debugger ladder's per-run `model`, are `.agents/references/model-routing.md` § *Rules*.
+One focused task per sub-agent. Canonical personas live in `.agents/agents/` and never pin a `model:`; `.claude/agents/` is the Claude Code copy and may pin built-in aliases. Which tier each agent runs on — Planner `opus`, Builder and Reviewer `sonnet`, Scout `haiku`, `test-engineer` (Reviewer tier), and *Ceiling* (`code-reviewer`, `security-reviewer`, `software-design-expert-review`, `critic` with a planner floor), which inherits the session model — is `.agents/references/model-routing.md`. On Claude Code pass `model` explicitly for the Planner, Builder, Reviewer and Scout tiers and pass **nothing** for Ceiling agents; on Pi pass no per-call model params for routine routing, `subagents.agentOverrides` resolves them (exceptions: `.agents/references/model-routing.md` § *Rules*).
 
 ## Task Tracking
 
