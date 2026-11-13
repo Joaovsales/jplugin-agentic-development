@@ -9,8 +9,9 @@ sub-agent dispatch is required; run every check inline and say so.
    with a note, never reported clean.
 2. Create the branch `routine_branch.py format tidy <YYYYMMDD> sweep` gives you.
    If it already exists today, stop non-zero.
-3. Run `/tidy`. This step is the whole artifact and cannot be skipped: eight
-   checks, one commit per Tier 0 repair, one registry task per Tier 1 or Tier 2
+3. Run `/tidy`. This step is the whole artifact and cannot be skipped: nine
+   checks (`suite`, `inventory`, `retired`, `installed`, `refs`, `worktrees`,
+   `strays`, `registers`, `graph`), one commit per Tier 0 repair, one registry task per Tier 1 or Tier 2
    finding, and the session record under `tasks/sweeps/`.
 4. Run `/wrap-up-session`. It opens the ready PR with `Refs #N` per filed issue.
 

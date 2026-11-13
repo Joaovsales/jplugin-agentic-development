@@ -4,8 +4,10 @@ ends: ready PR carrying the session record and the Tier 0 repair commits
 ---
 # Lane: tidy
 
-Runs on a schedule, never on an issue. Lens: harness hygiene. Engine: the eight
-`/tidy` checks over the harness surfaces, never product code. Files documentation
+Runs on a schedule, never on an issue. Lens: harness hygiene. Engine: the nine
+`/tidy` checks (`suite`, `inventory`, `retired`, `installed`, `refs`,
+`worktrees`, `strays`, `registers`, `graph`) over the harness surfaces, never
+product code. Files documentation
 drift as `documentation` and structural drift as `task` + `tech-debt`; every
 Tier 0 repair is its own commit on the routine branch.
 

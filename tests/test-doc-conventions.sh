@@ -207,6 +207,19 @@ for f in .agents/skills/tidy/SKILL.md; do
     assert_file_matches "$f" "^\| \`$check\` \|" \
       "tidy: $f defines the \`$check\` check as a table row"
   done
+  # #202: the routine contract, the lane and the routine prompt restate the
+  # count and the list; they said eight and left out `graph`.
+  for doc in .agents/skills/wrap-up-session/references/routines.md \
+             .agents/skills/task-registry/lanes/tidy.md \
+             .agents/skills/wrap-up-session/references/routine-prompts/tidy.md; do
+    flat_doc="$(flatten "$doc")"
+    assert_contains "$flat_doc" "nine" "tidy: $doc gives the nine-check count"
+    assert_not_contains "$flat_doc" "eight \`/tidy\` checks" "tidy: $doc no longer says eight /tidy checks"
+    assert_not_contains "$flat_doc" "eight checks" "tidy: $doc no longer says eight checks"
+    for check in suite inventory retired installed refs worktrees strays registers graph; do
+      assert_contains "$flat_doc" "\`$check\`" "tidy: $doc lists the \`$check\` check"
+    done
+  done
   # The banner lists no skills since specs/single-instruction-file.md slice 3, so
   # it is not an inventory surface any more.
   assert_file_not_matches "$f" 'SKILLS AVAILABLE' \
