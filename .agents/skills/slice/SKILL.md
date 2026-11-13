@@ -88,16 +88,8 @@ byte-for-byte identical to `.agents/skills/slice/references/plan-block.md`.
 - [ ] <name> — <delivers>
 ```
 
-- The example shows the feature row; with an issue, a `> Issue:
-  https://github.com/<owner>/<repo>/issues/<N>` line replaces it. Never both,
-  never two of either: `slice.py validate` refuses it.
-- A slice's header row carries no task id, no `(blocked-by:)` and no `TDD:`
-  child; blockers live only in § Build Order.
-- Slice names never start with `/` — Git Bash on Windows rewrites a leading
-  `/name` into a path.
-- An existing `## Plan: <feature>` block is replaced section by section, in
-  place; a different feature is appended. Never two blocks for one feature.
-- `> Spec:` stands alone on its line.
+Read the grammar before writing the block. The grammar is
+`.agents/skills/slice/references/plan-block.md`.
 
 ### 5. Gate readiness and write the build prompt
 

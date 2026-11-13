@@ -838,7 +838,7 @@ for token in "name: slice" "disable-model-invocation: false" "harness: universal
              "✓ Build Order written:" "✓ Plan written:" \
              "✓ Visual written:" "Skipping visual-plan:" \
              "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
-             "--derive-id plan" "never start with \`/\`"; do
+             "--derive-id plan"; do
   assert_file_contains "$SLICE_SKILL" "$token" "slice: SKILL.md contains '$token'"
 done
 
@@ -850,11 +850,20 @@ done
 # In-place replacement, the no-plan-block refusal, the idempotent re-run and
 # the --approve rule are hard-wrapped prose; pinned via flatten rather than a
 # single-line literal.
+# The plan-block grammar has one home, references/plan-block.md; SKILL.md
+# cites it and carries only the fenced example (specs/simplify-duplicate-rule-in-agents-skills-slice-skill-md.md).
 flat_slice="$(flatten "$SLICE_SKILL")"
-assert_contains "$flat_slice" "section by section" \
-  "slice: SKILL.md states the in-place plan-block replacement rule"
-assert_contains "$flat_slice" "Never two blocks for one feature" \
-  "slice: SKILL.md states the one-block-per-feature rule"
+flat_plan_block="$(flatten .agents/skills/slice/references/plan-block.md)"
+assert_contains "$flat_plan_block" "never start with \`/\`" \
+  "slice: plan-block.md states the no-leading-slash slice name rule"
+assert_contains "$flat_plan_block" "replaced section by section, in place" \
+  "slice: plan-block.md states the in-place plan-block replacement rule"
+assert_contains "$flat_plan_block" "Never two blocks for one feature" \
+  "slice: plan-block.md states the one-block-per-feature rule"
+assert_contains "$flat_slice" "grammar is \`.agents/skills/slice/references/plan-block.md\`" \
+  "slice: SKILL.md cites plan-block.md for the grammar"
+assert_not_contains "$flat_slice" "Never two blocks for one feature" \
+  "slice: SKILL.md does not restate the plan-block grammar"
 
 # Negative pins: the ceremony this spec removed must not reappear here.
 assert_file_not_matches "$SLICE_SKILL" "Invoke /build" \

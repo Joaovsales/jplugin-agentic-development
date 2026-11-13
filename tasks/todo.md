@@ -2847,3 +2847,16 @@ Step ledger (routine `simplify`):
 - Completed: #387: both store READMEs cite `/learn` § *4. Score Overlap Before Writing* instead of restating the dimension rows, cap and score table. 122 → 105 lines each, behavior changes none, simplify routine. Spec reconciliation covered 5 candidates. 1 updated: simplify-duplicate-rule-in-agents-skills-learn-skill-md (new). 4 unchanged: compound-engineering-adoption, context-memory-management, helix-checkpoint-loop, test-suite-aposd.
 - Pending: none from this run.
 - Carry-forward: `/learn`'s step headings carry numbers (`### 4. …`), which safe-moves practice 1 forbids. Renaming them to plain names and repointing `/memory-maintain`, both READMEs and their tests is its own change (Phase 4 SHOULD-FIX, owner human). `/memory-maintain` is still overdue.
+- [ ] duplicate-rule in .agents/skills/slice/SKILL.md <!-- task-id: simplify.agents-skills-slice-skill-md.duplicate-rule-in-agents-skills-slice-skill-md --> ([#308](https://github.com/Joaovsales/jplugin-agentic-development/issues/308))
+- [ ] citation-drift in .agents/skills/tidy/SKILL.md <!-- task-id: simplify.agents-skills-tidy-skill-md.citation-drift-in-agents-skills-tidy-skill-md --> ([#309](https://github.com/Joaovsales/jplugin-agentic-development/issues/309))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-slice-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-slice-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/308
+
+### Slice 1/1 — slice cites plan-block grammar
+- [x] slice cites plan-block grammar <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-slice-skill-md-md.slice-cites-plan-block-grammar --> — `/slice` Step 4 cites `references/plan-block.md` instead of restating it
+  [x] TDD: tests/test-doc-conventions.sh § slice — the three grammar pins read `references/plan-block.md`; `SKILL.md` no longer carries "`> Issue:` is written when" and cites the reference -> trim the four bullets to a citation (AC 1, 2)
+  [x] TDD: before/after proof — `bash tests/affected.sh --run origin/master` and `bash tests/test-citations.sh` give the same result -> no code beyond the row above (AC 3)
+
+> Handover: SKILL.md Step 4 cites references/plan-block.md for the grammar; the three pins in tests/test-doc-conventions.sh now read plan-block.md. Affected set before and after: identical failure set (install-sh 4, task-registry 2, both pre-existing as root).
