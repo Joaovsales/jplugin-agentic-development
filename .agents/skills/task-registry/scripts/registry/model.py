@@ -309,6 +309,12 @@ def prose_dependency_extra(body: str) -> dict:
     return {"prose_dependencies": ", ".join(found)} if found else {}
 
 
+def recorded_prose_dependencies(task: "Task") -> Tuple[str, ...]:
+    """The prose dependencies `prose_dependency_extra` recorded on `task`."""
+    listing = task.extra.get("prose_dependencies", "")
+    return tuple(part.strip() for part in listing.split(",") if part.strip())
+
+
 def upsert_metadata_block(body: str, task: Task) -> str:
     """Replace the identity block in-place, or append one, preserving all else.
 

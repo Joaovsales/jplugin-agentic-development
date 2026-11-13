@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Iterable, List, NamedTuple, Optional, Sequence, Tuple
 
-from .model import by_priority
+from .model import by_priority, recorded_prose_dependencies
 from .providers.base import has_label
 
 __all__ = [
@@ -197,21 +197,15 @@ def blocked(pool: Iterable, tasks: Sequence) -> Sequence[Blocker]:
     """
     found = []
     for task in pool:
-        declared, reason = task.depends_on, "open"
-        if not declared:
-            declared = _split(task.extra.get("prose_dependencies", ""))
-            reason = "unparsed"
+        in_prose = not task.depends_on
+        declared = recorded_prose_dependencies(task) if in_prose else task.depends_on
         for reference in declared:
             blocker = _resolve(reference, tasks)
-            if blocker is None:
-                found.append(Blocker(task, reference, "unresolvable" if reason == "open" else reason))
-            elif not blocker.is_terminal:
-                found.append(Blocker(task, reference, reason))
+            if blocker is not None and blocker.is_terminal:
+                continue
+            reason = "unparsed" if in_prose else ("open" if blocker else "unresolvable")
+            found.append(Blocker(task, reference, reason))
     return found
-
-
-def _split(listing: str) -> Tuple[str, ...]:
-    return tuple(part.strip() for part in listing.split(",") if part.strip())
 
 
 def _resolve(reference: str, tasks: Sequence):
