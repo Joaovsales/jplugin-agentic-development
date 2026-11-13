@@ -560,6 +560,18 @@ assert_not_contains "$output" "prelude: /debug" \
   "Banner: rows inside a route-lane block are not listed"
 assert_contains "$output" "⚠  legacy route-lane block in tasks/todo.md — not counted as tasks; /memory-maintain rewrites it" \
   "Banner: a legacy route-lane block is flagged with the skill that migrates it"
+# A begin marker with no end must not hide the real tasks below it: unpaired
+# markers are counted as written and flagged as malformed.
+printf '%s\n' '<!-- route-lane:begin -->' '[ ] prelude: /debug' '' \
+  '[ ] TDD: task below a truncated block' > "$LANE/tasks/todo.md"
+git -C "$LANE" commit -qam truncated
+startup "$LANE" "${BANNER[@]}"
+assert_contains "$output" "— 2 pending, 0 in-progress" \
+  "Banner: an unpaired begin marker hides nothing — every row is counted"
+assert_contains "$output" "[ ] TDD: task below a truncated block" \
+  "Banner: a task below an unpaired begin marker is still listed"
+assert_contains "$output" "⚠  malformed legacy route-lane block in tasks/todo.md (unpaired markers) — its rows are counted as tasks" \
+  "Banner: unpaired route-lane markers are flagged as malformed"
 
 # Graph older than HEAD -> the stale line. graphify is a stub on the private PATH.
 printf '#!/bin/bash\nexit 0\n' > "$B/bin/graphify"; chmod +x "$B/bin/graphify"

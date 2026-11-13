@@ -192,18 +192,29 @@ TODO_FILE="tasks/todo.md"
 if [ -f "$TODO_FILE" ]; then
   # Rows inside a legacy `route-lane` block (the old router's checkbox lane
   # record) are not tasks: they are left out of the counts and the list, and
-  # /memory-maintain rewrites the block to numbered lane lines.
-  TASK_ROWS=$(awk '/<!-- route-lane:begin -->/ { lane = 1 }
+  # /memory-maintain rewrites the block to numbered lane lines. Only paired
+  # markers are skipped — a begin with no end would otherwise hide every real
+  # task below it.
+  LANE_BEGIN='<!-- route-lane:begin -->'
+  LANE_END='<!-- route-lane:end -->'
+  LANE_BLOCKS=$(grep -cF "$LANE_BEGIN" "$TODO_FILE" || true)
+  LANE_ENDS=$(grep -cF "$LANE_END" "$TODO_FILE" || true)
+  LANE_PAIRED=0
+  [ "$LANE_BLOCKS" = "$LANE_ENDS" ] && LANE_PAIRED=1
+  TASK_ROWS=$(awk -v b="$LANE_BEGIN" -v e="$LANE_END" -v paired="$LANE_PAIRED" '
+    paired && index($0, b) { lane = 1 }
     !lane && /^[[:space:]]*\[[ ~]\]/ { print }
-    /<!-- route-lane:end -->/ { lane = 0 }' "$TODO_FILE")
+    paired && index($0, e) { lane = 0 }' "$TODO_FILE")
   PENDING=$(printf '%s\n' "$TASK_ROWS" | grep -c '^\s*\[ \]' || true)
   IN_PROGRESS=$(printf '%s\n' "$TASK_ROWS" | grep -c '^\s*\[~\]' || true)
   echo ""
   echo "📋  ACTIVE TASKS  (tasks/todo.md) — $PENDING pending, $IN_PROGRESS in-progress"
   echo "────────────────────────────────"
   printf '%s\n' "$TASK_ROWS" | grep -E . | head -10 || echo "  None."
-  if grep -q '<!-- route-lane:begin -->' "$TODO_FILE"; then
+  if [ "$LANE_BLOCKS" -gt 0 ] && [ "$LANE_PAIRED" = 1 ]; then
     echo "⚠  legacy route-lane block in tasks/todo.md — not counted as tasks; /memory-maintain rewrites it to numbered lane lines"
+  elif [ "$LANE_BLOCKS" -gt 0 ] || [ "$LANE_ENDS" -gt 0 ]; then
+    echo "⚠  malformed legacy route-lane block in tasks/todo.md (unpaired markers) — its rows are counted as tasks; /memory-maintain rewrites it to numbered lane lines"
   fi
 else
   echo ""

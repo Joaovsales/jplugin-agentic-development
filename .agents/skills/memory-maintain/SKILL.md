@@ -33,8 +33,10 @@ Runs on **every** invocation (session start + wrap-up). Bounded work only:
   (`/go` § *2. Record*): the `## Routed lane — <name>` heading becomes
   `## Lane: <name>`, each `[x]`/`[ ]`/`[~]` row becomes a numbered line with its
   text unchanged, every row that was not `[x]` gets
-  ` — skip: legacy block, superseded` appended, and both markers go. The
-  session banner already leaves these rows out of its task counts; the rewrite
+  ` — skip: legacy block, superseded` appended, and both markers go (a
+  begin marker with no end: the block runs to the first `## ` heading after
+  its own `## Routed lane` heading). The session banner already leaves the
+  rows of a block with paired markers out of its task counts; the rewrite
   removes the bad data rather than hiding it.
 - If any document written **this session** duplicates an existing one
   (same `module` + overlapping `tags` **and** the pair passes the Phase 2
