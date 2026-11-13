@@ -43,6 +43,7 @@ Observation shapes (one dict key per phase, JSON on --observe):
     mergeable: {"mergeable": "clean"} | {"mergeable": "conflicting", "base": "<name>"} | {"mergeable": "unknown"}
     merge:     {"merge": "resolved"} | {"merge": "unresolved"}
     ci:        {"ci": "pass"} | {"ci": "none"} | {"ci": "fail", "checks": [...]} | {"ci": "timeout"}
+               | {"mergeable": "conflicting", "base": "<name>"}  (the base moved during CI)
     repair:    {"debug": "fixed"} | {"debug": "not-fixed"}
     deploy:    {"deploy": "pass", "head-moved": bool} | {"deploy": "n/a", "reason": "<text>"} | {"deploy": "fail"}
     record:    {"record": "recorded"} | {"record": "record-failed"}
@@ -221,6 +222,20 @@ def _rows() -> List[Any]:
             "END:ci fail",
         ),
         ("ci", lambda o: o.get("ci") == "timeout", _ALWAYS, "END:ci timeout:ci-pending"),
+        # The base moved after CI went green (#234): the same bounded merge as
+        # a conflict seen in `mergeable`.
+        (
+            "ci",
+            lambda o: o.get("mergeable") == "conflicting",
+            lambda s: s["conflict_rounds"] < CONFLICT_ROUND_LIMIT,
+            "merge",
+        ),
+        (
+            "ci",
+            lambda o: o.get("mergeable") == "conflicting",
+            lambda s: s["conflict_rounds"] >= CONFLICT_ROUND_LIMIT,
+            "END:mergeable conflicting",
+        ),
         ("repair", lambda o: o.get("debug") == "fixed", _ALWAYS, "RESET:ci_rounds"),
         ("repair", lambda o: o.get("debug") == "not-fixed", _ALWAYS, "END:debug not-fixed"),
         (
@@ -274,7 +289,7 @@ def _action_args(to_phase: str, obs: Dict[str, Any], from_phase: str) -> Dict[st
         return {"scope": obs.get("scope", "full")}
     if to_phase == "merge" and from_phase == "push":
         return {"ref": f"origin/{obs.get('branch', '')}"}
-    if to_phase == "merge" and from_phase == "mergeable":
+    if to_phase == "merge" and from_phase in ("mergeable", "ci"):
         return {"ref": f"origin/{obs.get('base', '')}"}
     if to_phase == "repair":
         return {"checks": ",".join(obs.get("checks", []))}

@@ -344,6 +344,8 @@ A tree-changing return to `receipt` (from `merge`, `repair` or `deploy`) resets 
 | `ci` | `ci: fail`, CI rounds left | `repair` (`debug-ci checks=…`) |
 | `ci` | `ci: fail`, no CI rounds left | `partial` (`mark-draft`) |
 | `ci` | `ci: timeout` | `partial` (`mark-draft`), state `ci-pending` (in doubt: the run may still pass) |
+| `ci` | `mergeable: conflicting` (the base moved after CI went green, #234), conflict rounds left | `merge` (`merge-base ref=origin/<base>`) |
+| `ci` | `mergeable: conflicting`, no conflict rounds left | `partial` (`mark-draft`) |
 | `repair` | `debug: fixed` | `receipt` (`check-receipt`); `ci_rounds` +1 |
 | `repair` | `debug: not-fixed` | `partial` (`mark-draft`) |
 | `deploy` | `deploy: pass`, `head-moved: false` | `record` (`record-closure`) |
@@ -356,7 +358,7 @@ A tree-changing return to `receipt` (from `merge`, `repair` or `deploy`) resets 
 | `partial` | `drafted`, `draft-failed` or `no-pr` | terminal `partial` reason=`<cause>` draft=`<yes\|failed\|none>` |
 
 Cycles, each consuming one counter: `receipt → gate → receipt` (`gated`),
-`merge → receipt → … → push/mergeable → merge` (`conflict_rounds`),
+`merge → receipt → … → push/mergeable/ci → merge` (`conflict_rounds`),
 `ci → repair → receipt → … → ci` (`ci_rounds`), `deploy → receipt → … → deploy`
 (`deploy_reentries`). The longest legal run is the initial pass plus 2 CI rounds, 1
 conflict round and 1 deployment re-entry. `tests/test-closure.sh` walks the table and
