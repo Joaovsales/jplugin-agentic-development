@@ -20,7 +20,7 @@ the rest are below.
 | `pr-sync` | `/wrap-up-session` § *The Pull Request* | `pr: <n>` \| `pr: failed` |
 | `mergeability` | § *Mergeability* | `mergeable: clean\|conflicting\|unknown` |
 | `merge-base` | § *Conflict repair* | `merge: resolved\|unresolved` |
-| `watch-ci` | § *CI watch and repair* | `ci: pass\|none\|fail\|timeout` \| `mergeable: conflicting`, `base: <name>` |
+| `watch-ci` | § *CI watch and repair* | `ci: pass\|none\|fail\|timeout` \| `mergeable: conflicting`, `base: <name>` \| `mergeable: unknown` |
 | `debug-ci` | § *CI watch and repair* | `debug: fixed\|not-fixed` |
 | `verify-deploy` | § *Deployment verification* | `deploy: pass\|n/a\|fail` |
 | `record-closure` | § *Recording the closure* | `record: recorded\|record-failed` |
@@ -145,11 +145,13 @@ exists but is slow to start is still expected to run.
 All checks green (or none, per the rule above) reports `ci: pass`. A failing
 required check reports `ci: fail` with the failing check names.
 
-The base can move while CI runs. Before reporting `ci: pass` or `ci: timeout`,
-re-read `gh_pr.py mergeable <n>`: a `mergeable: conflicting with <base>` there
-reports `mergeable: conflicting`, `base: <base>` instead, which the engine
-routes to § *Conflict repair* within the same 1-round bound as a conflict seen
-before CI.
+The base can move while CI runs. Before reporting any result other than `ci:
+fail` (a failure re-reads mergeability on its way back through `commit-push`),
+re-read `gh_pr.py mergeable <n>` and report what § *Mergeability* would: on
+`mergeable: clean`, the CI result; on `mergeable: conflicting with <base>`,
+`mergeable: conflicting`, `base: <base>`, which the engine routes to § *Conflict
+repair* within the same 1-round bound as a conflict seen before CI; on
+`mergeable: unknown`, `mergeable: unknown`, which ends the run as it does there.
 
 The `debug-ci` action runs on `ci: fail` with rounds left (2 total): fetch
 the failing run's log, `gh run view <run-id> --log-failed`, and hand it to

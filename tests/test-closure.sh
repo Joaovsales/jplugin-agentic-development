@@ -175,7 +175,7 @@ run_case "ci-fail-no-rounds" \
 run_case "ci-timeout" \
   '{"phase":"ci","pr_open":true,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"ci":"timeout"}' "action mark-draft reason=ci timeout"
-# #234: the base moved after CI went green, so watch-ci sees a conflicting PR.
+# #234: the base moved while CI ran, so watch-ci's mergeability re-read reports it.
 run_case "ci-conflicting-rounds-left" \
   '{"phase":"ci","pr_open":true,"gated":true,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
   '{"mergeable":"conflicting","base":"master"}' "action merge-base ref=origin/master"
@@ -188,6 +188,15 @@ assert_file_matches "$_state_file" '"gated": false' "ci-conflicting: gated reset
 run_case "ci-conflicting-no-rounds" \
   '{"phase":"ci","pr_open":true,"gated":false,"ci_rounds":0,"conflict_rounds":1,"deploy_reentries":0}' \
   '{"mergeable":"conflicting","base":"master"}' "action mark-draft reason=mergeable conflicting"
+run_case "ci-mergeable-unknown" \
+  '{"phase":"ci","pr_open":true,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"mergeable":"unknown"}' "action mark-draft reason=mergeable unknown"
+run_case "ci-conflicting-no-base" \
+  '{"phase":"ci","pr_open":true,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"mergeable":"conflicting"}' 'closure: observation {"mergeable":"conflicting"} not valid in phase ci' 2
+run_case "mergeable-conflicting-no-base" \
+  '{"phase":"mergeable","pr_open":true,"gated":false,"ci_rounds":0,"conflict_rounds":0,"deploy_reentries":0}' \
+  '{"mergeable":"conflicting"}' 'closure: observation {"mergeable":"conflicting"} not valid in phase mergeable' 2
 
 printf '\n--- transitions: repair ---\n'
 run_case "repair-fixed" \

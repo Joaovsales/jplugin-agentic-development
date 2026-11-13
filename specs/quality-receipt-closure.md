@@ -344,8 +344,9 @@ A tree-changing return to `receipt` (from `merge`, `repair` or `deploy`) resets 
 | `ci` | `ci: fail`, CI rounds left | `repair` (`debug-ci checks=…`) |
 | `ci` | `ci: fail`, no CI rounds left | `partial` (`mark-draft`) |
 | `ci` | `ci: timeout` | `partial` (`mark-draft`), state `ci-pending` (in doubt: the run may still pass) |
-| `ci` | `mergeable: conflicting` (the base moved after CI went green, #234), conflict rounds left | `merge` (`merge-base ref=origin/<base>`) |
+| `ci` | `mergeable: conflicting` (the base moved while CI ran, #234), conflict rounds left | `merge` (`merge-base ref=origin/<base>`) |
 | `ci` | `mergeable: conflicting`, no conflict rounds left | `partial` (`mark-draft`) |
+| `ci` | `mergeable: unknown` (the base moved while CI ran, #234) | `partial` (`mark-draft`) |
 | `repair` | `debug: fixed` | `receipt` (`check-receipt`); `ci_rounds` +1 |
 | `repair` | `debug: not-fixed` | `partial` (`mark-draft`) |
 | `deploy` | `deploy: pass`, `head-moved: false` | `record` (`record-closure`) |
