@@ -539,6 +539,27 @@ assert_not_contains "$output" "managed block" \
   "Banner: a present block prints no missing-block line"
 clean_lines="$(printf '%s\n' "$output" | grep -c '' || true)"
 assert_true "Banner: nothing wrong -> at most 12 lines (got $clean_lines)" -- [ "$clean_lines" -le 12 ]
+assert_not_contains "$output" "route-lane" \
+  "Banner: a todo.md without a legacy lane block prints no route-lane line"
+
+# #389: a legacy route-lane block's checkbox rows are a finished lane record,
+# not tasks — left out of the counts and the list, and flagged for migration.
+LANE="$(fixture_repo)"
+mkdir -p "$LANE/tasks"
+printf '%s\n' '[ ] TDD: real task -> later' '[~] Verify: real in-progress task' '' \
+  '<!-- route-lane:begin -->' '## Routed lane — gated' '[ ] prelude: /debug' \
+  '[~] /build (runs /quality-gate on completion)' '[ ] /wrap-up-session' \
+  '<!-- route-lane:end -->' '' '[ ] TDD: second real task' > "$LANE/tasks/todo.md"
+git -C "$LANE" add -A && git -C "$LANE" commit -qm init
+startup "$LANE" "${BANNER[@]}"
+assert_contains "$output" "— 2 pending, 1 in-progress" \
+  "Banner: rows inside a route-lane block are not counted"
+assert_contains "$output" "[ ] TDD: second real task" \
+  "Banner: a task after the block is still listed (the block closes)"
+assert_not_contains "$output" "prelude: /debug" \
+  "Banner: rows inside a route-lane block are not listed"
+assert_contains "$output" "⚠  legacy route-lane block in tasks/todo.md — not counted as tasks; /memory-maintain rewrites it" \
+  "Banner: a legacy route-lane block is flagged with the skill that migrates it"
 
 # Graph older than HEAD -> the stale line. graphify is a stub on the private PATH.
 printf '#!/bin/bash\nexit 0\n' > "$B/bin/graphify"; chmod +x "$B/bin/graphify"

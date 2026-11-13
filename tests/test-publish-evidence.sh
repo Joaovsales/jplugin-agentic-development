@@ -322,6 +322,9 @@ assert_precedes "$PR_SECTION" "publish_evidence.py" "gh_pr.py create" \
 assert_contains "$PR_SECTION" "every re-sync" "wrap-up: the publisher runs on every re-sync"
 assert_contains "$PR_SECTION" "publish_evidence.py --sha <the short-sha § E2E coverage checked>" \
   "wrap-up: the publisher gets the walkthrough's sha, not HEAD after the wrap-up commit"
+# #389: a bare script name sent an agent looking under verify-evidence/scripts/.
+assert_contains "$PR_SECTION" "python3 .agents/skills/wrap-up-session/scripts/publish_evidence.py --sha" \
+  "wrap-up: the publisher is named by its full path, like every other script in the skill"
 assert_contains "$PR_SECTION" "never blocks the PR" "wrap-up: a publish failure never blocks the PR"
 REPORT="$(awk '/^### Report/{f=1;next} f' "$WRAP" | grep -F -- '- Evidence:')"
 for form in "published <n> to <owner/repo>" "public repo" "local <n>" "none" "publish failed"; do

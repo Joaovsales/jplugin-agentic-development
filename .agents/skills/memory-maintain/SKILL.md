@@ -27,6 +27,15 @@ Runs on **every** invocation (session start + wrap-up). Bounded work only:
 - Check `tasks/concepts.md` for a `> Sweep: pending` marker line (cheap grep).
   If present, run **Phase 0** now — the bootstrap sweep fires on the first
   invocation that sees the marker, never waiting for the heavy-pass gate.
+- Check `tasks/todo.md` for a legacy `<!-- route-lane:begin -->` block (cheap
+  grep) — the old router's lane record, written as checkbox rows that nothing
+  ticks after the push. Rewrite each block to the `/go` lane format
+  (`/go` § *2. Record*): the `## Routed lane — <name>` heading becomes
+  `## Lane: <name>`, each `[x]`/`[ ]`/`[~]` row becomes a numbered line with its
+  text unchanged, every row that was not `[x]` gets
+  ` — skip: legacy block, superseded` appended, and both markers go. The
+  session banner already leaves these rows out of its task counts; the rewrite
+  removes the bad data rather than hiding it.
 - If any document written **this session** duplicates an existing one
   (same `module` + overlapping `tags` **and** the pair passes the Phase 2
   merge test — the migration's generic `module: general` + `migrated` tag

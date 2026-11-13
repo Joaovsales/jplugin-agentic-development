@@ -190,12 +190,21 @@ fi
 # ── Active Tasks ─────────────────────────────────────────────────────────────
 TODO_FILE="tasks/todo.md"
 if [ -f "$TODO_FILE" ]; then
-  PENDING=$(grep -c '^\s*\[ \]' "$TODO_FILE" 2>/dev/null || true)
-  IN_PROGRESS=$(grep -c '^\s*\[~\]' "$TODO_FILE" 2>/dev/null || true)
+  # Rows inside a legacy `route-lane` block (the old router's checkbox lane
+  # record) are not tasks: they are left out of the counts and the list, and
+  # /memory-maintain rewrites the block to numbered lane lines.
+  TASK_ROWS=$(awk '/<!-- route-lane:begin -->/ { lane = 1 }
+    !lane && /^[[:space:]]*\[[ ~]\]/ { print }
+    /<!-- route-lane:end -->/ { lane = 0 }' "$TODO_FILE")
+  PENDING=$(printf '%s\n' "$TASK_ROWS" | grep -c '^\s*\[ \]' || true)
+  IN_PROGRESS=$(printf '%s\n' "$TASK_ROWS" | grep -c '^\s*\[~\]' || true)
   echo ""
   echo "📋  ACTIVE TASKS  (tasks/todo.md) — $PENDING pending, $IN_PROGRESS in-progress"
   echo "────────────────────────────────"
-  grep -E '^\s*\[([ ~])\]' "$TODO_FILE" | head -10 || echo "  None."
+  printf '%s\n' "$TASK_ROWS" | grep -E . | head -10 || echo "  None."
+  if grep -q '<!-- route-lane:begin -->' "$TODO_FILE"; then
+    echo "⚠  legacy route-lane block in tasks/todo.md — not counted as tasks; /memory-maintain rewrites it to numbered lane lines"
+  fi
 else
   echo ""
   echo "📋  No tasks/todo.md found."

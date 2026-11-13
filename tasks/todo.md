@@ -661,17 +661,15 @@ assertions, and 51 parity assertions. Initial quality gate: APOSD GO.
 - Pending: 0 tasks for issue #95.
 - Carry-forward: none; the route radius prediction miss (declared scope overflowed, reviewer finalization ran before the runtime tripwire passed) was recorded in `tasks/route-decision.md`, which now carries the sync-retirement lane — see PR #96 for that record.
 
-<!-- route-lane:begin -->
-## Routed lane — gated-at-plan-and-pre-push
+## Lane: gated-at-plan-and-pre-push
 
-[x] prelude: skip: not needed for this kind
-[x] /plan (auto-confirm: no) — spec + 12-task plan approved before any code
-[x] /build — 12/12 tasks, /quality-gate run on completion
-[x] route radius tripwire: finalize_route ran; recorded overflow — 4 paths outside declared scope (the spec, checkpoint, two task details). status: failed
-[x] /verify (evidence: tests) — 33/33 files, 2937 assertions; e2e walkthrough in tasks/e2e-log.md
-[x] reviewers: code-reviewer, security-reviewer — finalize_reviewers run: both completed, 0 unresolved, independently dispatched. Demoted on the tripwire, which had already failed (`critic` was also dispatched but is not in the decision's reviewer list, so it cannot be recorded there)
-[x] /wrap-up-session — user authorized the pre-push gate; pushed, PR #104 open, CI green
-<!-- route-lane:end -->
+1. prelude: skip: not needed for this kind
+2. /plan (auto-confirm: no) — spec + 12-task plan approved before any code
+3. /build — 12/12 tasks, /quality-gate run on completion
+4. route radius tripwire: finalize_route ran; recorded overflow — 4 paths outside declared scope (the spec, checkpoint, two task details). status: failed
+5. /verify (evidence: tests) — 33/33 files, 2937 assertions; e2e walkthrough in tasks/e2e-log.md
+6. reviewers: code-reviewer, security-reviewer — finalize_reviewers run: both completed, 0 unresolved, independently dispatched. Demoted on the tripwire, which had already failed (`critic` was also dispatched but is not in the decision's reviewer list, so it cannot be recorded there)
+7. /wrap-up-session — user authorized the pre-push gate; pushed, PR #104 open, CI green
 
 ---
 

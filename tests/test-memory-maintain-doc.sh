@@ -57,4 +57,18 @@ assert_not_contains "$phase2" "same category" \
 assert_file_not_matches "$A" 'same root cause|semantic overlap' \
   "merge test: $A carries no bug-track-only overlap wording"
 
+# #389: the light pass migrates the old router's checkbox lane records, which
+# the session banner skips but nothing else ever closes.
+light=$(awk '/^### Light pass/{p=1;next} /^### /{p=0} p' "$A" | tr -s '[:space:]' ' ')
+assert_contains "$light" '`<!-- route-lane:begin -->`' \
+  "route-lane: the light pass looks for legacy route-lane blocks"
+assert_contains "$light" '`## Lane: <name>`' \
+  "route-lane: the block is rewritten to the /go lane heading"
+assert_contains "$light" ' — skip: legacy block, superseded' \
+  "route-lane: unfinished rows are marked superseded, never deleted"
+assert_contains "$light" "both markers go" \
+  "route-lane: the rewrite removes the markers, so the banner stops flagging it"
+assert_file_contains .agents/skills/go/SKILL.md "### 2. Record" \
+  "route-lane: the lane format the rewrite cites still exists"
+
 finish
