@@ -2817,6 +2817,7 @@ Step ledger (routine `simplify`):
 - Completed: #372 — `/quality-gate` § *Finding Model* cites `.agents/references/finding-model.md` instead of restating its anchors and gates (400 → 372 lines; minor behavior changes declared in the spec's D3; simplify routine). Spec reconciliation: 19 candidates. 1 updated: simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md (new). 18 unchanged: aposd-first-build, codex-scout-routing, context-memory-management, fewer-full-suite-runs, github-rest-in-sandboxes, go-front-door, helix-checkpoint-loop, lane-plan-handover, make-it-simpler, plan-slices-and-handover, quality-receipt-closure, review-context-contract, review-load-and-failure-cases, single-instruction-file, system-design-planning, test-suite-aposd, upsert-depends-on, wrap-up-phases.
 - Pending: none from this run.
 - Carry-forward: the finding-model.md lookup-and-refusal paragraph (Item 7) is still restated in four dispatch skills, which is the cross-skill half of this dedupe. `/memory-maintain` is still overdue.
+- [ ] test-session-start.sh drift case flakes on Windows: the hook's 5 s fetch can time out against a local fixture <!-- task-id: bug.tests-test-session-start-sh --> — The 'a template commit changing the block' case expects TEMPLATE DRIFT, but session-start.sh only computes drift when '… ([#395](https://github.com/Joaovsales/jplugin-agentic-development/issues/395))
 
 ## Plan: simplify-duplicate-rule-in-agents-skills-learn-skill-md
 
