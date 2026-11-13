@@ -23,6 +23,7 @@ from ..model import (
     metadata_block_state,
     metadata_spans,
     parse_metadata_block,
+    prose_dependency_extra,
     render_metadata_block,
     section,
 )
@@ -226,6 +227,7 @@ class LocalMarkdownProvider(TrackerProvider):
             acceptance_criteria=_criteria(text),
             updated_at=fields.get("updated"),
             external=ExternalRef("local", task_id, self._relative(path)),
+            extra=prose_dependency_extra(text),
         )
 
     def _note_block_state(self, where: str, text: str) -> None:

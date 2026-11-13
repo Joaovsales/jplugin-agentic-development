@@ -62,6 +62,7 @@ from registry.escalation import EscalationError, EscalationRequest, escalate_tas
 from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
     LinkedPrStateUnknown,
+    blocked,
     is_escalated,
     routine_pool,
     with_linked_pr_state,
@@ -567,7 +568,9 @@ def _select(registry: Registry, routine):
             f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
             f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"
         )
-    candidates = select_candidates(pool, config, routine)
+    for blocker in blocked(pool, tasks):
+        lines.append(_blocker_line(registry, blocker))
+    candidates = select_candidates(pool, config, routine, tasks)
     if not candidates:
         lines.append(f"candidate:     none — {routine} has nothing to claim")
         return "\n".join(lines), 0
@@ -583,6 +586,23 @@ def _select(registry: Registry, routine):
     )
     lines.append(f"remaining:     {len(candidates) - 1} other candidate(s) in this pool")
     return "\n".join(lines), 0
+
+
+def _blocker_line(registry: Registry, blocker) -> str:
+    """One `select` report line for a task held back by a declared blocker (#192)."""
+    task = blocker.task
+    name = registry.provider.reference_label(task.external) if task.external else task.id
+    if blocker.reason == "unparsed":
+        return (
+            f"unparsed:      {name} names {blocker.reference} as a dependency in prose, with no "
+            f"`depends-on:` metadata — record it as `depends-on: {blocker.reference}` or drop the line"
+        )
+    if blocker.reason == "unresolvable":
+        return (
+            f"blocked:       {name} by {blocker.reference} — resolves to no task, so it is never "
+            "read as done"
+        )
+    return f"blocked:       {name} by {blocker.reference} — not done yet"
 
 
 def _claim(registry: Registry, routine, task_ref, apply_writes: bool):

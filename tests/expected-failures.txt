@@ -214,6 +214,11 @@ tests/test-routine-selectors.sh msys* AC3: equal priority ties break on ASCENDIN
 tests/test-routine-selectors.sh msys* AC3: a shuffled provider response yields the same head
 tests/test-routine-selectors.sh msys* AC3: editing an issue title does not reshuffle the queue
 tests/test-routine-selectors.sh msys* AC3: priority rank outranks the number — now (#42) beats unset (#40)
+tests/test-routine-selectors.sh msys* #192: select over the PKB #91 fixture exits 0
+tests/test-routine-selectors.sh msys* #192 (decision 2): PKB #91 -- a prose Parent: line naming an open issue is reported as unparsed
+tests/test-routine-selectors.sh msys* #192: a depends-on: #N metadata reference resolves to the issue and blocks while it is open
+tests/test-routine-selectors.sh msys* #192 (decision 1): parent: metadata naming an open epic does not exclude its child
+tests/test-routine-selectors.sh msys* #192: #92 (prose names a closed issue) and #94 (reference inside a code span) stay selectable
 
 # tests/test-task-escalation.sh: ln -s creates a real directory on this host, so the confinement fixture cannot be set up — #203
 tests/test-task-escalation.sh msys* AC9: artifact confinement failure is reported explicitly
