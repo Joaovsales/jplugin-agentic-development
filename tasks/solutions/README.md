@@ -100,23 +100,6 @@ nothing is dropped.
 
 ## Writing rules (`/learn`)
 
-Before creating a document, score overlap against existing documents across the
-five dimensions of the candidate's track (`/learn` Step 4 defines each):
-
-| Track | Dimensions |
-|-------|------------|
-| bug | problem, root cause, solution, files touched, prevention rule |
-| knowledge | situation (`applies_when`), claim, files or module, rule, consequence |
-
-A document on the other track scores Moderate at most: cross-link it, never
-merge across tracks.
-
-| Score | Dimensions matched | Action |
-|-------|--------------------|--------|
-| High | 4–5 | Update the existing document. Do not create a second one. |
-| Moderate | 2–3 | Create the new document and cross-link both. |
-| Low | 0–1 | Create the new document. |
-
-If the existing document is wrong, update it and note the correction — never add
-a contradicting sibling. Slug collisions between distinct learnings get a numeric
-suffix (`-2`), never an overwrite.
+Before creating a document, score its overlap against existing documents as
+`/learn` § *4. Score Overlap Before Writing* defines. Slug collisions between
+distinct learnings get a numeric suffix (`-2`), never an overwrite.

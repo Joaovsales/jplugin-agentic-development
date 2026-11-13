@@ -188,21 +188,33 @@ done <<ENUM_EOF
 $ENUM_PAIRS
 ENUM_EOF
 
-# --- Overlap dimensions: one set per track, the same in every copy ----------
-# /learn Step 4 scores a candidate on its own track's dimensions (#168): the
-# bug set alone left a knowledge-track document unable to reach High. The
-# store README and its project-template seed restate both rows verbatim.
+# --- Overlap dimensions: one home, cited by the store READMEs --------------
+# /learn § 4 scores a candidate on its own track's dimensions (#168): the bug
+# set alone left a knowledge-track document unable to reach High. The rule has
+# one home (#387): the store README and its project-template seed cite it by
+# § name and keep only the slug-collision rule. tests/test-citations.sh does
+# not scan tasks/ or project-template/, so the cited heading is pinned here.
 BUG_DIMS='| bug | problem, root cause, solution, files touched, prevention rule |'
 KNOWLEDGE_DIMS='| knowledge | situation (`applies_when`), claim, files or module, rule, consequence |'
 CROSS_TRACK_CAP="on the other track scores Moderate at most"
-for f in .agents/skills/learn/SKILL.md tasks/solutions/README.md \
-         project-template/tasks/solutions/README.md; do
-  assert_file_contains "$f" "$BUG_DIMS" "overlap dimensions: $f carries the bug-track set"
-  assert_file_contains "$f" "$KNOWLEDGE_DIMS" "overlap dimensions: $f carries the knowledge-track set"
-  assert_prose_contains "$f" "the five dimensions of the candidate's track" \
-    "overlap dimensions: $f scores a candidate on its own track's set"
-  assert_prose_contains "$f" "$CROSS_TRACK_CAP" \
-    "overlap dimensions: $f caps a cross-track match at Moderate"
+LEARN_HOME='/learn` § *4. Score Overlap Before Writing*'
+f=.agents/skills/learn/SKILL.md
+assert_file_contains "$f" "$BUG_DIMS" "overlap dimensions: $f carries the bug-track set"
+assert_file_contains "$f" "$KNOWLEDGE_DIMS" "overlap dimensions: $f carries the knowledge-track set"
+assert_prose_contains "$f" "the five dimensions of the candidate's track" \
+  "overlap dimensions: $f scores a candidate on its own track's set"
+assert_prose_contains "$f" "$CROSS_TRACK_CAP" \
+  "overlap dimensions: $f caps a cross-track match at Moderate"
+assert_file_matches "$f" '^### 4\. Score Overlap Before Writing$' \
+  "overlap dimensions: $f holds the heading the store READMEs cite"
+for f in tasks/solutions/README.md project-template/tasks/solutions/README.md; do
+  assert_prose_contains "$f" "$LEARN_HOME" "overlap dimensions: $f cites /learn's overlap scoring by § name"
+  assert_prose_contains "$f" "Slug collisions between distinct learnings get a numeric suffix" \
+    "overlap dimensions: $f keeps the README-specific slug-collision rule"
+  assert_file_not_matches "$f" '^\| (bug|knowledge) \|' "overlap dimensions: $f restates no dimension row"
+  assert_file_not_matches "$f" '^\| (High|Moderate|Low) \|' "overlap dimensions: $f restates no score table"
+  assert_file_not_matches "$f" 'scores Moderate at most|Step 4 defines' \
+    "overlap dimensions: $f restates no cross-track cap and no step-number pointer"
 done
 # /memory-maintain's merge test points at Step 4 for the rows, but states the
 # cap as its reason a cross-track pair never merges, so it carries this copy too.
