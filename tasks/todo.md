@@ -2817,3 +2817,15 @@ Step ledger (routine `simplify`):
 - Completed: #372 — `/quality-gate` § *Finding Model* cites `.agents/references/finding-model.md` instead of restating its anchors and gates (400 → 372 lines; minor behavior changes declared in the spec's D3; simplify routine). Spec reconciliation: 19 candidates. 1 updated: simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md (new). 18 unchanged: aposd-first-build, codex-scout-routing, context-memory-management, fewer-full-suite-runs, github-rest-in-sandboxes, go-front-door, helix-checkpoint-loop, lane-plan-handover, make-it-simpler, plan-slices-and-handover, quality-receipt-closure, review-context-contract, review-load-and-failure-cases, single-instruction-file, system-design-planning, test-suite-aposd, upsert-depends-on, wrap-up-phases.
 - Pending: none from this run.
 - Carry-forward: the finding-model.md lookup-and-refusal paragraph (Item 7) is still restated in four dispatch skills, which is the cross-skill half of this dedupe. `/memory-maintain` is still overdue.
+
+## Plan: simplify-duplicate-rule-in-agents-skills-learn-skill-md
+
+> Routine: `simplify` #387 · branch `routine/simplify/387-dedupe-overlap-scoring-in-store-readmes` · spec `specs/simplify-duplicate-rule-in-agents-skills-learn-skill-md.md`
+> Issue: #387
+
+### Slice 1/1 — store READMEs cite /learn's overlap scoring
+[x] TDD: § Overlap dimensions pins `/learn`'s two dimension rows, cap, track phrase and `### 4. Score Overlap Before Writing` heading; on both store READMEs it pins the `/learn` § *4. Score Overlap Before Writing* citation and the slug-collision rule, and the absence of dimension rows, score table, cap and "Step 4 defines" (8 fail against the old text); the before-proof commands match -> replace § *Writing rules (`/learn`)*'s restated tables in both READMEs with the § citation (AC 1, 2, 3)
+
+> Handover: both store READMEs' § *Writing rules (`/learn`)* is now 5 lines (was 22); each README 122 → 105, still byte-identical. `/learn/SKILL.md` untouched. Before → after: solutions-schema 44 → 47 (8 new pins fail on the old text), citations 6, memory-maintain-doc 17, grilling-adoption 97 unchanged; affected set 472 passed, 0 failed.
+> Do not re-derive: `/memory-maintain` still states the cross-track cap as its own merge reason, pinned separately on purpose — out of scope.
+> Surface: check clean (undeclared: none, untouched: none)
