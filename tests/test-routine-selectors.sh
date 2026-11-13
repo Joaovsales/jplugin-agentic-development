@@ -905,6 +905,9 @@ issues = [
     issue(93, "Metadata names an open issue", ["bug", "now"], BLOCK.format(id="t93", meta="depends-on: #83")),
     issue(94, "Quoted, not declared", ["bug"], "The old `Parent: #83` line was a typo."),
     issue(95, "Child of an open epic", ["bug", "now"], BLOCK.format(id="t95", meta="parent: #83")),
+    issue(96, "Bare number names a closed issue", ["bug"], BLOCK.format(id="t96", meta="depends-on: 84")),
+    issue(97, "Blocker in another repository", ["bug", "now"],
+          BLOCK.format(id="t97", meta="depends-on: https://github.com/elsewhere/repo/issues/5")),
 ]
 io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
 PKB_PY
@@ -917,8 +920,26 @@ assert_contains "$pkb_out" "blocked:       #93 by #83 — not done yet" \
   "#192: a depends-on: #N metadata reference resolves to the issue and blocks while it is open"
 assert_contains "$pkb_out" "candidate:     95 —" \
   "#192 (decision 1): parent: metadata naming an open epic does not exclude its child"
-assert_contains "$pkb_out" "remaining:     2 other candidate(s)" \
-  "#192: #92 (prose names a closed issue) and #94 (reference inside a code span) stay selectable"
+assert_contains "$pkb_out" "blocked:       #97 by https://github.com/elsewhere/repo/issues/5 — resolves to no task" \
+  "#192 (decision 3): a blocker the provider refuses to resolve (another repository) excludes and is reported"
+assert_contains "$pkb_out" "remaining:     3 other candidate(s)" \
+  "#192: #92 (prose names a closed issue), #94 (code span) and #96 (bare-number blocker, closed) stay selectable"
+
+# A task no provider scanned for prose dependencies is refused, never read as
+# clean: that reading is exactly how PKB #91 reached the candidate line.
+unscanned_out="$("$PY" - <<'PY' 2>&1
+from registry.model import Task, TaskModelError
+from registry.routines import select_candidates
+try:
+    select_candidates([Task(id="raw", title="Built without a provider")], [], lambda ref: None)
+except TaskModelError as exc:
+    print("refused:", exc)
+else:
+    print("selected")
+PY
+)"
+assert_contains "$unscanned_out" "refused: task raw: its body was never scanned for prose dependencies" \
+  "#192: select_candidates refuses a task whose body was never scanned for prose dependencies"
 
 # An unknown routine name is a configuration error, not an empty result.
 bad_out="$(run_select "$F_SEL" --routine nonesuch)"; bad_code=$?

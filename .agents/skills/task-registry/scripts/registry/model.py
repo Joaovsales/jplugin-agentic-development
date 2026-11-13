@@ -304,14 +304,24 @@ def prose_dependencies(body: str) -> Tuple[str, ...]:
 
 
 def prose_dependency_extra(body: str) -> dict:
-    """`Task.extra` carrying the body's prose dependencies, or {} when it names none."""
-    found = prose_dependencies(body)
-    return {"prose_dependencies": ", ".join(found)} if found else {}
+    """`Task.extra` recording the body's prose dependencies — empty when it names none.
+
+    Every provider that reads a body adds this, even for a body that names
+    nothing: an absent record means "never scanned", which is not the same
+    as "scanned and clean".
+    """
+    return {"prose_dependencies": ", ".join(prose_dependencies(body))}
 
 
 def recorded_prose_dependencies(task: "Task") -> Tuple[str, ...]:
-    """The prose dependencies `prose_dependency_extra` recorded on `task`."""
-    listing = task.extra.get("prose_dependencies", "")
+    """The prose dependencies `prose_dependency_extra` recorded on `task`.
+
+    Raises when nothing was recorded. Reading an unscanned body as clean would
+    hand a routine the PKB #91 task again (#192).
+    """
+    listing = task.extra.get("prose_dependencies")
+    if listing is None:
+        raise TaskModelError(f"task {task.id}: its body was never scanned for prose dependencies")
     return tuple(part.strip() for part in listing.split(",") if part.strip())
 
 
