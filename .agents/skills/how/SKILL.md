@@ -9,7 +9,7 @@ harness: universal
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Each spawn below names a tier from `.agents/references/model-routing.md`. Explorers are Scout tier. The explainer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params; `subagents.agentOverrides` resolves them.
+Each spawn below names a tier from `.agents/references/model-routing.md`. Explorers are Scout tier. The explainer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params for routine routing; `subagents.agentOverrides` resolves them (`.agents/references/model-routing.md` § *Rules* names the one exception, `/build`'s debugger ladder).
 On Codex, spawn the managed `explorer` role; `.agents/references/model-routing.md` § *Codex dispatch* owns its route.
 
 ## Step 1. Assess Complexity

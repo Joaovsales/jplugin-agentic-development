@@ -89,7 +89,8 @@ Canonical persona definitions live in `.agents/agents/` (model-agnostic — neve
 tier in *Tiers* above — on Claude Code pass `model` explicitly for the
 Planner, Builder, Reviewer, and Scout tiers, and pass **nothing** for *ceiling*
 agents so they inherit the session model; on Pi, never pass per-call model params
-(agentOverrides resolves them).
+for routine routing (agentOverrides resolves them) — the one exception, the
+debugger ladder, is in *Rules* below.
 
 ### Codex dispatch
 
@@ -113,8 +114,13 @@ configuration that shadows a managed role before relying on its tier.
   Scout tiers. Pass **nothing** for Ceiling — an override there is the regression
   this tier exists to prevent. `critic` is the one exception, and only downward,
   per its floor above.
-- **Pi**: never pass per-call model params; `subagents.agentOverrides` resolves
-  them. Ceiling-tier agents carry `"model": "inherit"` — the Pi spelling of
+- **Pi**: never pass per-call model params for routine routing;
+  `subagents.agentOverrides` resolves them. The one exception is the debugger
+  escalation ladder: `.agents/skills/build/SKILL.md` § *Escalation ladder for
+  test regressions* dispatches `code-debugger` for attempts 3–4 with a per-run
+  `model` (`.agents/skills/build/references/harness-dispatch.md` § *Pi +
+  OpenRouter routing (Model Routing)*), because the agent's pinned Builder model
+  would make the ladder's first two rungs the same model. Ceiling-tier agents carry `"model": "inherit"` — the Pi spelling of
   "pass nothing", which resolves the parent session model. Omitting an agent
   from `agentOverrides` falls through to `subagents.defaultModel` — a fixed
   builder-tier model, not the session model — so omission on Pi *downgrades*

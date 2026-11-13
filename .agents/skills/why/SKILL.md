@@ -11,7 +11,7 @@ Investigate the motivation and intent behind code.
 
 Companion to the `how` skill. `how` answers what the code does and how it works. `why` answers what forces led to its shape.
 
-Each spawn below names a tier from `.agents/references/model-routing.md`. Investigators are Scout tier. The synthesizer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params; `subagents.agentOverrides` resolves them.
+Each spawn below names a tier from `.agents/references/model-routing.md`. Investigators are Scout tier. The synthesizer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params for routine routing; `subagents.agentOverrides` resolves them (`.agents/references/model-routing.md` § *Rules* names the one exception, `/build`'s debugger ladder).
 On Codex, spawn the managed `scout` role; `.agents/references/model-routing.md` § *Codex dispatch* owns its route.
 
 ## Operating Posture

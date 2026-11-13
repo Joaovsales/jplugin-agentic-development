@@ -272,6 +272,24 @@ assert_prose_contains "$ROUTING" 'Debugger attempts 3–4 — `ceiling (builder 
 assert_file_matches "$ROUTING" '^\| Reviewer \|.*see the floor below' \
   "ModelTier: model-routing.md Reviewer row points at the floor rather than reading as flat sonnet"
 
+# --- 12b. Pi's "no per-call model params" carries the ladder's exception ------
+# On Pi the middle rung exists only as a per-run `model` on the debugger
+# dispatch. A statement of the Pi rule with no exception, followed literally,
+# retries the debugger on its pinned Builder model and collapses rungs 1 and 2
+# (#371). The reference states the exception once; every other statement of
+# the rule names it or points at the reference *after* the phrase, on its line:
+# AGENTS.md cited model-routing.md earlier on the very line that dropped the
+# exception, so a whole-line match would have passed the regression.
+assert_prose_contains "$ROUTING" "never pass per-call model params for routine routing; \`subagents.agentOverrides\` resolves them. The one exception is the debugger escalation ladder" \
+  "ModelTier: model-routing.md § Rules states the Pi rule with the debugger-ladder exception"
+per_call_lines="$(git grep -h -I 'per-call model param' -- .agents AGENTS.md ':!.agents/references/model-routing.md' || true)"
+assert_contains "$per_call_lines" "agentOverrides" \
+  "ModelTier: the per-call sweep sees the statements outside the reference (non-vacuity)"
+uncovered="$(printf '%s\n' "$per_call_lines" | sed 's/.*per-call model param//' \
+  | grep -v -e 'model-routing\.md' -e 'exception' -e 'ladder' || true)"
+assert_eq "" "$uncovered" \
+  "ModelTier: every Pi per-call model rule names the ladder exception or points at model-routing.md after the phrase"
+
 # --- 13. Codex dispatch uses named Scout and floor profiles ------------------
 for skill in plan prd grilling system-design-planning; do
   assert_prose_contains ".agents/skills/$skill/SKILL.md" 'managed `explorer` role' \
