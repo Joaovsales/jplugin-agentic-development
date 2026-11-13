@@ -97,7 +97,7 @@ Runs when the goal reports something broken, or an issue carries a `fix`
 selector label. A typed defect and a labelled issue run identically.
 
 1. `/debug <ref>` — root cause before code; the prelude stops before any edit until a candidate is confirmed
-2. `/build` — TDD against the reproduced failure; no fix ships without a failing test that now passes — **non-skippable**
+2. `/build` — builds any rows `/debug` left open; `/debug` has already run the fix through `/tdd`, so no fix ships without a failing test that now passes — **non-skippable**
 3. `/quality-gate` — structural, anti-pattern, and APOSD passes (runs inside the build's Phase 3; the row records where it ran) — **non-skippable**
 4. `/wrap-up-session` — review, tests, commit, push, PR — **non-skippable**
 

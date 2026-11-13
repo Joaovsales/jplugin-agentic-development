@@ -12,9 +12,7 @@ Investigate the motivation and intent behind code.
 Companion to the `how` skill. `how` answers what the code does and how it works. `why` answers what forces led to its shape.
 
 Each spawn below names a tier from `.agents/references/model-routing.md`. Investigators are Scout tier. The synthesizer is Ceiling tier: pass no `model`, so it inherits the session model. On Pi, never pass per-call model params; `subagents.agentOverrides` resolves them.
-On Codex, use the named roles from `config/agent-policy.toml`; the policy owns
-their model and effort settings. Check the effective route if a local or project
-configuration shadows a managed role.
+On Codex, spawn the managed `scout` role; `.agents/references/model-routing.md` § *Codex dispatch* owns its route.
 
 ## Operating Posture
 

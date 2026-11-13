@@ -46,7 +46,7 @@ top candidates: read each file, confirm or drop every **cue** (`lens.md`), and
 estimate the lines saved and the callers touched.
 
 - **Significant** when the change meets the bar in `/system-design-planning` § *When to Use / When Not*; otherwise **minor**. The bar is cited, never restated.
-- **Size** against `.agents/skills/slice/references/sizing.md`. An unattended build is at most 3 slices and one area — one skill with its `references/`, or one script with its tests.
+- **Size** against `.agents/skills/slice/references/sizing.md`. An unattended build is at most 3 slices and one area — one skill with its `references/`, or one script with its tests; a `duplicate-rule` move is one area under `references/safe-moves.md` § *Cross-area deduplication*.
 
 ### Offer the top 3
 
@@ -69,7 +69,8 @@ bar, and this skill stops. A minor pick goes to `/grilling` with four seeds, the
 Write `specs/simplify-<slug>.md`, the path derived from the task's slug; an
 existing spec for it is reopened, not duplicated. The registry write always
 precedes the spec write. Its § Decisions seeds the five `safe-moves.md`
-practices as rows, in every spec this skill writes, beside the grilled answers.
+practices as rows, in every spec this skill writes, beside the grilled answers;
+a task sized as one area through § *Cross-area deduplication* also seeds that section as a row.
 
 Before the first edit, record the **before-proof**: the affected-test command
 plus `bash tests/test-citations.sh`, command and result. Then run lane steps
@@ -115,7 +116,7 @@ never builds. Like `/yolo` Phase A, it owns these overrides, and only these:
 |---|---|
 | `/plan` Step 1 — Interview | the spec this skill wrote carries § Decisions; `/plan` prints `DECISIONS CARRIED` and asks nothing unattended. An interactive run was already grilled |
 | `/plan` Step 6 — Hand over | no build prompt is printed; `/build` runs in place, in this session |
-| `/build` pre-flight — filing | no `/slice --file`: the `simplify` task is the tracked unit, the slices stay plan-block rows, and slice headers are not claimed |
+| `/build` pre-flight — feature issue | files nothing: the claimed `simplify` task is the plan's `> Issue:`, the slices stay plan-block rows, and slice headers are not claimed |
 
 ## Integration
 

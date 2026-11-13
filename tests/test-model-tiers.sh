@@ -15,6 +15,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 ROUTING=.agents/references/model-routing.md
+under_test .agents/references/model-routing.md >/dev/null
 
 CEILING_AGENTS="code-reviewer security-reviewer software-design-expert-review critic"
 
@@ -95,11 +96,11 @@ done
 # the cap in documentation even when the agent file is clean.
 for f in "$ROUTING" .agents/skills/build/SKILL.md; do
   for agent in $CEILING_AGENTS; do
-    if grep -E "^\|.*\`$agent\`" "$f" | grep -qE '`(sonnet|haiku|opus)`'; then
-      _TESTS=$((_TESTS + 1)); _FAILS=$((_FAILS + 1))
-      printf '  FAIL ModelTier: %s routes %s to a concrete model\n' "$f" "$agent"
+    pinned_rows="$(grep -E "^\|.*\`$agent\`" "$f" | grep -E '`(sonnet|haiku|opus)`' || true)"
+    if [ -n "$pinned_rows" ]; then
+      fail "ModelTier: $f routes $agent to a concrete model" "$pinned_rows"
     else
-      assert_eq "unpinned" "unpinned" "ModelTier: $f does not pin $agent in a table"
+      pass "ModelTier: $f does not pin $agent in a table"
     fi
   done
 done
@@ -170,18 +171,25 @@ done
 # per-file loop this replaces spawned three processes per skill and cost ~35s of
 # suite time on Windows, and a glob that matched nothing would have reported zero
 # assertions as a pass.
+#
+# `SWEEP_CTL` is one temp directory shared by the three absence sweeps (§ 8b,
+# § 9, § 11), so it is declared here, at the first of them, rather than inside
+# § 8b where a later reader would take it for that section's private state.
+SWEEP_CTL="$(fixture_dir)"
+printf '| Design review | **Sonnet** (floor) | x |\n' > "$SWEEP_CTL/pinned-row.md"
 for tree in .agents; do
-  hits="$(grep -rlE '^\|[^|]*([Rr]eview|[Aa]dversarial|[Cc]ritic|[Aa]udit)[^|]*\|.*([Ss]onnet|[Oo]pus|[Hh]aiku)' \
-    "$tree/skills" 2>/dev/null || true)"
-  assert_eq "" "$hits" "ModelTier: no review role pinned in a table cell under $tree/skills"
+  assert_sweep_empty "ModelTier: no review role pinned in a table cell under $tree/skills" "$SWEEP_CTL/pinned-row.md" \
+    -- grep -rlE '^\|[^|]*([Rr]eview|[Aa]dversarial|[Cc]ritic|[Aa]udit)[^|]*\|.*([Ss]onnet|[Oo]pus|[Hh]aiku)' -- \
+      "$tree/skills"
 done
 
 # --- 9. No concrete provider ID anywhere in the skill tree ------------------
 # Section 7 names the two routing tables; this sweeps every skill, because a
 # hardcoded ID goes stale in a prose paragraph exactly as fast as in a table.
+printf 'model: anthropic/claude-sonnet\n' > "$SWEEP_CTL/provider-id.md"
 for tree in .agents; do
-  hits="$(grep -rlE 'moonshotai/|qwen/|z-ai/|deepseek/|anthropic/claude' "$tree/skills" 2>/dev/null || true)"
-  assert_eq "" "$hits" "ModelTier: no concrete provider model ID under $tree/skills"
+  assert_sweep_empty "ModelTier: no concrete provider model ID under $tree/skills" "$SWEEP_CTL/provider-id.md" \
+    -- grep -rlE 'moonshotai/|qwen/|z-ai/|deepseek/|anthropic/claude' -- "$tree/skills"
 done
 
 # --- 10. critic's floor is stated where critic is dispatched ------------------
@@ -197,19 +205,47 @@ for tree in .agents; do
   done
 done
 
-# --- 11. Pi keeps explicit pins — omission there downgrades, not inherits -----
+# --- 11. Pi: Ceiling is spelled "inherit", and no entry may be deleted -------
 # On Pi, omitting an agent from agentOverrides falls through to
-# subagents.defaultModel, a fixed builder-tier model. Deleting these entries
-# downgrades every review rather than lifting it. Both the config and the rule
-# explaining it are pinned, because the config alone reads as an oversight.
-for agent in code-reviewer security-reviewer software-design-expert-review critic; do
-  assert_file_matches PI_SETUP.md "\"$agent\":" \
-    "ModelTier: PI_SETUP.md keeps an explicit Pi pin for $agent"
+# subagents.defaultModel, a fixed builder-tier model — so omission *downgrades*
+# rather than inherits, and deletion of a Ceiling entry is the regression. Since
+# pi-subagents 0.82.1 the tier is expressible as the literal "inherit", which
+# resolves the parent session model; that is the directive this section pins.
+#
+# The `[^}]*` body is deliberate: it forces `"model": "inherit"` to sit inside
+# the same override object as the agent key, so a stray `"model": "inherit"`
+# elsewhere in the file cannot satisfy the assertion for an agent that has been
+# re-pinned to a concrete model or dropped altogether.
+for agent in code-reviewer security-reviewer software-design-expert-review; do
+  assert_file_matches PI_SETUP.md "\"$agent\":[^}]*\"model\": \"inherit\"" \
+    "ModelTier: PI_SETUP.md gives $agent the Pi Ceiling directive"
 done
+
+# critic is the counter-assertion. "inherit" cannot express a floor, so a
+# Ceiling directive here is a *regression*: it lets critic resolve below planner
+# tier whenever the session is cheaper, which is the downgrade its planner floor
+# exists to block. Pinned as a concrete model, matching § 6's rule text.
+assert_file_matches PI_SETUP.md '\"critic\":[^}]*\"model\": \"openrouter/' \
+  "ModelTier: PI_SETUP.md keeps critic pinned rather than inheriting"
+
 assert_prose_contains PI_SETUP.md "Ceiling cannot be expressed by omission on Pi" \
-  "ModelTier: PI_SETUP.md explains why Pi pins rather than omits"
+  "ModelTier: PI_SETUP.md explains why Pi needs an entry rather than omission"
+assert_prose_contains PI_SETUP.md '"model": "inherit"' \
+  "ModelTier: PI_SETUP.md names the Pi Ceiling directive"
 assert_prose_contains "$ROUTING" "falls through to \`subagents.defaultModel\`" \
   "ModelTier: model-routing.md states the Pi omission hazard"
+assert_prose_contains "$ROUTING" '"model": "inherit"' \
+  "ModelTier: model-routing.md names the Pi Ceiling directive"
+
+# The directive must not leak into the harness-neutral trees. `.agents/agents/`
+# is copied to `.claude/agents/` by a plain cp (§ 1 and § 2 guard the `model:`
+# line), but an `inherit` written as an override would bypass both. One grep per
+# tree, reusing § 8b's shape.
+printf 'model: inherit\n' > "$SWEEP_CTL/inherit-directive.md"
+for tree in .agents; do
+  assert_sweep_empty "ModelTier: no Pi-only inherit directive under $tree" "$SWEEP_CTL/inherit-directive.md" \
+    -- grep -rlE '^[[:space:]]*model:.*inherit' -- "$tree"
+done
 
 # --- 12. The debugger escalation ladder has a real middle rung ----------------
 # Reviewer and Builder both resolve to `sonnet` on Claude Code, so a debugger
@@ -241,23 +277,35 @@ for skill in plan prd grilling system-design-planning; do
   assert_prose_contains ".agents/skills/$skill/SKILL.md" 'managed `explorer` role' \
     "ModelTier: $skill names Codex's read-only explorer"
 done
-assert_prose_contains .agents/skills/build/SKILL.md 'managed `explorer` role' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'managed `explorer` role' \
   "ModelTier: build names Codex's read-only explorer"
-assert_prose_contains .agents/skills/build/SKILL.md 'managed `scout` role' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'managed `scout` role' \
   "ModelTier: build names Codex's MCP-capable Scout"
-assert_prose_contains .agents/skills/build/SKILL.md 'managed `debug-escalation` role' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'managed `debug-escalation` role' \
   "ModelTier: debugger escalation uses its separate Codex profile"
-assert_prose_contains .agents/skills/build/SKILL.md 'Resolve the parent tier before dispatch' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'Resolve the parent tier before dispatch' \
   "ModelTier: Codex floor dispatch checks the parent tier"
-assert_prose_contains .agents/skills/build/SKILL.md "For a Builder-or-weaker parent, request the policy's Planner model and effort" \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md "For a Builder-or-weaker parent, request the policy's Planner model and effort" \
   "ModelTier: Codex debugger escalation rises above a Builder parent"
-assert_prose_contains .agents/skills/build/SKILL.md 'Inherit only when the parent is above Builder' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'Inherit only when the parent is above Builder' \
   "ModelTier: Codex debugger escalation inherits only from a stronger parent"
-assert_prose_contains .agents/skills/build/SKILL.md 'the `code-debugger` agent file pins Builder' \
+assert_prose_contains .agents/skills/build/references/harness-dispatch.md 'the `code-debugger` agent file pins Builder' \
   "ModelTier: Codex escalation does not reuse the Builder-pinned agent"
 for skill in plan build prd grilling system-design-planning; do
   assert_file_not_matches ".agents/skills/$skill/SKILL.md" 'gpt-[0-9]' \
     "ModelTier: $skill keeps Codex model IDs in policy"
 done
+
+# --- 13. test-engineer routes at Reviewer tier, never by a pinned alias (AC13) -
+# The model is passed per dispatch, so neither tree pins one and the routing
+# row names the Reviewer tier only.
+for f in .agents/agents/test-engineer.md .claude/agents/test-engineer.md; do
+  assert_file_not_matches "$f" '^model:' "ModelTier: $f pins no model"
+done
+te_row="$(grep -E '^\|.*`test-engineer`' "$ROUTING")"
+assert_contains "$te_row" 'Reviewer' "ModelTier: model-routing.md routes the test-engineer Review job at Reviewer"
+assert_not_contains "$te_row" 'Builder' "ModelTier: model-routing.md routes no test-engineer job at Builder"
+assert_file_matches config/agent-policy.toml 'name = "test-engineer"'   "ModelTier: agent-policy.toml defines the test-engineer role"
+assert_file_matches PI_SETUP.md '"test-engineer":'   "ModelTier: PI_SETUP.md pins test-engineer on Pi"
 
 finish

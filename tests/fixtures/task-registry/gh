@@ -35,7 +35,8 @@
 #                       / check-runs-<sha>.json and status-<sha>.json (a commit's
 #                       check runs and combined status) / protection-<branch>.json
 #                       (a branch's required_status_checks; absent = unprotected)
-#   GH_MOCK_LOG         file every invocation is appended to, one line per call
+#   GH_MOCK_LOG         file every invocation is appended to, one line per call;
+#                       created empty on start, so an invoked mock always leaves it
 #   GH_MOCK_UNAUTH      when set, `gh api user` fails like a logged-out CLI
 #   GH_MOCK_FAIL        when set, every write exits 1 (partial-failure tests)
 #   GH_MOCK_FAIL_ROUTE  a route under the repository (`issues/42/labels`) whose
@@ -49,6 +50,11 @@ set -u
 
 : "${GH_MOCK_DIR:=.}"
 : "${GH_MOCK_LOG:=/dev/null}"
+# The log exists from the first instruction, so a test asserting "nothing was
+# called" can tell a mock that never ran (no file) from one that ran and wrote
+# nothing, and a positive control proves the mock is the `gh` on PATH. Append,
+# never truncate: a test makes many calls into one log.
+: >> "$GH_MOCK_LOG"
 
 argv_line="$*"
 subcommand="${1:-}"

@@ -240,7 +240,7 @@ Sets `hold_approved_by` on a HOLD receipt; exit 0. Refuses a GO or STOP receipt 
 
 | Aspect | Contract |
 |--------|----------|
-| Phases | 1 simplify · 2 deslop · **3 security**: the `/security-scan` checklist, run inline over **the gate's own file list** (untracked files included, `--scope` honoured), not the skill's `git diff --name-only`. Its MUST-FIX fixes are applied under the Apply Gate · **4 APOSD**: dispatched `software-design-expert-review`, unchanged, and now after every edit phase, so it reviews the security fixes too · **5 tests**: the `Affected tests:` command through `cached-suite.sh` (or the covering test files when none is declared), run after every fix and recorded as `tests` · **6 receipt**: `receipt.py write`. No phase after 4 edits the tree. A phase-5 failure is a red `tests` record, never a silent fix (critic C7) |
+| Phases | 1 simplify · 2 deslop · **3 security**: the `/security-scan` checklist, run inline over **the gate's own file list** (untracked files included, `--scope` honoured), not the skill's `git diff --name-only`. Its MUST-FIX fixes are applied under the Apply Gate · **4 APOSD**: dispatched `software-design-expert-review`, unchanged, and now after every edit phase, so it reviews the security fixes too · **5 tests**: the `Affected tests:` command through `cached-suite.sh` (or the covering test files when none is declared), run after every fix and recorded as `tests`, then the `test-engineer` Review job checks the tests' adequacy against the spec's acceptance criteria and interface, report-only, each unresolved SHOULD-FIX counting toward HOLD · **6 receipt**: `receipt.py write`. No phase after 4 edits the tree. A phase-5 failure is a red `tests` record, never a silent fix (critic C7) |
 | Outcomes | report as today plus the line `Receipt: <verdict> <fp8> policy <v> [parent <fp8>]` |
 | On a `receipt.py write` refusal | the gate reports `Receipt: none — <stderr>`, and the caller treats that as a stale receipt. It is never reported as GO |
 | Callers | `/build` Phase 3 (full scope, unchanged call) and `/wrap-up-session` § *Quality receipt* (delta scope on `diff-changed`, full scope on every other reason) |
@@ -272,10 +272,10 @@ python3 .agents/skills/wrap-up-session/scripts/closure.py step --state <state.js
 | `base` | 40-hex | the merge-base at write time | computed |
 | `head` | 40-hex | `HEAD` at write time; provenance only, not a validity key (the fingerprint subsumes it and survives the `/wrap-up-session` § *Commit and push* commit) | computed |
 | `tree` | 40-hex | the working-tree object that was reviewed | computed |
-| `policy` | `qg1-<8 hex>` | sha256 of every file that decides a verdict: `receipt.py` itself (the verdict rule), `quality-gate/SKILL.md`, `security-scan/SKILL.md`, `software-design-expert-review/SKILL.md`, `.agents/agents/software-design-expert-review.md`, `references/finding-model.md` and `references/review-dispatch-contract.md`. All are resolved relative to `receipt.py`, and a missing one is hashed as its path plus `<missing>` (critic C12) | computed |
+| `policy` | `qg1-<8 hex>` | sha256 of every file that decides a verdict: `receipt.py` itself (the verdict rule), `quality-gate/SKILL.md`, `security-scan/SKILL.md`, `software-design-expert-review/SKILL.md`, `.agents/agents/software-design-expert-review.md`, `.agents/agents/test-engineer.md`, `references/finding-model.md` and `references/review-dispatch-contract.md`. All are resolved relative to `receipt.py`, and a missing one is hashed as its path plus `<missing>` (critic C12) | computed |
 | `scope` | `"full"` or a non-empty path list | a path list requires `parent` | schema check in `write` |
 | `parent` | null or 64-hex | non-null iff `scope` is a list; names a stored receipt | schema check + store lookup |
-| `reviewers` | list of `{phase, lens, dispatch: "dispatched"\|"inline", verdict?}` | non-empty; phases 1–4 each present | schema check |
+| `reviewers` | list of `{phase, lens, dispatch: "dispatched"\|"inline", verdict?}` | non-empty; phases 1–4 each present; a phase 5 `test-engineer` entry when its Review job was dispatched | schema check |
 | `tests` | `{command, exit, tree}` | `tree` is the tree the tests ran on, and equals the receipt's `tree` | `write` refuses a mismatch (exit 2) |
 | `unresolved` | list of four-axis findings `{severity, confidence, autofix_class, owner, location, summary}` | every field in its enum | schema check |
 | `design_verdict` | `GO`\|`HOLD`\|`STOP` | Phase 3's own verdict | schema check |
@@ -389,7 +389,7 @@ Invoke `/build` for `specs/quality-receipt-closure.md`.
 Plan: `## Plan: quality-receipt-closure` in `tasks/todo.md`, 6 slices, ready set 1, 3.
 Files: .agents/skills/quality-gate/scripts/receipt.py, .agents/skills/quality-gate/SKILL.md, .agents/skills/wrap-up-session/scripts/closure.py, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/references/routines.md, tests/test-quality-receipt.sh, tests/test-closure.sh, tests/fixtures/closure/scenarios.json, tests/test-review-context.sh, tests/test-model-tiers.sh, tests/test-living-spec-reconciliation.sh, tests/test-routine-wrapup.sh, tests/test-routine-step-ledger.sh, tests/test-doc-conventions.sh, AGENTS.md.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/quality-receipt-closure.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions. An `open` row is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

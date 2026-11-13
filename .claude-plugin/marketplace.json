@@ -9,6 +9,11 @@
       "name": "jplugin",
       "source": "./",
       "description": "Spec -> plan -> TDD build -> review -> wrap-up workflow skills for coding agents; the plugin is this repository."
+    },
+    {
+      "name": "session-viz",
+      "source": "./mods/session-viz",
+      "description": "Claude Code mod: one docked Session pane showing the workflow phase, slice progress, the sub-agent tree with drill-down and the quality gates of a jplugin session. Observe-only; install id session-viz@jplugin-agentic-development."
     }
   ]
 }

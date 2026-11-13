@@ -84,16 +84,12 @@ assert_file_contains "$EXAMPLE/README.md" "every user entry point" \
   "feature example: every entry point is independently accounted for"
 FEATURE_COUNT="$(printf '%s\n' "$FEATURE_LINKS" | sed '/^$/d' | wc -l)"
 if [ "$FEATURE_COUNT" -ge 3 ] && [ "$FEATURE_COUNT" -le 5 ]; then
-  assert_eq "bounded" "bounded" "feature example: contains 3-5 indexed entries"
+  pass "feature example: contains 3-5 indexed entries"
 else
   assert_eq "3-5" "$FEATURE_COUNT" "feature example: contains 3-5 indexed entries"
 fi
 for feature in $FEATURE_LINKS; do
-  if [ -f "$EXAMPLE/$feature" ]; then
-    assert_eq "exists" "exists" "feature example: indexed target $feature exists"
-  else
-    assert_eq "exists" "missing" "feature example: indexed target $feature exists"
-  fi
+  assert_true "feature example: indexed target $feature exists" -- test -f "$EXAMPLE/$feature"
 done
 assert_eq "$(find "$EXAMPLE" -maxdepth 1 -type f -name '*.md' ! -name README.md -printf '%f\n' | sort)" \
   "$(printf '%s\n' "$FEATURE_LINKS" | sort)" \

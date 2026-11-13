@@ -218,7 +218,7 @@ provider that regresses to a GraphQL-backed subcommand fails loudly.
 | R2 | Timeline cross-references over-exclude a candidate | M | L | conservative by design; `select` prints the excluding PR number | 2 |
 | R3 | REST writes from the sandbox are refused although reads pass | L | H | unverified until the first real routine run; Q1 | 1 |
 | R4 | Mock argv assertions drift from the real `gh api` surface | M | M | the mock validates method, path and body shape like the real CLI validates flags | 1 |
-| R5 | The suite fails as uid 0 in the sandbox (4 of 72 files), so the wrap-up gate would still refuse to push there | H | H | out of scope here; a separate fix guards those assertions on `id -u` like the two already guarded | — |
+| R5 | The suite fails as uid 0 in the sandbox (4 of 72 files), so the wrap-up gate would still refuse to push there | H | H | out of scope here; a separate fix guards those assertions on `id -u` like the two already guarded | fixed separately (#141): `tests/test-sync-retirement.sh` §§ 16, 17.1, 18.3 and the unreadable-spec case in `tests/test-task-registry.sh` skip as uid 0; the four retired-name assertions in `tests/test-install-sh.sh` skip on a shallow checkout |
 | R6 | The body parser misses a closing form GitHub honours, so a stranded issue is re-picked | L | M | GitHub's documented keyword list, one test per form; `closes` reads the same helper, so a miss shows on the merger's run | 4 |
 
 ## Decisions
@@ -305,7 +305,7 @@ Invoke `/build` for `specs/github-rest-in-sandboxes.md`.
 Plan: `## Plan: github-rest-in-sandboxes` in `tasks/todo.md`, 7 slices, ready set <1, 5>.
 Files: .agents/skills/task-registry/scripts/registry/providers/github.py, .agents/skills/task-registry/scripts/registry/providers/base.py, .agents/skills/task-registry/scripts/registry/config.py, .agents/skills/task-registry/scripts/registry/routines.py, .agents/skills/task-registry/scripts/task-registry.py, .agents/skills/task-registry/references/configuration.md, .agents/skills/task-registry/templates/task-tracking.md, .agents/skills/wrap-up-session/SKILL.md, .agents/skills/wrap-up-session/references/closure-actions.md, .agents/skills/wrap-up-session/references/routines.md, .agents/skills/wrap-up-session/references/routine-prompts/README.md, .agents/skills/wrap-up-session/scripts/gh_pr.py, .agents/skills/wrap-up-session/scripts/pr_linkage.py, docs/task-tracking.md, tests/fixtures/task-registry/gh, tests/test-task-registry.sh, tests/test-routine-selectors.sh, tests/test-routine-wrapup.sh, tests/test-doc-conventions.sh, tests/test-gh-pr.sh, tests/test-task-closes.sh.
 Instructions:
-1. `/build`'s pre-flight files the slices: `/slice specs/github-rest-in-sandboxes.md --file --approve`. The planning session filed nothing.
+1. `/build`'s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked <id>`. The planning session filed nothing.
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.

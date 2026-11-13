@@ -17,3 +17,7 @@ resolution: fixed — 2026-10-09. /plan Step 3 renders the page after /slice, ho
 When a skill's prose refers to a generated artifact (a page, a report, a receipt),
 grep that skill for the command that writes it. A wiring test should list every
 consumer the change set claims to cover, not just the ones it edited.
+
+Follow-on (2026-10-21): the step added here covered only `/plan`; a standalone
+`/slice` run still wrote no page, so the render moved into `/slice` itself — see
+[a-render-step-owned-by-the-caller-leaves-a-standalone-slice-run-without-its-page.md](a-render-step-owned-by-the-caller-leaves-a-standalone-slice-run-without-its-page.md).

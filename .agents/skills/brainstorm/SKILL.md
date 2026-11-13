@@ -139,7 +139,7 @@ implementation_paths:
 ```
 
 Acceptance Criteria are ordinary bullets, and every section states current
-behavior in the present tense. Full path rules live in `/plan` § *Write the Spec*.
+behavior in the present tense. Full path rules live in `/plan` § *2. Write the Spec (MUST persist to disk)*.
 Use the canonical terms settled in Step 3; a spec that needs a term the glossary
 does not have reopens the interview rather than coining one silently. § Decisions
 rows are all `Source: user` — Step 3 settled them through the interview, never

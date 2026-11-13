@@ -39,56 +39,28 @@ Skip: generated files, lock files, migration files, test fixtures.
 
 ## Finding Model
 
-Every finding this gate produces or consumes carries four orthogonal fields.
-Rationale and the cross-harness rule live in `.agents/references/finding-model.md`; the
-operational contract is here, at the point where findings get applied.
-
-| Field | Answers | Values |
-|-------|---------|--------|
-| `severity` | how urgent | `MUST-FIX` / `SHOULD-FIX` / `NITPICK` |
-| `confidence` | how sure | `50` / `75` / `100` |
-| `autofix_class` | what shape the fix is | `gated_auto` / `manual` / `advisory` |
-| `owner` | who acts | `agent` / `human` / `release` |
-
-```
-[MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent] file.py:42 — description and impact
-  evidence: `except Exception: pass` (file.py:42)
-  failure: a disk-full write raises, the handler swallows it, and the job reports success with no file written
-```
-
-**Confidence anchors** — behavioral criteria, not a feeling:
-
-| Anchor | Criterion |
-|--------|-----------|
-| `100` | You read the defect in the diff and can quote the line that proves it. Reproducible from the evidence alone. |
-| `75` | You located the defect and can cite the line, but correctness turns on a caller, config, or runtime value outside the reviewed scope. |
-| `50` | Pattern-matched or inferred. No line proves it, or you never read the path it depends on. |
+Every finding this gate produces or consumes carries the four axes of
+`.agents/references/finding-model.md` § *Four axes*, written in its
+§ *Emission format*, anchored by its § *Confidence anchors* and gated by its
+§ *Gates*. That file is the one home of the anchors and the gates. Read it
+before Phase 1, on every harness, in the lookup order *Claude Code Enhancements*
+gives for the Phase 4 dispatch. When it resolves nowhere, the gate stops before
+Phase 1 with the refusal that paragraph gives.
 
 ### Apply Gate
 
-| Condition | Action |
-|-----------|--------|
-| `gated_auto` **and** `confidence >= 75` | Apply in-phase, then run tests. |
-| `gated_auto` but `confidence` `50` | Report only. An unproven fix is not cheaper than no fix. |
-| `manual` or `advisory`, any confidence | Report only, with `owner`. |
+Apply a finding in-phase, then run tests, only when § *Gates* clears it — at
+the least `gated_auto` **and** `confidence >= 75`; the home holds every rule.
+Every other finding is reported with its `owner`, never dropped.
 
 A `MUST-FIX` at `confidence` `50` is worth one verification attempt before you
 report it: read the path it depends on. Evidence found → it is `75`+ and the gate
 clears it. Refuted → say so, and drop it. Reporting an unverified `MUST-FIX`
 onward makes the next gate solve a problem you were holding the context to solve.
 
-- A finding at `75` or `100` **must** carry `evidence` — the verbatim motivating
-  line with `file:line`. Missing evidence **demotes** it to `50`.
-- A finding with no `failure:` line — what goes wrong — is capped at `50` the
-  same way.
-- A finding arriving with no `confidence` — an older single-axis reviewer, or an
-  agent that ignored this contract — is read as `50` / `autofix_class: manual`:
-  reported, never auto-applied, never discarded.
-- Where two phases or reviewers disagree on a finding, synthesis takes the
-  **more conservative** `autofix_class`. It never widens.
-- A `MUST-FIX` that the gate will not auto-apply is still a `MUST-FIX`. Report it
-  under `owner` and let the caller's gate decide — do not downgrade it to make
-  this phase come out clean.
+A `MUST-FIX` that the gate will not auto-apply is still a `MUST-FIX`. Report it
+under `owner` and let the caller's gate decide — do not downgrade it to make
+this phase come out clean.
 
 ---
 
@@ -104,7 +76,7 @@ For each file in scope:
 
 ### 1.2 Clean Code
 - A function doing **several unrelated jobs** → split by job; never by line count, and never into helpers that exist only to make it shorter
-- Functions with **>3 parameters** → use options object/dataclass
+- A long parameter list signals a shallow interface → fix the interface (hide what callers need not pass), not the call site
 - **Poor naming**: generic names (`data`, `info`, `tmp`, `result`) → rename to reveal intent
 - **Dead code**: unreachable branches, unused imports → remove
 
@@ -127,6 +99,8 @@ For each file in scope:
 **Mandate**: "Does this code contain AI behavioral artifacts?" — hedge words, filler, over-engineering.
 
 **Iron law: deletion over rewriting.**
+
+**Keep these comments, whatever their length or shape:** an interface comment (what a function, class or field promises its callers), and a comment stating a decision or a hidden assumption (why this way, what the code silently relies on). A comment that **contradicts the code beside it** is flagged as a finding, never silently deleted or reworded: one of the two is wrong, and only the author knows which.
 
 **Never delete `TODO`, `FIXME`, or `TODO(shortcut):` markers.** They record a known
 limitation and its upgrade path, so they must survive this phase even when the
@@ -236,6 +210,10 @@ Per `.agents/references/finding-model.md` § *Independence Accounting*, agreemen
 two witnesses. An inline run is a complete run — it reports and applies under the
 Apply Gate — but it may never report a promoted confidence.
 
+A third value, `lost`, is for a review that was required but could not be
+dispatched (Phase 5's `test-engineer` only; `receipt.py` refuses it elsewhere): it is recorded, not omitted, and carries
+no findings and no promotion.
+
 **No phase after 4 edits the tree.** Phase 4's applied fixes are the last edit;
 Phases 5 and 6 only observe, so the receipt describes exactly the tree that was
 reviewed.
@@ -246,7 +224,8 @@ Dispatch the `software-design-expert-review` skill (invokes the `software-design
 
 The dispatch carries the full payload in `.agents/references/review-dispatch-contract.md` —
 diff, every relevant spec's path plus its acceptance criteria verbatim (or `no spec — <reason>`), the closed
-`tasks/todo.md` entries, the `[AMBIGUITY]` batch and `TODO(shortcut):` markers (or
+`tasks/todo.md` entries, the `[AMBIGUITY]` batch (the plan block's `> [AMBIGUITY]` lines
+in `tasks/todo.md` when a build persisted them, else this run's lines) and `TODO(shortcut):` markers (or
 `deferrals: none`), the introduced-only boundary, and the four-axis format. A design
 reviewer told only *what* changed reports structural debt the spec deliberately
 accepted; the deferral list is what makes an accepted trade-off distinguishable from
@@ -264,8 +243,8 @@ prompt verbatim. When all three are missing, stop before dispatch:
 
 ## Phase 5 — Tests
 
-**Mandate**: "Is the reviewed tree green?" — evidence for the receipt, run once
-after every fix has landed.
+**Mandate**: "Is the reviewed tree green, and do its tests test the right
+things?" — evidence for the receipt, run once after every fix has landed.
 
 Run the project's `Affected tests:` command (below the `AGENTS.md` end marker,
 `{base}` replaced by the merge-base from *Scope*) through the cache:
@@ -278,6 +257,30 @@ A failure here is a red `tests` record that the receipt turns into STOP —
 never a silent fix. Fixing it is a new edit, and a new edit means a new gate
 run on the new tree. This phase never runs the full suite: `/wrap-up-session`
 § *Full suite* owns that, through the same cache.
+
+### 5.1 Test adequacy review
+
+Dispatch the `test-engineer` Review job after the affected tests pass (Reviewer
+tier: on Claude Code pass model `sonnet`). The dispatch follows
+`.agents/references/review-dispatch-contract.md` § *The seven items* and carries:
+
+- the diff and the test files;
+- the spec's path with its acceptance criteria verbatim, or
+  `no spec — <reason>`: with no spec it reviews against the interfaces in the diff;
+- the deferral list (`[AMBIGUITY]` batch from the same source as Phase 4's, `TODO(shortcut):` markers) or `deferrals: none`;
+- the introduced-only boundary, and `.agents/references/finding-model.md` § *Emission format* pasted verbatim
+  (resolved as *Claude Code Enhancements* describes).
+
+Withhold the findings of Phases 1–4. Share intent, never conclusions.
+
+Its findings are report-only: it never edits the tree, and Phase
+5 applies nothing. Each unresolved SHOULD-FIX goes in `unresolved`: an unresolved SHOULD-FIX counts toward
+HOLD under the receipt's rule; a MUST-FIX makes the receipt STOP. Record a phase 5
+reviewer entry (`lens: test-engineer`, `dispatch: dispatched`) — always written, dispatched
+or lost; `receipt.py` refuses `lost` on any other entry. When no dispatch is
+possible, record `{"phase": 5, "lens": "test-engineer", "dispatch": "lost"}` and name
+the lost review in `Not checked:` — a lost review and a clean one never leave the same
+receipt. `lost` is disclosed, not weighed: it does not change the derived verdict.
 
 ## Phase 6 — Receipt
 
@@ -294,7 +297,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome "$outcome
 
 | Outcome field | Value |
 |---------------|-------|
-| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it |
+| `reviewers` | one `{phase, lens, dispatch, verdict?}` per Phase 1–4, `dispatch` as *Dispatch Disclosure* recorded it, plus the phase 5 `test-engineer` entry — `dispatched`, or `lost` when the review could not be dispatched (disclosed, verdict unchanged) |
 | `unresolved` | every finding in `Reported, not applied`, four-axis, with `location` (`file:line`) and `summary` |
 | `design_verdict` | Phase 4's GO / HOLD / STOP |
 | `tests` | Phase 5's record |

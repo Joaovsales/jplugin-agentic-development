@@ -3,12 +3,13 @@
 . "$(dirname "$0")/lib.sh"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-box="$(mktemp -d)"
-trap 'rm -rf "$box"' EXIT
+py_module .agents/skills/design-stack/scripts >/dev/null
+box="$(fixture_dir)"
 export DESIGN_STACK_REPO="$REPO" DESIGN_STACK_FIXTURE="$box"
 
 printf '\n--- stable project brief ---\n'
-out="$("$TEST_PYTHON" - <<'PY' 2>&1
+lifecycle() {
+"$TEST_PYTHON" - <<'PY'
 import contextlib
 import io
 import os
@@ -144,7 +145,8 @@ for rejected_choice in ({"direction": "hyperframes:motion-graphics", "references
         raise AssertionError(f"HyperFrames tool accepted in a brief: {rejected_choice}")
 print("brief stable across update; refresh requires owner choice")
 PY
-)"; status=$?
-assert_eq 0 "$status" "brief lifecycle"
-assert_contains "$out" "brief stable across update" "brief lifecycle evidence"
+}
+run lifecycle
+assert_exit 0 "brief lifecycle"
+assert_contains "$output" "brief stable across update" "brief lifecycle evidence"
 finish
