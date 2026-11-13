@@ -2829,3 +2829,20 @@ Step ledger (routine `simplify`):
 > Handover: both store READMEs' § *Writing rules (`/learn`)* is now 5 lines (was 22); each README 122 → 105, still byte-identical. `/learn/SKILL.md` untouched. Before → after: solutions-schema 44 → 47 (8 new pins fail on the old text), citations 6, memory-maintain-doc 17, grilling-adoption 97 unchanged; affected set 472 passed, 0 failed.
 > Do not re-derive: `/memory-maintain` still states the cross-track cap as its own merge reason, pinned separately on purpose — out of scope.
 > Surface: check clean (undeclared: none, untouched: none)
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry doctor` — github, reachable, write approval not required
+- [x] 2. rank + deep review — every new cue dropped (`enforced-prose` hits are same-file test pins; agent-persona `duplicate-rule` copies are out of scope); nothing new filed
+- [x] 3. `task-registry select --routine simplify` — #387 (owner-decided deduplicate, PR #390)
+- [x] 4. `task-registry claim 387 --routine simplify --apply --approve`
+- [x] 5. branch `routine/simplify/387-dedupe-overlap-scoring-in-store-readmes`
+- [x] 6.1 `/make-it-simpler #387` — before-proof recorded; scope re-checked (minor, 1 slice, one area under safe-moves § Cross-area deduplication, reproduces); spec with safe-moves § Decisions
+- [x] 6.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 6.3 `/build` — the one TDD row above, in place, inline (two README sections and one test block; no builder dispatch)
+- [x] 6.4 `/quality-gate` — Phases 1–3 inline (no findings); Phase 4 dispatched GO (1 SHOULD-FIX advisory, owner human); test-engineer dispatched (2 NITPICK); receipt GO 6153328f policy qg1-9478b51c
+- [x] 7. `/wrap-up-session` — `/learn`: 1 new process doc; `/memory-maintain` skip: a store sweep would put unrelated churn into a one-simplification PR
+
+## Session Summary — [2026-11-13] [01e7cba..ba9cfd3]
+- Completed: #387: both store READMEs cite `/learn` § *4. Score Overlap Before Writing* instead of restating the dimension rows, cap and score table. 122 → 105 lines each, behavior changes none, simplify routine. Spec reconciliation covered 5 candidates. 1 updated: simplify-duplicate-rule-in-agents-skills-learn-skill-md (new). 4 unchanged: compound-engineering-adoption, context-memory-management, helix-checkpoint-loop, test-suite-aposd.
+- Pending: none from this run.
+- Carry-forward: `/learn`'s step headings carry numbers (`### 4. …`), which safe-moves practice 1 forbids. Renaming them to plain names and repointing `/memory-maintain`, both READMEs and their tests is its own change (Phase 4 SHOULD-FIX, owner human). `/memory-maintain` is still overdue.
