@@ -397,9 +397,10 @@ architect` prints it. The rows are not restated here (specs/lane-catalogue.md).
 
 ### `tidy` — steps
 
-Lens: harness hygiene. Engine: the nine `/tidy` checks — `suite`, `inventory`,
-`retired`, `installed`, `refs`, `worktrees`, `strays`, `registers`, `graph`
-(specs/tidy-skill.md) — over the harness surfaces, never product code. Files
+Lens: harness hygiene. Engine: every `/tidy` check — `suite`, `inventory`,
+`retired`, `installed`, `refs`, `worktrees`, `strays`, `graph`, `registers`,
+`shortcuts`, `tools` (the list is `/tidy` § *The checks*;
+specs/tidy-skill.md) — over the harness surfaces, never product code. Files
 documentation drift as `documentation` and structural drift as `task` +
 `tech-debt`, each carrying `discovered: tidy`. Unlike the other producers its
 diff carries more than the record: every Tier 0 repair — a stray deleted, a

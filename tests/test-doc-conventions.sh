@@ -208,15 +208,22 @@ for f in .agents/skills/tidy/SKILL.md; do
       "tidy: $f defines the \`$check\` check as a table row"
   done
   # #202: the routine contract, the lane and the routine prompt restate the
-  # count and the list; they said eight and left out `graph`.
+  # check list; they said "eight" and left out `graph` while the skill ran
+  # nine, then missed `shortcuts` and `tools` too. The list is read from the
+  # skill's check table, so a new row fails every restatement that lacks it,
+  # and the restatements carry no count word to go stale.
+  tidy_checks="$(awk '/^### [0-9]+.*The checks/ { p = 1; next }
+    p && /^## / { exit }
+    p' "$f" | tr -d '\r' | sed -n 's/^| `\([a-z]*\)` |.*/\1/p')"
+  assert_contains " $(printf '%s ' $tidy_checks)" " graph registers shortcuts tools " \
+    "tidy: the check list is read from $f's check table (non-vacuity)"
   for doc in .agents/skills/wrap-up-session/references/routines.md \
              .agents/skills/task-registry/lanes/tidy.md \
              .agents/skills/wrap-up-session/references/routine-prompts/tidy.md; do
     flat_doc="$(flatten "$doc")"
-    assert_contains "$flat_doc" "nine" "tidy: $doc gives the nine-check count"
-    assert_not_contains "$flat_doc" "eight \`/tidy\` checks" "tidy: $doc no longer says eight /tidy checks"
-    assert_not_contains "$flat_doc" "eight checks" "tidy: $doc no longer says eight checks"
-    for check in suite inventory retired installed refs worktrees strays registers graph; do
+    assert_false "tidy: $doc gives no check count that can drift from the table" -- \
+      bash -c 'printf "%s" "$1" | grep -qiE "(eight|nine|ten|eleven|twelve) (\`/tidy\` )?checks"' _ "$flat_doc"
+    for check in $tidy_checks; do
       assert_contains "$flat_doc" "\`$check\`" "tidy: $doc lists the \`$check\` check"
     done
   done
