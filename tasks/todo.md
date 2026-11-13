@@ -2860,3 +2860,8 @@ Step ledger (routine `simplify`):
   [x] TDD: before/after proof — `bash tests/affected.sh --run origin/master` and `bash tests/test-citations.sh` give the same result -> no code beyond the row above (AC 3)
 
 > Handover: SKILL.md Step 4 cites references/plan-block.md for the grammar; the three pins in tests/test-doc-conventions.sh now read plan-block.md. Affected set before and after: identical failure set (install-sh 4, task-registry 2, both pre-existing as root).
+
+## Session Summary — [2026-11-13] [317a717..5ef58e1]
+- Completed: #192 — `select` holds back a task whose `depends-on:` blocker is open or unresolvable, and a task whose prose names an open dependency, and reports each. Tests in `tests/test-routine-selectors.sh` (local provider plus the PKB #91 GitHub-mock fixture). Receipt a1b3c731 GO.
+- Pending: the six GitHub-mock #192 assertions are XFAIL on Windows (#129). Linux CI is their authority.
+- Carry-forward: native `blockedBy` (#97) should feed `Task.depends_on` so `select_candidates` applies the same rule. `claim` does not re-check blockers for a human-named issue. `/memory-maintain` is still overdue (not run in this side session).
