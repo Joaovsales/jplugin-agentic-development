@@ -179,7 +179,7 @@ Read the **dedupe set** first, exactly as
 `.agents/skills/sweep/SKILL.md` § *2. Read the backlog* defines it; an
 escalated task is hands-off — its existing reference goes in the session record.
 
-One `upsert` per verified finding, mirroring `/sweep` § *File* so the consumers'
+One `upsert` per verified finding, mirroring `/sweep` § *5. File* so the consumers'
 selectors and the dedupe rules apply unchanged:
 
 ```bash
