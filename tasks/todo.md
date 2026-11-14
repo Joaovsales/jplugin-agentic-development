@@ -2860,3 +2860,32 @@ Step ledger (routine `simplify`):
   [x] TDD: before/after proof — `bash tests/affected.sh --run origin/master` and `bash tests/test-citations.sh` give the same result -> no code beyond the row above (AC 3)
 
 > Handover: SKILL.md Step 4 cites references/plan-block.md for the grammar; the three pins in tests/test-doc-conventions.sh now read plan-block.md. Affected set before and after: identical failure set (install-sh 4, task-registry 2, both pre-existing as root).
+
+## Plan: simplify-citation-drift-in-agents-skills-tidy-skill-md
+
+> Routine: `simplify` #309 · branch `routine/simplify/309-citation-drift-in-tidy-skill-md` · spec `specs/simplify-citation-drift-in-agents-skills-tidy-skill-md.md`
+> Issue: #309
+
+### Slice 1/1 — tidy cites sweep by its heading
+[x] TDD: `signals.py rank --path .agents/skills/tidy` reports `citation-drift` at line 182 before and none after; the before-proof commands match -> `/tidy` cites `/sweep` § *5. File* (AC 1, 2, 3)
+
+> Handover: `tidy/SKILL.md:182` `§ *File*` -> `§ *5. File*`; 1 line changed, line count unchanged. Before -> after, identical: diagram-skill 99, doc-conventions 906, grilling-adoption 97, skill-frontmatter 180, skill-references 270, citations 6, all 0 failed. Plugin 1.8.9 -> 1.8.10 for the version guard.
+> Do not re-derive: `/sweep`'s numbered step headings stay (safe-moves 1 is a whole-file change); `specs/tidy-skill.md:108` is design history.
+> Surface: check clean (undeclared: `.claude-plugin/plugin.json` version bump, required by the version guard; untouched: none)
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry doctor` — github, reachable, write approval not required
+- [x] 2. rank + deep review — nothing new filed: `enforced-prose` cues are test-pinned instructions (dropped); `planner.md` duplicate is the `.claude/agents` mirror by design; quality-gate and build ids already closed (#372, #368)
+- [x] 3. `task-registry select --routine simplify` — #309
+- [x] 4. `task-registry claim 309 --routine simplify --apply --approve`
+- [x] 5. branch `routine/simplify/309-citation-drift-in-tidy-skill-md`
+- [x] 6.1 `/make-it-simpler #309` — before-proof recorded; scope re-checked (minor, 1 slice, reproduces at 317a717); spec with safe-moves § Decisions
+- [x] 6.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 6.3 `/build` — the one TDD row above, in place, inline (a one-line edit)
+- [x] 6.4 `/quality-gate` — Phases 1–3 inline (no findings); Phase 4 dispatched GO (no findings); test-engineer dispatched GO (1 NITPICK, owner human); receipt GO 614b67a4 policy qg1-9478b51c
+- [x] 7. `/wrap-up-session` — full suite 95 files green (first run caught the missing version bump)
+
+## Session Summary — [2026-11-14] [317a717..HEAD]
+- Completed: #309: `/tidy` cites `/sweep` § *5. File* by its exact heading. Behavior changes: none. Simplify routine.
+- Pending: none from this run.
+- Carry-forward: test-engineer NITPICK — no standing test resolves `` `/<skill>` § *Heading* `` citations (`tests/test-citations.sh` matches only the `<path>.md` form); only `signals.py` detects that drift.
