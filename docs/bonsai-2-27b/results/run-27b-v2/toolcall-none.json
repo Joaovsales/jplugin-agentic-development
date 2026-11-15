@@ -1,0 +1,125 @@
+{
+  "effort": "none",
+  "results": {
+    "1-single": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "get_weather",
+          {
+            "city": "Lisbon"
+          }
+        ]
+      ],
+      "calls_note": "cities called=['lisbon'] want=['lisbon']",
+      "final": "It's currently sunny in Lisbon, with a temperature of 21\u00b0C. \u2600\ufe0f",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 48,
+      "seconds": 17.2
+    },
+    "2-select": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "convert_currency",
+          {
+            "amount": 250,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          }
+        ]
+      ],
+      "calls_note": "args={'amount': 250, 'from_currency': 'USD', 'to_currency': 'EUR'}",
+      "final": "250 USD is equal to **231.47 EUR**.",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 72,
+      "seconds": 22.6
+    },
+    "3-parallel": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "get_weather",
+          {
+            "city": "Paris"
+          }
+        ],
+        [
+          "get_weather",
+          {
+            "city": "Tokyo"
+          }
+        ]
+      ],
+      "calls_note": "cities called=['paris', 'tokyo'] want=['paris', 'tokyo']",
+      "final": "Here's the current weather comparison:\n\n| City | Temperature | Condition |\n|------|-------------|-----------|\n| **Paris** | 9\u00b0C | Rain |\n| **Tokyo** | 14\u00b0C | Cloudy |\n\n**Key differences:**\n- **Temperature:** Tokyo is warmer by 5\u00b0C (14\u00b0C vs. 9\u00b0C).\n- **Conditions:** Paris is rainy, while Tokyo is only cloudy \u2014 so Paris may feel cooler and wetter, even though the actual temperature difference is modest.\n\nOverall, Paris is currently colder and rainier, whereas Tokyo is milder and dry (just overcast).",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 187,
+      "seconds": 40.3
+    },
+    "4-typed-args": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "create_event",
+          {
+            "title": "Q4 budget review",
+            "date": "2026-11-20",
+            "duration_minutes": 30,
+            "attendees": [
+              "ana@example.com",
+              "rui@example.com"
+            ]
+          }
+        ]
+      ],
+      "calls_note": "args={'title': 'Q4 budget review', 'date': '2026-11-20', 'duration_minutes': 30, 'attendees': ['ana@example.com', 'rui@example.com']}",
+      "final": "The meeting has been successfully created.\n\n**Event details:**\n- **Title:** Q4 budget review\n- **Date:** 2026-11-20\n- **Duration:** 30 minutes\n- **Attendees:** ana@example.com, rui@example.com\n- **Event ID:** evt_7731",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 158,
+      "seconds": 34.4
+    },
+    "5-chained": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "search_files",
+          {
+            "name": "budget"
+          }
+        ],
+        [
+          "get_file_info",
+          {
+            "path": "/srv/finance/budget-2026.xlsx"
+          }
+        ]
+      ],
+      "calls_note": "sequence=['search_files', 'get_file_info']",
+      "final": "I found the budget spreadsheet at `/srv/finance/budget-2026.xlsx`.\n\n- **Size:** 48,213 bytes\n- **Owner:** marta",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 102,
+      "seconds": 29.1
+    }
+  }
+}
