@@ -2916,10 +2916,20 @@ Step ledger (routine `simplify`):
 > [AMBIGUITY] AC7 asks a file-only hook to detect a CLI hang without executing the CLI | options: A) keep file-only hints and prove the hook never waits for the hanging stub B) add a CLI health probe to every hint | picked: A | reason: the explicit no-CLI hook contract preserves bounded overhead and leaves CLI health to the banner and navigation fallback.
 
 ### Slice 6/9 — Codex hint adapter
-- [ ] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+- [x] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+
+> Handover: landed66f597d — schema-gated idempotent native Bash search adapter, context-only output, unsupported cleanup, copied banner pin and shared resources; affected55files/5331assertions green.
+> Do not re-derive: codex-cli0.166.0 schema exposes preToolUse and typed matcher; native rg/grep/find normalize to shared Grep/Glob. Unsupported reruns retire only the installed Python callback and preserve personal hooks/path mentions. No global user configuration was changed.
+> Surface: source check against f2bec3f clean; targeted59assertions passed.
+
 
 ### Slice 7/9 — skill wiring
-- [ ] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+- [x] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+
+> Handover: landed1655f58 plus same-surface prose-budget repair — routing at four requested stages and guarded120-second handover refresh; affected55files/5331assertions green.
+> Do not re-derive: project reference then plugin package fallback; missing capability/reference uses Grep; quality review confirms graph negatives with Grep. Build failure emits one fourth-line warning instead of Open; graph refresh skipped when no graph exists.
+> Surface: source check against66f597d clean; build remains600lines and all workflow pins pass; extracted snippet covers five stub states.
+
 
 ### Slice 8/9 — eval run and verdict
 - [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement

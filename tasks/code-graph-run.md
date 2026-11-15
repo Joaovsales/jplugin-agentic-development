@@ -23,9 +23,9 @@ Branch: code-graph/treatment
 | 3 | done | 68ed02b, 506c1eb; handover in tasks/todo.md; affected 65 files / 6481 assertions green |
 | 4 | done | da5bb18; handover and clean surface check; all fixture contracts green; paid smoke deferred |
 | 5 | done | c2c4826; 34 affected files/3489 assertions green; handover recorded |
-| 6 | ready | Installed codex-cli0.166.0 and official hooks docs positively support PreToolUse+matcher |
-| 7 | ready | Routing reference and normalized Grep/Glob hint contract available |
-| 8 | pending | Blocked by 4, 6, 7 |
+| 6 | done |66f597d; typed-schema support;59 targeted assertions and shared affected run green |
+| 7 | done |1655f58 plus prose repair;600-line budget; affected55files/5331assertions green |
+| 8 | ready for prerequisite check | No paid run or protocol commit yet; installed CLI must match pin |
 | 9 | pending | Blocked by 8 |
 
 ## Evidence and environment
@@ -88,3 +88,10 @@ Read this ledger, then run `slice.py ready` for the linked spec. Preserve settle
 - Slice5 targeted contract green (3 top-level checks); affected run3444passed/1failed across33files: stale tests/test-hooks-json.sh exact three-event expectation. Required integration repair updates it for planned PreToolUse; treatment manifest patch bump to1.8.11 is parent-owned release metadata. No feature-agent surface expansion.
 
 - Codex probe: codex-cli0.166.0; https://learn.chatgpt.com/docs/hooks explicitly documents PreToolUse matcher groups. Native Bash matcher is documented; adapter must normalize native search calls rather than assume Codex has Claude Grep/Glob tool names. No user config changes or model calls.
+
+## Treatment implementation handover
+
+- Slices5–7 complete; no treatment PR or merge. Parent source review repaired unsupported Codex hook retirement; public CLI tests confirmed red then green.
+- Affected treatment run:55files,5331passed,0failed/xfail/skipped; `/tmp/code-graph-batch-6-7-affected-final.log`.
+- Both source6/7 checks were clean per commit. Build handover graph refresh has no existing graph here and is skipped.
+- Frozen armA checkout prepared at `/tmp/harbor-workflow` on code-graph/harbor, exact baselinec7360e4; no treatment source in that checkout.
