@@ -139,8 +139,9 @@ Expected failures: tests/expected-failures.txt
 
 ### Code Graph
 
-This shell-and-markdown repository has no code graph: `graphify` indexes code extensions
-only, so do not install its hook here — it reports "nothing to rebuild" on every commit.
+The optional graph covers the Python scripts under `.agents/skills/*/scripts/`.
+Build or refresh it with `graphify update .`; `graphify-out/` stays gitignored
+because the generated graph belongs to this clone.
 
 ## Deployment Targets (placeholder — run /setup-deployment to populate)
 
