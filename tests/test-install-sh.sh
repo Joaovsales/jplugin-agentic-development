@@ -6,6 +6,9 @@
 # throwaway CWD, so nothing touches the developer's own ~/.claude.
 . "$(dirname "$0")/lib.sh"
 
+# Installer fixtures override HOME; never inherit the agent's real Codex home.
+unset CODEX_HOME
+
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
@@ -108,7 +111,7 @@ SAFE_PATH="$(fixture_dir)"
 for src_dir in "$GIT_BIN_DIR" /bin /usr/bin; do
   for exe in "$src_dir"/*; do
     name="${exe##*/}"
-    case "$name" in npm|npx|node|playwright-cli) continue ;; esac
+    case "$name" in npm|npx|node|playwright-cli|graphify|pipx) continue ;; esac
     if [ -x "$exe" ] && [ ! -e "$SAFE_PATH/$name" ]; then ln -s "$exe" "$SAFE_PATH/$name"; fi
   done
 done
@@ -791,5 +794,131 @@ if git ls-remote --exit-code https://github.com/tt-a1i/archify "refs/tags/$ARCHI
 else
   skip "archify: upstream unreachable from this machine; the installed/present cases did not run"
 fi
+
+# ── graphify: pinned, person-only installation and safe project wiring ──────
+assert_file_exists ".agents/graphify.pin" "graphify: one version pin exists"
+for path in README.md install.sh .agents/skills/sync/SKILL.md; do
+  assert_file_contains "$path" '.agents/graphify.pin' "graphify: $path reads the pin"
+  assert_file_contains "$path" 'graphifyy' "graphify: $path names the canonical package"
+  assert_file_not_matches "$path" 'pip install graphify\b' "graphify: $path has no nonexistent package command"
+done
+GRAPHIFY_PIN="$(cat .agents/graphify.pin 2>/dev/null || printf missing)"
+
+make_graphify_case() {
+  local box
+  box="$(fixture_dir)"
+  mkdir -p "$box/bin" "$box/home"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$(command -v "$TEST_PYTHON")" > "$box/bin/python3"
+  chmod +x "$box/bin/python3"
+  cat > "$box/bin/pipx" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$HOME/pipx.log"
+STUB
+  chmod +x "$box/bin/pipx"
+  printf '%s\n' "$box"
+}
+run_graphify_case() {
+  local box="$1"; shift
+  (cd "$box" && env "$@" HOME="$box/home" CODEX_HOME="$box/home/.codex" CLAUDE_CONFIG_DIR="$box/home/.claude" PATH="$box/bin:$SAFE_PATH" bash "$INSTALL") > "$box/out.log" 2>&1 </dev/null
+}
+box="$(make_graphify_case)"
+run_graphify_case "$box" -u CI
+assert_contains "$(cat "$box/out.log")" "NOTE: graphify" "graphify: non-TTY prints NOTE"
+assert_contains "$(cat "$box/out.log")" "pipx install --force graphifyy==$GRAPHIFY_PIN" "graphify: non-TTY prints exact pinned command"
+assert_file_absent "$box/home/pipx.log" "graphify: non-TTY installs nothing"
+assert_eq 1 "$(grep -c 'NOTE: graphify.*pipx install' "$box/out.log")" "graphify: non-TTY prints exactly one command NOTE"
+box="$(make_graphify_case)"
+run_graphify_case "$box" CI=1
+assert_contains "$(cat "$box/out.log")" "pipx install --force graphifyy==$GRAPHIFY_PIN" "graphify: CI prints exact pinned command"
+assert_file_absent "$box/home/pipx.log" "graphify: CI installs nothing"
+box="$(make_graphify_case)"
+rm "$box/bin/pipx"
+run_graphify_case "$box" -u CI
+assert_contains "$(cat "$box/out.log")" "pipx install --force graphifyy==$GRAPHIFY_PIN" "graphify: missing pipx prints command"
+assert_file_absent "$box/home/pipx.log" "graphify: missing pipx installs nothing"
+
+# A real PTY exercises [ -t 0 ]; only the sandbox's pipx stub can run.
+if "$TEST_PYTHON" -c 'import pty' >/dev/null 2>&1; then
+  for answer in n y ci no-pipx; do
+    box="$(make_graphify_case)"
+    [ "$answer" != no-pipx ] || rm "$box/bin/pipx"
+    "$TEST_PYTHON" - "$box" "$SAFE_PATH" "$INSTALL" "$answer" <<'PYTTY'
+import errno, os, pty, select, sys, time
+box, safe, installer, answer = sys.argv[1:]
+pid, fd = pty.fork()
+if pid == 0:
+    os.chdir(box)
+    os.environ.update(HOME=box+'/home', CODEX_HOME=box+'/home/.codex', CLAUDE_CONFIG_DIR=box+'/home/.claude', PATH=box+'/bin:'+safe)
+    os.environ.pop('CI', None)
+    if answer == 'ci': os.environ['CI'] = '1'
+    os.execvp('bash', ['bash', installer])
+data = bytearray(); sent = False; deadline = time.monotonic()+30
+while time.monotonic() < deadline:
+    if not select.select([fd], [], [], .2)[0]:
+        continue
+    try:
+        chunk = os.read(fd, 65536)
+    except OSError as exc:
+        if exc.errno == errno.EIO: break
+        raise
+    if not chunk: break
+    data.extend(chunk)
+    if b'graphifyy==' in data and b'[y/N]' in data and not sent:
+        os.write(fd, (answer+'\n').encode()); sent = True
+else:
+    os.kill(pid, 9)
+_, status = os.waitpid(pid, 0)
+open(box+'/out.log', 'wb').write(data)
+open(box+'/exit', 'w').write(str(os.waitstatus_to_exitcode(status)))
+PYTTY
+    assert_eq 0 "$(cat "$box/exit")" "graphify: TTY $answer exits 0"
+    if [ "$answer" = y ]; then
+      assert_file_contains "$box/home/pipx.log" "install --force graphifyy==$GRAPHIFY_PIN" "graphify: TTY y runs exact stub command"
+      assert_eq 1 "$(wc -l < "$box/home/pipx.log" 2>/dev/null || printf 0)" "graphify: TTY y installs once"
+    else
+      assert_file_absent "$box/home/pipx.log" "graphify: TTY $answer installs nothing"
+      if [ "$answer" != n ]; then
+        assert_contains "$(cat "$box/out.log")" "pipx install --force graphifyy==$GRAPHIFY_PIN" "graphify: TTY $answer prints the command"
+        assert_not_contains "$(cat "$box/out.log")" '[y/N]' "graphify: TTY $answer never prompts"
+      fi
+    fi
+  done
+else
+  skip "graphify: PTY unavailable on this platform"
+fi
+
+box="$(make_graphify_case)"
+cat > "$box/bin/graphify" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  --version) printf '%s\n' "$GRAPHIFY_STUB_VERSION" ;;
+  'claude install')
+    if [ "${GRAPHIFY_STUB_NO_REPORT:-}" = 1 ]; then
+      printf '@AGENTS.md\n\n## graphify\nUse the code graph.\n' > CLAUDE.md
+    else
+      printf '@AGENTS.md\n\n## graphify\nRead graphify-out/GRAPH_REPORT.md before exploring.\n' > CLAUDE.md
+    fi
+    mkdir -p .claude
+    printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Grep|Glob","hooks":[{"type":"command","command":"echo Read graphify-out/GRAPH_REPORT.md"},{"type":"command","command":"echo personal"},{"type":"command","command":"/opt/graphify/bin/graphify hook-guard search"},{"type":"command","command":"graphify hook-guard read"},{"type":"command","command":"echo graphify hook-guard personal"}]}]},"personal":true}' > .claude/settings.json ;;
+esac
+STUB
+chmod +x "$box/bin/graphify"
+run_graphify_case "$box" -u CI GRAPHIFY_STUB_VERSION="$GRAPHIFY_PIN"
+assert_file_contains "$box/AGENTS.md" 'timeout 20 graphify query' "graphify: moved rules use bounded query"
+assert_file_contains "$box/AGENTS.md" '--budget 1500' "graphify: moved rules bound output"
+assert_file_not_matches "$box/AGENTS.md" 'GRAPH_REPORT\.md' "graphify: moved rules never request whole report"
+assert_file_not_matches "$box/.claude/settings.json" 'GRAPH_REPORT\.md' "graphify: stock hook stripped"
+assert_file_not_matches "$box/.claude/settings.json" '"command": "(/opt/graphify/bin/)?graphify hook-guard' "graphify: pinned stock hook guards stripped"
+assert_file_contains "$box/.claude/settings.json" 'echo graphify hook-guard personal' "graphify: mentioning graphify in a personal hook is preserved"
+assert_file_contains "$box/.claude/settings.json" 'echo personal' "graphify: unrelated hook survives"
+assert_file_contains "$box/.claude/settings.json" 'personal' "graphify: unrelated settings survive"
+assert_file_absent "$box/home/pipx.log" "graphify: matching version does not install"
+assert_eq '@AGENTS.md' "$(cat "$box/CLAUDE.md")" "graphify: one-line CLAUDE pointer survives"
+
+# Newer pinned rules may omit the report line; the budgeted rule still belongs.
+rm "$box/AGENTS.md"
+run_graphify_case "$box" -u CI GRAPHIFY_STUB_VERSION="$GRAPHIFY_PIN" GRAPHIFY_STUB_NO_REPORT=1
+assert_file_contains "$box/AGENTS.md" 'timeout 20 graphify query' "graphify: current rules still gain bounded query"
+assert_file_contains "$box/AGENTS.md" '--budget 1500' "graphify: current rules still gain output budget"
 
 finish

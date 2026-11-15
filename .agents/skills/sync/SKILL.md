@@ -625,38 +625,33 @@ synced only by CI migrates on its first hand-run `/sync`.
 
 ### Step 7 — Optional: Re-wire graphify
 
-`graphify` is a per-machine CLI (`~/.local/bin/graphify`) that most projects do not use.
-This step is **optional and non-blocking** — never abort, fail, or roll back a sync
-because of it. Skip silently when the binary is absent:
+Read the pinned version from `.agents/graphify.pin`. The package is `graphifyy`,
+from the canonical `github.com/Graphify-Labs/graphify` repository. An agent never
+installs or upgrades it: if absent or a different version, report the command
+`pipx install --force graphifyy==<PIN>` with the pin substituted. A person can
+run `install.sh` for its interactive y/N offer; never invoke that installer from
+a skill. Missing graphify is optional and never blocks sync.
+
+Do not run `graphify claude install`: it restores a stock PreToolUse hook that
+requests the whole report. The person's `install.sh` run owns wiring, moves its
+rules into `AGENTS.md`, strips that hook and bounds queries with
+`timeout 20 graphify query "<question>" --budget 1500`.
+
+When the CLI and graph exist, refresh the machine-local graph if stale:
 
 ```bash
-command -v graphify >/dev/null 2>&1 || echo "graphify not installed — skipping"
+if command -v graphify >/dev/null 2>&1 && [ -f graphify-out/graph.json ]; then
+  timeout 120 graphify update . || echo "graphify refresh failed — use Grep"
+fi
 ```
 
-If it *is* available, note that `graphify claude install` appends its `## graphify`
-section to `CLAUDE.md`, which is now the single line `@AGENTS.md` — `/sync` rewrites
-that file whenever it differs, so the section would vanish on the next sync.
-`install.sh` moves it below the end marker of `AGENTS.md`, where it survives; if
-the section is missing from `AGENTS.md`, re-run the per-project wiring and move it:
-
-```bash
-graphify claude install || true   # writes a CLAUDE.md section — move it into AGENTS.md (see install.sh)
-graphify hook install  || true    # post-commit / post-checkout re-index git hooks
-```
-
-Both are idempotent, so re-running after every sync is expected and harmless.
-`graphify hook status` reports whether the git hooks are already in place if you'd
-rather check before writing.
-
-Then confirm the graph itself isn't stale. Per-project state lives in
-`graphify-out/graph.json`; if it is missing or older than recent commits, refresh it:
-
-```bash
-graphify update . || true
-```
-
-Report the outcome as a single line and move on. Because this runs after the sync is
-already applied, a graphify failure leaves the sync itself fully intact.
+Report one outcome line and continue; every graph failure falls back to Grep.
+The pin's upstream command forms remain `query --budget`, `explain`, `path`,
+`update .`, `claude install` and `hook install` (PyPI graphifyy 0.9.109,
+canonical repository's `v8` branch, checked 2026-11-15). This pin also ships
+`graphify --version` and stock `graphify hook-guard read/search` PreToolUse
+commands; the installer strips those guards as well as legacy report hooks. These source notes
+carry forward to `.agents/references/code-navigation.md` when treatment lands.
 
 ## Edge Cases
 
