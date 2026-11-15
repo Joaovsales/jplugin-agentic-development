@@ -1644,3 +1644,77 @@ The refactors of 9065640 (shared constants in state.ts, the guarded agent sync, 
 ### Addendum — gate re-entry (uncommitted dispatch fix)
 
 The wrap-up gate re-entry stored the dispatch issue text without the `session-viz: ` prefix and adds the prefix in `raise` (`mods/session-viz/hooks/dispatch.tsx`). Toast text and the `⚠ …` rows read exactly as before, so AC11 and AC12 hold; fresh run on that tree: `claude plugin validate mods/session-viz` → `✔ Validation passed`; `claude plugin test mods/session-viz` → `16 pass / 0 fail / Ran 16 tests across 5 files`.
+
+## E2E Walkthrough — Code graph Phase A — 2026-11-15 e5d8213
+
+Spec: specs/code-graph-adoption.md
+Commit: e5d82132d7ce7f0201a8b950270304dff242635b
+Driver: Bash CLI, Python PTY and isolated temporary project homes (CLI-functional)
+Command: bash .agents/skills/build/scripts/cached-suite.sh -- bash tests/affected.sh --run 317a71717c34226891c3e3b019b83bebc591449d
+Evidence: /tmp/code-graph-batch-2-affected.log — exit 0; 67 files, 6522 passed, zero failures/skips. These commands execute the real installer/banner/grader against fixtures; pipx and graphify are stubs where required by the spec. No real package installation occurred.
+
+### AC-13: Person-only pinned graphify install offer
+Tier: CLI-FUNCTIONAL
+Journey: Run install.sh in a temporary project with isolated HOME and CODEX_HOME. Exercise non-TTY, CI, absent pipx and real PTY n/y responses.
+Steps executed:
+  ✓ Noninteractive and guarded PTY cases printed the exact pinned command without installing.
+  ✓ PTY n exited 0 without a pipx call.
+  ✓ PTY y called only the fixture pipx, once, with install --force graphifyy==0.9.109.
+Negative: stock legacy/report and current hook-guard entries were removed while personal hooks survived (AC2).
+Result: PASS
+
+### AC-14: Bounded graph status reporting
+Tier: CLI-FUNCTIONAL
+Journey: Invoke the real SessionStart hook in temporary Git repositories with fresh, stale, missing, corrupt, wrong-version, failing and hanging graphify fixtures.
+Steps executed:
+  ✓ Fresh clean graph stayed silent; HEAD and tracked-code changes produced one stale line.
+  ✓ Corrupt data and failed/hanging CLI probes produced broken under the deadline.
+  ✓ Drift printed the pinned command; no graphify stayed silent; all invocations exited 0.
+Negative: a modified tracked file newer than the graph invalidated freshness.
+Result: PASS
+
+### AC-5: Transcript grader CLI
+Tier: CLI-FUNCTIONAL
+Journey: Feed paired fixture transcripts to the real grader CLI; check passing and each individually failing frozen rule.
+Steps executed:
+  ✓ Actual graph and Serena calls counted; availability checks and quoted prose did not.
+  ✓ Each of six single-rule failures printed no-go naming that rule; passing fixture printed go.
+  ✓ Malformed evidence exited 2, and extra/errored planned samples could not yield go.
+Result: PASS
+
+## E2E Walkthrough — Code graph Phase A — 2026-11-15 6cb79d7
+
+Spec: specs/code-graph-adoption.md
+Commit: 6cb79d72cb3e14061f6c6177318ba04f15193019
+Driver: Bash CLI, Python PTY and isolated temporary project homes (CLI-functional)
+Command: bash .agents/skills/build/scripts/cached-suite.sh -- bash tests/run.sh tests/test-install-sh.sh tests/test-session-start.sh tests/test-grade-code-graph.sh
+Evidence: /tmp/code-graph-phase-a-e2e.log — exit 0; 3 files, 489 passed, zero failures/skips. These commands execute the real installer/banner/grader against fixtures; pipx and graphify are stubs where required by the spec. No real package installation occurred.
+
+### AC-13: Person-only pinned graphify install offer
+Tier: CLI-FUNCTIONAL
+Journey: Run install.sh in a temporary project with isolated HOME and CODEX_HOME. Exercise non-TTY, CI, absent pipx and real PTY n/y responses.
+Steps executed:
+  ✓ Noninteractive and guarded PTY cases printed the exact pinned command without installing.
+  ✓ PTY n exited 0 without a pipx call.
+  ✓ PTY y called only the fixture pipx, once, with install --force graphifyy==0.9.109.
+Negative: stock legacy/report and current hook-guard entries were removed while personal hooks survived (AC2).
+Result: PASS
+
+### AC-14: Bounded graph status reporting
+Tier: CLI-FUNCTIONAL
+Journey: Invoke the real SessionStart hook in temporary Git repositories with fresh, stale, missing, corrupt, wrong-version, failing and hanging graphify fixtures.
+Steps executed:
+  ✓ Fresh clean graph stayed silent; HEAD and tracked-code changes produced one stale line.
+  ✓ Corrupt data and failed/hanging CLI probes produced broken under the deadline.
+  ✓ Drift printed the pinned command; copied hooks read an adjacent pin; absent/empty pin reported broken. No graphify stayed silent; all invocations exited 0.
+Negative: a modified tracked file newer than the graph invalidated freshness.
+Result: PASS
+
+### AC-5: Transcript grader CLI
+Tier: CLI-FUNCTIONAL
+Journey: Feed paired fixture transcripts to the real grader CLI; check passing and each individually failing frozen rule.
+Steps executed:
+  ✓ Actual graph and Serena calls counted; availability checks and quoted prose did not.
+  ✓ Each of six single-rule failures printed no-go naming that rule; passing fixture printed go.
+  ✓ Malformed evidence exited 2, and extra/errored planned samples could not yield go.
+Result: PASS

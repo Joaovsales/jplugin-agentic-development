@@ -1125,3 +1125,8 @@ back vacuous and was repaired.
 - Key changes: `/make-it-simpler --unattended` ranked the tree. Deep review dropped every new cue, the same pinned-prose and persona false positives as before, so nothing new was filed. `select` picked #387, which the owner had decided to deduplicate (PR #390). Both `tasks/solutions/README.md` and its `project-template/` seed now cite `/learn` § *4. Score Overlap Before Writing* and keep only the slug-collision rule. Each went 122 → 105 lines and the two stay byte-identical. § Overlap dimensions in `tests/test-solutions-schema.sh` was repointed to citation and absence pins (8 fail against the old text) and now pins the cited heading.
 - Quality gate: Phase 4 GO with one SHOULD-FIX (the numbered `/learn` heading is now cited from more places; owner human). Test-engineer left 2 NITPICKs. Receipt GO.
 - Learnings captured: [process/a-citation-outside-agents-is-checked-by-nothing-so-pin-its-heading.md](solutions/process/a-citation-outside-agents-is-checked-by-nothing-so-pin-its-heading.md)
+
+### [2026-11-15] — code graph Phase A
+- Key changes: built slices 1–4 of specs/code-graph-adoption.md: pinned optional installer, bounded graph status reporting, transcript grader and ten seeded localization/control cases. The affected run passed 67 files and 6522 assertions. Paid evaluation and treatment remain gated on the protocol and Phase A merge.
+- Learnings captured: [code-graph installer fixture isolation](solutions/bugs/code-graph-installer-fixtures-must-isolate-codex-home.md).
+- Learnings captured: [code-graph invocation classification](solutions/bugs/code-graph-adoption-counts-executed-commands-not-probes.md).

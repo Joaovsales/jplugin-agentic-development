@@ -2797,7 +2797,7 @@ Routine `tidy` — step ledger:
 > Issue: #372
 
 ### Slice 1/1 — quality-gate cites the finding model
-[x] TDD: M2 pins the gate's § *Four axes* / § *Emission format* / § *Confidence anchors* / § *Gates* citations, the home path, `before Phase 1` and `confidence >= 75`; the verbatim overlaps between the gate and finding-model.md go 5 → 0; the covering tests and `tests/test-citations.sh` match the before-proof -> replace § *Finding Model*'s restated tables and gate bullets with citations of `.agents/references/finding-model.md`, keep the gate-specific Apply Gate rules (AC 1, 2, 3)
+[x] TDD: M2 pins the gate's § *Four axes* / § *Emission format* / § *Confidence anchors* / § *Gates* citations, the home path, `before Phase 1` and `confidence >= 75`; the verbatim overlaps between the gate and finding-model.md go from 5 to 0; the covering tests and `tests/test-citations.sh` match the before-proof -> replace § *Finding Model*'s restated tables and gate bullets with citations of `.agents/references/finding-model.md`, keep the gate-specific Apply Gate rules (AC 1, 2, 3)
 
 > Handover: `quality-gate/SKILL.md` § *Finding Model* is now 26 lines (was 54) and the file 372 (was 400). It cites finding-model.md § *Four axes* / *Emission format* / *Confidence anchors* / *Gates*, reads the home before Phase 1, and stops with Item 7's refusal when the home resolves nowhere. Apply Gate keeps `gated_auto` **and** `confidence >= 75` as a floor, plus the two gate-only `MUST-FIX` rules. Verbatim overlaps with the home: 5 → 0. M2 repointed: 16 pins fail against the pre-change text. Before → after: doc-conventions 900 → 904 (−16 token pins, +20 citation, absence and stop pins); citations 6, review-context 130, invocation-chain 46, routine-wrapup 78 and agents 275 unchanged; all 0 failed.
 > Do not re-derive: the finding-model.md lookup order stays in *Claude Code Enhancements* (Item 7). That paragraph is pinned word for word in four dispatch skills by `tests/test-review-context.sh`, so consolidating it is a cross-skill change. The remaining `duplicate-rule` hit on quality-gate (line 235) is that paragraph.
@@ -2866,3 +2866,57 @@ Step ledger (routine `simplify`):
 - Completed: the live user config (`~/.pi/agent/settings.json`, `presets.json`, `AGENTS.md`) repointed to match, backed up as `*.bak-20261115-1017`. Recorded traffic (2 137 turns, 94.4% cache-reads) reprices at a 50% cost cut.
 - Pending: `planner`/`oracle`/`critic` stay on `deepseek-v4-pro` (0423). `deepseek-v4-pro-0813` scores +45% on the coding index (38.7 → 56.1) but its routed cache-read is 5.6× dearer ($0.097 vs $0.01722), ~4× more per turn on a cache-heavy session — a deliberate trade left to the operator, documented in the alternatives table.
 - Carry-forward: `deepseek-v4.1-pro` is announced but unreleased (named in benchmark configs 2026-11-01, no card, price or date); `deepseek-v5` is a 2027 Huawei-Ascend story. Re-check the pinned snapshot when either ships — the bare-ID trap means nothing will warn.
+
+## Plan: Code-graph adoption, gated by a measured A/B
+> Spec: specs/code-graph-adoption.md
+- [ ] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
+
+### Slice 1/9 — graphify install policy
+- [x] graphify install policy — pin file, `graphifyy` name, interactive y/N offer, stock hook stripped, budgeted rules text, ledger created
+
+> Handover: landed c6aebd3 and 998b58b — graphifyy 0.9.109 pin, person-only install offer, stock hook removal, budgeted rules, source-resolved sync pin and ledger; affected tests: 65 files, 6481 passed.
+> Do not re-derive: pinned CLI has --version and hook-guard read/search; old 0.4.23 lacks --version; source notes live in sync Step 7. No paid runs or package installs.
+> Surface: initial per-commit check clean; final joint-range check lists only slice 3 plus the required .claude-plugin/plugin.json release bump to 1.8.10.
+
+
+### Slice 2/9 — graph status reporting
+- [x] graph status reporting — `AGENTS.md` § Code Graph matches the tree; the banner prints one line per broken state
+
+> Handover: landed cd372bc and 0f31434 — bounded health/version probes, graph parsing, HEAD/tracked-code freshness, truthful repository description and copied-hook pin contract; affected tests before the copy repair: 67 files, 6522 passed.
+> Do not re-derive: the pin resolves from the template root or adjacent graphify.pin; absent/empty pin is broken, never silently healthy. Slice 6 must provision that adjacent pin. CLI probes are bounded by 5 seconds; failures exit 0.
+> Surface: check against 1167cf2 clean; copy-repair changes remain in the same surface; targeted session-start test 209 passed.
+
+
+> [AMBIGUITY] The copied Codex banner needs the canonical pin before the installer surface is reached in slice 6 | options: A) add an adjacent-pin contract now and provision it in slice 6 B) expand Phase A into the Codex installer | picked: A | reason: explicit missing-resource reporting removes the silent failure while preserving the declared slice surfaces.
+
+### Slice 3/9 — code-graph grader
+- [x] code-graph grader — `grade-code-graph.py` with tool classification, paired means and the six-rule verdict
+
+> Handover: landed 68ed02b and 506c1eb — shared-parser grader, metadata contract, paired means, six frozen rules, exact N=3 and shell invocation classification; affected tests: 65 files, 6481 passed.
+> Do not re-derive: metadata.json records kind, integer seed, completed/errored status and cost_usd; retries stay outside run-*; parent plus delegated tokens count. Availability probes do not count as adoption. Classification tests use public CLI transcript fixtures, not private helper imports.
+> Surface: initial per-commit check clean; final joint-range check lists only slice 1 plus the required plugin manifest release bump.
+
+
+### Slice 4/9 — localization suite
+- [x] localization suite — the runner spike in the suite README, seeded fixtures, 10+ cases, the arm-D stub, graders, rubric, one smoke run
+
+> Handover: landed da5bb18 — ten seeded mixed-language cases, 150+ files/20000+ lines each, deterministic graders and four degraded modes; affected tests: 67 files, 6522 passed.
+> Do not re-derive: sandbox probe succeeded on Linux/Claude Code 2.1.325; C is excluded because Serena in the runner workspace remains unproven. Paid smoke is deferred until the protocol is committed and PR 1 merged; installed graphify 0.4.23 fails the 0.9.109 runtime prerequisite without an agent upgrade.
+> Surface: check against cd372bc clean. Suite tests enumerate public case manifests with independent expected targets, not the generator private dictionary.
+
+> [AMBIGUITY] Slice 4 requests a paid smoke run before slice 8 commits the protocol | options: A) defer the paid smoke until the protocol is committed B) run the smoke before protocol freeze | picked: A | reason: AC4 requires a committed protocol before every paid run.
+
+### Slice 5/9 — routing rule and hint hook
+- [ ] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+
+### Slice 6/9 — Codex hint adapter
+- [ ] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+
+### Slice 7/9 — skill wiring
+- [ ] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+
+### Slice 8/9 — eval run and verdict
+- [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
+
+### Slice 9/9 — outcome
+- [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state

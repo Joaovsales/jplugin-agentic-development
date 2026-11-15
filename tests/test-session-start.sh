@@ -511,7 +511,20 @@ assert_not_contains "$output" "found in .claude/project.md" \
 # prefix isolate the runs from this machine's plugin records and graphify.
 B="$(fixture_dir)"
 mkdir -p "$B/cfg" "$B/bin"
-BANNER=(CLAUDE_CONFIG_DIR="$B/cfg" PATH="$B/bin:$PATH")
+GRAPH_PIN="$(cat "$LIVE_CHECKOUT/.agents/graphify.pin")"
+graphify_stub() {
+  cat > "$B/bin/graphify" <<'STUB'
+#!/bin/bash
+case "$1" in
+  --help)
+    case "${GRAPH_HELP:-ok}" in fail) exit 1 ;; hang) sleep 30 ;; esac ;;
+  --version) printf 'graphify %s\n' "$GRAPH_VERSION" ;;
+esac
+STUB
+  chmod +x "$B/bin/graphify"
+}
+graphify_stub
+BANNER=(CLAUDE_CONFIG_DIR="$B/cfg" PATH="$B/bin:$PATH" GRAPH_VERSION="$GRAPH_PIN")
 block_agents='# Demo
 
 <!-- jplugin-agentic-development:begin -->
@@ -541,10 +554,9 @@ clean_lines="$(printf '%s\n' "$output" | grep -c '' || true)"
 assert_true "Banner: nothing wrong -> at most 12 lines (got $clean_lines)" -- [ "$clean_lines" -le 12 ]
 
 # Graph older than HEAD -> the stale line. graphify is a stub on the private PATH.
-printf '#!/bin/bash\nexit 0\n' > "$B/bin/graphify"; chmod +x "$B/bin/graphify"
 touch -t 202001010000 "$CLEAN/graphify-out/graph.json"
 startup "$CLEAN" "${BANNER[@]}"
-assert_contains "$output" "⚠  code graph stale: graphify-out/graph.json is older than HEAD — run graphify" \
+assert_contains "$output" "code graph: stale" \
   "Banner: a graph older than HEAD prints the stale line"
 # No graph: silent in a tree without code files, loud once a code file is tracked.
 rm -rf "$CLEAN/graphify-out"
@@ -556,7 +568,72 @@ git -C "$CLEAN" add main.py && git -C "$CLEAN" commit -qm code
 startup "$CLEAN" "${BANNER[@]}"
 assert_contains "$output" "⚠  graphify installed but no graph — run graphify" \
   "Banner: graphify installed, code files tracked, no graph -> the missing-graph line"
+# A fresh graph is silent; tracked working-tree code invalidates it as well.
+mkdir -p "$CLEAN/graphify-out"
+printf '{}' > "$CLEAN/graphify-out/graph.json"
+startup "$CLEAN" "${BANNER[@]}"
+assert_not_contains "$output" "code graph:" "Graph: clean HEAD and current graph are silent"
+assert_exit 0 "Graph: a healthy banner exits 0"
+printf 'print(2)\n' > "$CLEAN/main.py"
+"$TEST_PYTHON" - "$CLEAN" <<'PYTIME'
+import os
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+stamp = (root / 'graphify-out/graph.json').stat().st_mtime_ns + 1000000000
+os.utime(root / 'main.py', ns=(stamp, stamp))
+PYTIME
+startup "$CLEAN" "${BANNER[@]}"
+assert_contains "$output" "code graph: stale" "Graph: modified tracked code newer than graph is stale"
+assert_eq 1 "$(count_lines "$output" 'code graph: stale')" "Graph: stale state prints once"
+assert_exit 0 "Graph: stale banner exits 0"
+git -C "$CLEAN" checkout -- main.py
+printf 'not json\n' > "$CLEAN/graphify-out/graph.json"
+startup "$CLEAN" "${BANNER[@]}"
+assert_contains "$output" "code graph: broken" "Graph: corrupt JSON is broken"
+assert_eq 1 "$(count_lines "$output" 'code graph: broken')" "Graph: broken state prints once"
+assert_exit 0 "Graph: corrupt graph banner exits 0"
+printf '{}' > "$CLEAN/graphify-out/graph.json"
+startup "$CLEAN" "${BANNER[@]}" GRAPH_HELP=fail
+assert_contains "$output" "code graph: broken" "Graph: failed CLI help probe is broken"
+assert_exit 0 "Graph: failed CLI banner exits 0"
+started=$(date +%s)
+startup "$CLEAN" "${BANNER[@]}" GRAPH_HELP=hang
+assert_contains "$output" "code graph: broken" "Graph: hanging CLI probe is broken"
+assert_true "Graph: hanging probe is bounded" -- [ "$(( $(date +%s) - started ))" -le 8 ]
+assert_exit 0 "Graph: timed-out CLI banner exits 0"
+startup "$CLEAN" "${BANNER[@]}" GRAPH_VERSION=0.0.1
+assert_contains "$output" "code graph: version drift 0.0.1 != $GRAPH_PIN" "Graph: version drift names both versions"
+assert_contains "$output" "pipx install --force graphifyy==$GRAPH_PIN" "Graph: version drift prints the pinned upgrade command"
+assert_exit 0 "Graph: drift banner exits 0"
+# Codex installs a copy outside the template tree, with its pin beside it.
+COPIED_GRAPH_HOOK="$(fixture_dir)/.codex/hooks"
+mkdir -p "$COPIED_GRAPH_HOOK"
+SAVED_GRAPH_HOOK="$HOOK"
+cp "$HOOK" "$COPIED_GRAPH_HOOK/session-start.sh"
+HOOK="$COPIED_GRAPH_HOOK/session-start.sh"
+printf '%s\n' "$GRAPH_PIN" > "$COPIED_GRAPH_HOOK/graphify.pin"
+startup "$CLEAN" "${BANNER[@]}" GRAPH_VERSION=0.0.1
+assert_contains "$output" "code graph: version drift 0.0.1 != $GRAPH_PIN" "Graph: copied hook reads its adjacent pin"
+assert_contains "$output" "pipx install --force graphifyy==$GRAPH_PIN" "Graph: copied hook prints exact upgrade command"
+assert_exit 0 "Graph: copied hook with pin exits 0"
+rm "$COPIED_GRAPH_HOOK/graphify.pin"
+startup "$CLEAN" "${BANNER[@]}"
+assert_eq 1 "$(count_lines "$output" 'code graph: broken')" "Graph: copied hook missing its pin reports broken once"
+assert_not_contains "$output" "version drift" "Graph: missing pin invents no version comparison"
+assert_exit 0 "Graph: copied hook missing pin exits 0"
+: > "$COPIED_GRAPH_HOOK/graphify.pin"
+startup "$CLEAN" "${BANNER[@]}"
+assert_eq 1 "$(count_lines "$output" 'code graph: broken')" "Graph: copied hook empty pin reports broken once"
+assert_exit 0 "Graph: copied hook empty pin exits 0"
+HOOK="$SAVED_GRAPH_HOOK"
 rm -f "$B/bin/graphify"
+startup "$CLEAN" CLAUDE_CONFIG_DIR="$B/cfg" PATH="$B/bin:/usr/bin:/bin"
+assert_not_contains "$output" "code graph:" "Graph: absent graphify is silent"
+assert_not_contains "$output" "graphify installed" "Graph: absent graphify has no missing-graph warning"
+assert_exit 0 "Graph: no graphify banner exits 0"
+assert_file_contains "$LIVE_CHECKOUT/AGENTS.md" '.agents/skills/*/scripts/' "Graph: repository describes indexed Python scripts"
+assert_file_contains "$LIVE_CHECKOUT/AGENTS.md" 'graphify update .' "Graph: repository names graph refresh command"
 
 # Missing block: printed only in an adopting repository (D18).
 ADOPT_SKILLS="$(fixture_repo)"
