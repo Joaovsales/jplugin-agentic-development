@@ -1,16 +1,15 @@
-# Checkpoint — 2026-10-21T22:18:22Z
+# Checkpoint — 2026-11-15T18:42:24Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
 ## Git
-- Branch: claude/read-shunt-baseline-build-27c746
+- Branch: Joaovsales/code-graph
 
 ```
- M tasks/checkpoint.md
+(working tree clean)
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)
-  [ ] TDD: tests/test-task-registry.sh § parent — `--parent '#N'` on the local fixture records a native parent; on the github fixture writes `parent:` metadata and prints the disclosure line; the dry run calls no provider; `SKILL.md` documents the flag -> `--parent` on `upsert` wired to `link_parent` (AC 7) — pending: the PR's Linux CI run (the GitHub-mock pins cannot reach the `gh` mock from Python on Windows, #129)
   [ ] TDD: tests/test-doc-conventions.sh § workflow — `CLAUDE.md` steps 1 to 3 name `/grill-me` and `/brainstorm` as optional precursors, `/grilling` as mandatory in `/system-design-planning`, `DECISIONS CARRIED`, `/slice`, the build prompt, a fresh session and `> Handover:`; "Confirm with 'y' to begin" and the **approved** parenthetical are gone; `tasks/concepts.md` defines slice, surface, ready set, handover and build prompt; `bash tests/run.sh` green on CI -> rewrite § Workflow 1 to 3; `/learn` the five terms (AC 14) — pending: `bash tests/run.sh` green on the PR's Linux CI run (580 § workflow assertions pass here; Windows carries 159 pre-existing failures)
   [ ] Verify: parallel dispatch of two disjoint slices and a handover read by a dispatched blocked slice — rerun under an isolated `CLAUDE_CONFIG_DIR` with two ready slices each large enough for `/build` to dispatch (tasks/backlog.md § From #106)
 [ ] Cloud routine: update the existing `tidy` routine (trig_0156hDQVc2Qp5MuUx6j7ttxF) with routine-prompts/tidy.md, Planner-tier model, weekly cron; enable and run once after this PR merges; verify the run opened `chore(tidy): <date>` from `routine/tidy/<YYYYMMDD>-sweep` with the record under tasks/sweeps/
@@ -40,9 +39,10 @@
   [ ] TDD: tests/test-helix-stack-branch.sh § remote-state — branch/PR head-base lookup is idempotent; timeout is unknown; parent updates merge without rebase; wrong base, duplicate PR and rewritten SHA refuse -> stack inspect and branch contract (AC 20)
   [ ] TDD: tests/test-helix-stack-build.sh § boundary — a unit opens only after all slice commits and its barrier; the next unit starts on its declared parent head; blocked/stale ancestors keep descendants draft -> `/build` review-unit transition (AC 21)
   [ ] TDD: tests/test-helix-stack-wrapup.sh § closure — each PR has a retained unit receipt/suite/CI/evidence; intermediate uses Refs, final uses Closes; merge commit preserves slice SHAs; retarget and final acceptance recheck integrated tree; single-PR and ordinary modes stay green -> stacked wrap-up (AC 22)
+  [ ] TDD: tests/test-helix-worker-selector.sh § selection — auto prefers verified matching Orca then capable native; forced Orca refuses when unavailable; no capable backend blocks; selection records an attempt and ordinary build stays unchanged -> runtime-neutral backend selector (AC 24)
 
 ## Active Spec
-- specs/read-shunt.md
+- specs/code-graph-adoption.md
 
 ## How to Resume
 1. Read this file and `tasks/todo.md`

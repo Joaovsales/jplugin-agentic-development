@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: currency-shape
+description: Money values now carry minor and unit fields.
+tags: [localization]
+context:
+  scaffold_script: fixture.sh

@@ -591,30 +591,74 @@ if [ "$ADOPTING" = "1" ] && [ -f "$INSTALLED_PLUGINS" ]; then
 fi
 
 # ── Code Graph Check ─────────────────────────────────────────────────────────
-# graphify answers queries from graphify-out/graph.json, so a graph older than
-# HEAD reports structure the last commit already changed. Silent when graphify is
-# not installed and when the graph is current. The missing-graph line is printed
-# only when the tree has files in graphify's code-extension set — a shell-and-
-# markdown repository has no graph to build (observability discipline: loud only
-# on actionable state).
+# Probe the optional CLI only under a deadline. The graph is current only when
+# it parses and predates neither HEAD nor modified tracked code.
 if command -v graphify >/dev/null 2>&1 && git rev-parse --is-inside-work-tree &>/dev/null; then
   GRAPH_FILE="graphify-out/graph.json"
   CODE_EXTENSIONS='\.(py|js|jsx|ts|tsx|go|rs|java|kt|c|h|cc|cpp|hpp|cs|rb|php|swift|scala)$'
-  if [ -f "$GRAPH_FILE" ]; then
-    GRAPH_MTIME=$(stat -c %Y "$GRAPH_FILE" 2>/dev/null \
-                  || stat -f %m "$GRAPH_FILE" 2>/dev/null \
-                  || echo 0)
-    HEAD_TIME=$(git log -1 --format=%ct 2>/dev/null || echo 0)
-    if [ "${HEAD_TIME:-0}" -gt "${GRAPH_MTIME:-0}" ]; then
-      echo ""
-      echo "⚠  code graph stale: graphify-out/graph.json is older than HEAD — run graphify"
-    fi
+  GRAPH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd || true)"
+  GRAPH_PIN="$(cat "$GRAPH_ROOT/.agents/graphify.pin" 2>/dev/null || true)"
+  # Installed copies carry the pin beside this hook, outside the template tree.
+  if [ -z "$GRAPH_PIN" ]; then
+    GRAPH_PIN="$(cat "$(dirname "${BASH_SOURCE[0]}")/graphify.pin" 2>/dev/null || true)"
+  fi
+  GRAPH_BROKEN=0
+  [ -n "$GRAPH_PIN" ] || GRAPH_BROKEN=1
+  if ! timeout 5 graphify --help >/dev/null 2>&1; then
+    GRAPH_BROKEN=1
   else
-    # `|| true`: grep -c exits 1 on zero matches, and pipefail would end the banner.
+    GRAPH_VERSION="$(timeout 5 graphify --version 2>/dev/null | tr -d '\r\n' || true)"
+    GRAPH_VERSION="${GRAPH_VERSION##* }"
+    if [ -n "$GRAPH_PIN" ] && [ "${GRAPH_VERSION:-unknown}" != "$GRAPH_PIN" ]; then
+      echo "code graph: version drift ${GRAPH_VERSION:-unknown} != $GRAPH_PIN"
+      echo "    pipx install --force graphifyy==$GRAPH_PIN"
+    fi
+  fi
+  if [ -f "$GRAPH_FILE" ]; then
+    GRAPH_PYTHON="$(command -v python3 || command -v python || true)"
+    GRAPH_STATE="broken"
+    if [ "$GRAPH_BROKEN" = 0 ] && [ -n "$GRAPH_PYTHON" ]; then
+      GRAPH_STATE="$(timeout 5 "$GRAPH_PYTHON" - "$GRAPH_FILE" "$CODE_EXTENSIONS" <<'PYGRAPH'
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+code_extensions = re.compile(sys.argv[2], re.IGNORECASE)
+try:
+    graph = Path(sys.argv[1])
+    with graph.open(encoding='utf-8') as source:
+        json.load(source)
+    graph_time = graph.stat().st_mtime_ns
+    head_time = int(subprocess.check_output(['git', 'log', '-1', '--format=%ct'], stderr=subprocess.DEVNULL))
+    stale = graph_time < head_time * 1000000000
+    changed = subprocess.check_output(['git', 'diff', '--name-only', '-z', 'HEAD'], stderr=subprocess.DEVNULL)
+    for name in os.fsdecode(changed).split('\0'):
+        path = Path(name)
+        if name and code_extensions.search(name):
+            if not path.exists() or path.stat().st_mtime_ns > graph_time:
+                stale = True
+    if stale:
+        print('stale')
+except (OSError, ValueError, subprocess.SubprocessError):
+    print('broken')
+PYGRAPH
+      )" || GRAPH_STATE="broken"
+    fi
+    case "$GRAPH_STATE" in
+      stale) echo "code graph: stale" ;;
+      broken) GRAPH_BROKEN=1 ;;
+    esac
+  else
     CODE_FILES=$(git ls-files 2>/dev/null | grep -ciE "$CODE_EXTENSIONS" || true)
     if [ "${CODE_FILES:-0}" -gt 0 ]; then
-      echo ""
       echo "⚠  graphify installed but no graph — run graphify"
     fi
   fi
+  if [ "$GRAPH_BROKEN" = 1 ]; then
+    echo "code graph: broken"
+  fi
 fi
+exit 0
