@@ -275,18 +275,14 @@ Slice Close, the only place a header is marked `[x]`.
 
 ### Slice Close
 
-Slice Close fires when the dispatch returns with every acceptance criterion of
-the slice green through `/tdd`:
+Slice Close fires when the dispatch returns with every acceptance criterion of the slice green through `/tdd`:
 
 ```bash
 python3 .agents/skills/slice/scripts/slice.py check --spec <spec> --slice <n> --base <sha>
 ```
 
-This matches `git diff --name-only <base>..HEAD` against the slice's
-declared surface and prints `undeclared: <paths>` and `untouched: <globs>`,
-exiting 0 only when both are empty. Informational — nothing stops on a
-non-empty report; fold the result into the handover below and the Phase 4.5
-batch; exit 2 is bad input.
+Matches `git diff --name-only <base>..HEAD` against the declared surface; prints `undeclared: <paths>` and `untouched: <globs>`. Exit 0 means both empty; exit 2 means bad input.
+The report is informational: continue, carrying it into the handover and Phase 4.5 batch.
 
 Before writing the handover, refresh an existing graph when the CLI is available:
 
@@ -298,12 +294,10 @@ if command -v graphify >/dev/null 2>&1 && [ -f graphify-out/graph.json ]; then
 fi
 ```
 
-Use the single warning line, if emitted, as the fourth handover line instead
-of the optional `> Open:` line; this maintenance step never fails the slice.
+Use an emitted warning as the fourth handover line instead of optional `> Open:`; maintenance never fails the slice.
 This scheduled refresh is not a navigation retry.
 
-Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
-(they stay its last lines, outside the four) — one to four blockquote lines, each with its own prefix:
+Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there (they stay its last lines, outside the four) — one to four blockquote lines, each with its own prefix:
 
 ```markdown
 > Handover: landed <short-sha>..<short-sha> — what landed
@@ -312,21 +306,15 @@ Write a `> Handover:` blockquote under the slice heading, after its rows and abo
 > Open: one open question (optional)
 ```
 
-The first two lines are required; the blockquote is the unit every reader
-consumes — the delegation prompt and `/wrap-up-session` § Handovers carry
-the whole blockquote, never the `> Handover:` line alone. Write it for a
-one-slice plan too: it is what an interrupted build's next session reads.
+The first two lines are required, including for one-slice plans. The next session reads this handoff.
+Every reader, including delegation prompts and `/wrap-up-session` § Handovers, carries the whole blockquote, never only `> Handover:`.
 
-**Unfinished slice**: when the agent returns criteria under `## Not finished`
-or the escape hatch fired, leave the header `[ ]`, write
-`unfinished: <AC ids>` in the handover, and leave the slice in the next
-`ready` set. Never renumber and never open a remainder slice. A header
-marked `[x]` with no `> Handover:` is the **forbidden state** — Phase 6 checks
-every `[x]` header for its handover and reports a miss as a build failure.
+**Unfinished slice**: on `## Not finished` criteria or escape-hatch exit, leave the header `[ ]`, write `unfinished: <AC ids>` in the handover and keep the slice in the next `ready` set.
+Never renumber or open a remainder slice. An `[x]` header without `> Handover:` is the **forbidden state**.
+Phase 6 checks every `[x]` header and reports a missing handover as a build failure.
 
-The slice boundary is the checkpoint, in this order: run the affected-test
-command once against the base SHA, centrally; write the handover; mark the
-header `[x]`; log `✓ slice <n> — <one-line summary>`.
+At the slice checkpoint, in order: run the affected-test command once against the base SHA, centrally; write the handover;
+mark the header `[x]`; log `✓ slice <n> — <one-line summary>`.
 **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the
 shared flush (`bash .agents/hooks/pre-compact.sh </dev/null`) — no prompt, no
 commit — so a context compaction or `/refresh` loses at most one slice of
