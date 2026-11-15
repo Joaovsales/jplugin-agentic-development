@@ -598,7 +598,12 @@ if command -v graphify >/dev/null 2>&1 && git rev-parse --is-inside-work-tree &>
   CODE_EXTENSIONS='\.(py|js|jsx|ts|tsx|go|rs|java|kt|c|h|cc|cpp|hpp|cs|rb|php|swift|scala)$'
   GRAPH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd || true)"
   GRAPH_PIN="$(cat "$GRAPH_ROOT/.agents/graphify.pin" 2>/dev/null || true)"
+  # Installed copies carry the pin beside this hook, outside the template tree.
+  if [ -z "$GRAPH_PIN" ]; then
+    GRAPH_PIN="$(cat "$(dirname "${BASH_SOURCE[0]}")/graphify.pin" 2>/dev/null || true)"
+  fi
   GRAPH_BROKEN=0
+  [ -n "$GRAPH_PIN" ] || GRAPH_BROKEN=1
   if ! timeout 5 graphify --help >/dev/null 2>&1; then
     GRAPH_BROKEN=1
   else
