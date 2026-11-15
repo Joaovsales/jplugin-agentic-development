@@ -52,7 +52,8 @@ def graph_command(command):
     if not isinstance(command, str):
         return False
     try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()")
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
+        lexer.whitespace = " \t\r"
         lexer.whitespace_split = True
         words = list(lexer)
     except ValueError:
@@ -62,13 +63,15 @@ def graph_command(command):
     skip_next = False
     wrappers = {"timeout", "env", "command", "nice", "nohup"}
     for word in words:
-        if word and all(c in ";&|()" for c in word):
+        if word and all(c in ";&|()\n" for c in word):
             executable = True
             wrapper = None
             skip_next = False
         elif executable:
             if skip_next:
                 skip_next = False
+                continue
+            if word in ("if", "then", "elif", "else", "while", "until", "do"):
                 continue
             name = word.rsplit("/", 1)[-1]
             if name == "graphify":

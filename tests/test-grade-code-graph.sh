@@ -10,6 +10,7 @@ if [ ! -f "$GRADER" ]; then finish; exit $?; fi
 
 "$TEST_PYTHON" - "$GRADER" <<'PY'
 import copy
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -17,6 +18,19 @@ import sys
 import tempfile
 
 grader = str(Path(sys.argv[1]).resolve())
+sys.path.insert(0, str(Path(grader).parent))
+spec = importlib.util.spec_from_file_location("grade_code_graph", grader)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+for command, expected in (
+    ("cd /repo\ntimeout 20 graphify query billing --budget 1500", True),
+    ("if command -v graphify; then timeout 20 graphify query billing --budget 1500; fi", True),
+    ("command -v graphify", False),
+    ('echo "notes\ntimeout 20 graphify query billing --budget 1500"', False),
+    ("echo graphify", False),
+):
+    assert module.graph_command(command) is expected, (command, expected)
+print("ok: shell command boundaries preserve graph invocations and exclude quoted prose")
 
 def transcript(tokens, seconds, graph=True):
     calls = [
