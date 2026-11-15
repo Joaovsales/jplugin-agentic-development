@@ -802,6 +802,10 @@ for path in README.md install.sh .agents/skills/sync/SKILL.md; do
   assert_file_contains "$path" 'graphifyy' "graphify: $path names the canonical package"
   assert_file_not_matches "$path" 'pip install graphify\b' "graphify: $path has no nonexistent package command"
 done
+sync_graphify="$(sed -n '/^### Step 7 — Optional: Re-wire graphify/,/^## Edge Cases/p' .agents/skills/sync/SKILL.md)"
+assert_contains "$sync_graphify" 'git show "workflow/$WORKFLOW_BRANCH:.agents/graphify.pin"' "graphify: remote sync reads the template source pin"
+assert_contains "$sync_graphify" 'cat "$WORKFLOW_CLONE/.agents/graphify.pin"' "graphify: manual sync reads the template source pin"
+assert_not_contains "$sync_graphify" '.agents/references/code-navigation.md' "graphify: Phase A has no unshipped treatment reference"
 GRAPHIFY_PIN="$(cat .agents/graphify.pin 2>/dev/null || printf missing)"
 
 make_graphify_case() {

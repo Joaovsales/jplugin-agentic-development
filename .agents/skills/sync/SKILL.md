@@ -625,8 +625,24 @@ synced only by CI migrates on its first hand-run `/sync`.
 
 ### Step 7 — Optional: Re-wire graphify
 
-Read the pinned version from `.agents/graphify.pin`. The package is `graphifyy`,
-from the canonical `github.com/Graphify-Labs/graphify` repository. An agent never
+Read the pinned version from the template source fetched in Step 2, rather than
+assuming the downstream project has `.agents/graphify.pin`.
+
+In git remote mode:
+
+```bash
+GRAPHIFY_PIN="$(git show "workflow/$WORKFLOW_BRANCH:.agents/graphify.pin")"
+```
+
+In manual diff mode:
+
+```bash
+GRAPHIFY_PIN="$(cat "$WORKFLOW_CLONE/.agents/graphify.pin")"
+```
+
+If the source pin cannot be read, report that failure and skip this optional step.
+The package is `graphifyy`, from the canonical
+`github.com/Graphify-Labs/graphify` repository. An agent never
 installs or upgrades it: if absent or a different version, report the command
 `pipx install --force graphifyy==<PIN>` with the pin substituted. A person can
 run `install.sh` for its interactive y/N offer; never invoke that installer from
@@ -650,8 +666,7 @@ The pin's upstream command forms remain `query --budget`, `explain`, `path`,
 `update .`, `claude install` and `hook install` (PyPI graphifyy 0.9.109,
 canonical repository's `v8` branch, checked 2026-11-15). This pin also ships
 `graphify --version` and stock `graphify hook-guard read/search` PreToolUse
-commands; the installer strips those guards as well as legacy report hooks. These source notes
-carry forward to `.agents/references/code-navigation.md` when treatment lands.
+commands; the installer strips those guards as well as legacy report hooks.
 
 ## Edge Cases
 
