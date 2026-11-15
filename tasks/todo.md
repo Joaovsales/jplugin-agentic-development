@@ -2934,8 +2934,8 @@ Step ledger (routine `simplify`):
 ### Slice 8/9 — eval run and verdict
 - [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
 
-> Handover: unfinished: AC4, AC8 — HALTED-NEEDS-USER: pinned CLI guard exited 2; graphifyy 0.4.23 differs from 0.9.109; no protocol, results or paid runs.
-> Do not re-derive: The six-rule go text is unchanged; N=3, $320 total and $4 per run. Exact model id must be recorded before any paid run.
+> Handover: unfinished: AC4, AC8 — HALTED-NEEDS-USER: human installation completed; graphifyy 0.9.109 passes the runtime guard. Native eval permits an in-flight run to exceed its cost ceiling; no paid run or registered protocol.
+> Do not re-derive: Exact Claude default is claude-opus-5-5; read-only evidence and an unregistered protocol draft are under tasks/eval-results/code-graph/. The six-rule text is unchanged; N=3, $320 total, $4 per run, spend $0. Resume only with a verified runner that enforces the settled ceiling.
 
 
 ### Slice 9/9 — outcome

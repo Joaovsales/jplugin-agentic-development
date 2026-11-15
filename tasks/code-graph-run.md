@@ -25,7 +25,7 @@ Branch: code-graph/treatment
 | 5 | done | c2c4826; 34 affected files/3489 assertions green; handover recorded |
 | 6 | done |66f597d; typed-schema support;59 targeted assertions and shared affected run green |
 | 7 | done |1655f58 plus prose repair;600-line budget; affected55files/5331assertions green |
-| 8 | ready for prerequisite check | No paid run or protocol commit yet; installed CLI must match pin |
+| 8 | runtime passed; runner budget blocked | Pinned CLI guard now exits 0; no paid run or registered protocol |
 | 9 | pending | Blocked by 8 |
 
 ## Evidence and environment
@@ -111,5 +111,37 @@ cd /tmp/harbor-setup-hddf8lis && bash /tmp/harbor-workflow/install.sh
 ```
 
 A person must run it in a terminal with pipx on PATH and CI unset, and accept the graphify y/N offer. The setup directory is fresh and empty; neither experiment checkout is the installer working directory. Resume by rerunning the canonical runtime guard; after it passes, establish the exact model id and commit the complete protocol before any paid run.
+
+### Runtime recovery and runner budget receipt — 2026-11-15T22:24:01.014016+00:00
+
+The person accepted the pinned graphify install offer in the existing neutral
+installer session. Installer exited 0; graphifyy 0.9.109 is now the pipx CLI, and
+`python3 evals/code-graph/fixture_gen.py --check-runtime` exited 0. The
+installer's git-hook wiring warning applies to the neutral setup directory.
+Read-only runtime/model/native-runner provenance is
+`tasks/eval-results/code-graph/preflight-after-install-2026-11-15.json`.
+
+Claude Code 2.1.325 is configured with alias `opus`; its native default and this
+workspace's existing Claude transcript support exact ID `claude-opus-5-5`. No
+new model call was used to establish this. The unregistered protocol draft is
+`tasks/eval-results/code-graph/protocol-draft-2026-11-15.md`; official `protocol.md`
+has not been written or committed.
+
+The inspected native eval child argv builder forwards no `--max-budget-usd`.
+`--max-cost-usd` gates the next launch and explicitly allows an in-flight run to
+exceed its threshold. D7 requires $4 per run, so no paid run can start through
+that recipe. This is a runner prerequisite failure, not a measured no-go.
+A supported runner that actually enforces the settled ceiling must be proven
+before registration. Parent tool discovery found no Workflow execution tool in
+`ALL_TOOLS`, so the documented fallback is not verified in this session; this
+does not establish that every alternative runner is impossible. No custom proxy
+or unapproved surface expansion was added.
+
+## Not finished
+
+- AC4: register and commit an executable protocol before any paid run.
+- AC8: run fixed arms/seeds/N, retain transcripts and costs, and obtain the
+  six-rule verdict. Slice 9 remains blocked.
+- Paid runs: none. Cumulative evaluation spend: $0.
 
 HALTED-NEEDS-USER
