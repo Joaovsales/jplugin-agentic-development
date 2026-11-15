@@ -476,6 +476,22 @@ assert_eq "1" "$?" "upsert ambiguous arrows: a row carrying a stable ID still re
 assert_contains "$arrows_id_out" "refusing to act on a malformed index" \
   "upsert ambiguous arrows: skipping an ID-bearing row could mint a duplicate, so it is refused"
 
+# The writer side: a title quoting the delimiter must not write a row its own
+# reader refuses, or filing one such task blocks every later upsert.
+F_ARROWS_WRITE="$(registry_project)"
+printf '# Task Plan\n' > "$F_ARROWS_WRITE/tasks/todo.md"
+reg upsert plan.quoted --repo "$F_ARROWS_WRITE" --provider local --title 'Quote a -> b' \
+  --summary 'the x -> y token' --apply >/dev/null 2>&1
+assert_file_contains "$F_ARROWS_WRITE/tasks/todo.md" "- [ ] Quote a → b <!-- task-id: plan.quoted --> — the x -> y token" \
+  "upsert quoted arrow: the written row carries the title's arrow as '→'"
+arrows_next="$(reg upsert plan.next --repo "$F_ARROWS_WRITE" --provider local --title 'Next' --apply 2>&1)"
+assert_eq "0" "$?" "upsert quoted arrow: the next upsert after such a row succeeds"
+assert_contains "$arrows_next" "created plan.next" \
+  "upsert quoted arrow: the next upsert creates its task"
+arrows_rerun="$(reg upsert plan.quoted --repo "$F_ARROWS_WRITE" --provider local --title 'Quote a -> b' \
+  --summary 'the x -> y token' --apply 2>&1)"
+assert_contains "$arrows_rerun" "row refreshed" \
+  "upsert quoted arrow: re-filing the quoted title refreshes its row, never appends a second"
 fi
 end_case
 

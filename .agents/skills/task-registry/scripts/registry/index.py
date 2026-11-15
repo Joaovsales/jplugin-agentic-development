@@ -348,7 +348,10 @@ def _legacy_publish_error(cleaned: str, title: str, summary: str) -> Optional[st
 def render_row(task: Task, indent: str = "", include_kind: bool = False) -> str:
     """Render the canonical compact row. This is the only row shape we emit."""
     box = STATUS_TO_BOX.get(task.status, " ")
-    parts = [f"{indent}- [{box}] {task.title.strip()}"]
+    # A '->' before the summary separator reads as the legacy delimiter, so a title
+    # quoting it would write a row its own reader refuses. Prose arrows are '→'.
+    title = ARROW_SPLIT.sub("→", task.title.strip())
+    parts = [f"{indent}- [{box}] {title}"]
     if task.id:
         parts.append(f"<!-- task-id: {task.id} -->")
     if include_kind:
