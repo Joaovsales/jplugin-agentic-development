@@ -1,0 +1,43 @@
+# Hardened Bonsai llama-server on the NATIVE Docker engine (context "default",
+# unix:///var/run/docker.sock), not the Docker Desktop VM. See ../README.md § Container.
+#
+#   docker --context default compose -f docs/bonsai-2-27b/container/compose.yaml up -d --build
+#
+# Model selection (host directory mounted read-only at /models):
+#   BONSAI_MODEL_DIR   default ~/models/bonsai-27b-v1     (directory on the host)
+#   BONSAI_MODEL_FILE  default Bonsai-27B-Q1_0.gguf       (file inside that directory)
+# Fast alternative: BONSAI_MODEL_DIR=~/models/bonsai2-9b BONSAI_MODEL_FILE=Ternary-Bonsai-2-9B-Q2_0.gguf
+name: bonsai
+
+services:
+  llama:
+    build:
+      context: .
+    image: bonsai-llama:b12420
+    environment:
+      LLAMA_ARG_MODEL: /models/${BONSAI_MODEL_FILE:-Bonsai-27B-Q1_0.gguf}
+    volumes:
+      - type: bind
+        source: ${BONSAI_MODEL_DIR:-~/models/bonsai-27b-v1}
+        target: /models
+        read_only: true
+    ports:
+      - "127.0.0.1:${BONSAI_PORT:-18080}:8080"   # loopback only — never 0.0.0.0
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 8g
+    memswap_limit: 8g
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

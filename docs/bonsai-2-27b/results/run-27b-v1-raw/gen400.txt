@@ -1,0 +1,1 @@
+gen400: predicted_n=400 predicted_per_second=20.01 prompt_n=28 prompt_per_second=104.18

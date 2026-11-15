@@ -1,0 +1,6 @@
+1-single: PASS cities called=['lisbon'] want=['lisbon']
+2-select: PASS args={'amount': 250, 'from_currency': 'USD', 'to_currency': 'EUR'}
+3-parallel: PASS cities called=['paris', 'tokyo'] want=['paris', 'tokyo']
+4-typed-args: FAIL args={'title': 'Q4 budget review', 'date': '2026-11-20', 'duration_minutes': 30, 'attendees': ['ana@example.com', 'rui@example.com']}
+5-chained: PASS sequence=['search_files', 'get_file_info']
+TOTAL 4/5 (effort=none)
