@@ -200,15 +200,25 @@ docker compose -f docs/bonsai-2-27b/container/compose.yaml down
 | Read-only rootfs | `read_only: true`, plus `tmpfs /tmp` (64 MiB, `noexec,nosuid,nodev`) | `touch /x` and `touch /opt/llama/x` → `Read-only file system`; `/tmp` writable |
 | Model read-only | bind mount with `read_only: true` | `/models ext4 ro`; `touch /models/x` → `Read-only file system` |
 | Process cap | `pids_limit: 256` | `PidsLimit=256` |
-| Memory cap | `mem_limit: 8g`, `memswap_limit: 8g` (no swap) | `Memory=8589934592 MemorySwap=8589934592` |
+| Memory cap | `mem_limit: 8g`, `memswap_limit: 8g` (no swap), and `--cache-ram 4096` in ENTRYPOINT | `Memory=8589934592 MemorySwap=8589934592`. The KV cache for the full 32K is allocated on the GPU at start, so a filled context does not grow host memory. The prompt cache is the one host-side growth path: its default of 8192 MiB equals the limit, hence the 4096 bound. |
 | Loopback only | `ports: "127.0.0.1:18080:8080"` | host listener `127.0.0.1:18080` only; `/health` → 200 on loopback; refused (curl rc=7) on both host IPv4s, all four host IPv6s and every docker bridge gateway |
 | Full offload or fail | `-ngl 99 --fit off` in ENTRYPOINT | GPU memory 4577 MiB in use, the same as the bare-metal full-offload server |
 | Surface off | ENTRYPOINT `--no-webui --no-slots --no-ui-mcp-proxy --no-agent --offline`. `--rpc`, `--tools` (incl. `exec_shell_command`), `--mcp-servers-*`, `--models-dir` (router child-spawning), `--media-path`, `--slot-save-path`, `--props`, `--metrics` and `--connect` are never passed. | `/slots` 501, `/metrics` 501, `POST /props` 501, `/` (web UI) 404 |
 | Service | `HEALTHCHECK` on `/health` (bash `/dev/tcp`, no curl in the image) and `restart: unless-stopped` | `healthy` about 9 s after start, and again about 9 s after `docker restart` |
 
 The hardening flags are in the image ENTRYPOINT, so a compose `command:` override can replace only
-the tunables (context, KV type, slots), not the hardening. `GET /props` still answers 200 because it
-is read-only server info.
+the tunables (context, KV type, slots) and cannot *remove* a hardening flag. It can still **add**
+flags such as `--tools` or `--rpc`, and so can `LLAMA_ARG_*` environment variables. The compose
+file is therefore part of the trust boundary: review any change to its `command:` or
+`environment:` as a security change. `GET /props` still answers 200 because it is read-only server
+info.
+
+**What the healthcheck proves.** `/health` returns 200 once the model is loaded: the process is up
+and the weights are on the GPU. It does not prove that a generation succeeds. A generation probe
+would compete with real requests for the single slot (`-np 1`) and time out behind long
+completions, so a client should send a 1-token smoke request before relying on the service. The
+Docker engine's `restart:` policy acts on **exit**, not on `unhealthy`. A wedged server that never
+exits stays up and is reported `unhealthy`, but is not restarted.
 
 The container's bridge address (`172.23.0.2:8080` on this run) is reachable **from this host**, as
 any docker bridge is. It is not routed off the host, and the published port is loopback-only.

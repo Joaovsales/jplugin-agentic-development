@@ -149,9 +149,15 @@ def run_case(case, base, effort, max_tokens, timeout):
                 args = json.loads(tc["function"].get("arguments") or "{}")
             except json.JSONDecodeError as e:
                 return {"pass": False, "reason": f"malformed arguments JSON: {e}: {tc['function'].get('arguments')!r}"}
+            if not isinstance(args, dict):
+                return {"pass": False, "reason": f"arguments is not a JSON object: {args!r}"}
             calls.append((fn, args))
             msgs.append({"role": "tool", "tool_call_id": tc.get("id", ""), "content": json.dumps(fake_exec(fn, args))})
-    calls_ok, calls_note = case["check_calls"](calls)
+    # Argument values are model output: a wrong type ("250 USD" for a number) is a FAIL, not a crash.
+    try:
+        calls_ok, calls_note = case["check_calls"](calls)
+    except (TypeError, ValueError) as e:
+        calls_ok, calls_note = False, f"argument of wrong type: {e}"
     # Digit-group separators are formatting, not content: "48,213" counts as "48213".
     norm = re.sub(r"(?<=\d)[,  ](?=\d{3})", "", final or "").lower()
     ans_ok = final is not None and all(s.lower() in norm for s in case["answer_has"])

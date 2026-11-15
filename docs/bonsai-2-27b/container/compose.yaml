@@ -31,7 +31,7 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 256
-    mem_limit: 8g
+    mem_limit: 8g          # must stay well above --cache-ram 4096 (Dockerfile ENTRYPOINT)
     memswap_limit: 8g
     restart: unless-stopped
     deploy:

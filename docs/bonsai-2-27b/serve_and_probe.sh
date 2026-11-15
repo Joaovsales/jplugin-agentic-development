@@ -3,7 +3,8 @@
 # run the 5-prompt tool-call harness, then stop the server. Never leaves a service running.
 # Usage: serve_and_probe.sh <model.gguf> <out-dir> [ngl] [effort...]
 set -euo pipefail
-MODEL=$1; OUT=$2; NGL=${3:-99}; shift 3 || true
+[ $# -ge 2 ] || { echo "usage: $0 <model.gguf> <out-dir> [ngl] [effort...]" >&2; exit 2; }
+MODEL=$1; OUT=$2; NGL=${3:-99}; shift $(( $# < 3 ? $# : 3 ))
 EFFORTS=("${@:-none}")
 BIN=${LLAMA_BIN:-$HOME/opt/llama-b12420/llama-b12420}
 PORT=${PORT:-18080}
