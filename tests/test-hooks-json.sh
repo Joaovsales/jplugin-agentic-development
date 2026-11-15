@@ -51,12 +51,12 @@ print("top-level:", " ".join(sorted(data)))
 PY
 )"
 assert_contains "$shape" "valid" "hooks.json: is valid JSON"
-assert_contains "$shape" "events: PreCompact SessionStart Stop" \
-  "hooks.json: registers exactly the three events — SessionStart, PreCompact, Stop"
+assert_contains "$shape" "events: PreCompact PreToolUse SessionStart Stop" \
+  "hooks.json: registers exactly the four events — SessionStart, PreCompact, Stop, PreToolUse"
 assert_contains "$shape" "top-level: hooks" \
   "hooks.json: the only top-level key is hooks"
 
-for event in SessionStart PreCompact Stop; do
+for event in SessionStart PreCompact Stop PreToolUse; do
   line="$(printf '%s\n' "$shape" | grep "^$event: ")"
   assert_contains "$line" "n=1 type=command" \
     "hooks.json: $event registers exactly one command hook"
