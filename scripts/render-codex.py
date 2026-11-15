@@ -8,6 +8,9 @@ import ast
 import json
 import os
 import re
+import shlex
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import NoReturn, Optional
@@ -174,7 +177,33 @@ def _drop_legacy_adapter(groups: list) -> None:
     groups[:] = [g for g in groups if not (isinstance(g, dict) and g.get("hooks") == [])]
 
 
-def merge_hooks(destination: Path, commands: list[str]) -> None:
+def supports_pre_tool_use() -> bool:
+    """Probe public CLI schemas without starting a session or trusting hooks."""
+    executable = shutil.which("codex")
+    if not executable:
+        return False
+    try:
+        with tempfile.TemporaryDirectory(prefix="codex-hook-probe-") as directory:
+            result = subprocess.run(
+                [executable, "app-server", "generate-json-schema", "--experimental", "--out", directory],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10, check=False,
+            )
+            if result.returncode != 0:
+                return False
+            schema = json.loads((Path(directory) / "v2/HooksListResponse.json").read_text(encoding="utf-8"))
+            definitions = schema["definitions"]
+            properties = definitions["HookMetadata"]["properties"]
+            matcher = properties["matcher"]["type"]
+            return (
+                "preToolUse" in definitions["HookEventName"]["enum"]
+                and properties["eventName"].get("$ref") == "#/definitions/HookEventName"
+                and (matcher == "string" or isinstance(matcher, list) and "string" in matcher)
+            )
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.SubprocessError):
+        return False
+
+
+def merge_hooks(destination: Path, commands: list[str], graph_hint: Optional[str] = None) -> None:
     if destination.exists():
         try:
             data = json.loads(destination.read_text(encoding="utf-8"))
@@ -203,6 +232,40 @@ def merge_hooks(destination: Path, commands: list[str]) -> None:
         )
         if not registered:
             groups.append({"hooks": [{"type": "command", "command": command}]})
+    # Retire only our executable callback when a later CLI loses support.
+    # A personal command that merely prints this filename is not our hook.
+    if not graph_hint and isinstance(hooks.get("PreToolUse"), list):
+        script = destination.parent / "hooks" / f"{SLUG}-code-graph-hint.py"
+        groups = hooks["PreToolUse"]
+        for group in list(groups):
+            if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+                continue
+            for hook in list(group["hooks"]):
+                if not isinstance(hook, dict) or hook.get("type") != "command":
+                    continue
+                try:
+                    words = shlex.split(hook.get("command", ""))
+                except (ValueError, TypeError):
+                    continue
+                if (len(words) == 2 and Path(words[1]) == script
+                        and re.fullmatch(r"python(?:\d+(?:\.\d+)*)?(?:\.exe)?", Path(words[0]).name)):
+                    group["hooks"].remove(hook)
+                    if not group["hooks"]:
+                        groups.remove(group)
+    if graph_hint:
+        groups = hooks.setdefault("PreToolUse", [])
+        if not isinstance(groups, list):
+            fail(f"{destination}: PreToolUse must be an array")
+        registered = any(
+            isinstance(group, dict) and group.get("matcher") == "Bash"
+            and any(isinstance(hook, dict) and hook.get("command") == graph_hint
+                    for hook in group.get("hooks", []))
+            for group in groups
+        )
+        if not registered:
+            groups.append({"matcher": "Bash", "hooks": [
+                {"type": "command", "command": graph_hint, "timeout": 5},
+            ]})
     write_text(destination, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
@@ -212,6 +275,8 @@ def main() -> None:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--preview", action="store_true")
     parser.add_argument("--adopt-legacy", action="store_true")
+    parser.add_argument("--probe-pre-tool-use", action="store_true")
+    parser.add_argument("--code-graph-hook")
     parser.add_argument(
         "--merge-hooks",
         dest="hooks_args",
@@ -219,14 +284,16 @@ def main() -> None:
         metavar=("DEST", "SESSION_START", "PRE_COMPACT", "SESSION_END"),
     )
     args = parser.parse_args()
-    selected = [args.agents_args, args.hooks_args]
+    selected = [args.agents_args, args.hooks_args, args.probe_pre_tool_use or None]
     if sum(value is not None for value in selected) != 1:
         parser.error("choose exactly one rendering operation")
+    if args.probe_pre_tool_use:
+        raise SystemExit(0 if supports_pre_tool_use() else 1)
     if args.agents_args:
         render_agents(Path(args.agents_args[0]), Path(args.agents_args[1]), args.config,
                       args.preview, args.adopt_legacy)
     else:
-        merge_hooks(Path(args.hooks_args[0]), args.hooks_args[1:])
+        merge_hooks(Path(args.hooks_args[0]), args.hooks_args[1:], args.code_graph_hook)
 
 
 if __name__ == "__main__":

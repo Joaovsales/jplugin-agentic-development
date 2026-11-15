@@ -4,6 +4,7 @@
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL="$(under_test scripts/install-codex.sh)"
 RENDERER="$(under_test scripts/render-codex.py)"
+under_test codex/hooks/code_graph_hint.py >/dev/null
 
 # specs/single-instruction-file.md slice 5: the shared rules reach Codex through
 # the managed block /sync writes into each project's AGENTS.md, so the renderer
@@ -358,5 +359,104 @@ else
   assert_contains "$(cat "$BOX/bad.log")" "broken.md" \
     "renderer: malformed input identifies the source file"
 fi
+
+# AC16: use the installed CLI schema, never host configuration, as the probe.
+GRAPH_CASE="$BOX/code-graph"
+mkdir -p "$GRAPH_CASE/bin"
+cat > "$GRAPH_CASE/bin/codex" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" != app-server ] || [ "${2:-}" != generate-json-schema ]; then exit 1; fi
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = --out ]; then shift; destination="$1"; fi
+  shift
+done
+mkdir -p "$destination/v2"
+if [ "${GRAPH_PROBE_SUPPORT:-no}" = yes ]; then
+  printf '%s\n' '{"definitions":{"HookEventName":{"enum":["preToolUse"]},"HookMetadata":{"properties":{"eventName":{"$ref":"#/definitions/HookEventName"},"matcher":{"type":["string","null"]}}}}}' > "$destination/v2/HooksListResponse.json"
+else
+  printf '%s\n' '{"definitions":{"HookEventName":{"enum":["sessionStart"]},"HookMetadata":{"properties":{"matcher":{"type":"string"}}}}}' > "$destination/v2/HooksListResponse.json"
+fi
+SH
+chmod +x "$GRAPH_CASE/bin/codex"
+for support in yes no; do
+  graph_home="$GRAPH_CASE/$support"
+  mkdir -p "$graph_home/.codex"
+  printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo personal"}]}],"Stop":[{"hooks":[{"type":"command","command":"echo stop"}]}]},"personal":true}' > "$graph_home/.codex/hooks.json"
+  for repetition in 1 2; do
+    PATH="$GRAPH_CASE/bin:$PATH" GRAPH_PROBE_SUPPORT="$support" HOME="$graph_home" CODEX_HOME="$graph_home/.codex" AGENTS_HOME="$graph_home/.agents" bash "$INSTALL" > "$GRAPH_CASE/$support.log" 2>&1
+  done
+  assert_files_identical "$REPO/.agents/graphify.pin" "$graph_home/.codex/hooks/graphify.pin" "graph $support: relocated banner pin"
+  assert_files_identical "$REPO/.agents/references/code-navigation.md" "$graph_home/.codex/references/code-navigation.md" "graph $support: relocated navigation resource"
+  if "$TEST_PYTHON" - "$graph_home/.codex" "$support" <<'PYTEST'
+import json, pathlib, sys
+home=pathlib.Path(sys.argv[1]); data=json.loads((home/'hooks.json').read_text())
+assert data['personal'] is True
+assert data['hooks']['Stop'][0]['hooks'][0]['command']=='echo stop'
+groups=data['hooks']['PreToolUse']
+assert groups[0]['hooks'][0]['command']=='echo personal'
+owned=[g for g in groups if any('jplugin-agentic-development-code-graph-hint.py' in h.get('command','') for h in g['hooks'])]
+assert len(owned)==(1 if sys.argv[2]=='yes' else 0), owned
+if owned:
+ assert owned[0]['matcher']=='Bash'
+ assert owned[0]['hooks'][0]['timeout']==5
+PYTEST
+  then :; else fail "graph $support: conditional idempotent registration preserves personal events"; fi
+  if [ "$support" = no ]; then
+    assert_contains "$(cat "$GRAPH_CASE/$support.log")" 'text-only' "unsupported: explicit text-only coverage"
+  fi
+done
+
+# Exercise the installed native adapter independently of graph freshness.
+ADAPTER_HOME="$GRAPH_CASE/yes/.codex/hooks"
+cat > "$ADAPTER_HOME/jplugin-agentic-development-code-graph-hint.sh" <<'SH'
+#!/usr/bin/env bash
+python3 -c 'import json,sys; p=json.load(sys.stdin); print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":p["tool_name"]},"decision":"deny"}))'
+SH
+if "$TEST_PYTHON" - "$ADAPTER_HOME/jplugin-agentic-development-code-graph-hint.py" <<'PYTEST'
+import json, subprocess, sys
+adapter=sys.argv[1]
+for command, expected in [('rg symbol src','Grep'),('grep -R name .','Grep'),('rg --files -g "*.py"','Glob'),('find src -name "*.py"','Glob'),('cat file',''),('echo "rg symbol"','')]:
+ result=subprocess.run([sys.executable,adapter],input=json.dumps({'tool_name':'Bash','tool_input':{'command':command}}),text=True,capture_output=True)
+ assert result.returncode==0, result.stderr
+ if expected:
+  assert json.loads(result.stdout)=={'hookSpecificOutput':{'hookEventName':'PreToolUse','additionalContext':expected}}, result.stdout
+ else: assert result.stdout=='', result.stdout
+for payload in ['{', 'null', json.dumps({'tool_name':'Bash','tool_input':None})]:
+ result=subprocess.run([sys.executable,adapter],input=payload,text=True,capture_output=True)
+ assert result.returncode==0 and result.stdout=='', result
+PYTEST
+then :; else fail "adapter: native searches normalized, context only, malformed input fails open"; fi
+# Restore the real package hook: a project without .agents resolves the installed reference.
+cp "$REPO/.agents/hooks/code-graph-hint.sh" "$ADAPTER_HOME/jplugin-agentic-development-code-graph-hint.sh"
+printf '#!/bin/sh\nexit 99\n' > "$GRAPH_CASE/bin/graphify"
+chmod +x "$GRAPH_CASE/bin/graphify"
+mkdir -p "$GRAPH_CASE/project/graphify-out"
+git -C "$GRAPH_CASE/project" init -q
+git -C "$GRAPH_CASE/project" -c user.name=Test -c user.email=test@example.invalid commit --allow-empty -qm initial
+printf '{}\n' > "$GRAPH_CASE/project/graphify-out/graph.json"
+relocated=$(cd "$GRAPH_CASE/project" && printf '%s' '{"tool_name":"Bash","tool_input":{"command":"rg symbol"}}' | PATH="$GRAPH_CASE/bin:$PATH" "$TEST_PYTHON" "$ADAPTER_HOME/jplugin-agentic-development-code-graph-hint.py")
+assert_contains "$relocated" "$GRAPH_CASE/yes/.codex/references/code-navigation.md" "adapter: relocated package reference resolves"
+
+# Losing support removes only our previously installed callback.
+"$TEST_PYTHON" - "$GRAPH_CASE/yes/.codex/hooks.json" <<'PYTEST'
+import json, pathlib, sys
+path=pathlib.Path(sys.argv[1]); data=json.loads(path.read_text())
+script=path.parent/'hooks/jplugin-agentic-development-code-graph-hint.py'
+data['hooks']['PreToolUse'][0]['hooks'].append({'type':'command','command':f'echo {script}'})
+path.write_text(json.dumps(data))
+PYTEST
+PATH="$GRAPH_CASE/bin:$PATH" GRAPH_PROBE_SUPPORT=no HOME="$GRAPH_CASE/yes" CODEX_HOME="$GRAPH_CASE/yes/.codex" AGENTS_HOME="$GRAPH_CASE/yes/.agents" bash "$INSTALL" > "$GRAPH_CASE/lost-support.log" 2>&1
+if "$TEST_PYTHON" - "$GRAPH_CASE/yes/.codex/hooks.json" <<'PYTEST'
+import json, pathlib, sys
+path=pathlib.Path(sys.argv[1]); data=json.loads(path.read_text())
+script=path.parent/'hooks/jplugin-agentic-development-code-graph-hint.py'
+assert data['hooks']['PreToolUse']==[{'matcher':'Bash','hooks':[
+ {'type':'command','command':'echo personal'},
+ {'type':'command','command':f'echo {script}'},
+]}], data['hooks']['PreToolUse']
+assert data['hooks']['Stop']==[{'hooks':[{'type':'command','command':'echo stop'}]}]
+PYTEST
+then :; else fail "unsupported rerun: drops only managed graph callback and preserves personal hooks"; fi
+assert_contains "$(cat "$GRAPH_CASE/lost-support.log")" 'text-only' "unsupported rerun: explicit text-only coverage"
 
 finish

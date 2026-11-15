@@ -61,7 +61,7 @@ if [ -n "$MODE" ]; then RENDER_ARGS+=("$MODE"); fi
 "$PYTHON_BIN" "$RENDERER" "${RENDER_ARGS[@]}"
 if [ "$MODE" = --preview ]; then exit 0; fi
 
-mkdir -p "$AGENTS_HOME/skills" "$CODEX_HOME/hooks"
+mkdir -p "$AGENTS_HOME/skills" "$CODEX_HOME/hooks" "$CODEX_HOME/references"
 cp -r "$REPO_DIR/.agents/skills/." "$AGENTS_HOME/skills/"
 printf 'installed canonical skills in %s\n' "$AGENTS_HOME/skills"
 printf 'rendered canonical agents in %s\n' "$CODEX_HOME/agents"
@@ -74,6 +74,12 @@ cp "$REPO_DIR/.agents/hooks/session-stop.sh" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-end.sh"
 cp "$REPO_DIR/codex/hooks/session_start.py" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py"
+cp "$REPO_DIR/.agents/graphify.pin" "$CODEX_HOME/hooks/graphify.pin"
+cp "$REPO_DIR/.agents/references/code-navigation.md" "$CODEX_HOME/references/code-navigation.md"
+cp "$REPO_DIR/.agents/hooks/code-graph-hint.sh" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-code-graph-hint.sh"
+cp "$REPO_DIR/codex/hooks/code_graph_hint.py" \
+  "$CODEX_HOME/hooks/jplugin-agentic-development-code-graph-hint.py"
 chmod +x \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.sh" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-pre-compact.sh" \
@@ -86,8 +92,17 @@ printf -v compact_hook 'bash %q' \
   "$CODEX_HOME/hooks/jplugin-agentic-development-pre-compact.sh"
 printf -v end_hook 'bash %q' \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-end.sh"
+GRAPH_HOOK_ARGS=()
+if "$PYTHON_BIN" "$RENDERER" --probe-pre-tool-use; then
+  printf -v graph_hook '%q %q' "$PYTHON_BIN" \
+    "$CODEX_HOME/hooks/jplugin-agentic-development-code-graph-hint.py"
+  GRAPH_HOOK_ARGS=(--code-graph-hook "$graph_hook")
+  printf 'Code-graph coverage: Codex PreToolUse Bash matcher supported (CLI schema probe).\n'
+else
+  printf 'Code-graph coverage: Codex text-only (PreToolUse matcher support not established).\n'
+fi
 "$PYTHON_BIN" "$RENDERER" --merge-hooks "$CODEX_HOME/hooks.json" \
-  "$start_hook" "$compact_hook" "$end_hook"
+  "$start_hook" "$compact_hook" "$end_hook" "${GRAPH_HOOK_ARGS[@]}"
 
 printf 'merged lifecycle hooks in %s\n' "$CODEX_HOME/hooks.json"
 printf 'Review installed hooks with /hooks before enabling them.\n'
