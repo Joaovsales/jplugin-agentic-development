@@ -2797,7 +2797,7 @@ Routine `tidy` — step ledger:
 > Issue: #372
 
 ### Slice 1/1 — quality-gate cites the finding model
-[x] TDD: M2 pins the gate's § *Four axes* / § *Emission format* / § *Confidence anchors* / § *Gates* citations, the home path, `before Phase 1` and `confidence >= 75`; the verbatim overlaps between the gate and finding-model.md go 5 -> 0; the covering tests and `tests/test-citations.sh` match the before-proof -> replace § *Finding Model*'s restated tables and gate bullets with citations of `.agents/references/finding-model.md`, keep the gate-specific Apply Gate rules (AC 1, 2, 3)
+[x] TDD: M2 pins the gate's § *Four axes* / § *Emission format* / § *Confidence anchors* / § *Gates* citations, the home path, `before Phase 1` and `confidence >= 75`; the verbatim overlaps between the gate and finding-model.md go from 5 to 0; the covering tests and `tests/test-citations.sh` match the before-proof -> replace § *Finding Model*'s restated tables and gate bullets with citations of `.agents/references/finding-model.md`, keep the gate-specific Apply Gate rules (AC 1, 2, 3)
 
 > Handover: `quality-gate/SKILL.md` § *Finding Model* is now 26 lines (was 54) and the file 372 (was 400). It cites finding-model.md § *Four axes* / *Emission format* / *Confidence anchors* / *Gates*, reads the home before Phase 1, and stops with Item 7's refusal when the home resolves nowhere. Apply Gate keeps `gated_auto` **and** `confidence >= 75` as a floor, plus the two gate-only `MUST-FIX` rules. Verbatim overlaps with the home: 5 → 0. M2 repointed: 16 pins fail against the pre-change text. Before → after: doc-conventions 900 → 904 (−16 token pins, +20 citation, absence and stop pins); citations 6, review-context 130, invocation-chain 46, routine-wrapup 78 and agents 275 unchanged; all 0 failed.
 > Do not re-derive: the finding-model.md lookup order stays in *Claude Code Enhancements* (Item 7). That paragraph is pinned word for word in four dispatch skills by `tests/test-review-context.sh`, so consolidating it is a cross-skill change. The remaining `duplicate-rule` hit on quality-gate (line 235) is that paragraph.
@@ -2860,3 +2860,34 @@ Step ledger (routine `simplify`):
   [x] TDD: before/after proof — `bash tests/affected.sh --run origin/master` and `bash tests/test-citations.sh` give the same result -> no code beyond the row above (AC 3)
 
 > Handover: SKILL.md Step 4 cites references/plan-block.md for the grammar; the three pins in tests/test-doc-conventions.sh now read plan-block.md. Affected set before and after: identical failure set (install-sh 4, task-registry 2, both pre-existing as root).
+
+## Plan: Code-graph adoption, gated by a measured A/B
+> Spec: specs/code-graph-adoption.md
+- [ ] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
+
+### Slice 1/9 — graphify install policy
+- [ ] graphify install policy — pin file, `graphifyy` name, interactive y/N offer, stock hook stripped, budgeted rules text, ledger created
+
+### Slice 2/9 — graph status reporting
+- [ ] graph status reporting — `AGENTS.md` § Code Graph matches the tree; the banner prints one line per broken state
+
+### Slice 3/9 — code-graph grader
+- [ ] code-graph grader — `grade-code-graph.py` with tool classification, paired means and the six-rule verdict
+
+### Slice 4/9 — localization suite
+- [ ] localization suite — the runner spike in the suite README, seeded fixtures, 10+ cases, the arm-D stub, graders, rubric, one smoke run
+
+### Slice 5/9 — routing rule and hint hook
+- [ ] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+
+### Slice 6/9 — Codex hint adapter
+- [ ] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+
+### Slice 7/9 — skill wiring
+- [ ] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+
+### Slice 8/9 — eval run and verdict
+- [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
+
+### Slice 9/9 — outcome
+- [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
