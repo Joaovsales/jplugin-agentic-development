@@ -1126,7 +1126,7 @@ back vacuous and was repaired.
 - Quality gate: Phase 4 GO with one SHOULD-FIX (the numbered `/learn` heading is now cited from more places; owner human). Test-engineer left 2 NITPICKs. Receipt GO.
 - Learnings captured: [process/a-citation-outside-agents-is-checked-by-nothing-so-pin-its-heading.md](solutions/process/a-citation-outside-agents-is-checked-by-nothing-so-pin-its-heading.md)
 
-### [2026-11-15] — code graph Phase A
+### [2026-11-15] — code graph Phase A [317a717..45d05a6]
 - Key changes: built slices 1–4 of specs/code-graph-adoption.md: pinned optional installer, bounded graph status reporting, transcript grader and ten seeded localization/control cases. The affected run passed 67 files and 6522 assertions. Paid evaluation and treatment remain gated on the protocol and Phase A merge.
 - Learnings captured: [code-graph installer fixture isolation](solutions/bugs/code-graph-installer-fixtures-must-isolate-codex-home.md).
 - Learnings captured: [code-graph invocation classification](solutions/bugs/code-graph-adoption-counts-executed-commands-not-probes.md).

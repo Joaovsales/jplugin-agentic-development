@@ -2907,7 +2907,13 @@ Step ledger (routine `simplify`):
 > [AMBIGUITY] Slice 4 requests a paid smoke run before slice 8 commits the protocol | options: A) defer the paid smoke until the protocol is committed B) run the smoke before protocol freeze | picked: A | reason: AC4 requires a committed protocol before every paid run.
 
 ### Slice 5/9 — routing rule and hint hook
-- [ ] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+- [x] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+
+> Handover: landed c2c4826 — routing ladder, strict navigation fallback and file-only PreToolUse hints; affected tests:34 files,3489 assertions passed.
+> Do not re-derive: hook output is one Claude-style PreToolUse JSON context line, only for normalized Grep/Glob. It never executes graphify. Codex must translate native search events, preserve this shell hook and provide its installed package reference; the adjacent banner pin also remains a slice6 obligation.
+> Surface: initial check against c7360e4 clean. Parent integration additionally updated tests/test-hooks-json.sh for the fourth event and release metadata1.8.11.
+
+> [AMBIGUITY] AC7 asks a file-only hook to detect a CLI hang without executing the CLI | options: A) keep file-only hints and prove the hook never waits for the hanging stub B) add a CLI health probe to every hint | picked: A | reason: the explicit no-CLI hook contract preserves bounded overhead and leaves CLI health to the banner and navigation fallback.
 
 ### Slice 6/9 — Codex hint adapter
 - [ ] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported

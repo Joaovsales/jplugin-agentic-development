@@ -1,11 +1,11 @@
 # Code-graph adoption run ledger
 
-State: HARNESS
+State: TREATMENT
 Feature: https://github.com/Joaovsales/jplugin-agentic-development/issues/401
 Spec: specs/code-graph-adoption.md
 Base: 317a71717c34226891c3e3b019b83bebc591449d
 Planning commit: bd44e96
-Branch: Joaovsales/code-graph
+Branch: code-graph/treatment
 
 ## Budget
 
@@ -22,9 +22,9 @@ Branch: Joaovsales/code-graph
 | 2 | done | cd372bc; handover and clean surface check; targeted 201 assertions green |
 | 3 | done | 68ed02b, 506c1eb; handover in tasks/todo.md; affected 65 files / 6481 assertions green |
 | 4 | done | da5bb18; handover and clean surface check; all fixture contracts green; paid smoke deferred |
-| 5 | pending | Treatment; starts after PR 1 merge |
-| 6 | pending | Blocked by 5 |
-| 7 | pending | Blocked by 5 |
+| 5 | done | c2c4826; 34 affected files/3489 assertions green; handover recorded |
+| 6 | ready | Installed codex-cli0.166.0 and official hooks docs positively support PreToolUse+matcher |
+| 7 | ready | Routing reference and normalized Grep/Glob hint contract available |
 | 8 | pending | Blocked by 4, 6, 7 |
 | 9 | pending | Blocked by 8 |
 
@@ -73,4 +73,18 @@ Read this ledger, then run `slice.py ready` for the linked spec. Preserve settle
 - Quality receipt: valid GO b7cfd232, policy qg1-9478b51c, parent 1b7aec6f. Two test-encapsulation findings were repaired through public CLI fixtures and independent public-case expectations; test-engineer re-review reports no findings.
 - Latest affected gate: 71 files, 6703 assertions passed, zero failures/skips; `/tmp/code-graph-phase-a-delta-tests.log`. New standalone Python coverage remains 83%.
 - Full-suite evidence path: `/tmp/code-graph-phase-a-full-suite.log`; command is `bash .agents/skills/build/scripts/cached-suite.sh -- env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh </dev/null`. The cache and command exit determine the release outcome.
-- PR 1 has not yet been opened. Feature issue stays open because slices 5–9 remain.
+- PR 1: https://github.com/Joaovsales/jplugin-agentic-development/pull/416; tested head `45d05a6042585b702109a613740b3ea5fb9701e7`, mergeable. Feature issue stays open because slices 5–9 remain.
+- Local full suite exited 0: 97 files, 8217 assertions passed, no failures or skips. CI is running; the watcher log is `/tmp/code-graph-pr1-ci.log`.
+
+## Phase A merged
+
+- PR 1 #416 merged 2026-11-15T19:27:42Z at c7360e41fc0c466764b0bb4e32df6dd35d279b5b.
+- Linux CI run 43752230413 succeeded for tested head45d05a6042585b702109a613740b3ea5fb9701e7; full suite97files/8217assertions green; wrap-up closure terminal complete.
+- Arm A baseline is c7360e41fc0c466764b0bb4e32df6dd35d279b5b. Treatment remains unmerged.
+- The local pre-push debt entry for this completed Phase A was transient and is not carried into treatment; preexisting debt entries remain unchanged.
+
+- Before paid runs, AC7 clarified an impossible combination: file-only hook cannot observe an uncalled hanging CLI. Picked file-only freshness hints, bounded runtime/no invocation; CLI timeout and Grep fallback handle liveness. Go-rule bytes unchanged; 9 surfaces/blockers unchanged.
+
+- Slice5 targeted contract green (3 top-level checks); affected run3444passed/1failed across33files: stale tests/test-hooks-json.sh exact three-event expectation. Required integration repair updates it for planned PreToolUse; treatment manifest patch bump to1.8.11 is parent-owned release metadata. No feature-agent surface expansion.
+
+- Codex probe: codex-cli0.166.0; https://learn.chatgpt.com/docs/hooks explicitly documents PreToolUse matcher groups. Native Bash matcher is documented; adapter must normalize native search calls rather than assume Codex has Claude Grep/Glob tool names. No user config changes or model calls.
