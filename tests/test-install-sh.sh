@@ -130,6 +130,9 @@ case "$*" in
   "plugin marketplace list"*)
     if [ -e "$here/marketplace-known" ]; then
       printf '  %s jplugin-agentic-development\n    Source: Directory (%s)\n' "$(printf '\342\235\257')" "$here"
+      # Keep writing after the match, as a CLI listing other marketplaces does: a
+      # `| grep -q` under pipefail then sees this writer die of SIGPIPE.
+      for i in $(seq 1 20000); do printf '  other-marketplace-%s\n    Source: GitHub (o/r)\n' "$i"; done
     fi ;;
   "plugin install "*)
     mkdir -p "$HOME/.claude/plugins"

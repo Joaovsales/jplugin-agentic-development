@@ -91,7 +91,10 @@ def detect_duplicate_rule(texts):
         digest = hashlib.sha256(texts[path].encode("utf-8")).hexdigest()
         for number, line in unfenced_lines(texts[path]):
             rule = LIST_MARK.sub("", line.strip())
-            if len(rule) >= DUPLICATE_MIN_CHARS and not rule.startswith(("#", "|")):
+            # citations do not count toward the length: a line that is little more
+            # than a § citation points at the home, it is what a dedupe leaves behind
+            if (len(CITE.sub("", rule).strip()) >= DUPLICATE_MIN_CHARS
+                    and not rule.startswith(("#", "|"))):
                 seen.setdefault(rule, {}).setdefault(digest, (path, number))
     for homes in seen.values():
         if len(homes) > 1:

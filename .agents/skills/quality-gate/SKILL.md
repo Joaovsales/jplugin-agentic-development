@@ -39,56 +39,28 @@ Skip: generated files, lock files, migration files, test fixtures.
 
 ## Finding Model
 
-Every finding this gate produces or consumes carries four orthogonal fields.
-Rationale and the cross-harness rule live in `.agents/references/finding-model.md`; the
-operational contract is here, at the point where findings get applied.
-
-| Field | Answers | Values |
-|-------|---------|--------|
-| `severity` | how urgent | `MUST-FIX` / `SHOULD-FIX` / `NITPICK` |
-| `confidence` | how sure | `50` / `75` / `100` |
-| `autofix_class` | what shape the fix is | `gated_auto` / `manual` / `advisory` |
-| `owner` | who acts | `agent` / `human` / `release` |
-
-```
-[MUST-FIX | confidence: 100 | autofix_class: gated_auto | owner: agent] file.py:42 — description and impact
-  evidence: `except Exception: pass` (file.py:42)
-  failure: a disk-full write raises, the handler swallows it, and the job reports success with no file written
-```
-
-**Confidence anchors** — behavioral criteria, not a feeling:
-
-| Anchor | Criterion |
-|--------|-----------|
-| `100` | You read the defect in the diff and can quote the line that proves it. Reproducible from the evidence alone. |
-| `75` | You located the defect and can cite the line, but correctness turns on a caller, config, or runtime value outside the reviewed scope. |
-| `50` | Pattern-matched or inferred. No line proves it, or you never read the path it depends on. |
+Every finding this gate produces or consumes carries the four axes of
+`.agents/references/finding-model.md` § *Four axes*, written in its
+§ *Emission format*, anchored by its § *Confidence anchors* and gated by its
+§ *Gates*. That file is the one home of the anchors and the gates. Read it
+before Phase 1, on every harness, in the lookup order *Claude Code Enhancements*
+gives for the Phase 4 dispatch. When it resolves nowhere, the gate stops before
+Phase 1 with the refusal that paragraph gives.
 
 ### Apply Gate
 
-| Condition | Action |
-|-----------|--------|
-| `gated_auto` **and** `confidence >= 75` | Apply in-phase, then run tests. |
-| `gated_auto` but `confidence` `50` | Report only. An unproven fix is not cheaper than no fix. |
-| `manual` or `advisory`, any confidence | Report only, with `owner`. |
+Apply a finding in-phase, then run tests, only when § *Gates* clears it — at
+the least `gated_auto` **and** `confidence >= 75`; the home holds every rule.
+Every other finding is reported with its `owner`, never dropped.
 
 A `MUST-FIX` at `confidence` `50` is worth one verification attempt before you
 report it: read the path it depends on. Evidence found → it is `75`+ and the gate
 clears it. Refuted → say so, and drop it. Reporting an unverified `MUST-FIX`
 onward makes the next gate solve a problem you were holding the context to solve.
 
-- A finding at `75` or `100` **must** carry `evidence` — the verbatim motivating
-  line with `file:line`. Missing evidence **demotes** it to `50`.
-- A finding with no `failure:` line — what goes wrong — is capped at `50` the
-  same way.
-- A finding arriving with no `confidence` — an older single-axis reviewer, or an
-  agent that ignored this contract — is read as `50` / `autofix_class: manual`:
-  reported, never auto-applied, never discarded.
-- Where two phases or reviewers disagree on a finding, synthesis takes the
-  **more conservative** `autofix_class`. It never widens.
-- A `MUST-FIX` that the gate will not auto-apply is still a `MUST-FIX`. Report it
-  under `owner` and let the caller's gate decide — do not downgrade it to make
-  this phase come out clean.
+A `MUST-FIX` that the gate will not auto-apply is still a `MUST-FIX`. Report it
+under `owner` and let the caller's gate decide — do not downgrade it to make
+this phase come out clean.
 
 ---
 

@@ -2709,6 +2709,157 @@ Step ledger (routine `simplify`):
 > Do not re-derive: with `--keep-temp` the runner leaves `<TEMP>/claude-eval-<id>/out/trace.jsonl` (stream-json, `tracePath` in its JSON) and `config/projects/<encoded cwd>/<session>.jsonl` (the ordinary session shape the parser pins) — copy the latter into `<results>/<arm>/<task>/run-<n>/transcript.jsonl` with `outcome.json` from the per-run `score`, then remove the temp home; `--ablation none` keeps one paid run; `--trust-plugin` is needed from a session; `evals/*/results/` is gitignored; on Windows drop `Bash` from `--allow-tools` or the large cases' shell routing-around cannot show
 > Surface: `[SURFACE] +.gitignore | reason: the runner writes evals/read-shunt/results/ on every run` · `[SURFACE] +evals/read-shunt/README.md | reason: its run command carried the Bash grant the Windows runner refuses` (slice 5's surface)
 - [ ] Reconcile specs/read-shunt-baseline.md with the build's [AMBIGUITY] decisions <!-- task-id: spec-reconciliation.specs-read-shunt-baseline-md --> — The excluded column now also counts null-result Read notes (unchanged-file, empty-file, image, PDF); D14 sizes a shell/… ([spec-reconciliation.specs-read-shunt-baseline-md](tasks/details/spec-reconciliation.specs-read-shunt-baseline-md.md))
+- [ ] duplicate-rule in .agents/skills/system-design-planning/SKILL.md <!-- task-id: simplify.agents-skills-system-design-planning-skill-md.duplicate-rule-in-agents-skills-system-design-planning-skill-md --> ([#384](https://github.com/Joaovsales/jplugin-agentic-development/issues/384))
+- [ ] duplicate-rule in .agents/skills/learn/SKILL.md <!-- task-id: simplify.agents-skills-learn-skill-md.duplicate-rule-in-agents-skills-learn-skill-md --> ([#387](https://github.com/Joaovsales/jplugin-agentic-development/issues/387))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md
+
+> Routine: `simplify` #384 · branch `routine/simplify/384-sdp-render-cites-visual-plan` · spec `specs/simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md.md`
+
+### Slice 1/1 — system-design-planning cites visual-plan's Process
+[x] TDD: `signals.py rank --path .agents/skills/system-design-planning` reports the renderer-list `duplicate-rule` before and none after; a broken `/visual-plan` § *Process* pointer raises `citation-drift` (mutation check); the covering tests, `tests/test-plan-render.sh`, `tests/test-skill-invocation-chain.sh` and `tests/test-citations.sh` match the before-proof -> replace the renderer and commit paragraphs of § *6. Render* with one paragraph citing `/visual-plan` § *Process* (AC 1, 2, 3)
+
+> Handover: `system-design-planning/SKILL.md` § *6. Render* 341 -> 336 lines; it keeps the command, its own fix-and-re-render rule, the commit rule and the Required output, and cites `/visual-plan` § *Process* for the typed sections and the refusal format. Before/after are identical: doc-conventions 898, grilling-adoption 97, skill-frontmatter 180, skill-references 268, plan-render 352, invocation-chain 46, citations 6, all with 0 failed.
+> Do not re-derive: `tests/test-citations.sh` doesn't check `/<skill>` § citations; `signals.py` citation-drift does, which the mutation check showed.
+> Surface: check clean (undeclared: none, untouched: none)
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #384 (filed this run by `/make-it-simpler --unattended` discovery)
+- [x] 2. `task-registry claim 384 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/384-sdp-render-cites-visual-plan`
+- [x] 4.1 `/make-it-simpler #384` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place, inline (a five-line edit; no builder dispatch)
+- [x] 4.4 `/quality-gate` — Phases 1–3 inline (no findings), Phase 4 and the test-engineer dispatched, both GO; receipt GO 589ad0f1 policy qg1-694ecceb
+- [x] 5. `/wrap-up-session` — `/learn`: one bullet added to an existing process doc; `/memory-maintain` skip: due (75 sessions), but a store sweep would put unrelated churn into a one-simplification PR
+
+## Session Summary — [2026-11-07] [4abdf40..b31f5a1]
+- Completed: #384 — `/system-design-planning` § *6. Render* cites `/visual-plan` § *Process* for the renderer's typed sections and refusal format (341 → 336 lines, behavior changes: none; simplify routine). Spec reconciliation: 11 candidates, all `unchanged` (aposd-first-build, codex-scout-routing, diagram-skill, plan-slices-and-handover, readable-visual-plans, simplify-duplicate-rule-in-agents-skills-system-design-planning-skill-md, single-instruction-file, system-design-planning, ui-design-stack, upsert-depends-on, wrap-up-phases).
+- Pending: none from this run.
+- Carry-forward: `/memory-maintain` is overdue (75 sessions) and was skipped here to keep the PR to one simplification; `tests/test-citations.sh` does not check `/<skill>` § citations (only `signals.py` citation-drift does).
+
+## Tidy: 2026-11-09
+
+> Record: `tasks/sweeps/2026-11-09-tidy.md`, swept at `4abdf40` on
+> `routine/tidy/20261109-sweep`. Outcome: **findings** (Tier 1 only). Tier 0
+> applied: **0** — nothing mechanical found. Tier 2 filed: **0**.
+
+- [x] `suite` — clean (95/95 test files)
+- [x] `inventory` — clean (README table ↔ `.agents/skills/`, render `--check` exit 0)
+- [x] `retired` — clean (clone unshallowed first; 8 retired names, none named as live)
+- [x] `installed` — inconclusive (cloud container; `~/.claude/` is the runtime's, `~/.agents/` absent)
+- [x] `refs` — clean (unresolved tokens all expected-to-be-created or external; see Unverified)
+- [x] `worktrees` — clean (one worktree, branches `master` + this sweep)
+- [x] `strays` — clean (no untracked or ignored files)
+- [x] `graph` — skipped (no `graphify` on this machine; no graph by design)
+- [x] `registers` — 2 findings, Tier 1 (38 closed plan blocks; checkpoint 2026-10-21 older than newest summary 2026-11-03)
+- [x] `shortcuts` — clean (4 markers, 0 `no-trigger`)
+- [x] `tools` — inconclusive (archify not installed)
+
+Routine `tidy` — step ledger:
+
+- [x] 1. `task-registry doctor` — provider `github`, reachable, write approval not required
+- [x] 2. branch `routine/tidy/20261109-sweep` created (new today)
+- [x] 3. `/tidy` — record `tasks/sweeps/2026-11-09-tidy.md`; Tier 0: 0; filed: none new (evidence appended to #143)
+- [x] 4. `/wrap-up-session` — suite green, ready PR
+
+## Session Summary — 2026-11-09 [4abdf40..49bfc88]
+
+- Completed: scheduled `tidy` sweep at `4abdf40` — suite green (95/95), 11 checks run inline; no Tier 0 drift; Tier 1 `registers` (38 closed plan blocks, stale checkpoint) re-evidenced on #143.
+- Pending: `installed` and `tools` inconclusive in the cloud container; archive the closed plan blocks (#143).
+- Carry-forward: none.
+- [ ] Move subagent-resilience.md into .agents/references/ so every dispatching skill can cite it <!-- task-id: tech-debt.agents-skills-build-references-subagent-resilience-md --> — Four skills restate the sub-agent dispatch checklist because its home sits under /build's references/, a path that does… ([#391](https://github.com/Joaovsales/jplugin-agentic-development/issues/391))
+- [ ] Thin reviewer personas that preload one shared review skill <!-- task-id: design.agents-agents-code-reviewer-md --> — Reviewer personas restate the dispatch contract and the finding model, and the copies drift (#375). Keep thin personas… ([#392](https://github.com/Joaovsales/jplugin-agentic-development/issues/392))
+- [ ] duplicate-rule in .agents/skills/quality-gate/SKILL.md <!-- task-id: simplify.agents-skills-quality-gate-skill-md.duplicate-rule-in-agents-skills-quality-gate-skill-md --> ([#372](https://github.com/Joaovsales/jplugin-agentic-development/issues/372))
+- [ ] duplicate-rule in .agents/skills/build/SKILL.md <!-- task-id: simplify.agents-skills-build-skill-md.duplicate-rule-in-agents-skills-build-skill-md --> ([#368](https://github.com/Joaovsales/jplugin-agentic-development/issues/368))
+- [ ] duplicate-rule in .agents/skills/auto-push/SKILL.md <!-- task-id: simplify.agents-skills-auto-push-skill-md.duplicate-rule-in-agents-skills-auto-push-skill-md --> ([#358](https://github.com/Joaovsales/jplugin-agentic-development/issues/358))
+- [ ] duplicate-rule in .agents/agents/code-reviewer.md <!-- task-id: simplify.agents-agents-code-reviewer-md.duplicate-rule-in-agents-agents-code-reviewer-md --> ([#375](https://github.com/Joaovsales/jplugin-agentic-development/issues/375))
+
+## Session Summary — [2026-11-12] [114a437..6055ff6]
+
+- Completed:
+  - `simplify` routine retune (#390, spec `specs/simplify-routine-retune.md`, AC1–AC4).
+  - #368 refusal-rule alignment.
+  - Decisions recorded on #387, #372, #368, #358 and #375; #372 and #387 re-kinded to task.
+  - Filed #391 and #392.
+- Pending:
+  - Merge #390. #382 and #360 now sit below master's version and need a re-bump before they merge.
+  - Close #368 once #390 lands.
+  - #391 (closes #358) and #392 (spike first; closes #375).
+- Carry-forward:
+  - #321, #319 and #331 look moot; closing them was denied in this session.
+  - #310 is out of date: close it and drop `in-progress` from #308.
+- [ ] test-pre-push-gate.sh gitenv fixture fails on Windows: npm runs its script through cmd.exe <!-- task-id: bug.tests-test-pre-push-gate-sh --> — The 'Pushing repo's git env' case writes a POSIX script (env | grep ... && exit 1 || exit 0) into package.json; on Wind… ([#393](https://github.com/Joaovsales/jplugin-agentic-development/issues/393))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md
+
+> Routine: `simplify` #372 · branch `routine/simplify/372-dedupe-finding-model-in-quality-gate` · spec `specs/simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md.md`
+> Issue: #372
+
+### Slice 1/1 — quality-gate cites the finding model
+[x] TDD: M2 pins the gate's § *Four axes* / § *Emission format* / § *Confidence anchors* / § *Gates* citations, the home path, `before Phase 1` and `confidence >= 75`; the verbatim overlaps between the gate and finding-model.md go 5 -> 0; the covering tests and `tests/test-citations.sh` match the before-proof -> replace § *Finding Model*'s restated tables and gate bullets with citations of `.agents/references/finding-model.md`, keep the gate-specific Apply Gate rules (AC 1, 2, 3)
+
+> Handover: `quality-gate/SKILL.md` § *Finding Model* is now 26 lines (was 54) and the file 372 (was 400). It cites finding-model.md § *Four axes* / *Emission format* / *Confidence anchors* / *Gates*, reads the home before Phase 1, and stops with Item 7's refusal when the home resolves nowhere. Apply Gate keeps `gated_auto` **and** `confidence >= 75` as a floor, plus the two gate-only `MUST-FIX` rules. Verbatim overlaps with the home: 5 → 0. M2 repointed: 16 pins fail against the pre-change text. Before → after: doc-conventions 900 → 904 (−16 token pins, +20 citation, absence and stop pins); citations 6, review-context 130, invocation-chain 46, routine-wrapup 78 and agents 275 unchanged; all 0 failed.
+> Do not re-derive: the finding-model.md lookup order stays in *Claude Code Enhancements* (Item 7). That paragraph is pinned word for word in four dispatch skills by `tests/test-review-context.sh`, so consolidating it is a cross-skill change. The remaining `duplicate-rule` hit on quality-gate (line 235) is that paragraph.
+> Surface: check clean (undeclared: none, untouched: none)
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #372 (already filed; this run's discovery filed nothing new — every new cue dropped in deep review)
+- [x] 2. `task-registry claim 372 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/372-dedupe-finding-model-in-quality-gate`
+- [x] 4.1 `/make-it-simpler #372` — before-proof recorded; scope re-checked (minor, 1 slice, one skill + its test, reproduces: 5 verbatim overlaps); spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place, inline (a one-section edit; no builder dispatch)
+- [x] 4.4 `/quality-gate` — Phases 1–3 inline (no findings); Phase 4 dispatched HOLD → GO; test-engineer dispatched twice, findings applied, one NITPICK open; receipt GO 5fbe3a17 policy qg1-9478b51c (re-minted once after `git fetch` corrected a stale merge-base)
+- [x] 5. `/wrap-up-session` — `/learn`: paragraph added to an existing pattern doc; `/memory-maintain` skip: a store sweep would put unrelated churn into a one-simplification PR
+
+## Session Summary — [2026-11-12] [17a7a15..17a7a15]
+- Completed: #372 — `/quality-gate` § *Finding Model* cites `.agents/references/finding-model.md` instead of restating its anchors and gates (400 → 372 lines; minor behavior changes declared in the spec's D3; simplify routine). Spec reconciliation: 19 candidates. 1 updated: simplify-duplicate-rule-in-agents-skills-quality-gate-skill-md (new). 18 unchanged: aposd-first-build, codex-scout-routing, context-memory-management, fewer-full-suite-runs, github-rest-in-sandboxes, go-front-door, helix-checkpoint-loop, lane-plan-handover, make-it-simpler, plan-slices-and-handover, quality-receipt-closure, review-context-contract, review-load-and-failure-cases, single-instruction-file, system-design-planning, test-suite-aposd, upsert-depends-on, wrap-up-phases.
+- Pending: none from this run.
+- Carry-forward: the finding-model.md lookup-and-refusal paragraph (Item 7) is still restated in four dispatch skills, which is the cross-skill half of this dedupe. `/memory-maintain` is still overdue.
+- [ ] test-session-start.sh drift case flakes on Windows: the hook's 5 s fetch can time out against a local fixture <!-- task-id: bug.tests-test-session-start-sh --> — The 'a template commit changing the block' case expects TEMPLATE DRIFT, but session-start.sh only computes drift when '… ([#395](https://github.com/Joaovsales/jplugin-agentic-development/issues/395))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-learn-skill-md
+
+> Routine: `simplify` #387 · branch `routine/simplify/387-dedupe-overlap-scoring-in-store-readmes` · spec `specs/simplify-duplicate-rule-in-agents-skills-learn-skill-md.md`
+> Issue: #387
+
+### Slice 1/1 — store READMEs cite /learn's overlap scoring
+[x] TDD: § Overlap dimensions pins `/learn`'s two dimension rows, cap, track phrase and `### 4. Score Overlap Before Writing` heading; on both store READMEs it pins the `/learn` § *4. Score Overlap Before Writing* citation and the slug-collision rule, and the absence of dimension rows, score table, cap and "Step 4 defines" (8 fail against the old text); the before-proof commands match -> replace § *Writing rules (`/learn`)*'s restated tables in both READMEs with the § citation (AC 1, 2, 3)
+
+> Handover: both store READMEs' § *Writing rules (`/learn`)* is now 5 lines (was 22); each README 122 → 105, still byte-identical. `/learn/SKILL.md` untouched. Before → after: solutions-schema 44 → 47 (8 new pins fail on the old text), citations 6, memory-maintain-doc 17, grilling-adoption 97 unchanged; affected set 472 passed, 0 failed.
+> Do not re-derive: `/memory-maintain` still states the cross-track cap as its own merge reason, pinned separately on purpose — out of scope.
+> Surface: check clean (undeclared: none, untouched: none)
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry doctor` — github, reachable, write approval not required
+- [x] 2. rank + deep review — every new cue dropped (`enforced-prose` hits are same-file test pins; agent-persona `duplicate-rule` copies are out of scope); nothing new filed
+- [x] 3. `task-registry select --routine simplify` — #387 (owner-decided deduplicate, PR #390)
+- [x] 4. `task-registry claim 387 --routine simplify --apply --approve`
+- [x] 5. branch `routine/simplify/387-dedupe-overlap-scoring-in-store-readmes`
+- [x] 6.1 `/make-it-simpler #387` — before-proof recorded; scope re-checked (minor, 1 slice, one area under safe-moves § Cross-area deduplication, reproduces); spec with safe-moves § Decisions
+- [x] 6.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 6.3 `/build` — the one TDD row above, in place, inline (two README sections and one test block; no builder dispatch)
+- [x] 6.4 `/quality-gate` — Phases 1–3 inline (no findings); Phase 4 dispatched GO (1 SHOULD-FIX advisory, owner human); test-engineer dispatched (2 NITPICK); receipt GO 6153328f policy qg1-9478b51c
+- [x] 7. `/wrap-up-session` — `/learn`: 1 new process doc; `/memory-maintain` skip: a store sweep would put unrelated churn into a one-simplification PR
+
+## Session Summary — [2026-11-13] [01e7cba..ba9cfd3]
+- Completed: #387: both store READMEs cite `/learn` § *4. Score Overlap Before Writing* instead of restating the dimension rows, cap and score table. 122 → 105 lines each, behavior changes none, simplify routine. Spec reconciliation covered 5 candidates. 1 updated: simplify-duplicate-rule-in-agents-skills-learn-skill-md (new). 4 unchanged: compound-engineering-adoption, context-memory-management, helix-checkpoint-loop, test-suite-aposd.
+- Pending: none from this run.
+- Carry-forward: `/learn`'s step headings carry numbers (`### 4. …`), which safe-moves practice 1 forbids. Renaming them to plain names and repointing `/memory-maintain`, both READMEs and their tests is its own change (Phase 4 SHOULD-FIX, owner human). `/memory-maintain` is still overdue.
+- [ ] duplicate-rule in .agents/skills/slice/SKILL.md <!-- task-id: simplify.agents-skills-slice-skill-md.duplicate-rule-in-agents-skills-slice-skill-md --> ([#308](https://github.com/Joaovsales/jplugin-agentic-development/issues/308))
+- [ ] citation-drift in .agents/skills/tidy/SKILL.md <!-- task-id: simplify.agents-skills-tidy-skill-md.citation-drift-in-agents-skills-tidy-skill-md --> ([#309](https://github.com/Joaovsales/jplugin-agentic-development/issues/309))
+
+## Plan: simplify-duplicate-rule-in-agents-skills-slice-skill-md
+> Spec: specs/simplify-duplicate-rule-in-agents-skills-slice-skill-md.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/308
+
+### Slice 1/1 — slice cites plan-block grammar
+- [x] slice cites plan-block grammar <!-- task-id: plan.specs-simplify-duplicate-rule-in-agents-skills-slice-skill-md-md.slice-cites-plan-block-grammar --> — `/slice` Step 4 cites `references/plan-block.md` instead of restating it
+  [x] TDD: tests/test-doc-conventions.sh § slice — the three grammar pins read `references/plan-block.md`; `SKILL.md` no longer carries "`> Issue:` is written when" and cites the reference -> trim the four bullets to a citation (AC 1, 2)
+  [x] TDD: before/after proof — `bash tests/affected.sh --run origin/master` and `bash tests/test-citations.sh` give the same result -> no code beyond the row above (AC 3)
+
+> Handover: SKILL.md Step 4 cites references/plan-block.md for the grammar; the three pins in tests/test-doc-conventions.sh now read plan-block.md. Affected set before and after: identical failure set (install-sh 4, task-registry 2, both pre-existing as root).
 
 ## Session Summary — 2026-11-15 [4abdf40..b772a01]
 - Completed: `PI_SETUP.md` repointed from the September `deepseek-v4.1-flash` build to the 2026-10-17 `-1017` checkpoint for the session default, `subagents.defaultModel`, the `search` preset and the four read-heavy roles; every price in the file replaced with the *routed* price verified by a one-token `usage.include` call, plus a new § *Pin the dated snapshot* and § *Quote the routed price* explaining why the bare ID is not a floating alias and why the catalog headline inverted the decision; learning captured in `tasks/solutions/tooling/an-openrouter-model-id-is-a-dated-snapshot-not-a-floating-alias.md`.

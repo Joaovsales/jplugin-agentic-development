@@ -339,3 +339,7 @@ tests/test-install-sh.sh msys* archify: the checkout holds the CLI
 tests/test-install-sh.sh msys* archify: the checkout holds SKILL.md
 tests/test-install-sh.sh msys* archify: the checkout holds LICENSE
 tests/test-install-sh.sh msys* archify: second run reports present without cloning
+
+# tests/test-pre-push-gate.sh: npm runs the gitenv fixture's POSIX script through cmd.exe — #393
+tests/test-pre-push-gate.sh msys* Pushing repo's git env: the gates do not inherit it
+tests/test-pre-push-gate.sh msys* Pushing repo's git env: nothing on stderr

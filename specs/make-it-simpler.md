@@ -47,7 +47,7 @@ change, changing `/yolo` or `/auto-push`, and new `task-registry` verbs.
 | # | Constraint | Value | Source | Detected by |
 |---|------------|-------|--------|-------------|
 | C1 | A significant change is never built unattended | "significant" is the bar in `/system-design-planning` § *When to Use / When Not*, cited by name and never restated | user (D5, D6) | `tests/test-make-it-simpler.sh` pins the citation and the absence of a restated list |
-| C2 | An unattended build is small | ≤ 3 slices and one area — one skill with its `references/`, or one script with its tests — estimated against `slice/references/sizing.md` before filing | user (D9, Q28) | discovery sizes before it files (doc pin); the scope stop catches a miss |
+| C2 | An unattended build is small | ≤ 3 slices and one area — one skill with its `references/`, or one script with its tests; a `duplicate-rule` dedupe into § citations is one area under `references/safe-moves.md` § *Cross-area deduplication* (`specs/simplify-routine-retune.md`) — estimated against `slice/references/sizing.md` before filing | user (D9, Q28) | discovery sizes before it files (doc pin); the scope stop catches a miss |
 | C3 | Minor behavior changes are declared | the PR body carries `Behavior changes:` — a list or `none`; an undeclared change found by review is **STOP** | user (D11) | lane step text (doc pin); `/quality-gate`'s dispatch carries the declared list as intent |
 | C4 | Before- and after-proof | the affected-test command plus `bash tests/test-citations.sh`, run before the first edit and after the last, both quoted in the PR body | user (D11) | lane step text pin; PR body |
 | C5 | The skill passes its own lens | `SKILL.md` ≤ 150 lines | user (Q26) | `tests/test-instruction-budget.sh` |
@@ -347,7 +347,7 @@ Constraints: The GitHub simplify label is created by the operator, never by a te
 - `signals.py rank` run twice over the same tree prints byte-identical output, writes nothing (`git status --porcelain` unchanged), and exits 0 with `"candidates": []` on a tree with no signal.
 - `signals.py rank --path <p>` exits 2 naming `<p>` when it matches no tracked file, and no candidate is ever under `tests/fixtures/` or `tasks/`.
 - A fixture unresolved backticked path and a fixture retired-skill reference produce no candidate.
-- `.agents/skills/make-it-simpler/references/lens.md` defines the seven signals, the weight `W` by name, the `tests/fixtures/` and `tasks/` exclusions, `specs/` as never a `duplicate-rule` home, and the nine `/tidy` checks it excludes.
+- `.agents/skills/make-it-simpler/references/lens.md` defines the seven signals, the weight `W` by name, the `tests/fixtures/` and `tasks/` exclusions, `specs/` and a § citation line as never a `duplicate-rule` home, and the nine `/tidy` checks it excludes.
 - `.agents/skills/make-it-simpler/references/safe-moves.md` states five practices: headings are names only; callers cite by § name; a moved assertion is repointed, never deleted without a replacement; one home per rule; no script behavior change unless declared minor.
 - `.agents/skills/make-it-simpler/SKILL.md` has frontmatter `name: make-it-simpler`, is at most 150 lines, and follows `/writing-skills`' section order; `README.md`'s skills table lists it (`tests/test-skills-table.sh` passes).
 - `SKILL.md` cites `/system-design-planning` § *When to Use / When Not* as the significance bar and does not restate its list.

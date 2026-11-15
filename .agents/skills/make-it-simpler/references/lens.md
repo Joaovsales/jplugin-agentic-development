@@ -54,6 +54,11 @@ cuts after the sort.
   `tasks/` is checked by nothing, so the harness never cites into it.
 - **`specs/` as a duplicate home** — a spec quoting the skill it designed is the
   design record; specs still rank for the other signals.
+- **A § citation line as a duplicate home** — a line whose text besides its
+  `` `<file>.md` § *<Heading>* `` or `` `/<skill>` § *<Heading>* `` citations is
+  under the 60-character minimum points at the rule's home; it is what a
+  deduplication leaves in every copy, so flagging it would re-file the fix as the
+  finding. A longer rule that also cites a section still ranks.
 - **What `/tidy` owns** — its nine checks: `suite`, `inventory`, `retired`,
   `installed`, `refs`, `worktrees`, `strays`, `graph`, `registers`. A citation
   whose file does not resolve is `refs`; one naming a skill with no directory is

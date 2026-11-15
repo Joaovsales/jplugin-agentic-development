@@ -320,9 +320,10 @@ assert_contains "$taxonomy" "Finding Model" \
 # it is invisible in a whole-block snapshot. `wrap-up-session` is not among them
 # since #188: it dispatches no reviewer of its own and applies no finding, so it
 # defines none of this machinery -- `/quality-gate` is the one place a finding
-# is classified.
+# is classified. `/quality-gate` is not among them since #372 either: it reads
+# finding-model.md before Phase 1 and cites its sections instead of restating
+# them, so its pins are the citations and the apply conjunction, below.
 for f in .agents/references/finding-model.md \
-         .agents/skills/quality-gate/SKILL.md \
          .agents/skills/software-design-expert-review/SKILL.md; do
   flat="$(flatten "$f")"
   for axis in severity confidence autofix_class owner; do
@@ -345,6 +346,33 @@ for f in .agents/references/finding-model.md \
   # Synthesis never widens the autofix class on disagreement.
   assert_contains "$flat" "more conservative" \
     "M2: $f takes the more conservative autofix_class on disagreement"
+done
+
+# /quality-gate classifies findings from the home: § Finding Model cites each
+# section it applies, reads the file before Phase 1, and keeps the apply
+# conjunction where its phases apply findings.
+QG_FM="$(section_body .agents/skills/quality-gate/SKILL.md "## Finding Model")"
+for heading in "Four axes" "Emission format" "Confidence anchors" "Gates"; do
+  assert_contains "$QG_FM" "§ *$heading*" \
+    "M2: quality-gate § Finding Model cites finding-model.md § $heading"
+done
+assert_contains "$QG_FM" ".agents/references/finding-model.md" \
+  "M2: quality-gate § Finding Model names finding-model.md as the home"
+assert_contains "$QG_FM" "Read it before Phase 1" \
+  "M2: quality-gate reads finding-model.md before Phase 1"
+assert_contains "$QG_FM" '`gated_auto` **and** `confidence >= 75`' \
+  "M2: quality-gate gates auto-apply on gated_auto and anchor 75+ together"
+assert_contains "$QG_FM" "the home holds every rule" \
+  "M2: quality-gate's Apply Gate defers to the full rule list in the home"
+assert_contains "$QG_FM" "stops before Phase 1 with the refusal" \
+  "M2: quality-gate stops before Phase 1 when finding-model.md resolves nowhere"
+assert_file_matches .agents/skills/quality-gate/SKILL.md '^## Claude Code Enhancements' \
+  "M2: the lookup order quality-gate § Finding Model points at still exists"
+# The home is not restated: no anchor-table row and no gate bullet from it.
+for copy in "| \`100\` |" "| \`75\` |" "| \`50\` |" "demotes" "more conservative" "no \`confidence\`" \
+            "capped at" "promotes" "**must** carry \`evidence\`" "| \`severity\` |"; do
+  assert_not_contains "$QG_FM" "$copy" \
+    "M2: quality-gate § Finding Model does not restate finding-model.md ('$copy')"
 done
 
 # /quality-gate must disclose whether its passes were dispatched or ran inline,
@@ -810,7 +838,7 @@ for token in "name: slice" "disable-model-invocation: false" "harness: universal
              "✓ Build Order written:" "✓ Plan written:" \
              "✓ Visual written:" "Skipping visual-plan:" \
              "Spec and plan are ready to be built. Start a fresh session with this prompt:" \
-             "--derive-id plan" "never start with \`/\`"; do
+             "--derive-id plan"; do
   assert_file_contains "$SLICE_SKILL" "$token" "slice: SKILL.md contains '$token'"
 done
 
@@ -822,11 +850,20 @@ done
 # In-place replacement, the no-plan-block refusal, the idempotent re-run and
 # the --approve rule are hard-wrapped prose; pinned via flatten rather than a
 # single-line literal.
+# The plan-block grammar has one home, references/plan-block.md; SKILL.md
+# cites it and carries only the fenced example (specs/simplify-duplicate-rule-in-agents-skills-slice-skill-md.md).
 flat_slice="$(flatten "$SLICE_SKILL")"
-assert_contains "$flat_slice" "section by section" \
-  "slice: SKILL.md states the in-place plan-block replacement rule"
-assert_contains "$flat_slice" "Never two blocks for one feature" \
-  "slice: SKILL.md states the one-block-per-feature rule"
+flat_plan_block="$(flatten .agents/skills/slice/references/plan-block.md)"
+assert_contains "$flat_plan_block" "never start with \`/\`" \
+  "slice: plan-block.md states the no-leading-slash slice name rule"
+assert_contains "$flat_plan_block" "replaced section by section, in place" \
+  "slice: plan-block.md states the in-place plan-block replacement rule"
+assert_contains "$flat_plan_block" "Never two blocks for one feature" \
+  "slice: plan-block.md states the one-block-per-feature rule"
+assert_contains "$flat_slice" "grammar is \`.agents/skills/slice/references/plan-block.md\`" \
+  "slice: SKILL.md cites plan-block.md for the grammar"
+assert_not_contains "$flat_slice" "Never two blocks for one feature" \
+  "slice: SKILL.md does not restate the plan-block grammar"
 
 # Negative pins: the ceremony this spec removed must not reappear here.
 assert_file_not_matches "$SLICE_SKILL" "Invoke /build" \
@@ -1398,7 +1435,7 @@ for skill in "$BUILD_SKILL" "$WRAP_SKILL"; do
   for token in "One suite at a time, no polling." "no test run starts while a suite is running" \
                "run_in_background" "completion notification" "foreground \`sleep\`" "poll loop" \
                "leaves the working tree alone" "A refusal is not a test result." \
-               "never count it as a fix attempt"; do
+               "never count it as a fix attempt" "already running\` on stderr means nothing ran"; do
     assert_contains "$flat" "$token" "one suite: $skill names '$token'"
   done
 done

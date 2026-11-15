@@ -227,16 +227,11 @@ sections, nothing written to the scratchpad:
 python3 .agents/skills/visual-plan/scripts/plan_render.py specs/<feature>.md -o specs/<feature>.plan.html
 ```
 
-The renderer types the known sections (Summary, Decisions, Acceptance
-Criteria, Risks, Open questions, Constraints, Component contracts, Data
-models, Build Order), turns `flow` and `sequence` fences into SVG diagrams and
-renders tables as tables, so diagrams and tables are written as ordinary
-markdown. A malformed known section fails the render with `<spec>:<line>:
-<reason>` and writes no page: fix that line in the spec and render again,
-because approval attaches to a page that shows every row the spec holds.
-
-The render is committed beside the spec, not gitignored: approval attaches to
-it, so the reviewed document must survive in history the way the spec does.
+Diagrams and tables are written as ordinary markdown; what the renderer types
+and how it refuses are `/visual-plan` § *Process*. On a refusal, fix the named
+line in the spec and render again, because approval attaches to a page that
+shows every row the spec holds. The render is committed beside the spec, not
+gitignored, so the reviewed document survives in history the way the spec does.
 
 Required output: `✓ Visual written: /absolute/path/specs/<feature>.plan.html`
 

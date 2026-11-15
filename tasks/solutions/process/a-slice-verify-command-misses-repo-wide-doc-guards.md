@@ -27,6 +27,12 @@ listed:
   that adds a section to `.agents/references/finding-model.md` has to update
   that list too. Only the affected run caught this in the review-load build
   (2026-10-09).
+- `tests/test-citations.sh` checks only the `` `<path>.md` § *Heading* `` form
+  (`CITE`). A `` `/<skill>` § *Heading* `` citation is checked by
+  `.agents/skills/make-it-simpler/scripts/signals.py rank` (`citation-drift`)
+  and by nothing in the suite. Mutating `/visual-plan` § *Process* to
+  *Processx* left test-citations green and made `signals.py` report it
+  (2026-11-07, #384). Prefer the path form when a citation must be guarded.
 
 Prevention: before closing a slice, run the affected-test command, not just
 the Verify column. In this repository it is the declared
