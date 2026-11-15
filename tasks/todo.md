@@ -2934,7 +2934,7 @@ Step ledger (routine `simplify`):
 ### Slice 8/9 — eval run and verdict
 - [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
 
-> Handover: unfinished: AC4, AC8 — evaluation prerequisites are being checked; no protocol, measured results or paid runs.
+> Handover: unfinished: AC4, AC8 — HALTED-NEEDS-USER: pinned CLI guard exited 2; graphifyy 0.4.23 differs from 0.9.109; no protocol, results or paid runs.
 > Do not re-derive: The six-rule go text is unchanged; N=3, $320 total and $4 per run. Exact model id must be recorded before any paid run.
 
 

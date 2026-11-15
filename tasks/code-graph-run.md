@@ -1,6 +1,6 @@
 # Code-graph adoption run ledger
 
-State: TREATMENT
+State: HALTED-NEEDS-USER
 Feature: https://github.com/Joaovsales/jplugin-agentic-development/issues/401
 Spec: specs/code-graph-adoption.md
 Base: 317a71717c34226891c3e3b019b83bebc591449d
@@ -99,3 +99,17 @@ Read this ledger, then run `slice.py ready` for the linked spec. Preserve settle
 - Treatment runtime excerpts received an independent partial review with no findings; full skill prose/tests/installer execution were not cleared by that review. A full post-verdict quality/full-suite/Linux-CI gate remains mandatory before any treatment merge.
 
 - No-go off-ramp note: the copied-banner pin transport is an independent hygiene correction. Preserve that transport separately from optional hint registration if the results branch is later used.
+
+### Runtime prerequisite receipt — 2026-11-15T20:42:00.960619+00:00
+
+Canonical prerequisite-only runtime guard exited 2. The executable is `/home/joaosouto/.local/bin/graphify` (launcher `/usr/bin/python3`); filesystem distribution metadata records `graphifyy 0.4.23`, while the verified baseline installer pin is `0.9.109`. `pipx` is available at `/usr/bin/pipx`. Exact stdout/stderr and read-only CLI/distribution evidence: `tasks/eval-results/code-graph/preflight-2026-11-15.json`. This is a human-only machine prerequisite, not a measured eval outcome or a no-go verdict. Slice 8 remains unfinished (AC4/AC8); slice 9 blocked. `paid_runs: []`, spend $0; no protocol, paid run, verdict, or treatment merge.
+
+Human command (prepared, not executed):
+
+```bash
+cd /tmp/harbor-setup-hddf8lis && bash /tmp/harbor-workflow/install.sh
+```
+
+A person must run it in a terminal with pipx on PATH and CI unset, and accept the graphify y/N offer. The setup directory is fresh and empty; neither experiment checkout is the installer working directory. Resume by rerunning the canonical runtime guard; after it passes, establish the exact model id and commit the complete protocol before any paid run.
+
+HALTED-NEEDS-USER
