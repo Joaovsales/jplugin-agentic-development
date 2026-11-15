@@ -2860,3 +2860,9 @@ Step ledger (routine `simplify`):
   [x] TDD: before/after proof — `bash tests/affected.sh --run origin/master` and `bash tests/test-citations.sh` give the same result -> no code beyond the row above (AC 3)
 
 > Handover: SKILL.md Step 4 cites references/plan-block.md for the grammar; the three pins in tests/test-doc-conventions.sh now read plan-block.md. Affected set before and after: identical failure set (install-sh 4, task-registry 2, both pre-existing as root).
+
+## Session Summary — 2026-11-15 [4abdf40..b772a01]
+- Completed: `PI_SETUP.md` repointed from the September `deepseek-v4.1-flash` build to the 2026-10-17 `-1017` checkpoint for the session default, `subagents.defaultModel`, the `search` preset and the four read-heavy roles; every price in the file replaced with the *routed* price verified by a one-token `usage.include` call, plus a new § *Pin the dated snapshot* and § *Quote the routed price* explaining why the bare ID is not a floating alias and why the catalog headline inverted the decision; learning captured in `tasks/solutions/tooling/an-openrouter-model-id-is-a-dated-snapshot-not-a-floating-alias.md`.
+- Completed: the live user config (`~/.pi/agent/settings.json`, `presets.json`, `AGENTS.md`) repointed to match, backed up as `*.bak-20261115-1017`. Recorded traffic (2 137 turns, 94.4% cache-reads) reprices at a 50% cost cut.
+- Pending: `planner`/`oracle`/`critic` stay on `deepseek-v4-pro` (0423). `deepseek-v4-pro-0813` scores +45% on the coding index (38.7 → 56.1) but its routed cache-read is 5.6× dearer ($0.097 vs $0.01722), ~4× more per turn on a cache-heavy session — a deliberate trade left to the operator, documented in the alternatives table.
+- Carry-forward: `deepseek-v4.1-pro` is announced but unreleased (named in benchmark configs 2026-11-01, no card, price or date); `deepseek-v5` is a 2027 Huawei-Ascend story. Re-check the pinned snapshot when either ships — the bare-ID trap means nothing will warn.
