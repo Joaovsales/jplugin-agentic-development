@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
@@ -62,6 +63,10 @@ MAX_LOGICAL_ROW_CHARS = 60_000
 #: reported like any other (AC-19) rather than forwarded to a subprocess or an
 #: HTTP client.
 REF_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+#: The one defect that skips its row instead of refusing the index: a prose arrow
+#: in a legacy row is a wording slip, and with no stable ID the skipped row cannot
+#: turn an update into a duplicate append.
+AMBIGUOUS_ARROWS = "cannot publish legacy row: multiple '->' delimiters are ambiguous"
 
 
 @dataclass(frozen=True)
@@ -72,6 +77,7 @@ class Problem:
     line: int
     message: str
     raw: str = ""
+    skipped: bool = False  # reported, but does not refuse the index
 
     def render(self) -> str:
         return f"{self.path}:{self.line} — {self.message}"
@@ -168,7 +174,10 @@ class TaskIndex:
         summary = " ".join(part for part in (summary, *detail) if part)
 
         if publish_error:
-            self.problems.append(Problem(self.relative_path, number, publish_error, line))
+            skipped = publish_error == AMBIGUOUS_ARROWS and not task_id
+            self.problems.append(
+                Problem(self.relative_path, number, publish_error, line, skipped)
+            )
             return None
 
         if not title:
@@ -305,7 +314,7 @@ def _split_title_summary(rest: str) -> Tuple[str, str, Optional[str]]:
     if canonical is not None:
         return canonical[0], canonical[1], None
     if len(arrows) > 1:
-        return cleaned, "", "cannot publish legacy row: multiple '->' delimiters are ambiguous"
+        return cleaned, "", AMBIGUOUS_ARROWS
     if arrows:
         return _split_legacy_arrow(cleaned, arrows[0])
     return cleaned, "", None
@@ -370,7 +379,9 @@ class IndexUnreadable(ValueError):
     """The index carries rows that could not be parsed, so it cannot be acted on."""
 
 
-def load_index_strict(path: str, relative_path: Optional[str] = None) -> TaskIndex:
+def load_index_strict(
+    path: str, relative_path: Optional[str] = None, report_skipped: bool = False
+) -> TaskIndex:
     """Load an index a caller intends to *act* on, refusing a half-parsed one.
 
     :func:`load_index` stays permissive because inspecting a malformed index is
@@ -385,12 +396,24 @@ def load_index_strict(path: str, relative_path: Optional[str] = None) -> TaskInd
     either of its own index reads, so a strict load left at those reads would
     refuse only after the issue already existed upstream, with nothing pointing at
     it (specs/task-registry.md AC-19).
+
+    A :data:`AMBIGUOUS_ARROWS` legacy row is the exception: it is left out of
+    `rows` so the rest still publish, and named on stderr when `report_skipped`
+    is set -- by the one load per command, so a row is named once.
     """
     index = load_index(path, relative_path)
-    if index.problems:
+    refused = [problem for problem in index.problems if not problem.skipped]
+    if refused:
         raise IndexUnreadable(
             "refusing to act on a malformed index — fix these rows first:\n"
-            + "\n".join(f"  {problem.render()}" for problem in index.problems)
+            + "\n".join(f"  {problem.render()}" for problem in refused)
+        )
+    skipped = [problem for problem in index.problems if problem.skipped]
+    if report_skipped and skipped:
+        print(
+            "task-registry: skipping rows that cannot be published — fix them to include them:\n"
+            + "\n".join(f"  {problem.render()}" for problem in skipped),
+            file=sys.stderr,
         )
     return index
 

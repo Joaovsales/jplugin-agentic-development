@@ -441,6 +441,41 @@ assert_eq "1" "$(grep -c 'task-id: plan\.prewritten' "$F_PREWRITTEN/tasks/todo.m
   "upsert pre-written row: still exactly one row, never a duplicate"
 assert_file_contains "$F_PREWRITTEN/tasks/todo.md" "- [ ] Prewritten feature" \
   "upsert pre-written row: the open box survives the refresh"
+
+# --- upsert: a legacy row with ambiguous '->' delimiters --------------------
+#
+# A prose arrow in one legacy row refused every upsert against the whole index.
+# Such a row is skipped and named instead; every other malformation still refuses.
+F_ARROWS="$(registry_project)"
+cat > "$F_ARROWS/tasks/todo.md" <<'EOF'
+# Task Plan
+
+- [x] TDD: counts go 5 -> 0 and match the proof -> replace the tables
+- [ ] Valid row <!-- task-id: plan.valid --> — still publishable
+- [ ] One -> two -> three
+EOF
+arrows_out="$(reg upsert plan.arrows --repo "$F_ARROWS" --title 'Arrows' --summary 'y' --dry-run 2>&1)"
+arrows_code=$?
+assert_eq "0" "$arrows_code" "upsert ambiguous arrows: the dry run no longer aborts on the index"
+assert_contains "$arrows_out" "would create plan.arrows" \
+  "upsert ambiguous arrows: the dry run reaches the preview stage"
+assert_contains "$arrows_out" "tasks/todo.md:3 — cannot publish legacy row: multiple '->' delimiters are ambiguous" \
+  "upsert ambiguous arrows: the first skipped row is named with file:line"
+assert_contains "$arrows_out" "tasks/todo.md:5 — cannot publish legacy row: multiple '->' delimiters are ambiguous" \
+  "upsert ambiguous arrows: every skipped row is named at once"
+printf -- '- [?] Unknown box\n' >> "$F_ARROWS/tasks/todo.md"
+arrows_bad="$(reg upsert plan.arrows --repo "$F_ARROWS" --title 'Arrows' --summary 'y' --dry-run 2>&1)"
+arrows_bad_code=$?
+assert_eq "1" "$arrows_bad_code" "upsert ambiguous arrows: any other malformation still refuses"
+assert_contains "$arrows_bad" "tasks/todo.md:6 — unknown status box '[?]'" \
+  "upsert ambiguous arrows: the refusal names the other malformation"
+F_ARROWS_ID="$(registry_project)"
+printf -- '- [ ] Has id <!-- task-id: plan.arrowed --> a -> b -> c\n' > "$F_ARROWS_ID/tasks/todo.md"
+arrows_id_out="$(reg upsert plan.arrows --repo "$F_ARROWS_ID" --title 'Arrows' --dry-run 2>&1)"
+assert_eq "1" "$?" "upsert ambiguous arrows: a row carrying a stable ID still refuses"
+assert_contains "$arrows_id_out" "refusing to act on a malformed index" \
+  "upsert ambiguous arrows: skipping an ID-bearing row could mint a duplicate, so it is refused"
+
 fi
 end_case
 
