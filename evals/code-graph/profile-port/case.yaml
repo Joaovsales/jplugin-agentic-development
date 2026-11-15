@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: profile-port
+description: Change the local gateway port from 4210 to 4211 in config/runtime.yaml and tell me which file you changed..
+tags: [control]
+context:
+  scaffold_script: fixture.sh
