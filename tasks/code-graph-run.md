@@ -56,3 +56,4 @@ Read this ledger, then run `slice.py ready` for the linked spec. Preserve settle
 - Batch 2 affected tests exited 0: 67 files, 6522 assertions passed, no failures or skips; `/tmp/code-graph-batch-2-affected.log`.
 - Slice 5 is mechanically ready but embargoed by Run Protocol until PR 1 merges. No treatment files or paid results have landed.
 - C excluded by the spike; exact session model id remains to be established before any protocol or paid run.
+- Phase 4 design review HOLD: a copied Codex banner loses the source-tree pin. Slice 2 is adding an adjacent-pin resource contract and explicit broken state when absent; slice 6 must provision `graphify.pin` next to the copied shell hook through its already-owned installer and test surface. No Phase A installer-surface expansion.

@@ -1,4 +1,4 @@
-# Checkpoint — 2026-11-15T18:29:12Z
+# Checkpoint — 2026-11-15T18:42:24Z
 
 > Auto-written by PreCompact hook (trigger: ). Re-read on resume.
 
@@ -6,7 +6,7 @@
 - Branch: Joaovsales/code-graph
 
 ```
- M AGENTS.md
+(working tree clean)
 ```
 
 ## In-Progress & Pending Tasks (tasks/todo.md)

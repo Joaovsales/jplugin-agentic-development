@@ -2881,6 +2881,8 @@ Step ledger (routine `simplify`):
 > Surface: check against 1167cf2 clean; targeted session-start test 201 passed.
 
 
+> [AMBIGUITY] The copied Codex banner needs the canonical pin before the installer surface is reached in slice 6 | options: A) add an adjacent-pin contract now and provision it in slice 6 B) expand Phase A into the Codex installer | picked: A | reason: explicit missing-resource reporting removes the silent failure while preserving the declared slice surfaces.
+
 ### Slice 3/9 — code-graph grader
 - [x] code-graph grader — `grade-code-graph.py` with tool classification, paired means and the six-rule verdict
 
