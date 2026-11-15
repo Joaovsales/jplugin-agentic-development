@@ -21,21 +21,36 @@ cd "$REPO"
 DOC="$(under_test PI_SETUP.md)"
 LIVE="${PI_AGENT_SETTINGS:-$HOME/.pi/agent/settings.json}"
 
-# missing_overrides <doc> <settings> — prints each agent the doc pins that the
-# settings file's subagents.agentOverrides lacks, one per line. Exit 0 when none
-# is missing, 1 when some are, 2 when either side cannot be parsed.
-missing_overrides() {
-  "$TEST_PYTHON" -I - "$1" "$2" <<'PY'
+# The one reader of the documented block: the ```json fence in PI_SETUP.md that
+# holds "agentOverrides", wrapped in braces to parse as an object.
+#   check <doc> <settings>       prints each agent the doc pins that the
+#                                settings file's subagents.agentOverrides lacks,
+#                                one per line; exit 0 none missing, 1 some
+#                                missing, 2 either side unparseable
+#   fixtures <doc> <full> <bare> writes the documented block as a settings file
+#                                to <full>, and without test-engineer to <bare>
+PI_OVERRIDES_PY='
 import json, re, sys
 
-doc_path, settings_path = sys.argv[1], sys.argv[2]
-try:
-    text = open(doc_path, encoding="utf-8").read()
-    fences = [f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f]
+def documented_settings(doc_path):
+    with open(doc_path, encoding="utf-8") as fh:
+        text = fh.read()
+    fences = [f for f in re.findall(r"```json\n(.*?)```", text, re.S) if "\"agentOverrides\"" in f]
     if len(fences) != 1:
         raise ValueError(f"expected one json fence with agentOverrides in {doc_path}, found {len(fences)}")
-    documented = json.loads("{" + fences[0] + "}")["subagents"]["agentOverrides"]
-    with open(settings_path, encoding="utf-8") as fh:
+    return json.loads("{" + fences[0] + "}")
+
+mode, doc_path = sys.argv[1], sys.argv[2]
+try:
+    settings = documented_settings(doc_path)
+    documented = settings["subagents"]["agentOverrides"]
+    if mode == "fixtures":
+        for path, drop in ((sys.argv[3], None), (sys.argv[4], "test-engineer")):
+            body = {k: v for k, v in documented.items() if k != drop}
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump({"subagents": {**settings["subagents"], "agentOverrides": body}}, fh)
+        sys.exit(0)
+    with open(sys.argv[3], encoding="utf-8") as fh:
         live = json.load(fh).get("subagents", {}).get("agentOverrides", {})
 except (OSError, ValueError, KeyError, AttributeError) as exc:
     print(f"unparseable: {exc}")
@@ -43,8 +58,8 @@ except (OSError, ValueError, KeyError, AttributeError) as exc:
 missing = sorted(set(documented) - set(live))
 print("\n".join(missing))
 sys.exit(1 if missing else 0)
-PY
-}
+'
+missing_overrides() { "$TEST_PYTHON" -I -c "$PI_OVERRIDES_PY" check "$1" "$2"; }
 
 FIX="$(fixture_dir)"
 
@@ -53,15 +68,8 @@ FIX="$(fixture_dir)"
 # file; the negative control is the same file with test-engineer removed — the
 # exact drift this file exists for.
 if begin_case "fixture"; then
-  "$TEST_PYTHON" -I - "$DOC" "$FIX/full.json" "$FIX/no-test-engineer.json" <<'PY'
-import json, re, sys
-text = open(sys.argv[1], encoding="utf-8").read()
-fence = next(f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f)
-settings = json.loads("{" + fence + "}")
-json.dump(settings, open(sys.argv[2], "w"))
-del settings["subagents"]["agentOverrides"]["test-engineer"]
-json.dump(settings, open(sys.argv[3], "w"))
-PY
+  assert_exit 0 "PiDrift: the fixtures are written from the documented block" -- \
+    "$TEST_PYTHON" -I -c "$PI_OVERRIDES_PY" fixtures "$DOC" "$FIX/full.json" "$FIX/no-test-engineer.json"
   run missing_overrides "$DOC" "$FIX/full.json"
   assert_exit 0 "PiDrift: the documented block satisfies itself"
   run missing_overrides "$DOC" "$FIX/no-test-engineer.json"
