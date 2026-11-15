@@ -485,6 +485,12 @@ remove_stale_global_copies
 # is still configured below.
 
 # ── 5. Configure Pi if installed ─────────────────────────────────────────────
+# Only the skill path is written here. `subagents.agentOverrides` stays
+# hand-maintained from PI_SETUP.md § Sub-Agent Routing: its values are concrete
+# provider routes (openrouter/deepseek/...) that hold only for an account with
+# that provider, and a jq merge would overwrite a user's deliberate local pins on
+# every install. A missing entry is the dangerous drift — on Pi it falls through
+# to the Scout-tier defaultModel — and tests/test-pi-overrides-drift.sh catches it.
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if [ -f "$PI_SETTINGS" ]; then
   step "Configuring Pi skill paths"
