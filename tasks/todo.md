@@ -2874,7 +2874,12 @@ Step ledger (routine `simplify`):
 
 
 ### Slice 2/9 — graph status reporting
-- [ ] graph status reporting — `AGENTS.md` § Code Graph matches the tree; the banner prints one line per broken state
+- [x] graph status reporting — `AGENTS.md` § Code Graph matches the tree; the banner prints one line per broken state
+
+> Handover: landed cd372bc — bounded CLI health/version probes, graph parsing, HEAD and tracked-code freshness, truthful repository graph description; affected tests: 67 files, 6522 passed.
+> Do not re-derive: the pin resolves from the hook/template root; graphify --help and --version probes are bounded by 5 seconds; stale, broken, missing and drift states remain distinct and failures exit 0.
+> Surface: check against 1167cf2 clean; targeted session-start test 201 passed.
+
 
 ### Slice 3/9 — code-graph grader
 - [x] code-graph grader — `grade-code-graph.py` with tool classification, paired means and the six-rule verdict
@@ -2885,7 +2890,11 @@ Step ledger (routine `simplify`):
 
 
 ### Slice 4/9 — localization suite
-- [ ] localization suite — the runner spike in the suite README, seeded fixtures, 10+ cases, the arm-D stub, graders, rubric, one smoke run
+- [x] localization suite — the runner spike in the suite README, seeded fixtures, 10+ cases, the arm-D stub, graders, rubric, one smoke run
+
+> Handover: landed da5bb18 — ten seeded mixed-language cases, 150+ files/20000+ lines each, deterministic graders and four degraded modes; affected tests: 67 files, 6522 passed.
+> Do not re-derive: sandbox probe succeeded on Linux/Claude Code 2.1.325; C is excluded because Serena in the runner workspace remains unproven. Paid smoke is deferred until the protocol is committed and PR 1 merged; installed graphify 0.4.23 fails the 0.9.109 runtime prerequisite without an agent upgrade.
+> Surface: check against cd372bc clean.
 
 > [AMBIGUITY] Slice 4 requests a paid smoke run before slice 8 commits the protocol | options: A) defer the paid smoke until the protocol is committed B) run the smoke before protocol freeze | picked: A | reason: AC4 requires a committed protocol before every paid run.
 

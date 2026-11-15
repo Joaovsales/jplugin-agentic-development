@@ -1,6 +1,6 @@
 # Code-graph adoption run ledger
 
-State: PHASE-A
+State: HARNESS
 Feature: https://github.com/Joaovsales/jplugin-agentic-development/issues/401
 Spec: specs/code-graph-adoption.md
 Base: 317a71717c34226891c3e3b019b83bebc591449d
@@ -19,9 +19,9 @@ Branch: Joaovsales/code-graph
 | Slice | Status | Evidence |
 |---|---|---|
 | 1 | done | c6aebd3, 998b58b; handover in tasks/todo.md; affected 65 files / 6481 assertions green |
-| 2 | ready | Slice 1 handover available |
+| 2 | done | cd372bc; handover and clean surface check; targeted 201 assertions green |
 | 3 | done | 68ed02b, 506c1eb; handover in tasks/todo.md; affected 65 files / 6481 assertions green |
-| 4 | ready | Slices 1 and 3 handovers available; paid smoke deferred until committed protocol |
+| 4 | done | da5bb18; handover and clean surface check; all fixture contracts green; paid smoke deferred |
 | 5 | pending | Treatment; starts after PR 1 merge |
 | 6 | pending | Blocked by 5 |
 | 7 | pending | Blocked by 5 |
@@ -49,3 +49,10 @@ Read this ledger, then run `slice.py ready` for the linked spec. Preserve settle
 - Review repairs: source-resolved sync pin; multiline and conditional shell invocations classified without treating quoted prose as calls.
 - Release-only surface addition: `.claude-plugin/plugin.json` 1.8.9 -> 1.8.10, mandated by README Releasing skills and test-plugin-manifest.sh. Generated session memory block removed from AGENTS.md; no product rule changed yet.
 - Neighboring suite completion observed via pidfd; no concurrent test run launched.
+
+## Phase A release gate
+
+- Slices 1–4 are complete. State HARNESS awaits quality gate, full suite, PR 1 and green Linux CI before merge.
+- Batch 2 affected tests exited 0: 67 files, 6522 assertions passed, no failures or skips; `/tmp/code-graph-batch-2-affected.log`.
+- Slice 5 is mechanically ready but embargoed by Run Protocol until PR 1 merges. No treatment files or paid results have landed.
+- C excluded by the spike; exact session model id remains to be established before any protocol or paid run.
