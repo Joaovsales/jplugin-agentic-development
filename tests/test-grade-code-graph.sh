@@ -10,7 +10,6 @@ if [ ! -f "$GRADER" ]; then finish; exit $?; fi
 
 "$TEST_PYTHON" - "$GRADER" <<'PY'
 import copy
-import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -18,19 +17,6 @@ import sys
 import tempfile
 
 grader = str(Path(sys.argv[1]).resolve())
-sys.path.insert(0, str(Path(grader).parent))
-spec = importlib.util.spec_from_file_location("grade_code_graph", grader)
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
-for command, expected in (
-    ("cd /repo\ntimeout 20 graphify query billing --budget 1500", True),
-    ("if command -v graphify; then timeout 20 graphify query billing --budget 1500; fi", True),
-    ("command -v graphify", False),
-    ('echo "notes\ntimeout 20 graphify query billing --budget 1500"', False),
-    ("echo graphify", False),
-):
-    assert module.graph_command(command) is expected, (command, expected)
-print("ok: shell command boundaries preserve graph invocations and exclude quoted prose")
 
 def transcript(tokens, seconds, graph=True):
     calls = [
@@ -92,6 +78,26 @@ with tempfile.TemporaryDirectory() as tmp:
     text = invoke(good, False)
     assert "Verdict: go" in text.stdout and "Paired per-case means" in text.stdout, text.stdout
     print("ok: classified tools, deduplicated usage, paired means, spend and passing verdict")
+    commands = root / "commands"
+    make(commands)
+    run = commands / "B" / "invoice-route" / "run-1"
+    for command, expected in (
+        ("cd /repo\ntimeout 20 graphify query billing --budget 1500", 1),
+        ("if command -v graphify; then timeout 20 graphify query billing --budget 1500; fi", 1),
+        ("command -v graphify", 0),
+        ('echo "notes\ntimeout 20 graphify query billing --budget 1500"', 0),
+        ("echo graphify", 0),
+    ):
+        rows = transcript(800, 100)
+        for record in rows:
+            for call in record.get("message", {}).get("content", []):
+                if call.get("id") == "g": call["input"]["command"] = command
+        (run / "transcript.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+        result = invoke(commands)
+        assert result.returncode == 0, result.stderr
+        row = next(r for r in json.loads(result.stdout)["runs"] if r["arm"] == "B" and r["case"] == "invoice-route" and r["run"] == "run-1")
+        assert row["graph_calls"] == expected, (command, row)
+    print("ok: CLI transcript counts preserve shell boundaries and exclude quoted prose")
     for failure in range(1, 7):
         path = root / f"rule-{failure}"
         make(path, failure)

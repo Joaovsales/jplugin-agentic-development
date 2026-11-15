@@ -57,3 +57,20 @@ Read this ledger, then run `slice.py ready` for the linked spec. Preserve settle
 - Slice 5 is mechanically ready but embargoed by Run Protocol until PR 1 merges. No treatment files or paid results have landed.
 - C excluded by the spike; exact session model id remains to be established before any protocol or paid run.
 - Phase 4 design review HOLD: a copied Codex banner loses the source-tree pin. Slice 2 is adding an adjacent-pin resource contract and explicit broken state when absent; slice 6 must provision `graphify.pin` next to the copied shell hook through its already-owned installer and test surface. No Phase A installer-surface expansion.
+
+## Phase A quality status
+
+- Copied-hook source repair 0f31434: targeted 209 assertions green; Phase 4 design re-review GO. Adjacent pin provisioning remains an explicit slice 6 obligation.
+- New standalone Python coverage: 83% overall (grader 87%, fixture generator 75%, fault stub 93%); measured with installed coverage tooling and no new dependency.
+- Integrated origin/master 42eb935 in 6cb79d7. The only conflict was tasks/todo.md; both branches of the index were retained. No managed-block conflict.
+- Gate test attempt refused while override-guard worktree owns PID 2241675 (2026-11-15T18:54:00Z); process exit is observed via pidfd, with no concurrent test run.
+
+- Post-merge CLI walkthrough at 6cb79d7: 489 assertions green across the installer, session banner and grader CLI. Source and copied-hook paths were exercised against isolated fixtures.
+- Quality Phases 1–3 completed inline; Phase 4 dispatched re-review GO; Phase 5 affected test and test-engineer review remain before receipt.
+
+## Phase A gate receipt
+
+- Quality receipt: valid GO b7cfd232, policy qg1-9478b51c, parent 1b7aec6f. Two test-encapsulation findings were repaired through public CLI fixtures and independent public-case expectations; test-engineer re-review reports no findings.
+- Latest affected gate: 71 files, 6703 assertions passed, zero failures/skips; `/tmp/code-graph-phase-a-delta-tests.log`. New standalone Python coverage remains 83%.
+- Full-suite evidence path: `/tmp/code-graph-phase-a-full-suite.log`; command is `bash .agents/skills/build/scripts/cached-suite.sh -- env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh </dev/null`. The cache and command exit determine the release outcome.
+- PR 1 has not yet been opened. Feature issue stays open because slices 5–9 remain.

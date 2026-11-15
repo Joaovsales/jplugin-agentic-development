@@ -11,7 +11,6 @@ if [ ! -f "$SUITE/fixture_gen.py" ] || [ ! -f "$SUITE/stubs/graphify" ]; then fi
 "$TEST_PYTHON" - "$SUITE" <<'PY'
 import ast
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -21,10 +20,32 @@ import sys
 import tempfile
 
 suite = Path(sys.argv[1])
-spec = importlib.util.spec_from_file_location("navigation_fixtures", suite / "fixture_gen.py")
-fg = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(fg)
-cases = fg.CASES
+# Expected locations and seeds belong to the contract, outside the generated workspace.
+expected_cases = {
+    "invoice-rounding": ("localization", 101, "billing/amounts.py", "settle_amount"),
+    "dispatch-callers": ("localization", 102, "gateway/queue.py", "enqueue_dispatch"),
+    "currency-shape": ("localization", 103, "catalog/mapper.ts", "mapPrice"),
+    "credit-flow": ("localization", 104, "ledger/bridge.py", "encode_credit"),
+    "terms-failure": ("localization", 105, "billing/policy.py", "resolve_terms"),
+    "status-rename": ("localization", 106, "notify/queue.py", "publish_alert"),
+    "refund-balance": ("localization", 107, "orders/receipt.py", "apply_refund"),
+    "readme-copy": ("control", 108, "README.md", ""),
+    "profile-port": ("control", 109, "config/runtime.yaml", ""),
+    "receipt-module": ("control", 110, "reporting/receipt.py", "format_receipt"),
+}
+directories = {path.parent.name: path.parent for path in suite.glob("*/case.yaml")}
+assert set(directories) == set(expected_cases), sorted(directories)
+cases = {}
+for name, directory in directories.items():
+    metadata = (directory / "case.yaml").read_text()
+    declared_name = re.search(r"(?m)^name:\s*(.+)$", metadata).group(1).strip().strip("\"'")
+    assert declared_name == name, (name, declared_name)
+    tags = re.search(r"(?m)^tags:.*(?:\n[ \t]+.*)*", metadata).group(0)
+    kinds = re.findall(r"\b(localization|control)\b", tags)
+    kind, seed, target_file, target_symbol = expected_cases[name]
+    assert kinds == [kind], (name, kinds)
+    cases[name] = {"kind": kind, "seed": seed, "target_file": target_file,
+                   "target_symbol": target_symbol, "scaffold": name == "receipt-module"}
 assert sum(c["kind"] == "localization" for c in cases.values()) >= 7
 assert sum(c["kind"] == "control" for c in cases.values()) >= 3
 assert {c["seed"] % 4 for c in cases.values()} == {0, 1, 2, 3}
@@ -37,7 +58,7 @@ def tree(root):
 with tempfile.TemporaryDirectory() as scratch:
     root = Path(scratch)
     for name, case in cases.items():
-        directory = suite / name
+        directory = directories[name]
         for relative in ("case.yaml", "prompt.md", "fixture.sh", "graders/outcome.md"):
             assert (directory / relative).is_file(), (name, relative)
         assert not blocked.search(name), name
