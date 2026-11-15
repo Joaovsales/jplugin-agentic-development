@@ -13,19 +13,41 @@ Set the default session model to a capable reasoning model that can orchestrate 
 ```json
 {
   "defaultProvider": "openrouter",
-  "defaultModel": "deepseek/deepseek-v4.1-flash",
+  "defaultModel": "deepseek/deepseek-v4.1-flash-1017",
   "defaultThinkingLevel": "high",
   "skills": ["~/.agents/skills"]
 }
 ```
 
-**Cost rationale:** The orchestrator handles low-volume, high-value work (planning, architecture, dispatch). An orchestrator session is overwhelmingly *input* — reading files, tool results and context — and barely writes, so it is the one seat where the input rate dominates. `deepseek-v4.1-flash` has the lowest input price on the board ($0.02/M), so it is both the newest DeepSeek and the cheapest one to sit on.
+**Cost rationale:** The orchestrator handles low-volume, high-value work (planning, architecture, dispatch). An orchestrator session is overwhelmingly *input* — reading files, tool results and context — and barely writes, so it is the one seat where the input rate dominates. `deepseek-v4.1-flash-1017` is the cheapest DeepSeek on input *and* on cache-read, so it is both the newest DeepSeek and the cheapest one to sit on.
+
+**Pin the dated snapshot, not the bare ID.** OpenRouter lists `deepseek/deepseek-v4.1-flash` (the
+2026-09-10 build) and `deepseek/deepseek-v4.1-flash-1017` (the 2026-10-17 build) as **two separate
+models**. The bare ID is not a floating alias and will not follow DeepSeek's `deepseek-flash`
+endpoint forward, so a config left on it silently stays a release behind. The 1017 build supersedes
+the September one on both axes — at the same routed provider it is 2.9× cheaper on input, 1.8× on
+cache-read and 1.3× on output, while scoring +11.1 on Terminal-Bench 4.0 (31.2 → 42.3), +8.8 on
+ProgramBench (20.3 → 29.1) and +2.8 on DeepSWE v1.1 (74.2 → 77.0).
+
+**Quote the routed price, not the catalog headline.** OpenRouter's model list shows the *cheapest*
+endpoint, which is frequently not the provider your traffic lands on. A one-token call carrying
+`"usage": {"include": true}` returns the `provider` that served it and the exact cost; that is the
+number to put in a cost table. As of 2026-11-15 the routed prices are:
+
+| Model | Routed provider | $/M in | $/M cache-read | $/M out |
+|-------|-----------------|--------|----------------|---------|
+| `deepseek/deepseek-v4.1-flash-1017` | Wafer | $0.066 | $0.0065 | $0.50 |
+| `deepseek/deepseek-v4.1-flash` (Sept) | Wafer | $0.19 | $0.012 | $0.65 |
+| `deepseek/deepseek-v4-pro` | Baidu | $0.2079 | $0.01722 | $0.4157 |
+| `deepseek/deepseek-v4-pro-0813` | Wafer | $0.111 | $0.097 | $4.44 |
+| `deepseek/deepseek-v4-flash` | Baidu | $0.0147 | $0.00294 | $0.0294 |
 
 **Alternatives:**
 | Model | $/M in → out | Trade-off |
 |-------|--------------|-----------|
-| `deepseek/deepseek-v4.1-flash` | $0.02 → $1.00 | **Default.** Cheapest input; sparse thinking map (`off`/`low`/`high`/`max`) |
-| `deepseek/deepseek-v4-pro` | $0.21 → $0.42 | 10× the input price, half the output price — better once a session writes a lot |
+| `deepseek/deepseek-v4.1-flash-1017` | $0.066 → $0.50 | **Default.** Cheapest input and cache-read; sparse thinking map (`off`/`low`/`high`/`max`) |
+| `deepseek/deepseek-v4-pro` | $0.21 → $0.42 | 3× the input price, cheaper output — better once a session writes a lot |
+| `deepseek/deepseek-v4-pro-0813` | $0.11 → $4.44 | +45% on the coding index over `v4-pro` (38.7 → 56.1), but 5.6× the cache-read price — a cache-heavy session costs ~4× more per turn |
 | `~anthropic/claude-sonnet-latest` | $2.00 → $? | Better reasoning, far more expensive; breaks single-provider routing |
 | `~anthropic/claude-opus-latest` | $5.00 → $? | Best reasoning, expensive — use as `deep-think` only |
 
@@ -83,7 +105,7 @@ Define presets for each role in the routing hierarchy. Switch with `/preset <nam
 
   "search": {
     "provider": "openrouter",
-    "model": "deepseek/deepseek-v4.1-flash",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
     "thinkingLevel": "off",
     "tools": ["read", "grep", "find", "ls"],
     "instructions": "You are in SEARCH / EXPLORATION mode... [read-only]"
@@ -111,9 +133,9 @@ Define presets for each role in the routing hierarchy. Switch with `/preset <nam
 
 | Tier | Role | Recommended | Cost/M in | Alternative |
 |------|------|-------------|-----------|-------------|
-| Orchestrator | Planning, dispatch | `deepseek/deepseek-v4.1-flash` | $0.02 | `deepseek/deepseek-v4-pro` ($0.21) |
-| Worker | Implementation | `deepseek/deepseek-v4-flash` | $0.0211 | `deepseek/deepseek-v4-pro` ($0.21) |
-| Explorer | Search, file reads | `deepseek/deepseek-v4.1-flash` | $0.02 | `deepseek/deepseek-v4-flash` ($0.0211) |
+| Orchestrator | Planning, dispatch | `deepseek/deepseek-v4.1-flash-1017` | $0.066 | `deepseek/deepseek-v4-pro` ($0.21) |
+| Worker | Implementation | `deepseek/deepseek-v4-flash` | $0.0147 | `deepseek/deepseek-v4-pro` ($0.21) |
+| Explorer | Search, file reads | `deepseek/deepseek-v4.1-flash-1017` | $0.066 | `deepseek/deepseek-v4-flash` ($0.0147) |
 | Deep-think | Circuit breaker | `deepseek/deepseek-v4-pro` | $0.21 | `~anthropic/claude-opus-latest` ($5) |
 
 ### 4. Global Agent Rules
@@ -127,9 +149,9 @@ Document the delegation strategy so Pi applies it consistently:
 
 Multi-tier model routing strategy for cost-efficient code generation.
 
-Orchestrator (default): deepseek/deepseek-v4.1-flash — planning, architecture, dispatch
+Orchestrator (default): deepseek/deepseek-v4.1-flash-1017 — planning, architecture, dispatch
 Worker (sub-agents):    deepseek/deepseek-v4-flash   — implementation, test writing
-Explorer (search):      deepseek/deepseek-v4.1-flash — grep/read/lint
+Explorer (search):      deepseek/deepseek-v4.1-flash-1017 — grep/read/lint
 Deep-think (rare):      deepseek/deepseek-v4-pro     — hardest problems only
 
 Presets: /plan, /code, /search, /worker, /deep-think
@@ -186,7 +208,7 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, pl
 
 > **`defaultModel` is an enforcement surface, not a convenience.** It applies to *every*
 > agent without a model in frontmatter or an override. Point it at the cheapest routed
-> tier (`deepseek-v4-flash`), never the builder model: a 2026-09-02 incident saw an
+> tier (`deepseek-v4.1-flash-1017`), never the builder model: a 2026-09-02 incident saw an
 > autonomous `/build` spawn 22 backend-developer agents whose long turns re-read ~132k
 > context each time — 95% of a $25.45 burn was qwen cache-read tokens ($0.07/M) because
 > the blanket default silently made qwen the fallback for unscoped agents.
@@ -201,7 +223,7 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, pl
 
 ```json
 "subagents": {
-  "defaultModel": "openrouter/deepseek/deepseek-v4.1-flash",
+  "defaultModel": "openrouter/deepseek/deepseek-v4.1-flash-1017",
   "globalConcurrencyLimit": 6,
   "maxSubagentDepth": 2,
   "maxSubagentSpawnsPerSession": 30,
@@ -216,10 +238,10 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, pl
     "software-design-expert-review": { "model": "inherit", "thinking": "high" },
     "critic":             { "model": "openrouter/deepseek/deepseek-v4-pro", "thinking": "high" },
     "test-engineer":      { "model": "openrouter/deepseek/deepseek-v4-flash" },
-    "scout":              { "model": "openrouter/deepseek/deepseek-v4.1-flash", "thinking": "off" },
-    "context-builder":    { "model": "openrouter/deepseek/deepseek-v4.1-flash" },
-    "context-document-optimizer": { "model": "openrouter/deepseek/deepseek-v4.1-flash" },
-    "researcher":         { "model": "openrouter/deepseek/deepseek-v4.1-flash" },
+    "scout":              { "model": "openrouter/deepseek/deepseek-v4.1-flash-1017", "thinking": "off" },
+    "context-builder":    { "model": "openrouter/deepseek/deepseek-v4.1-flash-1017" },
+    "context-document-optimizer": { "model": "openrouter/deepseek/deepseek-v4.1-flash-1017" },
+    "researcher":         { "model": "openrouter/deepseek/deepseek-v4.1-flash-1017" },
     "worker":   { "disabled": true },
     "reviewer": { "disabled": true },
     "delegate": { "disabled": true },
@@ -231,7 +253,7 @@ Add a `subagents` block to `~/.pi/agent/settings.json` (agent name → model, pl
 **Ceiling cannot be expressed by omission on Pi — every review role keeps an explicit entry.** On
 Claude Code, omitting `model` means the sub-agent inherits the session model; that is the whole
 mechanism. On Pi, omitting an agent from `agentOverrides` falls through to `subagents.defaultModel`
-above — a *fixed* model (`deepseek/deepseek-v4.1-flash`), not the session model — so omission on Pi
+above — a *fixed* model (`deepseek/deepseek-v4.1-flash-1017`), not the session model — so omission on Pi
 *downgrades* rather than inherits. This is the one asymmetry between the two harnesses, and it is why
 § 11 of `tests/test-model-tiers.sh` fails on a deleted entry rather than on a pinned one.
 
@@ -273,10 +295,10 @@ Valid override keys are `description`, `advertise`, `output`, `outputMode`, `mod
 | Tier | Model | $/M in → out | Why |
 |------|-------|--------------|-----|
 | Plan / oracle / circuit breaker | `deepseek/deepseek-v4-pro` | $0.21 → $0.42 | 1M context, thinking off/high/xhigh, `xhigh` available — and 48× cheaper on input than the `openai/gpt-6-astra` it replaced |
-| Build / debug | `deepseek/deepseek-v4-flash` | $0.0211 → $0.45 | Cheapest DeepSeek on **output**, which is the dimension a builder actually spends — see the split note below |
+| Build / debug | `deepseek/deepseek-v4-flash` | $0.0147 → $0.0294 | Cheapest DeepSeek on **output**, which is the dimension a builder actually spends — see the split note below |
 | Review / escalation | *inherits the session model* | session | True Ceiling: runs at whatever the session pays for, exactly as on Claude Code |
 | Adversarial gate (Ceiling, planner floor) | `deepseek/deepseek-v4-pro` | $0.21 → $0.42 | Same model as the planner, so the floor holds unconditionally — `inherit` cannot express a floor |
-| Scout / context / docs | `deepseek/deepseek-v4.1-flash` | $0.02 → $1.00 | Cheapest input on the board; these roles read heavily and write little |
+| Scout / context / docs | `deepseek/deepseek-v4.1-flash-1017` | $0.066 → $0.50 | Cheapest input *and* cache-read on the board; these roles read heavily and write little |
 
 **No cross-family check remains.** The three Ceiling roles were on `openai/gpt-5.6-sol` precisely because
 it was a different family from the builder, so a reviewer could not inherit the builder's priors. That
@@ -286,14 +308,17 @@ only. Restoring it costs one entry: pointing `code-reviewer` alone back at `open
 for all three.
 
 **Cheapest DeepSeek depends on direction, which is why three DeepSeek models are in play.**
-`deepseek-v4.1-flash` has the lowest input price ($0.02) but a 2.2× higher output price than
-`deepseek-v4-flash` ($1.00 vs $0.45). Read-heavy roles (scout, context-builder, researcher,
-context-document-optimizer) take `v4.1-flash`; write-heavy roles (builders, debugger) take `v4-flash`.
-Picking one for both silently overpays on whichever dimension dominates.
+`deepseek-v4.1-flash-1017` has the lowest input ($0.066) and cache-read ($0.0065) prices, but a 17×
+higher output price than `deepseek-v4-flash` ($0.50 vs $0.0294). Read-heavy roles (scout,
+context-builder, researcher, context-document-optimizer) take `v4.1-flash-1017`; write-heavy roles
+(builders, debugger) take `v4-flash`. Picking one for both silently overpays on whichever dimension
+dominates. Note the split is now *only* about output: the 1017 build is cheaper than the September
+`v4.1-flash` on all three dimensions, so no role should still be on the bare `v4.1-flash` ID.
 
 Thinking levels are **not uniform across the DeepSeek family** and the maps are sparse:
-`v4-pro` and `v4-flash` accept `off`/`high`/`xhigh` only; `v4.1-flash` accepts `off`/`low`/`high`/`max`.
-Neither accepts `medium`. A preset or override asking for an unmapped level has no defined behaviour.
+`v4-pro` and `v4-flash` accept `off`/`high`/`xhigh` only; `v4.1-flash` and `v4.1-flash-1017` accept
+`off`/`low`/`high`/`max`. Neither accepts `medium`. A preset or override asking for an unmapped level
+has no defined behaviour.
 
 ## How Build Skill Sub-Agent Routing Works
 
@@ -307,12 +332,12 @@ Model ID per sub-agent role:
 |------|-------|--------------------|--------------|
 | Planning / circuit breaker | `planner` | `deepseek/deepseek-v4-pro` | $0.21 → $0.42 |
 | Second opinion | `oracle` | `deepseek/deepseek-v4-pro` | $0.21 → $0.42 |
-| Coding agents | `backend-developer`, `frontend-developer` | `deepseek/deepseek-v4-flash` | $0.0211 → $0.45 |
-| Debugger (1-2) | `code-debugger` | `deepseek/deepseek-v4-flash` | $0.0211 → $0.45 |
+| Coding agents | `backend-developer`, `frontend-developer` | `deepseek/deepseek-v4-flash` | $0.0147 → $0.0294 |
+| Debugger (1-2) | `code-debugger` | `deepseek/deepseek-v4-flash` | $0.0147 → $0.0294 |
 | Debugger (3-4) | `code-debugger` | `deepseek/deepseek-v4-pro` | $0.21 → $0.42 |
 | Highest-stakes review (Ceiling) | `code-reviewer`, `security-reviewer`, `software-design-expert-review` | `"model": "inherit"` on Pi; *omit* on Claude Code; `inherit_model = true` on Codex | session |
 | Adversarial gate (Ceiling, planner floor) | `critic` | `deepseek/deepseek-v4-pro` on Pi; *inherit* on Claude Code | $0.21 → $0.42 |
-| Search / recon | `scout` | `deepseek/deepseek-v4.1-flash` | $0.02 → $1.00 |
+| Search / recon | `scout` | `deepseek/deepseek-v4.1-flash-1017` | $0.066 → $0.50 |
 
 On Claude Code these are passed to the Agent tool when dispatching sub-agents — **except Ceiling-tier
 roles, which take no `model` at all** so they inherit the session model (see `.agents/references/model-routing.md`). On Pi they resolve from `subagents.agentOverrides` (see previous section), where Ceiling roles
@@ -332,14 +357,14 @@ Tokens are per agent, in → out. Prices are the `$/M in → out` column of the 
 
 | Build phase | Model | Tokens | Cost |
 |------------|-------|--------|------|
-| 4 coding agents | `deepseek-v4-flash` | 100K → 20K each | ~$0.045 |
+| 4 coding agents | `deepseek-v4-flash` | 100K → 20K each | ~$0.008 |
 | 1 planner + 1 oracle | `deepseek-v4-pro` | 150K → 20K each | ~$0.08 |
-| 5 search calls | `deepseek-v4.1-flash` | 25K → 3K each | ~$0.018 |
+| 5 search calls | `deepseek-v4.1-flash-1017` | 25K → 3K each | ~$0.016 |
 | 2 code reviews | *session model* | 50K → 5K each | ~$0.012 |
-| **Build total** | | | **~$0.16** |
+| **Build total** | | | **~$0.12** |
 
 The review line is now the only one that moves with the session: ~$0.012 on the cheap default
-(`deepseek-v4.1-flash`), ~$0.025 on the `plan` preset (`deepseek-v4-pro`), ~$1.20 if you deliberately
+(`deepseek-v4.1-flash-1017`), ~$0.025 on the `plan` preset (`deepseek-v4-pro`), ~$1.20 if you deliberately
 run the session on `openai/gpt-5.6-sol`. That variability is Ceiling working as intended — the
 reviewer costs what the session costs.
 
