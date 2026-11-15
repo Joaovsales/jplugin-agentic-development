@@ -140,7 +140,7 @@ Related prior investigations:
 
 Your task:
 1. Reproduce the bug — find or write a minimal failing test
-2. Read all relevant source files before forming hypotheses
+2. Localize the failing code. Follow `.agents/references/code-navigation.md` (project copy first, otherwise `${CLAUDE_PLUGIN_ROOT}/.agents/references/code-navigation.md`); fall back to Grep when the reference or tools are unavailable. Read all relevant source files before forming hypotheses
 3. Form 2-3 hypotheses ranked by likelihood
 4. Rank evidence using the Evidence Strength Hierarchy (see evidence-hierarchy.md):
    - Level 1 (strongest): Controlled reproduction (test that isolates exact cause)

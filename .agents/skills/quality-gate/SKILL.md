@@ -68,6 +68,12 @@ this phase come out clean.
 
 **Mandate**: "Is this code structurally sound?" — function size, naming, reuse, SOLID.
 
+Check callers and blast-radius before changing shared code. Follow
+`.agents/references/code-navigation.md` (project copy first, otherwise
+`${CLAUDE_PLUGIN_ROOT}/.agents/references/code-navigation.md`); fall back to
+Grep when the reference or tools are unavailable.
+Confirm graph negatives with Grep on the symbol name before acting.
+
 For each file in scope:
 
 ### 1.1 Code Reuse

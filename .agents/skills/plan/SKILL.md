@@ -39,8 +39,11 @@ Before interviewing, load available project context:
      written against it can re-specify a capability that already shipped.
    - `gh pr list --state merged --limit 20` — scan titles for the capability you
      are about to spec. A closed-but-superseded PR often names the merged one.
-   - Grep the tree for a skill, module, or script that already covers it. If one
-     exists, the plan is an extension of it or a justification for not extending.
+   - Check for a skill, module, or script that already covers it. Follow
+     `.agents/references/code-navigation.md` (project copy first, otherwise
+     `${CLAUDE_PLUGIN_ROOT}/.agents/references/code-navigation.md`); fall back to
+     Grep when the reference or tools are unavailable. If one exists, the plan is
+     an extension of it or a justification for not extending.
 
    Only once this comes back empty do the outward rungs apply (`gh search repos`,
    `gh search code`, package registries).

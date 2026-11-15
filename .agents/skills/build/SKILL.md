@@ -288,6 +288,20 @@ exiting 0 only when both are empty. Informational — nothing stops on a
 non-empty report; fold the result into the handover below and the Phase 4.5
 batch; exit 2 is bad input.
 
+Before writing the handover, refresh an existing graph when the CLI is available:
+
+```bash
+if command -v graphify >/dev/null 2>&1 && [ -f graphify-out/graph.json ]; then
+  if ! timeout 120 graphify update . >/dev/null 2>&1; then
+    printf '%s\n' '> Warning: graph refresh failed; use Grep until the graph is refreshed.'
+  fi
+fi
+```
+
+Use the single warning line, if emitted, as the fourth handover line instead
+of the optional `> Open:` line; this maintenance step never fails the slice.
+This scheduled refresh is not a navigation retry.
+
 Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
 (they stay its last lines, outside the four) — one to four blockquote lines, each with its own prefix:
 
