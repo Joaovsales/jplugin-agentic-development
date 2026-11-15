@@ -18,10 +18,10 @@ Branch: Joaovsales/code-graph
 
 | Slice | Status | Evidence |
 |---|---|---|
-| 1 | verification pending | Install policy implemented; 271 assertions green before current-stock hook refinement; three new failures reproduced and repaired; final run pending |
-| 2 | pending | Blocked by 1 |
-| 3 | verification pending | Grader integrated from /tmp/code-graph-slice-3; rule fixtures green, adoption-probe and extra-sample failures reproduced and repaired; final run pending |
-| 4 | pending | Blocked by 1 and 3; must ship in PR 1 before evaluation |
+| 1 | done | c6aebd3, 998b58b; handover in tasks/todo.md; affected 65 files / 6481 assertions green |
+| 2 | ready | Slice 1 handover available |
+| 3 | done | 68ed02b, 506c1eb; handover in tasks/todo.md; affected 65 files / 6481 assertions green |
+| 4 | ready | Slices 1 and 3 handovers available; paid smoke deferred until committed protocol |
 | 5 | pending | Treatment; starts after PR 1 merge |
 | 6 | pending | Blocked by 5 |
 | 7 | pending | Blocked by 5 |
@@ -41,3 +41,11 @@ Branch: Joaovsales/code-graph
 ## Resume
 
 Read this ledger, then run `slice.py ready` for the linked spec. Preserve settled decisions and budget. No treatment merge without the literal six-rule go verdict and quality, full-suite and Linux CI gates. No agent package installation; no stock GRAPH_REPORT hook; no force-push.
+
+## Batch 1 handover
+
+- Installer and grader targeted run: 277 assertions green before review repairs.
+- Final affected command: `bash .agents/skills/build/scripts/cached-suite.sh -- bash tests/affected.sh --run 317a71717c34226891c3e3b019b83bebc591449d`; exit 0, 65 files, 6481 passed, no failures or skips. Log: `/tmp/code-graph-batch-1-affected-final.log`.
+- Review repairs: source-resolved sync pin; multiline and conditional shell invocations classified without treating quoted prose as calls.
+- Release-only surface addition: `.claude-plugin/plugin.json` 1.8.9 -> 1.8.10, mandated by README Releasing skills and test-plugin-manifest.sh. Generated session memory block removed from AGENTS.md; no product rule changed yet.
+- Neighboring suite completion observed via pidfd; no concurrent test run launched.

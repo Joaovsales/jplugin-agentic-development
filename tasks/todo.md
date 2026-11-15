@@ -2866,16 +2866,28 @@ Step ledger (routine `simplify`):
 - [ ] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
 
 ### Slice 1/9 — graphify install policy
-- [ ] graphify install policy — pin file, `graphifyy` name, interactive y/N offer, stock hook stripped, budgeted rules text, ledger created
+- [x] graphify install policy — pin file, `graphifyy` name, interactive y/N offer, stock hook stripped, budgeted rules text, ledger created
+
+> Handover: landed c6aebd3 and 998b58b — graphifyy 0.9.109 pin, person-only install offer, stock hook removal, budgeted rules, source-resolved sync pin and ledger; affected tests: 65 files, 6481 passed.
+> Do not re-derive: pinned CLI has --version and hook-guard read/search; old 0.4.23 lacks --version; source notes live in sync Step 7. No paid runs or package installs.
+> Surface: initial per-commit check clean; final joint-range check lists only slice 3 plus the required .claude-plugin/plugin.json release bump to 1.8.10.
+
 
 ### Slice 2/9 — graph status reporting
 - [ ] graph status reporting — `AGENTS.md` § Code Graph matches the tree; the banner prints one line per broken state
 
 ### Slice 3/9 — code-graph grader
-- [ ] code-graph grader — `grade-code-graph.py` with tool classification, paired means and the six-rule verdict
+- [x] code-graph grader — `grade-code-graph.py` with tool classification, paired means and the six-rule verdict
+
+> Handover: landed 68ed02b and 506c1eb — shared-parser grader, metadata contract, paired means, six frozen rules, exact N=3 and shell invocation classification; affected tests: 65 files, 6481 passed.
+> Do not re-derive: metadata.json records kind, integer seed, completed/errored status and cost_usd; retries stay outside run-*; parent plus delegated tokens count. Availability probes do not count as adoption.
+> Surface: initial per-commit check clean; final joint-range check lists only slice 1 plus the required plugin manifest release bump.
+
 
 ### Slice 4/9 — localization suite
 - [ ] localization suite — the runner spike in the suite README, seeded fixtures, 10+ cases, the arm-D stub, graders, rubric, one smoke run
+
+> [AMBIGUITY] Slice 4 requests a paid smoke run before slice 8 commits the protocol | options: A) defer the paid smoke until the protocol is committed B) run the smoke before protocol freeze | picked: A | reason: AC4 requires a committed protocol before every paid run.
 
 ### Slice 5/9 — routing rule and hint hook
 - [ ] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
