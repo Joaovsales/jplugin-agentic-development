@@ -33,3 +33,13 @@ tests/test-pre-push-gate.sh; see tasks/solutions/bugs/a-stale-local-base-branch-
 They are recorded here rather than deleted so the audit trail survives — do not file
 issues for them.
 -->
+
+## Joaovsales/airllm a97f2d0..15177ce
+- Recorded: 2026-11-15
+- Uncovered commits: 6
+- Note: a merge-range false positive, not real debt. The push carried
+  `c84b542`, a merge of `origin/master` (37 commits) into this branch, and the
+  gate's range spans master's history rather than this branch's two commits.
+  All six — `15177ce e8dd1e2 17a7a15 7903e3a 02a2416 830db7c` — are ancestors
+  of `origin/master` and were covered by their own sessions. Do not file issues
+  for them.
