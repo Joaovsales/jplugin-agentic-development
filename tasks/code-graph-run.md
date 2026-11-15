@@ -95,3 +95,7 @@ Read this ledger, then run `slice.py ready` for the linked spec. Preserve settle
 - Affected treatment run:55files,5331passed,0failed/xfail/skipped; `/tmp/code-graph-batch-6-7-affected-final.log`.
 - Both source6/7 checks were clean per commit. Build handover graph refresh has no existing graph here and is skipped.
 - Frozen armA checkout prepared at `/tmp/harbor-workflow` on code-graph/harbor, exact baselinec7360e4; no treatment source in that checkout.
+
+- Treatment runtime excerpts received an independent partial review with no findings; full skill prose/tests/installer execution were not cleared by that review. A full post-verdict quality/full-suite/Linux-CI gate remains mandatory before any treatment merge.
+
+- No-go off-ramp note: the copied-banner pin transport is an independent hygiene correction. Preserve that transport separately from optional hint registration if the results branch is later used.

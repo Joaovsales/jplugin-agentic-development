@@ -1130,3 +1130,7 @@ back vacuous and was repaired.
 - Key changes: built slices 1–4 of specs/code-graph-adoption.md: pinned optional installer, bounded graph status reporting, transcript grader and ten seeded localization/control cases. The affected run passed 67 files and 6522 assertions. Paid evaluation and treatment remain gated on the protocol and Phase A merge.
 - Learnings captured: [code-graph installer fixture isolation](solutions/bugs/code-graph-installer-fixtures-must-isolate-codex-home.md).
 - Learnings captured: [code-graph invocation classification](solutions/bugs/code-graph-adoption-counts-executed-commands-not-probes.md).
+
+### [2026-11-15] — code graph treatment [c7360e4..3efce4e]
+- Key changes: implemented slices 5–7 on the unmerged treatment branch: file-only search hints, schema-gated native Codex adapter and skill routing. The affected run passed 55 files and 5331 assertions. No paid evaluation or treatment merge occurred.
+- Learnings captured: [retiring a managed hook after capability loss](solutions/bugs/code-graph-capability-loss-retires-managed-hook.md).

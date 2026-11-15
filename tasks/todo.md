@@ -2918,21 +2918,29 @@ Step ledger (routine `simplify`):
 ### Slice 6/9 — Codex hint adapter
 - [x] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
 
-> Handover: landed66f597d — schema-gated idempotent native Bash search adapter, context-only output, unsupported cleanup, copied banner pin and shared resources; affected55files/5331assertions green.
+> Handover: landed 66f597d — schema-gated idempotent native Bash search adapter, context-only output, unsupported cleanup, copied banner pin and shared resources; affected55files/5331assertions green.
 > Do not re-derive: codex-cli0.166.0 schema exposes preToolUse and typed matcher; native rg/grep/find normalize to shared Grep/Glob. Unsupported reruns retire only the installed Python callback and preserve personal hooks/path mentions. No global user configuration was changed.
-> Surface: source check against f2bec3f clean; targeted59assertions passed.
+> Surface: source check against f2bec3f clean; targeted 59 assertions passed.
 
 
 ### Slice 7/9 — skill wiring
 - [x] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
 
-> Handover: landed1655f58 plus same-surface prose-budget repair — routing at four requested stages and guarded120-second handover refresh; affected55files/5331assertions green.
+> Handover: landed 1655f58 plus same-surface prose-budget repair — routing at four requested stages and guarded120-second handover refresh; affected55files/5331assertions green.
 > Do not re-derive: project reference then plugin package fallback; missing capability/reference uses Grep; quality review confirms graph negatives with Grep. Build failure emits one fourth-line warning instead of Open; graph refresh skipped when no graph exists.
-> Surface: source check against66f597d clean; build remains600lines and all workflow pins pass; extracted snippet covers five stub states.
+> Surface: source check against 66f597d clean; build remains 600 lines and all workflow pins pass; extracted snippet covers five stub states.
 
 
 ### Slice 8/9 — eval run and verdict
 - [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
 
+> Handover: unfinished: AC4, AC8 — evaluation prerequisites are being checked; no protocol, measured results or paid runs.
+> Do not re-derive: The six-rule go text is unchanged; N=3, $320 total and $4 per run. Exact model id must be recorded before any paid run.
+
+
 ### Slice 9/9 — outcome
 - [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
+
+> Handover: unfinished: AC9, AC10 — outcome handling waits for a measured verdict; no treatment merge or downstream writes.
+> Do not re-derive: Phase A PR416 is merged. Do not infer no-go from a missing prerequisite or write a negative-result learning without data.
+
