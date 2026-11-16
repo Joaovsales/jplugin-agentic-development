@@ -2945,3 +2945,8 @@ Step ledger (routine `simplify`):
 
 > Handover: prepared no-go outcome — optional AGENTS wording, numerical/decoder learnings and independent pin transport. Treatment PR #420 is closed unmerged with a results link; results PR quality/full-suite/Linux-CI gates and merge remain pending. No treatment merge or downstream sync is authorized.
 > Do not re-derive: Phase A PR416 is merged. Do not infer no-go from a missing prerequisite or write a negative-result learning without data.
+
+## Session Summary — [2026-11-16] [4883c06..0ac317a]
+- Completed: frozen cohort and literal no-go report; treatmentPR420 closed unmerged; optional graph wording; numerical/root-cause learnings; independent adjacent-pin delivery and real CLI fresh/stale/idempotence walkthrough.
+- Pending: actual results release quality receipt, full suite, LinuxCI and merge; terminal ledger follows its verified merge.
+- Carry-forward: nominal$12.60879440, accounted upper$20.58969660, no extra paid runs, no optional treatment hook or skill wiring in this branch.
