@@ -76,6 +76,75 @@ Only needed if you want entries for models not auto-discovered by Pi:
 }
 ```
 
+#### Optional: a local OpenAI-compatible provider (opt-in; no role uses it)
+
+> **Nothing in this guide routes work to a local model.** This block only *registers* a localhost
+> runtime, so a provider-qualified id such as `local/bonsai-27b-v1-q1_0` resolves if you choose to
+> name it. Every preset, every agent override, `defaultProvider`, `defaultModel` and
+> `subagents.defaultModel` in this guide stay on `openrouter`. Because the defaults stay
+> cloud-pinned, a stopped or missing local runtime makes only an explicit `local/...` dispatch
+> fail. It cannot reroute any other work. Adopting a local persona for any role is
+> [#405](https://github.com/Joaovsales/jplugin-agentic-development/issues/405). That issue is gated
+> on an eval that has not been run.
+
+Add a `local` key next to `openrouter` under `providers` in the same `~/.pi/agent/models.json`:
+
+```json
+{
+  "providers": {
+    "local": {
+      "baseUrl": "http://127.0.0.1:18080/v1",
+      "api": "openai-completions",
+      "apiKey": "local-unchecked",
+      "models": [
+        {
+          "id": "bonsai-27b-v1-q1_0",
+          "name": "Local: Bonsai 27B v1 Q1_0",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 32768,
+          "maxTokens": 8192,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+        },
+        {
+          "id": "bonsai-2-9b-q2_0",
+          "name": "Local: Bonsai 2 9B Q2_0",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 32768,
+          "maxTokens": 8192,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    }
+  }
+}
+```
+
+- **The `apiKey` is a placeholder and nothing checks it.** The local llama-server has no
+  authentication. Pi needs a key to make the model available (Pi `docs/models.md` § *Configure a compatible endpoint*), so any string works. The only access control
+  is the loopback-only port binding, and the container is the blast-radius boundary. Read
+  [`docs/bonsai-2-27b/README.md`](docs/bonsai-2-27b/README.md) § *Container* for why hardening is
+  mandatory.
+- **Cost is zero** because no tokens are billed. The real cost is local GPU time and throughput.
+- **One model per server.** The container loads a single GGUF, so the `id` you dispatch must match the
+  model the container was started with. Model selection and the start/stop commands are in
+  [`docs/bonsai-2-27b/container/`](docs/bonsai-2-27b/container/) (`compose.yaml`).
+- **Only the two fully-resident models are listed.** These are Bonsai 27B v1 `Q1_0` (3.80 GB
+  file, ~20.0 tok/s) and Bonsai 2 9B `Q2_0` (2.56 GB file, ~42.9 tok/s), both measured at 32K context with
+  `q4_0` KV. The measurements, hardware and tool-call harness results live in
+  [`docs/bonsai-2-27b/README.md`](docs/bonsai-2-27b/README.md). Take numbers from there, not from
+  this file.
+- **A model that does not fit entirely in VRAM is not usable interactively.** Bonsai 2 27B `Q2_0`
+  (7.63 GB file, 7.09 GiB in llama-bench) spills layers to the CPU and generates at about 5 tok/s (5.19 on the server). It is
+  deliberately not registered.
+- **Smoke-test before relying on it.** `/health` proves the weights are loaded, not that a
+  generation succeeds. Send a 1-token request first; the same README covers this.
+
+If you name a local model in a dispatch, use the provider-qualified form (`local/<id>`). This guide
+does not change the per-call model-param rule; see the *Settings* section below and
+[#371](https://github.com/Joaovsales/jplugin-agentic-development/issues/371).
+
 ### 3. Presets — Model Routing Tiers
 
 **`~/.pi/agent/presets.json`**
