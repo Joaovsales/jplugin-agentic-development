@@ -192,6 +192,12 @@ A dispatched worker never runs a single turn yet keeps its task assigned indefin
 message does not revive it — there is no turn to receive the message. Only a **fresh dispatch** of
 the task works; the stuck dispatch holds nothing worth recovering.
 
+**Tell it apart from the usage limit before choosing the remedy.** A start_unknown worker has no
+first turn — no transcript, no tool call, no reply since dispatch — and its siblings on the same
+provider keep working: re-dispatch it now. A usage-limit stop follows turns that did run, ends on a
+provider limit error, and takes every worker on that provider down together: a fresh dispatch fails
+the same way, so wait for the reset or change provider.
+
 ### A phase that dispatches is not impossible to a worker
 
 A worker cannot dispatch sub-agents, so any skill phase that dispatches one looks impossible to it,
@@ -261,7 +267,6 @@ Before dispatching any sub-agent:
 - [ ] Retry (if any) varies the strategy rather than repeating the prompt
 - [ ] Stall monitor armed for anything running unattended
 - [ ] Fallback path reports what was dropped instead of failing silently
-- [ ] Long-running verification owned by the orchestrator; the worker gets a decided verdict and never ends its turn to wait on a detached job
-- [ ] A worker stopped by a provider usage limit is recorded and resumed after the reset or on another provider, not retried into the same window
-- [ ] A worker that never ran a turn (start_unknown) is re-dispatched fresh, not messaged
-- [ ] A worker told to run phases that dispatch knows to run them inline and disclose the lost corroboration (`/quality-gate` Phase 4 `inline`)
+- [ ] Worker brief contains no long-running job (full suite, model download, slow check): the orchestrator runs it and puts the decided verdict in the brief
+- [ ] Worker brief names `inline` for every phase it would otherwise dispatch, with the lost-corroboration disclosure (`/quality-gate` Phase 4)
+- [ ] Stall triage decided before dispatch: no first turn → fresh dispatch; provider usage-limit stop → wait for the reset or change provider; neither is messaged or retried as-is

@@ -26,13 +26,13 @@ much context it carries into each launch.
 - **Strong at single-shot reasoning over a bounded context** — one brief in, one
   answer out.
 - **Weak at multi-turn tool loops.** Sub-4-bit quantization regresses hardest
-  there: Bonsai 2 27B scores 74.92 on BFCL v3 against 76.74 at FP16.
+  there: the vendor reports BFCL v3 74.92 for Bonsai 2 27B against 76.74 at FP16.
 - **Every launch pays full prefill.** A sub-agent starts on a fresh context, and
-  at the 435–840 tok/s pp512 measured on comparable cards a large brief costs tens
-  of seconds before the first token.
-- **The economics invert.** The cheapest routed tier is about 0.02 USD per million
-  input tokens, so a local model substituted on a recon saves about 0.001 USD and
-  costs minutes of prefill.
+  at the 336–973 tok/s pp512 measured for the two resident models below, a
+  32K-token brief costs about 35–100 seconds before the first token.
+- **The economics invert.** The cheapest routed tier is under 0.02 USD per million
+  input tokens (`PI_SETUP.md` owns the prices), so a local model substituted on a
+  recon saves about 0.001 USD and pays that prefill on every launch.
 
 Placement rules for a local tier:
 
@@ -45,13 +45,14 @@ Placement rules for a local tier:
   arrives in the brief and the answer comes back in one turn.
 - **Only a model that fits entirely in VRAM qualifies.** At least 10 tok/s requires
   full residency; partial offload collapses rather than degrading gently.
-  Measured on an RTX 3050 6 GB:
+  Measured on an RTX 3050 6 GB, 5804 MiB (5.67 GiB) of device memory
+  (`docs/bonsai-2-27b/README.md`):
 
-  | Model | Size | Resident | Generation |
-  |-------|------|----------|------------|
-  | Bonsai 2 27B Q2_0 | 7.09 GiB | no — partial offload | 5.19 tok/s at 32K |
-  | Bonsai 27B v1 Q1_0 | 3.80 GiB | fully | 20.01 tok/s |
-  | Bonsai 2 9B Q2_0 | 2.56 GiB | fully | 42.94 tok/s |
+  | Model | Model size (GiB, llama-bench) | Resident | Server generation at 32K (tok/s) |
+  |-------|------------------------------:|----------|---------------------------------:|
+  | Bonsai 2 27B Q2_0 | 7.09 | no — partial offload | 5.19 |
+  | Bonsai 27B v1 Q1_0 | 3.53 | fully | 20.01 |
+  | Bonsai 2 9B Q2_0 | 2.37 | fully | 42.94 |
 
 How a harness selects the local model for one dispatch is not restated here:
 whether a per-call model param may carry it is the open question in issue #371,
