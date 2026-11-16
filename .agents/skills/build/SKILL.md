@@ -197,7 +197,7 @@ the next batch.
 2. Before dispatching, give every sub-agent a tool-call budget with an explicit
    "stop and write partial work" escape hatch, and arm a stall monitor. A hung agent
    returns nothing, so null-check fallbacks never fire and this barrier never releases.
-   See `.agents/skills/build/references/subagent-resilience.md`.
+   See `.agents/references/subagent-resilience.md`.
 3. Wait for all to return; check for file conflicts.
 4. Run the affected-test command **centrally, once** — never instruct the sub-agents to
    run it themselves. Fanning verification out to every agent multiplies context
@@ -521,21 +521,8 @@ placeholder, the agent loops on a failing retrieval call, and it is killed rathe
 This selects agents doing heavy source reading, so the most load-bearing agent is the one that
 dies while its siblings complete normally.
 
-Read `.agents/skills/build/references/subagent-resilience.md` before dispatching. Minimum bar:
+Before any dispatch, apply `.agents/references/subagent-resilience.md` § *Dispatch checklist*.
 
-- Tool-call budget with a "write partial work and stop" escape hatch — converts a hang into a
-  degraded return your fallbacks can see
-- Symbol-level tools over whole-file `Read` for anything above ~400 lines
-- Retry only with a **changed strategy**; an identical prompt fails identically
-- Monitor **progress** (results landed, retries started), not file activity — a retry loop
-  writes constantly and looks perfectly healthy to an idle-time check
-- Budget for the **return**, not just the work — an agent that writes its artifact and dies
-  before returning looks identical to total failure, and gets retried from scratch
-- Cap the artifact size in the prompt, and never ask for the artifact back in the return
-  schema — emitting it twice lands the second copy when context is tightest
-- If the output is a mechanical transform (merge, reformat, de-dup), use a **script**, not an
-  agent — an LLM re-emitting text verbatim is the most expensive way to run `cat`
-- Report what was dropped when a fallback fires
 - **Implementation failure**: Retry once with additional context. If still failing, surface to user and pause.
 - **Test regression**: Fix with `code-debugger`. Max 3 fix attempts per regression (see circuit breaker).
 - **Spec gap found late**: Add tasks dynamically and loop back. Do not silently skip criteria.

@@ -385,7 +385,7 @@ and `RETRY-<rule>-<n>`.
 **Resiliency:**
 
 - **Stalled sub-agent:** no tool call for 10 minutes, or no result after
-  30 minutes. Follow `.agents/skills/build/references/subagent-resilience.md`:
+  30 minutes. Follow `.agents/references/subagent-resilience.md`:
   stop it, then re-dispatch once with a narrower scope and the read rules
   verbatim. A second stall counts as a step failure.
 - **Step failure:** retry once after running `/debug` on the evidence. A third
