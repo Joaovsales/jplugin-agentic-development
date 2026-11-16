@@ -349,12 +349,3 @@ tests/test-install-sh.sh msys* archify: second run reports present without cloni
 # tests/test-pre-push-gate.sh: npm runs the gitenv fixture's POSIX script through cmd.exe — #393
 tests/test-pre-push-gate.sh msys* Pushing repo's git env: the gates do not inherit it
 tests/test-pre-push-gate.sh msys* Pushing repo's git env: nothing on stderr
-
-# tests/test-plugin-manifest.sh: MSYS rewrites the origin/master:<path> revspec in the bump helper into a Windows path — #203
-tests/test-plugin-manifest.sh msys* bump helper: a tree below origin/master (a merge consumed its bump) rises one above master
-tests/test-plugin-manifest.sh msys* bump helper: a second run is a no-op
-tests/test-plugin-manifest.sh msys* bump helper: the second run left the version at 1.0.1
-tests/test-plugin-manifest.sh msys* bump helper: a tree equal to origin/master rises one patch
-
-# tests/test-pi-overrides-drift.sh: this host's ~/.pi/agent/settings.json lacks an agentOverrides entry PI_SETUP.md pins (host state, not repo drift) — #203
-tests/test-pi-overrides-drift.sh msys* PiDrift: * carries every agentOverrides entry PI_SETUP.md pins
