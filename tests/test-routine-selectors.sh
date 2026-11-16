@@ -878,6 +878,10 @@ assert_contains "$dep_out" "remaining:     1 other candidate(s)" \
 for excluded in waits-on-open waits-on-mixed waits-on-ghost prose-blocked; do
   assert_not_contains "$dep_out" "candidate:     $excluded —" "#192: $excluded is never the candidate"
 done
+for kept in waits-on-done child-of-epic; do
+  assert_not_contains "$dep_out" "blocked:       $kept " "#192: $kept is never reported as blocked"
+  assert_not_contains "$dep_out" "unparsed:      $kept " "#192: $kept is never reported as unparsed"
+done
 
 # PKB #91: `Parent: #83` written only as prose, with #83 open. Nothing machine-
 # readable declared it, so the selector claimed #91 and the run stopped on #83.
@@ -924,6 +928,10 @@ assert_contains "$pkb_out" "blocked:       #97 by https://github.com/elsewhere/r
   "#192 (decision 3): a blocker the provider refuses to resolve (another repository) excludes and is reported"
 assert_contains "$pkb_out" "remaining:     3 other candidate(s)" \
   "#192: #92 (prose names a closed issue), #94 (code span) and #96 (bare-number blocker, closed) stay selectable"
+for kept in 92 94 95 96; do
+  assert_not_contains "$pkb_out" "blocked:       #$kept " "#192: #$kept is never reported as blocked"
+  assert_not_contains "$pkb_out" "unparsed:      #$kept " "#192: #$kept is never reported as unparsed"
+done
 
 # A task no provider scanned for prose dependencies is refused, never read as
 # clean: that reading is exactly how PKB #91 reached the candidate line.
@@ -940,6 +948,48 @@ PY
 )"
 assert_contains "$unscanned_out" "refused: task raw: its body was never scanned for prose dependencies" \
   "#192: select_candidates refuses a task whose body was never scanned for prose dependencies"
+
+# The prose rules, provider-free so they hold on every platform: every reference
+# counts once, code and the registry block declare nothing, and one open
+# reference among closed ones still holds the task.
+prose_out="$("$PY" - <<'PY' 2>&1
+from registry.model import ExternalRef, prose_dependencies, task_from_metadata
+from registry.routines import select_candidates
+
+BLOCK = "<!-- task-registry:begin -->\ntask-id: t{n}\nkind: task\n{meta}\n<!-- task-registry:end -->"
+print("multi:", prose_dependencies("Depends on #84 and blocked by #83. Parent: #84"))
+print("code:", prose_dependencies("```\nParent: #83\n```\nInline `Blocked by #85` too."))
+print("block:", prose_dependencies(BLOCK.format(n=9, meta="parent: #83")))
+
+
+def issue(n, body="", status="open"):
+    return task_from_metadata(title=f"issue {n}", body=body, status=status,
+                              external=ExternalRef("github", str(n), ""), fallback_id=f"t{n}")
+
+
+def resolve(ref):
+    number = ref.lstrip("#")
+    return ExternalRef("github", number, "") if number.isdigit() else None
+
+
+tasks = [issue(83), issue(84, status="done"),
+         issue(1, "Depends on #84 and blocked by #83."), issue(2, "Depends on #84."),
+         issue(3, "```\nParent: #83\n```")]
+selection = select_candidates(tasks[2:], tasks, resolve)
+print("held:", sorted((b.task.external.id, b.reference, b.reason) for b in selection.blockers))
+print("candidates:", [task.external.id for task in selection.candidates])
+PY
+)"
+assert_contains "$prose_out" "multi: ('#84', '#83')" \
+  "#192: prose_dependencies reads every reference, first mention first, each once"
+assert_contains "$prose_out" "code: ()" \
+  "#192: a reference inside a fenced block or an inline code span declares nothing"
+assert_contains "$prose_out" "block: ()" \
+  "#192: the registry block's parent: line is metadata, never prose"
+assert_contains "$prose_out" "held: [('1', '#83', 'unparsed')]" \
+  "#192: one open prose reference holds the task, a closed one beside it does not"
+assert_contains "$prose_out" "candidates: ['2', '3']" \
+  "#192: prose naming only a closed task, or quoted in code, stays selectable"
 
 # An unknown routine name is a configuration error, not an empty result.
 bad_out="$(run_select "$F_SEL" --routine nonesuch)"; bad_code=$?
