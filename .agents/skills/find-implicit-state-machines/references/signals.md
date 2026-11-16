@@ -25,8 +25,10 @@ prose about state is not state.
 
 ## What never ranks
 
-`state_machines.py signals` prints the exact lists the script applies; this mirrors them, and
-`tests/test-find-implicit-state-machines.sh` fails when the two drift.
+`state_machines.py signals` prints the signal weights and the directory, marker and
+suffix lists below, and `tests/test-find-implicit-state-machines.sh` fails when this
+file drifts from them. The test-name patterns, code extensions and the numeric limits
+(two signal kinds, 500-character lines, five header lines) are kept here by hand.
 
 - Files `.gitignore` excludes (inside git).
 - Third-party and tool directories, everywhere: `node_modules/`, `vendor/`,
