@@ -29,6 +29,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from ..config import GH_AUTH_PROBE, github_remote
 from ..model import (
     BLOCK_STATE_NOTES,
+    CODE_SPAN_RE,
     ExternalRef,
     Task,
     TaskModelError,
@@ -66,7 +67,6 @@ CLOSING_REFERENCE_RE = re.compile(
     r"|(?P<repo>[\w.-]+/[\w.-]+)?#(?P<number>\d+))",
     re.IGNORECASE,
 )
-CODE_SPAN_RE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
 #: Issues are read `PAGE_SIZE` at a time (REST's maximum) up to this many.
 #: Reaching the cap exactly is indistinguishable from "there were more", so it
 #: is treated as truncation.

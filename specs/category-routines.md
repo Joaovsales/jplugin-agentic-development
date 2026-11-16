@@ -323,8 +323,12 @@ the daily unattended runner — #93 verbatim, in the highest-risk consumer.
   resolved, like any other merge.
 - **A closing PR's state cannot be read** — it counts as in flight. A failed state
   lookup fails `select` with exit 1.
-- **`blockedBy` non-empty** — `build` skips and names the blocker. Deferred with
-  `build` itself (#98); no active routine reads dependency state.
+- **A declared blocker is not done** (#192) — every routine's `select` skips the
+  issue: a `depends-on:` entry resolving to an open task, or to no task (never
+  read as done), prints `blocked: <issue> by <ref>`; with no `depends-on:`, a
+  prose `Parent: #N` / `Depends on #N` / `Blocked by #N` naming an issue that is
+  not closed (open, or one the tracker cannot resolve) prints `unparsed:`. An open `parent:` blocks nothing. Native `blockedBy` (#97)
+  is not read yet; when it is, it feeds the same `depends_on` path.
 - **No candidate found** — exit silently and successfully. A routine with nothing
   to do is not a failure.
 - **A mandatory step could not run** — its row stays in `tasks/todo.md` and the PR

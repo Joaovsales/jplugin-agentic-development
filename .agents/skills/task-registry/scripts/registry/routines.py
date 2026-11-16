@@ -22,10 +22,10 @@ behaviour, so there is exactly one place each name is defined.
 
 from __future__ import annotations
 
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, NamedTuple, Optional, Sequence, Tuple
 
-from .model import by_priority
-from .providers.base import has_label
+from .model import by_priority, recorded_prose_dependencies
+from .providers.base import ProviderError, has_label
 
 __all__ = [
     "is_escalated",
@@ -36,6 +36,11 @@ __all__ = [
     "with_linked_pr_state",
     "LinkedPrStateUnknown",
     "stranded",
+    "BLOCKED_OPEN",
+    "BLOCKED_UNRESOLVABLE",
+    "BLOCKED_UNPARSED",
+    "Blocker",
+    "Selection",
     "missing_routine_labels",
     "matched_label",
     "unclassified",
@@ -137,30 +142,112 @@ def with_linked_pr_state(pool: Iterable, linked_pr_state) -> List:
     return checked
 
 
-def select_candidates(pool: Iterable, config, routine: str) -> Sequence:
-    """Every task of the checked pool this routine may claim, best candidate first.
+#: Why a declared blocker holds a task back (#192): it resolved to a task that is
+#: not done, it names no task the tracker listed, or the task declares it only in
+#: prose. A host maps each to its report and must refuse a value it does not know.
+BLOCKED_OPEN = "open"
+BLOCKED_UNRESOLVABLE = "unresolvable"
+BLOCKED_UNPARSED = "unparsed"
+
+
+class Blocker(NamedTuple):
+    """One declared blocker that keeps `task` out of the pick: `reference` as declared, and the `BLOCKED_*` reason."""
+
+    task: object
+    reference: str
+    reason: str
+
+
+class Selection(NamedTuple):
+    """The tasks a routine may claim, best first, and every blocker that held one back."""
+
+    candidates: Sequence
+    blockers: Sequence[Blocker]
+
+
+def select_candidates(pool: Iterable, tasks: Sequence, resolve_reference) -> Selection:
+    """What this routine may claim from the checked pool, and what it held back.
 
     `pool` is `routine_pool(...)` after `with_linked_pr_state` has filled each
     task's `extra`: an unpooled task list would pass the two pull-request
     filters below unchecked, so this never re-derives the pool from raw tasks.
+    `tasks` is everything the tracker listed, closed tasks included, so that a
+    blocker outside the pool still resolves, and `resolve_reference` is the
+    provider's own reference parser, so a blocker reads the way `show` and
+    `claim` read it.
 
     The exclusions are the contract's step 1, in one place so that no routine
     host re-derives them: an issue is out if another routine's label outranks
     this one, if it already carries the claim label, if a pull request for it
-    is still open, or if one in this repository merged and left it open
-    (`stranded`; `closes` cannot reach a merge elsewhere). The two pull-request
-    facts are read off `extra`, which `with_linked_pr_state` fills from the
-    provider. The open-PR rule is a read rather than a write, and it is
-    strictly more accurate than closing the issue on PR creation — it also
-    suppresses re-picking while a PR sits in review.
+    is still open, if one in this repository merged and left it open
+    (`stranded`; `closes` cannot reach a merge elsewhere), or if a blocker it
+    declares is not done. The two pull-request facts are read off `extra`,
+    which `with_linked_pr_state` fills from the provider. The open-PR rule is a
+    read rather than a write, and it is strictly more accurate than closing the
+    issue on PR creation — it also suppresses re-picking while a PR sits in
+    review. Each held blocker comes back with the candidates, so the host
+    reports why a task was skipped without deriving it again.
     """
+    pool = list(pool)
+    blockers = _blockers(pool, tasks, resolve_reference)
+    held = {id(blocker.task) for blocker in blockers}
     candidates = [
         task
         for task in pool
         if task.extra.get("unresolved_linked_pr") != "true"
         and not task.extra.get("merged_linked_pr")
+        and id(task) not in held
     ]
-    return sorted(candidates, key=by_priority)
+    return Selection(sorted(candidates, key=by_priority), blockers)
+
+
+def _blockers(pool: Sequence, tasks: Sequence, resolve_reference) -> List[Blocker]:
+    """Every pool task's declared blockers that are not done, in pool order (#192).
+
+    A blocker is a `depends-on:` entry. One that names no task is held, never
+    read as done: a deleted or unreadable blocker is exactly the case where the
+    routine cannot know. A `parent` blocks nothing, because an epic stays open
+    while its children are worked.
+
+    A task with no `depends-on:` whose prose names a dependency (`Parent: #83`,
+    PKB #91) is held as unparsed until the named task is done, so a human
+    records the order as metadata instead of the routine guessing at it.
+    """
+    found = []
+    for task in pool:
+        in_prose = not task.depends_on
+        declared = recorded_prose_dependencies(task) if in_prose else task.depends_on
+        for reference in declared:
+            blocker = _resolve(reference, tasks, resolve_reference)
+            if blocker is not None and blocker.is_terminal:
+                continue
+            if in_prose:
+                reason = BLOCKED_UNPARSED
+            else:
+                reason = BLOCKED_OPEN if blocker else BLOCKED_UNRESOLVABLE
+            found.append(Blocker(task, reference, reason))
+    return found
+
+
+def _resolve(reference: str, tasks: Sequence, resolve_reference):
+    """The listed task `reference` names — by registry id, else by the provider's reading — or None.
+
+    A reference the provider refuses (another repository's issue URL) names no
+    task here, so it comes back None and is reported as unresolvable.
+    """
+    for task in tasks:
+        if task.id == reference:
+            return task
+    try:
+        ref = resolve_reference(reference)
+    except ProviderError:
+        return None
+    if ref is None:
+        return None
+    for task in tasks:
+        if task.external is not None and (task.external.provider, task.external.id) == (ref.provider, ref.id):
+            return task
+    return None
 
 
 def stranded(tasks: Iterable) -> Sequence[Tuple[object, str]]:
