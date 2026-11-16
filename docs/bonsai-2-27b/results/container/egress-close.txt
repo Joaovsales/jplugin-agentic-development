@@ -83,3 +83,33 @@ RestartCount after: 1  StartedAt: 2026-11-16T11:30:07.840152794Z
  Network bonsai_edge  Removed
  Network bonsai_sealed  Removed
 containers: 0  networks: 0  port 18080 listeners: 0  VRAM: 15 MiB
+
+# Gate re-verify — 2026-11-16T11:48:51Z: sealed network gains gateway_mode_ipv4=isolated
+# GPU held by an unrelated host llama-server (5012 MiB), so the llama service ran as a GPU-free stub (python http.server) on the real compose networks; image, relay and network definitions unchanged
+bonsai_sealed internal=true opts=map[com.docker.network.bridge.gateway_mode_ipv4:isolated] host-gateway=invalid IP
+## from llama service: egress, DNS, host gateway (orca-ide on 0.0.0.0:6768 was REACHABLE before the fix)
+1.1.1.1 443 blocked: OSError [Errno 101] Network is unreachable
+8.8.8.8 53 blocked: OSError [Errno 101] Network is unreachable
+<sealed-subnet>.1 6768 blocked: ConnectionRefusedError [Errno 111] Connection refused
+<sealed-subnet>.1 54322 blocked: ConnectionRefusedError [Errno 111] Connection refused
+# CORRECTION: in isolated mode Docker hands the .1 address to a container, so the two lines above probed a container, not the host. The host-side proof is the run below.
+dns example.com failed: [Errno -3] Temporary failure in name resolution
+## host -> relay -> llama
+http://127.0.0.1:18080/ -> 200
+## listeners on 18080
+LISTEN 0      4096   127.0.0.1:18080 0.0.0.0:*
+## sealed: container addresses, and the host bridge carries no IPv4 address
+bonsai-llama-1 <sealed-subnet>.1
+bonsai-relay-1 <sealed-subnet>.2
+host bridge inet addresses: 0
+## from llama service: routes, and host services listening on 0.0.0.0 via the host's own addresses
+route dest=000018AC gw=00000000
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
+host addr port 6768 blocked: OSError [Errno 101] Network is unreachable
