@@ -1,0 +1,40 @@
+=== META ===
+{
+ "diff": "411.pregate.diff",
+ "reasoning_effort": "none",
+ "wall_s": 99.3,
+ "usage": {
+  "completion_tokens": 904,
+  "prompt_tokens": 12536,
+  "total_tokens": 13440,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  }
+ },
+ "timings": {
+  "cache_n": 0,
+  "prompt_n": 12536,
+  "prompt_ms": 40877.042,
+  "prompt_per_token_ms": 3.260772335673261,
+  "prompt_per_second": 306.67581083778026,
+  "predicted_n": 904,
+  "predicted_ms": 58368.684,
+  "predicted_per_token_ms": 64.63863122923588,
+  "predicted_per_second": 15.47062462467031
+ },
+ "finish_reason": "stop"
+}
+=== REASONING (verbatim) ===
+
+=== REPLY (verbatim) ===
+b/docs/bonsai-2-27b/README.md:31 | The statement "Does it fit in VRAM at `-ngl 99`?" is misleading because `-ngl 99` forces full GPU residency and the model (27B) definitively fails with an OOM error, making the question a false premise for this configuration.
+b/docs/bonsai-2-27b/README.md:39 | The table header "Layer" in the Measured section is absent; the text explicitly states "33/33" and "65/65" in the first column, but the markdown table lacks a header label, causing alignment confusion for the "Layers on GPU" metric.
+b/docs/bonsai-2-27b/README.md:51 | The description of the partial offload results is technically incorrect: with `-ngl` 30-36 the GPU handles layers and CPU handles the rest, not the reverse; the `-ngl` flag controls how many layers are pinned to the GPU.
+b/docs/bonsai-2-27b/container/Dockerfile:70 | The docker build instruction `--wildcards '*/llama-server' '*/lib*.so*' '*/LICENSE'` is incorrect because the upstream release is a single directory named `llama-b12420-bin-ubuntu-cuda-12.8-x64`; using `*` will fail to extract the target binary because the path does not start with `llama-`.
+b/docs/bonsai-2-27b/container/Dockerfile:96 | The docker `USER` command should not set the container user to the `10001` ID if the image already defines a `USER 10001` in the runtime stage, as the image has two `USER` directives and the final one should be the definitive identity, though here the fetch stage does not set a user so the image builder uses the default root and this overrides it.
+b/docs/bonsai-2-27b/README.md:132 | The claim that "All repeating layers and the output head run on the GPU" contradicts the `-ngl` 30-36 benchmarks which show that many transformer layers are offloaded to CPU; the table shows "33/33" and "65/65" for the full GPU models but the `-ngl` 30-36 rows have `cuda0` and `host` buffers, so this statement is misleading for the overall setup.
+b/docs/bonsai-2-27b/toolcall_harness.py:197 | The tool call extraction `a.get("city", "")` assumes the tool argument is a string, but the API might return it as a list; this can fail if the API returns `["Lisbon"]` instead of `"Lisbon"`.
+b/docs/bonsai-2-27b/toolcall_harness.py:204 | The regex `r"(?<=\d)[,  ](?=\d{3})"` has a non-breaking space (U+00A0) mixed with a tab (U+0009), which will fail to match standard comma-space separators in JSON responses.
+b/docs/bonsai-2-27b/toolcall_harness.py:244 | The harness logic `names[:1] == ["search_files"]` only checks the first tool call, missing cases where multiple tool calls are interleaved with intermediate assistant messages; this may cause false negatives for the `5-chained` case.
+b/docs/bonsai-2-27b/toolcall_harness.py:246 | The harness logic `names[:1] == ["search_files"]` does not handle the `get_file_info` tool call if the model calls both tools in a single turn without an intermediate assistant message.
+b/docs/bonsai-2-27b/toolcall_harness.py:252 | The harness logic `a.get("date")` in the `create_event` check assumes the API returns a string for date, but OpenAI-compatible APIs often return a string for date.

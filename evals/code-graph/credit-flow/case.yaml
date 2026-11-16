@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: credit-flow
+description: A credit of 1215 minor units arrives at the outbound message as 12.
+tags: [localization]
+context:
+  scaffold_script: fixture.sh

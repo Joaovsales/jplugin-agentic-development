@@ -1,0 +1,292 @@
+{
+  "changeset": [
+    {
+      "status": "M",
+      "path": ".claude-plugin/plugin.json",
+      "old_path": null,
+      "origin": "unstaged"
+    },
+    {
+      "status": "M",
+      "path": "AGENTS.md",
+      "old_path": null,
+      "origin": "unstaged"
+    },
+    {
+      "status": "M",
+      "path": "scripts/install-codex.sh",
+      "old_path": null,
+      "origin": "unstaged"
+    },
+    {
+      "status": "M",
+      "path": "tasks/code-graph-run.md",
+      "old_path": null,
+      "origin": "unstaged"
+    },
+    {
+      "status": "M",
+      "path": "tasks/history.md",
+      "old_path": null,
+      "origin": "unstaged"
+    },
+    {
+      "status": "M",
+      "path": "tasks/todo.md",
+      "old_path": null,
+      "origin": "unstaged"
+    },
+    {
+      "status": "M",
+      "path": "tests/test-codex-install.sh",
+      "old_path": null,
+      "origin": "unstaged"
+    }
+  ],
+  "candidates": [
+    {
+      "spec": "specs/aposd-first-build.md",
+      "source": "frontmatter",
+      "reasons": [
+        ".claude-plugin/plugin.json (M, unstaged)",
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: .claude-plugin/plugin.json (M, unstaged)",
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/claude-plugin-manifest.md",
+      "source": "frontmatter",
+      "reasons": [
+        ".claude-plugin/plugin.json (M, unstaged)",
+        "scripts/install-codex.sh (M, unstaged)",
+        "tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: .claude-plugin/plugin.json (M, unstaged)",
+        "selected-by: scripts/install-codex.sh (M, unstaged)",
+        "selected-by: tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/code-graph-adoption.md",
+      "source": "frontmatter",
+      "reasons": [
+        "session-spec (named by the completed plan block)",
+        "AGENTS.md (M, unstaged)",
+        "scripts/install-codex.sh (M, unstaged)",
+        "tasks/code-graph-run.md (M, unstaged)",
+        "tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: session-spec (named by the completed plan block)",
+        "selected-by: AGENTS.md (M, unstaged)",
+        "selected-by: scripts/install-codex.sh (M, unstaged)",
+        "selected-by: tasks/code-graph-run.md (M, unstaged)",
+        "selected-by: tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/codex-scout-routing.md",
+      "source": "frontmatter",
+      "reasons": [
+        "scripts/install-codex.sh (M, unstaged)",
+        "tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: scripts/install-codex.sh (M, unstaged)",
+        "selected-by: tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/compound-engineering-adoption.md",
+      "source": "legacy",
+      "reasons": [
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/context-memory-management.md",
+      "source": "legacy",
+      "reasons": [
+        "AGENTS.md (M, unstaged)",
+        "tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)",
+        "selected-by: tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/fewer-full-suite-runs.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/go-front-door.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/helix-checkpoint-loop.md",
+      "source": "frontmatter",
+      "reasons": [
+        ".claude-plugin/plugin.json (M, unstaged)",
+        "tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: .claude-plugin/plugin.json (M, unstaged)",
+        "selected-by: tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/lane-plan-handover.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/make-it-simpler.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/plan-slices-and-handover.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/plugin-staleness-check.md",
+      "source": "frontmatter",
+      "reasons": [
+        ".claude-plugin/plugin.json (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: .claude-plugin/plugin.json (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/quality-receipt-closure.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/review-load-and-failure-cases.md",
+      "source": "frontmatter",
+      "reasons": [
+        ".claude-plugin/plugin.json (M, unstaged)",
+        "AGENTS.md (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: .claude-plugin/plugin.json (M, unstaged)",
+        "selected-by: AGENTS.md (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/simplify-routine-retune.md",
+      "source": "frontmatter",
+      "reasons": [
+        ".claude-plugin/plugin.json (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: .claude-plugin/plugin.json (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/single-instruction-file.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)",
+        "scripts/install-codex.sh (M, unstaged)",
+        "tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)",
+        "selected-by: scripts/install-codex.sh (M, unstaged)",
+        "selected-by: tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    },
+    {
+      "spec": "specs/test-suite-aposd.md",
+      "source": "frontmatter",
+      "reasons": [
+        "AGENTS.md (M, unstaged)",
+        "tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "evidence": [
+        "selected-by: AGENTS.md (M, unstaged)",
+        "selected-by: tests/test-codex-install.sh (M, unstaged)"
+      ],
+      "outcome": "unchanged",
+      "assessment": "The four-file release diff only makes graph routing optional after the specified no-go, copies the existing canonical pin beside the installed banner, tests fresh/stale pin delivery, and bumps the plugin patch. No other workflow, registry, renderer, memory, review, routing or test-runner contract changes."
+    }
+  ]
+}

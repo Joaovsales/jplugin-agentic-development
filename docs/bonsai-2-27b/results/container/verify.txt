@@ -1,0 +1,77 @@
+## nvidia-smi inside container
+NVIDIA GeForce RTX 3050 6GB Laptop GPU, 580.178.04, 4577 MiB, 6144 MiB
+## host whole-GPU VRAM
+4577 MiB
+2115042, 4554 MiB
+## identity
+uid=10001(llama) gid=10001(llama) groups=10001(llama)
+## capabilities of PID 1
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	0000000000000000
+CapAmb:	0000000000000000
+NoNewPrivs:	1
+## write to model mount
+touch: cannot touch '/models/x': Read-only file system
+rc=1
+## write to rootfs
+touch: cannot touch '/opt/llama/x': Read-only file system
+rc=1
+touch: cannot touch '/x': Read-only file system
+rc=1
+## write to tmpfs
+tmp-writable rc=0
+## mounts
+overlay / overlay ro,relatime,lowerdir=… 0 0
+/dev/nvme0n1p7 /models ext4 ro,relatime 0 0
+tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,relatime,size=65536k,inode64 0 0
+## inspect
+ReadonlyRootfs=true CapDrop=[ALL] CapAdd=[] SecurityOpt=[no-new-privileges:true] PidsLimit=256 Memory=8589934592 MemorySwap=8589934592 Privileged=false User=10001:10001 Restart=unless-stopped Ports={"8080/tcp":[{"HostIp":"127.0.0.1","HostPort":"18080"}]} Health=healthy
+## host listeners on 18080
+LISTEN 0      4096                                127.0.0.1:18080      0.0.0.0:*          
+## loopback /health
+200
+## external <host-ipv4-1>:18080
+000
+unreachable rc=7
+## external <host-ipv4-2>:18080
+000
+unreachable rc=7
+## external 172.18.0.1:18080
+000
+unreachable rc=7
+## external 172.19.0.1:18080
+000
+unreachable rc=7
+## external 172.17.0.1:18080
+000
+unreachable rc=7
+## external 172.22.0.1:18080
+000
+unreachable rc=7
+## external 172.20.0.1:18080
+000
+unreachable rc=7
+## external 172.21.0.1:18080
+000
+unreachable rc=7
+## external 172.23.0.1:18080
+000
+unreachable rc=7
+## (IPv6 probes from this first pass used unbracketed URLs, curl rc=3; removed — see bracketed re-run below)
+## disabled endpoints
+/slots 501
+/props 200
+/metrics 501
+/ 404
+## model
+/models/Bonsai-27B-Q1_0.gguf
+## external [<host-ipv6-1>]:18080 000 rc=7
+## external [<host-ipv6-2>]:18080 000 rc=7
+## external [<host-ipv6-3>]:18080 000 rc=7
+## external [<host-ipv6-4>]:18080 000 rc=7
+## POST /props (must be refused without --props)
+{"error":{"code":501,"message":"This server does not support changing global properties. Start it with `--props`","type":"not_supported_error"}} http=501
+## container bridge IP (host-only bridge, not routed off-host)
+172.23.0.2:8080 -> 200

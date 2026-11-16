@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: refund-balance
+description: Refunding 300 minor units from a balance of 1200 produces 1500.
+tags: [localization]
+context:
+  scaffold_script: fixture.sh

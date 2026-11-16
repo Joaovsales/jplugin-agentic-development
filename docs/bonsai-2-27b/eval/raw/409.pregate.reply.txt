@@ -1,0 +1,30 @@
+=== META ===
+{
+ "diff": "409.pregate.diff",
+ "reasoning_effort": "none",
+ "wall_s": 5.1,
+ "usage": {
+  "completion_tokens": 93,
+  "prompt_tokens": 1613,
+  "total_tokens": 1706,
+  "prompt_tokens_details": {
+   "cached_tokens": 1609
+  }
+ },
+ "timings": {
+  "cache_n": 1609,
+  "prompt_n": 4,
+  "prompt_ms": 178.926,
+  "prompt_per_token_ms": 44.7315,
+  "prompt_per_second": 22.35561069939528,
+  "predicted_n": 93,
+  "predicted_ms": 4816.852,
+  "predicted_per_token_ms": 52.35708695652174,
+  "predicted_per_second": 19.099611115309337
+ },
+ "finish_reason": "stop"
+}
+=== REASONING (verbatim) ===
+
+=== REPLY (verbatim) ===
+b/tests/test-pi-overrides-drift.sh:47 | This function parses the JSON fence by prepending `{` to the entire content string, which will corrupt any multi-line JSON that doesn't already start with `{`, causing a parse error when the fence content doesn't begin with a `{` (e.g. if the markdown fence contains whitespace before the opening brace or if it's structured differently than expected). | MUST-FIX | 85

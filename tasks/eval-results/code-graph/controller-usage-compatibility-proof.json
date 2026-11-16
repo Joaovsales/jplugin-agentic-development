@@ -1,0 +1,30 @@
+{
+  "scope": "operational compatibility recovery preparation only; no real state migration or new paid calls",
+  "controller_tests": 16,
+  "migration_tests": 7,
+  "new_paid_calls": 0,
+  "program_nominal_cost_usd": 0.14927200000000002,
+  "program_accounted_upper_usd": "1.660241",
+  "old_manifest_sha256": "6e27abd6299168923124f2bcbaadec6f46df56ee0856070deb39400763894c1e",
+  "new_manifest_sha256": "f91ff5d287569ab8c6cb8594d6c55f01ce9c2bbeaa3c39e39f557af01150c23a",
+  "frozen_protocol_sha256": "eceb8b458bf7b0464d0b523de8e87eec61f621151818aa29c1b4881932798dfd",
+  "frozen_protocol_commit": "f1f4df8715029e380c8b4e382a4547152f4082df",
+  "unchanged_real_state_sha256": "c14f2ac76a90768362219f601e76d90c1a1b88276414d80c6c8a19bef4392249",
+  "original_attempt_sha256": "517d2cee0a851b170b8ba60483a17cddea039c053d08ad9fe68134d4a9c19c63",
+  "files": {
+    "run-code-graph.py": "ca39bf8f8a4fad92d51f73a6f403ae6b6f0f1f281491a6c0022c54411e77cb5e",
+    "prepare-usage-compatibility.py": "432b60164df6adf1e97250abb6ba2a42baf2f8a7aa17343c9b8da75ec69cbb9b",
+    "test_usage_compatibility.py": "ff3cde3c4d7a5913d4cb2c11fee1b8aa28a385eea8df2c83b1699170de0eb405",
+    "run-manifest-usage-compat-1.json": "f91ff5d287569ab8c6cb8594d6c55f01ce9c2bbeaa3c39e39f557af01150c23a"
+  },
+  "verified": [
+    "non-ops changes and JSON numeric type changes refuse",
+    "wrong old manifest and frozen protocol identity refuse",
+    "altered original attempt/cost/pending/retry generation refuse",
+    "fake apply preserves original attempt/cost and snapshots exact bytes",
+    "old attempt bound to old manifest via history without retroactive edits",
+    "future fake run is exactly attempt2 and records active manifest in receipt/state/ledger",
+    "repeat apply refuses without reset"
+  ],
+  "exact_paid_trigger_asserted": false
+}

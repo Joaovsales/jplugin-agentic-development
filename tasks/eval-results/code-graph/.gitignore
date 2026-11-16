@@ -1,0 +1,4 @@
+**/transcript.jsonl
+**/trace.jsonl
+**/subagents/
+runner.lock

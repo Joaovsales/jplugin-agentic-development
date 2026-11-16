@@ -6,10 +6,7 @@ argument-hint: "[--scope <path> ...] [--parent <fingerprint>]"
 
 # /quality-gate — Post-Build Quality Review
 
-> **Dispatching sub-agents?** Read `.agents/skills/build/references/subagent-resilience.md` first. This skill runs unattended, so a hung
-> sub-agent has no human watching it: give every agent a tool-call budget with a "write partial
-> work and stop" escape hatch, arm a stall monitor, and never retry a deterministic failure
-> with an identical prompt.
+> **Dispatching sub-agents?** Apply `.agents/references/subagent-resilience.md` § *Dispatch checklist* first.
 
 Six sequential phases run after all build tasks are complete: four review
 phases, each with a unique mandate, then the tests and the receipt. This is the

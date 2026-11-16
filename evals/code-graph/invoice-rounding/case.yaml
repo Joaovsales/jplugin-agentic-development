@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: invoice-rounding
+description: Checkout for two units at 1099 cents returns 2197 cents rather than 2198.
+tags: [localization]
+context:
+  scaffold_script: fixture.sh
