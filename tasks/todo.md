@@ -2869,7 +2869,7 @@ Step ledger (routine `simplify`):
 
 ## Plan: Code-graph adoption, gated by a measured A/B
 > Spec: specs/code-graph-adoption.md
-- [ ] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
+- [x] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
 
 ### Slice 1/9 — graphify install policy
 - [x] graphify install policy — pin file, `graphifyy` name, interactive y/N offer, stock hook stripped, budgeted rules text, ledger created
@@ -2941,12 +2941,18 @@ Step ledger (routine `simplify`):
 
 
 ### Slice 9/9 — outcome
-- [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
+- [x] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
 
-> Handover: prepared no-go outcome — optional AGENTS wording, numerical/decoder learnings and independent pin transport. Treatment PR #420 is closed unmerged with a results link; results PR quality/full-suite/Linux-CI gates and merge remain pending. No treatment merge or downstream sync is authorized.
-> Do not re-derive: Phase A PR416 is merged. Do not infer no-go from a missing prerequisite or write a negative-result learning without data.
+> Handover: landed no-go — treatment PR420 closed unmerged; results PR421 merged at c505dfa with valid GO edbae8e0, full98files/8246assertions and green Ubuntu CI43804890181. Optional wording, numerical/decoder learnings and independent pin transport are recorded; ledger ends NO-GO-RECORDED.
+> Do not re-derive: all90selectedruns completed; failed smoke/retry preserved in91attempts, nominal$12.60879440/accounted$20.58969660. No rule-only retry, treatment promotion or downstream sync applies. Frozen protocol, manifests, source IDs and prior evidence stay unchanged.
+> Surface: slice9 worker edited only AGENTS.md, tasks/solutions/**/code-graph-*.md and tasks/code-graph-run.md; pin-only carry-forward stayed within slice6 installer/test Surface. Parent-only todo/checkpoint/receipt bookkeeping is separate. Required affected command: env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh </dev/null (98files/8246assertions, exit0).
 
 ## Session Summary — [2026-11-16] [4883c06..0ac317a]
 - Completed: frozen cohort and literal no-go report; treatmentPR420 closed unmerged; optional graph wording; numerical/root-cause learnings; independent adjacent-pin delivery and real CLI fresh/stale/idempotence walkthrough.
 - Pending: actual results release quality receipt, full suite, LinuxCI and merge; terminal ledger follows its verified merge.
 - Carry-forward: nominal$12.60879440, accounted upper$20.58969660, no extra paid runs, no optional treatment hook or skill wiring in this branch.
+
+## Session Summary — [2026-11-16] [2532e56..c505dfa]
+- Completed: closed the nine-slice code-graph plan and persisted the verified no-go terminal ledger with retained evidence and handovers.
+- Pending: final post-outcome bookkeeping publication only; product behavior and measured evidence are unchanged.
+- Carry-forward: no additional paid runs, no treatment promotion, no downstream sync; follow the terminal ledger.
