@@ -130,20 +130,35 @@ Add a `local` key next to `openrouter` under `providers` in the same `~/.pi/agen
 - **One model per server.** The container loads a single GGUF, so the `id` you dispatch must match the
   model the container was started with. Model selection and the start/stop commands are in
   [`docs/bonsai-2-27b/container/`](docs/bonsai-2-27b/container/) (`compose.yaml`).
-- **Only the two fully-resident models are listed.** These are Bonsai 27B v1 `Q1_0` (3.80 GB
-  file, ~20.0 tok/s) and Bonsai 2 9B `Q2_0` (2.56 GB file, ~42.9 tok/s), both measured at 32K context with
-  `q4_0` KV. The measurements, hardware and tool-call harness results live in
+- **Only the two fully-resident models are listed.** Sizes here are **GiB (2^30 bytes)**, the
+  llama-bench model size and the unit llama.cpp reports VRAM in. The measured GPU has 5804 MiB
+  (5.67 GiB). Bonsai 27B v1 `Q1_0` is 3.53 GiB and runs at ~20.0 tok/s. Bonsai 2 9B `Q2_0` is
+  2.37 GiB and runs at ~42.9 tok/s. Both were measured at 32K context with `q4_0` KV. The
+  measurements, hardware and tool-call harness results live in
   [`docs/bonsai-2-27b/README.md`](docs/bonsai-2-27b/README.md). Take numbers from there, not from
   this file.
 - **A model that does not fit entirely in VRAM is not usable interactively.** Bonsai 2 27B `Q2_0`
-  (7.63 GB file, 7.09 GiB in llama-bench) spills layers to the CPU and generates at about 5 tok/s (5.19 on the server). It is
-  deliberately not registered.
-- **Smoke-test before relying on it.** `/health` proves the weights are loaded, not that a
-  generation succeeds. Send a 1-token request first; the same README covers this.
+  is 7.09 GiB. It spills layers to the CPU and generates at about 5 tok/s (5.19 on the server), so
+  it is deliberately not registered.
 
-If you name a local model in a dispatch, use the provider-qualified form (`local/<id>`). This guide
-does not change the per-call model-param rule; see the *Settings* section below and
-[#371](https://github.com/Joaovsales/jplugin-agentic-development/issues/371).
+**Check the provider is reachable before you dispatch anything to it.** Each step proves one more
+link, and a failure at any step means a `local/...` dispatch will fail too:
+
+```bash
+curl -s http://127.0.0.1:18080/health        # {"status":"ok"}: the server is up and the weights are loaded
+curl -s http://127.0.0.1:18080/v1/models     # the OpenAI-compatible route Pi calls answers
+curl -s http://127.0.0.1:18080/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"ping"}],"max_tokens":1}'   # one generation succeeds
+pi --list-models local                       # Pi registered both local/<id> entries
+```
+
+`/health` alone is not enough, because it does not prove that a generation succeeds. The container
+README explains why its healthcheck stops at `/health`.
+
+The provider-qualified id is `local/<id>`. How a single dispatch may select it is not settled here:
+whether a per-call model param may carry it is the open question in
+[#371](https://github.com/Joaovsales/jplugin-agentic-development/issues/371). See also the *Settings*
+section below.
 
 ### 3. Presets — Model Routing Tiers
 
