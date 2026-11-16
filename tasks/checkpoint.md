@@ -1,8 +1,9 @@
-# Code-graph no-go release checkpoint
+# Code-graph terminal checkpoint
 
-- Active spec: specs/code-graph-adoption.md; branch code-graph/results; worktree /home/joaosouto/orca/workspaces/jplugin-agentic-development/code-graph-results based origin/master4883c06.
-- User authorized persistent /build until terminal; latest steering Unblock the eval. Eval is unblocked and complete: 90 selected completed,91attempts, no pending/halt; nominal$12.60879440, upper$20.58969660. Frozen no-go failed2/4/6, other rules pass. No extra paid runs or threshold revisions.
-- Treatment PR420 closed unmerged; original treatment worktree/branch preserved and pushed, registration protocol/manifests/state/receipts reachable there. Current results branch copies their exact bytes; no new model invocation is allowed.
-- Actual shipping code diff: AGENTS optional wording; one adjacent-pin copy in scripts/install-codex.sh; fresh/stale public installer assertions; patch version1.8.12. No hint/adapters/skill treatment included. Worker red52/2, green54/0; separate real installer PTY fresh+stale/idempotence/no-PreToolUse walkthrough exited0. Receipt tasks/eval-results/code-graph/pin-transport-live-receipt.json.
-- Quality Phases1–3 inline found no issue. Independent Phase4 actual-results design review GO with no findings: /tmp/code-graph-results-design-review.md. Discarded-treatment design HOLD belongs only to closedPR420, not this shipping diff.
-- Spec reconciliation:18candidates all unchanged, results report JSON persisted. Existing verify-task-registry map does not cover installation; real public PTY installer was driven independently. Next: commit payload, append actual-sha CLI E2E+session coverage, affected tests, test-engineer review, mint GO receipt, full suite, push/open results PR, watch LinuxCI, merge underD11, then ledger NO-GO-RECORDED. No suite active at snapshot.
+Feature state: NO-GO-RECORDED. Active spec specs/code-graph-adoption.md; canonical ledger tasks/code-graph-run.md. Do not restart evaluation or promotion.
+
+Results PR421 merged at c505dfa57a25c7ecd4309eea7a5c2b33ff95d3da, after GO receipt edbae8e0/qg1-9478b51c, full98files8246assertions and successful Ubuntu CI43804890181 on exact head2532e560cef2c8469d6ffc171c99b189e9087dea. TreatmentPR420 is closed unmerged; original branch/evidence retained. Slice9 and central feature index are complete with handovers for all9slices.
+
+90selectedcompleted,91paidattempts including the preserved failed smoke and sole same-slot retry; literal no-go on2/4/6, rules1/3/5pass. Native nominal$12.60879440, accounted upper$20.58969660, pending$0. Protocol/manifest/source/evidence bytes remain frozen. Report tasks/eval-results/code-graph/2026-11-16/results.md; full receipts/evidence index alongside.
+
+Current final bookkeeping branch code-graph/no-go-record in /home/joaosouto/orca/workspaces/jplugin-agentic-development/code-graph-results. This final /wrap-up-session publishes only terminal ledger, task status and checkpoint; it changes no product behavior. No further build/eval work remains. Source product passed independent design/test review and real installer CLI fresh/stale/idempotence proof. All later CI/deployment outcomes belong in the PR closure, not history/todo.

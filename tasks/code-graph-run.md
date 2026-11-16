@@ -1,6 +1,6 @@
 # Code-graph adoption run ledger
 
-State: GRADING
+State: NO-GO-RECORDED
 Feature: https://github.com/Joaovsales/jplugin-agentic-development/issues/401
 Spec: specs/code-graph-adoption.md
 Base: 317a71717c34226891c3e3b019b83bebc591449d
@@ -630,3 +630,19 @@ second batch while this investigation is unresolved.
 
 - Treatment PR #420 was opened as a draft and closed unmerged with the retained results link. The branch remains published at code-graph/treatment. No treatment merge or downstream sync occurred.
 - Results release is prepared on code-graph/results from origin/master 4883c06. It preserves only the independent adjacent-pin transport from slice6, optional wording, reports and learnings; hint hooks, Codex hint registration and routing/skill treatment remain absent. Quality/full-suite/Linux-CI gates and results merge remain pending.
+
+## Results PR gate in progress — 2026-11-16
+
+- Results PR #421: https://github.com/Joaovsales/jplugin-agentic-development/pull/421; pushed/tested head2532e560cef2c8469d6ffc171c99b189e9087dea; tree79ec4a94a81990cbbaf0498b98ff10cbafac0bdd. GitHub reports mergeable; no merge has occurred.
+- Actual results release quality receipt: valid GO edbae8e0, policyqg1-9478b51c. Phases1–3 inline and independent design/test-adequacy reviews have no findings. Affected46files/4477assertions and full98files/8246assertions passed, with zero failures/skips. The only product code carried forward is canonical adjacent-pin delivery.
+- CI watcher session60552; retained log/tmp/code-graph-results-ci.log. Wait for LinuxCI before D11 merge; do not restart evaluation.
+
+## No-go recorded — 2026-11-16
+
+- Results PR #421 merged at2026-11-16T04:37:10Z, mergec505dfa57a25c7ecd4309eea7a5c2b33ff95d3da. Treatment PR #420 remains CLOSED with mergedAt=null, and its branch is retained.
+- Merge gates were independently verified on exact head2532e560cef2c8469d6ffc171c99b189e9087dea/tree79ec4a94a81990cbbaf0498b98ff10cbafac0bdd: valid GO edbae8e0/policyqg1-9478b51c, affected46files/4477assertions, full98files/8246assertions, zero failures/skips, and LinuxCI43804890181 SUCCESS on ubuntu-latest. Wrap-up closure engine returned terminal complete state=record reason=closure recorded.
+- The numerical report, safe metadata, protocol/manifest/recovery provenance, optional wording, learnings and independent pin transport are merged. No treatment hook, adapter or skill wiring was promoted; no downstream sync PR was opened. PhaseA PR416 remains merged.
+- All90selectedruns completed;91paidattempts include the one failed smoke and sole same-slot retry. Native nominal program spend$12.60879440; conservative accounted upper$20.58969660; pending reservation$0. No additional paid run or threshold revision is authorized by this result.
+- Slice9 is complete. The final post-merge bookkeeping wrap-up publishes this verified terminal record and completed plan status; it changes no product behavior or evaluation evidence.
+
+NO-GO-RECORDED
