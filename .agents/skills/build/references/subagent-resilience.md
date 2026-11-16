@@ -156,6 +156,52 @@ without. Silent truncation reads as full coverage.
 
 ---
 
+## Worker liveness: three failures that are not a hang
+
+A dispatched *worker* — a separate agent session an orchestrator supervises, rather than an
+in-process sub-agent — fails in ways Rules 1–5 do not name. All three were observed in one session,
+and each needs a different response, so tell them apart before reacting.
+
+### The detached-job park
+
+The worker starts a background job — a model download, a detached full-suite run writing its exit
+status to a log nothing watches — and ends its turn to wait for it. A worker cannot self-wake: the
+turn ending **is** the event the orchestrator reports, so it surfaces as stopped-without-reporting,
+indistinguishable from a hang. The job finishes; nobody reads it.
+
+> **Field incident.** Two of three workers parked this way within ten minutes, each with most of its
+> work already done, so the loss was whole-task rather than partial. Instructing harder did not fix
+> it: one worker parked after two explicit warnings, one of them in the very brief it parked on.
+
+What worked is structural, not exhortation: **the orchestrator owns long-running verification** —
+the full suite, a large download, anything slow — runs it itself, and hands the worker a decided
+verdict to act on. Whatever the worker still runs, it runs synchronously in-turn or polls in-turn,
+and it ends its turn only with an explicit result. This applies to any harness whose worker cannot
+self-wake.
+
+### The usage limit
+
+A provider-wide usage window exhausts mid-run. Every worker on that provider stops together, which
+reads as a mass hang. It is not a fault in any one brief: retrying before the window resets fails
+identically (Rule 3), so record the stop, wait for the reset or move the work to another provider,
+and report what each worker left undone (Rule 5).
+
+### start_unknown
+
+A dispatched worker never runs a single turn yet keeps its task assigned indefinitely. Sending it a
+message does not revive it — there is no turn to receive the message. Only a **fresh dispatch** of
+the task works; the stuck dispatch holds nothing worth recovering.
+
+### A phase that dispatches is not impossible to a worker
+
+A worker cannot dispatch sub-agents, so any skill phase that dispatches one looks impossible to it,
+and it declines the phase. Run the phase inline instead. `/quality-gate` Phase 4 supports an
+`inline` mode (§ *Dispatch Disclosure*) that forfeits only the confidence promotion: the worker
+runs it inline and discloses the lost corroboration rather than declining. Four gates were declined
+for this reason, and all four succeeded once run inline.
+
+---
+
 ## Conflicts with compaction and compression layers
 
 Many setups run token-optimizing layers — output compressors, MCP proxies, harness autocompact.
@@ -215,3 +261,7 @@ Before dispatching any sub-agent:
 - [ ] Retry (if any) varies the strategy rather than repeating the prompt
 - [ ] Stall monitor armed for anything running unattended
 - [ ] Fallback path reports what was dropped instead of failing silently
+- [ ] Long-running verification owned by the orchestrator; the worker gets a decided verdict and never ends its turn to wait on a detached job
+- [ ] A worker stopped by a provider usage limit is recorded and resumed after the reset or on another provider, not retried into the same window
+- [ ] A worker that never ran a turn (start_unknown) is re-dispatched fresh, not messaged
+- [ ] A worker told to run phases that dispatch knows to run them inline and disclose the lost corroboration (`/quality-gate` Phase 4 `inline`)
