@@ -7,6 +7,10 @@
 #   BONSAI_MODEL_DIR   default ~/models/bonsai-27b-v1     (directory on the host)
 #   BONSAI_MODEL_FILE  default Bonsai-27B-Q1_0.gguf       (file inside that directory)
 # Fast alternative: BONSAI_MODEL_DIR=~/models/bonsai2-9b BONSAI_MODEL_FILE=Ternary-Bonsai-2-9B-Q2_0.gguf
+#
+# Network shape: llama sits only on `sealed`, an internal network with no route off it, so the
+# server has no egress. Docker publishes no ports from an internal network, so `relay` (socat,
+# no GPU, no model, fixed target) joins `sealed` and `edge` and is the only published port.
 name: bonsai
 
 services:
@@ -21,8 +25,7 @@ services:
         source: ${BONSAI_MODEL_DIR:-~/models/bonsai-27b-v1}
         target: /models
         read_only: true
-    ports:
-      - "127.0.0.1:${BONSAI_PORT:-18080}:8080"   # loopback only — never 0.0.0.0
+    networks: [sealed]   # internal only: no egress, no published port
     user: "10001:10001"
     read_only: true
     tmpfs:
@@ -41,3 +44,31 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  relay:
+    # socat 1.8.0.3, pinned by digest: a re-pushed tag cannot change what runs here.
+    image: alpine/socat:1.8.0.3@sha256:beb4a68d9e4fe6b0f21ea774a0fde6c31f580dde6368939ed70100c5385b015e
+    # Fixed target: whatever connects can reach llama:8080 and nothing else.
+    command: ["TCP-LISTEN:8080,fork,reuseaddr", "TCP:llama:8080"]
+    networks: [sealed, edge]
+    ports:
+      - "127.0.0.1:${BONSAI_PORT:-18080}:8080"   # loopback only — never 0.0.0.0
+    depends_on: [llama]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 64m
+    memswap_limit: 64m
+    restart: unless-stopped
+
+networks:
+  sealed:
+    internal: true
+    driver_opts:
+      # No host address on this bridge: without it, llama could still reach every host service
+      # listening on 0.0.0.0 through the bridge gateway, which `internal` alone does not stop.
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+  edge: {}

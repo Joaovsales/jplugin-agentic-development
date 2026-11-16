@@ -11,7 +11,7 @@ recorded under [`results/`](results/). Vendor figures appear only where labelled
 | Does it fit in VRAM at `-ngl 99`? | **No.** `cudaMalloc failed: out of memory` allocating 6921 MiB. At most 36 of 65 layers fit, and the rest decode on the CPU. |
 | Was the 8–12 tok/s projection met for the 27B? | **No.** Measured generation is **~5 tok/s** (tg128 5.03 at best; 5.19 tok/s on the server at 32K). |
 | Does any Bonsai option reach ≥ 10 tok/s here? | **Yes, but only models that fit entirely in VRAM:** Bonsai 27B v1 `Q1_0` at **20.3 tok/s** and Bonsai 2 9B `Q2_0` at **43.9 tok/s**. |
-| Hardened container (native Docker, loopback only) | **Built and verified.** 27B v1 `Q1_0` generates at 20.1–20.3 tok/s in the container against 20.0 bare metal. See [Container](#container-hardened-llama-server-on-the-native-docker-engine). |
+| Hardened container (native Docker, loopback only, no egress) | **Built and verified.** 27B v1 `Q1_0` generates at 19.9–20.3 tok/s in the container against 20.0 bare metal. See [Container](#container-hardened-llama-server-on-the-native-docker-engine). |
 | Tool calling (5-prompt round-trip harness) | All three models emitted correct tool calls on 5/5 prompts in every run. The end-to-end scores and their caveats are in [Tool calling](#tool-calling-5-prompt-round-trip-harness). |
 
 **Recommendation.** Don't use Bonsai 2 **27B** as the local tier on this GPU: partial offload holds
@@ -175,6 +175,22 @@ goes through nvidia-container-toolkit.
     links OpenMP and is built with GCC 13, which needs glibc 2.39.
   - **No model is baked in.**
 - [`container/compose.yaml`](container/compose.yaml) is the hardened service definition.
+- [`container/healthcheck.sh`](container/healthcheck.sh) is the image's `HEALTHCHECK` and its
+  watchdog (see *What the healthcheck proves* below).
+
+**Network shape.** llama-server needs no network: it only has to answer the host on loopback.
+The `llama` service is attached only to `sealed`, an `internal: true` network with no route off
+it. `internal` alone still leaves the host's own address on the bridge, and from it a container
+reached a host service listening on `0.0.0.0` (`orca-ide` on port 6768). `sealed` therefore also
+sets `com.docker.network.bridge.gateway_mode_ipv4: isolated`, which leaves the bridge with no
+host address at all. Docker publishes no ports from an internal network (on 29.9.0 a port published from one gave
+curl rc=7), so a second service, `relay`, joins both `sealed` and an ordinary `edge` bridge and
+is the only thing published on `127.0.0.1:18080`. The relay is a digest-pinned `alpine/socat`
+running one fixed command, `TCP-LISTEN:8080,fork TCP:llama:8080`. It has no GPU, no model and no
+parser of untrusted input, and it runs with the same hardening (uid 10001, `cap_drop: ALL`,
+`no-new-privileges`, read-only rootfs, `pids_limit: 64`, 64 MiB). The relay itself still has
+egress, but nothing can steer it: whatever connects to it reaches `llama:8080` and nothing else,
+so a compromised llama-server has no exfiltration path through it.
 
 **Why hardening is mandatory.** llama.cpp's HTTP API is unauthenticated by default, and the PrismML
 documentation says its server `apiKey` is not checked. Published advisories include a Critical
@@ -201,10 +217,11 @@ docker compose -f docs/bonsai-2-27b/container/compose.yaml down
 | Model read-only | bind mount with `read_only: true` | `/models ext4 ro`; `touch /models/x` → `Read-only file system` |
 | Process cap | `pids_limit: 256` | `PidsLimit=256` |
 | Memory cap | `mem_limit: 8g`, `memswap_limit: 8g` (no swap), and `--cache-ram 4096` in ENTRYPOINT | `Memory=8589934592 MemorySwap=8589934592`. The KV cache for the full 32K is allocated on the GPU at start, so a filled context does not grow host memory. The prompt cache is the one host-side growth path: its default of 8192 MiB equals the limit, hence the 4096 bound. |
-| Loopback only | `ports: "127.0.0.1:18080:8080"` | host listener `127.0.0.1:18080` only; `/health` → 200 on loopback; refused (curl rc=7) on both host IPv4s, all four host IPv6s and every docker bridge gateway |
+| Loopback only | `ports: "127.0.0.1:18080:8080"` on `relay`; `llama` publishes nothing | host listener `127.0.0.1:18080` only; `/health` → 200 on loopback; refused (curl rc=7) on both host IPv4s, all four host IPv6s and every docker bridge gateway ([`egress-close.txt`](results/container/egress-close.txt)) |
+| No egress | `llama` only on `sealed`: `internal: true` plus `gateway_mode_ipv4: isolated` | from inside `llama`: `exec 3<>/dev/tcp/1.1.1.1/443` → `connect: Network is unreachable`, the same for `8.8.8.8:53`; `getent hosts example.com` fails (rc=2); the routing table has no default route. With `isolated`, the host bridge carries no IPv4 address, and every host IPv4 is `Network is unreachable` from `llama` (re-verified with a GPU-free stub in place of llama-server, because the GPU was busy) ([`egress-close.txt`](results/container/egress-close.txt)) |
 | Full offload or fail | `-ngl 99 --fit off` in ENTRYPOINT | GPU memory 4577 MiB in use, the same as the bare-metal full-offload server |
 | Surface off | ENTRYPOINT `--no-webui --no-slots --no-ui-mcp-proxy --no-agent --offline`. `--rpc`, `--tools` (incl. `exec_shell_command`), `--mcp-servers-*`, `--models-dir` (router child-spawning), `--media-path`, `--slot-save-path`, `--props`, `--metrics` and `--connect` are never passed. | `/slots` 501, `/metrics` 501, `POST /props` 501, `/` (web UI) 404 |
-| Service | `HEALTHCHECK` on `/health` (bash `/dev/tcp`, no curl in the image) and `restart: unless-stopped` | `healthy` about 9 s after start, and again about 9 s after `docker restart` |
+| Service | `HEALTHCHECK` on `/health` (bash `/dev/tcp`, no curl in the image) with a watchdog, `tini` as PID 1, and `restart: unless-stopped` | `healthy` about 9 s after start. A server frozen with `SIGSTOP` was killed by the watchdog on the third failed probe and was `healthy` again 51 s after the freeze, `RestartCount` 0 → 1 ([`egress-close.txt`](results/container/egress-close.txt)) |
 
 The hardening flags are in the image ENTRYPOINT, so a compose `command:` override can replace only
 the tunables (context, KV type, slots) and cannot *remove* a hardening flag. It can still **add**
@@ -217,15 +234,42 @@ info.
 and the weights are on the GPU. It does not prove that a generation succeeds. A generation probe
 would compete with real requests for the single slot (`-np 1`) and time out behind long
 completions, so a client should send a 1-token smoke request before relying on the service. The
-Docker engine's `restart:` policy acts on **exit**, not on `unhealthy`. A wedged server that never
-exits stays up and is reported `unhealthy`, but is not restarted.
+Docker engine's `restart:` policy acts on **exit**, not on `unhealthy`, so on its own a wedged
+server that never exits would stay up, unhealthy, and keep being called. The healthcheck is
+therefore also a watchdog: after the first healthy probe it counts consecutive failures (each
+probe gives up after 4 s), and on the third it `SIGKILL`s llama-server. `tini` is PID 1 because the
+kernel ignores a `SIGKILL` sent to a namespace's PID 1 from inside it. tini then exits, and
+`restart: unless-stopped` starts a fresh container, which was healthy again about 10 s after the
+kill. Detection takes 30–50 s: the first failed probe comes up to 15 s after the server wedges,
+and two more 15 s intervals follow. Requests sent meanwhile hang until the client's own timeout.
 
-The container's bridge address (`172.23.0.2:8080` on this run) is reachable **from this host**, as
-any docker bridge is. It is not routed off the host, and the published port is loopback-only.
+**Can it kill a server that is only busy?** It fires only after three consecutive probes, 15 s
+apart, each failing to read a `200` status line from `/health` within 4 s: at least 30 s in
+which `/health` never answers. llama-server answers `/health` on its HTTP threads, not in the
+generation loop. On the host binary (CPU-only, 2 threads, `-np 1`), `/health` answered 200 in
+10 ms or less in every probe, during a long generation, with 30 queued requests, and with 80
+(68 connections open. That is more than the relay can carry, because socat forks one process per connection under `pids_limit: 64`. This bound is inferred and was not measured.). The other side of
+that independence: a server whose generation loop hangs while its HTTP threads keep answering
+stays `healthy` and is not restarted. That is the limit stated above, where `/health` proves
+loading, not generation. The tradeoff: an
+autoheal sidecar would need the Docker socket, which is root on the host, so the container heals
+itself instead. The watchdog arms only after the first success, so a slow model load is never
+killed, and a server that hangs *before* it first becomes healthy is only reported `unhealthy`,
+not restarted. A load that fails exits with status 1. On 2026-11-16 another process held 5 GiB
+of VRAM, `cudaMalloc failed: out of memory` stopped the load, and `restart: unless-stopped` retried
+it 11 times before the service was brought down. A VRAM-starved service therefore retries, with Docker's growing
+back-off, until the VRAM frees or the service is brought down. It never runs degraded.
+
+The relay's `edge` address is reachable **from this host**, as any docker bridge is. It is not
+routed off the host, and the published port is loopback-only. `llama`'s address on the isolated
+`sealed` bridge has no host route.
 
 **Measured in the container** (default model 27B v1 `Q1_0`, 32K, q4_0 KV): three 400-token runs at
 **20.28 / 20.11 / 20.12 tok/s**, against 20.01 and 19.90 bare metal. That is within ±2%, which this
-laptop's run-to-run noise covers, so the container costs nothing measurable. Tool-call harness at
+laptop's run-to-run noise covers, so the container costs nothing measurable. After the network was sealed and
+the relay added, three more runs through the relay gave **20.17 / 19.97 / 19.91 tok/s**, at most
+1.9% under the 20.30 container baseline and inside the same ±2% noise band, so the relay hop costs
+nothing measurable either. Tool-call harness at
 effort `none`: **4/5**. Every call was correct. Case 4 failed only the answer check: the model did
 not quote `evt_7731`, the same pattern seen bare metal
 ([`results/container/`](results/container/)).
