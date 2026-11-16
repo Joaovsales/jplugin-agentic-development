@@ -1,0 +1,245 @@
+{
+  "label": "prerequisite-only",
+  "command": [
+    "python3",
+    "evals/code-graph/fixture_gen.py",
+    "--check-runtime"
+  ],
+  "cwd": "/home/joaosouto/orca/workspaces/jplugin-agentic-development/code-graph",
+  "started_utc": "2026-11-15T20:42:00.896595+00:00",
+  "finished_utc": "2026-11-15T20:42:00.960619+00:00",
+  "exit_code": 2,
+  "stdout": "",
+  "stderr": "fixture preparation failed: graphify version differs from pinned 0.9.109; a person must run install.sh\n",
+  "runtime_evidence": {
+    "cli_path": "/home/joaosouto/.local/bin/graphify",
+    "cli_realpath": "/home/joaosouto/.local/bin/graphify",
+    "pipx_path": "/usr/bin/pipx",
+    "CI_present": false,
+    "cli_launcher": "#!/usr/bin/python3\n# -*- coding: utf-8 -*-\nimport re\nimport sys\nfrom graphify.__main__ import main\nif __name__ == '__main__':\n    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])\n    sys.exit(main())\n",
+    "current_python_distributions": [
+      {
+        "name": "graphifyy",
+        "version": "0.4.18",
+        "metadata_path": "/home/joaosouto/venv/lib/python3.12/site-packages/graphifyy-0.4.18.dist-info"
+      }
+    ],
+    "cli_environment_distributions": [],
+    "filesystem_distribution_metadata": [
+      {
+        "path": "/home/joaosouto/.local/lib/python3.12/site-packages/graphifyy-0.4.23.dist-info/METADATA",
+        "name": "graphifyy",
+        "version": "0.4.23"
+      }
+    ]
+  },
+  "installer_evidence": {
+    "path": "/tmp/harbor-workflow/install.sh",
+    "exists": true,
+    "graphify_relevant_lines": [
+      {
+        "line": 15,
+        "text": "#   6. Wires graphify into this project if the CLI is present (optional)"
+      },
+      {
+        "line": 503,
+        "text": "# \u2500\u2500 6. Wire graphify into this project (optional) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
+      },
+      {
+        "line": 506,
+        "text": "step \"Wiring graphify (optional)\""
+      },
+      {
+        "line": 507,
+        "text": "GRAPHIFY_PIN=\"$(cat \"$REPO_DIR/.agents/graphify.pin\" 2>/dev/null || true)\""
+      },
+      {
+        "line": 508,
+        "text": "GRAPHIFY_VERSION=\"\""
+      },
+      {
+        "line": 509,
+        "text": "if command -v graphify >/dev/null 2>&1; then"
+      },
+      {
+        "line": 510,
+        "text": "  GRAPHIFY_VERSION=\"$(timeout 5 graphify --version 2>/dev/null || true)\""
+      },
+      {
+        "line": 511,
+        "text": "  GRAPHIFY_VERSION=\"${GRAPHIFY_VERSION##* }\""
+      },
+      {
+        "line": 513,
+        "text": "if [ -z \"$GRAPHIFY_PIN\" ]; then"
+      },
+      {
+        "line": 514,
+        "text": "  echo \"  NOTE: graphify pin missing at $REPO_DIR/.agents/graphify.pin \u2014 optional wiring skipped.\""
+      },
+      {
+        "line": 516,
+        "text": "  if [ \"$GRAPHIFY_VERSION\" != \"$GRAPHIFY_PIN\" ]; then"
+      },
+      {
+        "line": 517,
+        "text": "    if [ -t 0 ] && [ \"${CI+x}\" != x ] && command -v pipx >/dev/null 2>&1; then"
+      },
+      {
+        "line": 518,
+        "text": "      printf '  Install/upgrade graphify with pipx install --force graphifyy==%s? [y/N] ' \"$GRAPHIFY_PIN\""
+      },
+      {
+        "line": 521,
+        "text": "        y|Y) pipx install --force \"graphifyy==$GRAPHIFY_PIN\" || echo \"  NOTE: graphify install failed \u2014 continuing without an upgrade.\" ;;"
+      },
+      {
+        "line": 524,
+        "text": "      echo \"  NOTE: graphify missing or version differs from $GRAPHIFY_PIN \u2014 run: pipx install --force graphifyy==$GRAPHIFY_PIN\""
+      },
+      {
+        "line": 527,
+        "text": "  if command -v graphify >/dev/null 2>&1; then"
+      },
+      {
+        "line": 528,
+        "text": "    graphify_python=\"$(python_bin)\""
+      },
+      {
+        "line": 529,
+        "text": "    if [ -z \"$graphify_python\" ]; then"
+      },
+      {
+        "line": 530,
+        "text": "      echo \"  NOTE: graphify wiring needs Python to strip the stock report hook \u2014 skipped.\""
+      },
+      {
+        "line": 532,
+        "text": "      timeout 20 graphify claude install >/dev/null 2>&1 || echo \"  NOTE: graphify rules wiring failed \u2014 continuing.\""
+      },
+      {
+        "line": 533,
+        "text": "      timeout 20 graphify hook install >/dev/null 2>&1 || echo \"  NOTE: graphify git-hook wiring failed \u2014 continuing.\""
+      },
+      {
+        "line": 537,
+        "text": "      if [ -f CLAUDE.md ] && grep -q '^## graphify$' CLAUDE.md; then"
+      },
+      {
+        "line": 539,
+        "text": "        if ! grep -q '^## graphify$' AGENTS.md; then"
+      },
+      {
+        "line": 540,
+        "text": "          { printf '\\n'; awk '/^## graphify$/{f=1} f' CLAUDE.md; } >> AGENTS.md"
+      },
+      {
+        "line": 542,
+        "text": "        awk '/^## graphify$/{exit} {print}' CLAUDE.md > CLAUDE.md.tmp && mv CLAUDE.md.tmp CLAUDE.md"
+      },
+      {
+        "line": 547,
+        "text": "      graphify_cleanup=0"
+      },
+      {
+        "line": 548,
+        "text": "      if ! \"$graphify_python\" - <<'PYGRAPH'"
+      },
+      {
+        "line": 555,
+        "text": "def stock_graphify_hook(hook):"
+      },
+      {
+        "line": 563,
+        "text": "    return (len(argv) > 1 and argv[0].replace('\\\\', '/').rsplit('/', 1)[-1] in {'graphify', 'graphify.exe'}"
+      },
+      {
+        "line": 573,
+        "text": "        safe = [hook for hook in hooks if not stock_graphify_hook(hook)]"
+      },
+      {
+        "line": 586,
+        "text": "    query = '- Navigate with `timeout 20 graphify query \"<question>\" --budget 1500`; use Grep on failure.\\n'"
+      },
+      {
+        "line": 588,
+        "text": "    in_graphify = False"
+      },
+      {
+        "line": 591,
+        "text": "            in_graphify = line.strip() == '## graphify'"
+      },
+      {
+        "line": 593,
+        "text": "            if in_graphify:"
+      },
+      {
+        "line": 595,
+        "text": "        elif not in_graphify or ('GRAPH_REPORT.md' not in line and line != query):"
+      },
+      {
+        "line": 600,
+        "text": "        echo \"  NOTE: graphify report-hook cleanup failed \u2014 inspect .claude/settings.json and AGENTS.md.\""
+      },
+      {
+        "line": 602,
+        "text": "        graphify_cleanup=1"
+      },
+      {
+        "line": 606,
+        "text": "      if ! grep -qx \"graphify-out/\" .gitignore 2>/dev/null; then"
+      },
+      {
+        "line": 607,
+        "text": "        printf '\\n# graphify knowledge graph \u2014 machine-local, rebuilt by post-commit hook\\ngraphify-out/\\n' >> .gitignore"
+      },
+      {
+        "line": 609,
+        "text": "      if ! grep -qx \"graphify-out/\" .ignore 2>/dev/null; then"
+      },
+      {
+        "line": 610,
+        "text": "        printf '# Search-tool exclusions (ripgrep, fd \u2014 plain `grep -r` does NOT honour this).\\ngraphify-out/\\nnode_modules/\\n' >> .ignore"
+      },
+      {
+        "line": 612,
+        "text": "      if [ \"$graphify_cleanup\" -eq 1 ]; then"
+      },
+      {
+        "line": 613,
+        "text": "        ok \"wired\" \"graphify: budgeted AGENTS.md rules + git hooks + .gitignore/.ignore (stock report hook removed)\""
+      },
+      {
+        "line": 623,
+        "text": "# like graphify: no npm, no readable pin, or a failed download prints a NOTE and never"
+      }
+    ],
+    "head": {
+      "exit": 0,
+      "stdout": "c7360e41fc0c466764b0bb4e32df6dd35d279b5b\n",
+      "stderr": ""
+    },
+    "branch": {
+      "exit": 0,
+      "stdout": "code-graph/harbor\n",
+      "stderr": ""
+    },
+    "status": {
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "pin": "0.9.109"
+  },
+  "paid_runs": [],
+  "spend": 0,
+  "measured_outcome": null,
+  "verdict": null,
+  "state": "HALTED-NEEDS-USER",
+  "manual_setup": {
+    "empty_neutral_directory": "/tmp/harbor-setup-hddf8lis",
+    "human_command": "cd /tmp/harbor-setup-hddf8lis && bash /tmp/harbor-workflow/install.sh",
+    "instructions": "A person in a terminal must have pipx on PATH and CI unset, execute this command and accept the graphify y/N offer. Agent must not execute installer or install graphify.",
+    "resume": "After human setup, rerun the canonical runtime guard; only if it passes establish exact model id and commit the full protocol before any paid run. Slice 8 remains unfinished (AC4/AC8); slice 9 blocked. No treatment merge."
+  }
+}

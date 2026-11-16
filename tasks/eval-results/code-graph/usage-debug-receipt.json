@@ -1,0 +1,119 @@
+{
+  "status": "compatibility_defect_reproduced_exact_paid_trigger_unrecoverable",
+  "scope": "Read-only diagnosis; offline parser calls only; no paid calls; protocol, manifest, gateway and execution state unchanged.",
+  "attempt": "A/invoice-rounding/1/0/1",
+  "artifact_root": "/home/joaosouto/hr-5rjsygzg/round",
+  "native_sha256": "0dc4f4a9a165fc60746d7ae8489712e5fc352f1e7ad4eb22e7141bd0812eb0cf",
+  "gateway_sha256": "29df3dd507fd7e558c871159ddd389e9945b488e8ddd0db8233c8acbac703cdb",
+  "prelude": {
+    "reproduction": "Paid failure retained in admission audit; narrow parser incompatibility reproduced offline.",
+    "candidates": [
+      {
+        "id": 1,
+        "hypothesis": "Null/zero input or cache counters in message_delta rejected as invalid/decreasing.",
+        "support": "Native Jwe explicitly accepts null/zero deltas as absent; gateway rejects them.",
+        "disconfirming_check": "Raw stream could show positive monotone counters only; raw stream was not retained."
+      },
+      {
+        "id": 2,
+        "hypothesis": "Unsupported optional usage field or null pricing metadata.",
+        "support": "Native accumulator supports nullable optional fields; gateway rejects them.",
+        "disconfirming_check": "Start usage in stdout has no unsupported fields. Final transcript extras are synthesized by Jwe and cannot establish actual stream fields."
+      },
+      {
+        "id": 3,
+        "hypothesis": "Message event ordering differs from gateway mock.",
+        "support": "Audit catches all parser ValueErrors without reason.",
+        "disconfirming_check": "Native completed the first response and emitted a tool call, lowering likelihood of invalid ordering; legal gateway-excluded ordering remains possible."
+      }
+    ],
+    "picked": "1 as strongest compatibility explanation, not a proven unique trigger for the paid failure."
+  },
+  "primary_evidence": [
+    {
+      "path": "out/admission.jsonl",
+      "lines": [1, 2, 3],
+      "facts": [
+        "reserved 1.660241",
+        "inconsistent_usage",
+        "next reservation denied 1.707618"
+      ]
+    },
+    {
+      "path": "out/trace.jsonl",
+      "line": 4,
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 18388,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 18388
+        },
+        "output_tokens": 16,
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard"
+      }
+    },
+    {
+      "path": "config/projects/-home-joaosouto-hr-5rjsygzg-round-home-app/36bd3c41-c9f2-4d4d-bee9-846ed9e16c28.jsonl",
+      "line": 22,
+      "facts": [
+        "final output_tokens=108",
+        "output_tokens_details.thinking_tokens=0",
+        "fallback_credit=null",
+        "service_tier=standard",
+        "speed=standard",
+        "iterations=[]"
+      ]
+    }
+  ],
+  "native_source_evidence": [
+    {
+      "byte_offset": 314493328,
+      "function": "message_start branch",
+      "fact": "Stores raw message in Zy and merges usage via Jwe."
+    },
+    {
+      "byte_offset": 314499774,
+      "function": "message_delta branch",
+      "fact": "Merges delta usage via Jwe."
+    },
+    {
+      "byte_offset": 314531014,
+      "function": "Jwe",
+      "fact": "input/cache counters replace previous only when nonnull and >0; output_tokens uses nullish fallback; optional pricing fields use nullish fallback; output_tokens_details and fallback_credit are synthesized in normalized result."
+    },
+    {
+      "byte_offset": 306234834,
+      "function": "SDK xc message_delta branch",
+      "fact": "SDK accumulator skips null input/cache fields; permits output_tokens_details and fallback_credit."
+    }
+  ],
+  "offline_reproduction": {
+    "method": "Import current gateway and feed synthetic message_start(actual retained usage), message_delta, message_stop; no network.",
+    "ordinary_output_only": "accepted complete=True",
+    "null_input_delta": "Denied: decreasing or invalid usage counter",
+    "zero_input_delta": "Denied: decreasing or invalid usage counter",
+    "null_optional_tier": "Denied: unknown usage pricing",
+    "thinking_detail_zero": "Denied: unknown usage fields"
+  },
+  "evidence_levels": {
+    "parser_defect": "1 controlled reproduction against pinned-client-supported shapes",
+    "paid_failure": "2 retained audit and transcript",
+    "unique_paid_trigger": "Not established; raw SSE absent and audit omitted parser reason."
+  },
+  "conservative_fix_proposal": [
+    "Normalize only explicit known delta fields according to pinned native semantics, retaining previous nonzero input/cache counters for null/zero placeholders; never discard a positive nonzero decline.",
+    "Keep initial pricing/model validation, output bounds, byte/token bounds, reservations and block-on-unknown controls intact; nullable delta metadata can retain validated prior values.",
+    "If supported, validate output_tokens_details as a narrowly known nonnegative thinking_tokens subset of cumulative output, and permit only null fallback_credit; reject unknown billing fields and nonnull credits.",
+    "Add offline regressions for null/zero deltas, cache breakdown, thinking detail, genuine positive counter declines, unknown/nonstandard pricing and invalid event ordering.",
+    "Persist only bounded usage-schema and exception-reason diagnostics on future parser failure; never prompts or authorization headers."
+  ],
+  "remaining_gap": "Cannot identify the exact original SSE key/event after the fact. Do not claim exact root cause, accept arbitrary usage, erase held charges, mutate preregistration or launch another paid diagnostic.",
+  "spend_preserved": {
+    "native_usd": "0.14927200000000002",
+    "accounted_usd": "1.660241"
+  }
+}

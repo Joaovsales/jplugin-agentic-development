@@ -1,0 +1,114 @@
+{
+  "label": "unpaid fixture and hook proof; graph AST work only",
+  "paid_cost_usd": 0,
+  "artifact_root": "/home/joaosouto/hr-c79abvz7",
+  "rows": [
+    {
+      "arm": "B",
+      "case": "invoice-rounding",
+      "seed": 101,
+      "git_root_is_fixture": true,
+      "tracked_changes": "",
+      "ignore_bytes_equal": true,
+      "hook_exit": 0,
+      "hook_context": true,
+      "hook_seconds": 0.044416848017135635
+    },
+    {
+      "arm": "D",
+      "case": "credit-flow",
+      "seed": 104,
+      "git_root_is_fixture": true,
+      "tracked_changes": "",
+      "ignore_bytes_equal": true,
+      "hook_exit": 0,
+      "hook_context": true,
+      "hook_seconds": 0.036246224015485495,
+      "fault_mode": 0,
+      "fault_repeats_equal": true,
+      "outcomes": [
+        {
+          "exit": 1,
+          "stdout": "",
+          "stderr": "graph unavailable\n"
+        },
+        {
+          "exit": 1,
+          "stdout": "",
+          "stderr": "graph unavailable\n"
+        }
+      ]
+    },
+    {
+      "arm": "D",
+      "case": "invoice-rounding",
+      "seed": 101,
+      "git_root_is_fixture": true,
+      "tracked_changes": "",
+      "ignore_bytes_equal": true,
+      "hook_exit": 0,
+      "hook_context": true,
+      "hook_seconds": 0.03788700597942807,
+      "fault_mode": 1,
+      "fault_repeats_equal": true,
+      "outcomes": [
+        {
+          "timeout": true
+        },
+        {
+          "timeout": true
+        }
+      ]
+    },
+    {
+      "arm": "D",
+      "case": "dispatch-callers",
+      "seed": 102,
+      "git_root_is_fixture": true,
+      "tracked_changes": "",
+      "ignore_bytes_equal": true,
+      "hook_exit": 0,
+      "hook_context": true,
+      "hook_seconds": 0.04003171599470079,
+      "fault_mode": 2,
+      "fault_repeats_equal": true,
+      "outcomes": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "arm": "D",
+      "case": "currency-shape",
+      "seed": 103,
+      "git_root_is_fixture": true,
+      "tracked_changes": "",
+      "ignore_bytes_equal": true,
+      "hook_exit": 0,
+      "hook_context": false,
+      "hook_seconds": 0.024195475009037182,
+      "fault_mode": 3,
+      "fault_repeats_equal": true,
+      "outcomes": [
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "exit": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    }
+  ]
+}

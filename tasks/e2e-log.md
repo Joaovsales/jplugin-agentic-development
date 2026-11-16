@@ -1718,3 +1718,39 @@ Steps executed:
   ✓ Each of six single-rule failures printed no-go naming that rule; passing fixture printed go.
   ✓ Malformed evidence exited 2, and extra/errored planned samples could not yield go.
 Result: PASS
+
+## E2E Walkthrough — Code-graph no-go results and pin delivery — 2026-11-16 0ac317a
+
+Spec: specs/code-graph-adoption.md
+Commit: 0ac317abcf168c6a31179594459850158bd5a6f1
+Driver: util-linux script PTY plus the actual Codex installer CLI, isolated HOME/CODEX_HOME; this repository has no browser surface for these criteria.
+Evidence: tasks/eval-results/code-graph/pin-transport-live-receipt.json; retained PTY /tmp/code-graph-pin-walkthrough.pty.log. Installer SHA256 matches this commit.
+
+### AC-3-pin: Copied banner receives the canonical pin
+Tier: CLI-FUNCTIONAL
+Journey: install the user-scoped Codex adapter into a fresh isolated home, then repeat after replacing the installed pin with stale content.
+Steps executed:
+  ✓ Actual scripts/install-codex.sh under PTY exited 0; adjacent hooks/graphify.pin byte-matched the canonical source.
+  ✓ Replace installed pin with stale-pin, run the same public installer, and compare it to the canonical source again.
+  ✓ Parse installed hooks.json: exactly SessionStart, PreCompact and SessionEnd, one registration each, no PreToolUse treatment.
+Negative: stale installed pin was replaced; personal/global user configuration outside the isolated runtime was untouched.
+Result: PASS
+
+### AC-8: Frozen measured evidence is reproducible
+Tier: CLI-FUNCTIONAL
+Journey: run the unchanged grader against the retained 90-run cohort in the actual results worktree and compare its complete JSON to the saved report.
+Steps executed:
+  ✓ Unchanged grade-code-graph.py exited 0; its complete output equals grader-report.json byte-independent parsed JSON.
+  ✓ 90 completed selected runs, 0 selected errors; literal no-go failed rules2/4/6, passed1/3/5.
+Negative: original failed smoke remains excluded from selection but included in all-attempt costs; no extra runs or threshold changes.
+Result: PASS
+
+### AC-10: No-go leaves graph navigation optional and treatment unmerged
+Tier: CLI-FUNCTIONAL
+Journey: read the optional AGENTS paragraph and results link, numerical learning, and GitHub treatment PR status.
+Steps executed:
+  ✓ AGENTS links the results and states optional routing with bounded Grep fallback.
+  ✓ Numerical learning records the literal verdict, token/adoption values and Claude Code-only coverage.
+  ✓ gh pr view 420 reports CLOSED with mergedAt=null; its closing comment links retained results.
+Negative: results tree has no graph-hint shell or Codex hint adapter, and the live installer registered no PreToolUse treatment.
+Result: PASS
