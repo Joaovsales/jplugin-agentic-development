@@ -1134,3 +1134,8 @@ back vacuous and was repaired.
 ### [2026-11-15] — code graph treatment [c7360e4..3efce4e]
 - Key changes: implemented slices 5–7 on the unmerged treatment branch: file-only search hints, schema-gated native Codex adapter and skill routing. The affected run passed 55 files and 5331 assertions. No paid evaluation or treatment merge occurred.
 - Learnings captured: [retiring a managed hook after capability loss](solutions/bugs/code-graph-capability-loss-retires-managed-hook.md).
+
+### [2026-11-16] — Code-graph no-go
+- Key changes: repaired native usage-delta compatibility with preserved accounting; completed the frozen 90-slot Claude Code cohort and retained the literal no-go on rules 2/4/6. Selected runs all completed; the single original failed smoke and sole same-slot retry remain in the 91-attempt audit.
+- Learnings captured: [optional graph routing](solutions/architecture/code-graph-routing-remains-optional-after-measured-no-go.md), [native delta normalization](solutions/bugs/code-graph-native-usage-placeholders-need-delta-normalization.md).
+- Pending: treatment publication and closure without merge; independent results release under quality, full-suite and Linux-CI gates. No further paid runs or downstream promotion.

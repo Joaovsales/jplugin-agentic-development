@@ -31,7 +31,7 @@ Every finding any layer emits carries the four axes of the *Finding Model* — `
 
 **Never Guess — Verify.** Read before editing. Check that files exist. Validate from actual content.
 
-**Code Graph First.** Prefer the per-project code graph (`graphify-out/graph.json`) over blind grep/read sweeps: `graphify query "<question>"` to explore, `graphify explain "<symbol>"` for one node, `graphify path "A" "B"` for how two things connect. Optional — a missing `graphify` or graph is not an error, fall back to normal search. A stale graph is worse than none: `graphify hook install` re-indexes on commit and checkout.
+**Code Graph First.** Optional: the measured Claude Code routing/hint treatment showed no lift on 2026-11-16 ([results](tasks/eval-results/code-graph/2026-11-16/results.md)). Use an existing, fresh per-project graph (`graphify-out/graph.json`) when helpful. Bound graph navigation calls with `timeout 20`; a missing, stale, broken, timed-out or empty graph result falls back to Grep, Glob and Read.
 
 **Clean Code** — a function doing several unrelated jobs is split by job, never by line count and never into helpers that exist only to shorten it; a long parameter list signals a shallow interface; fix the interface, not the call site; one abstraction level, meaningful names, DRY and KISS — is the standard `/quality-gate` Phase 1 checks.
 

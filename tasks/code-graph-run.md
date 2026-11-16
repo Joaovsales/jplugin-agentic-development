@@ -617,3 +617,10 @@ second batch while this investigation is unresolved.
 - Verdict: no-go — rule 2 (cost); rule 4 (adoption); rule 6 (graceful degradation)
 - Rules 1/3/5 pass. B localization token ratio 1.230145; adoption 0/21; B latency ratio 1.000803; D localization token ratio 1.270499 with A/B/D localization outcome all 100%. Failures 2/4/6 occur together, so neither rule-only retry applies.
 - Frozen protocol/go-rule bytes and original manifest verify unchanged; the compatibility manifest was committed before its attempts. Phase A stays merged; no treatment merge or terminal outcome is claimed. State remains GRADING for parent validation and outcome handling.
+
+## No-go outcome prepared — 2026-11-16
+
+- `AGENTS.md` now makes graph navigation optional and links the measured Claude Code results. The numerical learning is `tasks/solutions/architecture/code-graph-routing-remains-optional-after-measured-no-go.md`; the bounded usage-decoder compatibility learning is `tasks/solutions/bugs/code-graph-native-usage-placeholders-need-delta-normalization.md`.
+- The literal no-go fails rules 2/4/6 together. D's failure is token overhead (1.270499× A), not correctness loss; D correctness is 100% and graph/LSP calls are zero. This does not establish graph efficacy when used or a broken functional fallback.
+- No further paid run, threshold revision, downstream sync PR or Codex-replication backlog item is triggered by this no-go. Existing backlog proposals remain unchanged.
+- Release actions remain pending: open and close the treatment PR unmerged with a results link; prepare the separate results PR; pass quality gate, full suite and Linux CI; merge that results PR under D11; then record the terminal ledger state. No terminal outcome or release-gate success is asserted here.

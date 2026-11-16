@@ -2942,6 +2942,11 @@ Step ledger (routine `simplify`):
 ### Slice 9/9 — outcome
 - [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
 
-> Handover: unfinished: AC9, AC10 — outcome handling waits for a measured verdict; no treatment merge or downstream writes.
+> Handover: prepared no-go outcome — optional AGENTS wording and two grounded learnings; results are complete in 36a1805. Treatment PR closure and separately gated results PR merge remain pending; no treatment merge or downstream sync is authorized.
 > Do not re-derive: Phase A PR416 is merged. Do not infer no-go from a missing prerequisite or write a negative-result learning without data.
 
+
+## Session Summary — [2026-11-16] [c7360e4..36a1805]
+- Completed: registered 90-run A/B/D cohort, unchanged six-rule grading, measured no-go on rules 2/4/6, preserved failed-attempt charges and recovery provenance, optional graph wording and numerical/root-cause learnings.
+- Pending: publish and close treatment unmerged; gate the separate results release and record its terminal state.
+- Carry-forward: $12.60879440 native nominal, $20.58969660 conservative accounted total; no extra paid runs; frozen registration and source identities stay unchanged.
