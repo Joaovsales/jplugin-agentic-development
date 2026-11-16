@@ -377,7 +377,8 @@ def execute(manifest_path):
                     root = Path(tempfile.mkdtemp(prefix="hr-", dir=Path.home())) / "round"
                     attempt = {**slot, "generation": generation, "attempt": len(known) + 1,
                                "attempt_id": f"{slot['id']}/{generation}/{len(known) + 1}",
-                               "protocol_commit": commit, "source_sha": manifest["sources"][arm], "artifact_root": str(root)}
+                               "protocol_commit": commit, "source_sha": manifest["sources"][arm],
+                               "manifest_sha256": manifest_hash, "artifact_root": str(root)}
                     reserve_attempt(state_path, state, attempt)
                     record_ledger(state, state["pending"], "SMOKE" if not state["attempts"] else "RUNNING")
                     credentials = json.loads((Path.home() / ".claude/.credentials.json").read_text())["claudeAiOauth"]

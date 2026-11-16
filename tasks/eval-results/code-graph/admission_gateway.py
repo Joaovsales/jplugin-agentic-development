@@ -29,7 +29,7 @@ BETAS = {"claude-code-20250219", "interleaved-thinking-2025-05-14",
          "cache-diagnosis-2026-04-07"}
 USAGE = {"input_tokens", "output_tokens", "cache_creation_input_tokens",
          "cache_read_input_tokens", "cache_creation", "server_tool_use",
-         "service_tier", "speed", "inference_geo", "iterations"}
+         "service_tier", "speed", "inference_geo", "iterations", "output_tokens_details", "fallback_credit"}
 
 
 class Denied(ValueError):
@@ -159,9 +159,37 @@ def admission(raw):
     return secrets.token_hex(12), bound, maximum, amount
 
 
-def merge_usage(previous, update):
+def delta_usage(update):
+    normalized = dict(update)
+    inputs = {"input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"}
+    nullable = {"service_tier", "speed", "inference_geo", "iterations", "server_tool_use"}
+    for key, value in update.items():
+        if (key in inputs and (value is None or type(value) is int and value == 0)
+                or key in nullable and value is None):
+            normalized.pop(key)
+    if "cache_creation" in update:
+        cache = update["cache_creation"]
+        if cache is None:
+            normalized.pop("cache_creation")
+        else:
+            if (not isinstance(cache, dict) or set(cache) - {"ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens"}
+                    or any(n is not None and not integer(n) for n in cache.values())):
+                raise Denied("invalid cache delta")
+            positive = {k: n for k, n in cache.items() if n is not None and n > 0}
+            if not positive:
+                normalized.pop("cache_creation")
+            else:
+                normalized["cache_creation"] = positive
+                if "cache_creation_input_tokens" not in normalized:
+                    normalized["cache_creation_input_tokens"] = sum(positive.values())
+    return normalized
+
+
+def merge_usage(previous, update, delta=False):
     if not isinstance(update, dict) or set(update) - USAGE:
         raise Denied("unknown usage fields")
+    if delta:
+        update = delta_usage(update)
     server = update.get("server_tool_use", {})
     if (update.get("service_tier", "standard") != "standard"
             or update.get("iterations", []) != [] or update.get("speed", "standard") != "standard"
@@ -174,6 +202,21 @@ def merge_usage(previous, update):
     for key, value in update.items():
         if key in counters and (not integer(value) or value < previous.get(key, 0)):
             raise Denied("decreasing or invalid usage counter")
+        if key == "fallback_credit":
+            if value is not None:
+                raise Denied("unsupported usage credit")
+            continue
+        if key == "output_tokens_details":
+            if value is None:
+                continue
+            if not isinstance(value, dict) or set(value) - {"thinking_tokens"}:
+                raise Denied("unknown output token detail")
+            thinking = value.get("thinking_tokens")
+            if thinking is None:
+                continue
+            if not integer(thinking):
+                raise Denied("invalid thinking token detail")
+            value = {"thinking_tokens": thinking}
         if key == "cache_creation":
             if not isinstance(value, dict) or set(value) - {"ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens"}:
                 raise Denied("unknown cache usage")
@@ -185,39 +228,77 @@ def merge_usage(previous, update):
     return merged
 
 
+def usage_shape(event):
+    kinds = {"message_start", "message_delta", "message_stop", "ping", "error",
+             "content_block_start", "content_block_delta", "content_block_stop"}
+    kind = event.get("type") if isinstance(event, dict) else None
+    result = {"event_type": kind if isinstance(kind, str) and kind in kinds else "unknown"}
+    message = event.get("message", {}) if isinstance(event, dict) else {}
+    update = message.get("usage") if kind == "message_start" and isinstance(message, dict) else (
+        event.get("usage") if isinstance(event, dict) else None)
+    result["usage_type"] = type(update).__name__
+    if isinstance(update, dict):
+        result["known_keys"] = sorted(set(update) & USAGE)
+        result["unknown_key_count"] = len(set(update) - USAGE)
+        result["field_types"] = {k: type(update[k]).__name__ for k in result["known_keys"]}
+    return result
+
+
+def usage_fault(error, event):
+    reason = str(error)[:160] if isinstance(error, Denied) else type(error).__name__
+    fault = Denied(reason)
+    fault.usage_shape = usage_shape(event)
+    return fault
+
+
 def stream_response(wire):
     terminated = wire.endswith((b"\n\n", b"\r\n\r\n"))
-    response, phase, delta_seen = {}, "new", False
+    response, phase, delta_seen, thinking_peak = {}, "new", False, 0
     for line in wire.splitlines():
         if not line.startswith((b"data:", b"event:")):
             continue
-        if phase == "stopped":
-            raise Denied("event after message_stop")
-        if not line.startswith(b"data:"):
-            continue
-        event = json.loads(line[5:])
-        kind = event.get("type")
-        if kind == "message_start" and phase == "new":
-            response, phase = event.get("message", {}), "open"
-            response["usage"] = merge_usage({}, response.get("usage", {}))
-        elif kind == "message_delta" and phase == "open":
-            usage = event.get("usage", {})
-            if not integer(usage.get("output_tokens")):
-                raise Denied("message_delta lacks cumulative output count")
-            response["usage"] = merge_usage(response["usage"], usage)
-            delta_seen = True
-        elif kind == "message_stop" and phase == "open" and delta_seen:
-            if set(event) - {"type"}:
-                raise Denied("unexpected message_stop fields")
-            phase = "stopped"
-        elif kind == "ping":
-            continue
-        elif kind == "error":
-            return {}, False
-        elif phase == "open" and kind in {"content_block_start", "content_block_delta", "content_block_stop"}:
-            continue
-        else:
-            raise Denied("inconsistent message event ordering")
+        event = None
+        try:
+            if line.startswith(b"data:"):
+                event = json.loads(line[5:])
+            if phase == "stopped":
+                raise Denied("event after message_stop")
+            if event is None:
+                continue
+            kind = event.get("type")
+            if kind == "message_start" and phase == "new":
+                response, phase = event.get("message", {}), "open"
+                response["usage"] = merge_usage({}, response.get("usage", {}))
+            elif kind == "message_delta" and phase == "open":
+                update = event.get("usage", {})
+                if not isinstance(update, dict):
+                    raise Denied("invalid message_delta usage")
+                if "output_tokens" in update:
+                    if not integer(update["output_tokens"]):
+                        raise Denied("invalid cumulative output count")
+                    delta_seen = True
+                response["usage"] = merge_usage(response["usage"], update, delta=True)
+            elif kind == "message_stop" and phase == "open" and delta_seen:
+                if set(event) - {"type"}:
+                    raise Denied("unexpected message_stop fields")
+                if thinking_peak > response["usage"].get("output_tokens", 0):
+                    raise Denied("thinking detail exceeds cumulative output")
+                phase = "stopped"
+            elif kind == "ping":
+                continue
+            elif kind == "error":
+                return {}, False
+            elif kind == "content_block_start" and phase == "open":
+                block = event.get("content_block")
+                if not isinstance(block, dict) or block.get("type") not in {"text", "thinking", "redacted_thinking", "tool_use"}:
+                    raise Denied("unsupported output content block")
+            elif phase == "open" and kind in {"content_block_delta", "content_block_stop"}:
+                continue
+            else:
+                raise Denied("inconsistent message event ordering")
+            thinking_peak = max(thinking_peak, response.get("usage", {}).get("output_tokens_details", {}).get("thinking_tokens", 0))
+        except (ValueError, TypeError, AttributeError) as error:
+            raise usage_fault(error, event) from None
     return response, phase == "stopped" and terminated
 
 
@@ -287,9 +368,10 @@ class Gateway(ThreadingHTTPServer):
             return
         try:
             usage = merge_usage({}, usage)
-        except Denied:
+        except Denied as error:
             self.budget.blocked = True
-            self.budget.record("unexpected_pricing", id=token)
+            self.budget.record("unexpected_pricing", id=token, reason=str(error)[:160],
+                               usage_shape=usage_shape({"type": "message_start", "message": {"usage": usage}}))
             return
         if not all(integer(usage.get(k)) for k in keys):
             self.budget.record("usage_unknown", id=token)
@@ -302,6 +384,10 @@ class Gateway(ThreadingHTTPServer):
             self.budget.record("unexpected_cache_usage", id=token)
             return
         counts = [usage[k] for k in keys]
+        if usage.get("output_tokens_details", {}).get("thinking_tokens", 0) > counts[3]:
+            self.budget.blocked = True
+            self.budget.record("unexpected_output_detail", id=token)
+            return
         if sum(counts[:3]) > bound or counts[3] > maximum:
             self.budget.blocked = True
             self.budget.record("bound_breach", id=token)
@@ -384,9 +470,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.budget.record("incomplete", id=token)
         except OSError:
             self.server.budget.record("incomplete", id=token)
-        except (ValueError, TypeError, AttributeError):
+        except (ValueError, TypeError, AttributeError) as error:
             self.server.budget.blocked = True
-            self.server.budget.record("inconsistent_usage", id=token)
+            reason = str(error)[:160] if isinstance(error, Denied) else type(error).__name__
+            self.server.budget.record("inconsistent_usage", id=token, reason=reason,
+                                     usage_shape=getattr(error, "usage_shape", {"event_type": "unknown"}))
 
 
 if __name__ == "__main__":

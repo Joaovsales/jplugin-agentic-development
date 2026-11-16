@@ -1,0 +1,740 @@
+{
+  "model": "claude-opus-5-5",
+  "N": 3,
+  "protocol_sha256": "eceb8b458bf7b0464d0b523de8e87eec61f621151818aa29c1b4881932798dfd",
+  "native_sha256": "0dc4f4a9a165fc60746d7ae8489712e5fc352f1e7ad4eb22e7141bd0812eb0cf",
+  "fixture_source": "c7360e41fc0c466764b0bb4e32df6dd35d279b5b",
+  "operational_sha256": {
+    "run-code-graph.py": "ca39bf8f8a4fad92d51f73a6f403ae6b6f0f1f281491a6c0022c54411e77cb5e",
+    "admission_gateway.py": "5c1e0ff1798f3ac2dd8260f0bf79de19038b71e9c5c6e406260d60b18c660f8d",
+    "sandbox-relay.py": "662ddddc6520491b9549730afd141231650d786d16b027611252850145ebc435"
+  },
+  "sources": {
+    "A": "c7360e41fc0c466764b0bb4e32df6dd35d279b5b",
+    "B": "e2bf011301812c9da7f22d4799d234249d54f6ed",
+    "D": "e2bf011301812c9da7f22d4799d234249d54f6ed"
+  },
+  "results_directory": "2026-11-16",
+  "slots": [
+    {
+      "id": "A/invoice-rounding/1",
+      "arm": "A",
+      "case": "invoice-rounding",
+      "repetition": 1,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "A/invoice-rounding/2",
+      "arm": "A",
+      "case": "invoice-rounding",
+      "repetition": 2,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "A/invoice-rounding/3",
+      "arm": "A",
+      "case": "invoice-rounding",
+      "repetition": 3,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "A/dispatch-callers/1",
+      "arm": "A",
+      "case": "dispatch-callers",
+      "repetition": 1,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "A/dispatch-callers/2",
+      "arm": "A",
+      "case": "dispatch-callers",
+      "repetition": 2,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "A/dispatch-callers/3",
+      "arm": "A",
+      "case": "dispatch-callers",
+      "repetition": 3,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "A/currency-shape/1",
+      "arm": "A",
+      "case": "currency-shape",
+      "repetition": 1,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "A/currency-shape/2",
+      "arm": "A",
+      "case": "currency-shape",
+      "repetition": 2,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "A/currency-shape/3",
+      "arm": "A",
+      "case": "currency-shape",
+      "repetition": 3,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "A/credit-flow/1",
+      "arm": "A",
+      "case": "credit-flow",
+      "repetition": 1,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "A/credit-flow/2",
+      "arm": "A",
+      "case": "credit-flow",
+      "repetition": 2,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "A/credit-flow/3",
+      "arm": "A",
+      "case": "credit-flow",
+      "repetition": 3,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "A/terms-failure/1",
+      "arm": "A",
+      "case": "terms-failure",
+      "repetition": 1,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "A/terms-failure/2",
+      "arm": "A",
+      "case": "terms-failure",
+      "repetition": 2,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "A/terms-failure/3",
+      "arm": "A",
+      "case": "terms-failure",
+      "repetition": 3,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "A/status-rename/1",
+      "arm": "A",
+      "case": "status-rename",
+      "repetition": 1,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "A/status-rename/2",
+      "arm": "A",
+      "case": "status-rename",
+      "repetition": 2,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "A/status-rename/3",
+      "arm": "A",
+      "case": "status-rename",
+      "repetition": 3,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "A/refund-balance/1",
+      "arm": "A",
+      "case": "refund-balance",
+      "repetition": 1,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "A/refund-balance/2",
+      "arm": "A",
+      "case": "refund-balance",
+      "repetition": 2,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "A/refund-balance/3",
+      "arm": "A",
+      "case": "refund-balance",
+      "repetition": 3,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "A/readme-copy/1",
+      "arm": "A",
+      "case": "readme-copy",
+      "repetition": 1,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "A/readme-copy/2",
+      "arm": "A",
+      "case": "readme-copy",
+      "repetition": 2,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "A/readme-copy/3",
+      "arm": "A",
+      "case": "readme-copy",
+      "repetition": 3,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "A/profile-port/1",
+      "arm": "A",
+      "case": "profile-port",
+      "repetition": 1,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "A/profile-port/2",
+      "arm": "A",
+      "case": "profile-port",
+      "repetition": 2,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "A/profile-port/3",
+      "arm": "A",
+      "case": "profile-port",
+      "repetition": 3,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "A/receipt-module/1",
+      "arm": "A",
+      "case": "receipt-module",
+      "repetition": 1,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "A/receipt-module/2",
+      "arm": "A",
+      "case": "receipt-module",
+      "repetition": 2,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "A/receipt-module/3",
+      "arm": "A",
+      "case": "receipt-module",
+      "repetition": 3,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "B/invoice-rounding/1",
+      "arm": "B",
+      "case": "invoice-rounding",
+      "repetition": 1,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "B/invoice-rounding/2",
+      "arm": "B",
+      "case": "invoice-rounding",
+      "repetition": 2,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "B/invoice-rounding/3",
+      "arm": "B",
+      "case": "invoice-rounding",
+      "repetition": 3,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "B/dispatch-callers/1",
+      "arm": "B",
+      "case": "dispatch-callers",
+      "repetition": 1,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "B/dispatch-callers/2",
+      "arm": "B",
+      "case": "dispatch-callers",
+      "repetition": 2,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "B/dispatch-callers/3",
+      "arm": "B",
+      "case": "dispatch-callers",
+      "repetition": 3,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "B/currency-shape/1",
+      "arm": "B",
+      "case": "currency-shape",
+      "repetition": 1,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "B/currency-shape/2",
+      "arm": "B",
+      "case": "currency-shape",
+      "repetition": 2,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "B/currency-shape/3",
+      "arm": "B",
+      "case": "currency-shape",
+      "repetition": 3,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "B/credit-flow/1",
+      "arm": "B",
+      "case": "credit-flow",
+      "repetition": 1,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "B/credit-flow/2",
+      "arm": "B",
+      "case": "credit-flow",
+      "repetition": 2,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "B/credit-flow/3",
+      "arm": "B",
+      "case": "credit-flow",
+      "repetition": 3,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "B/terms-failure/1",
+      "arm": "B",
+      "case": "terms-failure",
+      "repetition": 1,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "B/terms-failure/2",
+      "arm": "B",
+      "case": "terms-failure",
+      "repetition": 2,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "B/terms-failure/3",
+      "arm": "B",
+      "case": "terms-failure",
+      "repetition": 3,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "B/status-rename/1",
+      "arm": "B",
+      "case": "status-rename",
+      "repetition": 1,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "B/status-rename/2",
+      "arm": "B",
+      "case": "status-rename",
+      "repetition": 2,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "B/status-rename/3",
+      "arm": "B",
+      "case": "status-rename",
+      "repetition": 3,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "B/refund-balance/1",
+      "arm": "B",
+      "case": "refund-balance",
+      "repetition": 1,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "B/refund-balance/2",
+      "arm": "B",
+      "case": "refund-balance",
+      "repetition": 2,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "B/refund-balance/3",
+      "arm": "B",
+      "case": "refund-balance",
+      "repetition": 3,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "B/readme-copy/1",
+      "arm": "B",
+      "case": "readme-copy",
+      "repetition": 1,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "B/readme-copy/2",
+      "arm": "B",
+      "case": "readme-copy",
+      "repetition": 2,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "B/readme-copy/3",
+      "arm": "B",
+      "case": "readme-copy",
+      "repetition": 3,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "B/profile-port/1",
+      "arm": "B",
+      "case": "profile-port",
+      "repetition": 1,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "B/profile-port/2",
+      "arm": "B",
+      "case": "profile-port",
+      "repetition": 2,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "B/profile-port/3",
+      "arm": "B",
+      "case": "profile-port",
+      "repetition": 3,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "B/receipt-module/1",
+      "arm": "B",
+      "case": "receipt-module",
+      "repetition": 1,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "B/receipt-module/2",
+      "arm": "B",
+      "case": "receipt-module",
+      "repetition": 2,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "B/receipt-module/3",
+      "arm": "B",
+      "case": "receipt-module",
+      "repetition": 3,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "D/invoice-rounding/1",
+      "arm": "D",
+      "case": "invoice-rounding",
+      "repetition": 1,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "D/invoice-rounding/2",
+      "arm": "D",
+      "case": "invoice-rounding",
+      "repetition": 2,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "D/invoice-rounding/3",
+      "arm": "D",
+      "case": "invoice-rounding",
+      "repetition": 3,
+      "seed": 101,
+      "kind": "localization"
+    },
+    {
+      "id": "D/dispatch-callers/1",
+      "arm": "D",
+      "case": "dispatch-callers",
+      "repetition": 1,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "D/dispatch-callers/2",
+      "arm": "D",
+      "case": "dispatch-callers",
+      "repetition": 2,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "D/dispatch-callers/3",
+      "arm": "D",
+      "case": "dispatch-callers",
+      "repetition": 3,
+      "seed": 102,
+      "kind": "localization"
+    },
+    {
+      "id": "D/currency-shape/1",
+      "arm": "D",
+      "case": "currency-shape",
+      "repetition": 1,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "D/currency-shape/2",
+      "arm": "D",
+      "case": "currency-shape",
+      "repetition": 2,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "D/currency-shape/3",
+      "arm": "D",
+      "case": "currency-shape",
+      "repetition": 3,
+      "seed": 103,
+      "kind": "localization"
+    },
+    {
+      "id": "D/credit-flow/1",
+      "arm": "D",
+      "case": "credit-flow",
+      "repetition": 1,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "D/credit-flow/2",
+      "arm": "D",
+      "case": "credit-flow",
+      "repetition": 2,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "D/credit-flow/3",
+      "arm": "D",
+      "case": "credit-flow",
+      "repetition": 3,
+      "seed": 104,
+      "kind": "localization"
+    },
+    {
+      "id": "D/terms-failure/1",
+      "arm": "D",
+      "case": "terms-failure",
+      "repetition": 1,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "D/terms-failure/2",
+      "arm": "D",
+      "case": "terms-failure",
+      "repetition": 2,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "D/terms-failure/3",
+      "arm": "D",
+      "case": "terms-failure",
+      "repetition": 3,
+      "seed": 105,
+      "kind": "localization"
+    },
+    {
+      "id": "D/status-rename/1",
+      "arm": "D",
+      "case": "status-rename",
+      "repetition": 1,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "D/status-rename/2",
+      "arm": "D",
+      "case": "status-rename",
+      "repetition": 2,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "D/status-rename/3",
+      "arm": "D",
+      "case": "status-rename",
+      "repetition": 3,
+      "seed": 106,
+      "kind": "localization"
+    },
+    {
+      "id": "D/refund-balance/1",
+      "arm": "D",
+      "case": "refund-balance",
+      "repetition": 1,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "D/refund-balance/2",
+      "arm": "D",
+      "case": "refund-balance",
+      "repetition": 2,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "D/refund-balance/3",
+      "arm": "D",
+      "case": "refund-balance",
+      "repetition": 3,
+      "seed": 107,
+      "kind": "localization"
+    },
+    {
+      "id": "D/readme-copy/1",
+      "arm": "D",
+      "case": "readme-copy",
+      "repetition": 1,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "D/readme-copy/2",
+      "arm": "D",
+      "case": "readme-copy",
+      "repetition": 2,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "D/readme-copy/3",
+      "arm": "D",
+      "case": "readme-copy",
+      "repetition": 3,
+      "seed": 108,
+      "kind": "control"
+    },
+    {
+      "id": "D/profile-port/1",
+      "arm": "D",
+      "case": "profile-port",
+      "repetition": 1,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "D/profile-port/2",
+      "arm": "D",
+      "case": "profile-port",
+      "repetition": 2,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "D/profile-port/3",
+      "arm": "D",
+      "case": "profile-port",
+      "repetition": 3,
+      "seed": 109,
+      "kind": "control"
+    },
+    {
+      "id": "D/receipt-module/1",
+      "arm": "D",
+      "case": "receipt-module",
+      "repetition": 1,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "D/receipt-module/2",
+      "arm": "D",
+      "case": "receipt-module",
+      "repetition": 2,
+      "seed": 110,
+      "kind": "control"
+    },
+    {
+      "id": "D/receipt-module/3",
+      "arm": "D",
+      "case": "receipt-module",
+      "repetition": 3,
+      "seed": 110,
+      "kind": "control"
+    }
+  ]
+}

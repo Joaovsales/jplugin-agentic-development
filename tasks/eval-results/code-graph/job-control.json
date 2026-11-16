@@ -1,0 +1,13 @@
+{
+  "session_id": 14053,
+  "launcher_pids": [],
+  "log": "/tmp/code-graph-paid-2026-11-16.log",
+  "state": "tasks/eval-results/code-graph/execution-state.json",
+  "protocol_commit": "f1f4df8715029e380c8b4e382a4547152f4082df",
+  "recorded_utc": "2026-11-16T02:51:06.614320+00:00",
+  "exit_code": 1,
+  "status": "stopped for usage-format investigation",
+  "nominal_spend_usd": 0.14927200000000002,
+  "accounted_upper_usd": "1.660241",
+  "updated_utc": "2026-11-16T02:58:52.118242+00:00"
+}

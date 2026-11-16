@@ -137,7 +137,7 @@ class AdmissionTests(unittest.TestCase):
                 wire = b"".join(b"data: " + json.dumps(event).encode() + b"\n\n" for event in events)
                 url = self.start(lambda request: Response(wire, "text/event-stream"))
                 self.assertEqual(self.post(url, request_body()), (200, wire))
-                if name == "valid":
+                if name in {"valid", "mapped_start", "normal_blocks"}:
                     self.assertEqual(self.server.budget.spent, gateway.D("0.0002475"))
                     self.assertFalse(self.server.budget.held)
                 else:
@@ -248,6 +248,70 @@ class AdmissionTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text())["held"], "1")
             with self.assertRaises(gateway.Denied):
                 gateway.Budget(path)
+
+    def test_pinned_native_delta_placeholders_and_thinking_details(self):
+        initial = usage(input_tokens=20, cache_creation_input_tokens=200,
+                        cache_read_input_tokens=100, output_tokens=1,
+                        cache_creation={"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 200},
+                        service_tier="standard", inference_geo="global", speed="standard", iterations=[])
+        variants = [
+            {"input_tokens": None, "cache_creation_input_tokens": None, "cache_read_input_tokens": None},
+            {"input_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0},
+            {"cache_creation": None},
+            {"cache_creation": {"ephemeral_5m_input_tokens": None, "ephemeral_1h_input_tokens": 0}},
+            {"service_tier": None, "speed": None, "inference_geo": None, "iterations": None, "server_tool_use": None},
+            {"output_tokens_details": {"thinking_tokens": 4}, "fallback_credit": None},
+            {"output_tokens_details": None},
+            {"output_tokens_details": {"thinking_tokens": None}},
+        ]
+        for update in variants:
+            with self.subTest(update=update):
+                events = [{"type": "message_start", "message": {"model": "claude-opus-5-5", "usage": initial}},
+                          {"type": "message_delta", "usage": update},
+                          {"type": "message_delta", "usage": {"output_tokens": 5}}, {"type": "message_stop"}]
+                response, complete = gateway.stream_response(b"".join(
+                    b"data: " + json.dumps(event).encode() + b"\n\n" for event in events))
+                self.assertTrue(complete)
+                self.assertEqual(response["usage"]["input_tokens"], 20)
+                self.assertEqual(response["usage"]["cache_creation_input_tokens"], 200)
+                self.assertEqual(response["usage"]["cache_read_input_tokens"], 100)
+                server, token = self.account(response)
+                self.assertFalse(server.budget.held)
+                self.assertEqual(server.budget.spent, gateway.D("0.0025025"))
+        derived = gateway.merge_usage(initial, {"cache_creation_input_tokens": 0,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 300}}, delta=True)
+        self.assertEqual(derived["cache_creation_input_tokens"], 300)
+        self.assertEqual(derived["cache_creation"]["ephemeral_1h_input_tokens"], 300)
+        for update in [{"input_tokens": False}, {"input_tokens": 0.0}, {"input_tokens": 19},
+                       {"output_tokens": None}, {"output_tokens": False}, {"output_tokens": 0.0},
+                       {"cache_creation": {"ephemeral_1h_input_tokens": False}},
+                       {"cache_creation": {"ephemeral_1h_input_tokens": 0.0}},
+                       {"unknown_billing_field": None},
+                       {"cache_read_input_tokens": 99}, {"fallback_credit": 0},
+                       {"fallback_credit": 10}, {"output_tokens_details": {"unknown": 0}},
+                       {"output_tokens_details": {"thinking_tokens": False}},
+                       {"service_tier": "priority"}, {"iterations": [{"type": "advisor_message"}]}]:
+            with self.assertRaises(gateway.Denied):
+                gateway.merge_usage(initial, update, delta=True)
+        server, token = self.account({"model": "claude-opus-5-5", "usage": usage(
+            output_tokens_details={"thinking_tokens": 6})})
+        self.assertIn(token, server.budget.held)
+        self.assertTrue(server.budget.blocked)
+
+    def test_usage_failure_diagnostics_are_bounded_and_redacted(self):
+        secret = "identity-auth-prompt-model-private"
+        events = [{"type": "message_start", "message": {"model": "claude-opus-5-5",
+                   "content": [{"type": "text", "text": secret}], "usage": usage(output_tokens=1)}},
+                  {"type": "message_delta", "usage": {"output_tokens": 5, secret: secret}},
+                  {"type": "message_stop"}]
+        wire = b"".join(b"data: " + json.dumps(event).encode() + b"\n\n" for event in events)
+        url = self.start(lambda request: Response(wire, "text/event-stream"))
+        self.post(url, request_body(), secret=secret)
+        diagnostic = next(row for row in self.server.budget.events if row["event"] == "inconsistent_usage")
+        self.assertIn("reason", diagnostic)
+        self.assertEqual(diagnostic["usage_shape"]["event_type"], "message_delta")
+        self.assertLessEqual(len(diagnostic["reason"]), 160)
+        self.assertNotIn(secret, json.dumps(self.server.budget.events))
 
 
 if __name__ == "__main__":

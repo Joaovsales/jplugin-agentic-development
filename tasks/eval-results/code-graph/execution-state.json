@@ -1,0 +1,74 @@
+{
+  "attempts": [
+    {
+      "score": 0.0,
+      "passed": false,
+      "turns": 2,
+      "costUsd": 0.14927200000000002,
+      "costSource": "native_cli",
+      "judgeCostUsd": 0,
+      "startedAt": "2026-11-16T02:50:43.118919+00:00",
+      "durationSeconds": 2.104,
+      "tracePath": "/home/joaosouto/hr-5rjsygzg/round/out/trace.jsonl",
+      "graders": [
+        {
+          "name": "outcome",
+          "passed": false,
+          "weight": 1.0
+        }
+      ],
+      "status": "errored",
+      "budgetAccountedUsd": "1.660241",
+      "admissionBlocked": true,
+      "billingBreach": false,
+      "gatewayAccountedUsd": "1.660241",
+      "exitCode": 1,
+      "finishedAt": "2026-11-16T02:50:46.645291+00:00",
+      "kind": "localization",
+      "seed": 101,
+      "id": "A/invoice-rounding/1",
+      "arm": "A",
+      "case": "invoice-rounding",
+      "repetition": 1,
+      "generation": 0,
+      "attempt": 1,
+      "attempt_id": "A/invoice-rounding/1/0/1",
+      "protocol_commit": "f1f4df8715029e380c8b4e382a4547152f4082df",
+      "source_sha": "c7360e41fc0c466764b0bb4e32df6dd35d279b5b",
+      "artifact_root": "/home/joaosouto/hr-5rjsygzg/round"
+    }
+  ],
+  "selected": {},
+  "accounted_usd": "1.660241",
+  "pending": null,
+  "manifest_sha256": "f91ff5d287569ab8c6cb8594d6c55f01ce9c2bbeaa3c39e39f557af01150c23a",
+  "arm_generations": {},
+  "compatibility_history": [
+    {
+      "id": "native-usage-compatibility-1",
+      "recorded_utc": "2026-11-16T03:41:50.647462+00:00",
+      "old_manifest_sha256": "6e27abd6299168923124f2bcbaadec6f46df56ee0856070deb39400763894c1e",
+      "new_manifest_sha256": "f91ff5d287569ab8c6cb8594d6c55f01ce9c2bbeaa3c39e39f557af01150c23a",
+      "protocol_commit": "f1f4df8715029e380c8b4e382a4547152f4082df",
+      "protocol_sha256": "eceb8b458bf7b0464d0b523de8e87eec61f621151818aa29c1b4881932798dfd",
+      "prior_state_sha256": "c14f2ac76a90768362219f601e76d90c1a1b88276414d80c6c8a19bef4392249",
+      "snapshot": "execution-state-before-usage-compat-1.json",
+      "prior_halt_reason": "admission assumptions failed; review the retained audit before resuming",
+      "proof_sha256": {
+        "usage-compatibility-proof.json": "4fab849fa3f38780878469eaff8e81a8802cb4de46829adc2910cc064209486a",
+        "controller-usage-compatibility-proof.json": "0fb2b548e1eba83eab763a1ed0a6979a97a91a476a465f565b42c3b1c1e85b47"
+      },
+      "active_operational_sha256": {
+        "run-code-graph.py": "ca39bf8f8a4fad92d51f73a6f403ae6b6f0f1f281491a6c0022c54411e77cb5e",
+        "admission_gateway.py": "5c1e0ff1798f3ac2dd8260f0bf79de19038b71e9c5c6e406260d60b18c660f8d",
+        "sandbox-relay.py": "662ddddc6520491b9549730afd141231650d786d16b027611252850145ebc435"
+      },
+      "prior_attempt_provenance": {
+        "attempt_id": "A/invoice-rounding/1/0/1",
+        "manifest_sha256": "6e27abd6299168923124f2bcbaadec6f46df56ee0856070deb39400763894c1e",
+        "attempt_sha256": "517d2cee0a851b170b8ba60483a17cddea039c053d08ad9fe68134d4a9c19c63"
+      },
+      "reason": "Pinned native usage-counter normalization compatibility; exact paid trigger not asserted."
+    }
+  ]
+}

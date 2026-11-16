@@ -2934,8 +2934,8 @@ Step ledger (routine `simplify`):
 ### Slice 8/9 — eval run and verdict
 - [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
 
-> Handover: unfinished: AC8 — bounded blinded fallback, frozen protocol and 90-slot manifest are ready for preregistration; 32 operational checks and unpaid native integration pass; every core module exceeds 80% coverage. No paid run yet.
-> Do not re-derive: Exact Claude default is claude-opus-5-5. Native plugin-eval leaks experiment paths; the verified direct CLI fallback keeps the native sandbox and uses request reservations. The six-rule text is unchanged; N=3, $320 total, $4 per attempt. Resume from tasks/code-graph-run.md and the controller state; never duplicate an active paid batch.
+> Handover: unfinished: AC8 — protocol registered at f1f4df8; first paid smoke errored on usage decoding. Its $0.149272 nominal/$1.660241 accounted cost is preserved. The reviewed compatibility revision passes 43 checks and 86.25% aggregate coverage; next is the same slot's one permitted retry.
+> Do not re-derive: Claude model claude-opus-5-5, N=3 and six-rule go text are frozen. Keep protocol and initial manifest unchanged. Resume with run-manifest-usage-compat-1.json and the audited controller state; $320 total/$4 per attempt. Never reset charges/retry counts or duplicate an active paid batch.
 
 
 ### Slice 9/9 — outcome

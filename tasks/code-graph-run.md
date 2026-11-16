@@ -11,8 +11,8 @@ Branch: code-graph/treatment
 
 - Total ceiling: $320
 - Per-run ceiling: $4
-- Cumulative evaluation spend: $0
-- Paid runs: none. The controller verifies the committed protocol and manifest before payment and records their identities with each attempt.
+- Cumulative evaluation spend: $0.14927200000000002
+- Paid runs: 1 charged attempts; pending reservation: $0; protocol commit: f1f4df8715029e380c8b4e382a4547152f4082df
 
 ## Slices
 
@@ -197,3 +197,51 @@ The final fallback mock integration must pass before protocol registration.
   retained progress log: `/tmp/code-graph-paid-2026-11-16.log`. Check the recorded
   process/session before starting another runner. The shared suite lock covers
   the paid batch, so no local full suite runs alongside an arm.
+
+- Run receipt: {"id": "A/invoice-rounding/1", "arm": "A", "case": "invoice-rounding", "repetition": 1, "seed": 101, "kind": "localization", "generation": 0, "attempt": 1, "attempt_id": "A/invoice-rounding/1/0/1", "protocol_commit": "f1f4df8715029e380c8b4e382a4547152f4082df", "source_sha": "c7360e41fc0c466764b0bb4e32df6dd35d279b5b", "artifact_root": "/home/joaosouto/hr-5rjsygzg/round", "reserved_usd": "4", "reserved_at": "2026-11-16T02:50:43.008724+00:00"}
+
+- Run receipt: {"score": 0.0, "passed": false, "turns": 2, "costUsd": 0.14927200000000002, "costSource": "native_cli", "judgeCostUsd": 0, "startedAt": "2026-11-16T02:50:43.118919+00:00", "durationSeconds": 2.104, "tracePath": "/home/joaosouto/hr-5rjsygzg/round/out/trace.jsonl", "graders": [{"name": "outcome", "passed": false, "weight": 1.0}], "status": "errored", "budgetAccountedUsd": "1.660241", "admissionBlocked": true, "billingBreach": false, "gatewayAccountedUsd": "1.660241", "exitCode": 1, "finishedAt": "2026-11-16T02:50:46.645291+00:00", "kind": "localization", "seed": 101, "id": "A/invoice-rounding/1", "arm": "A", "case": "invoice-rounding", "repetition": 1, "generation": 0, "attempt": 1, "attempt_id": "A/invoice-rounding/1/0/1", "protocol_commit": "f1f4df8715029e380c8b4e382a4547152f4082df", "source_sha": "c7360e41fc0c466764b0bb4e32df6dd35d279b5b", "artifact_root": "/home/joaosouto/hr-5rjsygzg/round"}
+
+## First paid smoke — usage-format investigation
+
+The registered batch stopped after A/invoice-rounding/1/0/1. Native nominal
+spend is $0.149272; the unchanged conservative reservation retains $1.660241.
+No selected run or second paid attempt exists. The gateway reported
+`inconsistent_usage` and blocked the next request. Evidence root:
+`/home/joaosouto/hr-5rjsygzg/round`; audit `out/admission.jsonl`, native output
+`out/trace.jsonl`, and the controller state retain the failure.
+
+The first paid request freezes protocol commit
+`f1f4df8715029e380c8b4e382a4547152f4082df` and SHA256
+`eceb8b458bf7b0464d0b523de8e87eec61f621151818aa29c1b4881932798dfd`.
+Those bytes and the initial manifest remain unchanged. A read-only `/debug`
+investigation is distinguishing normal delta-counter normalization from a real
+billing/stream assumption breach. Contract review precedes any implementation
+repair or same-slot retry. The previous process has exited; do not start a
+second batch while this investigation is unresolved.
+
+## Audited operational compatibility recovery
+
+[AMBIGUITY] The frozen protocol names versioned revision manifests but does not explicitly name operational compatibility repairs | options: A) permit a separately audited operational-only revision under the existing debug-and-retry rule B) treat every operational repair as a forbidden protocol change | picked: A | reason: the spec authorizes step repair and same-seed retry while the frozen protocol preserves initial registration and treatment payloads.
+
+- Pinned native Jwe supports nullable/zero input/cache delta placeholders; the
+  old gateway rejected legitimate variants. Controlled offline reproduction
+  establishes that incompatibility, not the unique trigger of the lost raw SSE.
+- Independent parser and guarded-migration reviews are GO. All 43 operational
+  checks pass; current aggregate statement coverage is 86.25%. Exact proofs are
+  `usage-compatibility-proof.json`, `controller-usage-compatibility-proof.json`
+  and `compatibility-coverage-2026-11-16.json` in the results directory.
+- Applied one guarded recovery with a durable state snapshot and append-only
+  apply journal. Original protocol/manifest/attempt and all charges are unchanged.
+  The prior state is `execution-state-before-usage-compat-1.json`; the journal is
+  `usage-compatibility-migration-applied.jsonl`. Only the diagnosed halt was cleared.
+- Active manifest: `run-manifest-usage-compat-1.json`, SHA256
+  `f91ff5d287569ab8c6cb8594d6c55f01ce9c2bbeaa3c39e39f557af01150c23a`.
+  Only the gateway/controller operational hashes differ; relay, model, cohort,
+  seeds, order, payload sources, budgets and measurement rules are unchanged.
+- Next authorized planned attempt: `A/invoice-rounding/1/0/2`. The failed first
+  attempt and its $1.660241 accounted amount remain in the controller. Future
+  attempt receipts carry their active manifest hash. No third retry is authorized.
+- Retained retry log: `/tmp/code-graph-paid-compat-1-2026-11-16.log`. Check
+  `job-control.json` before launching any process. This repair and its exact
+  manifest are committed before another paid request.
