@@ -10,7 +10,8 @@
 # exists to stop the drift recurring. This file compares the two. Both sides are parsed as JSON; the documented side
 # is the ```json fence in PI_SETUP.md that holds "agentOverrides".
 #
-# The live file is per-machine. When it is absent (CI, other machines) the live
+# The live file is per-machine. When it is absent (CI, other machines), or has
+# no `subagents` section (Pi installed without subagents configured), the live
 # comparison is noted and left out, not `skip`ped — CI sets REQUIRE_ALL=1, which
 # fails a file on any skip — and the fixture cases below still prove the guard
 # bites. PI_AGENT_SETTINGS points the live case at another file.
@@ -26,7 +27,8 @@ LIVE="${PI_AGENT_SETTINGS:-$HOME/.pi/agent/settings.json}"
 #   check <doc> <settings>       prints each agent the doc pins that the
 #                                settings file's subagents.agentOverrides lacks,
 #                                one per line; exit 0 none missing, 1 some
-#                                missing, 2 either side unparseable
+#                                missing, 2 either side unparseable, 3 the
+#                                settings file has no subagents section
 #   fixtures <doc> <full> <bare> writes the documented block as a settings file
 #                                to <full>, and without test-engineer to <bare>
 PI_OVERRIDES_PY='
@@ -51,7 +53,11 @@ try:
                 json.dump({"subagents": {**settings["subagents"], "agentOverrides": body}}, fh)
         sys.exit(0)
     with open(sys.argv[3], encoding="utf-8") as fh:
-        live = json.load(fh).get("subagents", {}).get("agentOverrides", {})
+        live_settings = json.load(fh)
+    if "subagents" not in live_settings:
+        print("no subagents section")
+        sys.exit(3)
+    live = live_settings["subagents"].get("agentOverrides", {})
 except (OSError, ValueError, KeyError, AttributeError) as exc:
     print(f"unparseable: {exc}")
     sys.exit(2)
@@ -75,13 +81,23 @@ if begin_case "fixture"; then
   run missing_overrides "$DOC" "$FIX/no-test-engineer.json"
   assert_exit 1 "PiDrift: a settings file missing test-engineer is refused"
   assert_eq "test-engineer" "$output" "PiDrift: the refusal names test-engineer and nothing else"
+  printf '{"defaultModel": "x"}\n' > "$FIX/no-subagents.json"
+  run missing_overrides "$DOC" "$FIX/no-subagents.json"
+  assert_exit 3 "PiDrift: a settings file with no subagents section is told apart from drift"
+  printf '{"subagents": {}}\n' > "$FIX/no-overrides.json"
+  run missing_overrides "$DOC" "$FIX/no-overrides.json"
+  assert_exit 1 "PiDrift: a subagents section without agentOverrides is still drift"
 fi; end_case
 
 # --- 2. The live user-scope settings carry every documented override ---------
 if begin_case "live"; then
   if [ -f "$LIVE" ]; then
     run missing_overrides "$DOC" "$LIVE"
-    assert_exit 0 "PiDrift: $LIVE carries every agentOverrides entry PI_SETUP.md pins"
+    if [ "$status" -eq 3 ]; then
+      printf '  NOTE live check not run: %s has no subagents section (Pi subagents not configured on this machine)\n' "$LIVE"
+    else
+      assert_exit 0 "PiDrift: $LIVE carries every agentOverrides entry PI_SETUP.md pins"
+    fi
   else
     printf '  NOTE live check not run: %s absent (Pi not configured on this machine)\n' "$LIVE"
   fi
