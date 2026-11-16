@@ -1,0 +1,1895 @@
+{
+  "label": "unpaid mock transport probe; excluded from planned runs",
+  "interfaces": [
+    [
+      1,
+      "lo"
+    ]
+  ],
+  "external_network": "unshared namespace; loopback only",
+  "fake_credentials_only": true,
+  "upstream_connections": 0,
+  "auth_mode": "fake OAuth bearer",
+  "synthetic_usage_only": true,
+  "paid_cost_usd": 0,
+  "requested_model": "claude-opus-5-5",
+  "requests": [
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 49955,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": false,
+      "graphify_version_seen": false,
+      "credential_hidden_seen": false,
+      "graph_query_seen": false,
+      "bash_privacy_seen": false,
+      "privacy_denials": [],
+      "request_sha256": "23ebdbda1d1413b2828150f3afd7966428e60889c08261cfd970094235302cc9"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 50888,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 1,
+        "tool_result": 1
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [],
+      "request_sha256": "2422b3c2c35bd264aa347a06e9a85c6e3dd3fca189183d5e8f5c98a214695c58"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 51584,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 2,
+        "tool_result": 2
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [],
+      "request_sha256": "9f5171bf01a70d55921acd1efb3a4445a9fb1adeb6d2fe2edd039a544b0d0cea"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 52022,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 3,
+        "tool_result": 3
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [],
+      "request_sha256": "7a12dae0fe619f1bd3baab5d28c71ab0b3aa8bb35c064182e7cebfcbd6c504ea"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 52375,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 4,
+        "tool_result": 4
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "886e8214d2531bbc958834f45460f671df76526cbfa4955f42f9f394475ecc0f"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 53183,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 5,
+        "tool_result": 5
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_5",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "e03c4b7d3fab04b634d69beb58d62f9f19c7be36141c0a3ba9a7354496617c06"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 53696,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 6,
+        "tool_result": 6
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_5",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_6",
+          "is_error": false,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "82b3fa74284a5b08a269c1a45f338fe262683a7d5322e05e4c17de52db8d87a9"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 54062,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 7,
+        "tool_result": 7
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_5",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_6",
+          "is_error": false,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_7",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "5b0699f8a0173c62c77ebdd731e34775e288d545e106d5bc4997046e1d161a79"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 54717,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 8,
+        "tool_result": 8
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_5",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_6",
+          "is_error": false,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_7",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_8",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "851dd5bc07a4ef14c2d21011985b4a69625fc3d5dc477fb5e21d0cad8ab15780"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 55331,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 9,
+        "tool_result": 9
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_5",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_6",
+          "is_error": false,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_7",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_8",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_9",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "dae97dc2f6ce1d0018befac7a5fd31a8ea2a8ff45e299383a8901f261cef373d"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 55892,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 10,
+        "tool_result": 10
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_5",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_6",
+          "is_error": false,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_7",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_8",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_9",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_10",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "f2d39d230ace8b1693920d435e3e3d27f062c31dc7734eb8be9e9269fea1f1a5"
+    },
+    {
+      "path": "/8BmyRNtVAtaD794RlaaAzjkO8Xfm2TEy/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept-Encoding",
+        "Anthropic-Beta",
+        "Anthropic-Dangerous-Direct-Browser-Access",
+        "Anthropic-Version",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-App",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-Os",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 56346,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4,
+        "tool_use": 11,
+        "tool_result": 11
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "credential_hidden_seen": true,
+      "graph_query_seen": true,
+      "bash_privacy_seen": true,
+      "privacy_denials": [
+        {
+          "id": "toolu_private_4",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_5",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_6",
+          "is_error": false,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_7",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_8",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_9",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_10",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        },
+        {
+          "id": "toolu_private_11",
+          "is_error": true,
+          "denied_or_empty": true,
+          "private_sentinel_seen": false
+        }
+      ],
+      "request_sha256": "d36da8b3a0dd24f32e8c4212cd469eaf958231355570de7ef996e9553b4de6e6"
+    }
+  ],
+  "native_exit_code": 0,
+  "admission_observations": [
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    },
+    {
+      "beta_names": [
+        "claude-code-20250219",
+        "oauth-2025-04-20",
+        "interleaved-thinking-2025-05-14",
+        "context-management-2025-06-27",
+        "prompt-caching-scope-2026-01-05",
+        "per-turn-control-2026-07-01",
+        "mid-conversation-tool-changes-2026-07-01",
+        "tool-provenance-2026-10-26",
+        "thinking-token-count-2026-05-13",
+        "effort-2025-11-24",
+        "thinking-binding-controls-2026-08-01",
+        "thinking-display-updates-2026-08-18",
+        "extended-cache-ttl-2025-04-11",
+        "cache-diagnosis-2026-04-07"
+      ]
+    }
+  ],
+  "unchanged_arranger_proof": {
+    "exit_code": 0,
+    "stderr": "",
+    "transcript_present": true,
+    "outcome": {
+      "score": 1.0
+    }
+  },
+  "runner": "direct CLI fallback",
+  "timeout": false,
+  "artifact_root": "/home/joaosouto/hr-005ll7qi",
+  "command": [
+    "/home/joaosouto/.local/share/claude/versions/2.1.325",
+    "-p",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--max-turns",
+    "30",
+    "--max-budget-usd",
+    "4",
+    "--permission-mode",
+    "dontAsk",
+    "--setting-sources",
+    "user",
+    "--model",
+    "claude-opus-5-5",
+    "--plugin-dir",
+    "/home/joaosouto/hr-005ll7qi/round/package",
+    "--strict-mcp-config",
+    "--tools",
+    "Bash,Edit,Write,Read,Grep,Glob,Skill",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--allowed-tools",
+    "Bash",
+    "Edit",
+    "Write",
+    "Read",
+    "Grep",
+    "Glob",
+    "Skill",
+    "--disallowed-tools",
+    "Agent",
+    "Task",
+    "WebSearch",
+    "WebFetch",
+    "Bash(pip install:*)",
+    "Bash(pip3 install:*)",
+    "Bash(pipx install:*)",
+    "Bash(pipx upgrade:*)",
+    "Bash(python -m pip install:*)",
+    "Bash(python3 -m pip install:*)"
+  ],
+  "shell_granted": true,
+  "task_local_relay": true,
+  "shell_execution_proven": true,
+  "graphify_version_proven": true,
+  "credential_hidden_proven": true,
+  "graph_query_proven": true,
+  "bash_privacy_proven": true,
+  "socat_available": false,
+  "output_tokens_cap": 4096,
+  "routing_proven": true,
+  "native_privacy_proven": true,
+  "neutral_startup_paths_proven": true,
+  "private_marker_unchanged": true,
+  "package_write_blocked": true
+}

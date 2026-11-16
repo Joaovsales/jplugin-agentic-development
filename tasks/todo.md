@@ -2907,16 +2907,41 @@ Step ledger (routine `simplify`):
 > [AMBIGUITY] Slice 4 requests a paid smoke run before slice 8 commits the protocol | options: A) defer the paid smoke until the protocol is committed B) run the smoke before protocol freeze | picked: A | reason: AC4 requires a committed protocol before every paid run.
 
 ### Slice 5/9 — routing rule and hint hook
-- [ ] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+- [x] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+
+> Handover: landed c2c4826 — routing ladder, strict navigation fallback and file-only PreToolUse hints; affected tests:34 files,3489 assertions passed.
+> Do not re-derive: hook output is one Claude-style PreToolUse JSON context line, only for normalized Grep/Glob. It never executes graphify. Codex must translate native search events, preserve this shell hook and provide its installed package reference; the adjacent banner pin also remains a slice6 obligation.
+> Surface: initial check against c7360e4 clean. Parent integration additionally updated tests/test-hooks-json.sh for the fourth event and release metadata1.8.11.
+
+> [AMBIGUITY] AC7 asks a file-only hook to detect a CLI hang without executing the CLI | options: A) keep file-only hints and prove the hook never waits for the hanging stub B) add a CLI health probe to every hint | picked: A | reason: the explicit no-CLI hook contract preserves bounded overhead and leaves CLI health to the banner and navigation fallback.
 
 ### Slice 6/9 — Codex hint adapter
-- [ ] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+- [x] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+
+> Handover: landed 66f597d — schema-gated idempotent native Bash search adapter, context-only output, unsupported cleanup, copied banner pin and shared resources; affected55files/5331assertions green.
+> Do not re-derive: codex-cli0.166.0 schema exposes preToolUse and typed matcher; native rg/grep/find normalize to shared Grep/Glob. Unsupported reruns retire only the installed Python callback and preserve personal hooks/path mentions. No global user configuration was changed.
+> Surface: source check against f2bec3f clean; targeted 59 assertions passed.
+> Open: no-go results retain only the independent adjacent-pin copy; public installer fresh/stale-pin regressions are 54 passed, 0 failed. Adapter and hint wiring stay unmerged.
+
 
 ### Slice 7/9 — skill wiring
-- [ ] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+- [x] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+
+> Handover: landed 1655f58 plus same-surface prose-budget repair — routing at four requested stages and guarded120-second handover refresh; affected55files/5331assertions green.
+> Do not re-derive: project reference then plugin package fallback; missing capability/reference uses Grep; quality review confirms graph negatives with Grep. Build failure emits one fourth-line warning instead of Open; graph refresh skipped when no graph exists.
+> Surface: source check against 66f597d clean; build remains 600 lines and all workflow pins pass; extracted snippet covers five stub states.
+
 
 ### Slice 8/9 — eval run and verdict
-- [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
+- [x] eval run and verdict — frozen protocol committed first; A/B/D at N=3, C excluded by spike; 90 complete selected runs graded; results.md records the measured no-go and harness scope
+
+> Handover: landed registered A/B/D cohort: 90 completed selected runs, 91 paid attempts including the preserved original smoke; Verdict: no-go — rules 2, 4 and 6. Selected nominal $12.45952240; total nominal $12.60879440; accounted upper $20.58969660. Results and evidence index: tasks/eval-results/code-graph/2026-11-16/.
+> Do not re-derive: all outcomes were 100%, B localization median tokens were 1.230145× A with 0/21 graph adoption, D tokens 1.270499× A. No rule-only retry applies. Keep protocol/manifest/prior attempts frozen; no further paid run is authorized by this result.
+> Surface: slice worker edited only tasks/eval-results/code-graph/** and tasks/code-graph-run.md. Unchanged grader exited 0 with 90 complete inputs, rules 1/3/5 pass and 2/4/6 fail; each verdict input has a run-directory hash receipt.
+
 
 ### Slice 9/9 — outcome
 - [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
+
+> Handover: prepared no-go outcome — optional AGENTS wording, numerical/decoder learnings and independent pin transport. Treatment PR #420 is closed unmerged with a results link; results PR quality/full-suite/Linux-CI gates and merge remain pending. No treatment merge or downstream sync is authorized.
+> Do not re-derive: Phase A PR416 is merged. Do not infer no-go from a missing prerequisite or write a negative-result learning without data.

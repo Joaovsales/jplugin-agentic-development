@@ -1,0 +1,423 @@
+{
+  "label": "unpaid mock transport probe; excluded from planned runs",
+  "interfaces": [
+    [
+      1,
+      "lo"
+    ]
+  ],
+  "external_network": "unshared namespace; loopback only",
+  "fake_credentials_only": true,
+  "upstream_connections": 0,
+  "auth_mode": "fake OAuth bearer",
+  "synthetic_usage_only": true,
+  "paid_cost_usd": 0,
+  "requested_model": "claude-opus-5-5",
+  "requests": [
+    {
+      "path": "/dk8MP179FipWshz5s9hrFu6Y2mPlogDV/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept",
+        "Accept-Encoding",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-OS",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout",
+        "anthropic-beta",
+        "anthropic-dangerous-direct-browser-access",
+        "anthropic-version",
+        "x-app",
+        "x-claude-1p-request-class",
+        "x-claude-code-prompt-id",
+        "x-claude-code-request-class",
+        "x-claude-code-sandy-plover",
+        "x-client-request-id"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/.cc-writes\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/CLAUDE.md\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/agents\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/backups\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/commands\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/cowork_plugins\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/daemon.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/daemon\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/dev-mods\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/file-history\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/hooks\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/ide\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/jobs\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/launch.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/local\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/loop.md\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/mcp-discovery-cache\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/mcp-skill-archives\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/output-styles\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/plugins\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json.signature-iat.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json.signature.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json.stamp.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/projects\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/routines\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/rules\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/scheduled_tasks.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/seed-admin\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/session-env\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/settings.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/shares\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/shell-snapshots\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/skills\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/todos\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/workflows\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.aws/boto/cache\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.aws/cli/cache\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.aws/sso\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/bridge-spawn\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/daemon\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/debug\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/file-history\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/ide\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.npm/_logs\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/.cc-writes\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/hooks\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/settings.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/settings.local.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/skills\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd\\n",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/out\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp/claude-1000/-home-joaosouto-hr-90kxgn46-temporary-claude-eval-Xud5PD-home-cwd/8a385dee-330e-4b68-9f7d-ac4882fee734/tasks\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp/claude-1000/bash-edit-diff\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp/claude-1000/plugin-tool-staging\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp\\"
+      ],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 53933,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "ToolSearch",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 4
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": false,
+      "graphify_version_seen": false,
+      "request_sha256": "aabc80878a7c036831e68f414d0330725c02ef4028d1389164682f86a3e7ff0d"
+    },
+    {
+      "path": "/dk8MP179FipWshz5s9hrFu6Y2mPlogDV/v1/messages?beta=true",
+      "model": "claude-opus-5-5",
+      "max_tokens": 4096,
+      "header_names": [
+        "Accept",
+        "Accept-Encoding",
+        "Authorization",
+        "Connection",
+        "Content-Length",
+        "Content-Type",
+        "Host",
+        "User-Agent",
+        "X-Claude-Code-Session-Id",
+        "X-Stainless-Arch",
+        "X-Stainless-Lang",
+        "X-Stainless-OS",
+        "X-Stainless-Package-Version",
+        "X-Stainless-Retry-Count",
+        "X-Stainless-Runtime",
+        "X-Stainless-Runtime-Version",
+        "X-Stainless-Timeout",
+        "anthropic-beta",
+        "anthropic-dangerous-direct-browser-access",
+        "anthropic-version",
+        "x-app",
+        "x-claude-1p-request-class",
+        "x-claude-code-prev-tool-durations",
+        "x-claude-code-prompt-id",
+        "x-claude-code-request-class",
+        "x-claude-code-sandy-plover",
+        "x-client-request-id"
+      ],
+      "authorization_present": true,
+      "authorization_scheme": "Bearer",
+      "visible_native_eval_paths": [
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/.cc-writes\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/CLAUDE.md\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/agents\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/backups\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/commands\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/cowork_plugins\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/daemon.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/daemon\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/dev-mods\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/file-history\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/hooks\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/ide\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/jobs\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/launch.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/local\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/loop.md\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/mcp-discovery-cache\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/mcp-skill-archives\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/output-styles\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/plugins\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json.signature-iat.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json.signature.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json.stamp.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/policy-limits.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/projects\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/routines\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/rules\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/scheduled_tasks.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/seed-admin\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/session-env\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/settings.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/shares\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/shell-snapshots\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/skills\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/todos\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config/workflows\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/config\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.aws/boto/cache\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.aws/cli/cache\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.aws/sso\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.bashrc:",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/bridge-spawn\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/daemon\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/debug\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/file-history\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.claude/ide\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/.npm/_logs\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/.cc-writes\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/hooks\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/settings.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/settings.local.json\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd/.claude/skills\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home/cwd\\n",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/home\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/out\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp/claude-1000/-home-joaosouto-hr-90kxgn46-temporary-claude-eval-Xud5PD-home-cwd/8a385dee-330e-4b68-9f7d-ac4882fee734/tasks\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp/claude-1000/bash-edit-diff\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp/claude-1000/plugin-tool-staging\\",
+        "/home/joaosouto/hr-90kxgn46/temporary/claude-eval-Xud5PD/tmp\\"
+      ],
+      "top_level_keys": [
+        "context_management",
+        "diagnostics",
+        "max_tokens",
+        "messages",
+        "metadata",
+        "model",
+        "output_config",
+        "stream",
+        "system",
+        "thinking",
+        "tools"
+      ],
+      "body_bytes": 54509,
+      "tools": [
+        {
+          "name": "Bash",
+          "type": "custom"
+        },
+        {
+          "name": "Edit",
+          "type": "custom"
+        },
+        {
+          "name": "Glob",
+          "type": "custom"
+        },
+        {
+          "name": "Grep",
+          "type": "custom"
+        },
+        {
+          "name": "Read",
+          "type": "custom"
+        },
+        {
+          "name": "Skill",
+          "type": "custom"
+        },
+        {
+          "name": "ToolSearch",
+          "type": "custom"
+        },
+        {
+          "name": "DeferredToolPlaceholder",
+          "type": "custom"
+        },
+        {
+          "name": "Write",
+          "type": "custom"
+        }
+      ],
+      "metadata_keys": [
+        "user_id"
+      ],
+      "thinking_keys": [
+        "display",
+        "type"
+      ],
+      "thinking_type": "adaptive",
+      "thinking_display": "updates",
+      "output_config": {
+        "effort": "medium"
+      },
+      "context_management": {
+        "edits": [
+          {
+            "type": "clear_thinking_20251015",
+            "keep": "all"
+          }
+        ]
+      },
+      "anthropic_beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,tool-provenance-2026-10-26,thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24,thinking-binding-controls-2026-08-01,thinking-display-updates-2026-08-18,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
+      "content_types": {
+        "text": 3,
+        "tool_use": 1,
+        "tool_result": 1
+      },
+      "system_types": {
+        "text": 4
+      },
+      "shell_marker_seen": true,
+      "graphify_version_seen": true,
+      "request_sha256": "c409c6061fe32c8ec899f78b8ecce464ea9b3ae675e4347586aaee6c74299254"
+    }
+  ],
+  "native_exit_code": 1,
+  "timeout": false,
+  "artifact_root": "/home/joaosouto/hr-90kxgn46",
+  "command": [
+    "/home/joaosouto/.local/share/claude/versions/2.1.325",
+    "plugin",
+    "eval",
+    "/tmp/harbor-workflow",
+    "--eval-dir",
+    "evals/code-graph",
+    "--case",
+    "invoice-rounding",
+    "--runs",
+    "1",
+    "--concurrency",
+    "1",
+    "--ablation",
+    "none",
+    "--scaffold",
+    "--keep-temp",
+    "--allow-tools",
+    "Bash",
+    "Edit",
+    "Write",
+    "--disallow-tools",
+    "Agent",
+    "Task",
+    "WebSearch",
+    "WebFetch",
+    "--model",
+    "claude-opus-5-5",
+    "--max-cost-usd",
+    "4",
+    "--trust-plugin",
+    "--no-publish",
+    "--output-dir",
+    "/home/joaosouto/hr-90kxgn46/output",
+    "--json",
+    "/home/joaosouto/hr-90kxgn46/aggregate.json"
+  ],
+  "shell_granted": true,
+  "task_local_relay": true,
+  "shell_execution_proven": true,
+  "graphify_version_proven": true,
+  "socat_available": false,
+  "output_tokens_cap": 4096,
+  "routing_proven": true
+}

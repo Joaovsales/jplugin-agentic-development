@@ -1,0 +1,57 @@
+{
+  "status": "offline integration verified; parent review and protocol commit required before paid execution",
+  "paid_cost_usd": 0,
+  "unit_checks": 16,
+  "integration_receipt": "direct-probe-receipt.json",
+  "integration_artifact_root": "/home/joaosouto/hr-005ll7qi",
+  "verified_properties": [
+    "routing_proven",
+    "shell_execution_proven",
+    "graphify_version_proven",
+    "graph_query_proven",
+    "credential_hidden_proven",
+    "bash_privacy_proven",
+    "native_privacy_proven",
+    "neutral_startup_paths_proven",
+    "private_marker_unchanged",
+    "package_write_blocked"
+  ],
+  "unchanged_arranger_outcome": {
+    "score": 1.0
+  },
+  "manifest_source_pins_valid": true,
+  "protocol_sha256": "eceb8b458bf7b0464d0b523de8e87eec61f621151818aa29c1b4881932798dfd",
+  "source_sha256": {
+    "run-code-graph.py": "794bd6e9504634263be7f409a4415ffad98bdc32b69d9e50dd4b9a4168d147a5",
+    "transport-probe.py": "727ee46942db72ccfc70ade6991c93c34c579f60d2ec043563bf0d782116dc90",
+    "test_runner.py": "d35b9b73eee0a6b53acce41d287c19c238e94b8d20c8fc7efc741f8f7b48abed",
+    "run-manifest.json": "6e27abd6299168923124f2bcbaadec6f46df56ee0856070deb39400763894c1e"
+  },
+  "remaining": [
+    "Parent final review/coverage/quality evidence and protocol commit before --execute.",
+    "Initial-batch manifest is immutable; any spec-authorized wiring revision must preserve prior cumulative charges and A evidence under an explicitly tracked retry batch; current launcher does not automatically revise treatment code."
+  ],
+  "runtime_notes": [
+    "Candidate scratch is writable as required by native cwd tracking; no remote-mode credential persistence is enabled.",
+    "Raw OAuth is delivered only via inherited descriptor, never candidate environment.",
+    "Startup paths are neutral. Intentional unpaid privacy tool probes name protected paths; no paid model saw them.",
+    "Identical no-push and no-install prompt clauses apply to every arm; prep-only arm/stub/real-binary env variables are removed before candidate launch."
+  ],
+  "protocol_gate_checks": [
+    "missing protocol refuses",
+    "untracked and staged-but-uncommitted refuse",
+    "committed matching bytes return actual Git commit",
+    "wrong manifest hash refuses",
+    "dirty bytes refuse even with updated hash",
+    "dirty or committed-change/restore between attempts stops next launch",
+    "fresh-session protocol identity change stops restart; prior cost retained; fake paid calls remain one"
+  ],
+  "central_unit_checks": 32,
+  "coverage_receipt": "operational-coverage-2026-11-16.json",
+  "operational_sha256": {
+    "run-code-graph.py": "794bd6e9504634263be7f409a4415ffad98bdc32b69d9e50dd4b9a4168d147a5",
+    "admission_gateway.py": "29df3dd507fd7e558c871159ddd389e9945b488e8ddd0db8233c8acbac703cdb",
+    "sandbox-relay.py": "662ddddc6520491b9549730afd141231650d786d16b027611252850145ebc435"
+  },
+  "parent_validation": "manifest pins and verbatim go rule verified before registration"
+}

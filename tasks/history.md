@@ -1130,3 +1130,9 @@ back vacuous and was repaired.
 - Key changes: built slices 1–4 of specs/code-graph-adoption.md: pinned optional installer, bounded graph status reporting, transcript grader and ten seeded localization/control cases. The affected run passed 67 files and 6522 assertions. Paid evaluation and treatment remain gated on the protocol and Phase A merge.
 - Learnings captured: [code-graph installer fixture isolation](solutions/bugs/code-graph-installer-fixtures-must-isolate-codex-home.md).
 - Learnings captured: [code-graph invocation classification](solutions/bugs/code-graph-adoption-counts-executed-commands-not-probes.md).
+
+### [2026-11-16] — Code-graph no-go
+- Key changes: repaired native usage-delta compatibility with preserved accounting; completed the frozen 90-slot Claude Code cohort and retained the literal no-go on rules 2/4/6. Selected runs all completed; the single original failed smoke and sole same-slot retry remain in the 91-attempt audit.
+- Learnings captured: [optional graph routing](solutions/architecture/code-graph-routing-remains-optional-after-measured-no-go.md), [native delta normalization](solutions/bugs/code-graph-native-usage-placeholders-need-delta-normalization.md).
+- Key changes: treatment PR #420 was closed unmerged with the results link; independent results release retains only adjacent-pin transport, optional graph wording, reports and learnings.
+- Pending: results release under quality, full-suite and Linux-CI gates. No further paid runs or downstream promotion.
