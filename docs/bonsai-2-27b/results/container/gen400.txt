@@ -1,0 +1,3 @@
+gen400 run 1: predicted_n=400 predicted_per_second=20.28 prompt_per_second=87.63
+gen400 run 2: predicted_n=400 predicted_per_second=20.11 prompt_per_second=108.47
+gen400 run 3: predicted_n=400 predicted_per_second=20.12 prompt_per_second=107.66

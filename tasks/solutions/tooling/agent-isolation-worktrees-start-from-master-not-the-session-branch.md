@@ -28,7 +28,7 @@ orchestrator's worktree path instead; their commits had master as parent.
 - The agent's `.output` transcript file in the scratchpad stayed 0 bytes for the
   whole run, so a stall monitor on it fires false alarms; watch the agent
   worktree's file mtimes or its `git log -1 --format=%ct` instead
-  (`.agents/skills/build/references/subagent-resilience.md` asks for a stall monitor).
+  (`.agents/references/subagent-resilience.md` asks for a stall monitor).
 
 **Consequence of ignoring it**: a dependent slice builds against stale code and
 re-derives or contradicts its blockers' handover; a merge pulls an unrelated base

@@ -87,7 +87,7 @@ Ground the proposal in what exists. Every fact carries a `file:line`.
   and `[PROTECTION]` when present.
 
 When more than three modules are involved, dispatch one scout per module with a
-tool-call budget — `.agents/skills/build/references/subagent-resilience.md`.
+tool-call budget — `.agents/references/subagent-resilience.md`.
 
 Output: a *current-state* ASCII sketch. A path or symbol you did not read is
 written `NEW` or `UNVERIFIED`, never presented as fact.

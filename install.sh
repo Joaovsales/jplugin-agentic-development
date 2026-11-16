@@ -485,6 +485,12 @@ remove_stale_global_copies
 # is still configured below.
 
 # ── 5. Configure Pi if installed ─────────────────────────────────────────────
+# Only the skill path is written here. `subagents.agentOverrides` stays
+# hand-maintained from PI_SETUP.md § Sub-Agent Routing: its values are concrete
+# provider routes (openrouter/deepseek/...) that hold only for an account with
+# that provider, and writing them here would give the mapping a second home to
+# keep in step with PI_SETUP.md. tests/test-pi-overrides-drift.sh catches a
+# live file that has fallen behind it.
 PI_SETTINGS="$HOME/.pi/agent/settings.json"
 if [ -f "$PI_SETTINGS" ]; then
   step "Configuring Pi skill paths"
@@ -501,59 +507,119 @@ if [ -f "$PI_SETTINGS" ]; then
 fi
 
 # ── 6. Wire graphify into this project (optional) ────────────────────────────
-# graphify is a per-machine CLI with per-project state (./graphify-out/graph.json),
-# so it has to be wired per repo. Entirely optional — never block the install.
+# Only a person running this installer can accept a package install. Agents and
+# non-interactive invocations receive the exact command instead.
 step "Wiring graphify (optional)"
-if command -v graphify > /dev/null 2>&1; then
-  graphify claude install > /dev/null 2>&1 || true
-  graphify hook install > /dev/null 2>&1 || true
-
-  # `graphify claude install` appends its `## graphify` rules to CLAUDE.md, which is
-  # the single line `@AGENTS.md` — /sync rewrites it whenever it differs, so the
-  # rules would vanish on the next sync while the PreToolUse hook and the skill
-  # both survive, leaving graphify looking wired but rule-less. Append the
-  # section to AGENTS.md, outside the managed block — the only part /sync rewrites.
-  if [ -f CLAUDE.md ] && grep -q '^## graphify$' CLAUDE.md; then
-    [ -f AGENTS.md ] || printf '# Project Instructions\n' > AGENTS.md
-    if ! grep -q '^## graphify$' AGENTS.md; then
-      {
-        printf '\n'
-        awk '/^## graphify$/{f=1} f' CLAUDE.md
-      } >> AGENTS.md
-    fi
-    # Drop the section from CLAUDE.md. It is emitted last, so truncating at its
-    # header is sufficient; then restore the exact one-line pointer if that is
-    # all that is left, so the budget invariant (byte-equal `@AGENTS.md`) holds.
-    awk '/^## graphify$/{exit} {print}' CLAUDE.md > CLAUDE.md.tmp && mv CLAUDE.md.tmp CLAUDE.md
-    if [ "$(grep -c . CLAUDE.md)" = "1" ] && grep -qx '@AGENTS.md' CLAUDE.md; then
-      printf '@AGENTS.md\n' > CLAUDE.md
-    fi
-    ok "moved" "graphify rules: CLAUDE.md -> AGENTS.md (survives /sync)"
-  fi
-
-  # graphify-out/ is ~13 MB of generated artefacts that sit in the working tree.
-  # Two separate protections are needed, and neither is created by graphify itself:
-  #
-  #   .gitignore — without it the directory shows as untracked and is one
-  #                `git add .` away from being committed.
-  #   .ignore    — graph.json indexes the source, so it matches ordinary
-  #                identifiers, and graph.html holds a SINGLE ~1.4 MB line. An
-  #                unscoped `rg <identifier>` returns that line and can exhaust an
-  #                agent's context window in one tool call. Observed 2026-07-29:
-  #                three subagents died this way before the cause was found.
-  #
-  # Both writes are idempotent.
-  if ! grep -qx "graphify-out/" .gitignore 2> /dev/null; then
-    printf '\n# graphify knowledge graph — machine-local, rebuilt by post-commit hook\ngraphify-out/\n' >> .gitignore
-  fi
-  if ! grep -qx "graphify-out/" .ignore 2> /dev/null; then
-    printf '# Search-tool exclusions (ripgrep, fd — plain `grep -r` does NOT honour this).\ngraphify-out/\nnode_modules/\n' >> .ignore
-  fi
-
-  ok "wired" "graphify: AGENTS.md rules + PreToolUse hook + git hooks + .gitignore/.ignore"
+GRAPHIFY_PIN="$(cat "$REPO_DIR/.agents/graphify.pin" 2>/dev/null || true)"
+GRAPHIFY_VERSION=""
+if command -v graphify >/dev/null 2>&1; then
+  GRAPHIFY_VERSION="$(timeout 5 graphify --version 2>/dev/null || true)"
+  GRAPHIFY_VERSION="${GRAPHIFY_VERSION##* }"
+fi
+if [ -z "$GRAPHIFY_PIN" ]; then
+  echo "  NOTE: graphify pin missing at $REPO_DIR/.agents/graphify.pin — optional wiring skipped."
 else
-  echo "  NOTE: graphify not found — optional code-graph indexing skipped."
-  echo "  Install with: pip install graphify   (then re-run this installer)"
+  if [ "$GRAPHIFY_VERSION" != "$GRAPHIFY_PIN" ]; then
+    if [ -t 0 ] && [ "${CI+x}" != x ] && command -v pipx >/dev/null 2>&1; then
+      printf '  Install/upgrade graphify with pipx install --force graphifyy==%s? [y/N] ' "$GRAPHIFY_PIN"
+      answer=""; read -r answer || true
+      case "$answer" in
+        y|Y) pipx install --force "graphifyy==$GRAPHIFY_PIN" || echo "  NOTE: graphify install failed — continuing without an upgrade." ;;
+      esac
+    else
+      echo "  NOTE: graphify missing or version differs from $GRAPHIFY_PIN — run: pipx install --force graphifyy==$GRAPHIFY_PIN"
+    fi
+  fi
+  if command -v graphify >/dev/null 2>&1; then
+    graphify_python="$(python_bin)"
+    if [ -z "$graphify_python" ]; then
+      echo "  NOTE: graphify wiring needs Python to strip the stock report hook — skipped."
+    else
+      timeout 20 graphify claude install >/dev/null 2>&1 || echo "  NOTE: graphify rules wiring failed — continuing."
+      timeout 20 graphify hook install >/dev/null 2>&1 || echo "  NOTE: graphify git-hook wiring failed — continuing."
+
+      # Keep the rules outside the managed block, but never keep the stock
+      # whole-report hook or its unbounded read instruction.
+      if [ -f CLAUDE.md ] && grep -q '^## graphify$' CLAUDE.md; then
+        [ -f AGENTS.md ] || printf '# Project Instructions\n' > AGENTS.md
+        if ! grep -q '^## graphify$' AGENTS.md; then
+          { printf '\n'; awk '/^## graphify$/{f=1} f' CLAUDE.md; } >> AGENTS.md
+        fi
+        awk '/^## graphify$/{exit} {print}' CLAUDE.md > CLAUDE.md.tmp && mv CLAUDE.md.tmp CLAUDE.md
+        if [ "$(grep -c . CLAUDE.md)" = "1" ] && grep -qx '@AGENTS.md' CLAUDE.md; then
+          printf '@AGENTS.md\n' > CLAUDE.md
+        fi
+      fi
+      graphify_cleanup=0
+      if ! "$graphify_python" - <<'PYGRAPH'
+import json
+import os
+from pathlib import Path
+import shlex
+import tempfile
+
+def stock_graphify_hook(hook):
+    command = str(hook.get('command', ''))
+    if 'GRAPH_REPORT.md' in command:
+        return True
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return False
+    return (len(argv) > 1 and argv[0].replace('\\', '/').rsplit('/', 1)[-1] in {'graphify', 'graphify.exe'}
+            and argv[1] == 'hook-guard')
+
+settings = Path('.claude/settings.json')
+if settings.exists():
+    data = json.loads(settings.read_text(encoding='utf-8'))
+    entries = data.get('hooks', {}).get('PreToolUse', [])
+    retained = []
+    for entry in entries:
+        hooks = entry.get('hooks', [])
+        safe = [hook for hook in hooks if not stock_graphify_hook(hook)]
+        if safe or not hooks:
+            retained.append(dict(entry, hooks=safe) if hooks else entry)
+    if retained != entries:
+        data['hooks']['PreToolUse'] = retained
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=settings.parent, delete=False) as out:
+            json.dump(data, out, indent=2)
+            out.write('\n')
+            temporary = out.name
+        os.replace(temporary, settings)
+rules = Path('AGENTS.md')
+if rules.exists():
+    lines = rules.read_text(encoding='utf-8').splitlines(keepends=True)
+    query = '- Navigate with `timeout 20 graphify query "<question>" --budget 1500`; use Grep on failure.\n'
+    retained = []
+    in_graphify = False
+    for line in lines:
+        if line.startswith('## '):
+            in_graphify = line.strip() == '## graphify'
+            retained.append(line)
+            if in_graphify:
+                retained.append(query)
+        elif not in_graphify or ('GRAPH_REPORT.md' not in line and line != query):
+            retained.append(line)
+    rules.write_text(''.join(retained), encoding='utf-8')
+PYGRAPH
+      then
+        echo "  NOTE: graphify report-hook cleanup failed — inspect .claude/settings.json and AGENTS.md."
+      else
+        graphify_cleanup=1
+      fi
+      # The generated graph is machine-local and must not enter commits or
+      # unscoped search results. Both exclusions are idempotent.
+      if ! grep -qx "graphify-out/" .gitignore 2>/dev/null; then
+        printf '\n# graphify knowledge graph — machine-local, rebuilt by post-commit hook\ngraphify-out/\n' >> .gitignore
+      fi
+      if ! grep -qx "graphify-out/" .ignore 2>/dev/null; then
+        printf '# Search-tool exclusions (ripgrep, fd — plain `grep -r` does NOT honour this).\ngraphify-out/\nnode_modules/\n' >> .ignore
+      fi
+      if [ "$graphify_cleanup" -eq 1 ]; then
+        ok "wired" "graphify: budgeted AGENTS.md rules + git hooks + .gitignore/.ignore (stock report hook removed)"
+      fi
+    fi
+  fi
 fi
 
 # ── 6b. Pinned @playwright/cli + Chromium (optional) ─────────────────────────

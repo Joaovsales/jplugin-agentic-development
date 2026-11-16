@@ -1,0 +1,36 @@
+=== META ===
+{
+ "diff": "409.final.diff",
+ "reasoning_effort": "none",
+ "wall_s": 33.6,
+ "usage": {
+  "completion_tokens": 532,
+  "prompt_tokens": 1734,
+  "total_tokens": 2266,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  }
+ },
+ "timings": {
+  "cache_n": 0,
+  "prompt_n": 1734,
+  "prompt_ms": 5574.859,
+  "prompt_per_token_ms": 3.2150282583621688,
+  "prompt_per_second": 311.0392567776153,
+  "predicted_n": 532,
+  "predicted_ms": 27967.393,
+  "predicted_per_token_ms": 52.66929001883239,
+  "predicted_per_second": 18.98639605057218
+ },
+ "finish_reason": "stop"
+}
+=== REASONING (verbatim) ===
+
+=== REPLY (verbatim) ===
+a/install.sh:487 | The comment claims the guard catches live files that have fallen behind the documentation; however, the guard fails if the live file is entirely missing, which is the case in CI and on unconfigured machines, making the description misleading. | severity: SHOULD-FIX | confidence: 75
+b/tests/test-pi-overrides-drift.sh:84 | The Python script assumes `settings["subagents"]` always exists and is a dictionary, but if `settings` is missing `subagents`, this raises an unhandled `KeyError` with a misleading error message. | severity: MUST-FIX | confidence: 90
+b/tests/test-pi-overrides-drift.sh:89 | The script uses `sys.argv[3]` for the first fixture path and `sys.argv[4]` for the second, but when called from the shell with `fixtures "$DOC" "$FIX/full.json" "$FIX/no-test-engineer.json"`, the argument names are positional and could swap if the caller changes the order. | severity: SHOULD-FIX | confidence: 60
+b/tests/test-pi-overrides-drift.sh:89 | The shell function `missing_overrides` passes three positional arguments to the Python script, but the Python script's `sys.argv` indexing assumes specific positions for `doc`, `settings`, and fixture paths. | severity: MUST-FIX | confidence: 90
+b/tests/test-pi-overrides-drift.sh:90 | The shell script uses `assert_eq` without defining the `output` variable, which is not captured from the `run` command, causing a syntax or logical error in the test assertion. | severity: MUST-FIX | confidence: 100
+b/tests/test-pi-overrides-drift.sh:96 | The Python script writes `"subagents": {**settings["subagents"], "agentOverrides": body}` which will overwrite `agentOverrides` with a dictionary, but the original `settings` object is mutated and written directly, causing a shared mutable reference that violates JSON serialization safety. | severity: SHOULD-FIX | confidence: 75
+b/tests/test-pi-overrides-drift.sh:97 | The Python script uses `json.dumps` with `sort_keys=False` implicitly, but the `test-engineer` key is dropped from the `body` dictionary, and the `settings` object is reused, causing inconsistent key ordering and potential duplicate keys in the JSON output. | severity: SHOULD-FIX | confidence: 75

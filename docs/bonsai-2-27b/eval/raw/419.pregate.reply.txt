@@ -1,0 +1,30 @@
+=== META ===
+{
+ "diff": "419.pregate.diff",
+ "reasoning_effort": "none",
+ "wall_s": 10.8,
+ "usage": {
+  "completion_tokens": 54,
+  "prompt_tokens": 2459,
+  "total_tokens": 2513,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  }
+ },
+ "timings": {
+  "cache_n": 0,
+  "prompt_n": 2459,
+  "prompt_ms": 7840.333,
+  "prompt_per_token_ms": 3.1884233428222855,
+  "prompt_per_second": 313.6346377124543,
+  "predicted_n": 54,
+  "predicted_ms": 2838.996,
+  "predicted_per_token_ms": 53.56596226415095,
+  "predicted_per_second": 18.66857156544074
+ },
+ "finish_reason": "stop"
+}
+=== REASONING (verbatim) ===
+
+=== REPLY (verbatim) ===
+tests/test-plugin-manifest.sh:214 | A syntax error prevents the new test assertion from running, missing the "version guard: the failure names the base's version and the version to rise above" check. | MUST-FIX | 100

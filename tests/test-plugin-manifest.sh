@@ -192,7 +192,9 @@ version_verdict() {  # version_verdict -> "ok: ...", "fail: ..." or "skip: ..." 
   old=$(git show "$base:$PLUGIN" 2>/dev/null | json_version)
   new=$(json_version < "$PLUGIN")
   if version_greater "$new" "$old"; then echo "ok: $old -> $new"; return; fi
-  echo "fail: payload changed since ${base:0:7} but $PLUGIN version went '$old' -> '$new' (README § Releasing skills)"
+  # A merge of master moves the base forward and can consume the number a bump
+  # took, so the two versions print equal; name the base's version as the floor.
+  echo "fail: payload changed since ${base:0:7} but $PLUGIN is '$new' — the base already carries $old, so raise the version above $old: run scripts/bump-plugin-version.sh after merging master (README § Releasing skills)"
 }
 
 F="$(fixture_repo)"
@@ -213,12 +215,16 @@ assert_contains "$(verdict_in_fixture)" "ok: payload unchanged" \
 fixture_commit 1.0.0 v2 >/dev/null
 assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
   "version guard: a branch that changes the payload without a bump fails"
+assert_contains "$(verdict_in_fixture)" "the base already carries 1.0.0, so raise the version above 1.0.0" \
+  "version guard: the failure names the base's version and the version to rise above"
 fixture_commit 1.0.1 v3 >/dev/null
 assert_contains "$(verdict_in_fixture)" "ok: 1.0.0 -> 1.0.1" \
   "version guard: the same branch with the version increased passes"
 fixture_commit 0.9.0 v4 >/dev/null
 assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
   "version guard: a decreased version fails"
+assert_contains "$(verdict_in_fixture)" "is '0.9.0' — the base already carries 1.0.0, so raise the version above 1.0.0" \
+  "version guard: with base and tree versions distinct, the floor named is the base's (1.0.0), not the tree's"
 git -C "$F" update-ref refs/remotes/origin/master HEAD
 fixture_commit 0.9.0 v5 >/dev/null
 git -C "$F" update-ref refs/remotes/origin/master HEAD
@@ -229,6 +235,24 @@ assert_contains "$( cd "$F" && PLUGIN_VERSION_BASE=HEAD version_verdict )" "ok: 
 git -C "$F" update-ref -d refs/remotes/origin/master
 assert_contains "$(verdict_in_fixture)" "skip: no base resolves" \
   "version guard: no origin/master and no PLUGIN_VERSION_BASE skips"
+
+# scripts/bump-plugin-version.sh is the remedy the fail message names: one patch
+# above max(origin/master, tree), and a no-op once the tree is already above.
+BUMP="$PWD/scripts/bump-plugin-version.sh"
+bump_in_fixture() { ( cd "$F" && PYTHON="$TEST_PYTHON" bash "$BUMP" 2>&1 ); }
+assert_contains "$(bump_in_fixture)" "origin/master does not resolve" \
+  "bump helper: refuses without origin/master"
+fixture_commit 1.0.0 v6 >/dev/null
+git -C "$F" update-ref refs/remotes/origin/master HEAD
+git -C "$F" checkout -q HEAD~1 -- "$PLUGIN"
+assert_contains "$(bump_in_fixture)" "$PLUGIN: 0.9.0 -> 1.0.1 (origin/master carries 1.0.0)" \
+  "bump helper: a tree below origin/master (a merge consumed its bump) rises one above master"
+assert_contains "$(bump_in_fixture)" "already above origin/master's 1.0.0 — unchanged" \
+  "bump helper: a second run is a no-op"
+assert_eq "1.0.1" "$(json_version < "$F/$PLUGIN")" "bump helper: the second run left the version at 1.0.1"
+git -C "$F" checkout -q HEAD -- "$PLUGIN"
+assert_contains "$(bump_in_fixture)" "$PLUGIN: 1.0.0 -> 1.0.1" \
+  "bump helper: a tree equal to origin/master rises one patch"
 
 RUNTIME_READS="$(git grep -hoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)?' -- "${PAYLOAD_PATHS[@]}" 2>/dev/null \
   | sed -E 's#^\$\{?CLAUDE_PLUGIN_ROOT\}?/##' | sort -u)"
@@ -258,5 +282,11 @@ assert_contains "$RELEASING" 'measured on Claude Code' \
   "README § Releasing skills: ... as a measured behaviour, not a belief"
 assert_contains "$RELEASING" 'tests/test-plugin-manifest.sh' \
   "README § Releasing skills: names the suite as the enforcement"
+assert_contains "$RELEASING" '`scripts/bump-plugin-version.sh`' \
+  "README § Releasing skills: names the bump helper as the way to raise the version"
+assert_contains "$RELEASING" 'changes the payload, run it after every merge of master' \
+  "README § Releasing skills: says to run the bump helper after merging master, on a payload branch only"
+assert_contains "$RELEASING" 'no synced project receives it' \
+  "README § Releasing skills: marks the bump helper as a maintainer tool /sync never ships"
 
 finish
