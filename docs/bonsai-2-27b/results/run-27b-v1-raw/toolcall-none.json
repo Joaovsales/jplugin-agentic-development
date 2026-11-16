@@ -1,0 +1,125 @@
+{
+  "effort": "none",
+  "results": {
+    "1-single": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "get_weather",
+          {
+            "city": "Lisbon"
+          }
+        ]
+      ],
+      "calls_note": "cities called=['lisbon'] want=['lisbon']",
+      "final": "The weather in Lisbon right now is sunny with a temperature of 21\u00b0C.",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 46,
+      "seconds": 3.8
+    },
+    "2-select": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "convert_currency",
+          {
+            "amount": 250,
+            "from_currency": "USD",
+            "to_currency": "EUR"
+          }
+        ]
+      ],
+      "calls_note": "args={'amount': 250, 'from_currency': 'USD', 'to_currency': 'EUR'}",
+      "final": "250 USD is equal to approximately 231.47 EUR.",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 73,
+      "seconds": 5.6
+    },
+    "3-parallel": {
+      "pass": true,
+      "calls_ok": true,
+      "answer_ok": true,
+      "calls": [
+        [
+          "get_weather",
+          {
+            "city": "Paris"
+          }
+        ],
+        [
+          "get_weather",
+          {
+            "city": "Tokyo"
+          }
+        ]
+      ],
+      "calls_note": "cities called=['paris', 'tokyo'] want=['paris', 'tokyo']",
+      "final": "Here's a comparison of the current weather in Paris and Tokyo:\n\n**Paris:**\n- Temperature: 9\u00b0C\n- Condition: Rainy\n\n**Tokyo:**\n- Temperature: 14\u00b0C\n- Condition: Cloudy\n\nSo, Tokyo is currently 5\u00b0C warmer and the conditions are milder (cloudy vs. rainy). Let me know if you'd like more detailed weather information!",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 138,
+      "seconds": 7.7
+    },
+    "4-typed-args": {
+      "pass": false,
+      "calls_ok": true,
+      "answer_ok": false,
+      "calls": [
+        [
+          "create_event",
+          {
+            "duration_minutes": 30,
+            "attendees": [
+              "ana@example.com",
+              "rui@example.com"
+            ],
+            "date": "2026-11-20",
+            "title": "Q4 budget review"
+          }
+        ]
+      ],
+      "calls_note": "args={'duration_minutes': 30, 'attendees': ['ana@example.com', 'rui@example.com'], 'date': '2026-11-20', 'title': 'Q4 budget review'}",
+      "final": "The meeting \"Q4 budget review\" has been successfully booked for November 20, 2026, for 30 minutes, with ana@example.com and rui@example.com added as attendees.",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 129,
+      "seconds": 8.5
+    },
+    "5-chained": {
+      "pass": false,
+      "calls_ok": true,
+      "answer_ok": false,
+      "calls": [
+        [
+          "search_files",
+          {
+            "name": "budget"
+          }
+        ],
+        [
+          "get_file_info",
+          {
+            "path": "/srv/finance/budget-2026.xlsx"
+          }
+        ]
+      ],
+      "calls_note": "sequence=['search_files', 'get_file_info']",
+      "final": "The budget spreadsheet is located at `/srv/finance/budget-2026.xlsx`. Its size is 48,213 bytes and its owner is Marta.",
+      "notes": [
+        "finish_reason=stop"
+      ],
+      "completion_tokens": 99,
+      "seconds": 7.0
+    }
+  }
+}

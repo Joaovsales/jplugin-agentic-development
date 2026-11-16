@@ -1,0 +1,4 @@
+ggml_backend_cuda_buffer_type_alloc_buffer: allocating 6921.11 MiB on device 0: cudaMalloc failed: out of memory
+ggml_backend_buft_alloc_buffer_n_default: failed to allocate CUDA0 buffer of size 7257313280
+llama_model_load_from_file_impl: failed to load model
+llama_bench: error: failed to load model '~/models/bonsai2-27b/Ternary-Bonsai-2-27B-Q2_0.gguf'

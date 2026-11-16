@@ -164,16 +164,24 @@ Wraps `git init` plus `git scaffold` (layer 2) and makes an initial commit. One 
 
 The split matters: **the CLI installs once per machine, the graph is per project and per clone.**
 
-```bash
-pip install graphify        # once per machine
+Run `bash install.sh` yourself. It reads `.agents/graphify.pin` and offers
+`pipx install --force graphifyy==<PIN>` only with a terminal, no `CI` variable,
+and `pipx` available. The default is **N**; otherwise it prints the command.
+Agents never install or upgrade graphify.
 
-# inside each project (per clone — none of this is shared)
+```bash
+# Manual installation, if you prefer to install before running the installer:
+GRAPHIFY_PIN="$(cat .agents/graphify.pin)"
+pipx install --force "graphifyy==$GRAPHIFY_PIN"
+
+# Inside each project (per clone — none of this is shared):
 graphify update .           # build/refresh graphify-out/graph.json
-graphify claude install     # rules section (install.sh moves it into AGENTS.md) + PreToolUse hook
-graphify hook install       # re-index on commit/checkout
+bash /path/to/jplugin-agentic-development/install.sh
 ```
 
-`install.sh` runs the per-project wiring for you when the `graphify` CLI is on your `PATH`, and skips it silently when it isn't.
+`install.sh` wires the installed CLI, moves budgeted query rules into `AGENTS.md`,
+removes graphify's stock whole-report hook, and installs git refresh hooks. The
+CLI remains optional; a missing or broken graph always leaves ordinary search available.
 
 ---
 

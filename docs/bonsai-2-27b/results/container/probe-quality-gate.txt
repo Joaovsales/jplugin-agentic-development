@@ -1,0 +1,22 @@
+## cache-ram applied
+GET /lora-adapters           200
+POST /lora-adapters          400
+POST /tokenize               200
+POST /apply-template         200
+POST /v1/embeddings          501
+POST /infill                 400
+GET /models                  200
+POST /models/load            404
+GET /props                   200
+POST /slots/0?action=save    501
+GET /v1/models               200
+## image_url to a public host (no mmproj loaded)
+{"error":{"code":500,"message":"image input is not supported - hint: if this is unexpected, you may need to provide the mmproj","type":"server_error"}}
+## container egress (bash /dev/tcp from inside)
+egress: OPEN to 1.1.1.1:443
+## 1-token smoke
+content='4' predicted_n=1
+## gen400
+predicted_n=400 predicted_per_second=20.30
+## process memory (host side)
+689.5MiB / 8GiB pids=23
