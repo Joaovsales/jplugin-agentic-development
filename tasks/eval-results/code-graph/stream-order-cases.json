@@ -1,0 +1,265 @@
+{
+  "valid": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "post_stop_delta": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 4096
+      }
+    },
+    {
+      "type": "message_stop"
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 0
+      }
+    }
+  ],
+  "duplicate_start": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "duplicate_stop": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5
+      }
+    },
+    {
+      "type": "message_stop"
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "decreasing_output": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 4096
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 0
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "decreasing_input": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5,
+        "input_tokens": 1
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "delta_before_start": [
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5
+      }
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "stop_before_delta": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "unknown_usage_then_erased": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5,
+        "service_tier": "priority"
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5,
+        "service_tier": "standard"
+      }
+    },
+    {
+      "type": "message_stop"
+    }
+  ],
+  "post_stop_ping": [
+    {
+      "type": "message_start",
+      "message": {
+        "model": "claude-opus-5-5",
+        "usage": {
+          "input_tokens": 20,
+          "output_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0
+        }
+      }
+    },
+    {
+      "type": "message_delta",
+      "usage": {
+        "output_tokens": 5
+      }
+    },
+    {
+      "type": "message_stop"
+    },
+    {
+      "type": "ping"
+    }
+  ]
+}

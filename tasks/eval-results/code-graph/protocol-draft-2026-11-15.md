@@ -49,39 +49,62 @@ threshold. Fixtures are fixed synthetic Python/TypeScript projects with at least
 150 files and 20,000 lines, generated outside the candidate's visible metadata.
 Use organic prompts and neutral workspace/tool paths. No real-repository replay.
 
-## Runner and budget admission — BLOCKED
+## Runner and budget admission — verification pending
 
-The native recipe requires `--runs 1 --concurrency 1 --ablation none`,
-`--max-cost-usd 4 --keep-temp --scaffold --allow-tools Bash Edit Write`,
-`--trust-plugin --no-publish --model claude-opus-5-5`. Use separate frozen plugin
-builds and a sanitized configuration; host global skills must not leak into the
-workspace. The installed native eval runner's `cf` child-argument function does
-not pass a child `--max-budget-usd`. Its `maxCostUsd` checks aggregate spend before
-the next launch and explicitly permits the in-flight run to exceed that amount.
-Therefore this recipe cannot currently satisfy D7's $4 per-run ceiling.
+The native plugin eval runner leaks `claude-eval-*` paths through its visible
+sandbox policy. Use the spec-permitted direct CLI fallback in
+`run-code-graph.py` with neutral `hr-*/round/{home/app,config,scratch,package,tools,out}`
+paths. Its aggregate is derived from actual CLI output and the same fixed regex
+graders, then consumed by unchanged `arrange-plugin-eval-results.py` and
+`read_transcript.py`. No experiment, grader, task ledger or fixture source enters
+the candidate workspace. Runtime payload copies include the complete plugin
+manifest, skills, hooks, references and agents, excluding specs/tasks/evals/git.
+The existing general workflow skill names remain the ordinary harness catalog.
 
-No run may launch until an existing supported runner proves it enforces the
-per-run ceiling while retaining the same arm/model/seed/result contract. Do not
-implement a new budget proxy or silently interpret the limit as an admission
-threshold. The Workflow fallback named by the spec is subject to the same proof.
+Every prompt appends exactly: `Keep all work local; do not push or open pull requests.`
+The native command fixes exact model `claude-opus-5-5`, 30 turns, output cap
+4096, sequential execution and the same enabled/required Bash sandbox. Available
+tools are Bash, Edit, Write, Read, Grep, Glob and Skill; no delegated or web model
+calls. MCP configuration is empty. Fast mode, compaction, background tasks,
+auto-memory and automatic request retries are disabled. Candidate environment is
+an explicit allowlist. OAuth reaches the native process through an inherited
+file descriptor, with no token value in its environment or artifacts.
 
-- Total paid evaluation ceiling: $320, including failures, retries, replacement
-  arms, and any paid graders. Per-run ceiling: $4. Current spend: $0.
-- Reserve the next run's entire $4 against the remaining total before launching.
-  Reconcile actual spend immediately after completion; unknown spend blocks the
-  next run. Never launch arms alongside the full suite.
-- The deterministic outcome grader is free; no LLM judge is planned.
-- After the paid smoke, project the remaining planned-slot spend. Halt before
-  another run if projected or actual program spend would exceed $320.
-- A run error retries once with the same seed, keeping both attempts and all
-  costs. A second error marks the planned slot errored/excluded/countable.
-  If more than 10% of an arm's slots error, rerun that whole arm only within the
-  same budget, retaining old attempts outside selected `run-*` inputs.
-- A rule-4-only failure reopens slices 5–7 and reruns only B/D, at most twice.
-  A rule-6-only failure reopens slices 5/7 under the same limit. A third such
-  failure is no-go. Every run remains budget-gated; budget halt takes priority.
+A fresh localhost admission gateway guards each run, forwarding only the
+admitted standard-pricing model request shape to api.anthropic.com. It reserves
+before forwarding, under a concurrency lock, using UTF-8 request bytes plus
+65,536 structural tokens and 256 tokens per structural node, the maximum known
+Opus 4.8/5.5 cache-write price ($10/M input), output price ($25/M), a 1.1 geography
+factor and a maximum of 4096 output tokens. See `admission-gateway.md` for the
+explicit bound assumptions and fail-closed request/response contract. Complete,
+valid usage settles at conservative permitted rates; incomplete/unknown usage
+retains its full reservation. Unknown models/pricing stop further admission.
+The native `--max-budget-usd 4` is a secondary stop check, never the primary cap.
+
+- Total budget is $320, per run $4. Before each paid attempt, durably persist a
+  pending $4 reservation. An unresolved reservation blocks restart and cannot
+  silently pay for the same slot again.
+- Persist each attempt's actual nominal cost or labeled conservative upper cost,
+  protocol/source IDs, status and audit path before arranging results. A failed
+  arranger resumes from retained evidence and never launches that attempt again.
+- Every errored slot retries once, with the same seed; retain both attempts and
+  charge both. More than 10% errored slots reruns that complete arm once; archive
+  its prior inputs outside selected run directories, keeping N=3. A second arm
+  failure halts. No additional samples may be added to cross a go threshold.
+- The paid smoke is A/invoice-rounding/1; its cost projects the remaining fixed
+  slots before more paid work. Reserve before exceeding total or projected cost.
+- Manifest pins model/N/cases/seeds/sources, the native binary hash, fixture
+  baseline and operational source hashes. Validate before every paid attempt.
+  Official protocol bytes must match their committed hash before execution.
+- Current spend remains $0. No paid execution or registered protocol exists.
 
 ## Arm preparation and fallback
+
+All arms first generate the same source bytes, add `.gitignore` and `.ignore`
+with exactly `graphify-out/`, and create an explicit fixture-local Git baseline
+with fixed identity/date and hooks disabled. Graph preparation follows that
+commit, ensuring freshness checks use the actual fixture repository. These two
+cache exclusions match the normal installer and apply identically to A/B/D.
 
 Set `CODE_GRAPH_ARM` explicitly. A has no graph. B/D invoke the already-installed
 pinned `graphify update .` under 120 seconds (the installed global help identifies

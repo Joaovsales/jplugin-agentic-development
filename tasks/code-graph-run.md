@@ -1,6 +1,6 @@
 # Code-graph adoption run ledger
 
-State: HALTED-NEEDS-USER
+State: SMOKE
 Feature: https://github.com/Joaovsales/jplugin-agentic-development/issues/401
 Spec: specs/code-graph-adoption.md
 Base: 317a71717c34226891c3e3b019b83bebc591449d
@@ -12,7 +12,7 @@ Branch: code-graph/treatment
 - Total ceiling: $320
 - Per-run ceiling: $4
 - Cumulative evaluation spend: $0
-- Paid runs: none; protocol not yet committed. Never start a paid run first.
+- Paid runs: none. The controller verifies the committed protocol and manifest before payment and records their identities with each attempt.
 
 ## Slices
 
@@ -25,7 +25,7 @@ Branch: code-graph/treatment
 | 5 | done | c2c4826; 34 affected files/3489 assertions green; handover recorded |
 | 6 | done |66f597d; typed-schema support;59 targeted assertions and shared affected run green |
 | 7 | done |1655f58 plus prose repair;600-line budget; affected55files/5331assertions green |
-| 8 | runtime passed; runner budget blocked | Pinned CLI guard now exits 0; no paid run or registered protocol |
+| 8 | preregistration ready; smoke next | 32 checks and full unpaid integration pass; every core module exceeds 80% statement coverage; AC8 remains unfinished |
 | 9 | pending | Blocked by 8 |
 
 ## Evidence and environment
@@ -144,4 +144,56 @@ or unapproved surface expansion was added.
   six-rule verdict. Slice 9 remains blocked.
 - Paid runs: none. Cumulative evaluation spend: $0.
 
-HALTED-NEEDS-USER
+## Budget unblock in progress
+
+The user requested "Unblock the eval". Resume work is preparing a per-request
+localhost admission gateway, preserving the native eval runner and the settled
+$4/$320 ceilings. Offline mock requests prove `ANTHROPIC_BASE_URL` routing;
+no paid model endpoint was reachable during the transport probe. Gateway unit
+checks and independent source review are in progress. Native Bash grants also
+need a task-local relay because this host has no `socat`; no global package is
+being installed. Operational code and receipts stay under
+`tasks/eval-results/code-graph/`.
+
+The short run-root layout outside `/tmp` now passes native Bash and graphify
+execution with the native sandbox still enabled. The task-local relay covers
+only the native bridge's two exact modes. The canonical free token-count
+endpoint accepted the existing OAuth credential and exact model (HTTP 200);
+its receipt contains no credential values. Gateway regressions cover unknown
+billable usage and the captured native request shape.
+
+Registration remains blocked until integrated gateway/credential transport,
+candidate path blinding and fixture graph freshness are verified. No official
+`protocol.md`, paid run, verdict, treatment PR or merge exists. Spend remains $0.
+
+Native OAuth bearer transport is proven offline. The native plugin-eval runner
+exposes `claude-eval` in API-visible candidate paths, so the spec-permitted direct
+CLI fallback is being integrated with neutral paths and the same enabled native
+Bash sandbox. Its fixture repository is initialized before graph construction.
+The admission gateway passed independent review after usage-tier and SSE-order
+repairs; its guarantee uses the explicit conservative tokenization/structural
+bound and pinned normal-price union documented in `admission-gateway.md`.
+The final fallback mock integration must pass before protocol registration.
+
+## Preregistration readiness — 2026-11-16
+
+- Final unpaid direct integration passes native OAuth FD transport, Bash graph
+  queries, app reads, all privacy probes, deterministic grading and unchanged
+  transcript arrangement. No real model endpoint was reachable in that probe.
+- All 32 operational checks pass. Statement coverage is 85.63% overall, with
+  gateway 88.06%, launcher 82.70% and relay 89.83%, without exclusions. Evidence:
+  `tasks/eval-results/code-graph/operational-coverage-2026-11-16.json`.
+- Independent scoped code review is GO under the documented admission
+  assumptions. The real-Git AC4 tests close staged-index acceptance and protocol
+  mutation gaps; every attempt and restart checks the frozen commit identity.
+- The finalized protocol SHA256 is
+  `eceb8b458bf7b0464d0b523de8e87eec61f621151818aa29c1b4881932798dfd`.
+  The six-rule go text matches the spec verbatim. The manifest contains exactly
+  90 fixed slots and verified immutable sources/runtime hashes.
+- This readiness record, protocol, manifest and operational code are committed
+  together before any paid request. Spend is still $0 at registration.
+- Live execution control: `tasks/eval-results/code-graph/job-control.json`;
+  controller state: `tasks/eval-results/code-graph/execution-state.json`;
+  retained progress log: `/tmp/code-graph-paid-2026-11-16.log`. Check the recorded
+  process/session before starting another runner. The shared suite lock covers
+  the paid batch, so no local full suite runs alongside an arm.

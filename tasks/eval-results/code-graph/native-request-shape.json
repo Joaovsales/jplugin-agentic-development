@@ -1,0 +1,164 @@
+{
+  "model": "claude-opus-5-5",
+  "max_tokens": 4096,
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Find the caller."
+        }
+      ]
+    },
+    {
+      "role": "system",
+      "content": "Prior turn effort.",
+      "output_config": {
+        "effort": "medium"
+      }
+    },
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "Use the current turn effort.",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "output_config": {
+        "effort": "medium"
+      }
+    },
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "Current turn instructions.",
+          "cache_control": {
+            "type": "ephemeral",
+            "ttl": "1h",
+            "scope": "global"
+          }
+        }
+      ]
+    }
+  ],
+  "context_management": {
+    "edits": [
+      {
+        "type": "clear_thinking_20251015",
+        "keep": "all"
+      }
+    ]
+  },
+  "thinking": {
+    "type": "adaptive",
+    "display": "updates"
+  },
+  "output_config": {
+    "effort": "medium"
+  },
+  "stream": true,
+  "metadata": {
+    "user_id": "synthetic-identity"
+  },
+  "system": [
+    {
+      "type": "text",
+      "text": "Project instructions.",
+      "cache_control": {
+        "type": "ephemeral",
+        "ttl": "1h",
+        "scope": "global"
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "Bash",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "Edit",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "Glob",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "Grep",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "Read",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "Skill",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "ToolSearch",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "DeferredToolPlaceholder",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "Write",
+      "type": "custom",
+      "description": "Local client tool.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
