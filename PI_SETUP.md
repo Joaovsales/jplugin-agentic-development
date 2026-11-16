@@ -130,16 +130,11 @@ Add a `local` key next to `openrouter` under `providers` in the same `~/.pi/agen
 - **One model per server.** The container loads a single GGUF, so the `id` you dispatch must match the
   model the container was started with. Model selection and the start/stop commands are in
   [`docs/bonsai-2-27b/container/`](docs/bonsai-2-27b/container/) (`compose.yaml`).
-- **Only the two fully-resident models are listed.** Sizes here are **GiB (2^30 bytes)**, the
-  llama-bench model size and the unit llama.cpp reports VRAM in. The measured GPU has 5804 MiB
-  (5.67 GiB). Bonsai 27B v1 `Q1_0` is 3.53 GiB and runs at ~20.0 tok/s. Bonsai 2 9B `Q2_0` is
-  2.37 GiB and runs at ~42.9 tok/s. Both were measured at 32K context with `q4_0` KV. The
-  measurements, hardware and tool-call harness results live in
-  [`docs/bonsai-2-27b/README.md`](docs/bonsai-2-27b/README.md). Take numbers from there, not from
-  this file.
-- **A model that does not fit entirely in VRAM is not usable interactively.** Bonsai 2 27B `Q2_0`
-  is 7.09 GiB. It spills layers to the CPU and generates at about 5 tok/s (5.19 on the server), so
-  it is deliberately not registered.
+- **Only fully-resident models are registered.** The two models above are the ones that fit
+  entirely in VRAM. The placement rule, with its measured sizes and throughput, lives in
+  [`.agents/references/model-routing.md`](.agents/references/model-routing.md) § *Second axis:
+  tool-call intensity and context size*. The hardware and tool-call harness results are in
+  [`docs/bonsai-2-27b/README.md`](docs/bonsai-2-27b/README.md).
 
 **Check the provider is reachable before you dispatch anything to it.** Each step proves one more
 link, and a failure at any step means a `local/...` dispatch will fail too:
@@ -151,6 +146,11 @@ curl -s http://127.0.0.1:18080/v1/chat/completions -H 'Content-Type: application
   -d '{"messages":[{"role":"user","content":"ping"}],"max_tokens":1}'   # one generation succeeds
 pi --list-models local                       # Pi registered both local/<id> entries
 ```
+
+> **Only the last step has been verified.** `pi --list-models local` was run and lists both
+> `local/<id>` entries. The three `curl` steps have **not** been run against a live server on
+> port 18080, so treat them as untested. If one fails, check the step itself before you blame the
+> server.
 
 `/health` alone is not enough, because it does not prove that a generation succeeds. The container
 README explains why its healthcheck stops at `/health`.
