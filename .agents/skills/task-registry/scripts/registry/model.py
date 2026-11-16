@@ -280,6 +280,51 @@ def parse_metadata_block(body: str) -> dict:
     return fields
 
 
+#: Markdown code: a fenced block or an inline span. A reference quoted inside
+#: one is an example, not a declaration.
+CODE_SPAN_RE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
+#: An ordering written as prose instead of `depends-on:` metadata (#192): the
+#: PKB #91 shape `Parent: #83`, and `Depends on #83` / `Blocked by #83`.
+PROSE_DEPENDENCY_RE = re.compile(
+    r"\b(?:parent|depends[ -]on|blocked[ -]by)\b\s*:?\s*#(\d+)", re.IGNORECASE
+)
+
+
+def prose_dependencies(body: str) -> Tuple[str, ...]:
+    """The `#N` references the body's prose names as dependencies, first mention first.
+
+    The registry's own block is cut out before the scan: its `parent:` line is
+    metadata, and an open parent blocks nothing.
+    """
+    body = body or ""
+    for start, end in reversed(metadata_spans(body)):
+        body = body[:start] + body[end:]
+    found = PROSE_DEPENDENCY_RE.findall(CODE_SPAN_RE.sub(" ", body))
+    return tuple(dict.fromkeys(f"#{number}" for number in found))
+
+
+def prose_dependency_extra(body: str) -> dict:
+    """`Task.extra` recording the body's prose dependencies — empty when it names none.
+
+    Every provider that reads a body adds this, even for a body that names
+    nothing: an absent record means "never scanned", which is not the same
+    as "scanned and clean".
+    """
+    return {"prose_dependencies": ", ".join(prose_dependencies(body))}
+
+
+def recorded_prose_dependencies(task: "Task") -> Tuple[str, ...]:
+    """The prose dependencies `prose_dependency_extra` recorded on `task`.
+
+    Raises when nothing was recorded. Reading an unscanned body as clean would
+    hand a routine the PKB #91 task again (#192).
+    """
+    listing = task.extra.get("prose_dependencies")
+    if listing is None:
+        raise TaskModelError(f"task {task.id}: its body was never scanned for prose dependencies")
+    return tuple(part.strip() for part in listing.split(",") if part.strip())
+
+
 def upsert_metadata_block(body: str, task: Task) -> str:
     """Replace the identity block in-place, or append one, preserving all else.
 
@@ -440,7 +485,7 @@ def task_from_metadata(
     meta = parse_metadata_block(body)
     task_id = meta.get("task-id") or fallback_id or slugify_id(title)
     summary = overrides.pop("summary", "") or _first_prose_line(body)
-    extra = dict(overrides.pop("extra", {}))
+    extra = {**overrides.pop("extra", {}), **prose_dependency_extra(body)}
     if not meta.get("task-id") and not fallback_id:
         extra["registry_identity"] = "provisional-title-slug"
     return Task(

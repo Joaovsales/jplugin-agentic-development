@@ -1,6 +1,6 @@
 {
   "name": "jplugin",
-  "version": "1.8.16",
+  "version": "1.8.17",
   "description": "Spec -> plan -> TDD build -> review -> wrap-up workflow skills for coding agents.",
   "author": {
     "name": "jplugin-agentic-development maintainers"
