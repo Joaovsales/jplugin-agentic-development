@@ -54,9 +54,10 @@ Placement rules for a local tier:
   | Bonsai 27B v1 Q1_0 | 3.53 | fully | 20.01 |
   | Bonsai 2 9B Q2_0 | 2.37 | fully | 42.94 |
 
-How a harness selects the local model for one dispatch is not restated here:
-whether a per-call model param may carry it is the open question in issue #371,
-and that resolution owns it.
+A per-call model param does not select the local model for one dispatch: on
+Pi the only sanctioned per-call `model` is the debugger-ladder exception in
+*Rules* below (#371), so a local model is placed per agent through
+`subagents.agentOverrides`.
 
 ## Ceiling
 
