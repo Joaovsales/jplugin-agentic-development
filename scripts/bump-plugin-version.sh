@@ -6,7 +6,8 @@
 # the number a branch already took, so the bump is re-derived here rather than
 # chosen by hand: the version becomes one patch above max(origin/master, this
 # tree). A tree already above origin/master is left alone, so a second run is a
-# no-op. Run it after merging master (README § Releasing skills). It never
+# no-op. It does not look at the payload, so run it only on a branch that
+# changes one, after merging master (README § Releasing skills). It never
 # fetches; the origin/master it compares with is whatever the last fetch left.
 # PYTHON overrides the interpreter (default python3).
 set -euo pipefail

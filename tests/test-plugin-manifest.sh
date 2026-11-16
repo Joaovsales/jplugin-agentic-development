@@ -223,6 +223,8 @@ assert_contains "$(verdict_in_fixture)" "ok: 1.0.0 -> 1.0.1" \
 fixture_commit 0.9.0 v4 >/dev/null
 assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
   "version guard: a decreased version fails"
+assert_contains "$(verdict_in_fixture)" "is '0.9.0' — the base already carries 1.0.0, so raise the version above 1.0.0" \
+  "version guard: with base and tree versions distinct, the floor named is the base's (1.0.0), not the tree's"
 git -C "$F" update-ref refs/remotes/origin/master HEAD
 fixture_commit 0.9.0 v5 >/dev/null
 git -C "$F" update-ref refs/remotes/origin/master HEAD
@@ -282,7 +284,9 @@ assert_contains "$RELEASING" 'tests/test-plugin-manifest.sh' \
   "README § Releasing skills: names the suite as the enforcement"
 assert_contains "$RELEASING" '`scripts/bump-plugin-version.sh`' \
   "README § Releasing skills: names the bump helper as the way to raise the version"
-assert_contains "$RELEASING" 'after every merge of master' \
-  "README § Releasing skills: says to run the bump helper after merging master"
+assert_contains "$RELEASING" 'changes the payload, run it after every merge of master' \
+  "README § Releasing skills: says to run the bump helper after merging master, on a payload branch only"
+assert_contains "$RELEASING" 'no synced project receives it' \
+  "README § Releasing skills: marks the bump helper as a maintainer tool /sync never ships"
 
 finish
