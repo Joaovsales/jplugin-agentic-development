@@ -283,7 +283,7 @@ assert_file_matches "$ROUTING" '^\| Reviewer \|.*see the floor below' \
 # count: AGENTS.md cited the file on the very line that dropped the exception.
 assert_prose_contains "$ROUTING" "never pass per-call model params for routine routing; \`subagents.agentOverrides\` resolves them. The one exception is the per-run \`model\`" \
   "ModelTier: model-routing.md § Rules states the Pi rule with the debugger-ladder exception"
-per_call_files="$(git grep -l -I 'per-call model param' -- .agents AGENTS.md ':!.agents/references/model-routing.md' || true)"
+per_call_files="$(git grep -l -I 'per-call model param' -- .agents AGENTS.md PI_SETUP.md ':!.agents/references/model-routing.md' || true)"
 assert_contains "$per_call_files" "AGENTS.md" \
   "ModelTier: the per-call sweep sees AGENTS.md (non-vacuity)"
 uncovered=""
