@@ -321,6 +321,37 @@ assert_contains "$index_out" "legacy-no-title=cannot publish legacy row: expecte
   "Index: an arrow row with no title is reported"
 assert_contains "$index_out" "legacy-two-arrows=cannot publish legacy row: multiple '->' delimiters are ambiguous" \
   "Index: two '->' delimiters are ambiguous rather than silently split on the first"
+
+# Whether a row skips is a property of its defect, not of how the defect is
+# worded: rewording the ambiguous-arrows message must not turn a skip into a
+# refusal (or an unrelated defect that happens to share the text into a skip).
+skip_out="$("$PY" - <<'EOF'
+import dataclasses
+from registry import index
+
+original = index._split_title_summary
+
+def reworded(rest):
+    title, summary, error = original(rest)
+    if error is None:
+        return title, summary, error
+    if isinstance(error, str):
+        return title, summary, "reworded: " + error
+    return title, summary, dataclasses.replace(error, message="reworded: " + error.message)
+
+index._split_title_summary = reworded
+for name, text in (
+    ("legacy", "- [ ] One -> two -> three\n"),
+    ("with-id", "- [ ] Has id <!-- task-id: plan.x --> a -> b -> c\n"),
+):
+    (problem,) = index.TaskIndex("todo.md", text, "tasks/todo.md").problems
+    print(f"{name}={problem.skipped}|{problem.message}")
+EOF
+)"
+assert_contains "$skip_out" "legacy=True|reworded: cannot publish legacy row: multiple '->' delimiters are ambiguous" \
+  "Index: a reworded ambiguous-arrows message still skips its legacy row"
+assert_contains "$skip_out" "with-id=False|reworded: cannot publish legacy row" \
+  "Index: a reworded ambiguous-arrows message still refuses an ID-bearing row"
 assert_files_identical "$F_INDEX/tasks/todo.md" "$F_INDEX/todo.before" \
   "Index: parsing never writes to the file it read"
 fi

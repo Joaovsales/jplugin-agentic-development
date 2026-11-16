@@ -44,6 +44,9 @@ ROW_RE = re.compile(r"^(?P<indent>[ \t]*)(?P<bullet>[-*]\s+)?\[(?P<box>.?)\](?P<
 TASK_ID_RE = re.compile(r"<!--\s*task-id:\s*(?P<id>[^\s>]+?)\s*-->")
 TASK_KIND_RE = re.compile(r"<!--\s*task-kind:\s*(?P<kind>[^\s>]+?)\s*-->")
 COMMENT_MARKER_RE = re.compile(r"<!--|-->")
+#: The '<' of every '<!--' and the '>' of every '-->', overlapping ones included
+#: ('<!-->'), so one substitution leaves no marker behind.
+COMMENT_MARKER_BRACKET_RE = re.compile(r"<(?=!--)|(?<=--)>")
 LINK_RE = re.compile(
     r"\((?P<label>\[[^\]]+\])\((?P<url>[^)\s]+)\)\)"  # the ([#42](url)) shape we render
     r"|\[(?P<bare>[^\]]+)\]\((?P<bare_url>[^)\s]+)\)"  # a bare [#42](url) a human typed
@@ -63,10 +66,22 @@ MAX_LOGICAL_ROW_CHARS = 60_000
 #: reported like any other (AC-19) rather than forwarded to a subprocess or an
 #: HTTP client.
 REF_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+
+
+@dataclass(frozen=True)
+class PublishError:
+    """Why a parsed row cannot be published, and whether it may be skipped."""
+
+    message: str
+    skippable: bool = False  # skipped when the row has no stable ID
+
+
 #: The one defect that skips its row instead of refusing the index: a prose arrow
 #: in a legacy row is a wording slip, and with no stable ID the skipped row cannot
 #: turn an update into a duplicate append.
-AMBIGUOUS_ARROWS = "cannot publish legacy row: multiple '->' delimiters are ambiguous"
+AMBIGUOUS_ARROWS = PublishError(
+    "cannot publish legacy row: multiple '->' delimiters are ambiguous", skippable=True
+)
 
 
 @dataclass(frozen=True)
@@ -174,9 +189,9 @@ class TaskIndex:
         summary = " ".join(part for part in (summary, *detail) if part)
 
         if publish_error:
-            skipped = publish_error == AMBIGUOUS_ARROWS and not task_id
+            skipped = publish_error.skippable and not task_id
             self.problems.append(
-                Problem(self.relative_path, number, publish_error, line, skipped)
+                Problem(self.relative_path, number, publish_error.message, line, skipped)
             )
             return None
 
@@ -302,7 +317,7 @@ def _has_unbalanced_comment(parts: Sequence[str]) -> bool:
     return opened
 
 
-def _split_title_summary(rest: str) -> Tuple[str, str, Optional[str]]:
+def _split_title_summary(rest: str) -> Tuple[str, str, Optional[PublishError]]:
     cleaned = re.sub(r"\s{2,}", " ", rest).strip()
     arrows = list(ARROW_SPLIT.finditer(cleaned))
     tdd = LEGACY_TDD_RE.match(cleaned)
@@ -331,17 +346,21 @@ def _canonical_summary(
 
 def _split_legacy_arrow(
     cleaned: str, arrow: "re.Match[str]"
-) -> Tuple[str, str, Optional[str]]:
+) -> Tuple[str, str, Optional[PublishError]]:
     title = TRAILING_CONJUNCTION.sub("", cleaned[: arrow.start()].strip()).strip()
     summary = cleaned[arrow.end() :].strip()
     return title or cleaned, summary, _legacy_publish_error(cleaned, title, summary)
 
 
-def _legacy_publish_error(cleaned: str, title: str, summary: str) -> Optional[str]:
+def _legacy_publish_error(cleaned: str, title: str, summary: str) -> Optional[PublishError]:
     if cleaned.lower().startswith("tdd:") and (not title or not summary or "``" in title):
-        return "cannot publish legacy TDD row: expected a quoted test name and detail after '->'"
+        return PublishError(
+            "cannot publish legacy TDD row: expected a quoted test name and detail after '->'"
+        )
     if not title or not summary:
-        return "cannot publish legacy row: expected a clean title and detail around '->'"
+        return PublishError(
+            "cannot publish legacy row: expected a clean title and detail around '->'"
+        )
     return None
 
 
@@ -350,20 +369,26 @@ def render_row(task: Task, indent: str = "", include_kind: bool = False) -> str:
     box = STATUS_TO_BOX.get(task.status, " ")
     # A '->' before the summary separator reads as the legacy delimiter, so a title
     # quoting it would write a row its own reader refuses. Prose arrows are '→'.
-    title = ARROW_SPLIT.sub("→", task.title.strip())
+    title = ARROW_SPLIT.sub("→", _neutralise_comment_markers(task.title.strip()))
     parts = [f"{indent}- [{box}] {title}"]
     if task.id:
         parts.append(f"<!-- task-id: {task.id} -->")
     if include_kind:
         parts.append(f"<!-- task-kind: {task.kind} -->")
     if task.summary:
-        parts.append(f"— {_one_line(task.summary)}")
+        parts.append(f"— {_neutralise_comment_markers(_one_line(task.summary))}")
     if task.external is not None:
         label = reference_label(task.external)
         parts.append(f"([{label}]({task.external.url}))" if task.external.url else f"({label})")
     if task.depends_on:
         parts.append(f"(blocked-by: {', '.join(task.depends_on)})")
     return " ".join(parts)
+
+
+def _neutralise_comment_markers(text: str) -> str:
+    # The reader refuses an unbalanced HTML comment anywhere in the row, so a
+    # quoted '<!--' or '-->' in the title or summary would write a row it refuses.
+    return COMMENT_MARKER_BRACKET_RE.sub(lambda m: "‹" if m.group() == "<" else "›", text)
 
 
 def _one_line(text: str, limit: int = 120) -> str:
