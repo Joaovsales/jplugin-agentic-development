@@ -2932,10 +2932,11 @@ Step ledger (routine `simplify`):
 
 
 ### Slice 8/9 — eval run and verdict
-- [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
+- [x] eval run and verdict — frozen protocol committed first; A/B/D at N=3, C excluded by spike; 90 complete selected runs graded; results.md records the measured no-go and harness scope
 
-> Handover: unfinished: AC8 — protocol registered at f1f4df8; first paid smoke errored on usage decoding. Its $0.149272 nominal/$1.660241 accounted cost is preserved. The reviewed compatibility revision passes 43 checks and 86.25% aggregate coverage; next is the same slot's one permitted retry.
-> Do not re-derive: Claude model claude-opus-5-5, N=3 and six-rule go text are frozen. Keep protocol and initial manifest unchanged. Resume with run-manifest-usage-compat-1.json and the audited controller state; $320 total/$4 per attempt. Never reset charges/retry counts or duplicate an active paid batch.
+> Handover: landed registered A/B/D cohort: 90 completed selected runs, 91 paid attempts including the preserved original smoke; Verdict: no-go — rules 2, 4 and 6. Selected nominal $12.45952240; total nominal $12.60879440; accounted upper $20.58969660. Results and evidence index: tasks/eval-results/code-graph/2026-11-16/.
+> Do not re-derive: all outcomes were 100%, B localization median tokens were 1.230145× A with 0/21 graph adoption, D tokens 1.270499× A. No rule-only retry applies. Keep protocol/manifest/prior attempts frozen; no further paid run is authorized by this result.
+> Surface: slice worker edited only tasks/eval-results/code-graph/** and tasks/code-graph-run.md. Unchanged grader exited 0 with 90 complete inputs, rules 1/3/5 pass and 2/4/6 fail; each verdict input has a run-directory hash receipt.
 
 
 ### Slice 9/9 — outcome
