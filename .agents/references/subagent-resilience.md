@@ -261,11 +261,15 @@ triggers compaction in the first place.
 Before dispatching any sub-agent:
 
 - [ ] Tool-call budget with an explicit "write partial work and stop" escape hatch
+- [ ] Prompt says to return the result immediately after writing the artifact, before any further work
 - [ ] Compaction-layer rules pasted verbatim if the agent will read source
 - [ ] Artifact written to disk; only a summary + structured result returned
+- [ ] Artifact size capped with a concrete target in the prompt
+- [ ] Mechanical transforms (merge, reformat, de-dup) done by a script, not an agent
 - [ ] Risky agents kept out of barriers; barriers used only where all results are genuinely needed
 - [ ] Retry (if any) varies the strategy rather than repeating the prompt
 - [ ] Stall monitor armed for anything running unattended
+- [ ] Monitor watches progress (results landed, retries started), not file activity
 - [ ] Fallback path reports what was dropped instead of failing silently
 - [ ] Worker brief contains no long-running job (full suite, model download, slow check): the orchestrator runs it and puts the decided verdict in the brief
 - [ ] Worker brief names `inline` for every phase it would otherwise dispatch, with the lost-corroboration disclosure (`/quality-gate` Phase 4)

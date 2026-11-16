@@ -9,10 +9,7 @@ harness: universal
 
 # /yolo — Fully Autonomous Plan → Build → Wrap-Up Loop
 
-> **Dispatching sub-agents?** Read `.agents/skills/build/references/subagent-resilience.md` first. This skill runs unattended, so a hung
-> sub-agent has no human watching it: give every agent a tool-call budget with a "write partial
-> work and stop" escape hatch, arm a stall monitor, and never retry a deterministic failure
-> with an identical prompt.
+> **Dispatching sub-agents?** Apply `.agents/references/subagent-resilience.md` § *Dispatch checklist* first.
 
 You-Only-Live-Once mode. The user gives you an idea; you take it from spec through merge with **no user prompts in between**. Modeled after the Ralph Loop pattern: a single prompt drives repeated `plan → build → wrap-up` iterations, with state persisted on disk (not in context) so each phase starts cold and finishes verifiable.
 
