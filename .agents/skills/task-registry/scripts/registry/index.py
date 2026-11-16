@@ -51,9 +51,9 @@ LINK_RE = re.compile(
     r"\((?P<label>\[[^\]]+\])\((?P<url>[^)\s]+)\)\)"  # the ([#42](url)) shape we render
     r"|\[(?P<bare>[^\]]+)\]\((?P<bare_url>[^)\s]+)\)"  # a bare [#42](url) a human typed
 )
-DEPS_RE = re.compile(
-    r"[(\[]\s*(?:blocked-by|depends-on|deps)\s*:\s*(?P<ids>[^)\]]+)[)\]]", re.IGNORECASE
-)
+DEPS_KEY = r"[(\[]\s*(?:blocked-by|depends-on|deps)\s*"
+DEPS_RE = re.compile(DEPS_KEY + r":\s*(?P<ids>[^)\]]+)[)\]]", re.IGNORECASE)
+DEPS_COLON_RE = re.compile(f"({DEPS_KEY}):", re.IGNORECASE)
 SUMMARY_SPLIT = re.compile(r"\s+[—–]\s+")
 LEGACY_TDD_RE = re.compile(
     r"^TDD:\s*`(?P<title>[^`]+)`\s*->\s*(?P<summary>.+)$", re.IGNORECASE
@@ -61,6 +61,8 @@ LEGACY_TDD_RE = re.compile(
 ARROW_SPLIT = re.compile(r"(?<!-)->")
 TRAILING_CONJUNCTION = re.compile(r"(?:^|\s+)(?:and|or|then)$", re.IGNORECASE)
 MAX_LOGICAL_ROW_CHARS = 60_000
+#: The row's title is a pointer, not the record: the provider keeps the full one.
+MAX_ROW_TITLE_CHARS = 1_000
 #: A reference id ends up as a positional argument to `gh`, and as a path segment
 #: in any tracker URL built from it. Anything outside this set is a malformed row,
 #: reported like any other (AC-19) rather than forwarded to a subprocess or an
@@ -369,14 +371,14 @@ def render_row(task: Task, indent: str = "", include_kind: bool = False) -> str:
     box = STATUS_TO_BOX.get(task.status, " ")
     # A '->' before the summary separator reads as the legacy delimiter, so a title
     # quoting it would write a row its own reader refuses. Prose arrows are '→'.
-    title = ARROW_SPLIT.sub("→", _neutralise_comment_markers(task.title.strip()))
+    title = ARROW_SPLIT.sub("→", _row_prose(task.title, MAX_ROW_TITLE_CHARS))
     parts = [f"{indent}- [{box}] {title}"]
     if task.id:
         parts.append(f"<!-- task-id: {task.id} -->")
     if include_kind:
         parts.append(f"<!-- task-kind: {task.kind} -->")
     if task.summary:
-        parts.append(f"— {_neutralise_comment_markers(_one_line(task.summary))}")
+        parts.append(f"— {_row_prose(task.summary)}")
     if task.external is not None:
         label = reference_label(task.external)
         parts.append(f"([{label}]({task.external.url}))" if task.external.url else f"({label})")
@@ -385,10 +387,19 @@ def render_row(task: Task, indent: str = "", include_kind: bool = False) -> str:
     return " ".join(parts)
 
 
-def _neutralise_comment_markers(text: str) -> str:
-    # The reader refuses an unbalanced HTML comment anywhere in the row, so a
-    # quoted '<!--' or '-->' in the title or summary would write a row it refuses.
-    return COMMENT_MARKER_BRACKET_RE.sub(lambda m: "‹" if m.group() == "<" else "›", text)
+def _row_prose(text: str, limit: int = 120) -> str:
+    """`text` as one line of prose that reads back as prose, never as row syntax.
+
+    Every token the reader parses out of a row -- a line break, a comment marker,
+    a `[label](url)` link, a `(blocked-by: ...)` list -- quoted in a title or
+    summary would otherwise write a row the reader refuses, or one it reads back
+    with another task's link or dependencies. Each is broken by a near-identical
+    character, or a space, the reader passes over; the provider keeps the original.
+    """
+    text = _one_line(text, limit)
+    text = COMMENT_MARKER_BRACKET_RE.sub(lambda m: "‹" if m.group() == "<" else "›", text)
+    text = text.replace("](", "] (")
+    return DEPS_COLON_RE.sub(r"\1：", text)
 
 
 def _one_line(text: str, limit: int = 120) -> str:

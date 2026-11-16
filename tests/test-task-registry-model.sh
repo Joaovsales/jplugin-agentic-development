@@ -352,6 +352,40 @@ assert_contains "$skip_out" "legacy=True|reworded: cannot publish legacy row: mu
   "Index: a reworded ambiguous-arrows message still skips its legacy row"
 assert_contains "$skip_out" "with-id=False|reworded: cannot publish legacy row" \
   "Index: a reworded ambiguous-arrows message still refuses an ID-bearing row"
+
+# The writer must be incapable of emitting a row its own reader rejects or
+# misreads: every token the reader parses out of row text, quoted in a title or
+# summary, still reads back as one row with the same id, link and dependencies.
+roundtrip_out="$("$PY" - <<'EOF'
+from registry.index import TaskIndex, render_row
+from registry.model import ExternalRef, Task
+
+link = ExternalRef(provider="github", id="7", url="https://github.com/o/r/issues/7")
+hazards = {
+    "comment": dict(title="a --> b <!-- c", summary="x <!-- y -->"),
+    "id-marker": dict(title="t <!-- task-id: other -->"),
+    "arrow": dict(title="a -> b -> c"),
+    "link": dict(title="see [the doc](docs/x.md)", summary="per [the doc](docs/x.md)"),
+    "valid-link": dict(title="see [#9](https://x/9)", summary="per [#9](https://x/9)"),
+    "deps": dict(title="(blocked-by: other.task)", summary="wait [deps: a]"),
+    "separator": dict(title="part one — part two"),
+    "newline": dict(title="line one\n- [?] two\n  three"),
+    "long": dict(title="x" * 60001),
+}
+for name, fields in hazards.items():
+    task = Task(id="plan.t", external=link, depends_on=("plan.dep",), **fields)
+    index = TaskIndex("todo.md", render_row(task) + "\n", "tasks/todo.md")
+    read = index.rows[0].task if len(index.rows) == 1 and not index.problems else None
+    kept = read is not None and (read.id, read.external, read.depends_on) == (
+        task.id, task.external, task.depends_on
+    )
+    print(f"roundtrip-{name}={'ok' if kept else [p.message for p in index.problems] or read}")
+EOF
+)"
+for hazard in comment id-marker arrow link valid-link deps separator newline long; do
+  assert_contains "$roundtrip_out" "roundtrip-$hazard=ok" \
+    "Index: a $hazard token in row text reads back as the same id, link and dependencies"
+done
 assert_files_identical "$F_INDEX/tasks/todo.md" "$F_INDEX/todo.before" \
   "Index: parsing never writes to the file it read"
 fi
