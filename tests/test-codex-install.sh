@@ -77,6 +77,8 @@ assert_file_exists "$CODEX_HOME/agents/personal-agent.toml" \
   "install: unrelated personal agent is preserved"
 assert_file_exists "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py" \
   "install: SessionStart adapter is installed"
+assert_files_identical "$REPO/.agents/graphify.pin" "$CODEX_HOME/hooks/graphify.pin" \
+  "install: copied SessionStart banner receives the canonical graphify pin"
 assert_contains "$(cat "$BOX/install.log")" "Review installed hooks with /hooks" \
   "install: hook trust remains an explicit user action"
 
@@ -133,10 +135,13 @@ else
 fi
 
 cp "$CODEX_HOME/hooks.json" "$BOX/hooks.before"
+printf 'stale-pin\n' > "$CODEX_HOME/hooks/graphify.pin"
 ( cd "$PROJECT" && HOME="$HOME_DIR" CODEX_HOME="$CODEX_HOME" bash "$INSTALL" ) \
   > "$BOX/install-again.log" 2>&1
 assert_files_identical "$BOX/hooks.before" "$CODEX_HOME/hooks.json" \
   "install: hook registration is idempotent"
+assert_files_identical "$REPO/.agents/graphify.pin" "$CODEX_HOME/hooks/graphify.pin" \
+  "install: re-run refreshes the copied banner pin from the canonical source"
 
 # A ~/.codex/AGENTS.md an earlier adapter rendered into is the user's file: this
 # script never writes it again; install.sh lists the stale block for removal

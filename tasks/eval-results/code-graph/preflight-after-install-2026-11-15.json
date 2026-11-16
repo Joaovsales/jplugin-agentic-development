@@ -1,0 +1,67 @@
+{
+  "label": "prerequisite-only; no paid model or graph build",
+  "recorded_utc": "2026-11-15T22:24:01.014016+00:00",
+  "runtime_check": {
+    "command": [
+      "python3",
+      "evals/code-graph/fixture_gen.py",
+      "--check-runtime"
+    ],
+    "started_utc": "2026-11-15T22:24:01.141612+00:00",
+    "finished_utc": "2026-11-15T22:24:01.218789+00:00",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "runtime": {
+    "cli": "/home/joaosouto/.local/share/pipx/venvs/graphifyy/bin/graphify",
+    "launcher": "#!/home/joaosouto/.local/share/pipx/venvs/graphifyy/bin/python",
+    "pin": "0.9.109"
+  },
+  "human_installer": {
+    "transcript": "/tmp/harbor-installer-2026-11-15.log",
+    "sha256": "e0662c5ce2bbdc88f21acd9e4e3840221af7ba8ef710b36b988c8be99a2c0f84",
+    "relevant_lines": [
+      "  Install/upgrade graphify with pipx install --force graphifyy==0.9.109? [y/N] y",
+      "  installed package graphifyy 0.9.109, installed using Python 3.12.3",
+      "  NOTE: graphify git-hook wiring failed \u2014 continuing.",
+      "Script done on 2026-11-15 19:18:01-03:00 [COMMAND_EXIT_CODE=\"0\"]"
+    ]
+  },
+  "model": {
+    "requested_exact_id": "claude-opus-5-5",
+    "configured_alias": "opus",
+    "process_override_keys": {},
+    "user_setting_override_keys": {},
+    "existing_session": "/home/joaosouto/.claude/projects/-home-joaosouto-orca-workspaces-jplugin-agentic-development-code-graph/310b5fab-bce3-4299-85c3-83164f9a7516.jsonl",
+    "existing_assistant_models": [
+      {
+        "timestamp": "2026-11-15T17:32:22.958Z",
+        "model": "claude-opus-5-5"
+      }
+    ],
+    "native_default_resolver": "function nS(){let e=i.ANTHROPIC_DEFAULT_OPUS_MODEL;if(e!==void 0)return SM(K5(e));return Bs(\"opus\")??Bn()}function Bn(e=zm()){return rl(\"opus\",e)??e.opus55}function z_(){let e=i.ANTHROPIC_DEFAULT_SONNET_MODEL;if(e!==void 0)return ",
+    "note": "Existing same-workspace assistant record and installed native default support this ID; no fresh model request was made."
+  },
+  "native_runner": {
+    "version": "2.1.325 (Claude Code)",
+    "binary": "/home/joaosouto/.local/share/claude/versions/2.1.325",
+    "sha256": "0dc4f4a9a165fc60746d7ae8489712e5fc352f1e7ad4eb22e7141bd0812eb0cf",
+    "child_argv_builder_offset": 352475325,
+    "child_argv_builder": "async function cf(e,n,r,l,s,h,y,v){let b=[\"-p\"];b.push(\"--output-format\",\"stream-json\"),b.push(\"--verbose\"),b.push(\"--max-turns\",String(e.execution.max_turns)),b.push(\"--permission-mode\",\"dontAsk\"),b.push(\"--setting-sources\",\"user\");let k=s??e.execution.model;if(k)b.push(`--model=${k}`);for(let M of e.pluginDirs)b.push(\"--plugin-dir\",M);let N=await gn(L([...e.pluginDirsUnderTest,e.caseDir]));for(let M of[n.root,...N,...y])Nn(M,M===n.root?\"sandbox\":\"plugin/case/add_dirs\");let T=L([...mf(yf(wf(r,n.cwd),[n.home,n.tmpDir,...v.readRoots,...y],v.readFiles),[n.cwd,n.tmpDir]),...y.flatMap((M)=>[Be,no,wr].map((F)=>`${F}(${vt(M)}/**)`))]);if(T.length>0)b.push(`--allowed-tools=${T.join(\",\")}`);let x=[`${Be}(${vt(n.configDir)}/**)`,`${dt}(${vt(n.configDir)}/**)`,`${Be}(${vt(n.outDir)}/**)`,`${dt}(${vt(n.outDir)}/**)`,...N.map((M)=>`${dt}(${vt(M)}/**)`),...Sf.flatMap((M)=>[`${dt}(${vt(D.join(n.cwd,M))})`,`${dt}(${vt(D.join(n.cwd,M))}/**)`]),`${dt}(${vt(D.join(n.cwd,Ht))})`,`${dt}(${vt(D.join(n.cwd,Ht))}/**)`,...v.denies,...v.denyPaths.flatMap((M)=>[`${dt}(${vt(M)})`,`${dt}(${vt(M)}/**)`])];if(R()!==\"windows\")x.push(gf);if(x.push(...xi(r,l)),b.push(`--disallowed-tools=${x.join(\",\")}`),e.context.history_file)b.push(\"--resume\",await Ao(e,e.context.history_file,\"history_file\"));if(e.execution.append_system_prompt)b.push(`--append-system-prompt=${e.execution.append_system_prompt}`);if(h!==void 0)b.push(`--mcp-config=${h}`);return b}",
+    "child_has_max_budget_arg": false,
+    "prelaunch_ceiling_offset": 352616744,
+    "prelaunch_ceiling_source": "if(r.maxCostUsd!==void 0&&ee.spent>=r.maxCostUsd&&ee.partialReason===void 0)ee.partialReason=\"cost_ceiling\";if(ee.partialReason===\"cost_ceiling\"&&!ee.costCeilingAnnounced)ee.costCeilingAnnounced=!0,r.onLine(`\\u26A0 cost ceiling $${r.maxCostUsd} hit; skipping remaining cases`);if(ee.partialReason)return;let De=await hg(oe.armCase,ve,G.runs,oe.allowed,G.grant,r,ee,G.arms.length>1?oe.arm:void 0,G.mockServers,G.mockNotes).catch((w",
+    "postrun_overrun_warning_offset": 352617851,
+    "postrun_overrun_warning_source": "id 0&&ee.spent>r.maxCostUsd&&!ee.costCeilingAnnounced)ee.costCeilingAnnounced=!0,r.onNotice(`\\u26A0 cost ceiling $${r.maxCostUsd} exceeded: $${ee.spent.toFixed(2)} spent by runs already in flight when it was crossed; nothing was skipped`);let je=F.flatMap((G)=>{let oe=ge.get(G);return oe===void 0?[]:[oe]});if(ee.partialReason===void 0&&r.signal.aborted)ee.partialReason=\"interru",
+    "conclusion": "--max-cost-usd gates the next launch, not the current run. No per-run cap is forwarded by the child argv builder.",
+    "fallback_discovery": {
+      "workflow_execution_tool_exposed": false,
+      "evidence": "Parent inspected ALL_TOOLS and found no Workflow execution tool exposed in this session.",
+      "conclusion": "The documented Workflow fallback is not verified here; this does not rule out every possible alternative runner."
+    }
+  },
+  "paid_runs": [],
+  "spend_usd": 0,
+  "blocker": "D7 per-run $4 ceiling is not enforceable through the inspected native eval runner; no paid call is authorized by this receipt."
+}

@@ -1,0 +1,189 @@
+diff --git a/.agents/skills/task-registry/scripts/registry/index.py b/.agents/skills/task-registry/scripts/registry/index.py
+index 44f5636a..f6123cc6 100644
+--- a/.agents/skills/task-registry/scripts/registry/index.py
++++ b/.agents/skills/task-registry/scripts/registry/index.py
+@@ -13,6 +13,7 @@
+ 
+ import os
+ import re
++import sys
+ from dataclasses import dataclass
+ from typing import List, Optional, Sequence, Tuple
+ 
+@@ -62,6 +63,10 @@
+ #: reported like any other (AC-19) rather than forwarded to a subprocess or an
+ #: HTTP client.
+ REF_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
++#: The one defect that skips its row instead of refusing the index: a prose arrow
++#: in a legacy row is a wording slip, and with no stable ID the skipped row cannot
++#: turn an update into a duplicate append.
++AMBIGUOUS_ARROWS = "cannot publish legacy row: multiple '->' delimiters are ambiguous"
+ 
+ 
+ @dataclass(frozen=True)
+@@ -72,6 +77,7 @@ class Problem:
+     line: int
+     message: str
+     raw: str = ""
++    skipped: bool = False  # reported, but does not refuse the index
+ 
+     def render(self) -> str:
+         return f"{self.path}:{self.line} — {self.message}"
+@@ -168,7 +174,10 @@ def _parse_row(
+         summary = " ".join(part for part in (summary, *detail) if part)
+ 
+         if publish_error:
+-            self.problems.append(Problem(self.relative_path, number, publish_error, line))
++            skipped = publish_error == AMBIGUOUS_ARROWS and not task_id
++            self.problems.append(
++                Problem(self.relative_path, number, publish_error, line, skipped)
++            )
+             return None
+ 
+         if not title:
+@@ -305,7 +314,7 @@ def _split_title_summary(rest: str) -> Tuple[str, str, Optional[str]]:
+     if canonical is not None:
+         return canonical[0], canonical[1], None
+     if len(arrows) > 1:
+-        return cleaned, "", "cannot publish legacy row: multiple '->' delimiters are ambiguous"
++        return cleaned, "", AMBIGUOUS_ARROWS
+     if arrows:
+         return _split_legacy_arrow(cleaned, arrows[0])
+     return cleaned, "", None
+@@ -339,7 +348,10 @@ def _legacy_publish_error(cleaned: str, title: str, summary: str) -> Optional[st
+ def render_row(task: Task, indent: str = "", include_kind: bool = False) -> str:
+     """Render the canonical compact row. This is the only row shape we emit."""
+     box = STATUS_TO_BOX.get(task.status, " ")
+-    parts = [f"{indent}- [{box}] {task.title.strip()}"]
++    # A '->' before the summary separator reads as the legacy delimiter, so a title
++    # quoting it would write a row its own reader refuses. Prose arrows are '→'.
++    title = ARROW_SPLIT.sub("→", task.title.strip())
++    parts = [f"{indent}- [{box}] {title}"]
+     if task.id:
+         parts.append(f"<!-- task-id: {task.id} -->")
+     if include_kind:
+@@ -370,7 +382,9 @@ class IndexUnreadable(ValueError):
+     """The index carries rows that could not be parsed, so it cannot be acted on."""
+ 
+ 
+-def load_index_strict(path: str, relative_path: Optional[str] = None) -> TaskIndex:
++def load_index_strict(
++    path: str, relative_path: Optional[str] = None, report_skipped: bool = False
++) -> TaskIndex:
+     """Load an index a caller intends to *act* on, refusing a half-parsed one.
+ 
+     :func:`load_index` stays permissive because inspecting a malformed index is
+@@ -385,12 +399,24 @@ def load_index_strict(path: str, relative_path: Optional[str] = None) -> TaskInd
+     either of its own index reads, so a strict load left at those reads would
+     refuse only after the issue already existed upstream, with nothing pointing at
+     it (specs/task-registry.md AC-19).
++
++    A :data:`AMBIGUOUS_ARROWS` legacy row is the exception: it is left out of
++    `rows` so the rest still publish, and named on stderr when `report_skipped`
++    is set -- by the one load per command, so a row is named once.
+     """
+     index = load_index(path, relative_path)
+-    if index.problems:
++    refused = [problem for problem in index.problems if not problem.skipped]
++    if refused:
+         raise IndexUnreadable(
+             "refusing to act on a malformed index — fix these rows first:\n"
+-            + "\n".join(f"  {problem.render()}" for problem in index.problems)
++            + "\n".join(f"  {problem.render()}" for problem in refused)
++        )
++    skipped = [problem for problem in index.problems if problem.skipped]
++    if report_skipped and skipped:
++        print(
++            "task-registry: skipping rows that cannot be published — fix them to include them:\n"
++            + "\n".join(f"  {problem.render()}" for problem in skipped),
++            file=sys.stderr,
+         )
+     return index
+ 
+diff --git a/.agents/skills/task-registry/scripts/registry/upsert.py b/.agents/skills/task-registry/scripts/registry/upsert.py
+index c0cdfd9d..95ca6f0a 100644
+--- a/.agents/skills/task-registry/scripts/registry/upsert.py
++++ b/.agents/skills/task-registry/scripts/registry/upsert.py
+@@ -254,7 +254,7 @@ def _upsert_task_result(registry, task: Task, apply: bool, preserve_existing: bo
+     # is skipped on the external path, the other runs after `_persist`. Loading
+     # here is what makes the guarantee unconditional -- and makes the dry run
+     # refuse identically, so the preview describes the run `--apply` performs.
+-    load_index_strict(config.path(config.index_path), config.index_path)
++    load_index_strict(config.path(config.index_path), config.index_path, report_skipped=True)
+     try:
+         status = provider.discover()
+         destination = resolve_destination(provider.name, gate, status.available)
+diff --git a/.claude-plugin/plugin.json b/.claude-plugin/plugin.json
+index 4997f6b3..ff9123ad 100644
+--- a/.claude-plugin/plugin.json
++++ b/.claude-plugin/plugin.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "jplugin",
+-  "version": "1.8.10",
++  "version": "1.8.11",
+   "description": "Spec -> plan -> TDD build -> review -> wrap-up workflow skills for coding agents.",
+   "author": {
+     "name": "jplugin-agentic-development maintainers"
+diff --git a/tests/test-task-registry-cli.sh b/tests/test-task-registry-cli.sh
+index 1e836664..71ecf364 100644
+--- a/tests/test-task-registry-cli.sh
++++ b/tests/test-task-registry-cli.sh
+@@ -441,6 +441,57 @@ assert_eq "1" "$(grep -c 'task-id: plan\.prewritten' "$F_PREWRITTEN/tasks/todo.m
+   "upsert pre-written row: still exactly one row, never a duplicate"
+ assert_file_contains "$F_PREWRITTEN/tasks/todo.md" "- [ ] Prewritten feature" \
+   "upsert pre-written row: the open box survives the refresh"
++
++# --- upsert: a legacy row with ambiguous '->' delimiters --------------------
++#
++# A prose arrow in one legacy row refused every upsert against the whole index.
++# Such a row is skipped and named instead; every other malformation still refuses.
++F_ARROWS="$(registry_project)"
++cat > "$F_ARROWS/tasks/todo.md" <<'EOF'
++# Task Plan
++
++- [x] TDD: counts go 5 -> 0 and match the proof -> replace the tables
++- [ ] Valid row <!-- task-id: plan.valid --> — still publishable
++- [ ] One -> two -> three
++EOF
++arrows_out="$(reg upsert plan.arrows --repo "$F_ARROWS" --title 'Arrows' --summary 'y' --dry-run 2>&1)"
++arrows_code=$?
++assert_eq "0" "$arrows_code" "upsert ambiguous arrows: the dry run no longer aborts on the index"
++assert_contains "$arrows_out" "would create plan.arrows" \
++  "upsert ambiguous arrows: the dry run reaches the preview stage"
++assert_contains "$arrows_out" "tasks/todo.md:3 — cannot publish legacy row: multiple '->' delimiters are ambiguous" \
++  "upsert ambiguous arrows: the first skipped row is named with file:line"
++assert_contains "$arrows_out" "tasks/todo.md:5 — cannot publish legacy row: multiple '->' delimiters are ambiguous" \
++  "upsert ambiguous arrows: every skipped row is named at once"
++printf -- '- [?] Unknown box\n' >> "$F_ARROWS/tasks/todo.md"
++arrows_bad="$(reg upsert plan.arrows --repo "$F_ARROWS" --title 'Arrows' --summary 'y' --dry-run 2>&1)"
++arrows_bad_code=$?
++assert_eq "1" "$arrows_bad_code" "upsert ambiguous arrows: any other malformation still refuses"
++assert_contains "$arrows_bad" "tasks/todo.md:6 — unknown status box '[?]'" \
++  "upsert ambiguous arrows: the refusal names the other malformation"
++F_ARROWS_ID="$(registry_project)"
++printf -- '- [ ] Has id <!-- task-id: plan.arrowed --> a -> b -> c\n' > "$F_ARROWS_ID/tasks/todo.md"
++arrows_id_out="$(reg upsert plan.arrows --repo "$F_ARROWS_ID" --title 'Arrows' --dry-run 2>&1)"
++assert_eq "1" "$?" "upsert ambiguous arrows: a row carrying a stable ID still refuses"
++assert_contains "$arrows_id_out" "refusing to act on a malformed index" \
++  "upsert ambiguous arrows: skipping an ID-bearing row could mint a duplicate, so it is refused"
++
++# The writer side: a title quoting the delimiter must not write a row its own
++# reader refuses, or filing one such task blocks every later upsert.
++F_ARROWS_WRITE="$(registry_project)"
++printf '# Task Plan\n' > "$F_ARROWS_WRITE/tasks/todo.md"
++reg upsert plan.quoted --repo "$F_ARROWS_WRITE" --provider local --title 'Quote a -> b' \
++  --summary 'the x -> y token' --apply >/dev/null 2>&1
++assert_file_contains "$F_ARROWS_WRITE/tasks/todo.md" "- [ ] Quote a → b <!-- task-id: plan.quoted --> — the x -> y token" \
++  "upsert quoted arrow: the written row carries the title's arrow as '→'"
++arrows_next="$(reg upsert plan.next --repo "$F_ARROWS_WRITE" --provider local --title 'Next' --apply 2>&1)"
++assert_eq "0" "$?" "upsert quoted arrow: the next upsert after such a row succeeds"
++assert_contains "$arrows_next" "created plan.next" \
++  "upsert quoted arrow: the next upsert creates its task"
++arrows_rerun="$(reg upsert plan.quoted --repo "$F_ARROWS_WRITE" --provider local --title 'Quote a -> b' \
++  --summary 'the x -> y token' --apply 2>&1)"
++assert_contains "$arrows_rerun" "row refreshed" \
++  "upsert quoted arrow: re-filing the quoted title refreshes its row, never appends a second"
+ fi
+ end_case
+ 

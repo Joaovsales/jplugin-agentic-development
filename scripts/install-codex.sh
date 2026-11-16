@@ -74,6 +74,7 @@ cp "$REPO_DIR/.agents/hooks/session-stop.sh" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-end.sh"
 cp "$REPO_DIR/codex/hooks/session_start.py" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.py"
+cp "$REPO_DIR/.agents/graphify.pin" "$CODEX_HOME/hooks/graphify.pin"
 chmod +x \
   "$CODEX_HOME/hooks/jplugin-agentic-development-session-start.sh" \
   "$CODEX_HOME/hooks/jplugin-agentic-development-pre-compact.sh" \

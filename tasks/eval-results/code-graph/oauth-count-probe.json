@@ -1,0 +1,9 @@
+{
+  "probe": "free token-count endpoint only; no model generation",
+  "model": "claude-opus-5-5",
+  "inference_scope": true,
+  "recorded_utc": "2026-11-16T02:35:42.086692+00:00",
+  "credential_seconds_remaining": 6025,
+  "http_status": 200,
+  "input_tokens": 10
+}

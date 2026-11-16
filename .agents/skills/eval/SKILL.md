@@ -182,6 +182,28 @@ parent end-context −30% or better; total cost not worse than control; re-read
 rate ≤ 10%; latency +25% tolerated; controls with zero gate activations — one
 activation is a threshold defect, not noise.
 
+### Code-navigation comparison
+
+For `specs/code-graph-adoption.md`, use `evals/code-graph/` and its frozen
+six-rule decision instead of the read-shunt thresholds above. The comparison is
+Claude Code only: A off, B graph, optional C graph plus LSP, and D degraded;
+each case has N = 3 planned runs with matched seeds across arms.
+
+```
+python3 .agents/skills/eval/scripts/grade-code-graph.py <results-dir> --control A --arm B --degraded D [--json]
+```
+
+Keep the shared transcript/outcome layout. Beside each run, `metadata.json`
+records `kind` (`localization` or `control`), integer `seed`, `status`
+(`completed` or `errored`) and nonnegative `cost_usd`. Keep retry attempts
+outside `run-*` directories; the planned run records its final status. The
+grader reads `read_transcript.py`, counts graph, LSP and native search calls,
+and sums parent plus sub-agent tokens. It prints runs, paired per-case means,
+errored-run counts, spend and one `Verdict:` line. Missing evidence cannot
+produce go; malformed completed transcripts exit 2. Record protocol and model
+id before any paid run, retain transcripts, and apply the spec's retry and
+budget limits without changing the rule after seeing outcomes.
+
 ## Grading — transcripts, not self-report
 
 ```

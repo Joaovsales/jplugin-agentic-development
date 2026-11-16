@@ -1,0 +1,45 @@
+=== META ===
+{
+ "diff": "410.diff",
+ "reasoning_effort": "none",
+ "wall_s": 71.8,
+ "usage": {
+  "completion_tokens": 1138,
+  "prompt_tokens": 3029,
+  "total_tokens": 4167,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  }
+ },
+ "timings": {
+  "cache_n": 0,
+  "prompt_n": 3029,
+  "prompt_ms": 9598.114,
+  "prompt_per_token_ms": 3.168740178276659,
+  "prompt_per_second": 315.58283221057803,
+  "predicted_n": 1138,
+  "predicted_ms": 62078.749,
+  "predicted_per_token_ms": 54.598723834652596,
+  "predicted_per_second": 18.31544640179524
+ },
+ "finish_reason": "stop"
+}
+=== REASONING (verbatim) ===
+
+=== REPLY (verbatim) ===
+`.agents/skills/task-registry/scripts/registry/index.py`:190 | The `AMBIGUOUS_ARROWS` constant is defined at module scope but its usage in `_parse_row` relies on it being available without explicit import or local binding, which creates a fragile coupling to global namespace order. | MUST-FIX | 100
+`.agents/skills/task-registry/scripts/registry/index.py`:296 | The string `"tasks/todo.md:5 — cannot publish legacy row: multiple '->' delimiters are ambiguous"` in the test output assertion contains an unescaped single quote inside the double-quoted shell string, which will cause a syntax error in bash. | MUST-FIX | 100
+`.agents/skills/task-registry/scripts/registry/index.py`:296 | The same test assertion uses the unescaped single quote issue that breaks the shell command, preventing the assertion from running successfully during CI. | MUST-FIX | 100
+`.agents/skills/task-registry/scripts/registry/index.py`:308 | The test case `"upsert quoted arrow: the written row carries the title's arrow as '→'"` asserts a character sequence that may encode differently depending on the terminal encoding, creating non-deterministic test failures on non-UTF8 systems. | SHOULD-FIX | 85
+`.agents/skills/task-registry/scripts/registry/index.py`:314 | The test script appends `# Task Plan` and then uses `cat >` to overwrite the file in the same directory, mixing file operations that could corrupt the index if the script is interrupted mid-operation. | MUST-FIX | 90
+`.agents/skills/task-registry/scripts/registry/index.py`:327 | The test uses `reg upsert plan.arrows --repo "$F_ARROWS" --title 'Arrows' --summary 'y' --dry-run 2>&1` which redirects stdout and stderr together, mixing preview output with skipped row warnings and making it impossible to reliably capture the skipped row text for assertion. | MUST-FIX | 95
+`.agents/skills/task-registry/scripts/registry/index.py`:340 | The test expects the output to contain `tasks/todo.md:3 — cannot publish legacy row: multiple '->' delimiters are ambiguous` and `tasks/todo.md:5 — cannot publish legacy row: multiple '->' delimiters are ambiguous` but the test input file only defines two ambiguous rows, and the line numbers depend on the exact content of the heredoc which may shift with newlines or spacing. | SHOULD-FIX | 80
+`.agents/skills/task-registry/scripts/registry/index.py`:367 | The test expects `tasks/todo.md:5 — cannot publish legacy row: multiple '->' delimiters are ambiguous` to appear in the output but the second ambiguous row is on line 5 of the input file while the first is on line 3, and the output format may reverse order depending on iteration. | MUST-FIX | 90
+`.agents/skills/task-registry/scripts/registry/index.py`:374 | The test uses `assert_contains "$arrows_out" "tasks/todo.md:5 — cannot publish legacy row: multiple '->' delimiters are ambiguous"` with unescaped quotes inside single-quoted shell strings, causing a syntax error. | MUST-FIX | 100
+`.agents/skills/task-registry/scripts/registry/index.py`:388 | The test creates a file with an unknown status box `'- [?] Unknown box\n'` and expects the output to contain `tasks/todo.md:6 — unknown status box '[?]'` but the line number 6 depends on the exact content of the file and the test setup which may vary. | MUST-FIX | 85
+`.agents/skills/task-registry/scripts/registry/index.py`:399 | The test uses `reg upsert plan.arrows --repo "$F_ARROWS_ID" --title 'Arrows' --dry-run 2>&1` which mixes stdout and stderr, making it impossible to reliably capture the refusal message that should appear on stderr. | MUST-FIX | 95
+`.agents/skills/task-registry/scripts/registry/index.py`:417 | The test expects `upsert quoted arrow: the written row carries the title's arrow as '→'` but the file content is written as `# Task Plan\n` and then the row is added, so the line number 1 in the output assertion may not match the actual line number of the row in the file. | MUST-FIX | 85
+`.agents/skills/task-registry/scripts/registry/index.py`:425 | The test expects `upsert quoted arrow: the next upsert creates its task` but the previous step appends the quoted arrow row, so the "next upsert" creates a new task with a different title, and the assertion checks for the presence of the task ID in the output. | SHOULD-FIX | 75
+`.agents/skills/task-registry/scripts/registry/index.py`:438 | The test expects `upsert quoted arrow: re-filing the quoted title refreshes its row, never appends a second` but the test appends the same title again, which may trigger an append if the task is not found, leading to a second row. | MUST-FIX | 90
+
+NO DEFECTS

@@ -1,0 +1,47 @@
+{
+  "attempts": [
+    {
+      "score": 0.0,
+      "passed": false,
+      "turns": 2,
+      "costUsd": 0.14927200000000002,
+      "costSource": "native_cli",
+      "judgeCostUsd": 0,
+      "startedAt": "2026-11-16T02:50:43.118919+00:00",
+      "durationSeconds": 2.104,
+      "tracePath": "/home/joaosouto/hr-5rjsygzg/round/out/trace.jsonl",
+      "graders": [
+        {
+          "name": "outcome",
+          "passed": false,
+          "weight": 1.0
+        }
+      ],
+      "status": "errored",
+      "budgetAccountedUsd": "1.660241",
+      "admissionBlocked": true,
+      "billingBreach": false,
+      "gatewayAccountedUsd": "1.660241",
+      "exitCode": 1,
+      "finishedAt": "2026-11-16T02:50:46.645291+00:00",
+      "kind": "localization",
+      "seed": 101,
+      "id": "A/invoice-rounding/1",
+      "arm": "A",
+      "case": "invoice-rounding",
+      "repetition": 1,
+      "generation": 0,
+      "attempt": 1,
+      "attempt_id": "A/invoice-rounding/1/0/1",
+      "protocol_commit": "f1f4df8715029e380c8b4e382a4547152f4082df",
+      "source_sha": "c7360e41fc0c466764b0bb4e32df6dd35d279b5b",
+      "artifact_root": "/home/joaosouto/hr-5rjsygzg/round"
+    }
+  ],
+  "selected": {},
+  "accounted_usd": "1.660241",
+  "pending": null,
+  "manifest_sha256": "6e27abd6299168923124f2bcbaadec6f46df56ee0856070deb39400763894c1e",
+  "arm_generations": {},
+  "halt_reason": "admission assumptions failed; review the retained audit before resuming"
+}

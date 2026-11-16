@@ -17,6 +17,47 @@ Canonical tiers. Concrete provider model IDs are deliberately **not** repeated h
 | Reviewer | doc compression, debugging (attempts 3–4 — see the floor below) | `sonnet` |
 | Scout | search, recon, context building | `haiku` |
 
+### Second axis: tool-call intensity and context size
+
+The tiers rank cost and capability. A **local model** does not sort along that
+axis, so place it on a second one: how many tool calls the role makes, and how
+much context it carries into each launch.
+
+- **Strong at single-shot reasoning over a bounded context** — one brief in, one
+  answer out.
+- **Weak at multi-turn tool loops.** Sub-4-bit quantization regresses hardest
+  there: the vendor reports BFCL v3 74.92 for Bonsai 2 27B against 76.74 at FP16.
+- **Every launch pays full prefill.** A sub-agent starts on a fresh context, and
+  at the 336–973 tok/s pp512 measured for the two resident models below, a
+  32K-token brief costs about 35–100 seconds before the first token.
+- **The economics invert.** The cheapest routed tier is under 0.02 USD per million
+  input tokens (`PI_SETUP.md` owns the prices), so a local model substituted on a
+  recon saves about 0.001 USD and pays that prefill on every launch.
+
+Placement rules for a local tier:
+
+- **Never route a local model to the Builder tier**, nor to any role that loops on
+  tools — `/build` coding and debugging are exactly the multi-turn tool loop it is
+  weakest at.
+- **Never substitute it for Scout on cost grounds.** Recon is tool-call heavy and
+  already the cheapest tier; the saving is a tenth of a cent.
+- **Place it only on low-tool-call work over a bounded context** — the context
+  arrives in the brief and the answer comes back in one turn.
+- **Only a model that fits entirely in VRAM qualifies.** At least 10 tok/s requires
+  full residency; partial offload collapses rather than degrading gently.
+  Measured on an RTX 3050 6 GB, 5804 MiB (5.67 GiB) of device memory
+  (`docs/bonsai-2-27b/README.md`):
+
+  | Model | Model size (GiB, llama-bench) | Resident | Server generation at 32K (tok/s) |
+  |-------|------------------------------:|----------|---------------------------------:|
+  | Bonsai 2 27B Q2_0 | 7.09 | no — partial offload | 5.19 |
+  | Bonsai 27B v1 Q1_0 | 3.53 | fully | 20.01 |
+  | Bonsai 2 9B Q2_0 | 2.37 | fully | 42.94 |
+
+How a harness selects the local model for one dispatch is not restated here:
+whether a per-call model param may carry it is the open question in issue #371,
+and that resolution owns it.
+
 ## Ceiling
 
 **`Ceiling` means: omit the model override entirely so the sub-agent inherits the
@@ -110,6 +151,8 @@ configuration that shadows a managed role before relying on its tier.
 
 - Never use the planner tier for code writing; never use the scout tier for coding
   or planning.
+- Never route a local model to the Builder tier or to any multi-turn tool loop;
+  place it by *Second axis: tool-call intensity and context size* above.
 - **Claude Code**: pass `model` explicitly for the Planner, Builder, Reviewer, and
   Scout tiers. Pass **nothing** for Ceiling — an override there is the regression
   this tier exists to prevent. `critic` is the one exception, and only downward,
