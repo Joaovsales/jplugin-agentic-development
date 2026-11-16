@@ -828,6 +828,169 @@ assert_contains "$cap_out" "linked pull request state" "AC6: the refusal says wh
 assert_not_contains "$cap_out" "candidate:" "AC6: no candidate is offered while a state is unknown"
 assert_not_contains "$cap_out" "gh >= " "AC6: the refusal no longer cites a gh version"
 
+# #192: a declared blocker that is not done keeps a task out of the pick. An
+# unattended routine that claims it spends the run, finds the blocker, and
+# stops. Only `depends-on` excludes -- an open `parent` is an epic still being
+# worked -- and a blocker that resolves to no task is never read as done.
+# The local provider runs everywhere; the GitHub half (PKB #91's shape) needs
+# the gh mock, which Windows cannot reach from Python (#129), so Linux CI is
+# its authority.
+write_dep_task() {
+  local dir="$1" id="$2" status="$3" priority="$4" labels="$5" meta="$6" prose="${7:-}"
+  mkdir -p "$dir/tasks/details"
+  { printf '# %s\n\n' "$id"
+    printf '<!-- task-registry:begin -->\n'
+    printf '<!-- Managed by /task-registry. Edit the fields, not the markers. -->\n'
+    printf 'task-id: %s\nkind: task\n' "$id"
+    [ -z "$meta" ] || printf '%s\n' "$meta"
+    printf '<!-- task-registry:end -->\n\n'
+    printf -- '- status: %s\n- priority: %s\n- labels: %s\n' "$status" "$priority" "$labels"
+    [ -z "$prose" ] || printf '\n%s\n' "$prose"
+  } > "$dir/tasks/details/$id.md"
+}
+F_DEP="$(gh_project)"
+fixture_copy task-registry/task-tracking-local.md "$F_DEP/docs/task-tracking.md"
+write_dep_task "$F_DEP" blocker-open   open high enhancement ""
+write_dep_task "$F_DEP" blocker-done   done high bug ""
+write_dep_task "$F_DEP" epic-open      open high design-decision ""
+write_dep_task "$F_DEP" waits-on-open  open high bug "depends-on: blocker-open"
+write_dep_task "$F_DEP" waits-on-mixed open high bug "depends-on: blocker-done, blocker-open"
+write_dep_task "$F_DEP" waits-on-ghost open high bug "depends-on: no-such-task"
+write_dep_task "$F_DEP" prose-blocked  open high bug "" "Blocked by #83 landing first."
+write_dep_task "$F_DEP" waits-on-done  open medium bug "depends-on: blocker-done"
+write_dep_task "$F_DEP" child-of-epic  open low bug "parent: epic-open"
+dep_out="$( cd "$F_DEP" && "$PY" "$CLI" select --repo "$F_DEP" --routine fix 2>&1 )"; dep_code=$?
+assert_eq "0" "$dep_code" "#192: select with blocked tasks in the pool exits 0"
+assert_contains "$dep_out" "blocked:       waits-on-open by blocker-open — not done yet" \
+  "#192: a task whose depends-on blocker is open is reported as blocked by it"
+assert_contains "$dep_out" "blocked:       waits-on-mixed by blocker-open — not done yet" \
+  "#192: one open blocker among done ones still blocks, and is the one named"
+assert_not_contains "$dep_out" "waits-on-mixed by blocker-done" \
+  "#192: a done blocker is never reported as blocking"
+assert_contains "$dep_out" "blocked:       waits-on-ghost by no-such-task — resolves to no task" \
+  "#192 (decision 3): an unresolvable blocker excludes and is reported, never read as satisfied"
+assert_contains "$dep_out" "unparsed:      prose-blocked names #83 as a dependency in prose" \
+  "#192 (decision 2): a prose-only dependency is reported as unparsed"
+assert_contains "$dep_out" "candidate:     waits-on-done —" \
+  "#192: a task whose every blocker is done is selectable, ranked by priority as before"
+assert_contains "$dep_out" "remaining:     1 other candidate(s)" \
+  "#192: an open parent alone does not exclude (decision 1) -- child-of-epic stays in the pool"
+for excluded in waits-on-open waits-on-mixed waits-on-ghost prose-blocked; do
+  assert_not_contains "$dep_out" "candidate:     $excluded —" "#192: $excluded is never the candidate"
+done
+for kept in waits-on-done child-of-epic; do
+  assert_not_contains "$dep_out" "blocked:       $kept " "#192: $kept is never reported as blocked"
+  assert_not_contains "$dep_out" "unparsed:      $kept " "#192: $kept is never reported as unparsed"
+done
+
+# PKB #91: `Parent: #83` written only as prose, with #83 open. Nothing machine-
+# readable declared it, so the selector claimed #91 and the run stopped on #83.
+F_PKB="$(gh_project)"
+write_config "$F_PKB" <<'EOF'
+EOF
+write_labels "$F_PKB" bug enhancement design-decision simplify tech-debt documentation now next in-progress
+"$PY" - "$F_PKB/ghdata/issues.json" <<'PKB_PY'
+import io, json, sys
+BLOCK = "<!-- task-registry:begin -->\ntask-id: {id}\nkind: task\n{meta}\n<!-- task-registry:end -->"
+
+
+def issue(number, title, labels, body="", state="open"):
+    return {"number": number, "title": title, "state": state,
+            "html_url": f"https://github.com/o/r/issues/{number}",
+            "labels": [{"name": name} for name in labels], "assignees": [],
+            "created_at": "2026-08-01T00:00:00Z", "updated_at": "2026-08-01T00:00:00Z", "body": body}
+
+
+issues = [
+    issue(83, "The parent that lands first", ["enhancement", "now"]),
+    issue(84, "A finished prerequisite", ["bug"], state="closed"),
+    issue(91, "PKB 91 shape", ["bug", "now"], "Parent: #83\n\nShip once the parent lands."),
+    issue(92, "Prose names a closed issue", ["bug", "next"], "Depends on #84."),
+    issue(93, "Metadata names an open issue", ["bug", "now"], BLOCK.format(id="t93", meta="depends-on: #83")),
+    issue(94, "Quoted, not declared", ["bug"], "The old `Parent: #83` line was a typo."),
+    issue(95, "Child of an open epic", ["bug", "now"], BLOCK.format(id="t95", meta="parent: #83")),
+    issue(96, "Bare number names a closed issue", ["bug"], BLOCK.format(id="t96", meta="depends-on: 84")),
+    issue(97, "Blocker in another repository", ["bug", "now"],
+          BLOCK.format(id="t97", meta="depends-on: https://github.com/elsewhere/repo/issues/5")),
+]
+io.open(sys.argv[1], "w", encoding="utf-8", newline="\n").write(json.dumps(issues))
+PKB_PY
+pkb_out="$(run_select "$F_PKB" --routine fix)"; pkb_code=$?
+assert_eq "0" "$pkb_code" "#192: select over the PKB #91 fixture exits 0"
+assert_contains "$pkb_out" "unparsed:      #91 names #83 as a dependency in prose" \
+  "#192 (decision 2): PKB #91 -- a prose Parent: line naming an open issue is reported as unparsed"
+assert_not_contains "$pkb_out" "candidate:     91 —" "#192: PKB #91 is never the candidate"
+assert_contains "$pkb_out" "blocked:       #93 by #83 — not done yet" \
+  "#192: a depends-on: #N metadata reference resolves to the issue and blocks while it is open"
+assert_contains "$pkb_out" "candidate:     95 —" \
+  "#192 (decision 1): parent: metadata naming an open epic does not exclude its child"
+assert_contains "$pkb_out" "blocked:       #97 by https://github.com/elsewhere/repo/issues/5 — resolves to no task" \
+  "#192 (decision 3): a blocker the provider refuses to resolve (another repository) excludes and is reported"
+assert_contains "$pkb_out" "remaining:     3 other candidate(s)" \
+  "#192: #92 (prose names a closed issue), #94 (code span) and #96 (bare-number blocker, closed) stay selectable"
+for kept in 92 94 95 96; do
+  assert_not_contains "$pkb_out" "blocked:       #$kept " "#192: #$kept is never reported as blocked"
+  assert_not_contains "$pkb_out" "unparsed:      #$kept " "#192: #$kept is never reported as unparsed"
+done
+
+# A task no provider scanned for prose dependencies is refused, never read as
+# clean: that reading is exactly how PKB #91 reached the candidate line.
+unscanned_out="$("$PY" - <<'PY' 2>&1
+from registry.model import Task, TaskModelError
+from registry.routines import select_candidates
+try:
+    select_candidates([Task(id="raw", title="Built without a provider")], [], lambda ref: None)
+except TaskModelError as exc:
+    print("refused:", exc)
+else:
+    print("selected")
+PY
+)"
+assert_contains "$unscanned_out" "refused: task raw: its body was never scanned for prose dependencies" \
+  "#192: select_candidates refuses a task whose body was never scanned for prose dependencies"
+
+# The prose rules, provider-free so they hold on every platform: every reference
+# counts once, code and the registry block declare nothing, and one open
+# reference among closed ones still holds the task.
+prose_out="$("$PY" - <<'PY' 2>&1
+from registry.model import ExternalRef, prose_dependencies, task_from_metadata
+from registry.routines import select_candidates
+
+BLOCK = "<!-- task-registry:begin -->\ntask-id: t{n}\nkind: task\n{meta}\n<!-- task-registry:end -->"
+print("multi:", prose_dependencies("Depends on #84 and blocked by #83. Parent: #84"))
+print("code:", prose_dependencies("```\nParent: #83\n```\nInline `Blocked by #85` too."))
+print("block:", prose_dependencies(BLOCK.format(n=9, meta="parent: #83")))
+
+
+def issue(n, body="", status="open"):
+    return task_from_metadata(title=f"issue {n}", body=body, status=status,
+                              external=ExternalRef("github", str(n), ""), fallback_id=f"t{n}")
+
+
+def resolve(ref):
+    number = ref.lstrip("#")
+    return ExternalRef("github", number, "") if number.isdigit() else None
+
+
+tasks = [issue(83), issue(84, status="done"),
+         issue(1, "Depends on #84 and blocked by #83."), issue(2, "Depends on #84."),
+         issue(3, "```\nParent: #83\n```")]
+selection = select_candidates(tasks[2:], tasks, resolve)
+print("held:", sorted((b.task.external.id, b.reference, b.reason) for b in selection.blockers))
+print("candidates:", [task.external.id for task in selection.candidates])
+PY
+)"
+assert_contains "$prose_out" "multi: ('#84', '#83')" \
+  "#192: prose_dependencies reads every reference, first mention first, each once"
+assert_contains "$prose_out" "code: ()" \
+  "#192: a reference inside a fenced block or an inline code span declares nothing"
+assert_contains "$prose_out" "block: ()" \
+  "#192: the registry block's parent: line is metadata, never prose"
+assert_contains "$prose_out" "held: [('1', '#83', 'unparsed')]" \
+  "#192: one open prose reference holds the task, a closed one beside it does not"
+assert_contains "$prose_out" "candidates: ['2', '3']" \
+  "#192: prose naming only a closed task, or quoted in code, stays selectable"
+
 # An unknown routine name is a configuration error, not an empty result.
 bad_out="$(run_select "$F_SEL" --routine nonesuch)"; bad_code=$?
 assert_eq "2" "$bad_code" "select: an unknown routine name exits non-zero"

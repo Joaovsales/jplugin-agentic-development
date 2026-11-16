@@ -109,6 +109,19 @@ stranded:      #155 — #189 merged and left it open; close it with `task-regist
 An issue a human reopened after its PR merged is not stranded and stays
 selectable.
 
+A declared blocker that is not done keeps an issue out too (#192). Each
+`depends-on:` entry must resolve to a closed task, and one that resolves to
+nothing is never read as done. An open `parent:` blocks nothing, since an epic
+stays open while its children are worked. An issue with no `depends-on:` whose
+prose names a dependency that is not closed — open, or one the tracker cannot
+resolve (`Parent: #83`, `Depends on #83`, `Blocked by #83`, outside code spans)
+— is held until someone records it as metadata:
+
+```
+blocked:       #93 by #83 — not done yet
+unparsed:      #91 names #83 as a dependency in prose, with no `depends-on:` metadata — record it as `depends-on: #83` or drop the line
+```
+
 ### `workflow` — which routine owns one issue
 
 ```bash

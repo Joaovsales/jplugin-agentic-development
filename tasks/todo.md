@@ -2959,3 +2959,7 @@ Step ledger (routine `simplify`):
 - Completed: #409 #410 #411 #419 #424 #425 #426 #427 #430 #432 merged; issues #358 #391 #400 #402 #403 #404 #405 #406 #407 #408 #412 closed; debt ledger reconciled with no per-commit issues filed; six learnings written.
 - Pending: #417 (refs only, via #419), #381 (todo.md index conflicts).
 - Carry-forward: install.sh `cp -r` leaves the pre-#430 copy at ~/.agents/skills/build/references/ on installed machines. Local reviewer personas stay off (eval no-go).
+## Session Summary — [2026-11-13] [317a717..5ef58e1]
+- Completed: #192 — `select` holds back a task whose `depends-on:` blocker is open or unresolvable, and a task whose prose names an open dependency, and reports each. Tests in `tests/test-routine-selectors.sh` (local provider plus the PKB #91 GitHub-mock fixture). Receipt a1b3c731 GO.
+- Pending: the six GitHub-mock #192 assertions are XFAIL on Windows (#129). Linux CI is their authority.
+- Carry-forward: native `blockedBy` (#97) should feed `Task.depends_on` so `select_candidates` applies the same rule. `claim` does not re-check blockers for a human-named issue. `/memory-maintain` is still overdue (not run in this side session).
