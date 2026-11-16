@@ -2980,4 +2980,10 @@ Routine `tidy` — step ledger:
 - [x] 1. `task-registry doctor` — provider `github`, reachable, write approval not required
 - [x] 2. branch `routine/tidy/20261116-sweep` created (new today)
 - [x] 3. `/tidy` — record `tasks/sweeps/2026-11-16-tidy.md`; Tier 0: 0; filed: none new (evidence appended to #143)
-- [ ] 4. `/wrap-up-session` — suite green, ready PR
+- [x] 4. `/wrap-up-session` — suite green, ready PR
+
+## Session Summary — 2026-11-16 [2ddb7ae..13c863e]
+
+- Completed: scheduled `tidy` sweep at `2ddb7ae` — suite green (98/98), 11 checks run inline; no Tier 0 drift; Tier 1 `registers` (42 closed plan blocks) re-evidenced on #143; checkpoint current.
+- Pending: `installed` and `tools` inconclusive in the cloud container; archive the closed plan blocks (#143).
+- Carry-forward: none.
