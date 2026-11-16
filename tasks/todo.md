@@ -2869,7 +2869,7 @@ Step ledger (routine `simplify`):
 
 ## Plan: Code-graph adoption, gated by a measured A/B
 > Spec: specs/code-graph-adoption.md
-- [ ] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
+- [x] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
 
 ### Slice 1/9 — graphify install policy
 - [x] graphify install policy — pin file, `graphifyy` name, interactive y/N offer, stock hook stripped, budgeted rules text, ledger created
@@ -2921,6 +2921,7 @@ Step ledger (routine `simplify`):
 > Handover: landed 66f597d — schema-gated idempotent native Bash search adapter, context-only output, unsupported cleanup, copied banner pin and shared resources; affected55files/5331assertions green.
 > Do not re-derive: codex-cli0.166.0 schema exposes preToolUse and typed matcher; native rg/grep/find normalize to shared Grep/Glob. Unsupported reruns retire only the installed Python callback and preserve personal hooks/path mentions. No global user configuration was changed.
 > Surface: source check against f2bec3f clean; targeted 59 assertions passed.
+> Open: no-go results retain only the independent adjacent-pin copy; public installer fresh/stale-pin regressions are 54 passed, 0 failed. Adapter and hint wiring stay unmerged.
 
 
 ### Slice 7/9 — skill wiring
@@ -2940,11 +2941,11 @@ Step ledger (routine `simplify`):
 
 
 ### Slice 9/9 — outcome
-- [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
+- [x] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
 
-> Handover: prepared no-go outcome — optional AGENTS wording and two grounded learnings; results are complete in 36a1805. Treatment PR closure and separately gated results PR merge remain pending; no treatment merge or downstream sync is authorized.
-> Do not re-derive: Phase A PR416 is merged. Do not infer no-go from a missing prerequisite or write a negative-result learning without data.
-
+> Handover: landed no-go — treatment PR420 closed unmerged; results PR421 merged at c505dfa with valid GO edbae8e0, full98files/8246assertions and green Ubuntu CI43804890181. Optional wording, numerical/decoder learnings and independent pin transport are recorded; ledger ends NO-GO-RECORDED.
+> Do not re-derive: all90selectedruns completed; failed smoke/retry preserved in91attempts, nominal$12.60879440/accounted$20.58969660. No rule-only retry, treatment promotion or downstream sync applies. Frozen protocol, manifests, source IDs and prior evidence stay unchanged.
+> Surface: slice9 worker edited only AGENTS.md, tasks/solutions/**/code-graph-*.md and tasks/code-graph-run.md; pin-only carry-forward stayed within slice6 installer/test Surface. Parent-only todo/checkpoint/receipt bookkeeping is separate. Required affected command: env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh </dev/null (98files/8246assertions, exit0).
 
 ## Session Summary — [2026-11-16] [c7360e4..36a1805]
 - Completed: registered 90-run A/B/D cohort, unchanged six-rule grading, measured no-go on rules 2/4/6, preserved failed-attempt charges and recovery provenance, optional graph wording and numerical/root-cause learnings.
