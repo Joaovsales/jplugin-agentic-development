@@ -2956,3 +2956,8 @@ Step ledger (routine `simplify`):
 - Completed: closed the nine-slice code-graph plan and persisted the verified no-go terminal ledger with retained evidence and handovers.
 - Pending: final post-outcome bookkeeping publication only; product behavior and measured evidence are unchanged.
 - Carry-forward: no additional paid runs, no treatment promotion, no downstream sync; follow the terminal ledger.
+
+## Session Summary — [2026-11-16] [c7360e4..ed4b671]
+- Completed: #409 #410 #411 #419 #424 #425 #426 #427 #430 #432 merged; issues #358 #391 #400 #402 #403 #404 #405 #406 #407 #408 #412 closed; debt ledger reconciled with no per-commit issues filed; six learnings written.
+- Pending: #417 (refs only, via #419), #381 (todo.md index conflicts).
+- Carry-forward: install.sh `cp -r` leaves the pre-#430 copy at ~/.agents/skills/build/references/ on installed machines. Local reviewer personas stay off (eval no-go).
