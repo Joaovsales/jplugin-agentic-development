@@ -233,7 +233,7 @@ Choose the agent or approach based on the slice's work type:
 - The `> Handover:` blockquote (every `>` line) of each slice this one is blocked by, verbatim
 - For frontend implementation and `frontend-design-validator`: the context in
   `.agents/skills/build/references/design-stack-gates.md` § *Delegation context*
-- The tool-call budget and escape hatch from `subagent-resilience.md` Rule
+- The tool-call budget and escape hatch from `.agents/references/subagent-resilience.md` Rule
   1, and the instruction to list unfinished acceptance criteria under
   `## Not finished`
 
