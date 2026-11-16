@@ -2956,3 +2956,28 @@ Step ledger (routine `simplify`):
 - Completed: closed the nine-slice code-graph plan and persisted the verified no-go terminal ledger with retained evidence and handovers.
 - Pending: final post-outcome bookkeeping publication only; product behavior and measured evidence are unchanged.
 - Carry-forward: no additional paid runs, no treatment promotion, no downstream sync; follow the terminal ledger.
+
+## Tidy: 2026-11-16
+
+> Record: `tasks/sweeps/2026-11-16-tidy.md`, swept at `2ddb7ae` on
+> `routine/tidy/20261116-sweep`. Outcome: **findings** (Tier 1 only). Tier 0
+> applied: **0** — nothing mechanical found. Tier 2 filed: **0**.
+
+- [x] `suite` — clean (98/98 test files)
+- [x] `inventory` — clean (README table ↔ `.agents/skills/`, render `--check` exit 0)
+- [x] `retired` — clean (clone unshallowed first; 8 retired names, none named as live)
+- [x] `installed` — inconclusive (cloud container; `~/.claude/` is the runtime's, `~/.agents/` absent)
+- [x] `refs` — clean (unresolved tokens all expected-to-be-created or external; see Unverified)
+- [x] `worktrees` — clean (one worktree, branches `master` + this sweep)
+- [x] `strays` — clean (no untracked or ignored files)
+- [x] `graph` — skipped (no `graphify` on this machine; no graph by design)
+- [x] `registers` — 1 finding, Tier 1 (42 closed plan blocks; tracked by #143, evidence appended)
+- [x] `shortcuts` — clean (4 markers, 0 `no-trigger`)
+- [x] `tools` — inconclusive (archify not installed)
+
+Routine `tidy` — step ledger:
+
+- [x] 1. `task-registry doctor` — provider `github`, reachable, write approval not required
+- [x] 2. branch `routine/tidy/20261116-sweep` created (new today)
+- [x] 3. `/tidy` — record `tasks/sweeps/2026-11-16-tidy.md`; Tier 0: 0; filed: none new (evidence appended to #143)
+- [ ] 4. `/wrap-up-session` — suite green, ready PR
