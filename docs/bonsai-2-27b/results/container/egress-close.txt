@@ -1,0 +1,85 @@
+# Egress closed + restart-on-unhealthy — 2026-11-16T11:27:56Z, docker 29.9.0, context default
+## networks
+/bonsai-llama-1: bonsai_sealed 
+/bonsai-relay-1: bonsai_edge bonsai_sealed 
+bonsai_sealed internal=true
+bonsai_edge internal=false
+## PID 1 and server process (tini as init)
+1 /usr/bin/tini
+57 /opt/llama/llama-server
+## egress from llama container: bash /dev/tcp 1.1.1.1:443
+bash: connect: Network is unreachable
+bash: line 1: /dev/tcp/1.1.1.1/443: Network is unreachable
+egress: BLOCKED rc=1
+## egress from llama container: bash /dev/tcp 8.8.8.8:53
+bash: connect: Network is unreachable
+bash: line 1: /dev/tcp/8.8.8.8/53: Network is unreachable
+egress: BLOCKED rc=1
+## DNS for an external name from llama container (getent hosts example.com)
+dns: FAILED rc=2
+## host default-gateway from llama container (no route)
+Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
+eth0	000017AC	00000000	0001	0	0	0	0000FFFF	0	0	0                                                                               
+## host listeners on 18080
+LISTEN 0      4096   127.0.0.1:18080 0.0.0.0:*
+## host loopback
+{"status":"ok"} http=200
+## external <host-ipv4-1>:18080 000 rc=7
+## external <host-ipv4-2>:18080 000 rc=7
+## external 172.18.0.1:18080 000 rc=7
+## external 172.19.0.1:18080 000 rc=7
+## external 172.17.0.1:18080 000 rc=7
+## external 172.22.0.1:18080 000 rc=7
+## external 172.20.0.1:18080 000 rc=7
+## external 172.21.0.1:18080 000 rc=7
+## external 172.23.0.1:18080 000 rc=7
+## external 172.24.0.1:18080 000 rc=7
+## external <host-ipv6> 000 rc=7
+## external <host-ipv6> 000 rc=7
+## external <host-ipv6> 000 rc=7
+## external <host-ipv6> 000 rc=7
+## disabled endpoints via relay
+/slots 501
+/metrics 501
+/ 404
+## relay hardening
+User=10001:10001 ReadonlyRootfs=true CapDrop=[ALL] SecurityOpt=[no-new-privileges:true] PidsLimit=64 Memory=67108864
+## llama hardening
+User=10001:10001 ReadonlyRootfs=true CapDrop=[ALL] SecurityOpt=[no-new-privileges:true] PidsLimit=256 Memory=8589934592 Ports=map[]
+## 1-token smoke via relay
+content='4' predicted_n=1
+## gen400 (serve_and_probe.sh prompt, ignore_eos, cache_prompt false) via relay
+gen400 run 1: predicted_n=400 predicted_per_second=20.17 prompt_per_second=94.45
+gen400 run 2: predicted_n=400 predicted_per_second=19.97 prompt_per_second=105.02
+gen400 run 3: predicted_n=400 predicted_per_second=19.91 prompt_per_second=103.03
+## whole-GPU VRAM during the run
+4579 MiB, 6144 MiB
+## watchdog: freeze llama-server with SIGSTOP (a wedged server that never exits)
+RestartCount before: 0  StartedAt: 2026-11-16T11:27:35.000071564Z
+SIGSTOP pid 57
+t+2s running/healthy restarts=0 failstreak=0 host/health=000
+t+10s running/healthy restarts=0 failstreak=1 host/health=000
+t+30s running/healthy restarts=0 failstreak=2 host/health=000
+t+47s running/starting restarts=1 failstreak=0 host/health=200
+t+51s running/healthy restarts=1 failstreak=0 host/health=200
+RestartCount after: 1  StartedAt: 2026-11-16T11:30:07.840152794Z
+## healthcheck log (last entries)
+08:29:10 exit=0 ""
+08:29:25 exit=1 ""
+08:29:44 exit=1 ""
+08:30:03 exit=1 "watchdog: 3 consecutive failed probes, killing llama-server\n"
+08:30:13 exit=0 ""
+
+## API after recovery
+{"status":"ok"} http=200
+1-token smoke after recovery: content='4' predicted_n=1
+## whole-GPU VRAM after recovery (no leaked allocation from the killed server)
+4577 MiB
+## teardown
+ Container bonsai-relay-1  Stopped
+ Container bonsai-relay-1  Removed
+ Container bonsai-llama-1  Stopped
+ Container bonsai-llama-1  Removed
+ Network bonsai_edge  Removed
+ Network bonsai_sealed  Removed
+containers: 0  networks: 0  port 18080 listeners: 0  VRAM: 15 MiB
