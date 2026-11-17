@@ -2,7 +2,7 @@
 title: Construct retired paths at runtime to keep literal-reference sweeps strict
 date: 2026-08-13
 problem_type: pattern
-module: .claude/hooks/session-start.sh
+module: .agents/hooks/session-start.sh
 tags: [migration, grep, sweeps, detection, retired-files]
 applies_when: a spec bans literal references to retired file paths (verified by grep) but live code must still detect those same paths
 ---
@@ -50,3 +50,5 @@ Constructed paths hide the detector from that search, so this document and a
 code comment carry the pointer instead. Chose strictness because an
 allowlist rots — every future exception lands in it and the sweep decays
 into documentation.
+
+**Correction (2026-11-15, /memory-maintain):** the hook moved from `.claude/hooks/session-start.sh` to `.agents/hooks/session-start.sh`; the retired-root handling now lives at `.agents/hooks/session-start.sh:347`.
