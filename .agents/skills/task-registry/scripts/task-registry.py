@@ -61,6 +61,9 @@ from registry.detail import Registry  # noqa: E402
 from registry.escalation import EscalationError, EscalationRequest, escalate_task  # noqa: E402
 from registry.index import IndexUnreadable  # noqa: E402
 from registry.routines import (  # noqa: E402
+    BLOCKED_OPEN,
+    BLOCKED_UNPARSED,
+    BLOCKED_UNRESOLVABLE,
     LinkedPrStateUnknown,
     is_escalated,
     routine_pool,
@@ -567,7 +570,9 @@ def _select(registry: Registry, routine):
             f"stranded:      {registry.provider.reference_label(task.external)} — {pull} merged "
             f"and left it open; close it with `task-registry closes '{pull}' --apply --approve`"
         )
-    candidates = select_candidates(pool, config, routine)
+    selection = select_candidates(pool, tasks, registry.provider.resolve_reference)
+    lines += [_blocker_line(registry, blocker) for blocker in selection.blockers]
+    candidates = selection.candidates
     if not candidates:
         lines.append(f"candidate:     none — {routine} has nothing to claim")
         return "\n".join(lines), 0
@@ -583,6 +588,25 @@ def _select(registry: Registry, routine):
     )
     lines.append(f"remaining:     {len(candidates) - 1} other candidate(s) in this pool")
     return "\n".join(lines), 0
+
+
+#: One `select` report line per blocker reason. A reason missing here raises
+#: KeyError rather than printing another reason's sentence.
+BLOCKER_LINES = {
+    BLOCKED_OPEN: "blocked:       {name} by {ref} — not done yet",
+    BLOCKED_UNRESOLVABLE: "blocked:       {name} by {ref} — resolves to no task, so it is never read as done",
+    BLOCKED_UNPARSED: (
+        "unparsed:      {name} names {ref} as a dependency in prose, with no `depends-on:` "
+        "metadata — record it as `depends-on: {ref}` or drop the line"
+    ),
+}
+
+
+def _blocker_line(registry: Registry, blocker) -> str:
+    """The `select` report line for a task held back by a declared blocker (#192)."""
+    task = blocker.task
+    name = registry.provider.reference_label(task.external) if task.external else task.id
+    return BLOCKER_LINES[blocker.reason].format(name=name, ref=blocker.reference)
 
 
 def _claim(registry: Registry, routine, task_ref, apply_writes: bool):

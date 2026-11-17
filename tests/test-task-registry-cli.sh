@@ -492,6 +492,28 @@ arrows_rerun="$(reg upsert plan.quoted --repo "$F_ARROWS_WRITE" --provider local
   --summary 'the x -> y token' --apply 2>&1)"
 assert_contains "$arrows_rerun" "row refreshed" \
   "upsert quoted arrow: re-filing the quoted title refreshes its row, never appends a second"
+
+# The same writer/reader pair one level out: the reader refuses an unbalanced
+# HTML comment anywhere in the row, so a title or summary quoting a comment
+# marker must not be written verbatim, or filing it blocks every later upsert.
+F_COMMENT_WRITE="$(registry_project)"
+printf '# Task Plan\n' > "$F_COMMENT_WRITE/tasks/todo.md"
+reg upsert plan.closer --repo "$F_COMMENT_WRITE" --provider local --title 'Quote a --> b' \
+  --summary 'opens <!-- here' --apply >/dev/null 2>&1
+reg upsert plan.opener --repo "$F_COMMENT_WRITE" --provider local --title 'Quote <!-->' \
+  --summary 'closes a --> b' --apply >/dev/null 2>&1
+assert_file_contains "$F_COMMENT_WRITE/tasks/todo.md" "- [ ] Quote a --› b <!-- task-id: plan.closer --> — opens ‹!-- here" \
+  "upsert quoted comment marker: the written row neutralises the markers in title and summary"
+assert_file_contains "$F_COMMENT_WRITE/tasks/todo.md" "- [ ] Quote ‹!--› <!-- task-id: plan.opener --> — closes a --› b" \
+  "upsert quoted comment marker: an overlapping '<!-->' leaves no marker behind"
+comment_next="$(reg upsert plan.after --repo "$F_COMMENT_WRITE" --provider local --title 'Next' --apply 2>&1)"
+assert_eq "0" "$?" "upsert quoted comment marker: the next upsert after such a row succeeds"
+assert_contains "$comment_next" "created plan.after" \
+  "upsert quoted comment marker: the next upsert creates its task"
+comment_rerun="$(reg upsert plan.closer --repo "$F_COMMENT_WRITE" --provider local --title 'Quote a --> b' \
+  --summary 'opens <!-- here' --apply 2>&1)"
+assert_contains "$comment_rerun" "row refreshed" \
+  "upsert quoted comment marker: re-filing the quoted title refreshes its row, never appends a second"
 fi
 end_case
 

@@ -1,0 +1,398 @@
+=== META ===
+{
+ "diff": "409.pregate.diff",
+ "reasoning_effort": "medium",
+ "wall_s": 467.5,
+ "usage": {
+  "completion_tokens": 8192,
+  "prompt_tokens": 1611,
+  "total_tokens": 9803,
+  "prompt_tokens_details": {
+   "cached_tokens": 1609
+  }
+ },
+ "timings": {
+  "cache_n": 1609,
+  "prompt_n": 2,
+  "prompt_ms": 165.265,
+  "prompt_per_token_ms": 82.6325,
+  "prompt_per_second": 12.101775935618553,
+  "predicted_n": 8192,
+  "predicted_ms": 467215.795,
+  "predicted_per_token_ms": 57.04014100842388,
+  "predicted_per_second": 17.53151346263882
+ },
+ "finish_reason": "length"
+}
+=== REASONING (verbatim) ===
+Here's a thinking process:
+
+1.  **Analyze User Input:**
+   - **Role:** Senior code reviewer
+   - **Task:** Review a unified diff, report *only* defects (bugs, incorrect/misleading statements, security/reliability problems, test weaknesses, maintainability problems that matter).
+   - **Format:** Exactly one line per defect: `<file>:<line> | <one-sentence description> | severity: MUST-FIX, SHOULD-FIX or NITPICK | confidence: 0-100`
+   - **Constraint:** Line numbers refer to the *new version* of the file. Do not praise, summarize, or restate what the change does. If no defects, output exactly: `NO DEFECTS`
+
+2.  **Examine the Diff:**
+   - **File 1:** `a/install.sh` -> `b/install.sh` (changed at line 487-489, added comments)
+     - Added comments explaining *why* `subagents.agentOverrides` isn't overwritten by a merge. Explains that `tests/test-pi-overrides-drift.sh` catches drift.
+     - Content:
+       ```
+       # is still configured below.
+
+       # ── 5. Configure Pi if installed ─────────────────────────────────────────────
+       +# Only the skill path is written here. `subagents.agentOverrides` stays
+       +# hand-maintained from PI_SETUP.md § Sub-Agent Routing: its values are concrete
+       #+# provider routes (openrouter/deepseek/...) that hold only for an account with
+       #+# that provider, and a jq merge would overwrite a user's deliberate local pins on
+       #+# every install. A missing entry is the dangerous drift — on Pi it falls through
+       #+# to the Scout-tier defaultModel — and tests/test-pi-overrides-drift.sh catches it.
+       PI_SETTINGS="$HOME/.pi/agent/settings.json"
+       if [ -f "$PI_SETTINGS" ]; then
+         step "Configuring Pi skill paths"
+   ```
+     - Lines changed: ~487-492 (added comments). The diff shows lines starting with `#` added. I need to map these to the *new version* line numbers. Since the diff starts at line 485, and adds 6 lines, the new lines are 486, 487, 488, 489, 490, 491, 492. Wait, the diff shows:
+       `@@ -485,6 +485,12 @@`
+       This means lines 486-491 in the new file are the added comments.
+       Let's count:
+       Line 486: `# Only the skill path is written here. `subagents.agentOverrides` stays`
+       Line 487: `# hand-maintained from PI_SETUP.md § Sub-Agent Routing: its values are concrete`
+       Line 488: `# provider routes (openrouter/deepseek/...) that hold only for an account with`
+       Line 489: `# that provider, and a jq merge would overwrite a user's deliberate local pins on`
+       Line 490: `# every install. A missing entry is the dangerous drift — on Pi it falls through`
+       Line 491: `# to the Scout-tier defaultModel — and tests/test-pi-overrides-drift.sh catches it.`
+       I should check if there are any actual bugs in these comments. They explain a design decision and reference a test file. They are clear and accurate based on the context. No obvious bugs or misleading statements.
+
+   - **File 2:** `a/tests/test-pi-overrides-drift.sh` (new file) -> `b/tests/test-pi-overrides-drift.sh`
+     - This is the main content to review. It's a bash script that tests for drift in Pi settings.
+     - Let's analyze it line by line for defects.
+
+     Line 1: `#!/bin/bash` - Standard shebang.
+     Lines 2-18: Comments explaining the script. Mentions `tests/test-model-tiers.sh`, `Pi_AGENT_SETTINGS`, `REQUIRE_ALL=1`. Clear.
+     Line 19: `. "$(dirname "$0")/lib.sh"` - Source external library. Fine.
+     Line 20-22: `REPO="$(cd "$(dirname "$0")/.." && pwd)" /cd "$REPO"` - Standard path resolution. Fine.
+     Line 23-25: `doc="$(under_test PI_SETUP.md)"` / `LIVE="${PI_AGENT_SETTINGS:-$HOME/.pi/agent/settings.json}"` - Fine.
+     Lines 26-54: `missing_overrides()` function.
+       - `"$TEST_PYTHON" -I - "$1" "$2" <<'PY'` - Passes doc and settings file paths to Python script.
+       - Python script:
+         ```python
+         import json, re, sys
+         doc_path, settings_path = sys.argv[1], sys.argv[2]
+         try:
+             text = open(doc_path, encoding="utf-8").read()
+             fences = [f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f]
+             if len(fences) != 1:
+                 raise ValueError(f"expected one json fence with agentOverrides in {doc_path}, found {len(fences)}")
+             documented = json.loads("{" + fences[0] + "}")["subagents"]["agentOverrides"]
+             with open(settings_path, encoding="utf-8") as fh:
+                 live = json.load(fh).get("subagents", {}).get("agentOverrides", {})
+         except (OSError, ValueError, KeyError, AttributeError) as exc:
+             print(f"unparseable: {exc}")
+             sys.exit(2)
+         missing = sorted(set(documented) - set(live))
+         print("\n".join(missing))
+         sys.exit(1 if missing else 0)
+         ```
+       - Potential issues in Python script:
+         - `json.loads("{" + fences[0] + "}")` - This assumes `fences[0]` is a complete JSON object without the closing `}`. The regex `r"```json\n(.*?)```"` captures the content between backticks. Usually, markdown JSON blocks look like:
+           ```json
+           {
+             "subagents": {
+               "agentOverrides": { "a": "b" }
+           }
+           ```
+           If `fences[0]` is just the JSON object, then `{" + fences[0] + "}"` would be `{"{...}}"` which is invalid JSON. Wait, `fences[0]` would contain the JSON string. If the markdown block is:
+           ```json
+           {
+             "subagents": { "agentOverrides": { "test-engineer": "reviewer" } }
+           }
+           ```
+           Then `fences[0]` is `\n{...}\n`. `{" + fences[0] + "}"` becomes `{\n{...}\n}`. That's invalid JSON. This is a critical bug.
+           Let's verify: `re.findall(r"```json\n(.*?)```", text, re.S)` captures everything after ````json\n` up to ````. If the original text has ````json\n{ ... }\n````, then `fences[0]` is `{ ... }`. So `{" + fences[0] + "}"` becomes `{ { ... } }` which fails.
+           Actually, it's more likely the author intended to just `json.loads(fences[0])` or `json.loads("{" + fences[0].strip() + "}")` but `fences[0]` already includes the `{`. Wait, maybe the markdown block *doesn't* include the opening `{`? Unlikely. Markdown JSON blocks usually contain the full object.
+           Let's look closely: `documented = json.loads("{" + fences[0] + "}")`
+           If `fences[0]` is `{"subagents": {...}}`, then `{"{"subagents": {...}}"}` is definitely invalid.
+           This will cause `json.loads` to fail, raising `ValueError`, caught by `except`, prints `unparseable: invalid literal for json.loads()`, exits with 2. This breaks the test.
+           Severity: MUST-FIX. Confidence: 100.
+           Line number: In the diff, this line is around line 39 of the new file. Let's count lines carefully.
+           I'll count lines in the diff block for `test-pi-overrides-drift.sh`:
+           1: `#!/bin/bash`
+           2: `# tests/test-pi-overrides-drift.sh — the live Pi settings carry every agent`
+           ...
+           19: `. "$(dirname "$0")/lib.sh"`
+           20: `REPO="$(cd "$(dirname "$0")/.." && pwd)"`
+           21: `cd "$REPO"`
+           22: `DOC="$(under_test PI_SETUP.md)"`
+           23: `LIVE="${PI_AGENT_SETTINGS:-$HOME/.pi/agent/settings.json}"`
+           24: `# missing_overrides <doc> <settings> — prints each agent the doc pins that the`
+           25: `# settings file's subagents.agentOverrides lacks, one per line. Exit 0 when none`
+           26: `# is missing, 1 when some are, 2 when either side cannot be parsed.`
+           27: `missing_overrides() {`
+           28: `  "$TEST_PYTHON" -I - "$1" "$2" <<'PY'`
+           29: `import json, re, sys`
+           30: `doc_path, settings_path = sys.argv[1], sys.argv[2]`
+           31: `try:`
+           32: `    text = open(doc_path, encoding="utf-8").read()`
+           33: `    fences = [f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f]`
+           34: `    if len(fences) != 1:`
+           35: `        raise ValueError(f"expected one json fence with agentOverrides in {doc_path}, found {len(fences)}")`
+           36: `    documented = json.loads("{" + fences[0] + "}")["subagents"]["agentOverrides"]`  <-- BUG
+           37: `    with open(settings_path, encoding="utf-8") as fh:`
+           38: `        live = json.load(fh).get("subagents", {}).get("agentOverrides", {})`
+           39: `except (OSError, ValueError, KeyError, AttributeError) as exc:`
+           40: `    print(f"unparseable: {exc}")`
+           41: `    sys.exit(2)`
+           42: `missing = sorted(set(documented) - set(live))`
+           43: `print("\n".join(missing))`
+           44: `sys.exit(1 if missing else 0)`
+           45: `PY`
+           46: `}`
+
+           So line 36 in the new file has the bug. I will report `<file>:36`.
+
+       - Another potential issue: `json.loads("{" + fences[0] + "}")` might be a typo for `json.loads("{" + fences[0].strip() + "}")`? But even stripping won't fix `{ { ... } }`. The author probably meant to just `json.loads(fences[0])`. Or maybe `fences[0]` doesn't include `{`? Unlikely. I'll stick with the bug.
+
+       - Wait, what if `fences[0]` is just the content inside the backticks, which *is* the JSON object? Then `json.loads(fences[0])` would work. The extra `{"` and `}"` are definitely wrong. I'll flag it.
+
+     - Lines 47-56: Test case 1
+       - `if begin_case "fixture"; then`
+       - Runs a Python script to generate test fixtures from `DOC`.
+       - `text = open(sys.argv[1], encoding="utf-8").read()`
+       - `fence = next(f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f)`
+       - `settings = json.loads("{" + fence + "}")` -> Same bug! `{"` + `fence` + `"` will double wrap the JSON.
+       - `json.dump(settings, open(sys.argv[2], "w"))`
+       - `del settings["subagents"]["agentOverrides"]["test-engineer"]`
+       - `json.dump(settings, open(sys.argv[3], "w"))`
+       - `PY`
+       - `run missing_overrides "$DOC" "$FIX/full.json"`
+       - `assert_exit 0 "PiDrift: the documented block satisfies itself"`
+       - `run missing_overrides "$DOC" "$FIX/no-test-engineer.json"`
+       - `assert_exit 1 "PiDrift: a settings file missing test-engineer is refused"`
+       - `assert_eq "test-engineer" "$output" "PiDrift: the refusal names test-engineer and nothing else"`
+       - All wrapped in `fi; end_case` (missing `fi;`? Actually the diff shows `fi; end_case` at the end of the block. Wait, the diff shows:
+         `+fi; end_case`
+         `+  if begin_case "live"; then`
+       - Wait, bash syntax: `if begin_case "live"; then` should probably be `if begin_case "live"; then` or `begin_case "live" {`. The diff shows `fi; end_case` which is valid but unusual. Not a major defect, but I'll check syntax later if needed. Actually, `fi; end_case` is fine.
+
+     - Let's check `assert_eq "test-engineer" "$output" "PiDrift: the refusal names test-engineer and nothing else"`
+       - Where does `$output` come from? The `run` command usually captures output or sets `$OUTPUT`. In many test frameworks, `run cmd` captures stdout to `$OUTPUT`. If `$output` is case-sensitive, it might be `$OUTPUT`. The script uses `$output`, but the `run` function in `lib.sh` likely sets `$OUTPUT` (uppercase). This is a common typo in test scripts. I'll flag it as a potential bug/defect. `assert_eq` expects case-sensitive match. `$output` vs `$OUTPUT`. Confidence: 70. Severity: SHOULD-FIX.
+
+     - Line 58-72: Test case 2 (live)
+       - `if begin_case "live"; then`
+       - `if [ -f "$LIVE" ]; then`
+       - `run missing_overrides "$DOC" "$LIVE"`
+       - `assert_exit 0 "PiDrift: $LIVE carries every agentOverrides entry PI_SETUP.md pins"`
+       - `fi`
+       - `else`
+       - `printf '  NOTE live check not run: %s absent (Pi not configured on this machine)\n' "$LIVE"`
+       - `fi`
+       - `fi; end_case`
+       - `finish`
+       - `fi`
+
+     - Check `missing_overrides` function again.
+       - `sys.exit(1 if missing else 0)` - correct.
+       - `print("\n".join(missing))` - correct.
+       - The Python script uses `sys.argv[1]` and `sys.argv[2]`. The bash passes `"$1" "$2"`. Correct.
+
+     - Check `under_test` usage. It's from `lib.sh`. Assume it works.
+     - Check `REQUIRE_ALL=1` mention in comments: "CI sets REQUIRE_ALL=1, which fails a file on any skip". The script itself doesn't skip; it just prints a note. That's fine.
+
+     - Let's re-examine `documented = json.loads("{" + fences[0] + "}")["subagents"]["agentOverrides"]`
+       If `fences[0]` is `{"subagents": {"agentOverrides": {...}}}`, then `{"` + `fences[0]` + `"` becomes `{ {"subagents": ...} }`. This is definitely invalid JSON. The author likely meant `json.loads(fences[0])`. I will report this as MUST-FIX.
+       Line: 36
+
+     - Check `settings = json.loads("{" + fence + "}")` in the fixture generation.
+       Same issue. Line: 53 (counting from 1: `#!/bin/bash` 1, comments 2-18, lib 19, repo 20-21, doc 22, live 23, comment 24-26, func 27, cmd 28, imports 29-30, try 31, text 32, fences 33, if 34, raise 35, documented 36, with 37, live 38, except 39, print 40, exit 41, missing 42, print 43, exit 44, PY 45, close 46. Wait, the fixture generation is after `PY`. Let's count carefully.)
+       Let's count lines in the diff exactly:
+       1: #!/bin/bash
+       2: # tests/test-pi-overrides-drift.sh — the live Pi settings carry every agent
+       3: # PI_SETUP.md pins in `subagents.agentOverrides`.
+       4: #
+       5: # On Pi, an agent missing from agentOverrides does not inherit: it falls through
+       6: # to `subagents.defaultModel`, the Scout tier. tests/test-model-tiers.sh § 11 and
+       7: # § 13 pin the documented block, but nothing compared it with the file Pi reads,
+       8: # so `test-engineer` ran two tiers below its Reviewer tier with every test green.
+       9: # The live file was repaired in the session that added this guard; the guard
+       10: # exists to stop the drift recurring. This file compares the two. Both sides are parsed as JSON; the documented side
+       11: # is the ```json fence in PI_SETUP.md that holds "agentOverrides".
+       12: #
+       13: # The live file is per-machine. When it is absent (CI, other machines) the live
+       14: # comparison is noted and left out, not `skip`ped — CI sets REQUIRE_ALL=1, which
+       15: # fails a file on any skip — and the fixture cases below still prove the guard
+       16: # bites. PI_AGENT_SETTINGS points the live case at another file.
+       17: . "$(dirname "$0")/lib.sh"
+       18: REPO="$(cd "$(dirname "$0")/.." && pwd)"
+       19: cd "$REPO"
+       20: DOC="$(under_test PI_SETUP.md)"
+       21: LIVE="${PI_AGENT_SETTINGS:-$HOME/.pi/agent/settings.json}"
+       22: # missing_overrides <doc> <settings> — prints each agent the doc pins that the
+       23: # settings file's subagents.agentOverrides lacks, one per line. Exit 0 when none
+       24: # is missing, 1 when some are, 2 when either side cannot be parsed.
+       25: missing_overrides() {
+       26:   "$TEST_PYTHON" -I - "$1" "$2" <<'PY'
+       27: import json, re, sys
+       28: doc_path, settings_path = sys.argv[1], sys.argv[2]
+       29: try:
+       30     text = open(doc_path, encoding="utf-8").read()
+       31     fences = [f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f]
+       32     if len(fences) != 1:
+       33         raise ValueError(f"expected one json fence with agentOverrides in {doc_path}, found {len(fences)}")
+       34     documented = json.loads("{" + fences[0] + "}")["subagents"]["agentOverrides"]
+       35     with open(settings_path, encoding="utf-8") as fh:
+       36         live = json.load(fh).get("subagents", {}).get("agentOverrides", {})
+       37 except (OSError, ValueError, KeyError, AttributeError) as exc:
+       38     print(f"unparseable: {exc}")
+       39     sys.exit(2)
+       40 missing = sorted(set(documented) - set(live))
+       41 print("\n".join(missing))
+       42 sys.exit(1 if missing else 0)
+       43 PY
+       44 }
+       45 FIX="$(fixture_dir)"
+       46 # --- 1. The guard bites: a fixture without test-engineer is refused ----------
+       47 # The positive control is the documented block itself, written out as a settings
+       48 # file; the negative control is the same file with test-engineer removed — the
+       49 # exact drift this file exists for.
+       50 if begin_case "fixture"; then
+       51   "$TEST_PYTHON" -I - "$DOC" "$FIX/full.json" "$FIX/no-test-engineer.json" <<'PY'
+       52 import json, re, sys
+       53 text = open(sys.argv[1], encoding="utf-8").read()
+       54 fence = next(f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f)
+       55 settings = json.loads("{" + fence + "}")
+       56 json.dump(settings, open(sys.argv[2], "w"))
+       57 del settings["subagents"]["agentOverrides"]["test-engineer"]
+       58 json.dump(settings, open(sys.argv[3], "w"))
+       59 PY
+       60   run missing_overrides "$DOC" "$FIX/full.json"
+       61   assert_exit 0 "PiDrift: the documented block satisfies itself"
+       62   run missing_overrides "$DOC" "$FIX/no-test-engineer.json"
+       63   assert_exit 1 "PiDrift: a settings file missing test-engineer is refused"
+       64   assert_eq "test-engineer" "$output" "PiDrift: the refusal names test-engineer and nothing else"
+       65   fi; end_case
+       66 # --- 2. The live user-scope settings carry every documented override ---------
+       67 if begin_case "live"; then
+       68   if [ -f "$LIVE" ]; then
+       69     run missing_overrides "$DOC" "$LIVE"
+       70     assert_exit 0 "PiDrift: $LIVE carries every agentOverrides entry PI_SETUP.md pins"
+       71   else
+       72     printf '  NOTE live check not run: %s absent (Pi not configured on this machine)\n' "$LIVE"
+       73   fi
+       74   fi; end_case
+       75 finish
+
+       So line 34 is `documented = json.loads("{" + fences[0] + "}")["subagents"]["agentOverrides"]`
+       Line 55 is `settings = json.loads("{" + fence + "}")`
+       Both have the same bug. I will report line 34 as MUST-FIX.
+       Also, line 64 `assert_eq "test-engineer" "$output" ...` uses `$output` instead of `$OUTPUT`. This is likely a defect. I'll report it as SHOULD-FIX.
+
+     - Let's double check line 34 in the *new version*. The diff shows `@@ -0,0 +1,82 @@` so line numbers are 1-82.
+       I'll count carefully again to be absolutely sure.
+       1: #!/bin/bash
+       2: # tests/test-pi-overrides-drift.sh — the live Pi settings carry every agent
+       3: # PI_SETUP.md pins in `subagents.agentOverrides`.
+       4: #
+       5: # On Pi, an agent missing from agentOverrides does not inherit: it falls through
+       6: # to `subagents.defaultModel`, the Scout tier. tests/test-model-tiers.sh § 11 and
+       7: # § 13 pin the documented block, but nothing compared it with the file Pi reads,
+       8: # so `test-engineer` ran two tiers below its Reviewer tier with every test green.
+       9: # The live file was repaired in the session that added this guard; the guard
+       10: # exists to stop the drift recurring. This file compares the two. Both sides are parsed as JSON; the documented side
+       11: # is the ```json fence in PI_SETUP.md that holds "agentOverrides".
+       12: #
+       13: # The live file is per-machine. When it is absent (CI, other machines) the live
+       14: # comparison is noted and left out, not `skip`ped — CI sets REQUIRE_ALL=1, which
+       15: # fails a file on any skip — and the fixture cases below still prove the guard
+       16: # bites. PI_AGENT_SETTINGS points the live case at another file.
+       17: . "$(dirname "$0")/lib.sh"
+       18: REPO="$(cd "$(dirname "$0")/.." && pwd)"
+       19: cd "$REPO"
+       20: DOC="$(under_test PI_SETUP.md)"
+       21: LIVE="${PI_AGENT_SETTINGS:-$HOME/.pi/agent/settings.json}"
+       22: # missing_overrides <doc> <settings> — prints each agent the doc pins that the
+       23: # settings file's subagents.agentOverrides lacks, one per line. Exit 0 when none
+       24: # is missing, 1 when some are, 2 when either side cannot be parsed.
+       25: missing_overrides() {
+       26:   "$TEST_PYTHON" -I - "$1" "$2" <<'PY'
+       27: import json, re, sys
+       28: doc_path, settings_path = sys.argv[1], sys.argv[2]
+       29: try:
+       30     text = open(doc_path, encoding="utf-8").read()
+       31     fences = [f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f]
+       32     if len(fences) != 1:
+       33         raise ValueError(f"expected one json fence with agentOverrides in {doc_path}, found {len(fences)}")
+       34     documented = json.loads("{" + fences[0] + "}")["subagents"]["agentOverrides"]
+       35     with open(settings_path, encoding="utf-8") as fh:
+       36         live = json.load(fh).get("subagents", {}).get("agentOverrides", {})
+       37 except (OSError, ValueError, KeyError, AttributeError) as exc:
+       38     print(f"unparseable: {exc}")
+       39     sys.exit(2)
+       40 missing = sorted(set(documented) - set(live))
+       41 print("\n".join(missing))
+       42 sys.exit(1 if missing else 0)
+       43 PY
+       44 }
+       45 FIX="$(fixture_dir)"
+       46 # --- 1. The guard bites: a fixture without test-engineer is refused ----------
+       47 # The positive control is the documented block itself, written out as a settings
+       48 # file; the negative control is the same file with test-engineer removed — the
+       49 # exact drift this file exists for.
+       50 if begin_case "fixture"; then
+       51   "$TEST_PYTHON" -I - "$DOC" "$FIX/full.json" "$FIX/no-test-engineer.json" <<'PY'
+       52 import json, re, sys
+       53 text = open(sys.argv[1], encoding="utf-8").read()
+       54 fence = next(f for f in re.findall(r"```json\n(.*?)```", text, re.S) if '"agentOverrides"' in f)
+       55 settings = json.loads("{" + fence + "}")
+       56 json.dump(settings, open(sys.argv[2], "w"))
+       57 del settings["subagents"]["agentOverrides"]["test-engineer"]
+       58 json.dump(settings, open(sys.argv[3], "w"))
+       59 PY
+       60   run missing_overrides "$DOC" "$FIX/full.json"
+       61   assert_exit 0 "PiDrift: the documented block satisfies itself"
+       62   run missing_overrides "$DOC" "$FIX/no-test-engineer.json"
+       63   assert_exit 1 "PiDrift: a settings file missing test-engineer is refused"
+       64   assert_eq "test-engineer" "$output" "PiDrift: the refusal names test-engineer and nothing else"
+       65   fi; end_case
+       66 # --- 2. The live user-scope settings carry every documented override ---------
+       67 if begin_case "live"; then
+       68   if [ -f "$LIVE" ]; then
+       69     run missing_overrides "$DOC" "$LIVE"
+       70     assert_exit 0 "PiDrift: $LIVE carries every agentOverrides entry PI_SETUP.md pins"
+       71   else
+       72     printf '  NOTE live check not run: %s absent (Pi not configured on this machine)\n' "$LIVE"
+       73   fi
+       74   fi; end_case
+       75 finish
+
+       Yes, line 34 is correct.
+       I will report: `tests/test-pi-overrides-drift.sh:34 | json.loads doubles wraps the extracted JSON string with additional braces, causing a parsing error | MUST-FIX | 100`
+       Wait, let's verify if `fences[0]` might actually be missing the `{`. In markdown, a JSON block usually looks like:
+       ```json
+       {
+         "key": "value"
+       }
+       ```
+       So `fences[0]` is `{ \n   "key": "value" \n }`. Wrapping it again makes it `{ { \n ... } }`, which is invalid. So yes, MUST-FIX.
+
+     - What about line 55? Same issue. `settings = json.loads("{" + fence + "}")`. I'll report it too, or just pick the first one. The prompt says "report DEFECTS only". I'll report both if they are distinct lines, but they are the same bug. I'll report line 34 and line 55. Or just one representative. I'll report both for completeness, or merge them into one description. I'll stick to line 34 for the main bug, and line 55 for the same. Actually, it's better to report each line with the bug.
+
+     - Check `assert_eq "test-engineer" "$output" ...` on line 64. Test frameworks usually use `$OUTPUT` or `$$OUTPUT`. I'll report it as SHOULD-FIX.
+     - Check `fi; end_case` syntax. In bash, `if ... then ... fi` is standard. The script uses `if begin_case "live"; then ... fi; end_case`. This is valid but non-standard. Not a defect.
+     - Check `REQUIRE_ALL=1` comment. It says "fails a file on any skip". The script doesn't skip, it prints a note. That's fine.
+     - Check `"$TEST_PYTHON" -I - "$1" "$2" <<'PY'`. The `-I` flag for python usually means include path. `"$TEST_PYTHON" -I - "$1" "$2"` might be wrong. Usually it's `python -c "..."` or `python script.py "$1" "$2"`. The heredoc approach `"$TEST_PYTHON" -I - "$1" "$2" <<'PY'` means it passes `-I - "$1" "$2"` as arguments to python. That will cause python to try to execute `-I` as a command/module or flag, which will fail. Wait! Python doesn't accept `-I` as a positional argument. It should be `"$TEST_PYTHON" -c "import ..."` or `"$TEST_PYTHON" -I . "$1" "$2"` but `-I .` is standard. Here it's `"$TEST_PYTHON" -I - "$1" "$2"`. This will definitely fail because `-` is interpreted as a filename or something. Actually, `python -I - ...` means add current dir to path? No, `-I PATH`. So `python -I - file.py` adds `.` to sys.path. But here it's passed as arguments to the heredoc content, which expects `doc_path, settings_path = sys.argv[1], sys.argv[2]`. The `-I -` flags are passed to python, so `sys.argv` will be `["-I", "-", "$1", "$2"]`. Then `doc_path = "-"`, `settings_path = "$1"`. This is a critical bug!
+     Let's verify: `"$TEST_PYTHON" -I - "$1" "$2" <<'PY'`
+     In bash, `command arg1 arg2 <<'EOF'` runs `command arg1 arg2 < (echo 'EOF')`. So python sees `argv[0]=python`, `argv[1]=-I`, `argv[2]=-`, `argv[3]=$1`, `argv[4]=$2`.
+     Inside python: `doc_path, settings_path = sys.argv[1], sys.argv[2]` -> `doc_path="-I"`, `settings_path="-"`. This is completely wrong. It should be `"$TEST_PYTHON" -c "..."` or `"$TEST_PYTHON" -I . "$1" "$2"` but with heredoc, it's better to use `"$TEST_PYTHON" -c "..."` or just pass flags correctly. Actually, to run a heredoc with arguments, you'd do:
+     `"$TEST_PYTHON" <<'PY' import sys; ...`
+     If you want to pass `-I .`, it should be:
+     `"$TEST_PYTHON" -I . "$TEST_PYTHON" -c "..."` no.
+     Standard way: `"$TEST_PYTHON" -c "..."`
+     Or: `"$TEST_PYTHON" <<'PY' import sys; ...; sys.exit(0)`
+     The author probably meant `"$TEST_PYTHON" -I . "$TEST_PYTHON" -c "..."` but that's messy.
+     Actually, the correct bash pattern for heredoc with args is:
+     `"$TEST_PYTHON" -c "..."`
+     Or if they want to pass args:
+     `"$TEST_PYTHON" -I . "$(cat <<'PY' import sys; ...; sys.exit(sys.exitcode))" >> /dev/null; echo $?`
+     The current usage `"$TEST_PYTHON" -I - "$1" "$2" <<'PY'` is definitely broken. It passes `-I` and `-` as arguments, which Python will try to process, and then the heredoc content will be piped as stdin, not a script. Python will read stdin as a script and ignore the arguments! So `sys
+=== REPLY (verbatim) ===
+

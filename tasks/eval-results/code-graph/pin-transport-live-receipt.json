@@ -1,0 +1,17 @@
+{
+  "driver": "util-linux script PTY; real scripts/install-codex.sh with isolated HOME/CODEX_HOME",
+  "command": "script -q -e -c 'bash /tmp/code-graph-pin-walkthrough.sh' /tmp/code-graph-pin-walkthrough.pty.log",
+  "exit_code": 0,
+  "stdout": "/tmp/code-graph-pin-walkthrough.stdout",
+  "pty": "/tmp/code-graph-pin-walkthrough.pty.log",
+  "pty_sha256": "961026464e35a9a28a69b395ee508bf0790c4eab472e6b43cfbbd6020233e3fd",
+  "installer_sha256": "01546b7affb2516321abc759abd7027f7cd2621df5959dc777e34bcb4f634aec",
+  "pin_sha256": "c69011adb49774e12fc9c8c856e2f070e71011c964d00fa5af76555f7000b351",
+  "checks": [
+    "Fresh installation delivers byte-identical canonical adjacent pin",
+    "Stale pin replaced on re-run",
+    "Lifecycle hooks remain idempotent with exactly SessionStart/PreCompact/SessionEnd",
+    "No PreToolUse treatment registered"
+  ],
+  "project_local_verification": "verify-task-registry does not cover installation; independently drove actual installer via PTY, no browser surface"
+}

@@ -1672,7 +1672,7 @@ Filed this sweep:
 - Completed: first `/make-it-simpler` run (interactive): #231, `/tidy` cites `/sweep` § *2. Read the backlog* for the dedupe-set rule (-4 lines, behavior changes: none). Created the GitHub `simplify` label.
 - Pending: GitHub labels `design-decision`, `in-progress`, `needs-investigation`, `tech-debt` are missing, so `select`/`claim`/`workflow` refuse on this repo (claim of #231 skipped); installed jplugin 1.1.0 has no `/make-it-simpler`; no `routine-prompts/simplify.md`.
 - Carry-forward: ranking is dominated by `code-red-flag` (evidence is just line 501), and `tasks/` logs and specs quoting their skill produce false duplicate-rule/citation-drift hits; `/make-it-simpler` § *Offer the top 3* documents `claim` without the required `--routine`; the `/sweep` § *File* citation in tidy is not checked by either citation checker.
-- [ ] closure loop cannot leave ci when the base moves after CI passed <!-- task-id: tech-debt.agents-skills-wrap-up-session-scripts-closure-py.closure-loop-cannot-leave-ci-when-the-base-moves-after-ci-passed --> — Once closure.py reaches watch-ci, a late merge conflict (master moved after CI went green) has no transition: {"mergeab… ([#234](https://github.com/Joaovsales/jplugin-agentic-development/issues/234))
+- [x] closure loop cannot leave ci when the base moves after CI passed <!-- task-id: tech-debt.agents-skills-wrap-up-session-scripts-closure-py.closure-loop-cannot-leave-ci-when-the-base-moves-after-ci-passed --> — Once closure.py reaches watch-ci, a late merge conflict (master moved after CI went green) has no transition: {"mergeab… ([#234](https://github.com/Joaovsales/jplugin-agentic-development/issues/234))
 - [ ] skill-form citations are never resolved <!-- task-id: tech-debt.tests-test-citations-sh.skill-form-citations-are-never-resolved --> — tests/test-citations.sh resolves only `<path>.md` § *Heading* citations. A `/skill` § *Heading* citation is never check… ([#235](https://github.com/Joaovsales/jplugin-agentic-development/issues/235))
 
 ## Session Summary — 2026-10-01 [94d9c99..94d9c99]
@@ -2869,7 +2869,7 @@ Step ledger (routine `simplify`):
 
 ## Plan: Code-graph adoption, gated by a measured A/B
 > Spec: specs/code-graph-adoption.md
-- [ ] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
+- [x] Code-graph adoption, gated by a measured A/B <!-- task-id: plan.specs-code-graph-adoption-md --> ([#401](https://github.com/Joaovsales/jplugin-agentic-development/issues/401))
 
 ### Slice 1/9 — graphify install policy
 - [x] graphify install policy — pin file, `graphifyy` name, interactive y/N offer, stock hook stripped, budgeted rules text, ledger created
@@ -2907,19 +2907,69 @@ Step ledger (routine `simplify`):
 > [AMBIGUITY] Slice 4 requests a paid smoke run before slice 8 commits the protocol | options: A) defer the paid smoke until the protocol is committed B) run the smoke before protocol freeze | picked: A | reason: AC4 requires a committed protocol before every paid run.
 
 ### Slice 5/9 — routing rule and hint hook
-- [ ] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+- [x] routing rule and hint hook — `code-navigation.md` with the ladder and fallback contract; a fail-open, working-tree-aware hint registered in the plugin
+
+> Handover: landed c2c4826 — routing ladder, strict navigation fallback and file-only PreToolUse hints; affected tests:34 files,3489 assertions passed.
+> Do not re-derive: hook output is one Claude-style PreToolUse JSON context line, only for normalized Grep/Glob. It never executes graphify. Codex must translate native search events, preserve this shell hook and provide its installed package reference; the adjacent banner pin also remains a slice6 obligation.
+> Surface: initial check against c7360e4 clean. Parent integration additionally updated tests/test-hooks-json.sh for the fourth event and release metadata1.8.11.
+
+> [AMBIGUITY] AC7 asks a file-only hook to detect a CLI hang without executing the CLI | options: A) keep file-only hints and prove the hook never waits for the hanging stub B) add a CLI health probe to every hint | picked: A | reason: the explicit no-CLI hook contract preserves bounded overhead and leaves CLI health to the banner and navigation fallback.
 
 ### Slice 6/9 — Codex hint adapter
-- [ ] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+- [x] Codex hint adapter — a probe of Codex PreToolUse support; the adapter registered only when it is supported
+
+> Handover: landed 66f597d — schema-gated idempotent native Bash search adapter, context-only output, unsupported cleanup, copied banner pin and shared resources; affected55files/5331assertions green.
+> Do not re-derive: codex-cli0.166.0 schema exposes preToolUse and typed matcher; native rg/grep/find normalize to shared Grep/Glob. Unsupported reruns retire only the installed Python callback and preserve personal hooks/path mentions. No global user configuration was changed.
+> Surface: source check against f2bec3f clean; targeted 59 assertions passed.
+> Open: no-go results retain only the independent adjacent-pin copy; public installer fresh/stale-pin regressions are 54 passed, 0 failed. Adapter and hint wiring stay unmerged.
+
 
 ### Slice 7/9 — skill wiring
-- [ ] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+- [x] skill wiring — one routing step with the `Grep` fallback in each of the `/how` explorer, `/debug`, `/plan` and `/quality-gate`; a bounded graph refresh at `/build` handover
+
+> Handover: landed 1655f58 plus same-surface prose-budget repair — routing at four requested stages and guarded120-second handover refresh; affected55files/5331assertions green.
+> Do not re-derive: project reference then plugin package fallback; missing capability/reference uses Grep; quality review confirms graph negatives with Grep. Build failure emits one fourth-line warning instead of Open; graph refresh skipped when no graph exists.
+> Surface: source check against 66f597d clean; build remains 600 lines and all workflow pins pass; extracted snippet covers five stub states.
+
 
 ### Slice 8/9 — eval run and verdict
-- [ ] eval run and verdict — the protocol committed first; arms A, B, C and D run at N = 3 and graded; `results.md` with the verdict and coverage statement
+- [x] eval run and verdict — frozen protocol committed first; A/B/D at N=3, C excluded by spike; 90 complete selected runs graded; results.md records the measured no-go and harness scope
+
+> Handover: landed registered A/B/D cohort: 90 completed selected runs, 91 paid attempts including the preserved original smoke; Verdict: no-go — rules 2, 4 and 6. Selected nominal $12.45952240; total nominal $12.60879440; accounted upper $20.58969660. Results and evidence index: tasks/eval-results/code-graph/2026-11-16/.
+> Do not re-derive: all outcomes were 100%, B localization median tokens were 1.230145× A with 0/21 graph adoption, D tokens 1.270499× A. No rule-only retry applies. Keep protocol/manifest/prior attempts frozen; no further paid run is authorized by this result.
+> Surface: slice worker edited only tasks/eval-results/code-graph/** and tasks/code-graph-run.md. Unchanged grader exited 0 with 90 complete inputs, rules 1/3/5 pass and 2/4/6 fail; each verdict input has a run-directory hash receipt.
+
 
 ### Slice 9/9 — outcome
-- [ ] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
+- [x] outcome — go: PR 2 merged, downstream `/sync` PRs opened, Codex replication backlogged; no-go: PR 2 closed and PR 3 merged; the ledger reaches a terminal state
+
+> Handover: landed no-go — treatment PR420 closed unmerged; results PR421 merged at c505dfa with valid GO edbae8e0, full98files/8246assertions and green Ubuntu CI43804890181. Optional wording, numerical/decoder learnings and independent pin transport are recorded; ledger ends NO-GO-RECORDED.
+> Do not re-derive: all90selectedruns completed; failed smoke/retry preserved in91attempts, nominal$12.60879440/accounted$20.58969660. No rule-only retry, treatment promotion or downstream sync applies. Frozen protocol, manifests, source IDs and prior evidence stay unchanged.
+> Surface: slice9 worker edited only AGENTS.md, tasks/solutions/**/code-graph-*.md and tasks/code-graph-run.md; pin-only carry-forward stayed within slice6 installer/test Surface. Parent-only todo/checkpoint/receipt bookkeeping is separate. Required affected command: env -u TASK_REGISTRY_TRUSTED_CONFIG bash tests/run.sh </dev/null (98files/8246assertions, exit0).
+
+## Session Summary — [2026-11-16] [4883c06..0ac317a]
+- Completed: frozen cohort and literal no-go report; treatmentPR420 closed unmerged; optional graph wording; numerical/root-cause learnings; independent adjacent-pin delivery and real CLI fresh/stale/idempotence walkthrough.
+- Pending: actual results release quality receipt, full suite, LinuxCI and merge; terminal ledger follows its verified merge.
+- Carry-forward: nominal$12.60879440, accounted upper$20.58969660, no extra paid runs, no optional treatment hook or skill wiring in this branch.
+
+## Session Summary — [2026-11-16] [2532e56..c505dfa]
+- Completed: closed the nine-slice code-graph plan and persisted the verified no-go terminal ledger with retained evidence and handovers.
+- Pending: final post-outcome bookkeeping publication only; product behavior and measured evidence are unchanged.
+- Carry-forward: no additional paid runs, no treatment promotion, no downstream sync; follow the terminal ledger.
+
+## Session Summary — [2026-11-16] [c7360e4..ed4b671]
+- Completed: #409 #410 #411 #419 #424 #425 #426 #427 #430 #432 merged; issues #358 #391 #400 #402 #403 #404 #405 #406 #407 #408 #412 closed; debt ledger reconciled with no per-commit issues filed; six learnings written.
+- Pending: #417 (refs only, via #419), #381 (todo.md index conflicts).
+- Carry-forward: install.sh `cp -r` leaves the pre-#430 copy at ~/.agents/skills/build/references/ on installed machines. Local reviewer personas stay off (eval no-go).
+## Session Summary — [2026-11-13] [317a717..5ef58e1]
+- Completed: #192 — `select` holds back a task whose `depends-on:` blocker is open or unresolvable, and a task whose prose names an open dependency, and reports each. Tests in `tests/test-routine-selectors.sh` (local provider plus the PKB #91 GitHub-mock fixture). Receipt a1b3c731 GO.
+- Pending: the six GitHub-mock #192 assertions are XFAIL on Windows (#129). Linux CI is their authority.
+- Carry-forward: native `blockedBy` (#97) should feed `Task.depends_on` so `select_candidates` applies the same rule. `claim` does not re-check blockers for a human-named issue. `/memory-maintain` is still overdue (not run in this side session).
+
+## Session Summary — [2026-11-13] [317a717..4ddd067]
+- Completed: #234 — closure.py phase `ci` accepts `mergeable: conflicting` (→ merge-base, bound by conflict_rounds; a resolved merge returns to receipt) and `mergeable: unknown` (→ mark-draft); conflict rows require `base`; watch-ci re-reads mergeability before any non-fail result.
+- Pending: none.
+- Carry-forward: `gh_pr.py mergeable` falls back to the base name "the base branch" when the base ref is missing, which the new `base` guard still accepts (pre-existing, gh_pr.py).
 
 - [ ] task-registry claim is check-then-act: two routine runs can both claim one issue <!-- task-id: find-implicit-state-machines.agents-skills-task-registry-scripts-task-registry-py.task-registry-claim-is-check-then-act-two-routine-runs-can-both-claim-one-issue --> — Implicit state machine 'Routine issue claim', hidden transition claimed -> claimed by two runs. `claim` reads the issue… ([#413](https://github.com/Joaovsales/jplugin-agentic-development/issues/413))
 - [ ] Routine claim label is never released: a dead run or a hold-only re-triage strands the issue <!-- task-id: find-implicit-state-machines.agents-skills-task-registry-scripts-registry-routines-py.routine-claim-label-is-never-released-a-dead-run-or-a-hold-only-re-triage-strands-the-issue --> — Implicit state machine 'Routine issue claim', hidden transitions claimed -> orphaned claim and escalated -> orphaned cl… ([#414](https://github.com/Joaovsales/jplugin-agentic-development/issues/414))

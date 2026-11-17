@@ -1,0 +1,36 @@
+{
+  "label": "offline-only",
+  "command": [
+    "python3",
+    "tasks/eval-results/code-graph/test_admission_gateway.py"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "14 tests passed (exact output retained in agent tool transcript).",
+  "paid_calls": 0,
+  "spend_usd": 0,
+  "files": {
+    "tasks/eval-results/code-graph/admission_gateway.py": "29df3dd507fd7e558c871159ddd389e9945b488e8ddd0db8233c8acbac703cdb",
+    "tasks/eval-results/code-graph/test_admission_gateway.py": "0ccb6cd018173da52f9a2abcd669bf960f471af6e26a6724923daec7980dc7a1",
+    "tasks/eval-results/code-graph/admission-gateway.md": "7f715c5bceb324056cfef520f4a22e5e5b4aa5e1d4c3ff63b5889541c5b3a06f",
+    "tasks/eval-results/code-graph/native-request-shape.json": "3df0f4760b7d8f95ef7806e37f48a95e4aa7bfc4863a8ddb4ab442460b2941f1",
+    "tasks/eval-results/code-graph/stream-order-cases.json": "b78032eb3502e7ef462d8f6488858504db4ceaeeba26ead1b46d0136bd82f5e6",
+    "tasks/eval-results/code-graph/native-beta-header.txt": "09e6fc16b2b9fae5e50dfacf2233d0f533a057bfa80f9908ce842f3dd89f5c67"
+  },
+  "red_evidence": "Initial test execution failed 8 behavior assertions with admission gateway implementation missing; retained in the agent tool transcript before production source creation.",
+  "limits": [
+    "Structural allowance is an explicit reviewed assumption, not a published provider billing guarantee.",
+    "No paid/native integrated run has been made by this implementation task."
+  ],
+  "regression_red": "Reviewer priority/advisor usage regression failed before the usage allowlist/iteration/service-tier fix; retained in tool transcript.",
+  "native_compatibility_red": "Complete native-shaped request failed admission before exact context_management/thinking.display support; tool transcript retains failing run. No model API called.",
+  "verified_utc": "2026-11-16T02:08:59.908810+00:00",
+  "verification_tool_chunk": "agent tool transcript: optional system config final green",
+  "stream_order_red": "Replayed post-stop/decreasing/duplicate/out-of-order streams failed black-box assertions before the state/monotonic-counter fix; the agent tool transcript retains the red run.",
+  "stream_scenarios": 10,
+  "diagnostics_red": "Native-direct diagnostic regression failed before exact previous_message_id shape support; red and subsequent green run retained in agent tool transcript.",
+  "per_turn_control_red": "Synthetic native fixture with the observed system/content/output_config message failed before its narrow role/text/effort support; subsequent14-test green recorded in agent tool transcript.",
+  "cache_scope_red": "Native-shaped global 1h cache fixture failed before scope=global allowance; subsequent14-test green retained in agent tool transcript (8c2d44). Unknown scope is rejected.",
+  "system_string_red": "Native fixture containing both current text-block and prior plain-string system turn-controls failed before the narrow str/list allowance; subsequent14-test green retained in agent tool transcript.",
+  "optional_control_config_red": "Native fixture with list/config, string/config and list/no-config system controls failed before the shared required-role/content optional-config validator; subsequent14-test green retained in tool transcript."
+}

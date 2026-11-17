@@ -1,0 +1,34 @@
+=== META ===
+{
+ "diff": "419.final.diff",
+ "reasoning_effort": "none",
+ "wall_s": 24.3,
+ "usage": {
+  "completion_tokens": 290,
+  "prompt_tokens": 2721,
+  "total_tokens": 3011,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  }
+ },
+ "timings": {
+  "cache_n": 0,
+  "prompt_n": 2721,
+  "prompt_ms": 8572.263,
+  "prompt_per_token_ms": 3.150409040793826,
+  "prompt_per_second": 317.4190992506879,
+  "predicted_n": 290,
+  "predicted_ms": 15530.318,
+  "predicted_per_token_ms": 53.738124567474046,
+  "predicted_per_second": 18.60876255077327
+ },
+ "finish_reason": "stop"
+}
+=== REASONING (verbatim) ===
+
+=== REPLY (verbatim) ===
+tests/test-plugin-manifest.sh:213 | A trailing newline added to a test assertion string may cause test failures in other suites if the expected output is compared literally without trimming. | MUST-FIX | 100
+tests/test-plugin-manifest.sh:239 | assert_eq is used with an argument that is not a file path but a command result; the syntax does not match the helper's contract and will likely fail or silently ignore the check. | MUST-FIX | 100
+scripts/bump-plugin-version.sh:43 | The script does not handle the case where the `version` field is missing from `plugin.json`, which would cause `json.loads(source).get("version")` to return `None` and `semver(None)` to raise `TypeError` on `re.fullmatch`. | MUST-FIX | 100
+scripts/bump-plugin-version.sh:50 | Using `newline=""` when writing `plugin.json` in `open(path, "w", ...)` can break JSON parsers on Windows that expect a trailing newline or UTF-8 BOM. | MUST-FIX | 100
+README.md:209 | The line about `tests/test-plugin-manifest.sh` is duplicated in the diff, which is likely a formatting artifact but could indicate an incomplete merge or copy-paste error. | MUST-FIX | 95

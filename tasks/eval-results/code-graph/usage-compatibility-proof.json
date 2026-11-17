@@ -1,0 +1,37 @@
+{
+  "label": "offline operational compatibility repair after first paid smoke",
+  "verified_utc": "2026-11-16T03:15:18.541727+00:00",
+  "native_sha256": "0dc4f4a9a165fc60746d7ae8489712e5fc352f1e7ad4eb22e7141bd0812eb0cf",
+  "previous_gateway_sha256": "29df3dd507fd7e558c871159ddd389e9945b488e8ddd0db8233c8acbac703cdb",
+  "gateway_sha256": "5c1e0ff1798f3ac2dd8260f0bf79de19038b71e9c5c6e406260d60b18c660f8d",
+  "files": {
+    "tasks/eval-results/code-graph/admission_gateway.py": "5c1e0ff1798f3ac2dd8260f0bf79de19038b71e9c5c6e406260d60b18c660f8d",
+    "tasks/eval-results/code-graph/test_admission_gateway.py": "31677ec566577c39de00ee124b42a4f457e4bcdb34364d9e1f62210384af6aa3",
+    "tasks/eval-results/code-graph/stream-order-cases.json": "b09f36ae15d2e9c7f5cd128cc424ada5d36998942bd202968a8c36225970547e",
+    "tasks/eval-results/code-graph/usage-compatibility-notes.md": "d875f3a5414d516ffd29d4dc16b76223c60861c726fb0803be60f6d56cd02aa7"
+  },
+  "command": [
+    "python3",
+    "tasks/eval-results/code-graph/test_admission_gateway.py"
+  ],
+  "exit_code": 0,
+  "stderr": "................\n----------------------------------------------------------------------\nRan 16 tests in 10.911s\n\nOK\n",
+  "verification_tool_chunk": "85cce7",
+  "red_evidence": [
+    "Null/zero/pricing/thinking-detail and missing diagnostics regressions failed before compatibility normalization.",
+    "Fallback/server-tool stream regressions failed before output-block validation."
+  ],
+  "stream_scenarios": 14,
+  "source_semantics_offsets": [
+    314531014,
+    306234834
+  ],
+  "paid_failure_unique_trigger": "not established: original SSE event lost",
+  "spend_preserved": {
+    "native_usd": "0.14927200000000002",
+    "accounted_usd": "1.660241"
+  },
+  "paid_calls_in_this_task": 0,
+  "paid_retry_authorized": false,
+  "frozen_files_edited": false
+}

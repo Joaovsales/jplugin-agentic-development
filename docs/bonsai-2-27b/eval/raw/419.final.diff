@@ -1,0 +1,142 @@
+diff --git a/README.md b/README.md
+index 64aa9457..ec73e196 100644
+--- a/README.md
++++ b/README.md
+@@ -202,7 +202,12 @@ bump `version` in the same commit as any skill change every synced project shoul
+ that changes a skill without a bump leaves every install where it was ("already at the latest
+ version"; specs/plugin-staleness-check.md § Why a bump is required).
+ `tests/test-plugin-manifest.sh` fails a change to the plugin payload that does not bump it
+-(the paths its `PAYLOAD_PATHS` names, against the merge base with `origin/master`). The
++(the paths its `PAYLOAD_PATHS` names, against the merge base with `origin/master`).
++In this repository, raise it with `scripts/bump-plugin-version.sh` — a maintainer tool that is
++not payload, so no synced project receives it; its header states the rule. On a branch that
++changes the payload, run it after every merge of master: master's releases move that base
++(specs/plugin-staleness-check.md § Decisions, row 7) and can consume the number the branch
++took. The
+ session-start banner says when an installed copy is behind the template and prints the
+ commands that bring it current; it never runs them. `/sync` merges the marketplace declaration into the project; Claude Code caches the new
+ release on the project's next open. A marketplace `ref` is never written — it would have to
+diff --git a/scripts/bump-plugin-version.sh b/scripts/bump-plugin-version.sh
+new file mode 100755
+index 00000000..df3d00c7
+--- /dev/null
++++ b/scripts/bump-plugin-version.sh
+@@ -0,0 +1,49 @@
++#!/usr/bin/env bash
++# bump-plugin-version.sh — raise .claude-plugin/plugin.json above origin/master.
++#
++# tests/test-plugin-manifest.sh fails a payload change whose version does not
++# rise above its base's. Merging master moves that base forward and can consume
++# the number a branch already took, so the bump is re-derived here rather than
++# chosen by hand: the version becomes one patch above max(origin/master, this
++# tree). A tree already above origin/master is left alone, so a second run is a
++# no-op. It does not look at the payload, so run it only on a branch that
++# changes one, after merging master (README § Releasing skills). It never
++# fetches; the origin/master it compares with is whatever the last fetch left.
++# PYTHON overrides the interpreter (default python3).
++set -euo pipefail
++
++PLUGIN=".claude-plugin/plugin.json"
++
++fail() { printf 'bump-plugin-version: %s\n' "$1" >&2; exit 1; }
++
++cd "$(git rev-parse --show-toplevel)" || fail "not inside a git repository"
++[ -f "$PLUGIN" ] || fail "$PLUGIN not found"
++git rev-parse -q --verify 'refs/remotes/origin/master^{commit}' >/dev/null \
++  || fail "origin/master does not resolve — run 'git fetch origin' first"
++
++base_manifest="$(git show "origin/master:$PLUGIN")" || fail "origin/master has no $PLUGIN"
++
++"${PYTHON:-python3}" - "$PLUGIN" "$base_manifest" <<'PY'
++import json, re, sys
++
++path = sys.argv[1]
++def semver(text, where):
++    if not re.fullmatch(r"\d+\.\d+\.\d+", text):
++        sys.exit(f"bump-plugin-version: {where} version {text!r} is not MAJOR.MINOR.PATCH")
++    return tuple(int(part) for part in text.split("."))
++
++base = json.loads(sys.argv[2]).get("version", "")
++source = open(path, encoding="utf-8", newline="").read()
++current = json.loads(source).get("version", "")
++base_v, current_v = semver(base, "origin/master"), semver(current, path)
++if current_v > base_v:
++    print(f"{path} is {current}, already above origin/master's {base} — unchanged")
++    sys.exit(0)
++major, minor, patch = base_v  # the max: the tree is at or below origin/master here
++target = f"{major}.{minor}.{patch + 1}"
++updated, count = re.subn(r'("version"\s*:\s*")[^"]*(")', rf"\g<1>{target}\g<2>", source, count=1)
++if count != 1:
++    sys.exit(f"bump-plugin-version: no version field to rewrite in {path}")
++open(path, "w", encoding="utf-8", newline="").write(updated)
++print(f"{path}: {current} -> {target} (origin/master carries {base})")
++PY
+diff --git a/tests/test-plugin-manifest.sh b/tests/test-plugin-manifest.sh
+index 19ca6915..287f135b 100644
+--- a/tests/test-plugin-manifest.sh
++++ b/tests/test-plugin-manifest.sh
+@@ -192,7 +192,9 @@ version_verdict() {  # version_verdict -> "ok: ...", "fail: ..." or "skip: ..."
+   old=$(git show "$base:$PLUGIN" 2>/dev/null | json_version)
+   new=$(json_version < "$PLUGIN")
+   if version_greater "$new" "$old"; then echo "ok: $old -> $new"; return; fi
+-  echo "fail: payload changed since ${base:0:7} but $PLUGIN version went '$old' -> '$new' (README § Releasing skills)"
++  # A merge of master moves the base forward and can consume the number a bump
++  # took, so the two versions print equal; name the base's version as the floor.
++  echo "fail: payload changed since ${base:0:7} but $PLUGIN is '$new' — the base already carries $old, so raise the version above $old: run scripts/bump-plugin-version.sh after merging master (README § Releasing skills)"
+ }
+ 
+ F="$(fixture_repo)"
+@@ -213,12 +215,16 @@ assert_contains "$(verdict_in_fixture)" "ok: payload unchanged" \
+ fixture_commit 1.0.0 v2 >/dev/null
+ assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+   "version guard: a branch that changes the payload without a bump fails"
++assert_contains "$(verdict_in_fixture)" "the base already carries 1.0.0, so raise the version above 1.0.0" \
++  "version guard: the failure names the base's version and the version to rise above"
+ fixture_commit 1.0.1 v3 >/dev/null
+ assert_contains "$(verdict_in_fixture)" "ok: 1.0.0 -> 1.0.1" \
+   "version guard: the same branch with the version increased passes"
+ fixture_commit 0.9.0 v4 >/dev/null
+ assert_contains "$(verdict_in_fixture)" "fail: payload changed" \
+   "version guard: a decreased version fails"
++assert_contains "$(verdict_in_fixture)" "is '0.9.0' — the base already carries 1.0.0, so raise the version above 1.0.0" \
++  "version guard: with base and tree versions distinct, the floor named is the base's (1.0.0), not the tree's"
+ git -C "$F" update-ref refs/remotes/origin/master HEAD
+ fixture_commit 0.9.0 v5 >/dev/null
+ git -C "$F" update-ref refs/remotes/origin/master HEAD
+@@ -230,6 +236,24 @@ git -C "$F" update-ref -d refs/remotes/origin/master
+ assert_contains "$(verdict_in_fixture)" "skip: no base resolves" \
+   "version guard: no origin/master and no PLUGIN_VERSION_BASE skips"
+ 
++# scripts/bump-plugin-version.sh is the remedy the fail message names: one patch
++# above max(origin/master, tree), and a no-op once the tree is already above.
++BUMP="$PWD/scripts/bump-plugin-version.sh"
++bump_in_fixture() { ( cd "$F" && PYTHON="$TEST_PYTHON" bash "$BUMP" 2>&1 ); }
++assert_contains "$(bump_in_fixture)" "origin/master does not resolve" \
++  "bump helper: refuses without origin/master"
++fixture_commit 1.0.0 v6 >/dev/null
++git -C "$F" update-ref refs/remotes/origin/master HEAD
++git -C "$F" checkout -q HEAD~1 -- "$PLUGIN"
++assert_contains "$(bump_in_fixture)" "$PLUGIN: 0.9.0 -> 1.0.1 (origin/master carries 1.0.0)" \
++  "bump helper: a tree below origin/master (a merge consumed its bump) rises one above master"
++assert_contains "$(bump_in_fixture)" "already above origin/master's 1.0.0 — unchanged" \
++  "bump helper: a second run is a no-op"
++assert_eq "1.0.1" "$(json_version < "$F/$PLUGIN")" "bump helper: the second run left the version at 1.0.1"
++git -C "$F" checkout -q HEAD -- "$PLUGIN"
++assert_contains "$(bump_in_fixture)" "$PLUGIN: 1.0.0 -> 1.0.1" \
++  "bump helper: a tree equal to origin/master rises one patch"
++
+ RUNTIME_READS="$(git grep -hoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)?' -- "${PAYLOAD_PATHS[@]}" 2>/dev/null \
+   | sed -E 's#^\$\{?CLAUDE_PLUGIN_ROOT\}?/##' | sort -u)"
+ assert_contains "$RUNTIME_READS" ".agents/references" "version guard: the runtime-read scan finds the plugin-root reads (non-vacuity)"
+@@ -258,5 +282,11 @@ assert_contains "$RELEASING" 'measured on Claude Code' \
+   "README § Releasing skills: ... as a measured behaviour, not a belief"
+ assert_contains "$RELEASING" 'tests/test-plugin-manifest.sh' \
+   "README § Releasing skills: names the suite as the enforcement"
++assert_contains "$RELEASING" '`scripts/bump-plugin-version.sh`' \
++  "README § Releasing skills: names the bump helper as the way to raise the version"
++assert_contains "$RELEASING" 'changes the payload, run it after every merge of master' \
++  "README § Releasing skills: says to run the bump helper after merging master, on a payload branch only"
++assert_contains "$RELEASING" 'no synced project receives it' \
++  "README § Releasing skills: marks the bump helper as a maintainer tool /sync never ships"
+ 
+ finish
