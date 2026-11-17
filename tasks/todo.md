@@ -1670,7 +1670,7 @@ Filed this sweep:
 - Completed: first `/make-it-simpler` run (interactive): #231, `/tidy` cites `/sweep` § *2. Read the backlog* for the dedupe-set rule (-4 lines, behavior changes: none). Created the GitHub `simplify` label.
 - Pending: GitHub labels `design-decision`, `in-progress`, `needs-investigation`, `tech-debt` are missing, so `select`/`claim`/`workflow` refuse on this repo (claim of #231 skipped); installed jplugin 1.1.0 has no `/make-it-simpler`; no `routine-prompts/simplify.md`.
 - Carry-forward: ranking is dominated by `code-red-flag` (evidence is just line 501), and `tasks/` logs and specs quoting their skill produce false duplicate-rule/citation-drift hits; `/make-it-simpler` § *Offer the top 3* documents `claim` without the required `--routine`; the `/sweep` § *File* citation in tidy is not checked by either citation checker.
-- [ ] closure loop cannot leave ci when the base moves after CI passed <!-- task-id: tech-debt.agents-skills-wrap-up-session-scripts-closure-py.closure-loop-cannot-leave-ci-when-the-base-moves-after-ci-passed --> — Once closure.py reaches watch-ci, a late merge conflict (master moved after CI went green) has no transition: {"mergeab… ([#234](https://github.com/Joaovsales/jplugin-agentic-development/issues/234))
+- [x] closure loop cannot leave ci when the base moves after CI passed <!-- task-id: tech-debt.agents-skills-wrap-up-session-scripts-closure-py.closure-loop-cannot-leave-ci-when-the-base-moves-after-ci-passed --> — Once closure.py reaches watch-ci, a late merge conflict (master moved after CI went green) has no transition: {"mergeab… ([#234](https://github.com/Joaovsales/jplugin-agentic-development/issues/234))
 - [ ] skill-form citations are never resolved <!-- task-id: tech-debt.tests-test-citations-sh.skill-form-citations-are-never-resolved --> — tests/test-citations.sh resolves only `<path>.md` § *Heading* citations. A `/skill` § *Heading* citation is never check… ([#235](https://github.com/Joaovsales/jplugin-agentic-development/issues/235))
 
 ## Session Summary — 2026-10-01 [94d9c99..94d9c99]
@@ -2963,3 +2963,8 @@ Step ledger (routine `simplify`):
 - Completed: #192 — `select` holds back a task whose `depends-on:` blocker is open or unresolvable, and a task whose prose names an open dependency, and reports each. Tests in `tests/test-routine-selectors.sh` (local provider plus the PKB #91 GitHub-mock fixture). Receipt a1b3c731 GO.
 - Pending: the six GitHub-mock #192 assertions are XFAIL on Windows (#129). Linux CI is their authority.
 - Carry-forward: native `blockedBy` (#97) should feed `Task.depends_on` so `select_candidates` applies the same rule. `claim` does not re-check blockers for a human-named issue. `/memory-maintain` is still overdue (not run in this side session).
+
+## Session Summary — [2026-11-13] [317a717..4ddd067]
+- Completed: #234 — closure.py phase `ci` accepts `mergeable: conflicting` (→ merge-base, bound by conflict_rounds; a resolved merge returns to receipt) and `mergeable: unknown` (→ mark-draft); conflict rows require `base`; watch-ci re-reads mergeability before any non-fail result.
+- Pending: none.
+- Carry-forward: `gh_pr.py mergeable` falls back to the base name "the base branch" when the base ref is missing, which the new `base` guard still accepts (pre-existing, gh_pr.py).
