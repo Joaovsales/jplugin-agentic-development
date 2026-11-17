@@ -18,7 +18,7 @@ Sub-agent delegations follow the Model Routing table in `/build` (planner tier f
   `critic`), which take no `model` so they inherit the session model. `critic` carries a
   **planner floor**: pass the planner alias if the session model is below planner tier.
   See `.agents/references/model-routing.md`.
-- **Pi** — no per-call model params; routing resolves from `subagents.agentOverrides` (requires the `pi-subagents` extension). Use `scout` for codebase exploration.
+- **Pi** — no per-call model params for routine routing (exceptions: `.agents/references/model-routing.md` § *Rules*); routing resolves from `subagents.agentOverrides` (requires the `pi-subagents` extension). Use `scout` for codebase exploration.
 - **Codex** — use the managed `explorer` role for read-only codebase
   exploration and the managed `planner` role for planning. Resolve `critic`'s
   planner floor against the parent tier before dispatch; inherit when the

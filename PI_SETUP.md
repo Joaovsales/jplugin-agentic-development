@@ -155,10 +155,10 @@ pi --list-models local                       # Pi registered both local/<id> ent
 `/health` alone is not enough, because it does not prove that a generation succeeds. The container
 README explains why its healthcheck stops at `/health`.
 
-The provider-qualified id is `local/<id>`. How a single dispatch may select it is not settled here:
-whether a per-call model param may carry it is the open question in
-[#371](https://github.com/Joaovsales/jplugin-agentic-development/issues/371). See also the *Settings*
-section below.
+The provider-qualified id is `local/<id>`. A single dispatch does not select it with a per-call
+model param (exceptions: `.agents/references/model-routing.md` § *Rules*,
+[#371](https://github.com/Joaovsales/jplugin-agentic-development/issues/371)); place it per agent
+through `subagents.agentOverrides`. See also the *Settings* section below.
 
 ### 3. Presets — Model Routing Tiers
 
@@ -360,7 +360,7 @@ block. A floor is a dispatch rule, not a directive, so the pin is satisfied unco
 > prompt — not from different model priors. See § *Tier rationale* for what was traded and how to
 > restore it.
 
-Dispatch is natural language ("Have backend-developer implement this task") or the `subagent` tool. Do NOT pass per-call model params for routine routing — `agentOverrides` resolves each agent's model automatically.
+Dispatch is natural language ("Have backend-developer implement this task") or the `subagent` tool. Do NOT pass per-call model params for routine routing — `agentOverrides` resolves each agent's model automatically (exceptions: `.agents/references/model-routing.md` § *Rules*).
 
 **There is no fallback model, and the field that used to hold one is now a hard error.**
 `fallbackModels` was removed from `pi-subagents`: `parseBuiltinOverrideEntry` throws on it, and because that

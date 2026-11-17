@@ -18,10 +18,12 @@ fail() { printf 'bump-plugin-version: %s\n' "$1" >&2; exit 1; }
 
 cd "$(git rev-parse --show-toplevel)" || fail "not inside a git repository"
 [ -f "$PLUGIN" ] || fail "$PLUGIN not found"
-git rev-parse -q --verify 'refs/remotes/origin/master^{commit}' >/dev/null \
+base_sha="$(git rev-parse -q --verify 'refs/remotes/origin/master^{commit}')" \
   || fail "origin/master does not resolve — run 'git fetch origin' first"
 
-base_manifest="$(git show "origin/master:$PLUGIN")" || fail "origin/master has no $PLUGIN"
+# <sha>:<path>, never origin/master:<path> — MSYS (Git Bash) rewrites a
+# <word>/<word>:<path> argument to git.exe into a Windows path list.
+base_manifest="$(git show "$base_sha:$PLUGIN")" || fail "origin/master has no $PLUGIN"
 
 "${PYTHON:-python3}" - "$PLUGIN" "$base_manifest" <<'PY'
 import json, re, sys

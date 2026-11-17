@@ -272,6 +272,32 @@ assert_prose_contains "$ROUTING" 'Debugger attempts 3–4 — `ceiling (builder 
 assert_file_matches "$ROUTING" '^\| Reviewer \|.*see the floor below' \
   "ModelTier: model-routing.md Reviewer row points at the floor rather than reading as flat sonnet"
 
+# --- 12b. Pi's "no per-call model params" carries the ladder's exception ------
+# On Pi the middle rung exists only as a per-run `model` on the debugger
+# dispatch. A statement of the Pi rule with no exception, followed literally,
+# retries the debugger on its pinned Builder model and collapses rungs 1 and 2
+# (#371). The reference states the exception once; every other statement of
+# the rule names it ("one exception") or cites the reference's § *Rules*
+# within 200 characters of the phrase, in flattened prose so a rewrap cannot
+# move the pointer out of reach. A bare `model-routing.md` mention does not
+# count: AGENTS.md cited the file on the very line that dropped the exception.
+assert_prose_contains "$ROUTING" "never pass per-call model params for routine routing; \`subagents.agentOverrides\` resolves them. The one exception is the per-run \`model\`" \
+  "ModelTier: model-routing.md § Rules states the Pi rule with the debugger-ladder exception"
+per_call_files="$(git grep -l -I 'per-call model param' -- .agents AGENTS.md PI_SETUP.md ':!.agents/references/model-routing.md' || true)"
+assert_contains "$per_call_files" "AGENTS.md" \
+  "ModelTier: the per-call sweep sees AGENTS.md (non-vacuity)"
+uncovered=""
+for file in $per_call_files; do
+  windows="$(flatten "$file" | grep -oE '.{0,200}per-call model params?.{0,200}' || true)"
+  while IFS= read -r window; do
+    [ -n "$window" ] || continue
+    printf '%s' "$window" | grep -qE 'model-routing\.md` § \*Rules\*|one (sanctioned )?exception' \
+      || uncovered="$uncovered $file"
+  done <<< "$windows"
+done
+assert_eq "" "$uncovered" \
+  "ModelTier: every Pi per-call model rule names the one exception or cites model-routing.md § Rules"
+
 # --- 13. Codex dispatch uses named Scout and floor profiles ------------------
 for skill in plan prd grilling system-design-planning; do
   assert_prose_contains ".agents/skills/$skill/SKILL.md" 'managed `explorer` role' \

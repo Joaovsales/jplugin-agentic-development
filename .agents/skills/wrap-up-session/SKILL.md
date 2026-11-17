@@ -220,7 +220,7 @@ restate an irreversible action whose `--draft` conditional would drift. Report
 
 The body carries the `Quality receipt: <verdict> · <fp8> · policy <v>` line, a
 `## Closure` section for CI, mergeability and deployment outcomes, and the stdout
-of `publish_evidence.py --sha <the short-sha § E2E coverage checked>` (the
+of `python3 .agents/skills/wrap-up-session/scripts/publish_evidence.py --sha <the short-sha § E2E coverage checked>` (the
 `## Visual evidence` section; its stderr `evidence:` line goes in the report),
 run before the PR is created and on every re-sync — a publish failure never
 blocks the PR. On a `routine/` branch the flags, title and issue linkage come

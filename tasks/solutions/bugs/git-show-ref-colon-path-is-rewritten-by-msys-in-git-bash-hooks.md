@@ -20,3 +20,15 @@ not merely that the block printed.
 
 Related: tooling/print-mode-skill-probes-on-windows-git-bash.md (the same
 conversion rewriting `/skill` prompt arguments).
+
+**Second instance — 2026-11-17 (#203).** `scripts/bump-plugin-version.sh` read
+`git show "origin/master:$PLUGIN"`, which reached git.exe as
+`origin\master;.claude-plugin\plugin.json`. The helper failed on every Windows
+run, and so did four bump-helper cases in `tests/test-plugin-manifest.sh` on
+master. This fix resolves the ref to a SHA first
+(`git rev-parse -q --verify 'refs/remotes/origin/master^{commit}'`) and reads
+`<sha>:<path>`. A SHA before the colon does not look like a path, so MSYS
+leaves it alone and no environment variable is needed. The version guard in
+`tests/test-plugin-manifest.sh` already worked this way. Prefer it over
+`MSYS_NO_PATHCONV=1` in a script that resolves the ref anyway: it is one call
+fewer and fixes every caller.

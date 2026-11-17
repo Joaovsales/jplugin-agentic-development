@@ -137,3 +137,37 @@ Under WSL the identical tree ran 46/46 affected files in 99 s and the full
 Commit the bookkeeping first so the Windows working tree is clean: the receipt's
 `tests.tree` is the full tree hash, `tasks/**` included, and only a clean tree
 equals the clone's `HEAD^{tree}`.
+
+## 2026-11-17 — Docker instead of WSL, and load-timing failures
+
+**Docker works as the Linux host too.** Under heavy sibling load, three Windows
+Phase 5 runs in a row each failed one or two timing checks:
+
+- `tests/test-install-sh.sh` past its 1500 s per-file timeout;
+- `tests/test-session-start.sh` "Graph: hanging probe is bounded", which bounds
+  the whole hook to 8 s around a 5 s probe timeout;
+- "Banner: a graph older than HEAD prints the stale line": the graph check's
+  `timeout 5` on Python expired and printed `broken`.
+
+None of them was in the branch's code. They are host load, not platform, so
+they cannot be baseline rows: they would XPASS on a quiet machine. With Docker
+Desktop up, the recipe is:
+
+- `git bundle create <dir>/repo.bundle <branch> refs/remotes/origin/master` (full
+  history: `install.sh` reads it);
+- `python:3.12-bookworm` (CI's Python), the bundle mounted read-only, a `useradd`
+  user running the clone and the tests (see
+  [a-root-container-passes-permission-denial-tests-vacuously-so-run-the-suite-unprivileged](a-root-container-passes-permission-denial-tests-vacuously-so-run-the-suite-unprivileged.md));
+- inside, print `receipt.py fingerprint` and compare its tree field with the
+  worktree's before trusting the run;
+- then the verbatim Phase 5 command through `cached-suite.sh`, with `TEST_JOBS=4`.
+
+Pass the mounts with `MSYS_NO_PATHCONV=1` and Windows-form paths. The 56-file
+affected run passed with 6041 assertions; the slowest file took 281 s, against
+about 30 minutes for the same run on Windows. Three `skip`s remained, for `jq`
+and `npm`, which the image does not ship.
+
+**An approved HOLD cannot cover a red test run.** `derive_verdict` returns STOP
+for any non-zero `tests.exit` before it looks at HOLD (`receipt.py:347`). HOLD
+comes only from unresolved SHOULD-FIX findings or a HOLD design verdict. Do not
+offer a HOLD as the way past timing failures: get a green Linux run instead.

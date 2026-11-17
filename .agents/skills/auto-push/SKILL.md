@@ -45,7 +45,7 @@ this one.
 Sub-agent delegations follow the Model Routing table in `/build` (planner tier for planning/architecture, build tier for coding agents, review tier for reviewers, scout tier for exploration).
 
 - **Claude Code** — pass `model` explicitly on every Agent tool call per that table.
-- **Pi** — no per-call model params; routing resolves from `subagents.agentOverrides` in `~/.pi/agent/settings.json` (requires the `pi-subagents` extension).
+- **Pi** — no per-call model params for routine routing (exceptions: `.agents/references/model-routing.md` § *Rules*); routing resolves from `subagents.agentOverrides` in `~/.pi/agent/settings.json` (requires the `pi-subagents` extension).
 
 ---
 

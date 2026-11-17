@@ -190,12 +190,35 @@ fi
 # ── Active Tasks ─────────────────────────────────────────────────────────────
 TODO_FILE="tasks/todo.md"
 if [ -f "$TODO_FILE" ]; then
-  PENDING=$(grep -c '^\s*\[ \]' "$TODO_FILE" 2>/dev/null || true)
-  IN_PROGRESS=$(grep -c '^\s*\[~\]' "$TODO_FILE" 2>/dev/null || true)
+  # Rows inside a legacy `route-lane` block (the old router's checkbox lane
+  # record) are not tasks: they are left out of the counts and the list, and
+  # /memory-maintain rewrites the block to numbered lane lines. Only paired
+  # markers are skipped — each begin closed by an end before the next begin,
+  # no end without an open begin. Equal counts are not enough: a begin with no
+  # end, or an end above its begin, would otherwise hide every real task below.
+  LANE_BEGIN='<!-- route-lane:begin -->'
+  LANE_END='<!-- route-lane:end -->'
+  LANE_BLOCKS=$(grep -cF "$LANE_BEGIN" "$TODO_FILE" || true)
+  LANE_ENDS=$(grep -cF "$LANE_END" "$TODO_FILE" || true)
+  LANE_PAIRED=$(awk -v b="$LANE_BEGIN" -v e="$LANE_END" '
+    index($0, b) { if (open) bad = 1; open = 1 }
+    index($0, e) { if (!open) bad = 1; open = 0 }
+    END { print (bad || open) ? 0 : 1 }' "$TODO_FILE")
+  TASK_ROWS=$(awk -v b="$LANE_BEGIN" -v e="$LANE_END" -v paired="$LANE_PAIRED" '
+    paired && index($0, b) { lane = 1 }
+    !lane && /^[[:space:]]*\[[ ~]\]/ { print }
+    paired && index($0, e) { lane = 0 }' "$TODO_FILE")
+  PENDING=$(printf '%s\n' "$TASK_ROWS" | grep -c '^\s*\[ \]' || true)
+  IN_PROGRESS=$(printf '%s\n' "$TASK_ROWS" | grep -c '^\s*\[~\]' || true)
   echo ""
   echo "📋  ACTIVE TASKS  (tasks/todo.md) — $PENDING pending, $IN_PROGRESS in-progress"
   echo "────────────────────────────────"
-  grep -E '^\s*\[([ ~])\]' "$TODO_FILE" | head -10 || echo "  None."
+  printf '%s\n' "$TASK_ROWS" | grep -E . | head -10 || echo "  None."
+  if [ "$LANE_BLOCKS" -gt 0 ] && [ "$LANE_PAIRED" = 1 ]; then
+    echo "⚠  legacy route-lane block in tasks/todo.md — not counted as tasks; /memory-maintain rewrites it to numbered lane lines"
+  elif [ "$LANE_BLOCKS" -gt 0 ] || [ "$LANE_ENDS" -gt 0 ]; then
+    echo "⚠  malformed legacy route-lane block in tasks/todo.md (unpaired markers) — its rows are counted as tasks; /memory-maintain rewrites it to numbered lane lines"
+  fi
 else
   echo ""
   echo "📋  No tasks/todo.md found."
