@@ -2981,3 +2981,24 @@ Step ledger (routine `simplify`):
 - Completed: reworded a prose `->` in the closed #372 row (line 2800) that made every `task-registry upsert` refuse the index.
 - Pending: #413, #414, #415 (labelled `bug`, so the fix routine can pick them up). #415 is suspected from reading the code and a model, not yet reproduced against the real script.
 - Carry-forward: TLA+ tools ≥ 1.6 need Java 11+; this machine has Java 8, so Phase 4 checks here use tla2tools v1.5.7.
+
+## Session Summary — [2026-11-17] [aac81ca..02b4c48]
+
+- Completed:
+  - #389: the publisher path; legacy route-lane rows are skipped only between
+    ordered, paired markers; the `/memory-maintain` migration step.
+  - #202: the tidy check list.
+  - #371: the Pi per-call exception.
+  - #203: the bump-helper and Pi-drift host fixes, and #434's XFAIL rows
+    removed.
+  - Plugin version 1.8.19.
+- Pending: none in this PR.
+- Carry-forward:
+  - The stale "Nine checks" in `tidy/SKILL.md:3`, `make-it-simpler/SKILL.md:125`
+    and `make-it-simpler/references/lens.md:62`.
+  - `/build` pre-flight counts rows in un-migrated legacy blocks.
+  - Four test-review NITPICKs: no two-block fixture; a narrow count-word
+    pattern; non-overlapping 12b windows; no `packages` fixture without
+    `pi-subagents`.
+  - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
+    Windows host.

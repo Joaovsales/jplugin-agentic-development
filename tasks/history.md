@@ -1149,3 +1149,38 @@ back vacuous and was repaired.
 - Wrap-up (branch Joaovsales/session-wrapup): the debt ledger's three active pre-session entries were reconciled into its audit-trail comment, and no issue was filed per commit. The airllm merge-range note was left as it stands.
 - Known and not fixed here: install.sh copies with `cp -r`, which never deletes, so installed machines keep the pre-#430 copy at ~/.agents/skills/build/references/subagent-resilience.md.
 - Learnings captured: [gate finds real defects](solutions/process/a-ci-green-diff-is-not-reviewed-evidence-the-layer-2-gate-finds-real-defects.md), [worker liveness](solutions/process/a-worker-parked-on-a-detached-job-is-not-hung-and-the-orchestrator-owns-long-verification.md), [three serialization points](solutions/process/parallel-work-serializes-on-the-plugin-version-the-todo-index-and-the-gpu.md), [source-check the brief](solutions/process/source-check-a-coordinator-briefs-figures-against-the-artifact.md), [derive-id overwrite](solutions/bugs/a-reused-derive-id-namespace-and-source-silently-overwrites-the-first-issue.md), [local reviewer not fit](solutions/architecture/local-reviewer-tier-is-not-fit-and-a-smoke-test-is-not-an-adequacy-test.md).
+
+### [2026-11-17] — doc contracts #389, #202, #371 and two Windows-host test fixes
+- Key changes:
+  - #389:
+    - `/wrap-up-session` names `publish_evidence.py` by its full path.
+    - `session-start.sh` leaves rows inside a paired legacy route-lane block out
+      of ACTIVE TASKS. Pairing is checked by order, so a truncated block, a
+      reversed pair or a lone end marker hides nothing and is flagged as
+      malformed.
+    - The `/memory-maintain` light pass rewrites a block to `## Lane:` numbered
+      lines.
+  - #202: the three tidy restatements list all eleven `/tidy` checks, with no
+    count word.
+  - #371: `model-routing.md` § *Rules* states the Pi per-call exception (the
+    debugger ladder), and every other per-call statement points to it.
+  - #203:
+    - `scripts/bump-plugin-version.sh` reads origin/master's manifest by SHA,
+      because MSYS rewrote `origin/master:<path>`.
+    - `test-pi-overrides-drift.sh` notes, rather than fails, a host with
+      neither a `subagents` section nor a `pi-subagents` package.
+    - #434's matching msys XFAIL rows are dropped.
+  - Plugin version 1.8.19; master moved four times during the session.
+- Quality gate:
+  - Phase 4 took seven rounds and ended GO.
+  - The Phase 5.1 test review found one SHOULD-FIX, ordered pairing, fixed in
+    `02b4c48`; its four NITPICKs are unresolved.
+  - Receipt b08e5833 GO (policy qg1-27cfa6d5).
+  - Phase 5 ran in a `python:3.12-bookworm` container on the same tree: 56/56
+    files, 6041 assertions. Three Windows runs had each failed one or two
+    load-timing checks.
+- Learnings captured (both appended to existing documents):
+  - [bugs/git-show-ref-colon-path-is-rewritten-by-msys-in-git-bash-hooks.md](solutions/bugs/git-show-ref-colon-path-is-rewritten-by-msys-in-git-bash-hooks.md):
+    the second instance and the SHA-first fix.
+  - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
+    the Docker recipe; a HOLD cannot cover a red test run.
