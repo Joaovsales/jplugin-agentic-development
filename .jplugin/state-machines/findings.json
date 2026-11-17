@@ -1,0 +1,245 @@
+{
+  "version": 1,
+  "head": "42eb935",
+  "scope": [
+    "."
+  ],
+  "findings": [
+    {
+      "name": "Routine issue claim",
+      "files": [
+        ".agents/skills/task-registry/scripts/task-registry.py:620",
+        ".agents/skills/task-registry/scripts/registry/routines.py:73",
+        ".agents/skills/task-registry/scripts/registry/escalation.py:200",
+        ".agents/skills/task-registry/scripts/registry/providers/base.py:213",
+        ".agents/skills/task-registry/scripts/registry/providers/github.py:318",
+        ".agents/skills/wrap-up-session/references/routines.md:245"
+      ],
+      "states": [
+        "selectable",
+        "claimed",
+        "claimed by two runs",
+        "escalated",
+        "orphaned claim",
+        "closed"
+      ],
+      "transitions": [
+        {
+          "from": "selectable",
+          "to": "claimed",
+          "via": "task-registry claim adds the claim label at .agents/skills/task-registry/scripts/task-registry.py:639",
+          "tested": true
+        },
+        {
+          "from": "claimed",
+          "to": "escalated",
+          "via": "escalation adds the hold label at .agents/skills/task-registry/scripts/registry/escalation.py:200",
+          "tested": true
+        },
+        {
+          "from": "claimed",
+          "to": "closed",
+          "via": "the routine's PR closes the issue; provider close_task at .agents/skills/task-registry/scripts/registry/providers/github.py:337",
+          "tested": true
+        },
+        {
+          "from": "escalated",
+          "to": "selectable",
+          "via": "a human re-triages and removes the hold and the claim label (asked for by the refusal at .agents/skills/task-registry/scripts/task-registry.py:620-624)",
+          "tested": false
+        }
+      ],
+      "entry": "selectable",
+      "exit": [
+        "closed"
+      ],
+      "tested": "TESTED",
+      "tests": [
+        "tests/test-routine-selectors.sh",
+        "tests/test-task-escalation.sh",
+        "tests/test-task-registry-providers.sh"
+      ],
+      "confidence": "HIGH",
+      "hidden": [
+        {
+          "from": "claimed",
+          "to": "claimed by two runs",
+          "via": "task-registry claim at .agents/skills/task-registry/scripts/task-registry.py:628 exits 0 ('already carries … nothing to do') for a second run",
+          "why": "claim is check-then-act, not test-and-set: two runs whose `select` both happened before either claim both get exit 0 (one 'wrote', one 'nothing to do'), and the routine spine (routines.md:245) proceeds on exit 0 — two runs work one issue. tests/test-routine-selectors.sh:635-637 asserts the exit 0 as intended idempotence",
+          "tested": true
+        },
+        {
+          "from": "claimed",
+          "to": "orphaned claim",
+          "via": "a routine run stops without a PR or an escalation; no code removes labels (providers only add_labels, .agents/skills/task-registry/scripts/registry/providers/base.py:213)",
+          "why": "the claim label is never released, and select_routine skips any issue carrying it (routines.py:73), so a dead run leaves the issue invisible to every routine with no stale-claim reclaim",
+          "tested": false
+        },
+        {
+          "from": "escalated",
+          "to": "orphaned claim",
+          "via": "a human removes only the hold label, as the refusal at .agents/skills/task-registry/scripts/task-registry.py:620-624 instructs",
+          "why": "the message asks for the hold to be removed but not the claim label; the issue then carries the claim with no run behind it and routines.py:73 skips it forever",
+          "tested": false
+        }
+      ],
+      "coverage": 0.57,
+      "flags": [
+        "HIDDEN_TRANSITIONS"
+      ]
+    },
+    {
+      "name": "Cached-suite lock",
+      "files": [
+        ".agents/skills/build/scripts/cached-suite.sh:46",
+        ".agents/skills/build/scripts/cached-suite.sh:89-105"
+      ],
+      "states": [
+        "free",
+        "claimed",
+        "held",
+        "stale"
+      ],
+      "transitions": [
+        {
+          "from": "free",
+          "to": "claimed",
+          "via": "take_lock: mkdir \"$LOCK\" at .agents/skills/build/scripts/cached-suite.sh:91",
+          "tested": true
+        },
+        {
+          "from": "claimed",
+          "to": "held",
+          "via": "take_lock writes the owner line at .agents/skills/build/scripts/cached-suite.sh:93",
+          "tested": true
+        },
+        {
+          "from": "held",
+          "to": "free",
+          "via": "cleanup on EXIT removes the lock it owns at .agents/skills/build/scripts/cached-suite.sh:53-54",
+          "tested": true
+        },
+        {
+          "from": "held",
+          "to": "stale",
+          "via": "the owner is killed with SIGKILL, so the EXIT trap at .agents/skills/build/scripts/cached-suite.sh:57 never runs",
+          "tested": false
+        },
+        {
+          "from": "claimed",
+          "to": "stale",
+          "via": "the creator dies between mkdir (:91) and the owner write (:93); stale after one minute per lock_is_stale at .agents/skills/build/scripts/cached-suite.sh:84",
+          "tested": false
+        },
+        {
+          "from": "stale",
+          "to": "free",
+          "via": "take_lock reclaims a stale lock with rm -rf at .agents/skills/build/scripts/cached-suite.sh:101",
+          "tested": true
+        }
+      ],
+      "entry": "free",
+      "exit": [],
+      "tested": "TESTED",
+      "tests": [
+        "tests/test-cached-suite.sh"
+      ],
+      "confidence": "HIGH",
+      "hidden": [
+        {
+          "from": "claimed",
+          "to": "free",
+          "via": "a second reclaimer's rm -rf at .agents/skills/build/scripts/cached-suite.sh:101",
+          "why": "two runs find the same stale lock; run A re-reads the owner (:99), removes it and re-creates it with mkdir (:91), while run B, which read the dead owner at :99 before A's removal, then runs rm -rf at :101 and deletes A's fresh lock. B takes the lock too, and both suites run — the re-read at :99 narrows the window but is not atomic with the rm",
+          "tested": false
+        },
+        {
+          "from": "held",
+          "to": "free",
+          "via": "cleanup() of the other racer at .agents/skills/build/scripts/cached-suite.sh:53-54",
+          "why": "after the race above both runs write an owner line into one directory; whichever wrote last passes the owner == $$ check at :53 and removes the lock when it exits, while the other suite is still running",
+          "tested": false
+        }
+      ],
+      "coverage": 0.5,
+      "flags": [
+        "HIDDEN_TRANSITIONS"
+      ]
+    },
+    {
+      "name": "Session-viz workflow phase",
+      "files": [
+        "mods/session-viz/hooks/phase.tsx:11-29",
+        "mods/session-viz/hooks/phase.tsx:44-51",
+        "mods/session-viz/hooks/state.ts:34"
+      ],
+      "states": [
+        "idle",
+        "PLAN",
+        "BUILD",
+        "GATE",
+        "WRAP-UP"
+      ],
+      "transitions": [
+        {
+          "from": "idle",
+          "to": "PLAN",
+          "via": "skill.prompt for a PLAN skill (PHASE_OF) at mods/session-viz/hooks/phase.tsx:48",
+          "tested": false
+        },
+        {
+          "from": "idle",
+          "to": "BUILD",
+          "via": "skill.prompt for jplugin:build at mods/session-viz/hooks/phase.tsx:48",
+          "tested": true
+        },
+        {
+          "from": "PLAN",
+          "to": "BUILD",
+          "via": "skill.prompt for build/yolo/auto-push/make-it-simpler at mods/session-viz/hooks/phase.tsx:48",
+          "tested": false
+        },
+        {
+          "from": "BUILD",
+          "to": "GATE",
+          "via": "skill.prompt for quality-gate/security-scan/verify-evidence at mods/session-viz/hooks/phase.tsx:48",
+          "tested": false
+        },
+        {
+          "from": "GATE",
+          "to": "BUILD",
+          "via": "skill.prompt for build after a gate finding at mods/session-viz/hooks/phase.tsx:48",
+          "tested": false
+        },
+        {
+          "from": "GATE",
+          "to": "WRAP-UP",
+          "via": "skill.prompt for wrap-up-session at mods/session-viz/hooks/phase.tsx:48",
+          "tested": false
+        }
+      ],
+      "entry": "idle",
+      "exit": [],
+      "tested": "TESTED",
+      "tests": [
+        "mods/session-viz/hooks/register.test.ts"
+      ],
+      "confidence": "MEDIUM",
+      "hidden": [],
+      "coverage": 0.17,
+      "flags": [
+        "WIDE_LOW_COVERAGE"
+      ]
+    }
+  ],
+  "dismissed": [
+    {
+      "path": ".agents/skills/wrap-up-session/scripts/closure.py",
+      "reason": "an explicit state machine: a declared transition table (ROWS) with bounded counters and its own tests — not implicit"
+    },
+    {
+      "path": "mods/factory-board/hooks/register.tsx",
+      "reason": "card status running/done/failed is a real machine, but merge() guards terminal statuses (:91) and no unintended path was confirmed; not documented this run"
+    }
+  ]
+}

@@ -2970,3 +2970,16 @@ Step ledger (routine `simplify`):
 - Completed: #234 — closure.py phase `ci` accepts `mergeable: conflicting` (→ merge-base, bound by conflict_rounds; a resolved merge returns to receipt) and `mergeable: unknown` (→ mark-draft); conflict rows require `base`; watch-ci re-reads mergeability before any non-fail result.
 - Pending: none.
 - Carry-forward: `gh_pr.py mergeable` falls back to the base name "the base branch" when the base ref is missing, which the new `base` guard still accepts (pre-existing, gh_pr.py).
+
+- [ ] task-registry claim is check-then-act: two routine runs can both claim one issue <!-- task-id: find-implicit-state-machines.agents-skills-task-registry-scripts-task-registry-py.task-registry-claim-is-check-then-act-two-routine-runs-can-both-claim-one-issue --> — Implicit state machine 'Routine issue claim', hidden transition claimed -> claimed by two runs. `claim` reads the issue… ([#413](https://github.com/Joaovsales/jplugin-agentic-development/issues/413))
+- [ ] Routine claim label is never released: a dead run or a hold-only re-triage strands the issue <!-- task-id: find-implicit-state-machines.agents-skills-task-registry-scripts-registry-routines-py.routine-claim-label-is-never-released-a-dead-run-or-a-hold-only-re-triage-strands-the-issue --> — Implicit state machine 'Routine issue claim', hidden transitions claimed -> orphaned claim and escalated -> orphaned cl… ([#414](https://github.com/Joaovsales/jplugin-agentic-development/issues/414))
+- [ ] cached-suite.sh: two runs reclaiming one stale lock can both take it <!-- task-id: find-implicit-state-machines.agents-skills-build-scripts-cached-suite-sh.cached-suite-sh-two-runs-reclaiming-one-stale-lock-can-both-take-it --> — Implicit state machine 'Cached-suite lock' (free / claimed / held / stale), hidden transitions claimed -> free and held… ([#415](https://github.com/Joaovsales/jplugin-agentic-development/issues/415))
+
+## Session Summary — [2026-11-15] [42eb935..42eb935]
+
+- Completed: `/find-implicit-state-machines` skill — SKILL.md (Phases 1–4), `scripts/state_machines.py` (`scan` / `check` / `tla`), `references/signals.md`, `references/formal-bridge.md`; `tests/test-find-implicit-state-machines.sh` (43 assertions) with fixtures; README skills table regenerated.
+- Completed: self-scan validation in `.jplugin/state-machines/findings.json` — 3 machines (routine issue claim, cached-suite lock, session-viz phase), 2 dismissed; the cached-suite skeleton was checked with TLC 1.5.7 and reports the hidden path.
+- Completed: the hidden transitions were filed, not fixed (the skill is read-only): #413 claim check-then-act race, #414 claim label never released, #415 cached-suite stale-lock reclaim race.
+- Completed: reworded a prose `->` in the closed #372 row (line 2800) that made every `task-registry upsert` refuse the index.
+- Pending: #413, #414, #415 (labelled `bug`, so the fix routine can pick them up). #415 is suspected from reading the code and a model, not yet reproduced against the real script.
+- Carry-forward: TLA+ tools ≥ 1.6 need Java 11+; this machine has Java 8, so Phase 4 checks here use tla2tools v1.5.7.

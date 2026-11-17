@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "name": "Order lifecycle",
+      "files": ["src/order.js:2", "src/order.js"],
+      "states": ["pending", "paid", "shipped", "cancelled"],
+      "transitions": [
+        {"from": "pending", "to": "paid", "via": "pay() at src/order.js:4", "tested": true},
+        {"from": "paid", "to": "shipped", "via": "ship() at src/order.js:11", "tested": false},
+        {"from": "pending", "to": "cancelled", "via": "cancel() at src/order.js:17", "tested": false}
+      ],
+      "entry": "pending",
+      "exit": ["shipped", "cancelled"],
+      "tested": "UNTESTED",
+      "tests": ["tests/order.test.js"],
+      "confidence": "HIGH",
+      "hidden": [
+        {"from": "pending", "to": "shipped", "via": "ship() at src/order.js:11", "why": "ship() has no isPaid guard", "tested": false}
+      ]
+    },
+    {
+      "name": "Player mode",
+      "files": ["src/mode.py"],
+      "states": ["idle", "playing"],
+      "transitions": [
+        {"from": "idle", "to": "playing", "via": "Player.play() at src/mode.py:5", "tested": true}
+      ],
+      "entry": "idle",
+      "exit": [],
+      "tested": "TESTED",
+      "tests": ["tests/order.test.js"],
+      "confidence": "LOW",
+      "hidden": []
+    }
+  ]
+}
