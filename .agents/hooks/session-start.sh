@@ -193,14 +193,17 @@ if [ -f "$TODO_FILE" ]; then
   # Rows inside a legacy `route-lane` block (the old router's checkbox lane
   # record) are not tasks: they are left out of the counts and the list, and
   # /memory-maintain rewrites the block to numbered lane lines. Only paired
-  # markers are skipped — a begin with no end would otherwise hide every real
-  # task below it.
+  # markers are skipped — each begin closed by an end before the next begin,
+  # no end without an open begin. Equal counts are not enough: a begin with no
+  # end, or an end above its begin, would otherwise hide every real task below.
   LANE_BEGIN='<!-- route-lane:begin -->'
   LANE_END='<!-- route-lane:end -->'
   LANE_BLOCKS=$(grep -cF "$LANE_BEGIN" "$TODO_FILE" || true)
   LANE_ENDS=$(grep -cF "$LANE_END" "$TODO_FILE" || true)
-  LANE_PAIRED=0
-  [ "$LANE_BLOCKS" = "$LANE_ENDS" ] && LANE_PAIRED=1
+  LANE_PAIRED=$(awk -v b="$LANE_BEGIN" -v e="$LANE_END" '
+    index($0, b) { if (open) bad = 1; open = 1 }
+    index($0, e) { if (!open) bad = 1; open = 0 }
+    END { print (bad || open) ? 0 : 1 }' "$TODO_FILE")
   TASK_ROWS=$(awk -v b="$LANE_BEGIN" -v e="$LANE_END" -v paired="$LANE_PAIRED" '
     paired && index($0, b) { lane = 1 }
     !lane && /^[[:space:]]*\[[ ~]\]/ { print }

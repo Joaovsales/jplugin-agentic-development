@@ -585,6 +585,25 @@ assert_contains "$output" "[ ] TDD: task below a truncated block" \
   "Banner: a task below an unpaired begin marker is still listed"
 assert_contains "$output" "⚠  malformed legacy route-lane block in tasks/todo.md (unpaired markers) — its rows are counted as tasks" \
   "Banner: unpaired route-lane markers are flagged as malformed"
+# Equal counts in the wrong order are not a pair: an end above its begin
+# must not hide the task below the begin.
+printf '%s\n' '<!-- route-lane:end -->' '[ ] TDD: task above' \
+  '<!-- route-lane:begin -->' '[ ] TDD: task below a reversed pair' > "$LANE/tasks/todo.md"
+git -C "$LANE" commit -qam reversed
+startup "$LANE" "${BANNER[@]}"
+assert_contains "$output" "— 2 pending, 0 in-progress" \
+  "Banner: an end marker above its begin hides nothing — every row is counted"
+assert_contains "$output" "[ ] TDD: task below a reversed pair" \
+  "Banner: a task below a reversed marker pair is still listed"
+assert_contains "$output" "⚠  malformed legacy route-lane block" \
+  "Banner: a reversed marker pair is flagged as malformed"
+printf '%s\n' '[ ] TDD: only task' '<!-- route-lane:end -->' > "$LANE/tasks/todo.md"
+git -C "$LANE" commit -qam end-only
+startup "$LANE" "${BANNER[@]}"
+assert_contains "$output" "— 1 pending, 0 in-progress" \
+  "Banner: an end marker alone hides nothing"
+assert_contains "$output" "⚠  malformed legacy route-lane block" \
+  "Banner: an end marker alone is flagged as malformed"
 
 # Graph older than HEAD -> the stale line. graphify is a stub on the private PATH.
 touch -t 202001010000 "$CLEAN/graphify-out/graph.json"
