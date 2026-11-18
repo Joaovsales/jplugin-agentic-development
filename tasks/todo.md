@@ -3022,3 +3022,16 @@ Step ledger (routine `simplify`):
 > Do not re-derive: the verdict rule is unchanged (`lost` is disclosed, not weighed — #429 owns receipt soundness); a stored receipt with a reason-less `lost` still verifies and reads `no reason recorded`; editing `receipt.py` changes the policy hash, so earlier receipts go `stale policy-changed`.
 > Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
 > Surface: none (`slice.py check --slice 2 --base 8eab3ec` exit 0).
+
+## Session Summary — [2026-11-18] [887e959..42e41a1]
+
+- Completed:
+  - #441 slices 1 and 2: three outcomes at Slice Close; a lost review carries a
+    reason and prints `not checked`.
+  - Plugin version 1.8.20.
+- Pending: none in this PR.
+- Carry-forward:
+  - #439: the gate-integrity check joins `verification_result` as a second
+    input when it lands (spec D3).
+  - #442 / #445 read the `> Outcome:` `key=value` fields named in
+    `specs/slice-three-outcomes.md` § Outputs.

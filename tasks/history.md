@@ -1184,3 +1184,21 @@ back vacuous and was repaired.
     the second instance and the SHA-first fix.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
+
+### [2026-11-18] — #441 three outcomes at Slice Close (improve lane, unattended)
+
+- Resumed after the previous worker hit the usage limit with slice 1 committed
+  (`8eab3ec`) but not closed. Re-ran its tests (983 assertions green), closed it
+  with a handover and `> Outcome:`, then built slice 2.
+- Slice 1: `.agents/skills/build/scripts/slice_outcome.py` runs the
+  orchestrator's own affected-test command and derives `agent_result`,
+  `verification_result` and `slice_result` (True/False/Unknown). Only
+  `SUCCEEDED` (exit 0) closes a slice.
+- Slice 2: `receipt.py write` refuses a `lost` reviewer without a reason;
+  `write` and `check` print `receipt: not checked phase <n> <lens> — <reason>`.
+  `/verify-evidence` and `/quality-gate` state the `not checked` rule.
+- Quality gate: Phase 1 found that the bare `cached-suite:` prefix read an
+  uncached run's exit 3 as a refusal. Fixed by matching the lock line; the
+  version guard required the 1.8.20 bump. Phase 4 was inline, and Phase 5.1 was
+  recorded `lost` (the worker brief forbids sub-agents).
+- Learning: [tooling/a-cached-suite-refusal-is-its-lock-line-not-any-cached-suite-prefix.md](solutions/tooling/a-cached-suite-refusal-is-its-lock-line-not-any-cached-suite-prefix.md).

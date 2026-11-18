@@ -198,13 +198,14 @@ python3 .agents/skills/quality-gate/scripts/receipt.py fingerprint [--base <ref>
 ```bash
 python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome <common-dir>/quality-receipts/outcome.json [--parent <fingerprint>]
 # stdout: receipt: written <fp8> verdict <GO|HOLD|STOP> policy <qg1-xxxxxxxx>
+#         receipt: not checked phase <n> <lens> — <reason>   (one per `lost` reviewer; specs/slice-three-outcomes.md)
 ```
 
 | Aspect | Contract |
 |--------|----------|
 | Inputs | outcome JSON (schema below): `reviewers`, `unresolved`, `tests`, `design_verdict`, `scope`. `--parent` only when `scope` is a path list. The outcome file is written under the git common dir, never in the worktree (critic C9) |
 | Outcomes | exit 0, receipt stored at `<common-dir>/quality-receipts/<fingerprint>.json`, branch pointer `branch-<sanitized branch>.json` updated (`{fingerprint, tree, base}`) |
-| Raises | exit 2 `receipt: invalid outcome — <field>: <why>` and nothing written, when the outcome fails the schema, `--parent` names no stored receipt, or `tests.tree` differs from the tree `write` computes (test evidence from another tree, critic C8) |
+| Raises | exit 2 `receipt: invalid outcome — <field>: <why>` and nothing written, when the outcome fails the schema (a `lost` reviewer without a non-empty `reason` included), `--parent` names no stored receipt, or `tests.tree` differs from the tree `write` computes (test evidence from another tree, critic C8) |
 | Idempotency | same tree + same outcome → same file content except `written_at`; written via temp file + rename |
 | Versioning | `schema: "quality-receipt/1"`. A reader that meets any other schema reports `stale schema` |
 
@@ -213,6 +214,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome <common-d
 ```bash
 python3 .agents/skills/quality-gate/scripts/receipt.py check [--base <ref>]
 # exit 0 — receipt: valid <GO|HOLD-approved> <fp8> policy <v>
+#          receipt: not checked phase <n> <lens> — <reason>   (one per `lost` reviewer; `no reason recorded` on an older receipt)
 # exit 3 — receipt: stale <reason>  [parent <fp>]  [delta <path> ...]
 ```
 
