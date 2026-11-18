@@ -223,6 +223,11 @@ def validate_reviewer(reviewer: Dict, index: int) -> None:
         reviewer["dispatch"] != "lost" or (reviewer["phase"] == 5 and reviewer["lens"] == "test-engineer"),
         f"reviewers[{index}].dispatch: lost is only for the phase 5 test-engineer entry",
     )
+    reason = reviewer.get("reason")
+    _require(
+        reviewer["dispatch"] != "lost" or (isinstance(reason, str) and bool(reason.strip())),
+        f"reviewers[{index}].reason: required when dispatch is lost",
+    )
 
 
 def validate_reviewers(reviewers: object) -> None:
@@ -355,6 +360,15 @@ def derive_verdict(outcome: Dict, parent: Optional[str]) -> str:
 # write
 # --------------------------------------------------------------------------
 
+def print_not_checked(reviewers: List[Dict]) -> None:
+    """One line per lost review, so a receipt with one never reads as fully
+    checked. A receipt stored before reasons were required has none."""
+    for reviewer in reviewers:
+        if reviewer.get("dispatch") == "lost":
+            reason = reviewer.get("reason") or "no reason recorded"
+            print(f"receipt: not checked phase {reviewer.get('phase')} {reviewer.get('lens')} — {reason}")
+
+
 def load_outcome(path: str) -> Dict:
     if not os.path.isfile(path):
         raise ReceiptError(f"invalid outcome — file not found: {path}")
@@ -409,6 +423,7 @@ def cmd_write(args: argparse.Namespace) -> None:
     _atomic_write(receipt_path(fingerprint), receipt)
     _atomic_write(pointer_path(), {"fingerprint": fingerprint, "tree": tree, "base": base})
     print(f"receipt: written {fingerprint[:8]} verdict {receipt['verdict']} policy {receipt['policy']}")
+    print_not_checked(receipt["reviewers"])
 
 
 # --------------------------------------------------------------------------
@@ -480,6 +495,7 @@ def cmd_check(args: argparse.Namespace) -> None:
         print(f"receipt: stale {stale}")
         sys.exit(3)
     print(f"receipt: valid {label} {fingerprint[:8]} policy {policy}")
+    print_not_checked(receipt.get("reviewers", []))
 
 
 # --------------------------------------------------------------------------

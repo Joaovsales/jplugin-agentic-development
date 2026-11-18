@@ -177,10 +177,44 @@ assert_file_contains "$STORE2/$FP2.json" "\"lens\": \"test-engineer\"" "write: t
 assert_file_contains ".agents/skills/quality-gate/scripts/receipt.py" "agents\", \"test-engineer.md\""   "write: POLICY_FILES includes the test-engineer persona"
 
 # --- a required but undispatchable review is recorded as lost, and still validated
-sed 's/"dispatch": "dispatched"}$/"dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost.json"
+# (specs/slice-three-outcomes.md AC3: a skip carries a reason, and "not checked"
+# is printed, never read as clean)
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-noreason.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-noreason.json"
+assert_exit 2 "write: a lost reviewer entry with no reason is refused"
+assert_contains "$output" "reviewers[4].reason: required when dispatch is lost" "write: the no-reason refusal names the field"
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost", "reason": "   "}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-blank.json"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-blank.json"
+assert_exit 2 "write: a lost reviewer entry with a blank reason is refused"
+sed 's/"dispatch": "dispatched"}$/"dispatch": "lost", "reason": "no Agent tool in this harness"}/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost.json"
 run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost.json"
-assert_exit 0 "write: a reviewer entry with dispatch lost is accepted"
+assert_exit 0 "write: a reviewer entry with dispatch lost and a reason is accepted"
 assert_file_contains "$STORE2/$FP2.json" "\"dispatch\": \"lost\"" "write: the lost dispatch is carried in the receipt"
+assert_file_contains "$STORE2/$FP2.json" "\"reason\": \"no Agent tool in this harness\"" "write: the lost reason is carried in the receipt"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — no Agent tool in this harness" \
+  "write: a lost review prints a not-checked line with its reason"
+run receipt_in "$REPO2" check --base main
+assert_exit 0 "check: a GO receipt with a lost review is still valid (lost is disclosed, not weighed)"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — no Agent tool in this harness" \
+  "check: a lost review prints a not-checked line with its reason"
+run receipt_in "$REPO2" write --outcome "$BOX/outcome-phase5.json"
+assert_not_contains "$output" "not checked" "write: a fully dispatched outcome prints no not-checked line"
+run receipt_in "$REPO2" check --base main
+assert_not_contains "$output" "not checked" "check: a fully dispatched receipt prints no not-checked line"
+# A receipt stored before reasons were required still verifies, and says so.
+"$PY" - "$STORE2/$FP2.json" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+receipt = json.load(open(path))
+for reviewer in receipt["reviewers"]:
+    if reviewer["phase"] == 5:
+        reviewer["dispatch"] = "lost"
+json.dump(receipt, open(path, "w"))
+PYEOF
+run receipt_in "$REPO2" check --base main
+assert_exit 0 "check: an old receipt whose lost entry has no reason is not refused"
+assert_contains "$output" "receipt: not checked phase 5 test-engineer — no reason recorded" \
+  "check: an old lost entry with no reason reads 'no reason recorded'"
 sed '/"phase": 4/ s/"dispatch": "[a-z]*"/"dispatch": "lost"/' "$BOX/outcome-phase5.json" > "$BOX/outcome-lost-phase4.json"
 run receipt_in "$REPO2" write --outcome "$BOX/outcome-lost-phase4.json"
 assert_exit 2 "write: dispatch lost on a phase 1-4 entry is refused"

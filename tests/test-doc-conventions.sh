@@ -1239,6 +1239,22 @@ done
 assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
   '`> Do not re-derive:`, `> Outcome:`, `> Surface:`' \
   "three outcomes: the PR body's Handovers section carries > Outcome:"
+# specs/slice-three-outcomes.md AC3: a check that did not run is reported as
+# not checked with a reason, never as clean, in /verify-evidence and /quality-gate.
+assert_prose_contains .agents/skills/verify-evidence/SKILL.md \
+  '**Not checked is never clean.**' "three outcomes: /verify-evidence states not checked is never clean"
+assert_prose_contains .agents/skills/verify-evidence/SKILL.md \
+  '`not checked: <check> — <reason>`: never as a pass, never omitted' \
+  "three outcomes: /verify-evidence names the not-checked wording"
+for token in '"dispatch": "lost", "reason": "<why>"' \
+             '`receipt.py write` refuses `lost` without a `reason`' \
+             '`receipt: not checked phase 5 test-engineer — <reason>`' \
+             '`lost` with a non-empty `reason`' \
+             'Each `Not checked:` item reads `not checked: <check> — <reason>`' \
+             'a check that did not run is never reported as clean'; do
+  assert_prose_contains .agents/skills/quality-gate/SKILL.md "$token" \
+    "three outcomes: /quality-gate contains '$token'"
+done
 
 assert_file_contains .agents/skills/slice/references/plan-block.md '## Legacy block' "legacy: plan-block.md holds the one definition"
 assert_prose_contains .agents/skills/slice/references/plan-block.md 'when no open `## Plan:` block in `tasks/todo.md` classifies as legacy' "legacy: plan-block.md names the sunset condition"
