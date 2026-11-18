@@ -3020,5 +3020,10 @@ Step ledger (routine `simplify`):
 - [x] 4.1 `/make-it-simpler #437` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
 - [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
 - [x] 4.3 `/build` — the one TDD row above, in place (inline: a two-line slice)
-- [ ] 4.4 `/quality-gate`
-- [ ] 5. `/wrap-up-session`
+- [x] 4.4 `/quality-gate` — Phases 1–4 inline, no findings; test-engineer dispatched, no findings; receipt GO f5414dd4 policy qg1-314de3d6
+- [x] 5. `/wrap-up-session` — full suite 99/99 green; version bumped to 1.8.20; delta receipt GO f22803b7
+
+## Session Summary — [2026-11-18] [887e959..HEAD]
+- Completed: #437 — `/tidy`'s `### 1–11. The checks` renamed `### The checks`, so the three `/tidy` § *The checks* citations resolve (simplify routine).
+- Pending: none from this run.
+- Carry-forward: `.agents/skills/tidy/SKILL.md:182` cites `/sweep` § *File*, also a `citation-drift` hit, left out of scope; the top `enforced-prose` cues were test pins again, dropped at deep review.
