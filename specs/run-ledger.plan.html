@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Spec: Run ledger — one durable record per build run</title>
+<style>/* jplugin plan theme — inlined into every visual plan by
+   .agents/skills/visual-plan/scripts/plan_render.py. Rules: design/plan-theme/DESIGN.md.
+   Derived from the minimal technical journal prototype (design/prototypes/minimalist/). */
+
+:root {
+  color-scheme: light;
+  --paper: #f7f7f4; --surface: #ffffff; --ink: #26251e; --body: #4f4e48; --muted: #6b675f;
+  --line: #dcdad2; --strong: #b9b7ac; --code: #f0f0ea; --wash: #f1ebe5; --accent: #b93f18;
+  --c-decision: #1f5fa8; --c-criterion: #2d6a35; --c-risk: #8a5300; --c-question: #6a3d9a;
+  --c-blocker: #b3261e; --c-constraint: #4a5868; --c-contract: #0f6b6b; --c-model: #7a4b2a;
+  --c-slice: #3b4cc0; --c-prompt: #b93f18; --c-diagram: #50504a; --c-reference: #5f5c55;
+  --t-decision: #eaf1fa; --t-criterion: #ebf4ec; --t-risk: #f8f0e2; --t-question: #f2edf8;
+  --t-blocker: #fbeceb; --t-slice: #eeeffb; --t-prompt: #f8ece6;
+  --display: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+    --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+    --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+    --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+    --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+    --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+    --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #161714; --surface: #1f211d; --ink: #f2f0e8; --body: #d5d1c6; --muted: #a49f92;
+  --line: #41443d; --strong: #64685f; --code: #252820; --wash: #352b25; --accent: #ff9569;
+  --c-decision: #8db8f0; --c-criterion: #8fd19a; --c-risk: #f0b45c; --c-question: #c4a3ef;
+  --c-blocker: #ff8a80; --c-constraint: #a9b6c6; --c-contract: #7fd3d0; --c-model: #d9a77f;
+  --c-slice: #a5b0ff; --c-prompt: #ff9569; --c-diagram: #c9c6bc; --c-reference: #b5b0a4;
+  --t-decision: #1c2633; --t-criterion: #1b2a1e; --t-risk: #2e2414; --t-question: #261f31;
+  --t-blocker: #331b19; --t-slice: #1f2238; --t-prompt: #33221b;
+}
+
+/* ---------------------------------------------------------------- base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.62 var(--sans); overflow-wrap: break-word; }
+a { color: inherit; text-underline-offset: .2em; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+::selection { background: var(--wash); color: var(--ink); }
+p, li { color: var(--body); max-width: var(--measure); }
+code { font: .88em/1.4 var(--mono); background: var(--code); padding: .08em .3em; border-radius: 3px; overflow-wrap: anywhere; }
+pre { margin: 16px 0 24px; background: var(--code); padding: 18px 20px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--ink); max-width: 100%; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+blockquote { margin: 0 0 20px; padding: 2px 0 2px 16px; border-left: 2px solid var(--strong); color: var(--muted); }
+h1, h2, h3 { color: var(--ink); }
+h3 { font: 600 17px/1.3 var(--sans); letter-spacing: -.01em; margin: 26px 0 10px; }
+ul, ol { padding-left: 22px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+.skip { position: absolute; left: 10px; top: -60px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 30; }
+.skip:focus { top: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ------------------------------------------------------------- layout */
+.masthead { max-width: 1440px; margin: 0 auto; padding: clamp(36px, 6vw, 84px) clamp(16px, 4vw, 64px) 26px; border-bottom: 1px solid var(--line); }
+.folio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; margin: 0 0 22px; color: var(--muted); font: 12px/1.5 var(--mono); max-width: none; }
+.masthead h1 { font: 400 clamp(36px, 6vw, 76px)/1.02 var(--display); letter-spacing: -.035em; margin: 0 0 18px; max-width: 22ch; }
+.source { margin: 0; font: 13px/1.5 var(--mono); color: var(--muted); max-width: none; }
+.source a { color: var(--ink); }
+.shell { max-width: 1440px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); padding: 0 clamp(16px, 4vw, 64px); }
+main { min-width: 0; padding-bottom: 80px; }
+
+/* ----------------------------------------------------------- navigation */
+.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 26px 0; font-size: 14px; }
+.toc-menu > summary { list-style: none; cursor: pointer; font: 12px/1.4 var(--mono); color: var(--muted); padding: 6px 0; }
+.toc-menu > summary::-webkit-details-marker { display: none; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; }
+.toc li { margin: 0; max-width: none; }
+.toc a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--line); text-decoration: none; color: var(--body); line-height: 1.35; }
+.toc a:hover { color: var(--ink); border-left-color: var(--strong); }
+.toc a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); font-weight: 600; }
+.toc .toc-prompt { margin-top: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.btn, .copy, .review button { font: 600 13px/1 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--strong); border-radius: 4px; padding: 9px 12px; cursor: pointer; min-height: 36px; }
+.btn:hover, .copy:hover, .review button:hover { border-color: var(--ink); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ------------------------------------------------- lead, strip, blockers */
+.lead { margin: 30px 0 26px; }
+.lead p { font: 400 clamp(20px, 2.2vw, 27px)/1.42 var(--display); color: var(--ink); max-width: 40ch; margin: 0 0 14px; }
+.lead .lead-label, .card-label { font: 600 11px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.lead .lead-label { color: var(--muted); display: block; margin-bottom: 10px; }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); margin: 0 0 26px; }
+.stat { display: block; padding: 14px 14px 14px 0; text-decoration: none; }
+.stat + .stat { border-left: 1px solid var(--line); padding-left: 14px; }
+.stat-n { display: block; font: 400 30px/1.1 var(--display); color: var(--ink); }
+.stat-l { display: block; font: 12px/1.3 var(--mono); color: var(--muted); }
+.stat-alert .stat-n { color: var(--c-blocker); }
+.strip-label { grid-column: 1 / -1; display: flex; gap: 4px; align-items: baseline; padding: 8px 0 0; color: var(--muted); }
+.strip-label + .stat { border-left: 0; padding-left: 0; }
+.blockers { border: 1px solid var(--c-blocker); border-left-width: 6px; background: var(--t-blocker); padding: 16px 20px; margin: 0 0 30px; }
+.blockers h2 { font: 600 18px/1.3 var(--sans); margin: 0 0 8px; color: var(--c-blocker); }
+.blockers ul { margin: 0; padding-left: 0; list-style: none; }
+.blockers li { padding: 4px 0; max-width: none; }
+.blockers .none { color: var(--body); margin: 0; }
+
+/* ------------------------------------------------------------- sections */
+.sec { scroll-margin-top: 12px; border-bottom: 1px solid var(--line); }
+.sec > details > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px; padding: 30px 0 18px; }
+.sec > details > summary::-webkit-details-marker { display: none; }
+.sec > details > summary::after { content: "+"; margin-left: auto; font: 400 22px/1 var(--mono); color: var(--muted); }
+.sec > details[open] > summary::after { content: "\2212"; }
+.sec h2 { font: 400 clamp(28px, 3.4vw, 44px)/1.08 var(--display); letter-spacing: -.03em; margin: 0; }
+.sec-count { font: 12px/1 var(--mono); color: var(--muted); }
+.sec > details > :not(summary) { margin-left: 0; }
+.sec > details { padding-bottom: 26px; }
+.table-scroll { overflow-x: auto; max-width: 100%; margin: 14px 0 22px; border-top: 1px solid var(--ink); }
+.table-scroll:focus-visible { outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { position: sticky; top: 0; background: var(--paper); text-align: left; font: 600 12px/1.35 var(--mono); color: var(--muted); padding: 10px 12px 8px 0; border-bottom: 1px solid var(--strong); vertical-align: bottom; }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--body); min-width: 9ch; }
+
+/* ---------------------------------------------------------------- cards */
+.cards { display: grid; gap: 12px; margin: 6px 0 18px; padding: 0; list-style: none; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; max-width: none; min-width: 0; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-head h3 { margin: 0; font: 600 16px/1.35 var(--sans); flex: 1 1 18ch; min-width: 0; }
+.card-icon { font: 700 14px/1 var(--mono); width: 1.5em; text-align: center; flex: none; }
+.card-id { font: 600 12px/1 var(--mono); color: var(--ink); background: var(--code); padding: 4px 6px; border-radius: 3px; }
+.card p { margin: 8px 0 0; }
+.card-body { margin-top: 8px; }
+.card-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.card-more > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.card-more dl { margin: 8px 0 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; }
+.card-more dt { font: 600 12px/1.6 var(--mono); color: var(--muted); }
+.card-more dd { margin: 0; color: var(--body); }
+.chosen { position: relative; padding-left: 26px; color: var(--ink); overflow-wrap: anywhere; }
+.chosen::before { position: absolute; left: 0; top: .2em; }
+.chosen::before { content: "\2713"; font: 700 12px/1 var(--mono); color: var(--c-criterion); border: 1px solid currentColor; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; flex: none; }
+.callout-wrong { border-left: 3px solid var(--c-blocker); padding: 6px 10px; background: var(--t-blocker); color: var(--ink); }
+.meta { font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; max-width: none; }
+
+/* chips: text labels first, colour second */
+.chip { font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip-settled { color: var(--c-criterion); }
+.chip-open, .chip-uncovered, .chip-blocked { color: var(--c-blocker); border-style: dashed; }
+.chip-new { color: var(--c-contract); }
+.chip-changed { color: var(--c-risk); }
+.chip-verify { color: var(--c-question); border-style: dashed; }
+.lvl { font: 600 11px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--strong); border-radius: 3px; color: var(--ink); }
+.lvl-H { border-color: var(--c-blocker); color: var(--c-blocker); border-width: 2px; }
+.lvl-M { border-color: var(--c-risk); color: var(--c-risk); }
+.lvl-L { color: var(--muted); }
+
+/* one colour, icon, label and border shape per component type */
+.card-decision { border-color: var(--c-decision); border-style: solid; }
+.card-decision .card-icon, .card-decision .card-label { color: var(--c-decision); }
+.card-decision.is-open { background: var(--t-decision); }
+.card-criterion { border: 0; border-left: 3px solid var(--c-criterion); background: transparent; padding: 8px 12px; }
+.card-criterion .card-icon, .card-criterion .card-label { color: var(--c-criterion); }
+.card-criterion.is-uncovered { border-left-color: var(--c-blocker); border-left-style: dashed; background: var(--t-blocker); }
+.card-risk { border: 3px double var(--c-risk); }
+.card-risk .card-icon, .card-risk .card-label { color: var(--c-risk); }
+.card-question { border: 2px dashed var(--c-question); background: var(--t-question); }
+.card-question .card-icon { color: var(--c-question); border: 2px solid currentColor; border-radius: 50%; width: 22px; height: 22px; display: inline-grid; place-items: center; }
+.card-question .card-label { color: var(--c-question); }
+.card-constraint { border: 1px dotted var(--c-constraint); }
+.card-constraint .card-icon, .card-constraint .card-label { color: var(--c-constraint); }
+.card-contract { border: 1px solid var(--line); border-left: 6px solid var(--c-contract); }
+.card-contract .card-icon, .card-contract .card-label { color: var(--c-contract); }
+.card-contract pre { margin: 10px 0 0; }
+.card-model { border: 1px solid var(--line); border-top: 4px solid var(--c-model); }
+.card-model .card-icon, .card-model .card-label { color: var(--c-model); }
+.card-slice { border: 2px solid var(--c-slice); border-radius: 0 12px 12px 0; }
+.card-slice .card-icon, .card-slice .card-label { color: var(--c-slice); }
+.card-slice.is-blocked { background: var(--t-blocker); border-style: dashed; }
+.card-prompt { border: 2px solid var(--c-prompt); background: var(--t-prompt); padding: 18px 20px; }
+.card-prompt .card-icon, .card-prompt .card-label { color: var(--c-prompt); }
+.card-prompt pre { background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-prompt.not-ready { border-style: dashed; border-color: var(--c-blocker); background: var(--t-blocker); }
+.not-ready-msg { font-weight: 700; color: var(--c-blocker); }
+.card-reference { border: 0; border-top: 1px dotted var(--c-reference); background: transparent; padding: 10px 0; }
+.card-reference .card-icon, .card-reference .card-label { color: var(--c-reference); }
+.card-blockers .card-icon, .card-blockers .card-label { color: var(--c-blocker); }
+.card-strip .card-label { color: var(--muted); }
+.card-lead .card-label { color: var(--muted); }
+
+/* ------------------------------------------------------------- diagrams */
+.diagram { margin: 18px 0 24px; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; min-width: 0; }
+.diagram .card-icon, .diagram .card-label { color: var(--c-diagram); }
+.diagram-scroll { overflow-x: auto; max-width: 100%; margin-top: 8px; }
+.diagram svg { display: block; max-width: none; height: auto; font-family: var(--sans); }
+.diagram figcaption { font: 13px/1.5 var(--sans); color: var(--body); margin-top: 8px; }
+.diagram-source, .text-diagram { margin-top: 10px; }
+.diagram-source > summary, .text-diagram > summary { cursor: pointer; font: 600 12px/1.4 var(--mono); color: var(--muted); }
+.text-diagram { border: 1px dashed var(--strong); padding: 8px 12px; margin: 12px 0 20px; }
+svg .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+svg .node text { fill: var(--ink); font-size: 13px; }
+svg .node .node-sub { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .node-new rect { stroke: var(--c-contract); stroke-width: 2.4; }
+svg .node-changed rect { stroke: var(--c-risk); stroke-width: 2.4; stroke-dasharray: 6 3; }
+svg .node-blocked rect { stroke: var(--c-blocker); stroke-width: 2.4; stroke-dasharray: 3 3; fill: var(--t-blocker); }
+svg a:focus-visible rect, svg a:hover rect { stroke: var(--accent); stroke-width: 2.6; }
+svg .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .edge-dashed { stroke-dasharray: 5 4; }
+svg .arrow { fill: var(--muted); }
+svg .edge-label { fill: var(--body); font-size: 11px; font-family: var(--mono); }
+svg .label-bg { fill: var(--surface); }
+svg .lane { fill: var(--code); stroke: var(--line); }
+svg .lane-label { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+svg .lifeline { stroke: var(--strong); stroke-dasharray: 4 4; }
+svg .actor rect { fill: var(--surface); stroke: var(--ink); }
+svg .actor text { fill: var(--ink); font-size: 13px; }
+svg .msg { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .msg-reply { stroke-dasharray: 5 4; }
+svg .msg-label { fill: var(--ink); font-size: 12px; }
+svg .frame { fill: none; stroke: var(--c-question); stroke-width: 1.2; }
+svg .frame-label { fill: var(--c-question); font-size: 11px; font-family: var(--mono); font-weight: 600; }
+svg .frame-tab { fill: var(--t-question); stroke: var(--c-question); }
+svg .frame-divider { stroke: var(--c-question); stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 12px/1.4 var(--mono); color: var(--muted); margin-top: 8px; padding: 0; list-style: none; }
+.legend li { max-width: none; }
+
+/* -------------------------------------------------------------- review */
+.review { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.review button { padding: 6px 9px; min-height: 30px; font-size: 12px; }
+.review button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.review label { display: flex; align-items: center; gap: 6px; flex: 1 1 16ch; min-width: 0; font: 12px/1.3 var(--mono); color: var(--muted); }
+.review textarea, .review select, .review input { font: 13px/1.4 var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--strong); border-radius: 4px; padding: 6px 8px; flex: 1 1 16ch; min-width: 0; }
+.review-status { font: 12px/1.4 var(--mono); color: var(--muted); margin: 8px 0 0; max-width: none; }
+.review-panel { border: 1px solid var(--strong); padding: 16px 18px; margin: 26px 0; }
+.review-panel pre { white-space: pre-wrap; }
+
+/* ------------------------------------------------------- blockers-only */
+body.only-blockers main .sec:not(.has-blockers),
+body.only-blockers main .cards > :not(.is-blocker),
+body.only-blockers main .ac-list > :not(.is-blocker) { display: none; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 767px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: sticky; top: 0; z-index: 20; max-height: none; overflow: visible; background: var(--paper); border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .toc-menu > summary { font-size: 14px; color: var(--ink); padding: 10px 0; }
+  .toc-menu > summary::before { content: "\2630  "; }
+  .toc-menu[open] ol { max-height: 70vh; overflow-y: auto; padding-bottom: 10px; }
+  .masthead h1 { font-size: clamp(32px, 10vw, 48px); }
+  .stat + .stat { border-left: 0; padding-left: 0; }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card-more dl { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 768px) {
+  .toc-menu > summary { pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  :root { --paper: #fff; --surface: #fff; }
+  .toc, .controls, .review, .copy, .skip, .review-panel { display: none !important; }
+  .shell { display: block; padding: 0; }
+  .sec > details > summary::after { content: ""; }
+  .card, .diagram { break-inside: avoid; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 10px; color: var(--muted); }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body class="plan">
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead"><p class="folio"><span>Visual plan</span><span><a href="#build-prompt">Build prompt ↓</a></span></p><h1>Spec: Run ledger — one durable record per build run</h1><p class="source">Source: <a href="run-ledger.md">specs/run-ledger.md</a> · sha256 <code>1399e0ad2c84</code></p></header>
+<div class="shell"><nav class="toc" aria-label="Contents"><details class="toc-menu" open><summary>Contents</summary><ol><li><a href="#summary-lead">Summary</a></li><li><a href="#blockers">Blockers</a></li><li><a href="#problem">Problem</a></li><li><a href="#constraints">Constraints</a></li><li><a href="#system-design">System design</a></li><li><a href="#component-contracts">Component contracts</a></li><li><a href="#data-models">Data models</a></li><li><a href="#risks">Risks</a></li><li><a href="#build-order">Build Order</a></li><li><a href="#decisions">Decisions</a></li><li><a href="#acceptance-criteria">Acceptance Criteria</a></li><li><a href="#implementation-paths">Implementation Paths</a></li><li><a href="#build-prompt">Build prompt</a></li><li><a href="#review">Review</a></li></ol></details></nav><main id="main">
+<blockquote>Origin: #442 · Designed 2026-11-18 · Review status: <strong>unattended improve-lane run, critic lens run inline</strong> (no sub-agent tool in this worker: 0 MUST-FIX, 3 SHOULD-FIX applied, 1 declined as D7)<br>Visual: specs/run-ledger.plan.html</blockquote>
+<section class="lead card-lead" id="summary-lead" aria-label="Summary"><span class="lead-label"><span class="card-icon" aria-hidden="true">¶</span> <span class="card-label">Summary</span></span><p>Every <code>/build</code> session, and every rework run after review, writes one JSON record to <code>tasks/runs/&lt;run-id&gt;.json</code>: the spec, the base SHA, the model per tier, each slice&#x27;s attempts and three outcomes, tokens and cost, the parent run it reworks, and the human result of its pull request. <code>run_ledger.py stats</code> recalculates first-pass rate, attempts per merged PR and cost per merged PR from those files alone. The decision not to miss: the human result has its own command, <code>decide</code>, and <code>record</code> has no option that sets it, so no later run can overwrite a human&#x27;s merge or close.</p></section>
+<nav class="strip card-strip" aria-label="At a glance"><span class="strip-label"><span class="card-icon" aria-hidden="true">#</span><span class="card-label">At a glance</span></span><a class="stat" href="#build-order"><span class="stat-n">2</span><span class="stat-l">slices</span></a><a class="stat" href="#acceptance-criteria"><span class="stat-n">5</span><span class="stat-l">criteria</span></a><a class="stat" href="#decisions"><span class="stat-n">8</span><span class="stat-l">decisions</span></a><a class="stat" href="#risks"><span class="stat-n">2</span><span class="stat-l">risks</span></a><a class="stat" href="#decisions"><span class="stat-n">0</span><span class="stat-l">open items</span></a><a class="stat" href="#blockers"><span class="stat-n">0</span><span class="stat-l">blockers</span></a></nav>
+<section class="blockers card-blockers" id="blockers" aria-labelledby="blockers-h"><h2 id="blockers-h"><span class="card-icon" aria-hidden="true">!</span><span class="card-label">Blockers</span> <span class="sec-count">0</span></h2><p class="none">No blockers: no open decision, blocking question, uncovered criterion or unmitigated high-impact risk.</p></section>
+<div class="controls" role="toolbar" aria-label="Disclosure"><button type="button" class="btn" data-action="expand">Expand all</button><button type="button" class="btn" data-action="collapse">Collapse all</button><button type="button" class="btn" data-action="blockers" aria-pressed="false">Show only blockers</button></div>
+<section class="sec sec-generic" id="problem" data-kind="generic"><details class="sec-body" open><summary><h2>Problem</h2></summary><p>A build or routine run leaves a PR and a handover, but nothing durable links its attempts, models, cost and the human outcome, so first-pass rate and cost per accepted PR cannot be calculated. This change adds the per-run record and the report over it. Out of scope: reading PR state from GitHub automatically (the human result is recorded by whoever observes it), and Helix&#x27;s <code>run.json</code> (<code>specs/helix-checkpoint-loop.md:262</code>, not built).</p></details></section>
+<section class="sec sec-constraints" id="constraints" data-kind="constraints"><details class="sec-body"><summary><h2>Constraints</h2></summary><div class="cards"><article class="card card-constraint"><div class="card-head"><span class="card-icon" aria-hidden="true">⊟</span><span class="card-label">Constraint</span><h3>Totals are derived</h3></div><dl class="constraint-body"><dt>Value</dt><dd><code>stats</code> reads only the per-run files; no file stores a running total</dd><dt>Source</dt><dd>issue</dd><dt>Detected by</dt><dd><code>tests/test-run-ledger.sh</code> § stats: deleting a record changes the report</dd></dl></article><article class="card card-constraint"><div class="card-head"><span class="card-icon" aria-hidden="true">⊟</span><span class="card-label">Constraint</span><h3>Idempotent by run id</h3></div><dl class="constraint-body"><dt>Value</dt><dd>recording the same run twice leaves every <code>stats</code> count unchanged and the record file byte-identical</dd><dt>Source</dt><dd>issue</dd><dt>Detected by</dt><dd>§ idempotent</dd></dl></article><article class="card card-constraint"><div class="card-head"><span class="card-icon" aria-hidden="true">⊟</span><span class="card-label">Constraint</span><h3>A final human decision is final</h3></div><dl class="constraint-body"><dt>Value</dt><dd><code>merged</code> and <code>closed</code> are never replaced; <code>record</code> cannot set <code>human_result</code> at all</dd><dt>Source</dt><dd>issue</dd><dt>Detected by</dt><dd>§ human decision</dd></dl></article><article class="card card-constraint"><div class="card-head"><span class="card-icon" aria-hidden="true">⊟</span><span class="card-label">Constraint</span><h3>Unknown is not zero</h3></div><dl class="constraint-body"><dt>Value</dt><dd>missing tokens or cost are stored as the string <code>unknown</code> and an aggregate over any unknown value prints <code>unknown</code> with a count</dd><dt>Source</dt><dd>issue</dd><dt>Detected by</dt><dd>§ unknown</dd></dl></article><article class="card card-constraint"><div class="card-head"><span class="card-icon" aria-hidden="true">⊟</span><span class="card-label">Constraint</span><h3>The three outcomes are #441&#x27;s</h3></div><dl class="constraint-body"><dt>Value</dt><dd>slice outcomes reuse <code>slice_outcome.py</code>&#x27;s values and its <code>derive()</code>; a label inconsistent with its results is refused</dd><dt>Source</dt><dd>issue (depends on #441)</dd><dt>Detected by</dt><dd>§ record validation</dd></dl></article><article class="card card-constraint"><div class="card-head"><span class="card-icon" aria-hidden="true">⊟</span><span class="card-label">Constraint</span><span class="chip chip-verify">verify</span><h3>A bad record is loud</h3></div><dl class="constraint-body"><dt>Value</dt><dd>an unreadable, wrong-schema or misnamed file makes <code>stats</code> exit 1 naming the file; nothing is skipped silently</dd><dt>Source</dt><dd>inferred</dd><dt>Detected by</dt><dd>§ stats refuses a malformed record</dd></dl></article><article class="card card-constraint"><div class="card-head"><span class="card-icon" aria-hidden="true">⊟</span><span class="card-label">Constraint</span><span class="chip chip-verify">verify</span><h3>Rollback</h3></div><dl class="constraint-body"><dt>Value</dt><dd>deleting <code>tasks/runs/</code> and the Phase 6 call restores the prior behaviour; no other store reads the ledger</dd><dt>Source</dt><dd>inferred</dd><dt>Detected by</dt><dd>no migration exists</dd></dl></article></div></details></section>
+<section class="sec sec-generic" id="system-design" data-kind="generic"><details class="sec-body" open><summary><h2>System design</h2></summary><h3>Ownership</h3>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table: Component, Owns (source of truth for), Reads"><table><thead><tr><th scope="col">Component</th><th scope="col">Owns (source of truth for)</th><th scope="col">Reads</th></tr></thead><tbody><tr><td><code>run_ledger.py</code> (new)</td><td>the record schema <code>run-ledger/1</code>, the run-id rule, the human-result transitions, every derived total</td><td><code>slice_outcome.derive</code> and its value names</td></tr><tr><td><code>tasks/runs/&lt;run-id&gt;.json</code> (new)</td><td>one run&#x27;s facts, written only through <code>run_ledger.py</code></td><td>—</td></tr><tr><td><code>/build</code> Phase 6 (changed)</td><td>when a build run is recorded and what it passes</td><td>the plan block&#x27;s <code>&gt; Outcome:</code> lines, the base SHA</td></tr><tr><td><code>/receive-review</code> (changed)</td><td>recording a rework run and the parent&#x27;s <code>changes_requested</code></td><td>the branch&#x27;s latest run (<code>run_ledger.py last</code>)</td></tr><tr><td>the person or job that merges or closes the PR</td><td>the <code>merged</code> or <code>closed</code> decision</td><td>—</td></tr></tbody></table></div>
+<h3>Interaction</h3>
+<figure class="diagram card-diagram flow" id="diagram-62"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">flow</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="who writes a run record and who reads it"><svg viewBox="0 0 1200 332" width="1200" height="332" role="img" aria-labelledby="dg62-t dg62-d"><title id="dg62-t">who writes a run record and who reads it</title><desc id="dg62-d">build[&quot;/build Phase 6&quot;] to ledger[&quot;run_ledger.py (new)&quot;]: (1) record; review[&quot;/receive-review&quot;] to ledger: (2) decide changes_requested + record --parent; merger[&quot;merger&quot;] to ledger: (3) decide merged or closed; ledger to runs[&quot;tasks/runs/*.json (new)&quot;]: (4) atomic write; stats[&quot;run_ledger.py stats&quot;] to runs: (5) read all records.</desc><defs><marker id="dg62-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><path class="edge" d="M240.0,64.0 C365.2,64.0 365.2,64.0 490.4,64.0" marker-end="url(#dg62-arrow)"/><rect class="label-bg" x="328.4" y="48.0" width="73.6" height="16" rx="3"/><text class="edge-label" x="365.2" y="60.0" text-anchor="middle">(1) record</text><path class="edge" d="M240.0,138.0 C365.2,138.0 365.2,138.0 490.4,138.0" marker-end="url(#dg62-arrow)"/><rect class="label-bg" x="252.0" y="122.0" width="226.4" height="16" rx="3"/><text class="edge-label" x="365.2" y="134.0" text-anchor="middle">(2) decide changes_requested + re…</text><path class="edge" d="M240.0,212.0 C365.2,212.0 365.2,138.0 490.4,138.0" marker-end="url(#dg62-arrow)"/><rect class="label-bg" x="274.3" y="159.0" width="181.8" height="16" rx="3"/><text class="edge-label" x="365.2" y="171.0" text-anchor="middle">(3) decide merged or closed</text><path class="edge" d="M710.4,138.0 C835.6,138.0 835.6,64.0 960.8,64.0" marker-end="url(#dg62-arrow)"/><rect class="label-bg" x="779.7" y="85.0" width="111.8" height="16" rx="3"/><text class="edge-label" x="835.6" y="97.0" text-anchor="middle">(4) atomic write</text><path class="edge" d="M240.0,286.0 C365.2,286.0 365.2,212.0 490.4,212.0" marker-end="url(#dg62-arrow)"/><rect class="label-bg" x="296.5" y="233.0" width="137.3" height="16" rx="3"/><text class="edge-label" x="365.2" y="245.0" text-anchor="middle">(5) read all records</text><g class="node"><title>build[&quot;/build Phase 6&quot;]</title><rect x="20.0" y="38.0" width="220.0" height="52.0" rx="6"/><text x="30.0" y="69.0">build[&quot;/build Phase 6&quot;]</text></g><g class="node"><title>ledger[&quot;run_ledger.py (new)&quot;]</title><rect x="490.4" y="38.0" width="220.0" height="52.0" rx="6"/><text x="500.4" y="69.0">ledger[&quot;run_ledger.py (ne…</text></g><g class="node"><title>review[&quot;/receive-review&quot;]</title><rect x="20.0" y="112.0" width="220.0" height="52.0" rx="6"/><text x="30.0" y="143.0">review[&quot;/receive-review&quot;]</text></g><g class="node"><title>ledger</title><rect x="490.4" y="112.0" width="220.0" height="52.0" rx="6"/><text x="500.4" y="143.0">ledger</text></g><g class="node"><title>merger[&quot;merger&quot;]</title><rect x="20.0" y="186.0" width="220.0" height="52.0" rx="6"/><text x="30.0" y="217.0">merger[&quot;merger&quot;]</text></g><g class="node"><title>runs[&quot;tasks/runs/*.json (new)&quot;]</title><rect x="960.8" y="38.0" width="220.0" height="52.0" rx="6"/><text x="970.8" y="69.0">runs[&quot;tasks/runs/*.json (…</text></g><g class="node"><title>stats[&quot;run_ledger.py stats&quot;]</title><rect x="20.0" y="260.0" width="220.0" height="52.0" rx="6"/><text x="30.0" y="291.0">stats[&quot;run_ledger.py stat…</text></g><g class="node"><title>runs</title><rect x="490.4" y="186.0" width="220.0" height="52.0" rx="6"/><text x="500.4" y="217.0">runs</text></g></svg></div><figcaption>who writes a run record and who reads it</figcaption><details class="diagram-source"><summary>Diagram source</summary><pre><code>caption: who writes a run record and who reads it
+build[&quot;/build Phase 6&quot;] -&gt; ledger[&quot;run_ledger.py (new)&quot;] : (1) record
+review[&quot;/receive-review&quot;] -&gt; ledger : (2) decide changes_requested + record --parent
+merger[&quot;merger&quot;] -&gt; ledger : (3) decide merged or closed
+ledger -&gt; runs[&quot;tasks/runs/*.json (new)&quot;] : (4) atomic write
+stats[&quot;run_ledger.py stats&quot;] -&gt; runs : (5) read all records</code></pre></details></figure>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Table: Arrow, Mode, On timeout"><table><thead><tr><th scope="col">Arrow</th><th scope="col">Mode</th><th scope="col">On timeout</th><th scope="col">On duplicate</th></tr></thead><tbody><tr><td>(1)</td><td>sync, local file</td><td>no network; a crash leaves the previous file or the new one (write to temp, then rename)</td><td>same run id rewrites the same file; human fields kept</td></tr><tr><td>(2)</td><td>sync, local file</td><td>as (1)</td><td><code>decide</code> with the current value is a no-op</td></tr><tr><td>(3)</td><td>sync, local file</td><td>as (1)</td><td>as (2); a different final value is refused</td></tr><tr><td>(4)</td><td>sync</td><td>as (1)</td><td>rename is atomic</td></tr><tr><td>(5)</td><td>sync, read-only</td><td>n/a</td><td>duplicate run ids are impossible: the file name is the run id, and a mismatch is refused</td></tr></tbody></table></div>
+<h3>Failure unit</h3>
+<p>A failing <code>record</code> call fails only the ledger step of Phase 6: the build&#x27;s commits and handovers are already written, and Phase 6 reports the error.</p></details></section>
+<section class="sec sec-component-contracts" id="component-contracts" data-kind="component-contracts"><details class="sec-body"><summary><h2>Component contracts</h2></summary><div class="cards"><article class="card card-contract" id="contract-run-ledger-py"><div class="card-head"><span class="card-icon" aria-hidden="true">{ }</span><span class="card-label">Contract</span><h3>run_ledger.py</h3></div><div class="card-body"><pre><code id="contract-run-ledger-py-code-1">run_ledger.py record --branch B --base SHA [--run-id ID] [--spec PATH] [--pr N]
+                     [--parent RUN_ID] [--model TIER=NAME]... [--slice &quot;&lt;id&gt; attempts=&lt;n&gt; &lt;outcome line&gt;&quot;]...
+                     [--tokens N|unknown] [--cost USD|unknown] [--ledger DIR]   -&gt; 0 recorded | 2 usage
+run_ledger.py decide --run-id ID --result merged|changes_requested|closed [--ledger DIR]
+                                                                               -&gt; 0 recorded/unchanged | 1 refused | 2 usage
+run_ledger.py last --branch B [--ledger DIR]                                    -&gt; 0 prints run id | 1 none
+run_ledger.py stats [--ledger DIR]                                              -&gt; 0 report | 1 malformed record</code></pre><button type="button" class="copy" data-copy-from="contract-run-ledger-py-code-1">Copy</button><div class="table-scroll" tabindex="0" role="region" aria-label="Table: Aspect, Contract"><table><thead><tr><th scope="col">Aspect</th><th scope="col">Contract</th></tr></thead><tbody><tr><td>Inputs</td><td><code>--slice</code> is the slice id, <code>attempts=&lt;n&gt;</code> (n ≥ 1), then the <code>&gt; Outcome:</code> line verbatim (<code>agent_result=… verification_result=… slice_result=… &lt;LABEL&gt;</code>); <code>--ledger</code> defaults to <code>tasks/runs</code></td></tr><tr><td>Outcomes</td><td><code>record: recorded &lt;run-id&gt;</code>; <code>decide: recorded &lt;run-id&gt; &lt;result&gt;</code> or <code>decide: unchanged …</code>; <code>decide: refused &lt;run-id&gt; — already &lt;final&gt;, a final human decision is never overwritten</code> (exit 1)</td></tr><tr><td>Raises</td><td>usage errors exit 2 naming the value; a malformed stored record exits 1 naming the file; <code>decide</code> on a run id with no record exits 1 (<code>decide: no run &lt;id&gt;</code>)</td></tr><tr><td>Idempotency</td><td>key = run id. The default run id is <code>&lt;branch slug&gt;-&lt;base SHA, 12 chars&gt;</code>, so re-recording the same build lands on the same file. <code>last</code> picks the branch&#x27;s run with the latest <code>recorded_at</code>, ties broken by run id. <code>record</code> keeps the stored <code>recorded_at</code>, <code>human_result</code> and <code>decisions</code>; an option left out keeps the stored value</td></tr><tr><td>Versioning</td><td>every record carries <code>&quot;schema&quot;: &quot;run-ledger/1&quot;</code>; another schema is refused by <code>stats</code> and <code>decide</code></td></tr></tbody></table></div><p><code>stats</code> prints, exit 0:</p><pre><code id="contract-run-ledger-py-code-4">run-ledger: runs=&lt;n&gt; prs=&lt;n&gt; merged=&lt;n&gt; closed=&lt;n&gt; open=&lt;n&gt;
+run-ledger: first_pass_rate=&lt;k&gt;/&lt;decided&gt; (&lt;pct&gt;%)
+run-ledger: attempts_per_merged_pr=&lt;x.xx&gt;
+run-ledger: cost_per_merged_pr=&lt;usd&gt; | unknown — cost missing on &lt;k&gt; of &lt;n&gt; merged PRs
+run-ledger: tokens_per_merged_pr=&lt;n&gt; | unknown — tokens missing on &lt;k&gt; of &lt;n&gt; merged PRs</code></pre><button type="button" class="copy" data-copy-from="contract-run-ledger-py-code-4">Copy</button><p>With no decided or no merged PR, the rate and the per-PR values print <code>unknown — no merged PRs</code> (or <code>no decided PRs</code>) instead of a number.</p><figure class="diagram card-diagram sequence" id="diagram-119"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">sequence</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="a rework after review never touches the parent&#x27;s final decision"><svg viewBox="0 0 1551 456" width="1551" height="456" role="img" aria-labelledby="dg119-t dg119-d"><title id="dg119-t">a rework after review never touches the parent&#x27;s final decision</title><desc id="dg119-d">1. reviewer calls receive: changes requested on PR 2. receive calls ledger: last --branch B 3. ledger replies to receive: parent run id 4. receive calls ledger: decide parent changes_requested When parent already merged or closed: 5. ledger replies to receive: refused, exit 1 Otherwise, when parent open or changes_requested: 6. ledger replies to receive: recorded End of alternatives. 7. receive calls ledger: record --branch B --base HEAD --parent parent</desc><defs><marker id="dg119-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><line class="lifeline" x1="171.2" y1="54.0" x2="171.2" y2="436.0"/><g class="actor"><rect x="116.2" y="20" width="110.0" height="34" rx="5"/><text x="171.2" y="42" text-anchor="middle">reviewer</text></g><line class="lifeline" x1="473.5" y1="54.0" x2="473.5" y2="436.0"/><g class="actor"><rect x="372.7" y="20" width="201.6" height="34" rx="5"/><text x="473.5" y="42" text-anchor="middle">receive[&quot;/receive-revie…</text></g><line class="lifeline" x1="775.8" y1="54.0" x2="775.8" y2="436.0"/><g class="actor"><rect x="678.7" y="20" width="194.2" height="34" rx="5"/><text x="775.8" y="42" text-anchor="middle">ledger[&quot;run_ledger.py&quot;]</text></g><line class="lifeline" x1="1078.1" y1="54.0" x2="1078.1" y2="436.0"/><g class="actor"><rect x="1023.1" y="20" width="110.0" height="34" rx="5"/><text x="1078.1" y="42" text-anchor="middle">receive</text></g><line class="lifeline" x1="1380.4" y1="54.0" x2="1380.4" y2="436.0"/><g class="actor"><rect x="1325.4" y="20" width="110.0" height="34" rx="5"/><text x="1380.4" y="42" text-anchor="middle">ledger</text></g><rect class="frame" x="10.0" y="236.0" width="1531.6" height="136.0"/><path class="frame-tab" d="M10.0,236.0 h251.5 v14 l-6,6 h-245.5 z"/><text class="frame-label" x="16.0" y="250.0">alt [parent already merged or closed]</text><line class="frame-divider" x1="10.0" y1="308.0" x2="1541.6" y2="308.0"/><text class="frame-label" x="16.0" y="324.0">[parent open or changes_requested]</text><line class="msg" x1="171.2" y1="84.0" x2="1078.1" y2="84.0" marker-end="url(#dg119-arrow)"/><text class="msg-label" x="624.6" y="77.0" text-anchor="middle">changes requested on PR</text><line class="msg" x1="1078.1" y1="124.0" x2="1380.4" y2="124.0" marker-end="url(#dg119-arrow)"/><text class="msg-label" x="1229.3" y="117.0" text-anchor="middle">last --branch B</text><line class="msg msg-reply" x1="1380.4" y1="164.0" x2="1078.1" y2="164.0" marker-end="url(#dg119-arrow)"/><text class="msg-label" x="1229.3" y="157.0" text-anchor="middle">parent run id</text><line class="msg" x1="1078.1" y1="204.0" x2="1380.4" y2="204.0" marker-end="url(#dg119-arrow)"/><text class="msg-label" x="1229.3" y="197.0" text-anchor="middle">decide parent changes_requested</text><line class="msg msg-reply" x1="1380.4" y1="274.0" x2="1078.1" y2="274.0" marker-end="url(#dg119-arrow)"/><text class="msg-label" x="1229.3" y="267.0" text-anchor="middle">refused, exit 1</text><line class="msg msg-reply" x1="1380.4" y1="340.0" x2="1078.1" y2="340.0" marker-end="url(#dg119-arrow)"/><text class="msg-label" x="1229.3" y="333.0" text-anchor="middle">recorded</text><line class="msg" x1="1078.1" y1="396.0" x2="1380.4" y2="396.0" marker-end="url(#dg119-arrow)"/><text class="msg-label" x="1229.3" y="389.0" text-anchor="middle">record --branch B --base HEAD --parent pare…</text></svg></div><figcaption>a rework after review never touches the parent&#x27;s final decision</figcaption><details class="diagram-source"><summary>Diagram source</summary><pre><code>caption: a rework after review never touches the parent&#x27;s final decision
+participant reviewer
+participant receive[&quot;/receive-review&quot;]
+participant ledger[&quot;run_ledger.py&quot;]
+reviewer -&gt; receive : changes requested on PR
+receive -&gt; ledger : last --branch B
+ledger --&gt; receive : parent run id
+receive -&gt; ledger : decide parent changes_requested
+alt parent already merged or closed
+ledger --&gt; receive : refused, exit 1
+else parent open or changes_requested
+ledger --&gt; receive : recorded
+end
+receive -&gt; ledger : record --branch B --base HEAD --parent parent</code></pre></details></figure></div></article></div></details></section>
+<section class="sec sec-data-models" id="data-models" data-kind="data-models"><details class="sec-body"><summary><h2>Data models</h2></summary><div class="cards"><article class="card card-model" id="model-entities"><div class="card-head"><span class="card-icon" aria-hidden="true">⊞</span><span class="card-label">Data model</span><h3>Entities</h3></div><div class="card-body"><div class="table-scroll" tabindex="0" role="region" aria-label="Table: Field, Type, Invariant"><table><thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Invariant</th><th scope="col">Enforced by</th></tr></thead><tbody><tr><td><code>schema</code></td><td><code>&quot;run-ledger/1&quot;</code></td><td>constant</td><td><code>load_record</code></td></tr><tr><td><code>run_id</code></td><td>string <code>[A-Za-z0-9][A-Za-z0-9._-]*</code></td><td>equals the file name stem</td><td><code>record</code>, <code>load_record</code></td></tr><tr><td><code>branch</code>, <code>base_sha</code></td><td>string, hex ≥ 7</td><td>present</td><td><code>record</code> arguments are required</td></tr><tr><td><code>spec</code>, <code>pr</code>, <code>parent_run_id</code></td><td>string, int ≥ 1, run id — or <code>null</code></td><td><code>parent_run_id</code> ≠ <code>run_id</code></td><td><code>record</code></td></tr><tr><td><code>models</code></td><td><code>{tier: name}</code></td><td>non-empty strings</td><td><code>--model</code> parser</td></tr><tr><td><code>slices</code></td><td>list of <code>{id, attempts, agent_result, verification_result, slice_result, label}</code></td><td>label and slice_result equal <code>slice_outcome.derive(agent, verification)</code></td><td><code>--slice</code> parser</td></tr><tr><td><code>tokens</code></td><td>int ≥ 0 or <code>&quot;unknown&quot;</code></td><td>never a stand-in 0</td><td><code>--tokens</code> parser, default <code>unknown</code></td></tr><tr><td><code>cost_usd</code></td><td>number ≥ 0 or <code>&quot;unknown&quot;</code></td><td>never a stand-in 0</td><td><code>--cost</code> parser, default <code>unknown</code></td></tr><tr><td><code>recorded_at</code></td><td>ISO-8601 UTC</td><td>set on first record, kept after</td><td><code>record</code></td></tr><tr><td><code>human_result</code></td><td><code>null</code>, <code>changes_requested</code>, <code>merged</code>, <code>closed</code></td><td>follows the transition table</td><td><code>decide</code> only</td></tr><tr><td><code>decisions</code></td><td>list of results, append-only</td><td>last entry equals <code>human_result</code></td><td><code>decide</code> only</td></tr></tbody></table></div></div></article><article class="card card-model" id="model-illegal-states"><div class="card-head"><span class="card-icon" aria-hidden="true">⊞</span><span class="card-label">Data model</span><h3>Illegal states</h3></div><div class="card-body"><div class="table-scroll" tabindex="0" role="region" aria-label="Table: Illegal combination, Made unrepresentable by"><table><thead><tr><th scope="col">Illegal combination</th><th scope="col">Made unrepresentable by</th></tr></thead><tbody><tr><td><code>human_result</code> set by a build run</td><td><code>record</code> has no human-result option</td></tr><tr><td><code>merged</code> replaced by another result</td><td><code>decide</code> refuses any change from <code>merged</code> or <code>closed</code></td></tr><tr><td>cost or tokens of 0 meaning &quot;not reported&quot;</td><td>absent values default to <code>&quot;unknown&quot;</code></td></tr><tr><td>a stored running total</td><td><code>stats</code> derives every number from the records; the schema has no total field</td></tr><tr><td>two records for one run</td><td>the file name is the run id</td></tr></tbody></table></div></div></article><article class="card card-model" id="model-transitions-human-result"><div class="card-head"><span class="card-icon" aria-hidden="true">⊞</span><span class="card-label">Data model</span><h3>Transitions — <code>human_result</code></h3></div><div class="card-body"><div class="table-scroll" tabindex="0" role="region" aria-label="Table: From, To, Trigger"><table><thead><tr><th scope="col">From</th><th scope="col">To</th><th scope="col">Trigger</th></tr></thead><tbody><tr><td><code>null</code></td><td><code>changes_requested</code>, <code>merged</code>, <code>closed</code></td><td><code>decide</code></td></tr><tr><td><code>changes_requested</code></td><td><code>merged</code>, <code>closed</code></td><td><code>decide</code></td></tr><tr><td><code>changes_requested</code></td><td><code>changes_requested</code></td><td><code>decide</code> — unchanged, nothing appended</td></tr><tr><td><code>merged</code>, <code>closed</code></td><td>the same value</td><td><code>decide</code> — unchanged</td></tr><tr><td><code>merged</code>, <code>closed</code></td><td>anything else</td><td>refused, exit 1</td></tr></tbody></table></div></div></article><article class="card card-model" id="model-derived-totals"><div class="card-head"><span class="card-icon" aria-hidden="true">⊞</span><span class="card-label">Data model</span><h3>Derived totals</h3></div><div class="card-body"><p>A <em>PR</em> is a chain of runs linked by <code>parent_run_id</code>, rooted at the run with no parent (or whose parent is not in the ledger). A chain is <code>merged</code> when any run in it is <code>merged</code>, otherwise <code>closed</code> when any is <code>closed</code>, otherwise <code>open</code>. <em>First pass</em> is a merged chain of one run whose <code>decisions</code> are exactly <code>[&quot;merged&quot;]</code>; the rate&#x27;s denominator is the merged plus closed chains. <em>Attempts</em> are the runs in a chain. Cost and tokens per merged PR sum every run in the merged chains and divide by their count; one <code>unknown</code> run makes its chain unknown, and any unknown chain makes the aggregate <code>unknown</code> with the count. A parent cycle exits 1 naming the runs.</p></div></article><article class="card card-model" id="model-migration-and-compatibility"><div class="card-head"><span class="card-icon" aria-hidden="true">⊞</span><span class="card-label">Data model</span><h3>Migration and compatibility</h3></div><div class="card-body"><p>No existing data. Records written before a future <code>run-ledger/2</code> are read by a <code>/1</code> reader only; <code>stats</code> refuses an unknown schema rather than guessing.</p></div></article></div></details></section>
+<section class="sec sec-risks" id="risks" data-kind="risks"><details class="sec-body" open><summary><h2>Risks</h2></summary><div class="cards"><article class="card card-risk" id="r1"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R1</span><span class="lvl lvl-H">Likelihood H</span><span class="lvl lvl-M">Impact M</span><h3>Nobody records <code>merged</code>, so every PR stays <code>open</code> and the rate is <code>unknown</code></h3></div><dl class="risk-body"><dt>Mitigation</dt><dd><code>stats</code> prints <code>open=&lt;n&gt;</code> and <code>unknown — no decided PRs</code>, never a false 0%; the reference names the merger&#x27;s <code>decide</code> step; automatic GitHub sync is a follow-up issue</dd><dt>Slice</dt><dd><a href="#slice-2">slice 2</a></dd></dl><div class="review" data-review="R1" role="group" aria-label="Review R1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R1 note"></textarea></label></div></article><article class="card card-risk" id="r2"><div class="card-head"><span class="card-icon" aria-hidden="true">▲</span><span class="card-label">Risk</span><span class="card-id">R2</span><span class="lvl lvl-L">Likelihood L</span><span class="lvl lvl-L">Impact L</span><h3>Two runs on one branch and one base share a default run id and count as one</h3></div><dl class="risk-body"><dt>Mitigation</dt><dd><code>--run-id</code> overrides the default; <code>/receive-review</code> records from the current HEAD, a new base</dd><dt>Slice</dt><dd><a href="#slice-1">slice 1</a></dd></dl><div class="review" data-review="R2" role="group" aria-label="Review R2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="R2 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-build-order" id="build-order" data-kind="build-order"><details class="sec-body" open><summary><h2>Build Order</h2></summary><p>Sizing: 2 slices. Ceiling: per <code>slice/references/sizing.md</code>. Over: slice 1: four ACs, because they are one script&#x27;s semantics and AC2&#x27;s counts come from the <code>stats</code> command AC1 builds; slice 2: three systems (build, receive-review and their doc test), because the record call and its rework caller are one contract.</p><figure class="diagram card-diagram dag" id="slice-graph"><div class="card-head"><span class="card-icon" aria-hidden="true">◇</span><span class="card-label">Diagram</span><span class="chip">dag</span></div><div class="diagram-scroll" tabindex="0" role="region" aria-label="Slices in dependency order: a slice starts when every slice it is blocked by is done."><svg viewBox="0 0 484 140" width="484" height="140" role="group" aria-labelledby="dag-t dag-d"><title id="dag-t">Slice dependency graph</title><desc id="dag-d">Slice 1 (Run ledger script) has no blocker. Slice 2 (Runs record themselves) is blocked by slice 1.</desc><defs><marker id="dag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow"/></marker></defs><path class="edge" d="M210.0,64.0 C242.0,64.0 242.0,64.0 274.0,64.0" marker-end="url(#dag-arrow)"/><a href="#slice-1" aria-label="Slice 1: Run ledger script" class="node" data-layer="0"><title>Slice 1: Run ledger script</title><rect x="20.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="30.0" y="57.0">S1</text><text x="30.0" y="77.0">Run ledger script</text></a><a href="#slice-2" aria-label="Slice 2: Runs record themselves" class="node" data-layer="1"><title>Slice 2: Runs record themselves</title><rect x="274.0" y="38.0" width="190" height="52" rx="6"/><text class="node-sub" x="284.0" y="57.0">S2</text><text x="284.0" y="77.0">Runs record themselves</text></a></svg></div><figcaption>Slices in dependency order: a slice starts when every slice it is blocked by is done.</figcaption></figure><div class="cards slice-cards"><article class="card card-slice" id="slice-1"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S1</span><h3>Run ledger script</h3></div><p>run_ledger.py records runs, decides human results, finds a branch&#x27;s last run and prints the derived totals</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>run_ledger.py</code> records runs, decides human results, finds a branch&#x27;s last run and prints the derived totals</dd><dt>Blocked by</dt><dd>none</dd><dt>Criteria</dt><dd><a href="#ac1">AC1</a>, <a href="#ac2">AC2</a>, <a href="#ac3">AC3</a>, <a href="#ac4">AC4</a></dd><dt>Surface</dt><dd><code>.agents/skills/build/scripts/run_ledger.py</code>, <code>tests/test-run-ledger.sh</code></dd><dt>Verify</dt><dd><code>bash tests/run.sh tests/test-run-ledger.sh</code></dd><dt>Size</dt><dd>2 files · 2 systems · 4 ACs</dd></dl></details><div class="review" data-review="S1" role="group" aria-label="Review S1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S1 note"></textarea></label></div></article><article class="card card-slice" id="slice-2"><div class="card-head"><span class="card-icon" aria-hidden="true">▤</span><span class="card-label">Slice</span><span class="card-id">S2</span><h3>Runs record themselves</h3></div><p>/build Phase 6 records the run; /receive-review records a rework with its parent; the reference names every caller</p><details class="card-more"><summary>Slice details</summary><dl><dt>Delivers</dt><dd><code>/build</code> Phase 6 records the run; <code>/receive-review</code> records a rework with its parent; the reference names every caller</dd><dt>Blocked by</dt><dd><a href="#slice-1">slice 1</a></dd><dt>Criteria</dt><dd><a href="#ac5">AC5</a></dd><dt>Surface</dt><dd><code>.agents/skills/build/references/run-ledger.md</code>, <code>.agents/skills/build/SKILL.md</code>, <code>.agents/skills/receive-review/SKILL.md</code>, <code>tests/test-doc-conventions.sh</code></dd><dt>Verify</dt><dd><code>bash tests/run.sh tests/test-doc-conventions.sh</code></dd><dt>Size</dt><dd>4 files · 3 systems · 1 AC</dd></dl></details><div class="review" data-review="S2" role="group" aria-label="Review S2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="S2 note"></textarea></label></div></article></div><section class="card card-prompt" id="build-prompt" aria-label="Build prompt"><div class="card-head"><span class="card-icon" aria-hidden="true">▶</span><span class="card-label">Build prompt</span></div><pre><code id="build-prompt-text">Invoke `/build` for `specs/run-ledger.md`.
+Plan: `## Plan: run-ledger` in `tasks/todo.md`, 2 slices, ready set &lt;1&gt;.
+Files: .agents/skills/build/scripts/run_ledger.py, .agents/skills/build/references/run-ledger.md, .agents/skills/build/SKILL.md, .agents/skills/receive-review/SKILL.md, tests/test-run-ledger.sh, tests/test-doc-conventions.sh.
+Instructions:
+1. `/build`&#x27;s pre-flight links the feature issue: one upsert, only when `slice.py link` prints `unlinked &lt;id&gt;`. The planning session filed nothing.
+2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
+3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
+4. Close every slice with a `&gt; Handover:` line; after the last one run `/wrap-up-session`.
+Constraints: record has no human-result option (D3); outcomes reuse slice_outcome.derive (D5); unknown is a string, never 0 (D6); build/SKILL.md stays at most 600 lines.</code></pre><button type="button" class="copy" data-copy-from="build-prompt-text">Copy build prompt</button></section></details></section>
+<section class="sec sec-decisions" id="decisions" data-kind="decisions"><details class="sec-body" open><summary><h2>Decisions</h2></summary><div class="cards"><article class="card card-decision" id="d1"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D1</span><span class="chip chip-settled">settled</span><h3>Where records live</h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) one JSON file per run under <code>tasks/runs/</code>; B) one JSONL log; C) Helix&#x27;s <code>tasks/helix/&lt;feature&gt;/run.json</code></dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> B is right if records were append-only, but <code>decide</code> updates a record in place; C is right only once Helix exists, and it owns activation and final review per feature, not per-run attempts — when Helix lands, its run id is this ledger&#x27;s run id</p></details><div class="review" data-review="D1" role="group" aria-label="Review D1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D1 note"></textarea></label></div></article><article class="card card-decision" id="d2"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D2</span><span class="chip chip-settled">settled</span><h3>Run id</h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) <code>&lt;branch slug&gt;-&lt;base SHA[:12]&gt;</code> by default, <code>--run-id</code> to override; B) a timestamp minted at pre-flight</dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> B is right if a session could not know its base; a derived id needs no state carried through the session and makes a re-record land on the same file</p></details><div class="review" data-review="D2" role="group" aria-label="Review D2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D2 note"></textarea></label></div></article><article class="card card-decision" id="d3"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D3</span><span class="chip chip-settled">settled</span><h3>How a human decision is protected</h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) a separate <code>decide</code> command, <code>record</code> has no human option, <code>merged</code>/<code>closed</code> final; B) <code>record --human-result</code> with a merge rule</dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> B is right if every writer were trusted; a missing input channel is a structural guarantee</p></details><div class="review" data-review="D3" role="group" aria-label="Review D3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D3 note"></textarea></label></div></article><article class="card card-decision" id="d4"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D4</span><span class="chip chip-settled">settled</span><h3>What an attempt is</h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) a run in the PR&#x27;s chain; B) the sum of slice attempts</dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> B is right if every rework went through <code>/build</code>; a <code>/receive-review</code> rework has no slices, so B would count it as 0. Slice attempts stay in the record for drill-down</p></details><div class="review" data-review="D4" role="group" aria-label="Review D4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D4 note"></textarea></label></div></article><article class="card card-decision" id="d5"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D5</span><span class="chip chip-settled">settled</span><h3>Slice outcome values</h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) reuse <code>slice_outcome.py</code>&#x27;s values and <code>derive()</code>; B) a second definition</dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> never — #441 owns the contract</p></details><div class="review" data-review="D5" role="group" aria-label="Review D5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D5 note"></textarea></label></div></article><article class="card card-decision" id="d6"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D6</span><span class="chip chip-settled">settled</span><h3>Unknown in an aggregate</h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) the aggregate is <code>unknown</code> with a count of the chains missing it; B) sum the known values</dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> B is right only if a partial sum were labelled partial; a sum that silently omits runs reads as a cheaper PR</p></details><div class="review" data-review="D6" role="group" aria-label="Review D6"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D6 note"></textarea></label></div></article><article class="card card-decision" id="d7"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D7</span><span class="chip chip-settled">settled</span><h3>Who records <code>merged</code> and <code>closed</code></h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) <code>decide</code>, called by whoever merges or closes; B) <code>stats</code> reads PR state from GitHub</dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> B is right once the ledger must be complete without a human step — filed as a follow-up; reading the tracker here would couple a build script to one provider</p></details><div class="review" data-review="D7" role="group" aria-label="Review D7"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D7 note"></textarea></label></div></article><article class="card card-decision" id="d8"><div class="card-head"><span class="card-icon" aria-hidden="true">◆</span><span class="card-label">Decision</span><span class="card-id">D8</span><span class="chip chip-settled">settled</span><h3>First-pass rate denominator</h3></div><p class="chosen"><span class="visually-hidden">Recommended: </span>A</p><details class="card-more"><summary>Options, rationale and reversal</summary><dl><dt>Options</dt><dd>A) merged plus closed PRs; B) merged PRs only</dd></dl><p class="callout-wrong"><strong>Wrong when:</strong> B is right if abandoned work should not count against the first pass; a closed PR is a failed attempt</p></details><div class="review" data-review="D8" role="group" aria-label="Review D8"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="D8 note"></textarea></label></div></article></div></details></section>
+<section class="sec sec-acceptance-criteria" id="acceptance-criteria" data-kind="acceptance-criteria"><details class="sec-body" open><summary><h2>Acceptance Criteria</h2></summary><ol class="ac-list cards"><li class="card card-criterion" id="ac1"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC1</span></div><p><code>run_ledger.py stats</code> prints <code>first_pass_rate</code>, <code>attempts_per_merged_pr</code> and <code>cost_per_merged_pr</code> derived from the records in the ledger directory, and removing a record changes the report.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC1" role="group" aria-label="Review AC1"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC1 note"></textarea></label></div></li><li class="card card-criterion" id="ac2"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC2</span></div><p>recording the same run twice — the same <code>record</code> call run again — leaves the record file byte-identical and every <code>stats</code> count unchanged.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC2" role="group" aria-label="Review AC2"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC2 note"></textarea></label></div></li><li class="card card-criterion" id="ac3"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC3</span></div><p>once a run is decided <code>merged</code> or <code>closed</code>, <code>decide</code> with another result exits 1 and a later <code>record</code> of the same run keeps the decision; <code>record</code> accepts no human-result option.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC3" role="group" aria-label="Review AC3"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC3 note"></textarea></label></div></li><li class="card card-criterion" id="ac4"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC4</span></div><p>a run recorded without tokens or cost stores <code>&quot;unknown&quot;</code> for each, and <code>stats</code> prints <code>cost_per_merged_pr=unknown</code> and <code>tokens_per_merged_pr=unknown</code> with the count of merged PRs missing them, never <code>0</code>.</p><p class="meta">covered by <a href="#slice-1">slice 1</a></p><div class="review" data-review="AC4" role="group" aria-label="Review AC4"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC4 note"></textarea></label></div></li><li class="card card-criterion" id="ac5"><div class="card-head"><span class="card-icon" aria-hidden="true">✓</span><span class="card-label">Criterion</span><span class="card-id">AC5</span></div><p><code>/build</code> Phase 6 records the run through <code>run_ledger.py record</code>; <code>/receive-review</code> decides the parent <code>changes_requested</code> and records the rework with <code>--parent</code>; <code>.agents/skills/build/references/run-ledger.md</code> names every caller, including the merger&#x27;s <code>decide</code>.</p><p class="meta">covered by <a href="#slice-2">slice 2</a></p><div class="review" data-review="AC5" role="group" aria-label="Review AC5"><button type="button" data-mark="ok" aria-pressed="false">ok</button><button type="button" data-mark="questioned" aria-pressed="false">questioned</button><label>Note <textarea data-field="note" rows="1" aria-label="AC5 note"></textarea></label></div></li></ol></details></section>
+<section class="sec sec-generic" id="implementation-paths" data-kind="generic"><details class="sec-body" open><summary><h2>Implementation Paths</h2></summary><ul><li><code>.agents/skills/build/scripts/run_ledger.py</code> — the record schema, the human-result transitions and the derived totals.</li><li><code>.agents/skills/build/references/run-ledger.md</code> — who records what, and when.</li><li><code>.agents/skills/build/SKILL.md</code> — Phase 6 records the build run.</li><li><code>.agents/skills/receive-review/SKILL.md</code> — a rework run records its parent.</li><li><code>tests/test-run-ledger.sh</code> — the four script ACs.</li><li><code>tests/test-doc-conventions.sh</code> — pins the Phase 6 and <code>/receive-review</code> calls.</li></ul></details></section>
+<section class="review-panel" id="review" aria-labelledby="review-h" data-spec="specs/run-ledger.md" data-sha="1399e0ad2c84"><h2 id="review-h">Review</h2><p class="meta">Mark cards ok or questioned, answer questions and pick open decisions, then paste the export into the planning session: <code>/plan</code> applies it and re-runs <code>/slice</code>.</p><p class="review-status" id="review-status" role="status">Marks are saved in this browser for sha256 1399e0ad2c84.</p><button type="button" class="btn" data-action="export-review">Export review</button><pre><code id="review-export"></code></pre></section>
+</main>
+</div>
+<script>/* Visual plan page script: disclosure controls, deep links, navigation, copy.
+   Inlined by plan_render.py. No network, no dependencies; every feature
+   degrades to the plain <details> page when the script cannot run. */
+
+// Review state: pure helpers, kept apart from the DOM so they can be tested alone.
+var planReview = (function () {
+  'use strict';
+  function key(sha, spec) { return 'jplugin-plan-review:' + sha + ':' + spec; }
+  // A store that never throws: `ok` is false when the browser refuses storage.
+  function openStore(getStorage, name) {
+    var storage = null;
+    try {
+      storage = getStorage();
+      storage.setItem(name + ':probe', '1');
+      storage.removeItem(name + ':probe');
+    } catch (err) { storage = null; }
+    return {
+      ok: storage !== null,
+      load: function () {
+        if (!storage) { return {}; }
+        try { return JSON.parse(storage.getItem(name) || '{}') || {}; } catch (err) { return {}; }
+      },
+      save: function (state) {
+        if (!storage) { return false; }
+        try { storage.setItem(name, JSON.stringify(state)); return true; } catch (err) { return false; }
+      }
+    };
+  }
+  function flat(text) { return String(text || '').replace(/\s+/g, ' ').trim(); }
+  // One export line per item: a pick or an answer wins over the bare mark.
+  function line(id, s) {
+    var note = flat(s.note) ? ' — ' + flat(s.note) : '';
+    if (flat(s.pick)) { return id + ': pick ' + flat(s.pick) + note; }
+    if (flat(s.answer)) { return id + ': answer — ' + flat(s.answer) + note; }
+    if (s.mark) { return id + ': ' + s.mark + note; }
+    return null;
+  }
+  function format(spec, sha, items) {
+    var lines = ['Review of ' + spec + ' @ ' + sha];
+    items.forEach(function (item) {
+      var text = line(item[0], item[1] || {});
+      if (text) { lines.push(text); }
+    });
+    return lines.join('\n');
+  }
+  return { key: key, openStore: openStore, line: line, format: format };
+})();
+if (typeof module === 'object' && module.exports) { module.exports = planReview; }
+
+(function () {
+  'use strict';
+  if (typeof document === 'undefined') { return; }
+  var doc = document;
+  var all = function (sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); };
+
+  // ------------------------------------------------------------ deep links
+  function openTo(hash) {
+    if (!hash || hash.length < 2) { return null; }
+    var target = doc.getElementById(decodeURIComponent(hash.slice(1)));
+    if (!target) { return null; }
+    if (target.tagName === 'DETAILS') { target.open = true; }
+    var node = target.parentElement && target.parentElement.closest('details');
+    while (node) {
+      node.open = true;
+      node = node.parentElement && node.parentElement.closest('details');
+    }
+    var inner = target.querySelector(':scope > details');
+    if (inner) { inner.open = true; }
+    target.scrollIntoView({ block: 'start' });
+    return target;
+  }
+  window.addEventListener('hashchange', function () { openTo(location.hash); });
+  doc.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href^="#"]');
+    if (link && link.getAttribute('href') === location.hash) { openTo(location.hash); }
+  });
+
+  // ------------------------------------------------------------ navigation
+  var menu = doc.querySelector('.toc-menu');
+  var narrow = window.matchMedia('(max-width: 767px)');
+  function fitMenu() { if (menu) { menu.open = !narrow.matches; } }
+  if (menu) {
+    fitMenu();
+    if (narrow.addEventListener) { narrow.addEventListener('change', fitMenu); }
+    menu.addEventListener('click', function (event) {
+      if (event.target.closest('a') && narrow.matches) { menu.open = false; }
+    });
+  }
+  var links = all('.toc a[href^="#"]');
+  function markCurrent(id) {
+    links.forEach(function (a) {
+      if (a.getAttribute('href') === '#' + id) { a.setAttribute('aria-current', 'true'); }
+      else { a.removeAttribute('aria-current'); }
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { if (entry.isIntersecting) { markCurrent(entry.target.id); } });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    links.forEach(function (a) {
+      var section = doc.getElementById(a.getAttribute('href').slice(1));
+      if (section) { spy.observe(section); }
+    });
+  }
+
+  // ------------------------------------------------------------ disclosure
+  function setAll(open) { all('main details').forEach(function (d) { d.open = open; }); }
+  var onlyBlockers = doc.querySelector('[data-action="blockers"]');
+  function toggleBlockers() {
+    var on = !doc.body.classList.contains('only-blockers');
+    doc.body.classList.toggle('only-blockers', on);
+    onlyBlockers.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { all('.sec.has-blockers > details').forEach(function (d) { d.open = true; }); }
+  }
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button[data-action]');
+    if (!button) { return; }
+    var action = button.getAttribute('data-action');
+    if (action === 'expand') { setAll(true); }
+    if (action === 'collapse') { setAll(false); }
+    if (action === 'blockers') { toggleBlockers(); }
+  });
+  var printed = [];
+  window.addEventListener('beforeprint', function () {
+    printed = all('details:not([open])');
+    printed.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function () {
+    printed.forEach(function (d) { d.open = false; });
+    printed = [];
+  });
+
+  // ------------------------------------------------------------ copy
+  function copyText(text, button, done) {
+    function report(ok) {
+      var label = button.getAttribute('data-label') || button.textContent;
+      button.setAttribute('data-label', label);
+      button.textContent = ok ? (done || 'Copied') : 'Copy failed: select the text';
+      setTimeout(function () { button.textContent = label; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { report(true); }, function () { report(false); });
+      return;
+    }
+    var area = doc.createElement('textarea');
+    area.value = text;
+    doc.body.appendChild(area);
+    area.select();
+    var ok = false;
+    try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+    doc.body.removeChild(area);
+    report(ok);
+  }
+  window.planCopy = copyText;
+  doc.addEventListener('click', function (event) {
+    var button = event.target.closest && event.target.closest('button.copy[data-copy-from]');
+    if (!button || button.disabled) { return; }
+    var source = doc.getElementById(button.getAttribute('data-copy-from'));
+    if (source) { copyText(source.textContent, button); }
+  });
+
+  // ------------------------------------------------------------ review
+  var panel = doc.getElementById('review');
+  var cards = all('.review[data-review]');
+  if (panel && cards.length) {
+    var spec = panel.getAttribute('data-spec');
+    var sha = panel.getAttribute('data-sha');
+    var store = planReview.openStore(function () { return window.localStorage; }, planReview.key(sha, spec));
+    var state = store.load();
+    var status = doc.getElementById('review-status');
+    if (!store.ok) {
+      status.textContent = 'Browser storage is unavailable: review marks will not persist past this page.';
+    }
+    var showMark = function (box, mark) {
+      all('button[data-mark]', box).forEach(function (b) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-mark') === mark ? 'true' : 'false');
+      });
+    };
+    cards.forEach(function (box) {
+      var saved = state[box.getAttribute('data-review')] || {};
+      showMark(box, saved.mark);
+      all('[data-field]', box).forEach(function (f) { f.value = saved[f.getAttribute('data-field')] || ''; });
+    });
+    var update = function (box, change) {
+      var id = box.getAttribute('data-review');
+      var entry = state[id] || {};
+      Object.keys(change).forEach(function (k) { entry[k] = change[k]; });
+      state[id] = entry;
+      store.save(state);
+    };
+    doc.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('.review button[data-mark]');
+      if (!button) { return; }
+      var box = button.closest('.review');
+      var mark = button.getAttribute('aria-pressed') === 'true' ? '' : button.getAttribute('data-mark');
+      showMark(box, mark);
+      update(box, { mark: mark });
+    });
+    doc.addEventListener('input', function (event) {
+      var field = event.target.closest && event.target.closest('.review [data-field]');
+      if (!field) { return; }
+      var change = {};
+      change[field.getAttribute('data-field')] = field.value;
+      update(field.closest('.review'), change);
+    });
+    var exportButton = panel.querySelector('[data-action="export-review"]');
+    exportButton.addEventListener('click', function () {
+      var items = cards.map(function (box) {
+        var id = box.getAttribute('data-review');
+        return [id, state[id]];
+      });
+      var text = planReview.format(spec, sha, items);
+      doc.getElementById('review-export').textContent = text;
+      copyText(text, exportButton, 'Review copied');
+    });
+  }
+
+  openTo(location.hash);
+})();
+</script>
+</body>
+</html>

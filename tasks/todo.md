@@ -3035,3 +3035,18 @@ Step ledger (routine `simplify`):
     input when it lands (spec D3).
   - #442 / #445 read the `> Outcome:` `key=value` fields named in
     `specs/slice-three-outcomes.md` § Outputs.
+
+## Plan: run-ledger
+> Spec: specs/run-ledger.md
+> Issue: #442
+
+### Slice 1/2 — Run ledger script
+- [ ] Run ledger script — run_ledger.py records runs, decides human results, finds a branch's last run and prints the derived totals
+- [ ] TDD: tests/test-run-ledger.sh § stats — first_pass_rate, attempts_per_merged_pr and cost_per_merged_pr come from the records; removing one changes the report -> run_ledger.py stats (AC1)
+- [ ] TDD: tests/test-run-ledger.sh § idempotent — the same record call twice leaves the file byte-identical and every count unchanged -> run_ledger.py record (AC2)
+- [ ] TDD: tests/test-run-ledger.sh § human decision — merged/closed are final; a later record keeps them; record has no human option -> run_ledger.py decide (AC3)
+- [ ] TDD: tests/test-run-ledger.sh § unknown — missing tokens and cost store "unknown" and stats prints unknown with a count -> run_ledger.py (AC4)
+
+### Slice 2/2 — Runs record themselves
+- [ ] Runs record themselves — /build Phase 6 records the run; /receive-review records a rework with its parent; the reference names every caller
+- [ ] TDD: tests/test-doc-conventions.sh § run ledger — Phase 6 calls run_ledger.py record; /receive-review decides changes_requested and records --parent; the reference names the merger's decide -> wiring (AC5)
