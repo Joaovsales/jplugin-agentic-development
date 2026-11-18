@@ -212,7 +212,7 @@ for f in .agents/skills/tidy/SKILL.md; do
   # nine, then missed `shortcuts` and `tools` too. The list is read from the
   # skill's check table, so a new row fails every restatement that lacks it,
   # and the restatements carry no count word to go stale.
-  tidy_checks="$(awk '/^### [0-9]+.*The checks/ { p = 1; next }
+  tidy_checks="$(awk '/^### The checks/ { p = 1; next }
     p && /^## / { exit }
     p' "$f" | tr -d '\r' | sed -n 's/^| `\([a-z]*\)` |.*/\1/p')"
   assert_contains " $(printf '%s ' $tidy_checks)" " graph registers shortcuts tools " \
