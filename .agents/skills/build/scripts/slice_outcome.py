@@ -35,9 +35,10 @@ from typing import List, Optional, Sequence, Tuple
 
 TRUE, FALSE, UNKNOWN = "True", "False", "Unknown"
 AGENT_VALUES = {"true": TRUE, "false": FALSE, "unknown": UNKNOWN}
-# cached-suite.sh's "nothing ran" status; only its stderr line makes 3 a refusal.
+# cached-suite.sh's "nothing ran" status; only its lock-refusal line makes 3 a
+# refusal — its other `cached-suite:` notes come from runs that did happen.
 REFUSAL_EXIT = 3
-REFUSAL_PREFIX = "cached-suite:"
+REFUSAL_PREFIX = "cached-suite: a suite is already running"
 EXIT_FOR = {TRUE: 0, FALSE: 1, UNKNOWN: 3}
 
 

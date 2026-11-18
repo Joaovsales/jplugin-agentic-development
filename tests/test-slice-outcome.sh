@@ -67,6 +67,13 @@ outcome --agent true -- bash "$BOX/check.sh" 3
 assert_exit 1 "exit 3 without the cached-suite line is a failure, not a refusal"
 assert_contains "$output" "slice_result=False VERIFICATION_FAILED" "exit 3 alone: VERIFICATION_FAILED"
 
+# cached-suite.sh prints other `cached-suite:` notes on runs that did happen;
+# only the lock refusal means nothing ran.
+printf '%s\n' "printf 'cached-suite: not a git repository, running uncached\n' >&2" 'exit 3' > "$BOX/uncached.sh"
+outcome --agent true -- bash "$BOX/uncached.sh"
+assert_exit 1 "exit 3 after an uncached run's note is a failure, not a refusal"
+assert_contains "$output" "slice_result=False VERIFICATION_FAILED" "uncached note: VERIFICATION_FAILED"
+
 outcome --agent true -- "$BOX/no-such-command"
 assert_exit 1 "a command that cannot start is a failed verification"
 assert_contains "$output" "slice_result=False VERIFICATION_FAILED" "missing command: VERIFICATION_FAILED"

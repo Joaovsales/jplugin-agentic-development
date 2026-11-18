@@ -42,8 +42,8 @@ prints the outcome as its last lines. `agent_result` is the sub-agent's claim:
 when it listed any under `## Not finished` or reported one failing, `unknown`
 when it returned no usable report (a hang, a crash, an escape hatch with no
 list). `verification_result` is the command's exit status as the script itself
-observed it: `0` is `True`, a `cached-suite:` refusal (exit 3 with the
-`cached-suite:` line on stderr) is `Unknown` because nothing ran, any other
+observed it: `0` is `True`, a `cached-suite:` refusal (exit 3 with its
+`cached-suite: a suite is already running` line on stderr) is `Unknown` because nothing ran, any other
 non-zero status is `False`, and no command at all is `Unknown`. No option
 accepts a verification result, so a sub-agent's quoted test output has no way
 in.
@@ -104,7 +104,8 @@ consumers (a per-run record, ranked candidates) read.
   is a failure, not a skip.
 - `cached-suite.sh` reuses an earlier green run of the same command on the same
   tree: exit 0, so `True` — that run happened on exactly this tree.
-- The command itself exits 3 without the `cached-suite:` line: `False`; only
+- The command itself exits 3 without the lock-refusal line — including after
+  `cached-suite.sh`'s other notes, such as `running uncached` — `False`; only
   the refusal line makes exit 3 mean "nothing ran".
 - An `--agent` value other than the three is refused with exit 2.
 - A stored receipt written before this change with a `lost` entry and no
