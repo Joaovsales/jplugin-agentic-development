@@ -3008,7 +3008,9 @@ Step ledger (routine `simplify`):
 > Issue: #444
 
 ### Slice 1/2 — Scanner and ruleset
-- [ ] Scanner and ruleset — The stdlib scanner, the built-in rules with fixtures and gaps, the add-only project merge
+- [x] Scanner and ruleset — The stdlib scanner, the built-in rules with fixtures and gaps, the add-only project merge
+> Handover: landed 2adb4c1 — `unattended_scan.py scan|selftest` (exit 0/1/2), 20 built-in rules with fixtures and gaps; `tests/test-unattended-scan.sh` 84/84. The scanner resolves its base from origin/master|main|develop and runs from the repo root; `--transcript auto` reads `CLAUDE_CODE_SESSION_ID`, so a test must clear it.
 
 ### Slice 2/2 — Push gate wiring
-- [ ] Push gate wiring — The pre-push hook blocks an unattended push on a high hit; wrap-up files the finding
+- [x] Push gate wiring — The pre-push hook blocks an unattended push on a high hit; wrap-up files the finding
+> Handover: the hook reads stdin once into `PUSH_REFS`, scans `routine/` refs and `UNATTENDED_SCAN=1` pushes before `SKIP_PREPUSH`, base = the remote sha when this clone holds it; wrap-up SKILL.md stays at its 300-line budget, the detail lives in routines.md § *Unattended scan*. `tests/test-pre-push-gate.sh` 96/96; affected 40/40 files green.

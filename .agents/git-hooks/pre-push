@@ -1,11 +1,59 @@
 #!/usr/bin/env bash
-# pre-push — runs typecheck + lint before every git push.
+# pre-push — scans unattended pushes, then runs typecheck + lint before every git push.
 # Installed by jplugin-agentic-development/install.sh into .git/hooks/pre-push.
 # Harness-agnostic: works for manual pushes, Claude Code, Pi, and CI.
 #
-# Kill switch: SKIP_PREPUSH=1 git push
+# Kill switch: SKIP_PREPUSH=1 git push (everything but the unattended scan)
 
 set -uo pipefail
+
+# git hands the pushed refs over stdin once; both the scan and the wrap-up gate read them.
+PUSH_REFS=$(cat)
+
+# ── Unattended scan — blocks, and runs before the kill switch ────────────────
+# A push of a `routine/` branch, or one a caller declares unattended with
+# UNATTENDED_SCAN=1 (/yolo, /auto-push, an unattended /wrap-up-session), runs the
+# deterministic ruleset over what the push adds and the session transcript.
+# specs/unattended-scan.md is the contract. It runs before SKIP_PREPUSH because an
+# unattended agent can set an environment variable; `git push --no-verify` stays
+# the human override. Exit 1 (a high hit) and 2 (the scan could not run) both
+# block: an unattended push that was not scanned must not look like one that was.
+# No network: the finding is filed by /wrap-up-session, never from here.
+SCANNER=".agents/skills/wrap-up-session/scripts/unattended_scan.py"
+
+unattended_scan() {
+  _local_ref="$1"; _local_sha="$2"; _remote_ref="$3"; _remote_sha="$4"
+  case "$_local_sha" in *[!0]*) ;; *) return 0 ;; esac   # branch deletion
+  if [ "${UNATTENDED_SCAN:-0}" != "1" ]; then
+    case "$_local_ref $_remote_ref" in
+      refs/heads/routine/*|*" refs/heads/routine/"*) ;;
+      *) return 0 ;;
+    esac
+  fi
+  # Only what this push adds; a remote tip this clone has never seen widens the
+  # scan to the scanner's default base rather than narrowing it.
+  _base=()
+  case "$_remote_sha" in
+    *[!0]*) git cat-file -e "$_remote_sha^{commit}" 2>/dev/null && _base=(--base "$_remote_sha") ;;
+  esac
+  python3 "$SCANNER" scan "${_base[@]+"${_base[@]}"}" --head "$_local_sha" \
+    --transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}" >&2
+  case $? in
+    0) return 0 ;;
+    1) echo "BLOCKED: unattended scan — a high-severity finding on ${_local_ref#refs/heads/} (above). A human overrides with git push --no-verify." >&2 ;;
+    *) echo "BLOCKED: unattended scan could not run on ${_local_ref#refs/heads/} — an unattended push must be scanned." >&2 ;;
+  esac
+  return 1
+}
+
+_scan_blocked=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -n "${local_sha:-}" ] || continue
+  unattended_scan "$local_ref" "$local_sha" "$remote_ref" "$remote_sha" || _scan_blocked=1
+done <<EOF
+$PUSH_REFS
+EOF
+[ "$_scan_blocked" = "0" ] || exit 1
 
 [ "${SKIP_PREPUSH:-0}" = "1" ] && exit 0
 
@@ -201,7 +249,9 @@ if [ "${SKIP_WRAPUP_GATE:-0}" != "1" ]; then
   while read -r local_ref local_sha remote_ref remote_sha; do
     [ -n "${local_sha:-}" ] || continue
     wrapup_gate "$local_ref" "$local_sha" "$remote_sha"
-  done
+  done <<EOF
+$PUSH_REFS
+EOF
 fi
 
 exit 0
