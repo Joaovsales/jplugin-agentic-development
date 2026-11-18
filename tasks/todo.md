@@ -3025,7 +3025,7 @@ Step ledger (routine `simplify`):
 > Do not re-derive: spec Decision 5 was refined in this slice (SKIP_ADDED/ASSERTION_DELETED start at confidence 50 and need one verification read); the version guard needs `scripts/bump-plugin-version.sh` (1.8.20) before push
 > Surface: undeclared specs/gate-integrity.md (Decision 5 reconciliation), tasks/todo.md (bookkeeping) (slice.py check --slice 3 --base 2ce9301); gate-integrity: clean
 
-## Session Summary — 2026-11-18 [887e959..f538420]
+## Session Summary — 2026-11-18 [887e959..61af185]
 - Completed: #439 gate integrity in three slices. `gate-integrity.py` does a
   content-hash tamper check and reports weakening findings. `/build` Slice
   Close and `/quality-gate` Phase 0 run it, and `AGENTS.md` declares the
