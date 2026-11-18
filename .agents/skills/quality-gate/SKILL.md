@@ -278,7 +278,8 @@ or lost; `receipt.py` refuses `lost` on any other entry. When no dispatch is
 possible, record `{"phase": 5, "lens": "test-engineer", "dispatch": "lost", "reason": "<why>"}`
 and name the lost review in `Not checked:` — a lost review and a clean one never leave the same
 receipt. `receipt.py write` refuses `lost` without a `reason`, and `write` and `check` print
-`receipt: not checked phase 5 test-engineer — <reason>` for it. `lost` is disclosed, not weighed: it does not change the derived verdict.
+`receipt: not checked phase 5 test-engineer — <reason>` for it — and, on a delta receipt, for each
+ancestor's lost review, ending `(inherited from <fp8>)`. `lost` is disclosed, not weighed: it does not change the derived verdict.
 
 ## Phase 6 — Receipt
 

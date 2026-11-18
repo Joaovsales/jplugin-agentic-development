@@ -198,7 +198,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py fingerprint [--base <ref>
 ```bash
 python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome <common-dir>/quality-receipts/outcome.json [--parent <fingerprint>]
 # stdout: receipt: written <fp8> verdict <GO|HOLD|STOP> policy <qg1-xxxxxxxx>
-#         receipt: not checked phase <n> <lens> — <reason>   (one per `lost` reviewer; specs/slice-three-outcomes.md)
+#         receipt: not checked phase <n> <lens> — <reason>   (one per `lost` reviewer in the receipt and its parent chain; specs/slice-three-outcomes.md)
 ```
 
 | Aspect | Contract |
@@ -214,7 +214,7 @@ python3 .agents/skills/quality-gate/scripts/receipt.py write --outcome <common-d
 ```bash
 python3 .agents/skills/quality-gate/scripts/receipt.py check [--base <ref>]
 # exit 0 — receipt: valid <GO|HOLD-approved> <fp8> policy <v>
-#          receipt: not checked phase <n> <lens> — <reason>   (one per `lost` reviewer; `no reason recorded` on an older receipt)
+#          receipt: not checked phase <n> <lens> — <reason>   (same rule; an ancestor's line ends `(inherited from <fp8>)`; `no reason recorded` on an older receipt)
 # exit 3 — receipt: stale <reason>  [parent <fp>]  [delta <path> ...]
 ```
 

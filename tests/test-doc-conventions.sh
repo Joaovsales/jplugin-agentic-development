@@ -1250,6 +1250,7 @@ assert_prose_contains .agents/skills/verify-evidence/SKILL.md \
 for token in '"dispatch": "lost", "reason": "<why>"' \
              '`receipt.py write` refuses `lost` without a `reason`' \
              '`receipt: not checked phase 5 test-engineer — <reason>`' \
+             'for each ancestor'"'"'s lost review, ending `(inherited from <fp8>)`' \
              '`lost` with a non-empty `reason`' \
              'Each `Not checked:` item reads `not checked: <check> — <reason>`' \
              'a check that did not run is never reported as clean'; do

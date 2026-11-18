@@ -68,7 +68,9 @@ outcome line per slice.
 `receipt.py write` refuses a reviewer entry recorded `lost` without a
 non-empty `reason`, and `write` and `check` print one
 `receipt: not checked phase <n> <lens> — <reason>` line per lost entry, so a
-receipt with a lost review never reads like a fully checked one. The verdict
+receipt with a lost review never reads like a fully checked one. A delta
+receipt reviews only its own paths, so the lines cover every receipt in its
+parent chain; an ancestor's line ends `(inherited from <fp8>)`. The verdict
 rule does not change: `lost` is disclosed, not weighed.
 
 `/verify-evidence` reports every check that did not run as
