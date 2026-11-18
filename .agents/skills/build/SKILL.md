@@ -182,7 +182,10 @@ Get the ready set instead of guessing independence from prose:
 python3 .agents/skills/slice/scripts/slice.py ready --index tasks/todo.md --spec <spec>
 ```
 
-This prints each ready slice with its surface and every intersecting pair.
+This prints each ready slice with its surface and every intersecting pair; a
+slice carrying `> Blocked:` prints as `blocked: <n> <name>` and every slice its
+`Blocked by` chain reaches as `waits: <n> <name> on blocked <m>` — neither is
+dispatched. Phase 1 ends when `ready` names no ready slice.
 Disjoint ready slices dispatch in parallel; an intersecting pair with no
 blocker between them is a plan defect — serialized in table order and
 reported, never guessed. Re-run `ready` after every slice closes to pick up
@@ -236,6 +239,8 @@ Choose the agent or approach based on the slice's work type:
 - The tool-call budget and escape hatch from `.agents/references/subagent-resilience.md` Rule
   1, and the instruction to list unfinished acceptance criteria under
   `## Not finished`
+- The blocked exit, `.agents/skills/build/references/harness-dispatch.md` § *Blocked exit*:
+  `[BLOCKED] <reason> | tried: <…> | needs: <…>` — BLOCKED is an acceptable result; a deleted or weakened test is not
 
 **Role-based context injection from `tasks/project-context.md`** (if it exists):
 
@@ -252,6 +257,11 @@ first copy every line of its output that starts with `[AMBIGUITY]` verbatim into
 `> [AMBIGUITY] …` line after the last `>` line (else the rows) under this plan block's heading for the slice it
 served — the `### Slice N/N` heading once every slice has closed. A compaction (auto, manual, or idle while a
 background suite runs) summarises agent output away, so every later reader — Phase 3's deferral list, Phase 4.5 — reads only the file.
+
+**A blocked exit ends the slice.** When a dispatch's output holds a line that starts with `[BLOCKED]`, copy it under the
+slice heading as `> Blocked: <reason> | tried: <…> | needs: <…>`, the last line of its `> Handover:` blockquote; then
+dispatch nothing more for it — no Step 3 attempt, no rung of the escalation ladder — leave the header `[ ]` and re-run
+`ready`. From a Phase 2–4 repair it stops that repair and never reopens a closed slice.
 
 ### Step 2 — Per-Slice Spec Compliance Check (inline, no agent)
 
@@ -410,8 +420,8 @@ If ANY AC is classified `user-facing`:
 1. Re-read `specs/[feature-name].md`
 2. For every `user-facing` AC, invoke `/verify-evidence --scope e2e` (skip if already run this round with PASS entry for current commit)
 3. Walk through each AC:
-   - Mark: `✅` (unit/integration test), `✅✅` (e2e walkthrough), `❌` (missing)
-4. **If all criteria are `✅` or `✅✅`**: proceed to Phase 5
+   - Mark: `✅` (unit/integration test), `✅✅` (e2e walkthrough), `❌` (missing), `⛔` (owned by a blocked or waiting slice — reported, never looped)
+4. **If all criteria are `✅`, `✅✅` or `⛔`**: proceed to Phase 5
 5. **If any criterion is `❌`**:
    - Compare against `previous_failures`
    - **Same failures as last round** → HALT with circular-fix message, escalate to user
@@ -479,6 +489,8 @@ Tasks: [X] completed, [Y] added during build
 Tests: [N] total, [N] passing, [0] failing
 Spec Validation: [all criteria met / N gaps remain]
 Quality Gate: [N improvements applied]
+Ambiguities: [N, from Phase 4.5]
+Blocked slices: [none | <n> <name> — <reason> | needs: <…>; waiting: <m> …]
 
 Files on disk (persistence proof):
   Spec: /absolute/path/to/specs/<feature-name>.md
