@@ -99,17 +99,37 @@ Measures the real router, and is the cheapest useful eval in this repo.
 
 ## Mode B — variant lift
 
-Both variants are present on disk; they differ in content, so nothing has to be
+Every variant is present on disk; they differ in content, so nothing has to be
 removed. Use it for description rewrites and body rewrites alike.
 
-1. Put variant A and variant B on **two branches pushed to the remote**, or two
-   differently-named skills in one branch. Worktrees are cut from the remote
-   default branch, so an unpushed variant never reaches a candidate.
-2. Same organic prompt to both arms, N >= 2 per arm.
-3. Interleave both arms' outputs into **one** judge prompt under sanitized
+A variant tuned on the prompts it is scored on wins by memorising them, so the
+prompts split into a tuning set and a holdout the variant never sees, and only
+the holdout decides promotion. Three arms run — `unchanged`, `previous` and
+`candidate`: the skill as it is on the default branch, the variant before this
+tuning round, and the tuned variant.
+
+1. Put each arm on **a branch pushed to the remote**, or as differently-named
+   skills in one branch. Worktrees are cut from the remote default branch, so
+   an unpushed variant never reaches a candidate.
+2. Write at least four distinct organic prompts to a JSON array and split them
+   before spawning anyone:
+   `python3 .agents/skills/eval/scripts/variant-holdout.py split <prompts.json>`.
+   It refuses fewer than four and prints the tuning and holdout sets, fixed by
+   the prompt text. Tune the candidate on the tuning prompts only — never tune
+   on the holdout, and never read a holdout output until the variant is frozen.
+3. Every prompt to all three arms, N >= 2 per arm.
+4. Interleave the arms' outputs into **one** judge prompt under sanitized
    labels. Judge on a stronger tier than the candidates (Ceiling judging
    Builder); cross-vendor blinding is not available in-harness.
-4. Report cost beside lift. A variant that wins by 5% for 3x the tokens lost.
+5. Record one line per graded run — `{"prompt", "arm", "score", "cost_usd"}`,
+   leaving `cost_usd` out when the run reported none — and run
+   `python3 .agents/skills/eval/scripts/variant-holdout.py verdict <scores.jsonl>`.
+   It recomputes the split, prints both baselines' tuning and holdout means
+   beside the candidate's, and each arm's cost, `unknown` when any of its runs
+   did not report one. Promote only on `Verdict: promote`: the candidate's
+   holdout mean beats both `unchanged` and `previous`. A tuning-set win with a
+   holdout loss is a reject.
+6. Report cost beside lift. A variant that wins by 5% for 3x the tokens lost.
 
 ## Mode C — behavioural lift with cost
 
