@@ -482,6 +482,7 @@ End your turn with this report populated from **real command output**:
 3. `ls specs/ | grep <feature>`
 4. `grep -cE '^\s*(- )?\[x\]' tasks/todo.md` vs `grep -cE '^\s*(- )?\[ \]' tasks/todo.md` —
    then confirm every `[x]` slice header has its `> Handover:` and an `> Outcome:` with `slice_result=True`
+5. `python3 .agents/skills/build/scripts/run_ledger.py record …` — the run's record, per `references/run-ledger.md`
 
 ```
 ══════════════════════════════════════
@@ -523,7 +524,6 @@ Next: /wrap-up-session
   never as a cosmetic mismatch; so is an `[x]` whose `> Outcome:` is not `slice_result=True`
 
 ## Error Handling
-
 
 ### Sub-Agent Failure (hangs, silent stops, compaction conflicts)
 

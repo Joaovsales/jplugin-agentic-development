@@ -162,6 +162,27 @@ For multi-item feedback:
 5. Run full suite to verify no regressions
 6. Reconcile the affected blocks
 
+### Record the rework run
+
+When a reviewer asks for changes on an open PR whose branch has a run in
+`tasks/runs/` (`/build`'s `references/run-ledger.md`), mark that run and
+record this round as its rework. Before the first change:
+
+```bash
+parent="$(python3 .agents/skills/build/scripts/run_ledger.py last --branch "$(git branch --show-current)")"
+python3 .agents/skills/build/scripts/run_ledger.py decide --run-id "$parent" --result changes_requested
+```
+
+After the round is committed, with `<start>` the HEAD before its first change:
+
+```bash
+python3 .agents/skills/build/scripts/run_ledger.py record --branch "$(git branch --show-current)" --base <start> --parent "$parent"
+```
+
+`last` exiting 1 means the branch has no recorded run: skip both. A `decide`
+refusal means the PR was already merged or closed — report it; never retry
+with another result.
+
 ## When to Push Back
 
 Push back when:

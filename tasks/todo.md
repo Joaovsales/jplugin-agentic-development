@@ -3041,11 +3041,16 @@ Step ledger (routine `simplify`):
 > Issue: #442
 
 ### Slice 1/2 — Run ledger script
-- [ ] Run ledger script — run_ledger.py records runs, decides human results, finds a branch's last run and prints the derived totals
-- [ ] TDD: tests/test-run-ledger.sh § stats — first_pass_rate, attempts_per_merged_pr and cost_per_merged_pr come from the records; removing one changes the report -> run_ledger.py stats (AC1)
-- [ ] TDD: tests/test-run-ledger.sh § idempotent — the same record call twice leaves the file byte-identical and every count unchanged -> run_ledger.py record (AC2)
-- [ ] TDD: tests/test-run-ledger.sh § human decision — merged/closed are final; a later record keeps them; record has no human option -> run_ledger.py decide (AC3)
-- [ ] TDD: tests/test-run-ledger.sh § unknown — missing tokens and cost store "unknown" and stats prints unknown with a count -> run_ledger.py (AC4)
+- [x] Run ledger script — run_ledger.py records runs, decides human results, finds a branch's last run and prints the derived totals
+- [x] TDD: tests/test-run-ledger.sh § stats — first_pass_rate, attempts_per_merged_pr and cost_per_merged_pr come from the records; removing one changes the report -> run_ledger.py stats (AC1)
+- [x] TDD: tests/test-run-ledger.sh § idempotent — the same record call twice leaves the file byte-identical and every count unchanged -> run_ledger.py record (AC2)
+- [x] TDD: tests/test-run-ledger.sh § human decision — merged/closed are final; a later record keeps them; record has no human option -> run_ledger.py decide (AC3)
+- [x] TDD: tests/test-run-ledger.sh § unknown — missing tokens and cost store "unknown" and stats prints unknown with a count -> run_ledger.py (AC4)
+
+> Handover: landed 7da69f9..49f0a1f — `.agents/skills/build/scripts/run_ledger.py` (`record`, `decide`, `last`, `stats`) writes `tasks/runs/<run-id>.json` under schema `run-ledger/1`; `tests/test-run-ledger.sh` pins AC1–AC4.
+> Do not re-derive: the default run id is `<branch slug>-<base[:12]>`; `--slice` takes `<id> attempts=<n>` plus the `> Outcome:` line verbatim and checks it against `slice_outcome.derive`; `record` has no human-result option; `stats` lines start `run-ledger:`.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared specs/run-ledger.md, specs/run-ledger.plan.html, tasks/todo.md — plan artifacts committed with the slice (`slice.py check --slice 1 --base 7da69f9`).
 
 ### Slice 2/2 — Runs record themselves
 - [ ] Runs record themselves — /build Phase 6 records the run; /receive-review records a rework with its parent; the reference names every caller
