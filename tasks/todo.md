@@ -3020,4 +3020,18 @@ Step ledger (routine `simplify`):
 > Surface: none (slice.py check --slice 2 --base 9b3651a); gate-integrity: findings (7), all SKIP_ADDED test data in tests/test-gate-integrity.sh plus its one real `skip` for the chmod case
 
 ### Slice 3/3 — Skill wiring
-- [ ] Skill wiring — `/build` Slice Close stops on `GATE_TAMPERED`, `/quality-gate` Phase 0 maps results to findings, `AGENTS.md` declares this repository's runners
+- [x] Skill wiring — `/build` Slice Close stops on `GATE_TAMPERED`, `/quality-gate` Phase 0 maps results to findings, `AGENTS.md` declares this repository's runners
+> Handover: landed 2ce9301..f538420 — `/build` § Slice Close runs `gate-integrity.py --base <sha> --spec <spec> --slice <n>` after `slice.py check` and stops on exit 1; `/quality-gate` § Phase 0 maps each result line to a four-axis finding; `AGENTS.md` declares `Protected paths: tests/run.sh tests/affected.sh tests/lib.sh`; doc-conventions 959/959
+> Do not re-derive: spec Decision 5 was refined in this slice (SKIP_ADDED/ASSERTION_DELETED start at confidence 50 and need one verification read); the version guard needs `scripts/bump-plugin-version.sh` (1.8.20) before push
+> Surface: undeclared specs/gate-integrity.md (Decision 5 reconciliation), tasks/todo.md (bookkeeping) (slice.py check --slice 3 --base 2ce9301); gate-integrity: clean
+
+## Session Summary — 2026-11-18 [887e959..f538420]
+- Completed: #439 gate integrity in three slices. `gate-integrity.py` does a
+  content-hash tamper check and reports weakening findings. `/build` Slice
+  Close and `/quality-gate` Phase 0 run it, and `AGENTS.md` declares the
+  protected runners. A symlink false positive was fixed during the quality gate.
+- Pending: none in this PR.
+- Carry-forward: two NITPICKs in `gate-integrity.py` — `rev-parse` has no
+  `--end-of-options`, and one symlink hash failure aborts the whole run. The
+  test-engineer adequacy review did not run (lost in an Orca worker with no
+  sub-agent tool).
