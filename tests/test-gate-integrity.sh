@@ -126,6 +126,22 @@ assert_contains "$output" "GATE_TAMPERED tests/lib.sh" "add/delete: a deleted ru
 assert_contains "$output" "GATE_TAMPERED pyproject.toml" "add/delete: the default list protects pyproject.toml"
 assert_contains "$output" "gate-integrity: GATE_TAMPERED (3)" "add/delete: summary counts three"
 
+# --- a symlinked protected file is hashed as its link target, like git does --
+R="$(gi_repo)"
+printf '[pytest]\n' > "$R/real-pytest.ini"
+ln -s real-pytest.ini "$R/pytest.ini" 2>/dev/null
+if [ -L "$R/pytest.ini" ]; then
+  git -C "$R" add -A && git -C "$R" commit -q -m link
+  run gate_in "$R" --base HEAD
+  assert_exit 0 "symlink: an unchanged symlinked protected file exits 0"
+  assert_not_contains "$output" "GATE_TAMPERED pytest.ini" "symlink: an unchanged link is not tampering"
+  rm "$R/pytest.ini" && ln -s elsewhere.ini "$R/pytest.ini"
+  run gate_in "$R" --base HEAD
+  assert_contains "$output" "GATE_TAMPERED pytest.ini" "symlink: a retargeted link is tampering"
+else
+  skip "symlink: ln -s made no symlink here (Windows without symlink support)"
+fi
+
 # ===========================================================================
 printf '\n--- the surface declares a protected path ---\n'
 # ===========================================================================

@@ -121,6 +121,7 @@ status above. The script writes nothing.
 - An edit committed after the base, with a clean working tree: still `GATE_TAMPERED`.
 - `diff.mnemonicPrefix=true` or `diff.noprefix=true`: results are identical.
 - A protected file deleted, or a new file under a protected glob: `GATE_TAMPERED`.
+- A protected path that is a symlink hashes its link target string, as git stores it: an unchanged link is clean, a retargeted one is `GATE_TAMPERED`.
 - The base does not resolve, or the directory is not a git work tree: `gate-integrity: not checked — <reason>`, exit 3.
 - An invalid glob on a `Protected paths:` line: `not checked`, exit 3, naming the glob.
 - A test file deleted outright: one `ASSERTION_DELETED` line per assertion it held.

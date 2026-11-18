@@ -111,10 +111,18 @@ def _working_blobs(repo: str, paths: Sequence[str]) -> Dict[str, object]:
     """Path → the blob id its working-tree bytes hash to, None when absent, or the NotChecked that stopped it.
 
     One `hash-object --stdin-paths` for every present path; when that batch
-    fails, each path is hashed alone so only the unreadable one is lost.
+    fails, each path is hashed alone so only the unreadable one is lost. Git
+    stores a symlink as a blob of its target path, so a link hashes that string,
+    never the file it points to.
     """
-    present = [path for path in paths if os.path.lexists(os.path.join(repo, path))]
     blobs: Dict[str, object] = {path: None for path in paths}
+    present = []
+    for path in paths:
+        full = os.path.join(repo, path)
+        if os.path.islink(full):
+            blobs[path] = _git(repo, "hash-object", "--stdin", stdin=os.readlink(full)).strip()
+        elif os.path.lexists(full):
+            present.append(path)
     try:
         hashed = _git(repo, "hash-object", "--stdin-paths", stdin="".join(f"{path}\n" for path in present)).split()
         blobs.update(zip(present, hashed))
