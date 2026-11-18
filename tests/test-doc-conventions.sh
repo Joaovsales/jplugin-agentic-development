@@ -1226,6 +1226,7 @@ for token in 'slice_outcome.py --agent <true|false|unknown>' \
              'Only exit 0 (`slice_result=True SUCCEEDED`) closes it' \
              '`VERIFICATION_FAILED`' 'exit 3 (`Unknown`) leaves the header `[ ]`' \
              '> Outcome:' 'The first three lines are required' \
+             "the script's last \`slice-outcome: agent_result=\` line" \
              'on exit 0 only, mark the header `[x]`'; do
   assert_contains "$SLICE_CLOSE" "$token" \
     "three outcomes: Slice Close contains '$token'"

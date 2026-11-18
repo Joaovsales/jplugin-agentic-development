@@ -17,7 +17,10 @@ it is never shown as True. After the command's own output the script prints
     slice-outcome: verification: `<command>` exited <n>
                  | not checked: verification — <reason>
 
-The first line, minus its prefix, is the handover's `> Outcome:` line; its
+The summary always starts on a fresh line, after everything the command
+printed, so the LAST line starting `slice-outcome: agent_result=` is the
+authoritative one: a command that prints a lookalike line cannot displace it.
+That line, minus its prefix, is the handover's `> Outcome:` line; its
 `key=value` field names are the contract later readers parse.
 
 Exit status: 0 SUCCEEDED; 1 VERIFICATION_FAILED or AGENT_FAILED (repair);
@@ -28,9 +31,11 @@ gone); 2 usage.
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
+import tempfile
 from typing import List, Optional, Sequence, Tuple
 
 TRUE, FALSE, UNKNOWN = "True", "False", "Unknown"
@@ -48,17 +53,39 @@ def run_verification(command: Sequence[str]) -> Tuple[str, str]:
         return UNKNOWN, "not checked: verification — no verification command was given"
     shown = " ".join(shlex.quote(part) for part in command)
     try:
-        proc = subprocess.run(list(command), stderr=subprocess.PIPE, text=True)
+        returncode, stderr = _run_passing_output_through(command)
     except OSError as exc:
         return FALSE, f"verification: `{shown}` could not start — {exc.strerror or exc}"
-    sys.stderr.write(proc.stderr)
-    sys.stdout.flush()
-    sys.stderr.flush()
-    refusal = _refusal_line(proc.stderr) if proc.returncode == REFUSAL_EXIT else None
+    refusal = _refusal_line(stderr) if returncode == REFUSAL_EXIT else None
     if refusal:
         return UNKNOWN, f"not checked: verification — {refusal}"
-    result = TRUE if proc.returncode == 0 else FALSE
-    return result, f"verification: `{shown}` exited {proc.returncode}"
+    result = TRUE if returncode == 0 else FALSE
+    return result, f"verification: `{shown}` exited {returncode}"
+
+
+def _run_passing_output_through(command: Sequence[str]) -> Tuple[int, str]:
+    """Run the command, streaming its stdout and then its stderr through as raw
+    bytes; return (exit status, stderr decoded tolerantly for the refusal check).
+    Ends with stdout on a fresh line, so the summary never joins a partial line."""
+    stdout = sys.stdout.buffer
+    stdout.flush()
+    with tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(list(command), stdout=subprocess.PIPE, stderr=err)
+        last = b"\n"
+        for chunk in iter(lambda: os.read(proc.stdout.fileno(), 65536), b""):
+            stdout.write(chunk)
+            stdout.flush()
+            last = chunk[-1:]
+        proc.stdout.close()
+        returncode = proc.wait()
+        err.seek(0)
+        raw_err = err.read()
+    sys.stderr.buffer.write(raw_err)
+    sys.stderr.flush()
+    if last != b"\n":
+        stdout.write(b"\n")
+        stdout.flush()
+    return returncode, raw_err.decode("utf-8", errors="replace")
 
 
 def _refusal_line(stderr: str) -> Optional[str]:
