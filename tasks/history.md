@@ -1184,3 +1184,13 @@ back vacuous and was repaired.
     the second instance and the SHA-first fix.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
+
+## 2026-11-18 — #444 unattended scan (improve lane, unattended)
+
+- Slice 1 (`2adb4c1`): `unattended_scan.py` with 20 built-in stdlib rules,
+  each with fixtures and gaps, and an add-only project rule file.
+- Slice 2 (`6ffdc4f`): the pre-push hook scans `routine/` and
+  `UNATTENDED_SCAN=1` pushes before `SKIP_PREPUSH`; wrap-up files the finding.
+- Quality gate: Phase 4 inline, test-engineer lost (no Agent tool in the Orca
+  worker); receipt aaed27bb GO (policy qg1-314de3d6).
+- Learning: [patterns/a-pre-push-hook-with-two-ref-readers-reads-stdin-once.md](solutions/patterns/a-pre-push-hook-with-two-ref-readers-reads-stdin-once.md).

@@ -6,7 +6,7 @@
     "Obfuscation defeats every text rule: base64 or hex decoding piped to a shell, variable indirection (`$a$b`), quoting splits (`c''url`), aliases and functions defined earlier in the session.",
     "`--transcript auto` resolves Claude Code sessions only (CLAUDE_CODE_SESSION_ID); a Codex or Pi run must pass UNATTENDED_SCAN_TRANSCRIPT or its commands are not scanned.",
     "Diff text rules read added lines only; a check weakened by deleting lines (a removed assertion, a removed CI step) is caught only when the file is on a path rule.",
-    "A project whose tree does not hold the scanner (a plugin-only install without synced skills) is not scanned; the hook stays silent there."
+    "The hook recognises an unattended push by its ref (`routine/`) or by UNATTENDED_SCAN=1; an unattended run that pushes an ordinary branch without declaring itself is not scanned. (A tree without the scanner is the opposite case: the scan cannot run and the push is refused.)"
   ],
   "rules": [
     {

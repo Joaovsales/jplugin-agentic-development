@@ -56,7 +56,9 @@ Each hit prints one finding in the finding-model format — `high` is
 id, followed by one summary line. The pre-push hook runs the scan for every
 pushed branch under `routine/`, and for any push made with `UNATTENDED_SCAN=1`
 (the caller-declared case: `/yolo`, `/auto-push`), passing
-`--transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}"`. Exit 1 (a high hit) or 2
+`--transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}"` and `--head <local sha>`,
+plus `--base <remote sha>` when this clone holds the remote tip, so a commit the
+remote already has is not scanned again. Exit 1 (a high hit) or 2
 (the scan could not run) blocks the push; medium hits print and pass. The scan
 runs before the `SKIP_PREPUSH` kill switch, so an environment variable cannot
 silence it; `git push --no-verify` remains the human override.
@@ -98,6 +100,8 @@ on an unattended run first files the findings as one `bug` task through
 - A truncated final JSONL record (the session is still writing) and any other
   line that is not JSON are scanned as raw text, never dropped.
 - A branch deletion (all-zero local sha) is not scanned.
+- A tree without the scanner (or without `python3`) cannot be scanned, so an
+  unattended push from it is refused like any other exit 2.
 - Two scans of the same input print byte-identical output and exit the same.
 
 ## Interfaces

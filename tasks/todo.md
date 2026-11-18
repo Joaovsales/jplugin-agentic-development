@@ -3014,3 +3014,13 @@ Step ledger (routine `simplify`):
 ### Slice 2/2 — Push gate wiring
 - [x] Push gate wiring — The pre-push hook blocks an unattended push on a high hit; wrap-up files the finding
 > Handover: the hook reads stdin once into `PUSH_REFS`, scans `routine/` refs and `UNATTENDED_SCAN=1` pushes before `SKIP_PREPUSH`, base = the remote sha when this clone holds it; wrap-up SKILL.md stays at its 300-line budget, the detail lives in routines.md § *Unattended scan*. `tests/test-pre-push-gate.sh` 96/96; affected 40/40 files green.
+
+## Session Summary — [2026-11-18] [887e959..6ffdc4f]
+
+- Completed:
+  - #444: the unattended scan; slices 1/2 and 2/2 of `## Plan: Unattended scan`.
+- Pending: none in this PR.
+- Carry-forward:
+  - `/yolo` and `/auto-push` do not yet export `UNATTENDED_SCAN=1` themselves;
+    they reach the scan through `/wrap-up-session`'s unattended push.
+  - The Phase 5.1 test-engineer review was lost (no Agent tool in the worker).
