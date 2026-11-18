@@ -1184,3 +1184,10 @@ back vacuous and was repaired.
     the second instance and the SHA-first fix.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
+
+### [2026-11-18] — blocked exit for an unbuildable slice (#440)
+- Key changes:
+  - `slice.py ready` prints `blocked: <n> <name>` for an open slice carrying `> Blocked:` and `waits: <n> <name> on blocked <m>` for every open slice whose `Blocked by` chain reaches it; neither is ever `ready:`.
+  - `build/references/harness-dispatch.md` § *Blocked exit* defines `[BLOCKED] <reason> | tried: <…> | needs: <…>`; `build/SKILL.md` puts it in the delegation prompt as an acceptable result, persists it as `> Blocked:`, stops the slice with no Step 3 attempt or ladder rung, marks its ACs `⛔` in Phase 4 and reports `Blocked slices:` under `Ambiguities:` in Phase 6.
+- Quality gate: receipt bd70deaf GO (policy qg1-314de3d6); Phases 1–4 inline, Phase 5 test-engineer review `lost` (no sub-agent dispatch in an Orca worker session).
+- Learnings: rule 3 appended to [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md) — cite another skill's file by its full `.agents/skills/` path.
