@@ -3002,3 +3002,13 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: Unattended scan
+> Spec: specs/unattended-scan.md
+> Issue: #444
+
+### Slice 1/2 — Scanner and ruleset
+- [ ] Scanner and ruleset — The stdlib scanner, the built-in rules with fixtures and gaps, the add-only project merge
+
+### Slice 2/2 — Push gate wiring
+- [ ] Push gate wiring — The pre-push hook blocks an unattended push on a high hit; wrap-up files the finding
