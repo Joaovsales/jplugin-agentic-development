@@ -3002,3 +3002,16 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: Gate integrity
+> Spec: specs/gate-integrity.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/439
+
+### Slice 1/3 — Content-hash tamper check
+- [ ] Content-hash tamper check — The script resolves the protected set, hashes each candidate against its base blob and classifies changes against the Surface
+
+### Slice 2/3 — Weakening findings
+- [ ] Weakening findings — Added expected-failure rows, new skip markers, deleted assertions and the not-checked outcome
+
+### Slice 3/3 — Skill wiring
+- [ ] Skill wiring — `/build` Slice Close stops on `GATE_TAMPERED`, `/quality-gate` Phase 0 maps results to findings, `AGENTS.md` declares this repository's runners
