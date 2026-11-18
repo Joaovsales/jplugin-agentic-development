@@ -286,19 +286,32 @@ This matches `git diff --name-only <base>..HEAD` against the slice's
 declared surface and prints `undeclared: <paths>` and `untouched: <globs>`,
 exiting 0 only when both are empty. Informational — nothing stops on a
 non-empty report; fold the result into the handover below and the Phase 4.5
-batch; exit 2 is bad input.
+batch; exit 2 is bad input. Then record the slice's three outcomes — the script
+runs the affected-test command itself, once, centrally:
+
+```bash
+python3 .agents/skills/build/scripts/slice_outcome.py --agent <true|false|unknown> \
+  -- .agents/skills/build/scripts/cached-suite.sh -- <affected-test command>
+```
+
+`--agent` is the dispatch's claim: `true` = every criterion reported green, `false` = any under
+`## Not finished`, `unknown` = no usable report. `verification_result` is the exit status of the
+script's own run; a sub-agent's quoted test output never closes a slice. Only exit 0
+(`slice_result=True SUCCEEDED`) closes it: exit 1 (`VERIFICATION_FAILED`, `AGENT_FAILED`) goes back
+to Step 3; exit 3 (`Unknown`) leaves the header `[ ]` until the check can run.
 
 Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
-(they stay its last lines, outside the four) — one to four blockquote lines, each with its own prefix:
+(they stay its last lines, outside the five) — two to five blockquote lines, each with its own prefix:
 
 ```markdown
 > Handover: landed <short-sha>..<short-sha> — what landed
 > Do not re-derive: the facts the next slice must not rediscover
+> Outcome: the script's first line without `slice-outcome: ` (agent_result=… verification_result=… slice_result=… <LABEL>)
 > Surface: the `check` report (`undeclared:` / `untouched:`, or none)
 > Open: one open question (optional)
 ```
 
-The first two lines are required; the blockquote is the unit every reader
+The first three lines are required; the blockquote is the unit every reader
 consumes — the delegation prompt and `/wrap-up-session` § Handovers carry
 the whole blockquote, never the `> Handover:` line alone. Write it for a
 one-slice plan too: it is what an interrupted build's next session reads.
@@ -310,9 +323,9 @@ or the escape hatch fired, leave the header `[ ]`, write
 marked `[x]` with no `> Handover:` is the **forbidden state** — Phase 6 checks
 every `[x]` header for its handover and reports a miss as a build failure.
 
-The slice boundary is the checkpoint, in this order: run the affected-test
-command once against the base SHA, centrally; write the handover; mark the
-header `[x]`; log `✓ slice <n> — <one-line summary>`.
+The slice boundary is the checkpoint, in this order: run `slice_outcome.py`
+(the affected-test command against the base SHA, once, centrally); write the
+handover; on exit 0 only, mark the header `[x]`; log `✓ slice <n> — <one-line summary>`.
 **Task-boundary checkpoint**: silently refresh `tasks/checkpoint.md` via the
 shared flush (`bash .agents/hooks/pre-compact.sh </dev/null`) — no prompt, no
 commit — so a context compaction or `/refresh` loses at most one slice of
@@ -468,7 +481,7 @@ End your turn with this report populated from **real command output**:
 2. `git log --oneline <base>..HEAD`
 3. `ls specs/ | grep <feature>`
 4. `grep -cE '^\s*(- )?\[x\]' tasks/todo.md` vs `grep -cE '^\s*(- )?\[ \]' tasks/todo.md` —
-   then confirm every `[x]` slice header has its `> Handover:`
+   then confirm every `[x]` slice header has its `> Handover:` and an `> Outcome:` with `slice_result=True`
 
 ```
 ══════════════════════════════════════
@@ -479,6 +492,8 @@ Tasks: [X] completed, [Y] added during build
 Tests: [N] total, [N] passing, [0] failing
 Spec Validation: [all criteria met / N gaps remain]
 Quality Gate: [N improvements applied]
+Slices (one `> Outcome:` per slice, verbatim):
+  [n] <name> — agent_result=<v> verification_result=<v> slice_result=<v> <LABEL>
 
 Files on disk (persistence proof):
   Spec: /absolute/path/to/specs/<feature-name>.md
@@ -505,7 +520,7 @@ Next: /wrap-up-session
 - Stating a file was "created" or "updated" without showing its absolute path
 - Omitting the `Pushed:` line
 - A slice header marked `[x]` with no `> Handover:` — the **forbidden state** Slice Close defines; report it as a build failure,
-  never as a cosmetic mismatch
+  never as a cosmetic mismatch; so is an `[x]` whose `> Outcome:` is not `slice_result=True`
 
 ## Error Handling
 

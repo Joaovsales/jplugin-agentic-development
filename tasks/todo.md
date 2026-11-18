@@ -3002,3 +3002,13 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: slice-three-outcomes
+> Spec: specs/slice-three-outcomes.md
+> Issue: #441
+
+### Slice 1/2 — Slice outcome at Slice Close
+- [ ] Slice outcome at Slice Close — slice_outcome.py derives the three outcomes from the orchestrator's own run; Slice Close closes only on SUCCEEDED and writes > Outcome:
+
+### Slice 2/2 — Not checked is never clean
+- [ ] Not checked is never clean — the receipt requires a reason on a lost review and prints not checked; /verify-evidence and /quality-gate state the wording rule

@@ -1216,6 +1216,30 @@ for token in 'The `- [ ]` row under each `### Slice n/N` heading' \
              'its status lives in the one feature issue'; do
   assert_prose_contains "$BUILD_SKILL" "$token" "slice close: SKILL.md contains '$token'"
 done
+# --- three outcomes: Slice Close records agent, verification and slice results ---
+# specs/slice-three-outcomes.md AC1, AC2, AC4. The orchestrator's own run
+# through slice_outcome.py decides; only exit 0 closes a slice; the handover,
+# the Phase 6 report and the PR body's Handovers section carry > Outcome:.
+SLICE_CLOSE="$(section_body "$BUILD_SKILL" "### Slice Close" '^##')"
+for token in 'slice_outcome.py --agent <true|false|unknown>' \
+             'a sub-agent'"'"'s quoted test output never closes a slice' \
+             'Only exit 0 (`slice_result=True SUCCEEDED`) closes it' \
+             '`VERIFICATION_FAILED`' 'exit 3 (`Unknown`) leaves the header `[ ]`' \
+             '> Outcome:' 'The first three lines are required' \
+             'on exit 0 only, mark the header `[x]`'; do
+  assert_contains "$SLICE_CLOSE" "$token" \
+    "three outcomes: Slice Close contains '$token'"
+done
+PHASE6="$(section_body "$BUILD_SKILL" "## Phase 6 — Build Report" '^## [^#]')"
+for token in 'an `> Outcome:` with `slice_result=True`' \
+             'agent_result=<v> verification_result=<v> slice_result=<v> <LABEL>' \
+             'an `[x]` whose `> Outcome:` is not `slice_result=True`'; do
+  assert_contains "$PHASE6" "$token" "three outcomes: Phase 6 contains '$token'"
+done
+assert_prose_contains .agents/skills/wrap-up-session/references/closure-actions.md \
+  '`> Do not re-derive:`, `> Outcome:`, `> Surface:`' \
+  "three outcomes: the PR body's Handovers section carries > Outcome:"
+
 assert_file_contains .agents/skills/slice/references/plan-block.md '## Legacy block' "legacy: plan-block.md holds the one definition"
 assert_prose_contains .agents/skills/slice/references/plan-block.md 'when no open `## Plan:` block in `tasks/todo.md` classifies as legacy' "legacy: plan-block.md names the sunset condition"
 assert_prose_contains "$BUILD_SKILL" 'slice/references/plan-block.md` § *Legacy block*' "slice close: legacy is defined by pointing at plan-block.md § Legacy block"
