@@ -93,9 +93,14 @@ directory segment, or a name `test_*`, `test-*`, `*_test.*`, `*.test.*`,
 - `/quality-gate` **Phase 0 — Gate Integrity** runs the script with the
   merge-base from *Scope* and the spec when one exists, before Phase 1.
   `GATE_TAMPERED` is `[MUST-FIX | confidence: 100 | autofix_class: manual |
-  owner: human]`; every other result line is `[SHOULD-FIX | confidence: 75 |
-  autofix_class: manual | owner: human]`. All go to `Reported, not applied` and
-  the receipt's `unresolved`; exit 3 is named in `Not checked:`.
+  owner: human]`, `EXPECTED_FAILURE_ADDED` is `[SHOULD-FIX | confidence: 100 |
+  manual | human]` and `GATE_CHANGED` is `[NITPICK | confidence: 100 | advisory |
+  human]`. `SKIP_ADDED` and `ASSERTION_DELETED` are pattern matches, so each
+  starts as `[SHOULD-FIX | confidence: 50 | manual | human]` and gets one
+  verification read of its hunk: a real skip or a real deletion rises to 75, and
+  a marker that is test data inside a string is refuted and dropped with a
+  word. Every finding goes to `Reported, not applied` and the receipt's
+  `unresolved`; exit 3 is named in `Not checked:`.
 
 ## Inputs
 
@@ -141,7 +146,7 @@ status above. The script writes nothing.
 | 2 | How is a change detected? | `git hash-object` of the working file against the base tree's blob id | assumed | the issue's mechanism; reading no diff output makes assume-unchanged, committed changes and diff config irrelevant |
 | 3 | What counts as naming a protected file in the Surface? | An entry that matches the path and lies wholly inside a protected pattern | assumed | a broad `tests/**` would otherwise silently whitelist the runner; the issue asks the slice to *name* the file |
 | 4 | Which defaults? | CI workflow and lint/test-config files common across ecosystems, plus the declared expected-failures file; project runners are declared with `Protected paths:` | assumed | generic defaults cannot know a project's runner; this repository declares `tests/run.sh tests/affected.sh tests/lib.sh` |
-| 5 | Severity of non-tamper results at `/quality-gate` | `SHOULD-FIX`, confidence 75, owner human | assumed | each is a rare, deliberate-looking weakening a human must see; HOLD is the honest verdict until a human accepts it |
+| 5 | Severity of non-tamper results at `/quality-gate` | `EXPECTED_FAILURE_ADDED` SHOULD-FIX at 100; `SKIP_ADDED` and `ASSERTION_DELETED` SHOULD-FIX at 50 with one verification read; `GATE_CHANGED` NITPICK; owner human throughout | assumed | the row and the declared change are exact facts; the skip and assertion patterns also match test data (dogfooding flagged this repository's own fixtures), so a reviewer confirms them before they count toward HOLD |
 | 6 | Phase numbering | A new Phase 0 before Phase 1 | assumed | the receipt's reviewer entries are keyed by phases 1–5; renumbering would break receipts and pins for no gain |
 | 7 | Exit status of "cannot run" | `3`, distinct from clean `0`, tampered `1` and usage `2` | assumed | callers must be able to tell `not checked` from clean without parsing prose |
 

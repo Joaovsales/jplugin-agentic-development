@@ -1881,4 +1881,26 @@ done
 assert_sweep_empty "section-body: no private awk heading extractor remains in this file" tests/lib.sh \
   -- grep -nE 'index\(\$0, h\) == 1' -- "$SELF"
 
+# --- gate integrity (specs/gate-integrity.md AC1, AC4, AC7) -------------------
+# Slice Close runs the content-hash check beside slice.py check and stops the
+# slice on GATE_TAMPERED; /quality-gate runs it as Phase 0 and maps its lines to
+# findings; a check that cannot run is recorded as not checked, never clean.
+GI_CLOSE="$(section_body "$BUILD_SKILL" '### Slice Close')"
+for token in 'gate-integrity.py --base <sha> --spec <spec> --slice <n>' \
+             'Exit 1 (`GATE_TAMPERED`) stops the slice' 'the header stays `[ ]`' \
+             'unfinished: GATE_TAMPERED <paths>' 'gate integrity: not checked — <reason>' 'never as clean'; do
+  assert_contains "$GI_CLOSE" "$token" "gate integrity: build Slice Close says '$token'"
+done
+GI_P0="$(section_body "$QG_SKILL" '## Phase 0 — Gate Integrity')"
+for token in 'gate-integrity.py --base <merge-base>' \
+             '`GATE_TAMPERED` is `[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human]`' \
+             '`EXPECTED_FAILURE_ADDED`' '`GATE_CHANGED`' 'confidence: 50' 'refuted' \
+             'Exit 3' '`Not checked:`'; do
+  assert_contains "$GI_P0" "$token" "gate integrity: quality-gate Phase 0 says '$token'"
+done
+assert_precedes "$(flatten "$QG_SKILL")" '## Phase 0 — Gate Integrity' '## Phase 1 — Structural Quality' \
+  "gate integrity: Phase 0 runs before Phase 1"
+assert_contains "$BELOW_END" "Protected paths: tests/run.sh tests/affected.sh tests/lib.sh" \
+  "gate integrity: AGENTS.md declares this repository's runners below the end marker"
+
 finish

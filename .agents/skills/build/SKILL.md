@@ -288,6 +288,13 @@ exiting 0 only when both are empty. Informational — nothing stops on a
 non-empty report; fold the result into the handover below and the Phase 4.5
 batch; exit 2 is bad input.
 
+Then `python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <sha> --spec <spec> --slice <n>`
+hashes every protected file (runners, the expected-failures list, CI and lint
+configs — `specs/gate-integrity.md`) against its blob at the base. Exit 1 (`GATE_TAMPERED`) stops the slice: the header stays `[ ]` and the
+handover records `unfinished: GATE_TAMPERED <paths>`. Exit 3 goes on the
+`> Surface:` line as `gate integrity: not checked — <reason>`, never as clean;
+the finding lines it prints on any exit go there too.
+
 Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
 (they stay its last lines, outside the four) — one to four blockquote lines, each with its own prefix:
 

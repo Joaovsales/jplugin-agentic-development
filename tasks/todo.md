@@ -3008,10 +3008,16 @@ Step ledger (routine `simplify`):
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/439
 
 ### Slice 1/3 — Content-hash tamper check
-- [ ] Content-hash tamper check — The script resolves the protected set, hashes each candidate against its base blob and classifies changes against the Surface
+- [x] Content-hash tamper check — The script resolves the protected set, hashes each candidate against its base blob and classifies changes against the Surface
+> Handover: landed 3c962ca..9b3651a — `gate-integrity.py --base <rev> [--spec [--slice]]` hashes every protected candidate (base `ls-tree` ∪ `ls-files -c -o --exclude-standard`) against its base blob; GATE_TAMPERED exits 1, GATE_CHANGED exits 0; 28/28 in tests/test-gate-integrity.sh
+> Do not re-derive: `Report.add` counts every kind other than GATE_TAMPERED/NOT_CHECKED as a finding, so slice 2 only adds lines; `NotChecked` from `check()` already becomes `not checked —` exit 3 in `main`; `gi_repo` in the test builds the shared fixture (expected-failures row `tests/test-old.sh linux* old message`, `tests/test-a.sh` with two assert_eq lines)
+> Surface: none (slice.py check --slice 1 --base 3c962ca); gate-integrity: clean
 
 ### Slice 2/3 — Weakening findings
-- [ ] Weakening findings — Added expected-failure rows, new skip markers, deleted assertions and the not-checked outcome
+- [x] Weakening findings — Added expected-failure rows, new skip markers, deleted assertions and the not-checked outcome
+> Handover: landed 9b3651a..2ce9301 — EXPECTED_FAILURE_ADDED (multiset, reorder-proof), SKIP_ADDED and ASSERTION_DELETED (an assertion line whose count dropped) for test files present at the base, NOT_CHECKED per file and `not checked — base <rev> does not resolve to a commit`; 59/59, affected 31 files green
+> Do not re-derive: SKIP_ADDED/ASSERTION_DELETED are regex candidates — dogfooding on 9b3651a flagged the marker strings inside this test's printf fixtures, so /quality-gate must verify each before it is a finding (spec Decision 5); exit precedence is tampered 1 > not checked 3 > 0
+> Surface: none (slice.py check --slice 2 --base 9b3651a); gate-integrity: findings (7), all SKIP_ADDED test data in tests/test-gate-integrity.sh plus its one real `skip` for the chmod case
 
 ### Slice 3/3 — Skill wiring
 - [ ] Skill wiring — `/build` Slice Close stops on `GATE_TAMPERED`, `/quality-gate` Phase 0 maps results to findings, `AGENTS.md` declares this repository's runners
