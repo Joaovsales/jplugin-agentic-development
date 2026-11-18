@@ -3002,3 +3002,10 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: Variant-lift holdout and two-baseline promotion
+> Spec: specs/eval-holdout.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/443
+
+### Slice 1/1 — variant-lift holdout
+- [ ] variant-lift holdout — `variant-holdout.py` split and verdict, and § Mode B steps that use them
