@@ -3002,3 +3002,4 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+- [ ] citation-drift in .agents/skills/wrap-up-session/references/routines.md <!-- task-id: simplify.agents-skills-wrap-up-session-references-routines-md.citation-drift-in-agents-skills-wrap-up-session-references-routines-md --> ([#437](https://github.com/Joaovsales/jplugin-agentic-development/issues/437))
