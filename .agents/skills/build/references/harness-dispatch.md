@@ -19,7 +19,7 @@ It replaces the moves that fake a green slice: deleting or weakening a test,
 mocking the thing under test, or editing outside the Surface. `/build` records
 the line as `> Blocked:` under the slice heading and dispatches nothing more for
 that slice; `slice.py ready` then names it `blocked:` and its dependents
-`waits:` (`slice/references/plan-block.md`).
+`waits:` (`.agents/skills/slice/references/plan-block.md`).
 
 ## Codex: debugger escalation (Model Routing)
 

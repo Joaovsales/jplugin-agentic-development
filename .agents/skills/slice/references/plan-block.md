@@ -27,7 +27,7 @@ the spec against what was built.
   table, and `/build` reads them there by slice number and name.
 - A `> Blocked: <reason> | tried: <…> | needs: <…>` line under an open slice
   heading is `/build`'s record of a Builder's `[BLOCKED]` exit
-  (`build/references/harness-dispatch.md` § *Blocked exit*). `ready` prints
+  (`.agents/skills/build/references/harness-dispatch.md` § *Blocked exit*). `ready` prints
   that slice as `blocked: <n> <name>` and every open slice whose `Blocked by`
   chain reaches it as `waits: <n> <name> on blocked <m>`, never as `ready:`.
   A fenced example, or the line under an `[x]` header, is not a state. A human
