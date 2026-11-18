@@ -3003,3 +3003,22 @@ Step ledger (routine `simplify`):
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
 - [ ] citation-drift in .agents/skills/wrap-up-session/references/routines.md <!-- task-id: simplify.agents-skills-wrap-up-session-references-routines-md.citation-drift-in-agents-skills-wrap-up-session-references-routines-md --> ([#437](https://github.com/Joaovsales/jplugin-agentic-development/issues/437))
+
+## Plan: simplify-citation-drift-in-agents-skills-wrap-up-session-references-routines-md
+
+> Routine: `simplify` #437 · branch `routine/simplify/437-tidy-checks-heading` · spec `specs/simplify-citation-drift-in-agents-skills-wrap-up-session-references-routines-md.md`
+
+### Slice 1/1 — tidy's checks heading is a name
+[x] TDD: `signals.py rank --path .agents/skills/wrap-up-session` reports `citation-drift` before and none after; the affected tests and `bash tests/test-citations.sh` green both times -> rename `### 1–11. The checks` to `### The checks` and repoint the `tests/test-doc-conventions.sh` awk heading pattern (AC 1, 2, 3)
+
+> Handover: one heading renamed at `.agents/skills/tidy/SKILL.md:85`, one test pattern repointed at `tests/test-doc-conventions.sh:215`; the three callers untouched. Line counts 347 -> 347 and unchanged for the test.
+
+Step ledger (routine `simplify`):
+- [x] 1. `task-registry select --routine simplify` — #437 (filed this run by `/make-it-simpler --unattended` discovery)
+- [x] 2. `task-registry claim 437 --routine simplify --apply --approve`
+- [x] 3. branch `routine/simplify/437-tidy-checks-heading`
+- [x] 4.1 `/make-it-simpler #437` — before-proof recorded, scope re-checked (minor, 1 slice, reproduces), spec with safe-moves § Decisions
+- [x] 4.2 `/plan <spec>` — under `/make-it-simpler` § *Overrides*: § Decisions carried, nothing asked, no build prompt
+- [x] 4.3 `/build` — the one TDD row above, in place (inline: a two-line slice)
+- [ ] 4.4 `/quality-gate`
+- [ ] 5. `/wrap-up-session`

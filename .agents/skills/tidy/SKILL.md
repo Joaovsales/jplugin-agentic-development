@@ -82,7 +82,7 @@ environment are the scheduler's, not this file's.
    record at the end. Stage `tasks/todo.md` by explicit path only with the record
    commit, never with a Tier 0 commit.
 
-### 1–11. The checks
+### The checks
 
 Each check names the surfaces it reads. A surface that does not exist in the host
 repository — a downstream project has no `README.md` skills table, no `AGENTS.md`
