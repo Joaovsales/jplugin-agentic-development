@@ -69,6 +69,9 @@ The three arms are:
 - A run without `cost_usd` — that arm's cost prints `unknown`, never `0`.
 - A tie between the candidate and a baseline on the holdout — `reject`: the
   candidate has to beat both baselines, not match them.
+- Prompts added after tuning — the `n // 2` boundary moves and can put a
+  tuned-on prompt in the holdout. § Mode B tells the author to score exactly
+  the prompts `split` was given; `verdict` does not enforce it.
 
 ## Interfaces
 

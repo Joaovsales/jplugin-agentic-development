@@ -128,7 +128,9 @@ tuning round, and the tuned variant.
    beside the candidate's, and each arm's cost, `unknown` when any of its runs
    did not report one. Promote only on `Verdict: promote`: the candidate's
    holdout mean beats both `unchanged` and `previous`. A tuning-set win with a
-   holdout loss is a reject.
+   holdout loss is a reject. Score exactly the prompts `split` was given:
+   adding a prompt after tuning moves the boundary and can land a tuned-on
+   prompt in the holdout.
 6. Report cost beside lift. A variant that wins by 5% for 3x the tokens lost.
 
 ## Mode C — behavioural lift with cost

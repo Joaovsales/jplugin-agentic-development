@@ -31,6 +31,7 @@ import read_transcript as rt
 ARMS = ("unchanged", "previous", "candidate")
 BASELINES = ARMS[:2]
 MIN_PROMPTS = 4
+# A candidate a float ulp above a baseline ties it; the holdout must be beaten, not matched.
 EPSILON = 1e-9
 
 

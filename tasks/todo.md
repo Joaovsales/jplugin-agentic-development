@@ -3008,4 +3008,13 @@ Step ledger (routine `simplify`):
 > Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/443
 
 ### Slice 1/1 — variant-lift holdout
-- [ ] variant-lift holdout — `variant-holdout.py` split and verdict, and § Mode B steps that use them
+- [x] variant-lift holdout — `variant-holdout.py` split and verdict, and § Mode B steps that use them
+
+> Handover: `variant-holdout.py` (split / verdict, refusals exit 2 through `read_transcript.run`) and § Mode B steps 2–5 landed in c38c166; `bash tests/test-eval-variant-holdout.sh` 40 passed, 0 failed. Surface check: only the three Surface files changed. No later slice.
+
+## Session Summary — 2026-11-18 [887e959..c38c166]
+- Completed: #443 — `variant-holdout.py` split/verdict and § Mode B steps (slice 1/1); plugin 1.8.20.
+- Pending: none in this PR.
+- Carry-forward:
+  - `verdict` does not enforce that the scored prompts are the set `split` was given; prompts added after tuning can move a tuned-on prompt into the holdout (SKILL.md warns).
+  - The quality gate's test-engineer review was lost in this worker session.

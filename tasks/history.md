@@ -1184,3 +1184,8 @@ back vacuous and was repaired.
     the second instance and the SHA-first fix.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
+
+### [2026-11-18] — #443 eval variant-lift holdout
+- Key changes: `/eval` Mode B splits its prompts with `variant-holdout.py split` (refuses fewer than four distinct prompts; SHA-256 order, first `n // 2` held out) and promotes only on `variant-holdout.py verdict`'s `promote` — the candidate's holdout mean strictly beats both `unchanged` and `previous`. The report shows the split, both baselines on tuning and holdout, and an arm's cost as `unknown` when any of its runs reported none. Plugin version 1.8.20.
+- Quality gate: Phase 4 inline (no Agent tool in the worker session), test-engineer review lost. One SHOULD-FIX left for a human: prompts added after tuning shift the boundary; § Mode B now warns. Receipt GO.
+- Learnings captured: [split moves with the set](solutions/patterns/a-split-recomputed-from-the-scored-set-moves-when-the-set-changes.md).
