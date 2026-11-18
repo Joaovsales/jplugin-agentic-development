@@ -20,9 +20,12 @@ findings or not. 2 is bad usage.
 from __future__ import annotations
 
 import argparse
+import difflib
 import os
+import re
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -45,6 +48,19 @@ DEFAULT_PROTECTED = (
     "tox.ini", "pytest.ini", ".flake8", "ruff.toml", ".ruff.toml", "mypy.ini",
     ".golangci.yml", ".golangci.yaml", "jest.config.*", "vitest.config.*",
 )
+
+
+# A skip or focus marker on an added line of an existing test: `.skip`, `.only`,
+# pytest/unittest skip and xfail, JUnit @Disabled/@Ignore, Rust #[ignore],
+# jasmine/mocha x- and f- prefixes, Go t.Skip, and tests/lib.sh's `skip`.
+SKIP_RE = re.compile(
+    r"\.(?:skip|only)\b|@(?:pytest\.mark\.)?(?:skip|skipif|xfail)\b|\bunittest\.skip"
+    r"|\bpytest\.(?:skip|xfail)\(|@Disabled\b|@Ignore\b|#\[ignore\]"
+    r"|\b(?:xit|xdescribe|xtest|fit|fdescribe)\s*\(|\bt\.Skip(?:Now|f)?\(|^\s*skip\s"
+)
+ASSERT_RE = re.compile(r"\bassert|\bexpect\s*\(|\bt\.(?:Error|Fatal)f?\(|\brequire\.\w|\bshould\b")
+TEST_DIRS = {"test", "tests", "spec", "__tests__"}
+TEST_NAME_RE = re.compile(r"^test[_-]|_test\.|\.test\.|\.spec\.|Test\.")
 
 
 class NotChecked(Exception):
@@ -91,11 +107,36 @@ def _working_paths(repo: str) -> List[str]:
     return sorted({path for path in out.split("\0") if path})
 
 
-def _working_blob(repo: str, path: str) -> Optional[str]:
-    """The blob id the working-tree file would get, or None when it is absent."""
-    if not os.path.lexists(os.path.join(repo, path)):
-        return None
-    return _git(repo, "hash-object", "--", path).strip()
+def _working_blobs(repo: str, paths: Sequence[str]) -> Dict[str, object]:
+    """Path → the blob id its working-tree bytes hash to, None when absent, or the NotChecked that stopped it.
+
+    One `hash-object --stdin-paths` for every present path; when that batch
+    fails, each path is hashed alone so only the unreadable one is lost.
+    """
+    present = [path for path in paths if os.path.lexists(os.path.join(repo, path))]
+    blobs: Dict[str, object] = {path: None for path in paths}
+    try:
+        hashed = _git(repo, "hash-object", "--stdin-paths", stdin="".join(f"{path}\n" for path in present)).split()
+        blobs.update(zip(present, hashed))
+    except NotChecked:
+        for path in present:
+            try:
+                blobs[path] = _git(repo, "hash-object", "--", path).strip()
+            except NotChecked as exc:
+                blobs[path] = exc
+    return blobs
+
+
+def _base_lines(repo: str, blob: Optional[str]) -> List[str]:
+    return _git(repo, "cat-file", "blob", blob).splitlines() if blob else []
+
+
+def _working_lines(repo: str, path: str) -> List[str]:
+    full = os.path.join(repo, path)
+    if not os.path.lexists(full):
+        return []
+    with open(full, encoding="utf-8", errors="replace") as handle:
+        return handle.read().splitlines()
 
 
 # --------------------------------------------------------------- the gates
@@ -151,6 +192,51 @@ def _declares(surface: Sequence[str], gates: Sequence[str], path: str) -> bool:
     return any(match_path(entry, path) and pattern_covered_by(entry, gates) for entry in surface)
 
 
+# --------------------------------------------------------------- weakening
+
+
+def is_test_file(path: str) -> bool:
+    parts = path.split("/")
+    return bool(TEST_DIRS.intersection(parts[:-1])) or bool(TEST_NAME_RE.search(parts[-1]))
+
+
+def _rows(lines: Sequence[str]) -> List[str]:
+    return [line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#")]
+
+
+def added_expected_failures(base: Sequence[str], current: Sequence[str]) -> List[str]:
+    """Rows of the expected-failures file new since the base; a reordered row is not new."""
+    surplus = Counter(_rows(current)) - Counter(_rows(base))
+    added = []
+    for row in _rows(current):
+        if surplus[row]:
+            surplus[row] -= 1
+            added.append(row)
+    return added
+
+
+def weakened_test(base: Sequence[str], current: Sequence[str]) -> List[Tuple[str, int, str]]:
+    """(kind, line, text) for each skip marker added and each assertion removed and not re-added.
+
+    Added lines carry their line in the current file, removed lines their line
+    at the base. A removed assertion whose identical line appears elsewhere in
+    the file moved, and is not reported.
+    """
+    found = []
+    lost = Counter(line.strip() for line in base) - Counter(line.strip() for line in current)
+    matcher = difflib.SequenceMatcher(None, base, current, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag in ("insert", "replace"):
+            found.extend(("SKIP_ADDED", n + 1, current[n].strip()) for n in range(j1, j2) if SKIP_RE.search(current[n]))
+        if tag in ("delete", "replace"):
+            found.extend(
+                ("ASSERTION_DELETED", n + 1, base[n].strip())
+                for n in range(i1, i2)
+                if ASSERT_RE.search(base[n]) and lost[base[n].strip()]
+            )
+    return found
+
+
 # ------------------------------------------------------------------ report
 
 
@@ -180,27 +266,64 @@ class Report:
         return "gate-integrity: clean", 0
 
 
-def check(repo: str, base: str, surface: Sequence[str]) -> Report:
+def _resolve_base(repo: str, base: str) -> str:
     _git(repo, "rev-parse", "--is-inside-work-tree")
-    base_commit = _git(repo, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}").strip()
-    gates = read_gates(repo)
-    base_blobs = _base_blobs(repo, base_commit)
+    try:
+        return _git(repo, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}").strip()
+    except NotChecked:
+        raise NotChecked(f"base {base} does not resolve to a commit")
+
+
+@dataclass
+class _Run:
+    """One check's fixed inputs: what the base held, what is protected, what the Surface declares."""
+
+    repo: str
+    base_commit: str
+    base_blobs: Dict[str, str]
+    gates: Gates
+    surface: Sequence[str]
+
+    def protected(self, path: str) -> bool:
+        return any(match_path(pattern, path) for pattern in self.gates.patterns)
+
+    def existing_test(self, path: str) -> bool:
+        return path in self.base_blobs and path != self.gates.expected_failures and is_test_file(path)
+
+    def report_change(self, report: Report, path: str) -> None:
+        if self.protected(path):
+            declared = _declares(self.surface, self.gates.patterns, path)
+            kind, how = ("GATE_CHANGED", "declared in") if declared else ("GATE_TAMPERED", "not declared in")
+            report.add(kind, f"{path} — changed since {self.base_commit[:8]}, {how} the surface")
+        if path == self.gates.expected_failures:
+            for row in added_expected_failures(self._base(path), _working_lines(self.repo, path)):
+                report.add("EXPECTED_FAILURE_ADDED", f"{path} — {row}")
+        if self.existing_test(path):
+            for kind, line, text in weakened_test(self._base(path), _working_lines(self.repo, path)):
+                report.add(kind, f"{path}:{line} — {text}")
+
+    def _base(self, path: str) -> List[str]:
+        return _base_lines(self.repo, self.base_blobs.get(path))
+
+
+def check(repo: str, base: str, surface: Sequence[str]) -> Report:
+    """Every changed protected file, added expected-failure row and weakened existing test, against `base`."""
+    base_commit = _resolve_base(repo, base)
+    run = _Run(repo, base_commit, _base_blobs(repo, base_commit), read_gates(repo), surface)
+    candidates = [
+        path for path in sorted(set(run.base_blobs) | set(_working_paths(repo)))
+        if run.protected(path) or run.existing_test(path)
+    ]
     report = Report(lines=[])
-    candidates = sorted(set(base_blobs) | set(_working_paths(repo)))
-    for path in candidates:
-        if not any(match_path(pattern, path) for pattern in gates.patterns):
+    for path, current in _working_blobs(repo, candidates).items():
+        if current == run.base_blobs.get(path):
             continue
         try:
-            current = _working_blob(repo, path)
-        except NotChecked as exc:
+            if isinstance(current, NotChecked):
+                raise current
+            run.report_change(report, path)
+        except (NotChecked, OSError) as exc:
             report.add("NOT_CHECKED", f"{path} — {exc}")
-            continue
-        if current == base_blobs.get(path):
-            continue
-        if _declares(surface, gates.patterns, path):
-            report.add("GATE_CHANGED", f"{path} — changed since {base_commit[:8]}, declared in the surface")
-        else:
-            report.add("GATE_TAMPERED", f"{path} — changed since {base_commit[:8]}, not declared in the surface")
     return report
 
 
