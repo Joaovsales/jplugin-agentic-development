@@ -3008,7 +3008,17 @@ Step ledger (routine `simplify`):
 > Issue: #441
 
 ### Slice 1/2 — Slice outcome at Slice Close
-- [ ] Slice outcome at Slice Close — slice_outcome.py derives the three outcomes from the orchestrator's own run; Slice Close closes only on SUCCEEDED and writes > Outcome:
+- [x] Slice outcome at Slice Close — slice_outcome.py derives the three outcomes from the orchestrator's own run; Slice Close closes only on SUCCEEDED and writes > Outcome:
+
+> Handover: landed 887e959..8eab3ec — `.agents/skills/build/scripts/slice_outcome.py` derives agent_result / verification_result / slice_result; `/build` § Slice Close runs it, closes only on exit 0 and writes `> Outcome:`; Phase 6 lists one outcome per slice; the PR Handovers section carries `> Outcome:`.
+> Do not re-derive: the outcome line's `key=value` names (`agent_result`, `verification_result`, `slice_result`) and labels (`SUCCEEDED`, `VERIFICATION_FAILED`, `AGENT_FAILED`, `NOT_VERIFIED`, `AGENT_UNKNOWN`) are the contract #442/#445 read; exit 3 means Unknown; `build/SKILL.md` is at its 600-line cap.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared specs/slice-three-outcomes.md, specs/slice-three-outcomes.plan.html, tasks/todo.md — plan artifacts committed with the slice (`slice.py check --slice 1 --base 887e959`).
 
 ### Slice 2/2 — Not checked is never clean
-- [ ] Not checked is never clean — the receipt requires a reason on a lost review and prints not checked; /verify-evidence and /quality-gate state the wording rule
+- [x] Not checked is never clean — the receipt requires a reason on a lost review and prints not checked; /verify-evidence and /quality-gate state the wording rule
+
+> Handover: landed 8eab3ec..51ad7ae — `receipt.py write` refuses `lost` without a non-empty `reason`; `write` and `check` print `receipt: not checked phase <n> <lens> — <reason>` per lost entry; `/verify-evidence` and `/quality-gate` state the `not checked: <check> — <reason>` rule.
+> Do not re-derive: the verdict rule is unchanged (`lost` is disclosed, not weighed — #429 owns receipt soundness); a stored receipt with a reason-less `lost` still verifies and reads `no reason recorded`; editing `receipt.py` changes the policy hash, so earlier receipts go `stale policy-changed`.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: none (`slice.py check --slice 2 --base 8eab3ec` exit 0).
