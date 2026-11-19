@@ -211,6 +211,12 @@ in table order through Steps 1–3 below, in the main tree. Verification stays
 central. Where the harness has no sub-agents, `/build` runs inline and says so
 in one line.
 
+Before each dispatch (once per parallel batch), record the **gate base** tree id:
+`python3 .agents/skills/quality-gate/scripts/gate-integrity.py --snapshot`.
+Slice Close judges against it, never an earlier slice's edits. On failure,
+record `gate integrity: not checked — <reason>` and resolve before dispatch.
+After central integration, check a parallel batch against its gate base and the union of its Surfaces.
+
 ### Step 1 — Implement the Slice
 
 Choose the agent or approach based on the slice's work type:
@@ -287,6 +293,15 @@ declared surface and prints `undeclared: <paths>` and `untouched: <globs>`,
 exiting 0 only when both are empty. Informational — nothing stops on a
 non-empty report; fold the result into the handover below and the Phase 4.5
 batch; exit 2 is bad input.
+
+Then `python3 .agents/skills/quality-gate/scripts/gate-integrity.py --base <gate-base> --spec <spec> --slice <n>`
+hashes every protected file against the dispatch gate base (`specs/gate-integrity.md`),
+never the session base SHA; a parallel batch passes `--slice` once per slice.
+The cumulative check is `/quality-gate` Phase 0 against the merge-base.
+Exit 1 (`GATE_TAMPERED`) stops the slice: the header stays `[ ]` and the
+handover records `unfinished: GATE_TAMPERED <paths>`. Exit 3 goes on the
+`> Surface:` line as `gate integrity: not checked — <reason>`, never as clean;
+the finding lines it prints on any exit go there too.
 
 Write a `> Handover:` blockquote under the slice heading, after its rows and above any `> [AMBIGUITY]` lines already there
 (they stay its last lines, outside the four) — one to four blockquote lines, each with its own prefix:

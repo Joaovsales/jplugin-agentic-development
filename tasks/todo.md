@@ -3002,3 +3002,61 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: Gate integrity
+> Spec: specs/gate-integrity.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/439
+
+### Slice 1/3 — Content-hash tamper check
+- [x] Content-hash tamper check — The script resolves the protected set, hashes each candidate against its base blob and classifies changes against the Surface
+> Handover: landed 3c962ca..9b3651a — `gate-integrity.py --base <rev> [--spec [--slice]]` hashes every protected candidate (base `ls-tree` ∪ `ls-files -c -o --exclude-standard`) against its base blob; GATE_TAMPERED exits 1, GATE_CHANGED exits 0; 28/28 in tests/test-gate-integrity.sh
+> Do not re-derive: `Report.add` counts every kind other than GATE_TAMPERED/NOT_CHECKED as a finding, so slice 2 only adds lines; `NotChecked` from `check()` already becomes `not checked —` exit 3 in `main`; `gi_repo` in the test builds the shared fixture (expected-failures row `tests/test-old.sh linux* old message`, `tests/test-a.sh` with two assert_eq lines)
+> Surface: none (slice.py check --slice 1 --base 3c962ca); gate-integrity: clean
+
+### Slice 2/3 — Weakening findings
+- [x] Weakening findings — Added expected-failure rows, new skip markers, deleted assertions and the not-checked outcome
+> Handover: landed 9b3651a..2ce9301 — EXPECTED_FAILURE_ADDED (multiset, reorder-proof), SKIP_ADDED and ASSERTION_DELETED (an assertion line whose count dropped) for test files present at the base, NOT_CHECKED per file and `not checked — base <rev> does not resolve to a commit`; 59/59, affected 31 files green
+> Do not re-derive: SKIP_ADDED/ASSERTION_DELETED are regex candidates — dogfooding on 9b3651a flagged the marker strings inside this test's printf fixtures, so /quality-gate must verify each before it is a finding (spec Decision 5); exit precedence is tampered 1 > not checked 3 > 0
+> Surface: none (slice.py check --slice 2 --base 9b3651a); gate-integrity: findings (7), all SKIP_ADDED test data in tests/test-gate-integrity.sh plus its one real `skip` for the chmod case
+
+### Slice 3/3 — Skill wiring
+- [x] Skill wiring — `/build` Slice Close stops on `GATE_TAMPERED`, `/quality-gate` Phase 0 maps results to findings, `AGENTS.md` declares this repository's runners
+> Handover: landed 2ce9301..f538420 — `/build` § Slice Close runs `gate-integrity.py --base <sha> --spec <spec> --slice <n>` after `slice.py check` and stops on exit 1; `/quality-gate` § Phase 0 maps each result line to a four-axis finding; `AGENTS.md` declares `Protected paths: tests/run.sh tests/affected.sh tests/lib.sh`; doc-conventions 959/959
+> Do not re-derive: spec Decision 5 was refined in this slice (SKIP_ADDED/ASSERTION_DELETED start at confidence 50 and need one verification read); the version guard needs `scripts/bump-plugin-version.sh` (1.8.20) before push
+> Surface: undeclared specs/gate-integrity.md (Decision 5 reconciliation), tasks/todo.md (bookkeeping) (slice.py check --slice 3 --base 2ce9301); gate-integrity: clean
+
+## Session Summary — 2026-11-18 [887e959..61af185]
+- Completed: #439 gate integrity in three slices. `gate-integrity.py` does a
+  content-hash tamper check and reports weakening findings. `/build` Slice
+  Close and `/quality-gate` Phase 0 run it, and `AGENTS.md` declares the
+  protected runners. A symlink false positive was fixed during the quality gate.
+- Pending: none in this PR.
+- Carry-forward: two NITPICKs in `gate-integrity.py` — `rev-parse` has no
+  `--end-of-options`, and one symlink hash failure aborts the whole run. The
+  test-engineer adequacy review did not run (lost in an Orca worker with no
+  sub-agent tool).
+
+## Session Summary — 2026-11-19 [a131d30..128ad38]
+- Completed: PR #447 review fixes for #439: retain historical gate policy,
+  hash raw bytes, inspect symlink referents, classify unreadable policy as
+  not checked, and compare slices against per-dispatch snapshots. Both
+  revision-option and partial-symlink-error nits are covered by regressions.
+- Validation: gate integrity 113 assertions and 95% statement coverage;
+  affected tests all 56 files, 5708 assertions; full suite all 100 files,
+  8614 assertions. Quality receipt GO 59a9ce80, policy qg1-a6dee920.
+- Pending: none of the independent review findings remain open.
+- Carry-forward: review phases ran inline; the separate test-engineer review
+  was recorded lost because this task explicitly prohibited helper agents.
+
+## Session Summary — 2026-11-19 [c364ffb..f3c4ce8]
+- Completed: PR #447 re-review fixes N1–N3: shared bounded link resolution
+  retains historical AGENTS policy; baseline patterns preserve Surface
+  precision; snapshots retain recorded gitlink IDs, including deinitialized
+  submodules, while refusing unsupported filesystem entries.
+- Validation: red regressions 121 passed/15 failed before the fixes; green
+  gate tests 138 assertions, 96% scanner statement coverage; affected tests
+  all 56 files/5733 assertions; full suite all 100 files/8639 assertions.
+  Quality receipt GO b837af41, policy qg1-a6dee920.
+- Pending: none of the three re-review findings remain open.
+- Carry-forward: reviews ran inline; phase 5's separate test-engineer review
+  is recorded lost because this task explicitly prohibited helper agents.

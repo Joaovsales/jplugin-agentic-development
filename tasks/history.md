@@ -1184,3 +1184,17 @@ back vacuous and was repaired.
     the second instance and the SHA-first fix.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
+
+## 2026-11-18 — #439 gate integrity (improve lane, unattended)
+
+- Resumed after the previous worker hit its usage limit. Slices 1–3 had landed
+  (3c962ca..f538420); this session closed slice 3 and ran the gate and wrap-up.
+- `gate-integrity.py` compares each protected file with its base blob by
+  content hash. `/build` Slice Close runs it and stops on `GATE_TAMPERED`, and
+  `/quality-gate` runs it as Phase 0. `AGENTS.md` declares
+  `Protected paths: tests/run.sh tests/affected.sh tests/lib.sh`.
+- Quality gate: Phase 1 found and fixed a symlink false positive (TDD).
+  Receipt GO; two NITPICKs left unresolved. The test-engineer review was
+  `lost`: this worker had no sub-agent tool.
+- Learning: [bugs/git-hash-object-on-a-symlink-hashes-the-target-file-not-the-link.md](solutions/bugs/git-hash-object-on-a-symlink-hashes-the-target-file-not-the-link.md).
+- Plugin version 1.8.20.
