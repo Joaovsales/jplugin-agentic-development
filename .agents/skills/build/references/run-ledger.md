@@ -39,6 +39,16 @@ run whose parent is the branch's latest run. `/receive-review` decides the
 parent `changes_requested` and records the rework with `--parent`; see its
 § *Record the rework run*.
 
+## Candidates
+
+A slice built by several candidates (`.agents/skills/build/references/candidates.md`)
+is recorded by `candidates.py rank` itself, into the same run record (the run
+id from `--branch` and `--base`, as `record` derives it): a `candidates`
+field, `{"<slice>": [ … ]}`, one entry per candidate with `candidate`, `rank`,
+`selected`, `eligible`, the three outcomes and `label`, `checks_passed`,
+`diff_lines`, `outside_surface` and `reason`. `record` has no option for it
+and keeps it; `stats` does not read it. The schema stays `run-ledger/1`.
+
 ## The merge or close — the human result
 
 Whoever merges or closes the PR — the owner, or the job that performs the

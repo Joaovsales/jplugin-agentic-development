@@ -3085,11 +3085,16 @@ Step ledger (routine `simplify`):
 > Issue: #445
 
 ### Slice 1/2 — Candidate ranker
-- [ ] Candidate ranker — candidates.py opens, ranks and discards candidate worktrees; run_ledger.add_candidates records the ranking
-- [ ] TDD: tests/test-candidates.sh § deterministic — the same measurements in any order rank the same; two rank runs over identical worktrees print identical lines -> candidates.py rank (AC1)
-- [ ] TDD: tests/test-candidates.sh § eligibility — a failed or unknown check is never selected even with the smallest diff; no eligible candidate exits 1 and changes nothing -> candidates.py rank (AC2)
-- [ ] TDD: tests/test-candidates.sh § cleanup — worktrees are removed on success, on no winner, on SIGTERM mid-verification, and by discard -> candidates.py (AC3)
-- [ ] TDD: tests/test-candidates.sh § ledger — the run record holds one entry per candidate with rank, selected, outcomes, measurements and reason -> run_ledger.add_candidates (AC4)
+- [x] Candidate ranker — candidates.py opens, ranks and discards candidate worktrees; run_ledger.add_candidates records the ranking
+- [x] TDD: tests/test-candidates.sh § deterministic — the same measurements in any order rank the same; two rank runs over identical worktrees print identical lines -> candidates.py rank (AC1)
+- [x] TDD: tests/test-candidates.sh § eligibility — a failed or unknown check is never selected even with the smallest diff; no eligible candidate exits 1 and changes nothing -> candidates.py rank (AC2)
+- [x] TDD: tests/test-candidates.sh § cleanup — worktrees are removed on success, on no winner, on SIGTERM mid-verification, and by discard -> candidates.py (AC3)
+- [x] TDD: tests/test-candidates.sh § ledger — the run record holds one entry per candidate with rank, selected, outcomes, measurements and reason -> run_ledger.add_candidates (AC4)
+
+> Handover: landed 288ccec..8258176 — `.agents/skills/build/scripts/candidates.py` (`open`, `rank`, `discard`) and `run_ledger.add_candidates`; `tests/test-candidates.sh` pins AC1–AC4 (37 assertions).
+> Do not re-derive: worktrees live at `<toplevel>/../<repo>-slice-<n>-c<k>`, detached, made by `bootstrap-worktree.sh --detach-head`; each candidate's git dir holds `jplugin-candidate.json` (base commit, bootstrap-copied paths unstaged before measuring); `rank` prints `candidates: c<k> rank=… selected|discarded …` then `candidates: applied c<k>`; the ledger field is `candidates.<slice>` in the `run-ledger/1` record.
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: none (`slice.py check --slice 1 --base 288ccec`)
 
 ### Slice 2/2 — Build runs candidates
 - [ ] Build runs candidates — /build names the opt-in and the flow; the references document the commands and the ledger field
