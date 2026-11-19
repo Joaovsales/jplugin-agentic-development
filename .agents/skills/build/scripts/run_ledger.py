@@ -179,15 +179,20 @@ def write_record(ledger: Path, record: Dict[str, object]) -> None:
     ledger.mkdir(parents=True, exist_ok=True)
     text = json.dumps(record, indent=2, sort_keys=True) + "\n"
     fd, tmp = tempfile.mkstemp(dir=ledger, prefix=".tmp-", suffix=".json")
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        handle.write(text)
-    os.replace(tmp, ledger / f"{record['run_id']}.json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(tmp, ledger / f"{record['run_id']}.json")
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
 
 def load_ledger(ledger: Path) -> List[Dict[str, object]]:
     if not ledger.is_dir():
         return []
-    return [load_record(path) for path in sorted(ledger.glob("*.json"))]
+    # A run id never starts with ".", so a dot-file is a write's leftover temp, not a record.
+    return [load_record(path) for path in sorted(ledger.glob("*.json")) if not path.name.startswith(".")]
 
 
 # --------------------------------------------------------------------------

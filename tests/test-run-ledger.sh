@@ -135,6 +135,10 @@ sed 's/"run_id": "D1"/"run_id": "D9"/' "$L/D1.json" > "$L/D2.json"
 assert_refused 1 "D2.json" "a record whose run id differs from its file name is refused" -- \
   "$PY" "$SCRIPT" stats --ledger "$L"
 rm "$L/D2.json"
+printf '{"sch' > "$L/.tmp-crashed.json"
+ledger stats --ledger "$L"
+assert_exit 0 "a temp file a crashed write left behind is not a record"
+rm "$L/.tmp-crashed.json"
 
 L="$BOX/cycle"
 ledger record --ledger "$L" --branch x --base 111111111111 --run-id X1 --parent X2
