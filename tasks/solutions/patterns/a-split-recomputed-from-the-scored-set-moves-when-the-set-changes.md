@@ -9,23 +9,33 @@ applies_when: a split, sample or partition is recomputed from content so it resi
 
 ## Context
 
-`variant-holdout.py verdict` recomputes the tuning/holdout split from the
-prompts in `scores.jsonl` (SHA-256 order, first `n // 2` held out), so the
-split cannot be edited after the scores are seen (#443).
+The first version of `variant-holdout.py verdict` (#443) recomputed the
+tuning/holdout split from the prompts in `scores.jsonl` (SHA-256 order, first
+`n // 2` held out). That stopped an author from relabelling a prompt, but not
+from changing the split after the scores were seen: changing the *set* of
+scored prompts changes the split.
 
 ## Learning
 
-The rule is deterministic over the *set*, not over each prompt. The `n // 2`
-boundary moves when the set changes: six prompts split, two prompts with high
-hashes added after tuning, and the old rank-3 tuning prompt lands in the
-holdout — a tuned-on prompt scored as unseen. Dropping prompts never leaks,
-adding them can. Probe: `split(base)` vs `split(base + extra)`, intersect the
-first's tuning with the second's holdout.
+The rule is deterministic over the *set*, not over each prompt, and the
+`n // 2` boundary moves when the set changes in either direction. The PR #449
+review reproduced a promote from each side of a tuning-only win (candidate 1.0
+on tuning prompts, 0.0 on holdout, baselines 0.2):
+
+- **Growth** — four high-hash prompts added after tuning moved the original
+  tuning prompts into the recomputed holdout: candidate holdout 0.5, promote.
+- **Deletion** — eight prompts split, then the four original holdout prompts
+  dropped: the four tuning prompts re-split among themselves, so two tuned-on
+  prompts became the holdout: candidate holdout 1.0, promote.
+
+A warning in the skill text stopped neither. Probe either direction by
+intersecting `split(original)["tuning"]` with `split(changed)["holdout"]`.
 
 ## How to apply
 
-When a "fixed by the content" split is meant to resist tampering, check it
-under set growth, not only reordering. Either fix membership per item (hash
-threshold, refuse an empty side) or bind the verdict to the split-time set.
-`/eval` § Mode B step 5 now tells the author to score exactly the prompts
-`split` was given; enforcement is left open.
+When a "fixed by the content" split has to resist tampering, test it under set
+growth *and* shrinkage, not only reordering. Pin the split-time set and
+require the scored set to equal it: `variant-holdout.py split --manifest`
+writes the membership before tuning, and `verdict <manifest> <scores>`
+re-applies the rule to validate the manifest, then refuses any added or
+missing prompt before computing a mean.

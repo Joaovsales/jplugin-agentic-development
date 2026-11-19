@@ -3016,5 +3016,9 @@ Step ledger (routine `simplify`):
 - Completed: #443 — `variant-holdout.py` split/verdict and § Mode B steps (slice 1/1); plugin 1.8.20.
 - Pending: none in this PR.
 - Carry-forward:
-  - `verdict` does not enforce that the scored prompts are the set `split` was given; prompts added after tuning can move a tuned-on prompt into the holdout (SKILL.md warns).
   - The quality gate's test-engineer review was lost in this worker session.
+
+## Session Summary — [2026-11-19] [5668a31..5668a31]
+- Completed: PR #449 review fixes — `verdict` bound to a `split --manifest` (growth and deletion refuse, AC6); unequal-run-count weighting fixture (AC7); learning corrected.
+- Pending: none in this PR.
+- Carry-forward: the manifest is a file the author keeps; nothing outside the run pins it before tuning.

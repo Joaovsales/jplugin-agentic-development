@@ -113,24 +113,25 @@ tuning round, and the tuned variant.
    an unpushed variant never reaches a candidate.
 2. Write at least four distinct organic prompts to a JSON array and split them
    before spawning anyone:
-   `python3 .agents/skills/eval/scripts/variant-holdout.py split <prompts.json>`.
-   It refuses fewer than four and prints the tuning and holdout sets, fixed by
-   the prompt text. Tune the candidate on the tuning prompts only — never tune
-   on the holdout, and never read a holdout output until the variant is frozen.
+   `python3 .agents/skills/eval/scripts/variant-holdout.py split <prompts.json> --manifest <manifest.json>`.
+   It refuses fewer than four, prints the tuning and holdout sets and pins them
+   in the manifest, which it never overwrites; keep the manifest with the run's
+   evidence. Tune the candidate on the tuning prompts only — never tune on the
+   holdout, and never read a holdout output until the variant is frozen.
 3. Every prompt to all three arms, N >= 2 per arm.
 4. Interleave the arms' outputs into **one** judge prompt under sanitized
    labels. Judge on a stronger tier than the candidates (Ceiling judging
    Builder); cross-vendor blinding is not available in-harness.
 5. Record one line per graded run — `{"prompt", "arm", "score", "cost_usd"}`,
    leaving `cost_usd` out when the run reported none — and run
-   `python3 .agents/skills/eval/scripts/variant-holdout.py verdict <scores.jsonl>`.
-   It recomputes the split, prints both baselines' tuning and holdout means
-   beside the candidate's, and each arm's cost, `unknown` when any of its runs
-   did not report one. Promote only on `Verdict: promote`: the candidate's
-   holdout mean beats both `unchanged` and `previous`. A tuning-set win with a
-   holdout loss is a reject. Score exactly the prompts `split` was given:
-   adding a prompt after tuning moves the boundary and can land a tuned-on
-   prompt in the holdout.
+   `python3 .agents/skills/eval/scripts/variant-holdout.py verdict <manifest.json> <scores.jsonl>`.
+   It refuses a manifest the split rule does not reproduce and a scored prompt
+   set that adds or drops a prompt — either one moves the boundary and can put
+   a tuned-on prompt in the holdout. It prints both baselines' tuning and
+   holdout means beside the candidate's, and each arm's cost, `unknown` when
+   any of its runs did not report one. Promote only on `Verdict: promote`:
+   the candidate's holdout mean beats both `unchanged` and `previous`. A
+   tuning-set win with a holdout loss is a reject.
 6. Report cost beside lift. A variant that wins by 5% for 3x the tokens lost.
 
 ## Mode C — behavioural lift with cost

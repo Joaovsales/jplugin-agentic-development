@@ -1754,3 +1754,53 @@ Steps executed:
   ✓ gh pr view 420 reports CLOSED with mergedAt=null; its closing comment links retained results.
 Negative: results tree has no graph-hint shell or Codex hint adapter, and the live installer registered no PreToolUse treatment.
 Result: PASS
+
+
+## E2E Walkthrough — Eval holdout review fixes — 2026-11-19 5668a31
+
+Spec: specs/eval-holdout.md
+Commit: 5668a31bfa3ef8468907a1469639e5ba045c1c8e (review-fix working tree)
+Driver: real Python CLI, synthetic graded-run files; no paid candidate spawning.
+Evidence: `/tmp/pr449-review-fixes/probes.log`; mutation details: `/tmp/pr449-review-fixes/mutant-recheck.log`.
+
+### AC-1: Refuse fewer than four distinct prompts
+Tier: CLI-FUNCTIONAL
+Journey: invoke split with three prompts and whitespace duplicates, then verdict with a three-prompt manifest.
+Negative: all undersized inputs exit 2 without printing a split or verdict.
+Result: PASS
+
+### AC-2: Show both holdout baselines
+Tier: CLI-FUNCTIONAL
+Journey: score all three arms, run the manifest-bound verdict, and read unchanged 0.6000 and previous 0.5500 beside candidate 0.5000.
+Negative: omitting the previous arm refuses rather than inventing its mean.
+Result: PASS
+
+### AC-3: Promote only on a two-baseline holdout win
+Tier: CLI-FUNCTIONAL
+Journey: run tuning-only and actual holdout winners through the CLI; observe reject and promote respectively.
+Negative: a tie and a win against only unchanged both reject; the reviewer's original four- and eight-prompt runs reject too.
+Result: PASS
+
+### AC-4: Missing cost stays unknown
+Tier: CLI-FUNCTIONAL
+Journey: omit one candidate run's cost and read unknown in text and JSON, with known baseline costs summed.
+Negative: a negative cost exits 2.
+Result: PASS
+
+### AC-5: Mode B's documented command protocol
+Tier: CLI-FUNCTIONAL
+Journey: execute the documented split --manifest and verdict <manifest> <scores> sequence and check Mode B names all three arms, tuning-only use and promote-only promotion.
+Negative: verdict without its manifest refuses. This checks the documented CLI protocol; live candidate spawning was not exercised.
+Result: PASS
+
+### AC-6: Preserve the original normalized prompt set
+Tier: CLI-FUNCTIONAL
+Journey: replay the independent reviewer's exact four-to-eight growth and eight-to-four deletion fixtures against manifests written from their original prompts.
+Negative: both changed sets exit 2 with no verdict; an edited membership and overwrite of a pinned manifest also refuse. The old implementation promoted both drift fixtures.
+Result: PASS
+
+### AC-7: Give each prompt equal weight
+Tier: CLI-FUNCTIONAL
+Journey: run one holdout prompt ten times at 1.0, one once at 0.0 and the third at 0.5, then duplicate the first prompt's runs.
+Negative: candidate holdout mean remains exactly 0.5 and rejects against 0.6, with identical JSON after duplication; the flat-run-mean mutation fails four assertions, whereas all 40 old assertions accepted it.
+Result: PASS

@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """Hold variant-lift prompts out of tuning, and promote only on a holdout win.
 
-  variant-holdout.py split <prompts.json> [--json]
-  variant-holdout.py verdict <scores.jsonl> [--json]
+  variant-holdout.py split <prompts.json> [--manifest <manifest.json>] [--json]
+  variant-holdout.py verdict <manifest.json> <scores.jsonl> [--json]
 
 prompts.json is a JSON array of prompt strings. scores.jsonl carries one graded
 run per line: {"prompt": str, "arm": "unchanged"|"previous"|"candidate",
 "score": number, "cost_usd": number (optional)}.
 
-The split is a function of the prompt text alone: distinct prompts (whitespace
-collapsed) sorted by SHA-256, the first half held out. `verdict` recomputes it
-from the prompts it is given, so a split cannot be edited after the scores are
-seen. Fewer than four distinct prompts refuse. The verdict is promote only when
-the candidate's holdout mean beats both baselines; a run without cost_usd makes
-its arm's cost unknown, never zero.
+The split is a function of the prompt set: distinct prompts (whitespace
+collapsed) sorted by SHA-256, the first half held out. Because the cut depends
+on the whole set, adding or dropping a prompt moves it, so `split --manifest`
+pins the split-time set before tuning and `verdict` is bound to it: it refuses a
+manifest whose membership the rule does not reproduce, and a scored prompt set
+that differs from the manifest's in either direction. Fewer than four distinct
+prompts refuse. The verdict is promote only when the candidate's holdout mean
+beats both baselines; a run without cost_usd makes its arm's cost unknown,
+never zero.
 """
 
 from __future__ import annotations
@@ -59,6 +62,32 @@ def read_prompts(path):
     return prompts
 
 
+def write_manifest(path, sets):
+    try:
+        with path.open("x", encoding="utf-8") as fh:
+            fh.write(json.dumps(sets, indent=2) + "\n")
+    except FileExistsError as exc:
+        raise rt.TranscriptError(f"{path}: manifest already exists; a split is pinned once, before tuning") from exc
+    except OSError as exc:
+        raise rt.TranscriptError(f"{path}: cannot write manifest: {exc}") from exc
+
+
+def read_manifest(path):
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise rt.TranscriptError(f"{path}: unreadable manifest: {exc}") from exc
+    if not isinstance(manifest, dict) or not all(
+            isinstance(manifest.get(name), list) and all(isinstance(p, str) and p.strip() for p in manifest[name])
+            for name in ("tuning", "holdout")):
+        raise rt.TranscriptError(f"{path}: expected a manifest with tuning and holdout arrays of non-empty strings")
+    sets = split(manifest["tuning"] + manifest["holdout"])
+    if any({normalise(p) for p in manifest[name]} != set(sets[name]) or len(manifest[name]) != len(sets[name])
+           for name in sets):
+        raise rt.TranscriptError(f"{path}: manifest membership does not match the split rule; re-run split, never edit it")
+    return sets
+
+
 def finite(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
 
@@ -93,12 +122,17 @@ def read_scores(path):
     return records
 
 
-def judge(records):
-    sets = split(r["prompt"] for r in records)
+def judge(sets, records):
+    pinned = sets["tuning"] + sets["holdout"]
+    added = sorted({r["prompt"] for r in records} - set(pinned))
+    if added:
+        raise rt.TranscriptError(f"prompt {added[0]!r} is not in the manifest; a prompt added after the split moves it")
     runs = {}
     for r in records:
         runs.setdefault((r["prompt"], r["arm"]), []).append(r["score"])
-    for prompt in sets["tuning"] + sets["holdout"]:
+    for prompt in pinned:
+        if not any((prompt, arm) in runs for arm in ARMS):
+            raise rt.TranscriptError(f"manifest prompt {prompt!r} has no scored runs; a prompt dropped after the split moves it")
         for arm in ARMS:
             if (prompt, arm) not in runs:
                 raise rt.TranscriptError(f"prompt {prompt!r} has no {arm} run")
@@ -137,19 +171,25 @@ def print_split(sets):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name, target in (("split", "prompts.json"), ("verdict", "scores.jsonl")):
-        command = sub.add_parser(name)
-        command.add_argument("path", type=Path, metavar=target)
+    split_cmd = sub.add_parser("split")
+    split_cmd.add_argument("path", type=Path, metavar="prompts.json")
+    split_cmd.add_argument("--manifest", type=Path, metavar="manifest.json")
+    verdict_cmd = sub.add_parser("verdict")
+    verdict_cmd.add_argument("manifest", type=Path, metavar="manifest.json")
+    verdict_cmd.add_argument("path", type=Path, metavar="scores.jsonl")
+    for command in (split_cmd, verdict_cmd):
         command.add_argument("--json", action="store_true")
     args = parser.parse_args()
     if args.command == "split":
         sets = split(read_prompts(args.path))
+        if args.manifest:
+            write_manifest(args.manifest, sets)
         if args.json:
             print(json.dumps(sets, indent=2))
         else:
             print_split(sets)
         return
-    result = judge(read_scores(args.path))
+    result = judge(read_manifest(args.manifest), read_scores(args.path))
     if args.json:
         print(json.dumps(result, indent=2, allow_nan=False))
         return
