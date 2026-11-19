@@ -3002,3 +3002,29 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: Variant-lift holdout and two-baseline promotion
+> Spec: specs/eval-holdout.md
+> Issue: https://github.com/Joaovsales/jplugin-agentic-development/issues/443
+
+### Slice 1/1 — variant-lift holdout
+- [x] variant-lift holdout — `variant-holdout.py` split and verdict, and § Mode B steps that use them
+
+> Handover: `variant-holdout.py` (split / verdict, refusals exit 2 through `read_transcript.run`) and § Mode B steps 2–5 landed in c38c166; `bash tests/test-eval-variant-holdout.sh` 40 passed, 0 failed. Surface check: only the three Surface files changed. No later slice.
+
+## Session Summary — 2026-11-18 [887e959..c38c166]
+- Completed: #443 — `variant-holdout.py` split/verdict and § Mode B steps (slice 1/1); plugin 1.8.20.
+- Pending: none in this PR.
+- Carry-forward:
+  - The quality gate's test-engineer review was lost in this worker session.
+
+## Session Summary — [2026-11-19] [5668a31..5668a31]
+- Completed: PR #449 review fixes — `verdict` bound to a `split --manifest` (growth and deletion refuse, AC6); unequal-run-count weighting fixture (AC7); learning corrected.
+- Pending: none in this PR.
+- Carry-forward: the manifest is a file the author keeps; nothing outside the run pins it before tuning.
+
+
+## Session Summary — [2026-11-19] [b11feb3..b11feb3]
+- Completed: PR #449 remaining MUST-FIX — required externally retained `--expect` fingerprint; regenerated, replaced and unlink-and-regenerated manifests refuse; original manifests verify; 72 CLI assertions and a seven-failure guard mutation.
+- Pending: none in the requested implementation; final release verification is recorded in the PR.
+- Carry-forward: the orchestrator must retain the original fingerprint honestly outside the tuning loop; rewriting its own recorded anchor is outside the agreed boundary. No paid evaluation or live candidate spawning was performed.

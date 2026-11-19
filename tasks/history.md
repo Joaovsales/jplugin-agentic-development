@@ -1184,3 +1184,14 @@ back vacuous and was repaired.
     the second instance and the SHA-first fix.
   - [process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md](solutions/process/a-derived-receipt-verdict-on-windows-needs-its-test-phase-run-under-linux.md):
     the Docker recipe; a HOLD cannot cover a red test run.
+
+### [2026-11-18] — #443 eval variant-lift holdout
+- Key changes: `/eval` Mode B splits its prompts with `variant-holdout.py split` (refuses fewer than four distinct prompts; SHA-256 order, first `n // 2` held out) and promotes only on `variant-holdout.py verdict`'s `promote` — the candidate's holdout mean strictly beats both `unchanged` and `previous`. The report shows the split, both baselines on tuning and holdout, and an arm's cost as `unknown` when any of its runs reported none. Plugin version 1.8.20.
+- Quality gate: Phase 4 inline (no Agent tool in the worker session), test-engineer review lost. One SHOULD-FIX left for a human: prompts added after tuning shift the boundary; § Mode B now warns. Receipt GO.
+- PR #449 review (CHANGES-REQUIRED) fixed: the open SHOULD-FIX was a real bypass in both directions — prompts added after tuning, or the holdout prompts dropped, re-split the set and promoted a tuning-only win. `split --manifest` now pins the membership before tuning and `verdict <manifest> <scores>` validates it and refuses added or missing prompts (AC6). A fixture with unequal run counts pins per-prompt averaging (AC7); a flat-mean mutation had passed all 40 old assertions. The learning's claim that dropping prompts never leaks was wrong and is corrected.
+- Learnings captured: [split moves with the set](solutions/patterns/a-split-recomputed-from-the-scored-set-moves-when-the-set-changes.md).
+
+
+### [2026-11-19] — #443 externally retained manifest fingerprint
+- PR #449 re-review kept finding 1 open: a self-consistent replacement manifest still restored the tuning-only false promotion. `split` now prints a canonical SHA-256 fingerprint, and `verdict` requires the orchestrator's pre-tuning value via `--expect` before reading scores. Mode B records it in the report header outside the tuning agent's write surface and publishes the same value with results; an orchestrator rewriting its own recorded fingerprint is explicitly out of scope.
+- Regression proof: the reviewer’s regenerated, in-place replaced and unlink-and-regenerated cases now refuse against the original fingerprint, while original manifests verify; 72 assertions pass. Removing just the comparison fails seven assertions. The existing split-drift learning and generated spec plan are reconciled.
