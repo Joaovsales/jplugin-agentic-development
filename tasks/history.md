@@ -1202,3 +1202,7 @@ back vacuous and was repaired.
   version guard required the 1.8.20 bump. Phase 4 was inline, and Phase 5.1 was
   recorded `lost` (the worker brief forbids sub-agents).
 - Learning: [tooling/a-cached-suite-refusal-is-its-lock-line-not-any-cached-suite-prefix.md](solutions/tooling/a-cached-suite-refusal-is-its-lock-line-not-any-cached-suite-prefix.md).
+
+### [2026-11-19] — Outcome boundary repair
+- Key changes: PR #448's final summary follows the diagnostic, and an explicit newline follows both replayed streams; regressions cover multiline argv and merged partial text/binary stderr.
+- Learnings captured: [outcome output producers](solutions/bugs/print-authoritative-outcomes-after-every-output-producer.md).
