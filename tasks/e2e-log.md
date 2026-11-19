@@ -1810,3 +1810,19 @@ Driver: the actual `candidates.py` CLI in a scratch repository whose spec has on
 - `open --slice 2 --count 2` then `discard --slice 2` printed `candidates: removed c1|c2 …`, and only the main worktree remained.
 
 Not checked: a live `/build` session dispatching real Builders into the worktrees. The wiring is pinned by `tests/test-doc-conventions.sh` § candidates.
+## CLI walkthrough — PR #456 ledger review fixes — 2026-11-19 — 8b6b806
+
+Spec: specs/run-ledger.md (AC2, AC3, AC5; persisted-record invariants).
+Driver: real Python CLI subprocesses and the actual receive-review Bash blocks extracted from SKILL.md by `tests/run-ledger-regressions.py`.
+Evidence: `/tmp/pr456-review-red.log`, `/tmp/pr456-extra-red.log`, `/tmp/pr456-caller-red.log`, `/tmp/pr456-regressions.log`.
+
+- Pause a record writer after its real read, observe a merger's contended OS-lock attempt, release the record writer: both succeed and the final JSON retains `merged`, its history and the updated cost.
+- Pause a merger after its real read and concurrently request `closed`: the second writer waits, rereads `merged`, and refuses with `already merged` (exit 1).
+- Keep a writer paused: a contender reaches its bounded timeout and names the lock file; kill the owner and retry `merged`: it succeeds without removing the lock file, and stats still reads the ledger.
+- Change decision/history, cost/tokens or consumed metadata to malformed values: stats, last, decide and record refuse with the file path and no traceback. A ledger path that is a regular file is an error, never absence.
+- Execute receive-review's actual shell: exact no-run diagnostic skips bookkeeping; a valid parent is marked `changes_requested`; malformed records and final-decision refusals stop before the continuation marker; a malformed rework record also stops the post-commit block.
+
+Results: all seven regression methods pass. The original code fails both process races and payload validation; the original caller continues after a malformed rework record, reproduced in `/tmp/pr456-caller-red.log`.
+Not checked: Windows `msvcrt` branch on a Windows host, a live agent-driven receive-review session, and independent test-engineer dispatch (the task forbids helper workers).
+
+Resumed-worker verification: `tests/test-run-ledger.sh` — 54 passed, 0 failed; cached affected suite — all 58 files, 5807 assertions; required cached full suite — `RESULT: all 101 test files passed`, 8641 assertions, 0 failures. Logs: `/tmp/pr456-resumed-focused.log`, `/tmp/pr456-resumed-affected.log`, `/tmp/pr456-resumed-full.log`; receipt `4a792b03` is GO and discloses the unavailable independent test review.

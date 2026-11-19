@@ -20,3 +20,6 @@ convention, which `pathlib` does not follow.
 
 Pinned by `tests/test-run-ledger.sh` § stats, "a temp file a crashed write
 left behind is not a record".
+
+Related: [atomic replace does not serialize ledger writers](atomic-replace-does-not-serialize-ledger-writers.md)
+protects the full read/check/write transaction against concurrent commands.

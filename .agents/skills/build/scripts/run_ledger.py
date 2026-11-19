@@ -17,16 +17,22 @@ are stored as "unknown", never 0. `stats` derives every total from the records.
 
 Exit status: 0 done; 1 refused (a final decision, an unknown run, a malformed
 record, no run on the branch); 2 usage.
+Only `last: no run on branch <branch> in <ledger>` means an absent run;
+other exit-1 diagnostics are ledger errors.
 """
 
 from __future__ import annotations
 
 import argparse
+import errno
 import json
+import math
 import os
 import re
 import sys
 import tempfile
+import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -42,8 +48,7 @@ FINAL = ("merged", "closed")
 OUTCOME_VALUES = (TRUE, FALSE, UNKNOWN)
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 SHA_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
-# Fields `record` writes; anything else in a stored record is kept as it is.
-RECORDED = ("branch", "base_sha", "spec", "pr", "parent_run_id", "models", "slices", "tokens", "cost_usd")
+LOCK_TIMEOUT = 10
 
 
 class Refused(Exception):
@@ -51,8 +56,7 @@ class Refused(Exception):
 
 
 # --------------------------------------------------------------------------
-# Argument parsing — every value is validated here, so a stored record only
-# ever holds what this script accepts.
+# Argument parsing
 
 def _run_id(value: str) -> str:
     if not RUN_ID_RE.match(value):
@@ -64,6 +68,10 @@ def _sha(value: str) -> str:
     if not SHA_RE.match(value):
         raise argparse.ArgumentTypeError(f"--base {value!r} is not a commit SHA")
     return value
+
+
+# Public argparse types for scripts that write into the ledger (candidates.py).
+run_id_arg, sha_arg = _run_id, _sha
 
 
 def _positive_int(value: str) -> int:
@@ -172,7 +180,75 @@ def load_record(path: Path) -> Dict[str, object]:
         raise Refused(f"run-ledger: {path}: schema is not {SCHEMA}")
     if record.get("run_id") != path.stem:
         raise Refused(f"run-ledger: {path}: run_id {record.get('run_id')!r} does not match the file name")
+    for field in ("branch", "recorded_at"):
+        if not isinstance(record.get(field), str):
+            raise Refused(f"run-ledger: {path}: invalid {field} — expected a string")
+    parent = record.get("parent_run_id")
+    if ("parent_run_id" not in record or
+            (parent is not None and (not isinstance(parent, str) or not RUN_ID_RE.fullmatch(parent)))):
+        raise Refused(f"run-ledger: {path}: invalid parent_run_id")
+    current = record.get("human_result")
+    decisions = record.get("decisions")
+    if ("human_result" not in record or current not in (None, *RESULTS)
+            or not isinstance(decisions, list) or any(d not in RESULTS for d in decisions)
+            or (decisions[-1] if decisions else None) != current
+            or any(d in FINAL for d in decisions[:-1])
+            or any(a == b for a, b in zip(decisions, decisions[1:]))):
+        raise Refused(f"run-ledger: {path}: invalid human_result or decisions history")
+    for field in ("tokens", "cost_usd"):
+        value = record.get(field)
+        numeric = type(value) is int or (field == "cost_usd" and type(value) is float)
+        if value != UNKNOWN_VALUE and not (numeric and value >= 0 and
+                                          (type(value) is int or math.isfinite(value))):
+            raise Refused(f"run-ledger: {path}: invalid {field} — expected a finite non-negative "
+                          f"{'integer' if field == 'tokens' else 'number'} or 'unknown'")
+    if not isinstance(record.get("candidates", {}), dict):
+        raise Refused(f"run-ledger: {path}: invalid candidates — expected an object keyed by slice")
     return record
+
+
+@contextmanager
+def run_lock(path: Path):
+    """Lock the entire transaction; kernel locks release even when a writer dies.
+
+    Unix uses flock, Windows uses a one-byte msvcrt lock. Keep the lock file:
+    unlinking it lets waiters and new arrivals lock different inodes.
+    """
+    lock_path = path.with_suffix(".lock")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as handle:
+            if os.name == "nt":
+                import msvcrt
+                def acquire():
+                    # Windows permits byte-range locks beyond EOF, including empty files.
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                def acquire():
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            deadline = time.monotonic() + LOCK_TIMEOUT
+            while True:
+                try:
+                    acquire()
+                    break
+                except OSError as exc:
+                    if exc.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                        raise
+                    if time.monotonic() >= deadline:
+                        raise Refused(f"run-ledger: {lock_path}: timed out waiting for run lock") from exc
+                    time.sleep(.05)
+            try:
+                yield
+            finally:
+                if os.name == "nt":
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except OSError as exc:
+        raise Refused(f"run-ledger: {lock_path}: storage error — {exc}") from exc
 
 
 def write_record(ledger: Path, record: Dict[str, object]) -> None:
@@ -189,8 +265,10 @@ def write_record(ledger: Path, record: Dict[str, object]) -> None:
 
 
 def load_ledger(ledger: Path) -> List[Dict[str, object]]:
-    if not ledger.is_dir():
+    if not ledger.exists():
         return []
+    if not ledger.is_dir():
+        raise Refused(f"run-ledger: {ledger}: not a ledger directory")
     # A run id never starts with ".", so a dot-file is a write's leftover temp, not a record.
     return [load_record(path) for path in sorted(ledger.glob("*.json")) if not path.name.startswith(".")]
 
@@ -203,6 +281,7 @@ def default_run_id(branch: str, base: str) -> str:
 
 
 def _stored_or_new(path: Path, run_id: str) -> Dict[str, object]:
+    """The stored record, validated by load_record, or a new one. Call under run_lock."""
     return load_record(path) if path.exists() else {
         "schema": SCHEMA, "run_id": run_id, "spec": None, "pr": None, "parent_run_id": None,
         "models": {}, "slices": [], "tokens": UNKNOWN_VALUE, "cost_usd": UNKNOWN_VALUE,
@@ -215,12 +294,17 @@ def add_candidates(ledger: Path, branch: str, base: str, run_id: Optional[str],
                    slice_id: str, entries: List[Dict[str, object]]) -> str:
     """Write one slice's ranked candidates (candidates.py rank) into the run record.
 
+    Same transaction as `record`: one run lock around read, merge and write.
     `candidates` is not a `record` option, so a later `record` keeps it."""
     run_id = run_id or default_run_id(branch, base)
-    stored = _stored_or_new(ledger / f"{run_id}.json", run_id)
-    record = {"branch": branch, "base_sha": base, **stored,
-              "candidates": {**stored.get("candidates", {}), slice_id: entries}}
-    write_record(ledger, record)
+    if not RUN_ID_RE.match(run_id) or not SHA_RE.match(base):
+        raise Refused(f"run-ledger: refused candidates for run {run_id!r} at base {base!r}")
+    path = ledger / f"{run_id}.json"
+    with run_lock(path):
+        stored = _stored_or_new(path, run_id)
+        record = {"branch": branch, "base_sha": base, **stored,
+                  "candidates": {**stored.get("candidates", {}), slice_id: entries}}
+        write_record(ledger, record)
     return run_id
 
 
@@ -230,7 +314,6 @@ def cmd_record(args: argparse.Namespace) -> int:
         print(f"run_ledger.py record: error: run {run_id} cannot be its own parent", file=sys.stderr)
         return 2
     path = args.ledger / f"{run_id}.json"
-    stored = _stored_or_new(path, run_id)
     given = {
         "branch": args.branch, "base_sha": args.base, "spec": args.spec, "pr": args.pr,
         "parent_run_id": args.parent,
@@ -238,27 +321,30 @@ def cmd_record(args: argparse.Namespace) -> int:
         "slices": args.slice, "tokens": args.tokens, "cost_usd": args.cost,
     }
     # An option left out keeps the stored value; the human fields are not options.
-    record = {**stored, **{k: v for k, v in given.items() if k in RECORDED and v is not None}}
-    write_record(args.ledger, record)
+    with run_lock(path):
+        stored = _stored_or_new(path, run_id)
+        record = {**stored, **{k: v for k, v in given.items() if v is not None}}
+        write_record(args.ledger, record)
     print(f"record: recorded {run_id}")
     return 0
 
 
 def cmd_decide(args: argparse.Namespace) -> int:
     path = args.ledger / f"{args.run_id}.json"
-    if not path.exists():
-        raise Refused(f"decide: no run {args.run_id} in {args.ledger}")
-    record = load_record(path)
-    current = record.get("human_result")
-    if current == args.result:
-        print(f"decide: unchanged {args.run_id} {current}")
-        return 0
-    if current in FINAL:
-        raise Refused(f"decide: refused {args.run_id} — already {current}, "
-                      "a final human decision is never overwritten")
-    record = {**record, "human_result": args.result,
-              "decisions": [*record.get("decisions", []), args.result]}
-    write_record(args.ledger, record)
+    with run_lock(path):
+        if not path.exists():
+            raise Refused(f"decide: no run {args.run_id} in {args.ledger}")
+        record = load_record(path)
+        current = record["human_result"]
+        if current == args.result:
+            print(f"decide: unchanged {args.run_id} {current}")
+            return 0
+        if current in FINAL:
+            raise Refused(f"decide: refused {args.run_id} — already {current}, "
+                          "a final human decision is never overwritten")
+        record = {**record, "human_result": args.result,
+                  "decisions": [*record["decisions"], args.result]}
+        write_record(args.ledger, record)
     print(f"decide: recorded {args.run_id} {args.result}")
     return 0
 

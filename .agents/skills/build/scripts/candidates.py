@@ -40,7 +40,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent / "slice" / "scripts"))
-from run_ledger import DEFAULT_LEDGER, Refused, _run_id, _sha, add_candidates  # noqa: E402
+from run_ledger import DEFAULT_LEDGER, Refused, add_candidates, run_id_arg, sha_arg  # noqa: E402
 from slice_outcome import TRUE, derive, split_argv  # noqa: E402
 
 _slice_script = importlib.import_module("slice")  # slice.py: the Surface resolver /build already uses
@@ -329,8 +329,8 @@ def build_parser() -> argparse.ArgumentParser:
     rk = sub.add_parser("rank", allow_abbrev=False, help="verify, rank, record, apply the winner, clean up")
     rk.add_argument("--spec", required=True)
     rk.add_argument("--branch", required=True)
-    rk.add_argument("--base", required=True, type=_sha)
-    rk.add_argument("--run-id", type=_run_id)
+    rk.add_argument("--base", required=True, type=sha_arg)
+    rk.add_argument("--run-id", type=run_id_arg)
     rk.add_argument("--ledger", type=Path, default=Path(DEFAULT_LEDGER))
     rk.add_argument("--agent", type=_agent, action="append", default=[])
     sub.add_parser("discard", allow_abbrev=False, help="remove the slice's candidate worktrees")

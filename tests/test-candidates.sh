@@ -192,6 +192,31 @@ kept="$("$PY" -c 'import json,sys; r=json.load(open(sys.argv[1])); print(len(r["
 assert_eq "3 3" "$kept" "a later record keeps the candidates"
 run "$PY" "$SCRIPTS_DIR/run_ledger.py" stats --ledger "$BOX/l1"
 assert_exit 0 "stats reads a record that carries candidates"
+lib() {  # lib <python body> — run_ledger imported, Path, `L` the ledger dir
+  "$PY" -c "import sys; sys.path.insert(0, sys.argv[1]); import run_ledger as rl
+from pathlib import Path; L = Path(sys.argv[2])
+$1" "$SCRIPTS_DIR" "$BOX/l1" 2>&1
+}
+held="$(lib 'rl.LOCK_TIMEOUT = 0.2
+with rl.run_lock(L / "held.json"):
+    try:
+        rl.add_candidates(L, "feat/c", "0123456789abcdef", "held", "1", [])
+    except rl.Refused as exc:
+        print(exc)')"
+assert_contains "$held" "timed out waiting for run lock" "add_candidates waits on the same per-run lock as record"
+printf '{"schema": "run-ledger/1", "run_id": "bad", "human_result": "maybe"}\n' > "$BOX/l1/bad.json"
+before="$(cat "$BOX/l1/bad.json")"
+bad="$(lib 'try:
+    rl.add_candidates(L, "feat/c", "0123456789abcdef", "bad", "1", [])
+except rl.Refused as exc:
+    print(exc)')"
+assert_contains "$bad" "bad.json: invalid" "add_candidates refuses a malformed stored record"
+assert_eq "$before" "$(cat "$BOX/l1/bad.json")" "a refused add_candidates leaves the record untouched"
+rm "$BOX/l1/bad.json"
+"$PY" -c 'import json,sys; r=json.load(open(sys.argv[1])); r["candidates"]=[]; json.dump(r, open(sys.argv[1], "w"))' "$F"
+run "$PY" "$SCRIPTS_DIR/run_ledger.py" stats --ledger "$BOX/l1"
+assert_exit 1 "stats refuses a record whose candidates field is not an object"
+assert_contains "$output" "invalid candidates" "the refusal names the candidates field"
 end_case
 
 finish

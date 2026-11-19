@@ -169,19 +169,30 @@ When a reviewer asks for changes on an open PR whose branch has a run in
 record this round as its rework. Before the first change:
 
 ```bash
-parent="$(python3 .agents/skills/build/scripts/run_ledger.py last --branch "$(git branch --show-current)")"
-python3 .agents/skills/build/scripts/run_ledger.py decide --run-id "$parent" --result changes_requested
+branch="$(git branch --show-current)"
+if parent="$(python3 .agents/skills/build/scripts/run_ledger.py last --branch "$branch" 2>&1)"; then
+  python3 .agents/skills/build/scripts/run_ledger.py decide --run-id "$parent" --result changes_requested || exit "$?"
+elif [ "$parent" = "last: no run on branch $branch in tasks/runs" ]; then
+  parent=""
+else
+  printf '%s\n' "$parent" >&2
+  exit 1
+fi
 ```
 
 After the round is committed, with `<start>` the HEAD before its first change:
 
 ```bash
-python3 .agents/skills/build/scripts/run_ledger.py record --branch "$(git branch --show-current)" --base <start> --parent "$parent"
+if [ -n "$parent" ]; then
+  python3 .agents/skills/build/scripts/run_ledger.py record --branch "$(git branch --show-current)" --base <start> --parent "$parent" || exit "$?"
+fi
 ```
 
-`last` exiting 1 means the branch has no recorded run: skip both. A `decide`
-refusal means the PR was already merged or closed — report it; never retry
-with another result.
+Only the exact diagnostic `last: no run on branch <branch> in tasks/runs`
+means no recorded run: skip both. Every other `last`, `decide` or `record`
+failure stops the ledger step and is reported; a malformed record is never
+treated as no run. A final-decision refusal means the PR was already merged
+or closed — report it; never retry with another result.
 
 ## When to Push Back
 

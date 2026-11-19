@@ -91,7 +91,7 @@ run_ledger.py record --branch B --base SHA [--run-id ID] [--spec PATH] [--pr N]
                      [--tokens N|unknown] [--cost USD|unknown] [--ledger DIR]   -> 0 recorded | 2 usage
 run_ledger.py decide --run-id ID --result merged|changes_requested|closed [--ledger DIR]
                                                                                -> 0 recorded/unchanged | 1 refused | 2 usage
-run_ledger.py last --branch B [--ledger DIR]                                    -> 0 prints run id | 1 none
+run_ledger.py last --branch B [--ledger DIR]                                    -> 0 prints run id | 1 none/error
 run_ledger.py stats [--ledger DIR]                                              -> 0 report | 1 malformed record
 ```
 
@@ -102,6 +102,13 @@ run_ledger.py stats [--ledger DIR]                                              
 | Raises | usage errors exit 2 naming the value; a malformed stored record exits 1 naming the file; `decide` on a run id with no record exits 1 (`decide: no run <id>`) |
 | Idempotency | key = run id. The default run id is `<branch slug>-<base SHA, 12 chars>`, so re-recording the same build lands on the same file. `last` picks the branch's run with the latest `recorded_at`, ties broken by run id. `record` keeps the stored `recorded_at`, `human_result` and `decisions`; an option left out keeps the stored value |
 | Versioning | every record carries `"schema": "run-ledger/1"`; another schema is refused by `stats` and `decide` |
+
+Only the exact `last: no run on branch <branch> in <ledger>` diagnostic means
+absence; every other failure stops and reports the caller's ledger step.
+Both writers serialize their read/check/modify/atomic-replace transaction
+with the same per-run OS lock (Unix `flock`, Windows `msvcrt`, 10-second wait).
+Kernel ownership ends on process exit; the local `.lock` file is kept and ignored.
+Stored decision history and finite non-negative telemetry are validated on load.
 
 `stats` prints, exit 0:
 

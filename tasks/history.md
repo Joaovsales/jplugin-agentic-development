@@ -1239,3 +1239,8 @@ back vacuous and was repaired.
   `--base`, resolves the Surface before its cleanup `try`, applies before it
   records. Delta receipt on #442's.
 - Learnings: [patterns/validate-inputs-before-a-finally-that-destroys-work.md](solutions/patterns/validate-inputs-before-a-finally-that-destroys-work.md).
+### [2026-11-19] — Run ledger review fixes
+- Key changes: serialized both ledger writers with a per-run OS lock, validated stored decisions and telemetry, and made the receive-review caller stop on ledger errors while preserving the exact no-run diagnostic and exit codes.
+- Verification: deterministic process races, crash recovery, timeout, malformed payloads and executable caller blocks are covered by `tests/run-ledger-regressions.py` through `tests/test-run-ledger.sh`.
+- Learnings captured: [atomic replace does not serialize ledger writers](solutions/bugs/atomic-replace-does-not-serialize-ledger-writers.md).
+- Closure verification: resumed worker reran focused (54 assertions), affected (58 files / 5807 assertions) and full (101 files / 8641 assertions) suites; all passed with 0 failures, receipt `4a792b03` GO.
