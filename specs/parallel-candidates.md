@@ -108,7 +108,11 @@ dispatch order — enters the key.
 - `open` when the slice already has candidate worktrees: refused, naming
   `discard`.
 - The main tree moved since `open` (another slice landed): the winner's diff
-  is applied with `git apply`; a conflict exits 1 and keeps the patch.
+  is applied with `git apply`; a conflict exits 1, keeps the patch under
+  `tasks/tmp/` and still records the ranking.
+- A refused `rank` call — a spec or slice that does not resolve, a run id that
+  is not a safe file name, a base that is not a SHA — exits before measuring
+  and keeps every candidate worktree, so a typo never costs the Builders' work.
 
 ## Interfaces
 

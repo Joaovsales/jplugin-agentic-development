@@ -147,6 +147,31 @@ case "$(uname -s)" in
 esac
 end_case
 
+begin_case "refusals"
+REPO="$(make_repo)"
+out="$(cand open --slice 1 --count 2)"
+p1="$(path_of "$out" c1)"; printf 'theirs\n' > "$p1/src/base.txt"; : > "$p1/src/ok"
+cand open --slice 7 --count 2 >/dev/null
+assert_refused 1 "no slice 7" "a slice the spec does not have is refused" -- \
+  sh -c "cd '$REPO' && '$PY' '$SCRIPT' rank --spec specs/f.md --slice 7 --branch b --base 0123456789abcdef -- true"
+assert_eq 5 "$(wt_count)" "a refused slice keeps its candidates' work"
+cand discard --slice 7 >/dev/null
+assert_refused 1 "nope.md" "a spec that does not exist is refused" -- \
+  sh -c "cd '$REPO' && '$PY' '$SCRIPT' rank --spec specs/nope.md --slice 1 --branch b --base 0123456789abcdef -- true"
+assert_eq 3 "$(wt_count)" "a refused rank call keeps the candidates' work"
+assert_refused 2 "run id" "a run id that is not a safe file name is refused" -- \
+  sh -c "cd '$REPO' && '$PY' '$SCRIPT' rank --spec specs/f.md --slice 1 --branch b --base 0123456789abcdef --run-id ../escape -- true"
+assert_refused 2 "--base" "a base that is not a commit SHA is refused" -- \
+  sh -c "cd '$REPO' && '$PY' '$SCRIPT' rank --spec specs/f.md --slice 1 --branch b --base main -- true"
+printf 'mine\n' > "$REPO/src/base.txt"
+assert_refused 1 "does not apply" "a winner whose diff conflicts with the main tree is refused" -- \
+  sh -c "cd '$REPO' && '$PY' '$SCRIPT' rank --spec specs/f.md --slice 1 --branch feat/c --base 0123456789abcdef --ledger '$BOX/r1' --agent c1=true -- sh -c 'test -f src/ok'"
+assert_file_exists "$REPO/tasks/tmp/candidates-slice-1-c1.patch" "the conflicting winner's patch is kept"
+assert_eq "mine" "$(cat "$REPO/src/base.txt")" "the main tree keeps its own change"
+assert_file_exists "$BOX/r1/$RUN_ID.json" "the ranking is recorded even when the winner does not apply"
+assert_eq 1 "$(wt_count)" "the worktrees are removed after a failed apply"
+end_case
+
 begin_case "ledger"
 F="$BOX/l1/$RUN_ID.json"
 assert_file_exists "$F" "rank writes the run record named by branch and base"
