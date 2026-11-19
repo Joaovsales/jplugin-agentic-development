@@ -3002,3 +3002,51 @@ Step ledger (routine `simplify`):
     `pi-subagents`.
   - The code-graph timing bounds in `test-session-start.sh` fail on a loaded
     Windows host.
+
+## Plan: Unattended scan
+> Spec: specs/unattended-scan.md
+> Issue: #444
+
+### Slice 1/2 — Scanner and ruleset
+- [x] Scanner and ruleset — The stdlib scanner, the built-in rules with fixtures and gaps, the add-only project merge
+> Handover: landed 2adb4c1 — `unattended_scan.py scan|selftest` (exit 0/1/2), 20 built-in rules with fixtures and gaps; `tests/test-unattended-scan.sh` 84/84. The scanner resolves its base from origin/master|main|develop and runs from the repo root; `--transcript auto` reads `CLAUDE_CODE_SESSION_ID`, so a test must clear it.
+
+### Slice 2/2 — Push gate wiring
+- [x] Push gate wiring — The pre-push hook blocks an unattended push on a high hit; wrap-up files the finding
+> Handover: the hook reads stdin once into `PUSH_REFS`, scans `routine/` refs and `UNATTENDED_SCAN=1` pushes before `SKIP_PREPUSH`, base = the remote sha when this clone holds it; wrap-up SKILL.md stays at its 300-line budget, the detail lives in routines.md § *Unattended scan*. `tests/test-pre-push-gate.sh` 96/96; affected 40/40 files green.
+
+## Session Summary — [2026-11-18] [887e959..6ffdc4f]
+
+- Completed:
+  - #444: the unattended scan; slices 1/2 and 2/2 of `## Plan: Unattended scan`.
+- Pending: none in this PR.
+- Carry-forward:
+  - `/yolo` and `/auto-push` do not yet export `UNATTENDED_SCAN=1` themselves;
+    they reach the scan through `/wrap-up-session`'s unattended push.
+  - The Phase 5.1 test-engineer review was lost (no Agent tool in the worker).
+
+## Session Summary — [2026-11-19] [295bd59..295bd59]
+
+- Completed:
+  - PR #450 / #444: all six independent review fixes, preserving the prior worker's fixtures; trusted scanner snapshots, binary and hunk framing, multiline pipelines, quoted reconnaissance and separate transcript coverage.
+  - Real scratch push and local refusal-to-registry walkthroughs; corrected one-line evidence arguments in the wrap-up recipe.
+- Carry-forward:
+  - #452: the existing pre-push force guard remains outside this PR.
+  - Initial unattended-scan bootstrap requires scanner/rules in the trusted remote baseline.
+  - Phase 4 review was inline; phase 5 test-engineer review was lost because this worker dispatch prohibits helpers.
+
+## Session Summary — [2026-11-19] [c5bc4c6..c5bc4c6]
+
+- Completed:
+  - PR #450 / #444 N1: server-authoritative anchor for scanner/rules and diff range; no local-ref fallback; real installed-hook trust, lookup and object regressions.
+- Carry-forward:
+  - Installed .git/hooks/pre-push edits and --no-verify remain outside what a local hook can prevent.
+  - #452 remains outside this PR; the separate test-engineer review is unavailable in this worker dispatch.
+
+## Session Summary — [2026-11-19] [6ff10a3..6ff10a3]
+
+- Completed:
+  - PR #450 / #444 N2: fork-point range for new refs with policy still anchored to the server; four stale-base actual-push cases and both doc nits.
+- Carry-forward:
+  - #452 and the documented local-hook environment boundary remain outside this PR.
+  - Separate test-engineer review is unavailable because this worker dispatch prohibits helpers.

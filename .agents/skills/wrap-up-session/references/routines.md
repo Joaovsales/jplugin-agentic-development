@@ -501,6 +501,39 @@ the issue open for the routine that builds it.
 it loudly, non-zero, naming the issue — and **open the PR anyway**. A bad link
 must not discard the session's work.
 
+### Unattended scan
+
+The pre-push hook scans every push of a branch under `routine/`, and every push
+made with `UNATTENDED_SCAN=1`, with `scripts/unattended_scan.py`: a fixed,
+standard-library ruleset over the lines the push adds and the session's
+tool-call commands (`--transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}"`). A
+high-severity hit (exit 1) or a scan that could not run (exit 2) refuses the
+push with `BLOCKED: unattended scan …`; medium hits print and pass. A branch
+outside `routine/` is scanned only when the push declares itself, so an
+unattended run (§ *Unattended detection*) pushes with `UNATTENDED_SCAN=1`.
+`SKIP_PREPUSH=1` does not skip it. `specs/unattended-scan.md` is the contract;
+the rules, their fixtures and their known false negatives are
+`scripts/unattended-scan-rules.json`, and a project adds rules — never removes
+one — in `.agents/unattended-scan-rules.json`.
+
+A refusal is a push-gate refusal: never bypass it (`--no-verify` is a human's
+override, not the session's). For new refs, the hook reads the remote base SHA;
+policy comes from that anchor's local commit object. A could-not-run refusal
+(offline lookup or an unfetched anchor) has no findings to file: restore remote
+access, run `git fetch <push remote>`, and retry. For a finding refusal, wrap-up
+files the findings once before § *Terminal PR assertion*:
+
+```bash
+python3 .agents/skills/task-registry/scripts/task-registry.py upsert \
+  --derive-id unattended-scan --source "<branch>" --kind bug \
+  --title "Unattended scan refused <branch>" \
+  --evidence "<one finding line, verbatim>" --evidence "<next finding line>" --apply
+```
+
+Repeat `--evidence` once per finding; each value must be a single line.
+The report names the refusal, each rule id it printed and the filed task. The
+work stays on the local branch for a human to review.
+
 ### E2E handoff on `routine/fix`
 
 On a `routine/fix/` branch, if `/verify-evidence --scope e2e` returns a structured blocked

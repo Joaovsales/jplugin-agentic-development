@@ -1754,3 +1754,68 @@ Steps executed:
   ✓ gh pr view 420 reports CLOSED with mergedAt=null; its closing comment links retained results.
 Negative: results tree has no graph-hint shell or Codex hint adapter, and the live installer registered no PreToolUse treatment.
 Result: PASS
+
+## E2E Walkthrough — Unattended scan review fixes (PR #450) — 2026-11-19
+
+Spec: specs/unattended-scan.md
+Driver: real pre-push hook, scanner CLI and actual git pushes to isolated local bare remotes; no browser surface.
+Evidence: /tmp/pr450-after-real-push.log, /tmp/pr450-after-adversarial.log, /tmp/pr450-after-diff-header.log, /tmp/pr450-mutations.log, /tmp/pr450-refusal-filing.log.
+
+### AC-2: Trusted scanner and high-severity refusal
+Tier: CLI-FUNCTIONAL
+Journey: run the reviewer's actual-push probes against the installed hook in scratch repositories.
+Steps executed:
+  ✓ Control dangerous script, committed empty rules plus dangerous script, and binary-attributed dangerous script each refused with exit 1; no remote routine ref was created.
+  ✓ Committed and dirty scanner replacements, empty rules, and selective rule removal were refused in hook regressions; a dirty scanner returning 2 did not affect a clean push.
+  ✓ Valid-shell here-document containing a spoofed +++ header still produced pipe-to-shell at setup.sh:4; bash -n exited 0.
+  ✓ Feed the real refusal findings to the registry CLI in the scratch repo with local provider and one --evidence per line; two invocations created then updated exactly one task row/detail file. The original multiline --evidence form refused with exit 2, so the wrap-up recipe now repeats the flag.
+Negative: SKIP_PREPUSH=1 was set throughout the actual-push probes and did not silence the scan.
+Result: PASS
+
+### AC-1/3/5: Source normalization, add-only rules and independent coverage
+Tier: CLI-FUNCTIONAL
+Journey: scan independent diff and transcript payloads; mutate the scanner to remove one transcript rule's source.
+Steps executed:
+  ✓ Newline and blank-line pipeline continuations refused in both sources; benign jq pipelines and separate commands passed.
+  ✓ Harmless rg, grep and git log searches passed; substitutions, backticks, shell -c, wrapped commands and subsequent credential commands refused.
+  ✓ Binary attributes and NUL content did not suppress the dangerous added line.
+  ✓ Removing pipe-to-shell transcript support failed the source-specific fixture assertion while its diff hit still passed.
+Negative: original scanner/rules failed the new binary, framing, multiline, empty-rule and search regressions; retained mutations exited 1.
+Result: PASS
+
+Not checked: no native Claude/Codex/Pi session or external tracker publication was launched; the refusal-to-task journey used the real CLI and isolated local tracker.
+
+## E2E Walkthrough — Unattended scan server anchor (PR #450 N1) — 2026-11-19
+
+Spec: specs/unattended-scan.md
+Tier: CLI-FUNCTIONAL
+Driver: actual git pushes through the real installed pre-push hook to isolated bare remotes, with SKIP_PREPUSH=1 and no helper agents.
+Evidence: /tmp/pr450-n1-before.log, /tmp/pr450-n1-hook.log, /tmp/pr450-n1-reviewer-probes.log; cases live in tests/test-pre-push-gate.sh under Remote anchor.
+Journey:
+  ✓ Rewriting refs/remotes/origin/master to HEAD refuses the dangerous push; remote master stays unchanged and no routine ref is created.
+  ✓ A local branch named origin/master cannot shadow the server anchor; the dangerous diff is scanned and refused.
+  ✓ Replacing HEAD's scanner and rewriting the tracking ref refuses without printing ATTACKER-SNAPSHOT-EXECUTED.
+  ✓ A real ext transport permits receive-pack negotiation but fails upload-pack: a clean new-ref push refuses on ls-remote failure and creates no remote ref.
+  ✓ An existing ref update succeeds using its negotiated SHA even with the local baseline deleted and upload-pack unavailable; it still prints the clean scan summary.
+  ✓ An unfetched server anchor refuses and identifies the missing SHA; a URL push queries its target rather than a decoy origin.
+  ✓ A new ref discovers refs/heads/main when remote master is absent; with all permitted server bases absent, a cached local master cannot authorize the push.
+Negative: the unfixed hook failed 20 assertions, including all three bypass refusals and the cannot-run paths; the original reviewer trust-attack script now refuses all six cases without executing HEAD's scanner.
+Result: PASS
+
+Not checked: native agent sessions, external tracker writes, and mutation of the installed hook itself; installed-hook edits and --no-verify are explicit residual boundaries.
+
+## E2E Walkthrough — Unattended scan fork-point range (PR #450 N2) — 2026-11-19
+
+Spec: specs/unattended-scan.md
+Tier: CLI-FUNCTIONAL
+Driver: actual pushes through the installed pre-push hook to isolated bare remotes; SKIP_PREPUSH=1, no helper agents.
+Evidence: /tmp/pr450-n2-before.log, /tmp/pr450-n2-hook.log, /tmp/pr450-n2-reviewer-stale.log, /tmp/pr450-n2-reviewer-trust.log; Fork point cases in tests/test-pre-push-gate.sh.
+Journey:
+  ✓ Seed a flagged historical doc line, fork a clean branch adding only notes.txt, advance server master through another clone, then fetch the anchor without rebasing the branch.
+  ✓ README-only server change (control), CI workflow edit, scanner edit and deletion of the flagged doc line each permit the clean actual push with zero high/medium findings and the exact branch SHA created remotely.
+  ✓ The server scanner edit prints SERVER-ANCHOR-SNAPSHOT, proving policy still comes from the newer anchor while the diff uses the older fork point.
+  ✓ The reviewer's original four stale-base probes all exit 0 and create their remote routine refs; all six trust probes still refuse without executing the attacker scanner or creating a remote routine ref.
+Negative: before the fix, the CI/scanner/removed-line cases failed 12 assertions while the README control passed; after the fix all 160 hook assertions pass.
+Result: PASS
+
+Docs checked: could-not-run failures produce no finding task and require connectivity/fetch/retry; local Git configuration and PATH are named alongside installed-hook edits and --no-verify as residual boundaries.
