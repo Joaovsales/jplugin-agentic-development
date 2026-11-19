@@ -3097,5 +3097,10 @@ Step ledger (routine `simplify`):
 > Surface: none (`slice.py check --slice 1 --base 288ccec`)
 
 ### Slice 2/2 — Build runs candidates
-- [ ] Build runs candidates — /build names the opt-in and the flow; the references document the commands and the ledger field
-- [ ] TDD: tests/test-doc-conventions.sh § candidates — /build names `> Candidates:`, open, rank and discard; references/candidates.md and run-ledger.md document the commands and the candidates field -> wiring (AC5)
+- [x] Build runs candidates — /build names the opt-in and the flow; the references document the commands and the ledger field
+- [x] TDD: tests/test-doc-conventions.sh § candidates — /build names `> Candidates:`, open, rank and discard; references/candidates.md and run-ledger.md document the commands and the candidates field -> wiring (AC5)
+
+> Handover: landed 8258176..0c39b79 — `/build` Phase 1 names `> Candidates: <N>` and the `open` → dispatch → `rank` / `discard` flow; `.agents/skills/build/references/candidates.md` documents the commands and exits; `references/run-ledger.md` § *Candidates* documents the field; `tests/test-doc-conventions.sh` § candidates pins AC5.
+> Do not re-derive: build/SKILL.md stays at exactly 600 lines — the paragraph was reflowed, not grown; a `> Candidates:` line under a slice heading leaves `slice.py ready` and `link` unchanged (checked on a scratch copy).
+> Outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED
+> Surface: undeclared tasks/todo.md — the plan block's slice-1 handover (`slice.py check --slice 2 --base 8258176`)
