@@ -25,6 +25,15 @@ the spec against what was built.
   a name and what it delivers, no task id, no `(blocked-by:)`, no `TDD:`
   child. Blockers and the surface live once, in the spec's § Build Order
   table, and `/build` reads them there by slice number and name.
+- A `> Blocked: <reason> | tried: <…> | needs: <…>` line under an open slice
+  heading is `/build`'s record of a Builder's `[BLOCKED]` exit
+  (`.agents/skills/build/references/harness-dispatch.md` § *Blocked exit*). `ready` prints
+  that slice as `blocked: <n> <name>` and every open slice whose `Blocked by`
+  chain reaches it as `waits: <n> <name> on blocked <m>`, never as `ready:`.
+  A fenced example, or the line under an `[x]` header, is not a state. A human
+  unblocks the slice by deleting the line once the need is met.
+  The implicit slice in a flat block follows the same rule. All three fields
+  must be nonempty; a malformed line makes `ready` refuse with exit 2.
 - Slice names never start with `/` — Git Bash on Windows rewrites a leading
   `/name` into a path.
 - `> Spec:` stands alone on its line. An existing `## Plan: <feature>`
