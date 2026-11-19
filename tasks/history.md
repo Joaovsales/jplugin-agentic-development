@@ -1203,3 +1203,12 @@ multiline pipelines, quoted reconnaissance and transcript-source assertions.
 Actual scratch pushes now refuse every reported bypass; independent mutation
 checks prove the new regressions fail against the original scanner and missing
 transcript support. Learning: [scanner trust boundary](solutions/bugs/unattended-scan-must-not-trust-the-pushed-tree.md).
+
+### [2026-11-19] — PR #450 N1 server-authoritative scanner anchor
+
+Replaced mutable local-ref trust with the negotiated remote SHA for existing
+refs and fully qualified server base refs for new refs, with no fallback when
+lookup or the local anchor object is missing. Real installed-hook pushes now
+refuse all three ref-trust attacks; lookup failure, missing-object and alternate
+push-URL journeys are covered. Corrected the existing scanner trust learning
+and documented the installed-hook residual boundary.

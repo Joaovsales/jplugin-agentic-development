@@ -9,6 +9,7 @@ set -uo pipefail
 
 # git hands the pushed refs over stdin once; both the scan and the wrap-up gate read them.
 PUSH_REFS=$(cat)
+PUSH_REMOTE_URL="${2:-}"
 
 # ── Unattended scan — blocks, and runs before the kill switch ────────────────
 # A push of a `routine/` branch, or one a caller declares unattended with
@@ -18,7 +19,7 @@ PUSH_REFS=$(cat)
 # unattended agent can set an environment variable; `git push --no-verify` stays
 # the human override. Exit 1 (a high hit) and 2 (the scan could not run) both
 # block: an unattended push that was not scanned must not look like one that was.
-# No network: the finding is filed by /wrap-up-session, never from here.
+# New refs query the remote base; findings are filed by /wrap-up-session.
 SCANNER=".agents/skills/wrap-up-session/scripts/unattended_scan.py"
 SCAN_RULES=".agents/skills/wrap-up-session/scripts/unattended-scan-rules.json"
 
@@ -31,29 +32,43 @@ unattended_scan() {
       *) return 0 ;;
     esac
   fi
-  # Trust the merge base with the remote default branch, never pushed/dirty code.
-  # A baseline without the scanner refuses: bootstrap it through a human push.
-  _trusted=""
-  for _ref in origin/master origin/main origin/develop; do
-    if git rev-parse --verify --quiet "$_ref^{commit}" >/dev/null; then
-      _trusted=$(git merge-base "$_ref" "$_local_sha") || return 1
-      break
-    fi
-  done
-  if [ -z "$_trusted" ]; then
-    echo "BLOCKED: unattended scan could not run — no trusted remote baseline." >&2
-    return 1
-  fi
-  # The diff range and the trust baseline are separate: remote branch commits
-  # are excluded from the range, but never supply the executable or its rules.
-  _base="$_trusted"
+  # The negotiated remote tip anchors an update. A new ref queries fully
+  # qualified base refs on that same server once; local refs establish no trust.
+  _anchor="$_remote_sha"
   case "$_remote_sha" in
-    *[!0]*) git cat-file -e "$_remote_sha^{commit}" 2>/dev/null && _base="$_remote_sha" ;;
+    *[!0]*) ;;
+    *)
+      if [ -z "$PUSH_REMOTE_URL" ] || ! _remote_heads=$(git ls-remote -- "$PUSH_REMOTE_URL" \
+          refs/heads/master refs/heads/main refs/heads/develop); then
+        echo "BLOCKED: unattended scan could not run — ls-remote failed for the push remote." >&2
+        return 2
+      fi
+      _anchor=""
+      for _candidate in refs/heads/master refs/heads/main refs/heads/develop; do
+        while read -r _advertised_sha _advertised_ref; do
+          [ "$_advertised_ref" = "$_candidate" ] || continue
+          _anchor="$_advertised_sha"
+          break
+        done <<EOF
+$_remote_heads
+EOF
+        [ -z "$_anchor" ] || break
+      done
+      if [ -z "$_anchor" ]; then
+        echo "BLOCKED: unattended scan could not run — push remote has no base branch." >&2
+        return 2
+      fi
+      ;;
   esac
+  if [[ ! "$_anchor" =~ ^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$ ]] ||
+     ! git cat-file -e "$_anchor^{commit}" 2>/dev/null; then
+    echo "BLOCKED: unattended scan could not run — remote anchor $_anchor is not a local commit; fetch the remote." >&2
+    return 2
+  fi
   # This integrity check is outside the scanner/rules that it protects.
   _integrity=0
   for _protected in "$SCANNER" "$SCAN_RULES"; do
-    git diff --quiet "$_base" "$_local_sha" -- "$_protected"
+    git diff --quiet "$_anchor" "$_local_sha" -- "$_protected"
     case $? in
       0) ;;
       1) echo "[MUST-FIX | confidence: 100 | autofix_class: manual | owner: human] diff:$_protected:1 — check-gate-edit: edits the scanner or built-in rules." >&2; _integrity=1 ;;
@@ -61,14 +76,14 @@ unattended_scan() {
     esac
   done
   _snapshot=$(mktemp -d) || return 1
-  if ! git show "$_trusted:$SCANNER" > "$_snapshot/unattended_scan.py" ||
-     ! git show "$_trusted:$SCAN_RULES" > "$_snapshot/unattended-scan-rules.json"; then
+  if ! git show "$_anchor:$SCANNER" > "$_snapshot/unattended_scan.py" ||
+     ! git show "$_anchor:$SCAN_RULES" > "$_snapshot/unattended-scan-rules.json"; then
     rm -rf "$_snapshot"
     echo "BLOCKED: unattended scan could not run — trusted baseline lacks scanner/rules." >&2
     return 1
   fi
   # Isolated Python also keeps the pushing tree off the import path.
-  python3 -I "$_snapshot/unattended_scan.py" scan --base "$_base" --head "$_local_sha" \
+  python3 -I "$_snapshot/unattended_scan.py" scan --base "$_anchor" --head "$_local_sha" \
     --transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}" >&2
   _scan_status=$?
   rm -rf "$_snapshot"

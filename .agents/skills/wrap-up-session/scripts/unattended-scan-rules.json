@@ -1,12 +1,12 @@
 {
   "about": "Built-in rules for unattended_scan.py (specs/unattended-scan.md). Every rule proves itself against its own match and no_match fixtures before any scan runs, and lists in gaps what it is known to miss. A project adds rules in .agents/unattended-scan-rules.json; it cannot remove or redefine these.",
   "known_gaps": [
-    "The scan runs inside the pre-push hook: `git push --no-verify` skips it entirely, and the no-verify rule only sees that in the transcript of a later scanned push.",
+    "The scan runs inside the installed .git/hooks/pre-push: an agent with write access can replace or disable that hook, and `git push --no-verify` skips it entirely. A local hook cannot prevent either; the no-verify rule only sees the latter in the transcript of a later scanned push.",
     "Only tool-call commands and paths are read from a transcript; a command assembled inside a script the agent wrote and then ran is visible only through the diff, and only if the script is committed.",
     "Obfuscation defeats every text rule: base64 or hex decoding piped to a shell, variable indirection (`$a$b`), quoting splits (`c''url`), aliases and functions defined earlier in the session.",
     "`--transcript auto` resolves Claude Code sessions only (CLAUDE_CODE_SESSION_ID); a Codex or Pi run must pass UNATTENDED_SCAN_TRANSCRIPT or its commands are not scanned.",
     "Diff text rules read added lines only; a check weakened by deleting lines (a removed assertion, a removed CI step) is caught only when the file is on a path rule.",
-    "The hook recognises an unattended push by its ref (`routine/`) or by UNATTENDED_SCAN=1; an unattended run that pushes an ordinary branch without declaring itself is not scanned. (A trusted baseline without the scanner is the opposite case: the scan cannot run and the push is refused.)"
+    "The hook recognises an unattended push by its ref (`routine/`) or by UNATTENDED_SCAN=1; an unattended run that pushes an ordinary branch without declaring itself is not scanned. (A remote anchor without the scanner is the opposite case: the scan cannot run and the push is refused.)"
   ],
   "rules": [
     {

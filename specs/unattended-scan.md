@@ -60,21 +60,33 @@ id, followed by one summary line. The pre-push hook runs the scan for every
 pushed branch under `routine/`, and for any push made with `UNATTENDED_SCAN=1`
 (the caller-declared case: `/yolo`, `/auto-push`), passing
 `--transcript "${UNATTENDED_SCAN_TRANSCRIPT:-auto}"` and `--head <local sha>`,
-plus `--base <remote sha>` when this clone holds the remote tip, so a commit the
-remote already has is not scanned again. Exit 1 (a high hit) or 2
+plus `--base <anchor sha>`, so a commit the remote already has is not scanned
+again. Exit 1 (a high hit) or 2
 (the scan could not run) blocks the push; medium hits print and pass. The scan
 runs before the `SKIP_PREPUSH` kill switch, so an environment variable cannot
 silence it; `git push --no-verify` remains the human override.
 
-The hook extracts the scanner and built-in rules with `git show` into a temporary
-directory from the merge base with the first available remote baseline
-(`origin/master`, `origin/main`, `origin/develop`), and runs isolated Python.
-The pushing tree never supplies that executable or those built-ins; committed
-scanner/rule edits in the pushed range are independently high-severity hits in
-the hook. The diff range still uses the remote tip when available. A missing
-baseline or a baseline without the scanner/rules refuses the push: initial
-installation must reach the trusted branch through a human push first. An
-empty built-in rule set is refused, even for direct scanner invocations.
+The hook anchors both the diff lower bound and scanner/rule snapshot to a SHA
+from the push remote, never a locally resolved ref. For an existing ref it uses
+the remote SHA Git supplies on pre-push stdin after server negotiation. For a new
+ref (all-zero remote SHA), it makes one `git ls-remote -- <push remote URL>` query
+for fully qualified `refs/heads/master`, `refs/heads/main` and
+`refs/heads/develop`, selecting the first present in that order. The hook's
+second argument supplies the push URL, including when it differs from origin.
+A failed query, absent base branch or anchor commit missing locally is a
+could-not-run failure (exit 2); no local ref is a fallback. Fetch the remote to
+obtain a missing anchor object before retrying.
+
+The hook extracts scanner and built-ins with `git show <anchor sha>:<path>` into
+a temporary directory and runs isolated Python. Committed scanner/rule edits
+in the range are independently high-severity hits in the hook. A remote anchor
+without scanner/rules refuses the push: initial installation must reach the
+remote through a human push first. An empty built-in rule set is refused, even
+for direct scanner invocations.
+
+A local hook cannot stop an agent that edits the installed
+`.git/hooks/pre-push` or bypasses it with `--no-verify`; both are residual trust
+boundaries, documented in the rules' known gaps.
 
 `/wrap-up-session` treats a scan refusal like any pre-push gate refusal, and
 on an unattended run first files the findings as one `bug` task through
@@ -113,8 +125,9 @@ on an unattended run first files the findings as one `bug` task through
 - A truncated final JSONL record (the session is still writing) and any other
   line that is not JSON are scanned as raw text, never dropped.
 - A branch deletion (all-zero local sha) is not scanned.
-- A trusted baseline without the scanner/rules (or a host without `python3`)
-  cannot run the scan, so an unattended push is refused like any other exit 2.
+- A failed remote lookup, missing base branch or anchor object, remote snapshot
+  without scanner/rules, or host without `python3` cannot run the scan: the push
+  is refused like any other exit 2. No local ref can satisfy a missing anchor.
 - Two scans of the same input print byte-identical output and exit the same.
 
 ## Interfaces
@@ -135,7 +148,7 @@ on an unattended run first files the findings as one `bug` task through
 | ID | Risk | Likelihood | Impact | Mitigation | Slice |
 |---|---|---|---|---|---|
 | R1 | A legitimate routine change (a CI fix, a doc showing an install command) is blocked | M | M | Medium severity for noisy rules; the finding names the rule and line; a human pushes with `--no-verify` | 1 |
-| R2 | An agent bypasses the hook with `--no-verify` | M | H | Documented in `known_gaps`; the transcript rule flags `--no-verify` at the next scanned push | 1 |
+| R2 | An agent edits the installed hook or bypasses it with `--no-verify` | M | H | Documented in `known_gaps`; the transcript rule flags `--no-verify` at the next scanned push | 1 |
 
 ## Decisions
 
@@ -147,7 +160,8 @@ on an unattended run first files the findings as one `bug` task through
 | 4 | What part of the transcript is scanned? | Tool-call commands and paths only; written content is the diff's job | assumed | Tool results and prose (issue bodies, file reads) would match the rules' own vocabulary on every run |
 | 5 | Does `SKIP_PREPUSH=1` skip the scan? | No — the scan runs before the kill switch | assumed | An unattended agent can set an environment variable; `--no-verify` stays the human override and is a documented gap |
 | 6 | A scan that cannot run | Blocks the push (exit 2) | assumed | No silent failures: an unattended push that was not scanned must not look like one that was |
-| 7 | Who opens the finding? | `/wrap-up-session`, through `/task-registry upsert --apply`; the hook does no network I/O | assumed | The hook's no-network rule is load-bearing for offline and CI pushes |
+| 7 | Who opens the finding? | `/wrap-up-session`, through `/task-registry upsert --apply`; the hook never writes to a tracker | coordinator review decision | The hook reads the remote base for new refs; filing remains wrap-up's responsibility |
+| 8 | Where does snapshot/range trust come from? | Negotiated remote SHA for updates; fully qualified remote base refs queried with `ls-remote` for new refs; require the anchor commit locally and never fall back to local refs | coordinator review decision (N1) | Local tracking refs and branch names are writable by the pusher |
 
 ## Acceptance Criteria
 
@@ -200,5 +214,5 @@ Instructions:
 2. Build the ready set, then each slice its blockers release. A slice edits only its Surface in § Build Order.
 3. Follow § Decisions: every row is settled. A gap the spec leaves is an `[AMBIGUITY]` line, never a question to the user.
 4. Close every slice with a `> Handover:` line; after the last one run `/wrap-up-session`.
-Constraints: the block happens in the pre-push hook, before SKIP_PREPUSH; the hook does no network I/O; standard library only; no model in the scan.
+Constraints: the block happens in the pre-push hook, before SKIP_PREPUSH; new refs query the push remote once for a base anchor and fail closed on lookup/object failure; the hook never writes to a tracker; standard library only; no model in the scan.
 ```

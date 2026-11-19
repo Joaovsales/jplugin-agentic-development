@@ -358,8 +358,7 @@ assert_contains "$OUT" "$CODE" "Hostile fingerprint: does not widen coverage"
 # cleared so `--transcript auto` never reads the session running this suite.
 SCAN_SRC="$REPO/.agents/skills/wrap-up-session/scripts"
 
-# scan_repo <label> — new_repo plus the scanner in its base commit and an
-# origin/master the scanner's default base resolves against.
+# scan_repo <label> — scanner baseline published to an isolated bare remote.
 scan_repo() {
   _d="$(new_repo "$1")"
   mkdir -p "$_d/.agents/skills/wrap-up-session/scripts"
@@ -367,7 +366,10 @@ scan_repo() {
     "$_d/.agents/skills/wrap-up-session/scripts/"
   git -C "$_d" add -A
   git -C "$_d" commit -qm "scanner"
-  git -C "$_d" update-ref refs/remotes/origin/master HEAD
+  _origin="$(fixture_dir)"
+  git clone --bare -q "$_d" "$_origin"
+  git -C "$_d" remote add origin "$_origin"
+  git -C "$_d" push -q origin HEAD:refs/heads/master
   printf '%s' "$_d"
 }
 
@@ -384,9 +386,10 @@ commit_line() {
 push_hook() {
   _d="$1"; _ref="$2"; _local="$3"; _remote="$4"; shift 4
   cp "$HOOK" "$_d/hook"; chmod +x "$_d/hook"
+  _url=$(git -C "$_d" remote get-url origin 2>/dev/null) || _url="$_d/missing.git"
   ( cd "$_d" && printf '%s %s %s %s\n' "$_ref" "$_local" "$_ref" "$_remote" \
       | env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT "$@" \
-          ./hook origin "https://example.invalid/r.git" >/dev/null 2>"$_d/.stderr" )
+          ./hook origin "$_url" >/dev/null 2>"$_d/.stderr" )
   HOOK_RC=$?
   OUT="$(cat "$_d/.stderr")"
 }
@@ -493,7 +496,123 @@ for target in unattended_scan.py unattended-scan-rules.json; do
   assert_contains "$OUT" "check-gate-edit" "Unattended trust: $target self-edit is high"
 done
 
-# /wrap-up-session names the refusal and files its finding (the hook cannot: no network).
+# Actual installed-hook pushes: local ref names never establish policy trust.
+install_scan_hook() {
+  cp "$HOOK" "$1/.git/hooks/pre-push"
+  chmod +x "$1/.git/hooks/pre-push"
+}
+
+for attack in tracking-ref shadow-branch replacement-scanner; do
+  D="$(scan_repo scananchor)"
+  ORIGIN=$(git -C "$D" remote get-url origin)
+  REMOTE_BASE=$(git --git-dir="$ORIGIN" rev-parse refs/heads/master)
+  commit_line "$D" scripts/setup.sh "$HIT"
+  if [ "$attack" = replacement-scanner ]; then
+    printf 'print("ATTACKER-SNAPSHOT-EXECUTED")\nraise SystemExit(0)\n' > "$D/.agents/skills/wrap-up-session/scripts/unattended_scan.py"
+    git -C "$D" add -A; git -C "$D" commit -qm "replace scanner"
+  fi
+  case "$attack" in
+    shadow-branch) git -C "$D" branch origin/master HEAD ;;
+    *) git -C "$D" update-ref refs/remotes/origin/master HEAD ;;
+  esac
+  install_scan_hook "$D"
+  run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+    SKIP_PREPUSH=1 git -C "$D" push origin "HEAD:$ROUTINE"
+  assert_exit 1 "Remote anchor: $attack actual push is refused"
+  assert_contains "$output" "pipe-to-shell" "Remote anchor: $attack scans the dangerous diff"
+  assert_not_contains "$output" "ATTACKER-SNAPSHOT-EXECUTED" "Remote anchor: $attack never runs HEAD's scanner"
+  run git --git-dir="$ORIGIN" show-ref --verify --quiet "$ROUTINE"
+  assert_exit 1 "Remote anchor: $attack creates no remote routine ref"
+  assert_eq "$REMOTE_BASE" "$(git --git-dir="$ORIGIN" rev-parse refs/heads/master)" \
+    "Remote anchor: $attack leaves remote master unchanged"
+done
+
+# The receive-pack service remains available while upload-pack (ls-remote) fails.
+# Both calls use Git's real ext transport; no PATH or installed-hook substitution.
+D="$(scan_repo scanlookupfailure)"
+ORIGIN=$(git -C "$D" remote get-url origin)
+TRANSPORT="$(fixture_dir)/transport.sh"
+cat > "$TRANSPORT" <<'SH'
+#!/bin/sh
+case "$GIT_EXT_SERVICE" in
+  git-receive-pack) exec git-receive-pack "$1" ;;
+  *) echo "ls-remote denied for regression" >&2; exit 1 ;;
+esac
+SH
+git -C "$D" remote set-url origin "ext::sh $TRANSPORT $ORIGIN"
+commit_line "$D" notes.txt "clean diff"
+install_scan_hook "$D"
+run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+  SKIP_PREPUSH=1 git -c protocol.ext.allow=always -C "$D" push origin "HEAD:$ROUTINE"
+assert_exit 1 "Remote anchor: ls-remote failure refuses an actual clean push"
+assert_contains "$output" "could not run" "Remote anchor: ls-remote failure is a cannot-run refusal"
+assert_contains "$output" "ls-remote denied" "Remote anchor: the failed lookup reached upload-pack"
+run git --git-dir="$ORIGIN" show-ref --verify --quiet "$ROUTINE"
+assert_exit 1 "Remote anchor: ls-remote failure creates no remote routine ref"
+
+# An existing ref's negotiated SHA needs no remote lookup or local branch name.
+git --git-dir="$ORIGIN" update-ref "$ROUTINE" "$(git --git-dir="$ORIGIN" rev-parse refs/heads/master)"
+git -C "$D" update-ref -d refs/remotes/origin/master
+commit_line "$D" notes.txt "safe update"
+run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+  SKIP_PREPUSH=1 git -c protocol.ext.allow=always -C "$D" push origin "HEAD:$ROUTINE"
+assert_exit 0 "Remote anchor: existing ref uses negotiation without ls-remote or local baseline"
+assert_contains "$output" "unattended-scan: 0 high, 0 medium" "Remote anchor: existing ref is actually scanned"
+assert_not_contains "$output" "ls-remote denied" "Remote anchor: existing ref makes no policy lookup"
+
+# A server anchor that was never fetched must not fall back to a local ref.
+D="$(scan_repo scanmissingobject)"
+ORIGIN=$(git -C "$D" remote get-url origin)
+OTHER="$(fixture_dir)"
+git clone -q "$ORIGIN" "$OTHER"
+git -C "$OTHER" config user.name Test
+git -C "$OTHER" config user.email test@example.invalid
+commit_line "$OTHER" remote-only.txt "not fetched by pusher"
+git -C "$OTHER" push -q origin HEAD:refs/heads/master
+MISSING=$(git --git-dir="$ORIGIN" rev-parse refs/heads/master)
+commit_line "$D" notes.txt "clean diff"
+install_scan_hook "$D"
+run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+  SKIP_PREPUSH=1 git -C "$D" push origin "HEAD:$ROUTINE"
+assert_exit 1 "Remote anchor: a missing server anchor object refuses an actual push"
+assert_contains "$output" "could not run" "Remote anchor: missing anchor is a cannot-run refusal"
+assert_contains "$output" "$MISSING" "Remote anchor: missing object refusal identifies the server SHA"
+run git --git-dir="$ORIGIN" show-ref --verify --quiet "$ROUTINE"
+assert_exit 1 "Remote anchor: a missing anchor creates no remote routine ref"
+
+# A URL push uses its target server even when origin points somewhere else.
+D="$(scan_repo scantargeturl)"
+ORIGIN=$(git -C "$D" remote get-url origin)
+commit_line "$D" scripts/setup.sh "$HIT"
+DECOY="$(fixture_dir)"
+git clone --bare -q "$D" "$DECOY"
+git -C "$D" remote set-url origin "$DECOY"
+install_scan_hook "$D"
+run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+  SKIP_PREPUSH=1 git -C "$D" push "$ORIGIN" "HEAD:$ROUTINE"
+assert_exit 1 "Remote anchor: a URL push queries its target instead of origin"
+assert_contains "$output" "pipe-to-shell" "Remote anchor: target URL supplies the actual diff lower bound"
+run git --git-dir="$ORIGIN" show-ref --verify --quiet "$ROUTINE"
+assert_exit 1 "Remote anchor: a URL push creates no remote routine ref"
+
+# Fully qualified fallback refs are read from the server, not the local clone.
+D="$(scan_repo scanremotemain)"
+ORIGIN=$(git -C "$D" remote get-url origin)
+git --git-dir="$ORIGIN" update-ref refs/heads/main "$(sha "$D")"
+git --git-dir="$ORIGIN" update-ref -d refs/heads/master
+commit_line "$D" notes.txt "clean diff"
+install_scan_hook "$D"
+run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+  SKIP_PREPUSH=1 git -C "$D" push origin "HEAD:$ROUTINE"
+assert_exit 0 "Remote anchor: a new ref discovers remote main without remote master"
+# With no allowed server base at all, the locally cached master is no fallback.
+git --git-dir="$ORIGIN" update-ref -d refs/heads/main
+run env -u CLAUDE_CODE_SESSION_ID -u UNATTENDED_SCAN -u UNATTENDED_SCAN_TRANSCRIPT \
+  SKIP_PREPUSH=1 git -C "$D" push origin "HEAD:refs/heads/routine/improve/444-no-base"
+assert_exit 1 "Remote anchor: absent server base branches refuse a new ref"
+assert_contains "$output" "push remote has no base branch" "Remote anchor: empty lookup has an actionable refusal"
+
+# /wrap-up-session names the refusal and files it; the hook never writes to a tracker.
 WRAP="$REPO/.agents/skills/wrap-up-session"
 assert_file_contains "$WRAP/SKILL.md" 'BLOCKED: unattended scan' \
   "Unattended scan: wrap-up names the refusal"

@@ -3034,3 +3034,11 @@ Step ledger (routine `simplify`):
   - #452: the existing pre-push force guard remains outside this PR.
   - Initial unattended-scan bootstrap requires scanner/rules in the trusted remote baseline.
   - Phase 4 review was inline; phase 5 test-engineer review was lost because this worker dispatch prohibits helpers.
+
+## Session Summary — [2026-11-19] [c5bc4c6..c5bc4c6]
+
+- Completed:
+  - PR #450 / #444 N1: server-authoritative anchor for scanner/rules and diff range; no local-ref fallback; real installed-hook trust, lookup and object regressions.
+- Carry-forward:
+  - Installed .git/hooks/pre-push edits and --no-verify remain outside what a local hook can prevent.
+  - #452 remains outside this PR; the separate test-engineer review is unavailable in this worker dispatch.

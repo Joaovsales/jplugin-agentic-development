@@ -1784,3 +1784,22 @@ Negative: original scanner/rules failed the new binary, framing, multiline, empt
 Result: PASS
 
 Not checked: no native Claude/Codex/Pi session or external tracker publication was launched; the refusal-to-task journey used the real CLI and isolated local tracker.
+
+## E2E Walkthrough — Unattended scan server anchor (PR #450 N1) — 2026-11-19
+
+Spec: specs/unattended-scan.md
+Tier: CLI-FUNCTIONAL
+Driver: actual git pushes through the real installed pre-push hook to isolated bare remotes, with SKIP_PREPUSH=1 and no helper agents.
+Evidence: /tmp/pr450-n1-before.log, /tmp/pr450-n1-hook.log, /tmp/pr450-n1-reviewer-probes.log; cases live in tests/test-pre-push-gate.sh under Remote anchor.
+Journey:
+  ✓ Rewriting refs/remotes/origin/master to HEAD refuses the dangerous push; remote master stays unchanged and no routine ref is created.
+  ✓ A local branch named origin/master cannot shadow the server anchor; the dangerous diff is scanned and refused.
+  ✓ Replacing HEAD's scanner and rewriting the tracking ref refuses without printing ATTACKER-SNAPSHOT-EXECUTED.
+  ✓ A real ext transport permits receive-pack negotiation but fails upload-pack: a clean new-ref push refuses on ls-remote failure and creates no remote ref.
+  ✓ An existing ref update succeeds using its negotiated SHA even with the local baseline deleted and upload-pack unavailable; it still prints the clean scan summary.
+  ✓ An unfetched server anchor refuses and identifies the missing SHA; a URL push queries its target rather than a decoy origin.
+  ✓ A new ref discovers refs/heads/main when remote master is absent; with all permitted server bases absent, a cached local master cannot authorize the push.
+Negative: the unfixed hook failed 20 assertions, including all three bypass refusals and the cannot-run paths; the original reviewer trust-attack script now refuses all six cases without executing HEAD's scanner.
+Result: PASS
+
+Not checked: native agent sessions, external tracker writes, and mutation of the installed hook itself; installed-hook edits and --no-verify are explicit residual boundaries.

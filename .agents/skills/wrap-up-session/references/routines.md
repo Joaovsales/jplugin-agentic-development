@@ -517,7 +517,7 @@ the rules, their fixtures and their known false negatives are
 one — in `.agents/unattended-scan-rules.json`.
 
 A refusal is a push-gate refusal: never bypass it (`--no-verify` is a human's
-override, not the session's). The hook does no network I/O, so wrap-up files the
+override, not the session's). The hook only reads remote policy (new refs); wrap-up files the
 findings, once, before § *Terminal PR assertion*:
 
 ```bash
