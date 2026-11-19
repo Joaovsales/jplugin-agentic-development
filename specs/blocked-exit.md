@@ -63,13 +63,14 @@ the next `ready` lists it again.
 ## Inputs
 
 - A dispatch's returned output containing a line that starts with `[BLOCKED]`.
-- A `> Blocked:` line under a `### Slice` heading in a `## Plan:` block.
+- A `> Blocked:` line under a `### Slice` heading, or in a flat implicit slice, in a `## Plan:` block.
 
 ## Outputs
 
 - `tasks/todo.md`: the `> Blocked:` line under the slice heading.
 - `slice.py ready` stdout: `blocked: <n> <name>` and `waits: <n> <name> on blocked <m>`
   lines alongside the existing `ready:` lines; exit 0.
+- A malformed `> Blocked:` line refuses readiness with exit 2 and `invalid: <n> blocked line malformed`; reason, tried and needs must all be nonempty.
 - `/build`'s Phase 6 report: a `Blocked slices:` line beside `Ambiguities:`.
 
 ## Edge Cases
@@ -81,8 +82,8 @@ the next `ready` lists it again.
 - A slice waits on the nearest blocked slice in its chain; when several are
   blocked, `ready` names the lowest-numbered one it reaches.
 - A flat plan block with no `### Slice` headings is one implicit slice;
-  `/build` still stops it on `[BLOCKED]`, and `ready` does not read a
-  `> Blocked:` line there (no slice span to hold it).
+  `ready` reads its `> Blocked:` line and excludes it until the marker is removed.
+- A bare `> Blocked:` or a record with empty reason, tried or needs refuses readiness before any slice is printed as ready.
 - A `[BLOCKED]` line from a Phase 2–4 repair dispatch stops that repair and is
   reported in Phase 6; it never reopens a closed slice.
 

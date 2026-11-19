@@ -185,7 +185,8 @@ python3 .agents/skills/slice/scripts/slice.py ready --index tasks/todo.md --spec
 This prints each ready slice with its surface and every intersecting pair; a
 slice carrying `> Blocked:` prints as `blocked: <n> <name>` and every slice its
 `Blocked by` chain reaches as `waits: <n> <name> on blocked <m>` — neither is
-dispatched. Phase 1 ends when `ready` names no ready slice.
+dispatched. Phase 1 ends when `ready` names no ready slice; blocked and waiting slices stay `[ ]` and incomplete.
+Phases 1.5–5 run over closed slices only; with none, skip their completed-work checks and proceed to Phase 6's blocked report.
 Disjoint ready slices dispatch in parallel; an intersecting pair with no
 blocker between them is a plan defect — serialized in table order and
 reported, never guessed. Re-run `ready` after every slice closes to pick up
@@ -347,7 +348,7 @@ Phase 6 counts nested rows.
 
 ## Phase 1.5 — Changed Verification Map
 
-After every slice header is `[x]`, classify the completed work. If ANY acceptance
+When the ready set is exhausted, classify the completed work in closed slices. If ANY acceptance
 criterion is `user-facing`:
 
 1. Invoke `/maintain-verification-skill --scope changed` with the session intent,
@@ -369,7 +370,7 @@ UI tasks with 3D or video deliverables run the design-stack gates in
 `.agents/skills/build/references/design-stack-gates.md` § *Phase 2: 3D and video gates*
 before the steps below.
 
-After every slice header is `[x]`:
+When the ready set is exhausted, validate the work in closed slices:
 
 1. Run the **affected-test command** against the base SHA — every test file the
    build touched, in one run. The pre-push full run is `/wrap-up-session` § *Full suite*.
@@ -411,16 +412,11 @@ previous_failures: []
 | `integration` | Integration test passes (real API/DB/service interaction) |
 | `user-facing` | E2E walkthrough via `/verify-evidence --scope e2e` — entry in `tasks/e2e-log.md` for current commit short-sha |
 
-If ANY AC is classified `user-facing`:
-
-1. Invoke `/verify-evidence --scope e2e` before declaring Phase 4 complete.
-
 **For each round**:
 
 1. Re-read `specs/[feature-name].md`
-2. For every `user-facing` AC, invoke `/verify-evidence --scope e2e` (skip if already run this round with PASS entry for current commit)
-3. Walk through each AC:
-   - Mark: `✅` (unit/integration test), `✅✅` (e2e walkthrough), `❌` (missing), `⛔` (owned by a blocked or waiting slice — reported, never looped)
+2. First classify ACs owned by blocked or waiting slices as `⛔` (incomplete — reported, never verified or looped).
+3. For each remaining `user-facing` AC in the closed slices, invoke `/verify-evidence --scope e2e` (skip if already run this round with PASS entry for current commit). Mark remaining ACs `✅` (unit/integration test), `✅✅` (e2e walkthrough), or `❌` (missing).
 4. **If all criteria are `✅`, `✅✅` or `⛔`**: proceed to Phase 5
 5. **If any criterion is `❌`**:
    - Compare against `previous_failures`
@@ -465,7 +461,7 @@ After Phase 4 passes:
 
 If `tasks/backlog.md` exists:
 1. Identify which backlog item this build corresponds to
-2. Mark the item as `[x]` in `tasks/backlog.md`
+2. Mark the item as `[x]` in `tasks/backlog.md` only if every slice closed; otherwise retain its incomplete status
 3. Update `tasks/project-context.md` `[CURRENT-PHASE]` if the phase is now complete
 
 ## Phase 6 — Build Report

@@ -67,6 +67,9 @@ ISSUE_LINE_RE = re.compile(r"^>\s*Issue:\s*\S")
 FEATURE_ROW_RE = re.compile(r"^\s*-\s*\[.\]\s")
 # A slice `/build` stopped on a Builder's `[BLOCKED]` line (specs/blocked-exit.md).
 BLOCKED_LINE_RE = re.compile(r"^\s*>\s*Blocked:")
+BLOCKED_FIELDS_RE = re.compile(
+    r"^\s*>\s*Blocked:\s*(?P<reason>.*?)\s*\|\s*tried:\s*(?P<tried>.*?)\s*\|\s*needs:\s*(?P<needs>.*?)\s*$"
+)
 
 
 class SliceError(Exception):
@@ -463,8 +466,23 @@ class PlanBlock:
             number
             for heading_line, number, _name, boundary in _heading_spans(self.headings, self.end_line)
             if not done.get(number, False)
-            and any(BLOCKED_LINE_RE.match(line) for line in self._slice_lines(heading_line, boundary))
+            and self.has_blocked_line(number, heading_line, boundary)
         ]
+
+    def has_blocked_line(self, number: int, start: int, boundary: int) -> bool:
+        """Read blocked state, refusing incomplete records before any ready output."""
+        blocked = False
+        for line in self._slice_lines(start, boundary):
+            if not BLOCKED_LINE_RE.match(line):
+                continue
+            fields = BLOCKED_FIELDS_RE.fullmatch(line)
+            if fields is None or not all(value.strip() for value in fields.groupdict().values()):
+                raise SliceError(
+                    f"{self.index_path}: invalid: {number} blocked line malformed; "
+                    "expected > Blocked: <reason> | tried: <attempt> | needs: <requirement> (all nonempty)"
+                )
+            blocked = True
+        return blocked
 
     def _slice_lines(self, heading_line: int, boundary: int) -> List[str]:
         """The prose lines a slice heading owns, stopping at the next `##` heading.
@@ -749,7 +767,10 @@ def _implicit_slice_ready(args: argparse.Namespace, block: PlanBlock) -> int:
     """
     if not block.has_open_row():
         return 0
-    _print_ready(1, block.name, read_implementation_paths(args.spec))
+    if block.has_blocked_line(1, block.start_line, block.end_line):
+        print(f"blocked: 1 {block.name}")
+    else:
+        _print_ready(1, block.name, read_implementation_paths(args.spec))
     return 0
 
 
@@ -765,10 +786,10 @@ def cmd_ready(args: argparse.Namespace) -> int:
         problems = block.tdd_surface_problems(slices)
         if problems:
             raise SliceError("; ".join(problems))
+        blocked = block.blocked_slices(done)
     except (SpecPathError, SliceError, IndexUnreadable, OSError) as exc:
         print(f"slice: {exc}", file=sys.stderr)
         return 2
-    blocked = block.blocked_slices(done)
     waits = _waiting_on_blocked(slices, done, blocked)
     _print_ready_set(slices, _ready_numbers(slices, done, [*blocked, *waits]))
     _print_blocked(slices, blocked, waits)

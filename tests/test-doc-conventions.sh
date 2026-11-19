@@ -1227,6 +1227,28 @@ assert_eq "Blocked slices:" \
   "$(grep -A1 -E '^Ambiguities:' "$BUILD_SKILL" | sed -n 2p | grep -oE '^Blocked slices:')" \
   "blocked: the Phase 6 report puts Blocked slices: on the line after Ambiguities:"
 
+# A partial build with no ready slices must reach validation and the report
+# without claiming its blocked/waiting headers or ACs are complete.
+for phase in '## Phase 1.5 —' '## Phase 2 —'; do
+  phase_body="$(section_body "$BUILD_SKILL" "$phase" '^##')"
+  assert_contains "$phase_body" 'When the ready set is exhausted' \
+    "blocked: $phase enters when no slice is ready"
+  assert_contains "$phase_body" 'closed slices' \
+    "blocked: $phase validates only closed slices"
+  assert_not_contains "$phase_body" 'After every slice header is `[x]`' \
+    "blocked: $phase does not require blocked headers to close"
+done
+phase_exit="$(section_body "$BUILD_SKILL" '## Phase 1 —' '^## Phase 1.5')"
+assert_contains "$phase_exit" 'blocked and waiting slices stay `[ ]` and incomplete' \
+  'blocked: exhausting ready preserves incomplete headers'
+phase_validation="$(section_body "$BUILD_SKILL" '## Phase 4 —')"
+assert_precedes "$(printf '%s' "$phase_validation" | tr '\n' ' ')" \
+  'classify ACs owned by blocked or waiting slices as `⛔`' \
+  'invoke `/verify-evidence --scope e2e`' \
+  'blocked: Phase 4 classifies blocked ACs before e2e verification'
+assert_contains "$phase_validation" 'For each remaining `user-facing` AC in the closed slices' \
+  'blocked: Phase 4 verifies only completed user-facing work'
+
 # Slice Close and the forbidden state hold for both plan grammars: the header is
 # the row under each ### Slice heading, Slice Close fires on the dispatch's
 # return (new block) or the last TDD: row (legacy), unfinished work
