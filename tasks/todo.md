@@ -3078,3 +3078,4 @@ Step ledger (routine `simplify`):
 - Completed: #442 run ledger — `run_ledger.py` (`record`, `decide`, `last`, `stats`) writes one `tasks/runs/<run-id>.json` per run; `/build` Phase 6, `/receive-review` and `references/run-ledger.md` name every caller; quality-gate fix for a crashed write's temp file; plugin 1.8.21.
 - Pending: none in this PR.
 - Carry-forward: nobody records `merged` automatically yet (spec D7, R1); `stats` shows undecided PRs as `open`. Stacked on #448 — merge #448 first.
+- [ ] Record merged/closed in the run ledger automatically when a PR is merged or closed <!-- task-id: run-ledger-merge-decision.specs-run-ledger-md --> — From #442 (PR #456), spec Decision D7 and Risk R1: run_ledger.py decide is the only writer of a run's human result, and… ([#457](https://github.com/Joaovsales/jplugin-agentic-development/issues/457))
