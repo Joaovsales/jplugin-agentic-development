@@ -63,6 +63,8 @@ assert_prose_contains "$CANON" "label" \
 # in a third of all cases.
 assert_prose_contains "$CANON" "never select a routine" \
   "Contract: now/next order candidates within a pool and never select a routine"
+assert_prose_contains "$CANON" "total function" \
+  "Contract: ordering within a pool is what makes the selectors a total function"
 
 # --- an unclassified issue is selected by nobody -----------------------------
 assert_prose_contains "$CANON" "not selected by any routine" \
