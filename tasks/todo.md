@@ -3042,6 +3042,12 @@ Step ledger (routine `simplify`):
 - Pending: none in this PR.
 - Carry-forward: field names and labels unchanged for the stacked #442 PR.
 
+## Session Summary — [2026-11-19] [875778f..875778f] — closure repair 2
+
+- Completed: PR #448's residual output-boundary fixes; the diagnostic precedes the final summary, and an explicit newline follows both raw replayed streams.
+- Verification: six new assertions fail before the fix; all 46 slice-outcome assertions pass after it. Affected/full-suite results and the refreshed receipt are recorded in PR #448's Review fixes section.
+- Carry-forward: field names and labels remain unchanged for stacked #442; the fix is included in this wrap-up commit, with no earlier implementation commit in this session.
+
 ## Plan: run-ledger
 > Spec: specs/run-ledger.md
 > Issue: #442

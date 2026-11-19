@@ -89,17 +89,18 @@ rule does not change: `lost` is disclosed, not weighed.
 `slice_outcome.py` prints, after the command's own output:
 
 ```
-slice-outcome: agent_result=True verification_result=False slice_result=False VERIFICATION_FAILED
 slice-outcome: verification: `<command>` exited 1
+slice-outcome: agent_result=True verification_result=False slice_result=False VERIFICATION_FAILED
 ```
 
 or, when verification did not run, `slice-outcome: not checked: verification — <reason>`
-in place of the second line. Exit status as in the table; exit 2 on usage
-errors. The summary always starts on a fresh line after everything the
-command printed (a trailing newline is added when its stdout lacks one), and
-the command's stderr is passed through as raw bytes, so undecodable output
-never stops an outcome being recorded. The **last** line starting
-`slice-outcome: agent_result=` is authoritative — a command that prints a
+in place of the first line. Exit status as in the table; exit 2 on usage
+errors. The summary is the final output line, after the command's output and
+the diagnostic (including any multiline arguments it displays). An explicit
+newline follows both replayed streams, so partial stdout or stderr cannot
+hide the next line's prefix. Stderr is passed through as raw bytes, so
+undecodable output never stops an outcome being recorded. The **last** line
+starting `slice-outcome: agent_result=` is authoritative — a command that prints a
 lookalike line cannot displace it — and is the `> Outcome:` handover line
 verbatim (minus its `slice-outcome: ` prefix); its `key=value` fields are the
 names later consumers (a per-run record, ranked candidates) read.

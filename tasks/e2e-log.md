@@ -1769,3 +1769,16 @@ Evidence: /tmp/pr448-finish/test-slice-outcome.log, /tmp/pr448-finish/test-quali
 Focused results: slice outcome 38 passed; quality receipt 85 passed; document conventions 965 passed; all exit 0.
 Red proof: the current tests against pre-fix source in an isolated archive fail five slice-output assertions and both inherited-disclosure assertions.
 Not checked: live agent-driven slice header mutation — this task verifies the CLI and documented consumer contract, and forbids helper workers.
+
+## CLI walkthrough — PR #448 residual output boundary — 2026-11-19
+
+Spec: specs/slice-three-outcomes.md (AC1, AC2, AC4 output contract).
+Driver: actual slice_outcome.py CLI through tests/test-slice-outcome.sh, with stdout and stderr merged by tests/lib.sh run.
+Evidence: /tmp/pr448-followup/red.log and /tmp/pr448-followup/green.log.
+
+- A command exiting 1 receives a multiline argv containing a standalone fake SUCCEEDED summary: the last matching summary and final output line both record VERIFICATION_FAILED, and the wrapper exits 1.
+- A successful command writes warning without a stderr newline: the captured first line preserves warning and the documented last-summary parser finds SUCCEEDED.
+- A successful command writes raw stderr byte 0xff: the byte remains unchanged on its own captured line, and byte-safe parsing finds the real final SUCCEEDED summary.
+
+Red proof: 40 assertions passed and 6 failed before the source change. Green proof: all 46 assertions passed after it. Field names, labels and exit statuses are unchanged.
+Not checked: live agent-driven header mutation and independent test-engineer dispatch — the worker task forbids helper agents.

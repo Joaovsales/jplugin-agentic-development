@@ -13,13 +13,14 @@ verification result, so a sub-agent's quoted test output has no way in.
 Each value is True, False or Unknown; Unknown means a check did not run, and
 it is never shown as True. After the command's own output the script prints
 
-    slice-outcome: agent_result=<v> verification_result=<v> slice_result=<v> <LABEL>
     slice-outcome: verification: `<command>` exited <n>
                  | not checked: verification — <reason>
+    slice-outcome: agent_result=<v> verification_result=<v> slice_result=<v> <LABEL>
 
-The summary always starts on a fresh line, after everything the command
-printed, so the LAST line starting `slice-outcome: agent_result=` is the
-authoritative one: a command that prints a lookalike line cannot displace it.
+The summary is the final output line, after the command's raw output and the
+diagnostic, so the LAST line starting `slice-outcome: agent_result=` is the
+authoritative one: neither command output nor a multiline argument displayed
+in the diagnostic can displace it. A newline follows both replayed streams.
 That line, minus its prefix, is the handover's `> Outcome:` line; its
 `key=value` field names are the contract later readers parse.
 
@@ -66,25 +67,22 @@ def run_verification(command: Sequence[str]) -> Tuple[str, str]:
 def _run_passing_output_through(command: Sequence[str]) -> Tuple[int, str]:
     """Run the command, streaming its stdout and then its stderr through as raw
     bytes; return (exit status, stderr decoded tolerantly for the refusal check).
-    Ends with stdout on a fresh line, so the summary never joins a partial line."""
+    Adds a line boundary after both streams, including partial stderr."""
     stdout = sys.stdout.buffer
     stdout.flush()
     with tempfile.TemporaryFile() as err:
         proc = subprocess.Popen(list(command), stdout=subprocess.PIPE, stderr=err)
-        last = b"\n"
         for chunk in iter(lambda: os.read(proc.stdout.fileno(), 65536), b""):
             stdout.write(chunk)
             stdout.flush()
-            last = chunk[-1:]
         proc.stdout.close()
         returncode = proc.wait()
         err.seek(0)
         raw_err = err.read()
     sys.stderr.buffer.write(raw_err)
     sys.stderr.flush()
-    if last != b"\n":
-        stdout.write(b"\n")
-        stdout.flush()
+    stdout.write(b"\n")
+    stdout.flush()
     return returncode, raw_err.decode("utf-8", errors="replace")
 
 
@@ -129,11 +127,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     agent = AGENT_VALUES[args.agent]
     verification, detail = run_verification(command)
     slice_result, label = derive(agent, verification)
+    print(f"slice-outcome: {detail}")
     print(
         f"slice-outcome: agent_result={agent} verification_result={verification} "
         f"slice_result={slice_result} {label}"
     )
-    print(f"slice-outcome: {detail}")
     return EXIT_FOR[slice_result]
 
 
