@@ -27,7 +27,9 @@ python3 .agents/skills/build/scripts/candidates.py open --slice <n> --count <N>
 
 Creates N detached worktrees at the current `HEAD` through
 `bootstrap-worktree.sh --detach-head`, at `<toplevel>/../<repo>-slice-<n>-c<k>`,
-and prints `candidates: c<k> <path>` for each. Commit the previous slice first:
+and prints `candidates: c<k> <path>` for each. It is all-or-nothing: a failed
+or cancelled bootstrap removes every candidate the call made, and a target path
+that already exists is refused, never deleted. Commit the previous slice first:
 candidates start from `HEAD`, not from the working tree.
 
 Dispatch one Builder per path — the Step 1 delegation prompt, plus "work only
@@ -59,6 +61,7 @@ and removes every candidate worktree — also when it is terminated.
 |------|---------|------|
 | 0 | winner applied | Slice Close, as for any slice; `attempts=<N>` in Phase 6's `--slice` |
 | 1 | no eligible candidate, or the winner's diff does not apply (patch kept under `tasks/tmp/`) | Step 3, as for a failed slice |
+| 1 | `could not remove c<k>` — git kept a candidate (a locked worktree); any winner was applied first | release it (`git worktree unlock`), then `discard` |
 | 2 | usage | fix the call |
 
 ## Stopping between `open` and `rank`
@@ -67,5 +70,8 @@ and removes every candidate worktree — also when it is terminated.
 python3 .agents/skills/build/scripts/candidates.py discard --slice <n>
 ```
 
-Removes the slice's candidate worktrees and prints `candidates: removed c<k>
-<path>` for each. `open` refuses while any are left, naming `discard`.
+Removes the slice's candidate worktrees through git and prints `candidates:
+removed c<k> <path>` for each one git no longer lists. A candidate git refuses
+to remove (a locked worktree) keeps its directory, is reported `could not
+remove c<k>` with git's reason, and `discard` exits 1. `open` refuses while
+any are left, naming `discard`.

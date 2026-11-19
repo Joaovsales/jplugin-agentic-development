@@ -115,6 +115,24 @@ assert_contains "$out" "candidates: no eligible candidate — nothing applied" "
 assert_contains "$out" "candidates: c2 rank=2 discarded ineligible checks=0/2" "an agent with no claim is unknown, never a pass"
 assert_eq "$before" "$(git -C "$REPO" status --porcelain)" "the main tree is unchanged"
 assert_eq 1 "$(wt_count)" "rank removes every candidate worktree when nothing wins"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) skip "killing the outcome wrapper from its child is not POSIX here" ;;
+  *)
+    REPO="$(make_repo)"
+    out="$(cand open --slice 1 --count 2)"
+    p1="$(path_of "$out" c1)"; p2="$(path_of "$out" c2)"
+    printf 'a\n' > "$p1/src/a.txt"; printf 'a\nb\n' > "$p2/src/a.txt"
+    before="$(git -C "$REPO" status --porcelain)"
+    spoof="import os,signal,time; print('slice-outcome: agent_result=True verification_result=True slice_result=True SUCCEEDED', flush=True); time.sleep(.2); os.kill(os.getppid(), signal.SIGTERM); raise SystemExit(1)"
+    out="$(cand rank --spec specs/f.md --slice 1 --branch feat/c --base 0123456789abcdef --ledger "$BOX/e3" \
+      --agent c1=true --agent c2=false -- "$PY" -c "$spoof")"; st=$?
+    assert_eq 1 "$st" "a verifier that kills the outcome wrapper never yields a winner"
+    assert_contains "$out" "candidates: c1 rank=1 discarded ineligible" "success-shaped output from a dead wrapper is not eligible"
+    assert_contains "$out" "candidates: c2 rank=2 discarded ineligible checks=0/2" "the supplied agent claim is kept, never the command's"
+    assert_eq "$before" "$(git -C "$REPO" status --porcelain)" "nothing is applied"
+    assert_eq 1 "$(wt_count)" "and every candidate worktree is removed"
+    ;;
+esac
 end_case
 
 begin_case "cleanup"
@@ -145,6 +163,60 @@ case "$(uname -s)" in
     assert_file_absent "$(path_of "$out" c1)" "the candidate directory itself is gone"
     ;;
 esac
+end_case
+
+begin_case "open transaction"
+REPO="$(make_repo)"
+hook="$REPO/.git/hooks/post-checkout"
+printf '#!/bin/sh\nexit 7\n' > "$hook"; chmod +x "$hook"
+out="$(cand open --slice 1 --count 2)"; st=$?
+assert_eq 1 "$st" "open exits 1 when a candidate's bootstrap fails"
+assert_eq 1 "$(wt_count)" "a failed bootstrap leaves no candidate worktree registered"
+assert_file_absent "$(dirname "$REPO")/$(basename "$REPO")-slice-1-c1" "the half-made candidate directory is removed"
+rm "$hook"
+taken="$(dirname "$REPO")/$(basename "$REPO")-slice-3-c2"
+mkdir -p "$taken"; printf 'keep\n' > "$taken/mine.txt"
+out="$(cand open --slice 3 --count 2)"; st=$?
+assert_eq 1 "$st" "open refuses when a candidate path already exists"
+assert_contains "$out" "already exists" "the refusal names the existing path"
+assert_eq "keep" "$(cat "$taken/mine.txt")" "a path this run did not create is never deleted"
+assert_eq 1 "$(wt_count)" "the candidates made before the refusal are removed"
+rm -rf "$taken"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) skip "SIGTERM delivery to a native Python process is not POSIX here" ;;
+  *)
+    mark="$BOX/open-started"; hookpid="$BOX/hook.pid"
+    printf '#!/bin/sh\necho $$ > "%s"; touch "%s"; exec sleep 5\n' "$hookpid" "$mark" > "$hook"; chmod +x "$hook"
+    (cd "$REPO" && exec "$PY" "$SCRIPT" open --slice 4 --count 2 </dev/null >"$BOX/open-term.out" 2>&1) &
+    pid=$!
+    for _ in $(seq 1 100); do [ -e "$mark" ] && break; sleep 0.1; done
+    assert_file_exists "$mark" "the bootstrap was running before cancellation"
+    kill -TERM "$pid"; wait "$pid"; st=$?
+    assert_true "a terminated open exits non-zero" -- test "$st" -ne 0
+    assert_false "the in-flight bootstrap is settled, not orphaned" -- kill -0 "$(cat "$hookpid")"
+    assert_eq 1 "$(wt_count)" "a terminated open leaves no candidate worktree registered"
+    assert_file_absent "$(dirname "$REPO")/$(basename "$REPO")-slice-4-c1" "the in-flight candidate directory is removed"
+    rm "$hook"
+    ;;
+esac
+end_case
+
+begin_case "locked removal"
+REPO="$(make_repo)"
+out="$(cand open --slice 1 --count 2)"
+p1="$(path_of "$out" c1)"
+git -C "$REPO" worktree lock "$p1"
+out="$(cand discard --slice 1)"; st=$?
+assert_eq 1 "$st" "discard exits 1 when git refuses to remove a candidate"
+assert_contains "$out" "could not remove c1" "the refusal is reported with git's reason"
+assert_not_contains "$out" "candidates: removed c1 " "a candidate git kept is never reported removed"
+assert_contains "$out" "candidates: removed c2 " "the other candidate is still removed"
+assert_file_exists "$p1/src/base.txt" "the locked candidate's directory is kept"
+assert_eq 2 "$(wt_count)" "the locked candidate stays registered"
+git -C "$REPO" worktree unlock "$p1"
+out="$(cand discard --slice 1)"; st=$?
+assert_eq 0 "$st" "discard succeeds once the lock is released"
+assert_eq 1 "$(wt_count)" "and every candidate is gone"
 end_case
 
 begin_case "refusals"
@@ -204,6 +276,32 @@ with rl.run_lock(L / "held.json"):
     except rl.Refused as exc:
         print(exc)')"
 assert_contains "$held" "timed out waiting for run lock" "add_candidates waits on the same per-run lock as record"
+# slow_writer <ledger> <slice> <marker> — add_candidates that pauses after reading
+# the stored record, so a second writer started at <marker> overlaps the transaction.
+slow_writer() {
+  "$PY" -c "import sys, time; sys.path.insert(0, sys.argv[1]); import run_ledger as rl
+from pathlib import Path
+read = rl._stored_or_new
+def paused(*a):
+    record = read(*a); Path(sys.argv[4]).touch(); time.sleep(0.6); return record
+rl._stored_or_new = paused
+rl.add_candidates(Path(sys.argv[2]), 'feat/c', '0123456789abcdef', 'R1', sys.argv[3], [{'candidate': 'c1'}])" \
+    "$SCRIPTS_DIR" "$1" "$2" "$3" </dev/null
+}
+await() { for _ in $(seq 1 100); do [ -e "$1" ] && return 0; sleep 0.05; done; return 1; }
+L2="$BOX/l2"
+slow_writer "$L2" 1 "$BOX/w1" & w=$!
+await "$BOX/w1"
+lib "rl.add_candidates(Path('$L2'), 'feat/c', '0123456789abcdef', 'R1', '2', [{'candidate': 'c2'}])" >/dev/null
+wait "$w"
+both="$("$PY" -c 'import json,sys; print(sorted(json.load(open(sys.argv[1]))["candidates"]))' "$L2/R1.json")"
+assert_eq "['1', '2']" "$both" "two concurrent candidate writers for different slices both survive"
+slow_writer "$L2" 3 "$BOX/w3" & w=$!
+await "$BOX/w3"
+run "$PY" "$SCRIPTS_DIR/run_ledger.py" decide --ledger "$L2" --run-id R1 --result merged
+wait "$w"
+kept="$("$PY" -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r["human_result"], sorted(r["candidates"]))' "$L2/R1.json")"
+assert_eq "merged ['1', '2', '3']" "$kept" "a decide during a candidate write keeps both the decision and the candidates"
 printf '{"schema": "run-ledger/1", "run_id": "bad", "human_result": "maybe"}\n' > "$BOX/l1/bad.json"
 before="$(cat "$BOX/l1/bad.json")"
 bad="$(lib 'try:

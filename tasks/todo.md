@@ -3123,3 +3123,9 @@ Step ledger (routine `simplify`):
 - Completed: merged `origin/Joaovsales/esf-442-run-ledger` (e468d95); `run_ledger.add_candidates` now runs under `run_lock` and `load_record`'s validation, `load_record` refuses a non-object `candidates` field, and `candidates.py` uses the public `run_id_arg`/`sha_arg` instead of the private `_run_id`/`_sha`.
 - Pending: none in this PR.
 - Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
+
+## Session Summary — [2026-11-19] [a09aaae..a09aaae] — PR #458 review fixes
+
+- Completed: independent review of #458 (CHANGES-REQUIRED) — `_verify` trusts the outcome only when the wrapper's exit status, the supplied agent claim and `derive` agree; `open` is a transaction (targets owned before bootstrap, TERM/HUP/INT around the whole call, the bootstrap's process group settled before its worktree is removed, an existing path refused and kept); removal goes through git only and reports a kept (locked) candidate with exit 1; concurrent `add_candidates` writers and a `decide` during a candidate write are pinned.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.

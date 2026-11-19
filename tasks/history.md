@@ -1244,3 +1244,9 @@ back vacuous and was repaired.
 - Verification: deterministic process races, crash recovery, timeout, malformed payloads and executable caller blocks are covered by `tests/run-ledger-regressions.py` through `tests/test-run-ledger.sh`.
 - Learnings captured: [atomic replace does not serialize ledger writers](solutions/bugs/atomic-replace-does-not-serialize-ledger-writers.md).
 - Closure verification: resumed worker reran focused (54 assertions), affected (58 files / 5807 assertions) and full (101 files / 8641 assertions) suites; all passed with 0 failures, receipt `4a792b03` GO.
+
+### [2026-11-19] — #445 PR #458 review fixes
+
+- Merged #456's run-ledger fixes (e468d95); `add_candidates` now runs under `run_lock` and `load_record`, and `candidates.py` uses the public `run_id_arg`/`sha_arg`.
+- Review fixes, test-first (14 assertions red before the fix, then green; each fix confirmed by a mutation probe): the outcome wrapper's exit status gates eligibility; `open` is all-or-nothing under cancellation; git-only removal keeps a locked worktree and exits 1; concurrent ledger writers are pinned.
+- A blocked signal mask is inherited across fork/exec: `_bootstrap` blocks TERM/HUP/INT only around `Popen` and unblocks them in the child (`preexec_fn`), or `killpg` would wait out the 10 s SIGKILL fallback.

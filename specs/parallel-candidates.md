@@ -107,6 +107,19 @@ dispatch order — enters the key.
   candidate worktree before the process exits non-zero.
 - `open` when the slice already has candidate worktrees: refused, naming
   `discard`.
+- `open` is all-or-nothing: each target is owned before its bootstrap starts,
+  so a failing bootstrap (a `post-checkout` hook exiting non-zero, say) or a
+  SIGTERM/SIGHUP/Ctrl-C mid-bootstrap stops the bootstrap's process group,
+  waits for it, then removes every candidate this call made. A target path
+  that already exists is refused and never deleted — this run did not make it.
+- git refuses to remove a candidate (`git worktree lock`): the directory and
+  its registration are kept, the refusal is printed with git's reason, and
+  `discard` (or `rank`, after its own result) exits 1. A candidate is reported
+  `removed` only once git no longer lists it.
+- The verification wrapper dies or disagrees with itself — killed after its
+  command printed a success-shaped line, an agent value other than the claim
+  passed in, an exit status that does not match its own summary: the
+  candidate's verification counts as failed, never eligible.
 - The main tree moved since `open` (another slice landed): the winner's diff
   is applied with `git apply`; a conflict exits 1, keeps the patch under
   `tasks/tmp/` and still records the ranking.
@@ -188,7 +201,9 @@ Constraints: eligibility is slice_outcome's SUCCEEDED (D2); the ranking key ends
   main tree is unchanged.
 - AC3: every candidate worktree is removed after `rank` — on success, on no
   winner, and when `rank` is terminated mid-verification — and `discard`
-  removes them when the build stops before `rank`.
+  removes them when the build stops before `rank`; an `open` whose bootstrap
+  fails or is terminated leaves none behind; a candidate git refuses to remove
+  (a locked worktree) is kept and reported, and the call exits 1.
 - AC4: the run ledger record holds one entry per candidate with its rank,
   selected flag, three outcomes, measurements and the reason for its place.
 - AC5: `/build` names the opt-in line, the `open` → dispatch → `rank` flow and
