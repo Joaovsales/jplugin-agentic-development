@@ -360,13 +360,31 @@ def derive_verdict(outcome: Dict, parent: Optional[str]) -> str:
 # write
 # --------------------------------------------------------------------------
 
-def print_not_checked(reviewers: List[Dict]) -> None:
-    """One line per lost review, so a receipt with one never reads as fully
-    checked. A receipt stored before reasons were required has none."""
-    for reviewer in reviewers:
-        if reviewer.get("dispatch") == "lost":
-            reason = reviewer.get("reason") or "no reason recorded"
-            print(f"receipt: not checked phase {reviewer.get('phase')} {reviewer.get('lens')} — {reason}")
+def print_not_checked(receipt: Dict) -> None:
+    """One line per lost review in the receipt and every ancestor in its parent
+    chain, so a receipt with one never reads as fully checked. A delta reviews
+    only its own paths, so an ancestor's lost review still stands; its line names
+    the ancestor. A receipt stored before reasons were required has none."""
+    for ancestor, link in enumerate(_receipt_chain(receipt)):
+        inherited = f" (inherited from {str(link.get('fingerprint'))[:8]})" if ancestor else ""
+        for reviewer in link.get("reviewers", []):
+            if reviewer.get("dispatch") == "lost":
+                reason = reviewer.get("reason") or "no reason recorded"
+                print(f"receipt: not checked phase {reviewer.get('phase')} {reviewer.get('lens')} — {reason}{inherited}")
+
+
+def _receipt_chain(receipt: Dict) -> List[Dict]:
+    """The receipt, then each stored ancestor; stops at a missing or repeated link."""
+    chain, seen = [receipt], {receipt.get("fingerprint")}
+    parent_fp = receipt.get("parent")
+    while parent_fp and parent_fp not in seen:
+        parent = load_receipt(parent_fp)
+        if parent is None:
+            break
+        chain.append(parent)
+        seen.add(parent_fp)
+        parent_fp = parent.get("parent")
+    return chain
 
 
 def load_outcome(path: str) -> Dict:
@@ -423,7 +441,7 @@ def cmd_write(args: argparse.Namespace) -> None:
     _atomic_write(receipt_path(fingerprint), receipt)
     _atomic_write(pointer_path(), {"fingerprint": fingerprint, "tree": tree, "base": base})
     print(f"receipt: written {fingerprint[:8]} verdict {receipt['verdict']} policy {receipt['policy']}")
-    print_not_checked(receipt["reviewers"])
+    print_not_checked(receipt)
 
 
 # --------------------------------------------------------------------------
@@ -495,7 +513,7 @@ def cmd_check(args: argparse.Namespace) -> None:
         print(f"receipt: stale {stale}")
         sys.exit(3)
     print(f"receipt: valid {label} {fingerprint[:8]} policy {policy}")
-    print_not_checked(receipt.get("reviewers", []))
+    print_not_checked(receipt)
 
 
 # --------------------------------------------------------------------------

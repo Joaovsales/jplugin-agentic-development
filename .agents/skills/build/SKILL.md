@@ -306,7 +306,7 @@ Write a `> Handover:` blockquote under the slice heading, after its rows and abo
 ```markdown
 > Handover: landed <short-sha>..<short-sha> — what landed
 > Do not re-derive: the facts the next slice must not rediscover
-> Outcome: the script's first line without `slice-outcome: ` (agent_result=… verification_result=… slice_result=… <LABEL>)
+> Outcome: the script's last `slice-outcome: agent_result=` line without `slice-outcome: ` (agent_result=… verification_result=… slice_result=… <LABEL>)
 > Surface: the `check` report (`undeclared:` / `untouched:`, or none)
 > Open: one open question (optional)
 ```

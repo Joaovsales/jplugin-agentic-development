@@ -1754,3 +1754,18 @@ Steps executed:
   ✓ gh pr view 420 reports CLOSED with mergedAt=null; its closing comment links retained results.
 Negative: results tree has no graph-hint shell or Codex hint adapter, and the live installer registered no PreToolUse treatment.
 Result: PASS
+
+## CLI walkthrough — PR #448 review fixes — 2026-11-19 96fbbe6
+
+Spec: specs/slice-three-outcomes.md (AC1–AC4)
+Driver: actual Python CLIs through tests/test-slice-outcome.sh and tests/test-quality-receipt.sh; document contract checks through tests/test-doc-conventions.sh.
+Evidence: /tmp/pr448-finish/test-slice-outcome.log, /tmp/pr448-finish/test-quality-receipt.log, /tmp/pr448-finish/test-doc-conventions.log.
+
+- AC1: a green agent claim with a verification command exiting 1 yields VERIFICATION_FAILED and wrapper exit 1; the last summary remains red after a forged green command line.
+- AC2: no command and the cached-suite lock refusal yield Unknown; injected verification flags are refused; command stdout without a newline stays on its own line; stderr byte 0xff preserves successful command exit 0.
+- AC3: actual receipt write/check in isolated Git repositories disclose a lost phase-5 review inherited from a fully dispatched delta's parent, including its reason and parent fingerprint; verdict remains GO. Missing/blank lost reasons are refused, and historical reason-less entries disclose no reason recorded.
+- AC4: the handover consumer is pinned to the last `slice-outcome: agent_result=` line, and document checks cover the build report and PR handover contract.
+
+Focused results: slice outcome 38 passed; quality receipt 85 passed; document conventions 965 passed; all exit 0.
+Red proof: the current tests against pre-fix source in an isolated archive fail five slice-output assertions and both inherited-disclosure assertions.
+Not checked: live agent-driven slice header mutation — this task verifies the CLI and documented consumer contract, and forbids helper workers.

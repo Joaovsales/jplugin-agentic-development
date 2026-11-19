@@ -1226,6 +1226,7 @@ for token in 'slice_outcome.py --agent <true|false|unknown>' \
              'Only exit 0 (`slice_result=True SUCCEEDED`) closes it' \
              '`VERIFICATION_FAILED`' 'exit 3 (`Unknown`) leaves the header `[ ]`' \
              '> Outcome:' 'The first three lines are required' \
+             "the script's last \`slice-outcome: agent_result=\` line" \
              'on exit 0 only, mark the header `[x]`'; do
   assert_contains "$SLICE_CLOSE" "$token" \
     "three outcomes: Slice Close contains '$token'"
@@ -1266,6 +1267,7 @@ assert_prose_contains .agents/skills/verify-evidence/SKILL.md \
 for token in '"dispatch": "lost", "reason": "<why>"' \
              '`receipt.py write` refuses `lost` without a `reason`' \
              '`receipt: not checked phase 5 test-engineer — <reason>`' \
+             'for each ancestor'"'"'s lost review, ending `(inherited from <fp8>)`' \
              '`lost` with a non-empty `reason`' \
              'Each `Not checked:` item reads `not checked: <check> — <reason>`' \
              'a check that did not run is never reported as clean'; do
