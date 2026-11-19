@@ -1191,3 +1191,9 @@ back vacuous and was repaired.
   - `build/references/harness-dispatch.md` § *Blocked exit* defines `[BLOCKED] <reason> | tried: <…> | needs: <…>`; `build/SKILL.md` puts it in the delegation prompt as an acceptable result, persists it as `> Blocked:`, stops the slice with no Step 3 attempt or ladder rung, marks its ACs `⛔` in Phase 4 and reports `Blocked slices:` under `Ambiguities:` in Phase 6.
 - Quality gate: receipt bd70deaf GO (policy qg1-314de3d6); Phases 1–4 inline, Phase 5 test-engineer review `lost` (no sub-agent dispatch in an Orca worker session).
 - Learnings: rule 3 appended to [conventions/write-skill-prose-so-the-static-guards-can-read-it.md](solutions/conventions/write-skill-prose-so-the-static-guards-can-read-it.md) — cite another skill's file by its full `.agents/skills/` path.
+
+### [2026-11-19] — blocked-exit review fixes (#440 / PR #455)
+- Key changes: later build phases validate closed slices when readiness is exhausted; blocked ACs are classified before e2e checks; implicit slices honor persisted blocked state; malformed blocked records refuse readiness with exit 2.
+- Test-first verification: the new regressions failed before implementation; focused tests passed 254 slice and 966 doc-contract assertions, affected tests passed all 50 files (5,849 assertions), and the full suite passed all 99 files (8,535 assertions).
+- Quality gate: GO 35d84a34, policy qg1-314de3d6; Phases 1–4 inline without confidence promotion, Phase 5 test-engineer dispatch recorded lost because this worker was instructed to work alone.
+- Learnings: [bugs/a-blocked-exit-must-reach-validation-through-every-plan-format.md](solutions/bugs/a-blocked-exit-must-reach-validation-through-every-plan-format.md).

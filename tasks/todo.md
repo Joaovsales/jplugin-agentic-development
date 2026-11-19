@@ -3023,3 +3023,8 @@ Step ledger (routine `simplify`):
 - Completed: #440 blocked exit — `slice.py ready` names `blocked:` / `waits:` slices; `/build` carries the `[BLOCKED]` dispatch exit, persists `> Blocked:`, never retries the slice, reports `Blocked slices:` in Phase 6.
 - Pending: none.
 - Carry-forward: Helix's blocked state is out of scope (spec Decision 5) — a later Helix reader consumes the `> Blocked:` line.
+
+## Session Summary — [2026-11-19] [805dc2c..0c394e9]
+- Completed: PR #455 review fixes for #440 — partial-build validation, blocked AC classification before e2e, implicit blocked-state persistence and malformed-marker refusal, with failing-first regressions; all 99 full-suite files passed.
+- Pending: none from the three review findings.
+- Carry-forward: no live agent-driven blocked build was run; phase flow is checked as a prose contract. Existing cycle validation, historical fingerprint warnings and unrelated AirLLM debt are unchanged.
