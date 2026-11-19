@@ -3079,3 +3079,10 @@ Step ledger (routine `simplify`):
 - Pending: none in this PR.
 - Carry-forward: nobody records `merged` automatically yet (spec D7, R1); `stats` shows undecided PRs as `open`. Stacked on #448 — merge #448 first.
 - [ ] Record merged/closed in the run ledger automatically when a PR is merged or closed <!-- task-id: run-ledger-merge-decision.specs-run-ledger-md --> — From #442 (PR #456), spec Decision D7 and Risk R1: run_ledger.py decide is the only writer of a run's human result, and… ([#457](https://github.com/Joaovsales/jplugin-agentic-development/issues/457))
+
+## Session Summary — [2026-11-19] [8b6b806..8b6b806]
+
+- Completed: PR #456 review fixes — serialized ledger transactions, validated persisted decisions and telemetry, and made receive-review distinguish absence from ledger failures; deterministic two-process and executable caller regressions pass.
+- Verification: affected tests — all 58 files, 5807 assertions; full suite — all 101 files, 8641 assertions, 0 failures; quality receipt `4a792b03` is GO (independent test review unavailable under this dispatch).
+- Pending: none in this review round.
+- Carry-forward: the spec's timestamp tie-break and automatic merge/close observation (#457) remain unchanged; Windows runtime and live agent wiring were not checked in this worker task.

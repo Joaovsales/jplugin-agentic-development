@@ -55,6 +55,12 @@ a final human decision is never overwritten — and `record` has no option
 that sets a human result at all, so a later run cannot either. Deciding the same
 result twice is a no-op.
 
+Both writers hold the same per-run OS lock across read, validation and atomic
+replacement: `flock` on Unix, a one-byte `msvcrt` lock on Windows. A writer
+waits at most 10 seconds, then refuses with the lock path. The OS releases
+locks when a process exits, so a crashed writer leaves no stale ownership;
+the ignored `.lock` files stay in place so waiters keep using the same file.
+
 ## Reading the ledger
 
 ```bash
@@ -65,3 +71,8 @@ A PR is a chain of runs linked by `parent_run_id`. First pass is a PR merged
 in one run with no `changes_requested`, over the merged plus closed PRs; an
 attempt is a run in the chain. A rate or per-PR value with nothing to divide
 by prints `unknown`, never 0%.
+
+Malformed stored decisions, histories or telemetry refuse with the record's
+path. `last` keeps exit 1 for both absence and errors; only its exact diagnostic
+`last: no run on branch <branch> in <ledger>` means absence. Callers stop and
+report every other failure rather than skipping the ledger step.

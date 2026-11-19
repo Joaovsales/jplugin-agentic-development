@@ -162,4 +162,11 @@ ledger record --ledger "$L" --branch w --base cccccccccccc --run-id W1 --cost un
 assert_exit 0 "unknown is an accepted explicit value"
 end_case
 
+begin_case "review regressions"
+assert_file_contains .gitignore 'tasks/runs/*.lock' "operational lock files are not committed with run records"
+run "$PY" "$(under_test tests/run-ledger-regressions.py)" "$SCRIPT" \
+  "$(under_test .agents/skills/receive-review/SKILL.md)"
+assert_exit 0 "two-process finality, stored validation and the executable caller error contract"
+end_case
+
 finish
