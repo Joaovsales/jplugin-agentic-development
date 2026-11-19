@@ -197,6 +197,48 @@ case "$(uname -s)" in
     assert_eq 1 "$(wt_count)" "a terminated open leaves no candidate worktree registered"
     assert_file_absent "$(dirname "$REPO")/$(basename "$REPO")-slice-4-c1" "the in-flight candidate directory is removed"
     rm "$hook"
+    # A hook that ignores TERM outlives its group leader; it must still be stopped
+    # before its worktree is removed, or it recreates the directory after open exits.
+    rm -f "$mark" "$hookpid"; late="$BOX/late-done"
+    printf '#!/bin/sh\ntrap "" TERM HUP INT\necho $$ > "%s"; touch "%s"; sleep 3\nmkdir -p "$PWD"; printf late > "$PWD/late"; touch "%s"\n' \
+      "$hookpid" "$mark" "$late" > "$hook"; chmod +x "$hook"
+    (cd "$REPO" && exec "$PY" "$SCRIPT" open --slice 5 --count 2 </dev/null >"$BOX/open-late.out" 2>&1) &
+    pid=$!
+    for _ in $(seq 1 100); do [ -e "$mark" ] && break; sleep 0.1; done
+    kill -TERM "$pid"; wait "$pid"; st=$?
+    assert_true "an open cancelled under a TERM-ignoring hook exits non-zero" -- test "$st" -ne 0
+    assert_false "a TERM-ignoring hook is killed before open returns" -- kill -0 "$(cat "$hookpid")"
+    sleep 3  # past the hook's own 3 s sleep: a surviving hook would have written by now
+    assert_file_absent "$late" "the hook never runs on after open returns"
+    assert_file_absent "$(dirname "$REPO")/$(basename "$REPO")-slice-5-c1" "nothing recreates the candidate directory"
+    assert_eq 1 "$(wt_count)" "no candidate worktree is registered"
+    # A cancellation pending while the bootstrap starts is delivered at the unmask;
+    # the bootstrap that just started must still be settled.
+    rm -f "$mark" "$hookpid" "$late"
+    printf '#!/bin/sh\necho $$ > "%s"; touch "%s"; sleep 1\nmkdir -p "$PWD"; printf late > "$PWD/late"; touch "%s"\n' \
+      "$hookpid" "$mark" "$late" > "$hook"; chmod +x "$hook"
+    pending="$(cd "$REPO" && "$PY" -c "import os, signal, sys, time; sys.path.insert(0, sys.argv[1]); import candidates
+mask, parent, mark = candidates._SIGMASK, os.getpid(), sys.argv[2]
+def queue_then_unmask(how, sigs):
+    if how == signal.SIG_UNBLOCK and os.getpid() == parent and not os.environ.get('QUEUED'):
+        os.environ['QUEUED'] = '1'
+        for _ in range(100):
+            if os.path.exists(mark): break
+            time.sleep(0.05)
+        os.kill(parent, signal.SIGTERM)  # held, so it is pending until the unmask below
+    return mask(how, sigs)
+candidates._SIGMASK = queue_then_unmask
+try:
+    candidates.main(['open', '--slice', '6', '--count', '2'])
+except SystemExit as exc:
+    print('exit', exc.code)" "$SCRIPTS_DIR" "$mark" </dev/null 2>&1)"
+    assert_contains "$pending" "exit 143" "a cancellation pending at the unmask ends open"
+    assert_false "the just-started bootstrap is settled" -- kill -0 "$(cat "$hookpid")"
+    sleep 1.5
+    assert_file_absent "$late" "its hook never runs on after open returns"
+    assert_file_absent "$(dirname "$REPO")/$(basename "$REPO")-slice-6-c1" "and never recreates the candidate directory"
+    assert_eq 1 "$(wt_count)" "no candidate worktree is registered"
+    rm "$hook"
     ;;
 esac
 end_case

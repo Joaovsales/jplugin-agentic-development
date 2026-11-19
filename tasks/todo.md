@@ -3129,3 +3129,9 @@ Step ledger (routine `simplify`):
 - Completed: independent review of #458 (CHANGES-REQUIRED) — `_verify` trusts the outcome only when the wrapper's exit status, the supplied agent claim and `derive` agree; `open` is a transaction (targets owned before bootstrap, TERM/HUP/INT around the whole call, the bootstrap's process group settled before its worktree is removed, an existing path refused and kept); removal goes through git only and reports a kept (locked) candidate with exit 1; concurrent `add_candidates` writers and a `decide` during a candidate write are pinned.
 - Pending: none in this PR.
 - Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.
+
+## Session Summary — [2026-11-19] [a62d4b3..a62d4b3] — PR #458 re-review fixes
+
+- Completed: re-review N1 — `_bootstrap` enters its settling `try` before the signal unmask, so a cancellation pending at the unmask still settles the just-started bootstrap; N2 — `_settle` TERMs the bootstrap's whole process group, waits up to `SETTLE_SECONDS` (2 s), then always KILLs the group, so a TERM-ignoring hook cannot recreate a removed candidate.
+- Pending: none in this PR.
+- Carry-forward: plugin version bump on top of #456's 1.8.21 when the stack lands, if the guard requires it.

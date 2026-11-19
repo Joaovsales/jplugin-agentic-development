@@ -35,6 +35,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,7 @@ SLICE_OUTCOME = HERE / "slice_outcome.py"
 META = "jplugin-candidate.json"  # in each candidate's own git dir: base commit and setup paths
 OUTCOME_RE = re.compile(r"^slice-outcome: agent_result=(\S+) verification_result=(\S+) slice_result=(\S+) (\S+)$")
 KEY_NAMES = ("eligibility", "checks passed", "diff_lines", "outside_surface", "candidate number")
+SETTLE_SECONDS = 2  # grace a cancelled bootstrap gets after TERM, before KILL
 CANCEL_SIGNALS = tuple(getattr(signal, n) for n in ("SIGTERM", "SIGHUP", "SIGINT") if hasattr(signal, n))
 
 
@@ -236,38 +238,51 @@ def _unblock_in_child() -> None:
     _SIGMASK(signal.SIG_UNBLOCK, CANCEL_SIGNALS)
 
 
-def _stop(child: subprocess.Popen, hard: bool) -> None:
-    """Signal the child's whole process group (its own session), or the child alone on Windows."""
-    try:
-        if hasattr(os, "killpg"):
-            os.killpg(child.pid, signal.SIGKILL if hard else signal.SIGTERM)
-        else:
-            child.kill() if hard else child.terminate()
-    except ProcessLookupError:
-        pass
-
-
 def _settle(child: subprocess.Popen) -> None:
-    """Stop a bootstrap and everything it started, and wait for it."""
-    if child.poll() is None:
-        _stop(child, hard=False)
-        try:
-            child.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            _stop(child, hard=True)
+    """Stop a bootstrap and everything it started, and wait for it.
+
+    On POSIX the child leads its own process group: TERM the group, give it
+    SETTLE_SECONDS, then KILL the group — always, because a descendant that
+    ignores TERM outlives its leader and would write into the worktree after
+    it is removed. Windows has no process groups: the child alone is stopped."""
+    if not hasattr(os, "killpg"):
+        if child.poll() is None:
+            child.terminate()
+            try:
+                child.wait(timeout=SETTLE_SECONDS)
+            except subprocess.TimeoutExpired:
+                child.kill()
+        child.wait()
+        return
+    deadline = time.monotonic() + SETTLE_SECONDS
+    _signal_group(child.pid, signal.SIGTERM)
+    while time.monotonic() < deadline and (child.poll() is None or _signal_group(child.pid, 0)):
+        time.sleep(0.05)
+    _signal_group(child.pid, signal.SIGKILL)
     child.wait()
 
 
-def _bootstrap(top: Path, path: Path, k: int) -> None:
-    with _signals_held():
-        child = subprocess.Popen(("bash", str(BOOTSTRAP), "--detach-head", str(path)), cwd=top,
-                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                 errors="replace", start_new_session=hasattr(os, "killpg"),
-                                 preexec_fn=_unblock_in_child if _SIGMASK else None)
+def _signal_group(pgid: int, sig: int) -> bool:
+    """Send `sig` to the process group; False once the group is gone."""
     try:
+        os.killpg(pgid, sig)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def _bootstrap(top: Path, path: Path, k: int) -> None:
+    child = None
+    try:  # entered before the unmask, so a cancellation pending at the unmask still settles the child
+        with _signals_held():
+            child = subprocess.Popen(("bash", str(BOOTSTRAP), "--detach-head", str(path)), cwd=top,
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                     errors="replace", start_new_session=hasattr(os, "killpg"),
+                                     preexec_fn=_unblock_in_child if _SIGMASK else None)
         out, err = child.communicate()
     finally:
-        _settle(child)
+        if child is not None:
+            _settle(child)
     if child.returncode != 0:
         raise Failed(f"candidates: could not create c{k}: {err.strip() or out.strip()}")
 

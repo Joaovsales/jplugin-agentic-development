@@ -109,8 +109,10 @@ dispatch order — enters the key.
   `discard`.
 - `open` is all-or-nothing: each target is owned before its bootstrap starts,
   so a failing bootstrap (a `post-checkout` hook exiting non-zero, say) or a
-  SIGTERM/SIGHUP/Ctrl-C mid-bootstrap stops the bootstrap's process group,
-  waits for it, then removes every candidate this call made. A target path
+  SIGTERM/SIGHUP/Ctrl-C mid-bootstrap — including one already pending when the
+  bootstrap starts — sends TERM to the bootstrap's whole process group, waits
+  up to 2 s, then KILLs the group (a hook that ignores TERM outlives its
+  leader), and only then removes every candidate this call made. A target path
   that already exists is refused and never deleted — this run did not make it.
 - git refuses to remove a candidate (`git worktree lock`): the directory and
   its registration are kept, the refusal is printed with git's reason, and
