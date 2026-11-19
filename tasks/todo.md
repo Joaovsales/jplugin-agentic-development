@@ -3019,7 +3019,7 @@ Step ledger (routine `simplify`):
 > Do not re-derive: `build/SKILL.md` is at 597 of its 600-line budget; the line format lives only in `harness-dispatch.md`
 > Surface: none
 
-## Session Summary — 2026-11-18 [887e959..978ede6]
+## Session Summary — 2026-11-18 [887e959..9335e0e]
 - Completed: #440 blocked exit — `slice.py ready` names `blocked:` / `waits:` slices; `/build` carries the `[BLOCKED]` dispatch exit, persists `> Blocked:`, never retries the slice, reports `Blocked slices:` in Phase 6.
 - Pending: none.
 - Carry-forward: Helix's blocked state is out of scope (spec Decision 5) — a later Helix reader consumes the `> Blocked:` line.
