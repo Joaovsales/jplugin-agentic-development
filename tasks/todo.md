@@ -3035,3 +3035,15 @@ Step ledger (routine `simplify`):
   `--end-of-options`, and one symlink hash failure aborts the whole run. The
   test-engineer adequacy review did not run (lost in an Orca worker with no
   sub-agent tool).
+
+## Session Summary — 2026-11-19 [a131d30..128ad38]
+- Completed: PR #447 review fixes for #439: retain historical gate policy,
+  hash raw bytes, inspect symlink referents, classify unreadable policy as
+  not checked, and compare slices against per-dispatch snapshots. Both
+  revision-option and partial-symlink-error nits are covered by regressions.
+- Validation: gate integrity 113 assertions and 95% statement coverage;
+  affected tests all 56 files, 5708 assertions; full suite all 100 files,
+  8614 assertions. Quality receipt GO 59a9ce80, policy qg1-a6dee920.
+- Pending: none of the independent review findings remain open.
+- Carry-forward: review phases ran inline; the separate test-engineer review
+  was recorded lost because this task explicitly prohibited helper agents.
